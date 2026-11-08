@@ -27,10 +27,27 @@
 //!   fields are copied and it's left alone. The same holds for a variable
 //!   known to be a constructor (from an enclosing match) that the branch
 //!   drops ([`Instr::DropReuse`]).
+//!
+//! **Reuse across calls** ([`crate::reuse`]). A call of a function with a
+//! copy that takes a token of a size held here passes the token, as one
+//! more operand, to the copy, whose code starts with it in hand. The rules:
+//!
+//! - A token is used by the instruction it's claimed for, in the order the
+//!   instructions are emitted: a constructor or call evaluated first gets
+//!   it. A constructor takes any token of its size, the innermost first.
+//! - A call takes one only if more tokens of the size are held than the
+//!   constructors still to come on its path can use: those of the
+//!   expressions evaluated after it (a later operand, a `let`'s body, the
+//!   arms after a scrutinee) and of the constructor whose field it is
+//!   ([`Later`]). So `Node (insert x l) y r` reuses the cell in `Node`.
+//! - A match keeps the token of a cell it takes apart if its arm builds a
+//!   constructor of the size or calls a function with such a copy;
+//!   [`Instr::DropReuse`] keeps one if there are fewer than that, counting
+//!   only the tokens this body made, not the one it was passed.
 
 use stitchwort_core::collections::HashMap;
 
-use crate::ir::{Expr, Lit, MatchKind, PrimOp, Program, Slot};
+use crate::ir::{Body, Expr, GlobalId, Lit, MatchKind, PrimOp, Program, Reuse, Slot};
 use crate::value::Value;
 
 /// A register: an index into the current frame.
@@ -248,6 +265,9 @@ pub struct Image {
     pub entry_code: u32,
     /// The constant pool: literals, and values like `y => Done y`.
     pub pool: Vec<Value>,
+    /// The code of each copy taking a reuse token ([`crate::reuse`]), to
+    /// its original's: the depth note counts their frames together.
+    pub folds: HashMap<u32, u32>,
 }
 
 /// The pool's first entries.
@@ -265,12 +285,20 @@ pub fn compile(program: &Program) -> Image {
     for global in &program.globals {
         use crate::ir::GlobalKind;
         let code = match &global.kind {
-            GlobalKind::Function { params, body } => Some(Compiler::body(
-                program, &mut pool, *params, body.frame, &body.expr,
-            )),
-            GlobalKind::Constant { body } => Some(Compiler::body(
-                program, &mut pool, 0, body.frame, &body.expr,
-            )),
+            GlobalKind::Function { params, body } => {
+                let token = match global.reuse {
+                    Reuse::Copy { size, .. } => Some(size as usize),
+                    _ => None,
+                };
+                let mut cx = Compiler::new(program, &mut pool, Copies::Made, *params, body.frame);
+                cx.compile(&body.expr, token);
+                Some(cx.code)
+            }
+            GlobalKind::Constant { body } => {
+                let mut cx = Compiler::new(program, &mut pool, Copies::Made, 0, body.frame);
+                cx.compile(&body.expr, None);
+                Some(cx.code)
+            }
             GlobalKind::Native(_) => None,
         };
         global_code.push(code.map(|c| {
@@ -280,30 +308,60 @@ pub fn compile(program: &Program) -> Image {
     }
     let mut lambda_code = Vec::with_capacity(program.lambdas.len());
     for lambda in &program.lambdas {
-        codes.push(Compiler::body(
+        let mut cx = Compiler::new(
             program,
             &mut pool,
+            Copies::Made,
             lambda.params,
             lambda.body.frame,
-            &lambda.body.expr,
-        ));
+        );
+        cx.compile(&lambda.body.expr, None);
+        codes.push(cx.code);
         lambda_code.push(u32::try_from(codes.len() - 1).expect("codes fit"));
     }
-    codes.push(Compiler::body(
-        program,
-        &mut pool,
-        0,
-        program.entry.frame,
-        &program.entry.expr,
-    ));
+    let mut cx = Compiler::new(program, &mut pool, Copies::Made, 0, program.entry.frame);
+    cx.compile(&program.entry.expr, None);
+    codes.push(cx.code);
     let entry_code = u32::try_from(codes.len() - 1).expect("codes fit");
+    let mut folds = HashMap::default();
+    for (global, code) in program.globals.iter().zip(&global_code) {
+        if let (Reuse::Copy { of, .. }, Some(code)) = (&global.reuse, code)
+            && let Some(original) = global_code[of.0 as usize]
+        {
+            folds.insert(*code, original);
+        }
+    }
     Image {
         codes,
         global_code,
         lambda_code,
         entry_code,
         pool,
+        folds,
     }
+}
+
+/// Where the code of `body` (with `params` parameters, and given a reuse
+/// token of size `token` if it's a copy's) would pass a reuse token to a
+/// function, were there a copy of every function and size that `wants`
+/// says: what [`crate::reuse`] makes copies of, in the order met.
+pub(crate) fn plan(
+    program: &Program,
+    params: u32,
+    body: &Body,
+    token: Option<usize>,
+    wants: &dyn Fn(GlobalId, usize) -> bool,
+) -> Vec<(GlobalId, usize)> {
+    let mut pool = Vec::new();
+    let mut cx = Compiler::new(
+        program,
+        &mut pool,
+        Copies::Planning(wants),
+        params,
+        body.frame,
+    );
+    cx.compile(&body.expr, token);
+    cx.planned
 }
 
 /// A native that makes a `Bool`, which [`Instr::Test`] tests directly.
@@ -430,10 +488,11 @@ fn fill(e: &Expr, cache: &mut Uses) -> Slots {
     out
 }
 
-/// How many constructors with `n` fields `e` builds on one path at most:
-/// how many reuse tokens of that size it could use.
-fn builds(e: &Expr, n: usize) -> usize {
-    let all = |es: &[Expr]| es.iter().map(|a| builds(a, n)).sum::<usize>();
+/// How many constructors with `n` fields `e` builds on one path at most,
+/// counting too each call of a global that `call` says takes a token of
+/// that size: how many reuse tokens of that size it could use.
+fn builds(e: &Expr, n: usize, call: &dyn Fn(GlobalId) -> bool) -> usize {
+    let all = |es: &[Expr]| es.iter().map(|a| builds(a, n, call)).sum::<usize>();
     match e {
         Expr::Ctor(_, _, args) => usize::from(args.len() == n) + all(args),
         Expr::Local(_)
@@ -443,27 +502,57 @@ fn builds(e: &Expr, n: usize) -> usize {
         | Expr::Lit(_)
         | Expr::DoneK
         | Expr::Unreachable => 0,
-        Expr::Call(_, args)
-        | Expr::Prim(_, args)
-        | Expr::PartialApp(_, args)
-        | Expr::Closure(_, args) => all(args),
-        Expr::Apply(f, args) => builds(f, n) + all(args),
-        Expr::Let(_, value, body) => builds(value, n) + builds(body, n),
+        Expr::Call(g, args) => usize::from(call(*g)) + all(args),
+        Expr::Prim(_, args) | Expr::PartialApp(_, args) | Expr::Closure(_, args) => all(args),
+        Expr::Apply(f, args) => builds(f, n, call) + all(args),
+        Expr::Let(_, value, body) => builds(value, n, call) + builds(body, n, call),
         Expr::Match(_, _, arms) => arms
             .iter()
-            .map(|arm| builds(&arm.body, n))
+            .map(|arm| builds(&arm.body, n, call))
             .max()
             .unwrap_or(0),
         Expr::NumSwitch(_, arms, default) => arms
             .iter()
-            .map(|(_, body)| builds(body, n))
+            .map(|(_, body)| builds(body, n, call))
             .max()
             .unwrap_or(0)
-            .max(builds(default, n)),
+            .max(builds(default, n, call)),
         Expr::If(cond, then, otherwise) => {
-            builds(cond, n) + builds(then, n).max(builds(otherwise, n))
+            builds(cond, n, call) + builds(then, n, call).max(builds(otherwise, n, call))
         }
     }
+}
+
+/// A reuse token held: a register that may hold an emptied cell for a
+/// constructor of `size` fields.
+#[derive(Clone, Copy)]
+struct Token {
+    size: usize,
+    reg: Reg,
+    /// The token a copy is passed, rather than one this body made.
+    passed: bool,
+}
+
+/// What is evaluated after the expression being compiled, on its path, and
+/// may build constructors that a call there mustn't take the token of.
+#[derive(Clone, Copy)]
+enum Later<'a> {
+    Expr(&'a Expr),
+    /// One of two branches.
+    Either(&'a Expr, &'a Expr),
+    /// The constructor of this many fields whose operands are being
+    /// compiled.
+    Ctor(usize),
+}
+
+/// The copies of functions that calls can pass a token to.
+#[derive(Clone, Copy)]
+enum Copies<'a> {
+    /// The program's own ([`Reuse::Copies`]).
+    Made,
+    /// While planning them ([`plan`]): a copy of every function and size
+    /// this says, each standing in for itself.
+    Planning(&'a dyn Fn(GlobalId, usize) -> bool),
 }
 
 // ---------------------------------------------------------------- compiler
@@ -471,6 +560,7 @@ fn builds(e: &Expr, n: usize) -> usize {
 struct Compiler<'a> {
     program: &'a Program,
     pool: &'a mut Vec<Value>,
+    copies: Copies<'a>,
     code: Code,
     /// The next free temporary.
     next: Reg,
@@ -481,28 +571,33 @@ struct Compiler<'a> {
     /// Slots known to hold a constructor with this many fields (from an
     /// enclosing match), innermost last.
     known: Vec<(Slot, usize)>,
-    /// Registers that may hold a reuse token for a constructor with this
-    /// many fields, innermost last.
-    tokens: Vec<(usize, Reg)>,
+    /// The reuse tokens held, innermost last.
+    tokens: Vec<Token>,
+    /// Every register a token was made in: what a token claimed must be.
+    token_regs: Slots,
+    /// What is evaluated after the expression being compiled ([`Later`]).
+    later: Vec<Later<'a>>,
+    /// How many constructors of a size an expression builds, by its address
+    /// ([`builds`]), for [`Compiler::reserved`].
+    local_builds: HashMap<(*const Expr, usize), usize>,
+    /// While planning: the calls given a token, with its size.
+    planned: Vec<(GlobalId, usize)>,
     /// The slots each expression of the body reads.
     cache: Uses,
 }
 
 impl<'a> Compiler<'a> {
-    fn body(
+    fn new(
         program: &'a Program,
         pool: &'a mut Vec<Value>,
+        copies: Copies<'a>,
         params: u32,
         frame: u32,
-        expr: &Expr,
-    ) -> Code {
-        let mut bound = Slots::default();
-        for p in 0..params {
-            bound.insert(p);
-        }
-        let mut cx = Compiler {
+    ) -> Self {
+        Compiler {
             program,
             pool,
+            copies,
             code: Code {
                 instrs: Vec::new(),
                 ops: Vec::new(),
@@ -513,15 +608,46 @@ impl<'a> Compiler<'a> {
             },
             next: frame,
             first_temp: frame,
-            bound,
+            bound: Slots::default(),
             known: Vec::new(),
             tokens: Vec::new(),
+            token_regs: Slots::default(),
+            later: Vec::new(),
+            local_builds: HashMap::default(),
+            planned: Vec::new(),
             cache: HashMap::default(),
-        };
-        fill(expr, &mut cx.cache);
-        let dst = cx.temp();
-        cx.expr(expr, dst, true, &Slots::default());
-        cx.code
+        }
+    }
+
+    /// The code of a body whose value is `expr`. With `token`, it's a
+    /// copy's, whose last parameter is a reuse token of that size, which
+    /// the IR never reads (`Program::validate`); planning, the token is in
+    /// a temporary instead, as the body is the original's.
+    fn compile(&mut self, expr: &'a Expr, token: Option<usize>) {
+        let params = self.code.params;
+        let token = token.map(|size| {
+            let reg = match self.copies {
+                Copies::Made => params - 1,
+                Copies::Planning(_) => self.temp(),
+            };
+            (size, reg)
+        });
+        for p in 0..params {
+            if token.is_none_or(|(_, reg)| reg != p) {
+                self.bound.insert(p);
+            }
+        }
+        if let Some((size, reg)) = token {
+            self.tokens.push(Token {
+                size,
+                reg,
+                passed: true,
+            });
+            self.token_regs.insert(reg);
+        }
+        fill(expr, &mut self.cache);
+        let dst = self.temp();
+        self.expr(expr, dst, true, &Slots::default());
     }
 
     /// Adds the slots `e` reads to `out`.
@@ -563,7 +689,7 @@ impl<'a> Compiler<'a> {
 
     /// The register holding `e`'s value: a slot that `e` reads, or a new
     /// temporary that it's computed into. `live` is what's read after it.
-    fn operand(&mut self, e: &Expr, live: &Slots) -> Reg {
+    fn operand(&mut self, e: &'a Expr, live: &Slots) -> Reg {
         if let Expr::Local(s) = e {
             return *s;
         }
@@ -576,7 +702,7 @@ impl<'a> Compiler<'a> {
     /// instruction that reads them all at once; `live` is what's read after
     /// that instruction. With `moves`, each register read for the last time
     /// is marked [`MOVE`].
-    fn operands(&mut self, es: &[&Expr], live: &Slots, moves: bool) -> Vec<Reg> {
+    fn operands(&mut self, es: &[&'a Expr], live: &Slots, moves: bool) -> Vec<Reg> {
         // after[j]: what's read after es[j] is computed (the instruction
         // reads the slots of the `Local` operands before it, too).
         let mut after = vec![live.clone(); es.len()];
@@ -587,7 +713,13 @@ impl<'a> Compiler<'a> {
         }
         let mut locals = Slots::default();
         let mut regs = Vec::with_capacity(es.len());
+        let base = self.later.len();
+        self.later
+            .extend(es.iter().skip(1).rev().map(|e| Later::Expr(e)));
         for (j, e) in es.iter().enumerate() {
+            if j > 0 {
+                self.later.pop();
+            }
             if let Expr::Local(s) = e {
                 regs.push(*s);
                 locals.insert(*s);
@@ -599,6 +731,7 @@ impl<'a> Compiler<'a> {
             self.expr(e, t, false, &l);
             regs.push(t);
         }
+        self.later.truncate(base);
         if moves {
             for j in 0..regs.len() {
                 let r = regs[j];
@@ -612,7 +745,7 @@ impl<'a> Compiler<'a> {
         regs
     }
 
-    fn operand_ops(&mut self, es: &[Expr], live: &Slots, moves: bool) -> Ops {
+    fn operand_ops(&mut self, es: &'a [Expr], live: &Slots, moves: bool) -> Ops {
         let es: Vec<&Expr> = es.iter().collect();
         let regs = self.operands(&es, live, moves);
         self.push_ops(regs)
@@ -629,7 +762,7 @@ impl<'a> Compiler<'a> {
     /// Compiles `e`: its value goes to `dst`; or, in tail position, the
     /// code returns it (or tail-calls what computes it) and never falls
     /// through. `live` is the slots read after `e`.
-    fn expr(&mut self, e: &Expr, dst: Reg, tail: bool, live: &Slots) {
+    fn expr(&mut self, e: &'a Expr, dst: Reg, tail: bool, live: &Slots) {
         // Temporaries used for this expression's operands are free again
         // once it's computed.
         let mark = self.next;
@@ -661,11 +794,20 @@ impl<'a> Compiler<'a> {
                 self.simple(Instr::Const { dst, k }, dst, tail);
             }
             Expr::Call(g, args) => {
-                let args = self.operand_ops(args, live, true);
+                let es: Vec<&Expr> = args.iter().collect();
+                let mut regs = self.operands(&es, live, true);
+                let g = match self.claim_for_call(*g) {
+                    Some((copy, token)) => {
+                        regs.push(token | MOVE);
+                        copy
+                    }
+                    None => g.0,
+                };
+                let args = self.push_ops(regs);
                 if tail {
-                    self.emit(Instr::TailCall { g: g.0, args });
+                    self.emit(Instr::TailCall { g, args });
                 } else {
-                    self.emit(Instr::Call { dst, g: g.0, args });
+                    self.emit(Instr::Call { dst, g, args });
                 }
             }
             // The effect runtime's natives call functions: in tail position
@@ -718,16 +860,21 @@ impl<'a> Compiler<'a> {
                     let k = self.constant(Value::Tag(*c));
                     self.simple(Instr::Const { dst, k }, dst, tail);
                 } else {
-                    let args = self.operand_ops(fields, live, true);
                     let n = fields.len();
-                    let claimed = self.tokens.iter().rposition(|(m, _)| *m == n);
+                    self.later.push(Later::Ctor(n));
+                    let args = self.operand_ops(fields, live, true);
+                    self.later.pop();
+                    let claimed = self.tokens.iter().rposition(|t| t.size == n);
                     let instr = match claimed.map(|i| self.tokens.remove(i)) {
-                        Some((_, token)) => Instr::CtorReuse {
-                            dst,
-                            tag: *c,
-                            args,
-                            token,
-                        },
+                        Some(Token { reg: token, .. }) => {
+                            assert!(self.token_regs.contains(token), "r{token} isn't a token");
+                            Instr::CtorReuse {
+                                dst,
+                                tag: *c,
+                                args,
+                                token,
+                            }
+                        }
                         None => Instr::Ctor { dst, tag: *c, args },
                     };
                     self.simple(instr, dst, tail);
@@ -736,7 +883,9 @@ impl<'a> Compiler<'a> {
             Expr::Let(slot, value, body) => {
                 let mut l = live.clone();
                 self.uses(body, &mut l);
+                self.later.push(Later::Expr(body));
                 self.expr(value, *slot, false, &l);
+                self.later.pop();
                 self.bound.insert(*slot);
                 self.expr(body, dst, tail, live);
                 self.bound.remove(*slot);
@@ -746,6 +895,7 @@ impl<'a> Compiler<'a> {
                 self.uses(otherwise, &mut inside);
                 let mut l = live.clone();
                 l.add(&inside);
+                self.later.push(Later::Either(then, otherwise));
                 let jump = match &**cond {
                     Expr::Prim(op, args) if is_test(*op) => {
                         let args = self.operand_ops(args, &l, false);
@@ -763,6 +913,7 @@ impl<'a> Compiler<'a> {
                         })
                     }
                 };
+                self.later.pop();
                 self.uses(cond, &mut inside);
                 self.branch(then, &inside, live, &[], dst, tail);
                 let end = (!tail).then(|| self.emit(Instr::Jump { target: 0 }));
@@ -781,7 +932,9 @@ impl<'a> Compiler<'a> {
                 }
                 let mut l = live.clone();
                 l.add(&inside);
+                self.later.push(Later::Expr(e));
                 let src = self.operand(scrutinee, &l);
+                self.later.pop();
                 self.uses(scrutinee, &mut inside);
                 let mut ends = Vec::new();
                 match kind {
@@ -810,9 +963,14 @@ impl<'a> Compiler<'a> {
                             let tokens = self.tokens.clone();
                             let known = self.known.len();
                             if dead && arity > 0 {
-                                let token = if builds(&arm.body, arity) > 0 {
+                                let token = if self.wanted(&arm.body, arity) > 0 {
                                     let token = self.temp();
-                                    self.tokens.push((arity, token));
+                                    self.tokens.push(Token {
+                                        size: arity,
+                                        reg: token,
+                                        passed: false,
+                                    });
+                                    self.token_regs.insert(token);
                                     token
                                 } else {
                                     NO_REG
@@ -898,7 +1056,9 @@ impl<'a> Compiler<'a> {
                 self.uses(default, &mut inside);
                 let mut l = live.clone();
                 l.add(&inside);
+                self.later.push(Later::Expr(e));
                 let src = self.operand(scrutinee, &l);
+                self.later.pop();
                 self.uses(scrutinee, &mut inside);
                 let table = u32::try_from(self.code.num_tables.len()).expect("fits");
                 self.code.num_tables.push(NumTable {
@@ -937,7 +1097,7 @@ impl<'a> Compiler<'a> {
     #[allow(clippy::too_many_arguments)]
     fn arm(
         &mut self,
-        body: &Expr,
+        body: &'a Expr,
         inside: &Slots,
         live: &Slots,
         fields: &[Slot],
@@ -957,7 +1117,7 @@ impl<'a> Compiler<'a> {
     /// tokens if they're constructors of a size the branch builds.
     fn branch(
         &mut self,
-        body: &Expr,
+        body: &'a Expr,
         inside: &Slots,
         live: &Slots,
         fields: &[Slot],
@@ -983,11 +1143,21 @@ impl<'a> Compiler<'a> {
                 .map(|(_, n)| *n);
             match size {
                 Some(n)
-                    if self.tokens.iter().filter(|(m, _)| *m == n).count() < builds(body, n) =>
+                    if self
+                        .tokens
+                        .iter()
+                        .filter(|t| t.size == n && !t.passed)
+                        .count()
+                        < self.wanted(body, n) =>
                 {
                     let token = self.temp();
                     self.emit(Instr::DropReuse { src: s, token });
-                    self.tokens.push((n, token));
+                    self.tokens.push(Token {
+                        size: n,
+                        reg: token,
+                        passed: false,
+                    });
+                    self.token_regs.insert(token);
                 }
                 _ => {
                     self.emit(Instr::Drop { reg: s });
@@ -1002,6 +1172,77 @@ impl<'a> Compiler<'a> {
             self.bound.remove(*s);
         }
         self.tokens = tokens;
+    }
+
+    /// The copy of global `g` taking a token of size `n`, if there is one.
+    fn copy_of(&self, g: GlobalId, n: usize) -> Option<u32> {
+        match self.copies {
+            Copies::Made => match &self.program.globals[g.0 as usize].reuse {
+                Reuse::Copies(copies) => copies
+                    .iter()
+                    .find(|(size, _)| *size as usize == n)
+                    .map(|(_, copy)| copy.0),
+                _ => None,
+            },
+            Copies::Planning(wants) => wants(g, n).then_some(g.0),
+        }
+    }
+
+    /// How many constructors of `n` fields `e` builds, or how many reuse
+    /// tokens of that size it could use, counting the calls that could be
+    /// given one.
+    fn wanted(&self, e: &Expr, n: usize) -> usize {
+        builds(e, n, &|g| self.copy_of(g, n).is_some())
+    }
+
+    /// How many tokens of size `n` the constructors evaluated after this
+    /// point of its path may use ([`Later`]).
+    fn reserved(&mut self, n: usize) -> usize {
+        let later = std::mem::take(&mut self.later);
+        let mut local = |e: &Expr| {
+            *self
+                .local_builds
+                .entry((e as *const Expr, n))
+                .or_insert_with(|| builds(e, n, &|_| false))
+        };
+        let reserved = later
+            .iter()
+            .map(|l| match l {
+                Later::Expr(e) => local(e),
+                Later::Either(a, b) => local(a).max(local(b)),
+                Later::Ctor(m) => usize::from(*m == n),
+            })
+            .sum();
+        self.later = later;
+        reserved
+    }
+
+    /// A token for a call of `g`, to its copy taking one: the innermost
+    /// token of a size it has a copy for, if more of that size are held
+    /// than are [reserved](Self::reserved). The copy, and the token's
+    /// register.
+    fn claim_for_call(&mut self, g: GlobalId) -> Option<(u32, Reg)> {
+        for i in (0..self.tokens.len()).rev() {
+            let n = self.tokens[i].size;
+            let Some(copy) = self.copy_of(g, n) else {
+                continue;
+            };
+            let held = self.tokens.iter().filter(|t| t.size == n).count();
+            if held <= self.reserved(n) {
+                continue;
+            }
+            let token = self.tokens.remove(i);
+            assert!(
+                self.token_regs.contains(token.reg),
+                "r{} isn't a token",
+                token.reg
+            );
+            if let Copies::Planning(_) = self.copies {
+                self.planned.push((g, n));
+            }
+            return Some((copy, token.reg));
+        }
+        None
     }
 
     fn patch(&mut self, at: usize, target: u32) {

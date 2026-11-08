@@ -32,9 +32,10 @@
 use std::rc::Rc;
 
 use num_bigint::{BigInt, BigUint, Sign};
+use stitchwort_core::collections::HashMap;
 
 use crate::code::Image;
-use crate::ir::{GlobalKind, MainRow, PrimOp, Program, Shapes};
+use crate::ir::{GlobalKind, MainRow, PrimOp, Program, Reuse, Shapes};
 use crate::native_abi::Numbering;
 use crate::shared::{Arities, Limits, NumTable, body_name};
 use crate::value::{Fun, Value};
@@ -43,7 +44,7 @@ use crate::wire::{BUILD_HASH, CodecError, Read, Reader, Writer, bad, read_shapes
 const MAGIC: &[u8; 4] = b"SWTB";
 
 /// Bumped when the layout changes.
-pub const FORMAT_VERSION: u8 = 1;
+pub const FORMAT_VERSION: u8 = 2;
 
 /// What the runtime around native code needs to know about a program: its
 /// shapes and `main`'s row (for the runner), each global's kind and each
@@ -61,6 +62,9 @@ pub struct Outline {
     pub global_code: Box<[Option<u32>]>,
     /// The entry's body.
     pub entry_code: u32,
+    /// The body of each copy taking a reuse token, to its original's
+    /// ([`Image::folds`]).
+    pub folds: HashMap<u32, u32>,
 }
 
 /// A global, as [`Outline`] has it.
@@ -69,6 +73,8 @@ pub struct GlobalOutline {
     /// a native, which the depth note never names.
     pub name: Rc<str>,
     pub kind: Kind,
+    /// For a copy taking a reuse token, the global it copies.
+    pub copy_of: Option<u32>,
 }
 
 /// A global's kind ([`GlobalKind`] without its body).
@@ -109,17 +115,22 @@ impl Outline {
                         GlobalKind::Constant { .. } => Kind::Constant,
                         GlobalKind::Native(op) => Kind::Native(*op),
                     },
+                    copy_of: match global.reuse {
+                        Reuse::Copy { of, .. } => Some(of.0),
+                        _ => None,
+                    },
                 })
                 .collect(),
             lambda_params: program.lambdas.iter().map(|lambda| lambda.params).collect(),
             global_code: image.global_code.clone().into_boxed_slice(),
             entry_code: image.entry_code,
+            folds: image.folds.clone(),
         }
     }
 
     /// The depth note for `deepest` (`shared::deepest`), as the machine's.
     pub fn depth_report(&self, deepest: &[(u32, usize)]) -> Option<String> {
-        crate::shared::depth_report(deepest, |code| {
+        crate::shared::depth_report(deepest, &self.folds, |code| {
             body_name(
                 &self.global_code,
                 self.entry_code,
@@ -288,6 +299,10 @@ pub fn encode(program: &Program, image: &Image, limits: &Limits) -> Vec<u8> {
             }
             None => w.uint(0),
         }
+        match global.reuse {
+            Reuse::Copy { of, .. } => w.uint(u64::from(of.0) + 1),
+            _ => w.uint(0),
+        }
     }
     w.usize(program.lambdas.len());
     for lambda in &program.lambdas {
@@ -438,8 +453,24 @@ pub fn decode(bytes: &[u8]) -> Result<Linked, CodecError> {
             0 => (None, Rc::from("")),
             code => (Some(code - 1), r.str()?),
         };
-        globals.push(GlobalOutline { name, kind });
+        let copy_of = match r.u32()? {
+            0 => None,
+            of => Some(of - 1),
+        };
+        globals.push(GlobalOutline {
+            name,
+            kind,
+            copy_of,
+        });
         global_code.push(code);
+    }
+    let mut folds = HashMap::default();
+    for (global, code) in globals.iter().zip(&global_code) {
+        if let (Some(of), Some(code)) = (global.copy_of, code)
+            && let Some(Some(original)) = global_code.get(of as usize)
+        {
+            folds.insert(*code, *original);
+        }
     }
     let n = r.count()?;
     let mut lambda_params = Vec::with_capacity(n);
@@ -485,6 +516,7 @@ pub fn decode(bytes: &[u8]) -> Result<Linked, CodecError> {
             lambda_params: lambda_params.into_boxed_slice(),
             global_code: global_code.into_boxed_slice(),
             entry_code,
+            folds,
         },
         tables: LinkedTables {
             shapes: Box::new(shapes),

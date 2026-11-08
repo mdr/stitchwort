@@ -152,6 +152,23 @@ pub struct Global {
     pub name: Rc<str>,
     pub def: DefId,
     pub kind: GlobalKind,
+    /// Its part in reuse across calls ([`crate::reuse`]).
+    pub reuse: Reuse,
+}
+
+/// How a function takes part in reuse across calls ([`crate::reuse`]).
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub enum Reuse {
+    #[default]
+    None,
+    /// The copies of this function that take a reuse token as one more
+    /// argument, last: by the token's size (its constructor's runtime
+    /// fields), in increasing order.
+    Copies(Vec<(u32, GlobalId)>),
+    /// A copy of function `of` whose last parameter is a reuse token for a
+    /// constructor of `size` fields. No expression names it: the bytecode
+    /// compiler calls it in place of `of` where it holds such a token.
+    Copy { of: GlobalId, size: u32 },
 }
 
 pub enum GlobalKind {

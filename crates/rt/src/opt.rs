@@ -1284,6 +1284,7 @@ impl Simp<'_> {
                         params: kept,
                         body: Body { frame: next, expr },
                     },
+                    reuse: crate::ir::Reuse::None,
                 });
                 self.cx.inline.push(None);
                 self.cx.consts.push(None);

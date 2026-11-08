@@ -840,6 +840,55 @@ fn native_closures_run_as_they_do_under_run() {
     native_benchmark("closures.sw", "36673290\n");
 }
 
+/// A map built and drained: the copies taking reuse tokens
+/// (crates/rt/src/reuse.rs) are compiled into the executable, which calls
+/// them as `run --native` does, and the plain build, which embeds the
+/// lowered program, prints the same.
+#[cfg(feature = "native")]
+#[test]
+fn native_executables_keep_the_copies_that_reuse_cells() {
+    use object::{Object as _, ObjectSymbol as _};
+    if !have_cc() {
+        return;
+    }
+    let source = r#"import Std (IO, List, Map, Nat, Option)
+
+def build (keys: List Nat): Map Nat Nat :=
+  List.foldLeft keys Map.empty (m i => Map.insert m i i)
+
+def drain: Nat → Map Nat Nat → Nat
+  | Zero, m => 0
+  | Succ fuel, m => match Map.popMin m with
+    | None => 0
+    | Some found => found.fst.snd + drain fuel found.snd
+
+def main(): {IO} () :=
+  IO.print "${drain 2000 (build ((List.range 0 1000).map (i => (i * 7919) % 1009)))}"
+"#;
+    let dir = work_dir("native-reuse");
+    let (exe, built) = native_same_as_run(&dir, "maps.sw", source, b"");
+    assert_eq!(text(&built.stdout), "504678\n");
+    let bytes = std::fs::read(&exe).expect("read the executable");
+    let file = object::File::parse(&*bytes).expect("parse the executable");
+    let copies: Vec<String> = file
+        .symbols()
+        .filter_map(|symbol| symbol.name().ok())
+        .filter(|name| name.contains("[reuse]#"))
+        .map(str::to_string)
+        .collect();
+    for copy in [
+        "Std.Map.Tree.rebuild[reuse]#",
+        "Std.Map.Tree.minView[reuse]#",
+    ] {
+        assert!(
+            copies.iter().any(|c| c.contains(copy)),
+            "no {copy} in {copies:?}"
+        );
+    }
+    let (_, plain) = same_as_run(&dir, "maps.sw", source, &[b""]);
+    assert_eq!(text(&plain.stdout), "504678\n");
+}
+
 /// `--verbose` says how many bodies were compiled: every one `main`
 /// reaches, effects included since stage N4 and the entry since stage NO4
 /// of docs/proposals/native-only.md.

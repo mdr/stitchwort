@@ -134,7 +134,7 @@ use stitchwort_core::native::Native;
 use stitchwort_rt::census::{island, n1_blocker};
 use stitchwort_rt::code::{Code, Image, Instr, MOVE, NO_REG, Ops, Reg};
 use stitchwort_rt::effect::EffectOp;
-use stitchwort_rt::ir::{GlobalKind, HoleOp, PrimOp, Program};
+use stitchwort_rt::ir::{GlobalKind, HoleOp, PrimOp, Program, Reuse};
 use stitchwort_rt::linked::Outline;
 use stitchwort_rt::native_abi::{
     self as abi, ARRAY_ITEMS_AT, ARRAY_LEN_AT, ApplyPlan, Context, CrossingCode, FUN_CAPTURES_AT,
@@ -1023,10 +1023,12 @@ pub(crate) fn emit(
     }
     // Each compiled global function's entry as a function value: it takes
     // the function value last, as a lambda's body takes its closure, so
-    // that `Apply` calls both the same way.
+    // that `Apply` calls both the same way. A copy taking a reuse token is
+    // never a function value (`Program::validate`), so it has none.
     let mut adapters: BTreeMap<u32, (FuncId, u32)> = BTreeMap::new();
     for (g, global) in program.globals.iter().enumerate() {
         if let GlobalKind::Function { params, .. } = global.kind
+            && !matches!(global.reuse, Reuse::Copy { .. })
             && let Some(code) = image.global_code[g]
             && plan.bodies.contains(&code)
         {
@@ -4655,6 +4657,21 @@ impl Gen<'_, '_> {
         let after = self.b.create_block();
         if !self.options.trace_refcounts {
             let t = self.load(Loc::Reg(token));
+            // An empty token (the cell was shared, or the token was passed
+            // on another path) is common where tokens are passed to calls
+            // (crate::reuse): a new cell, inline, as `Ctor` makes, and
+            // nothing to drop.
+            let empty = self.is_tag(t, 0);
+            let fresh = self.b.create_block();
+            let test = self.b.create_block();
+            self.b.ins().brif(empty, fresh, &[], test, &[]);
+            self.b.switch_to_block(fresh);
+            self.erase(Loc::Reg(token));
+            let values = self.operands(args);
+            let v = self.new_cell(tag, &values);
+            self.assign(pc, dst, v);
+            self.b.ins().jump(after, &[]);
+            self.b.switch_to_block(test);
             let data = self.is_tag(t, TAG_DATA);
             let len = self.b.ins().icmp_imm_u(IntCC::Equal, t.0[2], i64::from(n));
             let shaped = self.b.ins().band(data, len);
