@@ -21941,7 +21941,7 @@
     {
       "id": 2295,
       "title": "[Sonnet] Comparative speed 2: first measurement on Overmind (task bench:compare, bench:compare:check) and the report docs/reviews/SW-N-comparative-speed.md, with the first history.toml line",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": "Overmind",
       "labels": [
@@ -21950,8 +21950,10 @@
       "epic": "comparative-speed",
       "body": "Plan: docs/proposals/comparative-speed.md §7 (D3330, D3340 native faces Python and Lean, D3341 no targets, D3342 natural data structures). After SW-2293 and SW-2294. 1.5 h.\n\nRun time first (Matt, 7 Nov 2026: \"focus on the runtime execution aspects first ... how fast in Python and Lean and Stitchwort native\"). Orchestrator's call: run task bench:compare on Speedwell with no lanes running (no push needed, faster turnaround); proofs and Overmind later. Stop at 45 min.\n\n7 Nov 2026 23:51: sent to Overmind as job 17 on e8e9acd1e: task bench:compare -- --runners native,cpython,pypy,lean (headline runners only; the interpreter later on a quiet Speedwell). 60 min cap. Before it, Overmind job 16 on 4ddc56625: bench:compare:check 66 ok / 0 failed (386 s); fuzz:soundness SEED=0x1794094582 no findings (404 mutants, 714 Void attempts, peak 7.66 GB); fuzz:elab 1000 cases SEED=0x1794095149 no findings (237 s).\n",
       "created": "2026-11-07",
-      "updated": "2026-11-07",
-      "commits": []
+      "updated": "2026-11-08",
+      "commits": [
+        "d06e2d790"
+      ]
     },
     {
       "id": 2296,
