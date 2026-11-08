@@ -298,10 +298,11 @@ impl Classifier {
         if *plus != self.plus || row.len() != 2 {
             return None;
         }
-        let Term::Data(ops, _) = strip(&row[0]) else {
+        let Term::Data(ops_id, _) = strip(&row[0]) else {
             return None;
         };
-        let ops = g.data(*ops);
+        let ops_id = *ops_id;
+        let ops = g.data(ops_id);
         if ops.unboxed_field().is_some() || ops.ctors().len() != clauses.len() {
             return None;
         }
@@ -312,7 +313,7 @@ impl Classifier {
                 let r = self.reperform(g, clause, bind, bind_arity)?;
                 // The argument is taken from the operation's one run-time
                 // field.
-                let fields = ops.ctors()[i].field_erased.iter().filter(|e| !**e).count();
+                let fields = crate::erasure::stored_count(g, ops_id, i);
                 (r.field != Field::Arg || fields == 1).then_some(r)
             })
             .collect();
@@ -470,11 +471,12 @@ impl Classifier {
         if wraps.is_empty() || data.unboxed_field().is_some() {
             return None;
         }
-        let erased = &data.ctors().get(*c)?.field_erased;
-        if erased.len() != fields.len() {
+        data.ctors().get(*c)?;
+        let stored = crate::erasure::stored_fields(g, *d, *c);
+        if stored.len() != fields.len() {
             return None;
         }
-        let mut runtime = fields.iter().zip(erased).filter(|(_, e)| !**e);
+        let mut runtime = fields.iter().zip(stored).filter(|(_, stored)| *stored);
         let field = match (runtime.next(), runtime.next()) {
             (None, _) => Field::None,
             (Some((f, _)), None) => match strip(f) {

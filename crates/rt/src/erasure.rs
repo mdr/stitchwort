@@ -8,7 +8,7 @@ use stitchwort_core::check::telescope;
 use stitchwort_core::partial::Primitive;
 use stitchwort_core::registry::Builtin;
 use stitchwort_core::value::{Head, force};
-use stitchwort_core::{DefId, Ev, Term, Value};
+use stitchwort_core::{DataId, DefId, Ev, Term, Value};
 use stitchwort_syntax::Diagnostic;
 
 /// What erasure decides about a definition from its type.
@@ -181,4 +181,99 @@ pub fn beta_variable(
         out = Term::app(out, (*arg).clone());
     }
     Ok(Some(out))
+}
+
+thread_local! {
+    /// Whether lowering on this thread checks every rebuilt field
+    /// ([`checking_rebuilds`]).
+    static CHECK_REBUILDS: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
+/// Whether lowering checks rebuilt fields: on this thread, inside
+/// [`checking_rebuilds`], or anywhere with `STITCHWORT_CHECK_REBUILDS` set.
+pub fn check_rebuilds() -> bool {
+    static ENV: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+    CHECK_REBUILDS.with(std::cell::Cell::get)
+        || *ENV.get_or_init(|| std::env::var_os("STITCHWORT_CHECK_REBUILDS").is_some())
+}
+
+/// Until the guard is dropped, lowering on this thread stores the fields
+/// a constructor's indices determine as well
+/// ([`stitchwort_core::determined`]), and at every match computes each
+/// one's rebuild too and stops the run (as unreachable code does) unless
+/// it equals the stored field. A check of the rebuilds for tests: values
+/// keep the layout they had before such fields stopped being stored, so
+/// allocation traces and cell sizes are not the real ones.
+pub fn checking_rebuilds() -> CheckingRebuilds {
+    CheckingRebuilds(CHECK_REBUILDS.with(|c| c.replace(true)))
+}
+
+/// Puts back what [`checking_rebuilds`] found.
+pub struct CheckingRebuilds(bool);
+
+impl Drop for CheckingRebuilds {
+    fn drop(&mut self) {
+        CHECK_REBUILDS.with(|c| c.set(self.0));
+    }
+}
+
+/// For each field of constructor `c` of `d`, whether the runtime stores it
+/// in the constructor's cell: neither erased (a proof or a type) nor
+/// determined by the constructor's indices, which a match rebuilds instead
+/// (docs/proposals/erase-determined-fields.md). Every part of the runtime
+/// that builds or takes apart cells decides by this one function. While
+/// [`check_rebuilds`], determined fields are stored too.
+pub fn stored_fields(g: &Ev, d: DataId, c: usize) -> Vec<bool> {
+    if check_rebuilds() {
+        (g.data(d).ctors()[c].field_erased.iter())
+            .map(|erased| !erased)
+            .collect()
+    } else {
+        stitchwort_core::determined::ctor_stored(g, d, c)
+    }
+}
+
+/// How many fields [`stored_fields`] stores.
+pub fn stored_count(g: &Ev, d: DataId, c: usize) -> usize {
+    stored_fields(g, d, c).into_iter().filter(|s| *s).count()
+}
+
+thread_local! {
+    /// The rebuilds lowering on this thread has made that aren't trivial
+    /// ([`census_rebuilds`]), if it's collecting them.
+    static CENSUS: std::cell::RefCell<Option<Vec<String>>> = const { std::cell::RefCell::new(None) };
+}
+
+/// Collects, until [`take_census`], a line for each rebuild of a
+/// determined field that lowering makes and that isn't a variable or a
+/// number less a number ([`stitchwort_core::determined::Rebuild::is_trivial`]):
+/// a call computed where a branch reads the field, which costs steps where
+/// reading a stored field didn't. With `STITCHWORT_REBUILD_CENSUS` set, each
+/// is also written to standard error.
+pub fn census_rebuilds() {
+    CENSUS.with(|c| *c.borrow_mut() = Some(Vec::new()));
+}
+
+/// What [`census_rebuilds`] collected, and stops collecting.
+pub fn take_census() -> Vec<String> {
+    CENSUS.with(|c| c.borrow_mut().take()).unwrap_or_default()
+}
+
+/// Notes a rebuild that isn't trivial ([`census_rebuilds`]).
+pub(crate) fn note_rebuild(line: impl FnOnce() -> String) {
+    static ENV: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+    let print = *ENV.get_or_init(|| std::env::var_os("STITCHWORT_REBUILD_CENSUS").is_some());
+    CENSUS.with(|c| {
+        let mut census = c.borrow_mut();
+        if census.is_none() && !print {
+            return;
+        }
+        let line = line();
+        if print {
+            eprintln!("rebuild: {line}");
+        }
+        if let Some(census) = census.as_mut() {
+            census.push(line);
+        }
+    });
 }

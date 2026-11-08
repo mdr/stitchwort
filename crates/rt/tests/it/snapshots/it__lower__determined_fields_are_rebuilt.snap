@@ -1,0 +1,140 @@
+---
+source: crates/rt/tests/it/lower.rs
+expression: "ir(r#\"\nimport Std (Fin, Nat, Text, Vec)\n\ntype Tower: Nat → Type =\n  | Ground: Tower 0\n  | Floor (label: Nat) (below: Tower n): Tower (Succ n)\n\ndef height: Tower n → Nat\n  | Ground => 0\n  | Floor [n := k] _ _ => Succ k\n\ndef main(): {IO} () :=\n  let v: Vec Nat 2 := Vec.map (VCons 1 (VCons 2 VNil)) (x => x + 1)\n  IO.print \"${Fin.toNat (FSucc FZero: Fin 3)} ${height (Floor 1 Ground)} ${Vec.toList v}\"\n\"#)"
+---
+native Std.Nat.add = %Nat.add/2
+native Std.Text.append = %TextAppend/2
+native Std.Nat.toText = %NatToText/1
+native Std.Effect.lift = %Effect.lift/1
+fn Std.Show.%toText(v0) {2 slots} =
+  match v0: Show (record) {
+    %mk(toText: v1) => v1
+  }
+fn Std.Show.%toSource(v0) {2 slots} =
+  match v0: Show (record) {
+    %mk(toSource: v1) => v1
+  }
+fn Std.Show.toText(v0) {2 slots} =
+  match v0: Show (record) {
+    %mk(toText: v1) => v1
+  }
+fn Std.Show.toSource(v0) {2 slots} =
+  match v0: Show (record) {
+    %mk(toSource: v1) => v1
+  }
+fn Std.Show.fromText(v0) {1 slots} = %mk(v0, v0)
+fn Std.Show.itemsAfter(v0, v1) {4 slots} =
+  match v1: List {
+    Nil => ""
+    Cons(head: v2, tail: v3) => %TextAppend(", ", %TextAppend(apply v0(v2), Std.Show.itemsAfter(v0, v3)))
+  }
+fn Std.Show.items(v0, v1) {4 slots} =
+  match v1: List {
+    Nil => ""
+    Cons(head: v2, tail: v3) => %TextAppend(apply v0(v2), Std.Show.itemsAfter(v0, v3))
+  }
+fn Std.Show.list(v0, v1) {4 slots} =
+  %TextAppend("[", %TextAppend({
+    match v1: List {
+      Nil => ""
+      Cons(head: v2, tail: v3) => %TextAppend(apply v0(v2), Std.Show.itemsAfter(v0, v3))
+    }
+  }, "]"))
+const Std.Nat.instShow {0 slots} = %mk(Std.Nat.toText, Std.Nat.toText)
+fn Std.List.instShow(v0) {2 slots} =
+  let v1 = λ1[c0 = v0](v0) {5 slots} =>
+    let v1 = λ0[c0 = c0](v0) {2 slots} =>
+      apply {
+        match c0: Show (record) {
+          %mk(toSource: v1) => v1
+        }
+      }(v0)
+    %TextAppend("[", %TextAppend({
+      match v0: List {
+        Nil => ""
+        Cons(head: v2, tail: v3) =>
+          %TextAppend(apply {
+            match c0: Show (record) {
+              %mk(toSource: v4) => v4
+            }
+          }(v2), Std.Show.itemsAfter(v1, v3))
+      }
+    }, "]"))
+  %mk(v1, v1)
+fn Std.Fin.toNat(v0, v1) {4 slots} =
+  match v1: Fin {
+    FZero => 0
+    FSucc(i: v2) =>
+      let v3 = %Nat.sub(v0, 1)
+      %Nat.add(Std.Fin.toNat(v3, v2), 1)
+  }
+fn Std.Vec.map(v0, v1, v2) {5 slots} =
+  let v3 = %HoleNew()
+  let v4 = Std.Vec.map[cells](v0, v1, v2, v3, 0)
+  %HoleTake(v3)
+fn Std.Vec.toList(v0, v1) {4 slots} =
+  let v2 = %HoleNew()
+  let v3 = Std.Vec.toList[cells](v0, v1, v2, 0)
+  %HoleTake(v2)
+fn Main.height(v0, v1) {3 slots} =
+  match v1: Tower {
+    Ground => 0
+    Floor =>
+      let v2 = %Nat.sub(v0, 1)
+      %Nat.add(v2, 1)
+  }
+fn Main.main(v0) {4 slots} =
+  let v1 = Std.Vec.map[0](2, VCons(1, VCons(2, VNil)))
+  let v2 = %TextAppend(%NatToText(Std.Fin.toNat(3, FSucc(FZero))), %TextAppend(" ", %TextAppend(%NatToText(1), %TextAppend(" ", apply {
+    let v2 = {
+      let v2 = λ3(v0) {3 slots} =>
+        %TextAppend("[", %TextAppend({
+          match v0: List {
+            Nil => ""
+            Cons(head: v1, tail: v2) => %TextAppend(%NatToText(v1), Std.Show.itemsAfter[1](v2))
+          }
+        }, "]"))
+      %mk(v2, v2)
+    }
+    match v2: Show (record) {
+      %mk(toText: v3) => v3
+    }
+  }(Std.Vec.toList(2, v1))))))
+  Call(L(%print(v2)), done-k)
+fn Std.Vec.map[0](v0, v1) {4 slots} =
+  let v2 = %HoleNew()
+  let v3 = Std.Vec.map[0][cells](v0, v1, v2, 0)
+  %HoleTake(v2)
+fn Std.Show.itemsAfter[1](v0) {3 slots} =
+  match v0: List {
+    Nil => ""
+    Cons(head: v1, tail: v2) => %TextAppend(", ", %TextAppend(%NatToText(v1), Std.Show.itemsAfter[1](v2)))
+  }
+fn Std.Vec.map[cells](v0, v1, v2, v3, v4) {10 slots} =
+  match v1: Vec {
+    VNil => %HoleFill(v3, v4, VNil)
+    VCons(x: v5, xs: v6) =>
+      let v7 = %Nat.sub(v0, 1)
+      let v8 = VCons(apply v2(v5), erased)
+      let v9 = %HoleFill(v3, v4, v8)
+      Std.Vec.map[cells](v7, v6, v2, v8, 1)
+  }
+fn Std.Vec.toList[cells](v0, v1, v2, v3) {9 slots} =
+  match v1: Vec {
+    VNil => %HoleFill(v2, v3, Nil)
+    VCons(x: v4, xs: v5) =>
+      let v6 = %Nat.sub(v0, 1)
+      let v7 = Cons(v4, erased)
+      let v8 = %HoleFill(v2, v3, v7)
+      Std.Vec.toList[cells](v6, v5, v7, 1)
+  }
+fn Std.Vec.map[0][cells](v0, v1, v2, v3) {9 slots} =
+  match v1: Vec {
+    VNil => %HoleFill(v2, v3, VNil)
+    VCons(x: v4, xs: v5) =>
+      let v6 = %Nat.sub(v0, 1)
+      let v7 = VCons(%Nat.add(v4, 1), erased)
+      let v8 = %HoleFill(v2, v3, v7)
+      Std.Vec.map[0][cells](v6, v5, v7, 1)
+  }
+entry {0 slots} = %Effect.lift(Main.main(UnitValue))

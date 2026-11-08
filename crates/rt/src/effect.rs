@@ -156,13 +156,7 @@ impl EffectNatives {
         }
         let comp = r.loaded_data(Builtin::Comp)?;
         let sig_map = r.loaded_data(Builtin::SigMap)?;
-        let runtime_fields = |d: DataId, c: usize| {
-            g.data(d).ctors()[c]
-                .field_erased
-                .iter()
-                .filter(|erased| !**erased)
-                .count()
-        };
+        let runtime_fields = |d: DataId, c: usize| crate::erasure::stored_count(g, d, c);
         let data = g.data(comp);
         if data.record()
             || data.ctors().len() != 2

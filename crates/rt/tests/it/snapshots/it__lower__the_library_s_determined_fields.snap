@@ -1,0 +1,8 @@
+---
+source: crates/rt/tests/it/lower.rs
+expression: out
+---
+Fin.FZero n
+Fin.FSucc n
+Vec.VCons n
+rebuilds that call: []

@@ -380,7 +380,21 @@ fn same(a: &Value, b: &Value) -> bool {
 /// allocation trace, freeing every cell.
 #[test]
 fn effect_examples_agree_with_the_machine() {
-    with_stack(STACK, || {
+    effect_examples_agree(false);
+}
+
+/// [`effect_examples_agree_with_the_machine`], lowered with the fields that
+/// constructor indices determine stored as well, and each one's rebuild
+/// checked against it at every match
+/// (`stitchwort_rt::erasure::checking_rebuilds`).
+#[test]
+fn effect_examples_agree_with_rebuilds_checked() {
+    effect_examples_agree(true);
+}
+
+fn effect_examples_agree(check_rebuilds: bool) {
+    with_stack(STACK, move || {
+        let _check = check_rebuilds.then(stitchwort_rt::erasure::checking_rebuilds);
         stitchwort_rt::native_abi::probe_layout().expect("the layout is as expected");
         let mut ran = 0;
         for name in [

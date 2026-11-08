@@ -77,11 +77,12 @@ def Vec.toList: (xs: Vec a n) → List a
   | VNil => []
   | VCons x xs => [x, ..Vec.toList xs]
 
---| A list as a vector of its length, given the length: each `VCons` stores
---| `n`, a number already computed.
+--| A list as a vector of its length, given the length: each `VCons`'s length
+--| `n` is a number already computed.
 -- (Building `VCons x (fromList xs)` against the type `Vec a (List.length (Cons
--- x xs))` would store `List.length xs` at every element, which is quadratic:
--- indexed-families.md §8.1.)
+-- x xs))` would compute `List.length xs` at every element where the length is
+-- stored (the reference evaluator, JS), which is quadratic: indexed-families.md
+-- §8.1.)
 def Vec.fromListN: (n: Nat) → (xs: List a) → (lengthEq: List.length xs = n) → Vec a n
   | Zero, [], _ => VNil
   | Succ k, [x, ..xs], ok => VCons [n := k] x (Vec.fromListN k xs (Nat.succInjective ok))

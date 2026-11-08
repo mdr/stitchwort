@@ -228,6 +228,60 @@ fn the_library_lowers_and_its_tests_agree() {
     });
 }
 
+/// The same, with every determined field stored as well and each match
+/// checking its rebuild of every one against the stored field
+/// (`checking_rebuilds`): every branch of the library's matches on such a
+/// type has its rebuilds found, and those its tests reach are compared.
+#[test]
+fn the_library_rebuilds_its_determined_fields() {
+    with_stack(STACK, || {
+        let _check = stitchwort_rt::erasure::checking_rebuilds();
+        let session = Session::with_library_tests();
+        let g = &session.elab.ev();
+        let ids: Vec<DefId> = (0..g.env.defs().len())
+            .map(DefId)
+            .filter(|id| g.def(*id).body().is_some() || g.env.builtins().primitive(*id).is_some())
+            .collect();
+        let program = lower_definitions(g, session.elab.options.limits, &ids).expect("lowers");
+        well_formed(&program, "the library");
+        let ran = run_tests(&session, &program, "the library", true);
+        assert!(ran >= 70, "{ran}");
+    });
+}
+
+/// Which fields of the library's data types the fast runtime doesn't
+/// store, since the constructor's indices determine them
+/// (docs/proposals/erase-determined-fields.md), and the census of their
+/// rebuilds that cost a call where reading a stored field didn't (none):
+/// a change to either shows up in review.
+#[test]
+fn the_library_s_determined_fields() {
+    with_stack(STACK, || {
+        let session = Session::with_library_tests();
+        let g = &session.elab.ev();
+        let ids: Vec<DefId> = (0..g.env.defs().len())
+            .map(DefId)
+            .filter(|id| g.def(*id).body().is_some() || g.env.builtins().primitive(*id).is_some())
+            .collect();
+        stitchwort_rt::erasure::census_rebuilds();
+        lower_definitions(g, session.elab.options.limits, &ids).expect("lowers");
+        let census = stitchwort_rt::erasure::take_census();
+        let mut out = String::new();
+        for d in (0..g.env.datas().len()).map(DataId) {
+            for (c, ctor) in g.data(d).ctors().iter().enumerate() {
+                let determined = stitchwort_core::determined::ctor_determined(g, d, c);
+                for (i, (name, _)) in ctor.fields.iter().enumerate() {
+                    if determined[i] {
+                        out.push_str(&format!("{}.{} {name}\n", g.data(d).name(), ctor.name));
+                    }
+                }
+            }
+        }
+        out.push_str(&format!("rebuilds that call: {census:#?}\n"));
+        insta::assert_snapshot!(out);
+    });
+}
+
 /// The IR of a small program's `main`.
 fn ir(source: &str) -> String {
     with_stack(STACK, || {
@@ -531,4 +585,28 @@ def main(): {IO} () :=
             .unwrap_or_else(|e| panic!("lowering: {e:?}"));
         well_formed(&program, "main");
     });
+}
+
+/// Fields the result indices determine aren't stored
+/// (docs/proposals/erase-determined-fields.md): `Fin`'s cells hold only the
+/// predecessor and `Vec`'s no length, and a match that reads one rebuilds
+/// it from the matched value's index: `Fin.toNat`'s recursive call passes
+/// `n - 1`, and `height` computes `Succ (n - 1)`.
+#[test]
+fn determined_fields_are_rebuilt() {
+    insta::assert_snapshot!(ir(r#"
+import Std (Fin, Nat, Text, Vec)
+
+type Tower: Nat → Type =
+  | Ground: Tower 0
+  | Floor (label: Nat) (below: Tower n): Tower (Succ n)
+
+def height: Tower n → Nat
+  | Ground => 0
+  | Floor [n := k] _ _ => Succ k
+
+def main(): {IO} () :=
+  let v: Vec Nat 2 := Vec.map (VCons 1 (VCons 2 VNil)) (x => x + 1)
+  IO.print "${Fin.toNat (FSucc FZero: Fin 3)} ${height (Floor 1 Ground)} ${Vec.toList v}"
+"#));
 }
