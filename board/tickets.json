@@ -24075,7 +24075,7 @@
         "perf"
       ],
       "epic": "comparative-speed",
-      "body": "From docs/proposals/compact-values.md §5. Waits for D3432. 1.5 h.",
+      "body": "From docs/proposals/compact-values.md §5. Waits for D3432. 1.5 h.\n\nD3432, Matt, 8 Nov 2026 ~18:30: yes, \"run the measurements\" (end state C then E; A/D gated).\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
@@ -24090,7 +24090,7 @@
         "perf"
       ],
       "epic": "comparative-speed",
-      "body": "From compact-values.md §5. Waits for D3432. Runs on Overmind. 1 h.",
+      "body": "From compact-values.md §5. Waits for D3432. Runs on Overmind. 1 h.\n\nD3432, Matt, 8 Nov 2026 ~18:30: yes, \"run the measurements\" (end state C then E; A/D gated).\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
@@ -24105,7 +24105,7 @@
         "perf"
       ],
       "epic": "comparative-speed",
-      "body": "From compact-values.md §5. Waits for D3432. 1.5 h.",
+      "body": "From compact-values.md §5. Waits for D3432. 1.5 h.\n\nD3432, Matt, 8 Nov 2026 ~18:30: yes, \"run the measurements\" (end state C then E; A/D gated).\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
@@ -24120,7 +24120,7 @@
         "perf"
       ],
       "epic": "comparative-speed",
-      "body": "From compact-values.md §5. Waits for D3432. 1.5 h. Never merged.",
+      "body": "From compact-values.md §5. Waits for D3432. 1.5 h. Never merged.\n\nD3432, Matt, 8 Nov 2026 ~18:30: yes, \"run the measurements\" (end state C then E; A/D gated).\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
@@ -24135,7 +24135,7 @@
         "perf"
       ],
       "epic": "comparative-speed",
-      "body": "After SW-2425 SW-2426 SW-2427 SW-2428. 1 h.",
+      "body": "After SW-2425 SW-2426 SW-2427 SW-2428. 1 h.\n\nD3432, Matt, 8 Nov 2026 ~18:30: yes, \"run the measurements\" (end state C then E; A/D gated).\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
