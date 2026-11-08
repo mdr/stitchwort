@@ -1,5 +1,5 @@
 {
-  "next": 2382,
+  "next": 2385,
   "tickets": [
     {
       "id": 47,
@@ -23179,17 +23179,20 @@
     {
       "id": 2371,
       "title": "Why does sw_ctor_reuse fire 1.9M times against 25M Map.Tree node rebuilds on dijkstra? (reuse of the dead node in rebuild)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
         "perf"
       ],
       "epic": "comparative-speed",
-      "body": "From docs/reviews/SW-2369-dijkstra-disk.md. Measure first. 30 min.\n\nStarted 05:09 UTC, Sonnet, expected 30 min.\n",
+      "body": "From docs/reviews/SW-2369-dijkstra-disk.md. Measure first. 30 min.\n\nStarted 05:09 UTC, Sonnet, expected 30 min.\n\n\nFinished 05:35 UTC. Report: docs/reviews/SW-2371-map-rebuild-reuse.md (lane/SW-2371, cab7ebd03). The 1.9 M was misses; Bin cells are fresh 25.7 M, reused 0.35 M. Cause 1: Graph.searchFrom keeps the old queue alive (proof-only param), 80% of insertWith unpacks and all minView ones are shared; hand-written search without it: dijkstra native 5.44 s to 4.49 s (-17%). Cause 2: Unpack and Ctor are in different bodies (balance/rebuild; lifted matches); building Keep inline with if: 17.7 M reuse hits, -6% more. No std change made.\nModel result: Sonnet, worked, 26 min (est. 30)\n\nMerged. Follow-ups SW-2382 SW-2383 SW-2384. Model result: Sonnet, worked, 26 min (est. 30).\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
-      "commits": []
+      "commits": [
+        "cab7ebd03",
+        "8436cb73d"
+      ]
     },
     {
       "id": 2372,
@@ -23341,6 +23344,53 @@
       ],
       "epic": "std-library",
       "body": "From SW-2374 (worked around with rewrite and ring). 15 min.",
+      "created": "2026-11-08",
+      "updated": "2026-11-08",
+      "commits": []
+    },
+    {
+      "id": 2382,
+      "title": "Std Graph.searchFrom: stop holding the queue twice (it is passed as an argument for proofs and also popped), so popMin and relaxEdges meet unique cells; restate without the shared queue, or wait for ghost parameters (D2900-D2905); measured -17% on day 15 by hand",
+      "status": "backlog",
+      "agent": "Opus",
+      "where": "",
+      "labels": [
+        "perf",
+        "std"
+      ],
+      "epic": "comparative-speed",
+      "body": "From docs/reviews/SW-2371-map-rebuild-reuse.md. Spec statements unchanged. 60 min.",
+      "created": "2026-11-08",
+      "updated": "2026-11-08",
+      "commits": []
+    },
+    {
+      "id": 2383,
+      "title": "Std Map.Tree: build the Keep node inline in insertWith and minView (rebuild only for rotations), with a balance = Bin lemma, so the unpacked cell is reused; est. -6% once nodes are unique",
+      "status": "backlog",
+      "agent": "Opus",
+      "where": "",
+      "labels": [
+        "perf",
+        "std"
+      ],
+      "epic": "comparative-speed",
+      "body": "From docs/reviews/SW-2371-map-rebuild-reuse.md. After SW-2382. 60-90 min.",
+      "created": "2026-11-08",
+      "updated": "2026-11-08",
+      "commits": []
+    },
+    {
+      "id": 2384,
+      "title": "Compiler: carry a reuse token into a callee (or inline balance/rebuild), so an Unpack in one body can be reused by a Ctor in the function it calls",
+      "status": "backlog",
+      "agent": "Opus",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "comparative-speed",
+      "body": "From docs/reviews/SW-2371-map-rebuild-reuse.md. Design first. 60 min paper.",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
