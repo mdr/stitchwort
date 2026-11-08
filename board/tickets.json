@@ -24396,17 +24396,19 @@
     {
       "id": 2445,
       "title": "Elaborator gap: `let f := (s) => s.size` then `f (Circle 4)` fails E-TYPE-MISMATCH 'expected Nat, but this has type ?2 (Circle 4)' (the pair-pattern version checks); fix inference or the message",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
         "elab"
       ],
       "epic": "elaborator-kernel",
-      "body": "From SW-2439. 45 min. Add an accept/ (or reject/ with a clear message) example.\nStarted 22:08 UTC.\n",
+      "body": "From SW-2439. 45 min. Add an accept/ (or reject/ with a clear message) example.\nStarted 22:08 UTC.\n\nLane notes (22:20): fixed, not a new message. Cause: the one-parameter body `s.size` waits for s, so the lambda type is `(s: ?1) -> ?2 s`; the pair version has `+` fixing Nat. `f (Circle 4)` is `?2 (Circle 4)`, which no queued check was known to settle, so comparisons failed. Fix: DotCall::settles_type (dot.rs) and numeric-group leaves wait via compare_waiting (numbers.rs unify_leaf). Example examples/accept/postpone-let-lambda-dot-param.sw + hash snapshot. Branch lane/SW-2445, commit 443f5e3c7.\n\nMerged (fixed, no message change; all existing hashes unchanged). Model result: Sonnet, worked, 12 min (est. 45).\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
-      "commits": []
+      "commits": [
+        "159da46ae"
+      ]
     },
     {
       "id": 2446,
