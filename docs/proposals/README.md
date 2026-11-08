@@ -1,6 +1,6 @@
 # Design notes: an index
 
-There are 153 notes in this folder (the `*.md` files other than this one),
+There are 154 notes in this folder (the `*.md` files other than this one),
 plus a few prototype folders beside them. A note is a design as it was
 argued; it isn't kept current, so its own status line is often out of date.
 This index says where each note stands. It was written on 7 November 2026
@@ -167,6 +167,7 @@ status line now says the wrong thing; the details are in
 | [js-source-maps.md](js-source-maps.md) | Source maps for generated JavaScript | built (stale): `crates/js/src/sourcemap.rs` | SW-361 |
 | [backend-trust.md](backend-trust.md) | What the backends trust (one way to make an `Image`) | proposed: D2790, D2791 | SW-1893, SW-1885, SW-1989-SW-1992 |
 | [run-profiler.md](run-profiler.md) | A profiler for `stitchwort run` | in progress: stage 1 built (`run --profile`, `crates/cli/src/main.rs`) | SW-1528; open SW-1634 |
+| [cell-allocator.md](cell-allocator.md) | Whether cells need an allocator of our own (no: mimalloc, with a per-run cell cache inlined in native code) | proposed: D3413, D3414 | SW-2360 |
 
 ## Standard library and data types
 
