@@ -2165,6 +2165,18 @@ impl Elaborator {
                      are finished",
                     info.name
                 )),
+                Phase::Body if item == current && info.kind == Kind::Ability => Diagnostic::error(
+                    "E-ABILITY",
+                    format!(
+                        "`{}` can't be used in the types of `{owner}`'s operations",
+                        name.text
+                    ),
+                )
+                .with_label(name.span, "used here")
+                .with_note(
+                    "an ability's operations don't exist until all of their types are \
+                         finished",
+                ),
                 Phase::Body => internal_order(name),
             };
         }
