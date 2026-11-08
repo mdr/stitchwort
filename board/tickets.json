@@ -23442,14 +23442,14 @@
     {
       "id": 2387,
       "title": "bench:compare: name its output by date, time and host, so a second run on the same day doesn't overwrite the first's .md and .json",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Sonnet",
       "where": "",
       "labels": [
         "tooling"
       ],
       "epic": "comparative-speed",
-      "body": "Overmind job 20 overwrote job 19's report. 10 min.",
+      "body": "Overmind job 20 overwrote job 19's report. 10 min.\n\nStarted 06:02 UTC, Sonnet, expected 10 min.\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
@@ -23457,7 +23457,7 @@
     {
       "id": 2388,
       "title": "Native lowering: a call's arguments are copied instead of moved when sibling argument blocks reuse register slots, so the copies keep cells shared (dijkstra: 100% of queue insert steps, 50% of map inserts); repro: pop-then-insert loop on a Set",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Opus",
       "where": "",
       "labels": [
@@ -23465,7 +23465,7 @@
         "bug"
       ],
       "epic": "comparative-speed",
-      "body": "From SW-2382 (relaxEdges pc 49 passes root children as copies; best.insert at pc 64 moves). Likely most of SW-2371's 17%. Repro and counting patch: /private/tmp/claude-550/-Users-agent-repos-mdr-stitchwort/8230e28a-2fab-4832-920d-c5160adb7e00/scratchpad/micro/p1.sw, counting2.patch. 60-90 min.",
+      "body": "From SW-2382 (relaxEdges pc 49 passes root children as copies; best.insert at pc 64 moves). Likely most of SW-2371's 17%. Repro and counting patch: /private/tmp/claude-550/-Users-agent-repos-mdr-stitchwort/8230e28a-2fab-4832-920d-c5160adb7e00/scratchpad/micro/p1.sw, counting2.patch. 60-90 min.\n\nStarted 06:02 UTC, Opus, expected 90 min.\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
