@@ -22400,7 +22400,7 @@
     {
       "id": 2324,
       "title": "Design note: compact values as the runtime's end state (one-word values everywhere, or compact cells keeping three-word registers); changes how Float is held",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Opus",
       "where": "",
       "labels": [
@@ -22408,9 +22408,9 @@
         "design"
       ],
       "epic": "comparative-speed",
-      "body": "From docs/research/lean-runtime-speed.md (SW-2318), its D3358 (rec: yes, a note first). Not yet brought to Matt: waits for the SW-2296 profile to show object size and allocation matter. 90 min.",
+      "body": "From docs/research/lean-runtime-speed.md (SW-2318), its D3358 (rec: yes, a note first). Not yet brought to Matt: waits for the SW-2296 profile to show object size and allocation matter. 90 min.\n\nD3431, Matt, 8 Nov 2026 ~18:10: yes, a paper lane now: \"Do a literature review, comparative language analysis of similar implementations, and understand how this might fit into the stitch work world. Also, have it suggest how we might verify that this bet pays off for us ... plan how we might measure. We don't want to commit to a large refactoring that doesn't pay off.\" Opus, paper, 120 min.\n",
       "created": "2026-11-07",
-      "updated": "2026-11-07",
+      "updated": "2026-11-08",
       "commits": []
     },
     {
