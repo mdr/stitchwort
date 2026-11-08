@@ -23027,14 +23027,14 @@
     {
       "id": 2362,
       "title": "Cell allocator stage 1: the allocator wrapper calls mi_malloc/mi_free rather than the aligned variants, and a longer purge delay; kept only if binary-trees moves 2% or more",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Sonnet",
       "where": "",
       "labels": [
         "perf"
       ],
       "epic": "comparative-speed",
-      "body": "From docs/proposals/cell-allocator.md (SW-2360). Profile before and after. 30-45 min.",
+      "body": "From docs/proposals/cell-allocator.md (SW-2360). Profile before and after. 30-45 min.\n\nStarted 04:39 UTC, Sonnet, expected 40 min.\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
@@ -23057,14 +23057,14 @@
     {
       "id": 2364,
       "title": "Drop of a cell holding heap values collects them in a fresh Vec per top-level drop (value.rs:364-372, :303); thread the work list through the freed cells instead, as Lean does",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Sonnet",
       "where": "",
       "labels": [
         "perf"
       ],
       "epic": "comparative-speed",
-      "body": "From docs/proposals/cell-allocator.md (SW-2360). Profile first: drop code is about 10% of matcher's self time; measure the Vec's share before changing. 30 min.",
+      "body": "From docs/proposals/cell-allocator.md (SW-2360). Profile first: drop code is about 10% of matcher's self time; measure the Vec's share before changing. 30 min.\n\nStarted 04:39 UTC, Sonnet, expected 30 min.\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
@@ -23120,14 +23120,14 @@
     {
       "id": 2368,
       "title": "test:affected rules: core value.rs/reference.rs changes select proof_masks::; core registry.rs changes select check_cache::a_refused_library_entry_*",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Sonnet",
       "where": "",
       "labels": [
         "tooling"
       ],
       "epic": "test-infra",
-      "body": "From SW-2367: both tests broke silently at SW-2256 and SW-2197 because their merges didn't select them. 20 min.",
+      "body": "From SW-2367: both tests broke silently at SW-2256 and SW-2197 because their merges didn't select them. 20 min.\n\nStarted 04:39 UTC, Sonnet, expected 20 min.\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
