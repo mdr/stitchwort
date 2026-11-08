@@ -22517,14 +22517,14 @@
     {
       "id": 2331,
       "title": "Profiling: per-definition call counts in native code",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Sonnet",
       "where": "",
       "labels": [
         "tooling"
       ],
       "epic": "comparative-speed",
-      "body": "From docs/reviews/SW-2296-native-profiles.md §5 (measured). §3. 1 h.",
+      "body": "From docs/reviews/SW-2296-native-profiles.md §5 (measured). §3. 1 h.\n\nStarted 03:46 UTC, Sonnet, expected 60 min.\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
@@ -22722,14 +22722,14 @@
     {
       "id": 2344,
       "title": "Audit warnings on 2021 day 11: stableOfCount and stableAtSize show 'no input made the hypotheses true' (0 of ~780 cases) in the SW-2320 batch audit, though the lane's own audit showed none; pre-existing statements (Cascade.sw:81, :105). Check whether the Stable premise (flashes) is just rarely satisfiable by the search or the statements are vacuous",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Sonnet",
       "where": "",
       "labels": [
         "proof"
       ],
       "epic": "aoc-older",
-      "body": "From the SW-2320 batch verifier, 8 Nov 2026. Statements unchanged by SW-2320. 20 min.\n\nAlso 2021 day 12: parseNoBigNeighbours and endsVisited give the same warning (0 of 1500 cases) in the SW-2355 audit; statements untouched by that lane.\n",
+      "body": "From the SW-2320 batch verifier, 8 Nov 2026. Statements unchanged by SW-2320. 20 min.\n\nAlso 2021 day 12: parseNoBigNeighbours and endsVisited give the same warning (0 of 1500 cases) in the SW-2355 audit; statements untouched by that lane.\n\nStarted 03:46 UTC, Sonnet, expected 30 min.\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
