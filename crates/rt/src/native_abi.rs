@@ -54,6 +54,7 @@
 //!   A function value whose body isn't compiled is an internal error: the
 //!   plan compiles every body or none.
 
+use crate::value_census::{new_fun, new_handler, new_resume};
 use std::mem::MaybeUninit;
 use std::rc::Rc;
 
@@ -247,7 +248,7 @@ fn probe() -> Result<(), String> {
         (Value::float(1.5), TAG_FLOAT),
         (Value::Tag(3), TAG_TAG),
         (Value::data(5, [Value::Nat(1), Value::Nat(2)]), TAG_DATA),
-        (Value::Fun(Rc::new(Fun::Global(9))), TAG_FUN),
+        (Value::Fun(new_fun(Fun::Global(9))), TAG_FUN),
         (
             Value::Delay(Rc::new(crate::value::Delay::Now(Value::Erased))),
             TAG_DELAY,
@@ -364,12 +365,12 @@ fn probe_functions() -> Result<(), String> {
             ))
         }
     };
-    let closure = Value::Fun(Rc::new(Fun::Closure {
+    let closure = Value::Fun(new_fun(Fun::Closure {
         lambda: 0x1234_5678,
         captures: vec![Value::Nat(5), Value::Nat(6), Value::Nat(7)].into(),
     }));
-    let global = Value::Fun(Rc::new(Fun::Global(0x0abc_def0)));
-    let pap = Value::Fun(Rc::new(Fun::Pap {
+    let global = Value::Fun(new_fun(Fun::Global(0x0abc_def0)));
+    let pap = Value::Fun(new_fun(Fun::Pap {
         head: global.clone(),
         args: vec![Value::Nat(1)].into(),
     }));
@@ -1301,7 +1302,7 @@ impl crate::run::Executor for NativeExecutor {
     }
 
     fn step_comp(&mut self, c: Value) -> Result<Value, ResourceError> {
-        let handler = Rc::new(Handler::Step);
+        let handler = new_handler(Handler::Step);
         self.cross(0, |crossing, run| crossing.step(c, handler, run))
     }
 
@@ -1878,7 +1879,7 @@ fn function_value(run: &mut NativeRun<'_>, g: u32) -> Value {
     }
     let v = match &run.outline.globals[g as usize].kind {
         Kind::Native(op) if op.arity() == 0 => Value::Erased,
-        _ => Value::Fun(Rc::new(Fun::Global(g))),
+        _ => Value::Fun(new_fun(Fun::Global(g))),
     };
     run.globals[g as usize] = Some(v.clone());
     v
@@ -2274,7 +2275,7 @@ pub unsafe extern "C" fn sw_apply_prepare(
             all
         };
         if total < arity {
-            value = Some(Value::Fun(Rc::new(Fun::Pap {
+            value = Some(Value::Fun(new_fun(Fun::Pap {
                 head: head.clone(),
                 args: std::mem::take(&mut all).into(),
             })));
@@ -2486,7 +2487,7 @@ pub unsafe extern "C" fn sw_closure(lambda: u32, args: *mut Value, n: u64, out: 
     let captures: Box<[Value]> = (0..n as usize)
         .map(|i| unsafe { args.add(i).read() })
         .collect();
-    unsafe { out.write(Value::Fun(Rc::new(Fun::Closure { lambda, captures }))) };
+    unsafe { out.write(Value::Fun(new_fun(Fun::Closure { lambda, captures }))) };
 }
 
 /// `Pap`: global `g` (a function or a native) with the `n` values at `args`
@@ -2511,7 +2512,7 @@ pub unsafe extern "C" fn sw_pap(
         .collect();
     let run = unsafe { &mut *(*context).run };
     let head = function_value(run, g);
-    unsafe { out.write(Value::Fun(Rc::new(Fun::Pap { head, args: held }))) };
+    unsafe { out.write(Value::Fun(new_fun(Fun::Pap { head, args: held }))) };
 }
 
 /// `IntCase` of a value that isn't a small `Int`: 1 if it's negative.
@@ -2894,7 +2895,7 @@ pub unsafe extern "C" fn sw_eff_step(
         } => match crate::effect::forwarded(s, table, o) {
             Ok(o) => {
                 crate::call_counts::hit_event(crate::call_counts::Event::Forward);
-                let resume = Rc::new(Resume {
+                let resume = new_resume(Resume {
                     handler,
                     rest,
                     pending: list,
@@ -2911,7 +2912,7 @@ pub unsafe extern "C" fn sw_eff_step(
         count_route(run.outline, &handler, &o);
     }
     let resume = |handler, op| {
-        Rc::new(Resume {
+        new_resume(Resume {
             handler,
             rest,
             pending: list,
@@ -2922,7 +2923,7 @@ pub unsafe extern "C" fn sw_eff_step(
         Handler::Fold { call, lazy, .. } => {
             counts.routes += 1;
             let (call, lazy) = (call.clone(), *lazy);
-            let k = Value::Fun(Rc::new(Fun::Resume(resume(handler, Value::Erased), lazy)));
+            let k = Value::Fun(new_fun(Fun::Resume(resume(handler, Value::Erased), lazy)));
             write(0, call);
             write(1, o);
             write(2, k);
@@ -2934,8 +2935,8 @@ pub unsafe extern "C" fn sw_eff_step(
             counts.routes += 1;
             let call = call.clone();
             let resume = resume(handler, Value::Erased);
-            let k = Value::Fun(Rc::new(Fun::StateK(resume.clone())));
-            let jump = Value::Fun(Rc::new(Fun::JumpK));
+            let k = Value::Fun(new_fun(Fun::StateK(resume.clone())));
+            let jump = Value::Fun(new_fun(Fun::JumpK));
             // SAFETY: the caller's contract: the state is taken.
             let st = unsafe { std::mem::take(&mut *state) };
             write(0, call);
@@ -2950,7 +2951,7 @@ pub unsafe extern "C" fn sw_eff_step(
         Handler::Translate { inject, .. } => {
             counts.routes += 1;
             let inject = inject.clone();
-            let k = Value::Fun(Rc::new(Fun::Resume(resume(handler, o.clone()), false)));
+            let k = Value::Fun(new_fun(Fun::Resume(resume(handler, o.clone()), false)));
             write(0, inject);
             write(1, o);
             write(2, k);
@@ -2958,7 +2959,7 @@ pub unsafe extern "C" fn sw_eff_step(
         }
         Handler::Step => {
             crate::call_counts::hit_event(crate::call_counts::Event::RouteStep);
-            let k = Value::Fun(Rc::new(Fun::Resume(resume(handler, Value::Erased), false)));
+            let k = Value::Fun(new_fun(Fun::Resume(resume(handler, Value::Erased), false)));
             write(0, Value::data(s.call, [o, k]));
             STEP_RETURN
         }
@@ -3172,7 +3173,7 @@ pub unsafe extern "C" fn sw_unwind_handler(context: *mut Context, handler: u64) 
                 pending: Value::Erased,
                 op: Value::Erased,
             };
-            group.push(Value::Fun(Rc::new(Fun::Resume(Rc::new(holder), false))));
+            group.push(Value::Fun(new_fun(Fun::Resume(Rc::new(holder), false))));
         }
         None => drop(handler),
     }
@@ -3194,7 +3195,7 @@ pub unsafe extern "C" fn sw_unwind_resume(context: *mut Context, resume: u64) {
     // SAFETY: the caller's contract.
     let (run, resume) = unsafe { (&mut *(*context).run, resume_taken(resume)) };
     match run.held.last_mut() {
-        Some(group) => group.push(Value::Fun(Rc::new(Fun::Resume(resume, false)))),
+        Some(group) => group.push(Value::Fun(new_fun(Fun::Resume(resume, false)))),
         None => drop(resume),
     }
 }

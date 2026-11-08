@@ -278,7 +278,7 @@ pub const DONE_K: u32 = 1;
 pub fn compile(program: &Program) -> Image {
     let mut pool = vec![
         Value::Erased,
-        Value::Fun(std::rc::Rc::new(crate::value::Fun::DoneK)),
+        Value::Fun(crate::value_census::new_fun(crate::value::Fun::DoneK)),
     ];
     let mut codes = Vec::new();
     let mut global_code = Vec::with_capacity(program.globals.len());

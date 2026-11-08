@@ -160,6 +160,18 @@ impl Value {
         }
     }
 
+    /// A text.
+    pub fn text(text: Rc<str>) -> Value {
+        crate::value_census::text(text.len());
+        Value::Text(text)
+    }
+
+    /// An array of these elements.
+    pub fn array(items: Vec<Value>) -> Value {
+        crate::value_census::array(items.len());
+        Value::Array(Rc::new(items))
+    }
+
     /// The constructor's tag, for a constructor.
     #[inline]
     pub fn tag(&self) -> Option<u32> {
@@ -173,7 +185,10 @@ impl Value {
     pub fn nat(n: BigUint) -> Value {
         match u64::try_from(&n) {
             Ok(small) => Value::Nat(small),
-            Err(_) => Value::BigNat(Rc::new(n)),
+            Err(_) => {
+                crate::value_census::big(n.iter_u64_digits().len());
+                Value::BigNat(Rc::new(n))
+            }
         }
     }
 
@@ -181,7 +196,10 @@ impl Value {
     pub fn int(n: BigInt) -> Value {
         match i64::try_from(&n) {
             Ok(small) => Value::Int(small),
-            Err(_) => Value::BigInt(Rc::new(n)),
+            Err(_) => {
+                crate::value_census::big(n.iter_u64_digits().len());
+                Value::BigInt(Rc::new(n))
+            }
         }
     }
 
@@ -365,6 +383,9 @@ impl Drop for Fields {
     fn drop(&mut self) {
         let last = Rc::strong_count(&self.0) == 1 && Rc::weak_count(&self.0) == 0;
         crate::alloc_trace::dec(&self.0, last);
+        if last {
+            crate::value_census::cell_freed(self.0.len());
+        }
         if let Some(slice) = Rc::get_mut(&mut self.0) {
             let mut pending = Vec::new();
             take_from(slice, &mut pending);
@@ -375,6 +396,7 @@ impl Drop for Fields {
 
 impl Drop for Fun {
     fn drop(&mut self) {
+        crate::value_census::fun_freed(self);
         let mut pending = Vec::new();
         self.take_children(&mut pending);
         free(pending);
@@ -383,6 +405,7 @@ impl Drop for Fun {
 
 impl Drop for Delay {
     fn drop(&mut self) {
+        crate::value_census::delay_freed(self);
         let mut pending = Vec::new();
         self.take_children(&mut pending);
         free(pending);

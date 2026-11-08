@@ -13,6 +13,7 @@
 //! as machine integers, falling back to big ones only when a result
 //! doesn't fit.
 
+use crate::value_census::new_delay;
 use std::cmp::Ordering;
 use std::rc::Rc;
 
@@ -410,7 +411,7 @@ fn char_boundary(t: &str, n: &Value) -> Option<usize> {
 }
 
 fn nat_to_text(n: &Value) -> Value {
-    Value::Text(match n {
+    Value::text(match n {
         Value::Nat(n) => n.to_string().into(),
         other => other.to_biguint().to_string().into(),
     })
@@ -498,14 +499,14 @@ pub fn eval(s: &Shapes, op: PrimOp, args: &[&Value]) -> Value {
             let a = || args[0].clone();
             let b = || args[1].clone();
             match p {
-                Primitive::Now => Value::Delay(Rc::new(Delay::Now(a()))),
-                Primitive::Lift => Value::Delay(Rc::new(Delay::Lift(a()))),
-                Primitive::BindD => Value::Delay(Rc::new(Delay::Bind(a(), b()))),
-                Primitive::MapSig => Value::Delay(Rc::new(Delay::Map(a(), b()))),
-                Primitive::Pfix => Value::Delay(Rc::new(Delay::Pfix(a(), b()))),
+                Primitive::Now => Value::Delay(new_delay(Delay::Now(a()))),
+                Primitive::Lift => Value::Delay(new_delay(Delay::Lift(a()))),
+                Primitive::BindD => Value::Delay(new_delay(Delay::Bind(a(), b()))),
+                Primitive::MapSig => Value::Delay(new_delay(Delay::Map(a(), b()))),
+                Primitive::Pfix => Value::Delay(new_delay(Delay::Pfix(a(), b()))),
                 // The type: erased.
                 Primitive::Delay => Value::Erased,
-                Primitive::FoldD => Value::Delay(Rc::new(Delay::Fold(a(), b(), args[2].clone()))),
+                Primitive::FoldD => Value::Delay(new_delay(Delay::Fold(a(), b(), args[2].clone()))),
             }
         }
         PrimOp::Hole(op) => hole(op, args),
@@ -548,7 +549,7 @@ fn float(s: &Shapes, f: FloatPrim, args: &[&Value]) -> Value {
             other => bad(PrimOp::Float(f), other),
         }),
         FloatPrim::OfNat => Value::float(nat_to_f64(&args[0].to_biguint())),
-        FloatPrim::ToText => Value::Text(js_to_string(x(0)).into()),
+        FloatPrim::ToText => Value::text(js_to_string(x(0)).into()),
         FloatPrim::IsFinite => boolean(s, x(0).is_finite()),
         FloatPrim::IeeeLt => boolean(s, x(0) < x(1)),
         FloatPrim::IeeeLe => boolean(s, x(0) <= x(1)),
@@ -647,7 +648,7 @@ fn int(s: &Shapes, op: PrimOp, i: IntNative, args: &[&Value]) -> Value {
             Ordering::Equal => 0,
             Ordering::Greater => 1,
         }),
-        IntToText => Value::Text(match a {
+        IntToText => Value::text(match a {
             Value::Int(x) => x.to_string().into(),
             Value::BigInt(x) => x.to_string().into(),
             other => bad(op, other),
@@ -683,7 +684,7 @@ fn text(s: &Shapes, op: PrimOp, t: TextNative, args: &[&Value]) -> Value {
         TextToList => chars(s, text_of(args[0])),
         TextFromList => {
             let out: String = items(s, args[0]).map(char_of).collect();
-            Value::Text(out.into())
+            Value::text(out.into())
         }
         TextAppend => {
             let (a, b) = (text_of(args[0]), text_of(args[1]));
@@ -696,7 +697,7 @@ fn text(s: &Shapes, op: PrimOp, t: TextNative, args: &[&Value]) -> Value {
             let mut out = String::with_capacity(a.len() + b.len());
             out.push_str(a);
             out.push_str(b);
-            Value::Text(out.into())
+            Value::text(out.into())
         }
         TextLength => Value::Nat(text_of(args[0]).chars().count() as u64),
         TextIsEmpty => boolean(s, text_of(args[0]).is_empty()),
@@ -710,7 +711,7 @@ fn text(s: &Shapes, op: PrimOp, t: TextNative, args: &[&Value]) -> Value {
                 None => Value::Tag(s.none),
                 Some(c) => some(
                     s,
-                    Value::data(s.pair, [char_value(s, c), Value::Text(it.as_str().into())]),
+                    Value::data(s.pair, [char_value(s, c), Value::text(it.as_str().into())]),
                 ),
             }
         }
@@ -721,7 +722,7 @@ fn text(s: &Shapes, op: PrimOp, t: TextNative, args: &[&Value]) -> Value {
             if trimmed.len() == t.len() {
                 args[0].clone()
             } else {
-                Value::Text(trimmed.into())
+                Value::text(trimmed.into())
             }
         }
         // The first `n` characters (scalar values), or the whole text.
@@ -729,7 +730,7 @@ fn text(s: &Shapes, op: PrimOp, t: TextNative, args: &[&Value]) -> Value {
         TextTake => {
             let t = text_of(args[0]);
             match char_boundary(t, args[1]) {
-                Some(end) => Value::Text(t[..end].into()),
+                Some(end) => Value::text(t[..end].into()),
                 None => args[0].clone(),
             }
         }
@@ -738,8 +739,8 @@ fn text(s: &Shapes, op: PrimOp, t: TextNative, args: &[&Value]) -> Value {
             let t = text_of(args[0]);
             match char_boundary(t, args[1]) {
                 Some(0) => args[0].clone(),
-                Some(start) => Value::Text(t[start..].into()),
-                None => Value::Text("".into()),
+                Some(start) => Value::text(t[start..].into()),
+                None => Value::text("".into()),
             }
         }
         // `Text.contains text needle`. UTF-8 is self-synchronising: a match
@@ -752,7 +753,7 @@ fn text(s: &Shapes, op: PrimOp, t: TextNative, args: &[&Value]) -> Value {
             let sep = char_of(args[1]);
             let parts = text_of(args[0])
                 .split(sep)
-                .map(|p| Value::Text(p.into()))
+                .map(|p| Value::text(p.into()))
                 .collect();
             list(s, parts)
         }
@@ -766,7 +767,7 @@ fn text(s: &Shapes, op: PrimOp, t: TextNative, args: &[&Value]) -> Value {
                 }
                 out.push_str(text_of(part));
             }
-            Value::Text(out.into())
+            Value::text(out.into())
         }
         NatToText => nat_to_text(args[0]),
         TextToNat => match digits(text_of(args[0])) {
@@ -848,6 +849,7 @@ fn index_of(op: PrimOp, v: &Value) -> Option<usize> {
 fn unshared(items: &mut Rc<Vec<Value>>) -> &mut Vec<Value> {
     if Rc::get_mut(items).is_none() {
         let len = items.len() as u64;
+        crate::value_census::array(items.len());
         // An empty array (`Array.empty`, a constant every use shares) costs
         // nothing to copy.
         ARRAY_COPIES.with(|c| {
@@ -877,7 +879,7 @@ pub fn replicate_cost(count: &Value) -> u64 {
 /// The array operations that only read their array.
 fn array(s: &Shapes, op: PrimOp, a: ArrayNative, args: &[&Value]) -> Value {
     match a {
-        ArrayNative::FromList => Value::Array(Rc::new(items(s, args[0]).cloned().collect())),
+        ArrayNative::FromList => Value::array(items(s, args[0]).cloned().collect()),
         ArrayNative::ToList => list(s, (**array_of(op, args[0])).clone()),
         ArrayNative::Size => Value::Nat(array_of(op, args[0]).len() as u64),
         ArrayNative::Get => {
@@ -903,7 +905,7 @@ fn array(s: &Shapes, op: PrimOp, a: ArrayNative, args: &[&Value]) -> Value {
             let Some(count) = index_of(op, args[0]) else {
                 panic!("internal error: `Array.replicate` of more elements than memory holds")
             };
-            Value::Array(Rc::new(vec![args[1].clone(); count]))
+            Value::array(vec![args[1].clone(); count])
         }
         ArrayNative::Set | ArrayNative::Push | ArrayNative::Pop => {
             unreachable!("a consuming array native is run by `eval_owned`")
@@ -945,6 +947,7 @@ pub fn eval_owned(s: &Shapes, op: PrimOp, args: impl IntoIterator<Item = Value>)
         ArrayNative::Push => {
             let value = arg();
             unshared(&mut items).push(value);
+            crate::value_census::array_push();
             Value::Array(items)
         }
         ArrayNative::Pop => {

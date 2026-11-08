@@ -46,6 +46,7 @@ pub mod sums;
 pub mod trmc;
 mod validate;
 pub mod value;
+pub mod value_census;
 mod wire;
 
 pub use codec::{CodecError, decode, encode};
