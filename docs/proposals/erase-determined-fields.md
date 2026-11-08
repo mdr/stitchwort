@@ -1,8 +1,9 @@
 # Proposal: don't store constructor fields the type's indices determine
 
-**Status:** Draft 1, 8 November 2026 (SW-2406, from D3426). Design only:
-nothing was built or run for it. The questions for Matt are in
-[§9](#9-open-questions). It reverses half of D141 for the fast runtimes
+**Status:** Stage 1 built (SW-2415, 8 November 2026; [As
+built](#as-built)); stage 2 (JS) is SW-2416. Decided: D3429 (Q1, Matt), and
+the orchestrator's calls on Q2-Q5 (A, automatic, the reference evaluator
+keeps the fields, a debug check). Draft 1 was SW-2406, from D3426. It reverses half of D141 for the fast runtimes
 only; the kernel, the reference evaluator and every proof stay as they are.
 
 Claims about Stitchwort were checked at commit `d15ae50e2`, plus SW-2398's
@@ -497,6 +498,81 @@ diff]:
    design item, after stage 1.
 2. **nat-shaped-types.md §1.1 and §2.3** said `Fin`'s implicit `n` is an
    erased field; it isn't (D141). Corrected there with a pointer here.
+
+## As built
+
+**Stage 1 (interpreter and native code), SW-2415.** Option A, as §3
+describes it, with these choices and differences.
+
+- **The rule is narrower than §2.1.** A field is determined when it isn't
+  erased, its type is the prelude's `Nat`, and a result index is the field
+  under zero or more `Succ`s (`crates/core/src/determined.rs`,
+  `ctor_determined`), in a data type with indices that is neither a
+  proposition nor a record. So every rebuild is a `Nat`, every path step is
+  a subtraction, and rule 4 (quotients) holds by construction. A field of
+  another type that an index is (§2.2's `Ty`'s `t` if it had one) stays
+  stored; widening the rule means a projection step through a cell and a
+  check that the type holds no quotient (a follow-up if a program needs it).
+  Records are left out so that `Data::unboxed_field` (shared with JS) stays
+  right. In std and `aoc/` the determined fields are exactly `Fin`'s `n` in
+  `FZero` and `FSucc` and `Vec`'s `n` in `VCons`
+  (`crates/rt/tests/it/snapshots/it__lower__the_library_s_determined_fields.snap`).
+- **No keying, no cache.** Rather than computing rebuilds per definition and
+  mapping branch positions through `specialise.rs`, the lowerer records its
+  path down the case tree as it lowers (`Lowerer::tree`), and only when a
+  branch reads a rebuilt field does it replay the kernel's refinements along
+  that path (`determined::Replay`: the telescope's parameters, then each
+  `case` branch, number arm and default as `check.rs` refines them,
+  `unify_index::unify` for the indices). An empty-row variant's replay
+  starts with its row parameters fixed (`Specialiser::row_constants`), which
+  is what the kernel's branch for `Empty` knew. The replay runs in the
+  kernel's modes (gluing on, the definition's transparency set, erasure off)
+  and checks that its context has as many variables as the lowerer's at each
+  match.
+- **Rebuilds.** After unification a determined field is either solved, and
+  its rebuild is the solution read back with calls kept (`quote_folded`), or
+  still free, and some variable bound before the fields is solved as
+  `Succᵏ field`, and the rebuild is that variable less `k`. If neither
+  holds, lowering stops with an internal error (§3.2 says it can't happen;
+  nothing in std, `aoc/` or the examples reaches it). The lowerer binds a
+  read field with a `let` of its rebuild, ordered so that a rebuild that
+  reads another comes inside it.
+- **Layout.** Every part of the runtime that builds or takes apart cells
+  asks `stitchwort_rt::erasure::stored_fields` (construction, matching,
+  `TypeInfo`, the fixed shapes, the effect clauses' operation fields).
+  `Data::unboxed_field` and SW-2398's `nat_shape` are untouched here.
+- **The debug check is opt-in, not every test build.** Under
+  `stitchwort_rt::erasure::checking_rebuilds()` (or
+  `STITCHWORT_CHECK_REBUILDS` set), lowering stores determined fields as
+  well, computes every determined field's rebuild in every branch, and
+  stops the run (as unreachable code does) unless `EqNat` finds it equal to
+  the stored field. Turning it on in every test build would have tested the
+  old layout everywhere else, so allocation traces and SW-2398's
+  `nat_shape` would differ between tests and release. Tests that turn it on:
+  the whole library lowered with its tests run on the IR, the effect
+  examples on the machine and natively, and examples/accept/
+  determined-fields.sw; and every AoC day was run with it set (natively,
+  and on the machine for the six days that use `Fin` or `Vec`).
+- **The census** (§4): `stitchwort_rt::erasure::census_rebuilds` collects,
+  and `STITCHWORT_REBUILD_CENSUS` prints, each rebuild that isn't a variable
+  or a number less a number. None in std (snapshot above) or in `aoc/`'s
+  `Fin` and `Vec` days; examples/accept/determined-fields.sw's `countOf` is
+  one on purpose (`MkCount.n := List.length xs`).
+- **Steps.** Construction no longer evaluates a determined field's
+  argument; the example's `count xs := MkCount (List.length xs) "items"`
+  makes 5 fewer calls of `List.lengthOnto` (one per element and one per
+  list), as §6.1 predicts. Call counts on the six `Fin` and `Vec` AoC days
+  are unchanged, and no pinned step or frame count in the `rt` and `native`
+  test lanes moved.
+- **Measured** (instructions retired, native executables on the real
+  inputs, base `69de3042d` against this stage, best of 3): 2025 day 3
+  1.552 G to 1.532 G (-1.3%); 2021 day 9 1.826 G to 1.815 G (-0.6%); 2021
+  day 11 6.285 G to 6.295 G (+0.2%); 2021 day 15 18.281 G to 18.299 G
+  (+0.1%). The gain comes with SW-2398, which this makes possible: `Fin` is
+  now shaped like `Nat` (`FSucc` stores only its predecessor).
+- **Docs.** DESIGN.md §6, docs/core.md's JS representation paragraph (which
+  also named the Rust runtime), indexed-families.md's As built and std's
+  `Vec.fromListN` comment.
 
 ## Sources
 

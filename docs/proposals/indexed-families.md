@@ -1429,6 +1429,14 @@ notes.
 - **Left:** SW-179 (`Vec`'s representation), `==` for indexed families, and
   exporting a family with a decoder that checks its indices.
 
+**Later: forced fields on the fast runtime, SW-2415.** D141's first half
+is reversed for the interpreter and native code only (D3429): a `Nat`
+field that a constructor's result index is, under `Succ`s (`n` in `FSucc`
+and `VCons`), isn't stored there, and a match rebuilds it from the
+scrutinee's index by replaying this note's unification
+(docs/proposals/erase-determined-fields.md, "As built"). The kernel, the
+reference evaluator and JS keep the fields, so nothing above changes.
+
 ## Sources
 
 Stitchwort (at `9ccb120`): DESIGN.md §2, §6, §13; docs/core.md; docs/syntax.md;
