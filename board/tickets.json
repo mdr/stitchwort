@@ -24008,14 +24008,14 @@
     {
       "id": 2421,
       "title": "Effect loop: a Vec<Vec<Value>> grows repeatedly (grow_one/finish_grow 3.7% inclusive on expressions); find the push site and reserve",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
         "perf"
       ],
       "epic": "comparative-speed",
-      "body": "From SW-2417. 30 min.\nStarted 19:53 UTC, Sonnet, expected 30 min.\n",
+      "body": "From SW-2417. 30 min.\nStarted 19:53 UTC, Sonnet, expected 30 min.\n\nFound (20:00): the push site is not in the effect loop. Callers of RawVec<Vec<Value>>::grow_one on expressions (profile_top --focus): Fun::take_children 2.0%, Fields::drop 0.9%, Resume::take_children 0.4%, value::free 0.2%. It is the `pending` worklist (Vec<Value>, symbol misread as Vec<Vec<Value>>) that Fields/Fun/Delay::drop make with Vec::new() and push the first deep child into (alloc of 4 values per drop with children) in crates/rt/src/value.rs.\nTried two fixes, both measured WORSE in instructions (baseline expressions 321.31 G, scan 307.76 G): thread-local reused worklist 331.33 G / 318.36 G (+3.1%/+3.4%); SmallVec<[Value;8]> worklist 334.78 G / 320.75 G (+4.2%/+4.2%). Reverted; no code change. mimalloc alloc/free of the small vec is cheaper than TLS access or a 192-byte stack buffer moved through free().\n\nClosed, no change (orchestrator's call): the growth is the drop worklist in Fields/Fun/Delay::drop; a thread-local worklist (+3.1/+3.4% instructions) and SmallVec<[Value; 8]> (+4.2%) both cost more. The lever is fewer cells and more reuse (SW-2422, SW-2324). Model result: Sonnet, worked (negative result), 19 min (est. 30).\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
@@ -24030,7 +24030,7 @@
         "perf"
       ],
       "epic": "comparative-speed",
-      "body": "From SW-2417. No code. 45 min.",
+      "body": "From SW-2417. No code. 45 min.\n\nFrom SW-2421: the Vec<Vec<Value>> growth is the drop worklist; don't retry the worklist fixes (thread-local, SmallVec) — both measured worse.\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
