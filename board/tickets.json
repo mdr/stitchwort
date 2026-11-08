@@ -1,5 +1,5 @@
 {
-  "next": 2449,
+  "next": 2450,
   "tickets": [
     {
       "id": 47,
@@ -23661,14 +23661,14 @@
     {
       "id": 2399,
       "title": "Nat-shaped types stage 2: Fin.toNat and Fin.ofNatLt as pinned identity natives (constant time)",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": "",
       "labels": [
         "perf"
       ],
       "epic": "comparative-speed",
-      "body": "After SW-2398. 1 h.\n\nAfter SW-2398 (Fin as numbers, -4% instructions on 2025 day 3 and 2021 day 9): Fin.toNat still walks one frame per successor and computes the unread index (%Nat.sub(v0, 1)) each step; this stage removes both. Next.\nStarted 21:44 UTC.\n",
+      "body": "After SW-2398. 1 h.\n\nAfter SW-2398 (Fin as numbers, -4% instructions on 2025 day 3 and 2021 day 9): Fin.toNat still walks one frame per successor and computes the unread index (%Nat.sub(v0, 1)) each step; this stage removes both. Next.\nStarted 21:44 UTC.\n\n\n22:02 lane done (17 min), commit b31be116e on lane/SW-2399. Fin.toNat/Fin.ofNatLt bound by hash in rt natives.rs FIN_NATIVES (hash covers Fin), applied only while Fin is Nat-shaped (off under STITCHWORT_CHECK_REBUILDS); lowered as a function returning its number param, inlined by the simplifier: 0 steps at direct calls, 1 frame as closure. No new PrimOp, machine/codec/native unchanged; JS, kernel, proofs unchanged. Step pin: nat-shaped example 562 -> 263 steps (frames 11). Native instructions, same build switched off/on, median of 3: 2025 d3 1.428 G -> 1.342 G (-6.0%), 2021 d9 1.661 G -> 1.593 G (-4.1%), 2021 d11/d15 -0.1%, 2025 d4/d7 unchanged; answers identical. Tests: lane rt 65, native 70, hashes 8 pass; nat_shaped/determined/pinned_hashes/every_pin/registry/pins + new fin_natives_need_fin_as_a_number (24) pass; clippy core/rt/native/driver --deny warnings clean.\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
@@ -24447,6 +24447,21 @@
       ],
       "epic": "comparative-speed",
       "body": "From SW-2443. Instruction A/B on expressions, scan, octopus, matcher. 30 min.\nStarted 21:51 UTC.\n",
+      "created": "2026-11-08",
+      "updated": "2026-11-08",
+      "commits": []
+    },
+    {
+      "id": 2449,
+      "title": "Soundness fuzzer's memory grows with MUTANTS: mutated_theorems_have_no_counterexample reached 11.63 GB at 5920 s with MUTANTS=8000 (seed 0x2439, Overmind, killed by memguard); job 16's run peaked at 7.66 GB. Find what accumulates across mutants (caches, interned terms, retained results) and bound it",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "test-infra"
+      ],
+      "epic": "audit-fuzzing",
+      "body": "From Overmind job 25 (8 Nov 2026 22:01, 7aae7269c). No counterexample before the kill. Repro: STITCHWORT_MEM_REPORT=1 task fuzz:soundness MUTANTS=2000 VOID=0 SEED=0x2439 CORPUS=aoc,rogue, sampling memory as it runs (memory should stay flat if nothing accumulates). 60 min.",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
