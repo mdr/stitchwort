@@ -1,11 +1,10 @@
 ---
-source: crates/driver/tests/hash_stability.rs
-assertion_line: 172
+source: crates/driver/tests/library/hash_stability.rs
 expression: "lines(session, d, f)"
 ---
-Main.viaRange cdb86fadff7bb4ab3dbf0d34b8a138bcca0d34cbafa5f62ac809190608ee7a1a
-Main.viaCall cdb86fadff7bb4ab3dbf0d34b8a138bcca0d34cbafa5f62ac809190608ee7a1a
+Main.viaRange 5e812660d6f98e8490804a6337105c59bd9ff2a7bbe38d4c7859468f4628b1ae
+Main.viaCall 5e812660d6f98e8490804a6337105c59bd9ff2a7bbe38d4c7859468f4628b1ae
 Main.bracketed 6253c670d435350061f0beaa89f4d33a80e02681c786139b5a1c83f95c5a822f
-Main.test "a range starts a chain" 9a25c7d330ae93601545442ae1a929e6e5941c66539d9aa3b6e32206a811c095
-Main.test "the chain's values" b762e328019af1bac93ccf89450d17be38cf591df9b16b9c3d974a93a0b2d14a
+Main.test "a range starts a chain" 57d688b6cb3211d212e24723a2cace18c5884c96342952b74402cd8ebcd1c686
+Main.test "the chain's values" fa143212c2ab9355bb8420b7a02fb51f50a24d8e6a5baf665740a34c98b4291c
 Main.test "a bracketed range" 4e6715bb17b20f6fd3826b756210a56c76c76daf2b1ca9359e6c4cb4ccf0e5dc

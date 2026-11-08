@@ -1136,14 +1136,14 @@ theorem List.filterAllExample (xs: List Nat): List.filter (List.map xs Succ) (n 
 --| A list's `flatMap`: an element of `f x` for an `x` of the list is in it.
 theorem List.memFlatMapIntro (f: a → List b) (x: a) (y: b): (xs: List a) → x ∈ xs → y ∈ f x → y ∈ List.flatMap xs f
   | [], h, m => Void.exfalso h
-  | [z, ..zs], Inl h, m => List.anyAppendLeft (w => w = y) (f z) (List.concat (List.map zs f)) (rewrite h in m)
-  | [z, ..zs], Inr h, m => List.anyAppendRight (w => w = y) (f z) (List.concat (List.map zs f)) (List.memFlatMapIntro f x y zs h m)
+  | [z, ..zs], Inl h, m => List.anyAppendLeft (w => w = y) (f z) (List.flatMap zs f) (rewrite h in m)
+  | [z, ..zs], Inr h, m => List.anyAppendRight (w => w = y) (f z) (List.flatMap zs f) (List.memFlatMapIntro f x y zs h m)
 
 --| What is in a `flatMap` is in `f x` for some `x` of the list.
 theorem List.memFlatMapElim (f: a → List b) (y: b): (xs: List a) → y ∈ List.flatMap xs f → List.Any (x => y ∈ f x) xs
   | [], h => h
   | [z, ..zs], h =>
-    match List.memAppend y (f z) (List.concat (List.map zs f)) h with
+    match List.memAppend y (f z) (List.flatMap zs f) h with
       | Inl m => Inl m
       | Inr m => Inr (List.memFlatMapElim f y zs m)
 
