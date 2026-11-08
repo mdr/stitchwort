@@ -1,0 +1,11 @@
+# One entry per headline run (docs/proposals/comparative-speed.md, "Tracking over time"):
+# geometric means over the ten programs of native time over each other runner's time
+# (above 1, Stitchwort is slower). Reports with the full tables are in docs/reviews/.
+
+[[run]]
+date = "2026-11-08"
+host = "overmind"
+commit = "e8e9acd1e"
+report = "docs/reviews/SW-2295-comparative-speed.md"
+native_over_cpython = 5.46
+native_over_lean = 23.06
