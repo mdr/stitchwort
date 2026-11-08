@@ -1,5 +1,5 @@
 {
-  "next": 2440,
+  "next": 2442,
   "tickets": [
     {
       "id": 47,
@@ -24136,17 +24136,19 @@
     {
       "id": 2429,
       "title": "Compact values V4: cost model combining V0-V3; go to two-word values only if it predicts >= 1.10x geomean and >= 1.25x binary-trees",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": "",
       "labels": [
         "perf"
       ],
       "epic": "comparative-speed",
-      "body": "After SW-2425 SW-2426 SW-2427 SW-2428. 1 h.\n\nD3432, Matt, 8 Nov 2026 ~18:30: yes, \"run the measurements\" (end state C then E; A/D gated).\nStarted 20:31 UTC.\n",
+      "body": "After SW-2425 SW-2426 SW-2427 SW-2428. 1 h.\n\nD3432, Matt, 8 Nov 2026 ~18:30: yes, \"run the measurements\" (end state C then E; A/D gated).\nStarted 20:31 UTC.\n\nLane (Opus, paper, 20:32-20:45): docs/proposals/compact-values.md §7, commit dc455b576 on lane/SW-2429. Central predictions (decision-set geomean / binary-trees): C 1.008 / 1.03; C+E 1.088 (1.03-1.21) / 1.21 (1.09-1.46); A beyond E 1.08 / 1.19. Gate (1.10, 1.25, 1.10): E and A both miss narrowly at central; the range straddles. Dominant uncertainty: k (time per removed instruction, 0.3-1.0) x V2's spill rule; E passes at k >= 0.8. Rec: hold E; do SW-2431, SW-2437, weak-count load, SW-2434 first (~1.025x, ~4 h); rerun V4 after ops-in-place stage D; optional register-dilation experiment (Opus 2-4 h) to settle k.\n\nMerged. Gate not met (E 1.088x / 1.21x; A beyond E 1.08x). D3434 for Matt. Follow-ups SW-2440 SW-2441. Model result: Opus, worked, 15 min (est. 60).\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
-      "commits": []
+      "commits": [
+        "7ed87ab40"
+      ]
     },
     {
       "id": 2430,
@@ -24173,7 +24175,7 @@
         "perf"
       ],
       "epic": "comparative-speed",
-      "body": "From SW-2426. THP is madvise on Overmind; mimalloc may not ask for huge pages. Measure first (perf stat dTLB-load-misses, time). 45 min.",
+      "body": "From SW-2426. THP is madvise on Overmind; mimalloc may not ask for huge pages. Measure first (perf stat dTLB-load-misses, time). 45 min.\n\nFrom SW-2429: in V3, binary-trees' kernel time grew 0.1 s -> 0.8 s as cells grew (mimalloc returning and refaulting pages?). Try mimalloc large-page and purge-delay options (env, no rebuild) first. Predicted 1.009x geomean.\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
@@ -24296,6 +24298,36 @@
       ],
       "epic": "elaborator-kernel",
       "body": "Found by fuzz:elab CASES=15000 SEED=0x2438 (8 Nov 2026 20:33). Input dev/fuzz-findings/2438-11979.sw. Repro: task fuzz:elab CASES=15000 SEED=0x2438 ONLY=11979 DUMP=1. The kernel caught it (not a soundness hole), but the elaborator produced an ill-typed term: find where (lambda patterns with annotations), fix, add a regression example. Opus (elaborator soundness boundary). 60 min.\nStarted 20:33 UTC.\n",
+      "created": "2026-11-08",
+      "updated": "2026-11-08",
+      "commits": []
+    },
+    {
+      "id": 2440,
+      "title": "Native uniqueness tests: compare only the strong count (nothing creates a Weak; n1.rs:4629-4635 loads and compares the weak count on every test)",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "comparative-speed",
+      "body": "From SW-2324 and SW-2429 (predicted 1.005x geomean, binary-trees 1.02x). Check nothing in crates/rt or native makes a Weak; measure instructions on binary-trees. 30 min.",
+      "created": "2026-11-08",
+      "updated": "2026-11-08",
+      "commits": []
+    },
+    {
+      "id": 2441,
+      "title": "Compact values: register dilation experiment (throwaway branch, mirror of V3): native code carries a fourth unused word per value register; if it costs >= ~11% of binary-trees' cycles and 6-7% on the decision-set mean, E clears its gate",
+      "status": "backlog",
+      "agent": "Opus",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "comparative-speed",
+      "body": "From SW-2429 §7 (settles k x V2's spill rule). Est. 2-4 h; check how mechanical the n1.rs change is first. Waits for D3434.",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
