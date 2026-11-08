@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-TYPE-MISMATCH] Error: type mismatch
+   ╭─[ reject/lambda-comparison-list-prop.sw:7:3 ]
+   │
+ 7 │   marked
+   │   ───┬──  
+   │      ╰──── expected `List Bool`, but this has type `List Prop`
+   │ 
+   │ Note: a comparison such as `<` in a lambda written without its result type is a `Prop`, since nothing asked for a `Bool`: annotate it, `n => (9 < n: Bool)`
+───╯

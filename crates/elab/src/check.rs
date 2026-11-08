@@ -1045,6 +1045,16 @@ impl<'e> Ctx<'e> {
         } else {
             d
         };
+        let d = if !bool_function_found_prop(&expected_shown, &found_shown)
+            && bool_found_prop(&expected_shown, &found_shown)
+        {
+            d.with_note(
+                "a comparison such as `<` in a lambda written without its result type is a \
+                 `Prop`, since nothing asked for a `Bool`: annotate it, `n => (9 < n: Bool)`",
+            )
+        } else {
+            d
+        };
         let d = if ne_read_as_prop(&expected_shown, &found_shown) {
             d.with_note(NE_AS_PROP_NOTE)
         } else {
@@ -1582,6 +1592,13 @@ fn bool_function_found_prop(expected: &str, found: &str) -> bool {
         (expected.rsplit_once(" → "), found.rsplit_once(" → ")),
         (Some((e, "Bool")), Some((f, "Prop"))) if e == f
     )
+}
+
+/// Whether the shown types are the same but for `Prop` where `Bool` is
+/// expected, as in `List Bool` expected, `List Prop` found: the result of
+/// `map (n => 9 < n)`.
+fn bool_found_prop(expected: &str, found: &str) -> bool {
+    expected.contains("Bool") && found.contains("Prop") && expected.replace("Bool", "Prop") == found
 }
 
 pub(crate) const NE_AS_PROP_NOTE: &str =
