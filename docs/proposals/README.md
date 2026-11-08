@@ -1,6 +1,6 @@
 # Design notes: an index
 
-There are 154 notes in this folder (the `*.md` files other than this one),
+There are 155 notes in this folder (the `*.md` files other than this one),
 plus a few prototype folders beside them. A note is a design as it was
 argued; it isn't kept current, so its own status line is often out of date.
 This index says where each note stands. It was written on 7 November 2026
@@ -172,6 +172,7 @@ status line now says the wrong thing; the details are in
 | [reuse-across-calls.md](reuse-across-calls.md) | Reusing a cell taken apart in one function where another rebuilds it (a hidden reuse-token argument), against reshaping std's `Map.Tree` | proposed: questions in §7 | SW-2384, SW-2383, SW-1812 |
 | [nat-shaped-types.md](nat-shaped-types.md) | Types shaped like `Nat` after erasure (`Fin` first) as machine numbers at run time, with pinned identity natives; compared with Idris 2, Lean, Agda, Rocq, F* | proposed: questions in §9; §1.1/§2.3 wrong about `Fin`'s `n` (corrected in place) | SW-2397, SW-2398 |
 | [erase-determined-fields.md](erase-determined-fields.md) | Don't store constructor fields the type's indices determine (`Fin`'s and `Vec`'s `n`) on the fast runtimes, rebuilding them at a match from the kernel's own unification; reverses half of D141; compared with Brady et al., Agda, Idris 1 and 2, Lean, Rocq | proposed: questions in §9 | SW-2406 |
+| [compact-values.md](compact-values.md) | How big a run-time value should be: an 8-byte cell header, two-word values (16 bytes), or one-word tagged values with unboxed typed fields, compared with Lean, Koka, OCaml, GHC, Swift and others; most of the native/Lean gap is instructions, not memory stalls; a staged measurement plan with go/no-go points before any refactor | proposed: questions in §6 | SW-2324 |
 
 ## Standard library and data types
 
