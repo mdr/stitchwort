@@ -57,5 +57,29 @@ class UnderLoop(unittest.TestCase):
         self.assertEqual(profile_top.under_loop_names(frames, self.EXE), set())
 
 
+class Focus(unittest.TestCase):
+    NAMES = ["Aoc.Year2024.Day09.parseDiskMap#221", "Aoc.Year2024.Day09.parseDiskMap/lambda3#222",
+             "Aoc.Year2024.Day09.parseDiskMapX#9", "Std.List.get#67", "Std.List.getOr#68"]
+
+    def test_exact_name_matches_numbered_bodies_only(self):
+        found, how = profile_top.match_focus("Aoc.Year2024.Day09.parseDiskMap", self.NAMES)
+        self.assertEqual(found, self.NAMES[:2])
+        self.assertEqual(how, "name")
+
+    def test_substring_fallback_finds_several_definitions(self):
+        found, how = profile_top.match_focus("parseDiskMap", self.NAMES)
+        self.assertEqual(found, sorted(self.NAMES[:3]))
+        self.assertEqual(how, "substring")
+
+    def test_no_match_is_empty(self):
+        self.assertEqual(profile_top.match_focus("Aoc.Day9.nothing", self.NAMES)[0], [])
+
+    def test_miss_exits_listing_closest_names(self):
+        with self.assertRaises(SystemExit) as cm:
+            profile_top.fail_no_match("--focus", "Std.List.gt", self.NAMES)
+        self.assertIn("Std.List.get#67", str(cm.exception))
+        self.assertNotEqual(cm.exception.code, 0)
+
+
 if __name__ == "__main__":
     unittest.main()
