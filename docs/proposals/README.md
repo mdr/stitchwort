@@ -169,6 +169,7 @@ status line now says the wrong thing; the details are in
 | [run-profiler.md](run-profiler.md) | A profiler for `stitchwort run` | in progress: stage 1 built (`run --profile`, `crates/cli/src/main.rs`) | SW-1528; open SW-1634 |
 | [cell-allocator.md](cell-allocator.md) | Whether cells need an allocator of our own (no: mimalloc, with a per-run cell cache inlined in native code) | proposed: D3413, D3414 | SW-2360 |
 | [reuse-across-calls.md](reuse-across-calls.md) | Reusing a cell taken apart in one function where another rebuilds it (a hidden reuse-token argument), against reshaping std's `Map.Tree` | proposed: questions in §7 | SW-2384, SW-2383, SW-1812 |
+| [nat-shaped-types.md](nat-shaped-types.md) | Types shaped like `Nat` after erasure (`Fin` first) as machine numbers at run time, with pinned identity natives; compared with Idris 2, Lean, Agda, Rocq, F* | proposed: questions in §9 | SW-2397 |
 
 ## Standard library and data types
 
