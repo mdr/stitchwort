@@ -1547,6 +1547,26 @@ pub(crate) unsafe fn free_emptied(cell: u64, n: u64) {
     );
 }
 
+/// Frees a unique, emptied cell as [`sw_cell_free`] does, for native code
+/// whose push onto the run's cell cache found too little room: the cache
+/// counts its room again and keeps the cell if it can
+/// ([`CellCache::full`]).
+///
+/// # Safety
+/// As [`sw_cell_free`]'s, with `n` from 1 to [`crate::cell_cache::ARITIES`],
+/// and `context` the context native code was given.
+#[allow(unsafe_code)]
+#[cfg_attr(not(test), unsafe(no_mangle))]
+pub unsafe extern "C" fn sw_cell_cache_full(context: *mut Context, cell: u64, n: u64) {
+    if crate::alloc_trace::recording() {
+        // SAFETY: the caller's contract.
+        return unsafe { sw_cell_free(cell, n) };
+    }
+    crate::call_counts::hit(crate::call_counts::Helper::CellCacheFull);
+    // SAFETY: the caller's contract.
+    unsafe { (*context).cells.full(cell, n) };
+}
+
 /// `CtorReuse`, with the `n` field values at `fields` (moved): the cell
 /// held by `token` refilled, if it's unique and has `n` fields, otherwise a
 /// new one; the token is used up. Put in `out` (uninitialised).

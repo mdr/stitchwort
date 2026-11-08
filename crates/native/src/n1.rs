@@ -2429,6 +2429,7 @@ fn helper_addresses() -> Vec<(&'static str, *const u8)> {
         ("sw_int_negative", abi::sw_int_negative as *const u8),
         ("sw_unary", abi::sw_unary as *const u8),
         ("sw_cell_free", abi::sw_cell_free as *const u8),
+        ("sw_cell_cache_full", abi::sw_cell_cache_full as *const u8),
         ("sw_bind", abi::sw_bind as *const u8),
         ("sw_text_last", abi::sw_text_last as *const u8),
         ("sw_eff_begin", abi::sw_eff_begin as *const u8),
@@ -2469,6 +2470,7 @@ struct Helpers {
     int_negative: FuncId,
     unary: FuncId,
     cell_free: FuncId,
+    cell_cache_full: FuncId,
     bind: FuncId,
     text_last: FuncId,
     eff_begin: FuncId,
@@ -2525,6 +2527,7 @@ impl Helpers {
             int_negative: declare("sw_int_negative", &[p], &[I64])?,
             unary: declare("sw_unary", &[p, I32, p, p], &[])?,
             cell_free: declare("sw_cell_free", &[I64, I64], &[])?,
+            cell_cache_full: declare("sw_cell_cache_full", &[p, I64, I64], &[])?,
             bind: declare("sw_bind", &[p, p, p, p], &[I64])?,
             text_last: declare("sw_text_last", &[p, p, I64, p], &[I64])?,
             eff_begin: declare("sw_eff_begin", &[p, I32, p, p], &[I64])?,
@@ -3831,7 +3834,6 @@ impl Gen<'_, '_> {
     /// block of that size, or a new one if it has none.
     fn cached_cell(&mut self, tag: u32, n: u64) -> IrValue {
         let head_at = Context::CELLS_AT + CellCache::head_at(n);
-        let room_at = Context::CELLS_AT + CellCache::ROOM_AT;
         let head = self.b.ins().load(types::I64, flags(), self.ctx, head_at);
         let hit = self.b.create_block();
         let miss = self.b.create_block();
@@ -3841,12 +3843,6 @@ impl Gen<'_, '_> {
         self.b.switch_to_block(hit);
         let next = self.b.ins().load(types::I64, flags(), head, STRONG_AT);
         self.b.ins().store(flags(), next, self.ctx, head_at);
-        let room = self.b.ins().load(types::I64, flags(), self.ctx, room_at);
-        let room = self
-            .b
-            .ins()
-            .iadd_imm_s(room, cell_cache::block_bytes(n) as i64);
-        self.b.ins().store(flags(), room, self.ctx, room_at);
         let one = self.iconst(1);
         self.b.ins().store(flags(), one, head, STRONG_AT);
         self.b.ins().jump(after, &[head.into()]);
@@ -3861,7 +3857,8 @@ impl Gen<'_, '_> {
     }
 
     /// Frees the unique, emptied cell of `n` fields at `cell`: into the
-    /// cache if it has room, otherwise as `sw_cell_free` frees it.
+    /// cache if its room says so, otherwise through the runtime, which
+    /// counts the room again (`sw_cell_cache_full`).
     fn free_emptied(&mut self, cell: IrValue, n: u64) {
         if !self.caches_cells(n) {
             let n = self.iconst(n);
@@ -3890,7 +3887,7 @@ impl Gen<'_, '_> {
         self.b.switch_to_block(free);
         self.b.set_cold_block(free);
         let n = self.iconst(n);
-        self.call_helper(self.helpers.cell_free, &[cell, n]);
+        self.call_helper(self.helpers.cell_cache_full, &[self.ctx, cell, n]);
         self.b.ins().jump(after, &[]);
         self.b.switch_to_block(after);
     }
