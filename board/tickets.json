@@ -22375,17 +22375,17 @@
     {
       "id": 2323,
       "title": "Std: one-pass List.flatMap, today's definition kept as a theorem",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Sonnet",
-      "where": "",
+      "where": ".claude/worktrees/SW-2323",
       "labels": [
         "perf",
         "stdlib"
       ],
       "epic": "comparative-speed",
-      "body": "From docs/research/lean-runtime-speed.md (SW-2318). A hypothesis from reading code: start only if the SW-2296 profile shows this cost is a meaningful share. Est. 5-15% on matcher. 30 min.",
+      "body": "From docs/research/lean-runtime-speed.md (SW-2318). A hypothesis from reading code: start only if the SW-2296 profile shows this cost is a meaningful share. Est. 5-15% on matcher. 30 min.\n\nStarted 8 Nov 2026 00:16, overnight wave 2; expected: 40 min.\n",
       "created": "2026-11-07",
-      "updated": "2026-11-07",
+      "updated": "2026-11-08",
       "commits": []
     },
     {
