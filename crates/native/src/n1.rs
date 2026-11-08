@@ -4624,14 +4624,21 @@ impl Gen<'_, '_> {
         self.assign(pc, dst, Val([w0, zero, zero]));
     }
 
-    /// Whether the cell whose address is `cell` is unique (strong count 1,
-    /// no weak references).
+    /// Whether the cell whose address is `cell` is unique.
+    ///
+    /// Tests the strong count alone. An `Rc` holds an implicit weak count of
+    /// 1 while any strong reference exists, and no `Weak` is ever made to a
+    /// runtime value, so the weak count is always 1 and strong == 1 means
+    /// no other reference. Anything that made a `Weak` would break this.
+    /// Debug builds of the compiler check the weak count and trap.
     fn unique(&mut self, cell: IrValue) -> IrValue {
         let strong = self.b.ins().load(types::I64, flags(), cell, STRONG_AT);
-        let weak = self.b.ins().load(types::I64, flags(), cell, WEAK_AT);
-        let s1 = self.b.ins().icmp_imm_u(IntCC::Equal, strong, 1);
-        let w1 = self.b.ins().icmp_imm_u(IntCC::Equal, weak, 1);
-        self.b.ins().band(s1, w1)
+        if cfg!(debug_assertions) {
+            let weak = self.b.ins().load(types::I64, flags(), cell, WEAK_AT);
+            let w1 = self.b.ins().icmp_imm_u(IntCC::Equal, weak, 1);
+            self.b.ins().trapz(w1, TrapCode::unwrap_user(4));
+        }
+        self.b.ins().icmp_imm_u(IntCC::Equal, strong, 1)
     }
 
     fn unpack(&mut self, pc: usize, src: Reg, fields: Ops, token: Reg) {
