@@ -1,5 +1,5 @@
 {
-  "next": 2419,
+  "next": 2421,
   "tickets": [
     {
       "id": 47,
@@ -23748,17 +23748,19 @@
     {
       "id": 2405,
       "title": "Nat's own Succ (f x) recursion gets no constant-stack loop (TRMC handles constructors, not call plus k); add an accumulator loop for call-plus-constant",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": "",
       "labels": [
         "rt"
       ],
       "epic": "comparative-speed",
-      "body": "From SW-2398. Existing gap; also needed if Nat-shaped types go ahead. Changes frames and steps for such Nat functions (results unchanged). 90 min.\nStarted 15:55 UTC, Opus.\n",
+      "body": "From SW-2398. Existing gap; also needed if Nat-shaped types go ahead. Changes frames and steps for such Nat functions (results unchanged). 90 min.\nStarted 15:55 UTC, Opus.\n\n\nFull run with the fix (examples as before, so the same cases): task fuzz:elab CASES=11500 SEED=0x2409 passed in 1024 s, peak 4.74 GB, 20 checks named as over 5 s. Lane done 16:37 (37 min, est. 60).\n\n16:40 lane done, commit a3b7b0524 on lane/SW-2405. New pass crates/rt/src/sums.rs (before TRMC): a Nat or Int sum with one term a self call becomes a loop carrying the sum. Size 100k: frames 100,002 -> 2, steps 200,003 -> 200,004. 12 std functions, 10 more in aoc/. bench:compare instructions unchanged except octopus 27.59 -> 26.83 G. Tests that used `1 + count n` / `x + total rest` for deep recursion now use a product or Nat.max. Tests: rt and native lane tiers, new tests, changed tests, lower snapshots, bench:compare:check 66 ok, clippy, fmt.\nModel result: Opus, worked, 45 min (est. 90 min)\n\nMerged. Follow-ups SW-2419 SW-2420. Orchestrator's call: micro_call.sw changes in SW-2419.\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
-      "commits": []
+      "commits": [
+        "96bf4836a"
+      ]
     },
     {
       "id": 2406,
@@ -23961,6 +23963,36 @@
       ],
       "epic": "elaborator-kernel",
       "body": "From SW-2409. 60 min.",
+      "created": "2026-11-08",
+      "updated": "2026-11-08",
+      "commits": []
+    },
+    {
+      "id": 2419,
+      "title": "Audit native and rt tests that use x + total rest as their deep recursion (n1 SHAPES/l178, n2b l458/561/645/686, n3 l213, machine l1051): since SW-2405 these run as loops; keep each test's intent (products or Nat.max where depth matters); and bench/native/micro_call.sw (1 + down n) no longer measures non-tail calls: use 2 * down n",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "test-infra"
+      ],
+      "epic": "test-infra",
+      "body": "From SW-2405. 45 min.",
+      "created": "2026-11-08",
+      "updated": "2026-11-08",
+      "commits": []
+    },
+    {
+      "id": 2420,
+      "title": "Loops for products (factorial) and the call-plus-number loop in the JS backend (docs/core.md still lists x + inner xs as a frame per call there)",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "rt"
+      ],
+      "epic": "comparative-speed",
+      "body": "From SW-2405. 60-90 min.",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
