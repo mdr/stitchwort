@@ -25,3 +25,11 @@ commit = "2541bba88"
 report = "docs/reviews/SW-2295-comparative-speed.md"
 native_over_cpython = 3.88
 native_over_lean = 16.34
+
+[[run]]
+date = "2026-11-08"
+host = "overmind"
+commit = "a3d786138"
+report = "docs/reviews/SW-2295-comparative-speed.md"
+native_over_cpython = 3.55
+native_over_lean = 14.86

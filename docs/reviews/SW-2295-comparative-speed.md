@@ -89,3 +89,46 @@ tonight's three runs. Native now beats CPython on pidigits, binary-trees and mem
 PyPy on memory-game). The two parsing programs (expressions, scan) remain the outliers at 38x
 and 94x CPython; their cost is the effect machinery, which operations in place
 (docs/proposals/operations-in-place.md, stages B-D) addresses.
+
+## After the Dijkstra and reuse fixes (Overmind, 8 Nov 2026 10:43, `a3d786138`)
+
+`task bench:compare -- --instructions --runners native,cpython,pypy,lean`, same machine, 44
+answers ok, 33.7 min. Adds SW-2370 (queue a neighbour only when its cost improves), SW-2382
+(the search takes the popped pair), SW-2376 (`reachable` by breadth-first search) and SW-2388
+(a call argument's last read is a move). Not yet SW-2394 (cost table), SW-2349 (operations in
+place stage B) or SW-2391 (reuse across calls). Noisier than the previous run: the reference
+runners moved up to 20% (PyPy on pidigits), so read native changes under 10% from the
+instruction counts.
+
+| Program | native | CPython | PyPy | Lean | native / CPython | native / Lean | native change |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| pidigits | 1.35 s | 3.84 s | 3.95 s | 2.24 s | 0.35 | 0.60 | |
+| binary-trees | 3.35 s | 10.48 s | 1.71 s | 1.03 s | 0.32 | 3.26 | noise (first run slow) |
+| memory-game | 5.11 s | 8.78 s | 5.30 s | 809 ms | 0.58 | 6.32 | noise |
+| dijkstra | 5.85 s | 834 ms | 504 ms | 203 ms | 7.02 | 28.91 | 11.76 → 5.85 s |
+| octopus | 3.33 s | 1.51 s | 465 ms | 219 ms | 2.21 | 15.23 | |
+| disk | 15.96 s | 2.24 s | 1.93 s | 758 ms | 7.11 | 21.07 | 17.46 → 15.96 s |
+| expressions | 77.82 s | 2.12 s | 1.76 s | 661 ms | 36.65 | 117.82 | 82.20 → 77.82 s |
+| scan | 74.42 s | 828 ms | 126 ms | 582 ms | 89.85 | 127.80 | 77.85 → 74.42 s |
+| matcher | 10.52 s | 4.62 s | 2.81 s | 854 ms | 2.28 | 12.32 | |
+| bridge | 20.22 s | 3.47 s | 1.19 s | 822 ms | 5.83 | 24.60 | |
+
+Instructions retired (Linux `perf stat`), the steadier measure:
+
+| Program | native | CPython | PyPy | Lean | native / CPython | native / Lean |
+|---|---:|---:|---:|---:|---:|---:|
+| pidigits | 9.45 G | 44.45 G | 32.92 G | 13.28 G | 0.21 | 0.71 |
+| binary-trees | 29.39 G | 91.50 G | 8.73 G | 9.82 G | 0.32 | 2.99 |
+| memory-game | 35.30 G | 37.93 G | 13.06 G | 2.26 G | 0.93 | 15.65 |
+| dijkstra | 46.68 G | 7.23 G | 3.39 G | 1.50 G | 6.46 | 31.21 |
+| octopus | 29.88 G | 15.15 G | 3.28 G | 2.47 G | 1.97 | 12.09 |
+| disk | 127.40 G | 18.70 G | 10.12 G | 6.36 G | 6.81 | 20.04 |
+| expressions | 566.08 G | 20.35 G | 11.15 G | 6.09 G | 27.81 | 92.97 |
+| scan | 532.90 G | 7.90 G | 956.77 M | 5.99 G | 67.43 | 88.91 |
+| matcher | 86.61 G | 42.64 G | 15.27 G | 8.07 G | 2.03 | 10.73 |
+| bridge | 151.05 G | 32.65 G | 6.78 G | 7.05 G | 4.63 | 21.43 |
+
+Geometric means of the time ratios: native / CPython **5.5 → 4.7 → 3.9 → 3.5**, native / Lean
+**23 → 20 → 16 → 14.9**. Raw files: Overmind's `target/compare/2026-11-08T104311-overmind.{json,md}`.
+On Speedwell since then (instructions, macOS): SW-2394 dijkstra −5%, SW-2349 expressions 1.44×
+and scan 1.32× fewer, SW-2391 dijkstra −11%; these go in the next Overmind run.
