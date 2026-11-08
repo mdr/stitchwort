@@ -334,19 +334,19 @@ lane missed it and a batch failed:
 
 - **May add examples:** "new examples get a hash snapshot: `nix develop -c
   task snap:hashes NAME=<the example's file stem>` (comma-separated for
-  several), and run `task test:one -- -E 'binary(hash_stability)'`". `NAME`
+  several), and run `task test:one -- -E 'binary(library) & test(/hash_stability/)'`". `NAME`
   filters example file names, so it's the stem, not `examples` or `prelude`
   (5 Nov 2026: SW-1359, SW-1379, SW-1420; a name matching nothing now fails,
   SW-1440). For a std change, "commit the regenerated prelude snapshot
   (additions only)" (SW-1494).
 - **Changes std core** (Int, Nat, Text, Char, Bool definitions or lemmas):
-  "run `task test:one -- -E 'binary(extract) & test(/bound_to_the_prelude/)'`
+  "run `task test:one -- -E 'test(/bound_to_the_prelude/)'`
   (about 20 s); if it fails, check the computation is unchanged and repin
   the hash in `crates/rt/src/natives.rs`". Natives bind by content hash, so
   editing a definition or anything it depends on unbinds one with no build
   error: on 6 Nov 2026 SW-1558 made an `Int` lemma's arguments implicit and
   `DecEqInt` silently stopped binding (SW-1582 repinned it; SW-1586 is the
-  structural fix). The batch's check includes `binary(extract)` for such
+  structural fix). The batch's check includes `test(/bound_to_the_prelude/)` for such
   lanes.
 - **Touches comments:** say which rules apply ([syntax.md, "What to
   write"](syntax.md#what-to-write)): std's full API docs, or application
