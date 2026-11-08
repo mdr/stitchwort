@@ -24475,17 +24475,19 @@
     {
       "id": 2450,
       "title": "Benchmark breadth: review the ten bench/compare programs for over-fitting, and propose additions, especially Lean's own benchmark programs (lean4 tests/bench: binarytrees, deriv, const_fold, qsort, rbmap, unionfind, ...), more Benchmarks Game programs, and a broad AoC-day suite timed against CPython; say which to add, how to port them faithfully, and how to report a wider geomean without losing the history",
-      "status": "review",
+      "status": "done",
       "agent": "Opus",
       "where": "",
       "labels": [
         "bench"
       ],
       "epic": "comparative-speed",
-      "body": "Matt, 8 Nov 2026 ~22:20: \"I don't want us to over optimize on a fixed set of particular benchmarks. Maybe there are other benchmarks we should be considering as well.\" Paper lane, 90 min. Also: check whether tonight's fixes moved anything outside the ten (AoC days natively).\nStarted 22:14 UTC (paper).\nDone 22:23 (paper): docs/reviews/SW-2450-benchmark-breadth.md on lane/SW-2450 (f38f58074). Tonight's speed work is general in mechanism but its priorities came from parsers, binary-trees and dijkstra; three changes rewrote benchmarked days (octopus, disk, dijkstra index). Proposes eight wide-set programs (spectral-norm, const_fold, fannkuch-redux, rbmap/-ck, deriv, unionfind, k-nucleotide, nqueens-each), core/wide/all geomeans with history keys kept, a bench:aoc native instruction sweep, and floats plus const_fold/rbmap in compact values' gate set. Lean's run-time programs now live in tests/compile_bench/.\n",
+      "body": "Matt, 8 Nov 2026 ~22:20: \"I don't want us to over optimize on a fixed set of particular benchmarks. Maybe there are other benchmarks we should be considering as well.\" Paper lane, 90 min. Also: check whether tonight's fixes moved anything outside the ten (AoC days natively).\nStarted 22:14 UTC (paper).\nDone 22:23 (paper): docs/reviews/SW-2450-benchmark-breadth.md on lane/SW-2450 (f38f58074). Tonight's speed work is general in mechanism but its priorities came from parsers, binary-trees and dijkstra; three changes rewrote benchmarked days (octopus, disk, dijkstra index). Proposes eight wide-set programs (spectral-norm, const_fold, fannkuch-redux, rbmap/-ck, deriv, unionfind, k-nucleotide, nqueens-each), core/wide/all geomeans with history keys kept, a bench:aoc native instruction sweep, and floats plus const_fold/rbmap in compact values' gate set. Lean's run-time programs now live in tests/compile_bench/.\n\nMerged (docs/reviews/SW-2450-benchmark-breadth.md). Follow-ups SW-2453..SW-2460, SW-2010 raised; D3436 for Matt (gate decision sets). Model result: Opus, worked, 9 min (est. 90).\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
-      "commits": []
+      "commits": [
+        "f4f7b0397"
+      ]
     },
     {
       "id": 2451,
