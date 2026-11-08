@@ -36,5 +36,26 @@ class Fold(unittest.TestCase):
         self.assertEqual(pc_parts[1], {"check": 3, "call": 1})
 
 
+class UnderLoop(unittest.TestCase):
+    EXE = "prog"
+
+    def stack(self, *names):
+        return [(n, self.EXE) for n in names]
+
+    def test_function_with_loop_beneath_is_marked(self):
+        # Innermost first: the continuation's body, the loop, the handler's
+        # definition, the outer loop, main.
+        frames = self.stack("Main.rest#2", "rt_loop", "Main.parse#7", "Main.main#1", "rt_loop")
+        self.assertEqual(profile_top.under_loop_names(frames, self.EXE), {"Main.parse#7", "Main.main#1"})
+
+    def test_plain_calls_are_not_marked(self):
+        frames = self.stack("Main.leaf#3", "Main.parse#7", "Main.main#1", "rt_loop")
+        self.assertEqual(profile_top.under_loop_names(frames, self.EXE), set())
+
+    def test_runtime_functions_are_not_marked(self):
+        frames = [("rt_loop", self.EXE), ("Runner::drive", self.EXE), ("start", "libsystem_c.dylib")]
+        self.assertEqual(profile_top.under_loop_names(frames, self.EXE), set())
+
+
 if __name__ == "__main__":
     unittest.main()
