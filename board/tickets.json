@@ -1,5 +1,5 @@
 {
-  "next": 2335,
+  "next": 2340,
   "tickets": [
     {
       "id": 47,
@@ -22440,7 +22440,7 @@
     {
       "id": 2327,
       "title": "Design note: Std.Parse's run-time shape (slow-path apply 22%, effect steps 15-19%, closure frees 14% on expressions/scan, the two slowest programs; matcher 24%, bridge 17%): a PAP fast path in native Apply, specialised combinators (SW-2135 widened), or Parse compiled as a state-passing loop",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-2327",
       "labels": [
@@ -22448,10 +22448,12 @@
         "design"
       ],
       "epic": "comparative-speed",
-      "body": "From docs/reviews/SW-2296-native-profiles.md §5 (measured). Paper lane; implementation waits for Matt's decisions. 90 min.\n\nStarted 8 Nov 2026 00:08, overnight wave 1 (Matt: focus on comparative performance; profile, address, recheck); expected: 90 min.\n",
+      "body": "From docs/reviews/SW-2296-native-profiles.md §5 (measured). Paper lane; implementation waits for Matt's decisions. 90 min.\n\nStarted 8 Nov 2026 00:08, overnight wave 1 (Matt: focus on comparative performance; profile, address, recheck); expected: 90 min.\n\nNote merged. D3400 (operations in place for every effect, not a Parse-only lowering) waits on Matt. D3401 taken as the orchestrator's call: yes. Tickets: SW-2335 SW-2336 SW-2337 SW-2338 SW-2339. Model result: Opus, worked, 8 min (est. 90).\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
-      "commits": []
+      "commits": [
+        "2d5752b83"
+      ]
     },
     {
       "id": 2328,
@@ -22555,6 +22557,84 @@
       ],
       "epic": "test-infra",
       "body": "From the SW-2296 batch verifier, 8 Nov 2026. Also: no rule covers bench/compare/compare.py. 20 min.",
+      "created": "2026-11-08",
+      "updated": "2026-11-08",
+      "commits": []
+    },
+    {
+      "id": 2335,
+      "title": "Parse runtime stage 0: split the slow-apply count by kind of function value (DoneK, JumpK, resumptions, closures) and print effect-step counts in the call-counts report, to check the note's cost model before stages 1-3",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "perf",
+        "tooling"
+      ],
+      "epic": "comparative-speed",
+      "body": "From docs/proposals/parse-runtime.md (SW-2327). 30 min. First.",
+      "created": "2026-11-08",
+      "updated": "2026-11-08",
+      "commits": []
+    },
+    {
+      "id": 2336,
+      "title": "Parse runtime stage 1: fast paths for the effect runtime's own function values (no argument Vec), and a small multi-entry apply cache at the run loop's continuation call site",
+      "status": "backlog",
+      "agent": "Opus",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "comparative-speed",
+      "body": "From docs/proposals/parse-runtime.md (SW-2327). After SW-2335. Est. 1.2-1.3x on expressions/scan. 60-90 min.",
+      "created": "2026-11-08",
+      "updated": "2026-11-08",
+      "commits": []
+    },
+    {
+      "id": 2337,
+      "title": "Parse runtime stage 2: Std.Parse keeps what was expected unformatted and formats it only for the final message (same API and messages); findAll without closures",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "perf",
+        "stdlib"
+      ],
+      "epic": "comparative-speed",
+      "body": "From docs/proposals/parse-runtime.md (SW-2327). D3401 taken as the orchestrator's call (yes: internal state only, API and messages unchanged, any lemma naming Parse.State.note re-proved, e.g. Reads.sw:1179). After SW-2335. Est. scan 1.2-1.5x. 60 min.",
+      "created": "2026-11-08",
+      "updated": "2026-11-08",
+      "commits": []
+    },
+    {
+      "id": 2338,
+      "title": "Parse runtime stage 3: skip handlers whose clause only passes the operation on (optional, attempt, label re-dispatch)",
+      "status": "backlog",
+      "agent": "Opus",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "comparative-speed",
+      "body": "From docs/proposals/parse-runtime.md (SW-2327). After SW-2336. Est. 1.2-1.5x on expressions. 60-90 min.",
+      "created": "2026-11-08",
+      "updated": "2026-11-08",
+      "commits": []
+    },
+    {
+      "id": 2339,
+      "title": "Design note: effect operations that answer and carry on run as a direct call where performed (Koka's operations in place), for every effect, with the soundness argument for multi-shot resumptions",
+      "status": "backlog",
+      "agent": "Opus",
+      "where": "",
+      "labels": [
+        "design",
+        "effects"
+      ],
+      "epic": "comparative-speed",
+      "body": "From docs/proposals/parse-runtime.md (SW-2327). Waits on Matt's D3400 (rec yes). Est. 3-6x on what's left of expressions/scan after stages 1-3. Paper, 90 min.",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
