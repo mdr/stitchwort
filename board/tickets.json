@@ -1,5 +1,5 @@
 {
-  "next": 2410,
+  "next": 2413,
   "tickets": [
     {
       "id": 47,
@@ -23813,6 +23813,51 @@
       ],
       "epic": "audit-fuzzing",
       "body": "Found under D3427 (over pace), 8 Nov 2026 11:45-12:01 on Speedwell at a3d951195. Repro: nix develop -c task fuzz:elab CASES=20000 SEED=0x2409. Log: scratchpad fuzz-elab-0x2409.log (no per-case progress printed). Investigate once pace is back. 60 min.",
+      "created": "2026-11-08",
+      "updated": "2026-11-08",
+      "commits": []
+    },
+    {
+      "id": 2410,
+      "title": "Soundness example proof-irrelevance-02-type-argument.sw now checks: choose ignores t, so choose Nat n and choose Bool n unfold to the same term and the theorem is true (accepting it is sound). Find the conversion change since 7 Nov that now unfolds it, confirm it is intended, and replace the example with one that still tests type arguments being compared (a function with no body, e.g. an axiom or opaque f: Type -> Nat -> Nat)",
+      "status": "backlog",
+      "agent": "Opus",
+      "where": "",
+      "labels": [
+        "kernel"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "Found by the daily tier, 8 Nov 2026 12:33 at fd7516fbe (D3427 over-pace run); the daily tier hadn't run since 7 Nov (web:pkg internal). Orchestrator's reading: not a soundness hole; Opus to confirm. Kernel-adjacent: Opus. 45 min.",
+      "created": "2026-11-08",
+      "updated": "2026-11-08",
+      "commits": []
+    },
+    {
+      "id": 2411,
+      "title": "Bench baseline (crates/bench/tests/baseline.rs counts_have_not_regressed) is out of date after 8 Nov's speed work: e.g. run-machine-set allocations -87.9%, aoc-2021-15-part1 instructions -71.4% and peak heap +88.8% (the index array); run-machine-calls allocations +3.2%. Re-baseline and check each regression is explained",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "bench"
+      ],
+      "epic": "comparative-speed",
+      "body": "Found by the daily tier, 8 Nov 2026. 30 min.",
+      "created": "2026-11-08",
+      "updated": "2026-11-08",
+      "commits": []
+    },
+    {
+      "id": 2412,
+      "title": "Daily tier's nextest run was killed by memguard at 16.11 GB on Speedwell (load 48 at the end), 676 s in: find what grew (new heavy tests since 7 Nov, e.g. SW-2391's sampled AoC reuse test) and fit the tier under its cap",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "test-infra"
+      ],
+      "epic": "test-infra",
+      "body": "Daily tier report target/tier-report/daily-20261108-121833.md (and the rerun). 45 min.",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
