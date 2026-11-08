@@ -368,6 +368,12 @@ impl Slots {
 /// The slots each expression in `e` reads, by its address: computed once
 /// per body, bottom up, so that asking at every level of a deeply nested
 /// expression (a long list literal) stays linear.
+///
+/// Only reads of the value a slot holds where the expression starts count:
+/// a slot that a `let` or a match arm inside it binds is left out (with the
+/// reads of that binding). Sibling scopes share slots, so counting those
+/// reads would keep a slot live through an earlier sibling that uses it for
+/// the last time, and its value would be copied rather than moved there.
 type Uses = HashMap<*const Expr, Slots>;
 
 fn fill(e: &Expr, cache: &mut Uses) -> Slots {
@@ -390,13 +396,21 @@ fn fill(e: &Expr, cache: &mut Uses) -> Slots {
             add(f, cache);
             args.iter().for_each(|a| add(a, cache));
         }
-        Expr::Let(_, value, body) => {
+        Expr::Let(slot, value, body) => {
             add(value, cache);
-            add(body, cache);
+            let mut inner = fill(body, cache);
+            inner.remove(*slot);
+            out.add(&inner);
         }
         Expr::Match(scrutinee, _, arms) => {
             add(scrutinee, cache);
-            arms.iter().for_each(|arm| add(&arm.body, cache));
+            for arm in arms {
+                let mut inner = fill(&arm.body, cache);
+                for (_, s) in &arm.fields {
+                    inner.remove(*s);
+                }
+                out.add(&inner);
+            }
         }
         Expr::NumSwitch(scrutinee, arms, default) => {
             add(scrutinee, cache);
