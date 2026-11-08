@@ -1,5 +1,5 @@
 {
-  "next": 2423,
+  "next": 2424,
   "tickets": [
     {
       "id": 47,
@@ -23649,7 +23649,7 @@
         "perf"
       ],
       "epic": "comparative-speed",
-      "body": "From docs/proposals/nat-shaped-types.md (SW-2397). Waits for D3424 and D3425. 1.5-2 h.\n\nD3424, Matt, 8 Nov 2026: yes, \"Every type with Nat's shape\" (automatic). D3425, delegated by Matt (\"Happy to go with your best recommendation if there's a clear choice\"): orchestrator's call, accept: the conversion natives cost a constant number of steps instead of one per FSucc, as Nat's natives do; results unchanged. Starts when a build slot frees, after SW-2396.\nStarted 10:51 UTC, Opus, expected 120 min.\n\n\n11:07 lane stopped for decisions (commit bf4936b9e on lane/SW-2398, WIP). Built: `Data::nat_shape` (core) and its lowering (construction, `MatchKind::Nat` matches with arm reordering); lowering tests; examples/accept/nat-shaped.sw; native agreement test. Two blockers: (1) `Fin` is not Nat-shaped under current erasure: its constructors store `n` as a run-time field (D141; `FSucc(n, i)` in the IR), so the rule picks up nothing in std or aoc; (2) a Nat-shaped type built under a recursive call (`More (f x)`) loses its TRMC loop: frames go from O(1) to O(depth), steps fall by 1 per outer call (example: 530 -> 526). Needs Matt's/the orchestrator's call before going on.\n\nStopped at 15 min (WIP bf4936b9e on lane/SW-2398, kept unmerged). Blockers: (1) Fin is not Nat-shaped at run time: D141 stores the index n in FZero/FSucc, and Fin.toNat reads it, so FSucc has two runtime fields; making Fin qualify needs erasing index-determined fields (core erasure, all backends) - a new design, note SW-2397 §1.1/§2.3 wrong on this. (2) Building a Nat-shaped value around a recursive call lowers to %Nat.add(f x, 1) and loses the TRMC loop: O(depth) frames, steps -1 per call (530 -> 526 on the example). Rule as built picks up only Nat in std, nothing in aoc/games. Waiting for D3426.\n\nD3426, Matt, 8 Nov 2026: yes, design note first (SW-2406). SW-2398 waits for it.\n",
+      "body": "From docs/proposals/nat-shaped-types.md (SW-2397). Waits for D3424 and D3425. 1.5-2 h.\n\nD3424, Matt, 8 Nov 2026: yes, \"Every type with Nat's shape\" (automatic). D3425, delegated by Matt (\"Happy to go with your best recommendation if there's a clear choice\"): orchestrator's call, accept: the conversion natives cost a constant number of steps instead of one per FSucc, as Nat's natives do; results unchanged. Starts when a build slot frees, after SW-2396.\nStarted 10:51 UTC, Opus, expected 120 min.\n\n\n11:07 lane stopped for decisions (commit bf4936b9e on lane/SW-2398, WIP). Built: `Data::nat_shape` (core) and its lowering (construction, `MatchKind::Nat` matches with arm reordering); lowering tests; examples/accept/nat-shaped.sw; native agreement test. Two blockers: (1) `Fin` is not Nat-shaped under current erasure: its constructors store `n` as a run-time field (D141; `FSucc(n, i)` in the IR), so the rule picks up nothing in std or aoc; (2) a Nat-shaped type built under a recursive call (`More (f x)`) loses its TRMC loop: frames go from O(1) to O(depth), steps fall by 1 per outer call (example: 530 -> 526). Needs Matt's/the orchestrator's call before going on.\n\nStopped at 15 min (WIP bf4936b9e on lane/SW-2398, kept unmerged). Blockers: (1) Fin is not Nat-shaped at run time: D141 stores the index n in FZero/FSucc, and Fin.toNat reads it, so FSucc has two runtime fields; making Fin qualify needs erasing index-determined fields (core erasure, all backends) - a new design, note SW-2397 §1.1/§2.3 wrong on this. (2) Building a Nat-shaped value around a recursive call lowers to %Nat.add(f x, 1) and loses the TRMC loop: O(depth) frames, steps -1 per call (530 -> 526 on the example). Rule as built picks up only Nat in std, nothing in aoc/games. Waiting for D3426.\n\nD3426, Matt, 8 Nov 2026: yes, design note first (SW-2406). SW-2398 waits for it.\n\nUnblocked by SW-2415 (merged 5b71f651c): rebase lane/SW-2398 on main; nat_shape counts rt erasure::stored_fields; off when STITCHWORT_CHECK_REBUILDS is on; SW-2405 changed the step pin again.\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
@@ -23909,18 +23909,20 @@
     {
       "id": 2415,
       "title": "Erase determined fields stage 1: core finds index-determined constructor fields and how to rebuild each at a match (replaying unify_index outside the kernel); interpreter and native stop storing them; debug check stores and compares in test builds; reference evaluator unchanged",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
-      "where": "",
+      "where": "lane/SW-2415",
       "labels": [
         "rt",
         "core"
       ],
       "epic": "comparative-speed",
-      "body": "From docs/proposals/erase-determined-fields.md (SW-2406). Waits for D3429. Orchestrator's calls on §9 Q2-Q5: (A) replay unification, automatic (as D3424), reference evaluator keeps storing, debug check yes. Then SW-2398 rebases on it. 2.5-3.5 h.\n\nD3429, Matt, 8 Nov 2026 ~16:30: yes, \"happy to go with that for now\" (after the comparison with Lean, Rocq, Idris 2 and Agda). Starts when a build slot frees.\nStarted 16:37 UTC, Opus, expected 180 min.\n",
+      "body": "From docs/proposals/erase-determined-fields.md (SW-2406). Waits for D3429. Orchestrator's calls on §9 Q2-Q5: (A) replay unification, automatic (as D3424), reference evaluator keeps storing, debug check yes. Then SW-2398 rebases on it. 2.5-3.5 h.\n\nD3429, Matt, 8 Nov 2026 ~16:30: yes, \"happy to go with that for now\" (after the comparison with Lean, Rocq, Idris 2 and Agda). Starts when a build slot frees.\nStarted 16:37 UTC, Opus, expected 180 min.\n\n\nLane (Opus, 16:37-17:30 UTC, branch lane/SW-2415, commits 9132d464a runtime, bdc9cb169 docs; bench:compare:check 66 ok): built as the note's stage 1, option A, with the rule narrowed to `Nat` fields an index is under `Succ`s (std: Fin.FZero n, Fin.FSucc n, Vec.VCons n). No keying: the lowerer replays the kernel's refinements along the path it is lowering. Debug check is opt-in (`checking_rebuilds()`, STITCHWORT_CHECK_REBUILDS), not every test build, so tests see the real layout. Census of call-valued rebuilds: none in std or aoc. Steps: construction drops determined-field arguments (example: 5 fewer calls); AoC Fin/Vec days' call counts unchanged; no pinned count moved. Instructions natively: 2025 d3 -1.3%, 2021 d9 -0.6%, d11 +0.2%, d15 +0.1%. Report: docs/reviews/SW-2415-erase-determined-fields.md.\n\nMerged. Orchestrator's call: debug check opt-in (targeted tests turn it on). SW-2398 next: nat_shape counts rt stored_fields; not with the check on. Follow-up SW-2423. Model result: Opus, worked, 50 min (est. 180).\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
-      "commits": []
+      "commits": [
+        "5b71f651c"
+      ]
     },
     {
       "id": 2416,
@@ -24025,6 +24027,21 @@
       ],
       "epic": "comparative-speed",
       "body": "From SW-2417. No code. 45 min.",
+      "created": "2026-11-08",
+      "updated": "2026-11-08",
+      "commits": []
+    },
+    {
+      "id": 2423,
+      "title": "Widen determined fields beyond Nat (projection steps through cells, no-quotient check, general equality for the debug check); and stop computing index arguments nothing reads (count xs still computes List.length xs to pass n)",
+      "status": "backlog",
+      "agent": "Opus",
+      "where": "",
+      "labels": [
+        "rt"
+      ],
+      "epic": "comparative-speed",
+      "body": "From SW-2415 (and SW-2406 finding 1). Design first. 60 min.",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
