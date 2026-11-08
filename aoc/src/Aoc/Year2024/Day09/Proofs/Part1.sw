@@ -180,7 +180,7 @@ theorem checksumFold: (blocks: List Block) → (total: Nat) → (position: Nat) 
       let sums: total + position * block.idOr 0 + (List.withIndexFrom (Succ position) rest).sumBy (pair => pair.fst * pair.snd.idOr 0)
         = total + (position * block.idOr 0 + (List.withIndexFrom (Succ position) rest).sumBy (pair => pair.fst * pair.snd.idOr 0)) := ring
       let lengths: Succ position + rest.length = position + Succ rest.length := ring
-      rewrite sums, lengths in rfl
+      Eq.cong2 MkPair sums lengths
 
 --| The checksum counted as the program does is the sum over the indexed blocks.
 theorem checksumSum (disk: Disk): disk.checksum = disk.blocks.withIndex.sumBy (pair => pair.fst * pair.snd.idOr 0) :=

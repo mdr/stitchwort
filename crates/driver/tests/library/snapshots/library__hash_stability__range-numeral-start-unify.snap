@@ -1,10 +1,10 @@
 ---
-source: crates/driver/tests/hash_stability.rs
+source: crates/driver/tests/library/hash_stability.rs
 expression: "lines(session, d, f)"
 ---
 Main.fromRange 852a95c60481eddb2df1ebaf29571913e961efa14b9f09f26081c78db9f607f2
 Main.fromOperator 852a95c60481eddb2df1ebaf29571913e961efa14b9f09f26081c78db9f607f2
 Main.fromHalfOpen 8f1b62bb81fe8e2451df787c334aff7f76ff8311d839ae5093196bec4a29c0df
 Main.intoRange d9bb211e626a608e5e0bb81b45ee2b35a36e2b825342c63e6daf9d25d423f420
-Main.intoClosed 499ed23b59d2743a16a910d5485e0a64f585433c093f994d616f7f891f665832
+Main.intoClosed 750aa631af3a59a78b2d6ac8a9d57f4a393fc01233a916dd35726c223f2af643
 Main.intoHalfOpen e60c39dd28c76e10a8acc485fb9c25d35bfb4d9d43aa863380de1aa1d419293e

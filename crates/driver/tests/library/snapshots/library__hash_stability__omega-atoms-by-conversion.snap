@@ -1,6 +1,6 @@
 ---
-source: crates/driver/tests/hash_stability.rs
+source: crates/driver/tests/library/hash_stability.rs
 expression: "lines(session, d, f)"
 ---
-Main.sumTakeLe 977c365a518d2954f56d13e06a5b6e646b95fb11ef5f4e0f06019943268d31bf
-Main.shrinksInside 75270e7028167f0592b6f12ba46336c8708b2dbdcfa338acdf5368d001c900bd
+Main.sumTakeLe e85f55f7e209e1198c4d5f417d576a1033cd92010ed50a31abf58f7e9b58c0e5
+Main.shrinksInside 9258e6c74495a09d3b58588a6bf4a4874b7ff4d1a97ef7adc72f230c15a9ae97

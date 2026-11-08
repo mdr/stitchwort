@@ -128,11 +128,11 @@ pub const PINS: &[Pin] = &[
     ),
     kernel(
         Builtin::FloatNeg,
-        "d7e335e52415922a571501427d5c926b00e50b9bc224473f91a8893806f3f28a",
+        "bba54b9dc21a012e16a6640fb2b285c9c75b6385ef1043a52d2a22876500b718",
     ),
     kernel(
         Builtin::FloatAbs,
-        "80f08cd495e3c27142f3558f0a57f21c3051651d318e403b1bd3614377ebaebe",
+        "27d2d3b0d80963c8869b5952ecfe93ac72ac69fd61307f14616f8c0e3b02d727",
     ),
     kernel(
         Builtin::FloatIsNaN,
@@ -164,7 +164,7 @@ pub const PINS: &[Pin] = &[
     ),
     kernel(
         Builtin::FloatSub,
-        "070244faf9c40ada75cb11622e6f1ef7cc7f705685681ed1c2e6ad081c912a2a",
+        "af7e848a918ef5781d07c68376c8289585e5107628227bd478dc4c01cb6f1a6b",
     ),
     kernel(
         Builtin::FloatBitsExt,
