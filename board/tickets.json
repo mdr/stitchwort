@@ -24008,14 +24008,14 @@
     {
       "id": 2421,
       "title": "Effect loop: a Vec<Vec<Value>> grows repeatedly (grow_one/finish_grow 3.7% inclusive on expressions); find the push site and reserve",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Sonnet",
       "where": "",
       "labels": [
         "perf"
       ],
       "epic": "comparative-speed",
-      "body": "From SW-2417. 30 min.",
+      "body": "From SW-2417. 30 min.\nStarted 19:53 UTC, Sonnet, expected 30 min.\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
@@ -24192,14 +24192,14 @@
     {
       "id": 2433,
       "title": "Share JumpK: one shared Rc<Fun> instead of one allocation per state-passing handler step (18.6M in expressions, 22.4M in scan; 1.3-1.6 GB of allocation) at machine.rs:891 and native_abi.rs:2938",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Sonnet",
       "where": "",
       "labels": [
         "perf"
       ],
       "epic": "comparative-speed",
-      "body": "From SW-2425. 30 min.",
+      "body": "From SW-2425. 30 min.\nStarted 19:53 UTC, Sonnet, expected 30 min.\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
