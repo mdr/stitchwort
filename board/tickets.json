@@ -23053,17 +23053,19 @@
     {
       "id": 2363,
       "title": "Cell allocator stage 2: a per-run cell cache in native code (freed-cell lists in the run context, inline take and return, byte cap, emptied at run end; not in traced builds)",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": "",
       "labels": [
         "perf"
       ],
       "epic": "comparative-speed",
-      "body": "From docs/proposals/cell-allocator.md (SW-2360). Waits for D3413. Est. binary-trees 25-35%. 60-90 min.\n\nD3413, Matt, 8 Nov 2026 ~13:15: yes, as a trial: \"try it out. We'll measure the improvement and we'll see if the extra complexity justifies the performance gain.\" So: measure binary-trees, matcher and the rest before and after (instructions and time), report the added code size and complexity, and keep it easy to remove; Matt decides whether to keep it.\nStarted 14:41 UTC, Opus, expected 90 min.\n",
+      "body": "From docs/proposals/cell-allocator.md (SW-2360). Waits for D3413. Est. binary-trees 25-35%. 60-90 min.\n\nD3413, Matt, 8 Nov 2026 ~13:15: yes, as a trial: \"try it out. We'll measure the improvement and we'll see if the extra complexity justifies the performance gain.\" So: measure binary-trees, matcher and the rest before and after (instructions and time), report the added code size and complexity, and keep it easy to remove; Matt decides whether to keep it.\nStarted 14:41 UTC, Opus, expected 90 min.\n\n\nLane (Opus, 8 Nov 14:41-16:00, est. 90 min): built on lane/SW-2363 (8e663279c, 3de6c1834, d25db9f61). Measured: binary-trees -30.5% instructions, -10.6% time (1.54 -> 1.38 s, matched hyperfine pairs); other nine programs 0 to -2.6% instructions, time within noise; peak memory unchanged. Cache hits: binary-trees 98.5% of new cells, matcher 50.9%. ~225 lines of code, one new helper (sw_cell_cache_full), switch cell_cache::ENABLED. Rec: keep, narrowly (Matt decides, D3413). Measurements and safety argument: docs/reviews/SW-2363-cell-cache.md.\n\nD3428, Matt, 8 Nov 2026 ~16:05: \"yes, keep it\". Merged. binary-trees 30.06 -> 20.90 G instructions, 1.54 -> 1.38 s; matcher/dijkstra/disk/expressions/scan/bridge -2.1..-2.6%; ~225 lines. Model result: Opus, worked, 76 min (est. 90).\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
-      "commits": []
+      "commits": [
+        "d3915f1ee"
+      ]
     },
     {
       "id": 2364,
