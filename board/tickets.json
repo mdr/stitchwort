@@ -24100,14 +24100,14 @@
     {
       "id": 2427,
       "title": "Compact values V2: count the instructions that exist because a value is three words (moves, spills, saves) in native code on the decision set; under 5% means stop after the header change",
-      "status": "doing",
+      "status": "next",
       "agent": "Opus",
       "where": "",
       "labels": [
         "perf"
       ],
       "epic": "comparative-speed",
-      "body": "From compact-values.md §5. Waits for D3432. 1.5 h.\n\nD3432, Matt, 8 Nov 2026 ~18:30: yes, \"run the measurements\" (end state C then E; A/D gated).\nStarted 18:51 UTC.\n",
+      "body": "From compact-values.md §5. Waits for D3432. 1.5 h.\n\nD3432, Matt, 8 Nov 2026 ~18:30: yes, \"run the measurements\" (end state C then E; A/D gated).\nStarted 18:51 UTC.\nCorrection: not started; needs perf record, so it runs on Overmind after SW-2428 (V3). Include SW-2432 (parsers' low IPC).\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
