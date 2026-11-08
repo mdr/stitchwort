@@ -22817,7 +22817,7 @@
     {
       "id": 2349,
       "title": "Operations in place stage B: skip handlers whose clause only forwards an operation, built on stage A (SW-2338 rebuilt)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Opus",
       "where": "",
       "labels": [
@@ -22825,7 +22825,7 @@
         "effects"
       ],
       "epic": "comparative-speed",
-      "body": "From docs/proposals/operations-in-place.md (SW-2339); D3400 yes (Matt). After SW-2348 and SW-2347 (depth count). Est. 1.2-1.5x on expressions. 60-90 min.\n\nTarget from SW-2347 (measured, upper bound): skipping forwarding hops removes about 30M of 49M routes on expressions, 25M of 47M on scan, 3M of 9.5M on bridge.\n\nHeld overnight 8 Nov (orchestrator): stages B-D change effect and step counts, which the overnight rules leave for Matt. D3412 for the morning: start stages B-D (they change effect and step counts, not results)? [rec: yes].\n",
+      "body": "From docs/proposals/operations-in-place.md (SW-2339); D3400 yes (Matt). After SW-2348 and SW-2347 (depth count). Est. 1.2-1.5x on expressions. 60-90 min.\n\nTarget from SW-2347 (measured, upper bound): skipping forwarding hops removes about 30M of 49M routes on expressions, 25M of 47M on scan, 3M of 9.5M on bridge.\n\nHeld overnight 8 Nov (orchestrator): stages B-D change effect and step counts, which the overnight rules leave for Matt. D3412 for the morning: start stages B-D (they change effect and step counts, not results)? [rec: yes].\n\nD3412, Matt, 8 Nov 2026 ~09:38: yes, \"I think we should proceed with this.\" Stages B-D may change effect and step counts (not results).\nStarted 09:38 UTC, Opus, expected 90 min.\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
@@ -22841,7 +22841,7 @@
         "effects"
       ],
       "epic": "comparative-speed",
-      "body": "From docs/proposals/operations-in-place.md (SW-2339); D3400 yes (Matt). After SW-2349. 90 min.",
+      "body": "From docs/proposals/operations-in-place.md (SW-2339); D3400 yes (Matt). After SW-2349. 90 min.\n\nD3412, Matt, 8 Nov 2026 ~09:38: yes, \"I think we should proceed with this.\" Stages B-D may change effect and step counts (not results).\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
@@ -22857,7 +22857,7 @@
         "effects"
       ],
       "epic": "comparative-speed",
-      "body": "From docs/proposals/operations-in-place.md (SW-2339); D3400 yes (Matt). After SW-2350. Est. 2-3x on expressions and scan, 1.2-1.5x bridge. 90 min. D3411 (guide paragraph on which clauses are cheap) to bring to Matt when this lands.",
+      "body": "From docs/proposals/operations-in-place.md (SW-2339); D3400 yes (Matt). After SW-2350. Est. 2-3x on expressions and scan, 1.2-1.5x bridge. 90 min. D3411 (guide paragraph on which clauses are cheap) to bring to Matt when this lands.\n\nD3412, Matt, 8 Nov 2026 ~09:38: yes, \"I think we should proceed with this.\" Stages B-D may change effect and step counts (not results).\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
