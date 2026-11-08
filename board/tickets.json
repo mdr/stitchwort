@@ -1,5 +1,5 @@
 {
-  "next": 2438,
+  "next": 2440,
   "tickets": [
     {
       "id": 47,
@@ -24266,6 +24266,36 @@
       ],
       "epic": "comparative-speed",
       "body": "From SW-2427 (SW-2432). Inference, not traced: find the mismatched widths first (perf ld_blocks.store_forward with addresses, or read the asm). Overmind (perf). 60 min.",
+      "created": "2026-11-08",
+      "updated": "2026-11-08",
+      "commits": []
+    },
+    {
+      "id": 2438,
+      "title": "Elaborator internal error: an operation (`get`, `ask`) 'is used before it's checked' (E-INTERNAL) on mutated ability examples; fuzz seed 0x2438 cases 6042 and 13700",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "Found by fuzz:elab CASES=15000 SEED=0x2438 (8 Nov 2026 20:33). Inputs: dev/fuzz-findings/2438-6042.sw (from reject/operation-in-pure-function.sw), dev/fuzz-findings/2438-13700.sw (from reject/pattern-guard-ability.sw). Repro: task fuzz:elab CASES=15000 SEED=0x2438 ONLY=6042, or stitchwort check on the file. Fix: a proper diagnostic (or acceptance), plus a reject/ example. 45 min.",
+      "created": "2026-11-08",
+      "updated": "2026-11-08",
+      "commits": []
+    },
+    {
+      "id": 2439,
+      "title": "Kernel rejected an elaborated term (fuzz oracle 3): case 11979 of seed 0x2438, mutated from accept/lambda-pattern-annotations.sw; the elaborator reported E-CANNOT-INFER after building a term the kernel refused",
+      "status": "backlog",
+      "agent": "Opus",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "Found by fuzz:elab CASES=15000 SEED=0x2438 (8 Nov 2026 20:33). Input dev/fuzz-findings/2438-11979.sw. Repro: task fuzz:elab CASES=15000 SEED=0x2438 ONLY=11979 DUMP=1. The kernel caught it (not a soundness hole), but the elaborator produced an ill-typed term: find where (lambda patterns with annotations), fix, add a regression example. Opus (elaborator soundness boundary). 60 min.",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
