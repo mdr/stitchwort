@@ -5788,13 +5788,23 @@ fn decided(cx: &mut Ctx, span: Span, term: &Term) -> Result<Term> {
             e.notes[0] = "a `Bool` is expected here, and a proposition is turned into one only \
                           if it has a decision procedure: an `instance` returning `Decidable …`"
                 .into();
-            // A variable the compiler made (holding what an operation run
-            // first returned) has no name to show.
             if let Term::Var(ix) = term.strip_loc()
                 && let Some(level) = cx.names.len().checked_sub(ix + 1)
-                && cx.names[level].starts_with('%')
             {
-                e.message = "no way to decide this proposition".into();
+                if cx.names[level].starts_with('%') {
+                    // A variable the compiler made (holding what an operation
+                    // run first returned) has no name to show.
+                    e.message = "no way to decide this proposition".into();
+                } else {
+                    // A written variable standing for a proposition where a
+                    // `Bool` is wanted: usually a lambda's result, left a
+                    // `Prop` because nothing annotated it.
+                    e = e.with_note(
+                        "if this variable comes from a comparison such as `<` in a lambda \
+                         written without its result type, it is a `Prop`, since nothing asked \
+                         for a `Bool`: annotate it, `n => (9 < n: Bool)`",
+                    );
+                }
             }
             return Err(e.with_label(span, "this is a proposition, and nothing decides it"));
         }
