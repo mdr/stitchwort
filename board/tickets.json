@@ -1,5 +1,5 @@
 {
-  "next": 2402,
+  "next": 2404,
   "tickets": [
     {
       "id": 47,
@@ -22817,7 +22817,7 @@
     {
       "id": 2349,
       "title": "Operations in place stage B: skip handlers whose clause only forwards an operation, built on stage A (SW-2338 rebuilt)",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": "",
       "labels": [
@@ -22825,10 +22825,12 @@
         "effects"
       ],
       "epic": "comparative-speed",
-      "body": "From docs/proposals/operations-in-place.md (SW-2339); D3400 yes (Matt). After SW-2348 and SW-2347 (depth count). Est. 1.2-1.5x on expressions. 60-90 min.\n\nTarget from SW-2347 (measured, upper bound): skipping forwarding hops removes about 30M of 49M routes on expressions, 25M of 47M on scan, 3M of 9.5M on bridge.\n\nHeld overnight 8 Nov (orchestrator): stages B-D change effect and step counts, which the overnight rules leave for Matt. D3412 for the morning: start stages B-D (they change effect and step counts, not results)? [rec: yes].\n\nD3412, Matt, 8 Nov 2026 ~09:38: yes, \"I think we should proceed with this.\" Stages B-D may change effect and step counts (not results).\nStarted 09:38 UTC, Opus, expected 90 min.\n\nProgress (lane, 10:15): forwarding clauses (`bind (Call O DoneK) k`) and plain generated forwards with elaborator-built mappings skipped in both runtimes via a shared leaf (`effect::forwarded`, new `EffectOp::FoldForwarding`). Native call counts after: expressions routes 49.18M -> 20.05M (29.1M skipped), scan 47.50M -> 26.25M (21.3M skipped). Results unchanged (bench:compare:check 66 ok); no count expectation or snapshot moved.\n",
+      "body": "From docs/proposals/operations-in-place.md (SW-2339); D3400 yes (Matt). After SW-2348 and SW-2347 (depth count). Est. 1.2-1.5x on expressions. 60-90 min.\n\nTarget from SW-2347 (measured, upper bound): skipping forwarding hops removes about 30M of 49M routes on expressions, 25M of 47M on scan, 3M of 9.5M on bridge.\n\nHeld overnight 8 Nov (orchestrator): stages B-D change effect and step counts, which the overnight rules leave for Matt. D3412 for the morning: start stages B-D (they change effect and step counts, not results)? [rec: yes].\n\nD3412, Matt, 8 Nov 2026 ~09:38: yes, \"I think we should proceed with this.\" Stages B-D may change effect and step counts (not results).\nStarted 09:38 UTC, Opus, expected 90 min.\n\nProgress (lane, 10:15): forwarding clauses (`bind (Call O DoneK) k`) and plain generated forwards with elaborator-built mappings skipped in both runtimes via a shared leaf (`effect::forwarded`, new `EffectOp::FoldForwarding`). Native call counts after: expressions routes 49.18M -> 20.05M (29.1M skipped), scan 47.50M -> 26.25M (21.3M skipped). Results unchanged (bench:compare:check 66 ok); no count expectation or snapshot moved.\n\n\nDone (lane, 10:39, 61 min of 90): commit 085cdd046 on lane/SW-2349. Native instructions before -> after: expressions 540.0G -> 376.1G (1.44x), scan 508.8G -> 385.5G (1.32x), bridge 143.2G -> 126.7G (1.13x), disk 1.05x, matcher 1.10x. Routes 49.18M -> 20.05M / 47.50M -> 26.25M / 9.52M -> 6.69M. No test count expectation or snapshot changed; new example effect-forwarding.sw (+ its two JS extraction snapshots, new files). Tests: test:lane rt (60) and native (55), rt effect_runtime + clause_kinds, n4, extract::generated_code_is_stable and run_lines, snap:examples NAME=effect, bench:compare:check 66 ok. Note §11 of docs/proposals/operations-in-place.md.\n\nMerged. Native instructions: expressions 540.0 -> 376.1 G, scan 508.8 -> 385.5 G, bridge 143.2 -> 126.7 G, disk -5%, matcher -10%. Follow-ups SW-2402 SW-2403. Model result: Opus, worked, 61 min (est. 90).\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
-      "commits": []
+      "commits": [
+        "5eb4eab6f"
+      ]
     },
     {
       "id": 2350,
@@ -23684,6 +23686,36 @@
       ],
       "epic": "std-library",
       "body": "From SW-2397. 30 min.",
+      "created": "2026-11-08",
+      "updated": "2026-11-08",
+      "commits": []
+    },
+    {
+      "id": 2402,
+      "title": "Operations in place: skip forwarding for handlers on open rows (foldCompD: specialise at Total, or recognise callD forwards)",
+      "status": "backlog",
+      "agent": "Opus",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "comparative-speed",
+      "body": "From SW-2349 (§10/§11 of operations-in-place.md). 60-90 min.",
+      "created": "2026-11-08",
+      "updated": "2026-11-08",
+      "commits": []
+    },
+    {
+      "id": 2403,
+      "title": "Operations in place: replace stage B's fixed-width text skip table with a program-level table (encoded, validated)",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "rt"
+      ],
+      "epic": "comparative-speed",
+      "body": "From SW-2349 review; orchestrator's call that the text table is acceptable for now. 45 min.",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
