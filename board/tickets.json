@@ -1,5 +1,5 @@
 {
-  "next": 2367,
+  "next": 2368,
   "tickets": [
     {
       "id": 47,
@@ -23095,6 +23095,21 @@
       ],
       "epic": "elaborator-kernel",
       "body": "From SW-2343. Changes what let p := n => n < 3 means: a language decision for Matt (D question first). Paper 45 min.",
+      "created": "2026-11-08",
+      "updated": "2026-11-08",
+      "commits": []
+    },
+    {
+      "id": 2367,
+      "title": "Two driver tests fail on main: proof_masks::every_case_gets_its_answer_four_ways (t2: choose Nat n vs choose Bool n now convertible, all four ways) and check_cache::a_refused_library_entry_takes_back_its_float_bindings (internal error: the prelude doesn't declare Float.mul ...); find the commit and the cause",
+      "status": "doing",
+      "agent": "Opus",
+      "where": "",
+      "labels": [
+        "bug"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "Found by the SW-2343 batch, 8 Nov 2026 04:21. Both fail alone on main 2541bba88+. Bisect first (were they failing before tonight, e8e9acd1e?). 45 min.",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
