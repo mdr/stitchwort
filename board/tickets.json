@@ -1,5 +1,5 @@
 {
-  "next": 2385,
+  "next": 2386,
   "tickets": [
     {
       "id": 47,
@@ -23276,7 +23276,7 @@
     {
       "id": 2377,
       "title": "Proposal: Graph.distancesDense, an Array-indexed Dijkstra for states with an index into Fin n (SW-2369 measured 2.47 -> 1.19 s on day 15), proved through the same SearchResult",
-      "status": "doing",
+      "status": "backlog",
       "agent": "Opus",
       "where": "",
       "labels": [
@@ -23306,17 +23306,19 @@
     {
       "id": 2379,
       "title": "bench:compare: report instructions retired (stable under load) beside wall time, from /usr/bin/time -l on macOS and perf stat on Linux",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
         "tooling"
       ],
       "epic": "comparative-speed",
-      "body": "From SW-2374: wall time varied 8-16 s for one binary at load 11-19; instructions were stable. 30 min.\n\nStarted 05:31 UTC, Sonnet, expected 15 min.\n",
+      "body": "From SW-2374: wall time varied 8-16 s for one binary at load 11-19; instructions were stable. 30 min.\n\nStarted 05:31 UTC, Sonnet, expected 15 min.\n\n\nDone (Sonnet lane, worktree SW-2377, commit 326c98fa4): --instructions adds a second table and JSON 'instructions'; parse test bench/compare/test_instructions.py. Linux perf path untested here.\n\nMerged (from branch lane/SW-2377: orchestrator misnumbered the worktree). Follow-up SW-2385. Model result: Sonnet, worked, 10 min (est. 30).\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
-      "commits": []
+      "commits": [
+        "b1e7804e3"
+      ]
     },
     {
       "id": 2380,
@@ -23336,14 +23338,14 @@
     {
       "id": 2381,
       "title": "Std: Eq.cong2 (congruence in two arguments)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Sonnet",
       "where": "",
       "labels": [
         "std"
       ],
       "epic": "std-library",
-      "body": "From SW-2374 (worked around with rewrite and ring). 15 min.",
+      "body": "From SW-2374 (worked around with rewrite and ring). 15 min.\n\nStarted 05:32 UTC, Opus (std core), expected 15 min, in worktree SW-2379 (orchestrator misnumbered the worktree).\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
@@ -23391,6 +23393,21 @@
       ],
       "epic": "comparative-speed",
       "body": "From docs/reviews/SW-2371-map-rebuild-reuse.md. Design first. 60 min paper.",
+      "created": "2026-11-08",
+      "updated": "2026-11-08",
+      "commits": []
+    },
+    {
+      "id": 2385,
+      "title": "Overmind: put perf in the .#compare dev shell (or document how) and check bench:compare --instructions works there (perf_event_paranoid)",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "tooling"
+      ],
+      "epic": "comparative-speed",
+      "body": "From SW-2379: Linux path untested. 20 min, needs Overmind.",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
