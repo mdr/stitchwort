@@ -2604,6 +2604,7 @@ pub unsafe extern "C" fn sw_eff_step(
     // SAFETY: the caller's contract: taken, and replaced below.
     let list = unsafe { pending.read() };
     if tag == s.done {
+        crate::call_counts::hit_chain_end();
         if let Value::Data(_, cell) = list {
             counts.pops += 1;
             crate::call_counts::hit_event(crate::call_counts::Event::Pop);
@@ -2659,6 +2660,7 @@ pub unsafe extern "C" fn sw_eff_step(
     }
     let (o, rest) = crate::effect::pair(fields);
     if crate::call_counts::ENABLED {
+        crate::call_counts::hit_chain_op();
         count_route(run.outline, &handler, &o);
     }
     let resume = |handler, op| {
@@ -2726,6 +2728,7 @@ fn count_route(program: &Outline, handler: &Handler, o: &Value) {
         _ => return,
     };
     crate::call_counts::hit_event(crate::call_counts::Event::Route);
+    crate::call_counts::hit_chain_route();
     let s = &program.shapes;
     crate::call_counts::hit_route(
         || match clause {
@@ -2792,6 +2795,7 @@ pub unsafe extern "C" fn sw_state_step(
     let (run, v, resume) = unsafe { (&mut *(*context).run, v.read(), resume_taken(resume)) };
     let counts = &mut run.counts;
     crate::call_counts::hit_event(crate::call_counts::Event::StateStep);
+    crate::call_counts::hit_chain_end();
     match crate::effect::state_step(counts, v, resume) {
         crate::effect::StateStep::Value(v) => {
             // SAFETY: the caller's contract.
@@ -2846,6 +2850,7 @@ pub unsafe extern "C" fn sw_resume_begin(
     handler: *mut u64,
 ) -> u64 {
     crate::call_counts::hit_event(crate::call_counts::Event::ResumeBegin);
+    crate::call_counts::hit_chain_end();
     // SAFETY: the caller's contract: borrowed, so not dropped.
     let k = std::mem::ManuallyDrop::new(unsafe { from_words(u64::from(TAG_FUN), k, 0) });
     let Value::Fun(fun) = &*k else {

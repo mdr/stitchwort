@@ -196,6 +196,29 @@ mod enabled {
     /// inside the `L`/`R` injections it had been wrapped in.
     pub(super) static ROUTES: Mutex<BTreeMap<(String, String), u64>> = Mutex::new(BTreeMap::new());
 
+    /// Longest chain given its own histogram bucket.
+    pub(super) const MAX_DEPTH: usize = 24;
+    /// Operations first performed (not re-performed by a clause answering
+    /// an earlier one).
+    pub(super) static FIRST_PERFORMS: AtomicU64 = AtomicU64::new(0);
+    /// Chains of routes by length: how many handler clauses (counting the
+    /// generated forwards) an operation passed through before one answered
+    /// it; the last bucket takes the longer ones.
+    pub(super) static DEPTHS: [AtomicU64; MAX_DEPTH + 1] =
+        [const { AtomicU64::new(0) }; MAX_DEPTH + 1];
+
+    thread_local! {
+        /// The routes so far of the operation being re-dispatched: `None`
+        /// when no clause's result is being run.
+        pub(super) static CHAIN: std::cell::Cell<Option<u32>> = const { std::cell::Cell::new(None) };
+    }
+
+    pub(super) fn end_chain() {
+        if let Some(d) = CHAIN.with(|c| c.take()) {
+            DEPTHS[(d as usize).min(MAX_DEPTH)].fetch_add(1, Ordering::Relaxed);
+        }
+    }
+
     pub(super) fn add(i: usize) {
         HELPER_COUNTS[i].fetch_add(1, Ordering::Relaxed);
     }
@@ -261,6 +284,34 @@ pub(crate) fn hit_route(clause: impl FnOnce() -> String, op: impl FnOnce() -> St
     }
     #[cfg(not(feature = "call-counts"))]
     let _ = (clause, op);
+}
+
+/// An operation node met by `sw_eff_step`. Straight after a route, with
+/// nothing between but `bind` pushes, it is the clause's result
+/// re-performing the operation (a forward); otherwise a clause has
+/// answered, and it is first performed.
+#[inline(always)]
+pub(crate) fn hit_chain_op() {
+    #[cfg(feature = "call-counts")]
+    if enabled::CHAIN.with(|c| c.get()).is_none() {
+        enabled::FIRST_PERFORMS.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        enabled::CHAIN.with(|c| c.set(Some(0)));
+    }
+}
+
+/// The operation was routed to a clause.
+#[inline(always)]
+pub(crate) fn hit_chain_route() {
+    #[cfg(feature = "call-counts")]
+    enabled::CHAIN.with(|c| c.set(c.get().map(|d| d + 1)));
+}
+
+/// Something other than a re-performance followed a route: a clause
+/// answered (a `Done`, a resumption, a state step).
+#[inline(always)]
+pub(crate) fn hit_chain_end() {
+    #[cfg(feature = "call-counts")]
+    enabled::end_chain();
 }
 
 /// One call of `sw_prim` (`owned`: `sw_prim_owned`) running `op`, number
@@ -345,6 +396,20 @@ pub fn report() -> Vec<String> {
         for (n, addr) in by_site.into_iter().take(8) {
             lines.push(format!("  {n:>14}  site {addr:#x}"));
         }
+        enabled::end_chain();
+        let firsts = enabled::FIRST_PERFORMS.load(Relaxed);
+        let routed: u64 = enabled::EVENT_COUNTS[Event::Route as usize].load(Relaxed);
+        lines.push(format!(
+            "re-dispatch depth: {firsts} operations first performed, {routed} routes ({:.2} per operation); chains by number of routes:",
+            routed as f64 / firsts.max(1) as f64
+        ));
+        for (d, count) in enabled::DEPTHS.iter().enumerate() {
+            let n = count.load(Relaxed);
+            if n > 0 {
+                let more = if d == enabled::MAX_DEPTH { "+" } else { "" };
+                lines.push(format!("  {n:>14}  {d}{more} routes"));
+            }
+        }
         let routes = enabled::ROUTES.lock().unwrap();
         let mut by_route: Vec<(u64, &(String, String))> =
             routes.iter().map(|(k, &n)| (n, k)).collect();
@@ -392,6 +457,11 @@ mod tests {
         hit_event(Event::Push);
         hit_site_miss(0x40);
         hit_route(|| "lambda 3".to_string(), || "tag 5".to_string());
+        hit_chain_op();
+        hit_chain_route();
+        hit_chain_op();
+        hit_chain_route();
+        hit_chain_end();
         let report = report();
         if ENABLED {
             assert!(
@@ -410,6 +480,12 @@ mod tests {
                 report
                     .iter()
                     .any(|l| l.ends_with("  Hole(Fill)") && l.trim_start().starts_with("2 ")),
+                "{report:?}"
+            );
+            assert!(
+                report
+                    .iter()
+                    .any(|l| l.ends_with("  2 routes") && l.trim_start().starts_with("1 ")),
                 "{report:?}"
             );
             for (count, name) in [
