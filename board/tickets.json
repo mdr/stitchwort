@@ -22082,14 +22082,14 @@
     {
       "id": 2304,
       "title": "Native: no argument Vec per runtime call (1.4-4.9% plus frees); the inline word-sized Int half is dropped (under 1% of pidigits, SW-2296)",
-      "status": "next",
-      "agent": "",
+      "status": "doing",
+      "agent": "Sonnet",
       "where": "",
       "labels": [
         "perf"
       ],
       "epic": "comparative-speed",
-      "body": "From docs/reviews/SW-2298-native-bignum.md (paper lane; confirm with task bench:compare -- --runs 3 pidigits before and after). 45 min.\n\nStarted 7 Nov 2026 23:28; expected: 45 min. Runs beside SW-2302/2304 (both from SW-2298); merge after Overmind's Stage 2 timing of the commit before them.\n\nCancelled after a few minutes (Matt, 7 Nov 2026: profile first, then change only a measured hotspot). Waits for the profiling lane SW-2296; restart only if its profile shows this cost is a meaningful share. Unfinished diff kept in the orchestrator scratchpad (SW-2304-unfinished.patch), not merged. Model result: Sonnet, cancelled at ~5 min (est. 45).\n",
+      "body": "From docs/reviews/SW-2298-native-bignum.md (paper lane; confirm with task bench:compare -- --runs 3 pidigits before and after). 45 min.\n\nStarted 7 Nov 2026 23:28; expected: 45 min. Runs beside SW-2302/2304 (both from SW-2298); merge after Overmind's Stage 2 timing of the commit before them.\n\nCancelled after a few minutes (Matt, 7 Nov 2026: profile first, then change only a measured hotspot). Waits for the profiling lane SW-2296; restart only if its profile shows this cost is a meaningful share. Unfinished diff kept in the orchestrator scratchpad (SW-2304-unfinished.patch), not merged. Model result: Sonnet, cancelled at ~5 min (est. 45).\n\nRestarted 04:46 UTC 8 Nov, Sonnet, expected 30 min: profile first (SW-2328/SW-2329 removed most sw_prim calls since the SW-2296 numbers).\n",
       "created": "2026-11-07",
       "updated": "2026-11-08",
       "commits": []
