@@ -23120,17 +23120,19 @@
     {
       "id": 2368,
       "title": "test:affected rules: core value.rs/reference.rs changes select proof_masks::; core registry.rs changes select check_cache::a_refused_library_entry_*",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
         "tooling"
       ],
       "epic": "test-infra",
-      "body": "From SW-2367: both tests broke silently at SW-2256 and SW-2197 because their merges didn't select them. 20 min.\n\nStarted 04:39 UTC, Sonnet, expected 20 min.\n",
+      "body": "From SW-2367: both tests broke silently at SW-2256 and SW-2197 because their merges didn't select them. 20 min.\n\nStarted 04:39 UTC, Sonnet, expected 20 min.\n\nMerged. Model result: Sonnet, worked, 2 min (est. 20).\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
-      "commits": []
+      "commits": [
+        "e0f542fe0"
+      ]
     }
   ]
 }
