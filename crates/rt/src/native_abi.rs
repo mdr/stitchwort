@@ -2118,11 +2118,71 @@ pub unsafe extern "C" fn sw_apply_prepare(
             return;
         }
     }
+    // SAFETY: the running context.
+    let resumes = unsafe { (*context).resumes } != 0;
+    // The effect runtime's leaves and resumptions given exactly their
+    // arguments, planned as the general path below plans them but without
+    // collecting the arguments first: the arguments moved, the value made
+    // (or a reference to the resumption taken for `env`), then the function
+    // value dropped (docs/proposals/apply-fast-paths.md, B).
+    if let Value::Fun(fun) = &f {
+        let s = &program.shapes;
+        // SAFETY: the caller's contract: `args` holds `n` values to move,
+        // each read once, before anything is written to the plan.
+        let take = |i: usize| unsafe { args.add(i).read() };
+        let value = match (&**fun, n) {
+            (Fun::DoneK, 1) => Some(crate::effect::done_k(s, take(0))),
+            (Fun::StateK(resume), 1) => Some(crate::effect::state_k(s, resume, take(0))),
+            (Fun::DelayK(capture), 1) => Some(crate::effect::delay_k(capture, take(0))),
+            (Fun::JumpK, 2) => {
+                let v = take(0);
+                Some(crate::effect::jump_k(v, take(1)))
+            }
+            (Fun::Resume(resume, true), 1) => Some(crate::effect::resume_lazily(
+                s,
+                &mut run.counts,
+                resume,
+                take(0),
+            )),
+            _ => None,
+        };
+        let resuming =
+            n == 1 && resumes && matches!(&**fun, Fun::Resume(_, false) | Fun::StateRun(_));
+        if value.is_some() || resuming {
+            if crate::call_counts::ENABLED {
+                crate::call_counts::hit_apply(apply_kind(program, fun));
+                crate::call_counts::hit_event(crate::call_counts::Event::RuntimeValueFast);
+            }
+            // SAFETY: the plan's header, and room for `cap >= 1` values.
+            unsafe {
+                (*plan).rest = 0;
+                match value {
+                    Some(v) => {
+                        (*plan).code = 0;
+                        (*plan).env = 0;
+                        (*plan).arity = 0;
+                        (*plan).value.write(v);
+                    }
+                    None => {
+                        let y = take(0);
+                        let to = plan
+                            .cast::<u8>()
+                            .add(ApplyPlan::ARGS_AT as usize)
+                            .cast::<Value>();
+                        to.write(y);
+                        (*plan).code = RESUME_CODE;
+                        (*plan).env = into_word(fun.clone());
+                        (*plan).arity = 1;
+                    }
+                }
+            }
+            drop(f);
+            return;
+        }
+    }
     let args: Vec<Value> = (0..n as usize)
         .map(|i| unsafe { args.add(i).read() })
         .collect();
-    // SAFETY: the running context.
-    let resumes = unsafe { (*context).resumes } != 0;
     let mut f = f;
     let mut args = args;
     // The function values applied before `f`: `bind (Done x) k` is `k x`,
