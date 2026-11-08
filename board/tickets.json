@@ -23599,7 +23599,7 @@
     {
       "id": 2396,
       "title": "Graph.distances over a cost table, stage 2: the optional (index := …) argument, the Array table and the side Map, per dense-distances.md draft 2; then day 15 passes a grid index (Position numbering in Aoc.Common); acceptance: zero array copies on day 15",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Opus",
       "where": "",
       "labels": [
@@ -23607,7 +23607,7 @@
         "perf"
       ],
       "epic": "comparative-speed",
-      "body": "After SW-2394. Waits for D3419 (index shape; rec (b) Graph.Index record with size, number, decode and two erased proofs). 90-120 min.\n\nD3419, Matt, 8 Nov 2026: delegated (\"if you can make a reasonable call, I'm happy for you to do so\"). Orchestrator's call: (b) a Graph.Index s record with size, number: s -> Option Nat, decode: Nat -> s, and two erased proofs (numbers below size; decode of a number gives the state back). Not Fin-based, since Fin is unary at run time until SW-2397 and implicit parameters can't have defaults. Starts when a build slot frees.\n",
+      "body": "After SW-2394. Waits for D3419 (index shape; rec (b) Graph.Index record with size, number, decode and two erased proofs). 90-120 min.\n\nD3419, Matt, 8 Nov 2026: delegated (\"if you can make a reasonable call, I'm happy for you to do so\"). Orchestrator's call: (b) a Graph.Index s record with size, number: s -> Option Nat, decode: Nat -> s, and two erased proofs (numbers below size; decode of a number gives the state back). Not Fin-based, since Fin is unary at run time until SW-2397 and implicit parameters can't have defaults. Starts when a build slot frees.\nStarted 10:40 UTC, Opus, expected 120 min.\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
