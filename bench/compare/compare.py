@@ -393,7 +393,7 @@ def main():
         md += "\n\nBuild times (not in the run times): " + ", ".join(f"{k} {v:.1f} s" for k, v in builds.items())
     if failed:
         md += "\n\nNot timed: " + ", ".join(f"{p}/{r}" for p, r in failed)
-    stamp = datetime.date.today().isoformat() + "-" + platform.node().split(".")[0]
+    stamp = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H%M%S") + "-" + platform.node().split(".")[0]
     versions = {}
     for tool, flag in [("python3", "--version"), ("pypy3", "--version"), ("lean", "--version"), ("hyperfine", "--version")]:
         if have(tool):
