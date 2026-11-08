@@ -23273,14 +23273,14 @@
     {
       "id": 2377,
       "title": "Proposal: Graph.distancesDense, an Array-indexed Dijkstra for states with an index into Fin n (SW-2369 measured 2.47 -> 1.19 s on day 15), proved through the same SearchResult",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Opus",
       "where": "",
       "labels": [
         "design"
       ],
       "epic": "comparative-speed",
-      "body": "From SW-2370. Public API: short note in docs/proposals first. 45 min paper.",
+      "body": "From SW-2370. Public API: short note in docs/proposals first. 45 min paper.\n\nStarted 05:31 UTC, Sonnet, expected 30 min.\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
@@ -23303,14 +23303,14 @@
     {
       "id": 2379,
       "title": "bench:compare: report instructions retired (stable under load) beside wall time, from /usr/bin/time -l on macOS and perf stat on Linux",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Sonnet",
       "where": "",
       "labels": [
         "tooling"
       ],
       "epic": "comparative-speed",
-      "body": "From SW-2374: wall time varied 8-16 s for one binary at load 11-19; instructions were stable. 30 min.",
+      "body": "From SW-2374: wall time varied 8-16 s for one binary at load 11-19; instructions were stable. 30 min.\n\nStarted 05:31 UTC, Sonnet, expected 15 min.\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
