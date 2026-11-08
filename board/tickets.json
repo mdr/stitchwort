@@ -1,5 +1,5 @@
 {
-  "next": 2391,
+  "next": 2393,
   "tickets": [
     {
       "id": 47,
@@ -23397,17 +23397,19 @@
     {
       "id": 2384,
       "title": "Compiler: carry a reuse token into a callee (or inline balance/rebuild), so an Unpack in one body can be reused by a Ctor in the function it calls",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": "",
       "labels": [
         "perf"
       ],
       "epic": "comparative-speed",
-      "body": "From docs/reviews/SW-2371-map-rebuild-reuse.md. Design first. 60 min paper.\n\nStarted 09:20 UTC, Opus paper lane (research), expected 75 min. Matt, 8 Nov: research how Lean, Koka and others implement reuse in general and how ours could carry it across calls, so std code needn't be reshaped to suit the compiler.\n",
+      "body": "From docs/reviews/SW-2371-map-rebuild-reuse.md. Design first. 60 min paper.\n\nStarted 09:20 UTC, Opus paper lane (research), expected 75 min. Matt, 8 Nov: research how Lean, Koka and others implement reuse in general and how ours could carry it across calls, so std code needn't be reshaped to suit the compiler.\n\nLane (Opus paper, 09:32, ~12 min): note docs/proposals/reuse-across-calls.md, commit da49125b3 on lane/SW-2384 (plus a row in docs/proposals/README.md). Survey: Lean (reset/reuse per body after all inlining; matchers inlined back; RBNode balance1/2 and DTreeMap balanceL/R @[inline], DTreeMap also hand-fused), Koka (Perceus inlines bal-left; FLR frame-limited; FP2 passes credits explicitly, zipper rbtree), Mercury reuse versions, Roc, others. Nobody passes tokens across calls automatically; ours can cheaply because a token is already a Value in a register. Recommends (b): a variant g[reuse] with a hidden token argument, made on demand by a new rt pass after trmc, claimed in code.rs; no new instruction, no native ABI change, no step-count change; dijkstra est. 8-15%, matcher/binary-trees 0, disk 1-3%. SW-2383 unnecessary for reuse; keep it held until the residue (call cost, est. 3-7%) is measured after (b); compiler inlining (rescoped SW-1812) before any std reshape. Three questions for Matt in §7. No builds or tests (paper lane).\n\nMerged. Open for Matt: D3420 (reuse across calls as an invisible optimisation, no source annotations? rec yes), D3421 (hold SW-2383 until measured; bounded compiler inlining before reshaping std? rec yes), D3422 (step changes from future inlining an implementation detail, one step per frame kept? rec yes). Follow-ups SW-2391 SW-2392; SW-1812 to be rescoped to call cost. Model result: Opus, worked, 12 min (est. 75).\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
-      "commits": []
+      "commits": [
+        "354cdf34a"
+      ]
     },
     {
       "id": 2385,
@@ -23511,6 +23513,36 @@
       "commits": [
         "77d96ac33"
       ]
+    },
+    {
+      "id": 2391,
+      "title": "Reuse across calls: pass an emptied cell as a hidden argument to the callee that rebuilds it (a copied callee per token), pass after trmc::apply plus code.rs; docs/proposals/reuse-across-calls.md",
+      "status": "backlog",
+      "agent": "Opus",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "comparative-speed",
+      "body": "From SW-2384. Waits for D3420. Est. dijkstra 8-15%. 2-3 h.",
+      "created": "2026-11-08",
+      "updated": "2026-11-08",
+      "commits": []
+    },
+    {
+      "id": 2392,
+      "title": "Measure: a hand-reshaped Map.Tree.insertWith (scratch, std untouched) against the reuse-across-calls fix, to size the call-cost residue",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "comparative-speed",
+      "body": "From SW-2384. After SW-2391. 30 min.",
+      "created": "2026-11-08",
+      "updated": "2026-11-08",
+      "commits": []
     }
   ]
 }
