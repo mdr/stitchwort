@@ -1,5 +1,5 @@
 {
-  "next": 2405,
+  "next": 2406,
   "tickets": [
     {
       "id": 47,
@@ -23636,14 +23636,14 @@
     {
       "id": 2398,
       "title": "Nat-shaped types stage 1: the shape rule in core beside D866's unboxing, lowering for interpreter and native (Fin first), cross-backend example tests, 2025 day 3 measured before and after",
-      "status": "doing",
+      "status": "backlog",
       "agent": "Opus",
       "where": "",
       "labels": [
         "perf"
       ],
       "epic": "comparative-speed",
-      "body": "From docs/proposals/nat-shaped-types.md (SW-2397). Waits for D3424 and D3425. 1.5-2 h.\n\nD3424, Matt, 8 Nov 2026: yes, \"Every type with Nat's shape\" (automatic). D3425, delegated by Matt (\"Happy to go with your best recommendation if there's a clear choice\"): orchestrator's call, accept: the conversion natives cost a constant number of steps instead of one per FSucc, as Nat's natives do; results unchanged. Starts when a build slot frees, after SW-2396.\nStarted 10:51 UTC, Opus, expected 120 min.\n",
+      "body": "From docs/proposals/nat-shaped-types.md (SW-2397). Waits for D3424 and D3425. 1.5-2 h.\n\nD3424, Matt, 8 Nov 2026: yes, \"Every type with Nat's shape\" (automatic). D3425, delegated by Matt (\"Happy to go with your best recommendation if there's a clear choice\"): orchestrator's call, accept: the conversion natives cost a constant number of steps instead of one per FSucc, as Nat's natives do; results unchanged. Starts when a build slot frees, after SW-2396.\nStarted 10:51 UTC, Opus, expected 120 min.\n\n\n11:07 lane stopped for decisions (commit bf4936b9e on lane/SW-2398, WIP). Built: `Data::nat_shape` (core) and its lowering (construction, `MatchKind::Nat` matches with arm reordering); lowering tests; examples/accept/nat-shaped.sw; native agreement test. Two blockers: (1) `Fin` is not Nat-shaped under current erasure: its constructors store `n` as a run-time field (D141; `FSucc(n, i)` in the IR), so the rule picks up nothing in std or aoc; (2) a Nat-shaped type built under a recursive call (`More (f x)`) loses its TRMC loop: frames go from O(1) to O(depth), steps fall by 1 per outer call (example: 530 -> 526). Needs Matt's/the orchestrator's call before going on.\n\nStopped at 15 min (WIP bf4936b9e on lane/SW-2398, kept unmerged). Blockers: (1) Fin is not Nat-shaped at run time: D141 stores the index n in FZero/FSucc, and Fin.toNat reads it, so FSucc has two runtime fields; making Fin qualify needs erasing index-determined fields (core erasure, all backends) - a new design, note SW-2397 §1.1/§2.3 wrong on this. (2) Building a Nat-shaped value around a recursive call lowers to %Nat.add(f x, 1) and loses the TRMC loop: O(depth) frames, steps -1 per call (530 -> 526 on the example). Rule as built picks up only Nat in std, nothing in aoc/games. Waiting for D3426.\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
@@ -23735,6 +23735,21 @@
       ],
       "epic": "comparative-speed",
       "body": "From SW-2391. Predates it. 45 min.",
+      "created": "2026-11-08",
+      "updated": "2026-11-08",
+      "commits": []
+    },
+    {
+      "id": 2405,
+      "title": "Nat's own Succ (f x) recursion gets no constant-stack loop (TRMC handles constructors, not call plus k); add an accumulator loop for call-plus-constant",
+      "status": "backlog",
+      "agent": "Opus",
+      "where": "",
+      "labels": [
+        "rt"
+      ],
+      "epic": "comparative-speed",
+      "body": "From SW-2398. Existing gap; also needed if Nat-shaped types go ahead. Changes frames and steps for such Nat functions (results unchanged). 90 min.",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
