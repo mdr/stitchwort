@@ -1790,6 +1790,37 @@ pub unsafe extern "C" fn sw_apply_cached(
     cache: *mut ApplyCache,
 ) -> u64 {
     crate::call_counts::hit(crate::call_counts::Helper::ApplyCached);
+    if crate::call_counts::ENABLED {
+        use crate::call_counts::{Event, hit_event};
+        crate::call_counts::hit_site_miss(cache as usize);
+        // SAFETY: the caller's contract.
+        if unsafe { (*cache).key } == u64::MAX {
+            hit_event(Event::CacheCold);
+        }
+        // SAFETY: the caller's contract, as below.
+        let code = unsafe { apply_cached_target(context, f, n, cache) };
+        hit_event(if code == 0 {
+            Event::CacheMissUnresolved
+        } else {
+            Event::CacheMissResolved
+        });
+        return code;
+    }
+    // SAFETY: the caller's contract.
+    unsafe { apply_cached_target(context, f, n, cache) }
+}
+
+/// [`sw_apply_cached`]'s work.
+///
+/// # Safety
+/// As [`sw_apply_cached`].
+#[allow(unsafe_code)]
+unsafe fn apply_cached_target(
+    context: *mut Context,
+    f: *const Value,
+    n: u64,
+    cache: *mut ApplyCache,
+) -> u64 {
     // SAFETY: the caller's contract; the tables have an entry for every
     // global and every lambda.
     let (program, functions, lambdas) = unsafe {
@@ -1981,6 +2012,7 @@ pub unsafe extern "C" fn sw_apply_prepare(
                 (*plan).rest = 0;
             }
             drop(f);
+            crate::call_counts::hit_apply(crate::call_counts::ApplyKind::PapFast);
             return;
         }
     }
@@ -2007,6 +2039,9 @@ pub unsafe extern "C" fn sw_apply_prepare(
             Fun::Pap { head, args } => (head, args),
             _ => (&f, &[]),
         };
+        if crate::call_counts::ENABLED {
+            crate::call_counts::hit_apply(apply_kind(program, fun));
+        }
         let arity = crate::shared::arity(program, head);
         let total = held.len() + args.len();
         let mut all = if held.is_empty() {
@@ -2183,6 +2218,29 @@ pub unsafe extern "C" fn sw_apply_prepare(
     drop(f);
     while let Some(f) = applied.pop() {
         drop(f);
+    }
+}
+
+/// What kind of function value `fun` is, for the call counts.
+fn apply_kind(program: &Outline, fun: &Fun) -> crate::call_counts::ApplyKind {
+    use crate::call_counts::ApplyKind as K;
+    match fun {
+        Fun::Pap { .. } => K::PapSlow,
+        Fun::Global(g) => match program.globals[*g as usize].kind {
+            Kind::Function { .. } | Kind::Constant => K::GlobalFunction,
+            Kind::Native(PrimOp::Effect(EffectOp::Bind)) => K::EffectBind,
+            Kind::Native(PrimOp::Effect(_)) => K::EffectOther,
+            Kind::Native(_) => K::GlobalNative,
+        },
+        Fun::Closure { .. } => K::Closure,
+        Fun::DoneK => K::DoneK,
+        Fun::StateK(_) => K::StateK,
+        Fun::JumpK => K::JumpK,
+        Fun::DelayK(_) => K::DelayK,
+        Fun::Resume(_, true) => K::LazyResume,
+        Fun::Resume(_, false) => K::EagerResume,
+        Fun::StateRun(_) => K::StateRun,
+        Fun::Jumped(..) => K::Other,
     }
 }
 
@@ -2533,6 +2591,7 @@ pub unsafe extern "C" fn sw_eff_step(
     };
     if tag == s.bind_node {
         counts.pushes += 1;
+        crate::call_counts::hit_event(crate::call_counts::Event::Push);
         let (inner, k) = crate::effect::pair(fields);
         // SAFETY: the caller's contract: `pending` is taken and replaced.
         unsafe {
@@ -2547,6 +2606,7 @@ pub unsafe extern "C" fn sw_eff_step(
     if tag == s.done {
         if let Value::Data(_, cell) = list {
             counts.pops += 1;
+            crate::call_counts::hit_event(crate::call_counts::Event::Pop);
             let (k, next) = crate::effect::pair(cell);
             let x = crate::effect::field(fields, 0);
             // SAFETY: as above.
@@ -2557,6 +2617,7 @@ pub unsafe extern "C" fn sw_eff_step(
         }
         // SAFETY: as above (`Erased`).
         unsafe { pending.write(list) };
+        crate::call_counts::hit_event(crate::call_counts::Event::Finish);
         // SAFETY: the caller's contract; the loop is done with it.
         let handler = unsafe { handler_taken(handler) };
         return match &*handler {
@@ -2597,6 +2658,9 @@ pub unsafe extern "C" fn sw_eff_step(
         return STEP_RETURN;
     }
     let (o, rest) = crate::effect::pair(fields);
+    if crate::call_counts::ENABLED {
+        count_route(run.outline, &handler, &o);
+    }
     let resume = |handler, op| {
         Rc::new(Resume {
             handler,
@@ -2644,12 +2708,56 @@ pub unsafe extern "C" fn sw_eff_step(
             STEP_INJECT
         }
         Handler::Step => {
+            crate::call_counts::hit_event(crate::call_counts::Event::RouteStep);
             let k = Value::Fun(Rc::new(Fun::Resume(resume(handler, Value::Erased), false)));
             write(0, Value::data(s.call, [o, k]));
             STEP_RETURN
         }
         Handler::RunPure => internal(format_args!("an operation reached `runPure`")),
     }
+}
+
+/// Counts an operation `o` reaching `handler`, by the handler's clause and
+/// the operation's constructor under its `L`/`R` injections.
+fn count_route(program: &Outline, handler: &Handler, o: &Value) {
+    let clause = match handler {
+        Handler::Fold { call, .. } | Handler::State { call, .. } => call,
+        Handler::Translate { inject, .. } => inject,
+        _ => return,
+    };
+    crate::call_counts::hit_event(crate::call_counts::Event::Route);
+    let s = &program.shapes;
+    crate::call_counts::hit_route(
+        || match clause {
+            Value::Fun(f) => match &**f {
+                Fun::Global(g) => format!("global {}", program.globals[*g as usize].name),
+                Fun::Closure { lambda, .. } => format!("lambda {lambda}"),
+                Fun::Pap {
+                    head: Value::Fun(h),
+                    ..
+                } => match &**h {
+                    Fun::Global(g) => format!("pap of {}", program.globals[*g as usize].name),
+                    Fun::Closure { lambda, .. } => format!("pap of lambda {lambda}"),
+                    _ => "pap".to_string(),
+                },
+                _ => "other".to_string(),
+            },
+            _ => "other".to_string(),
+        },
+        || {
+            let (mut v, mut wraps) = (o, 0);
+            while let Value::Data(t, fields) = v
+                && (*t == s.left || *t == s.right)
+            {
+                wraps += 1;
+                v = &fields[0];
+            }
+            match v {
+                Value::Data(t, _) => format!("op tag {t} under {wraps} injections"),
+                _ => format!("op ? under {wraps} injections"),
+            }
+        },
+    );
 }
 
 /// A state-passing handler's clause returned the value at `v` (taken) for
@@ -2683,6 +2791,7 @@ pub unsafe extern "C" fn sw_state_step(
     // SAFETY: the caller's contract.
     let (run, v, resume) = unsafe { (&mut *(*context).run, v.read(), resume_taken(resume)) };
     let counts = &mut run.counts;
+    crate::call_counts::hit_event(crate::call_counts::Event::StateStep);
     match crate::effect::state_step(counts, v, resume) {
         crate::effect::StateStep::Value(v) => {
             // SAFETY: the caller's contract.
@@ -2736,6 +2845,7 @@ pub unsafe extern "C" fn sw_resume_begin(
     out: *mut Value,
     handler: *mut u64,
 ) -> u64 {
+    crate::call_counts::hit_event(crate::call_counts::Event::ResumeBegin);
     // SAFETY: the caller's contract: borrowed, so not dropped.
     let k = std::mem::ManuallyDrop::new(unsafe { from_words(u64::from(TAG_FUN), k, 0) });
     let Value::Fun(fun) = &*k else {
