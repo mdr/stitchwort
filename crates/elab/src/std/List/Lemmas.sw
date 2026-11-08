@@ -1156,6 +1156,14 @@ theorem List.memFlatMap (f: a → List b) (y: b) (xs: List a):
   backward = found => Exists.elim found (x both => List.memFlatMapIntro f x y xs (And.left both) (And.right both))
 }
 
+--| [`List.memFlatMapIntro`] for the spelling `concat (map xs f)`.
+theorem List.memConcatMapIntro (f: a → List b) (x: a) (y: b) (xs: List a) (inXs: x ∈ xs) (inF: y ∈ f x): y ∈ List.concat (List.map xs f) :=
+  rewrite <- List.flatMapEqConcatMap f xs in List.memFlatMapIntro f x y xs inXs inF
+
+--| [`List.memFlatMapElim`] for the spelling `concat (map xs f)`.
+theorem List.memConcatMapElim (f: a → List b) (y: b) (xs: List a) (member: y ∈ List.concat (List.map xs f)): List.Any (x => y ∈ f x) xs :=
+  List.memFlatMapElim f y xs (rewrite List.flatMapEqConcatMap f xs in member)
+
 --| Mapping an injective function keeps a list distinct.
 theorem List.distinctMap: (xs: List a) → List.Distinct xs → (f: a → b) → (inj: (x: a) → (y: a) → f x = f y → x = y) → List.Distinct (List.map xs f)
   | [], d, f, inj => Trivial
@@ -1259,6 +1267,12 @@ theorem List.distinctFlatMap (f: a → List b) (key: b → a): (xs: List a) → 
         List.anyElim (z => y ∈ f z) Void xs (List.memFlatMapElim f y xs inLater)
           (z inXs fromZ =>
             notLater (rewrite Eq.trans (Eq.sym (keyed x (Inl rfl) y fromX)) (keyed z (Inr inXs) y fromZ) in inXs))))
+
+--| [`List.distinctFlatMap`] for the spelling `concat (map xs f)`.
+theorem List.distinctConcatMap (f: a → List b) (key: b → a) (xs: List a) (distinct: List.Distinct xs)
+    (distinctEach: (x: a) → x ∈ xs → List.Distinct (f x)) (keyed: (x: a) → x ∈ xs → (y: b) → y ∈ f x → key y = x):
+    List.Distinct (List.concat (List.map xs f)) :=
+  rewrite <- List.flatMapEqConcatMap f xs in List.distinctFlatMap f key xs distinct distinctEach keyed
 
 --| A member of a list splits it around that occurrence:
 --| `[1, 2, 3]` is `[1] ++ [2, ..[3]]` for the 2.

@@ -65,13 +65,16 @@ theorem cellsMapCells (rows: List (List a)) (f: Position → a → b): cells (ma
 theorem gridCellsMapCells (rows: List (List a)) (f: Position → a → b):
     (mapCells rows f).gridCells = rows.gridCells.map (((at, x)) => (at, f { row = at.fst, column = at.snd } x)) :=
   calc (mapCells rows f).gridCells
+    _ = List.concat (List.map (List.withIndex (mapCells rows f)) (p => rowCells p.fst p.snd))
+      := List.flatMapEqConcatMap (p => rowCells p.fst p.snd) (List.withIndex (mapCells rows f))
     _ = List.concat (List.map (List.withIndex rows) (p => rowCells p.fst (List.mapWithIndex p.snd (c cell => f { row = p.fst, column = c } cell))))
       := rewrite List.withIndexFromMap 0 rows (p => List.mapWithIndex p.snd (c cell => f { row = p.fst, column = c } cell)),
         List.mapMap (List.withIndex rows) (q => rowCells q.fst q.snd) (p => (p.fst, List.mapWithIndex p.snd (c cell => f { row = p.fst, column = c } cell)))
     _ = List.concat (List.map (List.withIndex rows) (p => List.map (rowCells p.fst p.snd) (((at, x)) => (at, f { row = at.fst, column = at.snd } x))))
       := Eq.cong List.concat (List.mapCong (List.withIndex rows) _ _ (p => rowCellsMapWithIndex p.fst p.snd f))
     _ = rows.gridCells.map (((at, x)) => (at, f { row = at.fst, column = at.snd } x))
-      := Eq.sym (rewrite List.mapConcat (List.map (List.withIndex rows) (p => rowCells p.fst p.snd)) (((at, x)) => (at, f { row = at.fst, column = at.snd } x)),
+      := Eq.sym (rewrite List.flatMapEqConcatMap (p => rowCells p.fst p.snd) (List.withIndex rows),
+        List.mapConcat (List.map (List.withIndex rows) (p => rowCells p.fst p.snd)) (((at, x)) => (at, f { row = at.fst, column = at.snd } x)),
         List.mapMap (List.withIndex rows) (xs => List.map xs (((at, x)) => (at, f { row = at.fst, column = at.snd } x))) (p => rowCells p.fst p.snd) in rfl)
 
 --| Row r's cells, as `gridCells` makes them.
@@ -97,7 +100,8 @@ theorem pairExt: (x: (Nat, Nat)) → (y: (Nat, Nat)) → x.fst = y.fst → x.snd
   | (a, b), (c, d), first, second => rewrite first, second in rfl
 
 --| No position is in `gridCells` twice.
-theorem gridPositionsDistinct (rows: List (List a)): List.Distinct (rows.gridCells.map Pair.fst) := rowsDistinct 0 rows
+theorem gridPositionsDistinct (rows: List (List a)): List.Distinct (rows.gridCells.map Pair.fst) :=
+  rewrite List.flatMapEqConcatMap (p => rowCells p.fst p.snd) (List.withIndex rows) in rowsDistinct 0 rows
 
 --| The positions of the cells of rows s, s + 1, …: no repeats.
 theorem rowsDistinct: (s: Nat) → (rows: List (List a)) →
@@ -125,7 +129,8 @@ theorem rowsAbove (s: Nat) (rows: List (List a)) (q: (Nat, Nat))
     (member: q ∈ List.map (List.concat (List.map (List.withIndexFrom s rows) (p => rowCells p.fst p.snd))) Pair.fst): s ≤ q.fst :=
   Exists.elim (List.memMapElim Pair.fst q _ member) (cell both =>
     List.anyElim (p => cell ∈ rowCells p.fst p.snd) (s ≤ q.fst) (List.withIndexFrom s rows)
-      (List.memFlatMapElim (p => rowCells p.fst p.snd) cell (List.withIndexFrom s rows) (And.left both))
+      (List.memFlatMapElim (p => rowCells p.fst p.snd) cell (List.withIndexFrom s rows)
+        (rewrite List.flatMapEqConcatMap (p => rowCells p.fst p.snd) (List.withIndexFrom s rows) in And.left both))
       (p inRows inRow =>
         let above := List.memWithIndexFromLe s rows p inRows
         let atRow := rowCellsRow p.fst p.snd cell inRow

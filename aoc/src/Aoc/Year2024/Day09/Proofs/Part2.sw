@@ -67,9 +67,12 @@ theorem movedBlocks (diskMap: DiskMap): (compactFiles diskMap).flatMap .blocks =
   let layout := layoutFrom 0 0 diskMap.lengths
   let initial := FreeSpace.of (joinTouching layout.snd)
   rewrite List.mapAccumLeftList layout.fst.reverse initial FreeSpace.moveFile in
-    Eq.cong List.concat
-      (List.mapZipWithScanLeft File.blocks File.blocks (file free => (free.moveFile file).snd) (file free => moveFileBlocks free file)
-        layout.fst.reverse initial (free file => (free.moveFile file).fst))
+    Eq.trans (List.flatMapEqConcatMap File.blocks _)
+      (Eq.trans
+        (Eq.cong List.concat
+          (List.mapZipWithScanLeft File.blocks File.blocks (file free => (free.moveFile file).snd) (file free => moveFileBlocks free file)
+            layout.fst.reverse initial (free file => (free.moveFile file).fst)))
+        (Eq.sym (List.flatMapEqConcatMap File.blocks _)))
 
 theorem fileBlocksReplicate: (n: Nat) → (id: Nat) → fileBlocks (List.replicate n (FileBlock id)) = List.replicate n id
   | Zero, id => rfl
