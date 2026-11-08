@@ -1878,7 +1878,9 @@ impl Default for ApplyCache {
 /// function taking exactly `n`, its compiled code (the entry taking the
 /// function value last), kept in `cache`. 0 for anything else (a partial
 /// application, a native, another number of arguments), which goes through
-/// [`sw_apply_prepare`].
+/// [`sw_apply_prepare`]. Native code asks only for a `Fun::Global` or a
+/// `Fun::Closure` (it reads the variant byte first), since nothing else
+/// can be cached.
 ///
 /// # Safety
 /// `context` is the running context; `f` points at a live value; `cache`
@@ -2154,12 +2156,9 @@ pub unsafe extern "C" fn sw_apply_prepare(
                 let v = take(0);
                 Some(crate::effect::jump_k(v, take(1)))
             }
-            (Fun::Resume(resume, true), 1) => Some(crate::effect::resume_lazily(
-                s,
-                &mut run.counts,
-                resume,
-                take(0),
-            )),
+            (Fun::Resume(resume, true), 1) => {
+                Some(crate::effect::resume_lazily(s, run.counts, resume, take(0)))
+            }
             _ => None,
         };
         let resuming =

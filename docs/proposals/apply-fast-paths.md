@@ -141,3 +141,40 @@ step, frame, result or trace changes, no ABI change outside the two
 crates, and both are small. The expected gain is at the brief's 1.1×
 threshold rather than clearly over it, so the stages are measured one by
 one and C and D are done only if A and B land as predicted.
+
+## 6. As built (8 Nov 2026)
+
+A, B and D were built and kept; C was not (below). Instructions retired
+(`task bench:compare -- --runs 3 --runners native --instructions`) and calls (`task profile:native`) **[measured]**:
+
+| Stage | expressions | scan | bridge | disk |
+|---|---:|---:|---:|---:|
+| baseline (`4f33434ec`) | 540.06 G | 508.74 G | 143.19 G | 120.22 G |
+| A: no `sw_apply_cached` for a value it can't cache | 535.76 G | 505.09 G | 142.48 G | 119.96 G |
+| B: leaves and resumptions without the `Vec` | 500.79 G | 474.36 G | 136.46 G | 117.07 G |
+| D: a compiled head given at least its arguments without the `Vec` | 483.64 G | 453.79 G | 130.35 G | 113.69 G |
+| all, as a speed-up | 1.117× | 1.121× | 1.099× | 1.057× |
+
+- **A.** `sw_apply_cached` calls on expressions went from 304.5 M to
+  79.7 M (scan 292.6 M to 89.0 M, bridge 65.9 M to 25.0 M), as predicted;
+  but each call saved was about 19 instructions, not 30, so A gave 0.8%.
+- **B.** 124.8 M applies on expressions took the new path (scan 108.6 M,
+  bridge 21.7 M: every leaf and resumption), and saved 6.5% of
+  instructions, as predicted.
+- **D.** Built as a widening of the existing partial-application fast
+  path rather than a rewrite of the general one: any compiled global
+  function or closure, bare or partly applied, given at least the rest of
+  its arguments, with those past its arity as the plan's over-application
+  rest. The slow partial applications (18.6 M on expressions: a clause
+  given more arguments than it takes, `call o k jump s`) all moved to it.
+  It saved 3.4% (scan 4.3%), more than estimated. What is left on the
+  general path is under-application, natives as function values and
+  `bind` as a value.
+- **C, not built.** After A, a miss at the pop site costs one
+  `sw_apply_cached` call of about 19 instructions that resolves; there are
+  at most 61 M of those on expressions, about 1.2 G or 0.2%, so four
+  entries can't pay for their code. The pop site's misses are a
+  measurement of polymorphism, not a cost worth a cache.
+
+Wall-clock times were taken on a loaded machine and moved within their
+noise; the instruction counts are the measurement.
