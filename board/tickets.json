@@ -1,5 +1,5 @@
 {
-  "next": 2450,
+  "next": 2451,
   "tickets": [
     {
       "id": 47,
@@ -24341,7 +24341,7 @@
         "perf"
       ],
       "epic": "comparative-speed",
-      "body": "From SW-2429 §7 (settles k x V2's spill rule). Est. 2-4 h; check how mechanical the n1.rs change is first. Waits for D3434.\n\nD3434, Matt, 8 Nov 2026 ~20:55: agree, \"Run the experiment.\" Hold E and A until it reports. On Overmind after its soundness fuzzer; queued 20:51 UTC.\n",
+      "body": "From SW-2429 §7 (settles k x V2's spill rule). Est. 2-4 h; check how mechanical the n1.rs change is first. Waits for D3434.\n\nD3434, Matt, 8 Nov 2026 ~20:55: agree, \"Run the experiment.\" Hold E and A until it reports. On Overmind after its soundness fuzzer; queued 20:51 UTC.\n\nD3435, Matt, 8 Nov 2026 ~22:20: \"Yes, if it clears the bar, proceed\": if SW-2441 shows E clears the gate (1.10x decision-set geomean, 1.25x binary-trees), start building C then E overnight; each stage merged only if it delivers at least 60% of its prediction.\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
@@ -24466,6 +24466,21 @@
       ],
       "epic": "audit-fuzzing",
       "body": "From Overmind job 25 (8 Nov 2026 22:01, 7aae7269c). No counterexample before the kill. Repro: STITCHWORT_MEM_REPORT=1 task fuzz:soundness MUTANTS=2000 VOID=0 SEED=0x2439 CORPUS=aoc,rogue, sampling memory as it runs (memory should stay flat if nothing accumulates). 60 min.",
+      "created": "2026-11-08",
+      "updated": "2026-11-08",
+      "commits": []
+    },
+    {
+      "id": 2450,
+      "title": "Benchmark breadth: review the ten bench/compare programs for over-fitting, and propose additions, especially Lean's own benchmark programs (lean4 tests/bench: binarytrees, deriv, const_fold, qsort, rbmap, unionfind, ...), more Benchmarks Game programs, and a broad AoC-day suite timed against CPython; say which to add, how to port them faithfully, and how to report a wider geomean without losing the history",
+      "status": "backlog",
+      "agent": "Opus",
+      "where": "",
+      "labels": [
+        "bench"
+      ],
+      "epic": "comparative-speed",
+      "body": "Matt, 8 Nov 2026 ~22:20: \"I don't want us to over optimize on a fixed set of particular benchmarks. Maybe there are other benchmarks we should be considering as well.\" Paper lane, 90 min. Also: check whether tonight's fixes moved anything outside the ten (AoC days natively).",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
