@@ -172,45 +172,137 @@ theorem Graph.unsettledFewer [auto ord: Ord s] (universe: List s) (settled: Map 
 
 -- Dijkstra's algorithm
 
---| The queue with each edge's state added, at `cost` plus the edge's.
+--| Whether `total` is less than the cost `best` has for `state`; it is
+--| when `best` has none.
+def Graph.improves [auto ord: Ord s] (best: Map s Nat) (state: s) (total: Nat): Bool :=
+  match best.get state with
+    | None => True
+    | Some known => total < known
+
+--| A cost that doesn't improve is no less than one `best` has.
+theorem Graph.improvesFalse [auto ord: Ord s] (best: Map s Nat) (state: s) (total: Nat) (no: Graph.improves best state total = False):
+    Exists Nat (known => (best.get state = Some known) ∧ (known ≤ total)) :=
+  match got: best.get state with
+    | None => Void.exfalso (Bool.trueNotFalse no)
+    | Some known => Witness known (Both rfl omega)
+
+--| A cost that improves is less than any `best` has.
+theorem Graph.improvesTrue [auto ord: Ord s] (best: Map s Nat) (state: s) (total: Nat) (yes: Graph.improves best state total = True)
+    (known: Nat) (got: best.get state = Some known): total < known :=
+  rewrite got at yes in omega
+
+--| Each edge whose state it gets to for less than `best` has, at `cost`
+--| plus the edge's: the state queued at that cost, and the cost kept in
+--| `best`. A settled state is never queued again: `best` has it for no more
+--| than its settled cost, which no later cost is below.
 @[tailrec]
-def Graph.pushEdges [auto ord: Ord s] (cost: Nat): (edges: List (s, Nat)) → (queue: Set (Nat, s)) → Set (Nat, s)
-  | [], queue => queue
-  | [(next, weight), ..rest], queue => Graph.pushEdges cost rest (queue.insert (cost + weight, next))
+def Graph.relaxEdges [auto ord: Ord s] (cost: Nat): (edges: List (s, Nat)) → (queue: Set (Nat, s)) → (best: Map s Nat) → (Set (Nat, s), Map s Nat)
+  | [], queue, best => (queue, best)
+  | [(next, weight), ..rest], queue, best =>
+    if Graph.improves best next (cost + weight) then Graph.relaxEdges cost rest (queue.insert (cost + weight, next)) (best.insert next (cost + weight))
+    else Graph.relaxEdges cost rest queue best
 
---| Pushing edges keeps what the queue had.
-theorem Graph.containsPushedKeeps [auto ord: Ord s] (cost: Nat): (edges: List (s, Nat)) → (queue: Set (Nat, s)) → (entry: (Nat, s)) →
-    queue.contains entry = True → (Graph.pushEdges cost edges queue).contains entry = True
-  | [], queue, entry, there => there
-  | [(next, weight), ..rest], queue, entry, there =>
-    Graph.containsPushedKeeps cost rest (queue.insert (cost + weight, next)) entry (Set.containsInsertMono queue (cost + weight, next) entry there)
+--| Relaxing edges keeps what the queue had.
+theorem Graph.relaxKeeps [auto ord: Ord s] (cost: Nat): (edges: List (s, Nat)) → (queue: Set (Nat, s)) → (best: Map s Nat) → (entry: (Nat, s)) →
+    queue.contains entry = True → (Graph.relaxEdges cost edges queue best).fst.contains entry = True
+  | [], queue, best, entry, there => there
+  | [(next, weight), ..rest], queue, best, entry, there =>
+    match better: Graph.improves best next (cost + weight) with
+      | True =>
+        Graph.relaxKeeps cost rest (queue.insert (cost + weight, next)) (best.insert next (cost + weight)) entry
+          (Set.containsInsertMono queue (cost + weight, next) entry there)
+      | False => Graph.relaxKeeps cost rest queue best entry there
 
---| Pushing edges adds each edge's state at `cost` plus its cost.
-theorem Graph.containsPushedEdge [auto ord: Ord s] (cost: Nat): (edges: List (s, Nat)) → (queue: Set (Nat, s)) → (next: s) → (weight: Nat) →
-    (next, weight) ∈ edges → (Graph.pushEdges cost edges queue).contains (cost + weight, next) = True
-  | [], queue, next, weight, member => Void.exfalso member
-  | [(first, firstWeight), ..rest], queue, next, weight, Inl here =>
-    rewrite <- Eq.cong Pair.fst here, <- Eq.cong Pair.snd here in
-      Graph.containsPushedKeeps cost rest (queue.insert (cost + firstWeight, first)) (cost + firstWeight, first)
-        (Set.containsInsert (cost + firstWeight, first) queue)
-  | [(first, firstWeight), ..rest], queue, next, weight, Inr later =>
-    Graph.containsPushedEdge cost rest (queue.insert (cost + firstWeight, first)) next weight later
-
---| Pushing edges adds nothing but each edge's state at `cost` plus its cost.
-theorem Graph.containsPushed [auto ord: Ord s] (cost: Nat): (edges: List (s, Nat)) → (queue: Set (Nat, s)) → (total: Nat) → (state: s) →
-    (Graph.pushEdges cost edges queue).contains (total, state) = True →
+--| Relaxing edges queues nothing but each edge's state at `cost` plus its
+--| cost.
+theorem Graph.relaxAdded [auto ord: Ord s] (cost: Nat): (edges: List (s, Nat)) → (queue: Set (Nat, s)) → (best: Map s Nat) → (total: Nat) → (state: s) →
+    (Graph.relaxEdges cost edges queue best).fst.contains (total, state) = True →
     (queue.contains (total, state) = True) ∨ (Exists Nat (weight => ((state, weight) ∈ edges) ∧ (total = cost + weight)))
-  | [], queue, total, state, there => Inl there
-  | [(next, weight), ..rest], queue, total, state, there =>
-    match Graph.containsPushed cost rest (queue.insert (cost + weight, next)) total state there with
-      | Inr (Witness found (Both member costs)) => Inr (Witness found (Both (Inr member) costs))
-      | Inl inserted =>
-        match same: (total, state) == (cost + weight, next) with
+  | [], queue, best, total, state, there => Inl there
+  | [(next, weight), ..rest], queue, best, total, state, there =>
+    match better: Graph.improves best next (cost + weight) with
+      | False =>
+        match Graph.relaxAdded cost rest queue best total state there with
+          | Inl old => Inl old
+          | Inr (Witness found (Both member costs)) => Inr (Witness found (Both (Inr member) costs))
+      | True =>
+        match Graph.relaxAdded cost rest (queue.insert (cost + weight, next)) (best.insert next (cost + weight)) total state there with
+          | Inr (Witness found (Both member costs)) => Inr (Witness found (Both (Inr member) costs))
+          | Inl inserted =>
+            match same: (total, state) == (cost + weight, next) with
+              | True =>
+                let equal := DecEq.sound same
+                Inr (Witness weight (Both (Inl (Eq.cong (found => (found, weight)) (Eq.sym (Eq.cong Pair.snd equal)))) (Eq.cong Pair.fst equal)))
+              | False =>
+                Inl (Eq.trans (Eq.sym (Set.containsInsertOther queue (cost + weight, next) (total, state) (DecEq.soundFalse _ _ same))) inserted)
+
+--| Each cost relaxing edges records in `best` was there before, or is
+--| queued.
+theorem Graph.relaxBest [auto ord: Ord s] (cost: Nat): (edges: List (s, Nat)) → (queue: Set (Nat, s)) → (best: Map s Nat) → (state: s) → (found: Nat) →
+    (Graph.relaxEdges cost edges queue best).snd.get state = Some found →
+    (best.get state = Some found) ∨ ((Graph.relaxEdges cost edges queue best).fst.contains (found, state) = True)
+  | [], queue, best, state, found, got => Inl got
+  | [(next, weight), ..rest], queue, best, state, found, got =>
+    match better: Graph.improves best next (cost + weight) with
+      | False => Graph.relaxBest cost rest queue best state found got
+      | True =>
+        let more := queue.insert (cost + weight, next)
+        match Graph.relaxBest cost rest more (best.insert next (cost + weight)) state found got with
+          | Inr queued => Inr queued
+          | Inl inserted =>
+            match Map.getInsertCases best next (cost + weight) state found inserted with
+              | Inr old => Inl old
+              | Inl (Both same costs) =>
+                Inr
+                  (rewrite same, costs in
+                    Graph.relaxKeeps cost rest more (best.insert next (cost + weight)) (cost + weight, next)
+                      (Set.containsInsert (cost + weight, next) queue))
+
+--| Relaxing edges never raises a cost `best` has.
+theorem Graph.relaxLowers [auto ord: Ord s] (cost: Nat): (edges: List (s, Nat)) → (queue: Set (Nat, s)) → (best: Map s Nat) → (state: s) → (known: Nat) →
+    best.get state = Some known →
+    Exists Nat (found => ((Graph.relaxEdges cost edges queue best).snd.get state = Some found) ∧ (found ≤ known))
+  | [], queue, best, state, known, got => Witness known (Both got (Nat.leRefl known))
+  | [(next, weight), ..rest], queue, best, state, known, got =>
+    match better: Graph.improves best next (cost + weight) with
+      | False => Graph.relaxLowers cost rest queue best state known got
+      | True =>
+        let more := queue.insert (cost + weight, next)
+        let lowered := best.insert next (cost + weight)
+        match same: state == next with
           | True =>
             let equal := DecEq.sound same
-            Inr (Witness weight (Both (Inl (Eq.cong (found => (found, weight)) (Eq.sym (Eq.cong Pair.snd equal)))) (Eq.cong Pair.fst equal)))
+            let less := Graph.improvesTrue best next (cost + weight) better known (rewrite <- equal in got)
+            let (Witness found (Both final le)) :=
+              Graph.relaxLowers cost rest more lowered state (cost + weight) (rewrite equal in Map.getInsert next (cost + weight) best)
+            Witness found (Both final (omega [le, less]))
           | False =>
-            Inl (Eq.trans (Eq.sym (Set.containsInsertOther queue (cost + weight, next) (total, state) (DecEq.soundFalse _ _ same))) inserted)
+            Graph.relaxLowers cost rest more lowered state known
+              (Eq.trans (Map.getInsertOther next (cost + weight) state (DecEq.soundFalse _ _ same) best) got)
+
+--| After relaxing edges, `best` has each edge's state for no more than
+--| `cost` plus the edge's.
+theorem Graph.relaxCovers [auto ord: Ord s] (cost: Nat): (edges: List (s, Nat)) → (queue: Set (Nat, s)) → (best: Map s Nat) → (next: s) → (weight: Nat) →
+    (next, weight) ∈ edges →
+    Exists Nat (found => ((Graph.relaxEdges cost edges queue best).snd.get next = Some found) ∧ (found ≤ cost + weight))
+  | [], queue, best, next, weight, member => Void.exfalso member
+  | [(first, firstWeight), ..rest], queue, best, next, weight, Inr later =>
+    match better: Graph.improves best first (cost + firstWeight) with
+      | False => Graph.relaxCovers cost rest queue best next weight later
+      | True =>
+        Graph.relaxCovers cost rest (queue.insert (cost + firstWeight, first)) (best.insert first (cost + firstWeight)) next weight later
+  | [(first, firstWeight), ..rest], queue, best, next, weight, Inl here =>
+    rewrite <- Eq.cong Pair.fst here, <- Eq.cong Pair.snd here in
+      match better: Graph.improves best first (cost + firstWeight) with
+        | False =>
+          let (Witness known (Both got le)) := Graph.improvesFalse best first (cost + firstWeight) better
+          let (Witness found (Both final lower)) := Graph.relaxLowers cost rest queue best first known got
+          Witness found (Both final (omega [le, lower]))
+        | True =>
+          let (Witness found (Both final lower)) :=
+            Graph.relaxLowers cost rest (queue.insert (cost + firstWeight, first)) (best.insert first (cost + firstWeight)) first
+              (cost + firstWeight) (Map.getInsert first (cost + firstWeight) best)
+          Witness found (Both final lower)
 
 --| `Less` then anything is never a first comparison of `Greater`.
 theorem Graph.notGreaterOfThen: (first: Ordering) → (second: Ordering) → Ordering.andThen first second = Less → first ≠ Greater
@@ -242,8 +334,8 @@ def Graph.universe (graph: Graph s) (sources: List (s, Nat)): List s := sources.
 
 --| Every state queued at the start is in the universe.
 theorem Graph.startQueued [auto ord: Ord s] (graph: Graph s) (sources: List (s, Nat)) (cost: Nat) (state: s)
-    (there: (Graph.pushEdges 0 sources Set.empty).contains (cost, state) = True): state ∈ graph.universe sources :=
-  match Graph.containsPushed 0 sources Set.empty cost state there with
+    (there: (Graph.relaxEdges 0 sources Set.empty Map.empty).fst.contains (cost, state) = True): state ∈ graph.universe sources :=
+  match Graph.relaxAdded 0 sources Set.empty Map.empty cost state there with
     | Inl none => Void.exfalso (Bool.falseNotTrue none)
     | Inr (Witness start (Both member costs)) =>
       List.memAppendLeft state (sources.map Pair.fst) graph.states (List.memMap sources (state, start) member Pair.fst)
@@ -256,21 +348,24 @@ theorem Graph.restQueued [auto ord: Ord s] (graph: Graph s) (sources: List (s, N
   let (Both least restIs) := Set.popMinSome queue popped rest found
   queued cost state (Set.containsOfRemove queue popped (cost, state) (rewrite restIs at there in there))
 
---| Every state queued after pushing a state's edges is in the universe.
-theorem Graph.pushedQueued [auto ord: Ord s] (graph: Graph s) (sources: List (s, Nat)) (from: s) (fromCost: Nat) (rest: Set (Nat, s))
-    (queued: (cost: Nat) → (state: s) → rest.contains (cost, state) = True → state ∈ graph.universe sources) (cost: Nat) (state: s)
-    (there: (Graph.pushEdges fromCost (graph.edges from) rest).contains (cost, state) = True): state ∈ graph.universe sources :=
-  match Graph.containsPushed fromCost (graph.edges from) rest cost state there with
+--| Every state queued after relaxing a state's edges is in the universe.
+theorem Graph.relaxedQueued [auto ord: Ord s] (graph: Graph s) (sources: List (s, Nat)) (from: s) (fromCost: Nat) (rest: Set (Nat, s))
+    (best: Map s Nat) (queued: (cost: Nat) → (state: s) → rest.contains (cost, state) = True → state ∈ graph.universe sources) (cost: Nat)
+    (state: s) (there: (Graph.relaxEdges fromCost (graph.edges from) rest best).fst.contains (cost, state) = True): state ∈ graph.universe sources :=
+  match Graph.relaxAdded fromCost (graph.edges from) rest best cost state there with
     | Inl inRest => queued cost state inRest
     | Inr (Witness weight (Both edge costs)) =>
       List.memAppendRight state (sources.map Pair.fst) graph.states (graph.listed from state weight edge)
 
 --| Dijkstra's algorithm: `queue` holds (cost, state) pairs still to look at,
 --| least first; `settled` the least cost found for each state settled so
---| far. The least pair, `popped` with the rest of the queue, settles its
---| state, unless it already is, and queues the state's edges.
+--| far; `best` the least cost each state has been queued at. The least
+--| pair, `popped` with the rest of the queue, settles its state, unless it
+--| already is, and queues the states its edges get to for less than
+--| `best` has. A pair left behind by a cheaper one for its state is
+--| dropped when popped, its state settled by then.
 @[tailrec]
-def Graph.searchFrom [auto ord: Ord s] (graph: Graph s) (sources: List (s, Nat)) (queue: Set (Nat, s)) (settled: Map s Nat)
+def Graph.searchFrom [auto ord: Ord s] (graph: Graph s) (sources: List (s, Nat)) (queue: Set (Nat, s)) (settled: Map s Nat) (best: Map s Nat)
     (queued: (cost: Nat) → (state: s) → queue.contains (cost, state) = True → state ∈ graph.universe sources):
     (popped: Option ((Nat, s), Set (Nat, s))) → (found: queue.popMin = popped) → Map s Nat
     decreasing (Graph.unsettledIn (graph.universe sources) settled, queue.size)
@@ -278,36 +373,46 @@ def Graph.searchFrom [auto ord: Ord s] (graph: Graph s) (sources: List (s, Nat))
   | Some ((cost, state), rest), found =>
     let restQueued := Graph.restQueued graph sources queue (cost, state) rest found queued
     if fresh: settled.contains state = False then
-      let pushed := Graph.pushEdges cost (graph.edges state) rest
-      Graph.searchFrom graph sources pushed (settled.insert state cost) (Graph.pushedQueued graph sources state cost rest restQueued) pushed.popMin rfl
+      let relaxed := Graph.relaxEdges cost (graph.edges state) rest best
+      Graph.searchFrom graph sources relaxed.fst (settled.insert state cost) relaxed.snd
+        (Graph.relaxedQueued graph sources state cost rest best restQueued) relaxed.fst.popMin rfl
         [decreasing :=
           Nat.LexLess.First
             (Graph.unsettledFewer (graph.universe sources) settled (settled.insert state cost)
               (other there => Map.containsInsertKeeps settled state cost other there) state
               (queued cost state (Set.containsMin queue (cost, state) (And.left (Set.popMinSome queue (cost, state) rest found)))) fresh
               (Map.containsInsertSame settled state cost))]
-    else Graph.searchFrom graph sources rest settled restQueued rest.popMin rfl [decreasing := Nat.LexLess.Second rfl (Set.sizePopMin queue (cost, state) rest found)]
+    else
+      Graph.searchFrom graph sources rest settled best restQueued rest.popMin rfl
+        [decreasing := Nat.LexLess.Second rfl (Set.sizePopMin queue (cost, state) rest found)]
 
 --| The least cost to each state reachable from one of the sources, each
 --| given with the cost of starting there.
 def Graph.distances [auto ord: Ord s] (graph: Graph s) (sources: List (s, Nat)): Map s Nat :=
-  let queue := Graph.pushEdges 0 sources Set.empty
-  graph.searchFrom sources queue Map.empty (Graph.startQueued graph sources) queue.popMin rfl
+  let start := Graph.relaxEdges 0 sources Set.empty Map.empty
+  graph.searchFrom sources start.fst Map.empty start.snd (Graph.startQueued graph sources) start.fst.popMin rfl
 
---| A cost the search still has to account for: the pair is queued, or the
---| state is settled for no more.
+--| A cost the search still has to account for: the state is queued for no
+--| more, or settled for no more.
 def Graph.Pending [auto ord: Ord s] (queue: Set (Nat, s)) (settled: Map s Nat) (cost: Nat) (state: s): Prop :=
-  (queue.contains (cost, state) = True) ∨ (Graph.Bound settled cost state)
+  (Exists Nat (found => (found ≤ cost) ∧ (queue.contains (found, state) = True))) ∨ (Graph.Bound settled cost state)
+
+--| A pending cost is pending for any larger one.
+theorem Graph.pendingWeaken [auto ord: Ord s] (queue: Set (Nat, s)) (settled: Map s Nat) (cost: Nat) (more: Nat) (state: s)
+    (pending: Graph.Pending queue settled cost state) (le: cost ≤ more): Graph.Pending queue settled more state :=
+  match pending with
+    | Inl (Witness found (Both below there)) => Inl (Witness found (Both (omega [below, le]) there))
+    | Inr bound => Inr (Graph.boundWeaken settled cost more state bound le)
 
 --| What holds at each step of the search.
---| Every queued pair and settled state is reached for its cost; each source,
---| and each edge out of a settled state, is pending; and nothing settled
---| costs more than anything queued.
+--| Every queued pair and settled state is reached for its cost; each
+--| source, each edge out of a settled state, and each cost in `best` is
+--| pending; and nothing settled costs more than anything queued.
 def Graph.SearchState [auto ord: Ord s] (graph: Graph s) (sources: List (s, Nat)) (reach: s → Nat → Prop) (queue: Set (Nat, s))
-    (settled: Map s Nat): Prop :=
+    (settled: Map s Nat) (best: Map s Nat): Prop :=
   ((cost: Nat) → (state: s) → queue.contains (cost, state) = True → reach state cost) ∧ (((state: s) → (cost: Nat) → settled.get state = Some cost → reach state cost) ∧ (((source: s) → (start: Nat) → (source, start) ∈ sources → Graph.Pending queue settled start source) ∧ (((state: s) → (cost: Nat) → settled.get state = Some cost → (next: s) → (weight: Nat) → (next, weight) ∈ graph.edges state →
-    Graph.Pending queue settled (cost + weight) next) ∧ ((state: s) → (cost: Nat) → settled.get state = Some cost → (other: Nat) → (otherState: s) →
-    queue.contains (other, otherState) = True → cost ≤ other))))
+    Graph.Pending queue settled (cost + weight) next) ∧ (((state: s) → (cost: Nat) → settled.get state = Some cost → (other: Nat) → (otherState: s) →
+    queue.contains (other, otherState) = True → cost ≤ other) ∧ ((state: s) → (cost: Nat) → best.get state = Some cost → Graph.Pending queue settled cost state)))))
 
 --| A pending cost stays pending when the queue keeps all but the popped
 --| pair, the settled states stay, and the popped state is settled for no
@@ -320,26 +425,28 @@ theorem Graph.pendingKept [auto ord: Ord s] (queue: Set (Nat, s)) (newQueue: Set
     (pending: Graph.Pending queue settled cost state): Graph.Pending newQueue newSettled cost state :=
   match pending with
     | Inr (Witness found (Both got le)) => Inr (Witness found (Both (stays state found got) le))
-    | Inl there =>
-      match same: (cost, state) == (poppedCost, poppedState) with
+    | Inl (Witness found (Both below there)) =>
+      match same: (found, state) == (poppedCost, poppedState) with
         | True =>
           let equal := DecEq.sound same
-          Inr (Witness poppedFound (Both (rewrite Eq.cong Pair.snd equal in popped) (rewrite Eq.cong Pair.fst equal in cheaper)))
-        | False => Inl (kept (cost, state) there (DecEq.soundFalse _ _ same))
+          let costs: found = poppedCost := Eq.cong Pair.fst equal
+          Inr (Witness poppedFound (Both (rewrite Eq.cong Pair.snd equal in popped) (omega [costs, cheaper, below])))
+        | False => Inl (Witness found (Both below (kept (found, state) there (DecEq.soundFalse _ _ same))))
 
 --| With nothing queued, a pending cost is a bound.
 theorem Graph.boundOfPending [auto ord: Ord s] (queue: Set (Nat, s)) (settled: Map s Nat) (empty: queue.popMin = None) (cost: Nat) (state: s)
     (pending: Graph.Pending queue settled cost state): Graph.Bound settled cost state :=
   match pending with
     | Inr bound => bound
-    | Inl there =>
-      Void.exfalso (Bool.falseNotTrue (Eq.trans (Eq.sym (Set.missingOfMinNone queue (Set.popMinNone queue empty) (cost, state))) there))
+    | Inl (Witness found (Both below there)) =>
+      Void.exfalso (Bool.falseNotTrue (Eq.trans (Eq.sym (Set.missingOfMinNone queue (Set.popMinNone queue empty) (found, state))) there))
 
 --| Dropping a popped pair whose state is settled keeps the search state.
 theorem Graph.skipKeeps [auto ord: Ord s] (graph: Graph s) (sources: List (s, Nat)) (reach: s → Nat → Prop) (queue: Set (Nat, s))
-    (settled: Map s Nat) (cost: Nat) (state: s) (found: queue.min = Some (cost, state)) (taken: settled.contains state = True)
-    (invariant: Graph.SearchState graph sources reach queue settled): Graph.SearchState graph sources reach (queue.remove (cost, state)) settled :=
-  let (Both queuedReach (Both settledReached (Both sourcesPending (Both edgesPending ordered)))) := invariant
+    (settled: Map s Nat) (best: Map s Nat) (cost: Nat) (state: s) (found: queue.min = Some (cost, state)) (taken: settled.contains state = True)
+    (invariant: Graph.SearchState graph sources reach queue settled best):
+    Graph.SearchState graph sources reach (queue.remove (cost, state)) settled best :=
+  let (Both queuedReach (Both settledReached (Both sourcesPending (Both edgesPending (Both ordered bestPending))))) := invariant
   let inQueue := Set.containsMin queue (cost, state) found
   Exists.elim (Map.getOfContains settled state taken) (settledCost got =>
     let cheaper := ordered state settledCost got cost state inQueue
@@ -350,34 +457,44 @@ theorem Graph.skipKeeps [auto ord: Ord s] (graph: Graph s) (sources: List (s, Na
         (Both (source start member => keep start source (sourcesPending source start member))
           (Both
             (from fromCost got next weight edge => keep (fromCost + weight) next (edgesPending from fromCost got next weight edge))
-            (from fromCost got other otherState there =>
-              ordered from fromCost got other otherState (Set.containsOfRemove queue (cost, state) (other, otherState) there))))))
+            (Both
+              (from fromCost got other otherState there =>
+                ordered from fromCost got other otherState (Set.containsOfRemove queue (cost, state) (other, otherState) there))
+              (other otherCost got => keep otherCost other (bestPending other otherCost got)))))))
 
---| Settling the popped state and queueing its edges keeps the search state.
+--| Settling the popped state and relaxing its edges keeps the search
+--| state.
 theorem Graph.settleKeeps [auto ord: Ord s] (graph: Graph s) (sources: List (s, Nat)) (reach: s → Nat → Prop)
     (edgesReach: (state: s) → (cost: Nat) → reach state cost → (next: s) → (weight: Nat) → (next, weight) ∈ graph.edges state →
       reach next (cost + weight))
-    (queue: Set (Nat, s)) (settled: Map s Nat) (cost: Nat) (state: s) (found: queue.min = Some (cost, state))
-    (fresh: settled.contains state = False) (invariant: Graph.SearchState graph sources reach queue settled):
-    Graph.SearchState graph sources reach (Graph.pushEdges cost (graph.edges state) (queue.remove (cost, state))) (settled.insert state cost) :=
-  let (Both queuedReach (Both settledReached (Both sourcesPending (Both edgesPending ordered)))) := invariant
+    (queue: Set (Nat, s)) (settled: Map s Nat) (best: Map s Nat) (cost: Nat) (state: s) (found: queue.min = Some (cost, state))
+    (fresh: settled.contains state = False) (invariant: Graph.SearchState graph sources reach queue settled best):
+    Graph.SearchState graph sources reach (Graph.relaxEdges cost (graph.edges state) (queue.remove (cost, state)) best).fst (settled.insert state cost)
+      (Graph.relaxEdges cost (graph.edges state) (queue.remove (cost, state)) best).snd :=
+  let (Both queuedReach (Both settledReached (Both sourcesPending (Both edgesPending (Both ordered bestPending))))) := invariant
   let rest := queue.remove (cost, state)
-  let pushed := Graph.pushEdges cost (graph.edges state) rest
+  let relaxed := Graph.relaxEdges cost (graph.edges state) rest best
   let inQueue := Set.containsMin queue (cost, state) found
   let reached := queuedReach cost state inQueue
   let poppedGot: (settled.insert state cost).get state = Some cost := Map.getInsert state cost settled
-  let keep := Graph.pendingKept queue pushed settled (settled.insert state cost) cost state cost
+  let keep := Graph.pendingKept queue relaxed.fst settled (settled.insert state cost) cost state cost
     (entry there apart =>
-      Graph.containsPushedKeeps cost (graph.edges state) rest entry (Eq.trans (Set.containsRemoveOther queue (cost, state) entry apart) there))
+      Graph.relaxKeeps cost (graph.edges state) rest best entry (Eq.trans (Set.containsRemoveOther queue (cost, state) entry apart) there))
     (other value got => Map.getInsertKeeps settled state cost fresh other value got) poppedGot (Nat.leRefl cost)
-  let atLeast: (other: Nat) → (otherState: s) → pushed.contains (other, otherState) = True → cost ≤ other :=
+  let atLeast: (other: Nat) → (otherState: s) → relaxed.fst.contains (other, otherState) = True → cost ≤ other :=
     other otherState there =>
-      match Graph.containsPushed cost (graph.edges state) rest other otherState there with
+      match Graph.relaxAdded cost (graph.edges state) rest best other otherState there with
         | Inl inRest => Graph.minLeast queue cost state found other otherState (Set.containsOfRemove queue (cost, state) (other, otherState) inRest)
         | Inr (Witness weight (Both edge costs)) => rewrite costs in omega
+  let newBest: (other: s) → (otherCost: Nat) → relaxed.snd.get other = Some otherCost →
+      Graph.Pending relaxed.fst (settled.insert state cost) otherCost other :=
+    other otherCost got =>
+      match Graph.relaxBest cost (graph.edges state) rest best other otherCost got with
+        | Inl old => keep otherCost other (bestPending other otherCost old)
+        | Inr queued => Inl (Witness otherCost (Both (Nat.leRefl otherCost) queued))
   Both
     (other otherState there =>
-      match Graph.containsPushed cost (graph.edges state) rest other otherState there with
+      match Graph.relaxAdded cost (graph.edges state) rest best other otherState there with
         | Inl inRest => queuedReach other otherState (Set.containsOfRemove queue (cost, state) (other, otherState) inRest)
         | Inr (Witness weight (Both edge costs)) => rewrite costs in edgesReach state cost reached otherState weight edge)
     (Both
@@ -390,25 +507,30 @@ theorem Graph.settleKeeps [auto ord: Ord s] (graph: Graph s) (sources: List (s, 
           (from fromCost got next weight edge =>
             match Map.getInsertCases settled state cost from fromCost got with
               | Inl (Both same costs) =>
-                rewrite costs in Inl (Graph.containsPushedEdge cost (graph.edges state) rest next weight (rewrite <- same in edge))
+                let (Witness bestCost (Both bestGot le)) :=
+                  Graph.relaxCovers cost (graph.edges state) rest best next weight (rewrite <- same in edge)
+                rewrite costs in
+                  Graph.pendingWeaken relaxed.fst (settled.insert state cost) bestCost (cost + weight) next (newBest next bestCost bestGot) le
               | Inr old => keep (fromCost + weight) next (edgesPending from fromCost old next weight edge))
-          (from fromCost got other otherState there =>
-            match Map.getInsertCases settled state cost from fromCost got with
-              | Inl (Both same costs) => rewrite costs in atLeast other otherState there
-              | Inr old => omega [ordered from fromCost old cost state inQueue, atLeast other otherState there]))))
+          (Both
+            (from fromCost got other otherState there =>
+              match Map.getInsertCases settled state cost from fromCost got with
+                | Inl (Both same costs) => rewrite costs in atLeast other otherState there
+                | Inr old => omega [ordered from fromCost old cost state inQueue, atLeast other otherState there])
+            newBest))))
 
 --| The search returns what `SearchResult` says, from any search state.
 theorem Graph.searchFromCorrect [auto ord: Ord s] (graph: Graph s) (sources: List (s, Nat)) (reach: s → Nat → Prop)
     (edgesReach: (state: s) → (cost: Nat) → reach state cost → (next: s) → (weight: Nat) → (next, weight) ∈ graph.edges state →
       reach next (cost + weight))
-    (queue: Set (Nat, s)) (settled: Map s Nat)
+    (queue: Set (Nat, s)) (settled: Map s Nat) (best: Map s Nat)
     (queued: (cost: Nat) → (state: s) → queue.contains (cost, state) = True → state ∈ graph.universe sources):
-    (popped: Option ((Nat, s), Set (Nat, s))) → (found: queue.popMin = popped) → Graph.SearchState graph sources reach queue settled →
-      Graph.SearchResult graph sources reach (graph.searchFrom sources queue settled queued popped found)
+    (popped: Option ((Nat, s), Set (Nat, s))) → (found: queue.popMin = popped) → Graph.SearchState graph sources reach queue settled best →
+      Graph.SearchResult graph sources reach (graph.searchFrom sources queue settled best queued popped found)
     decreasing (Graph.unsettledIn (graph.universe sources) settled, queue.size)
   | None, found, invariant =>
-    rewrite Graph.searchFrom.eq1 graph sources queue settled queued found in
-      let (Both queuedReach (Both settledReached (Both sourcesPending (Both edgesPending ordered)))) := invariant
+    rewrite Graph.searchFrom.eq1 graph sources queue settled best queued found in
+      let (Both queuedReach (Both settledReached (Both sourcesPending (Both edgesPending others)))) := invariant
       Both settledReached
         (Both (source start member => Graph.boundOfPending queue settled found start source (sourcesPending source start member))
           (from fromCost got next weight edge =>
@@ -418,15 +540,16 @@ theorem Graph.searchFromCorrect [auto ord: Ord s] (graph: Graph s) (sources: Lis
     let restQueued := Graph.restQueued graph sources queue (cost, state) rest found queued
     match taken: settled.contains state with
       | True =>
-        rewrite Graph.searchFrom.eq2.ifFalse graph sources queue settled queued cost state rest found taken in
-          Graph.searchFromCorrect graph sources reach edgesReach rest settled restQueued rest.popMin rfl
-            (rewrite restIs in Graph.skipKeeps graph sources reach queue settled cost state least taken invariant)
+        rewrite Graph.searchFrom.eq2.ifFalse graph sources queue settled best queued cost state rest found taken in
+          Graph.searchFromCorrect graph sources reach edgesReach rest settled best restQueued rest.popMin rfl
+            (rewrite restIs in Graph.skipKeeps graph sources reach queue settled best cost state least taken invariant)
             [decreasing := Nat.LexLess.Second rfl (Set.sizePopMin queue (cost, state) rest found)]
       | False =>
-        rewrite Graph.searchFrom.eq2.ifTrue graph sources queue settled queued cost state rest found taken in
-          Graph.searchFromCorrect graph sources reach edgesReach (Graph.pushEdges cost (graph.edges state) rest) (settled.insert state cost)
-            (Graph.pushedQueued graph sources state cost rest restQueued) (Graph.pushEdges cost (graph.edges state) rest).popMin rfl
-            (rewrite restIs in Graph.settleKeeps graph sources reach edgesReach queue settled cost state least taken invariant)
+        let relaxed := Graph.relaxEdges cost (graph.edges state) rest best
+        rewrite Graph.searchFrom.eq2.ifTrue graph sources queue settled best queued cost state rest found taken in
+          Graph.searchFromCorrect graph sources reach edgesReach relaxed.fst (settled.insert state cost) relaxed.snd
+            (Graph.relaxedQueued graph sources state cost rest best restQueued) relaxed.fst.popMin rfl
+            (rewrite restIs in Graph.settleKeeps graph sources reach edgesReach queue settled best cost state least taken invariant)
             [decreasing :=
               Nat.LexLess.First
                 (Graph.unsettledFewer (graph.universe sources) settled (settled.insert state cost)
@@ -440,22 +563,28 @@ theorem Graph.distancesCorrect [auto ord: Ord s] (graph: Graph s) (sources: List
     (edgesReach: (state: s) → (cost: Nat) → reach state cost → (next: s) → (weight: Nat) → (next, weight) ∈ graph.edges state →
       reach next (cost + weight)):
     Graph.SearchResult graph sources reach (graph.distances sources) :=
-  let queue := Graph.pushEdges 0 sources Set.empty
-  let initial: Graph.SearchState graph sources reach queue Map.empty :=
+  let start := Graph.relaxEdges 0 sources Set.empty Map.empty
+  let startBest: (state: s) → (cost: Nat) → start.snd.get state = Some cost → Graph.Pending start.fst Map.empty cost state :=
+    state cost got =>
+      match Graph.relaxBest 0 sources Set.empty Map.empty state cost got with
+        | Inl none => Void.exfalso (Option.noneNotSome cost none)
+        | Inr queued => Inl (Witness cost (Both (Nat.leRefl cost) queued))
+  let initial: Graph.SearchState graph sources reach start.fst Map.empty start.snd :=
     Both
       (cost state there =>
-        match Graph.containsPushed 0 sources Set.empty cost state there with
+        match Graph.relaxAdded 0 sources Set.empty Map.empty cost state there with
           | Inl none => Void.exfalso (Bool.falseNotTrue none)
-          | Inr (Witness start (Both member costs)) =>
-            let same: cost = start := omega
-            rewrite same in sourcesReach state start member)
+          | Inr (Witness begin (Both member costs)) =>
+            let same: cost = begin := omega
+            rewrite same in sourcesReach state begin member)
       (Both (state cost got => Void.exfalso (Option.noneNotSome cost got))
         (Both
-          (source start member =>
-            let same: 0 + start = start := omega
-            Inl (rewrite <- same in Graph.containsPushedEdge 0 sources Set.empty source start member))
-          (Both (state cost got => Void.exfalso (Option.noneNotSome cost got)) (state cost got => Void.exfalso (Option.noneNotSome cost got)))))
-  Graph.searchFromCorrect graph sources reach edgesReach queue Map.empty (Graph.startQueued graph sources) queue.popMin rfl initial
+          (source begin member =>
+            let (Witness found (Both got le)) := Graph.relaxCovers 0 sources Set.empty Map.empty source begin member
+            Graph.pendingWeaken start.fst Map.empty found begin source (startBest source found got) (omega [le]))
+          (Both (state cost got => Void.exfalso (Option.noneNotSome cost got))
+            (Both (state cost got => Void.exfalso (Option.noneNotSome cost got)) startBest))))
+  Graph.searchFromCorrect graph sources reach edgesReach start.fst Map.empty start.snd (Graph.startQueued graph sources) start.fst.popMin rfl initial
 
 --| Each cost Dijkstra's search finds is a walk's from a source, and no walk
 --| from a source costs less.
