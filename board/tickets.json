@@ -23463,7 +23463,7 @@
     {
       "id": 2388,
       "title": "Native lowering: a call's arguments are copied instead of moved when sibling argument blocks reuse register slots, so the copies keep cells shared (dijkstra: 100% of queue insert steps, 50% of map inserts); repro: pop-then-insert loop on a Set",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": "",
       "labels": [
@@ -23471,10 +23471,13 @@
         "bug"
       ],
       "epic": "comparative-speed",
-      "body": "From SW-2382 (relaxEdges pc 49 passes root children as copies; best.insert at pc 64 moves). Likely most of SW-2371's 17%. Repro and counting patch: /private/tmp/claude-550/-Users-agent-repos-mdr-stitchwort/8230e28a-2fab-4832-920d-c5160adb7e00/scratchpad/micro/p1.sw, counting2.patch. 60-90 min.\n\nStarted 06:02 UTC, Opus, expected 90 min.\n",
+      "body": "From SW-2382 (relaxEdges pc 49 passes root children as copies; best.insert at pc 64 moves). Likely most of SW-2371's 17%. Repro and counting patch: /private/tmp/claude-550/-Users-agent-repos-mdr-stitchwort/8230e28a-2fab-4832-920d-c5160adb7e00/scratchpad/micro/p1.sw, counting2.patch. 60-90 min.\n\nStarted 06:02 UTC, Opus, expected 90 min.\n\n\nLane (Opus, 06:31, ~30 min): cause was the use sets in `crates/rt/src/code.rs` (`fill`): they counted reads of slots bound *inside* an expression (by a `let` or match arm), and sibling scopes share slots, so a later sibling's own variable made an earlier sibling's last read look live: copy, not move. Fix: a `let` drops its slot from its body's uses, a match arm its field slots. Native takes MOVE marks from the bytecode, so both back ends are fixed. Commit 1c4a7b47d on lane/SW-2388, with test `machine::arguments_are_moved_past_siblings_sharing_slots` (fails before, passes after). p1 micro: shared unpacks 1.66 M to 0.47 M (insertWith, minView all unique; what's left is `shape`'s read and doubleL/R). Native instructions: dijkstra 48.41 G to 43.99 G (-9.1%), memory-game 34.06 G to 33.44 G (-1.8%), binary-trees 30.08/30.06 G, expressions 540.2/539.9 G. Tests: lane rt 60/60, lane native 55/55, bench:compare:check 66 ok, clippy clean. Step counts unchanged (charged per call/frame, not per instruction).\n\nMerged (orchestrator reviewed soundness: only slots rebound by an inner binder are left out; a correct packer rebinds only dead slots). dijkstra 48.41 -> 43.99 G instructions (-9.1%), memory-game -1.8%. Step counts unchanged. Model result: Opus, worked, 30 min (est. 90).\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
-      "commits": []
+      "commits": [
+        "1c4a7b47d",
+        "8f55a8949"
+      ]
     },
     {
       "id": 2389,
