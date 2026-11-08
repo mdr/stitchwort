@@ -22,6 +22,16 @@ Both tasks build `stitchwort` and its native runtime library, then run
 hyperfine and PyPy). Output goes to `target/compare/<date>-<host>.json` and
 `.md`.
 
+On Linux the `compare` shell also carries `perf` (nixpkgs' top-level `perf`,
+the kernel's perf tool; its version need not match the running kernel for
+`perf stat` of hardware counters). It needs `kernel.perf_event_paranoid` of
+2 or lower to count one's own processes; 2 is the upstream kernel default and
+NixOS doesn't set it, so it normally works. Check with
+`cat /proc/sys/kernel/perf_event_paranoid` (3 or more, as some hardened
+kernels set, makes the cells `n/a`; lower it with
+`sudo sysctl kernel.perf_event_paranoid=2`). A virtual machine without
+exposed performance counters also gives `n/a`.
+
 `--instructions` adds a second table after timing: for each program and
 runner one more run, apart from hyperfine, counts instructions retired
 (macOS: `/usr/bin/time -l`; Linux: `perf stat -e instructions -x,`, needs
