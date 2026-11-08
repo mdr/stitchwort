@@ -1878,7 +1878,9 @@ impl Default for ApplyCache {
 /// function taking exactly `n`, its compiled code (the entry taking the
 /// function value last), kept in `cache`. 0 for anything else (a partial
 /// application, a native, another number of arguments), which goes through
-/// [`sw_apply_prepare`].
+/// [`sw_apply_prepare`]. Native code asks only for a `Fun::Global` or a
+/// `Fun::Closure` (it reads the variant byte first), since nothing else
+/// can be cached.
 ///
 /// # Safety
 /// `context` is the running context; `f` points at a live value; `cache`
@@ -2062,67 +2064,140 @@ pub unsafe extern "C" fn sw_apply_prepare(
     };
     let program = run.outline;
     let f = unsafe { f.read() };
-    // A partial application given exactly the rest of its arguments, whose
-    // head is a compiled global function or a closure: the common case of
-    // `List.map xs (add offset)`. Built in the plan directly, with no
-    // vectors: the new arguments moved up (they may lie in the plan), the
-    // held ones cloned in front, the function value dropped last, as below.
-    if let Value::Fun(fun) = &f
-        && let Fun::Pap { head, args: held } = &**fun
-        && let Value::Fun(h) = head
-    {
+    // A compiled global function or closure, bare or partly applied, given
+    // at least the rest of its arguments: the common case of `List.map xs
+    // (add offset)`, and of a clause given more than it takes. Built in the
+    // plan directly, with no vectors: the new arguments moved up (they may
+    // lie in the plan), the held ones cloned in front, any beyond the head's
+    // arity left after them as an over-application's rest, the function
+    // value dropped last, as below. Too few arguments take the general path.
+    if let Value::Fun(fun) = &f {
+        let (head, held): (&Value, &[Value]) = match &**fun {
+            Fun::Pap { head, args } => (head, args),
+            _ => (&f, &[]),
+        };
         let total = held.len() + n as usize;
-        let target = match &**h {
-            Fun::Global(g)
-                if matches!(program.globals[*g as usize].kind, Kind::Function { .. }) =>
-            {
-                // SAFETY: the table has an entry for every global.
-                Some((unsafe { *functions.add(*g as usize) }, false))
+        let target = match head {
+            Value::Fun(h) => match &**h {
+                Fun::Global(g)
+                    if matches!(program.globals[*g as usize].kind, Kind::Function { .. }) =>
+                {
+                    // SAFETY: the table has an entry for every global.
+                    Some((h, unsafe { *functions.add(*g as usize) }, false))
+                }
+                Fun::Closure { lambda, .. } => {
+                    // SAFETY: the table has an entry for every lambda.
+                    Some((h, unsafe { *lambdas.add(*lambda as usize) }, true))
+                }
+                _ => None,
+            },
+            _ => None,
+        };
+        if let Some((h, code, closure)) = target
+            && !code.is_null()
+            && total <= unsafe { (*plan).cap } as usize
+        {
+            let arity = crate::shared::arity(program, head);
+            if total >= arity {
+                // A closure head's reference becomes the callee's `env`, as
+                // below.
+                let env = if closure {
+                    let held_ref = std::mem::ManuallyDrop::new(Value::Fun(h.clone()));
+                    words(&held_ref)[1]
+                } else {
+                    0
+                };
+                // SAFETY: the caller's contract: `args` holds `n` values to
+                // move, `plan` room for `cap >= total` values after its
+                // header.
+                unsafe {
+                    let to = plan
+                        .cast::<u8>()
+                        .add(ApplyPlan::ARGS_AT as usize)
+                        .cast::<Value>();
+                    std::ptr::copy(args, to.add(held.len()), n as usize);
+                    for (i, v) in held.iter().enumerate() {
+                        to.add(i).write(v.clone());
+                    }
+                    (*plan).code = code as u64;
+                    (*plan).env = env;
+                    (*plan).arity = arity as u64;
+                    (*plan).rest = (total - arity) as u64;
+                }
+                if crate::call_counts::ENABLED {
+                    crate::call_counts::hit_apply(if held.is_empty() {
+                        apply_kind(program, fun)
+                    } else {
+                        crate::call_counts::ApplyKind::PapFast
+                    });
+                }
+                drop(f);
+                return;
             }
-            Fun::Closure { lambda, .. } => {
-                // SAFETY: the table has an entry for every lambda.
-                Some((unsafe { *lambdas.add(*lambda as usize) }, true))
+        }
+    }
+    // SAFETY: the running context.
+    let resumes = unsafe { (*context).resumes } != 0;
+    // The effect runtime's leaves and resumptions given exactly their
+    // arguments, planned as the general path below plans them but without
+    // collecting the arguments first: the arguments moved, the value made
+    // (or a reference to the resumption taken for `env`), then the function
+    // value dropped (docs/proposals/apply-fast-paths.md, B).
+    if let Value::Fun(fun) = &f {
+        let s = &program.shapes;
+        // SAFETY: the caller's contract: `args` holds `n` values to move,
+        // each read once, before anything is written to the plan.
+        let take = |i: usize| unsafe { args.add(i).read() };
+        let value = match (&**fun, n) {
+            (Fun::DoneK, 1) => Some(crate::effect::done_k(s, take(0))),
+            (Fun::StateK(resume), 1) => Some(crate::effect::state_k(s, resume, take(0))),
+            (Fun::DelayK(capture), 1) => Some(crate::effect::delay_k(capture, take(0))),
+            (Fun::JumpK, 2) => {
+                let v = take(0);
+                Some(crate::effect::jump_k(v, take(1)))
+            }
+            (Fun::Resume(resume, true), 1) => {
+                Some(crate::effect::resume_lazily(s, run.counts, resume, take(0)))
             }
             _ => None,
         };
-        if let Some((code, closure)) = target
-            && !code.is_null()
-            && total == crate::shared::arity(program, head)
-            && total <= unsafe { (*plan).cap } as usize
-        {
-            // A closure head's reference becomes the callee's `env`, as below.
-            let env = if closure {
-                let held_ref = std::mem::ManuallyDrop::new(Value::Fun(h.clone()));
-                words(&held_ref)[1]
-            } else {
-                0
-            };
-            // SAFETY: the caller's contract: `args` holds `n` values to
-            // move, `plan` room for `cap >= total` values after its header.
+        let resuming =
+            n == 1 && resumes && matches!(&**fun, Fun::Resume(_, false) | Fun::StateRun(_));
+        if value.is_some() || resuming {
+            if crate::call_counts::ENABLED {
+                crate::call_counts::hit_apply(apply_kind(program, fun));
+                crate::call_counts::hit_event(crate::call_counts::Event::RuntimeValueFast);
+            }
+            // SAFETY: the plan's header, and room for `cap >= 1` values.
             unsafe {
-                let to = plan
-                    .cast::<u8>()
-                    .add(ApplyPlan::ARGS_AT as usize)
-                    .cast::<Value>();
-                std::ptr::copy(args, to.add(held.len()), n as usize);
-                for (i, v) in held.iter().enumerate() {
-                    to.add(i).write(v.clone());
-                }
-                (*plan).code = code as u64;
-                (*plan).env = env;
-                (*plan).arity = total as u64;
                 (*plan).rest = 0;
+                match value {
+                    Some(v) => {
+                        (*plan).code = 0;
+                        (*plan).env = 0;
+                        (*plan).arity = 0;
+                        (*plan).value.write(v);
+                    }
+                    None => {
+                        let y = take(0);
+                        let to = plan
+                            .cast::<u8>()
+                            .add(ApplyPlan::ARGS_AT as usize)
+                            .cast::<Value>();
+                        to.write(y);
+                        (*plan).code = RESUME_CODE;
+                        (*plan).env = into_word(fun.clone());
+                        (*plan).arity = 1;
+                    }
+                }
             }
             drop(f);
-            crate::call_counts::hit_apply(crate::call_counts::ApplyKind::PapFast);
             return;
         }
     }
     let args: Vec<Value> = (0..n as usize)
         .map(|i| unsafe { args.add(i).read() })
         .collect();
-    // SAFETY: the running context.
-    let resumes = unsafe { (*context).resumes } != 0;
     let mut f = f;
     let mut args = args;
     // The function values applied before `f`: `bind (Done x) k` is `k x`,

@@ -153,10 +153,13 @@ pub(crate) enum Event {
     CacheMissUnresolved,
     /// A miss in a cache that had never held a target.
     CacheCold,
+    /// An effect runtime leaf or resumption planned by `sw_apply_prepare`
+    /// without collecting its arguments.
+    RuntimeValueFast,
 }
 
 #[cfg(feature = "call-counts")]
-const EVENTS: usize = Event::CacheCold as usize + 1;
+const EVENTS: usize = Event::RuntimeValueFast as usize + 1;
 
 #[cfg(feature = "call-counts")]
 const EVENT_NAMES: [&str; EVENTS] = [
@@ -171,6 +174,7 @@ const EVENT_NAMES: [&str; EVENTS] = [
     "apply-cache miss served with code (global/closure)",
     "apply-cache miss sent to sw_apply_prepare",
     "apply-cache miss in a cold cache",
+    "sw_apply_prepare: runtime leaf or resumption, no argument Vec",
 ];
 
 /// How many bodies the report lists.
