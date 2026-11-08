@@ -1,5 +1,5 @@
 {
-  "next": 2451,
+  "next": 2452,
   "tickets": [
     {
       "id": 47,
@@ -24483,6 +24483,21 @@
       ],
       "epic": "comparative-speed",
       "body": "Matt, 8 Nov 2026 ~22:20: \"I don't want us to over optimize on a fixed set of particular benchmarks. Maybe there are other benchmarks we should be considering as well.\" Paper lane, 90 min. Also: check whether tonight's fixes moved anything outside the ten (AoC days natively).\nStarted 22:14 UTC (paper).\n",
+      "created": "2026-11-08",
+      "updated": "2026-11-08",
+      "commits": []
+    },
+    {
+      "id": 2451,
+      "title": "Elaborator: other numeric or comparison sites that unify a waiting leaf's type with a hard cx.unify (SW-2445 fixed the three in numbers.rs); find and route them through the postponement queue",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "From SW-2445. 45 min. Also: SW-2445 made DotCall::settles_type always true; check with an elaborator fuzz run on a fresh seed.",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
