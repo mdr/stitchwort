@@ -1,5 +1,5 @@
 {
-  "next": 2436,
+  "next": 2437,
   "tickets": [
     {
       "id": 47,
@@ -24232,6 +24232,21 @@
       ],
       "epic": "comparative-speed",
       "body": "From SW-2425. 30 min.",
+      "created": "2026-11-08",
+      "updated": "2026-11-08",
+      "commits": []
+    },
+    {
+      "id": 2436,
+      "title": "Kernel fuzzer: take SEED and CASES (like fuzz:elab), so over-pace runs can explore new terms; today it's fixed at 3000 terms and one seed",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "test-infra"
+      ],
+      "epic": "audit-fuzzing",
+      "body": "Found while choosing over-pace compute jobs, 8 Nov 2026. crates/core/tests/it/fuzz.rs; Taskfile fuzz:kernel. 20 min.",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
