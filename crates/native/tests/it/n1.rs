@@ -546,6 +546,7 @@ fn bodies_count_their_entries_when_asked() {
         let counting = Options {
             trace_refcounts: false,
             count_bodies: true,
+            pc_map: false,
         };
         // The name's address (a data symbol) and the count call are in the
         // code only when asked for.

@@ -536,7 +536,7 @@ tasks:
       - nix develop .#compare -c bash bench/compare/compare.sh --check --sw {{.SW}} {{.CLI_ARGS}}
 
   profile:native:
-    desc: 'Profile the native executables of bench/compare programs: samply top functions by Stitchwort definition, and counts of runtime calls (args after --: program names, --top N, --focus FUNCTION, --group PREFIX, --no-counts)'
+    desc: 'Profile the native executables of bench/compare programs: samply top functions by Stitchwort definition, and counts of runtime calls (args after --: program names, --top N, --focus FUNCTION, --group PREFIX, --by-instruction [--bodies N], --no-counts)'
     summary: |
       Builds `stitchwort` and its runtime library (as `task build`), then
       dev/profile-native: for each program, its native executable is
@@ -544,7 +544,11 @@ tasks:
       browse) and summarised by dev/profile_top.py, then rebuilt against a
       runtime with the `call-counts` feature (target/profiling/) to count
       native code's calls into the runtime. One program at a time, 5 min
-      cap each. docs/reviews/SW-2296-native-profiles.md.
+      cap each. With --by-instruction, the executable is built with
+      `--pc-map` (the same code, with a map of it to bytecode beside it),
+      and the top --bodies compiled bodies are split by part (checks,
+      reference counts, calls, the instructions' own work) and by bytecode
+      instruction. docs/reviews/SW-2296-native-profiles.md.
     cmds:
       - cargo build --release -p stitchwort-cli -p stitchwort-standalone {{.DEV_FEATURES}}
       - python3 -I dev/profile-native --sw {{.SW}} {{.CLI_ARGS}}

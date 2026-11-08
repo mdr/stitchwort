@@ -81,6 +81,7 @@ fn native_run(
     let options = Options {
         trace_refcounts,
         count_bodies: false,
+        pc_map: false,
     };
     let mut output = Vec::new();
     // Compiled as `run --native` compiles it (stage NO5 of

@@ -13,6 +13,16 @@ its Stitchwort definition (`Std.List.get#67`; a lambda is
 these are definition names. A tail call replaces its caller's frame, so
 inclusive time follows the stack as it is, not the source's calls.
 
+With --pc-map FILE (the `OUT.pcmap.json` of `stitchwort build --native
+--pc-map`), the top --bodies compiled bodies by self time are each split by
+the address of the sample's instruction: by part (the bytecode instruction's
+own work, checks of steps, frames and errors, reference counts taken and
+given up, calls, returns with their epilogue, the prologue, error exits) and
+by bytecode instruction. A sample can land on the instruction after a slow
+one (skid), so one instruction's count is fuzzy; parts summed over a body
+are reliable enough. `untagged` is code Cranelift's optimiser made or moved
+with no instruction of its own (constants, shared values).
+
 Each --group PREFIX adds a line, before the usual tables, for the samples with
 a frame whose name starts with PREFIX (`--group Std.Parse.`): inclusive, and
 self (the samples whose innermost frame matches). Code run by the effect
@@ -25,7 +35,7 @@ import bisect
 import gzip
 import json
 import re
-from collections import Counter
+from collections import Counter, defaultdict
 
 
 def demangle(name):
@@ -63,12 +73,63 @@ def kind(name, lib, exe):
     return "runtime (Rust)"
 
 
+def load_pc_map(path):
+    """The `--pc-map` file's bodies, by symbol: (size, instrs, stretches
+    as sorted lists of starts and of (end, pc, part))."""
+    bodies = {}
+    for body in json.load(open(path))["bodies"]:
+        stretches = body["stretches"]
+        bodies[body["symbol"]] = (body["size"], body["instrs"], [s[0] for s in stretches],
+                                  [tuple(s[1:]) for s in stretches])
+    return bodies
+
+
+def fold(offsets, body):
+    """Counters by part and by pc (with each pc's parts) of the weighted
+    `(offset, weight)` samples in one body of `load_pc_map`."""
+    size, _, starts, rest = body
+    parts, pcs, pc_parts = Counter(), Counter(), defaultdict(Counter)
+    for offset, w in offsets:
+        i = bisect.bisect_right(starts, offset) - 1
+        if i < 0 or offset >= rest[i][0]:
+            parts["outside the map"] += w
+            continue
+        _, pc, part = rest[i]
+        parts[part] += w
+        if pc is not None:
+            pcs[pc] += w
+            pc_parts[pc][part] += w
+    return parts, pcs, pc_parts
+
+
+def print_pc_split(name, offsets, body, total, lines=15):
+    """`fold`'s split of one body, as shares of its self time (and, in
+    brackets, of the profile's)."""
+    own = sum(w for _, w in offsets) or 1
+    parts, pcs, pc_parts = fold(offsets, body)
+    instrs = body[1]
+
+    def share(c):
+        return f"{100 * c / own:5.1f}% ({100 * c / total:4.1f}%)"
+
+    print(f"\n{name}: self time by part (share of its self time, and of the profile's):")
+    for part, c in parts.most_common():
+        print(f"  {share(c)}  {part}")
+    print(f"By bytecode instruction (top {lines}):")
+    for pc, c in pcs.most_common(lines):
+        split = ", ".join(f"{p} {100 * n / c:.0f}%" for p, n in pc_parts[pc].most_common())
+        text = instrs[pc] if len(instrs[pc]) <= 60 else instrs[pc][:57] + "..."
+        print(f"  {share(c)}  {pc:4}  {text}  [{split}]")
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("profile")
     parser.add_argument("--top", type=int, default=25)
     parser.add_argument("--focus", action="append", default=[])
     parser.add_argument("--group", action="append", default=[], metavar="PREFIX")
+    parser.add_argument("--pc-map", help="the executable's OUT.pcmap.json (build --native --pc-map)")
+    parser.add_argument("--bodies", type=int, default=3, help="with --pc-map, how many bodies to split")
     opts = parser.parse_args()
 
     prof = json.load(gzip.open(opts.profile))
@@ -85,6 +146,9 @@ def main():
     ft, st = thread["frameTable"], thread["stackTable"]
     rt, fu = thread["resourceTable"], thread["funcTable"]
 
+    # Each frame's offset from the start of its symbol, for --pc-map.
+    offsets = [None] * ft["length"]
+
     def frame_name(f):
         res = fu["resource"][ft["func"][f]]
         lib = libs[rt["lib"][res]]["debugName"] if res is not None and res >= 0 else "?"
@@ -93,12 +157,16 @@ def main():
             starts, entries = tables[lib]
             i = bisect.bisect_right(starts, addr) - 1
             if i >= 0 and addr < entries[i][0] + max(entries[i][1], 1):
+                offsets[f] = addr - entries[i][0]
                 return demangle(entries[i][2]), lib
         return f"{lib}@{addr:#x}", lib
 
     names = [frame_name(f) for f in range(ft["length"])]
     stacks = {}
     samples = []
+    # Per symbol, the (offset, weight) of each sample whose innermost frame
+    # it is.
+    leaves = defaultdict(list)
     weights = thread["samples"]["weight"] or [1] * thread["samples"]["length"]
     for s, w in zip(thread["samples"]["stack"], weights):
         if s is None:
@@ -108,8 +176,11 @@ def main():
             while at is not None:
                 frames.append(st["frame"][at])
                 at = st["prefix"][at]
-            stacks[s] = [names[f] for f in frames]
-        samples.append((stacks[s], w))
+            stacks[s] = ([names[f] for f in frames], offsets[frames[0]] if frames else None)
+        frames, leaf = stacks[s]
+        samples.append((frames, w))
+        if leaf is not None:
+            leaves[frames[0][0]].append((leaf, w))
     total = sum(w for _, w in samples) or 1
 
     self_c, incl_c, kinds = Counter(), Counter(), Counter()
@@ -153,6 +224,14 @@ def main():
         print("Direct callees, inclusive:")
         for name, c in callees.most_common(12):
             print(f"  {pct(c)}  {name}")
+    if opts.pc_map:
+        bodies = load_pc_map(opts.pc_map)
+        mapped = [(name, c) for name, c in self_c.most_common() if name in bodies]
+        if not mapped:
+            print(f"\nNo compiled body of {opts.pc_map} has samples.")
+        for name, _ in mapped[:opts.bodies]:
+            print_pc_split(name, leaves[name], bodies[name], total)
 
 
-main()
+if __name__ == "__main__":
+    main()

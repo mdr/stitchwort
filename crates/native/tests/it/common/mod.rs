@@ -83,6 +83,7 @@ pub fn native_on(
     let options = Options {
         trace_refcounts,
         count_bodies: false,
+        pc_map: false,
     };
     native_with(program, limits, options, stack)
 }

@@ -51,6 +51,9 @@ pub struct ObjectCode {
     /// The stack the executable reserves for native code
     /// (`n1::stack_for`).
     pub stack_size: usize,
+    /// Under `Options::pc_map`, each body's map from machine code to
+    /// bytecode, for a profiler.
+    pub pc_map: Option<Vec<n1::BodyMap>>,
 }
 
 impl ObjectCode {
@@ -97,6 +100,7 @@ pub fn compile_object(
         n_caches,
         max_frame,
         widest,
+        pc_map,
     } = n1::emit(
         &mut module,
         program,
@@ -226,5 +230,6 @@ pub fn compile_object(
         compile_time: start.elapsed(),
         max_frame,
         stack_size,
+        pc_map,
     })
 }

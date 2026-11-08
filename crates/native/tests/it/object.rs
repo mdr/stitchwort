@@ -23,6 +23,7 @@ fn the_object_exports_its_manifest_and_trampolines_and_its_code_is_relocatable()
         let options = Options {
             trace_refcounts: false,
             count_bodies: false,
+            pc_map: false,
         };
         let frames = stitchwort_rt::Limits::from_core(Default::default()).frames as u64;
         let limits = stitchwort_rt::Limits::from_core(Default::default());
@@ -112,6 +113,7 @@ fn each_body_is_named_after_its_definition() {
         let options = Options {
             trace_refcounts: false,
             count_bodies: false,
+            pc_map: false,
         };
         let limits = stitchwort_rt::Limits::from_core(Default::default());
         let tables = stitchwort_rt::linked::encode(&program, &image, &limits);
@@ -151,5 +153,102 @@ fn each_body_is_named_after_its_definition() {
             named, lambdas,
             "each lambda is named after its maker: {names:?}"
         );
+    });
+}
+
+/// `sum` recurses (a call, its checks, a return) and takes its list apart
+/// (reference counts).
+const SUMMED: &str = r#"import Std (IO, List)
+
+def sum: List Nat → Nat
+  | [] => 0
+  | [x, ..xs] => x + sum xs
+
+def main(): {IO} () :=
+  IO.print "${sum (List.range 0 10)}"
+"#;
+
+/// Under `Options::pc_map`, each body's machine code is mapped, stretch by
+/// stretch, to its bytecode instructions and the parts of them, and the
+/// object is the same as without the option.
+#[test]
+fn the_pc_map_covers_each_body_and_leaves_the_code_alone() {
+    use stitchwort_native::n1::Part;
+    with_stack(STACK, || {
+        let (program, _) = lowered(SUMMED);
+        let image = code::compile(&program);
+        let limits = stitchwort_rt::Limits::from_core(Default::default());
+        let tables = stitchwort_rt::linked::encode(&program, &image, &limits);
+        let compile = |pc_map| {
+            let options = Options {
+                trace_refcounts: false,
+                count_bodies: false,
+                pc_map,
+            };
+            compile_object(&program, &image, &tables, options, limits.frames as u64)
+                .expect("compiles")
+        };
+        let plain = compile(false);
+        let mapped = compile(true);
+        assert!(plain.pc_map.is_none());
+        assert_eq!(
+            plain.object.write().expect("writes"),
+            mapped.object.write().expect("writes"),
+            "the option changed the object"
+        );
+        let map = mapped.pc_map.expect("a map");
+        assert_eq!(map.len(), mapped.bodies);
+        for body in &map {
+            // In order, end to end, from the prologue to the body's end.
+            let mut at = 0;
+            for s in &body.stretches {
+                assert!(at == s.start && s.start < s.end, "{}: {s:?}", body.symbol);
+                if let Some(pc) = s.pc {
+                    assert!((pc as usize) < body.instrs.len(), "{}: {s:?}", body.symbol);
+                }
+                at = s.end;
+            }
+            assert_eq!(at, body.size, "{}", body.symbol);
+            assert_eq!(body.stretches[0].part, Part::Prologue, "{}", body.symbol);
+            // Most of the code is tagged with its instruction (4-15% isn't,
+            // in this program, when written).
+            let untagged: u32 = body
+                .stretches
+                .iter()
+                .filter(|s| s.part == Part::Untagged)
+                .map(|s| s.end - s.start)
+                .sum();
+            assert!(
+                untagged * 4 < body.size,
+                "{}: {:#?}",
+                body.symbol,
+                body.stretches
+            );
+        }
+        let sum = map
+            .iter()
+            .find(|b| b.symbol.starts_with("Main.sum#"))
+            .expect("sum is compiled");
+        for part in [
+            Part::Prologue,
+            Part::Entry,
+            Part::Work,
+            Part::Check,
+            Part::Dec,
+            Part::Call,
+            Part::Return,
+            Part::Unwind,
+        ] {
+            assert!(
+                sum.stretches.iter().any(|s| s.part == part),
+                "no {part:?} in {:#?}",
+                sum.stretches
+            );
+        }
+        // The call is the `Call` instruction's.
+        for s in sum.stretches.iter().filter(|s| s.part == Part::Call) {
+            let pc = s.pc.expect("a call is an instruction's") as usize;
+            assert!(sum.instrs[pc].starts_with("Call"), "{}", sum.instrs[pc]);
+        }
     });
 }
