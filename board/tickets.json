@@ -24324,14 +24324,14 @@
     {
       "id": 2441,
       "title": "Compact values: register dilation experiment (throwaway branch, mirror of V3): native code carries a fourth unused word per value register; if it costs >= ~11% of binary-trees' cycles and 6-7% on the decision-set mean, E clears its gate",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Opus",
       "where": "",
       "labels": [
         "perf"
       ],
       "epic": "comparative-speed",
-      "body": "From SW-2429 §7 (settles k x V2's spill rule). Est. 2-4 h; check how mechanical the n1.rs change is first. Waits for D3434.",
+      "body": "From SW-2429 §7 (settles k x V2's spill rule). Est. 2-4 h; check how mechanical the n1.rs change is first. Waits for D3434.\n\nD3434, Matt, 8 Nov 2026 ~20:55: agree, \"Run the experiment.\" Hold E and A until it reports. On Overmind after its soundness fuzzer; queued 20:51 UTC.\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
