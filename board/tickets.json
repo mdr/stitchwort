@@ -24294,17 +24294,19 @@
     {
       "id": 2439,
       "title": "Kernel rejected an elaborated term (fuzz oracle 3): case 11979 of seed 0x2438, mutated from accept/lambda-pattern-annotations.sw; the elaborator reported E-CANNOT-INFER after building a term the kernel refused",
-      "status": "review",
+      "status": "done",
       "agent": "Opus",
       "where": "",
       "labels": [
         "elab"
       ],
       "epic": "elaborator-kernel",
-      "body": "Found by fuzz:elab CASES=15000 SEED=0x2438 (8 Nov 2026 20:33). Input dev/fuzz-findings/2438-11979.sw. Repro: task fuzz:elab CASES=15000 SEED=0x2438 ONLY=11979 DUMP=1. The kernel caught it (not a soundness hole), but the elaborator produced an ill-typed term: find where (lambda patterns with annotations), fix, add a regression example. Opus (elaborator soundness boundary). 60 min.\nStarted 20:33 UTC.\n\n21:22: done, lane/SW-2439 5893f8d88. Minimal: `let f := ((i, s)) => i + s.size` then `f (1, Circle 4) == 5` (no annotation; both the waiting `.size` and the waiting `==` needed). Cause: queue::placeholder_call inlines `let` values the placeholder isn't applied to and relies on zonk's refold to fold them back; here the fold missed and the kernel got the bare redex `(%arg0 => …) (1, Circle 4)` (kernel E-CANNOT-INFER, reported as is). Fix: such a lambda is annotated with its type where applied (lift::replace_annotating_heads), and zonk_call drops `(x : A) a` annotations on a variable head after refolding, so no existing hash changes (hash_stability all pass, prelude included). Regression: examples/accept/postpone-let-lambda-compared.sw. Moved to review.\n",
+      "body": "Found by fuzz:elab CASES=15000 SEED=0x2438 (8 Nov 2026 20:33). Input dev/fuzz-findings/2438-11979.sw. Repro: task fuzz:elab CASES=15000 SEED=0x2438 ONLY=11979 DUMP=1. The kernel caught it (not a soundness hole), but the elaborator produced an ill-typed term: find where (lambda patterns with annotations), fix, add a regression example. Opus (elaborator soundness boundary). 60 min.\nStarted 20:33 UTC.\n\n21:22: done, lane/SW-2439 5893f8d88. Minimal: `let f := ((i, s)) => i + s.size` then `f (1, Circle 4) == 5` (no annotation; both the waiting `.size` and the waiting `==` needed). Cause: queue::placeholder_call inlines `let` values the placeholder isn't applied to and relies on zonk's refold to fold them back; here the fold missed and the kernel got the bare redex `(%arg0 => …) (1, Circle 4)` (kernel E-CANNOT-INFER, reported as is). Fix: such a lambda is annotated with its type where applied (lift::replace_annotating_heads), and zonk_call drops `(x : A) a` annotations on a variable head after refolding, so no existing hash changes (hash_stability all pass, prelude included). Regression: examples/accept/postpone-let-lambda-compared.sw. Moved to review.\n\n\n21:38: review fixes in 4d6ec086c (stripping limited to the fill's own annotations on let variables, flagged in lifted_calls; type mapped with `variable`). New example postpone-let-lambda-annotated-use.sw. Review: docs/reviews/SW-2439-review.md. Back in review.\n\nMerged after Opus review (docs/reviews/SW-2439-review.md; merge with fixes, both fixed). Follow-ups SW-2445, SW-2446. Model result: Opus, worked, 62 min (est. 60).\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
-      "commits": []
+      "commits": [
+        "1f0c11b89"
+      ]
     },
     {
       "id": 2440,
