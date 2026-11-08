@@ -387,9 +387,12 @@ impl Drop for Fields {
             crate::value_census::cell_freed(self.0.len());
         }
         if let Some(slice) = Rc::get_mut(&mut self.0) {
-            let mut pending = Vec::new();
-            take_from(slice, &mut pending);
-            free(pending);
+            // A cell of scalars (most of them) has nothing to free.
+            if slice.iter().any(Value::is_deep) {
+                let mut pending = Vec::new();
+                take_from(slice, &mut pending);
+                free(pending);
+            }
         }
     }
 }
