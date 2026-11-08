@@ -1,5 +1,5 @@
---| Equality lemmas ([`Eq.cong`], [`Eq.sym`], [`Eq.trans`]) and the
---| facts that different constructors are different.
+--| Equality lemmas ([`Eq.cong`], [`Eq.cong2`], [`Eq.sym`], [`Eq.trans`])
+--| and the facts that different constructors are different.
 -- Loaded with the core: `calc` and `deriving` write `Eq.sym` and `Eq.trans` in
 -- full, and every decision procedure after this uses them
 -- (docs/proposals/prelude-slim.md §2.1).
@@ -7,6 +7,14 @@
 --| Equality lemmas, all built from `J`.
 
 theorem Eq.cong (f: a → b) [x y: a] (p: x = y): f x = f y := J (y' p' => f x = f y') rfl p
+
+--| Congruence in two arguments: equal arguments give equal results,
+--| `Eq.cong2 Nat.add p q: Nat.add a b = Nat.add a2 b2` from `p: a = a2` and
+--| `q: b = b2`.
+--| For one argument of a function of several, use `Eq.cong` with the
+--| others fixed: `Eq.cong (t => f t y) p`.
+theorem Eq.cong2 (f: a → b → c) [x1 x2: a] [y1 y2: b] (p: x1 = x2) (q: y1 = y2): f x1 y1 = f x2 y2 :=
+  J (x' p' => f x1 y1 = f x' y2) (Eq.cong (f x1) q) p
 
 theorem Eq.sym [x y: a] (p: x = y): y = x := J (y' p' => y' = x) rfl p
 
