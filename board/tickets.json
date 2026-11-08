@@ -23246,17 +23246,19 @@
     {
       "id": 2375,
       "title": "profile_top --by-instruction: count the check a call's return lands on as part of the call (skid), so per-call bookkeeping isn't overstated",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
         "tooling"
       ],
       "epic": "comparative-speed",
-      "body": "From SW-2332. 20 min.\n\nStarted 05:50 UTC, Sonnet, expected 30 min.\n",
+      "body": "From SW-2332. 20 min.\n\nStarted 05:50 UTC, Sonnet, expected 30 min.\n\nMerged. Known limit: a sample just after a tail call is also moved (rare). Model result: Sonnet, worked, 4 min (est. 30).\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
-      "commits": []
+      "commits": [
+        "c817fbc39"
+      ]
     },
     {
       "id": 2376,
