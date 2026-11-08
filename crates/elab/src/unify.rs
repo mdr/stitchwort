@@ -2890,14 +2890,14 @@ fn meta_headed(term: &Term) -> bool {
 /// metavariable applied to all the variables it is a function of: the call
 /// (a term in those variables), and the arguments. A helper's metavariable
 /// applied to nothing is read back instead, as it always has been.
-fn lifted_call<'a>(g: &Unifier<'_>, term: &'a Term) -> Option<(Rc<Term>, Vec<&'a Term>)> {
+fn lifted_call<'a>(g: &Unifier<'_>, term: &'a Term) -> Option<(Rc<Term>, bool, Vec<&'a Term>)> {
     let (head, args) = term.spine();
     let Term::Meta(m) = head else { return None };
-    let (s, call) = g.store.lifted_calls.borrow().get(m).cloned()?;
+    let (s, call, annotated) = g.store.lifted_calls.borrow().get(m).cloned()?;
     if args.is_empty() && g.store.meta_frozen(*m) {
         return None;
     }
-    (g.meta_solution(*m).is_some() && s == args.len()).then_some((call, args))
+    (g.meta_solution(*m).is_some() && s == args.len()).then_some((call, annotated, args))
 }
 
 /// A lifted helper's call, `?m x y` for the frozen metavariable `?m`, with
@@ -2910,6 +2910,7 @@ fn zonk_call(
     g: &Unifier<'_>,
     level: usize,
     call: &Term,
+    annotated: bool,
     args: &[&Term],
     keep: &dyn Fn(usize) -> bool,
     lets: &[Around],
@@ -2945,10 +2946,21 @@ fn zonk_call(
     }) {
         return Err(ZonkError::Unsolved(m));
     }
+    // A queued check's term may annotate a `let`'s lambda it applies
+    // (`annotated`, `queue::placeholder_call`); folded back to the `let`'s
+    // variable, the annotation says nothing the variable's type doesn't,
+    // and is dropped.
+    let refold = |term: Term| {
+        let term = refold(g, term, level, lets)?;
+        if !annotated {
+            return Ok(term);
+        }
+        Ok(unannotate_let_heads(g, &term, level, 0, lets)?.unwrap_or(term))
+    };
     // A call of no arguments (a waiting literal's number, say) has no
     // variable to replace.
     if n == 0 {
-        return refold(g, call.clone(), level, lets);
+        return refold(call.clone());
     }
     let failed = std::cell::Cell::new(false);
     let hook = |t: &Term, under: usize| {
@@ -2971,7 +2983,50 @@ fn zonk_call(
         )));
     }
     let out = out.ok().flatten().unwrap_or_else(|| call.clone());
-    refold(g, out, level, lets)
+    refold(out)
+}
+
+/// `term` (under `under` binders, in `level` variables) with each annotated
+/// `let` variable of `lets` applied to an argument, `(x : A) a`, as the
+/// variable applied, `x a`: the kernel infers a variable's type, to which
+/// `A`, having been checked, is convertible. `None` if there's none.
+fn unannotate_let_heads(
+    g: &Ev,
+    term: &Term,
+    level: usize,
+    under: usize,
+    lets: &[Around],
+) -> Result<Option<Term>> {
+    let failed = std::cell::RefCell::new(None);
+    let hook = |t: &Term, under: usize| {
+        let Term::App(h, a, i) = t else { return None };
+        let Term::Ann(e, _) = h.strip_loc() else {
+            return None;
+        };
+        let Term::Var(ix) = e.strip_loc() else {
+            return None;
+        };
+        let slot = (level + under).checked_sub(ix + 1)?;
+        if *ix < under || !lets.iter().any(|(s, _, _)| *s == slot) {
+            return None;
+        }
+        match unannotate_let_heads(g, a, level, under, lets) {
+            Ok(new) => Some(Term::App(
+                e.clone(),
+                new.map_or_else(|| a.clone(), Rc::new),
+                *i,
+            )),
+            Err(err) => {
+                failed.replace(Some(err));
+                None
+            }
+        }
+    };
+    let out = fold_back(g, term, under, &hook)?;
+    match failed.into_inner() {
+        Some(err) => Err(err),
+        None => Ok(out),
+    }
 }
 
 /// [`zonk_in`]'s pass: `None` if `term` has nothing to replace. What's
@@ -3005,8 +3060,8 @@ fn zonk_changed(
     };
     Ok(match term {
         Term::Meta(_) | Term::App(..) if lifted_call(g, term).is_some() => {
-            let (call, args) = lifted_call(g, term).expect("just found");
-            Some(zonk_call(g, level, &call, &args, keep, lets)?)
+            let (call, annotated, args) = lifted_call(g, term).expect("just found");
+            Some(zonk_call(g, level, &call, annotated, &args, keep, lets)?)
         }
         Term::Meta(_) | Term::App(..) if meta_headed(term) => {
             let env: Vec<Value> = (0..level).map(Value::var).collect();

@@ -1230,9 +1230,18 @@ fn head_meta(g: &Ev, v: &Value) -> Result<Option<usize>> {
 /// it in place of the placeholder applied to any arguments, as it does for
 /// a lifted helper's call (`unify::zonk_call`). A `let`'s variable or one a
 /// case split replaced, which the placeholder isn't applied to, is replaced
-/// by its value. `None` if that value isn't in those variables either:
-/// zonking then reads the placeholder's solution back, as for any unknown.
-fn placeholder_call(cx: &Ctx, placeholder: &Term, term: &Term) -> Result<Option<(usize, Term)>> {
+/// by its value. Where that value is a lambda applied to arguments, it is
+/// annotated with its type: zonking folds it back to the variable if it
+/// can (and drops the annotation), and otherwise the kernel, which infers
+/// no type for a lambda, still has one (SW-2439); the `bool` says whether
+/// there is such an annotation. `None` if a value isn't in the
+/// placeholder's variables either: zonking then reads the placeholder's
+/// solution back, as for any unknown.
+fn placeholder_call(
+    cx: &Ctx,
+    placeholder: &Term,
+    term: &Term,
+) -> Result<Option<(usize, Term, bool)>> {
     let g = cx.g();
     let depth = cx.level();
     let spine: Vec<usize> = (placeholder.spine().1.iter())
@@ -1251,16 +1260,35 @@ fn placeholder_call(cx: &Ctx, placeholder: &Term, term: &Term) -> Result<Option<
             )),
         }
     };
+    let value = |level: usize| cx.quote_folded(&cx.env[level]);
     let variable = |level: usize| -> Result<Term> {
         applied(level).or_else(|_| {
-            let value = cx.quote_folded(&cx.env[level])?;
-            crate::lift::replace_with(&g, &value, depth, &applied, &|_, _| None)
+            crate::lift::replace_with(&g, &value(level)?, depth, &applied, &|_, _| None)
         })
     };
-    match crate::lift::replace_with(&g, term, depth, &variable, &|_, _| None) {
-        Ok(call) => Ok(Some((s, call))),
+    let annotated = Cell::new(false);
+    let head = |level: usize| -> Result<Option<Term>> {
+        if spine.contains(&level) || !lambda(&value(level)?) {
+            return Ok(None);
+        }
+        let ty = cx.quote_folded(&cx.types[level])?;
+        let ty = crate::lift::replace_with(&g, &ty, depth, &variable, &|_, _| None)?;
+        annotated.set(true);
+        Ok(Some(ty))
+    };
+    match crate::lift::replace_annotating_heads(&g, term, depth, &variable, &head) {
+        Ok(call) => Ok(Some((s, call, annotated.get()))),
         Err(e) if crate::undo::fatal(&e) => Err(e),
         Err(_) => Ok(None),
+    }
+}
+
+/// Whether `term` is a lambda, under any `let`s.
+fn lambda(term: &Term) -> bool {
+    match term.strip_loc() {
+        Term::Lam(..) => true,
+        Term::Let(_, _, _, body, _) => lambda(body),
+        _ => false,
     }
 }
 
@@ -1278,11 +1306,14 @@ impl Elaborator {
         }
         for i in 0..self.attempt.queue.len() {
             let m = self.attempt.queue.item(i).meta;
-            let Some((s, call)) = self.attempt.store.lifted_calls.borrow().get(&m).cloned() else {
+            let Some((s, call, annotated)) =
+                self.attempt.store.lifted_calls.borrow().get(&m).cloned()
+            else {
                 continue;
             };
             if let Some(call) = self.specialise_operators(&call, s)? {
-                (self.attempt.store.lifted_calls.borrow_mut()).insert(m, (s, Rc::new(call)));
+                (self.attempt.store.lifted_calls.borrow_mut())
+                    .insert(m, (s, Rc::new(call), annotated));
             }
         }
         Ok(())
@@ -1425,7 +1456,8 @@ impl Elaborator {
         {
             g.store.mirrors.filling(item.meta);
             g.store.solve_meta(item.meta, Value::Nat(k.clone()));
-            (g.store.lifted_calls.borrow_mut()).insert(item.meta, (0, Rc::new(term.clone())));
+            (g.store.lifted_calls.borrow_mut())
+                .insert(item.meta, (0, Rc::new(term.clone()), false));
             return Ok(());
         }
         if g.meta_solution(item.meta).is_some() {
@@ -1442,11 +1474,11 @@ impl Elaborator {
             return Err(cx.mismatch(&placeholder, &value));
         }
         match placeholder_call(cx, &item.placeholder, term)? {
-            Some((s, call)) => {
+            Some((s, call, annotated)) => {
                 g.store
                     .lifted_calls
                     .borrow_mut()
-                    .insert(item.meta, (s, Rc::new(call)));
+                    .insert(item.meta, (s, Rc::new(call), annotated));
             }
             None => count(&cx.e.session.stats.read_back),
         }

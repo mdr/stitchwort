@@ -42,6 +42,11 @@ pub struct Meta {
     pub origin: Option<Rc<str>>,
 }
 
+/// A [`MetaStore::lifted_calls`] entry: how many variables the call is a
+/// function of, the call, and whether it annotates a `let`'s lambda it
+/// applies.
+pub type LiftedCall = (usize, Rc<Term>, bool);
+
 pub struct MetaStore {
     /// The metavariables of the declaration being elaborated. The kernel's
     /// admission never reads them; the elaborator's uses of the checker as
@@ -62,8 +67,11 @@ pub struct MetaStore {
     /// them). Zonking puts this term in, instead of reading the solution
     /// value back, which would write out what the arguments of the call
     /// unfold to. The queued checks keep the term each filled its
-    /// placeholder with here too, for the same reason. Cleared with `metas`.
-    pub lifted_calls: RefCell<HashMap<usize, (usize, Rc<Term>)>>,
+    /// placeholder with here too, for the same reason; with whether that
+    /// term annotates a `let`'s lambda it applies, for zonking to drop where
+    /// it folds the lambda back (`queue::placeholder_call`). Cleared with
+    /// `metas`.
+    pub lifted_calls: RefCell<HashMap<usize, LiftedCall>>,
     /// What the queue tells the unifier and the printer of its
     /// placeholders ([`QueueMirrors`]). Written only by the queue.
     pub mirrors: QueueMirrors,
