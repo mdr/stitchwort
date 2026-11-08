@@ -1,5 +1,5 @@
 {
-  "next": 2334,
+  "next": 2335,
   "tickets": [
     {
       "id": 47,
@@ -22537,6 +22537,22 @@
       ],
       "epic": "comparative-speed",
       "body": "From docs/reviews/SW-2296-native-profiles.md §5 (measured). small notes. 15 min.",
+      "created": "2026-11-08",
+      "updated": "2026-11-08",
+      "commits": []
+    },
+    {
+      "id": 2334,
+      "title": "test:affected --dry-run prints 'over the 90 s budget; cut ... build-config' while its own estimate is 68.9 s and the real run cuts nothing; make the warning match what it does",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "tooling",
+        "bug"
+      ],
+      "epic": "test-infra",
+      "body": "From the SW-2296 batch verifier, 8 Nov 2026. Also: no rule covers bench/compare/compare.py. 20 min.",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
