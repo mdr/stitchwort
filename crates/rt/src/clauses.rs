@@ -46,6 +46,7 @@ use stitchwort_core::registry::Builtin;
 use stitchwort_core::term::Icit;
 use stitchwort_core::{DataId, DefId, Ev, Term};
 
+use crate::effect::{Field, Reperform, Rule, Skips};
 use crate::erasure::{def_shape, is_done_continuation};
 use crate::fusion::{MatchBodies, StateFusion, inline, is_lifted_match, spine_icit, strip};
 
@@ -110,6 +111,18 @@ pub struct Classified {
     pub forward: ForwardShape,
 }
 
+/// The definitions row mappings are built from.
+struct Maps {
+    inject: DefId,
+    reply: DefId,
+    id: DefId,
+    compose: DefId,
+    left: DefId,
+    right: DefId,
+    case: DefId,
+    from_no: DefId,
+}
+
 /// What the classification needs to know about the core.
 pub struct Classifier {
     fold: DefId,
@@ -123,6 +136,11 @@ pub struct Classifier {
     /// many arguments they take when saturated: `bind`, `bindIn`, `bindDv`
     /// and `callD`.
     sequences: Vec<(DefId, usize)>,
+    /// `bind`, the one sequencing form whose Forward clauses the runtime
+    /// skips (stage B, [`Classifier::reperforms`]).
+    bind: Option<DefId>,
+    /// The row mappings the elaborator builds a generated forward's from.
+    maps: Option<Maps>,
     run_pure: DefId,
     lower_in: Option<DefId>,
     bind_d: Option<DefId>,
@@ -159,6 +177,19 @@ impl Classifier {
             handle_plus,
             handle_plus_mask,
             sequences,
+            bind: r.loaded_def(Builtin::Bind),
+            maps: (|| {
+                Some(Maps {
+                    inject: r.loaded_def(Builtin::SigInject)?,
+                    reply: r.loaded_def(Builtin::SigReply)?,
+                    id: r.loaded_def(Builtin::SigId)?,
+                    compose: r.loaded_def(Builtin::SigCompose)?,
+                    left: r.loaded_def(Builtin::SigLeft)?,
+                    right: r.loaded_def(Builtin::SigRight)?,
+                    case: r.loaded_def(Builtin::SigCase)?,
+                    from_no: r.loaded_def(Builtin::SigFromNo)?,
+                })
+            })(),
             run_pure: r.loaded_def(Builtin::RunPure)?,
             lower_in: r.loaded_def(Builtin::LowerIn),
             bind_d: r.loaded_def(Builtin::BindD),
@@ -244,6 +275,220 @@ impl Classifier {
             clauses: kinds,
             forward,
         }))
+    }
+
+    /// For a `foldComp` (not one state fusion runs as a loop), the operation
+    /// each Forward clause performs, as the runtime can build it from the
+    /// operation the clause was given, by clause (stage B of
+    /// operations-in-place.md: [`crate::effect::Forwards`]). `None` if the
+    /// fold isn't recognised or no clause can be skipped. Only clauses that
+    /// are `bind (Call O (r => Done r)) k` (or `y => k y`) count, so the
+    /// clause's result is `Call O k` exactly; the other sequencing forms
+    /// stay with the clause.
+    pub fn reperforms(&self, g: &Ev, args: &[&Term]) -> Option<Skips> {
+        let bind = self.bind?;
+        let (_, bind_arity) = *self.sequences.iter().find(|(s, _)| *s == bind)?;
+        let (clauses, forward) = self.step_parts(g, args.get(5)?)?;
+        let rules = self.forward_rules(forward);
+        // The handled ability's operations: `Plus A rest`'s `A`, a data type
+        // whose values are tagged by constructor.
+        let Term::Data(plus, row) = strip(args.first()?) else {
+            return None;
+        };
+        if *plus != self.plus || row.len() != 2 {
+            return None;
+        }
+        let Term::Data(ops, _) = strip(&row[0]) else {
+            return None;
+        };
+        let ops = g.data(*ops);
+        if ops.unboxed_field().is_some() || ops.ctors().len() != clauses.len() {
+            return None;
+        }
+        let out: Vec<Option<Reperform>> = clauses
+            .iter()
+            .enumerate()
+            .map(|(i, clause)| {
+                let r = self.reperform(g, clause, bind, bind_arity)?;
+                // The argument is taken from the operation's one run-time
+                // field.
+                let fields = ops.ctors()[i].field_erased.iter().filter(|e| !**e).count();
+                (r.field != Field::Arg || fields == 1).then_some(r)
+            })
+            .collect();
+        (out.iter().any(Option::is_some) || rules.is_some()).then_some(Skips {
+            clauses: out,
+            rules,
+        })
+    }
+
+    /// How a plain generated forward, `o k => Call (sigInject m o) (y => k
+    /// (sigReply m o y))`, renames its operations, if `m` is built from the
+    /// row mappings the elaborator uses: their replies all give the answer
+    /// back unchanged, so the forward's result is `Call (inject o) k`.
+    fn forward_rules(&self, forward: &Term) -> Option<Vec<Rule>> {
+        let maps = self.maps.as_ref()?;
+        let body = peel(forward, 2)?;
+        let Term::Ctor(d, 1, fields) = body else {
+            return None;
+        };
+        if *d != self.comp || fields.len() != 2 {
+            return None;
+        }
+        // `sigInject m o`, `o` Var(1).
+        let [m, o] = explicit(&fields[0], maps.inject)?[..] else {
+            return None;
+        };
+        if !matches!(strip(o), Term::Var(1)) {
+            return None;
+        }
+        // `y => k (sigReply m′ o y)`: `k` Var(1), `o` Var(2), `y` Var(0).
+        let Term::Lam(_, _, rest) = strip(&fields[1]) else {
+            return None;
+        };
+        let Term::App(k, reply, _) = strip(rest) else {
+            return None;
+        };
+        if !matches!(strip(k), Term::Var(1)) {
+            return None;
+        }
+        let [m2, o2, y] = explicit(reply, maps.reply)?[..] else {
+            return None;
+        };
+        if !matches!(strip(o2), Term::Var(2)) || !matches!(strip(y), Term::Var(0)) {
+            return None;
+        }
+        let rules = self.rules(m, 0)?;
+        (self.rules(m2, 0)? == rules).then_some(rules)
+    }
+
+    /// The renaming row mapping `m` does, as rules, if it is built from
+    /// `sigId`, `sigLeft`, `sigRight`, `sigFromNo`, `sigCase` and
+    /// `sigCompose` (the elaborator's `mapping`).
+    fn rules(&self, m: &Term, depth: usize) -> Option<Vec<Rule>> {
+        let maps = self.maps.as_ref()?;
+        if depth > MAX_DEPTH {
+            return None;
+        }
+        let (head, args) = spine_icit(strip(m)).unwrap_or((strip(m), Vec::new()));
+        let Term::Def(id) = head else {
+            return None;
+        };
+        let args: Vec<&Term> = args
+            .iter()
+            .filter(|(_, i)| *i == Icit::Explicit)
+            .map(|(a, _)| *a)
+            .collect();
+        let rule = |to: Vec<u32>| Rule {
+            from: Vec::new(),
+            to,
+        };
+        Some(match (*id, &args[..]) {
+            (id, []) if id == maps.id => vec![rule(Vec::new())],
+            (id, []) if id == maps.left => vec![rule(vec![0])],
+            (id, []) if id == maps.right => vec![rule(vec![1])],
+            (id, []) if id == maps.from_no => Vec::new(),
+            (id, [l, r]) if id == maps.case => {
+                let mut out = Vec::new();
+                for (side, part) in [(0, l), (1, r)] {
+                    for mut r in self.rules(part, depth + 1)? {
+                        r.from.insert(0, side);
+                        out.push(r);
+                    }
+                }
+                out
+            }
+            (id, [first, second]) if id == maps.compose => {
+                let second = self.rules(second, depth + 1)?;
+                let mut out = Vec::new();
+                for a in self.rules(first, depth + 1)? {
+                    for b in &second {
+                        if a.to.starts_with(&b.from) {
+                            let mut to = b.to.clone();
+                            to.extend_from_slice(&a.to[b.from.len()..]);
+                            out.push(Rule {
+                                from: a.from.clone(),
+                                to,
+                            });
+                        } else if b.from.starts_with(&a.to) {
+                            let mut from = a.from.clone();
+                            from.extend_from_slice(&b.from[a.to.len()..]);
+                            out.push(Rule {
+                                from,
+                                to: b.to.clone(),
+                            });
+                        }
+                    }
+                }
+                out
+            }
+            _ => return None,
+        })
+    }
+
+    /// The operation `clause` (`x => k => body`) performs, if its body is
+    /// `bind (Call O (r => Done r)) k′` with `k′` `k` or `y => k y`.
+    fn reperform(&self, g: &Ev, clause: &Term, bind: DefId, arity: usize) -> Option<Reperform> {
+        let body = peel(clause, 2)?;
+        let (Term::Def(id), args) = spine_icit(body)? else {
+            return None;
+        };
+        if *id != bind || args.len() != arity {
+            return None;
+        }
+        let continues = match strip(args[arity - 1].0) {
+            Term::Var(0) => true,
+            Term::Lam(_, _, b) => matches!(strip(b), Term::App(f, y, _)
+                if matches!(strip(f), Term::Var(1)) && matches!(strip(y), Term::Var(0))),
+            _ => false,
+        };
+        if !continues {
+            return None;
+        }
+        let Term::Ctor(d, 1, fields) = strip(args[arity - 2].0) else {
+            return None;
+        };
+        if *d != self.comp
+            || fields.len() != 2
+            || !matches!(strip(&fields[1]), Term::Lam(_, _, b) if is_done_continuation(g, b))
+        {
+            return None;
+        }
+        let mut op = strip(&fields[0]);
+        let mut wraps = Vec::new();
+        while let Term::Ctor(d, c, inner) = op
+            && *d == self.plus
+            && inner.len() == 1
+        {
+            wraps.push(u32::try_from(*c).ok()?);
+            op = strip(&inner[0]);
+        }
+        let Term::Ctor(d, c, fields) = op else {
+            return None;
+        };
+        let data = g.data(*d);
+        if wraps.is_empty() || data.unboxed_field().is_some() {
+            return None;
+        }
+        let erased = &data.ctors().get(*c)?.field_erased;
+        if erased.len() != fields.len() {
+            return None;
+        }
+        let mut runtime = fields.iter().zip(erased).filter(|(_, e)| !**e);
+        let field = match (runtime.next(), runtime.next()) {
+            (None, _) => Field::None,
+            (Some((f, _)), None) => match strip(f) {
+                Term::Var(1) => Field::Arg,
+                Term::Ctor(u, 0, unit) if Some(*u) == self.unit && unit.is_empty() => Field::Unit,
+                _ => return None,
+            },
+            _ => return None,
+        };
+        Some(Reperform {
+            wraps,
+            ctor: u32::try_from(*c).ok()?,
+            field,
+        })
     }
 
     /// The runtime clauses of `handlePlus [5 implicit] (elim [implicit…]
@@ -495,6 +740,20 @@ impl Classifier {
         }
         Ok(false)
     }
+}
+
+/// The explicit arguments of `term`, if it is `head` applied to all its
+/// arguments.
+fn explicit(term: &Term, head: DefId) -> Option<Vec<&Term>> {
+    let (Term::Def(id), args) = spine_icit(strip(term))? else {
+        return None;
+    };
+    (*id == head).then(|| {
+        args.iter()
+            .filter(|(_, i)| *i == Icit::Explicit)
+            .map(|(a, _)| *a)
+            .collect()
+    })
 }
 
 /// The body under `n` lambdas, if `term` starts with that many.

@@ -383,7 +383,12 @@ fn effect_examples_agree_with_the_machine() {
     with_stack(STACK, || {
         stitchwort_rt::native_abi::probe_layout().expect("the layout is as expected");
         let mut ran = 0;
-        for name in ["effect-runtime.sw", "effect-handlers.sw", "effect-state.sw"] {
+        for name in [
+            "effect-runtime.sw",
+            "effect-handlers.sw",
+            "effect-state.sw",
+            "effect-forwarding.sw",
+        ] {
             let path = Path::new(env!("CARGO_MANIFEST_DIR"))
                 .join("../../examples/extract")
                 .join(name);

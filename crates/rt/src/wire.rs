@@ -261,7 +261,8 @@ tags!(
         EffectOp::FoldState,
         EffectOp::FoldStateComp,
         EffectOp::Translate,
-        EffectOp::RunPure
+        EffectOp::RunPure,
+        EffectOp::FoldForwarding
     ]
 );
 

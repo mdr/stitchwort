@@ -33,7 +33,8 @@ use stitchwort_core::ResourceError;
 use crate::code::{Image, Instr, MOVE, NO_REG, compile};
 use crate::effect::{
     EffectCounts, EffectOp, Handler, Resume, StateRun, StateStep, delay_k, done_k, field,
-    handler_for, jump_k, pair, resume_lazily, state_handler, state_k, state_step,
+    forwarded, handler_for, jump_k, pair, resume_lazily, skipped, state_handler, state_k,
+    state_step,
 };
 use crate::ir::{GlobalId, GlobalKind, HoleOp, PrimOp, Program, Shapes};
 use crate::natives::{ArrayNative, TextNative};
@@ -734,6 +735,7 @@ impl State {
             EffectOp::Fold
             | EffectOp::FoldLazy
             | EffectOp::FoldIn
+            | EffectOp::FoldForwarding
             | EffectOp::Translate
             | EffectOp::RunPure => {
                 let (handler, c) = handler_for(s, op, arg);
@@ -846,6 +848,24 @@ impl State {
             return Ok(Some((Value::Data(s.call, fields), ret)));
         }
         let (o, rest) = pair(fields);
+        let o = match &*handler {
+            Handler::Fold {
+                forwards: Some(table),
+                ..
+            } => match forwarded(s, table, o) {
+                Ok(o) => {
+                    let resume = Rc::new(Resume {
+                        handler,
+                        rest,
+                        pending,
+                        op: Value::Erased,
+                    });
+                    return Ok(Some((skipped(s, &mut self.counts, o, resume), ret)));
+                }
+                Err(o) => o,
+            },
+            _ => o,
+        };
         let resume = |handler, op| {
             Rc::new(Resume {
                 handler,

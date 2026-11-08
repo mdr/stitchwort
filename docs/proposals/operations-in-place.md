@@ -806,6 +806,91 @@ operation before it answers is counted as a hop too, and a hop through a
 `Handler::Step` loop is not a route. Nothing here tells a forwarding clause
 from a generated forward; `clauses.rs` was not used.
 
+## 11. Stage B: forwarding clauses skipped
+
+SW-2349, 8 Nov 2026 (D3412). Built in today's loop, on stage A's
+recogniser, in both runtimes through one shared leaf
+(`crate::effect::forwarded`, called by the machine's `eff_call` and native
+code's `sw_eff_step`); the JS backend is untouched (D3410).
+
+**What is skipped.** When the lowering meets a lazy `foldComp` (carrier a
+computation, or `CompIn e t`) whose step has the elaborator's shape, it asks
+`Classifier::reperforms` for each clause that is exactly `bind (Call O (r =>
+Done r)) k` (or `y => k y`), with `O` the clause's own argument or `()` in
+an outer operation, and for the generated forward when it is the plain one
+(`Call (sigInject m o) (y => k (sigReply m o y))`) with `m` built only from
+`sigId`, `sigLeft`, `sigRight`, `sigFromNo`, `sigCase` and `sigCompose`
+(the elaborator's `mapping`), which it reads as renaming rules. If any
+clause or the forward qualifies, the fold becomes
+`EffectOp::FoldForwarding` (`FoldIn` with a small text table of those
+clauses' operations and the rules). At an operation, the loop looks it up;
+if the clause is skipped, the loop's value is `Call O′ r`, `r` the eager
+resumption from where the operation was, and no clause is called. `Call` of
+the same operation under one `L` reuses the value. The other sequencing
+forms (`bindIn`, `bindDv`, `callD`), the bare-row, partial and divergence
+forwards, and every Tail, Abort and General clause keep today's path.
+
+**Why it is sound.** It is a local rewrite at one fold, not a lookup
+through several: the tree says `foldComp d c (Call o rest) = c o (y =>
+foldComp d c (rest y))`; for a skipped clause `c o k = bind (Call O′ DoneK)
+k = Call O′ k`, and `k y` (lazy: `Bind (Done y) r`, run as `r y`) is `r y`.
+For the forward, every reply of these mappings is `o x => x`, so `k
+(sigReply m o y)` is `k y`. The loop gives `Call O′ r` to exactly the place
+the clause's result would have gone, so nothing outside the fold can tell,
+and §3's consumer link isn't needed. Case by case:
+
+- *Handler state.* Only `Handler::Fold` skips; a state-passing fold
+  (stage 4d) never gets the table, and an outer state handler sees the
+  same `Call` as before.
+- *Cleanup.* A skipped clause does nothing but perform and resume; there is
+  no `finally` in the language.
+- *Masking, handlers between.* Nothing is moved past anything: the `Call`
+  leaves the same activation for the same consumer.
+- *Multi-shot and stored resumptions.* `r` is the resumption the clause's
+  `k` held (a persistent pending list), unflagged; resumed twice or after
+  the handler has returned, it runs `foldComp d c (rest y)` each time, as
+  `k` did.
+- *Error exits.* The skip calls no program code, so it can't fail; a step
+  or frame limit is reached later or not at all (D2543), with the same
+  error.
+- *JS.* Lowered by its own backend, unchanged; `effect-forwarding.sw`'s
+  `-- run:` lines agree under Node too.
+
+**What changes.** Effect counts (`routes` fall; new `forwards`), steps
+(fewer frames entered), allocation traces (no clause frame, `Call`, `Bind`
+node, closure or lazy resumption per hop), the same in both runtimes. No
+count expectation or snapshot in the tests moved. Results and messages:
+none.
+
+**Measured** (native, `task profile:native` with call counts and `task
+bench:compare -- --runs 3 --runners native --instructions`, before on
+`main` at a3d786138 and after, same machine; instructions are stable under
+load, the times were taken beside another lane's benchmarks):
+
+| | routes | skipped | `sw_eff_step` | `sw_apply_prepare` | `sw_closure` | `sw_cell_new` | instructions | time |
+|---|---|---|---|---|---|---|---|---|
+| `expressions` | 49.18 M → 20.05 M | 29.13 M | 257.9 M → 141.4 M | 262.2 M → 145.7 M | 137.2 M → 108.1 M | 214.1 M → 126.7 M | 540.0 G → 376.1 G (1.44×) | 46.1 s → 27.1 s |
+| `scan` | 47.50 M → 26.25 M | 21.25 M | 205.0 M → 120.0 M | 248.5 M → 163.5 M | 118.8 M → 97.5 M | 200.0 M → 136.3 M | 508.8 G → 385.5 G (1.32×) | 35.0 s → 27.0 s |
+| `bridge` | 9.52 M → 6.69 M | 2.83 M | 49.4 M → 38.1 M | 54.2 M → 42.8 M | 42.0 M → 39.1 M | 61.0 M → 52.5 M | 143.2 G → 126.7 G (1.13×) | 9.8 s → 8.8 s |
+| `disk` | | | | | | | 120.2 G → 115.0 G (1.05×) | 7.9 s → 7.6 s |
+| `matcher` | | | | | | | 81.7 G → 74.1 G (1.10×) | 5.3 s → 4.9 s |
+
+Routes per operation first performed: 2.64 → 1.08, 2.12 → 1.17, 1.45 →
+1.02. SW-2347's upper bound (30 M, 25 M, 3 M) is nearly reached on
+`expressions` and `bridge`. The chains of two routes left (1.4 M, 3.8 M)
+are, as far as the counts tell, clauses that answer by performing a
+different operation first, such as `optionalFrom`'s `stop` (`Parse.reset
+start`), which SW-2347's measure counts as a hop **[inferred]**; stage C
+answers those in place. Every skip in these programs is a Forward
+clause of `optionalFrom` or `attemptFrom`; no generated forward is crossed
+by them (their handlers' rows are closed `{Parse}`).
+
+**Open-row handlers aren't reached.** A handler written for `{A | e}` has a
+generic body that is `foldCompD` on a variable divergence index, which the
+runtime runs as the library's (§10); only its empty-row variant is a
+`foldComp` with known clauses. So `Pick.relay` at `{Pick, Counter}` is
+skipped nowhere, while `Std.Parse`'s handlers (closed `{Parse}`) are.
+
 ## Tickets to file
 
 In order. A first; B and C can run side by side after it; D after C; E

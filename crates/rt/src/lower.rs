@@ -17,7 +17,8 @@ use stitchwort_core::term::{Branch, NumArm};
 use stitchwort_core::{BigUint, DataId, DefId, Ev, Icit, Limits, QuotForm, Sort, Term};
 use stitchwort_syntax::Diagnostic;
 
-use crate::effect::{Carrier, EffectNatives, EffectOp};
+use crate::clauses::Classifier;
+use crate::effect::{Carrier, EffectNatives, EffectOp, Forwards};
 use crate::erasure::{DefShape, def_shape, is_done_continuation, text_literal};
 use crate::fusion::StateFusion;
 use crate::hoist::SigMaps;
@@ -316,6 +317,10 @@ struct Lowerer<'g> {
     /// Recognises state-passing handlers (stage 4d), when there are
     /// natives.
     fusion: Option<StateFusion>,
+    /// Finds the clauses that only forward their operation, for the loop
+    /// to skip (stage B of docs/proposals/operations-in-place.md), when
+    /// there are natives.
+    classifier: Option<Classifier>,
     /// Each global's id, runtime arity and native operation.
     global_of: HashMap<DefId, (GlobalId, u32, Option<PrimOp>)>,
     /// Decides which calls are at the empty row, and makes the variants.
@@ -376,6 +381,7 @@ impl<'g> Lowerer<'g> {
             to_bool: g.env.registry().def(Builtin::ToBool),
             effect: EffectNatives::new(g),
             fusion: EffectNatives::new(g).and_then(|_| StateFusion::new(g)),
+            classifier: EffectNatives::new(g).and_then(|_| Classifier::new(g)),
             global_of: HashMap::default(),
             spec: Specialiser::new(g),
             empty_of: HashMap::default(),
@@ -898,6 +904,27 @@ impl<'g> Lowerer<'g> {
             },
             Some(Carrier::Value) | None => EffectOp::Fold,
         };
+        // A lazy fold some of whose clauses only forward their operation:
+        // the loop skips those (`FoldIn` with the clauses' text, its row
+        // `Erased` for a fold that is always lazy).
+        let forwards = match op {
+            EffectOp::FoldLazy | EffectOp::FoldIn => self
+                .classifier
+                .as_ref()
+                .and_then(|c| c.reperforms(self.g, args))
+                .and_then(|skips| Forwards::encode(&skips)),
+            _ => None,
+        };
+        if let Some(table) = forwards {
+            if op == EffectOp::FoldLazy {
+                runtime.insert(0, Expr::Erased);
+            }
+            runtime.insert(3, Expr::Lit(Lit::Text(table.into())));
+            return Ok(Expr::Prim(
+                PrimOp::Effect(EffectOp::FoldForwarding),
+                runtime,
+            ));
+        }
         Ok(Expr::Prim(PrimOp::Effect(op), runtime))
     }
 
