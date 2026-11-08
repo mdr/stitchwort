@@ -1,5 +1,5 @@
 {
-  "next": 2346,
+  "next": 2347,
   "tickets": [
     {
       "id": 47,
@@ -22734,6 +22734,21 @@
       ],
       "epic": "test-infra",
       "body": "From SW-2323's report, 8 Nov 2026. 10 min.",
+      "created": "2026-11-08",
+      "updated": "2026-11-08",
+      "commits": []
+    },
+    {
+      "id": 2346,
+      "title": "Comparative speed: widen the program set when the current ten stop teaching us much: a short paper lane picks 5-10 more programs that exercise what the ten don't (floats: n-body, spectral-norm, mandelbrot; permutations: fannkuch-redux; hash maps and strings: k-nucleotide; plus AoC days of other shapes: string building, deep recursion, Map/Set-heavy), then Sonnet lanes port them",
+      "status": "backlog",
+      "agent": "Opus",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "comparative-speed",
+      "body": "Matt, 8 Nov 2026: 'a way to extend our comparative speed testing, if we sort of reach a natural conclusion, is to pick some other programs to compare.' Not started: queued after the current fixes. Paper 45 min, then ports.",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []

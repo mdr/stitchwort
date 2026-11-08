@@ -448,7 +448,8 @@
         "Native Nat comparisons and Array fast paths (SW-2329), inline allocation (SW-2321): after SW-2328",
         "Parse stage 3 (SW-2338); operations-in-place note after D3400 (SW-2339)",
         "Specialise capturing closures (SW-2135)",
-        "Rerun the table after each wave"
+        "Rerun the table after each wave",
+        "Widen the program set when the ten stop teaching us much (SW-2346)"
       ],
       "links": [
         "docs/proposals/comparative-speed.md"
