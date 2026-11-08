@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-AUTO-NONE] Error: no way to decide `b`
+   ╭─[ reject/lambda-comparison-count.sw:2:66 ]
+   │
+ 2 │ def a (xs : List Nat) : Nat := (xs.map (n => 9 < n)).count (b => b)
+   │                                                                  ┬  
+   │                                                                  ╰── this is a proposition, and nothing decides it
+   │ 
+   │ Note 1: a `Bool` is expected here, and a proposition is turned into one only if it has a decision procedure: an `instance` returning `Decidable …`
+   │ 
+   │ Note 2: if this variable comes from a comparison such as `<` in a lambda written without its result type, it is a `Prop`, since nothing asked for a `Bool`: annotate it, `n => (9 < n: Bool)`
+───╯
