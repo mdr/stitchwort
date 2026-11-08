@@ -22551,14 +22551,14 @@
     {
       "id": 2333,
       "title": "2021 day 11: compute the cavern's cell count once, not cavern.cells.length every step",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Sonnet",
       "where": "",
       "labels": [
         "aoc"
       ],
       "epic": "comparative-speed",
-      "body": "From docs/reviews/SW-2296-native-profiles.md §5 (measured). small notes. 15 min.",
+      "body": "From docs/reviews/SW-2296-native-profiles.md §5 (measured). small notes. 15 min.\n\nStarted 04:03 UTC, Sonnet, expected 15 min.\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
@@ -22680,14 +22680,14 @@
     {
       "id": 2341,
       "title": "Switch the other Position.around users (2020 day 11, 2025 days 4 and 7) to countAround with countAroundIsAround",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Sonnet",
       "where": "",
       "labels": [
         "aoc"
       ],
       "epic": "aoc-common",
-      "body": "From SW-2320's report. 30 min.",
+      "body": "From SW-2320's report. 30 min.\n\nStarted 04:03 UTC, Sonnet, expected 30 min.\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
@@ -22973,14 +22973,14 @@
     {
       "id": 2359,
       "title": "Native: CtorReuse refills a unique cell of the same size in place, falling back to sw_cell_new (3.5M sw_ctor_reuse calls on matcher)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Sonnet",
       "where": "",
       "labels": [
         "perf"
       ],
       "epic": "comparative-speed",
-      "body": "From SW-2321. 30 min.",
+      "body": "From SW-2321. 30 min.\n\nStarted 04:03 UTC, Sonnet, expected 30 min.\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
@@ -22988,7 +22988,7 @@
     {
       "id": 2360,
       "title": "Proposal: a small-object allocator for cells (Lean-style), now that mimalloc is most of cell build/free cost (binary-trees mi_free 14.4%, mi_malloc_aligned 11.4%)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Opus",
       "where": "",
       "labels": [
@@ -22996,7 +22996,7 @@
         "design"
       ],
       "epic": "comparative-speed",
-      "body": "From SW-2321. ABI and runtime design: a note in docs/proposals first; Matt decides. Paper lane 60 min.",
+      "body": "From SW-2321. ABI and runtime design: a note in docs/proposals first; Matt decides. Paper lane 60 min.\n\nStarted 04:03 UTC, Opus, expected 60 min.\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
