@@ -305,6 +305,7 @@ fn probe() -> Result<(), String> {
         buffer == items.as_ptr() && len == 3,
         "an array's buffer address and length",
     )?;
+    probe_cells()?;
     probe_functions()?;
     for v in [&tags[2].0, &tags[4].0, &tags[9].0, &tags[10].0, &tags[11].0] {
         let copy = v.clone();
@@ -314,6 +315,36 @@ fn probe() -> Result<(), String> {
             ok && counts_at(allocation(v)).0 == 1,
             &format!("{v:?}'s count"),
         )?;
+    }
+    Ok(())
+}
+
+/// The facts [`sw_cell_new`] relies on, on its fixed-size paths and its
+/// general one: a cell's fields are [`RC_VALUE_AT`] after the word it
+/// returns, its counts start at one each, and filled and held as a
+/// `Value::Data`'s words it's the constructor of those fields.
+#[allow(unsafe_code)]
+fn probe_cells() -> Result<(), String> {
+    for n in [0, 1, 3, FIXED_CELL, FIXED_CELL + 1] {
+        let cell = cell_new(0x55, n);
+        let at = (cell + RC_VALUE_AT as u64) as *mut Value;
+        for i in 0..n {
+            // SAFETY: within the new cell's `n` fields.
+            unsafe { at.add(i as usize).write(Value::Nat(i)) };
+        }
+        // SAFETY: the words of a filled cell, as native code holds it.
+        let v = unsafe { from_words(u64::from(TAG_DATA) | (0x55 << 32), cell, n) };
+        let ok = counts_at(cell as *const u8) == (1, 1)
+            && matches!(&v, Value::Data(0x55, fields)
+                if Rc::as_ptr(&fields.0).cast::<Value>() == at.cast_const()
+                    && fields.0.len() as u64 == n
+                    && fields.0.iter().zip(0..).all(|(f, i)| matches!(f, Value::Nat(j) if *j == i)));
+        drop(v);
+        if !ok {
+            return Err(format!(
+                "the layout of values isn't as native code expects: a new cell of {n} fields"
+            ));
+        }
     }
     Ok(())
 }
@@ -1399,58 +1430,96 @@ pub unsafe extern "C" fn sw_release_up(regs: *mut Value, n: u64) {
     }
 }
 
-/// `Ctor`: a new cell of `tag` with the `n` values at `fields` (moved), put
-/// in `out` (uninitialised).
-///
-/// # Safety
-/// `fields` points at `n` values native code owns; `out` at space for one.
-#[allow(unsafe_code)]
-#[cfg_attr(not(test), unsafe(no_mangle))]
-pub unsafe extern "C" fn sw_ctor(tag: u32, fields: *mut Value, n: u64, out: *mut Value) {
-    crate::call_counts::hit(crate::call_counts::Helper::Ctor);
-    // SAFETY: the caller's contract; the values are moved out (copied
-    // bitwise into the new cell, which is then the only owner), and the
-    // caller doesn't use them again.
-    let n = n as usize;
-    let mut cell = Rc::<[Value]>::new_uninit_slice(n);
-    let to = Rc::get_mut(&mut cell)
-        .expect("a new cell is unique")
-        .as_mut_ptr()
-        .cast::<Value>();
-    unsafe { std::ptr::copy_nonoverlapping(fields, to, n) };
-    let cell = unsafe { cell.assume_init() };
-    crate::alloc_trace::alloc(tag, &cell);
-    unsafe { out.write(Value::Data(tag, Fields(cell))) };
+/// The most fields a cell has on [`sw_cell_new`]'s and [`sw_cell_free`]'s
+/// fixed-size paths, whose layout is a constant; larger cells take a
+/// slice's general path.
+const FIXED_CELL: u64 = 8;
+
+/// `$fixed::<N>($args)` with `N` the constant `$n` if it's at most
+/// [`FIXED_CELL`], otherwise `$general`.
+macro_rules! by_arity {
+    ($n:expr, $fixed:ident($($arg:expr),*), $general:expr) => {
+        match $n {
+            0 => $fixed::<0>($($arg),*),
+            1 => $fixed::<1>($($arg),*),
+            2 => $fixed::<2>($($arg),*),
+            3 => $fixed::<3>($($arg),*),
+            4 => $fixed::<4>($($arg),*),
+            5 => $fixed::<5>($($arg),*),
+            6 => $fixed::<6>($($arg),*),
+            7 => $fixed::<7>($($arg),*),
+            8 => $fixed::<8>($($arg),*),
+            _ => {
+                const _: () = assert!(FIXED_CELL == 8);
+                $general
+            }
+        }
+    };
 }
 
-/// Frees a unique cell whose fields `Unpack` has all moved out, held in
-/// three words: what dropping it does, without the walk over its fields
-/// for values to free. The fields are left as they were (native code
-/// doesn't erase them), so they're never read: the cell is freed as one of
-/// `MaybeUninit` values, which have no drop.
+/// `Ctor`: a new, unique cell of `n` uninitialised fields, for native code
+/// to fill and hold as `Value::Data(tag, ..)`: its words are
+/// `TAG_DATA | tag << 32`, the address returned (the `Rc`'s, where its
+/// counts are; the fields start [`RC_VALUE_AT`] after it) and `n`.
+///
+/// The cell is an `Rc<[MaybeUninit<Value>; n]>` unsized to a slice, so its
+/// layout is a constant and its allocation is the one an `Rc<[Value]>` of
+/// `n` fields frees (the coercion's guarantee). Records the cell's `alloc`,
+/// as the machine does when it builds one: filling it records nothing.
 ///
 /// # Safety
-/// The words are a `Value::Data` native code owns, whose cell is unique and
-/// whose every field has been moved out (and may still hold the moved
-/// value's words).
+/// Native code writes all `n` fields (values it owns, moved in) before the
+/// cell is read or dropped, and from then on owns the cell.
 #[allow(unsafe_code)]
 #[cfg_attr(not(test), unsafe(no_mangle))]
-pub unsafe extern "C" fn sw_free_emptied(w0: u64, w1: u64, w2: u64) {
-    crate::call_counts::hit(crate::call_counts::Helper::FreeEmptied);
-    // SAFETY: the caller's contract.
-    let Value::Data(_, fields) = (unsafe { from_words(w0, w1, w2) }) else {
-        unreachable!("an emptied cell is a constructor's")
-    };
-    let fields = std::mem::ManuallyDrop::new(fields);
-    // SAFETY: `fields` is never used or dropped again; its cell is taken.
-    let cell: Rc<[Value]> = unsafe { std::ptr::read(&fields.0) };
-    crate::alloc_trace::dec(&cell, true);
-    // SAFETY: `MaybeUninit<Value>` has `Value`'s layout, so this is the
-    // same allocation with the same layout; dropping it frees the cell
-    // without dropping its (moved-out) fields.
-    let cell: Rc<[MaybeUninit<Value>]> =
-        unsafe { Rc::from_raw(Rc::into_raw(cell) as *const [MaybeUninit<Value>]) };
-    drop(cell);
+pub unsafe extern "C" fn sw_cell_new(tag: u32, n: u64) -> u64 {
+    crate::call_counts::hit(crate::call_counts::Helper::CellNew);
+    cell_new(tag, n)
+}
+
+#[inline(always)]
+fn cell_new(tag: u32, n: u64) -> u64 {
+    fn fixed<const N: usize>() -> Rc<[MaybeUninit<Value>]> {
+        Rc::new([const { MaybeUninit::uninit() }; N])
+    }
+    let cell = by_arity!(n, fixed(), Rc::<[Value]>::new_uninit_slice(n as usize));
+    let fields = Rc::into_raw(cell).cast::<u8>();
+    crate::alloc_trace::alloc_at(tag, fields, n as usize);
+    fields as u64 - RC_VALUE_AT as u64
+}
+
+/// Frees a unique cell of `n` fields whose fields `Unpack` has all moved
+/// out, at `cell` (a `Value::Data`'s payload word): what dropping it does,
+/// without the walk over its fields for values to free. The fields are
+/// left as they were (native code doesn't erase them), so they're never
+/// read: the cell is freed as one of `MaybeUninit` values, which have no
+/// drop.
+///
+/// # Safety
+/// `cell` is the payload of a `Value::Data` of `n` fields native code
+/// owns, whose cell is unique and whose every field has been moved out (and
+/// may still hold the moved value's words). Native code doesn't use it
+/// again.
+#[allow(unsafe_code)]
+#[cfg_attr(not(test), unsafe(no_mangle))]
+pub unsafe extern "C" fn sw_cell_free(cell: u64, n: u64) {
+    crate::call_counts::hit(crate::call_counts::Helper::CellFree);
+    let fields = (cell + RC_VALUE_AT as u64) as *const MaybeUninit<Value>;
+    crate::alloc_trace::dec_at(fields.cast(), n as usize, true);
+    // SAFETY (both paths): the cell is an `Rc<[Value]>` of `n` fields
+    // (however it was built), so its data has the size and alignment of
+    // `n` `MaybeUninit<Value>`s, which is what `Rc::from_raw` asks of a
+    // pointer from an `Rc` of another type. Dropping it frees the cell with
+    // that layout, without dropping the (moved-out) fields.
+    #[allow(clippy::items_after_statements)]
+    fn fixed<const N: usize>(fields: *const MaybeUninit<Value>) {
+        drop(unsafe { Rc::from_raw(fields.cast::<[MaybeUninit<Value>; N]>()) });
+    }
+    by_arity!(
+        n,
+        fixed(fields),
+        drop(unsafe { Rc::from_raw(std::ptr::slice_from_raw_parts(fields, n as usize)) })
+    );
 }
 
 /// `CtorReuse`, with the `n` field values at `fields` (moved): the cell
@@ -1458,7 +1527,8 @@ pub unsafe extern "C" fn sw_free_emptied(w0: u64, w1: u64, w2: u64) {
 /// new one; the token is used up. Put in `out` (uninitialised).
 ///
 /// # Safety
-/// As [`sw_ctor`], and `token` points at a register.
+/// `fields` points at `n` values native code owns; `out` at space for one;
+/// `token` points at a register.
 #[allow(unsafe_code)]
 #[cfg_attr(not(test), unsafe(no_mangle))]
 pub unsafe extern "C" fn sw_ctor_reuse(
@@ -2287,7 +2357,7 @@ pub fn into_word(f: Rc<Fun>) -> u64 {
 /// (moved), put in `out` (uninitialised).
 ///
 /// # Safety
-/// As [`sw_ctor`].
+/// `args` points at `n` values native code owns; `out` at space for one.
 #[allow(unsafe_code)]
 #[cfg_attr(not(test), unsafe(no_mangle))]
 pub unsafe extern "C" fn sw_closure(lambda: u32, args: *mut Value, n: u64, out: *mut Value) {
@@ -2303,7 +2373,8 @@ pub unsafe extern "C" fn sw_closure(lambda: u32, args: *mut Value, n: u64, out: 
 /// (moved), put in `out` (uninitialised).
 ///
 /// # Safety
-/// As [`sw_global`] and [`sw_ctor`].
+/// As [`sw_global`]; `args` points at `n` values native code owns, `out`
+/// at space for one.
 #[allow(unsafe_code)]
 #[cfg_attr(not(test), unsafe(no_mangle))]
 pub unsafe extern "C" fn sw_pap(

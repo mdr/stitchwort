@@ -64,7 +64,7 @@ fn the_object_exports_its_manifest_and_trampolines_and_its_code_is_relocatable()
         for helper in [
             "sw_closure",
             "sw_apply_prepare",
-            "sw_ctor",
+            "sw_cell_new",
             "sw_bind",
             "sw_eff_step",
             // And the way the library runs it (stage NO6 of native-only.md).
