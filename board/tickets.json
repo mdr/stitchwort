@@ -23291,17 +23291,19 @@
     {
       "id": 2378,
       "title": "profile_top --focus matches a name prefix or substring (Aoc.Year2024.Day09.parseDiskMap#221, not only the exact name)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
         "tooling"
       ],
       "epic": "comparative-speed",
-      "body": "From SW-2373. 15 min.\n\nStarted 05:37 UTC, Sonnet, expected 15 min.\n",
+      "body": "From SW-2373. 15 min.\n\nStarted 05:37 UTC, Sonnet, expected 15 min.\n\nMerged. Model result: Sonnet, worked, 3 min (est. 15).\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
-      "commits": []
+      "commits": [
+        "91b42db91"
+      ]
     },
     {
       "id": 2379,
