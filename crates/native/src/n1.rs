@@ -134,11 +134,12 @@ use stitchwort_rt::effect::EffectOp;
 use stitchwort_rt::ir::{GlobalKind, HoleOp, PrimOp, Program};
 use stitchwort_rt::linked::Outline;
 use stitchwort_rt::native_abi::{
-    self as abi, ApplyPlan, Context, CrossingCode, FUN_CAPTURES_AT, FUN_KEY_MASK, NativeIslands,
-    Numbering, OUT_OF_FRAMES, OUT_OF_STEPS, OWNING_TAGS, RC_VALUE_AT, STRONG_AT, TAG_DATA,
-    TAG_FLOAT, TAG_FUN, TAG_INT, TAG_NAT, TAG_TAG, Tables, VALUE_SIZE, WEAK_AT,
+    self as abi, ARRAY_ITEMS_AT, ARRAY_LEN_AT, ApplyPlan, Context, CrossingCode, FUN_CAPTURES_AT,
+    FUN_KEY_MASK, NativeIslands, Numbering, OUT_OF_FRAMES, OUT_OF_STEPS, OWNING_TAGS, RC_VALUE_AT,
+    STRONG_AT, TAG_ARRAY, TAG_DATA, TAG_FLOAT, TAG_FUN, TAG_INT, TAG_NAT, TAG_TAG, Tables,
+    VALUE_SIZE, WEAK_AT,
 };
-use stitchwort_rt::natives::{IntNative, TextNative};
+use stitchwort_rt::natives::{ArrayNative, IntNative, TextNative};
 use stitchwort_rt::value::Value;
 
 use crate::frames;
@@ -2400,6 +2401,20 @@ fn successors(code: &Code, pc: usize) -> Vec<usize> {
     }
 }
 
+/// How a comparison of two numbers that fit a word is made inline: the
+/// condition and the tag its operands must have, or `None` for any other
+/// operation.
+fn comparison(op: PrimOp) -> Option<(IntCC, u8)> {
+    match op {
+        PrimOp::Nat(Native::Leq) => Some((IntCC::UnsignedLessThanOrEqual, TAG_NAT)),
+        PrimOp::Nat(Native::EqNat) => Some((IntCC::Equal, TAG_NAT)),
+        PrimOp::IntEqual => Some((IntCC::Equal, TAG_INT)),
+        PrimOp::Int(IntNative::IntLess) => Some((IntCC::SignedLessThan, TAG_INT)),
+        PrimOp::Int(IntNative::IntLeq) => Some((IntCC::SignedLessThanOrEqual, TAG_INT)),
+        _ => None,
+    }
+}
+
 fn ops(code: &Code, o: Ops) -> &[Reg] {
     &code.ops[o.start as usize..(o.start + o.len) as usize]
 }
@@ -3935,6 +3950,16 @@ impl Gen<'_, '_> {
     /// an array nothing else holds is changed in place.
     fn prim_owned(&mut self, pc: usize, dst: Reg, op: PrimOp, args: Ops) {
         let values = self.operands(args);
+        let slow = self.b.create_block();
+        let after = self.b.create_block();
+        if let (PrimOp::Array(ArrayNative::Set), 3) = (op, values.len()) {
+            self.array_set(pc, dst, &values, slow);
+            self.b.ins().jump(after, &[]);
+            self.b.set_cold_block(slow);
+        } else {
+            self.b.ins().jump(slow, &[]);
+        }
+        self.b.switch_to_block(slow);
         for (i, v) in values.iter().enumerate() {
             let at = self.temp_address(i * VALUE_SIZE);
             self.store(Loc::Mem(at, 0), *v);
@@ -3946,6 +3971,8 @@ impl Gen<'_, '_> {
         self.call_helper(self.helpers.prim_owned, &[self.ctx, op, from, n, out]);
         let v = self.load(Loc::Mem(out, 0));
         self.assign(pc, dst, v);
+        self.b.ins().jump(after, &[]);
+        self.b.switch_to_block(after);
     }
 
     fn prim(&mut self, pc: usize, dst: Reg, op: PrimOp, args: Ops) {
@@ -3966,6 +3993,14 @@ impl Gen<'_, '_> {
             (op, o.len())
         {
             self.hole(pc, dst, h, &o, slow, after);
+        } else if let (Some((cc, tag)), 2) = (comparison(op), o.len()) {
+            self.compare(pc, dst, cc, tag, &o, slow);
+            self.b.ins().jump(after, &[]);
+            self.b.set_cold_block(slow);
+        } else if let (PrimOp::Array(ArrayNative::GetOr), 3) = (op, o.len()) {
+            self.array_get_or(pc, dst, &o, slow);
+            self.b.ins().jump(after, &[]);
+            self.b.set_cold_block(slow);
         } else if fast {
             let loaded: Vec<Val> = o.iter().map(|r| self.load(Loc::Reg(*r))).collect();
             let mut both = self.is_tag(loaded[0], TAG_NAT);
@@ -4082,14 +4117,7 @@ impl Gen<'_, '_> {
         self.b.append_block_param(after, types::I8);
         // Numbers that fit a word are compared inline, as the machine's
         // `Test` compares them.
-        let cc = match op {
-            PrimOp::Nat(Native::Leq) => Some((IntCC::UnsignedLessThanOrEqual, TAG_NAT)),
-            PrimOp::Nat(Native::EqNat) => Some((IntCC::Equal, TAG_NAT)),
-            PrimOp::IntEqual => Some((IntCC::Equal, TAG_INT)),
-            PrimOp::Int(IntNative::IntLess) => Some((IntCC::SignedLessThan, TAG_INT)),
-            PrimOp::Int(IntNative::IntLeq) => Some((IntCC::SignedLessThanOrEqual, TAG_INT)),
-            _ => None,
-        };
+        let cc = comparison(op);
         if let (Some((cc, tag)), [a, b]) = (cc, o) {
             let a = self.load(Loc::Reg(*a));
             let b = self.load(Loc::Reg(*b));
@@ -4114,6 +4142,93 @@ impl Gen<'_, '_> {
         self.b.ins().jump(after, &[holds.into()]);
         self.b.switch_to_block(after);
         self.b.block_params(after)[0]
+    }
+
+    /// Where the element `index` of `array` (an `Array`) is, if `array` and
+    /// `index` are an array and a small number and the index is inside it:
+    /// the address, in the block this leaves the generator in. Otherwise
+    /// the code goes to `slow`.
+    fn array_slot(&mut self, array: Val, index: Val, slow: Block) -> IrValue {
+        let is_array = self.is_tag(array, TAG_ARRAY);
+        let is_nat = self.is_tag(index, TAG_NAT);
+        let both = self.b.ins().band(is_array, is_nat);
+        let tagged = self.b.create_block();
+        self.b.ins().brif(both, tagged, &[], slow, &[]);
+        self.b.switch_to_block(tagged);
+        // Only now is the word at byte 8 known to be an `Rc`'s address.
+        let len = self
+            .b
+            .ins()
+            .load(types::I64, flags(), array.0[1], ARRAY_LEN_AT);
+        let inside = self.b.ins().icmp(IntCC::UnsignedLessThan, index.0[1], len);
+        let checked = self.b.create_block();
+        self.b.ins().brif(inside, checked, &[], slow, &[]);
+        self.b.switch_to_block(checked);
+        let items = self
+            .b
+            .ins()
+            .load(self.pointer, flags(), array.0[1], ARRAY_ITEMS_AT);
+        let stride = self.b.ins().imul_imm_s(index.0[1], VALUE_SIZE as i64);
+        self.b.ins().iadd(items, stride)
+    }
+
+    /// `Array.getOr array index default` (all borrowed) with a small
+    /// `index` inside the array: a load of the element and a new count on
+    /// it. The default is touched only by the generic call (`slow`), which
+    /// the machine's `prims::array` makes too, past the end.
+    fn array_get_or(&mut self, pc: usize, dst: Reg, o: &[Reg], slow: Block) {
+        let array = self.load(Loc::Reg(o[0]));
+        let index = self.load(Loc::Reg(o[1]));
+        let slot = self.array_slot(array, index, slow);
+        let v = self.clone_from(Loc::Mem(slot, 0));
+        self.assign(pc, dst, v);
+    }
+
+    /// `Array.set array index value` (all moved in, as `values`) on an array
+    /// nothing else holds and a small `index` inside it, as
+    /// `prims::eval_owned` does it: the element is overwritten in place and
+    /// the old one dropped after the store. Ownership: `values[0]` holds
+    /// the array's one reference (a count of 1, no weak ones, which is what
+    /// `Rc::get_mut` needs), so the buffer is native code's to write, and
+    /// the result takes that reference; the new element's reference moves
+    /// into the buffer. A shared array, or an index that is past the end or
+    /// isn't a small number, goes to `slow`, the generic call that copies or
+    /// panics as the machine does.
+    fn array_set(&mut self, pc: usize, dst: Reg, values: &[Val], slow: Block) {
+        let slot = self.array_slot(values[0], values[1], slow);
+        let unique = self.unique(values[0].0[1]);
+        let mine = self.b.create_block();
+        self.b.ins().brif(unique, mine, &[], slow, &[]);
+        self.b.switch_to_block(mine);
+        let old = self.load(Loc::Mem(slot, 0));
+        self.store(Loc::Mem(slot, 0), values[2]);
+        self.drop_value(old);
+        self.assign(pc, dst, values[0]);
+    }
+
+    /// A comparison of two numbers that fit a word, made where its `Bool`
+    /// is wanted as a value (`dst`) rather than branched on: compared inline
+    /// and built from the program's `True` and `False`, with the generic
+    /// call (`slow`) for any other operand. Neither operand owns anything on
+    /// the inline path, so there is nothing to drop.
+    fn compare(&mut self, pc: usize, dst: Reg, cc: IntCC, tag: u8, o: &[Reg], slow: Block) {
+        let a = self.load(Loc::Reg(o[0]));
+        let b = self.load(Loc::Reg(o[1]));
+        let na = self.is_tag(a, tag);
+        let nb = self.is_tag(b, tag);
+        let both = self.b.ins().band(na, nb);
+        let small = self.b.create_block();
+        self.b.ins().brif(both, small, &[], slow, &[]);
+        self.b.switch_to_block(small);
+        let holds = self.b.ins().icmp(cc, a.0[1], b.0[1]);
+        let shapes = self.program.shapes;
+        let yes = self.iconst(u64::from(shapes.true_));
+        let no = self.iconst(u64::from(shapes.false_));
+        let ctor = self.b.ins().select(holds, yes, no);
+        let high = self.b.ins().ishl_imm_u(ctor, 32);
+        let w0 = self.b.ins().bor_imm_u(high, i64::from(TAG_TAG));
+        let zero = self.iconst(0);
+        self.assign(pc, dst, Val([w0, zero, zero]));
     }
 
     /// Whether the cell whose address is `cell` is unique (strong count 1,

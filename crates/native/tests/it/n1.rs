@@ -159,6 +159,51 @@ def main(): {IO} () :=
     same_trace(source);
 }
 
+/// Comparisons made as values (not branched on) and the array operations
+/// `getOr` and `set`, which native code does inline for small numbers and
+/// an array nothing else holds, and by the generic call otherwise: a number
+/// beyond a word, an index past the end, an array that another name still
+/// holds (which `set` must copy, leaving the other alone). The elements are
+/// texts, so the old element dropped by an in-place `set` and the copy taken
+/// by `getOr` show in the allocation trace, which equals the machine's.
+#[test]
+fn comparisons_and_array_access_agree_on_small_big_and_shared() {
+    let source = r#"import Std (Array, IO, List, Nat, Text)
+
+def flag (b: Bool): Nat := if b then 1 else 0
+
+def compare (a: Nat) (b: Nat): Text := "${flag (a ≤ b)}${flag (a == b)}${flag (b ≤ a)}"
+
+def fill (a: Array Text) (n: Nat): Array Text :=
+  match n with
+    | Zero => a
+    | Succ m => fill (a.set m "x${n}") m
+
+def main(): {IO} () :=
+  let huge := 1180591620717411303424
+  IO.print "${compare 3 5} ${compare 5 5} ${compare 5 3} ${compare 0 0}"
+  IO.print "${compare huge huge} ${compare 5 huge} ${compare huge 5} ${compare (huge + 1) huge}"
+  let base := Array.replicate (count := 4) "a"
+  let filled := fill base 4
+  IO.print "${filled.toList} ${base.toList}"
+  IO.print "${filled.getOr 0 "none"} ${filled.getOr 3 "none"} ${filled.getOr 4 "none"} ${filled.getOr huge "none"}"
+  let shared := base.set 1 "b"
+  let again := base.set 2 "c"
+  IO.print "${shared.toList} ${again.toList} ${base.toList}"
+  IO.print "${(base.set 9 "z").toList} ${(base.set huge "z").toList} ${(base.set 0 "q").getOr 0 "none"}"
+"#;
+    let out = agrees(source);
+    assert_eq!(
+        out,
+        "100 111 001 111\n111 100 001 001\n\
+         [\"x1\", \"x2\", \"x3\", \"x4\"] [\"a\", \"a\", \"a\", \"a\"]\n\
+         x1 x4 none none\n\
+         [\"a\", \"b\", \"a\", \"a\"] [\"a\", \"a\", \"c\", \"a\"] [\"a\", \"a\", \"a\", \"a\"]\n\
+         [\"a\", \"a\", \"a\", \"a\"] [\"a\", \"a\", \"a\", \"a\"] q\n"
+    );
+    same_trace(source);
+}
+
 /// The instructions the machine executed in a native run of `program`
 /// (`machine::instructions_executed`: none since stage NO4 of
 /// native-only.md), and how it ended.
