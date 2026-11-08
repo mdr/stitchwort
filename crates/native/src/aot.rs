@@ -9,7 +9,7 @@
 //! code holds no host address (stage S4): what it needs of the runtime's
 //! memory it reaches through `Context::tables`, which the runtime builds
 //! from the tables and literals in the object (stage NO6 of
-//! native-only.md: `stitchwort_rt::linked`), and the helpers (`sw_ctor` and
+//! native-only.md: `stitchwort_rt::linked`), and the helpers (`sw_cell_new` and
 //! the rest, with the effect runtime's leaves) are left for the linker to
 //! resolve against the runtime library.
 //!

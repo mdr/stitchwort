@@ -2197,7 +2197,7 @@ fn helper_addresses() -> Vec<(&'static str, *const u8)> {
         ("sw_inc", abi::sw_inc as *const u8),
         ("sw_unwind", abi::sw_unwind as *const u8),
         ("sw_release_up", abi::sw_release_up as *const u8),
-        ("sw_ctor", abi::sw_ctor as *const u8),
+        ("sw_cell_new", abi::sw_cell_new as *const u8),
         ("sw_ctor_reuse", abi::sw_ctor_reuse as *const u8),
         ("sw_unpack", abi::sw_unpack as *const u8),
         ("sw_empty_cell", abi::sw_empty_cell as *const u8),
@@ -2215,7 +2215,7 @@ fn helper_addresses() -> Vec<(&'static str, *const u8)> {
         ("sw_pap", abi::sw_pap as *const u8),
         ("sw_int_negative", abi::sw_int_negative as *const u8),
         ("sw_unary", abi::sw_unary as *const u8),
-        ("sw_free_emptied", abi::sw_free_emptied as *const u8),
+        ("sw_cell_free", abi::sw_cell_free as *const u8),
         ("sw_bind", abi::sw_bind as *const u8),
         ("sw_text_last", abi::sw_text_last as *const u8),
         ("sw_eff_begin", abi::sw_eff_begin as *const u8),
@@ -2236,7 +2236,7 @@ struct Helpers {
     inc: FuncId,
     unwind: FuncId,
     release: FuncId,
-    ctor: FuncId,
+    cell_new: FuncId,
     ctor_reuse: FuncId,
     unpack: FuncId,
     empty_cell: FuncId,
@@ -2254,7 +2254,7 @@ struct Helpers {
     pap: FuncId,
     int_negative: FuncId,
     unary: FuncId,
-    free_emptied: FuncId,
+    cell_free: FuncId,
     bind: FuncId,
     text_last: FuncId,
     eff_begin: FuncId,
@@ -2289,7 +2289,7 @@ impl Helpers {
             inc: declare("sw_inc", &[I64, I64, I64], &[])?,
             unwind: declare("sw_unwind", &[p, p, I64, I64, I64], &[])?,
             release: declare("sw_release_up", &[p, I64], &[])?,
-            ctor: declare("sw_ctor", &[I32, p, I64, p], &[])?,
+            cell_new: declare("sw_cell_new", &[I32, I64], &[I64])?,
             ctor_reuse: declare("sw_ctor_reuse", &[I32, p, I64, p, p], &[])?,
             unpack: declare("sw_unpack", &[p, I32, p, I64, I32], &[])?,
             empty_cell: declare("sw_empty_cell", &[I64, I64], &[])?,
@@ -2307,7 +2307,7 @@ impl Helpers {
             pap: declare("sw_pap", &[p, I32, p, I64, p], &[])?,
             int_negative: declare("sw_int_negative", &[p], &[I64])?,
             unary: declare("sw_unary", &[p, I32, p, p], &[])?,
-            free_emptied: declare("sw_free_emptied", &[I64, I64, I64], &[])?,
+            cell_free: declare("sw_cell_free", &[I64, I64], &[])?,
             bind: declare("sw_bind", &[p, p, p, p], &[I64])?,
             text_last: declare("sw_text_last", &[p, p, I64, p], &[I64])?,
             eff_begin: declare("sw_eff_begin", &[p, I32, p, p], &[I64])?,
@@ -3507,16 +3507,16 @@ impl Gen<'_, '_> {
 
     /// A new cell of `tag` with `values` (moved into it).
     fn new_cell(&mut self, tag: u32, values: &[Val]) -> Val {
+        let n = values.len() as u64;
+        let t = self.i32const(tag);
+        let len = self.iconst(n);
+        let cell = self.call_helper(self.helpers.cell_new, &[t, len])[0];
         for (i, v) in values.iter().enumerate() {
-            let at = self.temp_address(i * VALUE_SIZE);
-            self.store(Loc::Mem(at, 0), *v);
+            let at = RC_VALUE_AT + (i * VALUE_SIZE) as i32;
+            self.store(Loc::Mem(cell, at), *v);
         }
-        let fields = self.temp_address(0);
-        let out = self.temp_address(values.len() * VALUE_SIZE);
-        let tag = self.i32const(tag);
-        let n = self.iconst(values.len() as u64);
-        self.call_helper(self.helpers.ctor, &[tag, fields, n, out]);
-        self.load(Loc::Mem(out, 0))
+        let w0 = self.iconst(u64::from(TAG_DATA) | (u64::from(tag) << 32));
+        Val([w0, cell, len])
     }
 
     fn global(&mut self, pc: usize, dst: Reg, g: u32) {
@@ -4314,7 +4314,8 @@ impl Gen<'_, '_> {
             let freed = self.b.create_block();
             self.b.ins().brif(all, emptied, &[], partial, &[]);
             self.b.switch_to_block(emptied);
-            self.call_helper(self.helpers.free_emptied, &v.0);
+            let n = self.iconst(taken as u64);
+            self.call_helper(self.helpers.cell_free, &[cell, n]);
             self.b.ins().jump(freed, &[]);
             self.b.switch_to_block(partial);
             if later {

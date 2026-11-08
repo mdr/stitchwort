@@ -1,6 +1,6 @@
 //! Counts of native code's calls into the runtime, for profiling
 //! (docs/reviews/SW-2296-native-profiles.md): how often each helper
-//! (`sw_ctor`, `sw_prim` and the rest) is called, and `sw_prim`'s and
+//! (`sw_cell_new`, `sw_prim` and the rest) is called, and `sw_prim`'s and
 //! `sw_prim_owned`'s calls split by operation. A sampling profiler shows
 //! where the time goes, but not how many calls it is spread over, nor which
 //! operation a generic helper ran. Beyond the helpers, the report splits
@@ -25,10 +25,10 @@ use crate::ir::PrimOp;
 #[derive(Clone, Copy)]
 #[cfg_attr(not(feature = "call-counts"), allow(dead_code))]
 pub(crate) enum Helper {
-    Ctor,
+    CellNew,
     CtorReuse,
     DropWords,
-    FreeEmptied,
+    CellFree,
     Unpack,
     DropReuse,
     Prim,
@@ -50,10 +50,10 @@ const HELPERS: usize = Helper::EffStep as usize + 1;
 
 #[cfg(feature = "call-counts")]
 const HELPER_NAMES: [&str; HELPERS] = [
-    "sw_ctor",
+    "sw_cell_new",
     "sw_ctor_reuse",
     "sw_drop_words",
-    "sw_free_emptied",
+    "sw_cell_free",
     "sw_unpack",
     "sw_drop_reuse",
     "sw_prim",
@@ -448,7 +448,7 @@ mod tests {
     #[test]
     fn the_report_counts_helpers_and_operations() {
         for _ in 0..3 {
-            hit(Helper::Ctor);
+            hit(Helper::CellNew);
         }
         hit_op(7, PrimOp::Hole(HoleOp::Fill), false);
         hit_op(7, PrimOp::Hole(HoleOp::Fill), false);
@@ -467,7 +467,7 @@ mod tests {
             assert!(
                 report
                     .iter()
-                    .any(|l| l.ends_with("  sw_ctor") && l.trim_start().starts_with("3 ")),
+                    .any(|l| l.ends_with("  sw_cell_new") && l.trim_start().starts_with("3 ")),
                 "{report:?}"
             );
             assert!(

@@ -58,6 +58,18 @@ pub(crate) fn alloc(tag: u32, fields: &Rc<[Value]>) {
     let _ = (tag, fields);
 }
 
+/// As [`alloc`], for a cell native code is about to fill: its fields'
+/// address and length.
+#[inline(always)]
+pub(crate) fn alloc_at(tag: u32, fields: *const u8, len: usize) {
+    #[cfg(feature = "alloc-trace")]
+    if enabled::recording() {
+        enabled::record(enabled::Kind::Alloc, fields, tag, len);
+    }
+    #[cfg(not(feature = "alloc-trace"))]
+    let _ = (tag, fields, len);
+}
+
 /// A cell refilled in place as `tag`.
 #[inline(always)]
 pub(crate) fn reuse(tag: u32, fields: &Rc<[Value]>) {
@@ -104,4 +116,19 @@ pub(crate) fn dec(fields: &Rc<[Value]>, last: bool) {
     }
     #[cfg(not(feature = "alloc-trace"))]
     let _ = (fields, last);
+}
+
+/// As [`dec`], for a cell native code holds as words: its fields' address
+/// and length.
+#[inline(always)]
+pub(crate) fn dec_at(fields: *const u8, len: usize, last: bool) {
+    #[cfg(feature = "alloc-trace")]
+    if enabled::recording() {
+        enabled::record(enabled::Kind::Dec, fields, 0, len);
+        if last {
+            enabled::record(enabled::Kind::Free, fields, 0, len);
+        }
+    }
+    #[cfg(not(feature = "alloc-trace"))]
+    let _ = (fields, len, last);
 }

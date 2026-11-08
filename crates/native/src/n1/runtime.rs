@@ -60,8 +60,8 @@ use cranelift_codegen::isa::CallConv;
 use cranelift_frontend::{FunctionBuilder, Switch, Variable};
 use cranelift_module::{FuncId, Module};
 use stitchwort_rt::native_abi::{
-    self as abi, Context, FUN_KEY_MASK, OUT_OF_FRAMES, OUT_OF_STEPS, RC_VALUE_AT, TAG_FUN, Tables,
-    VALUE_SIZE,
+    self as abi, Context, FUN_KEY_MASK, OUT_OF_FRAMES, OUT_OF_STEPS, RC_VALUE_AT, TAG_DATA,
+    TAG_FUN, Tables, VALUE_SIZE,
 };
 
 use super::{Helpers, drop_deferred, drop_fun, fixed, flags, value_signature};
@@ -600,7 +600,6 @@ pub(crate) fn emit_loop(
     let state_slot = rt.slot(1);
     let out_slot = rt.slot(5);
     let k_slot = rt.slot(1);
-    let cell_slot = rt.slot(2);
     let word_at_slot = word_slot(&mut rt);
     let jumped_slot = word_slot(&mut rt);
     let handler = rt.b.declare_var(types::I64);
@@ -702,15 +701,17 @@ pub(crate) fn emit_loop(
     rt.store(k_slot, 0, k);
     let v = rt.apply(inject, &[o], &[pre], Some(env), &[Hold::Value(k_slot)]);
     let k = rt.load(k_slot, 0);
-    rt.store(cell_slot, 0, v);
-    rt.store(cell_slot, 1, k);
-    let fields = rt.addr(cell_slot, 0);
-    let out = rt.addr(out_slot, 0);
     let tag = rt.b.ins().iconst(types::I32, i64::from(emit.call_tag));
     let two = rt.iconst(2);
-    rt.call(rt.helpers.ctor, &[tag, fields, two, out]);
-    let cell = rt.load(out_slot, 0);
-    rt.b.ins().return_(&cell);
+    let cell = rt.call(rt.helpers.cell_new, &[tag, two])[0];
+    for (i, field) in [v, k].iter().enumerate() {
+        for (w, word) in field.iter().enumerate() {
+            let at = RC_VALUE_AT + (i * VALUE_SIZE + w * 8) as i32;
+            rt.b.ins().store(flags(), *word, cell, at);
+        }
+    }
+    let w0 = rt.iconst(u64::from(TAG_DATA) | (u64::from(emit.call_tag) << 32));
+    rt.b.ins().return_(&[w0, cell, two]);
 
     // A state-passing handler's `done x s` (stage NO3): `done x`, holding
     // the state (the machine's `Ret::Apply`), then its result applied to

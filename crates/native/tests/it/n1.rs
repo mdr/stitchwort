@@ -204,6 +204,65 @@ def main(): {IO} () :=
     same_trace(source);
 }
 
+/// Cells of every size native code builds and frees: a one-field box,
+/// pairs and trees nested in each other, an eight-field cell (the largest
+/// `sw_cell_new` and `sw_cell_free` build and free with a fixed layout) and
+/// a nine-field one (the first past it), with fields shared between cells
+/// and with names still in use. Every cell matched apart is unique when
+/// `sum` and `spread` take its fields, so it's freed emptied; the shared
+/// ones are dropped by a count. The output and the allocation trace equal
+/// the machine's, and nothing leaks.
+#[test]
+fn cells_of_every_size_agree_and_free_everything() {
+    let source = r#"import Std (IO, List, Nat, Text)
+
+type Box = | Boxed (value: Nat)
+type Tree = | Leaf | Node (left: Tree) (label: Text) (right: Tree)
+type Eight = | Octet (a: Nat) (b: Text) (c: Nat) (d: Tree) (e: Nat) (f: Text) (g: Nat) (h: Box)
+type Nine = | Nonet (a: Nat) (b: Nat) (c: Nat) (d: Nat) (e: Nat) (f: Nat) (g: Nat) (h: Nat) (i: Text)
+
+def Tree.size: Tree → Nat
+  | Leaf => 0
+  | Node left _ right => 1 + left.size + right.size
+
+def Tree.build: Nat → Text → Tree
+  | Zero, _ => Leaf
+  | Succ n, t => Node (Tree.build n t) "${t}${n}" (Tree.build n t)
+
+def Box.open: Box → Nat
+  | Boxed v => v
+
+def eight (n: Nat) (t: Text) (tree: Tree): Eight := Octet n t (n + 1) tree (n + 2) t (n + 3) (Boxed n)
+
+def Eight.sum: Eight → Nat
+  | Octet a b c d e f g h => a + b.length + c + d.size + e + f.length + g + h.open
+
+def nine (n: Nat) (t: Text): Nine := Nonet n (n + 1) (n + 2) (n + 3) (n + 4) (n + 5) (n + 6) (n + 7) t
+
+def Nine.spread: Nine → Nat
+  | Nonet a b c d e f g h i => a + b + c + d + e + f + g + h + i.length
+
+def Nine.label: Nine → Text
+  | Nonet _ _ _ _ _ _ _ _ i => i
+
+def main(): {IO} () :=
+  let label := "x"
+  let shared := Tree.build 3 label
+  let both := Node shared label shared
+  let eights := List.map (List.range 0 5) (n => eight n label shared)
+  let nines := List.map (List.range 0 5) (n => nine n label)
+  IO.print "${shared.size} ${both.size} ${(Tree.build 4 "y").size} ${(Boxed 7).open}"
+  IO.print "${List.map eights (e => e.sum)} ${List.map nines (n => n.spread)}"
+  IO.print "${(nine 9 "kept").label} ${(eight 1 label Leaf).sum} ${(nine 2 label).spread} ${label}"
+"#;
+    let out = agrees(source);
+    assert_eq!(
+        out,
+        "7 15 15 7\n[15, 20, 25, 30, 35] [29, 37, 45, 53, 61]\nkept 13 45 x\n"
+    );
+    same_trace(source);
+}
+
 /// The instructions the machine executed in a native run of `program`
 /// (`machine::instructions_executed`: none since stage NO4 of
 /// native-only.md), and how it ended.
