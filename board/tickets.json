@@ -22490,7 +22490,7 @@
         "perf"
       ],
       "epic": "comparative-speed",
-      "body": "From docs/reviews/SW-2296-native-profiles.md §5 (measured). 45 min.",
+      "body": "From docs/reviews/SW-2296-native-profiles.md §5 (measured). 45 min.\n\nStarted 03:19 UTC, Sonnet, expected 45 min.\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
@@ -22615,7 +22615,7 @@
         "stdlib"
       ],
       "epic": "comparative-speed",
-      "body": "From docs/proposals/parse-runtime.md (SW-2327). D3401 taken as the orchestrator's call (yes: internal state only, API and messages unchanged, any lemma naming Parse.State.note re-proved, e.g. Reads.sw:1179). After SW-2335. Est. scan 1.2-1.5x. 60 min.",
+      "body": "From docs/proposals/parse-runtime.md (SW-2327). D3401 taken as the orchestrator's call (yes: internal state only, API and messages unchanged, any lemma naming Parse.State.note re-proved, e.g. Reads.sw:1179). After SW-2335. Est. scan 1.2-1.5x. 60 min.\n\nHeld overnight 8 Nov (orchestrator): it changes Std.Parse internals, which the overnight rules leave for Matt; ask in the morning.\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
@@ -22773,7 +22773,7 @@
         "tooling"
       ],
       "epic": "comparative-speed",
-      "body": "From SW-2335: routes are 7.2/char (expressions), 13.2/char (scan) but the share that are forwards is unknown. Before SW-2338. 30 min.",
+      "body": "From SW-2335: routes are 7.2/char (expressions), 13.2/char (scan) but the share that are forwards is unknown. Before SW-2338. 30 min.\n\nStarted 03:19 UTC, Sonnet, expected 30 min.\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
