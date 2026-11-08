@@ -22349,14 +22349,14 @@
     {
       "id": 2321,
       "title": "Native: allocate and free cells inline, keeping the helper path for trace builds",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Opus",
       "where": "",
       "labels": [
         "perf"
       ],
       "epic": "comparative-speed",
-      "body": "From docs/research/lean-runtime-speed.md (SW-2318). A hypothesis from reading code: start only if the SW-2296 profile shows this cost is a meaningful share. Est. 10-25% on allocation-heavy programs. 60-90 min.\n\nSW-2328: hole New still calls the constructor helper (17M calls on octopus, 27M on matcher); inline allocation would remove these too.\n",
+      "body": "From docs/research/lean-runtime-speed.md (SW-2318). A hypothesis from reading code: start only if the SW-2296 profile shows this cost is a meaningful share. Est. 10-25% on allocation-heavy programs. 60-90 min.\n\nSW-2328: hole New still calls the constructor helper (17M calls on octopus, 27M on matcher); inline allocation would remove these too.\n\nStarted 03:32 UTC, Opus, expected 75 min.\n",
       "created": "2026-11-07",
       "updated": "2026-11-08",
       "commits": []
@@ -22500,14 +22500,14 @@
     {
       "id": 2330,
       "title": "Profiling: dev/profile_top.py --group PREFIX (code run by the effect runtime loses its caller in profiles)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Sonnet",
       "where": "",
       "labels": [
         "tooling"
       ],
       "epic": "comparative-speed",
-      "body": "From docs/reviews/SW-2296-native-profiles.md §5 (measured). §3. 15 min.",
+      "body": "From docs/reviews/SW-2296-native-profiles.md §5 (measured). §3. 15 min.\n\nStarted 03:32 UTC, Sonnet, expected 15 min.\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
@@ -22916,14 +22916,14 @@
     {
       "id": 2356,
       "title": "Fusion: accept Store.keep's eta-reduced put clause (k () rather than Done of a function), so the handler runs as a loop",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Sonnet",
       "where": "",
       "labels": [
         "perf"
       ],
       "epic": "comparative-speed",
-      "body": "From SW-2348. Small. 20 min.",
+      "body": "From SW-2348. Small. 20 min.\n\nStarted 03:32 UTC, Sonnet, expected 20 min.\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
