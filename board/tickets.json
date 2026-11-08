@@ -1,5 +1,5 @@
 {
-  "next": 2398,
+  "next": 2402,
   "tickets": [
     {
       "id": 47,
@@ -23613,14 +23613,77 @@
     {
       "id": 2397,
       "title": "Design note: types with Nat's shape after erasure (Fin first) represented at run time as machine numbers: shape detection, native pins for toNat/ofNatLt, step counts, interpreter/native/JS agreement, comparison with Idris 2, Lean, Agda and others",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": "",
       "labels": [
         "design"
       ],
       "epic": "comparative-speed",
-      "body": "D3423, Matt, 8 Nov 2026: yes, design note first. \"do the design note first and compare with other implementations. ... it seems to me reasonable that numeric types or things isomorphic to them should be ... represented at runtime for optimization reasons as machine numbers just because of the tremendous speed ups we can get.\" Paper. 60 min.",
+      "body": "D3423, Matt, 8 Nov 2026: yes, design note first. \"do the design note first and compare with other implementations. ... it seems to me reasonable that numeric types or things isomorphic to them should be ... represented at runtime for optimization reasons as machine numbers just because of the tremendous speed ups we can get.\" Paper. 60 min.\n\nLane (Opus, 8 Nov): note at docs/proposals/nat-shaped-types.md, commit e7299f65a on lane/SW-2397. Rec: automatic Nat-shape detection after erasure (one core function beside D866's unboxed_field), lowered as MatchKind::Nat; pinned identity natives for Fin.toNat/Fin.ofNatLt; kernel untouched; JS as optional stage 3. Estimate 3.5-5 lane-hours, 3 stages. Questions Q1-Q5 in §9. Findings: Fin.all/Fin.any are O(n²) at run time (§10).\n\nMerged. Open for Matt: D3424 (which types: automatic for every Nat-shaped type, rec yes), D3425 (step counts: the conversion natives cost no steps instead of i, rec accept). Stages SW-2398 SW-2399 SW-2400; finding SW-2401. Model result: Opus, worked, 12 min (est. 60).\n",
+      "created": "2026-11-08",
+      "updated": "2026-11-08",
+      "commits": [
+        "4839ae7f2"
+      ]
+    },
+    {
+      "id": 2398,
+      "title": "Nat-shaped types stage 1: the shape rule in core beside D866's unboxing, lowering for interpreter and native (Fin first), cross-backend example tests, 2025 day 3 measured before and after",
+      "status": "backlog",
+      "agent": "Opus",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "comparative-speed",
+      "body": "From docs/proposals/nat-shaped-types.md (SW-2397). Waits for D3424 and D3425. 1.5-2 h.",
+      "created": "2026-11-08",
+      "updated": "2026-11-08",
+      "commits": []
+    },
+    {
+      "id": 2399,
+      "title": "Nat-shaped types stage 2: Fin.toNat and Fin.ofNatLt as pinned identity natives (constant time)",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "comparative-speed",
+      "body": "After SW-2398. 1 h.",
+      "created": "2026-11-08",
+      "updated": "2026-11-08",
+      "commits": []
+    },
+    {
+      "id": 2400,
+      "title": "Nat-shaped types stage 3 (optional, after measuring): the same representation under --js, JS interface unchanged",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "comparative-speed",
+      "body": "After SW-2399; only if measured worthwhile. 1-1.5 h.",
+      "created": "2026-11-08",
+      "updated": "2026-11-08",
+      "commits": []
+    },
+    {
+      "id": 2401,
+      "title": "Std Fin.all and Fin.any are O(n^2) at run time (each level maps over the previous list or adds a closure); rewrite O(n), statements kept (Finite (Fin n) uses them)",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "perf",
+        "std"
+      ],
+      "epic": "std-library",
+      "body": "From SW-2397. 30 min.",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
