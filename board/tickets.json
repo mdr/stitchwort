@@ -22519,17 +22519,19 @@
     {
       "id": 2331,
       "title": "Profiling: per-definition call counts in native code",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
         "tooling"
       ],
       "epic": "comparative-speed",
-      "body": "From docs/reviews/SW-2296-native-profiles.md §5 (measured). §3. 1 h.\n\nStarted 03:46 UTC, Sonnet, expected 60 min.\n",
+      "body": "From docs/reviews/SW-2296-native-profiles.md §5 (measured). §3. 1 h.\n\nStarted 03:46 UTC, Sonnet, expected 60 min.\n\nModel result: Sonnet, worked, 15 min (est. 60).\nOrchestrator's call: the stitchwort build --native --count-bodies flag (profiling only, off by default) is kept as a visible flag; listed for Matt.\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
-      "commits": []
+      "commits": [
+        "bf2e30fff"
+      ]
     },
     {
       "id": 2332,
@@ -22693,17 +22695,19 @@
     {
       "id": 2342,
       "title": "Std: move sumFrom and sumFromRangeFrom (generic Nat/List facts proved in Aoc.Common) into std",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
         "stdlib"
       ],
       "epic": "std-library",
-      "body": "From SW-2320's report. 30 min.\n\nStarted 03:50 UTC, Sonnet, expected 30 min.\n",
+      "body": "From SW-2320's report. 30 min.\n\nStarted 03:50 UTC, Sonnet, expected 30 min.\n\nModel result: Sonnet, worked, 8 min (est. 30).\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
-      "commits": []
+      "commits": [
+        "87e525bd4"
+      ]
     },
     {
       "id": 2343,
