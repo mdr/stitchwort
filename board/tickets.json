@@ -1,5 +1,5 @@
 {
-  "next": 2378,
+  "next": 2379,
   "tickets": [
     {
       "id": 47,
@@ -23209,17 +23209,19 @@
     {
       "id": 2373,
       "title": "profile_top: inclusive time under an effect handler is misleading (the handler runs the rest of main from rt_loop); say so in the output, or attribute by the handler's caller",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
         "tooling"
       ],
       "epic": "comparative-speed",
-      "body": "From docs/reviews/SW-2369-dijkstra-disk.md. 30 min.\n\nStarted 05:21 UTC, Sonnet, expected 30 min.\n",
+      "body": "From docs/reviews/SW-2369-dijkstra-disk.md. 30 min.\n\nStarted 05:21 UTC, Sonnet, expected 30 min.\n\nMerged. Follow-up SW-2378. Model result: Sonnet, worked, 3 min (est. 30).\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
-      "commits": []
+      "commits": [
+        "755c765f0"
+      ]
     },
     {
       "id": 2374,
@@ -23277,6 +23279,21 @@
       ],
       "epic": "comparative-speed",
       "body": "From SW-2370. Public API: short note in docs/proposals first. 45 min paper.",
+      "created": "2026-11-08",
+      "updated": "2026-11-08",
+      "commits": []
+    },
+    {
+      "id": 2378,
+      "title": "profile_top --focus matches a name prefix or substring (Aoc.Year2024.Day09.parseDiskMap#221, not only the exact name)",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "tooling"
+      ],
+      "epic": "comparative-speed",
+      "body": "From SW-2373. 15 min.",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
