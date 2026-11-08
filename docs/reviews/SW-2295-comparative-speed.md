@@ -173,3 +173,32 @@ Geometric means of the time ratios: native / CPython **5.5 → 4.7 → 3.9 → 3
 Lean **23 → 20 → 16 → 14.9 → 12.0**. memory-game, binary-trees and pidigits fell in time only
 (the previous run's noise going away; instructions unchanged). Raw files: Overmind's
 `target/compare/2026-11-08T132842-overmind.{json,md}`.
+
+## After the afternoon's work (Overmind, 8 Nov 2026 17:58, `e11c7b3c2`)
+
+Same command and machine, 44 answers ok, 27.8 min. Adds SW-2363 (per-run cell cache), SW-2337
+(Parse stage 2), SW-2405 (calls plus a number as loops) and SW-2415 (determined fields not
+stored). Reference runners within about 1% of the previous run.
+
+| Program | native | CPython | PyPy | Lean | native / CPython | native / Lean | native instructions vs previous |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| pidigits | 1.32 s | 3.77 s | 3.29 s | 2.03 s | 0.35 | 0.65 | 0 |
+| binary-trees | 2.88 s | 10.11 s | 1.58 s | 1.01 s | 0.29 | 2.85 | −26% (cell cache) |
+| memory-game | 4.63 s | 8.39 s | 5.21 s | 782 ms | 0.55 | 5.93 | +0.7% |
+| dijkstra | 2.67 s | 838 ms | 502 ms | 204 ms | 3.19 | 13.12 | −2% |
+| octopus | 3.22 s | 1.51 s | 467 ms | 219 ms | 2.13 | 14.70 | −2% |
+| disk | 14.17 s | 2.24 s | 1.91 s | 755 ms | 6.32 | 18.76 | −2% |
+| expressions | 49.80 s | 2.13 s | 1.77 s | 660 ms | 23.36 | 75.42 | −3% |
+| scan | 45.25 s | 825 ms | 135 ms | 585 ms | 54.86 | 77.30 | −9% (Parse stage 2) |
+| matcher | 8.79 s | 4.62 s | 2.81 s | 853 ms | 1.90 | 10.30 | −2% |
+| bridge | 16.12 s | 3.47 s | 1.20 s | 832 ms | 4.65 | 19.38 | −2% |
+
+Instructions: pidigits 9.44 G, binary-trees 21.64 G, memory-game 35.61 G, dijkstra 19.59 G,
+octopus 28.92 G, disk 112.39 G, expressions 344.68 G, scan 330.73 G, matcher 74.45 G, bridge
+119.42 G (reference runners' counts unchanged from the previous run).
+
+Geometric means of the time ratios: native / CPython **5.5 → 4.7 → 3.9 → 3.5 → 2.9 → 2.8**,
+native / Lean **23 → 20 → 16 → 14.9 → 12.0 → 11.7**. binary-trees' time fell 7% for 26% fewer
+instructions: the cell cache removed cheap instructions (SW-2363's report). What's left on
+expressions and scan is mostly allocation and freeing (SW-2417; D3430). Raw files: Overmind's
+`target/compare/2026-11-08T175841-overmind.{json,md}`.
