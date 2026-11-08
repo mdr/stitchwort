@@ -430,6 +430,18 @@ Calls I made (reversible, not D questions):
 - B (SW-2135) goes ahead on its own merits; parsing doesn't wait for it.
 - Day 3 isn't changed for the benchmark (§2.6).
 
+### 3.1 Stage 0's counts (SW-2335, measured)
+
+The cost model holds. Per input character (expressions / scan): closures 20.1 / 33.1,
+effect steps 37.8 / 57.1, slow-path applies 38.4 / 69.2, as predicted; steps are 1.9 / 1.7
+times the closures. Of the slow-path applies, the effect runtime's own values (DoneK,
+JumpK, resumptions) are 48% / 44%, and the fast-path PAP, which still calls
+`sw_apply_prepare`, is the largest single kind at 38%. The run loop's continuation call
+site misses its one-entry cache on 86% / 100% of pops, and the caches of DoneK, JumpK and
+resumption sites never fill, so those sites make two runtime calls where one would do.
+Re-dispatch depth wasn't measurable without a field on `Call` (SW-2347), so stage 3's
+size is still an estimate. D3400: Matt, 8 Nov 2026, yes (SW-2339 designs it).
+
 ## 4. Decisions for Matt
 
 **D3400:** for the parsers' speed, invest in making tail-resumptive
