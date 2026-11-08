@@ -1,5 +1,5 @@
 {
-  "next": 2425,
+  "next": 2431,
   "tickets": [
     {
       "id": 47,
@@ -22400,7 +22400,7 @@
     {
       "id": 2324,
       "title": "Design note: compact values as the runtime's end state (one-word values everywhere, or compact cells keeping three-word registers); changes how Float is held",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": "",
       "labels": [
@@ -22408,10 +22408,12 @@
         "design"
       ],
       "epic": "comparative-speed",
-      "body": "From docs/research/lean-runtime-speed.md (SW-2318), its D3358 (rec: yes, a note first). Not yet brought to Matt: waits for the SW-2296 profile to show object size and allocation matter. 90 min.\n\nD3431, Matt, 8 Nov 2026 ~18:10: yes, a paper lane now: \"Do a literature review, comparative language analysis of similar implementations, and understand how this might fit into the stitch work world. Also, have it suggest how we might verify that this bet pays off for us ... plan how we might measure. We don't want to commit to a large refactoring that doesn't pay off.\" Opus, paper, 120 min.\n",
+      "body": "From docs/research/lean-runtime-speed.md (SW-2318), its D3358 (rec: yes, a note first). Not yet brought to Matt: waits for the SW-2296 profile to show object size and allocation matter. 90 min.\n\nD3431, Matt, 8 Nov 2026 ~18:10: yes, a paper lane now: \"Do a literature review, comparative language analysis of similar implementations, and understand how this might fit into the stitch work world. Also, have it suggest how we might verify that this bet pays off for us ... plan how we might measure. We don't want to commit to a large refactoring that doesn't pay off.\" Opus, paper, 120 min.\n\n\nLane notes (8 Nov 2026, 18:20-18:32): note written, docs/proposals/compact-values.md (commit 537164867 on lane/SW-2324), index row added. Key finding: from SW-2295's counts, 11.25x of the 11.65x native/Lean gap (geomean) is instruction count, so compact values pays mainly through instructions removed. New option E (two-word values: word 2 holds only Data's and Text's lengths). Recommends C (8-byte header) then E; A+D only if measurement V0-V4 (5-6.5 lane-h) clears stated thresholds (>=1.10x geomean and >=1.25x binary-trees predicted before E). Open questions in §6.\n\nMerged. Open for Matt: D3432 (end state C then E, A/D gated; run V0-V3 now). Orchestrator's calls: thresholds as the note proposes; drop option B. Measurement tickets SW-2425 SW-2426 SW-2427 SW-2428 SW-2429; SW-2430. Model result: Opus, worked, 12 min (est. 120).\n",
       "created": "2026-11-07",
       "updated": "2026-11-08",
-      "commits": []
+      "commits": [
+        "0f1375af1"
+      ]
     },
     {
       "id": 2325,
@@ -24059,6 +24061,96 @@
       ],
       "epic": "test-infra",
       "body": "From SW-2413 (Overmind, 8 Nov 2026). Test on Overmind. 45 min + one full tier.",
+      "created": "2026-11-08",
+      "updated": "2026-11-08",
+      "commits": []
+    },
+    {
+      "id": 2425,
+      "title": "Compact values V0: census of the values and cells a run makes (kinds, sizes, bytes allocated) on the decision set; no-go for two-word values if allocated bytes fall under 25% on half the set",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "comparative-speed",
+      "body": "From docs/proposals/compact-values.md §5. Waits for D3432. 1.5 h.",
+      "created": "2026-11-08",
+      "updated": "2026-11-08",
+      "commits": []
+    },
+    {
+      "id": 2426,
+      "title": "Compact values V1: hardware counters on Overmind (perf: cycles, instructions, cache misses, memory stalls) for native on the decision set",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "comparative-speed",
+      "body": "From compact-values.md §5. Waits for D3432. Runs on Overmind. 1 h.",
+      "created": "2026-11-08",
+      "updated": "2026-11-08",
+      "commits": []
+    },
+    {
+      "id": 2427,
+      "title": "Compact values V2: count the instructions that exist because a value is three words (moves, spills, saves) in native code on the decision set; under 5% means stop after the header change",
+      "status": "backlog",
+      "agent": "Opus",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "comparative-speed",
+      "body": "From compact-values.md §5. Waits for D3432. 1.5 h.",
+      "created": "2026-11-08",
+      "updated": "2026-11-08",
+      "commits": []
+    },
+    {
+      "id": 2428,
+      "title": "Compact values V3: dilation experiment on a throwaway branch (cells get 40 unused bytes; size grows, instructions don't); under 3% slowdown means size alone can't justify one-word values",
+      "status": "backlog",
+      "agent": "Opus",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "comparative-speed",
+      "body": "From compact-values.md §5. Waits for D3432. 1.5 h. Never merged.",
+      "created": "2026-11-08",
+      "updated": "2026-11-08",
+      "commits": []
+    },
+    {
+      "id": 2429,
+      "title": "Compact values V4: cost model combining V0-V3; go to two-word values only if it predicts >= 1.10x geomean and >= 1.25x binary-trees",
+      "status": "backlog",
+      "agent": "Opus",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "comparative-speed",
+      "body": "After SW-2425 SW-2426 SW-2427 SW-2428. 1 h.",
+      "created": "2026-11-08",
+      "updated": "2026-11-08",
+      "commits": []
+    },
+    {
+      "id": 2430,
+      "title": "compare.py: report instructions per second and the native/Lean rate ratio per program, so each comparison shows whether a gap is work or waiting",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "bench"
+      ],
+      "epic": "comparative-speed",
+      "body": "From SW-2324. 20 min.",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
