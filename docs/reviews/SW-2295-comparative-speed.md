@@ -64,3 +64,28 @@ CPython, PyPy and Lean within about 1% of the first run, so the two are comparab
 Geometric means: native / CPython **5.5 → 4.7**, native / Lean **23 → 20**. Unchanged programs
 moved under 1%. expressions and scan wait for the operations-in-place work
 (docs/proposals/operations-in-place.md).
+
+## After the native fixes (Overmind, 8 Nov 2026 04:38, `2541bba88`)
+
+Same command and machine; adds SW-2328 (hole operations inline), SW-2329 (comparisons and
+array access inline), SW-2321 (cells built and freed through fixed-size helpers). 44 answers
+ok; CPython, PyPy and Lean within about 2% of the previous run.
+
+| Program | native | CPython | PyPy | Lean | native / CPython | native / Lean | native change |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| pidigits | 1.31 s | 3.78 s | 3.28 s | 2.02 s | 0.35 | 0.65 | |
+| binary-trees | 3.09 s | 10.07 s | 1.53 s | 990 ms | 0.31 | 3.12 | 4.29 → 3.09 s |
+| memory-game | 4.67 s | 8.27 s | 5.17 s | 777 ms | 0.56 | 6.01 | 8.26 → 4.67 s |
+| dijkstra | 11.76 s | 836 ms | 493 ms | 204 ms | 14.07 | 57.62 | 13.00 → 11.76 s |
+| octopus | 3.47 s | 1.51 s | 462 ms | 221 ms | 2.29 | 15.75 | 5.13 → 3.47 s |
+| disk | 17.46 s | 2.24 s | 1.91 s | 757 ms | 7.80 | 23.05 | 21.08 → 17.46 s |
+| expressions | 82.20 s | 2.14 s | 1.75 s | 660 ms | 38.39 | 124.54 | 86.51 → 82.20 s |
+| scan | 77.85 s | 825 ms | 126 ms | 585 ms | 94.34 | 133.14 | 81.94 → 77.85 s |
+| matcher | 10.83 s | 4.61 s | 2.82 s | 853 ms | 2.35 | 12.69 | 12.57 → 10.83 s |
+| bridge | 20.77 s | 3.47 s | 1.20 s | 822 ms | 5.98 | 25.25 | 22.36 → 20.77 s |
+
+Geometric means: native / CPython **5.5 → 4.7 → 3.9**, native / Lean **23 → 20 → 16** over
+tonight's three runs. Native now beats CPython on pidigits, binary-trees and memory-game (and
+PyPy on memory-game). The two parsing programs (expressions, scan) remain the outliers at 38x
+and 94x CPython; their cost is the effect machinery, which operations in place
+(docs/proposals/operations-in-place.md, stages B-D) addresses.

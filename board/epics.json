@@ -442,7 +442,12 @@
         "Native hole fill/take inline: matcher sw_prim 0.5M, octopus 16.4M; Speedwell octopus 9.4 -> 2.4 s, matcher 12.9 -> 5.8 s (rough; SW-2328)",
         "Parse stage 0 counts confirm the cost model; effect-runtime values 44-48% of slow applies; continuation site misses its cache on 86-100% of pops (SW-2335)",
         "Operations in place for every effect: design note, sound with a consumer-link condition; stages A-F (SW-2339, docs/proposals/operations-in-place.md); D3410 no (orchestrator call)",
-        "After the first fixes (Overmind, 53c59e6be): native/CPython 4.7x, native/Lean 20x geomean; octopus 15.9 -> 5.1 s, matcher 15.7 -> 12.6 s, pidigits 1.55 -> 1.32 s (SW-2295 report)"
+        "After the first fixes (Overmind, 53c59e6be): native/CPython 4.7x, native/Lean 20x geomean; octopus 15.9 -> 5.1 s, matcher 15.7 -> 12.6 s, pidigits 1.55 -> 1.32 s (SW-2295 report)",
+        "Third headline run (Overmind, 2541bba88): native/CPython 3.9x, native/Lean 16x geomean; native beats CPython on pidigits, binary-trees, memory-game (SW-2328, SW-2329, SW-2321)",
+        "Native comparisons and arrays inline: memory-game 8.3 -> 4.7 s (SW-2329)",
+        "Cells through fixed-size helpers: binary-trees 4.3 -> 3.1 s with SW-2328/2329 (SW-2321)",
+        "Re-dispatch depth: forwards 62% of routes on expressions (SW-2347); clause census (SW-2348)",
+        "Allocator note: keep mimalloc, per-run cell cache next (SW-2360; D3413, D3414)"
       ],
       "now": [],
       "next": [
