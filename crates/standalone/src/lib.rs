@@ -49,19 +49,27 @@ static ALLOCATOR: Allocator = Allocator;
 /// the cell-heavy profiles.
 struct Allocator;
 
-/// The alignment `mi_malloc`, `mi_zalloc` and `mi_realloc` always satisfy.
+/// The alignment `mi_malloc`, `mi_zalloc` and `mi_realloc` give a block of
+/// at least that size (`MI_MAX_ALIGN_SIZE`). A smaller block may be aligned
+/// only to its size class, so the plain calls also need `align <= size`, as
+/// Rust's system allocator checks.
 const NATURAL_ALIGN: usize = 16;
+
+fn plain(align: usize, size: usize) -> bool {
+    align <= NATURAL_ALIGN && align <= size
+}
 
 // SAFETY (whole impl): each call forwards to the mimalloc entry point that
 // satisfies the layout's size and alignment (`NATURAL_ALIGN` and below: the
-// plain one; above: the `_aligned` one), and `mi_free` frees either.
+// plain one, given the size is at least the alignment; otherwise the
+// `_aligned` one), and `mi_free` frees either.
 #[allow(unsafe_code)]
 unsafe impl std::alloc::GlobalAlloc for Allocator {
     #[inline]
     unsafe fn alloc(&self, layout: std::alloc::Layout) -> *mut u8 {
         // SAFETY: the caller upholds `GlobalAlloc::alloc`'s contract.
         unsafe {
-            if layout.align() <= NATURAL_ALIGN {
+            if plain(layout.align(), layout.size()) {
                 libmimalloc_sys::mi_malloc(layout.size()) as *mut u8
             } else {
                 libmimalloc_sys::mi_malloc_aligned(layout.size(), layout.align()) as *mut u8
@@ -73,7 +81,7 @@ unsafe impl std::alloc::GlobalAlloc for Allocator {
     unsafe fn alloc_zeroed(&self, layout: std::alloc::Layout) -> *mut u8 {
         // SAFETY: as for `alloc`.
         unsafe {
-            if layout.align() <= NATURAL_ALIGN {
+            if plain(layout.align(), layout.size()) {
                 libmimalloc_sys::mi_zalloc(layout.size()) as *mut u8
             } else {
                 libmimalloc_sys::mi_zalloc_aligned(layout.size(), layout.align()) as *mut u8
@@ -91,7 +99,7 @@ unsafe impl std::alloc::GlobalAlloc for Allocator {
     unsafe fn realloc(&self, ptr: *mut u8, layout: std::alloc::Layout, new_size: usize) -> *mut u8 {
         // SAFETY: as for `alloc`.
         unsafe {
-            if layout.align() <= NATURAL_ALIGN {
+            if plain(layout.align(), new_size) {
                 libmimalloc_sys::mi_realloc(ptr as *mut std::ffi::c_void, new_size) as *mut u8
             } else {
                 libmimalloc_sys::mi_realloc_aligned(
