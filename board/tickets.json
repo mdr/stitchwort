@@ -23911,7 +23911,7 @@
         "core"
       ],
       "epic": "comparative-speed",
-      "body": "From docs/proposals/erase-determined-fields.md (SW-2406). Waits for D3429. Orchestrator's calls on §9 Q2-Q5: (A) replay unification, automatic (as D3424), reference evaluator keeps storing, debug check yes. Then SW-2398 rebases on it. 2.5-3.5 h.",
+      "body": "From docs/proposals/erase-determined-fields.md (SW-2406). Waits for D3429. Orchestrator's calls on §9 Q2-Q5: (A) replay unification, automatic (as D3424), reference evaluator keeps storing, debug check yes. Then SW-2398 rebases on it. 2.5-3.5 h.\n\nD3429, Matt, 8 Nov 2026 ~16:30: yes, \"happy to go with that for now\" (after the comparison with Lean, Rocq, Idris 2 and Agda). Starts when a build slot frees.\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
