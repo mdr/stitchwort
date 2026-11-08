@@ -327,3 +327,8 @@ python3 dev/profile_causes.py target/profile/expressions.json.gz 16 [shape]
 
 The helper `dev/profile_causes.py` is new and committed with this review. The census driver (a shell
 loop over the six programs) and the throwaway pap-uniqueness counter are not kept.
+
+**Correction (SW-2444, 8 Nov 2026):** the "190 M cells built by the runtime" (59%) includes cells generated
+code takes from the cell cache, which never call `sw_cell_new`. Counted site by site, the runtime's own cells are
+about 94 M, roughly 30% of expressions' cells (inferred; stage 0 of docs/proposals/effect-runtime-allocation.md
+counts it).

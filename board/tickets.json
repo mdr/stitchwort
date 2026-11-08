@@ -1,5 +1,5 @@
 {
-  "next": 2461,
+  "next": 2466,
   "tickets": [
     {
       "id": 47,
@@ -24381,17 +24381,19 @@
     {
       "id": 2444,
       "title": "Design note: fewer cells built by the effect runtime (about 60% of the parsers' cells, ~20% of expressions' time)",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": "",
       "labels": [
         "perf"
       ],
       "epic": "comparative-speed",
-      "body": "From SW-2422; ties to compact-values.md and SW-2417. Paper, 90 min.\n\nFrom SW-2442: each forwarded operation allocates an Rc<Resume> and an Rc<Fun> around it (~29 M pairs on expressions). One allocation would work if Fun::Resume held the Resume inline when unshared; StateK and Ret::Step share the Rc<Resume> today. Include this in the design.\nStarted 22:14 UTC (paper).\n",
+      "body": "From SW-2422; ties to compact-values.md and SW-2417. Paper, 90 min.\n\nFrom SW-2442: each forwarded operation allocates an Rc<Resume> and an Rc<Fun> around it (~29 M pairs on expressions). One allocation would work if Fun::Resume held the Resume inline when unshared; StateK and Ret::Step share the Rc<Resume> today. Include this in the design.\nStarted 22:14 UTC (paper).\n\n\nDone (lane, 8 Nov): docs/proposals/effect-runtime-allocation.md (fb737c030, lane/SW-2444). About 14 runtime objects per operation on expressions (~258 M of ~714 M allocations). Correction to SW-2422: its 190 M \"runtime cells\" include generated code's cell-cache hits (not counted by sw_cell_new); bottom-up the runtime's cells are ~94 M. Options ranked: R4 bind (Call o DoneK) k = Call o k; R1 one-object resumption; R2 Bind node reused as pending cell; R5 no resumption for fused state handlers without k (+ recycled Jumped); R3 skip reuses its Call cell; R6 runtime frees to cell cache (moot under C). Together ~9-13% instructions on expressions/scan (est.), 5-9% time. Staged plan §4, stage 0 counters first. Questions in §5.\n\nMerged. Orchestrator's call: stages 0-2 go ahead in lanes mode (measurement, then runtime changes that keep every count; each kept only at >= 60% of prediction). For Matt (D3437): may R4 change effect and step counts (as under D3412), and is ~1.1x worth ~8 lane-hours? Tickets SW-2461 SW-2462 SW-2463 SW-2464 SW-2465. Model result: Opus, worked, 12 min (est. 90).\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
-      "commits": []
+      "commits": [
+        "bd705b002"
+      ]
     },
     {
       "id": 2445,
@@ -24635,6 +24637,81 @@
       ],
       "epic": "comparative-speed",
       "body": "From SW-2450. Profile first. 45 min.",
+      "created": "2026-11-08",
+      "updated": "2026-11-08",
+      "commits": []
+    },
+    {
+      "id": 2461,
+      "title": "Effect-runtime allocation stage 0: counters (runtime-built cells per site, cell-cache hits from generated code under call-counts, performs that reach a bind directly) on expressions, scan, matcher",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "comparative-speed",
+      "body": "docs/proposals/effect-runtime-allocation.md stage 0. Checks the ~94 M runtime cells and R4's reach. 45 min.",
+      "created": "2026-11-08",
+      "updated": "2026-11-08",
+      "commits": []
+    },
+    {
+      "id": 2462,
+      "title": "Effect-runtime allocation stage 1 (R1): a resumption is one object, fields inside the Fun (no Rc<Resume> plus wrapper); est. 2.2-3.2% on expressions and scan; kept if >= 60% of that",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "comparative-speed",
+      "body": "Note's stage 1. After SW-2461. Changes no counts.",
+      "created": "2026-11-08",
+      "updated": "2026-11-08",
+      "commits": []
+    },
+    {
+      "id": 2463,
+      "title": "Effect-runtime allocation stage 2 (R2, R3): the loop reuses the Bind node as the pending cell; a skipped forward reuses its Call cell; measured one at a time; est. 1.8-2.2% and 0.9-1.4%",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "comparative-speed",
+      "body": "Note's stage 2. After SW-2462. Changes no counts.",
+      "created": "2026-11-08",
+      "updated": "2026-11-08",
+      "commits": []
+    },
+    {
+      "id": 2464,
+      "title": "Effect-runtime allocation stage 3 (R4): bind (Call o DoneK) k becomes Call o k in place (the monad law); est. 2.3-3.9%; changes effect and step counts (D3437)",
+      "status": "backlog",
+      "agent": "Opus",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "comparative-speed",
+      "body": "Note's stage 3. Waits for D3437 (Matt).",
+      "created": "2026-11-08",
+      "updated": "2026-11-08",
+      "commits": []
+    },
+    {
+      "id": 2465,
+      "title": "Effect-runtime allocation stage 4 (R5): a fused state handler whose clauses never mention k gets no resumption; its jump object is recycled; est. 1.7-2.6%",
+      "status": "backlog",
+      "agent": "Opus",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "comparative-speed",
+      "body": "Note's stage 4. After SW-2464.",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
