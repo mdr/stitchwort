@@ -150,7 +150,7 @@ fn nat_cmp(a: &Value, b: &Value) -> Ordering {
 fn int_cmp(a: &Value, b: &Value) -> Ordering {
     match (a, b) {
         (Value::Int(a), Value::Int(b)) => a.cmp(b),
-        _ => a.to_bigint().cmp(&b.to_bigint()),
+        _ => a.as_bigint().cmp(&b.as_bigint()),
     }
 }
 
@@ -172,16 +172,16 @@ fn nat_add(a: &Value, b: &Value) -> Value {
     {
         return Value::Nat(z);
     }
-    Value::nat(a.to_biguint() + b.to_biguint())
+    Value::nat(&*a.as_biguint() + &*b.as_biguint())
 }
 
 fn nat_sub(a: &Value, b: &Value) -> Value {
     if let (Value::Nat(x), Value::Nat(y)) = (a, b) {
         return Value::Nat(x.saturating_sub(*y));
     }
-    let (x, y) = (a.to_biguint(), b.to_biguint());
+    let (x, y) = (a.as_biguint(), b.as_biguint());
     if x >= y {
-        Value::nat(x - y)
+        Value::nat(&*x - &*y)
     } else {
         Value::Nat(0)
     }
@@ -193,7 +193,7 @@ fn nat_mul(a: &Value, b: &Value) -> Value {
     {
         return Value::Nat(z);
     }
-    Value::nat(a.to_biguint() * b.to_biguint())
+    Value::nat(&*a.as_biguint() * &*b.as_biguint())
 }
 
 /// `divFuel fuel n d`: `min fuel (n / d)`, or 0 if `d` is zero.
@@ -201,11 +201,12 @@ fn div_fuel(fuel: &Value, n: &Value, d: &Value) -> Value {
     if let (Value::Nat(f), Value::Nat(n), Value::Nat(d)) = (fuel, n, d) {
         return Value::Nat(if *d == 0 { 0 } else { (*f).min(n / d) });
     }
-    let (f, n, d) = (fuel.to_biguint(), n.to_biguint(), d.to_biguint());
-    Value::nat(if d == BigUint::ZERO {
+    let (f, n, d) = (fuel.as_biguint(), n.as_biguint(), d.as_biguint());
+    Value::nat(if d.bits() == 0 {
         BigUint::ZERO
     } else {
-        f.min(n / d)
+        let q = &*n / &*d;
+        if q < *f { q } else { f.into_owned() }
     })
 }
 
@@ -252,10 +253,26 @@ pub fn int_neg_succ(a: &Value) -> Value {
     }
 }
 
+/// `x % d` for an `Int` `x` and a `Nat` `d`, never negative; a zero `d`
+/// gives `x` made a `Nat` (so 0 for a negative `x`).
+fn int_mod_nat(x: &Value, d: &Value) -> Value {
+    let d = d.as_biguint();
+    let x = x.as_bigint();
+    if d.bits() == 0 {
+        return Value::nat(x.to_biguint().unwrap_or_default());
+    }
+    let (_, r) = div_rem_magnitude(x.magnitude(), &d);
+    Value::nat(if x.sign() == Sign::Minus && r.bits() != 0 {
+        &*d - r
+    } else {
+        r
+    })
+}
+
 fn int_abs_nat(a: &Value) -> Value {
     match a {
         Value::Int(i) => Value::Nat(i.unsigned_abs()),
-        other => Value::nat(other.to_bigint().magnitude().clone()),
+        other => Value::nat(other.as_bigint().magnitude().clone()),
     }
 }
 
@@ -265,14 +282,14 @@ fn int2(
     a: &Value,
     b: &Value,
     small: impl FnOnce(i64, i64) -> Option<i64>,
-    big: impl FnOnce(BigInt, BigInt) -> BigInt,
+    big: impl FnOnce(&BigInt, &BigInt) -> BigInt,
 ) -> Value {
     if let (Value::Int(x), Value::Int(y)) = (a, b)
         && let Some(z) = small(*x, *y)
     {
         return Value::Int(z);
     }
-    Value::int(big(a.to_bigint(), b.to_bigint()))
+    Value::int(big(&a.as_bigint(), &b.as_bigint()))
 }
 
 /// Truncating division of `a` by `d`, total: `(0, a)` for a zero `d`.
@@ -572,26 +589,26 @@ fn int(s: &Shapes, op: PrimOp, i: IntNative, args: &[&Value]) -> Value {
         NatToInt => nat_to_int(a),
         IntNeg => match a {
             Value::Int(x) if *x != i64::MIN => Value::Int(-x),
-            _ => Value::int(-a.to_bigint()),
+            _ => Value::int(-&*a.as_bigint()),
         },
         IntAdd => int2(a, args[1], i64::checked_add, |x, y| x + y),
         IntSub => int2(a, args[1], i64::checked_sub, |x, y| x - y),
         IntMul => int2(a, args[1], i64::checked_mul, |x, y| x * y),
-        IntDiv => int2(a, args[1], i64::checked_div_euclid, |x, y| euclid(&x, &y).0),
-        IntMod => int2(a, args[1], i64::checked_rem_euclid, |x, y| euclid(&x, &y).1),
-        IntTDiv => int2(a, args[1], i64::checked_div, |x, y| trunc(&x, &y).0),
-        IntTMod => int2(a, args[1], i64::checked_rem, |x, y| trunc(&x, &y).1),
+        IntDiv => int2(a, args[1], i64::checked_div_euclid, |x, y| euclid(x, y).0),
+        IntMod => int2(a, args[1], i64::checked_rem_euclid, |x, y| euclid(x, y).1),
+        IntTDiv => int2(a, args[1], i64::checked_div, |x, y| trunc(x, y).0),
+        IntTMod => int2(a, args[1], i64::checked_rem, |x, y| trunc(x, y).1),
         IntFDiv => int2(
             a,
             args[1],
             |x, y| Some(floor_small(x, y)?.0),
-            |x, y| floor(&x, &y).0,
+            |x, y| floor(x, y).0,
         ),
         IntFMod => int2(
             a,
             args[1],
             |x, y| Some(floor_small(x, y)?.1),
-            |x, y| floor(&x, &y).1,
+            |x, y| floor(x, y).1,
         ),
         IntModNat => {
             if let (Value::Int(x), Value::Nat(d)) = (a, args[1])
@@ -600,14 +617,7 @@ fn int(s: &Shapes, op: PrimOp, i: IntNative, args: &[&Value]) -> Value {
             {
                 return Value::Nat(u64::try_from(r).expect("not negative"));
             }
-            // A negative `x % 0` is `x`, which `toNat` makes 0.
-            let d = BigInt::from(args[1].to_biguint());
-            Value::nat(
-                euclid(&a.to_bigint(), &d)
-                    .1
-                    .to_biguint()
-                    .unwrap_or_default(),
-            )
+            int_mod_nat(a, args[1])
         }
         DecEqInt => decision(s, num_eq(a, args[1])),
         IntLeq => boolean(s, int_cmp(a, args[1]) != Ordering::Greater),
@@ -616,7 +626,7 @@ fn int(s: &Shapes, op: PrimOp, i: IntNative, args: &[&Value]) -> Value {
         IntNatAbs => int_abs_nat(a),
         IntAbs => match a {
             Value::Int(x) if *x != i64::MIN => Value::Int(x.abs()),
-            _ => Value::int(BigInt::from(a.to_bigint().magnitude().clone())),
+            _ => Value::int(BigInt::from(a.as_bigint().magnitude().clone())),
         },
         IntToNat => {
             if int_sign(a) == Ordering::Less {
@@ -1185,5 +1195,77 @@ mod division_tests {
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod borrowed_operand_tests {
+    use super::*;
+
+    fn big(n: &BigInt) -> Value {
+        Value::BigInt(Rc::new(n.clone()))
+    }
+
+    /// Big and negative operands, the same value as both operands, and zero
+    /// and small divisors agree with `BigInt`'s own arithmetic, and the
+    /// operands are left as they were.
+    #[test]
+    fn int_operations_on_shared_big_operands() {
+        let huge = BigInt::from(1u8) << 300u32;
+        let values = [
+            &huge + 7,
+            -(&huge) - 3,
+            BigInt::from(1u8) << 130u32,
+            BigInt::from(-5),
+            BigInt::ZERO,
+        ];
+        for a in &values {
+            for b in &values {
+                let (va, vb) = (big(a), big(b));
+                let held = (va.clone(), vb.clone());
+                let add = int2(&va, &vb, i64::checked_add, |x, y| x + y);
+                assert_eq!(*add.as_bigint(), a + b);
+                let mul = int2(&va, &vb, i64::checked_mul, |x, y| x * y);
+                assert_eq!(*mul.as_bigint(), a * b);
+                let md = int2(&va, &vb, i64::checked_rem_euclid, |x, y| euclid(x, y).1);
+                let want = if b.sign() == Sign::NoSign {
+                    a.clone()
+                } else {
+                    a.mod_floor(&b.magnitude().clone().into())
+                };
+                assert_eq!(*md.as_bigint(), want);
+                assert_eq!(int_cmp(&va, &vb), a.cmp(b));
+                assert_eq!(*held.0.as_bigint(), *a);
+                assert_eq!(*held.1.as_bigint(), *b);
+                if b.sign() != Sign::Minus {
+                    let n = Value::nat(b.to_biguint().unwrap());
+                    let want = if b.sign() == Sign::NoSign {
+                        a.to_biguint().unwrap_or_default()
+                    } else {
+                        a.mod_floor(b).to_biguint().unwrap()
+                    };
+                    assert_eq!(*int_mod_nat(&va, &n).as_biguint(), want);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn nat_operations_on_shared_big_operands() {
+        let a = Value::nat(BigUint::from(1u8) << 200u32);
+        let b = Value::nat((BigUint::from(1u8) << 100u32) + 1u8);
+        let sum = nat_add(&a, &a);
+        assert_eq!(*sum.as_biguint(), BigUint::from(1u8) << 201u32);
+        assert_eq!(*nat_sub(&b, &a).as_biguint(), BigUint::ZERO);
+        assert_eq!(
+            *nat_sub(&a, &b).as_biguint(),
+            (BigUint::from(1u8) << 200u32) - (BigUint::from(1u8) << 100u32) - 1u8
+        );
+        let q = div_fuel(&Value::Nat(9), &a, &b);
+        assert_eq!(*q.as_biguint(), BigUint::from(9u8));
+        let q = div_fuel(&a, &a, &Value::Nat(0));
+        assert_eq!(*q.as_biguint(), BigUint::ZERO);
+        assert_eq!(nat_cmp(&a, &b), Ordering::Greater);
+        assert_eq!(*a.as_biguint(), BigUint::from(1u8) << 200u32);
     }
 }
