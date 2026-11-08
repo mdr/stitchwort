@@ -16,6 +16,19 @@ instructions, same build with and without the rule: 2025 day 3 1.487 G →
 2021 day 11 and 2025 days 4 and 7 within ±0.1%. The rest of the gain
 waits for stage 2's natives (`Fin.toNat` still walks).
 
+**Stage 2 as built** (SW-2399): `Fin.toNat` and `Fin.ofNatLt` are bound by
+content hash in `stitchwort_rt::natives` (`FIN_NATIVES`, beside the other
+runtime-only natives, until SW-1991 moves those pins into core), and only
+while `Fin` is Nat-shaped, so not under `STITCHWORT_CHECK_REBUILDS`. Rather
+than a new primitive, a bound definition is lowered as a function returning
+its number parameter, which the simplifier inlines at every direct call: no
+new code in the machine, the codec or native code, and no steps at an
+inlined call (one frame as a closure). The example's least step limit goes
+from 562 to 263 (frames 11 either way). Native instructions, same build
+with the binding switched off and on, median of 3: 2025 day 3 1.428 G →
+1.342 G (-6.0%), 2021 day 9 1.661 G → 1.593 G (-4.1%), 2021 days 11 and 15
+-0.1%, 2025 days 4 and 7 unchanged; answers identical.
+
 Claims about Stitchwort were checked at commit `36dfba35d`. Labels:
 
 - **[checked: S]**: read in S (a file in this repository, or a URL);

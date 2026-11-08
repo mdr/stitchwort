@@ -3,8 +3,10 @@
 //! program's own in either constructor order, with a parameter, a proof
 //! field or an index. The representation can't be seen, so the reference
 //! evaluator (on unary values), the machine and native code print the same,
-//! and the machine and native code stop at the same step and frame limits,
-//! which are the ones they had when these were cells.
+//! and the machine and native code stop at the same step and frame limits.
+//! The limits are lower than when these were cells (562 steps): `Fin.toNat`
+//! and `Fin.ofNatLt` are the identity (stage 2, `stitchwort_rt::natives`),
+//! costing no steps where they're inlined instead of one per `FSucc`.
 
 use crate::common::*;
 use stitchwort_driver::driver::{Session, with_stack};
@@ -82,6 +84,6 @@ fn nat_shaped_types_agree_on_every_runner() {
             frames: n as usize,
             ..limits
         });
-        assert_eq!((steps, frames), (562, 11));
+        assert_eq!((steps, frames), (263, 11));
     });
 }

@@ -137,6 +137,7 @@ const LIBRARY: &[Builtin] = &[
     Builtin::FZero,
     Builtin::FSucc,
     Builtin::FinOfNatLt,
+    Builtin::FinToNat,
     Builtin::Fail,
     Builtin::FailStop,
     Builtin::Iff,
@@ -350,6 +351,9 @@ builtins! {
     FZero = "FZero": Ctor(Builtin::Fin),
     FSucc = "FSucc": Ctor(Builtin::Fin),
     FinOfNatLt = "Fin.ofNatLt": Def => "n i lt",
+    // `Fin.toNat` and `Fin.ofNatLt` are the identity in the fast runtimes,
+    // where a `Fin` is a number (`stitchwort_rt::natives::FinNative`)
+    FinToNat = "Fin.toNat": Def,
     // Booleans and decisions
     Bool = "Bool": Data,
     False = "False": Ctor(Builtin::Bool),

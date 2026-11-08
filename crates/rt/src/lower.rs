@@ -29,7 +29,10 @@ use crate::ir::{
     Arm, Body, CtorInfo, Expr, Global, GlobalId, GlobalKind, Lambda, LambdaId, Lit, MainRow,
     MatchKind, PrimOp, Program, Reuse, Shapes, Slot, TypeId, TypeInfo,
 };
-use crate::natives::{ArrayNative, FloatPrim, IntNative, Representation, TextNative, bind_array};
+use crate::natives::{
+    ArrayNative, FinNative, FloatPrim, IntNative, Representation, TextNative, bind_array,
+    fin_natives,
+};
 use crate::opt::{Types, optimize};
 use crate::specialise::{self, RowConstant, Specialiser};
 
@@ -82,7 +85,9 @@ fn lower_roots(g: &Ev, limits: Limits, roots: Vec<DefId>, entry: &Term) -> Resul
     // variant (docs/proposals/effect-polymorphism.md, design E).
     let failure = std::cell::RefCell::new(None);
     let reach = specialise::reachable(&cx.spec, roots, &[entry], |id| match cx.shape(id) {
-        Ok(shape) => shape.result_erased || cx.native_op(id).is_some(),
+        Ok(shape) => {
+            shape.result_erased || cx.native_op(id).is_some() || cx.fin_natives.contains_key(&id)
+        }
         Err(e) => {
             failure.borrow_mut().get_or_insert(e);
             true
@@ -143,6 +148,10 @@ fn lower_roots(g: &Ev, limits: Limits, roots: Vec<DefId>, entry: &Term) -> Resul
         let def = g.def(id);
         let kind = match native {
             Some(op) => GlobalKind::Native(op),
+            None if !variant && cx.fin_natives.contains_key(&id) => GlobalKind::Function {
+                params,
+                body: cx.fin_identity(id, cx.fin_natives[&id])?,
+            },
             None => {
                 let body = if variant {
                     cx.empty_body(id)
@@ -337,6 +346,9 @@ struct Frame {
 struct Lowerer<'g> {
     g: &'g Ev<'g>,
     repr: Representation,
+    /// The `Fin` conversions that run as the identity
+    /// ([`crate::natives::fin_natives`]).
+    fin_natives: HashMap<DefId, FinNative>,
     /// The library's `Array`, if it is loaded: an array is then a buffer.
     array: Option<DataId>,
     /// Its operations with native implementations: all of them, or the
@@ -410,6 +422,7 @@ impl<'g> Lowerer<'g> {
         Ok(Lowerer {
             g,
             repr,
+            fin_natives: fin_natives(g).map_err(Diagnostic::from)?,
             array,
             array_natives,
             shapes: g.env.defs().iter().map(|_| OnceCell::new()).collect(),
@@ -445,6 +458,24 @@ impl<'g> Lowerer<'g> {
         }
         let shape = def_shape(self.g, id, true)?;
         Ok(cell.get_or_init(|| shape))
+    }
+
+    /// The body of `id`, bound to `native`: its number parameter.
+    fn fin_identity(&self, id: DefId, native: FinNative) -> Result<Body> {
+        let shape = self.shape(id)?;
+        let mask = shape.mask();
+        let k = native.number_param();
+        if mask.get(k) != Some(&false) {
+            return Err(internal(format!(
+                "`{}`'s number isn't passed at run time",
+                self.g.def(id).name()
+            )));
+        }
+        let slot = mask[..k].iter().filter(|erased| !**erased).count();
+        Ok(Body {
+            frame: u32::try_from(shape.runtime_arity()).expect("arity fits"),
+            expr: Expr::Local(Slot::try_from(slot).expect("slot fits")),
+        })
     }
 
     /// The native operation that replaces `id`, if any.

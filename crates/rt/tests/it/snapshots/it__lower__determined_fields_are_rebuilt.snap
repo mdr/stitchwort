@@ -61,7 +61,7 @@ fn Std.List.instShow(v0) {2 slots} =
       }
     }, "]"))
   %mk(v1, v1)
-fn Std.Fin.toNat(v0, v1) {2 slots} = Std.Fin.toNat[sum](v0, v1, 0)
+fn Std.Fin.toNat(v0, v1) {2 slots} = v1
 fn Std.Vec.map(v0, v1, v2) {5 slots} =
   let v3 = %HoleNew()
   let v4 = Std.Vec.map[cells](v0, v1, v2, v3, 0)
@@ -79,7 +79,7 @@ fn Main.height(v0, v1) {3 slots} =
   }
 fn Main.main(v0) {4 slots} =
   let v1 = Std.Vec.map[0](2, VCons(1, VCons(2, VNil)))
-  let v2 = %TextAppend(%NatToText(Std.Fin.toNat(3, 1)), %TextAppend(" ", %TextAppend(%NatToText(1), %TextAppend(" ", apply {
+  let v2 = %TextAppend(%NatToText(1), %TextAppend(" ", %TextAppend(%NatToText(1), %TextAppend(" ", apply {
     let v2 = {
       let v2 = λ3(v0) {3 slots} =>
         %TextAppend("[", %TextAppend({
@@ -103,13 +103,6 @@ fn Std.Show.itemsAfter[1](v0) {3 slots} =
   match v0: List {
     Nil => ""
     Cons(head: v1, tail: v2) => %TextAppend(", ", %TextAppend(%NatToText(v1), Std.Show.itemsAfter[1](v2)))
-  }
-fn Std.Fin.toNat[sum](v0, v1, v2) {5 slots} =
-  match v1: Nat {
-    Zero => v2
-    Succ(pred: v3) =>
-      let v4 = %Nat.sub(v0, 1)
-      Std.Fin.toNat[sum](v4, v3, %Nat.add(v2, 1))
   }
 fn Std.Vec.map[cells](v0, v1, v2, v3, v4) {10 slots} =
   match v1: Vec {
