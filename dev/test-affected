@@ -539,6 +539,7 @@ def select(files, cfg, inv_mod, inv, budget, notes, use_crate_graph=True, names=
         return ids, examples, est
 
     ids, examples, est = current()
+    uncut_estimate = est["estimate"]
     # Over the budget: cut whole rules, the least relevant rank first, and
     # every rule of a rank before any of the next (a rank-3 rule that fits
     # never stays while a rank-2 rule goes). Within a rank, the rule that
@@ -607,7 +608,7 @@ def select(files, cfg, inv_mod, inv, budget, notes, use_crate_graph=True, names=
     left_bare = [f for f in files if not is_ignored(cfg, f)
                  and any(is_protected(r) and f in r.files for r in trimmed)
                  and not any(is_protected(r) and f in r.files for r in kept)]
-    return {"empty": empty, "rules": kept, "cut": cut, "unprotected_files": left_bare, "trimmed": [r.id for r in trimmed], "ids": ids, "examples": examples, "estimate": est,
+    return {"empty": empty, "rules": kept, "cut": cut, "unprotected_files": left_bare, "trimmed": [r.id for r in trimmed], "uncut_estimate": uncut_estimate, "ids": ids, "examples": examples, "estimate": est,
             "why_file": why_file, "sets": {r.id: sets[r.id + id(r).__str__()] for r in ordered}}
 
 
@@ -691,7 +692,9 @@ def report(res, files, profiles, budget, explain, inv):
         for m in r.manual:
             out.append("RUN BY HAND: %s (%s)" % (m, r.why or r.id))
     if res["cut"]:
-        out.append("WARNING: over the %g s budget; cut, least relevant first:" % budget)
+        out.append("CUT: all the relevant rules would take about %g s, over the %g s budget; "
+                   "left out of this run, least relevant first (the ESTIMATE above is without them):"
+                   % (res["uncut_estimate"], budget))
         for r, saved in res["cut"]:
             out.append("  - %s (rank %d, about %s s of its tests are its own): %s" % (r.id, r.rank, saved, r.why))
     if res.get("trimmed"):
