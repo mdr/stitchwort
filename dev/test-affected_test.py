@@ -57,6 +57,7 @@ INV = [
     test("cli::server", "lsp::hover", 2, profiles=["lane-lsp"]),
     test("cli::server", "lsp::heavy_one", 200),
     test("cli::extraction", "extract::int_is_bound_to_the_prelude", 20),
+    test("cli::extraction", "extract::generated_code_is_stable", 20),
     test("web", "tests::escapes_json_strings", 0.1, profiles=["lane-web"]),
 ]
 
@@ -130,6 +131,11 @@ class Mapping(unittest.TestCase):
                 got = ids_of(res)
                 self.assertTrue(want <= got, "missing %s" % (want - got))
                 self.assertFalse(unwanted & got, "unexpected %s" % (unwanted & got))
+
+    def test_a_std_change_selects_the_generated_js_snapshots_and_says_to_check_aoc(self):
+        res, notes = pick(["crates/elab/src/std/List/Toolkit.sw"])
+        self.assertIn("extract::generated_code_is_stable", ids_of(res))
+        self.assertIn("task aoc:check", " ".join(r.note or "" for r in res["rules"]))
 
     def test_docs_only_selects_nothing_to_run(self):
         self.assertTrue(all(ta.globs_match(CFG["ignore"], f) for f in ["docs/testing.md", "board/tickets.json", "README.md"]))

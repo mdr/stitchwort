@@ -92,6 +92,16 @@ select = [
 ]
 
 [[rule]]
+id = "std-generated-js"
+rank = 1
+paths = ["crates/elab/src/std/**", "std/**"]
+why = "the JS and .d.ts snapshots embed the generated code of every std function an example uses, so a std edit makes them stale (SW-2323 did)"
+select = [
+  { package = "cli", binary = "extraction", test = "^extract::generated_code_is_stable$" },
+]
+note = "std .sw changes also break aoc/ and games/rogue proofs that use them, which no test here covers: also run task aoc:check"
+
+[[rule]]
 id = "std-sweeps"
 rank = 2
 paths = ["crates/elab/src/std/**", "std/**"]
