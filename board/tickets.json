@@ -24422,17 +24422,19 @@
     {
       "id": 2447,
       "title": "Lowered-program cache key ignores STITCHWORT_CHECK_REBUILDS: programs lowered with the rebuild check on (Fin as cells with the extra field) and off (Fin as numbers since SW-2398) share a key, so one could be read back under the other setting",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
         "rt"
       ],
       "epic": "comparative-speed",
-      "body": "From SW-2398 (introduced with SW-2415; not yet confirmed to happen). Confirm with a repro (run with the check on, then off, same cache), then put the setting in the key. 30 min.\nStarted 21:44 UTC.\n",
+      "body": "From SW-2398 (introduced with SW-2415; not yet confirmed to happen). Confirm with a repro (run with the check on, then off, same cache), then put the setting in the key. 30 min.\nStarted 21:44 UTC.\n\nMerged (confirmed as a wrong cache hit; regression test failed before the fix). Model result: Sonnet, worked, 8 min (est. 30).\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
-      "commits": []
+      "commits": [
+        "aecef932e"
+      ]
     },
     {
       "id": 2448,
