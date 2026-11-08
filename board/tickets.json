@@ -23636,14 +23636,14 @@
     {
       "id": 2398,
       "title": "Nat-shaped types stage 1: the shape rule in core beside D866's unboxing, lowering for interpreter and native (Fin first), cross-backend example tests, 2025 day 3 measured before and after",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Opus",
       "where": "",
       "labels": [
         "perf"
       ],
       "epic": "comparative-speed",
-      "body": "From docs/proposals/nat-shaped-types.md (SW-2397). Waits for D3424 and D3425. 1.5-2 h.\n\nD3424, Matt, 8 Nov 2026: yes, \"Every type with Nat's shape\" (automatic). D3425, delegated by Matt (\"Happy to go with your best recommendation if there's a clear choice\"): orchestrator's call, accept: the conversion natives cost a constant number of steps instead of one per FSucc, as Nat's natives do; results unchanged. Starts when a build slot frees, after SW-2396.\n",
+      "body": "From docs/proposals/nat-shaped-types.md (SW-2397). Waits for D3424 and D3425. 1.5-2 h.\n\nD3424, Matt, 8 Nov 2026: yes, \"Every type with Nat's shape\" (automatic). D3425, delegated by Matt (\"Happy to go with your best recommendation if there's a clear choice\"): orchestrator's call, accept: the conversion natives cost a constant number of steps instead of one per FSucc, as Nat's natives do; results unchanged. Starts when a build slot frees, after SW-2396.\nStarted 10:51 UTC, Opus, expected 120 min.\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
