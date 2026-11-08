@@ -168,6 +168,7 @@ status line now says the wrong thing; the details are in
 | [backend-trust.md](backend-trust.md) | What the backends trust (one way to make an `Image`) | proposed: D2790, D2791 | SW-1893, SW-1885, SW-1989-SW-1992 |
 | [run-profiler.md](run-profiler.md) | A profiler for `stitchwort run` | in progress: stage 1 built (`run --profile`, `crates/cli/src/main.rs`) | SW-1528; open SW-1634 |
 | [cell-allocator.md](cell-allocator.md) | Whether cells need an allocator of our own (no: mimalloc, with a per-run cell cache inlined in native code) | proposed: D3413, D3414 | SW-2360 |
+| [reuse-across-calls.md](reuse-across-calls.md) | Reusing a cell taken apart in one function where another rebuilds it (a hidden reuse-token argument), against reshaping std's `Map.Tree` | proposed: questions in §7 | SW-2384, SW-2383, SW-1812 |
 
 ## Standard library and data types
 
