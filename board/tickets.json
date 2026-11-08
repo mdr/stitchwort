@@ -1,5 +1,5 @@
 {
-  "next": 2424,
+  "next": 2425,
   "tickets": [
     {
       "id": 47,
@@ -23879,14 +23879,14 @@
     {
       "id": 2413,
       "title": "Full tier on Overmind (15 GiB) was stopped for low memory at test 1105/2321 by Claude Code's shell reaper, under memguard's 16 GB cap (peak 12.7 GB RSS); MEM_CAP_FULL=12 wasn't passed on to the nested task test:full:steps (log shows --cap-gb 16). Pass the cap through, and set a per-machine cap or fewer test threads so the full tier fits a 15 GiB machine",
-      "status": "doing",
+      "status": "review",
       "agent": "Opus",
       "where": "",
       "labels": [
         "test-infra"
       ],
       "epic": "test-infra",
-      "body": "Job 22, 8 Nov 2026, f4bb28f91, 11:26-~13:00. Log: Overmind scratchpad j22-full.log. Related: SW-2412 (daily tier over 16 GB on Speedwell). 45 min.\nStarted 15:57 UTC on Overmind (its own session), expected 60 min. Orchestrator's call: Overmind is the machine it concerns.\n",
+      "body": "Job 22, 8 Nov 2026, f4bb28f91, 11:26-~13:00. Log: Overmind scratchpad j22-full.log. Related: SW-2412 (daily tier over 16 GB on Speedwell). 45 min.\nStarted 15:57 UTC on Overmind (its own session), expected 60 min. Orchestrator's call: Overmind is the machine it concerns.\n\nOvermind lane done: 99fb2ce82 on origin/lane/SW-2413 (cap passed through; memguard lowers caps above 75% of RAM; TIER_THREADS 4 on Linux under 24 GiB). Full tier killed cleanly at 77 min by memguard, naming differential at 10.62 GB. Merge after SW-2415's verifier. Follow-up SW-2424. Also its run saw bench baseline day 15 peak heap +88.9% (SW-2411).\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
@@ -24042,6 +24042,21 @@
       ],
       "epic": "comparative-speed",
       "body": "From SW-2415 (and SW-2406 finding 1). Design first. 60 min.",
+      "created": "2026-11-08",
+      "updated": "2026-11-08",
+      "commits": []
+    },
+    {
+      "id": 2424,
+      "title": "Full tier on a 15 GiB machine: run proofs differential::the_evaluators_agree_on_the_prelude_and_every_example alone (nextest threads-required = num-cpus; it takes 10.6 GB by itself) and set TIER_THREADS back to 5-6 there (4 ran only 126 tests in 77 min)",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "test-infra"
+      ],
+      "epic": "test-infra",
+      "body": "From SW-2413 (Overmind, 8 Nov 2026). Test on Overmind. 45 min + one full tier.",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
