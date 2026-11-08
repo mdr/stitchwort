@@ -22765,7 +22765,7 @@
     {
       "id": 2347,
       "title": "Parse runtime stage 0b: count re-dispatch depth (a depth field on Call and resumptions, or operations counted where first performed) so stage 3 (skip forwarding handlers) is sized on measurement",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
@@ -22773,10 +22773,12 @@
         "tooling"
       ],
       "epic": "comparative-speed",
-      "body": "From SW-2335: routes are 7.2/char (expressions), 13.2/char (scan) but the share that are forwards is unknown. Before SW-2338. 30 min.\n\nStarted 03:19 UTC, Sonnet, expected 30 min.\n",
+      "body": "From SW-2335: routes are 7.2/char (expressions), 13.2/char (scan) but the share that are forwards is unknown. Before SW-2338. 30 min.\n\nStarted 03:19 UTC, Sonnet, expected 30 min.\n\nMerged. Forwards (routes past the first per operation): expressions 62%, scan 53%, bridge 31%; upper bound (a clause doing another effect first counts as a hop). Model result: Sonnet, worked, 20 min (est. 30).\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
-      "commits": []
+      "commits": [
+        "3b7e0fe77"
+      ]
     },
     {
       "id": 2348,
@@ -22807,7 +22809,7 @@
         "effects"
       ],
       "epic": "comparative-speed",
-      "body": "From docs/proposals/operations-in-place.md (SW-2339); D3400 yes (Matt). After SW-2348 and SW-2347 (depth count). Est. 1.2-1.5x on expressions. 60-90 min.",
+      "body": "From docs/proposals/operations-in-place.md (SW-2339); D3400 yes (Matt). After SW-2348 and SW-2347 (depth count). Est. 1.2-1.5x on expressions. 60-90 min.\n\nTarget from SW-2347 (measured, upper bound): skipping forwarding hops removes about 30M of 49M routes on expressions, 25M of 47M on scan, 3M of 9.5M on bridge.\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
