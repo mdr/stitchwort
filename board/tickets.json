@@ -1,5 +1,5 @@
 {
-  "next": 2376,
+  "next": 2378,
   "tickets": [
     {
       "id": 47,
@@ -23161,7 +23161,7 @@
     {
       "id": 2370,
       "title": "Std Graph.distances: push a neighbour only when its distance improves (and an Array-indexed variant for dense integer vertices), keeping the verified spec; measured 2.2x (4.6x with Array) on 2021 day 15",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": "",
       "labels": [
@@ -23169,10 +23169,12 @@
         "std"
       ],
       "epic": "comparative-speed",
-      "body": "From docs/reviews/SW-2369-dijkstra-disk.md. Re-proves searchFrom; statements of the spec unchanged. 90 min.\n\nStarted 05:04 UTC, Opus, expected 90 min.\n",
+      "body": "From docs/reviews/SW-2369-dijkstra-disk.md. Re-proves searchFrom; statements of the spec unchanged. 90 min.\n\nStarted 05:04 UTC, Opus, expected 90 min.\n\n\nProgress (lane, 05:16 UTC, 12 min): done on lane/SW-2370, commit 043449e91. `Graph.relaxEdges` queues a neighbour only when its cost beats `best` (a `Map s Nat` of least queued costs); spec statements unchanged, internal lemmas re-proved (Pending now allows a lower queued cost; SearchState takes `best`). Day 15: pops 956 k -> 260 k (searchFrom entries); dijkstra native 5.75 s -> 3.50 s, loaded machine. std lane, aoc:check, audit Std.Graph (55 passed), prelude/extract tests, bench:compare:check all pass. Array variant proposed in the report, not built.\n\nMerged. Public statements unchanged (distancesCorrect, distancesShortest, reachableIff, SearchResult, Shortest); internal lemmas replaced (pushEdges/containsPushed* -> relaxEdges/relax*). Follow-ups SW-2376 SW-2377. Model result: Opus, worked, 12 min (est. 90).\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
-      "commits": []
+      "commits": [
+        "8f8bd1e94"
+      ]
     },
     {
       "id": 2371,
@@ -23245,6 +23247,36 @@
       ],
       "epic": "comparative-speed",
       "body": "From SW-2332. 20 min.",
+      "created": "2026-11-08",
+      "updated": "2026-11-08",
+      "commits": []
+    },
+    {
+      "id": 2376,
+      "title": "Graph.reachable: a breadth-first walk without costs instead of running Dijkstra, with its own proof of reachableIff",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "std"
+      ],
+      "epic": "std-library",
+      "body": "From SW-2370. 45 min.",
+      "created": "2026-11-08",
+      "updated": "2026-11-08",
+      "commits": []
+    },
+    {
+      "id": 2377,
+      "title": "Proposal: Graph.distancesDense, an Array-indexed Dijkstra for states with an index into Fin n (SW-2369 measured 2.47 -> 1.19 s on day 15), proved through the same SearchResult",
+      "status": "backlog",
+      "agent": "Opus",
+      "where": "",
+      "labels": [
+        "design"
+      ],
+      "epic": "comparative-speed",
+      "body": "From SW-2370. Public API: short note in docs/proposals first. 45 min paper.",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
