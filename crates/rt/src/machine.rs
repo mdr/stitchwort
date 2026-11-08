@@ -1504,7 +1504,8 @@ fn release(regs: &mut Vec<Value>, base: usize) {
 }
 
 /// Whether this is the only reference to the cell, so that it can be
-/// changed in place.
+/// changed in place. (No `Weak` is ever made to a runtime value, so the weak
+/// count is 0 here; native code relies on that and tests only the strong count.)
 #[inline]
 fn unique(cell: &Rc<[Value]>) -> bool {
     Rc::strong_count(cell) == 1 && Rc::weak_count(cell) == 0

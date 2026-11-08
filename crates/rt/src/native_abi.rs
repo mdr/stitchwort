@@ -105,6 +105,8 @@ pub const PAYLOAD_AT: i32 = 8;
 pub const LEN_AT: i32 = 16;
 /// In an `Rc`'s allocation: the strong and weak counts, then the value.
 pub const STRONG_AT: i32 = 0;
+/// Invariant: no `Weak` is ever made to a runtime value, so the weak count
+/// is always 1 and native uniqueness tests look at the strong count alone.
 pub const WEAK_AT: i32 = 8;
 pub const RC_VALUE_AT: i32 = 16;
 /// In an `Array`'s `Rc` allocation (an `RcInner<Vec<Value>>`): where the
