@@ -42,6 +42,7 @@ pub mod reuse;
 pub mod run;
 pub mod shared;
 pub mod specialise;
+pub mod sums;
 pub mod trmc;
 mod validate;
 pub mod value;

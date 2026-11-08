@@ -630,14 +630,14 @@ pub(crate) fn shift(e: &Expr, from: Slot, by: u32) -> Expr {
 
 /// What each global uses, to tell whether a call can come back to a
 /// function.
-struct Graph {
+pub(crate) struct Graph {
     /// The globals each global's body uses (calls, partial applications and
     /// references), through the lambdas it makes.
     uses: Vec<Vec<GlobalId>>,
 }
 
 impl Graph {
-    fn new(program: &Program) -> Graph {
+    pub(crate) fn new(program: &Program) -> Graph {
         let uses = program
             .globals
             .iter()
@@ -652,7 +652,7 @@ impl Graph {
     }
 
     /// Whether global `from` can, by calls or references, reach `to`.
-    fn reaches(&self, from: GlobalId, to: GlobalId) -> bool {
+    pub(crate) fn reaches(&self, from: GlobalId, to: GlobalId) -> bool {
         let mut seen = vec![false; self.uses.len()];
         let mut work = vec![from];
         while let Some(g) = work.pop() {
@@ -670,7 +670,7 @@ impl Graph {
 
 /// The globals `e` uses, and those of the lambdas it makes, found without
 /// recursing.
-fn uses(program: &Program, root: &Expr) -> Vec<GlobalId> {
+pub(crate) fn uses(program: &Program, root: &Expr) -> Vec<GlobalId> {
     let mut out = Vec::new();
     let mut seen = vec![false; program.lambdas.len()];
     let mut work = vec![root];

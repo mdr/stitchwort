@@ -159,6 +159,45 @@ def main(): {IO} () :=
     same_trace(source);
 }
 
+/// Functions that add to a call of themselves, run as loops carrying the
+/// sum (`stitchwort_rt::sums`), on `Nat` past a machine word and on `Int`:
+/// native code prints what the machine prints, stops where it does at
+/// every limit, and needs the same frames however long the list.
+#[test]
+fn calls_plus_a_number_agree_and_use_constant_frames() {
+    let source = |n: u32| {
+        format!(
+            r#"import Std (IO, Int, List, Nat)
+
+def size: List Nat → Nat
+  | [] => 0
+  | Cons x rest => Succ (size rest)
+
+def total: List Nat → Nat
+  | [] => 18446744073709551610
+  | Cons x rest => x + total rest
+
+def signed: List Nat → Int
+  | [] => -7
+  | Cons x rest => signed rest + (Nat.toInt x - 3)
+
+def main(): {{IO}} () :=
+  let xs := List.range 0 {n}
+  IO.print "${{size xs}} ${{total xs}} ${{signed xs}}"
+"#
+        )
+    };
+    assert_eq!(agrees(&source(10)), "10 18446744073709551655 8\n");
+    with_stack(STACK, move || {
+        let (short, limits) = lowered(&source(5));
+        let (long, _) = lowered(&source(10));
+        let (short_steps, short_frames) = every_limit_agrees(&short, limits);
+        let (long_steps, long_frames) = every_limit_agrees(&long, limits);
+        assert_eq!(short_frames, long_frames);
+        assert!(long_steps > short_steps, "{short_steps} {long_steps}");
+    });
+}
+
 /// Comparisons made as values (not branched on) and the array operations
 /// `getOr` and `set`, which native code does inline for small numbers and
 /// an array nothing else holds, and by the generic call otherwise: a number
@@ -347,26 +386,27 @@ def main(): {IO} () :=
     });
 }
 
-/// `run 3000` builds a list 3,000 deep and sums it twice, keeping it while
-/// the first sum recurses. The smallest frame limit, and the smallest step
+/// `run 3000` builds a list 3,000 deep and finds its largest element twice
+/// (by non-tail recursion: a sum would be a loop, `stitchwort_rt::sums`),
+/// keeping it while the first search recurses. The smallest frame limit, and the smallest step
 /// limit, under which it finishes are found for each runner by bisection:
 /// they must be the same, one below must be `E-RESOURCE` on both, and
 /// running out mid-recursion must free every cell.
 #[test]
 fn resources_run_out_at_the_machines_points() {
-    let source = r#"import Std (IO, List)
+    let source = r#"import Std (IO, List, Nat)
 
 def build: Nat → List Nat
   | Zero => []
   | Succ n => Cons n (build n)
 
-def total: List Nat → Nat
+def largest: List Nat → Nat
   | [] => 0
-  | Cons x rest => x + total rest
+  | Cons x rest => Nat.max x (largest rest)
 
 def run (n: Nat): Nat :=
   let xs := build n
-  total xs + total xs
+  largest xs + largest xs
 
 def main(): {IO} () :=
   IO.print "${run 3000}"
@@ -430,13 +470,13 @@ def main(): {IO} () :=
 /// exactly the registers live there.
 #[test]
 fn every_error_exit_frees_the_live_registers() {
-    let source = r#"import Std (IO, List)
+    let source = r#"import Std (IO, List, Nat)
 
 def big: Nat := 18446744073709551616 + 5
 
-def total: List Nat → Nat
+def largest: List Nat → Nat
   | [] => 0
-  | Cons x rest => x + total rest
+  | Cons x rest => Nat.max x (largest rest)
 
 def inc (m: Nat): Nat := m + 1
 
@@ -447,12 +487,12 @@ def count: Nat → Nat → Nat
   | Succ n, acc => count n (acc + 1)
 
 def keep: Nat → List Nat → Nat
-  | Zero, xs => total xs
+  | Zero, xs => largest xs
   | Succ n, xs =>
     let ys := [n, n + big]
     let a := keep n ys
     let b := twice inc a
-    a + b + total xs + total ys + count n 0
+    a + b + largest xs + largest ys + count n 0
 
 def run (n: Nat): Nat := keep n [1, 2, 3]
 

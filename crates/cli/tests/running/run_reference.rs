@@ -200,7 +200,8 @@ def main () : {IO} () :=
 }
 
 /// Non-tail recursion a million calls deep: the fast runtime keeps its
-/// frames on the heap.
+/// frames on the heap. (Not a sum, which would be a loop:
+/// `stitchwort_rt::sums`.)
 #[test]
 fn deep_recursion_runs_on_the_fast_runtime() {
     let path = source_file(
@@ -210,7 +211,7 @@ import Std (Nat)
 
 def count : Nat -> Nat
   | 0      => 0
-  | Succ n => 1 + count n
+  | Succ n => Nat.max (n + 1) (count n)
 
 def main () : {IO} () := IO.print (Nat.toText (count (1000 * 1000)))
 "#,
@@ -234,7 +235,7 @@ fn partial_with_forwarded_abilities_prints_the_same_both_ways() {
 
 /// Running out of resources is E-RESOURCE, pointing at `main`, exit code 2,
 /// after what was printed before, whichever runner: a recursion the frame
-/// limit stops.
+/// limit stops (a product: a sum would be a loop, `stitchwort_rt::sums`).
 #[test]
 fn running_out_of_resources_is_reported_alike() {
     let path = source_file(
@@ -244,7 +245,7 @@ import Std (Nat)
 
 def count : Nat -> Nat
   | 0      => 0
-  | Succ n => 1 + count n
+  | Succ n => 2 * count n
 
 def main () : {IO} () :=
   IO.print "before"

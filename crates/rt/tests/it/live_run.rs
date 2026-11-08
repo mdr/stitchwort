@@ -487,7 +487,7 @@ fn a_too_deep_live_run_names_the_function() {
 
 def count: Nat → Nat
   | 0 => 0
-  | Succ n => 1 + count n
+  | Succ n => 2 * count n
 
 def main (): {IO} () :=
   match IO.readLine () with

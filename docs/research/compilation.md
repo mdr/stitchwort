@@ -47,7 +47,8 @@ Effekt in October, and the machine has them **[checked]**:
 - a simplifier that inlines, copies recursive functions for known arguments and resolves
   known constructors (`opt.rs`; `specialise.rs` is the separate empty-row specialisation of
   effect-polymorphic code);
-- TRMC by destination passing (`trmc.rs`), state handlers run as loops (`fusion.rs`);
+- TRMC by destination passing (`trmc.rs`), calls plus a number as loops carrying the sum
+  (`sums.rs`), state handlers run as loops (`fusion.rs`);
 - Cranelift native code that keeps the machine's RC and reuse decisions (`crates/native`).
 
 So the new material from 2022 to 2026 that adds most is in five places the existing notes

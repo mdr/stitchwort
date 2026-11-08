@@ -156,16 +156,16 @@ fn each_body_is_named_after_its_definition() {
     });
 }
 
-/// `sum` recurses (a call, its checks, a return) and takes its list apart
-/// (reference counts).
-const SUMMED: &str = r#"import Std (IO, List)
+/// `largest` recurses (a call, its checks, a return) and takes its list
+/// apart (reference counts). (A sum would be a loop, `stitchwort_rt::sums`.)
+const SUMMED: &str = r#"import Std (IO, List, Nat)
 
-def sum: List Nat → Nat
+def largest: List Nat → Nat
   | [] => 0
-  | [x, ..xs] => x + sum xs
+  | [x, ..xs] => Nat.max x (largest xs)
 
 def main(): {IO} () :=
-  IO.print "${sum (List.range 0 10)}"
+  IO.print "${largest (List.range 0 10)}"
 "#;
 
 /// Under `Options::pc_map`, each body's machine code is mapped, stretch by
@@ -227,8 +227,8 @@ fn the_pc_map_covers_each_body_and_leaves_the_code_alone() {
         }
         let sum = map
             .iter()
-            .find(|b| b.symbol.starts_with("Main.sum#"))
-            .expect("sum is compiled");
+            .find(|b| b.symbol.starts_with("Main.largest#"))
+            .expect("largest is compiled");
         for part in [
             Part::Prologue,
             Part::Entry,

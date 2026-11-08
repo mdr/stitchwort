@@ -185,6 +185,7 @@ fn lower_roots(g: &Ev, limits: Limits, roots: Vec<DefId>, entry: &Term) -> Resul
         shapes: shapes(g)?,
     };
     optimize(&mut program, types);
+    crate::sums::apply(&mut program);
     crate::trmc::apply(&mut program);
     crate::reuse::apply(&mut program);
     program
