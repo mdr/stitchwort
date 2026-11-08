@@ -889,7 +889,7 @@ impl State {
                 let call = call.clone();
                 let resume = resume(handler, Value::Erased);
                 let k = Value::Fun(new_fun(Fun::StateK(resume.clone())));
-                let jump = Value::Fun(new_fun(Fun::JumpK));
+                let jump = Value::Fun(crate::value::shared_jump_k());
                 let then = Ret::Step(Box::new((resume, ret)));
                 self.regs.extend([o, k, jump, state]);
                 self.apply(program, image, call, 4, then)

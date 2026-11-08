@@ -2936,7 +2936,7 @@ pub unsafe extern "C" fn sw_eff_step(
             let call = call.clone();
             let resume = resume(handler, Value::Erased);
             let k = Value::Fun(new_fun(Fun::StateK(resume.clone())));
-            let jump = Value::Fun(new_fun(Fun::JumpK));
+            let jump = Value::Fun(crate::value::shared_jump_k());
             // SAFETY: the caller's contract: the state is taken.
             let st = unsafe { std::mem::take(&mut *state) };
             write(0, call);
