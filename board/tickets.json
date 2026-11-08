@@ -1,5 +1,5 @@
 {
-  "next": 2395,
+  "next": 2396,
   "tickets": [
     {
       "id": 47,
@@ -23524,7 +23524,7 @@
         "perf"
       ],
       "epic": "comparative-speed",
-      "body": "From SW-2384. Waits for D3420. Est. dijkstra 8-15%. 2-3 h.\n\nD3420, Matt, 8 Nov 2026: yes. \"let's explore this. Let's see if we can do an invisible optimization that helps us. It feels like we're pushing the boundaries here, so we need to think quite carefully. But hey, maybe we're innovating.\" Orchestrator: an independent Opus review of the design (soundness first) before implementation.\n",
+      "body": "From SW-2384. Waits for D3420. Est. dijkstra 8-15%. 2-3 h.\n\nD3420, Matt, 8 Nov 2026: yes. \"let's explore this. Let's see if we can do an invisible optimization that helps us. It feels like we're pushing the boundaries here, so we need to think quite carefully. But hey, maybe we're innovating.\" Orchestrator: an independent Opus review of the design (soundness first) before implementation.\n\nReview SW-2393 (docs/reviews/SW-2393-reuse-across-calls-review.md): sound with changes. Required before or in this lane: F1 validate never reads the token slot and a copy is never a function value, debug assertion on token operands; F2 store copies on the global, encoded and validated (built executables); F3 inline empty-token path (SW-2395); F4 depth limit 4, cap on copies and IR growth, copy counts reported; F5 state exactly whether a local Ctor or a call gets the token first. Estimate revised to 4-10% on dijkstra (review) / 8-12% (note's own arithmetic); show cells unique on dijkstra itself. Orchestrator's call: profiler folds copies into their definition's row. Ready to start when a build slot frees.\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
@@ -23547,17 +23547,19 @@
     {
       "id": 2393,
       "title": "Review (fresh eyes, soundness first): docs/proposals/reuse-across-calls.md, the hidden reuse-token argument to copied callees, before implementation (SW-2391)",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": "",
       "labels": [
         "review"
       ],
       "epic": "comparative-speed",
-      "body": "D3420 yes with 'think quite carefully'. Paper. 60 min.",
+      "body": "D3420 yes with 'think quite carefully'. Paper. 60 min.\n\nLane (Opus, 09:45, ~10 min): docs/reviews/SW-2393-reuse-across-calls-review.md, commits db4772530 afdc6171e on lane/SW-2393. Verdict: sound with changes. No memory-safety hole: tokens still made only by Unpack/DropReuse from count-1 cells, moved, checked. Required before implementation: F1 validate the token slot is never read by the IR and that variants never become values, plus a debug assert on token operands (native ctor_reuse overwrites fields without dropping them); F2 the variant info must be encoded in codec (stitchwort build rebuilds bytecode from the Program); F3 an inline miss path for Erased tokens (shared maps would otherwise pay a helper call per rebuild); F4 a depth limit and a cap on variants; F5 a precise local-first claim rule. Estimate restated as 4-10% (the note's own arithmetic gives 8-12%, not 15). No new decisions for Matt.\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
-      "commits": []
+      "commits": [
+        "66826ecb5"
+      ]
     },
     {
       "id": 2394,
@@ -23571,6 +23573,21 @@
       ],
       "epic": "comparative-speed",
       "body": "D3416, Matt, 8 Nov 2026: yes. D3417, Matt, 8 Nov 2026: one Graph.distances with an optional named index argument instead of a separate distancesIndexed (\"Yeah, proceed with that\"). D3418 moot (returns a Map as today). D3419 (Index type shape) to bring to Matt from the updated note before stage 2. 90 min.",
+      "created": "2026-11-08",
+      "updated": "2026-11-08",
+      "commits": []
+    },
+    {
+      "id": 2395,
+      "title": "Native: an inline path for CtorReuse with an empty token (no out-of-line helper call), which today's local-token misses also take",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "comparative-speed",
+      "body": "From SW-2393 F3; required by SW-2391 but useful alone. Measure on matcher (3.5M misses) and dijkstra. 45 min.",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
