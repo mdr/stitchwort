@@ -21956,17 +21956,19 @@
     {
       "id": 2296,
       "title": "[Opus] Comparative speed 3: where the gaps come from: profile the worst pairs, rank causes with measured shares, tie each to an existing plan, file tickets",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-2296",
       "labels": [
         "perf"
       ],
       "epic": "comparative-speed",
-      "body": "Plan: docs/proposals/comparative-speed.md §7 (D3330, D3340 native faces Python and Lean, D3341 no targets, D3342 natural data structures). After SW-2295. 1 h. Absorbs the startup split (SW-2291) if not done by then.\n\nStarted 7 Nov 2026 23:33; expected: 90 min. Moved before SW-2295 (Matt, 7 Nov 2026: profile first: analyse, notice, address, recheck; invest in the profiling tools if they cannot show what we need). Confirms or refutes SW-2302, SW-2304, SW-2319-2324 and SW-2135.\n",
+      "body": "Plan: docs/proposals/comparative-speed.md §7 (D3330, D3340 native faces Python and Lean, D3341 no targets, D3342 natural data structures). After SW-2295. 1 h. Absorbs the startup split (SW-2291) if not done by then.\n\nStarted 7 Nov 2026 23:33; expected: 90 min. Moved before SW-2295 (Matt, 7 Nov 2026: profile first: analyse, notice, address, recheck; invest in the profiling tools if they cannot show what we need). Confirms or refutes SW-2302, SW-2304, SW-2319-2324 and SW-2135.\n\nDone on lane/SW-2296, a19984fc (Opus, 8 Nov 00:06; about 33 min, est. 90). Report: docs/reviews/SW-2296-native-profiles.md. Ten programs profiled (samply) and counted. Measured shares:\n- octopus: grid 68% (lookup 24%, around's lists 44%), SW-2320 confirmed.\n- expressions and scan (37 s each, the slowest): Std.Parse on effects and closures; apply slow path 22%, effect steps 15-19%, closure frees 14%. New, needs a design note.\n- binary-trees: allocation through sw_ctor 37% (29% not mimalloc) plus frees 15%, SW-2321 confirmed. Call bookkeeping about 5%, SW-2322 confirmed at the low end.\n- Hole ops (New/Fill/Take) through generic sw_prim: octopus 17%, matcher 15%. New.\n- pidigits: to_bigint copying 20%, SW-2302 confirmed. SW-2304's Int half refuted (under 1%); its argument-Vec half confirmed small (1.4-4.9%).\n- SW-2135: matcher 12-15%, dijkstra about 18%, octopus under 5%. SW-2323: matcher up to 16%. SW-2324: can't tell from samples.\n- Not inlined: Nat compares and Array.GetOr/Set, memory-game 25-29%. New.\nTooling: named symbols for generated bodies, a call-counts runtime feature, task profile:native. Tests: object::each_body_is_named_after_its_definition, call_counts test (with and without the feature), test:lane AREA=native 50/50, test:features ok, clippy with and without the feature.\n",
       "created": "2026-11-07",
-      "updated": "2026-11-07",
-      "commits": []
+      "updated": "2026-11-08",
+      "commits": [
+        "9cbd7c1b2f9cb197d2b468480519a57ccc7a5f69"
+      ]
     },
     {
       "id": 2297,
