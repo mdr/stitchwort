@@ -588,6 +588,73 @@ pub fn bind_float_natives(g: &Ev) -> Result<Vec<NativeBinding<FloatPrim>>, Resou
     bind_natives(g, FLOAT_NATIVES)
 }
 
+/// A `Fin` conversion that is the identity in the fast runtimes, where a
+/// `Fin` is stored as the `Nat` it counts up to
+/// ([`crate::erasure::nat_shape`]; docs/proposals/nat-shaped-types.md,
+/// stage 2). Each runs as a function returning its number argument, which
+/// the simplifier inlines at a direct call, so it costs no steps there and
+/// one frame when called as a closure, instead of one frame per `FSucc`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum FinNative {
+    /// `Fin.toNat i` is `i`.
+    ToNat,
+    /// `Fin.ofNatLt n i lt` is `i`: the bound is the erased proof's job.
+    OfNatLt,
+}
+
+impl FinNative {
+    /// Which of the definition's parameters (counting erased ones) is the
+    /// number it returns: `i` in both `Fin.toNat [n] i` and
+    /// `Fin.ofNatLt n i lt`.
+    pub fn number_param(self) -> usize {
+        match self {
+            FinNative::ToNat | FinNative::OfNatLt => 1,
+        }
+    }
+}
+
+/// The `Fin` conversions with identity natives, as for [`TEXT_NATIVES`].
+/// A definition's content hash covers `Fin` too, so a changed `Fin` unbinds
+/// them as well as a changed definition.
+const FIN_NATIVES: &[(Builtin, FinNative, &str)] = &[
+    (
+        Builtin::FinToNat,
+        FinNative::ToNat,
+        "106c7ba8a8ebfe6ef8cdd02c2b90caf68efb1c3e47ae2a0c0df35f8b11d0350c",
+    ),
+    (
+        Builtin::FinOfNatLt,
+        FinNative::OfNatLt,
+        "611c35e0501875b77124d9ece23151f8d8d211dde99cfd0ef92441ac0a3c3b9a",
+    ),
+];
+
+/// Matches each `Fin` native with the definition it replaces, by content
+/// hash.
+pub fn bind_fin_natives(g: &Ev) -> Result<Vec<NativeBinding<FinNative>>, ResourceError> {
+    bind_natives(g, FIN_NATIVES)
+}
+
+/// The `Fin` natives that apply: those bound by hash, and only while `Fin`
+/// is stored as a number. It isn't while rebuilds are checked
+/// ([`crate::erasure::check_rebuilds`]), and an identity native given a
+/// cell would return the cell.
+pub fn fin_natives(g: &Ev) -> Result<HashMap<DefId, FinNative>, ResourceError> {
+    let numbers = g
+        .env
+        .registry()
+        .loaded_data(Builtin::Fin)
+        .is_some_and(|d| crate::erasure::nat_shape(g, d).is_some());
+    if !numbers {
+        return Ok(HashMap::default());
+    }
+    Ok(bind_fin_natives(g)?
+        .into_iter()
+        .filter(|b| b.bound)
+        .filter_map(|b| Some((b.id?, b.native)))
+        .collect())
+}
+
 /// The library's `Float`, if its file is loaded and it is the declaration
 /// the native double was written for: the kernel binds it only then, by
 /// content hash (its pin in `stitchwort_core::pins`).

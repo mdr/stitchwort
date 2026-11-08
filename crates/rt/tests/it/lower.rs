@@ -591,8 +591,9 @@ def main(): {IO} () :=
 /// (docs/proposals/erase-determined-fields.md): `Fin`'s successor stores
 /// only the predecessor, which makes `Fin` a number
 /// (docs/proposals/nat-shaped-types.md), `Vec`'s cells store no length, and
-/// a match that reads one rebuilds it from the matched value's index: `Fin.toNat`'s recursive call passes
-/// `n - 1`, and `height` computes `Succ (n - 1)`.
+/// a match that reads one rebuilds it from the matched value's index:
+/// `height` computes `Succ (n - 1)`. (`Fin.toNat` is the identity, bound by
+/// hash in `stitchwort_rt::natives`, so its call is the number itself.)
 #[test]
 fn determined_fields_are_rebuilt() {
     insta::assert_snapshot!(ir(r#"
@@ -615,7 +616,8 @@ def main(): {IO} () :=
 /// Types shaped like `Nat` (docs/proposals/nat-shaped-types.md) are
 /// numbers: successors around the zero are a literal, around anything else
 /// an addition, and a match is a `Nat` match with the zero's arm first,
-/// whichever order the type declares them in.
+/// whichever order the type declares them in. `Fin.toNat` is the identity
+/// on them, inlined at its calls.
 #[test]
 fn nat_shaped_types_are_numbers() {
     insta::assert_snapshot!(ir(r#"
@@ -696,5 +698,34 @@ type Rank: Bool → Type =
             .expect("Count");
         let shape = stitchwort_rt::erasure::nat_shape(g, count).expect("shaped");
         assert_eq!((shape.zero, shape.succ, shape.field), (1, 0, 0));
+    });
+}
+
+/// `Fin.toNat` and `Fin.ofNatLt` run as the identity only while `Fin` is
+/// stored as a number: not while rebuilds are checked, when its cells keep
+/// their index and an identity would hand back a cell.
+#[test]
+fn fin_natives_need_fin_as_a_number() {
+    with_stack(STACK, || {
+        let mut session = Session::for_stack(STACK);
+        session
+            .load(
+                "test.sw",
+                "import Std (Fin, Nat)\ndef two: Nat := Fin.toNat (Fin.ofNatLt 3 2 rfl)\n",
+            )
+            .unwrap_or_else(|e| panic!("doesn't check: {e:?}"));
+        let g = &session.elab.ev();
+        let names = |g: &stitchwort_core::Ev| {
+            let mut names: Vec<String> = stitchwort_rt::natives::fin_natives(g)
+                .expect("hashes")
+                .keys()
+                .map(|id| g.def(*id).name().to_string())
+                .collect();
+            names.sort();
+            names
+        };
+        assert_eq!(names(g), ["Fin.ofNatLt", "Fin.toNat"]);
+        let _checking = stitchwort_rt::erasure::checking_rebuilds();
+        assert!(names(g).is_empty());
     });
 }

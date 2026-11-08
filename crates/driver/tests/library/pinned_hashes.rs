@@ -66,6 +66,9 @@ fn bindings(g: &stitchwort_core::Ev) -> Vec<(String, Option<String>, bool)> {
     for b in natives::bind_float_natives(g).expect("hashes") {
         out.push(rt(b.name, b.hash, b.bound));
     }
+    for b in natives::bind_fin_natives(g).expect("hashes") {
+        out.push(rt(b.name, b.hash, b.bound));
+    }
     // Arrays bind all or nothing: a program that loads `Array` without
     // them is refused, so this is the same check made before review.
     let array = natives::bind_array(g).expect("hashes");
