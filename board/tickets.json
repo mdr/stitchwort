@@ -1,5 +1,5 @@
 {
-  "next": 2362,
+  "next": 2365,
   "tickets": [
     {
       "id": 47,
@@ -22988,7 +22988,7 @@
     {
       "id": 2360,
       "title": "Proposal: a small-object allocator for cells (Lean-style), now that mimalloc is most of cell build/free cost (binary-trees mi_free 14.4%, mi_malloc_aligned 11.4%)",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": "",
       "labels": [
@@ -22996,10 +22996,12 @@
         "design"
       ],
       "epic": "comparative-speed",
-      "body": "From SW-2321. ABI and runtime design: a note in docs/proposals first; Matt decides. Paper lane 60 min.\n\nStarted 04:03 UTC, Opus, expected 60 min.\n",
+      "body": "From SW-2321. ABI and runtime design: a note in docs/proposals first; Matt decides. Paper lane 60 min.\n\nStarted 04:03 UTC, Opus, expected 60 min.\n\n\n04:12 UTC: note written (9 min, est. 60), docs/proposals/cell-allocator.md (lane/SW-2360, dff541a04). Rec: no allocator of our own (Lean moved to mimalloc 3, Koka uses it); a per-run cell cache in Context, inline in native code (est. 25-35% binary-trees, inferred), after a cheap mimalloc-direct GlobalAlloc trial; header to SW-2324. D3413, D3414 open. Review.\n\nMerged. D3413 (keep mimalloc; per-run cell cache) and D3414 (cell header to SW-2324 compact values) for Matt, recs yes. Tickets SW-2362 SW-2363 SW-2364. Model result: Opus, worked, 9 min (est. 60).\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
-      "commits": []
+      "commits": [
+        "903605ba6"
+      ]
     },
     {
       "id": 2361,
@@ -23012,6 +23014,51 @@
       ],
       "epic": "comparative-speed",
       "body": "From SW-2359 (8 Nov 2026). Investigation first: profile and STITCHWORT_NATIVE_DUMP, no code change until the cause is measured. 45 min.\n\nStarted 04:12 UTC, Sonnet, expected 45 min.\n",
+      "created": "2026-11-08",
+      "updated": "2026-11-08",
+      "commits": []
+    },
+    {
+      "id": 2362,
+      "title": "Cell allocator stage 1: the allocator wrapper calls mi_malloc/mi_free rather than the aligned variants, and a longer purge delay; kept only if binary-trees moves 2% or more",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "comparative-speed",
+      "body": "From docs/proposals/cell-allocator.md (SW-2360). Profile before and after. 30-45 min.",
+      "created": "2026-11-08",
+      "updated": "2026-11-08",
+      "commits": []
+    },
+    {
+      "id": 2363,
+      "title": "Cell allocator stage 2: a per-run cell cache in native code (freed-cell lists in the run context, inline take and return, byte cap, emptied at run end; not in traced builds)",
+      "status": "backlog",
+      "agent": "Opus",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "comparative-speed",
+      "body": "From docs/proposals/cell-allocator.md (SW-2360). Waits for D3413. Est. binary-trees 25-35%. 60-90 min.",
+      "created": "2026-11-08",
+      "updated": "2026-11-08",
+      "commits": []
+    },
+    {
+      "id": 2364,
+      "title": "Drop of a cell holding heap values collects them in a fresh Vec per top-level drop (value.rs:364-372, :303); thread the work list through the freed cells instead, as Lean does",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "comparative-speed",
+      "body": "From docs/proposals/cell-allocator.md (SW-2360). Profile first: drop code is about 10% of matcher's self time; measure the Vec's share before changing. 30 min.",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
