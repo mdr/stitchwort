@@ -1,5 +1,5 @@
 {
-  "next": 2387,
+  "next": 2388,
   "tickets": [
     {
       "id": 47,
@@ -23406,14 +23406,14 @@
     {
       "id": 2385,
       "title": "Overmind: put perf in the .#compare dev shell (or document how) and check bench:compare --instructions works there (perf_event_paranoid)",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
         "tooling"
       ],
       "epic": "comparative-speed",
-      "body": "From SW-2379: Linux path untested. 20 min, needs Overmind.\n\nStarted 05:52 UTC, Sonnet, expected 20 min (flake change here; Overmind runs it after merge).\n\nMerged; Mac shell drvPath unchanged. Waiting on an Overmind run to close. Model result: Sonnet, worked, 2 min (est. 20).\n",
+      "body": "From SW-2379: Linux path untested. 20 min, needs Overmind.\n\nStarted 05:52 UTC, Sonnet, expected 20 min (flake change here; Overmind runs it after merge).\n\nMerged; Mac shell drvPath unchanged. Waiting on an Overmind run to close. Model result: Sonnet, worked, 2 min (est. 20).\n\nOvermind job 20: perf_event_paranoid 2, perf 7.2.9, pidigits native 9.45 G vs cpython 44.45 G instructions (0.21x; time 0.35x). Done.\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": [
@@ -23436,6 +23436,21 @@
       "commits": [
         "396ea3b45"
       ]
+    },
+    {
+      "id": 2387,
+      "title": "bench:compare: name its output by date, time and host, so a second run on the same day doesn't overwrite the first's .md and .json",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "tooling"
+      ],
+      "epic": "comparative-speed",
+      "body": "Overmind job 20 overwrote job 19's report. 10 min.",
+      "created": "2026-11-08",
+      "updated": "2026-11-08",
+      "commits": []
     }
   ]
 }
