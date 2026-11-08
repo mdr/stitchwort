@@ -1,5 +1,5 @@
 {
-  "next": 2453,
+  "next": 2461,
   "tickets": [
     {
       "id": 47,
@@ -17683,9 +17683,9 @@
       "labels": [
         "runtime"
       ],
-      "body": "From docs/research/aoc-friction-synthesis.md. Split from SW-808. 60 min.",
+      "body": "From docs/research/aoc-friction-synthesis.md. Split from SW-808. 60 min.\n\nRaised by SW-2450 (8 Nov 2026): bit operations are a pattern the benchmarks miss; Nat.xor is recursive, about 4.3 us each.\n",
       "created": "2026-11-07",
-      "updated": "2026-11-07",
+      "updated": "2026-11-08",
       "commits": []
     },
     {
@@ -24475,14 +24475,14 @@
     {
       "id": 2450,
       "title": "Benchmark breadth: review the ten bench/compare programs for over-fitting, and propose additions, especially Lean's own benchmark programs (lean4 tests/bench: binarytrees, deriv, const_fold, qsort, rbmap, unionfind, ...), more Benchmarks Game programs, and a broad AoC-day suite timed against CPython; say which to add, how to port them faithfully, and how to report a wider geomean without losing the history",
-      "status": "doing",
+      "status": "review",
       "agent": "Opus",
       "where": "",
       "labels": [
         "bench"
       ],
       "epic": "comparative-speed",
-      "body": "Matt, 8 Nov 2026 ~22:20: \"I don't want us to over optimize on a fixed set of particular benchmarks. Maybe there are other benchmarks we should be considering as well.\" Paper lane, 90 min. Also: check whether tonight's fixes moved anything outside the ten (AoC days natively).\nStarted 22:14 UTC (paper).\n",
+      "body": "Matt, 8 Nov 2026 ~22:20: \"I don't want us to over optimize on a fixed set of particular benchmarks. Maybe there are other benchmarks we should be considering as well.\" Paper lane, 90 min. Also: check whether tonight's fixes moved anything outside the ten (AoC days natively).\nStarted 22:14 UTC (paper).\nDone 22:23 (paper): docs/reviews/SW-2450-benchmark-breadth.md on lane/SW-2450 (f38f58074). Tonight's speed work is general in mechanism but its priorities came from parsers, binary-trees and dijkstra; three changes rewrote benchmarked days (octopus, disk, dijkstra index). Proposes eight wide-set programs (spectral-norm, const_fold, fannkuch-redux, rbmap/-ck, deriv, unionfind, k-nucleotide, nqueens-each), core/wide/all geomeans with history keys kept, a bench:aoc native instruction sweep, and floats plus const_fold/rbmap in compact values' gate set. Lean's run-time programs now live in tests/compile_bench/.\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
@@ -24513,6 +24513,126 @@
       ],
       "epic": "elaborator-kernel",
       "body": "Found 8 Nov 2026 22:21 in compute mode. Bisecting in .claude/worktrees/SW-2452 at 4c577908c with FROM/TO (scratchpad bisect-overflow.sh); the case number and dumped input go here. Then: find the unbounded recursion, bound it or make it iterative, add the input as a regression example. Investigate in lanes mode.",
+      "created": "2026-11-08",
+      "updated": "2026-11-08",
+      "commits": []
+    },
+    {
+      "id": 2453,
+      "title": "bench:aoc: build every AoC day natively, count instructions, diff against the last run (answers 'did a speed change move anything outside the ten')",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "bench"
+      ],
+      "epic": "comparative-speed",
+      "body": "From SW-2450. 1.5 h.",
+      "created": "2026-11-08",
+      "updated": "2026-11-08",
+      "commits": []
+    },
+    {
+      "id": 2454,
+      "title": "Wide benchmark set, first port: spectral-norm (floats) in Stitchwort, Python and Lean, plus programs.toml 'set' field and compare.py printing three geomeans (core ten, wide, all); history.toml gets wide_* keys beside the existing ones",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "bench"
+      ],
+      "epic": "comparative-speed",
+      "body": "From SW-2450 (rank 1). 1.5 h. Port faithfully; note any algorithmic difference in the README.",
+      "created": "2026-11-08",
+      "updated": "2026-11-08",
+      "commits": []
+    },
+    {
+      "id": 2455,
+      "title": "Wide benchmark set: Lean's const_fold and rbmap/rbmap-ck (tests/compile_bench) ported to Stitchwort and Python",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "bench"
+      ],
+      "epic": "comparative-speed",
+      "body": "From SW-2450 (ranks 2, 4). After the first port. 2 h.",
+      "created": "2026-11-08",
+      "updated": "2026-11-08",
+      "commits": []
+    },
+    {
+      "id": 2456,
+      "title": "Wide benchmark set: fannkuch-redux (small arrays in place) and nqueens with Each (multishot effects)",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "bench"
+      ],
+      "epic": "comparative-speed",
+      "body": "From SW-2450 (ranks 3, 8). After the first port. 2 h.",
+      "created": "2026-11-08",
+      "updated": "2026-11-08",
+      "commits": []
+    },
+    {
+      "id": 2457,
+      "title": "Wide benchmark set: deriv and unionfind (Lean) and k-nucleotide (text, string-keyed maps)",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "bench"
+      ],
+      "epic": "comparative-speed",
+      "body": "From SW-2450 (ranks 5-7). After the first port. 3 h.",
+      "created": "2026-11-08",
+      "updated": "2026-11-08",
+      "commits": []
+    },
+    {
+      "id": 2458,
+      "title": "Float.sqrt (and perhaps exp, log, sin, cos) as std primitives; needed by n-body and spectral-norm's straightforward form; user-visible, so guide and syntax docs",
+      "status": "backlog",
+      "agent": "Opus",
+      "where": "",
+      "labels": [
+        "std"
+      ],
+      "epic": "comparative-speed",
+      "body": "From SW-2450. Std core: Opus (D2506). 1.5 h.",
+      "created": "2026-11-08",
+      "updated": "2026-11-08",
+      "commits": []
+    },
+    {
+      "id": 2459,
+      "title": "Disk benchmark: the Stitchwort day uses Gauss's rule for part 2 while the Python port sums the range; make the ports match or note it in bench/compare's README",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "bench"
+      ],
+      "epic": "comparative-speed",
+      "body": "From SW-2450. 10 min.",
+      "created": "2026-11-08",
+      "updated": "2026-11-08",
+      "commits": []
+    },
+    {
+      "id": 2460,
+      "title": "withIndex |> sumBy allocates a pair per element (why disk was rewritten); profile and fuse or specialise",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "comparative-speed",
+      "body": "From SW-2450. Profile first. 45 min.",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
