@@ -1,5 +1,5 @@
 {
-  "next": 2413,
+  "next": 2415,
   "tickets": [
     {
       "id": 47,
@@ -23858,6 +23858,36 @@
       ],
       "epic": "test-infra",
       "body": "Daily tier report target/tier-report/daily-20261108-121833.md (and the rerun). 45 min.",
+      "created": "2026-11-08",
+      "updated": "2026-11-08",
+      "commits": []
+    },
+    {
+      "id": 2413,
+      "title": "Full tier on Overmind (15 GiB) was stopped for low memory at test 1105/2321 by Claude Code's shell reaper, under memguard's 16 GB cap (peak 12.7 GB RSS); MEM_CAP_FULL=12 wasn't passed on to the nested task test:full:steps (log shows --cap-gb 16). Pass the cap through, and set a per-machine cap or fewer test threads so the full tier fits a 15 GiB machine",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "test-infra"
+      ],
+      "epic": "test-infra",
+      "body": "Job 22, 8 Nov 2026, f4bb28f91, 11:26-~13:00. Log: Overmind scratchpad j22-full.log. Related: SW-2412 (daily tier over 16 GB on Speedwell). 45 min.",
+      "created": "2026-11-08",
+      "updated": "2026-11-08",
+      "commits": []
+    },
+    {
+      "id": 2414,
+      "title": "Nine LSP server tests failed under load in the full tier on Overmind (eight 'no diagnostics for ... at version 1' or request timeouts at 60-561 s); one, a_code_action_at_a_goal_offers_what_closes_it, failed an assertion (offered omega and cases): check whether that one is real, and make the others robust to load",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "lsp"
+      ],
+      "epic": "editor-playground",
+      "body": "Job 22, 8 Nov 2026, f4bb28f91; same pattern as job 8's daily tier. Test names and lines in the ticket's source report (Overmind j22-full.log). 60 min.",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
