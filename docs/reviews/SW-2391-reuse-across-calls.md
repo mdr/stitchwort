@@ -152,7 +152,7 @@ read. Native build time of dijkstra: 6.2 s before, 6.3 s after.
   `native_executables_keep_the_copies_that_reuse_cells`.
 - `task test:lane AREA=rt`: 64 passed (the new `reuse::` tests added to the
   lane). `task test:lane AREA=native`: 63 passed (includes the machine/native
-  agreement tests of `n1.rs`). `task bench:compare:check`: see the ticket.
+  agreement tests of `n1.rs`). `task bench:compare:check`: 66 ok, 0 failed (9.6 min, beside another lane's check).
   `cargo fmt`; `cargo clippy --release -p stitchwort-rt -p stitchwort-native
   -p stitchwort-cli --tests -- --deny warnings`, also with
   `--features stitchwort-cli/native`: clean.
