@@ -1,5 +1,5 @@
 {
-  "next": 2415,
+  "next": 2417,
   "tickets": [
     {
       "id": 47,
@@ -22839,7 +22839,7 @@
     {
       "id": 2350,
       "title": "Operations in place stage C: the handler stack, consumer link and in-place calls on the machine, behind a flag",
-      "status": "doing",
+      "status": "review",
       "agent": "Opus",
       "where": "",
       "labels": [
@@ -22847,7 +22847,7 @@
         "effects"
       ],
       "epic": "comparative-speed",
-      "body": "From docs/proposals/operations-in-place.md (SW-2339); D3400 yes (Matt). After SW-2349. 90 min.\n\nD3412, Matt, 8 Nov 2026 ~09:38: yes, \"I think we should proceed with this.\" Stages B-D may change effect and step counts (not results).\nStarted 15:07 UTC, Opus, expected 120 min.\n",
+      "body": "From docs/proposals/operations-in-place.md (SW-2339); D3400 yes (Matt). After SW-2349. 90 min.\n\nD3412, Matt, 8 Nov 2026 ~09:38: yes, \"I think we should proceed with this.\" Stages B-D may change effect and step counts (not results).\nStarted 15:07 UTC, Opus, expected 120 min.\n\nProgress (lane, 8 Nov): built on the machine behind STITCHWORT_IN_PLACE=1 (internal; off by default; native forces it off). Entries, consumer link as a property of Ret (Eff / LinkedReg / InPlace), thunked fold and translate bodies in lowering (FoldInPlace, FoldState[Comp]InPlace, TranslateInPlace), Perform/TailPerform, Tail/Abort/aimed unwind, state in entries. No §3.3 case failed. Flag on: all 116 run lines of the effect examples plus a new fixture agree with the reference evaluator; step limits agree. Measured on the machine (x20 inputs): effect-loop steps 3.1x/3.3x/26x fewer on expressions/scan/bridge, machine steps 1.14-1.19x, time 1.04-1.11x. Row-generic code (List.map via bindIn) isn't reached: stage E. Notes in the proposal, section 12.\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
@@ -23763,17 +23763,19 @@
     {
       "id": 2406,
       "title": "Design note: erase constructor fields the type's indices determine at run time (overturning D141 for run time), rebuilding them at a match from the scrutinee's type, so Fin and similar indexed types are Nat-shaped; all backends incl. JS; correct nat-shaped-types.md §1.1/§2.3",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": "",
       "labels": [
         "design"
       ],
       "epic": "comparative-speed",
-      "body": "D3426, Matt, 8 Nov 2026: yes, design note approved. From SW-2398's blocker 1. Paper, 60-90 min. Queued until usage pace drops back under 1 (Matt: \"we need to pause a little bit and wait until ... pace drops back\").\nStarted 15:56 UTC, Opus.\n",
+      "body": "D3426, Matt, 8 Nov 2026: yes, design note approved. From SW-2398's blocker 1. Paper, 60-90 min. Queued until usage pace drops back under 1 (Matt: \"we need to pause a little bit and wait until ... pace drops back\").\nStarted 15:56 UTC, Opus.\n\n16:08 note committed on lane/SW-2406 (38d193807): docs/proposals/erase-determined-fields.md; nat-shaped-types.md §1.1/§2.3 corrected; README row. Recommends erasing determined fields on rt and JS only, rebuilt from a replay of the kernel's index unification (option A); kernel and reference evaluator unchanged. Stages: 2.5-3.5 h (core+rt, Opus) + 1.5-2 h (JS, Sonnet); SW-2398 merges after stage 1 and SW-2405. Questions in §9.\n\nMerged. Open for Matt: D3429 (§9 Q1, overturn D141 stored fields on the fast runtimes). Orchestrator's calls Q2-Q5 as recommended. Stages SW-2415 SW-2416. Model result: Opus, worked, 12 min (est. 75).\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
-      "commits": []
+      "commits": [
+        "0e290fdea"
+      ]
     },
     {
       "id": 2407,
@@ -23894,6 +23896,37 @@
       ],
       "epic": "editor-playground",
       "body": "Job 22, 8 Nov 2026, f4bb28f91; same pattern as job 8's daily tier. Test names and lines in the ticket's source report (Overmind j22-full.log). 60 min.",
+      "created": "2026-11-08",
+      "updated": "2026-11-08",
+      "commits": []
+    },
+    {
+      "id": 2415,
+      "title": "Erase determined fields stage 1: core finds index-determined constructor fields and how to rebuild each at a match (replaying unify_index outside the kernel); interpreter and native stop storing them; debug check stores and compares in test builds; reference evaluator unchanged",
+      "status": "backlog",
+      "agent": "Opus",
+      "where": "",
+      "labels": [
+        "rt",
+        "core"
+      ],
+      "epic": "comparative-speed",
+      "body": "From docs/proposals/erase-determined-fields.md (SW-2406). Waits for D3429. Orchestrator's calls on §9 Q2-Q5: (A) replay unification, automatic (as D3424), reference evaluator keeps storing, debug check yes. Then SW-2398 rebases on it. 2.5-3.5 h.",
+      "created": "2026-11-08",
+      "updated": "2026-11-08",
+      "commits": []
+    },
+    {
+      "id": 2416,
+      "title": "Erase determined fields stage 2: the same under --js",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "js"
+      ],
+      "epic": "comparative-speed",
+      "body": "After SW-2415. 1.5-2 h.",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
