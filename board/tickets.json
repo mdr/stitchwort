@@ -22566,7 +22566,7 @@
     {
       "id": 2334,
       "title": "test:affected --dry-run prints 'over the 90 s budget; cut ... build-config' while its own estimate is 68.9 s and the real run cuts nothing; make the warning match what it does",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Sonnet",
       "where": "",
       "labels": [
@@ -22574,7 +22574,7 @@
         "bug"
       ],
       "epic": "test-infra",
-      "body": "From the SW-2296 batch verifier, 8 Nov 2026. Also: no rule covers bench/compare/compare.py. 20 min.",
+      "body": "From the SW-2296 batch verifier, 8 Nov 2026. Also: no rule covers bench/compare/compare.py. 20 min.\n\nStarted 04:12 UTC, Sonnet, expected 20 min.\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
@@ -22712,7 +22712,7 @@
     {
       "id": 2343,
       "title": "Elaboration: in a lambda with an unconstrained result type, 9 < n elaborates as a Prop rather than Bool, giving misleading type mismatches; and Eq.trans / Grid.ext with _ struggle on higher-order arguments (?x cavern flashed)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Sonnet",
       "where": "",
       "labels": [
@@ -22720,7 +22720,7 @@
         "bug"
       ],
       "epic": "elaborator-kernel",
-      "body": "From SW-2320's report. Found writing day 11's bridge proofs. Repro to extract. 30 min to triage.",
+      "body": "From SW-2320's report. Found writing day 11's bridge proofs. Repro to extract. 30 min to triage.\n\nStarted 04:12 UTC, Sonnet, expected 30 min.\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
@@ -23004,14 +23004,14 @@
     {
       "id": 2361,
       "title": "Why does no CtorReuse on matcher find a unique token of the same size? All 3.46M reuses fall back (token erased, shared or another size); find whether it is call-site sharing or the reuse analysis pairing the wrong cells, and whether fixing it turns them into in-place overwrites",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Sonnet",
       "where": "",
       "labels": [
         "perf"
       ],
       "epic": "comparative-speed",
-      "body": "From SW-2359 (8 Nov 2026). Investigation first: profile and STITCHWORT_NATIVE_DUMP, no code change until the cause is measured. 45 min.",
+      "body": "From SW-2359 (8 Nov 2026). Investigation first: profile and STITCHWORT_NATIVE_DUMP, no code change until the cause is measured. 45 min.\n\nStarted 04:12 UTC, Sonnet, expected 45 min.\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
