@@ -23177,14 +23177,14 @@
     {
       "id": 2371,
       "title": "Why does sw_ctor_reuse fire 1.9M times against 25M Map.Tree node rebuilds on dijkstra? (reuse of the dead node in rebuild)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Sonnet",
       "where": "",
       "labels": [
         "perf"
       ],
       "epic": "comparative-speed",
-      "body": "From docs/reviews/SW-2369-dijkstra-disk.md. Measure first. 30 min.",
+      "body": "From docs/reviews/SW-2369-dijkstra-disk.md. Measure first. 30 min.\n\nStarted 05:09 UTC, Sonnet, expected 30 min.\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
@@ -23222,14 +23222,14 @@
     {
       "id": 2374,
       "title": "disk (2024 day 9): FreeSpace bulk build and cached minimum per length; part 1 as a counter loop; checksum as an arithmetic series with its lemma in std",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Sonnet",
       "where": "",
       "labels": [
         "perf"
       ],
       "epic": "comparative-speed",
-      "body": "From docs/reviews/SW-2369-dijkstra-disk.md. Est. 10-15% of disk together. 45 min.",
+      "body": "From docs/reviews/SW-2369-dijkstra-disk.md. Est. 10-15% of disk together. 45 min.\n\nStarted 05:09 UTC, Sonnet, expected 45 min.\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
