@@ -3962,7 +3962,9 @@ impl Gen<'_, '_> {
         }
         let slow = self.b.create_block();
         let after = self.b.create_block();
-        if let (PrimOp::Hole(h @ HoleOp::Take), 1) | (PrimOp::Hole(h @ HoleOp::Fill), 3) = (op, o.len()) {
+        if let (PrimOp::Hole(h @ HoleOp::Take), 1) | (PrimOp::Hole(h @ HoleOp::Fill), 3) =
+            (op, o.len())
+        {
             self.hole(pc, dst, h, &o, slow, after);
         } else if fast {
             let loaded: Vec<Val> = o.iter().map(|r| self.load(Loc::Reg(*r))).collect();
