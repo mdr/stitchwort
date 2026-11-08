@@ -441,11 +441,10 @@
         "One-pass flatMap: matcher sw_prim calls 99.5M -> 47.1M (SW-2323)",
         "Native hole fill/take inline: matcher sw_prim 0.5M, octopus 16.4M; Speedwell octopus 9.4 -> 2.4 s, matcher 12.9 -> 5.8 s (rough; SW-2328)",
         "Parse stage 0 counts confirm the cost model; effect-runtime values 44-48% of slow applies; continuation site misses its cache on 86-100% of pops (SW-2335)",
-        "Operations in place for every effect: design note, sound with a consumer-link condition; stages A-F (SW-2339, docs/proposals/operations-in-place.md); D3410 no (orchestrator call)"
+        "Operations in place for every effect: design note, sound with a consumer-link condition; stages A-F (SW-2339, docs/proposals/operations-in-place.md); D3410 no (orchestrator call)",
+        "After the first fixes (Overmind, 53c59e6be): native/CPython 4.7x, native/Lean 20x geomean; octopus 15.9 -> 5.1 s, matcher 15.7 -> 12.6 s, pidigits 1.55 -> 1.32 s (SW-2295 report)"
       ],
-      "now": [
-        "After-fixes table on Overmind (job 18, main 53c59e6be)"
-      ],
+      "now": [],
       "next": [
         "Operations in place stage A: classify clauses (SW-2348), then re-dispatch depth count (SW-2347) and stage B (SW-2349), then C, D, E (SW-2350-SW-2352); F optional (SW-2353)",
         "Parse stage 2: error formatting (SW-2337); stage 1 fast paths (SW-2336) after stage B",
