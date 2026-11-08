@@ -24381,14 +24381,14 @@
     {
       "id": 2444,
       "title": "Design note: fewer cells built by the effect runtime (about 60% of the parsers' cells, ~20% of expressions' time)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Opus",
       "where": "",
       "labels": [
         "perf"
       ],
       "epic": "comparative-speed",
-      "body": "From SW-2422; ties to compact-values.md and SW-2417. Paper, 90 min.\n\nFrom SW-2442: each forwarded operation allocates an Rc<Resume> and an Rc<Fun> around it (~29 M pairs on expressions). One allocation would work if Fun::Resume held the Resume inline when unshared; StateK and Ret::Step share the Rc<Resume> today. Include this in the design.\n",
+      "body": "From SW-2422; ties to compact-values.md and SW-2417. Paper, 90 min.\n\nFrom SW-2442: each forwarded operation allocates an Rc<Resume> and an Rc<Fun> around it (~29 M pairs on expressions). One allocation would work if Fun::Resume held the Resume inline when unshared; StateK and Ret::Step share the Rc<Resume> today. Include this in the design.\nStarted 22:14 UTC (paper).\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
@@ -24473,14 +24473,14 @@
     {
       "id": 2450,
       "title": "Benchmark breadth: review the ten bench/compare programs for over-fitting, and propose additions, especially Lean's own benchmark programs (lean4 tests/bench: binarytrees, deriv, const_fold, qsort, rbmap, unionfind, ...), more Benchmarks Game programs, and a broad AoC-day suite timed against CPython; say which to add, how to port them faithfully, and how to report a wider geomean without losing the history",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Opus",
       "where": "",
       "labels": [
         "bench"
       ],
       "epic": "comparative-speed",
-      "body": "Matt, 8 Nov 2026 ~22:20: \"I don't want us to over optimize on a fixed set of particular benchmarks. Maybe there are other benchmarks we should be considering as well.\" Paper lane, 90 min. Also: check whether tonight's fixes moved anything outside the ten (AoC days natively).",
+      "body": "Matt, 8 Nov 2026 ~22:20: \"I don't want us to over optimize on a fixed set of particular benchmarks. Maybe there are other benchmarks we should be considering as well.\" Paper lane, 90 min. Also: check whether tonight's fixes moved anything outside the ten (AoC days natively).\nStarted 22:14 UTC (paper).\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
