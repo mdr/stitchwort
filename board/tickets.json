@@ -1,5 +1,5 @@
 {
-  "next": 2388,
+  "next": 2390,
   "tickets": [
     {
       "id": 47,
@@ -23359,7 +23359,7 @@
     {
       "id": 2382,
       "title": "Std Graph.searchFrom: stop holding the queue twice (it is passed as an argument for proofs and also popped), so popMin and relaxEdges meet unique cells; restate without the shared queue, or wait for ghost parameters (D2900-D2905); measured -17% on day 15 by hand",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": "",
       "labels": [
@@ -23367,10 +23367,12 @@
         "std"
       ],
       "epic": "comparative-speed",
-      "body": "From docs/reviews/SW-2371-map-rebuild-reuse.md. Spec statements unchanged. 60 min.\n\nStarted 05:32 UTC, Opus, expected 60 min.\n",
+      "body": "From docs/reviews/SW-2371-map-rebuild-reuse.md. Spec statements unchanged. 60 min.\n\nStarted 05:32 UTC, Opus, expected 60 min.\n\nProgress (lane, 06:01 UTC, about 30 min): done on lane/SW-2382, commit 735170e0d.\n- searchFrom now takes `popped` and a proof `queued: Graph.Queued graph sources popped` (∃ a queue that pops as `popped` with every state in the universe), measure `(unsettled, Graph.poppedSize popped)`; no queue argument. New internal helpers: Graph.Queued, queuedPop, queuedRest, queuedLeast, poppedSize, poppedSizeAtMost. searchFromCorrect keeps `queue` as a theorem parameter. Public statements unchanged; no ghost parameters needed.\n- Interpreter counts (day 15): minView's 1.67 M Bin unpacks all shared -> all unique; popMinRaw 260 k shared -> unique.\n- Native dijkstra, bench:compare --runs 3 --instructions, interleaved: 3.11/3.11 s -> 3.03/3.05 s; 48.95 G -> 48.40 G instructions (-1.1%). Far from SW-2371's -17%.\n- Why: queue inserts are still 100% shared (2.29 M unpacks, strong count 2), and best/settled inserts 50%. Cause is in bytecode lowering, not the search: in relaxEdges' inlined `queue.insert`, the call to insertWith.%match1[0] passes the unpacked root's children as clones, not moves (slot reuse across the two sibling argument blocks of the tail call). Repro without Graph: pop-then-insert loop on a Set, half the insert walks shared. Worth a ticket (Opus, rt lowering).\n- Tests: test:lane AREA=std 24/24; aoc:check 287 namespaces ok; audit:touched Std.Graph 59 passed; bench:compare:check dijkstra 12 ok; bound_to_the_prelude + extract snapshot 5/5; snap:hashes regenerated (prelude.snap).\n\nMerged (prelude snapshot regenerated after conflict with SW-2386). Internal statements changed: searchFrom (takes popped + Queued proof), searchFromCorrect (queue stays a theorem parameter); new Queued, queuedPop/Rest/Least, poppedSize(AtMost). Public statements unchanged. Gain small (-2%) because of lowering bug SW-2388. Follow-ups SW-2388 SW-2389. Model result: Opus, worked, 30 min (est. 60).\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
-      "commits": []
+      "commits": [
+        "809569dbf"
+      ]
     },
     {
       "id": 2383,
@@ -23448,6 +23450,38 @@
       ],
       "epic": "comparative-speed",
       "body": "Overmind job 20 overwrote job 19's report. 10 min.",
+      "created": "2026-11-08",
+      "updated": "2026-11-08",
+      "commits": []
+    },
+    {
+      "id": 2388,
+      "title": "Native lowering: a call's arguments are copied instead of moved when sibling argument blocks reuse register slots, so the copies keep cells shared (dijkstra: 100% of queue insert steps, 50% of map inserts); repro: pop-then-insert loop on a Set",
+      "status": "backlog",
+      "agent": "Opus",
+      "where": "",
+      "labels": [
+        "perf",
+        "bug"
+      ],
+      "epic": "comparative-speed",
+      "body": "From SW-2382 (relaxEdges pc 49 passes root children as copies; best.insert at pc 64 moves). Likely most of SW-2371's 17%. Repro and counting patch: /private/tmp/claude-550/-Users-agent-repos-mdr-stitchwort/8230e28a-2fab-4832-920d-c5160adb7e00/scratchpad/micro/p1.sw, counting2.patch. 60-90 min.",
+      "created": "2026-11-08",
+      "updated": "2026-11-08",
+      "commits": []
+    },
+    {
+      "id": 2389,
+      "title": "Std Map.Tree.doubleL/doubleR: the Tip sub-arm returns the original v3, so the right child is unpacked shared (235k missed reuses on day 15)",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "perf",
+        "std"
+      ],
+      "epic": "comparative-speed",
+      "body": "From SW-2382. Small; measure. 30 min.",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
