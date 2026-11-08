@@ -22629,7 +22629,7 @@
         "stdlib"
       ],
       "epic": "comparative-speed",
-      "body": "From docs/proposals/parse-runtime.md (SW-2327). D3401 taken as the orchestrator's call (yes: internal state only, API and messages unchanged, any lemma naming Parse.State.note re-proved, e.g. Reads.sw:1179). After SW-2335. Est. scan 1.2-1.5x. 60 min.\n\nHeld overnight 8 Nov (orchestrator): it changes Std.Parse internals, which the overnight rules leave for Matt; ask in the morning.\n",
+      "body": "From docs/proposals/parse-runtime.md (SW-2327). D3401 taken as the orchestrator's call (yes: internal state only, API and messages unchanged, any lemma naming Parse.State.note re-proved, e.g. Reads.sw:1179). After SW-2335. Est. scan 1.2-1.5x. 60 min.\n\nHeld overnight 8 Nov (orchestrator): it changes Std.Parse internals, which the overnight rules leave for Matt; ask in the morning.\n\nMatt, 8 Nov 2026 ~13:10: yes (\"SW 2337, yes\"). Starts when pace allows.\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
