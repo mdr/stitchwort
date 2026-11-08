@@ -1,5 +1,5 @@
 {
-  "next": 2404,
+  "next": 2405,
   "tickets": [
     {
       "id": 47,
@@ -22604,17 +22604,19 @@
     {
       "id": 2336,
       "title": "Parse runtime stage 1: fast paths for the effect runtime's own function values (no argument Vec), and a small multi-entry apply cache at the run loop's continuation call site",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": "",
       "labels": [
         "perf"
       ],
       "epic": "comparative-speed",
-      "body": "From docs/proposals/parse-runtime.md (SW-2327). After SW-2335. Est. 1.2-1.3x on expressions/scan. 60-90 min.\n\nSW-2335 measured: DoneK, JumpK and resumptions are 44-48% of sw_apply_prepare calls; the fast-path PAP is the single largest kind (38%) and still calls sw_apply_prepare; rt_loop's continuation site misses its one-entry cache on 86-100% of pops; DoneK/JumpK/resumption caches never fill, so those sites make two calls (sw_apply_cached then sw_apply_prepare) where one would do.\n\nMatt, 8 Nov 2026 ~09:35: \"let's do this, but do a quick Opus design note first. If Opus is happy, let's proceed to implement.\" Started 09:29 UTC, Opus: note then implementation, expected 20 + 90 min.\n",
+      "body": "From docs/proposals/parse-runtime.md (SW-2327). After SW-2335. Est. 1.2-1.3x on expressions/scan. 60-90 min.\n\nSW-2335 measured: DoneK, JumpK and resumptions are 44-48% of sw_apply_prepare calls; the fast-path PAP is the single largest kind (38%) and still calls sw_apply_prepare; rt_loop's continuation site misses its one-entry cache on 86-100% of pops; DoneK/JumpK/resumption caches never fill, so those sites make two calls (sw_apply_cached then sw_apply_prepare) where one would do.\n\nMatt, 8 Nov 2026 ~09:35: \"let's do this, but do a quick Opus design note first. If Opus is happy, let's proceed to implement.\" Started 09:29 UTC, Opus: note then implementation, expected 20 + 90 min.\n\n\n**Lane progress (Opus, 8 Nov 2026, lane/SW-2336).** Note: docs/proposals/apply-fast-paths.md. Built and kept: A (no sw_apply_cached call for a value it can't cache), B (leaves and resumptions planned without the argument Vec), D (fast path widened to any compiled global or closure, bare or partly applied, given at least its arguments). C (4-entry cache at rt_loop's continuation site) dropped: after A it could save about 0.2%. Instructions: expressions 540.06 G to 483.64 G (1.117x), scan 508.74 G to 453.79 G (1.121x), bridge 143.19 G to 130.35 G (1.099x), disk 120.22 G to 113.69 G (1.057x). sw_apply_cached on expressions 304.5 M to 79.7 M calls. Tests: lane native (56) and rt (60), n4/n2b/n3 agreement, bench:compare:check 66 ok, new n4::runtime_values_take_the_apply_fast_paths (with and without call-counts). No step count, snapshot or trace changes. 75 min (est. 110).\n\nMerged. Stages A, B, D; C not built (0.2%). Model result: Opus, worked, 74 min (est. 110).\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
-      "commits": []
+      "commits": [
+        "127156a41"
+      ]
     },
     {
       "id": 2337,
@@ -23519,17 +23521,19 @@
     {
       "id": 2391,
       "title": "Reuse across calls: pass an emptied cell as a hidden argument to the callee that rebuilds it (a copied callee per token), pass after trmc::apply plus code.rs; docs/proposals/reuse-across-calls.md",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": "",
       "labels": [
         "perf"
       ],
       "epic": "comparative-speed",
-      "body": "From SW-2384. Waits for D3420. Est. dijkstra 8-15%. 2-3 h.\n\nD3420, Matt, 8 Nov 2026: yes. \"let's explore this. Let's see if we can do an invisible optimization that helps us. It feels like we're pushing the boundaries here, so we need to think quite carefully. But hey, maybe we're innovating.\" Orchestrator: an independent Opus review of the design (soundness first) before implementation.\n\nReview SW-2393 (docs/reviews/SW-2393-reuse-across-calls-review.md): sound with changes. Required before or in this lane: F1 validate never reads the token slot and a copy is never a function value, debug assertion on token operands; F2 store copies on the global, encoded and validated (built executables); F3 inline empty-token path (SW-2395); F4 depth limit 4, cap on copies and IR growth, copy counts reported; F5 state exactly whether a local Ctor or a call gets the token first. Estimate revised to 4-10% on dijkstra (review) / 8-12% (note's own arithmetic); show cells unique on dijkstra itself. Orchestrator's call: profiler folds copies into their definition's row. Ready to start when a build slot frees.\nStarted 09:58 UTC, Opus, expected 180 min.\n",
+      "body": "From SW-2384. Waits for D3420. Est. dijkstra 8-15%. 2-3 h.\n\nD3420, Matt, 8 Nov 2026: yes. \"let's explore this. Let's see if we can do an invisible optimization that helps us. It feels like we're pushing the boundaries here, so we need to think quite carefully. But hey, maybe we're innovating.\" Orchestrator: an independent Opus review of the design (soundness first) before implementation.\n\nReview SW-2393 (docs/reviews/SW-2393-reuse-across-calls-review.md): sound with changes. Required before or in this lane: F1 validate never reads the token slot and a copy is never a function value, debug assertion on token operands; F2 store copies on the global, encoded and validated (built executables); F3 inline empty-token path (SW-2395); F4 depth limit 4, cap on copies and IR growth, copy counts reported; F5 state exactly whether a local Ctor or a call gets the token first. Estimate revised to 4-10% on dijkstra (review) / 8-12% (note's own arithmetic); show cells unique on dijkstra itself. Orchestrator's call: profiler folds copies into their definition's row. Ready to start when a build slot frees.\nStarted 09:58 UTC, Opus, expected 180 min.\n\n\nLane, 8 Nov: built on lane/SW-2391 (7966f0472 code and tests, 8070c9abb report). Every review finding handled (F1-F6); F3 is SW-2395's change, so SW-2395 can be closed. dijkstra 41.62 -> 37.06 G instructions (-11.0%, measured), disk -1.7%, others 0 to -0.5%. Cells unique on dijkstra itself (rebuild: 12.86 M new Bin -> 12.81 M reused). AoC: 767 copies, +10.4% IR, no day capped. Tests: new reuse:: in rt and native, build::native_executables_keep_the_copies_that_reuse_cells; test:lane rt 64/64, native 63/63; bench:compare:check 66 ok (9.6 min, run beside another lane's check); clippy and fmt clean. Report: docs/reviews/SW-2391-reuse-across-calls.md.\n\nMerged. dijkstra 41.62 -> 37.06 G instructions; disk -1.7%; copies 767 over 71 AoC mains (+10.4% IR). Also did SW-2395. Model result: Opus, worked, 44 min (est. 180).\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
-      "commits": []
+      "commits": [
+        "96f610e36"
+      ]
     },
     {
       "id": 2392,
@@ -23584,14 +23588,14 @@
     {
       "id": 2395,
       "title": "Native: an inline path for CtorReuse with an empty token (no out-of-line helper call), which today's local-token misses also take",
-      "status": "backlog",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
         "perf"
       ],
       "epic": "comparative-speed",
-      "body": "From SW-2393 F3; required by SW-2391 but useful alone. Measure on matcher (3.5M misses) and dijkstra. 45 min.",
+      "body": "From SW-2393 F3; required by SW-2391 but useful alone. Measure on matcher (3.5M misses) and dijkstra. 45 min.\n\nDone in SW-2391 (n1.rs ctor_reuse inline path for an empty token).\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
@@ -23716,6 +23720,21 @@
       ],
       "epic": "comparative-speed",
       "body": "From SW-2349 review; orchestrator's call that the text table is acceptable for now. 45 min.",
+      "created": "2026-11-08",
+      "updated": "2026-11-08",
+      "commits": []
+    },
+    {
+      "id": 2404,
+      "title": "Map draining allocates about one new node per two pops (root likely shared through found.snd); investigate",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "perf"
+      ],
+      "epic": "comparative-speed",
+      "body": "From SW-2391. Predates it. 45 min.",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
