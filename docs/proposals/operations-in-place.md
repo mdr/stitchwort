@@ -782,6 +782,30 @@ What this says for the next stages **[inferred from the counts]**:
   note's stage A measure). That needs a counter in the effect runtime,
   which is a runtime change; stage C's in-place counts give it directly.
 
+**Re-dispatch depth (SW-2347)**, 8 Nov 2026 **[measured]**. With the
+`call-counts` feature, `sw_eff_step` follows each operation's chain of
+routes: an operation node met with no route pending is first performed;
+one met straight after a route (only `bind` pushes between) is that
+clause's result re-performing it; a `Done`, resumption or state step ends
+the chain. The chain's length is the number of clauses (generated forwards
+included) it passed through before one answered. `task profile:native --
+expressions scan bridge`, native runs:
+
+| | operations first performed | routes | mean depth | 1 | 2 | 3 | 4 | 5 | 6+ | forwards, share of routes |
+|---|---|---|---|---|---|---|---|---|---|---|
+| `expressions` | 18.65 M | 49.18 M | 2.64 | 3.05 M | 6.02 M | 5.64 M | 2.83 M | 0.90 M | 0.23 M | 62% |
+| `scan` | 22.43 M | 47.50 M | 2.12 | 4.10 M | 11.58 M | 6.74 M | 0 | 0 | 0 | 53% |
+| `bridge` | 6.56 M | 9.52 M | 1.45 | 3.60 M | 2.96 M | 0 | 0 | 0 | 0 | 31% |
+
+(Columns 1 to 6+ are the chains by number of routes; forwards are routes
+past each chain's first, (routes - operations) / routes.) So a stage B that
+skipped every forwarding hop would remove about 30 M of `expressions`'
+49 M routes, 25 M of `scan`'s 47 M and 3 M of `bridge`'s 9.5 M. The count is
+an upper bound on forwards proper: a clause that performs some other
+operation before it answers is counted as a hop too, and a hop through a
+`Handler::Step` loop is not a route. Nothing here tells a forwarding clause
+from a generated forward; `clauses.rs` was not used.
+
 ## Tickets to file
 
 In order. A first; B and C can run side by side after it; D after C; E
