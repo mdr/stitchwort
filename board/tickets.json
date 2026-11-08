@@ -1,5 +1,5 @@
 {
-  "next": 2340,
+  "next": 2344,
   "tickets": [
     {
       "id": 47,
@@ -22329,7 +22329,7 @@
     {
       "id": 2320,
       "title": "AoC grid: O(1) cell lookup in Aoc.Common (array-backed Grid.at/map) and neighbours without building lists, with a lemma the new lookup agrees with the old; switch 2021 day 11 to it",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2320",
       "labels": [
@@ -22337,10 +22337,12 @@
         "aoc"
       ],
       "epic": "comparative-speed",
-      "body": "From docs/research/lean-runtime-speed.md (SW-2318). A hypothesis from reading code: start only if the SW-2296 profile shows this cost is a meaningful share. Estimated octopus 48x -> 5-10x Lean. 60-90 min.\n\nStarted 8 Nov 2026 00:08, overnight wave 1 (Matt: focus on comparative performance; profile, address, recheck); expected: 75 min.\n",
+      "body": "From docs/research/lean-runtime-speed.md (SW-2318). A hypothesis from reading code: start only if the SW-2296 profile shows this cost is a meaningful share. Estimated octopus 48x -> 5-10x Lean. 60-90 min.\n\nStarted 8 Nov 2026 00:08, overnight wave 1 (Matt: focus on comparative performance; profile, address, recheck); expected: 75 min.\n\nProgress (8 Nov 2026): Position.countAround (sumFrom recursion, no lists) and a per-round/step lookup table in 2021 day 11; countAroundIsAround proved; native samples 11848 -> 2370. Commit 38e74b54c on lane/SW-2320.",
       "created": "2026-11-07",
       "updated": "2026-11-08",
-      "commits": []
+      "commits": [
+        "fd458aa3e"
+      ]
     },
     {
       "id": 2321,
@@ -22635,6 +22637,68 @@
       ],
       "epic": "comparative-speed",
       "body": "From docs/proposals/parse-runtime.md (SW-2327). Waits on Matt's D3400 (rec yes). Est. 3-6x on what's left of expressions/scan after stages 1-3. Paper, 90 min.",
+      "created": "2026-11-08",
+      "updated": "2026-11-08",
+      "commits": []
+    },
+    {
+      "id": 2340,
+      "title": "Aoc.Common Grid: array-backed representation for every day (O(1) at/map/update), the list-of-rows view kept as what specs and proofs talk about, with agreement lemmas; Grid.ext and mapCells proofs across days follow",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "aoc",
+        "perf"
+      ],
+      "epic": "comparative-speed",
+      "body": "From SW-2320's report. Matt, 7 Nov 2026: array-like Grid is fine as long as it satisfies the same theorems. SW-2320 used a per-round lookup table in day 11 instead. Orchestrator's call: next, after the overnight speed work. 90 min.",
+      "created": "2026-11-08",
+      "updated": "2026-11-08",
+      "commits": []
+    },
+    {
+      "id": 2341,
+      "title": "Switch the other Position.around users (2020 day 11, 2025 days 4 and 7) to countAround with countAroundIsAround",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "aoc"
+      ],
+      "epic": "aoc-common",
+      "body": "From SW-2320's report. 30 min.",
+      "created": "2026-11-08",
+      "updated": "2026-11-08",
+      "commits": []
+    },
+    {
+      "id": 2342,
+      "title": "Std: move sumFrom and sumFromRangeFrom (generic Nat/List facts proved in Aoc.Common) into std",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "stdlib"
+      ],
+      "epic": "std-library",
+      "body": "From SW-2320's report. 30 min.",
+      "created": "2026-11-08",
+      "updated": "2026-11-08",
+      "commits": []
+    },
+    {
+      "id": 2343,
+      "title": "Elaboration: in a lambda with an unconstrained result type, 9 < n elaborates as a Prop rather than Bool, giving misleading type mismatches; and Eq.trans / Grid.ext with _ struggle on higher-order arguments (?x cavern flashed)",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "elab",
+        "bug"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "From SW-2320's report. Found writing day 11's bridge proofs. Repro to extract. 30 min to triage.",
       "created": "2026-11-08",
       "updated": "2026-11-08",
       "commits": []
