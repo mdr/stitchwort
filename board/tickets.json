@@ -22621,7 +22621,7 @@
     {
       "id": 2337,
       "title": "Parse runtime stage 2: Std.Parse keeps what was expected unformatted and formats it only for the final message (same API and messages); findAll without closures",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
@@ -22629,10 +22629,12 @@
         "stdlib"
       ],
       "epic": "comparative-speed",
-      "body": "From docs/proposals/parse-runtime.md (SW-2327). D3401 taken as the orchestrator's call (yes: internal state only, API and messages unchanged, any lemma naming Parse.State.note re-proved, e.g. Reads.sw:1179). After SW-2335. Est. scan 1.2-1.5x. 60 min.\n\nHeld overnight 8 Nov (orchestrator): it changes Std.Parse internals, which the overnight rules leave for Matt; ask in the morning.\n\nMatt, 8 Nov 2026 ~13:10: yes (\"SW 2337, yes\"). Starts when pace allows.\nStarted 14:37 UTC.\n",
+      "body": "From docs/proposals/parse-runtime.md (SW-2327). D3401 taken as the orchestrator's call (yes: internal state only, API and messages unchanged, any lemma naming Parse.State.note re-proved, e.g. Reads.sw:1179). After SW-2335. Est. scan 1.2-1.5x. 60 min.\n\nHeld overnight 8 Nov (orchestrator): it changes Std.Parse internals, which the overnight rules leave for Matt; ask in the morning.\n\nMatt, 8 Nov 2026 ~13:10: yes (\"SW 2337, yes\"). Starts when pace allows.\nStarted 14:37 UTC.\n\n\nLane notes (Sonnet, 8 Nov 2026): done on lane/SW-2337. Parse.State.expected is now a List Problem (newest first), width field dropped, formatted/deduped in State.failure. findAllFuel uses one match. Text.toList is free (a constructor match), so item 2 needed no change. Instructions (scan/expressions, native): scan 340.7G -> 315.8G (1.08x, est. 1.2-1.5), expressions 334.7G -> 329.0G (1.02x, est. 1.05).\n\nMerged. scan 340.67 -> 315.77 G (1.08x, est. 1.2-1.5x), expressions 334.69 -> 329.03 G (1.02x). text/pick unchanged (Text.toList is a constructor match). Parse.State loses width; expected is List Parse.Problem. Parse.expectAt deleted (about removed expect). Model result: Sonnet, worked, 22 min (est. 60).\n",
       "created": "2026-11-08",
       "updated": "2026-11-08",
-      "commits": []
+      "commits": [
+        "b6675c06b"
+      ]
     },
     {
       "id": 2338,
