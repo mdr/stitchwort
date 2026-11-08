@@ -189,16 +189,17 @@ Use the cheapest model that can do the work well. Provisional (D2208, Matt,
   examples' hash snapshots, std core's native pins, which comment rules
   apply): see "Writing a brief" in `docs/workflow.md`.
 
-## Choosing work by pace (D3427, Matt, 8 Nov 2026)
+## Choosing work by pace (D3427, D3433, Matt, 8 Nov 2026)
 
 Tokens and machine time are separate budgets. The orchestrator reads the
 week's pace (`seven_day.pace` in `~/.claude/usage.json`: share of the
 week's allowance used over share of the week gone) before starting work and
 at every status table, and picks the kind of work to fit it:
 
-- **At or under pace** (up to 1): the normal mix of token-heavy work:
-  lanes on code, proofs and designs, reviews, AoC days.
-- **Over pace** (above 1): no new token-heavy lanes; running lanes finish
+- **Lanes mode**: the normal mix of token-heavy work: lanes on code,
+  proofs and designs, reviews, AoC days. Machines a lane leaves idle still
+  get compute jobs.
+- **Compute mode**: no new token-heavy lanes; running lanes finish
   and are merged as usual. Instead the machines are kept busy with
   compute-heavy, token-light work, started without asking Matt: the fuzzers
   (`task fuzz:*`, large counts and fresh seeds), the full audit, the daily
@@ -206,11 +207,13 @@ at every status table, and picks the kind of work to fit it:
   Overmind comparison runs. One heavy job per machine at a time, as plain
   background commands that no agent watches; Overmind gets one long job
   per message.
-- **Findings made while over pace** are filed as tickets with their
-  reproducers and investigated once pace is back, since triage is
-  token-heavy.
-- **Switching back:** normal lanes resume once pace falls to about 0.95,
-  so the choice doesn't flip back and forth each hour.
+- **Findings made in compute mode** are filed as tickets with their
+  reproducers and investigated in lanes mode, since triage is token-heavy.
+- **Switching** (D3433, Matt, 8 Nov 2026): lanes mode switches to compute
+  mode when pace is above 1.05, and back when it falls to 0.92 or below;
+  either way, at most once every 2 hours. Usage is reported in whole
+  percents, so early in the week one percent moves pace by 0.05–0.1 and a
+  narrower band flipped the mode hourly.
 
 ## Lane agents
 
@@ -264,8 +267,8 @@ at every status table, and picks the kind of work to fit it:
 
 - Don't run the daily tier (`task test:daily`, `nix flake check`) or the
   full tier without asking Matt first. Never run them back to back.
-- Except when over pace: then the orchestrator may run these without
-  asking (D3427; see "Choosing work by pace" below).
+- Except in compute mode: then the orchestrator may run these without
+  asking (D3427; see "Choosing work by pace" above).
 - Lanes are very selective about tests. Run only targeted, fast tests that
   check the work your change directly affects: `task test:one -- NAME` for
   the tests you touched, and `task test:lane AREA=…` when it fits. No single
