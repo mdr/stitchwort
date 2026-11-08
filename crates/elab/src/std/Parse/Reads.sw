@@ -273,13 +273,7 @@ theorem Parse.readsMark: Parse.Reads (() => Parse.mark()) (read m => read = []) 
     Witness [] (rewrite <- atSame in Both rfl (Both honest rfl))
 
 --| A note changes only what an error says.
-theorem Parse.expectAt (state: Parse.State) (what: Text): (state.expect what).at = state.at := cases
-
-theorem Parse.addAt (state: Parse.State) (problem: Parse.Problem): (state.add problem).at = state.at :=
-  match problem with
-    | Expected what => Parse.expectAt state what
-    | Literal text => Parse.expectAt state "'${text}'"
-    | Message text => cases
+theorem Parse.addAt (state: Parse.State) (problem: Parse.Problem): (state.add problem).at = state.at := cases
 
 theorem Parse.noteAt (state: Parse.State) (problem: Parse.Problem): (state.note problem).at = state.at := cases
 
@@ -1143,7 +1137,7 @@ theorem Parse.allReads (input: Text) (p: () → {Parse} a) (spec: List Char → 
 -- same point.
 
 theorem Parse.withAtSelf: (t: Parse.State) → ({ t | at = t.at }) = t
-  | { at, furthest, expected, messages, width } => rfl
+  | { at, furthest, expected, messages } => rfl
 
 theorem Parse.runFromAtTree (c: () → {Parse} b) (tree: Effect.AlwaysTree (x => Unit) (c ())) (s: Parse.State) (t: Parse.State) (w: b)
     (h: Parse.runFrom s c = Ok w): Parse.runFrom ({ t | at = s.at }) c = Ok w :=
@@ -1942,23 +1936,14 @@ theorem Parse.readsFindAllFuel (skipNoise: () → {Parse} ()) (p: () → {Parse}
           match both with
             | Both none same => Witness [] (Both (rewrite same, List.appendNil (List.reverse found) in rfl) Trivial))
     | Succ more =>
-      Parse.readsWeaken (Parse.readsBind skipNoise
-          (u =>
-            let attempt := Parse.attempt p
-            let foundNow := attempt.map ((matched: (a, Bool)) => [matched.fst, ..found]) |> .getOrElse found
-            if attempt.map ((matched: (a, Bool)) => matched.snd) |> .getOrElse False then Parse.findAllFuel more skipNoise p foundNow
-            else Parse.onFound (Parse.next (char => True)) (skipped => Parse.findAllFuel more skipNoise p foundNow) (() => foundNow.reverse))
+      Parse.readsWeaken (Parse.readsBind skipNoise _
           (read (u: ()) => Unit)
           (u =>
             Parse.Then (Parse.Maybe (read (matched: (a, Bool)) => spec read matched.fst))
               (attempt => Parse.FindFound spec (attempt.map ((matched: (a, Bool)) => [matched.fst, ..found]) |> .getOrElse found)))
           readsNoise
           (u =>
-            Parse.readsBind (() => Parse.attempt p)
-              (attempt =>
-                let foundNow := attempt.map ((matched: (a, Bool)) => [matched.fst, ..found]) |> .getOrElse found
-                if attempt.map ((matched: (a, Bool)) => matched.snd) |> .getOrElse False then Parse.findAllFuel more skipNoise p foundNow
-                else Parse.onFound (Parse.next (char => True)) (skipped => Parse.findAllFuel more skipNoise p foundNow) (() => foundNow.reverse))
+            Parse.readsBind (() => Parse.attempt p) _
               _ (attempt => Parse.FindFound spec (attempt.map ((matched: (a, Bool)) => [matched.fst, ..found]) |> .getOrElse found)) (Parse.readsAttempt p spec reads)
               (attempt =>
                 match attempt with

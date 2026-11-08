@@ -66,19 +66,15 @@ ability Parse where
 
 --| What the handler keeps: where the parse is, and the furthest problem noted.
 --| That is the furthest point a problem was noted at, with the problems noted
---| there and the length of the longest text expected there (how much of the
---| input to show as what was found).
-type Parse.State = { at: Parse.Mark, furthest: Nat, expected: List Text, messages: List Text, width: Nat }
-
---| The state with `what` among what was expected, if it isn't already.
-def Parse.State.expect (state: Parse.State) (what: Text): Parse.State :=
-  if state.expected.any (== what) then state else { state | expected = state.expected ++ [what] }
+--| there. `expected` holds the `Expected` and `Literal` problems, newest
+--| first and unformatted, so noting one is a cons; `Parse.State.failure`
+--| makes the texts, without repeats, only when the parse fails.
+type Parse.State = { at: Parse.Mark, furthest: Nat, expected: List Parse.Problem, messages: List Text }
 
 --| The state with a problem noted at the current point.
 def Parse.State.add (state: Parse.State): (problem: Parse.Problem) → Parse.State
-  | Expected what => state.expect what
-  | Literal text => { state.expect "'${text}'" | width = Nat.max state.width text.length }
   | Message text => if state.messages.any (== text) then state else { state | messages = state.messages ++ [text] }
+  | problem => { state | expected = [problem, ..state.expected] }
 
 --| A problem at the current point replaces those noted nearer the start,
 --| joins those noted here, and is dropped if the parse got further before.
@@ -87,10 +83,10 @@ def Parse.State.add (state: Parse.State): (problem: Parse.Problem) → Parse.Sta
 --| so a message replaces it, as Megaparsec's `fail` drops its hints.
 def Parse.State.note (state: Parse.State) (problem: Parse.Problem): Parse.State :=
   if state.at.offset > state.furthest then
-    Parse.State.add { state | furthest = state.at.offset, expected = [], messages = [], width = 0 } problem
+    Parse.State.add { state | furthest = state.at.offset, expected = [], messages = [] } problem
   else if state.at.offset == state.furthest then
     match problem with
-      | Message text => Parse.State.add { state | expected = [], width = 0 } problem
+      | Message text => Parse.State.add { state | expected = [] } problem
       | _ => state.add problem
   else state
 
@@ -120,9 +116,26 @@ def Parse.State.literal (state: Parse.State) (chars: List Char): (Bool, Parse.St
     | Some after => (True, state.advance after chars.length)
     | None => (False, state)
 
+--| How a problem reads in a failure's `expected`.
+def Parse.Problem.shown: (problem: Parse.Problem) → Text
+  | Expected what => what
+  | Literal text => "'${text}'"
+  | Message text => text
+
+--| `texts` oldest first, without repeats (the first of each kept).
+-- `kept` is what has been kept so far, newest first.
+@[tailrec]
+def Parse.uniqueTexts (kept: List Text): (texts: List Text) → List Text
+  | [] => kept.reverse
+  | [text, ..rest] => if kept.any (== text) then Parse.uniqueTexts kept rest else Parse.uniqueTexts [text, ..kept] rest
+
+--| The length of the longest `Literal` text among the problems.
+def Parse.Problem.widest (problems: List Parse.Problem): Nat :=
+  problems.foldLeft 0 (width problem => match problem with | Literal text => Nat.max width text.length | _ => width)
+
 --| The furthest point and its problems.
 def Parse.State.failure (state: Parse.State): Parse.Failure :=
-  { offset = state.furthest, messages = state.messages, expected = state.expected, width = state.width }
+  { offset = state.furthest, messages = state.messages, expected = Parse.uniqueTexts [] (state.expected.reverse.map Parse.Problem.shown), width = Parse.Problem.widest state.expected }
 
 --| Runs `parser` from `state`: its value, or where and why it failed.
 def Parse.runFrom (initial: Parse.State) (parser: () → {Parse} a): Result a Parse.Failure :=
@@ -149,7 +162,7 @@ def Parse.runFrom (initial: Parse.State) (parser: () → {Parse} a): Result a Pa
 
 --| The state at the start of `input`.
 def Parse.State.start (input: List Char): Parse.State :=
-  { at = { rest = input, offset = 0, left = input.length }, furthest = 0, expected = [], messages = [], width = 0 }
+  { at = { rest = input, offset = 0, left = input.length }, furthest = 0, expected = [], messages = [] }
 
 --| Runs `parser` from the start of `input`: its value, or where and why it
 --| failed. It needn't read all of the input.
@@ -562,10 +575,12 @@ def Parse.findAllFuel (fuel: Nat) (skipNoise: () → {Parse} ()) (parser: () →
     | Zero => found.reverse
     | Succ more =>
       skipNoise()
-      let attempt := Parse.attempt parser
-      let foundNow := attempt.map (matched => [matched.fst, ..found]) |> .getOrElse found
-      if attempt.map (matched => matched.snd) |> .getOrElse False then Parse.findAllFuel more skipNoise parser foundNow
-      else Parse.onFound (Parse.next (char => True)) (skipped => Parse.findAllFuel more skipNoise parser foundNow) (() => foundNow.reverse)
+      match Parse.attempt parser with
+        | Some (matched, progressed) =>
+          let foundNow := [matched, ..found]
+          if progressed then Parse.findAllFuel more skipNoise parser foundNow
+          else Parse.onFound (Parse.next (char => True)) (skipped => Parse.findAllFuel more skipNoise parser foundNow) (() => foundNow.reverse)
+        | None => Parse.onFound (Parse.next (char => True)) (skipped => Parse.findAllFuel more skipNoise parser found) (() => found.reverse)
 
 --| Every match of `parser` in the rest of the input, left to right, as Python's `re.findall`.
 --| Matches don't overlap: where `parser` doesn't match, one character is
