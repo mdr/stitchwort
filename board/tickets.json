@@ -25043,12 +25043,12 @@
     {
       "id": 2490,
       "title": "bench/compare octopus (tiled) runs 10,000 steps and ends in 'error: no step within 10000 has every octopus flash': check the benchmark still measures what it means to",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Sonnet",
-      "where": "",
+      "where": "Speedwell",
       "labels": [],
       "epic": "comparative-speed",
-      "body": "From SW-2478. 20 min.",
+      "body": "From SW-2478. 20 min.\n\nStarted 9 Nov 2026 05:50 UTC. Expected: 20 min.\n",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
