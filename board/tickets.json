@@ -24848,9 +24848,9 @@
     {
       "id": 2475,
       "title": "Value census undercounts fold handlers: effect::handler_for makes Fold handlers with Rc::new, not new_handler (census 0.27 M vs counted 4.75 M on expressions)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Sonnet",
-      "where": "",
+      "where": "Speedwell",
       "labels": [],
       "epic": "performance",
       "body": "From SW-2461. Route them through value_census::new_handler. 15 min.",
@@ -24900,12 +24900,12 @@
     {
       "id": 2479,
       "title": "value-census doesn't see native allocations: count in alloc_trace::alloc_at (native cell_new) so the census reports native runs",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Sonnet",
-      "where": "",
+      "where": "Speedwell",
       "labels": [],
       "epic": "comparative-speed",
-      "body": "From SW-2472. 45 min.",
+      "body": "From SW-2472. 45 min.\n\nStarted 9 Nov 2026 04:42 UTC with SW-2475 in the same lane (worktree SW-2479). Expected: 60 min.\n",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
