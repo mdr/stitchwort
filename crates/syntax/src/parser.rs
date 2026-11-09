@@ -953,6 +953,7 @@ impl<'t> Parser<'t> {
             Tok::KwIn => "∈",
             Tok::NotIn => "∉",
             Tok::KwExists => "∃",
+            Tok::KwForall => "∀",
             _ => return describe(&token.tok),
         };
         let ascii = describe(&token.tok);
@@ -3441,8 +3442,8 @@ impl<'t> Parser<'t> {
         if let Some(colon) = self.lambda_result_type_ahead() {
             return Err(lambda_result_type(self.tokens[colon].span).into());
         }
-        if self.peek() == Some(&Tok::KwExists) {
-            return self.exists_expr();
+        if self.at_quantifier() {
+            return self.quantifier();
         }
         if self.eat(&Tok::KwIf) {
             return self.if_expr(start);
@@ -3519,12 +3520,13 @@ impl<'t> Parser<'t> {
 
     /// `p <-> q`, after `p`: `Iff p q` (D1202). Looser than `&&` and `||`,
     /// tighter than `->`, and not associative, as in Rocq. The right
-    /// side may be an `exists`. Out of line, as `logic_chain` is.
+    /// side may be an `exists` or a `forall`. Out of line, as `logic_chain`
+    /// is.
     #[inline(never)]
     fn iff(&mut self, operand: &mut Expr) -> Result<()> {
         let op = self.bump().span;
-        let rhs = if self.peek() == Some(&Tok::KwExists) {
-            self.exists_expr()?
+        let rhs = if self.at_quantifier() {
+            self.quantifier()?
         } else {
             let mut rhs = self.cmp_expr()?;
             if matches!(self.peek(), Some(Tok::AndAnd | Tok::OrOr)) {
@@ -3567,6 +3569,113 @@ impl<'t> Parser<'t> {
         let lambda = self.lambda(start)?;
         let outer = lambda.span();
         Ok(exists_chain(keyword, lambda, outer))
+    }
+
+    /// Whether an `exists` or a `forall` starts here.
+    fn at_quantifier(&self) -> bool {
+        matches!(self.peek(), Some(Tok::KwExists | Tok::KwForall))
+    }
+
+    /// `exists …` or `forall …`, at the keyword.
+    #[inline(never)]
+    fn quantifier(&mut self) -> Result<Expr> {
+        if self.peek() == Some(&Tok::KwForall) {
+            self.forall_expr()
+        } else {
+            self.exists_expr()
+        }
+    }
+
+    /// `forall (x: T) => P`, at the `forall`: the function type `(x: T) ->
+    /// P`, the same term (D3458). The parameters are a lambda's without
+    /// patterns: `(x y: T)`, `[a: Type]`, `[auto h: P]`, `[auto P]`, or a
+    /// bare name, its type inferred (`forall n => n + 0 = n`). Each group is
+    /// one function type, as `(x y: T) -> P` is. The body runs to the end of
+    /// the expression, as an `exists`'s does.
+    #[inline(never)]
+    fn forall_expr(&mut self) -> Result<Expr> {
+        let written = self.spelled(&self.tokens[self.pos]);
+        let keyword = self.bump().span;
+        // Each group's names, whether it's implicit, whether it's `auto`,
+        // and its type.
+        let mut groups: Vec<(Vec<Name>, bool, bool, Expr)> = Vec::new();
+        loop {
+            match self.peek() {
+                Some(Tok::Lower(w)) if !w.contains('.') => {
+                    let name = self.lower("a name")?;
+                    let hole = Expr::Hole(name.span);
+                    groups.push((vec![name], false, false, hole));
+                }
+                Some(Tok::Underscore) => {
+                    let span = self.bump().span;
+                    let name = Name {
+                        text: "_".to_string(),
+                        span,
+                    };
+                    groups.push((vec![name], false, false, Expr::Hole(span)));
+                }
+                Some(Tok::LParen) if self.annotated_param_ahead() => {
+                    let Param::Named {
+                        names, ty, default, ..
+                    } = self.header_param()?
+                    else {
+                        unreachable!("an annotated parameter is a named one")
+                    };
+                    if let Some(default) = default {
+                        return Err(error(
+                            default.span(),
+                            "a `forall` parameter can't have a default",
+                        )
+                        .with_note(
+                            "defaults belong to a definition's parameters: `def f (x: Nat := 0)`",
+                        )
+                        .into());
+                    }
+                    groups.push((names, false, false, ty));
+                }
+                Some(Tok::LBracket)
+                    if self.implicit_group_at(self.pos) || self.nameless_auto_at(self.pos) =>
+                {
+                    let Param::Named {
+                        names, ty, auto, ..
+                    } = self.header_param()?
+                    else {
+                        unreachable!("an implicit parameter is a named one")
+                    };
+                    groups.push((names, true, auto, ty));
+                }
+                _ => break,
+            }
+        }
+        if groups.is_empty() || self.peek() != Some(&Tok::FatArrow) {
+            let expected = if groups.is_empty() {
+                format!("a parameter after {written}")
+            } else {
+                format!("`=>` after the parameters of {written}")
+            };
+            let note = if self.peek() == Some(&Tok::Comma) {
+                "\"for all\" is written `forall (x: T) => P` or `∀ (x: T) => P`: `=>` follows \
+                 the parameters, not `,`"
+            } else {
+                "\"for all\" is written `forall (x: T) => P` or `∀ (x: T) => P`: its \
+                 parameters are names or bracketed groups, `(x y: T)` or `[a: Type]`, then `=>`"
+            };
+            return Err(self.unexpected(&expected).with_note(note).into());
+        }
+        self.bump();
+        let mut body = self.expr()?;
+        let span = keyword.to(body.span());
+        for (names, implicit, auto, dom) in groups.into_iter().rev() {
+            body = Expr::Pi {
+                names,
+                implicit,
+                auto,
+                dom: Box::new(dom),
+                cod: Box::new(body),
+                span,
+            };
+        }
+        Ok(body)
     }
 
     /// `[ name+ :` starts an implicit binder, as does `[auto` followed by an
@@ -3793,9 +3902,10 @@ impl<'t> Parser<'t> {
                 _ => break,
             }
             self.bump();
-            // `p && exists (x: T) => q`: the `exists` takes the rest.
-            let operand = if self.peek() == Some(&Tok::KwExists) {
-                self.exists_expr()?
+            // `p && exists (x: T) => q`: the `exists` takes the rest, as
+            // does a `forall`.
+            let operand = if self.at_quantifier() {
+                self.quantifier()?
             } else {
                 self.cmp_expr()?
             };
@@ -5204,6 +5314,7 @@ fn describe(tok: &Tok) -> String {
         Tok::NotIn => "`!in`".into(),
         Tok::Iff => "`<->`".into(),
         Tok::KwExists => "`exists`".into(),
+        Tok::KwForall => "`forall`".into(),
         Tok::KwIf => "`if`".into(),
         Tok::KwThen => "`then`".into(),
         Tok::KwElse => "`else`".into(),
@@ -8489,6 +8600,56 @@ mod tests {
         // After a `.` it's a name: `x.exists` and `Foo.exists` still parse.
         assert!(parse_module_text("def t: Bool := (Some 3).exists (v => v > 2)\n").is_ok());
         assert!(parse_module_text("def t: Bool := Foo.exists (v => v > 2) (Some 3)\n").is_ok());
+    }
+
+    #[test]
+    fn forall_is_a_function_type() {
+        // Each group is one function type; the body takes the rest.
+        let e = expr("forall (a b: Nat) [c: Nat] => a + b = c -> p");
+        let Expr::Pi {
+            names,
+            implicit: false,
+            cod,
+            ..
+        } = &e
+        else {
+            panic!("expected a function type");
+        };
+        assert_eq!(names.len(), 2);
+        let Expr::Pi {
+            implicit: true,
+            cod,
+            ..
+        } = cod.as_ref()
+        else {
+            panic!("expected an implicit function type");
+        };
+        assert!(matches!(cod.as_ref(), Expr::Arrow(..)));
+        // `∀` is the same token (three bytes, so the spaces keep the
+        // spans the same), and a bare name's type is a hole.
+        assert_eq!(
+            format!("{:?}", expr("∀    (n: Nat) => n = n")),
+            format!("{:?}", expr("forall (n: Nat) => n = n"))
+        );
+        let e = expr("∀ n => n = n");
+        let Expr::Pi { dom, .. } = &e else {
+            panic!("expected a function type");
+        };
+        assert!(matches!(dom.as_ref(), Expr::Hole(_)));
+        assert!(matches!(
+            expr("p && ∀ k => q k"),
+            Expr::Binary(BinOp::And, ..)
+        ));
+        assert!(parse_module_text("def t: Prop := p <-> forall k => q k\n").is_ok());
+        assert!(parse_module_text("def t: Prop := p -> ∀ (k: Nat) => q k\n").is_ok());
+        // Lean's and Rocq's comma, a pattern, a missing parameter, a default.
+        let comma = parse_errors("def t: Prop := ∀ x, x = x\n");
+        assert!(comma.contains("not `,`"), "{comma}");
+        assert!(parse_errors("def t: Prop := ∀ (a, b) => a = b\n").contains("a parameter after"));
+        assert!(parse_errors("def t: Prop := ∀ (x: Nat) (a, b) => p\n").contains("`=>` after"));
+        assert!(parse_errors("def t: Prop := forall => p\n").contains("a parameter after"));
+        assert!(parse_errors("def t: Prop := ∀ (x: Nat := 1) => x = x\n").contains("default"));
+        assert!(parse_module_text("def t: Bool := xs.forall (v => v > 2)\n").is_ok());
     }
 
     #[test]

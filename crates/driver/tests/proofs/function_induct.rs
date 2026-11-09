@@ -212,7 +212,7 @@ fn each_kind_of_recursion_and_split() {
                  (eq2IfFalse: (depth: Nat) → (a: Nat) → (b: Nat) → (3 < depth) = False → \
                  motive depth (Pair (Regular a) (Regular b)) 0) → \
                  (eq3: (depth: Nat) → (left: Number) → (right: Number) → \
-                 ((a: Nat) → (b: Nat) → left = Regular a → right ≠ Regular b) → \
+                 (∀ (a b: Nat) => left = Regular a → right ≠ Regular b) → \
                  motive (depth + 1) left (ex (depth + 1) left) → \
                  motive (depth + 1) right (ex (depth + 1) right) → \
                  motive depth (Pair left right) (ex (depth + 1) left + ex (depth + 1) right)) → \
@@ -387,10 +387,10 @@ theorem unfoldNone (seed: s) (step: s → Option (Pair a s)) (measure: s → Nat
         );
         let unfold = generated(s, "List.unfold.induct");
         let shrinks =
-            "(shrinks: (x: s) → (y: s) → (v: a) → step x = Some (v, y) → measure y < measure x)";
+            "(shrinks: ∀ (x y: s) (v: a) => step x = Some (v, y) → measure y < measure x)";
         let want = format!(
             "[s: Type] → [a: Type] → (motive: s → (step: s → Option (a, s)) → \
-             (measure: s → Nat) → ((x: s) → (y: s) → (v: a) → step x = Some (v, y) → \
+             (measure: s → Nat) → (∀ (x y: s) (v: a) => step x = Some (v, y) → \
              measure y < measure x) → List a → Prop) → \
              (eqNone: (seed: s) → (step: s → Option (a, s)) → (measure: s → Nat) → {shrinks} → \
              step seed = None → motive seed step measure shrinks []) → \

@@ -28,7 +28,7 @@ pub struct Parameter {
 
 const KEYWORDS: &[&str] = &[
     "def", "let", "in", "if", "then", "else", "match", "with", "test", "theorem", "return",
-    "where", "by", "exists",
+    "where", "by", "exists", "forall",
 ];
 
 fn is_name_char(c: char) -> bool {

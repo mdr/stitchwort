@@ -570,7 +570,7 @@ The lemma's type is searched for `e` as the goal is, so it fits even where it wr
 
 To split on an `if`, match on its condition, not on the comparison's decision (`match Nat.decLessThan n limit with | Yes … | No …`). A decision match gives you evidence, but it refines an `if` only if the `if` still holds the decision, and that depends on the definition: an `if` whose branches don't use the proof of its comparison is compiled to a test of the `Bool`, and a decision match then finds nothing to replace. The compiler warns (`W-MATCH-DECISION-IF`) and says what to write instead. Matching on the condition works whichever way the `if` was compiled (`examples/accept/match-decision-if.sw`).
 
-## Membership, "if and only if", "there exists"
+## Membership, "if and only if", "there exists", "for all"
 
 Three more forms come up in statements, each with a Unicode spelling you may use instead:
 
@@ -594,7 +594,22 @@ def unseen (seen: List Nat) (xs: List Nat): List Nat := xs.filter (x => x ∉ se
 - `p <-> q` (`p ↔ q`) says each implies the other. A proof is a record of the two directions, `forward` and `backward`.
 - `exists (n: Nat) => P` (`∃ (n: Nat) => P`) says some `n` makes `P` true. A proof is a `Witness`: the value, and a proof that it works.
 
-The other Unicode spellings are `→ ∧ ∨ ¬ ≤ ≥ ≠` for `-> && || ! <= >= !=`. They mean exactly the same as the ASCII. Messages show a statement in the Unicode forms (`n ≤ limit`, `a ∧ b`) and a `Bool` computation in ASCII (`(n <= limit) = False`, `a && b`), whichever you wrote, so a message tells you which of the two you have. To say "for all", use a parameter: `(x: Nat) -> P`. [The syntax reference](../syntax.md#logic-notation-in--and-exists) has the full list and the precedence table.
+The other Unicode spellings are `→ ∧ ∨ ¬ ≤ ≥ ≠` for `-> && || ! <= >= !=`. They mean exactly the same as the ASCII. Messages show a statement in the Unicode forms (`n ≤ limit`, `a ∧ b`) and a `Bool` computation in ASCII (`(n <= limit) = False`, `a && b`), whichever you wrote, so a message tells you which of the two you have. [The syntax reference](../syntax.md#logic-notation-in--and-exists) has the full list and the precedence table.
+
+"For all" has a form of its own too:
+
+<!-- snippet: proofs.sw#forall -->
+```stitchwort
+theorem zeroPlusAll: ∀ (n: Nat) => 0 + n = n := n => rfl
+
+theorem atOneAndTwo (p: Nat -> Prop) (all: ∀ (n: Nat) => p n): p 1 ∧ p 2 := Both (all 1) (all 2)
+
+theorem swapSum (comm: ∀ (a b: Nat) => a + b = b + a): 2 + 5 = 5 + 2 := comm 2 5
+```
+
+`forall (n: Nat) => P` (`∀ (n: Nat) => P`) says `P` holds for every `n`. It's another way to write the function type `(n: Nat) -> P`, so a proof of it is a function from each `n` to a proof of `P`, and using one is a call: `all 1` is a proof of `p 1`. Several parameters go together, as in `∀ (a b: Nat) => …`, and like `exists` the statement runs to the end, so `∀ (n: Nat) => n > 0 -> P n` says `P n` for every positive `n`.
+
+Write `∀` for a hypothesis that is about every value, as `all` and `comm` are, and for a statement after the colon. A theorem's own parameters stay parameters: `theorem zeroPlus (n: Nat): 0 + n = n` and `theorem zeroPlusAll: ∀ (n: Nat) => 0 + n = n` state the same thing, and the first reads better when the proof starts from `n`. Goals and messages show a function type whose result is plainly a statement with `∀`, however it was written ([the syntax reference](../syntax.md#logic-notation-in--and-exists) says when).
 
 ## Types that mention values
 

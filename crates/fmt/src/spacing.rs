@@ -95,8 +95,8 @@ pub(crate) fn gap(pair: &Pair) -> Gap {
     if *left == Bang {
         return Gap::Rule(false);
     }
-    // `exists (x: T) => P`, `∃ x => P`: the keyword stands apart.
-    if *left == KwExists {
+    // `exists (x: T) => P`, `∃ x => P`, `∀ x => P`: the keyword stands apart.
+    if matches!(left, KwExists | KwForall) {
         return Gap::Rule(true);
     }
     // `(let x := e; body)`: the `;` touches the value, a space follows.

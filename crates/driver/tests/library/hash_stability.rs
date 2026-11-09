@@ -410,6 +410,22 @@ theorem c (s: Set Nat) (x: Nat) (h: s.contains x = True): s.contains x = True :=
     assert_eq!(without_d, own_lines(long));
 }
 
+/// `forall` and `∀` are another spelling of the dependent function type
+/// (D3458): a statement written with either is the term `(x: T) -> P`
+/// writes, so its hash is the same. A bare name's type is inferred.
+#[test]
+fn forall_hashes_as_the_function_type() {
+    let pi = "theorem a: (n: Nat) -> n + 0 = n := n => rfl
+theorem b (h: (a b: Nat) -> [c: Nat] -> a + b + c = c + b + a): 1 + 2 + 3 = 3 + 2 + 1 := h 1 2
+theorem c (p: Nat -> Prop) (h: (n: Nat) -> p n): (m: Nat) -> m > 0 -> p m := m => _ => h m
+";
+    let forall = "theorem a: forall (n: Nat) => n + 0 = n := n => rfl
+theorem b (h: ∀ (a b: Nat) [c: Nat] => a + b + c = c + b + a): 1 + 2 + 3 = 3 + 2 + 1 := h 1 2
+theorem c (p: Nat -> Prop) (h: ∀ n => p n): ∀ (m: Nat) => m > 0 → p m := m => _ => h m
+";
+    assert_eq!(own_lines(pi), own_lines(forall));
+}
+
 /// A declaration with `match`es in its type and its body: its helpers are
 /// numbered in source order within the owner, the type's first and the
 /// body's after them, so no two share a key (docs/proposals/

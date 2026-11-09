@@ -1,5 +1,5 @@
 ---
-source: crates/cli/tests/examples.rs
+source: crates/cli/tests/running/examples.rs
 expression: output
 ---
 [GOAL] Goal: in `shifted`
@@ -11,6 +11,6 @@ expression: output
     │       wide: Nat := n + 3
     │       split: n + 3 = n + 3
     │       both: n + 3 = n + 3
-    │       step: (k: Nat) → k + 1 = k + 1
+    │       step: ∀ (k: Nat) => k + 1 = k + 1
     │       ⊢ total (n + 3) = total (n + 3)
 ────╯

@@ -61,10 +61,20 @@ These aren't style. A lane that breaks one has to say so in its report.
 
 Statements are read by people deciding what was proved, so write them as
 statements. Use the operators, not the prefix forms: `a ∧ b`, `a ∨ b`,
-`¬p`, `a ↔ b`, `x ≠ y`, `(x: T) → p`, `∃ (x: T) => p`, rather than
+`¬p`, `a ↔ b`, `x ≠ y`, `∀ (x: T) => p`, `∃ (x: T) => p`, rather than
 `And a b`, `Or a b`, `Not p`, `Iff a b`, `Not (x = y)` or `Exists (x => p)`.
 They are the same terms (same hashes), so proofs that take them apart with
-`Inl`, `Both` and so on don't change. Write an ability row's result type
+`Inl`, `Both` and so on don't change.
+
+Write "for all" as `∀` in a quantified hypothesis and in a statement after
+the colon: `(all: ∀ (x: a) => x ∈ xs → p x)`, `theorem t: ∀ (n: Nat) => …`
+(D3458). It is the same term as `(x: T) → p`, so it's applied and
+introduced as before (`all x mem`, `n => …`). A theorem's parameters before
+the colon stay parameters, `theorem plusZero (n: Nat): n + 0 = n`, and a
+function type that isn't a proposition stays an arrow, `(n: Nat) → Vec Nat
+n`. Goals print a quantified proposition with `∀` too, unless its result is
+a variable applied to arguments (`(x: a) → p x`), which the printer can't
+tell is a proposition. Write an ability row's result type
 without parentheses: `{Fail} List Nat`, not `{Fail} (List Nat)` (D2307).
 Build and match lists with brackets: `[x, ..xs]` and `[a, b, ..rest]`,
 not `Cons x xs` (D2324); `Cons` stays only where it's used as a function
