@@ -33,9 +33,28 @@ class Parse(unittest.TestCase):
 
     def test_table_subtracts_startup(self):
         counts = {"null": {"native": 1_000_000}, "p": {"native": 3_001_000_000, "cpython": None}}
-        table = compare.instruction_table(counts, ["p"], ["native", "cpython"])
+        table, _ = compare.instruction_table(counts, ["p"], ["native", "cpython"])
         self.assertIn("3.00 G", table)
         self.assertIn("n/a", table)
+
+
+class Geomean(unittest.TestCase):
+    RATIOS = {
+        "a": {"cpython": 2.0, "lean": 10.0},
+        "b": {"cpython": 8.0, "lean": 40.0},
+        "w": {"cpython": 1.0},
+    }
+    SETS = {"a": "core", "b": "core", "w": "wide"}
+
+    def rows(self):
+        return compare.geomean_lines(self.RATIOS, self.SETS).splitlines()
+
+    def test_core_wide_and_all(self):
+        core, wide, everything = self.rows()[2:]
+        self.assertEqual(core, "| core | 4.00x (2 programs) | 20.00x (2 programs) |")
+        self.assertEqual(wide, "| wide | 1.00x (1 programs) | - |")
+        self.assertIn("2.52x (3 programs)", everything)
+        self.assertIn("20.00x (2 programs)", everything)
 
 
 if __name__ == "__main__":

@@ -76,12 +76,27 @@ Startup of `run` and `native` is measured on `null/main.sw`, a file, while the
 AoC programs run as functions of the `aoc/` project, which loads the project
 first. The AoC rows' startup is therefore a little more than the null row's.
 
+## Sets and geometric means
+
+`programs.toml` gives each program a `set`: `core` (the default) is the
+original ten, and `wide` is the programs added to catch over-fitting to them
+(SW-2450, docs/reviews/SW-2450-benchmark-breadth.md). After the tables,
+`compare.py` prints the geometric mean of native / CPython and native / Lean
+three ways: over the core programs, over the wide ones, and over all. Each
+cell says how many programs it covers (a skipped or failed runner leaves a
+program out of that cell), so a run of one program gives a mean of one. With
+`--instructions` the same three means are printed for the instruction
+counts. The wide mean is separate from the core one and is never folded into
+the core ten's line in `history.toml`; a run that times the wide set adds
+`wide_*` keys beside the core ones (format in `history.toml`'s header).
+
 ## Adding a program
 
 1. A folder `bench/compare/<name>/` with `expected.txt` (the answer, byte for
    byte; for a generated input, all languages must agree before it is
    committed) and `main.py` (Python, natural structures, same algorithm).
-2. An entry in `programs.toml`: `stitchwort` (an `aoc/` function such as
+2. An entry in `programs.toml`: `set` (`wide` for anything beyond the
+   original ten; default `core`), `stitchwort` (an `aoc/` function such as
    `Aoc.Year2020.Day15.main`, or a `.sw` file), and `input` / `args` if any.
    An AoC day is run from `aoc/` as it is; if it needs a size, give it an
    `IO.args()` entry as 2020 day 15 has.
@@ -97,7 +112,8 @@ A program should take at least 0.3 s in its fastest language and at most about
 
 `null`, `pidigits` and `binary-trees` (the Benchmarks Game classics, at 10,000
 digits and depth 18) and `memory-game` (2020 day 15, part 2 at 30,000,000
-turns) have all four languages. `dijkstra`, `octopus`, `disk`, `expressions`,
+turns) have all four languages. `spectral-norm` (the wide set's first program, a float benchmark at N = 1000;
+see its README) has all four too. `dijkstra`, `octopus`, `disk`, `expressions`,
 `scan`, `matcher` and `bridge` (AoC days) have Stitchwort, Python and Lean.
 
 Most of the AoC days run a scaled copy of the real input so that Lean takes
