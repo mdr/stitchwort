@@ -1,5 +1,5 @@
 {
-  "next": 2470,
+  "next": 2471,
   "tickets": [
     {
       "id": 47,
@@ -24511,14 +24511,14 @@
     {
       "id": 2452,
       "title": "Elaborator stack overflow: fuzz:elab CASES=15000 SEED=0x2451 aborts the test process with 'fatal runtime error: stack overflow' after ~95 s (on 4c577908c, before SW-2445's new example changed case numbering)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "Speedwell",
       "labels": [
         "elab"
       ],
       "epic": "elaborator-kernel",
-      "body": "Found 8 Nov 2026 22:21 in compute mode. Bisecting in .claude/worktrees/SW-2452 at 4c577908c with FROM/TO (scratchpad bisect-overflow.sh); the case number and dumped input go here. Then: find the unbounded recursion, bound it or make it iterative, add the input as a regression example. Investigate in lanes mode.\n\nBisected: case 531 (seed 0x2451, CASES=15000, at 4c577908c), mutated from examples/accept/*omega*/auto range membership. Input dev/fuzz-findings/2451-531.sw (39 lines); \"still running after 5s\" then the thread overflows its stack. Repro: stitchwort check dev/fuzz-findings/2451-531.sw.\n\nStarted 9 Nov 2026 02:04 UTC, lanes mode (pace 0.92). Expected: 60 min.\n",
+      "body": "Found 8 Nov 2026 22:21 in compute mode. Bisecting in .claude/worktrees/SW-2452 at 4c577908c with FROM/TO (scratchpad bisect-overflow.sh); the case number and dumped input go here. Then: find the unbounded recursion, bound it or make it iterative, add the input as a regression example. Investigate in lanes mode.\n\nBisected: case 531 (seed 0x2451, CASES=15000, at 4c577908c), mutated from examples/accept/*omega*/auto range membership. Input dev/fuzz-findings/2451-531.sw (39 lines); \"still running after 5s\" then the thread overflows its stack. Repro: stitchwort check dev/fuzz-findings/2451-531.sw.\n\nStarted 9 Nov 2026 02:04 UTC, lanes mode (pace 0.92). Expected: 60 min.\n\nMerged 9 Nov 2026 02:27. Cause: freeing a ~10M-deep chain of Rc<Unfolding> recursed (drop glue), after show_unfolded unfolded n + 2^128 for a mismatch note; fix: impl Drop for Unfolding through Values' iterative free (crates/core/src/value.rs). Regression example examples/reject/mismatch-note-huge-unfolding.sw (costs ~5.6 s, GBs: see the note-cap ticket). Verified: repro gives E-TYPE-MISMATCH; stitchwort-core + rejected examples 396 passed. Model result: Sonnet, worked, 19 min (est. 60).\n",
       "created": "2026-11-08",
       "updated": "2026-11-09",
       "commits": []
@@ -24774,6 +24774,21 @@
       ],
       "epic": "comparative-speed",
       "body": "From SW-2454's report: the core ten's line is entered by hand and the new wide_* keys likewise. Add a --record flag (or a task) that appends the run's entry. 30 min.",
+      "created": "2026-11-09",
+      "updated": "2026-11-09",
+      "commits": []
+    },
+    {
+      "id": 2470,
+      "title": "Mismatch notes: show_unfolded/quote_unfolded_shown spends up to the 10M-node size limit (~4 s, 2 GB) on a note truncated to 240 chars; give it a small display budget (quote_as has a cap); makes examples/reject/mismatch-note-huge-unfolding.sw cheap",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "epic": "audit-fuzzing",
+      "body": "From SW-2452's report: crates/elab/src/check.rs:753, caller alias_notes. Check message snapshots stay the same for normal cases. 45 min.",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
