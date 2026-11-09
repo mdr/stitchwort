@@ -23862,7 +23862,7 @@
         "bench"
       ],
       "epic": "comparative-speed",
-      "body": "Found by the daily tier, 8 Nov 2026. 30 min.\n\nDaily tier 9 Nov 00:01: still failing: run-machine-calls allocations +10.9% (247 -> 274), run-machine-aoc-2021-15-part1 peak heap +88.9% (5.1 -> 9.6 MB, the cost array). Peak tier memory 9.49 GB (SW-2412 may be resolved).\n",
+      "body": "Found by the daily tier, 8 Nov 2026. 30 min.\n\nDaily tier 9 Nov 00:01: still failing: run-machine-calls allocations +10.9% (247 -> 274), run-machine-aoc-2021-15-part1 peak heap +88.9% (5.1 -> 9.6 MB, the cost array). Peak tier memory 9.49 GB (SW-2412 may be resolved).\n\n9 Nov: SW-2462's lane found the baseline 10-70% stale on machine rows (allocations, instructions), so counts_have_not_regressed flags improvements and hides real regressions; re-record on a quiet machine.\n",
       "created": "2026-11-08",
       "updated": "2026-11-09",
       "commits": []
@@ -24661,14 +24661,14 @@
     {
       "id": 2462,
       "title": "Effect-runtime allocation stage 1 (R1): a resumption is one object, fields inside the Fun (no Rc<Resume> plus wrapper); est. 2.2-3.2% on expressions and scan; kept if >= 60% of that",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "Speedwell",
       "labels": [
         "perf"
       ],
       "epic": "comparative-speed",
-      "body": "Note's stage 1. After SW-2461. Changes no counts.\n\nStarted 9 Nov 2026 02:36 UTC. Expected: 60 min.\n",
+      "body": "Note's stage 1. After SW-2461. Changes no counts.\n\nStarted 9 Nov 2026 02:36 UTC. Expected: 60 min.\n\nMerged 9 Nov 02:55 (rt 65, native 70, 113 effect/handler/resume tests passed). Instructions: expressions -1.68%, scan -1.59%, matcher -0.36%, bridge -0.75% (5 runs each, like-for-like builds); clears the 60% bar. About 100 instructions per object saved, not 140: use that for later stages. translate gets Fun::TranslateK (two objects). Model result: Sonnet, worked, 16 min (est. 60).\n",
       "created": "2026-11-08",
       "updated": "2026-11-09",
       "commits": []
@@ -24676,16 +24676,16 @@
     {
       "id": 2463,
       "title": "Effect-runtime allocation stage 2 (R2, R3): the loop reuses the Bind node as the pending cell; a skipped forward reuses its Call cell; measured one at a time; est. 1.8-2.2% and 0.9-1.4%",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Sonnet",
-      "where": "",
+      "where": "Speedwell",
       "labels": [
         "perf"
       ],
       "epic": "comparative-speed",
-      "body": "Note's stage 2. After SW-2462. Changes no counts.",
+      "body": "Note's stage 2. After SW-2462. Changes no counts.\n\nStarted 9 Nov 2026 02:55 UTC. Expected: 60 min. Estimates use ~100 instructions per object saved (SW-2462).\n",
       "created": "2026-11-08",
-      "updated": "2026-11-08",
+      "updated": "2026-11-09",
       "commits": []
     },
     {
