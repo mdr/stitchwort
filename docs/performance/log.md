@@ -85,7 +85,7 @@ in [../proposals/README.md](../proposals/README.md).
 
 ### SW-2531: inline a function for its context (a selector's result taken apart at once)
 
-- **Status:** on `lane/SW-2531`, for review. Opus.
+- **Status:** merged 9 Nov 2026 (748dc58a3). Opus.
 - **Problem.** SW-2513 target 2 (and SW-2371's "cause 2"): `Map.Tree.balance`
   is `rebuild (shape l r) l key value r`. `shape` (65 IR nodes) and
   `rebuild` (38) were too big for the inliner's 24-node limit, so every
