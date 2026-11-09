@@ -226,8 +226,8 @@ fn checking_never_runs_a_looping_test() {
 }
 
 /// What `test --native` is checked on: passing, failing and partial tests,
-/// and one that recurses too deeply, which native code hands to the machine
-/// (and the machine to the reference evaluator, which reports it).
+/// and one that recurses too deeply for the machine (which hands it to the
+/// reference evaluator, which reports it) but not for native code.
 const NATIVE: &str = r#"import Std (List)
 
 def collatzSteps: Nat -> {Partial} Nat
@@ -246,15 +246,26 @@ test "partial, fails" := collatzSteps 27 == 110
 test "too deep" := deeper 3000000 == 0
 "#;
 
-/// `test --native` (SW-2543): the same outcomes and messages as `test`, and
-/// the same cache, so each finds the other's results.
+/// `test --native` (SW-2543): the same outcomes and messages as `test`,
+/// except where native code's deeper recursion limit (SW-2471) lets a test
+/// pass that runs out on the machine; and a cache of its own.
 #[test]
-fn native_code_gives_the_machines_results_and_shares_its_cache() {
+fn native_code_gives_the_machines_results_but_for_the_depth_limit_and_keeps_its_own_cache() {
     let dir = folder_with("native", NATIVE);
     let machine = run(&dir, &["--no-cache"]);
     let native = run(&dir, &["--no-cache", "--native"]);
     assert!(machine.contains("1 ran out of resources"), "{machine}");
-    assert_eq!(machine, native);
+    assert!(!native.contains("ran out of resources"), "{native}");
+    // Every other test has the same outcome.
+    let others = |out: &str| -> Vec<String> {
+        out.lines()
+            .filter(|line| {
+                line.contains("passes") || line.contains("fails") || line.contains("partial")
+            })
+            .map(str::to_owned)
+            .collect()
+    };
+    assert_eq!(others(&machine), others(&native));
 
     // `--verbose` says what ran where, on standard error.
     let output = Command::new(env!("CARGO_BIN_EXE_stitchwort"))
@@ -266,22 +277,26 @@ fn native_code_gives_the_machines_results_and_shares_its_cache() {
     let notes = String::from_utf8(output.stderr).unwrap();
     assert!(notes.contains("native: compiled 5 test(s)"), "{notes}");
     assert!(
-        notes.contains("native: test \"too deep\" runs on the machine"),
+        notes.contains("native: 5 test(s) ran natively, 0 on the machine"),
         "{notes}"
     );
-    assert!(
-        notes.contains("native: 4 test(s) ran natively, 1 on the machine"),
-        "{notes}"
-    );
-    assert_eq!(String::from_utf8(output.stdout).unwrap(), machine);
+    assert_eq!(String::from_utf8(output.stdout).unwrap(), native);
 
-    // Results written natively are the machine's, and the other way round
-    // (but for running out of resources, which isn't cached).
-    let written = run(&dir, &["--native"]);
-    assert!(!written.contains("cached"), "{written}");
-    let read = run(&dir, &[]);
-    assert!(read.contains("(4 from the cache)"), "{read}");
-    assert!(run(&dir, &["--native"]).contains("(4 from the cache)"));
+    // Each runner's results are its own: a machine run doesn't satisfy a
+    // native one, nor the reverse.
+    let machine_first = run(&dir, &[]);
+    assert!(
+        machine_first.contains("(0 from the cache)"),
+        "{machine_first}"
+    );
+    let native_first = run(&dir, &["--native"]);
+    assert!(
+        native_first.contains("(0 from the cache)"),
+        "{native_first}"
+    );
+    // The machine's run kept 4 (running out isn't cached), native code's 5.
+    assert!(run(&dir, &[]).contains("(4 from the cache)"));
+    assert!(run(&dir, &["--native"]).contains("(5 from the cache)"));
 }
 
 /// The `test` file of the partial tests above, natively: each partial test

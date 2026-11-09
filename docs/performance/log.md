@@ -89,7 +89,8 @@ in [../proposals/README.md](../proposals/README.md).
 - **Change.** The tests lowered together are compiled once, with each test constant a root
   (`n1::compile_roots`, an entry trampoline per root), and each test's value is computed by
   `NativeExecutor::global` as the machine's `Machine::global` computes it. A test native code
-  can't run goes to the machine, so outcomes and the cache are the machine's.
+  can't run goes to the machine. Results are cached under native code's own key (not the
+  machine's): its recursion limit is deeper (SW-2471), so outcomes at the limit differ.
 - **Measured** (release CLI with `dev` features, best of 3 by instructions; `test X
   --verify-cache`, which reruns every test with the check cache warm, less a fully cached `test
   X`; load average 4-10):
