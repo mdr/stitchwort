@@ -447,16 +447,22 @@
         "Native comparisons and arrays inline: memory-game 8.3 -> 4.7 s (SW-2329)",
         "Cells through fixed-size helpers: binary-trees 4.3 -> 3.1 s with SW-2328/2329 (SW-2321)",
         "Re-dispatch depth: forwards 62% of routes on expressions (SW-2347); clause census (SW-2348)",
-        "Allocator note: keep mimalloc, per-run cell cache next (SW-2360; D3413, D3414)"
+        "Allocator note: keep mimalloc, per-run cell cache next (SW-2360; D3413, D3414)",
+        "Overnight 8-9 Nov: effect runtime R1-R3 and R7, many/pick in fewer operations, minOr, resumptions moved, capture-free closures once, record updates take unique records apart (core ten 11.66x -> 9.88x Lean by time)",
+        "Wide set (spectral-norm, const-fold, rbmap, rbmap-ck, mapops) and bench:aoc sweep",
+        "Performance log docs/performance/log.md (D3444)"
       ],
-      "now": [],
+      "now": [
+        "Compiled handler dispatch stage 1b (SW-2511, D3440)",
+        "Borrow inference B0 measurement (SW-2530, D3441)",
+        "In-place reuse across small functions (SW-2531)"
+      ],
       "next": [
-        "Operations in place stage A: classify clauses (SW-2348), then re-dispatch depth count (SW-2347) and stage B (SW-2349), then C, D, E (SW-2350-SW-2352); F optional (SW-2353)",
-        "Parse stage 2: error formatting (SW-2337); stage 1 fast paths (SW-2336) after stage B",
-        "Native Nat comparisons and Array fast paths (SW-2329), inline allocation (SW-2321)",
-        "Specialise capturing closures (SW-2135)",
-        "Rerun the table after each wave",
-        "Widen the program set when the ten stop teaching us much (SW-2346)"
+        "Skip freeing the heap at native exit, measure first (SW-2524)",
+        "Borrow inference B1 if B0 clears its 3% gate",
+        "Constant hoisting stages 1b and 2 (SW-2497 note; D3438/D3439 open)",
+        "rbmap-ck layout regression after SW-2502 (SW-2523, backlog)",
+        "Direction (D3445/D3446 no, 9 Nov): general performance across program kinds, judged on the wide set and bench:aoc; no parser-specific paths or handler specialisation for now"
       ],
       "links": [
         "docs/proposals/comparative-speed.md"
