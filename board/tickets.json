@@ -1,5 +1,5 @@
 {
-  "next": 2530,
+  "next": 2533,
   "tickets": [
     {
       "id": 47,
@@ -25373,7 +25373,7 @@
       "where": "",
       "labels": [],
       "epic": "comparative-speed",
-      "body": "From SW-2513 target 2 (SW-2371 cause 2). After SW-2514. 60 min.",
+      "body": "From SW-2513 target 2 (SW-2371 cause 2). After SW-2514. 60 min.\n\nSuperseded by SW-2531 (general form).\n",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
@@ -25556,6 +25556,45 @@
       "labels": [],
       "epic": "comparative-speed",
       "body": "Matt: \"I don't want to over-bias parsing as a problem ... special cases for known handlers ... feels like a direction we don't want to go down just yet. We're interested in our general performance characteristics. And if we have an explanation for why we're slower, maybe that's okay.\"",
+      "created": "2026-11-09",
+      "updated": "2026-11-09",
+      "commits": []
+    },
+    {
+      "id": 2530,
+      "title": "Borrow inference stage B0: dry-run inference plus a machine counter of the increment/decrement pairs borrowing would remove, per program (bench/compare and bench:aoc); gate for B1: >= 3% on mapops or dijkstra",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "Speedwell",
+      "labels": [],
+      "epic": "comparative-speed",
+      "body": "docs/proposals/borrow-inference.md stage B0. D3441, Matt, 9 Nov 2026 09:04: yes, proceed (B1 only if B0 clears the gate). 180 min.\n\nStarted 9 Nov 2026 09:04 UTC. Expected: 180 min.\n",
+      "created": "2026-11-09",
+      "updated": "2026-11-09",
+      "commits": []
+    },
+    {
+      "id": 2531,
+      "title": "In-place reuse across small functions: inline small non-recursive functions (e.g. Map's balance/rebuild/bin) where a cell is taken apart in one body and its replacement built in another, so reuse sees both (mapops -25.6% measured by hand, SW-2513); general, not Map-specific",
+      "status": "doing",
+      "agent": "Opus",
+      "where": "Speedwell",
+      "labels": [],
+      "epic": "comparative-speed",
+      "body": "Generalises SW-2515 (SW-2371 cause 2). Orchestrator's call under D3447 (counts only). Measure on bench/compare and bench:aoc. 150 min.\n\nStarted 9 Nov 2026 09:04 UTC. Expected: 150 min.\n",
+      "created": "2026-11-09",
+      "updated": "2026-11-09",
+      "commits": []
+    },
+    {
+      "id": 2532,
+      "title": "Guide and syntax.md prose fixes from SW-1850's review: SW-1856, SW-1860, SW-1863, SW-1864 (wording only, no example changes)",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "Speedwell",
+      "labels": [],
+      "epic": "docs-tutorials",
+      "body": "Paper lane; orchestrator runs the guide checks at merge. 60 min.\n\nStarted 9 Nov 2026 09:04 UTC. Expected: 60 min.\n",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []

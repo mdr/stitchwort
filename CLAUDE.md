@@ -47,7 +47,10 @@ does not do significant work itself:
   only when a lane is about to need the answer (Matt, 7 Nov 2026: "I can't
   possibly review 80 decisions"). Sequencing, implementation details and
   reversible calls it makes itself, records on the ticket as the
-  orchestrator's call, and mentions in one line. The answer is recorded on
+  orchestrator's call, and mentions in one line. So are optimisations that
+  only lower step, frame or allocation counts with results, messages,
+  hashes and proofs unchanged (D3447, Matt, 9 Nov 2026); each still gets its
+  performance-log entry (D3444). The answer is recorded on
   the ticket. See "Reporting to Matt" in `docs/workflow.md`.
 - It may do small mechanical work itself: board edits, merge commits, staging
   regenerated snapshots, one-line fixups found in review. Anything bigger
