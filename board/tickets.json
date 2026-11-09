@@ -1,5 +1,5 @@
 {
-  "next": 2561,
+  "next": 2562,
   "tickets": [
     {
       "id": 47,
@@ -25959,6 +25959,19 @@
       "labels": [],
       "epic": "comparative-speed",
       "body": "From Overmind job 41. No cache/TLB/branch counter explains it; suspected store-to-load or dependency stall in the inlined drop. Needs Linux perf (Overmind). 45 min.\n\nJob 42 (Overmind, 9 Nov): register-allocation regression. The inlined unused-field drop (200f2d6d9) makes Cranelift spill the cell pointer to 0x188(%rsp); every later field read reloads it first (store-forward + load chain). nextAfter +11% samples; the cold drop path itself has almost no samples. Fix: read all needed fields before the drop, or emit the drop after the field reads / out of line, so the cell stays in a register. Annotations in Overmind scratchpad j41/nx-ann-{b,r}.txt.\n",
+      "created": "2026-11-09",
+      "updated": "2026-11-09",
+      "commits": []
+    },
+    {
+      "id": 2561,
+      "title": "Entry points per D3452: update docs/proposals/entry-points.md to Matt's decision (any function of a runnable type can be run by name, Unison-style; no annotation; main is a style convention and the default name run looks for); then implement what follows once D3456 is answered",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "D3452, Matt, 9 Nov 2026 10:41: keep the Unison approach: any function with an appropriate signature can be run as an entry point; no annotation; a style convention that it is called main. Open: D3456 (warn on a main that can't run), D3453 (main without ()), D3454 (run NS runs NS.main). 60 min.",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
