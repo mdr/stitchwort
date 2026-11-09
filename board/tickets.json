@@ -24661,16 +24661,16 @@
     {
       "id": 2462,
       "title": "Effect-runtime allocation stage 1 (R1): a resumption is one object, fields inside the Fun (no Rc<Resume> plus wrapper); est. 2.2-3.2% on expressions and scan; kept if >= 60% of that",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Sonnet",
-      "where": "",
+      "where": "Speedwell",
       "labels": [
         "perf"
       ],
       "epic": "comparative-speed",
-      "body": "Note's stage 1. After SW-2461. Changes no counts.",
+      "body": "Note's stage 1. After SW-2461. Changes no counts.\n\nStarted 9 Nov 2026 02:36 UTC. Expected: 60 min.\n",
       "created": "2026-11-08",
-      "updated": "2026-11-08",
+      "updated": "2026-11-09",
       "commits": []
     },
     {
@@ -24835,12 +24835,12 @@
     {
       "id": 2474,
       "title": "Benchmark comparability: the same commit runs expressions in 320.5 G instructions built plainly (main checkout, no kache) but 310.7 G built in a lane worktree through kache (-3.1%); find why (different rustflags, codegen units, LTO, target-cpu?) and make both builds identical",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Sonnet",
-      "where": "",
+      "where": "Speedwell",
       "labels": [],
       "epic": "comparative-speed",
-      "body": "From SW-2461. Lanes' before/after numbers and Overmind's main-checkout comparisons may differ for identical source. Compare the effective cargo/rustc flags of both builds first. 45 min.",
+      "body": "From SW-2461. Lanes' before/after numbers and Overmind's main-checkout comparisons may differ for identical source. Compare the effective cargo/rustc flags of both builds first. 45 min.\n\nStarted 9 Nov 2026 02:36 UTC. Expected: 45 min.\n",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
