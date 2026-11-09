@@ -444,6 +444,7 @@ fn leaf_spans(tree: &Tree, out: &mut Vec<Span>) {
             arms.iter().for_each(|(_, t)| leaf_spans(t, out));
             leaf_spans(default, out);
         }
+        Tree::FinNumbers { numbers, .. } => numbers.subtrees().for_each(|t| leaf_spans(t, out)),
     }
 }
 

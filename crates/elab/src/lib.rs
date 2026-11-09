@@ -467,6 +467,7 @@ fn first_absurd(tree: &Tree) -> Option<(usize, Span)> {
             .iter()
             .find_map(|(_, t)| first_absurd(t))
             .or_else(|| first_absurd(default)),
+        Tree::FinNumbers { numbers, .. } => numbers.subtrees().find_map(first_absurd),
         Tree::Leaf { .. } | Tree::Missing { .. } => None,
     }
 }
@@ -479,7 +480,10 @@ fn is_flat(tree: &Tree) -> bool {
         Tree::Guard {
             leaf, otherwise, ..
         } => is_flat(leaf) && is_flat(otherwise),
-        Tree::Absurd { .. } | Tree::Case { .. } | Tree::NumCase { .. } => false,
+        Tree::Absurd { .. }
+        | Tree::Case { .. }
+        | Tree::NumCase { .. }
+        | Tree::FinNumbers { .. } => false,
     }
 }
 
@@ -510,6 +514,7 @@ struct Row<'a> {
 }
 
 /// A compiled pattern match, before its right-hand sides are checked.
+#[derive(Clone)]
 enum Tree<'a> {
     Leaf {
         aliases: Vec<(&'a str, usize)>,
@@ -558,7 +563,209 @@ enum Tree<'a> {
         default: Box<Tree<'a>>,
         span: Span,
     },
+    /// The `Fin` number patterns of a column, from the `at`th `FSucc` of the
+    /// value matched down: the case on the value there, built when it is
+    /// checked (`FinNumbers::case`).
+    FinNumbers {
+        numbers: Rc<FinNumbers<'a>>,
+        at: usize,
+    },
 }
+
+/// A column of `Fin` number patterns (with variables and `_`), compiled as
+/// numbers, so that the tree has a subtree per number written, not per
+/// `FSucc` below it. The kernel still matches a `Fin` one `FSucc` at a
+/// time: number k is `FSucc` k times around `FZero`, a chain of cases whose
+/// i-th `FZero` branch is the arm for i (or `zero`) and whose last `FSucc`
+/// branch is `rest`. Each link is made from these when it is checked, so a
+/// chain is only as long as checking gets: it stops at the first number no
+/// arm matches. The subtrees are compiled as if their link's fields were
+/// bound at `depth`; the i-th link binds them `i` `FSucc`s further down,
+/// and `case` shifts them there (docs/proposals/fin-literals.md).
+#[derive(Clone)]
+struct FinNumbers<'a> {
+    /// The level of the value matched.
+    level: usize,
+    depth: usize,
+    fin: DataId,
+    /// `FZero` and `FSucc` among `Fin`'s constructors, and their fields.
+    zero_ctor: usize,
+    succ_ctor: usize,
+    zero_fields: Vec<Name>,
+    succ_fields: Vec<Name>,
+    /// For each number written, the rows with it or a variable there.
+    arms: BTreeMap<BigUint, Tree<'a>>,
+    /// The rows with a variable, at a number below the largest that no arm
+    /// has; `None` if there is no such number, or no such row.
+    zero: Option<Tree<'a>>,
+    /// The rows with a variable, at the numbers above the largest.
+    rest: Option<Tree<'a>>,
+    /// The columns of an `FZero` and an `FSucc` branch, for one no row
+    /// reaches.
+    zero_columns: Vec<usize>,
+    succ_columns: Vec<usize>,
+    span: Span,
+    /// The span of the largest number's pattern.
+    largest_span: Span,
+}
+
+impl<'a> Tree<'a> {
+    /// The tree with each level from `from` up `by` further on.
+    fn shifted(&self, from: usize, by: usize) -> Tree<'a> {
+        let at = |level: usize| if level >= from { level + by } else { level };
+        match self {
+            _ if by == 0 => self.clone(),
+            Tree::Leaf {
+                aliases,
+                written,
+                rhs,
+                span,
+                alternatives,
+            } => Tree::Leaf {
+                aliases: aliases.iter().map(|&(x, level)| (x, at(level))).collect(),
+                written: written.clone(),
+                rhs: *rhs,
+                span: *span,
+                alternatives: alternatives.clone(),
+            },
+            Tree::Guard {
+                guard,
+                leaf,
+                otherwise,
+            } => Tree::Guard {
+                guard,
+                leaf: Box::new(leaf.shifted(from, by)),
+                otherwise: Box::new(otherwise.shifted(from, by)),
+            },
+            Tree::Absurd { level, span } => Tree::Absurd {
+                level: at(*level),
+                span: *span,
+            },
+            Tree::Missing { columns, span, arm } => Tree::Missing {
+                columns: columns.iter().map(|&c| at(c)).collect(),
+                span: *span,
+                arm: arm.clone(),
+            },
+            Tree::Case {
+                level,
+                data,
+                depth,
+                branches,
+                span,
+            } => Tree::Case {
+                level: at(*level),
+                data: *data,
+                depth: at(*depth),
+                branches: (branches.iter())
+                    .map(|(names, t)| (names.clone(), t.shifted(from, by)))
+                    .collect(),
+                span: *span,
+            },
+            Tree::NumCase {
+                level,
+                arms,
+                default,
+                span,
+            } => Tree::NumCase {
+                level: at(*level),
+                arms: (arms.iter())
+                    .map(|(n, t)| (n.clone(), t.shifted(from, by)))
+                    .collect(),
+                default: Box::new(default.shifted(from, by)),
+                span: *span,
+            },
+            Tree::FinNumbers { numbers, at: link } => Tree::FinNumbers {
+                numbers: Rc::new(numbers.shifted(from, by)),
+                at: *link,
+            },
+        }
+    }
+}
+
+impl<'a> FinNumbers<'a> {
+    /// The subtrees links are made of.
+    fn subtrees(&self) -> impl Iterator<Item = &Tree<'a>> {
+        self.arms.values().chain(&self.zero).chain(&self.rest)
+    }
+
+    fn shifted(&self, from: usize, by: usize) -> FinNumbers<'a> {
+        let at = |level: usize| if level >= from { level + by } else { level };
+        let tree = |t: &Tree<'a>| t.shifted(from, by);
+        FinNumbers {
+            level: at(self.level),
+            depth: at(self.depth),
+            arms: (self.arms.iter())
+                .map(|(n, t)| (n.clone(), tree(t)))
+                .collect(),
+            zero: self.zero.as_ref().map(tree),
+            rest: self.rest.as_ref().map(tree),
+            zero_columns: self.zero_columns.iter().map(|&c| at(c)).collect(),
+            succ_columns: self.succ_columns.iter().map(|&c| at(c)).collect(),
+            zero_fields: self.zero_fields.clone(),
+            succ_fields: self.succ_fields.clone(),
+            ..*self
+        }
+    }
+
+    /// The `at`th link of the chain: the case on the value `at` `FSucc`s
+    /// down from the one matched, which is the last field of the `FSucc`
+    /// above it.
+    fn case(self: &Rc<Self>, at: usize) -> Result<Tree<'a>> {
+        let largest = self.arms.keys().next_back().expect("a number pattern");
+        if at > MAX_FIN_PATTERN {
+            return Err(fin_too_large(largest, self.largest_span));
+        }
+        let by = at * self.succ_fields.len();
+        let level = if at == 0 {
+            self.level
+        } else {
+            self.depth + by - 1
+        };
+        let shift = |t: &Tree<'a>| t.shifted(self.depth, by);
+        let missing = |columns: &[usize]| Tree::Missing {
+            columns: (columns.iter())
+                .map(|&c| if c >= self.depth { c + by } else { c })
+                .collect(),
+            span: self.span,
+            arm: missing::Arm::default(),
+        };
+        let number = BigUint::from(at);
+        let zero = match (self.arms.get(&number), &self.zero) {
+            (Some(arm), _) | (None, Some(arm)) => shift(arm),
+            (None, None) => missing(&self.zero_columns),
+        };
+        let succ = if number < *largest {
+            Tree::FinNumbers {
+                numbers: Rc::clone(self),
+                at: at + 1,
+            }
+        } else {
+            match &self.rest {
+                Some(rest) => shift(rest),
+                None => missing(&self.succ_columns),
+            }
+        };
+        let mut branches = vec![
+            (self.zero_fields.clone(), zero),
+            (self.succ_fields.clone(), succ),
+        ];
+        if self.zero_ctor > self.succ_ctor {
+            branches.swap(0, 1);
+        }
+        Ok(Tree::Case {
+            level,
+            data: self.fin,
+            depth: self.depth + by,
+            branches,
+            span: self.span,
+        })
+    }
+}
+
+/// How many `FSucc`s down a `Fin` number pattern may be matched: one case
+/// per `FSucc`, each refining the context, makes a large number take time
+/// and memory that grow faster than it does.
+const MAX_FIN_PATTERN: usize = 64;
 
 /// What a pattern column's type is, as far as number patterns go.
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -585,6 +792,28 @@ fn negative_nat(span: Span) -> Diagnostic {
     Diagnostic::error("E-TYPE-MISMATCH", "a `Nat` can't be negative")
         .with_label(span, "this is negative, but it matches a `Nat`")
         .with_note("use an `Int` for numbers that can be negative")
+}
+
+/// The error for the number pattern `k` on a `Fin`, above `MAX_FIN_PATTERN`.
+fn fin_too_large(k: &BigUint, span: Span) -> Diagnostic {
+    error(
+        "E-MATCH-SIZE",
+        span,
+        format!(
+            "this number is too large to match a `Fin`: that takes a case for each number up \
+             to it, and the limit is {MAX_FIN_PATTERN}"
+        ),
+    )
+    .with_note(format!(
+        "compare the number instead, with a variable and a condition: \
+         `| i if i.toNat == {k} => …`"
+    ))
+}
+
+/// The error for a negative number pattern where a `Fin` is matched.
+fn fin_negative(span: Span) -> Diagnostic {
+    error("E-FIN-LITERAL", span, "a `Fin` can't be negative")
+        .with_note("a `Fin n` is a number from 0 up to n - 1")
 }
 
 /// Lists numbers for an error: all of up to five, or the first five and `…`.
@@ -3629,6 +3858,24 @@ impl Elaborator {
                 {
                     return self.compile_numbers(rows, depth, columns, types, j, span);
                 }
+                // So is a column of numbers on a `Fin`, but as `FZero` and
+                // `FSucc` cases in the end (`FinNumbers`).
+                if matches!(**pattern, Pattern::Num(..))
+                    && !self.options.numbers_as_succ
+                    && rows.iter().all(|r| {
+                        matches!(
+                            *r.pats[j],
+                            Pattern::Num(..)
+                                | Pattern::NegNum(..)
+                                | Pattern::Var(_)
+                                | Pattern::Wildcard(_)
+                                | Pattern::Absurd(_)
+                        )
+                    })
+                    && self.number_kind(types[j].as_ref())? == NumberKind::Fin
+                {
+                    return self.compile_fin_numbers(rows, depth, columns, types, j, span);
+                }
                 if let Some(ctor) = self.pattern_ctor(pattern, types[j].as_ref())? {
                     split = Some((j, ctor.data));
                     break 'rows;
@@ -3970,6 +4217,133 @@ impl Elaborator {
         })
     }
 
+    /// Compiles a split on column `j`, a `Fin` holding numbers, variables
+    /// and `_` (and maybe `()`), into `FinNumbers`: for each number, the rows
+    /// with it or a variable there, in order; and the rows with a variable,
+    /// at the numbers no arm has. A variable names the whole value.
+    #[allow(clippy::too_many_arguments)]
+    fn compile_fin_numbers<'a>(
+        &self,
+        rows: &[Row<'a>],
+        depth: usize,
+        columns: &[usize],
+        types: &[Option<Value>],
+        j: usize,
+        span: Span,
+    ) -> Result<Tree<'a>> {
+        let ty = types[j].as_ref();
+        let (fin, zero_ctor) = self.builtin_ctor(Builtin::FZero, span)?;
+        let (_, succ_ctor) = self.builtin_ctor(Builtin::FSucc, span)?;
+        let mut by_key: BTreeMap<&BigUint, Vec<usize>> = BTreeMap::new();
+        let mut others = Vec::new();
+        let mut largest_span = span;
+        for (i, row) in rows.iter().enumerate() {
+            match &*row.pats[j] {
+                Pattern::Num(k, s) => {
+                    self.fin_in_range(k, ty, *s)?;
+                    if by_key.keys().next_back().is_none_or(|m| k > *m) {
+                        largest_span = *s;
+                    }
+                    by_key.entry(k).or_default().push(i);
+                }
+                Pattern::NegNum(_, s) => return Err(fin_negative(*s)),
+                _ => others.push(i),
+            }
+        }
+        let level = columns[j];
+        let branch_columns = |fields: usize| -> Vec<usize> {
+            (columns[..j].iter().copied())
+                .chain(depth..depth + fields)
+                .chain(columns[j + 1..].iter().copied())
+                .collect()
+        };
+        // The rows at `indices`, in a branch for constructor `c`: column `j`
+        // is its fields, bound from `depth`.
+        let branch = |indices: &[usize], c: usize| -> Result<Tree<'a>> {
+            let fields = self.kernel.data(fin).ctors()[c].fields.len();
+            let branch_types: Vec<Option<Value>> = (types[..j].iter().cloned())
+                .chain(self.field_types(ty, fin, c, depth)?)
+                .chain(types[j + 1..].iter().cloned())
+                .collect();
+            let branch_rows: Vec<Row<'a>> = (indices.iter())
+                .map(|&i| {
+                    let row = &rows[i];
+                    let pattern = &row.pats[j];
+                    let mut aliases = row.aliases.clone();
+                    if let Some(x) = pattern_var(pattern) {
+                        aliases.push((&x.text, level));
+                    }
+                    let wildcard = Cow::Owned(Pattern::Wildcard(pattern.span()));
+                    Row {
+                        pats: (row.pats[..j].iter().cloned())
+                            .chain(std::iter::repeat_n(wildcard, fields))
+                            .chain(row.pats[j + 1..].iter().cloned())
+                            .collect(),
+                        aliases,
+                        ..row.clone()
+                    }
+                })
+                .collect();
+            self.compile(
+                &branch_rows,
+                depth + fields,
+                &branch_columns(fields),
+                &branch_types,
+                span,
+            )
+        };
+        let largest = by_key.keys().next_back().expect("a number pattern");
+        let gap = BigUint::from(by_key.len()) <= **largest;
+        // Checking goes down to the largest number, unless it stops at a
+        // number below the limit that no row matches (`FinNumbers::case`
+        // refuses a link past the limit, too).
+        let stops = others.is_empty()
+            && (0..=MAX_FIN_PATTERN).any(|i| !by_key.contains_key(&BigUint::from(i)));
+        if **largest > BigUint::from(MAX_FIN_PATTERN) && !stops {
+            return Err(fin_too_large(largest, largest_span));
+        }
+        let mut arms = BTreeMap::new();
+        for (key, matching) in &by_key {
+            // In the order of the source.
+            let mut indices: Vec<usize> = matching.iter().chain(&others).copied().collect();
+            indices.sort_unstable();
+            arms.insert((*key).clone(), branch(&indices, zero_ctor)?);
+        }
+        let zero = match others.is_empty() || !gap {
+            true => None,
+            false => Some(branch(&others, zero_ctor)?),
+        };
+        let rest = match others.is_empty() {
+            true => None,
+            false => Some(branch(&others, succ_ctor)?),
+        };
+        let fields = |c: usize| -> Vec<Name> {
+            (self.kernel.data(fin).ctors()[c].fields.iter())
+                .map(|(x, _)| x.clone())
+                .collect()
+        };
+        let ctors = self.kernel.data(fin).ctors();
+        Ok(Tree::FinNumbers {
+            numbers: Rc::new(FinNumbers {
+                level,
+                depth,
+                fin,
+                zero_ctor,
+                succ_ctor,
+                zero_fields: fields(zero_ctor),
+                succ_fields: fields(succ_ctor),
+                arms,
+                zero,
+                rest,
+                zero_columns: branch_columns(ctors[zero_ctor].fields.len()),
+                succ_columns: branch_columns(ctors[succ_ctor].fields.len()),
+                span,
+                largest_span,
+            }),
+            at: 0,
+        })
+    }
+
     /// The types of the fields of constructor `c` of `d`, bound at levels
     /// from `depth`, when the matched value's type `ty` is known.
     fn field_types(
@@ -4019,8 +4393,7 @@ impl Elaborator {
             // the split reports the mismatch.
             Pattern::NegNum(n, span) => match self.number_kind(ty)? {
                 NumberKind::Nat => Err(negative_nat(*span)),
-                NumberKind::Fin => Err(error("E-FIN-LITERAL", *span, "a `Fin` can't be negative")
-                    .with_note("a `Fin n` is a number from 0 up to n - 1")),
+                NumberKind::Fin => Err(fin_negative(*span)),
                 _ => self.int_pattern(n, true, *span).map(Some),
             },
             Pattern::Num(n, span) if self.number_kind(ty)? == NumberKind::Int => {
@@ -4256,17 +4629,7 @@ impl Elaborator {
         ty: Option<&Value>,
         span: Span,
     ) -> Result<CtorPattern<'a>> {
-        if let Some(ty) = ty
-            && let Some(Some(n)) = numbers::fin_bound(&self.ev(), ty)?
-            && *k >= n
-        {
-            return Err(error(
-                "E-FIN-LITERAL",
-                span,
-                format!("{k} isn't below {n}, so it can't match a `Fin {n}`"),
-            )
-            .with_note(format!("a `Fin {n}` is a number below {n}")));
-        }
+        self.fin_in_range(k, ty, span)?;
         let (ctor, args) = if k.bits() == 0 {
             (Builtin::FZero, Vec::new())
         } else {
@@ -4282,6 +4645,23 @@ impl Elaborator {
             args,
             span,
         })
+    }
+
+    /// Refuses the number pattern `k` on `ty`, a `Fin n`, when n is a known
+    /// number not above k.
+    fn fin_in_range(&self, k: &BigUint, ty: Option<&Value>, span: Span) -> Result<()> {
+        if let Some(ty) = ty
+            && let Some(Some(n)) = numbers::fin_bound(&self.ev(), ty)?
+            && *k >= n
+        {
+            return Err(error(
+                "E-FIN-LITERAL",
+                span,
+                format!("{k} isn't below {n}, so it can't match a `Fin {n}`"),
+            )
+            .with_note(format!("a `Fin {n}` is a number below {n}")));
+        }
+        Ok(())
     }
 
     /// The constructor pattern for the `Int` literal `k` or `-k`.
@@ -4731,6 +5111,7 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
     cx.g().machine.budget.nesting(check::PASS)?;
     match tree {
         Tree::Leaf { .. } => check_leaf(cx, tree, goal, false),
+        Tree::FinNumbers { numbers, at } => check_tree(cx, &numbers.case(*at)?, goal),
         Tree::Guard {
             guard,
             leaf,

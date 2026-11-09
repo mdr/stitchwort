@@ -15,6 +15,8 @@ use stitchwort_core::DataId;
 use stitchwort_core::registry::Builtin;
 use stitchwort_syntax::{Diagnostic, MissingCases, Span};
 
+use std::rc::Rc;
+
 use crate::{Elaborator, Result, Tree};
 
 /// One case no arm matches, in a `Tree::Missing`.
@@ -60,6 +62,13 @@ enum Shape {
         base: usize,
     },
     Num(BigUint),
+    /// A `Fin` above the numbers written: constructor `c` of `d`, `FSucc`,
+    /// `count` times around `_`.
+    Above {
+        d: DataId,
+        c: usize,
+        count: usize,
+    },
 }
 
 /// The error for the cases `cases` (each with its place in the tree): one
@@ -308,6 +317,40 @@ impl Elaborator {
                 shapes.remove(level);
                 self.annotate_in(default, root, shapes, path);
             }
+            // A number is shown as one, as for a `Nat`.
+            Tree::FinNumbers { numbers, .. } => {
+                let numbers = Rc::make_mut(numbers);
+                let (level, depth) = (numbers.level, numbers.depth);
+                for (n, subtree) in numbers.arms.iter_mut() {
+                    shapes.retain(|l, _| *l < depth);
+                    shapes.insert(level, Shape::Num(n.clone()));
+                    self.annotate_in(subtree, root, shapes, path);
+                }
+                // The rows with a variable: at the first number no arm has,
+                // and above the largest.
+                let gap = (0u32..)
+                    .map(BigUint::from)
+                    .find(|n| !numbers.arms.contains_key(n))
+                    .expect("some number has no arm");
+                let largest = numbers.arms.keys().next_back().expect("a number pattern");
+                let above = Shape::Above {
+                    d: numbers.fin,
+                    c: numbers.succ_ctor,
+                    count: usize::try_from(largest + 1u32).unwrap_or(usize::MAX),
+                };
+                for (subtree, shape) in [
+                    (numbers.zero.as_mut(), Shape::Num(gap)),
+                    (numbers.rest.as_mut(), above),
+                ] {
+                    if let Some(subtree) = subtree {
+                        shapes.retain(|l, _| *l < depth);
+                        shapes.insert(level, shape);
+                        self.annotate_in(subtree, root, shapes, path);
+                    }
+                }
+                shapes.retain(|l, _| *l < depth);
+                shapes.remove(&level);
+            }
         }
     }
 
@@ -320,6 +363,21 @@ impl Elaborator {
         let (d, c, base) = match shapes.get(&level) {
             None => return "_".to_string(),
             Some(Shape::Num(n)) => return n.to_string(),
+            Some(Shape::Above { d, c, count }) => {
+                let succ = &g.data(*d).ctors()[*c].name;
+                let mut text = "_".to_string();
+                for i in 0..*count {
+                    text = match i {
+                        0 => format!("{succ} {text}"),
+                        _ => format!("{succ} ({text})"),
+                    };
+                }
+                return if atom && *count > 0 {
+                    format!("({text})")
+                } else {
+                    text
+                };
+            }
             Some(Shape::Ctor { d, c, base }) => (*d, *c, *base),
         };
         let ctor = &g.data(d).ctors()[c];
@@ -431,6 +489,9 @@ pub(crate) fn definite(tree: &Tree, span: Span) -> Option<Diagnostic> {
             Tree::NumCase { arms, default, .. } => {
                 arms.iter().for_each(|(_, t)| collect(t, out, guards));
                 collect(default, out, guards);
+            }
+            Tree::FinNumbers { numbers, .. } => {
+                numbers.subtrees().for_each(|t| collect(t, out, guards))
             }
         }
     }

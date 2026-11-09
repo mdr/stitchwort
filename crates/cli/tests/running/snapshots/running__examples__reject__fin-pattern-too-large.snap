@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-MATCH-SIZE] Error: this number is too large to match a `Fin`: that takes a case for each number up to it, and the limit is 64
+   ╭─[ reject/fin-pattern-too-large.sw:9:8 ]
+   │
+ 9 │   | _, 1000000 => "a million"
+   │        ───┬───  
+   │           ╰───── this number is too large to match a `Fin`: that takes a case for each number up to it, and the limit is 64
+   │ 
+   │ Note: compare the number instead, with a variable and a condition: `| i if i.toNat == 1000000 => …`
+───╯

@@ -143,6 +143,7 @@ fn arm_spans(tree: &Tree, out: &mut Vec<Span>) {
             arms.iter().for_each(|(_, t)| arm_spans(t, out));
             arm_spans(default, out);
         }
+        Tree::FinNumbers { numbers, .. } => numbers.subtrees().for_each(|t| arm_spans(t, out)),
     }
 }
 
