@@ -594,8 +594,7 @@ behaviour changed (the feature is off in every shipped and test build; outputs o
 | rbmap-ck | 10.82 | 0.40 M | 0.17% | 0.40 M | 0.17% | 0.17% |
 | **mapops** | 12.65 | 22.26 M | **6.75%** | 31.28 M | **9.09%** | **9.09%** |
 
-Core-ten geometric mean of (1 - saving), b1: about -0.5% (pidigits to disk, scan and
-expressions at 0.3%); with O6 dropped, -1.6% (memory-game's 13.8% dominates; it is a
+Core-ten geometric mean saving: b1 0.75%; with O6 dropped 2.4% (memory-game's 13.8% is a
 `Map`/array loop where O6 makes the difference). Mapops's lookup walk is `get.%match1[2]`: with
 O6 its `tree` parameter is owned (the lifted match passes the node's `vv` to an owned
 parameter), without it the walk is fully lent. That is the main finding for B1: **drop O6.**
