@@ -25763,7 +25763,7 @@
       "where": "",
       "labels": [],
       "epic": "effects-native",
-      "body": "D3448; plan step 4. Waits for D3449. 90 min.\n\nD3449, Matt, 9 Nov 2026 10:08: an explicit --native that cannot run natively stops with an error, never falls back (\"if you ask to run on native and you don't, [that] violates the principle of least surprise\"). Orchestrator reading, pending Matt: with no flag, run/build use the best runner available (the machine only where native is unsupported, e.g. the playground); still fix the fixable refusals (stack grown on demand, huge frames).\n",
+      "body": "D3448; plan step 4. Waits for D3449. 90 min.\n\nD3449, Matt, 9 Nov 2026 10:08: an explicit --native that cannot run natively stops with an error, never falls back (\"if you ask to run on native and you don't, [that] violates the principle of least surprise\"). Orchestrator reading, pending Matt: with no flag, run/build use the best runner available (the machine only where native is unsupported, e.g. the playground); still fix the fixable refusals (stack grown on demand, huge frames).\n\nMatt confirmed (9 Nov): plain run/build with no flag uses the best runner available.\n",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
@@ -25776,7 +25776,7 @@
       "where": "",
       "labels": [],
       "epic": "effects-native",
-      "body": "D3448; plan step 6. After N5b passes. 180 min.\n\nD3449, Matt, 9 Nov 2026 10:08: an explicit --native that cannot run natively stops with an error, never falls back (\"if you ask to run on native and you don't, [that] violates the principle of least surprise\"). Orchestrator reading, pending Matt: with no flag, run/build use the best runner available (the machine only where native is unsupported, e.g. the playground); still fix the fixable refusals (stack grown on demand, huge frames).\n",
+      "body": "D3448; plan step 6. After N5b passes. 180 min.\n\nD3449, Matt, 9 Nov 2026 10:08: an explicit --native that cannot run natively stops with an error, never falls back (\"if you ask to run on native and you don't, [that] violates the principle of least surprise\"). Orchestrator reading, pending Matt: with no flag, run/build use the best runner available (the machine only where native is unsupported, e.g. the playground); still fix the fixable refusals (stack grown on demand, huge frames).\n\nMatt confirmed (9 Nov): plain run/build with no flag uses the best runner available.\n",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
