@@ -217,18 +217,16 @@ theorem Parse.runsPure (x: a) (rest: List Char): Parse.Runs (() => x) [] rest x 
   state starts honest =>
     Witness state.at (Both rfl (Both starts (Both (rewrite starts at honest in honest) rfl)))
 
---| `p` then `j` of its value, from one state: `p` reads `first` and gives `v`
---| wherever it is run, and `j v` reads `next` from where `p` stopped (given the
---| offset it must have reached). The state-level form of [`Parse.runsBind`], for
---| a rest that depends on the state (`many`'s check that it moved).
-theorem Parse.runsFromBind (state: Parse.State) (p: () → {Parse} a) (j: a → {Parse} b) (first: List Char) (next: List Char) (read: List Char)
-    (rest: List Char) (v: a) (value: b) (joined: read = first ++ next) (runsFirst: Parse.Runs p first (next ++ rest) v)
+--| As [`Parse.runsFromBind`], but `p` need only read `first` from this state:
+--| for a `p` that depends on where it starts, such as `optionalFrom state.at`.
+theorem Parse.runsFromBindAt (state: Parse.State) (p: () → {Parse} a) (j: a → {Parse} b) (first: List Char) (next: List Char) (read: List Char)
+    (rest: List Char) (v: a) (value: b) (joined: read = first ++ next) (runsFirst: Parse.RunsFrom state p first (next ++ rest) v)
     (runsNext: (middle: Parse.State) → middle.at.rest = next ++ rest → middle.at.left = middle.at.rest.length →
       middle.at.offset = state.at.offset + first.length → Parse.RunsFrom middle (() => j v) next rest value):
     Parse.RunsFrom state (() => j (p())) read rest value :=
   starts honest =>
     let split: state.at.rest = first ++ (next ++ rest) := rewrite joined at starts in Eq.trans starts (List.appendAssoc first next rest)
-    match runsFirst state split honest with
+    match runsFirst split honest with
       | Witness m (Both ran (Both mrest (Both mleft moff))) =>
         let middle: Parse.State := { state | at = m }
         let honest1: middle.at.left = middle.at.rest.length := rewrite mrest in mleft
@@ -239,6 +237,17 @@ theorem Parse.runsFromBind (state: Parse.State) (p: () → {Parse} a) (j: a → 
               (Both (Parse.runFromThenBack2 p tree state j (x => (x, Parse.mark())) v middle _ ran ran2)
                 (Both m2rest (Both m2left
                   (rewrite joined, List.lengthAppend first next in omega [moff, m2off]))))
+
+--| `p` then `j` of its value, from one state: `p` reads `first` and gives `v`
+--| wherever it is run, and `j v` reads `next` from where `p` stopped (given the
+--| offset it must have reached). The state-level form of [`Parse.runsBind`], for
+--| a rest that depends on the state (`many`'s check that it moved).
+theorem Parse.runsFromBind (state: Parse.State) (p: () → {Parse} a) (j: a → {Parse} b) (first: List Char) (next: List Char) (read: List Char)
+    (rest: List Char) (v: a) (value: b) (joined: read = first ++ next) (runsFirst: Parse.Runs p first (next ++ rest) v)
+    (runsNext: (middle: Parse.State) → middle.at.rest = next ++ rest → middle.at.left = middle.at.rest.length →
+      middle.at.offset = state.at.offset + first.length → Parse.RunsFrom middle (() => j v) next rest value):
+    Parse.RunsFrom state (() => j (p())) read rest value :=
+  Parse.runsFromBindAt state p j first next read rest v value joined (runsFirst state) runsNext
 
 --| Sequencing: `p` reads `first` and gives `v`, then `j v` reads `next`, and
 --| the whole reads `read = first ++ next`. `p` sees `next ++ rest` after
@@ -398,8 +407,8 @@ theorem Parse.runsOneOfNext (first: () → {Parse} a) (next: () → {Parse} a) (
   Parse.runsBind (() => Parse.optional first) (found => Parse.valueOr found (() => Parse.oneOfFrom next more)) [] read read rest None v rfl
     (Parse.declinesRuns first (read ++ rest) declines) runsNext
 
-theorem Parse.runsFromManyStepSome (before: Parse.Mark) (v: a) (next: a → {Parse} b) (done: () → b) (middle: Parse.State) (read: List Char)
-    (rest: List Char) (value: b) (advanced: before.offset < middle.at.offset) (runsNext: Parse.RunsFrom middle (() => next v) read rest value):
+theorem Parse.runsFromManyStepSome (before: Parse.Mark) (v: a) (next: a → Parse.Mark → {Parse} b) (done: () → b) (middle: Parse.State) (read: List Char)
+    (rest: List Char) (value: b) (advanced: before.offset < middle.at.offset) (runsNext: Parse.RunsFrom middle (() => next v middle.at) read rest value):
     Parse.RunsFrom middle (() => Parse.manyStep before (Some v) next done) read rest value :=
   let holds: (middle.at.offset > before.offset) = True := omega [advanced]
   rewrite holds in runsNext
@@ -441,38 +450,35 @@ theorem Parse.manyStepsShort (p: () → {Parse} a): (steps: List (List Char, a))
         let shorter := Parse.manyStepsShort p steps rest later
         omega [shorter, List.lengthAppend more (Parse.joinReads steps)]
 
---| `manyFuel`, with enough fuel (more than the rounds), after `found` (newest
---| first): it gives them all.
-theorem Parse.runsManyFuel (p: () → {Parse} a): (steps: List (List Char, a)) → (rest: List Char) → (fuel: Nat) → (found: List a) →
-    steps.length < fuel → Parse.ManyRuns p steps rest →
-    Parse.Runs (() => Parse.manyFuel fuel p found) (Parse.joinReads steps) rest (found.reverse ++ Parse.stepValues steps)
+--| `manyFrom` from a state that is at its `before` mark, with enough fuel
+--| (more than the rounds), after `found` (newest first): it gives them all.
+theorem Parse.runsManyFrom (p: () → {Parse} a): (steps: List (List Char, a)) → (rest: List Char) → (fuel: Nat) → (found: List a) →
+    steps.length < fuel → Parse.ManyRuns p steps rest → (state: Parse.State) →
+    Parse.RunsFrom state (() => Parse.manyFrom fuel p found state.at) (Parse.joinReads steps) rest (found.reverse ++ Parse.stepValues steps)
   | steps, rest, Zero, found, enough, manyRuns, state, starts, honest => Void.exfalso (omega [enough])
   | [], rest, Succ more, found, enough, declines, state, starts, honest =>
     rewrite List.appendNil found.reverse in
-      (Parse.runsFromMark state (before => Parse.manyStep before (Parse.optional p) (v => Parse.manyFuel more p [v, ..found]) (() => found.reverse)) [] rest
-        found.reverse
-        (Parse.runsFromBind state (() => Parse.optional p)
-          (found2 => Parse.manyStep state.at found2 (v => Parse.manyFuel more p [v, ..found]) (() => found.reverse)) [] [] [] rest None found.reverse rfl (Parse.declinesRuns p rest declines)
-          (middle atRest honest2 offset => Parse.runsPure found.reverse rest middle))) starts honest
+      (Parse.runsFromBindAt state (() => Parse.optionalFrom state.at p)
+        (found2 => Parse.manyStep state.at found2 (v at2 => Parse.manyFrom more p [v, ..found] at2) (() => found.reverse)) [] [] [] rest None found.reverse rfl
+        (Parse.declinesRuns p rest declines state)
+        (middle atRest honest2 offset => Parse.runsPure found.reverse rest middle)) starts honest
   | [(read, v), ..steps], rest, Succ more, found, enough, Both nonEmpty (Both runsP later), state, starts, honest =>
     let short: steps.length < more := omega [enough]
     let value: found.reverse ++ [v, ..Parse.stepValues steps] = [v, ..found].reverse ++ Parse.stepValues steps :=
       rewrite List.reverseCons v found, List.appendAssoc found.reverse [v] (Parse.stepValues steps) in rfl
     rewrite value in
-      (Parse.runsFromMark state (before => Parse.manyStep before (Parse.optional p) (v2 => Parse.manyFuel more p [v2, ..found]) (() => found.reverse))
-        (read ++ Parse.joinReads steps) rest ([v, ..found].reverse ++ Parse.stepValues steps)
-        (Parse.runsFromBind state (() => Parse.optional p)
-          (found2 => Parse.manyStep state.at found2 (v2 => Parse.manyFuel more p [v2, ..found]) (() => found.reverse))
-          read (Parse.joinReads steps) (read ++ Parse.joinReads steps) rest (Some v) ([v, ..found].reverse ++ Parse.stepValues steps) rfl
-          (Parse.runsOptional p read (Parse.joinReads steps ++ rest) v runsP)
-          (middle atRest honest2 offset =>
-            let advanced: state.at.offset < middle.at.offset :=
-              match read with
-                | [] => Void.exfalso (nonEmpty rfl)
-                | [char, ..others] => omega [offset]
-            Parse.runsFromManyStepSome state.at v (v2 => Parse.manyFuel more p [v2, ..found]) (() => found.reverse) middle (Parse.joinReads steps) rest
-              ([v, ..found].reverse ++ Parse.stepValues steps) advanced
-              (Parse.runsManyFuel p steps rest more [v, ..found] short later middle)))) starts honest
+      (Parse.runsFromBindAt state (() => Parse.optionalFrom state.at p)
+        (found2 => Parse.manyStep state.at found2 (v2 at2 => Parse.manyFrom more p [v2, ..found] at2) (() => found.reverse))
+        read (Parse.joinReads steps) (read ++ Parse.joinReads steps) rest (Some v) ([v, ..found].reverse ++ Parse.stepValues steps) rfl
+        (Parse.runsOptional p read (Parse.joinReads steps ++ rest) v runsP state)
+        (middle atRest honest2 offset =>
+          let advanced: state.at.offset < middle.at.offset :=
+            match read with
+              | [] => Void.exfalso (nonEmpty rfl)
+              | [char, ..others] => omega [offset]
+          Parse.runsFromManyStepSome state.at v (v2 at2 => Parse.manyFrom more p [v2, ..found] at2) (() => found.reverse) middle (Parse.joinReads steps) rest
+            ([v, ..found].reverse ++ Parse.stepValues steps) advanced
+            (Parse.runsManyFrom p steps rest more [v, ..found] short later middle))) starts honest
 
 --| `many p` where `p` succeeds round after round and then declines: it reads
 --| the rounds' text and gives their values, in order. Note that `rest` is where
@@ -484,8 +490,8 @@ theorem Parse.runsMany (p: () → {Parse} a) (steps: List (List Char, a)) (rest:
     let short := Parse.manyStepsShort p steps rest manyRuns
     let lengths: state.at.rest.length = (Parse.joinReads steps).length + rest.length := rewrite starts in List.lengthAppend (Parse.joinReads steps) rest
     let enough: steps.length < state.at.left + 1 := omega [short, lengths, honest]
-    Parse.runsFromMark state (at => Parse.manyFuel (at.left + 1) p []) (Parse.joinReads steps) rest (Parse.stepValues steps)
-      (Parse.runsManyFuel p steps rest (state.at.left + 1) [] enough manyRuns state) starts honest
+    Parse.runsFromMark state (at => Parse.manyFrom (at.left + 1) p [] at) (Parse.joinReads steps) rest (Parse.stepValues steps)
+      (Parse.runsManyFrom p steps rest (state.at.left + 1) [] enough manyRuns state) starts honest
 
 --| One step of `chainLeft` (an operator and an operand), as the lemmas
 --| name it.
