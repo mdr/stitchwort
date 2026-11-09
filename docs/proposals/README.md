@@ -7,6 +7,9 @@ This index says where each note stands. It was written on 7 November 2026
 (SW-2069) by reading the notes, the board and the code at `a0cea6157`.
 Nothing was built or run for it.
 
+The optimisations these notes led to, with their measurements and the ones
+dropped, are logged in [../performance/log.md](../performance/log.md).
+
 **Statuses**
 
 - **built**: the design (or the part of it that was decided) is in the code;
