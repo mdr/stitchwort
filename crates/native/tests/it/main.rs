@@ -1,6 +1,7 @@
 //! The crate's integration tests in one binary (docs/proposals/fewer-test-binaries.md).
 
 mod backend;
+mod borrow;
 mod common;
 #[macro_use]
 #[path = "../../../rt/tests/it/differential.rs"]

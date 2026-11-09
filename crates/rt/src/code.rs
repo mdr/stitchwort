@@ -249,6 +249,34 @@ pub enum Instr {
         src: Reg,
     },
     Unreachable,
+    /// Field `i` of the constructor in `src`, which the frame holds lent
+    /// (borrowed: [`crate::borrow`]), lent in `dst` too: native code loads
+    /// it without an increment, and the machine keeps a copy it doesn't
+    /// count in the allocation trace. `dst` may be `src`, which then holds
+    /// the field instead; otherwise `dst` holds nothing lent before.
+    Peek {
+        dst: Reg,
+        src: Reg,
+        i: u32,
+    },
+    /// `src`'s lent value, lent in `dst` too (as [`Instr::Peek`]).
+    Lend {
+        dst: Reg,
+        src: Reg,
+    },
+    /// The end of `reg`'s lent value, or nothing if it holds none: native
+    /// code does nothing, and the machine drops its copy, panicking if
+    /// that copy was the last reference (an owner let go of a value while
+    /// it was lent).
+    Forget {
+        reg: Reg,
+    },
+    /// `reg`'s lent value becomes owned, by an increment, before it is
+    /// moved where values are kept (a constructor, an owned parameter, a
+    /// result).
+    Own {
+        reg: Reg,
+    },
 }
 
 /// A [`Instr::NumSwitch`]'s targets.
@@ -265,6 +293,18 @@ pub struct Code {
     pub regs: u32,
     /// How many arguments it takes, in registers `0..params`.
     pub params: u32,
+    /// Per parameter, whether it is borrowed ([`crate::borrow`]): the
+    /// caller keeps its reference, and this body only reads it. Empty if
+    /// none is.
+    pub borrowed: Box<[bool]>,
+}
+
+impl Code {
+    /// Whether parameter `j` is borrowed.
+    #[inline]
+    pub fn borrows(&self, j: usize) -> bool {
+        self.borrowed.get(j).copied().unwrap_or(false)
+    }
 }
 
 /// What the machine runs: the code of every body, and the constants.
@@ -279,9 +319,6 @@ pub struct Image {
     /// The code of each copy taking a reuse token ([`crate::reuse`]), to
     /// its original's: the depth note counts their frames together.
     pub folds: HashMap<u32, u32>,
-    /// What the borrow inference dry run decided (`crate::borrow`).
-    #[cfg(feature = "borrow-counts")]
-    pub borrow: crate::borrow::BorrowInfo,
 }
 
 /// The pool's first entries.
@@ -345,22 +382,15 @@ pub fn compile(program: &Program) -> Image {
             folds.insert(*code, original);
         }
     }
-    let image = Image {
+    let mut image = Image {
         codes,
         global_code,
         lambda_code,
         entry_code,
         pool,
         folds,
-        #[cfg(feature = "borrow-counts")]
-        borrow: Default::default(),
     };
-    #[cfg(feature = "borrow-counts")]
-    let image = {
-        let mut image = image;
-        image.borrow = crate::borrow::for_image(program, &image);
-        image
-    };
+    crate::borrow::apply(program, &mut image);
     image
 }
 
@@ -628,6 +658,7 @@ impl<'a> Compiler<'a> {
                 num_tables: Vec::new(),
                 regs: frame,
                 params,
+                borrowed: Box::default(),
             },
             next: frame,
             first_temp: frame,

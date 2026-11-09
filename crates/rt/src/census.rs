@@ -67,6 +67,10 @@ pub fn instr_name(instr: &Instr) -> &'static str {
         Instr::Jump { .. } => "Jump",
         Instr::Return { .. } => "Return",
         Instr::Unreachable => "Unreachable",
+        Instr::Peek { .. } => "Peek",
+        Instr::Lend { .. } => "Lend",
+        Instr::Forget { .. } => "Forget",
+        Instr::Own { .. } => "Own",
     }
 }
 
@@ -111,6 +115,11 @@ pub fn n1_blocker(instr: &Instr) -> Option<String> {
         | Instr::Switch { .. }
         | Instr::Field { .. }
         | Instr::Unpack { .. }
+        // Borrowed parameters (`crate::borrow`).
+        | Instr::Peek { .. }
+        | Instr::Lend { .. }
+        | Instr::Forget { .. }
+        | Instr::Own { .. }
         | Instr::Ctor { .. }
         | Instr::CtorReuse { .. }
         | Instr::JumpIfFalse { .. }

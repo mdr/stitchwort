@@ -15,7 +15,6 @@
 use stitchwort_test_alloc as _;
 
 pub mod alloc_trace;
-#[cfg(any(test, feature = "borrow-counts"))]
 pub mod borrow;
 pub mod call_counts;
 pub mod cell_cache;

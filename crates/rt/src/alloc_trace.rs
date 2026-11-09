@@ -97,6 +97,18 @@ pub(crate) fn reuse(tag: u32, fields: &Rc<[Value]>) {
     let _ = (tag, fields);
 }
 
+/// Runs `f` without recording the increments and decrements it makes: the
+/// machine's copies of lent values (`crate::borrow`), which native code
+/// doesn't count.
+#[inline(always)]
+pub(crate) fn quietly<R>(f: impl FnOnce() -> R) -> R {
+    #[cfg(feature = "alloc-trace")]
+    if enabled::recording() {
+        return enabled::quietly(f);
+    }
+    f()
+}
+
 /// A reference to the cell taken.
 #[inline(always)]
 pub(crate) fn inc(fields: &Rc<[Value]>) {

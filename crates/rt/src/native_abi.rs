@@ -36,7 +36,10 @@
 //!   call) and hands the steps back, so a run counts the same whichever
 //!   runner did the work.
 //! - **Ownership.** The arguments are moved into native code, which owns
-//!   them from then on. The result is moved back.
+//!   them from then on. The result is moved back. Inside native code, a
+//!   global's borrowed parameters ([`crate::borrow`]) hold their values
+//!   without a reference: only direct calls between compiled bodies lend,
+//!   never this crossing or a function value's apply.
 //! - **Errors.** Running out of steps or frames sets an error in the
 //!   [`Context`]; every native frame then drops its registers and returns,
 //!   and the executor returns the [`ResourceError`]. Nothing is leaked and
