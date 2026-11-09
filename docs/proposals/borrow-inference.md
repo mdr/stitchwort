@@ -656,3 +656,94 @@ tree.
   walked tree alive longer.
 - Native `Unpack` cost differences between unique and shared paths were not separated in the cost
   model; one run per program; the machine counts agree with hand analysis on one lookup program.
+
+## 12. Stage B1 as built (SW-2565, 9 Nov 2026)
+
+Built on the bytecode rather than the IR: the pass is `crates/rt/src/borrow.rs`, run at the end
+of `code::compile` (so the machine, native code and everything downstream see one image), and
+its module docs are the reference. What differs from §4-§6:
+
+- **Where it runs.** On each global's `Code`, which already holds every decision O5 needs (an
+  `Unpack` with a token, a `DropReuse`) and each operand's last use (`MOVE`). Bodies are
+  forward-only, so one pass in order, joining at jump targets, is the dataflow. The flags are
+  `Code::borrowed` (not `Global::borrowed`); lambdas, the entry and constants never borrow but
+  are scanned for the marks they put on what they call.
+- **Rules.** O4, O5, O7 and O8 as written. O6 dropped (D3441's follow-up, orchestrator's call
+  from §11): a field of a lent value that goes where values are kept is incremented there, and
+  its parent stays borrowed. Four rules added, each from a measured regression:
+  - *merge*: lent on one path and owned on another at a jump target makes the parameter owned
+    (each register's state at each instruction is then known statically);
+  - *fresh*: a direct call passing a value its caller has just made (a call's, constructor's or
+    native's result, at its last use) makes the parameter owned. Lent, the value was dropped
+    whole after the call by the runtime instead of freed cell by cell into native code's cell
+    cache as the callee walked it: binary-trees' `check (make depth)` ran 83% more instructions;
+  - *fed*: a direct call handing over an owned value at its last use makes the parameter owned,
+    unless the value is known to have another reference (a copy, a field of a value that stays
+    live). Without it, expressions ran 1.3% more instructions and rbmap-ck went from -1.0% to
+    +0.1%;
+  - O1-O3 (stored, returned, passed to an owned parameter) **are not rules on their own**: they
+    only name the reason when the parameter is fed. A parameter that escapes but that every
+    caller lends is incremented where it escapes, which costs what the increment at the call
+    would have. This answers the brief's question about lifted `match1` functions: Map's
+    `get.%match1[2]` (the lookup walk) stores the node's value in `Some` on one arm; it now
+    borrows the value and the tree's children, and a lookup increments the value once, not at
+    every level. Its first parameter (the node) is owned, fed by `get.%match1`.
+- **Instructions.** `Peek` (a field of a lent value, uncounted), `Lend` (a lent value copied),
+  `Forget` (a lent register's life ends), `Own` (an increment where a lent value escapes). A
+  rewrite turns each body's `Field`/`Unpack`/`Move`/`Take`/`Drop`/`Return` and call operands on
+  lent registers into these, strips `MOVE` from an owned value passed to a borrowed position and
+  drops it after the call, and keeps every tail call a tail call (D3443: O4/O8 forbid lending an
+  owned value in a tail call). No `LEND` operand bit: a call reads the callee's flags.
+- **The check** (`borrow::check`) runs over every rewritten body and panics at compile time on
+  a breach: counting or reusing a lent register, a frame ending while it holds one, a write
+  over one, a lent value moved to an owned position without `Own`, lent and owned meeting.
+- **The machine** (D3442) keeps a real clone of each lent value, made and dropped quietly (left
+  out of the allocation trace), and `Forget` asserts the clone is not the last reference
+  ("internal error: a borrowed value outlived its owner"). Error exits forget the lent registers
+  of each frame (`borrow::lent_at`) before releasing the rest, so the traces still agree with
+  native code event by event.
+- **Native code** loads a lent operand's words with no increment and never drops a lent
+  register; bodies with borrowed parameters always use Cranelift variables (never the heap
+  register file), and are capped at 128 registers and 512 instructions (`MAX_REGS`,
+  `MAX_INSTRS`), above which a body is owned throughout.
+- **Retired:** the B0 shadow counter (`borrow-counts` feature, `crates/rt/src/borrow/shadow.rs`,
+  `dev/borrow-counts`, `dev/borrow-counts-report`). Its question is answered, and keeping it
+  would have meant a second implementation of the rules. Recoverable from d87bf7c93.
+- **Not done:** B2 (owned copies; O7 and O8 still force owned), B3 (lent reads of owned
+  values), the JavaScript backend (unchanged: it doesn't read the flags), and the docs in
+  `fast-runtime.md` and `native-compilation.md` named in §6.
+
+### 12.1 Results (measured, native instructions, base d5bd2f09d)
+
+`task bench:instructions`, 3 runs each (spread under 0.4%), against the base; B0's estimate is
+§11.2's b1-no-o6 column (counted pairs removed, as a share of instructions):
+
+| Program | Before | After | Change | B0 estimate |
+|---|---:|---:|---:|---:|
+| mapops | 9.47 G | 8.89 G | **-6.09%** | -9.1% |
+| memory-game | 17.84 G | 14.45 G | **-18.98%** | -13.8% |
+| dijkstra | 15.71 G | 15.69 G | -0.13% | -2.5% |
+| disk | 50.30 G | 49.77 G | -1.06% | -3.2% |
+| binary-trees | 20.55 G | 20.56 G | +0.04% | -1.8% |
+| rbmap | 23.36 G | 23.27 G | -0.39% | 0% |
+| rbmap-ck | 10.52 G | 10.41 G | -0.99% | -0.2% |
+| expressions | 156.90 G | 155.56 G | -0.85% | -0.3% |
+| geomean | | | **-3.77%** | |
+
+`task bench:aoc` (56 days, all answers right): geomean **-0.96%**; three days moved more than
+3%: 2024/06 -10.8%, 2021/17 -9.5%, 2020/08 -4.9%. The worst day is 2021/01 at +1.16% (117 M
+instructions; not investigated, likely a lent list now dropped whole by the runtime after its
+last walk instead of freed inline, as binary-trees was before *fresh*). Step and frame counts,
+results and hashes are unchanged (the hash tests pass; the rewrite only changes counting).
+
+The gate (§6): mapops -3% or better, met; dijkstra better, met only just (-0.13%: in its dump, Map's
+insert path and the rebalancing are owned by O5 and *merge*; `get` borrows); no program worse than +1%, met by
+bench/compare, missed by 2021/01 by 0.16 points.
+
+**Memory** (§8, peak resident set, before and after, same inputs): mapops 30.1 / 30.0 MB,
+dijkstra 304.5 / 304.5, memory-game 723.7 / 723.7, disk 1223.8 / 1223.8, binary-trees 70.5 /
+70.5, rbmap 324.4 / 324.3, rbmap-ck 1688.6 / 1688.6, expressions 405.3 / 405.2 MB. No change:
+*fresh* keeps the case §8 worried about (a walked tree freed as it goes) owned.
+
+**Static** (mapops, 91 functions): 158 of 316 parameters borrowed; owned by O5 47, O8 26,
+merge 20, O7 16, O3 13, fixed 12, O1 10, O4 6, fed 4, fresh 3, O2 1.

@@ -121,9 +121,6 @@ pub(crate) struct State {
     executed: u64,
     /// The profiler, for `run --profile` ([`crate::profile`]).
     profile: Option<Box<Profiler>>,
-    /// The borrow dry run's counter (`crate::borrow`).
-    #[cfg(feature = "borrow-counts")]
-    bc: crate::borrow::Shadow,
 }
 
 /// The program a machine runs: borrowed, or shared with whatever else holds
@@ -194,8 +191,6 @@ impl<'p> Machine<'p> {
                 deepest: Vec::new(),
                 executed: 0,
                 profile: None,
-                #[cfg(feature = "borrow-counts")]
-                bc: Default::default(),
             },
             program,
         }
@@ -306,7 +301,7 @@ impl<'p> Machine<'p> {
         let result = pending.and_then(|p| run(&self.program, &self.image, &mut self.st, p));
         count_instructions(std::mem::take(&mut self.st.executed));
         if result.is_err() {
-            self.st.release_failed();
+            self.st.release_failed(&self.image);
         }
         result
     }
@@ -365,7 +360,33 @@ impl State {
     /// After a failed run: drops everything pending, outermost first: every
     /// frame's closure and pending return, then every register, then a
     /// tail call's fetched arguments.
-    fn release_failed(&mut self) {
+    fn release_failed(&mut self, image: &Image) {
+        // First the copies of lent values, which native code holds without
+        // a count and so doesn't drop: in each frame, those its code holds
+        // where it stopped (a frame's `pc` is past the instruction it was
+        // in), and a failed tail call's arguments to borrowed parameters.
+        for frame in &self.frames {
+            let code = &image.codes[frame.code as usize];
+            let at = (frame.pc as usize).saturating_sub(1);
+            for r in crate::borrow::lent_at(code, at, &image.pool) {
+                forget(std::mem::take(
+                    &mut self.regs[frame.base as usize + r as usize],
+                ));
+            }
+        }
+        if let Some(top) = self.frames.last()
+            && !self.scratch.is_empty()
+            && let Some(Instr::TailCall { g, .. }) = image.codes[top.code as usize]
+                .instrs
+                .get((top.pc as usize).saturating_sub(1))
+        {
+            let callee = &image.codes[image.global_code[*g as usize].expect("code") as usize];
+            for (j, v) in self.scratch.iter_mut().enumerate() {
+                if callee.borrows(j) {
+                    forget(std::mem::take(v));
+                }
+            }
+        }
         self.frames.clear();
         self.regs.clear();
         self.scratch.clear();
@@ -1082,8 +1103,6 @@ fn run(program: &Program, image: &Image, st: &mut State, mut pending: Pending) -
         }
         let top = st.frames.last().expect("a frame to run");
         let code = &image.codes[top.code as usize];
-        #[cfg(feature = "borrow-counts")]
-        let code_ix = top.code;
         let base = top.base as usize;
         let mut pc = top.pc as usize;
         macro_rules! reg {
@@ -1122,8 +1141,6 @@ fn run(program: &Program, image: &Image, st: &mut State, mut pending: Pending) -
             let instr = code.instrs[pc];
             pc += 1;
             st.executed += 1;
-            #[cfg(feature = "borrow-counts")]
-            st.bc.hook(image, code_ix, base, &st.regs, &instr);
             match instr {
                 Instr::Move { dst, src } => {
                     let v = reg!(src).clone();
@@ -1157,9 +1174,14 @@ fn run(program: &Program, image: &Image, st: &mut State, mut pending: Pending) -
                     save!();
                     st.enter_frame()?;
                     let callee = image.global_code[g as usize].expect("a function has code");
+                    let lends = &image.codes[callee as usize];
                     let new_base = st.regs.len();
-                    for r in ops!(args) {
-                        let v = get!(*r);
+                    for (j, r) in ops!(args).iter().enumerate() {
+                        let v = if *r & MOVE == 0 && lends.borrows(j) {
+                            lend(&reg!(*r))
+                        } else {
+                            get!(*r)
+                        };
                         st.regs.push(v);
                     }
                     st.regs.resize(
@@ -1178,10 +1200,18 @@ fn run(program: &Program, image: &Image, st: &mut State, mut pending: Pending) -
                 }
                 Instr::TailCall { g, args } => {
                     let callee = image.global_code[g as usize].expect("a function has code");
-                    for r in ops!(args) {
-                        let v = get!(*r);
+                    let lends = &image.codes[callee as usize];
+                    for (j, r) in ops!(args).iter().enumerate() {
+                        let v = if *r & MOVE == 0 && lends.borrows(j) {
+                            lend(&reg!(*r))
+                        } else {
+                            get!(*r)
+                        };
                         st.scratch.push(v);
                     }
+                    // Where the frame stopped, if out of steps (for its
+                    // lent arguments, `release_failed`).
+                    save!();
                     st.replace(image, callee, None)?;
                     continue 'outer;
                 }
@@ -1546,9 +1576,62 @@ fn run(program: &Program, image: &Image, st: &mut State, mut pending: Pending) -
                     continue 'outer;
                 }
                 Instr::Unreachable => panic!("internal error: reached unreachable code"),
+                Instr::Peek { dst, src, i } => {
+                    let v = match &reg!(src) {
+                        Value::Data(_, fields) => lend(&fields[i as usize]),
+                        other => panic!("internal error: field {i} of {other:?}"),
+                    };
+                    let old = std::mem::replace(&mut reg!(dst), v);
+                    if dst == src {
+                        forget(old);
+                    }
+                }
+                Instr::Lend { dst, src } => {
+                    let v = lend(&reg!(src));
+                    reg!(dst) = v;
+                }
+                Instr::Forget { reg } => forget(std::mem::take(&mut reg!(reg))),
+                Instr::Own { reg } => {
+                    if let Value::Data(_, fields) = &reg!(reg) {
+                        crate::alloc_trace::inc(&fields.0);
+                    }
+                }
             }
         }
     }
+}
+
+/// The machine's copy of a lent value (`crate::borrow`). Native code holds
+/// the value without a count, so the copy's count is left out of the
+/// allocation trace: the machine's counts are native code's plus one per
+/// live lent copy, and both make the same uniqueness decisions, since a
+/// value is lent only while its owner holds it too.
+#[inline]
+fn lend(v: &Value) -> Value {
+    crate::alloc_trace::quietly(|| v.clone())
+}
+
+/// Drops the machine's copy of a lent value, where native code stops
+/// holding it. The owner must still hold the value: if the copy were the
+/// last reference, native code would have freed the value while it was
+/// lent.
+#[inline]
+fn forget(v: Value) {
+    let references = match &v {
+        Value::Data(_, fields) => Rc::strong_count(&fields.0),
+        Value::Fun(f) => Rc::strong_count(f),
+        Value::Delay(d) => Rc::strong_count(d),
+        Value::Array(a) => Rc::strong_count(a),
+        Value::BigNat(n) => Rc::strong_count(n),
+        Value::BigInt(i) => Rc::strong_count(i),
+        Value::Text(t) => Rc::strong_count(t),
+        _ => usize::MAX,
+    };
+    assert!(
+        references > 1,
+        "internal error: a borrowed value outlived its owner"
+    );
+    crate::alloc_trace::quietly(|| drop(v));
 }
 
 /// Drops the registers from `base` on (a frame's, when it ends). Most hold

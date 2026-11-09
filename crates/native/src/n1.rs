@@ -8,7 +8,11 @@
 //! does, with the same moves, clones, drops and reuse in the same order, on
 //! the machine's own values (`stitchwort_rt::native_abi` has the layout and
 //! the crossing). Only the interpreter's overhead goes: dispatch, the
-//! register vector, frame push and pop.
+//! register vector, frame push and pop. Borrowed parameters
+//! (`stitchwort_rt::borrow`) are the one place the two differ in what they
+//! count: a lent register (`Peek`, `Lend`, `Forget`, `Own`, and a call's
+//! borrowed operands) is a plain copy of words here, with no increment or
+//! decrement, where the machine keeps an uncounted clone and checks it.
 //!
 //! **What runs natively** (stage NO4 of docs/proposals/native-only.md).
 //! Every body `main`'s entry reaches (`census::island`), the entry
@@ -1252,7 +1256,11 @@ pub(crate) fn emit(
         let body = &image.codes[code as usize];
         let params = body.params;
         let lambda = lambda_of.get(&code).copied();
-        let in_file = body.regs > variable_registers || body.instrs.len() > part_instrs;
+        // A body with borrowed parameters holds lent values, which a
+        // register file's error exits would drop: its registers are
+        // variables whatever its size (`borrow::MAX_REGS` keeps it small).
+        let lends = body.borrowed.iter().any(|b| *b);
+        let in_file = !lends && (body.regs > variable_registers || body.instrs.len() > part_instrs);
         // A body with a register file is compiled in parts of at most
         // `part_instrs` instructions, each its own function, so that no
         // function Cranelift is given grows with the program; the first is
@@ -2909,7 +2917,10 @@ fn maybe_full(code: &Code) -> Vec<Regs> {
     let mut seen = vec![false; n];
     let mut start = empty.clone();
     for r in 0..code.params {
-        start.add(r);
+        // A borrowed parameter is lent: never dropped here.
+        if !code.borrows(r as usize) {
+            start.add(r);
+        }
     }
     before[0] = start;
     seen[0] = true;
@@ -3013,6 +3024,10 @@ fn transfer(code: &Code, pc: usize, after: &mut impl Holding) {
             after.empty(src);
             after.fill(token);
         }
+        // A lent value is held without a count, so never dropped.
+        Instr::Peek { dst, .. } | Instr::Lend { dst, .. } => after.empty(dst),
+        Instr::Forget { reg } => after.empty(reg),
+        Instr::Own { reg } => after.fill(reg),
         _ => {}
     }
 }
@@ -3419,6 +3434,29 @@ impl Gen<'_, '_> {
         } else {
             self.clone_from(Loc::Reg(r))
         }
+    }
+
+    /// A call's operands for the body `callee`: one at a borrowed
+    /// parameter is lent, its words passed without an increment (and,
+    /// marked `MOVE`, the register left empty); the rest as [`Gen::operand`].
+    fn call_operands(&mut self, o: Ops, callee: u32) -> Vec<Val> {
+        let lend = &self.image.codes[callee as usize].borrowed;
+        ops(self.code, o)
+            .to_vec()
+            .into_iter()
+            .enumerate()
+            .map(|(j, r)| {
+                if lend.get(j) != Some(&true) {
+                    return self.operand(r);
+                }
+                let reg = r & !MOVE;
+                let v = self.load(Loc::Reg(reg));
+                if r & MOVE != 0 {
+                    self.erase(Loc::Reg(reg));
+                }
+                v
+            })
+            .collect()
     }
 
     fn operands(&mut self, o: Ops) -> Vec<Val> {
@@ -4033,9 +4071,9 @@ impl Gen<'_, '_> {
                 let live = self.live(pc);
                 self.count_step(&live, &[]);
                 let frames = self.push_frame(&live);
-                let values = self.operands(args);
-                let live = self.without_moved(&live, ops(code, args));
                 let callee = self.image.global_code[g as usize].expect("a function has code");
+                let values = self.call_operands(args, callee);
+                let live = self.without_moved(&live, ops(code, args));
                 let f = self.func_ref(self.functions[&callee]);
                 let mut call_args = vec![self.ctx, frames];
                 call_args.extend(Self::words(&values));
@@ -4046,13 +4084,22 @@ impl Gen<'_, '_> {
             }
             Instr::TailCall { g, args } => {
                 // As the machine's `replace`: the step, then this frame's
-                // closure dropped, then its registers.
-                self.count_step(&self.live(pc), ops(code, args));
-                let values = self.operands(args);
+                // closure dropped, then its registers. What goes to a
+                // borrowed parameter is lent (or holds no reference), so an
+                // exit before the call doesn't take it.
+                let callee = self.image.global_code[g as usize].expect("a function has code");
+                let lend = &self.image.codes[callee as usize].borrowed;
+                let owned: Vec<Reg> = ops(code, args)
+                    .iter()
+                    .enumerate()
+                    .filter(|(j, _)| lend.get(*j) != Some(&true))
+                    .map(|(_, r)| *r)
+                    .collect();
+                self.count_step(&self.live(pc), &owned);
+                let values = self.call_operands(args, callee);
                 let left = self.without_moved(&self.live(pc), ops(code, args));
                 self.drop_env();
                 self.release(&left);
-                let callee = self.image.global_code[g as usize].expect("a function has code");
                 let words: Vec<IrValue> = Self::words(&values).collect();
                 if let (true, Some(top)) = (callee == self.code_index, self.top) {
                     let args: Vec<ir::BlockArg> = words.into_iter().map(Into::into).collect();
@@ -4293,6 +4340,23 @@ impl Gen<'_, '_> {
             Instr::Unreachable => {
                 self.b.ins().trap(TrapCode::unwrap_user(2));
                 return false;
+            }
+            // Lent values (`stitchwort_rt::borrow`): held without a count.
+            Instr::Peek { dst, src, i } => {
+                let cell = self.load(Loc::Reg(src)).0[1];
+                let v = self.load(Loc::Mem(
+                    cell,
+                    RC_VALUE_AT + (i as usize * VALUE_SIZE) as i32,
+                ));
+                self.assign(pc, dst, v);
+            }
+            Instr::Lend { dst, src } => {
+                let v = self.load(Loc::Reg(src));
+                self.assign(pc, dst, v);
+            }
+            Instr::Forget { .. } => {}
+            Instr::Own { reg } => {
+                self.clone_from(Loc::Reg(reg));
             }
             other => unreachable!("{other:?} isn't in the N1 subset"),
         }

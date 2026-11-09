@@ -460,3 +460,77 @@ fn arguments_are_moved_past_siblings_sharing_slots() {
         }
     });
 }
+
+/// `total` walks a list it borrows (no counting), and `twice` (inlined into
+/// `check`, which makes the list) lends it its list before matching on it. The run is right as compiled; with the
+/// call made to hand over `twice`'s only reference instead of lending it
+/// (as a wrong inference or rewrite would), the machine's check, which
+/// native code relies on, catches the walk outliving its owner.
+#[test]
+fn the_machine_catches_a_loan_outliving_its_owner() {
+    use std::panic::{AssertUnwindSafe, catch_unwind};
+    use stitchwort_rt::code::{Instr, MOVE};
+    use stitchwort_rt::ir::GlobalId;
+    use stitchwort_rt::value::Value;
+    let source = "import Std (Nat, Text, List)\n\
+                  def total (xs: List Nat): Nat :=\n\
+                  \x20 match xs with\n\
+                  \x20   | [] => 0\n\
+                  \x20   | [x, ..rest] => x + total rest\n\
+                  def twice (xs: List Nat): Nat :=\n\
+                  \x20 total xs + (match xs with | [] => 0 | _ => 1)\n\
+                  def check (n: Nat): Nat := twice (List.range 0 n)\n\
+                  def main(): {IO} () := IO.print (Nat.toText (check 5))\n";
+    with_stack(STACK, || {
+        let mut session = Session::for_stack(STACK);
+        session
+            .load("test.sw", source)
+            .unwrap_or_else(|e| panic!("doesn't check: {e:?}"));
+        let main = session.main().expect("main");
+        let program = lowered(&session, &main, "test.sw");
+        let limits = Limits::from_core(session.elab.options.limits);
+        let global = |name: &str| {
+            program
+                .globals
+                .iter()
+                .position(|g| &*g.name == name)
+                .unwrap_or_else(|| panic!("{name} is used"))
+        };
+        let (total, check) = (global("Main.total"), global("Main.check"));
+        let run = |tamper: bool| {
+            let mut image = stitchwort_rt::code::compile(&program);
+            let code_of = |g: usize| image.global_code[g].expect("has code") as usize;
+            assert!(image.codes[code_of(total)].borrows(0), "total borrows");
+            if tamper {
+                let code = code_of(check);
+                let code = &mut image.codes[code];
+                let args = code
+                    .instrs
+                    .iter()
+                    .find_map(|i| match i {
+                        Instr::Call { g, args, .. } if *g as usize == total => Some(*args),
+                        _ => None,
+                    })
+                    .expect("check calls total");
+                code.ops[args.start as usize] |= MOVE;
+            }
+            let mut m = stitchwort_rt::Machine::with_image(&program, image, limits);
+            let f = m.global(GlobalId(check as u32)).expect("check");
+            match m.call(f, [Value::Nat(5)]).expect("runs") {
+                Value::Nat(n) => n,
+                other => panic!("{other:?}"),
+            }
+        };
+        assert_eq!(run(false), 11);
+        let caught = catch_unwind(AssertUnwindSafe(|| run(true))).expect_err("caught");
+        let message = caught
+            .downcast_ref::<String>()
+            .map(String::as_str)
+            .or_else(|| caught.downcast_ref::<&str>().copied())
+            .unwrap_or_default();
+        assert!(
+            message.contains("a borrowed value outlived its owner"),
+            "{message}"
+        );
+    });
+}
