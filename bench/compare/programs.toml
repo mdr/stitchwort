@@ -112,3 +112,11 @@ stitchwort = "bench/compare/rbmap/main.sw"
 set = "wide"
 args = ["400000", "1"]
 stitchwort = "bench/compare/rbmap-ck/main.sw"
+
+# Mixed inserts, lookups, updates and removes on std's Map (Nat keys, a
+# Park-Miller generator), then a fold to a checksum. Python: dict; Lean:
+# Std.TreeMap.
+[mapops]
+set = "wide"
+args = ["1000000"]
+stitchwort = "bench/compare/mapops/main.sw"
