@@ -25004,12 +25004,12 @@
     {
       "id": 2487,
       "title": "Parser: many reuses optional's mark (disk -5%, bridge -3%, measured)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Sonnet",
-      "where": "",
+      "where": "Speedwell",
       "labels": [],
       "epic": "comparative-speed",
-      "body": "From SW-2484 target 5. 45 min.",
+      "body": "From SW-2484 target 5. 45 min.\n\nStarted 9 Nov 2026 05:43 UTC. Expected: 45 min.\n",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
@@ -25030,12 +25030,12 @@
     {
       "id": 2489,
       "title": "Check a native value-census build still runs after SW-2478: under value-census the Ctor/CtorReuse tags carry an enum mask in the top byte (stripped in machine.rs); if native codegen reads those tags, native census runs (SW-2479) would build wrong tags. Run rbmap natively with the census runtime",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Sonnet",
-      "where": "",
+      "where": "Speedwell",
       "labels": [],
       "epic": "comparative-speed",
-      "body": "From reviewing SW-2478. 15 min.",
+      "body": "From reviewing SW-2478. 15 min.\n\nStarted 9 Nov 2026 05:43 UTC. Expected: 15 min.\n",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
