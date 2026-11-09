@@ -1,5 +1,5 @@
 {
-  "next": 2592,
+  "next": 2593,
   "tickets": [
     {
       "id": 47,
@@ -26306,22 +26306,24 @@
     {
       "id": 2587,
       "title": "D3458: forall / ∀ (x: T) => P as another spelling of (x: T) -> P, mirroring exists; goals and messages print a dependent function whose result is a Prop that way; formatter keeps the source spelling; same kernel term, no hash change",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-2587",
       "labels": [],
       "epic": "syntax-language",
-      "body": "D3458, Matt, 9 Nov 2026: yes. 'I think it reads better ... more obviously when eyeballing proofs.' Replaces D1208's error for ∀ and logic-notation §6.1's no-forall. Parser (several binders, takes everything to its right, like exists), printer (when a Pi counts as a proposition), formatter, lexer UNSUPPORTED list, a reject example for misuse, guide + docs/syntax.md + logic-notation.md decision note; proving guide house style: ∀ for quantified hypotheses and statements after the colon, parameters before the colon unchanged. Hash snapshots must not move. 120 min.\n\nOrchestrator's call, 9 Nov: Opus, not Sonnet (syntax is core language, D2506). Prioritised for the overnight run (Matt, 9 Nov: 'keen to prioritize').",
+      "body": "D3458, Matt, 9 Nov 2026: yes. 'I think it reads better ... more obviously when eyeballing proofs.' Replaces D1208's error for ∀ and logic-notation §6.1's no-forall. Parser (several binders, takes everything to its right, like exists), printer (when a Pi counts as a proposition), formatter, lexer UNSUPPORTED list, a reject example for misuse, guide + docs/syntax.md + logic-notation.md decision note; proving guide house style: ∀ for quantified hypotheses and statements after the colon, parameters before the colon unchanged. Hash snapshots must not move. 120 min.\n\nOrchestrator's call, 9 Nov: Opus, not Sonnet (syntax is core language, D2506). Prioritised for the overnight run (Matt, 9 Nov: 'keen to prioritize').\n\nLane (Opus, 9 Nov, 22:56-23:35, est. 120 min): done on lane/SW-2587, commit 9a890ad69. forall/∀ parse to nested Pi (lambda-style params, no patterns; bare names get a hole type); ∀ is an alias now. Printer rule: Pi prints as ∀ when binder is used-or-implicit and the final codomain is evidently a Prop (Eq, data in Prop, def whose type ends in Prop); variable heads (`p x`) stay arrows. Hash test forall_hashes_as_the_function_type passes; hash snapshots unchanged (one new, logic-forall). Snapshot churn: 9 example snapshots, 5 server snapshots, Rust expectations in core pretty/quot, driver function_equations/function_induct/division/records/update_lemmas/navigation, cli search/doc. Follow-up idea: goals could pass hypothesis types so `(n: Nat) → p n` prints as ∀ too.\n\nDone 9 Nov, Opus, about 40 min (est. 120). Lane's calls: a bare name ∀ n => … allowed (type inferred, like ∃); implicit and auto binders join the ∀ when printed. Review fixup: not's doc comment moved back onto not. Follow-up filed: hypotheses headed by a variable (p n) still print as arrows.",
       "created": "2026-11-09",
       "updated": "2026-11-09",
-      "commits": []
+      "commits": [
+        "9a890ad69"
+      ]
     },
     {
       "id": 2588,
       "title": "After D3458: sweep std and aoc statements to the house style: quantified hypotheses and conclusions written (x: T) -> P where P is a proposition become ∀ (x: T) => P",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Sonnet",
-      "where": "",
+      "where": ".claude/worktrees/SW-2588",
       "labels": [],
       "epic": "syntax-language",
       "body": "Mechanical; after SW-2587 merges. Hashes unchanged (same term). 60 min.\n\nSonnet stands in for DeepSeek until OpenCode works for the agent user (Matt, 9 Nov). Matt wants it done overnight after SW-2587: go through existing code and use ∀ where appropriate.",
@@ -26364,6 +26366,19 @@
       "labels": [],
       "epic": "proof-search",
       "body": "Overmind jobs 51 and 54, 9 Nov. Run alone first (Overmind job 55). 45 min.\n\nOvermind job 55 (main 3c92cf18d, 9 Nov): search_at_aoc alone, capped at 60 min. 142 of 143 goals done in about 10 min; the one left is aoc/src/Aoc/Year2024/Day22/Proofs/Keys.sw:111 (digitChangesPossible), still running at the cap, one thread busy the whole time. Repro: run search_at_aoc limited to that goal. Not investigated (compute mode). Same job: 7 leftover tests passed, doctests ok, verify-cache ok.",
+      "created": "2026-11-09",
+      "updated": "2026-11-09",
+      "commits": []
+    },
+    {
+      "id": 2592,
+      "title": "Goals print a quantified hypothesis whose result is a variable applied to arguments ((n: Nat) → p n, p: Nat → Prop) as an arrow, not ∀, because the printer has no types for the variables in scope; give the goal printer the hypotheses' types (goals.rs, closing.rs, or a typed value_for_goal)",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "From SW-2587's report, 9 Nov. Small to medium. Its neighbours print as ∀, so the goal reads unevenly.",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
