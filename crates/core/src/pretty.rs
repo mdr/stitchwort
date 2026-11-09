@@ -370,10 +370,21 @@ fn term_within(
         printer.equations.set(equations);
         printer
     };
-    let mut ns = names.to_vec();
-    let full = printer().print(&mut ns, term_, prec);
-    if full.chars().count() <= limit || std::env::var_os("STITCHWORT_FULL_TERMS").is_some() {
-        return full;
+    let full_terms = std::env::var_os("STITCHWORT_FULL_TERMS").is_some();
+    // Printing a term builds its text from the inside out, so a huge one
+    // (a closed list of 130,000 sequences, AoC 2024 day 22) takes minutes
+    // and gigabytes; one this big is longer than `limit` anyway.
+    let too_big = !full_terms && term_.subterms().nth(FULL_PRINT_NODES).is_some();
+    let full = if too_big {
+        None
+    } else {
+        let mut ns = names.to_vec();
+        Some(printer().print(&mut ns, term_, prec))
+    };
+    if let Some(full) = &full
+        && (full.chars().count() <= limit || full_terms)
+    {
+        return full.clone();
     }
     // Reprint with less and less depth until it fits.
     for depth in (1..=10).rev() {
@@ -386,10 +397,20 @@ fn term_within(
         }
     }
     // Still too wide (a long list, say): cut it off.
-    let mut text: String = full.chars().take(limit).collect();
+    let wide = full.unwrap_or_else(|| {
+        let mut ns = names.to_vec();
+        let printer = printer();
+        printer.max_depth.set(Some(10));
+        printer.print(&mut ns, term_, prec)
+    });
+    let mut text: String = wide.chars().take(limit).collect();
     text.push('…');
     text
 }
+
+/// A term of more nodes than this is not printed in full by
+/// [`term_within`]: the text would be far longer than any limit.
+const FULL_PRINT_NODES: usize = 20_000;
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 enum Prec {
