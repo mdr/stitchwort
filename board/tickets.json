@@ -25945,7 +25945,7 @@
       "where": "Speedwell",
       "labels": [],
       "epic": "comparative-speed",
-      "body": "From Overmind job 41 (9 Nov): reverting 200f2d6d9 alone restores rbmap and memory-game time; rbmap's loss is CellCache::full (0 -> 4.4% of cycles) walking 64 MB of cached blocks. binary-trees already spends 15% in full() on both builds. Weigh the extra instruction on the inline take path against the walk; measure time on Overmind, not only instructions (SW-2523 lesson). Profile first. 90 min.\n\nStarted 9 Nov 2026 10:43 UTC. Expected: 90 min.\n\nMerged 9 Nov. Exact room count; full() frees the one cell. Instructions +0.2-0.3%; time to be confirmed on Overmind (queued after job 43). Model result: Sonnet, worked, 13 min (est. 90).\n",
+      "body": "From Overmind job 41 (9 Nov): reverting 200f2d6d9 alone restores rbmap and memory-game time; rbmap's loss is CellCache::full (0 -> 4.4% of cycles) walking 64 MB of cached blocks. binary-trees already spends 15% in full() on both builds. Weigh the extra instruction on the inline take path against the walk; measure time on Overmind, not only instructions (SW-2523 lesson). Profile first. 90 min.\n\nStarted 9 Nov 2026 10:43 UTC. Expected: 90 min.\n\nMerged 9 Nov. Exact room count; full() frees the one cell. Instructions +0.2-0.3%; time to be confirmed on Overmind (queued after job 43). Model result: Sonnet, worked, 13 min (est. 90).\n\nOvermind job 44 (9 Nov, ff3ba7ed0 vs 9cc3fa3b8): time rbmap -7.0%, binary-trees -14.5%, rbmap-ck -13.9%, memory-game -1.3%, mapops -20.6% (SW-2531); CellCache::full gone from every profile (was 15.3% of binary-trees). LLC misses rbmap 3.82M -> 0.89M, binary-trees -54%.\n",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []

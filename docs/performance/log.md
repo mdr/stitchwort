@@ -706,3 +706,12 @@ Merged before this log began; figures are from the merge commits and tickets.
 - **Allocation by cause, census and counters** (SW-2422, SW-2425, SW-2461,
   SW-2475, SW-2479) in [../reviews/](../reviews/): the data these entries are
   chosen from.
+
+### SW-2559 confirmed on Overmind (job 44, 9 Nov 2026)
+
+Time on Linux x86-64, median of 5, against 9cc3fa3b8 (before SW-2511):
+rbmap -7.0% (SW-2511 alone had been +1.2%), binary-trees -14.5%,
+rbmap-ck -13.9%, memory-game -1.3%, mapops -20.6%. `CellCache::full`, 15.3%
+of binary-trees' cycles before, is gone from every profile; LLC load misses
+fell 54% on binary-trees and from 3.8 M to 0.89 M on rbmap. The 0.3% more
+instructions measured on macOS buy this. Data on Overmind, job 44.
