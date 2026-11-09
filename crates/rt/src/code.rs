@@ -141,6 +141,14 @@ pub enum Instr {
         lambda: u32,
         args: Ops,
     },
+    /// The closure of a lambda that captures nothing. It is built on first
+    /// use and then held by the run (`State::statics`), so every read is the
+    /// same shared closure and a lambda is allocated once, not each time
+    /// its expression is evaluated.
+    StaticClosure {
+        dst: Reg,
+        lambda: u32,
+    },
     /// A constructor with at least one field.
     Ctor {
         dst: Reg,
@@ -842,6 +850,9 @@ impl<'a> Compiler<'a> {
                 } else {
                     self.emit(Instr::Apply { dst, f, args });
                 }
+            }
+            Expr::Closure(l, captures) if captures.is_empty() => {
+                self.simple(Instr::StaticClosure { dst, lambda: l.0 }, dst, tail);
             }
             Expr::Closure(l, captures) => {
                 let args = self.operand_ops(captures, live, true);

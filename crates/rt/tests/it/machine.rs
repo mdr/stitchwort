@@ -1093,6 +1093,59 @@ fn arguments_are_moved_past_siblings_sharing_slots() {
     });
 }
 
+/// A lambda that captures nothing is one shared closure, read by
+/// `StaticClosure`, while one that captures a variable is built each time;
+/// shared closures stored in data and applied many times give the same
+/// answers.
+#[test]
+fn capture_free_lambdas_are_shared() {
+    let source = "import Std (Nat, Text, List)\n\
+         def pair (n: Nat): List (Nat -> Nat) := [x => x + 1, x => x + n]\n\
+         def apply (fs: List (Nat -> Nat)) (x: Nat): Nat :=\n\
+         \x20 match fs with\n\
+         \x20   | [] => x\n\
+         \x20   | [f, ..rest] => apply rest (f x)\n\
+         def loop (i: Nat) (acc: Nat): Nat :=\n\
+         \x20 match i with\n\
+         \x20   | Zero => acc\n\
+         \x20   | Succ k => loop k (apply (pair k) acc)\n\
+         def main(): {IO} () := IO.print (Nat.toText (loop 50 0))\n";
+    let (out, result) = both_ways(source, b"");
+    assert_eq!(result, Ok(()));
+    assert_eq!(out, "1275\n");
+    with_stack(STACK, || {
+        let mut session = Session::for_stack(STACK);
+        session
+            .load("test.sw", source)
+            .unwrap_or_else(|e| panic!("doesn't check: {e:?}"));
+        let main = session.main().expect("main");
+        let program = lowered(&session, &main, "test.sw");
+        let image = stitchwort_rt::code::compile(&program);
+        let pair = program
+            .globals
+            .iter()
+            .position(|g| &*g.name == "Main.pair")
+            .expect("pair is used");
+        let code = &image.codes[image.global_code[pair].expect("pair has code") as usize];
+        let count = |want: fn(&stitchwort_rt::code::Instr) -> bool| {
+            code.instrs.iter().filter(|i| want(i)).count()
+        };
+        use stitchwort_rt::code::Instr;
+        assert_eq!(
+            count(|i| matches!(i, Instr::StaticClosure { .. })),
+            1,
+            "{:?}",
+            code.instrs
+        );
+        assert_eq!(
+            count(|i| matches!(i, Instr::Closure { .. })),
+            1,
+            "{:?}",
+            code.instrs
+        );
+    });
+}
+
 /// Partial application, over-application and closures, both ways.
 #[test]
 fn functions_as_values() {
