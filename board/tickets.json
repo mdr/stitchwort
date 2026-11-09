@@ -1,5 +1,5 @@
 {
-  "next": 2533,
+  "next": 2535,
   "tickets": [
     {
       "id": 47,
@@ -15367,16 +15367,16 @@
     {
       "id": 1856,
       "title": "[DeepSeek] Guide prose fixes: chapter 3 record literal types (field names are a fallback, SW-805), chapter 10 Unicode in messages (Bool operations print ASCII), and the rest of §1",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "docs"
       ],
       "epic": "docs-tutorials",
-      "body": "From SW-1850's audit (docs/reviews/SW-1850-guide-accuracy.md §6, ticket 3). 30 min.",
+      "body": "From SW-1850's audit (docs/reviews/SW-1850-guide-accuracy.md §6, ticket 3). 30 min.\n\nDone in SW-2532 (merged 9 Nov 09:10; guide/syntax/tour/fmt checks 6 passed). Example-code style rows left for a follow-up.\n",
       "created": "2026-11-07",
-      "updated": "2026-11-07",
+      "updated": "2026-11-09",
       "commits": []
     },
     {
@@ -15427,16 +15427,16 @@
     {
       "id": 1860,
       "title": "[DeepSeek] Tour prose for omega, ranges, Float and tests (guide.html:10, :91, ...)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "docs"
       ],
       "epic": "docs-tutorials",
-      "body": "From SW-1850's audit (docs/reviews/SW-1850-guide-accuracy.md §6, ticket 7). 30 min.",
+      "body": "From SW-1850's audit (docs/reviews/SW-1850-guide-accuracy.md §6, ticket 7). 30 min.\n\nDone in SW-2532 (merged 9 Nov 09:10; guide/syntax/tour/fmt checks 6 passed). Example-code style rows left for a follow-up.\n",
       "created": "2026-11-07",
-      "updated": "2026-11-07",
+      "updated": "2026-11-09",
       "commits": []
     },
     {
@@ -15472,31 +15472,31 @@
     {
       "id": 1863,
       "title": "[DeepSeek] syntax.md accuracy: split's argument order (line 379), the printing rule (1871: Bool operations print ASCII), E-MATCH-EQUATION documented but not in the code (2017)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "docs"
       ],
       "epic": "docs-tutorials",
-      "body": "From SW-1850's audit (docs/reviews/SW-1850-guide-accuracy.md §6, ticket 10). 30 min.",
+      "body": "From SW-1850's audit (docs/reviews/SW-1850-guide-accuracy.md §6, ticket 10). 30 min.\n\nDone in SW-2532 (merged 9 Nov 09:10; guide/syntax/tour/fmt checks 6 passed). Example-code style rows left for a follow-up.\n",
       "created": "2026-11-07",
-      "updated": "2026-11-07",
+      "updated": "2026-11-09",
       "commits": []
     },
     {
       "id": 1864,
       "title": "[DeepSeek] syntax.md house-style sweep: Cons/Nil, Not, List.range",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "docs"
       ],
       "epic": "docs-tutorials",
-      "body": "From SW-1850's audit (docs/reviews/SW-1850-guide-accuracy.md §6, ticket 11). 30 min.",
+      "body": "From SW-1850's audit (docs/reviews/SW-1850-guide-accuracy.md §6, ticket 11). 30 min.\n\nDone in SW-2532 (merged 9 Nov 09:10; guide/syntax/tour/fmt checks 6 passed). Example-code style rows left for a follow-up.\n",
       "created": "2026-11-07",
-      "updated": "2026-11-07",
+      "updated": "2026-11-09",
       "commits": []
     },
     {
@@ -25589,12 +25589,38 @@
     {
       "id": 2532,
       "title": "Guide and syntax.md prose fixes from SW-1850's review: SW-1856, SW-1860, SW-1863, SW-1864 (wording only, no example changes)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "Speedwell",
       "labels": [],
       "epic": "docs-tutorials",
-      "body": "Paper lane; orchestrator runs the guide checks at merge. 60 min.\n\nStarted 9 Nov 2026 09:04 UTC. Expected: 60 min.\n",
+      "body": "Paper lane; orchestrator runs the guide checks at merge. 60 min.\n\nStarted 9 Nov 2026 09:04 UTC. Expected: 60 min.\n\nMerged 9 Nov 09:10. Prose only; each claim checked against code. Left: example-code style rows (guide/tour §1, §3), examples/accept/records.sw:57-61, std Array.sw:15-16 docs, record eta bullets, @[tailrec]. Model result: Sonnet, worked, 4 min (est. 60).\n",
+      "created": "2026-11-09",
+      "updated": "2026-11-09",
+      "commits": []
+    },
+    {
+      "id": 2533,
+      "title": "Guide and tour example-code style rows from SW-1850's review (§1, §3): (.field) sections, List.range, Set.fromList, treeSort, plus examples/accept/records.sw:57-61 and std Array.sw:15-16 docs; checked examples, so run the guide tests",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "docs-tutorials",
+      "body": "Left by SW-2532. 60 min.",
+      "created": "2026-11-09",
+      "updated": "2026-11-09",
+      "commits": []
+    },
+    {
+      "id": 2534,
+      "title": "docs/core.md:574 lists E-MATCH-EQUATION as not reported in the first version, but no such error exists: correct the kernel spec",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "docs-tutorials",
+      "body": "From SW-2532. Kernel spec, wording only. 10 min.",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
