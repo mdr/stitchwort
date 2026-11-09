@@ -46,6 +46,33 @@ in [../proposals/README.md](../proposals/README.md).
 
 ## 9 Nov 2026
 
+### SW-2524: skipping the live heap's free at exit (dropped: under 0.3%)
+
+- **Status:** dropped, no code merged. Sonnet.
+- **Problem.** About 32-38% of `rbmap-ck`'s cycles are in `value::free` (SW-2523). The suspicion
+  was that much of it tears down the heap that is still live when the process ends, which Lean
+  doesn't do.
+- **Change tried.** A process-wide switch (`leak_live_heap_at_exit`, set by the standalone
+  executable's `main` and by `run --native`, never by the tests or the `alloc-trace` and
+  `value-census` builds, and overridden by `STITCHWORT_FREE_AT_EXIT`) that `run_on` consults to
+  `forget` the runner, and with it the executor's globals, constants, cell cache and tables,
+  instead of dropping them. The same binary then runs both ways, so the exit share is the
+  difference between the two.
+- **Measured** (instructions, 3 runs, native; freeing at exit against skipping it):
+  `rbmap-ck` 10.48 G -> 10.45 G (**-0.21%**), `rbmap` -0.08%, `binary-trees` -0.01%, `mapops`
+  +0.03% (noise), `const-fold` -0.25%; AoC 2024/05 -0.02%, 2024/10 -0.07%. Wall time and peak
+  RSS for `rbmap-ck` (1.82 s, 1.26 GB) and `binary-trees` (1.38 s) were identical to the
+  hundredth of a second with the switch on or off. All under the 3% bar.
+- **Why it is small.** What `main` returns is a unit and its locals, including `rbmap-ck`'s
+  kept versions, die when `main`'s own native frame ends: those frees run inside the program, so
+  they are not teardown and Lean's `main` would do them too. What is left to drop afterwards
+  (globals, constants, the cell cache, the closure tables) is a few thousand cells.
+- **Therefore** the `value::free` share in `rbmap-ck` is the program's own frees (SW-2523's cold
+  child loads), not exit teardown. Skipping it would need a different change: freeing the kept
+  versions would have to be dropped from the program's end of `main` itself, which is a trick that
+  doesn't generalise (a program's locals dying at `main`'s end is ordinary semantics).
+- **Links.** SW-2524, SW-2523; no commits kept beyond this entry.
+
 ### SW-2511: a handler's step is one dispatch closure (compiled handler dispatch, stage 1)
 
 - **Status:** on branch `lane/SW-2511`, not yet merged (commits `52da722ff`, the dispatch, on the
