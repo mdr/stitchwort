@@ -1,5 +1,5 @@
 {
-  "next": 2587,
+  "next": 2589,
   "tickets": [
     {
       "id": 47,
@@ -26297,6 +26297,32 @@
       "labels": [],
       "epic": "editor-playground",
       "body": "Matt, 9 Nov 2026. Code:\ntheorem totalAppend (others: List Item): (items: List Item) → totalOf (items ++ others) = totalOf items + totalOf others\n  | [] => rfl\n  | [item, ..rest] => rewrite totalAppend others rest, Nat.addAssoc\nGuess: the nav index gives the second rewrite step's span to a term the rewrite generates (a closing rfl) instead of the Nat.addAssoc reference; check nav for every step of a rewrite list, and rewrite ... in. Add a navigation test. 40 min.",
+      "created": "2026-11-09",
+      "updated": "2026-11-09",
+      "commits": []
+    },
+    {
+      "id": 2587,
+      "title": "D3458: forall / ∀ (x: T) => P as another spelling of (x: T) -> P, mirroring exists; goals and messages print a dependent function whose result is a Prop that way; formatter keeps the source spelling; same kernel term, no hash change",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "D3458, Matt, 9 Nov 2026: yes. 'I think it reads better ... more obviously when eyeballing proofs.' Replaces D1208's error for ∀ and logic-notation §6.1's no-forall. Parser (several binders, takes everything to its right, like exists), printer (when a Pi counts as a proposition), formatter, lexer UNSUPPORTED list, a reject example for misuse, guide + docs/syntax.md + logic-notation.md decision note; proving guide house style: ∀ for quantified hypotheses and statements after the colon, parameters before the colon unchanged. Hash snapshots must not move. 120 min.",
+      "created": "2026-11-09",
+      "updated": "2026-11-09",
+      "commits": []
+    },
+    {
+      "id": 2588,
+      "title": "After D3458: sweep std and aoc statements to the house style: quantified hypotheses and conclusions written (x: T) -> P where P is a proposition become ∀ (x: T) => P",
+      "status": "backlog",
+      "agent": "DeepSeek",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "Mechanical; after SW-2587 merges. Hashes unchanged (same term). 60 min.",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
