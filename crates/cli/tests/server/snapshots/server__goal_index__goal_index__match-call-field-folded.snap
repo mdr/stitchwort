@@ -1,6 +1,5 @@
 ---
 source: crates/cli/tests/server/goal_index.rs
-assertion_line: 141
 expression: json
 ---
 [
@@ -18,13 +17,13 @@ expression: json
           "type": "n ≤ 1"
         }
       ],
-      "lemma": "theorem fitsGoal1 (n: Nat) (small: n ≤ 1): (pick n { items = [] }).items.length ≤ 100 := ?",
-      "target": "(pick n { items = [] }).items.length ≤ 100"
+      "lemma": "theorem fitsGoal1 (n: Nat) (small: n ≤ 1): (pick n empty).items.length ≤ 100 := ?",
+      "target": "(pick n empty).items.length ≤ 100"
     },
     "labels": [
       {
         "file": 0,
-        "message": "n: Nat\nsmall: n ≤ 1\n⊢ (pick n { items = [] }).items.length ≤ 100",
+        "message": "n: Nat\nsmall: n ≤ 1\n⊢ (pick n empty).items.length ≤ 100",
         "range": [
           17,
           14,
@@ -57,13 +56,13 @@ expression: json
           "type": "(n <= 1) = False"
         }
       ],
-      "lemma": "theorem fitsGoal2 (n: Nat) (small: (n <= 1) = False): (pick n { items = [] }).items.length ≤ 100 := ?",
-      "target": "(pick n { items = [] }).items.length ≤ 100"
+      "lemma": "theorem fitsGoal2 (n: Nat) (small: (n <= 1) = False): (pick n empty).items.length ≤ 100 := ?",
+      "target": "(pick n empty).items.length ≤ 100"
     },
     "labels": [
       {
         "file": 0,
-        "message": "n: Nat\nsmall: (n <= 1) = False\n⊢ (pick n { items = [] }).items.length ≤ 100",
+        "message": "n: Nat\nsmall: (n <= 1) = False\n⊢ (pick n empty).items.length ≤ 100",
         "range": [
           18,
           15,
