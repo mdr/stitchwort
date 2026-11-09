@@ -25355,12 +25355,12 @@
     {
       "id": 2514,
       "title": "Compiler: a record update { w | f = g w.f } on a uniquely held record keeps w alive while g runs, so w.f is shared and every in-place reuse inside g is lost (mapops 24.2 G -> 12.6 G instructions, -48%, when written without it); take the field out of a unique record first. Affects every program that keeps state in records (AoC's house style)",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": "Speedwell",
       "labels": [],
       "epic": "comparative-speed",
-      "body": "From SW-2513 target 1 (docs/reviews/SW-2513-mapops-profile.md). Measure on mapops and bench:aoc. 2 h.\n\nStarted 9 Nov 2026 07:40 UTC. Expected: 120 min.\n",
+      "body": "From SW-2513 target 1 (docs/reviews/SW-2513-mapops-profile.md). Measure on mapops and bench:aoc. 2 h.\n\nStarted 9 Nov 2026 07:40 UTC. Expected: 120 min.\n\nMerged 9 Nov 08:20 (rt 66, native 70, hashes + every_example_lowers + million-element shapes + extraction 80). opt.rs take_apart: an expression reading a one-constructor variable's field and the variable again gets one match around it, so a unique record gives up its fields unshared and its cell is reused. mapops 24.23 -> 12.65 G (-47.8%), bridge -4.5%, disk -1.9%, expressions -1.8%; bench:aoc geomean -2.59% (14 days > 3%, up to -18.7%; none up > 0.38%). Model result: Opus, worked, 36 min (est. 120).\n",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
@@ -25477,7 +25477,7 @@
       "where": "",
       "labels": [],
       "epic": "comparative-speed",
-      "body": "Confirmed by rerun at load 0.66; rbmap unchanged. Overmind bisecting with perf stat (job 37).",
+      "body": "Confirmed by rerun at load 0.66; rbmap unchanged. Overmind bisecting with perf stat (job 37).\n\n08:20: Overmind job 37 bisect: first bad merge 0fdc931a7 (SW-2502, capture-free lambdas built once). rbmap-ck cycles 4.68 -> 5.11 G (+9%) at identical instructions; IPC 2.27 -> 2.08; LLC misses flat, L1 +3%, branch misses +6%: too small to explain it; elapsed +13%. Suspect a dependent load through the shared closure (sw_static_closure helper call / statics table read) or code layout. Next: perf record/annotate both binaries (Overmind keeps them in its scratchpad j37/). Note: SW-2502 is still a net win elsewhere (bench -3.6 to -5.3%, AoC -2.1%).\n",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
