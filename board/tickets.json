@@ -1,5 +1,5 @@
 {
-  "next": 2549,
+  "next": 2550,
   "tickets": [
     {
       "id": 47,
@@ -25803,6 +25803,19 @@
       "labels": [],
       "epic": "effects-native",
       "body": "From SW-2535. 20 min.",
+      "created": "2026-11-09",
+      "updated": "2026-11-09",
+      "commits": []
+    },
+    {
+      "id": 2549,
+      "title": "Accept examples with a misleading or broken main: partial-map-main.sw's main lacks () so run rejects it (E-MAIN-TYPE) though it's meant to run; fin-eq.sw (main: Bool) and mutual.sw (main: Nat) name a tested value main: rename. Add a check that every accept example whose main has a runnable type runs",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
+      "body": "From SW-2535's coverage (9 Nov). main-fail.sw and main-fail-partial-deep.sw exit 1 by design (unhandled Fail; the latter needs stdin). 45 min.",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
