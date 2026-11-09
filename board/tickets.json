@@ -24887,12 +24887,12 @@
     {
       "id": 2478,
       "title": "Count how often enum (tag-only) fields sit in cells of 5+ fields (census tag field counts) across bench/compare and AoC, to size option D (enum fields as bytes after the fields: rbmap's node 160 -> 96 B, same as E, with no value-width change)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Sonnet",
-      "where": "",
+      "where": "Speedwell",
       "labels": [],
       "epic": "comparative-speed",
-      "body": "From SW-2472 (compact-values §9). Measurement only, before any D design. 30 min.",
+      "body": "From SW-2472 (compact-values §9). Measurement only, before any D design. 30 min.\n\nStarted 9 Nov 2026 03:46 UTC. Expected: 30 min.\n",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
