@@ -25815,7 +25815,7 @@
       "where": "",
       "labels": [],
       "epic": "test-infra",
-      "body": "From SW-2535's coverage (9 Nov). main-fail.sw and main-fail-partial-deep.sw exit 1 by design (unhandled Fail; the latter needs stdin). 45 min.",
+      "body": "From SW-2535's coverage (9 Nov). main-fail.sw and main-fail-partial-deep.sw exit 1 by design (unhandled Fail; the latter needs stdin). 45 min.\n\nStyle rule (Matt, 9 Nov 2026): name a definition `main` only when it is a program entry point (`main(): {IO…} ()`); add it to docs/syntax.md \"What to write\" and the guide, and sweep examples/, web/guide and docs for non-entry `main`s.\n",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
