@@ -28,7 +28,8 @@
 //! fails) frees every block it holds. Code compiled with `trace_refcounts`
 //! doesn't use it, and other code is lent an empty cache with no room while
 //! a trace may be recording ([`CellCache::lend`]), so the allocation trace
-//! sees every allocation and free.
+//! sees every allocation and free; the same in a `value-census` build, so
+//! the census does.
 
 use std::sync::atomic::{AtomicU64, Ordering};
 
@@ -80,7 +81,7 @@ impl CellCache {
     /// records it (the tests compare untraced code's trace with the
     /// machine's too).
     pub(crate) fn lend(&mut self) -> CellCache {
-        if crate::alloc_trace::recording() {
+        if crate::alloc_trace::recording() || crate::value_census::SEES_EVERY_CELL {
             *self = CellCache::default();
             CellCache {
                 heads: [0; ARITIES as usize],

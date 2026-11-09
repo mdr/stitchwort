@@ -13,6 +13,19 @@
 //! is an empty `#[inline(always)]` function, so no shipped or test build pays
 //! for it.
 //!
+//! A native executable is counted too, when it is linked against a runtime
+//! library built with the feature: `cargo build --release -p
+//! stitchwort-standalone --features value-census` (with its own
+//! `CARGO_TARGET_DIR`), then `STITCHWORT_RUNTIME=<that target
+//! dir>/release/libstitchwort_standalone.a stitchwort build --native ...`,
+//! and run the executable with `STITCHWORT_VALUE_CENSUS` set. Native code
+//! allocates its cells in `sw_cell_new`, where the census counts them by
+//! field count and size (`cells.native` of `cells.total` came this way); it
+//! fills them afterwards, so the `cell_field.*` kinds cover only the cells
+//! the runtime built. In such a build native code does not use its cache of
+//! freed cells, so every cell passes through the runtime. The executable's
+//! start-up self-check adds a constant 7 cells and a few other objects.
+//!
 //! The sizes of the four models, per object (`n` fields, `k` captures, `v`
 //! the number of `Value` slots in the largest variant of an enum):
 //!
@@ -45,6 +58,22 @@ pub(crate) fn cell(fields: &[Value]) {
     #[cfg(not(feature = "value-census"))]
     let _ = fields;
 }
+
+/// A cell of `n` fields that native code is about to fill has been
+/// allocated (`sw_cell_new`). Counted by size only: what it will hold is
+/// not known yet, so the `cell_field.*` lines cover the other cells.
+#[inline(always)]
+pub(crate) fn cell_native(n: usize) {
+    #[cfg(feature = "value-census")]
+    enabled::cell_native(n);
+    #[cfg(not(feature = "value-census"))]
+    let _ = n;
+}
+
+/// Whether native code must allocate and free every cell through the
+/// runtime, not through its cache of freed cells, so that the census sees
+/// them all.
+pub const SEES_EVERY_CELL: bool = cfg!(feature = "value-census");
 
 /// A cell was refilled in place (`CtorReuse`).
 #[inline(always)]

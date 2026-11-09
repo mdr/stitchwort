@@ -15,6 +15,9 @@ crate-type = ["staticlib", "rlib"]
 # A runtime library that counts native code's calls into it
 # (`stitchwort_rt::call_counts`), for `dev/profile-native`.
 call-counts = ["stitchwort-rt/call-counts"]
+# A runtime library that counts the values a native run makes
+# (`stitchwort_rt::value_census`).
+value-census = ["stitchwort-rt/value-census"]
 
 [dependencies]
 stitchwort-core.workspace = true

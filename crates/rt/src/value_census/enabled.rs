@@ -45,6 +45,9 @@ const ZERO_I: AtomicI64 = AtomicI64::new(0);
 static CELLS: [AtomicU64; ARITIES] = [ZERO; ARITIES];
 /// Fields summed over the cells in the last bucket (the rest are exact).
 static LAST_BUCKET_FIELDS: AtomicU64 = AtomicU64::new(0);
+/// Cells native code allocated (`sw_cell_new`): counted by arity and size,
+/// but not by what they hold, since native code fills them afterwards.
+static NATIVE_CELLS: AtomicU64 = AtomicU64::new(0);
 static REUSES: AtomicU64 = AtomicU64::new(0);
 static CELL_KINDS: [AtomicU64; 15] = [ZERO; 15];
 static REUSE_KINDS: [AtomicU64; 15] = [ZERO; 15];
@@ -159,20 +162,30 @@ fn cell_sizes(n: u64) -> [u64; 4] {
     [RC + 24 * n, 8 + 24 * n, 8 + 16 * n, 8 + 8 * n]
 }
 
-pub(super) fn cell(fields: &[Value]) {
-    register();
-    let n = fields.len();
+/// The counts of a cell of `n` fields that do not depend on what it holds.
+fn cell_of_arity(n: usize) {
     CELLS[n.min(ARITIES - 1)].fetch_add(1, Relaxed);
     if n >= ARITIES - 1 {
         LAST_BUCKET_FIELDS.fetch_add(n as u64, Relaxed);
     }
-    let boxes = count_kinds(&CELL_KINDS, fields);
-    A_BOXES.fetch_add(boxes, Relaxed);
     let sizes = cell_sizes(n as u64);
     add(&CELL_BYTES, sizes);
     live(sizes.map(|s| s as i64));
     let now = LIVE_CELLS.fetch_add(1, Relaxed) + 1;
     PEAK_CELLS.fetch_max(now as u64, Relaxed);
+}
+
+pub(super) fn cell(fields: &[Value]) {
+    register();
+    cell_of_arity(fields.len());
+    let boxes = count_kinds(&CELL_KINDS, fields);
+    A_BOXES.fetch_add(boxes, Relaxed);
+}
+
+pub(super) fn cell_native(n: usize) {
+    register();
+    NATIVE_CELLS.fetch_add(1, Relaxed);
+    cell_of_arity(n);
 }
 
 pub(super) fn cell_reuse(fields: &[Value]) {
@@ -342,6 +355,7 @@ fn report() -> String {
     fields += get(&LAST_BUCKET_FIELDS);
     line("cells.total".into(), cells);
     line("cells.fields".into(), fields);
+    line("cells.native".into(), get(&NATIVE_CELLS));
     line("cells.reused_in_place".into(), get(&REUSES));
     for (i, name) in KINDS.iter().enumerate() {
         line(format!("cell_field.{name}"), get(&CELL_KINDS[i]));
