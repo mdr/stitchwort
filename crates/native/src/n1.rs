@@ -2735,7 +2735,9 @@ fn maybe_full(code: &Code) -> Vec<Regs> {
             Instr::Unpack { src, fields, token } => {
                 after.remove(src);
                 for p in ops(code, fields).chunks(2) {
-                    after.add(p[1]);
+                    if p[1] != NO_REG {
+                        after.add(p[1]);
+                    }
                 }
                 if token != NO_REG {
                     after.add(token);
@@ -4740,7 +4742,12 @@ impl Gen<'_, '_> {
             if !later {
                 self.erase(Loc::Mem(cell, field_at(i)));
             }
-            self.assign(pc, d, f);
+            if d == NO_REG {
+                // A field the arm doesn't use.
+                self.drop_value(f);
+            } else {
+                self.assign(pc, d, f);
+            }
         }
         if token == NO_REG {
             // The emptied cell (and whatever fields the arm doesn't use)
@@ -4779,6 +4786,9 @@ impl Gen<'_, '_> {
         // Shared: the fields are copied and the cell left alone.
         self.b.switch_to_block(shared);
         for &(i, d) in &pairs {
+            if d == NO_REG {
+                continue;
+            }
             let f = self.clone_from(Loc::Mem(cell, field_at(i)));
             self.assign(pc, d, f);
         }

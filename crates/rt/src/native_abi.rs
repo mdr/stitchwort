@@ -1648,7 +1648,10 @@ pub unsafe extern "C" fn sw_unpack(
     };
     if let Some(slice) = Rc::get_mut(&mut cell.0) {
         for p in pairs.as_chunks::<2>().0 {
-            *reg(p[1]) = std::mem::take(&mut slice[p[0] as usize]);
+            let field = std::mem::take(&mut slice[p[0] as usize]);
+            if p[1] != NO_REG {
+                *reg(p[1]) = field;
+            }
         }
         if token != NO_REG {
             for v in slice.iter_mut() {
@@ -1658,7 +1661,9 @@ pub unsafe extern "C" fn sw_unpack(
         }
     } else {
         for p in pairs.as_chunks::<2>().0 {
-            *reg(p[1]) = cell[p[0] as usize].clone();
+            if p[1] != NO_REG {
+                *reg(p[1]) = cell[p[0] as usize].clone();
+            }
         }
         if token != NO_REG {
             *reg(token) = Value::Erased;
