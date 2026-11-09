@@ -1,5 +1,5 @@
 {
-  "next": 2539,
+  "next": 2541,
   "tickets": [
     {
       "id": 47,
@@ -25673,6 +25673,32 @@
       "labels": [],
       "epic": "comparative-speed",
       "body": "From SW-2511. Profile first. 45 min.",
+      "created": "2026-11-09",
+      "updated": "2026-11-09",
+      "commits": []
+    },
+    {
+      "id": 2539,
+      "title": "Inline Map.Tree.balance into insertWith (126 nodes) under a rule of its own with a size cap: est. a further 2-3% on mapops (9.67 G now vs 9.39 G hand-fused)",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "comparative-speed",
+      "body": "From SW-2531. Measure code size too. 60 min.",
+      "created": "2026-11-09",
+      "updated": "2026-11-09",
+      "commits": []
+    },
+    {
+      "id": 2540,
+      "title": "Correct SW-2513 and SW-2371 notes: Map nodes ARE reused in place since SW-2391; the remaining cost was calls (shape/rebuild), fixed by SW-2531",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "comparative-speed",
+      "body": "From SW-2531. Wording only. 15 min.",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
