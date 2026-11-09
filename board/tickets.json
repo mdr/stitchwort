@@ -1,5 +1,5 @@
 {
-  "next": 2503,
+  "next": 2504,
   "tickets": [
     {
       "id": 47,
@@ -1157,12 +1157,12 @@
     {
       "id": 814,
       "title": "Map speed beyond the 28 Oct fixes: a fused balanceL/balanceR (as Data.Map, est. ~30% fewer instructions per level) or a Nat-keyed IntMap",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "Speedwell",
       "labels": [],
       "epic": "performance",
-      "body": "Options listed by the Map lane: fused balance means re-proving balanceWithin, balanceSized, balanceOnto; an IntMap is a new std type with its own proofs. Day 20 part 2: ~1.7 µs per Map lookup.\n\nSW-1603 (docs/proposals/nat-map.md, 7 Nov): a fused balance is lower priority once native Map.Tree get/insertWith (SW-1825) lands.\n\nStarted 9 Nov 2026 06:42 UTC. Expected: 75 min. Scope (orchestrator's call): fused balanceL/balanceR only; IntMap not now.\n",
+      "body": "Options listed by the Map lane: fused balance means re-proving balanceWithin, balanceSized, balanceOnto; an IntMap is a new std type with its own proofs. Day 20 part 2: ~1.7 µs per Map lookup.\n\nSW-1603 (docs/proposals/nat-map.md, 7 Nov): a fused balance is lower priority once native Map.Tree get/insertWith (SW-1825) lands.\n\nStarted 9 Nov 2026 06:42 UTC. Expected: 75 min. Scope (orchestrator's call): fused balanceL/balanceR only; IntMap not now.\n\n06:54: tried (keep/SW-814-fused-balance, 69e17c6b2): balanceL/balanceR, statements unchanged: bench:aoc geomean -0.17% (best -2.9%), dijkstra -0.66%, rest noise. Dropped (orchestrator's call): 8 new definitions/lemmas for ~0.2%, and shapes can differ on unbalanced input. Revisit only with SW-1825 natives or a Std.Map benchmark. Model result: Sonnet, worked, 12 min (est. 75).\n",
       "created": "2026-10-28",
       "updated": "2026-11-09",
       "commits": []
@@ -25199,12 +25199,25 @@
     {
       "id": 2502,
       "title": "Constant hoisting stage 1a: each capture-free lambda built once as a shared closure (optional builds nine per start, 159 instructions each); est. expressions -3.5 to -3.9%, scan -2.6 to -3.1%, every program gains",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "Speedwell",
+      "labels": [],
+      "epic": "comparative-speed",
+      "body": "docs/proposals/constant-hoisting.md stage 1a. Orchestrator's call: 1a can't change results, effect or step counts beyond fewer allocations, so it doesn't wait on D3438/D3439 (stages 1b-2 do). 60 min.\n\nStarted 9 Nov 2026 06:54 UTC. Expected: 60 min.\n",
+      "created": "2026-11-09",
+      "updated": "2026-11-09",
+      "commits": []
+    },
+    {
+      "id": 2503,
+      "title": "bench/compare has no Std.Map insert/remove workload (rbmap/rbmap-ck are hand-written trees; only dijkstra touches Std.Map): add one to the wide set, with Python and Lean ports",
       "status": "backlog",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "comparative-speed",
-      "body": "docs/proposals/constant-hoisting.md stage 1a. Orchestrator's call: 1a can't change results, effect or step counts beyond fewer allocations, so it doesn't wait on D3438/D3439 (stages 1b-2 do). 60 min.",
+      "body": "From SW-814. 60 min.",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
