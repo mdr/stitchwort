@@ -1,5 +1,5 @@
 {
-  "next": 2575,
+  "next": 2576,
   "tickets": [
     {
       "id": 47,
@@ -26018,12 +26018,12 @@
     {
       "id": 2565,
       "title": "Borrow inference stage B1 (docs/proposals/borrow-inference.md, B0 results §11): borrowed parameters in the lowering and native code, without rule O6; machine checks borrows at run time; measure against B0's estimates",
-      "status": "review",
+      "status": "doing",
       "agent": "Opus",
       "where": "Speedwell",
       "labels": [],
       "epic": "comparative-speed",
-      "body": "D3441 (gate passed in SW-2530). O6 dropped (orchestrator call). Started 10:55 UTC. Expected: 480 min.\n\nProgress (lane, 9 Nov 2026):\n- 12:20 GMT: built and committed on lane/SW-2565 (5cbd08397), about 85 min of the 480 estimated. Pass in crates/rt/src/borrow.rs; design and results in docs/proposals/borrow-inference.md §12; perf log entry.\n- Measured vs d5bd2f09d: bench:instructions geomean -3.77% (mapops -6.09%, memory-game -18.98%, disk -1.06%, rbmap-ck -0.99%, expressions -0.85%, rbmap -0.39%, dijkstra -0.13%, binary-trees +0.04%). bench:aoc geomean -0.96% over 56 days (2024/06 -10.8%, 2021/17 -9.5%, 2020/08 -4.9%; worst 2021/01 +1.16%, over the +1% gate). Peak memory unchanged.\n- Rules beyond the note: merge, fresh, fed; O6 dropped; O1-O3 only label fed parameters. The lifted get.%match1[2] now borrows its value and children.\n- Tests: rt lane 90/90, native lane 78/78, borrow unit 24/24, alloc_trace + reuse + hash tests 40/40, new native borrow tests 3/3, new machine check test passes. cargo fmt, clippy clean.\n- borrow-counts retired (recoverable from d87bf7c93).\n\nOpus review 9 Nov: docs/reviews/SW-2565-borrow-b1-review.md, fix first (F1 g x x compiler panic, F2 slow out-of-frames, F4 TailApply save, F3 Forget check; rebase onto SW-2559 and re-measure). Sent back to the lane. Follow-ups SW-2573, SW-2574, . 2021/01 +1.16% accepted (orchestrator, D3447).\n",
+      "body": "D3441 (gate passed in SW-2530). O6 dropped (orchestrator call). Started 10:55 UTC. Expected: 480 min.\n\nProgress (lane, 9 Nov 2026):\n- 12:20 GMT: built and committed on lane/SW-2565 (5cbd08397), about 85 min of the 480 estimated. Pass in crates/rt/src/borrow.rs; design and results in docs/proposals/borrow-inference.md §12; perf log entry.\n- Measured vs d5bd2f09d: bench:instructions geomean -3.77% (mapops -6.09%, memory-game -18.98%, disk -1.06%, rbmap-ck -0.99%, expressions -0.85%, rbmap -0.39%, dijkstra -0.13%, binary-trees +0.04%). bench:aoc geomean -0.96% over 56 days (2024/06 -10.8%, 2021/17 -9.5%, 2020/08 -4.9%; worst 2021/01 +1.16%, over the +1% gate). Peak memory unchanged.\n- Rules beyond the note: merge, fresh, fed; O6 dropped; O1-O3 only label fed parameters. The lifted get.%match1[2] now borrows its value and children.\n- Tests: rt lane 90/90, native lane 78/78, borrow unit 24/24, alloc_trace + reuse + hash tests 40/40, new native borrow tests 3/3, new machine check test passes. cargo fmt, clippy clean.\n- borrow-counts retired (recoverable from d87bf7c93).\n\nOpus review 9 Nov: docs/reviews/SW-2565-borrow-b1-review.md, fix first (F1 g x x compiler panic, F2 slow out-of-frames, F4 TailApply save, F3 Forget check; rebase onto SW-2559 and re-measure). Sent back to the lane. Follow-ups SW-2573, SW-2574, . 2021/01 +1.16% accepted (orchestrator, D3447).\n\nOpus review 9 Nov: docs/reviews/SW-2565-borrow-b1-review.md, fix first (F1 g x x compiler panic, F2 slow out-of-frames, F4 TailApply save, F3 Forget check; rebase onto SW-2559 and re-measure). Sent back to the lane. Follow-ups SW-2573, SW-2574, SW-2575. 2021/01 +1.16% accepted (orchestrator, D3447).\n",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
@@ -26141,6 +26141,19 @@
       "labels": [],
       "epic": "comparative-speed",
       "body": "From SW-2565 and its review F9. Profile first. 60 min.",
+      "created": "2026-11-09",
+      "updated": "2026-11-09",
+      "commits": []
+    },
+    {
+      "id": 2575,
+      "title": "Compute mode: run the machine-vs-native allocation trace comparison over the effect and soundness fuzzers' generated programs (borrow B1 reuse decisions are only caught by traces)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "audit-fuzzing",
+      "body": "From SW-2565 review F3. Overmind, once B1 merges.",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
