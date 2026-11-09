@@ -46,6 +46,30 @@ in [../proposals/README.md](../proposals/README.md).
 
 ## 9 Nov 2026
 
+### SW-2530: borrow inference stage B0, measured (dry run, no behaviour change)
+
+- **Status:** merged pending review (`lane/SW-2530`). Sonnet. Measurement only.
+- **Problem.** The note [../proposals/borrow-inference.md](../proposals/borrow-inference.md)
+  estimated 3.5-5.5% of mapops and 5-12% of dijkstra from borrowed parameters, from earlier
+  profiles; D3441 made building B1 depend on a measurement (gate: 3% on mapops or
+  dijkstra, or 1% median on bench:aoc).
+- **Change.** A dry-run inference over the bytecode (`crates/rt/src/borrow.rs`) and a machine
+  counter behind cargo feature `borrow-counts` that counts the increments and decrements
+  borrowing would remove or add (`borrow/shadow.rs`); `dev/borrow-counts` and
+  `dev/borrow-counts-report` run and tabulate. Off in every shipped and test build.
+- **Why results stay the same.** The counter only observes; answers of all runs matched.
+- **Measured** (counts exact, instruction conversion estimated from a native micro-benchmark:
+  13.5 per counted inc/dec, 5 per plain; counts validated at 2 increments per lookup level):
+  mapops 6.75% (rules as written), 9.1% (O6 dropped); dijkstra 2.5%; disk 2.0/3.2%;
+  memory-game 0/13.8%; const-fold 1.7%; binary-trees 1.8%; the rest under 0.6%. bench:aoc
+  sample of 27 days: median 0.74% (b1), 0.87% (O6 dropped), 1.51% (with owned copies), max 21-29%.
+  No geomean change measured (nothing changed in the compiler).
+- **Verdict.** Gate passes on mapops: build B1, with O6 dropped. dijkstra is below 3% alone.
+  Rejected finding: O6 as written leaves the specialised `get` walk's tree owned, because the
+  optimiser lifts the `match` on `compare` into a function taking the node's value as an owned
+  parameter.
+- **Links.** SW-2530, SW-2518; note section 11.
+
 ### SW-2514: a record update takes a unique record's fields apart first
 
 - **Status:** merged (`44beef6e9`). Opus.
