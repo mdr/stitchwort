@@ -25407,12 +25407,12 @@
     {
       "id": 2518,
       "title": "Design note: borrowed-parameter inference for read-only recursive walks (Lean-style): IR borrow flag on Call/TailCall, Unpack choice, native ABI, reuse.rs; Map.get/contains first (get ~9% of mapops, refcount half of it; est. <= 4-5% mapops, more on lookup-heavy programs)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Opus",
-      "where": "",
+      "where": "Speedwell",
       "labels": [],
       "epic": "comparative-speed",
-      "body": "From SW-2516's stop report. Paper lane. 90 min.",
+      "body": "From SW-2516's stop report. Paper lane. 90 min.\n\nStarted 9 Nov 2026 07:53 UTC. Expected: 90 min. Paper lane.\n",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
