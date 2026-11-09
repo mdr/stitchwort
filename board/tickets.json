@@ -1,5 +1,5 @@
 {
-  "next": 2577,
+  "next": 2578,
   "tickets": [
     {
       "id": 47,
@@ -26018,12 +26018,12 @@
     {
       "id": 2565,
       "title": "Borrow inference stage B1 (docs/proposals/borrow-inference.md, B0 results §11): borrowed parameters in the lowering and native code, without rule O6; machine checks borrows at run time; measure against B0's estimates",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": "Speedwell",
       "labels": [],
       "epic": "comparative-speed",
-      "body": "D3441 (gate passed in SW-2530). O6 dropped (orchestrator call). Started 10:55 UTC. Expected: 480 min.\n\nProgress (lane, 9 Nov 2026):\n- 12:20 GMT: built and committed on lane/SW-2565 (5cbd08397), about 85 min of the 480 estimated. Pass in crates/rt/src/borrow.rs; design and results in docs/proposals/borrow-inference.md §12; perf log entry.\n- Measured vs d5bd2f09d: bench:instructions geomean -3.77% (mapops -6.09%, memory-game -18.98%, disk -1.06%, rbmap-ck -0.99%, expressions -0.85%, rbmap -0.39%, dijkstra -0.13%, binary-trees +0.04%). bench:aoc geomean -0.96% over 56 days (2024/06 -10.8%, 2021/17 -9.5%, 2020/08 -4.9%; worst 2021/01 +1.16%, over the +1% gate). Peak memory unchanged.\n- Rules beyond the note: merge, fresh, fed; O6 dropped; O1-O3 only label fed parameters. The lifted get.%match1[2] now borrows its value and children.\n- Tests: rt lane 90/90, native lane 78/78, borrow unit 24/24, alloc_trace + reuse + hash tests 40/40, new native borrow tests 3/3, new machine check test passes. cargo fmt, clippy clean.\n- borrow-counts retired (recoverable from d87bf7c93).\n\nOpus review 9 Nov: docs/reviews/SW-2565-borrow-b1-review.md, fix first (F1 g x x compiler panic, F2 slow out-of-frames, F4 TailApply save, F3 Forget check; rebase onto SW-2559 and re-measure). Sent back to the lane. Follow-ups SW-2573, SW-2574, . 2021/01 +1.16% accepted (orchestrator, D3447).\n\nOpus review 9 Nov: docs/reviews/SW-2565-borrow-b1-review.md, fix first (F1 g x x compiler panic, F2 slow out-of-frames, F4 TailApply save, F3 Forget check; rebase onto SW-2559 and re-measure). Sent back to the lane. Follow-ups SW-2573, SW-2574, SW-2575. 2021/01 +1.16% accepted (orchestrator, D3447).\n",
+      "body": "D3441 (gate passed in SW-2530). O6 dropped (orchestrator call). Started 10:55 UTC. Expected: 480 min.\n\nProgress (lane, 9 Nov 2026):\n- 12:20 GMT: built and committed on lane/SW-2565 (5cbd08397), about 85 min of the 480 estimated. Pass in crates/rt/src/borrow.rs; design and results in docs/proposals/borrow-inference.md §12; perf log entry.\n- Measured vs d5bd2f09d: bench:instructions geomean -3.77% (mapops -6.09%, memory-game -18.98%, disk -1.06%, rbmap-ck -0.99%, expressions -0.85%, rbmap -0.39%, dijkstra -0.13%, binary-trees +0.04%). bench:aoc geomean -0.96% over 56 days (2024/06 -10.8%, 2021/17 -9.5%, 2020/08 -4.9%; worst 2021/01 +1.16%, over the +1% gate). Peak memory unchanged.\n- Rules beyond the note: merge, fresh, fed; O6 dropped; O1-O3 only label fed parameters. The lifted get.%match1[2] now borrows its value and children.\n- Tests: rt lane 90/90, native lane 78/78, borrow unit 24/24, alloc_trace + reuse + hash tests 40/40, new native borrow tests 3/3, new machine check test passes. cargo fmt, clippy clean.\n- borrow-counts retired (recoverable from d87bf7c93).\n\nOpus review 9 Nov: docs/reviews/SW-2565-borrow-b1-review.md, fix first (F1 g x x compiler panic, F2 slow out-of-frames, F4 TailApply save, F3 Forget check; rebase onto SW-2559 and re-measure). Sent back to the lane. Follow-ups SW-2573, SW-2574, . 2021/01 +1.16% accepted (orchestrator, D3447).\n\nOpus review 9 Nov: docs/reviews/SW-2565-borrow-b1-review.md, fix first (F1 g x x compiler panic, F2 slow out-of-frames, F4 TailApply save, F3 Forget check; rebase onto SW-2559 and re-measure). Sent back to the lane. Follow-ups SW-2573, SW-2574, SW-2575. 2021/01 +1.16% accepted (orchestrator, D3447).\n\n- 13:04 GMT: review fixes (docs/reviews/SW-2565-borrow-b1-review.md) F1, F2, F4 and F3's check/machine part, in 1334333b0; rebased onto main fdde41179; remeasured in c15acd666. Against main: bench:instructions geomean -4.59% (mapops -6.40%, memory-game -19.31%, expressions -3.10%, disk -2.42%, rbmap-ck -2.13%, dijkstra -1.49%, rbmap -0.26%, binary-trees +0.01%); bench:aoc geomean -2.32%, 11 days over 3%, none worse (2021/01 now -1.72%). Gate met in full. Tests after rebase: borrow 28/28, rt lane 92/92, native lane 80/80, alloc_trace+reuse+cell_cache+hash 41/41.\n\nMerged 9 Nov after review fixes, rebased onto SW-2559: native geomean -4.59% (memory-game -19.3%, mapops -6.4%), bench:aoc -2.32%, no day worse (2021/01 now -1.72%). rt 92, native 80, borrow/trace/hash 72 pass on main. Model result: Opus, worked, 115 min (est. 480).\n",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
@@ -26135,12 +26135,12 @@
     {
       "id": 2574,
       "title": "AoC 2021/01 +1.16% instructions under borrow B1 (about 680 per input line, in parsing): check the review's guess (shared-but-unique values now lent and freed whole) and fix if general",
-      "status": "backlog",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "comparative-speed",
-      "body": "From SW-2565 and its review F9. Profile first. 60 min.",
+      "body": "Resolved by the rebase onto SW-2559: 2021/01 is -1.72% under B1 against main. Closed without a lane.\n",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
@@ -26167,6 +26167,19 @@
       "labels": [],
       "epic": "audit-fuzzing",
       "body": "Overmind job 45, 9 Nov. Log on Overmind j45/run-0x2574.log. 45 min.",
+      "created": "2026-11-09",
+      "updated": "2026-11-09",
+      "commits": []
+    },
+    {
+      "id": 2577,
+      "title": "Borrow inference: a lambda's captures look owned, so passing one at its last use counts as fed and makes the callee own its parameter (largest, total turned owned via IO continuations); start captures in the shared state and measure",
+      "status": "backlog",
+      "agent": "Opus",
+      "where": "",
+      "labels": [],
+      "epic": "comparative-speed",
+      "body": "From SW-2565's final report. Measure on the eight programs and bench:aoc. 90 min.",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
