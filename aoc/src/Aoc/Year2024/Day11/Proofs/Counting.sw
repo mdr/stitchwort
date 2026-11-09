@@ -13,14 +13,14 @@ def weigh (weight: Nat → Nat): List (Nat, Nat) → Nat
   | [] => 0
   | [(stone, count), ..rest] => count * weight stone + weigh weight rest
 
-theorem weighCong (first: Nat → Nat) (second: Nat → Nat) (same: (stone: Nat) → first stone = second stone):
-    (entries: List (Nat, Nat)) → weigh first entries = weigh second entries
+theorem weighCong (first: Nat → Nat) (second: Nat → Nat) (same: ∀ (stone: Nat) => first stone = second stone):
+    ∀ (entries: List (Nat, Nat)) => weigh first entries = weigh second entries
   | [] => rfl
   | [(stone, count), ..rest] => rewrite same stone, weighCong first second same rest in rfl
 
 --| The weight as a sum over the entries (std's `Map.weightInsertWith` and
 --| `Map.sumByCounts` are about this form).
-theorem weighSumBy (weight: Nat → Nat): (entries: List (Nat, Nat)) → weigh weight entries = entries.sumBy (entry => entry.snd * weight entry.fst)
+theorem weighSumBy (weight: Nat → Nat): ∀ (entries: List (Nat, Nat)) => weigh weight entries = entries.sumBy (entry => entry.snd * weight entry.fst)
   | [] => rfl
   | [(stone, count), ..rest] => rewrite List.sumByCons rest (stone, count) (entry => entry.snd * weight entry.fst), weighSumBy weight rest in rfl
 
@@ -30,7 +30,7 @@ theorem weighInsertWith (weight: Nat → Nat) (key: Nat) (count: Nat) (entries: 
     weigh weight (Map.Spec.insertWith Nat.add key count entries) = count * weight key + weigh weight entries :=
   rewrite weighSumBy weight (Map.Spec.insertWith Nat.add key count entries), weighSumBy weight entries in Map.specInsertWithWeight weight key count entries
 
-theorem weighAddStones (weight: Nat → Nat): (counts: Map Nat Nat) → (stones: List Nat) → (count: Nat) →
+theorem weighAddStones (weight: Nat → Nat): ∀ (counts: Map Nat Nat) (stones: List Nat) (count: Nat) =>
     weigh weight (addStones counts stones count).toList = count * stones.sumBy weight + weigh weight counts.toList
   | counts, [], count => ring
   | counts, [stone, ..rest], count =>
@@ -39,7 +39,7 @@ theorem weighAddStones (weight: Nat → Nat): (counts: Map Nat Nat) → (stones:
       in ring
 
 --| A blink on the counts weighs each number by what it changes into.
-theorem weighFold (weight: Nat → Nat): (after: Map Nat Nat) → (entries: List (Nat, Nat)) →
+theorem weighFold (weight: Nat → Nat): ∀ (after: Map Nat Nat) (entries: List (Nat, Nat)) =>
     weigh weight (Map.Spec.foldLeft (blinked stone count => addStones blinked (changeStone stone) count) after entries).toList
       = weigh (stone => (changeStone stone).sumBy weight) entries + weigh weight after.toList
   | after, [] => ring
@@ -53,7 +53,7 @@ theorem weighBlinkCounts (weight: Nat → Nat) (counts: Map Nat Nat):
     in ring
 
 --| `counts` stands for the line `stones`: weighed any way, they agree.
-def Represents (counts: Map Nat Nat) (stones: List Nat): Prop := (weight: Nat → Nat) → weigh weight counts.toList = stones.sumBy weight
+def Represents (counts: Map Nat Nat) (stones: List Nat): Prop := ∀ (weight: Nat → Nat) => weigh weight counts.toList = stones.sumBy weight
 
 theorem representsCounts (stones: List Nat): Represents (Map.counts stones) stones := weight =>
   rewrite weighSumBy weight (Map.toList (Map.counts stones)) in Map.sumByCounts stones weight
@@ -66,14 +66,14 @@ theorem representsBlink (counts: Map Nat Nat) (stones: List Nat) (represents: Re
     represents (stone => (change stone).sumBy weight), List.sumByFlatMap stones weight change
     in rfl
 
-theorem representsAfter: (blinks: Nat) → (counts: Map Nat Nat) → (stones: List Nat) → Represents counts stones →
+theorem representsAfter: ∀ (blinks: Nat) (counts: Map Nat Nat) (stones: List Nat) => Represents counts stones →
     Represents (blinks.iterate blinkCounts counts) (blinkTimes blinks stones)
   | Zero, counts, stones, represents, weight => represents weight
   | Succ blinks, counts, stones, represents, weight =>
     representsAfter blinks (blinkCounts counts) (blink stones) (representsBlink counts stones represents) weight
 
 --| The counts add up to their entries' weight when every stone weighs 1.
-theorem sumCounts: (entries: List (Nat, Nat)) → (entries.map Pair.snd).sum = weigh (stone => 1) entries
+theorem sumCounts: ∀ (entries: List (Nat, Nat)) => (entries.map Pair.snd).sum = weigh (stone => 1) entries
   | [] => rfl
   | [(stone, count), ..rest] => rewrite List.sumCons count (rest.map Pair.snd), sumCounts rest in ring
 

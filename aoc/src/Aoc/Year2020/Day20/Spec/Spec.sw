@@ -63,7 +63,7 @@ def pixelAt (image: Image) (row: Nat) (column: Nat): Option Pixel := (image.rows
 --| A sea monster, as `monster` draws it, with its top left at `row` and
 --| `column` of `image`: each `#` of the monster is on a `#` of the image.
 def MonsterAt (image: Image) (monster: Image) (row: Nat) (column: Nat): Prop :=
-  (r: Nat) → (c: Nat) → pixelAt monster r c = Some Rough → pixelAt image (row + r) (column + c) = Some Rough
+  ∀ (r c: Nat) => pixelAt monster r c = Some Rough → pixelAt image (row + r) (column + c) = Some Rough
 
 --| `at` is under a `#` of a sea monster, as `monster` draws it, that lies
 --| within `image` (its height, and its first row's width).
@@ -77,7 +77,7 @@ def Covered (image: Image) (monster: Image) (at: List Nat): Prop :=
 
 --| `cells` lists each `#` of the image once, as `[row, column]`.
 def RoughCells (image: Image) (cells: List (List Nat)): Prop :=
-  List.Distinct cells ∧ ((at: List Nat) → at ∈ cells ↔ ∃ (row: Nat) => ∃ (column: Nat) => at = [row, column] ∧ pixelAt image row column = Some Rough)
+  List.Distinct cells ∧ (∀ (at: List Nat) => at ∈ cells ↔ ∃ (row: Nat) => ∃ (column: Nat) => at = [row, column] ∧ pixelAt image row column = Some Rough)
 
 --| "How many # are not part of a sea monster?", with sea monsters as
 --| `monster` draws them, counted over a listing of the image's `#`s.

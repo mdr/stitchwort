@@ -6,7 +6,7 @@ namespace Aoc.Year2020.Day19.Proofs
 import Aoc.Year2020.Day19 (..)
 import Std (DecEq, Eq, List, Map, Nat, Option, Void)
 
-theorem tableGet: (entries: List (Nat, Rule)) → (number: Nat) → (ruleTable entries).get number = entries.lookup number
+theorem tableGet: ∀ (entries: List (Nat, Rule)) (number: Nat) => (ruleTable entries).get number = entries.lookup number
   | [], number => rfl
   | [(entryNumber, rule), ..later], number =>
     match same: entryNumber == number with
@@ -20,8 +20,8 @@ theorem tableGet: (entries: List (Nat, Rule)) → (number: Nat) → (ruleTable e
 theorem tableRule (rules: Rules) (number: Nat): (ruleTable rules.numbered).get number = rules.rule number := tableGet rules.numbered number
 
 --| Where two lookups agree, so do the matches.
-theorem leftAfterSame (first: Nat → Option Rule) (second: Nat → Option Rule) (same: (number: Nat) → first number = second number):
-    (fuel: Nat) → (number: Nat) → (message: List Char) → leftAfterWith first fuel number message = leftAfterWith second fuel number message
+theorem leftAfterSame (first: Nat → Option Rule) (second: Nat → Option Rule) (same: ∀ (number: Nat) => first number = second number):
+    ∀ (fuel number: Nat) (message: List Char) => leftAfterWith first fuel number message = leftAfterWith second fuel number message
   | Zero, number, message => rfl
   | Succ more, number, message =>
     match looked: second number with
@@ -32,8 +32,8 @@ theorem leftAfterSame (first: Nat → Option Rule) (second: Nat → Option Rule)
           List.flatMapCong sequences (sequence => leftAfterAllWith first more sequence message) (sequence => leftAfterAllWith second more sequence message)
             (sequence => leftAfterAllSame first second same more sequence message)
 
-theorem leftAfterAllSame (first: Nat → Option Rule) (second: Nat → Option Rule) (same: (number: Nat) → first number = second number):
-    (fuel: Nat) → (sequence: List Nat) → (message: List Char) → leftAfterAllWith first fuel sequence message = leftAfterAllWith second fuel sequence message
+theorem leftAfterAllSame (first: Nat → Option Rule) (second: Nat → Option Rule) (same: ∀ (number: Nat) => first number = second number):
+    ∀ (fuel: Nat) (sequence: List Nat) (message: List Char) => leftAfterAllWith first fuel sequence message = leftAfterAllWith second fuel sequence message
   | fuel, [], message => rfl
   | fuel, [number, ..later], message =>
     rewrite leftAfterSame first second same fuel number message in

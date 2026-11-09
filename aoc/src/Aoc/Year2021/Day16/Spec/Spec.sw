@@ -144,8 +144,8 @@ type Values: List Packet → List Nat → Prop =
 type Computes: Operation → List Nat → Nat → Prop =
   | SumOf (values: List Nat): Computes Sum values values.sum
   | ProductOf (values: List Nat): Computes Product values values.product
-  | MinimumOf (member: value ∈ values) (least: (other: Nat) → other ∈ values → value ≤ other): Computes Minimum values value
-  | MaximumOf (member: value ∈ values) (most: (other: Nat) → other ∈ values → other ≤ value): Computes Maximum values value
+  | MinimumOf (member: value ∈ values) (least: ∀ (other: Nat) => other ∈ values → value ≤ other): Computes Minimum values value
+  | MaximumOf (member: value ∈ values) (most: ∀ (other: Nat) => other ∈ values → other ≤ value): Computes Maximum values value
 
 --| What each comparison makes of its two sub-packets' values: 1 if the
 --| first is greater than, less than, or equal to the second, and 0 if not.

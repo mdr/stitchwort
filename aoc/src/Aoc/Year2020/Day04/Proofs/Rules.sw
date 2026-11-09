@@ -12,7 +12,7 @@ theorem betweenToNat (low: Nat) (high: Nat) (chars: List Char):
 
 theorem andShape [a: Bool] [b: Bool] [c: Bool] [d: Bool]: (a ∧ True ∧ b ∧ c ∧ d) = ((a ∧ b) ∧ c ∧ d) := cases
 
-theorem yearChars (low: Nat) (high: Nat): (chars: List Char) → yearBetween low high (Text.fromList chars) = year low high (Text.fromList chars)
+theorem yearChars (low: Nat) (high: Nat): ∀ (chars: List Char) => yearBetween low high (Text.fromList chars) = year low high (Text.fromList chars)
   | [] => rfl
   | [char, ..rest] => rewrite betweenToNat low high [char, ..rest] in andShape
 
@@ -22,7 +22,7 @@ theorem yearSpec (low: Nat) (high: Nat) (value: Text): yearBetween low high valu
 
 theorem andIsSome [a: Bool] [b: Bool] [x: Nat]: (a ∧ Option.isSome (if b then Some x else None)) = (a ∧ b) := cases
 
-theorem passportIdChars: (chars: List Char) → Key.valid PassportId (Text.fromList chars) = digits 9 (Text.fromList chars)
+theorem passportIdChars: ∀ (chars: List Char) => Key.valid PassportId (Text.fromList chars) = digits 9 (Text.fromList chars)
   | [] => rfl
   | [char, ..rest] => rewrite Text.toNatDigits [char, ..rest] in andIsSome
 
@@ -30,7 +30,7 @@ theorem passportIdSpec (value: Text): Key.valid PassportId value = digits 9 valu
   match value with
     | MkText chars => passportIdChars chars
 
-theorem hairColorChars: (chars: List Char) → hairColorValid (Text.fromList chars) = hairColor (Text.fromList chars)
+theorem hairColorChars: ∀ (chars: List Char) => hairColorValid (Text.fromList chars) = hairColor (Text.fromList chars)
   | ['#', ..digits] => rfl
   | _ => rfl
 

@@ -9,13 +9,13 @@ import Aoc.Year2024.Day24.Spec (..)
 import Std (Bool, Eq, Exists, List, Map, Nat, Option, Void)
 
 --| Every value in `values` is one its wire carries.
-def Sound (device: Device) (values: Values): Prop := (wire: Wire) → (value: Bool) → values.get wire = Some value → Carries device wire value
+def Sound (device: Device) (values: Values): Prop := ∀ (wire: Wire) (value: Bool) => values.get wire = Some value → Carries device wire value
 
 theorem initialSound (device: Device): Sound device (Map.fromList device.initial) :=
   (wire value found => Starts (lookupLastMem wire value device.initial (Eq.trans (Eq.sym (Map.getFromList wire device.initial)) found)))
 
 --| The program's gates are the puzzle's.
-theorem applyIsGateOutput: (operation: Operation) → (left: Bool) → (right: Bool) → operation.apply left right = gateOutput operation left right
+theorem applyIsGateOutput: ∀ (operation: Operation) (left right: Bool) => operation.apply left right = gateOutput operation left right
   | And, left, right => cases
   | Or, left, right => cases
   | Xor, left, right => cases
@@ -34,8 +34,8 @@ def fireOnto (values: Values) (settled: Values) (ready: List Gate): Values :=
   ready.foldLeft settled (settled gate => settled.insert gate.output ((gate.fire values).getOrElse False))
 
 theorem fireOntoSound (device: Device) (values: Values) (sound: Sound device values):
-    (ready: List Gate) → ((gate: Gate) → gate ∈ ready → gate ∈ device.gates ∧ gate.ready values = True) →
-    (settled: Values) → Sound device settled → Sound device (fireOnto values settled ready)
+    ∀ (ready: List Gate) => (∀ (gate: Gate) => gate ∈ ready → gate ∈ device.gates ∧ gate.ready values = True) →
+    ∀ (settled: Values) => Sound device settled → Sound device (fireOnto values settled ready)
   | [], fit, settled, settledSound, wire, value, found => settledSound wire value found
   | [gate, ..rest], fit, settled, settledSound, wire, value, found =>
     let gateFits := fit gate (Inl rfl)
@@ -66,13 +66,13 @@ theorem settleDone (values: Values) (waiting: List Gate)
 
 --| The gates settle to values their wires carry, from values they carry.
 theorem settleSound (device: Device) (values: Values) (waiting: List Gate) (sound: Sound device values)
-    (wired: (gate: Gate) → gate ∈ waiting → gate ∈ device.gates): Sound device (settle values waiting)
+    (wired: ∀ (gate: Gate) => gate ∈ waiting → gate ∈ device.gates): Sound device (settle values waiting)
     decreasing waiting.length
 :=
   match fewer: (waiting.filter (gate => ¬(gate.ready values))).length < waiting.length with
     | False => rewrite settleDone values waiting fewer in sound
     | True =>
-      let fit: (gate: Gate) → gate ∈ waiting.filter (gate => gate.ready values) → gate ∈ device.gates ∧ gate.ready values = True :=
+      let fit: ∀ (gate: Gate) => gate ∈ waiting.filter (gate => gate.ready values) → gate ∈ device.gates ∧ gate.ready values = True :=
         (gate member =>
           let kept := List.memFilter waiting (gate => gate.ready values) member
           Both (wired gate kept.left) kept.right)

@@ -22,7 +22,7 @@ import Std (Bool, Eq, Exists, List, Nat, Void)
 
 --| `v` and `w` compare the same way with each of `values`.
 def SameSide (values: List Nat) (v: Nat) (w: Nat): Prop :=
-  (c: Nat) → List.Mem c values → (Nat.leq c v = Nat.leq c w) ∧ (Nat.leq v c = Nat.leq w c)
+  ∀ (c: Nat) => List.Mem c values → (Nat.leq c v = Nat.leq c w) ∧ (Nat.leq v c = Nat.leq w c)
 
 def columnsOf (tiles: List Point): List Nat := tiles.map .x
 
@@ -87,12 +87,12 @@ theorem redOrGreenSame (tiles: List Point) (x: Nat) (y: Nat) (x2: Nat) (y2: Nat)
 --| A value at or after the smallest of `values` compares with them as some
 --| key value does: a value or one just after one, from `low` up to it.
 theorem representative (values: List Nat) (v: Nat) (low: Nat) (lowIn: List.Mem low values) (lowLe: low ≤ v) (goal: Prop)
-    (use: (w: Nat) → (List.Mem w values) ∨ (List.Mem w (values.map Succ)) → low ≤ w → w ≤ v → SameSide values v w → goal): goal :=
+    (use: ∀ (w: Nat) => (List.Mem w values) ∨ (List.Mem w (values.map Succ)) → low ≤ w → w ≤ v → SameSide values v w → goal): goal :=
   let atMost := List.filter values (c => c ≤ v)
   let nearest := largest atMost
   let lowAtMost: List.Mem low atMost := List.memFilterIntro values (c => c ≤ v) lowIn lowLe
   -- Every value up to v is at most the nearest.
-  let below: (c: Nat) → List.Mem c values → c ≤ v → c ≤ nearest :=
+  let below: ∀ (c: Nat) => List.Mem c values → c ≤ v → c ≤ nearest :=
     c m h => (largestIsLargest atMost).left c (List.memFilterIntro values (c => c ≤ v) m h)
   let nearestIn: (List.Mem nearest values) ∧ (Nat.leq nearest v = True) :=
     match largestInList atMost with
@@ -160,7 +160,7 @@ theorem axisInside (xs: List Nat) (s: List.Sorted Nat.leq xs) (u: Nat) (v: Nat) 
 --| And every element of the list from the smaller value to the larger is at
 --| such a position: what holds at each holds for it.
 theorem axisCovers (xs: List Nat) (s: List.Sorted Nat.leq xs) (u: Nat) (v: Nat) (mu: List.Mem u xs) (mv: List.Mem v xs) (p: Nat → Prop)
-    (each: (k: Nat) → Nat.min (xs.indexOf u) (xs.indexOf v) ≤ k → k ≤ Nat.max (xs.indexOf u) (xs.indexOf v) → p (xs.getOr k 0))
+    (each: ∀ (k: Nat) => Nat.min (xs.indexOf u) (xs.indexOf v) ≤ k → k ≤ Nat.max (xs.indexOf u) (xs.indexOf v) → p (xs.getOr k 0))
     (w: Nat) (mw: List.Mem w xs) (lo: Nat.min u v ≤ w) (hi: w ≤ Nat.max u v): p w :=
   match axisEnds xs s u v mu mv with
     | Both (Both atMin atMax) maxIn =>

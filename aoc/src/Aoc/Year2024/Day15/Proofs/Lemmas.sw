@@ -15,13 +15,13 @@ def progress (direction: Direction) (position: Cell): Int :=
     | Left => 0 - position.columns
     | Right => position.columns
 
-theorem progressStep (position: Cell): (direction: Direction) → progress direction (position.step direction) = progress direction position + 1
+theorem progressStep (position: Cell): ∀ (direction: Direction) => progress direction (position.step direction) = progress direction position + 1
   | Up => omega
   | Down => rfl
   | Left => omega
   | Right => rfl
 
-theorem progressAhead (position: Cell) (direction: Direction): (count: Nat) → progress direction (ahead position direction count) = progress direction position + count.toInt
+theorem progressAhead (position: Cell) (direction: Direction): ∀ (count: Nat) => progress direction (ahead position direction count) = progress direction position + count.toInt
   | Zero => omega
   | Succ count => omega [progressStep (ahead position direction count) direction, progressAhead position direction count]
 
@@ -30,7 +30,7 @@ theorem aheadInjective (position: Cell) (direction: Direction) (i: Nat) (j: Nat)
   omega [Eq.cong (progress direction) same, progressAhead position direction i, progressAhead position direction j]
 
 --| Counting from the next position.
-theorem aheadFrom (position: Cell) (direction: Direction): (count: Nat) → ahead (position.step direction) direction count = ahead position direction (Succ count)
+theorem aheadFrom (position: Cell) (direction: Direction): ∀ (count: Nat) => ahead (position.step direction) direction count = ahead position direction (Succ count)
   | Zero => rfl
   | Succ count => Eq.cong (here => here.step direction) (aheadFrom position direction count)
 
@@ -40,7 +40,7 @@ theorem aheadAddOne (position: Cell) (direction: Direction) (count: Nat):
 
 --| Whether `position` is one of the `count` positions after `start`.
 theorem decideAhead (start: Cell) (direction: Direction) (count: Nat) (position: Cell):
-    (∃ (j: Nat) => j < count ∧ position = ahead start direction (j + 1)) ∨ ((i: Nat) → i < count → position ≠ ahead start direction (i + 1)) :=
+    (∃ (j: Nat) => j < count ∧ position = ahead start direction (j + 1)) ∨ (∀ (i: Nat) => i < count → position ≠ ahead start direction (i + 1)) :=
   match found: (List.range 0 count).any (i => position == ahead start direction (i + 1)) with
     | True =>
       List.anyTrueElim (List.range 0 count) _ _ found

@@ -36,7 +36,7 @@ theorem pastEnd (bytes: List Position) (index: Nat) (missing: bytes.get index = 
 
 --| Part 2's byte, for each count the search can end at.
 theorem part2SomeCases (size: Nat) (bytes: List Position) (byte: Position) (answer: solvePart2 size bytes = Some byte):
-    (found: Nat) → Nat.partitionPoint 0 (bytes.length + 1) (reachable size bytes) = found → IsFirstBlocking size bytes byte
+    ∀ (found: Nat) => Nat.partitionPoint 0 (bytes.length + 1) (reachable size bytes) = found → IsFirstBlocking size bytes byte
   | Zero, ended => Void.exfalso (Option.noneNotSome byte (rewrite ended at answer in answer))
   | Succ index, ended =>
     let got: bytes.get index = Some byte := rewrite ended at answer in answer
@@ -64,8 +64,8 @@ theorem part2Some (size: Nat) (bytes: List Position) (byte: Position) (answer: s
 --| No first blocking byte, for each count the search can end at.
 theorem part2NoneCases (size: Nat) (bytes: List Position) (answer: solvePart2 size bytes = None) (byte: Position) (index: Nat)
     (got: bytes.get index = Some byte) (blockedAfter: ¬(HasPath size bytes (index + 1)))
-    (openBefore: (earlier: Nat) → earlier ≤ index → HasPath size bytes earlier):
-    (found: Nat) → Nat.partitionPoint 0 (bytes.length + 1) (reachable size bytes) = found → Void
+    (openBefore: ∀ (earlier: Nat) => earlier ≤ index → HasPath size bytes earlier):
+    ∀ (found: Nat) => Nat.partitionPoint 0 (bytes.length + 1) (reachable size bytes) = found → Void
   | found, ended =>
     let inside: index < bytes.length := Eq.trans (Eq.sym (List.isSomeGet bytes index)) (rewrite got in rfl)
     let (Both holdsBefore failsAfter) :=

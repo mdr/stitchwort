@@ -7,8 +7,8 @@ import Std (Bool, DecEq, Eq, Int, List, Nat, Option, Void)
 --| A step that adds `distance` and wraps, taken `times` times, adds
 --| `times * distance` and wraps.
 theorem iterateWrap (size: Nat) (distance: Int) (step: Nat → Nat)
-    (wraps: (x: Nat) → x < size → step x = Int.modNat (x.toInt + distance) size):
-    (times: Nat) → (x: Nat) → x < size → times.iterate step x = Int.modNat (x.toInt + times.toInt * distance) size
+    (wraps: ∀ (x: Nat) => x < size → step x = Int.modNat (x.toInt + distance) size):
+    ∀ (times x: Nat) => x < size → times.iterate step x = Int.modNat (x.toInt + times.toInt * distance) size
   | Zero, x, inside =>
     rewrite (ring: x.toInt + Nat.toInt 0 * distance = x.toInt) in Eq.sym (Int.modNatOfLt size x inside)
   | Succ times, x, inside =>

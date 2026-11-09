@@ -9,7 +9,7 @@ import Aoc.Year2020.Day18 (..)
 import Aoc.Year2020.Day18 (Spec)
 import Std (Eq, Fail, List, Nat, Parse, Result, Text)
 
-theorem valueSpec: (expression: Expression) → expression.value = Spec.value expression
+theorem valueSpec: ∀ (expression: Expression) => expression.value = Spec.value expression
   | Number value => rfl
   | Operation Plus left right => rewrite valueSpec left, valueSpec right in rfl
   | Operation Times left right => rewrite valueSpec left, valueSpec right in rfl

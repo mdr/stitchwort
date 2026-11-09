@@ -46,7 +46,7 @@ def InBasin (map: HeightMap) (low: Position) (location: Position): Prop :=
 --| those in the basin.
 def BasinSize (map: HeightMap) (low: Position) (size: Nat): Prop :=
   ∃ (locations: List Position) =>
-    List.Distinct locations ∧ ((location: Position) → location ∈ locations ↔ InBasin map low location) ∧ locations.length = size
+    List.Distinct locations ∧ (∀ (location: Position) => location ∈ locations ↔ InBasin map low location) ∧ locations.length = size
 
 --| "Multiply together the sizes of the three largest basins."
 def threeLargestProduct (sizes: List Nat): Nat := sizes.sort [ord := Ord.reverse] |> .take 3 |> .product
@@ -54,14 +54,14 @@ def threeLargestProduct (sizes: List Nat): Nat := sizes.sort [ord := Ord.reverse
 --| Part 2's answer, with each low point's basin size given by `sizeOf`.
 def Part2Answer (map: HeightMap) (answer: Nat): Prop :=
   ∃ (sizeOf: Position → Nat) =>
-    ((low: Position) → (height: Nat) → (low, height) ∈ lowPoints map → BasinSize map low (sizeOf low))
+    (∀ (low: Position) (height: Nat) => (low, height) ∈ lowPoints map → BasinSize map low (sizeOf low))
       ∧ answer = threeLargestProduct ((lowPoints map).map (((low, _)) => sizeOf low))
 
 --| The puzzle's promise: each location that isn't a 9 is in the basin of
 --| exactly one low point. Not assumed by the theorems; the tests check it
 --| on the example and the input.
 def EachInOneBasin (map: HeightMap): Prop :=
-  (location: Position) → inSomeBasin map location = True →
+  ∀ (location: Position) => inSomeBasin map location = True →
     ∃ (low: Position) => ∃ (height: Nat) =>
       (low, height) ∈ lowPoints map ∧ InBasin map low location
-        ∧ ((other: Position) → (otherHeight: Nat) → (other, otherHeight) ∈ lowPoints map → InBasin map other location → other = low)
+        ∧ (∀ (other: Position) (otherHeight: Nat) => (other, otherHeight) ∈ lowPoints map → InBasin map other location → other = low)

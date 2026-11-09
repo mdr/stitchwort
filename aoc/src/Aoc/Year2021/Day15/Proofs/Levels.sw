@@ -41,7 +41,7 @@ theorem wrapSmall (level: Nat) (small: level ≤ 9): wrap level = level := rewri
 --| ...and takes 9 from one above.
 theorem wrapLarge (level: Nat) (large: 9 < level): wrap level = level - 9 := rewrite large in rfl
 
-theorem iterateRaise: (count: Nat) → (level: Nat) → level ≤ 9 → level + count ≤ 17 → count.iterate raise level = wrap (level + count)
+theorem iterateRaise: ∀ (count level: Nat) => level ≤ 9 → level + count ≤ 17 → count.iterate raise level = wrap (level + count)
   | Zero, level, low, sum => rewrite Nat.addZero level, wrapSmall level low in rfl
   | Succ count, level, low, sum =>
     match nine: Nat.decEq level 9 with
@@ -86,7 +86,7 @@ theorem heightNotZero (cave: Cave) (rectangle: Rectangle cave): cave.height ≠ 
   zero => omega [And.left rectangle, noRowsNoWidth cave.grid.rows zero]
 
 --| Without rows there is no first row to have a width.
-theorem noRowsNoWidth: (rows: List (List (Fin 10))) → rows.length = 0 → firstWidth rows = 0
+theorem noRowsNoWidth: ∀ (rows: List (List (Fin 10))) => rows.length = 0 → firstWidth rows = 0
   | [], zero => rfl
   | [first, ..rest], zero => omega [zero]
 

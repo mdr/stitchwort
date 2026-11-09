@@ -6,7 +6,7 @@
 --| `Add` and `Mul` instances): order and subtraction facts proved by induction,
 --| then the division law and `n % d < d`.
 
-theorem Nat.addCancelLeft: (a: Nat) → (b: Nat) → (c: Nat) → a + b = a + c → b = c
+theorem Nat.addCancelLeft: ∀ (a b c: Nat) => a + b = a + c → b = c
   | Zero, b, c, h => h
   | Succ a, b, c, h => Nat.addCancelLeft a b c (Nat.succInjective h)
 
@@ -14,21 +14,21 @@ theorem Nat.mulDistribLeft (a: Nat) (b: Nat) (c: Nat): a * (b + c) = a * b + a *
 
 theorem Nat.zeroLe (n: Nat): 0 ≤ n := rfl
 
-theorem Nat.leAntisym: (a: Nat) → (b: Nat) → a ≤ b → b ≤ a → a = b
+theorem Nat.leAntisym: ∀ (a b: Nat) => a ≤ b → b ≤ a → a = b
   | Zero, Zero, h1, h2 => rfl
   | Zero, Succ b, h1, h2 => Void.exfalso (Bool.falseNotTrue h2)
   | Succ a, Zero, h1, h2 => Void.exfalso (Bool.falseNotTrue h1)
   | Succ a, Succ b, h1, h2 => Eq.cong Succ (Nat.leAntisym a b h1 h2)
 
-theorem Nat.leAddRight: (n: Nat) → (m: Nat) → n ≤ n + m
+theorem Nat.leAddRight: ∀ (n m: Nat) => n ≤ n + m
   | Zero, m => rfl
   | Succ n, m => Nat.leAddRight n m
 
-theorem Nat.leAddLeft: (n: Nat) → (m: Nat) → m ≤ n + m
+theorem Nat.leAddLeft: ∀ (n m: Nat) => m ≤ n + m
   | Zero, m => Nat.leRefl m
   | Succ n, m => Nat.leTrans m (n + m) (Succ (n + m)) (Nat.leAddLeft n m) (Nat.leSucc (n + m))
 
-theorem Nat.leqSuccSelf: (n: Nat) → Nat.leq (Succ n) n = False
+theorem Nat.leqSuccSelf: ∀ (n: Nat) => Nat.leq (Succ n) n = False
   | Zero => rfl
   | Succ n => Nat.leqSuccSelf n
 
@@ -37,15 +37,15 @@ theorem Nat.lessIrrefl (n: Nat): ¬(n < n)
 
 theorem Nat.leLessSucc (m: Nat) (n: Nat) (h: m ≤ n): m < Succ n := h
 
-theorem Nat.subSelf: (n: Nat) → n - n = 0
+theorem Nat.subSelf: ∀ (n: Nat) => n - n = 0
   | Zero => rfl
   | Succ n => Nat.subSelf n
 
-theorem Nat.addSub (n: Nat): (m: Nat) → (n + m) - m = n
+theorem Nat.addSub (n: Nat): ∀ (m: Nat) => (n + m) - m = n
   | Zero => Nat.addZero n
   | Succ m => Eq.trans (Eq.cong (t => t - Succ m) (Nat.addSucc n m)) (Nat.addSub n m)
 
-theorem Nat.subLe: (n: Nat) → (m: Nat) → n - m ≤ n
+theorem Nat.subLe: ∀ (n m: Nat) => n - m ≤ n
   | n, Zero => Nat.leRefl n
   | Zero, Succ m => rfl
   | Succ n, Succ m => Nat.leTrans (n - m) n (Succ n) (Nat.subLe n m) (Nat.leSucc n)
@@ -57,33 +57,33 @@ theorem Nat.ltCongLeft (a: Nat) (b: Nat) (n: Nat) (p: a = b) (h: a < n): b < n :
 
 theorem Nat.ltCongRight (a: Nat) (b: Nat) (n: Nat) (p: b = n) (h: a < b): a < n := rewrite p at h
 
-theorem Nat.leAddCong: (d: Nat) → (a: Nat) → (b: Nat) → a ≤ b → d + a ≤ d + b
+theorem Nat.leAddCong: ∀ (d a b: Nat) => a ≤ b → d + a ≤ d + b
   | Zero, a, b, h => h
   | Succ d, a, b, h => Nat.leAddCong d a b h
 
-theorem Nat.ltAddCong: (d: Nat) → (a: Nat) → (b: Nat) → a < b → d + a < d + b
+theorem Nat.ltAddCong: ∀ (d a b: Nat) => a < b → d + a < d + b
   | Zero, a, b, h => h
   | Succ d, a, b, h => Nat.ltAddCong d a b h
 
-theorem Nat.leMulRight: (a: Nat) → (b: Nat) → (c: Nat) → a ≤ b → a * c ≤ b * c
+theorem Nat.leMulRight: ∀ (a b c: Nat) => a ≤ b → a * c ≤ b * c
   | Zero, b, c, h => rfl
   | Succ a, Zero, c, h => Void.exfalso (Bool.falseNotTrue h)
   | Succ a, Succ b, c, h => Nat.leAddCong c (a * c) (b * c) (Nat.leMulRight a b c h)
 
-theorem Nat.leMulPos (x: Nat): (y: Nat) → 0 < y → x ≤ x * y
+theorem Nat.leMulPos (x: Nat): ∀ (y: Nat) => 0 < y → x ≤ x * y
   | Zero, h => Void.exfalso (Bool.falseNotTrue h)
   | Succ y, h => Nat.leCongRight x (x + x * y) (x * Succ y) (Eq.sym (Nat.mulSucc x y)) (Nat.leAddRight x (x * y))
 
-theorem Nat.leAddCancel: (d: Nat) → (a: Nat) → (b: Nat) → d + a ≤ d + b → a ≤ b
+theorem Nat.leAddCancel: ∀ (d a b: Nat) => d + a ≤ d + b → a ≤ b
   | Zero, a, b, h => h
   | Succ d, a, b, h => Nat.leAddCancel d a b h
 
-theorem Nat.addSubCancel: (d: Nat) → (n: Nat) → d ≤ n → d + (n - d) = n
+theorem Nat.addSubCancel: ∀ (d n: Nat) => d ≤ n → d + (n - d) = n
   | Zero, n, h => rfl
   | Succ d, Zero, h => Void.exfalso (Bool.falseNotTrue h)
   | Succ d, Succ n, h => Eq.cong Succ (Nat.addSubCancel d n h)
 
-theorem Nat.leqFalse: (d: Nat) → (n: Nat) → Nat.leq d n = False → n < d
+theorem Nat.leqFalse: ∀ (d n: Nat) => Nat.leq d n = False → n < d
   | Zero, n, h => Void.exfalso (Bool.trueNotFalse h)
   | Succ d, Zero, h => rfl
   | Succ d, Succ n, h => Nat.leqFalse d n h
@@ -98,13 +98,13 @@ theorem Nat.leOfEq (a: Nat) (b: Nat) (e: a = b): a ≤ b := J (y p => a ≤ y) (
 
 theorem Nat.ltOfNotLeExample: 2 < 3 := Nat.ltOfNotLe 3 2 Bool.falseNotTrue
 
-theorem Nat.subLtAdd: (n: Nat) → (x: Nat) → (d: Nat) → x ≤ n → n < d + x → n - x < d
+theorem Nat.subLtAdd: ∀ (n x d: Nat) => x ≤ n → n < d + x → n - x < d
   | n, Zero, d, hx, h => Nat.ltCongRight n (d + 0) d (Nat.addZero d) h
   | Zero, Succ x, d, hx, h => Void.exfalso (Bool.falseNotTrue hx)
   | Succ n, Succ x, d, hx, h => Nat.subLtAdd n x d hx (Nat.ltCongRight (Succ n) (d + Succ x) (Succ (d + x)) (Nat.addSucc d x) h)
 
-theorem Nat.divFuelLeStep (fuel: Nat) (n: Nat): (d: Nat) → (b: Bool) → Nat.leq d n = b →
-    ((m: Nat) → Nat.divFuel fuel m d * d ≤ m) →
+theorem Nat.divFuelLeStep (fuel: Nat) (n: Nat): ∀ (d: Nat) (b: Bool) => Nat.leq d n = b →
+    (∀ (m: Nat) => Nat.divFuel fuel m d * d ≤ m) →
     Nat.divStep b fuel n d * d ≤ n
   | Zero, True, h, ih => rfl
   | Succ d, True, h, ih =>
@@ -112,17 +112,17 @@ theorem Nat.divFuelLeStep (fuel: Nat) (n: Nat): (d: Nat) → (b: Bool) → Nat.l
       (Nat.leAddCong (Succ d) (Nat.divFuel fuel (n - Succ d) (Succ d) * Succ d) (n - Succ d) (ih (n - Succ d)))
   | d, False, h, ih => rfl
 
-theorem Nat.divFuelLe: (fuel: Nat) → (n: Nat) → (d: Nat) → Nat.divFuel fuel n d * d ≤ n
+theorem Nat.divFuelLe: ∀ (fuel n d: Nat) => Nat.divFuel fuel n d * d ≤ n
   | Zero, n, d => rfl
   | Succ fuel, n, d => Nat.divFuelLeStep fuel n d (Nat.leq d n) rfl (m => Nat.divFuelLe fuel m d)
 
-theorem Nat.fuelSub: (n: Nat) → (d: Nat) → (f: Nat) → d ≠ 0 → n ≤ Succ f → n - d ≤ f
+theorem Nat.fuelSub: ∀ (n d f: Nat) => d ≠ 0 → n ≤ Succ f → n - d ≤ f
   | n, Zero, f, ok, h => Void.exfalso (ok rfl)
   | Zero, Succ d, f, ok, h => rfl
   | Succ n, Succ d, f, ok, h => Nat.leTrans (n - d) n f (Nat.subLe n d) h
 
-theorem Nat.divFuelBoundStep (fuel: Nat) (n: Nat): (d: Nat) → (ok: d ≠ 0) → (hn: n ≤ Succ fuel) → (b: Bool) → Nat.leq d n = b →
-    ((m: Nat) → m ≤ fuel → m < Succ (Nat.divFuel fuel m d) * d) →
+theorem Nat.divFuelBoundStep (fuel: Nat) (n: Nat): ∀ (d: Nat) (ok: d ≠ 0) (hn: n ≤ Succ fuel) (b: Bool) => Nat.leq d n = b →
+    (∀ (m: Nat) => m ≤ fuel → m < Succ (Nat.divFuel fuel m d) * d) →
     n < Succ (Nat.divStep b fuel n d) * d
   | Zero, ok, hn, True, h, ih => Void.exfalso (ok rfl)
   | Succ d, ok, hn, True, h, ih =>
@@ -131,31 +131,31 @@ theorem Nat.divFuelBoundStep (fuel: Nat) (n: Nat): (d: Nat) → (ok: d ≠ 0) �
   | d, ok, hn, False, h, ih =>
     Nat.ltCongRight n d (d + 0) (Eq.sym (Nat.addZero d)) (Nat.leqFalse d n h)
 
-theorem Nat.nonzeroPos: (d: Nat) → d ≠ 0 → 0 < d
+theorem Nat.nonzeroPos: ∀ (d: Nat) => d ≠ 0 → 0 < d
   | Zero, ok => Void.exfalso (ok rfl)
   | Succ d, ok => rfl
 
 theorem Nat.nonzeroOfPos (d: Nat) (h: 1 ≤ d): d ≠ 0 := e => Bool.falseNotTrue (rewrite e at h)
 
-theorem Nat.divFuelBound: (fuel: Nat) → (n: Nat) → (d: Nat) → d ≠ 0 → n ≤ fuel → n < Succ (Nat.divFuel fuel n d) * d
+theorem Nat.divFuelBound: ∀ (fuel n d: Nat) => d ≠ 0 → n ≤ fuel → n < Succ (Nat.divFuel fuel n d) * d
   | Zero, Zero, d, ok, hn => Nat.ltCongRight 0 d (d + 0) (Eq.sym (Nat.addZero d)) (Nat.nonzeroPos d ok)
   | Zero, Succ n, d, ok, hn => Void.exfalso (Bool.falseNotTrue hn)
   | Succ fuel, n, d, ok, hn => Nat.divFuelBoundStep fuel n d ok hn (Nat.leq d n) rfl (m hm => Nat.divFuelBound fuel m d ok hm)
 
 --| Dividing by 0 gives 0 (Lean's `Nat.div_zero`).
-theorem Nat.divZero: (n: Nat) → n / 0 = 0
+theorem Nat.divZero: ∀ (n: Nat) => n / 0 = 0
   | Zero => rfl
   | Succ n => rfl
 
 --| Counting divisions by 0 gives 0, whatever the fuel: `Nat.divStep` stops at
 --| a divisor of 0. `omega` uses it for `n / 0`, which is `Nat.divFuel n n 0`,
 --| stuck on the fuel `n` when `n` is unknown.
-theorem Nat.divFuelZero: (fuel: Nat) → (n: Nat) → Nat.divFuel fuel n 0 = 0
+theorem Nat.divFuelZero: ∀ (fuel n: Nat) => Nat.divFuel fuel n 0 = 0
   | Zero, n => rfl
   | Succ fuel, n => rfl
 
 --| The remainder of dividing by 0 is the number itself (Lean's `Nat.mod_zero`).
-theorem Nat.modZero: (n: Nat) → n % 0 = n
+theorem Nat.modZero: ∀ (n: Nat) => n % 0 = n
   | Zero => rfl
   | Succ n => rfl
 
@@ -177,7 +177,7 @@ theorem Nat.modLess (n: Nat) (d: Nat) (ok: d ≠ 0): n % d < d := Nat.subLtAdd n
 --| `d`, and a few facts about subtraction.
 theorem Nat.notBelowAdd (d: Nat) (r: Nat) (m: Nat) (h: r < d) (e: r = d + m): Void := Nat.lessIrrefl r (Nat.leTrans (Succ r) d r h (Nat.leCongRight d (d + m) r (Eq.sym e) (Nat.leAddRight d m)))
 
-theorem Nat.quotUnique (d: Nat): (q: Nat) → (r: Nat) → (q2: Nat) → (r2: Nat) → r < d → r2 < d →
+theorem Nat.quotUnique (d: Nat): ∀ (q r q2 r2: Nat) => r < d → r2 < d →
     q * d + r = q2 * d + r2 → q = q2
   | Zero, r, Zero, r2, h1, h2, e => rfl
   | Zero, r, Succ k, r2, h1, h2, e => Void.exfalso (Nat.notBelowAdd d r (k * d + r2) h1 (Eq.trans e (Nat.addAssoc d (k * d) r2)))
@@ -199,36 +199,36 @@ theorem Nat.divSmall (n: Nat) (d: Nat) (h: n < d): n / d = 0 := Nat.divUnique n 
 
 theorem Nat.addDivModSelf (d: Nat) (n: Nat): d + n = Succ (n / d) * d + n % d := Eq.trans (Eq.cong (t => d + t) (Nat.divModEq n d)) (Eq.sym (Nat.addAssoc d ((n / d) * d) (n % d)))
 
-theorem Nat.addDivSelf (d: Nat) (n: Nat): [auto ok: d ≠ 0] → (d + n) / d = Succ (n / d) := Nat.divUnique (d + n) d (Succ (n / d)) (n % d) (Nat.modLess n d ok) (Nat.addDivModSelf d n)
+theorem Nat.addDivSelf (d: Nat) (n: Nat): ∀ [auto ok: d ≠ 0] => (d + n) / d = Succ (n / d) := Nat.divUnique (d + n) d (Succ (n / d)) (n % d) (Nat.modLess n d ok) (Nat.addDivModSelf d n)
 
-theorem Nat.addModSelf: (d: Nat) → (n: Nat) → (d + n) % d = n % d
+theorem Nat.addModSelf: ∀ (d n: Nat) => (d + n) % d = n % d
   | Zero, n => rfl
   | Succ d, n => Nat.modUnique (Succ d + n) (Succ d) (Succ (n / Succ d)) (n % Succ d) (Nat.modLess n (Succ d) (Nat.succNotZero d)) (Nat.addDivModSelf (Succ d) n)
 
-theorem Nat.zeroSub: (n: Nat) → 0 - n = 0
+theorem Nat.zeroSub: ∀ (n: Nat) => 0 - n = 0
   | Zero => rfl
   | Succ n => rfl
 
-theorem Nat.subEqZero: (n: Nat) → (m: Nat) → n ≤ m → n - m = 0
+theorem Nat.subEqZero: ∀ (n m: Nat) => n ≤ m → n - m = 0
   | Zero, m, h => Nat.zeroSub m
   | Succ n, Zero, h => Void.exfalso (Bool.falseNotTrue h)
   | Succ n, Succ m, h => Nat.subEqZero n m h
 
 theorem Nat.addOne (a: Nat): a + 1 = Succ a := Eq.trans (Nat.addSucc a 0) (Eq.cong Succ (Nat.addZero a))
 
-theorem Nat.modLt (n: Nat) (d: Nat): [auto ok: d ≠ 0] → n % d < d := Nat.modLess n d ok
+theorem Nat.modLt (n: Nat) (d: Nat): ∀ [auto ok: d ≠ 0] => n % d < d := Nat.modLess n d ok
 
-theorem Nat.modSelf: (d: Nat) → d % d = 0
+theorem Nat.modSelf: ∀ (d: Nat) => d % d = 0
   | Zero => rfl
   | Succ d => Nat.modUnique (Succ d) (Succ d) 1 0 rfl (Eq.sym (Eq.trans (Nat.addZero (Succ d + 0)) (Nat.addZero (Succ d))))
 
 theorem Nat.divOne (n: Nat): n / 1 = n := Nat.divUnique n 1 n 0 rfl (Eq.sym (Eq.trans (Nat.addZero (n * 1)) (Nat.mulOne n)))
 
-theorem Nat.succAddSub: (m: Nat) → (r: Nat) → Succ (m + r) - m = Succ r
+theorem Nat.succAddSub: ∀ (m r: Nat) => Succ (m + r) - m = Succ r
   | Zero, r => rfl
   | Succ m, r => Nat.succAddSub m r
 
-theorem Nat.subSuccRight: (j: Nat) → (t: Nat) → Succ j ≤ t → t - j = Succ (t - Succ j)
+theorem Nat.subSuccRight: ∀ (j t: Nat) => Succ j ≤ t → t - j = Succ (t - Succ j)
   | j, Zero, h => Void.exfalso (Bool.falseNotTrue h)
   | Zero, Succ t, h => rfl
   | Succ j, Succ t, h => Nat.subSuccRight j t h
@@ -242,7 +242,7 @@ theorem Nat.addOneSub (n: Nat) (m: Nat) (h: m ≤ n): n + 1 - m = n - m + 1 :=
 theorem Nat.addOneSubEqZero (n: Nat) (m: Nat) (h: Nat.leq m n = False): n + 1 - m = 0 :=
   Eq.trans (Eq.cong (t => t - m) (Nat.addOne n)) (Nat.subEqZero (Succ n) m (Nat.leqFalse m n h))
 
-theorem Nat.succSub: (t: Nat) → Succ t - t = 1
+theorem Nat.succSub: ∀ (t: Nat) => Succ t - t = 1
   | Zero => rfl
   | Succ t => Nat.succSub t
 
@@ -266,7 +266,7 @@ theorem Nat.divLeOfLtMul (n: Nat) (b: Nat) (d: Nat) (h: n < Succ b * d): n / d �
 --| is positive and the divisor is at least 2. `omega` knows division by a
 --| number itself; for a division by a variable, give the instance as a hint:
 --| `omega [Nat.divLe n k]`.
-theorem Nat.divLe: (n: Nat) → (k: Nat) → n / k ≤ n
+theorem Nat.divLe: ∀ (n k: Nat) => n / k ≤ n
   | n, Zero => Nat.leCongLeft 0 (n / 0) n (Eq.sym (Nat.divZero n)) rfl
   | n, Succ k => Nat.leTrans (n / Succ k) ((n / Succ k) * Succ k) n (Nat.leMulPos (n / Succ k) (Succ k) rfl) (Nat.divMulLe n (Succ k))
 
@@ -286,7 +286,7 @@ theorem Nat.addMulDivMod (a: Nat) (b: Nat) (d: Nat): a + b * d = (a / d + b) * d
           (Eq.cong (t => t + a % d) (Eq.sym (Nat.mulDistribRight (a / d) b d))))))
 
 --| `(a + b * d) % d = a % d`
-theorem Nat.modAddMul (a: Nat) (b: Nat): (d: Nat) → (a + b * d) % d = a % d
+theorem Nat.modAddMul (a: Nat) (b: Nat): ∀ (d: Nat) => (a + b * d) % d = a % d
   | Zero => Eq.trans (Nat.modZero (a + b * 0)) (Eq.trans (Eq.cong (t => a + t) (Nat.mulZero b)) (Eq.sym (Nat.modZero a)))
   | Succ d => Nat.modUnique (a + b * Succ d) (Succ d) (a / Succ d + b) (a % Succ d) (Nat.modLess a (Succ d) (Nat.succNotZero d)) (Nat.addMulDivMod a b (Succ d))
 
@@ -295,7 +295,7 @@ theorem Nat.divAddMul (a: Nat) (b: Nat) (d: Nat) [auto ok: d ≠ 0]: (a + b * d)
   Nat.divUnique (a + b * d) d (a / d + b) (a % d) (Nat.modLess a d ok) (Nat.addMulDivMod a b d)
 
 --| `a % d % d = a % d`
-theorem Nat.modMod (a: Nat): (d: Nat) → a % d % d = a % d
+theorem Nat.modMod (a: Nat): ∀ (d: Nat) => a % d % d = a % d
   | Zero => Nat.modZero (a % 0)
   | Succ d => Nat.modSmall (a % Succ d) (Succ d) (Nat.modLess a (Succ d) (Nat.succNotZero d))
 
@@ -396,12 +396,12 @@ theorem Nat.roundDownNo (hi: Nat) (m: Nat) (b: Nat) (h: Nat.leq b (hi / Succ m) 
 def Nat.ceilDiv (n: Nat) (divisor: Nat): Nat := (n + divisor - 1) / divisor
 
 --| Any `b` with `n <= b * d` is at least `Nat.ceilDiv n d`.
-theorem Nat.ceilDivLe (n: Nat) (b: Nat): (d: Nat) → n ≤ b * d → Nat.ceilDiv n d ≤ b
+theorem Nat.ceilDivLe (n: Nat) (b: Nat): ∀ (d: Nat) => n ≤ b * d → Nat.ceilDiv n d ≤ b
   | Zero, h => Nat.leCongLeft 0 (Nat.ceilDiv n 0) b (Eq.sym (Nat.divZero (n + 0 - 1))) rfl
   | Succ m, h => Nat.roundUpLe n m b h
 
 --| Any `b` at least `Nat.ceilDiv n d` has `n <= b * d`.
-theorem Nat.leMulOfCeilDivLe (n: Nat) (b: Nat): (d: Nat) → [auto ok: d ≠ 0] → Nat.ceilDiv n d ≤ b → n ≤ b * d
+theorem Nat.leMulOfCeilDivLe (n: Nat) (b: Nat): ∀ (d: Nat) [auto ok: d ≠ 0] => Nat.ceilDiv n d ≤ b → n ≤ b * d
   | Zero, h => Void.exfalso (ok rfl)
   | Succ m, h => Nat.roundUpGe n m b h
 
@@ -415,7 +415,7 @@ test "Nat.ceilDiv, small numerators" := Nat.ceilDiv 0 5 == 0 ∧ Nat.ceilDiv 1 5
 
 test "Nat.ceilDiv by 0" := Nat.ceilDiv 7 0 == 0
 
-theorem Nat.powTenPredLe: (k: Nat) → Nat.pow 10 (k - 1) ≤ Nat.pow 10 k
+theorem Nat.powTenPredLe: ∀ (k: Nat) => Nat.pow 10 (k - 1) ≤ Nat.pow 10 k
   | Zero => rfl
   | Succ k => Nat.leMulPos (Nat.pow 10 k) 10 rfl
 
@@ -445,23 +445,23 @@ theorem Nat.mulSuccCancel (b: Nat) (v: Nat) (m: Nat) (e: b * Succ m = v * Succ m
   Eq.trans (Eq.sym (Nat.divUnique (b * Succ m) (Succ m) b 0 rfl (Eq.sym (Nat.addZero (b * Succ m)))))
     (Eq.trans (Eq.cong (t => t / Succ m) e) (Nat.divUnique (v * Succ m) (Succ m) v 0 rfl (Eq.sym (Nat.addZero (v * Succ m)))))
 
-theorem Nat.mulCancelLeft: (n: Nat) → 1 ≤ n → (a: Nat) → (b: Nat) → n * a = n * b → a = b
+theorem Nat.mulCancelLeft: ∀ (n: Nat) => 1 ≤ n → ∀ (a b: Nat) => n * a = n * b → a = b
   | Zero, h, a, b, e => Void.exfalso (Bool.falseNotTrue h)
   | Succ m, h, a, b, e => Nat.mulSuccCancel a b m (Eq.trans (Nat.mulComm a (Succ m)) (Eq.trans e (Nat.mulComm (Succ m) b)))
 
 --| Cancelling a nonzero factor on the right.
-theorem Nat.mulRightCancel (a: Nat) (b: Nat): (c: Nat) → c ≠ 0 → a * c = b * c → a = b
+theorem Nat.mulRightCancel (a: Nat) (b: Nat): ∀ (c: Nat) => c ≠ 0 → a * c = b * c → a = b
   | Zero, nz, e => Void.exfalso (nz rfl)
   | Succ m, nz, e => Nat.mulSuccCancel a b m e
 
 theorem Nat.addSelfNotSelf (a: Nat) (h: 1 ≤ a) (e: a + a = a): Void :=
   Nat.lessIrrefl a (Nat.leCongRight (Succ a) (a + a) a e (Nat.leCongLeft (a + 1) (Succ a) (a + a) (Nat.addOne a) (Nat.leAddCong a 1 a h)))
 
-theorem Nat.doubleNotOne: (k: Nat) → k + k = 1 → Void
+theorem Nat.doubleNotOne: ∀ (k: Nat) => k + k = 1 → Void
   | Zero, e => Nat.zeroNotSucc 0 e
   | Succ k, e => Nat.succNotZero (k + k) (Eq.trans (Eq.sym (Nat.addSucc k k)) (Nat.succInjective e))
 
-theorem Nat.posOfDouble: (k: Nat) → (n: Nat) → k + k = n → 1 ≤ n → 1 ≤ k
+theorem Nat.posOfDouble: ∀ (k n: Nat) => k + k = n → 1 ≤ n → 1 ≤ k
   | Zero, n, e, h => Void.exfalso (Bool.falseNotTrue (rewrite <- e at h))
   | Succ k, n, e, h => rfl
 
@@ -477,7 +477,7 @@ theorem Nat.ltSuccAdd (s: Nat) (c: Nat) (b: Nat) (h: b < s + Succ c): b < Succ s
 
 theorem Nat.ltAddSuccSelf (s: Nat) (c: Nat): s < s + Succ c := Nat.ltAddSucc s c s (Nat.leAddRight s c)
 
-theorem Nat.predLeSucc: (l: Nat) → (j: Nat) → l - 1 ≤ j → l ≤ Succ j
+theorem Nat.predLeSucc: ∀ (l j: Nat) => l - 1 ≤ j → l ≤ Succ j
   | Zero, j, h => rfl
   | Succ l, j, h => h
 
@@ -565,13 +565,13 @@ def Nat.pow (b: Nat): (exponent: Nat) → Nat
 theorem Nat.powSucc (b: Nat) (e: Nat): Nat.pow b (Succ e) = b * Nat.pow b e := Nat.mulComm (Nat.pow b e) b
 
 --| Adding exponents multiplies powers: `b^(e1 + e2) = b^e1 * b^e2`.
-theorem Nat.powAdd (b: Nat): (e1: Nat) → (e2: Nat) → Nat.pow b (e1 + e2) = Nat.pow b e1 * Nat.pow b e2
+theorem Nat.powAdd (b: Nat): ∀ (e1 e2: Nat) => Nat.pow b (e1 + e2) = Nat.pow b e1 * Nat.pow b e2
   | Zero, e2 => Eq.sym (Nat.addZero (Nat.pow b e2))
   | Succ e1, e2 =>
     rewrite Nat.powAdd b e1 e2, Nat.mulAssoc (Nat.pow b e1) (Nat.pow b e2) b, Nat.mulComm (Nat.pow b e2) b,
       Nat.mulAssoc (Nat.pow b e1) b (Nat.pow b e2)
 
-theorem Nat.powSuccPos (b: Nat): (e: Nat) → 0 < Nat.pow (Succ b) e
+theorem Nat.powSuccPos (b: Nat): ∀ (e: Nat) => 0 < Nat.pow (Succ b) e
   | Zero => rfl
   | Succ e => Nat.leTrans 1 (Nat.pow (Succ b) e) (Nat.pow (Succ b) e * Succ b) (Nat.powSuccPos b e) (Nat.leMulPos (Nat.pow (Succ b) e) (Succ b) rfl)
 
@@ -590,49 +590,49 @@ theorem Nat.addTwo (n: Nat): n + 2 = Succ (Succ n) := rewrite Nat.addSucc n 1, N
 
 --| `m == n` on numbers is `Nat.equal m n`, which computes one step at a time
 --| (`Succ m == Succ n` becomes `m == n` only through this).
-theorem Nat.decEqFromToBool (m: Nat) (n: Nat): (b: Bool) → (h: Nat.equal m n = b) → Decidable.toBool (Nat.decEqFrom m n b h) = b
+theorem Nat.decEqFromToBool (m: Nat) (n: Nat): ∀ (b: Bool) (h: Nat.equal m n = b) => Decidable.toBool (Nat.decEqFrom m n b h) = b
   | True, h => rfl
   | False, h => rfl
 
-theorem Nat.eqIsEqual: (m: Nat) → (n: Nat) → (m == n) = Nat.equal m n
+theorem Nat.eqIsEqual: ∀ (m n: Nat) => (m == n) = Nat.equal m n
   | Zero, Zero => rfl
   | Zero, Succ n => rfl
   | Succ m, Zero => rfl
   | Succ m, Succ n => Nat.decEqFromToBool (Succ m) (Succ n) (Nat.equal m n) rfl
 
 --| A number differs from every smaller one.
-theorem Nat.equalOfLess: (b: Nat) → (v: Nat) → b < v → Nat.equal v b = False
+theorem Nat.equalOfLess: ∀ (b v: Nat) => b < v → Nat.equal v b = False
   | b, Zero, h => Void.exfalso (Bool.falseNotTrue h)
   | Zero, Succ v, h => rfl
   | Succ b, Succ v, h => Nat.equalOfLess b v h
 
 --| `Nat.equal` doesn't care which number comes first.
-theorem Nat.equalComm: (a: Nat) → (b: Nat) → Nat.equal a b = Nat.equal b a
+theorem Nat.equalComm: ∀ (a b: Nat) => Nat.equal a b = Nat.equal b a
   | Zero, Zero => rfl
   | Zero, Succ b => rfl
   | Succ a, Zero => rfl
   | Succ a, Succ b => Nat.equalComm a b
 
 --| A sum is 0 only when both terms are.
-theorem Nat.addEqZero: (a: Nat) → (b: Nat) → a + b = 0 → (a = 0) ∧ (b = 0)
+theorem Nat.addEqZero: ∀ (a b: Nat) => a + b = 0 → (a = 0) ∧ (b = 0)
   | Zero, b, h => Both rfl h
   | Succ a, b, h => Void.exfalso (Nat.succNotZero (a + b) h)
 
 theorem Nat.eqIsEqualExample: (Succ 4 == Succ 2) = (4 == 2) := Eq.trans (Nat.eqIsEqual 5 3) (Eq.sym (Nat.eqIsEqual 4 2))
 
-theorem Nat.compareSelf: (n: Nat) → Nat.compare n n = Equal
+theorem Nat.compareSelf: ∀ (n: Nat) => Nat.compare n n = Equal
   | Zero => rfl
   | Succ n => Nat.compareSelf n
 
 --| `x < u` is "not u <= x".
-theorem Nat.lessNotLe: (x: Nat) → (u: Nat) → Nat.leq (Succ x) u = Bool.not (Nat.leq u x)
+theorem Nat.lessNotLe: ∀ (x u: Nat) => Nat.leq (Succ x) u = Bool.not (Nat.leq u x)
   | x, Zero => rfl
   | Zero, Succ u => rfl
   | Succ x, Succ u => Nat.lessNotLe x u
 
 --| Dividing a bigger number by the same `d` gives a bigger quotient, for any
 --| `d` (both quotients are 0 when `d` is 0).
-theorem Nat.divMonoLeft (a: Nat) (b: Nat): (d: Nat) → a ≤ b → a / d ≤ b / d
+theorem Nat.divMonoLeft (a: Nat) (b: Nat): ∀ (d: Nat) => a ≤ b → a / d ≤ b / d
   | Zero, below => rewrite Nat.divZero a in rfl
   | Succ n, below => Nat.leDivOfMulLe (a / Succ n) b (Succ n) (Nat.leTrans ((a / Succ n) * Succ n) a b (Nat.divMulLe a (Succ n)) below)
 

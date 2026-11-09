@@ -42,7 +42,7 @@ theorem templatesAsGrid (range: Range):
     { blockLength = k, copies = n }
   let withCopies: Nat → {Each} RepetitionTemplate := k => fitting k (each (List.range 2 (size + 1)))
   -- `require` keeps the template if it fits.
-  let kept: (k: Nat) → (n: Nat) → Each.collect (u => fitting k n) = keptIfFits size k n :=
+  let kept: ∀ (k n: Nat) => Each.collect (u => fitting k n) = keptIfFits size k n :=
     k n => Each.collectRequire (u => ({ blockLength = k, copies = n }: RepetitionTemplate)) (k * n ≤ size)
   calc allTemplatesForRange range
     -- Choosing a block length: one collection per block length.
@@ -58,7 +58,7 @@ theorem templatesAsGrid (range: Range):
 --| don't fit counting nothing. (Part2.sw sums the weighted terms this way.)
 theorem betweenOne (n: Nat): List.range 1 (n + 1) = List.rangeFrom n 1 := rewrite (omega: n + 1 - 1 = n)
 
-theorem betweenTwo: (n: Nat) → List.range 2 (n + 1) = List.rangeFrom (n - 1) 2
+theorem betweenTwo: ∀ (n: Nat) => List.range 2 (n + 1) = List.rangeFrom (n - 1) 2
   | Zero => rfl
   | Succ n => rewrite (omega: n + 1 - 1 = n)
 

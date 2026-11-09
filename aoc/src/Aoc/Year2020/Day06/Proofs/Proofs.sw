@@ -12,7 +12,7 @@ def GroupLines (lines: List (List Char)) (group: Group): Prop := List.All2 Perso
 
 theorem anyoneCount (lines: List (List Char)) (group: Group) (written: GroupLines lines group):
     group.anyone.size = Spec.count Spec.anyone lines :=
-  let agree: (question: Char) → group.anyone.contains question = Spec.anyone lines question :=
+  let agree: ∀ (question: Char) => group.anyone.contains question = Spec.anyone lines question :=
     question => Eq.trans (NonEmptyList.containsUnionAll (group.people.map .answers) question) (anyAnswers lines group.people.toList written question)
   Set.sizeOfMembers group.anyone Spec.questions (Spec.anyone lines) questionsDistinct
     (question found => anyQuestion lines group.people.toList written question (rewrite agree question at found in found))
@@ -20,7 +20,7 @@ theorem anyoneCount (lines: List (List Char)) (group: Group) (written: GroupLine
 
 theorem everyoneCount (lines: List (List Char)) (group: Group) (written: GroupLines lines group):
     group.everyone.size = Spec.count Spec.everyone lines :=
-  let meet: (question: Char) → group.everyone.contains question = Spec.everyone lines question :=
+  let meet: ∀ (question: Char) => group.everyone.contains question = Spec.everyone lines question :=
     question => intersectContains lines group.people written question
   Set.sizeOfMembers group.everyone Spec.questions (Spec.everyone lines) questionsDistinct
     (question found => everyQuestion lines group.people.toList written (NonEmptyList.toListNotNil group.people) question (rewrite meet question at found in found))
@@ -28,8 +28,8 @@ theorem everyoneCount (lines: List (List Char)) (group: Group) (written: GroupLi
 
 --| The sums over groups: a lemma over any per-group count, then the two
 --| parts.
-theorem sumCounts (size: Group → Nat) (count: List (List Char) → Nat) (each: (lines: List (List Char)) → (group: Group) → GroupLines lines group → size group = count lines):
-    (lineGroups: List (NonEmptyList (List Char))) → (groups: List Group) → List.All2 (lines group => GroupLines lines.toList group) lineGroups groups →
+theorem sumCounts (size: Group → Nat) (count: List (List Char) → Nat) (each: ∀ (lines: List (List Char)) (group: Group) => GroupLines lines group → size group = count lines):
+    ∀ (lineGroups: List (NonEmptyList (List Char))) (groups: List Group) => List.All2 (lines group => GroupLines lines.toList group) lineGroups groups →
       groups.sumBy size = lineGroups.sumBy (lines => count lines.toList)
   | [], [], all => rfl
   | [lines, ..lineGroups], [group, ..groups], Both written rest =>

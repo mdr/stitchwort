@@ -46,7 +46,7 @@ theorem atMostOther (machine: Machine) (tokens: Nat) (others: Nat) (fewest: Fewe
     | Witness aPresses (Witness bPresses (Both won costs)) => rewrite <- costs in And.right fewest aPresses bPresses won
 
 --| A machine has one fewest number of tokens, or none.
-theorem fewestUnique (machine: Machine): (first: Option Nat) → (second: Option Nat) → IsFewest machine first → IsFewest machine second → first = second
+theorem fewestUnique (machine: Machine): ∀ (first second: Option Nat) => IsFewest machine first → IsFewest machine second → first = second
   | None, None, firstFewest, secondFewest => rfl
   | Some tokens, None, firstFewest, secondFewest => Void.exfalso (winsAgainst machine tokens firstFewest secondFewest)
   | None, Some tokens, firstFewest, secondFewest => Void.exfalso (winsAgainst machine tokens secondFewest firstFewest)

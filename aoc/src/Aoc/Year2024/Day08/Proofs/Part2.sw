@@ -16,10 +16,10 @@ import Std (And, Bool, DecEq, Decidable, Eq, Exists, Int, Iff, List, Nat, Or, Se
 --| nonzero multiple of the result, whose parts are coprime.
 theorem divideByFacts (difference: Offset) (goal: Prop) (rowTimes: Nat) (columnTimes: Nat) (s: Int) (t: Int)
     (nonzero: (difference.rows = 0) ∧ (difference.columns = 0) → Void):
-    (divisor: Nat) → difference.rows.natAbs = rowTimes * divisor → difference.columns.natAbs = columnTimes * divisor →
+    ∀ (divisor: Nat) => difference.rows.natAbs = rowTimes * divisor → difference.columns.natAbs = columnTimes * divisor →
       s * difference.rows.natAbs.toInt + t * difference.columns.natAbs.toInt = divisor.toInt →
-      ((scale: Int) → scale ≠ 0 → difference.rows = scale * (divideBy difference divisor).rows →
-        difference.columns = scale * (divideBy difference divisor).columns → (s: Int) → (t: Int) →
+      (∀ (scale: Int) => scale ≠ 0 → difference.rows = scale * (divideBy difference divisor).rows →
+        difference.columns = scale * (divideBy difference divisor).columns → ∀ (s t: Int) =>
         s * (divideBy difference divisor).rows + t * (divideBy difference divisor).columns = 1 → goal) →
       goal
   | Zero, rows, columns, bezout, use =>
@@ -39,8 +39,8 @@ theorem divideByFacts (difference: Offset) (goal: Prop) (rowTimes: Nat) (columnT
 --| them is a nonzero multiple of it, and its parts are coprime (some whole
 --| combination of them is 1).
 theorem stepFacts (start: Position) (end: Position) (distinct: start ≠ end) (goal: Prop)
-    (use: (scale: Int) → scale ≠ 0 → end.row.toInt - start.row.toInt = scale * (start.stepToward end).rows →
-      end.column.toInt - start.column.toInt = scale * (start.stepToward end).columns → (s: Int) → (t: Int) →
+    (use: ∀ (scale: Int) => scale ≠ 0 → end.row.toInt - start.row.toInt = scale * (start.stepToward end).rows →
+      end.column.toInt - start.column.toInt = scale * (start.stepToward end).columns → ∀ (s t: Int) =>
       s * (start.stepToward end).rows + t * (start.stepToward end).columns = 1 → goal):
     goal :=
   let difference := end.minus start
@@ -85,7 +85,7 @@ def stepsFrom (start: Position) (step: Offset) (count: Nat): List Position := [s
 
 --| A point a whole number of steps from `start`, within the map's reach, is
 --| among the harmonics.
-theorem harmonicsOfSteps (city: City) (start: Position) (end: Position) (point: Position): (k: Int) →
+theorem harmonicsOfSteps (city: City) (start: Position) (end: Position) (point: Position): ∀ (k: Int) =>
     point.row.toInt = start.row.toInt + (start.stepToward end).rows * k → point.column.toInt = start.column.toInt + (start.stepToward end).columns * k →
     k.natAbs < Nat.max city.height city.width → point ∈ city.harmonics start end
   | OfNat count, rowAt, columnAt, bound =>
@@ -155,7 +155,7 @@ theorem harmonicsCorrect (city: City) (first: Position) (second: Position) (firs
 
 --| Part 2 counts the puzzle's antinodes, for every city whose antennas are
 --| on the map.
-theorem part2Correct (city: City) (onMap: (antenna: Antenna) → antenna ∈ city.antennas → city.contains antenna.position = True):
+theorem part2Correct (city: City) (onMap: ∀ (antenna: Antenna) => antenna ∈ city.antennas → city.contains antenna.position = True):
     solvePart2 city = part2 city :=
   Eq.cong Set.size
     (locationsCorrect city (((start, end)) => city.harmonics start end) (point first second => inLine point first second)
@@ -172,7 +172,7 @@ theorem inLineSelf (point: Position) (other: Position): inLine point point other
 --| "Some of the new antinodes will occur at the position of each antenna
 --| (unless that antenna is the only one of its frequency)": an antenna with
 --| another of its frequency is a part 2 antinode.
-theorem antennasAreAntinodes (city: City) (onMap: (antenna: Antenna) → antenna ∈ city.antennas → city.contains antenna.position = True)
+theorem antennasAreAntinodes (city: City) (onMap: ∀ (antenna: Antenna) => antenna ∈ city.antennas → city.contains antenna.position = True)
     (first: Antenna) (second: Antenna) (firstIn: first ∈ city.antennas) (secondIn: second ∈ city.antennas) (same: sameFrequency first second = True):
     (antinodeLocations city (isHarmonicAntinode city)).contains first.position = True :=
   let inner :=

@@ -56,7 +56,7 @@ def IsPath (maze: Maze) (moves: List Move) (standings: List Reindeer): Prop :=
 --| "What is the lowest score a Reindeer could possibly get?": some path
 --| scores `best`, and none scores less.
 def IsLowestScore (maze: Maze) (best: Nat): Prop :=
-  (Exists (List Move) (moves => Exists (List Reindeer) (standings => (IsPath maze moves standings) ∧ (score moves = best)))) ∧ ((moves: List Move) → (standings: List Reindeer) → IsPath maze moves standings → best ≤ score moves)
+  (Exists (List Move) (moves => Exists (List Reindeer) (standings => (IsPath maze moves standings) ∧ (score moves = best)))) ∧ (∀ (moves: List Move) (standings: List Reindeer) => IsPath maze moves standings → best ≤ score moves)
 
 --| A tile that is "part of any best path through the maze, including the S
 --| and E tiles".
@@ -68,4 +68,4 @@ def OnBestPath (maze: Maze) (best: Nat) (tile: Position): Prop :=
 --| "How many tiles are part of at least one of the best paths through the
 --| maze?": `count` tiles, each once.
 def CountsBestTiles (maze: Maze) (best: Nat) (count: Nat): Prop :=
-  Exists (Set Position) (tiles => ((tile: Position) → (tiles.contains tile = True) ↔ (OnBestPath maze best tile)) ∧ (tiles.size = count))
+  Exists (Set Position) (tiles => (∀ (tile: Position) => (tiles.contains tile = True) ↔ (OnBestPath maze best tile)) ∧ (tiles.size = count))

@@ -12,21 +12,21 @@ import Effect.SigMap (MkSigMap)
 --| Sequencing with `Done` changes nothing. (`bind (Done x) next = next x` holds
 --| by definition.)
 theorem Effect.bindDone [op: Type] [res: op → Type] [a: Type]:
-    (computation: Comp op res a) → bind computation Done = computation
+    ∀ (computation: Comp op res a) => bind computation Done = computation
   | Done x => rfl
   | Call o rest =>
-    let pointwise: (y: res o) → bind (rest y) Done = rest y := y => Effect.bindDone (rest y)
+    let pointwise: ∀ (y: res o) => bind (rest y) Done = rest y := y => Effect.bindDone (rest y)
     let same := Quot.funext (res o) (y => Comp op res a) (y => bind (rest y) Done) rest pointwise
     Eq.cong (Call o) same
 
 --| Sequencing computations is associative.
 theorem Effect.bindAssoc [op: Type] [res: op → Type] [a b r: Type]
     (first: a → Comp op res b) (second: b → Comp op res r):
-    (computation: Comp op res a) →
+    ∀ (computation: Comp op res a) =>
     bind (bind computation first) second = bind computation (x => bind (first x) second)
   | Done x => rfl
   | Call o rest =>
-    let pointwise: (y: res o) → bind (bind (rest y) first) second = bind (rest y) (x => bind (first x) second) :=
+    let pointwise: ∀ (y: res o) => bind (bind (rest y) first) second = bind (rest y) (x => bind (first x) second) :=
       y => Effect.bindAssoc first second (rest y)
     let same :=
       Quot.funext
@@ -41,11 +41,11 @@ theorem Effect.bindAssoc [op: Type] [res: op → Type] [a b r: Type]
 --| rest as what to do with each result.
 theorem Effect.foldCompBind [op: Type] [res: op → Type] [a b r: Type]
     (done: b → r) (call: (o: op) → (res o → r) → r) (next: a → Comp op res b):
-    (computation: Comp op res a) →
+    ∀ (computation: Comp op res a) =>
     foldComp done call (bind computation next) = foldComp (x => foldComp done call (next x)) call computation
   | Done x => rfl
   | Call o rest =>
-    let pointwise: (y: res o) → foldComp done call (bind (rest y) next) = foldComp (x => foldComp done call (next x)) call (rest y) :=
+    let pointwise: ∀ (y: res o) => foldComp done call (bind (rest y) next) = foldComp (x => foldComp done call (next x)) call (rest y) :=
       y => Effect.foldCompBind done call next (rest y)
     let same :=
       Quot.funext
@@ -63,6 +63,6 @@ theorem Effect.foldCompBind [op: Type] [res: op → Type] [a b r: Type]
 -- (SW-1002, `Parse.labelWholeFrom`). Needs no extensionality: there are no
 -- operations to map.
 theorem Effect.translateNoOp [op: Type] [res: op → Type] [a: Type]:
-    (computation: Comp NoOp NoRes a) → translate (MkSigMap noInject noReply: SigMap NoOp NoRes op res) computation = Done (runPure computation)
+    ∀ (computation: Comp NoOp NoRes a) => translate (MkSigMap noInject noReply: SigMap NoOp NoRes op res) computation = Done (runPure computation)
   | Done x => rfl
   | Call () rest

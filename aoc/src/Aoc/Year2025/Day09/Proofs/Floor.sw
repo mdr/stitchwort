@@ -61,7 +61,7 @@ theorem cellAt (tiles: List Point) (r: Nat) (c: Nat) (hr: r < List.length (Floor
     in rfl
 
 --| A cell is 0 exactly when its tile is red or green.
-theorem outsideFlagZero: (b: Bool) → outsideFlag b = 0 → b = True
+theorem outsideFlagZero: ∀ (b: Bool) => outsideFlag b = 0 → b = True
   | True, h => rfl
   | False, h => Void.exfalso (Nat.succNotZero 0 h)
 

@@ -29,7 +29,7 @@ import Std (Bool, Decidable, Eq, Fin, List, Nat, Or, Ordering, Pair, Void)
 -- does at least as well.
 
 --| Digits as numbers are digits.
-theorem finDigits: (ds: List Battery) → Nat.Digits (ds.map Fin.toNat)
+theorem finDigits: ∀ (ds: List Battery) => Nat.Digits (ds.map Fin.toNat)
   | [] => Trivial
   | [d, ..ds] => Both (Fin.toNatLt d) (finDigits ds)
 
@@ -48,7 +48,7 @@ theorem joltageOfConsLe (c: Battery) (s: List Battery) (r: List Battery) (hl: s.
   Nat.fromDigitsConsLe c.toNat (List.map s Fin.toNat) (List.map r Fin.toNat) (mapLength s r hl) h
 
 --| What `pick` returns.
-theorem pickGe: (w: Nat) → (xs: Bank) → (c: Battery) → (after: Bank) → c.toNat ≤ Fin.toNat (Pair.fst (Bank.best.pick w xs c after))
+theorem pickGe: ∀ (w: Nat) (xs: Bank) (c: Battery) (after: Bank) => c.toNat ≤ Fin.toNat (Pair.fst (Bank.best.pick w xs c after))
   | Zero, xs, c, after => omega
   | Succ w, [], c, after => omega
   | Succ w, [x, ..more], c, after =>
@@ -56,7 +56,7 @@ theorem pickGe: (w: Nat) → (xs: Bank) → (c: Battery) → (after: Bank) → c
       | True => omega [pickGe w more x more]
       | False => pickGe w more c after
 
-theorem pickLen (k: Nat): (w: Nat) → (xs: Bank) → (c: Battery) → (after: Bank) →
+theorem pickLen (k: Nat): ∀ (w: Nat) (xs: Bank) (c: Battery) (after: Bank) =>
     k + w ≤ xs.length → k ≤ after.length → k ≤ List.length (Pair.snd (Bank.best.pick w xs c after))
   | Zero, xs, c, after, h1, h2 => h2
   | Succ w, [], c, after, h1, h2 => h2
@@ -67,7 +67,7 @@ theorem pickLen (k: Nat): (w: Nat) → (xs: Bank) → (c: Battery) → (after: B
 
 --| If the candidate followed by `after`, and what is left to scan, are taken in
 --| order from `t`, so is pick's digit followed by what comes after it.
-theorem pickSub (t: Bank): (w: Nat) → (xs: Bank) → (c: Battery) → (after: Bank) →
+theorem pickSub (t: Bank): ∀ (w: Nat) (xs: Bank) (c: Battery) (after: Bank) =>
     xs.Subsequence t → List.Subsequence [c, ..after] t →
     List.Subsequence [Pair.fst (Bank.best.pick w xs c after), ..Pair.snd (Bank.best.pick w xs c after)] t
   | Zero, xs, c, after, hx, hc => hc
@@ -78,7 +78,7 @@ theorem pickSub (t: Bank): (w: Nat) → (xs: Bank) → (c: Battery) → (after: 
       | False => pickSub t w more c after (List.subsequenceTail x more t hx) hc
 
 --| 1. `best k bank` is a subsequence of `bank`.
-theorem bestSub: (k: Nat) → (bank: Bank) → List.Subsequence (bank.best k) bank
+theorem bestSub: ∀ (k: Nat) (bank: Bank) => List.Subsequence (bank.best k) bank
   | Zero, bank => Trivial
   | Succ k, [] => Trivial
   | Succ k, [d, ..rest] =>
@@ -88,7 +88,7 @@ theorem bestSub: (k: Nat) → (bank: Bank) → List.Subsequence (bank.best k) ba
       (pickSub [d, ..rest] (rest.length - k) rest d rest (List.subsequenceCons d rest rest (List.subsequenceRefl rest)) (List.subsequenceRefl [d, ..rest]))
 
 theorem bestLengthStep (k: Nat) (d: Battery) (rest: Bank)
-    (ih: (a: Bank) → List.length (a.best k) = Nat.min k a.length):
+    (ih: ∀ (a: Bank) => List.length (a.best k) = Nat.min k a.length):
     Succ (List.length (Bank.best (Pair.snd (Bank.best.pick (rest.length - k) rest d rest)) k))
       = Nat.min (Succ k) (Succ rest.length) :=
   match e: Nat.leq k rest.length with
@@ -102,7 +102,7 @@ theorem bestLengthStep (k: Nat) (d: Battery) (rest: Bank)
         (omega: Nat.min k rest.length = rest.length)
 
 --| 2. `best k bank` has k digits, or all of them if there are fewer.
-theorem bestLength: (k: Nat) → (bank: Bank) → List.length (bank.best k) = Nat.min k bank.length
+theorem bestLength: ∀ (k: Nat) (bank: Bank) => List.length (bank.best k) = Nat.min k bank.length
   | Zero, bank => rfl
   | Succ k, [] => rfl
   | Succ k, [d, ..rest] => bestLengthStep k d rest (a => bestLength k a)
@@ -111,7 +111,7 @@ theorem bestLength: (k: Nat) → (bank: Bank) → List.length (bank.best k) = Na
 
 --| What `best k` is claimed to do: beat every k digits taken from `l`.
 def BestBelow (k: Nat): Prop :=
-  (l: Bank) → (s: Bank) → s.Subsequence l → s.length = k → joltageOf s ≤ joltageOf (l.best k)
+  ∀ (l s: Bank) => s.Subsequence l → s.length = k → joltageOf s ≤ joltageOf (l.best k)
 
 --| The choices `pick` has seen so far: `y` followed by `s` is either the
 --| current candidate `c` followed by digits from `after`, or a digit within
@@ -150,7 +150,7 @@ theorem pickBase (k: Nat) (ih: BestBelow k) (c: Battery) (after: Bank) (h2: k �
 --| When `x` ties with `c`, starting from `x` is no better than from `c`, which
 --| comes earlier.
 theorem pickTie (k: Nat) (w: Nat) (x: Battery) (more: Bank) (c: Battery) (after: Bank)
-    (rec: (c2: Battery) → (a2: Bank) → PickBeats k w more c2 a2)
+    (rec: ∀ (c2: Battery) (a2: Bank) => PickBeats k w more c2 a2)
     (h1: k + w ≤ more.length) (h2: k ≤ after.length) (hsa: List.Subsequence [x, ..more] after)
     (y: Battery) (s: Bank) (hk: s.length = k) (le: x.toNat ≤ c.toNat) (eyx: y = x) (hs: s.Subsequence more):
     joltageOf [y, ..s] ≤ joltageOf [Pair.fst (Bank.best.pick w more c after), ..Bank.best (Pair.snd (Bank.best.pick w more c after)) k] :=
@@ -163,7 +163,7 @@ theorem pickTie (k: Nat) (w: Nat) (x: Battery) (more: Bank) (c: Battery) (after:
           (List.subsequenceTrans s more after hs (List.subsequenceTail x more after hsa))))
 
 theorem pickBestStep (k: Nat) (w: Nat) (x: Battery) (more: Bank) (c: Battery) (after: Bank)
-    (rec: (c2: Battery) → (a2: Bank) → PickBeats k w more c2 a2)
+    (rec: ∀ (c2: Battery) (a2: Bank) => PickBeats k w more c2 a2)
     (h1: k + w ≤ more.length) (h2: k ≤ after.length) (hsa: List.Subsequence [x, ..more] after)
     (y: Battery) (s: Bank) (hk: s.length = k) (cand: Candidate k (Succ w) [x, ..more] c after y s):
     joltageOf [y, ..s] ≤ joltageOf [Pair.fst (if c < x then Bank.best.pick w more x more else Bank.best.pick w more c after), ..Bank.best (Pair.snd (if c < x then Bank.best.pick w more x more else Bank.best.pick w more c after)) k] :=
@@ -177,7 +177,7 @@ theorem pickBestStep (k: Nat) (w: Nat) (x: Battery) (more: Bank) (c: Battery) (a
     | False, Inr (Both (Inl (Both eyx hs)) hlen) =>
       pickTie k w x more c after rec h1 h2 hsa y s hk omega eyx hs
 
-theorem pickBest (k: Nat) (ih: BestBelow k): (w: Nat) → (xs: Bank) → (c: Battery) → (after: Bank) → PickBeats k w xs c after
+theorem pickBest (k: Nat) (ih: BestBelow k): ∀ (w: Nat) (xs: Bank) (c: Battery) (after: Bank) => PickBeats k w xs c after
   | Zero, xs, c, after, h1, h2, hsa, y, s, hk, Inl (Both e hs) => pickBase k ih c after h2 y s hk e hs
   | Zero, xs, c, after, h1, h2, hsa, y, s, hk, Inr (Both g hlen) =>
     omega [List.subsequenceLength [y, ..s] xs g]
@@ -186,7 +186,7 @@ theorem pickBest (k: Nat) (ih: BestBelow k): (w: Nat) → (xs: Bank) → (c: Bat
   | Succ w, [x, ..more], c, after, h1, h2, hsa, y, s, hk, cand =>
     pickBestStep k w x more c after (pickBest k ih w more) omega h2 hsa y s hk cand
 
-theorem bestOptimal: (k: Nat) → BestBelow k
+theorem bestOptimal: ∀ (k: Nat) => BestBelow k
   | Zero, bank, [], h, hk => rfl
   | Zero, bank, [y, ..s], h, hk => omega
   | Succ k, [], [], h, hk => omega
@@ -214,7 +214,7 @@ theorem maxJoltageIsLargest (k: Nat) (bank: Bank) (on: List Battery)
 --| bank produce more.
 theorem maxJoltageIsMaximum (k: Nat) (bank: Bank) (enough: k ≤ bank.length):
     (TurnsOn k bank (bank.best k) ∧ joltageOf (bank.best k) = bank.maxJoltage k)
-      ∧ ((on: List Battery) → TurnsOn k bank on → joltageOf on ≤ bank.maxJoltage k) :=
+      ∧ (∀ (on: List Battery) => TurnsOn k bank on → joltageOf on ≤ bank.maxJoltage k) :=
   Both
     (Both
       (Both (bestSub k bank) (omega [bestLength k bank]))

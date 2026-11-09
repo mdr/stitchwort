@@ -42,7 +42,7 @@ theorem winsBefore (drawn: List Nat) (rest: List Nat) (someDrawn: 0 < drawn.leng
       Eq.sym (List.foldMinLt (turn => turn) (List.length drawn) (List.map board.lines lineTurn) (List.length (drawn ++ rest)))
 
 --| The draw at `List.length drawn` is the one after `drawn`.
-theorem drawOn (number: Nat) (later: List Nat): (drawn: List Nat) → (drawn ++ [number, ..later]).getOr drawn.length 0 = number
+theorem drawOn (number: Nat) (later: List Nat): ∀ (drawn: List Nat) => (drawn ++ [number, ..later]).getOr drawn.length 0 = number
   | [] => rfl
   | [first, ..others] => drawOn number later others
 
@@ -66,7 +66,7 @@ theorem laterTurn (j: Nat) (t: Nat): ((j ≤ t ∧ not (t < Succ j)): Bool) = (S
 
 --| The game from any point: the boards that haven't won yet, playing the
 --| draws to come, win turn by turn.
-theorem playFrom (playing: List Board): (rest: List Nat) → (drawn: List Nat) →
+theorem playFrom (playing: List Board): ∀ (rest drawn: List Nat) =>
     play drawn (playing.filter (board => drawn.length ≤ board.winningTurn (drawn ++ rest))) rest
       = (List.rangeFrom rest.length drawn.length).flatMap
         (turn => (playing.filter (board => board.winningTurn (drawn ++ rest) == turn)).map (board => board.score (drawn ++ rest) turn))

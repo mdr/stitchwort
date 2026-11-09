@@ -7,7 +7,7 @@ import Aoc.Year2021.Day16 (..)
 import Aoc.Year2021.Day16.Spec (..)
 import Std (Bool, Decidable, Eq, Exists, Fail, List, Nat, NonEmptyList, Option, Result, Text, Void)
 
-theorem versionSumTotal: (packet: Packet) → versionSum packet = (packetsIn packet).sumBy versionOf
+theorem versionSumTotal: ∀ (packet: Packet) => versionSum packet = (packetsIn packet).sumBy versionOf
   | Literal version groups => rfl
   | Operator version operation lengthType ({ head = first, tail = rest }) =>
     rewrite List.sumByCons (packetsIn first ++ packetsInAll rest) (Operator version operation lengthType (NonEmptyList.cons first rest)) versionOf,
@@ -16,7 +16,7 @@ theorem versionSumTotal: (packet: Packet) → versionSum packet = (packetsIn pac
     rewrite List.sumByCons (packetsIn first ++ packetsIn second) (Comparator version comparison lengthType first second) versionOf,
       List.sumByAppend (packetsIn first) (packetsIn second) versionOf, versionSumTotal first, versionSumTotal second in omega
 
-theorem versionSumsTotal: (packets: List Packet) → versionSums packets = (packetsInAll packets).sumBy versionOf
+theorem versionSumsTotal: ∀ (packets: List Packet) => versionSums packets = (packetsInAll packets).sumBy versionOf
   | [] => rfl
   | [packet, ..rest] => rewrite List.sumByAppend (packetsIn packet) (packetsInAll rest) versionOf, versionSumTotal packet, versionSumsTotal rest in rfl
 
@@ -24,7 +24,7 @@ theorem versionSumsTotal: (packets: List Packet) → versionSums packets = (pack
 theorem part1Correct (packet: Packet): solvePart1 packet = versionTotal packet := versionSumTotal packet
 
 --| A literal's value: its groups, each below 16, read as one binary number.
-theorem groupsValue (acc: Nat): (groups: List Nat) → groups.all (group => group < 16) = True →
+theorem groupsValue (acc: Nat): ∀ (groups: List Nat) => groups.all (group => group < 16) = True →
     groups.foldLeft acc (value group => value * 16 + group) = (groups.flatMap (Nat.toBits 4)).foldLeft acc (acc bit => acc * 2 + bit.toNat)
   | [], small => rfl
   | [group, ..rest], small =>
@@ -69,7 +69,7 @@ theorem comparisonCompares (comparison: Comparison) (first: Nat) (second: Nat): 
         | No different => NotEqual first second different
 
 --| Part 2: a well-formed packet has the value the program computes.
-theorem evaluateCorrect: (packet: Packet) → wellFormed packet = True → HasValue packet (evaluate packet)
+theorem evaluateCorrect: ∀ (packet: Packet) => wellFormed packet = True → HasValue packet (evaluate packet)
   | Literal version groups, formed => rewrite groupsValue 0 groups.toList (Bool.andRight formed) in LiteralValue version groups
   | Operator version operation lengthType ({ head = first, tail = rest }), formed =>
     let others := Bool.andRight (Bool.andRight formed)
@@ -81,7 +81,7 @@ theorem evaluateCorrect: (packet: Packet) → wellFormed packet = True → HasVa
     ComparisonValue (evaluateCorrect first (Bool.andLeft others)) (evaluateCorrect second (Bool.andRight others))
       (comparisonCompares comparison (evaluate first) (evaluate second))
 
-theorem evaluateAllCorrect: (packets: List Packet) → allWellFormed packets = True → Values packets (evaluateAll packets)
+theorem evaluateAllCorrect: ∀ (packets: List Packet) => allWellFormed packets = True → Values packets (evaluateAll packets)
   | [], formed => NoValues
   | [packet, ..rest], formed => NextValue (evaluateCorrect packet (Bool.andLeft formed)) (evaluateAllCorrect rest (Bool.andRight formed))
 

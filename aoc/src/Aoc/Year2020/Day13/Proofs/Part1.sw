@@ -15,13 +15,13 @@ def isListed: Slot → Bool
   | Listed _ => True
   | OutOfService => False
 
-theorem memBusesFrom: (start: Nat) → (schedule: List Slot) → (bus: Bus) → bus ∈ busesFrom start schedule → Listed bus.id ∈ schedule
+theorem memBusesFrom: ∀ (start: Nat) (schedule: List Slot) (bus: Bus) => bus ∈ busesFrom start schedule → Listed bus.id ∈ schedule
   | start, [], bus, member => Void.exfalso member
   | start, [Listed id, ..rest], bus, Inl same => Inl (rewrite <- same in rfl)
   | start, [Listed id, ..rest], bus, Inr member => Inr (memBusesFrom (Succ start) rest bus member)
   | start, [OutOfService, ..rest], bus, member => Inr (memBusesFrom (Succ start) rest bus member)
 
-theorem busesFromHas: (start: Nat) → (schedule: List Slot) → (id: Nat) → Listed id ∈ schedule → ∃ (bus: Bus) => bus ∈ busesFrom start schedule ∧ bus.id = id
+theorem busesFromHas: ∀ (start: Nat) (schedule: List Slot) (id: Nat) => Listed id ∈ schedule → ∃ (bus: Bus) => bus ∈ busesFrom start schedule ∧ bus.id = id
   | start, [], id, member => Void.exfalso member
   | start, [Listed other, ..rest], id, Inl same => Witness ({ id = other, offset = start }) (Both (Inl rfl) (Eq.cong idOf same))
   | start, [Listed other, ..rest], id, Inr member =>
@@ -36,7 +36,7 @@ theorem nextDepartureIs (bus: Bus) (from: Nat): bus.nextDeparture from = Nat.cei
 --| at or after `from` is earlier.
 theorem nextDepartureFirst (bus: Bus) [auto ok: bus.id ≠ 0] (from: Nat):
     Spec.Departs bus.id (bus.nextDeparture from) ∧ from ≤ bus.nextDeparture from
-      ∧ ((time: Nat) → Spec.Departs bus.id time → from ≤ time → bus.nextDeparture from ≤ time) :=
+      ∧ (∀ (time: Nat) => Spec.Departs bus.id time → from ≤ time → bus.nextDeparture from ≤ time) :=
   rewrite nextDepartureIs bus from in
     Both (Witness (Nat.ceilDiv from bus.id) rfl)
       (Both (Nat.leCeilDivMul from bus.id)

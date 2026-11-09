@@ -149,9 +149,9 @@ An interface can include **laws**: fields whose types are statements, which ever
 interface Add (a: Type) = {
   zero: a,
   add: a → a → a,
-  zeroAdd: (x: a) → add zero x = x,
-  assoc: (x: a) → (y: a) → (z: a) → add (add x y) z = add x (add y z),
-  comm: (x: a) → (y: a) → add x y = add y x
+  zeroAdd: ∀ (x: a) => add zero x = x,
+  assoc: ∀ (x y z: a) => add (add x y) z = add x (add y z),
+  comm: ∀ (x y: a) => add x y = add y x
 }
 ```
 

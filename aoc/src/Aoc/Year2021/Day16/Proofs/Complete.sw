@@ -59,7 +59,7 @@ theorem countStep (wanted: Wanted) (later: Wanted) (reader: BitReader) (afterVer
 theorem typeIdSmall (operatorType: OperatorType): typeId operatorType < 8 := cases
 
 --| A packet's bits aren't empty, so when filling bits, another is wanted.
-theorem fillingNext (rest: List Bool): (packet: Packet) → nextWanted Filling { unread = encode packet ++ rest } = Some Filling
+theorem fillingNext (rest: List Bool): ∀ (packet: Packet) => nextWanted Filling { unread = encode packet ++ rest } = Some Filling
   | Literal _ _ => rfl
   | Operator _ _ _ ({ head = _, tail = _ }) => rfl
   | Comparator _ _ _ _ _ => rfl
@@ -108,7 +108,7 @@ theorem operatorStepComplete (wanted: Wanted) (later: Wanted) (more: List Bool) 
 
 --| Reading what was wanted after a well-formed packet's bits reads the
 --| packet, then goes on.
-theorem stepComplete (wanted: Wanted) (later: Wanted) (more: List Bool): (packet: Packet) → wellFormed packet = True →
+theorem stepComplete (wanted: Wanted) (later: Wanted) (more: List Bool): ∀ (packet: Packet) => wellFormed packet = True →
     nextWanted wanted { unread = encode packet ++ more } = Some later →
     readPackets wanted { unread = encode packet ++ more } = andThen packet (readPackets later { unread = more })
   | Literal version groups, formed, next =>
@@ -137,7 +137,7 @@ theorem stepComplete (wanted: Wanted) (later: Wanted) (more: List Bool): (packet
     Eq.trans (Eq.cong (bits => readPackets wanted { unread = bits }) sameReader) read
 
 --| Reading as many packets as there are reads them all back.
-theorem countComplete: (packets: List Packet) → allWellFormed packets = True → (more: List Bool) →
+theorem countComplete: ∀ (packets: List Packet) => allWellFormed packets = True → ∀ (more: List Bool) =>
     readPackets (Packets packets.length) { unread = encodeAll packets ++ more } = Some (packets, { unread = more })
   | [], formed, more => rewrite readPackets.unfold (Packets 0) { unread = more } in rfl
   | [packet, ..rest], formed, more => countCons packet rest formed more
@@ -157,7 +157,7 @@ theorem countPair (first: Packet) (second: Packet) (formedFirst: wellFormed firs
   rewrite List.appendAssoc (encode first) (encodeAll [second]) more, step1, List.appendAssoc (encode second) [] more, step2 in rfl
 
 --| Filling packets' bits reads them all back.
-theorem fillComplete: (packets: List Packet) → allWellFormed packets = True → readPackets Filling { unread = encodeAll packets } = Some (packets, { unread = [] })
+theorem fillComplete: ∀ (packets: List Packet) => allWellFormed packets = True → readPackets Filling { unread = encodeAll packets } = Some (packets, { unread = [] })
   | [], formed => rewrite readPackets.unfold Filling { unread = [] } in rfl
   | [packet, ..rest], formed => fillCons packet rest formed
 

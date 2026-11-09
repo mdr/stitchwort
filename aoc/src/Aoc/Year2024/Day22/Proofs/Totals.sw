@@ -6,7 +6,7 @@ import Aoc.Year2024.Day22 (..)
 import Aoc.Year2024.Day22.Spec (..)
 import Std (Eq, List, Map, Nat, Option)
 
-theorem mergeGetOr: (x: Option Nat) → (y: Option Nat) → (x.merge y Nat.add).getOrElse 0 = x.getOrElse 0 + y.getOrElse 0
+theorem mergeGetOr: ∀ (x y: Option Nat) => (x.merge y Nat.add).getOrElse 0 = x.getOrElse 0 + y.getOrElse 0
   | Some x, Some y => rfl
   | Some x, None => (omega: x = x + 0)
   | None, Some y => (omega: y = 0 + y)
@@ -17,7 +17,7 @@ theorem unionGetOr (totals: Map Changes Nat) (sales: Map Changes Nat) (key: Chan
     (totals.unionWith sales Nat.add).getOr key 0 = totals.getOr key 0 + sales.getOr key 0 :=
   rewrite Map.getUnionWith totals key sales Nat.add in mergeGetOr (totals.get key) (sales.get key)
 
-theorem totalsGetOr (count: Nat) (key: Changes): (buyers: List Nat) → (totals: Map Changes Nat) →
+theorem totalsGetOr (count: Nat) (key: Changes): ∀ (buyers: List Nat) (totals: Map Changes Nat) =>
     (buyers.foldLeft totals (totals buyer => totals.unionWith (firstSales (prices count buyer)) Nat.add)).getOr key 0 =
       totals.getOr key 0 + buyers.sumBy (buyer => (firstSales (prices count buyer)).getOr key 0)
   | [], totals => (omega: totals.getOr key 0 = totals.getOr key 0 + 0)

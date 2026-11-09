@@ -105,7 +105,7 @@ def Text.toNat: (text: Text) → Option Nat
 --| it gives the value of `acc` followed by the digits, `Some (foldLeft …)`,
 --| when all of `chars` are digits, and `None` otherwise. The loop behind
 --| [`Text.toNatDigits`].
-theorem Text.readDigitsValue: (acc: Nat) → (chars: List Char) →
+theorem Text.readDigitsValue: ∀ (acc: Nat) (chars: List Char) =>
     Text.readDigits acc chars = (if chars.all (char => char.digitValue.isSome) then Some (List.foldLeft (chars.map (digit => digit.digitValue.getOrElse 0)) acc (acc digit => acc * 10 + digit)) else None)
   | acc, [] => rfl
   | acc, [char, ..rest] =>
@@ -213,7 +213,7 @@ def Text.wordsFinish: (state: Pair (List Char) (List (List Char))) → List Text
 def Text.words (text: Text): List Text := Text.wordsChars text.toList |> Text.wordsFinish
 
 --| What `dropSpaces` leaves doesn't start with whitespace.
-theorem Text.dropSpacesHead: (chars: List Char) → (first: Char) → (rest: List Char) → Text.dropSpaces chars = [first, ..rest] →
+theorem Text.dropSpacesHead: ∀ (chars: List Char) (first: Char) (rest: List Char) => Text.dropSpaces chars = [first, ..rest] →
     Char.isWhitespace first = False
   | [], first, rest, h => Void.exfalso (List.consNotNil first rest (Eq.sym h))
   | [char, ..chars], first, rest, h =>

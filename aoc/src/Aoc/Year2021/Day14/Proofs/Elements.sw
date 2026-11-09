@@ -16,7 +16,7 @@ theorem stepKeepsFirst (rules: List Rule) (a: Char) (rest: List Char): ∃ (tail
     | [b, ..more] => Witness (List.append (between rules a b) (step rules [b, ..more])) rfl
 
 --| ...and so do any number of steps.
-theorem stepsKeepFirst (rules: List Rule): (steps: Nat) → (a: Char) → (rest: List Char) →
+theorem stepsKeepFirst (rules: List Rule): ∀ (steps: Nat) (a: Char) (rest: List Char) =>
     ∃ (tail: List Char) => Nat.iterate steps (step rules) [a, ..rest] = [a, ..tail]
   | Zero, a, rest => Witness rest rfl
   | Succ steps, a, rest =>
@@ -24,13 +24,13 @@ theorem stepsKeepFirst (rules: List Rule): (steps: Nat) → (a: Char) → (rest:
       | Witness tail e => rewrite e in stepsKeepFirst rules steps a tail
 
 --| Steps leave an empty polymer empty.
-theorem stepsEmpty (rules: List Rule): (steps: Nat) → Nat.iterate steps (step rules) [] = []
+theorem stepsEmpty (rules: List Rule): ∀ (steps: Nat) => Nat.iterate steps (step rules) [] = []
   | Zero => rfl
   | Succ steps => stepsEmpty rules steps
 
 --| An element's count: the first element, if it is that one, and the
 --| pairs that end with it.
-theorem countByPairs (c: Char) (a: Char): (rest: List Char) →
+theorem countByPairs (c: Char) (a: Char): ∀ (rest: List Char) =>
     List.count [a, ..rest] (== c) = Bool.toNat (a == c) + List.sumBy (pairsOf [a, ..rest]) (pair => Bool.toNat (pair.second == c))
   | [] => omega [List.countCons [] a (== c)]
   | [b, ..more] =>

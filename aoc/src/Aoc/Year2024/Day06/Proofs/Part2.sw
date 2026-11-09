@@ -19,7 +19,7 @@ theorem aheadWith (lab: Lab) (blocker: Position) (guard: Guard): (lab.withObstru
 --| The lab with an obstruction added steps as before, wherever she doesn't
 --| walk onto it.
 theorem stepWithSame (lab: Lab) (blocker: Position) (guard: Guard)
-    (fresh: (ahead: Position) → lab.ahead guard = Some ahead → lab.obstructions.contains ahead = False → ahead ≠ blocker):
+    (fresh: ∀ (ahead: Position) => lab.ahead guard = Some ahead → lab.obstructions.contains ahead = False → ahead ≠ blocker):
     (lab.withObstruction blocker).step guard = lab.step guard :=
   rewrite aheadWith lab blocker guard in
   match inFront: lab.ahead guard with
@@ -35,7 +35,7 @@ def onRoute (lab: Lab) (guard: Option Guard) (steps: Nat) (position: Position): 
 
 --| With the obstruction off her route for one step more, the walk in the
 --| changed lab is the walk in the old one.
-theorem walkWithSame (lab: Lab) (blocker: Position): (steps: Nat) → (guard: Option Guard) → onRoute lab guard (Succ steps) blocker = False →
+theorem walkWithSame (lab: Lab) (blocker: Position): ∀ (steps: Nat) (guard: Option Guard) => onRoute lab guard (Succ steps) blocker = False →
     walk (lab.withObstruction blocker) guard steps = walk lab guard steps
   | Zero, guard, absent => rfl
   | Succ steps, None, absent => rewrite walkNone (lab.withObstruction blocker) steps, walkNone lab steps in rfl
@@ -74,7 +74,7 @@ theorem stepSettled (lab: Lab) (guard: Guard) (settled: settledAt lab guard.posi
           let landed := aheadOnMap lab guard (Bool.andLeft settled) ahead inFront
           rewrite <- Option.someInjective stepped in (cases: settledAt lab ahead = True)
 
-theorem routeSettled (lab: Lab) (position: Position): (steps: Nat) → (guard: Option Guard) → settledIfAny lab guard = True →
+theorem routeSettled (lab: Lab) (position: Position): ∀ (steps: Nat) (guard: Option Guard) => settledIfAny lab guard = True →
     onRoute lab guard steps position = True → settledAt lab position = True
   | Zero, guard, settled, has => Void.exfalso (Bool.falseNotTrue has)
   | Succ steps, None, settled, has => Void.exfalso (Bool.falseNotTrue has)
@@ -88,7 +88,7 @@ theorem routeSettled (lab: Lab) (position: Position): (steps: Nat) → (guard: O
             | Some next => stepSettled lab here settled next stepped
         routeSettled lab position steps (lab.step here) nextSettled rest)
 
-theorem positionEta: (position: Position) → ({ row = position.row, column = position.column }: Position) = position
+theorem positionEta: ∀ (position: Position) => ({ row = position.row, column = position.column }: Position) = position
   | { row, column } => rfl
 
 --| Every position on the map is in `positions`.
@@ -160,7 +160,7 @@ theorem shapeOffRoute [onTheMap: Bool] [notStart: Bool] [free: Bool]: False = (o
 --| The program keeps a position of the route exactly when the spec keeps it.
 theorem keepsTrapsAt (lab: Lab) (inside: onMap lab lab.start = True) (steps: Nat) (gone: after lab steps = None)
     (trapped: Position → Bool) (decides: Decides lab trapped)
-    (simulates: (blocker: Position) → onMap lab blocker = True →
+    (simulates: ∀ (blocker: Position) => onMap lab blocker = True →
       Simulates ((Sightlines.of lab.obstructions).add blocker) (lab.withObstruction blocker))
     (position: Position):
     (onRoute lab (Some lab.startGuard) steps position && keeps lab (Sightlines.of lab.obstructions) position)
@@ -186,7 +186,7 @@ theorem keepsTrapsAt (lab: Lab) (inside: onMap lab lab.start = True) (steps: Nat
 --| positions.
 theorem trapSetsSame (lab: Lab) (inside: onMap lab lab.start = True) (steps: Nat) (gone: after lab steps = None)
     (trapped: Position → Bool) (decides: Decides lab trapped)
-    (simulates: (blocker: Position) → onMap lab blocker = True →
+    (simulates: ∀ (blocker: Position) => onMap lab blocker = True →
       Simulates ((Sightlines.of lab.obstructions).add blocker) (lab.withObstruction blocker)):
     (Set.fromList (route lab (Some lab.startGuard) steps)).filter (keeps lab (Sightlines.of lab.obstructions)) = trapPositions lab trapped :=
   Set.ext ((Set.fromList (route lab (Some lab.startGuard) steps)).filter (keeps lab (Sightlines.of lab.obstructions))) (trapPositions lab trapped) (position =>
@@ -202,7 +202,7 @@ theorem trapSetsSame (lab: Lab) (inside: onMap lab lab.start = True) (steps: Nat
 --| obstructions are on the map, the program counts the spec's trap
 --| positions.
 theorem part2Correct (lab: Lab) (inside: onMap lab lab.start = True)
-    (obstructionsInside: (position: Position) → lab.obstructions.contains position = True → onMap lab position = True)
+    (obstructionsInside: ∀ (position: Position) => lab.obstructions.contains position = True → onMap lab position = True)
     (steps: Nat) (gone: after lab steps = None) (trapped: Position → Bool) (decides: Decides lab trapped):
     solvePart2 lab = Some (trapPositions lab trapped).size :=
   let simulates := programSimulates lab obstructionsInside

@@ -51,7 +51,7 @@ def empty: Memory := address => 0
 --| sum over some addresses, each once, that include every address not
 --| holding 0.
 def SumOfMemory (memory: Memory) (answer: Nat): Prop :=
-  ∃ (addresses: List Nat) => addresses.Distinct ∧ ((address: Nat) → memory address ≠ 0 → address ∈ addresses) ∧ answer = addresses.sumBy memory
+  ∃ (addresses: List Nat) => addresses.Distinct ∧ (∀ (address: Nat) => memory address ≠ 0 → address ∈ addresses) ∧ answer = addresses.sumBy memory
 
 --| The mask last set, and memory. The mask before the first instruction
 --| sets one is never used: a written program starts by setting it.

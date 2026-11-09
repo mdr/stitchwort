@@ -44,7 +44,7 @@ theorem hasRemove (free: FreeSpace) (span: Span) (other: Span):
 }
 
 -- Stated for any starting map, since the fold's recursive call starts from the map after the first add.
-theorem hasFoldAdd (span: Span): (spans: List Span) → (free: FreeSpace) →
+theorem hasFoldAdd (span: Span): ∀ (spans: List Span) (free: FreeSpace) =>
     FreeSpace.has (spans.foldLeft free FreeSpace.add) span = True ↔ ((0 < span.length ∧ span ∈ spans) ∨ free.has span = True)
   | [], free => {
     forward = held => Inr held,
@@ -112,7 +112,7 @@ theorem fitMember (free: FreeSpace) (length: Nat) (other: Span) (held: free.has 
 
 theorem leftmostFitSome (free: FreeSpace) (length: Nat) (before: Nat) (span: Span) (found: free.leftmostFit length before = Some span):
     free.has span = True ∧ length ≤ span.length ∧ span.start < before ∧
-      ((other: Span) → free.has other = True → length ≤ other.length → span.start ≤ other.start) :=
+      (∀ (other: Span) => free.has other = True → length ≤ other.length → span.start ≤ other.start) :=
   let (Both minimal early) := Option.filterEqSome _ ((s: Span) => s.start < before) found
   let (Both mem least) := List.minBySome (free.toList.filterMap (fitIn length)) (.start) span minimal
   let (Witness entry (Both inList fit)) := (List.memFilterMap (fitIn length) span free.toList).forward mem

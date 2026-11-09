@@ -41,7 +41,7 @@ theorem sectionFitsAcross (left: Nat) (across: Nat) (offset: Nat) (acrossSmall: 
 --| The top row and left column of section `index`, for the six sections.
 type Corner (index: Nat): Prop = { top: (index / 3) * sectionRows + 1 ≤ 11, left: (index % 3) * sectionColumns + 1 ≤ 45 }
 
-theorem sectionCorner: (index: Nat) → index < 6 → Corner index
+theorem sectionCorner: ∀ (index: Nat) => index < 6 → Corner index
   | Zero, small => { top = omega, left = omega }
   | Succ Zero, small => { top = omega, left = omega }
   | Succ (Succ Zero), small => { top = omega, left = omega }
@@ -68,12 +68,12 @@ theorem roomFits (index: Nat) (small: index < 6) (downRoll: Nat) (acrossRoll: Na
 
 --| So does any room picked from them by number.
 theorem getOrFits (fallback: Area) (fallbackFits: OnMap fallback):
-    (rooms: List Area) → ((area: Area) → List.Mem area rooms → OnMap area) → (index: Nat) → OnMap (rooms.getOr index fallback)
+    ∀ (rooms: List Area) => (∀ (area: Area) => List.Mem area rooms → OnMap area) → ∀ (index: Nat) => OnMap (rooms.getOr index fallback)
   | [], fit, index => fallbackFits
   | [room, ..rest], fit, Zero => fit room (Inl rfl)
   | [room, ..rest], fit, Succ index => getOrFits fallback fallbackFits rest (area listed => fit area (Inr listed)) index
 
-theorem roomOfFits (rooms: List Area) (fit: (area: Area) → List.Mem area rooms → OnMap area) (index: Nat): OnMap (roomOf rooms index) :=
+theorem roomOfFits (rooms: List Area) (fit: ∀ (area: Area) => List.Mem area rooms → OnMap area) (index: Nat): OnMap (roomOf rooms index) :=
   let fallbackFits: OnMap (rooms.headOr fallbackRoom) :=
     match rooms with
       | [] => { bottom = omega, right = omega }
@@ -87,7 +87,7 @@ theorem minPlusDistance (m: Nat) (n: Nat) (bound: Nat) (mSmall: m < bound) (nSma
     | False => omega
 
 theorem corridorFits (origin: Position) (target: Position) (from: OnScreen origin) (to: OnScreen target):
-    (area: Area) → List.Mem area (corridorBetween origin target) → OnMap area
+    ∀ (area: Area) => List.Mem area (corridorBetween origin target) → OnMap area
   | area, Inl same =>
     let originRow := from.low
     rewrite <- same in { bottom = omega, right = minPlusDistance origin.column target.column levelColumns from.narrow to.narrow }
@@ -97,7 +97,7 @@ theorem corridorFits (origin: Position) (target: Position) (from: OnScreen origi
   | area, Inr (Inr nothing) => Void.exfalso nothing
 
 --| So do the corridors between rooms that fit.
-theorem corridorsFit (rooms: List Area) (fit: (area: Area) → List.Mem area rooms → OnMap area) (extra: Nat)
+theorem corridorsFit (rooms: List Area) (fit: ∀ (area: Area) => List.Mem area rooms → OnMap area) (extra: Nat)
     (area: Area) (listed: List.Mem area (corridorsOf rooms extra)): OnMap area :=
   let corridorsFor: (Nat, Nat) → List Area := ((one, other)) => corridorBetween (roomOf rooms one).middle (roomOf rooms other).middle
   List.anyElim (link => List.Mem area (corridorsFor link)) (OnMap area) (roomLinks extra)
@@ -110,7 +110,7 @@ theorem corridorsFit (rooms: List Area) (fit: (area: Area) → List.Mem area roo
 
 --| Every floor cell of a level whose areas all fit is on the screen.
 theorem floorOnScreen (level: Level) (entranceFits: OnMap level.entrance) (exitFits: OnMap level.exit)
-    (roomsFit: (area: Area) → List.Mem area level.rooms → OnMap area) (corridorsFit: (area: Area) → List.Mem area level.corridors → OnMap area)
+    (roomsFit: ∀ (area: Area) => List.Mem area level.rooms → OnMap area) (corridorsFit: ∀ (area: Area) => List.Mem area level.corridors → OnMap area)
     (position: Position) (open: isWall level position = False): OnScreen position :=
   match inEntrance: level.entrance.contains position with
     | True => containedOnScreen level.entrance entranceFits position inEntrance
@@ -145,13 +145,13 @@ theorem terrainColumns (level: Level) (row: Nat) (small: row < levelRows): ((dra
 --| floor cell is among them.
 type Framed (level: Level): Prop = {
   rows: level.terrain.length = levelRows,
-  columns: (row: Nat) → row < levelRows → (level.terrain.getOr row []).length = levelColumns,
-  floor: (position: Position) → isWall level position = False → OnScreen position
+  columns: ∀ (row: Nat) => row < levelRows → (level.terrain.getOr row []).length = levelColumns,
+  floor: ∀ (position: Position) => isWall level position = False → OnScreen position
 }
 
 theorem buildFramed (depth: Nat) (entrance: Area) (exit: Area) (rooms: List Area) (corridors: List Area)
     (entranceFits: OnMap entrance) (exitFits: OnMap exit)
-    (roomsFit: (area: Area) → List.Mem area rooms → OnMap area) (corridorsFit: (area: Area) → List.Mem area corridors → OnMap area):
+    (roomsFit: ∀ (area: Area) => List.Mem area rooms → OnMap area) (corridorsFit: ∀ (area: Area) => List.Mem area corridors → OnMap area):
     Framed (Level.build depth entrance exit rooms corridors) :=
   let undrawn: Level := { depth, entrance, exit, rooms, corridors, terrain = [] }
   {
@@ -162,7 +162,7 @@ theorem buildFramed (depth: Nat) (entrance: Area) (exit: Area) (rooms: List Area
 
 --| Every level `layOut` makes from rooms that all fit is framed.
 theorem layOutFramed (depth: Nat) (rooms: List Area) (entranceIndex: Nat) (exitIndex: Nat) (extra: Nat)
-    (fit: (area: Area) → List.Mem area rooms → OnMap area):
+    (fit: ∀ (area: Area) => List.Mem area rooms → OnMap area):
     Framed (layOut depth rooms entranceIndex exitIndex extra)
     unfolding layOut
 :=
@@ -209,7 +209,7 @@ type Sound (state: State): Prop = { valid: Valid state, framed: Framed state.lev
 theorem startingSound (plan: Plan) (framed: Framed plan.level): Sound (startingState plan) :=
   { valid = startingValid plan, framed }
 
-theorem replaySound: (turns: List (Nat, Command)) → (state: State) → Sound state → Sound (replay state turns)
+theorem replaySound: ∀ (turns: List (Nat, Command)) (state: State) => Sound state → Sound (replay state turns)
   | [], state, sound => sound
   | [(seed, command), ..rest], state, sound =>
     replaySound rest (Random.withSeed seed (() => step state command)) { valid = stepValid seed state command sound.valid, framed = stepFramed seed state command sound.framed }

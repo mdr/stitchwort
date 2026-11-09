@@ -74,8 +74,8 @@ theorem Nat.partitionPointBounds (low: Nat) (high: Nat) (p: Nat → Bool) (order
 --| point. That is, `p` holds at every number from `low` before it, and fails
 --| at every number from it up to `high`.
 theorem Nat.partitionPointSpec (low: Nat) (high: Nat) (p: Nat → Bool) (ordered: low ≤ high)
-    (monotone: (smaller: Nat) → (larger: Nat) → smaller ≤ larger → p larger = True → p smaller = True):
-    ((n: Nat) → low ≤ n → n < Nat.partitionPoint low high p → p n = True) ∧ ((n: Nat) → Nat.partitionPoint low high p ≤ n → n < high → p n = False) :=
+    (monotone: ∀ (smaller larger: Nat) => smaller ≤ larger → p larger = True → p smaller = True):
+    (∀ (n: Nat) => low ≤ n → n < Nat.partitionPoint low high p → p n = True) ∧ (∀ (n: Nat) => Nat.partitionPoint low high p ≤ n → n < high → p n = False) :=
   let (Both above (Both below (Both before after))) := Nat.partitionPointBounds low high p ordered
   let found := Nat.partitionPoint low high p
   Both

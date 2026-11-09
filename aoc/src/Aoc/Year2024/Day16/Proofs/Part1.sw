@@ -53,7 +53,7 @@ theorem fromStartCorrect (maze: Maze):
 
 --| Moves from an open tile are a walk in the maze's graph, scoring the
 --| same.
-theorem movesWalk (maze: Maze): (reindeer: Reindeer) → maze.holds reindeer = True → (moves: List Move) → (last: Reindeer) →
+theorem movesWalk (maze: Maze): ∀ (reindeer: Reindeer) => maze.holds reindeer = True → ∀ (moves: List Move) (last: Reindeer) =>
     final maze reindeer moves = Some last →
     Exists (List (Reindeer, Nat)) (path => ((maze.graph False).Walk reindeer path last) ∧ (Graph.cost path = score moves))
   | reindeer, holds, [], last, ended => Witness [] (Both (Option.someInjective ended) rfl)
@@ -69,7 +69,7 @@ theorem movesWalk (maze: Maze): (reindeer: Reindeer) → maze.holds reindeer = T
 --| Along any moves from an open tile, the search's bound grows by no more
 --| than their score.
 theorem boundAlong (maze: Maze) (result: Map Reindeer Nat)
-    (closed: (state: Reindeer) → (cost: Nat) → result.get state = Some cost → (next: Reindeer) → (weight: Nat) →
+    (closed: ∀ (state: Reindeer) (cost: Nat) => result.get state = Some cost → ∀ (next: Reindeer) (weight: Nat) =>
       (next, weight) ∈ (maze.graph False).edges state → Graph.Bound result (cost + weight) next)
     (reindeer: Reindeer) (holds: maze.holds reindeer = True) (cost: Nat) (bound: Graph.Bound result cost reindeer) (moves: List Move)
     (last: Reindeer) (ended: final maze reindeer moves = Some last): Graph.Bound result (cost + score moves) last :=
@@ -77,7 +77,7 @@ theorem boundAlong (maze: Maze) (result: Map Reindeer Nat)
     rewrite <- And.right both in Graph.boundAlong (maze.graph False) result closed reindeer cost bound path last (And.left both))
 
 --| How a way of standing on the end tile is listed.
-theorem endListed (maze: Maze): (reindeer: Reindeer) → reindeer.position = maze.end → reindeer ∈ maze.endReindeer
+theorem endListed (maze: Maze): ∀ (reindeer: Reindeer) => reindeer.position = maze.end → reindeer ∈ maze.endReindeer
   | { position, facing }, atEnd =>
     rewrite atEnd in List.memMap headings facing (headingsComplete facing) (way => ({ position = maze.end, facing = way }: Reindeer))
 
@@ -108,7 +108,7 @@ theorem lowestScoreCorrect (maze: Maze) (startOpen: maze.isOpen maze.start = Tru
   let startBound: Graph.Bound maze.fromStart 0 (startingReindeer maze) := sourcesBound maze.startReindeer 0 (Inl rfl)
   let candidates := maze.endReindeer.filterMap maze.fromStart.get
   -- Each path's score is at least some candidate.
-  let pathCandidate: (moves: List Move) → (standings: List Reindeer) → IsPath maze moves standings →
+  let pathCandidate: ∀ (moves: List Move) (standings: List Reindeer) => IsPath maze moves standings →
       Exists Nat (found => (found ∈ candidates) ∧ (found ≤ score moves)) :=
     moves standings path =>
       Exists.elim (pathEnds maze moves standings path) (last both =>

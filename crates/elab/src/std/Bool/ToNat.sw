@@ -4,18 +4,18 @@
 -- `Bool.toNatAnd` states its result with.
 
 --| A `Bool` whose `toNat` is 0 is `False`.
-theorem Bool.toNatEqZero: (b: Bool) → Bool.toNat b = 0 → b = False
+theorem Bool.toNatEqZero: ∀ (b: Bool) => Bool.toNat b = 0 → b = False
   | False, h => rfl
   | True, h => Void.exfalso (Nat.succNotZero 0 h)
 
 --| `toNat` of a conjunction: the second `Bool`'s count, kept only when the
 --| first holds.
-theorem Bool.toNatAnd: (a: Bool) → [b: Bool] → Bool.toNat (a ∧ b) = b.toNat.keepIf a
+theorem Bool.toNatAnd: ∀ (a: Bool) [b: Bool] => Bool.toNat (a ∧ b) = b.toNat.keepIf a
   | True => rfl
   | False => rfl
 
 --| The parity of a `Bool`'s `toNat` is the `Bool`.
-theorem Bool.toNatOdd: (b: Bool) → (b.toNat % 2 == 1) = b
+theorem Bool.toNatOdd: ∀ (b: Bool) => (b.toNat % 2 == 1) = b
   | False => rfl
   | True => rfl
 

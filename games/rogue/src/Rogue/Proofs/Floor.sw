@@ -12,7 +12,7 @@ def OnFloor (level: Level) (monsters: List Monster): Prop := List.All (monster =
 
 --| A monster never chooses a wall.
 theorem pickFreeOnFloor (level: Level) (player: Position) (others: List Monster):
-    (choices: List Position) → (destination: Position) → pickFree level choices player others = Some destination → isWall level destination = False
+    ∀ (choices: List Position) (destination: Position) => pickFree level choices player others = Some destination → isWall level destination = False
   | [], destination, picked => Void.exfalso (Option.noneNotSome destination picked)
   | [choice, ..rest], destination, picked =>
     match wall: isWall level choice with
@@ -30,14 +30,14 @@ theorem onFloorSnoc (level: Level) (monster: Monster) (inside: isWall level mons
   List.allAppend ((monster: Monster) => isWall level monster.position = False) monsters [monster] onFloor (Both inside Trivial)
 
 --| Changing monsters without moving them keeps them on the floor.
-theorem onFloorMap (level: Level) (change: Monster → Monster) (stays: (monster: Monster) → (change monster).position = monster.position):
-    (monsters: List Monster) → OnFloor level monsters → OnFloor level (monsters.map change)
+theorem onFloorMap (level: Level) (change: Monster → Monster) (stays: ∀ (monster: Monster) => (change monster).position = monster.position):
+    ∀ (monsters: List Monster) => OnFloor level monsters → OnFloor level (monsters.map change)
   | [], onFloor => Trivial
   | [first, ..rest], Both inside others => Both (rewrite stays first in inside) (onFloorMap level change stays rest others)
 
 --| Dropping monsters keeps the rest on the floor.
 theorem onFloorFilter (level: Level) (keep: Monster → Bool):
-    (monsters: List Monster) → OnFloor level monsters → OnFloor level (monsters.filter keep)
+    ∀ (monsters: List Monster) => OnFloor level monsters → OnFloor level (monsters.filter keep)
   | [], onFloor => Trivial
   | [first, ..rest], Both inside others =>
     match kept: keep first with
@@ -48,7 +48,7 @@ theorem onFloorFilter (level: Level) (keep: Monster → Bool):
 --| where they are, and those that move pick a cell that isn't a wall, or
 --| stay.
 theorem actAllOnFloor (dice: Dice) (level: Level) (player: Position):
-    (index: Nat) → (outcome: Outcome) → (waiting: List Monster) →
+    ∀ (index: Nat) (outcome: Outcome) (waiting: List Monster) =>
     OnFloor level outcome.moved → OnFloor level waiting → OnFloor level (actAll dice level player index outcome waiting).moved
   | index, outcome, [], moved, rest => moved
   | index, outcome, [monster, ..waiting], moved, Both inside rest =>

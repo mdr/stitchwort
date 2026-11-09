@@ -30,7 +30,7 @@ theorem orthogonalElim (from: Position) (to: Position) (step: isOrthogonalStep f
           (Bool.orElim (Bool.andRight upOrDown) (down => Inl (DecEq.sound down)) (up => Inr (DecEq.sound up)))))
 
 --| A step in any direction is one orthogonal step.
-theorem stepOrthogonal: (from: Position) → (side: Direction) → (to: Position) → from.step side = Some to → Orthogonal from to
+theorem stepOrthogonal: ∀ (from: Position) (side: Direction) (to: Position) => from.step side = Some to → Orthogonal from to
   | { row = Succ above, column }, Up, to, stepped => rewrite <- Option.someInjective stepped in Inr (Both rfl (Inr (omega)))
   | { row = Zero, column }, Up, to, stepped => Void.exfalso (Option.noneNotSome to stepped)
   | { row, column }, Down, to, stepped => rewrite <- Option.someInjective stepped in Inr (Both rfl (Inl (omega)))
@@ -39,7 +39,7 @@ theorem stepOrthogonal: (from: Position) → (side: Direction) → (to: Position
   | { row, column }, Right, to, stepped => rewrite <- Option.someInjective stepped in Inl (Both rfl (Inl (omega)))
 
 --| One orthogonal step is a step in some direction.
-theorem orthogonalStep: (from: Position) → (to: Position) → Orthogonal from to → Exists Direction (side => from.step side = Some to)
+theorem orthogonalStep: ∀ (from to: Position) => Orthogonal from to → Exists Direction (side => from.step side = Some to)
   | { row, column }, { row = toRow, column = toColumn }, Inl (Both rows (Inl right)) =>
     let same: Succ column = toColumn := omega
     rewrite <- rows, <- same in Witness Right rfl
@@ -63,7 +63,7 @@ theorem orthogonalSymmetric (from: Position) (to: Position) (orthogonal: Orthogo
     | Inr (Both columns (Inr up)) => Inr (Both (Eq.sym columns) (Inl up))
 
 --| Every direction is one of `directions`.
-theorem memDirections: (side: Direction) → side ∈ directions
+theorem memDirections: ∀ (side: Direction) => side ∈ directions
   | Up => Inl rfl
   | Right => Inr (Inl rfl)
   | Down => Inr (Inr (Inl rfl))

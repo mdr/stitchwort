@@ -35,7 +35,7 @@ theorem undoAdd (last: Nat) (target: Nat) (v: Nat): (v + last == target) = (last
 
 --| The backwards search over the numbers after `first`, last one first, is
 --| the forwards search over them in order.
-theorem canMakeReaches (operators: List Operator) (first: Nat): (reversed: List Nat) → (target: Nat) →
+theorem canMakeReaches (operators: List Operator) (first: Nat): ∀ (reversed: List Nat) (target: Nat) =>
     canMake operators first target reversed = reaches operators first (== target) reversed.reverse
   | [], target => DecEq.eqComm target first
   | [last, ..earlier], target =>
@@ -86,15 +86,15 @@ theorem part2Correct (equations: List Equation): solvePart2 equations = part2 eq
   calibrationResultCorrect [Add, Multiply, Concatenate] equations
 
 --| More operators reach at least as much.
-theorem reachesMore (fewer: List Operator) (more: List Operator) (included: (operator: Operator) → operator ∈ fewer → operator ∈ more)
-    (wanted: Nat → Bool): (numbers: List Nat) → (start: Nat) → reaches fewer start wanted numbers = True → reaches more start wanted numbers = True
+theorem reachesMore (fewer: List Operator) (more: List Operator) (included: ∀ (operator: Operator) => operator ∈ fewer → operator ∈ more)
+    (wanted: Nat → Bool): ∀ (numbers: List Nat) (start: Nat) => reaches fewer start wanted numbers = True → reaches more start wanted numbers = True
   | [], start, found => found
   | [number, ..rest], start, found =>
     List.anyTrueElim fewer _ (reaches more start wanted [number, ..rest] = True) found (operator has reached =>
       List.anyOfMem more _ operator (reachesMore fewer more included wanted rest (combine operator start number) reached) (included operator has))
 
 --| An equation that could be true with fewer operators could be with more.
-theorem couldBeTrueMore (fewer: List Operator) (more: List Operator) (included: (operator: Operator) → operator ∈ fewer → operator ∈ more)
+theorem couldBeTrueMore (fewer: List Operator) (more: List Operator) (included: ∀ (operator: Operator) => operator ∈ fewer → operator ∈ more)
     (equation: Equation): equation.couldBeTrue fewer = True → equation.couldBeTrue more = True :=
   rewrite canMakeReaches fewer equation.numbers.head equation.numbers.tail.reverse equation.testValue,
       canMakeReaches more equation.numbers.head equation.numbers.tail.reverse equation.testValue

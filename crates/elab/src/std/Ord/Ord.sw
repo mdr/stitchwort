@@ -4,7 +4,7 @@
 -- instance needs them.
 
 --| A comparison that's its own opposite is `Equal`.
-theorem Ordering.flipSelf: (c: Ordering) → c = Ordering.flip c → c = Equal
+theorem Ordering.flipSelf: ∀ (c: Ordering) => c = Ordering.flip c → c = Equal
   | Less, h => Void.exfalso (Ordering.lessNotGreater h)
   | Equal, h => rfl
   | Greater, h => Void.exfalso (Ordering.greaterNotLess h)
@@ -14,7 +14,7 @@ theorem Ordering.flipSelf: (c: Ordering) → c = Ordering.flip c → c = Equal
 --| reduces the way the key's does.
 -- (D414)
 def Ord.byKey [auto decEq: DecEq a] [auto ord: Ord b] (key: a → b)
-    (inj: (x: a) → (y: a) → key x = key y → x = y): Ord a := {
+    (inj: ∀ (x y: a) => key x = key y → x = y): Ord a := {
   compare = x y => Ord.compare (key x) (key y),
   lessThan = x y => ord.lessThan (key x) (key y),
   lessEq = x y => ord.lessEq (key x) (key y),
@@ -115,7 +115,7 @@ theorem Ord.leAntisymm [auto ord: Ord a] (x: a) (y: a) (h1: x <= y) (h2: y <= x)
 --| `c3` isn't `Greater` when `c1` and `c2` aren't, given what `Ord`'s laws
 --| say of three comparisons `x y`, `y z` and `x z`: `Less` is transitive,
 --| and an `Equal` makes two of them the same.
-theorem Ordering.notGreaterTrans: (c1: Ordering) → (c2: Ordering) → (c3: Ordering) →
+theorem Ordering.notGreaterTrans: ∀ (c1 c2 c3: Ordering) =>
     (c1 = Less → c2 = Less → c3 = Less) → (c1 = Equal → c3 = c2) → (c2 = Equal → c3 = c1) →
     c1 ≠ Greater → c2 ≠ Greater → c3 ≠ Greater
   | Less, Less, c3, t, e1, e2, n1, n2, g => Ordering.lessNotGreater (Eq.trans (Eq.sym (t rfl rfl)) g)

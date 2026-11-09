@@ -9,14 +9,14 @@ import Std (Exists, List)
 
 --| Folding a list that holds the dots, fold after fold, holds the dots
 --| after the folds, if the promise is kept...
-theorem foldsHold: (folds: List Fold) → (dots: List Point) → (marked: Point → Prop) → Holds dots marked → Promise folds marked →
+theorem foldsHold: ∀ (folds: List Fold) (dots: List Point) (marked: Point → Prop) => Holds dots marked → Promise folds marked →
     Holds (folds.foldLeft dots foldOnce) (AfterFolds folds marked)
   | [], dots, marked, holds, promise, spot => holds spot
   | [fold, ..rest], dots, marked, holds, promise, spot =>
     foldsHold rest (foldOnce dots fold) (AfterFold fold marked) (foldOnceHolds dots marked fold holds promise.left) promise.right spot
 
 --| ...and lists each dot once, as every fold drops repeats.
-theorem foldsDistinct: (folds: List Fold) → (dots: List Point) → List.Distinct dots → List.Distinct (folds.foldLeft dots foldOnce)
+theorem foldsDistinct: ∀ (folds: List Fold) (dots: List Point) => List.Distinct dots → List.Distinct (folds.foldLeft dots foldOnce)
   | [], dots, distinct => distinct
   | [fold, ..rest], dots, distinct => foldsDistinct rest (foldOnce dots fold) (List.distinctUnique (dots.map (foldDot fold)))
 

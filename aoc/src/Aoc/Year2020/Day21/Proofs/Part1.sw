@@ -18,7 +18,7 @@ def moveTo (holder: Allergen → Ingredient) (allergen: Allergen) (ingredient: I
 --| Moving an allergen to an ingredient that holds no allergen, and is in
 --| every food listing it, is another way the allergens could be.
 theorem moveHolding (list: FoodList) (holder: Allergen → Ingredient) (holding: Spec.Holding list holder) (allergen: Allergen) (ingredient: Ingredient)
-    (every: InEvery list ingredient allergen) (unheld: (other: Allergen) → Spec.Listed list other → holder other ≠ ingredient):
+    (every: InEvery list ingredient allergen) (unheld: ∀ (other: Allergen) => Spec.Listed list other → holder other ≠ ingredient):
     Spec.Holding list (moveTo holder allergen ingredient) :=
   Both
     (first second firstListed secondListed same =>
@@ -59,7 +59,7 @@ theorem safeIff (list: FoodList) (promise: ∃ (holder: Allergen → Ingredient)
                     List.anyTrueElim list.allergens (other => holder other == ingredient) _ taken (other inAllergens holds =>
                       Void.exfalso (cannot (Witness holder (Both holding (Witness other (Both ((memAllergens list other).forward inAllergens) (DecEq.sound holds)))))))
                   | False =>
-                    let unheld: (other: Allergen) → Spec.Listed list other → holder other ≠ ingredient :=
+                    let unheld: ∀ (other: Allergen) => Spec.Listed list other → holder other ≠ ingredient :=
                       other otherListed holds =>
                         Bool.trueNotFalse (Eq.trans (Eq.sym (List.anyOfMem list.allergens (other => holder other == ingredient) other
                           (rewrite holds in DecEq.refl ingredient) ((memAllergens list other).backward otherListed))) taken)

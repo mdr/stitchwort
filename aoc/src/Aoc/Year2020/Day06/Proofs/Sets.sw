@@ -7,7 +7,7 @@ import Aoc.Year2020.Day06 (Spec)
 import Std (Bool, Char, Eq, List, NonEmptyList, Set, Void)
 
 --| The people's answer sets, asked about a question, say what their lines say.
-theorem anyAnswers: (lines: List (List Char)) → (people: List Person) → List.All2 PersonWritten lines people → (question: Char) →
+theorem anyAnswers: ∀ (lines: List (List Char)) (people: List Person) => List.All2 PersonWritten lines people → ∀ (question: Char) =>
     (people.map .answers).any (answers => answers.contains question) = lines.any (line => line.contains question)
   | [], [], all, question => rfl
   | [line, ..lines], [person, ..people], Both (Both nonEmpty (Both questions same)) rest, question =>
@@ -15,7 +15,7 @@ theorem anyAnswers: (lines: List (List Char)) → (people: List Person) → List
   | [], [_, .._], impossible, question => Void.exfalso impossible
   | [_, .._], [], impossible, question => Void.exfalso impossible
 
-theorem allAnswers: (lines: List (List Char)) → (people: List Person) → List.All2 PersonWritten lines people → (question: Char) →
+theorem allAnswers: ∀ (lines: List (List Char)) (people: List Person) => List.All2 PersonWritten lines people → ∀ (question: Char) =>
     (people.map .answers).all (answers => answers.contains question) = lines.all (line => line.contains question)
   | [], [], all, question => rfl
   | [line, ..lines], [person, ..people], Both (Both nonEmpty (Both questions same)) rest, question =>
@@ -29,7 +29,7 @@ theorem intersectContains (lines: List (List Char)) (people: NonEmptyList Person
   Eq.trans (NonEmptyList.containsIntersectAll (people.map .answers) question) (allAnswers lines people.toList written question)
 
 --| Whatever some line has is a question.
-theorem anyQuestion: (lines: List (List Char)) → (people: List Person) → List.All2 PersonWritten lines people → (question: Char) →
+theorem anyQuestion: ∀ (lines: List (List Char)) (people: List Person) => List.All2 PersonWritten lines people → ∀ (question: Char) =>
     lines.any (line => line.contains question) = True → Spec.questions.contains question = True
   | [], [], all, question, found => Void.exfalso (Bool.falseNotTrue found)
   | [line, ..lines], [person, ..people], Both (Both nonEmpty (Both questions same)) rest, question, found =>
@@ -44,7 +44,7 @@ theorem questionsDistinct: List.Distinct Spec.questions :=
   (List.isDistinctIff Spec.questions).forward rfl
 
 --| Whatever every line has is a question: there is a first line, and it is all questions.
-theorem everyQuestion: (lines: List (List Char)) → (people: List Person) → List.All2 PersonWritten lines people → people ≠ [] → (question: Char) →
+theorem everyQuestion: ∀ (lines: List (List Char)) (people: List Person) => List.All2 PersonWritten lines people → people ≠ [] → ∀ (question: Char) =>
     lines.all (line => line.contains question) = True → Spec.questions.contains question = True
   | [], [], all, some, question, found => Void.exfalso (some rfl)
   | [line, ..lines], [person, ..people], Both (Both nonEmpty (Both questions same)) rest, some, question, found =>

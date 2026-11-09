@@ -52,7 +52,7 @@ def DecEq.canon: [x y: a] → (dec: Decidable (x = y)) → (h: x = y) → x = y
   | Yes e, p => e
   | No r, p => Void.exfalso (r p)
 
-theorem DecEq.canonConst: [x y: a] → (d: Decidable (x = y)) → (p: x = y) → (q: x = y) →
+theorem DecEq.canonConst: ∀ [x y: a] (d: Decidable (x = y)) (p q: x = y) =>
     DecEq.canon d p = DecEq.canon d q
   | Yes e, p, q => rfl
   | No r, p, q => Void.exfalso (r p)

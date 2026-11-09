@@ -30,7 +30,7 @@ theorem readsInstruction: Parse.Reads instruction InstructionWritten :=
                   (Witness addressRead (Witness valueRead
                     (Both (rewrite maybe, opened, closed, List.appendNil valueRead in rfl) (Both addressDecimal valueDecimal)))))))))
 
-theorem startsWritten: (instructions: List Instruction) → startsWithMask instructions = True → StartsWithMask instructions
+theorem startsWritten: ∀ (instructions: List Instruction) => startsWithMask instructions = True → StartsWithMask instructions
   | [SetMask mask, ..rest], starts => Trivial
   | [Write address value, ..rest], starts => Void.exfalso (Bool.falseNotTrue starts)
   | [], starts => Void.exfalso (Bool.falseNotTrue starts)

@@ -25,7 +25,7 @@ def Path.visits (path: Path) (cave: Cave): Nat := path.caves.occurrences (c => c
 
 --| Part 1: big caves may be visited any number of times, small ones at most
 --| once.
-def SmallOnce (path: Path): Prop := (cave: Cave) → cave.isBig = False → path.visits cave ≤ 1
+def SmallOnce (path: Path): Prop := ∀ (cave: Cave) => cave.isBig = False → path.visits cave ≤ 1
 
 def Part1Path (passages: List Passage) (path: Path): Prop :=
   path.startToEnd = True ∧ path.follows passages = True ∧ SmallOnce path
@@ -34,8 +34,8 @@ def Part1Path (passages: List Passage) (path: Path): Prop :=
 --| most once (no small cave more than twice, and no two of them more than
 --| once each), and `start` and `end` exactly once each.
 def OneSmallTwice (path: Path): Prop :=
-  ((cave: Cave) → cave.isBig = False → path.visits cave ≤ 2)
-    ∧ ((a: Cave) → (b: Cave) → a.isBig = False → b.isBig = False → 2 ≤ path.visits a → 2 ≤ path.visits b → a = b)
+  (∀ (cave: Cave) => cave.isBig = False → path.visits cave ≤ 2)
+    ∧ (∀ (a b: Cave) => a.isBig = False → b.isBig = False → 2 ≤ path.visits a → 2 ≤ path.visits b → a = b)
     ∧ path.visits Cave.start = 1
     ∧ path.visits Cave.end = 1
 
@@ -46,10 +46,10 @@ def Part2Path (passages: List Passage) (path: Path): Prop :=
 --| repeats, exactly the paths.
 def PathCount (isPath: Path → Prop) (count: Nat): Prop :=
   ∃ (paths: List Path) =>
-    List.Distinct paths ∧ ((path: Path) → path ∈ paths ↔ isPath path) ∧ paths.length = count
+    List.Distinct paths ∧ (∀ (path: Path) => path ∈ paths ↔ isPath path) ∧ paths.length = count
 
 --| What the puzzle leaves unsaid: no passage joins two big caves. Otherwise
 --| a path could go back and forth between them for ever, and there would be
 --| no number of paths.
 def NoBigNeighbours (passages: List Passage): Prop :=
-  (a: Cave) → (b: Cave) → connected passages a b = True → a.isBig = True → b.isBig = False
+  ∀ (a b: Cave) => connected passages a b = True → a.isBig = True → b.isBig = False

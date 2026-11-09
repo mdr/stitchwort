@@ -12,7 +12,7 @@ import Std (Eq, List, Map, Nat)
 --| For every function `f` on pairs, the counts' sum of `f` is the sum of `f`
 --| over the polymer's pairs of neighbours.
 def Represents (counts: PairCounts) (polymer: List Char): Prop :=
-  (f: ElementPair → Nat) → weight counts f = List.sumBy (pairsOf polymer) f
+  ∀ (f: ElementPair → Nat) => weight counts f = List.sumBy (pairsOf polymer) f
 
 --| Each pair with the same count `n`.
 theorem entriesWeightAll (f: ElementPair → Nat) (n: Nat) (pairs: List ElementPair):
@@ -50,7 +50,7 @@ theorem stepRepresents (rules: List Rule) (one: OneRulePerPair rules) (counts: P
       _ = List.sumBy (pairsOf (step rules polymer)) f := rewrite pairsStep rules polymer in rfl
 
 --| After any number of steps, the program's counts stand for the polymer.
-theorem iterateRepresents (manual: Manual) (one: OneRulePerPair manual.rules): (steps: Nat) → (counts: PairCounts) → (polymer: List Char) → Represents counts polymer →
+theorem iterateRepresents (manual: Manual) (one: OneRulePerPair manual.rules): ∀ (steps: Nat) (counts: PairCounts) (polymer: List Char) => Represents counts polymer →
     Represents (Nat.iterate steps (stepCounts (ruleTable manual.rules)) counts) (Nat.iterate steps (step manual.rules) polymer)
   | Zero, counts, polymer, represents, f => represents f
   | Succ steps, counts, polymer, represents, f =>

@@ -11,21 +11,21 @@ import Aoc.Common (Direction, Position)
 import Aoc.Year2024.Day06.Spec (..)
 import Std (And, Bool, DecEq, Eq, Exists, Nat, Not, Option, Void)
 
-theorem walkIterate (lab: Lab): (steps: Nat) → (guard: Option Guard) →
+theorem walkIterate (lab: Lab): ∀ (steps: Nat) (guard: Option Guard) =>
     walk lab guard steps = Nat.iterate steps (state => state.flatMap lab.step) guard
   | Zero, guard => rfl
   | Succ steps, guard => walkIterate lab steps (guard.flatMap lab.step)
 
 --| Once off the map, she stays off.
-theorem walkNone (lab: Lab): (steps: Nat) → walk lab None steps = None
+theorem walkNone (lab: Lab): ∀ (steps: Nat) => walk lab None steps = None
   | Zero => rfl
   | Succ steps => walkNone lab steps
 
-theorem walkSucc (lab: Lab): (steps: Nat) → (guard: Option Guard) → walk lab guard (Succ steps) = (walk lab guard steps).flatMap lab.step
+theorem walkSucc (lab: Lab): ∀ (steps: Nat) (guard: Option Guard) => walk lab guard (Succ steps) = (walk lab guard steps).flatMap lab.step
   | Zero, guard => rfl
   | Succ steps, guard => walkSucc lab steps (guard.flatMap lab.step)
 
-theorem walkAdd (lab: Lab): (first: Nat) → (guard: Option Guard) → (second: Nat) → walk lab guard (first + second) = walk lab (walk lab guard first) second
+theorem walkAdd (lab: Lab): ∀ (first: Nat) (guard: Option Guard) (second: Nat) => walk lab guard (first + second) = walk lab (walk lab guard first) second
   | Zero, guard, second => rfl
   | Succ first, guard, second => walkAdd lab first (guard.flatMap lab.step) second
 
@@ -61,7 +61,7 @@ theorem stepOnMap (lab: Lab) (guard: Guard) (inside: onMap lab guard.position = 
         | False => rewrite <- Option.someInjective stepped in aheadOnMap lab guard inside position ahead
 
 --| She stays on the map until she leaves it.
-theorem afterOnMap (lab: Lab) (inside: onMap lab lab.start = True): (steps: Nat) → (guard: Guard) → after lab steps = Some guard → onMap lab guard.position = True
+theorem afterOnMap (lab: Lab) (inside: onMap lab lab.start = True): ∀ (steps: Nat) (guard: Guard) => after lab steps = Some guard → onMap lab guard.position = True
   | Zero, guard, reached => rewrite <- Option.someInjective reached in inside
   | Succ steps, guard, reached =>
     let reachedStep: (after lab steps).flatMap lab.step = Some guard := rewrite <- walkSucc lab steps (Some lab.startGuard) in reached
@@ -99,7 +99,7 @@ theorem directionIndexInjective (one: Direction) (other: Direction) (same: direc
     _ = directionOfIndex (directionIndex other) := rewrite same in rfl
     _ = other := directionOfIndexOf other
 
-theorem guardExt: (one: Guard) → (other: Guard) → one.position.row = other.position.row → one.position.column = other.position.column →
+theorem guardExt: ∀ (one other: Guard) => one.position.row = other.position.row → one.position.column = other.position.column →
     one.facing = other.facing → one = other
   | { position = { row, column }, facing }, { position = { row = otherRow, column = otherColumn }, facing = otherFacing }, rows, columns, facings =>
     rewrite rows, columns, facings in rfl
@@ -138,7 +138,7 @@ def codeOf (lab: Lab): Option Guard → Nat
 --| The budget is enough: still on the map after `stateCount` steps, she
 --| loops.
 theorem budgetEnough (lab: Lab) (inside: onMap lab lab.start = True) (still: after lab lab.stateCount ≠ None): Loops lab :=
-  let small: (steps: Nat) → steps ≤ lab.stateCount → codeOf lab (after lab steps) < lab.stateCount :=
+  let small: ∀ (steps: Nat) => steps ≤ lab.stateCount → codeOf lab (after lab steps) < lab.stateCount :=
     steps le =>
       match reached: after lab steps with
         | None => Void.exfalso (walkEarlier lab (Some lab.startGuard) steps lab.stateCount still le reached)

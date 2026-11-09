@@ -28,7 +28,7 @@ theorem aroundSound (position: Position) (length: Nat) (other: Position) (member
         rewrite <- same in omega [rowLow, rowHigh, columnLow, columnHigh]))
 
 --| Every position at most `length` away is listed.
-theorem aroundComplete (position: Position) (length: Nat): (other: Position) → position.distance other ≤ length → other ∈ position.diamond length
+theorem aroundComplete (position: Position) (length: Nat): ∀ (other: Position) => position.distance other ≤ length → other ∈ position.diamond length
   | { row, column }, near =>
     let spare := length - Nat.absDiff row position.row
     rewrite aroundRows position length in

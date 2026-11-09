@@ -36,7 +36,7 @@ theorem memCells (rows: List (List a)) (position: Position) (x: a): ((position, 
 }
 
 --| The cell at a position after `mapCells` is `f` of the cell there before.
-theorem cellAtMapCells (rows: List (List a)) (f: Position → a → b): (position: Position) →
+theorem cellAtMapCells (rows: List (List a)) (f: Position → a → b): ∀ (position: Position) =>
     cellAt (mapCells rows f) position = Option.map (cellAt rows position) (f position)
   | { row = r, column = c } =>
     rewrite List.getMapWithIndex rows (r row => row.mapWithIndex (c cell => f { row = r, column = c } cell)) r in
@@ -46,7 +46,7 @@ theorem cellAtMapCells (rows: List (List a)) (f: Position → a → b): (positio
 
 --| `mapCells` of functions equal at every cell.
 theorem mapCellsCong (rows: List (List a)) (g1: Position → a → b) (g2: Position → a → b)
-    (same: (position: Position) → (x: a) → g1 position x = g2 position x): mapCells rows g1 = mapCells rows g2 :=
+    (same: ∀ (position: Position) (x: a) => g1 position x = g2 position x): mapCells rows g1 = mapCells rows g2 :=
   List.mapCong (List.withIndex rows) (p => List.mapWithIndex p.snd (c cell => g1 { row = p.fst, column = c } cell))
     (p => List.mapWithIndex p.snd (c cell => g2 { row = p.fst, column = c } cell))
     (p =>
@@ -96,7 +96,7 @@ theorem cellPositionsDistinct (rows: List (List a)): List.Distinct ((cells rows)
       (x y same => pairExt x y (Eq.cong Position.row same) (Eq.cong Position.column same))
 
 --| Pairs with equal parts are equal.
-theorem pairExt: (x: (Nat, Nat)) → (y: (Nat, Nat)) → x.fst = y.fst → x.snd = y.snd → x = y
+theorem pairExt: ∀ (x y: (Nat, Nat)) => x.fst = y.fst → x.snd = y.snd → x = y
   | (a, b), (c, d), first, second => rewrite first, second in rfl
 
 --| No position is in `gridCells` twice.
@@ -104,7 +104,7 @@ theorem gridPositionsDistinct (rows: List (List a)): List.Distinct (rows.gridCel
   rewrite List.flatMapEqConcatMap (p => rowCells p.fst p.snd) (List.withIndex rows) in rowsDistinct 0 rows
 
 --| The positions of the cells of rows s, s + 1, …: no repeats.
-theorem rowsDistinct: (s: Nat) → (rows: List (List a)) →
+theorem rowsDistinct: ∀ (s: Nat) (rows: List (List a)) =>
     List.Distinct (List.map (List.concat (List.map (List.withIndexFrom s rows) (p => rowCells p.fst p.snd))) Pair.fst)
   | s, [] => Trivial
   | s, [row, ..rest] =>
@@ -282,7 +282,7 @@ theorem memGridPositionsWhere (grid: Grid a) (keep: a → Bool) (position: Posit
 
 --| `mapCells` of functions equal at every cell of the rows.
 theorem mapCellsCongAt (rows: List (List a)) (g1: Position → a → b) (g2: Position → a → b)
-    (same: (position: Position) → (x: a) → cellAt rows position = Some x → g1 position x = g2 position x): mapCells rows g1 = mapCells rows g2 :=
+    (same: ∀ (position: Position) (x: a) => cellAt rows position = Some x → g1 position x = g2 position x): mapCells rows g1 = mapCells rows g2 :=
   List.mapCongMem (List.withIndex rows) (p => List.mapWithIndex p.snd (c cell => g1 { row = p.fst, column = c } cell))
     (p => List.mapWithIndex p.snd (c cell => g2 { row = p.fst, column = c } cell))
     (p inRows =>

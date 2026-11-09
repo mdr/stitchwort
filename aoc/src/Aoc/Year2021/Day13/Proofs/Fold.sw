@@ -26,11 +26,11 @@ theorem landsOnly (fold: Fold) (dot: Point) (spot: Point) (lands: Lands fold dot
         | Both sameY (Inr (Both gt sum)) => Point.ext spot (foldDot (AlongX line) dot) cases cases
 
 --| A list holds a set of dots when its members are exactly the set's dots.
-def Holds (dots: List Point) (marked: Point → Prop): Prop := (spot: Point) → spot ∈ dots ↔ marked spot
+def Holds (dots: List Point) (marked: Point → Prop): Prop := ∀ (spot: Point) => spot ∈ dots ↔ marked spot
 
 --| If a list holds the dots before a fold, and every one of them is clear
 --| of it, `foldOnce` holds the dots after it.
-theorem foldOnceHolds (dots: List Point) (marked: Point → Prop) (fold: Fold) (holds: Holds dots marked) (clear: (dot: Point) → marked dot → Clear fold dot):
+theorem foldOnceHolds (dots: List Point) (marked: Point → Prop) (fold: Fold) (holds: Holds dots marked) (clear: ∀ (dot: Point) => marked dot → Clear fold dot):
     Holds (foldOnce dots fold) (AfterFold fold marked) :=
   spot => {
     forward = member =>

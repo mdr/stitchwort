@@ -11,7 +11,7 @@ import Std (Bool, Eq, List, Nat, Void)
 theorem notBelow (x: Nat) (y: Nat) (h: x ≤ y): (y < x) = False := omega
 
 --| In a sorted list, at most k elements are below the one at index k.
-theorem countBelowSorted: (sorted: List Nat) → List.Sorted Nat.leq sorted → (k: Nat) → k < sorted.length →
+theorem countBelowSorted: ∀ (sorted: List Nat) => List.Sorted Nat.leq sorted → ∀ (k: Nat) => k < sorted.length →
     sorted.count (score => score < sorted.getOr k 0) ≤ k
   | [], s, k, h => Void.exfalso (Bool.falseNotTrue h)
   | [x, ..rest], s, Zero, h =>
@@ -23,7 +23,7 @@ theorem countBelowSorted: (sorted: List Nat) → List.Sorted Nat.leq sorted → 
     rewrite List.countCons rest x (score => score < rest.getOr k 0) in omega
 
 --| And at most length - 1 - k above it.
-theorem countAboveSorted: (sorted: List Nat) → List.Sorted Nat.leq sorted → (k: Nat) → k < sorted.length →
+theorem countAboveSorted: ∀ (sorted: List Nat) => List.Sorted Nat.leq sorted → ∀ (k: Nat) => k < sorted.length →
     sorted.count (score => sorted.getOr k 0 < score) + k + 1 ≤ sorted.length
   | [], s, k, h => Void.exfalso (Bool.falseNotTrue h)
   | [x, ..rest], s, Zero, h =>
@@ -57,7 +57,7 @@ theorem middleIsMiddle (scores: List Nat) (some: scores ≠ []): Middle scores (
   Both member (Both (omega) (omega))
 
 --| The scores that aren't above `a` and those that are make up the list.
-theorem countSplit (a: Nat): (xs: List Nat) → xs.count (score => not (a < score)) + xs.count (score => a < score) = xs.length
+theorem countSplit (a: Nat): ∀ (xs: List Nat) => xs.count (score => not (a < score)) + xs.count (score => a < score) = xs.length
   | [] => rfl
   | [x, ..rest] =>
     let split := countSplit a rest

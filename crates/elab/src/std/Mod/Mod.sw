@@ -22,8 +22,8 @@ theorem Mod.sizeNeZero (n: Nat): Mod.size n ≠ 0 := Nat.equalFalse (Mod.size n)
 
 --| Two numbers with the same value are equal: their proofs are too.
 theorem Mod.mkExt (n: Nat) (a: Nat) (b: Nat) (p: a < Mod.size n) (e: a = b):
-    (q: b < Mod.size n) → ({ value = a, isLt = p }: Mod n) = { value = b, isLt = q } :=
-  J (b' e' => (q': b' < Mod.size n) → ({ value = a, isLt = p }: Mod n) = { value = b', isLt = q' })
+    ∀ (q: b < Mod.size n) => ({ value = a, isLt = p }: Mod n) = { value = b, isLt = q } :=
+  J (b' e' => ∀ (q': b' < Mod.size n) => ({ value = a, isLt = p }: Mod n) = { value = b', isLt = q' })
     (q' => J (r e'' => ({ value = a, isLt = p }: Mod n) = { value = a, isLt = r }) rfl
       (Bool.uniqueEq (Nat.leq (Succ a) (Mod.size n)) True p q'))
     e
@@ -185,7 +185,7 @@ instance Mod.instOrd [n: Nat]: Ord (Mod n) := Ord.byKey ((i: Mod n) => i.value) 
 -- Conversions with `Fin`, the type of positions in a `Vec`.
 
 --| A number below n is below `Mod.size n`.
-theorem Mod.ltSize: (n: Nat) → (x: Nat) → x < n → x < Mod.size n
+theorem Mod.ltSize: ∀ (n x: Nat) => x < n → x < Mod.size n
   | Zero, x, h => Void.exfalso (Bool.falseNotTrue h)
   | Succ n, x, h => h
 
@@ -196,7 +196,7 @@ def Fin.toMod (i: Fin n): Mod n := { value = Fin.toNat i, isLt = Mod.ltSize n (F
 def Mod.toFin [auto ok: n ≠ 0] (i: Mod n): Fin n :=
   Fin.ofNatLt n i.value (Mod.ltOfNeZero n i.value ok i.isLt)
 
-theorem Mod.ltOfNeZero: (n: Nat) → (x: Nat) → n ≠ 0 → x < Mod.size n → x < n
+theorem Mod.ltOfNeZero: ∀ (n x: Nat) => n ≠ 0 → x < Mod.size n → x < n
   | Zero, x, ok, h => Void.exfalso (ok rfl)
   | Succ n, x, ok, h => h
 
@@ -237,7 +237,7 @@ theorem Mod.ofIntNeg [n: Nat] (x: Int): (Mod.ofInt (Int.neg (Mod.ofInt x: Mod n)
         (Eq.trans (Int.modNatModNeg x (Mod.size n) [ok := Mod.sizeNeZero n]) (Eq.sym (Mod.valueOfInt (Int.neg x))))))
 
 --| `Mod.neg` is `-` on the `Int`, wrapped.
-theorem Mod.subModEq (m: Nat): (v: Nat) → v < Succ m →
+theorem Mod.subModEq (m: Nat): ∀ (v: Nat) => v < Succ m →
     (Succ m - v) % Succ m = Int.modNat (Int.neg (OfNat v)) (Succ m)
   | Zero, h => Eq.trans (Nat.modSelf (Succ m)) (Eq.sym (Nat.modSmall 0 (Succ m) h))
   | Succ w, h =>

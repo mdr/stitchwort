@@ -10,11 +10,11 @@ import Aoc.Common.Proofs (parseGridComplete)
 import Aoc.Year2020.Day03 (..)
 import Std (Eq, Fail, List, NonEmptyList, Parse, Result, Text, Void)
 
-theorem ofCharSymbol: (square: Square) → Square.ofChar (symbol square) = square
+theorem ofCharSymbol: ∀ (square: Square) => Square.ofChar (symbol square) = square
   | Open => rfl
   | Tree => rfl
 
-theorem isSquareSymbol: (square: Square) → isSquare (symbol square) = True
+theorem isSquareSymbol: ∀ (square: Square) => isSquare (symbol square) = True
   | Open => rfl
   | Tree => rfl
 
@@ -29,7 +29,7 @@ theorem declinesSquare (input: List Char) (stops: Parse.CannotStart isSquare inp
       | [] => Parse.declinesSatisfyEnd _ _
       | [char, ..more] => Parse.declinesSatisfy _ _ char more (stops char more rfl))
 
-theorem allSquares: (row: List Square) → (row.map symbol).all isSquare = True
+theorem allSquares: ∀ (row: List Square) => (row.map symbol).all isSquare = True
   | [] => rfl
   | [kind, ..more] => rewrite isSquareSymbol kind in allSquares more
 

@@ -29,7 +29,7 @@ theorem fieldOrderValid (notes: Notes) (order: List Rule) (found: notes.fieldOrd
                         (allow ticket (validTicketValid notes ticket nearby valid)))))
     | False => Void.exfalso (Option.noneNotSome order found)
 
-theorem departureProductSpec: (order: List Rule) → (values: List Nat) → ({ values }: Ticket).departureProduct order = Spec.departureProduct order values
+theorem departureProductSpec: ∀ (order: List Rule) (values: List Nat) => ({ values }: Ticket).departureProduct order = Spec.departureProduct order values
   | [rule, ..order], [value, ..values] =>
     match departure: rule.field.startsWith "departure" with
       | True => rewrite List.productCons value _ in Eq.cong (rest => value * rest) (departureProductSpec order values)

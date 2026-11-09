@@ -14,7 +14,7 @@ import Std (Bool, DecEq, Eq, Fail, List, NonEmptyList, Parse, Result, Text, Void
 --| The characters a layout is drawn with.
 def isSeatChar (char: Char): Bool := char == '.' ∨ char == 'L' ∨ char == '#'
 
-theorem isSeatCharSymbol: (kind: Seat) → isSeatChar (symbol kind) = True
+theorem isSeatCharSymbol: ∀ (kind: Seat) => isSeatChar (symbol kind) = True
   | Floor => rfl
   | Empty => rfl
   | Occupied => rfl
@@ -40,7 +40,7 @@ theorem declinesSeat (input: List Char) (stops: Parse.CannotStart isSeatChar inp
         let stop := stops char more rfl
         Both (seatAbsent '.' char more rfl stop) (Both (seatAbsent 'L' char more rfl stop) (Both (seatAbsent '#' char more rfl stop) rfl)))
 
-theorem allSeats: (row: List Seat) → (row.map symbol).all isSeatChar = True
+theorem allSeats: ∀ (row: List Seat) => (row.map symbol).all isSeatChar = True
   | [] => rfl
   | [kind, ..more] => rewrite isSeatCharSymbol kind in allSeats more
 

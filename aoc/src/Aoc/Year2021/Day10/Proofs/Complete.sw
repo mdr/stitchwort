@@ -32,15 +32,15 @@ def tokenSteps: List Token → List (List Char, Token)
   | [] => []
   | [which, ..more] => [([which.char], which), ..tokenSteps more]
 
-theorem joinTokenSteps: (tokens: List Token) → Parse.joinReads (tokenSteps tokens) = tokens.map Token.char
+theorem joinTokenSteps: ∀ (tokens: List Token) => Parse.joinReads (tokenSteps tokens) = tokens.map Token.char
   | [] => rfl
   | [which, ..more] => rewrite joinTokenSteps more in rfl
 
-theorem stepTokens: (tokens: List Token) → Parse.stepValues (tokenSteps tokens) = tokens
+theorem stepTokens: ∀ (tokens: List Token) => Parse.stepValues (tokenSteps tokens) = tokens
   | [] => rfl
   | [which, ..more] => rewrite stepTokens more in rfl
 
-theorem tokenManyRuns: (tokens: List Token) → Parse.ManyRuns token (tokenSteps tokens) []
+theorem tokenManyRuns: ∀ (tokens: List Token) => Parse.ManyRuns token (tokenSteps tokens) []
   | [] => declinesTokenEnd
   | [which, ..more] =>
     Both (List.consNotNil which.char [])
@@ -51,7 +51,7 @@ theorem runsLine (chars: List Char) (tokens: List Token) (written: tokens.map To
   let runs := Parse.runsMany token (tokenSteps tokens) [] (tokenManyRuns tokens)
   rewrite joinTokenSteps tokens, stepTokens tokens, written at runs in runs
 
-theorem linesRun: (lines: List (List Token)) →
+theorem linesRun: ∀ (lines: List (List Token)) =>
     List.All2 (chars tokens => Parse.Runs (() => Parse.many token) chars [] tokens) (lines.map (tokens => tokens.map Token.char)) lines
   | [] => Trivial
   | [tokens, ..more] => Both (runsLine (tokens.map Token.char) tokens rfl) (linesRun more)

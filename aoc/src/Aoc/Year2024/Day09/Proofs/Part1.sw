@@ -11,7 +11,7 @@ import Std (Eq, List, Nat, Option, Void)
 def fileCount (blocks: List Block): Nat := (fileBlocks blocks).length
 
 --| Freeing the last file block keeps the disk's length.
-theorem lengthFreeLast: (blocks: List Block) → (freeLastFileBlock blocks).length = blocks.length
+theorem lengthFreeLast: ∀ (blocks: List Block) => (freeLastFileBlock blocks).length = blocks.length
   | [] => rfl
   | [block, ..rest] =>
     match later: lastFile rest with
@@ -19,7 +19,7 @@ theorem lengthFreeLast: (blocks: List Block) → (freeLastFileBlock blocks).leng
       | None => rfl
 
 --| No last file: every block is free.
-theorem noLastFile: (blocks: List Block) → lastFile blocks = None → blocks = List.replicate blocks.length Free
+theorem noLastFile: ∀ (blocks: List Block) => lastFile blocks = None → blocks = List.replicate blocks.length Free
   | [], none => rfl
   | [block, ..rest], none =>
     match later: lastFile rest with
@@ -30,7 +30,7 @@ theorem noLastFile: (blocks: List Block) → lastFile blocks = None → blocks =
           | Free => Eq.cong (Cons Free) (noLastFile rest later)
 
 --| No last file: no file blocks.
-theorem noFileBlocks: (blocks: List Block) → lastFile blocks = None → fileBlocks blocks = []
+theorem noFileBlocks: ∀ (blocks: List Block) => lastFile blocks = None → fileBlocks blocks = []
   | [], none => rfl
   | [block, ..rest], none =>
     match later: lastFile rest with
@@ -42,7 +42,7 @@ theorem noFileBlocks: (blocks: List Block) → lastFile blocks = None → fileBl
 
 --| The last file block is the last of the file blocks; freeing it leaves the
 --| others.
-theorem fileBlocksFreeLast: (blocks: List Block) → (id: Nat) → lastFile blocks = Some id →
+theorem fileBlocksFreeLast: ∀ (blocks: List Block) (id: Nat) => lastFile blocks = Some id →
     fileBlocks blocks = (fileBlocks (freeLastFileBlock blocks)).append [id]
   | [], id, found => Void.exfalso (Option.noneNotSome id found)
   | [block, ..rest], id, found =>
@@ -58,7 +58,7 @@ theorem fileBlocksFreeLast: (blocks: List Block) → (id: Nat) → lastFile bloc
           | Free => Void.exfalso (Option.noneNotSome id found)
 
 --| Some block is a file block exactly when there is a last file.
-theorem anyFileBlock: (blocks: List Block) → blocks.any (block => block.isFile) = (lastFile blocks).isSome
+theorem anyFileBlock: ∀ (blocks: List Block) => blocks.any (block => block.isFile) = (lastFile blocks).isSome
   | [] => rfl
   | [block, ..rest] =>
     rewrite anyFileBlock rest in
@@ -73,7 +73,7 @@ theorem anyFileBlock: (blocks: List Block) → blocks.any (block => block.isFile
             | Free => rfl
 
 --| More blocks to move than `fillFront` uses change nothing.
-theorem fillFrontAppend: (blocks: List Block) → (moving: List Nat) → (extra: List Nat) → (count: Nat) → count ≤ moving.length →
+theorem fillFrontAppend: ∀ (blocks: List Block) (moving extra: List Nat) (count: Nat) => count ≤ moving.length →
     fillFront blocks (moving.append extra) count = fillFront blocks moving count
   | blocks, moving, extra, Zero, enough => rfl
   | [], moving, extra, Succ count, enough => rfl
@@ -84,7 +84,7 @@ theorem fillFrontAppend: (blocks: List Block) → (moving: List Nat) → (extra:
 
 --| `fillFront` doesn't look past the first `count` blocks: freeing the last
 --| file block changes nothing when there are `count` file blocks before it.
-theorem fillFrontFreeLast: (blocks: List Block) → (moving: List Nat) → (count: Nat) → count ≤ fileCount (freeLastFileBlock blocks) →
+theorem fillFrontFreeLast: ∀ (blocks: List Block) (moving: List Nat) (count: Nat) => count ≤ fileCount (freeLastFileBlock blocks) →
     fillFront blocks moving count = fillFront (freeLastFileBlock blocks) moving count
   | blocks, moving, Zero, bound => rewrite lengthFreeLast blocks in rfl
   | [], moving, Succ count, bound => rfl
@@ -117,7 +117,7 @@ theorem compactFree (rest: List Block) (none: lastFile rest = None): compactBloc
   rewrite noFileBlocks rest none in Eq.cong (Cons Free) (Eq.sym (noLastFile rest none))
 
 --| Moves past a file block at the front happen behind it.
-theorem stepsPastFile (id: Nat) (rest: List Block): (moves: Nat) →
+theorem stepsPastFile (id: Nat) (rest: List Block): ∀ (moves: Nat) =>
     compactOneAtATime moves [FileBlock id, ..rest] = [FileBlock id, ..compactOneAtATime moves rest]
   | Zero => rfl
   | Succ moves =>
@@ -165,12 +165,12 @@ theorem fillNoGaps (blocks: List Block): hasGap (compactBlocks blocks) = False
         | None => rewrite compactFree rest later, anyFileBlock rest, later in rfl
 
 --| A block's part of the checksum, as the program and as the puzzle say it.
-theorem blockChecksumCorrect (position: Nat): (block: Block) → position * block.idOr 0 = (block.id.map (id => position * id)).getOrElse 0
+theorem blockChecksumCorrect (position: Nat): ∀ (block: Block) => position * block.idOr 0 = (block.id.map (id => position * id)).getOrElse 0
   | Free => Nat.mulZero position
   | FileBlock id => rfl
 
 --| The checksum's running pair after some blocks, from any starting total and position.
-theorem checksumFold: (blocks: List Block) → (total: Nat) → (position: Nat) →
+theorem checksumFold: ∀ (blocks: List Block) (total position: Nat) =>
     blocks.foldLeft (total, position) Disk.checksumStep
       = (total + (List.withIndexFrom position blocks).sumBy (pair => pair.fst * pair.snd.idOr 0), position + blocks.length)
   | [], total, position => rfl

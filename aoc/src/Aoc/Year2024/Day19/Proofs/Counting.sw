@@ -44,7 +44,7 @@ theorem matchingSucc (patterns: List Pattern) (count: Nat) (stripes: List Stripe
 
 --| The empty design is made one way, by no
 --| towels, however many are allowed.
-theorem matchingEmpty (patterns: List Pattern): (count: Nat) → matching patterns count [] = 1
+theorem matchingEmpty (patterns: List Pattern): ∀ (count: Nat) => matching patterns count [] = 1
   | Zero => rfl
   | Succ count =>
     rewrite matchingSucc patterns count [],

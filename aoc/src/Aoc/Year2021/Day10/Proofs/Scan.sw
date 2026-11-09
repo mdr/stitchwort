@@ -16,7 +16,7 @@ def continue (start: Scan) (rest: List Token): Scan :=
 
 --| Scanning two pieces is scanning the first, then the second from where it
 --| left off.
-theorem scanAppend: (stack: List Bracket) → (xs: List Token) → (ys: List Token) → scan stack (xs ++ ys) = continue (scan stack xs) ys
+theorem scanAppend: ∀ (stack: List Bracket) (xs ys: List Token) => scan stack (xs ++ ys) = continue (scan stack xs) ys
   | stack, [], ys => rfl
   | stack, [Opener bracket, ..rest], ys => scanAppend [bracket, ..stack] rest ys
   | [], [Closer bracket, ..rest], ys => rfl
@@ -56,7 +56,7 @@ theorem closeShape (start: List Token) (opener: Token) (piece: List Token) (clos
 
 --| If the scan from the open brackets of `frames` ends with none open,
 --| what was read and what is left make a balanced line.
-theorem framesBalanced (base: List Token): (frames: List (Bracket, List Token)) → AllBalanced base frames → (line: List Token) →
+theorem framesBalanced (base: List Token): ∀ (frames: List (Bracket, List Token)) => AllBalanced base frames → ∀ (line: List Token) =>
     scan (frames.map Pair.fst) line = Unclosed [] → Balanced (flatten base frames ++ line)
   | [], ok, [], h => rewrite List.appendNil base in ok
   | [(bracket, piece), ..frames], ok, [], h => cases
@@ -83,7 +83,7 @@ theorem framesBalanced (base: List Token): (frames: List (Bracket, List Token)) 
 theorem scanBalanced (line: List Token) (h: scan [] line = Unclosed []): Balanced line := framesBalanced [] [] Empty line h
 
 --| Closing every open bracket, innermost first, leaves none open.
-theorem closeAll: (stack: List Bracket) → scan stack (stack.map Closer) = Unclosed []
+theorem closeAll: ∀ (stack: List Bracket) => scan stack (stack.map Closer) = Unclosed []
   | [] => rfl
   | [bracket, ..below] => Eq.trans (closeTop bracket below (below.map Closer)) (closeAll below)
 

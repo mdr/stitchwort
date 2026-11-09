@@ -21,25 +21,25 @@ theorem increasesOverCons (x: Nat) (rest: List Nat) (y: Nat) (ys: List Nat):
 
 --| A list zipped with itself one place on is each element paired with the
 --| next.
-theorem zipNext (x: Nat): (xs: List Nat) → List.zip [x, ..xs] xs = List.zipWithNext [x, ..xs]
+theorem zipNext (x: Nat): ∀ (xs: List Nat) => List.zip [x, ..xs] xs = List.zipWithNext [x, ..xs]
   | [] => rfl
   | [y, ..rest] => Eq.cong (Cons (MkPair x y)) (zipNext y rest)
 
 --| Part 1 is the puzzle's count, for every list of depths.
-theorem part1Correct: (depths: List Nat) → solvePart1 depths = increases depths
+theorem part1Correct: ∀ (depths: List Nat) => solvePart1 depths = increases depths
   | [] => rfl
   | [x, ..xs] => rewrite zipNext x xs in rfl
 
 --| A list with a whole window at its start: the first window, then the
 --| windows of the rest.
-theorem windowsLong (m: Nat): (xs: List Nat) → m < xs.length →
+theorem windowsLong (m: Nat): ∀ (xs: List Nat) => m < xs.length →
     slidingWindows (Succ m) xs = [xs.take (Succ m), ..slidingWindows (Succ m) (xs.drop 1)]
   | [], h => Void.exfalso (Bool.falseNotTrue h)
   | [x, ..rest], h =>
     List.filterKeep _ _ _ (rewrite List.lengthTake rest m (omega [h]) in DecEq.refl (Succ m))
 
 --| A list shorter than a window has none.
-theorem windowsShort (m: Nat): (xs: List Nat) → xs.length ≤ m → slidingWindows (Succ m) xs = []
+theorem windowsShort (m: Nat): ∀ (xs: List Nat) => xs.length ≤ m → slidingWindows (Succ m) xs = []
   | [], h => rfl
   | [x, ..rest], h =>
     Eq.trans
@@ -55,7 +55,7 @@ theorem slideCompare (x: Nat) (shared: Nat) (y: Nat):
 
 --| Part 2, for windows of any size `Succ m`: comparing each measurement with
 --| the one `Succ m` places earlier counts the window sums that increase.
-theorem windowsCorrect (m: Nat): (depths: List Nat) → increasesOver (Succ m) depths = windowIncreases (Succ m) depths
+theorem windowsCorrect (m: Nat): ∀ (depths: List Nat) => increasesOver (Succ m) depths = windowIncreases (Succ m) depths
   | [] => rfl
   | [x, ..rest] =>
     match Nat.decLessThan m (List.length rest) with

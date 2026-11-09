@@ -975,14 +975,14 @@ theorem Parse.runFromOptionalTextNotThere (state: Parse.State) (expected: Text) 
 --| whatever follows it, `first`'s value; if it backs up, the rest.
 theorem Parse.runFromOneOfFromSome (state: Parse.State) (after: Parse.State) (first: () → {Parse} a) (next: () → {Parse} a)
     (rest: List (() → {Parse} a)) (value: a) (k: a → {Parse} b)
-    (succeeds: (choose: Option a → {Parse} a) → (finish: a → {Parse} b) →
+    (succeeds: ∀ (choose: Option a → {Parse} a) (finish: a → {Parse} b) =>
       Parse.runFrom state (() => finish (choose (Parse.optional first))) = Parse.runFrom after (() => finish (choose (Some value)))):
     Parse.runFrom state (() => k (Parse.oneOfFrom first [next, ..rest])) = Parse.runFrom after (() => k value) :=
   succeeds (found => Parse.valueOr found (() => Parse.oneOfFrom next rest)) k
 
 theorem Parse.runFromOneOfFromNone (state: Parse.State) (after: Parse.State) (first: () → {Parse} a) (next: () → {Parse} a)
     (rest: List (() → {Parse} a)) (k: a → {Parse} b)
-    (fails: (choose: Option a → {Parse} a) → (finish: a → {Parse} b) →
+    (fails: ∀ (choose: Option a → {Parse} a) (finish: a → {Parse} b) =>
       Parse.runFrom state (() => finish (choose (Parse.optional first))) = Parse.runFrom after (() => finish (choose None))):
     Parse.runFrom state (() => k (Parse.oneOfFrom first [next, ..rest])) = Parse.runFrom after (() => k (Parse.oneOfFrom next rest)) :=
   fails (found => Parse.valueOr found (() => Parse.oneOfFrom next rest)) k

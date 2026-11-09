@@ -10,7 +10,7 @@ import Aoc.Year2025.Day06.Spec (..)
 import Std (Eq, List, Nat, Text)
 
 --| From column s on, past every line's end, every column is blank.
-theorem blankFrom (lines: List Text): (m: Nat) → (s: Nat) → gridWidth lines ≤ s →
+theorem blankFrom (lines: List Text): ∀ (m s: Nat) => gridWidth lines ≤ s →
     List.all ((List.rangeFrom m s).map (column lines)) isBlank = True
   | Zero, s, h => rfl
   | Succ m, s, h =>
@@ -29,7 +29,7 @@ theorem blocksOver (lines: List Text) (n: Nat) (h: gridWidth lines ≤ n):
 
 --| Two worksheets with the same cells, column by column, parse to the same
 --| problems, whatever their lines' lengths.
-theorem parseWorksheetSameCells (lines: List Text) (other: List Text) (same: (c: Nat) → column other c = column lines c):
+theorem parseWorksheetSameCells (lines: List Text) (other: List Text) (same: ∀ (c: Nat) => column other c = column lines c):
     parseWorksheet other = parseWorksheet lines :=
   rewrite blocksOver other (Nat.max (gridWidth lines) (gridWidth other)) (Nat.leMaxRight (gridWidth lines) (gridWidth other)),
     blocksOver lines (Nat.max (gridWidth lines) (gridWidth other)) (Nat.leMaxLeft (gridWidth lines) (gridWidth other)),

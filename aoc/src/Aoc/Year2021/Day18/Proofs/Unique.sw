@@ -7,7 +7,7 @@ import Aoc.Year2021.Day18.Spec (IsSum, Leaf, ReducesTo, leaves)
 import Std (Eq, Exists, List, Nat, Option, Void)
 
 --| Reducing ends in one place.
-theorem reducesToUnique (b: List Leaf): (start: List Leaf) → (a: List Leaf) → ReducesTo start a → ReducesTo start b → a = b
+theorem reducesToUnique (b: List Leaf): ∀ (start a: List Leaf) => ReducesTo start a → ReducesTo start b → a = b
   | start, a, Reduced done, Reduced _ => rfl
   | start, a, Reduced done, Steps step _ => Void.exfalso (Option.noneNotSome _ (Eq.trans (Eq.sym done) step))
   | start, a, Steps step _, Reduced done => Void.exfalso (Option.noneNotSome _ (Eq.trans (Eq.sym done) step))
@@ -24,7 +24,7 @@ def headDepth: List Leaf → Nat
   | [leaf, .._] => leaf.depth
 
 --| A number's first leaf is at least as deep as the number.
-theorem leavesHead (depth: Nat): (number: Number) → (rest: List Leaf) →
+theorem leavesHead (depth: Nat): ∀ (number: Number) (rest: List Leaf) =>
     ∃ (first: Leaf) => ∃ (more: List Leaf) => leaves depth number ++ rest = [first, ..more] ∧ depth ≤ first.depth
   | Regular value, rest => Witness ({ value, depth }) (Witness rest (Both rfl omega))
   | Pair left right, rest =>
@@ -33,7 +33,7 @@ theorem leavesHead (depth: Nat): (number: Number) → (rest: List Leaf) →
         Witness first (Witness more (Both (rewrite List.appendAssoc (leaves (depth + 1) left) (leaves (depth + 1) right) rest in starts) omega))
 
 --| A number's leaves start a list in one way only.
-theorem leavesPrefix: (depth: Nat) → (x: Number) → (y: Number) → (rest1: List Leaf) → (rest2: List Leaf) → leaves depth x ++ rest1 = leaves depth y ++ rest2 →
+theorem leavesPrefix: ∀ (depth: Nat) (x y: Number) (rest1 rest2: List Leaf) => leaves depth x ++ rest1 = leaves depth y ++ rest2 →
     x = y ∧ rest1 = rest2
   | depth, Regular a, Regular b, rest1, rest2, same => Both (rewrite Eq.cong headValue same in rfl) (Eq.cong (xs => List.drop xs 1) same)
   | depth, Regular a, Pair left right, rest1, rest2, same =>

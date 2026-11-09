@@ -33,7 +33,7 @@ def partners (city: City) (antenna: Antenna): List (Position, Position) :=
 
 --| The program's pairs are the spec's.
 theorem pairsElim (city: City) (pair: (Position, Position)) (goal: Prop) (has: pair ∈ city.antennaPairs)
-    (use: (first: Antenna) → (second: Antenna) → first ∈ city.antennas → second ∈ city.antennas → sameFrequency first second = True →
+    (use: ∀ (first second: Antenna) => first ∈ city.antennas → second ∈ city.antennas → sameFrequency first second = True →
       (first.position, second.position) = pair → goal):
     goal :=
   List.anyElim (antenna => pair ∈ partners city antenna) goal city.antennas (List.memFlatMapElim (partners city) pair city.antennas has)
@@ -55,8 +55,8 @@ theorem pairsIntro (city: City) (first: Antenna) (second: Antenna) (firstIn: fir
 --| gives: when, for two antennas, `pick` gives exactly the points on the map
 --| that `holds`, the program's locations are the spec's.
 theorem locationsCorrect (city: City) (pick: (Position, Position) → List Position) (holds: Position → Position → Position → Bool)
-    (agree: (first: Antenna) → (second: Antenna) → first ∈ city.antennas → second ∈ city.antennas → sameFrequency first second = True →
-      (point: Position) → city.contains point = True → (point ∈ pick (first.position, second.position)) ↔ (holds point first.position second.position = True)):
+    (agree: ∀ (first second: Antenna) => first ∈ city.antennas → second ∈ city.antennas → sameFrequency first second = True →
+      ∀ (point: Position) => city.contains point = True → (point ∈ pick (first.position, second.position)) ↔ (holds point first.position second.position = True)):
     city.locations (city.antennaPairs.flatMap pick) = antinodeLocations city (point => twoAntennas city (holds point)) :=
   let found := city.antennaPairs.flatMap pick
   let isSpec := (point: Position) => twoAntennas city (holds point)

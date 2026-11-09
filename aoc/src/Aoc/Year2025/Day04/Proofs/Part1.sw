@@ -22,7 +22,7 @@ theorem rollsCells (rows: Vec (Vec Cell w) h): countRolls rows = List.sumBy (Lis
       := rewrite Vec.sumByGetOr _ Floor Cell.count
 
 --| What a round takes from one cell: 1 when it holds an accessible roll.
-theorem taken: (a: Cell) → (n: Nat) → Cell.count a - Cell.count (keep a (n + Cell.count a)) = Bool.toNat (a == Roll ∧ n < 4)
+theorem taken: ∀ (a: Cell) (n: Nat) => Cell.count a - Cell.count (keep a (n + Cell.count a)) = Bool.toNat (a == Roll ∧ n < 4)
   | Floor, n => rfl
   | Roll, n =>
     rewrite keepRemove Roll n in

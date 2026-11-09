@@ -48,19 +48,19 @@ theorem lastTracks (game: Game) (spoken: List Nat) (tracks: Tracks game spoken):
   match tracks with
     | Witness older (Both isSpoken rest) => rewrite isSpoken in rfl
 
-theorem iterateTurn (starting: Starting): (count: Nat) → (game: Game) → (Nat.iterate count starting.takeTurn game).turn = game.turn + count
+theorem iterateTurn (starting: Starting): ∀ (count: Nat) (game: Game) => (Nat.iterate count starting.takeTurn game).turn = game.turn + count
   | Zero, game => omega
   | Succ count, game => rewrite iterateTurn starting count (starting.takeTurn game) in omega
 
 --| `count` more turns keep the game playing, as long as they end by `turns`.
-theorem iteratePlaying (starting: Starting) (turns: Nat): (count: Nat) → (game: Game) →
+theorem iteratePlaying (starting: Starting) (turns: Nat): ∀ (count: Nat) (game: Game) =>
     Playing starting (starting.room turns) game → game.turn + count ≤ turns →
     Playing starting (starting.room turns) (Nat.iterate count starting.takeTurn game)
   | Zero, game, playing, short => playing
   | Succ count, game, playing, short =>
     iteratePlaying starting turns count (starting.takeTurn game) (takeTurnPlaying starting turns game playing (omega)) (omega)
 
-theorem numberSpokenSpec (starting: Starting): (turn: Nat) → starting.numberSpoken turn = Spec.numberSpoken starting.numbers.toList turn
+theorem numberSpokenSpec (starting: Starting): ∀ (turn: Nat) => starting.numberSpoken turn = Spec.numberSpoken starting.numbers.toList turn
   | Zero => rfl
   | Succ later =>
     let final := Nat.iterate later starting.takeTurn (Game.begin (starting.room (Succ later)) starting.numbers.head)

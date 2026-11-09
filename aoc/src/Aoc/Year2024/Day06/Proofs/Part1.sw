@@ -9,12 +9,12 @@ import Aoc.Year2024.Day06.Spec (..)
 import Std (Eq, List, Nat, Not, Option, Set, Void)
 
 --| Off the map, there is no route.
-theorem routeNone (lab: Lab): (steps: Nat) → route lab None steps = []
+theorem routeNone (lab: Lab): ∀ (steps: Nat) => route lab None steps = []
   | Zero => rfl
   | Succ steps => rfl
 
 --| Once she has left, more steps add nothing to the route.
-theorem routeAfterGone (lab: Lab): (steps: Nat) → (guard: Option Guard) → walk lab guard steps = None → (more: Nat) → steps ≤ more →
+theorem routeAfterGone (lab: Lab): ∀ (steps: Nat) (guard: Option Guard) => walk lab guard steps = None → ∀ (more: Nat) => steps ≤ more →
     route lab guard more = route lab guard steps
   | Zero, guard, gone, more, le => rewrite gone, routeNone lab more in rfl
   | Succ steps, None, gone, more, le => rewrite routeNone lab more in rfl
@@ -23,7 +23,7 @@ theorem routeAfterGone (lab: Lab): (steps: Nat) → (guard: Option Guard) → wa
     rewrite routeAfterGone lab steps (lab.step here) gone more le in rfl
 
 --| With budget enough to leave, the walk collects the route's positions.
-theorem patrolFromRoute (lab: Lab): (budget: Nat) → (guard: Guard) → (visited: Set Position) → walk lab (Some guard) budget = None →
+theorem patrolFromRoute (lab: Lab): ∀ (budget: Nat) (guard: Guard) (visited: Set Position) => walk lab (Some guard) budget = None →
     lab.patrolFrom guard visited budget = Some ((route lab (Some guard) budget).foldLeft visited (set key => set.insert key))
   | Zero, guard, visited, gone => Void.exfalso (Option.someNotNone guard gone)
   | Succ budget, guard, visited, gone =>
@@ -32,7 +32,7 @@ theorem patrolFromRoute (lab: Lab): (budget: Nat) → (guard: Guard) → (visite
       | Some next => patrolFromRoute lab budget next (visited.insert guard.position) gone
 
 --| A walk that collects anything leaves within its budget.
-theorem patrolFromGone (lab: Lab): (budget: Nat) → (guard: Guard) → (visited: Set Position) → (found: Set Position) →
+theorem patrolFromGone (lab: Lab): ∀ (budget: Nat) (guard: Guard) (visited found: Set Position) =>
     lab.patrolFrom guard visited budget = Some found → walk lab (Some guard) budget = None
   | Zero, guard, visited, found, collected => Void.exfalso (Option.noneNotSome found collected)
   | Succ budget, guard, visited, found, collected =>

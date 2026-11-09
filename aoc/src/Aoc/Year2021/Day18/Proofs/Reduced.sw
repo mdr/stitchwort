@@ -9,7 +9,7 @@ import Std (List, Nat, Option, Void)
 
 --| A number at most four pairs deep with nothing to split has its leaves
 --| inside at most four pairs and below 10.
-theorem leavesSmall (depth: Nat): (number: Number) → depth + height number ≤ 4 → split number = None →
+theorem leavesSmall (depth: Nat): ∀ (number: Number) => depth + height number ≤ 4 → split number = None →
     List.All (leaf => leaf.depth ≤ 4 ∧ leaf.value ≤ 9) (leaves depth number)
   | Regular value, shallow, none =>
     match small: Nat.leq 10 value with
@@ -26,7 +26,7 @@ theorem leavesSmall (depth: Nat): (number: Number) → depth + height number ≤
 
 --| A number whose leaves are inside at most four pairs is at most four
 --| pairs deep.
-theorem leavesShallow (depth: Nat): (number: Number) → List.All (leaf => leaf.depth ≤ 4 ∧ leaf.value ≤ 9) (leaves depth number) → depth + height number ≤ 4
+theorem leavesShallow (depth: Nat): ∀ (number: Number) => List.All (leaf => leaf.depth ≤ 4 ∧ leaf.value ≤ 9) (leaves depth number) → depth + height number ≤ 4
   | Regular value, small => And.left (And.left small)
   | Pair left right, small =>
     omega [

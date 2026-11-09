@@ -28,7 +28,7 @@ theorem goalOnFloor (level: Level): isWall level level.goal = False :=
 
 --| No placed monster stands on the start...
 theorem placeMonstersClear (level: Level) (start: Position):
-    (placed: List Monster) → (planned: List Monster) → Clear start placed → Clear start (placeMonsters level start placed planned)
+    ∀ (placed planned: List Monster) => Clear start placed → Clear start (placeMonsters level start placed planned)
   | placed, [], clear => clear
   | placed, [monster, ..rest], clear =>
     match picked: pickFree level [monster.position] start placed with
@@ -39,7 +39,7 @@ theorem placeMonstersClear (level: Level) (start: Position):
 
 --| ...or in a wall.
 theorem placeMonstersOnFloor (level: Level) (start: Position):
-    (placed: List Monster) → (planned: List Monster) → OnFloor level placed → OnFloor level (placeMonsters level start placed planned)
+    ∀ (placed planned: List Monster) => OnFloor level placed → OnFloor level (placeMonsters level start placed planned)
   | placed, [], onFloor => onFloor
   | placed, [monster, ..rest], onFloor =>
     match picked: pickFree level [monster.position] start placed with
@@ -52,7 +52,7 @@ theorem placeMonstersOnFloor (level: Level) (start: Position):
 def Fits (level: Level) (start: Position) (item: Item): Prop := isWall level item.position = False ∧ (item.position == start) = False
 
 theorem placeItemsFit (level: Level) (start: Position):
-    (placed: List Item) → (planned: List Item) → List.All (Fits level start) placed → List.All (Fits level start) (placeItems level start placed planned)
+    ∀ (placed planned: List Item) => List.All (Fits level start) placed → List.All (Fits level start) (placeItems level start placed planned)
   | placed, [], fit => fit
   | placed, [item, ..rest], fit =>
     match wall: isWall level item.position with

@@ -33,21 +33,21 @@ theorem frontOrOwn (box: Cell) (direction: Direction) (cell: Cell) (covered: cel
 --| A cell some boxes move into is free for them: not a wall, and every box
 --| covering it is in `group`, so moves too.
 def Clear (warehouse: Warehouse) (group: Set Cell) (cell: Cell): Prop :=
-  (warehouse.walls.contains cell = False) ∧ ((box: Cell) → warehouse.boxes.contains box = True → Covers box cell → group.contains box = True)
+  (warehouse.walls.contains cell = False) ∧ (∀ (box: Cell) => warehouse.boxes.contains box = True → Covers box cell → group.contains box = True)
 
 --| `group` is a set of boxes, and every cell one of them moves into is free.
 def GroupOk (warehouse: Warehouse) (direction: Direction) (group: Set Cell): Prop :=
-  (box: Cell) → group.contains box = True →
-    (warehouse.boxes.contains box = True) ∧ ((cell: Cell) → cell ∈ frontOf box direction → Clear warehouse group cell)
+  ∀ (box: Cell) => group.contains box = True →
+    (warehouse.boxes.contains box = True) ∧ (∀ (cell: Cell) => cell ∈ frontOf box direction → Clear warehouse group cell)
 
 --| `gather`'s invariant: every cell a box of `group` moves into is free, or
 --| still to be looked at in `pending`.
 def GatherInvariant (warehouse: Warehouse) (direction: Direction) (group: Set Cell) (pending: List Cell): Prop :=
-  (box: Cell) → group.contains box = True →
-    (warehouse.boxes.contains box = True) ∧ ((cell: Cell) → cell ∈ frontOf box direction → (cell ∈ pending) ∨ (Clear warehouse group cell))
+  ∀ (box: Cell) => group.contains box = True →
+    (warehouse.boxes.contains box = True) ∧ (∀ (cell: Cell) => cell ∈ frontOf box direction → (cell ∈ pending) ∨ (Clear warehouse group cell))
 
 theorem clearMono (warehouse: Warehouse) (group: Set Cell) (larger: Set Cell) (cell: Cell) (clear: Clear warehouse group cell)
-    (grows: (box: Cell) → group.contains box = True → larger.contains box = True): Clear warehouse larger cell :=
+    (grows: ∀ (box: Cell) => group.contains box = True → larger.contains box = True): Clear warehouse larger cell :=
   Both (And.left clear) (box boxed covers => grows box (And.right clear box boxed covers))
 
 --| `boxesAt` finds every box covering a cell, and nothing else.
@@ -72,9 +72,8 @@ theorem inBoxesAtCovers (warehouse: Warehouse) (box: Cell) (cell: Cell) (found: 
 
 --| What `gather` returns holds the group it started with, its boxes move
 --| only into free cells, and the cells it was asked to look at are free.
-theorem gatherOk (warehouse: Warehouse) (direction: Direction): (fuel: Nat) → (group: Set Cell) → (pending: List Cell) →
-    (result: Set Cell) → warehouse.gather direction group pending fuel = Some result → GatherInvariant warehouse direction group pending →
-    ((box: Cell) → group.contains box = True → result.contains box = True) ∧ ((GroupOk warehouse direction result) ∧ ((cell: Cell) → cell ∈ pending → Clear warehouse result cell))
+theorem gatherOk (warehouse: Warehouse) (direction: Direction): ∀ (fuel: Nat) (group: Set Cell) (pending: List Cell) (result: Set Cell) => warehouse.gather direction group pending fuel = Some result → GatherInvariant warehouse direction group pending →
+    (∀ (box: Cell) => group.contains box = True → result.contains box = True) ∧ ((GroupOk warehouse direction result) ∧ (∀ (cell: Cell) => cell ∈ pending → Clear warehouse result cell))
   | fuel, group, [], result, found, invariant =>
     rewrite <- Option.someInjective found in
       Both (box held => held)
@@ -94,9 +93,9 @@ theorem gatherOk (warehouse: Warehouse) (direction: Direction): (fuel: Nat) → 
         let found := warehouse.boxesAt cell |> .filter (box => !group.contains box)
         let larger := found.foldLeft group Set.insert
         let pending := found.flatMap (box => frontOf box direction) ++ rest
-        let grows: (box: Cell) → group.contains box = True → larger.contains box = True :=
+        let grows: ∀ (box: Cell) => group.contains box = True → larger.contains box = True :=
           box held => Iff.backward (Set.containsFoldInsertMap (x => x) found group box) (Inl held)
-        let newOrOld: (box: Cell) → larger.contains box = True → (group.contains box = True) ∨ (box ∈ found) :=
+        let newOrOld: ∀ (box: Cell) => larger.contains box = True → (group.contains box = True) ∨ (box ∈ found) :=
           box held =>
             match Iff.forward (Set.containsFoldInsertMap (x => x) found group box) held with
               | Inl old => Inl old
@@ -228,7 +227,7 @@ theorem moveWideCount (warehouse: Warehouse) (direction: Direction) (separate: W
       let ok := And.left (gatherStart warehouse direction (2 * warehouse.boxes.size + 1) group gathered)
       let moved := group.map (box => box.step direction)
       let stayed := warehouse.boxes.difference group
-      let apart: (position: Cell) → stayed.contains position = True → moved.contains position = False :=
+      let apart: ∀ (position: Cell) => stayed.contains position = True → moved.contains position = False :=
         position inStayed =>
           Bool.falseOfNotTrue (moved.contains position) (inMoved =>
             match Iff.forward (Set.containsMap group (box => box.step direction) position) inMoved with
@@ -380,18 +379,18 @@ theorem moveWideWalls (warehouse: Warehouse) (direction: Direction): (warehouse.
 --| After every move: the walls are where they were, nothing overlaps if
 --| nothing did at the start (so the robot is never on a wall or a box), and
 --| every box is whole.
-theorem moveAllWideWalls: (warehouse: Warehouse) → (moves: List Direction) → (warehouse.moveAllWide moves).walls = warehouse.walls
+theorem moveAllWideWalls: ∀ (warehouse: Warehouse) (moves: List Direction) => (warehouse.moveAllWide moves).walls = warehouse.walls
   | warehouse, [] => rfl
   | warehouse, [move, ..rest] => Eq.trans (moveAllWideWalls (warehouse.moveWide move) rest) (moveWideWalls warehouse move)
 
-theorem moveAllWideSeparate: (warehouse: Warehouse) → (moves: List Direction) → WideSeparate warehouse → WideSeparate (warehouse.moveAllWide moves)
+theorem moveAllWideSeparate: ∀ (warehouse: Warehouse) (moves: List Direction) => WideSeparate warehouse → WideSeparate (warehouse.moveAllWide moves)
   | warehouse, [], separate => separate
   | warehouse, [move, ..rest], separate => moveAllWideSeparate (warehouse.moveWide move) rest (moveWideSeparate warehouse move separate)
 
 theorem moveAllWideWhole (warehouse: Warehouse) (moves: List Direction) (separate: WideSeparate warehouse): Whole (warehouse.moveAllWide moves) :=
   wholeOfSeparate (warehouse.moveAllWide moves) (moveAllWideSeparate warehouse moves separate)
 
-theorem moveAllWideCount: (warehouse: Warehouse) → (moves: List Direction) → WideSeparate warehouse → boxCount (warehouse.moveAllWide moves) = boxCount warehouse
+theorem moveAllWideCount: ∀ (warehouse: Warehouse) (moves: List Direction) => WideSeparate warehouse → boxCount (warehouse.moveAllWide moves) = boxCount warehouse
   | warehouse, [], separate => rfl
   | warehouse, [move, ..rest], separate =>
     Eq.trans (moveAllWideCount (warehouse.moveWide move) rest (moveWideSeparate warehouse move separate)) (moveWideCount warehouse move separate)

@@ -16,7 +16,7 @@ theorem startsUnique (slice: Slice) (dimensions: Nat) (one: Set Cube) (other: Se
     backward = there => (starts cube).backward ((alsoStarts cube).forward there)
   })
 
-theorem cyclesUnique: (count: Nat) → (start: Set Cube) → (one: Set Cube) → (other: Set Cube) →
+theorem cyclesUnique: ∀ (count: Nat) (start one other: Set Cube) =>
     Spec.Cycles count start one → Spec.Cycles count start other → one = other
   | Zero, start, one, other, same, alsoSame => Eq.trans same (Eq.sym alsoSame)
   | Succ more, start, one, other, Witness next (Both cycle rest), Witness alsoNext (Both alsoCycle alsoRest) =>

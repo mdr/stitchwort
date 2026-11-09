@@ -85,17 +85,17 @@ def Maze.endReindeer (maze: Maze): List Reindeer := headings.map (facing => ({ p
 
 def Maze.startReindeer (maze: Maze): Reindeer := { position = maze.start, facing = East }
 
-theorem headingsComplete: (facing: Heading) → facing ∈ headings := cases
+theorem headingsComplete: ∀ (facing: Heading) => facing ∈ headings := cases
 
 --| A way of standing on an open tile is on the list.
-theorem Maze.holdsListed (maze: Maze): (reindeer: Reindeer) → maze.holds reindeer = True → reindeer ∈ maze.reindeer
+theorem Maze.holdsListed (maze: Maze): ∀ (reindeer: Reindeer) => maze.holds reindeer = True → reindeer ∈ maze.reindeer
   | { position, facing }, holds =>
     List.memFlatMapIntro (place => headings.map (way => ({ position = place, facing = way }: Reindeer))) position
       ({ position, facing }: Reindeer) maze.openTiles.toList (Map.memKeysOfContains maze.openTiles.items position holds)
       (List.memMap headings facing (headingsComplete facing) (way => ({ position, facing = way }: Reindeer)))
 
 --| What `forward` gives stands on an open tile...
-theorem Maze.forwardHolds (maze: Maze): (reindeer: Reindeer) → (next: Reindeer) → next ∈ maze.forward reindeer → maze.holds next = True
+theorem Maze.forwardHolds (maze: Maze): ∀ (reindeer next: Reindeer) => next ∈ maze.forward reindeer → maze.holds next = True
   | { position, facing }, next, member =>
     match stepped: position.step facing.toDirection with
       | None => Void.exfalso member
@@ -108,7 +108,7 @@ theorem Maze.forwardHolds (maze: Maze): (reindeer: Reindeer) → (next: Reindeer
               | Inr none => Void.exfalso none
 
 --| ...and so does what `backward` gives.
-theorem Maze.backwardHolds (maze: Maze): (reindeer: Reindeer) → (next: Reindeer) → next ∈ maze.backward reindeer → maze.holds next = True
+theorem Maze.backwardHolds (maze: Maze): ∀ (reindeer next: Reindeer) => next ∈ maze.backward reindeer → maze.holds next = True
   | { position, facing }, next, member =>
     match stepped: position.step facing.toDirection.opposite with
       | None => Void.exfalso member
@@ -121,8 +121,8 @@ theorem Maze.backwardHolds (maze: Maze): (reindeer: Reindeer) → (next: Reindee
               | Inr none => Void.exfalso none
 
 --| Steps onto open tiles and turns, from an open tile, end on one.
-theorem Maze.stepsHold (maze: Maze) (moved: List Reindeer) (movedHold: (other: Reindeer) → other ∈ moved → maze.holds other = True):
-    (reindeer: Reindeer) → maze.holds reindeer = True → (next: Reindeer) → (weight: Nat) →
+theorem Maze.stepsHold (maze: Maze) (moved: List Reindeer) (movedHold: ∀ (other: Reindeer) => other ∈ moved → maze.holds other = True):
+    ∀ (reindeer: Reindeer) => maze.holds reindeer = True → ∀ (next: Reindeer) (weight: Nat) =>
       (next, weight) ∈ (moved.map (other => (other, 1))) ++ reindeer.turns → maze.holds next = True
   | { position, facing }, holds, next, weight, edge =>
     match List.memAppend (next, weight) _ _ edge with

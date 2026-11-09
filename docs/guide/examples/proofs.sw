@@ -11,7 +11,7 @@ theorem zeroPlus (n: Nat): 0 + n = n := rfl
 -- end rfl
 
 -- begin induction
-theorem timesOne: (n: Nat) → n * 1 = n
+theorem timesOne: ∀ (n: Nat) => n * 1 = n
   | Zero => rfl
   | Succ k => Eq.cong Succ (timesOne k)
 -- end induction
@@ -21,7 +21,7 @@ def mapList (f: a → b): List a → List b
   | [] => []
   | [x, ..rest] => [f x, ..mapList f rest]
 
-theorem lengthMapList (f: a → b): (xs: List a) → (mapList f xs).length = xs.length
+theorem lengthMapList (f: a → b): ∀ (xs: List a) => (mapList f xs).length = xs.length
   | [] => rfl
   | [x, ..rest] => Eq.cong Succ (lengthMapList f rest)
 -- end lists
@@ -100,7 +100,7 @@ def sumFast (n: Nat): Nat :=
 
 -- What the loop computes, for any accumulator: the general statement is
 -- what makes the induction go through.
-theorem loopIsSum: (n: Nat) → (total: Nat) → sumFast.loop n total = total + sumTo n
+theorem loopIsSum: ∀ (n total: Nat) => sumFast.loop n total = total + sumTo n
   | Zero, total => rfl
   | Succ k, total => omega [loopIsSum k (total + Succ k)]
 

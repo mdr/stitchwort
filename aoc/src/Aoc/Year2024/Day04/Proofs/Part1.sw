@@ -160,7 +160,7 @@ def inDirection (grid: Grid) (direction: Direction): Nat :=
 --| Along one row, a count that is 0 in the first three columns and is
 --| `readsAt` three columns on adds up to the `readsAt` count.
 theorem columnsShifted (grid: Grid) (r: Nat) (r0: Nat) (c0: Nat) (r1: Nat) (c1: Nat) (r2: Nat) (c2: Nat) (r3: Nat) (c3: Nat) (count: Nat → Nat)
-    (early: (c: Nat) → c < 3 → count c = 0) (later: (c: Nat) → count (3 + c) = readsAt grid r c r0 c0 r1 c1 r2 c2 r3 c3):
+    (early: ∀ (c: Nat) => c < 3 → count c = 0) (later: ∀ (c: Nat) => count (3 + c) = readsAt grid r c r0 c0 r1 c1 r2 c2 r3 c3):
     List.sumBy (List.range 0 (width grid + 3)) count = List.sumBy (List.range 0 (width grid + 3)) (c => readsAt grid r c r0 c0 r1 c1 r2 c2 r3 c3) :=
   Eq.trans (List.sumByRangeSkipZeros 3 count (c => readsAt grid r c r0 c0 r1 c1 r2 c2 r3 c3) (width grid) early later)
     (Eq.sym (List.sumByRangeExtend (c => readsAt grid r c r0 c0 r1 c1 r2 c2 r3 c3) (width grid) (width grid + 3) omega
@@ -169,8 +169,8 @@ theorem columnsShifted (grid: Grid) (r: Nat) (r0: Nat) (c0: Nat) (r1: Nat) (c1: 
 --| The same for rows: a count that is 0 in the first three rows and is the
 --| `readsAt` count three rows on adds up to `everywhere`.
 theorem rowsShifted (grid: Grid) (r0: Nat) (c0: Nat) (r1: Nat) (c1: Nat) (r2: Nat) (c2: Nat) (r3: Nat) (c3: Nat) (count: Nat → Nat)
-    (early: (r: Nat) → r < 3 → count r = 0)
-    (later: (r: Nat) → count (3 + r) = List.sumBy (List.range 0 (width grid + 3)) (c => readsAt grid r c r0 c0 r1 c1 r2 c2 r3 c3)):
+    (early: ∀ (r: Nat) => r < 3 → count r = 0)
+    (later: ∀ (r: Nat) => count (3 + r) = List.sumBy (List.range 0 (width grid + 3)) (c => readsAt grid r c r0 c0 r1 c1 r2 c2 r3 c3)):
     List.sumBy (List.range 0 (height grid + 3)) count = everywhere grid r0 c0 r1 c1 r2 c2 r3 c3 :=
   let reads := (r: Nat) => List.sumBy (List.range 0 (width grid + 3)) (c => readsAt grid r c r0 c0 r1 c1 r2 c2 r3 c3)
   Eq.trans (List.sumByRangeSkipZeros 3 count reads (height grid) early later)

@@ -15,12 +15,12 @@ def stepsFrom (cavern: Cavern): (steps: Nat) → Cavern
   | Zero => cavern
   | Succ more => stepsFrom cavern.step more
 
-theorem stepsFromSucc: (steps: Nat) → (cavern: Cavern) → stepsFrom cavern (Succ steps) = (stepsFrom cavern steps).step
+theorem stepsFromSucc: ∀ (steps: Nat) (cavern: Cavern) => stepsFrom cavern (Succ steps) = (stepsFrom cavern steps).step
   | Zero, cavern => rfl
   | Succ steps, cavern => stepsFromSucc steps cavern.step
 
 --| The program's steps are a run...
-theorem programRun: (steps: Nat) → (cavern: Cavern) → Run cavern steps (stepsFrom cavern steps) (cavern.flashesIn steps)
+theorem programRun: ∀ (steps: Nat) (cavern: Cavern) => Run cavern steps (stepsFrom cavern steps) (cavern.flashesIn steps)
   | Zero, cavern => Start cavern
   | Succ steps, cavern =>
     let flashed := cavern.flashers.has
@@ -76,8 +76,8 @@ theorem zerosOfAllFlash (cavern: Cavern) (k: Nat) (spec: AllFlashIn cavern (Succ
                 | (at, level) => each at level member)))))
 
 --| The search from step k + 1, with no step up to k an all-flash step.
-theorem syncFound (cavern: Cavern) (answer: Nat): (m: Nat) → (k: Nat) →
-    ((earlier: Nat) → earlier < Succ k → ¬(AllFlashIn cavern earlier)) →
+theorem syncFound (cavern: Cavern) (answer: Nat): ∀ (m k: Nat) =>
+    (∀ (earlier: Nat) => earlier < Succ k → ¬(AllFlashIn cavern earlier)) →
     (stepsFrom cavern k).firstSync (Succ k) m = Some answer → Part2Answer cavern answer
   | Zero, k, noneBefore, found => Void.exfalso (Option.noneNotSome answer found)
   | Succ m, k, noneBefore, found =>
@@ -101,8 +101,8 @@ theorem part2Correct (cavern: Cavern) (answer: Nat) (found: cavern.solvePart2 = 
   syncFound cavern answer syncLimit 0 (earlier below flashes => Void.exfalso (omega [And.left flashes])) found
 
 --| The search from step k + 1 finding nothing in m steps.
-theorem syncNone (cavern: Cavern): (m: Nat) → (k: Nat) → (stepsFrom cavern k).firstSync (Succ k) m = None →
-    (number: Nat) → Succ k ≤ number → number ≤ k + m → ¬(AllFlashIn cavern number)
+theorem syncNone (cavern: Cavern): ∀ (m k: Nat) => (stepsFrom cavern k).firstSync (Succ k) m = None →
+    ∀ (number: Nat) => Succ k ≤ number → number ≤ k + m → ¬(AllFlashIn cavern number)
   | Zero, k, none, number, low, high, flashes => omega
   | Succ m, k, none, number, low, high, flashes =>
     match e: (stepsFrom cavern k).step.allZero with

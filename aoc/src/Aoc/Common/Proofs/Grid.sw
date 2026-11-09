@@ -43,7 +43,7 @@ theorem downAdjacent (row: Nat) (column: Nat): adjacent { row, column } { row = 
   Bool.orRight (Bool.andIntro (DecEq.refl column) (Bool.orLeft (DecEq.refl (row + 1))))
 
 --| A step reaches an adjacent position...
-theorem stepAdjacent: (position: Position) → (direction: Direction) → (next: Position) → position.step direction = Some next →
+theorem stepAdjacent: ∀ (position: Position) (direction: Direction) (next: Position) => position.step direction = Some next →
     adjacent position next = True
   | { row = Zero, column }, Up, next, stepped => Void.exfalso (Option.noneNotSome next stepped)
   | { row = Succ row, column }, Up, next, stepped => rewrite <- Option.someInjective stepped in upAdjacent row column
@@ -53,7 +53,7 @@ theorem stepAdjacent: (position: Position) → (direction: Direction) → (next:
   | { row, column = Succ column }, Left, next, stepped => rewrite <- Option.someInjective stepped in leftAdjacent row column
 
 --| A step back the opposite way returns to where it started.
-theorem stepOpposite: (position: Position) → (direction: Direction) → (next: Position) → position.step direction = Some next →
+theorem stepOpposite: ∀ (position: Position) (direction: Direction) (next: Position) => position.step direction = Some next →
     next.step direction.opposite = Some position
   | { row = Zero, column }, Up, next, stepped => Void.exfalso (Option.noneNotSome next stepped)
   | { row = Succ row, column }, Up, next, stepped => rewrite <- Option.someInjective stepped in rfl
@@ -63,7 +63,7 @@ theorem stepOpposite: (position: Position) → (direction: Direction) → (next:
   | { row, column = Succ column }, Left, next, stepped => rewrite <- Option.someInjective stepped in rfl
 
 --| ...and each adjacent position is a step away.
-theorem adjacentStep: (position: Position) → (next: Position) → adjacent position next = True →
+theorem adjacentStep: ∀ (position next: Position) => adjacent position next = True →
     ∃ (direction: Direction) => position.step direction = Some next
   | { row, column }, { row = r, column = c }, near =>
     Bool.orElim near
@@ -99,7 +99,7 @@ def directionTo (position: Position) (next: Position): Direction :=
   if next.row < position.row then Up else if position.row < next.row then Down else if position.column < next.column then Right else Left
 
 --| Each step goes the way it says.
-theorem directionOfStep: (position: Position) → (direction: Direction) → (next: Position) → position.step direction = Some next →
+theorem directionOfStep: ∀ (position: Position) (direction: Direction) (next: Position) => position.step direction = Some next →
     directionTo position next = direction
   | { row = Zero, column }, Up, next, stepped => Void.exfalso (Option.noneNotSome next stepped)
   | { row = Succ row, column }, Up, next, stepped => rewrite <- Option.someInjective stepped in cases
@@ -126,7 +126,7 @@ def directionIndex: Direction → Nat
   | Left => 3
 
 --| A direction whose index none of `others` has isn't one of them.
-theorem notMemDirections (direction: Direction): (others: List Direction) →
+theorem notMemDirections (direction: Direction): ∀ (others: List Direction) =>
     others.all (other => directionIndex other != directionIndex direction) = True → direction ∉ others
   | [], differ, member => member
   | [other, ..rest], differ, Inl same =>
@@ -155,7 +155,7 @@ def aroundBlock (r: Nat) (c: Nat): List Position :=
   List.range (r - 1) (r + 1 + 1) |> .flatMap (row => List.range (c - 1) (c + 1 + 1) |> .map (column => ({ row, column }: Position)))
 
 --| The positions around are touching...
-theorem aroundTouching: (at: Position) → (other: Position) → other ∈ at.around → touching at other = True
+theorem aroundTouching: ∀ (at other: Position) => other ∈ at.around → touching at other = True
   | { row = r, column = c }, { row = a, column = b }, member =>
     let (Both inBlock other) := List.memFilter (aroundBlock r c) (near => not (near.row == r && near.column == c)) member
     List.anyElim (row => ({ row = a, column = b }: Position) ∈ List.map (List.range (c - 1) (c + 1 + 1)) (column => ({ row, column }: Position)))
@@ -173,7 +173,7 @@ theorem aroundTouching: (at: Position) → (other: Position) → other ∈ at.ar
             touchingOfBounds r c a b (omega) (omega) (omega) (omega) other))
 
 --| ...and every touching position is around.
-theorem touchingAround: (at: Position) → (other: Position) → touching at other = True → other ∈ at.around
+theorem touchingAround: ∀ (at other: Position) => touching at other = True → other ∈ at.around
   | { row = r, column = c }, { row = a, column = b }, near =>
     List.memFilterIntro (aroundBlock r c) (near => not (near.row == r && near.column == c))
       (List.memFlatMapIntro (row => List.map (List.range (c - 1) (c + 1 + 1)) (column => ({ row, column }: Position))) a { row = a, column = b }
@@ -208,7 +208,7 @@ theorem aroundAtMost8 (at: Position): at.around.length ≤ 8 :=
 theorem centreDropped (centre: Position): not (centre.row == centre.row && centre.column == centre.column) = False :=
   rewrite DecEq.refl centre.row, DecEq.refl centre.column in rfl
 
-theorem atInBlock: (centre: Position) → centre ∈ aroundBlock centre.row centre.column
+theorem atInBlock: ∀ (centre: Position) => centre ∈ aroundBlock centre.row centre.column
   | { row = r, column = c } =>
     List.memFlatMapIntro (row => List.map (List.range (c - 1) (c + 1 + 1)) (column => ({ row, column }: Position))) r { row = r, column = c }
       (List.range (r - 1) (r + 1 + 1)) (((List.memRange r (r - 1) (r + 1 + 1)).backward (Both (omega) (Nat.leLessSucc r (r + 1) (omega)))))
@@ -226,6 +226,6 @@ theorem blockAtMost9 (r: Nat) (c: Nat): (aroundBlock r c).length ≤ 9 :=
     _ ≤ 9 := omega
 
 --| Threes added up over a list.
-theorem sumByThree: (xs: List a) → xs.sumBy (x => 3) = 3 * xs.length
+theorem sumByThree: ∀ (xs: List a) => xs.sumBy (x => 3) = 3 * xs.length
   | [] => omega
   | [x, ..rest] => rewrite List.sumByCons rest x (x => 3), sumByThree rest in omega

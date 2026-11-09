@@ -9,7 +9,7 @@ import Std (Bool, DecEq, Eq, Exists, List, Nat, Void)
 --| The scan of the start ending with `stack` open, and the scan of the rest
 --| from there stopping at `illegal`: that closer is the first illegal
 --| character of the whole line.
-theorem firstIllegalFrom (before: List Token) (illegal: Bracket): (stack: List Bracket) → scan [] before = Unclosed stack → (rest: List Token) →
+theorem firstIllegalFrom (before: List Token) (illegal: Bracket): ∀ (stack: List Bracket) => scan [] before = Unclosed stack → ∀ (rest: List Token) =>
     scan stack rest = Corrupted illegal → FirstIllegal (before ++ rest) (Closer illegal)
   | stack, open, [], h => cases
   | stack, open, [Opener bracket, ..rest], h =>
@@ -60,7 +60,7 @@ theorem firstIllegalUnique (line: List Token) (a: Token) (b: Token) (first: Firs
       match scanOfFirstIllegal line b second with
         | Witness y (Both isY stopsY) => rewrite isX, isY, corruptedInjective x y (Eq.trans (Eq.sym stopsX) stopsY) in rfl
 
-theorem pointsAgree: (bracket: Bracket) → syntaxPoints bracket = errorPoints bracket := cases
+theorem pointsAgree: ∀ (bracket: Bracket) => syntaxPoints bracket = errorPoints bracket := cases
 
 --| Each line's score is the spec's.
 theorem lineErrorScore (line: List Token): ErrorScore line (corruptionScore line) :=
@@ -69,7 +69,7 @@ theorem lineErrorScore (line: List Token): ErrorScore line (corruptionScore line
     | Unclosed stack => NotCorrupted (legalOfUnclosed line stack e)
 
 --| Part 1 is the total syntax error score, for every list of lines.
-theorem part1Correct: (lines: List (List Token)) → Part1Answer lines (solvePart1 lines)
+theorem part1Correct: ∀ (lines: List (List Token)) => Part1Answer lines (solvePart1 lines)
   | [] => NoLines
   | [line, ..rest] => rewrite List.sumByCons rest line corruptionScore in NextLine (lineErrorScore line) (part1Correct rest)
 

@@ -5,7 +5,7 @@
 --| `f` takes `n + 1` values below `n` at `0, …, n`, so two of them are equal.
 -- If none of the first `n` equals the last value, swap the values `n - 1`
 -- and `f n` in them: they are then all below `n - 1`.
-theorem Nat.pigeonhole: (n: Nat) → (f: Nat → Nat) → ((i: Nat) → i ≤ n → f i < n) →
+theorem Nat.pigeonhole: ∀ (n: Nat) (f: Nat → Nat) => (∀ (i: Nat) => i ≤ n → f i < n) →
     Exists Nat (i => Exists Nat (j => (i < j) ∧ ((j ≤ n) ∧ (f i = f j))))
   | Zero, f, small => Void.exfalso (omega [small 0 rfl])
   | Succ n, f, small =>
@@ -19,14 +19,14 @@ theorem Nat.pigeonhole: (n: Nat) → (f: Nat → Nat) → ((i: Nat) → i ≤ n 
                 (Both (omega)
                   (Both (Nat.leRefl (Succ n)) (DecEq.sound hit)))))
       | False =>
-        let missed: (i: Nat) → i ≤ n → f i ≠ f (Succ n) :=
+        let missed: ∀ (i: Nat) => i ≤ n → f i ≠ f (Succ n) :=
           i le same =>
             Bool.falseNotTrue
               (Eq.trans (Eq.sym found)
                 (List.anyOfMem (List.range 0 (Succ n)) (i => f i == f (Succ n)) i (rewrite same in DecEq.refl (f (Succ n)))
                   (List.memRangeFromIntro i (Succ n) 0 (Nat.zeroLe i) (omega [le]))))
         let swapped := (i: Nat) => if f i == n then f (Succ n) else f i
-        let swappedSmall: (i: Nat) → i ≤ n → swapped i < n :=
+        let swappedSmall: ∀ (i: Nat) => i ≤ n → swapped i < n :=
           i le =>
             match atLast: f i == n with
               | True =>

@@ -11,9 +11,9 @@ import Std (Bool, Char, Eq, Exists, Fail, List, NonEmptyList, Parse, Result, Set
 --| A person's line: at least one letter, all questions, and the person's
 --| answers hold those letters and no others.
 def PersonWritten (read: List Char) (person: Person): Prop :=
-  read ≠ [] ∧ read.all isQuestion = True ∧ ((question: Char) → person.answers.contains question = read.contains question)
+  read ≠ [] ∧ read.all isQuestion = True ∧ (∀ (question: Char) => person.answers.contains question = read.contains question)
 
-theorem eachLetters: (read: List Char) → (letters: List Char) → Parse.Each (letter char => letter = [char] ∧ isQuestion char = True) read letters →
+theorem eachLetters: ∀ (read letters: List Char) => Parse.Each (letter char => letter = [char] ∧ isQuestion char = True) read letters →
     read = letters ∧ letters.all isQuestion = True
   | read, [], each => Both each rfl
   | read, [letter, ..rest], Witness first (Witness after (Both split (Both (Both one question) more))) =>

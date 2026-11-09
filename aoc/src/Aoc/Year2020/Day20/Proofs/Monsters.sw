@@ -122,9 +122,9 @@ theorem roughnessExactly (image: Image) (monster: Image) (cells: List (List Nat)
   let rough := image.roughAt.toSet
   let covered := image.monsterPixels monster
   let free := (at: List Nat) => not (covered.contains at)
-  let roughCell: (at: List Nat) → at ∈ cells → rough.contains at = True :=
+  let roughCell: ∀ (at: List Nat) => at ∈ cells → rough.contains at = True :=
     at member => (Set.containsFromListIff image.roughAt at).backward ((roughAtIff image at).backward ((listed.right at).forward member))
-  let decides: (at: List Nat) → free at = True ↔ ¬Spec.Covered image monster at :=
+  let decides: ∀ (at: List Nat) => free at = True ↔ ¬Spec.Covered image monster at :=
     at => {
       forward = isFree => isCovered => Bool.falseNotTrue (Eq.trans (Eq.sym (Bool.notTrue _ isFree)) ((monsterPixelsIff image monster at).backward isCovered)),
       backward = notCovered =>
@@ -133,7 +133,7 @@ theorem roughnessExactly (image: Image) (monster: Image) (cells: List (List Nat)
           | False => rfl
     }
   let counted := List.countWithIff free decides cells answer
-  let subset: (at: List Nat) → covered.contains at = True → rough.contains at = True :=
+  let subset: ∀ (at: List Nat) => covered.contains at = True → rough.contains at = True :=
     at isCovered =>
       match (monsterPixelsIff image monster at).forward isCovered with
         | Witness row (Witness column (Witness r (Witness c (Both rowFits (Both columnFits (Both monsterAt (Both drawn same))))))) =>
@@ -172,7 +172,7 @@ theorem roughnessTurned (image: Image) (monster: Image) (found: image.monsterTur
 theorem rowCellsDistinct (row: Nat) (pixels: List Pixel):
     List.Distinct (pixels.withIndex.filterMap (match some | (column, Rough) => [row, column])) :=
   let f: (Nat, Pixel) → Option (List Nat) := match some | (column, Rough) => [row, column]
-  let hk: (cell: (Nat, Pixel)) → (at: List Nat) → f cell = Some at → at = [row, cell.fst] := cell at kept =>
+  let hk: ∀ (cell: (Nat, Pixel)) (at: List Nat) => f cell = Some at → at = [row, cell.fst] := cell at kept =>
     match cell with
       | (column, Rough) => Eq.sym (Option.someInjective kept)
       | (column, Calm) => Void.exfalso (Option.noneNotSome at kept)

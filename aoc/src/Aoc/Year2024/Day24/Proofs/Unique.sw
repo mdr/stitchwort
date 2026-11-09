@@ -8,7 +8,7 @@ import Aoc.Year2024.Day24.Spec (..)
 import Std (Bool, Eq, List, Nat, Void)
 
 --| With the names distinct, a name starts with one value.
-theorem initialUnique (wire: Wire) (first: Bool) (second: Bool): (pairs: List (Wire, Bool)) → List.Distinct (pairs.map .fst) →
+theorem initialUnique (wire: Wire) (first: Bool) (second: Bool): ∀ (pairs: List (Wire, Bool)) => List.Distinct (pairs.map .fst) →
     (wire, first) ∈ pairs → (wire, second) ∈ pairs → first = second
   | [], distinct, inFirst, inSecond => Void.exfalso inFirst
   | [pair, ..rest], Both fresh distinct, Inl isFirst, Inl isSecond => Eq.cong Pair.snd (Eq.trans (Eq.sym isFirst) isSecond)
@@ -19,7 +19,7 @@ theorem initialUnique (wire: Wire) (first: Bool) (second: Bool): (pairs: List (W
   | [pair, ..rest], Both fresh distinct, Inr inFirst, Inr inSecond => initialUnique wire first second rest distinct inFirst inSecond
 
 --| With the outputs distinct, a wire is the output of one gate.
-theorem gateUnique (first: Gate) (second: Gate): (gates: List Gate) → List.Distinct (gates.map .output) →
+theorem gateUnique (first: Gate) (second: Gate): ∀ (gates: List Gate) => List.Distinct (gates.map .output) →
     first ∈ gates → second ∈ gates → first.output = second.output → first = second
   | [], distinct, inFirst, inSecond, same => Void.exfalso inFirst
   | [gate, ..rest], Both fresh distinct, Inl isFirst, Inl isSecond, same => Eq.trans (Eq.sym isFirst) isSecond
@@ -30,7 +30,7 @@ theorem gateUnique (first: Gate) (second: Gate): (gates: List Gate) → List.Dis
   | [gate, ..rest], Both fresh distinct, Inr inFirst, Inr inSecond, same => gateUnique first second rest distinct inFirst inSecond same
 
 --| A wire carries at most one value.
-theorem carriesUnique (device: Device) (wellFormed: WellFormed device): (wire: Wire) → (first: Bool) → (second: Bool) →
+theorem carriesUnique (device: Device) (wellFormed: WellFormed device): ∀ (wire: Wire) (first second: Bool) =>
     Carries device wire first → Carries device wire second → first = second
   | wire, first, second, Starts inFirst, Starts inSecond => initialUnique wire first second device.initial wellFormed.right.left inFirst inSecond
   | wire, first, second, Starts inFirst, Fires gate wired onto left right leftCarries rightCarries output =>

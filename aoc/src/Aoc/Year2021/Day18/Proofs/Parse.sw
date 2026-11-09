@@ -10,7 +10,7 @@ import Std (Bool, Fail, List, Nat, Option, Result, Void)
 
 --| A number `reduced` accepts, inside at most four pairs, has its leaves
 --| inside at most four pairs and below 10.
-theorem reducedLeaves: (depth: Nat) → (number: Number) → depth ≤ 4 → reduced depth number = True →
+theorem reducedLeaves: ∀ (depth: Nat) (number: Number) => depth ≤ 4 → reduced depth number = True →
     List.All (leaf => leaf.depth ≤ 4 ∧ leaf.value ≤ 9) (leaves depth number)
   | depth, Regular value, shallow, small => Both (Both shallow omega) Trivial
   | depth, Pair left right, shallow, ok =>
@@ -20,7 +20,7 @@ theorem reducedLeaves: (depth: Nat) → (number: Number) → depth ≤ 4 → red
       (reducedLeaves (depth + 1) right (omega [Bool.andLeft ok]) (Bool.andRight parts))
 
 --| When `firstUnreduced` finds nothing, every number is reduced.
-theorem findUnreducedNone: (i: Nat) → (numbers: List Number) → List.findIndexFrom i (x => not (reduced 0 x)) numbers = None → List.All IsReduced numbers
+theorem findUnreducedNone: ∀ (i: Nat) (numbers: List Number) => List.findIndexFrom i (x => not (reduced 0 x)) numbers = None → List.All IsReduced numbers
   | i, [], _ => Trivial
   | i, [x, ..rest], none =>
     match e: reduced 0 x with

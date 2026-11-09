@@ -40,5 +40,5 @@ theorem part2Correct (input: Text) (list: FoodList) (parsed: Fail.toResult (() =
     (found: list.dangerousList = Some answer):
     (∃ (read: List Char) => ∃ (ending: List Char) =>
       input.toList = read ++ ending ∧ Spec.FoodListWritten read list ∧ ending.all (char => char == '\n' ∨ char == '\r') = True)
-      ∧ Spec.Part2 list answer ∧ ((other: Text) → Spec.Part2 list other → other = answer) :=
+      ∧ Spec.Part2 list answer ∧ (∀ (other: Text) => Spec.Part2 list other → other = answer) :=
   Both (parseWritten input list parsed) (Both (dangerousValid list answer found) (other => dangerousOnly list answer found other))

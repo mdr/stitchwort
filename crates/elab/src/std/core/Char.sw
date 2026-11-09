@@ -24,10 +24,10 @@ def Char.fromNat (n: Nat): Option Char := if h: Char.isScalar n = True then Some
 
 --| Characters with the same code are equal; the proof of `valid` doesn't matter.
 theorem Char.mkExt (a: Nat) (b: Nat) (p: Char.isScalar a = True) (e: a = b):
-    (q: Char.isScalar b = True) → MkChar a p = MkChar b q :=
-  J (b' e' => (q': Char.isScalar b' = True) → MkChar a p = MkChar b' q') (q' => rfl) e
+    ∀ (q: Char.isScalar b = True) => MkChar a p = MkChar b q :=
+  J (b' e' => ∀ (q': Char.isScalar b' = True) => MkChar a p = MkChar b' q') (q' => rfl) e
 
-theorem Char.ext: (x: Char) → (y: Char) → Char.toNat x = Char.toNat y → x = y
+theorem Char.ext: ∀ (x y: Char) => Char.toNat x = Char.toNat y → x = y
   | MkChar a p, MkChar b q, e => Char.mkExt a b p e q
 
 --| A decision whether two characters are equal, from one on their codes.

@@ -101,18 +101,18 @@ theorem List.keyMemAppendNewByRight [auto eq: DecEq k] (key: a → k) (xs: List 
 
 --| `differenceBy` keeps nothing when every key of `xs` is a key of `ys`.
 theorem List.differenceByCovered [auto eq: DecEq k] (xs: List a) (ys: List a) (key: a → k)
-    (covered: (x: a) → x ∈ xs → key x ∈ List.map ys key): List.differenceBy xs ys key = [] :=
+    (covered: ∀ (x: a) => x ∈ xs → key x ∈ List.map ys key): List.differenceBy xs ys key = [] :=
   List.filterNone (x => key x ∉ List.map ys key) xs (x m =>
     rewrite Decidable.toBoolOf (List.decMem (key x) (List.map ys key)) (covered x m) in rfl)
 
 --| `differenceBy` keeps everything when no key of `xs` is a key of `ys`.
 theorem List.differenceByDisjoint [auto eq: DecEq k] (xs: List a) (ys: List a) (key: a → k)
-    (apart: (x: a) → x ∈ xs → key x ∉ List.map ys key): List.differenceBy xs ys key = xs :=
+    (apart: ∀ (x: a) => x ∈ xs → key x ∉ List.map ys key): List.differenceBy xs ys key = xs :=
   List.filterAll (x => key x ∉ List.map ys key) xs (x m => List.notInOfNotMem (key x) (List.map ys key) (apart x m))
 
 --| `appendNewBy` adds nothing when `ys` has no new key.
 theorem List.appendNewByCovered [auto eq: DecEq k] (xs: List a) (ys: List a) (key: a → k)
-    (covered: (y: a) → y ∈ ys → key y ∈ List.map xs key): List.appendNewBy xs ys key = xs :=
+    (covered: ∀ (y: a) => y ∈ ys → key y ∈ List.map xs key): List.appendNewBy xs ys key = xs :=
   rewrite List.differenceByCovered ys xs key covered in List.appendNil xs
 
 --| `appendNewBy` is idempotent: a list merged with itself is itself, whatever

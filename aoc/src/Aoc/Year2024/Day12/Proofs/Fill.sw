@@ -13,14 +13,14 @@ import Std (And, Bool, DecEq, Decidable, Eq, Exists, Iff, List, Nat, Option, Or,
 --| to `start`, as is every position on the stack; and each neighbour a
 --| member pushed is a member or still on the stack.
 def FillState (garden: Garden) (plant: Char) (start: Position) (stack: List Position) (visited: Set Position) (members: List Position): Prop :=
-  ((position: Position) → (visited.contains position = True) ↔ (position ∈ members)) ∧ ((List.Distinct members) ∧ (((position: Position) → position ∈ members → (garden.plantAt position = Some plant) ∧ (Joined garden start position)) ∧ (((position: Position) → position ∈ stack → Joined garden start position) ∧ ((member: Position) → member ∈ members → (next: Position) → next ∈ garden.neighboursGrowing plant member →
+  (∀ (position: Position) => (visited.contains position = True) ↔ (position ∈ members)) ∧ ((List.Distinct members) ∧ ((∀ (position: Position) => position ∈ members → (garden.plantAt position = Some plant) ∧ (Joined garden start position)) ∧ ((∀ (position: Position) => position ∈ stack → Joined garden start position) ∧ (∀ (member: Position) => member ∈ members → ∀ (next: Position) => next ∈ garden.neighboursGrowing plant member →
     (next ∈ members) ∨ (next ∈ stack)))))
 
 --| What a fill returns: plots listed once, each growing `plant` and joined
 --| to `start`, with every neighbour growing `plant`; the members it started
 --| with, and the plots growing `plant` on its stack.
 def FillResult (garden: Garden) (plant: Char) (start: Position) (stack: List Position) (members: List Position) (result: List Position): Prop :=
-  (List.Distinct result) ∧ (((position: Position) → position ∈ result → (garden.plantAt position = Some plant) ∧ (Joined garden start position)) ∧ (((member: Position) → member ∈ result → (next: Position) → next ∈ garden.neighboursGrowing plant member → next ∈ result) ∧ (((position: Position) → position ∈ members → position ∈ result) ∧ ((position: Position) → position ∈ stack → garden.plantAt position = Some plant → position ∈ result))))
+  (List.Distinct result) ∧ ((∀ (position: Position) => position ∈ result → (garden.plantAt position = Some plant) ∧ (Joined garden start position)) ∧ ((∀ (member: Position) => member ∈ result → ∀ (next: Position) => next ∈ garden.neighboursGrowing plant member → next ∈ result) ∧ ((∀ (position: Position) => position ∈ members → position ∈ result) ∧ (∀ (position: Position) => position ∈ stack → garden.plantAt position = Some plant → position ∈ result))))
 
 --| Popping a position already visited, or not growing `plant`, keeps the
 --| state.
@@ -172,9 +172,9 @@ theorem fillFromStart (garden: Garden) (plant: Char) (start: Position):
 
 --| Every plot joined to a member of a closed list of plots is a member.
 theorem closedChain (garden: Garden) (plant: Char) (result: List Position)
-    (sound: (position: Position) → position ∈ result → garden.plantAt position = Some plant)
-    (closed: (member: Position) → member ∈ result → (next: Position) → next ∈ garden.neighboursGrowing plant member → next ∈ result):
-    (from: Position) → (chain: List Position) → (to: Position) → from ∈ result → isChain garden from chain to = True → to ∈ result
+    (sound: ∀ (position: Position) => position ∈ result → garden.plantAt position = Some plant)
+    (closed: ∀ (member: Position) => member ∈ result → ∀ (next: Position) => next ∈ garden.neighboursGrowing plant member → next ∈ result):
+    ∀ (from: Position) (chain: List Position) (to: Position) => from ∈ result → isChain garden from chain to = True → to ∈ result
   | from, [], to, member, same => rewrite <- DecEq.sound same in member
   | from, [next, ..rest], to, member, chained =>
     closedChain garden plant result sound closed next rest to

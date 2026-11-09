@@ -14,7 +14,7 @@ theorem largestIsLargest (areas: List Nat): Largest areas (largest areas) :=
   Both (other m => List.leFoldMax areas other 0 m) (largestInList areas)
 
 --| It is one of the areas, or 0 when there are none.
-theorem largestInList: (areas: List Nat) → (List.Mem (largest areas) areas) ∨ ((areas = []) ∧ (largest areas = 0))
+theorem largestInList: ∀ (areas: List Nat) => (List.Mem (largest areas) areas) ∨ ((areas = []) ∧ (largest areas = 0))
   | [] => Inr (Both rfl rfl)
   | [first, ..rest] =>
     match List.foldMaxMem [first, ..rest] 0 with

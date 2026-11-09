@@ -50,7 +50,7 @@ theorem roomsFitMem (rooms: List Area) (fit: RoomsFit rooms) (area: Area) (liste
 --| A property of every level `layOut` makes from rooms that fit, with the
 --| entrance and exit numbered below 6.
 def LaidOut (depth: Nat) (property: Level → Prop): Prop :=
-  (rooms: List Area) → (entranceIndex: Nat) → (exitIndex: Nat) → (extra: Nat) → entranceIndex < 6 → exitIndex < 6 → RoomsFit rooms →
+  ∀ (rooms: List Area) (entranceIndex exitIndex extra: Nat) => entranceIndex < 6 → exitIndex < 6 → RoomsFit rooms →
     property (layOut depth rooms entranceIndex exitIndex extra)
 
 --| Such a property holds of the level `generateLevel` makes, whatever its
@@ -79,7 +79,7 @@ theorem generatedLaidOut (depth: Nat) (property: Level → Prop) (laidOut: LaidO
 
 --| Whatever is true of every laid-out level is true of every level the game
 --| generates, for every seed and depth.
-theorem generatedHolds (property: Level → Prop) (laidOut: (depth: Nat) → LaidOut depth property) (seed: Nat) (depth: Nat):
+theorem generatedHolds (property: Level → Prop) (laidOut: ∀ (depth: Nat) => LaidOut depth property) (seed: Nat) (depth: Nat):
     property (Random.withSeed seed (() => generateLevel depth)).level :=
   let always := generatedLaidOut depth property (laidOut depth)
   withSeedAlways ((plan: Plan) => property plan.level) (() => generateLevel depth) (Effect.Always.tree _ _ always) seed

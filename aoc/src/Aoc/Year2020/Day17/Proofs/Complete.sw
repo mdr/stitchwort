@@ -33,7 +33,7 @@ theorem declinesCube (rest: List Char) (stops: Parse.CannotStart cubeChar rest):
         Both (stripDifferent '#' [] char more (Bool.orFalseLeft _ _ (stops char more rfl)))
           (Both (stripDifferent '.' [] char more (Bool.orFalseRight _ _ (stops char more rfl))) rfl))
 
-theorem allCubes: (states: List CubeState) → (states.map symbol).all cubeChar = True
+theorem allCubes: ∀ (states: List CubeState) => (states.map symbol).all cubeChar = True
   | [] => rfl
   | [state, ..more] => rewrite allCubes more in (match state with | Active => rfl | Inactive => rfl)
 

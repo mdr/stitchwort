@@ -6,7 +6,7 @@ import Std (Bool, DecEq, List, Nat, Void)
 theorem containsCons [auto eq: DecEq a] (x: a) (rest: List a) (wanted: a): [x, ..rest].contains wanted = (x == wanted ∨ rest.contains wanted) := rfl
 
 --| What the first `fewer` hold, the first `more` hold too.
-theorem containsTakeMono [auto eq: DecEq a] (wanted: a): (xs: List a) → (fewer: Nat) → (more: Nat) → fewer ≤ more →
+theorem containsTakeMono [auto eq: DecEq a] (wanted: a): ∀ (xs: List a) (fewer more: Nat) => fewer ≤ more →
     (xs.take fewer).contains wanted = True → (xs.take more).contains wanted = True
   | xs, Zero, more, le, there => Void.exfalso (Bool.falseNotTrue there)
   | [], Succ fewer, more, le, there => Void.exfalso (Bool.falseNotTrue there)

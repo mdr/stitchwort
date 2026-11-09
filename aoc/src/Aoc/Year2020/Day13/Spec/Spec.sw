@@ -47,7 +47,7 @@ def Departs (id: Nat) (time: Nat): Prop := ∃ (trips: Nat) => time = trips * id
 def Part1 (notes: Notes) (answer: Nat): Prop :=
   ∃ (id: Nat) => ∃ (departure: Nat) =>
     Listed id ∈ notes.schedule ∧ Departs id departure ∧ notes.earliest ≤ departure
-      ∧ ((other: Nat) → (time: Nat) → Listed other ∈ notes.schedule → Departs other time → notes.earliest ≤ time → departure ≤ time)
+      ∧ (∀ (other time: Nat) => Listed other ∈ notes.schedule → Departs other time → notes.earliest ≤ time → departure ≤ time)
       ∧ answer = id * (departure - notes.earliest)
 
 -- Part 2
@@ -63,4 +63,4 @@ def LinedUp: (schedule: List Slot) → (time: Nat) → Prop
 --| "What is the earliest timestamp such that all of the listed bus IDs
 --| depart at offsets matching their positions in the list?"
 def Part2 (notes: Notes) (answer: Nat): Prop :=
-  LinedUp notes.schedule answer ∧ ((time: Nat) → LinedUp notes.schedule time → answer ≤ time)
+  LinedUp notes.schedule answer ∧ (∀ (time: Nat) => LinedUp notes.schedule time → answer ≤ time)

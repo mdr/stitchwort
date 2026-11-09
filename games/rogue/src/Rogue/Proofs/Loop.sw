@@ -29,7 +29,7 @@ theorem turnEnd (seed: Nat) (state: State):
   rfl
 
 theorem turnValid (seed: Nat) (state: State) (valid: Valid state):
-    (keys: List Key) → Valid (Terminal.simulate keys (() => Random.withSeed seed (() => playTurn state))).snd
+    ∀ (keys: List Key) => Valid (Terminal.simulate keys (() => Random.withSeed seed (() => playTurn state))).snd
   | [] => resolveValid { seed = lcg seed / 65536 } state Quit valid
   | [key, ..rest] =>
     match isCommand: commandOf key with

@@ -13,7 +13,7 @@ import Std (Bool, Eq, Exists, Graph, List, Nat, Option, Void)
 --| (`complete`); they are what makes the search end. `Grid.graph` and
 --| `boxGraph` give them.
 def stepGraph (enter: Position → Option Nat) (states: List Position)
-    (complete: (position: Position) → (cost: Nat) → enter position = Some cost → position ∈ states): Graph Position := {
+    (complete: ∀ (position: Position) (cost: Nat) => enter position = Some cost → position ∈ states): Graph Position := {
   edges = position => stepEdges enter position,
   states,
   listed = position next weight edge => stepEdgesListed enter states complete position next weight edge
@@ -26,7 +26,7 @@ def stepEdges (enter: Position → Option Nat) (position: Position): List (Posit
 --| Each step leads to a position that can be entered, so to one of the
 --| states.
 theorem stepEdgesListed (enter: Position → Option Nat) (states: List Position)
-    (complete: (position: Position) → (cost: Nat) → enter position = Some cost → position ∈ states) (position: Position) (next: Position)
+    (complete: ∀ (position: Position) (cost: Nat) => enter position = Some cost → position ∈ states) (position: Position) (next: Position)
     (weight: Nat) (edge: (next, weight) ∈ stepEdges enter position): next ∈ states :=
   Exists.elim (List.anyMember _ position.neighbours (List.memFilterMapElim (other => enter other |> .map (cost => (other, cost))) (next, weight) position.neighbours edge))
     (other both =>
@@ -47,7 +47,7 @@ def boxGraph (height: Nat) (width: Nat) (cost: Position → Nat): Graph Position
   stepGraph (boxEnter height width cost) (positions height width) (position c found => boxEnterListed height width cost position c found)
 
 --| A position that can be entered is one of the box's.
-theorem boxEnterListed (height: Nat) (width: Nat) (cost: Position → Nat): (position: Position) → (c: Nat) →
+theorem boxEnterListed (height: Nat) (width: Nat) (cost: Position → Nat): ∀ (position: Position) (c: Nat) =>
     boxEnter height width cost position = Some c → position ∈ positions height width
   | position, c, found =>
     match inside: position.within height width with
@@ -55,7 +55,7 @@ theorem boxEnterListed (height: Nat) (width: Nat) (cost: Position → Nat): (pos
       | True => memPositionsOfWithin height width position inside
 
 --| A position within the box is one of its positions.
-theorem memPositionsOfWithin (height: Nat) (width: Nat): (position: Position) → position.within height width = True → position ∈ positions height width
+theorem memPositionsOfWithin (height: Nat) (width: Nat): ∀ (position: Position) => position.within height width = True → position ∈ positions height width
   | { row, column }, inside =>
     let below: row < height := Bool.andLeft inside
     let before: column < width := Bool.andRight inside
@@ -84,7 +84,7 @@ theorem cellsEnterListed (rows: List (List a)) (enter: Position → a → Option
     | Some x => List.memMap (cells rows) (position, x) (memCellsOfCellAt rows position x at) Pair.fst
 
 --| The cell at a position is one of the cells.
-theorem memCellsOfCellAt (rows: List (List a)): (position: Position) → (x: a) → cellAt rows position = Some x → (position, x) ∈ cells rows
+theorem memCellsOfCellAt (rows: List (List a)): ∀ (position: Position) (x: a) => cellAt rows position = Some x → (position, x) ∈ cells rows
   | { row, column }, x, found =>
     match r: rows.get row with
       | None => Void.exfalso (Option.noneNotSome x found)
@@ -105,7 +105,7 @@ def boxIndex (height: Nat) (width: Nat): Graph.Index Position := {
 }
 
 --| A position within the box is numbered below `height * width`.
-theorem boxIndexBelow (height: Nat) (width: Nat): (position: Position) → (number: Nat) →
+theorem boxIndexBelow (height: Nat) (width: Nat): ∀ (position: Position) (number: Nat) =>
     (if position.within height width then Some (position.row * width + position.column) else None) = Some number → number < height * width
   | { row, column }, number, numbered =>
     match inside: ({ row, column }: Position).within height width with
@@ -118,7 +118,7 @@ theorem boxIndexBelow (height: Nat) (width: Nat): (position: Position) → (numb
         omega [Option.someInjective numbered, rows, spread, before]
 
 --| Decoding a position's number gives the position back.
-theorem boxIndexRoundTrip (height: Nat) (width: Nat): (position: Position) → (number: Nat) →
+theorem boxIndexRoundTrip (height: Nat) (width: Nat): ∀ (position: Position) (number: Nat) =>
     (if position.within height width then Some (position.row * width + position.column) else None) = Some number →
       Some ({ row = number / width, column = number % width }: Position) = Some position
   | { row, column }, number, numbered =>

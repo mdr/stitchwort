@@ -16,7 +16,7 @@ def Makes (patterns: List Pattern) (towels: List Pattern) (design: Design): Prop
   (FromPatterns patterns towels) ∧ (laid towels = design.stripes)
 
 --| The spec's lists are of the patterns and no longer than `count`.
-theorem fromTowelLists (patterns: List Pattern): (count: Nat) → (towels: List Pattern) → towels ∈ towelLists patterns count →
+theorem fromTowelLists (patterns: List Pattern): ∀ (count: Nat) (towels: List Pattern) => towels ∈ towelLists patterns count →
     (FromPatterns patterns towels) ∧ (towels.length ≤ count)
   | Zero, towels, Inl empty => rewrite <- empty in Both Trivial (omega)
   | Zero, towels, Inr none => Void.exfalso none
@@ -32,7 +32,7 @@ theorem fromTowelLists (patterns: List Pattern): (count: Nat) → (towels: List 
             rewrite <- made in Both (Both firstMember restFacts.left) (omega [restFacts.right])))
 
 --| Every list of the patterns, no longer than `count`, is one of the spec's.
-theorem inTowelLists (patterns: List Pattern): (count: Nat) → (towels: List Pattern) → FromPatterns patterns towels → towels.length ≤ count →
+theorem inTowelLists (patterns: List Pattern): ∀ (count: Nat) (towels: List Pattern) => FromPatterns patterns towels → towels.length ≤ count →
     towels ∈ towelLists patterns count
   | Zero, [], from, short => Inl rfl
   | Succ count, [], from, short => Inl rfl
@@ -42,7 +42,7 @@ theorem inTowelLists (patterns: List Pattern): (count: Nat) → (towels: List Pa
       (List.memMap (towelLists patterns count) rest (inTowelLists patterns count rest restFrom (omega [short])) (Cons first)))
 
 --| There are no more towels than stripes.
-theorem towelsAtMostStripes (patterns: List Pattern): (towels: List Pattern) → FromPatterns patterns towels →
+theorem towelsAtMostStripes (patterns: List Pattern): ∀ (towels: List Pattern) => FromPatterns patterns towels →
     towels.length ≤ (laid towels).length
   | [], from => omega
   | [first, ..rest], Both firstMember restFrom =>
@@ -51,11 +51,11 @@ theorem towelsAtMostStripes (patterns: List Pattern): (towels: List Pattern) →
 --| Whether a list of lists has any (as `possible` asks).
 def hasSome (lists: List (List Pattern)): Bool := !lists.isEmpty
 
-theorem someMember: (lists: List (List Pattern)) → hasSome lists = True → Exists (List Pattern) (list => list ∈ lists)
+theorem someMember: ∀ (lists: List (List Pattern)) => hasSome lists = True → Exists (List Pattern) (list => list ∈ lists)
   | [], some => Void.exfalso (Bool.falseNotTrue some)
   | [first, ..rest], some => Witness first (Inl rfl)
 
-theorem memberSome: (lists: List (List Pattern)) → (list: List Pattern) → list ∈ lists → hasSome lists = True
+theorem memberSome: ∀ (lists: List (List Pattern)) (list: List Pattern) => list ∈ lists → hasSome lists = True
   | [], list, member => Void.exfalso member
   | [first, ..rest], list, member => rfl
 

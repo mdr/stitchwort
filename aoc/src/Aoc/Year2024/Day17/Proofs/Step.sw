@@ -7,7 +7,7 @@ import Aoc.Year2024.Day17.Spec (..)
 import Std (Bool, Eq, Exists, List, Nat, Option)
 
 --| The program's combo operands stand for what the puzzle's do.
-theorem comboAgrees (registers: Registers): (operand: Nat) → Option.map (Combo.decode operand) registers.value = comboValue registers operand
+theorem comboAgrees (registers: Registers): ∀ (operand: Nat) => Option.map (Combo.decode operand) registers.value = comboValue registers operand
   | 0 => rfl
   | 1 => rfl
   | 2 => rfl
@@ -26,7 +26,7 @@ theorem xorBitwise (x: Nat) (y: Nat): BitwiseXor x y (x.xor y) :=
 --| An instruction with a combo operand, made by `make`, does what `happens`
 --| says of the operand's value.
 theorem comboStep (machine: Machine) (operand: Nat) (make: Combo → Instruction) (after: Nat → Machine) (printed: Nat → Option Nat)
-    (executes: (combo: Combo) → machine.execute (make combo) = Next (after (machine.registers.value combo)) (printed (machine.registers.value combo))):
+    (executes: ∀ (combo: Combo) => machine.execute (make combo) = Next (after (machine.registers.value combo)) (printed (machine.registers.value combo))):
     WithCombo machine.registers operand
       (match Option.map (Combo.decode operand) make with
         | Some instruction => machine.execute instruction
@@ -41,7 +41,7 @@ theorem comboStep (machine: Machine) (operand: Nat) (make: Combo → Instruction
     | Some combo => rewrite Eq.sym agrees in executes combo
 
 --| Each opcode, with each operand, does what the puzzle says.
-theorem executesDecode (operand: Nat) (machine: Machine): (opcode: Nat) →
+theorem executesDecode (operand: Nat) (machine: Machine): ∀ (opcode: Nat) =>
     Executes opcode operand machine
       (match Instruction.decode opcode operand with
         | Some instruction => machine.execute instruction

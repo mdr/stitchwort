@@ -15,21 +15,21 @@ import Std (Bool, List, Nat)
 def Bounded (fish: List Nat): Prop := List.All (t => t ≤ 8) fish
 
 --| Copies of one element: all or none of them count.
-theorem countReplicate (x: Nat) (p: Nat → Bool): (n: Nat) → List.count (List.replicate n x) p = n * Bool.toNat (p x)
+theorem countReplicate (x: Nat) (p: Nat → Bool): ∀ (n: Nat) => List.count (List.replicate n x) p = n * Bool.toNat (p x)
   | Zero => rfl
   | Succ n => omega [List.countCons (List.replicate n x) x p, countReplicate x p n]
 
 --| Counting with a predicate that, at each element, counts as two others
 --| together.
-theorem countSum [p: Nat → Bool] [q: Nat → Bool] [r: Nat → Bool] (each: (t: Nat) → Bool.toNat (p t) = Bool.toNat (q t) + Bool.toNat (r t)):
-    (fish: List Nat) → fish.count p = fish.count q + fish.count r
+theorem countSum [p: Nat → Bool] [q: Nat → Bool] [r: Nat → Bool] (each: ∀ (t: Nat) => Bool.toNat (p t) = Bool.toNat (q t) + Bool.toNat (r t)):
+    ∀ (fish: List Nat) => fish.count p = fish.count q + fish.count r
   | [] => rfl
   | [x, ..xs] => omega [List.countCons xs x p, List.countCons xs x q, List.countCons xs x r, each x, countSum each xs]
 
 --| A day keeps every timer at most 8.
 theorem nextTimerBounded (t: Nat) (bounded: t ≤ 8): nextTimer t ≤ 8 := cases
 
-theorem replicateBounded: (n: Nat) → Bounded (List.replicate n 8)
+theorem replicateBounded: ∀ (n: Nat) => Bounded (List.replicate n 8)
   | Zero => Trivial
   | Succ n => Both rfl (replicateBounded n)
 
@@ -96,7 +96,7 @@ theorem oneTimer (x: Nat) (bounded: x ≤ 8):
     | Succ (Succ (Succ (Succ (Succ (Succ (Succ (Succ (Succ above)))))))) => omega
 
 --| The counts add up to the number of fish.
-theorem totalCounts: (fish: List Nat) → Bounded fish → Counts.total (Counts.ofTimers fish) = fish.length
+theorem totalCounts: ∀ (fish: List Nat) => Bounded fish → Counts.total (Counts.ofTimers fish) = fish.length
   | [], _ => rfl
   | [x, ..xs], bounded =>
     omega [
@@ -115,13 +115,13 @@ theorem totalCounts: (fish: List Nat) → Bounded fish → Counts.total (Counts.
 
 --| After any number of days, the program's counts are those of the
 --| puzzle's list.
-theorem iterateCounts: (days: Nat) → (fish: List Nat) → Bounded fish →
+theorem iterateCounts: ∀ (days: Nat) (fish: List Nat) => Bounded fish →
     Nat.iterate days Counts.nextDay (Counts.ofTimers fish) = Counts.ofTimers (afterDays days fish)
   | Zero, fish, _ => rfl
   | Succ days, fish, bounded =>
     rewrite <- countsNextDay fish bounded in iterateCounts days (nextDay fish) (nextDayBounded fish bounded)
 
-theorem afterDaysBounded: (days: Nat) → (fish: List Nat) → Bounded fish → Bounded (afterDays days fish)
+theorem afterDaysBounded: ∀ (days: Nat) (fish: List Nat) => Bounded fish → Bounded (afterDays days fish)
   | Zero, fish, bounded => bounded
   | Succ days, fish, bounded => afterDaysBounded days (nextDay fish) (nextDayBounded fish bounded)
 

@@ -15,7 +15,7 @@ theorem negSuccIs (steps: Nat): NegSucc steps = (Succ steps).toInt * -1 := rewri
 
 --| Moving `tiles` tiles one at a time is adding `tiles` and wrapping.
 theorem moveWrap (size: Nat) (x: Nat) (inside: x < size):
-    (tiles: Int) → move size tiles x = Int.modNat (x.toInt + tiles) size
+    ∀ (tiles: Int) => move size tiles x = Int.modNat (x.toInt + tiles) size
   | OfNat steps =>
     rewrite iterateWrap size 1 (forward size) (y below => Int.modNatSuccWrap size y below) steps x inside,
       (ring: x.toInt + steps.toInt * 1 = x.toInt + OfNat steps)
@@ -32,7 +32,7 @@ theorem secondWrap (space: Space) (velocity: Offset) (position: Position) (insid
 
 --| Seconds one at a time are wraps one at a time.
 theorem iterateSecond (space: Space) (velocity: Offset):
-    (seconds: Nat) → (position: Position) → space.contains position = True →
+    ∀ (seconds: Nat) (position: Position) => space.contains position = True →
       seconds.iterate (second space velocity) position = seconds.iterate (here => space.wrap here velocity) position
   | Zero, position, inside => rfl
   | Succ seconds, position, inside =>

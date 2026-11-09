@@ -68,7 +68,7 @@ theorem holderCandidate (list: FoodList) (holder: Allergen → Ingredient) (hold
 --| the same members, are the same list.
 theorem sameAlphabetical (order: List Allergen) (other: List Allergen) (orderDistinct: order.Distinct) (otherDistinct: other.Distinct)
     (orderAlphabetical: Spec.Alphabetical order) (otherAlphabetical: Spec.Alphabetical other)
-    (members: (allergen: Allergen) → allergen ∈ order ↔ allergen ∈ other): order = other :=
+    (members: ∀ (allergen: Allergen) => allergen ∈ order ↔ allergen ∈ other): order = other :=
   List.sortedEqOfMembers (first second => Ordering.isLessEq (Text.compare first.name second.name))
     (first second third => Ord.isLessEqTrans first.name second.name third.name)
     (first second before after => Allergen.ext first second (Ord.isLessEqAntisymm first.name second.name before after))

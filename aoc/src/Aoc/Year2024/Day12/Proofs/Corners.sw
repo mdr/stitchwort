@@ -19,19 +19,19 @@ def total: (n: Nat) → (f: Nat → Nat) → Nat
   | Zero, f => 0
   | Succ n, f => f 0 + total n (i => f (Succ i))
 
-theorem totalCong: (n: Nat) → (f: Nat → Nat) → (g: Nat → Nat) → ((i: Nat) → f i = g i) → total n f = total n g
+theorem totalCong: ∀ (n: Nat) (f g: Nat → Nat) => (∀ (i: Nat) => f i = g i) → total n f = total n g
   | Zero, f, g, agree => rfl
   | Succ n, f, g, agree => rewrite agree 0, totalCong n (i => f (Succ i)) (i => g (Succ i)) (i => agree (Succ i)) in rfl
 
-theorem totalAdd: (n: Nat) → (f: Nat → Nat) → (g: Nat → Nat) → total n (i => f i + g i) = total n f + total n g
+theorem totalAdd: ∀ (n: Nat) (f g: Nat → Nat) => total n (i => f i + g i) = total n f + total n g
   | Zero, f, g => rfl
   | Succ n, f, g => omega [totalAdd n (i => f (Succ i)) (i => g (Succ i))]
 
-theorem totalZero: (n: Nat) → (f: Nat → Nat) → ((i: Nat) → f i = 0) → total n f = 0
+theorem totalZero: ∀ (n: Nat) (f: Nat → Nat) => (∀ (i: Nat) => f i = 0) → total n f = 0
   | Zero, f, zero => rfl
   | Succ n, f, zero => omega [zero 0, totalZero n (i => f (Succ i)) (i => zero (Succ i))]
 
-theorem totalSnoc: (n: Nat) → (f: Nat → Nat) → total (Succ n) f = total n f + f n
+theorem totalSnoc: ∀ (n: Nat) (f: Nat → Nat) => total (Succ n) f = total n f + f n
   | Zero, f => omega
   | Succ n, f => omega [totalSnoc n (i => f (Succ i))]
 
@@ -46,7 +46,7 @@ theorem totalLater (n: Nat) (g: Nat → Nat): total (Succ n) (later g) + g n = t
 
 theorem totalEarlier (n: Nat) (g: Nat → Nat): total n (i => g (Succ i)) + g 0 = total n g + g n := omega [totalSnoc n g]
 
-theorem totalSwap: (n: Nat) → (k: Nat) → (f: Nat → Nat → Nat) → total n (r => total k (c => f r c)) = total k (c => total n (r => f r c))
+theorem totalSwap: ∀ (n k: Nat) (f: Nat → Nat → Nat) => total n (r => total k (c => f r c)) = total k (c => total n (r => f r c))
   | Zero, k, f => Eq.sym (totalZero k (c => 0) (c => rfl))
   | Succ n, k, f =>
     rewrite totalSwap n k (r => f (Succ r)) in Eq.sym (totalAdd k (c => f 0 c) (c => total n (r => f (Succ r) c)))
@@ -56,13 +56,13 @@ def previous (first: Bool) (b: Nat → Bool): Nat → Bool
   | Zero => first
   | Succ i => b i
 
-theorem previousShift (b: Nat → Bool) (first: Bool): (n: Nat) → previous (b 0) (i => b (Succ i)) n = previous first b (Succ n)
+theorem previousShift (b: Nat → Bool) (first: Bool): ∀ (n: Nat) => previous (b 0) (i => b (Succ i)) n = previous first b (Succ n)
   | Zero => rfl
   | Succ n => rfl
 
 --| Along a line, runs of `b` start where the one before isn't in `b`, and
 --| end where the one after isn't; the count differs only at the ends.
-theorem telescope: (n: Nat) → (b: Nat → Bool) → (first: Bool) →
+theorem telescope: ∀ (n: Nat) (b: Nat → Bool) (first: Bool) =>
     total n (i => Bool.toNat (b i ∧ ¬(previous first b i))) + Bool.toNat (first ∧ b 0)
       = total n (i => Bool.toNat (b i ∧ ¬(b (Succ i)))) + Bool.toNat (previous first b n ∧ b n)
   | Zero, b, first => rfl
@@ -169,29 +169,29 @@ def corners (inside: Nat → Nat → Bool) (row: Nat) (column: Nat): Nat :=
 
 --| One end of a run along a row: an outside corner of the plot, or an
 --| inside corner of the plot next to it along the row.
-theorem rowEndsSplit: (plot: Bool) → (out: Bool) → (side: Bool) → (sideOut: Bool) →
+theorem rowEndsSplit: ∀ (plot out side sideOut: Bool) =>
     Bool.toNat ((plot ∧ ¬out) ∧ ¬(side ∧ ¬sideOut)) = Bool.toNat (convex plot out side) + Bool.toNat (concave side sideOut plot out) :=
   cases
 
 --| One end of a run along a column, likewise.
-theorem columnEndsSplit: (plot: Bool) → (out: Bool) → (side: Bool) → (sideOut: Bool) →
+theorem columnEndsSplit: ∀ (plot out side sideOut: Bool) =>
     Bool.toNat ((plot ∧ ¬out) ∧ ¬(side ∧ ¬sideOut)) = Bool.toNat (convex plot side out) + Bool.toNat (concave side plot sideOut out) :=
   cases
 
 --| No inside corner without the horizontal neighbour, or the plot itself.
-theorem concaveNoHorizontal: (plot: Bool) → (vertical: Bool) → (diagonal: Bool) → concave plot vertical False diagonal = False
+theorem concaveNoHorizontal: ∀ (plot vertical diagonal: Bool) => concave plot vertical False diagonal = False
   | True, True, diagonal => rfl
   | True, False, diagonal => rfl
   | False, vertical, diagonal => rfl
 
-theorem concaveNoVertical: (plot: Bool) → (horizontal: Bool) → (diagonal: Bool) → concave plot False horizontal diagonal = False
+theorem concaveNoVertical: ∀ (plot horizontal diagonal: Bool) => concave plot False horizontal diagonal = False
   | True, horizontal, diagonal => rfl
   | False, horizontal, diagonal => rfl
 
 --| A plot's sections of fence above it that start or end a side are the
 --| corners on that side: outside corners of the plot, or inside corners of
 --| the plots either side of it.
-theorem cellUp (inside: Nat → Nat → Bool): (row: Nat) → (column: Nat) →
+theorem cellUp (inside: Nat → Nat → Bool): ∀ (row column: Nat) =>
     Bool.toNat (startUp inside row column) + Bool.toNat (endUp inside row column)
       = convexUpLeft inside row column + convexUpRight inside row column + later (concaveUpRight inside row) column
         + concaveUpLeft inside row (Succ column)
@@ -213,7 +213,7 @@ theorem cellUp (inside: Nat → Nat → Bool): (row: Nat) → (column: Nat) →
       rowEndsSplit (inside (Succ up) (Succ before)) (inside up (Succ before)) (inside (Succ up) (Succ (Succ before))) (inside up (Succ (Succ before)))
     ]
 
-theorem cellDown (inside: Nat → Nat → Bool) (row: Nat): (column: Nat) →
+theorem cellDown (inside: Nat → Nat → Bool) (row: Nat): ∀ (column: Nat) =>
     Bool.toNat (startDown inside row column) + Bool.toNat (endDown inside row column)
       = convexDownLeft inside row column + convexDownRight inside row column + later (concaveDownRight inside row) column
         + concaveDownLeft inside row (Succ column)
@@ -229,7 +229,7 @@ theorem cellDown (inside: Nat → Nat → Bool) (row: Nat): (column: Nat) →
     ]
 
 --| Likewise down a column, for fence left and right of a plot.
-theorem cellLeft (inside: Nat → Nat → Bool) (column: Nat): (row: Nat) →
+theorem cellLeft (inside: Nat → Nat → Bool) (column: Nat): ∀ (row: Nat) =>
     Bool.toNat (startLeft inside row column) + Bool.toNat (endLeft inside row column)
       = convexUpLeft inside row column + convexDownLeft inside row column + later (r => concaveDownLeft inside r column) row
         + concaveUpLeft inside (Succ row) column
@@ -244,7 +244,7 @@ theorem cellLeft (inside: Nat → Nat → Bool) (column: Nat): (row: Nat) →
       columnEndsSplit (inside (Succ up) column) (leftOf inside (Succ up) column) (inside (Succ (Succ up)) column) (leftOf inside (Succ (Succ up)) column)
     ]
 
-theorem cellRight (inside: Nat → Nat → Bool) (column: Nat): (row: Nat) →
+theorem cellRight (inside: Nat → Nat → Bool) (column: Nat): ∀ (row: Nat) =>
     Bool.toNat (startRight inside row column) + Bool.toNat (endRight inside row column)
       = convexUpRight inside row column + convexDownRight inside row column + later (r => concaveDownRight inside r column) row
         + concaveUpRight inside (Succ row) column
@@ -259,7 +259,7 @@ theorem cellRight (inside: Nat → Nat → Bool) (column: Nat): (row: Nat) →
       columnEndsSplit (inside (Succ up) column) (inside (Succ up) (Succ column)) (inside (Succ (Succ up)) column) (inside (Succ (Succ up)) (Succ column))
     ]
 
-theorem totalDouble: (n: Nat) → (f: Nat → Nat) → total n (i => 2 * f i) = 2 * total n f
+theorem totalDouble: ∀ (n: Nat) (f: Nat → Nat) => total n (i => 2 * f i) = 2 * total n f
   | Zero, f => rfl
   | Succ n, f => omega [totalDouble n (i => f (Succ i))]
 
@@ -420,8 +420,8 @@ theorem columnCorners (inside: Nat → Nat → Bool) (last: Nat) (column: Nat) (
 
 --| A finite region has as many corners as sides: nothing at row or column
 --| `Succ last`, so none beyond.
-theorem cornersEqualSides (inside: Nat → Nat → Bool) (last: Nat) (right: (row: Nat) → inside row (Succ last) = False)
-    (bottom: (column: Nat) → inside (Succ last) column = False):
+theorem cornersEqualSides (inside: Nat → Nat → Bool) (last: Nat) (right: ∀ (row: Nat) => inside row (Succ last) = False)
+    (bottom: ∀ (column: Nat) => inside (Succ last) column = False):
     total (Succ last) (row => total (Succ last) (column => corners inside row column))
       = total (Succ last) (row => total (Succ last) (column => starts inside row column)) :=
   let size := Succ last

@@ -20,12 +20,12 @@ def flashedAfter (cavern: Cavern): Nat → Flashed
   | Succ k => cavern.flashRound (flashedAfter cavern k)
 
 --| Only octopuses on the grid flash in any round.
-theorem onGridAfter (cavern: Cavern): (k: Nat) → OnGrid cavern ((flashedAfter cavern k).has)
+theorem onGridAfter (cavern: Cavern): ∀ (k: Nat) => OnGrid cavern ((flashedAfter cavern k).has)
   | Zero, q, flashes => onGridFlash cavern (_ _ => False) q flashes
   | Succ k, q, flashes => onGridFlash cavern (at level => 9 < energyWith (flashedAfter cavern k).lookup at level) q flashes
 
 --| Before the first round nobody has flashed.
-theorem noneAtStart (cavern: Cavern): (q: Position) → (flashedAfter cavern 0).has q = False
+theorem noneAtStart (cavern: Cavern): ∀ (q: Position) => (flashedAfter cavern 0).has q = False
   | q =>
     Eq.trans (hasFlash cavern (_ _ => False) q)
       (match cavern.grid.at q with
@@ -33,13 +33,13 @@ theorem noneAtStart (cavern: Cavern): (q: Position) → (flashedAfter cavern 0).
         | Some level => rfl)
 
 --| A spec energy grows with the flashers.
-theorem energyMono (cavern: Cavern) (f: Position → Bool) (g: Position → Bool) (fg: (q: Position) → f q = True → g q = True)
+theorem energyMono (cavern: Cavern) (f: Position → Bool) (g: Position → Bool) (fg: ∀ (q: Position) => f q = True → g q = True)
     (at: Position) (level: Nat): energyIn cavern f at level ≤ energyIn cavern g at level :=
   let more := neighboursMono cavern f g fg at
   omega
 
 --| Each round's flashers include the last round's.
-theorem grows (cavern: Cavern): (k: Nat) → (q: Position) →
+theorem grows (cavern: Cavern): ∀ (k: Nat) (q: Position) =>
     (flashedAfter cavern k).has q = True → (flashedAfter cavern (Succ k)).has q = True
   | Zero, q, flashes => Void.exfalso (Bool.falseNotTrue (Eq.trans (Eq.sym (noneAtStart cavern q)) flashes))
   | Succ k, q, flashes =>
@@ -49,7 +49,7 @@ theorem grows (cavern: Cavern): (k: Nat) → (q: Position) →
       roundIntro cavern (flashedAfter cavern (Succ k)) (onGridAfter cavern (Succ k)) q level (And.left both) (omega))
 
 --| Every round's flashers are inside every closed set.
-theorem belowClosed (cavern: Cavern) (other: Position → Bool) (closed: Closed cavern other): (k: Nat) → (q: Position) →
+theorem belowClosed (cavern: Cavern) (other: Position → Bool) (closed: Closed cavern other): ∀ (k: Nat) (q: Position) =>
     (flashedAfter cavern k).has q = True → other q = True
   | Zero, q, flashes => Void.exfalso (Bool.falseNotTrue (Eq.trans (Eq.sym (noneAtStart cavern q)) flashes))
   | Succ k, q, flashes =>
@@ -60,7 +60,7 @@ theorem belowClosed (cavern: Cavern) (other: Position → Bool) (closed: Closed 
 
 --| Round k + 1 adds nobody.
 def Stable (cavern: Cavern) (k: Nat): Prop :=
-  (q: Position) → (flashedAfter cavern (Succ k)).has q = True → (flashedAfter cavern k).has q = True
+  ∀ (q: Position) => (flashedAfter cavern (Succ k)).has q = True → (flashedAfter cavern k).has q = True
 
 --| A round after one that adds nobody adds nobody.
 theorem staysStable (cavern: Cavern) (k: Nat) (stable: Stable cavern k): Stable cavern (Succ k)
@@ -88,7 +88,7 @@ theorem stableOfCount (cavern: Cavern) (k: Nat) (same: flashedCount cavern (Succ
         Void.exfalso (omega)
 
 --| After k rounds, k have flashed, or a round has added nobody.
-theorem stableOrCount (cavern: Cavern): (k: Nat) → (Stable cavern k) ∨ (k + 1 ≤ flashedCount cavern (Succ k))
+theorem stableOrCount (cavern: Cavern): ∀ (k: Nat) => (Stable cavern k) ∨ (k + 1 ≤ flashedCount cavern (Succ k))
   | Zero =>
     match Nat.decLessEq (flashedCount cavern 1) (flashedCount cavern 0) with
       | Yes same => Inl (stableOfCount cavern 0 same)
@@ -110,7 +110,7 @@ theorem stableAtSize (cavern: Cavern): Stable cavern (positions cavern).length :
       Void.exfalso (omega)
 
 --| ...nor any later one.
-theorem stableAbove (cavern: Cavern) (n: Nat) (stable: Stable cavern n): (k: Nat) → n ≤ k → Stable cavern k
+theorem stableAbove (cavern: Cavern) (n: Nat) (stable: Stable cavern n): ∀ (k: Nat) => n ≤ k → Stable cavern k
   | Zero, below, q, flashes => (rewrite (omega: n = 0) at stable in stable) q flashes
   | Succ k, below, q, flashes =>
     match Nat.decLessEq n k with
@@ -124,7 +124,7 @@ theorem cascadeStep (cavern: Cavern) (flashed: Flashed) (m: Nat):
 
 --| `cascade` from round k with `m` rounds to go stops at a round that adds
 --| nobody, or after all `m`.
-theorem cascadeAfter (cavern: Cavern): (m: Nat) → (k: Nat) →
+theorem cascadeAfter (cavern: Cavern): ∀ (m k: Nat) =>
     ∃ (j: Nat) => cavern.cascade (flashedAfter cavern k) m = flashedAfter cavern j ∧ ((Stable cavern j) ∨ (j = k + m))
   | Zero, k => Witness k (Both rfl (Inr (omega)))
   | Succ m, k =>

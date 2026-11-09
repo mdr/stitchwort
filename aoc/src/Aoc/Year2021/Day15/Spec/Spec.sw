@@ -9,7 +9,7 @@ import Std (Fin, List, Nat, Option)
 
 --| The puzzle's map: a rectangle of risk levels, with at least one. (The
 --| parser guarantees it; Proofs/Parse.sw.)
-def Rectangle (cave: Cave): Prop := 0 < cave.width ∧ ((row: List (Fin 10)) → row ∈ cave.grid.rows → row.length = cave.width)
+def Rectangle (cave: Cave): Prop := 0 < cave.width ∧ (∀ (row: List (Fin 10)) => row ∈ cave.grid.rows → row.length = cave.width)
 
 --| The risk level at a position: the digit in that row and column. A
 --| position off the map has none.
@@ -42,7 +42,7 @@ def totalRisk (levels: Position → Option Nat) (steps: List Position): Nat := s
 --| and none has less.
 def LowestRisk (levels: Position → Option Nat) (target: Position) (answer: Nat): Prop :=
   (∃ (steps: List Position) => isPath levels topLeft steps target = True ∧ totalRisk levels steps = answer)
-    ∧ ((steps: List Position) → isPath levels topLeft steps target = True → answer ≤ totalRisk levels steps)
+    ∧ (∀ (steps: List Position) => isPath levels topLeft steps target = True → answer ≤ totalRisk levels steps)
 
 --| Part 1: the lowest total risk through the cave.
 def Part1Answer (cave: Cave) (answer: Nat): Prop := LowestRisk (levelAt cave) (bottomRight cave.height cave.width) answer

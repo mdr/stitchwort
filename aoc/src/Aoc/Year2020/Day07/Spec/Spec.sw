@@ -59,7 +59,7 @@ def CanContain (rules: List Rule) (outer: Colour) (inner: Colour): Prop :=
 --| "How many bag colors can eventually contain at least one shiny gold
 --| bag?" There are `answer` of them, none counted twice.
 def Part1 (rules: List Rule) (answer: Nat): Prop :=
-  ∃ (colours: List Colour) => List.Distinct colours ∧ ((colour: Colour) → colour ∈ colours ↔ CanContain rules colour shinyGold) ∧ answer = colours.length
+  ∃ (colours: List Colour) => List.Distinct colours ∧ (∀ (colour: Colour) => colour ∈ colours ↔ CanContain rules colour shinyGold) ∧ answer = colours.length
 
 -- Part 2
 

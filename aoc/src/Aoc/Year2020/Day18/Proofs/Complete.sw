@@ -23,17 +23,17 @@ def size: Expression → Nat
 
 --| The levels hold every operator, a strength a level, from `strength` up.
 def Exact (strengthOf: Operator → Nat): (strength: Nat) → (levels: List (List Operator)) → Prop
-  | strength, [] => (operator: Operator) → strengthOf operator < strength
+  | strength, [] => ∀ (operator: Operator) => strengthOf operator < strength
   | strength, [operators, ..tighter] =>
-    ((operator: Operator) → (operator ∈ operators ↔ strengthOf operator = strength)) ∧ Exact strengthOf (strength + 1) tighter
+    (∀ (operator: Operator) => (operator ∈ operators ↔ strengthOf operator = strength)) ∧ Exact strengthOf (strength + 1) tighter
 
 --| What comes after an expression at `strength` doesn't continue it: no
 --| digit, and no operator binding at least as strongly.
 def Stop (strengthOf: Operator → Nat) (strength: Nat) (rest: List Char): Prop :=
   rest.takeWhile Parse.isDigit = []
-    ∧ ((operator: Operator) → (more: List Char) → rest = [' ', Spec.symbol operator, ' '] ++ more → strengthOf operator < strength)
+    ∧ (∀ (operator: Operator) (more: List Char) => rest = [' ', Spec.symbol operator, ' '] ++ more → strengthOf operator < strength)
 
-theorem symbolInjective: (one: Operator) → (other: Operator) → (Spec.symbol one == Spec.symbol other) = True → one = other
+theorem symbolInjective: ∀ (one other: Operator) => (Spec.symbol one == Spec.symbol other) = True → one = other
   | Plus, Plus, same => rfl
   | Plus, Times, same => Void.exfalso (Bool.falseNotTrue same)
   | Times, Plus, same => Void.exfalso (Bool.falseNotTrue same)
@@ -63,12 +63,12 @@ theorem stopClose (strengthOf: Operator → Nat) (rest: List Char): Stop strengt
 theorem stopNil (strengthOf: Operator → Nat): Stop strengthOf 0 [] :=
   Both rfl (other more same => Void.exfalso (List.nilNotCons _ _ same))
 
-theorem bindsZero (strengthOf: Operator → Nat): (expression: Expression) → Spec.BindsAtLeast strengthOf 0 expression
+theorem bindsZero (strengthOf: Operator → Nat): ∀ (expression: Expression) => Spec.BindsAtLeast strengthOf 0 expression
   | Number value => Trivial
   | Operation operator left right => Nat.zeroLe (strengthOf operator)
   | Parenthesised inner => Trivial
 
-theorem sizePositive: (expression: Expression) → size expression ≤ 0 → Void
+theorem sizePositive: ∀ (expression: Expression) => size expression ≤ 0 → Void
   | Number value, small => omega
   | Operation operator left right, small => omega
   | Parenthesised inner, small => omega
@@ -79,13 +79,13 @@ theorem sizePositive: (expression: Expression) → size expression ≤ 0 → Voi
 --| as an expression, with nothing after it that continues it, if it is
 --| shorter than `limit`.
 def SelfRuns (strengthOf: Operator → Nat) (self: () → {Parse} Expression) (limit: Nat): Prop :=
-  (nestedRead: List Char) → (nestedRest: List Char) → (w: Expression) → Spec.Written w nestedRead → Spec.Follows strengthOf w
+  ∀ (nestedRead nestedRest: List Char) (w: Expression) => Spec.Written w nestedRead → Spec.Follows strengthOf w
     → Stop strengthOf 0 nestedRest → nestedRead.length < limit → Parse.Runs self nestedRead nestedRest w
 
 --| The parser for a level reads `expression`, written as `read`, up to `rest`.
 def Complete (strengthOf: Operator → Nat) (self: () → {Parse} Expression) (limit: Nat) (levels: List (List Operator)) (strength: Nat)
     (expression: Expression): Prop :=
-  (read: List Char) → (rest: List Char) → read.length ≤ limit → Spec.Written expression read → Spec.Follows strengthOf expression
+  ∀ (read rest: List Char) => read.length ≤ limit → Spec.Written expression read → Spec.Follows strengthOf expression
     → Spec.BindsAtLeast strengthOf strength expression → Exact strengthOf strength levels → Stop strengthOf strength rest
     → Parse.Runs (() => level self levels) read rest expression
 
@@ -152,7 +152,7 @@ theorem runsOperandParen (strengthOf: Operator → Nat) (self: () → {Parse} Ex
 -- The operators
 
 --| `operator` is not `other`: the words differ.
-theorem absentOther: (one: Operator) → (other: Operator) → (one == other) = False → (rest: List Char) →
+theorem absentOther: ∀ (one other: Operator) => (one == other) = False → ∀ (rest: List Char) =>
     Text.stripPrefixChars one.spaced.toList (other.spaced.toList ++ rest) = None
   | Plus, Plus, different, rest => Void.exfalso (Bool.falseNotTrue (Eq.sym different))
   | Plus, Times, different, rest => rfl
@@ -165,12 +165,12 @@ def NotOperator (operator: Operator): List Operator → Prop
   | [other, ..more] => (other == operator) = False ∧ NotOperator operator more
 
 theorem notOperatorSnoc (operator: Operator) (other: Operator) (different: (other == operator) = False):
-    (before: List Operator) → NotOperator operator before → NotOperator operator (before ++ [other])
+    ∀ (before: List Operator) => NotOperator operator before → NotOperator operator (before ++ [other])
   | [], none => Both different Trivial
   | [first, ..more], Both here later => Both here (notOperatorSnoc operator other different more later)
 
 theorem wordsAbsentBefore (operator: Operator) (rest: List Char):
-    (before: List Operator) → NotOperator operator before →
+    ∀ (before: List Operator) => NotOperator operator before →
       Parse.WordsAbsent (operator.spaced.toList ++ rest) (before.map (other => (other.spaced, other)))
   | [], none => rfl
   | [other, ..more], Both different later => Both (absentOther other operator different rest) (wordsAbsentBefore operator rest more later)
@@ -178,7 +178,7 @@ theorem wordsAbsentBefore (operator: Operator) (rest: List Char):
 --| `target`, one of `operators`, none of `before` being it: the parser for `before ++ operators`
 --| reads its word and gives it.
 theorem runsOperatorFrom (target: Operator) (rest: List Char) (before: List Operator) (notBefore: NotOperator target before):
-    (operators: List Operator) → target ∈ operators →
+    ∀ (operators: List Operator) => target ∈ operators →
       Parse.Runs (() => operator (before ++ operators)) target.spaced.toList rest target
     := operators member =>
   match operators with
@@ -206,7 +206,7 @@ theorem runsOperator (target: Operator) (rest: List Char) (operators: List Opera
 
 --| No word of `operators` comes next, when no operator of the level does.
 theorem wordsAbsentAll (rest: List Char):
-    (operators: List Operator) → ((other: Operator) → other ∈ operators → Text.stripPrefixChars other.spaced.toList rest = None) →
+    ∀ (operators: List Operator) => (∀ (other: Operator) => other ∈ operators → Text.stripPrefixChars other.spaced.toList rest = None) →
       Parse.WordsAbsent rest (operators.map (other => (other.spaced, other)))
   | [], none => rfl
   | [first, ..more], absent => Both (absent first (Inl rfl)) (wordsAbsentAll rest more (other member => absent other (Inr member)))
@@ -239,18 +239,18 @@ def GoodSteps (strengthOf: Operator → Nat) (strength: Nat) (bound: Nat): List 
       ∧ GoodSteps strengthOf strength bound steps
 
 theorem goodStepsWeaken (strengthOf: Operator → Nat) (strength: Nat) (bound: Nat) (larger: Nat) (le: bound ≤ larger):
-    (steps: List (List Char, (Expression → Expression → Expression, Expression))) → GoodSteps strengthOf strength bound steps → GoodSteps strengthOf strength larger steps
+    ∀ (steps: List (List Char, (Expression → Expression → Expression, Expression))) => GoodSteps strengthOf strength bound steps → GoodSteps strengthOf strength larger steps
   | [], good => Trivial
   | [(read, (combine, right)), ..steps], Both (Witness operator (Witness rightRead (Both split (Both same (Both made (Both written (Both follows (Both binds small)))))))) later =>
     Both (Witness operator (Witness rightRead (Both split (Both same (Both made (Both written (Both follows (Both binds (omega [small, le])))))))))
       (goodStepsWeaken strengthOf strength bound larger le steps later)
 
-theorem joinReadsSnoc (read: List Char) (value: a): (steps: List (List Char, a)) →
+theorem joinReadsSnoc (read: List Char) (value: a): ∀ (steps: List (List Char, a)) =>
     Parse.joinReads (steps ++ [(read, value)]) = Parse.joinReads steps ++ read
   | [] => rewrite List.appendNil read in rfl
   | [(first, v), ..steps] => rewrite joinReadsSnoc read value steps, List.appendAssoc first (Parse.joinReads steps) read in rfl
 
-theorem stepValuesSnoc (read: List Char) (value: a): (steps: List (List Char, a)) →
+theorem stepValuesSnoc (read: List Char) (value: a): ∀ (steps: List (List Char, a)) =>
     Parse.stepValues (steps ++ [(read, value)]) = Parse.stepValues steps ++ [value]
   | [] => rfl
   | [(first, v), ..steps] => rewrite stepValuesSnoc read value steps in rfl
@@ -262,7 +262,7 @@ theorem chainFoldSnoc (start: Expression) (read: List Char) (combine: Expression
     List.foldLeftAppend (Parse.stepValues steps) start [(combine, right)] (left (c, r) => c left r)
 
 theorem goodStepsSnoc (strengthOf: Operator → Nat) (strength: Nat) (bound: Nat) (read: List Char) (combine: Expression → Expression → Expression) (right: Expression):
-    (steps: List (List Char, (Expression → Expression → Expression, Expression))) → GoodSteps strengthOf strength bound steps →
+    ∀ (steps: List (List Char, (Expression → Expression → Expression, Expression))) => GoodSteps strengthOf strength bound steps →
       (∃ (operator: Operator) => ∃ (rightRead: List Char) =>
         read = [' ', Spec.symbol operator, ' '] ++ rightRead
           ∧ strengthOf operator = strength
@@ -278,7 +278,7 @@ theorem goodStepsSnoc (strengthOf: Operator → Nat) (strength: Nat) (bound: Nat
 --| Every expression at a level is its first operand, binding more strongly, followed by a
 --| chain of steps, the parser's.
 theorem chainOf (strengthOf: Operator → Nat) (strength: Nat):
-    (expression: Expression) → (read: List Char) → Spec.Written expression read → Spec.Follows strengthOf expression
+    ∀ (expression: Expression) (read: List Char) => Spec.Written expression read → Spec.Follows strengthOf expression
       → Spec.BindsAtLeast strengthOf strength expression
       → ∃ (start: Expression) => ∃ (startRead: List Char) => ∃ (steps: List (List Char, (Expression → Expression → Expression, Expression))) =>
         expression = Parse.chainFold start (Parse.stepValues steps) ∧ read = startRead ++ Parse.joinReads steps ∧ Spec.Written start startRead
@@ -313,7 +313,7 @@ theorem chainOf (strengthOf: Operator → Nat) (strength: Nat):
 
 --| What follows the steps of a chain stops it at the next strength.
 theorem afterSteps (strengthOf: Operator → Nat) (strength: Nat) (bound: Nat) (rest: List Char) (stop: Stop strengthOf strength rest):
-    (steps: List (List Char, (Expression → Expression → Expression, Expression))) → GoodSteps strengthOf strength bound steps
+    ∀ (steps: List (List Char, (Expression → Expression → Expression, Expression))) => GoodSteps strengthOf strength bound steps
       → Stop strengthOf (strength + 1) (Parse.joinReads steps ++ rest)
   | [], good => stopUp strengthOf strength rest stop
   | [(read, (combine, right)), ..steps], Both (Witness operator (Witness rightRead (Both split (Both same rest2)))) later =>
@@ -323,10 +323,10 @@ theorem afterSteps (strengthOf: Operator → Nat) (strength: Nat) (bound: Nat) (
 
 --| The parser's chain steps run, for the steps of a chain, then decline.
 theorem runsSteps (strengthOf: Operator → Nat) (strength: Nat) (operators: List Operator) (term: () → {Parse} Expression) (limit: Nat) (bound: Nat)
-    (exactHere: (other: Operator) → (other ∈ operators ↔ strengthOf other = strength))
-    (termRuns: (right: Expression) → size right < bound → (rightRead: List Char) → (rest: List Char) → rightRead.length ≤ limit → Spec.Written right rightRead
+    (exactHere: ∀ (other: Operator) => (other ∈ operators ↔ strengthOf other = strength))
+    (termRuns: ∀ (right: Expression) => size right < bound → ∀ (rightRead rest: List Char) => rightRead.length ≤ limit → Spec.Written right rightRead
       → Spec.Follows strengthOf right → Spec.BindsAtLeast strengthOf (strength + 1) right → Stop strengthOf (strength + 1) rest → Parse.Runs term rightRead rest right):
-    (steps: List (List Char, (Expression → Expression → Expression, Expression))) → (rest: List Char) → GoodSteps strengthOf strength bound steps
+    ∀ (steps: List (List Char, (Expression → Expression → Expression, Expression))) (rest: List Char) => GoodSteps strengthOf strength bound steps
       → (Parse.joinReads steps).length ≤ limit → Stop strengthOf strength rest
       → Parse.ManyRuns (() => Parse.chainStep term (() => Operator.node (operator operators))) steps rest
   | [], rest, good, short, stop =>
@@ -356,8 +356,8 @@ theorem runsSteps (strengthOf: Operator → Nat) (strength: Nat) (operators: Lis
 --| Completeness one size up, given it for smaller expressions: by the
 --| levels, and at the last level by the operand.
 theorem levelInner (strengthOf: Operator → Nat) (self: () → {Parse} Expression) (limit: Nat) (selfRuns: SelfRuns strengthOf self limit) (bound: Nat)
-    (smaller: (levels: List (List Operator)) → (strength: Nat) → (expression: Expression) → size expression ≤ bound → Complete strengthOf self limit levels strength expression):
-    (levels: List (List Operator)) → (strength: Nat) → (expression: Expression) → size expression ≤ bound + 1 → Complete strengthOf self limit levels strength expression
+    (smaller: ∀ (levels: List (List Operator)) (strength: Nat) (expression: Expression) => size expression ≤ bound → Complete strengthOf self limit levels strength expression):
+    ∀ (levels: List (List Operator)) (strength: Nat) (expression: Expression) => size expression ≤ bound + 1 → Complete strengthOf self limit levels strength expression
     := levels =>
   match levels with
     | [] => strength expression small =>
@@ -386,7 +386,7 @@ theorem levelInner (strengthOf: Operator → Nat) (self: () → {Parse} Expressi
             Parse.runsChainLeft (() => level self tighter) (() => Operator.node (operator operators)) startRead start steps rest runsFirst manyRuns
 
 theorem levelComplete (strengthOf: Operator → Nat) (self: () → {Parse} Expression) (limit: Nat) (selfRuns: SelfRuns strengthOf self limit):
-    (bound: Nat) → (levels: List (List Operator)) → (strength: Nat) → (expression: Expression) → size expression ≤ bound → Complete strengthOf self limit levels strength expression
+    ∀ (bound: Nat) (levels: List (List Operator)) (strength: Nat) (expression: Expression) => size expression ≤ bound → Complete strengthOf self limit levels strength expression
     := bound =>
   match bound with
     | Zero => levels strength expression small => Void.exfalso (sizePositive expression small)
@@ -431,8 +431,8 @@ theorem parseComplete (input: Text) (precedence: Precedence) (strengthOf: Operat
 
 --| Lines that each mean one expression mean one list of them.
 theorem linesUnique (all: List (List Operator)) (strengthOf: Operator → Nat) (exactAll: Exact strengthOf 0 all):
-    (lines: List (List Char)) → (ones: List Expression) → (others: List Expression)
-      → List.All2 (Spec.Means strengthOf) lines ones → List.All2 (Spec.Means strengthOf) lines others → ones = others
+    ∀ (lines: List (List Char)) (ones others: List Expression)
+      => List.All2 (Spec.Means strengthOf) lines ones → List.All2 (Spec.Means strengthOf) lines others → ones = others
   | [], [], [], none, alsoNone => rfl
   | [line, ..lines], [one, ..ones], [other, ..others], Both means rest, Both alsoMeans alsoRest =>
     rewrite writtenUnique all strengthOf exactAll line one other means alsoMeans, linesUnique all strengthOf exactAll lines ones others rest alsoRest in rfl

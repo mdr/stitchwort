@@ -167,7 +167,7 @@ def Grid.width (grid: Grid a): Nat := firstWidth grid.rows
 theorem Grid.widthNonZero (grid: Grid a): grid.width ≠ 0 := same => DecEq.soundFalse grid.width 0 grid.nonEmpty same
 
 --| Every row is as long as the first.
-def Grid.Rectangle (grid: Grid a): Prop := (row: List a) → row ∈ grid.rows → row.length = grid.width
+def Grid.Rectangle (grid: Grid a): Prop := ∀ (row: List a) => row ∈ grid.rows → row.length = grid.width
 
 --| `Rectangle`, as a `Bool` that can be computed and searched
 --| (`Aoc.Common.Proofs.isRectangleIff`).
@@ -201,7 +201,7 @@ def Grid.step (grid: Grid a) (position: Position) (direction: Direction): Option
     | None => None
 
 --| Mapping the cells keeps the first row's length.
-theorem mapFirstWidth: (rows: List (List a)) → (f: Position → a → b) → firstWidth (mapCells rows f) = firstWidth rows
+theorem mapFirstWidth: ∀ (rows: List (List a)) (f: Position → a → b) => firstWidth (mapCells rows f) = firstWidth rows
   | [], f => rfl
   | [first, ..rest], f => List.lengthMapWithIndex first (c cell => f { row = 0, column = c } cell)
 

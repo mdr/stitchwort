@@ -83,7 +83,7 @@ def Key.ofParts (position: Nat) (char: Char): Key :=
     | 14 => Ctrl char
     | _ => Unknown
 
-theorem Key.fromParts: (key: Key) → Key.ofParts (Key.position key) (Key.charOrSpace key) = key
+theorem Key.fromParts: ∀ (key: Key) => Key.ofParts (Key.position key) (Key.charOrSpace key) = key
   | Printable char => rfl
   | Enter => rfl
   | Tab => rfl
@@ -273,7 +273,7 @@ def Key.isNamed: (key: Key) → Bool
   | Ctrl letter => False
   | _ => True
 
-theorem Key.nextBytes (rest: List Nat): (key: Key) → Key.isNamed key = True → Key.next (List.append (Key.bytes key) rest) = Got key rest
+theorem Key.nextBytes (rest: List Nat): ∀ (key: Key) => Key.isNamed key = True → Key.next (List.append (Key.bytes key) rest) = Got key rest
   | Printable char, h => Void.exfalso (Bool.falseNotTrue h)
   | Enter, h => rfl
   | Tab, h => rfl

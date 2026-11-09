@@ -11,7 +11,7 @@ theorem pastNever (target: Target) (probe: Probe) (h: past target probe = True) 
   pastOutside target _ (Nat.iterateKeeps step (q => past target q = True) (pastStays target) n probe h)
 
 --| What `hitsWithin` finds is there.
-theorem hitsWithinSound (target: Target): (steps: Nat) → (probe: Probe) → hitsWithin target steps probe = True →
+theorem hitsWithinSound (target: Target): ∀ (steps: Nat) (probe: Probe) => hitsWithin target steps probe = True →
     ∃ (n: Nat) => n ≤ steps ∧ inTarget target (Nat.iterate n step probe) = True
   | 0, probe, h => Witness 0 (Both (omega) h)
   | Succ steps, probe, h =>
@@ -25,7 +25,7 @@ theorem hitsWithinSound (target: Target): (steps: Nat) → (probe: Probe) → hi
               | Witness n (Both early inside) => Witness (Succ n) (Both (omega) inside)
 
 --| And it finds every hit within its steps.
-theorem hitsWithinComplete (target: Target): (steps: Nat) → (n: Nat) → (probe: Probe) → n ≤ steps → inTarget target (Nat.iterate n step probe) = True →
+theorem hitsWithinComplete (target: Target): ∀ (steps n: Nat) (probe: Probe) => n ≤ steps → inTarget target (Nat.iterate n step probe) = True →
     hitsWithin target steps probe = True
   | 0, 0, probe, early, h => h
   | Succ steps, 0, probe, early, h => rewrite h in rfl

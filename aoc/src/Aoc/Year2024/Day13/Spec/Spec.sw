@@ -44,10 +44,10 @@ def correctedMachine (machine: Machine): Machine := {
 --| for fewer.
 def Fewest (machine: Machine) (tokens: Nat): Prop :=
   (∃ (aPresses: Nat) => ∃ (bPresses: Nat) => winsPrize machine aPresses bPresses = True ∧ cost aPresses bPresses = tokens)
-    ∧ ((aPresses: Nat) → (bPresses: Nat) → winsPrize machine aPresses bPresses = True → tokens ≤ cost aPresses bPresses)
+    ∧ (∀ (aPresses bPresses: Nat) => winsPrize machine aPresses bPresses = True → tokens ≤ cost aPresses bPresses)
 
 --| "There is no combination of A and B presses that will ever win a prize."
-def Unwinnable (machine: Machine): Prop := (aPresses: Nat) → (bPresses: Nat) → winsPrize machine aPresses bPresses = False
+def Unwinnable (machine: Machine): Prop := ∀ (aPresses bPresses: Nat) => winsPrize machine aPresses bPresses = False
 
 --| The fewest tokens to win `machine`, or `None` when it can't be won.
 def IsFewest (machine: Machine): Option Nat → Prop
@@ -58,5 +58,5 @@ def IsFewest (machine: Machine): Option Nat → Prop
 --| corrected machine costs, for a `fewest` that is right about every one.
 def Part2Answer (machines: List Machine) (answer: Nat): Prop :=
   ∃ (fewest: Machine → Option Nat) =>
-    ((machine: Machine) → machine ∈ machines → IsFewest (correctedMachine machine) (fewest machine))
+    (∀ (machine: Machine) => machine ∈ machines → IsFewest (correctedMachine machine) (fewest machine))
       ∧ answer = machines.sumBy (machine => (fewest machine).getOrElse 0)

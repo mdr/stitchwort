@@ -44,17 +44,17 @@ def Nat.div (n: Nat) (divisor: Nat): Nat := Nat.divFuel n n divisor
 -- unfold into a hundred additions.
 def Nat.mod (n: Nat) (divisor: Nat): Nat := n - (n / divisor) * divisor
 
-theorem Nat.leSucc: (n: Nat) → n ≤ Succ n
+theorem Nat.leSucc: ∀ (n: Nat) => n ≤ Succ n
   | Zero => rfl
   | Succ n => Nat.leSucc n
 
-theorem Nat.leTrans: (a: Nat) → (b: Nat) → (c: Nat) → a ≤ b → b ≤ c → a ≤ c
+theorem Nat.leTrans: ∀ (a b c: Nat) => a ≤ b → b ≤ c → a ≤ c
   | Zero, b, c, h1, h2 => rfl
   | Succ a, Zero, c, h1, h2 => Void.exfalso (Bool.falseNotTrue h1)
   | Succ a, Succ b, Zero, h1, h2 => Void.exfalso (Bool.falseNotTrue h2)
   | Succ a, Succ b, Succ c, h1, h2 => Nat.leTrans a b c h1 h2
 
-theorem Nat.leRefl: (n: Nat) → n ≤ n
+theorem Nat.leRefl: ∀ (n: Nat) => n ≤ n
   | Zero => rfl
   | Succ n => Nat.leRefl n
 
@@ -65,12 +65,12 @@ theorem Nat.lessTrans (m: Nat) (n: Nat) (p: Nat) (h1: m < n) (h2: n < p): m < p 
 --| A bound on either side of a sum bounds the sum. These are the steps of the
 --| proofs generated for a nested type's `T.size` (an element of a list in a
 --| node is smaller than the node).
-theorem Nat.leAddOfLeLeft: (a: Nat) → (b: Nat) → (c: Nat) → a ≤ b → a ≤ b + c
+theorem Nat.leAddOfLeLeft: ∀ (a b c: Nat) => a ≤ b → a ≤ b + c
   | Zero, b, c, h => rfl
   | Succ a, Zero, c, h => Void.exfalso (Bool.falseNotTrue h)
   | Succ a, Succ b, c, h => Nat.leAddOfLeLeft a b c h
 
-theorem Nat.leAddOfLeRight: (a: Nat) → (b: Nat) → (c: Nat) → a ≤ c → a ≤ b + c
+theorem Nat.leAddOfLeRight: ∀ (a b c: Nat) => a ≤ c → a ≤ b + c
   | a, Zero, c, h => h
   | a, Succ b, c, h => Nat.leTrans a (b + c) (Succ (b + c)) (Nat.leAddOfLeRight a b c h) (Nat.leSucc (b + c))
 
@@ -92,10 +92,10 @@ type Nat.LexLess (a1: Nat) (a2: Nat) (b1: Nat) (b2: Nat): Prop =
 --| When the first number didn't get smaller, it stayed the same, so it's still
 --| below the first fuel; and the second got smaller.
 -- The fuel `decreasing (m1, m2)` compiles to takes these steps.
-theorem Nat.lexKeepsFirst: (a1: Nat) → (a2: Nat) → (b1: Nat) → (b2: Nat) → (k: Nat) → Nat.LexLess a1 a2 b1 b2 → ¬(a1 < b1) → b1 < k → a1 < k
+theorem Nat.lexKeepsFirst: ∀ (a1 a2 b1 b2 k: Nat) => Nat.LexLess a1 a2 b1 b2 → ¬(a1 < b1) → b1 < k → a1 < k
   | a1, a2, b1, b2, k, Nat.LexLess.First first, no, h => Void.exfalso (no first)
   | a1, a2, b1, b2, k, Nat.LexLess.Second same second, no, h => J (z q => z < k) h (Eq.sym same)
 
-theorem Nat.lexSecondLess: (a1: Nat) → (a2: Nat) → (b1: Nat) → (b2: Nat) → (k: Nat) → Nat.LexLess a1 a2 b1 b2 → ¬(a1 < b1) → b2 < Succ k → a2 < k
+theorem Nat.lexSecondLess: ∀ (a1 a2 b1 b2 k: Nat) => Nat.LexLess a1 a2 b1 b2 → ¬(a1 < b1) → b2 < Succ k → a2 < k
   | a1, a2, b1, b2, k, Nat.LexLess.First first, no, h => Void.exfalso (no first)
   | a1, a2, b1, b2, k, Nat.LexLess.Second same second, no, h => Nat.leTrans (Succ a2) b2 k second h

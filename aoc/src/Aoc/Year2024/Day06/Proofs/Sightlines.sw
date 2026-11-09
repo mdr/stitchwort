@@ -16,7 +16,7 @@ def isAt (row: Nat) (column: Nat) (position: Position): Bool := position.row == 
 --| Each row's set of columns, and each column's set of rows, holds the
 --| positions where `has` holds.
 def Represents (sightlines: Sightlines) (has: Position → Bool): Prop :=
-  (row: Nat) → (column: Nat) →
+  ∀ (row column: Nat) =>
     ((sightlines.byRow.getOr row Set.empty).contains column = has { row, column }) ∧ ((sightlines.byColumn.getOr column Set.empty).contains row = has { row, column })
 
 theorem lineAfterAdd (lines: Map Nat (Set Nat)) (line: Nat) (item: Nat) (key: Nat) (other: Nat):
@@ -33,7 +33,7 @@ theorem lineAfterAdd (lines: Map Nat (Set Nat)) (line: Nat) (item: Nat) (key: Na
 
 --| Adding an obstruction adds it to its row and column.
 theorem addRepresents (sightlines: Sightlines) (has: Position → Bool) (represents: Represents sightlines has):
-    (added: Position) → Represents (sightlines.add added) (position => isAt added.row added.column position || has position)
+    ∀ (added: Position) => Represents (sightlines.add added) (position => isAt added.row added.column position || has position)
   | { row = addedRow, column = addedColumn }, row, column =>
     let before := represents row column
     Both
@@ -42,12 +42,12 @@ theorem addRepresents (sightlines: Sightlines) (has: Position → Bool) (represe
 
 theorem orShift (a: Bool) (b: Bool) (c: Bool): ((a || b) || c) = (b || (if a then True else c)) := cases
 
-theorem representsCong [sightlines: Sightlines] [has: Position → Bool] [other: Position → Bool] (same: (position: Position) → has position = other position)
+theorem representsCong [sightlines: Sightlines] [has: Position → Bool] [other: Position → Bool] (same: ∀ (position: Position) => has position = other position)
     (represents: Represents sightlines has): Represents sightlines other :=
   row column => rewrite <- same { row, column } in represents row column
 
 --| Folding `add` over entries adds each of their keys.
-theorem foldRepresents: (entries: List (Position, ())) → (sightlines: Sightlines) → (has: Position → Bool) → Represents sightlines has →
+theorem foldRepresents: ∀ (entries: List (Position, ())) (sightlines: Sightlines) (has: Position → Bool) => Represents sightlines has →
     Represents (Map.Spec.foldLeft (acc key unit => Sightlines.add acc key) sightlines entries)
       (position => has position || entries.any (entry => isAt entry.fst.row entry.fst.column position))
   | [], sightlines, has, represents, row, column => representsCong (position => Eq.sym (Bool.orFalse (has position))) represents row column
@@ -57,7 +57,7 @@ theorem foldRepresents: (entries: List (Position, ())) → (sightlines: Sightlin
       (foldRepresents rest (sightlines.add key) (position => isAt key.row key.column position || has position) (addRepresents sightlines has represents key))
       row column
 
-theorem positionExt: (one: Position) → (other: Position) → one.row = other.row → one.column = other.column → one = other
+theorem positionExt: ∀ (one other: Position) => one.row = other.row → one.column = other.column → one = other
   | { row, column }, { row = otherRow, column = otherColumn }, rows, columns => rewrite rows, columns in rfl
 
 theorem isAtSelf (position: Position): isAt position.row position.column position = True :=
@@ -129,8 +129,8 @@ theorem walkFirst (lab: Lab) (guard: Guard) (next: Guard) (stepped: lab.step gua
 --| Facing up, with an obstruction above in the column and none between: she
 --| walks to just below it and turns right.
 theorem walkUpTurn (lab: Lab) (column: Nat) (obstruction: Nat) (blocked: lab.obstructions.contains { row = obstruction, column } = True):
-    (moves: Nat) → (row: Nat) → obstruction + Succ moves = row →
-      ((other: Nat) → obstruction < other → other < row → lab.obstructions.contains { row = other, column } = False) →
+    ∀ (moves row: Nat) => obstruction + Succ moves = row →
+      (∀ (other: Nat) => obstruction < other → other < row → lab.obstructions.contains { row = other, column } = False) →
       walk lab (Some { position = { row, column }, facing = Up }) (Succ moves) = Some { position = { row = obstruction + 1, column }, facing = Right }
   | Zero, row, distance, free =>
     rewrite (omega [distance]: obstruction + 1 = row) in
@@ -145,7 +145,7 @@ theorem walkUpTurn (lab: Lab) (column: Nat) (obstruction: Nat) (blocked: lab.obs
       (walkUpTurn lab column obstruction blocked moves (row - 1) (omega [distance]) (other above below => free other above (omega [below])))
 
 --| Facing up with nothing above in the column: she walks off the top.
-theorem walkUpLeave (lab: Lab) (column: Nat): (row: Nat) → ((other: Nat) → other < row → lab.obstructions.contains { row = other, column } = False) →
+theorem walkUpLeave (lab: Lab) (column: Nat): ∀ (row: Nat) => (∀ (other: Nat) => other < row → lab.obstructions.contains { row = other, column } = False) →
     walk lab (Some { position = { row, column }, facing = Up }) (Succ row) = None
   | Zero, free => rfl
   | Succ row, free =>
@@ -159,8 +159,8 @@ theorem walkUpLeave (lab: Lab) (column: Nat): (row: Nat) → ((other: Nat) → o
 --| she walks to just above it and turns right.
 theorem walkDownTurn (lab: Lab) (column: Nat) (obstruction: Nat) (fits: obstruction < lab.height)
     (blocked: lab.obstructions.contains { row = obstruction, column } = True):
-    (moves: Nat) → (row: Nat) → row + Succ moves = obstruction →
-      ((other: Nat) → row < other → other < obstruction → lab.obstructions.contains { row = other, column } = False) →
+    ∀ (moves row: Nat) => row + Succ moves = obstruction →
+      (∀ (other: Nat) => row < other → other < obstruction → lab.obstructions.contains { row = other, column } = False) →
       walk lab (Some { position = { row, column }, facing = Down }) (Succ moves) = Some { position = { row = obstruction - 1, column }, facing = Left }
   | Zero, row, distance, free =>
     rewrite (omega [distance]: obstruction - 1 = row) in
@@ -176,8 +176,8 @@ theorem walkDownTurn (lab: Lab) (column: Nat) (obstruction: Nat) (fits: obstruct
 
 --| Facing down with nothing below in the column: she walks off the bottom.
 theorem walkDownLeave (lab: Lab) (column: Nat):
-    (moves: Nat) → (row: Nat) → row + Succ moves = lab.height →
-      ((other: Nat) → row < other → other < lab.height → lab.obstructions.contains { row = other, column } = False) →
+    ∀ (moves row: Nat) => row + Succ moves = lab.height →
+      (∀ (other: Nat) => row < other → other < lab.height → lab.obstructions.contains { row = other, column } = False) →
       walk lab (Some { position = { row, column }, facing = Down }) (Succ moves) = None
   | Zero, row, distance, free => stepLeaves lab { position = { row, column }, facing = Down } (aheadDownEdge lab row column (omega [distance]))
   | Succ moves, row, distance, free =>
@@ -192,8 +192,8 @@ theorem walkDownLeave (lab: Lab) (column: Nat):
 --| between: she walks to just before it and turns right.
 theorem walkRightTurn (lab: Lab) (row: Nat) (obstruction: Nat) (fits: obstruction < lab.width)
     (blocked: lab.obstructions.contains { row, column = obstruction } = True):
-    (moves: Nat) → (column: Nat) → column + Succ moves = obstruction →
-      ((other: Nat) → column < other → other < obstruction → lab.obstructions.contains { row, column = other } = False) →
+    ∀ (moves column: Nat) => column + Succ moves = obstruction →
+      (∀ (other: Nat) => column < other → other < obstruction → lab.obstructions.contains { row, column = other } = False) →
       walk lab (Some { position = { row, column }, facing = Right }) (Succ moves) = Some { position = { row, column = obstruction - 1 }, facing = Down }
   | Zero, column, distance, free =>
     rewrite (omega [distance]: obstruction - 1 = column) in
@@ -210,8 +210,8 @@ theorem walkRightTurn (lab: Lab) (row: Nat) (obstruction: Nat) (fits: obstructio
 --| Facing right with nothing to the right in the row: she walks off the
 --| right edge.
 theorem walkRightLeave (lab: Lab) (row: Nat):
-    (moves: Nat) → (column: Nat) → column + Succ moves = lab.width →
-      ((other: Nat) → column < other → other < lab.width → lab.obstructions.contains { row, column = other } = False) →
+    ∀ (moves column: Nat) => column + Succ moves = lab.width →
+      (∀ (other: Nat) => column < other → other < lab.width → lab.obstructions.contains { row, column = other } = False) →
       walk lab (Some { position = { row, column }, facing = Right }) (Succ moves) = None
   | Zero, column, distance, free => stepLeaves lab { position = { row, column }, facing = Right } (aheadRightEdge lab row column (omega [distance]))
   | Succ moves, column, distance, free =>
@@ -225,8 +225,8 @@ theorem walkRightLeave (lab: Lab) (row: Nat):
 --| Facing left, with an obstruction to the left in the row and none between:
 --| she walks to just after it and turns right.
 theorem walkLeftTurn (lab: Lab) (row: Nat) (obstruction: Nat) (blocked: lab.obstructions.contains { row, column = obstruction } = True):
-    (moves: Nat) → (column: Nat) → obstruction + Succ moves = column →
-      ((other: Nat) → obstruction < other → other < column → lab.obstructions.contains { row, column = other } = False) →
+    ∀ (moves column: Nat) => obstruction + Succ moves = column →
+      (∀ (other: Nat) => obstruction < other → other < column → lab.obstructions.contains { row, column = other } = False) →
       walk lab (Some { position = { row, column }, facing = Left }) (Succ moves) = Some { position = { row, column = obstruction + 1 }, facing = Up }
   | Zero, column, distance, free =>
     rewrite (omega [distance]: obstruction + 1 = column) in
@@ -242,7 +242,7 @@ theorem walkLeftTurn (lab: Lab) (row: Nat) (obstruction: Nat) (blocked: lab.obst
 
 --| Facing left with nothing to the left in the row: she walks off the left
 --| edge.
-theorem walkLeftLeave (lab: Lab) (row: Nat): (column: Nat) → ((other: Nat) → other < column → lab.obstructions.contains { row, column = other } = False) →
+theorem walkLeftLeave (lab: Lab) (row: Nat): ∀ (column: Nat) => (∀ (other: Nat) => other < column → lab.obstructions.contains { row, column = other } = False) →
     walk lab (Some { position = { row, column }, facing = Left }) (Succ column) = None
   | Zero, free => rfl
   | Succ column, free =>
@@ -255,9 +255,9 @@ theorem walkLeftLeave (lab: Lab) (row: Nat): (column: Nat) → ((other: Nat) →
 --| From a guard on the map, `nextTurn` jumps to where the walk turns, and
 --| finds nothing exactly when she walks off: the four directions in turn.
 theorem simulateAt (lab: Lab) (sightlines: Sightlines) (represents: Represents sightlines (position => lab.obstructions.contains position))
-    (mapped: (position: Position) → lab.obstructions.contains position = True → onMap lab position = True):
-    (guard: Guard) → onMap lab guard.position = True →
-      ((next: Guard) → sightlines.nextTurn guard = Some next → Exists Nat (steps => (0 < steps) ∧ (walk lab (Some guard) steps = Some next))) ∧ (sightlines.nextTurn guard = None → Exists Nat (steps => walk lab (Some guard) steps = None))
+    (mapped: ∀ (position: Position) => lab.obstructions.contains position = True → onMap lab position = True):
+    ∀ (guard: Guard) => onMap lab guard.position = True →
+      (∀ (next: Guard) => sightlines.nextTurn guard = Some next → Exists Nat (steps => (0 < steps) ∧ (walk lab (Some guard) steps = Some next))) ∧ (sightlines.nextTurn guard = None → Exists Nat (steps => walk lab (Some guard) steps = None))
   | { position = { row, column }, facing = Up }, inside =>
     match found: (sightlines.byColumn.getOr column Set.empty).below row with
       | Some obstruction =>
@@ -336,7 +336,7 @@ theorem simulateAt (lab: Lab) (sightlines: Sightlines) (represents: Represents s
 --| Sightlines that represent a lab's obstructions, all on the map, simulate
 --| its walk.
 theorem sightlinesSimulate (lab: Lab) (sightlines: Sightlines) (represents: Represents sightlines (position => lab.obstructions.contains position))
-    (mapped: (position: Position) → lab.obstructions.contains position = True → onMap lab position = True): Simulates sightlines lab :=
+    (mapped: ∀ (position: Position) => lab.obstructions.contains position = True → onMap lab position = True): Simulates sightlines lab :=
   guard inside => simulateAt lab sightlines represents mapped guard inside
 
 --| What a set has after an insert, as `addRepresents` says it.
@@ -350,7 +350,7 @@ theorem insertContains (obstructions: Set Position) (added: Position) (position:
 
 --| The program's sightlines with each new obstruction on the map simulate
 --| the walk in the lab with it, when the lab's obstructions are on the map.
-theorem programSimulates (lab: Lab) (mapped: (position: Position) → lab.obstructions.contains position = True → onMap lab position = True)
+theorem programSimulates (lab: Lab) (mapped: ∀ (position: Position) => lab.obstructions.contains position = True → onMap lab position = True)
     (blocker: Position) (blockerInside: onMap lab blocker = True):
     Simulates ((Sightlines.of lab.obstructions).add blocker) (lab.withObstruction blocker) :=
   sightlinesSimulate (lab.withObstruction blocker) ((Sightlines.of lab.obstructions).add blocker)

@@ -32,8 +32,8 @@ type Carries (device: Device): Wire → Bool → Prop =
 --| z02, and so on": bit `bit` of the number is the value on the z wire of
 --| that bit, and 0 where there is no such wire.
 def Outputs (device: Device) (number: Nat): Prop :=
-  ((bit: Nat) → Z bit ∈ device.wires → Carries device (Z bit) (number.testBit bit))
-    ∧ ((bit: Nat) → Z bit ∉ device.wires → number.testBit bit = False)
+  (∀ (bit: Nat) => Z bit ∈ device.wires → Carries device (Z bit) (number.testBit bit))
+    ∧ (∀ (bit: Nat) => Z bit ∉ device.wires → number.testBit bit = False)
 
 --| "treating the bits on wires starting with x as one binary number,
 --| treating the bits on wires starting with y as a second binary number":
@@ -45,11 +45,11 @@ def inputsFor (bits: Nat) (x: Nat) (y: Nat): List (Wire, Bool) :=
 --| with y, the sum of the two numbers those bits represent should be
 --| produced as a binary number on the wires starting with z".
 def Adds (bits: Nat) (gates: List Gate): Prop :=
-  (x: Nat) → (y: Nat) → x < Nat.pow 2 bits → y < Nat.pow 2 bits → Outputs ({ initial = inputsFor bits x y, gates }) (x + y)
+  ∀ (x y: Nat) => x < Nat.pow 2 bits → y < Nat.pow 2 bits → Outputs ({ initial = inputsFor bits x y, gates }) (x + y)
 
 --| "Each wire is connected to at most one gate output", and the wires that
 --| start with a value aren't: they are "inputs to the entire system".
 def WellFormed (device: Device): Prop :=
   List.Distinct (device.gates.map .output)
     ∧ List.Distinct (device.initial.map .fst)
-    ∧ ((gate: Gate) → gate ∈ device.gates → gate.output ∉ device.initial.map .fst)
+    ∧ (∀ (gate: Gate) => gate ∈ device.gates → gate.output ∉ device.initial.map .fst)

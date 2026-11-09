@@ -80,7 +80,7 @@ def Terminates (program: Program) (accumulator: Int): Prop :=
 --| `jmp`, its argument kept, and every other instruction the same.
 def Repair (program: Program) (index: Nat) (repaired: Program): Prop :=
   repaired.instructions.length = program.instructions.length
-    ∧ ((other: Nat) → other ≠ index → repaired.instructions.get other = program.instructions.get other)
+    ∧ (∀ (other: Nat) => other ≠ index → repaired.instructions.get other = program.instructions.get other)
     ∧ (∃ (argument: Int) =>
       (program.instructions.get index = Some { operation = Jmp, argument } ∧ repaired.instructions.get index = Some { operation = Nop, argument })
         ∨ (program.instructions.get index = Some { operation = Nop, argument } ∧ repaired.instructions.get index = Some { operation = Jmp, argument }))

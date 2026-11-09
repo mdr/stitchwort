@@ -17,7 +17,7 @@ def ReachesEnd (maze: Maze) (reindeer: Reindeer) (cost: Nat): Prop :=
     Exists Reindeer (last => (final maze reindeer moves = Some last) ∧ ((last.position = maze.end) ∧ (score moves = cost)))))
 
 --| Edges into a way of standing on an open tile come from open tiles.
-theorem beforeHolds (maze: Maze): (reindeer: Reindeer) → maze.holds reindeer = True → (previous: Reindeer) → (weight: Nat) →
+theorem beforeHolds (maze: Maze): ∀ (reindeer: Reindeer) => maze.holds reindeer = True → ∀ (previous: Reindeer) (weight: Nat) =>
     (previous, weight) ∈ maze.before reindeer → maze.holds previous = True
   | { position, facing }, holds, previous, weight, edge =>
     match List.memAppend (previous, weight) _ _ edge with
@@ -66,7 +66,7 @@ theorem toEndCorrect (maze: Maze) (endOpen: maze.isOpen maze.end = True):
 
 --| Moves from an open tile are a walk back in the maze's graph, from where
 --| they end, scoring the same.
-theorem movesWalkBack (maze: Maze): (reindeer: Reindeer) → maze.holds reindeer = True → (moves: List Move) → (last: Reindeer) →
+theorem movesWalkBack (maze: Maze): ∀ (reindeer: Reindeer) => maze.holds reindeer = True → ∀ (moves: List Move) (last: Reindeer) =>
     final maze reindeer moves = Some last →
     Exists (List (Reindeer, Nat)) (path => ((maze.graph True).Walk last path reindeer) ∧ (Graph.cost path = score moves))
   | reindeer, holds, [], last, ended => Witness [] (Both (Eq.sym (Option.someInjective ended)) rfl)
@@ -90,8 +90,8 @@ theorem movesWalkBack (maze: Maze): (reindeer: Reindeer) → maze.holds reindeer
 --| Moves from an open tile to the end score at least the search back's
 --| bound there.
 theorem boundToEnd (maze: Maze) (result: Map Reindeer Nat)
-    (sourcesBound: (reindeer: Reindeer) → reindeer ∈ maze.endReindeer → Graph.Bound result 0 reindeer)
-    (closed: (state: Reindeer) → (cost: Nat) → result.get state = Some cost → (previous: Reindeer) → (weight: Nat) →
+    (sourcesBound: ∀ (reindeer: Reindeer) => reindeer ∈ maze.endReindeer → Graph.Bound result 0 reindeer)
+    (closed: ∀ (state: Reindeer) (cost: Nat) => result.get state = Some cost → ∀ (previous: Reindeer) (weight: Nat) =>
       (previous, weight) ∈ (maze.graph True).edges state → Graph.Bound result (cost + weight) previous)
     (reindeer: Reindeer) (holds: maze.holds reindeer = True) (moves: List Move) (last: Reindeer) (ended: final maze reindeer moves = Some last)
     (atEnd: last.position = maze.end): Graph.Bound result (score moves) reindeer :=

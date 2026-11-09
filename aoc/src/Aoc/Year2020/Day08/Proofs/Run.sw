@@ -9,7 +9,7 @@ import Std (Bool, DecEq, Eq, Int, List, Map, Nat, Option, Set, Void)
 
 --| `code` holds `program`'s instructions, by position.
 def Holds (code: Code) (program: Program): Prop :=
-  code.length = program.instructions.length ∧ ((position: Nat) → code.byPosition.get position = program.instructions.get position)
+  code.length = program.instructions.length ∧ (∀ (position: Nat) => code.byPosition.get position = program.instructions.get position)
 
 --| What a run that executed the instructions at `executed` and stopped at
 --| `last` says about how it ended.
@@ -20,9 +20,9 @@ def Ended (program: Program) (executed: List Int) (last: State): (outcome: Outco
 
 --| `unvisited` holds the positions in the code that `done` hasn't run.
 def Unvisited (length: Nat) (done: List Int) (unvisited: Set Nat): Prop :=
-  (position: Nat) → unvisited.contains position = True ↔ (position < length ∧ position.toInt ∉ done)
+  ∀ (position: Nat) => unvisited.contains position = True ↔ (position < length ∧ position.toInt ∉ done)
 
-theorem nextIs: (next: Int) → (position: Nat) → next.toNatChecked = Some position → next = position.toInt
+theorem nextIs: ∀ (next: Int) (position: Nat) => next.toNatChecked = Some position → next = position.toInt
   | OfNat n, position, found => Eq.cong OfNat (Option.someInjective found)
   | NegSucc n, position, found => Void.exfalso (Option.noneNotSome position found)
 

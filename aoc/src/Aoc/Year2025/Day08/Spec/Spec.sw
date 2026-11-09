@@ -55,7 +55,7 @@ type Joined (connections: List (Nat, Nat)): Nat → Nat → Prop =
 --| which count boxes, are written with such a test; any two tests that tell
 --| give the same sizes.)
 def Tells (n: Nat) (connections: List (Nat, Nat)) (sameCircuit: Nat → Nat → Bool): Prop :=
-  (a: Nat) → (b: Nat) → a < n → b < n → (sameCircuit a b = True) ↔ (Joined connections a b)
+  ∀ (a b: Nat) => a < n → b < n → (sameCircuit a b = True) ↔ (Joined connections a b)
 
 --| The size of each circuit of the boxes 0 to n - 1: a circuit is counted
 --| once, at its first box (no lower box is in it), and its size is the
@@ -70,7 +70,7 @@ def threeLargestProduct (sizes: List Nat): Nat := sizes.sortBy (a b => b.compare
 
 --| All the boxes 0 to n - 1 are in one circuit.
 def OneCircuit (n: Nat) (connections: List (Nat, Nat)): Prop :=
-  (a: Nat) → (b: Nat) → a < n → b < n → Joined connections a b
+  ∀ (a b: Nat) => a < n → b < n → Joined connections a b
 
 --| Connection number k (counting from 0) is the last one needed: after it
 --| all the boxes are in one circuit, and before it they weren't.

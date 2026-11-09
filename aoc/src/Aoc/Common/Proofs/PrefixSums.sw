@@ -9,8 +9,8 @@ import Std (Bool, Eq, List, Map, Nat, Void)
 
 --| Row r of the table, entry c: the entry of `above`, plus entry c of each of
 --| the first r rows of sums.
-theorem PrefixSums.tableAt (c: Nat): (above: List Nat) → (sums: List (List Nat)) → c < List.length above →
-    ((i: Nat) → i < List.length sums → c < List.length (List.getOr sums i [])) → (r: Nat) → r ≤ List.length sums →
+theorem PrefixSums.tableAt (c: Nat): ∀ (above: List Nat) (sums: List (List Nat)) => c < List.length above →
+    (∀ (i: Nat) => i < List.length sums → c < List.length (List.getOr sums i [])) → ∀ (r: Nat) => r ≤ List.length sums →
     List.getOr (List.getOr (PrefixSums.table above sums) r []) c 0 = List.getOr above c 0 + List.sumBy (List.range 0 r) (i => List.getOr (List.getOr sums i []) c 0)
   | above, [], ha, hs, Zero, hr => Eq.sym (Nat.addZero (List.getOr above c 0))
   | above, [], ha, hs, Succ r, hr => Void.exfalso (Bool.falseNotTrue hr)
@@ -33,16 +33,16 @@ theorem PrefixSums.atOf (rows: List (List Nat)) (r: Nat) (c: Nat) (hr: r ≤ Lis
   let top := List.replicate (Succ width) 0
   let table := PrefixSums.table top sums
   -- Row i of the sums, inside the grid.
-  let sumsAt: (i: Nat) → i < List.length rows → List.getOr sums i [] = PrefixSums.runningSums (List.padRight (List.getOr rows i []) width 0) :=
+  let sumsAt: ∀ (i: Nat) => i < List.length rows → List.getOr sums i [] = PrefixSums.runningSums (List.padRight (List.getOr rows i []) width 0) :=
     i hi => List.getOrMapLt rows i [] [] hi (row => PrefixSums.runningSums (List.padRight row width 0))
-  let paddedLength: (i: Nat) → List.length (List.padRight (List.getOr rows i []) width 0) = width :=
+  let paddedLength: ∀ (i: Nat) => List.length (List.padRight (List.getOr rows i []) width 0) = width :=
     i => List.padRightLength (List.getOr rows i []) width 0 (List.lengthLeMaxLength rows i)
-  let sumsLength: (i: Nat) → i < List.length sums → c < List.length (List.getOr sums i []) :=
+  let sumsLength: ∀ (i: Nat) => i < List.length sums → c < List.length (List.getOr sums i []) :=
     i hi =>
       let inRows: i < List.length rows := rewrite List.lengthMap rows (row => PrefixSums.runningSums (List.padRight row width 0)) at hi
       rewrite sumsAt i inRows, List.lengthScanLeft (List.padRight (List.getOr rows i []) width 0) 0 Nat.add, paddedLength i in hc
   let topLength: c < List.length top := rewrite List.lengthReplicate 0 width in hc
-  let rowSum: (i: Nat) → 0 ≤ i → i < 0 + r →
+  let rowSum: ∀ (i: Nat) => 0 ≤ i → i < 0 + r →
       List.getOr (List.getOr sums i []) c 0 = List.sumBy (List.rangeFrom (c - 0) 0) (j => PrefixSums.cell rows i j) :=
     i lo hi =>
       rewrite sumsAt i (omega), List.getOrScanAdd (List.padRight (List.getOr rows i []) width 0) 0 c (rewrite paddedLength i in hc)

@@ -3,7 +3,7 @@
 -- Loaded with the core: `< <=` and `deriving (Ord)` go through `Ord`
 -- dictionaries, found by full key (docs/proposals/prelude-slim.md §2.1).
 
-theorem Bool.toNatInjective: (a: Bool) → (b: Bool) → Bool.toNat a = Bool.toNat b → a = b
+theorem Bool.toNatInjective: ∀ (a b: Bool) => Bool.toNat a = Bool.toNat b → a = b
   | False, False, h => rfl
   | False, True, h => Void.exfalso (Nat.zeroNotSucc 0 h)
   | True, False, h => Void.exfalso (Nat.succNotZero 0 h)
@@ -30,23 +30,23 @@ interface Ord (a: Type) = {
   decLessEq: (x: a) → (y: a) → Decidable (lessEq x y),
   --| `Equal` means equal; the other way round is the opposite; `Less` is
   --| transitive.
-  equal: (x: a) → (y: a) → compare x y = Equal → x = y,
-  flip: (x: a) → (y: a) → compare y x = Ordering.flip (compare x y),
-  trans: (x: a) → (y: a) → (z: a) → compare x y = Less → compare y z = Less → compare x z = Less,
+  equal: ∀ (x y: a) => compare x y = Equal → x = y,
+  flip: ∀ (x y: a) => compare y x = Ordering.flip (compare x y),
+  trans: ∀ (x y z: a) => compare x y = Less → compare y z = Less → compare x z = Less,
   --| The relations agree with `compare`.
   lessThanOf: (x: a) → (y: a) → compare x y = Less → lessThan x y,
-  lessThanTo: (x: a) → (y: a) → lessThan x y → compare x y = Less,
+  lessThanTo: ∀ (x y: a) => lessThan x y → compare x y = Less,
   lessEqOf: (x: a) → (y: a) → compare x y ≠ Greater → lessEq x y,
-  lessEqTo: (x: a) → (y: a) → lessEq x y → compare x y ≠ Greater
+  lessEqTo: ∀ (x y: a) => lessEq x y → compare x y ≠ Greater
 }
 
 --| From a comparison and its three laws. The relations are
 --| `compare x y = Less` and `Not (compare x y = Greater)`, decided through
 --| `DecEq Ordering`. `eq` is the `decEq` given.
 def Ord.fromCompare [auto decEq: DecEq a] (compare: a → a → Ordering)
-    (equal: (x: a) → (y: a) → compare x y = Equal → x = y)
-    (flip: (x: a) → (y: a) → compare y x = Ordering.flip (compare x y))
-    (trans: (x: a) → (y: a) → (z: a) → compare x y = Less → compare y z = Less → compare x z = Less): Ord a := {
+    (equal: ∀ (x y: a) => compare x y = Equal → x = y)
+    (flip: ∀ (x y: a) => compare y x = Ordering.flip (compare x y))
+    (trans: ∀ (x y z: a) => compare x y = Less → compare y z = Less → compare x z = Less): Ord a := {
   compare = compare,
   lessThan = x y => compare x y = Less,
   lessEq = x y => compare x y ≠ Greater,

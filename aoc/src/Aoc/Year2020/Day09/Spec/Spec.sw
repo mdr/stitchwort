@@ -28,7 +28,7 @@ def previous (numbers: List Nat) (preamble: Nat) (position: Nat): List Nat :=
 def Part1 (numbers: List Nat) (preamble: Nat) (answer: Nat): Prop :=
   ∃ (position: Nat) =>
     preamble ≤ position ∧ numbers.get position = Some answer ∧ ¬SumOfTwo (previous numbers preamble position) answer
-      ∧ ((earlier: Nat) → preamble ≤ earlier < position → (number: Nat) → numbers.get earlier = Some number →
+      ∧ (∀ (earlier: Nat) => preamble ≤ earlier < position → ∀ (number: Nat) => numbers.get earlier = Some number →
         SumOfTwo (previous numbers preamble earlier) number)
 
 --| "A contiguous set of ... numbers in your list": the numbers from `start`
@@ -43,7 +43,7 @@ def Weakness (numbers: List Nat) (invalid: Nat) (answer: Nat): Prop :=
   ∃ (run: List Nat) =>
     Contiguous numbers run ∧ 2 ≤ run.length ∧ run.sum = invalid
       ∧ ∃ (smallest: Nat) => ∃ (largest: Nat) =>
-        smallest ∈ run ∧ largest ∈ run ∧ ((x: Nat) → x ∈ run → smallest ≤ x ≤ largest) ∧ answer = smallest + largest
+        smallest ∈ run ∧ largest ∈ run ∧ (∀ (x: Nat) => x ∈ run → smallest ≤ x ≤ largest) ∧ answer = smallest + largest
 
 --| "What is the encryption weakness in your XMAS-encrypted list of
 --| numbers?": the weakness for part 1's invalid number.

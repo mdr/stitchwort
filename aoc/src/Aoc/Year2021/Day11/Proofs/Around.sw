@@ -13,7 +13,7 @@ import Std (Bool, Eq, List, Nat)
 --| Counting the flashers around `at` counts the spec's flashing
 --| neighbours, when only octopuses on the grid flash.
 theorem countAround (cavern: Cavern) (flashed: Position → Bool)
-    (onGrid: (q: Position) → flashed q = True → q ∈ cavern.grid.cells.map Pair.fst) (at: Position):
+    (onGrid: ∀ (q: Position) => flashed q = True → q ∈ cavern.grid.cells.map Pair.fst) (at: Position):
     at.around.count flashed = flashingNeighbours cavern flashed at :=
   let positions := cavern.grid.cells.map Pair.fst
   let near := (q: Position) => touching at q && flashed q
