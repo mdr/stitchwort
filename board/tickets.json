@@ -25485,12 +25485,12 @@
     {
       "id": 2524,
       "title": "Skip freeing the live heap at native process exit (Lean doesn't free at exit): rbmap-ck spends ~32-38% of cycles in value::free, much of it presumably the final teardown of every kept version; measure the share at exit first",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Sonnet",
-      "where": "",
+      "where": "Speedwell",
       "labels": [],
       "epic": "comparative-speed",
-      "body": "From SW-2523 (job 38 profile). Check leak tests and the census, which rely on frees: keep a debug/census switch that frees. 45 min.",
+      "body": "From SW-2523 (job 38 profile). Check leak tests and the census, which rely on frees: keep a debug/census switch that frees. 45 min.\n\nStarted 9 Nov 2026 09:39 UTC, Sonnet. Expected: 60 min. Orchestrator call under D3447 (no result change).\n",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
@@ -25576,12 +25576,12 @@
     {
       "id": 2531,
       "title": "In-place reuse across small functions: inline small non-recursive functions (e.g. Map's balance/rebuild/bin) where a cell is taken apart in one body and its replacement built in another, so reuse sees both (mapops -25.6% measured by hand, SW-2513); general, not Map-specific",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": "Speedwell",
       "labels": [],
       "epic": "comparative-speed",
-      "body": "Generalises SW-2515 (SW-2371 cause 2). Orchestrator's call under D3447 (counts only). Measure on bench/compare and bench:aoc. 150 min.\n\nStarted 9 Nov 2026 09:04 UTC. Expected: 150 min.\n",
+      "body": "Generalises SW-2515 (SW-2371 cause 2). Orchestrator's call under D3447 (counts only). Measure on bench/compare and bench:aoc. 150 min.\n\nStarted 9 Nov 2026 09:04 UTC. Expected: 150 min.\n\nMerged 9 Nov 748dc58a3. Cause differed from brief: reuse already worked (SW-2391); the cost was the shape/rebuild calls. Context inlining in opt.rs (80/96-node caps). mapops -23.6%, dijkstra -4.7%, disk -3.6%, 7-program geomean -5.0%; bench:aoc -1.3% (9 days > 3% down, none up); IR +2.1%. Orchestrator call under D3447. Model result: Opus, worked, 28 min (est. 150).\n",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
