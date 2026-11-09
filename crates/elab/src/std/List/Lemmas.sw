@@ -520,6 +520,43 @@ theorem List.countFlatMap (f: a → List b) (p: b → Bool): (xs: List a) →
     rewrite List.countAppend (f x) (List.flatMap rest f) p, List.sumByCons rest x (x => List.count (f x) p), List.countFlatMap f p rest
       in rfl
 
+--| `answer` of `items` have the property `p`: counting by a proposition,
+--| for a `p` with no decision procedure to count with (a statement that
+--| quantifies over functions, say). With a procedure, [`List.countWithIff`]
+--| says the answer is [`List.count`]. For counting the values `x` with `p x`
+--| over all values, see [`List.NumberWith`].
+@[noReceiver]
+def List.CountWith (p: a → Prop): (items: List a) → (answer: Nat) → Prop
+  | [], answer => answer = 0
+  | [item, ..rest], answer => (p item ∧ ∃ (others: Nat) => List.CountWith p rest others ∧ answer = others + 1) ∨ (¬p item ∧ List.CountWith p rest answer)
+
+--| Counting by a proposition is [`List.count`] by a `Bool` that decides it.
+theorem List.countWithIff [p: a → Prop] (decide: a → Bool) (decides: (item: a) → decide item = True ↔ p item):
+    (items: List a) → (answer: Nat) → List.CountWith p items answer ↔ answer = items.count decide
+  | [], answer => { forward = none => none, backward = none => none }
+  | [item, ..rest], answer =>
+    let later := List.countWithIff decide decides rest
+    rewrite List.countCons rest item decide in
+      match decided: decide item with
+        | True =>
+          let holds := (decides item).forward decided
+          {
+            forward = counted =>
+              match counted with
+                | Inl (Both yes (Witness others (Both number more))) => omega [(later others).forward number]
+                | Inr (Both no number) => Void.exfalso (no holds),
+            backward = same => Inl (Both holds (Witness (rest.count decide) (Both ((later (rest.count decide)).backward rfl) (omega))))
+          }
+        | False =>
+          let fails: ¬p item := holds => Bool.falseNotTrue (Eq.trans (Eq.sym decided) ((decides item).backward holds))
+          {
+            forward = counted =>
+              match counted with
+                | Inl (Both yes more) => Void.exfalso (fails yes)
+                | Inr (Both no number) => (later answer).forward number,
+            backward = same => Inr (Both fails ((later answer).backward (omega)))
+          }
+
 --| Dropping a list's start leaves what was appended to it.
 theorem List.dropAppend: (start: List a) → (rest: List a) → List.drop (List.append start rest) (List.length start) = rest
   | [], rest => rfl

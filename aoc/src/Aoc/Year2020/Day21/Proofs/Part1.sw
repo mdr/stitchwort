@@ -69,4 +69,5 @@ theorem safeIff (list: FoodList) (promise: ∃ (holder: Allergen → Ingredient)
 
 --| Part 1: given a way the allergens could be, the answer is the spec's.
 theorem safeAppearancesSpec (list: FoodList) (promise: ∃ (holder: Allergen → Ingredient) => Spec.Holding list holder): Spec.Part1 list list.safeAppearances :=
-  Witness list.isSafe (Both (safeIff list promise) rfl)
+  (List.countWithIff list.isSafe (safeIff list promise) (list.foods.flatMap .ingredients) list.safeAppearances).backward
+    (Eq.sym (List.countFlatMap .ingredients list.isSafe list.foods))
