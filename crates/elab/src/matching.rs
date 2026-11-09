@@ -1327,7 +1327,10 @@ fn unrefined_goal(
     }
     match cx.quote_folded(goal) {
         Ok(folded) => Ok((!mentions_copy(&folded)).then_some(folded)),
-        Err(e) if crate::undo::recoverable(cx, &e) => Ok(None),
+        Err(e) if crate::undo::recoverable(cx, &e) => {
+            crate::undo::recovered(cx);
+            Ok(None)
+        }
         Err(e) => Err(e),
     }
 }
@@ -1611,7 +1614,13 @@ fn not_found(
             continue;
         }
         let names = cx.shown_names(false);
-        let shown = pretty::term_for_message_in(&g, cx.e, &names, &s.term);
+        // Without the goal as written, the goal shown is the computed one, so
+        // the expression is shown computed too.
+        let shown_term = match (goal_folded, normal) {
+            (None, Some(normal)) => normal,
+            _ => &s.term,
+        };
+        let shown = pretty::term_for_message_in(&g, cx.e, &names, shown_term);
         let goal_shown_term = goal_folded.unwrap_or(goal_normal);
         let goal_shown = pretty::term_for_message_in(&g, cx.e, &names, goal_shown_term);
         // `f x` and `y => f x y` are different terms to the search. Said
@@ -1631,7 +1640,7 @@ fn not_found(
         // computed (`isBig 20` in `pick (isBig 20) = 1`, which computes to
         // `1 = 1`): show the computed forms, which say why.
         if let Some(normal) = normal
-            && goal_shown.contains(shown.as_str())
+            && goal_folded.is_some_and(|folded| occurs(&s.term, folded))
         {
             let normal_shown = pretty::term_for_message_in(&g, cx.e, &names, normal);
             let goal_normal_shown = pretty::term_for_message_in(&g, cx.e, &names, goal_normal);

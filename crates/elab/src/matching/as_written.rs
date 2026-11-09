@@ -280,7 +280,10 @@ fn search(
         });
     }
     // From the values as bound, not forced: forcing unfolds an outer call.
-    let goal_written = cx.quote_folded(goal)?;
+    let goal_written = match today.and_then(|today| today.goal_folded) {
+        Some(folded) => folded.clone(),
+        None => cx.quote_folded(goal)?,
+    };
     let types_written = (0..base)
         .map(|l| match skip.is_some_and(|skip| skip(cx, l)) {
             true => Ok(None),
