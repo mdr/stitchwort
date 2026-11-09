@@ -48,3 +48,15 @@ root = "Compare.MemoryGame"
 [[lean_exe]]
 name = "spectral_norm"
 root = "Compare.SpectralNorm"
+
+[[lean_exe]]
+name = "const_fold"
+root = "Compare.ConstFold"
+
+[[lean_exe]]
+name = "rbmap"
+root = "Compare.Rbmap"
+
+[[lean_exe]]
+name = "rbmap_ck"
+root = "Compare.RbmapCk"

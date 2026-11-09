@@ -89,3 +89,24 @@ stitchwort = "Aoc.Year2024.Day07.main"
 set = "wide"
 args = ["1000"]
 stitchwort = "bench/compare/spectral-norm/main.sw"
+
+# Lean's const_fold (IFL19): reassociate and constant-fold an expression tree
+# of 2^20 leaves, five rounds starting the leaf values at 1 to 5. Lean's own
+# depth is 23, which needs a 4 GB stack; the native code's limit is 2M frames.
+[const-fold]
+set = "wide"
+args = ["20", "5"]
+stitchwort = "bench/compare/const-fold/main.sw"
+
+# Lean's rbmap (IFL19): 2,000,000 inserts into a hand-written red-black tree.
+[rbmap]
+set = "wide"
+args = ["2000000"]
+stitchwort = "bench/compare/rbmap/main.sw"
+
+# Lean's rbmap_checkpoint (IFL19): rbmap keeping every version alive, at
+# 400,000 inserts (Lean's 2,000,000 would need about 20 GB natively).
+[rbmap-ck]
+set = "wide"
+args = ["400000", "1"]
+stitchwort = "bench/compare/rbmap-ck/main.sw"
