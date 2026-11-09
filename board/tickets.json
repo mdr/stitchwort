@@ -1,5 +1,5 @@
 {
-  "next": 2541,
+  "next": 2542,
   "tickets": [
     {
       "id": 47,
@@ -25699,6 +25699,19 @@
       "labels": [],
       "epic": "comparative-speed",
       "body": "From SW-2531. Wording only. 15 min.",
+      "created": "2026-11-09",
+      "updated": "2026-11-09",
+      "commits": []
+    },
+    {
+      "id": 2541,
+      "title": "AoC 2020 day 21 (Allergen Assessment): both parts, spec, tests and proofs where reasonable, with friction notes and gap analysis",
+      "status": "doing",
+      "agent": "Opus",
+      "where": "Speedwell",
+      "labels": [],
+      "epic": "aoc-2020",
+      "body": "Opus (D2427). Input: ~/repos/mdr/aoc/2020/src/main/resources/day21. Reuse Aoc.Common's settle/eliminate (SW-1540). Friction review with Matt after. Started 9 Nov 2026 09:44 UTC. Expected: 120 min.",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
