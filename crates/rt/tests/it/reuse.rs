@@ -147,6 +147,82 @@ fn copies_survive_the_codec() {
     });
 }
 
+/// `Map.Tree.balance` is `rebuild (shape l r) l key value r`: `shape`
+/// picks one of five constants and `rebuild` takes it apart at once. Both
+/// are inlined, so balance builds the unrotated node itself, with no
+/// `Shape` made or tested, and takes a token for it (crates/rt/src/opt.rs,
+/// `Context`).
+#[test]
+fn balance_builds_its_node_itself() {
+    fn walk(e: &Expr, calls: &mut Vec<u32>, nodes: &mut usize) {
+        match e {
+            Expr::Call(g, a) => {
+                calls.push(g.0);
+                a.iter().for_each(|x| walk(x, calls, nodes));
+            }
+            Expr::Ctor(_, _, a) => {
+                *nodes += usize::from(a.len() == 5);
+                a.iter().for_each(|x| walk(x, calls, nodes));
+            }
+            Expr::Prim(_, a) | Expr::PartialApp(_, a) | Expr::Closure(_, a) => {
+                a.iter().for_each(|x| walk(x, calls, nodes));
+            }
+            Expr::Apply(f, a) => {
+                walk(f, calls, nodes);
+                a.iter().for_each(|x| walk(x, calls, nodes));
+            }
+            Expr::Let(_, v, b) => {
+                walk(v, calls, nodes);
+                walk(b, calls, nodes);
+            }
+            Expr::Match(x, _, arms) => {
+                walk(x, calls, nodes);
+                arms.iter().for_each(|a| walk(&a.body, calls, nodes));
+            }
+            Expr::NumSwitch(x, arms, d) => {
+                walk(x, calls, nodes);
+                arms.iter().for_each(|(_, b)| walk(b, calls, nodes));
+                walk(d, calls, nodes);
+            }
+            Expr::If(c, t, f) => {
+                walk(c, calls, nodes);
+                walk(t, calls, nodes);
+                walk(f, calls, nodes);
+            }
+            _ => {}
+        }
+    }
+    with_stack(STACK, || {
+        let (_, program, _) = lowered(MAP_PROGRAM);
+        let named = |name: &str| {
+            program
+                .globals
+                .iter()
+                .position(|g| &*g.name == name)
+                .unwrap_or_else(|| panic!("no {name}"))
+        };
+        let balance = named("Std.Map.Tree.balance");
+        let GlobalKind::Function { body, .. } = &program.globals[balance].kind else {
+            panic!("balance is a function");
+        };
+        let (mut calls, mut nodes) = (Vec::new(), 0);
+        walk(&body.expr, &mut calls, &mut nodes);
+        for callee in ["Std.Map.Tree.shape", "Std.Map.Tree.rebuild"] {
+            assert!(
+                !calls.contains(&(named(callee) as u32)),
+                "balance calls {callee}:\n{:#?}",
+                body.expr
+            );
+        }
+        assert!(nodes > 0, "balance builds no node:\n{:#?}", body.expr);
+        assert!(
+            matches!(&program.globals[balance].reuse, Reuse::Copies(c) if c.iter().any(|(n, _)| *n == 5)),
+            "balance takes no token: {:?}",
+            program.globals[balance].reuse
+        );
+    });
+}
+
 /// Tokens held around an effect operation whose handler resumes twice: each
 /// resumption gets its own result, as the reference evaluator says.
 #[test]

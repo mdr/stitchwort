@@ -83,6 +83,65 @@ in [../proposals/README.md](../proposals/README.md).
   [../proposals/compiled-handler-dispatch.md](../proposals/compiled-handler-dispatch.md) ("Stage 1b
   results").
 
+### SW-2531: inline a function for its context (a selector's result taken apart at once)
+
+- **Status:** on `lane/SW-2531`, for review. Opus.
+- **Problem.** SW-2513 target 2 (and SW-2371's "cause 2"): `Map.Tree.balance`
+  is `rebuild (shape l r) l key value r`. `shape` (65 IR nodes) and
+  `rebuild` (38) were too big for the inliner's 24-node limit, so every
+  level of an insert made two calls: `shape` worked out the sizes and
+  returned a `Shape` constant, and `rebuild` tested it and worked the sizes
+  out again to build the node. The brief's premise, that the old node's cell
+  was not reused because the `Bin` is built in another body, no longer holds:
+  SW-2391's reuse across calls already passes the token down to
+  `rebuild[reuse]`, and an alloc trace of the pattern allocates no more than
+  the fused version, before and after this change. What was left was the
+  calls and the `Shape` round trip: in the SW-2513 profile (after the record
+  fix) `shape` and `rebuild` are 1.7 G + 1.4 G of 12.6 G instructions. A
+  hand-fused `insertWith` measured 9.39 G (SW-2513).
+- **Change.** `opt.rs`, GHC's "interesting context" discount, in two rules
+  with their own caps (`CONTEXT_SIZE` 80 nodes for the function,
+  `KNOWN_PUSH_SIZE` 96 for what case of case copies):
+  - a non-recursive function whose leaves are all constructors of trivial
+    fields (a *selector*, like `shape` or a `compare`) is inlined where its
+    result is bound and taken apart at once, if the arms its leaves would
+    take come to at most 96 nodes;
+  - a non-recursive function whose body is a match on a parameter (like
+    `rebuild`) is inlined where that argument's constructor is known, or is
+    a call of such a selector, or an inlined one;
+  - case of case into leaves that are all constructors is costed by the arm
+    each leaf takes (the copy keeps only that arm), not by the whole match
+    times the leaves.
+  `balance` becomes one 126-node body that tests the sizes once and builds
+  the unrotated node itself (and gets a reuse copy, `balance[reuse]`); the
+  rotations stay calls. No std source changed.
+- **Why results stay the same.** Inlining and case of case are the
+  simplifier's existing rules, applied in more places; everything they move
+  is pure and total. Kernel terms are untouched (hash tests pass). Checked by
+  every `bench:instructions` and `bench:aoc` answer (all ok), rt and native
+  lane tiers, `alloc_trace`/`reuse::`, `every_example_lowers`; a new IR test
+  (`reuse::balance_builds_its_node_itself`, fails before) and an alloc-trace
+  test against a hand-fused tree.
+- **Measured.** `bench:instructions --runs 3`: mapops 12.66 -> 9.67 G
+  (-23.6%; the hand-fused version is 9.39 G), dijkstra -4.7%, disk -3.6%,
+  rbmap -0.2%, binary-trees -0.2%, bridge -0.1%, expressions -0.05%; geomean
+  -5.0% over the seven. `bench:aoc`: geomean -1.30% over 55 days, all ok; 9
+  days moved more than 3%, all down: 2020/08 -17.5%, 2020/14 -9.9%, 2020/01
+  -7.8%, 2021/05 -6.3%, 2020/09 -5.5%, 2024/06 -4.7%, 2021/14 -4.4%, 2021/15
+  -4.2%, 2024/05 -4.0%. The largest rise is +0.63% (2025/06, whose IR is
+  unchanged: noise).
+- **Code size (measured, IR nodes after reuse copies).** +2.09% over the 55
+  AoC days and three bench programs (397,316 -> 405,621); most programs
+  unchanged, the largest 2021/15 +11.9%, 2024/16 +8.9%, 2024/09 +6.0%,
+  mapops +5.3%.
+- **Not done.** `balance` itself (126 nodes) is still a call from
+  `insertWith`; inlining it there too would take mapops towards the fused
+  9.39 G (estimated a further 2-3%) at about 250 more nodes per Map
+  instance, and needs a rule of its own (inlining a big function into a body
+  that holds a reuse token it would use). Not tried.
+- **Links.** SW-2531, SW-2513 target 2, SW-2371 cause 2, SW-2391 (reuse
+  across calls).
+
 ### SW-2514: a record update takes a unique record's fields apart first
 
 - **Status:** merged (`44beef6e9`). Opus.
