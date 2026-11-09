@@ -196,7 +196,7 @@ theorem couponNeverAdds (coupon: Coupon) (total: Nat): coupon.apply total ≤ to
 -- way. Take `totalAppend`'s proof apart again, and follow along:
 --
 -- 1. The proof has two arms, as `totalOf` has: a theorem whose statement
---    ends `(items: List Item) → …` can have arms, as a function can.
+--    ends `∀ (items: List Item) => …` can have arms, as a function can.
 --    Replace each arm's proof with `?`:
 --
 --        | [] => ?
@@ -230,7 +230,7 @@ theorem couponNeverAdds (coupon: Coupon) (total: Nat): coupon.apply total ≤ to
 --    `omega [totalAppend others rest]` proves it too: `omega` with an
 --    extra fact. Try it.
 
-theorem totalAppend (others: List Item): (items: List Item) → totalOf (items ++ others) = totalOf items + totalOf others
+theorem totalAppend (others: List Item): ∀ (items: List Item) => totalOf (items ++ others) = totalOf items + totalOf others
   | [] => rfl
   | [item, ..rest] => rewrite totalAppend others rest, Nat.addAssoc
 
