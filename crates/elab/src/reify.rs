@@ -139,7 +139,7 @@ fn computation(cx: &mut Ctx, thunk: &Expr) -> Result<(Term, Value, Row)> {
             let Value::Pi(_, stitchwort_core::Icit::Explicit, dom, cod) = &ty else {
                 return Err(not_a_thunk(cx, span, &ty));
             };
-            if !cx.unify(dom, &Value::Data(unit, Vec::new()))? {
+            if !cx.unify(dom, &Value::Data(unit, Vec::new().into()))? {
                 return Err(not_a_thunk(cx, span, &ty));
             }
             // `t ()`.

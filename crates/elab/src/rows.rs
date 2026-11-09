@@ -564,7 +564,10 @@ mod tests {
     }
 
     fn data(g: &crate::unify::Unifier<'_>, builtin: Builtin, args: Vec<Value>) -> Value {
-        Value::Data(g.env.registry().data(builtin).expect("a built-in"), args)
+        Value::Data(
+            g.env.registry().data(builtin).expect("a built-in"),
+            args.into(),
+        )
     }
 
     fn applied(head: Head, args: Vec<Value>) -> Value {

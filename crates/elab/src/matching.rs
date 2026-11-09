@@ -436,7 +436,7 @@ fn unit_parameter<'e>(cx: &mut Ctx, expr: &'e Expr, goal: &Value) -> Result<Opti
     }
     let unit = Value::Data(
         crate::check::builtin_data(cx, stitchwort_core::registry::Builtin::UnitType)?,
-        Vec::new(),
+        Vec::new().into(),
     );
     let ty = cx.types[level].clone();
     Ok(crate::undo::unify(cx, &ty, &unit)?.then_some(&alt.body))
@@ -498,7 +498,7 @@ fn lifted(
             let term = crate::logic::bool_operand(cx, &s.expr, "match")?;
             let bool_ty = Value::Data(
                 crate::check::builtin_data(cx, stitchwort_core::registry::Builtin::Bool)?,
-                Vec::new(),
+                Vec::new().into(),
             );
             (term, bool_ty)
         } else {

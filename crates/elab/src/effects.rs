@@ -196,11 +196,11 @@ fn label_ops(cx: &Ctx, label: &Label) -> Value {
     if label.ability == REC {
         // `Rec A`, recognised by `decode` only while describing.
         let rec = data(cx, Builtin::Rec).expect("the prelude declares `Rec`");
-        return Value::Data(rec, label.args.clone());
+        return Value::Data(rec, label.args.clone().into());
     }
     Value::Data(
         cx.e.tables.abilities[label.ability].op_data,
-        label.args.clone(),
+        label.args.clone().into(),
     )
 }
 
@@ -230,11 +230,11 @@ pub fn ops(cx: &Ctx, row: &Row) -> Result<Value> {
             Value::Neutral(Head::Def(def(cx, Builtin::RowOp)?), Spine::new()),
             e.clone(),
         )?,
-        None => Value::Data(data(cx, Builtin::NoOp)?, Vec::new()),
+        None => Value::Data(data(cx, Builtin::NoOp)?, Vec::new().into()),
     };
     let plus = data(cx, Builtin::Plus)?;
     for label in row.labels.iter().rev() {
-        value = Value::Data(plus, vec![label_ops(cx, label), value]);
+        value = Value::Data(plus, vec![label_ops(cx, label), value].into());
     }
     Ok(value)
 }
@@ -291,7 +291,7 @@ pub fn comp_type(cx: &Ctx, row: &Row, t: Value) -> Result<Value> {
     }
     Ok(Value::Data(
         data(cx, Builtin::Comp)?,
-        vec![ops(cx, row)?, res(cx, row)?, t],
+        vec![ops(cx, row)?, res(cx, row)?, t].into(),
     ))
 }
 
@@ -435,12 +435,12 @@ pub fn decode(cx: &Ctx, op_type: &Value) -> Result<Option<Row>> {
                 match force(&g, args[0].clone())? {
                     Value::Data(od, oargs) if Some(od) == rec => labels.push(Label {
                         ability: REC,
-                        args: oargs,
+                        args: oargs.into_vec(),
                     }),
                     Value::Data(od, oargs) => match ability_of(od) {
                         Some(ability) => labels.push(Label {
                             ability,
-                            args: oargs,
+                            args: oargs.into_vec(),
                         }),
                         None => return Ok(None),
                     },
@@ -466,7 +466,7 @@ pub fn decode(cx: &Ctx, op_type: &Value) -> Result<Option<Row>> {
                         value = force(&g, fields[0].clone())?
                     }
                     Value::Ctor(d, c, _) if d == row_data && c == empty => {
-                        value = Value::Data(no_op, Vec::new())
+                        value = Value::Data(no_op, Vec::new().into())
                     }
                     x => {
                         no_duplicates(cx, &labels)?;
@@ -1374,7 +1374,7 @@ fn ops_ending(cx: &Ctx, labels: &[Label], end: Value) -> Result<Value> {
     let plus = data(cx, Builtin::Plus)?;
     let mut value = end;
     for label in labels.iter().rev() {
-        value = Value::Data(plus, vec![label_ops(cx, label), value]);
+        value = Value::Data(plus, vec![label_ops(cx, label), value].into());
     }
     Ok(value)
 }
@@ -1799,7 +1799,7 @@ pub fn effect_type(
     let tail = match &row.tail {
         None => None,
         Some(name) => {
-            let row_type = Value::Data(data(cx, Builtin::Row)?, Vec::new());
+            let row_type = Value::Data(data(cx, Builtin::Row)?, Vec::new().into());
             let term = check(cx, &Expr::Var(name.clone()), &row_type)?;
             Some(cx.eval(&term)?)
         }
@@ -1811,7 +1811,7 @@ pub fn effect_type(
             let x = divergence_name(&name.text);
             match cx.lookup(&x) {
                 Some(_) => {
-                    let ty = Value::Data(data(cx, Builtin::Divergence)?, Vec::new());
+                    let ty = Value::Data(data(cx, Builtin::Divergence)?, Vec::new().into());
                     let term = check(
                         cx,
                         &Expr::Var(AstName {
@@ -2772,7 +2772,7 @@ fn comp_check_in(
                 ));
             }
             // Run the condition first, then branch on its result.
-            let bool_ty = Value::Data(data(cx, Builtin::Bool)?, Vec::new());
+            let bool_ty = Value::Data(data(cx, Builtin::Bool)?, Vec::new().into());
             let c = comp_check(cx, cond, row, &bool_ty)?;
             let var = Expr::Var(AstName {
                 text: "%cond".into(),
@@ -2833,7 +2833,7 @@ fn comp_check_in(
             // An unannotated `let`'s value has no expected type yet, but a
             // proposition can't perform: this is the `Bool` reading.
             if is_unknown(cx, t)? {
-                let bool_ty = Value::Data(data(cx, Builtin::Bool)?, Vec::new());
+                let bool_ty = Value::Data(data(cx, Builtin::Bool)?, Vec::new().into());
                 cx.unify(t, &bool_ty)?;
             }
             if !may_perform(cx, a)? {
@@ -2865,7 +2865,7 @@ fn comp_check_in(
                     )
                 });
             }
-            let bool_ty = Value::Data(data(cx, Builtin::Bool)?, Vec::new());
+            let bool_ty = Value::Data(data(cx, Builtin::Bool)?, Vec::new().into());
             let c = comp_check(cx, a, row, &bool_ty)?;
             let left = Expr::Var(AstName {
                 text: "%left".into(),
@@ -3130,7 +3130,7 @@ pub fn comp_infer(cx: &mut Ctx, expr: &Expr, row: &Row) -> Result<(Term, Value)>
             Ok((c, t))
         }
         Expr::Binary(BinOp::And | BinOp::Or, ..) if may_perform(cx, expr)? => {
-            let t = Value::Data(data(cx, Builtin::Bool)?, Vec::new());
+            let t = Value::Data(data(cx, Builtin::Bool)?, Vec::new().into());
             let c = comp_check(cx, expr, row, &t)?;
             Ok((c, t))
         }
@@ -3393,7 +3393,7 @@ fn comp_ctor_app(
         },
         None => None,
     };
-    let slots = ctor_slots(cx, d, c, params.as_deref())?;
+    let slots = ctor_slots(cx, d, c, params.as_deref().map(Vec::as_slice))?;
     if args.iter().any(|a| matches!(a, Expr::NamedArg(..)))
         || slots.iter().filter(|s| s.explicit).count() != args.len()
     {
@@ -3475,7 +3475,7 @@ fn comp_app(
     if let Some(crate::logic::Logic::Not(operand, _)) = crate::logic::classify(cx, expr)
         && is_proposition(operand)
     {
-        let bool_ty = Value::Data(data(cx, Builtin::Bool)?, Vec::new());
+        let bool_ty = Value::Data(data(cx, Builtin::Bool)?, Vec::new().into());
         let c = comp_check(cx, operand, row, &bool_ty)?;
         let name = format!("%{}", cx.level());
         bound.push(hold(cx, row, &name, c, bool_ty)?);
@@ -4116,7 +4116,7 @@ fn run_argument(
     if !decided {
         return run_first(cx, e, row, bound);
     }
-    let bool_ty = Value::Data(data(cx, Builtin::Bool)?, Vec::new());
+    let bool_ty = Value::Data(data(cx, Builtin::Bool)?, Vec::new().into());
     let c = comp_check(cx, e, row, &bool_ty)?;
     let name = format!("%{}", cx.level());
     bound.push(hold(cx, row, &name, c, bool_ty)?);
@@ -4875,7 +4875,7 @@ fn handle(cx: &mut Ctx, body: &Expr, clauses: &[Clause], out: &Row, t: &Value) -
             Pattern::Var(n) => n.text.clone(),
             Pattern::Wildcard(_) => "_".to_string(),
             Pattern::Absurd(_) => {
-                let unit = Value::Data(data(cx, Builtin::UnitType)?, Vec::new());
+                let unit = Value::Data(data(cx, Builtin::UnitType)?, Vec::new().into());
                 if !cx.unify(&dom, &unit)? {
                     cx.reset(mark);
                     return Err(cx.mismatch(&dom, &unit));
@@ -4897,7 +4897,7 @@ fn handle(cx: &mut Ctx, body: &Expr, clauses: &[Clause], out: &Row, t: &Value) -
         let k_ty = Value::Pi(
             "y".into(),
             Icit::Explicit,
-            Rc::new(b),
+            Rc::new(b).into(),
             stitchwort_core::value::Closure {
                 env: cx.env.as_slice().into(),
                 body: Rc::new(cx.quote_folded(&r)?.shift(&cx.g(), 1, 0)?),

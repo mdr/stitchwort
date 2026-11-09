@@ -942,7 +942,7 @@ fn unknown_field(g: &Ev, d: DataId, name: &ast::Name) -> Diagnostic {
 fn record_type(cx: &Ctx, ty: &Value, what: &str) -> Result<(DataId, Vec<Value>)> {
     let g = cx.g();
     match force(&g, ty.clone())? {
-        Value::Data(d, params) if g.data(d).record() => Ok((d, params)),
+        Value::Data(d, params) if g.data(d).record() => Ok((d, params.into_vec())),
         Value::Neutral(stitchwort_core::value::Head::Meta(_), _) => Err(cx
             .error(
                 "E-CANNOT-INFER",
@@ -1060,7 +1060,7 @@ impl crate::queue::Check for Literal {
                 cx.eval(&meta)
             })
             .collect::<Result<Vec<_>>>()?;
-        let chosen = cx.unify(&Value::Data(d, params), &self.expected)?;
+        let chosen = cx.unify(&Value::Data(d, params.into()), &self.expected)?;
         if chosen {
             let name = cx.g().data(d).name().to_string();
             cx.e.attempt
@@ -1177,7 +1177,7 @@ pub(crate) fn infer_update(
         }
     }
     let term = update(cx, base, &ty, Some(result.clone()), fields)?;
-    Ok((term, Value::Data(d, result)))
+    Ok((term, Value::Data(d, result.into())))
 }
 
 /// What an update does with one of the record's type parameters.
@@ -1300,7 +1300,13 @@ fn changing_update(
     }
     let (base, ty) = infer(cx, base)?;
     let (base, ty) = insert(cx, base, ty)?;
-    Ok(Some(update(cx, base, &ty, Some(wanted), fields)?))
+    Ok(Some(update(
+        cx,
+        base,
+        &ty,
+        Some(wanted.into_vec()),
+        fields,
+    )?))
 }
 
 /// `{ f = e, … }` at record `d` with parameters `params`: every field given
@@ -1404,7 +1410,7 @@ fn update(
     let (d, params) = record_type(cx, ty, "this update")?;
     let uses = param_uses(&g, d, fields);
     let new_ty = match &result {
-        Some(new) => Value::Data(d, new.clone()),
+        Some(new) => Value::Data(d, new.clone().into()),
         None => ty.clone(),
     };
     let new_params = result.unwrap_or_else(|| params.clone());

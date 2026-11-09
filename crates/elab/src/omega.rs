@@ -1037,10 +1037,17 @@ fn prove_goal(
                 }
                 (Some(true), Some(BoolForm::And(p, q))) => {
                     let true_v = cx.eval(&Term::ctor(lib.tru.0, lib.tru.1, Vec::new()))?;
-                    let bool_ty = Rc::new(Value::Data(lib.bool, Vec::new()));
-                    let p_true =
-                        Value::Eq(bool_ty.clone(), Rc::new(p.clone()), Rc::new(true_v.clone()));
-                    let q_true = Value::Eq(bool_ty, Rc::new(q.clone()), Rc::new(true_v));
+                    let bool_ty = Rc::new(Value::Data(lib.bool, Vec::new().into()));
+                    let p_true = Value::Eq(
+                        bool_ty.clone().into(),
+                        Rc::new(p.clone()).into(),
+                        Rc::new(true_v.clone()).into(),
+                    );
+                    let q_true = Value::Eq(
+                        bool_ty.into(),
+                        Rc::new(q.clone()).into(),
+                        Rc::new(true_v).into(),
+                    );
                     let hp = prove_goal(cx, lib, &p_true, extra, span)?;
                     let hq = prove_goal(cx, lib, &q_true, extra, span)?;
                     let args = [both(cx, &p)?, both(cx, &q)?, (hp, p_true), (hq, q_true)];
@@ -1151,7 +1158,7 @@ fn prove_goal(
         Some(prop) => prop,
         None => crate::cases::is_proposition(cx, &goal)?,
     };
-    let void = Value::Data(lib.void, Vec::new());
+    let void = Value::Data(lib.void, Vec::new().into());
     let Ok(proof) = linear(cx, lib, Goal::Void, &void, extra, span) else {
         return Err(unsupported.with_note(
             "for any other goal, `omega` looks for facts that contradict each other, and found none",
@@ -1184,8 +1191,12 @@ fn lex_less(
     if let Some(proof) = crate::undo::attempt(cx, |cx| prove_goal(cx, lib, &first, extra, span))? {
         return Ok(Term::ctor(lex, 0, vec![proof]));
     }
-    let nat = Rc::new(Value::Data(lib.nat, Vec::new()));
-    let same = Value::Eq(nat, Rc::new(params[0].clone()), Rc::new(params[2].clone()));
+    let nat = Rc::new(Value::Data(lib.nat, Vec::new().into()));
+    let same = Value::Eq(
+        nat.into(),
+        Rc::new(params[0].clone()).into(),
+        Rc::new(params[2].clone()).into(),
+    );
     let second = less(cx, &params[1], &params[3])?;
     let both = crate::undo::attempt(cx, |cx| {
         let same = prove_goal(cx, lib, &same, extra, span)?;
@@ -1235,7 +1246,7 @@ fn refute_hypothesis(
     extra: &[Extra],
     span: Span,
 ) -> Result<Term> {
-    let void = Value::Data(lib.void, Vec::new());
+    let void = Value::Data(lib.void, Vec::new().into());
     assuming(cx, "h", p, extra, |cx, extra| {
         prove_goal(cx, lib, &void, extra, span)
     })
@@ -1401,8 +1412,12 @@ struct Disjunction {
 fn bool_is(cx: &Ctx, lib: &Lib, b: &Value, truth: bool) -> Result<Value> {
     let which = if truth { lib.tru } else { lib.fls };
     let value = cx.eval(&Term::ctor(which.0, which.1, Vec::new()))?;
-    let bool_ty = Rc::new(Value::Data(lib.bool, Vec::new()));
-    Ok(Value::Eq(bool_ty, Rc::new(b.clone()), Rc::new(value)))
+    let bool_ty = Rc::new(Value::Data(lib.bool, Vec::new().into()));
+    Ok(Value::Eq(
+        bool_ty.into(),
+        Rc::new(b.clone()).into(),
+        Rc::new(value).into(),
+    ))
 }
 
 /// `Ord.lessThan [a] d x y` or `Ord.lessEq [a] d x y` at `Nat` or `Int`,
@@ -2934,7 +2949,7 @@ fn refuted_case(
     span: Span,
 ) -> Result<Option<Term>> {
     let snapshot = crate::undo::Snapshot::take(cx);
-    let void = Value::Data(lib.void, Vec::new());
+    let void = Value::Data(lib.void, Vec::new().into());
     let made = assuming(cx, "case", side, extra, |cx, extra| {
         let reader = read_context(cx, lib, extra)?;
         let proof = linear_once(cx, lib, &Goal::Void, &void, span, reader, &mut Vec::new())?;
@@ -3219,11 +3234,11 @@ fn linear_once(
     // the atom's own term.
     for op in quoter.ops.clone() {
         let atom = &quoter.atoms[op.t];
-        let nat = Rc::new(Value::Data(lib.nat, Vec::new()));
+        let nat = Rc::new(Value::Data(lib.nat, Vec::new().into()));
         let prop = Value::Eq(
-            nat,
-            Rc::new(atom.value.clone()),
-            Rc::new(atom.value.clone()),
+            nat.into(),
+            Rc::new(atom.value.clone()).into(),
+            Rc::new(atom.value.clone()).into(),
         );
         let fact = Fact {
             kind: Kind::Op(op.kind),

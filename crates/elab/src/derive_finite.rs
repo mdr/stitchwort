@@ -240,12 +240,12 @@ impl Elaborator {
                 if *is_type {
                     cx.bind_hidden(
                         format!("%finite{j}").as_str().into(),
-                        Value::Data(finite, vec![Value::var(j)]),
+                        Value::Data(finite, vec![Value::var(j)].into()),
                     );
                 }
             }
             for (ty, what) in to_find {
-                let goal = Value::Data(finite, vec![ty.clone()]);
+                let goal = Value::Data(finite, vec![ty.clone()].into());
                 if let Some(e) = interfaces::findable(&mut cx, &goal)? {
                     let mut reason = format!(
                         "{what} has type `{}`, which has no `Finite` instance (when `{name}` was \

@@ -468,7 +468,7 @@ pub(crate) fn check_case(
 ) -> Result<Term> {
     let mut out = Vec::new();
     let mut missing: Vec<Diagnostic> = Vec::new();
-    let scrutinee = cx.show(&Value::Data(d, args.to_vec()));
+    let scrutinee = cx.show(&Value::Data(d, args.to_vec().into()));
     for (c, (names, subtree)) in branches.iter().enumerate() {
         let mark = cx.mark();
         let saved_env = cx.env.clone();

@@ -363,7 +363,11 @@ fn scaled(cx: &mut Ctx, lib: &Lib, sort: Sort, coefficients: &[&Expr], h: Hyp) -
     let new_r = cx.eval(&apps(Term::Def(mul), vec![c.clone(), r.clone()]))?;
     Ok(Hyp {
         proof: apps(Term::Def(scale), vec![c, l, r, h.proof]),
-        ty: Value::Eq(t, Rc::new(new_l.clone()), Rc::new(new_r.clone())),
+        ty: Value::Eq(
+            t,
+            Rc::new(new_l.clone()).into(),
+            Rc::new(new_r.clone()).into(),
+        ),
         l: new_l,
         r: new_r,
         span: h.span,

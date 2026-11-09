@@ -359,7 +359,11 @@ impl<'g> Inputs<'g> {
         }
         let pairs = Value::Data(
             list,
-            vec![Value::Data(pair, vec![args[0].clone(), args[1].clone()])],
+            vec![Value::Data(
+                pair,
+                vec![args[0].clone(), args[1].clone()].into(),
+            )]
+            .into(),
         );
         let list = self.plan(&pairs)?;
         Some(Plan::Map { head, list })
@@ -1497,14 +1501,14 @@ mod tests {
                 .datas()
                 .iter()
                 .position(|d| d.name().to_string() == name);
-            Value::Data(DataId(at.expect("declared")), Vec::new())
+            Value::Data(DataId(at.expect("declared")), Vec::new().into())
         };
         let packet = data("Packet");
         let list = g.env.registry().data(Builtin::List).expect("List");
         let mut inputs = Inputs::new(g, 1000);
         let plans: Vec<usize> = [
             data("Rose"),
-            Value::Data(list, vec![packet.clone()]),
+            Value::Data(list, vec![packet.clone()].into()),
             packet,
         ]
         .iter()

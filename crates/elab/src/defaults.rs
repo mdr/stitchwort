@@ -697,7 +697,7 @@ pub(crate) fn ctor_with_defaults(
     for index in &data.ctors()[c].result {
         args.push(eval(&g, &env, index)?);
     }
-    let ty = Value::Data(d, args);
+    let ty = Value::Data(d, args.into());
     if let Some(t) = expected
         && !cx.unify(&ty, t)?
     {

@@ -40,7 +40,7 @@ use crate::globals::{Kernel, State};
 use crate::partial::Primitive;
 use crate::registry::Builtin;
 use crate::term::{DataId, DefId, Icit, Sort, Term};
-use crate::value::{Elim, Head, Value, conv, eval, force};
+use crate::value::{Elim, Head, Shared, Value, conv, eval, force};
 
 /// A definition with a native implementation.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -470,7 +470,7 @@ pub fn register_decidable(g: &mut Kernel, d: DataId) -> Result<()> {
                     let not_p = Value::Pi(
                         "h".into(),
                         Icit::Explicit,
-                        Rc::new(p.clone()),
+                        Shared::new(p.clone()),
                         crate::value::Closure {
                             env: [p.clone()].into(),
                             body: Rc::new(Term::Data(void, Vec::new())),
@@ -728,7 +728,7 @@ pub fn from_view(k: BigUint, base: Option<Value>) -> Value {
     match base {
         None => nat_value(k),
         Some(base) if k.is_zero() => base,
-        Some(base) => Value::NatAdd(Rc::new(k), Rc::new(base)),
+        Some(base) => Value::NatAdd(Rc::new(k), Shared::new(base)),
     }
 }
 

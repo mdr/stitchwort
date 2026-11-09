@@ -267,12 +267,12 @@ impl Elaborator {
                 if *is_type {
                     cx.bind_hidden(
                         format!("%show{j}").as_str().into(),
-                        Value::Data(show, vec![Value::var(j)]),
+                        Value::Data(show, vec![Value::var(j)].into()),
                     );
                 }
             }
             for (ty, what) in to_show {
-                let goal = Value::Data(show, vec![ty.clone()]);
+                let goal = Value::Data(show, vec![ty.clone()].into());
                 if let Some(e) = interfaces::findable(&mut cx, &goal)? {
                     let mut reason = format!(
                         "{what} has type `{}`, which has no `Show` instance (when `{name}` was \
