@@ -26361,7 +26361,7 @@
       "where": "",
       "labels": [],
       "epic": "proof-search",
-      "body": "Overmind jobs 51 and 54, 9 Nov. Run alone first (Overmind job 55). 45 min.",
+      "body": "Overmind jobs 51 and 54, 9 Nov. Run alone first (Overmind job 55). 45 min.\n\nOvermind job 55 (main 3c92cf18d, 9 Nov): search_at_aoc alone, capped at 60 min. 142 of 143 goals done in about 10 min; the one left is aoc/src/Aoc/Year2024/Day22/Proofs/Keys.sw:111 (digitChangesPossible), still running at the cap, one thread busy the whole time. Repro: run search_at_aoc limited to that goal. Not investigated (compute mode). Same job: 7 leftover tests passed, doctests ok, verify-cache ok.",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
