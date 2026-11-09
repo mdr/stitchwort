@@ -1,5 +1,5 @@
 ---
-source: crates/driver/tests/library/hash_stability.rs
+source: crates/driver/tests/hash_stability.rs
 expression: "lines(session, d, f)"
 ---
 Main.extra 4ab55e1909057311b0a8a4cc23ab379ecfda6de266e08260ae4c8b9e08e913eb
@@ -7,7 +7,7 @@ Main.extraIsFour 24de0d4748777577933ee263d908c31ba9e81e0fb7d65894a21c446f7d1341b
 Main.peel 6a781bf3d7498e7fa6580a3e0e79028dad98a1be0f6c1fee9b88e62888d68d42
 Main.peelLeft e7e8e66f352687f2d20c5b9e63e0b048b5c9e72a1951ff0d25034c861e9d9aba
 Main.inside 24cb3310a9f2bc46014f74659cca258f813c99c5d29c1ca98b6c6745613f001c
-Main.atLeastTwo e7795a7da10251be39cbb621e7729d68d69c0658abd45a33dd09a0b6c9dd8937
+Main.atLeastTwo f9b2e684847b67d9a1e4f27b8d41415c9b900407ca6ff591c86644e4dc35d6e2
 Main.atLeastTwo.%match1 bccd1d28fbbf48fd162216d4e990436e294ad92671bb26350b973fbc0adc6a30
-Main.atMostN ab4ad4782fae11d679e72f12b8f810ebf4d0c8e9f9a0cbb7a00e03b49b00e002
-Main.atMostN.%match1 1b6f10a3f49a3603f8ef3a575676066633aed38f3528e892dbff2ea794800e9c
+Main.atMostN 9bb7b3f6e29d6c3bf9f2482971a58727a06314cde0375d0a8b12abdda8d80ed0
+Main.atMostN.%match1 e6bb83291a33ee234847e6b73ef48f23b3e0b27f673d13d411f56919dacbdb09

@@ -1,5 +1,5 @@
 ---
-source: crates/driver/tests/library/hash_stability.rs
+source: crates/driver/tests/hash_stability.rs
 expression: "lines(session, d, f)"
 ---
 data Main.Order a114799b186b4dde65361ee6a46cc07573babdbf994fab981cf168fb2702bfce
@@ -81,10 +81,10 @@ Main.pickOrFailEnough 96ed066ba00aab0b6f9addeeeb8f5f7d8e7c0387191c3cbf8623c8643d
 Main.binOrFail 3164ffd0bed7569036288237230a39420d663b79d5ca22b75e85f8c77bb10bdb
 Main.pickFromBinOrFail 9a441bb4c8f8225cb44e767d20aff7e8bb977a1d3a00c251b94b482dc3bfd279
 Main.pickFromBinOrFailFound ea358d5c5a8bec0083d3b9e4f0e84805f6c33e43715723aaa8f8b3e1897e12ac
-Main.warehouse d74e003b2cbe5c116886c9c5fee269bf60006f5075a673e8bc43ef5dfcb6cc60
-Main.test "a pick" eb4bca223cd31521949bfe2437a9e3c21376a55edb520819edc13ae008e2ad13
-Main.test "not enough" 916e476be6548e19cb6664088e0868c1964143c519099b76dbe042133644a797
-Main.test "no such bin" 8a0742962abced44a72041c39807ac2b0fc8b4849dc812c9f27e7585848c6f36
-Main.test "no such item" 28680c560fc32e5f35ec35a2493f22ed48b1d588e02471a17cd1d91ecc4234b1
-Main.test "the bin" c7c171ac76da167e92c72ad4a2b97669ec882229980cc2d413209007c0c51138
-Main.test "a failure says why" 5cb49e257027362062dc020a9f1abc6fde1a537f40f68a11c4505ac148999eb3
+Main.warehouse f3b46b81b184d9bc09b62047438ae0c6533714e1fb4047024518312e5525fe8f
+Main.test "a pick" e013d83737b3e5f8ba6e0dc3ce557e4cf39cd21d5b0bee233f1d0cb21c13ce04
+Main.test "not enough" 163885dc037e2da0b174267e5731f66b985947fe4287deb713dacc5358ece03b
+Main.test "no such bin" ddd8a7adcd6cd8b5150f584a9eb5a708c496dcc5a8ee9e2ce2c991485b242a56
+Main.test "no such item" 2f8b6ea96317fc18e853ca7f624dec506e3c2d2909f96b085c53a3f2f0a4aea6
+Main.test "the bin" 441669b264fee08121ea3df22f85b4efaa8035c5fd7ec159e1a2fd60d41f63af
+Main.test "a failure says why" 34e5a951114a808edc8504528958e6180886162cee639f7d8fb647a7c246ed57

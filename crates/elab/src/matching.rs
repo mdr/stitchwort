@@ -1026,11 +1026,13 @@ fn generalised_now(
             .with_label(s.span, "this scrutinee"));
         }
     }
+    let goal_folded = unrefined_goal(cx, &occurrences, &copied, goal, &goal_term, base)?;
     let today = as_written::Today {
         occurrences: &occurrences,
         copied: &copied,
         type_terms: &type_terms,
         goal_term: &goal_term,
+        goal_folded: goal_folded.as_ref(),
     };
     let written = as_written::first(cx, &exprs, &today, goal, base, skip, span)?;
     let mut not_found = if skip.is_none() {
@@ -1043,6 +1045,7 @@ fn generalised_now(
             &type_terms,
             goal,
             &goal_term,
+            goal_folded.as_ref(),
         )?
     } else {
         Vec::new()
@@ -1144,6 +1147,7 @@ fn unconfirmed_now(
         copied: &[],
         type_terms: &[],
         goal_term: &Term::Refl,
+        goal_folded: None,
     };
     // The motive check has its own budget: a goal too large to read back
     // can be as slow to compare, and today this `match` fails at once.
@@ -1300,6 +1304,34 @@ fn in_arms(
     )
 }
 
+/// The goal read back folded (calls as calls, [`Ctx::quote_folded`]), in the
+/// `match`'s context, when the usual occurrence test refines nothing in it:
+/// no scrutinee occurs in its unfolded form `goal_term`, and it mentions no
+/// copied variable either way. The arms' goal is then the goal itself, so
+/// they keep it as the user wrote it (`list.allergens`, not its unfolded
+/// body) and their errors and goals print it that way (SW-2554). It is equal
+/// by computation to the unfolded goal the usual test would give the arms.
+/// `None` otherwise, or if reading it back fails in a way that can be
+/// recovered from.
+fn unrefined_goal(
+    cx: &Ctx,
+    occurrences: &[Option<&Term>],
+    copied: &[usize],
+    goal: &Value,
+    goal_term: &Term,
+    base: usize,
+) -> Result<Option<Term>> {
+    let mentions_copy = |t: &Term| free_levels(t, base).iter().any(|l| copied.contains(l));
+    if any_occurs(occurrences, goal_term) || mentions_copy(goal_term) {
+        return Ok(None);
+    }
+    match cx.quote_folded(goal) {
+        Ok(folded) => Ok((!mentions_copy(&folded)).then_some(folded)),
+        Err(e) if crate::undo::recoverable(cx, &e) => Ok(None),
+        Err(e) => Err(e),
+    }
+}
+
 /// A generalised `match`'s variables bound and its motive made: the
 /// arguments its helper is passed, the equations `h : e = s` (scrutinee
 /// index, level), and the motive, in `depth` variables.
@@ -1372,9 +1404,10 @@ fn bind_generalised(
         }
     }
     let depth = cx.level();
-    let goal_term = match written {
-        Some(w) => as_written::moved(&g, &w.goal, base, e, depth, &copies)?,
-        None => Generalise {
+    let goal_term = match (written, today.goal_folded) {
+        (Some(w), _) => as_written::moved(&g, &w.goal, base, e, depth, &copies)?,
+        (None, Some(folded)) => folded.shift(&g, depth - base, 0)?,
+        (None, None) => Generalise {
             base,
             depth,
             exprs: today.occurrences,
@@ -1536,8 +1569,11 @@ fn ran_out_at(d: Diagnostic, span: stitchwort_syntax::Span, label: &str) -> Diag
 /// the goal nor in a hypothesis, by index: such a `match` replaces nothing,
 /// so every alternative has the goal unchanged. Each is given only if the
 /// alternatives don't use its equation either, and only in a proof, whose
-/// goal is a proposition. The note shows the goal as the occurrence test
-/// saw it, and none if the goal holds an unknown. None is given for one left uncomputed with free variables
+/// goal is a proposition. The label shows the expression and the note the
+/// goal as written (`goal_folded`, [`unrefined_goal`]), the forms the arms
+/// see, not the unfolded ones the occurrence test compared, which print a
+/// definition's body for each call in them (SW-2554). None is given if the
+/// goal holds an unknown, or for one left uncomputed with free variables
 /// (`unread`): its normal form might have been a variable, which this
 /// never warns about.
 #[allow(clippy::too_many_arguments)]
@@ -1550,6 +1586,7 @@ fn not_found(
     type_terms: &[Term],
     goal: &Value,
     goal_normal: &Term,
+    goal_folded: Option<&Term>,
 ) -> Result<Vec<(usize, Diagnostic)>> {
     let g = cx.g();
     let mut out = Vec::new();
@@ -1573,24 +1610,37 @@ fn not_found(
         {
             continue;
         }
-        let shown = pretty::term_for_message_in(
-            &g,
-            cx.e,
-            &cx.shown_names(false),
-            normal.as_ref().unwrap_or(&s.term),
-        );
-        let goal_shown = pretty::term_for_message_in(&g, cx.e, &cx.shown_names(false), goal_normal);
-        // `f x` and `y => f x y` are different terms to the search.
+        let names = cx.shown_names(false);
+        let shown = pretty::term_for_message_in(&g, cx.e, &names, &s.term);
+        let goal_shown_term = goal_folded.unwrap_or(goal_normal);
+        let goal_shown = pretty::term_for_message_in(&g, cx.e, &names, goal_shown_term);
+        // `f x` and `y => f x y` are different terms to the search. Said
+        // only of a lambda the goal shows.
         let has_lambda = |t: &Term| t.subterms().any(|(t, _)| matches!(t, Term::Lam(..)));
-        let eta = has_lambda(goal_normal) && !normal.as_ref().is_some_and(has_lambda);
+        let eta = has_lambda(goal_shown_term)
+            && has_lambda(goal_normal)
+            && !normal.as_ref().is_some_and(has_lambda);
         let mut warning = Diagnostic::warning(
             "W-MATCH-NOT-FOUND",
             "this `match` didn't find its expression in the goal, so every arm has the goal \
              unchanged",
         )
         .with_label(s.span, format!("looked for `{shown}`"))
-        .with_note(format!("in the goal `{goal_shown}`"))
-        .with_note(
+        .with_note(format!("in the goal `{goal_shown}`"));
+        // The expression is in the goal as written, but not once both are
+        // computed (`isBig 20` in `pick (isBig 20) = 1`, which computes to
+        // `1 = 1`): show the computed forms, which say why.
+        if let Some(normal) = normal
+            && goal_shown.contains(shown.as_str())
+        {
+            let normal_shown = pretty::term_for_message_in(&g, cx.e, &names, normal);
+            let goal_normal_shown = pretty::term_for_message_in(&g, cx.e, &names, goal_normal);
+            warning = warning.with_note(format!(
+                "computed, the expression is `{normal_shown}` and the goal \
+                 `{goal_normal_shown}`, which doesn't contain it"
+            ));
+        }
+        warning = warning.with_note(
             "the search compares what terms compute to: write the expression as the goal \
              shows it (or `rewrite` the goal to the form you want, or bind it with a `let` \
              before the `match`)",

@@ -90,6 +90,9 @@ pub(super) struct Today<'a> {
     /// The variables' types read back unfolded (`refl` for a skipped one).
     pub(super) type_terms: &'a [Term],
     pub(super) goal_term: &'a Term,
+    /// The goal read back folded, when the usual test refines nothing in it
+    /// ([`super::unrefined_goal`]).
+    pub(super) goal_folded: Option<&'a Term>,
 }
 
 /// The generalisation as written: terms in the `match`'s context followed by

@@ -1,5 +1,5 @@
 ---
-source: crates/driver/tests/library/hash_stability.rs
+source: crates/driver/tests/hash_stability.rs
 expression: "lines(session, d, f)"
 ---
 data Main.UserId 181206861a775feb50a87cdfc3d567babbe197399a3c7d863e2a15dc3a942c45
@@ -155,7 +155,7 @@ Main.orZero 8e149748b5e0d67478b37e842203d92b268a17eef012585c6d6792b356b88fae
 Main.orZero.eq1 2bcd0532b2c463b1804cd47b0de3e83f94ed0fc07846662025d9cba31412b394
 Main.orZero.eq2 ccb384e688a09aa080ca4db71a9b9ddff41761a75f4802ef94a83f747316e0e0
 Main.wrapped 8d6f896cca2358583fd18edbd3152657f6fba13347359733666c4ef738e98719
-Main.inv dda19abbcb693d77b5f231bb561e1ac7cb8177ee1c130984d3eef6ec69b4f475
+Main.inv e99386620630387872a3fade2383eb960d762a52b79a53d2a01897ea8042dd0c
 Main.counts aebe93d76d04fddc85b1f95167d683e95430dbc65779916f1d6aeb5004811ebb
 Main.test "projection" 0a53a1674eb015f17796789602f43466489952686f84ecece52b9312c3627591
 Main.test "update" 922bde5947629f24e60ad7024c79981389788eb6c22a0c4b9e4b7ca93f4e88e4
@@ -172,7 +172,7 @@ Main.test "maybe" 740e368b3a74e9fb3924b0dae54ebae13367b30fb01d7b5f16fc49c6a8a9e9
 Main.test "constructor as function" 5f4c650204d734d83c4c639f3214242fe99cf109942fe03acf701bb58455721e
 Main.test "no field" dd616f23b99f2d0d09664a1eaca3ab8123994a975ffc4ed81873e090dbe21671
 Main.test "two fields" 62635e7f21676abaa3d4f9b75352fbd048cbe2fafe5876b05f4c28ec39ecc243
-Main.test "map of records" e4b2a0e3575a226405c74df82580df017e85fbc0d092e5f92abf5cca7c973663
-Main.test "inventory" 765023b8f09db821141c85809535790a5ef0aba8b47fb0b075ff414b475e25fb
+Main.test "map of records" bd5a24e94fd4907fc377eec18080ffd16df5ebd1817c3b5da7c5f3670d464574
+Main.test "inventory" d1fe2ddf1bb7d1225142343a87e549be915f6be300c80a917a8436622e22e946
 Main.test "interface" 83eda85d1bd3471d1ce43bee8779d81d5b0800bab399af32a5d0eea266bb2dff
-Main.main fd2c1c783bae6e7b7a5aff5f450f4ade895d98cb14e87ae0865093041bd48ceb
+Main.main 1bc9e318e3a46ee84462bad6ba21f4844b41acdfd1d23eff4bec6f5ac161d011

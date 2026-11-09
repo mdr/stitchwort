@@ -1,5 +1,5 @@
 ---
-source: crates/driver/tests/library/hash_stability.rs
+source: crates/driver/tests/hash_stability.rs
 expression: "lines(session, d, f)"
 ---
 Main.squares f5c9562e9fa37dedf28fcec637ad19d12ef74cb204bf8fb7b4566935fd9aa49c
@@ -14,6 +14,6 @@ Main.test "membership" ded996020638377128c4df118da4eff44d987f00f497fa5a8809e002b
 Main.test "spread" b1eecab6771a6f2203bb7d277f292877ee912abc4ae67343cf4f821339b8bc9e
 Main.pairsSummingTo efaa8f4c5c1fbd2ea1e455b449ed90eabc970da28e34351133418b2919468e71
 Main.test "pairs" d4decf82195d22a103e3c4dc4fa7e0caa2a52194d802a9e16640ca4592ec951b
-Main.inRange fe72825a538c699606f731a7f8de960e66cf124b8d168efd4a52cd4b2dca4299
-Main.bounds 4174e838eedff9d860d8dbd87c8ce326b6539532b1d33e789928350f6210f34a
+Main.inRange 8812d4f0bc75d3653424fe77b8ba9166b712b845d78ec715bb0a5051b8ea76df
+Main.bounds d7327edd78e20a9b4a3032cf2026ec606e0f21bb5f012c71bc94016643319b79
 Main.throughIsUpTo e9256a9ed36c2e648313acc099385f80aa6fea098abcfffb94ad07fe0ebb5832
