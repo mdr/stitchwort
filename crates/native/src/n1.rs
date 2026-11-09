@@ -86,8 +86,8 @@
 //! one place (a variable, or a spill slot a helper is given), and every
 //! move, clone and drop is the bytecode's.
 //!
-//! **Large bodies** (SW-2557). A body with more than [`VARIABLE_REGISTERS`]
-//! registers or more than [`PART_INSTRS`] instructions (generated code: a
+//! **Large bodies** (SW-2557). A body with more than `VARIABLE_REGISTERS`
+//! registers or more than `PART_INSTRS` instructions (generated code: a
 //! long list literal holds every element in a register until the list is
 //! built) keeps its registers in a register file on the heap
 //! (`sw_regs_new`) instead, laid out as the machine's register vector. An
