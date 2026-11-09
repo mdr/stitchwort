@@ -2815,6 +2815,7 @@ pub(crate) fn cheaply<T>(g: &Ev, f: impl FnOnce() -> Result<T>) -> Option<T> {
         stack: 128 * 1024,
         size: 10_000,
         frames: 10_000,
+        native_frames: 10_000,
     });
     f().ok()
 }

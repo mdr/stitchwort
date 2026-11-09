@@ -71,16 +71,17 @@ impl ObjectCode {
 }
 
 /// Compiles the bodies `program`'s entry reaches (`image` is its compiled
-/// image; `tables`, its tables and literals, `stitchwort_rt::linked::encode`) into an object for this machine,
-/// with a stack sized for `frame_limit` frames, or says why it can't (stage
-/// NO5 of native-only.md: there's no machine to fall back to): the
-/// message, then any notes.
+/// image) into an object for this machine, with a stack sized for the
+/// frame limit that `limits` allows its widest frame
+/// ([`Limits::for_native`]), or says why it can't (stage NO5 of
+/// native-only.md: there's no machine to fall back to): the message, then
+/// any notes. The object's tables and literals
+/// (`stitchwort_rt::linked::encode`) carry that frame limit.
 pub fn compile_object(
     program: &Program,
     image: &Image,
-    tables: &[u8],
     options: Options,
-    frame_limit: u64,
+    limits: &stitchwort_rt::Limits,
 ) -> Result<ObjectCode, Vec<String>> {
     n1::preflight()?;
     let plan = n1::plan(program, image, &[])?;
@@ -112,8 +113,10 @@ pub fn compile_object(
         true,
     )?;
 
+    let limits = limits.for_native(max_frame);
+    let tables = stitchwort_rt::linked::encode(program, image, &limits);
     let stack_size = n1::stack_for(
-        frame_limit,
+        limits.frames as u64,
         max_frame,
         &n1::body_name(program, image, widest),
     )?;

@@ -896,6 +896,21 @@ pub fn native_stack(frame_limit: u64, max_frame: usize) -> Option<usize> {
     usize::try_from(rounded).ok()
 }
 
+/// The frame limit of a native run of code whose frames are at most
+/// `max_frame` bytes, when the most it may have is `ceiling` frames
+/// (`Limits::native_frames`): the ceiling, or fewer if `ceiling` frames
+/// would need more than [`STACK_CAP`]. It is the most frames for which
+/// [`native_stack`] gives a stack, so a program is never refused for the
+/// default depth, only given less of it, and the same program on the same
+/// build always stops at the same depth.
+pub fn native_frame_limit(ceiling: usize, max_frame: usize) -> usize {
+    let room = STACK_CAP.saturating_sub((HOST_ROOM + HELPER_ROOM) as u64);
+    // One frame is kept back for the check that runs before a call pushes
+    // its frame, as in `native_stack`.
+    let fit = (room / (max_frame as u64).max(1)).saturating_sub(1);
+    ceiling.min(usize::try_from(fit).unwrap_or(usize::MAX))
+}
+
 /// How far below the crossing the stack-pointer check puts its floor, for
 /// a stack of `stack_size` bytes and bodies of at most `max_frame`: the
 /// whole stack less the host's and helpers' room and one more frame (the
@@ -3479,5 +3494,33 @@ mod tests {
     #[test]
     fn the_layout_probe_passes() {
         super::probe().expect("the layout is as native code expects");
+    }
+
+    /// Native code's frame limit is the ceiling when the widest frame fits
+    /// it under the cap, and otherwise the most the cap allows: always a
+    /// limit [`native_stack`] gives a stack for, one frame fewer fails it,
+    /// and the counter fires before the stack check.
+    #[test]
+    fn the_native_frame_limit_is_the_ceiling_or_what_the_cap_allows() {
+        use super::*;
+        let ceiling = 16_000_000;
+        assert_eq!(native_frame_limit(ceiling, 3_000), ceiling);
+        for max_frame in [8, 100, 2_760, 3_400, 4_000, 4_400, 20_000, 1 << 20, 1 << 30] {
+            let limit = native_frame_limit(ceiling, max_frame);
+            assert!(limit <= ceiling);
+            let stack = native_stack(limit as u64, max_frame)
+                .unwrap_or_else(|| panic!("{max_frame}: {limit} frames over the cap"));
+            assert!(
+                counter_fires_first(limit as u64, stack, max_frame),
+                "{max_frame}"
+            );
+            if limit < ceiling {
+                assert!(
+                    native_stack(limit as u64 + 1, max_frame).is_none(),
+                    "{max_frame}: could have had {}",
+                    limit + 1
+                );
+            }
+        }
     }
 }

@@ -43,6 +43,7 @@ pub(crate) const ATTEMPT: Limits = Limits {
     stack: 4 * 1024 * 1024,
     size: 100_000,
     frames: 10_000,
+    native_frames: 10_000,
 };
 
 /// What a pattern's outermost layer is: the calls inside a candidate that

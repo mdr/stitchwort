@@ -46,6 +46,40 @@ in [../proposals/README.md](../proposals/README.md).
 
 ## 9 Nov 2026
 
+### SW-2471: native recursion limit 16 million frames (const-fold depth 23 runs)
+
+- **Status:** on branch `lane/SW-2471`. Sonnet. D3450 (Matt, 9 Nov 2026: limits may differ by
+  runner).
+- **Problem.** The frame limit was a fixed 2,000,000, shared by the machine and native code, so
+  `bench/compare/const-fold` stopped with `E-RESOURCE` at depth 21 where Lean's original runs
+  depth 23 on a 4 GB stack, and ran at depth 20 in the comparison.
+- **Change.** Native code has its own ceiling, `Limits::native_frames` (16,000,000), and a run
+  enforces `min(ceiling, (64 GiB cap - rooms) / widest frame - 1)`
+  (`native_abi::native_frame_limit`, `Limits::for_native`). The machine keeps 2,000,000. The
+  native stack was already mapped lazily, and the limit is a runtime value the frame check
+  compares against, so the generated code is unchanged. A program with wide frames is no longer
+  refused: it gets the most frames the cap holds. The same program on the same build still fails
+  at the same depth.
+- **Measured** (release CLI, `run --native`, one run each; time wall, memory peak resident set):
+
+  | const-fold depth | time | peak memory |
+  |---|---|---|
+  | 21 | 0.86 s | 1.08 GB |
+  | 22 | 1.54 s | 2.06 GB |
+  | 23 | 2.87 s | 4.00 GB |
+
+  Runaway recursion (`count n = 2 * count (n - 1)` from 20,000,000, 380-byte frames): native
+  fails with `E-RESOURCE` at 15,999,999 frames pending after 1.4 s with a 6.1 GB peak; the
+  machine fails at 2,000,000 after 0.3 s with 0.58 GB. Instructions are unchanged **[estimated]**
+  (the earlier experiment, a patch with the same limit, measured no instruction cost; this
+  change did not re-measure instructions).
+- **Cost.** A runaway native recursion now uses up to about 8 times the memory before failing
+  (6 GB here; a program with wide frames can use more, up to the 64 GiB address space the
+  limit allows, and the machine's memory then decides). The roguelike's widest frame is 4,776
+  bytes, so its limit is 14.4 million.
+- **Rejected.** A byte cap beside the frame limit (the earlier lane's option): not built; the
+  frame counter stays exact and deterministic, and SW-2558 adds a flag to lower the ceiling.
+
 ### SW-2543: `stitchwort test --native` (tests as native code; 2021 day 15's tests 3.7x faster)
 
 - **Status:** on branch `lane/SW-2543`, behind a flag (`test --native`); the default flips in

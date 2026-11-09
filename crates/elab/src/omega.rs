@@ -2387,6 +2387,7 @@ impl Quoter {
                 stack: 128 * 1024,
                 size: 10_000,
                 frames: 10_000,
+                native_frames: 10_000,
             });
             if conv(&g, cx.level(), &a.value, &value) == Ok(true) {
                 return Ok(i);
@@ -2408,6 +2409,7 @@ impl Quoter {
                 stack: 128 * 1024,
                 size: 10_000,
                 frames: 10_000,
+                native_frames: 10_000,
             });
             let snapshot = crate::undo::Snapshot::take(cx);
             if cx.unify(&self.atoms[i].value, &value) == Ok(true) {

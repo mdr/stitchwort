@@ -105,6 +105,7 @@ const ATTEMPT: stitchwort_core::budget::Limits = stitchwort_core::budget::Limits
     stack: 0,
     size: 1_000_000,
     frames: 100_000,
+    native_frames: 100_000,
 };
 
 /// A right side larger than this many times its arm's elaborated body

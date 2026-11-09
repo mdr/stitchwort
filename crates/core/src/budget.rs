@@ -96,7 +96,20 @@ pub struct Limits {
     /// costs a few hundred bytes: `length (replicate 1000000 1)`, a million
     /// frames deep, peaks at about 750 MB.
     pub frames: usize,
+    /// The most frames native code may have pending (the ceiling of its
+    /// depth budget, `E-RESOURCE`): the machine keeps `frames`, since each
+    /// machine frame costs heap and each native frame costs stack, which
+    /// is reserved lazily and so is cheap to size generously. The limit a
+    /// native run enforces is this, or less when the program's widest frame
+    /// would need more stack than the cap
+    /// (`stitchwort_rt::native_abi::native_frame_limit`). The one place the
+    /// value is set; [`NATIVE_FRAMES`] is its default.
+    pub native_frames: usize,
 }
+
+/// The default [`Limits::native_frames`]: 16 million, which runs
+/// `bench/compare/const-fold` at depth 23 (SW-2471, D3450).
+pub const NATIVE_FRAMES: usize = 16_000_000;
 
 impl Limits {
     /// For a thread with `stack_size` bytes of stack, leaving a quarter (and
@@ -108,6 +121,7 @@ impl Limits {
             stack: stack_size.saturating_sub(reserve),
             size: 10_000_000,
             frames: 2_000_000,
+            native_frames: NATIVE_FRAMES,
         }
     }
 
@@ -120,6 +134,7 @@ impl Limits {
             stack,
             size: u64::MAX,
             frames: usize::MAX,
+            native_frames: usize::MAX,
         }
     }
 }

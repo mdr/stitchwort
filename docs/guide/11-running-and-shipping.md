@@ -10,7 +10,7 @@
 
 All three print the same output and fail the same way, which the repository's tests check on every example program: the reference evaluator is the oracle, and the other two are compared with it. Tests use the fast runtime too (`stitchwort test --reference` uses the reference).
 
-Exit codes: 0 on success; 1 when the program doesn't check, or `main` fails with `Fail`; 2 when it fails while running: an `IO` error, or running out of resources (a deep recursion, a huge number).
+Exit codes: 0 on success; 1 when the program doesn't check, or `main` fails with `Fail`; 2 when it fails while running: an `IO` error, or running out of resources (a deep recursion, a huge number). How deep a recursion may go depends on the runner (D3450): `stitchwort run` allows 2 million pending calls, native code (`run --native`, `build --native`) allows 16 million, or fewer if a function's frames are so wide that 16 million wouldn't fit the 64 GiB cap on a native stack. The limit is the same on every run of a build, so a program fails at the same depth each time. A native run that recurses to its limit uses memory in proportion to the depth: several GB for a few million pending calls of a hundred bytes or more.
 
 `stitchwort run --native` is a fourth, experimental way: the functions `main` calls run as native code where they and everything they reach compile, and on the fast runtime otherwise (`--verbose` says which). It needs a build with the `native` feature, which `task build` makes. `stitchwort test --native` runs tests the same way ([chapter 9](09-testing.md#two-runtimes)).
 

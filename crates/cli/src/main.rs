@@ -1613,6 +1613,7 @@ impl stitchwort_driver::test_run::NativeTests for NativeTestCompiler {
             roots,
             stitchwort_native::n1::Options::default(),
         )?;
+        let limits = limits.for_native(islands.max_frame);
         let stack = stitchwort_native::n1::stack_for(
             limits.frames as u64,
             islands.max_frame,
@@ -1630,6 +1631,7 @@ impl stitchwort_driver::test_run::NativeTests for NativeTestCompiler {
         Ok(stitchwort_driver::test_run::NativeTestCode {
             code: Box::new(islands),
             stack,
+            limits,
             summary,
         })
     }
@@ -3137,14 +3139,15 @@ fn compile_native(
         pc_map: false,
     };
     let compiled = stitchwort_native::n1::compile(&program, image, options).and_then(|islands| {
+        let limits = limits.for_native(islands.max_frame);
         let stack = stitchwort_native::n1::stack_for(
             limits.frames as u64,
             islands.max_frame,
             &islands.widest,
         )?;
-        Ok((islands, stack))
+        Ok((islands, limits, stack))
     });
-    let (islands, stack) = compiled.map_err(|why| {
+    let (islands, limits, stack) = compiled.map_err(|why| {
         report_native_refusal(&why);
         ExitCode::FAILURE
     })?;

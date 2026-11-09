@@ -439,9 +439,13 @@ pub fn decode(bytes: &[u8]) -> Result<(Program, Limits), CodecError> {
     if (r.u8()? != 0) != crate::erasure::check_rebuilds() {
         return bad("written under another setting of STITCHWORT_CHECK_REBUILDS");
     }
+    let steps = r.uint()?;
+    let frames = r.usize()?;
     let limits = Limits {
-        steps: r.uint()?,
-        frames: r.usize()?,
+        steps,
+        frames,
+        // The encoded `frames` is the limit this run enforces already.
+        native_frames: frames,
         // Only the counterexample search counts words; it builds nothing.
         number_words: false,
     };

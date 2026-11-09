@@ -25,11 +25,8 @@ fn the_object_exports_its_manifest_and_trampolines_and_its_code_is_relocatable()
             count_bodies: false,
             pc_map: false,
         };
-        let frames = stitchwort_rt::Limits::from_core(Default::default()).frames as u64;
         let limits = stitchwort_rt::Limits::from_core(Default::default());
-        let tables = stitchwort_rt::linked::encode(&program, &image, &limits);
-        let compiled =
-            compile_object(&program, &image, &tables, options, frames).expect("compiles");
+        let compiled = compile_object(&program, &image, options, &limits).expect("compiles");
         // Every body `main` reaches, its entry included (stage NO4 of
         // native-only.md), on the stack sized for them (stage NO5).
         assert_eq!(
@@ -38,7 +35,10 @@ fn the_object_exports_its_manifest_and_trampolines_and_its_code_is_relocatable()
         );
         assert_eq!(
             Some(compiled.stack_size),
-            stitchwort_rt::native_abi::native_stack(frames, compiled.max_frame)
+            stitchwort_rt::native_abi::native_stack(
+                limits.for_native(compiled.max_frame).frames as u64,
+                compiled.max_frame
+            )
         );
         let bytes = compiled.object.write().expect("writes");
         let file = object::File::parse(&*bytes).expect("parses");
@@ -116,9 +116,7 @@ fn each_body_is_named_after_its_definition() {
             pc_map: false,
         };
         let limits = stitchwort_rt::Limits::from_core(Default::default());
-        let tables = stitchwort_rt::linked::encode(&program, &image, &limits);
-        let compiled = compile_object(&program, &image, &tables, options, limits.frames as u64)
-            .expect("compiles");
+        let compiled = compile_object(&program, &image, options, &limits).expect("compiles");
         let bytes = compiled.object.write().expect("writes");
         let file = object::File::parse(&*bytes).expect("parses");
         let prefix = if cfg!(target_os = "macos") { "_" } else { "" };
@@ -181,15 +179,13 @@ fn the_pc_map_covers_each_body_and_leaves_the_code_alone() {
         let (program, _) = lowered(SUMMED);
         let image = code::compile(&program);
         let limits = stitchwort_rt::Limits::from_core(Default::default());
-        let tables = stitchwort_rt::linked::encode(&program, &image, &limits);
         let compile = |pc_map| {
             let options = Options {
                 trace_refcounts: false,
                 count_bodies: false,
                 pc_map,
             };
-            compile_object(&program, &image, &tables, options, limits.frames as u64)
-                .expect("compiles")
+            compile_object(&program, &image, options, &limits).expect("compiles")
         };
         let plain = compile(false);
         let mapped = compile(true);

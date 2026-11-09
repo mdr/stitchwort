@@ -62,6 +62,9 @@ pub struct NativeTestCode {
     pub code: Box<dyn stitchwort_rt::native_abi::NativeIslands>,
     /// The stack its runs reserve, in bytes (`native_abi::native_stack`).
     pub stack: usize,
+    /// The limits its runs enforce: the session's, with native code's own
+    /// frame limit ([`stitchwort_rt::Limits::for_native`]).
+    pub limits: stitchwort_rt::Limits,
     /// What was compiled, for [`NativeTests::note`].
     pub summary: String,
 }
@@ -166,7 +169,9 @@ impl TestMachine {
                 native.note(&code.summary);
                 Some(NativeTestRun {
                     executor: stitchwort_rt::native_abi::NativeExecutor::new(
-                        code.code, limits, code.stack,
+                        code.code,
+                        code.limits,
+                        code.stack,
                     ),
                     true_: self.program.shapes.true_,
                 })
