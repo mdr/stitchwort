@@ -24796,12 +24796,12 @@
     {
       "id": 2471,
       "title": "Native recursion is capped at about 2M frames (E-RESOURCE): const-fold stops at depth 21 where Lean's original runs depth 23 with a 4 GB stack; consider a deeper limit or a growable stack",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Sonnet",
-      "where": "",
+      "where": "Speedwell",
       "labels": [],
       "epic": "comparative-speed",
-      "body": "From SW-2455. bench/compare/const-fold runs at depth 20 because of it. 1 h, profile first.",
+      "body": "From SW-2455. bench/compare/const-fold runs at depth 20 because of it. 1 h, profile first.\n\nStarted 9 Nov 2026 04:53 UTC. Expected: 60 min.\n",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
