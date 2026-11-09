@@ -1,4 +1,4 @@
-import Parse.Problem (Expected, Literal)
+import Parse.Problem (Expected, Literal, Literals)
 import Effect.AlwaysTreeOf (AlwaysCall)
 
 -- Completeness: what a parser does on good input, beside the soundness
@@ -755,9 +755,8 @@ theorem Parse.runsNote (problem: Parse.Problem) (rest: List Char): Parse.Runs ((
 --| `noteWords` reads nothing.
 theorem Parse.runsNoteWords (rest: List Char): (words: List (Text, a)) → Parse.Runs (() => Parse.noteWords words) [] rest ()
   | [], state, starts, honest => Parse.runsPure () rest state starts honest
-  | [(word, value), ..more], state, starts, honest =>
-    Parse.runsBind (() => Parse.note (Literal word)) (u => Parse.noteWords more) [] [] [] rest () ()
-      rfl (Parse.runsNote (Literal word) rest) (Parse.runsNoteWords rest more) state starts honest
+  | [choice, ..more], state, starts, honest =>
+    Parse.runsNote (Literals ([choice, ..more].map (choice => choice.fst))) rest state starts honest
 
 --| `stop` declines.
 theorem Parse.declinesStop (input: List Char): Parse.Declines (() => (Empty.absurd Parse.stop(): a)) input :=
