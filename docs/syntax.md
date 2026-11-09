@@ -1325,8 +1325,10 @@ take by `rewrite`, `match` or `cases`, and `countFresh.eq2.ifFalse (b) (rest)
   proved within bounds: a definition that performs abilities at the empty row,
   an arm with `()`, an arm whose right side is a `match` on its own variables
   (its alternatives' are), an overlapped arm whose body lifts a `match`, a
-  statement more than ten times its arm's size, an arm that more than 64
-  number hypotheses guard, or one that went over the kernel's step budget.
+  statement more than ten times its arm's size (or a body over 65,536 nodes
+  with its `let`s substituted, even where the branch stated would be
+  smaller), an arm that more than 64 number hypotheses guard, or one that
+  went over the kernel's step budget.
   Naming one is `E-NO-EQUATION` with the reason.
 - **Where they are listed.** `stitchwort doc f` has an **Equations** section
   before the theorems: each statement with the line of its arm (`[stuck]`
