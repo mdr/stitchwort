@@ -1,5 +1,5 @@
 {
-  "next": 2583,
+  "next": 2585,
   "tickets": [
     {
       "id": 47,
@@ -26192,7 +26192,7 @@
       "where": "",
       "labels": [],
       "epic": "comparative-speed",
-      "body": "Daily tier 9 Nov on 5e3d050b0: report target/tier-report/daily-20261109-131742.md. 45 min.",
+      "body": "Daily tier 9 Nov on 5e3d050b0: report target/tier-report/daily-20261109-131742.md. 45 min.\n\nFull tier on Overmind (job 49) adds: run-machine-aoc-2021-15-part1 peak heap +103.5% (5.1 -> 10.3 MB) with allocations -70% (cell cache holding blocks? its cap is above this program's heap), and check-number-columns steps +12.9% (669,003 -> 755,301). examples and extract-js inputs changed: need --update.\n",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
@@ -26245,6 +26245,32 @@
       "labels": [],
       "epic": "audit-fuzzing",
       "body": "Found 9 Nov in compute mode by bisecting cases 16661-16900 under STITCHWORT_MEM_CAP_GB=6. Repro: STITCHWORT_MEM_CAP_GB=6 task fuzz:elab CASES=20000 SEED=0x2582 ONLY=16878 DUMP=1. Ruled out: check, test, fmt from the CLI; warm CLI cache. 60 min; escalate to Opus if it's a cache-rewind bug.",
+      "created": "2026-11-09",
+      "updated": "2026-11-09",
+      "commits": []
+    },
+    {
+      "id": 2583,
+      "title": "Full tier can't finish on Overmind (15.5 GB): proofs differential::the_evaluators_agree_on_the_prelude_and_every_example reaches 11+ GB at ~640 s and memguard kills the tier (8 and 9 Nov, ~77 min, 131/2399 tests). Find what holds the memory (per-example state kept? thread count?) and bound it",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
+      "body": "Overmind job 49, 9 Nov, 67a51661f; also 8 Nov 99fb2ce82. Report on Overmind target/tier-report/full-20261109-145358.md. Profile first. 60 min.",
+      "created": "2026-11-09",
+      "updated": "2026-11-09",
+      "commits": []
+    },
+    {
+      "id": 2584,
+      "title": "Effect differential's default test fails under load since SW-2570: seed 43's check hit the 60 s deadline in the full tier (load 12-14), and the default run requires zero skips. Make the default-seed run load-proof (scale the deadline, use steps not wall time for checking, or allow skips with a reason)",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
+      "body": "Overmind job 49, 9 Nov. Seed 43 also takes ~170 s in debug (SW-2570 report); SW-2570 follow-up. 30 min.",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
