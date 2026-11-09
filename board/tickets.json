@@ -24526,16 +24526,16 @@
     {
       "id": 2453,
       "title": "bench:aoc: build every AoC day natively, count instructions, diff against the last run (answers 'did a speed change move anything outside the ten')",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Sonnet",
-      "where": "",
+      "where": "Speedwell",
       "labels": [
         "bench"
       ],
       "epic": "comparative-speed",
-      "body": "From SW-2450. 1.5 h.",
+      "body": "From SW-2450. 1.5 h.\n\nStarted 9 Nov 2026 02:37 UTC. Expected: 90 min. The lane tests on a few days; the orchestrator runs the full sweep as a compute job.\n",
       "created": "2026-11-08",
-      "updated": "2026-11-08",
+      "updated": "2026-11-09",
       "commits": []
     },
     {
