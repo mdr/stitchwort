@@ -106,6 +106,8 @@ pub(crate) struct State {
     frames: Vec<Frame>,
     /// Each global's value, once known: a constant's, or a function value.
     pub(crate) globals: Vec<Option<Value>>,
+    /// Each capture-free lambda's shared closure, once built.
+    statics: Vec<Option<Value>>,
     pub(crate) steps: u64,
     limits: Limits,
     scratch: Vec<Value>,
@@ -181,6 +183,7 @@ impl<'p> Machine<'p> {
                 regs: Vec::new(),
                 frames: Vec::new(),
                 globals: vec![None; program.globals.len()],
+                statics: vec![None; program.lambdas.len()],
                 steps: 0,
                 limits,
                 scratch: Vec::new(),
@@ -1328,6 +1331,16 @@ fn run(program: &Program, image: &Image, st: &mut State, mut pending: Pending) -
                         lambda,
                         captures: captures.into(),
                     }));
+                }
+                Instr::StaticClosure { dst, lambda } => {
+                    let slot = &mut st.statics[lambda as usize];
+                    let v = slot.get_or_insert_with(|| {
+                        Value::Fun(new_fun(Fun::Closure {
+                            lambda,
+                            captures: Box::new([]),
+                        }))
+                    });
+                    reg!(dst) = v.clone();
                 }
                 Instr::Ctor { dst, tag, args } => {
                     let (tag, enum_mask) = crate::value_census::split_tag(tag);

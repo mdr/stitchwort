@@ -392,7 +392,7 @@ fn body_symbols(program: &Program, image: &Image) -> BTreeMap<u32, String> {
     let mut maker: BTreeMap<u32, u32> = BTreeMap::new();
     for (code, body) in image.codes.iter().enumerate() {
         for instr in &body.instrs {
-            if let Instr::Closure { lambda, .. } = instr {
+            if let Instr::Closure { lambda, .. } | Instr::StaticClosure { lambda, .. } = instr {
                 maker.entry(*lambda).or_insert(code as u32);
             }
         }
@@ -2427,6 +2427,7 @@ fn helper_addresses() -> Vec<(&'static str, *const u8)> {
         ("sw_apply_cached", abi::sw_apply_cached as *const u8),
         ("sw_apply_prepare", abi::sw_apply_prepare as *const u8),
         ("sw_closure", abi::sw_closure as *const u8),
+        ("sw_static_closure", abi::sw_static_closure as *const u8),
         ("sw_pap", abi::sw_pap as *const u8),
         ("sw_int_negative", abi::sw_int_negative as *const u8),
         ("sw_unary", abi::sw_unary as *const u8),
@@ -2469,6 +2470,7 @@ struct Helpers {
     apply_cached: FuncId,
     apply_prepare: FuncId,
     closure: FuncId,
+    static_closure: FuncId,
     pap: FuncId,
     int_negative: FuncId,
     unary: FuncId,
@@ -2529,6 +2531,7 @@ impl Helpers {
             apply_cached: declare("sw_apply_cached", &[p, p, I64, p], &[I64])?,
             apply_prepare: declare("sw_apply_prepare", &[p, I64, p, p, I64, p], &[])?,
             closure: declare("sw_closure", &[I32, p, I64, p], &[])?,
+            static_closure: declare("sw_static_closure", &[p, I32, p], &[])?,
             pap: declare("sw_pap", &[p, I32, p, I64, p], &[])?,
             int_negative: declare("sw_int_negative", &[p], &[I64])?,
             unary: declare("sw_unary", &[p, I32, p, p], &[])?,
@@ -2685,6 +2688,7 @@ fn maybe_full(code: &Code) -> Vec<Regs> {
             | Instr::Const { dst, .. }
             | Instr::Captured { dst, .. }
             | Instr::Global { dst, .. }
+            | Instr::StaticClosure { dst, .. }
             | Instr::NatPred { dst, .. }
             | Instr::IntOfNat { dst, .. }
             | Instr::IntNegSucc { dst, .. }
@@ -3554,6 +3558,13 @@ impl Gen<'_, '_> {
                 self.assign(pc, dst, v);
             }
             Instr::Global { dst, g } => self.global(pc, dst, g),
+            Instr::StaticClosure { dst, lambda } => {
+                let out = self.temp_address(0);
+                let lambda = self.i32const(lambda);
+                self.call_helper(self.helpers.static_closure, &[self.ctx, lambda, out]);
+                let v = self.load(Loc::Mem(out, 0));
+                self.assign(pc, dst, v);
+            }
             Instr::Call { dst, g, args } => {
                 let live = self.full[pc].clone();
                 self.count_step(&live, &[]);

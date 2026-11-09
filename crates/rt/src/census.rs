@@ -48,6 +48,7 @@ pub fn instr_name(instr: &Instr) -> &'static str {
         Instr::Apply { .. } => "Apply",
         Instr::TailApply { .. } => "TailApply",
         Instr::Closure { .. } => "Closure",
+        Instr::StaticClosure { .. } => "StaticClosure",
         Instr::Ctor { .. } => "Ctor",
         Instr::CtorReuse { .. } => "CtorReuse",
         Instr::Switch { .. } => "Switch",
@@ -123,6 +124,7 @@ pub fn n1_blocker(instr: &Instr) -> Option<String> {
         | Instr::TailApply { .. }
         // Stage N3: closures, and what the machine computes without frames.
         | Instr::Closure { .. }
+        | Instr::StaticClosure { .. }
         | Instr::Captured { .. }
         | Instr::Pap { .. }
         | Instr::IntCase { .. }
@@ -367,7 +369,9 @@ fn edge(image: &Image, instr: &Instr) -> Option<u32> {
         | Instr::TailCall { g, .. }
         | Instr::Global { g, .. }
         | Instr::Pap { g, .. } => image.global_code[*g as usize],
-        Instr::Closure { lambda, .. } => Some(image.lambda_code[*lambda as usize]),
+        Instr::Closure { lambda, .. } | Instr::StaticClosure { lambda, .. } => {
+            Some(image.lambda_code[*lambda as usize])
+        }
         _ => None,
     }
 }

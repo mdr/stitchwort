@@ -730,6 +730,9 @@ pub(crate) struct NativeRun<'a> {
     /// was the machine's). Native code reads and fills it, so a constant is
     /// computed once per run.
     pub globals: &'a mut [Option<Value>],
+    /// Each capture-free lambda's shared closure, once built
+    /// (`Instr::StaticClosure`), by lambda number.
+    pub statics: &'a mut [Option<Value>],
     /// The effect runtime's work so far, which native code adds to.
     pub counts: &'a mut EffectCounts,
     /// Steps so far in this stretch; native code's steps are added.
@@ -1156,6 +1159,7 @@ pub struct NativeExecutor {
     /// into, and the outline of its program.
     code: Box<dyn NativeIslands>,
     globals: Vec<Option<Value>>,
+    statics: Vec<Option<Value>>,
     counts: EffectCounts,
     steps: u64,
     limits: Limits,
@@ -1187,6 +1191,7 @@ impl NativeExecutor {
     pub fn new(code: Box<dyn NativeIslands>, limits: Limits, stack_size: usize) -> NativeExecutor {
         NativeExecutor {
             globals: vec![None; code.crossing().outline().globals.len()],
+            statics: vec![None; code.crossing().outline().lambda_params.len()],
             code,
             counts: EffectCounts::default(),
             steps: 0,
@@ -1248,6 +1253,7 @@ impl NativeExecutor {
         let mut run = NativeRun {
             outline: crossing.outline(),
             globals: &mut self.globals,
+            statics: &mut self.statics,
             counts: &mut self.counts,
             steps: self.steps,
             frames,
@@ -2504,6 +2510,25 @@ pub unsafe extern "C" fn sw_closure(lambda: u32, args: *mut Value, n: u64, out: 
         .map(|i| unsafe { args.add(i).read() })
         .collect();
     unsafe { out.write(Value::Fun(new_fun(Fun::Closure { lambda, captures }))) };
+}
+
+/// `StaticClosure`: the shared closure of capture-free `lambda`, built on
+/// first use and held by the run (a new reference, put in `out`).
+///
+/// # Safety
+/// As [`sw_global`].
+#[allow(unsafe_code)]
+#[cfg_attr(not(test), unsafe(no_mangle))]
+pub unsafe extern "C" fn sw_static_closure(context: *mut Context, lambda: u32, out: *mut Value) {
+    // SAFETY: the context's run outlives the native call.
+    let run = unsafe { &mut *(*context).run };
+    let v = run.statics[lambda as usize].get_or_insert_with(|| {
+        Value::Fun(new_fun(Fun::Closure {
+            lambda,
+            captures: Box::new([]),
+        }))
+    });
+    unsafe { out.write(v.clone()) };
 }
 
 /// `Pap`: global `g` (a function or a native) with the `n` values at `args`
