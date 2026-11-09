@@ -25030,12 +25030,12 @@
     {
       "id": 2489,
       "title": "Check a native value-census build still runs after SW-2478: under value-census the Ctor/CtorReuse tags carry an enum mask in the top byte (stripped in machine.rs); if native codegen reads those tags, native census runs (SW-2479) would build wrong tags. Run rbmap natively with the census runtime",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "Speedwell",
       "labels": [],
       "epic": "comparative-speed",
-      "body": "From reviewing SW-2478. 15 min.\n\nStarted 9 Nov 2026 05:43 UTC. Expected: 15 min.\n",
+      "body": "From reviewing SW-2478. 15 min.\n\nStarted 9 Nov 2026 05:43 UTC. Expected: 15 min.\n\nMerged 9 Nov 05:50 (native 70). Confirmed: a census-built compiler gave native executables masked tags (crash: unknown IO operation Data(16777224, ...)); the documented recipe (plain compiler + census runtime) was fine. Fix: n1.rs strips the mask via value_census::split_tag (identity when off). Model result: Sonnet, worked, 5 min (est. 15).\n",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
