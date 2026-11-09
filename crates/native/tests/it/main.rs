@@ -16,6 +16,7 @@ mod nat_shaped;
 mod object;
 mod relocatable;
 mod reuse;
+mod roots;
 mod s6;
 mod spike;
 

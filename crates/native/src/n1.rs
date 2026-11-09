@@ -356,6 +356,9 @@ pub fn stack_for(frame_limit: u64, max_frame: usize, widest: &str) -> Result<usi
 /// included (stage NO4 of native-only.md: all or nothing).
 pub(crate) struct Plan {
     pub(crate) bodies: BTreeSet<u32>,
+    /// The constants compiled as roots of their own, each with an entry
+    /// trampoline into its body ([`compile_roots`]), by global.
+    pub(crate) roots: Vec<u32>,
     /// Whether anything `main` reaches may run a state-passing handler
     /// ([`uses_state_handlers`]), so the runtime's bodies need their part
     /// for one (stage NO3 of docs/proposals/native-only.md).
@@ -493,11 +496,32 @@ pub(crate) fn preflight() -> Result<(), Vec<String>> {
 }
 
 /// Which bodies run natively: every body reachable from the entry, the
-/// entry included (stage NO4 of native-only.md), or, if any has an
-/// instruction native code doesn't compile, why the program can't be
-/// compiled (stage NO5: there's no machine to run that body).
-pub(crate) fn plan(program: &Program, image: &Image) -> Result<Plan, Vec<String>> {
-    let reach = island(image, image.entry_code);
+/// entry included (stage NO4 of native-only.md), and from each constant
+/// of `roots` (global numbers), or, if any has an instruction native code
+/// doesn't compile, why the program can't be compiled (stage NO5: there's
+/// no machine to run that body).
+pub(crate) fn plan(program: &Program, image: &Image, roots: &[u32]) -> Result<Plan, Vec<String>> {
+    let mut starts = vec![image.entry_code];
+    for &g in roots {
+        match (
+            &program.globals.get(g as usize),
+            image.global_code.get(g as usize),
+        ) {
+            (Some(global), Some(Some(code)))
+                if matches!(global.kind, GlobalKind::Constant { .. }) =>
+            {
+                starts.push(*code);
+            }
+            _ => return Err(vec![format!("global {g} isn't a constant with a body")]),
+        }
+    }
+    let reach: Vec<u32> = {
+        let mut seen = BTreeSet::new();
+        for start in starts {
+            seen.extend(island(image, start));
+        }
+        seen.into_iter().collect()
+    };
     let states = reach.iter().any(|&code| {
         image.codes[code as usize]
             .instrs
@@ -534,13 +558,20 @@ pub(crate) fn plan(program: &Program, image: &Image) -> Result<Plan, Vec<String>
         }
     }
     if !refusals.is_empty() {
-        let mut why =
-            vec!["not every function `main` reaches can be compiled natively".to_string()];
+        let reaching = if roots.is_empty() {
+            "`main` reaches"
+        } else {
+            "the roots reach"
+        };
+        let mut why = vec![format!(
+            "not every function {reaching} can be compiled natively"
+        )];
         why.extend(refusals);
         return Err(why);
     }
     Ok(Plan {
         bodies: reach.into_iter().collect(),
+        roots: roots.to_vec(),
         states,
         folds,
         effects,
@@ -631,9 +662,24 @@ fn uses_state_handlers(program: &Program, instr: &Instr) -> bool {
 /// stack it is told it has against the thread's real one at its first
 /// crossing, and stops the run with a depth error if the thread has less.
 pub fn compile(program: &Program, image: Image, options: Options) -> Result<Islands, Vec<String>> {
+    compile_roots(program, image, &[], options)
+}
+
+/// [`compile`], and also every body each constant of `roots` (global
+/// numbers) reaches, with a way into each of those constants
+/// ([`NativeExecutor::global`](stitchwort_rt::native_abi::NativeExecutor::global)):
+/// for a program of several roots whose entry is nothing, as `stitchwort
+/// test` lowers its tests (`lower_definitions`).
+pub fn compile_roots(
+    program: &Program,
+    image: Image,
+    roots: &[u32],
+    options: Options,
+) -> Result<Islands, Vec<String>> {
     let compiled = compile_audited(
         program,
         &image,
+        roots,
         options,
         &mut Audit::new(program, &image, false),
     )?;
@@ -685,7 +731,7 @@ struct Compiled {
 /// text.
 pub fn listing(program: &Program, image: &Image, options: Options) -> Result<String, Vec<String>> {
     let mut audit = Audit::new(program, image, true);
-    compile_audited(program, image, options, &mut audit)?;
+    compile_audited(program, image, &[], options, &mut audit)?;
     Ok(audit.listing.unwrap_or_default())
 }
 
@@ -721,11 +767,12 @@ pub(crate) fn host_isa(pic: bool) -> Result<cranelift_codegen::isa::OwnedTargetI
 fn compile_audited(
     program: &Program,
     image: &Image,
+    roots: &[u32],
     options: Options,
     audit: &mut Audit,
 ) -> Result<Compiled, Vec<String>> {
     preflight()?;
-    let plan = plan(program, image)?;
+    let plan = plan(program, image, roots)?;
     let dump = std::env::var_os("STITCHWORT_NATIVE_DUMP").is_some();
     let start = Instant::now();
     let fail = |e: String| vec![format!("compiling to native code failed: {e}")];
@@ -784,9 +831,14 @@ fn compile_audited(
     // SAFETY: each is a finished trampoline of its kind (`emit`), in this
     // module's code, which is never unmapped (`_module`).
     #[allow(unsafe_code)]
-    let (enter, apply, step) = unsafe {
+    let (enter, constants, apply, step) = unsafe {
+        let mut constants = vec![None; program.globals.len()];
+        for &(g, id) in &trampolines.constants {
+            constants[g as usize] = Some(trampoline::<abi::EnterTrampoline>(address(id)));
+        }
         (
             trampoline::<abi::EnterTrampoline>(address(trampolines.enter)),
+            constants.into_boxed_slice(),
             [
                 trampoline::<abi::ApplyTrampoline>(address(trampolines.apply[0])),
                 trampoline::<abi::ApplyTrampoline>(address(trampolines.apply[1])),
@@ -802,6 +854,7 @@ fn compile_audited(
             functions: table,
             lambdas,
             enter,
+            constants,
             apply,
             step,
             max_frame,
@@ -1407,6 +1460,7 @@ pub(crate) fn emit(
     if runtime.is_some() {
         kinds.push(Trampoline::Step);
     }
+    kinds.extend(plan.roots.iter().map(|&g| Trampoline::Constant(g)));
     for kind in kinds {
         let mut signature = ir::Signature::new(call_conv);
         for _ in 0..kind.params() {
@@ -1421,7 +1475,7 @@ pub(crate) fn emit(
             .declare_function(&name, linkage, &signature)
             .map_err(|e| fail(e.to_string()))?;
         context.func.signature = signature;
-        context.func.name = ir::UserFuncName::user(1, kind.number());
+        context.func.name = ir::UserFuncName::user(kind.namespace(), kind.number());
         {
             let mut b = FunctionBuilder::new(&mut context.func, &mut builder_context);
             let entry = b.create_block();
@@ -1462,6 +1516,11 @@ pub(crate) fn emit(
             let (callee, call_args) = match kind {
                 // The entry body, its frame counted by the runtime.
                 Trampoline::Enter => (entry_body, vec![ctx, frames]),
+                // A root constant's body, as the entry's.
+                Trampoline::Constant(g) => {
+                    let code = image.global_code[g as usize].expect("a constant has code");
+                    (functions[&code], vec![ctx, frames])
+                }
                 // The stub, with nothing for it to drop: `(context, frames,
                 // drops, closure, function value, arguments)`.
                 Trampoline::Apply(n) => {
@@ -1518,6 +1577,14 @@ pub(crate) fn emit(
             trampoline_of(Trampoline::Apply(2)).expect("an apply trampoline"),
         ],
         step: trampoline_of(Trampoline::Step),
+        constants: plan
+            .roots
+            .iter()
+            .map(|&g| {
+                let id = trampoline_of(Trampoline::Constant(g)).expect("a constant's trampoline");
+                (g, id)
+            })
+            .collect(),
     };
     // A Stitchwort frame can be a body (an adapter tail-calls it, taking its
     // place), reached through an apply stub that may stay on the stack while
@@ -1564,13 +1631,16 @@ pub(crate) enum Trampoline {
     Apply(u32),
     /// Into the effect runtime's loop: `abi::StepTrampoline`.
     Step,
+    /// Into the body of a constant compiled as a root, by global:
+    /// `abi::EnterTrampoline`.
+    Constant(u32),
 }
 
 impl Trampoline {
     /// How many pointer-sized parameters it takes.
     fn params(self) -> usize {
         match self {
-            Trampoline::Enter => 2,
+            Trampoline::Enter | Trampoline::Constant(_) => 2,
             Trampoline::Apply(_) | Trampoline::Step => 4,
         }
     }
@@ -1581,6 +1651,15 @@ impl Trampoline {
             Trampoline::Enter => "enter".to_string(),
             Trampoline::Apply(n) => format!("apply{n}"),
             Trampoline::Step => "step".to_string(),
+            Trampoline::Constant(g) => format!("constant{g}"),
+        }
+    }
+
+    /// The namespace of its IR name: the constants' are numbered apart.
+    fn namespace(self) -> u32 {
+        match self {
+            Trampoline::Constant(_) => 6,
+            _ => 1,
         }
     }
 
@@ -1590,6 +1669,7 @@ impl Trampoline {
             Trampoline::Enter => 0,
             Trampoline::Apply(n) => n,
             Trampoline::Step => u32::MAX,
+            Trampoline::Constant(g) => g,
         }
     }
 }
@@ -1601,6 +1681,8 @@ pub(crate) struct Trampolines {
     pub(crate) apply: [FuncId; 2],
     /// If the code has the effect runtime.
     pub(crate) step: Option<FuncId>,
+    /// For each root constant, by global.
+    pub(crate) constants: Vec<(u32, FuncId)>,
 }
 
 /// The code at `pointer` as a trampoline of type `T` (one of

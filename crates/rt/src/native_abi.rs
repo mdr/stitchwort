@@ -934,6 +934,10 @@ pub struct Crossing {
     lambdas: Box<[*const u8]>,
     /// Into the compiled entry body.
     enter: EnterTrampoline,
+    /// Into the body of each constant compiled as a root of its own (the
+    /// tests `stitchwort test --native` runs), by global; empty if none
+    /// was.
+    constants: Box<[Option<EnterTrampoline>]>,
     /// Into the apply stubs for one and two arguments: what the runner
     /// passes.
     apply: [ApplyTrampoline; 2],
@@ -958,6 +962,9 @@ pub struct CrossingCode {
     pub functions: Box<[*const u8]>,
     pub lambdas: Box<[*const u8]>,
     pub enter: EnterTrampoline,
+    /// [`Crossing`]'s `constants`: for each global, the trampoline into
+    /// its body if it's a constant compiled as a root; may be empty.
+    pub constants: Box<[Option<EnterTrampoline>]>,
     pub apply: [ApplyTrampoline; 2],
     pub step: Option<StepTrampoline>,
     pub max_frame: usize,
@@ -969,7 +976,8 @@ impl Crossing {
     /// `outline` describes.
     ///
     /// # Safety
-    /// - `code`'s trampolines are finished code of their kinds, and its
+    /// - `code`'s trampolines are finished code of their kinds (each of
+    ///   `constants` an entry trampoline into its global's body), and its
     ///   `functions` and `lambdas` are null or finished code of the
     ///   program's globals and lambdas, compiled against `tables` and
     ///   `outline`'s program (its shapes, numbering and globals), with
@@ -986,6 +994,7 @@ impl Crossing {
             functions,
             lambdas,
             enter,
+            constants,
             apply,
             step,
             max_frame,
@@ -995,6 +1004,7 @@ impl Crossing {
             functions,
             lambdas,
             enter,
+            constants,
             apply,
             step,
             tables,
@@ -1072,6 +1082,32 @@ impl Crossing {
         unsafe { (self.enter)(&mut context, out.as_mut_ptr()) };
         // SAFETY: the entry wrote a whole value.
         unsafe { Crossing::finish(&mut context, out, run) }
+    }
+
+    /// Runs the compiled body of constant `g`, a root of its own, its frame
+    /// counted by the caller, as [`Crossing::enter`] runs the entry's: its
+    /// value, or `None` if `g` wasn't compiled as a root.
+    ///
+    /// Private and safe for the reasons [`Crossing::enter`] is.
+    #[allow(unsafe_code)]
+    fn enter_constant(
+        &self,
+        g: u32,
+        run: &mut NativeRun<'_>,
+    ) -> Option<Result<Value, ResourceError>> {
+        let trampoline = (*self.constants.get(g as usize)?)?;
+        let mut context = self.context(run);
+        let mut out = MaybeUninit::<Value>::uninit();
+        // SAFETY: as in `enter`: a finished entry trampoline into the
+        // constant's body (`Crossing::new`'s contract).
+        unsafe { trampoline(&mut context, out.as_mut_ptr()) };
+        // SAFETY: the body wrote a whole value.
+        Some(unsafe { Crossing::finish(&mut context, out, run) })
+    }
+
+    /// Whether constant `g` was compiled as a root of its own.
+    pub fn has_constant(&self, g: u32) -> bool {
+        matches!(self.constants.get(g as usize), Some(Some(_)))
     }
 
     /// `f` applied to `args` (one or two) through the apply stub, as the
@@ -1239,6 +1275,67 @@ impl NativeExecutor {
     /// The effect runtime's work so far ([`crate::effect`]), for tests.
     pub fn effect_counts(&self) -> EffectCounts {
         self.counts
+    }
+
+    /// The value of global `g`, as the machine's `Machine::global` gives
+    /// it: a constant is computed in a frame of its own the first time,
+    /// and kept; a function is a function value. For a runner that asks for
+    /// a global by name rather than running the entry (`stitchwort test
+    /// --native`). `None` if `g` is a constant not yet computed whose body
+    /// wasn't compiled as a root ([`Crossing::has_constant`]).
+    pub fn global(&mut self, g: u32) -> Option<Result<Value, ResourceError>> {
+        if let Some(v) = self.globals.get(g as usize)? {
+            return Some(Ok(v.clone()));
+        }
+        let kind = self.code.crossing().outline().globals[g as usize].kind;
+        let value = match kind {
+            Kind::Constant => {
+                if !self.code.crossing().has_constant(g) {
+                    return None;
+                }
+                // Counted as the machine's `push` of the constant's frame.
+                self.steps += 1;
+                if self.steps > self.limits.steps {
+                    return Some(Err(ResourceError::Work));
+                }
+                if self.limits.frames == 0 {
+                    return Some(Err(ResourceError::Depth));
+                }
+                // `has_constant` was checked, so the crossing enters it.
+                let out = self.cross(1, |crossing, run| {
+                    crossing
+                        .enter_constant(g, run)
+                        .unwrap_or(Err(ResourceError::Work))
+                });
+                match out {
+                    Ok(v) => v,
+                    Err(e) => return Some(Err(e)),
+                }
+            }
+            Kind::Native(op) if op.arity() == 0 => Value::Erased,
+            _ => Value::Fun(new_fun(Fun::Global(g))),
+        };
+        self.globals[g as usize] = Some(value.clone());
+        Some(Ok(value))
+    }
+
+    /// The constants computed so far, taken out, leaving none: to run
+    /// something as on a fresh machine (a partial test, which
+    /// `stitchwort test` runs on a machine of its own) without losing them
+    /// for what comes after ([`NativeExecutor::restore_globals`]).
+    pub fn set_aside_globals(&mut self) -> Vec<Option<Value>> {
+        let fresh = vec![None; self.globals.len()];
+        std::mem::replace(&mut self.globals, fresh)
+    }
+
+    /// Puts back what [`NativeExecutor::set_aside_globals`] took out.
+    pub fn restore_globals(&mut self, globals: Vec<Option<Value>>) {
+        assert_eq!(
+            globals.len(),
+            self.globals.len(),
+            "another program's globals"
+        );
+        self.globals = globals;
     }
 
     /// Calls into the code with `frames` pending, as `call` does it, and

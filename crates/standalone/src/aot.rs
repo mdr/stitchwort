@@ -149,6 +149,7 @@ impl AotIslands {
                     functions: functions.into(),
                     lambdas: lambdas.into(),
                     enter,
+                    constants: Box::new([]),
                     apply,
                     step,
                     max_frame: manifest.max_frame as usize,
