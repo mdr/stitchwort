@@ -595,3 +595,47 @@ fn a_chain_of_calls_on_an_anonymous_receiver_prints_without_exponential_work() {
     );
     assert_eq!(show(&p, &["x✝"], &chain(40)), text(40));
 }
+
+/// A term of many nested nodes (the closed list of 130,000 sequences of
+/// AoC 2024 day 22, SW-2591) is cut off without printing it whole: the
+/// full print, built from the inside out, took a goal's search over an hour.
+#[test]
+fn a_huge_nested_term_is_cut_off_without_printing_it_whole() {
+    std::thread::Builder::new()
+        .stack_size(1024 * 1024 * 1024)
+        .spawn(|| {
+            let mut p = Prelude::new();
+            let tree = data(&mut p.g, "Tree", vec![], Sort::Type(0));
+            stitchwort_core::check::define_ctors(
+                &mut p.g,
+                tree,
+                vec![
+                    ctor("Leaf", vec![]),
+                    ctor(
+                        "Node",
+                        vec![
+                            ("left", Term::Data(tree, vec![])),
+                            ("right", Term::Data(tree, vec![])),
+                        ],
+                    ),
+                ],
+            )
+            .expect("Tree");
+            let leaf = || Term::Ctor(tree, 0, vec![]);
+            let nested =
+                (0..300_000).fold(leaf(), |inner, _| Term::ctor(tree, 1, vec![inner, leaf()]));
+            let started = std::time::Instant::now();
+            let text = pretty::term_for_message(&p.g.ev(), &[], &nested);
+            assert!(text.chars().count() <= 400, "{} characters", text.len());
+            assert!(text.starts_with("Node"), "{text}");
+            assert!(
+                started.elapsed() < std::time::Duration::from_secs(10),
+                "took {:?}",
+                started.elapsed()
+            );
+            std::mem::forget(nested);
+        })
+        .expect("spawn")
+        .join()
+        .expect("the thread ran");
+}

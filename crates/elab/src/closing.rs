@@ -634,7 +634,14 @@ impl Elaborator {
         max: usize,
     ) -> Vec<RewritePlan> {
         let g = &self.ev();
-        let Ok(target) = quote_folded(g, 0, &goal.pattern.value) else {
+        // Reading the target back can compute it too (a goal about a closed
+        // list of 130,000 sequences, AoC 2024 day 22, ran for over an hour):
+        // under a comparison's budget, and no plans if it runs out.
+        let target = {
+            let _op = g.machine.budget.attempt(ATTEMPT);
+            quote_folded(g, 0, &goal.pattern.value)
+        };
+        let Ok(target) = target else {
             return Vec::new();
         };
         let mut calls: Vec<Term> = Vec::new();
