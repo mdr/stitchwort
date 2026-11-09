@@ -24736,14 +24736,14 @@
     {
       "id": 2467,
       "title": "Memory runaway: a Fin literal pattern of 2^128 (fuzz case 12893, seed 0x2468) makes check use 11+ GB in 15 s; likely the exhaustiveness check or Fin-literal lowering unfolding the literal into nested FSucc/Succ",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Sonnet",
-      "where": "",
+      "where": "Speedwell",
       "labels": [
         "elab"
       ],
       "epic": "audit-fuzzing",
-      "body": "Repro: stitchwort check dev/fuzz-findings/2468-12893.sw (9 lines: the D1079 Fin non-exhaustive example with its 1 pattern mutated to 340282366920938463463374607431768211456). Expected: E-NONEXHAUSTIVE in milliseconds. Actual: >4 GB in seconds on Speedwell, killed at 11.6 GB on Overmind. Found by Overmind job 29 bisecting seed 0x2468's 11.45 GB peak (SW-2418). Check whether SW-2398/SW-2399 (Fin as numbers, 8 Nov) introduced it. Fix: literals must stay numbers through pattern compilation and exhaustiveness (compare against the bound arithmetically); add the repro as a reject example with a memory/time guard. 45 min.",
+      "body": "Repro: stitchwort check dev/fuzz-findings/2468-12893.sw (9 lines: the D1079 Fin non-exhaustive example with its 1 pattern mutated to 340282366920938463463374607431768211456). Expected: E-NONEXHAUSTIVE in milliseconds. Actual: >4 GB in seconds on Speedwell, killed at 11.6 GB on Overmind. Found by Overmind job 29 bisecting seed 0x2468's 11.45 GB peak (SW-2418). Check whether SW-2398/SW-2399 (Fin as numbers, 8 Nov) introduced it. Fix: literals must stay numbers through pattern compilation and exhaustiveness (compare against the bound arithmetically); add the repro as a reject example with a memory/time guard. 45 min.\n\nStarted 9 Nov 2026 02:27 UTC. Expected: 45 min.\n",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
