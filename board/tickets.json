@@ -1,5 +1,5 @@
 {
-  "next": 2578,
+  "next": 2579,
   "tickets": [
     {
       "id": 47,
@@ -26180,6 +26180,19 @@
       "labels": [],
       "epic": "comparative-speed",
       "body": "From SW-2565's final report. Measure on the eight programs and bench:aoc. 90 min.",
+      "created": "2026-11-09",
+      "updated": "2026-11-09",
+      "commits": []
+    },
+    {
+      "id": 2578,
+      "title": "Bench baseline after 9 Nov's runtime work: run-machine-calls allocations 247 -> 441 (+78.5%) and run-machine-loop 205 -> 332 (+62%), peak heap 4 -> 5 kB, flagged as regressions; check-number-columns steps +12.9%. Explain the fixed extra allocations (B1's lent clones? dispatch tables?), fix if real, then update bench/baseline.toml to keep the large gains (aoc-2021-11 instructions -69%, 2021-15 -77%, set allocations -88%) and extract-js's new input",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "comparative-speed",
+      "body": "Daily tier 9 Nov on 5e3d050b0: report target/tier-report/daily-20261109-131742.md. 45 min.",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
