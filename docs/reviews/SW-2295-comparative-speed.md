@@ -229,4 +229,33 @@ Raw files: Overmind's `target/compare/2026-11-08T225859-overmind.{json,md}`.
 library in the devShell's incremental release mode (256 codegen units, no cross-unit inlining), which
 makes native executables run about 3% more instructions (expressions 320.4 G vs 310.6 G) than the
 distributed non-incremental build. From SW-2474 on, the timing tasks build non-incrementally into
-`target/bench`, so the next run shows a one-off step of about 3% that is not a code change.
+`target/bench`, so the next run was expected to show a one-off step of about 3%. Correction (9 Nov 04:05): that 3% was measured on Speedwell (macOS); Overmind's next run (job 32, below) showed no step (instructions identical to job 26 wherever no code changed), so the earlier Overmind comparisons stand as they are. Why Linux builds don't show the difference is open (SW-2474).
+
+## Job 32: the wide set, and R1 (Overmind, 9 Nov 2026 04:01, `096a27327`)
+
+Same command, now built non-incrementally into `target/bench` (SW-2474), 2659 s. Adds SW-2462 (R1:
+a resumption is one object) and the four wide programs (SW-2454, SW-2455). Not yet: SW-2463 (R2, R3).
+
+| Program | set | native | CPython | PyPy | Lean | native / CPython | native / Lean | native instructions vs job 26 |
+|---|---|---:|---:|---:|---:|---:|---:|---:|
+| pidigits | core | 1.24 s | 3.71 s | 3.22 s | 1.98 s | 0.33 | 0.63 | 0.0% |
+| binary-trees | core | 2.67 s | 9.80 s | 1.48 s | 974 ms | 0.27 | 2.74 | 0.0% |
+| memory-game | core | 4.29 s | 8.13 s | 5.24 s | 791 ms | 0.53 | 5.42 | 0.0% |
+| dijkstra | core | 2.63 s | 843 ms | 506 ms | 204 ms | 3.13 | 12.94 | 0.0% |
+| octopus | core | 3.09 s | 1.52 s | 477 ms | 220 ms | 2.03 | 14.05 | 0.0% |
+| disk | core | 13.27 s | 2.23 s | 1.90 s | 754 ms | 5.94 | 17.59 | −0.4% |
+| expressions | core | 47.39 s | 2.14 s | 1.78 s | 661 ms | 22.15 | 71.74 | −1.9% |
+| scan | core | 43.30 s | 830 ms | 136 ms | 582 ms | 52.17 | 74.35 | −1.7% |
+| matcher | core | 8.69 s | 4.61 s | 2.82 s | 857 ms | 1.89 | 10.14 | −0.4% |
+| bridge | core | 15.51 s | 3.48 s | 1.21 s | 822 ms | 4.46 | 18.87 | −0.8% |
+| spectral-norm | wide | 6.54 s | 9.43 s | 690 ms | 4.49 s | 0.69 | 1.46 | |
+| const-fold | wide | 2.86 s | 23.83 s | 20.95 s | 1.13 s | 0.12 | 2.54 | |
+| rbmap | wide | 2.83 s | 12.79 s | 5.07 s | 1.21 s | 0.22 | 2.34 | |
+| rbmap-ck | wide | 1.56 s | 19.61 s | 3.06 s | 427 ms | 0.08 | 3.65 | |
+
+Geometric means by time (native / CPython, native / Lean): core **2.66, 11.17**; wide **0.20, 2.37**;
+all **1.26, 7.18**. By instructions: core 2.31, 10.80; wide 0.26, 3.04; all 1.25, 7.52.
+
+On the programs Lean's developers chose (const-fold, rbmap, rbmap-ck) native is 2.3–3.7× Lean in time
+and 5–12× faster than CPython; the core ten's 11× is dominated by the effect- and text-heavy programs
+(expressions, scan at 72–74×). Raw files: Overmind's `target/compare/2026-11-09T040121-overmind.{json,md}`.

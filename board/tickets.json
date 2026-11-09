@@ -24840,7 +24840,7 @@
       "where": "Speedwell",
       "labels": [],
       "epic": "comparative-speed",
-      "body": "From SW-2461. Lanes' before/after numbers and Overmind's main-checkout comparisons may differ for identical source. Compare the effective cargo/rustc flags of both builds first. 45 min.\n\nStarted 9 Nov 2026 02:36 UTC. Expected: 45 min.\n\nMerged 9 Nov 02:56. Cause: devShell CARGO_PROFILE_RELEASE_INCREMENTAL=true (flake.nix:409) builds libstitchwort_standalone.a in 256 codegen units without cross-unit inlining; kache strips the incremental flag. Fix: bench:compare, bench:compare:check, native:bench, profile:native build with it off into target/bench. History noted (one-off ~3% step). Model result: Sonnet, worked, 19 min (est. 45).\n",
+      "body": "From SW-2461. Lanes' before/after numbers and Overmind's main-checkout comparisons may differ for identical source. Compare the effective cargo/rustc flags of both builds first. 45 min.\n\nStarted 9 Nov 2026 02:36 UTC. Expected: 45 min.\n\nMerged 9 Nov 02:56. Cause: devShell CARGO_PROFILE_RELEASE_INCREMENTAL=true (flake.nix:409) builds libstitchwort_standalone.a in 256 codegen units without cross-unit inlining; kache strips the incremental flag. Fix: bench:compare, bench:compare:check, native:bench, profile:native build with it off into target/bench. History noted (one-off ~3% step). Model result: Sonnet, worked, 19 min (est. 45).\n\n04:05: Overmind job 32 (non-incremental, target/bench) showed NO step against job 26 (instructions identical where no code changed), though the devShell sets incremental on both platforms. Open: why only macOS builds differ (musl target? linker? kache only on Speedwell worktrees?).\n",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []

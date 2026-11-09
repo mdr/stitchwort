@@ -64,5 +64,16 @@ report = "docs/reviews/SW-2295-comparative-speed.md"
 native_over_cpython = 2.68
 native_over_lean = 11.26
 
-# From here on (SW-2474, 9 Nov 2026) the timing tasks build non-incrementally into target/bench:
-# about 3% fewer native instructions than every entry above, from build mode alone.
+# From here on (SW-2474, 9 Nov 2026) the timing tasks build non-incrementally into target/bench.
+# On Speedwell that is about 3% fewer native instructions; on Overmind it made no difference (job 32).
+
+[[run]]
+date = "2026-11-09"
+host = "overmind"
+commit = "096a27327"
+report = "docs/reviews/SW-2295-comparative-speed.md"
+native_over_cpython = 2.66
+native_over_lean = 11.17
+wide_native_over_cpython = 0.20
+wide_native_over_lean = 2.37
+wide_programs = ["spectral-norm", "const-fold", "rbmap", "rbmap-ck"]
