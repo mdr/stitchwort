@@ -6741,8 +6741,11 @@ fn ctor_app(
         let term = if let Some(level) = missing_level[i] {
             let found = cx.types[level].clone();
             if !cx.unify(&found, &ty)? {
+                // Both types may mention the parameters bound above `mark`,
+                // so the message is made before they are unbound.
+                let error = cx.mismatch(&ty, &found);
                 cx.reset(mark);
-                return Err(cx.mismatch(&ty, &found));
+                return Err(error);
             }
             Term::Var(cx.level() - 1 - level)
         } else {
@@ -6886,7 +6889,24 @@ pub(crate) fn check_type_defaulting(
         let term = with_span(cx, span, |cx| crate::logic::as_prop(cx, logic))?;
         return Ok((Term::Loc(span, Rc::new(term)), Sort::Prop));
     }
-    let (term, ty) = infer(cx, expr)?;
+    let (term, ty) = match infer(cx, expr) {
+        Ok(found) => found,
+        // A constructor with arguments missing is inferred as a function whose
+        // parameter types are unknown yet, and that can fail on a dependent
+        // field with an error about those unknowns; say what's wrong instead.
+        Err(error) => match ctor_head(cx, written)? {
+            Some((d, c, _)) => {
+                let name = cx.g().data(d).ctors()[c].name.clone();
+                return Err(
+                    Diagnostic::error("E-NOT-A-TYPE", "expected a type").with_label(
+                        span,
+                        format!("`{name}` is a constructor, so it isn't a type"),
+                    ),
+                );
+            }
+            None => return Err(error),
+        },
+    };
     // Trailing implicit and `auto` parameters, as in a synonym's
     // `type Set (k: Type) [auto ord: Ord k] = …`: `Set Nat` finds `ord`
     // (docs/proposals/interfaces.md §7.5).
