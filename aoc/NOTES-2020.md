@@ -5809,3 +5809,30 @@ the checker flagged as not needed. The spec is tight enough for uniqueness
    Nat)` (item 5). Library; small.
 6. Smaller: `And`'s fields not listed; `n + 1` patterns; `Text.concat`;
    record eta (items 6, 7). Each small.
+
+## Day 21: Allergen Assessment
+
+Each line is a food: its ingredients, then `(contains …)` and some of its
+allergens. Each allergen is in exactly one ingredient, each ingredient
+has at most one. Part 1: how many times the ingredients that can't
+contain any allergen appear. Part 2: the ingredients that hold one, in
+the alphabetical order of their allergens, joined with commas. Answers on
+Matt's input: 2380 and `ktpbgdn,pnpfjb,ndfb,rdhljms,xzfj,bfgcms,fkcmf,hdqkqhh`
+(1.1 s); the example gives 5 and `mxmxvkd,sqjhc,fvjkl`. Right on the
+first run.
+
+Types: `Ingredient`, `Allergen` (a `name` each), `Food`, `FoodList`.
+`couldHold` (the ingredient is in every food listing the allergen) gives
+`isSafe` for part 1 and `candidates` for part 2, which `Aoc.Common.assign`
+settles, as day 16 does.
+
+The spec quantifies over functions `Allergen → Ingredient` (`Holding`: no
+two allergens in one ingredient, each listed allergen's ingredient in
+every food listing it). Part 2 is proved exact and unique from
+`assignFinds` and `assignOnly`, through `holderOf`, which reads the list
+`assign` gives as that function. Part 1 is proved for the spec's "can't
+possibly contain" (held in no valid way), given that some valid way
+exists (the puzzle's promise, and false without it); `part1Settled` gets
+that from part 2's answer. The parser is proved as day 16's is. Audit:
+45 theorems, all passed. Friction notes and std and Common candidates:
+`docs/reviews/SW-2541-day21-friction.md`.
