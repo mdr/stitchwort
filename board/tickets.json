@@ -1,5 +1,5 @@
 {
-  "next": 2535,
+  "next": 2537,
   "tickets": [
     {
       "id": 47,
@@ -25621,6 +25621,32 @@
       "labels": [],
       "epic": "docs-tutorials",
       "body": "From SW-2532. Kernel spec, wording only. 10 min.\n\nDone by the orchestrator (one-line removal; no such error in crates/).\n",
+      "created": "2026-11-09",
+      "updated": "2026-11-09",
+      "commits": []
+    },
+    {
+      "id": 2535,
+      "title": "Native by default, step 1 (sizing): measure how much of each program compiles natively today (bench/compare, a bench:aoc sample, Rogue, examples), the binary size and build time with Cranelift in the default binary, and plan N5 (differential suite under --native), the machine fallback inside built executables, and N6 for run/test/build, with estimates",
+      "status": "backlog",
+      "agent": "Opus",
+      "where": "",
+      "labels": [],
+      "epic": "effects-native",
+      "body": "D3448, Matt, 9 Nov 2026 09:18: yes, finish native code and make it the default for run, test and build (machine kept as --machine and as the fallback, including in built executables). N5 may run the whole differential suite under --native (Matt agreed the broader suite as part of D3448). This step measures and plans only; starts at the next free build slot. 90 min.",
+      "created": "2026-11-09",
+      "updated": "2026-11-09",
+      "commits": []
+    },
+    {
+      "id": 2536,
+      "title": "Native by default, step 2: N5 (differential suite under --native, fix findings), machine fallback in built executables, Cranelift in the default binary, N6 (native default for run, test, build; --machine)",
+      "status": "backlog",
+      "agent": "Opus",
+      "where": "",
+      "labels": [],
+      "epic": "effects-native",
+      "body": "D3448 yes. After SW-2535's plan; split into lanes from it.",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
