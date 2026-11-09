@@ -264,9 +264,9 @@ impl Session {
     /// [`Session::run_tests_fast_where`], as native code where it can
     /// (`stitchwort test --native`): compiled by `native`, with a test it
     /// can't run going to the machine, and from there to the reference
-    /// evaluator, as before. The outcomes and the cache are the machine's:
-    /// a result is cached under the machine's key, since native code
-    /// computes what the machine does.
+    /// evaluator, as before. Results are cached under native code's own key,
+    /// since its deeper recursion limit means an outcome at the limit can
+    /// differ from the machine's.
     pub fn run_tests_native_where(
         &self,
         cache: &Cache,
@@ -336,11 +336,12 @@ impl Session {
         let g = &self.elab.ev();
         // A result is kept per runner: the two are only differentially
         // tested to agree (docs/proposals/fast-runtime.md).
-        // Native code shares the machine's: it computes what the machine
-        // does, and a test it can't run goes to the machine.
+        // Native code has its own recursion limit, deeper than the
+        // machine's, so a test at the limit can differ between them.
         let modes = match runner {
             Runner::Reference => modes(g),
-            Runner::Machine | Runner::Native(_) => format!("{}m", modes(g)),
+            Runner::Machine => format!("{}m", modes(g)),
+            Runner::Native(_) => format!("{}x", modes(g)),
         };
         let limits = stitchwort_rt::Limits::from_core(self.elab.options.limits);
         let (lowered, wanted) = match runner {
