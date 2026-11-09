@@ -1,5 +1,5 @@
 {
-  "next": 2590,
+  "next": 2592,
   "tickets": [
     {
       "id": 47,
@@ -26283,7 +26283,7 @@
       "where": "",
       "labels": [],
       "epic": "test-infra",
-      "body": "Overmind job 51, 9 Nov 16:44-17:21, near the 11.6 GB cap. Cores in systemd-coredump on Overmind (PIDs 886309-895875). Failing tests: goal_index x4, guide quotes, named_arguments literals hashes, rewind examples, run_js and run_reference examples, check_cache x2, import_order. Logs on Overmind j51/. Find the fault address vs the stack mapping first. Tricky bug: Opus. 120 min.\n\nOvermind job 52: NOT a stack overflow (sp ~57 KB into a 64 MB host::stack, far from the guard). Two cores: NULL deref at names_and_proofs+1471 (mov (%r15),%rdx), identical pc/sp in two processes. One core: memcpy from an unmapped address while QuickHasher hashes a &str key of HashMap<&str, Vec<Option<module::Receiver>>> in names_and_proofs <- decl_refs <- LibraryIndex::build. So a dangling/corrupt &str or pointer: use-after-free, lifetime or unsafe bug, or a thread race in LibraryIndex::build. Crashing processes were fresh `check --index - <small file> --no-cache`. 9 GB memory pressure alone didn't reproduce it (56 runs); job 51 had load 10-14. Start: read names_and_proofs/decl_refs for unsafe and borrowed &str; ASan; CPU-hog loop. Cores on Overmind j52/.\n\nOvermind job 53: 4552 runs of check --index - --no-cache (import.sw, missing-cases-several.sw), 4 in parallel under stress-ng --cpu 12 (load 15-16), same binary as the cores: 0 crashes. Neither CPU contention nor memory pressure alone reproduces it. Job 51 differed: CLI started by test binaries from temp dirs, std found via the checkout (no STITCHWORT_STD_DIR), many files, near the memguard cap. Next for the lane: ASan build of the full-tier binaries, or reading what names_and_proofs calls for unsafe/shared state.\n",
+      "body": "Overmind job 51, 9 Nov 16:44-17:21, near the 11.6 GB cap. Cores in systemd-coredump on Overmind (PIDs 886309-895875). Failing tests: goal_index x4, guide quotes, named_arguments literals hashes, rewind examples, run_js and run_reference examples, check_cache x2, import_order. Logs on Overmind j51/. Find the fault address vs the stack mapping first. Tricky bug: Opus. 120 min.\n\nOvermind job 52: NOT a stack overflow (sp ~57 KB into a 64 MB host::stack, far from the guard). Two cores: NULL deref at names_and_proofs+1471 (mov (%r15),%rdx), identical pc/sp in two processes. One core: memcpy from an unmapped address while QuickHasher hashes a &str key of HashMap<&str, Vec<Option<module::Receiver>>> in names_and_proofs <- decl_refs <- LibraryIndex::build. So a dangling/corrupt &str or pointer: use-after-free, lifetime or unsafe bug, or a thread race in LibraryIndex::build. Crashing processes were fresh `check --index - <small file> --no-cache`. 9 GB memory pressure alone didn't reproduce it (56 runs); job 51 had load 10-14. Start: read names_and_proofs/decl_refs for unsafe and borrowed &str; ASan; CPU-hog loop. Cores on Overmind j52/.\n\nOvermind job 53: 4552 runs of check --index - --no-cache (import.sw, missing-cases-several.sw), 4 in parallel under stress-ng --cpu 12 (load 15-16), same binary as the cores: 0 crashes. Neither CPU contention nor memory pressure alone reproduces it. Job 51 differed: CLI started by test binaries from temp dirs, std found via the checkout (no STITCHWORT_STD_DIR), many files, near the memguard cap. Next for the lane: ASan build of the full-tier binaries, or reading what names_and_proofs calls for unsafe/shared state.\n\nOvermind job 54 (3c92cf18d, 3 threads, never near the memory cap): one more core, pid 946881, in rewind::emptying_the_caches_changes_nothing_for_the_examples: frame #0 Vec<module::Work>::from_iter over &[ast::Name] with the typed_binds closure <- names_and_proofs <- free_names_of <- nav::Walk::module <- walk_for_navigation <- elaborate_module <- Session::start_in, in a par_map_with_at_most worker thread. So memory pressure is NOT needed; the common point is names_and_proofs (typed_binds). Job 51's crashing tests passed this time.\n",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
@@ -26336,6 +26336,32 @@
       "labels": [],
       "epic": "diagnostics",
       "body": "Found 9 Nov in compute mode. Repro: target/fuzz-elab/2585-14027.sw (scratchpad copy), stitchwort check --no-cache: thread panics in Printer::go_node via applied; the message being printed refers to a variable outside its names. Expected a type error (a constructor isn't a type). Add as a reject example. 45 min.",
+      "created": "2026-11-09",
+      "updated": "2026-11-09",
+      "commits": []
+    },
+    {
+      "id": 2590,
+      "title": "Search: two internal errors 'applying a constructor' (crates/core/src/value.rs:1234, apply's fallback) in search_bench::proof_uses_find_their_lemma_among_the_first_ten (full tier); find the proof-use queries that make the evaluator apply a constructor value",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "proof-search",
+      "body": "Overmind job 54, 9 Nov, 3c92cf18d: assert internal_errors == 0, left 2. Other numbers pass (recall@10 52.1%%). Full-tier only test. 60 min.",
+      "created": "2026-11-09",
+      "updated": "2026-11-09",
+      "commits": []
+    },
+    {
+      "id": 2591,
+      "title": "search_at_aoc::search_at_on_aoc_goals doesn't finish: killed at 2 h (job 54) and 73 min (job 51) on Overmind; docs/testing.md says about 10 minutes. Slow or stuck? Find the goal",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "proof-search",
+      "body": "Overmind jobs 51 and 54, 9 Nov. Run alone first (Overmind job 55). 45 min.",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
