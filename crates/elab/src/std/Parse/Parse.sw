@@ -1,4 +1,4 @@
-import Parse.Problem (Expected, Literal, Message)
+import Parse.Problem (Expected, Literal, Literals, Message)
 
 --| `Parse`: read text into the program's own types. A parser is ordinary
 --| direct-style code that uses the `Parse` ability, `() → {Parse} a`, as in
@@ -31,10 +31,13 @@ import Parse.Problem (Expected, Literal, Message)
 type Parse.Mark = { rest: List Char, offset: Nat, left: Nat }
 
 --| Why a parse failed at some point: something that was expected there, a
---| text that was expected there, or a message of the parser's own.
+--| text that was expected there, several texts that were (`Literals ws` is
+--| noted and shown exactly as `Literal w` for each `w` of `ws`, in order, but
+--| costs one operation), or a message of the parser's own.
 type Parse.Problem =
   | Expected (what: Text)
   | Literal (text: Text)
+  | Literals (texts: List Text)
   | Message (text: Text)
 
 --| A failed parse, `offset` characters in: the parser's own messages and
@@ -117,10 +120,11 @@ def Parse.State.literal (state: Parse.State) (chars: List Char): (Bool, Parse.St
     | None => (False, state)
 
 --| How a problem reads in a failure's `expected`.
-def Parse.Problem.shown: (problem: Parse.Problem) → Text
-  | Expected what => what
-  | Literal text => "'${text}'"
-  | Message text => text
+def Parse.Problem.shown: (problem: Parse.Problem) → List Text
+  | Expected what => [what]
+  | Literal text => ["'${text}'"]
+  | Literals texts => texts.map (text => "'${text}'")
+  | Message text => [text]
 
 --| `texts` oldest first, without repeats (the first of each kept).
 -- `kept` is what has been kept so far, newest first.
@@ -131,11 +135,15 @@ def Parse.uniqueTexts (kept: List Text): (texts: List Text) → List Text
 
 --| The length of the longest `Literal` text among the problems.
 def Parse.Problem.widest (problems: List Parse.Problem): Nat :=
-  problems.foldLeft 0 (width problem => match problem with | Literal text => Nat.max width text.length | _ => width)
+  problems.foldLeft 0 (width problem =>
+    match problem with
+      | Literal text => Nat.max width text.length
+      | Literals texts => texts.foldLeft width (width text => Nat.max width text.length)
+      | _ => width)
 
 --| The furthest point and its problems.
 def Parse.State.failure (state: Parse.State): Parse.Failure :=
-  { offset = state.furthest, messages = state.messages, expected = Parse.uniqueTexts [] (state.expected.reverse.map Parse.Problem.shown), width = Parse.Problem.widest state.expected }
+  { offset = state.furthest, messages = state.messages, expected = Parse.uniqueTexts [] (state.expected.reverse.concatMap Parse.Problem.shown), width = Parse.Problem.widest state.expected }
 
 --| Runs `parser` from `state`: its value, or where and why it failed.
 def Parse.runFrom (initial: Parse.State) (parser: () → {Parse} a): Result a Parse.Failure :=
@@ -334,13 +342,10 @@ def Parse.pick (choices: List (Text, a)): {Parse} a :=
       Parse.noteWords choices
       Empty.absurd Parse.stop()
 
---| Notes each word of `pick`'s choices as expected here.
-@[tailrec]
+--| Notes each word of `pick`'s choices as expected here, in one operation.
 def Parse.noteWords: (words: List (Text, a)) → {Parse} ()
   | [] => ()
-  | [(word, value), ..rest] =>
-    Parse.note (Literal word)
-    Parse.noteWords rest
+  | words => Parse.note (Literals (words.map (choice => choice.fst)))
 
 -- Choice and repetition. A failed alternative leaves the input as it was.
 
