@@ -129,6 +129,7 @@ status line now says the wrong thing; the details are in
 | [attributes.md](attributes.md) | Attributes `@[…]`, starting with the JavaScript wire format | built, stages 1, 2, 2b: `crates/elab/src/attributes.rs` | SW-341 |
 | [direct-style-grammars.md](direct-style-grammars.md) | Sequence expressions `(a; b)` and `Parse.before` | built | SW-888, SW-889; open SW-887 |
 | [private-helpers.md](private-helpers.md) | Hiding std's internal helpers, `@[internal]` | proposed | SW-2008, SW-2037-SW-2040 |
+| [entry-points.md](entry-points.md) | How a program declares its entry point: `@[entry]`, `main` checked where defined, or both | proposed: D3452-D3454 (recommends `main` by name, checked at definition) | SW-2550; SW-2549 |
 
 ## Effects
 
