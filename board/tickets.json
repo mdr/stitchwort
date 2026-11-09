@@ -24996,7 +24996,7 @@
       "where": "Speedwell",
       "labels": [],
       "epic": "comparative-speed",
-      "body": "From SW-2484 target 2. Bridge is 83% parsing. Design the operation so other token parsers can use it. 90 min.\n\nStarted 9 Nov 2026 05:19 UTC. Expected: 90 min.\n\n05:43, Sonnet result (branch lane/SW-2486, da350645d; worktree kept): new Parse operation spacedNat (one pass: spaces, digits, spaces) and public Parse.natToken; 22 proof arms added (Reads.sw 9, Runs.sw 13), statements unchanged; state-level theorem spacedNatBySpans (one pass = three spans); 16 hash snapshots; bound_to_the_prelude passes. Bridge 102.18 -> 80.56 G (-21.2%); disk +0.56% (longer operation table). HELD for Matt (orchestrator's call): (1) new user-visible std API (natToken); (2) the gain needs every `token nat` call site rewritten to natToken, including bridge's own source (2024 day 7): a benchmark sped up by editing it, the over-fitting Matt warned about. Recommendation: keep the operation, make `token nat` itself use it (specialise token when its argument is nat) so unchanged code gets the gain and no AoC source changes; plus Reads/Runs lemmas for it. Model result: Sonnet, worked, 22 min (est. 90).\n",
+      "body": "From SW-2484 target 2. Bridge is 83% parsing. Design the operation so other token parsers can use it. 90 min.\n\nStarted 9 Nov 2026 05:19 UTC. Expected: 90 min.\n\n05:43, Sonnet result (branch lane/SW-2486, da350645d; worktree kept): new Parse operation spacedNat (one pass: spaces, digits, spaces) and public Parse.natToken; 22 proof arms added (Reads.sw 9, Runs.sw 13), statements unchanged; state-level theorem spacedNatBySpans (one pass = three spans); 16 hash snapshots; bound_to_the_prelude passes. Bridge 102.18 -> 80.56 G (-21.2%); disk +0.56% (longer operation table). HELD for Matt (orchestrator's call): (1) new user-visible std API (natToken); (2) the gain needs every `token nat` call site rewritten to natToken, including bridge's own source (2024 day 7): a benchmark sped up by editing it, the over-fitting Matt warned about. Recommendation: keep the operation, make `token nat` itself use it (specialise token when its argument is nat) so unchanged code gets the gain and no AoC source changes; plus Reads/Runs lemmas for it. Model result: Sonnet, worked, 22 min (est. 90).\n\nNote: SW-2487 merged into Parse.sw and the prelude/parse snapshots; rebase this branch and regenerate snapshots with task snap:hashes if it goes ahead.\n",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
@@ -25004,12 +25004,12 @@
     {
       "id": 2487,
       "title": "Parser: many reuses optional's mark (disk -5%, bridge -3%, measured)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "Speedwell",
       "labels": [],
       "epic": "comparative-speed",
-      "body": "From SW-2484 target 5. 45 min.\n\nStarted 9 Nov 2026 05:43 UTC. Expected: 45 min.\n",
+      "body": "From SW-2484 target 5. 45 min.\n\nStarted 9 Nov 2026 05:43 UTC. Expected: 45 min.\n\nMerged 9 Nov 05:54 (std self-test, hash/pinned/prelude-bound 15 passed; 130 AoC namespaces using many/many1/sepBy checked clean). manyFuel passes its round's mark to optionalFrom (optional p = optionalFrom mark() p at the same state): disk 78.46 -> 72.66 G (-7.38%), bridge 102.23 -> 96.20 G (-5.90%). No proof changed; no API or call-site change. Model result: Sonnet, worked, 8 min (est. 45).\n",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
@@ -25043,12 +25043,12 @@
     {
       "id": 2490,
       "title": "bench/compare octopus (tiled) runs 10,000 steps and ends in 'error: no step within 10000 has every octopus flash': check the benchmark still measures what it means to",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "Speedwell",
       "labels": [],
       "epic": "comparative-speed",
-      "body": "From SW-2478. 20 min.\n\nStarted 9 Nov 2026 05:50 UTC. Expected: 20 min.\n",
+      "body": "From SW-2478. 20 min.\n\nStarted 9 Nov 2026 05:50 UTC. Expected: 20 min.\n\nMerged 9 Nov 05:55: the premise was wrong (SW-2478's lane ran an untiled variant): part 2 syncs at step 353, all runners print expected.txt byte for byte, and compare.py fails any nonzero exit. Comments corrected only. Model result: Sonnet, worked, 1 min (est. 20).\n",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
