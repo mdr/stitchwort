@@ -1,5 +1,5 @@
 {
-  "next": 2580,
+  "next": 2581,
   "tickets": [
     {
       "id": 47,
@@ -26206,6 +26206,19 @@
       "labels": [],
       "epic": "effects-native",
       "body": "Overmind job 46, 9 Nov, main 894a8b549. Seeds 1794200320, 1794201291, 1794201473 (shrunk to 128/60/94 lines), 1794300165, 1794301295 (batch only). Smallest: def p0b0 (v0: Nat): {IO} Nat := let v2 := digest (List.map (List.range 0 1) (y => if 0 % 2 == 0 then if (y * v0 % 1000003) % 2 == 0 then y else if y % 2 == 0 then v0 else ... [about 20 nested ifs] ... else 3)); ... Reproduce with STITCHWORT_TEST_RUN=native STITCHWORT_EFFECT_FUZZ_SEED=1794201291 STITCHWORT_EFFECT_FUZZ_BATCHES=1 cargo test --release -p stitchwort-cli --test extraction effect_differential::generated -- --nocapture. Profile/measure frame size against nesting depth first. 120 min.",
+      "created": "2026-11-09",
+      "updated": "2026-11-09",
+      "commits": []
+    },
+    {
+      "id": 2580,
+      "title": "Elaborator memory blow-up: a match on an indexed family whose index is a huge numeral (Vec a 340282366920938463463374607431768211456, 2^128) uses 10.5 GB within seconds; the coverage or unification step probably unfolds the numeral to Succ chains. Elab fuzzer seed 0x2580 case 770; the fuzzer's watchdog doesn't cap memory, so it took 16 GB and killed the run",
+      "status": "backlog",
+      "agent": "Opus",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "Found 9 Nov in compute mode: task fuzz:elab CASES=20000 SEED=0x2580 ONLY=770 DUMP=1. Repro (mutated examples/reject Vec match): type Vec (a: Type): Nat → Type = | VNil: Vec a 340282366920938463463374607431768211456 | VCons (x: a) (xs: Vec a n): Vec a (Succ n); def head (items: Vec Nat 340282366920938463463374607431768211456): Nat := match items with | VNil => 0. Expected: E-NONEXHAUSTIVE quickly. Also consider a memory cap per fuzz case. Unifier/coverage is core language (D2506), so Opus. 90 min.",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
