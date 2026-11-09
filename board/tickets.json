@@ -26244,7 +26244,7 @@
       "where": "",
       "labels": [],
       "epic": "audit-fuzzing",
-      "body": "Found 9 Nov in compute mode by bisecting cases 16661-16900 under STITCHWORT_MEM_CAP_GB=6. Repro: STITCHWORT_MEM_CAP_GB=6 task fuzz:elab CASES=20000 SEED=0x2582 ONLY=16878 DUMP=1. Ruled out: check, test, fmt from the CLI; warm CLI cache. 60 min; escalate to Opus if it's a cache-rewind bug.",
+      "body": "Found 9 Nov in compute mode by bisecting cases 16661-16900 under STITCHWORT_MEM_CAP_GB=6. Repro: STITCHWORT_MEM_CAP_GB=6 task fuzz:elab CASES=20000 SEED=0x2582 ONLY=16878 DUMP=1. Ruled out: check, test, fmt from the CLI; warm CLI cache. 60 min; escalate to Opus if it's a cache-rewind bug.\n\nSeed 0x2587 (Speedwell, 9 Nov): run killed at 16 GB after 1322 s; last slow case reported was 14659 (repro: task fuzz:elab CASES=20000 SEED=0x2587 FROM=14659 TO=14660). Not bisected (compute mode).",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
