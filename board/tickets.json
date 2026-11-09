@@ -1,5 +1,5 @@
 {
-  "next": 2576,
+  "next": 2577,
   "tickets": [
     {
       "id": 47,
@@ -26154,6 +26154,19 @@
       "labels": [],
       "epic": "audit-fuzzing",
       "body": "From SW-2565 review F3. Overmind, once B1 merges.",
+      "created": "2026-11-09",
+      "updated": "2026-11-09",
+      "commits": []
+    },
+    {
+      "id": 2576,
+      "title": "Soundness fuzzer mutants test peaked at 9.08 GB (seed 0x2574, MUTANTS=4000, CORPUS=aoc,rogue, 2d0c5fc1b) against 2.97 GB in job 35 with another seed: find whether it's the seed or growth since, and bound it",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "audit-fuzzing",
+      "body": "Overmind job 45, 9 Nov. Log on Overmind j45/run-0x2574.log. 45 min.",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
