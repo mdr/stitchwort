@@ -8,8 +8,11 @@
 //! apply-cache misses `sw_apply_cached` serves (per call site and by
 //! whether the cache was cold), and counts the effect runtime's pushes,
 //! pops and routes, the routes by handler clause and operation
-//! (docs/proposals/parse-runtime.md, stage 0). Cache hits are not counted:
-//! they are decided inline in compiled code, which has no hook.
+//! (docs/proposals/parse-runtime.md, stage 0) and the objects the effect
+//! runtime builds, by allocation site ([`Made`]). Apply-cache hits are not
+//! counted: they are decided inline in compiled code, which has no hook. The
+//! cell cache's hits are, only in code compiled with `Options::count_bodies`,
+//! which then calls `sw_count_cell_hit` in each hit.
 //!
 //! Native code compiled with `Options::count_bodies` also counts the
 //! entries of each of its bodies, by the body's symbol name
@@ -158,10 +161,34 @@ pub(crate) enum Event {
     /// An effect runtime leaf or resumption planned by `sw_apply_prepare`
     /// without collecting its arguments.
     RuntimeValueFast,
+    /// Generated code took a cell from the cell cache (inline; counted only
+    /// by code compiled with `Options::count_bodies`).
+    CellCacheHit,
+    /// A `bind` whose computation is `Call o DoneK`, the computation held
+    /// by nothing else (R4 of effect-runtime-allocation.md could write the
+    /// continuation into the cell).
+    BindOfPerformUnique,
+    /// The same, with the `Call` cell shared.
+    BindOfPerformShared,
+    /// A `bind` whose computation is a `Call o r` with some other `r`.
+    BindOfCallOther,
+    /// A `bind` whose computation is itself a `Bind` node.
+    BindOfBind,
+    /// A `bind` whose computation is none of those (a `Done` is answered at
+    /// once and not counted).
+    BindOfOther,
+    /// `sw_eff_step` meeting an operation `Call o DoneK`: a perform in the
+    /// form the elaborator writes it, however it got to the loop (bound
+    /// first or not). The share of these that were bound as they were made
+    /// ([`Event::BindOfPerformUnique`] and shared) is what R4 reaches.
+    LoopCallDoneK,
+    /// `sw_eff_step` meeting an operation `Call o r` with any other `r`
+    /// (a skip's or a clause's resumption).
+    LoopCallOther,
 }
 
 #[cfg(feature = "call-counts")]
-const EVENTS: usize = Event::RuntimeValueFast as usize + 1;
+const EVENTS: usize = Event::LoopCallOther as usize + 1;
 
 #[cfg(feature = "call-counts")]
 const EVENT_NAMES: [&str; EVENTS] = [
@@ -177,6 +204,93 @@ const EVENT_NAMES: [&str; EVENTS] = [
     "apply-cache miss sent to sw_apply_prepare",
     "apply-cache miss in a cold cache",
     "sw_apply_prepare: runtime leaf or resumption, no argument Vec",
+    "generated code: cell taken from the cell cache (inline hit)",
+    "bind of Call o DoneK, Call cell unique (R4 writes k in place)",
+    "bind of Call o DoneK, Call cell shared (R4 copies)",
+    "bind of Call o r, r not DoneK",
+    "bind of a Bind node",
+    "bind of anything else (not Done)",
+    "loop met Call o DoneK (a perform in its original form)",
+    "loop met Call o r, r not DoneK",
+];
+
+/// Objects the effect runtime builds itself, by allocation site
+/// (docs/proposals/effect-runtime-allocation.md, stage 0). Each hit is one
+/// heap object (a cell, an `Rc<Resume>`, an `Rc<Fun>`...), except where the
+/// name says otherwise. Cells that generated code builds are not here: those
+/// are `sw_cell_new`'s calls plus [`Event::CellCacheHit`].
+#[derive(Clone, Copy)]
+#[cfg_attr(not(feature = "call-counts"), allow(dead_code))]
+pub(crate) enum Made {
+    /// `Bind c k` cell of `sw_bind`.
+    BindNode,
+    /// `Bind c k` cell of the `bind` native applied through
+    /// `sw_apply_prepare` (a `bind` passed as a function value).
+    BindNodeApply,
+    /// Pending-list cell `[k, rest]` of a push in `sw_eff_step`.
+    PendingCell,
+    /// The `Call o r` cell of a skipped forward ([`crate::effect::skipped`]).
+    SkipCall,
+    /// The `Call o k` cell a `Handler::Step` loop hands out.
+    StepCall,
+    /// `Done y` cell of `DoneK`'s apply ([`crate::effect::done_k`]).
+    DoneCell,
+    /// Cells of a lazy resumption's apply (`Bind (Done y) r`: counts the
+    /// `Bind` and the `Done` as two).
+    LazyResumeCells,
+    /// Cells of a rebuilt forwarded operation (`forwarded`, `renamed`).
+    ForwardedOpCells,
+    /// `Rc<Resume>` of a skipped forward.
+    ResumeSkip,
+    /// `Rc<Resume>` of a route to a fold's clause.
+    ResumeFold,
+    /// `Rc<Resume>` of a route to a state handler's clause.
+    ResumeState,
+    /// `Rc<Resume>` of a route to `translate`'s clause.
+    ResumeTranslate,
+    /// `Rc<Resume>` of an operation reaching `Handler::Step`.
+    ResumeStep,
+    /// The `Fun::Resume` wrapper of a skipped forward.
+    WrapResumeSkip,
+    /// The `Fun::Resume` wrapper of a fold, `translate` or `Step` route.
+    WrapResumeRoute,
+    /// The `Fun::Resume` wrapper of a lazy resumption's apply.
+    WrapResumeLazy,
+    /// The `Fun::StateK` wrapper of a state route.
+    WrapStateK,
+    /// `Fun::Jumped` of a state clause's jump.
+    Jumped,
+    /// `StateRun` (and its `Fun` wrapper) of `StateK`'s apply.
+    StateRun,
+    /// `Handler` of a fold, state handler, `translate` or `runPure` starting.
+    Handler,
+}
+
+#[cfg(feature = "call-counts")]
+const MADE: usize = Made::Handler as usize + 1;
+
+#[cfg(feature = "call-counts")]
+const MADE_NAMES: [&str; MADE] = [
+    "cell: Bind node, sw_bind",
+    "cell: Bind node, bind applied as a function",
+    "cell: pending-list cell (push in sw_eff_step)",
+    "cell: Call of a skipped forward",
+    "cell: Call handed out by Handler::Step",
+    "cell: Done from DoneK's apply",
+    "cells: lazy resumption's Bind and Done (two each)",
+    "cells: rebuilt forwarded operation",
+    "Rc<Resume>: skipped forward",
+    "Rc<Resume>: fold route",
+    "Rc<Resume>: state route",
+    "Rc<Resume>: translate route",
+    "Rc<Resume>: Handler::Step",
+    "Fun::Resume wrapper: skipped forward",
+    "Fun::Resume wrapper: fold/translate/Step route",
+    "Fun::Resume wrapper: lazy resumption's apply",
+    "Fun::StateK wrapper: state route",
+    "Fun::Jumped: state clause's jump",
+    "StateRun + Fun wrapper (two objects): StateK's apply",
+    "Rc<Handler>: handler starting",
 ];
 
 /// How many bodies the report lists.
@@ -192,7 +306,7 @@ mod enabled {
     use std::sync::Mutex;
     use std::sync::atomic::{AtomicU64, Ordering};
 
-    use super::{APPLY_KINDS, EVENTS, HELPERS};
+    use super::{APPLY_KINDS, EVENTS, HELPERS, MADE};
 
     pub(super) static HELPER_COUNTS: [AtomicU64; HELPERS] = [const { AtomicU64::new(0) }; HELPERS];
     /// Per operation, by its number in the program's table of operations
@@ -208,6 +322,7 @@ mod enabled {
     pub(super) static APPLY_COUNTS: [AtomicU64; APPLY_KINDS] =
         [const { AtomicU64::new(0) }; APPLY_KINDS];
     pub(super) static EVENT_COUNTS: [AtomicU64; EVENTS] = [const { AtomicU64::new(0) }; EVENTS];
+    pub(super) static MADE_COUNTS: [AtomicU64; MADE] = [const { AtomicU64::new(0) }; MADE];
     /// Apply-cache misses per cache (call site), by its address.
     pub(super) static SITE_MISSES: Mutex<BTreeMap<usize, u64>> = Mutex::new(BTreeMap::new());
     /// Routes per (handler clause, operation): the clause is described
@@ -277,6 +392,15 @@ pub(crate) fn hit_event(event: Event) {
     enabled::EVENT_COUNTS[event as usize].fetch_add(1, std::sync::atomic::Ordering::Relaxed);
     #[cfg(not(feature = "call-counts"))]
     let _ = event;
+}
+
+/// `n` objects built by the effect runtime at `site`.
+#[inline(always)]
+pub(crate) fn hit_made(site: Made, n: u64) {
+    #[cfg(feature = "call-counts")]
+    enabled::MADE_COUNTS[site as usize].fetch_add(n, std::sync::atomic::Ordering::Relaxed);
+    #[cfg(not(feature = "call-counts"))]
+    let _ = (site, n);
 }
 
 /// One entry of the compiled body named by `name` (bytes that live as long
@@ -422,6 +546,16 @@ pub fn report() -> Vec<String> {
                 lines.push(format!("  {n:>14}  {name}"));
             }
         }
+        lines.push("objects built by the effect runtime, by allocation site:".to_string());
+        let mut total_made = 0;
+        for (count, name) in enabled::MADE_COUNTS.iter().zip(MADE_NAMES) {
+            let n = count.load(Relaxed);
+            if n > 0 {
+                total_made += n;
+                lines.push(format!("  {n:>14}  {name}"));
+            }
+        }
+        lines.push(format!("  {total_made:>14}  (all, cells and others)"));
         let sites = enabled::SITE_MISSES.lock().unwrap();
         let mut by_site: Vec<(u64, usize)> = sites.iter().map(|(&a, &n)| (n, a)).collect();
         by_site.sort_by_key(|s| std::cmp::Reverse(s.0));
@@ -505,6 +639,9 @@ mod tests {
         hit_apply(ApplyKind::DoneK);
         hit_apply(ApplyKind::DoneK);
         hit_event(Event::Push);
+        hit_made(Made::PendingCell, 2);
+        hit_made(Made::Jumped, 1);
+        hit_event(Event::CellCacheHit);
         hit_site_miss(0x40);
         hit_route(|| "lambda 3".to_string(), || "tag 5".to_string());
         hit_chain_op();
@@ -542,6 +679,12 @@ mod tests {
                 ("2 ", "  DoneK"),
                 ("1 ", "  bind node pushed (continuation pushed)"),
                 ("1 ", "  site 0x40"),
+                ("2 ", "  cell: pending-list cell (push in sw_eff_step)"),
+                ("1 ", "  Fun::Jumped: state clause's jump"),
+                (
+                    "1 ",
+                    "  generated code: cell taken from the cell cache (inline hit)",
+                ),
                 ("1 ", "  lambda 3  tag 5"),
             ] {
                 assert!(

@@ -32,6 +32,7 @@
 //! crossed, and the frames pending grow only with the program's own
 //! non-tail calls.
 
+use crate::call_counts::{Made, hit_made};
 use crate::value_census::{new_fun, new_handler};
 use std::rc::Rc;
 
@@ -428,6 +429,7 @@ pub(crate) fn pair(mut fields: Fields) -> (Value, Value) {
 pub(crate) fn state_handler(s: &Shapes, op: EffectOp, mut arg: impl FnMut() -> Value) -> Value {
     let (done, call, c) = (arg(), arg(), arg());
     let comp = op == EffectOp::FoldStateComp;
+    hit_made(Made::Handler, 1);
     let handler = new_handler(Handler::State { done, call, comp });
     let run = StateRun {
         handler,
@@ -455,6 +457,7 @@ pub(crate) fn handler_for(
     op: EffectOp,
     mut arg: impl FnMut() -> Value,
 ) -> (Rc<Handler>, Value) {
+    hit_made(Made::Handler, 1);
     match op {
         EffectOp::Fold | EffectOp::FoldLazy | EffectOp::FoldIn | EffectOp::FoldForwarding => {
             let lazy = match op {
@@ -653,9 +656,13 @@ pub(crate) fn forwarded(s: &Shapes, table: &str, o: Value) -> Result<Value, Valu
         _ => return Err(o),
     };
     let mut op = match arg {
-        Some(a) => Value::data(outer, [a]),
+        Some(a) => {
+            hit_made(Made::ForwardedOpCells, 1);
+            Value::data(outer, [a])
+        }
         None => Value::Tag(outer),
     };
+    hit_made(Made::ForwardedOpCells, wraps.len() as u64);
     for w in wraps.iter().rev() {
         let w = char::from(*w).to_digit(16).expect("encoded");
         op = Value::data(w, [op]);
@@ -706,6 +713,7 @@ fn renamed(s: &Shapes, bytes: &[u8], o: Value) -> Result<Value, Value> {
             return Ok(field(fields, 0));
         }
         let mut op = inner.clone();
+        hit_made(Made::ForwardedOpCells, to.len() as u64);
         for t in to.iter().rev() {
             op = Value::data(u32::from(*t - b'0'), [op]);
         }
@@ -724,6 +732,8 @@ pub(crate) fn skipped(
     resume: Rc<Resume>,
 ) -> Value {
     counts.forwards += 1;
+    hit_made(Made::SkipCall, 1);
+    hit_made(Made::WrapResumeSkip, 1);
     let r = Value::Fun(new_fun(Fun::Resume(resume, false)));
     Value::data(s.call, [o, r])
 }
@@ -739,6 +749,8 @@ pub(crate) fn resume_lazily(
     y: Value,
 ) -> Value {
     counts.resumes += 1;
+    hit_made(Made::LazyResumeCells, 2);
+    hit_made(Made::WrapResumeLazy, 1);
     let k = Value::Fun(new_fun(Fun::Resume(resume.clone(), false)));
     Value::data(s.bind_node, [Value::data(s.done, [y]), k])
 }
@@ -750,6 +762,7 @@ pub(crate) fn resume_lazily(
 /// `DoneK y`: `Done y`.
 #[inline]
 pub(crate) fn done_k(s: &Shapes, y: Value) -> Value {
+    hit_made(Made::DoneCell, 1);
     Value::data(s.done, [y])
 }
 
@@ -760,6 +773,7 @@ pub(crate) fn state_k(s: &Shapes, resume: &Resume, y: Value) -> Value {
     let Handler::State { comp, .. } = &*resume.handler else {
         unreachable!("a state-passing handler's resumption")
     };
+    hit_made(Made::StateRun, 2);
     let run = StateRun {
         handler: resume.handler.clone(),
         rest: resume.rest.clone(),
@@ -773,6 +787,7 @@ pub(crate) fn state_k(s: &Shapes, resume: &Resume, y: Value) -> Value {
 /// to find (`state_step`).
 #[inline]
 pub(crate) fn jump_k(v: Value, s: Value) -> Value {
+    hit_made(Made::Jumped, 1);
     Value::Fun(new_fun(Fun::Jumped(v, s)))
 }
 

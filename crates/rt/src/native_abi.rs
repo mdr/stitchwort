@@ -60,6 +60,7 @@ use std::rc::Rc;
 
 use stitchwort_core::ResourceError;
 
+use crate::call_counts::{Made, hit_made};
 use crate::cell_cache::CellCache;
 use crate::code::{Image, Instr, NO_REG};
 use crate::effect::{EffectCounts, EffectOp, Handler, Resume};
@@ -2333,6 +2334,11 @@ pub unsafe extern "C" fn sw_apply_prepare(
                             }
                             (c, k) => {
                                 run.counts.binds += 1;
+                                count_bind_of(s, &c);
+                                crate::call_counts::hit_made(
+                                    crate::call_counts::Made::BindNodeApply,
+                                    1,
+                                );
                                 value = Some(Value::data(s.bind_node, [c, k]));
                             }
                         },
@@ -2602,6 +2608,8 @@ pub unsafe extern "C" fn sw_bind(
         c => {
             let k = unsafe { k.read() };
             run.counts.binds += 1;
+            count_bind_of(&s, &c);
+            crate::call_counts::hit_made(crate::call_counts::Made::BindNode, 1);
             unsafe { out.write(Value::data(s.bind_node, [c, k])) };
             0
         }
@@ -2824,6 +2832,7 @@ pub unsafe extern "C" fn sw_eff_step(
         // SAFETY: the caller's contract: `pending` is taken and replaced.
         unsafe {
             let rest = pending.read();
+            crate::call_counts::hit_made(crate::call_counts::Made::PendingCell, 1);
             pending.write(Value::data(0, [k, rest]));
             c.write(inner);
         }
@@ -2889,6 +2898,13 @@ pub unsafe extern "C" fn sw_eff_step(
     let (o, rest) = crate::effect::pair(fields);
     if crate::call_counts::ENABLED {
         crate::call_counts::hit_chain_op();
+        crate::call_counts::hit_event(
+            if matches!(&rest, Value::Fun(f) if matches!(**f, Fun::DoneK)) {
+                crate::call_counts::Event::LoopCallDoneK
+            } else {
+                crate::call_counts::Event::LoopCallOther
+            },
+        );
     }
     let o = match &*handler {
         Handler::Fold {
@@ -2897,6 +2913,7 @@ pub unsafe extern "C" fn sw_eff_step(
         } => match crate::effect::forwarded(s, table, o) {
             Ok(o) => {
                 crate::call_counts::hit_event(crate::call_counts::Event::Forward);
+                crate::call_counts::hit_made(crate::call_counts::Made::ResumeSkip, 1);
                 let resume = new_resume(Resume {
                     handler,
                     rest,
@@ -2924,6 +2941,8 @@ pub unsafe extern "C" fn sw_eff_step(
     match &*handler {
         Handler::Fold { call, lazy, .. } => {
             counts.routes += 1;
+            hit_made(Made::ResumeFold, 1);
+            hit_made(Made::WrapResumeRoute, 1);
             let (call, lazy) = (call.clone(), *lazy);
             let k = Value::Fun(new_fun(Fun::Resume(resume(handler, Value::Erased), lazy)));
             write(0, call);
@@ -2935,6 +2954,8 @@ pub unsafe extern "C" fn sw_eff_step(
         // `sw_state_step` with the resumption.
         Handler::State { call, .. } => {
             counts.routes += 1;
+            hit_made(Made::ResumeState, 1);
+            hit_made(Made::WrapStateK, 1);
             let call = call.clone();
             let resume = resume(handler, Value::Erased);
             let k = Value::Fun(new_fun(Fun::StateK(resume.clone())));
@@ -2952,6 +2973,8 @@ pub unsafe extern "C" fn sw_eff_step(
         }
         Handler::Translate { inject, .. } => {
             counts.routes += 1;
+            hit_made(Made::ResumeTranslate, 1);
+            hit_made(Made::WrapResumeRoute, 1);
             let inject = inject.clone();
             let k = Value::Fun(new_fun(Fun::Resume(resume(handler, o.clone()), false)));
             write(0, inject);
@@ -2961,12 +2984,42 @@ pub unsafe extern "C" fn sw_eff_step(
         }
         Handler::Step => {
             crate::call_counts::hit_event(crate::call_counts::Event::RouteStep);
+            hit_made(Made::ResumeStep, 1);
+            hit_made(Made::WrapResumeRoute, 1);
+            hit_made(Made::StepCall, 1);
             let k = Value::Fun(new_fun(Fun::Resume(resume(handler, Value::Erased), false)));
             write(0, Value::data(s.call, [o, k]));
             STEP_RETURN
         }
         Handler::RunPure => internal(format_args!("an operation reached `runPure`")),
     }
+}
+
+/// Counts a `bind` of the computation `c` (not a `Done`) by what `c` is: a
+/// fresh perform `Call o DoneK`, split by whether the `Call` cell is unique,
+/// is the common case the monad law `bind (Call o DoneK) k = Call o k`
+/// would speed up.
+#[inline(always)]
+fn count_bind_of(s: &Shapes, c: &Value) {
+    use crate::call_counts::{Event, hit_event};
+    if !crate::call_counts::ENABLED {
+        return;
+    }
+    hit_event(match c {
+        Value::Data(tag, fields) if *tag == s.call => {
+            if matches!(&fields[1], Value::Fun(f) if matches!(**f, Fun::DoneK)) {
+                if Rc::strong_count(&fields.0) == 1 {
+                    Event::BindOfPerformUnique
+                } else {
+                    Event::BindOfPerformShared
+                }
+            } else {
+                Event::BindOfCallOther
+            }
+        }
+        Value::Data(tag, _) if *tag == s.bind_node => Event::BindOfBind,
+        _ => Event::BindOfOther,
+    });
 }
 
 /// Counts an operation `o` reaching `handler`, by the handler's clause and
@@ -3241,6 +3294,18 @@ pub unsafe extern "C" fn sw_drop_deferred(context: *mut Context) {
         // SAFETY: the word of a function value native code gave up.
         drop(unsafe { from_words(u64::from(TAG_FUN), fun, 0) });
     }
+}
+
+/// One cell taken from the cell cache by generated code, from a build with
+/// `Options::count_bodies`: the hit is decided inline, so this call is the
+/// only place it can be counted.
+///
+/// # Safety
+/// Always safe to call; `unsafe` only for the shared signature of the helpers.
+#[allow(unsafe_code)]
+#[cfg_attr(not(test), unsafe(no_mangle))]
+pub unsafe extern "C" fn sw_count_cell_hit() {
+    crate::call_counts::hit_event(crate::call_counts::Event::CellCacheHit);
 }
 
 /// One entry of the body named `name[..len]`, from a build with

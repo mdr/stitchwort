@@ -24646,16 +24646,16 @@
     {
       "id": 2461,
       "title": "Effect-runtime allocation stage 0: counters (runtime-built cells per site, cell-cache hits from generated code under call-counts, performs that reach a bind directly) on expressions, scan, matcher",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Sonnet",
       "where": "",
       "labels": [
         "perf"
       ],
       "epic": "comparative-speed",
-      "body": "docs/proposals/effect-runtime-allocation.md stage 0. Checks the ~94 M runtime cells and R4's reach. 45 min.",
+      "body": "docs/proposals/effect-runtime-allocation.md stage 0. Checks the ~94 M runtime cells and R4's reach. 45 min.\n\nProgress (lane, 9 Nov 2026): counters added (call_counts `Made` sites, CellCacheHit, BindOf*, LoopCall*); measured on expressions, scan, matcher, bridge; results in docs/proposals/effect-runtime-allocation.md section 4.1. Headlines: the note's 94 M holds (94.14 M), plus 22.95 M cells of rebuilt forwarded operations it missed; cell-cache hits 50.2 M (not 96 M); R4 reaches 100% of performs (all unique). Counters off: +0.02% instructions (noise). \n",
       "created": "2026-11-08",
-      "updated": "2026-11-08",
+      "updated": "2026-11-09",
       "commits": []
     },
     {
