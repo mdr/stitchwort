@@ -1397,6 +1397,7 @@ dependencies = [
  "stitchwort-core",
  "stitchwort-dev-features",
  "stitchwort-driver",
+ "stitchwort-elab",
  "stitchwort-rt",
  "stitchwort-syntax",
  "stitchwort-test-alloc",

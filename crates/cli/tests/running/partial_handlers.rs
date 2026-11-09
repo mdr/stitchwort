@@ -3,7 +3,7 @@
 //! what the model gives with the model's ticks, a million handled
 //! operations and a million ticks under a state handler run on the heap,
 //! and `examples/accept/partial-handlers.sw` prints the same on all three
-//! runners. The native machine's tests are in `crates/rt/tests`
+//! runners. The machine's tests are in `crates/rt/tests`
 //! (`tick_counts.rs`, `partial_handlers.rs`).
 //!
 //! Requires `node` on the PATH (the Nix dev shell provides it).
@@ -231,9 +231,8 @@ fn the_example_prints_the_same_on_all_three_runners() {
     let outputs: Vec<String> = [&[][..], &["--reference"], &["--js"]]
         .iter()
         .map(|flags| {
-            let output = Command::new(env!("CARGO_BIN_EXE_stitchwort"))
-                .args(["run", "--no-cache"])
-                .args(*flags)
+            let output = crate::common::cli_with("run", flags)
+                .arg("--no-cache")
                 .arg(&path)
                 .output()
                 .expect("run stitchwort");

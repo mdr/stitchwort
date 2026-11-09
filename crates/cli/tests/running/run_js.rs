@@ -94,11 +94,14 @@ fn filtering() -> bool {
 
 /// Runs `stitchwort run [--js] path` with `input` piped to it.
 fn run(path: &Path, js: bool, input: &[u8]) -> Output {
-    let mut command = Command::new(env!("CARGO_BIN_EXE_stitchwort"));
-    command.args(["run", "--cache-dir", CACHE]);
-    if js {
+    let mut command = if js {
+        let mut command = crate::common::cli_plain("run");
         command.arg("--js");
-    }
+        command
+    } else {
+        crate::common::cli("run")
+    };
+    command.args(["--cache-dir", CACHE]);
     let mut child = command
         .arg(path)
         .stdin(Stdio::piped())
@@ -652,7 +655,7 @@ fn an_unhandled_failure_is_reported_alike() {
 /// every element of an effectful `map`, so each crosses as many pending
 /// `bind`s as there are elements left, and a `Fail` handler it's forwarded
 /// through. Before stage 4a this was quadratic (16,000 elements took
-/// seconds); a million now take about a second, natively too (since stage
+/// seconds); a million now take about a second, on the machine too (since stage
 /// 4b). Checked both ways on a short list and on the long one.
 #[test]
 fn io_across_many_binds_runs_in_linear_time() {
@@ -689,7 +692,7 @@ def main(): {{IO}} () :=
 /// 2,000 levels of non-tail partial recursion, each printing through
 /// handlers that forward `IO`. A million levels are in
 /// `crates/cli/tests/running/effect_runtime.rs` (JS) and
-/// `crates/rt/tests/it/effect_runtime.rs` (native).
+/// `crates/rt/tests/it/effect_runtime.rs` (machine).
 #[test]
 fn partial_with_forwarded_abilities_prints_the_same_both_ways() {
     let js = same_both_ways(&examples().join("partial-forwarding.sw"), b"2000\n", true);
@@ -742,7 +745,7 @@ def main(): {IO, Partial} () :=
 
 /// Calls each of `exports` (a function from `Nat` to `Nat` of the program
 /// at `path`) on 100,000 (`stack_safe_everywhere_at`: on `n`). The program's
-/// `main` prints the same, one line each, natively and with `run --js`; then
+/// `main` prints the same, one line each, on the machine and with `run --js`; then
 /// the module that `build --js` makes is called from a plain Node, with its
 /// default stack, and must print that too. (`run --js` hides recursion depth
 /// in a worker with a large stack.)
@@ -852,7 +855,7 @@ fn std_folds_over_long_lists_are_stack_safe() {
 }
 
 /// Std list functions that recursed once per element, on 100,000 elements,
-/// natively, with `run --js`, and from a plain Node, whose default stack
+/// on the machine, with `run --js`, and from a plain Node, whose default stack
 /// overflowed at 2,000 to 11,000 elements. The JS backend makes loops of
 /// calls modulo addition (`List.length`'s `Succ (List.length xs)`,
 /// `List.occurrences`, `List.indexOf`) and modulo append (`List.concat`'s
@@ -933,7 +936,7 @@ fn std_list_functions_over_long_lists_are_stack_safe() {
 }
 
 /// `List.unique` (SW-454) is a loop with a `Set` of what it has seen: on
-/// 1,000,000 elements, 100,000 of them different, natively, with `run --js`
+/// 1,000,000 elements, 100,000 of them different, on the machine, with `run --js`
 /// and from a plain Node. The fold over the result depends on its order, so
 /// the backends must agree on which occurrence each keeps.
 #[test]
@@ -952,7 +955,7 @@ fn std_unique_over_a_million_elements_is_stack_safe() {
 
 /// `Result.traverse` and `Vec.traverseOption` (SW-460) are loops that stop at
 /// the first failure: on 1,000,000 elements, all succeeding and failing at
-/// the last, natively, with `run --js` and from a plain Node, whose default
+/// the last, on the machine, with `run --js` and from a plain Node, whose default
 /// stack overflowed on the recursive forms.
 #[test]
 fn std_traversals_over_a_million_elements_are_stack_safe() {
@@ -986,7 +989,7 @@ fn std_traversals_over_a_million_elements_are_stack_safe() {
 
 /// `List.flatMap`, with a pure callback and with a `Fail` one, and the
 /// `List.concat` under it, on 1,000,000 elements (two million in the
-/// result), natively, with `run --js` and from a plain Node
+/// result), on the machine, with `run --js` and from a plain Node
 /// (docs/proposals/effect-polymorphic-list.md §3). The results are folded
 /// with loops, so only `flatMap` itself is measured.
 #[test]

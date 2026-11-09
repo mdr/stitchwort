@@ -219,6 +219,27 @@ task test:browser                              # the playground in headless Chro
 
 Incremental builds are slower code, so timing tasks don't use them (SW-2474). Incremental compiles use 256 codegen units; the runtime library that every native executable links (`libstitchwort_standalone.a`) then has no cross-unit inlining, and `bench/compare`'s `expressions` retired 320.4 G instructions against 310.6 G from a non-incremental build, the distributed binary's kind (-3.1%). kache strips the incremental flag, so lane worktrees measured the faster code and the main checkout the slower, for the same commit. `bench:compare`, `bench:compare:check`, `bench:instructions`, `bench:aoc` (every AoC day natively, `bench/aoc`), `native:bench` and `profile:native` therefore build into `target/bench` with `CARGO_PROFILE_RELEASE_INCREMENTAL=false`, and are comparable in either kind of checkout. A timing run of anything else (the `stitchwort-bench` crate, for one) should set the variable the same way.
 
+### Differential suites on native code
+
+The differential suites compare the machine with the reference evaluator and
+JavaScript; native code is opt-in, so the default runs are unchanged
+(docs/reviews/SW-2535-native-default-plan.md, N5a). Put the switch in front of
+a test command:
+
+- `STITCHWORT_TEST_RUN=native` adds `--native` to every `run` and `build` the CLI suites
+  (`crates/cli/tests/running`) spawn, through `common::cli`, `cli_with` and the
+  `build.rs` helper. A run that names its own backend (`--js`, `--reference`)
+  or needs the machine (`--profile`, `--alloc-trace`) is left as written.
+  `machine` or unset is the default; any other value is a failure.
+- The same variable gives `effect_differential.rs` a fourth backend, native
+  code compiled in process.
+- `crates/rt/tests/it/machine.rs`'s differential cases live in
+  `differential.rs`, shared with `crates/native/tests/it/machine_native.rs`,
+  which runs them on native code (`stitchwort-rt` can't dev-depend on
+  `stitchwort-native`). Those tests are `ignore`d: add `--run-ignored only`,
+  e.g. `task test:one -- --run-ignored only -E 'package(stitchwort-native) &
+  binary(it) & test(/^machine_native::/)'`.
+
 ### Hash dumps
 
 To show what a change to the elaborator does to the declarations it accepts, dump every declaration's hash before and after it and diff the two. `hash_stability`'s ignored test `dump` loads the whole library and one project, and writes one sorted line per declaration (`path hash`, `data path hash` for types) to the file `HASH_DUMP` names:

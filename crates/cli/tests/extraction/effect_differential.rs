@@ -1,9 +1,12 @@
 //! Generated differential tests of the effect runtime
 //! (docs/proposals/effect-runtime.md §9.3, stage 4e): random well-typed
 //! effectful programs, each run on the reference evaluator (the type
-//! checker's own, whose computations are trees), on the native machine of
+//! checker's own, whose computations are trees), on the machine of
 //! `stitchwort-rt` and as JavaScript under Node, which must print the same
-//! and end the same way.
+//! and end the same way. With `STITCHWORT_TEST_RUN=native`, a fourth backend
+//! compiles the program to Cranelift code in process and runs that too (the
+//! rest of the suite's switch, docs/reviews/SW-2535-native-default-plan.md,
+//! N5a); without it nothing changes.
 //!
 //! A program is a tree of functions over `Nat` that perform the operations of
 //! four abilities, `Fail` and `IO`, and handle them with handlers of every
@@ -1213,12 +1216,82 @@ struct Run {
 }
 
 enum Ran {
-    Three([Run; 3]),
+    /// One run per backend, in [`backends`]' order.
+    Runs(Vec<Run>),
     /// It didn't check: the diagnostics.
     Rejected(String),
 }
 
-const BACKENDS: [&str; 3] = ["reference", "native", "js"];
+/// The backends a program runs on, in the order of [`Ran::Runs`]: native
+/// code is the last, and only when `STITCHWORT_TEST_RUN=native`.
+fn backends() -> Vec<&'static str> {
+    let mut names = vec!["reference", "machine", "js"];
+    if native_wanted() {
+        names.push("native");
+    }
+    names
+}
+
+/// Whether `STITCHWORT_TEST_RUN` is `native` (unset or `machine` is not;
+/// the CLI suites' helper, `tests/running/common`, reads it the same way).
+fn native_wanted() -> bool {
+    match std::env::var("STITCHWORT_TEST_RUN").as_deref() {
+        Err(_) | Ok("") | Ok("machine") => false,
+        Ok("native") => true,
+        Ok(other) => panic!("STITCHWORT_TEST_RUN={other}: expected `native` or `machine`"),
+    }
+}
+
+/// `main` compiled to native code in process, as `run --native` does, and
+/// run with no input: what it printed and how it ended. A program native
+/// code refuses is an `error`, which no other backend can match.
+fn run_native(session: &Session, main: &stitchwort_cli::run::Main) -> Run {
+    use stitchwort_native::n1;
+    use stitchwort_rt::host::NoTerminal;
+    let program = match session.lower_fast(main) {
+        Ok(program) => program,
+        Err(e) => {
+            return Run {
+                stdout: String::new(),
+                end: format!("error: {e}"),
+            };
+        }
+    };
+    let limits = stitchwort_rt::Limits::from_core(session.elab.options.limits);
+    let image = stitchwort_rt::code::compile(&program);
+    let options = n1::Options {
+        trace_refcounts: false,
+        count_bodies: false,
+        pc_map: false,
+    };
+    let compiled = n1::compile(&program, image, options).and_then(|islands| {
+        let stack = n1::stack_for(limits.frames as u64, islands.max_frame, &islands.widest)?;
+        Ok((islands, stack))
+    });
+    let (islands, stack) = match compiled {
+        Ok(compiled) => compiled,
+        Err(why) => {
+            return Run {
+                stdout: String::new(),
+                end: format!("error: native refused: {}", why.join("; ")),
+            };
+        }
+    };
+    let mut out = Vec::new();
+    // The thread's stack (`STACK`) is the cap, as `run --native`'s is.
+    let result = stitchwort_rt::run_main_native(
+        Box::new(islands),
+        limits,
+        stack.min(STACK),
+        &mut &b""[..],
+        &mut out,
+        &mut NoTerminal,
+    );
+    Run {
+        stdout: String::from_utf8_lossy(&out).into_owned(),
+        end: end_of(result),
+    }
+}
 
 fn end_of(result: Result<(), RunError>) -> String {
     match result {
@@ -1273,7 +1346,7 @@ fn run_js(program: &stitchwort_js::run::Program, input: &str) -> Run {
     }
 }
 
-fn run_three(source: &str) -> Ran {
+fn run_all(source: &str) -> Ran {
     let mut session = Session::for_stack(STACK);
     if let Err(diagnostics) = session.load("generated.sw", source) {
         let shown: Vec<String> = diagnostics
@@ -1290,8 +1363,8 @@ fn run_three(source: &str) -> Ran {
     };
     let mut reference = Vec::new();
     let reference_end = end_of(session.run_main(&main, &mut &b""[..], &mut reference));
-    let mut native = Vec::new();
-    let native_end = end_of(session.run_main_fast(&main, &mut &b""[..], &mut native));
+    let mut machine = Vec::new();
+    let machine_end = end_of(session.run_main_fast(&main, &mut &b""[..], &mut machine));
     let js = match session.extract_program(&main) {
         Ok(program) => run_js(&program, ""),
         Err(d) => Run {
@@ -1299,25 +1372,29 @@ fn run_three(source: &str) -> Ran {
             end: format!("error: extract: {}", d.message),
         },
     };
-    Ran::Three([
+    let mut runs = vec![
         Run {
             stdout: String::from_utf8_lossy(&reference).into_owned(),
             end: reference_end,
         },
         Run {
-            stdout: String::from_utf8_lossy(&native).into_owned(),
-            end: native_end,
+            stdout: String::from_utf8_lossy(&machine).into_owned(),
+            end: machine_end,
         },
         js,
-    ])
+    ];
+    if native_wanted() {
+        runs.push(run_native(&session, &main));
+    }
+    Ran::Runs(runs)
 }
 
-fn inconclusive(runs: &[Run; 3]) -> bool {
+fn inconclusive(runs: &[Run]) -> bool {
     runs.iter().any(|r| r.end == "resource")
 }
 
-fn agree(runs: &[Run; 3]) -> bool {
-    runs[0] == runs[1] && runs[1] == runs[2]
+fn agree(runs: &[Run]) -> bool {
+    runs.iter().all(|run| *run == runs[0])
 }
 
 /// The lines program `k` printed.
@@ -1326,9 +1403,9 @@ fn lines_of(stdout: &str, k: usize) -> Vec<&str> {
     stdout.lines().filter(|l| l.starts_with(&tag)).collect()
 }
 
-fn show_runs(runs: &[Run; 3]) -> String {
+fn show_runs(runs: &[Run]) -> String {
     let mut out = String::new();
-    for (name, run) in BACKENDS.iter().zip(runs) {
+    for (name, run) in backends().iter().zip(runs) {
         writeln!(out, "--- {name}: {} ---\n{}", run.end, run.stdout).unwrap();
     }
     out
@@ -1513,15 +1590,15 @@ fn shrinks(p: &Program) -> Vec<Program> {
 }
 
 /// Program `p` alone, if it still disagrees: the runs.
-fn disagrees(p: &Program) -> Option<[Run; 3]> {
-    match run_three(&module(&[(0, p)])) {
-        Ran::Three(runs) if !inconclusive(&runs) && !agree(&runs) => Some(runs),
+fn disagrees(p: &Program) -> Option<Vec<Run>> {
+    match run_all(&module(&[(0, p)])) {
+        Ran::Runs(runs) if !inconclusive(&runs) && !agree(&runs) => Some(runs),
         _ => None,
     }
 }
 
 /// The smallest program found that still disagrees.
-fn shrink(mut p: Program, mut runs: [Run; 3]) -> (Program, [Run; 3]) {
+fn shrink(mut p: Program, mut runs: Vec<Run>) -> (Program, Vec<Run>) {
     let start = Instant::now();
     'outer: loop {
         for q in shrinks(&p) {
@@ -1565,7 +1642,7 @@ fn batch(seed: u64) -> BatchResult {
         let _ = std::fs::create_dir_all(&dir);
         let _ = std::fs::write(PathBuf::from(dir).join(format!("seed{seed}.sw")), &source);
     }
-    let runs = match run_three(&source) {
+    let runs = match run_all(&source) {
         Ran::Rejected(errors) => {
             return BatchResult {
                 programs: 0,
@@ -1576,7 +1653,7 @@ fn batch(seed: u64) -> BatchResult {
                 )),
             };
         }
-        Ran::Three(runs) => runs,
+        Ran::Runs(runs) => runs,
     };
     if inconclusive(&runs) {
         return BatchResult {
@@ -1695,7 +1772,7 @@ const REQUIRED: &[&str] = &[
 ];
 
 #[test]
-fn generated_effect_programs_agree_on_all_three_backends() {
+fn generated_effect_programs_agree_on_every_backend() {
     let batches = env_u64("STITCHWORT_EFFECT_FUZZ_BATCHES").unwrap_or(DEFAULT_BATCHES);
     let first = env_u64("STITCHWORT_EFFECT_FUZZ_SEED").unwrap_or(1);
     let seeds: Vec<u64> = (first..first + batches).collect();
@@ -1715,9 +1792,9 @@ fn generated_effect_programs_agree_on_all_three_backends() {
         failures.extend(r.failure);
     }
     eprintln!(
-        "{ran} generated programs agreed on the reference evaluator, native and JS \
-         ({batches} batches of {PER_BATCH} from seed {first}) in {:.1} s: {:.1} programs/s; \
+        "{ran} generated programs agreed on {} ({batches} batches of {PER_BATCH} from seed {first}) in {:.1} s: {:.1} programs/s; \
          {skipped} skipped for running out of resources",
+        backends().join(", "),
         elapsed.as_secs_f64(),
         (ran + skipped) as f64 / elapsed.as_secs_f64()
     );
