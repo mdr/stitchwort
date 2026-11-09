@@ -138,8 +138,8 @@ type False: Prop            -- no constructors
 -- Definition: a header, then a `:=` body or arms. `a` is only used as a
 -- type, so it's bound automatically as an implicit parameter: `[a: Type] -> …`.
 def length: List a -> Nat
-  | Nil       => 0
-  | Cons x xs => Succ (length xs)
+  | []        => 0
+  | [x, ..xs] => Succ (length xs)
 
 -- Implicit parameters can also be written out, and are in scope by name.
 theorem cong (f: a -> b) [x y: a] (p: x = y): f x = f y := J (y' p' => f x = f y') rfl p
@@ -148,15 +148,15 @@ theorem cong (f: a -> b) [x y: a] (p: x = y): f x = f y := J (y' p' => f x = f y
 theorem zeroPlus (n: Nat): 0 + n = n := rfl
 
 -- A test: a runtime check, run by `stitchwort test`, that a `Bool` (or a decidable proposition, as `if` takes) is `True`; it may call `Partial` code
-test "lengths add up" := Nat.leq (length (List.append [1] [2, 3])) 3
+test "lengths add up" := length ([1] ++ [2, 3]) <= 3
 
 -- Exported to JavaScript by `stitchwort build --js`
 export def total: List Nat -> Nat
-  | Nil       => 0
-  | Cons x xs => x + total xs
+  | []        => 0
+  | [x, ..xs] => x + total xs
 ```
 
-`stitchwort test` also takes `--only "name"`, to run the one test of that name, and `--json`, to print the results as one JSON object (`ok`, and per test `namespace`, `name`, `outcome` (`passed`, `failed` or `unfinished`), `cached`, `file`, `line`, `column`, `message`, and for a failure the `comparison` sides and the false `part`) for editors: the VS Code run icons above each `test` and `main`, and its Testing panel, use them.
+`stitchwort test` also takes `--only "name"`, to run the one test of that name, and `--json`, to print the results as one JSON object (`ok`, which is false if any test didn't pass or if `--only` or the target matched no test (also a warning, exit 1), and per test `namespace`, `name`, `outcome` (`passed`, `failed` or `unfinished`), `cached`, `file`, `line`, `column`, `message`, and for a failure `failure`: `{part, comparison}`, with `comparison` as `{op, left, right, difference}`) for editors: the VS Code run icons above each `test` and `main`, and its Testing panel, use them.
 
 When a test fails, `stitchwort test` and the playground's Tests tab say why, as far as they can (D601). If the test is a comparison (`==`, `!=`, `=`, `<`, `<=`, `>`, `>=`), they show the values of its two sides, in the order written; for two lists or two texts that aren't equal, also where they first differ (counting from 0):
 
@@ -195,7 +195,7 @@ Implicit and auto parameters are in scope by name in every arm, wherever they ap
 
 ```
 def get: (xs: List a) -> (i: Nat) -> [auto ok: i < List.length xs] -> a
-  | Nil, i => Void.absurd (Bool.falseNotTrue ok)    -- ok: i < 0, which computes to False = True
+  | [], i => Void.absurd (Bool.falseNotTrue ok)    -- ok: i < 0, which computes to False = True
 …
 ```
 
@@ -290,15 +290,15 @@ test       ::= "test" string ":=" expr
 ```
 
 ```
-def total (k: Nat) (lines: List Text): Nat := (lines.map (joltage k)).sum
+def total (k: Nat) (lines: List Text): Nat := lines.map (joltage k) |> .sum
 
 def length: List a -> Nat          -- arms: one pattern per argument after the colon
-  | Nil       => 0
-  | Cons x xs => Succ (length xs)
+  | []        => 0
+  | [x, ..xs] => Succ (length xs)
 
 def total (k: Nat): List Text -> Nat    -- named parameters, then arms
-  | Nil       => 0
-  | Cons l ls => joltage k l + total k ls
+  | []        => 0
+  | [l, ..ls] => joltage k l + total k ls
 
 def main(): {IO} () := report (solve IO.readAllLines())
 
@@ -311,8 +311,8 @@ x => x + 1                          -- a lambda
 (x: Nat) (y: Nat) => x + y          -- a lambda with typed parameters
 [a: Type] (x: a) => x               -- a lambda with an implicit parameter
 match xs with
-  | Nil => 0
-  | Cons x _ => x
+  | [] => 0
+  | [x, .._] => x
 handle prog() with
   | return x    => [x]
   | choose u, k => List.append (k True) (k False)
@@ -376,7 +376,7 @@ Names are grouped into namespaces (docs/proposals/namespaces.md). The library is
 import Std (List)
 import Text (split, join)
 
-def words (line: Text): List Text := split ' ' line
+def words (line: Text): List Text := split line ' '
 
 def count (xs: List Nat): Nat := List.length xs     -- needs `import Std (List)`
 
@@ -474,7 +474,7 @@ def nameOf: Person -> Text
 - **Order of effects**: in a computation, field expressions run in the order written, then the record is built; an update's base runs once, first.
 - **`==`** works on a record whose fields are all data with `DecEq` (none depending on another), or proofs of equations in types with `DecEq` (left out of the comparison: `type Dial (highest: Nat) = { position: Nat, inRange: position <= highest }` gets `==`). A `DecEq` instance is derived when the record is declared, as for other data types (see the operator table). Otherwise it's `E-INSTANCE-NONE`, with a note saying why; declare an instance (`instance T.instDecEq: DecEq T := { decide = … }`) instead.
 - **`T.ext`** is generated for a record, as a checked theorem: two values are equal when their data fields are. `theorem Dial.ext [highest: _] (x: Dial highest) (y: Dial highest) (positionEq: x.position = y.position): x = y`, with one hypothesis `fEq: x.f = y.f` for each data field `f` and none for proof fields (any two proofs of an equation in a type with `DecEq` are equal). It's there when the data fields don't depend on earlier fields (functions are fine), and each proof field proves an equation in a type with `DecEq` that doesn't mention the record or a type parameter; otherwise `T.ext` is an unknown name. A record with no data fields gets `T.ext x y: x = y`. Interfaces, propositions, records defined together with other types and indexed ones get none. The library's records (`Mod`, `Set`) have none generated; `Mod.ext` is written by hand. A `theorem T.ext` of your own in the same module is used instead, with no error (`examples/accept/record-ext.sw`).
-- **A record of propositions is decided** when each of its fields can be (SW-1015): `type Small (n: Nat): Prop = { below: n < 10, notZero: Not (n = 0) }` gets a derived `instance` returning `Decidable (Small n)`, so `byDecision`, `auto`, `if h: Small n` and the counterexample search (`stitchwort audit`, a failing proof's note) decide it, as they decide `And`. Each field is decided by what `if h:` finds for its type where the record is declared: an instance above it in the module, or in a namespace it uses. A field whose proposition nothing decides for unknown arguments (one defined by recursion on a list, say) needs a decision written for it first, an `instance` returning `Decidable …`; until then the record has none, and the error where one is wanted names the proposition that stopped it. Nor is one derived when a field's type mentions an earlier field, or for a record defined together with other types (`examples/accept/derive-decidable-record.sw`; the trip journal's `WellFormed`, `examples/projects/accept/trip-journal`).
+- **A record of propositions is decided** when each of its fields can be (SW-1015): `type Small (n: Nat): Prop = { below: n < 10, notZero: n ≠ 0 }` gets a derived `instance` returning `Decidable (Small n)`, so `byDecision`, `auto`, `if h: Small n` and the counterexample search (`stitchwort audit`, a failing proof's note) decide it, as they decide `And`. Each field is decided by what `if h:` finds for its type where the record is declared: an instance above it in the module, or in a namespace it uses. A field whose proposition nothing decides for unknown arguments (one defined by recursion on a list, say) needs a decision written for it first, an `instance` returning `Decidable …`; until then the record has none, and the error where one is wanted names the proposition that stopped it. Nor is one derived when a field's type mentions an earlier field, or for a record defined together with other types (`examples/accept/derive-decidable-record.sw`; the trip journal's `WellFormed`, `examples/projects/accept/trip-journal`).
 - **After a declaration's `:` or an arrow**, `{` starts an ability row when a type follows the braces (`{IO} Nat`). Otherwise it's a record, so a theorem's statement may start with a literal or an update: `theorem t (p: Person): { p | age = 3 }.age = 3`, or `(p: Person) -> { p | age = p.age } = p`. Braces holding an `=` are always a record, since a row never holds one (SW-1015, `examples/accept/record-in-statement.sw`).
 - At the JS boundary a record is a plain object with its fields as keys, in declared order, and no `tag` (DESIGN.md §12); a one-field record with `@[js.unboxed]` is its field's value instead (Microtypes).
 
@@ -589,7 +589,7 @@ type Profile = { name: Text, nick: Option Text }
 export def withNick (p: Profile) (n: Option Text): Profile := { p | nick = n }
 export def halve: Option Nat -> Option Nat
   | None   => None
-  | Some n => Some (Nat.div n 2)
+  | Some n => Some (n / 2)
 ```
 
 ```ts
@@ -917,8 +917,8 @@ import Std (Each)
 import Std.Each (each, require)
 
 def pairs (n: Nat): List (Pair Nat Nat) := Each.collect (() =>
-  let a := each (List.range 1 (n + 1))
-  let b := each (List.range a (n + 1))    -- may depend on `a`
+  let a := each (1 ..= n)
+  let b := each (a ..= n)    -- may depend on `a`
   require (a + b == n)                -- drops this choice unless it holds
   (a, b))
 ```
@@ -1011,8 +1011,8 @@ def digitsOnto (n: Nat) (acc: List Nat): List Nat
     decreasing n
 :=
   if big: Nat.leq n 9 = False
-  then digitsOnto (n / 10) (Cons (n % 10) acc) [decreasing := Nat.divTenLess n big]
-  else Cons n acc
+  then digitsOnto (n / 10) ([n % 10, ..acc]) [decreasing := Nat.divTenLess n big]
+  else [n, ..acc]
 
 -- The guard style: the `if` puts its condition in scope, and `auto` finds it.
 def halvings (n: Nat) (count: Nat): Nat
@@ -1137,7 +1137,7 @@ theorem evensShort (n: Nat): List.length (evens n) <= n
   `isIn` into the decrease, written in the call:
 
   ```
-  List.range 0 n |> .attach |> .sumBy (({ value = d, isIn }) =>
+  0 ..< n |> .attach |> .sumBy (({ value = d, isIn }) =>
     if Nat.divides d n then f d [decreasing := And.right ((List.memRange d 0 n).forward isIn)] else 0)
   ```
 
@@ -1261,15 +1261,15 @@ hypothesis it was taken under:
 
 ```
 def firstBig: List Nat → Option Big
-  | Nil => None
-  | Cons x rest =>
+  | [] => None
+  | [x, ..rest] =>
     match big: Nat.leq 10 x with
       | True => Some { value = x, isBig = big }
       | False => firstBig rest
 
 def countFresh: List Bool → Nat
-  | Nil => 0
-  | Cons b rest => if fresh: b = False then 1 + countFresh rest else countFresh rest
+  | [] => 0
+  | [b, ..rest] => if fresh: b = False then 1 + countFresh rest else countFresh rest
 ```
 
 gives `firstBig.eq2.true (x) (rest) (big: Nat.leq 10 x = True): firstBig
@@ -1279,7 +1279,7 @@ take by `rewrite`, `match` or `cases`, and `countFresh.eq2.ifFalse (b) (rest)
 
 - **Hypotheses.** A `Bool` `if c` gives `h1: c = True` / `h1: c = False`
   (`h2`, … for later unnamed ones), as elaborated: `if 4 ≤ x` is a test of
-  `Nat.leq 4 x`. `if h: p` gives `h: p` / `notH: Not p`, except that the
+  `Nat.leq 4 x`. `if h: p` gives `h: p` / `notH: ¬p`, except that the
   `else` of `p` = `b = True` (or `False`) is the other equation, `b = False`
   (D2186). A `match` on an expression gives its pattern's variables and `e =
   pattern`, named after the `match`'s equation (`match found: e`) or
@@ -1354,8 +1354,8 @@ on unchanged come first, once, and aren't the motive's:
 
 ```
 def countAbove (k: Nat): List Nat → Nat
-  | Nil => 0
-  | Cons x xs => if Nat.leq k x then Succ (countAbove k xs) else countAbove k xs
+  | [] => 0
+  | [x, ..xs] => if Nat.leq k x then Succ (countAbove k xs) else countAbove k xs
 
 theorem countAboveLe (k: Nat) (xs: List Nat): countAbove k xs ≤ List.length xs :=
   countAbove.induct k (xs result => result ≤ List.length xs)
@@ -1457,7 +1457,7 @@ def collatzSteps: Nat -> {Partial} Nat
   | n => 1 + collatzSteps (next n)     -- no termination check
 
 -- run by `stitchwort run`
-def main(): {IO, Partial} () := IO.print (Nat.toText (collatzSteps 27))
+def main(): {IO, Partial} () := IO.print "${collatzSteps 27}"
 
 -- A helper that's given a recursive function must be polymorphic in the
 -- rest of its row (`| e`): the recursive calls are requests that only the
@@ -1503,7 +1503,7 @@ Loosest-binding first:
 | `[auto P] -> B` | The same without a name, for an interface (`[auto Pretty a]`): it can't be referred to or passed by name |
 | `byDecision` | A proof of a closed proposition with a decision procedure, by running it: an `[auto h: P]` argument under a name (`theorem t: Enter ∈ keys := byDecision`; `import Std (byDecision)`; [`byDecision`](#bydecision)) |
 | `if c then a else b` | On a `Bool`, or on a proposition with a decision procedure, as `if _: c then a else b` (Lean's way): `if x < y`, `if n <= hi`, `if d != 0` work on `Nat` and `Int`. When neither branch uses the proof, it is the `Bool` `if` on the decision's `Bool`, the term a `Bool` test such as `filter (x => x < k)` gets, so lemmas stated with `Bool` tests match it. `c` is tried as a `Bool` first, exactly as before, so a `Bool` condition (`if xs == ys`) means what it always has; only if that fails is `c` tried as a proposition, with everything the first try did undone. A proposition nothing decides is `E-AUTO-NONE` at the condition (`E-INSTANCE-NONE` for an equation in a type without `DecEq`, as `if f = g` on functions); a condition that's neither is the `Bool` error. So do `&&`, `\|\|` and `not` on comparisons: `if x < y && y < z`, `if not (x < y)`. A condition that performs operations must be a `Bool` |
-| `if h: P then a else b` | Decides `P` (at runtime if need be). `h: P` in `a`, `h: Not P` in `b`. The branches may be proofs, in a theorem: `if h: m < n then Inl h else Inr omega` (SW-1015) |
+| `if h: P then a else b` | Decides `P` (at runtime if need be). `h: P` in `a`, `h: ¬P` in `b`. The branches may be proofs, in a theorem: `if h: m < n then Inl h else Inr omega` (SW-1015) |
 | `A -> B` | Function type |
 | `A -> {E, F \| e} B` | Function type whose calls may perform abilities `E` and `F`, plus whatever `e` stands for |
 | `handle e with \| return x => … \| op x, k => …` | Runs `e`, handling one ability |
@@ -1823,9 +1823,9 @@ applies, leaving goals:
 
 Each has two readings, chosen by what's expected, the way `if c` chooses:
 
-- **Where a proposition is expected** (a type: a signature, `if h: …`, an `auto` argument) they're the propositions `And a b`, `Or a b` and `Not a`, and both operands must be propositions. A `Bool` operand is an error (`E-NOT-A-TYPE`) with a note: for a `Bool` `b`, the proposition is `b = True`. `if h: x < y && y < z` gives `h: x < y && y < z` in the `then` branch and `h: Not (x < y && y < z)` in the `else` branch. The library's `Decidable.and`, `Decidable.or` and `Decidable.not` decide them from decisions of each side; both sides are decided before these run, so `if h: p && q` decides `q` even when `p` is false. `And.left`, `And.right` and `Or.neither` take them apart. Two more propositions are in the library (`import Std (Iff, Exists)`), written with operators of their own ([Logic notation](#logic-notation-in--and-exists)): `p <-> q` is `Iff p q`, a record of `forward: p -> q` and `backward: q -> p` (`h.forward x`; `Iff.refl`, `Iff.symm`, `Iff.trans`), and `exists (x: a) => P` is `Exists a ((x: a) => P)`, which says some `x: a` satisfies `P` (`exists (n: Nat) => n * n = 49`), built as `Witness x proof` and taken apart with `Exists.elim` or a `match` whose result is a proposition. Taking the witness out as data is `E-PROP-ELIM` (`examples/reject/exists-witness-to-data.sw`), as for any proposition with a data field.
+- **Where a proposition is expected** (a type: a signature, `if h: …`, an `auto` argument) they're the propositions `And a b`, `Or a b` and `Not a`, and both operands must be propositions. A `Bool` operand is an error (`E-NOT-A-TYPE`) with a note: for a `Bool` `b`, the proposition is `b = True`. `if h: x < y && y < z` gives `h: x < y ∧ y < z` in the `then` branch and `h: ¬(x < y ∧ y < z)` in the `else` branch. The library's `Decidable.and`, `Decidable.or` and `Decidable.not` decide them from decisions of each side; both sides are decided before these run, so `if h: p && q` decides `q` even when `p` is false. `And.left`, `And.right` and `Or.neither` take them apart. Two more propositions are in the library (`import Std (Iff, Exists)`), written with operators of their own ([Logic notation](#logic-notation-in--and-exists)): `p <-> q` is `Iff p q`, a record of `forward: p -> q` and `backward: q -> p` (`h.forward x`; `Iff.refl`, `Iff.symm`, `Iff.trans`), and `exists (x: a) => P` is `Exists a ((x: a) => P)`, which says some `x: a` satisfies `P` (`exists (n: Nat) => n * n = 49`), built as `Witness x proof` and taken apart with `Exists.elim` or a `match` whose result is a proposition. Taking the witness out as data is `E-PROP-ELIM` (`examples/reject/exists-witness-to-data.sw`), as for any proposition with a data field.
 - **Otherwise** (a `Bool` expected, as in a `def …: Bool`, a test or `if c`, or nothing known, as in `let`) it's a `Bool`, and **each operand is a condition, as `if` takes one**: a `Bool`, or failing that a proposition with a decision procedure, decided. So `x < y && y < z`, `flag && x < 3` and `not (x < y)` are all `Bool`s, and a `Bool` operand means what it always has. `a && b` is `if a then b else False` and `a \|\| b` is `if a then True else b`: `b` isn't evaluated when `a` decides the answer, and when `b` performs operations, they're performed only if `b` is evaluated. Operations in `a` are performed first. With nothing expected, if the `Bool` reading fails, the proposition reading is tried, with everything the first try did undone; if that fails too, the `Bool` reading's error is reported (`E-AUTO-NONE` at an operand nothing decides, as for `if`).
-- **The right side knows the left side**, as in `if a then b else False`: when `a` is a proposition (`n != 0`, `x < y`), `b` is checked knowing that `a` holds in `a && b`, and that it doesn't (`Not a`) in `a || b`, so an `auto` argument in `b` can use it. `i < xs.length && xs.getLt i == x` works (the `getLt` needs a proof of `i < xs.length`), as does `i >= xs.length || xs.getLt i == x`; in a chain `a && b && c`, `c` knows both `a` and `b`. A `Bool` left side (`n == 0`, `xs.isEmpty`) says nothing about `b`, just as `if n == 0` doesn't: write `n != 0` or `n = 0` for the fact. When `b` needs no proof, `a && b` is the plain `if a then b else False` on the decision's `Bool`, so the library's lemmas about `&&` and `||` on `Bool`s apply to it; when it does, it's `if _: a then b else False` (`Decidable.elim`), as that `if` makes it.
+- **The right side knows the left side**, as in `if a then b else False`: when `a` is a proposition (`n != 0`, `x < y`), `b` is checked knowing that `a` holds in `a && b`, and that it doesn't (`¬a`) in `a || b`, so an `auto` argument in `b` can use it. `i < xs.length && xs.getLt i == x` works (the `getLt` needs a proof of `i < xs.length`), as does `i >= xs.length || xs.getLt i == x`; in a chain `a && b && c`, `c` knows both `a` and `b`. A `Bool` left side (`n == 0`, `xs.isEmpty`) says nothing about `b`, just as `if n == 0` doesn't: write `n != 0` or `n = 0` for the fact. When `b` needs no proof, `a && b` is the plain `if a then b else False` on the decision's `Bool`, so the library's lemmas about `&&` and `||` on `Bool`s apply to it; when it does, it's `if _: a then b else False` (`Decidable.elim`), as that `if` makes it.
 - **An `if` on `a && b` knows both sides** (SW-1305): its `then` branch has the proof of `a ∧ b`, and `auto` uses each part of a conjunction in scope, so `if i < xs.length && j < xs.length then xs.getLt i` and `if i < xs.length && 0 < i then xs.getLt i` work, as do a chain `a && b && c` and a guard `| (i, j) if i < xs.length && j < xs.length => xs.getLt i`. A `Bool` operand `c` is `c = True` there (`if wanted && i < xs.length then xs.getLt i`). When neither branch uses the proof, the `if` is the plain `if` on the `Bool` `a && b`, as before, and a proof follows it with one `match e: a && b with` (`examples/accept/match-if-and.sw`); this holds also when a branch calls a recursive function or has an inner `match`, whose helper is lifted after the `if` is written: the `if` is settled on `a && b` once the helpers are lifted and are seen not to take the proof. When a branch does use the proof, a proof matches on the parts instead (`match sum == target with`, then `match 2 <= count with`), and it's `if _: a ∧ b` decided by `Decidable.andThen`, which decides `b` only once `a` holds, as `&&` evaluates it. Where `b` itself used `a`'s fact (`i < xs.length && xs.getLt i == x`), the branch doesn't get the conjunction, whose right side would mention that proof. A conjunction given as a hypothesis (`h: b ≠ 0 ∧ c ≠ 0`) offers its parts to `auto` too.
 
 Precedence, loosest first: `->`, then `<->`, then `\|\|`, then `&&`, then `=` `!=` `==` `<` `<=` `>` `>=` `in` `!in`, then `\|>` (the full table is under [Logic notation](#logic-notation-in--and-exists)). So `a \|\| b && c` is `a \|\| (b && c)`, `x < y && y < z` needs no brackets, and `p && q -> r` is `(p && q) -> r`. `not` is a function, so `not x < y` is `(not x) < y`: write `not (x < y)`; prefix `!` binds the same way, tighter than every binary operator (`!x < y` is `(!x) < y`). The printer shows `And p q`, `Or p q` and `Not p` as `p ∧ q`, `p ∨ q` and `¬p` (D1204). A single `&` is still an error.
@@ -1908,7 +1908,7 @@ Precedence, loosest first:
 
 Other symbols get an error naming the replacement: `∀` (write a function type `(x: T) -> P`), `⇒` (`=>` for a lambda or match arm, `->` or `→` for implication), `λ` (`x => e`), `⇔` (`<->`), `≡` (`=`), `⊆` `∪` `∩` and the other set operators (not supported: `Set` has functions), `ℕ` (`Nat`), and so on (`crates/syntax/src/lexer.rs`, `UNSUPPORTED`). There is no user-defined notation (D1207).
 
-**Printing** (D1204, D1211). Goals and messages show `∧` `∨` `¬` `≠` `≤` `∈` `∉` `↔` and `∃ (x: T) => P`, whichever spelling the source used; `->` stays `->`. Comparison on `Nat`/`Int` under a binder may show unfolded (`Nat.leq k y = True`), as before.
+**Printing** (D1204, D1211). Goals and messages show a statement's connectives in Unicode (`∧` `∨` `¬` `≠` `≤` `∈` `∉` `↔` `→`, `∃ (x: T) => P`), whichever spelling the source used, and a `Bool` computation in ASCII (`(n <= limit) = False`, `a && b`), so the two can be told apart. Dot calls and `++` print as the source writes them (SW-1674). Comparison on `Nat`/`Int` under a binder may show unfolded (`Nat.leq k y = True`), as before.
 
 **In a `rewrite`.** `rewrite rule in e` uses the same `in`, so a membership test in the rule needs brackets: `rewrite h (3 in xs) in rfl`. Unbracketed, the first `in` ends the rule and the second makes the body a membership test, which is `E-PARSE`, "a membership test in a `rewrite` needs brackets" (`examples/reject/logic-in-rewrite-rule.sw`).
 
@@ -1924,6 +1924,8 @@ def total: Nat :=
     |> List.map (p => p.age)
     |> List.sum
 ```
+
+The house form writes the same pipeline with dot calls and a method section: `people |> .map .age |> .sum`.
 
 **Library convention:** in a function that takes a main value (the collection, optional or text being operated on) plus other arguments, the main value comes **first**, then the other arguments, then any function arguments last (`xs.foldLeft 0 (acc x => acc + x)`, which suits a lambda that spans lines). Dot notation, a pipe, a method section and the prefix call then all agree: `xs.map f`, `xs |> List.map f`, `xs |> .map f` and `List.map xs f` are the same call. A function of two values of its own type is named so that `x.f y` reads as a sentence, with the subject first: `t.startsWith p`, `a.sub b`, `xs.append ys`, `p.isPrefixOf t`. Pipes are not the same as in F#, OCaml, Elm or Haskell, which pipe into the last argument; they follow Gleam and Elixir.
 
@@ -1991,12 +1993,12 @@ Examples: `examples/accept/lambda-sections.sw`, `examples/reject/section-minus-i
 ```
 def describe (xs: List Nat): Text :=
   match xs with
-    | Nil        => "empty"
-    | Cons x Nil => "one"
+    | []         => "empty"
+    | [x]        => "one"
     | _          => "many"
 
 def zipLen (xs: List Nat) (ys: List Nat): Nat := 1 + match xs, ys with
-  | Cons _ a, Cons _ b => zipLen a b
+  | [_, ..a], [_, ..b] => zipLen a b
   | _, _ => 0
 ```
 
@@ -2016,6 +2018,7 @@ What a generalised `match` (an expression scrutinee, or any named one) replaces:
 - **The equation.** `match h: e with` adds `h: e = pattern`, about the original expression. It is the one thing in scope that still mentions `e`, so a refined hypothesis is used as it is (`rewrite h at found` finds nothing: `E-REWRITE-NOTHING` says the `match` replaced `e`). Examples: `examples/accept/match-refines-hypotheses.sw`, `examples/reject/rewrite-refined-by-match.sw`.
 - **Terms written in the branch, rewritten along the equation.** A term written in the branch isn't refined: a lemma `widthOf slot` still says `slot.field` where the branch's goal has `None`, and so does `h` itself where a refined lemma's premise wants `None = None`. Where a proof's type differs from what's expected only in having `e` where the other has the pattern, either way round, it is rewritten along `h`, as `rewrite h at t in t` would (SW-1538). The proof's type is searched for `e` as the goal is, as written first: a subterm with `e`'s head is an occurrence if it equals `e` up to computation, so a lemma stated with `xs.map (y => f a y)` fits a `match found: xs.map (f a)`, and the motive keeps the type's calls; that result is used only if it replaces every occurrence the search over the computed type would, else that search's is (`examples/accept/match-equation-as-written.sw`, [goal-as-written.md](proposals/goal-as-written.md) stage 3). So in a named `match`, the obvious helper lemma fits, and `h` and `rfl` both prove a refined premise `pattern = pattern`. This needs the name: without one there is no equation, and `E-TYPE-MISMATCH` says to name it, or to bind the lemma with `let` before the `match`, which refines it like a hypothesis. `rfl` still proves only what computes: a premise that mentions `e` (written in the branch, or brought in by a `rewrite`) needs `h`, and `E-REFL` says so. Proofs only; data isn't transported. Examples: `examples/accept/match-equation-transports-proofs.sw`, `examples/accept/match-refined-lemma.sw`, `examples/reject/match-lemma-unnamed-equation.sw`, `examples/reject/match-equation-not-rfl.sw`.
 - **`auto` arguments.** A scrutinee that is an application with an `auto` argument is searched as elaborated: `match e: Ord.compare x y with` replaces `Ord.compare x y` in the goal and in `h: Ord.compare x y = Less` without `[ord := ord]` (SW-188; an application's dictionary is found as soon as its arguments fix its type, before the goal is searched).
+- **Not found.** If the expression is in neither the goal nor a hypothesis as they compute, the `match` refines nothing; when an arm then fails, `W-MATCH-NOT-FOUND` says so and shows the goal. Write the expression as the goal shows it, `rewrite` first, or bind it with a `let`.
 
 Nothing else changes. The definitions and lemmas you call keep their statements, so a lemma stated about the folded form (`accessible grid s r c`) fails with a type mismatch against a branch's goal that is a step further along. This was the main surprise in the day 4 proofs ([aoc-2025.md](aoc-2025.md), pain point 1), and it is predictable once known. To avoid it, give the lemma the matched value as an argument (`sweepRowCases` on the marks, `ifFloorRoll` on the condition), or state it about the computed form.
 
@@ -2025,7 +2028,7 @@ This is how a proof splits on an `if`: matching on the condition replaces it in 
 
 ```
 theorem pickGe: (w: Nat) -> (xs: List Nat) -> (c: Nat) -> (after: List Nat) -> c <= Pair.fst (Bank.best.pick w xs c after)
-  | Succ w, Cons x more, c, after =>
+  | Succ w, [x, ..more], c, after =>
     match e: Nat.leq (Succ c) x with
       | True  => Nat.leTrans c x (Pair.fst (Bank.best.pick w more x more)) (Nat.lessLe c x e) (pickGe w more x more)
       | False => pickGe w more c after
@@ -2054,7 +2057,7 @@ The first version has limits. Each one is `E-MATCH-MOTIVE`, and the message says
 - the type of one expression scrutinee mentions another expression scrutinee;
 - generalising a scrutinee makes the type of something else ill-formed.
 
-The way round all of them is a top-level helper with a written signature. `E-MATCH-EQUATION` is for an equality `h` that can't be formed because the scrutinee and the expression have different types. This version doesn't report it.
+The way round all of them is a top-level helper with a written signature.
 
 JavaScript: a `match` that is part of the case tree, with a tail call to its own definition in a branch, becomes a loop like any self tail call. A generated definition doesn't: a `match` that is lifted, in tail position, whose branch calls the owner, is a pair of mutual tail calls, and those aren't loops yet. Deep recursion through it can hit the JS stack limit, which is reported as the boundary's out-of-resources error. A tail `match` on a parameter (the whole right-hand side) isn't affected. Examples: `examples/accept/match.sw`, `examples/extract/match.sw`. Design: [syntax-conveniences.md](proposals/syntax-conveniences.md) section 4.
 
@@ -2202,7 +2205,7 @@ theorem stepZero (highest: Nat) (n: Nat):
   - The first match fixes the rule's open arguments. With `f n = g n` and a goal `f 1 + f 2`, only `f 1` is rewritten; `f 2` is a different instance. The search order is what picks the instance, and a chosen occurrence isn't searched inside: in `f (f 1)` with `n := f 1`, the inner `f 1` stays.
   - An occurrence found by being the same term can be of the wrong type: two copies of `x => x`, one for `Bool` and one for `Nat`, are the same term to the search, and a rule about the `Nat` one meets the `Bool` one first (`E-REWRITE-MOTIVE`: the goal with it replaced is ill typed).
   - `E-REWRITE-BUDGET` is about cost, not truth.
-  - If a proof-irrelevant comparison arrives ([proof-irrelevance.md](proposals/proof-irrelevance.md)), a candidate that equals the left side only by ignoring a proof field can match and then fail the round trip, as `E-REWRITE-MOTIVE`.
+  - With proof irrelevance ([proof-irrelevance.md](proposals/proof-irrelevance.md), SW-93), a candidate that equals the left side only by ignoring a proof field can match and then fail the round trip, as `E-REWRITE-MOTIVE`.
 
 Examples: `examples/accept/rewrite.sw`, `examples/reject/rewrite-*.sw`. Design: [calc-rewrite.md](proposals/calc-rewrite.md) section 6; as built, its "As built" note.
 
@@ -2246,8 +2249,8 @@ theorem stacked (id: Nat) (lastTo: Nat) (rFrom: Nat) (h1: id <= lastTo) (h2: las
   omega
 
 theorem topGe: (z: Nat) -> (rs: List Range) -> z <= rs.foldLeft z (m r => Nat.max m r.to)
-  | z, Nil       => Nat.leRefl z
-  | z, Cons r rs => omega [Nat.leMaxLeft z r.to, topGe (Nat.max z r.to) rs]
+  | z, []        => Nat.leRefl z
+  | z, [r, ..rs] => omega [Nat.leMaxLeft z r.to, topGe (Nat.max z r.to) rs]
 ```
 
 | form | meaning |
@@ -2414,7 +2417,7 @@ test "round" := Float.round (-2.5) = -2.0               -- JS's `Math.round`
 
 - **Literals.** `1.5`, `80281.87`, `1e3`, `1.5e-7`, `2.0E21`: a digit on both sides of `.`, an exponent `e`/`E` with an optional sign. The value is the decimal correctly rounded to the nearest double; `0.10`, `0.1` and `1e-1` are the same double. A literal that would be an infinity (`1e400`) or isn't zero but rounds to zero (`1e-400`) is `E-FLOAT-LITERAL`. A whole literal at `Float` is exact or refused: `9007199254740993` isn't a double (`E-FLOAT-LITERAL`, naming the two nearest), so write one of those or `9007199254740993.0`. A number right after a `.` is never a decimal literal, so `xs.0.1` is `xs` `.` `0` `.` `1` (and an error: there are no numeric projections).
 - **The operand type.** A decimal literal makes the expression a `Float`, before a prefix minus would make it an `Int`: `-1 + 0.5` is `-0.5`. A `Float` operand does too: with `t: Float`, `t + -1` and `-t` are `Float`s. A whole literal in a `Float` expression is a `Float`, and `-k` is `Float.neg k`, so `-0` at `Float` is `-0.0`. `Float` doesn't mix with `Nat` or `Int` (`E-TYPE-MISMATCH`).
-- **Arithmetic.** `+ - * / %` are the IEEE operations in the order written, so `(a + b) + c` and `a + (b + c)` can differ; they aren't `Add`'s and `Mul`'s (doubles break their laws). `/` and `%` need no proof that the divisor isn't zero: `1.0 / 0.0` is `Float.infinity`, `0.0 / 0.0` is `Float.nan`, and `%` is JS's (the remainder of truncating division, with the dividend's sign: `-5.5 % 2.0` is `-1.5`). The checker computes them on known doubles, so `rfl` proves `0.1 + 0.2 = 0.30000000000000004`, and a goal shows a double as its literal.
+- **Arithmetic.** `+ - * / %` are the IEEE operations in the order written, so `(a + b) + c` and `a + (b + c)` can differ; they aren't `Add`'s and `Mul`'s (doubles break their laws). `/` and `%` need no proof that the divisor isn't zero: `1.0 / 0.0` is `Float.infinity`, `0.0 / 0.0` is `Float.nan`, and `%` is JS's (the remainder of truncating division, with the dividend's sign: `-5.5 % 2.0` is `-1.5`). The checker computes them on known doubles, so `rfl` proves `0.1 + 0.2 = 0.30000000000000004`, and a goal shows a double as its literal. Goals and messages print `Float.add x y` as `x + y` (and `-`, `*`, `/` likewise); a sum of unknown doubles stays a call, never `Float.Model` bit arithmetic (SW-1763).
 - **Rounding.** `Float.floor`, `Float.ceil`, `Float.trunc` and `Float.round` are JS's `Math.*`. `round` is `Math.round` exactly: a half goes towards +infinity (`round (-2.5)` is `-2.0`, `round 2.5` is `3.0`), a zero result keeps the sign (`round (-0.4)` is `-0.0`), and `round 0.49999999999999994` is `0.0`. `Float.abs`, `Float.isNaN` and `Float.isFinite` (neither infinite nor the NaN) are as JS's.
 - **Conversions.** `Float.ofInt i` and `Float.ofNat n` are the nearest double, ties to even, or an infinity beyond the largest (JS's `Number(n)` of a `bigint`). `Float.toInt x` is an `Option Int`: `Some` of the integer the double is when it's whole, of any size (`Float.toInt 1e100` is the integer 1e100's bits stand for, not 10^100), else `None` (a fraction, the infinities, the NaN); both zeros are `Some 0`. `Float.toSafeInt` and `Float.toSafeNat` check the safe range too; `SafeInt.toFloat` and `SafeNat.toFloat` are exact. There's no implicit conversion: `t + i` with `i: Int` is `E-TYPE-MISMATCH`, with a note naming `Float.ofInt`.
 - **Equality.** `==` and `=` are "the same double", JS's `Object.is`: `0.0` and `-0.0` differ, and `Float.nan == Float.nan`. JS's `===` is `Float.ieeeEq`, where the NaN isn't equal to itself and `0.0` equals `-0.0`; port `a === b` as `Float.ieeeEq a b`.

@@ -14,7 +14,9 @@ test "a proposition, decided" := wordCount "a b" < 3
 test "several at once" := wordCount "a" == 1 ∧ wordCount "a b" == 2
 ```
 
-The condition is a `Bool`, or a statement the compiler can decide, such as `wordCount "a b" < 3`. Tests live beside the code, are checked like any declaration, and run with `stitchwort test`. They can't take parameters or perform abilities: a test is a closed computation, so its result never changes unless the code does. A test may call `Partial` code ([chapter 7](07-recursion.md)); a test that never finishes is a bug, which you stop as you'd stop a program that hangs. Only `stitchwort test` and the playground's Tests tab run tests: checking, the editor and the playground's checks never do.
+The condition is a `Bool`, or a statement the compiler can decide, such as `wordCount "a b" < 3`. Tests live beside the code, are checked like any declaration, and run with `stitchwort test`. They can't take parameters or perform abilities: a test is a closed computation, so its result never changes unless the code does. A test may call `Partial` code ([chapter 7](07-recursion.md)); a test that never finishes is a bug, which you stop as you'd stop a program that hangs. Tests run only when you ask: `stitchwort test`, the playground's Tests tab, or the editor's run icons and Testing panel. Checking a file, in the terminal or as you type, never runs them.
+
+`stitchwort test FILE --only "counts words"` runs one test by its name. `--json` prints the results as one JSON object, which is what the editor reads. A target that matches no tests is a failure, so a typo in a name doesn't pass silently.
 
 That's also why test results are cached by content. Each test's result is stored under a hash of the test and everything it depends on, so `stitchwort test` reruns a test only when something it uses has changed. Formatting, comments and renaming local variables change no hash.
 

@@ -98,7 +98,7 @@ test "the original is unchanged" := ada.age == 36
 test "field punning" := (newborn "Grace").age == 0
 ```
 
-- `{ name = "Ada", age = 36 }` builds a record. It needs to know which record type it is, from a signature, an argument's type or an annotation such as `({ … }: Person)`. Nothing is guessed from the field names.
+- `{ name = "Ada", age = 36 }` builds a record. Its type comes from where it's used: a signature, an argument's type, an annotation such as `({ … }: Person)`, or something later in the declaration, such as the other side of `==`. Only when nothing says it does the compiler look at the field names: the one record type in scope with exactly those fields. With none, or two, it asks for an annotation.
 - `ada.name` reads a field.
 - `{ person | age = … }` is a copy with some fields replaced. Values are never changed in place, so the original is untouched.
 - A field name alone, as in `{ name, age = 0 }`, is short for `name = name`.
@@ -238,7 +238,7 @@ def ada: Booking := Guest { name = "Ada", age = 36 }
 ───╯
 ```
 
-Naming a bracket-declared constructor's fields works with named arguments instead, `Circle (id := "a") (radius := 1)`, which also fill the defaults of fields left out.
+Naming a bracket-declared constructor's fields works with named arguments instead, `Rect (height := 4) (width := 3)`, which also fill the defaults of fields left out.
 
 ## Patterns
 
