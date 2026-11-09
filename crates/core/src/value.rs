@@ -329,8 +329,8 @@ impl Spine {
     }
 
     /// The eliminations, copied only if they're shared.
-    pub fn into_vec(self) -> Vec<Elim> {
-        match self.0 {
+    pub fn into_vec(mut self) -> Vec<Elim> {
+        match self.0.take() {
             Some(elims) => Rc::try_unwrap(elims)
                 .unwrap_or_else(|elims| (*elims).clone())
                 .into_vec(),
@@ -448,27 +448,66 @@ impl Drop for Values {
         let Ok(empty) = EMPTY.try_with(Rc::clone) else {
             return; // the thread is ending
         };
-        let mut values = Some(std::mem::replace(&mut self.0, empty.clone()));
-        let mut free = |pending: &mut Vec<Value>| {
-            if let Some(values) = values.take() {
-                take_apart(values, pending);
+        let values = std::mem::replace(&mut self.0, empty);
+        free_iteratively(|pending| take_apart(values, pending));
+    }
+}
+
+/// A spine can hold values that hold spines, millions deep (a stuck
+/// computation applied to a stuck computation, and so on), so freeing one
+/// goes through the same iterative free as [`Values`] rather than recursing
+/// through `Elim`, `Value` and `Spine` in turn (SW-2468).
+impl Drop for Spine {
+    fn drop(&mut self) {
+        if let Some(elims) = self.0.take_if(|elims| Rc::strong_count(elims) == 1) {
+            free_iteratively(|pending| take_elims(elims, pending));
+        }
+    }
+}
+
+/// Frees what `seed` puts on the work list, and everything those values
+/// hold, one value at a time. Freeing never starts another free that needs
+/// the shared work list (everything it frees has been taken apart), but if
+/// it ever did, a local one would do.
+fn free_iteratively(seed: impl FnOnce(&mut Vec<Value>)) {
+    let Ok(empty) = EMPTY.try_with(Rc::clone) else {
+        return; // the thread is ending
+    };
+    let mut seed = Some(seed);
+    let mut free = |pending: &mut Vec<Value>| {
+        if let Some(seed) = seed.take() {
+            seed(pending);
+        }
+        while let Some(value) = pending.pop() {
+            detach(value, &empty, pending);
+        }
+    };
+    let shared = PENDING.try_with(|p| match p.try_borrow_mut() {
+        Ok(mut p) => {
+            free(&mut p);
+            true
+        }
+        Err(_) => false,
+    });
+    if shared != Ok(true) {
+        free(&mut Vec::new());
+    }
+}
+
+/// Moves the values in `elims` onto `pending`, if this is the last reference
+/// to them; otherwise just drops the reference.
+fn take_elims(elims: Rc<Elims>, pending: &mut Vec<Value>) {
+    let Ok(elims) = Rc::try_unwrap(elims) else {
+        return;
+    };
+    for elim in elims {
+        match elim {
+            Elim::App(v, _) => pending.push(v),
+            Elim::J { motive, base } => {
+                pending.push(*motive);
+                pending.push(*base);
             }
-            while let Some(value) = pending.pop() {
-                detach(value, &empty, pending);
-            }
-        };
-        // Freeing never starts another free that needs the shared work list
-        // (everything it frees has been taken apart), but if it ever did, a
-        // local one would do.
-        let shared = PENDING.try_with(|p| match p.try_borrow_mut() {
-            Ok(mut p) => {
-                free(&mut p);
-                true
-            }
-            Err(_) => false,
-        });
-        if shared != Ok(true) {
-            free(&mut Vec::new());
+            Elim::Proj(..) => {}
         }
     }
 }
@@ -523,21 +562,9 @@ fn detach(value: Value, empty: &Rc<[Value]>, pending: &mut Vec<Value>) {
             }
             pending.push(Value::Neutral(Head::Var(0, Apart::NONE), spine));
         }
-        Value::Neutral(_, spine) => {
-            // Only the last owner takes the eliminations apart.
-            let elims = match spine.0 {
-                Some(elims) => Rc::try_unwrap(elims).unwrap_or_default(),
-                None => Elims::new(),
-            };
-            for elim in elims {
-                match elim {
-                    Elim::App(v, _) => pending.push(v),
-                    Elim::J { motive, base } => {
-                        pending.push(*motive);
-                        pending.push(*base);
-                    }
-                    Elim::Proj(..) => {}
-                }
+        Value::Neutral(_, mut spine) => {
+            if let Some(elims) = spine.0.take() {
+                take_elims(elims, pending);
             }
         }
         Value::Sort(_) | Value::Nat(_) | Value::Chars(_) | Value::Refl | Value::Resumption(_) => {}
@@ -4924,6 +4951,27 @@ mod tests {
 
     fn stuck_call(def: usize) -> Value {
         Value::Neutral(Head::Def(DefId(def)), Spine::from(Vec::new()))
+    }
+
+    /// Freeing a stuck computation applied to a stuck computation, a million
+    /// deep, must not recurse (SW-2468): on a stack far too small for that,
+    /// the default drop would overflow it.
+    #[test]
+    fn freeing_a_deep_spine_does_not_overflow_the_stack() {
+        std::thread::Builder::new()
+            .stack_size(256 * 1024)
+            .spawn(|| {
+                let mut value = stuck_call(0);
+                for _ in 0..1_000_000 {
+                    let mut spine = Spine::new();
+                    spine.push(Elim::App(value, Icit::Explicit));
+                    value = Value::Neutral(Head::Def(DefId(0)), spine);
+                }
+                drop(value);
+            })
+            .unwrap()
+            .join()
+            .unwrap();
     }
 
     /// How many pairs the memo holds as different.
