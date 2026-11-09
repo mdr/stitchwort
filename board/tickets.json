@@ -25238,12 +25238,12 @@
     {
       "id": 2505,
       "title": "families::check_case builds the scrutinee's display string for every case even when no diagnostic needs it (~8% of a deep table's time): make it lazy",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Sonnet",
-      "where": "",
+      "where": "Speedwell",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "From SW-2481. 30 min.",
+      "body": "From SW-2481. 30 min.\n\nStarted 9 Nov 2026 07:08 UTC. Expected: 30 min.\n",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
