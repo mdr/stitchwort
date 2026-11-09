@@ -25732,12 +25732,12 @@
     {
       "id": 2543,
       "title": "Native default T: native stitchwort test (compile all test roots at once, evaluate a test's value natively, CLI hook so driver stays Cranelift-free, big-stack thread)",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": "Speedwell",
       "labels": [],
       "epic": "effects-native",
-      "body": "D3448; plan step 2. 240 min.\n\nStarted 9 Nov 2026 10:02 UTC. Expected: 240 min.\n",
+      "body": "D3448; plan step 2. 240 min.\n\nStarted 9 Nov 2026 10:02 UTC. Expected: 240 min.\n\n\n10:26 UTC: done on lane/SW-2543 (166cca66d, 473938801), about 25 min. `test --native` behind a flag: tests compiled once with each test constant a root (`n1::compile_roots`), `NativeExecutor::global` computes each as `Machine::global` does; CLI passes a `NativeTests` compiler to `Session::run_tests_native_where` (driver stays Cranelift-free); NATIVE_STACK thread; any native failure falls back per test to the machine (then the reference evaluator), noted under `--verbose`. Cache key shared with the machine (`m`). Measured (tests only, instructions/wall): 2021 day 15 85.9 G/5.89 s -> 22.3 G/1.61 s; 2024 day 9 14.1 G/1.00 s -> 8.4 G/0.68 s; text.sw +0.44 G/+0.04 s compile. Tests: new roots:: (2) and test_failures native (2), lane native 72/72, lane cli 85/86 (build::native_executables_keep_the_copies_that_reuse_cells fails, unrelated: SW-2531's inlining removed `Std.Map.Tree.rebuild`'s reuse copy). Perf log entry added.\n\nMerged 9 Nov (7f3898bb5). test --native: same outcomes; AoC 2021/15 tests 5.89 s -> 1.61 s. Shared test cache key with the machine: orchestrator call (end state; --verify-cache and N5b catch a miscompile). Model result: Opus, worked, 25 min (est. 240).\n",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
@@ -25776,7 +25776,7 @@
       "where": "",
       "labels": [],
       "epic": "effects-native",
-      "body": "D3448; plan step 6. After N5b passes. 180 min.\n\nD3449, Matt, 9 Nov 2026 10:08: an explicit --native that cannot run natively stops with an error, never falls back (\"if you ask to run on native and you don't, [that] violates the principle of least surprise\"). Orchestrator reading, pending Matt: with no flag, run/build use the best runner available (the machine only where native is unsupported, e.g. the playground); still fix the fixable refusals (stack grown on demand, huge frames).\n\nMatt confirmed (9 Nov): plain run/build with no flag uses the best runner available.\n",
+      "body": "D3448; plan step 6. After N5b passes. 180 min.\n\nD3449, Matt, 9 Nov 2026 10:08: an explicit --native that cannot run natively stops with an error, never falls back (\"if you ask to run on native and you don't, [that] violates the principle of least surprise\"). Orchestrator reading, pending Matt: with no flag, run/build use the best runner available (the machine only where native is unsupported, e.g. the playground); still fix the fixable refusals (stack grown on demand, huge frames).\n\nMatt confirmed (9 Nov): plain run/build with no flag uses the best runner available.\n\nAlso: docs/guide/11-running-and-shipping.md:15 still says run --native falls back to the fast runtime (untrue since NO5).\n",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
