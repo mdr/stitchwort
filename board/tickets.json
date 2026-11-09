@@ -1,5 +1,5 @@
 {
-  "next": 2551,
+  "next": 2557,
   "tickets": [
     {
       "id": 47,
@@ -25706,12 +25706,12 @@
     {
       "id": 2541,
       "title": "AoC 2020 day 21 (Allergen Assessment): both parts, spec, tests and proofs where reasonable, with friction notes and gap analysis",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": "Speedwell",
       "labels": [],
       "epic": "aoc-2020",
-      "body": "Opus (D2427). Input: ~/repos/mdr/aoc/2020/src/main/resources/day21. Reuse Aoc.Common's settle/eliminate (SW-1540). Friction review with Matt after. Started 9 Nov 2026 09:44 UTC. Expected: 120 min.",
+      "body": "Opus (D2427). Input: ~/repos/mdr/aoc/2020/src/main/resources/day21. Reuse Aoc.Common's settle/eliminate (SW-1540). Friction review with Matt after. Started 9 Nov 2026 09:44 UTC. Expected: 120 min.\n\nMerged 9 Nov (722c7dff0). Answers 2380 and ktpbgdn,...; 1.1 s. Part 2 valid and unique; part 1 under the puzzle promise, discharged by part1Settled. Statements checked by the orchestrator (D2436). Part 1 spec keeps the strict meaning (orchestrator call; reversible). Friction review: docs/reviews/SW-2541-day21-friction.md, for a review with Matt. Model result: Opus, worked, 17 min (est. 120).\n",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
@@ -25829,6 +25829,84 @@
       "labels": [],
       "epic": "syntax-language",
       "body": "D3451, Matt, 9 Nov 2026 09:57: yes, write the note. Paper lane. Started 09:57 UTC. Expected: 60 min.",
+      "created": "2026-11-09",
+      "updated": "2026-11-09",
+      "commits": []
+    },
+    {
+      "id": 2551,
+      "title": "Std lemmas from 2020 day 21: distinctPerm, distinctMapOn (injective on members), all2OfMapRight, all2MapBoth, DecEq.falseOfNe, sorted distinct lists with the same members are equal",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "std-library",
+      "body": "From SW-2541 Proofs. 60 min.",
+      "created": "2026-11-09",
+      "updated": "2026-11-09",
+      "commits": []
+    },
+    {
+      "id": 2552,
+      "title": "Aoc.Common: holderOf and its four lemmas (assign's result read as a function) beside Elimination.sw, or as List.lookup over a zip in std",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "aoc-common",
+      "body": "From SW-2541 Proofs/Holders.sw. 45 min.",
+      "created": "2026-11-09",
+      "updated": "2026-11-09",
+      "commits": []
+    },
+    {
+      "id": 2553,
+      "title": "Search finds nothing for patterns starting with an [auto] binder ([auto eq: DecEq ?a] -> ...)",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "proof-search",
+      "body": "From SW-2541 friction. 60 min.",
+      "created": "2026-11-09",
+      "updated": "2026-11-09",
+      "commits": []
+    },
+    {
+      "id": 2554,
+      "title": "Type-mismatch and W-MATCH-NOT-FOUND messages print list.allergens as unfolded std internals (mergeRuns/buildRuns/uniqueLoop); keep the name as goals at ? do",
+      "status": "backlog",
+      "agent": "Opus",
+      "where": "",
+      "labels": [],
+      "epic": "diagnostics",
+      "body": "From SW-2541 friction. 90 min.",
+      "created": "2026-11-09",
+      "updated": "2026-11-09",
+      "commits": []
+    },
+    {
+      "id": 2555,
+      "title": "Did-you-mean for unknown Char.is* names (Char.isLower -> Char.isAsciiLowercase)",
+      "status": "backlog",
+      "agent": "DeepSeek",
+      "where": "",
+      "labels": [],
+      "epic": "diagnostics",
+      "body": "From SW-2541 friction. 30 min.",
+      "created": "2026-11-09",
+      "updated": "2026-11-09",
+      "commits": []
+    },
+    {
+      "id": 2556,
+      "title": "Std count-by-proposition (as day 19's NumberWith): count with a decidable predicate, findable by search",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "std-library",
+      "body": "From SW-2541 friction. 45 min.",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
