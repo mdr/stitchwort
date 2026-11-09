@@ -10,13 +10,19 @@
 //! - **Inlining** a call of a small, non-recursive global function (its
 //!   arguments bound by `let`s, or substituted when they're variables or
 //!   constants), and **beta** for a closure applied where it's made.
+//!   Somewhat bigger ones are inlined where the call's context pays for it
+//!   ([`Context`]): a function returning one of a few constructors where
+//!   its result is taken apart at once, and a function taking an argument
+//!   apart where that argument's constructor is known or so selected.
 //! - **Known constructors**: a `match` on a value whose constructor is known
 //!   (built by a `let` in scope, matched by an enclosing arm, a constant
 //!   whose value is a constructor such as an instance dictionary, or a
 //!   literal) takes its arm, with no test.
 //! - **Case of case**: a `match` (or `if`) on the result of a branching
 //!   expression is pushed into the branches, when it's small, so that each
-//!   branch's constructor meets it: `toBool (decTrue b)` is `b`.
+//!   branch's constructor meets it: `toBool (decTrue b)` is `b`. Where
+//!   every branch ends in a constructor, only the arm each takes is copied,
+//!   so the size allowed counts those arms.
 //! - A `match` on a `Bool` is an `if`; `if c then True else False` is `c`;
 //!   a `match` on a decision from `decEq` on native values is an `if` on
 //!   the native equality.
@@ -55,6 +61,13 @@ const INLINE_SIZE: usize = 24;
 const BETA_SIZE: usize = 48;
 /// How much code case of case may copy at once.
 const PUSH_SIZE: usize = 48;
+/// The largest body inlined for its context: where its result, one of a
+/// few constructors, is taken apart at once, or where it takes apart an
+/// argument whose constructor is known there ([`Context`]).
+const CONTEXT_SIZE: usize = 80;
+/// How much code case of case may copy when each leaf is a constructor:
+/// only the arm that leaf takes is copied, so this counts those arms.
+const KNOWN_PUSH_SIZE: usize = 96;
 /// Inlining and case of case per body, so that nothing runs away.
 const FUEL: u32 = 200;
 /// How deeply inlined code may inline in turn.
@@ -78,6 +91,7 @@ pub fn optimize(p: &mut Program, types: Types) {
     let n = p.globals.len();
     let mut cx = Cx {
         inline: vec![None; n],
+        context: vec![None; n],
         consts: vec![None; n],
         natives: p
             .globals
@@ -126,6 +140,9 @@ struct Cx {
     /// Each global function small enough to inline: its parameters and its
     /// (simplified) body.
     inline: Vec<Option<Rc<(u32, Expr)>>>,
+    /// Each global function too big for that but worth inlining in the
+    /// right context.
+    context: Vec<Option<Rc<Context>>>,
     /// Each constant whose value is a constructor of closed expressions.
     consts: Vec<Option<Rc<Expr>>>,
     natives: Vec<Option<PrimOp>>,
@@ -146,6 +163,76 @@ struct Cx {
     /// Copies of recursive functions with known arguments substituted, by
     /// the function and the arguments.
     copies: HashMap<String, GlobalId>,
+}
+
+/// A function inlined only where that lets [`Simp::match_`] pick an arm
+/// with no test, as `Map.Tree.balance`'s `rebuild (shape l r) l k v r`:
+/// `shape` returns one of five constants, which `rebuild` takes apart at
+/// once. Inlined, each of `shape`'s leaves meets `rebuild`'s match and
+/// takes its arm, so no `Shape` is made or tested, and the node `rebuild`
+/// builds is in the same body as what it's built from (where a reuse
+/// token for it may be).
+struct Context {
+    params: u32,
+    body: Expr,
+    kind: ContextKind,
+}
+
+enum ContextKind {
+    /// Every leaf of the body is a constructor of trivial fields, these:
+    /// inlined where the result is taken apart at once.
+    Selects(Vec<(TypeId, u32)>),
+    /// The body is a match on this parameter: inlined where the argument's
+    /// constructor is known, or is a call of a function that selects.
+    Dispatches(u32),
+}
+
+impl Context {
+    fn of(params: u32, body: &Expr) -> Option<Context> {
+        let kind = match body {
+            Expr::Match(x, MatchKind::Data(_), _) => match **x {
+                Expr::Local(p) if p < params => ContextKind::Dispatches(p),
+                _ => return None,
+            },
+            _ if branching(body) => ContextKind::Selects(ctor_leaves(body)?),
+            _ => return None,
+        };
+        Some(Context {
+            params,
+            body: body.clone(),
+            kind,
+        })
+    }
+}
+
+/// The constructors `e`'s leaves are, if each is one of trivial fields
+/// (unreachable leaves left out).
+fn ctor_leaves(e: &Expr) -> Option<Vec<(TypeId, u32)>> {
+    fn go(e: &Expr, out: &mut Vec<(TypeId, u32)>) -> bool {
+        match e {
+            Expr::If(_, t, e) => go(t, out) && go(e, out),
+            Expr::Match(_, _, arms) => arms.iter().all(|a| go(&a.body, out)),
+            Expr::NumSwitch(_, arms, d) => arms.iter().all(|(_, b)| go(b, out)) && go(d, out),
+            Expr::Let(_, _, b) => go(b, out),
+            Expr::Unreachable => true,
+            Expr::Ctor(t, c, fields) if fields.iter().all(trivial) => {
+                out.push((*t, *c));
+                true
+            }
+            _ => false,
+        }
+    }
+    let mut out = Vec::new();
+    go(e, &mut out).then_some(out)
+}
+
+/// The code case of case copies when a match of type `t` with `arms` is
+/// pushed into leaves that are `leaves`: the arm each takes.
+fn pushed(arms: &[Arm], t: TypeId, leaves: &[(TypeId, u32)]) -> Option<usize> {
+    leaves.iter().try_fold(0, |n, &(u, c)| {
+        let arm = arms.iter().find(|a| a.ctor == c).filter(|_| u == t)?;
+        Some(n + size(&arm.body))
+    })
 }
 
 impl Cx {
@@ -185,8 +272,13 @@ impl Cx {
         let kind = match kind {
             GlobalKind::Function { params, body } => {
                 let body = self.body(body, params, Some(i));
-                if size(&body.expr) <= INLINE_SIZE && !self.recursive(&body.expr, i) {
-                    self.inline[i] = Some(Rc::new((params, body.expr.clone())));
+                let n = size(&body.expr);
+                if n <= CONTEXT_SIZE && !self.recursive(&body.expr, i) {
+                    if n <= INLINE_SIZE {
+                        self.inline[i] = Some(Rc::new((params, body.expr.clone())));
+                    } else {
+                        self.context[i] = Context::of(params, &body.expr).map(Rc::new);
+                    }
                 }
                 GlobalKind::Function { params, body }
             }
@@ -944,6 +1036,26 @@ impl Simp<'_> {
         self.learn(slot, &value);
         let body = simp_body(self);
         self.env.remove(&slot);
+        let mut value = value;
+        // A call whose result, one of a few constructors, is taken apart at
+        // once: inlined, so that case of case below meets each constructor
+        // with its arm.
+        if let Expr::Match(x, MatchKind::Data(t), arms) = &body
+            && matches!(**x, Expr::Local(s) if s == slot)
+            && let Expr::Call(h, _) = &value
+            && reads(&body, slot) == 1
+            && let Some(context) = self.selector(*h, *t, arms)
+        {
+            self.fuel -= 1;
+            let Expr::Call(_, args) = value else {
+                unreachable!("matched above")
+            };
+            debug_assert_eq!(context.params as usize, args.len());
+            value = self.instantiate(&context.body, args, None, &[]);
+            if let Expr::Ctor(..) = value {
+                return self.let_(slot, value, body);
+            }
+        }
         match reads(&body, slot) {
             // Nothing reads it: it needn't be computed.
             0 => return body,
@@ -965,7 +1077,14 @@ impl Simp<'_> {
                     }
                     _ => false,
                 };
-                if scrutinised && size(&body) * (leaves(&value) - 1) <= PUSH_SIZE {
+                // Each leaf a constructor: the match takes one arm there.
+                let known = match &body {
+                    Expr::Match(_, MatchKind::Data(t), arms) => ctor_leaves(&value)
+                        .and_then(|leaves| pushed(arms, *t, &leaves))
+                        .is_some_and(|n| n <= KNOWN_PUSH_SIZE),
+                    _ => false,
+                };
+                if scrutinised && (known || size(&body) * (leaves(&value) - 1) <= PUSH_SIZE) {
                     self.fuel -= 1;
                     return self.map_leaves(value, &mut |s, leaf| {
                         let n = s.fresh();
@@ -1418,10 +1537,56 @@ impl Simp<'_> {
             debug_assert_eq!(*params as usize, args.len());
             return self.instantiate(body, args, None, &[]);
         }
+        if Some(i) != self.global
+            && self.fuel > 0
+            && self.depth < DEPTH
+            && let Some(context) = self.cx.context[i].clone()
+            && let ContextKind::Dispatches(p) = context.kind
+            && let Expr::Match(_, MatchKind::Data(t), arms) = &context.body
+            && self.dispatched(&args[p as usize], *t, arms)
+        {
+            self.fuel -= 1;
+            debug_assert_eq!(context.params as usize, args.len());
+            return self.instantiate(&context.body, args, None, &[]);
+        }
         match self.specialise(g, &args) {
             Some(call) => call,
             None => Expr::Call(g, args),
         }
+    }
+
+    /// Whether a function whose body is a match of type `t` with `arms` on
+    /// a parameter is worth inlining where that parameter's argument is
+    /// `arg`: its constructor is known, so one arm is taken, or it selects
+    /// one of a few (a branching expression whose leaves are constructors,
+    /// or a call of a function that is one, [`Simp::selector`]), which
+    /// case of case can then push the match into.
+    fn dispatched(&self, arg: &Expr, t: TypeId, arms: &[Arm]) -> bool {
+        match arg {
+            Expr::Ctor(u, ..) => *u == t,
+            Expr::Local(s) => matches!(self.env.get(s), Some(Known::Ctor(u, ..)) if *u == t),
+            Expr::Global(g) => self.cx.consts[g.0 as usize].is_some(),
+            Expr::Call(h, _) => self.selector(*h, t, arms).is_some(),
+            // A selecting function inlined already.
+            _ if branching(arg) => ctor_leaves(arg)
+                .and_then(|leaves| pushed(arms, t, &leaves))
+                .is_some_and(|n| n <= KNOWN_PUSH_SIZE),
+            _ => false,
+        }
+    }
+
+    /// Global `h` if it selects one of a few constructors, and a match of
+    /// type `t` with `arms` on its result is worth inlining it for.
+    fn selector(&self, h: GlobalId, t: TypeId, arms: &[Arm]) -> Option<Rc<Context>> {
+        let h = h.0 as usize;
+        if Some(h) == self.global || self.fuel == 0 || self.depth >= DEPTH {
+            return None;
+        }
+        let context = self.cx.context.get(h)?.clone()?;
+        let ContextKind::Selects(leaves) = &context.kind else {
+            return None;
+        };
+        (pushed(arms, t, leaves)? <= KNOWN_PUSH_SIZE).then_some(context)
     }
 
     /// A function value that's the same wherever it's read: a global, a
@@ -1519,6 +1684,7 @@ impl Simp<'_> {
                     reuse: crate::ir::Reuse::None,
                 });
                 self.cx.inline.push(None);
+                self.cx.context.push(None);
                 self.cx.consts.push(None);
                 self.cx.natives.push(None);
                 self.cx.params.push(kept);

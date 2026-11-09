@@ -67,8 +67,8 @@ fn copy_named(program: &Program, name: &str) -> bool {
 }
 
 /// Every insert builds one new node, its leaf, and rebuilds the rest of its
-/// path in the cells it took apart, through `balance`, `rebuild` and the
-/// rotations; every pop builds none. Without the copies, every node on the
+/// path in the cells it took apart, through `balance` (with `shape` and
+/// `rebuild` inlined into it) and the rotations; every pop builds none. Without the copies, every node on the
 /// path is new.
 #[test]
 fn map_paths_reuse_their_nodes() {
@@ -76,7 +76,7 @@ fn map_paths_reuse_their_nodes() {
         let (program, limits) = lowered(MAP_PATHS);
         for name in [
             "Std.Map.Tree.minView[reuse]",
-            "Std.Map.Tree.rebuild[reuse]",
+            "Std.Map.Tree.balance[reuse]",
             "Std.Map.Tree.singleL[reuse]",
             "Std.Map.Tree.doubleL[reuse]",
             "Std.Map.Tree.singleR[reuse]",
