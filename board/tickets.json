@@ -25342,12 +25342,12 @@
     {
       "id": 2513,
       "title": "Profile mapops natively (Std.Map: 24.2 G instructions, 2.38 s vs Lean's Std.TreeMap 0.31 s, ~7.7x; the largest wide-set gap): where do Map insert/lookup/remove spend, Quot wrapper overhead, comparison via Ord dictionary, allocation; ranked targets",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Sonnet",
-      "where": "",
+      "where": "Speedwell",
       "labels": [],
       "epic": "comparative-speed",
-      "body": "From SW-2503. Measurement only. 45 min.",
+      "body": "From SW-2503. Measurement only. 45 min.\n\nStarted 9 Nov 2026 07:32 UTC. Expected: 45 min.\n",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
