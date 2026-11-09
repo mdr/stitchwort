@@ -2,10 +2,10 @@
 source: crates/driver/tests/library/hash_stability.rs
 expression: "lines(session, d, f)"
 ---
-Main.threeBits 938d7a645928323568e864cb85a548b2092efc8f589f081fb1ad1fbb8998725c
+Main.threeBits aec50bf4758809fff0e6aeae64a250b35c5b637a54a50e1166b65ff6729febb5
 Main.year fb3535b797b331b184ae1de21ba5809e695607535d42e8bdb529a1d216db78c1
 Main.code 1cfe8913151590159763b2a87361c0f104b3837452170d5f2a59a0fcef0921f1
-Main.test "digits" 16a9364b92e6e9a7c371af60ba096721805cb740b9868e782c66896dec0fb0fa
-Main.test "one digit" 0cbea23a15ab2c510cd50784eb3902e293be37725b42d874b92dddf41796bab4
+Main.test "digits" 4c9a70926b99020e4c95fbfc2829bb1c54e3e46dc62351bf06d4bbba7a448360
+Main.test "one digit" 9cd8bde0d19ebdb1fd9164db2e8d453707f06a756e267c1460b6e5705b31b4e8
 Main.test "four digits" cbd5495af0d5bd680b1da380a5d656d9542616f9bdce4f34c29a7038af95f09f
 Main.test "a range" d38e9e8ab461e4bb730348f77cd70b0c5694b743e9c104203326a622109bd5f5

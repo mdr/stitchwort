@@ -380,36 +380,40 @@ def Parse.oneOf: (parsers: List (() → {Parse} a)) → {Parse} a
   | [] => Parse.fail "`oneOf`: no alternatives"
   | [first, ..rest] => Parse.oneOfFrom first rest
 
---| `parser` while it succeeds, at most `fuel` times. `found` is newest first.
--- The round's one mark serves `optionalFrom` and the progress check in
--- `manyStep`: `optional` would take a second mark of its own, an extra
--- operation per repetition.
-def Parse.manyFuel (fuel: Nat) (parser: () → {Parse} a) (found: List a): {Parse} List a :=
+--| `parser` while it succeeds, at most `fuel` times, from `before`, the mark
+--| at the start of the round. `found` is newest first.
+-- The mark that ends a round (taken for the progress check) is the next
+-- round's `before`, and also serves `optionalFrom`: nothing happens between
+-- them, so `optional` and a fresh mark would each be an extra operation per
+-- repetition.
+def Parse.manyFrom (fuel: Nat) (parser: () → {Parse} a) (found: List a) (before: Parse.Mark): {Parse} List a :=
   match fuel with
     | Zero => found.reverse
-    | Succ more =>
-      let before := Parse.mark()
-      Parse.manyStep before (Parse.optionalFrom before parser) (value => Parse.manyFuel more parser [value, ..found]) (() => found.reverse)
+    | Succ more => Parse.manyRound more parser found before (Parse.optionalFrom before parser)
 
---| One round of `many`, once `optional parser` has given `found` from
---| `before`: `done()` if it failed, `next` of its value if it read something.
--- A function of its own so that proofs (Parse/Reads.sw) can name it. `done`
--- is a function so that it is computed only at the end: as a value,
--- `found.reverse` was computed every round, quadratic in the rounds (AoC
--- 2024 day 9's 20,000 digits: 0.6 s to 12 s, and 21 GB on the reference
--- evaluator, SW-1055).
-def Parse.manyStep (before: Parse.Mark) (found: Option a) (next: a → {Parse} b) (done: () → b): {Parse} b :=
-  match found with
-    | None => done()
+--| What `manyFrom` does with a round's `result` from `before`, with `more`
+--| rounds left after it: stop if it failed, else go on from the mark that
+--| shows it read something.
+-- A function of its own so that proofs (Parse/Reads.sw) can name it. The
+-- rest and the end are not closures passed in: that was two allocations a
+-- round. `found.reverse` is computed only at the end: as a value it was
+-- computed every round, quadratic in the rounds (AoC 2024 day 9's 20,000
+-- digits: 0.6 s to 12 s, and 21 GB on the reference evaluator, SW-1055).
+def Parse.manyRound (more: Nat) (parser: () → {Parse} a) (found: List a) (before: Parse.Mark) (result: Option a): {Parse} List a :=
+  match result with
+    | None => found.reverse
     | Some value =>
-      if Parse.mark().offset > before.offset then next value
+      let after := Parse.mark()
+      if after.offset > before.offset then Parse.manyFrom more parser [value, ..found] after
       else Empty.absurd (Parse.fatal "`many`: the parser matched without reading anything")
 
 --| `parser`'s values while it succeeds, possibly none. Fails only if
 --| `parser` succeeds without reading anything, which would repeat forever:
 --| that stops the whole parse.
 -- Every other round reads a character, so the characters left are enough fuel.
-def Parse.many (parser: () → {Parse} a): {Parse} List a := Parse.manyFuel (Parse.mark().left + 1) parser []
+def Parse.many (parser: () → {Parse} a): {Parse} List a :=
+  let start := Parse.mark()
+  Parse.manyFrom (start.left + 1) parser [] start
 
 --| `parser`'s values while it succeeds, at least one: a `NonEmptyList`.
 def Parse.many1 (parser: () → {Parse} a): {Parse} NonEmptyList a :=

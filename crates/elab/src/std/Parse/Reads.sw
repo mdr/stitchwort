@@ -675,76 +675,60 @@ theorem Parse.readsOptional [p: () → {Parse} a] [spec: List Char → a → Pro
         let atSame: middle.at = after := Pair.mkInjectiveSnd same
         Witness [] (rewrite <- valueSame, <- atSame, back in Both rfl (Both honest rfl))
 
---| One round of `many` reads what its next step read, or nothing when it is done.
-theorem Parse.readsManyStep (before: Parse.Mark) (found: Option a) (next: a → {Parse} b) (done: () → b) (spec: List Char → b → Prop)
-    (readsNext: (v: a) → found = Some v → Parse.Reads (() => next v) spec) (readsDone: found = None → Parse.Reads (() => done()) spec):
-    Parse.Reads (() => Parse.manyStep before found next done) spec :=
-  match found with
-    | None => readsDone rfl
-    | Some v =>
-      Parse.readsWeaken (Parse.readsBind (() => Parse.mark())
-          (at => if at.offset > before.offset then next v else Empty.absurd (Parse.fatal "`many`: the parser matched without reading anything"))
-          (read at => read = []) (at => spec) Parse.readsMark
-          (at => Parse.readsIf _ (() => next v) _ spec (readsNext v rfl) (Parse.readsFatal _ spec)))
-        (read w h =>
-          match Parse.thenNothing _ read w h with
-            | Witness at holds => holds)
+--| `if` run from a state: `yes` ran, or `no` did.
+theorem Parse.runFromIfOk (c: Bool) (yes: () → {Parse} a) (no: () → {Parse} a) (s: Parse.State) (w: a) (after: Parse.Mark):
+    Parse.runFrom s (() => (if c then yes() else no(), Parse.mark())) = Ok (w, after) →
+      (c = True ∧ Parse.runFrom s (() => (yes(), Parse.mark())) = Ok (w, after)) ∨ (c = False ∧ Parse.runFrom s (() => (no(), Parse.mark())) = Ok (w, after)) :=
+  match c with
+    | True => h => Inl (Both rfl h)
+    | False => h => Inr (Both rfl h)
 
---| What `manyFuel` read, after `found` (newest first) had been read.
+--| What `manyFrom` read, after `found` (newest first) had been read.
 def Parse.ManyFound (spec: List Char → a → Prop) (found: List a) (read: List Char) (values: List a): Prop :=
   ∃ (more: List a) => values = found.reverse ++ more ∧ Parse.Each spec read more
 
---| What the rest of `manyFuel` read, after a round gave `result`.
-def Parse.ManyNext (spec: List Char → a → Prop) (found: List a) (result: Option a) (read: List Char) (values: List a): Prop :=
-  match result with
-    | None => read = [] ∧ values = found.reverse
-    | Some v => Parse.ManyFound spec [v, ..found] read values
-
-theorem Parse.manyCombine (spec: List Char → a → Prop) (found: List a) (read: List Char) (values: List a)
-    (h: Parse.Then (Parse.Maybe spec) (Parse.ManyNext spec found) read values): Parse.ManyFound spec found read values :=
-  match h with
-    | Witness firstRead (Witness nextRead (Witness None (Both split (Both none (Both none2 same))))) =>
-      Witness [] (Both (rewrite same, List.appendNil (List.reverse found) in rfl) (rewrite split, none, none2 in rfl))
-    | Witness firstRead (Witness nextRead (Witness (Some v) (Both split (Both first rest)))) =>
-      match rest with
-        | Witness more (Both same each) =>
-          Witness [v, ..more]
-            (Both (rewrite same, List.reverseCons v found, List.appendAssoc (List.reverse found) [v] more in rfl)
-              (Witness firstRead (Witness nextRead (Both split (Both first each)))))
-
-theorem Parse.readsManyFuel (p: () → {Parse} a) (spec: List Char → a → Prop) (reads: Parse.Reads p spec): (fuel: Nat) → (found: List a) →
-    Parse.Reads (() => Parse.manyFuel fuel p found) (Parse.ManyFound spec found)
-    := fuel found =>
+--| `manyFrom`, run from a state that is at its `before` mark: it read
+--| one part per value, after the `found` ones.
+theorem Parse.readsManyFrom (p: () → {Parse} a) (spec: List Char → a → Prop) (reads: Parse.Reads p spec): (fuel: Nat) → (found: List a) →
+    (state: Parse.State) → (value: List a) → (after: Parse.Mark) → state.at.left = state.at.rest.length →
+    Parse.runFrom state (() => (Parse.manyFrom fuel p found state.at, Parse.mark())) = Ok (value, after) →
+    ∃ (read: List Char) => state.at.rest = read ++ after.rest ∧ after.left = after.rest.length ∧ Parse.ManyFound spec found read value
+    := fuel found state value after honest h =>
   match fuel with
     | Zero =>
-      Parse.readsWeaken [spec := (read v => read = [] ∧ v = List.reverse found)] (Parse.readsPure (List.reverse found))
-        (read vs both =>
-          match both with
-            | Both none same => Witness [] (Both (rewrite same, List.appendNil (List.reverse found) in rfl) none))
+      match Parse.readsPure (List.reverse found) state value after honest h with
+        | Witness read (Both starts (Both honestAfter (Both none same))) =>
+          Witness read (Both starts (Both honestAfter (Witness [] (Both (rewrite same, List.appendNil (List.reverse found) in rfl) none))))
     | Succ more =>
-      Parse.readsWeaken [spec := (Parse.Then (read (at: Parse.Mark) => read = []) (at => Parse.Then (Parse.Maybe spec) (Parse.ManyNext spec found)))]
-        [weaker := (Parse.ManyFound spec found)]
-        (Parse.readsBind (() => Parse.mark())
-          (before => Parse.manyStep before (Parse.optional p) (v => Parse.manyFuel more p [v, ..found]) (() => found.reverse)) (read at => read = [])
-          (at => Parse.Then (Parse.Maybe spec) (Parse.ManyNext spec found)) Parse.readsMark
-          (before =>
-            Parse.readsBind (() => Parse.optional p) (result => Parse.manyStep before result (v => Parse.manyFuel more p [v, ..found]) (() => found.reverse))
-              (Parse.Maybe spec) (Parse.ManyNext spec found) (Parse.readsOptional reads)
-              (result =>
-                Parse.readsManyStep before result _ _ (Parse.ManyNext spec found result)
-                  (v e => rewrite e in Parse.readsManyFuel p spec reads more [v, ..found]) (e => rewrite e in Parse.readsPure (List.reverse found)))))
-        (read vs h =>
-          match Parse.thenNothing (at => Parse.Then (Parse.Maybe spec) (Parse.ManyNext spec found)) read vs h with
-            | Witness at holds => Parse.manyCombine spec found read vs holds)
+      match Parse.runFromOptionalFromOk2 p state.at state
+          (found2 => Parse.manyRound more p found state.at found2) (x => (x, Parse.mark())) (value, after) h with
+        | Inl (Witness v (Witness middle (Both ran rest))) =>
+          match reads state v middle.at honest ran with
+            | Witness read1 (Both starts1 (Both honest1 holds1)) =>
+              match Parse.runFromIfOk (middle.at.offset > state.at.offset) (() => Parse.manyFrom more p [v, ..found] middle.at)
+                  (() => Empty.absurd (Parse.fatal "`many`: the parser matched without reading anything")) middle value after rest with
+                | Inl (Both isTrue yesRun) =>
+                  match Parse.readsManyFrom p spec reads more [v, ..found] middle value after honest1 yesRun with
+                    | Witness read2 (Both starts2 (Both honest2 (Witness more2 (Both same each2)))) =>
+                      Witness (read1 ++ read2)
+                        (Both (rewrite starts1, starts2, List.appendAssoc read1 read2 after.rest in rfl)
+                          (Both honest2
+                            (Witness [v, ..more2]
+                              (Both (rewrite same, List.reverseCons v found, List.appendAssoc (List.reverse found) [v] more2 in rfl)
+                                (Witness read1 (Witness read2 (Both rfl (Both holds1 each2))))))))
+                | Inr (Both isFalse noRun) => Void.exfalso (Result.errNotOk noRun)
+        | Inr (Witness middle (Both back rest)) =>
+          let honest1: middle.at.left = middle.at.rest.length := rewrite back in honest
+          match Parse.readsPure (List.reverse found) middle value after honest1 rest with
+            | Witness read (Both starts (Both honestAfter (Both none same))) =>
+              Witness [] (Both (rewrite <- back in (rewrite none at starts in starts)) (Both honestAfter (Witness [] (Both (rewrite same, List.appendNil (List.reverse found) in rfl) rfl))))
 
 --| `many p` reads one part per value, each what `p` read.
 theorem Parse.readsMany (p: () → {Parse} a) (spec: List Char → a → Prop) (reads: Parse.Reads p spec): Parse.Reads (() => Parse.many p) (Parse.Each spec) :=
-  Parse.readsWeaken
-    (Parse.readsBind (() => Parse.mark()) (at => Parse.manyFuel (at.left + 1) p []) (read at => read = []) (at => Parse.ManyFound spec [])
-      Parse.readsMark (at => Parse.readsManyFuel p spec reads (at.left + 1) []))
-    (read values h =>
-      match Parse.thenNothing (at => Parse.ManyFound spec []) read values h with
-        | Witness at (Witness more (Both same each)) => rewrite same in each)
+  state value after honest h =>
+    match Parse.readsManyFrom p spec reads (state.at.left + 1) [] state value after honest h with
+      | Witness read (Both starts (Both honestAfter (Witness more (Both same each)))) =>
+        Witness read (Both starts (Both honestAfter (rewrite same in each)))
 
 --| `many1 p`: the same, with at least one value.
 theorem Parse.readsMany1 (p: () → {Parse} a) (spec: List Char → a → Prop) (reads: Parse.Reads p spec):
