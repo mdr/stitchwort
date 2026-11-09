@@ -1,5 +1,5 @@
 {
-  "next": 2493,
+  "next": 2497,
   "tickets": [
     {
       "id": 47,
@@ -25056,12 +25056,12 @@
     {
       "id": 2491,
       "title": "Parse combinators: find and remove other redundant operations per round like SW-2487's (optional's mark inside many), library-only, no API or call-site change",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "Speedwell",
       "labels": [],
       "epic": "comparative-speed",
-      "body": "From SW-2487 (it checked only many/many1/sepBy/grid). Check every combinator in std Parse; measure with bench:instructions disk bridge and bench:aoc. 60 min.\n\nStarted 9 Nov 2026 05:57 UTC. Expected: 60 min.\n",
+      "body": "From SW-2487 (it checked only many/many1/sepBy/grid). Check every combinator in std Parse; measure with bench:instructions disk bridge and bench:aoc. 60 min.\n\nStarted 9 Nov 2026 05:57 UTC. Expected: 60 min.\n\nMerged 9 Nov 06:19 (std self-test, hash/pinned/prelude-bound 15 passed; audit Std.Parse 297/297; 130 parser-using AoC namespaces checked). many reuses each round's closing mark as the next round's opening mark, and a round's rest/end are arguments, not closures: disk -12.2%, bridge -9.4%; bench:aoc geomean -4.12% (22 days > 3%, up to -21.7%; none slower > 1.2%), on top of SW-2487. readsMany/runsMany statements unchanged; helper lemmas replaced (manyFrom versions, runsFromBindAt), statements checked by the orchestrator (D2436). Model result: Sonnet, worked, 17 min (est. 60).\n",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
@@ -25069,12 +25069,64 @@
     {
       "id": 2492,
       "title": "Profile expressions and scan natively after R1-R3 (68x and 72x Lean): what's left, ranked with estimated savings, including R4 (SW-2464, awaiting D3437) re-estimated from current counts; docs/reviews/SW-N-expressions-scan-profiles.md",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "Speedwell",
       "labels": [],
       "epic": "comparative-speed",
-      "body": "Like SW-2484 for disk/bridge. Measurement and write-up only. 60 min.\n\nStarted 9 Nov 2026 05:57 UTC. Expected: 60 min.\n",
+      "body": "Like SW-2484 for disk/bridge. Measurement and write-up only. 60 min.\n\nStarted 9 Nov 2026 05:57 UTC. Expected: 60 min.\n\nMerged 9 Nov 06:20. Filed SW-2493 (per-operation cost, Opus), SW-2494 (lists once), SW-2495 (pick notes), SW-2496 (R4/R5/R7 re-estimate). Source-changing wins (scan findAllStarting -88.9%, expressions operand dispatch -17.8% to -63%) not filed as speed work: they rewrite benchmark sources (over-fitting; for Matt). Model result: Sonnet, worked, 22 min (est. 60).\n",
+      "created": "2026-11-09",
+      "updated": "2026-11-09",
+      "commits": []
+    },
+    {
+      "id": 2493,
+      "title": "Why does one Parse operation cost 12-17 K instructions and 17-24 objects (expressions 16.1 M ops = 268 G; scan 22.4 M = 279 G) when removing one effect-runtime object saves 100-230? Account for an operation end to end (perform, handler dispatch through the forwarding handlers, resumption, bind chain) and design the cut; the main lever on the core ten's gap to Lean",
+      "status": "backlog",
+      "agent": "Opus",
+      "where": "",
+      "labels": [],
+      "epic": "comparative-speed",
+      "body": "From SW-2492 §3.4 (docs/reviews/SW-2492-expressions-scan-profiles.md). Profile-first; per-construct operation counters may be needed. 2 h, paper + measurement.",
+      "created": "2026-11-09",
+      "updated": "2026-11-09",
+      "commits": []
+    },
+    {
+      "id": 2494,
+      "title": "Std Parse: text/pick/literal build their character lists once, not per try (scan -5.8%, expressions -3.9%, measured; library-only)",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "comparative-speed",
+      "body": "From SW-2492 target 4 (SW-2327's unfiled 'lists once per call site'). No API or call-site change. 45 min.",
+      "created": "2026-11-09",
+      "updated": "2026-11-09",
+      "commits": []
+    },
+    {
+      "id": 2495,
+      "title": "Std Parse: pick's failure notes as one operation or lazy (scan -7 to -13.6%, expressions -3 to -6%; library-only); keep error messages identical",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "comparative-speed",
+      "body": "From SW-2492 target 3. 60 min.",
+      "created": "2026-11-09",
+      "updated": "2026-11-09",
+      "commits": []
+    },
+    {
+      "id": 2496,
+      "title": "R4/R5 re-estimated (SW-2492): R4 expressions -2.9 to -5.0%, scan -4.0 to -6.9%; R5 -1.2 to -2.4%. R7 (rebuilt forwarded operations reused) -1.2 to -1.5% expressions: file as its own stage",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "comparative-speed",
+      "body": "From SW-2492. Note for D3437 (R4 awaits Matt).",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
