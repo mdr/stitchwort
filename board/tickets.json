@@ -1,5 +1,5 @@
 {
-  "next": 2498,
+  "next": 2502,
   "tickets": [
     {
       "id": 47,
@@ -25082,12 +25082,12 @@
     {
       "id": 2493,
       "title": "Why does one Parse operation cost 12-17 K instructions and 17-24 objects (expressions 16.1 M ops = 268 G; scan 22.4 M = 279 G) when removing one effect-runtime object saves 100-230? Account for an operation end to end (perform, handler dispatch through the forwarding handlers, resumption, bind chain) and design the cut; the main lever on the core ten's gap to Lean",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": "Speedwell",
       "labels": [],
       "epic": "comparative-speed",
-      "body": "From SW-2492 §3.4 (docs/reviews/SW-2492-expressions-scan-profiles.md). Profile-first; per-construct operation counters may be needed. 2 h, paper + measurement.\n\nStarted 9 Nov 2026 06:20 UTC. Expected: 120 min.\n",
+      "body": "From SW-2492 §3.4 (docs/reviews/SW-2492-expressions-scan-profiles.md). Profile-first; per-construct operation counters may be needed. 2 h, paper + measurement.\n\nStarted 9 Nov 2026 06:20 UTC. Expected: 120 min.\n\nMerged 9 Nov 06:42. Floor 5.7 K instructions per operation at depth 0 (~25 objects, ~10 generic calls, 3 loop steps; reaching the clause through handlePlus + %elim of 8 clauses 1.85 K); forwards +1.4-2.1 K each. Filed SW-2498 (compiled dispatch note, Opus paper), SW-2499 (resume moves), SW-2500 (jump without object), SW-2501 (labelWhole 2^d). Option 4 (capture-free lambdas as constants, -3 to -4%, every program) folded into SW-2497. Option 1 (operations in place natively, est. 1.7-3.2x) reopens D3430: morning question for Matt. R4 now est. -4 to -11%. Model result: Opus, worked, 21 min (est. 120).\n",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
@@ -25140,6 +25140,58 @@
       "labels": [],
       "epic": "comparative-speed",
       "body": "From SW-2494's stop report (library-only fix impossible: text/pick have no per-parser value to hold the list) and SW-2492 target 4; parse-runtime.md line ~249 assumed this hoisting; SW-2327's stage B never did it. Design first: where in lowering, purity/termination conditions, code-size limit. 2 h.\n\nStarted 9 Nov 2026 06:27 UTC. Expected: 90 min. Paper lane: design note only (orchestrator's call).\n",
+      "created": "2026-11-09",
+      "updated": "2026-11-09",
+      "commits": []
+    },
+    {
+      "id": 2498,
+      "title": "Design note: compiled handler dispatch (one dispatch closure per handler, clause chosen by the operation's tag; no %elim of eight clauses copied and dropped per operation): est. -9 to -12% expressions, -11 to -14% scan, nothing user-visible; native and JS runtimes",
+      "status": "backlog",
+      "agent": "Opus",
+      "where": "",
+      "labels": [],
+      "epic": "comparative-speed",
+      "body": "From SW-2493 option 2 (docs/reviews/SW-2493-parse-operation-cost.md). Paper lane. 90 min.",
+      "created": "2026-11-09",
+      "updated": "2026-11-09",
+      "commits": []
+    },
+    {
+      "id": 2499,
+      "title": "Runtime: sw_resume_begin moves the fields of a resumption nothing else holds instead of copying them, plus R7 (rebuilt forwarded operations reused): est. -3 to -5% expressions, -2 to -4% scan; no user-visible change",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "comparative-speed",
+      "body": "From SW-2493 option 5. Measure first with bench:instructions. 60 min.",
+      "created": "2026-11-09",
+      "updated": "2026-11-09",
+      "commits": []
+    },
+    {
+      "id": 2500,
+      "title": "Runtime: a state clause's jump without a Jumped object: est. -2.3 to -3.1% expressions, -3.2 to -4.4% scan",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "comparative-speed",
+      "body": "From SW-2493 option 6. 60 min.",
+      "created": "2026-11-09",
+      "updated": "2026-11-09",
+      "commits": []
+    },
+    {
+      "id": 2501,
+      "title": "Parse.labelWhole nested d deep turns each reading operation into 2^d - 1 operations (next under two costs 51.8 K vs 8.9 K): make it linear",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "comparative-speed",
+      "body": "From SW-2493; rare today. 45 min.",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
