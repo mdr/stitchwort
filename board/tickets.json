@@ -25082,12 +25082,12 @@
     {
       "id": 2493,
       "title": "Why does one Parse operation cost 12-17 K instructions and 17-24 objects (expressions 16.1 M ops = 268 G; scan 22.4 M = 279 G) when removing one effect-runtime object saves 100-230? Account for an operation end to end (perform, handler dispatch through the forwarding handlers, resumption, bind chain) and design the cut; the main lever on the core ten's gap to Lean",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Opus",
-      "where": "",
+      "where": "Speedwell",
       "labels": [],
       "epic": "comparative-speed",
-      "body": "From SW-2492 §3.4 (docs/reviews/SW-2492-expressions-scan-profiles.md). Profile-first; per-construct operation counters may be needed. 2 h, paper + measurement.",
+      "body": "From SW-2492 §3.4 (docs/reviews/SW-2492-expressions-scan-profiles.md). Profile-first; per-construct operation counters may be needed. 2 h, paper + measurement.\n\nStarted 9 Nov 2026 06:20 UTC. Expected: 120 min.\n",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
@@ -25095,12 +25095,12 @@
     {
       "id": 2494,
       "title": "Std Parse: text/pick/literal build their character lists once, not per try (scan -5.8%, expressions -3.9%, measured; library-only)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Sonnet",
-      "where": "",
+      "where": "Speedwell",
       "labels": [],
       "epic": "comparative-speed",
-      "body": "From SW-2492 target 4 (SW-2327's unfiled 'lists once per call site'). No API or call-site change. 45 min.",
+      "body": "From SW-2492 target 4 (SW-2327's unfiled 'lists once per call site'). No API or call-site change. 45 min.\n\nStarted 9 Nov 2026 06:20 UTC. Expected: 45 min.\n",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
