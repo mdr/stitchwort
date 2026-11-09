@@ -306,3 +306,17 @@ Geometric means by time (native / CPython, native / Lean): core **2.41, 10.15**;
 all **1.18, 6.75**. By instructions: core 2.08, 9.69; wide 0.26, 3.04; all 1.15, 6.96. The library
 changes behind these also cut the AoC sweep (`bench:aoc`) by 2.5% and 4.1% geomean, so they are not
 specific to these programs. Raw files: Overmind's `target/compare/2026-11-09T072334-overmind.{json,md}`.
+
+## Job 36: moved resumptions and shared closures (Overmind, 9 Nov 2026 08:06, `11f9f73ca`)
+
+Same command as job 35, 2392 s. New since job 35: SW-2499 (an unshared resumption's fields moved),
+SW-2502 (capture-free closures built once), SW-2481 and SW-2512 (checking only). Native instructions
+against job 35: expressions −8.7%, scan −7.6%, bridge −6.7%, disk −4.2%, matcher −1.5%; others ≤ 0.5%.
+Native time: expressions 52.9× Lean, scan 64.6×, bridge 14.8×, disk 11.8×.
+
+Geometric means by time (native / CPython, native / Lean): core **2.36, 9.88**; wide **0.20, 2.45**;
+all **1.17, 6.64**. By instructions: core 2.01, 9.41; wide 0.26, 3.04; all 1.13, 6.81.
+
+**Regression:** rbmap-ck native time 1.55 s → 1.80 s (+16.2%) at unchanged instructions (10.65 G),
+confirmed by a rerun at low load; rbmap unchanged. Under investigation (see the board).
+Raw files: Overmind's `target/compare/2026-11-09T080649-overmind.{json,md}`.

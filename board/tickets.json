@@ -1,5 +1,5 @@
 {
-  "next": 2523,
+  "next": 2524,
   "tickets": [
     {
       "id": 47,
@@ -25465,6 +25465,19 @@
       "labels": [],
       "epic": "comparative-speed",
       "body": "From SW-2518. 45 min.",
+      "created": "2026-11-09",
+      "updated": "2026-11-09",
+      "commits": []
+    },
+    {
+      "id": 2523,
+      "title": "rbmap-ck native time +16.2% (1.55 -> 1.80 s, Overmind job 36) at unchanged instructions between 7d137b9d7 and 11f9f73ca (SW-2499 moved resumptions, SW-2502 shared closures, SW-2481, SW-2512): find the cause with perf stat (cycles, cache misses) and a bisect",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "comparative-speed",
+      "body": "Confirmed by rerun at load 0.66; rbmap unchanged. Overmind bisecting with perf stat (job 37).",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
