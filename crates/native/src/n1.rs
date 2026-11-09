@@ -86,6 +86,23 @@
 //! one place (a variable, or a spill slot a helper is given), and every
 //! move, clone and drop is the bytecode's.
 //!
+//! **Large bodies** (SW-2557). A body with more than `VARIABLE_REGISTERS`
+//! registers or more than `PART_INSTRS` instructions (generated code: a
+//! long list literal holds every element in a register until the list is
+//! built) keeps its registers in a register file on the heap
+//! (`sw_regs_new`) instead, laid out as the machine's register vector. An
+//! error exit hands the whole file to the runtime and a release drops it
+//! whole (`sw_release_down`): registers that hold nothing there are
+//! `Erased`, so this gives up what the variables would, in the same order,
+//! without writing out every register at every exit. Such a body is
+//! compiled in parts of at most `PART_INSTRS` instructions, each its own
+//! function; a part goes on in another by a tail call that passes the
+//! frame's state (`part_signature`), so no function Cranelift is given
+//! grows with the program. Its exits that hold nothing outside the
+//! registers are shared, one per error, and a write drops the register's
+//! old value only if an instruction before it may have filled the register
+//! (`first_fills`).
+//!
 //! **Counting** (D1253). A call counts a step and checks the frame limit
 //! before it, then a frame is pending until it returns; a tail call counts
 //! a step; a constant computed for the first time is a call. These are the
@@ -1221,105 +1238,161 @@ pub(crate) fn emit(
     let mut max_frame = 0;
     let mut widest = image.entry_code;
     let mut pc_map = options.pc_map.then(Vec::new);
+    // With `STITCHWORT_NATIVE_PARTS=n`, every body has a register file and
+    // is compiled in parts of `n` instructions, so that the tests can run
+    // small programs the way a large body is compiled.
+    let (variable_registers, part_instrs) = match std::env::var("STITCHWORT_NATIVE_PARTS")
+        .ok()
+        .and_then(|n| n.parse::<usize>().ok())
+    {
+        Some(n) => (0, n.max(1)),
+        None => (VARIABLE_REGISTERS, PART_INSTRS),
+    };
     for &code in &plan.bodies {
-        let params = image.codes[code as usize].params;
+        let body = &image.codes[code as usize];
+        let params = body.params;
         let lambda = lambda_of.get(&code).copied();
-        context.func.signature = if lambda.is_some() {
-            value_signature(pointer, params)
+        let in_file = body.regs > variable_registers || body.instrs.len() > part_instrs;
+        // A body with a register file is compiled in parts of at most
+        // `part_instrs` instructions, each its own function, so that no
+        // function Cranelift is given grows with the program; the first is
+        // the body's, and the rest are entered by tail calls
+        // (`part_signature`).
+        let mut parts: Vec<(usize, FuncId)> = vec![(0, functions[&code])];
+        if in_file {
+            for (k, start) in (part_instrs..body.instrs.len())
+                .step_by(part_instrs)
+                .enumerate()
+            {
+                let id = module
+                    .declare_function(
+                        &format!("{}/part{}", symbols[&code], k + 1),
+                        Linkage::Local,
+                        &part_signature(pointer),
+                    )
+                    .map_err(|e| fail(e.to_string()))?;
+                parts.push((start, id));
+            }
+        }
+        let full = if in_file {
+            Vec::new()
         } else {
-            body_signature(pointer, params)
+            maybe_full(body)
         };
-        context.func.name = ir::UserFuncName::user(0, functions[&code].as_u32());
+        let first = if in_file { first_fills(body) } else { None };
+        let (leaders, entries) = leaders(body, &parts);
         let entry_name = if options.count_bodies {
             Some(define_name(module, &symbols[&code]).map_err(fail)?)
         } else {
             None
         };
-        {
-            let b = FunctionBuilder::new(&mut context.func, &mut builder_context);
-            let mut generator = Gen {
-                b,
-                module: &mut *module,
-                program,
-                image,
-                code_index: code,
-                code: &image.codes[code as usize],
-                lambda,
-                functions: &functions,
-                apply_any: &apply_any,
-                text_fold,
-                runtime,
-                helpers: &helpers,
-                refs: BTreeMap::new(),
-                signatures: BTreeMap::new(),
-                numbering: &numbering,
-                caches: &mut caches,
-                pointer,
-                options,
-                vars: Vec::new(),
-                spill: StackSlot::from_u32(0),
-                temps: StackSlot::from_u32(0),
-                pointers: StackSlot::from_u32(0),
-                fun: StackSlot::from_u32(0),
-                full: maybe_full(&image.codes[code as usize]),
-                blocks: BTreeMap::new(),
-                top: Block::from_u32(0),
-                trap: Block::from_u32(0),
-                ctx: IrValue::from_u32(0),
-                frames: IrValue::from_u32(0),
-                env: None,
-                entry_name,
-                slot: 0,
+        for (part, &(start, id)) in parts.iter().enumerate() {
+            let end = parts.get(part + 1).map_or(body.instrs.len(), |p| p.0);
+            context.func.signature = if part > 0 {
+                part_signature(pointer)
+            } else if lambda.is_some() {
+                value_signature(pointer, params)
+            } else {
+                body_signature(pointer, params)
             };
-            generator.body();
-            generator.b.seal_all_blocks();
-            generator.b.finalize(frontend_config);
-        }
-        if dump {
-            context.set_disasm(true);
-            eprintln!(
-                "==== {} (body{code})\n{}",
-                body_name(program, image, code),
-                context.func.display()
-            );
-        }
-        audit
-            .function(&context.func)
-            .map_err(|e| fail(format!("{} ({e})", body_name(program, image, code))))?;
-        module
-            .define_function(functions[&code], &mut context)
-            .map_err(|e| fail(format!("{} ({e:?})", body_name(program, image, code))))?;
-        if let Some(compiled) = context.compiled_code() {
-            let bound = frames::frame_bound(&context.func, compiled);
-            if bound > max_frame {
-                (max_frame, widest) = (bound, code);
+            context.func.name = ir::UserFuncName::user(0, id.as_u32());
+            let symbol = if part == 0 {
+                symbols[&code].clone()
+            } else {
+                format!("{}/part{part}", symbols[&code])
+            };
+            {
+                let b = FunctionBuilder::new(&mut context.func, &mut builder_context);
+                let mut generator = Gen {
+                    b,
+                    module: &mut *module,
+                    program,
+                    image,
+                    code_index: code,
+                    code: body,
+                    lambda,
+                    functions: &functions,
+                    apply_any: &apply_any,
+                    text_fold,
+                    runtime,
+                    helpers: &helpers,
+                    refs: BTreeMap::new(),
+                    signatures: BTreeMap::new(),
+                    numbering: &numbering,
+                    caches: &mut caches,
+                    pointer,
+                    options,
+                    vars: Vec::new(),
+                    file: None,
+                    in_file,
+                    parts: &parts,
+                    range: start..end,
+                    stubs: BTreeMap::new(),
+                    exits: BTreeMap::new(),
+                    leaders: &leaders,
+                    entries: &entries[part],
+                    spill: StackSlot::from_u32(0),
+                    temps: StackSlot::from_u32(0),
+                    pointers: StackSlot::from_u32(0),
+                    fun: StackSlot::from_u32(0),
+                    full: &full,
+                    first_fills: first.as_deref(),
+                    blocks: BTreeMap::new(),
+                    top: None,
+                    trap: Block::from_u32(0),
+                    ctx: IrValue::from_u32(0),
+                    frames: IrValue::from_u32(0),
+                    env: None,
+                    entry_name: if part == 0 { entry_name } else { None },
+                    slot: 0,
+                };
+                generator.body();
+                generator.b.seal_all_blocks();
+                generator.b.finalize(frontend_config);
             }
-            if let Some(map) = &mut pc_map {
-                let size = compiled.code_buffer().len() as u32;
-                map.push(BodyMap {
-                    symbol: symbols[&code].clone(),
-                    size,
-                    instrs: image.codes[code as usize]
-                        .instrs
-                        .iter()
-                        .map(|i| format!("{i:?}"))
-                        .collect(),
-                    stretches: stretches(compiled.buffer.get_srclocs_sorted(), size),
-                });
+            let name = if part == 0 {
+                body_name(program, image, code)
+            } else {
+                format!("{} (part {part})", body_name(program, image, code))
+            };
+            if dump {
+                context.set_disasm(true);
+                eprintln!("==== {name} (body{code})\n{}", context.func.display());
             }
+            audit
+                .function(&context.func)
+                .map_err(|e| fail(format!("{name} ({e})")))?;
+            module
+                .define_function(id, &mut context)
+                .map_err(|e| fail(format!("{name} ({e:?})")))?;
+            if let Some(compiled) = context.compiled_code() {
+                let bound = frames::frame_bound(&context.func, compiled);
+                if bound > max_frame {
+                    (max_frame, widest) = (bound, code);
+                }
+                if let Some(map) = &mut pc_map {
+                    let size = compiled.code_buffer().len() as u32;
+                    map.push(BodyMap {
+                        symbol,
+                        size,
+                        instrs: body.instrs.iter().map(|i| format!("{i:?}")).collect(),
+                        stretches: stretches(compiled.buffer.get_srclocs_sorted(), size),
+                    });
+                }
+            }
+            if dump && let Some(c) = context.compiled_code() {
+                eprintln!("---- vcode\n{}", c.vcode.as_deref().unwrap_or("?"));
+                // As an assembler's `.byte` line, so that a disassembler can
+                // read the machine code (assemble it, then disassemble that).
+                let bytes: Vec<String> = c
+                    .code_buffer()
+                    .iter()
+                    .map(|b| format!("0x{b:02x}"))
+                    .collect();
+                eprintln!("---- bytes\n.byte {}", bytes.join(","));
+            }
+            module.clear_context(&mut context);
         }
-        if dump && let Some(c) = context.compiled_code() {
-            eprintln!("---- vcode\n{}", c.vcode.as_deref().unwrap_or("?"));
-            // As an assembler's `.byte` line, so that a disassembler can
-            // read the machine code (assemble it, then disassemble that).
-            let bytes: Vec<String> = c
-                .code_buffer()
-                .iter()
-                .map(|b| format!("0x{b:02x}"))
-                .collect();
-            eprintln!("---- bytes\n.byte {}", bytes.join(","));
-        }
-        module.clear_context(&mut context);
     }
     let mut adapter_frame = 0;
     let mut stub_frame = 0;
@@ -1707,6 +1780,23 @@ fn body_signature(pointer: ir::Type, params: u32) -> ir::Signature {
     for _ in 0..params * 3 {
         signature.params.push(AbiParam::new(types::I64));
     }
+    for _ in 0..3 {
+        signature.returns.push(AbiParam::new(types::I64));
+    }
+    signature
+}
+
+/// A later part of a body compiled in parts (`PART_INSTRS`), entered by a
+/// tail call from another part of the same frame: the context, the frames
+/// pending, the register file, the closure (a lambda's; 0 otherwise) and
+/// the instruction to go on from; returning the body's three words.
+fn part_signature(pointer: ir::Type) -> ir::Signature {
+    let mut signature = ir::Signature::new(CallConv::Tail);
+    signature.params.push(AbiParam::new(pointer));
+    signature.params.push(AbiParam::new(types::I64));
+    signature.params.push(AbiParam::new(pointer));
+    signature.params.push(AbiParam::new(pointer));
+    signature.params.push(AbiParam::new(types::I64));
     for _ in 0..3 {
         signature.returns.push(AbiParam::new(types::I64));
     }
@@ -2502,6 +2592,9 @@ fn helper_addresses() -> Vec<(&'static str, *const u8)> {
         ("sw_inc", abi::sw_inc as *const u8),
         ("sw_unwind", abi::sw_unwind as *const u8),
         ("sw_release_up", abi::sw_release_up as *const u8),
+        ("sw_release_down", abi::sw_release_down as *const u8),
+        ("sw_regs_new", abi::sw_regs_new as *const u8),
+        ("sw_regs_free", abi::sw_regs_free as *const u8),
         ("sw_cell_new", abi::sw_cell_new as *const u8),
         ("sw_ctor_reuse", abi::sw_ctor_reuse as *const u8),
         ("sw_unpack", abi::sw_unpack as *const u8),
@@ -2545,6 +2638,9 @@ struct Helpers {
     inc: FuncId,
     unwind: FuncId,
     release: FuncId,
+    release_down: FuncId,
+    regs_new: FuncId,
+    regs_free: FuncId,
     cell_new: FuncId,
     ctor_reuse: FuncId,
     unpack: FuncId,
@@ -2606,6 +2702,9 @@ impl Helpers {
             inc: declare("sw_inc", &[I64, I64, I64], &[])?,
             unwind: declare("sw_unwind", &[p, p, I64, I64, I64], &[])?,
             release: declare("sw_release_up", &[p, I64], &[])?,
+            release_down: declare("sw_release_down", &[p, I64], &[])?,
+            regs_new: declare("sw_regs_new", &[I64], &[p])?,
+            regs_free: declare("sw_regs_free", &[p, I64], &[])?,
             cell_new: declare("sw_cell_new", &[I32, I64], &[I64])?,
             ctor_reuse: declare("sw_ctor_reuse", &[I32, p, I64, p, p], &[])?,
             unpack: declare("sw_unpack", &[p, I32, p, I64, I32], &[])?,
@@ -2654,6 +2753,23 @@ impl Helpers {
 
 // ------------------------------------------------- registers maybe holding
 
+/// The most registers a body keeps in Cranelift variables. An error exit
+/// hands every register that may hold a value to the runtime, so a body
+/// keeping them in variables writes each out at each of its exits: with
+/// many registers live across many calls (a long list literal: each element
+/// a call, all held until the list is built), code and compile time grow
+/// with their product (SW-2557: 250 elements took 10 s and 2 GB to
+/// compile). A body with more registers keeps them in a register file on
+/// the heap instead, which an exit hands over whole, so every exit is a
+/// call. Real bodies have at most about 40 registers.
+const VARIABLE_REGISTERS: u32 = 128;
+
+/// The most instructions a body is compiled in one function: Cranelift's
+/// register allocator grows faster than the function, so a longer body (or
+/// one with a register file) is compiled in parts of this many, which pass
+/// the frame on by tail calls. Real bodies have at most about 170.
+const PART_INSTRS: usize = 512;
+
 /// A set of registers.
 #[derive(Clone, PartialEq, Eq)]
 struct Regs(Vec<u64>);
@@ -2662,14 +2778,22 @@ impl Regs {
     fn new(n: u32) -> Regs {
         Regs(vec![0; (n as usize).div_ceil(64).max(1)])
     }
+    /// The empty set, for any number of registers.
+    fn none() -> Regs {
+        Regs(Vec::new())
+    }
     fn has(&self, r: Reg) -> bool {
-        self.0[r as usize / 64] >> (r % 64) & 1 == 1
+        self.0
+            .get(r as usize / 64)
+            .is_some_and(|w| w >> (r % 64) & 1 == 1)
     }
     fn add(&mut self, r: Reg) {
         self.0[r as usize / 64] |= 1 << (r % 64);
     }
     fn remove(&mut self, r: Reg) {
-        self.0[r as usize / 64] &= !(1 << (r % 64));
+        if let Some(w) = self.0.get_mut(r as usize / 64) {
+            *w &= !(1 << (r % 64));
+        }
     }
     fn union(&mut self, other: &Regs) -> bool {
         let mut changed = false;
@@ -2688,6 +2812,32 @@ impl Regs {
     fn descending(&self, n: u32) -> Vec<Reg> {
         (0..n).rev().filter(|r| self.has(*r)).collect()
     }
+}
+
+/// The instructions that start a block (the start, every target, what
+/// follows a branch, and where each of `parts` starts), and for each part,
+/// those of its instructions another part goes to.
+fn leaders(code: &Code, parts: &[(usize, FuncId)]) -> (BTreeSet<usize>, Vec<BTreeSet<usize>>) {
+    let n = code.instrs.len();
+    let part_of = |pc: usize| parts.partition_point(|p| p.0 <= pc) - 1;
+    let mut leaders: BTreeSet<usize> = parts.iter().map(|p| p.0).collect();
+    let mut entries = vec![BTreeSet::new(); parts.len()];
+    for pc in 0..n {
+        let next = successors(code, pc);
+        let falls = next == [pc + 1] && !matches!(code.instrs[pc], Instr::Jump { .. });
+        if !falls {
+            leaders.extend(next.iter().copied().filter(|s| *s < n));
+            if pc + 1 < n {
+                leaders.insert(pc + 1);
+            }
+        }
+        for s in next.into_iter().filter(|s| *s < n) {
+            if part_of(s) != part_of(pc) {
+                entries[part_of(s)].insert(s);
+            }
+        }
+    }
+    (leaders, entries)
 }
 
 /// The instructions an instruction can go to next.
@@ -2766,71 +2916,7 @@ fn maybe_full(code: &Code) -> Vec<Regs> {
     let mut work = vec![0usize];
     while let Some(pc) = work.pop() {
         let mut after = before[pc].clone();
-        let unmove = |after: &mut Regs, o: Ops| {
-            for r in ops(code, o) {
-                if r & MOVE != 0 {
-                    after.remove(r & !MOVE);
-                }
-            }
-        };
-        match code.instrs[pc] {
-            Instr::Move { dst, .. }
-            | Instr::Const { dst, .. }
-            | Instr::Captured { dst, .. }
-            | Instr::Global { dst, .. }
-            | Instr::StaticClosure { dst, .. }
-            | Instr::NatPred { dst, .. }
-            | Instr::IntOfNat { dst, .. }
-            | Instr::IntNegSucc { dst, .. }
-            | Instr::TextChars { dst, .. }
-            | Instr::Field { dst, .. } => after.add(dst),
-            Instr::Prim { dst, args, .. } => {
-                unmove(&mut after, args);
-                after.add(dst);
-            }
-            Instr::Take { dst, src } => {
-                after.remove(src);
-                after.add(dst);
-            }
-            Instr::Drop { reg } => after.remove(reg),
-            Instr::Call { dst, args, .. }
-            | Instr::Pap { dst, args, .. }
-            | Instr::Closure { dst, args, .. }
-            | Instr::Ctor { dst, args, .. } => {
-                unmove(&mut after, args);
-                after.add(dst);
-            }
-            Instr::CtorReuse {
-                dst, args, token, ..
-            } => {
-                unmove(&mut after, args);
-                after.remove(token);
-                after.add(dst);
-            }
-            Instr::Apply { dst, f, args } => {
-                if f & MOVE != 0 {
-                    after.remove(f & !MOVE);
-                }
-                unmove(&mut after, args);
-                after.add(dst);
-            }
-            Instr::Unpack { src, fields, token } => {
-                after.remove(src);
-                for p in ops(code, fields).chunks(2) {
-                    if p[1] != NO_REG {
-                        after.add(p[1]);
-                    }
-                }
-                if token != NO_REG {
-                    after.add(token);
-                }
-            }
-            Instr::DropReuse { src, token } => {
-                after.remove(src);
-                after.add(token);
-            }
-            _ => {}
-        }
+        transfer(code, pc, &mut after);
         for s in successors(code, pc) {
             if s >= n {
                 continue;
@@ -2845,6 +2931,117 @@ fn maybe_full(code: &Code) -> Vec<Regs> {
         }
     }
     before
+}
+
+/// Registers an instruction fills and empties, for [`transfer`].
+trait Holding {
+    fn fill(&mut self, r: Reg);
+    fn empty(&mut self, r: Reg);
+}
+
+impl Holding for Regs {
+    fn fill(&mut self, r: Reg) {
+        self.add(r);
+    }
+    fn empty(&mut self, r: Reg) {
+        self.remove(r);
+    }
+}
+
+/// What instruction `pc` does to the registers that may hold a value.
+fn transfer(code: &Code, pc: usize, after: &mut impl Holding) {
+    let unmove = |after: &mut dyn FnMut(Reg), o: Ops| {
+        for r in ops(code, o) {
+            if r & MOVE != 0 {
+                after(r & !MOVE);
+            }
+        }
+    };
+    match code.instrs[pc] {
+        Instr::Move { dst, .. }
+        | Instr::Const { dst, .. }
+        | Instr::Captured { dst, .. }
+        | Instr::Global { dst, .. }
+        | Instr::StaticClosure { dst, .. }
+        | Instr::NatPred { dst, .. }
+        | Instr::IntOfNat { dst, .. }
+        | Instr::IntNegSucc { dst, .. }
+        | Instr::TextChars { dst, .. }
+        | Instr::Field { dst, .. } => after.fill(dst),
+        Instr::Prim { dst, args, .. } => {
+            unmove(&mut |r| after.empty(r), args);
+            after.fill(dst);
+        }
+        Instr::Take { dst, src } => {
+            after.empty(src);
+            after.fill(dst);
+        }
+        Instr::Drop { reg } => after.empty(reg),
+        Instr::Call { dst, args, .. }
+        | Instr::Pap { dst, args, .. }
+        | Instr::Closure { dst, args, .. }
+        | Instr::Ctor { dst, args, .. } => {
+            unmove(&mut |r| after.empty(r), args);
+            after.fill(dst);
+        }
+        Instr::CtorReuse {
+            dst, args, token, ..
+        } => {
+            unmove(&mut |r| after.empty(r), args);
+            after.empty(token);
+            after.fill(dst);
+        }
+        Instr::Apply { dst, f, args } => {
+            if f & MOVE != 0 {
+                after.empty(f & !MOVE);
+            }
+            unmove(&mut |r| after.empty(r), args);
+            after.fill(dst);
+        }
+        Instr::Unpack { src, fields, token } => {
+            after.empty(src);
+            for p in ops(code, fields).chunks(2) {
+                if p[1] != NO_REG {
+                    after.fill(p[1]);
+                }
+            }
+            if token != NO_REG {
+                after.fill(token);
+            }
+        }
+        Instr::DropReuse { src, token } => {
+            after.empty(src);
+            after.fill(token);
+        }
+        _ => {}
+    }
+}
+
+/// For a body with a register file (where `maybe_full` would take memory
+/// growing with registers times instructions): for each register, the
+/// first instruction that fills it (`u32::MAX` for none, 0 for a
+/// parameter). With every jump forward, a register may hold a value before
+/// `pc` only if one of the instructions before fills it; a self tail call
+/// releases every register before it goes back to the start. `None` if a
+/// jump goes back.
+fn first_fills(code: &Code) -> Option<Vec<u32>> {
+    struct First<'a>(&'a mut [u32], u32);
+    impl Holding for First<'_> {
+        fn fill(&mut self, r: Reg) {
+            let first = &mut self.0[r as usize];
+            *first = (*first).min(self.1);
+        }
+        fn empty(&mut self, _: Reg) {}
+    }
+    let mut first = vec![u32::MAX; code.regs as usize];
+    first[..code.params as usize].fill(0);
+    for pc in 0..code.instrs.len() {
+        if successors(code, pc).iter().any(|s| *s <= pc) {
+            return None;
+        }
+        transfer(code, pc, &mut First(&mut first, pc as u32));
+    }
+    Some(first)
 }
 
 // -------------------------------------------------------------- generation
@@ -2899,6 +3096,26 @@ struct Gen<'a, 'm> {
     /// live in machine registers (stage N2a). An empty register's words are
     /// all 0 (`Erased`).
     vars: Vec<[Variable; 3]>,
+    /// In a body with more registers than [`VARIABLE_REGISTERS`]: its
+    /// register file, `code.regs` values on the heap (`sw_regs_new`), which
+    /// the registers live in instead of `vars`. `full` is then empty.
+    file: Option<IrValue>,
+    /// Whether the body has a register file (`file`, once made).
+    in_file: bool,
+    /// The body's parts: where each starts, and its function (the first is
+    /// the body's own). One part unless the body has a register file.
+    parts: &'m [(usize, FuncId)],
+    /// The instructions this function compiles: a part of the body.
+    range: std::ops::Range<usize>,
+    /// Blocks that go on in another part, by the instruction they go to.
+    stubs: BTreeMap<usize, Block>,
+    /// With a register file, the shared error exits (`Gen::shared_exit`).
+    exits: BTreeMap<Option<u64>, Block>,
+    /// The instructions that start a block: the start, every target, what
+    /// follows a branch, and where each part starts.
+    leaders: &'m BTreeSet<usize>,
+    /// The instructions of this part that other parts go on to.
+    entries: &'m BTreeSet<usize>,
     /// Room for registers written out: for a helper that takes values by
     /// pointer, or to release them on an error exit.
     spill: StackSlot,
@@ -2908,12 +3125,17 @@ struct Gen<'a, 'm> {
     pointers: StackSlot,
     /// An `Apply`'s function value.
     fun: StackSlot,
-    full: Vec<Regs>,
+    /// Before each instruction, the registers that may hold a value
+    /// (`maybe_full`); empty for a body with a register file, where every
+    /// register may.
+    full: &'m [Regs],
+    /// With a register file, `first_fills`.
+    first_fills: Option<&'m [u32]>,
     /// The block each leader instruction starts.
     blocks: BTreeMap<usize, Block>,
     /// Where the body starts, given its arguments: a self tail call jumps
-    /// here.
-    top: Block,
+    /// here. Only in the body's first part.
+    top: Option<Block>,
     /// A switch on a tag outside its table: an internal error.
     trap: Block,
     ctx: IrValue,
@@ -3022,7 +3244,16 @@ impl Gen<'_, '_> {
         at
     }
 
+    /// Where register `r` is when the body has a register file.
+    fn in_file(&self, loc: Loc) -> Loc {
+        match (loc, self.file) {
+            (Loc::Reg(r), Some(file)) => Loc::Mem(file, (r as usize * VALUE_SIZE) as i32),
+            _ => loc,
+        }
+    }
+
     fn load(&mut self, loc: Loc) -> Val {
+        let loc = self.in_file(loc);
         let mut w = [IrValue::from_u32(0); 3];
         for (i, word) in w.iter_mut().enumerate() {
             *word = match loc {
@@ -3038,6 +3269,7 @@ impl Gen<'_, '_> {
     }
 
     fn store(&mut self, loc: Loc, v: Val) {
+        let loc = self.in_file(loc);
         for (i, word) in v.0.iter().enumerate() {
             match loc {
                 Loc::Reg(r) => self.b.def_var(self.vars[r as usize][i], *word),
@@ -3167,7 +3399,7 @@ impl Gen<'_, '_> {
 
     /// `reg = v`: the old value (if the register may hold one) dropped.
     fn assign(&mut self, pc: usize, r: Reg, v: Val) {
-        if self.full[pc].has(r) {
+        if self.may_hold(pc, r) {
             let old = self.load(Loc::Reg(r));
             self.store(Loc::Reg(r), v);
             self.drop_value(old);
@@ -3241,6 +3473,13 @@ impl Gen<'_, '_> {
         extra: &[Val],
         tail: &[Reg],
     ) {
+        if self.in_file && extra.is_empty() && tail.is_empty() {
+            let exit = self.shared_exit(error);
+            let fine = self.b.create_block();
+            self.b.ins().brif(cond, exit, &[], fine, &[]);
+            self.b.switch_to_block(fine);
+            return;
+        }
         let exit = self.b.create_block();
         let fine = self.b.create_block();
         self.b.ins().brif(cond, exit, &[], fine, &[]);
@@ -3248,6 +3487,19 @@ impl Gen<'_, '_> {
         self.b.set_cold_block(exit);
         self.exit_now(live, error, extra, tail);
         self.b.switch_to_block(fine);
+    }
+
+    /// With a register file, an exit that holds nothing outside the
+    /// registers is the same wherever it is, so each function has one for
+    /// each error (`None`: a callee's), emitted after the instructions.
+    fn shared_exit(&mut self, error: Option<u64>) -> Block {
+        if let Some(block) = self.exits.get(&error) {
+            return *block;
+        }
+        let block = self.b.create_block();
+        self.b.set_cold_block(block);
+        self.exits.insert(error, block);
+        block
     }
 
     /// Leaves the frame on an error, as [`Gen::exit_with`] does when its
@@ -3278,6 +3530,17 @@ impl Gen<'_, '_> {
         }
         self.unwind(fetched.len(), true);
         self.unwind_env();
+        if let Some(file) = self.file {
+            // The whole file: the registers outside `kept` are `Erased`.
+            let n = self.iconst(u64::from(self.code.regs));
+            let mode = self.iconst(0);
+            let body = self.iconst(u64::from(self.code_index));
+            self.call_helper(self.helpers.unwind, &[self.ctx, file, n, mode, body]);
+            self.leave();
+            let zero = self.iconst(0);
+            self.b.ins().return_(&[zero, zero, zero]);
+            return;
+        }
         let mut regs = kept.descending(self.code.regs);
         regs.reverse();
         for (i, r) in regs.iter().enumerate() {
@@ -3287,6 +3550,16 @@ impl Gen<'_, '_> {
         self.unwind(regs.len(), false);
         let zero = self.iconst(0);
         self.b.ins().return_(&[zero, zero, zero]);
+    }
+
+    /// Before the frame leaves (a return, a tail call, an exit): frees its
+    /// register file, if it has one, which the frame has released or
+    /// unwound by then.
+    fn leave(&mut self) {
+        if let Some(file) = self.file {
+            let n = self.iconst(u64::from(self.code.regs));
+            self.call_helper(self.helpers.regs_free, &[file, n]);
+        }
     }
 
     /// Hands the first `n` spill slots' values to the runtime (`sw_unwind`).
@@ -3389,15 +3662,41 @@ impl Gen<'_, '_> {
         for _ in 0..3 {
             self.b.append_block_param(done, types::I64);
         }
-        let fail = self.b.create_block();
         let args: Vec<ir::BlockArg> = r.iter().map(|x| (*x).into()).collect();
-        self.b.ins().brif(error, fail, &[], done, &args);
-        self.b.switch_to_block(fail);
-        self.b.set_cold_block(fail);
-        self.exit_now(live, None, &[], &[]);
+        if self.in_file {
+            let fail = self.shared_exit(None);
+            self.b.ins().brif(error, fail, &[], done, &args);
+        } else {
+            let fail = self.b.create_block();
+            self.b.ins().brif(error, fail, &[], done, &args);
+            self.b.switch_to_block(fail);
+            self.b.set_cold_block(fail);
+            self.exit_now(live, None, &[], &[]);
+        }
         self.b.switch_to_block(done);
         let p = self.b.block_params(done);
         Val([p[0], p[1], p[2]])
+    }
+
+    /// Whether register `r` may hold a value before instruction `pc`.
+    fn may_hold(&self, pc: usize, r: Reg) -> bool {
+        if self.in_file {
+            self.first_fills
+                .is_none_or(|first| (first[r as usize] as usize) < pc)
+        } else {
+            self.full[pc].has(r)
+        }
+    }
+
+    /// The registers that may hold a value before instruction `pc`, for an
+    /// exit or a release; none with a register file, where both work on
+    /// every register.
+    fn live(&self, pc: usize) -> Regs {
+        if self.file.is_some() {
+            Regs::none()
+        } else {
+            self.full[pc].clone()
+        }
     }
 
     /// `regs` without the registers `o` moves out (marked `MOVE`).
@@ -3418,14 +3717,33 @@ impl Gen<'_, '_> {
     /// Drops the registers in `regs`, highest first, as the machine
     /// releases a frame.
     fn release(&mut self, regs: &Regs) {
+        if let Some(file) = self.file {
+            // Every register not in `regs` is `Erased`, so releasing them
+            // all is the same; they're left `Erased`, so a second release
+            // (or an exit after) finds nothing.
+            let n = self.iconst(u64::from(self.code.regs));
+            self.call_helper(self.helpers.release_down, &[file, n]);
+            return;
+        }
         for r in regs.descending(self.code.regs) {
             let v = self.load(Loc::Reg(r));
             self.drop_value(v);
         }
     }
 
-    fn block_of(&self, pc: u32) -> Block {
-        self.blocks[&(pc as usize)]
+    /// The block that runs instruction `pc` (a leader): its own in this
+    /// part, or one that goes on in the part that has it.
+    fn block_of(&mut self, pc: u32) -> Block {
+        let pc = pc as usize;
+        if self.range.contains(&pc) {
+            return self.blocks[&pc];
+        }
+        if let Some(block) = self.stubs.get(&pc) {
+            return *block;
+        }
+        let block = self.b.create_block();
+        self.stubs.insert(pc, block);
+        block
     }
 
     /// How a function value taking `params` is called (`value_signature`).
@@ -3460,9 +3778,10 @@ impl Gen<'_, '_> {
 
     fn body(&mut self) {
         let code = self.code;
+        let in_file = self.in_file;
         let n = code.instrs.len();
-        let max_ops = code
-            .instrs
+        let instrs = &code.instrs[self.range.clone()];
+        let max_ops = instrs
             .iter()
             .map(|i| match i {
                 Instr::Ctor { args, .. }
@@ -3478,8 +3797,7 @@ impl Gen<'_, '_> {
             })
             .max()
             .unwrap_or(0);
-        let max_prim = code
-            .instrs
+        let max_prim = instrs
             .iter()
             .map(|i| match i {
                 Instr::Prim { args, .. } | Instr::Test { args, .. } => args.len as usize,
@@ -3491,7 +3809,7 @@ impl Gen<'_, '_> {
         // that may hold a value at some instruction), a helper's operands
         // and result, and, under the trace, every register (`Unpack`).
         let released = self.full.iter().map(Regs::len).max().unwrap_or(0);
-        let traced = if self.options.trace_refcounts {
+        let traced = if self.options.trace_refcounts && !in_file {
             code.regs as usize
         } else {
             0
@@ -3502,9 +3820,11 @@ impl Gen<'_, '_> {
             (spills * VALUE_SIZE) as u32,
             3,
         ));
-        self.vars = (0..code.regs)
-            .map(|_| std::array::from_fn(|_| self.b.declare_var(types::I64)))
-            .collect();
+        if !in_file {
+            self.vars = (0..code.regs)
+                .map(|_| std::array::from_fn(|_| self.b.declare_var(types::I64)))
+                .collect();
+        }
         self.temps = self.b.create_sized_stack_slot(StackSlotData::new(
             StackSlotKind::ExplicitSlot,
             ((max_ops + 1) * VALUE_SIZE) as u32,
@@ -3521,30 +3841,14 @@ impl Gen<'_, '_> {
             3,
         ));
 
-        // Leaders: the start, every target, and what follows a branch.
-        let mut leaders = BTreeSet::from([0usize]);
-        for pc in 0..n {
-            let next = successors(code, pc);
-            let falls = next == [pc + 1] && !matches!(code.instrs[pc], Instr::Jump { .. });
-            if !falls {
-                leaders.extend(next.iter().copied().filter(|s| *s < n));
-                if pc + 1 < n {
-                    leaders.insert(pc + 1);
-                }
-            }
-        }
-        for pc in leaders {
+        let range = self.range.clone();
+        for &pc in self.leaders.range(range.clone()) {
             let block = self.b.create_block();
             self.blocks.insert(pc, block);
         }
 
         let entry = self.b.create_block();
         self.b.append_block_params_for_function_params(entry);
-        self.top = self.b.create_block();
-        for _ in 0..code.params * 3 {
-            self.b.append_block_param(self.top, types::I64);
-        }
-
         self.b.switch_to_block(entry);
         if self.options.pc_map {
             // The base every location is relative to: the smallest, so no
@@ -3552,43 +3856,19 @@ impl Gen<'_, '_> {
             self.b.func.params.ensure_base_srcloc(Part::Entry.at(0));
             self.b.set_srcloc(Part::Entry.at(0));
         }
-        self.ctx = self.b.block_params(entry)[0];
-        self.frames = self.b.block_params(entry)[1];
-        let mut args: Vec<IrValue> = self.b.block_params(entry)[2..].to_vec();
-        if self.lambda.is_some() {
-            // The closure, last; a lambda's body never jumps back to its
-            // top (only a global's own tail call does), so it stays put.
-            self.env = args.pop();
-        }
-        let args: Vec<ir::BlockArg> = args.into_iter().map(Into::into).collect();
-        self.b.ins().jump(self.top, &args);
-
-        self.b.switch_to_block(self.top);
-        if let (Some(count), Some((name, len))) = (self.helpers.count_body, self.entry_name) {
-            // At `top`, so a self tail call counts as a call too.
-            let global = self.module.declare_data_in_func(name, self.b.func);
-            let at = self.b.ins().symbol_value(self.pointer, global);
-            let len = self.iconst(len);
-            self.call_helper(count, &[at, len]);
-        }
-        let params: Vec<IrValue> = self.b.block_params(self.top).to_vec();
-        for r in 0..code.params {
-            let i = r as usize * 3;
-            self.store(Loc::Reg(r), Val([params[i], params[i + 1], params[i + 2]]));
-        }
-        for r in code.params..code.regs {
-            self.erase(Loc::Reg(r));
-        }
-        let first = self.blocks[&0];
-        self.b.ins().jump(first, &[]);
-
         self.trap = self.b.create_block();
+        if range.start == 0 {
+            self.first_part(entry);
+        } else {
+            self.later_part(entry);
+        }
+
         self.b.switch_to_block(self.trap);
         self.b.set_cold_block(self.trap);
         self.b.ins().trap(TrapCode::unwrap_user(3));
 
         let mut open = false;
-        for pc in 0..n {
+        for pc in range.clone() {
             if let Some(block) = self.blocks.get(&pc).copied() {
                 if open {
                     self.b.ins().jump(block, &[]);
@@ -3606,8 +3886,100 @@ impl Gen<'_, '_> {
             open = self.instr(pc);
         }
         if open {
-            self.b.ins().trap(TrapCode::unwrap_user(1));
+            if range.end < n {
+                let next = self.block_of(range.end as u32);
+                self.b.ins().jump(next, &[]);
+            } else {
+                self.b.ins().trap(TrapCode::unwrap_user(1));
+            }
         }
+        // Going on in another part: a tail call to it, with this frame's
+        // state (`part_signature`).
+        while let Some((pc, block)) = self.stubs.pop_first() {
+            self.b.switch_to_block(block);
+            let part = self.parts.partition_point(|p| p.0 <= pc) - 1;
+            let f = self.func_ref(self.parts[part].1);
+            let file = self.file.expect("a body in parts has a register file");
+            let env = match self.env {
+                Some(env) => env,
+                None => self.b.ins().iconst(self.pointer, 0),
+            };
+            let at = self.iconst(pc as u64);
+            let args = [self.ctx, self.frames, file, env, at];
+            self.b.ins().return_call(f, &args);
+        }
+        let exits = std::mem::take(&mut self.exits);
+        for (error, block) in exits {
+            self.b.switch_to_block(block);
+            self.slot = 0;
+            self.exit_now(&Regs::none(), error, &[], &[]);
+        }
+    }
+
+    /// The body's entry: the frame's state from the arguments, then on to
+    /// `top`, where its registers are set from them.
+    fn first_part(&mut self, entry: Block) {
+        let code = self.code;
+        let top = self.b.create_block();
+        for _ in 0..code.params * 3 {
+            self.b.append_block_param(top, types::I64);
+        }
+        self.top = Some(top);
+        self.ctx = self.b.block_params(entry)[0];
+        self.frames = self.b.block_params(entry)[1];
+        if self.in_file {
+            let n = self.iconst(u64::from(code.regs));
+            self.file = Some(self.call_helper(self.helpers.regs_new, &[n])[0]);
+        }
+        let mut args: Vec<IrValue> = self.b.block_params(entry)[2..].to_vec();
+        if self.lambda.is_some() {
+            // The closure, last; a lambda's body never jumps back to its
+            // top (only a global's own tail call does), so it stays put.
+            self.env = args.pop();
+        }
+        let args: Vec<ir::BlockArg> = args.into_iter().map(Into::into).collect();
+        self.b.ins().jump(top, &args);
+
+        self.b.switch_to_block(top);
+        if let (Some(count), Some((name, len))) = (self.helpers.count_body, self.entry_name) {
+            // At `top`, so a self tail call counts as a call too.
+            let global = self.module.declare_data_in_func(name, self.b.func);
+            let at = self.b.ins().symbol_value(self.pointer, global);
+            let len = self.iconst(len);
+            self.call_helper(count, &[at, len]);
+        }
+        let params: Vec<IrValue> = self.b.block_params(top).to_vec();
+        for r in 0..code.params {
+            let i = r as usize * 3;
+            self.store(Loc::Reg(r), Val([params[i], params[i + 1], params[i + 2]]));
+        }
+        // A register file starts `Erased`, and is again when a self tail
+        // call comes back here (it releases every register).
+        if !self.in_file {
+            for r in code.params..code.regs {
+                self.erase(Loc::Reg(r));
+            }
+        }
+        let first = self.blocks[&0];
+        self.b.ins().jump(first, &[]);
+    }
+
+    /// A later part's entry: the frame's state from the part before, then
+    /// on to the instruction it names, one of those another part goes to.
+    fn later_part(&mut self, entry: Block) {
+        let params = self.b.block_params(entry).to_vec();
+        self.ctx = params[0];
+        self.frames = params[1];
+        self.file = Some(params[2]);
+        if self.lambda.is_some() {
+            self.env = Some(params[3]);
+        }
+        let mut switch = Switch::new();
+        for &pc in self.entries {
+            switch.set_entry(pc as u128, self.blocks[&pc]);
+        }
+        let trap = self.trap;
+        switch.emit(&mut self.b, params[4], trap);
     }
 
     /// Compiles instruction `pc`; whether control can fall through to the
@@ -3626,7 +3998,7 @@ impl Gen<'_, '_> {
                 self.assign(pc, dst, v);
             }
             Instr::Drop { reg } => {
-                if self.full[pc].has(reg) {
+                if self.may_hold(pc, reg) {
                     let v = self.load(Loc::Reg(reg));
                     self.erase(Loc::Reg(reg));
                     self.drop_value(v);
@@ -3658,7 +4030,7 @@ impl Gen<'_, '_> {
                 self.assign(pc, dst, v);
             }
             Instr::Call { dst, g, args } => {
-                let live = self.full[pc].clone();
+                let live = self.live(pc);
                 self.count_step(&live, &[]);
                 let frames = self.push_frame(&live);
                 let values = self.operands(args);
@@ -3675,20 +4047,21 @@ impl Gen<'_, '_> {
             Instr::TailCall { g, args } => {
                 // As the machine's `replace`: the step, then this frame's
                 // closure dropped, then its registers.
-                self.count_step(&self.full[pc].clone(), ops(code, args));
+                self.count_step(&self.live(pc), ops(code, args));
                 let values = self.operands(args);
-                let left = self.without_moved(&self.full[pc], ops(code, args));
+                let left = self.without_moved(&self.live(pc), ops(code, args));
                 self.drop_env();
                 self.release(&left);
                 let callee = self.image.global_code[g as usize].expect("a function has code");
                 let words: Vec<IrValue> = Self::words(&values).collect();
-                if callee == self.code_index {
+                if let (true, Some(top)) = (callee == self.code_index, self.top) {
                     let args: Vec<ir::BlockArg> = words.into_iter().map(Into::into).collect();
-                    self.b.ins().jump(self.top, &args);
+                    self.b.ins().jump(top, &args);
                 } else {
                     let f = self.func_ref(self.functions[&callee]);
                     let mut call_args = vec![self.ctx, self.frames];
                     call_args.extend(words);
+                    self.leave();
                     self.tagged(Part::Call, |g| g.b.ins().return_call(f, &call_args));
                 }
                 return false;
@@ -3700,12 +4073,12 @@ impl Gen<'_, '_> {
                 // the function value; anything else goes through eval/apply
                 // (`emit_apply_any`).
                 let (fv, target) = self.apply_target(f, args.len);
-                let live = self.without_moved(&self.full[pc], &[f]);
+                let live = self.without_moved(&self.live(pc), &[f]);
                 self.apply(pc, dst, fv, target, &live, ApplyArgs::Regs(args));
             }
             Instr::TailApply { f, args } => {
                 let (fv, target) = self.apply_target(f, args.len);
-                let taken = self.without_moved(&self.full[pc], &[f]);
+                let taken = self.without_moved(&self.live(pc), &[f]);
                 self.tail_apply(fv, target, &taken, ApplyArgs::Regs(args));
                 return false;
             }
@@ -3713,10 +4086,14 @@ impl Gen<'_, '_> {
                 // As the machine: the registers released, then the frame's
                 // closure.
                 let v = self.load(Loc::Reg(src));
-                let mut left = self.full[pc].clone();
+                if self.file.is_some() {
+                    self.erase(Loc::Reg(src));
+                }
+                let mut left = self.live(pc);
                 left.remove(src);
                 self.release(&left);
                 self.drop_env();
+                self.leave();
                 self.tagged(Part::Return, |g| g.b.ins().return_(&v.0));
                 return false;
             }
@@ -4039,7 +4416,7 @@ impl Gen<'_, '_> {
         // The first use: computed as the machine computes it, in a frame.
         self.b.switch_to_block(compute);
         self.b.set_cold_block(compute);
-        let live = self.full[pc].clone();
+        let live = self.live(pc);
         self.count_step(&live, &[]);
         let frames = self.push_frame(&live);
         let code = self.image.global_code[g as usize].expect("a constant has code");
@@ -4238,6 +4615,7 @@ impl Gen<'_, '_> {
         let mut call_args = vec![self.ctx, self.frames];
         call_args.extend(Self::words(&values));
         call_args.push(fv.0[1]);
+        self.leave();
         self.tagged(Part::Call, |g| {
             g.b.ins().return_call_indirect(sig, target, &call_args)
         });
@@ -4259,6 +4637,7 @@ impl Gen<'_, '_> {
         let mut call_args = vec![self.ctx, below, none, env];
         call_args.extend(fv.0);
         call_args.extend(Self::words(&values));
+        self.leave();
         self.tagged(Part::Call, |g| g.b.ins().return_call(apply, &call_args));
     }
 
@@ -4270,7 +4649,7 @@ impl Gen<'_, '_> {
         let o = ops(self.code, args).to_vec();
         let c = self.operand(o[0]);
         let k = self.operand(o[1]);
-        let mut live = self.without_moved(&self.full[pc], &o);
+        let mut live = self.without_moved(&self.live(pc), &o);
         if dst.is_none() {
             // `TailPrim`: the frame popped and its registers released
             // before the native runs.
@@ -4316,6 +4695,7 @@ impl Gen<'_, '_> {
                 // As the machine drops the popped frame's closure: once the
                 // native has run.
                 self.drop_env();
+                self.leave();
                 self.tagged(Part::Return, |g| g.b.ins().return_(&v.0));
             }
         }
@@ -4333,7 +4713,7 @@ impl Gen<'_, '_> {
         }
         let o = ops(self.code, args).to_vec();
         let values = self.operands(args);
-        let live = self.without_moved(&self.full[pc], &o);
+        let live = self.without_moved(&self.live(pc), &o);
         for (i, v) in values.iter().enumerate() {
             let at = self.temp_address(i * VALUE_SIZE);
             self.store(Loc::Mem(at, 0), *v);
@@ -4383,6 +4763,7 @@ impl Gen<'_, '_> {
                     self.assign(pc, dst, v);
                 }
                 None => {
+                    self.leave();
                     self.tagged(Part::Call, |g| g.b.ins().return_call(run_loop, &call_args));
                 }
             }
@@ -4406,6 +4787,7 @@ impl Gen<'_, '_> {
             Some(dst) => self.assign(pc, dst, v),
             None => {
                 self.drop_env();
+                self.leave();
                 self.tagged(Part::Return, |g| g.b.ins().return_(&v.0));
             }
         }
@@ -4421,7 +4803,7 @@ impl Gen<'_, '_> {
             let v = self.clone_from(Loc::Reg(*r & !MOVE));
             call_args.extend(v.0);
         }
-        let live = self.full[pc].clone();
+        let live = self.live(pc);
         let fold = self
             .text_fold
             .expect("the plan has `Text.fold` where a body uses it");
@@ -4770,12 +5152,18 @@ impl Gen<'_, '_> {
             .collect();
         if self.options.trace_refcounts {
             // The helper works on the frame's registers as the machine
-            // does, so they're all written out and read back.
-            for r in 0..self.code.regs {
-                let v = self.load(Loc::Reg(r));
-                self.spill_value(r as usize, v);
-            }
-            let regs = self.spill_address(0);
+            // does, so they're all written out and read back (or, with a
+            // register file, given it).
+            let regs = match self.file {
+                Some(file) => file,
+                None => {
+                    for r in 0..self.code.regs {
+                        let v = self.load(Loc::Reg(r));
+                        self.spill_value(r as usize, v);
+                    }
+                    self.spill_address(0)
+                }
+            };
             let src = self.i32const(src);
             // The pairs, written to the stack (not the image's operand list
             // by address: the code holds no host address).
@@ -4795,6 +5183,9 @@ impl Gen<'_, '_> {
             let n = self.iconst(pairs.len() as u64);
             let token = self.i32const(token);
             self.call_helper(self.helpers.unpack, &[regs, src, at, n, token]);
+            if self.file.is_some() {
+                return;
+            }
             for r in 0..self.code.regs {
                 let at = self.spill_address(r as usize);
                 let v = self.load(Loc::Mem(at, 0));
