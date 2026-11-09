@@ -26226,15 +26226,17 @@
     {
       "id": 2581,
       "title": "E-INTERNAL '`evensNil` is used before it's checked' when a def's `decreasing` measure names a theorem declared later in the file (elab fuzzer seed 0x2581 case 8590, mutated reject/decreasing-folded-goal.sw): give a user error (a measure can't use a later declaration, or one that depends on this def), not an internal one",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2581",
       "labels": [],
       "epic": "diagnostics",
-      "body": "Found 9 Nov in compute mode. Repro: examples/reject/decreasing-folded-goal.sw with 'decreasing n' changed to 'decreasing evensNil' (theorem evensNil (n: Nat): evens n = Nil := rfl, declared after). Add it as a reject example. 40 min.\n\nSecond repro (elab fuzzer 0x2583 case 429, from accept/succ-of-folded-call.sw): `decreasing outerN` naming a later *def* (not a theorem) gives the same E-INTERNAL \"`outerN` is used before it's checked\". So the fix is for any later declaration named in a measure.\n\nThird repro (elab fuzzer 0x2586 case 17930, from accept/decreasing.sw): `decreasing Stack`, a *type* declared later, gives the same E-INTERNAL. Any later declaration of any kind.\n\nElab fuzzer seed 0x258a (Speedwell, 9 Nov): two more, both oracle 2 E-INTERNAL 'used before it's checked': case 4987 from reject/decreasing-measure-later.sw (`annotated`), case 9729 from accept/tailrec.sw (`bump`). Inputs in the orchestrator scratchpad as 258a-4987.sw, 258a-9729.sw.",
+      "body": "Found 9 Nov in compute mode. Repro: examples/reject/decreasing-folded-goal.sw with 'decreasing n' changed to 'decreasing evensNil' (theorem evensNil (n: Nat): evens n = Nil := rfl, declared after). Add it as a reject example. 40 min.\n\nSecond repro (elab fuzzer 0x2583 case 429, from accept/succ-of-folded-call.sw): `decreasing outerN` naming a later *def* (not a theorem) gives the same E-INTERNAL \"`outerN` is used before it's checked\". So the fix is for any later declaration named in a measure.\n\nThird repro (elab fuzzer 0x2586 case 17930, from accept/decreasing.sw): `decreasing Stack`, a *type* declared later, gives the same E-INTERNAL. Any later declaration of any kind.\n\nElab fuzzer seed 0x258a (Speedwell, 9 Nov): two more, both oracle 2 E-INTERNAL 'used before it's checked': case 4987 from reject/decreasing-measure-later.sw (`annotated`), case 9729 from accept/tailrec.sw (`bump`). Inputs in the orchestrator scratchpad as 258a-4987.sw, 258a-9729.sw.\n\nModel result: Sonnet, worked, 8 min (est. 60). Optional follow-up (not filed): a dedicated 'measure uses a later declaration that depends on this one' message instead of E-MUTUAL-SIGNATURE's type wording.",
       "created": "2026-11-09",
       "updated": "2026-11-09",
-      "commits": []
+      "commits": [
+        "5e764701b"
+      ]
     },
     {
       "id": 2582,
