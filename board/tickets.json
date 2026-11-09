@@ -1,5 +1,5 @@
 {
-  "next": 2528,
+  "next": 2529,
   "tickets": [
     {
       "id": 47,
@@ -25321,7 +25321,7 @@
       "where": "",
       "labels": [],
       "epic": "comparative-speed",
-      "body": "Spike measured expressions -24.5%, scan -29.1% instructions; Tick 5,671 -> 3,458 per operation. 2-3 h.",
+      "body": "Spike measured expressions -24.5%, scan -29.1% instructions; Tick 5,671 -> 3,458 per operation. 2-3 h.\n\nFrom SW-2525: in stage 1b or 2, try one code pointer per operation (Effekt-style table) and keep it only if above noise.\n",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
@@ -25498,12 +25498,12 @@
     {
       "id": 2525,
       "title": "Compiled handler dispatch: prior-art review (OCaml 5, Koka evidence passing, Effekt, Eff, Haskell effect libraries, others) from primary sources; cited section in docs/proposals/compiled-handler-dispatch.md; does it change the design or D3440's recommendation?",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": "Speedwell",
       "labels": [],
       "epic": "comparative-speed",
-      "body": "Matt asked, 9 Nov 2026 morning, before deciding D3440. Paper lane. 60 min.\n\nStarted 9 Nov 2026 08:37 UTC. Expected: 60 min. Paper lane.\n",
+      "body": "Matt asked, 9 Nov 2026 morning, before deciding D3440. Paper lane. 60 min.\n\nStarted 9 Nov 2026 08:37 UTC. Expected: 60 min. Paper lane.\n\nMerged 9 Nov 08:46: \"Prior art\" section in compiled-handler-dispatch.md with pinned sources. Verdict: the end state (one function matching the operation, clauses inlined) is standard (OCaml 5.3 transl_handler, Eff, fused-effects, eff; Effekt with a code-pointer table); our way there is specialisation + closure sharing. Nobody else copies all clauses per operation. D3440 recommendation unchanged. Bigger wins in the literature come from removing the route: inlining a known handler's clause at the perform (Eff, Effekt) and in-place/evidence (Koka). Model result: Opus, worked, 7 min (est. 60).\n",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
@@ -25530,6 +25530,19 @@
       "labels": [],
       "epic": "comparative-speed",
       "body": "From SW-2526. Compute-heavy, token-light. 60 min.",
+      "created": "2026-11-09",
+      "updated": "2026-11-09",
+      "commits": []
+    },
+    {
+      "id": 2528,
+      "title": "Effect loop borrows the handler's step function when applying it (est. 60-100 instructions per operation), after borrow inference B1",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "comparative-speed",
+      "body": "From SW-2525. 45 min.",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
