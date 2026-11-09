@@ -1157,14 +1157,14 @@
     {
       "id": 814,
       "title": "Map speed beyond the 28 Oct fixes: a fused balanceL/balanceR (as Data.Map, est. ~30% fewer instructions per level) or a Nat-keyed IntMap",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "Speedwell",
       "labels": [],
       "epic": "performance",
-      "body": "Options listed by the Map lane: fused balance means re-proving balanceWithin, balanceSized, balanceOnto; an IntMap is a new std type with its own proofs. Day 20 part 2: ~1.7 µs per Map lookup.\n\nSW-1603 (docs/proposals/nat-map.md, 7 Nov): a fused balance is lower priority once native Map.Tree get/insertWith (SW-1825) lands.",
+      "body": "Options listed by the Map lane: fused balance means re-proving balanceWithin, balanceSized, balanceOnto; an IntMap is a new std type with its own proofs. Day 20 part 2: ~1.7 µs per Map lookup.\n\nSW-1603 (docs/proposals/nat-map.md, 7 Nov): a fused balance is lower priority once native Map.Tree get/insertWith (SW-1825) lands.\n\nStarted 9 Nov 2026 06:42 UTC. Expected: 75 min. Scope (orchestrator's call): fused balanceL/balanceR only; IntMap not now.\n",
       "created": "2026-10-28",
-      "updated": "2026-11-07",
+      "updated": "2026-11-09",
       "commits": []
     },
     {
