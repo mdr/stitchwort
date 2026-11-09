@@ -1,5 +1,5 @@
 {
-  "next": 2485,
+  "next": 2489,
   "tickets": [
     {
       "id": 47,
@@ -24965,12 +24965,64 @@
     {
       "id": 2484,
       "title": "Profile disk and bridge natively (17.6x and 18.9x Lean, the largest core gaps after expressions/scan): top functions, runtime calls, instruction split (checks, refcounts, calls, work), and rank the next measured targets with estimated savings; write docs/reviews/SW-N-disk-bridge-profiles.md",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "Speedwell",
       "labels": [],
       "epic": "comparative-speed",
-      "body": "Profile first (Matt, 7 Nov). task profile:native -- disk bridge --by-instruction; compare with Lean's and PyPy's approach where telling. Measurement and write-up only; file each target as a finding. 60 min.\n\nStarted 9 Nov 2026 04:56 UTC. Expected: 60 min.\n",
+      "body": "Profile first (Matt, 7 Nov). task profile:native -- disk bridge --by-instruction; compare with Lean's and PyPy's approach where telling. Measurement and write-up only; file each target as a finding. 60 min.\n\nStarted 9 Nov 2026 04:56 UTC. Expected: 60 min.\n\nMerged 9 Nov 05:15: docs/reviews/SW-2484-disk-bridge-profiles.md. Filed SW-2485 (minOr, -16% disk), SW-2486 (fused token nat, bridge -14 to -23%), SW-2487 (many/optional mark), SW-2488 (replicate ++). canMake closure and Nat key ordering overlap SW-2135. Model result: Sonnet, worked, 18 min (est. 60).\n",
+      "created": "2026-11-09",
+      "updated": "2026-11-09",
+      "commits": []
+    },
+    {
+      "id": 2485,
+      "title": "Map.Tree.minOr/maxOr build the result once: carry key and value as two arguments, not Some (k, v) per level (disk -16% measured: 6.23 -> 5.24 s, cells 105.5 M -> 53.9 M)",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "comparative-speed",
+      "body": "From SW-2484 (docs/reviews/SW-2484-disk-bridge-profiles.md, target 1; the lane's patch is in the scratchpad). One std proof needs a three-line lemma. 45 min.",
+      "created": "2026-11-09",
+      "updated": "2026-11-09",
+      "commits": []
+    },
+    {
+      "id": 2486,
+      "title": "Parser: one fused operation for token nat (3 marks + 3 spans per number become one operation); bridge -14 to -23% (extrapolated from measured per-operation cost)",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "comparative-speed",
+      "body": "From SW-2484 target 2. Bridge is 83% parsing. Design the operation so other token parsers can use it. 90 min.",
+      "created": "2026-11-09",
+      "updated": "2026-11-09",
+      "commits": []
+    },
+    {
+      "id": 2487,
+      "title": "Parser: many reuses optional's mark (disk -5%, bridge -3%, measured)",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "comparative-speed",
+      "body": "From SW-2484 target 5. 45 min.",
+      "created": "2026-11-09",
+      "updated": "2026-11-09",
+      "commits": []
+    },
+    {
+      "id": 2488,
+      "title": "replicate k x ++ rest without the copy (disk -2 to -3%, estimated)",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "comparative-speed",
+      "body": "From SW-2484 target 7. 45 min.",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
