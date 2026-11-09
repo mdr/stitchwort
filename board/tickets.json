@@ -1,5 +1,5 @@
 {
-  "next": 2585,
+  "next": 2586,
   "tickets": [
     {
       "id": 47,
@@ -26257,7 +26257,7 @@
       "where": "",
       "labels": [],
       "epic": "test-infra",
-      "body": "Overmind job 49, 9 Nov, 67a51661f; also 8 Nov 99fb2ce82. Report on Overmind target/tier-report/full-20261109-145358.md. Profile first. 60 min.",
+      "body": "Overmind job 49, 9 Nov, 67a51661f; also 8 Nov 99fb2ce82. Report on Overmind target/tier-report/full-20261109-145358.md. Profile first. 60 min.\n\nJob 51: also library fmt_hashes::formatting_changes_no_declaration_hash at 7.73 GB after 68 s, and search_at_aoc at 2 GB. The full tier as a whole doesn't fit 15.5 GB at the default thread count.\n",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
@@ -26271,6 +26271,19 @@
       "labels": [],
       "epic": "test-infra",
       "body": "Overmind job 49, 9 Nov. Seed 43 also takes ~170 s in debug (SW-2570 report); SW-2570 follow-up. 30 min.\n\nOvermind job 50: alone on a quiet machine the effect default test passes in 43.5 s with no skips. Same pattern in two LSP tests (a_newer_edit_cancels_the_check_running, aoc_navigation_matches_check_index): pass alone (9.8 s, 54 s) and in their module (48/48), but under full-tier load took 7-37x as long and gave up waiting for diagnostics. Scope: make these three tests' waits load-proof.\n",
+      "created": "2026-11-09",
+      "updated": "2026-11-09",
+      "commits": []
+    },
+    {
+      "id": 2585,
+      "title": "Intermittent SIGSEGV in the CLI and test binaries under the full tier on Overmind (job 51, 3eda2fa7d): 20 cores, 11 in elab::module::names_and_proofs <- decl_refs <- LibraryIndex::build (OnceLock standard) <- Session::start_in <- host::stack::start, 6 in musl memcpy, 1 in Expr::span, 1 in nav::Index drop. Also wrong results in the same window: 'library file std/Map/Spec.sw doesn't check', rewind mismatches, cache index differences. Passes alone. Suspects: stack overflow on host::stack's MAP_NORESERVE stack (no overflow handler) or pages failing under memory pressure; or a real memory-safety bug",
+      "status": "backlog",
+      "agent": "Opus",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
+      "body": "Overmind job 51, 9 Nov 16:44-17:21, near the 11.6 GB cap. Cores in systemd-coredump on Overmind (PIDs 886309-895875). Failing tests: goal_index x4, guide quotes, named_arguments literals hashes, rewind examples, run_js and run_reference examples, check_cache x2, import_order. Logs on Overmind j51/. Find the fault address vs the stack mapping first. Tricky bug: Opus. 120 min.",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
