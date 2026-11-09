@@ -1,5 +1,5 @@
 {
-  "next": 2474,
+  "next": 2477,
   "tickets": [
     {
       "id": 47,
@@ -24646,14 +24646,14 @@
     {
       "id": 2461,
       "title": "Effect-runtime allocation stage 0: counters (runtime-built cells per site, cell-cache hits from generated code under call-counts, performs that reach a bind directly) on expressions, scan, matcher",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "Speedwell",
       "labels": [
         "perf"
       ],
       "epic": "comparative-speed",
-      "body": "docs/proposals/effect-runtime-allocation.md stage 0. Checks the ~94 M runtime cells and R4's reach. 45 min.\n\nStarted 9 Nov 2026 02:04 UTC, lanes mode (pace 0.92). Expected: 45 min.\n",
+      "body": "docs/proposals/effect-runtime-allocation.md stage 0. Checks the ~94 M runtime cells and R4's reach. 45 min.\n\nStarted 9 Nov 2026 02:04 UTC, lanes mode (pace 0.92). Expected: 45 min.\n\nMerged 9 Nov 02:36 (rt 65, native 70 passed). Stage-0 go/no-go passes: 94.14 M pending+skip+Done cells (note: 94 M); R4 at the top of its range (every perform bound directly, unique Call cell). New: R7 (forwarded-op reuse, <= 1%), left-nested binds 57% of expressions' binds. Findings SW-2474 SW-2475 SW-2476. Model result: Sonnet, worked, 30 min (est. 45).\n",
       "created": "2026-11-08",
       "updated": "2026-11-09",
       "commits": []
@@ -24828,6 +24828,45 @@
       "labels": [],
       "epic": "syntax-language",
       "body": "From SW-2455's ports. Check whether .. patterns are planned (docs/syntax.md); file a design question if not. 30 min.",
+      "created": "2026-11-09",
+      "updated": "2026-11-09",
+      "commits": []
+    },
+    {
+      "id": 2474,
+      "title": "Benchmark comparability: the same commit runs expressions in 320.5 G instructions built plainly (main checkout, no kache) but 310.7 G built in a lane worktree through kache (-3.1%); find why (different rustflags, codegen units, LTO, target-cpu?) and make both builds identical",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "comparative-speed",
+      "body": "From SW-2461. Lanes' before/after numbers and Overmind's main-checkout comparisons may differ for identical source. Compare the effective cargo/rustc flags of both builds first. 45 min.",
+      "created": "2026-11-09",
+      "updated": "2026-11-09",
+      "commits": []
+    },
+    {
+      "id": 2475,
+      "title": "Value census undercounts fold handlers: effect::handler_for makes Fold handlers with Rc::new, not new_handler (census 0.27 M vs counted 4.75 M on expressions)",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "performance",
+      "body": "From SW-2461. Route them through value_census::new_handler. 15 min.",
+      "created": "2026-11-09",
+      "updated": "2026-11-09",
+      "commits": []
+    },
+    {
+      "id": 2476,
+      "title": "task profile:native has no counts-only path: it always runs samply before the call-counts step; add a COUNTS_ONLY=1 (or a separate task)",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "performance",
+      "body": "From SW-2461, whose lane wrote its own driver. 30 min.",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
