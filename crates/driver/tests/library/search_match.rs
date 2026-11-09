@@ -248,3 +248,28 @@ fn in_limits_the_search_to_a_namespace() {
         report.warnings
     );
 }
+
+/// A pattern may begin with an `[auto]` binder (SW-2553): it matches a
+/// lemma's instance argument instead of stopping the match, and finds what
+/// the same pattern without the binder does.
+#[test]
+fn a_pattern_starting_with_an_auto_binder_finds_the_instance_lemma() {
+    let found = |query: &str| {
+        with_session(STACK, Session::for_stack, |session| {
+            session.load("search.sw", SOURCE).expect("the file checks");
+            let report = session
+                .search(query, &Options::default(), &Scope::File)
+                .unwrap_or_else(|d| panic!("{query}: {} {}", d.code, d.message));
+            (
+                report.search_tier,
+                report.results.first().map(|r| r.name.clone()),
+            )
+        })
+    };
+    let (tier, first) = found("[auto eq: DecEq ?a] → (x: ?a) → (x == x) = True");
+    assert_eq!(tier, Some("filtered"));
+    assert_eq!(first.as_deref(), Some("Std.DecEq.refl"));
+    // The pattern without the binder still finds it first.
+    let (_, plain) = found("(?x == ?x) = True");
+    assert_eq!(plain.as_deref(), Some("Std.DecEq.refl"));
+}
