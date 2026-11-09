@@ -381,12 +381,15 @@ def Parse.oneOf: (parsers: List (() → {Parse} a)) → {Parse} a
   | [first, ..rest] => Parse.oneOfFrom first rest
 
 --| `parser` while it succeeds, at most `fuel` times. `found` is newest first.
+-- The round's one mark serves `optionalFrom` and the progress check in
+-- `manyStep`: `optional` would take a second mark of its own, an extra
+-- operation per repetition.
 def Parse.manyFuel (fuel: Nat) (parser: () → {Parse} a) (found: List a): {Parse} List a :=
   match fuel with
     | Zero => found.reverse
     | Succ more =>
       let before := Parse.mark()
-      Parse.manyStep before (Parse.optional parser) (value => Parse.manyFuel more parser [value, ..found]) (() => found.reverse)
+      Parse.manyStep before (Parse.optionalFrom before parser) (value => Parse.manyFuel more parser [value, ..found]) (() => found.reverse)
 
 --| One round of `many`, once `optional parser` has given `found` from
 --| `before`: `done()` if it failed, `next` of its value if it read something.
