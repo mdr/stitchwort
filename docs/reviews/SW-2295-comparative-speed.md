@@ -224,3 +224,9 @@ drifted 0–4% faster over the same interval, so about 2–3% of each native tim
 
 Geometric means: native / CPython **… → 2.8 → 2.7** (2.68), native / Lean **… → 11.7 → 11.3** (11.26).
 Raw files: Overmind's `target/compare/2026-11-08T225859-overmind.{json,md}`.
+
+**Build-mode step (SW-2474, 9 Nov 2026).** Every comparison above built `stitchwort` and its runtime
+library in the devShell's incremental release mode (256 codegen units, no cross-unit inlining), which
+makes native executables run about 3% more instructions (expressions 320.4 G vs 310.6 G) than the
+distributed non-incremental build. From SW-2474 on, the timing tasks build non-incrementally into
+`target/bench`, so the next run shows a one-off step of about 3% that is not a code change.

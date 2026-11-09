@@ -63,3 +63,6 @@ commit = "610279d59"
 report = "docs/reviews/SW-2295-comparative-speed.md"
 native_over_cpython = 2.68
 native_over_lean = 11.26
+
+# From here on (SW-2474, 9 Nov 2026) the timing tasks build non-incrementally into target/bench:
+# about 3% fewer native instructions than every entry above, from build mode alone.
