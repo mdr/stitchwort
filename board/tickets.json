@@ -1,5 +1,5 @@
 {
-  "next": 2573,
+  "next": 2575,
   "tickets": [
     {
       "id": 47,
@@ -26023,7 +26023,7 @@
       "where": "Speedwell",
       "labels": [],
       "epic": "comparative-speed",
-      "body": "D3441 (gate passed in SW-2530). O6 dropped (orchestrator call). Started 10:55 UTC. Expected: 480 min.\n\nProgress (lane, 9 Nov 2026):\n- 12:20 GMT: built and committed on lane/SW-2565 (5cbd08397), about 85 min of the 480 estimated. Pass in crates/rt/src/borrow.rs; design and results in docs/proposals/borrow-inference.md §12; perf log entry.\n- Measured vs d5bd2f09d: bench:instructions geomean -3.77% (mapops -6.09%, memory-game -18.98%, disk -1.06%, rbmap-ck -0.99%, expressions -0.85%, rbmap -0.39%, dijkstra -0.13%, binary-trees +0.04%). bench:aoc geomean -0.96% over 56 days (2024/06 -10.8%, 2021/17 -9.5%, 2020/08 -4.9%; worst 2021/01 +1.16%, over the +1% gate). Peak memory unchanged.\n- Rules beyond the note: merge, fresh, fed; O6 dropped; O1-O3 only label fed parameters. The lifted get.%match1[2] now borrows its value and children.\n- Tests: rt lane 90/90, native lane 78/78, borrow unit 24/24, alloc_trace + reuse + hash tests 40/40, new native borrow tests 3/3, new machine check test passes. cargo fmt, clippy clean.\n- borrow-counts retired (recoverable from d87bf7c93).\n",
+      "body": "D3441 (gate passed in SW-2530). O6 dropped (orchestrator call). Started 10:55 UTC. Expected: 480 min.\n\nProgress (lane, 9 Nov 2026):\n- 12:20 GMT: built and committed on lane/SW-2565 (5cbd08397), about 85 min of the 480 estimated. Pass in crates/rt/src/borrow.rs; design and results in docs/proposals/borrow-inference.md §12; perf log entry.\n- Measured vs d5bd2f09d: bench:instructions geomean -3.77% (mapops -6.09%, memory-game -18.98%, disk -1.06%, rbmap-ck -0.99%, expressions -0.85%, rbmap -0.39%, dijkstra -0.13%, binary-trees +0.04%). bench:aoc geomean -0.96% over 56 days (2024/06 -10.8%, 2021/17 -9.5%, 2020/08 -4.9%; worst 2021/01 +1.16%, over the +1% gate). Peak memory unchanged.\n- Rules beyond the note: merge, fresh, fed; O6 dropped; O1-O3 only label fed parameters. The lifted get.%match1[2] now borrows its value and children.\n- Tests: rt lane 90/90, native lane 78/78, borrow unit 24/24, alloc_trace + reuse + hash tests 40/40, new native borrow tests 3/3, new machine check test passes. cargo fmt, clippy clean.\n- borrow-counts retired (recoverable from d87bf7c93).\n\nOpus review 9 Nov: docs/reviews/SW-2565-borrow-b1-review.md, fix first (F1 g x x compiler panic, F2 slow out-of-frames, F4 TailApply save, F3 Forget check; rebase onto SW-2559 and re-measure). Sent back to the lane. Follow-ups SW-2573, SW-2574, . 2021/01 +1.16% accepted (orchestrator, D3447).\n",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
@@ -26115,6 +26115,32 @@
       "labels": [],
       "epic": "elaborator-kernel",
       "body": "From SW-2570. Repro: STITCHWORT_EFFECT_FUZZ_SEED=1794200310 STITCHWORT_EFFECT_FUZZ_BATCHES=1 cargo test --release -p stitchwort-cli --test extraction effect_differential::generated -- --nocapture (dump the module). Possibly exponential evaluation of open Nat terms. Profile first. 120 min.",
+      "created": "2026-11-09",
+      "updated": "2026-11-09",
+      "commits": []
+    },
+    {
+      "id": 2573,
+      "title": "Borrow B1 follow-ups from the Opus review (docs/reviews/SW-2565-borrow-b1-review.md): rest of F3 (Own/Peek count checks if not done), F5 host roots treated as used plus assertions in apply and sw_apply_prepare, F6 assert forward-only jumps in inference and check, F7 NATIVE_PARTS test mode and size caps after the rewrite; the missing tests from review section 6",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "comparative-speed",
+      "body": "After SW-2565 merges. 45 min.",
+      "created": "2026-11-09",
+      "updated": "2026-11-09",
+      "commits": []
+    },
+    {
+      "id": 2574,
+      "title": "AoC 2021/01 +1.16% instructions under borrow B1 (about 680 per input line, in parsing): check the review's guess (shared-but-unique values now lent and freed whole) and fix if general",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "comparative-speed",
+      "body": "From SW-2565 and its review F9. Profile first. 60 min.",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
