@@ -130,6 +130,8 @@ A test is a runtime check of one case, like a unit test in other languages; a th
 
 Tests run on the fast runtime, the same one `stitchwort run` uses. `stitchwort test --reference` runs them on the type checker's own evaluator, the reference that defines what programs mean; it's slower, and the repository's own tests check that the two always agree.
 
+`stitchwort test --native` compiles the tests to native code first, which pays off when they compute a lot (an AoC day's tests on its real input run three or four times faster) and costs a few tens of milliseconds of compiling when they don't. A test native code can't run goes to the fast runtime, so the results are the same either way, and so is the cache. `--verbose` says which tests ran natively. It needs a build with the `native` feature, which `task build` makes.
+
 ## Property tests
 
 There are no property tests yet. A theorem's statement is searched for counterexamples, small inputs first and then random ones, when its proof fails, and `stitchwort check --counterexamples` searches every theorem's ([syntax.md, Counterexamples to a theorem](../syntax.md#counterexamples-to-a-theorem)); property tests, `test` with parameters, are designed and come later ([counterexample-search.md](../proposals/counterexample-search.md)).

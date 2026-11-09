@@ -1319,6 +1319,25 @@ impl NativeExecutor {
         Some(Ok(value))
     }
 
+    /// The constants computed so far, taken out, leaving none: to run
+    /// something as on a fresh machine (a partial test, which
+    /// `stitchwort test` runs on a machine of its own) without losing them
+    /// for what comes after ([`NativeExecutor::restore_globals`]).
+    pub fn set_aside_globals(&mut self) -> Vec<Option<Value>> {
+        let fresh = vec![None; self.globals.len()];
+        std::mem::replace(&mut self.globals, fresh)
+    }
+
+    /// Puts back what [`NativeExecutor::set_aside_globals`] took out.
+    pub fn restore_globals(&mut self, globals: Vec<Option<Value>>) {
+        assert_eq!(
+            globals.len(),
+            self.globals.len(),
+            "another program's globals"
+        );
+        self.globals = globals;
+    }
+
     /// Calls into the code with `frames` pending, as `call` does it, and
     /// drops what its frames gave up if it fails.
     fn cross(

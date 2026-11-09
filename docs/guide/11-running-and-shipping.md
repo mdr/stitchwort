@@ -12,7 +12,7 @@ All three print the same output and fail the same way, which the repository's te
 
 Exit codes: 0 on success; 1 when the program doesn't check, or `main` fails with `Fail`; 2 when it fails while running: an `IO` error, or running out of resources (a deep recursion, a huge number).
 
-`stitchwort run --native` is a fourth, experimental way: the functions `main` calls run as native code where they and everything they reach compile, and on the fast runtime otherwise (`--verbose` says which). It needs a build with the `native` feature, which `task build` makes.
+`stitchwort run --native` is a fourth, experimental way: the functions `main` calls run as native code where they and everything they reach compile, and on the fast runtime otherwise (`--verbose` says which). It needs a build with the `native` feature, which `task build` makes. `stitchwort test --native` runs tests the same way ([chapter 9](09-testing.md#two-runtimes)).
 
 ## Finding where the time goes
 

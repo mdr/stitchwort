@@ -90,17 +90,28 @@ impl NativeTestRun {
             .global(def)
             .ok_or_else(|| "it wasn't lowered".to_string())?;
         self.executor.reset_steps();
-        let value = self
-            .executor
-            .global(global.0)
-            .ok_or_else(|| "it wasn't compiled".to_string())?;
         let value = match partial {
-            // Stepped as on the machine, with this executor.
-            Some(limits) => value
-                .map_err(stitchwort_rt::host::RunError::from)
-                .and_then(|delay| stitchwort_rt::run_partial_on(&mut self.executor, limits, delay)),
-            None => value.map_err(Into::into),
+            // Stepped as on the machine, and as the machine runs it on a
+            // machine of its own, with none of the constants other tests
+            // computed, so that it costs the same steps and frames.
+            Some(limits) => {
+                let kept = self.executor.set_aside_globals();
+                let value = self.executor.global(global.0).map(|value| {
+                    value
+                        .map_err(stitchwort_rt::host::RunError::from)
+                        .and_then(|delay| {
+                            stitchwort_rt::run_partial_on(&mut self.executor, limits, delay)
+                        })
+                });
+                self.executor.restore_globals(kept);
+                value
+            }
+            None => self
+                .executor
+                .global(global.0)
+                .map(|v| v.map_err(Into::into)),
         };
+        let value = value.ok_or_else(|| "it wasn't compiled".to_string())?;
         match value {
             Ok(stitchwort_rt::value::Value::Tag(tag)) => Ok(if tag == self.true_ {
                 Outcome::Passed

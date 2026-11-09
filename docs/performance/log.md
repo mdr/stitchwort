@@ -46,6 +46,36 @@ in [../proposals/README.md](../proposals/README.md).
 
 ## 9 Nov 2026
 
+### SW-2543: `stitchwort test --native` (tests as native code; 2021 day 15's tests 3.7x faster)
+
+- **Status:** on branch `lane/SW-2543`, behind a flag (`test --native`); the default flips in
+  N6 (docs/reviews/SW-2535-native-default-plan.md). Opus.
+- **Problem.** `stitchwort test` ran every test on the machine. Native code runs AoC days 2-3x
+  faster, but `test` had no native path.
+- **Change.** The tests lowered together are compiled once, with each test constant a root
+  (`n1::compile_roots`, an entry trampoline per root), and each test's value is computed by
+  `NativeExecutor::global` as the machine's `Machine::global` computes it. A test native code
+  can't run goes to the machine, so outcomes and the cache are the machine's.
+- **Measured** (release CLI with `dev` features, best of 3 by instructions; `test X
+  --verify-cache`, which reruns every test with the check cache warm, less a fully cached `test
+  X`; load average 4-10):
+
+  | Tests | Machine: instructions, wall | Native: instructions, wall | Compile (in native) |
+  |---|---:|---:|---:|
+  | AoC 2021 day 15 (18 tests, real input) | 85.9 G, 5.89 s | 22.3 G, 1.61 s | 259 bodies, 0.43 s |
+  | AoC 2024 day 9 (32 tests, real input) | 14.1 G, 1.00 s | 8.4 G, 0.68 s | 321 bodies, 0.48 s |
+  | AoC 2020 day 21 (10 tests, real input) | 10.7 G, 0.70 s | 6.6 G, 0.48 s | |
+  | `examples/accept/text.sw` (58 small tests) | under 0.01 G, under 0.01 s | 0.44 G, 0.04 s | 69 bodies, 0.035 s |
+
+  So 3.7x on a day whose tests compute a lot, about 1.5x on a typical day, where compiling is
+  most of what native code spends, and 30-40 ms more on a file of small tests (the whole
+  command: 2.36 G, 0.23 s -> 2.80 G, 0.27 s). Uncached (`--no-cache`, checking included) 2021 day 15 went from
+  12.6-13.2 s to 8.0-8.7 s, and 2024 day 9 from 5.6-5.8 s to 5.3-5.5 s.
+- **Not done.** No threshold below which small test files stay on the machine (§3.6 of the
+  plan): 30-40 ms didn't seem worth a rule. Compile time is now the larger part for a typical
+  day (lane J of the plan).
+- **Links.** SW-2543, SW-2535.
+
 ### SW-2524: skipping the live heap's free at exit (dropped: under 0.3%)
 
 - **Status:** dropped, no code merged. Sonnet.
