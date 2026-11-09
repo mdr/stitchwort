@@ -24751,14 +24751,14 @@
     {
       "id": 2468,
       "title": "Elaborator stack overflow #2: freeing a deep Value chain recurses (drop_glue<Value> through Rc<SmallVec<[Value;4]>>); repro dev/fuzz-findings/246f-2415.sw (settle 2^128), still crashing after SW-2452",
-      "status": "next",
+      "status": "doing",
       "agent": "Sonnet",
-      "where": "",
+      "where": "Speedwell",
       "labels": [
         "elab"
       ],
       "epic": "audit-fuzzing",
-      "body": "Found 9 Nov 2026 02:04 on Speedwell (compute mode). Slow cases before it: 831, 2415. Bisect with FROM/TO; then compare with SW-2452 (case 531 of 0x2451): same recursion or a new one.\n\n03:16: bisected by Overmind job 31 at f5f4b84c8: case 2415 of 0x246f, a mutant of examples/accept/unfold-until-stable.sw (settleStays's argument 0 -> 2^128; countdown test 4 -> 8). Input dev/fuzz-findings/246f-2415.sw (56 lines). Still crashes after SW-2452 (Overmind main a72d12fbf SIGSEGV at 25 s; Speedwell exit 132 at 11 s). Core dump: a 3-frame loop drop_glue<SmallVec<[Value;4]>> -> Rc<SmallVec<[Value;4]>>::drop -> drop_glue<Value>: the general Value drop is recursive (SW-2452 only made an unfolding's kept value iterative). Fix: make Value's drop iterative (a worklist, as Values does), and check what evaluating settle 2^128 should cost before the size limit (it should stop with a resource error, not build a deep chain). 60 min.\n",
+      "body": "Found 9 Nov 2026 02:04 on Speedwell (compute mode). Slow cases before it: 831, 2415. Bisect with FROM/TO; then compare with SW-2452 (case 531 of 0x2451): same recursion or a new one.\n\n03:16: bisected by Overmind job 31 at f5f4b84c8: case 2415 of 0x246f, a mutant of examples/accept/unfold-until-stable.sw (settleStays's argument 0 -> 2^128; countdown test 4 -> 8). Input dev/fuzz-findings/246f-2415.sw (56 lines). Still crashes after SW-2452 (Overmind main a72d12fbf SIGSEGV at 25 s; Speedwell exit 132 at 11 s). Core dump: a 3-frame loop drop_glue<SmallVec<[Value;4]>> -> Rc<SmallVec<[Value;4]>>::drop -> drop_glue<Value>: the general Value drop is recursive (SW-2452 only made an unfolding's kept value iterative). Fix: make Value's drop iterative (a worklist, as Values does), and check what evaluating settle 2^128 should cost before the size limit (it should stop with a resource error, not build a deep chain). 60 min.\n\nStarted 9 Nov 2026 03:35 UTC. Expected: 60 min.\n",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
