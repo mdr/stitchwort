@@ -1,5 +1,5 @@
 {
-  "next": 2559,
+  "next": 2561,
   "tickets": [
     {
       "id": 47,
@@ -25933,6 +25933,32 @@
       "labels": [],
       "epic": "effects-native",
       "body": "D3455, Matt, 9 Nov 2026 10:15: yes, let users set the recursion limit. Step and size limits not included (not decided). After SW-2471 (same limits code). User-visible: update docs/guide, docs/syntax.md or docs/projects.md, CLI help; tour page only if it fits. 90 min.",
+      "created": "2026-11-09",
+      "updated": "2026-11-09",
+      "commits": []
+    },
+    {
+      "id": 2559,
+      "title": "Cell cache: keep an exact held-bytes count (add on push, subtract on take, including native code's inline takes) so CellCache::full (crates/rt/src/cell_cache.rs:106) stops walking every cached block; it is 15% of binary-trees' cycles and caused rbmap's +1.4% time after SW-2511 (LLC misses 0.55 M -> 3.8 M)",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "comparative-speed",
+      "body": "From Overmind job 41 (9 Nov): reverting 200f2d6d9 alone restores rbmap and memory-game time; rbmap's loss is CellCache::full (0 -> 4.4% of cycles) walking 64 MB of cached blocks. binary-trees already spends 15% in full() on both builds. Weigh the extra instruction on the inline take path against the walk; measure time on Overmind, not only instructions (SW-2523 lesson). Profile first. 90 min.",
+      "created": "2026-11-09",
+      "updated": "2026-11-09",
+      "commits": []
+    },
+    {
+      "id": 2560,
+      "title": "memory-game +3.6% cycles with fewer instructions and misses after SW-2511's Unpack change: perf annotate nextAfter (inlined drop) to find the stall",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "comparative-speed",
+      "body": "From Overmind job 41. No cache/TLB/branch counter explains it; suspected store-to-load or dependency stall in the inlined drop. Needs Linux perf (Overmind). 45 min.",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
