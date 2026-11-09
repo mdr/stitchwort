@@ -33,6 +33,16 @@ vars:
   # The release CLI the AoC and `.sw` tasks run (on Linux the devShell sets
   # CARGO_BUILD_TARGET, the musl target, which cargo puts in its own folder).
   SW: '{{.ROOT_DIR}}/target/{{if .CARGO_BUILD_TARGET}}{{.CARGO_BUILD_TARGET}}/{{end}}release/stitchwort'
+  # Where the timing tasks build and run `stitchwort` and its runtime library
+  # (`libstitchwort_standalone.a`, linked into every native executable). Not
+  # `target/`: the devShell's incremental release builds (CARGO_PROFILE_RELEASE_
+  # INCREMENTAL=true, SW-1729) use 256 codegen units without cross-unit
+  # inlining, and the executables they link run about 3% more instructions
+  # than the distributed (non-incremental) build's; kache strips the flag, so a
+  # lane worktree and the main checkout measured differently (SW-2474). These
+  # tasks set the variable to false, which needs its own folder.
+  BENCH_TARGET: '{{.ROOT_DIR}}/target/bench'
+  BENCH_SW: '{{.ROOT_DIR}}/target/bench/{{if .CARGO_BUILD_TARGET}}{{.CARGO_BUILD_TARGET}}/{{end}}release/stitchwort'
   # The one feature set of every dev and test build (docs/testing.md,
   # "Features"): native code, so that `build --native` is tested
   # (crates/cli/tests/running/build.rs), and what crates/dev-features turns on. Test
@@ -526,9 +536,12 @@ tasks:
       times for each runner, with the load average. A measurement, not a test.
     vars:
       ROUNDS: '{{.ROUNDS | default "3"}}'
+    env:
+      CARGO_TARGET_DIR: '{{.BENCH_TARGET}}'
+      CARGO_PROFILE_RELEASE_INCREMENTAL: 'false'
     cmds:
       - cargo build --release -p stitchwort-cli {{.DEV_FEATURES}}
-      - bash bench/native/bench.sh {{.SW}} {{.ROUNDS}}
+      - bash bench/native/bench.sh {{.BENCH_SW}} {{.ROUNDS}}
 
   bench:compare:
     desc: 'Stitchwort against CPython, PyPy and Lean (bench/compare): checks every answer, then times; on a quiet machine (args after --: --runs N, --all, program names)'
@@ -538,15 +551,21 @@ tasks:
       runners are run once and must print expected.txt exactly, then are
       timed with hyperfine, startup subtracted. A measurement, not a test:
       docs/proposals/comparative-speed.md, bench/compare/README.md.
+    env:
+      CARGO_TARGET_DIR: '{{.BENCH_TARGET}}'
+      CARGO_PROFILE_RELEASE_INCREMENTAL: 'false'
     cmds:
       - cargo build --release -p stitchwort-cli -p stitchwort-standalone {{.DEV_FEATURES}}
-      - nix develop .#compare -c bash bench/compare/compare.sh --sw {{.SW}} {{.CLI_ARGS}}
+      - nix develop .#compare -c bash bench/compare/compare.sh --sw {{.BENCH_SW}} {{.CLI_ARGS}}
 
   bench:compare:check:
     desc: 'Run every bench/compare runner once and compare its output with expected.txt (no timing; args after -- name programs)'
+    env:
+      CARGO_TARGET_DIR: '{{.BENCH_TARGET}}'
+      CARGO_PROFILE_RELEASE_INCREMENTAL: 'false'
     cmds:
       - cargo build --release -p stitchwort-cli -p stitchwort-standalone {{.DEV_FEATURES}}
-      - nix develop .#compare -c bash bench/compare/compare.sh --check --sw {{.SW}} {{.CLI_ARGS}}
+      - nix develop .#compare -c bash bench/compare/compare.sh --check --sw {{.BENCH_SW}} {{.CLI_ARGS}}
 
   profile:native:
     desc: 'Profile the native executables of bench/compare programs: samply top functions by Stitchwort definition, and counts of runtime calls (args after --: program names, --top N, --focus FUNCTION, --group PREFIX, --by-instruction [--bodies N], --no-counts)'
@@ -562,9 +581,12 @@ tasks:
       and the top --bodies compiled bodies are split by part (checks,
       reference counts, calls, the instructions' own work) and by bytecode
       instruction. docs/reviews/SW-2296-native-profiles.md.
+    env:
+      CARGO_TARGET_DIR: '{{.BENCH_TARGET}}'
+      CARGO_PROFILE_RELEASE_INCREMENTAL: 'false'
     cmds:
       - cargo build --release -p stitchwort-cli -p stitchwort-standalone {{.DEV_FEATURES}}
-      - python3 -I dev/profile-native --sw {{.SW}} {{.CLI_ARGS}}
+      - python3 -I dev/profile-native --sw {{.BENCH_SW}} {{.CLI_ARGS}}
 
   bench:compare:proofs:
     desc: 'Checking speed, Stitchwort against Lean (bench/compare/lean-proofs): three AoC days, cold, library load apart; on a quiet machine (args after --: --runs N, day names)'
