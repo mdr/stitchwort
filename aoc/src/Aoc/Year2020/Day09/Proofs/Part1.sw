@@ -8,7 +8,7 @@ import Std (Bool, Eq, List, Nat, Option, Void)
 
 --| Each number the walk has passed was valid.
 def ValidBefore (numbers: List Nat) (preamble: Nat) (position: Nat): Prop :=
-  (earlier: Nat) → preamble ≤ earlier < position → (number: Nat) → numbers.get earlier = Some number →
+  ∀ (earlier: Nat) => preamble ≤ earlier < position → ∀ (number: Nat) => numbers.get earlier = Some number →
     SumOfTwo (previous numbers preamble earlier) number
 
 --| The walk is at `front`, the numbers from `start` on: the number it
@@ -20,7 +20,7 @@ theorem walkAt (numbers: List Nat) (preamble: Nat) (start: Nat) (front: List Nat
   Both (rewrite <- List.getDrop numbers start preamble, <- at in here)
     (rewrite (omega: start + preamble - preamble = start), <- at in rfl)
 
-theorem walkSound (numbers: List Nat) (preamble: Nat) (answer: Nat): (front: List Nat) → (start: Nat) → front = numbers.drop start →
+theorem walkSound (numbers: List Nat) (preamble: Nat) (answer: Nat): ∀ (front: List Nat) (start: Nat) => front = numbers.drop start →
     ValidBefore numbers preamble (start + preamble) → firstInvalidFrom preamble front = Some answer → Part1 numbers preamble answer
   | front, start, at, valid, found =>
     match d: front.drop preamble with

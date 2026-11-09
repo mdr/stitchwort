@@ -9,7 +9,7 @@ import Aoc.Year2020.Day14 (Spec)
 import Std (Bool, DecEq, Eq, List, Nat, Void)
 
 --| What `decodeBits` lists fits the mask and the address, bit by bit.
-theorem decodedFit: (mask: List MaskBit) → (address: List Bool) → (bits: List Bool) → bits ∈ decodeBits mask address →
+theorem decodedFit: ∀ (mask: List MaskBit) (address bits: List Bool) => bits ∈ decodeBits mask address →
     address.length = mask.length → bits.length = mask.length ∧ Spec.allFit mask address bits = True
   | [], [], bits, member, same =>
     match member with
@@ -42,7 +42,7 @@ theorem decodedFit: (mask: List MaskBit) → (address: List Bool) → (bits: Lis
   | [maskBit, ..mask], [], bits, member, same => Void.exfalso (omega)
 
 --| Every list of bits that fits the mask and the address is listed.
-theorem fitDecoded: (mask: List MaskBit) → (address: List Bool) → (bits: List Bool) → address.length = mask.length →
+theorem fitDecoded: ∀ (mask: List MaskBit) (address bits: List Bool) => address.length = mask.length →
     bits.length = mask.length → Spec.allFit mask address bits = True → bits ∈ decodeBits mask address
   | [], [], [], sameAddress, sameBits, fit => Inl rfl
   | [Off, ..mask], [bit, ..address], [chosen, ..bits], sameAddress, sameBits, fit =>

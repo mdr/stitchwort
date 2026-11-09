@@ -7,7 +7,7 @@ import Aoc.Year2024.Day22 (..)
 import Aoc.Year2024.Day22.Spec (..)
 import Std (Bool, DecEq, Eq, List, Map, Nat, Option, Void)
 
-theorem secretsMatch: (count: Nat) → (secret: Nat) → secrets count secret = secretNumbers count secret
+theorem secretsMatch: ∀ (count secret: Nat) => secrets count secret = secretNumbers count secret
   | Zero, secret => rfl
   | Succ count, secret => rewrite nextSecretEvolves secret, secretsMatch count (evolve secret) in rfl
 
@@ -16,7 +16,7 @@ theorem pricesMatch (count: Nat) (buyer: Nat): prices count buyer = offeredPrice
 
 --| Folding sales into a map, keeping the first price for each sequence,
 --| adds the first price in the list for a sequence the map lacks.
-theorem keepFirstGet (key: Changes): (found: List (Changes, Nat)) → (sales: Map Changes Nat) →
+theorem keepFirstGet (key: Changes): ∀ (found: List (Changes, Nat)) (sales: Map Changes Nat) =>
     (found.foldLeft sales (sales found => sales.insertWith found.fst found.snd (new old => old))).get key =
       Option.orElse (sales.get key) (found.find (entry => entry.fst == key) |> .map (entry => entry.snd))
   | [], sales => Eq.sym (Option.orElseNone (sales.get key))
@@ -37,7 +37,7 @@ theorem keepFirstGet (key: Changes): (found: List (Changes, Nat)) → (sales: Ma
 
 --| Looking for the first place the monkey sells is looking for the first
 --| sale with that sequence.
-theorem findMapSells (sequence: Changes): (places: List (List Nat)) →
+theorem findMapSells (sequence: Changes): ∀ (places: List (List Nat)) =>
     places.findMap (sellsAt sequence) = (places.filterMap sale).find (entry => entry.fst == sequence) |> .map (entry => entry.snd)
   | [] => rfl
   | [[], ..rest] => findMapSells sequence rest

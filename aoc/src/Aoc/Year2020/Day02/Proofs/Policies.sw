@@ -13,7 +13,7 @@ theorem part1Correct (entries: List Entry): solvePart1 entries = part1Answer ent
   rewrite List.lengthFilter entries validPart1 in List.countCongMem _ _ _ (e m => validByCountSpec e)
 
 --| Characters numbered from `start` hold nothing at a position before `start`.
-theorem holdsNothingBefore (letter: Char): (chars: List Char) → (start: Nat) → (position: Nat) → position < start →
+theorem holdsNothingBefore (letter: Char): ∀ (chars: List Char) (start position: Nat) => position < start →
     List.any (List.withIndexFrom start chars) (((at, char)) => at == position ∧ char == letter) = False
   | [], start, position, before => rfl
   | [c, ..rest], start, position, before =>
@@ -21,7 +21,7 @@ theorem holdsNothingBefore (letter: Char): (chars: List Char) → (start: Nat) �
 
 --| Numbered from `start`, the character at `start + index` is the list's
 --| `index`th, counting from 0.
-theorem holdsGet (letter: Char): (chars: List Char) → (start: Nat) → (index: Nat) → (position: Nat) → position = start + index →
+theorem holdsGet (letter: Char): ∀ (chars: List Char) (start index position: Nat) => position = start + index →
     List.any (List.withIndexFrom start chars) (((at, char)) => at == position ∧ char == letter) = (List.get chars index == Some letter)
   | [], start, index, position, is => rfl
   | [c, ..rest], start, Zero, position, is =>

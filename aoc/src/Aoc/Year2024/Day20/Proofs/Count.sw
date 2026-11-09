@@ -116,7 +116,7 @@ theorem countedSound (racetrack: Racetrack) (startOnTrack: onTrack racetrack rac
 theorem countedComplete (racetrack: Racetrack) (startOnTrack: onTrack racetrack racetrack.start = True)
     (endOnTrack: onTrack racetrack racetrack.end = True) (length: Nat) (threshold: Nat) (honest: Nat)
     (honestFound: racetrack.fromStart.get racetrack.end = Some honest):
-    (cheat: Cheat) → SavesAtLeast racetrack length threshold cheat → cheat ∈ counted racetrack racetrack.fromStart racetrack.toEnd honest length threshold
+    ∀ (cheat: Cheat) => SavesAtLeast racetrack length threshold cheat → cheat ∈ counted racetrack racetrack.fromStart racetrack.toEnd honest length threshold
   | { start, end }, saves =>
     let fromStart := racetrack.fromStart
     let toEnd := racetrack.toEnd

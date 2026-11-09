@@ -10,7 +10,7 @@ import Aoc.Year2021.Day14.Spec (..)
 import Std (Bool, DecEq, Eq, Exists, Iff, List, Map, Nat, Option, Ord, Void)
 
 --| A sum with a positive term has a member that gives it.
-theorem sumByPositive (f: a → Nat): (xs: List a) → 0 < xs.sumBy f → ∃ (x: a) => x ∈ xs ∧ 0 < f x
+theorem sumByPositive (f: a → Nat): ∀ (xs: List a) => 0 < xs.sumBy f → ∃ (x: a) => x ∈ xs ∧ 0 < f x
   | [], positive => Void.exfalso omega
   | [x, ..rest], positive =>
     match Nat.decLessThan 0 (f x) with
@@ -20,7 +20,7 @@ theorem sumByPositive (f: a → Nat): (xs: List a) → 0 < xs.sumBy f → ∃ (x
           | Witness y (Both member gives) => Witness y (Both (Inr member) gives)
 
 --| An element after the first ends a pair.
-theorem memAfterFirst (c: Char) (a: Char): (rest: List Char) → c ∈ rest → ∃ (pair: ElementPair) => pair ∈ pairsOf [a, ..rest] ∧ pair.second = c
+theorem memAfterFirst (c: Char) (a: Char): ∀ (rest: List Char) => c ∈ rest → ∃ (pair: ElementPair) => pair ∈ pairsOf [a, ..rest] ∧ pair.second = c
   | [], member => Void.exfalso member
   | [b, ..more], Inl same => Witness ({ first = a, second = b }) (Both (Inl rfl) same)
   | [b, ..more], Inr member =>

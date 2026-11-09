@@ -17,7 +17,7 @@ theorem findAbsent (key: ElementPair) (rules: List Rule) (absent: key ∉ rules.
       let same := DecEq.sound passes
       Void.exfalso (absent (rewrite <- same in List.memMap rules rule member (rule => rule.pair)))
 
-theorem lookupRules (key: ElementPair): (rules: List Rule) → OneRulePerPair rules →
+theorem lookupRules (key: ElementPair): ∀ (rules: List Rule) => OneRulePerPair rules →
     Map.lookupLast key (rules.map (rule => (rule.pair, rule.insert))) = Option.map (rules.find (rule => rule.pair == key)) (rule => rule.insert)
   | [], _ => rfl
   | [rule, ..rest], Both fresh distinct =>

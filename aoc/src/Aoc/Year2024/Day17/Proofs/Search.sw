@@ -18,7 +18,7 @@ theorem amongLows (a: Nat): a ∈ List.map (List.range 0 8) (low => a / 8 * 8 + 
 
 --| For an output of the loop shape, every value that outputs `target` is a
 --| candidate for it.
-theorem candidatesComplete (output: Nat → List Nat) (shape: LoopShape output): (target: List Nat) → (a: Nat) → output a = target → a ∈ candidates output target
+theorem candidatesComplete (output: Nat → List Nat) (shape: LoopShape output): ∀ (target: List Nat) (a: Nat) => output a = target → a ∈ candidates output target
   | [], a, outputs =>
     match shape a with
       | Witness first same => Void.exfalso (List.consNotNil first _ (Eq.trans (Eq.sym same) outputs))

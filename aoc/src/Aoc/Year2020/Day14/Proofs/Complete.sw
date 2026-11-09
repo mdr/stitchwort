@@ -45,7 +45,7 @@ theorem runsInstruction (read: List Char) (item: Instruction) (written: Instruct
                       (Parse.runsNat valueRead [] vSome vAll rfl)
                       (Parse.runsPure (Write (Parse.digitsValue addressRead) (Parse.digitsValue valueRead)) [])))))
 
-theorem startsComplete: (instructions: List Instruction) → StartsWithMask instructions → startsWithMask instructions = True
+theorem startsComplete: ∀ (instructions: List Instruction) => StartsWithMask instructions → startsWithMask instructions = True
   | [SetMask mask, ..rest], starts => rfl
   | [Write address value, ..rest], starts => Void.exfalso starts
   | [], starts => Void.exfalso starts

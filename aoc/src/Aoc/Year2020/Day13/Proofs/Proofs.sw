@@ -57,7 +57,7 @@ theorem part2Exactly (input: Text) (notes: Notes) (parsed: Fail.toResult (() => 
 
 --| Part 2 finds no time exactly when no time lines up.
 theorem part2NoneIff (input: Text) (notes: Notes) (parsed: Fail.toResult (() => parseNotes input) = Ok notes):
-    notes.earliestLineUp = None ↔ ((time: Nat) → ¬Spec.LinedUp notes.schedule time) :=
+    notes.earliestLineUp = None ↔ (∀ (time: Nat) => ¬Spec.LinedUp notes.schedule time) :=
   let positive := parsedPositive input notes parsed
   {
     forward = none time lined => part2Never notes positive none time lined,

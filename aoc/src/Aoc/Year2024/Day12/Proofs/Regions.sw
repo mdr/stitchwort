@@ -34,7 +34,7 @@ theorem containsInsertAll (seen: Set Position) (plots: List Position) (position:
 
 --| A set of positions that has every plot joined to one it has.
 def Closed (garden: Garden) (seen: Set Position): Prop :=
-  (plot: Position) → (other: Position) → seen.contains plot = True → Joined garden plot other → seen.contains other = True
+  ∀ (plot other: Position) => seen.contains plot = True → Joined garden plot other → seen.contains other = True
 
 --| The region of a plot has every plot joined to one it has.
 theorem regionClosed (garden: Garden) (start: Position) (plant: Char) (grows: garden.plantAt start = Some plant) (plot: Position) (other: Position)
@@ -51,8 +51,8 @@ def regionsWith (regions: List Region) (position: Position): Nat := regions.coun
 
 --| From a closed `seen`, the regions found are disjoint from `seen` and
 --| from each other.
-theorem atMostOnce (garden: Garden) (position: Position): (starts: List Position) → (seen: Set Position) → Closed garden seen →
-    ((start: Position) → start ∈ starts → Exists Char (plant => garden.plantAt start = Some plant)) →
+theorem atMostOnce (garden: Garden) (position: Position): ∀ (starts: List Position) (seen: Set Position) => Closed garden seen →
+    (∀ (start: Position) => start ∈ starts → Exists Char (plant => garden.plantAt start = Some plant)) →
     (regionsWith (garden.regionsFrom starts seen) position ≤ 1) ∧ (seen.contains position = True → regionsWith (garden.regionsFrom starts seen) position = 0)
   | [], seen, closed, plots => Both (omega) (has => rfl)
   | [start, ..rest], seen, closed, plots =>
@@ -84,8 +84,8 @@ theorem atMostOnce (garden: Garden) (position: Position): (starts: List Position
                 Both (omega [And.left later]) (has => omega [And.right later ((containsInsertAll seen region.plots position).backward (Inl has))]))
 
 --| Each start is in `seen` or in a region found.
-theorem covered (garden: Garden) (position: Position): (starts: List Position) → (seen: Set Position) →
-    ((start: Position) → start ∈ starts → Exists Char (plant => garden.plantAt start = Some plant)) → position ∈ starts →
+theorem covered (garden: Garden) (position: Position): ∀ (starts: List Position) (seen: Set Position) =>
+    (∀ (start: Position) => start ∈ starts → Exists Char (plant => garden.plantAt start = Some plant)) → position ∈ starts →
     (seen.contains position = True) ∨ (1 ≤ regionsWith (garden.regionsFrom starts seen) position)
   | [], seen, plots, none => Void.exfalso none
   | [start, ..rest], seen, plots, member =>
@@ -123,7 +123,7 @@ theorem inOneRegion (garden: Garden) (position: Position) (plant: Char) (grows: 
     | Inr found => omega [found, And.left once]
 
 --| Each region found is the region of one of the starts.
-theorem fromStarts (garden: Garden) (region: Region): (starts: List Position) → (seen: Set Position) → region ∈ garden.regionsFrom starts seen →
+theorem fromStarts (garden: Garden) (region: Region): ∀ (starts: List Position) (seen: Set Position) => region ∈ garden.regionsFrom starts seen →
     Exists Position (start => (start ∈ starts) ∧ (region = garden.regionOf start))
   | [], seen, none => Void.exfalso none
   | [start, ..rest], seen, member =>

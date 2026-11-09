@@ -43,12 +43,12 @@ def Clear (fold: Fold) (dot: Point): Prop :=
 
 def Promise: List Fold → (Point → Prop) → Prop
   | [], marked => Unit
-  | [fold, ..rest], marked => ((dot: Point) → marked dot → Clear fold dot) ∧ Promise rest (AfterFold fold marked)
+  | [fold, ..rest], marked => (∀ (dot: Point) => marked dot → Clear fold dot) ∧ Promise rest (AfterFold fold marked)
 
 --| Part 1's answer is how many dots there are: `count` of them, listed
 --| without repeats, exactly the dots.
 def DotCount (marked: Point → Prop) (count: Nat): Prop :=
-  ∃ (dots: List Point) => List.Distinct dots ∧ ((spot: Point) → spot ∈ dots ↔ marked spot) ∧ dots.length = count
+  ∃ (dots: List Point) => List.Distinct dots ∧ (∀ (spot: Point) => spot ∈ dots ↔ marked spot) ∧ dots.length = count
 
 --| Part 2's answer is a picture: rows of `#` and `.`, the top row first, all
 --| the same width, the top left character at `x = 0, y = 0`. The character
@@ -59,7 +59,7 @@ def cellAt (picture: List (List Char)) (spot: Point): Option Char := Aoc.Common.
 --| The picture shows the dots when every dot is a `#` in it, every `#` is a
 --| dot, and every other character is a `.`; its rows are all the same width.
 def Shows (picture: List (List Char)) (marked: Point → Prop): Prop :=
-  ((spot: Point) → marked spot → cellAt picture spot = Some '#')
-    ∧ ((spot: Point) → cellAt picture spot = Some '#' → marked spot)
-    ∧ ((spot: Point) → (c: Char) → cellAt picture spot = Some c → c = '#' ∨ c = '.')
-    ∧ ((row: List Char) → row ∈ picture → (other: List Char) → other ∈ picture → row.length = other.length)
+  (∀ (spot: Point) => marked spot → cellAt picture spot = Some '#')
+    ∧ (∀ (spot: Point) => cellAt picture spot = Some '#' → marked spot)
+    ∧ (∀ (spot: Point) (c: Char) => cellAt picture spot = Some c → c = '#' ∨ c = '.')
+    ∧ (∀ (row: List Char) => row ∈ picture → ∀ (other: List Char) => other ∈ picture → row.length = other.length)

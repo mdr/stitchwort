@@ -44,7 +44,7 @@ theorem declinesHexDigitEnd: Parse.Declines hexDigit [] :=
 
 --| The digits of a transmission with bits are read one by one, and give those
 --| bits.
-theorem runsDigits: (chars: List Char) → (bits: List Bool) → transmissionBits chars = Some bits →
+theorem runsDigits: ∀ (chars: List Char) (bits: List Bool) => transmissionBits chars = Some bits →
     ∃ (steps: List (List Char, Nat)) => Parse.joinReads steps = chars ∧ Parse.ManyRuns hexDigit steps [] ∧ bitsOfDigits (Parse.stepValues steps) = bits
   | [], bits, h => Witness [] (Both rfl (Both declinesHexDigitEnd (Option.someInjective h)))
   | [char, ..rest], bits, h =>

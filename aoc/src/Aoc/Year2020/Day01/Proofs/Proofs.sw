@@ -37,8 +37,7 @@ theorem pairAheadBack (before: List Nat) (x: Nat) (rest: List Nat) (a: Nat) (b: 
 
 --| What `findPairAfter` finds is a pair ahead summing to the target, when
 --| everything in `seen` was passed.
-theorem findPairAfterSound (target: Nat): (seen: Set Nat) → (before: List Nat) →
-    (passed: (y: Nat) → seen.contains y = True → y ∈ before) → (rest: List Nat) → (a: Nat) → (b: Nat) →
+theorem findPairAfterSound (target: Nat): ∀ (seen: Set Nat) (before: List Nat) (passed: ∀ (y: Nat) => seen.contains y = True → y ∈ before) (rest: List Nat) (a b: Nat) =>
     findPairAfter target seen rest = Some (a, b) → (PairAhead before rest a b) ∧ (a + b = target)
   | seen, before, passed, [], a, b, found => Void.exfalso (Option.noneNotSome (a, b) found)
   | seen, before, passed, [x, ..rest], a, b, found =>
@@ -51,15 +50,14 @@ theorem findPairAfterSound (target: Nat): (seen: Set Nat) → (before: List Nat)
         let partner := Bool.andRight c
         Both (Inl (Both (rewrite <- aIs in passed (target - x) partner) (Inl bIs))) omega
       | False =>
-        let passedNow: (y: Nat) → Set.contains (Set.insert seen x) y = True → y ∈ [x, ..before] := y contained =>
+        let passedNow: ∀ (y: Nat) => Set.contains (Set.insert seen x) y = True → y ∈ [x, ..before] := y contained =>
           if h: y = x then Inl (Eq.sym h) else Inr (passed y (rewrite Set.containsInsertOther seen x y h at contained in contained))
         let after := findPairAfterSound target (Set.insert seen x) [x, ..before] passedNow rest a b found
         Both (pairAheadBack before x rest a b after.left) after.right
 
 --| And it finds one if there is a pair ahead summing to the target, when
 --| everything passed is in `seen`.
-theorem findPairAfterComplete (target: Nat): (seen: Set Nat) → (before: List Nat) →
-    (remembered: (y: Nat) → y ∈ before → seen.contains y = True) → (rest: List Nat) → (a: Nat) → (b: Nat) →
+theorem findPairAfterComplete (target: Nat): ∀ (seen: Set Nat) (before: List Nat) (remembered: ∀ (y: Nat) => y ∈ before → seen.contains y = True) (rest: List Nat) (a b: Nat) =>
     PairAhead before rest a b → a + b = target → findPairAfter target seen rest ≠ None
   | seen, before, remembered, [], a, b, Inl (Both aIn bIn), sum, isNone => bIn
   | seen, before, remembered, [], a, b, Inr inPairs, sum, isNone => inPairs
@@ -74,7 +72,7 @@ theorem findPairAfterComplete (target: Nat): (seen: Set Nat) → (before: List N
             let partner: Set.contains seen (target - x) = True := rewrite aIs in remembered a aBefore
             Bool.trueNotFalse (Eq.trans (Eq.sym (Bool.andIntro fits partner)) c)
           | Inr aheadNow =>
-            let rememberedNow: (y: Nat) → y ∈ [x, ..before] → Set.contains (Set.insert seen x) y = True := y member =>
+            let rememberedNow: ∀ (y: Nat) => y ∈ [x, ..before] → Set.contains (Set.insert seen x) y = True := y member =>
               match member with
                 | Inl xIs => rewrite <- xIs in Set.containsInsert x seen
                 | Inr earlier => Set.containsInsertMono seen x y (remembered y earlier)
@@ -84,7 +82,7 @@ theorem findPairAfterComplete (target: Nat): (seen: Set Nat) → (before: List N
 --| target.
 theorem findPairSound (target: Nat) (entries: List Nat) (a: Nat) (b: Nat) (found: findPair target entries = Some (a, b)):
     ((a, b) ∈ entries.pairs) ∧ (a + b = target) :=
-  let nothingSeen: (y: Nat) → Set.contains Set.empty y = True → y ∈ [] := y contained => Void.exfalso (Bool.falseNotTrue contained)
+  let nothingSeen: ∀ (y: Nat) => Set.contains Set.empty y = True → y ∈ [] := y contained => Void.exfalso (Bool.falseNotTrue contained)
   match findPairAfterSound target Set.empty [] nothingSeen entries a b found with
     | Both (Inl (Both aNowhere bIn)) sum => Void.exfalso aNowhere
     | Both (Inr inPairs) sum => Both inPairs sum
@@ -111,7 +109,7 @@ theorem sum3 (a: Nat) (b: Nat) (c: Nat): [a, b, c].sum = a + b + c := ring
 theorem product3 (a: Nat) (b: Nat) (c: Nat): [a, b, c].product = a * b * c := ring
 
 --| What `findTriple` finds are three entries, in order, summing to the target.
-theorem findTripleSound (target: Nat): (entries: List Nat) → (a: Nat) → (b: Nat) → (c: Nat) →
+theorem findTripleSound (target: Nat): ∀ (entries: List Nat) (a b c: Nat) =>
     findTriple target entries = Some (a, b, c) → ([a, b, c] ∈ entries.combinations 3) ∧ (a + b + c = target)
   | [], a, b, c, found => Void.exfalso (Option.noneNotSome _ found)
   | [x, ..rest], a, b, c, found =>
@@ -135,7 +133,7 @@ theorem findTripleSound (target: Nat): (entries: List Nat) → (a: Nat) → (b: 
       | False => later found
 
 --| And it finds three whenever there are three.
-theorem findTripleComplete (target: Nat): (entries: List Nat) → (a: Nat) → (b: Nat) → (c: Nat) →
+theorem findTripleComplete (target: Nat): ∀ (entries: List Nat) (a b c: Nat) =>
     [a, b, c] ∈ entries.combinations 3 → a + b + c = target → findTriple target entries ≠ None
   | [], a, b, c, inTriples, sum, none => inTriples
   | [x, ..rest], a, b, c, inTriples, sum, none =>
@@ -147,9 +145,8 @@ theorem findTripleComplete (target: Nat): (entries: List Nat) → (a: Nat) → (
 
 --| An answer that is sound and complete is the only answer, when there is
 --| exactly one.
-theorem onlyAnswer (answers: List Nat): (found: Option Nat) → (sound: (x: Nat) → found = Some x → x ∈ answers) →
-    (complete: (x: Nat) → x ∈ answers → found ≠ None) → (answer: Nat) → answer ∈ answers →
-    ((other: Nat) → other ∈ answers → other = answer) → found = Some answer
+theorem onlyAnswer (answers: List Nat): ∀ (found: Option Nat) (sound: ∀ (x: Nat) => found = Some x → x ∈ answers) (complete: ∀ (x: Nat) => x ∈ answers → found ≠ None) (answer: Nat) => answer ∈ answers →
+    (∀ (other: Nat) => other ∈ answers → other = answer) → found = Some answer
   | Some x, sound, complete, answer, isAnswer, only => rewrite only x (sound x rfl) in rfl
   | None, sound, complete, answer, isAnswer, only => Void.exfalso (complete answer isAnswer rfl)
 
@@ -174,7 +171,7 @@ theorem part1Complete (entries: List Nat) (answer: Nat) (isAnswer: answer ∈ pa
 
 --| So part 1 is the puzzle's answer, when there is exactly one.
 theorem part1Correct (entries: List Nat) (answer: Nat) (isAnswer: answer ∈ part1Answers entries)
-    (only: (other: Nat) → other ∈ part1Answers entries → other = answer): solvePart1 entries = Some answer :=
+    (only: ∀ (other: Nat) => other ∈ part1Answers entries → other = answer): solvePart1 entries = Some answer :=
   onlyAnswer (part1Answers entries) (solvePart1 entries) (part1Sound entries) (part1Complete entries) answer isAnswer only
 
 --| Part 2's answer is one of the puzzle's.
@@ -206,5 +203,5 @@ theorem part2Complete (entries: List Nat) (answer: Nat) (isAnswer: answer ∈ pa
 
 --| So part 2 is the puzzle's answer, when there is exactly one.
 theorem part2Correct (entries: List Nat) (answer: Nat) (isAnswer: answer ∈ part2Answers entries)
-    (only: (other: Nat) → other ∈ part2Answers entries → other = answer): solvePart2 entries = Some answer :=
+    (only: ∀ (other: Nat) => other ∈ part2Answers entries → other = answer): solvePart2 entries = Some answer :=
   onlyAnswer (part2Answers entries) (solvePart2 entries) (part2Sound entries) (part2Complete entries) answer isAnswer only

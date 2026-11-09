@@ -27,7 +27,7 @@ theorem sequencesFrom (changes: List Int) (first: Int) (second: Int) (third: Int
 --| Membership carried across an equation, without computing the list.
 theorem memOfEq (xs: List a) [x y: a] (same: x = y) (member: x ∈ xs): y ∈ xs := J (other same => other ∈ xs) member same
 
-theorem findMapAny (f: a → Option b) (found: b): (xs: List a) → xs.findMap f = Some found → List.Any (x => f x = Some found) xs
+theorem findMapAny (f: a → Option b) (found: b): ∀ (xs: List a) => xs.findMap f = Some found → List.Any (x => f x = Some found) xs
   | [], some => Void.exfalso (Option.noneNotSome found some)
   | [x, ..rest], some =>
     match here: f x with
@@ -41,9 +41,9 @@ theorem findMapAny (f: a → Option b) (found: b): (xs: List a) → xs.findMap f
 -- the `match` below, refining a goal about `possibleSequences` itself,
 -- computes its 130,321 sequences.
 theorem sellsAtIn (possible: List Changes)
-    (contains: (a: Nat) → (b: Nat) → (c: Nat) → (d: Nat) → (e: Nat) → a < 10 → b < 10 → c < 10 → d < 10 → e < 10 →
+    (contains: ∀ (a b c d e: Nat) => a < 10 → b < 10 → c < 10 → d < 10 → e < 10 →
       ({ first = change a b, second = change b c, third = change c d, fourth = change d e }: Changes) ∈ possible)
-    (sequence: Changes) (price: Nat): (later: List Nat) → ((x: Nat) → x ∈ later → x < 10) → sellsAt sequence later = Some price → sequence ∈ possible
+    (sequence: Changes) (price: Nat): ∀ (later: List Nat) => (∀ (x: Nat) => x ∈ later → x < 10) → sellsAt sequence later = Some price → sequence ∈ possible
   | [a, b, c, d, e, ..rest], digits, sells =>
     match same: ({ first = change a b, second = change b c, third = change c d, fourth = change d e }: Changes) == sequence with
       | True =>
@@ -65,7 +65,7 @@ theorem pricesDigits (count: Nat) (buyer: Nat) (price: Nat) (inPrices: price ∈
 --| like `sellsAtIn`: with `possibleSequences` itself, checking them runs for
 --| minutes.
 def HoldsDigitChanges (possible: List Changes): Prop :=
-  (a: Nat) → (b: Nat) → (c: Nat) → (d: Nat) → (e: Nat) → a < 10 → b < 10 → c < 10 → d < 10 → e < 10 →
+  ∀ (a b c d e: Nat) => a < 10 → b < 10 → c < 10 → d < 10 → e < 10 →
     ({ first = change a b, second = change b c, third = change c d, fourth = change d e }: Changes) ∈ possible
 
 theorem salesIn (possible: List Changes) (contains: HoldsDigitChanges possible) (count: Nat) (buyer: Nat) (key: Changes) (price: Nat)
@@ -77,14 +77,14 @@ theorem salesIn (possible: List Changes) (contains: HoldsDigitChanges possible) 
       sellsAtIn possible contains key price later (x inLater => pricesDigits count buyer x (List.memOfMemTails x pricesOf later member inLater)) sellsHere)
 
 --| A merged total comes from one side or the other.
-theorem mergeSides (holds: Prop) (value: Nat): (x: Option Nat) → (y: Option Nat) → x.merge y Nat.add = Some value →
-    ((t: Nat) → x = Some t → holds) → ((s: Nat) → y = Some s → holds) → holds
+theorem mergeSides (holds: Prop) (value: Nat): ∀ (x y: Option Nat) => x.merge y Nat.add = Some value →
+    (∀ (t: Nat) => x = Some t → holds) → (∀ (s: Nat) => y = Some s → holds) → holds
   | Some t, y, merged, fromX, fromY => fromX t rfl
   | None, Some s, merged, fromX, fromY => fromY s rfl
   | None, None, merged, fromX, fromY => Void.exfalso (Option.noneNotSome value merged)
 
-theorem totalsIn (possible: List Changes) (contains: HoldsDigitChanges possible) (count: Nat): (buyers: List Nat) → (totals: Map Changes Nat) →
-    ((key: Changes) → (value: Nat) → totals.get key = Some value → key ∈ possible) → (key: Changes) → (value: Nat) →
+theorem totalsIn (possible: List Changes) (contains: HoldsDigitChanges possible) (count: Nat): ∀ (buyers: List Nat) (totals: Map Changes Nat) =>
+    (∀ (key: Changes) (value: Nat) => totals.get key = Some value → key ∈ possible) → ∀ (key: Changes) (value: Nat) =>
     (buyers.foldLeft totals (totals buyer => totals.unionWith (firstSales (prices count buyer)) Nat.add)).get key = Some value → key ∈ possible
   | [], totals, inTotals, key, value, found => inTotals key value found
   | [buyer, ..rest], totals, inTotals, key, value, found =>
@@ -102,7 +102,7 @@ theorem totalsKeysIn (possible: List Changes) (contains: HoldsDigitChanges possi
 
 --| Sequences of four changes that each hold every change between two digits
 --| hold the changes of every five digits.
-theorem digitChangesOf (changes: List Int) (hasChange: (before: Nat) → (after: Nat) → before < 10 → after < 10 → change before after ∈ changes):
+theorem digitChangesOf (changes: List Int) (hasChange: ∀ (before after: Nat) => before < 10 → after < 10 → change before after ∈ changes):
     HoldsDigitChanges (sequencesOf changes) :=
   a b c d e digitA digitB digitC digitD digitE =>
     sequencesFrom changes (change a b) (change b c) (change c d) (change d e) (hasChange a b digitA digitB) (hasChange b c digitB digitC)

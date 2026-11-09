@@ -10,15 +10,15 @@ theorem ruleSpec (rules: Rules) (number: Nat): rules.rule number = ruleNumbered 
 
 --| `read` can start a match of `number` followed by any sequence.
 def Leads (rules: Rules) (number: Nat) (read: List Char): Prop :=
-  (later: List Nat) → (rest: List Char) → Matches rules later rest → Matches rules [number, ..later] (read ++ rest)
+  ∀ (later: List Nat) (rest: List Char) => Matches rules later rest → Matches rules [number, ..later] (read ++ rest)
 
 --| What a rule leaves comes after a part of the message it matched.
 def LeavesAfter (rules: Rules) (fuel: Nat) (number: Nat): Prop :=
-  (message: List Char) → (left: List Char) → left ∈ rules.leftAfter fuel number message →
+  ∀ (message left: List Char) => left ∈ rules.leftAfter fuel number message →
     ∃ (read: List Char) => message = read ++ left ∧ Leads rules number read
 
-theorem soundAll (rules: Rules) (fuel: Nat) (leaves: (number: Nat) → LeavesAfter rules fuel number):
-    (sequence: List Nat) → (message: List Char) → (left: List Char) → left ∈ rules.leftAfterAll fuel sequence message →
+theorem soundAll (rules: Rules) (fuel: Nat) (leaves: ∀ (number: Nat) => LeavesAfter rules fuel number):
+    ∀ (sequence: List Nat) (message left: List Char) => left ∈ rules.leftAfterAll fuel sequence message →
       ∃ (read: List Char) => message = read ++ left ∧ Matches rules sequence read
   | [], message, left, Inl same => Witness [] (Both same MatchesNothing)
   | [], message, left, Inr never => Void.exfalso never
@@ -32,7 +32,7 @@ theorem soundAll (rules: Rules) (fuel: Nat) (leaves: (number: Nat) → LeavesAft
                 Witness (firstRead ++ restRead)
                   (Both (rewrite split, restSplit in Eq.sym (List.appendAssoc firstRead restRead left)) (leads later restRead matched))
 
-theorem sound (rules: Rules): (fuel: Nat) → (number: Nat) → LeavesAfter rules fuel number
+theorem sound (rules: Rules): ∀ (fuel number: Nat) => LeavesAfter rules fuel number
     := fuel number message left found =>
   match fuel with
     | Zero => Void.exfalso found

@@ -46,13 +46,13 @@ def ruleSays (rules: List Rule) (x: Nat) (y: Nat): Bool := rules.any (rule => ru
 --| pages are ordered both ways, any two different pages are ordered one way,
 --| and the order is transitive. On all pages, the rules aren't transitive.
 def Asymmetric (rules: List Rule) (pages: List Nat): Prop :=
-  (x: Nat) → (y: Nat) → x ∈ pages → y ∈ pages → ruleSays rules x y = True → ruleSays rules y x = False
+  ∀ (x y: Nat) => x ∈ pages → y ∈ pages → ruleSays rules x y = True → ruleSays rules y x = False
 
 def Total (rules: List Rule) (pages: List Nat): Prop :=
-  (x: Nat) → (y: Nat) → x ∈ pages → y ∈ pages → x ≠ y → ruleSays rules x y = False → ruleSays rules y x = True
+  ∀ (x y: Nat) => x ∈ pages → y ∈ pages → x ≠ y → ruleSays rules x y = False → ruleSays rules y x = True
 
 def Transitive (rules: List Rule) (pages: List Nat): Prop :=
-  (x: Nat) → (y: Nat) → (z: Nat) → x ∈ pages → y ∈ pages → z ∈ pages →
+  ∀ (x y z: Nat) => x ∈ pages → y ∈ pages → z ∈ pages →
     ruleSays rules x y = True → ruleSays rules y z = True → ruleSays rules x z = True
 
 def StrictTotalOrderOn (rules: List Rule) (pages: List Nat): Prop :=

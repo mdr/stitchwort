@@ -9,7 +9,7 @@ import Aoc.Year2021.Day14.Spec (..)
 import Std (Bool, DecEq, Eq, Fail, List, Option, Result, Void)
 
 --| If no pair is listed again further on, the pairs are distinct.
-theorem firstRepeatedNone: (pairs: List ElementPair) → firstRepeated pairs = None → List.Distinct pairs
+theorem firstRepeatedNone: ∀ (pairs: List ElementPair) => firstRepeated pairs = None → List.Distinct pairs
   | [], none => ()
   | [pair, ..rest], none =>
     match c: List.contains rest pair with

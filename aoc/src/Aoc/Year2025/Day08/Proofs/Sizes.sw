@@ -40,7 +40,7 @@ theorem getOrLabelCounts (c: Circuits) (n: Nat) (label: Nat): Map.getOr (labelCo
   Map.getOrCounts label (List.map (List.range 0 n) c.labelOf)
 
 --| Each entry of the histogram is a label and its count.
-theorem entryCount (c: Circuits) (n: Nat): (e: (Nat, Nat)) → List.Mem e (Map.toList (labelCounts c n)) → e.snd = labelCount c n e.fst
+theorem entryCount (c: Circuits) (n: Nat): ∀ (e: (Nat, Nat)) => List.Mem e (Map.toList (labelCounts c n)) → e.snd = labelCount c n e.fst
   | (label, v), m =>
     Eq.trans (Eq.sym (Eq.cong (.getOrElse 0) ((Map.memToList (labelCounts c n) label v).forward m))) (getOrLabelCounts c n label)
 
@@ -85,7 +85,7 @@ theorem valuesAreCounts (c: Circuits) (n: Nat): c.sizes n = List.map (Map.keys (
 def firstBox (c: Circuits) (b: Nat): Bool := ¬(List.range 0 b |> .any (other => c.labelOf other == c.labelOf b))
 
 --| The labels of the first boxes don't repeat ...
-theorem firstsDistinct (c: Circuits): (k: Nat) → (s: Nat) → List.Distinct (List.map (List.filter (List.rangeFrom k s) (firstBox c)) c.labelOf)
+theorem firstsDistinct (c: Circuits): ∀ (k s: Nat) => List.Distinct (List.map (List.filter (List.rangeFrom k s) (firstBox c)) c.labelOf)
   | Zero, s => Trivial
   | Succ k, s =>
     match e: firstBox c s with
@@ -105,7 +105,7 @@ theorem firstsDistinct (c: Circuits): (k: Nat) → (s: Nat) → List.Distinct (L
       | False => firstsDistinct c k (Succ s)
 
 --| ... and they are all the labels: each box's label is a first box's.
-theorem firstOf (c: Circuits) (n: Nat): (fuel: Nat) → (b: Nat) → b < fuel → b < n →
+theorem firstOf (c: Circuits) (n: Nat): ∀ (fuel b: Nat) => b < fuel → b < n →
     List.Mem (c.labelOf b) (List.map (List.filter (List.range 0 n) (firstBox c)) c.labelOf)
   | Zero, b, h, hb => Void.exfalso (Bool.falseNotTrue h)
   | Succ fuel, b, h, hb =>

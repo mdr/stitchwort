@@ -18,7 +18,7 @@ theorem eachDigit (q: Nat → Bool) (all: digits.all q = True) (digit: Nat) (bel
   List.allRangeElim q 10 0 all digit (Nat.zeroLe digit) below
 
 --| Every segment is one of the seven.
-theorem segmentsComplete: (segment: Segment) → segment ∈ segments := cases
+theorem segmentsComplete: ∀ (segment: Segment) => segment ∈ segments := cases
 
 --| The program's display is the spec's.
 theorem displayDrawn (digit: Nat) (below: digit < 10) (segment: Segment):

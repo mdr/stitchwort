@@ -74,16 +74,16 @@ theorem movedBlocks (diskMap: DiskMap): (compactFiles diskMap).flatMap .blocks =
             layout.fst.reverse initial (free file => (free.moveFile file).fst)))
         (Eq.sym (List.flatMapEqConcatMap File.blocks _)))
 
-theorem fileBlocksReplicate: (n: Nat) → (id: Nat) → fileBlocks (List.replicate n (FileBlock id)) = List.replicate n id
+theorem fileBlocksReplicate: ∀ (n id: Nat) => fileBlocks (List.replicate n (FileBlock id)) = List.replicate n id
   | Zero, id => rfl
   | Succ n, id => Eq.cong (Cons id) (fileBlocksReplicate n id)
 
-theorem fileBlocksReplicateFree: (n: Nat) → fileBlocks (List.replicate n Free) = []
+theorem fileBlocksReplicateFree: ∀ (n: Nat) => fileBlocks (List.replicate n Free) = []
   | Zero => rfl
   | Succ n => fileBlocksReplicateFree n
 
 --| The files' blocks are the disk's file blocks.
-theorem layoutBlocks: (id: Nat) → (position: Nat) → (diskMap: List Nat) →
+theorem layoutBlocks: ∀ (id position: Nat) (diskMap: List Nat) =>
     (layoutFrom id position diskMap).fst.flatMap .blocks = fileBlocks (blocksFrom id diskMap)
   | id, position, [] => rfl
   | id, position, [fileLength] => rewrite fileBlocksReplicate fileLength id in List.appendNil (List.replicate fileLength id)
@@ -105,7 +105,7 @@ def blockChecksum (pair: (Nat, Block)): Nat := pair.fst * pair.snd.idOr 0
 theorem blockChecksumFree (position: Nat): blockChecksum (MkPair position Free) = 0 := Nat.mulZero position
 
 --| Free blocks add nothing to the checksum; they shift what follows.
-theorem checksumSkipFree (rest: List Block): (free: Nat) → (from: Nat) →
+theorem checksumSkipFree (rest: List Block): ∀ (free from: Nat) =>
     (List.withIndexFrom from (List.replicate free Free ++ rest)).sumBy blockChecksum = (List.withIndexFrom (free + from) rest).sumBy blockChecksum
   | Zero, from => rfl
   | Succ free, from =>
@@ -113,7 +113,7 @@ theorem checksumSkipFree (rest: List Block): (free: Nat) → (from: Nat) →
       blockChecksumFree from, checksumSkipFree rest free (Succ from), (omega: free + Succ from = Succ free + from) in rfl
 
 --| A file's blocks add their positions times its number.
-theorem checksumFileRun (id: Nat): (length: Nat) → (from: Nat) →
+theorem checksumFileRun (id: Nat): ∀ (length from: Nat) =>
     (List.withIndexFrom from (List.replicate length (FileBlock id))).sumBy blockChecksum = (List.rangeFrom length from).sumBy (position => position * id)
   | Zero, from => rfl
   | Succ length, from =>

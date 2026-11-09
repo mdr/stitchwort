@@ -30,7 +30,7 @@ theorem windowAnd (x: Int) (y: Int) (rest: Bool):
     | True => rewrite Bool.andTrue (y <= x + 1) in window x y
     | False => rewrite Bool.andFalse (y <= x + 1), Bool.andFalse (x + (-1) <= y) in cases
 
-theorem countWithin1: (xs: List Int) → (ys: List Int) → (within1 xs).count (== ys) = Bool.toNat (Spec.within1 xs ys)
+theorem countWithin1: ∀ (xs ys: List Int) => (within1 xs).count (== ys) = Bool.toNat (Spec.within1 xs ys)
   | [], [] => rfl
   | [], [y, ..ys] => rfl
   | [x, ..xs], [] =>
@@ -50,7 +50,7 @@ theorem differentCubes (here: List Int) (there: List Int): ((({ coordinates = he
     | True => DecEq.trueOfNe (same => DecEq.neTrue e (Eq.cong (.coordinates) same))
     | False => rewrite DecEq.neFalse here there e in DecEq.neSelf ({ coordinates = there }: Cube)
 
-theorem countNeighbours: (cube: Cube) → (other: Cube) → cube.neighbours.count (== other) = Bool.toNat (Spec.neighbours cube other)
+theorem countNeighbours: ∀ (cube other: Cube) => cube.neighbours.count (== other) = Bool.toNat (Spec.neighbours cube other)
   | { coordinates = here }, { coordinates = there } =>
     rewrite List.countMap ((within1 here).filter (coordinates => coordinates != here)) (== { coordinates = there }) (coordinates => { coordinates }) in
       rewrite List.countCongMem ((within1 here).filter (coordinates => coordinates != here)) _ (== there) (coordinates _ => equalCubes coordinates there) in

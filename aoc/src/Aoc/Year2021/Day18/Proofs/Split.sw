@@ -12,12 +12,12 @@ def prefixed (xs: List Leaf): Option (List Leaf) → Option (List Leaf)
   | Some after => Some (xs ++ after)
   | None => None
 
-theorem prefixedAppend (xs: List Leaf) (ys: List Leaf): (split: Option (List Leaf)) → prefixed xs (prefixed ys split) = prefixed (xs ++ ys) split
+theorem prefixedAppend (xs: List Leaf) (ys: List Leaf): ∀ (split: Option (List Leaf)) => prefixed xs (prefixed ys split) = prefixed (xs ++ ys) split
   | None => rfl
   | Some after => Eq.cong Some (Eq.sym (List.appendAssoc xs ys after))
 
 --| Where `split` finds nothing, nor does the spec.
-theorem splitNoneLeaves (depth: Nat): (number: Number) → split number = None → (rest: List Leaf) →
+theorem splitNoneLeaves (depth: Nat): ∀ (number: Number) => split number = None → ∀ (rest: List Leaf) =>
     splitLeaves (leaves depth number ++ rest) = prefixed (leaves depth number) (splitLeaves rest)
   | Regular value, none, rest => cases
   | Pair left right, none, rest =>
@@ -32,7 +32,7 @@ theorem splitNoneLeaves (depth: Nat): (number: Number) → split number = None �
               prefixedAppend (leaves (depth + 1) left) (leaves (depth + 1) right) (splitLeaves rest)
 
 --| What `split` gives has the leaves the spec's split gives.
-theorem splitSomeLeaves (depth: Nat): (number: Number) → (split2: Number) → split number = Some split2 → (rest: List Leaf) →
+theorem splitSomeLeaves (depth: Nat): ∀ (number split2: Number) => split number = Some split2 → ∀ (rest: List Leaf) =>
     splitLeaves (leaves depth number ++ rest) = Some (leaves depth split2 ++ rest)
   | Regular value, split2, some, rest =>
     match Nat.leq 10 value with

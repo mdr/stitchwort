@@ -7,7 +7,7 @@ import Aoc.Year2021.Day17.Spec (..)
 import Std (Bool, Eq, Int, Nat, Void)
 
 --| The program's drag, `dx - sign dx`, is the puzzle's.
-theorem dragSign: (dx: Int) → dx - dx.sign = drag dx
+theorem dragSign: ∀ (dx: Int) => dx - dx.sign = drag dx
   | OfNat 0 => rfl
   | OfNat (Succ k) => rfl
   | NegSucc k => rfl
@@ -22,11 +22,11 @@ theorem flightIsAfter (n: Nat) (velocity: Velocity): flight n velocity = after n
 
 --| After `n` steps the y velocity is `n` less, and twice the height gained
 --| is `n * (2 * dy + 1 - n)`.
-theorem dyAfter: (n: Nat) → (probe: Probe) → (Nat.iterate n step probe).velocity.y = probe.velocity.y - n.toInt
+theorem dyAfter: ∀ (n: Nat) (probe: Probe) => (Nat.iterate n step probe).velocity.y = probe.velocity.y - n.toInt
   | 0, probe => omega
   | Succ n, probe => omega [dyAfter n (step probe)]
 
-theorem yAfter: (n: Nat) → (probe: Probe) → 2 * (Nat.iterate n step probe).position.y = 2 * probe.position.y + n.toInt * (2 * probe.velocity.y + 1 - n.toInt)
+theorem yAfter: ∀ (n: Nat) (probe: Probe) => 2 * (Nat.iterate n step probe).position.y = 2 * probe.position.y + n.toInt * (2 * probe.velocity.y + 1 - n.toInt)
   | 0, probe => ring
   | Succ n, probe => ring [yAfter n (step probe)]
 

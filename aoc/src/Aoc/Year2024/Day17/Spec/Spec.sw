@@ -25,7 +25,7 @@ def bitSet (n: Nat) (i: Nat): Bool := n / Nat.pow 2 i % 2 == 1
 
 --| "The bitwise XOR of" `x` and `y` is `result`: each bit of it is 1 when
 --| exactly one of `x` and `y` has that bit 1.
-def BitwiseXor (x: Nat) (y: Nat) (result: Nat): Prop := (i: Nat) → bitSet result i = Bool.xor (bitSet x i) (bitSet y i)
+def BitwiseXor (x: Nat) (y: Nat) (result: Nat): Prop := ∀ (i: Nat) => bitSet result i = Bool.xor (bitSet x i) (bitSet y i)
 
 --| The machine at the next instruction, "the instruction pointer increases
 --| by 2 after each instruction", with `registers`.
@@ -114,4 +114,4 @@ def OutputsItself (debugger: Debugger) (a: Nat): Prop := Halts debugger.program 
 --| the programs it gives have: each pass of a loop outputs one number, shifts
 --| A right by 3 bits and starts again unless A is 0, so what A outputs is a
 --| number, then what A / 8 outputs if A / 8 isn't 0. Assumed, not checked.
-def LoopShape (output: Nat → List Nat): Prop := (a: Nat) → ∃ (first: Nat) => output a = [first, ..(if a < 8 then [] else output (a / 8))]
+def LoopShape (output: Nat → List Nat): Prop := ∀ (a: Nat) => ∃ (first: Nat) => output a = [first, ..(if a < 8 then [] else output (a / 8))]

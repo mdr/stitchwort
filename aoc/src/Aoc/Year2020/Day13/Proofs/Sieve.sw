@@ -11,9 +11,9 @@ import Std (Bool, DecEq, Decidable, Eq, Iff, List, Nat, Option, Void)
 --| The times that pass `fits` are `alignment.time` and every
 --| `alignment.period` minutes after, and no others.
 def Describes (fits: Nat → Prop) (alignment: Alignment): Prop :=
-  alignment.period ≠ 0 ∧ ((t: Nat) → fits t ↔ ∃ (periods: Nat) => t = alignment.time + periods * alignment.period)
+  alignment.period ≠ 0 ∧ (∀ (t: Nat) => fits t ↔ ∃ (periods: Nat) => t = alignment.time + periods * alignment.period)
 
-theorem describesIff [fits: Nat → Prop] [other: Nat → Prop] [alignment: Alignment] (same: (t: Nat) → fits t ↔ other t) (described: Describes fits alignment):
+theorem describesIff [fits: Nat → Prop] [other: Nat → Prop] [alignment: Alignment] (same: ∀ (t: Nat) => fits t ↔ other t) (described: Describes fits alignment):
     Describes other alignment :=
   Both (And.left described) (t => Iff.trans (Iff.symm (same t)) (And.right described t))
 
@@ -22,7 +22,7 @@ theorem startDescribes: Describes (t => Unit) Alignment.start :=
 
 --| The earliest time described is the alignment's.
 theorem describesEarliest [fits: Nat → Prop] [alignment: Alignment] (described: Describes fits alignment):
-    fits alignment.time ∧ ((t: Nat) → fits t → alignment.time ≤ t) :=
+    fits alignment.time ∧ (∀ (t: Nat) => fits t → alignment.time ≤ t) :=
   Both (Iff.backward (And.right described alignment.time) (Witness 0 (omega)))
     (t h =>
       match Iff.forward (And.right described t) h with
@@ -70,9 +70,9 @@ theorem suitsMultiple (alignment: Alignment) (bus: Bus) (p: Nat) (q: Nat) (d: Na
     Nat.modAddOfModZero x (q * (d * alignment.period)) bus.id (Nat.modMulOfModZero q (d * alignment.period) bus.id h) in rfl
 
 theorem stepDescribes [fits: Nat → Prop] [alignment: Alignment] (bus: Bus) (described: Describes fits alignment)
-    (first: Nat) (firstSuits: suits alignment bus first = True) (firstLeast: (e: Nat) → e < first → suits alignment bus e = False)
+    (first: Nat) (firstSuits: suits alignment bus first = True) (firstLeast: ∀ (e: Nat) => e < first → suits alignment bus e = False)
     (again: Nat) (againSuits: suits alignment bus (first + 1 + again) = True)
-    (againLeast: (e: Nat) → e < again → suits alignment bus (first + 1 + e) = False):
+    (againLeast: ∀ (e: Nat) => e < again → suits alignment bus (first + 1 + e) = False):
     Describes (t => fits t ∧ bus.departsAfter t = True) { time = alignment.time + first * alignment.period, period = (again + 1) * alignment.period } :=
   let period := alignment.period
   let nonZero: period ≠ 0 := And.left described

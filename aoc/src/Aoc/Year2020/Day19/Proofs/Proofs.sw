@@ -13,7 +13,7 @@ import Std (Bool, Char, DecEq, Eq, Exists, List, Nat, Option, Void)
 
 -- The ranks
 
-theorem chainBounded (rules: Rules): (fuel: Nat) → (number: Nat) → rules.chain fuel number ≤ fuel
+theorem chainBounded (rules: Rules): ∀ (fuel number: Nat) => rules.chain fuel number ≤ fuel
   | Zero, number => omega
   | Succ more, number =>
     match looked: rules.rule number with
@@ -34,14 +34,14 @@ theorem chainBounded (rules: Rules): (fuel: Nat) → (number: Nat) → rules.cha
 theorem rankBelow (rules: Rules) (number: Nat): rules.rank number < rules.rankBound :=
   omega [chainBounded rules (rules.numbered.length + 1) number]
 
-theorem lookupMember: (entries: List (Nat, Rule)) → (number: Nat) → (rule: Rule) → entries.lookup number = Some rule → (number, rule) ∈ entries
+theorem lookupMember: ∀ (entries: List (Nat, Rule)) (number: Nat) (rule: Rule) => entries.lookup number = Some rule → (number, rule) ∈ entries
   | [], number, rule, found => Option.noneNotSome rule found
   | [(entryNumber, value), ..rest], number, rule, found =>
     match same: entryNumber == number with
       | True => Inl (rewrite DecEq.sound same, Option.someInjective found in rfl)
       | False => Inr (lookupMember rest number rule found)
 
-theorem productiveRanked (rules: Rules) (rank: Nat → Nat) (bound: Nat) (below: (number: Nat) → rank number < bound)
+theorem productiveRanked (rules: Rules) (rank: Nat → Nat) (bound: Nat) (below: ∀ (number: Nat) => rank number < bound)
     (productive: rules.productiveWith rank = True): Ranked rules rank bound :=
   Both below (number sequences looked sequence chosen =>
     let entryProductive := List.allMember _ rules.numbered productive (number, Alternatives sequences)

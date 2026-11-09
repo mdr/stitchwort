@@ -18,9 +18,9 @@ def SettlesWithin (specRound: Layout → Layout) (start: Layout) (final: Layout)
 --| What `settle` stops at is settled: reached by the spec's rounds, fewer
 --| than it was given, which leave it alone.
 theorem settleSound (plan: Plan) (specRound: Layout → Layout) (keep: Layout → Prop)
-    (agree: (layout: Layout) → keep layout → layout.round plan = specRound layout)
-    (keeps: (layout: Layout) → keep layout → keep (specRound layout)) (final: Layout):
-    (rounds: Nat) → (start: Layout) → keep start → start.settle plan rounds = Some final → SettlesWithin specRound start final rounds
+    (agree: ∀ (layout: Layout) => keep layout → layout.round plan = specRound layout)
+    (keeps: ∀ (layout: Layout) => keep layout → keep (specRound layout)) (final: Layout):
+    ∀ (rounds: Nat) (start: Layout) => keep start → start.settle plan rounds = Some final → SettlesWithin specRound start final rounds
   | Zero, start, kept, stopped => Void.exfalso (Option.noneNotSome final stopped)
   | Succ more, start, kept, stopped =>
     let same := agree start kept
@@ -52,9 +52,9 @@ theorem settledUnique (specRound: Layout → Layout) (start: Layout) (one: Layou
 --| If the spec's rounds reach a layout a round leaves alone, `settle` with
 --| more rounds than that to spare stops there.
 theorem settleComplete (plan: Plan) (specRound: Layout → Layout) (keep: Layout → Prop)
-    (agree: (layout: Layout) → keep layout → layout.round plan = specRound layout)
-    (keeps: (layout: Layout) → keep layout → keep (specRound layout)) (final: Layout) (fixed: specRound final = final):
-    (rounds: Nat) → (start: Layout) → keep start → (reached: Nat) → reached < rounds → Nat.iterate reached specRound start = final →
+    (agree: ∀ (layout: Layout) => keep layout → layout.round plan = specRound layout)
+    (keeps: ∀ (layout: Layout) => keep layout → keep (specRound layout)) (final: Layout) (fixed: specRound final = final):
+    ∀ (rounds: Nat) (start: Layout) => keep start → ∀ (reached: Nat) => reached < rounds → Nat.iterate reached specRound start = final →
       start.settle plan rounds = Some final
   | Zero, start, kept, reached, within, there => Void.exfalso (omega)
   | Succ more, start, kept, reached, within, there =>

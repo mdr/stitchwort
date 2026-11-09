@@ -14,12 +14,12 @@ import Std (And, Bool, Eq, Int, Nat, Option, Or, Void)
 
 --| Iterating a function that comes back to where it started after `period`
 --| steps, a whole number of times over, comes back too.
-theorem iterateCycles (f: a → a) (period: Nat) (cycle: (x: a) → Nat.iterate period f x = x): (times: Nat) → (x: a) → Nat.iterate (times * period) f x = x
+theorem iterateCycles (f: a → a) (period: Nat) (cycle: ∀ (x: a) => Nat.iterate period f x = x): ∀ (times: Nat) (x: a) => Nat.iterate (times * period) f x = x
   | Zero, x => rfl
   | Succ times, x => rewrite Nat.iterateAdd f period (times * period) x, cycle x in iterateCycles f period cycle times x
 
 --| So only the remainder of the count by the period counts.
-theorem iterateMod (f: a → a) (period: Nat) [auto positive: period ≠ 0] (cycle: (x: a) → Nat.iterate period f x = x) (count: Nat) (x: a):
+theorem iterateMod (f: a → a) (period: Nat) [auto positive: period ≠ 0] (cycle: ∀ (x: a) => Nat.iterate period f x = x) (count: Nat) (x: a):
     Nat.iterate count f x = Nat.iterate (count % period) f x :=
   calc Nat.iterate count f x
     _ = Nat.iterate ((count / period) * period + count % period) f x := rewrite <- Nat.divModEq count period in rfl
@@ -64,7 +64,7 @@ theorem headingToDirectionOpposite (heading: Heading): heading.opposite.toDirect
 
 -- Coordinates
 
-theorem coordsExt: (coords: Coords f) → (other: Coords f) → coords.x = other.x → coords.y = other.y → coords = other
+theorem coordsExt: ∀ (coords other: Coords f) => coords.x = other.x → coords.y = other.y → coords = other
   | { x, y }, { x = otherX, y = otherY }, sameX, sameY => rewrite sameX, sameY in rfl
 
 theorem coordsPlusComm (coords: Coords f) (other: Coords f): coords.plus other = other.plus coords := coordsExt _ _ (omega) (omega)
@@ -123,7 +123,7 @@ theorem coordsTurnLeftHeading [auto frame: Frame f] (heading: Heading): (heading
     | South => coordsExt _ _ (ring [frame.unit]) (ring)
     | West => coordsExt _ _ (omega) (omega)
 
-theorem coordsTurnedHeading [auto frame: Frame f] (heading: Heading): (quarters: Nat) → (heading.toCoords: Coords f).turned quarters = (heading.turned quarters).toCoords
+theorem coordsTurnedHeading [auto frame: Frame f] (heading: Heading): ∀ (quarters: Nat) => (heading.toCoords: Coords f).turned quarters = (heading.turned quarters).toCoords
   | Zero => rfl
   | Succ quarters => calc (heading.toCoords: Coords f).turned (Succ quarters)
     _ = ((heading.toCoords: Coords f).turned quarters).turnRight := Nat.iterateSuccLast (Coords.turnRight: Coords f → Coords f) quarters heading.toCoords

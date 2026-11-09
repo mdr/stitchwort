@@ -21,7 +21,7 @@ theorem clearOfFind (fold: Fold) (dots: List Point) (none: dots.find (dot => not
 
 --| If no fold is blocked, folding a list that holds the dots, the promise
 --| is kept for every fold.
-theorem unblockedPromise: (folds: List Fold) → (index: Nat) → (dots: List Point) → (marked: Point → Prop) → Holds dots marked →
+theorem unblockedPromise: ∀ (folds: List Fold) (index: Nat) (dots: List Point) (marked: Point → Prop) => Holds dots marked →
     firstBlockedFrom index dots folds = None → Promise folds marked
   | [], index, dots, marked, holds, none => Trivial
   | [fold, ..rest], index, dots, marked, holds, none =>

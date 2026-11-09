@@ -47,8 +47,8 @@ def Listed (list: FoodList) (allergen: Allergen): Prop := ∃ (food: Food) => fo
 --| that contains each listed allergen will be somewhere in the
 --| corresponding ingredients list."
 def Holding (list: FoodList) (holder: Allergen → Ingredient): Prop :=
-  ((first: Allergen) → (second: Allergen) → Listed list first → Listed list second → holder first = holder second → first = second)
-    ∧ ((food: Food) → food ∈ list.foods → (allergen: Allergen) → allergen ∈ food.allergens → holder allergen ∈ food.ingredients)
+  (∀ (first second: Allergen) => Listed list first → Listed list second → holder first = holder second → first = second)
+    ∧ (∀ (food: Food) => food ∈ list.foods → ∀ (allergen: Allergen) => allergen ∈ food.allergens → holder allergen ∈ food.ingredients)
 
 --| The ingredient holds one of the allergens in some way they could be.
 def CanContain (list: FoodList) (ingredient: Ingredient): Prop :=
@@ -74,5 +74,5 @@ def Alphabetical (allergens: List Allergen): Prop := List.Sorted (first second =
 --| answer the names of the ingredients holding them, in that order.
 def Part2 (list: FoodList) (answer: Text): Prop :=
   ∃ (holder: Allergen → Ingredient) => Holding list holder
-    ∧ ∃ (order: List Allergen) => order.Distinct ∧ ((allergen: Allergen) → allergen ∈ order ↔ Listed list allergen) ∧ Alphabetical order
+    ∧ ∃ (order: List Allergen) => order.Distinct ∧ (∀ (allergen: Allergen) => allergen ∈ order ↔ Listed list allergen) ∧ Alphabetical order
       ∧ answer = (order.map holder |> .map .name |> .joinWith ",")

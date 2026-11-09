@@ -20,7 +20,7 @@ def madeSets (links: Links): List Party := links.keySet.toList.flatMap links.set
 
 --| A set the program makes is three computers, each pair neighbours.
 theorem madeElim (network: Network) (party: Party) (made: List.Mem party (madeSets network.links)) (goal: Prop)
-    (found: (first: Computer) → (second: Computer) → (third: Computer) → party.members = Set.fromList [first, second, third] →
+    (found: ∀ (first second third: Computer) => party.members = Set.fromList [first, second, third] →
       (network.links.neighbours first).contains second = True → (network.links.neighbours first).contains third = True →
       (network.links.neighbours second).contains third = True → goal):
     goal :=
@@ -47,11 +47,11 @@ theorem madeElim (network: Network) (party: Party) (made: List.Mem party (madeSe
 theorem madeConnected (network: Network) (party: Party) (made: List.Mem party (madeSets network.links)): AllConnected network party :=
   madeElim network party made (AllConnected network party)
     (first second third isSet firstSecond firstThird secondThird one other heldOne heldOther different =>
-      let pair: (one: Computer) → (other: Computer) → (network.links.neighbours one).contains other = True → connected network one other = True :=
+      let pair: ∀ (one other: Computer) => (network.links.neighbours one).contains other = True → connected network one other = True :=
         one other held => (linkedIff network one other).forward held
-      let back: (one: Computer) → (other: Computer) → (network.links.neighbours one).contains other = True → connected network other one = True :=
+      let back: ∀ (one other: Computer) => (network.links.neighbours one).contains other = True → connected network other one = True :=
         one other held => (linkedIff network other one).forward (linkedSymmetric network one other held)
-      let same: (member: Computer) → one = member → other = member → connected network one other = True :=
+      let same: ∀ (member: Computer) => one = member → other = member → connected network one other = True :=
         member isOne isOther => Void.exfalso (different (Eq.trans isOne (Eq.sym isOther)))
       threeElim first second third one (connected network one other = True) (rewrite isSet at heldOne)
         (oneIs =>
@@ -72,7 +72,7 @@ theorem madeConnected (network: Network) (party: Party) (made: List.Mem party (m
 --| A set of three is the set of its three computers, in order, and they
 --| are different.
 theorem threeListed (set: Set Computer) (three: set.size = 3) (goal: Prop)
-    (found: (first: Computer) → (second: Computer) → (third: Computer) → set = Set.fromList [first, second, third] →
+    (found: ∀ (first second third: Computer) => set = Set.fromList [first, second, third] →
       first ≠ second → first ≠ third → second ≠ third → goal):
     goal :=
   let distinct: List.Distinct set.toList := Map.keysDistinct set.items
@@ -104,9 +104,9 @@ theorem setsOfThreeIff (network: Network) (party: Party):
   backward = (Both three connected) =>
     threeListed party.members three (network.links.setsOfThree.contains party = True)
       (first second third isSet firstSecond firstThird secondThird =>
-        let inSet: (member: Computer) → List.Mem member [first, second, third] → party.members.contains member = True :=
+        let inSet: ∀ (member: Computer) => List.Mem member [first, second, third] → party.members.contains member = True :=
           member listed => rewrite isSet in (Set.containsFromListIff [first, second, third] member).backward listed
-        let linked: (one: Computer) → (other: Computer) → List.Mem one [first, second, third] → List.Mem other [first, second, third] →
+        let linked: ∀ (one other: Computer) => List.Mem one [first, second, third] → List.Mem other [first, second, third] →
             one ≠ other → (network.links.neighbours one).contains other = True :=
           one other oneListed otherListed different =>
             (linkedIff network one other).backward (connected one other (inSet one oneListed) (inSet other otherListed) different)

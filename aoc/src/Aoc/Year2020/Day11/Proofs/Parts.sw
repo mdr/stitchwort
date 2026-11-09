@@ -61,8 +61,8 @@ def AnswerWithin (specRound: Layout → Layout) (start: Layout) (limit: Nat) (an
 --| layout the spec's rounds settle on, exactly when they settle within
 --| the limit.
 theorem settledExactly (start: Layout) (plan: Plan) (specRound: Layout → Layout)
-    (agree: (layout: Layout) → Kept start layout → layout.round plan = specRound layout)
-    (keeps: (layout: Layout) → Kept start layout → Kept start (specRound layout))
+    (agree: ∀ (layout: Layout) => Kept start layout → layout.round plan = specRound layout)
+    (keeps: ∀ (layout: Layout) => Kept start layout → Kept start (specRound layout))
     (limit: Nat) (answer: Nat): (start.settle plan limit |> .map (.occupied)) = Some answer ↔ AnswerWithin specRound start limit answer := {
   forward = solved =>
     match found: start.settle plan limit with

@@ -27,7 +27,7 @@ def RowWritten (line: List Char) (row: List CubeState): Prop := line = row.map s
 --| active cube in the slice, and every further coordinate 0 ("z=0"), is
 --| active; no other cube is.
 def Starts (slice: Slice) (dimensions: Nat) (start: Set Cube): Prop :=
-  (cube: Cube) → (start.contains cube = True) ↔ (∃ (x: Nat) => ∃ (y: Nat) =>
+  ∀ (cube: Cube) => (start.contains cube = True) ↔ (∃ (x: Nat) => ∃ (y: Nat) =>
     slice.grid.at { row = y, column = x } = Some Active ∧ cube.coordinates = [x.toInt, y.toInt, ..List.replicate (dimensions - 2) 0])
 
 -- A cycle
@@ -58,7 +58,7 @@ def activeAfter (active: Set Cube) (cube: Cube): Bool :=
 --| "During a cycle, all cubes simultaneously change their state": a cube
 --| is active after the cycle exactly when the rules make it so, from the
 --| cubes active before.
-def Cycle (before: Set Cube) (after: Set Cube): Prop := (cube: Cube) → after.contains cube = activeAfter before cube
+def Cycle (before: Set Cube) (after: Set Cube): Prop := ∀ (cube: Cube) => after.contains cube = activeAfter before cube
 
 --| `cycles` cycles take the active cubes `start` to `final`.
 def Cycles: (cycles: Nat) → (start: Set Cube) → (final: Set Cube) → Prop

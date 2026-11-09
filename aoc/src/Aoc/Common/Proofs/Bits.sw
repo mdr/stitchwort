@@ -11,14 +11,14 @@ theorem Bits.complementValue (number: Bits): number.value + number.complement.va
   Nat.fromBitsFlipped number.bits
 
 --| The first bit is the bit at position 0.
-theorem Bits.getZero: (number: Bits) → number.get 0 = number.first
+theorem Bits.getZero: ∀ (number: Bits) => number.get 0 = number.first
   | { bits = [] } => rfl
   | { bits = [first, ..rest] } => rfl
 
 theorem Bits.widthAppend (number: Bits) (other: Bits): (number.append other).width = number.width + other.width :=
   List.lengthAppend number.bits other.bits
 
-theorem Bits.emptyAppend: (number: Bits) → Bits.empty.append number = number
+theorem Bits.emptyAppend: ∀ (number: Bits) => Bits.empty.append number = number
   | { bits } => rfl
 
 --| Appending one bit.
@@ -28,7 +28,7 @@ theorem Bits.widthAppendBit (number: Bits) (bit: Bool): (number.append (Bits.con
 theorem Bits.appendAssoc (number: Bits) (other: Bits) (third: Bits): (number.append other).append third = number.append (other.append third) :=
   Eq.cong (bits => { bits }) (List.appendAssoc number.bits other.bits third.bits)
 
-theorem Bits.getAppendList (number: List Bool): (prefix: List Bool) → (prefix.append number).get prefix.length = number.head
+theorem Bits.getAppendList (number: List Bool): ∀ (prefix: List Bool) => (prefix.append number).get prefix.length = number.head
   | [] => Bits.getZero { bits = number }
   | [first, ..rest] => Bits.getAppendList number rest
 

@@ -21,8 +21,8 @@ theorem leastFuelUnique (fuel: Nat → Nat) (crabs: List Nat) (a: Nat) (b: Nat) 
 
 --| For any fuel that never falls as the crab goes further, and the spec's
 --| fuel giving the same, the program's least is the spec's.
-theorem leastFuelMeetsSpec (fuel: Nat → Nat) (specFuel: Nat → Nat) (same: (n: Nat) → specFuel n = fuel n)
-    (monotone: (a: Nat) → (b: Nat) → a ≤ b → fuel a ≤ fuel b) (crabs: List Nat): LeastFuel specFuel crabs (leastFuel fuel crabs) :=
+theorem leastFuelMeetsSpec (fuel: Nat → Nat) (specFuel: Nat → Nat) (same: ∀ (n: Nat) => specFuel n = fuel n)
+    (monotone: ∀ (a b: Nat) => a ≤ b → fuel a ≤ fuel b) (crabs: List Nat): LeastFuel specFuel crabs (leastFuel fuel crabs) :=
   match programLeast fuel monotone crabs with
     | Both (Witness p costs) lowest =>
       Both (Witness p (rewrite totalFuelIs fuel specFuel same crabs p in costs))
@@ -30,8 +30,8 @@ theorem leastFuelMeetsSpec (fuel: Nat → Nat) (specFuel: Nat → Nat) (same: (n
 
 --| The program's least: some position costs it, and every position costs at
 --| least it.
-theorem programLeast (fuel: Nat → Nat) (monotone: (a: Nat) → (b: Nat) → a ≤ b → fuel a ≤ fuel b) (crabs: List Nat):
-    (exists (position: Nat) => fuelAt fuel crabs position = leastFuel fuel crabs) ∧ ((position: Nat) → leastFuel fuel crabs ≤ fuelAt fuel crabs position) :=
+theorem programLeast (fuel: Nat → Nat) (monotone: ∀ (a b: Nat) => a ≤ b → fuel a ≤ fuel b) (crabs: List Nat):
+    (exists (position: Nat) => fuelAt fuel crabs position = leastFuel fuel crabs) ∧ (∀ (position: Nat) => leastFuel fuel crabs ≤ fuelAt fuel crabs position) :=
   let scan := List.range (leftmost crabs) (rightmost crabs + 1)
   let totals := scan.map (fuelAt fuel crabs)
   let first := ((List.memRange (leftmost crabs) (leftmost crabs) (rightmost crabs + 1)).backward (Both (Nat.leRefl (leftmost crabs)) (Nat.leLessSucc (leftmost crabs) (rightmost crabs) (leftmostLeRightmost crabs))))
@@ -55,7 +55,7 @@ theorem leastFuelIs (fuel: Nat → Nat) (crabs: List Nat) (least: Nat)
   rewrite found in rfl
 
 --| The spec's total fuel is the program's, for the same fuel.
-theorem totalFuelIs (fuel: Nat → Nat) (specFuel: Nat → Nat) (same: (n: Nat) → specFuel n = fuel n): (crabs: List Nat) → (position: Nat) →
+theorem totalFuelIs (fuel: Nat → Nat) (specFuel: Nat → Nat) (same: ∀ (n: Nat) => specFuel n = fuel n): ∀ (crabs: List Nat) (position: Nat) =>
     totalFuel specFuel crabs position = fuelAt fuel crabs position
   | [], position => rfl
   | [crab, ..rest], position =>
@@ -73,12 +73,12 @@ theorem growingFuelMonotone (a: Nat) (b: Nat) (le: a ≤ b): growingFuel a ≤ g
     (omega [Nat.divMulLe (a + (a * a)) 2, Nat.leMulRight a b a le, Nat.leMulRight a b b le, Nat.mulComm b a])
 
 --| Folding `Nat.min` gives at most the start and each element.
-theorem foldMinLe: (xs: List Nat) → (start: Nat) → xs.foldLeft start Nat.min ≤ start
+theorem foldMinLe: ∀ (xs: List Nat) (start: Nat) => xs.foldLeft start Nat.min ≤ start
   | [], start => Nat.leRefl start
   | [x, ..rest], start =>
     Nat.leTrans (rest.foldLeft (Nat.min start x) Nat.min) (Nat.min start x) start (foldMinLe rest (Nat.min start x)) (Nat.minLeLeft start x)
 
-theorem foldMinLeMember: (xs: List Nat) → (start: Nat) → (x: Nat) → x ∈ xs → xs.foldLeft start Nat.min ≤ x
+theorem foldMinLeMember: ∀ (xs: List Nat) (start x: Nat) => x ∈ xs → xs.foldLeft start Nat.min ≤ x
   | [], start, x, member => Void.exfalso member
   | [y, ..rest], start, x, Inl same =>
     rewrite <- same in Nat.leTrans (rest.foldLeft (Nat.min start y) Nat.min) (Nat.min start y) y (foldMinLe rest (Nat.min start y)) (Nat.minLeRight start y)
@@ -93,21 +93,21 @@ theorem leftmostLe (crabs: List Nat) (crab: Nat) (member: crab ∈ crabs): leftm
 theorem leftmostLeRightmost (crabs: List Nat): leftmost crabs ≤ rightmost crabs := foldMinLe crabs (rightmost crabs)
 
 --| A sum over a list is at most another when each term is.
-theorem sumByLeMember (f: Nat → Nat) (g: Nat → Nat): (xs: List Nat) → ((x: Nat) → x ∈ xs → g x ≤ f x) → xs.sumBy g ≤ xs.sumBy f
+theorem sumByLeMember (f: Nat → Nat) (g: Nat → Nat): ∀ (xs: List Nat) => (∀ (x: Nat) => x ∈ xs → g x ≤ f x) → xs.sumBy g ≤ xs.sumBy f
   | [], each => Nat.leRefl 0
   | [x, ..rest], each =>
     rewrite List.sumByCons rest x g, List.sumByCons rest x f in
       omega [each x (Inl rfl), sumByLeMember f g rest (y member => each y (Inr member))]
 
 --| Moving further from every crab costs at least as much fuel.
-theorem fuelAtLe (fuel: Nat → Nat) (monotone: (a: Nat) → (b: Nat) → a ≤ b → fuel a ≤ fuel b) (crabs: List Nat) (near: Nat) (far: Nat)
-    (further: (crab: Nat) → crab ∈ crabs → crab.absDiff near ≤ crab.absDiff far): fuelAt fuel crabs near ≤ fuelAt fuel crabs far :=
+theorem fuelAtLe (fuel: Nat → Nat) (monotone: ∀ (a b: Nat) => a ≤ b → fuel a ≤ fuel b) (crabs: List Nat) (near: Nat) (far: Nat)
+    (further: ∀ (crab: Nat) => crab ∈ crabs → crab.absDiff near ≤ crab.absDiff far): fuelAt fuel crabs near ≤ fuelAt fuel crabs far :=
   sumByLeMember (crab => fuel (Nat.absDiff crab far)) (crab => fuel (Nat.absDiff crab near)) crabs
     (crab member => monotone (Nat.absDiff crab near) (Nat.absDiff crab far) (further crab member))
 
 --| Every position costs at least as much as the nearest one between the
 --| leftmost crab and the rightmost.
-theorem scannedNoWorse (fuel: Nat → Nat) (monotone: (a: Nat) → (b: Nat) → a ≤ b → fuel a ≤ fuel b) (crabs: List Nat) (position: Nat):
+theorem scannedNoWorse (fuel: Nat → Nat) (monotone: ∀ (a b: Nat) => a ≤ b → fuel a ≤ fuel b) (crabs: List Nat) (position: Nat):
     exists (scanned: Nat) => (scanned ∈ List.range (leftmost crabs) (rightmost crabs + 1)) ∧ fuelAt fuel crabs scanned ≤ fuelAt fuel crabs position :=
   let lo := leftmost crabs
   let hi := rightmost crabs

@@ -22,7 +22,7 @@ theorem lengthAchieved (robots: Nat) (code: Code):
 --| no robots (`shortestWithoutRobots`); for more, it needs `CheapestWalks`
 --| at their levels (`optimalIfCheapestWalks`).
 def Optimal (robots: Nat): Prop :=
-  (code: Code) → (presses: List DirectionKey) → Types robots code presses → (robotCosts robots).shortestLength code ≤ presses.length
+  ∀ (code: Code) (presses: List DirectionKey) => Types robots code presses → (robotCosts robots).shortestLength code ≤ presses.length
 
 theorem shortestIfOptimal (robots: Nat) (optimal: Optimal robots) (code: Code): Shortest robots code ((robotCosts robots).shortestLength code) :=
   Both (lengthAchieved robots code) (presses types => optimal code presses types)

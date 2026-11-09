@@ -34,7 +34,7 @@ theorem positionEq [a: Nat] [b: Nat] [c: Nat] [d: Nat] (rows: a = c) (columns: b
   rewrite rows, columns in rfl
 
 --| `path` is the positions `from` plus 1, 2, … steps.
-theorem pathRange (slope: Slope): (from: Position) → (steps: Nat) →
+theorem pathRange (slope: Slope): ∀ (from: Position) (steps: Nat) =>
     path slope from steps = (List.rangeFrom steps 1).map (step => ({ row = from.row + step * slope.down, column = from.column + step * slope.right }: Position))
   | from, Zero => rfl
   | from, Succ more =>

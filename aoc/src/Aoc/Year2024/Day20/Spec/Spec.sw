@@ -36,7 +36,7 @@ def race (racetrack: Racetrack) (position: Position): List Direction → Option 
 --| moves from `from` reach `to` in `time` picoseconds, and none sooner.
 def IsFastest (racetrack: Racetrack) (from: Position) (to: Position) (time: Nat): Prop :=
   (∃ (moves: List Direction) => race racetrack from moves = Some to ∧ moves.length = time)
-    ∧ ((moves: List Direction) → race racetrack from moves = Some to → time ≤ moves.length)
+    ∧ (∀ (moves: List Direction) => race racetrack from moves = Some to → time ≤ moves.length)
 
 --| "Each cheat has a distinct start position (the position where the cheat
 --| is activated, just before the first move that is allowed to go through
@@ -73,5 +73,5 @@ def SavesAtLeast (racetrack: Racetrack) (length: Nat) (threshold: Nat) (cheat: C
 def IsCount (racetrack: Racetrack) (length: Nat) (threshold: Nat) (count: Nat): Prop :=
   ∃ (cheats: List Cheat) =>
     List.Distinct cheats
-      ∧ ((cheat: Cheat) → (cheat ∈ cheats) ↔ (SavesAtLeast racetrack length threshold cheat))
+      ∧ (∀ (cheat: Cheat) => (cheat ∈ cheats) ↔ (SavesAtLeast racetrack length threshold cheat))
       ∧ cheats.length = count

@@ -14,12 +14,12 @@ import Std (And, Bool, DecEq, Eq, Exists, List, Nat, Option, Void)
 --| The answers, for any choice of a decoding wiring for each entry.
 
 theorem part1Correct (entries: List Entry) (wiringOf: Entry → Segment → Segment)
-    (decodes: (entry: Entry) → entry ∈ entries → Decodes (wiringOf entry) entry):
+    (decodes: ∀ (entry: Entry) => entry ∈ entries → Decodes (wiringOf entry) entry):
     solvePart1 entries = entries.sumBy (entry => easyDigits (wiringOf entry) entry) :=
   List.sumByCongMem entries _ _ (entry m => easyCorrect (wiringOf entry) entry (decodes entry m))
 
 theorem part2Correct (entries: List Entry) (wiringOf: Entry → Segment → Segment)
-    (decodes: (entry: Entry) → entry ∈ entries → Decodes (wiringOf entry) entry):
+    (decodes: ∀ (entry: Entry) => entry ∈ entries → Decodes (wiringOf entry) entry):
     solvePart2 entries = entries.sumBy (entry => decodedValue (wiringOf entry) entry) :=
   List.sumByCongMem entries _ _ (entry m => valueCorrect (wiringOf entry) entry (decodes entry m))
 
@@ -155,6 +155,6 @@ theorem sameDigit (wiring: Segment → Segment) (wired: IsWiring wiring) (patter
       rewrite <- hasDrawn wiring pattern first firstShows wire, <- hasDrawn wiring pattern second secondShows wire in boolEqSelf (pattern.has wire))
   digitsDiffer first second firstBelow secondBelow (rewrite <- allRewired wiring wired agree in atWires)
 
-theorem boolEqSelf: (b: Bool) → (b == b) = True := cases
+theorem boolEqSelf: ∀ (b: Bool) => (b == b) = True := cases
 
 theorem notNone (o: Option a) (some: o.isSome = True) (none: o = None): Void := rewrite none at some in Bool.falseNotTrue some

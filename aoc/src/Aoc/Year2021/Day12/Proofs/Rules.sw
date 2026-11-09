@@ -10,8 +10,8 @@ import Std (Bool, DecEq, Eq, Exists, List, Nat, Option, Void)
 --| The visit rule as far as a path has gone: with `twice` (part 2) one
 --| small cave may be visited twice. `start` and `end` at most once.
 def Within (twice: Bool) (path: Path): Prop :=
-  ((cave: Cave) → cave.isBig = False → path.visits cave ≤ 1 + Bool.toNat twice)
-    ∧ ((a: Cave) → (b: Cave) → a.isBig = False → b.isBig = False → 2 ≤ path.visits a → 2 ≤ path.visits b → a = b)
+  (∀ (cave: Cave) => cave.isBig = False → path.visits cave ≤ 1 + Bool.toNat twice)
+    ∧ (∀ (a b: Cave) => a.isBig = False → b.isBig = False → 2 ≤ path.visits a → 2 ≤ path.visits b → a = b)
     ∧ path.visits Cave.start ≤ 1
     ∧ path.visits Cave.end ≤ 1
 
@@ -21,11 +21,11 @@ def Within (twice: Bool) (path: Path): Prop :=
 --| rule; with the spare visit left, it visited no small cave twice; without
 --| it, either it's part 1 or some small cave was visited twice.
 def Tracks (passages: List Passage) (twice: Bool) (unvisited: List Cave) (spare: Bool) (sofar: Path): Prop :=
-  ((c: Cave) → c ∈ caves passages → c.isBig = False → c ≠ Cave.start → c ≠ Cave.end → (unvisited.contains c = True ↔ sofar.visits c = 0))
+  (∀ (c: Cave) => c ∈ caves passages → c.isBig = False → c ≠ Cave.start → c ≠ Cave.end → (unvisited.contains c = True ↔ sofar.visits c = 0))
     ∧ sofar.visits Cave.start = 1
     ∧ sofar.visits Cave.end = 0
     ∧ Within twice sofar
-    ∧ (spare = True → twice = True ∧ ((c: Cave) → c.isBig = False → sofar.visits c ≤ 1))
+    ∧ (spare = True → twice = True ∧ (∀ (c: Cave) => c.isBig = False → sofar.visits c ≤ 1))
     ∧ (spare = False → (twice = False) ∨ (∃ (d: Cave) => d.isBig = False ∧ 2 ≤ sofar.visits d))
 
 --| `rest`, after `cave`, finishes a path whose caves so far are `sofar`.
@@ -58,7 +58,7 @@ theorem visitsSelf (xs: Path) (y: Cave): (xs.add y).visits y = xs.visits y + 1 :
 theorem visitsOther (xs: Path) (y: Cave) (cave: Cave) (ne: y ≠ cave): (xs.add y).visits cave = xs.visits cave :=
   rewrite visitsSnoc xs y cave, differ y cave ne in omega
 
-theorem visitsMember (cave: Cave): (xs: List Cave) → cave ∈ xs → 1 ≤ Path.visits { caves = xs } cave
+theorem visitsMember (cave: Cave): ∀ (xs: List Cave) => cave ∈ xs → 1 ≤ Path.visits { caves = xs } cave
   | [], member => Void.exfalso member
   | [x, ..rest], Inl same => rewrite same, DecEq.refl cave in omega
   | [x, ..rest], Inr later => omega [visitsMember cave rest later]
@@ -81,7 +81,7 @@ theorem withoutMem (caves: List Cave) (y: Cave) (c: Cave): (without caves y).con
 
 --| If a path's visits small caves are another's, it keeps the rule
 --| when the other does...
-theorem withinSame (twice: Bool) (before: Path) (after: Path) (same: (c: Cave) → c.isBig = False → after.visits c = before.visits c)
+theorem withinSame (twice: Bool) (before: Path) (after: Path) (same: ∀ (c: Cave) => c.isBig = False → after.visits c = before.visits c)
     (within: Within twice before): Within twice after :=
   let (Both each (Both once (Both start end))) := within
   Both (c small => rewrite same c small in each c small)
@@ -90,7 +90,7 @@ theorem withinSame (twice: Bool) (before: Path) (after: Path) (same: (c: Cave) �
 
 --| ...and the search's state still says the same about it.
 theorem tracksSame (passages: List Passage) (twice: Bool) (unvisited: List Cave) (spare: Bool) (before: Path) (after: Path)
-    (same: (c: Cave) → c.isBig = False → after.visits c = before.visits c) (tracks: Tracks passages twice unvisited spare before):
+    (same: ∀ (c: Cave) => c.isBig = False → after.visits c = before.visits c) (tracks: Tracks passages twice unvisited spare before):
     Tracks passages twice unvisited spare after :=
   let (Both fresh (Both start (Both end (Both within (Both spared used))))) := tracks
   Both (c named small notStart notEnd => rewrite same c small in fresh c named small notStart notEnd)
@@ -284,8 +284,8 @@ theorem smallBlocked (passages: List Passage) (twice: Bool) (unvisited: List Cav
 
 --| Each route the steps allow finishes a path by the rules...
 theorem followsCompletes (passages: List Passage) (next: Cave → List Cave)
-    (adjacent: (a: Cave) → (b: Cave) → b ∈ next a → connected passages a b = True) (twice: Bool):
-    (rest: List Cave) → (unvisited: List Cave) → (spare: Bool) → (cave: Cave) → (sofar: Path) →
+    (adjacent: ∀ (a b: Cave) => b ∈ next a → connected passages a b = True) (twice: Bool):
+    ∀ (rest unvisited: List Cave) (spare: Bool) (cave: Cave) (sofar: Path) =>
       Tracks passages twice unvisited spare sofar → Follows next unvisited spare cave rest → Completes passages twice sofar cave rest
   | [], unvisited, spare, cave, sofar, tracks, follows => Void.exfalso follows
   | [y, ..more], unvisited, spare, cave, sofar, tracks, Both member after =>
@@ -325,8 +325,8 @@ theorem followsCompletes (passages: List Passage) (next: Cave → List Cave)
 --| ...and each path by the rules is a route the steps allow, when no
 --| passage joins two big caves.
 theorem completesFollows (passages: List Passage) (promise: NoBigNeighbours passages) (next: Cave → List Cave)
-    (adjacent: (a: Cave) → (b: Cave) → connected passages a b = True → b ∈ next a) (twice: Bool):
-    (rest: List Cave) → (unvisited: List Cave) → (spare: Bool) → (cave: Cave) → (sofar: Path) →
+    (adjacent: ∀ (a b: Cave) => connected passages a b = True → b ∈ next a) (twice: Bool):
+    ∀ (rest unvisited: List Cave) (spare: Bool) (cave: Cave) (sofar: Path) =>
       Tracks passages twice unvisited spare sofar → Completes passages twice sofar cave rest → Follows next unvisited spare cave rest
   | [], unvisited, spare, cave, sofar, tracks, completes => Void.exfalso (Option.noneNotSome Cave.end (And.left completes))
   | [y, ..more], unvisited, spare, cave, sofar, tracks, completes =>

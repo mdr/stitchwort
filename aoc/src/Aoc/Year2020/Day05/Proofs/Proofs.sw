@@ -7,7 +7,7 @@ import Aoc.Year2020.Day05 (..)
 import Aoc.Year2020.Day05.Spec (..)
 import Std (Bool, DecEq, Eq, Exists, Fail, List, Nat, Option, Result, Text, Void)
 
-theorem seatIdsWritten: (lines: List (List Char)) → (passes: List Pass) → List.All2 PassWritten lines passes → seatIds lines = passes.map .seatId
+theorem seatIdsWritten: ∀ (lines: List (List Char)) (passes: List Pass) => List.All2 PassWritten lines passes → seatIds lines = passes.map .seatId
   | [], [], all => rfl
   | [line, ..lines], [pass, ..passes], Both (Both rows (Both columns same)) rest =>
     rewrite same, seatIdSpec pass rows columns, seatIdsWritten lines passes rest in rfl
@@ -27,7 +27,7 @@ theorem atLeastFirst (first: Nat) (rest: List Nat) (sorted: List.Sorted Nat.leq 
   | Inl same => rewrite same in Nat.leRefl x
   | Inr later => List.sortedHeadLe Nat.leq (a b c ab bc => Nat.leTrans a b c ab bc) first x rest sorted later
 
-theorem gapSound: (ids: List Nat) → List.Sorted Nat.leq ids → (seat: Nat) → gap ids = Some seat → ¬(seat ∈ ids) ∧ (seat + 1) ∈ ids ∧ (seat - 1) ∈ ids
+theorem gapSound: ∀ (ids: List Nat) => List.Sorted Nat.leq ids → ∀ (seat: Nat) => gap ids = Some seat → ¬(seat ∈ ids) ∧ (seat + 1) ∈ ids ∧ (seat - 1) ∈ ids
   | [], sorted, seat, found => Void.exfalso (Option.noneNotSome seat found)
   | [only], sorted, seat, found => Void.exfalso (Option.noneNotSome seat found)
   | [low, high, ..rest], Both ordered sortedRest, seat, found =>
@@ -56,7 +56,7 @@ theorem gapSound: (ids: List Nat) → List.Sorted Nat.leq ids → (seat: Nat) �
                   | Inr later => missing later)
               (Both (Inr above) (Inr below))
 
-theorem gapComplete: (ids: List Nat) → List.Sorted Nat.leq ids → (seat: Nat) → ¬(seat ∈ ids) → (seat + 1) ∈ ids → (seat - 1) ∈ ids → ∃ (found: Nat) => gap ids = Some found
+theorem gapComplete: ∀ (ids: List Nat) => List.Sorted Nat.leq ids → ∀ (seat: Nat) => ¬(seat ∈ ids) → (seat + 1) ∈ ids → (seat - 1) ∈ ids → ∃ (found: Nat) => gap ids = Some found
   | [], sorted, seat, missing, above, below => Void.exfalso above
   | [only], sorted, seat, missing, Inl up, Inl down => omega
   | [only], sorted, seat, missing, Inl up, Inr nothing => Void.exfalso nothing
@@ -83,7 +83,7 @@ theorem gapComplete: (ids: List Nat) → List.Sorted Nat.leq ids → (seat: Nat)
         gapComplete [high, ..rest] sortedRest seat (member => missing (Inr member)) aboveRest belowRest
 
 --| "Every seat": no pass names a seat past the 128 × 8.
-theorem idsBelow: (lines: List (List Char)) → (passes: List Pass) → List.All2 PassWritten lines passes → (id: Nat) → id ∈ passes.map .seatId → id < 128 * 8
+theorem idsBelow: ∀ (lines: List (List Char)) (passes: List Pass) => List.All2 PassWritten lines passes → ∀ (id: Nat) => id ∈ passes.map .seatId → id < 128 * 8
   | [], [], all, id, member => Void.exfalso member
   | [line, ..lines], [pass, ..passes], Both (Both rows (Both columns same)) rest, id, Inl first =>
     let below: Nat.fromBits (pass.row ++ pass.column) < Nat.pow 2 (pass.row.length + pass.column.length) :=
@@ -116,7 +116,7 @@ theorem candidateIntro (count: Nat) (ids: List Nat) (seat: Nat) (below: seat + 1
     seat ∈ (List.range 0 count).filter (isYourSeat ids) :=
   List.memFilterIntro (List.range 0 count) (isYourSeat ids) (List.memRangeFromIntro seat count 0 (Nat.zeroLe seat) (omega)) yours
 
-theorem gapYours (count: Nat) (ids: List Nat) (bound: (id: Nat) → id ∈ ids → id < count) (seat: Nat) (found: gap ids.sort = Some seat):
+theorem gapYours (count: Nat) (ids: List Nat) (bound: ∀ (id: Nat) => id ∈ ids → id < count) (seat: Nat) (found: gap ids.sort = Some seat):
     seat ∈ (List.range 0 count).filter (isYourSeat ids) :=
   match gapSound ids.sort (List.sortSortedNat ids) seat found with
     | Both missing (Both above below) =>
@@ -142,7 +142,7 @@ theorem part2Complete (input: Text) (passes: List Pass) (parsed: Fail.toResult (
     (Eq.subst (written => seat ∈ (List.range 0 (128 * 8)).filter (isYourSeat written)) (idsWritten input passes parsed) yours)
 
 theorem onlyAnswer (answers: List Nat) (seat: Nat) (result: Option Nat) (only: answers = [seat])
-    (sound: (found: Nat) → result = Some found → found ∈ answers) (complete: seat ∈ answers → ∃ (found: Nat) => result = Some found): result = Some seat :=
+    (sound: ∀ (found: Nat) => result = Some found → found ∈ answers) (complete: seat ∈ answers → ∃ (found: Nat) => result = Some found): result = Some seat :=
   match complete (rewrite only in Inl rfl) with
     | Witness found made =>
       let member := sound found made

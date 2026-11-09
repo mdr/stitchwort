@@ -40,8 +40,8 @@ theorem cornerIff (jigsaw: Jigsaw) (tile: Tile): (jigsaw.matchedEdges tile == 2)
     backward = corner => rewrite <- counted.forward corner in DecEq.refl 2
   }
 
-theorem keptFilter [p: a → Prop] (decide: a → Bool) (decides: (item: a) → decide item = True ↔ p item):
-    (items: List a) → (kept: List a) → Spec.Kept p items kept ↔ kept = items.filter decide
+theorem keptFilter [p: a → Prop] (decide: a → Bool) (decides: ∀ (item: a) => decide item = True ↔ p item):
+    ∀ (items kept: List a) => Spec.Kept p items kept ↔ kept = items.filter decide
   | [], kept => { forward = none => none, backward = none => none }
   | [item, ..rest], kept =>
     let later := keptFilter decide decides rest

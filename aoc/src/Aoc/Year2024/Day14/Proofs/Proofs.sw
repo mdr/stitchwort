@@ -12,7 +12,7 @@ import Aoc.Year2024.Day14.Spec (..)
 import Std (And, Bool, Eq, Iff, List, Nat, Option, Void)
 
 --| Every robot starts inside the space.
-def StartInside (space: Space) (robots: List Robot): Prop := (robot: Robot) → robot ∈ robots → space.contains robot.position = True
+def StartInside (space: Space) (robots: List Robot): Prop := ∀ (robot: Robot) => robot ∈ robots → space.contains robot.position = True
 
 --| The spec's positions are the program's.
 theorem positionsCorrect (space: Space) (robots: List Robot) (inside: StartInside space robots) (seconds: Nat):
@@ -28,7 +28,7 @@ theorem part1Correct (space: Space) (robots: List Robot) (inside: StartInside sp
 --| After any number of laps of `width * height` seconds, every robot is
 --| where it was.
 theorem periodicLaps (space: Space) (seconds: Nat) (robot: Robot):
-    (laps: Nat) → space.positionAfter (seconds + laps * space.period) robot = space.positionAfter seconds robot
+    ∀ (laps: Nat) => space.positionAfter (seconds + laps * space.period) robot = space.positionAfter seconds robot
   | Zero => rewrite Nat.addZero seconds in rfl
   | Succ laps =>
     rewrite (omega: seconds + Succ laps * space.period = seconds + laps * space.period + space.period),
@@ -53,7 +53,7 @@ theorem pictureAllDistinct (space: Space) (robots: List Robot) (inside: StartIns
 --| Part 2's answer is a picture, and no earlier second is.
 theorem part2First (space: Space) (robots: List Robot) (inside: StartInside space robots) (found: Nat)
     (h: solvePart2 space robots = Some found):
-    (isPicture space robots found) ∧ ((earlier: Nat) → earlier < found → ¬(isPicture space robots earlier)) :=
+    (isPicture space robots found) ∧ (∀ (earlier: Nat) => earlier < found → ¬(isPicture space robots earlier)) :=
   match List.findRangeSome (seconds => List.isDistinct (space.positionsAfter seconds robots)) space.period found h with
     | Both passes (Both below first) =>
       Both (rewrite positionsCorrect space robots inside found in (List.isDistinctIff (space.positionsAfter found robots)).forward passes)

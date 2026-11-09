@@ -21,7 +21,7 @@ theorem comboUnique (registers: Registers) (operand: Nat) (first: Step) (second:
     | Some value => Eq.trans isFirst (Eq.sym isSecond)
     | None => Eq.trans isFirst (Eq.sym isSecond)
 
-theorem executesUnique (operand: Nat) (machine: Machine) (first: Step) (second: Step): (opcode: Nat) →
+theorem executesUnique (operand: Nat) (machine: Machine) (first: Step) (second: Step): ∀ (opcode: Nat) =>
     Executes opcode operand machine first → Executes opcode operand machine second → first = second
   | 0, isFirst, isSecond => comboUnique machine.registers operand first second _ isFirst isSecond
   | 1, Witness one (Both isOne firstIs), Witness other (Both isOther secondIs) =>
@@ -67,7 +67,7 @@ theorem quietNotPrints (after: Machine) (other: Machine) (value: Nat) (same: Nex
   Option.noneNotSome value (Eq.cong printedOf same)
 
 --| A halting run has one output.
-theorem haltsUnique (program: List Nat): (machine: Machine) → (first: List Nat) → (second: List Nat) →
+theorem haltsUnique (program: List Nat): ∀ (machine: Machine) (first second: List Nat) =>
     Halts program machine first → Halts program machine second → first = second
   | machine, [], [], Stops _ stop, Stops _ alsoStop => rfl
   | machine, [], second, Stops _ stop, Quiet _ after _ move rest =>

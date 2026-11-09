@@ -12,7 +12,7 @@ import Std (And, Bool, Eq, Int, Nat, Option, Or, Void)
 
 -- Equal parts
 
-theorem positionExt: (position: Position) → (other: Position) → position.row = other.row → position.column = other.column → position = other
+theorem positionExt: ∀ (position other: Position) => position.row = other.row → position.column = other.column → position = other
   | { row, column }, { row = otherRow, column = otherColumn }, rows, columns => rewrite rows, columns in rfl
 
 --| Positions are equal when their rows and columns are, as `Int`s.
@@ -20,7 +20,7 @@ theorem positionExtInt (position: Position) (other: Position) (rows: position.ro
     (columns: position.column.toInt = other.column.toInt): position = other :=
   positionExt position other (omega) (omega)
 
-theorem offsetExt: (offset: Offset) → (other: Offset) → offset.rows = other.rows → offset.columns = other.columns → offset = other
+theorem offsetExt: ∀ (offset other: Offset) => offset.rows = other.rows → offset.columns = other.columns → offset = other
   | { rows, columns }, { rows = otherRows, columns = otherColumns }, sameRows, sameColumns => rewrite sameRows, sameColumns in rfl
 
 -- Where an offset lands
@@ -66,7 +66,7 @@ theorem offsetNoneOf (position: Position) (offset: Offset)
         | Inr before => Void.exfalso (omega [And.right both])
 
 --| A step is an offset by its direction's.
-theorem stepOffset: (position: Position) → (direction: Direction) → position.step direction = position.offset direction.offset
+theorem stepOffset: ∀ (position: Position) (direction: Direction) => position.step direction = position.offset direction.offset
   | { row = Zero, column }, Up => Eq.sym (offsetNoneOf { row = Zero, column } (Direction.offset Up) (Inl (omega)))
   | { row = Succ above, column }, Up => Eq.sym (offsetOf { row = Succ above, column } (Direction.offset Up) { row = above, column } (omega) (omega))
   | { row, column }, Right => Eq.sym (offsetOf { row, column } (Direction.offset Right) { row, column = column + 1 } (omega) (omega))
@@ -117,7 +117,7 @@ theorem offsetStepInjective (offset: Offset) (other: Offset) (direction: Directi
 theorem offsetStepComm (offset: Offset) (first: Direction) (second: Direction): (offset.step first).step second = (offset.step second).step first :=
   offsetExt ((offset.step first).step second) ((offset.step second).step first) (omega) (omega)
 
-theorem offsetStepOpposite (offset: Offset): (direction: Direction) → (offset.step direction).step direction.opposite = offset
+theorem offsetStepOpposite (offset: Offset): ∀ (direction: Direction) => (offset.step direction).step direction.opposite = offset
   | Up => offsetExt ((offset.step Up).step Down) offset (omega) (omega)
   | Right => offsetExt ((offset.step Right).step Left) offset (omega) (omega)
   | Down => offsetExt ((offset.step Down).step Up) offset (omega) (omega)
@@ -169,7 +169,7 @@ theorem wrapPlus (position: Position) (first: Offset) (second: Offset) (height: 
 --| Wrapping by `offset` `times` times is wrapping by `times` times it, from
 --| a position on the board.
 theorem wrapIterate (offset: Offset) (height: Nat) (width: Nat) [auto tall: height ≠ 0] [auto wide: width ≠ 0]:
-    (times: Nat) → (position: Position) → position.within height width = True →
+    ∀ (times: Nat) (position: Position) => position.within height width = True →
       times.iterate (here => here.wrap offset height width) position = position.wrap (offset.times times.toInt) height width
   | Zero, position, inside =>
     Eq.sym

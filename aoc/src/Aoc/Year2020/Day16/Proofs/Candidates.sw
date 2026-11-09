@@ -6,11 +6,11 @@ import Aoc.Year2020.Day16 (..)
 import Std (Bool, DecEq, Eq, List, Nat, Void)
 
 --| Every field in `fields` allows `value`.
-def AllAllow (fields: List Rule) (value: Nat): Prop := (rule: Rule) → rule ∈ fields → rule.allows value = True
+def AllAllow (fields: List Rule) (value: Nat): Prop := ∀ (rule: Rule) => rule ∈ fields → rule.allows value = True
 
-def Within (fields: List Rule) (wider: List Rule): Prop := (rule: Rule) → rule ∈ fields → rule ∈ wider
+def Within (fields: List Rule) (wider: List Rule): Prop := ∀ (rule: Rule) => rule ∈ fields → rule ∈ wider
 
-theorem all2Within: (fields: List (List Rule)) → List.All2 Within fields fields
+theorem all2Within: ∀ (fields: List (List Rule)) => List.All2 Within fields fields
   | [] => Trivial
   | [first, ..rest] => Both (rule member => member) (all2Within rest)
 
@@ -32,10 +32,10 @@ theorem allowWithin (fields: List Rule) (wider: List Rule) (value: Nat) (inner: 
 
 --| Ruling out by each of `tickets` in turn, each with a value for each of
 --| the `width` positions.
-theorem foldNarrow (width: Nat): (tickets: List Ticket) → (candidates: List (List Rule)) → candidates.length = width →
-    ((ticket: Ticket) → ticket ∈ tickets → ticket.values.length = width) →
+theorem foldNarrow (width: Nat): ∀ (tickets: List Ticket) (candidates: List (List Rule)) => candidates.length = width →
+    (∀ (ticket: Ticket) => ticket ∈ tickets → ticket.values.length = width) →
     (tickets.foldLeft candidates narrow).length = width ∧ List.All2 Within (tickets.foldLeft candidates narrow) candidates
-      ∧ ((ticket: Ticket) → ticket ∈ tickets → List.All2 AllAllow (tickets.foldLeft candidates narrow) ticket.values)
+      ∧ (∀ (ticket: Ticket) => ticket ∈ tickets → List.All2 AllAllow (tickets.foldLeft candidates narrow) ticket.values)
   | [], candidates, wide, lengths => Both wide (Both (all2Within candidates) (ticket member => Void.exfalso member))
   | [ticket, ..tickets], candidates, wide, lengths =>
     let fits: ticket.values.length = candidates.length := Eq.trans (lengths ticket (Inl rfl)) (Eq.sym wide)
@@ -56,6 +56,6 @@ theorem foldNarrow (width: Nat): (tickets: List Ticket) → (candidates: List (L
 --| each allowing the value there of every valid ticket.
 theorem candidatesFit (notes: Notes) (lengths: notes.validTickets.all (ticket => ticket.values.length == notes.rules.length) = True):
     notes.candidates.length = notes.rules.length ∧ List.All2 Within notes.candidates (List.replicate notes.rules.length notes.rules)
-      ∧ ((ticket: Ticket) → ticket ∈ notes.validTickets → List.All2 AllAllow notes.candidates ticket.values) :=
+      ∧ (∀ (ticket: Ticket) => ticket ∈ notes.validTickets → List.All2 AllAllow notes.candidates ticket.values) :=
   foldNarrow notes.rules.length notes.validTickets (List.replicate notes.rules.length notes.rules) (List.lengthReplicate notes.rules notes.rules.length)
     (ticket member => DecEq.sound (List.allMember _ notes.validTickets lengths ticket member))

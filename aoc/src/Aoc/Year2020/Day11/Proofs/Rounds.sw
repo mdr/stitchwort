@@ -22,7 +22,7 @@ theorem lookupOccupied (layout: Layout) (near: Position): (layout.grid.lookup ne
 --| A round by a plan whose count of occupied seats in view from each seat
 --| is `considered` is the spec's round with that count.
 theorem roundSpec (layout: Layout) (plan: Plan) (considered: Position → Nat)
-    (counts: (position: Position) → (here: Seat) → cellAt layout.grid.rows position = Some here → here.isSeat = True →
+    (counts: ∀ (position: Position) (here: Seat) => cellAt layout.grid.rows position = Some here → here.isSeat = True →
       (plan.inView position).count (near => layout.grid.lookup near == Some Occupied) = considered position):
     layout.round plan = Spec.round layout considered plan.tolerance :=
   Layout.ext _ _ (Grid.ext _ _ (mapCellsCongAt layout.grid.rows

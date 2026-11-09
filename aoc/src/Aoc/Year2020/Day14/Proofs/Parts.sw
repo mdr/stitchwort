@@ -8,27 +8,27 @@ import Aoc.Year2020.Day14 (Spec)
 import Std (Eq, List, Map, Nat)
 
 def Agrees (computer: Computer) (machine: Spec.Machine): Prop :=
-  computer.mask = machine.mask ∧ ((address: Nat) → machine.memory address = computer.memory.getOr address 0)
+  computer.mask = machine.mask ∧ (∀ (address: Nat) => machine.memory address = computer.memory.getOr address 0)
 
 theorem startAgrees: Agrees Computer.start Spec.start := Both rfl (address => rfl)
 
 --| What a part's write does to the program's memory, the spec's write does
 --| to its memory.
 def WritesAgree (write: Computer → Nat → Nat → Computer) (specWrite: Mask → Nat → Nat → Spec.Memory → Spec.Memory): Prop :=
-  (computer: Computer) → (machine: Spec.Machine) → (address: Nat) → (value: Nat) → Agrees computer machine →
+  ∀ (computer: Computer) (machine: Spec.Machine) (address value: Nat) => Agrees computer machine →
     (write computer address value).mask = computer.mask
-      ∧ ((other: Nat) → specWrite machine.mask address value machine.memory other = (write computer address value).memory.getOr other 0)
+      ∧ (∀ (other: Nat) => specWrite machine.mask address value machine.memory other = (write computer address value).memory.getOr other 0)
 
 theorem stepAgrees (write: Computer → Nat → Nat → Computer) (specWrite: Mask → Nat → Nat → Spec.Memory → Spec.Memory)
     (writes: WritesAgree write specWrite) (computer: Computer) (machine: Spec.Machine) (agrees: Agrees computer machine):
-    (instruction: Instruction) → Agrees (computer.run instruction write) (Spec.step specWrite machine instruction)
+    ∀ (instruction: Instruction) => Agrees (computer.run instruction write) (Spec.step specWrite machine instruction)
   | SetMask mask => Both rfl (And.right agrees)
   | Write address value =>
     match writes computer machine address value agrees with
       | Both keeps written => Both (Eq.trans keeps (And.left agrees)) written
 
 theorem foldAgrees (write: Computer → Nat → Nat → Computer) (specWrite: Mask → Nat → Nat → Spec.Memory → Spec.Memory)
-    (writes: WritesAgree write specWrite): (instructions: List Instruction) → (computer: Computer) → (machine: Spec.Machine) →
+    (writes: WritesAgree write specWrite): ∀ (instructions: List Instruction) (computer: Computer) (machine: Spec.Machine) =>
       Agrees computer machine →
         Agrees (instructions.foldLeft computer (computer instruction => computer.run instruction write)) (instructions.foldLeft machine (Spec.step specWrite))
   | [], computer, machine, agrees => agrees

@@ -29,7 +29,7 @@ theorem pairsStepCons (rules: List Rule) (a: Char) (b: Char) (rest: List Char):
     | [] => pairsAcross rules a b []
     | [c, ..more] => pairsAcross rules a b (List.append (between rules b c) (step rules [c, ..more]))
 
-theorem pairsStep (rules: List Rule): (polymer: List Char) → pairsOf (step rules polymer) = List.flatMap (pairsOf polymer) (expand rules)
+theorem pairsStep (rules: List Rule): ∀ (polymer: List Char) => pairsOf (step rules polymer) = List.flatMap (pairsOf polymer) (expand rules)
   | [] => rfl
   | [a] => rfl
   | [a, b, ..rest] => rewrite pairsStepCons rules a b rest, pairsStep rules [b, ..rest] in rfl

@@ -12,19 +12,19 @@ def anyRemoved (holds: List Nat → Bool): List Nat → Bool
   | [] => False
   | [level, ..rest] => holds rest || anyRemoved (levels => holds [level, ..levels]) rest
 
-theorem anyRemovedIsRemovals: (levels: List Nat) → (holds: List Nat → Bool) → anyRemoved holds levels = (removals levels |> .any holds)
+theorem anyRemovedIsRemovals: ∀ (levels: List Nat) (holds: List Nat → Bool) => anyRemoved holds levels = (removals levels |> .any holds)
   | [], holds => rfl
   | [level, ..rest], holds =>
     rewrite anyRemovedIsRemovals rest (levels => holds [level, ..levels]), List.anyMap (removals rest) holds (Cons level) in rfl
 
-theorem anyRemovedNever: (levels: List Nat) → (holds: List Nat → Bool) → ((rest: List Nat) → holds rest = False) → anyRemoved holds levels = False
+theorem anyRemovedNever: ∀ (levels: List Nat) (holds: List Nat → Bool) => (∀ (rest: List Nat) => holds rest = False) → anyRemoved holds levels = False
   | [], holds, never => rfl
   | [level, ..rest], holds, never =>
     rewrite never rest, anyRemovedNever rest (levels => holds [level, ..levels]) (levels => never [level, ..levels]) in rfl
 
 --| After a good step from `before` to `level`, the one pass is "passes, or
 --| passes with one of `level` and the rest removed".
-theorem passesDampenedAfterCorrect (ok: Nat → Nat → Bool): (before: Nat) → (level: Nat) → (rest: List Nat) → ok before level = True →
+theorem passesDampenedAfterCorrect (ok: Nat → Nat → Bool): ∀ (before level: Nat) (rest: List Nat) => ok before level = True →
     passesDampenedAfter ok before level rest =
       ([level, ..rest].chain ok || anyRemoved (levels => [before, ..levels].chain ok) [level, ..rest])
   | before, level, [], good => rfl
@@ -34,7 +34,7 @@ theorem passesDampenedAfterCorrect (ok: Nat → Nat → Bool): (before: Nat) →
       | False => rewrite anyRemovedNever rest (levels => ok before level && False) (levels => cases) in cases
 
 --| The one pass is "passes, or passes with one level removed".
-theorem passesDampenedCorrect (ok: Nat → Nat → Bool): (levels: List Nat) →
+theorem passesDampenedCorrect (ok: Nat → Nat → Bool): ∀ (levels: List Nat) =>
     passesDampened ok levels = (levels.chain ok || anyRemoved (rest => rest.chain ok) levels)
   | [] => rfl
   | [level] => rfl

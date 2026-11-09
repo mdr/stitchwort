@@ -15,7 +15,7 @@ theorem mustPrecedeCorrect (rules: List Rule) (x: Nat) (y: Nat): mustPrecede (ru
       (rule => rewrite Map.Spec.sameKeyDecide (x, y) (pairOf rule) in Pair.mkBeqMk rule.before rule.after x y)
 
 --| A rule is broken only by an update with both of its pages.
-theorem brokenHasBoth (x: Nat) (y: Nat): (pages: List Nat) → printedBefore x y pages = False →
+theorem brokenHasBoth (x: Nat) (y: Nat): ∀ (pages: List Nat) => printedBefore x y pages = False →
     (pages.any (== x) = True) ∧ (pages.any (== y) = True)
   | [], broken => Void.exfalso (Bool.trueNotFalse broken)
   | [page, ..later], broken =>
@@ -38,8 +38,8 @@ theorem followsRuleIsPrintedBefore (pages: List Nat) (rule: Rule): followsRule p
         | Both hasBefore hasAfter => rewrite hasBefore, hasAfter in rfl
 
 --| `inOrder` depends only on what the test says.
-theorem inOrderCong (precedes1: Nat → Nat → Bool) (precedes2: Nat → Nat → Bool) (same: (x: Nat) → (y: Nat) → precedes1 x y = precedes2 x y):
-    (pages: List Nat) → inOrder precedes1 pages = inOrder precedes2 pages
+theorem inOrderCong (precedes1: Nat → Nat → Bool) (precedes2: Nat → Nat → Bool) (same: ∀ (x y: Nat) => precedes1 x y = precedes2 x y):
+    ∀ (pages: List Nat) => inOrder precedes1 pages = inOrder precedes2 pages
   | [] => rfl
   | [page, ..later] =>
     rewrite List.allCong later (laterPage => !(precedes1 laterPage page)) (laterPage => !(precedes2 laterPage page)) (laterPage => rewrite same laterPage page in rfl),
@@ -67,7 +67,7 @@ theorem noRuleBroken (rules: List Rule) (page: Nat) (later: List Nat):
       (rule => !(page == rule.after) || !(later.any (== rule.before))) (rule => ruleKept rule page later))
 
 --| The program's check, by the rules as written, is "every rule is kept".
-theorem inOrderPrintedBefore (rules: List Rule): (pages: List Nat) → inOrder (ruleSays rules) pages = rules.all (rule => printedBefore rule.before rule.after pages)
+theorem inOrderPrintedBefore (rules: List Rule): ∀ (pages: List Nat) => inOrder (ruleSays rules) pages = rules.all (rule => printedBefore rule.before rule.after pages)
   | [] => Eq.sym (List.allTrue rules (rule => printedBefore rule.before rule.after []) (rule => rfl))
   | [page, ..later] =>
     let keptHere := rules.all (rule => printedBefore rule.before rule.after later)

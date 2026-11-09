@@ -46,7 +46,7 @@ theorem belowFits (jigsaw: Jigsaw) (tile: Tile) (next: Tile) (found: jigsaw.belo
   match neighbourFound jigsaw tile tile.image.bottom (next => next.image.top == tile.image.bottom) next found with
     | Both fits turned => Both (DecEq.sound fits) turned
 
-theorem rowAfterFits (jigsaw: Jigsaw): (tile: Tile) → (fuel: Nat) → RowFits [tile, ..jigsaw.rowAfter tile fuel]
+theorem rowAfterFits (jigsaw: Jigsaw): ∀ (tile: Tile) (fuel: Nat) => RowFits [tile, ..jigsaw.rowAfter tile fuel]
   | tile, Zero => Trivial
   | tile, Succ fuel =>
     match found: jigsaw.rightOf tile with
@@ -55,7 +55,7 @@ theorem rowAfterFits (jigsaw: Jigsaw): (tile: Tile) → (fuel: Nat) → RowFits 
 
 --| From any first tile (`arrange` starts from `topLeft`), every row fits
 --| edge to edge, and so does the first column.
-theorem rowsFromFits (jigsaw: Jigsaw): (first: Tile) → (fuel: Nat) → ((row: List Tile) → row ∈ jigsaw.rowsFrom first fuel → RowFits row) ∧ ColumnFits (jigsaw.rowsFrom first fuel)
+theorem rowsFromFits (jigsaw: Jigsaw): ∀ (first: Tile) (fuel: Nat) => (∀ (row: List Tile) => row ∈ jigsaw.rowsFrom first fuel → RowFits row) ∧ ColumnFits (jigsaw.rowsFrom first fuel)
   | first, Zero => Both (row member => Void.exfalso member) Trivial
   | first, Succ fuel =>
     let firstRow := rowAfterFits jigsaw first jigsaw.tiles.length

@@ -29,7 +29,7 @@ theorem columnsAre (lines: List Text):
   rewrite List.transposeFillColumns (List.map lines Text.toList) ' ', List.mapMap lines (.getOr _ ' ') Text.toList
 
 --| Past a bound on every line's length, every column is blank.
-theorem blankPast (w: Nat): (lines: List Text) → ((r: Nat) → ((lines.map Text.toList).getOr r []).length ≤ w) → blank lines w = True
+theorem blankPast (w: Nat): ∀ (lines: List Text) => (∀ (r: Nat) => ((lines.map Text.toList).getOr r []).length ≤ w) → blank lines w = True
   | [], h => rfl
   | [l, ..rest], h => rewrite List.getOrPast (Text.toList l) w ' ' (h 0) in blankPast w rest (r => h (Succ r))
 
@@ -56,7 +56,7 @@ theorem blockOperator (lines: List Text) (cs: List Nat):
     columnOperator lines _
 
 --| Adding and multiplying don't mind the order.
-theorem evaluateReverse: (op: Option Operator) → (xs: List Nat) → evaluate op xs.reverse = evaluate op xs
+theorem evaluateReverse: ∀ (op: Option Operator) (xs: List Nat) => evaluate op xs.reverse = evaluate op xs
   | None, xs => rfl
   | Some Add, xs => List.sumReverse xs
   | Some Multiply, xs => List.productReverse xs
@@ -79,7 +79,7 @@ def blockOf (lines: List Text) (lo: Nat) (hi: Nat): List (List Char) :=
   (List.rangeFrom (hi - lo) lo).map (column lines)
 
 theorem answer1 (lines: List Text) (lo: Nat) (hi: Nat):
-    (b: Bool) → isProblem lines lo hi = b →
+    ∀ (b: Bool) => isProblem lines lo hi = b →
     Nat.keepIf (blockAnswer1 (blockOf lines lo hi)) b = Nat.keepIf (evaluate (operatorOf lines lo hi) (rowNumbers lines lo hi)) b
   | False, h => rfl
   | True, h =>
@@ -88,7 +88,7 @@ theorem answer1 (lines: List Text) (lo: Nat) (hi: Nat):
       blockRows lines lo (List.rangeFrom (hi - Succ lo) (Succ lo))
 
 theorem answer2 (lines: List Text) (lo: Nat) (hi: Nat):
-    (b: Bool) → isProblem lines lo hi = b →
+    ∀ (b: Bool) => isProblem lines lo hi = b →
     Nat.keepIf (blockAnswer2 (blockOf lines lo hi)) b = Nat.keepIf (evaluate (operatorOf lines lo hi) (columnNumbers lines lo hi)) b
   | False, h => rfl
   | True, h =>

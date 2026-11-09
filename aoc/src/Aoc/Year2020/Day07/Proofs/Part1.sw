@@ -70,13 +70,13 @@ theorem directlyEdge (rules: Rules) (inner: Colour) (holder: Colour) (directly: 
   (graphEdge rules inner holder 1).backward
     (Both (List.memMap _ holder held (holder => (holder, 1))) (holderListed rules.all inner holder held))
 
-theorem walkOutward (rules: Rules): (start: Colour) → (path: List (Colour, Nat)) → (finish: Colour) → rules.graph.Walk start path finish →
+theorem walkOutward (rules: Rules): ∀ (start: Colour) (path: List (Colour, Nat)) (finish: Colour) => rules.graph.Walk start path finish →
     Spec.Outward rules.all start (path.map Pair.fst) finish
   | start, [], finish, walked => walked
   | start, [(next, weight), ..rest], finish, Both edge later =>
     Both (And.left (edgeDirectly rules start next weight edge)) (walkOutward rules next rest finish later)
 
-theorem outwardWalk (rules: Rules): (start: Colour) → (bags: List Colour) → (finish: Colour) → Spec.Outward rules.all start bags finish →
+theorem outwardWalk (rules: Rules): ∀ (start: Colour) (bags: List Colour) (finish: Colour) => Spec.Outward rules.all start bags finish →
     rules.graph.Walk start (bags.map (bag => (bag, 1))) finish
   | start, [], finish, outward => outward
   | start, [next, ..rest], finish, Both directly later => Both (directlyEdge rules start next directly) (outwardWalk rules next rest finish later)

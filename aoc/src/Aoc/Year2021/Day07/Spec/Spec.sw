@@ -37,7 +37,7 @@ def totalFuel (fuel: Nat → Nat) (crabs: List Nat) (position: Nat): Nat :=
 --| "The least fuel possible": some position costs `answer` in total, and no
 --| position costs less.
 def LeastFuel (fuel: Nat → Nat) (crabs: List Nat) (answer: Nat): Prop :=
-  (exists (position: Nat) => totalFuel fuel crabs position = answer) ∧ ((position: Nat) → answer ≤ totalFuel fuel crabs position)
+  (exists (position: Nat) => totalFuel fuel crabs position = answer) ∧ (∀ (position: Nat) => answer ≤ totalFuel fuel crabs position)
 
 def Part1Answer (crabs: List Nat) (answer: Nat): Prop := LeastFuel part1Fuel crabs answer
 

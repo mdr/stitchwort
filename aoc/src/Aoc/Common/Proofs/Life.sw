@@ -12,7 +12,7 @@ import Std (Bool, Eq, List, Map, Nat, Option, Ord, Set)
 --| given that `adjacent a b` is how many times `b` is among `a`'s
 --| neighbours (once or not at all).
 theorem countsActive [auto ord: Ord c] (neighbours: c → List c) (adjacent: c → c → Bool)
-    (once: (a: c) → (b: c) → (neighbours a).count (== b) = Bool.toNat (adjacent a b)) (alive: Set c) (cell: c):
+    (once: ∀ (a b: c) => (neighbours a).count (== b) = Bool.toNat (adjacent a b)) (alive: Set c) (cell: c):
     (lifeCounts neighbours alive).getOr cell 0 = alive.count (other => adjacent other cell) :=
   calc (lifeCounts neighbours alive).getOr cell 0
     _ = (alive.toList.flatMap neighbours).count (== cell) := Map.getOrCounts cell _
@@ -25,7 +25,7 @@ theorem ruleOfCount (rule: Bool → Nat → Bool) (alive: Bool) (count: Nat) (ne
     rule alive count = rule alive near :=
   rewrite same in rfl
 
-theorem ruleOfNone (rule: Bool → Nat → Bool) (alive: Bool) (near: Nat) (none: 0 = near) (dies: (alive: Bool) → rule alive 0 = False):
+theorem ruleOfNone (rule: Bool → Nat → Bool) (alive: Bool) (near: Nat) (none: 0 = near) (dies: ∀ (alive: Bool) => rule alive 0 = False):
     False = rule alive near :=
   rewrite <- none in Eq.sym (dies alive)
 
@@ -34,8 +34,8 @@ theorem ruleOfNone (rule: Bool → Nat → Bool) (alive: Bool) (near: Nat) (none
 --| with no live neighbours, dead or alive: such a cell has no count, so the
 --| step leaves it dead.
 theorem stepActive [auto ord: Ord c] (neighbours: c → List c) (adjacent: c → c → Bool)
-    (once: (a: c) → (b: c) → (neighbours a).count (== b) = Bool.toNat (adjacent a b))
-    (rule: Bool → Nat → Bool) (dies: (alive: Bool) → rule alive 0 = False) (alive: Set c) (cell: c):
+    (once: ∀ (a b: c) => (neighbours a).count (== b) = Bool.toNat (adjacent a b))
+    (rule: Bool → Nat → Bool) (dies: ∀ (alive: Bool) => rule alive 0 = False) (alive: Set c) (cell: c):
     (lifeStep neighbours rule alive).contains cell = rule (alive.contains cell) (alive.count (other => adjacent other cell)) :=
   let counts := lifeCounts neighbours alive
   let near := countsActive neighbours adjacent once alive cell

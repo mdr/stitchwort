@@ -11,7 +11,7 @@ def bitSet (n: Nat) (i: Nat): Bool := n / Nat.pow 2 i % 2 == 1
 
 --| "The bitwise XOR of" `x` and `y` is `result`: each bit of it is 1 when
 --| exactly one of `x` and `y` has that bit 1.
-def BitwiseXor (x: Nat) (y: Nat) (result: Nat): Prop := (i: Nat) → bitSet result i = Bool.xor (bitSet x i) (bitSet y i)
+def BitwiseXor (x: Nat) (y: Nat) (result: Nat): Prop := ∀ (i: Nat) => bitSet result i = Bool.xor (bitSet x i) (bitSet y i)
 
 --| "To mix a value into the secret number, calculate the bitwise XOR of the
 --| given value and the secret number. Then, the secret number becomes the

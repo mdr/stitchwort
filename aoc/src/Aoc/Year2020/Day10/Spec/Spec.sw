@@ -17,7 +17,7 @@ def Takes (input: Nat) (rating: Nat): Bool := [1, 2, 3].contains (rating - input
 
 --| "Your device has a built-in joltage adapter rated for 3 jolts higher than
 --| the highest-rated adapter in your bag": `highest` is that adapter's.
-def Highest (adapters: List Nat) (highest: Nat): Prop := highest ∈ adapters ∧ ((x: Nat) → x ∈ adapters → x ≤ highest)
+def Highest (adapters: List Nat) (highest: Nat): Prop := highest ∈ adapters ∧ (∀ (x: Nat) => x ∈ adapters → x ≤ highest)
 
 --| From "the charging outlet near your seat as having an effective joltage
 --| rating of 0" through `adapters` to the device, each takes the one before.

@@ -20,20 +20,20 @@ import Std (And, Bool, Eq, Exists, Iff, List, Nat, Not, Option, Or, Set, Void)
 --| The program's reading of a clique: every member has links, and every two
 --| different members are neighbours.
 def Clique (network: Network) (set: Set Computer): Prop :=
-  ((member: Computer) → set.contains member = True → network.links.keySet.contains member = True)
-    ∧ ((one: Computer) → (other: Computer) → set.contains one = True → set.contains other = True → one ≠ other →
+  (∀ (member: Computer) => set.contains member = True → network.links.keySet.contains member = True)
+    ∧ (∀ (one other: Computer) => set.contains one = True → set.contains other = True → one ≠ other →
       (network.links.neighbours one).contains other = True)
 
 --| Each candidate has links, isn't in the clique yet, and is a neighbour of
 --| all of it.
 def Candidates (network: Network) (clique: Set Computer) (candidates: Set Computer): Prop :=
-  (candidate: Computer) → candidates.contains candidate = True →
+  ∀ (candidate: Computer) => candidates.contains candidate = True →
     network.links.keySet.contains candidate = True
       ∧ clique.contains candidate = False
-      ∧ ((member: Computer) → clique.contains member = True → (network.links.neighbours candidate).contains member = True)
+      ∧ (∀ (member: Computer) => clique.contains member = True → (network.links.neighbours candidate).contains member = True)
 
 --| Every computer in `small` is in `big`.
-def Within (small: Set Computer) (big: Set Computer): Prop := (key: Computer) → small.contains key = True → big.contains key = True
+def Within (small: Set Computer) (big: Set Computer): Prop := ∀ (key: Computer) => small.contains key = True → big.contains key = True
 
 --| What `Links.largestFrom` returns: a clique, no smaller than `best`, and no
 --| smaller than any clique holding `clique` within `clique` and the
@@ -41,7 +41,7 @@ def Within (small: Set Computer) (big: Set Computer): Prop := (key: Computer) �
 def Answers (network: Network) (clique: Set Computer) (candidates: Set Computer) (best: Set Computer) (result: Set Computer): Prop :=
   Clique network result
     ∧ best.size ≤ result.size
-    ∧ ((other: Set Computer) → Clique network other → Within clique other → Within other (clique.union candidates) → other.size ≤ result.size)
+    ∧ (∀ (other: Set Computer) => Clique network other → Within clique other → Within other (clique.union candidates) → other.size ≤ result.size)
 
 theorem sizeWithin (small: Set Computer) (big: Set Computer) (within: Within small big): small.size ≤ big.size := Set.sizeSubset big small within
 
@@ -98,7 +98,7 @@ theorem othersIntro (candidates: Set Computer) (candidate: Computer) (others: Se
 --| A candidate added to the clique keeps it a clique.
 theorem cliqueInsert (network: Network) (clique: Set Computer) (candidate: Computer) (cliqueOk: Clique network clique)
     (candidateLinked: network.links.keySet.contains candidate = True)
-    (candidateNeighbours: (member: Computer) → clique.contains member = True → (network.links.neighbours candidate).contains member = True):
+    (candidateNeighbours: ∀ (member: Computer) => clique.contains member = True → (network.links.neighbours candidate).contains member = True):
     Clique network (clique.insert candidate) :=
   Both
     (member held =>

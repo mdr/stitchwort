@@ -7,7 +7,7 @@ import Aoc.Year2020.Day14 (..)
 import Aoc.Year2020.Day14 (Spec)
 import Std (Bool, Eq, List, Nat, Void)
 
-theorem maskedBits: (mask: List MaskBit) → (value: List Bool) → value.length = mask.length →
+theorem maskedBits: ∀ (mask: List MaskBit) (value: List Bool) => value.length = mask.length →
     List.zipWith (List.zipWith value (mask.map MaskBit.isFloating) (a b => a && b)) (mask.map MaskBit.isOn) (a b => a || b)
       = List.zipWith mask value Spec.overwrite
   | [], [], same => rfl

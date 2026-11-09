@@ -11,7 +11,7 @@ import Std (And, Bool, DecEq, Eq, Exists, List, Option)
 theorem joinedRefl (garden: Garden) (plot: Position): Joined garden plot plot := Witness [] (DecEq.refl plot)
 
 --| A chain extended by one more touching plot.
-theorem chainSnoc (garden: Garden): (from: Position) → (chain: List Position) → (to: Position) → (next: Position) →
+theorem chainSnoc (garden: Garden): ∀ (from: Position) (chain: List Position) (to next: Position) =>
     isChain garden from chain to = True → touches garden to next = True → isChain garden from (chain ++ [next]) next = True
   | from, [], to, next, same, touching => rewrite DecEq.sound same in Bool.andIntro touching (DecEq.refl next)
   | from, [middle, ..rest], to, next, chained, touching =>
@@ -21,7 +21,7 @@ theorem joinedStep (garden: Garden) (plot: Position) (other: Position) (next: Po
     (touching: touches garden other next = True): Joined garden plot next :=
   Exists.elim joined (chain chained => Witness (chain ++ [next]) (chainSnoc garden plot chain other next chained touching))
 
-theorem chainSymmetric (garden: Garden): (from: Position) → (chain: List Position) → (to: Position) → isChain garden from chain to = True →
+theorem chainSymmetric (garden: Garden): ∀ (from: Position) (chain: List Position) (to: Position) => isChain garden from chain to = True →
     Joined garden to from
   | from, [], to, same => rewrite DecEq.sound same in joinedRefl garden to
   | from, [next, ..rest], to, chained =>
@@ -31,7 +31,7 @@ theorem chainSymmetric (garden: Garden): (from: Position) → (chain: List Posit
 theorem joinedSymmetric (garden: Garden) (plot: Position) (other: Position) (joined: Joined garden plot other): Joined garden other plot :=
   Exists.elim joined (chain chained => chainSymmetric garden plot chain other chained)
 
-theorem chainTrans (garden: Garden) (plot: Position): (from: Position) → (chain: List Position) → (to: Position) → Joined garden plot from →
+theorem chainTrans (garden: Garden) (plot: Position): ∀ (from: Position) (chain: List Position) (to: Position) => Joined garden plot from →
     isChain garden from chain to = True → Joined garden plot to
   | from, [], to, joined, same => rewrite <- DecEq.sound same in joined
   | from, [next, ..rest], to, joined, chained =>
@@ -42,7 +42,7 @@ theorem joinedTrans (garden: Garden) (plot: Position) (middle: Position) (other:
   Exists.elim second (chain chained => chainTrans garden plot middle chain other first chained)
 
 --| Every plot of a chain grows the plant the first one does.
-theorem chainPlant (garden: Garden) (plant: Char): (from: Position) → (chain: List Position) → (to: Position) →
+theorem chainPlant (garden: Garden) (plant: Char): ∀ (from: Position) (chain: List Position) (to: Position) =>
     garden.plantAt from = Some plant → isChain garden from chain to = True → garden.plantAt to = Some plant
   | from, [], to, grows, same => rewrite <- DecEq.sound same in grows
   | from, [next, ..rest], to, grows, chained =>

@@ -15,11 +15,11 @@ import Std (Bool, Eq, Exists, List, Option, Void)
 --| The same floor plan: the same positions on the layout, with floor at
 --| the same ones.
 def SamePlan (start: Layout) (layout: Layout): Prop :=
-  (position: Position) → (cellAt layout.grid.rows position).map Seat.isSeat = (cellAt start.grid.rows position).map Seat.isSeat
+  ∀ (position: Position) => (cellAt layout.grid.rows position).map Seat.isSeat = (cellAt start.grid.rows position).map Seat.isSeat
 
 theorem becomesIsSeat (seat: Seat) (occupiedNear: Nat) (crowded: Nat): (Spec.becomes seat occupiedNear crowded).isSeat = seat.isSeat := cases
 
-theorem mapKeepsSeat (found: Option Seat) (f: Seat → Seat) (keeps: (seat: Seat) → (f seat).isSeat = seat.isSeat):
+theorem mapKeepsSeat (found: Option Seat) (f: Seat → Seat) (keeps: ∀ (seat: Seat) => (f seat).isSeat = seat.isSeat):
     (found.map f).map Seat.isSeat = found.map Seat.isSeat :=
   match found with
     | None => rfl

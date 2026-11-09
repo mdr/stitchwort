@@ -9,13 +9,13 @@ import Aoc.Year2020.Day13 (Spec)
 import Std (Eq, Iff, List, Nat, Option, Void)
 
 --| Every bus in service has an ID of at least 1: what the parser checks.
-def IdsPositive (notes: Notes): Prop := (id: Nat) → Listed id ∈ notes.schedule → id ≠ 0
+def IdsPositive (notes: Notes): Prop := ∀ (id: Nat) => Listed id ∈ notes.schedule → id ≠ 0
 
 theorem departsAfterSpec (bus: Bus) (t: Nat): bus.departsAfter t = True ↔ Spec.Departs bus.id (t + bus.offset) := Nat.dividesIff bus.id (t + bus.offset)
 
 def busesFrom (start: Nat) (schedule: List Slot): List Bus := List.filterMap (List.withIndexFrom start schedule) (((offset, slot)) => slot.bus offset)
 
-theorem linedUpFrom (t: Nat): (start: Nat) → (schedule: List Slot) → AllDepart (busesFrom start schedule) t ↔ Spec.LinedUp schedule (t + start)
+theorem linedUpFrom (t: Nat): ∀ (start: Nat) (schedule: List Slot) => AllDepart (busesFrom start schedule) t ↔ Spec.LinedUp schedule (t + start)
   | start, [] => { forward = h => (), backward = h => () }
   | start, [Listed id, ..rest] =>
     let next := linedUpFrom t (Succ start) rest
@@ -28,7 +28,7 @@ theorem linedUpFrom (t: Nat): (start: Nat) → (schedule: List Slot) → AllDepa
     let next := linedUpFrom t (Succ start) rest
     rewrite Nat.addSucc t start, <- Nat.addOne (t + start) at next in next
 
-theorem positiveFrom: (start: Nat) → (schedule: List Slot) → ((id: Nat) → Listed id ∈ schedule → id ≠ 0) → Positive (busesFrom start schedule)
+theorem positiveFrom: ∀ (start: Nat) (schedule: List Slot) => (∀ (id: Nat) => Listed id ∈ schedule → id ≠ 0) → Positive (busesFrom start schedule)
   | start, [], h => ()
   | start, [Listed id, ..rest], h => Both (h id (Inl rfl)) (positiveFrom (Succ start) rest (other member => h other (Inr member)))
   | start, [OutOfService, ..rest], h => positiveFrom (Succ start) rest (other member => h other (Inr member))

@@ -28,14 +28,14 @@ def energyIn (cavern: Cavern) (flashed: Position → Bool) (at: Position) (level
 --| octopus whose energy, counting the flashes of `flashed`, is above 9 is
 --| in `flashed`.
 def Closed (cavern: Cavern) (flashed: Position → Bool): Prop :=
-  (at: Position) → (level: Nat) → (at, level) ∈ cavern.grid.cells → 9 < energyIn cavern flashed at level → flashed at = True
+  ∀ (at: Position) (level: Nat) => (at, level) ∈ cavern.grid.cells → 9 < energyIn cavern flashed at level → flashed at = True
 
 --| The octopuses that flash in a step: the least closed set. Least, since
 --| an octopus flashes only when the flashes before it push it above 9
 --| (two adjacent 8s would each be above 9 if both flashed, but neither
 --| starts the other off), and at most once.
 def Flashers (cavern: Cavern) (flashed: Position → Bool): Prop :=
-  Closed cavern flashed ∧ ((other: Position → Bool) → Closed cavern other → (at: Position) → flashed at = True → other at = True)
+  Closed cavern flashed ∧ (∀ (other: Position → Bool) => Closed cavern other → ∀ (at: Position) => flashed at = True → other at = True)
 
 --| The cavern after the step: "any octopus that flashed during this step
 --| has its energy level set to 0", the others are at their energy.
@@ -59,8 +59,8 @@ def AllFlashIn (cavern: Cavern) (number: Nat): Prop :=
   1 ≤ number
     ∧ exists (before: Cavern) => exists (total: Nat) => Run cavern (number - 1) before total
       ∧ exists (flashed: Position → Bool) => Flashers before flashed
-        ∧ ((at: Position) → (level: Nat) → (at, level) ∈ before.grid.cells → flashed at = True)
+        ∧ (∀ (at: Position) (level: Nat) => (at, level) ∈ before.grid.cells → flashed at = True)
 
 --| Part 2: "the first step during which all octopuses flash".
 def Part2Answer (cavern: Cavern) (answer: Nat): Prop :=
-  AllFlashIn cavern answer ∧ ((earlier: Nat) → earlier < answer → ¬(AllFlashIn cavern earlier))
+  AllFlashIn cavern answer ∧ (∀ (earlier: Nat) => earlier < answer → ¬(AllFlashIn cavern earlier))

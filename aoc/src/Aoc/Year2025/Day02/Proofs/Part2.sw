@@ -46,7 +46,7 @@ def divisorWeights (w: Nat → Int) (m: Nat) (c: Nat): Int :=
   List.rangeFrom c 2 |> .sumBy (d => if Nat.divides d m then w d else 0)
 
 --| A guard that holds takes the first branch.
-theorem guardHolds [p: Prop] [a: Type]: (d: Decidable p) → p → (x: a) → (y: a) → Decidable.elim d (g => x) (r => y) = x
+theorem guardHolds [p: Prop] [a: Type]: ∀ (d: Decidable p) => p → ∀ (x y: a) => Decidable.elim d (g => x) (r => y) = x
   | Yes q, h, x, y => rfl
   | No r, h, x, y => Void.exfalso (r h)
 
@@ -72,7 +72,7 @@ theorem divisorWeightsTop (w: Nat → Int) (j: Nat): divisorWeights w (Succ (Suc
       := rewrite Nat.dividesSelf (Succ (Succ j))
 
 --| The key fact: the weights of the divisors of m from 2 on add up to 1.
-theorem weightsOne: (m: Nat) → 1 ≤ m → divisorWeights copiesWeight m (m - 1) = (Bool.toNat (Nat.leq 2 m)).toInt
+theorem weightsOne: ∀ (m: Nat) => 1 ≤ m → divisorWeights copiesWeight m (m - 1) = (Bool.toNat (Nat.leq 2 m)).toInt
   | Zero, h => Void.exfalso (Bool.falseNotTrue h)
   | Succ Zero, h => rfl
   | Succ (Succ j), h =>
@@ -83,7 +83,7 @@ theorem weightsOne: (m: Nat) → 1 ≤ m → divisorWeights copiesWeight m (m - 
       _ = 1 := ring
 
 --| Divisors of m beyond m count for nothing.
-theorem divisorWeightsAll (w: Nat → Int): (m: Nat) → 1 ≤ m → (c: Nat) → m ≤ Succ c → divisorWeights w m c = divisorWeights w m (m - 1)
+theorem divisorWeightsAll (w: Nat → Int): ∀ (m: Nat) => 1 ≤ m → ∀ (c: Nat) => m ≤ Succ c → divisorWeights w m c = divisorWeights w m (m - 1)
   | Zero, hm, c, hc => Void.exfalso (Bool.falseNotTrue hm)
   | Succ k, hm, c, hc =>
     let f: Nat → Int := d => if Nat.divides d (Succ k) then w d else 0
@@ -98,11 +98,11 @@ theorem divisorWeightsAll (w: Nat → Int): (m: Nat) → 1 ≤ m → (c: Nat) �
 -- (3) Periods ----------------------------------------------------------------
 
 --| Rotating the first `len` values of g by p places leaves them unchanged.
-def Period (g: Nat → Nat) (len: Nat) (hl: len ≠ 0) (p: Nat): Prop := (i: Nat) → i < len → g ((i + p) % len) = g i
+def Period (g: Nat → Nat) (len: Nat) (hl: len ≠ 0) (p: Nat): Prop := ∀ (i: Nat) => i < len → g ((i + p) % len) = g i
 
 --| A period of the first `a` values is one of the first `b`, when `a = b`.
 theorem periodCong (g: Nat → Nat) (a: Nat) (b: Nat) (ha: a ≠ 0) (hb: b ≠ 0) (same: a = b) (p: Nat) (per: Period g a ha p): Period g b hb p :=
-  Eq.subst (m => (hm: m ≠ 0) → Period g m hm p) same (hm => per) hb
+  Eq.subst (m => ∀ (hm: m ≠ 0) => Period g m hm p) same (hm => per) hb
 
 theorem periodZero (g: Nat → Nat) (len: Nat) (hl: len ≠ 0): Period g len hl 0 :=
   i hi => Eq.cong g (Eq.trans (Eq.cong (y => y % len) (ring: i + 0 = i)) (Nat.modSmall i len hi))
@@ -128,7 +128,7 @@ theorem periodSub (g: Nat → Nat) (len: Nat) (hl: len ≠ 0) (p: Nat) (q: Nat) 
         := rewrite (omega: i + (p - q) + q = i + p)
       _ = g i := hp i hi
 
-theorem periodMul (g: Nat → Nat) (len: Nat) (hl: len ≠ 0) (p: Nat) (hp: Period g len hl p): (t: Nat) → Period g len hl (t * p)
+theorem periodMul (g: Nat → Nat) (len: Nat) (hl: len ≠ 0) (p: Nat) (hp: Period g len hl p): ∀ (t: Nat) => Period g len hl (t * p)
   | Zero, i, hi => periodZero g len hl i hi
   | Succ t, i, hi => periodAdd g len hl p (t * p) hp (periodMul g len hl p hp t) i hi
 
@@ -142,15 +142,15 @@ theorem periodTest (g: Nat → Nat) (len: Nat) (hl: len ≠ 0) (p: Nat) (h: Peri
   List.allRangeIntro (i => g ((i + p) % len) == g i) len 0 (i h1 h2 => Decidable.toBoolOf (Nat.decEq (g ((i + p) % len)) (g i)) (h i h2))
 
 --| A period below the smallest positive one, `Succ j`, is 0.
-theorem periodBelow (g: Nat → Nat) (len: Nat) (hl: len ≠ 0) (j: Nat) (hmin: (r: Nat) → r < j → isPeriod g len hl (Succ r) = False):
-    (r: Nat) → Period g len hl r → r < Succ j → r = 0
+theorem periodBelow (g: Nat → Nat) (len: Nat) (hl: len ≠ 0) (j: Nat) (hmin: ∀ (r: Nat) => r < j → isPeriod g len hl (Succ r) = False):
+    ∀ (r: Nat) => Period g len hl r → r < Succ j → r = 0
   | Zero, hr, lt => rfl
   | Succ r, hr, lt => Void.exfalso (Bool.trueNotFalse (Eq.trans (Eq.sym (periodTest g len hl (Succ r) hr)) (hmin r lt)))
 
 --| The heart: every period is a multiple of the smallest positive one (the
 --| remainder of the division is a smaller period).
 theorem periodDvd (g: Nat → Nat) (len: Nat) (hl: len ≠ 0) (j: Nat) (hp0: Period g len hl (Succ j))
-    (hmin: (r: Nat) → r < j → isPeriod g len hl (Succ r) = False) (p: Nat) (hp: Period g len hl p): p % Succ j = 0 :=
+    (hmin: ∀ (r: Nat) => r < j → isPeriod g len hl (Succ r) = False) (p: Nat) (hp: Period g len hl p): p % Succ j = 0 :=
   let t := p / Succ j
   let rest: Period g len hl (p - t * Succ j) :=
     periodSub g len hl p (t * Succ j) hp (periodMul g len hl (Succ j) hp0 t) (Nat.divMulLe p (Succ j))
@@ -270,7 +270,7 @@ theorem dividesOfWritten (x: Nat) (n: Nat) (hn: 2 ≤ n) (k: Nat) (hk1: 1 ≤ k)
   rewrite (ring: t * n = n * t), <- eK at Nat.dividesMul n t
 
 --| And back: if n divides the block count, the digits are a block written n times.
-theorem writtenOfDivides (x: Nat) (n: Nat) (hn: 2 ≤ n): (t: Nat) → blockCount x = t * n → copies x n = True
+theorem writtenOfDivides (x: Nat) (n: Nat) (hn: 2 ≤ n): ∀ (t: Nat) => blockCount x = t * n → copies x n = True
   | Zero, e => omega [blockCountPos x]
   | Succ t, e =>
     let k := Succ t * smallestPeriod x

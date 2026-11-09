@@ -9,8 +9,8 @@ import Aoc.Year2024.Day19 (..)
 import Aoc.Year2024.Day19.Spec (..)
 import Std (Bool, Eq, List, Nat, Void)
 
-theorem tableCorrect (patterns: List Pattern): (stripes: List Stripe) → (index: Nat) → index ≤ stripes.length →
-    (count: Nat) → stripes.length - index ≤ count → (waysForSuffixes patterns stripes).getOr index 0 = matching patterns count (stripes.drop index)
+theorem tableCorrect (patterns: List Pattern): ∀ (stripes: List Stripe) (index: Nat) => index ≤ stripes.length →
+    ∀ (count: Nat) => stripes.length - index ≤ count → (waysForSuffixes patterns stripes).getOr index 0 = matching patterns count (stripes.drop index)
   | [], Zero, inside, count, enough => Eq.sym (matchingEmpty patterns count)
   | [], Succ index, inside, count, enough => Void.exfalso (omega [inside])
   | [first, ..rest], Succ index, inside, count, enough => tableCorrect patterns rest index (omega [inside]) count (omega [enough])
@@ -28,7 +28,7 @@ theorem tableCorrect (patterns: List Pattern): (stripes: List Stripe) → (index
             | False => rfl)
 
 --| The table's first entry is its entry 0.
-theorem firstEntry (patterns: List Pattern): (stripes: List Stripe) →
+theorem firstEntry (patterns: List Pattern): ∀ (stripes: List Stripe) =>
     (waysForSuffixes patterns stripes).headOr 0 = (waysForSuffixes patterns stripes).getOr 0 0
   | [] => rfl
   | [first, ..rest] => rfl

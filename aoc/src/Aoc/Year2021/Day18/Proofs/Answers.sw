@@ -7,7 +7,7 @@ import Aoc.Year2021.Day18.Spec (AddsUpTo, IsReduced, IsSum, Part1, Part2, leaves
 import Std (DecEq, Eq, Exists, List, Nat, Option, Void)
 
 --| The program's magnitude is the puzzle's.
-theorem magnitudeSame: (number: Number) → Aoc.Year2021.Day18.Spec.magnitude number = magnitude number
+theorem magnitudeSame: ∀ (number: Number) => Aoc.Year2021.Day18.Spec.magnitude number = magnitude number
   | Regular _ => rfl
   | Pair left right => rewrite magnitudeSame left, magnitudeSame right in rfl
 
@@ -18,7 +18,7 @@ theorem addSound (x: Number) (y: Number) (sum: Number) (reducedX: IsReduced x) (
   let reduced := reduceSound steps (Pair x y) sum added (omega [reducedHeight x reducedX, reducedHeight y reducedY])
   Both (And.left reduced) (leavesSmall 0 sum (And.left (And.right reduced)) (And.right (And.right reduced)))
 
-theorem addAllSound: (total: Number) → (numbers: List Number) → (final: Number) → IsReduced total → List.All IsReduced numbers → addAll total numbers = Some final →
+theorem addAllSound: ∀ (total: Number) (numbers: List Number) (final: Number) => IsReduced total → List.All IsReduced numbers → addAll total numbers = Some final →
     AddsUpTo total numbers final
   | total, [], final, _, _, done => rewrite <- Option.someInjective done in NothingAdded total
   | total, [next, ..rest], final, reducedTotal, Both reducedNext reducedRest, done =>
@@ -45,7 +45,7 @@ theorem part1Correct (numbers: List Number) (reduced: List.All IsReduced numbers
         | None => Void.exfalso (Option.noneNotSome answer solved)
 
 --| Adding up is one number, so part 1's answer is one number.
-theorem addsUpToUnique (final2: Number): (total: Number) → (numbers: List Number) → (final1: Number) → AddsUpTo total numbers final1 → AddsUpTo total numbers final2 → final1 = final2
+theorem addsUpToUnique (final2: Number): ∀ (total: Number) (numbers: List Number) (final1: Number) => AddsUpTo total numbers final1 → AddsUpTo total numbers final2 → final1 = final2
   | total, [], final1, NothingAdded _, NothingAdded _ => rfl
   | total, [next, ..rest], final1, AddNext [total2 := sum1] first1 rest1, AddNext [total2 := sum2] first2 rest2 =>
     let same := sumUnique total next sum1 sum2 first1 first2
@@ -85,9 +85,9 @@ theorem pairsMember (numbers: List Number) (x: Number) (y: Number) (member: (x, 
 
 --| What `sumMagnitudes` gives: each magnitude is that of a listed pair's sum,
 --| and each listed pair's sum finished, its magnitude among them.
-theorem sumMagnitudesSound: (pairs: List (Number, Number)) → (magnitudes: List Nat) → sumMagnitudes pairs = Some magnitudes →
-    ((k: Nat) → k ∈ magnitudes → ∃ (x: Number) => ∃ (y: Number) => ∃ (sum: Number) => (x, y) ∈ pairs ∧ add x y = Some sum ∧ magnitude sum = k)
-      ∧ ((x: Number) → (y: Number) → (x, y) ∈ pairs → ∃ (sum: Number) => add x y = Some sum ∧ magnitude sum ∈ magnitudes)
+theorem sumMagnitudesSound: ∀ (pairs: List (Number, Number)) (magnitudes: List Nat) => sumMagnitudes pairs = Some magnitudes →
+    (∀ (k: Nat) => k ∈ magnitudes → ∃ (x: Number) => ∃ (y: Number) => ∃ (sum: Number) => (x, y) ∈ pairs ∧ add x y = Some sum ∧ magnitude sum = k)
+      ∧ (∀ (x y: Number) => (x, y) ∈ pairs → ∃ (sum: Number) => add x y = Some sum ∧ magnitude sum ∈ magnitudes)
   | [], magnitudes, done => rewrite <- Option.someInjective done in Both (k member => Void.exfalso member) (x y member => Void.exfalso member)
   | [(x, y), ..rest], magnitudes, done =>
     match a: add x y with

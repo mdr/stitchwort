@@ -80,8 +80,8 @@ def ValidTicket (rules: List Rule) (ticket: Ticket): Prop := ticket.values.all (
 --| one. On every valid nearby ticket, each value is valid for the field at
 --| its position.
 def FieldOrder (notes: Notes) (order: List Rule): Prop :=
-  order.length = notes.rules.length ∧ order.Distinct ∧ ((rule: Rule) → rule ∈ order → rule ∈ notes.rules)
-    ∧ ((ticket: Ticket) → ticket ∈ notes.nearby → ValidTicket notes.rules ticket →
+  order.length = notes.rules.length ∧ order.Distinct ∧ (∀ (rule: Rule) => rule ∈ order → rule ∈ notes.rules)
+    ∧ (∀ (ticket: Ticket) => ticket ∈ notes.nearby → ValidTicket notes.rules ticket →
       List.All2 (rule value => validFor rule value = True) order ticket.values)
 
 --| "Look for the six fields on your ticket that start with the word

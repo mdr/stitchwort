@@ -38,5 +38,5 @@ theorem part2Correct (input: Text) (notes: Notes) (parsed: Fail.toResult (() => 
     (found: notes.departureProduct = Some answer):
     (∃ (read: List Char) => ∃ (ending: List Char) =>
       input.toList = read ++ ending ∧ Spec.NotesWritten read notes ∧ ending.all (char => char == '\n' ∨ char == '\r') = True)
-      ∧ Spec.Part2 notes answer ∧ ((other: Nat) → Spec.Part2 notes other → other = answer) :=
+      ∧ Spec.Part2 notes answer ∧ (∀ (other: Nat) => Spec.Part2 notes other → other = answer) :=
   Both (parseWritten input notes parsed) (Both (departureProductValid notes answer found) (other => (part2Exactly notes answer found other).forward))

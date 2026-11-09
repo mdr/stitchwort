@@ -14,7 +14,7 @@ import Std (Bool, DecEq, Eq, Exists, Iff, List, Nat, Option, Void)
 def positions (cavern: Cavern): List Position := cavern.grid.cells.map Pair.fst
 
 --| Only octopuses on the grid have flashed.
-def OnGrid (cavern: Cavern) (flashed: Position → Bool): Prop := (q: Position) → flashed q = True → q ∈ positions cavern
+def OnGrid (cavern: Cavern) (flashed: Position → Bool): Prop := ∀ (q: Position) => flashed q = True → q ∈ positions cavern
 
 --| Flashers made for the cavern's octopuses have `True`s only on its positions.
 theorem onGridFlash (cavern: Cavern) (h: Position → Nat → Bool): OnGrid cavern (cavern.flash h).has
@@ -76,7 +76,7 @@ theorem roundElim (cavern: Cavern) (flashed: Flashed) (onGrid: OnGrid cavern fla
           (Both ((memCells cavern.grid.rows q level).backward e) (Eq.trans (Eq.sym (Eq.cong (Nat.leq 10) (energyAgrees cavern flashed onGrid q level))) opened))
 
 --| More flashers, more flashing neighbours.
-theorem neighboursMono (cavern: Cavern) (f: Position → Bool) (g: Position → Bool) (fg: (q: Position) → f q = True → g q = True)
+theorem neighboursMono (cavern: Cavern) (f: Position → Bool) (g: Position → Bool) (fg: ∀ (q: Position) => f q = True → g q = True)
     (at: Position): flashingNeighbours cavern f at ≤ flashingNeighbours cavern g at :=
   List.countLeMem cavern.grid.cells (cell => touching at cell.fst && f cell.fst) (cell => touching at cell.fst && g cell.fst)
     (cell member both => Bool.andIntro (Bool.andLeft both) (fg cell.fst (Bool.andRight both)))

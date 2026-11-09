@@ -29,7 +29,7 @@ theorem backwardOpen (maze: Maze) (position: Position) (facing: Heading) (behind
   rewrite stepped, open in rfl
 
 --| Each edge out of a way of standing is a move, costing its points.
-theorem afterSound (maze: Maze): (reindeer: Reindeer) → (next: Reindeer) → (weight: Nat) → (next, weight) ∈ maze.after reindeer →
+theorem afterSound (maze: Maze): ∀ (reindeer next: Reindeer) (weight: Nat) => (next, weight) ∈ maze.after reindeer →
     Exists Move (way => (move maze reindeer way = Some next) ∧ (way.points = weight))
   | { position, facing }, next, weight, edge =>
     match List.memAppend (next, weight) _ _ edge with
@@ -51,7 +51,7 @@ theorem afterSound (maze: Maze): (reindeer: Reindeer) → (next: Reindeer) → (
                   | Inr none => Void.exfalso none
 
 --| Each move is an edge out of where it starts, costing its points.
-theorem afterComplete (maze: Maze): (reindeer: Reindeer) → (way: Move) → (next: Reindeer) → move maze reindeer way = Some next →
+theorem afterComplete (maze: Maze): ∀ (reindeer: Reindeer) (way: Move) (next: Reindeer) => move maze reindeer way = Some next →
     (next, way.points) ∈ maze.after reindeer
   | { position, facing }, Clockwise, next, moved =>
     rewrite <- Option.someInjective moved in List.memAppendRight _ _ _ (Inl rfl)
@@ -67,7 +67,7 @@ theorem afterComplete (maze: Maze): (reindeer: Reindeer) → (way: Move) → (ne
             rewrite <- Option.someInjective moved in Inl rfl
 
 --| Each edge into a way of standing on an open tile is a move to it.
-theorem beforeSound (maze: Maze): (reindeer: Reindeer) → maze.holds reindeer = True → (previous: Reindeer) → (weight: Nat) →
+theorem beforeSound (maze: Maze): ∀ (reindeer: Reindeer) => maze.holds reindeer = True → ∀ (previous: Reindeer) (weight: Nat) =>
     (previous, weight) ∈ maze.before reindeer → Exists Move (way => (move maze previous way = Some reindeer) ∧ (way.points = weight))
   | { position, facing }, holds, previous, weight, edge =>
     match List.memAppend (previous, weight) _ _ edge with
@@ -92,7 +92,7 @@ theorem beforeSound (maze: Maze): (reindeer: Reindeer) → maze.holds reindeer =
                       Witness Forward (Both (rewrite stepForwardOfBack position facing.toDirection behind stepped, holds in rfl) rfl)
 
 --| Each move from an open tile is an edge into where it ends.
-theorem beforeComplete (maze: Maze): (reindeer: Reindeer) → maze.holds reindeer = True → (way: Move) → (next: Reindeer) →
+theorem beforeComplete (maze: Maze): ∀ (reindeer: Reindeer) => maze.holds reindeer = True → ∀ (way: Move) (next: Reindeer) =>
     move maze reindeer way = Some next → (reindeer, way.points) ∈ maze.before next
   | { position, facing }, holds, Clockwise, next, moved =>
     rewrite <- Option.someInjective moved in
@@ -111,7 +111,7 @@ theorem beforeComplete (maze: Maze): (reindeer: Reindeer) → maze.holds reindee
               List.memAppendLeft _ _ _ (rewrite back, holds in Inl rfl)
 
 --| A move from an open tile ends on one.
-theorem moveHolds (maze: Maze): (reindeer: Reindeer) → maze.holds reindeer = True → (way: Move) → (next: Reindeer) →
+theorem moveHolds (maze: Maze): ∀ (reindeer: Reindeer) => maze.holds reindeer = True → ∀ (way: Move) (next: Reindeer) =>
     move maze reindeer way = Some next → maze.holds next = True
   | { position, facing }, holds, Clockwise, next, moved => rewrite <- Option.someInjective moved in holds
   | { position, facing }, holds, Counterclockwise, next, moved => rewrite <- Option.someInjective moved in holds

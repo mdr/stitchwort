@@ -23,7 +23,7 @@ theorem countQuadrants (f: (Direction, Direction) → Bool):
     List.countCons [(Down, Right)] (Down, Left) f, List.countCons [] (Down, Right) f in omega
 
 --| The spec's first sections of fence at a plot are the grid's starts.
-theorem specSidesCell (region: Region): (row: Nat) → (column: Nat) →
+theorem specSidesCell (region: Region): ∀ (row column: Nat) =>
     directions.count (isFirstSection region { row, column }) = starts (insideOf region) row column
   | Zero, Zero => Eq.trans (countDirections (isFirstSection region _)) rfl
   | Zero, Succ before => Eq.trans (countDirections (isFirstSection region _)) rfl
@@ -31,13 +31,13 @@ theorem specSidesCell (region: Region): (row: Nat) → (column: Nat) →
   | Succ up, Succ before => Eq.trans (countDirections (isFirstSection region _)) rfl
 
 --| Each side of a plot touches the region where the grid's neighbour is in.
-theorem facesUp (region: Region): (row: Nat) → (column: Nat) → facesRegion region { row, column } Up = above (insideOf region) row column
+theorem facesUp (region: Region): ∀ (row column: Nat) => facesRegion region { row, column } Up = above (insideOf region) row column
   | Zero, column => rfl
   | Succ up, column => rfl
 
 theorem facesDown (region: Region) (row: Nat) (column: Nat): facesRegion region { row, column } Down = below (insideOf region) row column := rfl
 
-theorem facesLeft (region: Region): (row: Nat) → (column: Nat) → facesRegion region { row, column } Left = leftOf (insideOf region) row column
+theorem facesLeft (region: Region): ∀ (row column: Nat) => facesRegion region { row, column } Left = leftOf (insideOf region) row column
   | row, Zero => rfl
   | row, Succ before => rfl
 
@@ -50,18 +50,18 @@ def diagonalIn (region: Region) (plot: Position) (vertical: Direction) (horizont
     | Some next => facesRegion region next horizontal
     | None => False
 
-theorem diagonalUpLeft (region: Region): (row: Nat) → (column: Nat) →
+theorem diagonalUpLeft (region: Region): ∀ (row column: Nat) =>
     diagonalIn region { row, column } Up Left = above (leftOf (insideOf region)) row column
   | Zero, column => rfl
   | Succ up, Zero => rfl
   | Succ up, Succ before => rfl
 
-theorem diagonalUpRight (region: Region): (row: Nat) → (column: Nat) →
+theorem diagonalUpRight (region: Region): ∀ (row column: Nat) =>
     diagonalIn region { row, column } Up Right = above (rightOf (insideOf region)) row column
   | Zero, column => rfl
   | Succ up, column => rfl
 
-theorem diagonalDownLeft (region: Region): (row: Nat) → (column: Nat) →
+theorem diagonalDownLeft (region: Region): ∀ (row column: Nat) =>
     diagonalIn region { row, column } Down Left = below (leftOf (insideOf region)) row column
   | row, Zero => rfl
   | row, Succ before => rfl
@@ -109,7 +109,7 @@ theorem isCornerSplit (garden: Garden) (plot: Position) (vertical: Direction) (h
 
 --| The program's corners at a plot of a region are the grid's.
 theorem programCornersCell (garden: Garden) (start: Position) (plant: Char) (grows: garden.plantAt start = Some plant) (region: Region)
-    (isRegion: IsRegion garden start region): (plot: Position) → plot ∈ region.plots → garden.cornerCount plot = corners (insideOf region) plot.row plot.column
+    (isRegion: IsRegion garden start region): ∀ (plot: Position) => plot ∈ region.plots → garden.cornerCount plot = corners (insideOf region) plot.row plot.column
   | { row, column }, member =>
     let plot: Position := { row, column }
     let inside := insideOf region
@@ -143,7 +143,7 @@ theorem programCornersCell (garden: Garden) (start: Position) (plant: Char) (gro
     ]
 
 --| `total` is the sum over `List.range`.
-theorem totalRange: (n: Nat) → (f: Nat → Nat) → (List.range 0 n).sumBy f = total n f
+theorem totalRange: ∀ (n: Nat) (f: Nat → Nat) => (List.range 0 n).sumBy f = total n f
   | Zero, f => rfl
   | Succ n, f => rewrite List.sumByRangeSucc f n, totalRange n (i => f (Succ i)) in rfl
 
@@ -170,8 +170,8 @@ theorem squareDistinct (last: Nat): List.Distinct (square last) :=
 --| A sum over a region's plots, of something that is 0 off the region, is
 --| the sum over a square of the grid that holds the region.
 theorem sumOverGrid (region: Region) (distinct: List.Distinct region.plots) (last: Nat)
-    (within: (plot: Position) → plot ∈ region.plots → (plot.row ≤ last) ∧ (plot.column ≤ last)) (f: Nat → Nat → Nat)
-    (zero: (row: Nat) → (column: Nat) → insideOf region row column = False → f row column = 0):
+    (within: ∀ (plot: Position) => plot ∈ region.plots → (plot.row ≤ last) ∧ (plot.column ≤ last)) (f: Nat → Nat → Nat)
+    (zero: ∀ (row column: Nat) => insideOf region row column = False → f row column = 0):
     region.plots.sumBy (plot => f plot.row plot.column) = total (Succ last) (row => total (Succ last) (column => f row column)) :=
   let isIn := (plot: Position) => region.contains plot
   let term := (plot: Position) => f plot.row plot.column
@@ -212,11 +212,11 @@ theorem sidesCorrect (garden: Garden) (start: Position) (plant: Char) (grows: ga
   let within := (plot: Position) => (member: plot ∈ region.plots) =>
     let le := List.memLeSumBy (plot => plot.row + plot.column) region.plots plot member
     (Both (omega [le]) (omega [le]): (plot.row ≤ last) ∧ (plot.column ≤ last))
-  let right: (row: Nat) → inside row (Succ last) = False := row =>
+  let right: ∀ (row: Nat) => inside row (Succ last) = False := row =>
     match found: inside row (Succ last) with
       | False => rfl
       | True => Void.exfalso (omega [And.right (within { row, column = Succ last } ((List.memContains region.plots { row, column = Succ last }).forward found))])
-  let bottom: (column: Nat) → inside (Succ last) column = False := column =>
+  let bottom: ∀ (column: Nat) => inside (Succ last) column = False := column =>
     match found: inside (Succ last) column with
       | False => rfl
       | True => Void.exfalso (omega [And.left (within { row = Succ last, column } ((List.memContains region.plots { row = Succ last, column }).forward found))])

@@ -67,7 +67,7 @@ theorem changeAgrees (stone: Nat): changeStone stone = change stone :=
 
 --| A digit list starting with a digit other than 0 is the digits of its
 --| number, and so is any non-empty start of it.
-theorem digitsOfLeading: (xs: List Nat) → (count: Nat) → Nat.Digits xs → 1 ≤ xs.headOr 0 → 1 ≤ count →
+theorem digitsOfLeading: ∀ (xs: List Nat) (count: Nat) => Nat.Digits xs → 1 ≤ xs.headOr 0 → 1 ≤ count →
     (Nat.digits (Nat.fromDigits (xs.take count))).toList = xs.take count
   | [], count, digits, lead, some => Void.exfalso (Bool.falseNotTrue lead)
   | [first, ..rest], Zero, digits, lead, some => Void.exfalso (Bool.falseNotTrue some)

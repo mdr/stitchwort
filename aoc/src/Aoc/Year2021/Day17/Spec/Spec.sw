@@ -32,9 +32,9 @@ def Hits (target: Target) (velocity: Velocity): Prop := ∃ (n: Nat) => Within t
 --| and none goes higher, at any step.
 def Highest (target: Target) (height: Int): Prop :=
   (∃ (velocity: Velocity) => Hits target velocity ∧ (∃ (n: Nat) => (after n velocity).position.y = height))
-    ∧ ((velocity: Velocity) → (n: Nat) → Hits target velocity → (after n velocity).position.y ≤ height)
+    ∧ (∀ (velocity: Velocity) (n: Nat) => Hits target velocity → (after n velocity).position.y ≤ height)
 
 --| Part 2: there are `count` distinct velocities that hit, and no others.
 def HittingCount (target: Target) (count: Nat): Prop :=
   ∃ (velocities: List Velocity) =>
-    List.Distinct velocities ∧ ((velocity: Velocity) → Hits target velocity ↔ velocity ∈ velocities) ∧ velocities.length = count
+    List.Distinct velocities ∧ (∀ (velocity: Velocity) => Hits target velocity ↔ velocity ∈ velocities) ∧ velocities.length = count

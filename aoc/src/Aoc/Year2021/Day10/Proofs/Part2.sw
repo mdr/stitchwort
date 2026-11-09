@@ -23,7 +23,7 @@ theorem completesOfUnclosed [line: List Token] [stack: List Bracket] (h: scan []
   scanBalanced (line ++ stack.map Closer) (rewrite scanAppend [] line (stack.map Closer), h in closeAll stack)
 
 --| Only the open brackets, closed innermost first, close them all.
-theorem closersExact: (stack: List Bracket) → (closers: List Bracket) → scan stack (closers.map Closer) = Unclosed [] → closers = stack
+theorem closersExact: ∀ (stack closers: List Bracket) => scan stack (closers.map Closer) = Unclosed [] → closers = stack
   | stack, [], h => Eq.sym (unclosedInjective stack [] h)
   | [], [closer, ..rest], h => cases
   | [top, ..below], [closer, ..rest], h =>
@@ -50,16 +50,16 @@ theorem incompleteOfUnclosed (line: List Token) (top: Bracket) (below: List Brac
       let closed: Unclosed [top, ..below] = Unclosed [] := Eq.trans (Eq.sym e) (balancedScanNil line balanced)
       cases)
 
-theorem completionPointsAgree: (bracket: Bracket) → completionPoints bracket = autocompletePoints bracket := cases
+theorem completionPointsAgree: ∀ (bracket: Bracket) => completionPoints bracket = autocompletePoints bracket := cases
 
-theorem completionFold: (closers: List Bracket) → (score: Nat) →
+theorem completionFold: ∀ (closers: List Bracket) (score: Nat) =>
     closers.foldLeft score (total bracket => total * 5 + completionPoints bracket) = completionTotal score closers
   | [], score => rfl
   | [bracket, ..rest], score => rewrite <- completionPointsAgree bracket in completionFold rest (score * 5 + completionPoints bracket)
 
 --| The program's scores are the incomplete lines' completion scores, in
 --| order.
-theorem completionScoresCorrect: (lines: List (List Token)) → CompletionScores lines (lines.filterMap autocompleteScore)
+theorem completionScoresCorrect: ∀ (lines: List (List Token)) => CompletionScores lines (lines.filterMap autocompleteScore)
   | [] => NoneLeft
   | [line, ..rest] =>
     match e: scan [] line with
@@ -86,7 +86,7 @@ theorem scoredOfIncomplete (line: List Token) (incomplete: Incomplete line): exi
     | Unclosed [top, ..below] => Witness (completionScore [top, ..below]) rfl
 
 --| A list with an element `f` keeps has a nonempty `filterMap`.
-theorem filterMapNotNil (f: a → Option b) (x: a) (y: b) (kept: f x = Some y): (xs: List a) → x ∈ xs → xs.filterMap f ≠ []
+theorem filterMapNotNil (f: a → Option b) (x: a) (y: b) (kept: f x = Some y): ∀ (xs: List a) => x ∈ xs → xs.filterMap f ≠ []
   | [], member, empty => Void.exfalso member
   | [z, ..rest], Inl same, empty =>
     rewrite same, kept at empty in cases
@@ -105,7 +105,7 @@ theorem part2Correct (lines: List (List Token)) (line: List Token) (member: line
 
 --| With an odd number of incomplete lines, as the puzzle promises, the
 --| spec's part 2 answer is unique: the program's is the only one.
-theorem part2Unique (lines: List (List Token)) (a: Nat) (b: Nat) (odd: (scores: List Nat) → CompletionScores lines scores → scores.length % 2 = 1)
+theorem part2Unique (lines: List (List Token)) (a: Nat) (b: Nat) (odd: ∀ (scores: List Nat) => CompletionScores lines scores → scores.length % 2 = 1)
     (first: Part2Answer lines a) (second: Part2Answer lines b): a = b :=
   match first with
     | Witness xs (Both scoredA middleA) =>

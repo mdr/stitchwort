@@ -61,9 +61,9 @@ theorem toEndResult (racetrack: Racetrack) (endOnTrack: onTrack racetrack racetr
 
 --| Along any race, the search's bound grows by no more than its moves.
 theorem boundFrom (racetrack: Racetrack) (result: Map Position Nat)
-    (closed: (state: Position) → (time: Nat) → result.get state = Some time → (next: Position) → (weight: Nat) →
+    (closed: ∀ (state: Position) (time: Nat) => result.get state = Some time → ∀ (next: Position) (weight: Nat) =>
       (next, weight) ∈ racetrack.edges state → Graph.Bound result (time + weight) next):
-    (position: Position) → (time: Nat) → Graph.Bound result time position → (moves: List Direction) → (last: Position) →
+    ∀ (position: Position) (time: Nat) => Graph.Bound result time position → ∀ (moves: List Direction) (last: Position) =>
       race racetrack position moves = Some last → Graph.Bound result (time + moves.length) last
   | position, time, bound, [], last, ended =>
     rewrite <- Option.someInjective ended in Graph.boundWeaken result time (time + List.length ([]: List Direction)) position bound (omega)
@@ -79,9 +79,9 @@ theorem boundFrom (racetrack: Racetrack) (result: Map Position Nat)
 
 --| From track, a race to the end takes at least the search back's bound.
 theorem boundTo (racetrack: Racetrack) (result: Map Position Nat) (endBound: Graph.Bound result 0 racetrack.end)
-    (closed: (state: Position) → (time: Nat) → result.get state = Some time → (next: Position) → (weight: Nat) →
+    (closed: ∀ (state: Position) (time: Nat) => result.get state = Some time → ∀ (next: Position) (weight: Nat) =>
       (next, weight) ∈ racetrack.edges state → Graph.Bound result (time + weight) next):
-    (position: Position) → onTrack racetrack position = True → (moves: List Direction) → race racetrack position moves = Some racetrack.end →
+    ∀ (position: Position) => onTrack racetrack position = True → ∀ (moves: List Direction) => race racetrack position moves = Some racetrack.end →
       Graph.Bound result moves.length position
   | position, onIt, [], ended => rewrite Option.someInjective ended in endBound
   | position, onIt, [direction, ..rest], ended =>

@@ -25,7 +25,7 @@ theorem connectingCons (device: Nat) (low: Nat) (next: Nat) (higher: List Nat):
 
 def lowerFirst (a: Onward) (b: Onward): Bool := a.joltage <= b.joltage
 
-theorem sortedOnward (device: Nat): (adapters: List Nat) → List.Sorted Nat.leq adapters → List.Sorted lowerFirst (onwardFrom device adapters)
+theorem sortedOnward (device: Nat): ∀ (adapters: List Nat) => List.Sorted Nat.leq adapters → List.Sorted lowerFirst (onwardFrom device adapters)
   | [], sorted => Trivial
   | [adapter], sorted => Both Trivial Trivial
   | [adapter, next, ..higher], Both first rest => Both first (sortedOnward device [next, ..higher] rest)
@@ -42,7 +42,7 @@ def near (joltage: Nat) (next: Onward): Bool := next.joltage <= joltage + 3
 --| In a table sorted by joltage, those `joltage` can feed are all within 3
 --| jolts of it at the front, so the program stops looking at the first
 --| further one.
-theorem cutAbove (joltage: Nat): (table: List Onward) → List.Sorted lowerFirst table → (table.takeWhile (near joltage)).sumBy (through joltage) = table.sumBy (through joltage)
+theorem cutAbove (joltage: Nat): ∀ (table: List Onward) => List.Sorted lowerFirst table → (table.takeWhile (near joltage)).sumBy (through joltage) = table.sumBy (through joltage)
   | [], sorted => rfl
   | [first, ..rest], Both head sorted =>
     let all := List.sumByCons rest first (through joltage)
@@ -69,7 +69,7 @@ theorem waysFull (device: Nat) (low: Nat) (table: List Onward) (sorted: List.Sor
 
 --| The onward count from `low`, over sorted adapters above it, is the
 --| spec's number of arrangements from it.
-theorem onwardCounts (device: Nat): (adapters: List Nat) → List.Sorted Nat.leq adapters → (low: Nat) → waysFrom device low (onwardFrom device adapters) = connecting device low adapters
+theorem onwardCounts (device: Nat): ∀ (adapters: List Nat) => List.Sorted Nat.leq adapters → ∀ (low: Nat) => waysFrom device low (onwardFrom device adapters) = connecting device low adapters
   | [], sorted, low => rewrite connectingNil device low in omega
   | [adapter, ..higher], Both first rest, low =>
     let table := onwardFrom device higher

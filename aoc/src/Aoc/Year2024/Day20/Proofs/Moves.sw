@@ -22,7 +22,7 @@ def opposite: Direction → Direction
   | Right => Left
 
 --| A step back the opposite way returns to where it started.
-theorem stepBack: (position: Position) → (direction: Direction) → (next: Position) → position.step direction = Some next →
+theorem stepBack: ∀ (position: Position) (direction: Direction) (next: Position) => position.step direction = Some next →
     next.step (opposite direction) = Some position
   | { row, column }, Down, next, stepped => rewrite <- Option.someInjective stepped in rfl
   | { row, column }, Right, next, stepped => rewrite <- Option.someInjective stepped in rfl
@@ -89,7 +89,7 @@ theorem raceCons (racetrack: Racetrack) (position: Position) (direction: Directi
   rewrite moved in rfl
 
 --| Moves then more moves: the more moves from where the first left off.
-theorem raceAppend (racetrack: Racetrack) (more: List Direction): (position: Position) → (moves: List Direction) → (middle: Position) →
+theorem raceAppend (racetrack: Racetrack) (more: List Direction): ∀ (position: Position) (moves: List Direction) (middle: Position) =>
     race racetrack position moves = Some middle → race racetrack position (moves ++ more) = race racetrack middle more
   | position, [], middle, ended => rewrite Option.someInjective ended in rfl
   | position, [direction, ..rest], middle, ended =>

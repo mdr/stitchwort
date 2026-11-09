@@ -15,7 +15,7 @@ theorem testBitAbove (n: Nat) (bits: Nat) (bit: Nat) (small: n < Nat.pow 2 bits)
   testBitSmall n bit (omega [Nat.powMono 1 bits bit above])
 
 --| What `Map.lookupLast` finds is one of the pairs.
-theorem lookupLastMem [auto ord: Ord k] (key: k) (value: v): (pairs: List (k, v)) → Map.lookupLast key pairs = Some value → (key, value) ∈ pairs
+theorem lookupLastMem [auto ord: Ord k] (key: k) (value: v): ∀ (pairs: List (k, v)) => Map.lookupLast key pairs = Some value → (key, value) ∈ pairs
   | [], found => Void.exfalso (Option.noneNotSome value found)
   | [(other, otherValue), ..rest], found =>
     match later: Map.lookupLast key rest with
@@ -35,8 +35,8 @@ theorem fromBitsHigh (bit: Bool) (rest: List Bool) (index: Nat): Nat.testBit ((B
 
 --| The bits `allSome` gives for a range: below the range's length, bit `k`
 --| of the number is what `f` gives for the range's `k`th number.
-theorem rangeBits (f: Nat → Option Bool): (count: Nat) → (start: Nat) → (bits: List Bool) → List.allSome ((List.rangeFrom count start).map f) = Some bits →
-    (k: Nat) → k < count → ∃ (value: Bool) => f (k + start) = Some value ∧ Nat.testBit ((Bits.fromLowFirst bits).value) k = value
+theorem rangeBits (f: Nat → Option Bool): ∀ (count start: Nat) (bits: List Bool) => List.allSome ((List.rangeFrom count start).map f) = Some bits →
+    ∀ (k: Nat) => k < count → ∃ (value: Bool) => f (k + start) = Some value ∧ Nat.testBit ((Bits.fromLowFirst bits).value) k = value
   | Zero, start, bits, all, k, below => Void.exfalso (omega)
   | Succ count, start, bits, all, k, below =>
     Option.flatMapEqSome (f start) (value => List.allSome ((List.rangeFrom count (Succ start)).map f) |> .map (Cons value)) bits all (value isValue rest =>
@@ -49,8 +49,8 @@ theorem rangeBits (f: Nat → Option Bool): (count: Nat) → (start: Nat) → (b
                 Witness found (Both (rewrite (omega: Succ index + start = index + Succ start) in foundIs) (rewrite <- isBits, fromBitsHigh value restBits index in bitIs))))
 
 --| From the range's length up, every bit is clear.
-theorem rangeBitsBeyond (f: Nat → Option Bool): (count: Nat) → (start: Nat) → (bits: List Bool) → List.allSome ((List.rangeFrom count start).map f) = Some bits →
-    (k: Nat) → count ≤ k → Nat.testBit ((Bits.fromLowFirst bits).value) k = False
+theorem rangeBitsBeyond (f: Nat → Option Bool): ∀ (count start: Nat) (bits: List Bool) => List.allSome ((List.rangeFrom count start).map f) = Some bits →
+    ∀ (k: Nat) => count ≤ k → Nat.testBit ((Bits.fromLowFirst bits).value) k = False
   | Zero, start, bits, all, k, above => rewrite <- Option.someInjective all in rfl
   | Succ count, start, bits, all, k, above =>
     Option.flatMapEqSome (f start) (value => List.allSome ((List.rangeFrom count (Succ start)).map f) |> .map (Cons value)) bits all (value isValue rest =>
@@ -68,7 +68,7 @@ theorem maxAtLeast (m: Nat) (n: Nat): m ≤ Nat.max m n ∧ n ≤ Nat.max m n :=
     | True => Both below (Nat.leRefl n)
     | False => Both (Nat.leRefl m) (omega)
 
-theorem countFromAtLeast (bitOf: Wire → Option Nat): (wires: List Wire) → (start: Nat) → start ≤ countFrom bitOf start wires
+theorem countFromAtLeast (bitOf: Wire → Option Nat): ∀ (wires: List Wire) (start: Nat) => start ≤ countFrom bitOf start wires
   | [], start => Nat.leRefl start
   | [wire, ..rest], start =>
     match found: bitOf wire with
@@ -77,7 +77,7 @@ theorem countFromAtLeast (bitOf: Wire → Option Nat): (wires: List Wire) → (s
 
 --| Every bit `bitOf` finds among the wires is below their count.
 theorem countFromAbove (bitOf: Wire → Option Nat) (wire: Wire) (bit: Nat) (isBit: bitOf wire = Some bit):
-    (wires: List Wire) → (start: Nat) → wire ∈ wires → bit < countFrom bitOf start wires
+    ∀ (wires: List Wire) (start: Nat) => wire ∈ wires → bit < countFrom bitOf start wires
   | [], start, member => Void.exfalso member
   | [other, ..rest], start, Inl same =>
     rewrite same in

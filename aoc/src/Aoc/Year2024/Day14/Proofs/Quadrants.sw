@@ -29,7 +29,7 @@ theorem bottomRightAgrees (space: Space) (oddWidth: space.width % 2 = 1) (oddHei
 --| How many tiles the program puts in `quadrant` is how many the spec's two
 --| tests pass.
 theorem countQuadrant (space: Space) (quadrant: Quadrant) (first: Position → Bool) (second: Position → Bool)
-    (agrees: (position: Position) → (space.quadrantOf position == Some quadrant) = (first position && second position))
+    (agrees: ∀ (position: Position) => (space.quadrantOf position == Some quadrant) = (first position && second position))
     (positions: List Position): (positions.filterMap space.quadrantOf).count (== quadrant) = countWhere positions first second :=
   rewrite List.countFilterMapEq space.quadrantOf quadrant positions, List.lengthFilter positions (position => first position && second position)
   in List.countCongMem _ (position => space.quadrantOf position == Some quadrant) (position => first position && second position)

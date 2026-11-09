@@ -111,7 +111,7 @@ theorem notNineOfOpen (height: Nat) (open: (height != 9) = True): height ≠ 9 :
 --| A low point that is a 9 has no neighbours on the map (they would be
 --| higher than 9), so no path leaves it, and it isn't in a basin itself.
 theorem closedNoBasin (map: HeightMap) (low: Position) (height: Nat) (member: (low, height) ∈ lowPoints map) (closed: map.isOpen low = False)
-    (location: Position): (steps: List Position) → inSomeBasin map location = True → isPath map low steps location = True → Void
+    (location: Position): ∀ (steps: List Position) => inSomeBasin map location = True → isPath map low steps location = True → Void
   | [], locationOpen, path => Bool.falseNotTrue (Eq.trans (Eq.sym closed) (rewrite DecEq.sound path in locationOpen))
   | [next, ..rest], locationOpen, path =>
     let near := Bool.andLeft path

@@ -70,10 +70,10 @@ def easyDigits (wiring: Segment → Segment) (entry: Entry): Nat :=
 --| added up (part 2).
 def Part1Answer (entries: List Entry) (answer: Nat): Prop :=
   ∃ (wiringOf: Entry → Segment → Segment) =>
-    ((entry: Entry) → entry ∈ entries → Decodes (wiringOf entry) entry)
+    (∀ (entry: Entry) => entry ∈ entries → Decodes (wiringOf entry) entry)
       ∧ answer = entries.sumBy (entry => easyDigits (wiringOf entry) entry)
 
 def Part2Answer (entries: List Entry) (answer: Nat): Prop :=
   ∃ (wiringOf: Entry → Segment → Segment) =>
-    ((entry: Entry) → entry ∈ entries → Decodes (wiringOf entry) entry)
+    (∀ (entry: Entry) => entry ∈ entries → Decodes (wiringOf entry) entry)
       ∧ answer = entries.sumBy (entry => decodedValue (wiringOf entry) entry)

@@ -11,7 +11,7 @@ import Std (List, Nat)
 theorem blinkPerm (stones: List Nat) (others: List Nat) (same: List.Perm stones others): List.Perm (blink stones) (blink others) :=
   List.permFlatMap stones others same change
 
-theorem blinkTimesPerm: (blinks: Nat) → (stones: List Nat) → (others: List Nat) → List.Perm stones others →
+theorem blinkTimesPerm: ∀ (blinks: Nat) (stones others: List Nat) => List.Perm stones others →
     List.Perm (blinkTimes blinks stones) (blinkTimes blinks others)
   | Zero, stones, others, same, p => same p
   | Succ blinks, stones, others, same, p => blinkTimesPerm blinks (blink stones) (blink others) (blinkPerm stones others same) p

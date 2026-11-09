@@ -12,7 +12,7 @@ def letter (lower: Char) (upper: Char) (bit: Bool): Char := if bit then upper el
 
 --| Halving a region of 2^n rows by n letters leaves the row they spell.
 theorem narrowBits (lower: Char) (upper: Char) (differ: (upper == lower) = False):
-    (bits: List Bool) → (first: Nat) → (last: Nat) → last + 1 = first + Nat.pow 2 bits.length →
+    ∀ (bits: List Bool) (first last: Nat) => last + 1 = first + Nat.pow 2 bits.length →
       (narrow lower upper { first, last } (bits.map (letter lower upper))).flatMap Region.only = Some (first + Nat.fromBits bits)
   | [], first, last, size =>
     match same: first == last with

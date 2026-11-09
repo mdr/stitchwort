@@ -24,7 +24,7 @@ def drawFiles (size: Nat) (files: List File): Disk :=
 --| before it and a file block after it.
 def Disk.Gap (disk: Disk) (span: Span): Prop :=
   0 < span.length
-    ∧ ((position: Nat) → span.covers position = True → disk.at position = Free)
+    ∧ (∀ (position: Nat) => span.covers position = True → disk.at position = Free)
     ∧ (span.start = 0 ∨ (disk.at (span.start - 1)).isFile = True)
     ∧ (disk.at span.end).isFile = True
 
@@ -69,7 +69,7 @@ theorem besideNumber (file: File) (other: File) (position: Nat) (beside: file.Be
   rewrite besideNotCovers file other position beside covered in rfl
 
 --| In files with no shared block, the file covering `position` is the one found.
-theorem findCovering (position: Nat): (files: List File) → List.Pairwise File.Beside files → (file: File) → file ∈ files → file.span.covers position = True →
+theorem findCovering (position: Nat): ∀ (files: List File) => List.Pairwise File.Beside files → ∀ (file: File) => file ∈ files → file.span.covers position = True →
     files.find (other => other.span.covers position) = Some file
   | [], pairwise, file, member, covered => Void.exfalso member
   | [first, ..rest], Both others pairwise, file, member, covered =>
@@ -85,7 +85,7 @@ theorem findCovering (position: Nat): (files: List File) → List.Pairwise File.
           | Inr later => findCovering position rest pairwise file later covered
 
 --| The number at `position` of the covering file, or 0, is the sum over files.
-theorem drawnNumber (position: Nat): (files: List File) → List.Pairwise File.Beside files →
+theorem drawnNumber (position: Nat): ∀ (files: List File) => List.Pairwise File.Beside files →
     (files.find (file => file.span.covers position) |> .map (file => FileBlock file.id) |> .getOrElse Free).idOr 0 = files.sumBy (file => file.numberAt position)
   | [], pairwise => rfl
   | [first, ..rest], Both others pairwise =>
@@ -112,7 +112,7 @@ theorem drawFilesFile (size: Nat) (files: List File) (position: Nat) (apart: Apa
       rewrite drawFilesAt size files position below, findCovering position files pairwise file member covered in rfl
 
 --| Where no file covers, the block is free.
-theorem drawFilesFree (size: Nat) (files: List File) (position: Nat) (none: (file: File) → file ∈ files → file.span.covers position = False):
+theorem drawFilesFree (size: Nat) (files: List File) (position: Nat) (none: ∀ (file: File) => file ∈ files → file.span.covers position = False):
     (drawFiles size files).at position = Free :=
   match e: Nat.leq (Succ position) size with
     | True => rewrite drawFilesAt size files position e, List.findNoneOfMem (file => file.span.covers position) files none in rfl

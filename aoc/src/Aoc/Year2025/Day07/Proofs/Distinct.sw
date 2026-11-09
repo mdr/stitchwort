@@ -28,7 +28,7 @@ theorem headsDistinct (h1: Hit) (h2: Hit) (ne: h1 ≠ h2) (xs: List (List Hit)) 
     (List.disjointMapCons ys h1 h2 ne xs)
 
 --| Every timeline from a column is different from the others.
-theorem timelinesFromDistinct (r: Nat) (c: Nat): (rows: List (Vec Bool w)) → List.Distinct (timelinesFrom r c rows)
+theorem timelinesFromDistinct (r: Nat) (c: Nat): ∀ (rows: List (Vec Bool w)) => List.Distinct (timelinesFrom r c rows)
   | [] => Both (m => m) Trivial
   | [row, ..rest] =>
     match e: splitterAt row c with

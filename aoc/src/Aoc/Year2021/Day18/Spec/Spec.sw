@@ -109,4 +109,4 @@ def Part1 (numbers: List Number) (answer: Nat): Prop :=
 def Part2 (numbers: List Number) (answer: Nat): Prop :=
   (∃ (i: Nat) (j: Nat) (x: Number) (y: Number) (sum: Number) =>
     i ≠ j ∧ numbers.get i = Some x ∧ numbers.get j = Some y ∧ IsSum x y sum ∧ magnitude sum = answer)
-    ∧ ((i: Nat) → (j: Nat) → (x: Number) → (y: Number) → (sum: Number) → i ≠ j → numbers.get i = Some x → numbers.get j = Some y → IsSum x y sum → magnitude sum ≤ answer)
+    ∧ (∀ (i j: Nat) (x y sum: Number) => i ≠ j → numbers.get i = Some x → numbers.get j = Some y → IsSum x y sum → magnitude sum ≤ answer)

@@ -26,7 +26,7 @@ theorem repairDone (bits: Nat) (budget: Nat) (gates: List Gate) (swaps: List (Wi
     | True => Witness [] (Both (rewrite List.appendNil swaps in Eq.sym (Option.someInjective found)) (Both (omega) adder))
     | False => Void.exfalso (Option.noneNotSome result found)
 
-theorem repairSound (bits: Nat): (budget: Nat) → (gates: List Gate) → (swaps: List (Wire, Wire)) → (result: List (Wire, Wire)) →
+theorem repairSound (bits: Nat): ∀ (budget: Nat) (gates: List Gate) (swaps result: List (Wire, Wire)) =>
     repair budget bits gates swaps = Some result → Repaired bits budget gates swaps result
   | Zero, gates, swaps, result, found =>
     match checked: checkAdder gates bits with
@@ -69,13 +69,13 @@ theorem yNamed (bits: Nat) (y: Nat) (wire: Wire) (member: wire ∈ ((List.range 
       match List.memMapElim (k => (Y k, Nat.testBit y k)) pair _ inPairs with
         | Witness k (Both inRange isPair) => rewrite <- isWire, <- isPair in rfl
 
-theorem notXAndY: (wire: Wire) → wire.xBit.isSome = True → wire.yBit.isSome = True → Void
+theorem notXAndY: ∀ (wire: Wire) => wire.xBit.isSome = True → wire.yBit.isSome = True → Void
   | X bit, isX, isY => Bool.falseNotTrue isY
   | Y bit, isX, isY => Bool.falseNotTrue isX
   | Z bit, isX, isY => Bool.falseNotTrue isX
   | Other name, isX, isY => Bool.falseNotTrue isX
 
-theorem notInputOutput: (wire: Wire) → (wire.xBit.isNone ∧ wire.yBit.isNone) = True → (wire.xBit.isSome ∨ wire.yBit.isSome) = True → Void
+theorem notInputOutput: ∀ (wire: Wire) => (wire.xBit.isNone ∧ wire.yBit.isNone) = True → (wire.xBit.isSome ∨ wire.yBit.isSome) = True → Void
   | X bit, output, input => Bool.falseNotTrue output
   | Y bit, output, input => Bool.falseNotTrue output
   | Z bit, output, input => Bool.falseNotTrue input
@@ -112,7 +112,7 @@ theorem part2Correct (device: Device) (answer: Text) (solved: solvePart2 device 
     ∃ (swaps: List (Wire, Wire)) =>
       answer = swapNames swaps
         ∧ (swaps.length ≤ 4
-          ∧ ((x: Nat) → (y: Nat) → x < Nat.pow 2 device.inputBits → y < Nat.pow 2 device.inputBits →
+          ∧ (∀ (x y: Nat) => x < Nat.pow 2 device.inputBits → y < Nat.pow 2 device.inputBits →
             solvePart1 { initial = inputsFor device.inputBits x y, gates = applySwaps device.gates swaps } = Some (x + y))) :=
   match part2Sound device answer solved with
     | Witness swaps (Both named (Both short (Both adds wired))) =>

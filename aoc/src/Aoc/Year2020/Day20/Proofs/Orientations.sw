@@ -9,11 +9,11 @@ import Std (Bool, DecEq, Eq, List, Nat, Option, Void)
 
 theorem orientationCount (image: Image): image.orientations.length = 8 := rfl
 
-theorem lastReverseOnto: (xs: List a) → (acc: List a) → (y: a) → List.last (List.reverseOnto xs [y, ..acc]) = List.last [y, ..acc]
+theorem lastReverseOnto: ∀ (xs acc: List a) (y: a) => List.last (List.reverseOnto xs [y, ..acc]) = List.last [y, ..acc]
   | [], acc, y => rfl
   | [x, ..rest], acc, y => lastReverseOnto rest [y, ..acc] x
 
-theorem lastReverse (fallback: a): (xs: List a) → xs.reverse.last.getOrElse fallback = xs.headOr fallback
+theorem lastReverse (fallback: a): ∀ (xs: List a) => xs.reverse.last.getOrElse fallback = xs.headOr fallback
   | [] => rfl
   | [x, ..rest] => rewrite lastReverseOnto rest [] x in rfl
 
@@ -47,23 +47,23 @@ theorem flipEdges (image: Image):
 
 -- Columns
 
-theorem firstColumn (fallback: a): (rows: List (List a)) → (k: Nat) → List.AllLength (Succ k) rows →
+theorem firstColumn (fallback: a): ∀ (rows: List (List a)) (k: Nat) => List.AllLength (Succ k) rows →
     List.filterMap rows (.get 0) = rows.map (row => row.headOr fallback)
   | [], k, sized => rfl
   | [[], ..rest], k, Both sized more => Void.exfalso (Nat.zeroNotSucc k sized)
   | [[x, ..xs], ..rest], k, Both sized more => Eq.cong (Cons x) (firstColumn fallback rest k more)
 
-theorem lastDrop (fallback: a): (row: List a) → (k: Nat) → row.length = Succ (Succ k) → (row.drop 1).last.getOrElse fallback = row.last.getOrElse fallback
+theorem lastDrop (fallback: a): ∀ (row: List a) (k: Nat) => row.length = Succ (Succ k) → (row.drop 1).last.getOrElse fallback = row.last.getOrElse fallback
   | [], k, sized => Void.exfalso (Nat.zeroNotSucc _ sized)
   | [x], k, sized => Void.exfalso (Nat.zeroNotSucc _ (Nat.succInjective sized))
   | [x, y, ..rest], k, sized => rfl
 
-theorem lastsDrop (fallback: a): (rows: List (List a)) → (k: Nat) → List.AllLength (Succ (Succ k)) rows →
+theorem lastsDrop (fallback: a): ∀ (rows: List (List a)) (k: Nat) => List.AllLength (Succ (Succ k)) rows →
     (rows.map (.drop 1)).map (row => row.last.getOrElse fallback) = rows.map (row => row.last.getOrElse fallback)
   | [], k, sized => rfl
   | [row, ..rest], k, Both sized more => rewrite lastDrop fallback row k sized, lastsDrop fallback rest k more in rfl
 
-theorem lastColumnOne (fallback: a): (rows: List (List a)) → List.AllLength 1 rows →
+theorem lastColumnOne (fallback: a): ∀ (rows: List (List a)) => List.AllLength 1 rows →
     List.filterMap rows (.get 0) = rows.map (row => row.last.getOrElse fallback)
   | [], sized => rfl
   | [[], ..rest], Both sized more => Void.exfalso (Nat.zeroNotSucc _ sized)
@@ -71,29 +71,29 @@ theorem lastColumnOne (fallback: a): (rows: List (List a)) → List.AllLength 1 
   | [[x, y, ..ys], ..rest], Both sized more => Void.exfalso (Nat.zeroNotSucc _ (Nat.succInjective (Eq.sym sized)))
 
 --| The last column of rows all `Succ k` long is the last cell of each row.
-theorem lastColumn (fallback: a): (k: Nat) → (rows: List (List a)) → List.AllLength (Succ k) rows →
+theorem lastColumn (fallback: a): ∀ (k: Nat) (rows: List (List a)) => List.AllLength (Succ k) rows →
     (List.transposeN (Succ k) rows).last.getOrElse [] = rows.map (row => row.last.getOrElse fallback)
   | Zero, rows, sized => lastColumnOne fallback rows sized
   | Succ k, rows, sized =>
     Eq.trans (lastColumn fallback k (rows.map (.drop 1)) (List.tailsAllLength rows (Succ k) sized)) (lastsDrop fallback rows k sized)
 
 --| The first cell of each column is the first row.
-theorem columnsFirst (fallback: a): (width: Nat) → (first: List a) → (rest: List (List a)) → List.AllLength width [first, ..rest] →
+theorem columnsFirst (fallback: a): ∀ (width: Nat) (first: List a) (rest: List (List a)) => List.AllLength width [first, ..rest] →
     (List.transposeN width [first, ..rest]).map (column => column.headOr fallback) = first
   | Zero, first, rest, Both sized more => Eq.sym (List.lengthZero first sized)
   | Succ k, [], rest, Both sized more => Void.exfalso (Nat.zeroNotSucc _ sized)
   | Succ k, [x, ..xs], rest, sized =>
     Eq.cong (Cons x) (columnsFirst fallback k xs (rest.map (.drop 1)) (List.tailsAllLength [[x, ..xs], ..rest] k sized))
 
-theorem lastMemCons (first: a): (rest: List a) → ∃ (last: a) => List.last [first, ..rest] = Some last
+theorem lastMemCons (first: a): ∀ (rest: List a) => ∃ (last: a) => List.last [first, ..rest] = Some last
   | [] => Witness first rfl
   | [second, ..more] => lastMemCons second more
 
-theorem consHeadDrop (fallback: a): (row: List a) → (k: Nat) → row.length = Succ k → [row.headOr fallback, ..row.drop 1] = row
+theorem consHeadDrop (fallback: a): ∀ (row: List a) (k: Nat) => row.length = Succ k → [row.headOr fallback, ..row.drop 1] = row
   | [], k, sized => Void.exfalso (Nat.zeroNotSucc _ sized)
   | [x, ..xs], k, sized => rfl
 
-theorem columnsLastRow (fallback: a): (width: Nat) → (rows: List (List a)) → (row: List a) → List.AllLength width rows → List.last rows = Some row →
+theorem columnsLastRow (fallback: a): ∀ (width: Nat) (rows: List (List a)) (row: List a) => List.AllLength width rows → List.last rows = Some row →
     (List.transposeN width rows).map (column => column.last.getOrElse fallback) = row
   | Zero, rows, row, sized, found => Eq.sym (List.lengthZero row (List.allLengthMem rows 0 sized (List.lastMem rows row found)))
   | Succ k, rows, row, sized, found =>
@@ -122,7 +122,7 @@ theorem rotateEdges (image: Image) (k: Nat) (sized: List.AllLength (Succ k) imag
   let reversedSized: List.AllLength (Succ k) image.rows.reverse := List.allLengthReverseOnto (Succ k) image.rows [] sized Trivial
   let left := (image.rows.map (row => row.headOr Calm)).reverse
   let right := (image.rows.map (row => row.last.getOrElse Calm)).reverse
-  let shaped: (turned: List (List Pixel)) → turned = image.rows.reverse →
+  let shaped: ∀ (turned: List (List Pixel)) => turned = image.rows.reverse →
       Spec.edges { rows = turned.transpose } = [left, image.rows.headOr [], right, image.rows.last.getOrElse []] :=
     turned same =>
       match turned with
@@ -151,7 +151,7 @@ theorem rotateEdges (image: Image) (k: Nat) (sized: List.AllLength (Succ k) imag
 --| what turns and flips keep.
 def Rectangle (image: Image): Prop := ∃ (k: Nat) => List.AllLength (Succ k) image.rows ∧ image.rows ≠ []
 
-theorem allLengthFlip (n: Nat): (rows: List (List Pixel)) → List.AllLength n rows → List.AllLength n (rows.map (.reverse))
+theorem allLengthFlip (n: Nat): ∀ (rows: List (List Pixel)) => List.AllLength n rows → List.AllLength n (rows.map (.reverse))
   | [], sized => Trivial
   | [row, ..rest], Both sized more => Both (rewrite List.lengthReverse row in sized) (allLengthFlip n rest more)
 
@@ -164,7 +164,7 @@ theorem rectangleRotate (image: Image) (rectangle: Rectangle image): Rectangle i
   match rectangle with
     | Witness k (Both sized nonEmpty) =>
       let reversedSized: List.AllLength (Succ k) image.rows.reverse := List.allLengthReverseOnto (Succ k) image.rows [] sized Trivial
-      let shaped: (turned: List (List Pixel)) → turned = image.rows.reverse → Rectangle { rows = turned.transpose } :=
+      let shaped: ∀ (turned: List (List Pixel)) => turned = image.rows.reverse → Rectangle { rows = turned.transpose } :=
         turned same =>
           match turned with
             | [] => Void.exfalso (nonEmpty (reverseNil image.rows (Eq.sym same)))
@@ -177,7 +177,7 @@ theorem rectangleRotate (image: Image) (rectangle: Rectangle image): Rectangle i
 
 --| Each edge of `other` fits an edge of `image`.
 def Within (image: Image) (other: Image): Prop :=
-  (edge: List Pixel) → edge ∈ Spec.edges other → ∃ (original: List Pixel) => original ∈ Spec.edges image ∧ Spec.Fit edge original
+  ∀ (edge: List Pixel) => edge ∈ Spec.edges other → ∃ (original: List Pixel) => original ∈ Spec.edges image ∧ Spec.Fit edge original
 
 theorem fitTrans [edge: List Pixel] [middle: List Pixel] [original: List Pixel] (first: Spec.Fit edge middle) (second: Spec.Fit middle original): Spec.Fit edge original :=
   match first with
@@ -270,7 +270,7 @@ theorem orientedFit (image: Image) (rectangle: Rectangle image) [edge: List Pixe
 --| The puzzle's words: an edge matches another tile's when that tile, in
 --| some orientation, has it as an edge. For rectangular tiles that is
 --| `Spec.Matched`, whose edges fit forwards or reversed.
-theorem matchedOriented (jigsaw: Jigsaw) (rectangles: (tile: Tile) → tile ∈ jigsaw.tiles → Rectangle tile.image) (tile: Tile) (edge: List Pixel):
+theorem matchedOriented (jigsaw: Jigsaw) (rectangles: ∀ (tile: Tile) => tile ∈ jigsaw.tiles → Rectangle tile.image) (tile: Tile) (edge: List Pixel):
     Spec.Matched jigsaw tile edge
       ↔ ∃ (other: Tile) => other ∈ jigsaw.tiles ∧ other.id ≠ tile.id ∧ ∃ (turned: Image) => turned ∈ other.image.orientations ∧ edge ∈ Spec.edges turned := {
   forward = matched =>
@@ -283,11 +283,11 @@ theorem matchedOriented (jigsaw: Jigsaw) (rectangles: (tile: Tile) → tile ∈ 
         Witness other (Both member (Both different (withinOrientations other.image (rectangles other member) turned isTurned edge onTurned)))
 }
 
-theorem allLengthOfAll (n: Nat): (rows: List (List Pixel)) → rows.all (row => row.length == n) = True → List.AllLength n rows
+theorem allLengthOfAll (n: Nat): ∀ (rows: List (List Pixel)) => rows.all (row => row.length == n) = True → List.AllLength n rows
   | [], all => Trivial
   | [row, ..rest], all => Both (DecEq.sound (Bool.andLeft all)) (allLengthOfAll n rest (Bool.andRight all))
 
-theorem rowsRectangle: (rows: List (List Pixel)) → Image.isRectangle { rows } = True → Rectangle { rows }
+theorem rowsRectangle: ∀ (rows: List (List Pixel)) => Image.isRectangle { rows } = True → Rectangle { rows }
   | [], checked => Void.exfalso (Bool.falseNotTrue checked)
   | [first, ..rest], checked =>
     match width: first.length with
@@ -298,5 +298,5 @@ theorem isRectangleSound (image: Image) (checked: image.isRectangle = True): Rec
   let eta: { rows = image.rows } = image := Image.ext _ _ rfl
   rowsRectangle image.rows (rewrite eta in checked)
 
-theorem rectangularSound (jigsaw: Jigsaw) (checked: jigsaw.rectangular = True): (tile: Tile) → tile ∈ jigsaw.tiles → Rectangle tile.image :=
+theorem rectangularSound (jigsaw: Jigsaw) (checked: jigsaw.rectangular = True): ∀ (tile: Tile) => tile ∈ jigsaw.tiles → Rectangle tile.image :=
   tile member => isRectangleSound tile.image (List.allMember _ jigsaw.tiles checked tile member)

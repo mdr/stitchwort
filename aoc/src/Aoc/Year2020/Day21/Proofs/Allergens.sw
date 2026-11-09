@@ -33,7 +33,7 @@ theorem memIngredients (list: FoodList) (ingredient: Ingredient):
 
 --| An ingredient in every food that lists the allergen.
 def InEvery (list: FoodList) (ingredient: Ingredient) (allergen: Allergen): Prop :=
-  (food: Food) → food ∈ list.foods → allergen ∈ food.allergens → ingredient ∈ food.ingredients
+  ∀ (food: Food) => food ∈ list.foods → allergen ∈ food.allergens → ingredient ∈ food.ingredients
 
 theorem couldHoldIff (list: FoodList) (ingredient: Ingredient) (allergen: Allergen): list.couldHold ingredient allergen = True ↔ InEvery list ingredient allergen :=
   {

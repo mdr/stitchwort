@@ -14,10 +14,10 @@ import Std (Array, Bool, DecEq, Eq, List, Nat, NonEmptyList, Option, Void)
 def Tracks (game: Game) (spoken: List Nat): Prop :=
   ∃ (older: List Nat) =>
     spoken = [game.last, ..older] ∧ game.turn = older.length + 1 ∧ game.last < game.lastSeen.size
-      ∧ ((number: Nat) → number < game.lastSeen.size →
+      ∧ (∀ (number: Nat) => number < game.lastSeen.size →
         game.lastSeen.getOr number 0 = ((Spec.turnsBack number older).map (back => game.turn - back)).getOrElse 0)
 
-theorem turnsBackAtMost (number: Nat): (older: List Nat) → (back: Nat) → Spec.turnsBack number older = Some back → back ≤ older.length
+theorem turnsBackAtMost (number: Nat): ∀ (older: List Nat) (back: Nat) => Spec.turnsBack number older = Some back → back ≤ older.length
   | [], back, found => Void.exfalso (Option.noneNotSome back found)
   | [spoken, ..older], back, found =>
     match same: spoken == number with
