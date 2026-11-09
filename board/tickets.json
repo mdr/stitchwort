@@ -1,5 +1,5 @@
 {
-  "next": 2581,
+  "next": 2582,
   "tickets": [
     {
       "id": 47,
@@ -26219,6 +26219,19 @@
       "labels": [],
       "epic": "elaborator-kernel",
       "body": "Found 9 Nov in compute mode: task fuzz:elab CASES=20000 SEED=0x2580 ONLY=770 DUMP=1. Repro (mutated examples/reject Vec match): type Vec (a: Type): Nat → Type = | VNil: Vec a 340282366920938463463374607431768211456 | VCons (x: a) (xs: Vec a n): Vec a (Succ n); def head (items: Vec Nat 340282366920938463463374607431768211456): Nat := match items with | VNil => 0. Expected: E-NONEXHAUSTIVE quickly. Also consider a memory cap per fuzz case. Unifier/coverage is core language (D2506), so Opus. 90 min.",
+      "created": "2026-11-09",
+      "updated": "2026-11-09",
+      "commits": []
+    },
+    {
+      "id": 2581,
+      "title": "E-INTERNAL '`evensNil` is used before it's checked' when a def's `decreasing` measure names a theorem declared later in the file (elab fuzzer seed 0x2581 case 8590, mutated reject/decreasing-folded-goal.sw): give a user error (a measure can't use a later declaration, or one that depends on this def), not an internal one",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "diagnostics",
+      "body": "Found 9 Nov in compute mode. Repro: examples/reject/decreasing-folded-goal.sw with 'decreasing n' changed to 'decreasing evensNil' (theorem evensNil (n: Nat): evens n = Nil := rfl, declared after). Add it as a reject example. 40 min.",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
