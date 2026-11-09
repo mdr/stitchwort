@@ -990,7 +990,7 @@ fn native_code_out_of_frames_reports_as_run_does() {
                     | 0      => 0\n  \
                     | Succ n => 2 * count n\n\n\
                   def main () : {IO} () :=\n  \
-                    IO.print (Nat.toText (count (5 * 1000 * 1000)))\n";
+                    IO.print (Nat.toText (count (20 * 1000 * 1000)))\n";
     std::fs::write(dir.join("runaway.sw"), source).expect("write the source");
     build(&dir, &["runaway.sw", "--native", "--cache-dir", CACHE]);
     let exe = dir.join("runaway");
@@ -1005,10 +1005,11 @@ fn native_code_out_of_frames_reports_as_run_does() {
     );
     // The machine's note on where the recursion was deepest, from the
     // frames that left native code with the error (stage NO5 of
-    // native-only.md), and the same count as the machine's.
+    // native-only.md). The count is native code's own depth budget, 16
+    // million frames (`Limits::native_frames`, D3450), not the machine's.
     assert!(
         stderr.contains(
-            "\n  note: the recursion was deepest in `Main.count` (1999999 frames pending)\n"
+            "\n  note: the recursion was deepest in `Main.count` (15999999 frames pending)\n"
         ),
         "{stderr}"
     );
@@ -1025,6 +1026,12 @@ fn native_code_out_of_frames_reports_as_run_does() {
             let line = line
                 .trim_start_matches("[E-RESOURCE] Error: ")
                 .trim_start_matches("  note: ");
+            // The depth differs: the machine stops at 2 million frames.
+            if line.ends_with(" frames pending)")
+                && runner == &["run", "--cache-dir", CACHE, "runaway.sw"][..]
+            {
+                continue;
+            }
             assert!(ran_stderr.contains(line), "{line:?} isn't in {ran_stderr}");
         }
     }
@@ -1088,11 +1095,10 @@ fn the_roguelike_built_native_plays_as_it_does_under_run() {
 
 /// A guard (stage NO3 of docs/proposals/native-only.md, kept where NO5
 /// left something to check): `run --native` runs every body natively and
-/// the machine runs nothing, and the roguelike's frame bound times its
-/// frame limit is well under the cap on a native stack (D1299), so `build
-/// --native` sizes a stack for it rather than refusing. The frames' bound,
-/// the limit and the stack are printed, so the margin is in the test's
-/// output.
+/// the machine runs nothing, and the roguelike's frame bound gets a native
+/// frame limit well above the machine's (D1299, D3450), so `build --native`
+/// sizes a stack for it. The frames' bound, the limit and the stack are
+/// printed, so the margin is in the test's output.
 #[cfg(feature = "native")]
 #[test]
 fn the_roguelike_runs_natively() {
@@ -1118,7 +1124,15 @@ fn the_roguelike_runs_natively() {
         .and_then(|(_, rest)| rest.split_once(" bytes"))
         .and_then(|(bytes, _)| bytes.parse::<usize>().ok())
         .unwrap_or_else(|| panic!("no frame bound: {running}"));
-    let limit = stitchwort_rt::Limits::from_core(Default::default()).frames;
+    // Native code's depth budget: the default ceiling, or less if the
+    // roguelike's frames are too wide for the cap (its widest are 4.8 KB,
+    // so about 14 million frames). It must stay well above the machine's.
+    let default = stitchwort_rt::Limits::from_core(Default::default());
+    let limit = default.for_native(bound).frames;
+    assert!(
+        limit > 4 * default.frames && limit <= default.native_frames,
+        "{limit} frames: {running}"
+    );
     let stack = stitchwort_rt::native_abi::native_stack(limit as u64, bound)
         .unwrap_or_else(|| panic!("over the cap: {running}"));
     println!(
@@ -1126,7 +1140,7 @@ fn the_roguelike_runs_natively() {
         stitchwort_rt::native_abi::STACK_CAP
     );
     assert!(
-        stack as u64 <= stitchwort_rt::native_abi::STACK_CAP / 2,
+        stack as u64 <= stitchwort_rt::native_abi::STACK_CAP,
         "{running}"
     );
 
@@ -1153,13 +1167,14 @@ fn the_roguelike_runs_natively() {
     );
 }
 
-/// A recursive function whose frames, at the frame limit, need more stack
-/// than the cap (D1299 of docs/proposals/native-only.md): `build --native`
-/// fails, naming the limit and the widest function, and writes nothing,
-/// and `run --native` refuses it the same way; `run` (the machine) runs it.
+/// A recursive function whose frames are too wide for the default native
+/// frame limit to fit the stack cap (D1299 of
+/// docs/proposals/native-only.md): it isn't refused, but gets a smaller
+/// limit (`native_abi::native_frame_limit`, D3450), so `run --native` and
+/// `build --native` run it.
 #[cfg(feature = "native")]
 #[test]
-fn a_program_over_the_stack_cap_fails_to_build() {
+fn a_program_with_wide_frames_gets_a_smaller_native_limit() {
     let dir = work_dir("native-cap");
     // 400 arguments, each live across the call: frames of tens of KB.
     let width = 400;
@@ -1177,37 +1192,30 @@ fn a_program_over_the_stack_cap_fails_to_build() {
         vec!["7"; width].join(" "),
     );
     std::fs::write(dir.join("wide.sw"), source).expect("write the source");
-    let expected =
-        "error: the native stack would be too big: 2000000 frames (the frame limit) of up to ";
-    let note = "  note: split `Main.wide` into smaller functions, or run the program on the machine with `stitchwort run`\n";
-    let refused = |output: &Output| {
-        let said = text(&output.stderr);
-        assert_eq!(output.status.code(), Some(1), "{said}");
-        assert!(said.starts_with(expected), "{said}");
-        assert!(
-            said.contains(" bytes (`Main.wide`'s, the widest) need ")
-                && said.contains(" GiB, over the cap of 64 GiB\n"),
-            "{said}"
-        );
-        assert!(said.ends_with(note), "{said}");
-        assert_eq!(text(&output.stdout), "");
-    };
-    refused(&stitchwort(
+    let ran = stitchwort(
         &dir,
-        &["run", "--native", "--cache-dir", CACHE, "wide.sw"],
+        &[
+            "run",
+            "--native",
+            "--verbose",
+            "--cache-dir",
+            CACHE,
+            "wide.sw",
+        ],
         b"",
-    ));
-    let ran = stitchwort(&dir, &["run", "--cache-dir", CACHE, "wide.sw"], b"");
-    assert_eq!(text(&ran.stdout), "10\n", "{}", text(&ran.stderr));
+    );
+    let said = text(&ran.stderr);
+    assert_eq!(text(&ran.stdout), "10\n", "{said}");
+    assert!(
+        said.contains("native: the machine executed 0 instructions"),
+        "{said}"
+    );
     if !have_cc() {
         return;
     }
-    refused(&stitchwort(
-        &dir,
-        &["build", "wide.sw", "--native", "--cache-dir", CACHE],
-        b"",
-    ));
-    assert!(!dir.join("wide").exists(), "an executable was written");
+    build(&dir, &["wide.sw", "--native", "--cache-dir", CACHE]);
+    let built = run_executable(&dir.join("wide"), b"");
+    assert_eq!(text(&built.stdout), "10\n", "{}", text(&built.stderr));
 }
 
 /// A failed layout probe (forced by its test hook,

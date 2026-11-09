@@ -306,19 +306,12 @@ fn native_object(
     profiling: Profiling,
 ) -> Option<(Vec<u8>, Option<String>)> {
     let image = stitchwort_rt::code::compile(program);
-    let tables = stitchwort_rt::linked::encode(program, &image, limits);
     let options = stitchwort_native::n1::Options {
         trace_refcounts: false,
         count_bodies: profiling.count_bodies,
         pc_map: profiling.pc_map,
     };
-    match stitchwort_native::aot::compile_object(
-        program,
-        &image,
-        &tables,
-        options,
-        limits.frames as u64,
-    ) {
+    match stitchwort_native::aot::compile_object(program, &image, options, limits) {
         Ok(code) => {
             if verbose {
                 for line in code.report() {

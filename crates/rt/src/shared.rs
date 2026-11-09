@@ -19,6 +19,11 @@ pub struct Limits {
     pub steps: u64,
     /// Frames pending at once: how deeply a program may recurse.
     pub frames: usize,
+    /// The ceiling on the frames native code may have pending, for a
+    /// program whose widest frame is small enough
+    /// ([`Limits::for_native`]; `stitchwort_core::budget::Limits::native_frames`).
+    /// The machine ignores it.
+    pub native_frames: usize,
     /// Whether an operation on a big number (one past a machine word) also
     /// costs a step per word it works through ([`crate::prims::number_cost`]),
     /// so that the steps bound its time and memory too. Only the machine
@@ -37,7 +42,19 @@ impl Limits {
         Limits {
             steps: limits.work,
             frames: limits.frames,
+            native_frames: limits.native_frames,
             number_words: false,
+        }
+    }
+
+    /// These limits for a native run of code whose frames are at most
+    /// `max_frame` bytes: `frames` becomes the native depth limit,
+    /// [`native_abi::native_frame_limit`]. Fixed by the program and the
+    /// build alone, so a run fails at the same depth every time.
+    pub fn for_native(self, max_frame: usize) -> Limits {
+        Limits {
+            frames: crate::native_abi::native_frame_limit(self.native_frames, max_frame),
+            ..self
         }
     }
 }

@@ -947,6 +947,7 @@ impl Reader {
                 stack: 128 * 1024,
                 size: 10_000,
                 frames: 10_000,
+                native_frames: 10_000,
             });
             if conv(&g, cx.level(), &a.value, &value) == Ok(true) {
                 return Ok(self.index[i]);

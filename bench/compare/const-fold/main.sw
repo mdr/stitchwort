@@ -4,8 +4,8 @@
 -- reassociating its additions and multiplications to the right and folding the
 -- constants. Both evaluations must agree. Prints `<eval> <eval after folding>`.
 --
--- The first argument is the tree's depth N (default 20, the deepest the native
--- code's recursion limit allows; `-- 12` for a small run). The second is a
+-- The first argument is the tree's depth N (default 20; native code's
+-- recursion limit allows up to 23, which uses 4 GB; `-- 12` for a small run). The second is a
 -- number of rounds (default 1): round r starts the leaf values at r, so every
 -- round builds a different tree and prints its own line. Lean's original runs
 -- one round at N = 23, which needs a 4 GB stack.

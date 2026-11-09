@@ -96,6 +96,7 @@ def main(): {IO} () :=
         Limits {
             steps: u64::MAX,
             frames: 10_000,
+            native_frames: 10_000,
             number_words: false,
         },
     );
@@ -124,6 +125,7 @@ def main(): {IO} () := IO.print (Nat.toText (square 20 2 % 1000))
     let limits = |number_words| Limits {
         steps: 10_000,
         frames: 100,
+        native_frames: 100,
         number_words,
     };
     let (out, result) = on_the_machine(source, limits(false));
@@ -153,6 +155,7 @@ def main(): {IO} () := IO.print (Nat.toText (loop 3000000 0))
         Limits {
             steps: u64::MAX,
             frames: 100,
+            native_frames: 100,
             number_words: false,
         },
     );
@@ -192,6 +195,7 @@ def main(): {IO} () :=
         Limits {
             steps: u64::MAX,
             frames: 100,
+            native_frames: 100,
             number_words: false,
         },
     );
@@ -216,6 +220,7 @@ def main(): {IO} () := IO.print (Nat.toText (build 100000 []).length)
         Limits {
             steps: u64::MAX,
             frames: 100,
+            native_frames: 100,
             number_words: false,
         },
     );
@@ -261,6 +266,7 @@ def main(): {IO} () :=
         Limits {
             steps: u64::MAX,
             frames: Limits::default().frames,
+            native_frames: Limits::default().frames,
             number_words: false,
         },
     );
@@ -295,6 +301,7 @@ def main(): {IO} () := IO.print (Nat.toText (total 20000 (Some 1)))
         Limits {
             steps: 500_000,
             frames: 1_000_000,
+            native_frames: 1_000_000,
             number_words: false,
         },
     );
@@ -323,6 +330,7 @@ def main(): {IO} () :=
         Limits {
             steps: 10_000,
             frames: 100,
+            native_frames: 100,
             number_words: false,
         },
         input.as_bytes(),
@@ -350,6 +358,7 @@ def main(): {IO, Fail} () :=
         Limits {
             steps: 20_000_000,
             frames: 1_000_000,
+            native_frames: 1_000_000,
             number_words: false,
         },
         input.as_bytes(),

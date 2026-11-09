@@ -2877,6 +2877,7 @@ fn force_unglued(g: &Ev, level: usize, value: &Value) {
         stack: usize::MAX,
         size: 1_000_000,
         frames: 100_000,
+        native_frames: 100_000,
     });
     let glue = g.machine.glue.replace(false);
     let _ = quote(g, level, value);
