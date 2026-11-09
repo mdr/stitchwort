@@ -1316,7 +1316,9 @@ fn run(program: &Program, image: &Image, st: &mut State, mut pending: Pending) -
                     }));
                 }
                 Instr::Ctor { dst, tag, args } => {
+                    let (tag, enum_mask) = crate::value_census::split_tag(tag);
                     let fields: Rc<[Value]> = ops!(args).iter().map(|r| get!(*r)).collect();
+                    crate::value_census::stored_cell(enum_mask, &fields, false);
                     crate::alloc_trace::alloc(tag, &fields);
                     reg!(dst) = Value::Data(tag, Fields(fields));
                 }
@@ -1327,17 +1329,20 @@ fn run(program: &Program, image: &Image, st: &mut State, mut pending: Pending) -
                     token,
                 } => {
                     let o = ops!(args);
+                    let (tag, enum_mask) = crate::value_census::split_tag(tag);
                     let v = match std::mem::take(&mut reg!(token)) {
                         Value::Data(_, mut cell) if cell.len() == o.len() && unique(&cell.0) => {
                             for (i, r) in o.iter().enumerate() {
                                 let v = get!(*r);
                                 Rc::get_mut(&mut cell.0).expect("unique")[i] = v;
                             }
+                            crate::value_census::stored_cell(enum_mask, &cell.0, true);
                             crate::alloc_trace::reuse(tag, &cell.0);
                             Value::Data(tag, cell)
                         }
                         _ => {
                             let fields: Rc<[Value]> = o.iter().map(|r| get!(*r)).collect();
+                            crate::value_census::stored_cell(enum_mask, &fields, false);
                             crate::alloc_trace::alloc(tag, &fields);
                             Value::Data(tag, Fields(fields))
                         }

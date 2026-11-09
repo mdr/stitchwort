@@ -131,6 +131,18 @@ fn kind(v: &Value) -> usize {
     }
 }
 
+/// Cells (and in-place refills) by field count and by how many of their
+/// fields are of an enum type and hold its value: `ENUM_CELLS[refill][n][k]`.
+static ENUM_CELLS: [[[AtomicU64; ARITIES]; ARITIES]; 2] =
+    [const { [const { [ZERO; ARITIES] }; ARITIES] }; 2];
+
+pub(super) fn stored_cell(enum_mask: u8, fields: &[Value], refill: bool) {
+    let k = (fields.iter().take(8).enumerate())
+        .filter(|(i, v)| enum_mask >> i & 1 == 1 && matches!(v, Value::Tag(_)))
+        .count();
+    ENUM_CELLS[refill as usize][fields.len().min(ARITIES - 1)][k].fetch_add(1, Relaxed);
+}
+
 fn count_kinds(table: &[AtomicU64; 15], values: &[Value]) -> u64 {
     let mut boxes = 0;
     for v in values {
@@ -406,6 +418,17 @@ fn report() -> String {
         "end_live_negative.cells".into(),
         (-LIVE_CELLS.load(Relaxed)).max(0) as u64,
     );
+    // `enum.<fields>.<enum fields>` and `enum_refill.…`: cells, and in-place
+    // refills, by how many fields are enums (declared so, among the first eight).
+    for (refill, name) in ["enum", "enum_refill"].into_iter().enumerate() {
+        for (n, row) in ENUM_CELLS[refill].iter().enumerate() {
+            for (k, c) in row.iter().enumerate() {
+                if c.load(Relaxed) > 0 {
+                    line(format!("{name}.{n}.{k}"), c.load(Relaxed));
+                }
+            }
+        }
+    }
     out
 }
 

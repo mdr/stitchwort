@@ -465,7 +465,12 @@ pub fn decode(bytes: &[u8]) -> Result<(Program, Limits), CodecError> {
             for _ in 0..k {
                 fields.push(r.str()?);
             }
-            ctors.push(CtorInfo { name, fields });
+            ctors.push(CtorInfo {
+                name,
+                #[cfg(feature = "value-census")]
+                enum_fields: vec![false; fields.len()],
+                fields,
+            });
         }
         types.push(TypeInfo {
             data,

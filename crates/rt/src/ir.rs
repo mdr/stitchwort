@@ -215,6 +215,11 @@ pub struct CtorInfo {
     pub name: Rc<str>,
     /// The names of its runtime fields, in order: the erased ones are gone.
     pub fields: Vec<Rc<str>>,
+    /// For each runtime field, whether its declared type is an enum (every
+    /// constructor without runtime fields): what a layout that stores such
+    /// fields as bytes could shrink (value census).
+    #[cfg(feature = "value-census")]
+    pub enum_fields: Vec<bool>,
 }
 
 #[derive(Clone, Debug)]
