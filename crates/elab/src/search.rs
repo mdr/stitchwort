@@ -23,7 +23,7 @@
 use std::collections::BTreeSet;
 use std::rc::Rc;
 
-use stitchwort_core::value::{Head, Value, eval, force};
+use stitchwort_core::value::{Elim, Head, Value, eval, force};
 use stitchwort_core::{DataId, DefId, Ev, Icit, Limits, Term};
 use stitchwort_syntax::ast::Expr;
 use stitchwort_syntax::{Diagnostic, Span};
@@ -1218,14 +1218,21 @@ impl Elaborator {
                     _ => None,
                 })
                 .collect();
-            type_holes(g, &env, &holes, def.ty_value().clone(), args)?;
+            type_holes(g, &env, &holes, def.span(), def.ty_value().clone(), args)?;
             for arg in args {
                 for (sub, binders) in arg.subterms() {
                     if binders == 0
                         && let (Term::Def(id), sub_args) = sub.spine()
                         && !sub_args.is_empty()
                     {
-                        type_holes(g, &env, &holes, g.def(*id).ty_value().clone(), &sub_args)?;
+                        type_holes(
+                            g,
+                            &env,
+                            &holes,
+                            def.span(),
+                            g.def(*id).ty_value().clone(),
+                            &sub_args,
+                        )?;
                     }
                 }
             }
@@ -1703,10 +1710,16 @@ impl Elaborator {
 
 /// For a call of something of type `ty` to `args` (terms in `env`): each
 /// argument that is one of `holes` with no type yet gets its parameter's.
+/// An argument that is a hole applied to terms (`p x`, a proof's predicate)
+/// makes the hole a function of that many arguments, of unknown domains,
+/// into the parameter's type: a candidate's term of another form (`Some y`)
+/// is then no solution for it, which computing the call would otherwise
+/// find out by applying a constructor.
 fn type_holes(
     g: &crate::unify::Unifier<'_>,
     env: &[Value],
     holes: &[usize],
+    span: Span,
     ty: Value,
     args: &[&Term],
 ) -> Res<()> {
@@ -1717,11 +1730,24 @@ fn type_holes(
         };
         let value = eval(g, env, arg)?;
         if let Value::Neutral(Head::Meta(m), s) = force(g, value.clone())?
-            && s.is_empty()
             && holes.contains(&m)
             && g.store.meta_type(m).is_none()
         {
-            g.store.set_meta_type(m, (*dom).clone(), 0);
+            if s.is_empty() {
+                g.store.set_meta_type(m, (*dom).clone(), 0);
+            } else if s.iter().all(|e| matches!(e, Elim::App(_, Icit::Explicit))) {
+                let mut function = stitchwort_core::value::quote_folded(g, 0, &dom)?;
+                for _ in 0..s.len() {
+                    let domain = g.store.new_meta(span);
+                    function = Term::Pi(
+                        "_".into(),
+                        Icit::Explicit,
+                        Rc::new(Term::Meta(domain)),
+                        Rc::new(function),
+                    );
+                }
+                g.store.set_meta_type(m, eval(g, &[], &function)?, 0);
+            }
         }
         ty = closure.apply(g, value)?;
     }

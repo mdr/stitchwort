@@ -312,6 +312,50 @@ fn proof_uses_find_their_lemma_among_the_first_ten() {
     );
 }
 
+/// A proof use whose arguments mention the proof's variables inside a
+/// lambda (`Bool.inspect`'s motive, in `List.takeWhile.induct`) once made the
+/// evaluator apply a constructor while unifying with a candidate (SW-2590).
+#[test]
+fn proof_use_with_lambda_arguments_searches_without_internal_errors() {
+    let (internal, hits) = with_session(STACK, Session::for_stack, |session| {
+        load_library(session);
+        let candidates = theorems(session);
+        let g = &session.elab.ev();
+        let ids: BTreeSet<DefId> = (candidates.iter())
+            .filter_map(|c| match c.item {
+                Item::Def(id) => Some(id),
+                Item::Ctor(..) | Item::Part(..) => None,
+            })
+            .collect();
+        let uses = lemma_uses(g, &ids);
+        let wanted = uses
+            .iter()
+            .position(|(owner, lemma, _, _)| {
+                g.def(*owner).path().to_string() == "Std.List.takeWhile.induct"
+                    && g.def(*lemma).path().to_string() == "Std.Bool.inspect"
+            })
+            .expect("takeWhile.induct uses Bool.inspect");
+        let (owner, lemma, args, depth) = &uses[wanted];
+        let (owner, lemma) = (*owner, *lemma);
+        let args: Vec<&Term> = args.iter().collect();
+        let pattern = session
+            .elab
+            .use_pattern(lemma, &args, *depth)
+            .expect("a pattern");
+        let opts = Opts {
+            mode: Mode::Plain,
+            anywhere: false,
+            iff: None,
+            filter: true,
+            deadline: None,
+        };
+        let keep = |c: &Candidate| Some(c.item) != Some(Item::Def(owner));
+        let found = session.elab.search(&[pattern], &candidates, &opts, &keep);
+        (found.stats.internal_errors, found.hits.len())
+    });
+    assert_eq!(internal, 0, "{hits} hits");
+}
+
 /// Draft 1's hand queries and draft 3's others (§6.3), through the command's
 /// own path (`Session::search`): where each one's lemma must rank.
 #[test]
