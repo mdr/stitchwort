@@ -265,6 +265,34 @@ pub struct Resume {
     pub pending: Value,
 }
 
+impl Resume {
+    /// The fields of an eager resumption (`Fun::Resume`, not suspending)
+    /// that nothing else holds, moved out instead of copied: the
+    /// reference counts a copy would raise and later lower are saved. The
+    /// cell is left as `Fun::DoneK`, which owns nothing, so its drop only
+    /// frees it. `None` (and nothing changed) if the resumption is shared or
+    /// isn't one.
+    #[allow(unsafe_code)]
+    pub(crate) fn take_unique(fun: &mut Rc<Fun>) -> Option<Resume> {
+        let cell = Rc::get_mut(fun)?;
+        if !matches!(cell, Fun::Resume(false, _)) {
+            return None;
+        }
+        // `Fun` has a `Drop`, so its fields can't be moved out of it: take
+        // the values, read the handler, and forget what remains.
+        let mut old = std::mem::ManuallyDrop::new(std::mem::replace(cell, Fun::DoneK));
+        let Fun::Resume(_, resume) = &mut *old else {
+            unreachable!("matched above")
+        };
+        Some(Resume {
+            // SAFETY: `old` is never dropped, so the handler has one owner.
+            handler: unsafe { std::ptr::read(&resume.handler) },
+            rest: std::mem::replace(&mut resume.rest, Value::Erased),
+            pending: std::mem::replace(&mut resume.pending, Value::Erased),
+        })
+    }
+}
+
 /// A `translate` handler's resumption (`Fun::TranslateK`), which also needs
 /// the operation, for the reply. Kept out of [`Resume`] so that the common
 /// resumptions, and every `Fun`, are a word smaller (the third value).

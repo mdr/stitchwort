@@ -3163,8 +3163,8 @@ pub unsafe extern "C" fn sw_resume_begin(
     crate::call_counts::hit_event(crate::call_counts::Event::ResumeBegin);
     crate::call_counts::hit_chain_end();
     // SAFETY: the caller's contract: borrowed, so not dropped.
-    let k = std::mem::ManuallyDrop::new(unsafe { from_words(u64::from(TAG_FUN), k, 0) });
-    let Value::Fun(fun) = &*k else {
+    let mut k = std::mem::ManuallyDrop::new(unsafe { from_words(u64::from(TAG_FUN), k, 0) });
+    let Value::Fun(fun) = &mut *k else {
         internal(format_args!("resumed a value that isn't a function"))
     };
     let write = |i: usize, v: Value| {
@@ -3173,6 +3173,19 @@ pub unsafe extern "C" fn sw_resume_begin(
     };
     // SAFETY: the caller's contract.
     let y = unsafe { y.read() };
+    // An eager resumption that nothing else holds (a one-shot forward's,
+    // always) gives up its fields instead of copying them. The cell is left
+    // as `DoneK`, which owns nothing, so the caller's later drop of `k`
+    // only frees it.
+    if let Some(resume) = crate::effect::Resume::take_unique(fun) {
+        // SAFETY: the caller's contract.
+        unsafe { handler.write(Rc::into_raw(resume.handler) as u64) };
+        write(0, resume.pending);
+        write(1, resume.rest);
+        write(2, y);
+        return 0;
+    }
+    let fun = &*fun;
     let (resume, translate) = match &**fun {
         Fun::Resume(_, resume) => (resume, None),
         Fun::TranslateK(t) => (&t.resume, Some(t)),

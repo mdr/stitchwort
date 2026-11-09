@@ -506,13 +506,27 @@ impl State {
         &mut self,
         program: &Program,
         image: &Image,
-        f: Value,
+        mut f: Value,
         n: usize,
         ret: Ret,
     ) -> Result<Pending> {
-        let Value::Fun(fun) = &f else {
+        let Value::Fun(fun) = &mut f else {
             panic!("internal error: applied {f:?}, which isn't a function")
         };
+        // A resumption nothing else holds is taken apart, not copied (as
+        // native code's `sw_resume_begin` does).
+        if n == 1
+            && let Some(resume) = Resume::take_unique(fun)
+        {
+            let after = Ret::Eff(Box::new(EffRet {
+                handler: resume.handler,
+                pending: resume.pending,
+                state: Value::Erased,
+                ret,
+            }));
+            return self.apply(program, image, resume.rest, 1, after);
+        }
+        let fun = &*fun;
         let (head, held): (&Value, &[Value]) = match &**fun {
             Fun::Pap { head, args } => (head, args),
             _ => (&f, &[]),
