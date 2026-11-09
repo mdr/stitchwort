@@ -571,7 +571,6 @@ The interpreter (`stitchwort run`) makes the same functions loops in its IR (`cr
 | `E-NONEXHAUSTIVE` | Missing pattern-match case. A constructor case lists every missing case, as arms to paste (`| Tri _ _ => ?`, SW-1027; `docs/syntax.md` "Missing cases") |
 | `E-OR-PATTERN-BINDS` | An alternative of an or-pattern `p \| q` binds a variable |
 | `E-MATCH-MOTIVE` | A `match` whose scrutinees can't be generalised in this version (the same variable twice, one scrutinee part of another, one's type mentioning another) or whose generalised type is ill-formed |
-| `E-MATCH-EQUATION` | The equation of `match h: e with` can't be formed (the types differ); not reported in the first version |
 | `E-TERMINATION` | Recursion that can't be shown to terminate, or a recursive call not given all its arguments |
 | `E-TAILREC` | A definition marked `@[tailrec]` that calls itself outside tail position (the label says what waits on the call), calls a definition that calls it back (mutual groups aren't covered yet), or never calls itself |
 | `E-SYNONYM-CYCLE` | Type synonyms defined in terms of each other, so none of them has a meaning |

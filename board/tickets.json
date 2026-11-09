@@ -25615,12 +25615,12 @@
     {
       "id": 2534,
       "title": "docs/core.md:574 lists E-MATCH-EQUATION as not reported in the first version, but no such error exists: correct the kernel spec",
-      "status": "backlog",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "docs-tutorials",
-      "body": "From SW-2532. Kernel spec, wording only. 10 min.",
+      "body": "From SW-2532. Kernel spec, wording only. 10 min.\n\nDone by the orchestrator (one-line removal; no such error in crates/).\n",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
