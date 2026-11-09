@@ -25212,12 +25212,12 @@
     {
       "id": 2503,
       "title": "bench/compare has no Std.Map insert/remove workload (rbmap/rbmap-ck are hand-written trees; only dijkstra touches Std.Map): add one to the wide set, with Python and Lean ports",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Sonnet",
-      "where": "",
+      "where": "Speedwell",
       "labels": [],
       "epic": "comparative-speed",
-      "body": "From SW-814. 60 min.",
+      "body": "From SW-814. 60 min.\n\nStarted 9 Nov 2026 07:27 UTC. Expected: 60 min.\n",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
