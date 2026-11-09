@@ -1,5 +1,5 @@
 {
-  "next": 2467,
+  "next": 2468,
   "tickets": [
     {
       "id": 47,
@@ -23974,7 +23974,7 @@
         "elab"
       ],
       "epic": "elaborator-kernel",
-      "body": "From SW-2409. 60 min.\n\nNew data (8 Nov 17:26, main after SW-2409): fuzz:elab CASES=20000 SEED=0x2409 still killed at 16.24 GB after 1684 s; slow-check lines named case 14673 and case 15746 (seed 0x2409), the latter most likely. Repro: task fuzz:elab SEED=0x2409 ONLY=15746 DUMP=1 (and 14673) under dev/memguard --cap-gb 4. Start here.\n\nSlow (>5 s) but passing, seed 0x2437 (10k, 8 Nov 20:09): cases 6334 7161 7790 9155 9159 9387 9609 9730. Soundness 0x2436 (6000/4000) passed in 38 min.\n\nSeed 0x2468 (CASES=15000, 8 Nov 2026 23:40, Speedwell): passed but peaked at 11.45 GB physical footprint (Overmind's 0x2467 10k run peaked at 1.5 GB), so some case nearly ran away. Slow (>5 s) cases: 2714 3657 6250 9750 10017 11541 13339 14042 . Find the one with the peak (run each ONLY=n under dev/memguard --report).\n\n23:42: seed 0x2468's 11.45 GB peak is not one case: each of its 8 slow cases alone peaks at 0.15-0.73 GB (scratchpad elab-0x2468-peaks.txt). So memory accumulates across a fuzz run (or across parallel cases), as with the soundness fuzzer on Overmind; SW-2418 and SW-2449 are likely one issue: look for per-process caches or retained sessions shared between cases.\n\nCorrection (00:22): the 23:42 \"accumulation\" note was premature. Overmind job 28 (soundness, seed 0x2466, MUTANTS=3000, RSS sampled each minute) stayed flat at 0.8-1.0 GB with transient spikes (max 2.63 GB at minute 20, back to 0.79 at 21); peak 2.69 GB, same as Speedwell. So no growth across mutants: peaks come from single cases. Job 25's 11.65 GB (seed 0x2439) was likely one mutant near 5880-5920 s; seed 0x2468's 11.45 GB (elab) may be a fast case not among the 8 slow ones, or parallel cases peaking together. Next: find the case (bisect by range under memguard --report).\n",
+      "body": "From SW-2409. 60 min.\n\nNew data (8 Nov 17:26, main after SW-2409): fuzz:elab CASES=20000 SEED=0x2409 still killed at 16.24 GB after 1684 s; slow-check lines named case 14673 and case 15746 (seed 0x2409), the latter most likely. Repro: task fuzz:elab SEED=0x2409 ONLY=15746 DUMP=1 (and 14673) under dev/memguard --cap-gb 4. Start here.\n\nSlow (>5 s) but passing, seed 0x2437 (10k, 8 Nov 20:09): cases 6334 7161 7790 9155 9159 9387 9609 9730. Soundness 0x2436 (6000/4000) passed in 38 min.\n\nSeed 0x2468 (CASES=15000, 8 Nov 2026 23:40, Speedwell): passed but peaked at 11.45 GB physical footprint (Overmind's 0x2467 10k run peaked at 1.5 GB), so some case nearly ran away. Slow (>5 s) cases: 2714 3657 6250 9750 10017 11541 13339 14042 . Find the one with the peak (run each ONLY=n under dev/memguard --report).\n\n23:42: seed 0x2468's 11.45 GB peak is not one case: each of its 8 slow cases alone peaks at 0.15-0.73 GB (scratchpad elab-0x2468-peaks.txt). So memory accumulates across a fuzz run (or across parallel cases), as with the soundness fuzzer on Overmind; SW-2418 and SW-2449 are likely one issue: look for per-process caches or retained sessions shared between cases.\n\nCorrection (00:22): the 23:42 \"accumulation\" note was premature. Overmind job 28 (soundness, seed 0x2466, MUTANTS=3000, RSS sampled each minute) stayed flat at 0.8-1.0 GB with transient spikes (max 2.63 GB at minute 20, back to 0.79 at 21); peak 2.69 GB, same as Speedwell. So no growth across mutants: peaks come from single cases. Job 25's 11.65 GB (seed 0x2439) was likely one mutant near 5880-5920 s; seed 0x2468's 11.45 GB (elab) may be a fast case not among the 8 slow ones, or parallel cases peaking together. Next: find the case (bisect by range under memguard --report).\n\n01:45: seed 0x2468's peak found: case 12893 alone, filed as SW-2467 (Fin literal 2^128). Remaining here: job 25's soundness spike (seed 0x2439, near 5880-5920 s).\n",
       "created": "2026-11-08",
       "updated": "2026-11-09",
       "commits": []
@@ -24511,16 +24511,16 @@
     {
       "id": 2452,
       "title": "Elaborator stack overflow: fuzz:elab CASES=15000 SEED=0x2451 aborts the test process with 'fatal runtime error: stack overflow' after ~95 s (on 4c577908c, before SW-2445's new example changed case numbering)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Sonnet",
-      "where": "",
+      "where": "Speedwell",
       "labels": [
         "elab"
       ],
       "epic": "elaborator-kernel",
-      "body": "Found 8 Nov 2026 22:21 in compute mode. Bisecting in .claude/worktrees/SW-2452 at 4c577908c with FROM/TO (scratchpad bisect-overflow.sh); the case number and dumped input go here. Then: find the unbounded recursion, bound it or make it iterative, add the input as a regression example. Investigate in lanes mode.\n\nBisected: case 531 (seed 0x2451, CASES=15000, at 4c577908c), mutated from examples/accept/*omega*/auto range membership. Input dev/fuzz-findings/2451-531.sw (39 lines); \"still running after 5s\" then the thread overflows its stack. Repro: stitchwort check dev/fuzz-findings/2451-531.sw.\n",
+      "body": "Found 8 Nov 2026 22:21 in compute mode. Bisecting in .claude/worktrees/SW-2452 at 4c577908c with FROM/TO (scratchpad bisect-overflow.sh); the case number and dumped input go here. Then: find the unbounded recursion, bound it or make it iterative, add the input as a regression example. Investigate in lanes mode.\n\nBisected: case 531 (seed 0x2451, CASES=15000, at 4c577908c), mutated from examples/accept/*omega*/auto range membership. Input dev/fuzz-findings/2451-531.sw (39 lines); \"still running after 5s\" then the thread overflows its stack. Repro: stitchwort check dev/fuzz-findings/2451-531.sw.\n\nStarted 9 Nov 2026 02:04 UTC, lanes mode (pace 0.92). Expected: 60 min.\n",
       "created": "2026-11-08",
-      "updated": "2026-11-08",
+      "updated": "2026-11-09",
       "commits": []
     },
     {
@@ -24541,16 +24541,16 @@
     {
       "id": 2454,
       "title": "Wide benchmark set, first port: spectral-norm (floats) in Stitchwort, Python and Lean, plus programs.toml 'set' field and compare.py printing three geomeans (core ten, wide, all); history.toml gets wide_* keys beside the existing ones",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Sonnet",
-      "where": "",
+      "where": "Speedwell",
       "labels": [
         "bench"
       ],
       "epic": "comparative-speed",
-      "body": "From SW-2450 (rank 1). 1.5 h. Port faithfully; note any algorithmic difference in the README.\n\nOrchestrator's call (SW-2450 D-b, reversible reporting): the wide set is a separate geomean beside the core ten, never folded into the ten's history.\n",
+      "body": "From SW-2450 (rank 1). 1.5 h. Port faithfully; note any algorithmic difference in the README.\n\nOrchestrator's call (SW-2450 D-b, reversible reporting): the wide set is a separate geomean beside the core ten, never folded into the ten's history.\n\nStarted 9 Nov 2026 02:04 UTC, lanes mode (pace 0.92). Expected: 90 min.\n",
       "created": "2026-11-08",
-      "updated": "2026-11-08",
+      "updated": "2026-11-09",
       "commits": []
     },
     {
@@ -24646,16 +24646,16 @@
     {
       "id": 2461,
       "title": "Effect-runtime allocation stage 0: counters (runtime-built cells per site, cell-cache hits from generated code under call-counts, performs that reach a bind directly) on expressions, scan, matcher",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Sonnet",
-      "where": "",
+      "where": "Speedwell",
       "labels": [
         "perf"
       ],
       "epic": "comparative-speed",
-      "body": "docs/proposals/effect-runtime-allocation.md stage 0. Checks the ~94 M runtime cells and R4's reach. 45 min.",
+      "body": "docs/proposals/effect-runtime-allocation.md stage 0. Checks the ~94 M runtime cells and R4's reach. 45 min.\n\nStarted 9 Nov 2026 02:04 UTC, lanes mode (pace 0.92). Expected: 45 min.\n",
       "created": "2026-11-08",
-      "updated": "2026-11-08",
+      "updated": "2026-11-09",
       "commits": []
     },
     {
@@ -24729,6 +24729,21 @@
       ],
       "epic": "editor-playground",
       "body": "Found by the daily tier, 9 Nov 2026 00:01 (crates/fmt/tests/it/fuzz.rs:260). Repro: task fuzz:fmt (default), or the input printed in the failure. Fix the formatter; add the input to the formatter's golden or regression tests. 45 min.",
+      "created": "2026-11-09",
+      "updated": "2026-11-09",
+      "commits": []
+    },
+    {
+      "id": 2467,
+      "title": "Memory runaway: a Fin literal pattern of 2^128 (fuzz case 12893, seed 0x2468) makes check use 11+ GB in 15 s; likely the exhaustiveness check or Fin-literal lowering unfolding the literal into nested FSucc/Succ",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "epic": "audit-fuzzing",
+      "body": "Repro: stitchwort check dev/fuzz-findings/2468-12893.sw (9 lines: the D1079 Fin non-exhaustive example with its 1 pattern mutated to 340282366920938463463374607431768211456). Expected: E-NONEXHAUSTIVE in milliseconds. Actual: >4 GB in seconds on Speedwell, killed at 11.6 GB on Overmind. Found by Overmind job 29 bisecting seed 0x2468's 11.45 GB peak (SW-2418). Check whether SW-2398/SW-2399 (Fin as numbers, 8 Nov) introduced it. Fix: literals must stay numbers through pattern compilation and exhaustiveness (compare against the bound arithmetically); add the repro as a reject example with a memory/time guard. 45 min.",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
