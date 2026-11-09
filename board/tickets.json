@@ -1,5 +1,5 @@
 {
-  "next": 2471,
+  "next": 2473,
   "tickets": [
     {
       "id": 47,
@@ -24556,14 +24556,14 @@
     {
       "id": 2455,
       "title": "Wide benchmark set: Lean's const_fold and rbmap/rbmap-ck (tests/compile_bench) ported to Stitchwort and Python",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "Speedwell",
       "labels": [
         "bench"
       ],
       "epic": "comparative-speed",
-      "body": "From SW-2450 (ranks 2, 4). After the first port. 2 h.\n\nStarted 9 Nov 2026 02:15 UTC. Expected: 120 min.\n",
+      "body": "From SW-2450 (ranks 2, 4). After the first port. 2 h.\n\nStarted 9 Nov 2026 02:15 UTC. Expected: 120 min.\n\nMerged 9 Nov 02:34. Instructions native/Lean: const-fold 4.12x, rbmap 2.29x, rbmap-ck 3.84x; native/CPython 0.15-0.23x. Findings SW-2471 SW-2472 . Model result: Sonnet, worked, 20 min (est. 120).\n",
       "created": "2026-11-08",
       "updated": "2026-11-09",
       "commits": []
@@ -24789,6 +24789,32 @@
       ],
       "epic": "audit-fuzzing",
       "body": "From SW-2452's report: crates/elab/src/check.rs:753, caller alias_notes. Check message snapshots stay the same for normal cases. 45 min.",
+      "created": "2026-11-09",
+      "updated": "2026-11-09",
+      "commits": []
+    },
+    {
+      "id": 2471,
+      "title": "Native recursion is capped at about 2M frames (E-RESOURCE): const-fold stops at depth 21 where Lean's original runs depth 23 with a 4 GB stack; consider a deeper limit or a growable stack",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "comparative-speed",
+      "body": "From SW-2455. bench/compare/const-fold runs at depth 20 because of it. 1 h, profile first.",
+      "created": "2026-11-09",
+      "updated": "2026-11-09",
+      "commits": []
+    },
+    {
+      "id": 2472,
+      "title": "Tree nodes take about 160 B in native runs vs Lean's ~56 B (rbmap: 324 MB peak for 2M nodes); rbmap-ck can't run at Lean's 2M size (would need ~20 GB). Measure the layout and note it in docs/proposals/compact-values.md as evidence outside the decision set",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "comparative-speed",
+      "body": "From SW-2455. Paper/measurement first: which words a 5-field node carries (header, counts, tags, boxed Nat/Bool fields). 45 min.",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
