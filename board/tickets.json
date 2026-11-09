@@ -1,5 +1,5 @@
 {
-  "next": 2497,
+  "next": 2498,
   "tickets": [
     {
       "id": 47,
@@ -25100,7 +25100,7 @@
       "where": "Speedwell",
       "labels": [],
       "epic": "comparative-speed",
-      "body": "From SW-2492 target 4 (SW-2327's unfiled 'lists once per call site'). No API or call-site change. 45 min.\n\nStarted 9 Nov 2026 06:20 UTC. Expected: 45 min.\n",
+      "body": "From SW-2492 target 4 (SW-2327's unfiled 'lists once per call site'). No API or call-site change. 45 min.\n\nStarted 9 Nov 2026 06:20 UTC. Expected: 45 min.\n\n06:21, lane stopped at 5 min (no change): library-only is impossible: text/pick are plain calls, toList already runs once per call; the measured win came from hoisting the literal at the call site. Options: A new Parse operation literalText over Text (std only, needs a measure-first spike: Text.uncons may allocate too), B native Text.stripPrefix, C compiler hoisting (filed as SW-2497). Orchestrator's call: rescoped this ticket to the A spike, measurement only. Model result: Sonnet, worked (correct stop), 5 min (est. 45).\n\nRestarted 06:21 UTC as the option-A spike. Expected: 30 min.\n",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
@@ -25127,6 +25127,19 @@
       "labels": [],
       "epic": "comparative-speed",
       "body": "From SW-2492. Note for D3437 (R4 awaits Matt).",
+      "created": "2026-11-09",
+      "updated": "2026-11-09",
+      "commits": []
+    },
+    {
+      "id": 2497,
+      "title": "Compiler: lift closed constant subterms such as Text.toList of a literal to module constants, including after small std functions (Parse.text/pick) are inlined at literal call sites; the general fix for SW-2494 (TextToList runs 3.28 M times on scan, 6.02 M on expressions; measured -5.8%/-3.9% when hoisted by hand). Helps all code, not only parsers",
+      "status": "backlog",
+      "agent": "Opus",
+      "where": "",
+      "labels": [],
+      "epic": "comparative-speed",
+      "body": "From SW-2494's stop report (library-only fix impossible: text/pick have no per-parser value to hold the list) and SW-2492 target 4; parse-runtime.md line ~249 assumed this hoisting; SW-2327's stage B never did it. Design first: where in lowering, purity/termination conditions, code-size limit. 2 h.",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
