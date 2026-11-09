@@ -1,5 +1,5 @@
 {
-  "next": 2563,
+  "next": 2564,
   "tickets": [
     {
       "id": 47,
@@ -25985,6 +25985,19 @@
       "labels": [],
       "epic": "effects-native",
       "body": "From SW-2471. Keep const-fold depth 23 (4 GB) working. The SP check already exists (native_abi.rs, the floor below the crossing). Sized for where it runs (D3450); SW-2558's flag can override. 60 min.",
+      "created": "2026-11-09",
+      "updated": "2026-11-09",
+      "commits": []
+    },
+    {
+      "id": 2563,
+      "title": "Fix main: test_failures::native_code_gives_the_machines_results_and_shares_its_cache fails since SW-2471 (native recurses to 16M, so 'too deep' passes natively). Give native test results their own cache key (D3450: limits differ by runner) and update the test: a too-deep case beyond both limits, or assert the per-runner outcomes",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "effects-native",
+      "body": "Found by the orchestrator's check after merging SW-2471 (9 Nov). crates/driver/src/test_run.rs ~262 (cache key comment), crates/cli/tests/tools/test_failures.rs ~228-257. Orchestrator call: separate keys, since outcomes at the limit now differ by runner. Next free slot, first. 30 min.",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
