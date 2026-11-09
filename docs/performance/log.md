@@ -101,7 +101,7 @@ in [../proposals/README.md](../proposals/README.md).
 - **Lesson (orchestrator's reading).** Instruction counts can hide a time regression when allocation
   patterns change; check the wide set's time on Overmind after allocation
   changes.
-- **Links.** SW-2523, SW-2524; history.toml jobs 36-38.
+- **Links.** SW-2523, SW-2524; job 36 in docs/reviews/SW-2295-comparative-speed.md; the job 37 bisect and job 38 profile are on SW-2523.
 
 ### SW-2512 and SW-2481: checking speed (elaborator, not native code)
 
