@@ -25290,12 +25290,12 @@
     {
       "id": 2509,
       "title": "value-census after SW-2499: a moved resumption is counted allocated as Fun::Resume but freed as Fun::DoneK; check the census's per-kind balance and fix the accounting",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "Speedwell",
       "labels": [],
       "epic": "comparative-speed",
-      "body": "From reviewing SW-2499. 20 min.\n\nStarted 9 Nov 2026 07:24 UTC. Expected: 20 min.\n",
+      "body": "From reviewing SW-2499. 20 min.\n\nStarted 9 Nov 2026 07:24 UTC. Expected: 20 min.\n\n07:27: no fix needed: the census counts live bytes per layout model, and Resume and DoneK have the same size in all four, so a moved resumption adds and subtracts the same; binary-trees end_live all 0, no negatives; census unit test passes. Model result: Sonnet, worked, 10 min (est. 20).\n",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
