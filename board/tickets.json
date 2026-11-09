@@ -1,5 +1,5 @@
 {
-  "next": 2568,
+  "next": 2570,
   "tickets": [
     {
       "id": 47,
@@ -25875,12 +25875,12 @@
     {
       "id": 2554,
       "title": "Type-mismatch and W-MATCH-NOT-FOUND messages print list.allergens as unfolded std internals (mergeRuns/buildRuns/uniqueLoop); keep the name as goals at ? do",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": "Speedwell",
       "labels": [],
       "epic": "diagnostics",
-      "body": "From SW-2541 friction. 90 min.\n\nStarted 9 Nov 2026 10:53 UTC. Expected: 90 min.\n",
+      "body": "From SW-2541 friction. 90 min.\n\nStarted 9 Nov 2026 10:53 UTC. Expected: 90 min.\n\nMerged 9 Nov. D3457 (Matt): whole AoC (291 namespaces, 67 s) and rogue checked uncached on the branch: clean. Opus review (docs/reviews/SW-2554-match-goal-review.md): merge with follow-ups F2-F6. 948 std hashes and project/example hash snapshots moved (D2303). Model result: Opus, worked, 25 min (est. 90).\n",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
@@ -26050,6 +26050,32 @@
       "labels": [],
       "epic": "diagnostics",
       "body": "From SW-2555. Design-sized; backlog.",
+      "created": "2026-11-09",
+      "updated": "2026-11-09",
+      "commits": []
+    },
+    {
+      "id": 2568,
+      "title": "SW-2554 review follow-ups F2-F6 (crates/elab/src/matching.rs): undo::recovered in unrefined_goal's fallback; keep the computed expression in W-MATCH-NOT-FOUND when the goal falls back; replace the substring test for the computed note; avoid the double folded read-back; a test pinning the copied-hypothesis boundary",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "diagnostics",
+      "body": "From docs/reviews/SW-2554-match-goal-review.md. 45 min.",
+      "created": "2026-11-09",
+      "updated": "2026-11-09",
+      "commits": []
+    },
+    {
+      "id": 2569,
+      "title": "examples/reject/mismatch-note-huge-unfolding.sw peaks at 3.8 GB (before and after SW-2554), over the lane tier's 3 GB memory cap: shrink the example or make the note cheaper",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
+      "body": "Found 9 Nov when NAME=match matched it. 30 min.",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
