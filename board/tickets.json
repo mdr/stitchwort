@@ -24913,12 +24913,12 @@
     {
       "id": 2480,
       "title": "task bench:instructions: build the bench/compare natives non-incrementally, run each N times under /usr/bin/time -l (or perf), check output, print min/max instructions and the change against a saved run (generalise SW-2463's scratch measure.py)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Sonnet",
-      "where": "",
+      "where": "Speedwell",
       "labels": [],
       "epic": "comparative-speed",
-      "body": "From SW-2463: every perf lane rebuilt this setup. 45 min.",
+      "body": "From SW-2463: every perf lane rebuilt this setup. 45 min.\n\nStarted 9 Nov 2026 04:38 UTC. Expected: 45 min.\n",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
