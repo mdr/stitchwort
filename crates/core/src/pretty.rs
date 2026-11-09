@@ -1252,8 +1252,6 @@ impl<'g> Printer<'g> {
         }
     }
 
-    /// `Not p` as the operators that write it, in their Unicode spellings
-    /// (D1204): `a ≠ b`, `x ∉ xs`, or `¬p`.
     /// `∀ (a b: Nat) [c: Nat] => body` for the run of function types at
     /// `term` that [`Printer::go_node`] prints as one: each binder implicit,
     /// or explicit and used by what follows. Neighbouring binders of the same
@@ -1357,6 +1355,8 @@ impl<'g> Printer<'g> {
         }
     }
 
+    /// `Not p` as the operators that write it, in their Unicode spellings
+    /// (D1204): `a ≠ b`, `x ∉ xs`, or `¬p`.
     fn not(&self, names: &mut Vec<Name>, prop: &Term) -> (String, Prec) {
         if let Term::Eq(_, a, b) = prop.strip_loc() {
             let a = self.print(names, a, Prec::Range);
