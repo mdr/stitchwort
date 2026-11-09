@@ -1,5 +1,5 @@
 {
-  "next": 2570,
+  "next": 2571,
   "tickets": [
     {
       "id": 47,
@@ -26076,6 +26076,19 @@
       "labels": [],
       "epic": "test-infra",
       "body": "Found 9 Nov when NAME=match matched it. 30 min.",
+      "created": "2026-11-09",
+      "updated": "2026-11-09",
+      "commits": []
+    },
+    {
+      "id": 2570,
+      "title": "Effect differential fuzzer: cap each backend's run (steps or time) so one runaway program can't hang the run, report per-batch progress and the seed of any batch over N s, and print partial results on interrupt; then find the stuck seed in 1794200000..+2000 (Overmind job 43)",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
+      "body": "From Overmind job 43 (9 Nov): STITCHWORT_TEST_RUN=native, 2000 batches from seed 1794200000 on 52803b7e2; after ~1 h one worker was alone, spinning in the core evaluator (Value::clone 53%, Unfolding::get 17%, force 10.5%, as_nat_with 9.7%), RSS flat 5.46 GB; stopped at 61 min with no result. Evaluator path, so probably the reference backend running without a step cap. Logs on Overmind j43/. 60 min.",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
