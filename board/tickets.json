@@ -1,5 +1,5 @@
 {
-  "next": 2518,
+  "next": 2520,
   "tickets": [
     {
       "id": 47,
@@ -25381,12 +25381,12 @@
     {
       "id": 2516,
       "title": "Std Map: read-only walks (get, contains) without copying fields: borrowed parameter or Field reads (est. -4 to -5% of mapops after the record fix; lookups ~250 instructions per level)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "Speedwell",
       "labels": [],
       "epic": "comparative-speed",
-      "body": "From SW-2513 target 3. 45 min.\n\nStarted 9 Nov 2026 07:48 UTC. Expected: 45 min.\n",
+      "body": "From SW-2513 target 3. 45 min.\n\nStarted 9 Nov 2026 07:48 UTC. Expected: 45 min.\n\n07:52: stopped at design (5 min, correct stop): no library-only fix (accessor fails termination; a nested match is folded back into one Unpack). get is ~9% of mapops, refcount work half of it. Design: borrow inference for read-only recursive walks (Lean-style borrowed parameters; IR borrow flag, native ABI, reuse.rs), est. <= 4-5% of mapops, more on lookup-heavy programs. Filed as follow-ups. Model result: Sonnet, worked (correct stop), 5 min (est. 45).\n",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
@@ -25400,6 +25400,32 @@
       "labels": [],
       "epic": "comparative-speed",
       "body": "From SW-2510. Profile first. Consider with SW-2511 (compiled dispatch), which may subsume it. 45 min.",
+      "created": "2026-11-09",
+      "updated": "2026-11-09",
+      "commits": []
+    },
+    {
+      "id": 2518,
+      "title": "Design note: borrowed-parameter inference for read-only recursive walks (Lean-style): IR borrow flag on Call/TailCall, Unpack choice, native ABI, reuse.rs; Map.get/contains first (get ~9% of mapops, refcount half of it; est. <= 4-5% mapops, more on lookup-heavy programs)",
+      "status": "backlog",
+      "agent": "Opus",
+      "where": "",
+      "labels": [],
+      "epic": "comparative-speed",
+      "body": "From SW-2516's stop report. Paper lane. 90 min.",
+      "created": "2026-11-09",
+      "updated": "2026-11-09",
+      "commits": []
+    },
+    {
+      "id": 2519,
+      "title": "Termination: accept an accessor returning a subterm of its argument (Map.Tree.left tree) as structurally smaller",
+      "status": "backlog",
+      "agent": "Opus",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "From SW-2516. Touches the termination checker (core language): design first. 60 min.",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
