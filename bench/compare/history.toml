@@ -88,3 +88,14 @@ native_over_lean = 11.05
 wide_native_over_cpython = 0.19
 wide_native_over_lean = 2.42
 wide_programs = ["spectral-norm", "const-fold", "rbmap", "rbmap-ck"]
+
+[[run]]
+date = "2026-11-09"
+host = "overmind"
+commit = "7d137b9d7"
+report = "docs/reviews/SW-2295-comparative-speed.md"
+native_over_cpython = 2.41
+native_over_lean = 10.15
+wide_native_over_cpython = 0.20
+wide_native_over_lean = 2.43
+wide_programs = ["spectral-norm", "const-fold", "rbmap", "rbmap-ck"]

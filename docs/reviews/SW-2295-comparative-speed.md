@@ -285,3 +285,24 @@ correct). Re-run at 05:55 after SW-2487 (`many` reuses its round's mark), which 
 disk and bridge profiles (SW-2484): 38 of the 55 days moved by more than 3%, every one faster, up to
 −13.3% (2025/07), −11.9% (2020/06), −11.8% (2020/03); geometric mean of new/old instructions −2.54%;
 no day slower by more than 1%. So the parser change generalises beyond the two benchmarks it came from.
+
+## Job 35: parser library and minOr (Overmind, 9 Nov 2026 07:23, `7d137b9d7`)
+
+Same command as job 34, 2351 s. New since job 34: SW-2485 (`Map.Tree.minOr`), SW-2487 and SW-2491
+(`many` reuses its marks, no closures per round), SW-2495 (`pick` notes in one operation). Not yet:
+SW-2499 (resumptions moved), SW-2502 (capture-free closures shared), compiled handler dispatch.
+
+| Program | native time | native / CPython | native / Lean | native instructions vs job 34 |
+|---|---:|---:|---:|---:|
+| disk | 9.18 s | 4.07 | 12.05 | −33.2% |
+| expressions | 37.29 s | 17.49 | 56.80 | −18.6% |
+| scan | 39.92 s | 48.41 | 68.49 | −5.7% |
+| matcher | 7.77 s | 1.69 | 9.07 | −8.2% |
+| bridge | 12.75 s | 3.68 | 15.58 | −14.5% |
+| dijkstra | 2.61 s | 3.10 | 12.86 | −1.2% |
+| (the other eight) | | | | 0.0% |
+
+Geometric means by time (native / CPython, native / Lean): core **2.41, 10.15**; wide **0.20, 2.43**;
+all **1.18, 6.75**. By instructions: core 2.08, 9.69; wide 0.26, 3.04; all 1.15, 6.96. The library
+changes behind these also cut the AoC sweep (`bench:aoc`) by 2.5% and 4.1% geomean, so they are not
+specific to these programs. Raw files: Overmind's `target/compare/2026-11-09T072334-overmind.{json,md}`.
