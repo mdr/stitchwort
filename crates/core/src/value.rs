@@ -152,6 +152,20 @@ impl Unfolding {
     }
 }
 
+/// Freeing an unfolding frees the value it kept without recursing. A call's
+/// unfolding can hold a call whose unfolding holds a call, and so on
+/// millions deep (`n + 2^128` unfolded `Succ` by `Succ` up to the size
+/// limit, SW-2452); the default drop would overflow the stack there. The
+/// value goes through [`Values`]' iterative free, as the fields of a
+/// constructor do.
+impl Drop for Unfolding {
+    fn drop(&mut self) {
+        if let Some(Kept { value, .. }) = self.kept.get_mut().take() {
+            drop(Values::from([value]));
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug)]
 pub enum Head {
     /// A variable, by level, with the numbers it's known not to be: in a
@@ -502,8 +516,8 @@ fn detach(value: Value, empty: &Rc<[Value]>, pending: &mut Vec<Value>) {
             unwrap(b);
         }
         Value::Call(_, spine, unfolding) => {
-            if let Ok(unfolding) = Rc::try_unwrap(unfolding)
-                && let Some(Kept { value, .. }) = unfolding.kept.into_inner()
+            if let Ok(mut unfolding) = Rc::try_unwrap(unfolding)
+                && let Some(Kept { value, .. }) = unfolding.kept.get_mut().take()
             {
                 pending.push(value);
             }
