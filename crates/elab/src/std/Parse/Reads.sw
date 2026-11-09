@@ -701,7 +701,7 @@ theorem Parse.readsManyFrom (p: () → {Parse} a) (spec: List Char → a → Pro
           Witness read (Both starts (Both honestAfter (Witness [] (Both (rewrite same, List.appendNil (List.reverse found) in rfl) none))))
     | Succ more =>
       match Parse.runFromOptionalFromOk2 p state.at state
-          (found2 => Parse.manyStep state.at found2 (v at2 => Parse.manyFrom more p [v, ..found] at2) (() => found.reverse)) (x => (x, Parse.mark())) (value, after) h with
+          (found2 => Parse.manyRound more p found state.at found2) (x => (x, Parse.mark())) (value, after) h with
         | Inl (Witness v (Witness middle (Both ran rest))) =>
           match reads state v middle.at honest ran with
             | Witness read1 (Both starts1 (Both honest1 holds1)) =>

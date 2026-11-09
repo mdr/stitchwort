@@ -407,9 +407,12 @@ theorem Parse.runsOneOfNext (first: () → {Parse} a) (next: () → {Parse} a) (
   Parse.runsBind (() => Parse.optional first) (found => Parse.valueOr found (() => Parse.oneOfFrom next more)) [] read read rest None v rfl
     (Parse.declinesRuns first (read ++ rest) declines) runsNext
 
-theorem Parse.runsFromManyStepSome (before: Parse.Mark) (v: a) (next: a → Parse.Mark → {Parse} b) (done: () → b) (middle: Parse.State) (read: List Char)
-    (rest: List Char) (value: b) (advanced: before.offset < middle.at.offset) (runsNext: Parse.RunsFrom middle (() => next v middle.at) read rest value):
-    Parse.RunsFrom middle (() => Parse.manyStep before (Some v) next done) read rest value :=
+--| A round of `manyFrom` whose parser gave `v` and moved on: the rest of
+--| `manyFrom` is what goes on from the state it stopped in.
+theorem Parse.runsFromManyRound (before: Parse.Mark) (more: Nat) (p: () → {Parse} a) (found: List a) (v: a) (middle: Parse.State) (read: List Char)
+    (rest: List Char) (value: List a) (advanced: before.offset < middle.at.offset)
+    (runsNext: Parse.RunsFrom middle (() => Parse.manyFrom more p [v, ..found] middle.at) read rest value):
+    Parse.RunsFrom middle (() => Parse.manyRound more p found before (Some v)) read rest value :=
   let holds: (middle.at.offset > before.offset) = True := omega [advanced]
   rewrite holds in runsNext
 
@@ -459,7 +462,7 @@ theorem Parse.runsManyFrom (p: () → {Parse} a): (steps: List (List Char, a)) �
   | [], rest, Succ more, found, enough, declines, state, starts, honest =>
     rewrite List.appendNil found.reverse in
       (Parse.runsFromBindAt state (() => Parse.optionalFrom state.at p)
-        (found2 => Parse.manyStep state.at found2 (v at2 => Parse.manyFrom more p [v, ..found] at2) (() => found.reverse)) [] [] [] rest None found.reverse rfl
+        (found2 => Parse.manyRound more p found state.at found2) [] [] [] rest None found.reverse rfl
         (Parse.declinesRuns p rest declines state)
         (middle atRest honest2 offset => Parse.runsPure found.reverse rest middle)) starts honest
   | [(read, v), ..steps], rest, Succ more, found, enough, Both nonEmpty (Both runsP later), state, starts, honest =>
@@ -468,7 +471,7 @@ theorem Parse.runsManyFrom (p: () → {Parse} a): (steps: List (List Char, a)) �
       rewrite List.reverseCons v found, List.appendAssoc found.reverse [v] (Parse.stepValues steps) in rfl
     rewrite value in
       (Parse.runsFromBindAt state (() => Parse.optionalFrom state.at p)
-        (found2 => Parse.manyStep state.at found2 (v2 at2 => Parse.manyFrom more p [v2, ..found] at2) (() => found.reverse))
+        (found2 => Parse.manyRound more p found state.at found2)
         read (Parse.joinReads steps) (read ++ Parse.joinReads steps) rest (Some v) ([v, ..found].reverse ++ Parse.stepValues steps) rfl
         (Parse.runsOptional p read (Parse.joinReads steps ++ rest) v runsP state)
         (middle atRest honest2 offset =>
@@ -476,7 +479,7 @@ theorem Parse.runsManyFrom (p: () → {Parse} a): (steps: List (List Char, a)) �
             match read with
               | [] => Void.exfalso (nonEmpty rfl)
               | [char, ..others] => omega [offset]
-          Parse.runsFromManyStepSome state.at v (v2 at2 => Parse.manyFrom more p [v2, ..found] at2) (() => found.reverse) middle (Parse.joinReads steps) rest
+          Parse.runsFromManyRound state.at more p found v middle (Parse.joinReads steps) rest
             ([v, ..found].reverse ++ Parse.stepValues steps) advanced
             (Parse.runsManyFrom p steps rest more [v, ..found] short later middle))) starts honest
 

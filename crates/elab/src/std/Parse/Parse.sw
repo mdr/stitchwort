@@ -389,23 +389,22 @@ def Parse.oneOf: (parsers: List (() → {Parse} a)) → {Parse} a
 def Parse.manyFrom (fuel: Nat) (parser: () → {Parse} a) (found: List a) (before: Parse.Mark): {Parse} List a :=
   match fuel with
     | Zero => found.reverse
-    | Succ more =>
-      Parse.manyStep before (Parse.optionalFrom before parser) (value after => Parse.manyFrom more parser [value, ..found] after) (() => found.reverse)
+    | Succ more => Parse.manyRound more parser found before (Parse.optionalFrom before parser)
 
---| One round of `many`, once `optional parser` has given `found` from
---| `before`: `done()` if it failed, `next` of its value and the mark after it
---| if it read something.
--- A function of its own so that proofs (Parse/Reads.sw) can name it. `done`
--- is a function so that it is computed only at the end: as a value,
--- `found.reverse` was computed every round, quadratic in the rounds (AoC
--- 2024 day 9's 20,000 digits: 0.6 s to 12 s, and 21 GB on the reference
--- evaluator, SW-1055).
-def Parse.manyStep (before: Parse.Mark) (found: Option a) (next: a → Parse.Mark → {Parse} b) (done: () → b): {Parse} b :=
-  match found with
-    | None => done()
+--| What `manyFrom` does with a round's `result` from `before`, with `more`
+--| rounds left after it: stop if it failed, else go on from the mark that
+--| shows it read something.
+-- A function of its own so that proofs (Parse/Reads.sw) can name it. The
+-- rest and the end are not closures passed in: that was two allocations a
+-- round. `found.reverse` is computed only at the end: as a value it was
+-- computed every round, quadratic in the rounds (AoC 2024 day 9's 20,000
+-- digits: 0.6 s to 12 s, and 21 GB on the reference evaluator, SW-1055).
+def Parse.manyRound (more: Nat) (parser: () → {Parse} a) (found: List a) (before: Parse.Mark) (result: Option a): {Parse} List a :=
+  match result with
+    | None => found.reverse
     | Some value =>
       let after := Parse.mark()
-      if after.offset > before.offset then next value after
+      if after.offset > before.offset then Parse.manyFrom more parser [value, ..found] after
       else Empty.absurd (Parse.fatal "`many`: the parser matched without reading anything")
 
 --| `parser`'s values while it succeeds, possibly none. Fails only if
