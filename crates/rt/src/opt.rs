@@ -26,6 +26,10 @@
 //!   substituted, which the rules above can then simplify. A recursive
 //!   function called with known functions or known instance dictionaries
 //!   (`Map.insertWith` at `Nat.instOrd`) gets a copy with them substituted.
+//! - **Taking records apart first**: an expression that reads a record's
+//!   fields more than once (a record update) matches it once, before it
+//!   starts, so a record nothing else holds gives up its fields unshared
+//!   and its cell can be reused ([`Simp::take_apart`]).
 //!
 //! Everything here is pure and total (a partial computation is a value until
 //! the runner runs it), so a binding nothing reads is dropped and work may
@@ -243,6 +247,7 @@ impl Cx {
             global,
         };
         let expr = s.simp(expr);
+        let expr = s.take_apart(expr);
         let mut packer = Packer {
             map: HashMap::default(),
             depth: params,
@@ -420,6 +425,75 @@ pub(crate) fn reads(e: &Expr, s: Slot) -> usize {
             reads(x, s) + arms.iter().map(|(_, b)| reads(b, s)).sum::<usize>() + reads(d, s)
         }
         Expr::If(c, t, e) => reads(c, s) + reads(t, s) + reads(e, s),
+    }
+}
+
+/// `e` with each match of `s` (a variable whose type has one constructor)
+/// replaced by its arm, whose fields are to be read from `fields`: `map`
+/// gets what each slot the arms bound stands for.
+fn without_projections(e: Expr, s: Slot, fields: &[Slot], map: &mut HashMap<Slot, Expr>) -> Expr {
+    let all = |a: Vec<Expr>, map: &mut HashMap<Slot, Expr>| -> Vec<Expr> {
+        a.into_iter()
+            .map(|x| without_projections(x, s, fields, map))
+            .collect()
+    };
+    match e {
+        Expr::Match(x, MatchKind::Data(_), mut arms)
+            if matches!(*x, Expr::Local(y) if y == s) && arms.len() == 1 =>
+        {
+            let arm = arms.pop().expect("one arm");
+            for (i, slot) in arm.fields {
+                map.insert(slot, Expr::Local(fields[i as usize]));
+            }
+            without_projections(arm.body, s, fields, map)
+        }
+        Expr::Local(_)
+        | Expr::Captured(_)
+        | Expr::Global(_)
+        | Expr::Erased
+        | Expr::Lit(_)
+        | Expr::DoneK
+        | Expr::Unreachable => e,
+        Expr::Call(g, a) => Expr::Call(g, all(a, map)),
+        Expr::Prim(op, a) => Expr::Prim(op, all(a, map)),
+        Expr::PartialApp(g, a) => Expr::PartialApp(g, all(a, map)),
+        Expr::Closure(l, a) => Expr::Closure(l, all(a, map)),
+        Expr::Ctor(t, c, a) => Expr::Ctor(t, c, all(a, map)),
+        Expr::Apply(f, a) => {
+            let f = without_projections(*f, s, fields, map);
+            Expr::Apply(Box::new(f), all(a, map))
+        }
+        Expr::Let(x, v, b) => {
+            let v = without_projections(*v, s, fields, map);
+            let b = without_projections(*b, s, fields, map);
+            Expr::Let(x, Box::new(v), Box::new(b))
+        }
+        Expr::Match(x, k, arms) => {
+            let x = without_projections(*x, s, fields, map);
+            let arms = arms
+                .into_iter()
+                .map(|a| Arm {
+                    body: without_projections(a.body, s, fields, map),
+                    ..a
+                })
+                .collect();
+            Expr::Match(Box::new(x), k, arms)
+        }
+        Expr::NumSwitch(x, arms, d) => {
+            let x = without_projections(*x, s, fields, map);
+            let arms = arms
+                .into_iter()
+                .map(|(n, b)| (n, without_projections(b, s, fields, map)))
+                .collect();
+            let d = without_projections(*d, s, fields, map);
+            Expr::NumSwitch(Box::new(x), arms, Box::new(d))
+        }
+        Expr::If(c, t, f) => {
+            let c = without_projections(*c, s, fields, map);
+            let t = without_projections(*t, s, fields, map);
+            let f = without_projections(*f, s, fields, map);
+            Expr::If(Box::new(c), Box::new(t), Box::new(f))
+        }
     }
 }
 
@@ -1003,6 +1077,164 @@ impl Simp<'_> {
                 let x = self.simp(*x);
                 self.match_(x, k, arms)
             }
+        }
+    }
+
+    /// Takes records apart before the expressions that read their fields
+    /// more than once, in simplified code. `{ w | map = w.map.insert k v }`
+    /// builds its constructor from `insert`'s result and `w.check`, so `w`
+    /// would stay alive while `insert` runs and the map be shared; taken
+    /// apart first, `w`'s cell (if nothing else holds it) gives up its
+    /// fields, the map is passed on unshared, and the cell is reused for
+    /// the new record, as in `match w with | { map, seed, check } => …`.
+    ///
+    /// An expression qualifies if it reads a field of a variable wherever
+    /// it's evaluated (not only in a branch) and reads the variable again,
+    /// a field or the whole: a constructor, a call, a native, a closure,
+    /// or a `let` whose value reads the field. Only a type with one
+    /// constructor is taken apart, so the match can't fail wherever it's
+    /// put. Everything here is pure, so reading the fields earlier changes
+    /// no result; a field read early is held a little longer, until its
+    /// last use.
+    fn take_apart(&mut self, e: Expr) -> Expr {
+        let e = match self.taken_apart_first(&e) {
+            Some((s, t)) => {
+                let n = self.cx.ctor_arity[t.0 as usize][0];
+                let fields: Vec<Slot> = (0..n).map(|_| self.fresh()).collect();
+                let mut map = HashMap::default();
+                let body = without_projections(e, s, &fields, &mut map);
+                let body = self.copy(&body, map, None);
+                let fields = fields
+                    .into_iter()
+                    .enumerate()
+                    .filter(|(_, f)| reads(&body, *f) > 0)
+                    .map(|(i, f)| (u32::try_from(i).expect("fields fit"), f))
+                    .collect();
+                let arm = Arm {
+                    ctor: 0,
+                    fields,
+                    body,
+                };
+                Expr::Match(Box::new(Expr::Local(s)), MatchKind::Data(t), vec![arm])
+            }
+            None => e,
+        };
+        match e {
+            Expr::Local(_)
+            | Expr::Captured(_)
+            | Expr::Global(_)
+            | Expr::Erased
+            | Expr::Lit(_)
+            | Expr::DoneK
+            | Expr::Unreachable => e,
+            Expr::Call(g, a) => Expr::Call(g, self.take_apart_all(a)),
+            Expr::Prim(op, a) => Expr::Prim(op, self.take_apart_all(a)),
+            Expr::PartialApp(g, a) => Expr::PartialApp(g, self.take_apart_all(a)),
+            Expr::Closure(l, a) => Expr::Closure(l, self.take_apart_all(a)),
+            Expr::Ctor(t, c, a) => Expr::Ctor(t, c, self.take_apart_all(a)),
+            Expr::Apply(f, a) => Expr::Apply(Box::new(self.take_apart(*f)), self.take_apart_all(a)),
+            Expr::Let(s, v, b) => Expr::Let(
+                s,
+                Box::new(self.take_apart(*v)),
+                Box::new(self.take_apart(*b)),
+            ),
+            Expr::Match(x, k, arms) => Expr::Match(
+                Box::new(self.take_apart(*x)),
+                k,
+                arms.into_iter()
+                    .map(|a| Arm {
+                        body: self.take_apart(a.body),
+                        ..a
+                    })
+                    .collect(),
+            ),
+            Expr::NumSwitch(x, arms, d) => Expr::NumSwitch(
+                Box::new(self.take_apart(*x)),
+                arms.into_iter()
+                    .map(|(n, b)| (n, self.take_apart(b)))
+                    .collect(),
+                Box::new(self.take_apart(*d)),
+            ),
+            Expr::If(c, t, f) => Expr::If(
+                Box::new(self.take_apart(*c)),
+                Box::new(self.take_apart(*t)),
+                Box::new(self.take_apart(*f)),
+            ),
+        }
+    }
+
+    fn take_apart_all(&mut self, es: Vec<Expr>) -> Vec<Expr> {
+        es.into_iter().map(|e| self.take_apart(e)).collect()
+    }
+
+    /// A variable [`Simp::take_apart`] takes apart before `e`, and its
+    /// type.
+    fn taken_apart_first(&self, e: &Expr) -> Option<(Slot, TypeId)> {
+        let mut found = Vec::new();
+        match e {
+            Expr::Let(_, v, _) => self.projections(v, &mut found),
+            Expr::Call(_, a)
+            | Expr::Prim(_, a)
+            | Expr::PartialApp(_, a)
+            | Expr::Closure(_, a)
+            | Expr::Ctor(_, _, a) => a.iter().for_each(|x| self.projections(x, &mut found)),
+            Expr::Apply(f, a) => {
+                self.projections(f, &mut found);
+                a.iter().for_each(|x| self.projections(x, &mut found));
+            }
+            _ => return None,
+        }
+        found.into_iter().find(|(s, _)| reads(e, *s) >= 2)
+    }
+
+    /// The variables of types with one constructor whose fields `e` reads
+    /// wherever it's evaluated (not in a branch), and their types.
+    fn projections(&self, e: &Expr, found: &mut Vec<(Slot, TypeId)>) {
+        match e {
+            Expr::Match(x, k, arms) => {
+                if let Some(s) = self.projection(x, *k, arms)
+                    && !found.iter().any(|(f, _)| *f == s.0)
+                {
+                    found.push(s);
+                }
+                self.projections(x, found);
+            }
+            Expr::Call(_, a)
+            | Expr::Prim(_, a)
+            | Expr::PartialApp(_, a)
+            | Expr::Closure(_, a)
+            | Expr::Ctor(_, _, a) => a.iter().for_each(|x| self.projections(x, found)),
+            Expr::Apply(f, a) => {
+                self.projections(f, found);
+                a.iter().for_each(|x| self.projections(x, found));
+            }
+            Expr::Let(x, v, b) => {
+                self.projections(v, found);
+                self.projections(b, found);
+                // Bound here, so it can't be taken apart before.
+                found.retain(|(f, _)| f != x);
+            }
+            Expr::If(x, ..) | Expr::NumSwitch(x, ..) => self.projections(x, found),
+            Expr::Local(_)
+            | Expr::Captured(_)
+            | Expr::Global(_)
+            | Expr::Erased
+            | Expr::Lit(_)
+            | Expr::DoneK
+            | Expr::Unreachable => {}
+        }
+    }
+
+    /// The variable and type of a match of a variable whose type has one
+    /// constructor.
+    fn projection(&self, x: &Expr, k: MatchKind, arms: &[Arm]) -> Option<(Slot, TypeId)> {
+        match (x, k, arms) {
+            (Expr::Local(s), MatchKind::Data(t), [arm])
+                if arm.ctor == 0 && self.cx.ctor_arity[t.0 as usize].len() == 1 =>
+            {
+                Some((*s, t))
+            }
+            _ => None,
         }
     }
 

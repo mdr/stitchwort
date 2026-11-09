@@ -27,6 +27,45 @@ def main(): {IO, Fail} () :=
   IO.print (Text.join ((List.range 0 3).map show) ',')
 "#;
 
+/// A record whose list field is mapped by a record update, three times in
+/// a loop: nothing else holds the record, so the update takes it apart
+/// before the map runs, and the list's cells and the record's are reused
+/// as in the version written with a `match` ([`TAKEN_APART`]).
+const UPDATED: &str = r#"import Std (IO, List, Nat, Text)
+
+type Tally = { items: List Nat, steps: Nat }
+
+def Tally.step (t: Tally): Tally := { t | items = t.items.map (x => x + 1), steps = t.steps + 1 }
+
+def Tally.run (t: Tally): Nat → Tally
+  | Zero => t
+  | Succ rest => t.step.run rest
+
+def main(): {IO} () :=
+  let t: Tally := { items = List.range 0 3, steps = 0 }
+  let done := t.run 3
+  IO.print "${done.steps} ${Text.join (done.items.map Nat.toText) ','}"
+"#;
+
+/// [`UPDATED`] with the record taken apart by hand.
+const TAKEN_APART: &str = r#"import Std (IO, List, Nat, Text)
+
+type Tally = { items: List Nat, steps: Nat }
+
+def Tally.step (t: Tally): Tally :=
+  match t with
+    | { items, steps } => { items = items.map (x => x + 1), steps = steps + 1 }
+
+def Tally.run (t: Tally): Nat → Tally
+  | Zero => t
+  | Succ rest => t.step.run rest
+
+def main(): {IO} () :=
+  let t: Tally := { items = List.range 0 3, steps = 0 }
+  let done := t.run 3
+  IO.print "${done.steps} ${Text.join (done.items.map Nat.toText) ','}"
+"#;
+
 /// Runs `main` of `source` on the machine, recording from before the
 /// program is lowered: the trace, what `main` printed, and the failure
 /// message if it failed.
@@ -99,4 +138,20 @@ fn a_failure_escaping_mid_map_frees_everything() {
 fn the_same_program_gives_the_same_text_twice() {
     // Identities are renumbered by first appearance, not addresses.
     assert_eq!(traced(MAPPED).0.render(), traced(MAPPED).0.render());
+}
+
+#[test]
+fn a_record_update_of_a_unique_record_reuses_its_field_in_place() {
+    let (updated, output, failure) = traced(UPDATED);
+    assert_eq!((output.as_str(), failure), ("3 3,4,5\n", None));
+    assert_no_leaks(&updated);
+    let (by_hand, output, _) = traced(TAKEN_APART);
+    assert_eq!(output, "3 3,4,5\n");
+    assert_eq!(
+        (updated.count("alloc"), updated.count("reuse")),
+        (by_hand.count("alloc"), by_hand.count("reuse")),
+        "the update allocates more than the match:\n{}\nagainst\n{}",
+        updated.render(),
+        by_hand.render()
+    );
 }

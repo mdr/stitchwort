@@ -12,16 +12,10 @@ fn Main.Point.y(v0) {2 slots} =
   match v0: Point (record) {
     %mk(y: v1) => v1
   }
-fn Main.swap(v0) {2 slots} =
-  %mk({
-    match v0: Point (record) {
-      %mk(y: v1) => v1
-    }
-  }, {
-    match v0: Point (record) {
-      %mk(x: v1) => v1
-    }
-  })
+fn Main.swap(v0) {3 slots} =
+  match v0: Point (record) {
+    %mk(x: v1, y: v2) => %mk(v2, v1)
+  }
 fn Main.main(v0) {2 slots} =
   let v1 = %NatToText(2)
   Call(L(%print(v1)), done-k)
