@@ -1,5 +1,5 @@
 {
-  "next": 2557,
+  "next": 2558,
   "tickets": [
     {
       "id": 47,
@@ -25719,12 +25719,12 @@
     {
       "id": 2542,
       "title": "Native default N5a: native switch in the CLI test helpers, a native backend in effect_differential.rs, native copies of machine.rs's differential cases",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "Speedwell",
       "labels": [],
       "epic": "effects-native",
-      "body": "D3448; plan docs/reviews/SW-2535-native-default-plan.md step 1. 150 min.\n\nStarted 9 Nov 2026 09:46 UTC. Expected: 150 min.\n",
+      "body": "D3448; plan docs/reviews/SW-2535-native-default-plan.md step 1. 150 min.\n\nStarted 9 Nov 2026 09:46 UTC. Expected: 150 min.\n\nMerged 9 Nov (8ef60f290). STITCHWORT_TEST_RUN=native switch; native backend in effect_differential; machine_native (ignored, --run-ignored only). Found SW-2557 (float_paths compile blow-up). Model result: Sonnet, worked, 20 min (est. 150).\n",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
@@ -25907,6 +25907,19 @@
       "labels": [],
       "epic": "std-library",
       "body": "From SW-2541 friction. 45 min.",
+      "created": "2026-11-09",
+      "updated": "2026-11-09",
+      "commits": []
+    },
+    {
+      "id": 2557,
+      "title": "Native compile blows up on float_paths' generated program (484 KB .sw): run --native uses 17.9 GB and >100 s before running, machine runs it in 1.9 s / 260 MB",
+      "status": "doing",
+      "agent": "Opus",
+      "where": "Speedwell",
+      "labels": [],
+      "epic": "effects-native",
+      "body": "From SW-2542 (N5a). Repro: crates/cli/tests/running/float_paths.rs the_four_paths_agree_on_canonical_bits under STITCHWORT_TEST_RUN=native; generated program saved at /private/tmp/claude-550/-Users-agent-repos-mdr-stitchwort/8230e28a-2fab-4832-920d-c5160adb7e00/scratchpad/paths.sw. Blocks N5b and native-by-default. Profile first. Started 10:05 UTC. Expected: 120 min.",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
