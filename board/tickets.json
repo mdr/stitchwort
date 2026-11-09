@@ -24939,12 +24939,12 @@
     {
       "id": 2482,
       "title": "Make every deep Value free iterative, not just Values/Unfolding/Spine: Data(Vec<Value>) args, Pi's Rc<Value> domain, Eq and other boxed fields still recurse when dropped directly (outside detach); a fuzz case nested through them would overflow like SW-2452/SW-2468",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Sonnet",
-      "where": "",
+      "where": "Speedwell",
       "labels": [],
       "epic": "audit-fuzzing",
-      "body": "From SW-2468. Find every type owning Values (grep Rc<Value>, Box<Value>, Vec<Value> in crates/core), route each through free_iteratively, add a unit test per path like freeing_a_deep_spine_does_not_overflow_the_stack. 45 min.",
+      "body": "From SW-2468. Find every type owning Values (grep Rc<Value>, Box<Value>, Vec<Value> in crates/core), route each through free_iteratively, add a unit test per path like freeing_a_deep_spine_does_not_overflow_the_stack. 45 min.\n\nStarted 9 Nov 2026 03:50 UTC. Expected: 45 min.\n",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
