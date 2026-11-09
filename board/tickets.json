@@ -1,5 +1,5 @@
 {
-  "next": 2480,
+  "next": 2481,
   "tickets": [
     {
       "id": 47,
@@ -24676,14 +24676,14 @@
     {
       "id": 2463,
       "title": "Effect-runtime allocation stage 2 (R2, R3): the loop reuses the Bind node as the pending cell; a skipped forward reuses its Call cell; measured one at a time; est. 1.8-2.2% and 0.9-1.4%",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "Speedwell",
       "labels": [
         "perf"
       ],
       "epic": "comparative-speed",
-      "body": "Note's stage 2. After SW-2462. Changes no counts.\n\nStarted 9 Nov 2026 02:55 UTC. Expected: 60 min. Estimates use ~100 instructions per object saved (SW-2462).\n",
+      "body": "Note's stage 2. After SW-2462. Changes no counts.\n\nStarted 9 Nov 2026 02:55 UTC. Expected: 60 min. Estimates use ~100 instructions per object saved (SW-2462).\n\nMerged 9 Nov 03:34 (rt 65, native 70, 113 effect tests passed). R2: expressions -3.40%, scan -3.20%, bridge -2.87%, matcher -0.69%. R3: -1.81%, -1.45%, -0.67%, -0.39%. Together expressions -5.15%, scan -4.61%, bridge -3.52%, matcher -1.07%. ~200 instructions per cell saved (vs ~100 per resumption in stage 1). Pending cells 46.4 M -> 0.5 M, skip Calls 29.1 M -> 0 on expressions. R4 now saves one cell per perform, not two (re-estimate in §4.3). Model result: Sonnet, worked, 35 min (est. 60).\n",
       "created": "2026-11-08",
       "updated": "2026-11-09",
       "commits": []
@@ -24906,6 +24906,19 @@
       "labels": [],
       "epic": "comparative-speed",
       "body": "From SW-2472. 45 min.",
+      "created": "2026-11-09",
+      "updated": "2026-11-09",
+      "commits": []
+    },
+    {
+      "id": 2480,
+      "title": "task bench:instructions: build the bench/compare natives non-incrementally, run each N times under /usr/bin/time -l (or perf), check output, print min/max instructions and the change against a saved run (generalise SW-2463's scratch measure.py)",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "comparative-speed",
+      "body": "From SW-2463: every perf lane rebuilt this setup. 45 min.",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
