@@ -25875,12 +25875,12 @@
     {
       "id": 2554,
       "title": "Type-mismatch and W-MATCH-NOT-FOUND messages print list.allergens as unfolded std internals (mergeRuns/buildRuns/uniqueLoop); keep the name as goals at ? do",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Opus",
-      "where": "",
+      "where": "Speedwell",
       "labels": [],
       "epic": "diagnostics",
-      "body": "From SW-2541 friction. 90 min.",
+      "body": "From SW-2541 friction. 90 min.\n\nStarted 9 Nov 2026 10:53 UTC. Expected: 90 min.\n",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
