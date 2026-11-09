@@ -1456,6 +1456,49 @@ pub unsafe extern "C" fn sw_release_up(regs: *mut Value, n: u64) {
     }
 }
 
+/// A frame's registers in memory: `n` `Erased` values, for a body with too
+/// many registers to keep them in Cranelift variables (`n1`'s register
+/// file). Freed by [`sw_regs_free`] when the frame leaves.
+#[allow(unsafe_code)]
+#[cfg_attr(not(test), unsafe(no_mangle))]
+pub extern "C" fn sw_regs_new(n: u64) -> *mut Value {
+    let file: Box<[Value]> = (0..n).map(|_| Value::Erased).collect();
+    Box::into_raw(file).cast()
+}
+
+/// Drops the `n` values at `regs`, highest first (as the machine releases a
+/// frame's registers), leaving them `Erased`.
+///
+/// # Safety
+/// `regs` points at `n` initialised values.
+#[allow(unsafe_code)]
+#[cfg_attr(not(test), unsafe(no_mangle))]
+pub unsafe extern "C" fn sw_release_down(regs: *mut Value, n: u64) {
+    for i in (0..n as usize).rev() {
+        // SAFETY: within the values.
+        drop(unsafe { std::mem::take(&mut *regs.add(i)) });
+    }
+}
+
+/// Frees a register file from [`sw_regs_new`], dropping whatever is left in
+/// it as [`sw_release_down`] does (nothing, when the frame has released or
+/// unwound its registers first).
+///
+/// # Safety
+/// `regs` and `n` are a register file's from [`sw_regs_new`], which native
+/// code doesn't use again.
+#[allow(unsafe_code)]
+#[cfg_attr(not(test), unsafe(no_mangle))]
+pub unsafe extern "C" fn sw_regs_free(regs: *mut Value, n: u64) {
+    // SAFETY: the caller's contract.
+    unsafe {
+        sw_release_down(regs, n);
+        drop(Box::from_raw(std::ptr::slice_from_raw_parts_mut(
+            regs, n as usize,
+        )));
+    }
+}
+
 /// The most fields a cell has on [`sw_cell_new`]'s and [`sw_cell_free`]'s
 /// fixed-size paths, whose layout is a constant; larger cells take a
 /// slice's general path.
