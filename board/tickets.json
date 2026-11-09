@@ -1,5 +1,5 @@
 {
-  "next": 2527,
+  "next": 2528,
   "tickets": [
     {
       "id": 47,
@@ -25511,12 +25511,25 @@
     {
       "id": 2526,
       "title": "Performance log (D3444): create docs/performance/log.md and backfill an entry per optimisation, kept or dropped, from 8-9 Nov 2026 and earlier where documented (problem + profile evidence, change, why results are the same, measurements, rejected/dropped, links)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "Speedwell",
       "labels": [],
       "epic": "comparative-speed",
-      "body": "D3444 (Matt, 9 Nov 2026): yes. Paper lane: from tickets, commits and notes; no builds. 60 min.\n\nStarted 9 Nov 2026 08:40 UTC. Expected: 60 min. Paper lane.\n",
+      "body": "D3444 (Matt, 9 Nov 2026): yes. Paper lane: from tickets, commits and notes; no builds. 60 min.\n\nStarted 9 Nov 2026 08:40 UTC. Expected: 60 min. Paper lane.\n\nMerged 9 Nov 08:42: about 20 entries (merged, dropped, held, accepted regression). Gaps: no bench:aoc geomean recorded for SW-2462/2463/2485/2499/2510/2481/2512. Model result: Sonnet, worked, 25 min (est. 60).\n",
+      "created": "2026-11-09",
+      "updated": "2026-11-09",
+      "commits": []
+    },
+    {
+      "id": 2527,
+      "title": "Performance log gaps: measure the bench:aoc geomean for SW-2462, SW-2463, SW-2485, SW-2499, SW-2510 (by building each merge and its parent) and add them to docs/performance/log.md",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "comparative-speed",
+      "body": "From SW-2526. Compute-heavy, token-light. 60 min.",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
