@@ -1,6 +1,5 @@
 ---
 source: crates/rt/tests/it/lower.rs
-assertion_line: 434
 expression: ir
 ---
 native Std.Nat.add = %Nat.add/2
@@ -33,16 +32,10 @@ fn Std.List.foldLeft[empty](v0, v1, v2) {5 slots} =
     Nil => v1
     Cons(head: v3, tail: v4) => Std.List.foldLeft[empty](v4, apply v2(v1, v3), v2)
   }
-fn Std.List.sum(v0, v1) {3 slots} =
-  Std.List.foldLeft[empty](v1, {
-    match v0: Add (record) {
-      %mk(zero: v2) => v2
-    }
-  }, {
-    match v0: Add (record) {
-      %mk(add: v2) => v2
-    }
-  })
+fn Std.List.sum(v0, v1) {4 slots} =
+  match v0: Add (record) {
+    %mk(zero: v2, add: v3) => Std.List.foldLeft[empty](v1, v2, v3)
+  }
 fn Main.step(v0) {1 slots} = %Nat.add(v0, 1)
 fn Main.main(v0) {2 slots} =
   %EffectBind({
