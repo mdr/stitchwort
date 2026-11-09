@@ -1,5 +1,5 @@
 {
-  "next": 2529,
+  "next": 2530,
   "tickets": [
     {
       "id": 47,
@@ -25316,12 +25316,12 @@
     {
       "id": 2511,
       "title": "Compiled handler dispatch stage 1b: finish the SW-2507 prototype (keep/SW-2507-dispatch-spike): tests, snapshots, profile names, machine/native agreement, the extra cell per route, bench:compare on all programs; needs Matt's decision on lower machine step counts first",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Opus",
-      "where": "",
+      "where": "Speedwell",
       "labels": [],
       "epic": "comparative-speed",
-      "body": "Spike measured expressions -24.5%, scan -29.1% instructions; Tick 5,671 -> 3,458 per operation. 2-3 h.\n\nFrom SW-2525: in stage 1b or 2, try one code pointer per operation (Effekt-style table) and keep it only if above noise.\n",
+      "body": "Spike measured expressions -24.5%, scan -29.1% instructions; Tick 5,671 -> 3,458 per operation. 2-3 h.\n\nFrom SW-2525: in stage 1b or 2, try one code pointer per operation (Effekt-style table) and keep it only if above noise.\n\nD3440, Matt, 9 Nov 2026 08:54: yes, \"proceed\" (after asking why step counts would matter: only the work limit and measurements).\nStarted 9 Nov 2026 08:54 UTC, Opus. Expected: 180 min.\n",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
@@ -25543,6 +25543,19 @@
       "labels": [],
       "epic": "comparative-speed",
       "body": "From SW-2525. 45 min.",
+      "created": "2026-11-09",
+      "updated": "2026-11-09",
+      "commits": []
+    },
+    {
+      "id": 2529,
+      "title": "Record: D3445 no and D3446 no (Matt, 9 Nov 2026): no like-for-like parser measurement and no design for compiling known handlers away for now; avoid biasing speed work towards parsing; aim for general performance, and an explanation of why we are slower is acceptable",
+      "status": "done",
+      "agent": "Claude",
+      "where": "",
+      "labels": [],
+      "epic": "comparative-speed",
+      "body": "Matt: \"I don't want to over-bias parsing as a problem ... special cases for known handlers ... feels like a direction we don't want to go down just yet. We're interested in our general performance characteristics. And if we have an explanation for why we're slower, maybe that's okay.\"",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
