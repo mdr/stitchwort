@@ -427,6 +427,336 @@ reference evaluator and `effect_examples_agree_with_the_machine`; regenerated lo
 `effect-forwarding.sw` (stage B still skips). Multi-shot and stored resumptions (`Each.collect`)
 need no new test: the handler object and its resumptions are as they were.
 
+## Prior art (SW-2525)
+
+SW-2525, 9 Nov 2026, Opus, paper lane (nothing built or run). The question: how do other
+implementations of effect handlers get from a performed operation to the right clause, what does
+that cost per operation and per handler start, and is §2's rewrite standard? Resumption
+allocation is out of scope: effect-runtime-allocation.md's Sources section and §2.7 already cover
+it (Xie and Leijen 2021, Sivaramakrishnan et al. 2021). Labels: **[lit]** a paper or official
+document, named; **[read]** source code, with repository, commit or tag and file (the commit
+hashes are in the references below); **[inferred]** my reading of what that code costs, not
+measured; **[from memory]** not re-checked for this note.
+
+### Verdict
+
+**This is standard practice, built with a technique that has other names; it is not new.** Two
+things are being compared.
+
+1. **The end state: a handler is one function that matches on the operation and runs the clause
+   body in the matching arm.** OCaml 5.3's compiler emits exactly this for `effect` cases, with
+   reperform as the fallthrough. Eff's OCaml runtime keeps a handler's operation clauses as one
+   function of the effect. In fused-effects a handler's `alg` is a case on `L`/`R`, then on the
+   operation, with the forward in the `R` arm: our `handlePlus` then `%elim`, already inlined.
+   In `eff` a handler is a single function of the operation. Effekt and Koka keep one code entry
+   per operation instead: a static table of code pointers (Effekt) or a record of clause
+   closures (Koka), indexed by the operation. In every case a route costs one indirect call and
+   a load or a switch, whatever the number of clauses. **None of them copies the other clauses
+   on a route.** Our partial applications of `handlePlus` and `%elim` were the outlier.
+2. **The way we get there: inlining two small known functions where they are partially
+   applied, then β-reducing the literal clauses.** In GHC terms this is specialisation and
+   inlining followed by case-of-known-constructor. GHC does it for fused-effects, and the
+   library's speed depends on it (its README). Gathering the clauses' captures into one
+   environment is what the closure-optimisation literature calls *closure sharing*. Effekt's
+   LLVM backend does the same for a handler object: one environment for all its clauses. We
+   need the rewrite only because the kernel's term for a handler is in eliminator form
+   (`%elim c₁ … cₙ`), and §2.7 rightly keeps the kernel term as it is. The other compilers
+   start from a surface `match` or a record and never build the partial applications.
+
+**Prior art doesn't change the design or the D3440 recommendation** (finish stage 1b). It does
+suggest one change of staging, a follow-up and a pointer for later (end of this section). No
+system does better on the route *from a known handler to its clause* than one indirect call and
+a switch or table load. The systems that are faster per operation get there by different
+means: they don't reach a handler at run time at all (Eff's and Effekt's specialisation, GHC's
+inlining of fused-effects), or they reach it without walking intermediate handlers (Koka's
+evidence, `eff`'s targets vector). Both are operations-in-place territory (§4.5, D3430), and the
+dispatch is what either would call.
+
+### System by system
+
+**OCaml 5.** A deep handler is three functions, `retc`, `exnc` and `effc`, stored in the
+fiber's handler block by `caml_alloc_stack` **[read: ocaml 5.2.0 `stdlib/effect.ml` 71-88,
+`runtime/fiber.c` 194-196]**. `perform` is `caml_perform` in assembly. It switches to the parent
+fiber, loads the handler block's `handle_effect` and calls it with `caml_apply3` (effect,
+continuation, last fiber), with no search beyond the immediate parent **[read: 5.2.0
+`runtime/amd64.S` 1104-1150]**. Since 5.3 (`#12309`, `#13158`, "syntax support for deep effect
+handlers") the compiler translates `match e with … | effect E x, k -> c` into `effc` as **one
+function `eff k ktail => match eff with …`**, the clause bodies compiled into its arms, and
+`Reperform` as the match's failure action, so an operation this handler doesn't name is passed
+to the next fiber out **[read: 5.3.0 `lambda/translcore.ml` `transl_handler` 1192-1246;
+`lambda/matching.ml` `for_handler` 4086-4089]**. Effects are extensible variants, so that match
+is a chain of pointer comparisons against each constructor in turn, linear in the number of
+clauses **[read: `matching.ml` `combine_constructor`, `Cstr_extension` case, 3200-3240]**.
+Through the library API (`Effect.Deep.match_with`, the only form before 5.3), the user's
+`effc` returns `Some (fun k -> …)`, so each operation also builds an option and a closure, and
+a wrapper closure calls it **[read: `effect.ml` 79-88; the allocation is inferred]**. Per
+operation: one continuation object (`caml_perform`'s "freshly allocated continuation"), two
+stack switches, one call of `effc`, an if-chain, and per unhandled level a reperform up one
+fiber. Per handler start: a fiber (a stack segment) and the three closures. **What carries
+over:** the 5.3 change is the same move as ours. OCaml replaced "find a closure for this
+operation, then call it" (an option and a closure per operation) with one generated function
+that has the clauses inline. Our closed, numbered tags make our `Switch` cheaper than OCaml's
+comparison chain.
+
+**Koka.** A handler is a struct with one clause per operation, in the effect's declared order;
+each clause is a `Clause1(fn(marker, ev, x) …)` wrapping a function **[read: koka `d23ee7cd`
+`lib/std/core/hnd.kk` 63-80, 566-567]**. Evidence `Ev(htag, marker, hnd, hevv)` is found by
+index in the evidence vector held in the context. The index is a constant when the effect row
+is known; otherwise `kk_evv_index` searches the sorted vector **[read: `hnd.kk` 131-132, 197-203;
+`lib/std/core/inline/hnd.h` 64-74; `hnd.c` 76-87]**. A perform is `@perform1(ev, select-op, x)`:
+match the evidence, project the clause out of the handler with the field selector `select-op`
+(a fixed offset), and call it **[read: `hnd.kk` 575-578]**. The type checker picks the clause
+wrapper from the operation's kind: `fun` and `val` become `clause-tail` (run in place under the
+handler's evidence vector, no resumption); `ctl` becomes `clause-control` (yield to the
+handler's prompt and capture `k`); `final ctl` becomes `clause-never` **[read:
+`src/Type/Infer.hs` 951-967; `hnd.kk` 651-670]**. A `clause-tail` whose body performs no
+operations is simplified to `clause-tail-noop`, which skips even swapping the evidence vector:
+a perform is then a field load and a direct call **[read: `src/Core/Simplify.hs` 453-455;
+`hnd.kk` 666-667]**. Reference counting (Perceus) dups a field when a match binds it and the
+body uses it, and nothing else, so selecting one clause out of n costs a constant few
+reference-count operations, independent of n **[lit: Reinking, Xie, de Moura, Leijen, PLDI
+2021, §2, from memory; inferred for this code, generated C not read]**. A clause closure with no
+free variables is a static object whose dup and drop do nothing **[read: `kklib/include/kklib.h`
+1390-1397]**. Per handler start: the handler struct, one closure per clause that captures
+something, the `Ev`, and a new evidence vector **[inferred]**. **What carries over:** the
+table-of-clauses alternative (§2.7) with its two flaws removed: selecting a clause copies only
+that clause, and capture-free clauses cost nothing to build. Koka's per-operation speed comes
+from evidence (no search, no walk through handlers in between) and from in-place `fun` clauses,
+not from how a clause is selected.
+
+**Effekt.** A handler is an object implementing the effect's interface, passed to its users as
+a capability, so a perform is a method call on a known value with no search
+**[lit: Schuster, Brachthäuser, Ostermann, ICFP 2020]**. In the LLVM backend `New` with n
+clauses compiles to **one environment holding the union of the clauses' free variables plus a
+static, global vtable of n code pointers**. `Invoke` takes the vtable and the environment out of
+the object, loads the code pointer at the operation's index and calls it with the environment.
+Each clause's code loads ("consumes") only the free variables it uses **[read: effekt
+`e472427c` `effekt/shared/src/main/scala/effekt/generator/llvm/Transformer.scala` 197-238]**.
+Operations are numbered by their position in the interface **[read:
+`effekt/machine/Transformer.scala` 572-576]**. When the object is known where it is invoked, the
+core normaliser replaces `Invoke` of a `New` by the selected operation's body, β-reduced
+(subject to an inlining policy). The machine transformer treats an `Invoke` of a known object
+that survives to it as an internal error ("Method call to known object should have been
+reduced") **[read: `core/optimizer/Normalizer.scala` 291-300; `machine/Transformer.scala`
+319-320]**. The ICFP 2020 paper goes further: for a typed subset, a staged translation leaves
+"no handler-related abstractions or applications" **[lit: abstract, via the authors' page]**.
+Per operation: one indirect call through a table, plus a reference-count share of the object
+and of the variables the clause uses **[inferred from the code above]**. Per handler start: one
+allocation, since the vtable is static. **What carries over:** this is the closest relative of
+our dispatch: one shared environment captured once, and code per operation. A static table of
+code pointers and our `Switch` cost about the same, since the operation's tag must be read
+either way and Cranelift can lower a dense switch to a jump table. Static specialisation needs
+lexically scoped handlers, which Stitchwort doesn't have (operations-in-place.md §4).
+
+**Eff (Pretnar et al.).** The OCaml-targeting runtime represents a computation as `Value` or
+`Call (eff, arg, k)`. A handler's operation clauses are **a single polymorphic function
+`effect_clauses : eff -> arg -> (res -> b) -> b`**, a match on the effect, and the generic
+handler applies `h.effect_clauses eff` and then the result to `arg` and the continuation
+**[read: eff `b3d241a2` `ocamlHeader/ocamlHeader.ml` 1-32]**. The newer backend emits OCaml 5
+handlers: one `match` with an `effect` case per clause **[read:
+`src/05-backends/ocaml-handlers/translate.ml` 43-60]**. Eff's speed comes from the optimiser,
+which rewrites `handle c with h` by the shape of `c`. A `Call` of an operation the handler
+handles becomes the clause, β-reduced with the argument and the (handled) continuation; a
+`Call` it doesn't handle stays a `Call`; handlers are pushed through `let`, `match` and `bind`.
+Recursive functions are specialised to the handler around them **[read:
+`src/04-optimizer/optimizer.ml` `handle_computation` 272-349, specialisation 419-517; lit:
+Karachalias, Koprivec, Pretnar, Schrijvers, OOPSLA 2021, which reports that this removes most
+handler overhead]**. **What carries over:** the end state of "handler known at the perform"
+(next subsection, (c)). The runtime representation, one function of the effect, is our dispatch
+again.
+
+**Haskell libraries.** *fused-effects:* effects are combined with `data (f :+: g) = L … | R …`.
+A carrier's `alg` matches on `L Get`, `L (Put s)` and `R other`, the last threading the
+operation to the next carrier. The strict state carrier is literally
+`StateC $ \s -> case sig of L Get -> …; L (Put s) -> …; R other -> thread …` **[read:
+fused-effects `3f2d942d` `src/Control/Effect/Sum.hs` 25-27;
+`src/Control/Carrier/State/Strict.hs` 122-127]**: our fused state dispatch (§2.2), down to the
+state parameter. `send` is `alg … (inj sig) …` **[read: `src/Control/Algebra.hs` 138-140]**, and
+the README credits its speed ("approximately on par with `mtl`") to GHC inlining the carriers'
+instances **[lit: README, "Fusion"]**. Once specialised, case-of-known-constructor removes the
+`L`/`R` and the operation at the perform site. *polysemy:* a `Union` holds an index (`ElemOf`)
+and the operation, and each interpreter's `decomp` tests whether the index is 0, otherwise
+decrements it and forwards **[read: polysemy `f0e312d2` `src/Polysemy/Internal/Union.hs` 65-70,
+150-174, 280-285]**. That is `handlePlus`'s `L`/`R` test with an integer for the nesting, and
+the interpreter the user writes is again one function over the operation. *eff (Alexis King):*
+a `Handler eff` is one function of the operation. All handlers in scope are cached in an
+immutable "targets vector" indexed by the effect's position in the row, so `send` is "a
+constant-time operation, regardless of the number of effects": index, then call. The vector is
+rebuilt at each `handle` and when a continuation is restored **[read: eff `8c4df4bf`
+`eff/src/Control/Effect/Internal.hs` 340-386, 397-398, 537-538]**. Control operations use the
+delimited-continuation primops of GHC proposal #313 **[lit: eff README]**. Its README makes the
+point that matters for us: libraries that rely on specialisation degrade in real programs,
+where "GHC compiles most effect-polymorphic code via dictionary passing, not specialization"
+**[lit: eff README, line 9]**. *Freer monads* (Kiselyov and Ishii 2015) use the same
+open-union index **[from memory]**. **What carries over:** our `Plus`/`L`/`R` encoding is
+fused-effects' and polysemy's. Their compiled best case is our dispatch, produced by GHC's
+general inliner; we get it with a rule at the one place it applies. `eff`'s caution matches §2's
+choice to rewrite at the handler (always possible) rather than to depend on specialising
+perform sites (only sometimes possible).
+
+**Others.** *Multicore OCaml*, before 5.0, had the same `effect` syntax and representation as
+5.3 **[from memory]**. *Links* (generalised continuations) and *Frank* look up clauses by
+operation label at run time in interpreters; neither is a performance design
+(operations-in-place.md §4) **[from memory]**. *Lean* has no handlers: `EStateM` is a
+state-passing function, inlined, so an "operation" is a call **[from memory]**: fusion.rs's end
+state, not a dispatch technique. *Defunctionalisation* (Reynolds 1972) and MLton's
+flow-directed closure conversion (Cejtin, Jagannathan, Weeks, ESOP 2000) replace a call of an
+unknown function by a switch on a tag over known code **[from memory]**. Our dispatch is
+already that form: the operation's constructor is the tag, and the clauses are the known
+code. *Closure sharing* (Keep, Hearn, Dybvig, "Optimizing Closures in O(0) Time", Scheme
+Workshop 2012) merges closures that live equally long into one shared closure **[from
+memory]**. Our n clause closures and the forward, all owned by the handler, are exactly that
+case.
+
+### At a glance
+
+| System | Operation to clause | Per route, beyond the call | Per handler start |
+|---|---|---|---|
+| Stitchwort before (§1.3) | 2-3 partial-application applies, then the clause | n + 2 copies, n − 1 drops, a partial application built (fused) | n + 1 closures, 2 partial applications |
+| **Stitchwort dispatch** (§2, measured below) | one closure apply, 2 switches | the closure's reference, the captures the arm reads | 2 closures (dispatch, return) |
+| OCaml 5.3 syntax | `caml_apply3` of `effc`, an if-chain | continuation object, 2 stack switches | a fiber, 3 closures |
+| OCaml `Effect.Deep` API | as above, plus a call of the returned closure | also an option and a closure | a fiber, 3 closures, a wrapper |
+| Koka | evidence at an index, field load, call | ~2-3 dups/drops, constant in n [inferred] | struct, a closure per capturing clause, `Ev`, evidence vector |
+| Effekt (LLVM) | vtable load at the operation's index, call | share of the object and the used variables | 1 object (vtable static) |
+| Eff, optimised | none when the handler is known: clause inlined | — | — |
+| fused-effects, specialised | none: case-of-known-constructor at the perform site | — | — (carrier is a newtype) |
+| `eff` | targets vector at an index, call | — | targets vector rebuilt |
+
+### What prior art suggests, costed for us
+
+**(a) A clause table indexed without copying** (Koka's record, Effekt's vtable). Two versions:
+
+- *Separate clause closures in a table*, selected by tag. This was §2.7's "runtime clause
+  table". It is cheap per route in Koka only because Perceus copies the one field it takes and
+  capture-free closures are static. With our runtime it needs: a new `Handler` field and table
+  code in both runtimes; n + 1 closures per start (until SW-2493's option 4 makes capture-free
+  ones constants); and for the fused case a clause applied to `x, k, jump, s` at its own arity,
+  so no saving over the dispatch. **Worse than the dispatch on starts, no better per route.
+  §2.7's rejection stands.**
+- *One shared environment and a static code table* (Effekt). This is the dispatch with a jump
+  table in place of the `Switch`: captures held once, one allocation per start. Our lowering
+  already gets most of it, since Cranelift chooses jump tables for dense switches. A real
+  per-operation entry point would only pay off with stage 2 (the loop calling the code
+  directly): the handler could keep one code pointer per tag and skip the switch on `o′`. That
+  is worth a few instructions per route against stage 2's 0.2-0.35 K. **Not worth a stage;
+  note it in stage 2's lane as an option.**
+
+**(b) Borrowing the handler** (Perceus binds only the fields that are used; Lean's borrowed
+parameters; Koka's `^` annotation). After the rewrite our route already copies only what the
+taken arm reads. Entering a closure takes a new reference to it as `env` and drops it later
+**[read: `crates/rt/src/native_abi.rs`, `sw_apply_prepare`'s doc comment]**, and the arm's body
+loads its captures. What borrowing would add is: no increment and decrement of the dispatch
+closure per route, and none for captures the arm only reads. That is borrow-inference.md §4.5's
+follow-up ("`Apply` borrowing its function value"), not part of that note's B1-B3, since closures
+and the effect loop stay owned there (§4.5, §4.6). At about 30 instructions per reference-count
+operation (§1.3's 470 for about fifteen), it is roughly 60-100 instructions per route, about 2-3%
+of `tick`'s 3,458 after the rewrite **[estimated]**. **Independent of the dispatch and not a
+reason to wait for it.** The effect loop's applies of `call` are the place to try it first,
+since the loop owns the handler for the whole route. Listed under "Tickets to file", item 6.
+
+**(c) Specialising a known handler where an operation is performed** (Eff's optimiser, Effekt's
+normaliser and staging, fused-effects through GHC). This is the biggest win in the literature:
+the route disappears, along with the `Call`, the loop step and the resumption. It needs the
+handler to be known statically at the perform. Here a computation is a value, and handlers are
+dynamic and found by row (operations-in-place.md §2.2, fact 3; §4 on Effekt). Today that holds
+only where fusion.rs and specialisation already see a handler and its body together. So it is a
+compiler project of its own, closer to SW-2135's specialisation than to this note. **It doesn't
+compete with the dispatch:** Eff's rule "handle (Call op x k) with h ⇒ clause_op x k′" needs the
+clause body as a term selected by operation. That is exactly what the dispatch's arms are, so
+the dispatch is the natural input for it.
+
+**(d) In-place tail-resumptive clauses** (Koka's `clause-tail` and `-noop`, `libhandler`,
+`eff`). This is operations in place (operations-in-place.md, D3430 closed its stages C-D). §4.5
+already explains why the dispatch helps it: the in-place call is `dispatch o InPlaceK jump s`.
+Prior art adds one data point. Koka spends the effort to pick the cheapest clause wrapper by
+static analysis (`clause-tail-noop` when the clause performs nothing), the same kind of
+per-clause class that fusion.rs and stage B compute. Nothing changes here.
+
+**(e) Reaching the handler without walking the handlers in between** (Koka's evidence index,
+`eff`'s targets vector). Not a dispatch question. The stage 1a table below sharpens it, though:
+after the rewrite a `Tick` route costs 3,458 instructions and each forwarding handler in between
+still adds about 2.1 K. A parser under two `optional`s spends more on getting past them than on
+the operation itself. Koka's measured result is that ten unused handlers in between cost
+nothing (Xie and Leijen 2021 §5, as quoted in operations-in-place.md §4). This is the cost
+D3430's in-place design addressed. The dispatch makes the comparison sharper; it doesn't change
+it.
+
+### What this changes
+
+- **Design:** nothing. §2's end state is the one used by OCaml 5.3, Eff's runtime,
+  fused-effects (after GHC) and `eff`, and with a jump table in place of a switch, by Effekt.
+  §2.7's alternatives hold up against the literature.
+- **Staging:** one addition. Stage 2's lane should consider, besides calling the closure's code
+  directly, Effekt's per-operation entry (a code pointer per tag beside the handler, skipping
+  the switch on `o′`), and keep it only if it measures above noise. The borrowed apply of (b)
+  goes to borrow-inference's follow-up list, not into this plan.
+- **D3440's recommendation:** unchanged (§8, decision 1: yes). Stage 1a's measured −24.5% and
+  −29.1% came from removing a cost no other system pays. Nothing in prior art suggests a better
+  end state for the route from a handler to its clause. The bigger wins in the literature are
+  different projects ((c), (e)), and the dispatch is the form each of them would call.
+
+### Uncertainties
+
+- Koka's per-route and per-start costs are inferred from `hnd.kk` and the Perceus rules, not
+  from generated C. Effekt's are read from the LLVM generator, not from a compiled program. No
+  system was benchmarked here; the comparison is of structure, not instruction counts.
+- Eff's and Effekt's papers were checked through their abstracts and the authors' pages and
+  code, not read in full; claims about their optimisations rest on the code cited.
+- Multicore OCaml's pre-5.0 representation, Links, Frank, Lean, MLton, Reynolds, Keep et al. and
+  Kiselyov and Ishii are from memory.
+- (b)'s 60-100 instructions per route is a rule of thumb from §1.3's measured width, not a
+  count of the reference-count operations left in the dispatch.
+
+### References
+
+Papers (also see effect-runtime-allocation.md "Sources" and operations-in-place.md §4):
+
+- K. C. Sivaramakrishnan, Stephen Dolan, Leo White, Tom Kelly, Sadiq Jaffer, Anil Madhavapeddy,
+  "Retrofitting Effect Handlers onto OCaml", PLDI 2021,
+  [arXiv:2104.00250](https://arxiv.org/abs/2104.00250).
+- Ningning Xie, Jonathan Brachthäuser, Daniel Hillerström, Philipp Schuster, Daan Leijen,
+  "Effect Handlers, Evidently", ICFP 2020; Ningning Xie, Daan Leijen, "Generalized Evidence
+  Passing for Effect Handlers", ICFP 2021
+  ([PDF](https://www.microsoft.com/en-us/research/uploads/prod/2021/08/genev-icfp21.pdf)).
+- Alex Reinking, Ningning Xie, Leonardo de Moura, Daan Leijen, "Perceus: Garbage Free Reference
+  Counting with Reuse", PLDI 2021.
+- Philipp Schuster, Jonathan Immanuel Brachthäuser, Klaus Ostermann, "Compiling Effect Handlers
+  in Capability-Passing Style", ICFP 2020, doi:10.1145/3408975
+  ([page](https://pl.cs.uni-tuebingen.de/publications/schuster20capability/)).
+- Georgios Karachalias, Filip Koprivec, Matija Pretnar, Tom Schrijvers, "Efficient Compilation
+  of Algebraic Effect Handlers", OOPSLA 2021, doi:10.1145/3485479
+  ([SPLASH page](https://2021.splashcon.org/details/splash-2021-oopsla/6/Efficient-Compilation-of-Algebraic-Effect-Handlers)).
+- Oleg Kiselyov, Hiromi Ishii, "Freer Monads, More Extensible Effects", Haskell 2015 [from
+  memory].
+- John C. Reynolds, "Definitional Interpreters for Higher-Order Programming Languages", 1972;
+  Henry Cejtin, Suresh Jagannathan, Stephen Weeks, "Flow-Directed Closure Conversion for Typed
+  Languages", ESOP 2000; Andrew W. Keep, Alex Hearn, R. Kent Dybvig, "Optimizing Closures in O(0)
+  Time", Scheme Workshop 2012 [all from memory].
+- GHC proposal #313, delimited continuation primops
+  ([PR](https://github.com/ghc-proposals/ghc-proposals/pull/313)).
+
+Source code (paths relative to each repository's root):
+
+- OCaml, tag `5.2.0`: `stdlib/effect.ml`, `runtime/amd64.S`, `runtime/fiber.c`. Tag `5.3.0`:
+  `lambda/translcore.ml` (`transl_handler`), `lambda/matching.ml` (`for_handler`,
+  `combine_constructor`), `Changes` (#12309, #13158).
+- Koka (`koka-lang/koka`), commit `d23ee7cd73737c1da7a7a5fa837a2806facc3d6b` (27 Oct 2026):
+  `lib/std/core/hnd.kk`, `lib/std/core/inline/hnd.h`, `lib/std/core/inline/hnd.c`,
+  `src/Type/Infer.hs`, `src/Core/Simplify.hs`, `kklib/include/kklib.h`.
+- Effekt (`effekt-lang/effekt`), commit `e472427c094a88187a9156f338139d084c4adce8`:
+  `effekt/shared/src/main/scala/effekt/core/optimizer/Normalizer.scala`,
+  `…/effekt/machine/Transformer.scala`, `…/effekt/generator/llvm/Transformer.scala`.
+- Eff (`matijapretnar/eff`), commit `b3d241a26d9f67b09fe8fa37e4afb8f29d50a683`:
+  `ocamlHeader/ocamlHeader.ml`, `src/04-optimizer/optimizer.ml`,
+  `src/05-backends/ocaml-handlers/translate.ml`.
+- fused-effects, commit `3f2d942d701238173923cc066e583ecb91fbdcaf`: `README.md`,
+  `src/Control/Algebra.hs`, `src/Control/Effect/Sum.hs`,
+  `src/Control/Carrier/State/Strict.hs`.
+- polysemy, commit `f0e312d203129f50171e686e100c30fb8bf12455`:
+  `src/Polysemy/Internal/Union.hs`.
+- eff (`lexi-lambda/eff`), commit `8c4df4bf54faf22456354be18095b14825be5e85`: `README.md`,
+  `eff/src/Control/Effect/Internal.hs`.
+
 ## 8. Decisions for Matt
 
 For the orchestrator to number.
@@ -435,6 +765,9 @@ For the orchestrator to number.
    changes; about 11-15% fewer instructions on the two parsers (estimated), something for every
    program that handles effects, and it is what operations in place would call if reopened.
    **Recommendation: yes, Opus, from this note; stages 2 and 3 only after stage 1's numbers.**
+   Prior art (SW-2525, above) leaves this unchanged: the end state is the one OCaml 5.3, Eff,
+   fused-effects, `eff` and Effekt use, and no system has a cheaper route from a handler to its
+   clause.
 2. **May it lower the machine's step counts** (frames entered: two fewer per operation answered),
    so a step limit is reached later, never sooner? Effect counts and results don't change.
    **Recommendation: yes, the same rule as D3412 and D3437.**
@@ -471,6 +804,11 @@ For the orchestrator to number.
 3. **Stage 3: a fused dispatch's `jump` as a return** (supersedes SW-2493's option 6 if filed
    separately). Opus, 2 h. After 1 and the R5 decision.
 4. **R5's `k` test from the dispatch** (§4.3): a note on SW-2465, not a ticket of its own.
+5. **Stage 2's lane also tries a per-operation entry** (prior art (a), Effekt's vtable): a note
+   on ticket 2, not a ticket of its own.
+6. **The effect loop borrows the handler's `call` when it applies it** (prior art (b);
+   borrow-inference.md §10's "`Apply` borrowing its function value", narrowed to the loop):
+   about 60-100 instructions a route **[estimated]**. Backlog, after borrow-inference's B1.
 
 ## Stage 1a measurement (SW-2507)
 
