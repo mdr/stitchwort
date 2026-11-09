@@ -23,7 +23,7 @@
 //!   operations or ticks, and the frames, are bounded by [`Limits`], as for
 //!   the reference evaluator, and running out is a [`ResourceError`].
 
-use crate::value_census::{new_fun, new_handler, new_resume};
+use crate::value_census::{new_fun, new_handler};
 use std::rc::Rc;
 use std::sync::Arc;
 
@@ -33,8 +33,8 @@ use stitchwort_core::ResourceError;
 
 use crate::code::{Image, Instr, MOVE, NO_REG, compile};
 use crate::effect::{
-    EffectCounts, EffectOp, Handler, Resume, StateRun, StateStep, delay_k, done_k, field,
-    forwarded, handler_for, jump_k, pair, resume_lazily, skipped, state_handler, state_k,
+    EffectCounts, EffectOp, Handler, Resume, StateRun, StateStep, TranslateResume, delay_k, done_k,
+    field, forwarded, handler_for, jump_k, pair, resume_lazily, skipped, state_handler, state_k,
     state_step,
 };
 use crate::ir::{GlobalId, GlobalKind, HoleOp, PrimOp, Program, Shapes};
@@ -70,7 +70,7 @@ enum Ret {
     /// A state-passing handler's clause's result, for the operation whose
     /// resumption this is: a jump goes on with the loop, anything else goes
     /// to the `Ret`.
-    Step(Box<(Rc<Resume>, Ret)>),
+    Step(Box<(Rc<Fun>, Ret)>),
 }
 
 /// The effect runtime's loop, waiting for a continuation's computation:
@@ -612,9 +612,13 @@ impl State {
                 let y = self.regs.pop().expect("one argument");
                 Ok(Some((done_k(&program.shapes, y), ret)))
             }
-            Fun::Resume(resume, lazy) => {
+            Fun::Resume(lazy, resume) => {
                 let y = self.regs.pop().expect("one argument");
                 self.resume(program, image, resume, *lazy, y, ret)
+            }
+            Fun::TranslateK(t) => {
+                let y = self.regs.pop().expect("one argument");
+                self.resume_translate(program, image, t, y, ret)
             }
             // A state-passing handler's loop, given the state.
             Fun::StateRun(run) => {
@@ -855,31 +859,27 @@ impl State {
                 ..
             } => match forwarded(s, table, o) {
                 Ok(o) => {
-                    let resume = new_resume(Resume {
+                    let resume = Resume {
                         handler,
                         rest,
                         pending,
-                        op: Value::Erased,
-                    });
+                    };
                     return Ok(Some((skipped(s, &mut self.counts, o, resume), ret)));
                 }
                 Err(o) => o,
             },
             _ => o,
         };
-        let resume = |handler, op| {
-            new_resume(Resume {
-                handler,
-                rest,
-                pending,
-                op,
-            })
+        let resume = |handler| Resume {
+            handler,
+            rest,
+            pending,
         };
         match &*handler {
             Handler::Fold { call, lazy, .. } => {
                 self.counts.routes += 1;
                 let (call, lazy) = (call.clone(), *lazy);
-                let k = Value::Fun(new_fun(Fun::Resume(resume(handler, Value::Erased), lazy)));
+                let k = Value::Fun(new_fun(Fun::Resume(lazy, resume(handler))));
                 self.regs.extend([o, k]);
                 self.apply(program, image, call, 2, ret)
             }
@@ -887,8 +887,9 @@ impl State {
             Handler::State { call, .. } => {
                 self.counts.routes += 1;
                 let call = call.clone();
-                let resume = resume(handler, Value::Erased);
-                let k = Value::Fun(new_fun(Fun::StateK(resume.clone())));
+                let k = new_fun(Fun::StateK(resume(handler)));
+                let resume = k.clone();
+                let k = Value::Fun(k);
                 let jump = Value::Fun(crate::value::shared_jump_k());
                 let then = Ret::Step(Box::new((resume, ret)));
                 self.regs.extend([o, k, jump, state]);
@@ -897,12 +898,15 @@ impl State {
             Handler::Translate { inject, .. } => {
                 self.counts.routes += 1;
                 let inject = inject.clone();
-                let k = Value::Fun(new_fun(Fun::Resume(resume(handler, o.clone()), false)));
+                let k = Value::Fun(new_fun(Fun::TranslateK(Rc::new(TranslateResume {
+                    resume: resume(handler),
+                    op: o.clone(),
+                }))));
                 self.regs.push(o);
                 self.apply(program, image, inject, 1, Ret::Inject(Box::new((k, ret))))
             }
             Handler::Step => {
-                let k = Value::Fun(new_fun(Fun::Resume(resume(handler, Value::Erased), false)));
+                let k = Value::Fun(new_fun(Fun::Resume(false, resume(handler))));
                 Ok(Some((Value::data(s.call, [o, k]), ret)))
             }
             Handler::RunPure => panic!("internal error: an operation reached `runPure`"),
@@ -917,7 +921,7 @@ impl State {
         &mut self,
         program: &Program,
         image: &Image,
-        resume: &Rc<Resume>,
+        resume: &Resume,
         lazy: bool,
         y: Value,
         ret: Ret,
@@ -932,19 +936,33 @@ impl State {
             state: Value::Erased,
             ret,
         }));
-        match &*resume.handler {
-            // `x => translate m (rest (reply o x))`.
-            Handler::Translate { reply, .. } => {
-                let then = Ret::Then(Box::new((resume.rest.clone(), after)));
-                self.regs.extend([resume.op.clone(), y]);
-                self.apply(program, image, reply.clone(), 2, then)
-            }
-            _ => {
-                let rest = resume.rest.clone();
-                self.regs.push(y);
-                self.apply(program, image, rest, 1, after)
-            }
-        }
+        let rest = resume.rest.clone();
+        self.regs.push(y);
+        self.apply(program, image, rest, 1, after)
+    }
+
+    /// A `translate` handler's resumption called with `y`:
+    /// `x => translate m (rest (reply o x))`.
+    fn resume_translate(
+        &mut self,
+        program: &Program,
+        image: &Image,
+        t: &TranslateResume,
+        y: Value,
+        ret: Ret,
+    ) -> Result<Pending> {
+        let Handler::Translate { reply, .. } = &*t.resume.handler else {
+            unreachable!("a translate's resumption")
+        };
+        let after = Ret::Eff(Box::new(EffRet {
+            handler: t.resume.handler.clone(),
+            pending: t.resume.pending.clone(),
+            state: Value::Erased,
+            ret,
+        }));
+        let then = Ret::Then(Box::new((t.resume.rest.clone(), after)));
+        self.regs.extend([t.op.clone(), y]);
+        self.apply(program, image, reply.clone(), 2, then)
     }
 
     /// A state-passing handler's clause returned `v` for the operation
@@ -956,7 +974,7 @@ impl State {
         program: &Program,
         image: &Image,
         v: Value,
-        resume: Rc<Resume>,
+        resume: Rc<Fun>,
         ret: Ret,
     ) -> Result<Pending> {
         match state_step(&mut self.counts, v, resume) {

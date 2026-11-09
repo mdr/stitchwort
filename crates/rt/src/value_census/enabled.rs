@@ -51,7 +51,7 @@ static REUSE_KINDS: [AtomicU64; 15] = [ZERO; 15];
 static CAPTURE_KINDS: [AtomicU64; 15] = [ZERO; 15];
 
 /// `Fun` variants by name.
-const FUNS: [&str; 10] = [
+const FUNS: [&str; 11] = [
     "global",
     "closure",
     "pap",
@@ -62,12 +62,12 @@ const FUNS: [&str; 10] = [
     "jump_k",
     "jumped",
     "delay_k",
+    "translate_k",
 ];
-static FUN_COUNT: [AtomicU64; 10] = [ZERO; 10];
+static FUN_COUNT: [AtomicU64; 11] = [ZERO; 11];
 /// Captured values (closure captures, pap arguments) over all of a variant.
-static FUN_CAPTURED: [AtomicU64; 10] = [ZERO; 10];
+static FUN_CAPTURED: [AtomicU64; 11] = [ZERO; 11];
 static DELAYS: AtomicU64 = AtomicU64::new(0);
-static RESUMES: AtomicU64 = AtomicU64::new(0);
 static STATE_RUNS: AtomicU64 = AtomicU64::new(0);
 static HANDLERS: AtomicU64 = AtomicU64::new(0);
 static ARRAYS: AtomicU64 = AtomicU64::new(0);
@@ -208,6 +208,7 @@ fn fun_index(f: &Fun) -> (usize, u64) {
         Fun::JumpK => (7, 0),
         Fun::Jumped(..) => (8, 0),
         Fun::DelayK(_) => (9, 0),
+        Fun::TranslateK(_) => (10, 0),
     }
 }
 
@@ -266,12 +267,6 @@ pub(super) fn delay(_: &Delay, made: bool) {
     DELAYS.fetch_add(1, Relaxed);
     add(&DELAY_BYTES, sizes);
     live(sizes.map(|s| s as i64));
-}
-
-pub(super) fn resume() {
-    register();
-    RESUMES.fetch_add(1, Relaxed);
-    add(&OTHER_BYTES, enum_sizes(size_of::<Resume>(), 3));
 }
 
 pub(super) fn state_run() {
@@ -362,7 +357,6 @@ fn report() -> String {
         line(format!("fun.{name}.captured"), get(&FUN_CAPTURED[i]));
     }
     line("delay".into(), get(&DELAYS));
-    line("resume".into(), get(&RESUMES));
     line("state_run".into(), get(&STATE_RUNS));
     line("handler".into(), get(&HANDLERS));
     line("array".into(), get(&ARRAYS));

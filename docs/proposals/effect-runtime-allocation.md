@@ -96,13 +96,16 @@ about 13.8 runtime objects on expressions and 11 on scan.
 **The "190 M cells built by the runtime" needs a correction.** SW-2422 took the runtime's
 cells as the census's cells less `sw_cell_new`'s calls less `sw_bind`'s. But generated
 code takes cells from the cell cache (SW-2363) inline, without calling `sw_cell_new`
-(`n1.rs`, `cached_cell`: only the miss calls the helper) **[read]**. Those cells are in
-the residue. Counted from the sites in the table, the runtime's own cells are about
-94 M on expressions (46.4 pending + 29.1 skip `Call`s + 18.6 `Done`s, plus a little from
-lazy resumes, `translate` and rebuilt forwarded operations), and the other about 96 M are
-generated code's cache hits **[inferred]**. Stage 0 (§4) counts them. So the runtime's
-cells are about 30% of the run's, not 59%. Its other objects (resumptions, wrappers,
-jumps: about 117 M) are about as SW-2422 said.
+(`n1.rs`, `cached_cell`: only the miss calls the helper) **[read]**, so those cells were
+in the residue. Stage 0 (§4.1) counted them **[measured]**: generated code's cache hits
+are 50.2 M on expressions (not the 96 M this paragraph first inferred), and the runtime's
+own cells are **117 M without `Bind` nodes, about 36% of the census's 322 M cells**, and
+163.5 M (51%) with them. The 117 M is the 94 M of the sites in the table (46.4 pending +
+29.1 skip `Call`s + 18.6 `Done`s) plus 23 M the table missed: rebuilt forwarded operations
+(`effect::forwarded`, 0.79 cells per skipped forward). 22.8 M cells (7%) remain unexplained
+by any counted site. So the runtime's cells are about 36% of the run's, not 59% (SW-2422)
+nor 30% (this note's first correction). Its other objects (resumptions, wrappers, jumps:
+about 117 M) are about as SW-2422 said.
 
 ### 1.3 What one object costs
 
@@ -472,6 +475,66 @@ planned. Stage 3 (R4) is stronger than planned, since its reach is certain.
   others alike in direction. Whatever the compiler cache changes (codegen units, inlining), a
   benchmark number from the main checkout and one from a lane differ by 3% for the same source. Not
   investigated here.
+
+## 4.2 Stage 1 results (SW-2462, 9 Nov 2026, Sonnet): R1, a resumption is one object
+
+**[measured]** throughout: native instructions retired (`/usr/bin/time -l`), five runs of each
+program, the baseline and the changed executables both built in the lane worktree through
+kache with the same commands (`stitchwort build --native` against the release runtime
+library), at the comparison sizes of `bench/compare/programs.toml`.
+
+**What changed.** `Fun::Resume(bool, Resume)` and `Fun::StateK(Resume)` hold the resumption's
+fields (`handler`, `rest`, `pending`) themselves; `Rc<Resume>` is gone. Differences from §2.1:
+
+- `translate`'s resumption needs the operation too. Rather than a fourth field in every
+  `Resume` (which would make every `Fun`, closures included, a word bigger), it is a new
+  variant, `Fun::TranslateK(Rc<TranslateResume>)`, with `TranslateResume { resume, op }`:
+  two objects, on a path these programs hardly take (matcher: none).
+- The lazy flag comes first in `Fun::Resume`, so the fields fill the word after the tag:
+  `size_of::<Fun>()` is 64 and a compile-time assertion keeps it there (`Rc<Fun>` is 80 bytes,
+  the size class it had).
+- A state route's loop keeps a second reference to the `StateK` function value (the same
+  `Rc<Fun>` as `k`) in place of the second `Rc<Resume>`; `state_step` moves `rest` and
+  `pending` out of it when it is unique (`Fun` has a destructor, so the handler is cloned
+  and dropped with the function). `sw_unwind_resume` pushes that function value as it is.
+- `resume_lazily` copies the three fields (a lazy resumption's apply), as predicted.
+- Counters: the `Rc<Resume>` and wrapper rows of the stage 0 report are now one row per
+  route kind, "resumption (Fun::Resume / StateK)". The value census no longer has a
+  `resume` row.
+
+**Instructions retired** (G; five runs each, min to max):
+
+| | before | after | change | the note's estimate |
+|---|---|---|---|---|
+| expressions | 310.639 (310.638 to 310.643) | 305.434 (305.377 to 305.548) | **-1.68%** | 2.2 to 3.2% |
+| scan | 297.625 (297.530 to 297.737) | 292.885 (292.799 to 292.973) | **-1.59%** | 2.2 to 3.2% |
+| matcher | 68.213 (68.193 to 68.224) | 67.971 (67.962 to 67.982) | -0.36% | about 0.6% |
+| bridge | 106.699 (106.653 to 106.751) | 105.899 (105.864 to 105.981) | -0.75% | about 1% |
+
+The runs agree to 0.02% before and 0.04% after (bridge 0.1% and 0.1%), so the differences are
+not noise. The bar for keeping the change was 60% of the low estimate, 1.3%: expressions and
+scan clear it, at 76% and 72% of the low estimate (52% and 50% of the high one, 3.2%). The
+saving is **105 instructions per resumption removed** on expressions (5.2 G over 49.2 M) and
+100 on scan (4.74 G over 47.5 M), under SW-2433's 143 for a childless object and this note's
+140 to 200 for one with children. A likely reason: the removed `Rc<Resume>` was made and
+freed beside a `Fun` that still takes the same path, and the `Fun` now has 24 more bytes to
+write and read back. Not tested; the next stages' estimates should use about 100 instructions
+per object, not 140.
+
+**Objects built** (call counts, expressions; before from stage 0, after from the same
+report on this change):
+
+| | before | after |
+|---|---|---|
+| `Rc<Resume>` | 49.18 M | 0 |
+| `Fun::Resume` wrappers | 30.53 M | 30.53 M (now the resumption itself: skips 29.13 M, fold routes 1.41 M) |
+| `Fun::StateK` wrappers | 18.65 M | 18.65 M (the resumption itself) |
+| resumption objects in all | 98.4 M | **49.18 M** |
+
+Scan: 47.50 M resumptions (21.25 M skips, 3.82 M fold routes, 22.43 M state routes) where
+there were 47.50 M `Rc<Resume>` besides their wrappers. Matcher: 2.54 M. Bridge: 9.52 M. The
+step and effect counts (`steps`, `pushes`, `routes`, `forwards`, `resumes`...) are
+unchanged: the effect tests of `stitchwort-rt` pass as they were, with no snapshot touched.
 
 ## 5. Recommendation
 

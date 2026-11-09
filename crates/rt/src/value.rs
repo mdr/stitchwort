@@ -94,16 +94,19 @@ pub enum Fun {
     /// `y => Done y`.
     DoneK,
     /// A resumption of the effect runtime ([`crate::effect`]): if the flag
-    /// is set, calling it suspends (gives `Bind (Done y) r`, `r` the same
-    /// resumption unflagged); otherwise it runs the rest of the computation.
-    Resume(Rc<crate::effect::Resume>, bool),
+    /// is set, calling it suspends (gives `Bind (Done y) r`, `r` a copy of
+    /// the resumption unflagged); otherwise it runs the rest of the
+    /// computation. The flag comes first so that the fields after it fill
+    /// the 8 bytes the variant tag leaves, and `Fun` is no bigger than the
+    /// resumption's fields plus a word.
+    Resume(bool, crate::effect::Resume),
     /// A state-passing handler's function of the state ([`crate::effect`],
     /// stage 4d): given the state, runs the handler's loop.
     StateRun(Rc<crate::effect::StateRun>),
     /// A state-passing handler's `k`, for every use that isn't a tail
     /// resumption: the state's function from where the operation was
     /// (`Done` of it if the handler's carrier is a computation).
-    StateK(Rc<crate::effect::Resume>),
+    StateK(crate::effect::Resume),
     /// `jump v s`, given to a state-passing handler's clauses: records `v`
     /// and `s` as a [`Fun::Jumped`] for the loop.
     JumpK,
@@ -115,7 +118,15 @@ pub enum Fun {
     /// [`Delay::Resumed`], which the runner steps by putting the captured
     /// frames back (`run.rs`).
     DelayK(Rc<crate::run::Capture>),
+    /// A `translate` handler's resumption: eager, and also holds the
+    /// operation, for the reply.
+    TranslateK(Rc<crate::effect::TranslateResume>),
 }
+
+// A resumption's fields are inside the `Fun` (R1 of
+// docs/proposals/effect-runtime-allocation.md): a bigger `Fun` makes every
+// closure and pap bigger too.
+const _: () = assert!(std::mem::size_of::<Fun>() <= 64);
 
 /// A partial computation: one of `Delay`'s constants with its runtime
 /// arguments (docs/proposals/partial.md §7.4). Building one runs nothing.
@@ -337,14 +348,15 @@ impl Fun {
                 take_from(std::slice::from_mut(v), out);
                 take_from(std::slice::from_mut(s), out);
             }
-            Fun::Resume(resume, _) | Fun::StateK(resume) => {
-                if let Some(resume) = Rc::get_mut(resume) {
-                    resume.take_children(out);
-                }
-            }
+            Fun::Resume(_, resume) | Fun::StateK(resume) => resume.take_children(out),
             Fun::DelayK(capture) => {
                 if let Some(capture) = Rc::get_mut(capture) {
                     capture.take_children(out);
+                }
+            }
+            Fun::TranslateK(resume) => {
+                if let Some(resume) = Rc::get_mut(resume) {
+                    resume.take_children(out);
                 }
             }
             Fun::Closure { captures, .. } => take_from(captures, out),

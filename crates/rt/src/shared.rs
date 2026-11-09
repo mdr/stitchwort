@@ -87,7 +87,12 @@ pub(crate) fn arity(program: &impl Arities, head: &Value) -> usize {
     match &**fun {
         Fun::Global(g) => program.global_params(*g) as usize,
         Fun::Closure { lambda, .. } => program.lambda_params(*lambda) as usize,
-        Fun::DoneK | Fun::Resume(..) | Fun::StateRun(_) | Fun::StateK(_) | Fun::DelayK(_) => 1,
+        Fun::DoneK
+        | Fun::Resume(..)
+        | Fun::StateRun(_)
+        | Fun::StateK(_)
+        | Fun::DelayK(_)
+        | Fun::TranslateK(_) => 1,
         Fun::JumpK => 2,
         Fun::Jumped(..) => panic!("internal error: a jump applied"),
         Fun::Pap { .. } => unreachable!("a partial application's head"),
