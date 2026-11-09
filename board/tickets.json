@@ -25862,12 +25862,12 @@
     {
       "id": 2553,
       "title": "Search finds nothing for patterns starting with an [auto] binder ([auto eq: DecEq ?a] -> ...)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "Speedwell",
       "labels": [],
       "epic": "proof-search",
-      "body": "From SW-2541 friction. 60 min.\n\nStarted 9 Nov 2026 10:57 UTC. Expected: 60 min.\n",
+      "body": "From SW-2541 friction. 60 min.\n\nStarted 9 Nov 2026 10:57 UTC. Expected: 60 min.\n\nMerged 9 Nov; 88/88 search and docs tests. Hidden-binder patterns get extra whole targets. Model result: Sonnet, worked, 7 min (est. 60).\n",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
