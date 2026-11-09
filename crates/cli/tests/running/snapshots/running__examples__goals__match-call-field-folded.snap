@@ -9,7 +9,7 @@ expression: output
     │               ┬  
     │               ╰── n: Nat
     │                   small: n ≤ 1
-    │                   ⊢ (pick n { items = [] }).items.length ≤ 100
+    │                   ⊢ (pick n empty).items.length ≤ 100
 ────╯
 [GOAL] Goal: in `fits`
     ╭─[ goals/match-call-field-folded.sw:19:16 ]
@@ -18,5 +18,5 @@ expression: output
     │                ┬  
     │                ╰── n: Nat
     │                    small: (n <= 1) = False
-    │                    ⊢ (pick n { items = [] }).items.length ≤ 100
+    │                    ⊢ (pick n empty).items.length ≤ 100
 ────╯

@@ -1,5 +1,5 @@
 ---
-source: crates/driver/tests/library/hash_stability.rs
+source: crates/driver/tests/hash_stability.rs
 expression: "lines(session, d, f)"
 ---
 Main.below 00fd9717514f7d82a802cb974a8c8dbce832d33fdf9ee26d3163f084ca38c631
@@ -11,7 +11,7 @@ Main.gapPositive.%match1 8551ef0c3b254ee98768dc891d726f3354529657a0d1b429c2256c7
 Main.capped ac633758c62e5a18f623e5c1eaeeab5245b6ab1d9dc80804b05142e42ba948b9
 Main.capped.eq.ifTrue 2ceda256107771e97b5678417df5aa27b168382cb26217603d26e8477660d102
 Main.capped.eq.ifFalse a28c2f2214ee96b3465f1622d765e419259d4650b32fd5c08f7f38beb75b3538
-Main.cappedSplit db2af2580d9d6e59c843ed20513016ba14a637ef99d1e4b4df8285570af226e2
-Main.cappedSplit.%match1 77cd2f232a18c81d8d1236df97c4154df1815ae4481d077f38c1952c77270d9f
+Main.cappedSplit 6d0cd6044d6f8fa5b765207e32d50d446465bcebf067d5a350562ac55405a6bb
+Main.cappedSplit.%match1 74a23d3f7f551c4626e3a8769aaa59ade30c6599a20d8b1fd3498b12f9214a44
 Main.cappedPositive dc5bd59e05d7edd97de777fe0216fed4fc8c2a346e1915567bb238b8df601b21
 Main.cappedPositive.%match1 7a3dee10edf4194dfc09b2bfb0ab98ef856f7c00e64fde125091769f692b5b26

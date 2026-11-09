@@ -1,5 +1,5 @@
 ---
-source: crates/driver/tests/library/hash_stability.rs
+source: crates/driver/tests/hash_stability.rs
 expression: "lines(session, d, f)"
 ---
 data Main.Bag 9b1bcc4f232e657053333782129c016a86dec3ba0e969d866c24cd9ec481a12f
@@ -32,6 +32,6 @@ Main.pick.induct.%step 8ddb4afcbe0a7784e5cac409756140d64ca009546c2f801ad32c1b023
 Main.pick.induct.%go 751d74b8d5526296033e8dd039b5242a05a77f5a6508a81c9b79ffcfd53e3569
 Main.callFound 93f231829c42217cc4401502249b8a62e7ac28713efc5b49abe85de3629d3ba8
 Main.callFound.%match1 8f6a33316bc26b7393d3a921e31b124dbfbbd2f45337aa1e82934ebbf50c9bf2
-Main.armsKeepCall b05d42d914693ddc4a27a00c63aec7f8e23fdb8f95d47214cca2fa89d951d640
-Main.armsKeepCall.%match1 523db92d6e6daa8515d39da64cc3457626e12a556ddc4faf7f5c99ccd1981be8
+Main.armsKeepCall 5dd795a4d98f7c7d3afa69a5704c46fc9b6e88fe5be4f9555a8b3ef827dc8cd2
+Main.armsKeepCall.%match1 3fb98bc3e25437707fd1b5108da8a3d507170f5b56b316d19cbf97692d73fb13
 Main.computes 20ad6045c0c5f7b4aac6406f231bb703546df1fa36c2995a86f869bf729b49a5
