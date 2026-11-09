@@ -1,5 +1,5 @@
 {
-  "next": 2477,
+  "next": 2478,
   "tickets": [
     {
       "id": 47,
@@ -24809,12 +24809,12 @@
     {
       "id": 2472,
       "title": "Tree nodes take about 160 B in native runs vs Lean's ~56 B (rbmap: 324 MB peak for 2M nodes); rbmap-ck can't run at Lean's 2M size (would need ~20 GB). Measure the layout and note it in docs/proposals/compact-values.md as evidence outside the decision set",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Sonnet",
-      "where": "",
+      "where": "Speedwell",
       "labels": [],
       "epic": "comparative-speed",
-      "body": "From SW-2455. Paper/measurement first: which words a 5-field node carries (header, counts, tags, boxed Nat/Bool fields). 45 min.",
+      "body": "From SW-2455. Paper/measurement first: which words a 5-field node carries (header, counts, tags, boxed Nat/Bool fields). 45 min.\n\nStarted 9 Nov 2026 02:56 UTC. Expected: 45 min.\n",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
@@ -24835,12 +24835,12 @@
     {
       "id": 2474,
       "title": "Benchmark comparability: the same commit runs expressions in 320.5 G instructions built plainly (main checkout, no kache) but 310.7 G built in a lane worktree through kache (-3.1%); find why (different rustflags, codegen units, LTO, target-cpu?) and make both builds identical",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "Speedwell",
       "labels": [],
       "epic": "comparative-speed",
-      "body": "From SW-2461. Lanes' before/after numbers and Overmind's main-checkout comparisons may differ for identical source. Compare the effective cargo/rustc flags of both builds first. 45 min.\n\nStarted 9 Nov 2026 02:36 UTC. Expected: 45 min.\n",
+      "body": "From SW-2461. Lanes' before/after numbers and Overmind's main-checkout comparisons may differ for identical source. Compare the effective cargo/rustc flags of both builds first. 45 min.\n\nStarted 9 Nov 2026 02:36 UTC. Expected: 45 min.\n\nMerged 9 Nov 02:56. Cause: devShell CARGO_PROFILE_RELEASE_INCREMENTAL=true (flake.nix:409) builds libstitchwort_standalone.a in 256 codegen units without cross-unit inlining; kache strips the incremental flag. Fix: bench:compare, bench:compare:check, native:bench, profile:native build with it off into target/bench. History noted (one-off ~3% step). Model result: Sonnet, worked, 19 min (est. 45).\n",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
@@ -24867,6 +24867,19 @@
       "labels": [],
       "epic": "performance",
       "body": "From SW-2461, whose lane wrote its own driver. 30 min.",
+      "created": "2026-11-09",
+      "updated": "2026-11-09",
+      "commits": []
+    },
+    {
+      "id": 2477,
+      "title": "Build the remaining runtime/native measurements non-incrementally like SW-2474's timing tasks: the stitchwort-bench crate (task bench, bench:update, baseline counts) and bench:compare:proofs; and consider whether native tests should link a non-incremental runtime",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "comparative-speed",
+      "body": "From SW-2474. 30 min.",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
