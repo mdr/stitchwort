@@ -24796,12 +24796,12 @@
     {
       "id": 2471,
       "title": "Native recursion is capped at about 2M frames (E-RESOURCE): const-fold stops at depth 21 where Lean's original runs depth 23 with a 4 GB stack; consider a deeper limit or a growable stack",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": "Speedwell",
       "labels": [],
       "epic": "comparative-speed",
-      "body": "From SW-2455. bench/compare/const-fold runs at depth 20 because of it. 1 h, profile first.\n\nStarted 9 Nov 2026 04:53 UTC. Expected: 60 min.\n",
+      "body": "From SW-2455. bench/compare/const-fold runs at depth 20 because of it. 1 h, profile first.\n\nStarted 9 Nov 2026 04:53 UTC. Expected: 60 min.\n\n04:56, Sonnet (no code committed): the limit is a fixed 2,000,000 frames (crates/core/src/budget.rs:110), shared by machine and native; the native stack is (frames+1) x widest frame + rooms, lazily mmapped (MAP_NORESERVE), refused above the 64 GiB cap. A 16M native limit (patch /private/tmp/claude-550/sw2471/experiment.patch) runs const-fold depth 21/22/23 (0.55 s 977 MB / 1.17 s 1.95 GB / 2.49 s 3.9 GB; Lean needs 4 GB) at zero instruction cost. Needs a decision (Matt): native E-RESOURCE at 8x the machine's depth means runaway recursion can use several GB before failing. Lane's recommendation: native-only limit min(16M, (cap - rooms) / widest frame), E-RESOURCE documented as the native depth budget, optionally a byte cap; update counter_fires_first, the roguelike stack test, docs/proposals/native-only.md §3. Model result: Sonnet, worked (stopped for a decision), 3 min (est. 60).\n",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
