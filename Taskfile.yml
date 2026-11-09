@@ -558,6 +558,24 @@ tasks:
       - cargo build --release -p stitchwort-cli -p stitchwort-standalone {{.DEV_FEATURES}}
       - nix develop .#compare -c bash bench/compare/compare.sh --sw {{.BENCH_SW}} {{.CLI_ARGS}}
 
+  bench:aoc:
+    desc: 'Native speed of every AoC day (bench/aoc): answers checked, instructions retired and wall time, against the previous run (task bench:aoc FILTER=2024; args after --)'
+    summary: |
+      Builds `stitchwort` and its native runtime library non-incrementally into
+      target/bench (as `bench:compare`), then bench/aoc/sweep.py builds each day natively, runs it on its input
+      (60 s each; a timeout is reported, not a failure), checks the answer
+      against crates/cli/tests/running/aoc_answers.rs and counts instructions.
+      Writes target/bench-aoc/<time>-<host>.json and prints the change per day
+      against the previous run (`-- --against old.json`, `--no-diff`).
+      FILTER is a year or a regex on YEAR/DAY ("2024/0[1-3]"). A measurement,
+      not a test: bench/aoc/README.md.
+    env:
+      CARGO_TARGET_DIR: '{{.BENCH_TARGET}}'
+      CARGO_PROFILE_RELEASE_INCREMENTAL: 'false'
+    cmds:
+      - cargo build --release -p stitchwort-cli -p stitchwort-standalone {{.DEV_FEATURES}}
+      - python3 -I bench/aoc/sweep.py --sw {{.BENCH_SW}} {{if .FILTER}}--filter '{{.FILTER}}'{{end}} {{.CLI_ARGS}}
+
   bench:compare:check:
     desc: 'Run every bench/compare runner once and compare its output with expected.txt (no timing; args after -- name programs)'
     env:
