@@ -6,8 +6,13 @@
 namespace Aoc.Year2020.Day21.Proofs
 import Aoc.Year2020.Day21 (..)
 import Aoc.Year2020.Day21 (Spec)
-import Aoc.Common.Proofs (assignFinds, assignOnly)
+import Aoc.Common (valueAt)
+import Aoc.Common.Proofs (assignFinds, assignOnly, mapValueAt, valueAtInjective, valueAtRelated)
 import Std (Bool, DecEq, Eq, List, Nat, Option, Ord, Ordering, Text, Void)
+
+--| The holders `assign` finds, read as the spec's function from allergens
+--| to ingredients.
+def FoodList.holderOf (list: FoodList) (holders: List Ingredient): Allergen → Ingredient := valueAt { name = "" } list.allergens holders
 
 theorem holdersFound (list: FoodList) (holders: List Ingredient) (found: list.holders = Some holders):
     List.All2 (holder allergen => holder ∈ list.candidates allergen) holders list.allergens ∧ holders.Distinct ∧ list.allergens.length = holders.length :=
@@ -20,15 +25,15 @@ theorem holdersFound (list: FoodList) (holders: List Ingredient) (found: list.ho
 
 --| The holders the elimination finds are a way the allergens could be.
 theorem holdersHolding (list: FoodList) (holders: List Ingredient) (found: list.holders = Some holders):
-    Spec.Holding list (holderOf list.allergens holders) :=
+    Spec.Holding list (list.holderOf holders) :=
   match holdersFound list holders found with
     | Both members (Both distinct lengths) =>
       Both
         (first second firstListed secondListed same =>
-          holderOfInjective list.allergens holders lengths distinct first second
+          valueAtInjective { name = "" } list.allergens holders lengths distinct first second
             ((memAllergens list first).backward firstListed) ((memAllergens list second).backward secondListed) same)
         (food inFoods allergen listed =>
-          let candidate := holderOfRelated (holder allergen => holder ∈ list.candidates allergen) list.allergens holders members allergen
+          let candidate := valueAtRelated { name = "" } (holder allergen => holder ∈ list.candidates allergen) list.allergens holders members allergen
             ((memAllergens list allergen).backward (Witness food (Both inFoods listed)))
           let could := And.right (List.memFilter list.ingredients (ingredient => list.couldHold ingredient allergen) candidate)
           (couldHoldIff list _ allergen).forward could food inFoods listed)
@@ -40,13 +45,13 @@ theorem dangerousValid (list: FoodList) (answer: Text) (found: list.dangerousLis
     | Some holders =>
       match holdersFound list holders settled with
         | Both members (Both distinct lengths) =>
-          Witness (holderOf list.allergens holders)
+          Witness (list.holderOf holders)
             (Both (holdersHolding list holders settled)
               (Witness list.allergens
                 (Both (distinctAllergens list)
                   (Both (memAllergens list)
                     (Both (alphabeticalAllergens list)
-                      (rewrite mapHolderOf list.allergens holders lengths (distinctAllergens list) in Eq.sym (Option.someInjective found)))))))
+                      (rewrite mapValueAt { name = "" } list.allergens holders lengths (distinctAllergens list) in Eq.sym (Option.someInjective found)))))))
     | None => Void.exfalso (Option.noneNotSome answer found)
 
 --| In any way the allergens could be, a listed allergen's holder is one of
