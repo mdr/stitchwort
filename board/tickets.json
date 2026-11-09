@@ -1,5 +1,5 @@
 {
-  "next": 2514,
+  "next": 2517,
   "tickets": [
     {
       "id": 47,
@@ -25342,12 +25342,51 @@
     {
       "id": 2513,
       "title": "Profile mapops natively (Std.Map: 24.2 G instructions, 2.38 s vs Lean's Std.TreeMap 0.31 s, ~7.7x; the largest wide-set gap): where do Map insert/lookup/remove spend, Quot wrapper overhead, comparison via Ord dictionary, allocation; ranked targets",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "Speedwell",
       "labels": [],
       "epic": "comparative-speed",
-      "body": "From SW-2503. Measurement only. 45 min.\n\nStarted 9 Nov 2026 07:32 UTC. Expected: 45 min.\n",
+      "body": "From SW-2503. Measurement only. 45 min.\n\nStarted 9 Nov 2026 07:32 UTC. Expected: 45 min.\n\nMerged 9 Nov 07:40. Record update sharing -48% (measured by rewriting), fused balance a further -25.6%, Lean 1.83 G vs our 24.2 G. Quot wrapper, Ord dictionary and effects cost nothing here. Filed SW-2514 (record update, Opus), SW-2515 (inline balance), SW-2516 (read-only walks). Model result: Sonnet, worked, 8 min (est. 45).\n",
+      "created": "2026-11-09",
+      "updated": "2026-11-09",
+      "commits": []
+    },
+    {
+      "id": 2514,
+      "title": "Compiler: a record update { w | f = g w.f } on a uniquely held record keeps w alive while g runs, so w.f is shared and every in-place reuse inside g is lost (mapops 24.2 G -> 12.6 G instructions, -48%, when written without it); take the field out of a unique record first. Affects every program that keeps state in records (AoC's house style)",
+      "status": "doing",
+      "agent": "Opus",
+      "where": "Speedwell",
+      "labels": [],
+      "epic": "comparative-speed",
+      "body": "From SW-2513 target 1 (docs/reviews/SW-2513-mapops-profile.md). Measure on mapops and bench:aoc. 2 h.\n\nStarted 9 Nov 2026 07:40 UTC. Expected: 120 min.\n",
+      "created": "2026-11-09",
+      "updated": "2026-11-09",
+      "commits": []
+    },
+    {
+      "id": 2515,
+      "title": "Std Map: inline balance/rebuild/bin into insertWith and remove so the old node's unpack reaches the new Bin and its cell is reused (mapops a further -25.6% after the record fix, measured by hand); then retest SW-814 on mapops",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "comparative-speed",
+      "body": "From SW-2513 target 2 (SW-2371 cause 2). After SW-2514. 60 min.",
+      "created": "2026-11-09",
+      "updated": "2026-11-09",
+      "commits": []
+    },
+    {
+      "id": 2516,
+      "title": "Std Map: read-only walks (get, contains) without copying fields: borrowed parameter or Field reads (est. -4 to -5% of mapops after the record fix; lookups ~250 instructions per level)",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "comparative-speed",
+      "body": "From SW-2513 target 3. 45 min.",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
