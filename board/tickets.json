@@ -1,5 +1,5 @@
 {
-  "next": 2579,
+  "next": 2580,
   "tickets": [
     {
       "id": 47,
@@ -26193,6 +26193,19 @@
       "labels": [],
       "epic": "comparative-speed",
       "body": "Daily tier 9 Nov on 5e3d050b0: report target/tier-report/daily-20261109-131742.md. 45 min.",
+      "created": "2026-11-09",
+      "updated": "2026-11-09",
+      "commits": []
+    },
+    {
+      "id": 2579,
+      "title": "Native frame blow-up: a lambda whose body is ~20 nested if/else over Nat arithmetic gets a 1.1-2.2 MB native frame, so native refuses the program (2M frames x 2 MB > 64 GiB). Five effect-fuzz batches (Overmind job 46). Find why the frame grows (suspect exponential with if nesting; maybe SW-2557's register-file path) and fix; decide whether the fuzzer should count a refusal as skipped",
+      "status": "backlog",
+      "agent": "Opus",
+      "where": "",
+      "labels": [],
+      "epic": "effects-native",
+      "body": "Overmind job 46, 9 Nov, main 894a8b549. Seeds 1794200320, 1794201291, 1794201473 (shrunk to 128/60/94 lines), 1794300165, 1794301295 (batch only). Smallest: def p0b0 (v0: Nat): {IO} Nat := let v2 := digest (List.map (List.range 0 1) (y => if 0 % 2 == 0 then if (y * v0 % 1000003) % 2 == 0 then y else if y % 2 == 0 then v0 else ... [about 20 nested ifs] ... else 3)); ... Reproduce with STITCHWORT_TEST_RUN=native STITCHWORT_EFFECT_FUZZ_SEED=1794201291 STITCHWORT_EFFECT_FUZZ_BATCHES=1 cargo test --release -p stitchwort-cli --test extraction effect_differential::generated -- --nocapture. Profile/measure frame size against nesting depth first. 120 min.",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
