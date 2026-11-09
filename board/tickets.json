@@ -1,5 +1,5 @@
 {
-  "next": 2582,
+  "next": 2583,
   "tickets": [
     {
       "id": 47,
@@ -26232,6 +26232,19 @@
       "labels": [],
       "epic": "diagnostics",
       "body": "Found 9 Nov in compute mode. Repro: examples/reject/decreasing-folded-goal.sw with 'decreasing n' changed to 'decreasing evensNil' (theorem evensNil (n: Nat): evens n = Nil := rfl, declared after). Add it as a reject example. 40 min.",
+      "created": "2026-11-09",
+      "updated": "2026-11-09",
+      "commits": []
+    },
+    {
+      "id": 2582,
+      "title": "Elab fuzzer: seed 0x2582 case 16878 (examples/accept/rows.sw with one comment moved two lines) takes over 6 GB inside the fuzzer, though the CLI checks it cold or warm (original then edited) in 0.2-0.8 s and 81 MB; find which oracle (likely 5, the in-process cache comparisons) blows up and why. Also give the fuzzer a per-case memory cap so one case can't kill the run",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "audit-fuzzing",
+      "body": "Found 9 Nov in compute mode by bisecting cases 16661-16900 under STITCHWORT_MEM_CAP_GB=6. Repro: STITCHWORT_MEM_CAP_GB=6 task fuzz:elab CASES=20000 SEED=0x2582 ONLY=16878 DUMP=1. Ruled out: check, test, fmt from the CLI; warm CLI cache. 60 min; escalate to Opus if it's a cache-rewind bug.",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
