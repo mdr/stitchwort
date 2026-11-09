@@ -2901,6 +2901,18 @@ pub fn quote_unfolded_shown(g: &Ev, level: usize, value: &Value) -> Result<Term>
     Ok(quote_as(g, level, value, Readback::UnfoldedShown, None)?.expect("no cap"))
 }
 
+/// [`quote_unfolded_shown`], or `None` if reading it back visits more than
+/// `cap` nodes: for a message that cuts the text short anyway, so it needn't
+/// unfold a value up to the budget's size limit (SW-2569).
+pub fn quote_unfolded_shown_at_most(
+    g: &Ev,
+    level: usize,
+    value: &Value,
+    cap: u64,
+) -> Result<Option<Term>> {
+    quote_as(g, level, value, Readback::UnfoldedShown, Some(cap))
+}
+
 /// How [`quote_as`] reads back glued calls.
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Readback {
