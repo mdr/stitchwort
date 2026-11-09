@@ -1,5 +1,5 @@
 {
-  "next": 2542,
+  "next": 2549,
   "tickets": [
     {
       "id": 47,
@@ -25628,12 +25628,12 @@
     {
       "id": 2535,
       "title": "Native by default, step 1 (sizing): measure how much of each program compiles natively today (bench/compare, a bench:aoc sample, Rogue, examples), the binary size and build time with Cranelift in the default binary, and plan N5 (differential suite under --native), the machine fallback inside built executables, and N6 for run/test/build, with estimates",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": "Speedwell",
       "labels": [],
       "epic": "effects-native",
-      "body": "D3448, Matt, 9 Nov 2026 09:18: yes, finish native code and make it the default for run, test and build (machine kept as --machine and as the fallback, including in built executables). N5 may run the whole differential suite under --native (Matt agreed the broader suite as part of D3448). This step measures and plans only; starts at the next free build slot. 90 min.\n\nStarted 9 Nov 2026 09:32 UTC. Expected: 90 min.\n",
+      "body": "D3448, Matt, 9 Nov 2026 09:18: yes, finish native code and make it the default for run, test and build (machine kept as --machine and as the fallback, including in built executables). N5 may run the whole differential suite under --native (Matt agreed the broader suite as part of D3448). This step measures and plans only; starts at the next free build slot. 90 min.\n\nStarted 9 Nov 2026 09:32 UTC. Expected: 90 min.\n\nMerged 9 Nov. Coverage: 16/16 bench, 57/57 AoC, 44/47 accept examples (3 not runnable), Rogue all native. Cranelift +2.8 MB stripped. Model result: Opus, worked, 12 min (est. 90).\n",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
@@ -25646,7 +25646,7 @@
       "where": "",
       "labels": [],
       "epic": "effects-native",
-      "body": "D3448 yes. After SW-2535's plan; split into lanes from it.",
+      "body": "D3448 yes. After SW-2535's plan; split into lanes from it.\n\nSplit per SW-2535 plan: SW-2542 (N5a), SW-2543 (T), SW-2544 (C), SW-2545 (F), then N5b broad run (orchestrator), SW-2546 (N6).\n",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
@@ -25712,6 +25712,97 @@
       "labels": [],
       "epic": "aoc-2020",
       "body": "Opus (D2427). Input: ~/repos/mdr/aoc/2020/src/main/resources/day21. Reuse Aoc.Common's settle/eliminate (SW-1540). Friction review with Matt after. Started 9 Nov 2026 09:44 UTC. Expected: 120 min.",
+      "created": "2026-11-09",
+      "updated": "2026-11-09",
+      "commits": []
+    },
+    {
+      "id": 2542,
+      "title": "Native default N5a: native switch in the CLI test helpers, a native backend in effect_differential.rs, native copies of machine.rs's differential cases",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "effects-native",
+      "body": "D3448; plan docs/reviews/SW-2535-native-default-plan.md step 1. 150 min.",
+      "created": "2026-11-09",
+      "updated": "2026-11-09",
+      "commits": []
+    },
+    {
+      "id": 2543,
+      "title": "Native default T: native stitchwort test (compile all test roots at once, evaluate a test's value natively, CLI hook so driver stays Cranelift-free, big-stack thread)",
+      "status": "backlog",
+      "agent": "Opus",
+      "where": "",
+      "labels": [],
+      "epic": "effects-native",
+      "body": "D3448; plan step 2. 240 min.",
+      "created": "2026-11-09",
+      "updated": "2026-11-09",
+      "commits": []
+    },
+    {
+      "id": 2544,
+      "title": "Native default C: native feature on by default in crates/cli and stitchwort-bin; dev/features-check asserts the web build has no Cranelift",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "effects-native",
+      "body": "D3448; plan step 3. 60 min.",
+      "created": "2026-11-09",
+      "updated": "2026-11-09",
+      "commits": []
+    },
+    {
+      "id": 2545,
+      "title": "Native default F: machine fallback for run and build when native refuses (shape per D3449)",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "effects-native",
+      "body": "D3448; plan step 4. Waits for D3449. 90 min.",
+      "created": "2026-11-09",
+      "updated": "2026-11-09",
+      "commits": []
+    },
+    {
+      "id": 2546,
+      "title": "Native default N6: new defaults, --machine, --native as native-or-fail, help text, bench/compare machine column, docs, guide and tour",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "effects-native",
+      "body": "D3448; plan step 6. After N5b passes. 180 min.",
+      "created": "2026-11-09",
+      "updated": "2026-11-09",
+      "commits": []
+    },
+    {
+      "id": 2547,
+      "title": "Hardened-runtime guard: a hardened binary without allow-jit should run on the machine instead of dying with SIGTRAP",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "effects-native",
+      "body": "From SW-2535. 45 min.",
+      "created": "2026-11-09",
+      "updated": "2026-11-09",
+      "commits": []
+    },
+    {
+      "id": 2548,
+      "title": "Test harnesses call the machine 'native' (effect_differential.rs BACKENDS, run_js.rs): rename",
+      "status": "backlog",
+      "agent": "DeepSeek",
+      "where": "",
+      "labels": [],
+      "epic": "effects-native",
+      "body": "From SW-2535. 20 min.",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
