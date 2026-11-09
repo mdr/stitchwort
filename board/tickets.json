@@ -25732,12 +25732,12 @@
     {
       "id": 2543,
       "title": "Native default T: native stitchwort test (compile all test roots at once, evaluate a test's value natively, CLI hook so driver stays Cranelift-free, big-stack thread)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Opus",
-      "where": "",
+      "where": "Speedwell",
       "labels": [],
       "epic": "effects-native",
-      "body": "D3448; plan step 2. 240 min.",
+      "body": "D3448; plan step 2. 240 min.\n\nStarted 9 Nov 2026 10:02 UTC. Expected: 240 min.\n",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
