@@ -1,5 +1,5 @@
 {
-  "next": 2564,
+  "next": 2565,
   "tickets": [
     {
       "id": 47,
@@ -25914,12 +25914,12 @@
     {
       "id": 2557,
       "title": "Native compile blows up on float_paths' generated program (484 KB .sw): run --native uses 17.9 GB and >100 s before running, machine runs it in 1.9 s / 260 MB",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": "Speedwell",
       "labels": [],
       "epic": "effects-native",
-      "body": "From SW-2542 (N5a). Repro: crates/cli/tests/running/float_paths.rs the_four_paths_agree_on_canonical_bits under STITCHWORT_TEST_RUN=native; generated program saved at /private/tmp/claude-550/-Users-agent-repos-mdr-stitchwort/8230e28a-2fab-4832-920d-c5160adb7e00/scratchpad/paths.sw. Blocks N5b and native-by-default. Profile first. Started 10:05 UTC. Expected: 120 min.",
+      "body": "From SW-2542 (N5a). Repro: crates/cli/tests/running/float_paths.rs the_four_paths_agree_on_canonical_bits under STITCHWORT_TEST_RUN=native; generated program saved at /private/tmp/claude-550/-Users-agent-repos-mdr-stitchwort/8230e28a-2fab-4832-920d-c5160adb7e00/scratchpad/paths.sw. Blocks N5b and native-by-default. Profile first. Started 10:05 UTC. Expected: 120 min.\n\nMerged 9 Nov (22cecd1eb). Cause: every error exit spilled every live register, quadratic in a list literal's length. Fix: bodies over 128 registers or 512 instructions use a heap register file and are compiled in parts of at most 512 instructions; normal bodies byte-identical. Repro 13.7 s, 316 MB (was >100 s, 17.9 GB). Cranelift verifier kept on (lane rec; no change). Model result: Opus, worked, 42 min (est. 120).\n",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
@@ -25998,6 +25998,19 @@
       "labels": [],
       "epic": "effects-native",
       "body": "Found by the orchestrator's check after merging SW-2471 (9 Nov). crates/driver/src/test_run.rs ~262 (cache key comment), crates/cli/tests/tools/test_failures.rs ~228-257. Orchestrator call: separate keys, since outcomes at the limit now differ by runner. Next free slot, first. 30 min.",
+      "created": "2026-11-09",
+      "updated": "2026-11-09",
+      "commits": []
+    },
+    {
+      "id": 2564,
+      "title": "Native compile time is linear but slow for generated-size bodies (0.55 ms per list element; half Cranelift's register allocator, a quarter its verifier): profile and reduce",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "effects-native",
+      "body": "From SW-2557. Part of plan step J (compile time). 60 min.",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
