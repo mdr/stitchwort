@@ -26283,7 +26283,7 @@
       "where": "",
       "labels": [],
       "epic": "test-infra",
-      "body": "Overmind job 51, 9 Nov 16:44-17:21, near the 11.6 GB cap. Cores in systemd-coredump on Overmind (PIDs 886309-895875). Failing tests: goal_index x4, guide quotes, named_arguments literals hashes, rewind examples, run_js and run_reference examples, check_cache x2, import_order. Logs on Overmind j51/. Find the fault address vs the stack mapping first. Tricky bug: Opus. 120 min.",
+      "body": "Overmind job 51, 9 Nov 16:44-17:21, near the 11.6 GB cap. Cores in systemd-coredump on Overmind (PIDs 886309-895875). Failing tests: goal_index x4, guide quotes, named_arguments literals hashes, rewind examples, run_js and run_reference examples, check_cache x2, import_order. Logs on Overmind j51/. Find the fault address vs the stack mapping first. Tricky bug: Opus. 120 min.\n\nOvermind job 52: NOT a stack overflow (sp ~57 KB into a 64 MB host::stack, far from the guard). Two cores: NULL deref at names_and_proofs+1471 (mov (%r15),%rdx), identical pc/sp in two processes. One core: memcpy from an unmapped address while QuickHasher hashes a &str key of HashMap<&str, Vec<Option<module::Receiver>>> in names_and_proofs <- decl_refs <- LibraryIndex::build. So a dangling/corrupt &str or pointer: use-after-free, lifetime or unsafe bug, or a thread race in LibraryIndex::build. Crashing processes were fresh `check --index - <small file> --no-cache`. 9 GB memory pressure alone didn't reproduce it (56 runs); job 51 had load 10-14. Start: read names_and_proofs/decl_refs for unsafe and borrowed &str; ASan; CPU-hog loop. Cores on Overmind j52/.\n",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
