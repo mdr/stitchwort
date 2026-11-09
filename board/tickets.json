@@ -1,5 +1,5 @@
 {
-  "next": 2526,
+  "next": 2527,
   "tickets": [
     {
       "id": 47,
@@ -25504,6 +25504,19 @@
       "labels": [],
       "epic": "comparative-speed",
       "body": "Matt asked, 9 Nov 2026 morning, before deciding D3440. Paper lane. 60 min.\n\nStarted 9 Nov 2026 08:37 UTC. Expected: 60 min. Paper lane.\n",
+      "created": "2026-11-09",
+      "updated": "2026-11-09",
+      "commits": []
+    },
+    {
+      "id": 2526,
+      "title": "Performance log (D3444): create docs/performance/log.md and backfill an entry per optimisation, kept or dropped, from 8-9 Nov 2026 and earlier where documented (problem + profile evidence, change, why results are the same, measurements, rejected/dropped, links)",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "Speedwell",
+      "labels": [],
+      "epic": "comparative-speed",
+      "body": "D3444 (Matt, 9 Nov 2026): yes. Paper lane: from tickets, commits and notes; no builds. 60 min.\n\nStarted 9 Nov 2026 08:40 UTC. Expected: 60 min. Paper lane.\n",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []

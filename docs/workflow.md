@@ -356,6 +356,15 @@ lane missed it and a batch failed:
   code's few comments. Never "document every X" outside std. Lanes keep
   writing comments that narrate the next line or the change, so review
   diffs for them.
+- **Speed work** (an optimisation, a measured attempt, or a profile that drops
+  or keeps one): "add an entry to `docs/performance/log.md`: the problem and
+  the profile evidence for it, the change, why results stay the same, the
+  measurements (instructions on the benchmarks it touches and the `bench:aoc`
+  geomean), what was rejected or dropped and why, and links to the ticket,
+  commits and notes". Dropped attempts and accepted regressions get entries
+  too, so they aren't tried again unknowingly. The orchestrator checks the
+  entry in review (D3444, Matt, 9 Nov 2026: "say what we did, why, what we
+  objected to, dropped").
 - **AoC and other application code:** small domain types, forward-reading
   call sites, statements with operators (CLAUDE.md, "Lane agents").
 - **A new AoC day** (Opus, D2427) asks for the gap analysis in its friction
