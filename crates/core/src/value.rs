@@ -59,9 +59,10 @@ pub enum Value {
 /// A value owned through a shared pointer: a function type's domain, the
 /// number a `NatAdd` adds to, the parts of an equality type.
 ///
-/// Freeing the last reference frees the value without recursing, like
-/// [`Values`] (SW-2482): a chain of these a million deep (`Eq (Eq (Eq …))`)
-/// would otherwise overflow the stack in the default drop.
+/// A chain of these a million deep (`Eq (Eq (Eq …))`) would overflow the
+/// stack in the default drop (SW-2482), so freeing the last reference drops
+/// the value the default way only down to [`NESTING_LIMIT`] levels, then
+/// frees the rest iteratively, as [`Values`] does.
 #[derive(Clone, Debug)]
 pub struct Shared(Rc<Value>);
 
@@ -112,27 +113,27 @@ impl std::ops::Deref for Shared {
 impl Drop for Shared {
     #[inline]
     fn drop(&mut self) {
-        if Rc::strong_count(&self.0) == 1 && !self.0.is_flat() {
-            self.free_deep();
+        if Rc::strong_count(&self.0) == 1 && !self.0.is_atom() {
+            self.free_nested();
         }
     }
 }
 
 impl Shared {
+    /// Drops the value the default way, counting the nesting.
     #[inline(never)]
-    fn free_deep(&mut self) {
-        let Ok(hole) = HOLE.try_with(Rc::clone) else {
-            return; // the thread is ending
-        };
-        if let Ok(value) = Rc::try_unwrap(std::mem::replace(&mut self.0, hole)) {
-            free_iteratively(|pending| pending.push(value));
+    fn free_nested(&mut self) {
+        if let Some(value) = Rc::get_mut(&mut self.0) {
+            drop_nested(std::mem::replace(value, Value::Refl), |value, pending| {
+                pending.push(value)
+            });
         }
     }
 }
 
 /// The arguments of a [`Value::Data`]. Like [`Values`] and [`Shared`], freeing
-/// them doesn't recurse (SW-2482): `List (List (List …))` a million deep is a
-/// chain of these.
+/// them is bounded the same way as a [`Shared`] (SW-2482): `List (List (List
+/// …))` a million deep is a chain of these.
 #[derive(Clone, Debug, Default)]
 pub struct DataArgs(Vec<Value>);
 
@@ -191,17 +192,37 @@ impl<'a> IntoIterator for &'a DataArgs {
 impl Drop for DataArgs {
     #[inline]
     fn drop(&mut self) {
-        if !self.0.iter().all(Value::is_flat) {
-            self.free_deep();
+        if self.0.iter().any(|arg| !arg.is_atom()) {
+            drop_nested(self.take(), |args, pending| pending.extend(args));
         }
     }
 }
 
-impl DataArgs {
-    #[inline(never)]
-    fn free_deep(&mut self) {
-        let args = self.take();
-        free_iteratively(|pending| pending.extend(args));
+/// How many [`Shared`] and [`DataArgs`] drops are running inside one another
+/// on this thread. A level takes between 256 and 512 bytes of stack (a limit
+/// of 512 passes the tests on their 256 KB stack, 1024 overflows it), so 128
+/// uses at most about 64 KB: the tests have a factor of four to spare, and a
+/// drop started deep in the checker has room.
+const NESTING_LIMIT: usize = 128;
+
+thread_local! {
+    static NESTING: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
+
+/// Drops `owned` the default (recursive) way, which is the cheapest for the
+/// shallow values nearly all of them are, until the drops are
+/// [`NESTING_LIMIT`] deep; then `to_pending` moves it onto the work list
+/// instead, and [`free_iteratively`] frees it and all it holds without
+/// recursing. Each level here costs a few small stack frames, so the limit
+/// bounds the stack a drop uses however deep the value is (SW-2482).
+fn drop_nested<T>(owned: T, to_pending: impl FnOnce(T, &mut Vec<Value>)) {
+    let depth = NESTING.try_with(|n| n.get()).unwrap_or(NESTING_LIMIT);
+    if depth >= NESTING_LIMIT {
+        free_iteratively(|pending| to_pending(owned, pending));
+    } else {
+        NESTING.with(|n| n.set(depth + 1));
+        drop(owned);
+        NESTING.with(|n| n.set(depth));
     }
 }
 
@@ -214,22 +235,6 @@ impl Value {
         match self {
             Value::Data(_, args) => args.is_empty(),
             Value::Eq(..) | Value::Pi(..) | Value::NatAdd(..) => false,
-            _ => true,
-        }
-    }
-
-    /// Whether dropping this recurses at most one level further: everything
-    /// it owns through a [`Shared`] or [`DataArgs`] is an atom. A wrapper
-    /// whose contents are flat can drop them the default way, which keeps
-    /// the common shallow value (`Eq Nat a b`, `List Nat`) cheap; anything
-    /// else is freed through the work list.
-    #[inline]
-    fn is_flat(&self) -> bool {
-        match self {
-            Value::Data(_, args) => args.iter().all(Value::is_atom),
-            Value::Eq(a, b, c) => a.is_atom() && b.is_atom() && c.is_atom(),
-            Value::Pi(_, _, domain, _) => domain.is_atom(),
-            Value::NatAdd(_, base) => base.is_atom(),
             _ => true,
         }
     }
