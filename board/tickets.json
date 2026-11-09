@@ -26358,12 +26358,12 @@
     {
       "id": 2591,
       "title": "search_at_aoc::search_at_on_aoc_goals doesn't finish: killed at 2 h (job 54) and 73 min (job 51) on Overmind; docs/testing.md says about 10 minutes. Slow or stuck? Find the goal",
-      "status": "backlog",
+      "status": "review",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "proof-search",
-      "body": "Overmind jobs 51 and 54, 9 Nov. Run alone first (Overmind job 55). 45 min.\n\nOvermind job 55 (main 3c92cf18d, 9 Nov): search_at_aoc alone, capped at 60 min. 142 of 143 goals done in about 10 min; the one left is aoc/src/Aoc/Year2024/Day22/Proofs/Keys.sw:111 (digitChangesPossible), still running at the cap, one thread busy the whole time. Repro: run search_at_aoc limited to that goal. Not investigated (compute mode). Same job: 7 leftover tests passed, doctests ok, verify-cache ok.",
+      "body": "Overmind jobs 51 and 54, 9 Nov. Run alone first (Overmind job 55). 45 min.\n\nOvermind job 55 (main 3c92cf18d, 9 Nov): search_at_aoc alone, capped at 60 min. 142 of 143 goals done in about 10 min; the one left is aoc/src/Aoc/Year2024/Day22/Proofs/Keys.sw:111 (digitChangesPossible), still running at the cap, one thread busy the whole time. Repro: run search_at_aoc limited to that goal. Not investigated (compute mode). Same job: 7 leftover tests passed, doctests ok, verify-cache ok.\n\nLane (Sonnet, SW-2591, 9 Nov): cause found and fixed, commit 25fc92535 on lane/SW-2591.\nNot a loop in the search: `term_within` (core/src/pretty.rs) printed a term in full before cutting it to its limit; for digitChangesPossible's goal (closed list of 130,321 sequences) that print, built from the inside out, was quadratic. It ran in open_goal_at (show_with_vars), outside the search's time budget. Also rewrite_plans' quote_folded of the goal now runs under the comparison budget.\nFix: terms over 20,000 nodes are printed only at limited depth. Regression test core `pretty::a_huge_nested_term_is_cut_off_without_printing_it_whole` (0.06 s; hangs without the fix).\nGoal alone: over an hour before; 19 s warm (102 s with a cold check cache), release. Full search_at_aoc (STITCHWORT_TIER=full, release, timeout 1200): ok, 332 s.\nModel result: Sonnet, worked, 37 min (est. 75 min)\n",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
