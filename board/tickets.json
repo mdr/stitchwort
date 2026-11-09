@@ -25290,12 +25290,12 @@
     {
       "id": 2509,
       "title": "value-census after SW-2499: a moved resumption is counted allocated as Fun::Resume but freed as Fun::DoneK; check the census's per-kind balance and fix the accounting",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Sonnet",
-      "where": "",
+      "where": "Speedwell",
       "labels": [],
       "epic": "comparative-speed",
-      "body": "From reviewing SW-2499. 20 min.",
+      "body": "From reviewing SW-2499. 20 min.\n\nStarted 9 Nov 2026 07:24 UTC. Expected: 20 min.\n",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
@@ -25303,12 +25303,12 @@
     {
       "id": 2510,
       "title": "R7 (reuse a rebuilt forwarded operation) and reuse of the moved resumption's own cell (R3-style), after SW-2499",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Sonnet",
-      "where": "",
+      "where": "Speedwell",
       "labels": [],
       "epic": "comparative-speed",
-      "body": "From SW-2499; SW-2493 option 5 est. R7 -1.2 to -1.5% expressions. 60 min.",
+      "body": "From SW-2499; SW-2493 option 5 est. R7 -1.2 to -1.5% expressions. 60 min.\n\nStarted 9 Nov 2026 07:24 UTC. Expected: 60 min.\n",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
@@ -25329,12 +25329,12 @@
     {
       "id": 2512,
       "title": "A chain of shared lets (t1 := f x x; t2 := f t1 t1; ...) followed by a match is exponential in the elaborator (16 lets 2.3 s vs 0.6 s without the match; 20 lets OOM; 40 E-RESOURCE), on main before SW-2481 too: find where and fix",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Opus",
-      "where": "",
+      "where": "Speedwell",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "From SW-2481's review fixes (F2 example). 90 min.",
+      "body": "From SW-2481's review fixes (F2 example). 90 min.\n\nStarted 9 Nov 2026 07:24 UTC. Expected: 90 min.\n",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
