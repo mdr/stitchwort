@@ -85,9 +85,11 @@ fn work_dir(name: &str) -> PathBuf {
 
 /// `stitchwort ARGS` in `dir`, linking with the test build's library.
 fn stitchwort(dir: &Path, args: &[&str], input: &[u8]) -> Output {
-    let mut command = Command::new(env!("CARGO_BIN_EXE_stitchwort"));
+    let mut command = match args.split_first() {
+        Some((subcommand, flags)) => crate::common::cli_with(subcommand, flags),
+        None => crate::common::cli_plain("--help"),
+    };
     command
-        .args(args)
         .current_dir(dir)
         .env("STITCHWORT_RUNTIME", runtime_library());
     run_with_input(command, input)

@@ -6,7 +6,7 @@
 
 use std::io::Write;
 use std::path::{Path, PathBuf};
-use std::process::{Command, Output, Stdio};
+use std::process::{Output, Stdio};
 
 use stitchwort_cli::driver::par_map;
 
@@ -29,11 +29,14 @@ fn examples() -> PathBuf {
 
 /// Runs `stitchwort run [--reference] args...` with `input` piped to it.
 fn run_args(args: &[&std::ffi::OsStr], reference: bool, input: &[u8]) -> Output {
-    let mut command = Command::new(env!("CARGO_BIN_EXE_stitchwort"));
-    command.args(["run", "--no-cache"]);
-    if reference {
+    let mut command = if reference {
+        let mut command = crate::common::cli_plain("run");
         command.arg("--reference");
-    }
+        command
+    } else {
+        crate::common::cli("run")
+    };
+    command.arg("--no-cache");
     let mut child = command
         .args(args)
         .stdin(Stdio::piped())
@@ -278,8 +281,8 @@ fn type_errors_stop_it_before_running() {
 /// `--reference` and `--js` choose different runners.
 #[test]
 fn reference_and_js_conflict() {
-    let output = Command::new(env!("CARGO_BIN_EXE_stitchwort"))
-        .args(["run", "--no-cache", "--reference", "--js"])
+    let output = crate::common::cli_plain("run")
+        .args(["--no-cache", "--reference", "--js"])
         .arg(examples().join("collatz.sw"))
         .output()
         .expect("run stitchwort");

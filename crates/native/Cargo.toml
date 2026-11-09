@@ -31,6 +31,8 @@ stitchwort-dev-features.workspace = true
 # The N1 tests check and lower programs from source, and compare allocation
 # traces.
 stitchwort-driver.workspace = true
+# `tests/it/differential.rs`, shared with `stitchwort-rt`'s tests.
+stitchwort-elab.workspace = true
 stitchwort-rt.workspace = true
 # N4 parses the effect examples' `-- run:` lines.
 stitchwort-syntax.workspace = true

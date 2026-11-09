@@ -117,8 +117,7 @@ fn check_with(year: &str, day: &str, cache: &[&str]) {
     let input = std::fs::File::open(dir.join(format!("inputs/{year}/day{day}.txt")))
         .expect("open the puzzle input");
     let output = spawn(
-        Command::new(env!("CARGO_BIN_EXE_stitchwort"))
-            .arg("run")
+        crate::common::cli("run")
             .args(cache)
             .arg(format!("Aoc.Year{year}.Day{day}.main"))
             .current_dir(&dir)
@@ -333,7 +332,7 @@ fn year2021_day14() {
 
 /// About 20 s interpreted with `--no-cache` (part 2: Dijkstra over 250,000
 /// positions with std's tree-based `Set` and `Map`), the slowest day here;
-/// 4.5 s with `--native`, 3 s with `--js` (aoc/NOTES-2021.md, day 15).
+/// 4.5 s with `run --native`, 3 s with `--js` (aoc/NOTES-2021.md, day 15).
 #[test]
 fn year2021_day15() {
     check("2021", "15");

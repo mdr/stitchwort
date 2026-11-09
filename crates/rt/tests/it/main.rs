@@ -2,9 +2,12 @@
 
 mod alloc_trace;
 mod arrays;
+mod backend;
 mod clause_kinds;
 mod codec;
 mod dispatch;
+#[macro_use]
+mod differential;
 mod effect_runtime;
 mod interp;
 mod linked;

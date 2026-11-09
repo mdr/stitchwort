@@ -1,8 +1,13 @@
 //! The crate's integration tests in one binary (docs/proposals/fewer-test-binaries.md).
 
+mod backend;
 mod common;
+#[macro_use]
+#[path = "../../../rt/tests/it/differential.rs"]
+mod differential;
 mod determined_fields;
 mod frames;
+mod machine_native;
 mod n1;
 mod n2b;
 mod n3;
