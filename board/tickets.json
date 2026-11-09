@@ -24939,12 +24939,12 @@
     {
       "id": 2482,
       "title": "Make every deep Value free iterative, not just Values/Unfolding/Spine: Data(Vec<Value>) args, Pi's Rc<Value> domain, Eq and other boxed fields still recurse when dropped directly (outside detach); a fuzz case nested through them would overflow like SW-2452/SW-2468",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "Speedwell",
       "labels": [],
       "epic": "audit-fuzzing",
-      "body": "From SW-2468. Find every type owning Values (grep Rc<Value>, Box<Value>, Vec<Value> in crates/core), route each through free_iteratively, add a unit test per path like freeing_a_deep_spine_does_not_overflow_the_stack. 45 min.\n\nStarted 9 Nov 2026 03:50 UTC. Expected: 45 min.\n",
+      "body": "From SW-2468. Find every type owning Values (grep Rc<Value>, Box<Value>, Vec<Value> in crates/core), route each through free_iteratively, add a unit test per path like freeing_a_deep_spine_does_not_overflow_the_stack. 45 min.\n\nStarted 9 Nov 2026 03:50 UTC. Expected: 45 min.\n\nMerged 9 Nov 04:38 (core 402, elab 159, hashes 14, examples 12 passed). Data args (DataArgs) and Rc<Value> fields (Shared: Pi domain, NatAdd base, Eq parts) plus Unfolding.base chains now free with the default recursion up to NESTING_LIMIT = 128 levels (~64 KB), then through free_iteratively. Six million-deep tests on a 256 KB thread. A first version (always iterative) cost +1.3-1.6% on check --no-cache and was not merged; this one is +0.2-0.6% on two files, level on one (noise ~0.5%): orchestrator's call to accept. Not covered: Value::Resumption(Rc<Capture>). Model result: Sonnet, needed fixes (first version too slow), 44 min (est. 45).\n",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
