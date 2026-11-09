@@ -355,3 +355,26 @@ expressions -1.8%; -2.7%, scan -1.7%; -2.2%; others within 1%. Geomean
 apart): it matches Speedwell's bridge and disk numbers, and memory-game and
 octopus are record-update loops too. rbmap-ck is unchanged at 1.80 s
 (SW-2523's layout regression remains, accepted).
+
+## Job 40: compiled handler dispatch and context inlining (Overmind, 9 Nov 2026 10:17, `f9d2d8320`)
+
+SW-2511 (compiled handler dispatch, with the Unpack unused-field change) and
+SW-2531 (context inlining). Check 64 ok; 2245 s. Report:
+`target/compare/2026-11-09T101739-overmind.md` on Overmind.
+
+Geomeans by time: core 1.90x CPython, 7.99x Lean (job 39: 2.18x, 9.18x);
+wide 0.32x and 2.68x (job 39: 0.34x, 2.86x); all 15: 1.04x and 5.55x.
+Instructions: core 1.63x and 7.59x.
+
+Against job 39 (native, time; instructions): scan -35.7%; -31.1%,
+expressions -30.9%; -25.9%, bridge -25.3%; -21.3%, mapops -21.1%; -24.6%,
+disk -18.8%; -17.2%, rbmap-ck -10.8%; -4.4%, matcher -5.2%; -3.9%,
+dijkstra -5.0%; -7.3%. Geomean over 15: -10.7%; -10.4%. Instruction drops
+match Speedwell's predictions within a point (disk and dijkstra a little
+better).
+
+Time worse than instructions: rbmap +1.5% time at -8.5% instructions (a
+10-point gap, tight runs), memory-game +4.0% at -1.1%, binary-trees +2.2% at
+0%. Suspected: the Unpack change (cells returned to the cache) altering
+locality, as in SW-2523. Overmind is comparing perf counters of jobs 39 and
+40. rbmap-ck recovered about two thirds of SW-2523's 16%.
