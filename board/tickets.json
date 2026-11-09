@@ -25147,12 +25147,12 @@
     {
       "id": 2498,
       "title": "Design note: compiled handler dispatch (one dispatch closure per handler, clause chosen by the operation's tag; no %elim of eight clauses copied and dropped per operation): est. -9 to -12% expressions, -11 to -14% scan, nothing user-visible; native and JS runtimes",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Opus",
-      "where": "",
+      "where": "Speedwell",
       "labels": [],
       "epic": "comparative-speed",
-      "body": "From SW-2493 option 2 (docs/reviews/SW-2493-parse-operation-cost.md). Paper lane. 90 min.",
+      "body": "From SW-2493 option 2 (docs/reviews/SW-2493-parse-operation-cost.md). Paper lane. 90 min.\n\nStarted 9 Nov 2026 06:43 UTC. Expected: 90 min.\n",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
@@ -25160,12 +25160,12 @@
     {
       "id": 2499,
       "title": "Runtime: sw_resume_begin moves the fields of a resumption nothing else holds instead of copying them, plus R7 (rebuilt forwarded operations reused): est. -3 to -5% expressions, -2 to -4% scan; no user-visible change",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Sonnet",
-      "where": "",
+      "where": "Speedwell",
       "labels": [],
       "epic": "comparative-speed",
-      "body": "From SW-2493 option 5. Measure first with bench:instructions. 60 min.",
+      "body": "From SW-2493 option 5. Measure first with bench:instructions. 60 min.\n\nStarted 9 Nov 2026 06:43 UTC. Expected: 60 min.\n",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
