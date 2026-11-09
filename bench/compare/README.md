@@ -146,9 +146,11 @@ Most of the AoC days run a scaled copy of the real input so that Lean takes
 scaled is committed. `expressions` repeats the real input 180 times, `scan`
 200 and `bridge` 150; `matcher` keeps the rules once and repeats the messages
 16 times; `disk` repeats the disk map 45 times with a `0` between copies, so
-files and gaps still alternate. `octopus` is the real grid tiled 2 by 2, where
-Lean takes about 0.14 s, below the 0.3 s floor: a bigger cavern rarely flashes
-all at once, and the one that does (30 by 30) takes `run` over two minutes.
+files and gaps still alternate. `octopus` is the real grid tiled 2 by 2; its part 2
+finds the first all-flash step (353), so it stops far short of the programs'
+10,000-step limit. A 30 by 30 cavern never
+flashes all at once with plain tiling, and one that does takes `run` over two
+minutes.
 After changing a scale, regenerate `expected.txt` from the Lean program and
 check that the other runners agree.
 
