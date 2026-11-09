@@ -19,6 +19,7 @@ use stitchwort_core::{BigUint, DataId, DefId, Ev, Icit, Limits, QuotForm, Sort, 
 use stitchwort_syntax::Diagnostic;
 
 use crate::clauses::Classifier;
+use crate::dispatch::{Dispatch, Step};
 use crate::effect::{Carrier, EffectNatives, EffectOp, Forwards};
 use crate::erasure::{
     DefShape, def_shape, is_done_continuation, nat_shape, stored_count, stored_fields, text_literal,
@@ -392,10 +393,9 @@ struct Lowerer<'g> {
     hoisting: bool,
     /// Where lowering is in the case tree of the definition being lowered.
     tree: Option<Tree>,
-    /// Lowers a handler's step as one dispatch closure (SW-2507 spike).
-    dispatch: Option<crate::dispatch::Dispatch>,
-    /// The next definition applied is a fused state handler's step.
-    state_step: bool,
+    /// Lowers each handler's step as one closure that dispatches on the
+    /// operation ([`crate::dispatch`]), when there are natives.
+    dispatch: Option<Dispatch>,
 }
 
 impl<'g> Lowerer<'g> {
@@ -449,8 +449,7 @@ impl<'g> Lowerer<'g> {
             hoisted_base: 0,
             hoisting: false,
             tree: None,
-            dispatch: EffectNatives::new(g).and_then(|_| crate::dispatch::Dispatch::new(g)),
-            state_step: false,
+            dispatch: EffectNatives::new(g).and_then(|_| Dispatch::new(g)),
         })
     }
 
@@ -887,12 +886,11 @@ impl<'g> Lowerer<'g> {
     /// A definition applied to `args`: erased arguments are left out, and
     /// with all its runtime arguments it's a saturated call.
     fn apply_def(&mut self, id: DefId, args: &[&Term]) -> Result<Expr> {
-        let state_step = std::mem::take(&mut self.state_step);
         if let Some(dispatch) = &self.dispatch
             && id == dispatch.handle_plus
-            && let Some(step) = dispatch.rewrite(self.g, args, state_step)?
+            && let Some(step) = dispatch.rewrite(self.g, args, false)?
         {
-            return self.expr(&step);
+            return self.dispatch_step(step);
         }
         // A closed signature map (a `translate`'s, say): a constant,
         // computed when first used and kept, not built again on every call
@@ -968,10 +966,14 @@ impl<'g> Lowerer<'g> {
                 EffectOp::FoldState
             };
             let done = self.expr(&fused.done)?;
-            self.state_step = true;
-            let call = self.expr(&fused.call);
-            self.state_step = false;
-            let runtime = vec![done, call?, self.expr(args[6])?];
+            let call = match &self.dispatch {
+                Some(dispatch) => match dispatch.rewrite_term(self.g, &fused.call, true)? {
+                    Some(step) => self.dispatch_step(step)?,
+                    None => self.expr(&fused.call)?,
+                },
+                None => self.expr(&fused.call)?,
+            };
+            let runtime = vec![done, call, self.expr(args[6])?];
             let rest = self.exprs(&args[7..])?;
             return Ok(apply(Expr::Prim(PrimOp::Effect(op), runtime), rest));
         }
@@ -1144,9 +1146,33 @@ impl<'g> Lowerer<'g> {
         Ok(apply(f, vec![Expr::Erased]))
     }
 
+    /// A handler's step rewritten as a dispatch: its bound clauses, each
+    /// computed once, then the dispatch's closure.
+    fn dispatch_step(&mut self, step: Step) -> Result<Expr> {
+        let mark = self.mark();
+        let mut lets = Vec::with_capacity(step.bound.len());
+        for value in &step.bound {
+            let value = self.expr(value);
+            let slot = self.bind_slot();
+            lets.push((slot, value));
+        }
+        let closure = self.closure(&step.closure, true);
+        self.leave(mark);
+        let mut out = closure?;
+        for (slot, value) in lets.into_iter().rev() {
+            out = Expr::Let(slot, Box::new(value?), Box::new(out));
+        }
+        Ok(out)
+    }
+
     /// Consecutive lambdas, as one closure capturing the outer variables
     /// its body reads.
     fn lambda(&mut self, term: &Term) -> Result<Expr> {
+        self.closure(term, false)
+    }
+
+    /// [`Self::lambda`], marked as a handler's dispatch if `dispatch`.
+    fn closure(&mut self, term: &Term, dispatch: bool) -> Result<Expr> {
         if let Term::Lam(_, _, body) = strip(term)
             && is_done_continuation(self.g, body)
         {
@@ -1172,6 +1198,7 @@ impl<'g> Lowerer<'g> {
             params: u32::try_from(params).expect("params fit"),
             captures: u32::try_from(captures.len()).expect("captures fit"),
             body: code,
+            dispatch,
         });
         Ok(Expr::Closure(id, sources))
     }

@@ -1,16 +1,39 @@
-//! Compiled handler dispatch, stage 1a spike (SW-2507,
-//! docs/proposals/compiled-handler-dispatch.md §2): a handler's step
-//! `handlePlus [5 implicit] (A.%elim [implicit…] c₁ … cₙ) forward` lowered as
-//! one closure `o k [jump s] => case o of L o′ => case o′ of opᵢ x => cᵢ x k
-//! [jump s] | R o′ => forward o′ k [jump s]`, the two case trees being
-//! `handlePlus`'s and `A.%elim`'s own run bodies with their parameters
-//! replaced by the arguments. Each clause and the forward occurs once, in
-//! its arm, so a literal lambda there is β-reduced by the lowering; a clause
-//! that isn't a lambda or a variable is bound by a `let` outside the closure,
-//! so it is still computed once, at handler start.
+//! Compiled handler dispatch (docs/proposals/compiled-handler-dispatch.md
+//! §2, stage 1): a handler's step
 //!
-//! A prototype for measurement, not finished work: it has no unit tests, and
-//! `SW_NO_DISPATCH=1` at build time turns it off.
+//! ```text
+//! handlePlus [5 implicit] (A.%elim [implicit…] c₁ … cₙ) forward
+//! ```
+//!
+//! lowered as one closure
+//!
+//! ```text
+//! o k [jump s] => case o of
+//!   L o′ => case o′ of opᵢ x => cᵢ x k [jump s]
+//!   R o′ => forward o′ k [jump s]
+//! ```
+//!
+//! instead of two partial applications that copy every clause into each
+//! call. The two case trees are `handlePlus`'s and `A.%elim`'s own run
+//! bodies, their parameters replaced by the arguments, so a change to
+//! either definition changes the dispatch with it. Each clause and the
+//! forward occurs once, in its arm, and the lowering's β-reduction turns a
+//! literal lambda there into `let`s: no clause closure is built. A clause
+//! or forward that isn't a lambda or a variable is bound outside the
+//! closure ([`Step::bound`]), so it is still computed once, when the
+//! handler starts.
+//!
+//! The rewrite runs on the checked term, in the runtime's lowering only:
+//! kernel terms, hashes and the JS backend are untouched. Every step shape
+//! goes through it: a fold's (`foldComp`, and the steps given to
+//! `foldCompD` or `foldD` as function values, whatever their forward
+//! variant: the divergence-indexed `callD`, the partial `bindD`, the bare
+//! row's `lowerIn`), and a fused state handler's ([`crate::fusion`]), whose
+//! dispatch takes `jump` and `s` too, since the loop always gives it four
+//! arguments.
+//!
+//! The closure's frame holds the slots of its largest arm, not their sum:
+//! the arms of a `match` reuse each other's slots (`Lowerer::mark`).
 
 use std::rc::Rc;
 
@@ -22,17 +45,25 @@ use stitchwort_core::{DefId, Ev, Term};
 use crate::erasure::def_shape;
 use crate::fusion::{spine_icit, strip};
 
+/// What the rewrite needs to know about the core.
 pub struct Dispatch {
     pub handle_plus: DefId,
+    /// Which of `handlePlus`'s parameters are erased.
     mask: Vec<bool>,
     arity: usize,
 }
 
+/// A step rewritten: `bound[0]`, …, then the closure, each term in the
+/// scope of the step with the earlier ones bound (`let`s, outermost first).
+pub struct Step {
+    pub bound: Vec<Term>,
+    /// The dispatch: a lambda of `o`, `k` and, for a fused state handler,
+    /// `jump` and `s`.
+    pub closure: Term,
+}
+
 impl Dispatch {
     pub fn new(g: &Ev) -> Option<Dispatch> {
-        if std::env::var_os("SW_NO_DISPATCH").is_some() {
-            return None;
-        }
         let handle_plus = g.env.registry().loaded_def(Builtin::HandlePlus)?;
         let mask = def_shape(g, handle_plus, false).ok()?.mask().to_vec();
         let arity = g.def(handle_plus).arity();
@@ -44,10 +75,24 @@ impl Dispatch {
         })
     }
 
-    /// `handlePlus` applied to `args` (everything but `o` and `k`) as one
-    /// lambda of `o`, `k` and, where `state` (a fused state handler's step,
-    /// which the loop always gives four arguments), `jump` and `s`.
-    pub fn rewrite(&self, g: &Ev, args: &[&Term], state: bool) -> Result<Option<Term>> {
+    /// `term` as a dispatch, if it is `handlePlus` applied to everything
+    /// but `o` and `k`.
+    pub fn rewrite_term(&self, g: &Ev, term: &Term, state: bool) -> Result<Option<Step>> {
+        match spine_icit(term) {
+            Some((Term::Def(id), args)) if *id == self.handle_plus => {
+                let args: Vec<&Term> = args.iter().map(|(a, _)| *a).collect();
+                self.rewrite(g, &args, state)
+            }
+            _ => Ok(None),
+        }
+    }
+
+    /// `handlePlus` applied to `args` (everything but `o` and `k`, implicit
+    /// ones included) as a dispatch of `o`, `k` and, where `state` (a fused
+    /// state handler's step), `jump` and `s`. `None` where the left step
+    /// isn't a definition (an ability's `%elim`) given all but its last
+    /// two arguments: the step is then lowered as it is.
+    pub fn rewrite(&self, g: &Ev, args: &[&Term], state: bool) -> Result<Option<Step>> {
         if args.len() + 2 != self.arity || self.mask.len() < self.arity {
             return Ok(None);
         }
@@ -121,27 +166,24 @@ impl Dispatch {
         let Some(body) = inline_call(g, self.handle_plus, &plus_args, Some(elim))? else {
             return Ok(None);
         };
-        let mut out = body;
+        let mut closure = body;
         for name in ["s", "jump", "k", "o"].into_iter().skip(4 - new) {
-            out = Term::Lam(name.into(), Icit::Explicit, Rc::new(out));
+            closure = Term::Lam(name.into(), Icit::Explicit, Rc::new(closure));
         }
-        for (j, (_, value)) in bound.iter().enumerate().rev() {
-            out = Term::Let(
-                "c".into(),
-                Rc::new(Term::Refl),
-                Rc::new(value.shift(g, j, 0)?),
-                Rc::new(out),
-                false,
-            );
-        }
-        Ok(Some(out))
+        let bound = bound
+            .iter()
+            .enumerate()
+            .map(|(j, (_, value))| value.shift(g, j, 0))
+            .collect::<Result<_>>()?;
+        Ok(Some(Step { bound, closure }))
     }
 }
 
 /// `id`'s case tree with its parameters replaced by `args` (terms in the
-/// current scope, at least its arity of them; a scrutinee's must be a
-/// variable) and the rest applied in each arm; an arm that is then a
-/// saturated call of `also` is inlined in turn.
+/// current scope, at least its arity of them) and the rest applied in each
+/// arm; an arm that is then a saturated call of `also` is inlined in turn.
+/// `None` if a parameter the tree matches on is given something other than
+/// a variable (only a variable can be a scrutinee).
 fn inline_call(g: &Ev, id: DefId, args: &[Term], also: Option<DefId>) -> Result<Option<Term>> {
     let def = g.def(id);
     let arity = def.arity();
@@ -151,7 +193,17 @@ fn inline_call(g: &Ev, id: DefId, args: &[Term], also: Option<DefId>) -> Result<
     if args.len() < arity {
         return Ok(None);
     }
-    let mut lams = Term::peel_lams_rc(body, arity).as_ref().clone();
+    let tree = Term::peel_lams_rc(body, arity);
+    let mut matched = Vec::new();
+    scrutinees(&tree, 0, &mut matched);
+    // Parameter `p` is variable `arity - 1 - p` at the tree's top.
+    if matched
+        .iter()
+        .any(|v| *v >= arity || !matches!(strip(&args[arity - 1 - v]), Term::Var(_)))
+    {
+        return Ok(None);
+    }
+    let mut lams = tree.as_ref().clone();
     for _ in 0..arity {
         lams = Term::Lam("x".into(), Icit::Explicit, Rc::new(lams));
     }
@@ -180,6 +232,34 @@ fn inline_call(g: &Ev, id: DefId, args: &[Term], also: Option<DefId>) -> Result<
         Ok(t)
     };
     Ok(Some(map_leaves(&lams, 0, &leaf)?))
+}
+
+/// The variables free at the top of case tree `term` (`depth` binders
+/// below it) that it matches on, as indices at the top.
+fn scrutinees(term: &Term, depth: usize, out: &mut Vec<usize>) {
+    match term {
+        Term::Loc(_, inner) => scrutinees(inner, depth, out),
+        Term::Case(ix, _, branches) => {
+            if *ix >= depth {
+                out.push(ix - depth);
+            }
+            for branch in branches.iter() {
+                if let Some(body) = &branch.body {
+                    scrutinees(body, depth + branch.names.len(), out);
+                }
+            }
+        }
+        Term::NumCase(ix, arms, default) => {
+            if *ix >= depth {
+                out.push(ix - depth);
+            }
+            for arm in arms.iter() {
+                scrutinees(&arm.body, depth, out);
+            }
+            scrutinees(default, depth, out);
+        }
+        _ => {}
+    }
 }
 
 /// `term` with each leaf of its case tree (`depth` binders below the top)

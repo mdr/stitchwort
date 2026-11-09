@@ -31,7 +31,7 @@ use crate::wire::{BUILD_HASH, Read, Reader, Writer, bad, read_shapes, write_shap
 const MAGIC: &[u8; 4] = b"SWRT";
 
 /// Bumped when the layout changes.
-pub const FORMAT_VERSION: u8 = 2;
+pub const FORMAT_VERSION: u8 = 3;
 
 /// How deeply an expression may nest when read, so that a corrupt program
 /// can't overflow the stack. Lowered code nests far less (`Rogue.main`'s
@@ -258,6 +258,7 @@ pub fn encode(program: &Program, limits: &Limits) -> Vec<u8> {
     for lambda in &program.lambdas {
         w.uint(u64::from(lambda.params));
         w.uint(u64::from(lambda.captures));
+        w.u8(u8::from(lambda.dispatch));
         w.body(&lambda.body);
     }
     w.body(&program.entry);
@@ -525,10 +526,16 @@ pub fn decode(bytes: &[u8]) -> Result<(Program, Limits), CodecError> {
     for _ in 0..n {
         let params = r.u32()?;
         let captures = r.u32()?;
+        let dispatch = match r.u8()? {
+            0 => false,
+            1 => true,
+            t => return bad(format!("a lambda's dispatch flag is {t}")),
+        };
         lambdas.push(Lambda {
             params,
             captures,
             body: r.body()?,
+            dispatch,
         });
     }
     let entry = r.body()?;

@@ -200,6 +200,10 @@ pub struct Lambda {
     /// How many values it captures.
     pub captures: u32,
     pub body: Body,
+    /// A handler's step lowered as one dispatch on the operation
+    /// ([`crate::dispatch`]): named `…/dispatch` in profiles and printed
+    /// IR.
+    pub dispatch: bool,
 }
 
 /// A data type, for constructor names and field names.

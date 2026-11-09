@@ -1680,6 +1680,7 @@ impl Simp<'_> {
                     params: lambda.params,
                     captures: u32::try_from(kept.len()).expect("fits"),
                     body: Body { frame: next, expr },
+                    dispatch: lambda.dispatch,
                 };
                 let id = LambdaId(u32::try_from(self.cx.lambdas.len()).expect("fits"));
                 self.cx.lambdas.push(new);

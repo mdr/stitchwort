@@ -384,7 +384,8 @@ pub(crate) fn body_name(program: &Program, image: &Image, code: u32) -> String {
 
 /// Each body's symbol, for a profiler or debugger reading the executable
 /// (`nm`, samply): a global's body is its full name, a lambda's is the
-/// symbol of the body that makes it plus `/lambda{l}`, so a sample in a
+/// symbol of the body that makes it plus `/lambda{l}` (`/dispatch{l}` for
+/// a handler's dispatch, [`stitchwort_rt::dispatch`]), so a sample in a
 /// lambda says which definition it belongs to. Every symbol ends `#{code}`,
 /// the body's number in `STITCHWORT_NATIVE_DUMP`, which also keeps it apart
 /// from the runtime's and the stubs' symbols.
@@ -405,6 +406,7 @@ fn body_symbols(program: &Program, image: &Image) -> BTreeMap<u32, String> {
     }
     fn lambda_name(
         l: u32,
+        program: &Program,
         image: &Image,
         maker: &BTreeMap<u32, u32>,
         names: &BTreeMap<u32, String>,
@@ -414,20 +416,26 @@ fn body_symbols(program: &Program, image: &Image) -> BTreeMap<u32, String> {
             Some(&code) if depth < 16 => match names.get(&code) {
                 Some(name) => name.clone(),
                 None => match image.lambda_code.iter().position(|c| *c == code) {
-                    Some(outer) => lambda_name(outer as u32, image, maker, names, depth + 1),
+                    Some(outer) => {
+                        lambda_name(outer as u32, program, image, maker, names, depth + 1)
+                    }
                     None => format!("body{code}"),
                 },
             },
             _ => "?".to_string(),
         };
-        format!("{owner}/lambda{l}")
+        let kind = match program.lambdas.get(l as usize) {
+            Some(lambda) if lambda.dispatch => "dispatch",
+            _ => "lambda",
+        };
+        format!("{owner}/{kind}{l}")
     }
     let mut symbols = BTreeMap::new();
     for code in 0..image.codes.len() as u32 {
         let base = match names.get(&code) {
             Some(name) => name.clone(),
             None => match image.lambda_code.iter().position(|c| *c == code) {
-                Some(l) => lambda_name(l as u32, image, &maker, &names, 0),
+                Some(l) => lambda_name(l as u32, program, image, &maker, &names, 0),
                 None => "body".to_string(),
             },
         };
