@@ -26332,9 +26332,9 @@
     {
       "id": 2589,
       "title": "Panic in the pretty printer (crates/core/src/pretty.rs:606, index out of bounds: len 0 index 0) when a parameter's type is a constructor: theorem runOf (cavern: Step) (n: Nat) (closed: Closed cavern n): Run cavern := Step n closed, with Step a constructor of an indexed Prop family (elab fuzzer 0x2585 case 14027, from accept/implicit-record-from-field-of-field.sw)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Sonnet",
-      "where": "",
+      "where": ".claude/worktrees/SW-2589",
       "labels": [],
       "epic": "diagnostics",
       "body": "Found 9 Nov in compute mode. Repro: target/fuzz-elab/2585-14027.sw (scratchpad copy), stitchwort check --no-cache: thread panics in Printer::go_node via applied; the message being printed refers to a variable outside its names. Expected a type error (a constructor isn't a type). Add as a reject example. 45 min.",
@@ -26345,9 +26345,9 @@
     {
       "id": 2590,
       "title": "Search: two internal errors 'applying a constructor' (crates/core/src/value.rs:1234, apply's fallback) in search_bench::proof_uses_find_their_lemma_among_the_first_ten (full tier); find the proof-use queries that make the evaluator apply a constructor value",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Sonnet",
-      "where": "",
+      "where": ".claude/worktrees/SW-2589",
       "labels": [],
       "epic": "proof-search",
       "body": "Overmind job 54, 9 Nov, 3c92cf18d: assert internal_errors == 0, left 2. Other numbers pass (recall@10 52.1%%). Full-tier only test. 60 min.",
