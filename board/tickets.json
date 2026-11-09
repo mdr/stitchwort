@@ -1,5 +1,5 @@
 {
-  "next": 2565,
+  "next": 2566,
   "tickets": [
     {
       "id": 47,
@@ -25563,12 +25563,12 @@
     {
       "id": 2530,
       "title": "Borrow inference stage B0: dry-run inference plus a machine counter of the increment/decrement pairs borrowing would remove, per program (bench/compare and bench:aoc); gate for B1: >= 3% on mapops or dijkstra",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "Speedwell",
       "labels": [],
       "epic": "comparative-speed",
-      "body": "docs/proposals/borrow-inference.md stage B0. D3441, Matt, 9 Nov 2026 09:04: yes, proceed (B1 only if B0 clears the gate). 180 min.\n\nStarted 9 Nov 2026 09:04 UTC. Expected: 180 min.\n",
+      "body": "docs/proposals/borrow-inference.md stage B0. D3441, Matt, 9 Nov 2026 09:04: yes, proceed (B1 only if B0 clears the gate). 180 min.\n\nStarted 9 Nov 2026 09:04 UTC. Expected: 180 min.\n\nMerged 9 Nov. Gate passes on mapops (6.75% b1, 9.1% without O6); dijkstra 2.5%; AoC median 0.7-0.9% (B1), 1.5% (B2); memory-game 13.8% without O6. Per D3441, B1 goes ahead; dropping O6 is the orchestrator's call (design detail within D3441). Model result: Sonnet, worked, about 110 min (est. 180).\n",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
@@ -26011,6 +26011,19 @@
       "labels": [],
       "epic": "effects-native",
       "body": "From SW-2557. Part of plan step J (compile time). 60 min.",
+      "created": "2026-11-09",
+      "updated": "2026-11-09",
+      "commits": []
+    },
+    {
+      "id": 2565,
+      "title": "Borrow inference stage B1 (docs/proposals/borrow-inference.md, B0 results §11): borrowed parameters in the lowering and native code, without rule O6; machine checks borrows at run time; measure against B0's estimates",
+      "status": "doing",
+      "agent": "Opus",
+      "where": "Speedwell",
+      "labels": [],
+      "epic": "comparative-speed",
+      "body": "D3441 (gate passed in SW-2530). O6 dropped (orchestrator call). Started 10:55 UTC. Expected: 480 min.",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
