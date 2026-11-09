@@ -24526,14 +24526,14 @@
     {
       "id": 2453,
       "title": "bench:aoc: build every AoC day natively, count instructions, diff against the last run (answers 'did a speed change move anything outside the ten')",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "Speedwell",
       "labels": [
         "bench"
       ],
       "epic": "comparative-speed",
-      "body": "From SW-2450. 1.5 h.\n\nStarted 9 Nov 2026 02:37 UTC. Expected: 90 min. The lane tests on a few days; the orchestrator runs the full sweep as a compute job.\n\n05:19: the lane went silent past 3x (likely stuck in a long run); stopped; its work saved as WIP commit 66987712e on lane/SW-2453 (bench/aoc/sweep.py + tests, passing; Taskfile task built on pre-SW-2474 main, so it uses the incremental SW build). Finishing in a fresh lane from the branch. Model result: Sonnet, failed to report (stuck past 3x), ~160 min (est. 90).\n",
+      "body": "From SW-2450. 1.5 h.\n\nStarted 9 Nov 2026 02:37 UTC. Expected: 90 min. The lane tests on a few days; the orchestrator runs the full sweep as a compute job.\n\n05:19: the lane went silent past 3x (likely stuck in a long run); stopped; its work saved as WIP commit 66987712e on lane/SW-2453 (bench/aoc/sweep.py + tests, passing; Taskfile task built on pre-SW-2474 main, so it uses the incremental SW build). Finishing in a fresh lane from the branch. Model result: Sonnet, failed to report (stuck past 3x), ~160 min (est. 90).\n\nMerged 9 Nov 05:22 after a finishing lane (rebased on SW-2474, bench build, 120 s build timeout; small runs stable within 0.25%). Full sweep ~55 days, est. 2-8 min. Model result: Sonnet, first lane stuck past 3x (no build timeout), finishing lane worked in 3 min (est. 30).\n",
       "created": "2026-11-08",
       "updated": "2026-11-09",
       "commits": []
