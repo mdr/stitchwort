@@ -1,5 +1,5 @@
 {
-  "next": 2521,
+  "next": 2523,
   "tickets": [
     {
       "id": 47,
@@ -25407,12 +25407,12 @@
     {
       "id": 2518,
       "title": "Design note: borrowed-parameter inference for read-only recursive walks (Lean-style): IR borrow flag on Call/TailCall, Unpack choice, native ABI, reuse.rs; Map.get/contains first (get ~9% of mapops, refcount half of it; est. <= 4-5% mapops, more on lookup-heavy programs)",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": "Speedwell",
       "labels": [],
       "epic": "comparative-speed",
-      "body": "From SW-2516's stop report. Paper lane. 90 min.\n\nStarted 9 Nov 2026 07:53 UTC. Expected: 90 min. Paper lane.\n",
+      "body": "From SW-2516's stop report. Paper lane. 90 min.\n\nStarted 9 Nov 2026 07:53 UTC. Expected: 90 min. Paper lane.\n\nNote merged 9 Nov 08:05: docs/proposals/borrow-inference.md (renumbered D3441-D3443 by the orchestrator; D3440 is compiled dispatch). Stages B0 dry-run counter (gate: mapops/dijkstra >= 3%), B1 full, B2 owned copies, B3 borrowed reads; est. mapops -3.5 to -5.5%, dijkstra -5 to -12%, core-ten geomean -0.5 to -2%; step and frame counts unchanged. Model result: Opus, worked, 11 min (est. 90).\n",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
@@ -25439,6 +25439,32 @@
       "labels": [],
       "epic": "elaborator-kernel",
       "body": "From SW-2512. Design change to the equation generator. 2 h.",
+      "created": "2026-11-09",
+      "updated": "2026-11-09",
+      "commits": []
+    },
+    {
+      "id": 2521,
+      "title": "Apply takes its function value owned, so insertWith's f and unspecialised Ord dictionaries are counted at every tree level: design closures borrowing their function value",
+      "status": "backlog",
+      "agent": "Opus",
+      "where": "",
+      "labels": [],
+      "epic": "comparative-speed",
+      "body": "From SW-2518. Paper. 60 min.",
+      "created": "2026-11-09",
+      "updated": "2026-11-09",
+      "commits": []
+    },
+    {
+      "id": 2522,
+      "title": "Unpacking a shared node could copy only the fields the taken path uses (helps owned walks over shared data); measure after borrow inference B1",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "comparative-speed",
+      "body": "From SW-2518. 45 min.",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []

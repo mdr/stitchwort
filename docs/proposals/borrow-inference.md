@@ -53,9 +53,9 @@ about 3 h); B1 the inference, bytecode, machine and native changes with conserva
 parameters owned (about 4 h); B3 borrowed reads of a live owned parent and of constants (about
 4 h). Each stage has a measurement gate.
 
-**Decisions for Matt** (§9): D3440 build it, inferred and with no syntax (rec: yes, after B0's
-gate); D3441 the machine checks borrows instead of exploiting them, staying free of `unsafe`
-(rec: yes); D3442 step and frame counts stay exactly as they are (rec: yes).
+**Decisions for Matt** (§9): D3441 build it, inferred and with no syntax (rec: yes, after B0's
+gate); D3442 the machine checks borrows instead of exploiting them, staying free of `unsafe`
+(rec: yes); D3443 step and frame counts stay exactly as they are (rec: yes).
 
 ## 1. Today's ownership model
 
@@ -492,19 +492,19 @@ this helps custom `Ord` keys and every other read-only walk too.
 
 ## 9. Decisions for Matt
 
-- **D3440: Build borrowed parameters, inferred by the compiler, with no syntax for them,
+- **D3441: Build borrowed parameters, inferred by the compiler, with no syntax for them,
   starting with B0's measurement and building B1 only if it clears the gate?** [rec: yes. It is
   the general fix for the "read-only walk copies the node" cost that the mapops and dijkstra
   profiles both show, it changes no answer and no count, and it needs nothing from users.
   Lean also lets users write `@&` to force a borrow; we have no case needing it, and an
   annotation would be language surface to design and document, so not now.]
-- **D3441: The machine checks borrows instead of exploiting them (no `unsafe` in the machine;
+- **D3442: The machine checks borrows instead of exploiting them (no `unsafe` in the machine;
   it clones lent values, tags them in the trace, and panics if one outlives its owner), so only
   native code gets faster?** [rec: yes. It keeps the reference executor safe Rust and turns it
   into a run-time check of the one invariant that, if wrong, would be a use after free in
   native code. Exploiting borrows in the machine too can be decided later, on its own numbers,
   with Miri as the condition.]
-- **D3442: Step and frame counts stay exactly as they are: a tail call is never demoted to a
+- **D3443: Step and frame counts stay exactly as they are: a tail call is never demoted to a
   call (as Lean does for calls outside a mutual block), at the cost of forcing some parameters
   owned in B1 and of owned copies in B2?** [rec: yes. Frame counts are part of what a run means
   (the `--frames` limit, constant-space loops through function values), the native/machine
