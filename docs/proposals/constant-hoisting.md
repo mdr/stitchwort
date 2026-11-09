@@ -31,6 +31,11 @@ SW-2494 showed std alone can't fix it (a `Parse` operation over `Text` cost as m
    compiler builds once into its constant pool (`code.rs:790`) **[read]**. Also pool
    constructor trees built only from literals (`[("do()", Do), …]`), which are allocated on
    every evaluation today (`code.rs:858-887`) **[read]**.
+   **And build each capture-free lambda's closure once**: a `Closure` with no captures
+   allocates a new function value every time it runs (`machine.rs:1311-1317`) **[read]**;
+   `Parse.optional` builds nine of them each time it starts a handler, at about 159
+   instructions each **[measured, SW-2493 §2.3, §7.4]**. This is the same rule (a lambda
+   with nothing free is a closed expression) and the biggest single piece of it.
 2. **Float closed expressions to module constants** (a new pass after `opt.rs` simplifies a
    body): an expression in a function or lambda that reads no variable becomes a constant,
    **computed the first time that expression is reached and kept if its value is small**
@@ -43,7 +48,10 @@ SW-2494 showed std alone can't fix it (a `Parse` operation over `Text` cost as m
    list it's given (so `List.find` over `pick`'s two words unrolls and both lists become
    literals), and a faster native read of a constant.
 
-**What it should do.** On `scan`: 3 to 5% fewer instructions after pieces 1 and 2, 5 to 7% with
+**What it should do.** Capture-free closures alone: 3.5 to 3.9% fewer instructions on
+`expressions` and 2.6 to 3.1% on `scan`, and something for every program that passes lambdas
+**[estimated by SW-2493 §7.4 from a measured 159 instructions a closure and static counts]**.
+The literal conversions on top of that, on `scan`: 3 to 5% after pieces 1 and 2, 5 to 7% with
 piece 3 **[estimated from the measured 5.8%, split by where the conversions happen (§6)]**. On
 `expressions`: 0.5 to 1.5% **[estimated]**, and up to about 5% only if the optimiser's existing
 copies for known constants reach Day18's operator lists, which I couldn't check without running
@@ -210,18 +218,19 @@ would hold hundreds of megabytes, and the `map` after it couldn't reuse its cell
   `KEEP` times the number of floated expressions, and in practice far less. The number is an
   implementation constant, tuned by measurement.
 - **Values built from literals alone are kept always**: their size is the size of the source
-  (a list literal, a closure that captures nothing). These need no walk.
+  (a list literal, a closure that captures nothing, §4.3). These need no walk.
 
 This is the only new condition, and the reason the other systems that float to the top level
 are criticised (GHC's full laziness leak; sharing-repeated-calls.md §1.8) is the one it
 addresses.
 
-## 4. The three kinds, and how each is evaluated
+## 4. The four kinds, and how each is evaluated
 
 | Kind | Example | Evaluated | Kept |
 |---|---|---|---|
 | **Folded** | `Text.toList "mul("`, `Text.length "abc"`, `"ab" ++ "c"` | at compile time, by `opt.rs` | as a literal in the pool, always |
-| **Static data** | `[("do()", Do), ("don't()", Dont)]`, `() => 'x'` | constructors of literals: at compile time, into the pool; anything with a closure or a global in it: at first use | always (size is the source's) |
+| **Capture-free closures** | `optional`'s nine clause lambdas, `c => c == 'x'` after a constant is substituted, `() => Parse.nat()` | once per lambda, when the image is built or at first use | always (one cell each, one per lambda) |
+| **Static data** | `[("do()", Do), ("don't()", Dont)]`, `Some 'x'` | constructors of literals: at compile time, into the pool; anything with a closure or a global in it: at first use | always (size is the source's) |
 | **Computed** | `text "mul("`, `List.find p [..]`, `List.range 0 8`, `"'${','}'"` | at first use, in its own frame | if at most `KEEP` cells |
 
 ### 4.1 Folded
@@ -243,7 +252,35 @@ count pooled constructors, or it holds a token for nothing (a missed reuse, not 
 answer). Static data with a closure or a global in it can't go in the pool (standalone
 executables can't carry closures in it) and becomes an always-kept constant instead.
 
-### 4.3 Computed
+### 4.3 Capture-free closures
+
+`Expr::Closure(l, [])` reads nothing, so its value is the same function every time; function
+values are immutable and nothing can compare them, so sharing one is unobservable. SW-2493 found
+these are most of the closures the parsers build: in the 40 hottest bodies, capture-free
+`Closure` instructions times their entries are 5.8 M of 9.2 M closures on a tenth of
+`expressions` and 6.7 M of 11.2 M on scan's **[measured counts, SW-2493 §7.4; static, so an
+upper bound]**; at 159 instructions each **[measured, `next (c => True)` against `next yes`]**
+that is the 3.5 to 3.9% and 2.6 to 3.1% above.
+
+They need none of §3.4's machinery: each is one cell, there is at most one per lambda, and
+building it runs nothing. So the simplest form is not a constant global but **one shared
+closure per lambda**: `code.rs` compiles a capture-free `Closure` as a new instruction that
+reads lambda `l`'s static closure from a table the image fills once (or fills at first use, as
+a constant is); native code reads the same table. It can't go in the constant pool, because a
+standalone native executable's pool holds only data (`linked.rs:177-187`); a table of
+lambda numbers rebuilt at start-up works there. More closures become capture-free after
+`opt.rs` substitutes constants for captures (`opt.rs:23-25`), so this runs after it, and stage
+2's floating makes more still: a closure whose captures are all closed constants is static
+data with globals in it (§4.2). Closed partial applications of a global to closed arguments
+are the same case and follow it (SW-2493 notes `optional`'s `%elim` one still holds a capture).
+
+One more reason to do these first: they stay sound whatever happens to the effect runtime.
+SW-2493 §8 asks Matt to reopen operations in place for native code; if performs ever run
+handler clauses where they're evaluated, floating a closed *computation* such as `text
+"mul("` would become wrong (§3.2) and that part of stage 2 would have to exclude perform
+positions, while a closure, which runs nothing when it's built, is unaffected.
+
+### 4.4 Computed
 
 A new constant global per distinct floated expression, named after where it was found
 (`Aoc.Year2024.Day03.instruction[const 0]`, as `hoist.rs`'s are `…[map N]`) so profiles say
@@ -282,7 +319,7 @@ matches; SW-2492 §2.4]**. So by count, `text` is a third and `pick` two thirds.
   `Text.toList expected` in it) and a continuation closure, about a dozen nodes with the
   closure counted as its capture, under the inline limit of 24 **[inferred from `opt.rs:309`;
   not checked, see §10]**. Inlined at the call site with the literal substituted, it has
-  `TextToList (Lit::Text "mul(")`: the fold (stage 1) makes that a pooled literal. Without
+  `TextToList (Lit::Text "mul(")`: the fold (stage 1b) makes that a pooled literal. Without
   inlining, `Parse.text "mul("` is a closed call, so stage 2 floats the whole computation
   instead; evaluated once, it holds the list. Either way, a third of the conversions go.
 - **`pick [("do()", Do), ("don't()", Dont)]`.** The call is closed, so stage 2 floats its
@@ -303,6 +340,7 @@ matches; SW-2492 §2.4]**. So by count, `text` is a third and `pick` two thirds.
   `oneOf` is given, `oneOf`'s first `mark` node and continuation, and each alternative's first
   `bind` node. About 8 allocations a round **[inferred]**, at the 183 to 229 instructions SW-2463
   measured per removed cell: about 1% of scan **[estimated: 8 × 200 × 1.9 M rounds over 279 G]**.
+  Part of this (the capture-free closures) is stage 1a's, so don't add the two.
 
 ### 6.2 expressions: `operator`
 
@@ -373,8 +411,9 @@ Each stage is independently useful and mergeable. Times are lane estimates.
 
 | Stage | What | Model, estimate | Expected effect |
 |---|---|---|---|
-| **1** | Literal folds in `opt.rs` (§4.1); closed literal constructor trees into the pool in `code.rs` (§4.2). First step: a lowering snapshot of a `text "lit"` call site and of Day03's `instruction`, to confirm what is inlined. | Sonnet, 60 min | scan −1.5 to −2.5% (if `text` is inlined), others ≈ 0 **[estimated]** |
-| **2** | `crates/rt/src/float.rs`: maximal closed expressions out of function and lambda bodies into constants (§3, §4.3); kept-if-small flag in the IR, the codec and `linked.rs`; the walk; `Ret::Const` and native `global_set` honour it; names; sharing of identical expressions. | Opus (lowering soundness, native ABI), 120 min | with stage 1: scan −3 to −5%, expressions −0.5 to −1.5% (more if §6.2's copies fire) **[estimated]** |
+| **1a** | Capture-free closures built once per lambda (§4.3): a static-closure instruction in `code.rs`, the table in the machine, native code and `linked.rs`. Independent of everything else here. | Sonnet, 60 min | expressions −3.5 to −3.9%, scan −2.6 to −3.1%, every program that passes lambdas gains **[estimated, SW-2493 §7.4]** |
+| **1b** | Literal folds in `opt.rs` (§4.1); closed literal constructor trees into the pool in `code.rs` (§4.2). First step: a lowering snapshot of a `text "lit"` call site and of Day03's `instruction`, to confirm what is inlined. | Sonnet, 60 min | scan −1.5 to −2.5% (if `text` is inlined), others ≈ 0 **[estimated]** |
+| **2** | `crates/rt/src/float.rs`: maximal closed expressions out of function and lambda bodies into constants (§3, §4.4); kept-if-small flag in the IR, the codec and `linked.rs`; the walk; `Ret::Const` and native `global_set` honour it; names; sharing of identical expressions. | Opus (lowering soundness, native ABI), 120 min | with stage 1b: scan −3 to −5%, expressions −0.5 to −1.5% (more if §6.2's copies fire) **[estimated]** |
 | **3** | Guide paragraph (after D3439), in the performance notes of `docs/guide/11-running-and-shipping.md`, with a checked example. | DeepSeek, 20 min | — |
 | **4** | Copies of a recursive function for small closed constructor arguments (unrolling over literal lists of at most 16 cells), so `pick`'s second word folds. Only if stage 2's profile shows the remaining conversions are worth it. | Opus, 90 min | scan a further −1.5 to −2% **[estimated: the last third of the measured 5.8%]** |
 | **5** | Native constants read without the helper call (an inline load and test), if a profile shows `global` in the hot path; JS gets stage 1's folds. | Sonnet, 45 min | under 0.5% **[estimated]** |
@@ -389,7 +428,12 @@ to that (orchestrator's call).
 
 Within the lane budget (targeted runs, each well under two minutes):
 
-- **Stage 1:** unit tests of each fold (positive, and a negative: `toList` of a variable stays
+- **Stage 1a:** a bytecode test that a capture-free lambda compiles to the static-closure
+  read; a test that a closure applied many times and stored in a data structure gives the same
+  answers on the machine, `--native` and a standalone `--native` build (the `linked.rs` table);
+  the alloc-trace tests (`crates/rt/tests/it/alloc_trace.rs`) updated for the closures no
+  longer allocated; `task test:lane AREA=rt` and `AREA=native`.
+- **Stage 1b:** unit tests of each fold (positive, and a negative: `toList` of a variable stays
   a call); a lowering snapshot in `crates/rt/tests/it/lower.rs` of a small program with
   `Parse.text "ab"`, showing the pooled literal; `task test:lane AREA=rt`.
 - **Stage 2:** lowering snapshots for: a closed call floated; two identical closed expressions
@@ -424,6 +468,8 @@ Within the lane budget (targeted runs, each well under two minutes):
   "large" left unquantified, so the limit can be tuned. It tells people they needn't hoist
   literals by hand, and it is part of how fast their code is.]
 
+D3438 covers the capture-free closures too (they are the same rule, and stage 1a is the first thing to build); they need no decision of their own, since nothing a user sees changes but speed and counts.
+
 Not for Matt, recorded as calls on the ticket: machine and native first, JS only the folds
 (§2); `KEEP` = 128 cells to start (§3.4); stage 4 instead of a `pick` rewrite (§6.1);
 C-narrow as `float.rs`'s second rule (§8).
@@ -431,8 +477,8 @@ C-narrow as `float.rs`'s second rule (§8).
 ## 10. What I didn't check
 
 - **Whether `Parse.text` is inlined at Day03's call site today.** Inferred from the inline
-  limit and how `size` counts closures; nothing printed the IR. If it isn't, stage 1 alone
-  doesn't help `text` and stage 2 does the work (as a floated closed call). Stage 1's first
+  limit and how `size` counts closures; nothing printed the IR. If it isn't, stage 1b alone
+  doesn't help `text` and stage 2 does the work (as a floated closed call). Stage 1b's first
   step checks it.
 - **Whether `opt.rs` reaches Day18's operator lists** (§6.2). That decides whether expressions
   gains about 1% or about 5%.
