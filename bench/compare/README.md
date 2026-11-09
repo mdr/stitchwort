@@ -115,6 +115,8 @@ digits and depth 18) and `memory-game` (2020 day 15, part 2 at 30,000,000
 turns) have all four languages. `spectral-norm` (the wide set's first program, a float benchmark at N = 1000;
 see its README) has all four too. `dijkstra`, `octopus`, `disk`, `expressions`,
 `scan`, `matcher` and `bridge` (AoC days) have Stitchwort, Python and Lean.
+`const-fold`, `rbmap` and `rbmap-ck` (wide set; Lean's own const_fold, rbmap and
+rbmap_checkpoint, see "Lean's programs" below) have all four.
 
 Most of the AoC days run a scaled copy of the real input so that Lean takes
 0.4 to 0.6 s, not the 20 to 60 ms of the real one. `programs.toml` gives each a
@@ -136,3 +138,32 @@ benchmark does. The other ports' generated C (`lean/.lake/build/ir/Compare/*.c`)
 was read for removed or hoisted work: only small closed constants (numerals,
 an empty `Array`) are hoisted to start-up, and no function makes the same call
 twice.
+
+## Lean's programs (wide set)
+
+`const-fold`, `rbmap` and `rbmap-ck` are `tests/compile_bench/const_fold.lean`,
+`rbmap.lean` and `rbmap_checkpoint.lean` of the Lean 4 repository, from the
+reference-counting paper's suite (SW-2455). The Lean files in
+`lean/Compare/` are theirs, with these changes:
+
+- `Rbmap.lean` and `RbmapCk.lean`: a comment line at the top, nothing
+  else. (Lean 4.34's `Array.mkArray` rename does not touch them.)
+- `ConstFold.lean`: `main` also takes a second argument, a number of rounds
+  (`round` builds the tree whose leaf values start at the round's number, so
+  no round repeats another's work for the compiler to merge), and `unsafe` is
+  dropped from `main`. Lean's `LEAN_STACK_SIZE_KB=4194304` is not set: at
+  depth 20 the default stack is enough.
+
+Sizes differ from Lean's benchmark sizes:
+
+| Program | Lean's size | Here | Why |
+|---|---|---|---|
+| `const-fold` | depth 23, one round | depth 20, five rounds | native code stops at 2M frames of recursion (reassociating makes a chain of 2^depth additions); five rounds bring it to seconds |
+| `rbmap` | 2,000,000 inserts | the same | |
+| `rbmap-ck` | 2,000,000, every version kept | 400,000, every version kept | Stitchwort's tree nodes take about 160 bytes each, so 1,000,000 kept versions need over 4 GB |
+
+The Stitchwort and Python ports write the tree out as Lean's does (a `Tree`
+type, `balance1`/`balance2` as `balanceLeft`/`balanceRight` with the same
+cases in the same order); neither uses `Map` or `dict`. Python's tree is
+nested tuples, with a deep-recursion thread stack in `const-fold` only.
+`rbmap-ck/main.sw` repeats `rbmap/main.sw`'s tree, as Lean's two files do.
