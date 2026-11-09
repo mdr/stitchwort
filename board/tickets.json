@@ -26332,12 +26332,12 @@
     {
       "id": 2589,
       "title": "Panic in the pretty printer (crates/core/src/pretty.rs:606, index out of bounds: len 0 index 0) when a parameter's type is a constructor: theorem runOf (cavern: Step) (n: Nat) (closed: Closed cavern n): Run cavern := Step n closed, with Step a constructor of an indexed Prop family (elab fuzzer 0x2585 case 14027, from accept/implicit-record-from-field-of-field.sw)",
-      "status": "backlog",
+      "status": "review",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "diagnostics",
-      "body": "Found 9 Nov in compute mode. Repro: target/fuzz-elab/2585-14027.sw (scratchpad copy), stitchwort check --no-cache: thread panics in Printer::go_node via applied; the message being printed refers to a variable outside its names. Expected a type error (a constructor isn't a type). Add as a reject example. 45 min.",
+      "body": "Found 9 Nov in compute mode. Repro: target/fuzz-elab/2585-14027.sw (scratchpad copy), stitchwort check --no-cache: thread panics in Printer::go_node via applied; the message being printed refers to a variable outside its names. Expected a type error (a constructor isn't a type). Add as a reject example. 45 min.\n\nLane note (9 Nov, Sonnet, b3c6ac8be on lane/SW-2589): cause was ctor_app (check.rs) resetting the context before building a mismatch message whose types mention the parameters bound above the mark (the printer then indexed past its names). Fixed by building the message first. The error was then a message full of unknowns (`expected Closed (?3 n closed) n, but this has type ?1 n`), so check_type_defaulting now reports `Step` is a constructor, so it isn't a type (E-NOT-A-TYPE) when inferring a constructor head fails. Example reject/constructor-as-parameter-type.sw with snapshot. Printer left alone. Model result: Sonnet, worked, 25 min (est. 45).",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
@@ -26345,12 +26345,12 @@
     {
       "id": 2590,
       "title": "Search: two internal errors 'applying a constructor' (crates/core/src/value.rs:1234, apply's fallback) in search_bench::proof_uses_find_their_lemma_among_the_first_ten (full tier); find the proof-use queries that make the evaluator apply a constructor value",
-      "status": "backlog",
+      "status": "review",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "proof-search",
-      "body": "Overmind job 54, 9 Nov, 3c92cf18d: assert internal_errors == 0, left 2. Other numbers pass (recall@10 52.1%%). Full-tier only test. 60 min.",
+      "body": "Overmind job 54, 9 Nov, 3c92cf18d: assert internal_errors == 0, left 2. Other numbers pass (recall@10 52.1%%). Full-tier only test. 60 min.\n\nLane note (9 Nov, Sonnet, 00aeecd51 on lane/SW-2589): the two queries were Bool.inspect used in List.takeWhile.induct and List.dropWhile.induct, searched against one candidate. The use's argument `p x` made hole ?p a function applied to a hole, but only holes passed bare got a type (type_holes), so unification solved ?p := `Some y` (ill-typed) and reading back `?p x` applied a constructor. type_holes now types a hole applied to n explicit arguments as a function of n unknown domains into the parameter's type; the unifier's form check then refuses the constructor. Regression test search_bench::proof_use_with_lambda_arguments_searches_without_internal_errors (18 s incl. library load, all tiers). Full-tier test: 0 internal errors, passes (389 s). Model result: Sonnet, worked, 35 min (est. 60).",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
