@@ -471,3 +471,101 @@ For the orchestrator to number.
 3. **Stage 3: a fused dispatch's `jump` as a return** (supersedes SW-2493's option 6 if filed
    separately). Opus, 2 h. After 1 and the R5 decision.
 4. **R5's `k` test from the dispatch** (§4.3): a note on SW-2465, not a ticket of its own.
+
+## Stage 1a measurement (SW-2507)
+
+SW-2507, 9 Nov 2026, Opus, spike on branch `lane/SW-2507` (not for merging). **Go**: `tick` falls
+by 2.2 K per operation (5,671 → 3,458), more than twice §6's central 1.0 K and above its high end,
+and the eight-operation ability costs 17 more than `tick` (470 before). On the comparison
+programs: **expressions −24.5%, scan −29.1%** in instructions, about twice §6's central estimate.
+
+### The prototype
+
+`crates/rt/src/dispatch.rs`, called from `Lowerer::apply_def` whenever `handlePlus` is applied to
+everything but `o` and `k` and its left argument is a saturated-but-two call of a definition (the
+ability's `%elim`). It builds the term `o k [jump s] => <handlePlus's case tree>` with
+`handlePlus`'s parameters replaced by its arguments, and in each arm that is then a call of the
+`%elim`, that call replaced by `%elim`'s case tree with its parameters replaced in turn (the
+extra `jump s` pushed into the arms). Each clause and the forward occurs once, in its arm, so the
+lowering's `beta` turns `(x k jump s => body) x′ k jump s` into `let`s: no clause closure exists.
+A clause or forward that isn't a lambda or a variable is bound by a `let` outside the closure.
+A fused state handler's step is told by a flag set while `fused.call` is lowered; it gets the four
+parameters. The `--pc-map` dump shows the intended shape **[read]**: `Main.runTick/lambda105` is
+one four-parameter closure, `Switch` on `o`, `Unpack`, `Unpack` of the operation, `Nat.add`,
+`TailApply` of `jump`; `Std.Parse.optional/lambda24` (a handler start) builds 2 closures where it
+built 10 and 2 partial applications.
+
+It covers every `handlePlus` step the lowering meets (fused or not, at any row, in std or the
+program). It doesn't cover: unit tests, snapshots, the machine-agreement test beyond `test:lane
+AREA=rt`, the divergence-indexed and partial forward variants beyond what the general path gives
+(not read), naming the closure `…/dispatch` for profiles, the frame-size question (§9). It is
+turned off by `SW_NO_DISPATCH=1` in the compiler's environment, which is how "before" was measured
+with the same binary.
+
+### Results
+
+Native, `measure.sh` (I(300000) − I(0)) / 300000, same compiler build with and without
+`SW_NO_DISPATCH` **[measured]** (`tick` was 5,686 with the unmodified branch build, matching
+SW-2493's 5,683):
+
+| loop | ability, handlers between | before | after | saved |
+|---|---|---:|---:|---:|
+| `tick x 0` | Tick (1 op), none | 5,671 | 3,458 | 2,213 |
+| `tick x 1` | Tick, 1 forwarding (`fwdTick`) | 7,834 | 5,603 | 2,231 |
+| `tick x 2` | Tick, 2 forwarding | 9,757 | 7,522 | 2,235 |
+| `eight x 0` | Eight (8 ops), none | 6,149 | 3,474 | 2,675 |
+| `mark optional 0` | Parse (8 ops) at `runFrom` | 6,802 | 4,355 | 2,447 |
+| `mark optional 1` | Parse, under 1 `optional` | 8,983 | 6,497 | 2,486 |
+| `mark optional 2` | Parse, under 2 `optional`s | 10,980 | 8,544 | 2,436 |
+| `mark attempt 1` | Parse, under 1 `attempt` | 8,983 | 6,498 | 2,485 |
+| `mark labelWhole 1` | Parse, under `labelWhole` (unfused fold) | 15,973 | 12,212 | 3,761 |
+| `next optional 0` | Parse `next` | 8,930 | 6,255 | 2,675 |
+| `note optional 0` | Parse `note` | 8,543 | 5,805 | 2,738 |
+| `opt optional 0` | an `optional` round (start + `next`) | 23,506 | 13,798 | 9,708 |
+| `fail optional 0` | a failing `optional` round | 42,193 | 25,674 | 16,519 |
+
+`eight` − `tick`: 478 before, **17 after** (go needs ≤ 100). Repeats of a loop vary by
+about ±15 (mostly I(0)). Every run's printed result was the same
+before and after (twelve loops, small and full N). The forwarding levels cost what they did
+(`tick` 2,163 → 2,145 and 1,923 → 1,919 per level; `mark` under `optional` about 2.1 K both): stage
+B's skip is untouched, as §3 says.
+
+**Why more than predicted** (call counts, `call-counts` runtime, `tick x 0` and `opt optional 0`
+at 100,000 **[measured]**): per `tick` operation `sw_apply_prepare` falls from 6 calls to 2 (the 3
+partial applications and the clause closure are gone; what's left is `DoneK` and `JumpK`), and
+the one apply-cache miss sent to `sw_apply_prepare` per operation is gone: the loop's apply of the
+dispatch takes the cache's code path. So the new closure apply §6 charged 250-330 for costs much
+less, and steps 1-6 cost more than the itemised 1.5 K. Per `optional` round: closures built 14 →
+6, partial applications 2 → 0, `sw_apply_prepare` 13 → 5.
+
+**One thing worse, to look at in 1b:** `sw_cell_new` rises by one per route (`tick`: 1 → 2 per
+operation; `opt`: 8 → 11 per round) and `sw_drop_words` by one. The net is still the table above,
+but something that was reused (a freed cell taken by the next allocation, probably the `L o′`
+injection or the operation, which `handlePlus` and `%elim` unpacked with their arguments owned)
+is now freed later or by the out-of-line drop. Finding it may give a little more.
+
+### Comparison programs
+
+The prototype ran both correctly (`bench:instructions` checks every output against
+`expected.txt`). `task bench:instructions -- expressions scan --runs 3`, first with
+`SW_NO_DISPATCH=1 … --save sw2507-off`, then `--against sw2507-off`, same `target/bench` build
+**[measured]**:
+
+| program | before (median) | after (median) | change | §6 predicted (central, range) |
+|---|---:|---:|---:|---|
+| expressions | 235.80 G | 177.99 G | **−24.5%** | −11.5% (−9.0 to −14.1%) |
+| scan | 263.47 G | 186.92 G | **−29.1%** | −14.5% (−11.1 to −17.9%) |
+
+Spreads 0.01-0.08%. About twice the central prediction on both, consistent with the scratch loops
+(per state route 2.2-2.7 K against 1.4 K; per `optional` round 9.7 K against 3.5-5.3 K). Only
+instructions were measured, not time; 1b's `bench:compare` should confirm the time follows, and
+look at `matcher` and `bridge`, which weren't run here.
+
+### Revised estimate for stage 1b
+
+The prototype is about 200 lines with the wiring; what 1b adds is §7's test list (the six
+`dispatch.rs` unit tests, `state_handlers_run_as_a_loop_where_they_fit`, the effect examples'
+agreement, `effect-forwarding.sw`), regenerated lowering snapshots, profile naming, the extra cell
+above, and `bench:compare` on the four programs. **Estimate: Opus, 2 to 3 h** (as §7 had for the
+whole of stage 1, now with 1a done), most of it snapshots and the agreement tests. The `--pc-map`
+shapes and the `rt` lane passing suggest no correctness surprises, but the full tiers haven't run.

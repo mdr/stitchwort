@@ -1,5 +1,5 @@
 {
-  "next": 2511,
+  "next": 2512,
   "tickets": [
     {
       "id": 47,
@@ -25264,12 +25264,12 @@
     {
       "id": 2507,
       "title": "Compiled handler dispatch stage 1a: spike on SW-2493's scratch loops, measurement only (go if Tick <= 5,080 instructions per operation and the eight-operation ability within 100 of Tick); nothing merged before Matt decides stage 1",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": "Speedwell",
       "labels": [],
       "epic": "comparative-speed",
-      "body": "docs/proposals/compiled-handler-dispatch.md stage 1a. Orchestrator's call: a measure-only spike informs the morning decision; shipping (step counts fall) is Matt's. 90 min.\n\nStarted 9 Nov 2026 06:55 UTC. Expected: 90 min.\n",
+      "body": "docs/proposals/compiled-handler-dispatch.md stage 1a. Orchestrator's call: a measure-only spike informs the morning decision; shipping (step counts fall) is Matt's. 90 min.\n\nStarted 9 Nov 2026 06:55 UTC. Expected: 90 min.\n\n07:08: spike done (10 min, est. 90): GO. Tick 5,671 -> 3,458 instructions per operation; eight-operation ability within 17 of Tick; forward levels unchanged; expressions 235.80 -> 177.99 G (-24.5%), scan 263.47 -> 186.92 G (-29.1%), outputs match. Prototype on keep/SW-2507-dispatch-spike; measurement section merged into the note. Stage 1b filed as SW-2511, waiting on Matt (step counts). Model result: Opus, worked, 10 min (est. 90).\n",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
@@ -25309,6 +25309,19 @@
       "labels": [],
       "epic": "comparative-speed",
       "body": "From SW-2499; SW-2493 option 5 est. R7 -1.2 to -1.5% expressions. 60 min.",
+      "created": "2026-11-09",
+      "updated": "2026-11-09",
+      "commits": []
+    },
+    {
+      "id": 2511,
+      "title": "Compiled handler dispatch stage 1b: finish the SW-2507 prototype (keep/SW-2507-dispatch-spike): tests, snapshots, profile names, machine/native agreement, the extra cell per route, bench:compare on all programs; needs Matt's decision on lower machine step counts first",
+      "status": "backlog",
+      "agent": "Opus",
+      "where": "",
+      "labels": [],
+      "epic": "comparative-speed",
+      "body": "Spike measured expressions -24.5%, scan -29.1% instructions; Tick 5,671 -> 3,458 per operation. 2-3 h.",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
