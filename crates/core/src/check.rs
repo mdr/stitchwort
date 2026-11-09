@@ -1468,9 +1468,9 @@ struct Rebuilt<T> {
 /// substitution, however many values share them, and a part that comes out
 /// the same is kept as it is, still shared.
 ///
-/// The result is the same value, node for node, as `eval(ρ, quote(v))`,
-/// since only these nodes are built directly, each as the readback and
-/// evaluation would build it:
+/// The result is the same value, node for node, as `eval(ρ, quote(v))`
+/// (with the one exception below), since only these nodes are built
+/// directly, each as the readback and evaluation would build it:
 ///
 /// - a variable with no eliminations: readback gives `Var`, evaluation
 ///   looks it up, so it's `ρ`'s entry;
@@ -1493,7 +1493,14 @@ struct Rebuilt<T> {
 /// Every other node (a sum `k + x`, read back as a call of `add`; a spine
 /// other than a variable's applications; a closure, a call, a
 /// metavariable, a compact list) is read back and evaluated as before, as
-/// a part on its own.
+/// a part on its own; for substitution, only if [`Unchanged::check`] turns
+/// it down, else it's kept as it is. That's the one way the result can
+/// differ from `eval(ρ, quote_folded(v))`, and it's the difference
+/// [`Unchanged`] already allows for a whole value: a glued call that steps
+/// at once, kept rather than unfolded, inside a value that changes. It
+/// reads back folded as the same term and forces to the same value; only
+/// display (`quote_shown`) can tell. Keeping it is what saves the work (a
+/// `List.replicate 160000 0` in scope isn't written out at every branch).
 ///
 /// For substitution, it also works out, in the same pass, whether
 /// [`Unchanged::check`] would accept each value: [`Unchanged`] looks
@@ -1504,6 +1511,11 @@ struct Rebuilt<T> {
 /// [`Unchanged::check`]. Asked of each whole value, it would look through
 /// the shared chains again for every value that changes (it forgets what
 /// it saw in a value it turns down).
+///
+/// A variable's applications are remembered by their spine's address too,
+/// as [`Unchanged`] does: `let`s whose values apply a function to the one
+/// before twice share spines, and walked as a tree they'd be exponential.
+/// Each node visited is a step of the budget, as reading it back was.
 pub(crate) struct Rebuild<'g, 'r, K> {
     g: &'g Ev<'g>,
     rho: &'r [Value],
@@ -1514,6 +1526,9 @@ pub(crate) struct Rebuild<'g, 'r, K> {
     /// address, as rebuilt. The values being rebuilt outlive the
     /// substitution, so an address isn't reused while it's a key.
     fields: crate::collections::HashMap<*const (), Rebuilt<Values>>,
+    /// The same for a variable's applications: their arguments rebuilt,
+    /// by the address of the spine.
+    spines: crate::collections::HashMap<*const (), Rebuilt<Spine>>,
 }
 
 impl<'g, 'r, K: Fn(usize) -> Option<Apart>> Rebuild<'g, 'r, K> {
@@ -1529,6 +1544,7 @@ impl<'g, 'r, K: Fn(usize) -> Option<Apart>> Rebuild<'g, 'r, K> {
             readback,
             unchanged,
             fields: Default::default(),
+            spines: Default::default(),
         }
     }
 
@@ -1589,6 +1605,7 @@ impl<'g, 'r, K: Fn(usize) -> Option<Apart>> Rebuild<'g, 'r, K> {
         tasks: &mut Vec<RebuildTask<'v>>,
         done: &mut Vec<Rebuilt<Value>>,
     ) -> budget::Result<()> {
+        self.g.machine.budget.step()?;
         // Put together last, from its parts visited first-first.
         let parts = |tasks: &mut Vec<RebuildTask<'v>>,
                      values: &mut dyn DoubleEndedIterator<Item = &'v Value>| {
@@ -1617,11 +1634,19 @@ impl<'g, 'r, K: Fn(usize) -> Option<Apart>> Rebuild<'g, 'r, K> {
                 });
             }
             Value::Neutral(Head::Var(l, _), spine) if self.var_applied(*l, spine) => {
-                let args = spine.iter().map(|e| match e {
-                    Elim::App(arg, _) => arg,
-                    _ => unreachable!("only applications"),
-                });
-                parts(tasks, &mut { args });
+                let memo = spine
+                    .shared_key()
+                    .and_then(|key| self.spines.get(&key).cloned());
+                match memo {
+                    Some(memo) => done.push(self.applied(v, memo)),
+                    None => {
+                        let args = spine.iter().map(|e| match e {
+                            Elim::App(arg, _) => arg,
+                            _ => unreachable!("only applications"),
+                        });
+                        parts(tasks, &mut { args });
+                    }
+                }
             }
             Value::Ctor(d, _, fields) if !self.succ_of_call(*d, fields) => {
                 let memo = (fields.is_shared())
@@ -1659,26 +1684,24 @@ impl<'g, 'r, K: Fn(usize) -> Option<Apart>> Rebuild<'g, 'r, K> {
     ) -> Rebuilt<Value> {
         let new = |parts: Vec<Value>| parts.into_iter();
         match v {
-            Value::Neutral(Head::Var(l, known), spine) => {
-                let Value::Neutral(Head::Var(l2, k2), _) = &self.rho[*l] else {
-                    unreachable!("checked by `var_applied`")
-                };
-                let changed = changed || l2 != l || k2 != known;
-                let clean = clean && self.clean_var(*l, *known);
-                let new = if changed {
-                    let elims = spine.iter().zip(new(parts)).map(|(e, arg)| match e {
-                        Elim::App(_, icit) => Elim::App(arg, *icit),
-                        _ => unreachable!("only applications"),
-                    });
-                    Value::Neutral(Head::Var(*l2, *k2), elims.collect())
-                } else {
-                    v.clone()
-                };
-                Rebuilt {
-                    new,
+            Value::Neutral(_, spine) => {
+                let memo = Rebuilt {
+                    new: if changed {
+                        let elims = spine.iter().zip(new(parts)).map(|(e, arg)| match e {
+                            Elim::App(_, icit) => Elim::App(arg, *icit),
+                            _ => unreachable!("only applications"),
+                        });
+                        elims.collect()
+                    } else {
+                        spine.clone()
+                    },
                     changed,
                     clean,
+                };
+                if let Some(key) = spine.shared_key() {
+                    self.spines.insert(key, memo.clone());
                 }
+                self.applied(v, memo)
             }
             Value::Ctor(_, _, fields) => {
                 let memo = Rebuilt {
@@ -1721,6 +1744,27 @@ impl<'g, 'r, K: Fn(usize) -> Option<Apart>> Rebuild<'g, 'r, K> {
         }
     }
 
+    /// Variable `v` applied to arguments, with its spine rebuilt as `spine`:
+    /// `ρ`'s variable for it applied to them.
+    fn applied(&self, v: &Value, spine: Rebuilt<Spine>) -> Rebuilt<Value> {
+        let Value::Neutral(Head::Var(l, known), _) = v else {
+            unreachable!("a variable applied")
+        };
+        let Value::Neutral(Head::Var(l2, k2), _) = &self.rho[*l] else {
+            unreachable!("checked by `var_applied`")
+        };
+        let changed = spine.changed || l2 != l || k2 != known;
+        Rebuilt {
+            new: if changed {
+                Value::Neutral(Head::Var(*l2, *k2), spine.new)
+            } else {
+                v.clone()
+            },
+            changed,
+            clean: spine.clean && self.clean_var(*l, *known),
+        }
+    }
+
     /// Constructor `v` with its fields rebuilt as `fields`: made as
     /// `native::ctor` would make it.
     fn ctor(&self, v: &Value, fields: Rebuilt<Values>) -> Rebuilt<Value> {
@@ -1756,12 +1800,20 @@ impl<'g, 'r, K: Fn(usize) -> Option<Apart>> Rebuild<'g, 'r, K> {
         }
     }
 
-    /// `v` read back and evaluated again, as a whole.
+    /// `v` read back and evaluated again, as a whole; or for substitution,
+    /// kept if [`Unchanged`] accepts it.
     fn read_back(&mut self, v: &Value) -> budget::Result<Rebuilt<Value>> {
         let clean = match &mut self.unchanged {
             Some(unchanged) => unchanged.check(v),
             None => false,
         };
+        if clean {
+            return Ok(Rebuilt {
+                new: v.clone(),
+                changed: false,
+                clean,
+            });
+        }
         let level = self.rho.len();
         let term = match self.readback {
             Readback::Folded => quote_folded(self.g, level, v)?,

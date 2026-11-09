@@ -16,6 +16,7 @@ mod opaque;
 mod pending;
 mod pretty;
 mod quot;
+mod rebuild;
 mod record_eta;
 mod sct;
 mod structural;

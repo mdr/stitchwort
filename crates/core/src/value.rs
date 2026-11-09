@@ -534,6 +534,12 @@ impl Spine {
         }
     }
 
+    /// The address of the eliminations, if another value holds them too.
+    pub fn shared_key(&self) -> Option<*const ()> {
+        let elims = self.0.as_ref()?;
+        (Rc::strong_count(elims) > 1).then(|| Rc::as_ptr(elims).cast())
+    }
+
     /// Whether `self` and `other` are the same shared list (so equal).
     pub fn ptr_eq(&self, other: &Spine) -> bool {
         match (&self.0, &other.0) {
