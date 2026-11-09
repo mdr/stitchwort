@@ -31,7 +31,7 @@ use smallvec::SmallVec;
 
 use stitchwort_core::ResourceError;
 
-use crate::code::{Image, Instr, MOVE, NO_REG, compile};
+use crate::code::{Image, Instr, MOVE, NO_REG, Reg, compile};
 use crate::effect::{
     EffectCounts, EffectOp, Handler, Resume, StateRun, StateStep, TranslateResume, delay_k, done_k,
     field, forwarded, handler_for, jump_k, resume_lazily, skipped, split_call, state_handler,
@@ -44,6 +44,7 @@ use crate::profile::{Profile, Profiler, Sampling};
 pub use crate::shared::Limits;
 use crate::shared::{arity, body_name, deepest};
 use crate::value::{Fields, Fun, Value};
+use stitchwort_core::collections::HashMap;
 
 /// Where a frame's result goes.
 enum Ret {
@@ -365,10 +366,22 @@ impl State {
         // a count and so doesn't drop: in each frame, those its code holds
         // where it stopped (a frame's `pc` is past the instruction it was
         // in), and a failed tail call's arguments to borrowed parameters.
+        // Each body's table is made once: running out of frames can leave
+        // millions of frames of one recursive walk.
+        let mut plain: Option<Vec<bool>> = None;
+        let mut tables: HashMap<u32, Vec<Vec<Reg>>> = HashMap::default();
         for frame in &self.frames {
             let code = &image.codes[frame.code as usize];
+            if !code.borrowed.iter().any(|b| *b) {
+                continue;
+            }
+            let table = tables.entry(frame.code).or_insert_with(|| {
+                let plain =
+                    plain.get_or_insert_with(|| image.pool.iter().map(|v| !v.owns()).collect());
+                crate::borrow::lent_table(code, plain)
+            });
             let at = (frame.pc as usize).saturating_sub(1);
-            for r in crate::borrow::lent_at(code, at, &image.pool) {
+            for &r in table.get(at).map_or(&[][..], Vec::as_slice) {
                 forget(std::mem::take(
                     &mut self.regs[frame.base as usize + r as usize],
                 ));
@@ -1351,6 +1364,8 @@ fn run(program: &Program, image: &Image, st: &mut State, mut pending: Pending) -
                             let v = get!(*r);
                             st.scratch.push(v);
                         }
+                        // As `TailCall`'s.
+                        save!();
                         st.replace(image, callee, env)?;
                         continue 'outer;
                     }
@@ -1577,6 +1592,7 @@ fn run(program: &Program, image: &Image, st: &mut State, mut pending: Pending) -
                 }
                 Instr::Unreachable => panic!("internal error: reached unreachable code"),
                 Instr::Peek { dst, src, i } => {
+                    still_owned(&reg!(src));
                     let v = match &reg!(src) {
                         Value::Data(_, fields) => lend(&fields[i as usize]),
                         other => panic!("internal error: field {i} of {other:?}"),
@@ -1592,6 +1608,7 @@ fn run(program: &Program, image: &Image, st: &mut State, mut pending: Pending) -
                 }
                 Instr::Forget { reg } => forget(std::mem::take(&mut reg!(reg))),
                 Instr::Own { reg } => {
+                    still_owned(&reg!(reg));
                     if let Value::Data(_, fields) = &reg!(reg) {
                         crate::alloc_trace::inc(&fields.0);
                     }
@@ -1617,7 +1634,15 @@ fn lend(v: &Value) -> Value {
 /// lent.
 #[inline]
 fn forget(v: Value) {
-    let references = match &v {
+    still_owned(&v);
+    crate::alloc_trace::quietly(|| drop(v));
+}
+
+/// Checks that a lent copy is not the last reference: its owner, further
+/// down the stack, still holds the value. Where native code would read,
+/// count or free memory already freed, the machine panics here instead.
+fn still_owned(v: &Value) {
+    let references = match v {
         Value::Data(_, fields) => Rc::strong_count(&fields.0),
         Value::Fun(f) => Rc::strong_count(f),
         Value::Delay(d) => Rc::strong_count(d),
@@ -1631,7 +1656,6 @@ fn forget(v: Value) {
         references > 1,
         "internal error: a borrowed value outlived its owner"
     );
-    crate::alloc_trace::quietly(|| drop(v));
 }
 
 /// Drops the registers from `base` on (a frame's, when it ends). Most hold

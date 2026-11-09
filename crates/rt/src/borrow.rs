@@ -967,36 +967,36 @@ fn dump(program: &Program, inference: &Inference, want: &str) {
     }
     for (g, flags) in inference.borrowed.iter().enumerate() {
         let name = &program.globals[g].name;
-        if flags.iter().any(|b| *b) && (want.len() <= 1 || name.contains(want)) {
+        // Named ones are listed even if they borrow nothing.
+        let named = want.len() > 1 && name.contains(want);
+        if named || (want.len() <= 1 && flags.iter().any(|b| *b)) {
             let bits: String = flags.iter().map(|b| if *b { 'B' } else { 'o' }).collect();
             eprintln!("borrow-fn {name} {bits} {:?}", inference.reason[g]);
         }
     }
 }
 
-/// The registers of a rewritten body that hold a lent value before
-/// instruction `pc`, for the machine to forget when a run fails there
-/// (native code's exits drop only what the frame owns).
-pub fn lent_at(code: &Code, pc: usize, pool: &[crate::value::Value]) -> Vec<Reg> {
+/// The registers lent before each instruction of `code` (whose flags are
+/// `code.borrowed`), by pc: what a frame stopped there holds without a
+/// count. `plain` says which pool entries hold no reference. Empty for a
+/// body that doesn't borrow.
+pub fn lent_table(code: &Code, plain: &[bool]) -> Vec<Vec<Reg>> {
     if !code.borrowed.iter().any(|b| *b) {
         return Vec::new();
     }
-    let plain: Vec<bool> = pool.iter().map(|v| !v.owns()).collect();
-    let mut found = Vec::new();
+    let mut table = vec![Vec::new(); code.instrs.len()];
     forward(
         code,
         entry_state(code, &code.borrowed),
-        &plain,
+        plain,
         |at, s| {
-            if at == pc {
-                found = (0..s.len() as Reg)
-                    .filter(|r| matches!(s[*r as usize], St::Lent { .. }))
-                    .collect();
-            }
+            table[at] = (0..s.len() as Reg)
+                .filter(|r| matches!(s[*r as usize], St::Lent { .. }))
+                .collect();
         },
         |_, _, _| {},
     );
-    found
+    table
 }
 
 // ----------------------------------------------------------------- rewrite
@@ -1031,13 +1031,12 @@ pub fn rewrite<'f>(code: &mut Code, callee: &dyn Fn(u32) -> &'f [bool], plain: &
     let mut out: Vec<Instr> = Vec::with_capacity(n + n / 4);
     let mut start = vec![0u32; n + 1];
     let mut scratch: Option<Reg> = None;
-    let regs = &mut code.regs;
-    let mut scratch_reg = || {
-        *scratch.get_or_insert_with(|| {
-            *regs += 1;
-            *regs - 1
-        })
+    let regs = std::cell::Cell::new(code.regs);
+    let fresh = || {
+        regs.set(regs.get() + 1);
+        regs.get() - 1
     };
+    let mut scratch_reg = || *scratch.get_or_insert_with(fresh);
     let old_ops = code.ops.clone();
     let mut new_ops = std::mem::take(&mut code.ops);
     let list = |o: Ops| old_ops[o.start as usize..(o.start + o.len) as usize].to_vec();
@@ -1063,8 +1062,10 @@ pub fn rewrite<'f>(code: &mut Code, callee: &dyn Fn(u32) -> &'f [bool], plain: &
             },
             None => None,
         };
-        let lent = |r: Reg| s.is_some_and(|s| matches!(s[(r & !MOVE) as usize], St::Lent { .. }));
-        let plainish = |r: Reg| s.is_some_and(|s| s[(r & !MOVE) as usize] == St::Plain);
+        // Registers added by the rewrite are past the end of `s`: owned.
+        let at = |r: Reg| s.and_then(|s| s.get((r & !MOVE) as usize)).copied();
+        let lent = |r: Reg| matches!(at(r), Some(St::Lent { .. }));
+        let plainish = |r: Reg| at(r) == Some(St::Plain);
         let all_lent = || -> Vec<Reg> {
             s.map_or(Vec::new(), |s| {
                 (0..s.len() as Reg)
@@ -1159,6 +1160,7 @@ pub fn rewrite<'f>(code: &mut Code, callee: &dyn Fn(u32) -> &'f [bool], plain: &
                     &lent,
                     &plainish,
                     &all_lent,
+                    &fresh,
                 );
                 let args = push_ops(&a);
                 write_dst(&mut out, dst, &a, &lent, &mut scratch_reg, |dst| {
@@ -1177,6 +1179,7 @@ pub fn rewrite<'f>(code: &mut Code, callee: &dyn Fn(u32) -> &'f [bool], plain: &
                     &lent,
                     &plainish,
                     &all_lent,
+                    &fresh,
                 );
                 let args = push_ops(&a);
                 out.push(Instr::TailCall { g, args });
@@ -1192,6 +1195,7 @@ pub fn rewrite<'f>(code: &mut Code, callee: &dyn Fn(u32) -> &'f [bool], plain: &
                     &lent,
                     &plainish,
                     &all_lent,
+                    &fresh,
                 );
                 let args = push_ops(&a);
                 write_dst(&mut out, dst, &a, &lent, &mut scratch_reg, |dst| {
@@ -1210,6 +1214,7 @@ pub fn rewrite<'f>(code: &mut Code, callee: &dyn Fn(u32) -> &'f [bool], plain: &
                     &lent,
                     &plainish,
                     &all_lent,
+                    &fresh,
                 );
                 let args = push_ops(&a);
                 out.push(Instr::TailPrim { op, args });
@@ -1225,6 +1230,7 @@ pub fn rewrite<'f>(code: &mut Code, callee: &dyn Fn(u32) -> &'f [bool], plain: &
                     &lent,
                     &plainish,
                     &all_lent,
+                    &fresh,
                 );
                 let args = push_ops(&a);
                 write_dst(&mut out, dst, &a, &lent, &mut scratch_reg, |dst| {
@@ -1243,6 +1249,7 @@ pub fn rewrite<'f>(code: &mut Code, callee: &dyn Fn(u32) -> &'f [bool], plain: &
                     &lent,
                     &plainish,
                     &all_lent,
+                    &fresh,
                 );
                 let args = push_ops(&a);
                 write_dst(&mut out, dst, &a, &lent, &mut scratch_reg, |dst| {
@@ -1261,6 +1268,7 @@ pub fn rewrite<'f>(code: &mut Code, callee: &dyn Fn(u32) -> &'f [bool], plain: &
                     &lent,
                     &plainish,
                     &all_lent,
+                    &fresh,
                 );
                 let args = push_ops(&a);
                 write_dst(&mut out, dst, &a, &lent, &mut scratch_reg, |dst| {
@@ -1284,6 +1292,7 @@ pub fn rewrite<'f>(code: &mut Code, callee: &dyn Fn(u32) -> &'f [bool], plain: &
                     &lent,
                     &plainish,
                     &all_lent,
+                    &fresh,
                 );
                 let args = push_ops(&a);
                 let mut read = a.clone();
@@ -1310,6 +1319,7 @@ pub fn rewrite<'f>(code: &mut Code, callee: &dyn Fn(u32) -> &'f [bool], plain: &
                     &lent,
                     &plainish,
                     &all_lent,
+                    &fresh,
                 );
                 let f = a[0];
                 let args = push_ops(&a[1..]);
@@ -1330,6 +1340,7 @@ pub fn rewrite<'f>(code: &mut Code, callee: &dyn Fn(u32) -> &'f [bool], plain: &
                     &lent,
                     &plainish,
                     &all_lent,
+                    &fresh,
                 );
                 let f = a[0];
                 let args = push_ops(&a[1..]);
@@ -1396,6 +1407,7 @@ pub fn rewrite<'f>(code: &mut Code, callee: &dyn Fn(u32) -> &'f [bool], plain: &
     }
     code.instrs = out;
     code.ops = new_ops;
+    code.regs = regs.get();
     true
 }
 
@@ -1459,8 +1471,39 @@ fn operands(
     lent: &dyn Fn(Reg) -> bool,
     plainish: &dyn Fn(Reg) -> bool,
     all_lent: &dyn Fn() -> Vec<Reg>,
+    fresh: &dyn Fn() -> Reg,
 ) -> Vec<Instr> {
     let lends_at = |j: usize| lend.get(j) == Some(&true);
+    // A lent register lent at one position and moved to an owned one (`g x
+    // x`, `g` borrowing its first parameter and owning its second): the
+    // owned position gets a copy, and the loan stays backed by the owner
+    // further down the stack. In a tail call the copy is a new register
+    // (the frame ends, so the loan is passed on moved); otherwise the
+    // owned position reads the register without moving it, and the
+    // register is forgotten after the call.
+    let mut forget_after: Vec<Reg> = Vec::new();
+    let both: Vec<Reg> = (0..a.len())
+        .filter(|&j| !lends_at(j) && a[j] & MOVE != 0 && lent(a[j] & !MOVE))
+        .map(|j| a[j] & !MOVE)
+        .filter(|r| (0..a.len()).any(|i| lends_at(i) && a[i] & !MOVE == *r))
+        .collect();
+    for r in both {
+        for (j, x) in a.iter_mut().enumerate() {
+            if !lends_at(j) && *x == r | MOVE {
+                if tail {
+                    let t = fresh();
+                    out.push(Instr::Lend { dst: t, src: r });
+                    out.push(Instr::Own { reg: t });
+                    *x = t | MOVE;
+                } else {
+                    *x = r;
+                    if dst != Some(r) && !forget_after.contains(&r) {
+                        forget_after.push(r);
+                    }
+                }
+            }
+        }
+    }
     if tail {
         for r in all_lent() {
             match a.iter().rposition(|x| *x & !MOVE == r) {
@@ -1480,7 +1523,10 @@ fn operands(
     }
     // An owned value at a borrowed position stays in this frame for the
     // call: not moved anywhere in it, and dropped after.
-    let mut post = Vec::new();
+    let mut post: Vec<Instr> = forget_after
+        .into_iter()
+        .map(|reg| Instr::Forget { reg })
+        .collect();
     if tail {
         return post;
     }
@@ -1625,8 +1671,8 @@ fn check_one<'f>(
             }
         }
         Instr::Forget { reg } => match s[reg as usize] {
-            St::Own | St::Fresh | St::Plain => Err("forget of an owned register".into()),
-            _ => Ok(()),
+            St::Lent { .. } | St::Empty => Ok(()),
+            _ => Err("forget of an owned register".into()),
         },
         Instr::Return { src } => {
             not_lent(src, "return")?;

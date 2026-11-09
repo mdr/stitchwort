@@ -534,3 +534,41 @@ fn the_machine_catches_a_loan_outliving_its_owner() {
         );
     });
 }
+
+/// Out of frames deep in a recursive walk over a list it borrows (the
+/// caller keeps it), at the default frame limit: the error exit forgets
+/// each frame's loan from one table per body, so it is reported promptly
+/// (it was a pass over the body per frame, two million of them).
+#[test]
+fn running_out_of_frames_in_a_borrowing_walk_is_prompt() {
+    let started = std::time::Instant::now();
+    let (out, result) = on_the_machine(
+        r#"
+import Std (List, Nat, Text)
+
+def build: Nat -> List Nat
+  | 0 => []
+  | Succ n => Cons (n + 1) (build n)
+
+def largest (xs: List Nat): Nat :=
+  match xs with
+    | [] => 0
+    | [x, ..rest] => Nat.max x (largest rest)
+
+def walk (xs: List Nat): Nat := largest xs + xs.length
+
+def main(): {IO} () :=
+  IO.print "before"
+  IO.print (Nat.toText (walk (build 2100000)))
+"#,
+        Limits::default(),
+    );
+    let took = started.elapsed();
+    assert_eq!(out, "before\n");
+    assert_eq!(
+        result,
+        Err("ran out of resources: it recursed more deeply than allowed".into())
+    );
+    eprintln!("ran out of frames and released them in {took:?}");
+    assert!(took.as_secs() < 20, "{took:?}");
+}

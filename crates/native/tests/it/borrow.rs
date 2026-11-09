@@ -86,3 +86,65 @@ fn an_escaping_part_is_counted_once() {
     assert_eq!(incs(&walks(11, 42, 13)), shallow);
     assert_eq!(incs(&walks(11, 12, 33)), shallow + 20);
 }
+
+/// `pick x x`, with `x` lent and `pick` borrowing its first parameter and
+/// owning its second (it rebuilds it in place), in a tail
+/// call and a non-tail call: compiles, and native code makes the machine's
+/// trace.
+#[test]
+fn a_lent_value_lent_and_handed_over_in_one_call() {
+    same_trace(
+        "import Std (IO, List, Nat, Text)
+
+def total (xs: List Nat): Nat :=
+  match xs with
+    | [] => 0
+    | [x, ..rest] => x + total rest
+
+def pick (a: List Nat) (b: List Nat): List Nat :=
+  match b with
+    | [] => [total a]
+    | [y, ..ys] => if y > 100 then pick a ys else [y + total a, ..ys]
+
+def tail (x: List Nat): List Nat := pick x x
+
+def notTail (x: List Nat): Nat := (pick x x).length + 1
+
+def main(): {IO} () :=
+  let xs := List.range 0 5
+  IO.print \"${(tail xs).length} ${notTail xs} ${xs.length}\"
+",
+    );
+}
+
+/// Out of steps or frames anywhere in bodies that borrow (at a call, a
+/// tail call to a global, a tail application of a function value):
+/// native code stops where the machine does and releases exactly what is
+/// live, lent registers forgotten, not dropped.
+#[test]
+fn every_error_exit_in_a_borrowing_body_agrees() {
+    with_stack(STACK, || {
+        let (program, limits) = lowered(
+            "import Std (IO, List, Nat, Text)
+
+def total (xs: List Nat): Nat :=
+  match xs with
+    | [] => 0
+    | [x, ..rest] => x + total rest
+
+def largest (xs: List Nat): Nat :=
+  match xs with
+    | [] => 0
+    | [x, ..rest] => Nat.max x (largest rest)
+
+def applyTo (xs: List Nat) (f: Nat → Nat): Nat := f (total xs + largest xs)
+
+def main(): {IO} () :=
+  let xs := List.range 0 6
+  let fs := [(n: Nat) => n + 1, (n: Nat) => n * 2]
+  IO.print \"${fs.map (f => applyTo xs f)} ${xs.length}\"
+",
+        );
+        every_limit_agrees(&program, limits);
+    });
+}

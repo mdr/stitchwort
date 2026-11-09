@@ -441,11 +441,68 @@ fn an_owned_value_lent_is_dropped_after_the_call() {
     assert_eq!(count(&code, |i| matches!(i, Instr::Drop { .. })), 0);
 }
 
+/// `h x = g x x`, `x` lent, `g` borrowing its first parameter and owning
+/// its second: the owned position gets a counted copy and the loan stays
+/// backed by `x`'s owner, in a tail call (a new register) and a non-tail
+/// call (the register read unmoved, then forgotten).
+#[test]
+fn a_lent_value_lent_and_handed_over_in_one_call() {
+    let g: &[bool] = &[true, false];
+    let tail = rewritten(B::default().tail(0, &[0, MOVE]).code(1, 1), &[true], &[g]);
+    let Some(Instr::TailCall { args, .. }) = tail.instrs.last() else {
+        panic!("{:?}", tail.instrs)
+    };
+    let a = ops(&tail, *args).to_vec();
+    assert_eq!(a[0], MOVE, "{:?}", tail.instrs);
+    assert_ne!(a[1] & !MOVE, 0);
+    assert!(a[1] & MOVE != 0);
+    assert_eq!(count(&tail, |i| matches!(i, Instr::Own { .. })), 1);
+    assert_eq!(count(&tail, |i| matches!(i, Instr::Lend { .. })), 1);
+
+    let call = rewritten(
+        B::default()
+            .call(1, 0, &[0, MOVE])
+            .push(Instr::Return { src: 1 })
+            .code(1, 2),
+        &[true],
+        &[g],
+    );
+    let Instr::Call { args, .. } = call.instrs[0] else {
+        panic!("{:?}", call.instrs)
+    };
+    assert_eq!(ops(&call, args), [0, 0]);
+    assert!(
+        matches!(call.instrs[1], Instr::Forget { reg: 0 }),
+        "{:?}",
+        call.instrs
+    );
+    assert_eq!(count(&call, |i| matches!(i, Instr::Own { .. })), 0);
+}
+
 fn rejected(code: Code, own: &[bool], callees: &[&[bool]]) -> String {
     let mut code = code;
     code.borrowed = own.into();
     let callee = |g: u32| -> &[bool] { callees.get(g as usize).copied().unwrap_or(&[]) };
     check(&code, &callee, &[true]).expect_err("rejected")
+}
+
+/// Forgetting an owned register would leak it in native code (no count is
+/// dropped) and pass the machine's check (the value has another
+/// reference): only the compile-time check sees it.
+#[test]
+fn the_check_rejects_forgetting_an_owned_value() {
+    let copied = B::default()
+        .push(Instr::Move { dst: 1, src: 0 })
+        .push(Instr::Forget { reg: 1 })
+        .push(Instr::Return { src: 0 })
+        .code(1, 2);
+    assert!(rejected(copied, &[false], &[]).contains("forget of an owned"));
+    let made = B::default()
+        .ctor(1, &[])
+        .push(Instr::Forget { reg: 1 })
+        .push(Instr::Return { src: 0 })
+        .code(1, 2);
+    assert!(rejected(made, &[false], &[]).contains("forget of an owned"));
 }
 
 #[test]
