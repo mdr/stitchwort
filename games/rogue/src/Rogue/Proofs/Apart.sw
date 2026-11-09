@@ -14,17 +14,17 @@ def positions (monsters: List Monster): List Position := monsters.map (monster =
 --| No two monsters stand on one cell.
 def Apart (monsters: List Monster): Prop := List.Distinct (positions monsters)
 
-theorem memAppendLeft (x: a) (ys: List a): (xs: List a) → List.Mem x xs → List.Mem x (xs ++ ys)
+theorem memAppendLeft (x: a) (ys: List a): ∀ (xs: List a) => List.Mem x xs → List.Mem x (xs ++ ys)
   | [], inside => Void.exfalso inside
   | [first, ..rest], Inl here => Inl here
   | [first, ..rest], Inr later => Inr (memAppendLeft x ys rest later)
 
-theorem memAppendRight (x: a) (ys: List a): (xs: List a) → List.Mem x ys → List.Mem x (xs ++ ys)
+theorem memAppendRight (x: a) (ys: List a): ∀ (xs: List a) => List.Mem x ys → List.Mem x (xs ++ ys)
   | [], inside => inside
   | [first, ..rest], inside => Inr (memAppendRight x ys rest inside)
 
 --| A cell with no monster on it isn't among their positions.
-theorem vacantNotMem (position: Position): (monsters: List Monster) → monsterAt position monsters = None → ¬(List.Mem position (positions monsters))
+theorem vacantNotMem (position: Position): ∀ (monsters: List Monster) => monsterAt position monsters = None → ¬(List.Mem position (positions monsters))
   | [], vacant, inside => inside
   | [monster, ..others], vacant, inside =>
     match same: monster.position == position with
@@ -36,7 +36,7 @@ theorem vacantNotMem (position: Position): (monsters: List Monster) → monsterA
 
 --| A monster never chooses another monster's cell.
 theorem pickFreeVacant (level: Level) (player: Position) (others: List Monster):
-    (choices: List Position) → (destination: Position) → pickFree level choices player others = Some destination → monsterAt destination others = None
+    ∀ (choices: List Position) (destination: Position) => pickFree level choices player others = Some destination → monsterAt destination others = None
   | [], destination, picked => Void.exfalso (Option.noneNotSome destination picked)
   | [choice, ..rest], destination, picked =>
     match wall: isWall level choice with
@@ -69,7 +69,7 @@ theorem apartMove (moved: List Monster) (monster: Monster) (destination: Positio
       (rewrite <- positionsAppend moved waiting in fresh)
 
 theorem actAllApart (dice: Dice) (level: Level) (player: Position):
-    (index: Nat) → (outcome: Outcome) → (waiting: List Monster) →
+    ∀ (index: Nat) (outcome: Outcome) (waiting: List Monster) =>
     Apart (outcome.moved ++ waiting) → Apart (actAll dice level player index outcome waiting).moved
   | index, outcome, [], apart => rewrite <- List.appendNil outcome.moved in apart
   | index, outcome, [monster, ..waiting], apart =>
@@ -89,7 +89,7 @@ theorem monstersTurnApart (dice: Dice) (state: State) (apart: Apart state.monste
     | Died => apart
     | GaveUp => apart
 
-theorem positionsWound (target: Position) (damage: Nat): (monsters: List Monster) → positions (monsters.map (wound target damage)) = positions monsters
+theorem positionsWound (target: Position) (damage: Nat): ∀ (monsters: List Monster) => positions (monsters.map (wound target damage)) = positions monsters
   | [] => rfl
   | [monster, ..others] => rewrite woundStays target damage monster, positionsWound target damage others in rfl
 
@@ -108,7 +108,7 @@ theorem playerMovesApart (dice: Dice) (state: State) (direction: Direction) (apa
 
 --| A new level's monsters are placed one to a cell.
 theorem placeMonstersApart (level: Level) (start: Position):
-    (placed: List Monster) → (planned: List Monster) → Apart placed → Apart (placeMonsters level start placed planned)
+    ∀ (placed planned: List Monster) => Apart placed → Apart (placeMonsters level start placed planned)
   | placed, [], apart => apart
   | placed, [monster, ..rest], apart =>
     match picked: pickFree level [monster.position] start placed with
@@ -148,7 +148,7 @@ theorem stepApart (seed: Nat) (state: State) (command: Command) (apart: Apart st
 
 --| With the monsters apart, the monster found on each monster's cell is
 --| that monster.
-theorem monsterAtOwnCell (found: Monster): (monsters: List Monster) → Apart monsters → List.Mem found monsters → monsterAt found.position monsters = Some found
+theorem monsterAtOwnCell (found: Monster): ∀ (monsters: List Monster) => Apart monsters → List.Mem found monsters → monsterAt found.position monsters = Some found
   | [], apart, inside => Void.exfalso inside
   | [monster, ..others], Both notMem rest, Inl same => rewrite same, DecEq.refl found.position in rfl
   | [monster, ..others], Both notMem rest, Inr later =>

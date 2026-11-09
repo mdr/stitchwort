@@ -23,12 +23,12 @@ def Walk (level: Level): Position → List Direction → Position → Prop
   | origin, [direction, ..rest], target => isWall level (origin.toward direction) = False ∧ Walk level (origin.toward direction) rest target
 
 theorem walkAppend (level: Level) (second: List Direction) (target: Position):
-    (origin: Position) → (first: List Direction) → (middle: Position) → Walk level origin first middle → Walk level middle second target → Walk level origin (first ++ second) target
+    ∀ (origin: Position) (first: List Direction) (middle: Position) => Walk level origin first middle → Walk level middle second target → Walk level origin (first ++ second) target
   | origin, [], middle, same, rest => rewrite same in rest
   | origin, [direction, ..others], middle, Both open walk, rest => Both open (walkAppend level second target (origin.toward direction) others middle walk rest)
 
 theorem walkEast (level: Level) (row: Nat):
-    (steps: Nat) → (column: Nat) → ((j: Nat) → column < j → j ≤ column + steps → isWall level { row, column = j } = False) →
+    ∀ (steps column: Nat) => (∀ (j: Nat) => column < j → j ≤ column + steps → isWall level { row, column = j } = False) →
     Walk level { row, column } (List.replicate steps East) { row, column = column + steps }
   | Zero, column, floor => rewrite Nat.addZero column in rfl
   | Succ steps, column, floor =>
@@ -37,7 +37,7 @@ theorem walkEast (level: Level) (row: Nat):
       (rewrite shift in walkEast level row steps (column + 1) (j after before => floor j omega omega))
 
 theorem walkWest (level: Level) (row: Nat):
-    (steps: Nat) → (column: Nat) → ((j: Nat) → column ≤ j → j < column + steps → isWall level { row, column = j } = False) →
+    ∀ (steps column: Nat) => (∀ (j: Nat) => column ≤ j → j < column + steps → isWall level { row, column = j } = False) →
     Walk level { row, column = column + steps } (List.replicate steps West) { row, column }
   | Zero, column, floor => rewrite Nat.addZero column in rfl
   | Succ steps, column, floor =>
@@ -45,7 +45,7 @@ theorem walkWest (level: Level) (row: Nat):
     rewrite back in Both (floor (column + steps) omega omega) (walkWest level row steps column (j after before => floor j omega omega))
 
 theorem walkSouth (level: Level) (column: Nat):
-    (steps: Nat) → (row: Nat) → ((i: Nat) → row < i → i ≤ row + steps → isWall level { row = i, column } = False) →
+    ∀ (steps row: Nat) => (∀ (i: Nat) => row < i → i ≤ row + steps → isWall level { row = i, column } = False) →
     Walk level { row, column } (List.replicate steps South) { row = row + steps, column }
   | Zero, row, floor => rewrite Nat.addZero row in rfl
   | Succ steps, row, floor =>
@@ -54,7 +54,7 @@ theorem walkSouth (level: Level) (column: Nat):
       (rewrite shift in walkSouth level column steps (row + 1) (i after before => floor i omega omega))
 
 theorem walkNorth (level: Level) (column: Nat):
-    (steps: Nat) → (row: Nat) → ((i: Nat) → row ≤ i → i < row + steps → isWall level { row = i, column } = False) →
+    ∀ (steps row: Nat) => (∀ (i: Nat) => row ≤ i → i < row + steps → isWall level { row = i, column } = False) →
     Walk level { row = row + steps, column } (List.replicate steps North) { row, column }
   | Zero, row, floor => rewrite Nat.addZero row in rfl
   | Succ steps, row, floor =>
@@ -62,7 +62,7 @@ theorem walkNorth (level: Level) (column: Nat):
     rewrite back in Both (floor (row + steps) omega omega) (walkNorth level column steps row (i after before => floor i omega omega))
 
 --| Every cell of `area` is floor.
-def Open (level: Level) (area: Area): Prop := (position: Position) → area.contains position = True → isWall level position = False
+def Open (level: Level) (area: Area): Prop := ∀ (position: Position) => area.contains position = True → isWall level position = False
 
 theorem containsOf (area: Area) (position: Position) (top: area.corner.row ≤ position.row) (bottom: position.row ≤ area.corner.row + area.down)
     (left: area.corner.column ≤ position.column) (right: position.column ≤ area.corner.column + area.across): area.contains position = True :=
@@ -196,7 +196,7 @@ def GoalReachable (level: Level): Prop := Reachable level level.start level.goal
 type Joined (level: Level) (origin: Position) (target: Position): Prop = { there: Reachable level origin target, back: Reachable level target origin }
 
 theorem corridorJoins (level: Level) (origin: Position) (target: Position)
-    (listed: (area: Area) → List.Mem area (corridorBetween origin target) → List.Mem area level.corridors): Joined level origin target :=
+    (listed: ∀ (area: Area) => List.Mem area (corridorBetween origin target) → List.Mem area level.corridors): Joined level origin target :=
   let along: Area := { corner = { row = origin.row, column = Nat.min origin.column target.column }, down = 0, across = distanceBetween origin.column target.column }
   let up: Area := { corner = { row = Nat.min origin.row target.row, column = target.column }, down = distanceBetween origin.row target.row, across = 0 }
   let alongOpen := openCorridor level along (listed along (Inl rfl))
@@ -241,7 +241,7 @@ theorem hubFour (level: Level) (rooms: List Area) (extra: Nat) (wired: level.cor
   joinedTrans level (middleOf rooms 0) (middleOf rooms 5) (middleOf rooms 4) (hubFive level rooms extra wired) (linkJoins level rooms extra wired 5 4 (Inr (Inr (Inr (Inl rfl)))))
 
 theorem hubJoins (level: Level) (rooms: List Area) (extra: Nat) (wired: level.corridors = corridorsOf rooms extra):
-    (index: Nat) → index < 6 → Joined level (middleOf rooms 0) (middleOf rooms index)
+    ∀ (index: Nat) => index < 6 → Joined level (middleOf rooms 0) (middleOf rooms index)
   | Zero, small => { there = Witness [] rfl, back = Witness [] rfl }
   | Succ Zero, small => linkJoins level rooms extra wired 0 1 (Inl rfl)
   | Succ (Succ Zero), small => hubTwo level rooms extra wired

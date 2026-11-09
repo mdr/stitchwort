@@ -20,7 +20,7 @@ theorem glyphAtPlayer (state: State) (terrain: Char): glyphAt (marksIn state sta
 --| Among the monsters' marks on a cell's row, the first in the cell's column
 --| is the glyph of the monster `monsterAt` finds there.
 theorem lookupMonsterMark (position: Position) (found: Monster) (rest: List (Nat, Char)):
-    (monsters: List Monster) → monsterAt position monsters = Some found →
+    ∀ (monsters: List Monster) => monsterAt position monsters = Some found →
     (List.append (monsters.filterMap (monster => if monster.position.row == position.row then Some (monster.position.column, monster.kind.glyph) else None)) rest).lookup position.column
       = Some found.kind.glyph
   | [], located => Void.exfalso (Option.noneNotSome found located)

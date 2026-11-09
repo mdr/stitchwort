@@ -32,7 +32,7 @@ def threat (player: Position): List Monster → Nat
 theorem upToAtMost (dice: Dice) (index: Nat) (most: Nat): dice.upTo index most ≤ most unfolding Dice.upTo :=
   omega [Nat.modLt (lcg (lcg (dice.seed + index * 7919)) / 65536) (most + 1)]
 
-theorem strengthPositive: (kind: Kind) → 1 ≤ kind.strength
+theorem strengthPositive: ∀ (kind: Kind) => 1 ≤ kind.strength
   | Goblin => rfl
   | Orc => rfl
   | Troll => rfl
@@ -41,7 +41,7 @@ theorem blowAtMost (dice: Dice) (index: Nat) (kind: Kind): 1 + dice.upTo index (
   omega [upToAtMost dice index (kind.strength - 1), strengthPositive kind]
 
 theorem actAllDamage (dice: Dice) (level: Level) (player: Position):
-    (index: Nat) → (outcome: Outcome) → (waiting: List Monster) →
+    ∀ (index: Nat) (outcome: Outcome) (waiting: List Monster) =>
     (actAll dice level player index outcome waiting).damage ≤ outcome.damage + threat player waiting
   | index, outcome, [] => omega
   | index, outcome, [monster, ..waiting] =>
@@ -62,7 +62,7 @@ theorem monstersTurnHurt (dice: Dice) (state: State):
     | Died => omega
     | GaveUp => omega
 
-theorem threatNone (player: Position): (monsters: List Monster) → List.All (monster => monster.position.isNextTo player = False) monsters → threat player monsters = 0
+theorem threatNone (player: Position): ∀ (monsters: List Monster) => List.All (monster => monster.position.isNextTo player = False) monsters → threat player monsters = 0
   | [], none => rfl
   | [monster, ..rest], Both far others => rewrite far, threatNone player rest others in rfl
 
