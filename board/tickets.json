@@ -24978,12 +24978,12 @@
     {
       "id": 2485,
       "title": "Map.Tree.minOr/maxOr build the result once: carry key and value as two arguments, not Some (k, v) per level (disk -16% measured: 6.23 -> 5.24 s, cells 105.5 M -> 53.9 M)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Sonnet",
-      "where": "",
+      "where": "Speedwell",
       "labels": [],
       "epic": "comparative-speed",
-      "body": "From SW-2484 (docs/reviews/SW-2484-disk-bridge-profiles.md, target 1; the lane's patch is in the scratchpad). One std proof needs a three-line lemma. 45 min.",
+      "body": "From SW-2484 (docs/reviews/SW-2484-disk-bridge-profiles.md, target 1; the lane's patch is in the scratchpad). One std proof needs a three-line lemma. 45 min.\n\nStarted 9 Nov 2026 05:15 UTC. Expected: 45 min.\n",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
