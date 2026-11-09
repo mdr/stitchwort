@@ -25940,12 +25940,12 @@
     {
       "id": 2559,
       "title": "Cell cache: keep an exact held-bytes count (add on push, subtract on take, including native code's inline takes) so CellCache::full (crates/rt/src/cell_cache.rs:106) stops walking every cached block; it is 15% of binary-trees' cycles and caused rbmap's +1.4% time after SW-2511 (LLC misses 0.55 M -> 3.8 M)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "Speedwell",
       "labels": [],
       "epic": "comparative-speed",
-      "body": "From Overmind job 41 (9 Nov): reverting 200f2d6d9 alone restores rbmap and memory-game time; rbmap's loss is CellCache::full (0 -> 4.4% of cycles) walking 64 MB of cached blocks. binary-trees already spends 15% in full() on both builds. Weigh the extra instruction on the inline take path against the walk; measure time on Overmind, not only instructions (SW-2523 lesson). Profile first. 90 min.\n\nStarted 9 Nov 2026 10:43 UTC. Expected: 90 min.\n",
+      "body": "From Overmind job 41 (9 Nov): reverting 200f2d6d9 alone restores rbmap and memory-game time; rbmap's loss is CellCache::full (0 -> 4.4% of cycles) walking 64 MB of cached blocks. binary-trees already spends 15% in full() on both builds. Weigh the extra instruction on the inline take path against the walk; measure time on Overmind, not only instructions (SW-2523 lesson). Profile first. 90 min.\n\nStarted 9 Nov 2026 10:43 UTC. Expected: 90 min.\n\nMerged 9 Nov. Exact room count; full() frees the one cell. Instructions +0.2-0.3%; time to be confirmed on Overmind (queued after job 43). Model result: Sonnet, worked, 13 min (est. 90).\n",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
