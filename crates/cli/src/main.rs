@@ -138,6 +138,15 @@ enum Command {
         /// which is much slower) instead of the fast runtime
         #[arg(long)]
         reference: bool,
+        /// Run the tests as native code, compiled together; a test that
+        /// can't run natively runs on the fast runtime, with the same
+        /// outcome. Needs a build with the `native` feature
+        #[arg(long, conflicts_with = "reference")]
+        native: bool,
+        /// With --native, say on standard error what ran natively, and why
+        /// anything didn't
+        #[arg(long, requires = "native")]
+        verbose: bool,
         /// Run every test afresh and compare each result with the cached
         /// one, failing on any that differs; the cache is not written. A
         /// check that the cache's key covers everything a result depends on
@@ -590,11 +599,14 @@ fn main() -> ExitCode {
     if matches!(cli.command, Command::Run { js: true, .. }) {
         stitchwort_cli::node_wait::wait_for_node();
     }
-    // `run --native` runs native code on this thread, whose stack must hold
-    // whatever the run sizes for its frames: up to the cap
-    // (docs/proposals/native-only.md §3).
+    // `run --native` and `test --native` run native code on this thread,
+    // whose stack must hold whatever the run sizes for its frames: up to
+    // the cap (docs/proposals/native-only.md §3). Checking still uses only
+    // `STACK` of it (`new_session`).
     let stack = match &cli.command {
-        Command::Run { native: true, .. } => stitchwort_host::NATIVE_STACK,
+        Command::Run { native: true, .. } | Command::Test { native: true, .. } => {
+            stitchwort_host::NATIVE_STACK
+        }
         _ => STACK,
     };
     let ran = stitchwort_host::try_with_stack(stack, move || {
@@ -641,6 +653,8 @@ fn run(cli: Cli) -> ExitCode {
             cache,
             project,
             reference,
+            native,
+            verbose,
             verify_cache,
             only,
             json,
@@ -649,6 +663,7 @@ fn run(cli: Cli) -> ExitCode {
             &cache,
             project.as_deref(),
             reference,
+            native.then_some(verbose),
             verify_cache,
             &TestOutput {
                 only: only.as_deref(),
@@ -1459,9 +1474,17 @@ fn test(
     cache: &CacheArgs,
     project: Option<&Path>,
     reference: bool,
+    native: Option<bool>,
     verify_cache: bool,
     output: &TestOutput,
 ) -> ExitCode {
+    #[cfg(not(feature = "native"))]
+    if native.is_some() {
+        eprintln!(
+            "error: this `stitchwort` was built without native code; build it with `task build`"
+        );
+        return ExitCode::FAILURE;
+    }
     let mut session = new_session(false);
     let test_cache = |cache: &CacheArgs, base: &Path| {
         let cache = test_cache(cache, base);
@@ -1474,10 +1497,13 @@ fn test(
     let run_tests = |session: &Session, cache: &Cache| {
         let keep = |test: &stitchwort_elab::TestDecl| output.only.is_none_or(|n| n == test.name);
         if reference {
-            session.run_tests_where(cache, keep)
-        } else {
-            session.run_tests_fast_where(cache, keep)
+            return session.run_tests_where(cache, keep);
         }
+        #[cfg(feature = "native")]
+        if let Some(verbose) = native {
+            return session.run_tests_native_where(cache, keep, &NativeTestCompiler { verbose });
+        }
+        session.run_tests_fast_where(cache, keep)
     };
     match target {
         Some(file) if is_file_target(file) => {
@@ -1560,6 +1586,57 @@ fn test(
             } else {
                 code
             }
+        }
+    }
+}
+
+/// `test --native`'s compiler (`stitchwort_driver::test_run::NativeTests`):
+/// the tests' program compiled as `run --native` compiles `main`'s, with
+/// each test a way in.
+#[cfg(feature = "native")]
+struct NativeTestCompiler {
+    verbose: bool,
+}
+
+#[cfg(feature = "native")]
+impl stitchwort_driver::test_run::NativeTests for NativeTestCompiler {
+    fn compile(
+        &self,
+        program: &stitchwort_rt::Program,
+        roots: &[u32],
+        limits: stitchwort_rt::Limits,
+    ) -> Result<stitchwort_driver::test_run::NativeTestCode, Vec<String>> {
+        let image = stitchwort_rt::code::compile(program);
+        let islands = stitchwort_native::n1::compile_roots(
+            program,
+            image,
+            roots,
+            stitchwort_native::n1::Options::default(),
+        )?;
+        let stack = stitchwort_native::n1::stack_for(
+            limits.frames as u64,
+            islands.max_frame,
+            &islands.widest,
+        )?;
+        // The thread's stack is the cap (`main`), so whatever this sizes fits.
+        debug_assert!(stack <= stitchwort_host::NATIVE_STACK);
+        let summary = format!(
+            "native: compiled {} test(s), {} bodies (frames of at most {} bytes, in {:.1} ms)",
+            roots.len(),
+            islands.bodies,
+            islands.max_frame,
+            islands.compile_time.as_secs_f64() * 1000.0
+        );
+        Ok(stitchwort_driver::test_run::NativeTestCode {
+            code: Box::new(islands),
+            stack,
+            summary,
+        })
+    }
+
+    fn note(&self, line: &str) {
+        if self.verbose {
+            eprintln!("{line}");
         }
     }
 }

@@ -83,7 +83,7 @@ pub fn compile_object(
     frame_limit: u64,
 ) -> Result<ObjectCode, Vec<String>> {
     n1::preflight()?;
-    let plan = n1::plan(program, image)?;
+    let plan = n1::plan(program, image, &[])?;
     let start = Instant::now();
     let fail = |e: String| vec![format!("compiling to native code failed: {e}")];
     let isa = n1::host_isa(true).map_err(fail)?;

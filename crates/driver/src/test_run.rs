@@ -24,12 +24,93 @@ pub fn modes(g: &Ev) -> String {
 
 /// Which evaluator runs a test.
 #[derive(Clone, Copy)]
-enum Runner {
+enum Runner<'a> {
     /// The reference evaluator, the type checker's own.
     Reference,
     /// The machine of `stitchwort-rt`, falling back to the reference
     /// evaluator.
     Machine,
+    /// Native code, compiled by `native`, falling back to the machine.
+    Native(&'a dyn NativeTests),
+}
+
+/// What `stitchwort test --native` gives the driver to run tests as native
+/// code: the compiler, which is in `stitchwort-native` (Cranelift), a crate
+/// this one doesn't depend on, since the playground's WebAssembly build
+/// uses it. Native code runs what the machine would, so a test it can't
+/// run, for whatever reason, runs on the machine instead, and the outcome
+/// is the machine's.
+pub trait NativeTests {
+    /// `program` compiled to native code, with a way into each constant of
+    /// `roots` (global numbers), and the stack in bytes its runs need under
+    /// `limits` (the thread's stack must be at least that); or why it
+    /// can't be, as lines.
+    fn compile(
+        &self,
+        program: &stitchwort_rt::Program,
+        roots: &[u32],
+        limits: stitchwort_rt::Limits,
+    ) -> Result<NativeTestCode, Vec<String>>;
+
+    /// Says `line`, about what ran natively and what didn't, if asked to
+    /// (`--verbose`).
+    fn note(&self, line: &str);
+}
+
+/// The tests' native code, from [`NativeTests::compile`].
+pub struct NativeTestCode {
+    pub code: Box<dyn stitchwort_rt::native_abi::NativeIslands>,
+    /// The stack its runs reserve, in bytes (`native_abi::native_stack`).
+    pub stack: usize,
+    /// What was compiled, for [`NativeTests::note`].
+    pub summary: String,
+}
+
+/// The tests' native code, running: one executor for every test, so a
+/// constant computed for one (a parsed input) is kept for the next, as on
+/// the machine.
+struct NativeTestRun {
+    executor: stitchwort_rt::native_abi::NativeExecutor,
+    true_: u32,
+}
+
+impl NativeTestRun {
+    /// The outcome of the test `def` run natively, or why it wasn't: not
+    /// compiled, out of resources (for the machine to try, and then the
+    /// reference evaluator, whose limits a result is reported against), or
+    /// not a `Bool`.
+    fn run(
+        &mut self,
+        lowered: &TestMachine,
+        def: stitchwort_core::DefId,
+        partial: Option<stitchwort_rt::Limits>,
+    ) -> Result<Outcome, String> {
+        use stitchwort_rt::Executor as _;
+        let global = lowered
+            .global(def)
+            .ok_or_else(|| "it wasn't lowered".to_string())?;
+        self.executor.reset_steps();
+        let value = self
+            .executor
+            .global(global.0)
+            .ok_or_else(|| "it wasn't compiled".to_string())?;
+        let value = match partial {
+            // Stepped as on the machine, with this executor.
+            Some(limits) => value
+                .map_err(stitchwort_rt::host::RunError::from)
+                .and_then(|delay| stitchwort_rt::run_partial_on(&mut self.executor, limits, delay)),
+            None => value.map_err(Into::into),
+        };
+        match value {
+            Ok(stitchwort_rt::value::Value::Tag(tag)) => Ok(if tag == self.true_ {
+                Outcome::Passed
+            } else {
+                Outcome::Failed
+            }),
+            Ok(_) => Err("its value isn't a `Bool`".to_string()),
+            Err(e) => Err(e.to_string()),
+        }
+    }
 }
 
 /// Which of the session's tests to run.
@@ -41,6 +122,54 @@ struct TestMachine {
 }
 
 impl TestMachine {
+    /// The global of the test `def`, if it was lowered.
+    fn global(&self, def: stitchwort_core::DefId) -> Option<stitchwort_rt::ir::GlobalId> {
+        let global = self.program.globals.iter().position(|g| g.def == def)?;
+        Some(stitchwort_rt::ir::GlobalId(u32::try_from(global).ok()?))
+    }
+
+    /// The tests `defs` compiled to native code by `native`, where they're
+    /// constants that were lowered, or `None`, with a note saying why.
+    fn compile_native(
+        &self,
+        native: &dyn NativeTests,
+        defs: &[stitchwort_core::DefId],
+        limits: stitchwort_rt::Limits,
+    ) -> Option<NativeTestRun> {
+        let roots: Vec<u32> = defs
+            .iter()
+            .filter_map(|&def| self.global(def))
+            .filter(|g| {
+                matches!(
+                    self.program.globals[g.0 as usize].kind,
+                    stitchwort_rt::ir::GlobalKind::Constant { .. }
+                )
+            })
+            .map(|g| g.0)
+            .collect();
+        if roots.is_empty() {
+            return None;
+        }
+        match native.compile(&self.program, &roots, limits) {
+            Ok(code) => {
+                native.note(&code.summary);
+                Some(NativeTestRun {
+                    executor: stitchwort_rt::native_abi::NativeExecutor::new(
+                        code.code, limits, code.stack,
+                    ),
+                    true_: self.program.shapes.true_,
+                })
+            }
+            Err(why) => {
+                native.note("native: the tests can't be compiled, so they run on the machine:");
+                for line in why {
+                    native.note(&format!("  {line}"));
+                }
+                None
+            }
+        }
+    }
+
     /// The outcome of the test `def` on `machine`, if it was lowered and
     /// finished there: running out of resources is left to the reference
     /// evaluator, whose limits a test's result is reported against.
@@ -50,8 +179,7 @@ impl TestMachine {
         def: stitchwort_core::DefId,
         partial: Option<stitchwort_rt::Limits>,
     ) -> Option<Outcome> {
-        let global = self.program.globals.iter().position(|g| g.def == def)?;
-        let global = stitchwort_rt::ir::GlobalId(u32::try_from(global).ok()?);
+        let global = self.global(def)?;
         machine.reset_steps();
         let value = match partial {
             // A test that runs partial code (D1183) is a `Delay`, stepped
@@ -117,6 +245,25 @@ impl Session {
         self.run_selected(cache, &|test| !test.library && keep(test), Runner::Machine)
     }
 
+    /// [`Session::run_tests_fast_where`], as native code where it can
+    /// (`stitchwort test --native`): compiled by `native`, with a test it
+    /// can't run going to the machine, and from there to the reference
+    /// evaluator, as before. The outcomes and the cache are the machine's:
+    /// a result is cached under the machine's key, since native code
+    /// computes what the machine does.
+    pub fn run_tests_native_where(
+        &self,
+        cache: &Cache,
+        keep: impl Fn(&stitchwort_elab::TestDecl) -> bool,
+        native: &dyn NativeTests,
+    ) -> Vec<TestResult> {
+        self.run_selected(
+            cache,
+            &|test| !test.library && keep(test),
+            Runner::Native(native),
+        )
+    }
+
     /// Runs the tests of the core and of the library files loaded (all of
     /// them, in [`Session::with_library_tests`]).
     pub fn run_library_tests(&self, cache: &Cache) -> Vec<TestResult> {
@@ -124,9 +271,15 @@ impl Session {
     }
 
     /// The tests `selected` that `cache` has no result for, lowered together
-    /// for the machine, if they can be. One that can't be lowered with the
-    /// others is left out (and runs on the reference evaluator).
-    fn lower_tests(&self, cache: &Cache, selected: &Selection, modes: &str) -> Option<TestMachine> {
+    /// for the machine, if they can be, with those tests. One that can't be
+    /// lowered with the others is left out (and runs on the reference
+    /// evaluator).
+    fn lower_tests(
+        &self,
+        cache: &Cache,
+        selected: &Selection,
+        modes: &str,
+    ) -> Option<(TestMachine, Vec<stitchwort_core::DefId>)> {
         let g = &self.elab.ev();
         let wanted: Vec<stitchwort_core::DefId> = self
             .elab
@@ -160,28 +313,39 @@ impl Session {
                 .collect();
             lower(&lowerable)
         })?;
-        Some(TestMachine { program })
+        Some((TestMachine { program }, wanted))
     }
 
     fn run_selected(&self, cache: &Cache, selected: &Selection, runner: Runner) -> Vec<TestResult> {
         let g = &self.elab.ev();
         // A result is kept per runner: the two are only differentially
         // tested to agree (docs/proposals/fast-runtime.md).
+        // Native code shares the machine's: it computes what the machine
+        // does, and a test it can't run goes to the machine.
         let modes = match runner {
             Runner::Reference => modes(g),
-            Runner::Machine => format!("{}m", modes(g)),
+            Runner::Machine | Runner::Native(_) => format!("{}m", modes(g)),
         };
-        let lowered = match runner {
-            Runner::Reference => None,
-            Runner::Machine => self.lower_tests(cache, selected, &modes),
+        let limits = stitchwort_rt::Limits::from_core(self.elab.options.limits);
+        let (lowered, wanted) = match runner {
+            Runner::Reference => (None, Vec::new()),
+            Runner::Machine | Runner::Native(_) => self
+                .lower_tests(cache, selected, &modes)
+                .map_or((None, Vec::new()), |(lowered, wanted)| {
+                    (Some(lowered), wanted)
+                }),
         };
-        let mut machine = lowered.as_ref().map(|lowered| {
-            stitchwort_rt::Machine::new(
-                &lowered.program,
-                stitchwort_rt::Limits::from_core(self.elab.options.limits),
-            )
-        });
-        self.elab
+        let mut native = match (runner, &lowered) {
+            (Runner::Native(native), Some(lowered)) => {
+                lowered.compile_native(native, &wanted, limits)
+            }
+            _ => None,
+        };
+        // Made when a test first needs it: with native code, perhaps never.
+        let mut machine: Option<stitchwort_rt::Machine> = None;
+        let (mut ran_natively, mut not_natively) = (0usize, 0usize);
+        let results = self
+            .elab
             .tests()
             .iter()
             .filter(|test| selected(test))
@@ -215,14 +379,34 @@ impl Session {
                 }
                 // A test that runs partial code is a `Delay` (D1183).
                 let partial = self.elab.is_partial(test.def).unwrap_or(false);
-                let on_machine = match (&lowered, &mut machine) {
-                    (Some(lowered), Some(machine)) => lowered.run(
-                        machine,
-                        test.def,
-                        partial.then(|| stitchwort_rt::Limits::from_core(self.elab.options.limits)),
-                    ),
+                let on_native = match (&lowered, &mut native) {
+                    (Some(lowered), Some(native)) => {
+                        match native.run(lowered, test.def, partial.then_some(limits)) {
+                            Ok(outcome) => {
+                                ran_natively += 1;
+                                Some(outcome)
+                            }
+                            Err(why) => {
+                                not_natively += 1;
+                                if let Runner::Native(n) = runner {
+                                    n.note(&format!(
+                                        "native: test \"{}\" runs on the machine: {why}",
+                                        test.name
+                                    ));
+                                }
+                                None
+                            }
+                        }
+                    }
                     _ => None,
                 };
+                let on_machine = on_native.or_else(|| {
+                    let lowered = lowered.as_ref()?;
+                    let machine = machine.get_or_insert_with(|| {
+                        stitchwort_rt::Machine::new(&lowered.program, limits)
+                    });
+                    lowered.run(machine, test.def, partial.then_some(limits))
+                });
                 let outcome = on_machine.unwrap_or_else(|| {
                     let value = if partial {
                         self.run_partial(&Term::Def(test.def))
@@ -249,7 +433,15 @@ impl Session {
                     detail: self.failure(test, outcome),
                 }
             })
-            .collect()
+            .collect();
+        if let Runner::Native(native) = runner
+            && ran_natively + not_natively > 0
+        {
+            native.note(&format!(
+                "native: {ran_natively} test(s) ran natively, {not_natively} on the machine"
+            ));
+        }
+        results
     }
 
     /// Steps `term`, a partial computation that performs nothing (a test

@@ -224,3 +224,73 @@ fn checking_never_runs_a_looping_test() {
         .expect("run stitchwort");
     assert!(output.status.success(), "{output:?}");
 }
+
+/// What `test --native` is checked on: passing, failing and partial tests,
+/// and one that recurses too deeply, which native code hands to the machine
+/// (and the machine to the reference evaluator, which reports it).
+const NATIVE: &str = r#"import Std (List)
+
+def collatzSteps: Nat -> {Partial} Nat
+  | 0 => 0
+  | 1 => 0
+  | n => 1 + collatzSteps (if n % 2 == 0 then n / 2 else 3 * n + 1)
+
+def deeper: Nat -> Nat
+  | 0 => 0
+  | Succ k => deeper k * 2
+
+test "passes" := List.sum (List.range 0 100) == 4950
+test "fails" := List.sum (List.range 0 100) == 4951
+test "partial, passes" := collatzSteps 27 == 111
+test "partial, fails" := collatzSteps 27 == 110
+test "too deep" := deeper 3000000 == 0
+"#;
+
+/// `test --native` (SW-2543): the same outcomes and messages as `test`, and
+/// the same cache, so each finds the other's results.
+#[test]
+fn native_code_gives_the_machines_results_and_shares_its_cache() {
+    let dir = folder_with("native", NATIVE);
+    let machine = run(&dir, &["--no-cache"]);
+    let native = run(&dir, &["--no-cache", "--native"]);
+    assert!(machine.contains("1 ran out of resources"), "{machine}");
+    assert_eq!(machine, native);
+
+    // `--verbose` says what ran where, on standard error.
+    let output = Command::new(env!("CARGO_BIN_EXE_stitchwort"))
+        .args(["test", "t.sw", "--no-cache", "--native", "--verbose"])
+        .current_dir(&dir)
+        .stdin(Stdio::null())
+        .output()
+        .expect("run stitchwort");
+    let notes = String::from_utf8(output.stderr).unwrap();
+    assert!(notes.contains("native: compiled 5 test(s)"), "{notes}");
+    assert!(
+        notes.contains("native: test \"too deep\" runs on the machine"),
+        "{notes}"
+    );
+    assert!(
+        notes.contains("native: 4 test(s) ran natively, 1 on the machine"),
+        "{notes}"
+    );
+    assert_eq!(String::from_utf8(output.stdout).unwrap(), machine);
+
+    // Results written natively are the machine's, and the other way round
+    // (but for running out of resources, which isn't cached).
+    let written = run(&dir, &["--native"]);
+    assert!(!written.contains("cached"), "{written}");
+    let read = run(&dir, &[]);
+    assert!(read.contains("(4 from the cache)"), "{read}");
+    assert!(run(&dir, &["--native"]).contains("(4 from the cache)"));
+}
+
+/// The `test` file of the partial tests above, natively: each partial test
+/// is stepped as the machine steps it.
+#[test]
+fn partial_tests_run_natively() {
+    let dir = folder_with("partial-native", PARTIAL);
+    assert_eq!(
+        run(&dir, &["--no-cache", "--native"]),
+        run(&dir, &["--no-cache"])
+    );
+}

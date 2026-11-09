@@ -187,6 +187,36 @@ pub trait Executor {
     fn depth_report(&self) -> Option<String>;
 }
 
+impl<E: Executor + ?Sized> Executor for &mut E {
+    fn entry(&mut self) -> Result<Value, ResourceError> {
+        (**self).entry()
+    }
+
+    fn call(&mut self, f: Value, args: Vec<Value>) -> Result<Value, ResourceError> {
+        (**self).call(f, args)
+    }
+
+    fn step_comp(&mut self, c: Value) -> Result<Value, ResourceError> {
+        (**self).step_comp(c)
+    }
+
+    fn reset_steps(&mut self) {
+        (**self).reset_steps();
+    }
+
+    fn shapes(&self) -> &Shapes {
+        (**self).shapes()
+    }
+
+    fn main_row(&self) -> MainRow {
+        (**self).main_row()
+    }
+
+    fn depth_report(&self) -> Option<String> {
+        (**self).depth_report()
+    }
+}
+
 /// [`run_main_on`], profiled ([`crate::profile`]): `started` gets the
 /// profile before the run starts (to report it if the run is interrupted),
 /// and it comes back with the result.
@@ -314,7 +344,18 @@ fn entry_error(executor: &impl Executor, e: ResourceError) -> RunError {
 /// steps `main`: the same stepping, budget per stretch and lack of a tick
 /// limit.
 pub fn run_partial(machine: Machine<'_>, limits: Limits, delay: Value) -> Result<Value, RunError> {
-    let mut runner = Runner::new(machine, limits, Policy::default(), Box::new(NoTerminal));
+    run_partial_on(machine, limits, delay)
+}
+
+/// [`run_partial`] on any executor: native code's, for `stitchwort test
+/// --native`, which passes `&mut` its executor to keep the constants it
+/// computed for the next test.
+pub fn run_partial_on<E: Executor>(
+    executor: E,
+    limits: Limits,
+    delay: Value,
+) -> Result<Value, RunError> {
+    let mut runner = Runner::new(executor, limits, Policy::default(), Box::new(NoTerminal));
     let driven = runner
         .drive(
             Focus::Eval(delay),
