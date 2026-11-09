@@ -1,5 +1,5 @@
 {
-  "next": 2469,
+  "next": 2470,
   "tickets": [
     {
       "id": 47,
@@ -24556,16 +24556,16 @@
     {
       "id": 2455,
       "title": "Wide benchmark set: Lean's const_fold and rbmap/rbmap-ck (tests/compile_bench) ported to Stitchwort and Python",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Sonnet",
-      "where": "",
+      "where": "Speedwell",
       "labels": [
         "bench"
       ],
       "epic": "comparative-speed",
-      "body": "From SW-2450 (ranks 2, 4). After the first port. 2 h.",
+      "body": "From SW-2450 (ranks 2, 4). After the first port. 2 h.\n\nStarted 9 Nov 2026 02:15 UTC. Expected: 120 min.\n",
       "created": "2026-11-08",
-      "updated": "2026-11-08",
+      "updated": "2026-11-09",
       "commits": []
     },
     {
@@ -24759,6 +24759,21 @@
       ],
       "epic": "audit-fuzzing",
       "body": "Found 9 Nov 2026 02:04 on Speedwell (compute mode). Slow cases before it: 831, 2415. Bisect with FROM/TO; then compare with SW-2452 (case 531 of 0x2451): same recursion or a new one.",
+      "created": "2026-11-09",
+      "updated": "2026-11-09",
+      "commits": []
+    },
+    {
+      "id": 2469,
+      "title": "compare.py writes its history.toml entry (core and wide_* keys) instead of a hand-copied line",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "bench"
+      ],
+      "epic": "comparative-speed",
+      "body": "From SW-2454's report: the core ten's line is entered by hand and the new wide_* keys likewise. Add a --record flag (or a task) that appends the run's entry. 30 min.",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
