@@ -24991,12 +24991,12 @@
     {
       "id": 2486,
       "title": "Parser: one fused operation for token nat (3 marks + 3 spans per number become one operation); bridge -14 to -23% (extrapolated from measured per-operation cost)",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": "Speedwell",
       "labels": [],
       "epic": "comparative-speed",
-      "body": "From SW-2484 target 2. Bridge is 83% parsing. Design the operation so other token parsers can use it. 90 min.\n\nStarted 9 Nov 2026 05:19 UTC. Expected: 90 min.\n",
+      "body": "From SW-2484 target 2. Bridge is 83% parsing. Design the operation so other token parsers can use it. 90 min.\n\nStarted 9 Nov 2026 05:19 UTC. Expected: 90 min.\n\n05:43, Sonnet result (branch lane/SW-2486, da350645d; worktree kept): new Parse operation spacedNat (one pass: spaces, digits, spaces) and public Parse.natToken; 22 proof arms added (Reads.sw 9, Runs.sw 13), statements unchanged; state-level theorem spacedNatBySpans (one pass = three spans); 16 hash snapshots; bound_to_the_prelude passes. Bridge 102.18 -> 80.56 G (-21.2%); disk +0.56% (longer operation table). HELD for Matt (orchestrator's call): (1) new user-visible std API (natToken); (2) the gain needs every `token nat` call site rewritten to natToken, including bridge's own source (2024 day 7): a benchmark sped up by editing it, the over-fitting Matt warned about. Recommendation: keep the operation, make `token nat` itself use it (specialise token when its argument is nat) so unchanged code gets the gain and no AoC source changes; plus Reads/Runs lemmas for it. Model result: Sonnet, worked, 22 min (est. 90).\n",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
