@@ -320,3 +320,38 @@ all **1.17, 6.64**. By instructions: core 2.01, 9.41; wide 0.26, 3.04; all 1.13,
 **Regression:** rbmap-ck native time 1.55 s → 1.80 s (+16.2%) at unchanged instructions (10.65 G),
 confirmed by a rerun at low load; rbmap unchanged. Under investigation (see the board).
 Raw files: Overmind's `target/compare/2026-11-09T080649-overmind.{json,md}`.
+
+## Job 39: record updates, R7 and mapops (Overmind, 9 Nov 2026 09:22, `9cc3fa3b8`)
+
+Check 64 ok; 2372 s; peak memory 2.16 GB (const-fold). Report:
+`target/compare/2026-11-09T092248-overmind.md` on Overmind.
+
+| Program | native | CPython | Lean | native/CPython | native/Lean |
+|---|---:|---:|---:|---:|---:|
+| pidigits | 1.24 s | 3.71 s | 1.96 s | 0.33x | 0.63x |
+| binary-trees | 2.65 s | 9.79 s | 972 ms | 0.27x | 2.73x |
+| memory-game | 2.73 s | 8.15 s | 784 ms | 0.34x | 3.49x |
+| dijkstra | 2.52 s | 843 ms | 204 ms | 2.99x | 12.34x |
+| octopus | 2.61 s | 1.52 s | 219 ms | 1.72x | 11.93x |
+| disk | 8.68 s | 2.23 s | 757 ms | 3.89x | 11.47x |
+| expressions | 34.23 s | 2.13 s | 661 ms | 16.04x | 51.77x |
+| scan | 37.09 s | 829 ms | 585 ms | 44.72x | 63.38x |
+| matcher | 7.68 s | 4.60 s | 858 ms | 1.67x | 8.95x |
+| bridge | 11.66 s | 3.47 s | 820 ms | 3.36x | 14.21x |
+| spectral-norm | 6.40 s | 9.43 s | 4.48 s | 0.68x | 1.43x |
+| const-fold | 2.90 s | 24.05 s | 1.05 s | 0.12x | 2.76x |
+| rbmap | 2.82 s | 12.81 s | 1.21 s | 0.22x | 2.32x |
+| rbmap-ck | 1.80 s | 19.65 s | 425 ms | 0.09x | 4.23x |
+| mapops | 2.24 s | 827 ms | 451 ms | 2.71x | 4.97x |
+
+Geomeans by time: core 2.18x CPython, 9.18x Lean (job 36: 2.36x, 9.88x);
+wide, now with mapops, 0.34x and 2.86x (not comparable with job 36's four).
+Instructions: core 1.84x and 8.58x.
+
+Against job 36 (native, time; instructions): memory-game -37.9%; -45.6%,
+octopus -13.6%; -14.6%, bridge -4.0%; -4.6%, disk -2.7%; -1.7%,
+expressions -1.8%; -2.7%, scan -1.7%; -2.2%; others within 1%. Geomean
+-5.2%; -6.3%. Most of it is SW-2514 (record updates take unique records
+apart): it matches Speedwell's bridge and disk numbers, and memory-game and
+octopus are record-update loops too. rbmap-ck is unchanged at 1.80 s
+(SW-2523's layout regression remains, accepted).
