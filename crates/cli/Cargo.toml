@@ -47,6 +47,9 @@ native = ["dep:stitchwort-native"]
 # `run --alloc-trace FILE`: the bring-up allocation trace of the fast
 # runtime (`stitchwort_rt::alloc_trace`). Off in release builds.
 alloc-trace = ["stitchwort-rt/alloc-trace"]
+# `STITCHWORT_BORROW_COUNTS=1 stitchwort run`: the borrow inference dry run and
+# its counter of reference-count operations (SW-2530). Never on in shipped builds.
+borrow-counts = ["stitchwort-rt/borrow-counts"]
 
 [dev-dependencies]
 # mimalloc in the unit-test and integration-test binaries (docs/testing.md, "Allocator").
