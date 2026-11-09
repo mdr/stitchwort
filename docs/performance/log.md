@@ -46,6 +46,52 @@ in [../proposals/README.md](../proposals/README.md).
 
 ## 9 Nov 2026
 
+### SW-2557: native compile time and memory on very large bodies
+
+- **Status:** on `lane/SW-2557`, for review. Opus.
+- **Problem.** `run --native` on float_paths' generated program (484 KB, one constant
+  `results` that is a 20,161-element list literal) ran over 100 s and reached 17.9 GB before
+  it was stopped; the machine runs it in 1.9 s at 260 MB.
+- **Profile** (macOS `sample`, measured). At 250 elements: 10 s and 1.9 GB, three quarters of
+  it in Cranelift's `seal_all_blocks` (`remove_block_param`), the rest in `define_function`.
+  The body's Cranelift IR grew with the square of the list: 60 K, 224 K, 850 K lines at 25, 50,
+  100 elements. Cause: `Gen::exit_now_untagged` (`crates/native/src/n1.rs`) writes every
+  register that may hold a value to the spill slot at each error exit, and a call has three
+  (`count_step`, `push_frame`, `call_result`); a list literal holds every element in its own
+  register until the list is built, so each element's call wrote out all the elements before
+  it, and each such use of a register variable made the SSA builder thread it through every
+  block. The frame grew with the registers too (75 KB at 250 elements, over the 64 GiB stack
+  cap at the 2 M frame limit). `maybe_full` would also have needed registers times
+  instructions bits (about 0.7 GB at full size).
+- **Change.** A body with more than 128 registers or 512 instructions keeps its registers in
+  a heap register file laid out as the machine's register vector (`sw_regs_new`); an exit
+  hands the whole file to `sw_unwind` and a release drops it whole (`sw_release_down`), the
+  registers holding nothing being `Erased`. That alone made the IR linear but Cranelift's
+  register allocator still grew faster than the function (5,000 elements: 14.5 s, 2.5 GB),
+  so such a body is also compiled in parts of at most 512 instructions, each a function that
+  tail-calls the next with the frame's state. Then, within such a body, exits holding nothing
+  outside the registers are shared per error (5.2 s to 3.5 s at 5,000 elements) and a write
+  skips dropping the old value when no earlier instruction fills the register (`first_fills`;
+  IR 230 K to 170 K lines at 500 elements, little time). Part sizes of 128 and 512 measured
+  the same (2.74 s, 2.80 s at 5,000 elements); 2,048 took 4.8 s.
+- **Measured** (wall time and peak RSS of `run --native --no-cache`, one run each, a shared
+  machine; before stopped at 6 GB):
+
+  | program | before | after |
+  |---|---|---|
+  | float paths, 250 elements | 16.4 s, 1.9 GB, refused (stack over the cap) | 2.4 s, 142 MB (compile 0.40 s) |
+  | 2,000 elements | stopped at 6 GB after 7.4 s | 3.4 s, 178 MB (compile 1.2 s) |
+  | 20,161 elements (the repro) | stopped at 6 GB after 5.4 s | 13.7 s, 316 MB (compile 11.5 s) |
+
+  Compile time is now linear: about 0.55 ms per element. Of what is left, Cranelift's
+  register allocator is about half and its IR verifier about a quarter.
+- **Normal programs unchanged.** No body of dijkstra (2021 day 15, 196 bodies) or Rogue (259)
+  passes either bound (the largest have 41 registers and 168 instructions), and their machine
+  code is byte for byte the same before and after (`STITCHWORT_NATIVE_DUMP`); compile times
+  (0.33-0.37 s and 0.45-0.48 s before) were within the machine's noise after.
+- **Links.** SW-2557; test `crates/native/tests/it/large.rs` (fails on the old code: 109 s, then
+  the frame check).
+
 ### SW-2524: skipping the live heap's free at exit (dropped: under 0.3%)
 
 - **Status:** dropped, no code merged. Sonnet.
