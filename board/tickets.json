@@ -1,5 +1,5 @@
 {
-  "next": 2558,
+  "next": 2559,
   "tickets": [
     {
       "id": 47,
@@ -25920,6 +25920,19 @@
       "labels": [],
       "epic": "effects-native",
       "body": "From SW-2542 (N5a). Repro: crates/cli/tests/running/float_paths.rs the_four_paths_agree_on_canonical_bits under STITCHWORT_TEST_RUN=native; generated program saved at /private/tmp/claude-550/-Users-agent-repos-mdr-stitchwort/8230e28a-2fab-4832-920d-c5160adb7e00/scratchpad/paths.sw. Blocks N5b and native-by-default. Profile first. Started 10:05 UTC. Expected: 120 min.",
+      "created": "2026-11-09",
+      "updated": "2026-11-09",
+      "commits": []
+    },
+    {
+      "id": 2558,
+      "title": "User-set recursion limit: run/build/test flag (e.g. --max-depth N) and a stitchwort.toml project setting, overriding each runner's default; built executables keep the value they were built with; error note points at the flag",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "effects-native",
+      "body": "D3455, Matt, 9 Nov 2026 10:15: yes, let users set the recursion limit. Step and size limits not included (not decided). After SW-2471 (same limits code). User-visible: update docs/guide, docs/syntax.md or docs/projects.md, CLI help; tour page only if it fits. 90 min.",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
