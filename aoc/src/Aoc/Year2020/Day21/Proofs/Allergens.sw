@@ -7,9 +7,6 @@ import Aoc.Year2020.Day21 (..)
 import Aoc.Year2020.Day21 (Spec)
 import Std (Bool, DecEq, Eq, List, Nat, Ord, Ordering, Text, Void)
 
-theorem distinctPerm [auto eq: DecEq a] (xs: List a) (ys: List a) (same: List.Perm xs ys) (distinct: ys.Distinct): xs.Distinct :=
-  rewrite <- List.mapId xs in List.distinctMapPerm xs (x => x) ys same (rewrite List.mapId ys in distinct)
-
 theorem memAllergens (list: FoodList) (allergen: Allergen): allergen ∈ list.allergens ↔ Spec.Listed list allergen :=
   let all := list.foods.flatMap .allergens
   let sorted := List.sortOnPerm all.unique .name
@@ -20,7 +17,7 @@ theorem memAllergens (list: FoodList) (allergen: Allergen): allergen ∈ list.al
   }
 
 theorem distinctAllergens (list: FoodList): list.allergens.Distinct :=
-  distinctPerm list.allergens _ (List.sortOnPerm _ .name) (List.distinctUnique (list.foods.flatMap .allergens))
+  List.distinctPerm list.allergens _ (List.sortOnPerm _ .name) (List.distinctUnique (list.foods.flatMap .allergens))
 
 theorem alphabeticalAllergens (list: FoodList): Spec.Alphabetical list.allergens :=
   List.sortBySorted (first second => Ord.compare first.name second.name) (first second => Ord.leTotal first.name second.name)

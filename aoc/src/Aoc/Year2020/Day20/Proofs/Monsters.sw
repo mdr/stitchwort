@@ -4,7 +4,6 @@
 namespace Aoc.Year2020.Day20.Proofs
 import Aoc.Year2020.Day20 (..)
 import Aoc.Year2020.Day20 (Spec)
-import Aoc.Year2020.Day19.Proofs (numberWithCount)
 import Std (Bool, DecEq, Eq, List, Nat, Option, Pair, Set, Void)
 
 theorem roughAtIff (image: Image) (at: List Nat):
@@ -133,7 +132,7 @@ theorem roughnessExactly (image: Image) (monster: Image) (cells: List (List Nat)
           | True => Void.exfalso (notCovered ((monsterPixelsIff image monster at).forward found))
           | False => rfl
     }
-  let counted := numberWithCount free decides cells answer
+  let counted := List.countWithIff free decides cells answer
   let subset: (at: List Nat) → covered.contains at = True → rough.contains at = True :=
     at isCovered =>
       match (monsterPixelsIff image monster at).forward isCovered with

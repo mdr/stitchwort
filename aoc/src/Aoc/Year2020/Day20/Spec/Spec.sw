@@ -4,7 +4,6 @@
 
 namespace Aoc.Year2020.Day20.Spec
 import Aoc.Year2020.Day20 (Image, Jigsaw, Pixel, Tile)
-import Aoc.Year2020.Day19.Spec (NumberWith)
 import Std (Char, List, Nat, NonEmptyList, Option, Parse, Text)
 
 -- The format
@@ -44,7 +43,7 @@ def Matched (jigsaw: Jigsaw) (tile: Tile) (edge: List Pixel): Prop :=
 --| A corner tile: exactly two of its edges match another tile's. (The
 --| puzzle promises that edges on the image's border match nothing, so
 --| this is a tile with two border edges.)
-def Corner (jigsaw: Jigsaw) (tile: Tile): Prop := NumberWith (Matched jigsaw tile) (edges tile.image) 2
+def Corner (jigsaw: Jigsaw) (tile: Tile): Prop := List.CountWith (Matched jigsaw tile) (edges tile.image) 2
 
 --| `kept` is the items with `p`, in order.
 def Kept (p: a → Prop): (items: List a) → (kept: List a) → Prop
@@ -82,4 +81,4 @@ def RoughCells (image: Image) (cells: List (List Nat)): Prop :=
 
 --| "How many # are not part of a sea monster?", with sea monsters as
 --| `monster` draws them, counted over a listing of the image's `#`s.
-def Roughness (image: Image) (monster: Image) (cells: List (List Nat)) (answer: Nat): Prop := NumberWith (at => ¬Covered image monster at) cells answer
+def Roughness (image: Image) (monster: Image) (cells: List (List Nat)) (answer: Nat): Prop := List.CountWith (at => ¬Covered image monster at) cells answer

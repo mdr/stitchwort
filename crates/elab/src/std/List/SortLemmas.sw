@@ -952,6 +952,10 @@ theorem List.distinctMapPerm [auto eq: DecEq k] (xs: List a) (key: a → k) (ys:
     List.Distinct (List.map xs key) :=
   List.distinctOfOccurrences xs key (kk => Eq.trans (Eq.cong (n => Nat.leq n 1) (h (x => key x == kk))) (List.occurrencesKeyDistinct ys key kk d))
 
+--| Rearranging a list keeps it free of repeats.
+theorem List.distinctPerm [auto eq: DecEq a] (xs: List a) (ys: List a) (same: List.Perm xs ys) (distinct: List.Distinct ys): List.Distinct xs :=
+  rewrite <- List.mapId xs in List.distinctMapPerm xs (x => x) ys same (rewrite List.mapId ys in distinct)
+
 --| Counting `p`, apart from `v` and at `v`.
 theorem List.occurrencesSplit [auto eq: DecEq a]: (xs: List a) → (v: a) → (p: a → Bool) →
     List.occurrences xs p = List.occurrences xs (x => p x ∧ ¬(x == v)) + List.occurrences xs (x => p x ∧ (x == v))
@@ -1059,6 +1063,15 @@ theorem List.sortedPermEq [auto eq: DecEq a] (le: a → a → Bool) (trans: (x: 
         (q => Nat.addCancelLeft (Bool.toNat (q x)) (List.occurrences xs q) (List.occurrences ys q)
           (Eq.trans (p q) (Eq.cong (t => Bool.toNat (q t) + List.occurrences ys q) (Eq.sym same))))
     rewrite same, rest in rfl
+
+--| Two lists without repeats, sorted by the same order, with the same
+--| members, are equal, when the order puts no two different elements both
+--| ways round. [`List.sortedPermEq`] for lists known only by their members.
+theorem List.sortedEqOfMembers [auto eq: DecEq a] (le: a → a → Bool) (trans: (x: a) → (y: a) → (z: a) → le x y = True → le y z = True → le x z = True)
+    (antisymm: (x: a) → (y: a) → le x y = True → le y x = True → x = y)
+    (xs: List a) (ys: List a) (dx: List.Distinct xs) (dy: List.Distinct ys) (sx: List.Sorted le xs) (sy: List.Sorted le ys)
+    (there: (x: a) → x ∈ xs → x ∈ ys) (back: (y: a) → y ∈ ys → y ∈ xs): xs = ys :=
+  List.sortedPermEq le trans antisymm xs ys sx sy (List.permOfSameMembers xs ys dx dy there back)
 
 --| A list sorted by an `Ord` is the sort of any list with the same elements.
 theorem List.sortOfSorted [auto ord: Ord a] (xs: List a) (ys: List a)

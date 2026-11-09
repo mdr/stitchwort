@@ -89,6 +89,10 @@ theorem DecEq.neTrue [auto eq: DecEq a] [x: a] [y: a] (h: ((x != y): Bool) = Tru
 theorem DecEq.trueOfNe [auto eq: DecEq a] [x: a] [y: a] (h: x ≠ y): ((x != y): Bool) = True :=
   Decidable.toBoolOf (Decidable.not (DecEq.decide x y)) h
 
+--| `x ≠ y` says `x == y` is false; the converse of [`DecEq.soundFalse`].
+theorem DecEq.falseOfNe [auto eq: DecEq a] [x: a] [y: a] (h: x ≠ y): (x == y) = False :=
+  Decidable.toBoolOfNot (DecEq.decide x y) h
+
 --| A nonzero factor on the right doesn't change `==`: cancelling, as a `Bool`.
 -- It is here, not beside [`Nat.mulRightCancel`] in std/Nat/Arith.sw, because
 -- it uses [`DecEq.refl`]: in Arith.sw it made every program that loads the

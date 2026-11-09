@@ -68,13 +68,8 @@ type Matches (rules: Rules): List Nat → List Char → Prop =
 --| "messages completely match rule 0": all of the message, nothing left.
 def MatchesCompletely (rules: Rules) (message: Message): Prop := Matches rules [0] message.letters
 
---| `answer` of `items` have the property `p`.
-def NumberWith (p: a → Prop): (items: List a) → (answer: Nat) → Prop
-  | [], answer => answer = 0
-  | [item, ..rest], answer => (p item ∧ ∃ (others: Nat) => NumberWith p rest others ∧ answer = others + 1) ∨ (¬p item ∧ NumberWith p rest answer)
-
 --| Part 1: "How many messages completely match rule 0?"
-def Part1 (received: Received) (answer: Nat): Prop := NumberWith (MatchesCompletely received.rules) received.messages answer
+def Part1 (received: Received) (answer: Nat): Prop := List.CountWith (MatchesCompletely received.rules) received.messages answer
 
 --| "replace rules 8: 42 and 11: 42 31 with the following: 8: 42 | 42 8,
 --| 11: 42 31 | 42 11 31". Listed first, they are the rules with those
@@ -84,4 +79,4 @@ def loopingRules (rules: Rules): Rules :=
 
 --| Part 2: "After updating rules 8 and 11, how many messages completely
 --| match rule 0?"
-def Part2 (received: Received) (answer: Nat): Prop := NumberWith (MatchesCompletely (loopingRules received.rules)) received.messages answer
+def Part2 (received: Received) (answer: Nat): Prop := List.CountWith (MatchesCompletely (loopingRules received.rules)) received.messages answer

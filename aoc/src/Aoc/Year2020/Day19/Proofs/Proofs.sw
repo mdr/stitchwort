@@ -82,38 +82,10 @@ theorem matchesCompletelyCorrect (rules: Rules) (productive: rules.productive = 
         | Witness middle (Both first (Inr never)) => Void.exfalso never
   }
 
--- Counting
-
-theorem numberWithCount [p: a → Prop] (decide: a → Bool) (decides: (item: a) → decide item = True ↔ p item):
-    (items: List a) → (answer: Nat) → NumberWith p items answer ↔ answer = items.count decide
-  | [], answer => { forward = none => none, backward = none => none }
-  | [item, ..rest], answer =>
-    let later := numberWithCount decide decides rest
-    rewrite List.countCons rest item decide in
-      match decided: decide item with
-        | True =>
-          let holds := (decides item).forward decided
-          {
-            forward = counted =>
-              match counted with
-                | Inl (Both yes (Witness others (Both number more))) => omega [(later others).forward number]
-                | Inr (Both no number) => Void.exfalso (no holds),
-            backward = same => Inl (Both holds (Witness (rest.count decide) (Both ((later (rest.count decide)).backward rfl) (omega))))
-          }
-        | False =>
-          let fails: ¬p item := holds => Bool.falseNotTrue (Eq.trans (Eq.sym decided) ((decides item).backward holds))
-          {
-            forward = counted =>
-              match counted with
-                | Inl (Both yes more) => Void.exfalso (fails yes)
-                | Inr (Both no number) => (later answer).forward number,
-            backward = same => Inr (Both fails ((later answer).backward (omega)))
-          }
-
 theorem part1Exactly (received: Received) (productive: received.rules.productive = True) (answer: Nat):
     Spec.Part1 received answer ↔ answer = received.matchingCount :=
-  numberWithCount received.rules.matchesCompletely (matchesCompletelyCorrect received.rules productive) received.messages answer
+  List.countWithIff received.rules.matchesCompletely (matchesCompletelyCorrect received.rules productive) received.messages answer
 
 theorem part2Exactly (received: Received) (productive: received.withLoops.rules.productive = True) (answer: Nat):
     Spec.Part2 received answer ↔ answer = received.withLoops.matchingCount :=
-  numberWithCount received.withLoops.rules.matchesCompletely (matchesCompletelyCorrect received.withLoops.rules productive) received.messages answer
+  List.countWithIff received.withLoops.rules.matchesCompletely (matchesCompletelyCorrect received.withLoops.rules productive) received.messages answer

@@ -4,7 +4,6 @@
 namespace Aoc.Year2020.Day20.Proofs
 import Aoc.Year2020.Day20 (..)
 import Aoc.Year2020.Day20 (Spec)
-import Aoc.Year2020.Day19.Proofs (numberWithCount)
 import Std (Bool, DecEq, Eq, Iff, List, Nat, Void)
 
 theorem edgesPixels (image: Image): image.edges.map (.pixels) = Spec.edges image := rfl
@@ -35,7 +34,7 @@ theorem matchesIff (jigsaw: Jigsaw) (tile: Tile) (edge: Edge): jigsaw.matches ti
 }
 
 theorem cornerIff (jigsaw: Jigsaw) (tile: Tile): (jigsaw.matchedEdges tile == 2) = True ↔ Spec.Corner jigsaw tile :=
-  let counted := numberWithCount (pixels => jigsaw.matches tile { pixels }) (pixels => matchesIff jigsaw tile { pixels }) (Spec.edges tile.image) 2
+  let counted := List.countWithIff (pixels => jigsaw.matches tile { pixels }) (pixels => matchesIff jigsaw tile { pixels }) (Spec.edges tile.image) 2
   {
     forward = two => counted.backward (Eq.sym (DecEq.sound two)),
     backward = corner => rewrite <- counted.forward corner in DecEq.refl 2

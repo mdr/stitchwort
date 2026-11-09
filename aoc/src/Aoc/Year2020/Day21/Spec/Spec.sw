@@ -58,11 +58,10 @@ def CanContain (list: FoodList) (ingredient: Ingredient): Prop :=
 
 --| "Determine which ingredients can't possibly contain any of the
 --| allergens in any food in your list. ... Counting the number of times
---| any of these ingredients appear in any ingredients list": `safe` tells
---| those ingredients apart, and the answer is how many times they appear.
+--| any of these ingredients appear in any ingredients list": the answer is
+--| how many of the ingredients listed, food after food, can't contain one.
 def Part1 (list: FoodList) (answer: Nat): Prop :=
-  ∃ (safe: Ingredient → Bool) => ((ingredient: Ingredient) → safe ingredient = True ↔ ¬CanContain list ingredient)
-    ∧ answer = list.foods.sumBy (food => food.ingredients.count safe)
+  List.CountWith (ingredient => ¬CanContain list ingredient) (list.foods.flatMap .ingredients) answer
 
 -- Part 2
 

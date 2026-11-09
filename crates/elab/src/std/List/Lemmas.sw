@@ -520,6 +520,43 @@ theorem List.countFlatMap (f: a → List b) (p: b → Bool): (xs: List a) →
     rewrite List.countAppend (f x) (List.flatMap rest f) p, List.sumByCons rest x (x => List.count (f x) p), List.countFlatMap f p rest
       in rfl
 
+--| `answer` of `items` have the property `p`: counting by a proposition,
+--| for a `p` with no decision procedure to count with (a statement that
+--| quantifies over functions, say). With a procedure, [`List.countWithIff`]
+--| says the answer is [`List.count`]. For counting the values `x` with `p x`
+--| over all values, see [`List.NumberWith`].
+@[noReceiver]
+def List.CountWith (p: a → Prop): (items: List a) → (answer: Nat) → Prop
+  | [], answer => answer = 0
+  | [item, ..rest], answer => (p item ∧ ∃ (others: Nat) => List.CountWith p rest others ∧ answer = others + 1) ∨ (¬p item ∧ List.CountWith p rest answer)
+
+--| Counting by a proposition is [`List.count`] by a `Bool` that decides it.
+theorem List.countWithIff [p: a → Prop] (decide: a → Bool) (decides: (item: a) → decide item = True ↔ p item):
+    (items: List a) → (answer: Nat) → List.CountWith p items answer ↔ answer = items.count decide
+  | [], answer => { forward = none => none, backward = none => none }
+  | [item, ..rest], answer =>
+    let later := List.countWithIff decide decides rest
+    rewrite List.countCons rest item decide in
+      match decided: decide item with
+        | True =>
+          let holds := (decides item).forward decided
+          {
+            forward = counted =>
+              match counted with
+                | Inl (Both yes (Witness others (Both number more))) => omega [(later others).forward number]
+                | Inr (Both no number) => Void.exfalso (no holds),
+            backward = same => Inl (Both holds (Witness (rest.count decide) (Both ((later (rest.count decide)).backward rfl) (omega))))
+          }
+        | False =>
+          let fails: ¬p item := holds => Bool.falseNotTrue (Eq.trans (Eq.sym decided) ((decides item).backward holds))
+          {
+            forward = counted =>
+              match counted with
+                | Inl (Both yes more) => Void.exfalso (fails yes)
+                | Inr (Both no number) => (later answer).forward number,
+            backward = same => Inr (Both fails ((later answer).backward (omega)))
+          }
+
 --| Dropping a list's start leaves what was appended to it.
 theorem List.dropAppend: (start: List a) → (rest: List a) → List.drop (List.append start rest) (List.length start) = rest
   | [], rest => rfl
@@ -1182,6 +1219,17 @@ theorem List.memConcatMapElim (f: a → List b) (y: b) (xs: List a) (member: y �
 theorem List.distinctMap: (xs: List a) → List.Distinct xs → (f: a → b) → (inj: (x: a) → (y: a) → f x = f y → x = y) → List.Distinct (List.map xs f)
   | [], d, f, inj => Trivial
   | [x, ..xs], Both h d, f, inj => Both (m => h (List.memMapInjective f inj x xs m)) (List.distinctMap xs d f inj)
+
+--| Mapping a function that is injective on the list's own members keeps the
+--| list distinct; [`List.distinctMap`] needs it injective everywhere.
+theorem List.distinctMapOn (f: a → b): (xs: List a) → List.Distinct xs → ((x: a) → (y: a) → x ∈ xs → y ∈ xs → f x = f y → x = y) → List.Distinct (List.map xs f)
+  | [], distinct, injective => Trivial
+  | [x, ..xs], Both fresh distinct, injective =>
+    Both
+      (member =>
+        match List.memMapElim f (f x) xs member with
+          | Witness y (Both inRest same) => fresh (rewrite injective x y (Inl rfl) (Inr inRest) (Eq.sym same) in inRest))
+      (List.distinctMapOn f xs distinct (first second inFirst inSecond same => injective first second (Inr inFirst) (Inr inSecond) same))
 
 --| Two distinct lists with no element in common, joined, are distinct.
 theorem List.distinctAppend: (xs: List a) → (ys: List a) → List.Distinct xs → List.Distinct ys → List.Disjoint xs ys → List.Distinct (List.append xs ys)
@@ -3056,6 +3104,20 @@ theorem List.all2OfMapLeft (f: a → c) (r: c → b → Prop): (xs: List a) → 
   | [x, ..xs], [y, ..ys], all => Both (And.left all) (List.all2OfMapLeft f r xs ys (And.right all))
   | [], [y, ..ys], all => Void.exfalso all
   | [x, ..xs], [], all => Void.exfalso all
+
+--| The right-hand counterpart of [`List.all2OfMapLeft`]: a relation between
+--| the left list and the mapped right list holds of each element's image.
+theorem List.all2OfMapRight (g: b → c) (r: a → c → Prop): (xs: List a) → (ys: List b) → List.All2 r xs (ys.map g) → List.All2 (x y => r x (g y)) xs ys
+  | [], [], all => Trivial
+  | [x, ..xs], [y, ..ys], all => Both (And.left all) (List.all2OfMapRight g r xs ys (And.right all))
+  | [], [y, ..ys], all => Void.exfalso all
+  | [x, ..xs], [], all => Void.exfalso all
+
+--| Mapping two functions over one list gives lists related pointwise, when
+--| the related values are `f x` and `g x` for each member `x`.
+theorem List.all2MapBoth (r: b → c → Prop) (f: a → b) (g: a → c): (xs: List a) → ((x: a) → x ∈ xs → r (f x) (g x)) → List.All2 r (xs.map f) (xs.map g)
+  | [], pointwise => Trivial
+  | [x, ..xs], pointwise => Both (pointwise x (Inl rfl)) (List.all2MapBoth r f g xs (y member => pointwise y (Inr member)))
 
 theorem List.all2Length (r: a → b → Prop): (xs: List a) → (ys: List b) → List.All2 r xs ys → xs.length = ys.length
   | [], [], all => rfl
