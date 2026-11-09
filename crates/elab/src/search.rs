@@ -1480,7 +1480,18 @@ impl Elaborator {
             let mut premises: Vec<(Term, usize)> = Vec::new();
             let mut t = candidate.ty.strip_loc();
             let mut whole: Option<(Term, usize)> = None;
+            // A pattern that starts with an `auto` or implicit binder
+            // (`[auto eq: DecEq ?a] → …`) is matched from each such binder
+            // of the candidate, skipping the ones before it.
+            let opens_hidden = matches!(
+                force(g, pattern.value.clone())?,
+                Value::Pi(_, icit, ..) if icit != Icit::Explicit
+            );
+            let mut hidden: Vec<(Term, usize)> = Vec::new();
             while let Term::Pi(_, icit, dom, cod) = t {
+                if opens_hidden && *icit != Icit::Explicit {
+                    hidden.push((t.clone(), env.len()));
+                }
                 if *icit == Icit::Explicit {
                     if whole.is_none() {
                         whole = Some((t.clone(), env.len()));
@@ -1502,6 +1513,11 @@ impl Elaborator {
                 && let Some((t, at)) = whole
             {
                 targets.insert(0, (Place::Whole, t, at, false));
+            }
+            if pattern.head == HeadKey::Pi {
+                for (i, (t, at)) in hidden.into_iter().enumerate() {
+                    targets.insert(i, (Place::Whole, t, at, false));
+                }
             }
             if mode == Mode::Rewrite {
                 targets.clear();

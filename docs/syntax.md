@@ -1684,6 +1684,7 @@ Lean's `lake comparator` checks a solution against a challenge: the same stateme
 ```
 stitchwort search 'List.length ((_: List _) ++ _) = _'      # a statement's shape
 stitchwort search 'Nat → List _ → List _'                   # a function's type
+stitchwort search '[auto eq: DecEq ?a] → (x: ?a) → (x == x) = True'  # `[auto]` and implicit binders work
 stitchwort search --rewrite 'List.map (List.map _ _) _'     # lemmas to rewrite this with
 stitchwort search '"compare", Ord.compare ?x ?x = _'        # name contains "compare", and a pattern
 stitchwort search 'Shape.scale _ _ = _' --project ../shop   # another project
