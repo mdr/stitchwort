@@ -1,5 +1,5 @@
 {
-  "next": 2572,
+  "next": 2573,
   "tickets": [
     {
       "id": 47,
@@ -26018,12 +26018,12 @@
     {
       "id": 2565,
       "title": "Borrow inference stage B1 (docs/proposals/borrow-inference.md, B0 results §11): borrowed parameters in the lowering and native code, without rule O6; machine checks borrows at run time; measure against B0's estimates",
-      "status": "doing",
+      "status": "review",
       "agent": "Opus",
       "where": "Speedwell",
       "labels": [],
       "epic": "comparative-speed",
-      "body": "D3441 (gate passed in SW-2530). O6 dropped (orchestrator call). Started 10:55 UTC. Expected: 480 min.",
+      "body": "D3441 (gate passed in SW-2530). O6 dropped (orchestrator call). Started 10:55 UTC. Expected: 480 min.\n\nProgress (lane, 9 Nov 2026):\n- 12:20 GMT: built and committed on lane/SW-2565 (5cbd08397), about 85 min of the 480 estimated. Pass in crates/rt/src/borrow.rs; design and results in docs/proposals/borrow-inference.md §12; perf log entry.\n- Measured vs d5bd2f09d: bench:instructions geomean -3.77% (mapops -6.09%, memory-game -18.98%, disk -1.06%, rbmap-ck -0.99%, expressions -0.85%, rbmap -0.39%, dijkstra -0.13%, binary-trees +0.04%). bench:aoc geomean -0.96% over 56 days (2024/06 -10.8%, 2021/17 -9.5%, 2020/08 -4.9%; worst 2021/01 +1.16%, over the +1% gate). Peak memory unchanged.\n- Rules beyond the note: merge, fresh, fed; O6 dropped; O1-O3 only label fed parameters. The lifted get.%match1[2] now borrows its value and children.\n- Tests: rt lane 90/90, native lane 78/78, borrow unit 24/24, alloc_trace + reuse + hash tests 40/40, new native borrow tests 3/3, new machine check test passes. cargo fmt, clippy clean.\n- borrow-counts retired (recoverable from d87bf7c93).\n",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
@@ -26083,12 +26083,12 @@
     {
       "id": 2570,
       "title": "Effect differential fuzzer: cap each backend's run (steps or time) so one runaway program can't hang the run, report per-batch progress and the seed of any batch over N s, and print partial results on interrupt; then find the stuck seed in 1794200000..+2000 (Overmind job 43)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "Speedwell",
       "labels": [],
       "epic": "test-infra",
-      "body": "From Overmind job 43 (9 Nov): STITCHWORT_TEST_RUN=native, 2000 batches from seed 1794200000 on 52803b7e2; after ~1 h one worker was alone, spinning in the core evaluator (Value::clone 53%, Unfolding::get 17%, force 10.5%, as_nat_with 9.7%), RSS flat 5.46 GB; stopped at 61 min with no result. Evaluator path, so probably the reference backend running without a step cap. Logs on Overmind j43/. 60 min.\n\nStarted 9 Nov 2026 11:41 UTC. Expected: 60 min.\n",
+      "body": "From Overmind job 43 (9 Nov): STITCHWORT_TEST_RUN=native, 2000 batches from seed 1794200000 on 52803b7e2; after ~1 h one worker was alone, spinning in the core evaluator (Value::clone 53%, Unfolding::get 17%, force 10.5%, as_nat_with 9.7%), RSS flat 5.46 GB; stopped at 61 min with no result. Evaluator path, so probably the reference backend running without a step cap. Logs on Overmind j43/. 60 min.\n\nStarted 9 Nov 2026 11:41 UTC. Expected: 60 min.\n\nMerged 9 Nov. Cause: checking a generated module had no effective cap (10G expensive steps); JS had no timeout. Now 2G steps, 60 s check/reference deadline, 120 s JS timeout, progress and slow-seed reports. Stuck seed 1794200310 (checker). Model result: Sonnet, worked, 37 min (est. 60).\n",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
@@ -26102,6 +26102,19 @@
       "labels": [],
       "epic": "proof-search",
       "body": "From SW-2551. 45 min.",
+      "created": "2026-11-09",
+      "updated": "2026-11-09",
+      "commits": []
+    },
+    {
+      "id": 2572,
+      "title": "Checker blows up on effect-fuzzer programs: chains of pure Nat defs with lets, if on % 2 and Fail.toOption (() => next ...), variables reused many times; seed 1794200310 checks for >10 min (also 1794200346, 1794201674, 1794200163, 43). About 1 batch in 1000. Profile and fix (elaborator or kernel)",
+      "status": "backlog",
+      "agent": "Opus",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "From SW-2570. Repro: STITCHWORT_EFFECT_FUZZ_SEED=1794200310 STITCHWORT_EFFECT_FUZZ_BATCHES=1 cargo test --release -p stitchwort-cli --test extraction effect_differential::generated -- --nocapture (dump the module). Possibly exponential evaluation of open Nat terms. Profile first. 120 min.",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
