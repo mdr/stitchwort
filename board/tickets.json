@@ -25381,12 +25381,12 @@
     {
       "id": 2516,
       "title": "Std Map: read-only walks (get, contains) without copying fields: borrowed parameter or Field reads (est. -4 to -5% of mapops after the record fix; lookups ~250 instructions per level)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Sonnet",
-      "where": "",
+      "where": "Speedwell",
       "labels": [],
       "epic": "comparative-speed",
-      "body": "From SW-2513 target 3. 45 min.",
+      "body": "From SW-2513 target 3. 45 min.\n\nStarted 9 Nov 2026 07:48 UTC. Expected: 45 min.\n",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
