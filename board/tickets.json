@@ -25823,12 +25823,12 @@
     {
       "id": 2550,
       "title": "Design note: how programs declare entry points (@[entry] annotation vs main by name checked at definition vs both), with prior art, run/build/playground/project discovery, errors, hello-world cost",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": "Speedwell",
       "labels": [],
       "epic": "syntax-language",
-      "body": "D3451, Matt, 9 Nov 2026 09:57: yes, write the note. Paper lane. Started 09:57 UTC. Expected: 60 min.",
+      "body": "D3451, Matt, 9 Nov 2026 09:57: yes, write the note. Paper lane. Started 09:57 UTC. Expected: 60 min.\n\nMerged 9 Nov: docs/proposals/entry-points.md. Rec (b) main by name, checked at definition; D3452-D3454 open. Model result: Opus, worked, about 8 min (est. 60).\n",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
