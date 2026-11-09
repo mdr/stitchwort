@@ -724,30 +724,81 @@ pub(crate) fn forwarded(s: &Shapes, table: &str, o: Value) -> Result<Value, Valu
     };
     let wraps = &rest[4..];
     let wraps = &wraps[..wraps.iter().position(|b| *b == b'.').unwrap_or(wraps.len())];
+    enum Arg {
+        /// The inner constructor's own field, which is the one argument.
+        Field,
+        Unit,
+        None,
+    }
     let arg = match (field, inner) {
         (b'a', Value::Data(_, f)) if f.len() == 1 => {
             if outer == ctor && wraps.len() == 1 && hex(wraps) == Some(s.left) {
                 return Ok(o);
             }
-            Some(f[0].clone())
+            Arg::Field
         }
-        (b'u', _) => Some(Value::Tag(s.unit)),
-        (b'n', _) => None,
+        (b'u', _) => Arg::Unit,
+        (b'n', _) => Arg::None,
         _ => return Err(o),
     };
-    let mut op = match arg {
-        Some(a) => {
-            hit_made(Made::ForwardedOpCells, 1);
-            Value::data(outer, [a])
-        }
-        None => Value::Tag(outer),
+    // `o` is `L inner`: its cell, if nothing else holds it, becomes one of
+    // the new operation's, and `inner`'s own cell becomes the outer
+    // constructor's (it holds the same one field).
+    let Value::Data(_, mut cell) = o else {
+        unreachable!("matched above")
     };
-    hit_made(Made::ForwardedOpCells, wraps.len() as u64);
+    let unique = Rc::get_mut(&mut cell.0).is_some();
+    let mut spare = None;
+    let mut op = match arg {
+        Arg::Field => {
+            let f = match Rc::get_mut(&mut cell.0) {
+                Some(slice) => {
+                    let Value::Data(_, f) = std::mem::take(&mut slice[0]) else {
+                        unreachable!("matched above")
+                    };
+                    spare = Some(cell);
+                    f
+                }
+                None => {
+                    let Value::Data(_, f) = &cell[0] else {
+                        unreachable!("matched above")
+                    };
+                    f.clone()
+                }
+            };
+            Value::Data(outer, f)
+        }
+        Arg::Unit => {
+            spare = unique.then_some(cell);
+            refill(outer, Value::Tag(s.unit), &mut spare)
+        }
+        Arg::None => {
+            spare = unique.then_some(cell);
+            Value::Tag(outer)
+        }
+    };
     for w in wraps.iter().rev() {
         let w = char::from(*w).to_digit(16).expect("encoded");
-        op = Value::data(w, [op]);
+        op = refill(w, op, &mut spare);
     }
     Ok(op)
+}
+
+/// `tag` of `field`: in the `spare` cell if there is one (taken; it is
+/// unique and has one field), else in a new cell.
+fn refill(tag: u32, field: Value, spare: &mut Option<Fields>) -> Value {
+    match spare.take() {
+        Some(mut cell) => {
+            let slice = Rc::get_mut(&mut cell.0).expect("a spare cell is unique");
+            slice[0] = field;
+            crate::alloc_trace::reuse(tag, &cell.0);
+            Value::Data(tag, cell)
+        }
+        None => {
+            hit_made(Made::ForwardedOpCells, 1);
+            Value::data(tag, [field])
+        }
+    }
 }
 
 /// An operation `R o′` of the other abilities, renamed by the fold's
