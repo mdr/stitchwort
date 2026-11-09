@@ -1183,6 +1183,17 @@ theorem List.distinctMap: (xs: List a) → List.Distinct xs → (f: a → b) →
   | [], d, f, inj => Trivial
   | [x, ..xs], Both h d, f, inj => Both (m => h (List.memMapInjective f inj x xs m)) (List.distinctMap xs d f inj)
 
+--| Mapping a function that is injective on the list's own members keeps the
+--| list distinct; [`List.distinctMap`] needs it injective everywhere.
+theorem List.distinctMapOn (f: a → b): (xs: List a) → List.Distinct xs → ((x: a) → (y: a) → x ∈ xs → y ∈ xs → f x = f y → x = y) → List.Distinct (List.map xs f)
+  | [], distinct, injective => Trivial
+  | [x, ..xs], Both fresh distinct, injective =>
+    Both
+      (member =>
+        match List.memMapElim f (f x) xs member with
+          | Witness y (Both inRest same) => fresh (rewrite injective x y (Inl rfl) (Inr inRest) (Eq.sym same) in inRest))
+      (List.distinctMapOn f xs distinct (first second inFirst inSecond same => injective first second (Inr inFirst) (Inr inSecond) same))
+
 --| Two distinct lists with no element in common, joined, are distinct.
 theorem List.distinctAppend: (xs: List a) → (ys: List a) → List.Distinct xs → List.Distinct ys → List.Disjoint xs ys → List.Distinct (List.append xs ys)
   | [], ys, dx, dy, dj => dy
@@ -3056,6 +3067,20 @@ theorem List.all2OfMapLeft (f: a → c) (r: c → b → Prop): (xs: List a) → 
   | [x, ..xs], [y, ..ys], all => Both (And.left all) (List.all2OfMapLeft f r xs ys (And.right all))
   | [], [y, ..ys], all => Void.exfalso all
   | [x, ..xs], [], all => Void.exfalso all
+
+--| The right-hand counterpart of [`List.all2OfMapLeft`]: a relation between
+--| the left list and the mapped right list holds of each element's image.
+theorem List.all2OfMapRight (g: b → c) (r: a → c → Prop): (xs: List a) → (ys: List b) → List.All2 r xs (ys.map g) → List.All2 (x y => r x (g y)) xs ys
+  | [], [], all => Trivial
+  | [x, ..xs], [y, ..ys], all => Both (And.left all) (List.all2OfMapRight g r xs ys (And.right all))
+  | [], [y, ..ys], all => Void.exfalso all
+  | [x, ..xs], [], all => Void.exfalso all
+
+--| Mapping two functions over one list gives lists related pointwise, when
+--| the related values are `f x` and `g x` for each member `x`.
+theorem List.all2MapBoth (r: b → c → Prop) (f: a → b) (g: a → c): (xs: List a) → ((x: a) → x ∈ xs → r (f x) (g x)) → List.All2 r (xs.map f) (xs.map g)
+  | [], pointwise => Trivial
+  | [x, ..xs], pointwise => Both (pointwise x (Inl rfl)) (List.all2MapBoth r f g xs (y member => pointwise y (Inr member)))
 
 theorem List.all2Length (r: a → b → Prop): (xs: List a) → (ys: List b) → List.All2 r xs ys → xs.length = ys.length
   | [], [], all => rfl

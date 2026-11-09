@@ -9,31 +9,11 @@ import Aoc.Year2020.Day21 (Spec)
 import Aoc.Common.Proofs (assignFinds, assignOnly)
 import Std (Bool, DecEq, Eq, List, Nat, Option, Ord, Ordering, Text, Void)
 
-theorem distinctMapOn (f: a → b): (xs: List a) → xs.Distinct → ((x: a) → (y: a) → x ∈ xs → y ∈ xs → f x = f y → x = y) → (xs.map f).Distinct
-  | [], distinct, injective => Trivial
-  | [x, ..xs], Both fresh distinct, injective =>
-    Both
-      (member =>
-        match List.memMapElim f (f x) xs member with
-          | Witness y (Both inRest same) => fresh (rewrite injective x y (Inl rfl) (Inr inRest) (Eq.sym same) in inRest))
-      (distinctMapOn f xs distinct (first second inFirst inSecond same => injective first second (Inr inFirst) (Inr inSecond) same))
-
-theorem all2MapBoth (related: b → c → Prop) (f: a → b) (g: a → c): (xs: List a) → ((x: a) → x ∈ xs → related (f x) (g x)) →
-    List.All2 related (xs.map f) (xs.map g)
-  | [], pointwise => Trivial
-  | [x, ..xs], pointwise => Both (pointwise x (Inl rfl)) (all2MapBoth related f g xs (y member => pointwise y (Inr member)))
-
-theorem all2OfMapRight (g: b → c) (related: a → c → Prop): (xs: List a) → (ys: List b) → List.All2 related xs (ys.map g) → List.All2 (x y => related x (g y)) xs ys
-  | [], [], all => Trivial
-  | [x, ..xs], [y, ..ys], all => Both (And.left all) (all2OfMapRight g related xs ys (And.right all))
-  | [], [y, ..ys], all => Void.exfalso all
-  | [x, ..xs], [], all => Void.exfalso all
-
 theorem holdersFound (list: FoodList) (holders: List Ingredient) (found: list.holders = Some holders):
     List.All2 (holder allergen => holder ∈ list.candidates allergen) holders list.allergens ∧ holders.Distinct ∧ list.allergens.length = holders.length :=
   match assignFinds (list.allergens.map list.candidates) holders found with
     | Both members distinct =>
-      Both (all2OfMapRight list.candidates (item items => item ∈ items) holders list.allergens members)
+      Both (List.all2OfMapRight list.candidates (item items => item ∈ items) holders list.allergens members)
         (Both distinct
           (Eq.trans (Eq.sym (List.lengthMap list.allergens list.candidates))
             (Eq.sym (List.all2Length _ holders (list.allergens.map list.candidates) members))))
@@ -84,11 +64,10 @@ theorem holderCandidate (list: FoodList) (holder: Allergen → Ingredient) (hold
 theorem sameAlphabetical (order: List Allergen) (other: List Allergen) (orderDistinct: order.Distinct) (otherDistinct: other.Distinct)
     (orderAlphabetical: Spec.Alphabetical order) (otherAlphabetical: Spec.Alphabetical other)
     (members: (allergen: Allergen) → allergen ∈ order ↔ allergen ∈ other): order = other :=
-  List.sortedPermEq (first second => Ordering.isLessEq (Text.compare first.name second.name))
+  List.sortedEqOfMembers (first second => Ordering.isLessEq (Text.compare first.name second.name))
     (first second third => Ord.isLessEqTrans first.name second.name third.name)
     (first second before after => Allergen.ext first second (Ord.isLessEqAntisymm first.name second.name before after))
-    order other orderAlphabetical otherAlphabetical
-    (List.permOfSameMembers order other orderDistinct otherDistinct (allergen => (members allergen).forward) (allergen => (members allergen).backward))
+    order other orderDistinct otherDistinct orderAlphabetical otherAlphabetical (allergen => (members allergen).forward) (allergen => (members allergen).backward)
 
 --| Part 2's answer, when there is one, is the only canonical list: every
 --| way the allergens could be gives the same one.
@@ -103,9 +82,9 @@ theorem dangerousOnly (list: FoodList) (answer: Text) (found: list.dangerousList
         | Some holders =>
           let sameHolders: list.allergens.map holder = holders :=
             assignOnly (list.allergens.map list.candidates) holders settled (list.allergens.map holder)
-              (all2MapBoth (item items => item ∈ items) holder list.candidates list.allergens
+              (List.all2MapBoth (item items => item ∈ items) holder list.candidates list.allergens
                 (allergen member => holderCandidate list holder holding allergen ((memAllergens list allergen).forward member)))
-              (distinctMapOn holder list.allergens (distinctAllergens list)
+              (List.distinctMapOn holder list.allergens (distinctAllergens list)
                 (first second inFirst inSecond => And.left holding first second ((memAllergens list first).forward inFirst) ((memAllergens list second).forward inSecond)))
           rewrite same, sameOrder, sameHolders in Option.someInjective found
         | None => Void.exfalso (Option.noneNotSome answer found)
