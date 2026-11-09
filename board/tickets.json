@@ -1,5 +1,5 @@
 {
-  "next": 2524,
+  "next": 2525,
   "tickets": [
     {
       "id": 47,
@@ -25477,7 +25477,20 @@
       "where": "",
       "labels": [],
       "epic": "comparative-speed",
-      "body": "Confirmed by rerun at load 0.66; rbmap unchanged. Overmind bisecting with perf stat (job 37).\n\n08:20: Overmind job 37 bisect: first bad merge 0fdc931a7 (SW-2502, capture-free lambdas built once). rbmap-ck cycles 4.68 -> 5.11 G (+9%) at identical instructions; IPC 2.27 -> 2.08; LLC misses flat, L1 +3%, branch misses +6%: too small to explain it; elapsed +13%. Suspect a dependent load through the shared closure (sw_static_closure helper call / statics table read) or code layout. Next: perf record/annotate both binaries (Overmind keeps them in its scratchpad j37/). Note: SW-2502 is still a net win elsewhere (bench -3.6 to -5.3%, AoC -2.1%).\n",
+      "body": "Confirmed by rerun at load 0.66; rbmap unchanged. Overmind bisecting with perf stat (job 37).\n\n08:20: Overmind job 37 bisect: first bad merge 0fdc931a7 (SW-2502, capture-free lambdas built once). rbmap-ck cycles 4.68 -> 5.11 G (+9%) at identical instructions; IPC 2.27 -> 2.08; LLC misses flat, L1 +3%, branch misses +6%: too small to explain it; elapsed +13%. Suspect a dependent load through the shared closure (sw_static_closure helper call / statics table read) or code layout. Next: perf record/annotate both binaries (Overmind keeps them in its scratchpad j37/). Note: SW-2502 is still a net win elsewhere (bench -3.6 to -5.3%, AoC -2.1%).\n\n08:23: Overmind job 38 (perf record, Skylake): ~80% of the extra cycles are one load in value::free (cmpq $1, 0x8(%r13): the child cell's count before freeing it); free's code is identical (moved 0x170); sw_static_closure has no samples. TopdownL1 retiring 55.4 -> 51.4%, backend+bad-spec ~28.5 -> 34.4% (load stall); clock ~3% slower too. LLC flat, L1 +3%. Reading (orchestrator): a data-layout effect: closures no longer allocated per call, so mimalloc hands out a different block pattern and freeing the kept versions walks colder cells. Not caused by the static-closure path itself. Next if pursued: l2_rqsts counters, and whether rbmap-ck's final free should happen at all (process exit could skip it, as Lean does). Back to backlog (orchestrator's call); SW-2502 stays.\n",
+      "created": "2026-11-09",
+      "updated": "2026-11-09",
+      "commits": []
+    },
+    {
+      "id": 2524,
+      "title": "Skip freeing the live heap at native process exit (Lean doesn't free at exit): rbmap-ck spends ~32-38% of cycles in value::free, much of it presumably the final teardown of every kept version; measure the share at exit first",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "comparative-speed",
+      "body": "From SW-2523 (job 38 profile). Check leak tests and the census, which rely on frees: keep a debug/census switch that frees. 45 min.",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
