@@ -1,5 +1,5 @@
 {
-  "next": 2482,
+  "next": 2484,
   "tickets": [
     {
       "id": 47,
@@ -24751,14 +24751,14 @@
     {
       "id": 2468,
       "title": "Elaborator stack overflow #2: freeing a deep Value chain recurses (drop_glue<Value> through Rc<SmallVec<[Value;4]>>); repro dev/fuzz-findings/246f-2415.sw (settle 2^128), still crashing after SW-2452",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "Speedwell",
       "labels": [
         "elab"
       ],
       "epic": "audit-fuzzing",
-      "body": "Found 9 Nov 2026 02:04 on Speedwell (compute mode). Slow cases before it: 831, 2415. Bisect with FROM/TO; then compare with SW-2452 (case 531 of 0x2451): same recursion or a new one.\n\n03:16: bisected by Overmind job 31 at f5f4b84c8: case 2415 of 0x246f, a mutant of examples/accept/unfold-until-stable.sw (settleStays's argument 0 -> 2^128; countdown test 4 -> 8). Input dev/fuzz-findings/246f-2415.sw (56 lines). Still crashes after SW-2452 (Overmind main a72d12fbf SIGSEGV at 25 s; Speedwell exit 132 at 11 s). Core dump: a 3-frame loop drop_glue<SmallVec<[Value;4]>> -> Rc<SmallVec<[Value;4]>>::drop -> drop_glue<Value>: the general Value drop is recursive (SW-2452 only made an unfolding's kept value iterative). Fix: make Value's drop iterative (a worklist, as Values does), and check what evaluating settle 2^128 should cost before the size limit (it should stop with a resource error, not build a deep chain). 60 min.\n\nStarted 9 Nov 2026 03:35 UTC. Expected: 60 min.\n",
+      "body": "Found 9 Nov 2026 02:04 on Speedwell (compute mode). Slow cases before it: 831, 2415. Bisect with FROM/TO; then compare with SW-2452 (case 531 of 0x2451): same recursion or a new one.\n\n03:16: bisected by Overmind job 31 at f5f4b84c8: case 2415 of 0x246f, a mutant of examples/accept/unfold-until-stable.sw (settleStays's argument 0 -> 2^128; countdown test 4 -> 8). Input dev/fuzz-findings/246f-2415.sw (56 lines). Still crashes after SW-2452 (Overmind main a72d12fbf SIGSEGV at 25 s; Speedwell exit 132 at 11 s). Core dump: a 3-frame loop drop_glue<SmallVec<[Value;4]>> -> Rc<SmallVec<[Value;4]>>::drop -> drop_glue<Value>: the general Value drop is recursive (SW-2452 only made an unfolding's kept value iterative). Fix: make Value's drop iterative (a worklist, as Values does), and check what evaluating settle 2^128 should cost before the size limit (it should stop with a resource error, not build a deep chain). 60 min.\n\nStarted 9 Nov 2026 03:35 UTC. Expected: 60 min.\n\nMerged 9 Nov 03:50 (core 396, elab 159 passed; repro now E-RESOURCE in ~8 s). Cause: Spine (Option<Rc<SmallVec<[Elim;2]>>>) had no Drop, so a stuck application chain recursed Neutral -> Spine -> Elim -> Value. Fix: Drop for Spine through free_iteratively (shared with Values). Unit test freeing_a_deep_spine_does_not_overflow_the_stack (0.4 s, 256 KB stack). No reject example (any overflowing input takes ~8 s). Model result: Sonnet, worked, 13 min (est. 60).\n",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
@@ -24932,6 +24932,32 @@
       "labels": [],
       "epic": "elaborator-kernel",
       "body": "From SW-2467 (Opus). Raises the cap SW-2467 proposes, or removes the need for it. Also: Fin.toNat isn't native in the kernel, so rfl on a Fin literal of 10^6 unfolds the FSucc chain (1.3 GB). 2 h.",
+      "created": "2026-11-09",
+      "updated": "2026-11-09",
+      "commits": []
+    },
+    {
+      "id": 2482,
+      "title": "Make every deep Value free iterative, not just Values/Unfolding/Spine: Data(Vec<Value>) args, Pi's Rc<Value> domain, Eq and other boxed fields still recurse when dropped directly (outside detach); a fuzz case nested through them would overflow like SW-2452/SW-2468",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "audit-fuzzing",
+      "body": "From SW-2468. Find every type owning Values (grep Rc<Value>, Box<Value>, Vec<Value> in crates/core), route each through free_iteratively, add a unit test per path like freeing_a_deep_spine_does_not_overflow_the_stack. 45 min.",
+      "created": "2026-11-09",
+      "updated": "2026-11-09",
+      "commits": []
+    },
+    {
+      "id": 2483,
+      "title": "rfl on settle 2^128 = 0 (dev/fuzz-findings/246f-2415.sw) takes ~8 s to hit E-RESOURCE (depth limit while unfolding DecEq.decide), the same for 2^64 and 10^12: why so slow to reach the limit, and should the evaluator stop sooner?",
+      "status": "backlog",
+      "agent": "Opus",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "From SW-2468. Evaluation limits are Opus's. 1 h.",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
