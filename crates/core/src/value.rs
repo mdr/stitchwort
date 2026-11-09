@@ -603,6 +603,13 @@ impl std::ops::Deref for Values {
     }
 }
 
+impl Values {
+    /// Whether another value holds these same values.
+    pub fn is_shared(&self) -> bool {
+        Rc::strong_count(&self.0) > 1
+    }
+}
+
 impl From<Vec<Value>> for Values {
     fn from(values: Vec<Value>) -> Values {
         Values(values.into())

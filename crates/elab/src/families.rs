@@ -12,7 +12,7 @@ use crate::kernel;
 use stitchwort_core::registry::Builtin;
 use stitchwort_core::term::Branch;
 use stitchwort_core::unify_index::{Constraint, Outcome, Reason, Scope, unify};
-use stitchwort_core::value::{Elim, Head, eval, force, quote};
+use stitchwort_core::value::{Elim, Head, eval, force};
 use stitchwort_core::{DataId, Name, Sort, Term, Value, pretty};
 use stitchwort_syntax::ast::{self, Expr, Pattern};
 use stitchwort_syntax::{Diagnostic, Span};
@@ -463,9 +463,14 @@ pub(crate) fn check_case(
     d: DataId,
     args: &[Value],
     branches: &[(Vec<Name>, Tree)],
-    goal_term: &Term,
+    goal: &Value,
     span: Span,
 ) -> Result<Term> {
+    // The goal each branch starts from: read back and evaluated again here,
+    // in the context every branch starts from.
+    let goal = kernel::reread_in(&cx.g(), &cx.env, std::slice::from_ref(goal))?
+        .pop()
+        .expect("one value in, one out");
     let mut out = Vec::new();
     let mut missing: Vec<Diagnostic> = Vec::new();
     let scrutinee = cx.show(&Value::Data(d, args.to_vec().into()));
@@ -474,9 +479,7 @@ pub(crate) fn check_case(
         let saved_env = cx.env.clone();
         let saved_types = cx.types.clone();
         cx.e.decl.leaf_log.borrow_mut().path.push(c as u32);
-        let result = case_branch(
-            cx, x, d, c, args, names, subtree, goal_term, span, &scrutinee,
-        );
+        let result = case_branch(cx, x, d, c, args, names, subtree, &goal, span, &scrutinee);
         cx.e.decl.leaf_log.borrow_mut().path.pop();
         cx.reset(mark);
         cx.env = saved_env;
@@ -506,13 +509,13 @@ fn case_branch(
     args: &[Value],
     names: &[Name],
     subtree: &Tree,
-    goal_term: &Term,
+    goal: &Value,
     span: Span,
     scrutinee: &str,
 ) -> Result<Option<Term>> {
     let g = cx.g();
     let ctor_name = g.data(d).ctors()[c].name.clone();
-    let goal = eval(&g, &cx.env, goal_term)?;
+    let goal = goal.clone();
     // Before entering, while `x` is still a variable in the context.
     let number = match subtree {
         Tree::Missing { .. } => fin_missing(cx, x, d, c)?,
@@ -696,28 +699,25 @@ fn enter(
         cx.bind_hidden(name.clone(), ty);
     }
     let level = cx.level();
-    // The unifier compares with the kernel's conversion, which doesn't look
-    // inside solved metavariables: they're substituted first.
-    let identity: Vec<Value> = (0..level).map(Value::var).collect();
-    let solved = |v: &Value| -> Result<Value> { Ok(eval(&g, &identity, &quote(&g, level, v)?)?) };
-    let all = |vs: &[Value]| vs.iter().map(solved).collect::<Result<Vec<_>>>();
     let result = (ctor.result.iter())
         .map(|r| eval(&g, &field_env, r))
         .collect::<std::result::Result<Vec<_>, _>>()?;
+    // The unifier compares with the kernel's conversion, which doesn't look
+    // inside solved metavariables: they're substituted first, all in one
+    // call, so what the values share is done once.
+    let parts = [&cx.env[..], &cx.types, &[goal], params, indices, &result];
+    let mut solved = kernel::reread(&g, level, &parts.concat())?.into_iter();
+    let mut take = |n: usize| solved.by_ref().take(n).collect::<Vec<_>>();
+    let (env, types) = (take(cx.env.len()), take(cx.types.len()));
+    let extra = take(1);
+    let (params, indices, result) = (take(params.len()), take(indices.len()), take(result.len()));
     let mut scope = Scope {
-        env: all(&cx.env)?,
-        types: all(&cx.types)?,
-        extra: vec![solved(&goal)?],
+        env,
+        types,
+        extra,
         rigid: vec![x],
     };
-    let outcome = unify(
-        &g,
-        &mut scope,
-        data.indices(),
-        all(params)?,
-        all(indices)?,
-        all(&result)?,
-    )?;
+    let outcome = unify(&g, &mut scope, data.indices(), params, indices, result)?;
     match outcome {
         Outcome::Solved(_) => {}
         Outcome::Conflict(k) => return Ok(Entered::Conflict(k)),
@@ -725,14 +725,15 @@ fn enter(
     }
     let goal = scope.extra.pop().expect("the goal");
     let value = Value::Ctor(d, c, scope.env[base..].to_vec().into());
-    let mut env = kernel::substitute_folded(&g, &scope.env, x, &value, &scope.env[..base])?;
+    // In one call, so the parts these share are substituted into once.
+    let parts = [&scope.env[..base], &scope.types[..base], &[goal]].concat();
+    let mut done = kernel::substitute_folded(&g, &scope.env, x, &value, &parts)?.into_iter();
+    let mut env: Vec<Value> = done.by_ref().take(base).collect();
     env[x] = value.clone();
     env.extend_from_slice(&scope.env[base..]);
-    let mut types = kernel::substitute_folded(&g, &scope.env, x, &value, &scope.types[..base])?;
+    let mut types: Vec<Value> = done.by_ref().take(base).collect();
     types.extend_from_slice(&scope.types[base..]);
-    let goal = kernel::substitute_folded(&g, &scope.env, x, &value, &[goal])?
-        .pop()
-        .expect("one value in, one out");
+    let goal = done.next().expect("the goal");
     cx.env = env;
     cx.types = types;
     Ok(Entered::Solved(goal))

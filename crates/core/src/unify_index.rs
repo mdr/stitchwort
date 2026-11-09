@@ -412,16 +412,18 @@ fn free_levels(term: &Term, level: usize) -> Vec<usize> {
 /// values and the stack.
 fn solve(g: &Ev, scope: &mut Scope, stack: &mut [Entry], y: usize, t: &Value) -> Result<()> {
     let level = scope.level();
-    let sub = |values: &[Value]| substitute(g, level, y, t, values);
-    let mut env = sub(&scope.env)?;
-    env[y] = t.clone();
-    scope.env = env;
-    scope.types = sub(&scope.types)?;
-    scope.extra = sub(&scope.extra)?;
-    for entry in stack {
-        entry.base = sub(&entry.base)?;
-        entry.lhs = sub(&entry.lhs)?;
-        entry.rhs = sub(&entry.rhs)?;
+    // In one call, so the parts these share are substituted into once.
+    let mut parts: Vec<&mut Vec<Value>> = vec![&mut scope.env, &mut scope.types, &mut scope.extra];
+    for entry in stack.iter_mut() {
+        parts.extend([&mut entry.base, &mut entry.lhs, &mut entry.rhs]);
     }
+    let all: Vec<Value> = parts.iter().flat_map(|part| part.iter().cloned()).collect();
+    let mut done = substitute(g, level, y, t, &all)?.into_iter();
+    for part in parts {
+        let n = part.len();
+        part.clear();
+        part.extend(done.by_ref().take(n));
+    }
+    scope.env[y] = t.clone();
     Ok(())
 }

@@ -193,6 +193,26 @@ pub fn substitute_folded(
     k::substitute_in(g, env, x, value, values)
 }
 
+/// Each of `values`, with `level` variables in scope, with the solved
+/// metavariables in it replaced by their solutions (`check::reread`).
+pub fn reread(
+    g: &Ev,
+    level: usize,
+    values: &[stitchwort_core::Value],
+) -> stitchwort_core::budget::Result<Vec<stitchwort_core::Value>> {
+    k::reread(g, level, values)
+}
+
+/// Each of `values` read back folded and evaluated again in `env`
+/// (`check::reread_in`).
+pub fn reread_in(
+    g: &Ev,
+    env: &[stitchwort_core::Value],
+    values: &[stitchwort_core::Value],
+) -> stitchwort_core::budget::Result<Vec<stitchwort_core::Value>> {
+    k::reread_in(g, env, values)
+}
+
 /// Definition `id`'s type as a value under the current transparency set
 /// (`check::def_type`): its stored type when nothing is unfolded, as almost
 /// everywhere; else evaluated again, so a type that names an opaque

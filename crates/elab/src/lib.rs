@@ -4812,11 +4812,11 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
             };
             effects::unpin_goal(cx, goal, *x)?;
             check::unpin_parameter_types(cx, *x)?;
-            let goal_term = cx.quote_folded(goal)?;
             if !data.indices().is_empty() {
-                let term = families::check_case(cx, *x, *d, &params, branches, &goal_term, *span)?;
+                let term = families::check_case(cx, *x, *d, &params, branches, goal, *span)?;
                 return Ok(Term::Loc(*span, Rc::new(term)));
             }
+            let goal_term = cx.quote_folded(goal)?;
             let mut out = Vec::new();
             let mut failed = Vec::new();
             for (c, ((names, subtree), ctor)) in branches.iter().zip(data.ctors()).enumerate() {
