@@ -25485,12 +25485,12 @@
     {
       "id": 2524,
       "title": "Skip freeing the live heap at native process exit (Lean doesn't free at exit): rbmap-ck spends ~32-38% of cycles in value::free, much of it presumably the final teardown of every kept version; measure the share at exit first",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "Speedwell",
       "labels": [],
       "epic": "comparative-speed",
-      "body": "From SW-2523 (job 38 profile). Check leak tests and the census, which rely on frees: keep a debug/census switch that frees. 45 min.\n\nStarted 9 Nov 2026 09:39 UTC, Sonnet. Expected: 60 min. Orchestrator call under D3447 (no result change).\n",
+      "body": "From SW-2523 (job 38 profile). Check leak tests and the census, which rely on frees: keep a debug/census switch that frees. 45 min.\n\nStarted 9 Nov 2026 09:39 UTC, Sonnet. Expected: 60 min. Orchestrator call under D3447 (no result change).\n\nDropped 9 Nov: skipping exit frees saves under 0.3% on every program (rbmap-ck -0.21%); the free cost is the program's own, not teardown. Log entry merged. Model result: Sonnet, worked, 5 min (est. 60).\n",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
