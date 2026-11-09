@@ -879,7 +879,7 @@ def main(): {IO} () :=
         .map(str::to_string)
         .collect();
     for copy in [
-        "Std.Map.Tree.rebuild[reuse]#",
+        "Std.Map.Tree.balance[reuse]#",
         "Std.Map.Tree.minView[reuse]#",
     ] {
         assert!(
