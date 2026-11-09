@@ -795,6 +795,185 @@ mimalloc size classes at 24, 40 and 56 bytes weren't checked.
   the ratio of rates are one division each, and say at a glance whether a program's gap is
   work or waiting. Sonnet, 20 min.
 
+## 9. Evidence outside the decision set: rbmap's node (9 Nov 2026, SW-2472)
+
+A measurement, run after §7 was written; nothing in the runtime was changed. It
+asks why `bench/compare/rbmap`'s tree node takes about 160 bytes in a native run
+against Lean's 48, and what each option does to it. rbmap and rbmap-ck are not in
+the decision set (§5, V4), so §7's numbers and gate are untouched; this section is
+only evidence for Matt to weigh against them.
+
+### 9.1 Method
+
+- **Peak RSS from slopes.** `stitchwort build --native --no-cache` on
+  `bench/compare/rbmap/main.sw` (release build with `stitchwort-cli/dev`), run at several
+  sizes under `/usr/bin/time -l` (maximum resident set size, macOS). The bytes per node
+  are the slope between sizes, so the runtime's and the allocator's fixed costs drop out.
+  The same for `rbmap-ck` (every version kept; the count is the number of inserts), for
+  `binary-trees`, and for Lean's own executables built from `bench/compare/lean`
+  (`lake build rbmap rbmap_ck binary_trees`).
+- **What the census can and can't say.** The `value-census` feature counts the bytecode
+  machine's allocations (`stitchwort run`), not native code's, so it was used for what a
+  node holds, not for bytes: a run of rbmap at 200,000 inserts under
+  `--features stitchwort-rt/value-census`. Its model sizes are the formulas of
+  `value_census.rs`, without allocator rounding.
+- **Lean's node** from the C that `lean -c` emits for `Compare/Rbmap.lean`: every node is
+  `lean_alloc_ctor(1, 3, 2)`, and the colour and the flag are set with `lean_ctor_set_uint8`.
+
+### 9.2 Measured
+
+| Program | Sizes | Peak RSS | Slope |
+|---|---|---:|---:|
+| rbmap, native | 0 / 500k / 1M / 2M inserts | 3.26 / 83.6 / 163.8 / 324.4 MB | **160.5 B per node** (500k to 1M: 160.5; 1M to 2M: 160.5) |
+| rbmap, Lean | 500k / 1M / 2M | 28.7 / 52.8 / 100.9 MB | **48.1 B per node** (1M to 2M) |
+| rbmap-ck (every version), native | 100k / 200k / 400k | 376 / 798 / 1,689 MB | 4,213 B (100k to 200k), **4,454 B (200k to 400k)** per insert |
+| rbmap-ck, Lean | 100k / 200k / 400k | 117.8 / 245.3 / 514.7 MB | 1,275 B, **1,347 B** per insert |
+| binary-trees, native | depth 14 / 16 / 18 / 20 | 7.4 / 20.1 / 70.5 / 302.5 MB | 64.4 B (14 to 16), 64.2 B (16 to 18), 73.7 B (18 to 20) per node |
+| binary-trees, Lean | depth 16 / 18 / 20 | 9.0 / 21.5 / 102.8 MB | 16 B (16 to 18), 25.8 B (18 to 20) per node |
+
+- rbmap holds exactly the tree at its peak: the census at 200,000 inserts allocates 200,000
+  five-field cells and has 200,005 live at its peak, because the tree is updated in place
+  (6.4 M `CtorReuse` refills). So the slope is the node, with no side objects: the extra
+  0.5 B is page granularity.
+- rbmap-ck makes 27.8 nodes per insert natively (4,454 / 160) and 28.1 in Lean (1,347 / 48):
+  the same path copying, so the ratio of its footprint to Lean's (3.3×) is the node's ratio
+  (3.3×), nothing else.
+- binary-trees' peak holds about 4 × 2^depth nodes (the stretch tree, or the long-lived
+  tree plus one fresh tree), the figure used for the per-node slopes. Native's 64 B is
+  exact for depths 14 to 18; at depth 20 it reads 73.7 B, which I did not explain (more
+  than one tree alive at once, or the allocator keeping freed pages, are the candidates).
+  Lean's two intervals disagree (16 and 26 B) for the same reason of peak composition,
+  so treat Lean's binary-trees per-node figure as roughly 24 B (the formula's), not as
+  measured to the byte.
+
+### 9.3 One node, word by word
+
+A `Node color left key value right` is an `Rc<[Value]>` of 5 fields (`native_abi.rs`:
+`STRONG_AT`, `WEAK_AT`, `RC_VALUE_AT`, `VALUE_SIZE`; the census confirms the stored
+kinds: `Color` and `Bool` are `Tag` values (no allocation), the key a `Nat` under 2^61,
+the subtrees `Data` or `Tag` (for `Leaf`)). 16 + 5 × 24 = 136 bytes, and mimalloc
+gives it a 160-byte block:
+
+| Words | Bytes | What |
+|---|---:|---|
+| 0 | 8 | strong count (the one word with information) |
+| 1 | 8 | weak count: always 1, never read for its value (§8's first finding) |
+| 2, 3, 4 | 24 | `color`: kind byte `TAG_TAG` and the constructor's tag (Red or Black) in word 0; word 1 (payload) and word 2 (length) unused |
+| 5, 6, 7 | 24 | `left`: kind and constructor tag; the pointer; the child cell's field count (5) |
+| 8, 9, 10 | 24 | `key`: kind `TAG_NAT`; the number (not boxed); length unused |
+| 11, 12, 13 | 24 | `value`: a `Tag` as `color`: one bit of information in 24 bytes |
+| 14, 15, 16 | 24 | `right`: as `left` |
+| 17, 18, 19 | 24 | mimalloc's rounding: 136 B is 17 words, and its size classes above 64 B go 80, 96, 112, 128, 160, 192, ... |
+
+Sorted by what the bytes are:
+
+| | Bytes | Share |
+|---|---:|---:|
+| information: strong count, two subtree pointers, the key (and 2 bits of colour and flag) | 32 | 20% |
+| kind and constructor-tag words (5 fields) | 40 | 25% |
+| length words (5 fields; 2 meaningful when the child is a node, the rest zero) | 40 | 25% |
+| unused payload of `Tag` fields (colour, flag) | 16 | 10% |
+| weak count | 8 | 5% |
+| allocator rounding | 24 | 15% |
+| | 160 | |
+
+Lean's node is 8 (header) + 3 × 8 (left, key, right: a `Nat` is a tagged word) + 2 (colour
+and flag as scalar bytes) = 34, which Lean's allocator takes at 40 or 48. The measured 48.1 B
+per node says 48: presumably 40 plus an 8-byte allocator header in the build the Nix `lean`
+gives (I did not look). Compared with the measured Lean node, the 160 B is 3.3×; the
+information bytes are the same in both. Everything above those is the value format.
+
+### 9.4 What each option would make the node
+
+The sizes below are formula plus mimalloc's classes (bins of 8 bytes up to 64, then 80, 96,
+112, 128, 160, 192, 224, 256; I inferred the 160 from the slope above, not by calling
+`mi_good_size`). "At 2M" is the rbmap peak at 2M inserts, node bytes only (about 3 MB
+fixed on top). "Toward Lean" is node size against Lean's measured 48.
+
+| Layout | Formula | Bytes | Block | rbmap at 2M | vs Lean's 48 | rbmap-ck at 2M inserts (est.) |
+|---|---|---:|---:|---:|---:|---:|
+| today **[measured]** | 16 + 5 × 24 | 136 | **160** | 321 MB (324 measured) | 3.3× | ~9.6 GB |
+| **C**: 8-byte header | 8 + 5 × 24 | 128 | **128** | 256 MB | 2.7× | ~7.7 GB |
+| **E**: two-word values | 8 + 5 × 16 | 88 | **96** | 192 MB | 2.0× | ~5.8 GB |
+| **A**: one-word values | 8 + 5 × 8 | 48 | **48** | 96 MB | 1.0× (Lean measured 101 MB) | ~2.9 GB |
+| D alone: colour and flag as bytes after the fields, today's header and 24-byte values | 16 + 3 × 24 + 2 | 90 | **96** | 192 MB | 2.0× | ~5.8 GB |
+| C + D | 8 + 3 × 24 + 2 | 82 | **96** | 192 MB | 2.0× | ~5.8 GB |
+| E + D | 8 + 3 × 16 + 2 | 58 | **64** | 128 MB | 1.3× | ~3.8 GB |
+| A + D (Lean's layout) | 8 + 3 × 8 + 2 | 34 | **40** | 80 MB | 0.83× | ~2.4 GB |
+
+The rbmap-ck column is the node ratio times about 60 M nodes (2 M inserts at about 30
+per insert; 27.8 measured at 400k, rising 1.5 per doubling **[extrapolated]**); today's
+figure is why rbmap-ck cannot run at Lean's size, and its row for A is Lean's real
+footprint (about 2.9 GB, **[estimated]**).
+
+What this says that the earlier sections didn't:
+
+- **Mimalloc's size classes change C's value for this node.** §3.1 and §7 count C as one
+  word of 64 or 136 bytes (6%). Here 136 becomes 128, an exact class: a 20% smaller block,
+  four times the percentage, and the same for any five-field cell (`Map.Tree.Bin` is 136 B
+  too). Two-field cells don't get it (64 to 56 is exactly the word). The unchecked
+  classes §8 mentions: 24, 40 and 56 are exact (8-byte steps to 64), so binary-trees
+  gets C 56, E 40, A 24 with no rounding loss, and its measured 64 B today is exact.
+- **E and D reach the same node.** A five-field node is only partly pointers, so E's 33%
+  cut in a cell is the same 160 to 96 as storing the two enum fields as bytes (D). E and D
+  together (64 B) get within 1.3× of Lean. This is the one case where D is worth saying
+  separately: it needs no change to value width, only the lowerer's per-constructor
+  layout (§3.4, "medium" risk), and gets 160 to 96 here. Under today's layout it does
+  nothing for binary-trees (no scalar fields).
+- **An unboxed small `Nat` alone does nothing.** The key is already a raw word in the
+  `Nat` value's payload; what costs is the kind word beside it, which only a narrower
+  value (E, A) removes. A type-directed raw `Nat` field would need a fallback for big
+  numbers, which is A's problem, not a smaller step.
+- **Only A reaches Lean's size on this node.** A gives 48 B, the same as Lean's measured
+  48; A + D gives 40, which would beat Lean's measured figure if Lean's extra 8 bytes are an
+  allocator header we wouldn't pay.
+
+### 9.5 Would this change the V4 decision?
+
+The decision (§7.6: hold E and A, do the cheap changes, rerun V4 after operations in
+place stage D) is about **speed on the six-program decision set**; this evidence is about
+**memory on programs outside it**, and §7 found memory size worth under 1% of time outside
+binary-trees and memory-game. So it does not move E's or A's predicted speedup, and the
+gate (1.10× and 1.25×) is no nearer.
+
+What it does change, for Matt to weigh:
+
+1. **A reason, other than speed, to value width.** rbmap-ck at Lean's size (2 M kept
+   versions) needs about 9.6 GB today and cannot run on the comparison machines; E would
+   need about 5.8 GB, A or E + D 2.4 to 3.8 GB. If "rbmap-ck at Lean's size" matters as a
+   comparison (README.md says the size was cut to 400k for this reason), only A or E + D
+   gets there; C alone does not. That is a scope question (what the comparison suite is
+   for), not a measured speed one.
+2. **C is worth more than §3.1 says on five-field cells,** by a rounding accident: 20% of
+   the footprint of rbmap's and `Map`'s nodes. It was already the stage everything else
+   needs; this adds a reason to do it early but nothing about order.
+3. **D (enum fields as bytes) deserves its own estimate.** It is the one cheaper step that
+   cuts a five-field node by 40% without changing width, and it is not in §7.5's list of
+   cheap changes. It touches the lowerer, the shapes and reuse (§3.4), so it is not 30
+   minutes; but how common enum fields in large cells are is unknown. Count them with the census (field kinds
+   `tag` in cells with five or more fields) before judging.
+
+**My reading:** it doesn't change the V4 decision as it was asked (speed on the decision
+set), and the recommendation to hold E stands. It does add a second, separate question for
+Matt: whether Lean-sized memory on tree benchmarks is a goal, since that, and not the
+timing gate, is what decides between E and A (or E + D) for rbmap-ck. I did not change the
+recommendation.
+
+### 9.6 Uncertainties
+
+- The 73.7 B at binary-trees depth 20 and Lean's 16 vs 26 B at binary-trees are
+  unexplained; the figures used are the 16 to 18 interval (native) and the formula (Lean).
+- Lean's node: the code says 34 bytes, the slope 48.1; the 8-byte difference is a guess
+  (allocator header), not checked against Lean's runtime.
+- Mimalloc's classes above 64 B are inferred from the 160.5 B slope and mimalloc's
+  documented bin spacing, not from calling `mi_good_size`. The rounded sizes for E (96),
+  D (96) and E + D (64) rest on the same table.
+- RSS counts pages touched: it includes the kernel's page rounding and free memory the
+  allocator holds, which the slope averages out at the sizes used but not exactly.
+- The rbmap-ck column at 2 M is an extrapolation from 100k-400k; only its ratios to
+  today's figure are firm.
+- Nothing was timed: no speed claim is made here.
+
 ## Sources
 
 - Lean 4 `src/include/lean/lean.h` (master, fetched 8 Nov 2026): `lean_object`,
