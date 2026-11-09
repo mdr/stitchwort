@@ -439,6 +439,40 @@ pub(crate) fn pair(mut fields: Fields) -> (Value, Value) {
     }
 }
 
+/// A `Bind inner k` node met by the loop with `pending` before it: `inner`,
+/// the computation to run next, and the pending list with `k` pushed on it.
+///
+/// A pending cell is `[next, k]`, the layout of a `Bind` node with the
+/// pending list where `inner` was. So when the node is unique, `inner` is
+/// moved out and `next` written in its place, and the node itself is the new
+/// cell (no allocation, `k` untouched). A shared node (a stored computation)
+/// is copied. Sound because a pending list is never changed once built, and
+/// nothing else saw a unique node as a list. Popped by [`pop_pending`].
+#[inline]
+pub(crate) fn push_pending(mut fields: Fields, pending: Value) -> (Value, Value) {
+    match Rc::get_mut(&mut fields.0) {
+        Some(slice) => {
+            let inner = std::mem::replace(&mut slice[0], pending);
+            crate::alloc_trace::reuse(0, &fields.0);
+            (inner, Value::Data(0, fields))
+        }
+        None => {
+            let k = fields[1].clone();
+            let inner = fields[0].clone();
+            hit_made(Made::PendingCell, 1);
+            (inner, Value::data(0, [pending, k]))
+        }
+    }
+}
+
+/// The continuation on top of a pending list cell, and the list below it
+/// (see [`push_pending`]).
+#[inline]
+pub(crate) fn pop_pending(cell: Fields) -> (Value, Value) {
+    let (next, k) = pair(cell);
+    (k, next)
+}
+
 /// A state-passing handler's fold (`op`: `FoldState` or `FoldStateComp`)
 /// on the arguments `arg` gives in order (`done`, `call`, the computation):
 /// its function of the state, as the machine's `effect` makes it; shared

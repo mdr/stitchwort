@@ -789,13 +789,11 @@ impl State {
             };
             if tag == s.bind_node {
                 self.counts.pushes += 1;
-                let (inner, k) = pair(fields);
-                pending = Value::data(0, [k, pending]);
-                c = inner;
+                (c, pending) = crate::effect::push_pending(fields, pending);
             } else if tag == s.done {
                 if let Value::Data(_, cell) = pending {
                     self.counts.pops += 1;
-                    let (k, next) = pair(cell);
+                    let (k, next) = crate::effect::pop_pending(cell);
                     let x = field(fields, 0);
                     let after = Ret::Eff(Box::new(EffRet {
                         handler,
