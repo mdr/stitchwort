@@ -253,7 +253,9 @@ fn probe() -> Result<(), String> {
         (Value::data(5, [Value::Nat(1), Value::Nat(2)]), TAG_DATA),
         (Value::Fun(new_fun(Fun::Global(9))), TAG_FUN),
         (
-            Value::Delay(Rc::new(crate::value::Delay::Now(Value::Erased))),
+            Value::Delay(crate::value_census::new_delay(crate::value::Delay::Now(
+                Value::Erased,
+            ))),
             TAG_DELAY,
         ),
         (Value::Array(Rc::new(vec![Value::Nat(1)])), TAG_ARRAY),
@@ -1503,6 +1505,7 @@ fn cell_new(tag: u32, n: u64) -> u64 {
     let cell = by_arity!(n, fixed(), Rc::<[Value]>::new_uninit_slice(n as usize));
     let fields = Rc::into_raw(cell).cast::<u8>();
     crate::alloc_trace::alloc_at(tag, fields, n as usize);
+    crate::value_census::cell_native(n as usize);
     fields as u64 - RC_VALUE_AT as u64
 }
 
@@ -1524,6 +1527,7 @@ pub unsafe extern "C" fn sw_cell_free(cell: u64, n: u64) {
     crate::call_counts::hit(crate::call_counts::Helper::CellFree);
     let fields = (cell + RC_VALUE_AT as u64) as *const MaybeUninit<Value>;
     crate::alloc_trace::dec_at(fields.cast(), n as usize, true);
+    crate::value_census::cell_freed(n as usize);
     // SAFETY: the caller's contract.
     unsafe { free_emptied(cell, n) };
 }
@@ -1562,7 +1566,7 @@ pub(crate) unsafe fn free_emptied(cell: u64, n: u64) {
 #[allow(unsafe_code)]
 #[cfg_attr(not(test), unsafe(no_mangle))]
 pub unsafe extern "C" fn sw_cell_cache_full(context: *mut Context, cell: u64, n: u64) {
-    if crate::alloc_trace::recording() {
+    if crate::alloc_trace::recording() || crate::value_census::SEES_EVERY_CELL {
         // SAFETY: the caller's contract.
         return unsafe { sw_cell_free(cell, n) };
     }

@@ -33,7 +33,7 @@
 //! non-tail calls.
 
 use crate::call_counts::{Made, hit_made};
-use crate::value_census::{new_fun, new_handler};
+use crate::value_census::{new_fun, new_handler, new_state_run};
 use std::rc::Rc;
 
 use stitchwort_core::collections::HashMap;
@@ -495,7 +495,7 @@ pub(crate) fn state_handler(s: &Shapes, op: EffectOp, mut arg: impl FnMut() -> V
 /// A state-passing handler's function of the state, `Done` of it if the
 /// handler's carrier is a computation.
 fn state_fn(s: &Shapes, comp: bool, run: StateRun) -> Value {
-    let f = Value::Fun(new_fun(Fun::StateRun(Rc::new(run))));
+    let f = Value::Fun(new_fun(Fun::StateRun(new_state_run(run))));
     if comp { Value::data(s.done, [f]) } else { f }
 }
 
@@ -532,7 +532,7 @@ pub(crate) fn handler_for(
                 lazy,
                 forwards,
             };
-            (Rc::new(handler), c)
+            (new_handler(handler), c)
         }
         EffectOp::Translate => {
             let (m, c) = (arg(), arg());
@@ -876,5 +876,5 @@ pub(crate) fn jump_k(v: Value, s: Value) -> Value {
 #[inline]
 pub(crate) fn delay_k(capture: &Rc<crate::run::Capture>, y: Value) -> Value {
     let resumed = crate::value::Delay::Resumed(capture.clone(), y);
-    Value::Delay(Rc::new(resumed))
+    Value::Delay(crate::value_census::new_delay(resumed))
 }

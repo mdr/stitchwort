@@ -383,5 +383,15 @@ The output is `key value` lines (counts and bytes); `size_of.*`, `cells.arity.N`
 `cell_field.<kind>`, `capture.<kind>`, `fun.<variant>`, `bytes.<class>.<model>`,
 `peak.<model>`, `a_boxes`. The raw files for this run are in the lane's scratchpad only.
 
+A native executable (SW-2479): build the runtime library with the feature, link against it,
+and run with the variable set; arities and sizes are counted, the stored kinds are not
+(`cells.native` says how many cells came this way):
+
+```
+CARGO_TARGET_DIR=target/census nix develop -c cargo build --release -p stitchwort-standalone --features value-census
+STITCHWORT_RUNTIME=$PWD/target/census/release/libstitchwort_standalone.a stitchwort build --native <target> -o prog
+STITCHWORT_VALUE_CENSUS=/path/out.txt ./prog [args]
+```
+
 Test: `cargo test --release -p stitchwort-rt --features value-census --lib value_census`
 (one test, run alone because the counters are the process's).
