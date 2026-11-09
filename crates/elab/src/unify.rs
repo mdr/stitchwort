@@ -223,13 +223,13 @@ fn literal_seen_through(g: &Unifier<'_>, m: usize, other: &Value) -> Option<(Val
     let ty = match other {
         Value::Nat(n) if **n == *k => Value::Data(
             reg.data(stitchwort_core::registry::Builtin::Nat)?,
-            Vec::new(),
+            Vec::new().into(),
         ),
         Value::Ctor(d, c, fields)
             if reg.ctor(stitchwort_core::registry::Builtin::OfNat) == Some((*d, *c))
                 && matches!(&fields[..], [Value::Nat(n)] if **n == *k) =>
         {
-            Value::Data(*d, Vec::new())
+            Value::Data(*d, Vec::new().into())
         }
         _ => return None,
     };
@@ -3475,7 +3475,7 @@ mod tests {
     }
 
     fn eq(a: Value, b: Value) -> Value {
-        Value::Eq(Rc::new(ty()), Rc::new(a), Rc::new(b))
+        Value::Eq(Rc::new(ty()).into(), Rc::new(a).into(), Rc::new(b).into())
     }
 
     fn is_var(g: &Unifier<'_>, v: &Value, level: usize) -> bool {
@@ -4349,7 +4349,7 @@ mod tests {
         let function = Value::Pi(
             "x".into(),
             Icit::Explicit,
-            Rc::new(ty()),
+            Rc::new(ty()).into(),
             Closure {
                 env: Vec::new().into(),
                 body: Rc::new(Term::Sort(Sort::Type(0))),

@@ -1889,7 +1889,7 @@ fn target_within(cx: &Ctx, recv: &Expr, field: &AstName, depth: usize) -> Result
 fn receiver_type(cx: &Ctx, recv: &Expr, depth: usize) -> Result<Option<Ty>> {
     use stitchwort_core::registry::Builtin;
     let g = cx.g();
-    let data = |d: DataId| Some(Ty::Value(Value::Data(d, Vec::new())));
+    let data = |d: DataId| Some(Ty::Value(Value::Data(d, Vec::new().into())));
     let name = match recv {
         Expr::Var(name) => name,
         Expr::Str(..) | Expr::Include(..) | Expr::Interpolated(..) => {
@@ -1955,7 +1955,7 @@ fn annotation_type(cx: &Ctx, ty: &Expr) -> Result<Option<Ty>> {
     }
     let g = cx.g();
     Ok(match cx.e.named(&name.text) {
-        Some((Global::Data(d), _)) => Some(Ty::Value(Value::Data(*d, Vec::new()))),
+        Some((Global::Data(d), _)) => Some(Ty::Value(Value::Data(*d, Vec::new().into()))),
         Some((Global::Def(id), _))
             if !applied && !matches!(g.def(*id).ty_value(), Value::Pi(..)) =>
         {

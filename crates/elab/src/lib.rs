@@ -1403,7 +1403,7 @@ impl Elaborator {
                             partial: true,
                             div: None,
                         };
-                        let bool_ty = Value::Data(bool_data, Vec::new());
+                        let bool_ty = Value::Data(bool_data, Vec::new().into());
                         let ty = effects::comp_type(&cx, &row, bool_ty)?;
                         let term = check::check(&mut cx, expr, &ty)?;
                         (term, cx.quote_folded(&ty)?)
@@ -2977,7 +2977,7 @@ impl Elaborator {
                 {
                     let x = effects::divergence_name(&n.text);
                     binders.push((x.as_str().into(), Term::Data(d, Vec::new())));
-                    cx.bind(&x, Value::Data(d, Vec::new()));
+                    cx.bind(&x, Value::Data(d, Vec::new().into()));
                 }
             }
             cx.span = span;
@@ -4787,7 +4787,7 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
                 let params = (0..data.params().len() + data.indices().len())
                     .map(|_| cx.eval(&cx.fresh_meta()))
                     .collect::<Result<Vec<_>>>()?;
-                let known = Value::Data(*d, params);
+                let known = Value::Data(*d, params.into());
                 if cx.unify(&ty, &known)? {
                     ty = known;
                 }

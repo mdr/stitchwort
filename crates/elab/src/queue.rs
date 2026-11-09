@@ -2419,8 +2419,8 @@ mod tests {
     fn a_filled_placeholder_is_its_term_in_the_arguments_it_is_given() {
         let (e, n, two, _) = numbers();
         let mut cx = Ctx::new(&e, span());
-        cx.bind("x", Value::Data(n, Vec::new()));
-        cx.bind("y", Value::Data(n, Vec::new()));
+        cx.bind("x", Value::Data(n, Vec::new().into()));
+        cx.bind("y", Value::Data(n, Vec::new().into()));
         let log = Log::default();
         let succ = |t: Term| Term::ctor(n, 1, vec![t]);
         let (blocker, needs) = unknown(&cx);
@@ -2450,7 +2450,7 @@ mod tests {
     fn a_frozen_placeholder_is_never_guessed_by_comparing_calls() {
         let (e, n, two, pred) = numbers();
         let mut cx = Ctx::new(&e, at_span());
-        cx.bind("x", Value::Data(n, Vec::new()));
+        cx.bind("x", Value::Data(n, Vec::new().into()));
         let log = Log::default();
         let (blocker, needs) = unknown(&cx);
         let placeholder = push(&cx, probe("a", &log, Term::Def(two)), needs);
@@ -2562,11 +2562,15 @@ mod tests {
         let (_, placeholder) = waiting_item(&cx, &log, anything());
         let (x, unknown_value) = unknown(&cx);
         let a = Value::Eq(
-            Rc::new(ty(0)),
-            Rc::new(unknown_value),
-            Rc::new(zero.clone()),
+            Rc::new(ty(0)).into(),
+            Rc::new(unknown_value).into(),
+            Rc::new(zero.clone()).into(),
         );
-        let b = Value::Eq(Rc::new(ty(0)), Rc::new(placeholder), Rc::new(two));
+        let b = Value::Eq(
+            Rc::new(ty(0)).into(),
+            Rc::new(placeholder).into(),
+            Rc::new(two).into(),
+        );
         assert!(!compare_waiting(&mut cx, &a, &b, Failure::Mismatch).unwrap());
         assert_eq!(e.attempt.queue.len(), 1);
         assert!(cx.g().meta_solution(x).is_none(), "undone");
@@ -2638,7 +2642,7 @@ mod tests {
             let d = (e.kernel.env.datas().iter())
                 .position(|d| d.path().rsplit('.').next() == Some(name))
                 .unwrap_or_else(|| panic!("{name} declared"));
-            Value::Data(DataId(d), Vec::new())
+            Value::Data(DataId(d), Vec::new().into())
         };
         (e, data)
     }

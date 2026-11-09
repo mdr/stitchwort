@@ -92,7 +92,7 @@ fn num_type(cx: &Ctx, kind: Kind) -> Result<Value> {
         Kind::Int => builtin_data(cx, Builtin::Int)?,
         Kind::Float => float_data(cx)?,
     };
-    Ok(Value::Data(d, Vec::new()))
+    Ok(Value::Data(d, Vec::new().into()))
 }
 
 /// The library's `Float`, which a decimal literal loads (its references
@@ -333,8 +333,11 @@ fn check_literal_with(
             // Where the type has `Add` (generic code, a user's `Point`), say
             // what to write instead (docs/proposals/interfaces.md §5.13).
             if let Some(add) = crate::interfaces::library_interface(cx.e, "Std.Add")
-                && crate::interfaces::findable(cx, &Value::Data(add, vec![expected.clone()]))?
-                    .is_none()
+                && crate::interfaces::findable(
+                    cx,
+                    &Value::Data(add, vec![expected.clone()].into()),
+                )?
+                .is_none()
             {
                 return Err(
                     e.with_note("for another type's zero or one, write `Add.zero` or `Mul.one`")
@@ -779,7 +782,7 @@ impl<'a> Group<'a> {
                 continue;
             };
             if used
-                && crate::interfaces::findable(cx, &Value::Data(interface, vec![t.clone()]))?
+                && crate::interfaces::findable(cx, &Value::Data(interface, vec![t.clone()].into()))?
                     .is_some()
             {
                 return Ok(Some(format!(
@@ -1286,7 +1289,7 @@ fn queue_group(
     }
     let ty = match top {
         None => t.clone(),
-        Some(BinOp::EqEq) => Value::Data(builtin_data(cx, Builtin::Bool)?, Vec::new()),
+        Some(BinOp::EqEq) => Value::Data(builtin_data(cx, Builtin::Bool)?, Vec::new().into()),
         Some(_) => Value::Sort(Sort::Prop),
     };
     let error = cx.error(
@@ -1472,7 +1475,7 @@ fn equation(cx: &mut Ctx, op: BinOp, a: Term, b: Term, t: &Value) -> Result<(Ter
         // yet, K4) is waited for (`check::decide_or_wait`), so the search
         // sees it as written, as it would have had nothing waited.
         _ => {
-            let bool_ty = Value::Data(builtin_data(cx, Builtin::Bool)?, Vec::new());
+            let bool_ty = Value::Data(builtin_data(cx, Builtin::Bool)?, Vec::new().into());
             if crate::check::decision_blocker(cx, &eq, crate::check::Depth::Written)?.is_some() {
                 let span = cx.span;
                 let waiting = crate::check::decide_or_wait(

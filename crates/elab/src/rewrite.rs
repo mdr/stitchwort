@@ -1610,7 +1610,11 @@ fn check_motive(
     kcx.bind("x'".into(), carrier.clone());
     kcx.bind(
         "_".into(),
-        Value::Eq(Rc::new(carrier), Rc::new(rhs), Rc::new(x)),
+        Value::Eq(
+            Rc::new(carrier).into(),
+            Rc::new(rhs).into(),
+            Rc::new(x).into(),
+        ),
     );
     match kernel::without_glue(&cx.g(), || kernel::check_type(&mut kcx, body)) {
         Ok(_) => Ok(()),
@@ -2231,9 +2235,9 @@ mod tests {
         // The goal is `Type0 = Type0`. The motive for replacing `Type0` by `Type1`
         // is `x _ => x = Type0`: applied to `Type0` it gives the goal...
         let goal = Value::Eq(
-            Rc::new(Value::Sort(Sort::Type(1))),
-            Rc::new(Value::Sort(Sort::Type(0))),
-            Rc::new(Value::Sort(Sort::Type(0))),
+            Rc::new(Value::Sort(Sort::Type(1))).into(),
+            Rc::new(Value::Sort(Sort::Type(0))).into(),
+            Rc::new(Value::Sort(Sort::Type(0))).into(),
         );
         let lam = |body: Term| {
             Term::Lam(

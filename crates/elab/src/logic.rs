@@ -238,7 +238,7 @@ pub(crate) fn condition(cx: &mut Ctx, cond: &Expr, what: &str) -> Result<Conditi
     if let Some((name, value, body)) = cond.as_chain_let() {
         return chain_condition(cx, name, value, body, what);
     }
-    let bool_ty = Value::Data(builtin_data(cx, Builtin::Bool)?, Vec::new());
+    let bool_ty = Value::Data(builtin_data(cx, Builtin::Bool)?, Vec::new().into());
     let snapshot = crate::undo::Snapshot::take(cx);
     let outer =
         cx.e.decl
@@ -371,7 +371,7 @@ fn condition_bool(cx: &mut Ctx, expr: &Expr, condition: Condition) -> Result<Ter
         Condition::Bool(term) | Condition::Conjunction { as_bool: term, .. } => term,
         Condition::Decided { prop, decision } => decision.into_bool(cx, prop)?,
         Condition::Waiting { prop } => {
-            let bool_ty = Value::Data(builtin_data(cx, Builtin::Bool)?, Vec::new());
+            let bool_ty = Value::Data(builtin_data(cx, Builtin::Bool)?, Vec::new().into());
             crate::check::decide_or_wait(
                 cx,
                 expr.span(),
@@ -464,7 +464,7 @@ pub(crate) fn short_circuit(
     lhs_part: Option<&mut Option<Conjunct>>,
 ) -> Result<Term> {
     let lhs = a;
-    let unit = Value::Data(builtin_data(cx, Builtin::Unit)?, Vec::new());
+    let unit = Value::Data(builtin_data(cx, Builtin::Unit)?, Vec::new().into());
     let ite = builtin_def(cx, Builtin::IfThenElse)?;
     let ite = Term::app_icit(Term::Def(ite), result.clone(), Icit::Implicit);
     // `b` is checked as the branch of `if a` that needs it: assuming `a`
@@ -562,7 +562,8 @@ pub(crate) fn short_circuit(
                 let truth = match decision {
                     Some(decision) => decision.into_bool(cx, prop)?,
                     None => {
-                        let bool_ty = Value::Data(builtin_data(cx, Builtin::Bool)?, Vec::new());
+                        let bool_ty =
+                            Value::Data(builtin_data(cx, Builtin::Bool)?, Vec::new().into());
                         crate::check::decide_or_wait(
                             cx,
                             lhs.span(),
@@ -665,7 +666,7 @@ pub(crate) fn infer(cx: &mut Ctx, logic: Logic) -> Result<(Term, Value)> {
     let not_bool = match as_bool(cx, logic) {
         Ok(term) => {
             let bool_data = builtin_data(cx, Builtin::Bool)?;
-            return Ok((term, Value::Data(bool_data, Vec::new())));
+            return Ok((term, Value::Data(bool_data, Vec::new().into())));
         }
         Err(e) if crate::undo::fatal(&e) => return Err(e),
         Err(not_bool) => not_bool,

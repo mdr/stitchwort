@@ -665,7 +665,7 @@ impl Elaborator {
                 shown.push(g.data(at).ctors()[0].fields[field].0.to_string());
                 at = parent;
             }
-            let goal = Value::Data(at, vec![arg.clone()]);
+            let goal = Value::Data(at, vec![arg.clone()].into());
             let shown_goal = cx.show(&goal);
             let shown_path = shown.join(".");
             let meta = implicit_arg(&mut cx, Icit::Auto, &goal);
@@ -882,7 +882,7 @@ pub(crate) fn attempt(
         return Ok(Attempt::Solved);
     }
     let arg = &refresh(cx, arg)?;
-    let goal = Value::Data(interface, vec![arg.clone()]);
+    let goal = Value::Data(interface, vec![arg.clone()].into());
     let iface_name = g.data(interface).name().to_string();
     let dict = cx.e.tables.interfaces[&interface].dict.clone();
     step(cx, ob.tree, &goal)?;
@@ -1574,7 +1574,7 @@ pub(crate) fn decide_eq_of(cx: &mut Ctx, ty: &Value, xt: Term, yt: Term) -> Resu
             "the library's `DecEq` isn't available yet",
         ));
     };
-    let goal = Value::Data(dec, vec![ty.clone()]);
+    let goal = Value::Data(dec, vec![ty.clone()].into());
     let meta = implicit_arg(cx, Icit::Auto, &goal);
     cx.e.solve_tree(&meta, true)?;
     // A definition, applied or not (not a lambda, whose type the kernel
@@ -1790,7 +1790,7 @@ pub(crate) fn method_call(
     ty: &Value,
     args: Vec<Term>,
 ) -> Result<Term> {
-    let goal = Value::Data(interface, vec![ty.clone()]);
+    let goal = Value::Data(interface, vec![ty.clone()].into());
     let meta = implicit_arg(cx, Icit::Auto, &goal);
     cx.e.solve_tree(&meta, true)?;
     let g = cx.g();

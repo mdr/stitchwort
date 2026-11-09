@@ -2021,7 +2021,11 @@ mod tests {
         let mut ty = Value::Sort(Sort::Type(0));
         for _ in 0..100_000 {
             let type1 = Rc::new(Value::Sort(Sort::Type(1)));
-            ty = Value::Eq(type1, Rc::new(ty), Rc::new(Value::Sort(Sort::Type(0))));
+            ty = Value::Eq(
+                type1.into(),
+                Rc::new(ty).into(),
+                Rc::new(Value::Sort(Sort::Type(0))).into(),
+            );
         }
         // Dropping it would recurse as deeply: the test keeps it.
         let kept = ty.clone();

@@ -850,9 +850,9 @@ fn family(
     cx.bind_hidden(
         "q".into(),
         Value::Eq(
-            Rc::new(ty.clone()),
-            Rc::new(l.clone()),
-            Rc::new(Value::var(y)),
+            Rc::new(ty.clone()).into(),
+            Rc::new(l.clone()).into(),
+            Rc::new(Value::var(y)).into(),
         ),
     );
     let body = Term::Case(1, d, branches.into());
@@ -920,9 +920,9 @@ fn take_apart(cx: &mut Ctx, run: &Rc<Run>, goal: &Value) -> Result<Option<Term>>
                 .collect();
             let field_ty = eval(&g, &env, &ctor.fields[i].1)?;
             let fact = Value::Eq(
-                Rc::new(field_ty.clone()),
-                Rc::new(a.clone()),
-                Rc::new(b.clone()),
+                Rc::new(field_ty.clone()).into(),
+                Rc::new(a.clone()).into(),
+                Rc::new(b.clone()).into(),
             );
             if visible(cx)
                 .into_iter()
@@ -1842,7 +1842,7 @@ fn finite_atoms(cx: &mut Ctx, run: &Run) -> Result<Option<Vec<String>>> {
         let Some(ty) = ty else {
             return Ok(None);
         };
-        let goal = Value::Data(finite, vec![ty.clone()]);
+        let goal = Value::Data(finite, vec![ty.clone()].into());
         if crate::interfaces::findable(cx, &goal)?.is_some() {
             return Ok(None);
         }
@@ -1856,7 +1856,7 @@ fn finite_atoms(cx: &mut Ctx, run: &Run) -> Result<Option<Vec<String>>> {
 fn atom_type(cx: &Ctx, term: &Term, d: DataId) -> Result<Value> {
     let g = cx.g();
     if g.data(d).params().is_empty() {
-        return Ok(Value::Data(d, Vec::new()));
+        return Ok(Value::Data(d, Vec::new().into()));
     }
     let mut kcx = crate::rewrite::kernel_context(cx)?;
     let (_, ty) = crate::kernel::without_glue(&g, || crate::kernel::infer(&mut kcx, term))?;

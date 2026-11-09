@@ -198,7 +198,7 @@ pub(crate) fn member_of(
 impl Member {
     /// Its type, with `T`'s parameters as the variables `0..np`.
     pub(crate) fn ty(&self) -> Value {
-        Value::Data(self.data, self.args.clone())
+        Value::Data(self.data, self.args.clone().into())
     }
 }
 
@@ -348,7 +348,7 @@ impl Elaborator {
                         Value::Data(e, args) if known_container(g, *e) => {
                             members.push(Member {
                                 data: *e,
-                                args: args.clone(),
+                                args: args.to_vec(),
                                 origin: what,
                             });
                         }
@@ -628,7 +628,7 @@ impl Elaborator {
                 if *is_type {
                     cx.bind_hidden(
                         format!("%dict{j}").as_str().into(),
-                        Value::Data(interface, vec![Value::var(j)]),
+                        Value::Data(interface, vec![Value::var(j)].into()),
                     );
                 }
             }
@@ -638,7 +638,7 @@ impl Elaborator {
                 } else {
                     (interface, &names.0)
                 };
-                let goal = Value::Data(needed, vec![ty.clone()]);
+                let goal = Value::Data(needed, vec![ty.clone()].into());
                 if let Some(e) = interfaces::findable(&mut cx, &goal)? {
                     let mut reason = format!(
                         "{what} has type `{}`, which has no `{needed_name}` instance (when \

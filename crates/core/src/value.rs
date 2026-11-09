@@ -21,9 +21,9 @@ use crate::term::{Branch, DataId, DefId, Icit, Name, QuotForm, Sort, Term};
 #[derive(Clone, Debug)]
 pub enum Value {
     Sort(Sort),
-    Pi(Name, Icit, Rc<Value>, Closure),
+    Pi(Name, Icit, Shared, Closure),
     Lam(Name, Icit, Closure),
-    Data(DataId, Vec<Value>),
+    Data(DataId, DataArgs),
     /// Fields are shared, so copying a value (a list, say) is cheap.
     Ctor(DataId, usize, Values),
     /// A number, standing for `Succ (Succ … Zero)`. See [`native`].
@@ -31,11 +31,11 @@ pub enum Value {
     /// `k + x` for a number `k ≥ 1` and an `x` not built from numbers:
     /// `Succ` applied `k` times to `x`. See [`native::view`]. The exception
     /// is `compare_lazily`, which can build `k + call` for a folded call.
-    NatAdd(Rc<BigUint>, Rc<Value>),
+    NatAdd(Rc<BigUint>, Shared),
     /// A `List Char`, standing for `Cons (MkChar c rfl) … Nil`. Never empty
     /// when made by evaluation (that's `Nil`). See [`chars`].
     Chars(Chars),
-    Eq(Rc<Value>, Rc<Value>, Rc<Value>),
+    Eq(Shared, Shared, Shared),
     Refl,
     /// A computation stuck on a variable or an unsolved metavariable, or a
     /// folded definition.
@@ -54,6 +54,185 @@ pub enum Value {
     /// the argument of a partly applied `foldD`, the resumption `k` a
     /// handler's clause gets, and never reaches the checker.
     Resumption(Rc<crate::step::Capture>),
+}
+
+/// A value owned through a shared pointer: a function type's domain, the
+/// number a `NatAdd` adds to, the parts of an equality type.
+///
+/// Freeing the last reference frees the value without recursing, like
+/// [`Values`] (SW-2482): a chain of these a million deep (`Eq (Eq (Eq …))`)
+/// would otherwise overflow the stack in the default drop.
+#[derive(Clone, Debug)]
+pub struct Shared(Rc<Value>);
+
+impl Shared {
+    pub fn new(value: Value) -> Shared {
+        Shared(Rc::new(value))
+    }
+
+    /// The pointer itself, for comparing by address and for keeping alive.
+    pub fn rc(&self) -> &Rc<Value> {
+        &self.0
+    }
+
+    pub fn ptr_eq(a: &Shared, b: &Shared) -> bool {
+        Rc::ptr_eq(&a.0, &b.0)
+    }
+
+    /// The value, if this was the only reference to it; otherwise just drops
+    /// the reference.
+    pub fn into_unique(mut self) -> Option<Value> {
+        if Rc::strong_count(&self.0) != 1 {
+            return None;
+        }
+        let hole = HOLE.try_with(Rc::clone).ok()?;
+        Rc::try_unwrap(std::mem::replace(&mut self.0, hole)).ok()
+    }
+}
+
+impl From<Rc<Value>> for Shared {
+    fn from(rc: Rc<Value>) -> Shared {
+        Shared(rc)
+    }
+}
+
+impl From<Value> for Shared {
+    fn from(value: Value) -> Shared {
+        Shared::new(value)
+    }
+}
+
+impl std::ops::Deref for Shared {
+    type Target = Value;
+    fn deref(&self) -> &Value {
+        &self.0
+    }
+}
+
+impl Drop for Shared {
+    #[inline]
+    fn drop(&mut self) {
+        if Rc::strong_count(&self.0) == 1 && !self.0.is_flat() {
+            self.free_deep();
+        }
+    }
+}
+
+impl Shared {
+    #[inline(never)]
+    fn free_deep(&mut self) {
+        let Ok(hole) = HOLE.try_with(Rc::clone) else {
+            return; // the thread is ending
+        };
+        if let Ok(value) = Rc::try_unwrap(std::mem::replace(&mut self.0, hole)) {
+            free_iteratively(|pending| pending.push(value));
+        }
+    }
+}
+
+/// The arguments of a [`Value::Data`]. Like [`Values`] and [`Shared`], freeing
+/// them doesn't recurse (SW-2482): `List (List (List …))` a million deep is a
+/// chain of these.
+#[derive(Clone, Debug, Default)]
+pub struct DataArgs(Vec<Value>);
+
+impl DataArgs {
+    /// The arguments, leaving none behind.
+    pub fn take(&mut self) -> Vec<Value> {
+        std::mem::take(&mut self.0)
+    }
+
+    pub fn into_vec(mut self) -> Vec<Value> {
+        self.take()
+    }
+}
+
+impl std::ops::Deref for DataArgs {
+    type Target = Vec<Value>;
+    fn deref(&self) -> &Vec<Value> {
+        &self.0
+    }
+}
+
+impl std::ops::DerefMut for DataArgs {
+    fn deref_mut(&mut self) -> &mut Vec<Value> {
+        &mut self.0
+    }
+}
+
+impl From<Vec<Value>> for DataArgs {
+    fn from(args: Vec<Value>) -> DataArgs {
+        DataArgs(args)
+    }
+}
+
+impl FromIterator<Value> for DataArgs {
+    fn from_iter<I: IntoIterator<Item = Value>>(args: I) -> DataArgs {
+        DataArgs(args.into_iter().collect())
+    }
+}
+
+impl IntoIterator for DataArgs {
+    type Item = Value;
+    type IntoIter = std::vec::IntoIter<Value>;
+    fn into_iter(mut self) -> Self::IntoIter {
+        self.take().into_iter()
+    }
+}
+
+impl<'a> IntoIterator for &'a DataArgs {
+    type Item = &'a Value;
+    type IntoIter = std::slice::Iter<'a, Value>;
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.iter()
+    }
+}
+
+impl Drop for DataArgs {
+    #[inline]
+    fn drop(&mut self) {
+        if !self.0.iter().all(Value::is_flat) {
+            self.free_deep();
+        }
+    }
+}
+
+impl DataArgs {
+    #[inline(never)]
+    fn free_deep(&mut self) {
+        let args = self.take();
+        free_iteratively(|pending| pending.extend(args));
+    }
+}
+
+impl Value {
+    /// Whether dropping this can't start a drop chain: it owns no value
+    /// through a [`Shared`] or [`DataArgs`]. (Constructor fields, closure
+    /// environments, spines and unfoldings free iteratively themselves.)
+    #[inline]
+    fn is_atom(&self) -> bool {
+        match self {
+            Value::Data(_, args) => args.is_empty(),
+            Value::Eq(..) | Value::Pi(..) | Value::NatAdd(..) => false,
+            _ => true,
+        }
+    }
+
+    /// Whether dropping this recurses at most one level further: everything
+    /// it owns through a [`Shared`] or [`DataArgs`] is an atom. A wrapper
+    /// whose contents are flat can drop them the default way, which keeps
+    /// the common shallow value (`Eq Nat a b`, `List Nat`) cheap; anything
+    /// else is freed through the work list.
+    #[inline]
+    fn is_flat(&self) -> bool {
+        match self {
+            Value::Data(_, args) => args.iter().all(Value::is_atom),
+            Value::Eq(a, b, c) => a.is_atom() && b.is_atom() && c.is_atom(),
+            Value::Pi(_, _, domain, _) => domain.is_atom(),
+            Value::NatAdd(_, base) => base.is_atom(),
+            _ => true,
+        }
+    }
 }
 
 /// The unfolding of a [`Value::Call`] once computed: the value the call
@@ -158,10 +337,22 @@ impl Unfolding {
 /// limit, SW-2452); the default drop would overflow the stack there. The
 /// value goes through [`Values`]' iterative free, as the fields of a
 /// constructor do.
+///
+/// The base it shares is a chain too (one unfolding per projection of a long
+/// run of them), so that is walked, not recursed into.
 impl Drop for Unfolding {
     fn drop(&mut self) {
         if let Some(Kept { value, .. }) = self.kept.get_mut().take() {
             drop(Values::from([value]));
+        }
+        let mut base = self.base.take();
+        while let Some(rc) = base {
+            // Dropping `unfolding` at the end of the iteration frees its kept
+            // value as above, and has no base left to recurse into.
+            let Ok(mut unfolding) = Rc::try_unwrap(rc) else {
+                break;
+            };
+            base = unfolding.base.take();
         }
     }
 }
@@ -435,6 +626,8 @@ thread_local! {
     /// What a taken-apart sequence is left holding, so taking it apart
     /// doesn't allocate.
     static EMPTY: Rc<[Value]> = Rc::new([]);
+    /// What a taken-apart [`Shared`] is left pointing at.
+    static HOLE: Rc<Value> = Rc::new(Value::Refl);
     /// The work list for freeing, kept between uses so that freeing doesn't
     /// allocate either.
     static PENDING: std::cell::RefCell<Vec<Value>> = const { std::cell::RefCell::new(Vec::new()) };
@@ -525,8 +718,8 @@ fn take_apart(mut values: Rc<[Value]>, pending: &mut Vec<Value>) {
 /// Moves whatever `value` holds onto `pending` (when it's the only owner),
 /// so that dropping `value` itself doesn't recurse.
 fn detach(value: Value, empty: &Rc<[Value]>, pending: &mut Vec<Value>) {
-    let mut unwrap = |v: Rc<Value>| {
-        if let Ok(v) = Rc::try_unwrap(v) {
+    let mut unwrap = |v: Shared| {
+        if let Some(v) = v.into_unique() {
             pending.push(v);
         }
     };
@@ -1328,7 +1521,9 @@ fn eval_step(g: &Ev, term: Rc<Term>, env: Env, stack: &mut Vec<Frame>) -> Result
             Some(value) => value,
             None => Value::Neutral(Head::Meta(*m), Spine::new()),
         }),
-        Term::Data(d, args) if args.is_empty() => Control::Return(Value::Data(*d, Vec::new())),
+        Term::Data(d, args) if args.is_empty() => {
+            Control::Return(Value::Data(*d, DataArgs::default()))
+        }
         Term::Ctor(d, c, args) if args.is_empty() => {
             Control::Return(native::ctor(g, *d, *c, Vec::new()))
         }
@@ -1516,7 +1711,7 @@ fn fields(
         }
     }
     Ok(Control::Return(match &*term {
-        Term::Data(d, _) => Value::Data(*d, done),
+        Term::Data(d, _) => Value::Data(*d, done.into()),
         Term::Ctor(d, c, _) => native::ctor(g, *d, *c, done),
         _ => unreachable!(),
     }))
@@ -1624,7 +1819,7 @@ fn resume(g: &Ev, frame: Frame, value: Value, stack: &mut Vec<Frame>) -> Result<
             Control::Return(Value::Pi(
                 x.clone(),
                 *i,
-                Rc::new(value),
+                Shared::new(value),
                 Closure {
                     env,
                     body: b.clone(),
@@ -1659,7 +1854,7 @@ fn resume(g: &Ev, frame: Frame, value: Value, stack: &mut Vec<Frame>) -> Result<
                     Control::Eval(next, env)
                 }
                 _ => {
-                    let mut parts = done.into_iter().map(Rc::new);
+                    let mut parts = done.into_iter().map(Shared::new);
                     let (ty, a, b) = (
                         parts.next().expect("three parts"),
                         parts.next().expect("three parts"),
@@ -4216,7 +4411,7 @@ impl<K: std::hash::Hash + Eq> ShapeMemo<K> {
 #[derive(Clone, Copy)]
 enum Part<'v> {
     Value(&'v Value),
-    Boxed(&'v Rc<Value>),
+    Boxed(&'v Shared),
     Fields(&'v Values),
     Spine(&'v Spine),
     Closure(&'v Closure),
@@ -4238,7 +4433,7 @@ struct ShapeCache {
 /// A handle on a shared allocation, only held to keep it alive.
 #[allow(dead_code)]
 enum Owner {
-    Boxed(Rc<Value>),
+    Boxed(Shared),
     Fields(Values),
     Spine(Spine),
     Closure(Closure),
@@ -4251,7 +4446,7 @@ impl Part<'_> {
         let at = |p: *const u8| p as usize;
         match self {
             Part::Value(_) => None,
-            Part::Boxed(v) => Some((at(Rc::as_ptr(v).cast()), 0)),
+            Part::Boxed(v) => Some((at(Rc::as_ptr(v.rc()).cast()), 0)),
             Part::Fields(f) => Some((at(Rc::as_ptr(&f.0).cast()), 0)),
             Part::Spine(s) => s.0.as_ref().map(|e| (at(Rc::as_ptr(e).cast()), 0)),
             // A closure's hash depends on its body and its environment.
@@ -4675,8 +4870,8 @@ fn free_variables(term: &Term) -> Vec<usize> {
 /// Compares the outermost layer of two values for [`identical`], pushing
 /// their parts.
 fn same_layer<'v>(a: &'v Value, b: &'v Value, work: &mut Vec<Same<'v>>) -> bool {
-    let rc_values = |work: &mut Vec<Same<'v>>, x: &'v Rc<Value>, y: &'v Rc<Value>| {
-        if !Rc::ptr_eq(x, y) {
+    let rc_values = |work: &mut Vec<Same<'v>>, x: &'v Shared, y: &'v Shared| {
+        if !Shared::ptr_eq(x, y) {
             work.push(Same::Values(x, y));
         }
     };
@@ -4974,6 +5169,100 @@ mod tests {
             .unwrap();
     }
 
+    /// Runs `build` on a stack far too small for recursing through a million
+    /// levels, then drops what it returns there. The default drop of such a
+    /// chain would overflow the stack and abort the process (SW-2482).
+    fn drops_on_a_small_stack(build: fn() -> Value) {
+        std::thread::Builder::new()
+            .stack_size(256 * 1024)
+            .spawn(move || drop(build()))
+            .unwrap()
+            .join()
+            .unwrap();
+    }
+
+    const DEEP: usize = 1_000_000;
+
+    #[test]
+    fn freeing_deep_data_arguments_does_not_overflow_the_stack() {
+        drops_on_a_small_stack(|| {
+            let mut value = Value::Data(DataId(0), DataArgs::default());
+            for _ in 0..DEEP {
+                value = Value::Data(DataId(0), vec![value].into());
+            }
+            value
+        });
+    }
+
+    #[test]
+    fn freeing_a_deep_function_domain_does_not_overflow_the_stack() {
+        drops_on_a_small_stack(|| {
+            let closure = || Closure {
+                env: Values::from([]),
+                body: Rc::new(Term::Sort(Sort::Type(0))),
+            };
+            let mut value = Value::Sort(Sort::Type(0));
+            for _ in 0..DEEP {
+                value = Value::Pi(Name::from("x"), Icit::Explicit, value.into(), closure());
+            }
+            value
+        });
+    }
+
+    #[test]
+    fn freeing_a_deep_equality_type_does_not_overflow_the_stack() {
+        drops_on_a_small_stack(|| {
+            let mut value = Value::Refl;
+            for _ in 0..DEEP {
+                value = Value::Eq(Value::Refl.into(), value.into(), Value::Refl.into());
+            }
+            value
+        });
+    }
+
+    #[test]
+    fn freeing_a_deep_number_sum_does_not_overflow_the_stack() {
+        drops_on_a_small_stack(|| {
+            let mut value = Value::Refl;
+            for _ in 0..DEEP {
+                value = Value::NatAdd(Rc::new(BigUint::from(1u32)), value.into());
+            }
+            value
+        });
+    }
+
+    #[test]
+    fn freeing_a_deep_closure_environment_does_not_overflow_the_stack() {
+        drops_on_a_small_stack(|| {
+            let mut value = Value::Refl;
+            for _ in 0..DEEP {
+                value = Value::Lam(
+                    Name::from("x"),
+                    Icit::Explicit,
+                    Closure {
+                        env: Values::from([value]),
+                        body: Rc::new(Term::Sort(Sort::Type(0))),
+                    },
+                );
+            }
+            value
+        });
+    }
+
+    #[test]
+    fn freeing_a_deep_unfolding_base_chain_does_not_overflow_the_stack() {
+        drops_on_a_small_stack(|| {
+            let mut base = None;
+            for _ in 0..DEEP {
+                base = Some(Rc::new(Unfolding {
+                    kept: Default::default(),
+                    base,
+                }));
+            }
+            Value::Call(DefId(0), Spine::new(), base.unwrap())
+        });
+    }
+
     /// How many pairs the memo holds as different.
     fn remembered_different() -> usize {
         TREE_MEMO.with(|m| m.borrow().different.values().map(Vec::len).sum())
@@ -5154,7 +5443,7 @@ mod tests {
             Value::Pi(
                 "x".into(),
                 Icit::Explicit,
-                Rc::new(Value::Sort(Sort::Type(0))),
+                Rc::new(Value::Sort(Sort::Type(0))).into(),
                 closure(env, call_last()),
             )
         };

@@ -201,7 +201,7 @@ mod tests {
 
     /// `a = b`: a value with two parts, unified left to right.
     fn eq(a: Value, b: Value) -> Value {
-        Value::Eq(Rc::new(ty(5)), Rc::new(a), Rc::new(b))
+        Value::Eq(Rc::new(ty(5)).into(), Rc::new(a).into(), Rc::new(b).into())
     }
 
     /// A fresh metavariable applied to the variables at `levels`.

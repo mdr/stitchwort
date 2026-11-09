@@ -1165,7 +1165,7 @@ fn instantiate(
         term = Term::app_icit(term, meta, icit);
         ty = cod.apply(g, value)?;
     }
-    let wanted = Value::Data(decidable, vec![prop.clone()]);
+    let wanted = Value::Data(decidable, vec![prop.clone()].into());
     let fits = if as_written {
         crate::unify::unify_solving_arguments(g, cx.level(), &ty, &wanted)?
     } else {

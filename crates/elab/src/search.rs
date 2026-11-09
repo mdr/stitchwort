@@ -164,7 +164,7 @@ pub(crate) fn type_of_target(
             return Ok(Some(Ty::Type));
         }
         Term::Nat(_) if args.is_empty() => match g.env.builtins().nat {
-            Some(nat) => return Ok(Some(Ty::Of(Value::Data(nat, Vec::new())))),
+            Some(nat) => return Ok(Some(Ty::Of(Value::Data(nat, Vec::new().into())))),
             None => return Ok(None),
         },
         Term::Def(id) => g.def(*id).ty_value().clone(),

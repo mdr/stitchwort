@@ -47,7 +47,7 @@ use std::rc::Rc;
 use crate::budget::Result;
 use crate::native;
 use crate::term::{Branch, DefId, Icit, QuotForm, Sort, Term};
-use crate::value::{Closure, Elim, Head, Mode, Spine, Value, quot_mk_rep, quot_value};
+use crate::value::{Closure, Elim, Head, Mode, Shared, Spine, Value, quot_mk_rep, quot_value};
 
 thread_local! {
     static PLAIN: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
@@ -170,7 +170,7 @@ pub fn eval(g: &Ev, env: &[Value], term: &Term) -> Result<Value> {
             Some(value) => value,
             None => Value::Neutral(Head::Meta(*m), Spine::new()),
         },
-        Term::Data(d, args) => Value::Data(*d, eval_all(args)?),
+        Term::Data(d, args) => Value::Data(*d, eval_all(args)?.into()),
         Term::Ctor(d, c, args) if plain() => Value::Ctor(*d, *c, eval_all(args)?.into()),
         Term::Ctor(d, c, args) => native::ctor(g, *d, *c, eval_all(args)?),
         Term::Nat(n) => nat(g, n),
@@ -181,7 +181,7 @@ pub fn eval(g: &Ev, env: &[Value], term: &Term) -> Result<Value> {
         Term::Pi(x, i, a, b) => Value::Pi(
             x.clone(),
             *i,
-            Rc::new(eval(g, env, a)?),
+            Shared::new(eval(g, env, a)?),
             Closure {
                 env: env.into(),
                 body: b.clone(),
@@ -208,14 +208,14 @@ pub fn eval(g: &Ev, env: &[Value], term: &Term) -> Result<Value> {
         Term::Case(..) | Term::NumCase(..) => eval_tree(g, env.to_vec(), term, false, false)?
             .expect("internal error: a case outside a definition's case tree got stuck"),
         Term::Eq(ty, a, b) => Value::Eq(
-            Rc::new(eval(
+            Shared::new(eval(
                 g,
                 env,
                 ty.as_ref()
                     .expect("internal error: evaluating an unchecked equation"),
             )?),
-            Rc::new(eval(g, env, a)?),
-            Rc::new(eval(g, env, b)?),
+            Shared::new(eval(g, env, a)?),
+            Shared::new(eval(g, env, b)?),
         ),
         Term::Refl => Value::Refl,
         Term::J(motive, base, proof) => match unfold_folded(g, force(g, eval(g, env, proof)?)?)? {

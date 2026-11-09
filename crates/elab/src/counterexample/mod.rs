@@ -389,7 +389,7 @@ impl Elaborator {
         let mut cx = Ctx::new(self, span);
         let failed = |e: stitchwort_syntax::Diagnostic| e.message;
         let nat = builtin_data(&cx, Builtin::Nat).map_err(failed)?;
-        let nat_ty = Value::Data(nat, Vec::new());
+        let nat_ty = Value::Data(nat, Vec::new().into());
         let erased = stitchwort_core::check::telescope(g, g.def(def).ty_value(), span)
             .map_err(failed)?
             .params

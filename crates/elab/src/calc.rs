@@ -105,7 +105,7 @@ fn elaborate(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value, Ends)> {
     let (start, ty) = infer(cx, first)?;
     let (start, ty) = insert(cx, start, ty)?;
     let ty_term = Rc::new(cx.quote(&ty)?);
-    let nat_ty = Value::Data(nat(cx)?, Vec::new());
+    let nat_ty = Value::Data(nat(cx)?, Vec::new().into());
     let mut link: Option<Link> = None;
     for step in steps {
         let rel = Rel::of(step.rel);
@@ -372,7 +372,7 @@ struct Step {
 /// the proofs fit the lemmas by conversion and the table needs no new lemma.
 fn combine(cx: &mut Ctx, start: &Term, ty_term: &Rc<Term>, acc: Link, step: Step) -> Result<Link> {
     let (a, b, c) = (start.clone(), acc.end.clone(), step.end.clone());
-    let nat_ty = Value::Data(nat(cx)?, Vec::new());
+    let nat_ty = Value::Data(nat(cx)?, Vec::new().into());
     let push = |piped: &mut Vec<Piped>, term: Term, ty: &Value| {
         piped.push(Piped {
             term,

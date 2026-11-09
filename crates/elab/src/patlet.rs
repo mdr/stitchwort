@@ -228,7 +228,7 @@ fn destructure(
                 other => {
                     let a_ty = cx.fresh_meta();
                     let b_ty = cx.fresh_meta();
-                    let expected = Value::Data(pair, vec![cx.eval(&a_ty)?, cx.eval(&b_ty)?]);
+                    let expected = Value::Data(pair, vec![cx.eval(&a_ty)?, cx.eval(&b_ty)?].into());
                     if !cx.unify(&other, &expected)? {
                         let saved = std::mem::replace(&mut cx.span, *span);
                         let e = cx.mismatch(&other, &expected);
@@ -283,14 +283,14 @@ fn destructure(
                         let meta = cx.fresh_meta();
                         params.push(cx.eval(&meta)?);
                     }
-                    let expected = Value::Data(data, params.clone());
+                    let expected = Value::Data(data, params.clone().into());
                     if !cx.unify(&other, &expected)? {
                         let saved = std::mem::replace(&mut cx.span, *span);
                         let e = cx.mismatch(&other, &expected);
                         cx.span = saved;
                         return Err(e);
                     }
-                    params
+                    params.into()
                 }
             };
             for (def, p) in accessors.into_iter().zip(args) {

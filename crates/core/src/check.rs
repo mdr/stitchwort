@@ -19,8 +19,8 @@ use crate::term::{Branch, DataId, DefId, Icit, MAX_LEVEL, Name, NumArm, QuotForm
 use crate::termination;
 use crate::unify_index::{Constraint, Outcome, Reason, Scope, unify};
 use crate::value::{
-    Apart, Elim, Head, Spine, Value, apply, conv, eval, force, force_ref, quot_value, quote,
-    quote_folded, unused,
+    Apart, DataArgs, Elim, Head, Shared, Spine, Value, apply, conv, eval, force, force_ref,
+    quot_value, quote, quote_folded, unused,
 };
 
 type Result<T> = std::result::Result<T, Diagnostic>;
@@ -287,7 +287,7 @@ pub fn infer(cx: &mut Ctx, term: &Term) -> Result<(Term, Value)> {
         }
         Term::Sort(s) => Ok((term.clone(), Value::Sort(universe_above(cx, *s)?))),
         Term::Nat(_) => match g.env.builtins().nat {
-            Some(nat) => Ok((term.clone(), Value::Data(nat, Vec::new()))),
+            Some(nat) => Ok((term.clone(), Value::Data(nat, DataArgs::default()))),
             None => Err(malformed(cx, "a number, but `Nat` isn't defined")),
         },
         // A compact list of characters is a `List Char`: its expansion's
@@ -296,7 +296,10 @@ pub fn infer(cx: &mut Ctx, term: &Term) -> Result<(Term, Value)> {
         Term::Chars(_) => match &g.env.builtins().text {
             Some(text) => Ok((
                 term.clone(),
-                Value::Data(text.list, vec![Value::Data(text.char, Vec::new())]),
+                Value::Data(
+                    text.list,
+                    vec![Value::Data(text.char, DataArgs::default())].into(),
+                ),
             )),
             None => Err(malformed(
                 cx,
@@ -391,7 +394,7 @@ pub fn infer(cx: &mut Ctx, term: &Term) -> Result<(Term, Value)> {
                 .get(d.0)
                 .is_some_and(|d| d.params.is_empty() && d.indices.is_empty()) =>
         {
-            let ty = Value::Data(*d, Vec::new());
+            let ty = Value::Data(*d, DataArgs::default());
             Ok((check(cx, term, &ty)?, ty))
         }
         // With indices but no parameters, its type is the type applied to
@@ -407,7 +410,7 @@ pub fn infer(cx: &mut Ctx, term: &Term) -> Result<(Term, Value)> {
                 .iter()
                 .map(|r| eval(&g, &env, r))
                 .collect::<budget::Result<Vec<Value>>>()?;
-            Ok((Term::ctor(*d, *c, out), Value::Data(*d, indices)))
+            Ok((Term::ctor(*d, *c, out), Value::Data(*d, indices.into())))
         }
         Term::Meta(_) => Err(malformed(cx, "unsolved metavariable")),
         Term::Lam(..) | Term::Ctor(..) | Term::Refl | Term::Case(..) | Term::NumCase(..) => Err(cx
@@ -651,7 +654,7 @@ fn infer_j(cx: &mut Ctx, motive: &Term, base: &Term, proof: &Term) -> Result<(Te
     cx.bind(y_name.clone(), (*ty).clone());
     cx.bind(
         p_name.clone(),
-        Value::Eq(ty.clone(), x.clone(), Rc::new(Value::var(level))),
+        Value::Eq(ty.clone(), x.clone(), Shared::new(Value::var(level))),
     );
     let result = check_type(cx, body);
     cx.unbind(2);
@@ -861,12 +864,16 @@ fn infer_quot(cx: &mut Ctx, form: QuotForm, args: &[Rc<Term>]) -> Result<(Term, 
             let related = cx.eval(&related)?;
             let r = check(cx, &args[4], &related)?;
             let mk = |v: Value| {
-                Rc::new(quot_value(
+                Shared::new(quot_value(
                     QuotForm::Mk,
                     vec![carrier_value.clone(), relation_value.clone(), v],
                 ))
             };
-            let ty = Value::Eq(Rc::new(quot_ty_value), mk(cx.eval(&x)?), mk(cx.eval(&y)?));
+            let ty = Value::Eq(
+                Shared::new(quot_ty_value),
+                mk(cx.eval(&x)?),
+                mk(cx.eval(&y)?),
+            );
             (vec![x, y, r], ty, false)
         }
     };
@@ -3812,7 +3819,7 @@ pub fn add_validator(
         for (x, ty, _) in &tel.params[..param] {
             cx.bind(x.clone(), ty.clone());
         }
-        let expected = Value::Data(decidable, vec![prop.clone()]);
+        let expected = Value::Data(decidable, vec![prop.clone()].into());
         let decision = check(&mut cx, decision, &expected)?;
         if let Some(dep) = failed {
             return Err(failed_dependency(&cx, &def.name, &dep));
@@ -3879,7 +3886,7 @@ pub fn add_field_validator(
             cx.bind(x.clone(), value);
         }
         let prop = cx.eval(&c.fields[field].1)?;
-        let expected = Value::Data(decidable, vec![prop]);
+        let expected = Value::Data(decidable, vec![prop].into());
         let decision = check(&mut cx, decision, &expected)?;
         if let Some(dep) = failed {
             return Err(failed_dependency(&cx, &data.name, &dep));

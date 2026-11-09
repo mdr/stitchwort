@@ -270,7 +270,7 @@ fn same_value(a: &Value, b: &Value) -> bool {
         (Value::Pi(x, i, a, f), Value::Pi(y, j, b, g)) => {
             x == y
                 && i == j
-                && (Rc::ptr_eq(a, b) || same_value(a, b))
+                && (stitchwort_core::value::Shared::ptr_eq(a, b) || same_value(a, b))
                 && Rc::ptr_eq(&f.body, &g.body)
                 && std::ptr::eq(f.env.as_ptr(), g.env.as_ptr())
                 && f.env.len() == g.env.len()
@@ -1495,9 +1495,9 @@ impl<'e> Ctx<'e> {
             kcx.bind(
                 "p".into(),
                 Value::Eq(
-                    Rc::new(along.carrier.clone()),
-                    Rc::new(along.lhs_value.clone()),
-                    Rc::new(y),
+                    Rc::new(along.carrier.clone()).into(),
+                    Rc::new(along.lhs_value.clone()).into(),
+                    Rc::new(y).into(),
                 ),
             );
             crate::kernel::without_glue(&g, || crate::kernel::check_type(&mut kcx, &body))?;
@@ -1870,7 +1870,7 @@ pub(crate) fn infer_value(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
             let unit = builtin_data(cx, Builtin::UnitType)?;
             Ok((
                 Term::Ctor(unit, 0, Vec::new()),
-                Value::Data(unit, Vec::new()),
+                Value::Data(unit, Vec::new().into()),
             ))
         }
         Expr::Tuple(a, b, _) => infer_tuple(cx, a, b),
@@ -1940,7 +1940,7 @@ pub(crate) fn infer_value(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
         Expr::Float(text, _) => crate::numbers::infer_decimal(cx, text),
         Expr::Char(c, _) => {
             let char_data = builtin_data(cx, Builtin::Char)?;
-            Ok((char_term(cx, *c)?, Value::Data(char_data, Vec::new())))
+            Ok((char_term(cx, *c)?, Value::Data(char_data, Vec::new().into())))
         }
         // `"ab"` is `MkText ['a', 'b']`: its characters are one compact list
         // when the prelude's `List` and `Char` are registered for it
@@ -1964,7 +1964,7 @@ pub(crate) fn infer_value(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
             };
             Ok((
                 Term::ctor(text, mk_text, vec![chars]),
-                Value::Data(text, Vec::new()),
+                Value::Data(text, Vec::new().into()),
             ))
         }
         Expr::Include(path, span) => {
@@ -2045,7 +2045,7 @@ pub(crate) fn infer_value(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
                 env: cx.env.as_slice().into(),
                 body: Rc::new(cod),
             };
-            let pi = Value::Pi(x, icit, Rc::new(dom), cod);
+            let pi = Value::Pi(x, icit, Rc::new(dom).into(), cod);
             // Annotated for the kernel, which doesn't infer a lambda's type.
             // For an implicit or auto lambda, this shape (an annotation
             // straight around the lambda) is what tells [`insert`] not to
@@ -2158,7 +2158,7 @@ pub(crate) fn infer_value(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
             warn_range_in_brackets(cx, items);
             let list = builtin_data(cx, Builtin::List)?;
             let elem = cx.fresh_meta();
-            let ty = Value::Data(list, vec![cx.eval(&elem)?]);
+            let ty = Value::Data(list, vec![cx.eval(&elem)?].into());
             let term = check(cx, expr, &ty)?;
             Ok((annotate(cx, term, &ty)?, ty))
         }
@@ -2210,7 +2210,7 @@ fn infer_app_with(cx: &mut Ctx, head: &Expr, args: &[Arg], fill: bool) -> Result
             // for a function (stage 7, D2126).
             Expr::Num(n, _) => (
                 Term::Nat(Rc::new(n.clone())),
-                Value::Data(nat(cx)?, Vec::new()),
+                Value::Data(nat(cx)?, Vec::new().into()),
             ),
             _ => infer(cx, head)?,
         };
@@ -2419,7 +2419,7 @@ fn inferred_comp(cx: &Ctx, row: &Value, result: Term) -> Result<Term> {
 /// still unknown is the empty one if nothing else settles it.
 fn settle_inferred_row(cx: &Ctx, row: &Term, value: &Value) -> Result<()> {
     effects::close_inferred_row(cx, value)?;
-    let row_type = Value::Data(builtin_data(cx, Builtin::Row)?, Vec::new());
+    let row_type = Value::Data(builtin_data(cx, Builtin::Row)?, Vec::new().into());
     crate::rows::note_row_meta(cx, &row_type, row);
     Ok(())
 }
@@ -2531,7 +2531,7 @@ fn settle_section_comparison(
         force(&cx.g(), result.clone())?,
         Value::Neutral(Head::Meta(_), _)
     ) {
-        let bool_ty = Value::Data(builtin_data(cx, Builtin::Bool)?, Vec::new());
+        let bool_ty = Value::Data(builtin_data(cx, Builtin::Bool)?, Vec::new().into());
         crate::undo::unify(cx, &result, &bool_ty)?;
     }
     Ok(())
@@ -3664,7 +3664,7 @@ pub(crate) fn function_parts(cx: &mut Ctx, ty: &Value) -> Result<(Value, Closure
             let pi = Value::Pi(
                 "x".into(),
                 Icit::Explicit,
-                Rc::new(dom.clone()),
+                Rc::new(dom.clone()).into(),
                 cod.clone(),
             );
             if !cx.unify(ty, &pi)? {
@@ -4105,8 +4105,8 @@ fn non_empty_literal(
     non_empty: DataId,
     elem: &Value,
 ) -> Result<Term> {
-    let list_ty = Value::Data(builtin_data(cx, Builtin::List)?, vec![elem.clone()]);
-    let expected = Value::Data(non_empty, vec![elem.clone()]);
+    let list_ty = Value::Data(builtin_data(cx, Builtin::List)?, vec![elem.clone()].into());
+    let expected = Value::Data(non_empty, vec![elem.clone()].into());
     let Some(first) = items.iter().position(|i| !matches!(i, Expr::Spread(..))) else {
         if items.is_empty() {
             return Err(cx
@@ -4554,7 +4554,11 @@ pub(crate) fn check_value(
                 let ty = cx.fresh_meta();
                 let x = cx.fresh_meta();
                 let (ty, x) = (cx.eval(&ty)?, cx.eval(&x)?);
-                let eq = Value::Eq(Rc::new(ty), Rc::new(x.clone()), Rc::new(x));
+                let eq = Value::Eq(
+                    Rc::new(ty).into(),
+                    Rc::new(x.clone()).into(),
+                    Rc::new(x).into(),
+                );
                 return compare(cx, Term::Refl, &eq, &expected);
             }
             Err(cx.error(
@@ -5150,7 +5154,7 @@ fn check_if_in(
                     (prop, decision, Unused::Bool(cond))
                 }
                 crate::logic::Condition::Bool(cond) => {
-                    let unit = Value::Data(unit_data, Vec::new());
+                    let unit = Value::Data(unit_data, Vec::new().into());
                     let then = branch(cx, "_", unit.clone(), then)?;
                     let otherwise = branch(cx, "_", unit, otherwise)?;
                     let ite = builtin_def(cx, Builtin::IfThenElse)?;
@@ -5279,7 +5283,7 @@ fn unused_proof_if(
     let cond = match unused {
         Unused::Decision(decision) => decision.into_bool(cx, prop)?,
         Unused::Waiting(span) => {
-            let bool_ty = Value::Data(builtin_data(cx, Builtin::Bool)?, Vec::new());
+            let bool_ty = Value::Data(builtin_data(cx, Builtin::Bool)?, Vec::new().into());
             decide_or_wait(cx, span, &prop, &bool_ty, Depth::Written)?
         }
         Unused::Bool(cond) => cond,
@@ -5739,7 +5743,7 @@ pub(crate) fn decision_or_wait(
         return crate::bind::decide(cx, prop);
     };
     let decidable = builtin_data(cx, Builtin::Decidable)?;
-    let ty = Value::Data(decidable, vec![cx.eval(prop)?]);
+    let ty = Value::Data(decidable, vec![cx.eval(prop)?].into());
     let error = Diagnostic::error("E-CANNOT-INFER", "can't decide this proposition yet")
         .with_label(span, "it holds a value whose type isn't known here");
     let check = DecideTerm { term: prop.clone() };
@@ -6833,7 +6837,7 @@ fn infer_tuple(cx: &mut Ctx, a: &Expr, b: &Expr) -> Result<(Term, Value)> {
     let (pair, mk) = builtin_ctor(cx, Builtin::MkPair)?;
     Ok((
         Term::ctor(pair, mk, vec![ta, tb]),
-        Value::Data(pair, vec![tya, tyb]),
+        Value::Data(pair, vec![tya, tyb].into()),
     ))
 }
 
@@ -6870,7 +6874,7 @@ pub(crate) fn check_type_defaulting(
         written = inner;
     }
     if let Expr::Num(..) = written {
-        let nat = Value::Data(nat(cx)?, Vec::new());
+        let nat = Value::Data(nat(cx)?, Vec::new().into());
         return Err(not_a_type(cx, span, &nat));
     }
     if let Some((name, value, body)) = expr.as_chain_let() {
@@ -6933,7 +6937,7 @@ fn infer_j(cx: &mut Ctx, motive: &Expr, base: &Expr, proof: &Expr) -> Result<(Te
     cx.bind(&y_name.text, (*ty).clone());
     cx.bind(
         &p_name.text,
-        Value::Eq(ty.clone(), x.clone(), Rc::new(Value::var(level))),
+        Value::Eq(ty.clone(), x.clone(), Rc::new(Value::var(level)).into()),
     );
     let result = check_type(cx, body);
     cx.reset(mark);
@@ -7193,7 +7197,11 @@ mod tests {
         let e = Elaborator::new();
         let type0 = || Value::Sort(Sort::Type(0));
         let eq = |a: Value, b: Value| {
-            Value::Eq(Rc::new(Value::Sort(Sort::Type(1))), Rc::new(a), Rc::new(b))
+            Value::Eq(
+                Rc::new(Value::Sort(Sort::Type(1))).into(),
+                Rc::new(a).into(),
+                Rc::new(b).into(),
+            )
         };
         // `a: Type0`, `ok: n = n`, `n: Type0`, proving `Type0 = Type0`.
         let cx = Ctx::from_parts(
