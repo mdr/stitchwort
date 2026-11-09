@@ -911,7 +911,7 @@ fn verbose_says_what_was_compiled() {
     };
     let said = build_verbose("micro_call.sw", &native_bench("micro_call.sw"));
     assert!(
-        said.starts_with("native: compiled 3 of the 3 bodies `main` reaches (frames of at most "),
+        said.starts_with("native: compiled 4 of the 4 bodies `main` reaches (frames of at most "),
         "{said}"
     );
     assert_eq!(said.lines().count(), 1, "{said}");

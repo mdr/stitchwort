@@ -8,7 +8,7 @@ use std::path::PathBuf;
 mod repo_files;
 
 /// Paths (prefixes, or whole files) the formatter leaves alone.
-const EXCLUDED: [&str; 8] = [
+const EXCLUDED: [&str; 9] = [
     // D1019: files that exist to be rejected.
     "examples/reject/",
     "examples/soundness/",
@@ -18,6 +18,7 @@ const EXCLUDED: [&str; 8] = [
     "dev/repros/sw-1599/spelled-iff2.sw",
     // Bug repros kept exactly as found (fuzz cases may not even parse).
     "docs/repros/",
+    "dev/fuzz-findings/",
     // Formatter test data.
     "crates/fmt/tests/it/golden/",
     // Exercises layouts the formatter normalises.
