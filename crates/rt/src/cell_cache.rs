@@ -17,10 +17,11 @@
 //! a block only stores its strong count. Native code fills every field of
 //! a taken cell before it's read, as it does a new one.
 //!
-//! The cache holds at most [`CAP`] bytes. Its room is only taken from in
-//! native code, as a block is cached (a take doesn't give it back, which
-//! keeps the take short); when it runs out, [`CellCache::full`] counts the
-//! lists again, and cuts them to half the cap if they're fuller.
+//! The cache holds at most [`CAP`] bytes. Its `room` is exact: native code
+//! takes a block's bytes from it as the block is cached and gives them back
+//! as it's taken, so a full cache is told by one comparison and
+//! [`CellCache::full`] never walks the lists (walking them chased a pointer
+//! per cached block, up to 64 MB of cache misses, SW-2559).
 //!
 //! The cache belongs to a [`NativeExecutor`](crate::native_abi::NativeExecutor),
 //! which lends it to each crossing's [`Context`](crate::native_abi::Context)
@@ -59,10 +60,9 @@ pub struct CellCache {
     /// For cells of `n` fields, at `n - 1`: the first cached block's
     /// address (where its counts are), or 0.
     pub heads: [u64; ARITIES as usize],
-    /// At most the bytes more the cache may hold: native code takes from
-    /// it as it caches a block, but doesn't give back as it takes one (so
-    /// a take is as short as it can be), and counts it again when it runs
-    /// out ([`CellCache::full`]).
+    /// The bytes more the cache may hold: [`CAP`] less the bytes of the
+    /// blocks in the lists. Native code keeps it exact as it caches and
+    /// takes a block.
     pub room: u64,
 }
 
@@ -95,46 +95,18 @@ impl CellCache {
 
 impl CellCache {
     /// Native code's push of the emptied cell of `n` fields at `cell` found
-    /// too little room: the room counted again from the lists, which are
-    /// first cut to half the cap if they hold more (so counting again is
-    /// rare), and the cell kept.
+    /// too little room: the cache is full, so the cell is freed (as native
+    /// code's own free of an uncached cell is). `room` is exact, so
+    /// nothing is counted or walked.
     ///
     /// # Safety
     /// `cell` is the address of a unique `Rc<[Value]>` allocation of `n`
     /// fields (1 to [`ARITIES`]), all moved out, that native code gives up.
     #[allow(unsafe_code)]
     pub(crate) unsafe fn full(&mut self, cell: u64, n: u64) {
-        let mut held = 0;
-        for (i, &head) in self.heads.iter().enumerate() {
-            let mut block = head;
-            while block != 0 {
-                held += block_bytes(i as u64 + 1);
-                // SAFETY: a cached block's strong-count word is the next.
-                block = unsafe { next(block) };
-            }
-        }
-        let mut freed = 0;
-        for (i, head) in self.heads.iter_mut().enumerate() {
-            while held > CAP / 2 && *head != 0 {
-                let block = *head;
-                // SAFETY: as in `drop`.
-                unsafe {
-                    *head = next(block);
-                    free_block(block, i as u64 + 1);
-                }
-                held -= block_bytes(i as u64 + 1);
-                freed += 1;
-            }
-        }
-        DRAINED.fetch_add(freed, Ordering::Relaxed);
-        // At most half the cap is held, so the cell fits.
-        let bytes = block_bytes(n);
-        self.room = CAP - held - bytes;
-        let head = &mut self.heads[n as usize - 1];
-        // SAFETY: the caller's contract: the block is native code's to give
-        // up, and nothing else refers to it.
-        unsafe { (cell as *mut u64).add(STRONG_AT as usize / 8).write(*head) };
-        *head = cell;
+        debug_assert!(self.room < block_bytes(n));
+        // SAFETY: the caller's contract.
+        unsafe { crate::native_abi::free_emptied(cell, n) };
     }
 }
 
@@ -242,32 +214,20 @@ mod tests {
 
     #[test]
     #[allow(unsafe_code)]
-    fn full_counts_the_room_again_and_cuts_the_lists_to_half_the_cap() {
+    fn full_frees_the_cell_and_leaves_the_lists_alone() {
         let mut cache = CellCache {
             heads: [0; ARITIES as usize],
             room: 0,
         };
-        // Room used up by blocks since taken: counted again, the cell kept.
+        let cell = emptied(3);
+        // SAFETY: as native code pushes, onto the list of its size.
+        unsafe { (cell as *mut u64).write(0) };
+        cache.heads[2] = cell;
+        cache.room = block_bytes(2) - 1;
         // SAFETY: an emptied cell of 2 fields.
         unsafe { cache.full(emptied(2), 2) };
-        assert_eq!(len(&cache, 2), 1);
-        assert_eq!(cache.room, CAP - block_bytes(2));
-        // Lists holding the whole cap, as native code pushes: cut to half.
-        let fill = CAP / block_bytes(3);
-        for _ in 0..fill {
-            let cell = emptied(3);
-            // SAFETY: as native code pushes, onto the list of its size.
-            unsafe { (cell as *mut u64).write(cache.heads[2]) };
-            cache.heads[2] = cell;
-        }
-        cache.room = 0;
-        let before = drained();
-        // SAFETY: as above.
-        unsafe { cache.full(emptied(1), 1) };
-        let held = block_bytes(2) * len(&cache, 2) + block_bytes(3) * len(&cache, 3);
-        assert!(held <= CAP / 2, "{held} bytes held");
-        assert_eq!(len(&cache, 1), 1);
-        assert_eq!(cache.room, CAP - held - block_bytes(1));
-        assert!(drained() > before);
+        assert_eq!(len(&cache, 3), 1);
+        assert_eq!(len(&cache, 2), 0);
+        assert_eq!(cache.room, block_bytes(2) - 1);
     }
 }

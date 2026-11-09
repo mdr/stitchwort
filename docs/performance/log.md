@@ -46,6 +46,31 @@ in [../proposals/README.md](../proposals/README.md).
 
 ## 9 Nov 2026
 
+### SW-2559: the cell cache's room is exact, so `full` doesn't walk
+
+- **Cause.** `CellCache::full` recounted the held bytes by walking every
+  cached block (a pointer chase over up to 64 MB) whenever the room ran
+  out, because a take didn't give room back. Overmind (Linux, job 41):
+  15% of cycles in binary-trees, 4.4% in rbmap after SW-2511 (LLC load
+  misses 0.55 M to 3.8 M).
+- **Change.** Native code's cache take adds the block's bytes back to
+  `room` (load, add, store on the take's hit path, `n1.rs` `cached_cell`),
+  so `room` is exactly `CAP` less the bytes cached. A full cache is then
+  just a failed comparison: `full` frees the cell and walks nothing; the
+  cut to half the cap is gone.
+- **Measured (macOS, instructions, median of 3).** binary-trees +0.34%,
+  rbmap +0.25%, rbmap-ck +0.21%, memory-game +0.31%, mapops -0.01%
+  (the extra take work; no walk to save on this machine's runs). Wall
+  time, best of 10, machine loaded by other lanes (so noisy, +-10%):
+  binary-trees 1.37 s to 1.19 s, rbmap 1.54 to 1.35, rbmap-ck 0.86 to 0.82,
+  memory-game 1.88 to 1.95, mapops 0.87 to 1.01. The time effect is the
+  cache misses, which Overmind's counters should confirm.
+- **Rejected.** (b) per-arity counts or a bound: still a walk or more
+  state on the free path, for no gain over an exact count. (c) cutting
+  lists at a counted point: needs the same walk to find the point, and
+  throws away blocks the program will want again. Keeping the recount but
+  rarer (cutting deeper) was not tried: the exact count removes the cause.
+
 ### SW-2471: native recursion limit 16 million frames (const-fold depth 23 runs)
 
 - **Status:** on branch `lane/SW-2471`. Sonnet. D3450 (Matt, 9 Nov 2026: limits may differ by

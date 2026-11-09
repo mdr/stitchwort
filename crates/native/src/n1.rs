@@ -4344,6 +4344,13 @@ impl Gen<'_, '_> {
         self.b.ins().store(flags(), next, self.ctx, head_at);
         let one = self.iconst(1);
         self.b.ins().store(flags(), one, head, STRONG_AT);
+        let room_at = Context::CELLS_AT + CellCache::ROOM_AT;
+        let room = self.b.ins().load(types::I64, flags(), self.ctx, room_at);
+        let room = self
+            .b
+            .ins()
+            .iadd_imm_s(room, cell_cache::block_bytes(n) as i64);
+        self.b.ins().store(flags(), room, self.ctx, room_at);
         self.b.ins().jump(after, &[head.into()]);
         self.b.switch_to_block(miss);
         self.b.set_cold_block(miss);
