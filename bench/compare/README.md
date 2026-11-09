@@ -138,6 +138,8 @@ see its README) has all four too. `dijkstra`, `octopus`, `disk`, `expressions`,
 `scan`, `matcher` and `bridge` (AoC days) have Stitchwort, Python and Lean.
 `const-fold`, `rbmap` and `rbmap-ck` (wide set; Lean's own const_fold, rbmap and
 rbmap_checkpoint, see "Lean's programs" below) have all four.
+`mapops` (wide set; a mix of inserts, lookups, updates and removes on std's `Map`, against
+Python's `dict` and Lean's `Std.TreeMap`, see its README) has all four.
 
 Most of the AoC days run a scaled copy of the real input so that Lean takes
 0.4 to 0.6 s, not the 20 to 60 ms of the real one. `programs.toml` gives each a

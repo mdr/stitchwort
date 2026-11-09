@@ -60,3 +60,7 @@ root = "Compare.Rbmap"
 [[lean_exe]]
 name = "rbmap_ck"
 root = "Compare.RbmapCk"
+
+[[lean_exe]]
+name = "mapops"
+root = "Compare.Mapops"
