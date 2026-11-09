@@ -1257,7 +1257,10 @@ fn unknown_member(
         })
         .collect();
     near.sort();
-    if let Some((_, best)) = near.first() {
+    let meant = scope::meaning_suggestions(&ns, &field.text, |full| cx.e.scope.get(full).is_some());
+    if let Some(best) = meant.first() {
+        d = d.with_note(format!("did you mean `{best}`?"));
+    } else if let Some((_, best)) = near.first() {
         d = d.with_note(format!("did you mean `{best}`?"));
     }
     if let TyHead::Data(dd) = last

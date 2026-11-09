@@ -1676,7 +1676,12 @@ impl Elaborator {
             .collect();
         near.sort_unstable();
         near.dedup();
-        let near: Vec<String> = near.iter().take(3).map(|(_, m)| format!("`{m}`")).collect();
+        let meant = meaning_suggestions(key, member, |full| self.scope.get(full).is_some());
+        let near: Vec<String> = if meant.is_empty() {
+            near.iter().take(3).map(|(_, m)| format!("`{m}`")).collect()
+        } else {
+            meant.iter().map(|m| format!("`{shown}.{m}`")).collect()
+        };
         if !near.is_empty() {
             d = d.with_note(format!("did you mean {}?", or_list(&near)));
         }
@@ -1989,8 +1994,18 @@ impl Elaborator {
                 }
                 near.sort_unstable();
                 near.dedup();
-                let near: Vec<String> =
-                    near.iter().take(3).map(|(_, m)| format!("`{m}`")).collect();
+                let meant: Vec<String> = imported
+                    .iter()
+                    .flat_map(|key| {
+                        meaning_suggestions(key, member, |full| self.scope.get(full).is_some())
+                    })
+                    .map(|m| format!("`{first}.{m}`"))
+                    .collect();
+                let near: Vec<String> = if meant.is_empty() {
+                    near.iter().take(3).map(|(_, m)| format!("`{m}`")).collect()
+                } else {
+                    meant
+                };
                 if !near.is_empty() {
                     d = d.with_note(format!("did you mean {}?", or_list(&near)));
                 }
@@ -2891,6 +2906,119 @@ fn alias_target(key: &str) -> Option<String> {
         .iter()
         .find(|(alias, _)| *alias == path)
         .map(|(_, target)| format!("Std.{target}"))
+}
+
+/// Names other languages use for what std calls something else, per
+/// namespace: `(namespace, [aliases], [std names])`. Aliases compare
+/// ignoring case; a std name is only ever suggested when it exists.
+const MEANING_TABLE: &[(&str, &[&str], &[&str])] = &[
+    (
+        "Char",
+        &["isLower", "isLowerCase", "isLowercase"],
+        &["isAsciiLowercase"],
+    ),
+    (
+        "Char",
+        &["isUpper", "isUpperCase", "isUppercase"],
+        &["isAsciiUppercase"],
+    ),
+    (
+        "Char",
+        &["isDigit", "isNumeric", "isNumber"],
+        &["digitValue"],
+    ),
+    (
+        "Char",
+        &["isAlpha", "isLetter", "isAlphabetic"],
+        &["isAsciiLetter"],
+    ),
+    (
+        "Char",
+        &["isSpace", "isBlank"],
+        &["isWhitespace", "isAsciiSpace"],
+    ),
+    (
+        "Char",
+        &["isAlphaNum", "isAlnum", "isAlphanumeric"],
+        &["isAsciiAlphanumeric"],
+    ),
+    ("Char", &["ord", "code", "toInt", "toCode"], &["toNat"]),
+    ("Char", &["chr", "ofNat"], &["fromNat"]),
+    ("List", &["size", "len", "count"], &["length"]),
+    (
+        "List",
+        &["includes", "has", "member", "isMember"],
+        &["contains"],
+    ),
+    ("List", &["fold", "foldl", "reduce"], &["foldLeft"]),
+    ("List", &["foldr"], &["foldRight"]),
+    ("List", &["flatten", "join"], &["concat"]),
+    ("List", &["each", "foreach", "for_each"], &["forEach"]),
+    ("List", &["first", "car"], &["head"]),
+    ("List", &["reversed"], &["reverse"]),
+    ("List", &["uniq", "nub", "distinct"], &["dedup", "unique"]),
+    ("List", &["max"], &["maximum"]),
+    ("List", &["min"], &["minimum"]),
+    ("List", &["exists", "some"], &["any"]),
+    ("List", &["forall", "every"], &["all"]),
+    ("List", &["empty", "null", "isNull"], &["isEmpty"]),
+    ("List", &["push", "add", "concatenate"], &["append"]),
+    ("Text", &["size", "len"], &["length"]),
+    ("Text", &["includes", "has"], &["contains"]),
+    ("Text", &["strip"], &["trim"]),
+    ("Text", &["parseInt"], &["toInt", "toNat"]),
+    ("Text", &["parseNat"], &["toNat"]),
+    ("Text", &["concat"], &["append"]),
+    ("Text", &["empty", "null"], &["isEmpty"]),
+    ("Text", &["splitBy"], &["split"]),
+    ("Text", &["chars"], &["toList"]),
+    ("Text", &["startswith", "hasPrefix"], &["startsWith"]),
+    ("Text", &["hasSuffix"], &["endsWith"]),
+    ("Option", &["isDefined", "isPresent"], &["isSome"]),
+    ("Option", &["isEmpty"], &["isNone"]),
+    (
+        "Option",
+        &["unwrapOr", "getOr", "withDefault", "valueOr"],
+        &["getOrElse"],
+    ),
+    ("Option", &["bind", "andThen", "then"], &["flatMap"]),
+    ("Map", &["length", "len", "count"], &["size"]),
+    (
+        "Map",
+        &["has", "containsKey", "hasKey", "member"],
+        &["contains"],
+    ),
+    ("Map", &["put", "set", "add"], &["insert"]),
+    ("Map", &["delete", "erase"], &["remove"]),
+    ("Map", &["entries", "items", "toArray"], &["toList"]),
+    ("Map", &["getOrDefault", "findWithDefault"], &["getOr"]),
+    ("Nat", &["plus", "sum"], &["add"]),
+    ("Nat", &["minus", "subtract"], &["sub"]),
+    ("Nat", &["times", "multiply"], &["mul"]),
+    ("Nat", &["divide"], &["div"]),
+    ("Nat", &["modulo", "rem", "remainder"], &["mod"]),
+    ("Nat", &["power", "exp"], &["pow"]),
+    ("Nat", &["maximum"], &["max"]),
+    ("Nat", &["minimum"], &["min"]),
+    ("Nat", &["toString"], &["toText"]),
+];
+
+/// The members of namespace `key` (written `Std.Char` or `Char`) that
+/// `member` is another language's name for, as std spells them. `exists`
+/// says whether `key.name` is declared, so only real names come back.
+pub fn meaning_suggestions(key: &str, member: &str, exists: impl Fn(&str) -> bool) -> Vec<String> {
+    let namespace = key.rsplit('.').next().unwrap_or(key);
+    let mut found: Vec<String> = Vec::new();
+    for (ns, aliases, targets) in MEANING_TABLE {
+        if *ns == namespace && aliases.iter().any(|a| a.eq_ignore_ascii_case(member)) {
+            for t in *targets {
+                if exists(&format!("{key}.{t}")) && !found.iter().any(|f| f == t) {
+                    found.push((*t).to_string());
+                }
+            }
+        }
+    }
+    found
 }
 
 fn or_list(items: &[String]) -> String {
