@@ -8,6 +8,7 @@ byte; only runners that match are timed, with hyperfine.
 import argparse
 import datetime
 import json
+import math
 import platform
 import shlex
 import shutil
@@ -25,6 +26,11 @@ OUT = ROOT / "target" / "compare"
 # Column order of the table. `js` and `jit` only run with --all.
 RUNNERS = ["run", "native", "js", "jit", "cpython", "pypy", "lean", "lean-run"]
 OPTIONAL = {"js", "jit"}
+
+# `set` in programs.toml: the original ten programs are "core", the wider
+# programs added to catch over-fitting to them are "wide". Their geometric
+# means are reported apart so the core ten's history stays comparable.
+SETS = ["core", "wide"]
 
 
 def camel(name):
@@ -68,6 +74,9 @@ class Program:
         else:
             self.input = ROOT / entry["input"] if "input" in entry else None
         self.args = entry.get("args", [])
+        self.set = entry.get("set", "core")
+        if self.set not in SETS:
+            raise ValueError(f"{name}: unknown set {self.set!r}; known: {', '.join(SETS)}")
         self.target = entry["stitchwort"]
         self.dir = HERE / name
         self.expected = (self.dir / "expected.txt").read_bytes()
@@ -181,6 +190,27 @@ def count_instructions(program, command):
     return parse_instructions(done.stderr.decode(errors="replace"), system)
 
 
+def geomean(values):
+    return math.exp(sum(math.log(v) for v in values) / len(values))
+
+
+def geomean_lines(ratios, sets):
+    """Markdown rows of the geometric mean of native/CPython and native/Lean
+    over the core programs, the wide ones, and all. `ratios` is
+    {program: {"cpython": x, "lean": y}} (a pair missing where a runner was
+    skipped or failed), `sets` {program: "core" or "wide"}. A mean covers the
+    programs that have the pair, and the row says how many."""
+    lines = ["| Geometric mean | native / CPython | native / Lean |", "|---|---:|---:|"]
+    groups = [("core", ["core"]), ("wide", ["wide"]), ("all", SETS)]
+    for label, members in groups:
+        cells = []
+        for pair in ("cpython", "lean"):
+            values = [r[pair] for n, r in ratios.items() if sets[n] in members and pair in r]
+            cells.append(f"{geomean(values):.2f}x ({len(values)} programs)" if values else "-")
+        lines.append("| " + " | ".join([label] + cells) + " |")
+    return "\n".join(lines)
+
+
 def fmt_count(n):
     if n is None:
         return "n/a"
@@ -191,8 +221,9 @@ def fmt_count(n):
 
 
 def instruction_table(counts, order, shown):
-    """Markdown rows of instructions retired net of the null program's, with
-    the same ratios as the time table."""
+    """(markdown rows, ratios) of instructions retired net of the null
+    program's, with the same ratios as the time table."""
+    ratios = {}
     startup = counts.get("null", {})
     head = ["Program (instructions)"] + shown + ["run / CPython", "native / CPython", "native / Lean"]
     lines = ["| " + " | ".join(head) + " |", "|---|" + "---:|" * (len(head) - 1)]
@@ -211,9 +242,19 @@ def instruction_table(counts, order, shown):
                 return f"{net[a] / net[b]:.2f}x"
             return "-"
 
+        ratios[name] = pair_ratios(net)
         lines.append("| " + " | ".join([name] + cells + [ratio("run", "cpython"), ratio("native", "cpython"), ratio("native", "lean")]) + " |")
     lines.append("| " + " | ".join(["startup"] + [fmt_count(startup.get(r)) if r in startup else "-" for r in shown] + ["", "", ""]) + " |")
-    return "\n".join(lines)
+    return "\n".join(lines), ratios
+
+
+def pair_ratios(net):
+    """The headline ratios of one program's net values, where both exist."""
+    return {
+        pair: net["native"] / net[pair]
+        for pair in ("cpython", "lean")
+        if "native" in net and pair in net and net[pair] > 0
+    }
 
 
 def have(tool):
@@ -294,7 +335,8 @@ def fmt(seconds):
 
 
 def table(timings, startup, order, shown):
-    """Markdown rows: medians net of startup, ratios, and a * on wide spreads."""
+    """(markdown rows, ratios): medians net of startup, ratios, and a * on wide spreads."""
+    ratios = {}
     head = ["Program"] + shown + ["run / CPython", "native / CPython", "native / Lean"]
     lines = ["| " + " | ".join(head) + " |", "|---|" + "---:|" * (len(head) - 1)]
     for name in order:
@@ -315,10 +357,11 @@ def table(timings, startup, order, shown):
                 return f"{net[a] / net[b]:.2f}x"
             return "-"
 
+        ratios[name] = pair_ratios(net)
         lines.append("| " + " | ".join([name] + cells + [ratio("run", "cpython"), ratio("native", "cpython"), ratio("native", "lean")]) + " |")
     start = ["startup"] + [fmt(startup.get(r)) for r in shown] + ["", "", ""]
     lines.append("| " + " | ".join(start) + " |")
-    return "\n".join(lines)
+    return "\n".join(lines), ratios
 
 
 SW = [None]
@@ -383,12 +426,15 @@ def main():
     startup = {r: t["median"] for r, t in timings["null"].items()}
     shown = [r for r in runners if any(r in timings[n] for n in timings)]
     order = [n for n in names if n != "null"]
-    md = table(timings, startup, order, shown)
+    sets = {p.name: p.set for p in programs}
+    md, time_ratios = table(timings, startup, order, shown)
+    md += "\n\n" + geomean_lines(time_ratios, sets)
     if opts.instructions:
         if instructions_wrapper(platform.system()) is None:
             md += "\n\nInstructions retired: n/a (needs macOS /usr/bin/time or Linux perf)"
         else:
-            md += "\n\n" + instruction_table(counts, order, shown)
+            rows, instruction_ratios = instruction_table(counts, order, shown)
+            md += "\n\n" + rows + "\n\n" + geomean_lines(instruction_ratios, sets)
     if builds:
         md += "\n\nBuild times (not in the run times): " + ", ".join(f"{k} {v:.1f} s" for k, v in builds.items())
     if failed:

@@ -1,6 +1,12 @@
 # One entry per headline run (docs/proposals/comparative-speed.md, "Tracking over time"):
 # geometric means over the ten programs of native time over each other runner's time
 # (above 1, Stitchwort is slower). Reports with the full tables are in docs/reviews/.
+#
+# The ten are the programs of `set = "core"` in programs.toml, and the keys
+# above are theirs alone. A run that also times the wide set (`set = "wide"`)
+# adds `wide_native_over_cpython` and `wide_native_over_lean`, the same
+# geometric means over the wide programs, and `wide_programs`, their names;
+# the wide numbers are never folded into the core keys.
 
 [[run]]
 date = "2026-11-08"

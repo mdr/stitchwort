@@ -44,3 +44,7 @@ root = "Compare.Bridge"
 [[lean_exe]]
 name = "memory_game"
 root = "Compare.MemoryGame"
+
+[[lean_exe]]
+name = "spectral_norm"
+root = "Compare.SpectralNorm"

@@ -11,6 +11,9 @@
 #              target/compare/inputs/ and given to every runner (`scaled_input`
 #              in compare.py lists the scales)
 #   args       command-line arguments for every runner
+#   set        "core" (default: the original ten) or "wide" (programs added to
+#              catch over-fitting to them); compare.py reports a geometric
+#              mean for each and for all
 #   stitchwort a function of the aoc project ("Aoc.Year2020.Day15.main", run
 #              from aoc/), or a .sw file relative to the repository
 
@@ -80,3 +83,9 @@ source = "aoc/inputs/2024/day07.txt"
 repeat = 150
 scale = "lines"
 stitchwort = "Aoc.Year2024.Day07.main"
+
+# Benchmarks Game spectral-norm at N = 1000: Float arithmetic over arrays.
+[spectral-norm]
+set = "wide"
+args = ["1000"]
+stitchwort = "bench/compare/spectral-norm/main.sw"
