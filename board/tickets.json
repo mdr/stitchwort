@@ -24848,12 +24848,12 @@
     {
       "id": 2475,
       "title": "Value census undercounts fold handlers: effect::handler_for makes Fold handlers with Rc::new, not new_handler (census 0.27 M vs counted 4.75 M on expressions)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "Speedwell",
       "labels": [],
       "epic": "performance",
-      "body": "From SW-2461. Route them through value_census::new_handler. 15 min.",
+      "body": "From SW-2461. Route them through value_census::new_handler. 15 min.\n\nMerged 9 Nov 04:52 with SW-2479 (rt 65, native 70). Handlers: census 26,414 vs counter 26,413 on Day18 (one input); StateRun 744 = 744; delay_k and state_fn also fixed. Native census: build stitchwort-standalone --features value-census, STITCHWORT_RUNTIME=…; rbmap 1000 inserts -> cells.arity.5 1000. Zero cost off: binary-trees -0.01%. Field kinds of native cells not counted. Model result: Sonnet, worked, 10 min (est. 60).\n",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
@@ -24900,12 +24900,12 @@
     {
       "id": 2479,
       "title": "value-census doesn't see native allocations: count in alloc_trace::alloc_at (native cell_new) so the census reports native runs",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "Speedwell",
       "labels": [],
       "epic": "comparative-speed",
-      "body": "From SW-2472. 45 min.\n\nStarted 9 Nov 2026 04:42 UTC with SW-2475 in the same lane (worktree SW-2479). Expected: 60 min.\n",
+      "body": "From SW-2472. 45 min.\n\nStarted 9 Nov 2026 04:42 UTC with SW-2475 in the same lane (worktree SW-2479). Expected: 60 min.\n\nMerged 9 Nov 04:52 with SW-2475 (rt 65, native 70). Handlers: census 26,414 vs counter 26,413 on Day18 (one input); StateRun 744 = 744; delay_k and state_fn also fixed. Native census: build stitchwort-standalone --features value-census, STITCHWORT_RUNTIME=…; rbmap 1000 inserts -> cells.arity.5 1000. Zero cost off: binary-trees -0.01%. Field kinds of native cells not counted. Model result: Sonnet, worked, 10 min (est. 60).\n",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
