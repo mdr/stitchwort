@@ -1388,8 +1388,10 @@ fn run(program: &Program, image: &Image, st: &mut State, mut pending: Pending) -
                     };
                     if let Some(slice) = Rc::get_mut(&mut cell.0) {
                         for p in pairs.as_chunks::<2>().0 {
-                            st.regs[base + p[1] as usize] =
-                                std::mem::take(&mut slice[p[0] as usize]);
+                            let field = std::mem::take(&mut slice[p[0] as usize]);
+                            if p[1] != NO_REG {
+                                st.regs[base + p[1] as usize] = field;
+                            }
                         }
                         if token != NO_REG {
                             // Empty the cell: what the arm doesn't use is
@@ -1401,7 +1403,9 @@ fn run(program: &Program, image: &Image, st: &mut State, mut pending: Pending) -
                         }
                     } else {
                         for p in pairs.as_chunks::<2>().0 {
-                            st.regs[base + p[1] as usize] = cell[p[0] as usize].clone();
+                            if p[1] != NO_REG {
+                                st.regs[base + p[1] as usize] = cell[p[0] as usize].clone();
+                            }
                         }
                         if token != NO_REG {
                             reg!(token) = Value::Erased;

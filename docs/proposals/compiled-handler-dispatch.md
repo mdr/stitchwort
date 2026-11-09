@@ -907,3 +907,111 @@ agreement, `effect-forwarding.sw`), regenerated lowering snapshots, profile nami
 above, and `bench:compare` on the four programs. **Estimate: Opus, 2 to 3 h** (as §7 had for the
 whole of stage 1, now with 1a done), most of it snapshots and the agreement tests. The `--pc-map`
 shapes and the `rt` lane passing suggest no correctness surprises, but the full tiers haven't run.
+
+## Stage 1b results (SW-2511)
+
+SW-2511, 9 Nov 2026, Opus, branch `lane/SW-2511`: the spike finished. Two commits on top of the
+cherry-picked spike: the dispatch itself, and a general `Unpack` change that the dispatch made
+worth doing (below), measured separately so it can be kept or dropped on its own.
+
+### What changed beyond the spike
+
+- **Shape of the rewrite.** `Dispatch::rewrite` returns the clauses it binds outside the closure
+  and the closure separately (`Step`), so the lowering marks the dispatch's own lambda; a fused
+  state handler's step is rewritten where fusion produces it (`rewrite_term` on `fused.call`),
+  not through a flag that the next `apply_def` consumed.
+- **A guard instead of a debug assertion.** The parameters' values are substituted into
+  `handlePlus`'s and `%elim`'s case trees; only a variable may be a scrutinee
+  (`Term::instantiate` only `debug_assert`s it). The rewrite now checks every parameter the tree
+  matches on is given a variable, and otherwise leaves the step on the general path. With today's
+  definitions it always is (`o` and the unpacked operation).
+- **Profile names.** `ir::Lambda` has a `dispatch` flag (codec format 2 → 3): the printed IR says
+  `λN dispatch`, and native symbols are `Owner/dispatchN#code` (`dev/profile_top.py`'s doc says
+  so; `--focus Owner` still covers it).
+- **`SW_NO_DISPATCH` is gone**; no test needed it.
+- **The divergence-indexed and partial forwards** are handled, not left on the general path. Every
+  forward the elaborator makes (`effects.rs`, `handle`) is a literal `o k => …` whatever its
+  variant (`callD` for a row with a divergence index, `bindD (lift …)` for a partial carrier,
+  `lowerIn` for a bare row), so it is β-reduced into the `R` arm like the plain one. The steps
+  given to `foldD` and `foldCompD` as values are dispatch closures too (test below).
+- **Frame size: the largest arm's, not the sum.** The arms of a lowered `match` reuse each other's
+  slots (`Lowerer::mark`/`leave`). Measured on an eight-operation handler whose clauses bind up to
+  three locals: 6 slots (two parameters, `o′`, three locals) **[measured]**, where a sum over the
+  arms would be about 20 **[estimated]**. Nothing to fix.
+
+### The extra cell and out-of-line drop per route
+
+Found: `Tick.%elim` passed the operation's argument to the clause even when the clause ignored it,
+so its `Unpack` of `tick ()` took every field, and native code freed the emptied cell inline into
+the cell cache. In the dispatch the clause is inlined, the unused `x` is never bound, and an
+`Unpack` that takes only some of a unique cell's fields frees it out of line (`sw_drop_words`),
+outside the cache, so the next allocation missed it (`sw_cell_new`). Any `match` arm that ignores a
+field of a unique cell paid the same, in any program (`| Cons _ rest => …`).
+
+Fix (second commit): `Unpack` lists every field, the unused ones with register `NO_REG`. A unique
+cell drops them (inline reference counts) and the emptied cell is freed inline into the cache, or
+kept as a reuse token without `sw_empty_cell`; a shared cell skips them, as before. The machine and
+the traced helper (`sw_unpack`) drop them in field order before the cell, which is the order the
+cell's own drop used, so allocation traces don't change. On `tick`: `sw_drop_words` 3 → 2 and
+`sw_cell_new` 2 → 1 per operation, as before the dispatch **[measured, call-counts runtime]**.
+
+### Measurements
+
+Instructions, `task bench:instructions -- … --runs 3`, same machine, `target/bench` builds: before
+on the branch's base (`2cce80c5b`), dispatch alone (first commit), and both **[measured]**:
+
+| program | before | dispatch | change | + `Unpack` | change |
+|---|---:|---:|---:|---:|---:|
+| expressions | 210.20 G | 160.13 G | −23.82% | 156.70 G | **−25.45%** |
+| scan | 238.60 G | 167.85 G | −29.65% | 166.04 G | **−30.41%** |
+| bridge | 77.88 G | 62.08 G | −20.29% | 61.36 G | **−21.22%** |
+| disk | 60.50 G | 53.28 G | −11.93% | 52.16 G | **−13.79%** |
+| matcher | 60.56 G | 58.11 G | −4.05% | 58.21 G | **−3.87%** |
+| binary-trees | 20.55 G | 20.54 G | −0.03% | 20.54 G | −0.03% |
+| mapops | 12.67 G | 12.66 G | −0.07% | 12.61 G | −0.42% |
+| geomean | | | −13.56% | | **−14.38%** |
+
+Spreads 0.00-0.27%. Stage 1b's bar (§7: −6.9% expressions, −8.7% scan, nothing over 1% slower) is
+cleared about three times over. `binary-trees` and `mapops` handle no effects. `bridge` and `disk`
+are the non-parser effectful programs (state and `IO` handlers); `matcher` routes few operations
+(§6 guessed 1-2%).
+
+`task bench:aoc`, all 55 days, every answer checked **[measured]**: geomean **−9.99%** with the
+dispatch alone (36 days moved over 3%), **−11.04%** with both (38 days). 22 days fell by more than
+10%, the largest 2021/03 −30.6%, 2024/03 −29.8%, 2024/02 −27.1%, 2020/03 −26.8%; the most any day
+rose is 2021/17 +0.24% (and 2024/04 +0.05%). Wall time geomean −9.9% (noisy; under 0.3 s for most
+days). The `Unpack` change alone (both against dispatch-only) is −1.16% geomean, from −9.8%
+(2025/06) to +2.25% (2021/06) and +1.92% (2021/16); not chased.
+
+`tick`'s loop at 300,000 operations, whole-program instructions / N **[measured, includes start-up]**:
+5,721 before, 3,542 with the dispatch, 3,340 with both.
+
+### Machine steps
+
+Frames entered fall by two per route, as §5 said (D3440 allowed it): on the machine, `tick`'s
+300,000 operations entered 1,500,003 bodies before (`handlePlus`, `Tick.%elim` and the clause each
+300,000 times) and 900,002 after **[measured, `stitchwort run --profile`]**. Effect counts, results
+and allocation traces in both runtimes are unchanged (the tests below).
+
+### Tests
+
+New in `crates/rt/tests/it/dispatch.rs`, each lowering a program, checking its IR and running it on
+the machine: a fused state handler (one closure of four parameters, no captures); eight operations
+at `{IO}` (one closure of two, captures `base` and `step` once each, frame 6 slots, forward inlined
+in the `R` arm); handlers given to `foldD` and `foldCompD` (with the `callD` forward), at a partial
+and a total row; and a clause that isn't a lambda (bound outside, the closure reads it). No
+`handlePlus` or `%elim` is applied anywhere in their IR (their definitions are still lowered, since
+reachability is computed on the terms before the rewrite; dead code, not called).
+
+Run: `test:lane` rt (66), native (70), js (14); `test:one` effect/handler/resum (80, including
+`effect_examples_agree_with_the_machine`, `…_with_rebuilds_checked`, `n4::handler_traces_are_the_same`
+and `state_handlers_run_as_a_loop_where_they_fit`); `every_example_lowers` and
+`every_shape_runs_at_a_million_elements` (3); the library hash tests (14), unchanged. No snapshot
+changed: no lowering snapshot contains a handler, and JS is untouched.
+
+### Not done
+
+- `handlePlus` and each `%elim` are still lowered as globals though nothing calls them: a little
+  code size, no run time.
+- Stages 2 and 3 (§7) are unchanged by these numbers; with routes now cheaper, their share is
+  larger.

@@ -46,6 +46,43 @@ in [../proposals/README.md](../proposals/README.md).
 
 ## 9 Nov 2026
 
+### SW-2511: a handler's step is one dispatch closure (compiled handler dispatch, stage 1)
+
+- **Status:** on branch `lane/SW-2511`, not yet merged (commits `52da722ff`, the dispatch, on the
+  cherry-picked SW-2507 spike `10aa4bf6d`; `200f2d6d9`, the `Unpack` change). Opus.
+- **Problem.** Every operation a handler answered went through two partial applications
+  (`handlePlus (A.%elim c₁ … cₙ) forward`); applying one copies everything it holds, so each
+  operation copied all the clauses and dropped all but one, and a fused state clause was then
+  partially applied once more. Profile (SW-2493, `tick`): about a third of an operation's 5.7 K
+  instructions, plus 0.47 K more for an eight-operation ability. Each handler start built a
+  closure per clause and the two partial applications.
+- **Change.** `crates/rt/src/dispatch.rs`: in the runtime's lowering, the step becomes one closure
+  of `o, k` (and `jump, s` for a fused state handler) whose body is `handlePlus`'s and `%elim`'s
+  case trees with the clauses inlined in the arms; the forward, whatever its variant, is inlined in
+  the `R` arm. Named `Owner/dispatchN` in profiles.
+  Second commit: an `Unpack` names the fields its arm doesn't use, so native code frees a unique
+  cell inline into the cell cache instead of out of line; the dispatch had exposed this (a clause's
+  unused argument), and any `match` arm that ignores a field gains from it.
+- **Why results stay the same.** The rewrite is β/η on the checked term in `crates/rt` only: kernel
+  terms, hashes, the elaborator and JS are untouched; the effect loop does what it did. Machine
+  steps (frames entered) fall by two per operation answered (D3440). The `Unpack` change frees
+  the same values in the same order. Checked by rt (66), native (70), js (14), the effect/handler
+  tests (80, both runtimes' allocation traces agreeing, with rebuilds checked too),
+  `every_example_lowers`, the million-element shapes, and the hash tests (14).
+- **Measured** (instructions, against `2cce80c5b`; dispatch alone, then both): expressions
+  −23.8% / **−25.5%**, scan −29.7% / **−30.4%**, bridge −20.3% / **−21.2%**, disk −11.9% /
+  **−13.8%**, matcher −4.1% / **−3.9%**, binary-trees and mapops (no handlers) −0.0% / −0.4%;
+  geomean −13.6% / **−14.4%**. `bench:aoc` geomean −10.0% / **−11.0%**, 36 / 38 days moved over
+  3%, 22 over 10% (up to −30.6%), none up more than 0.24%. The `Unpack` change alone is −1.2%
+  geomean on AoC, between −9.8% and +2.3% per day. §6's estimate was −11.5% / −14.5% on the two
+  parsers; the spike's call counts explain the difference (the new apply is the cache's fast path).
+- **Not done / rejected.** JS keeps its lowering (D3440's third question; it copies nothing per
+  operation). The runtime clause table and an elaborator change were rejected in the note (§2.7).
+  Stages 2 (the loop calls the dispatch's code directly) and 3 (a jump as a return) are still open.
+- **Links.** SW-2498, SW-2507, SW-2511, SW-2525;
+  [../proposals/compiled-handler-dispatch.md](../proposals/compiled-handler-dispatch.md) ("Stage 1b
+  results").
+
 ### SW-2514: a record update takes a unique record's fields apart first
 
 - **Status:** merged (`44beef6e9`). Opus.

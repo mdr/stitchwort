@@ -167,6 +167,9 @@ impl Program {
             Expr::Closure(id, captures) => {
                 let lambda = &self.lambdas[id.0 as usize];
                 let _ = write!(out, "λ{}", id.0);
+                if lambda.dispatch {
+                    out.push_str(" dispatch");
+                }
                 if !captures.is_empty() {
                     out.push('[');
                     for (i, c) in captures.iter().enumerate() {

@@ -180,7 +180,10 @@ pub enum Instr {
     /// register. If the cell is uniquely owned, the fields are moved out,
     /// and the cell, emptied, is the reuse token in `token` (unless
     /// `token` is [`NO_REG`]); otherwise they're copied and `token` is
-    /// left empty.
+    /// left empty. A field whose register is [`NO_REG`] the arm doesn't
+    /// use: it's dropped if the cell is unique, and left alone if not. Every
+    /// field is named, so native code frees a unique cell (or empties it
+    /// for its token) inline, without a walk over unknown fields.
     Unpack {
         src: Reg,
         fields: Ops,
@@ -994,8 +997,15 @@ impl<'a> Compiler<'a> {
                                 } else {
                                     NO_REG
                                 };
-                                let fields =
-                                    self.push_ops(arm.fields.iter().flat_map(|(i, s)| [*i, *s]));
+                                let unused = (0..arity as u32)
+                                    .filter(|i| arm.fields.iter().all(|(f, _)| f != i))
+                                    .collect::<Vec<_>>();
+                                let fields = self.push_ops(
+                                    arm.fields
+                                        .iter()
+                                        .flat_map(|(i, s)| [*i, *s])
+                                        .chain(unused.into_iter().flat_map(|i| [i, NO_REG])),
+                                );
                                 self.emit(Instr::Unpack { src, fields, token });
                             } else {
                                 for (i, slot) in &arm.fields {

@@ -147,7 +147,10 @@ fn each_body_is_named_after_its_definition() {
         assert!(lambdas > 0, "no lambda body compiled");
         let named = names
             .iter()
-            .filter(|n| n.contains("/lambda") && !n.starts_with(&format!("{prefix}?/")))
+            .filter(|n| {
+                (n.contains("/lambda") || n.contains("/dispatch"))
+                    && !n.starts_with(&format!("{prefix}?/"))
+            })
             .count();
         assert_eq!(
             named, lambdas,
