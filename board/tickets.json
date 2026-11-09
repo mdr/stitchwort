@@ -1,5 +1,5 @@
 {
-  "next": 2509,
+  "next": 2511,
   "tickets": [
     {
       "id": 47,
@@ -25160,12 +25160,12 @@
     {
       "id": 2499,
       "title": "Runtime: sw_resume_begin moves the fields of a resumption nothing else holds instead of copying them, plus R7 (rebuilt forwarded operations reused): est. -3 to -5% expressions, -2 to -4% scan; no user-visible change",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "Speedwell",
       "labels": [],
       "epic": "comparative-speed",
-      "body": "From SW-2493 option 5. Measure first with bench:instructions. 60 min.\n\nStarted 9 Nov 2026 06:43 UTC. Expected: 60 min.\n",
+      "body": "From SW-2493 option 5. Measure first with bench:instructions. 60 min.\n\nStarted 9 Nov 2026 06:43 UTC. Expected: 60 min.\n\nMerged 9 Nov 07:07 (rt 65, native 70; lane also ran effect/handler/resum 79). Resume::take_unique moves an unshared eager resumption's fields (cell left as DoneK), in native sw_resume_begin and the machine (allocation traces must agree). Unsafe read checked in review (fields inline, cell forgotten). expressions -3.36%, scan -2.59%, bridge -1.24%, disk -0.68%. R7 and cell reuse not done. Model result: Sonnet, worked, 45 min (est. 60).\n",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
@@ -25283,6 +25283,32 @@
       "labels": [],
       "epic": "elaborator-kernel",
       "body": "From the SW-2481 review, F4. After SW-2481 merges. 30 min.",
+      "created": "2026-11-09",
+      "updated": "2026-11-09",
+      "commits": []
+    },
+    {
+      "id": 2509,
+      "title": "value-census after SW-2499: a moved resumption is counted allocated as Fun::Resume but freed as Fun::DoneK; check the census's per-kind balance and fix the accounting",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "comparative-speed",
+      "body": "From reviewing SW-2499. 20 min.",
+      "created": "2026-11-09",
+      "updated": "2026-11-09",
+      "commits": []
+    },
+    {
+      "id": 2510,
+      "title": "R7 (reuse a rebuilt forwarded operation) and reuse of the moved resumption's own cell (R3-style), after SW-2499",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "comparative-speed",
+      "body": "From SW-2499; SW-2493 option 5 est. R7 -1.2 to -1.5% expressions. 60 min.",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
