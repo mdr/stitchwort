@@ -2695,6 +2695,13 @@ pub(crate) fn decl_refs<'a>(decl: &'a Decl, equations: &'a [Decl]) -> Vec<(Ref<'
                 false,
             );
             let binders = body_binders(ty, equations);
+            // The measure is checked with the header's parameters in scope,
+            // before the body.
+            if let Some(measure) = decreasing {
+                let mut work: Vec<Work> = binders.iter().map(|x| Work::Bind(x)).collect();
+                work.push(Work::Expr(measure));
+                add(free_names(work), false);
+            }
             let param_types = explicit_param_types(ty, equations);
             let mut body = Vec::new();
             for eq in equations {
