@@ -517,6 +517,12 @@ impl<'g> Lowerer<'g> {
                     .filter(|(_, stored)| *stored)
                     .map(|((name, _), _)| name.clone())
                     .collect(),
+                #[cfg(feature = "value-census")]
+                enum_fields: (ctor.fields.iter())
+                    .zip(stored_fields(self.g, d, c))
+                    .filter(|(_, stored)| *stored)
+                    .map(|((_, ty), _)| is_enum_type(self.g, ty))
+                    .collect(),
             })
             .collect();
         let t = TypeId(u32::try_from(self.types.len()).expect("types fit"));
@@ -1645,4 +1651,15 @@ fn free_levels(term: &Term, level: usize) -> Vec<usize> {
             _ => None,
         })
         .collect()
+}
+
+/// Whether a field of type `ty` holds an enum: a data type none of whose
+/// constructors has a runtime field, other than the number types.
+#[cfg(feature = "value-census")]
+fn is_enum_type(g: &Ev, ty: &Term) -> bool {
+    let Term::Data(e, _) = ty.spine().0.strip_loc() else {
+        return false;
+    };
+    let ctors = g.data(*e).ctors().len();
+    ctors > 0 && nat_shape(g, *e).is_none() && (0..ctors).all(|c| stored_count(g, *e, c) == 0)
 }

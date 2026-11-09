@@ -393,5 +393,9 @@ STITCHWORT_RUNTIME=$PWD/target/census/release/libstitchwort_standalone.a stitchw
 STITCHWORT_VALUE_CENSUS=/path/out.txt ./prog [args]
 ```
 
+The machine census also counts cells and in-place refills by field count and by how many fields
+are of a declared enum type: `enum.<fields>.<enum fields>` and `enum_refill.…`
+(docs/proposals/compact-values.md §9.7).
+
 Test: `cargo test --release -p stitchwort-rt --features value-census --lib value_census`
 (one test, run alone because the counters are the process's).

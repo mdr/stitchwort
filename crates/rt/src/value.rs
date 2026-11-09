@@ -155,6 +155,8 @@ impl Value {
             Value::Tag(tag)
         } else {
             let fields: Rc<[Value]> = Rc::from(fields);
+            // Built by a native: its field types are not known here.
+            crate::value_census::stored_cell(0, &fields, false);
             crate::alloc_trace::alloc(tag, &fields);
             Value::Data(tag, Fields(fields))
         }
@@ -166,6 +168,8 @@ impl Value {
             Value::Tag(tag)
         } else {
             let fields: Rc<[Value]> = fields.into();
+            // Built by a native: its field types are not known here.
+            crate::value_census::stored_cell(0, &fields, false);
             crate::alloc_trace::alloc(tag, &fields);
             Value::Data(tag, Fields(fields))
         }

@@ -855,7 +855,7 @@ impl<'a> Compiler<'a> {
                     tail,
                 );
             }
-            Expr::Ctor(_, c, fields) => {
+            Expr::Ctor(t, c, fields) => {
                 if fields.is_empty() {
                     let k = self.constant(Value::Tag(*c));
                     self.simple(Instr::Const { dst, k }, dst, tail);
@@ -864,6 +864,14 @@ impl<'a> Compiler<'a> {
                     self.later.push(Later::Ctor(n));
                     let args = self.operand_ops(fields, live, true);
                     self.later.pop();
+                    #[cfg(not(feature = "value-census"))]
+                    let _ = t;
+                    // The census wants to know which fields are enums.
+                    #[cfg(feature = "value-census")]
+                    let c = &crate::value_census::tag_with_enum_fields(
+                        *c,
+                        &self.program.types[t.0 as usize].ctors[*c as usize].enum_fields,
+                    );
                     let claimed = self.tokens.iter().rposition(|t| t.size == n);
                     let instr = match claimed.map(|i| self.tokens.remove(i)) {
                         Some(Token { reg: token, .. }) => {
