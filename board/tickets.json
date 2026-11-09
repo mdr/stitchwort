@@ -25095,12 +25095,12 @@
     {
       "id": 2494,
       "title": "Std Parse: text/pick/literal build their character lists once, not per try (scan -5.8%, expressions -3.9%, measured; library-only)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "Speedwell",
       "labels": [],
       "epic": "comparative-speed",
-      "body": "From SW-2492 target 4 (SW-2327's unfiled 'lists once per call site'). No API or call-site change. 45 min.\n\nStarted 9 Nov 2026 06:20 UTC. Expected: 45 min.\n\n06:21, lane stopped at 5 min (no change): library-only is impossible: text/pick are plain calls, toList already runs once per call; the measured win came from hoisting the literal at the call site. Options: A new Parse operation literalText over Text (std only, needs a measure-first spike: Text.uncons may allocate too), B native Text.stripPrefix, C compiler hoisting (filed as SW-2497). Orchestrator's call: rescoped this ticket to the A spike, measurement only. Model result: Sonnet, worked (correct stop), 5 min (est. 45).\n\nRestarted 06:21 UTC as the option-A spike. Expected: 30 min.\n",
+      "body": "From SW-2492 target 4 (SW-2327's unfiled 'lists once per call site'). No API or call-site change. 45 min.\n\nStarted 9 Nov 2026 06:20 UTC. Expected: 45 min.\n\n06:21, lane stopped at 5 min (no change): library-only is impossible: text/pick are plain calls, toList already runs once per call; the measured win came from hoisting the literal at the call site. Options: A new Parse operation literalText over Text (std only, needs a measure-first spike: Text.uncons may allocate too), B native Text.stripPrefix, C compiler hoisting (filed as SW-2497). Orchestrator's call: rescoped this ticket to the A spike, measurement only. Model result: Sonnet, worked (correct stop), 5 min (est. 45).\n\nRestarted 06:21 UTC as the option-A spike. Expected: 30 min.\n\nSpike result 06:27: option A is a net loss (expressions +0.92%, scan -3.23% instructions): the Text.uncons walk costs ~2 K per call, about what toList did. Recommendation: C (SW-2497). Spike diff kept in the orchestrator scratchpad. Model result: Sonnet, worked, 6 min (est. 30).\n",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
@@ -25108,12 +25108,12 @@
     {
       "id": 2495,
       "title": "Std Parse: pick's failure notes as one operation or lazy (scan -7 to -13.6%, expressions -3 to -6%; library-only); keep error messages identical",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Sonnet",
-      "where": "",
+      "where": "Speedwell",
       "labels": [],
       "epic": "comparative-speed",
-      "body": "From SW-2492 target 3. 60 min.",
+      "body": "From SW-2492 target 3. 60 min.\n\nStarted 9 Nov 2026 06:27 UTC. Expected: 60 min.\n",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
@@ -25134,12 +25134,12 @@
     {
       "id": 2497,
       "title": "Compiler: lift closed constant subterms such as Text.toList of a literal to module constants, including after small std functions (Parse.text/pick) are inlined at literal call sites; the general fix for SW-2494 (TextToList runs 3.28 M times on scan, 6.02 M on expressions; measured -5.8%/-3.9% when hoisted by hand). Helps all code, not only parsers",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Opus",
-      "where": "",
+      "where": "Speedwell",
       "labels": [],
       "epic": "comparative-speed",
-      "body": "From SW-2494's stop report (library-only fix impossible: text/pick have no per-parser value to hold the list) and SW-2492 target 4; parse-runtime.md line ~249 assumed this hoisting; SW-2327's stage B never did it. Design first: where in lowering, purity/termination conditions, code-size limit. 2 h.",
+      "body": "From SW-2494's stop report (library-only fix impossible: text/pick have no per-parser value to hold the list) and SW-2492 target 4; parse-runtime.md line ~249 assumed this hoisting; SW-2327's stage B never did it. Design first: where in lowering, purity/termination conditions, code-size limit. 2 h.\n\nStarted 9 Nov 2026 06:27 UTC. Expected: 90 min. Paper lane: design note only (orchestrator's call).\n",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
