@@ -1,5 +1,5 @@
 {
-  "next": 2468,
+  "next": 2469,
   "tickets": [
     {
       "id": 47,
@@ -24744,6 +24744,21 @@
       ],
       "epic": "audit-fuzzing",
       "body": "Repro: stitchwort check dev/fuzz-findings/2468-12893.sw (9 lines: the D1079 Fin non-exhaustive example with its 1 pattern mutated to 340282366920938463463374607431768211456). Expected: E-NONEXHAUSTIVE in milliseconds. Actual: >4 GB in seconds on Speedwell, killed at 11.6 GB on Overmind. Found by Overmind job 29 bisecting seed 0x2468's 11.45 GB peak (SW-2418). Check whether SW-2398/SW-2399 (Fin as numbers, 8 Nov) introduced it. Fix: literals must stay numbers through pattern compilation and exhaustiveness (compare against the bound arithmetically); add the repro as a reject example with a memory/time guard. 45 min.",
+      "created": "2026-11-09",
+      "updated": "2026-11-09",
+      "commits": []
+    },
+    {
+      "id": 2468,
+      "title": "Elaborator stack overflow #2: fuzz:elab CASES=15000 SEED=0x246f aborts with a stack overflow after ~219 s (before about case 2600) on f5f4b84c8+; case not yet bisected (Overmind job 31)",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "elab"
+      ],
+      "epic": "audit-fuzzing",
+      "body": "Found 9 Nov 2026 02:04 on Speedwell (compute mode). Slow cases before it: 831, 2415. Bisect with FROM/TO; then compare with SW-2452 (case 531 of 0x2451): same recursion or a new one.",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
