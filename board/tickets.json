@@ -24887,12 +24887,12 @@
     {
       "id": 2478,
       "title": "Count how often enum (tag-only) fields sit in cells of 5+ fields (census tag field counts) across bench/compare and AoC, to size option D (enum fields as bytes after the fields: rbmap's node 160 -> 96 B, same as E, with no value-width change)",
-      "status": "next",
+      "status": "doing",
       "agent": "Sonnet",
       "where": "Speedwell",
       "labels": [],
       "epic": "comparative-speed",
-      "body": "From SW-2472 (compact-values §9). Measurement only, before any D design. 30 min.\n\nStarted 9 Nov 2026 03:46 UTC. Expected: 30 min.\n\n05:19: silent past 3x; stopped; uncommitted census changes saved as WIP 55fe3eb74 on lane/SW-2478 (alloc_trace, value_census: unreviewed). Back to next; resume later from the branch (note SW-2479 since added native census, which may make this easier). Model result: Sonnet, failed to report (stuck past 3x), ~95 min (est. 30).\n",
+      "body": "From SW-2472 (compact-values §9). Measurement only, before any D design. 30 min.\n\nStarted 9 Nov 2026 03:46 UTC. Expected: 30 min.\n\n05:19: silent past 3x; stopped; uncommitted census changes saved as WIP 55fe3eb74 on lane/SW-2478 (alloc_trace, value_census: unreviewed). Back to next; resume later from the branch (note SW-2479 since added native census, which may make this easier). Model result: Sonnet, failed to report (stuck past 3x), ~95 min (est. 30).\n\nStarted 9 Nov 2026 05:23 UTC. Expected: 30 min.\n",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
@@ -25017,12 +25017,12 @@
     {
       "id": 2488,
       "title": "replicate k x ++ rest without the copy (disk -2 to -3%, estimated)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Sonnet",
-      "where": "",
+      "where": "Speedwell",
       "labels": [],
       "epic": "comparative-speed",
-      "body": "From SW-2484 target 7. 45 min.",
+      "body": "From SW-2484 target 7. 45 min.\n\nStarted 9 Nov 2026 05:23 UTC. Expected: 45 min.\n",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
