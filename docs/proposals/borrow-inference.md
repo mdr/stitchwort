@@ -536,3 +536,123 @@ before B1.
   `Unpack` of a shared cell could clone only the fields the taken path uses. It helps owned
   walks on shared data, not `insertWith` (whose arms use every field). Not proposed here; worth
   a measurement after B1.
+
+## 11. Stage B0 results (SW-2530, 9 Nov 2026)
+
+Sonnet lane `lane/SW-2530` from `68052c714`. Everything here is **measured** unless marked
+*estimated*. Tools: `crates/rt/src/borrow.rs` (the inference, a dry run), `borrow/shadow.rs`
+(the counter, cargo feature `borrow-counts`, in the machine), `dev/borrow-counts` (runs the
+programs), `dev/borrow-counts-report` (the tables). Nothing in code generation or program
+behaviour changed (the feature is off in every shipped and test build; outputs of all runs matched
+`expected.txt`).
+
+### 11.1 How it was measured
+
+- **Inference.** Run over the compiled bytecode, not the erased IR: the bytecode already contains
+  the reuse decisions rule O5 has to predict (an `Unpack` with a token, a `DropReuse`) and each
+  operand's last use. One forward pass per function, merging at jump targets (bodies are
+  forward-only), groups solved callees first, repeated until O4/O8 settle. A register loaded from
+  a constant holding no reference (`Plain`) is not an "owned value" for O4/O8, since it needs no
+  drop (without this, every lifted `match` on an `Ordering` forced the walk's parameters owned).
+- **Variants.** `b1` = the rules O1-O8 as written. `b1-no-o6` = O6 dropped: a field of a lent
+  value passed to an owned parameter is incremented there, as a field stored in a constructor is,
+  and doesn't make its parent owned. `b2-no-o6` = also O7 and O8 dropped, as owned copies would
+  (B2). (B2 with O6 was not run.)
+- **Counter.** The machine runs the program unchanged; a shadow class per register
+  (`OWNED`, `LENT`, `PAID`) says what the inferred flags would make of it. It counts the copies
+  and drops of lent values that vanish, and the pairs borrowing *adds* (a lent field moved into
+  a constructor needs an increment, and the owner's later free a decrement). Counted = the
+  value holds a reference; "any" = also numbers and tags, which still pay the check.
+  Validated by hand: a program of 20,000 lookups in a 5,000-entry map saved 447 K increments =
+  22 per lookup = 2 per tree level, the note's §1.4 count.
+- **Cost per operation** (native, micro-benchmark `mc/ms/mz`, two programs with identical
+  bytecode differing only in a list or a number being passed): one counted inc+dec pair costs
+  17 instructions more than the same pair on a number, and a pair on a number about 10 (19 with
+  the parameter passing). Used: **13.5 per counted operation, 5 per plain one** (range 8.5/0 to
+  18/9.5). Cross-check: the SW-2513 shares for `get` (`inc` 33%, `Unpack`s 46% of 308) imply
+  more per level than this model gives, so the model is on the low side.
+- **Denominators.** Native instructions of the stock build (`task bench:instructions`, 1 run,
+  `b0.json`; `bench/aoc/sweep.py` for the days), at `68052c714`.
+
+### 11.2 Results: bench/compare (counted pairs removed, estimated share of native instructions)
+
+| Program | native (G) | b1 pairs | b1 | b1-no-o6 pairs | b1-no-o6 | b2-no-o6 | 
+|---|---:|---:|---:|---:|---:|---:|
+| pidigits | 13.46 | 0.01 M | 0.00% | 0.00 M | 0.00% | 0.00% |
+| binary-trees | 20.57 | 0.52 M | 1.76% | 0.52 M | 1.76% | 1.76% |
+| memory-game | 18.23 | 0.00 M | 0.00% | 60.0 M | 13.82% | 13.82% |
+| dijkstra | 16.97 | 12.30 M | 2.54% | 12.30 M | 2.54% | 2.55% |
+| octopus | 22.03 | 3.26 M | 0.41% | 3.26 M | 0.41% | 0.42% |
+| disk | 60.75 | 30.89 M | 1.96% | 58.06 M | 3.22% | 3.25% |
+| expressions | 210.51 | 20.70 M | 0.31% | 20.70 M | 0.31% | 0.31% |
+| scan | 238.79 | 24.38 M | 0.31% | 24.38 M | 0.31% | 0.31% |
+| matcher | 60.55 | 2.75 M | 0.12% | 9.18 M | 0.52% | 0.52% |
+| bridge | 77.89 | 0.00 M | 0.07% | 0.00 M | 0.07% | 0.61% |
+| spectral-norm | 65.12 | 0 | 0.00% | 0 | 0.00% | 0.00% |
+| const-fold | 19.51 | 10.49 M | 1.69% | 10.49 M | 1.69% | 1.69% |
+| rbmap | 25.30 | 0 | 0.00% | 0 | 0.00% | 0.00% |
+| rbmap-ck | 10.82 | 0.40 M | 0.17% | 0.40 M | 0.17% | 0.17% |
+| **mapops** | 12.65 | 22.26 M | **6.75%** | 31.28 M | **9.09%** | **9.09%** |
+
+Core-ten geometric mean saving: b1 0.75%; with O6 dropped 2.4% (memory-game's 13.8% is a
+`Map`/array loop where O6 makes the difference). Mapops's lookup walk is `get.%match1[2]`: with
+O6 its `tree` parameter is owned (the lifted match passes the node's `vv` to an owned
+parameter), without it the walk is fully lent. That is the main finding for B1: **drop O6.**
+
+### 11.3 Results: AoC (27 days with committed inputs; 9 more of the 36 chosen have none)
+
+Median saving: b1 0.74%, b1-no-o6 0.87%, b2-no-o6 1.51%; mean 2.8 / 3.3 / 5.0%; max 21% (2024/10,
+b1) to 29% (b2). Over 3%: b1 5 days (2020/08 7.2%, 2020/14 5.1%, 2020/20 3.3%, 2021/09 17.6%,
+2024/10 21.2%), b2-no-o6 10 days (adds 2021/14 14.5%, 2024/06 14.4%, 2025/08 12.6%). Full table:
+`dev/borrow-counts-report` on the JSON (not committed; regenerate with `dev/borrow-counts`).
+
+### 11.4 Gate verdict
+
+The gate: mapops or dijkstra at least 3%, or the bench:aoc sample's median at least 1%.
+**mapops passes** (6.75% with the rules as written, 9.1% without O6). dijkstra is 2.5%, short on
+its own (the note estimated 5-12%, the 17.2 M lookup levels are there but the pairs are 12.3 M
+and the model's per-op cost is conservative). The AoC median is 0.74% (b1), 0.87%
+(b1-no-o6) and 1.51% (b2-no-o6): it passes only for B2. **Build B1: recommended, with O6
+dropped**; B2 (owned copies) is worth about +1 point on dijkstra-class programs and +0.6 on the
+AoC median, plus a few outliers (2025/08 0.5% -> 12.6%, 2021/14 3.4% -> 14.5%).
+
+### 11.5 Parameters borrowed and owned (static, summed over 71 lowered programs: 57 AoC days
+and the bench set; std functions are counted once per program)
+
+| | b1 | b2-no-o6 |
+|---|---:|---:|
+| functions with parameters | 17,962 | 17,962 |
+| with a borrowed parameter | 8,092 | 10,203 |
+| parameters | 41,654 | 41,654 |
+| borrowed | 9,788 (23.5%) | 13,125 (31.5%) |
+| owned: O1 stored | 8,348 | 9,441 |
+| O2 returned | 1,999 | 2,074 |
+| O3 passed to an owned parameter | 4,150 | 4,011 |
+| O4 tail, same group | 254 | 256 |
+| O5 reused | 2,525 | 2,549 |
+| O6 field to an owned parameter | 1,157 | 0 |
+| O7 used as a value | 2,760 | 0 |
+| O8 tail, other group | 475 | 0 |
+| fixed (reuse token, hole loop) | 10,198 | 10,198 |
+
+(First reason that fired counts; a parameter owned for two reasons is counted once.) The
+answer to the B2 question: O7 and O8 force 3,235 of 41,654 parameters owned (7.8%, 24% of the
+borrowed ones recovered by B2 together with O6); in saved instructions that is the b1-no-o6 to
+b2-no-o6 gap above. The "fixed" count is large because a hole loop owns all its parameters and
+every reuse copy owns its token; static counts include much dead std. In `std/Map`: `Tree.size`,
+`shape`, `shapeL`, `shapeR` borrowed throughout; the specialised `get` walk
+(`Tree.get.%match1[2]`) borrows `key` and the ordering, and its tree only without O6; `insertWith`,
+`remove`, `balance`, the rotations, `glue`, `deleteMin` owned (O1, O5); `foldLeft` borrows its
+tree.
+
+### 11.6 Not known
+
+- The model counts reference-count operations the machine makes, which native code makes too
+  (the allocation-trace tests assert it) but not the unique-test, 24-byte copies and branch
+  overhead of a shared `Unpack`; those would add to the saving. Not measured.
+- `dec` of a PAID value (handed over by the caller's last use) is credited nothing; whether
+  the real design would then drop it in the caller (as modelled) or lend and re-own is B1's.
+- Memory effect (§8) not measured: the dry run does not list the functions that would keep a
+  walked tree alive longer.
+- Native `Unpack` cost differences between unique and shared paths were not separated in the cost
+  model; one run per program; the machine counts agree with hand analysis on one lookup program.

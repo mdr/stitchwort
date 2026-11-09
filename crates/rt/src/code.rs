@@ -279,6 +279,9 @@ pub struct Image {
     /// The code of each copy taking a reuse token ([`crate::reuse`]), to
     /// its original's: the depth note counts their frames together.
     pub folds: HashMap<u32, u32>,
+    /// What the borrow inference dry run decided (`crate::borrow`).
+    #[cfg(feature = "borrow-counts")]
+    pub borrow: crate::borrow::BorrowInfo,
 }
 
 /// The pool's first entries.
@@ -342,14 +345,23 @@ pub fn compile(program: &Program) -> Image {
             folds.insert(*code, original);
         }
     }
-    Image {
+    let image = Image {
         codes,
         global_code,
         lambda_code,
         entry_code,
         pool,
         folds,
-    }
+        #[cfg(feature = "borrow-counts")]
+        borrow: Default::default(),
+    };
+    #[cfg(feature = "borrow-counts")]
+    let image = {
+        let mut image = image;
+        image.borrow = crate::borrow::for_image(program, &image);
+        image
+    };
+    image
 }
 
 /// Where the code of `body` (with `params` parameters, and given a reuse

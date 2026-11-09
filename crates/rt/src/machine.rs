@@ -121,6 +121,9 @@ pub(crate) struct State {
     executed: u64,
     /// The profiler, for `run --profile` ([`crate::profile`]).
     profile: Option<Box<Profiler>>,
+    /// The borrow dry run's counter (`crate::borrow`).
+    #[cfg(feature = "borrow-counts")]
+    bc: crate::borrow::Shadow,
 }
 
 /// The program a machine runs: borrowed, or shared with whatever else holds
@@ -191,6 +194,8 @@ impl<'p> Machine<'p> {
                 deepest: Vec::new(),
                 executed: 0,
                 profile: None,
+                #[cfg(feature = "borrow-counts")]
+                bc: Default::default(),
             },
             program,
         }
@@ -1077,6 +1082,8 @@ fn run(program: &Program, image: &Image, st: &mut State, mut pending: Pending) -
         }
         let top = st.frames.last().expect("a frame to run");
         let code = &image.codes[top.code as usize];
+        #[cfg(feature = "borrow-counts")]
+        let code_ix = top.code;
         let base = top.base as usize;
         let mut pc = top.pc as usize;
         macro_rules! reg {
@@ -1115,6 +1122,8 @@ fn run(program: &Program, image: &Image, st: &mut State, mut pending: Pending) -
             let instr = code.instrs[pc];
             pc += 1;
             st.executed += 1;
+            #[cfg(feature = "borrow-counts")]
+            st.bc.hook(image, code_ix, base, &st.regs, &instr);
             match instr {
                 Instr::Move { dst, src } => {
                     let v = reg!(src).clone();
