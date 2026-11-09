@@ -25719,12 +25719,12 @@
     {
       "id": 2542,
       "title": "Native default N5a: native switch in the CLI test helpers, a native backend in effect_differential.rs, native copies of machine.rs's differential cases",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Sonnet",
-      "where": "",
+      "where": "Speedwell",
       "labels": [],
       "epic": "effects-native",
-      "body": "D3448; plan docs/reviews/SW-2535-native-default-plan.md step 1. 150 min.",
+      "body": "D3448; plan docs/reviews/SW-2535-native-default-plan.md step 1. 150 min.\n\nStarted 9 Nov 2026 09:46 UTC. Expected: 150 min.\n",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
