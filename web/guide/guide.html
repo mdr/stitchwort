@@ -131,6 +131,11 @@
   <pre data-src="23-proofs.sw"></pre>
 </section>
 
+<section data-slug="forall" data-title="For all: ∀">
+  <p>A statement about every value reads <code>∀ (n: Nat) =&gt; P</code>, or <code>forall (n: Nat) =&gt; P</code> in ASCII. It's the function type <code>(n: Nat) -&gt; P</code> written another way: a proof is a function, and using one is a call. Goals show such statements with <code>∀</code>.</p>
+  <pre data-src="36-forall.sw"></pre>
+</section>
+
 <section data-slug="omega" data-title="omega: arithmetic proofs">
   <p>For facts about whole numbers and integers built from <code>+</code>, <code>-</code>, comparisons, multiplication by constants, and division and remainder by a constant, <code>omega</code> finds the proof itself, using the hypotheses in scope.</p>
   <pre data-src="24-omega.sw"></pre>

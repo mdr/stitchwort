@@ -160,7 +160,12 @@ fn the_json_contract() {
     assert_eq!(first["file"], "std/List/Lemmas.sw");
     assert_eq!(first["group"], "rewrite");
     // The JSON keeps the whole type.
-    assert!(first["type"].as_str().unwrap().starts_with("[a: Type] → "));
+    assert!(
+        first["type"]
+            .as_str()
+            .unwrap()
+            .starts_with("∀ [a b: Type] ")
+    );
     // `--theorems N` caps the list, and the total stays.
     let (_, three) = json(&["List.filterMap", "--theorems", "3"]);
     assert_eq!(three["theorems"]["shown"].as_array().unwrap().len(), 3);

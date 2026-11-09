@@ -11,3 +11,7 @@ theorem d: exists (n: Nat) => n * n = 49 := ?
 theorem e: ∃ (n: Nat) => n ≤ 7 ∧ n ≠ 3 := ?
 
 def f (seen: List Nat) (x: Nat): Bool := if ¬(x ∈ seen) then !(x in seen) else x !in seen
+
+theorem g: forall (n: Nat) => n + 0 = n := ?
+
+theorem h (all: ∀ (a b: Nat) [c: Nat] => a + b = c): ∀ n => n = n := ?

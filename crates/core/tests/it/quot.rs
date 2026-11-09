@@ -509,7 +509,7 @@ fn c6_a_respects_proof_for_another_function_is_refused() {
     refused(
         infer(&f.p.g, &term),
         "E-TYPE-MISMATCH",
-        "expected `(x: Bool) → (y: Bool) → Unit → x = y`, but this has type `Bool → Bool → Unit → True = True`",
+        "expected `∀ (x y: Bool) => Unit → x = y`, but this has type `Bool → Bool → Unit → True = True`",
     );
 }
 
@@ -767,7 +767,7 @@ fn c4_ind_with_a_case_for_another_quotient_is_refused() {
     refused(
         infer(&f.p.g, &term),
         "E-TYPE-MISMATCH",
-        "expected `(x: Bool) → Quot.mk x = Quot.mk x`",
+        "expected `∀ (x: Bool) => Quot.mk x = Quot.mk x`",
     );
 }
 

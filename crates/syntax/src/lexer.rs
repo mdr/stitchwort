@@ -90,6 +90,10 @@ pub enum Tok {
     /// `Exists T ((x: T) => P)` (D1203). Right after a `.` it's an ordinary
     /// name: `x.exists` is a field or method called `exists`.
     KwExists,
+    /// `forall` (or `∀`), followed by parameters and `=>`: `forall (x: T) =>
+    /// P` is the function type `(x: T) -> P` (D3458). After a `.` it's an
+    /// ordinary name, as `exists` is.
+    KwForall,
     KwIf,
     KwThen,
     KwElse,
@@ -160,9 +164,9 @@ pub enum Tok {
 macro_rules! keyword_table {
     ($($word:literal => $tok:ident),* $(,)?) => {
         impl Tok {
-            /// The word of a keyword written as one: `test`, `then`. `in` and
-            /// `exists` may also be written `∈` and `∃`, which this can't tell
-            /// apart.
+            /// The word of a keyword written as one: `test`, `then`. `in`,
+            /// `exists` and `forall` may also be written `∈`, `∃` and `∀`,
+            /// which this can't tell apart.
             pub fn keyword(&self) -> Option<&'static str> {
                 match self {
                     $(Tok::$tok => Some($word),)*
@@ -197,6 +201,7 @@ keyword_table! {
     "else" => KwElse,
     "exists" => KwExists,
     "export" => KwExport,
+    "forall" => KwForall,
     "handle" => KwHandle,
     "if" => KwIf,
     "import" => KwImport,
@@ -483,7 +488,7 @@ fn lex_from(
                 match word {
                     "_" => Tok::Underscore,
                     // After a `.`, a field or a dot call: `x.exists p`.
-                    "exists" if start > 0 && bytes[start - 1] == b'.' => {
+                    "exists" | "forall" if start > 0 && bytes[start - 1] == b'.' => {
                         Tok::Lower(word.to_string())
                     }
                     _ if let Some(tok) = keyword_tok(word) => tok,
@@ -1162,6 +1167,7 @@ pub const UNICODE_ALIASES: &[(char, &str)] = &[
     ('≥', ">="),
     ('≠', "!="),
     ('∃', "exists"),
+    ('∀', "forall"),
 ];
 
 /// The token a Unicode alias stands for.
@@ -1178,6 +1184,7 @@ fn unicode_alias(ch: char) -> Option<Tok> {
         '≥' => Tok::Ge,
         '≠' => Tok::NotEq,
         '∃' => Tok::KwExists,
+        '∀' => Tok::KwForall,
         _ => return None,
     })
 }
@@ -1185,7 +1192,6 @@ fn unicode_alias(ch: char) -> Option<Tok> {
 /// Symbols from logic and mathematics that aren't aliases, with what to
 /// write instead (D1208).
 const UNSUPPORTED: &[(char, &str)] = &[
-    ('∀', "\"for all\" is a function type: write `(x: T) -> P`"),
     (
         '⇒',
         "write `=>` for a lambda or a match arm, or `->` (or `→`) for implication",
@@ -1513,7 +1519,7 @@ mod tests {
     #[test]
     fn rejects_tabs_and_unknown_characters() {
         assert_eq!(tokens("\tx"), Err("E-PARSE"));
-        assert_eq!(tokens("a ∀ b"), Err("E-PARSE"));
+        assert_eq!(tokens("a λ b"), Err("E-PARSE"));
         assert_eq!(tokens("a ⊆ b"), Err("E-PARSE"));
         assert_eq!(tokens("a # b"), Err("E-PARSE"));
         assert_eq!(
@@ -1568,11 +1574,18 @@ mod tests {
 
     #[test]
     fn logic_operators_and_their_unicode_aliases() {
-        let ascii = tokens("x in xs y !in ys p <-> q exists a -> b && c || !d <= e >= f != g");
-        let unicode = tokens("x ∈ xs y ∉ ys p ↔ q ∃ a → b ∧ c ∨ ¬d ≤ e ≥ f ≠ g");
+        let ascii =
+            tokens("x in xs y !in ys p <-> q exists a forall b -> b && c || !d <= e >= f != g");
+        let unicode = tokens("x ∈ xs y ∉ ys p ↔ q ∃ a ∀ b → b ∧ c ∨ ¬d ≤ e ≥ f ≠ g");
         assert_eq!(ascii, unicode);
         let toks = ascii.unwrap();
-        for tok in [Tok::KwIn, Tok::NotIn, Tok::Iff, Tok::KwExists] {
+        for tok in [
+            Tok::KwIn,
+            Tok::NotIn,
+            Tok::Iff,
+            Tok::KwExists,
+            Tok::KwForall,
+        ] {
             assert!(toks.contains(&tok), "{tok:?}");
         }
         // Every alias is a token, and the table says what it stands for.
@@ -1596,7 +1609,7 @@ mod tests {
     }
 
     #[test]
-    fn exists_after_a_dot_is_a_name() {
+    fn exists_and_forall_after_a_dot_are_names() {
         let lower = |s: &str| Tok::Lower(s.into());
         assert_eq!(
             tokens("o.exists Option.exists exists"),
@@ -1608,6 +1621,10 @@ mod tests {
                 Tok::KwExists
             ])
         );
+        assert_eq!(
+            tokens("o.forall forall"),
+            Ok(vec![lower("o"), Tok::Dot, lower("forall"), Tok::KwForall])
+        );
     }
 
     #[test]
@@ -1618,7 +1635,7 @@ mod tests {
             let d = lex(file, text).expect_err("an error");
             d.notes.join(" ")
         };
-        assert!(note("∀").contains("(x: T) -> P"));
+        assert!(note("⇒").contains("`=>`"));
         assert!(note("⊆").contains("set operators"));
         assert!(note("≡").contains("write `=`"));
         // A symbol the table doesn't name lists the aliases.
@@ -1939,7 +1956,7 @@ mod tests {
         assert!(failure("a\u{00A0}b").notes[0].contains("plain space"));
         assert!(failure("a\u{2061}b").notes[0].contains("delete it"));
         assert!(failure("a\u{061C}b").notes[0].contains("text-direction control"));
-        assert_eq!(failure("a ∀ b").message, "unexpected character `∀`");
+        assert_eq!(failure("a λ b").message, "unexpected character `λ`");
         assert_eq!(failure("a # b").message, "unexpected character `#`");
     }
 

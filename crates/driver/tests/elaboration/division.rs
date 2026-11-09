@@ -138,7 +138,7 @@ fn the_sw920_proof_and_its_goal_are_quick() {
             let ty = &g.def(def(g, "t")).ty_value();
             assert_eq!(
                 stitchwort_core::pretty::value(g, &[], ty),
-                "(seed: Nat) → (seed * 1103515245 + 12345) % 2147483648 ≤ 2147483647"
+                "∀ (seed: Nat) => (seed * 1103515245 + 12345) % 2147483648 ≤ 2147483647"
             );
         });
     }

@@ -225,4 +225,12 @@ theorem hasSquareRoot: ∃ (n: Nat) => n * n = 49 := Witness 7 rfl
 def unseen (seen: List Nat) (xs: List Nat): List Nat := xs.filter (x => x ∉ seen)
 -- end logic
 
+-- begin forall
+theorem zeroPlusAll: ∀ (n: Nat) => 0 + n = n := n => rfl
+
+theorem atOneAndTwo (p: Nat -> Prop) (all: ∀ (n: Nat) => p n): p 1 ∧ p 2 := Both (all 1) (all 2)
+
+theorem swapSum (comm: ∀ (a b: Nat) => a + b = b + a): 2 + 5 = 5 + 2 := comm 2 5
+-- end forall
+
 test "unseen" := unseen [1, 2] [1, 2, 3] == [3]

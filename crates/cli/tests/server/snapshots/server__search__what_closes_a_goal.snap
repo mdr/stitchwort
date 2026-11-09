@@ -54,7 +54,7 @@ expression: "serde_json::to_string_pretty(&report).unwrap()"
       "name": "Std.Nat.leTrans",
       "proof": "Nat.leTrans a b c h1 h2",
       "searchRank": 15,
-      "type": "(a: Nat) → (b: Nat) → (c: Nat) → a ≤ b → b ≤ c → a ≤ c"
+      "type": "∀ (a b c: Nat) => a ≤ b → b ≤ c → a ≤ c"
     },
     {
       "checked": "kernel",
@@ -72,7 +72,7 @@ expression: "serde_json::to_string_pretty(&report).unwrap()"
       "name": "Std.Nat.leOfEq",
       "proof": "Nat.leOfEq a c ?",
       "searchRank": 1,
-      "type": "(a: Nat) → (b: Nat) → a = b → a ≤ b"
+      "type": "∀ (a b: Nat) => a = b → a ≤ b"
     }
   ],
   "rewrites": [
@@ -88,7 +88,7 @@ expression: "serde_json::to_string_pretty(&report).unwrap()"
       "line": 535,
       "name": "Std.Nat.compareLeq",
       "proof": "rewrite <- Nat.compareLeq a c in ?",
-      "type": "(m: Nat) → (n: Nat) → (m.compare n).isLessEq = (m <= n)"
+      "type": "∀ (m n: Nat) => (m.compare n).isLessEq = (m <= n)"
     }
   ],
   "tactics": [

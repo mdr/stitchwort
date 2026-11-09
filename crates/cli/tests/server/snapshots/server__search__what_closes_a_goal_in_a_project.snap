@@ -46,7 +46,7 @@ expression: "serde_json::to_string_pretty(&report).unwrap()"
       "name": "Shop.Spec.doubleSwap",
       "proof": "Shop.Spec.doubleSwap a b",
       "searchRank": 1,
-      "type": "(m: Nat) → (n: Nat) → Shop.Spec.double (m + n) = Shop.Spec.double (n + m)"
+      "type": "∀ (m n: Nat) => Shop.Spec.double (m + n) = Shop.Spec.double (n + m)"
     },
     {
       "checked": "kernel",
@@ -63,7 +63,7 @@ expression: "serde_json::to_string_pretty(&report).unwrap()"
         }
       ],
       "proof": "rewrite Shop.Spec.doubleSwap a b in rfl",
-      "type": "(m: Nat) → (n: Nat) → Shop.Spec.double (m + n) = Shop.Spec.double (n + m)"
+      "type": "∀ (m n: Nat) => Shop.Spec.double (m + n) = Shop.Spec.double (n + m)"
     }
   ],
   "rewrites": [
@@ -79,7 +79,7 @@ expression: "serde_json::to_string_pretty(&report).unwrap()"
       "line": 6,
       "name": "Shop.Spec.doubleSwap",
       "proof": "rewrite Shop.Spec.doubleSwap a b in ?",
-      "type": "(m: Nat) → (n: Nat) → Shop.Spec.double (m + n) = Shop.Spec.double (n + m)"
+      "type": "∀ (m n: Nat) => Shop.Spec.double (m + n) = Shop.Spec.double (n + m)"
     },
     {
       "at": "a + b + (a + b)",
@@ -93,7 +93,7 @@ expression: "serde_json::to_string_pretty(&report).unwrap()"
       "line": 5,
       "name": "Shop.Proofs.twiceTwo",
       "proof": "rewrite twiceTwo (a + b) in ?",
-      "type": "(a: Nat) → Shop.Spec.double a = a + a"
+      "type": "∀ (a: Nat) => Shop.Spec.double a = a + a"
     }
   ],
   "tactics": [

@@ -142,7 +142,7 @@ fn the_notes_worked_examples() {
         assert_eq!(
             generated(s, "ex.eq3"),
             "(depth: Nat) → (left: Number) → (right: Number) → \
-             (notArm2: (a: Nat) → (b: Nat) → left = Regular a → right ≠ Regular b) → \
+             (notArm2: ∀ (a b: Nat) => left = Regular a → right ≠ Regular b) → \
              ex depth (Pair left right) = ex (depth + 1) left + ex (depth + 1) right"
         );
         // §3.2, "Literal patterns".
@@ -188,7 +188,7 @@ fn an_overlapped_arms_branches_are_read_from_each_case() {
         generated(s, "explode.eq2");
         let why = skipped(s, "explode.eq3");
         assert!(why.contains("refined") && why.contains("branches"), "{why}");
-        let not_arm2 = "(notArm2: (a: Nat) → (b: Nat) → left = Regular a → right ≠ Regular b)";
+        let not_arm2 = "(notArm2: ∀ (a b: Nat) => left = Regular a → right ≠ Regular b)";
         assert_eq!(
             generated(s, "explode.eq3.some"),
             format!(
@@ -505,7 +505,7 @@ fn branch_equations() {
             (
                 "both.eq.alt2",
                 "(a: Option Nat) → (b: Option Nat) → \
-                 (notAlt1: (x: Nat) → (y: Nat) → (a, b) ≠ (Some x, Some y)) → both a b = 0",
+                 (notAlt1: ∀ (x y: Nat) => (a, b) ≠ (Some x, Some y)) → both a b = 0",
             ),
             (
                 "firstTwo.eq.some.alt1",
@@ -776,8 +776,8 @@ fn a_match_on_several_expressions_is_stated_as_on_their_tuple() {
             (
                 "three.eq.ifFalse.alt4",
                 format!(
-                    "{three_not_zero} → (notAlt1: (x: Nat) → a = Some x → b ≠ True) → \
-                     (notAlt2: b = False → c ≠ 0) → (notAlt3: (n: Nat) → a = None → c ≠ Succ n) → \
+                    "{three_not_zero} → (notAlt1: ∀ (x: Nat) => a = Some x → b ≠ True) → \
+                     (notAlt2: b = False → c ≠ 0) → (notAlt3: ∀ (n: Nat) => a = None → c ≠ Succ n) → \
                      three k a b c = 2"
                 ),
             ),
@@ -806,7 +806,7 @@ fn a_match_on_several_expressions_is_stated_as_on_their_tuple() {
             (
                 "computed.eq.alt2",
                 "(k: Nat) → (a: Option Nat) → \
-                 (notAlt1: (x: Nat) → (y: Nat) → a = Some x → k + 1 ≠ Succ y) → computed k a = k"
+                 (notAlt1: ∀ (x y: Nat) => a = Some x → k + 1 ≠ Succ y) → computed k a = k"
                     .to_string(),
             ),
         ];

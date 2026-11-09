@@ -878,6 +878,14 @@ impl<'g> Printer<'g> {
             {
                 self.not(names, a)
             }
+            // A function type whose result is a proposition, binding a
+            // variable the result uses (or an implicit one), as the
+            // quantifier: `∀ (n: Nat) => n + 0 = n` (D3458).
+            Term::Pi(_, icit, _, b)
+                if (icit.is_implicit() || b.mentions(0)) && self.is_proposition(b) =>
+            {
+                self.forall(names, term)
+            }
             Term::Pi(x, icit, a, b) => {
                 let uses = b.mentions(0);
                 let dom = if icit.is_implicit() || uses {
@@ -1244,8 +1252,85 @@ impl<'g> Printer<'g> {
         }
     }
 
-    /// `Not p` as the operators that write it, in their Unicode spellings
-    /// (D1204): `a ≠ b`, `x ∉ xs`, or `¬p`.
+    /// `∀ (a b: Nat) [c: Nat] => body` for the run of function types at
+    /// `term` that [`Printer::go_node`] prints as one: each binder implicit,
+    /// or explicit and used by what follows. Neighbouring binders of the same
+    /// kind and type share a group, unless the type mentions one before it
+    /// in the group. An unused explicit binder, `p → q`, ends the run, so a
+    /// hypothesis stays an implication inside the body.
+    fn forall(&self, names: &mut Vec<Name>, term: &Term) -> (String, Prec) {
+        // Each group: its kind, its type as printed, and its names.
+        let mut groups: Vec<(Icit, String, Vec<Name>)> = Vec::new();
+        let mut bound = 0;
+        let mut body = term.strip_loc();
+        while let Term::Pi(x, icit, a, b) = body {
+            if !(icit.is_implicit() || b.mentions(0)) {
+                break;
+            }
+            let dom = self.print(names, a, Prec::Arrow);
+            let x = binder(x, names, b);
+            match groups.last_mut() {
+                Some((kind, ty, xs))
+                    if kind == icit && *ty == dom && !(0..xs.len()).any(|i| a.mentions(i)) =>
+                {
+                    xs.push(x.clone());
+                }
+                _ => groups.push((*icit, dom, vec![x.clone()])),
+            }
+            names.push(x);
+            bound += 1;
+            body = b.strip_loc();
+        }
+        let body = self.print(names, body, Prec::Arrow);
+        names.truncate(names.len() - bound);
+        let groups: Vec<String> = groups
+            .into_iter()
+            .map(|(icit, ty, xs)| {
+                let xs: Vec<String> = xs.iter().map(|x| x.to_string()).collect();
+                let xs = xs.join(" ");
+                match icit {
+                    Icit::Explicit => format!("({xs}: {ty})"),
+                    Icit::Implicit => format!("[{xs}: {ty}]"),
+                    Icit::Auto => format!("[auto {xs}: {ty}]"),
+                }
+            })
+            .collect();
+        let forall = self.sym("∀", "forall");
+        (
+            format!("{forall} {} => {body}", groups.join(" ")),
+            Prec::Arrow,
+        )
+    }
+
+    /// Whether the type `ty` is evidently a proposition, from its form
+    /// alone (the printer has no types for the variables in scope): after
+    /// any function types, an equation, or a data type declared in `Prop`
+    /// (`And`, `Exists`, `Void`, a user's `type Even (n: Nat): Prop`)
+    /// applied to its arguments, or a call of a definition whose declared
+    /// type ends in `Prop` (`Nat.lessEq`, `List.Sorted`). A variable
+    /// applied to arguments, `p x`, isn't evidently one, nor is an unknown.
+    fn is_proposition(&self, ty: &Term) -> bool {
+        let mut ty = ty.strip_loc();
+        while let Term::Pi(_, _, _, b) = ty {
+            ty = b.strip_loc();
+        }
+        match ty {
+            Term::Eq(..) => true,
+            Term::Data(d, _) => self.g.data(*d).sort == Sort::Prop,
+            _ => {
+                let (head, _) = full_spine(ty);
+                let Term::Def(id) = head else {
+                    return false;
+                };
+                let mut result = self.g.def(*id).ty.strip_loc();
+                while let Term::Pi(_, _, _, b) = result {
+                    result = b.strip_loc();
+                }
+                matches!(result, Term::Sort(Sort::Prop))
+            }
+        }
+    }
+
     /// `n.toInt`: `Nat.toInt n`, or `OfNat n`, which it computes to. A
     /// number is put in brackets, `(5).toInt`, so the `.` isn't read as
     /// its decimal point.
@@ -1270,6 +1355,8 @@ impl<'g> Printer<'g> {
         }
     }
 
+    /// `Not p` as the operators that write it, in their Unicode spellings
+    /// (D1204): `a ≠ b`, `x ∉ xs`, or `¬p`.
     fn not(&self, names: &mut Vec<Name>, prop: &Term) -> (String, Prec) {
         if let Term::Eq(_, a, b) = prop.strip_loc() {
             let a = self.print(names, a, Prec::Range);
