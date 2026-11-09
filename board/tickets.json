@@ -1,5 +1,5 @@
 {
-  "next": 2466,
+  "next": 2467,
   "tickets": [
     {
       "id": 47,
@@ -23862,9 +23862,9 @@
         "bench"
       ],
       "epic": "comparative-speed",
-      "body": "Found by the daily tier, 8 Nov 2026. 30 min.",
+      "body": "Found by the daily tier, 8 Nov 2026. 30 min.\n\nDaily tier 9 Nov 00:01: still failing: run-machine-calls allocations +10.9% (247 -> 274), run-machine-aoc-2021-15-part1 peak heap +88.9% (5.1 -> 9.6 MB, the cost array). Peak tier memory 9.49 GB (SW-2412 may be resolved).\n",
       "created": "2026-11-08",
-      "updated": "2026-11-08",
+      "updated": "2026-11-09",
       "commits": []
     },
     {
@@ -23877,9 +23877,9 @@
         "test-infra"
       ],
       "epic": "test-infra",
-      "body": "Daily tier report target/tier-report/daily-20261108-121833.md (and the rerun). 45 min.",
+      "body": "Daily tier report target/tier-report/daily-20261108-121833.md (and the rerun). 45 min.\n\nDaily tier 9 Nov 00:01 peaked at 9.49 GB under the guard (cap raised to 22 for that run): under 16 now; recheck at the next daily tier and close if it stays under.\n",
       "created": "2026-11-08",
-      "updated": "2026-11-08",
+      "updated": "2026-11-09",
       "commits": []
     },
     {
@@ -24716,6 +24716,21 @@
       "body": "Note's stage 4. After SW-2464.",
       "created": "2026-11-08",
       "updated": "2026-11-08",
+      "commits": []
+    },
+    {
+      "id": 2466,
+      "title": "Formatter not idempotent: fmt fuzz (default seed 0x9e3779b97f4a7c15) case 11532, rng state 0xf22057b48b3300d7, on a comment block from std/Quot/Quot.sw ('The library's quotient lemmas ...'): formatting twice differs from once; fails the daily tier",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "fmt"
+      ],
+      "epic": "editor-playground",
+      "body": "Found by the daily tier, 9 Nov 2026 00:01 (crates/fmt/tests/it/fuzz.rs:260). Repro: task fuzz:fmt (default), or the input printed in the failure. Fix the formatter; add the input to the formatter's golden or regression tests. 45 min.",
+      "created": "2026-11-09",
+      "updated": "2026-11-09",
       "commits": []
     }
   ]
