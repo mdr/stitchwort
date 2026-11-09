@@ -24533,7 +24533,7 @@
         "bench"
       ],
       "epic": "comparative-speed",
-      "body": "From SW-2450. 1.5 h.\n\nStarted 9 Nov 2026 02:37 UTC. Expected: 90 min. The lane tests on a few days; the orchestrator runs the full sweep as a compute job.\n",
+      "body": "From SW-2450. 1.5 h.\n\nStarted 9 Nov 2026 02:37 UTC. Expected: 90 min. The lane tests on a few days; the orchestrator runs the full sweep as a compute job.\n\n05:19: the lane went silent past 3x (likely stuck in a long run); stopped; its work saved as WIP commit 66987712e on lane/SW-2453 (bench/aoc/sweep.py + tests, passing; Taskfile task built on pre-SW-2474 main, so it uses the incremental SW build). Finishing in a fresh lane from the branch. Model result: Sonnet, failed to report (stuck past 3x), ~160 min (est. 90).\n",
       "created": "2026-11-08",
       "updated": "2026-11-09",
       "commits": []
@@ -24887,12 +24887,12 @@
     {
       "id": 2478,
       "title": "Count how often enum (tag-only) fields sit in cells of 5+ fields (census tag field counts) across bench/compare and AoC, to size option D (enum fields as bytes after the fields: rbmap's node 160 -> 96 B, same as E, with no value-width change)",
-      "status": "doing",
+      "status": "next",
       "agent": "Sonnet",
       "where": "Speedwell",
       "labels": [],
       "epic": "comparative-speed",
-      "body": "From SW-2472 (compact-values §9). Measurement only, before any D design. 30 min.\n\nStarted 9 Nov 2026 03:46 UTC. Expected: 30 min.\n",
+      "body": "From SW-2472 (compact-values §9). Measurement only, before any D design. 30 min.\n\nStarted 9 Nov 2026 03:46 UTC. Expected: 30 min.\n\n05:19: silent past 3x; stopped; uncommitted census changes saved as WIP 55fe3eb74 on lane/SW-2478 (alloc_trace, value_census: unreviewed). Back to next; resume later from the branch (note SW-2479 since added native census, which may make this easier). Model result: Sonnet, failed to report (stuck past 3x), ~95 min (est. 30).\n",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
@@ -24991,12 +24991,12 @@
     {
       "id": 2486,
       "title": "Parser: one fused operation for token nat (3 marks + 3 spans per number become one operation); bridge -14 to -23% (extrapolated from measured per-operation cost)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Sonnet",
-      "where": "",
+      "where": "Speedwell",
       "labels": [],
       "epic": "comparative-speed",
-      "body": "From SW-2484 target 2. Bridge is 83% parsing. Design the operation so other token parsers can use it. 90 min.",
+      "body": "From SW-2484 target 2. Bridge is 83% parsing. Design the operation so other token parsers can use it. 90 min.\n\nStarted 9 Nov 2026 05:19 UTC. Expected: 90 min.\n",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
