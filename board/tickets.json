@@ -1,5 +1,5 @@
 {
-  "next": 2520,
+  "next": 2521,
   "tickets": [
     {
       "id": 47,
@@ -25329,12 +25329,12 @@
     {
       "id": 2512,
       "title": "A chain of shared lets (t1 := f x x; t2 := f t1 t1; ...) followed by a match is exponential in the elaborator (16 lets 2.3 s vs 0.6 s without the match; 20 lets OOM; 40 E-RESOURCE), on main before SW-2481 too: find where and fix",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": "Speedwell",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "From SW-2481's review fixes (F2 example). 90 min.\n\nStarted 9 Nov 2026 07:24 UTC. Expected: 90 min.\n",
+      "body": "From SW-2481's review fixes (F2 example). 90 min.\n\nStarted 9 Nov 2026 07:24 UTC. Expected: 90 min.\n\nMerged 9 Nov 07:57 (hashes/pinned, std self-test, zeta_size 16; elab 160; 4 AoC namespaces uncached). Cause: the equation generator (equations.rs find_rhs/read_leaf) substituted lets into a right side of ~2^n nodes before its size rule turned it down. Fix: zeta_size counts first; READ_CAP 65,536 nodes (and 10x the arm) skips before building, with a new skip reason (docs/syntax.md updated). 16 lets 1.1-1.8 s -> 0.21 s; 20 and 40 lets OOM -> 0.21/0.26 s. Not in trusted code. Orchestrator's call: accept that rows with a small branch of a huge let body (13-15 lets here) lose their equation; keeping them needs lets kept through branch steps (filed). Model result: Opus, worked, 30 min (est. 90).\n",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
@@ -25426,6 +25426,19 @@
       "labels": [],
       "epic": "elaborator-kernel",
       "body": "From SW-2516. Touches the termination checker (core language): design first. 60 min.",
+      "created": "2026-11-09",
+      "updated": "2026-11-09",
+      "commits": []
+    },
+    {
+      "id": 2520,
+      "title": "Equation generator: keep lets through branch_run/step_proof until a branch is chosen, so a small branch of a huge let body (e.g. False => 0 after 15 shared lets) still gets its equation; and cache seek's leaf reads per row (read up to three times)",
+      "status": "backlog",
+      "agent": "Opus",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "From SW-2512. Design change to the equation generator. 2 h.",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
