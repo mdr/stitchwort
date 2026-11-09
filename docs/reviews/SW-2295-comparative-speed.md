@@ -259,3 +259,21 @@ all **1.26, 7.18**. By instructions: core 2.31, 10.80; wide 0.26, 3.04; all 1.25
 On the programs Lean's developers chose (const-fold, rbmap, rbmap-ck) native is 2.3–3.7× Lean in time
 and 5–12× faster than CPython; the core ten's 11× is dominated by the effect- and text-heavy programs
 (expressions, scan at 72–74×). Raw files: Overmind's `target/compare/2026-11-09T040121-overmind.{json,md}`.
+
+## Job 34: R2 and R3 (Overmind, 9 Nov 2026 05:42, `3f3ba9e6c`)
+
+Same command as job 32, 2548 s. Adds SW-2463 (R2: the `Bind` node becomes the pending cell; R3: a
+skipped forward reuses its `Call` cell). Not yet: SW-2485 (`Map.Tree.minOr`, disk −18.5% on Speedwell).
+
+| Program | native time | native / CPython | native / Lean | native instructions vs job 32 |
+|---|---:|---:|---:|---:|
+| disk | 12.97 s | 5.78 | 17.21 | −2.1% |
+| expressions | 45.07 s | 21.11 | 68.25 | −4.8% |
+| scan | 42.23 s | 50.77 | 72.43 | −4.4% |
+| matcher | 8.60 s | 1.87 | 10.09 | −1.0% |
+| bridge | 15.05 s | 4.34 | 18.29 | −3.3% |
+| (the other nine) | | | | within 0.1% |
+
+Geometric means by time (native / CPython, native / Lean): core **2.62, 11.05**; wide **0.19, 2.42**;
+all **1.25, 7.16**. By instructions: core 2.28, 10.63; wide 0.26, 3.04; all 1.23, 7.43.
+Raw files: Overmind's `target/compare/2026-11-09T054222-overmind.{json,md}`.
