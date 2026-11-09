@@ -566,7 +566,7 @@ theorem clampToFits (limit: Nat) (n: Nat): clampTo limit n ≤ limit ∧ clampTo
     | False => Both (clampToAtMost limit n) omega
 ```
 
-The lemma's type is searched for `e` as the goal is, so it fits even where it writes `e` differently, up to computation (`xs.map (y => f a y)` for `xs.map (f a)`). That needs the equation's name: in a `match` without one, the error says to add it. The same goes the other way: a lemma's premise `Nat.leq n limit = True`, written in the `True` branch, is proved by `fits`, which says exactly that, and `rfl` can't prove it.
+The lemma's type is searched for `e` as the goal is, so it fits even where it writes `e` differently, up to computation (`xs.map (y => f a y)` for `xs.map (f a)`). That needs the equation's name: in a `match` without one, the error says to add it. If the expression isn't in the goal at all, every arm gets the goal unchanged, and when an arm then fails the compiler warns (`W-MATCH-NOT-FOUND`), showing the goal it searched: write the expression as the goal shows it, or bind it with a `let` first. The same goes the other way: a lemma's premise `Nat.leq n limit = True`, written in the `True` branch, is proved by `fits`, which says exactly that, and `rfl` can't prove it.
 
 To split on an `if`, match on its condition, not on the comparison's decision (`match Nat.decLessThan n limit with | Yes … | No …`). A decision match gives you evidence, but it refines an `if` only if the `if` still holds the decision, and that depends on the definition: an `if` whose branches don't use the proof of its comparison is compiled to a test of the `Bool`, and a decision match then finds nothing to replace. The compiler warns (`W-MATCH-DECISION-IF`) and says what to write instead. Matching on the condition works whichever way the `if` was compiled (`examples/accept/match-decision-if.sw`).
 
@@ -594,7 +594,7 @@ def unseen (seen: List Nat) (xs: List Nat): List Nat := xs.filter (x => x ∉ se
 - `p <-> q` (`p ↔ q`) says each implies the other. A proof is a record of the two directions, `forward` and `backward`.
 - `exists (n: Nat) => P` (`∃ (n: Nat) => P`) says some `n` makes `P` true. A proof is a `Witness`: the value, and a proof that it works.
 
-The other Unicode spellings are `→ ∧ ∨ ¬ ≤ ≥ ≠` for `-> && || ! <= >= !=`. They mean exactly the same as the ASCII, and messages show the Unicode forms whichever you wrote. To say "for all", use a parameter: `(x: Nat) -> P`. [The syntax reference](../syntax.md#logic-notation-in--and-exists) has the full list and the precedence table.
+The other Unicode spellings are `→ ∧ ∨ ¬ ≤ ≥ ≠` for `-> && || ! <= >= !=`. They mean exactly the same as the ASCII. Messages show a statement in the Unicode forms (`n ≤ limit`, `a ∧ b`) and a `Bool` computation in ASCII (`(n <= limit) = False`, `a && b`), whichever you wrote, so a message tells you which of the two you have. To say "for all", use a parameter: `(x: Nat) -> P`. [The syntax reference](../syntax.md#logic-notation-in--and-exists) has the full list and the precedence table.
 
 ## Types that mention values
 
