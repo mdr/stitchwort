@@ -1,5 +1,5 @@
 {
-  "next": 2484,
+  "next": 2485,
   "tickets": [
     {
       "id": 47,
@@ -24958,6 +24958,19 @@
       "labels": [],
       "epic": "elaborator-kernel",
       "body": "From SW-2468. Evaluation limits are Opus's. 1 h.",
+      "created": "2026-11-09",
+      "updated": "2026-11-09",
+      "commits": []
+    },
+    {
+      "id": 2484,
+      "title": "Profile disk and bridge natively (17.6x and 18.9x Lean, the largest core gaps after expressions/scan): top functions, runtime calls, instruction split (checks, refcounts, calls, work), and rank the next measured targets with estimated savings; write docs/reviews/SW-N-disk-bridge-profiles.md",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "Speedwell",
+      "labels": [],
+      "epic": "comparative-speed",
+      "body": "Profile first (Matt, 7 Nov). task profile:native -- disk bridge --by-instruction; compare with Lean's and PyPy's approach where telling. Measurement and write-up only; file each target as a finding. 60 min.\n\nStarted 9 Nov 2026 04:56 UTC. Expected: 60 min.\n",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
