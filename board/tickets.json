@@ -1,5 +1,5 @@
 {
-  "next": 2508,
+  "next": 2509,
   "tickets": [
     {
       "id": 47,
@@ -24926,12 +24926,12 @@
     {
       "id": 2481,
       "title": "Deep Fin case chains cost ~k^3-k^4 to check: families::enter substitutes through the whole context at each FSucc step (k=20 0.3 s, 64 ~2 s, 100 ~9 s, 200 > 3 GB with an unknown bound); make refinement incremental so long Fin tables and large Fin literal patterns check in near-linear time",
-      "status": "review",
+      "status": "doing",
       "agent": "Opus",
       "where": "Speedwell",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "From SW-2467 (Opus). Raises the cap SW-2467 proposes, or removes the need for it. Also: Fin.toNat isn't native in the kernel, so rfl on a Fin literal of 10^6 unfolds the FSucc chain (1.3 GB). 2 h.\n\nStarted 9 Nov 2026 05:25 UTC. Expected: 120 min.\n\n06:55: lane done (b3132a27c, 88 min, est. 120): check::Rebuild rebuilds substitutions keeping sharing (values node-identical); 256-arm Fin 256 table 86 s -> 11 s; unknown bound 200 arms OOM -> 15 s; ordinary code within 1%; hash_stability 9/9; elab, kernel, indexed tests pass. Touches trusted core (check.rs substitute, unify_index::solve): independent Opus review before merge (D2364), started now. New example gets eq48-64 that main gave up on (budget). SW-2467 limit could rise to ~256. Model result: Opus, worked, 88 min (est. 120).\n",
+      "body": "From SW-2467 (Opus). Raises the cap SW-2467 proposes, or removes the need for it. Also: Fin.toNat isn't native in the kernel, so rfl on a Fin literal of 10^6 unfolds the FSucc chain (1.3 GB). 2 h.\n\nStarted 9 Nov 2026 05:25 UTC. Expected: 120 min.\n\n06:55: lane done (b3132a27c, 88 min, est. 120): check::Rebuild rebuilds substitutions keeping sharing (values node-identical); 256-arm Fin 256 table 86 s -> 11 s; unknown bound 200 arms OOM -> 15 s; ordinary code within 1%; hash_stability 9/9; elab, kernel, indexed tests pass. Touches trusted core (check.rs substitute, unify_index::solve): independent Opus review before merge (D2364), started now. New example gets eq48-64 that main gave up on (budget). SW-2467 limit could rise to ~256. Model result: Opus, worked, 88 min (est. 120).\n\n07:03: Opus review docs/reviews/SW-2481-rebuild-review.md: no soundness bug; merge after F1 (fallback reads back unchanged glued calls: undoes SW-1106), F2 (spines not memoised by address: exponential on shared spines), F3 (no budget steps). Sent back to the lane with F5 test and regression examples. Filed F4 (Eq/Data memo).\n",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
@@ -25270,6 +25270,19 @@
       "labels": [],
       "epic": "comparative-speed",
       "body": "docs/proposals/compiled-handler-dispatch.md stage 1a. Orchestrator's call: a measure-only spike informs the morning decision; shipping (step counts fall) is Matt's. 90 min.\n\nStarted 9 Nov 2026 06:55 UTC. Expected: 90 min.\n",
+      "created": "2026-11-09",
+      "updated": "2026-11-09",
+      "commits": []
+    },
+    {
+      "id": 2508,
+      "title": "Memoise Eq and Data parts by address in check::Rebuild and Unchanged (shared parts are walked as trees)",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "From the SW-2481 review, F4. After SW-2481 merges. 30 min.",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
