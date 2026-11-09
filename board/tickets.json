@@ -25888,12 +25888,12 @@
     {
       "id": 2555,
       "title": "Did-you-mean for unknown Char.is* names (Char.isLower -> Char.isAsciiLowercase)",
-      "status": "backlog",
-      "agent": "DeepSeek",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "Speedwell",
       "labels": [],
       "epic": "diagnostics",
-      "body": "From SW-2541 friction. 30 min.",
+      "body": "From SW-2541 friction. 30 min.\n\nStarted 9 Nov 2026 11:09 UTC on Sonnet (OpenCode not installed for this user). Expected: 30 min.\n",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
