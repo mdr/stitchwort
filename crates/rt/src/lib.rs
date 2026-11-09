@@ -21,6 +21,7 @@ pub mod census;
 pub mod clauses;
 pub mod code;
 pub mod codec;
+pub mod dispatch;
 pub mod effect;
 pub mod erasure;
 pub mod fusion;

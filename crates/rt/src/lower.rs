@@ -392,6 +392,10 @@ struct Lowerer<'g> {
     hoisting: bool,
     /// Where lowering is in the case tree of the definition being lowered.
     tree: Option<Tree>,
+    /// Lowers a handler's step as one dispatch closure (SW-2507 spike).
+    dispatch: Option<crate::dispatch::Dispatch>,
+    /// The next definition applied is a fused state handler's step.
+    state_step: bool,
 }
 
 impl<'g> Lowerer<'g> {
@@ -445,6 +449,8 @@ impl<'g> Lowerer<'g> {
             hoisted_base: 0,
             hoisting: false,
             tree: None,
+            dispatch: EffectNatives::new(g).and_then(|_| crate::dispatch::Dispatch::new(g)),
+            state_step: false,
         })
     }
 
@@ -881,6 +887,13 @@ impl<'g> Lowerer<'g> {
     /// A definition applied to `args`: erased arguments are left out, and
     /// with all its runtime arguments it's a saturated call.
     fn apply_def(&mut self, id: DefId, args: &[&Term]) -> Result<Expr> {
+        let state_step = std::mem::take(&mut self.state_step);
+        if let Some(dispatch) = &self.dispatch
+            && id == dispatch.handle_plus
+            && let Some(step) = dispatch.rewrite(self.g, args, state_step)?
+        {
+            return self.expr(&step);
+        }
         // A closed signature map (a `translate`'s, say): a constant,
         // computed when first used and kept, not built again on every call
         // (crate::hoist). It reads no variable, so it's lowered in a frame
@@ -954,7 +967,11 @@ impl<'g> Lowerer<'g> {
             } else {
                 EffectOp::FoldState
             };
-            let runtime = self.exprs(&[&fused.done, &fused.call, args[6]])?;
+            let done = self.expr(&fused.done)?;
+            self.state_step = true;
+            let call = self.expr(&fused.call);
+            self.state_step = false;
+            let runtime = vec![done, call?, self.expr(args[6])?];
             let rest = self.exprs(&args[7..])?;
             return Ok(apply(Expr::Prim(PrimOp::Effect(op), runtime), rest));
         }
