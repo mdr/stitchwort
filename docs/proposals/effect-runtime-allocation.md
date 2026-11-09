@@ -350,6 +350,129 @@ Stopping at any stage leaves a complete end state. Stages 1 and 2 can run side b
 (different files mostly: `value.rs` and the resume paths against the loop's push and
 skip); 3 after 2 (both touch the push); 4 after 1 (both touch the state route).
 
+## 4.1 Stage 0 results (SW-2461, 9 Nov 2026, Sonnet)
+
+**[measured]** throughout, with the new counters (below), native executables built with
+`--count-bodies` against a runtime library with the `call-counts` feature, at the
+comparison sizes of `bench/compare/programs.toml`. One run each; the counts are
+deterministic (identical between the two runs of expressions that were repeated).
+
+**What was added.** All in the existing `call_counts` report (`STITCHWORT_CALL_COUNTS=1`),
+nothing when the feature is off:
+
+- `Made`: objects the effect runtime builds, per allocation site (a new section of the
+  report, "objects built by the effect runtime, by allocation site"): the `Bind` node of
+  `sw_bind` and of the applied `bind` native, the pending cell, a skip's `Call`, `Handler::Step`'s
+  `Call`, `DoneK`'s `Done`, a lazy resumption's two cells, rebuilt forwarded operations
+  (`forwarded`, `renamed`), `Rc<Resume>` per route kind, each `Fun::Resume` / `StateK` /
+  `Jumped` wrapper, `StateRun`, `Handler`.
+- `Event::CellCacheHit`: generated code's inline hits in the cell cache. The hit is decided in
+  compiled code, so a body compiled with `Options::count_bodies` (`build --count-bodies`)
+  calls `sw_count_cell_hit` in the hit block; without the option the code is unchanged.
+- `Event::BindOf*`: what a `bind` that isn't answered at once (not a `Done`) was given:
+  `Call o DoneK` with its `Call` cell unique or shared, `Call o r`, a `Bind` node, else.
+- `Event::LoopCallDoneK` / `LoopCallOther`: the `Call` cells `sw_eff_step` meets, by whether
+  `rest` is `DoneK`. Counted at the loop, so it is the number of performs in their original form
+  however they got there; against `BindOfPerform*` it gives the share bound directly.
+
+**Counters cost nothing off.** Native instructions retired (`/usr/bin/time -l`, counting off,
+same commit with and without this change, both built through kache as lane worktrees are):
+expressions 310.69 to 310.95 G over six runs with, against 310.66 to 310.70 G over four without
+(about +0.02%, inside the spread of repeats); matcher 68.176 G against 68.179 G and 68.212 G against
+68.214 G. See the second finding at the end on why "built through kache" matters.
+
+### Counts
+
+| | expressions | scan | matcher | bridge |
+|---|---:|---:|---:|---:|
+| `Bind` nodes made (`sw_bind`) | 46.37 M | 40.90 M | 2.01 M | 13.88 M |
+| pending cells | 46.37 M | 40.90 M | 2.01 M | 13.88 M |
+| skip `Call` cells | 29.13 M | 21.25 M | 1.40 M | 2.83 M |
+| `Done` cells from `DoneK` | 18.65 M | 22.43 M | 1.14 M | 6.56 M |
+| rebuilt forwarded operations, cells | **22.95 M** | 5.25 M | 1.63 M | 0 |
+| **runtime cells, with `Bind` nodes** | **163.5 M** | 130.7 M | 8.2 M | 37.2 M |
+| runtime cells, without `Bind` nodes (the note's "94 M" is pending + skip + `Done`) | 94.1 M, or **117.1 M** with rebuilt operations | 84.6 M / 89.8 M | 4.5 M / 6.2 M | 23.3 M |
+| `Rc<Resume>` (all routes and skips) | 49.18 M | 47.50 M | 2.54 M | 9.52 M |
+| `Fun::Resume` wrappers | 30.53 M | 25.07 M | 1.40 M | 2.96 M |
+| `Fun::StateK` wrappers = `Fun::Jumped` | 18.65 M | 22.43 M | 1.14 M | 6.56 M |
+| `Rc<Handler>` (fold and state handlers starting) | 4.75 M | 4.10 M | 0.28 M | 1.20 M |
+| generated code: cell-cache hits | **50.18 M** | 54.74 M | 17.53 M | 22.02 M |
+| generated code: `sw_cell_new` calls (misses and uncached arities) | 85.65 M | 75.35 M | 16.91 M | 39.19 M |
+| `bind`s of a fresh perform `Call o DoneK`, `Call` cell unique | 20.05 M | 26.25 M | 1.15 M | 6.69 M |
+| the same, `Call` cell shared | 0 | 0 | 0 | 0 |
+| `bind`s of a `Bind` node | 26.32 M | 14.65 M | 0.87 M | 7.20 M |
+| `bind`s of `Call o r`, `r` not `DoneK`, or of anything else | 0 | 0 | 0 | 0 |
+| `Call o DoneK` met by the loop | 20.05 M | 26.25 M | 1.15 M | 6.69 M |
+| `Call o r` (other `r`) met by the loop | 29.13 M | 21.25 M | 1.40 M | 2.83 M |
+
+### What the counts say
+
+- **§1.2's per-site counts hold.** `Rc<Resume>` (49.18 M and 47.50 M), `Fun::Resume`
+  wrappers (30.53 M; scan 25.07 M, the note's inferred 25.1 M), `StateK` and `Jumped`, skip
+  `Call`s, `Done`s (18.65 M; scan 22.43 M) and pending cells (46.37 M; scan 40.90 M against
+  the note's inferred "about 43 M"; the 2.05 M difference is `sw_bind` calls answered at once
+  with a `Done`) all agree with the note to within rounding. The three cell sites the note
+  summed to 94 M sum to **94.14 M**. The go/no-go's first test, "runtime cells within 15% of 94 M",
+  passes on those sites.
+- **But the note undercounted one site: rebuilt forwarded operations, 22.95 M cells on
+  expressions** (0.79 per skipped forward; scan 5.25 M, matcher 1.63 M, bridge none). The note had
+  "a little from lazy resumes, `translate` and rebuilt forwarded operations". `forwarded` returns
+  the operation it was given only when the forward's table says the same constructor under one `L`;
+  otherwise it builds `outer a` and its wrappers afresh, one cell per layer. Counting those, the
+  runtime's cells without `Bind` nodes are 117.1 M, +24% on 94 M, and with `Bind` nodes **163.5 M**.
+- **Against the census's 322 M cells on expressions** (SW-2422: 85.6 `sw_cell_new` + 46.6 `sw_bind`
+  + 190.1 residue): generated code's cache hits are **50.2 M, not the 96 M of the correction**.
+  Generated code's cells are 85.65 + 50.18 = 135.8 M (42%), the runtime's counted sites are 163.5 M
+  (51%), and **22.8 M (7%) remain unexplained**: not an effect site; probably primitives that
+  build lists (`TextToList` 3.28 M calls on expressions) and `StateRun`'s comp-form `Done`
+  (**[inferred]**, not counted). So the runtime builds about half of the run's cells, not 30%
+  (the correction) nor 59% (SW-2422). The correction in §1.2 should read: runtime cells about 117 M
+  without `Bind` nodes, 36% of the census's cells; 51% with them.
+- **The note's total of runtime objects, 258 M, is 285 M** (expressions): the rebuilt operations
+  (+23 M) and the 4.75 M handlers, which the census counted as 0.27 M because a fold's handler is
+  made with `Rc::new`, not `value_census::new_handler`.
+- **R4 reaches every perform.** `Call o DoneK` is met by the loop 20.05 M times on expressions and
+  was bound directly, with a unique `Call` cell, 20.05 M times: **100%**, on all four programs, not
+  the assumed 70-100%; no `Call o DoneK` is ever shared at its bind, and no `bind` is given a
+  `Call o r` with another `r`. 18.65 M of the 20.05 M are the first performs; 1.4 M are
+  `bind (Call O DoneK) k` in the clauses of fold routes (the "2 routes" chains). So R4 saves, per
+  perform, the `Bind` node and pending cell (20.05 M each), the `Done` cell (18.65 M) and the `DoneK` apply
+  (18.65 M): the note's 18.6 M, +8% on the first two. What R4 does not touch is the other **26.32 M
+  `bind`s, of a `Bind` node** (57% of expressions' binds; 36% of scan's, 52% of bridge's):
+  left-nested binds from `do` blocks. After R4 the pushes left are 26.3 M on expressions
+  (the note's "about 28 M") and 14.65 M on scan (the note: 21 M).
+- **R5's objects** are exactly the note's: 18.65 M state routes make three each (55.9 M), 22.43 M on scan
+  (67.3 M).
+- **Matcher and bridge**: matcher's effect objects are small (8.2 M cells, 2.5 M `Resume`s); its
+  cells are mostly generated code's (34.4 M, half from the cache). Bridge: 37.2 M runtime cells beside
+  generated code's 61.2 M.
+
+### The options after stage 0
+
+| | verdict | why |
+|---|---|---|
+| R1 one-object resumption | unchanged | 49.18 M and 47.50 M `Rc<Resume>`, as estimated |
+| R2 `Bind` reuse | unchanged | 46.37 M pushes; scan 40.90 M, not 43 M, so its saving is about 5% under the note's |
+| R3 skip reuses its `Call` | unchanged, and **a neighbour appeared** (below) | 29.13 M and 21.25 M |
+| R4 perform folded into its `Call` | **at the top of its range**: 100% of performs, unique, so the in-place write always applies | savings per perform as estimated; see the 26.3 M left-nested binds it does not remove |
+| R5 no `k` for a state handler | unchanged | 55.9 M and 67.3 M objects |
+| R6 emptied cells to the cache | worth a second look only if C is not coming | the cache already serves 50.2 M of generated code's 136 M cells; the runtime's emptied cells (pops, `Done`s) go to the allocator |
+| **R7 (new): rebuilt forwarded operations** | worth costing | 22.95 M cells on expressions (0.79 per skip), 5.25 M on scan; **[estimated]** 140 instructions each, at most 1.0% of expressions' instructions and 0.25% of scan's if all went; an operation that is unique could take its new tag and argument in place (`Rc::get_mut`, as R3) or the forward's table could be applied to the one cell, not rebuilt |
+
+The go/no-go of stage 0 asks whether to rework §1.2: the table's per-site counts need no change,
+the "94 M" footnote and the correction above do, and the one real gap is R7. Stages 1 and 2 can go as
+planned. Stage 3 (R4) is stronger than planned, since its reach is certain.
+
+**Findings that belong elsewhere**, filed from the stage:
+
+- The value census's `Rc::new(Handler::Fold { .. })` in `effect::handler_for` is not counted
+  (`new_handler` is): the census says 0.27 M handlers where there are 4.75 M.
+- The same commit built outside `.claude/worktrees/` (plain `cargo`, no kache) runs expressions in
+  **320.5 G** instructions; built in a lane worktree through kache, **310.7 G** (-3.1%), matcher and the
+  others alike in direction. Whatever the compiler cache changes (codegen units, inlining), a
+  benchmark number from the main checkout and one from a lane differ by 3% for the same source. Not
+  investigated here.
+
 ## 5. Recommendation
 
 **The problem.** Our two slowest programs, both parsers, spend about half their time

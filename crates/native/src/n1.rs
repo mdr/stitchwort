@@ -157,7 +157,9 @@ pub struct Options {
     /// every count (for comparing native code with the machine).
     pub trace_refcounts: bool,
     /// Each body counts its own entries (`sw_count_body`, a call with the
-    /// body's symbol name), for a profiling build linked against a runtime
+    /// body's symbol name), and each inline cell-cache hit calls
+    /// `sw_count_cell_hit` (the hit is decided in compiled code, so this is
+    /// the only way to see it), for a profiling build linked against a runtime
     /// with the `call-counts` feature. Off, the code is the same as
     /// without the option.
     pub count_bodies: bool,
@@ -2442,6 +2444,7 @@ fn helper_addresses() -> Vec<(&'static str, *const u8)> {
         ("sw_defer_fun", abi::sw_defer_fun as *const u8),
         ("sw_drop_deferred", abi::sw_drop_deferred as *const u8),
         ("sw_count_body", abi::sw_count_body as *const u8),
+        ("sw_count_cell_hit", abi::sw_count_cell_hit as *const u8),
     ]
 }
 
@@ -2484,6 +2487,9 @@ struct Helpers {
     drop_deferred: FuncId,
     /// Only under `Options::count_bodies`.
     count_body: Option<FuncId>,
+    /// Only under `Options::count_bodies`: called on each inline cell-cache
+    /// hit, which has no other hook.
+    count_cell_hit: Option<FuncId>,
 }
 
 impl Helpers {
@@ -2541,6 +2547,11 @@ impl Helpers {
             drop_deferred: declare("sw_drop_deferred", &[p], &[])?,
             count_body: if count_bodies {
                 Some(declare("sw_count_body", &[p, I64], &[])?)
+            } else {
+                None
+            },
+            count_cell_hit: if count_bodies {
+                Some(declare("sw_count_cell_hit", &[], &[])?)
             } else {
                 None
             },
@@ -3841,6 +3852,9 @@ impl Gen<'_, '_> {
         let cell = self.b.append_block_param(after, types::I64);
         self.b.ins().brif(head, hit, &[], miss, &[]);
         self.b.switch_to_block(hit);
+        if let Some(count) = self.helpers.count_cell_hit {
+            self.call_helper(count, &[]);
+        }
         let next = self.b.ins().load(types::I64, flags(), head, STRONG_AT);
         self.b.ins().store(flags(), next, self.ctx, head_at);
         let one = self.iconst(1);
