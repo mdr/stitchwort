@@ -26231,7 +26231,7 @@
       "where": "",
       "labels": [],
       "epic": "diagnostics",
-      "body": "Found 9 Nov in compute mode. Repro: examples/reject/decreasing-folded-goal.sw with 'decreasing n' changed to 'decreasing evensNil' (theorem evensNil (n: Nat): evens n = Nil := rfl, declared after). Add it as a reject example. 40 min.",
+      "body": "Found 9 Nov in compute mode. Repro: examples/reject/decreasing-folded-goal.sw with 'decreasing n' changed to 'decreasing evensNil' (theorem evensNil (n: Nat): evens n = Nil := rfl, declared after). Add it as a reject example. 40 min.\n\nSecond repro (elab fuzzer 0x2583 case 429, from accept/succ-of-folded-call.sw): `decreasing outerN` naming a later *def* (not a theorem) gives the same E-INTERNAL \"`outerN` is used before it's checked\". So the fix is for any later declaration named in a measure.\n",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
