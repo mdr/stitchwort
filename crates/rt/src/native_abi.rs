@@ -2833,12 +2833,10 @@ pub unsafe extern "C" fn sw_eff_step(
     if tag == s.bind_node {
         counts.pushes += 1;
         crate::call_counts::hit_event(crate::call_counts::Event::Push);
-        let (inner, k) = crate::effect::pair(fields);
         // SAFETY: the caller's contract: `pending` is taken and replaced.
         unsafe {
-            let rest = pending.read();
-            crate::call_counts::hit_made(crate::call_counts::Made::PendingCell, 1);
-            pending.write(Value::data(0, [k, rest]));
+            let (inner, list) = crate::effect::push_pending(fields, pending.read());
+            pending.write(list);
             c.write(inner);
         }
         return STEP_AGAIN;
@@ -2850,7 +2848,7 @@ pub unsafe extern "C" fn sw_eff_step(
         if let Value::Data(_, cell) = list {
             counts.pops += 1;
             crate::call_counts::hit_event(crate::call_counts::Event::Pop);
-            let (k, next) = crate::effect::pair(cell);
+            let (k, next) = crate::effect::pop_pending(cell);
             let x = crate::effect::field(fields, 0);
             // SAFETY: as above.
             unsafe { pending.write(next) };
@@ -2900,7 +2898,7 @@ pub unsafe extern "C" fn sw_eff_step(
         write(0, Value::Data(s.call, fields));
         return STEP_RETURN;
     }
-    let (o, rest) = crate::effect::pair(fields);
+    let (o, rest, spare) = crate::effect::split_call(fields);
     if crate::call_counts::ENABLED {
         crate::call_counts::hit_chain_op();
         crate::call_counts::hit_event(
@@ -2923,13 +2921,15 @@ pub unsafe extern "C" fn sw_eff_step(
                     rest,
                     pending: list,
                 };
-                write(0, crate::effect::skipped(s, counts, o, resume));
+                write(0, crate::effect::skipped(s, counts, o, resume, spare));
                 return STEP_RETURN;
             }
             Err(o) => o,
         },
         _ => o,
     };
+    // Freed here, before the clause runs, as the cell always was.
+    drop(spare);
     if crate::call_counts::ENABLED {
         count_route(run.outline, &handler, &o);
     }
