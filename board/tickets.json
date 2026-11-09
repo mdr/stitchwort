@@ -1,5 +1,5 @@
 {
-  "next": 2595,
+  "next": 2596,
   "tickets": [
     {
       "id": 47,
@@ -26321,15 +26321,20 @@
     {
       "id": 2588,
       "title": "After D3458: sweep std and aoc statements to the house style: quantified hypotheses and conclusions written (x: T) -> P where P is a proposition become ∀ (x: T) => P",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2588",
       "labels": [],
       "epic": "syntax-language",
-      "body": "Mechanical; after SW-2587 merges. Hashes unchanged (same term). 60 min.\n\nSonnet stands in for DeepSeek until OpenCode works for the agent user (Matt, 9 Nov). Matt wants it done overnight after SW-2587: go through existing code and use ∀ where appropriate.",
+      "body": "Mechanical; after SW-2587 merges. Hashes unchanged (same term). 60 min.\n\nSonnet stands in for DeepSeek until OpenCode works for the agent user (Matt, 9 Nov). Matt wants it done overnight after SW-2587: go through existing code and use ∀ where appropriate.\n\nDone 10 Nov 00:00: ~1,830 ∀ in std (79 files), ~1,230 in aoc (261), 51 in rogue, 7 in docs; hash dumps of std+aoc and std+rogue identical before and after. Left: examples/, docs/comparisons, docs/repros, binder chains with only unused names, PickBeats (day 2025/03). Model result: Sonnet, worked, 30 min (est. 90). Its sweep script: orchestrator scratchpad sweep.py.",
       "created": "2026-11-09",
       "updated": "2026-11-09",
-      "commits": []
+      "commits": [
+        "fc482e459",
+        "14b21b187",
+        "a5a37ec53",
+        "0d8790677"
+      ]
     },
     {
       "id": 2589,
@@ -26411,6 +26416,19 @@
       "labels": [],
       "epic": "proof-search",
       "body": "From SW-2591's report, 9 Nov.",
+      "created": "2026-11-09",
+      "updated": "2026-11-09",
+      "commits": []
+    },
+    {
+      "id": 2595,
+      "title": "stitchwort fmt option (or a lint) for the ∀ house style, so new statements get it: a function type into a proposition after a theorem's colon or as a hypothesis's type prints as ∀; leave chains of only unused binders",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "From SW-2588's report, 10 Nov. Its token-level script (orchestrator scratchpad sweep.py) is a starting point. Not urgent.",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
