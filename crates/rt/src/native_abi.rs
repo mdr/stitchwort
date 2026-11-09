@@ -54,7 +54,7 @@
 //!   A function value whose body isn't compiled is an internal error: the
 //!   plan compiles every body or none.
 
-use crate::value_census::{new_fun, new_handler, new_resume};
+use crate::value_census::{new_fun, new_handler};
 use std::mem::MaybeUninit;
 use std::rc::Rc;
 
@@ -2205,13 +2205,17 @@ pub unsafe extern "C" fn sw_apply_prepare(
                 let v = take(0);
                 Some(crate::effect::jump_k(v, take(1)))
             }
-            (Fun::Resume(resume, true), 1) => {
+            (Fun::Resume(true, resume), 1) => {
                 Some(crate::effect::resume_lazily(s, run.counts, resume, take(0)))
             }
             _ => None,
         };
-        let resuming =
-            n == 1 && resumes && matches!(&**fun, Fun::Resume(_, false) | Fun::StateRun(_));
+        let resuming = n == 1
+            && resumes
+            && matches!(
+                &**fun,
+                Fun::Resume(false, _) | Fun::TranslateK(_) | Fun::StateRun(_)
+            );
         if value.is_some() || resuming {
             if crate::call_counts::ENABLED {
                 crate::call_counts::hit_apply(apply_kind(program, fun));
@@ -2391,7 +2395,7 @@ pub unsafe extern "C" fn sw_apply_prepare(
             // state-passing handler's function of the state, are the
             // effect runtime's `rt_resume` to run (stages NO2 and NO3 of
             // native-only.md), which takes this reference to it.
-            Fun::Resume(resume, true) => {
+            Fun::Resume(true, resume) => {
                 let y = all.pop().expect("one argument");
                 let counts = &mut run.counts;
                 value = Some(crate::effect::resume_lazily(
@@ -2401,7 +2405,7 @@ pub unsafe extern "C" fn sw_apply_prepare(
                     y,
                 ));
             }
-            Fun::Resume(_, false) | Fun::StateRun(_) if resumes => {
+            Fun::Resume(false, _) | Fun::TranslateK(_) | Fun::StateRun(_) if resumes => {
                 code = RESUME_CODE as *const u8;
                 env = into_word(h.clone());
             }
@@ -2468,8 +2472,8 @@ fn apply_kind(program: &Outline, fun: &Fun) -> crate::call_counts::ApplyKind {
         Fun::StateK(_) => K::StateK,
         Fun::JumpK => K::JumpK,
         Fun::DelayK(_) => K::DelayK,
-        Fun::Resume(_, true) => K::LazyResume,
-        Fun::Resume(_, false) => K::EagerResume,
+        Fun::Resume(true, _) => K::LazyResume,
+        Fun::Resume(false, _) | Fun::TranslateK(_) => K::EagerResume,
         Fun::StateRun(_) => K::StateRun,
         Fun::Jumped(..) => K::Other,
     }
@@ -2739,15 +2743,15 @@ unsafe fn handler_taken(word: u64) -> Rc<Handler> {
     unsafe { Rc::from_raw(word as *const Handler) }
 }
 
-/// The resumption a native code word holds, taken.
+/// The resumption (a `Fun::StateK`) a native code word holds, taken.
 ///
 /// # Safety
-/// `word` came from [`Rc::into_raw`] of a live resumption, and native code
-/// gives the reference up.
+/// `word` came from [`Rc::into_raw`] of a live resumption's function value,
+/// and native code gives the reference up.
 #[allow(unsafe_code)]
-unsafe fn resume_taken(word: u64) -> Rc<Resume> {
+unsafe fn resume_taken(word: u64) -> Rc<Fun> {
     // SAFETY: the caller's contract.
-    unsafe { Rc::from_raw(word as *const Resume) }
+    unsafe { Rc::from_raw(word as *const Fun) }
 }
 
 /// One of the effect runtime's natives that runs a loop (`op`, its place
@@ -2791,7 +2795,8 @@ pub unsafe extern "C" fn sw_eff_begin(
 /// Where the handler is done with (every outcome but [`STEP_AGAIN`] and
 /// [`STEP_APPLY`]) it's taken, and the pending list is then `Erased`; for
 /// [`STEP_STATE_CALL`] so is the state, and the resumption's word is
-/// written to `resume`. An operation whose fold's clause only forwards it
+/// written to `resume` (the `Rc<Fun>` of the `StateK` that was given to the
+/// clause as `k`, a second reference to it). An operation whose fold's clause only forwards it
 /// is [`STEP_RETURN`] with the operation it goes on as
 /// ([`crate::effect::forwarded`]), the clause not called. The step itself
 /// is native code's to count; the effect counts are counted here.
@@ -2913,13 +2918,11 @@ pub unsafe extern "C" fn sw_eff_step(
         } => match crate::effect::forwarded(s, table, o) {
             Ok(o) => {
                 crate::call_counts::hit_event(crate::call_counts::Event::Forward);
-                crate::call_counts::hit_made(crate::call_counts::Made::ResumeSkip, 1);
-                let resume = new_resume(Resume {
+                let resume = Resume {
                     handler,
                     rest,
                     pending: list,
-                    op: Value::Erased,
-                });
+                };
                 write(0, crate::effect::skipped(s, counts, o, resume));
                 return STEP_RETURN;
             }
@@ -2930,21 +2933,17 @@ pub unsafe extern "C" fn sw_eff_step(
     if crate::call_counts::ENABLED {
         count_route(run.outline, &handler, &o);
     }
-    let resume = |handler, op| {
-        new_resume(Resume {
-            handler,
-            rest,
-            pending: list,
-            op,
-        })
+    let resume = |handler| Resume {
+        handler,
+        rest,
+        pending: list,
     };
     match &*handler {
         Handler::Fold { call, lazy, .. } => {
             counts.routes += 1;
             hit_made(Made::ResumeFold, 1);
-            hit_made(Made::WrapResumeRoute, 1);
             let (call, lazy) = (call.clone(), *lazy);
-            let k = Value::Fun(new_fun(Fun::Resume(resume(handler, Value::Erased), lazy)));
+            let k = Value::Fun(new_fun(Fun::Resume(lazy, resume(handler))));
             write(0, call);
             write(1, o);
             write(2, k);
@@ -2955,10 +2954,12 @@ pub unsafe extern "C" fn sw_eff_step(
         Handler::State { call, .. } => {
             counts.routes += 1;
             hit_made(Made::ResumeState, 1);
-            hit_made(Made::WrapStateK, 1);
             let call = call.clone();
-            let resume = resume(handler, Value::Erased);
-            let k = Value::Fun(new_fun(Fun::StateK(resume.clone())));
+            // One object: `k`, and the loop's own reference to it for
+            // `sw_state_step`, once the clause has returned.
+            let k = new_fun(Fun::StateK(resume(handler)));
+            let resume = k.clone();
+            let k = Value::Fun(k);
             let jump = Value::Fun(crate::value::shared_jump_k());
             // SAFETY: the caller's contract: the state is taken.
             let st = unsafe { std::mem::take(&mut *state) };
@@ -2974,9 +2975,13 @@ pub unsafe extern "C" fn sw_eff_step(
         Handler::Translate { inject, .. } => {
             counts.routes += 1;
             hit_made(Made::ResumeTranslate, 1);
-            hit_made(Made::WrapResumeRoute, 1);
             let inject = inject.clone();
-            let k = Value::Fun(new_fun(Fun::Resume(resume(handler, o.clone()), false)));
+            let k = Value::Fun(new_fun(Fun::TranslateK(Rc::new(
+                crate::effect::TranslateResume {
+                    resume: resume(handler),
+                    op: o.clone(),
+                },
+            ))));
             write(0, inject);
             write(1, o);
             write(2, k);
@@ -2985,9 +2990,8 @@ pub unsafe extern "C" fn sw_eff_step(
         Handler::Step => {
             crate::call_counts::hit_event(crate::call_counts::Event::RouteStep);
             hit_made(Made::ResumeStep, 1);
-            hit_made(Made::WrapResumeRoute, 1);
             hit_made(Made::StepCall, 1);
-            let k = Value::Fun(new_fun(Fun::Resume(resume(handler, Value::Erased), false)));
+            let k = Value::Fun(new_fun(Fun::Resume(false, resume(handler))));
             write(0, Value::data(s.call, [o, k]));
             STEP_RETURN
         }
@@ -3165,8 +3169,9 @@ pub unsafe extern "C" fn sw_resume_begin(
     };
     // SAFETY: the caller's contract.
     let y = unsafe { y.read() };
-    let resume = match &**fun {
-        Fun::Resume(resume, _) => resume,
+    let (resume, translate) = match &**fun {
+        Fun::Resume(_, resume) => (resume, None),
+        Fun::TranslateK(t) => (&t.resume, Some(t)),
         // The machine's `enter` of a `StateRun`: the handler, then the
         // pending list, `rest` and the computation, or (with no `rest`) the
         // computation and the pending list.
@@ -3190,11 +3195,11 @@ pub unsafe extern "C" fn sw_resume_begin(
     // SAFETY: the caller's contract.
     unsafe { handler.write(Rc::into_raw(resume.handler.clone()) as u64) };
     write(0, resume.pending.clone());
-    match &*resume.handler {
-        Handler::Translate { reply, .. } => {
+    match (translate, &*resume.handler) {
+        (Some(t), Handler::Translate { reply, .. }) => {
             write(1, resume.rest.clone());
             write(2, reply.clone());
-            write(3, resume.op.clone());
+            write(3, t.op.clone());
             write(4, y);
             1
         }
@@ -3226,9 +3231,8 @@ pub unsafe extern "C" fn sw_unwind_handler(context: *mut Context, handler: u64) 
                 handler,
                 rest: Value::Erased,
                 pending: Value::Erased,
-                op: Value::Erased,
             };
-            group.push(Value::Fun(new_fun(Fun::Resume(Rc::new(holder), false))));
+            group.push(Value::Fun(new_fun(Fun::Resume(false, holder))));
         }
         None => drop(handler),
     }
@@ -3250,7 +3254,7 @@ pub unsafe extern "C" fn sw_unwind_resume(context: *mut Context, resume: u64) {
     // SAFETY: the caller's contract.
     let (run, resume) = unsafe { (&mut *(*context).run, resume_taken(resume)) };
     match run.held.last_mut() {
-        Some(group) => group.push(Value::Fun(new_fun(Fun::Resume(resume, false)))),
+        Some(group) => group.push(Value::Fun(resume)),
         None => drop(resume),
     }
 }

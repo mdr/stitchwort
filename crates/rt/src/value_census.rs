@@ -34,7 +34,7 @@ mod enabled;
 
 use std::rc::Rc;
 
-use crate::effect::{Handler, Resume, StateRun};
+use crate::effect::{Handler, StateRun};
 use crate::value::{Delay, Fun, Value};
 
 /// A cell of `tag` with these fields has been allocated.
@@ -96,14 +96,6 @@ pub(crate) fn delay_freed(d: &Delay) {
     enabled::delay(d, false);
     #[cfg(not(feature = "value-census"))]
     let _ = d;
-}
-
-/// `Rc::new(r)`, counted.
-#[inline(always)]
-pub fn new_resume(r: Resume) -> Rc<Resume> {
-    #[cfg(feature = "value-census")]
-    enabled::resume();
-    Rc::new(r)
 }
 
 /// `Rc::new(r)`, counted.

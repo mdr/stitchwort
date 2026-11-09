@@ -216,7 +216,7 @@ const EVENT_NAMES: [&str; EVENTS] = [
 
 /// Objects the effect runtime builds itself, by allocation site
 /// (docs/proposals/effect-runtime-allocation.md, stage 0). Each hit is one
-/// heap object (a cell, an `Rc<Resume>`, an `Rc<Fun>`...), except where the
+/// heap object (a cell, an `Rc<Fun>`...), except where the
 /// name says otherwise. Cells that generated code builds are not here: those
 /// are `sw_cell_new`'s calls plus [`Event::CellCacheHit`].
 #[derive(Clone, Copy)]
@@ -240,24 +240,20 @@ pub(crate) enum Made {
     LazyResumeCells,
     /// Cells of a rebuilt forwarded operation (`forwarded`, `renamed`).
     ForwardedOpCells,
-    /// `Rc<Resume>` of a skipped forward.
+    /// The resumption (one `Fun::Resume`) of a skipped forward.
     ResumeSkip,
-    /// `Rc<Resume>` of a route to a fold's clause.
+    /// The resumption of a route to a fold's clause.
     ResumeFold,
-    /// `Rc<Resume>` of a route to a state handler's clause.
+    /// The resumption (one `Fun::StateK`) of a route to a state handler's
+    /// clause.
     ResumeState,
-    /// `Rc<Resume>` of a route to `translate`'s clause.
+    /// The resumption of a route to `translate`'s clause.
     ResumeTranslate,
-    /// `Rc<Resume>` of an operation reaching `Handler::Step`.
+    /// The resumption of an operation reaching `Handler::Step`.
     ResumeStep,
-    /// The `Fun::Resume` wrapper of a skipped forward.
-    WrapResumeSkip,
-    /// The `Fun::Resume` wrapper of a fold, `translate` or `Step` route.
-    WrapResumeRoute,
-    /// The `Fun::Resume` wrapper of a lazy resumption's apply.
-    WrapResumeLazy,
-    /// The `Fun::StateK` wrapper of a state route.
-    WrapStateK,
+    /// The `Fun::Resume` of a lazy resumption's apply (a copy of the
+    /// lazy one's fields, not lazy).
+    ResumeLazy,
     /// `Fun::Jumped` of a state clause's jump.
     Jumped,
     /// `StateRun` (and its `Fun` wrapper) of `StateK`'s apply.
@@ -279,15 +275,12 @@ const MADE_NAMES: [&str; MADE] = [
     "cell: Done from DoneK's apply",
     "cells: lazy resumption's Bind and Done (two each)",
     "cells: rebuilt forwarded operation",
-    "Rc<Resume>: skipped forward",
-    "Rc<Resume>: fold route",
-    "Rc<Resume>: state route",
-    "Rc<Resume>: translate route",
-    "Rc<Resume>: Handler::Step",
-    "Fun::Resume wrapper: skipped forward",
-    "Fun::Resume wrapper: fold/translate/Step route",
-    "Fun::Resume wrapper: lazy resumption's apply",
-    "Fun::StateK wrapper: state route",
+    "resumption (Fun::Resume): skipped forward",
+    "resumption (Fun::Resume): fold route",
+    "resumption (Fun::StateK): state route",
+    "resumption (Fun::Resume): translate route",
+    "resumption (Fun::Resume): Handler::Step",
+    "resumption (Fun::Resume): lazy resumption's apply",
     "Fun::Jumped: state clause's jump",
     "StateRun + Fun wrapper (two objects): StateK's apply",
     "Rc<Handler>: handler starting",

@@ -252,15 +252,34 @@ pub enum Handler {
 
 /// A resumption: the rest of a computation after operation `op`, with the
 /// continuations pending there, for its handler. Never changed.
-#[derive(Debug)]
+///
+/// Lives inside the [`Fun`] that is the resumption (`Fun::Resume`,
+/// `Fun::StateK`), so a resumption is one heap object. Clone copies the
+/// fields (reference counts), for [`resume_lazily`].
+#[derive(Debug, Clone)]
 pub struct Resume {
     pub handler: Rc<Handler>,
     /// The operation's own continuation (`Call`'s second field).
     pub rest: Value,
     /// The pending list where the operation was reached.
     pub pending: Value,
-    /// The operation, for a `translate`'s reply; otherwise erased.
+}
+
+/// A `translate` handler's resumption (`Fun::TranslateK`), which also needs
+/// the operation, for the reply. Kept out of [`Resume`] so that the common
+/// resumptions, and every `Fun`, are a word smaller (the third value).
+#[derive(Debug)]
+pub struct TranslateResume {
+    pub resume: Resume,
+    /// The operation `reply` is given with the answer.
     pub op: Value,
+}
+
+impl TranslateResume {
+    pub(crate) fn take_children(&mut self, out: &mut Vec<Value>) {
+        self.resume.take_children(out);
+        crate::value::take_from(std::slice::from_mut(&mut self.op), out);
+    }
 }
 
 /// A state-passing handler's function of the state, before it's given one:
@@ -304,7 +323,6 @@ impl Resume {
         take_handler(&mut self.handler, out);
         crate::value::take_from(std::slice::from_mut(&mut self.rest), out);
         crate::value::take_from(std::slice::from_mut(&mut self.pending), out);
-        crate::value::take_from(std::slice::from_mut(&mut self.op), out);
     }
 }
 
@@ -359,12 +377,12 @@ pub(crate) enum StateStep {
 }
 
 /// A state-passing handler's clause returned `v` for the operation whose
-/// resumption is `resume`: a jump `v′ s′` goes on with the loop from `rest
+/// resumption is `resume` (a `Fun::StateK`): a jump `v′ s′` goes on with the loop from `rest
 /// v′` with state `s′`, on no new frame; anything else is the handler's
 /// result. The values taken apart in the machine's order; shared with
 /// native code's `native_abi::sw_state_step` (stage NO3 of
 /// docs/proposals/native-only.md), so the two can't drift.
-pub(crate) fn state_step(counts: &mut EffectCounts, v: Value, resume: Rc<Resume>) -> StateStep {
+pub(crate) fn state_step(counts: &mut EffectCounts, v: Value, mut resume: Rc<Fun>) -> StateStep {
     let Value::Fun(mut f) = v else {
         return StateStep::Value(v);
     };
@@ -379,18 +397,18 @@ pub(crate) fn state_step(counts: &mut EffectCounts, v: Value, resume: Rc<Resume>
         },
     };
     counts.jumps += 1;
-    let (handler, rest, pending) = match Rc::try_unwrap(resume) {
-        Ok(Resume {
-            handler,
-            rest,
-            pending,
-            ..
-        }) => (handler, rest, pending),
-        Err(resume) => (
-            resume.handler.clone(),
-            resume.rest.clone(),
-            resume.pending.clone(),
+    let (handler, rest, pending) = match Rc::get_mut(&mut resume) {
+        // Unique: the fields are moved out (`Fun` has a destructor, so it
+        // can't be taken apart by a pattern).
+        Some(Fun::StateK(r)) => (
+            r.handler.clone(),
+            std::mem::take(&mut r.rest),
+            std::mem::take(&mut r.pending),
         ),
+        _ => match &*resume {
+            Fun::StateK(r) => (r.handler.clone(), r.rest.clone(), r.pending.clone()),
+            _ => unreachable!("a state-passing handler's resumption"),
+        },
     };
     StateStep::Jump {
         handler,
@@ -725,33 +743,28 @@ fn renamed(s: &Shapes, bytes: &[u8], o: Value) -> Result<Value, Value> {
 /// The fold `resume`'s handler skipped its clause for an operation, which
 /// goes on as `o`: `Call o r`, `r` the resumption, eager.
 #[inline]
-pub(crate) fn skipped(
-    s: &Shapes,
-    counts: &mut EffectCounts,
-    o: Value,
-    resume: Rc<Resume>,
-) -> Value {
+pub(crate) fn skipped(s: &Shapes, counts: &mut EffectCounts, o: Value, resume: Resume) -> Value {
     counts.forwards += 1;
     hit_made(Made::SkipCall, 1);
-    hit_made(Made::WrapResumeSkip, 1);
-    let r = Value::Fun(new_fun(Fun::Resume(resume, false)));
+    hit_made(Made::ResumeSkip, 1);
+    let r = Value::Fun(new_fun(Fun::Resume(false, resume)));
     Value::data(s.call, [o, r])
 }
 
-/// A lazy resumption `resume` called with `y`: `Bind (Done y) r`, `r` the
-/// same resumption, not lazy (the machine's `resume`, and native code's
+/// A lazy resumption `resume` called with `y`: `Bind (Done y) r`, `r` a copy
+/// of the resumption, not lazy (the machine's `resume`, and native code's
 /// apply, `native_abi::sw_apply_prepare`).
 #[inline]
 pub(crate) fn resume_lazily(
     s: &Shapes,
     counts: &mut EffectCounts,
-    resume: &Rc<Resume>,
+    resume: &Resume,
     y: Value,
 ) -> Value {
     counts.resumes += 1;
     hit_made(Made::LazyResumeCells, 2);
-    hit_made(Made::WrapResumeLazy, 1);
-    let k = Value::Fun(new_fun(Fun::Resume(resume.clone(), false)));
+    hit_made(Made::ResumeLazy, 1);
+    let k = Value::Fun(new_fun(Fun::Resume(false, resume.clone())));
     Value::data(s.bind_node, [Value::data(s.done, [y]), k])
 }
 
