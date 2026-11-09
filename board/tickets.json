@@ -1,5 +1,5 @@
 {
-  "next": 2525,
+  "next": 2526,
   "tickets": [
     {
       "id": 47,
@@ -25491,6 +25491,19 @@
       "labels": [],
       "epic": "comparative-speed",
       "body": "From SW-2523 (job 38 profile). Check leak tests and the census, which rely on frees: keep a debug/census switch that frees. 45 min.",
+      "created": "2026-11-09",
+      "updated": "2026-11-09",
+      "commits": []
+    },
+    {
+      "id": 2525,
+      "title": "Compiled handler dispatch: prior-art review (OCaml 5, Koka evidence passing, Effekt, Eff, Haskell effect libraries, others) from primary sources; cited section in docs/proposals/compiled-handler-dispatch.md; does it change the design or D3440's recommendation?",
+      "status": "doing",
+      "agent": "Opus",
+      "where": "Speedwell",
+      "labels": [],
+      "epic": "comparative-speed",
+      "body": "Matt asked, 9 Nov 2026 morning, before deciding D3440. Paper lane. 60 min.\n\nStarted 9 Nov 2026 08:37 UTC. Expected: 60 min. Paper lane.\n",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
