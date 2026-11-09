@@ -1,5 +1,5 @@
 {
-  "next": 2473,
+  "next": 2474,
   "tickets": [
     {
       "id": 47,
@@ -24563,7 +24563,7 @@
         "bench"
       ],
       "epic": "comparative-speed",
-      "body": "From SW-2450 (ranks 2, 4). After the first port. 2 h.\n\nStarted 9 Nov 2026 02:15 UTC. Expected: 120 min.\n\nMerged 9 Nov 02:34. Instructions native/Lean: const-fold 4.12x, rbmap 2.29x, rbmap-ck 3.84x; native/CPython 0.15-0.23x. Findings SW-2471 SW-2472 . Model result: Sonnet, worked, 20 min (est. 120).\n",
+      "body": "From SW-2450 (ranks 2, 4). After the first port. 2 h.\n\nStarted 9 Nov 2026 02:15 UTC. Expected: 120 min.\n\nMerged 9 Nov 02:34. Instructions native/Lean: const-fold 4.12x, rbmap 2.29x, rbmap-ck 3.84x; native/CPython 0.15-0.23x. Findings SW-2471 SW-2472 SW-2473. Model result: Sonnet, worked, 20 min (est. 120).\n",
       "created": "2026-11-08",
       "updated": "2026-11-09",
       "commits": []
@@ -24815,6 +24815,19 @@
       "labels": [],
       "epic": "comparative-speed",
       "body": "From SW-2455. Paper/measurement first: which words a 5-field node carries (header, counts, tags, boxed Nat/Bool fields). 45 min.",
+      "created": "2026-11-09",
+      "updated": "2026-11-09",
+      "commits": []
+    },
+    {
+      "id": 2473,
+      "title": "Usability: 'Node Red ..' (rest-of-fields) isn't accepted as a constructor pattern; W-RECEIVER-NOT-FIRST pushes a tree argument first in ported code",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "From SW-2455's ports. Check whether .. patterns are planned (docs/syntax.md); file a design question if not. 30 min.",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
