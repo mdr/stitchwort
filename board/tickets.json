@@ -25836,12 +25836,12 @@
     {
       "id": 2551,
       "title": "Std lemmas from 2020 day 21: distinctPerm, distinctMapOn (injective on members), all2OfMapRight, all2MapBoth, DecEq.falseOfNe, sorted distinct lists with the same members are equal",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Sonnet",
-      "where": "",
+      "where": "Speedwell",
       "labels": [],
       "epic": "std-library",
-      "body": "From SW-2541 Proofs. 60 min.",
+      "body": "From SW-2541 Proofs. 60 min.\n\nStarted 9 Nov 2026 11:31 UTC in one lane with SW-2551, SW-2552 and SW-2556 (worktree SW-2551). Expected: 120 min together.\n",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
@@ -25849,12 +25849,12 @@
     {
       "id": 2552,
       "title": "Aoc.Common: holderOf and its four lemmas (assign's result read as a function) beside Elimination.sw, or as List.lookup over a zip in std",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Sonnet",
-      "where": "",
+      "where": "Speedwell",
       "labels": [],
       "epic": "aoc-common",
-      "body": "From SW-2541 Proofs/Holders.sw. 45 min.",
+      "body": "From SW-2541 Proofs/Holders.sw. 45 min.\n\nStarted 9 Nov 2026 11:31 UTC in one lane with SW-2551, SW-2552 and SW-2556 (worktree SW-2551). Expected: 120 min together.\n",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
@@ -25901,12 +25901,12 @@
     {
       "id": 2556,
       "title": "Std count-by-proposition (as day 19's NumberWith): count with a decidable predicate, findable by search",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Sonnet",
-      "where": "",
+      "where": "Speedwell",
       "labels": [],
       "epic": "std-library",
-      "body": "From SW-2541 friction. 45 min.",
+      "body": "From SW-2541 friction. 45 min.\n\nStarted 9 Nov 2026 11:31 UTC in one lane with SW-2551, SW-2552 and SW-2556 (worktree SW-2551). Expected: 120 min together.\n",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
@@ -26057,12 +26057,12 @@
     {
       "id": 2568,
       "title": "SW-2554 review follow-ups F2-F6 (crates/elab/src/matching.rs): undo::recovered in unrefined_goal's fallback; keep the computed expression in W-MATCH-NOT-FOUND when the goal falls back; replace the substring test for the computed note; avoid the double folded read-back; a test pinning the copied-hypothesis boundary",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Sonnet",
-      "where": "",
+      "where": "Speedwell",
       "labels": [],
       "epic": "diagnostics",
-      "body": "From docs/reviews/SW-2554-match-goal-review.md. 45 min.",
+      "body": "From docs/reviews/SW-2554-match-goal-review.md. 45 min.\n\nStarted 9 Nov 2026 11:31 UTC. Expected: 45 min.\n",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
