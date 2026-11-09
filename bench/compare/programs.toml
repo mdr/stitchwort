@@ -38,9 +38,11 @@ input = "aoc/inputs/2021/day15.txt"
 stitchwort = "Aoc.Year2021.Day15.main"
 
 # 2021 day 11, both parts, on the real grid tiled 2 by 2 (a 20 by 20 cavern).
-# Lean takes only about 0.14 s here, below the 0.3 s floor: a 30 by 30 cavern
-# never flashes all at once with plain tiling, and one that does makes `run`
-# take over two minutes.
+# Part 2 finds the first all-flash step, 353 (part 1 is 6624), so every runner
+# stops there, well inside the 10,000-step limit the programs carry. Per the
+# earlier notes, a 30 by 30 cavern never flashes all at once with plain tiling
+# (it would run to the limit and fail), and one that does makes `run` take
+# over two minutes.
 [octopus]
 source = "aoc/inputs/2021/day11.txt"
 repeat = 2
