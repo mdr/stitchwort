@@ -1,5 +1,5 @@
 {
-  "next": 2502,
+  "next": 2503,
   "tickets": [
     {
       "id": 47,
@@ -25134,12 +25134,12 @@
     {
       "id": 2497,
       "title": "Compiler: lift closed constant subterms such as Text.toList of a literal to module constants, including after small std functions (Parse.text/pick) are inlined at literal call sites; the general fix for SW-2494 (TextToList runs 3.28 M times on scan, 6.02 M on expressions; measured -5.8%/-3.9% when hoisted by hand). Helps all code, not only parsers",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": "Speedwell",
       "labels": [],
       "epic": "comparative-speed",
-      "body": "From SW-2494's stop report (library-only fix impossible: text/pick have no per-parser value to hold the list) and SW-2492 target 4; parse-runtime.md line ~249 assumed this hoisting; SW-2327's stage B never did it. Design first: where in lowering, purity/termination conditions, code-size limit. 2 h.\n\nStarted 9 Nov 2026 06:27 UTC. Expected: 90 min. Paper lane: design note only (orchestrator's call).\n",
+      "body": "From SW-2494's stop report (library-only fix impossible: text/pick have no per-parser value to hold the list) and SW-2492 target 4; parse-runtime.md line ~249 assumed this hoisting; SW-2327's stage B never did it. Design first: where in lowering, purity/termination conditions, code-size limit. 2 h.\n\nStarted 9 Nov 2026 06:27 UTC. Expected: 90 min. Paper lane: design note only (orchestrator's call).\n\nNote merged 9 Nov 06:44: docs/proposals/constant-hoisting.md. Stages 1a (closures, Sonnet 60), 1b (literal folds, pooled data), 2 (floating pass with 128-cell keep limit, Opus), 4 (unroll pick). Decisions for Matt: D3438 adopt the rule as end state (rec yes), D3439 guide states it (rec yes). Stage 1a filed as SW-2502. Caveat: if operations in place (D3430 reopen) runs clauses where performs are evaluated, stage 2 must not float computations. Model result: Opus, worked, 16 min (est. 90).\n",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
@@ -25192,6 +25192,19 @@
       "labels": [],
       "epic": "comparative-speed",
       "body": "From SW-2493; rare today. 45 min.",
+      "created": "2026-11-09",
+      "updated": "2026-11-09",
+      "commits": []
+    },
+    {
+      "id": 2502,
+      "title": "Constant hoisting stage 1a: each capture-free lambda built once as a shared closure (optional builds nine per start, 159 instructions each); est. expressions -3.5 to -3.9%, scan -2.6 to -3.1%, every program gains",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "comparative-speed",
+      "body": "docs/proposals/constant-hoisting.md stage 1a. Orchestrator's call: 1a can't change results, effect or step counts beyond fewer allocations, so it doesn't wait on D3438/D3439 (stages 1b-2 do). 60 min.",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
