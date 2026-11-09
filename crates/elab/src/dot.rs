@@ -1257,7 +1257,15 @@ fn unknown_member(
         })
         .collect();
     near.sort();
-    let meant = scope::meaning_suggestions(&ns, &field.text, |full| cx.e.scope.get(full).is_some());
+    // A function that exists elsewhere is the better explanation (its own
+    // note below), so a meaning-based guess would only be noise.
+    let explained =
+        elsewhere_taking(cx, field, tried).is_some() || in_scope_taking(cx, field, tried).is_some();
+    let meant = if explained {
+        Vec::new()
+    } else {
+        scope::meaning_suggestions(&ns, &field.text, |full| cx.e.scope.get(full).is_some())
+    };
     if let Some(best) = meant.first() {
         d = d.with_note(format!("did you mean `{best}`?"));
     } else if let Some((_, best)) = near.first() {

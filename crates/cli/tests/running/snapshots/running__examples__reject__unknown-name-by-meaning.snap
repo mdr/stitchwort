@@ -29,14 +29,14 @@ expression: output
     │ 
     │ Note: did you mean `Text.length`?
 ────╯
-[E-UNKNOWN-FIELD] Error: `Char` has no field or function `isDigit`
+[E-UNKNOWN-FIELD] Error: `Char` has no field or function `isLowercase`
     ╭─[ reject/unknown-name-by-meaning.sw:11:20 ]
     │
- 11 │ def d: Bool := 'a'.isDigit
-    │                    ───┬───  
-    │                       ╰───── looked in `Char`
+ 11 │ def d: Bool := 'a'.isLowercase
+    │                    ─────┬─────  
+    │                         ╰─────── looked in `Char`
     │ 
-    │ Note: did you mean `digitValue`?
+    │ Note: did you mean `isAsciiLowercase`?
 ────╯
 [E-UNKNOWN-NAME] Error: no function `isFrobnicated` in `Char`
     ╭─[ reject/unknown-name-by-meaning.sw:12:16 ]

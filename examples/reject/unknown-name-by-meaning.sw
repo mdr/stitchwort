@@ -8,5 +8,5 @@ import Std (Char, List, Map, Text)
 def a: Bool := Char.isLower 'a'
 def b: Nat := List.size [1, 2, 3]
 def c: Nat := Text.len "abc"
-def d: Bool := 'a'.isDigit
+def d: Bool := 'a'.isLowercase
 def e: Bool := Char.isFrobnicated 'a'

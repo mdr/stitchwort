@@ -2924,11 +2924,6 @@ const MEANING_TABLE: &[(&str, &[&str], &[&str])] = &[
     ),
     (
         "Char",
-        &["isDigit", "isNumeric", "isNumber"],
-        &["digitValue"],
-    ),
-    (
-        "Char",
         &["isAlpha", "isLetter", "isAlphabetic"],
         &["isAsciiLetter"],
     ),
@@ -2952,7 +2947,7 @@ const MEANING_TABLE: &[(&str, &[&str], &[&str])] = &[
     ),
     ("List", &["fold", "foldl", "reduce"], &["foldLeft"]),
     ("List", &["foldr"], &["foldRight"]),
-    ("List", &["flatten", "join"], &["concat"]),
+    ("List", &["flatten"], &["concat"]),
     ("List", &["each", "foreach", "for_each"], &["forEach"]),
     ("List", &["first", "car"], &["head"]),
     ("List", &["reversed"], &["reverse"]),
