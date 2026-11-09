@@ -2,12 +2,12 @@
 --| options and pairs.
 
 --| Two maps are one map of the composite.
-theorem Option.mapMap (f: a → b) (g: b → c): (x: Option a) → Option.map (Option.map x f) g = Option.map x (y => g (f y))
+theorem Option.mapMap (f: a → b) (g: b → c): ∀ (x: Option a) => Option.map (Option.map x f) g = Option.map x (y => g (f y))
   | None => rfl
   | Some y => rfl
 
 --| Mapping with the identity changes nothing.
-theorem Option.mapId: (x: Option a) → Option.map x (y => y) = x
+theorem Option.mapId: ∀ (x: Option a) => Option.map x (y => y) = x
   | None => rfl
   | Some y => rfl
 
@@ -15,36 +15,36 @@ theorem Option.mapId: (x: Option a) → Option.map x (y => y) = x
 theorem Option.someInjective [x: a] [y: a] (h: Some x = Some y): x = y := Eq.cong (.getOrElse x) h
 
 --| `map2` with `None` second is `None`.
-theorem Option.map2None (f: a → b → c): (x: Option a) → Option.map2 f x None = None
+theorem Option.map2None (f: a → b → c): ∀ (x: Option a) => Option.map2 f x None = None
   | None => rfl
   | Some x => rfl
 
-theorem Option.map3None2 (f: a → b → c → d) (z: Option c): (x: Option a) → Option.map3 f x None z = None
+theorem Option.map3None2 (f: a → b → c → d) (z: Option c): ∀ (x: Option a) => Option.map3 f x None z = None
   | None => rfl
   | Some x => rfl
 
-theorem Option.map3None3 (f: a → b → c → d): (x: Option a) → (y: Option b) → Option.map3 f x y None = None
+theorem Option.map3None3 (f: a → b → c → d): ∀ (x: Option a) (y: Option b) => Option.map3 f x y None = None
   | None, y => rfl
   | Some x, None => rfl
   | Some x, Some y => rfl
 
-theorem Option.map4None2 (f: a → b → c → d → e) (z: Option c) (w: Option d): (x: Option a) → Option.map4 f x None z w = None
+theorem Option.map4None2 (f: a → b → c → d → e) (z: Option c) (w: Option d): ∀ (x: Option a) => Option.map4 f x None z w = None
   | None => rfl
   | Some x => rfl
 
-theorem Option.map4None3 (f: a → b → c → d → e) (w: Option d): (x: Option a) → (y: Option b) → Option.map4 f x y None w = None
+theorem Option.map4None3 (f: a → b → c → d → e) (w: Option d): ∀ (x: Option a) (y: Option b) => Option.map4 f x y None w = None
   | None, y => rfl
   | Some x, None => rfl
   | Some x, Some y => rfl
 
-theorem Option.map4None4 (f: a → b → c → d → e): (x: Option a) → (y: Option b) → (z: Option c) → Option.map4 f x y z None = None
+theorem Option.map4None4 (f: a → b → c → d → e): ∀ (x: Option a) (y: Option b) (z: Option c) => Option.map4 f x y z None = None
   | None, y, z => rfl
   | Some x, None, z => rfl
   | Some x, Some y, None => rfl
   | Some x, Some y, Some z => rfl
 
 --| `map2` is a `flatMap` then a `map`.
-theorem Option.map2FlatMap (f: a → b → c) (y: Option b): (x: Option a) → Option.map2 f x y = Option.flatMap x (u => Option.map y (f u))
+theorem Option.map2FlatMap (f: a → b → c) (y: Option b): ∀ (x: Option a) => Option.map2 f x y = Option.flatMap x (u => Option.map y (f u))
   | None => rfl
   | Some x =>
     match y with
@@ -52,20 +52,20 @@ theorem Option.map2FlatMap (f: a → b → c) (y: Option b): (x: Option a) → O
       | Some v => rfl
 
 --| A `map` after `map2`, `map3` or `map4` is one of the composite.
-theorem Option.mapMap2 (f: a → b → c) (g: c → r): (x: Option a) → (y: Option b) →
+theorem Option.mapMap2 (f: a → b → c) (g: c → r): ∀ (x: Option a) (y: Option b) =>
     Option.map (Option.map2 f x y) g = Option.map2 (u v => g (f u v)) x y
   | None, y => rfl
   | Some x, None => rfl
   | Some x, Some y => rfl
 
-theorem Option.mapMap3 (f: a → b → c → d) (g: d → r): (x: Option a) → (y: Option b) → (z: Option c) →
+theorem Option.mapMap3 (f: a → b → c → d) (g: d → r): ∀ (x: Option a) (y: Option b) (z: Option c) =>
     Option.map (Option.map3 f x y z) g = Option.map3 (u v w => g (f u v w)) x y z
   | None, y, z => rfl
   | Some x, None, z => rfl
   | Some x, Some y, None => rfl
   | Some x, Some y, Some z => rfl
 
-theorem Option.mapMap4 (f: a → b → c → d → e) (g: e → r): (x: Option a) → (y: Option b) → (z: Option c) → (w: Option d) →
+theorem Option.mapMap4 (f: a → b → c → d → e) (g: e → r): ∀ (x: Option a) (y: Option b) (z: Option c) (w: Option d) =>
     Option.map (Option.map4 f x y z w) g = Option.map4 (u v s t => g (f u v s t)) x y z w
   | None, y, z, w => rfl
   | Some x, None, z, w => rfl
@@ -76,9 +76,9 @@ theorem Option.mapMap4 (f: a → b → c → d → e) (g: e → r): (x: Option a
 --| With defaults for missing values, `map2` is `f` of the values or defaults,
 --| when a default in either place makes `f` give the default result.
 theorem Option.getOrElseMap2 (f: a → b → r) (da: a) (db: b) (d: r)
-    (missing1: (y: b) → f da y = d)
-    (missing2: (x: a) → f x db = d):
-    (x: Option a) → (y: Option b) → Option.getOrElse (Option.map2 f x y) d = f (Option.getOrElse x da) (Option.getOrElse y db)
+    (missing1: ∀ (y: b) => f da y = d)
+    (missing2: ∀ (x: a) => f x db = d):
+    ∀ (x: Option a) (y: Option b) => Option.getOrElse (Option.map2 f x y) d = f (Option.getOrElse x da) (Option.getOrElse y db)
   | None, y => Eq.sym (missing1 _)
   | Some x, None => Eq.sym (missing2 _)
   | Some x, Some y => rfl
@@ -86,10 +86,10 @@ theorem Option.getOrElseMap2 (f: a → b → r) (da: a) (db: b) (d: r)
 --| With defaults for missing values, `map3` is `f` of the values or defaults,
 --| when a default in any place makes `f` give the default result.
 theorem Option.getOrElseMap3 (f: a → b → c → r) (da: a) (db: b) (dc: c) (d: r)
-    (missing1: (y: b) → (z: c) → f da y z = d)
-    (missing2: (x: a) → (z: c) → f x db z = d)
-    (missing3: (x: a) → (y: b) → f x y dc = d):
-    (x: Option a) → (y: Option b) → (z: Option c) →
+    (missing1: ∀ (y: b) (z: c) => f da y z = d)
+    (missing2: ∀ (x: a) (z: c) => f x db z = d)
+    (missing3: ∀ (x: a) (y: b) => f x y dc = d):
+    ∀ (x: Option a) (y: Option b) (z: Option c) =>
     Option.getOrElse (Option.map3 f x y z) d = f (Option.getOrElse x da) (Option.getOrElse y db) (Option.getOrElse z dc)
   | None, y, z => Eq.sym (missing1 _ _)
   | Some x, None, z => Eq.sym (missing2 _ _)
@@ -99,11 +99,11 @@ theorem Option.getOrElseMap3 (f: a → b → c → r) (da: a) (db: b) (dc: c) (d
 --| With defaults for missing values, `map4` is `f` of the values or defaults,
 --| when a default in any place makes `f` give the default result.
 theorem Option.getOrElseMap4 (f: a → b → c → e → r) (da: a) (db: b) (dc: c) (de: e) (d: r)
-    (missing1: (y: b) → (z: c) → (w: e) → f da y z w = d)
-    (missing2: (x: a) → (z: c) → (w: e) → f x db z w = d)
-    (missing3: (x: a) → (y: b) → (w: e) → f x y dc w = d)
-    (missing4: (x: a) → (y: b) → (z: c) → f x y z de = d):
-    (x: Option a) → (y: Option b) → (z: Option c) → (w: Option e) →
+    (missing1: ∀ (y: b) (z: c) (w: e) => f da y z w = d)
+    (missing2: ∀ (x: a) (z: c) (w: e) => f x db z w = d)
+    (missing3: ∀ (x: a) (y: b) (w: e) => f x y dc w = d)
+    (missing4: ∀ (x: a) (y: b) (z: c) => f x y z de = d):
+    ∀ (x: Option a) (y: Option b) (z: Option c) (w: Option e) =>
     Option.getOrElse (Option.map4 f x y z w) d = f (Option.getOrElse x da) (Option.getOrElse y db) (Option.getOrElse z dc) (Option.getOrElse w de)
   | None, y, z, w => Eq.sym (missing1 _ _ _)
   | Some x, None, z, w => Eq.sym (missing2 _ _ _)
@@ -113,7 +113,7 @@ theorem Option.getOrElseMap4 (f: a → b → c → e → r) (da: a) (db: b) (dc:
 
 --| `Option.decEq` on two `Some`s gives the values' answer, wrapped by
 --| `Option.decSome`, so `==` on them is `==` on the values.
-theorem Option.decSomeToBool (x: a) (y: a): (d: Decidable (x = y)) → Decidable.toBool (Option.decSome x y d) = Decidable.toBool d
+theorem Option.decSomeToBool (x: a) (y: a): ∀ (d: Decidable (x = y)) => Decidable.toBool (Option.decSome x y d) = Decidable.toBool d
   | Yes p => rfl
   | No r => rfl
 
@@ -124,11 +124,11 @@ theorem Option.someBeqSomeExample (x: Char): (Some x == Some 'A') = (x == 'A') :
 
 --| `orElse` is `Some v` when the first option is, or when the first is `None`
 --| and the second is.
-theorem Option.orElseEqSome (y: Option a) (v: a): (x: Option a) → Option.orElse x y = Some v → (x = Some v) ∨ ((x = None) ∧ (y = Some v))
+theorem Option.orElseEqSome (y: Option a) (v: a): ∀ (x: Option a) => Option.orElse x y = Some v → (x = Some v) ∨ ((x = None) ∧ (y = Some v))
   | Some w, h => Inl h
   | None, h => Inr (Both rfl h)
 
-theorem Option.orElseNone: (x: Option a) → Option.orElse x None = x
+theorem Option.orElseNone: ∀ (x: Option a) => Option.orElse x None = x
   | Some w => rfl
   | None => rfl
 
@@ -137,24 +137,24 @@ theorem Option.orElseSome (v: a) (y: Option a): Option.orElse (Some v) y = Some 
 theorem Option.noneOrElse (y: Option a): Option.orElse None y = y := rfl
 
 --| If `map f x` is `Some v`, then `x` held some `u` with `f u = v`.
-theorem Option.mapEqSome [goal: Prop]: (x: Option a) → (f: a → b) → (v: b) → Option.map x f = Some v → (cont: (u: a) → x = Some u → f u = v → goal) → goal
+theorem Option.mapEqSome [goal: Prop]: ∀ (x: Option a) (f: a → b) (v: b) => Option.map x f = Some v → ∀ (cont: ∀ (u: a) => x = Some u → f u = v → goal) => goal
   | Some u, f, v, h, use => use u rfl (Option.someInjective h)
   | None, f, v, h, use => Void.exfalso (Option.noneNotSome v h)
 
 --| `map f x` is `None` exactly when `x` is.
-theorem Option.mapEqNone: (x: Option a) → (f: a → b) → Option.map x f = None ↔ x = None
+theorem Option.mapEqNone: ∀ (x: Option a) (f: a → b) => Option.map x f = None ↔ x = None
   | Some u, f => { forward = h => Void.exfalso (Option.someNotNone (f u) h), backward = h => Void.exfalso (Option.someNotNone u h) }
   | None, f => { forward = h => rfl, backward = h => rfl }
 
 theorem Option.mapEqNoneExample (x: Option Nat) (h: Option.map x Succ = None): x = None := (Option.mapEqNone x Succ).forward h
 
 --| If `flatMap f x` is `Some v`, then `x` held some `u` with `f u = Some v`.
-theorem Option.flatMapEqSome [goal: Prop]: (x: Option a) → (f: a → Option b) → (v: b) → Option.flatMap x f = Some v → (cont: (u: a) → x = Some u → f u = Some v → goal) → goal
+theorem Option.flatMapEqSome [goal: Prop]: ∀ (x: Option a) (f: a → Option b) (v: b) => Option.flatMap x f = Some v → ∀ (cont: ∀ (u: a) => x = Some u → f u = Some v → goal) => goal
   | Some u, f, v, h, use => use u rfl h
   | None, f, v, h, use => Void.exfalso (Option.noneNotSome v h)
 
 --| If `filter p x` is `Some v`, then `x` is `Some v` and `p v` holds.
-theorem Option.filterEqSome: (x: Option a) → (p: a → Bool) → [v: a] → Option.filter x p = Some v → (x = Some v) ∧ (p v = True)
+theorem Option.filterEqSome: ∀ (x: Option a) (p: a → Bool) [v: a] => Option.filter x p = Some v → (x = Some v) ∧ (p v = True)
   | Some u, p, h =>
     match e: p u with
       | True => Both h (Eq.trans (Eq.cong p (Eq.sym (Option.someInjective h))) e)
@@ -162,7 +162,7 @@ theorem Option.filterEqSome: (x: Option a) → (p: a → Bool) → [v: a] → Op
   | None, p, h => Void.exfalso (Option.noneNotSome v h)
 
 --| What `filter` drops: nothing, or something that failed the test.
-theorem Option.filterEqNone: (x: Option a) → (p: a → Bool) → Option.filter x p = None → (x = None) ∨ (∃ (v: a) => (x = Some v) ∧ (p v = False))
+theorem Option.filterEqNone: ∀ (x: Option a) (p: a → Bool) => Option.filter x p = None → (x = None) ∨ (∃ (v: a) => (x = Some v) ∧ (p v = False))
   | None, p, h => Inl rfl
   | Some u, p, h =>
     match e: p u with
@@ -170,17 +170,15 @@ theorem Option.filterEqNone: (x: Option a) → (p: a → Bool) → Option.filter
       | False => Inr (Witness u (Both rfl e))
 
 --| `orElse` of an option with itself is the option.
-theorem Option.orElseSelf: (x: Option a) → Option.orElse x x = x
+theorem Option.orElseSelf: ∀ (x: Option a) => Option.orElse x x = x
   | Some w => rfl
   | None => rfl
 
 --| If `alignWith` is `Some v`, `v` came from one of the three arms: the left
 --| value alone, the right alone, or both.
 theorem Option.alignWithEqSome [goal: Prop] (left: a → c) (right: b → c) (both: a → b → c) (v: c):
-    (x: Option a) → (y: Option b) → Option.alignWith x y left right both = Some v
-      → (onLeft: (u: a) → x = Some u → y = None → left u = v → goal)
-      → (onRight: (w: b) → x = None → y = Some w → right w = v → goal)
-      → (onBoth: (u: a) → (w: b) → x = Some u → y = Some w → both u w = v → goal) → goal
+    ∀ (x: Option a) (y: Option b) => Option.alignWith x y left right both = Some v
+      → ∀ (onLeft: ∀ (u: a) => x = Some u → y = None → left u = v → goal) (onRight: ∀ (w: b) => x = None → y = Some w → right w = v → goal) (onBoth: ∀ (u: a) (w: b) => x = Some u → y = Some w → both u w = v → goal) => goal
   | Some u, Some w, h, onLeft, onRight, onBoth => onBoth u w rfl rfl (Option.someInjective h)
   | Some u, None, h, onLeft, onRight, onBoth => onLeft u rfl rfl (Option.someInjective h)
   | None, Some w, h, onLeft, onRight, onBoth => onRight w rfl rfl (Option.someInjective h)
@@ -188,7 +186,7 @@ theorem Option.alignWithEqSome [goal: Prop] (left: a → c) (right: b → c) (bo
 
 --| A property each arm of `alignWith` gives, its result has.
 theorem Option.alignWithHolds (q: c → Prop) (left: a → c) (right: b → c) (both: a → b → c)
-    (onLeft: (u: a) → q (left u)) (onRight: (w: b) → q (right w)) (onBoth: (u: a) → (w: b) → q (both u w))
+    (onLeft: ∀ (u: a) => q (left u)) (onRight: ∀ (w: b) => q (right w)) (onBoth: ∀ (u: a) (w: b) => q (both u w))
     (x: Option a) (y: Option b) (v: c) (h: Option.alignWith x y left right both = Some v): q v :=
   Option.alignWithEqSome [goal := q v] left right both v x y h
     (u ex ey e => rewrite <- e in onLeft u)
@@ -197,7 +195,7 @@ theorem Option.alignWithHolds (q: c → Prop) (left: a → c) (right: b → c) (
 
 --| `alignWith` is `None` exactly when both options are.
 theorem Option.alignWithEqNone (left: a → c) (right: b → c) (both: a → b → c):
-    (x: Option a) → (y: Option b) → Option.alignWith x y left right both = None ↔ (x = None) ∧ (y = None)
+    ∀ (x: Option a) (y: Option b) => Option.alignWith x y left right both = None ↔ (x = None) ∧ (y = None)
   | Some u, Some w => { forward = h => Void.exfalso (Option.someNotNone (both u w) h), backward = h => Void.exfalso (Option.someNotNone u (And.left h)) }
   | Some u, None => { forward = h => Void.exfalso (Option.someNotNone (left u) h), backward = h => Void.exfalso (Option.someNotNone u (And.left h)) }
   | None, Some w => { forward = h => Void.exfalso (Option.someNotNone (right w) h), backward = h => Void.exfalso (Option.someNotNone w (And.right h)) }

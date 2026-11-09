@@ -61,12 +61,12 @@ def Nat.equal: (m: Nat) → (n: Nat) → Bool
   | Succ m, Zero => False
   | Succ m, Succ n => Nat.equal m n
 
-theorem Nat.equalRefl: (n: Nat) → Nat.equal n n = True
+theorem Nat.equalRefl: ∀ (n: Nat) => Nat.equal n n = True
   | Zero => rfl
   | Succ n => Nat.equalRefl n
 
 --| Numbers that [`Nat.equal`] says are equal are equal.
-theorem Nat.equalSound: (m: Nat) → (n: Nat) → Nat.equal m n = True → m = n
+theorem Nat.equalSound: ∀ (m n: Nat) => Nat.equal m n = True → m = n
   | Zero, Zero, h => rfl
   | Zero, Succ n, h => Void.exfalso (Bool.falseNotTrue h)
   | Succ m, Zero, h => Void.exfalso (Bool.falseNotTrue h)

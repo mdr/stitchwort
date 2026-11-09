@@ -3,7 +3,7 @@
 -- Kept out of Map.sw because the proof needs `omega`.
 
 --| No position below `s` is numbered from `s`.
-theorem Map.lookupLastBelow (k: Nat): (s: Nat) → (xs: List a) → k < s → Map.lookupLast k (List.withIndexFrom s xs) = None
+theorem Map.lookupLastBelow (k: Nat): ∀ (s: Nat) (xs: List a) => k < s → Map.lookupLast k (List.withIndexFrom s xs) = None
   | s, [], h => rfl
   | s, [x, ..xs], h =>
     rewrite Map.lookupLastBelow k (Succ s) xs (omega) in
@@ -13,7 +13,7 @@ theorem Map.lookupLastBelow (k: Nat): (s: Nat) → (xs: List a) → k < s → Ma
         | Greater => rfl
 
 --| Position s + i of the elements numbered from s is element i.
-theorem Map.lookupLastWithIndex (d: a): (s: Nat) → (i: Nat) → (xs: List a) →
+theorem Map.lookupLastWithIndex (d: a): ∀ (s i: Nat) (xs: List a) =>
     Option.getOrElse (Map.lookupLast (s + i) (List.withIndexFrom s xs)) d = List.getOr xs i d
   | s, i, [] => rfl
   | s, Zero, [x, ..xs] =>
@@ -37,7 +37,7 @@ theorem Map.getOrByPosition (xs: List a) (i: Nat) (d: a): Map.getOr (Map.byPosit
 
 --| Position s + i of the elements numbered from s is element i, if there is
 --| one; past the end both are `None`.
-theorem Map.lookupLastWithIndexGet: (s: Nat) → (i: Nat) → (xs: List a) →
+theorem Map.lookupLastWithIndexGet: ∀ (s i: Nat) (xs: List a) =>
     Map.lookupLast (s + i) (List.withIndexFrom s xs) = List.get xs i
   | s, i, [] => rfl
   | s, Zero, [x, ..xs] =>

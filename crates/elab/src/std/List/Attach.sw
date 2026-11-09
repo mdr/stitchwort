@@ -12,7 +12,7 @@ type List.Member (a: Type) (xs: List a) = { value: a, isIn: List.Mem value xs }
 
 --| The elements of `rest`, a part of `whole`, as members of `whole`: `sub`
 --| says that what is in `rest` is in `whole`. One pass, structural.
-def List.attachFrom (whole: List a): (rest: List a) → (sub: (x: a) → List.Mem x rest → List.Mem x whole) → List (List.Member a whole)
+def List.attachFrom (whole: List a): (rest: List a) → (sub: ∀ (x: a) => List.Mem x rest → List.Mem x whole) → List (List.Member a whole)
   | [], sub => []
   | [x, ..xs], sub => [{ value = x, isIn = sub x (Inl rfl) }, ..List.attachFrom whole xs (y h => sub y (Inr h))]
 
@@ -28,7 +28,7 @@ theorem List.attachExample: List.map (List.attach [3, 1, 2]) (e => e.value) = [3
 -- an `attachFrom`, not `attach xs`.
 
 --| Dropping the proofs gives back the list.
-theorem List.attachFromValues (whole: List a): (rest: List a) → (sub: (x: a) → List.Mem x rest → List.Mem x whole) →
+theorem List.attachFromValues (whole: List a): ∀ (rest: List a) (sub: ∀ (x: a) => List.Mem x rest → List.Mem x whole) =>
     List.map (List.attachFrom whole rest sub) (e => e.value) = rest
   | [], sub => rfl
   | [x, ..xs], sub => Eq.cong (Cons x) (List.attachFromValues whole xs (y h => sub y (Inr h)))
@@ -37,7 +37,7 @@ theorem List.attachValues (xs: List a): List.map (List.attach xs) (e => e.value)
 
 --| A sum over the attached list that only looks at the values is the sum over
 --| the list.
-theorem List.sumByAttachFrom [auto add: Add b] (whole: List a) (rest: List a) (f: a → b) (sub: (x: a) → List.Mem x rest → List.Mem x whole):
+theorem List.sumByAttachFrom [auto add: Add b] (whole: List a) (rest: List a) (f: a → b) (sub: ∀ (x: a) => List.Mem x rest → List.Mem x whole):
     List.sumBy (List.attachFrom whole rest sub) (e => f e.value) = List.sumBy rest f :=
   Eq.trans (Eq.sym (List.sumByMap (List.attachFrom whole rest sub) f (e => e.value)))
     (Eq.cong (.sumBy f) (List.attachFromValues whole rest sub))

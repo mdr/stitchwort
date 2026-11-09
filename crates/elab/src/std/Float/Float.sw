@@ -63,8 +63,8 @@ def Float.isNaN (x: Float): Bool := Nat.equal x.bits 9221120237041090560
 --| Bit extensionality: two `Float`s with the same bits are equal, whatever
 --| their `valid` proofs (proofs of a `Bool` equation are unique).
 theorem Float.mkExt (a: Nat) (b: Nat) (p: Float.isValid a = True) (e: a = b):
-    (q: Float.isValid b = True) → ({ bits = a, valid = p }: Float) = { bits = b, valid = q } :=
-  J (b' e' => (q': Float.isValid b' = True) → ({ bits = a, valid = p }: Float) = { bits = b', valid = q' })
+    ∀ (q: Float.isValid b = True) => ({ bits = a, valid = p }: Float) = { bits = b, valid = q } :=
+  J (b' e' => ∀ (q': Float.isValid b' = True) => ({ bits = a, valid = p }: Float) = { bits = b', valid = q' })
     (q' => J (r e'' => ({ bits = a, valid = p }: Float) = { bits = a, valid = r }) rfl
       (Bool.uniqueEq (Float.isValid a) True p q'))
     e
@@ -145,7 +145,7 @@ theorem Float.flipLow (m: Nat) (h: Nat.leq 9223372036854775808 m = False):
 --| Flipping the sign of a valid pattern other than the NaN gives a valid
 --| pattern, and not the NaN; flipping it twice gives it back.
 theorem Float.flipValidFrom (n: Nat) (v: Float.isValid n = True) (e: Nat.equal n 9221120237041090560 = False):
-    (b: Bool) → Nat.leq 9223372036854775808 n = b
+    ∀ (b: Bool) => Nat.leq 9223372036854775808 n = b
       → Float.isValid (if b then n - 9223372036854775808 else n + 9223372036854775808) = True
   | True, hk => Float.validLow (n - 9223372036854775808) (omega [Float.highBound n v hk])
   | False, hk => Float.validHigh (n + 9223372036854775808) omega (omega [Float.lowBound n v e hk])
@@ -155,7 +155,7 @@ theorem Float.flipValid (n: Nat) (v: Float.isValid n = True) (e: Nat.equal n 922
   Float.flipValidFrom n v e (Nat.leq 9223372036854775808 n) rfl
 
 theorem Float.flipNotNaNFrom (n: Nat) (v: Float.isValid n = True):
-    (b: Bool) → Nat.leq 9223372036854775808 n = b
+    ∀ (b: Bool) => Nat.leq 9223372036854775808 n = b
       → Nat.equal (if b then n - 9223372036854775808 else n + 9223372036854775808) 9221120237041090560 = False
   | True, hk =>
     Bool.falseOfNotTrue (Nat.equal (n - 9223372036854775808) 9221120237041090560)
@@ -168,7 +168,7 @@ theorem Float.flipNotNaN (n: Nat) (v: Float.isValid n = True):
   Float.flipNotNaNFrom n v (Nat.leq 9223372036854775808 n) rfl
 
 theorem Float.flipFlipFrom (n: Nat) (v: Float.isValid n = True):
-    (b: Bool) → Nat.leq 9223372036854775808 n = b
+    ∀ (b: Bool) => Nat.leq 9223372036854775808 n = b
       → Float.flipSignBits (if b then n - 9223372036854775808 else n + 9223372036854775808) = n
   | True, hk => rewrite Float.flipLow (n - 9223372036854775808) (omega [Float.highBound n v hk]) in omega
   | False, hk => rewrite Float.flipHigh (n + 9223372036854775808) omega in omega
@@ -179,7 +179,7 @@ theorem Float.flipFlip (n: Nat) (v: Float.isValid n = True): Float.flipSignBits 
 --| Clearing the sign of a valid pattern gives a valid pattern (the NaN's
 --| sign is clear already).
 theorem Float.clearValidFrom (n: Nat) (v: Float.isValid n = True):
-    (b: Bool) → Nat.leq 9223372036854775808 n = b
+    ∀ (b: Bool) => Nat.leq 9223372036854775808 n = b
       → Float.isValid (if b then n - 9223372036854775808 else n) = True
   | True, hk => Float.validLow (n - 9223372036854775808) (omega [Float.highBound n v hk])
   | False, hk => v
@@ -200,14 +200,14 @@ def Float.neg (x: Float): Float := Float.negFrom x (Float.isNaN x) rfl
 def Float.abs (x: Float): Float := Float.make (Float.clearSignBits x.bits) (Float.clearValid x.bits x.valid)
 
 theorem Float.negNegSecond (x: Float) (e: Float.isNaN x = False):
-    (c: Bool) → (e2: Float.isNaN (Float.make (Float.flipSignBits x.bits) (Float.flipValid x.bits x.valid e)) = c)
-      → Float.negFrom (Float.make (Float.flipSignBits x.bits) (Float.flipValid x.bits x.valid e)) c e2 = x
+    ∀ (c: Bool) (e2: Float.isNaN (Float.make (Float.flipSignBits x.bits) (Float.flipValid x.bits x.valid e)) = c)
+      => Float.negFrom (Float.make (Float.flipSignBits x.bits) (Float.flipValid x.bits x.valid e)) c e2 = x
   | True, e2 => Void.exfalso (Bool.falseNotTrue (Eq.trans (Eq.sym (Float.flipNotNaN x.bits x.valid)) e2))
   | False, e2 =>
     Float.bitsExt (Float.negFrom (Float.make (Float.flipSignBits x.bits) (Float.flipValid x.bits x.valid e)) False e2) x
       (Float.flipFlip x.bits x.valid)
 
-theorem Float.negNegFrom (x: Float): (b: Bool) → (e: Float.isNaN x = b) → Float.neg (Float.negFrom x b e) = x
+theorem Float.negNegFrom (x: Float): ∀ (b: Bool) (e: Float.isNaN x = b) => Float.neg (Float.negFrom x b e) = x
   | True, e => Float.bitsExt Float.nan x (Eq.sym (Nat.equalSound x.bits 9221120237041090560 e))
   | False, e =>
     Float.negNegSecond x e
@@ -287,7 +287,7 @@ def Float.keyOf (n: Nat) (negative: Bool): Int :=
 def Float.orderKey (x: Float): Int := Float.keyOf x.bits (Nat.leq 9223372036854775808 x.bits)
 
 theorem Float.keyOfInjective (a: Nat) (b: Nat):
-    (p: Bool) → Nat.leq 9223372036854775808 a = p → (q: Bool) → Nat.leq 9223372036854775808 b = q
+    ∀ (p: Bool) => Nat.leq 9223372036854775808 a = p → ∀ (q: Bool) => Nat.leq 9223372036854775808 b = q
       → Float.keyOf a p = Float.keyOf b q → a = b
   | True, hp, True, hq, e =>
     omega [Int.negSuccInjective e]
@@ -365,14 +365,14 @@ def Float.ieeeLe (x: Float) (y: Float): Bool :=
   ¬(Float.isNaN x) ∧ ¬(Float.isNaN y)
     ∧ ((Float.isZero x ∧ Float.isZero y) ∨ Int.leq (Float.orderKey x) (Float.orderKey y))
 
-theorem Float.keyLessLeq: (i: Int) → (j: Int) → Int.less i j = True → Int.leq i j = True
+theorem Float.keyLessLeq: ∀ (i j: Int) => Int.less i j = True → Int.leq i j = True
   | OfNat m, OfNat n, h => omega
   | OfNat m, NegSucc n, h => Void.exfalso (Bool.falseNotTrue h)
   | NegSucc m, OfNat n, h => rfl
   | NegSucc m, NegSucc n, h => omega
 
-theorem Float.ltLeBools: (a: Bool) → (b: Bool) → (c: Bool) → (i: Int) → (j: Int)
-    → (a ∧ b ∧ ¬c ∧ Int.less i j) = True → (a ∧ b ∧ (c ∨ Int.leq i j)) = True
+theorem Float.ltLeBools: ∀ (a b c: Bool) (i j: Int)
+    => (a ∧ b ∧ ¬c ∧ Int.less i j) = True → (a ∧ b ∧ (c ∨ Int.leq i j)) = True
   | True, True, False, i, j, h => Float.keyLessLeq i j h
   | True, True, True, i, j, h => rfl
   | True, False, c, i, j, h => Void.exfalso (Bool.falseNotTrue h)
@@ -402,7 +402,7 @@ theorem Float.ieeeRankZeros: Float.ieeeRank 0.0 = Float.ieeeRank (-0.0) := rfl
 
 theorem Float.ieeeRankExample: Float.ieeeRank (-Float.infinity) = 0 := rfl
 
-theorem Float.notTrueFalse: (b: Bool) → (¬b) = True → b = False
+theorem Float.notTrueFalse: ∀ (b: Bool) => (¬b) = True → b = False
   | True, h => Void.exfalso (Bool.falseNotTrue h)
   | False, h => rfl
 
@@ -415,7 +415,7 @@ theorem Float.rankZero (n: Nat) (z: (Nat.equal n 0 ∨ Nat.equal n 9223372036854
 
 --| The ranks, from the order keys `ieeeLe` and `ieeeLt` compare, and back.
 theorem Float.rankLeOfKeys (m: Nat) (n: Nat):
-    (p: Bool) → Nat.leq 9223372036854775808 m = p → (q: Bool) → Nat.leq 9223372036854775808 n = q
+    ∀ (p: Bool) => Nat.leq 9223372036854775808 m = p → ∀ (q: Bool) => Nat.leq 9223372036854775808 n = q
       → Int.leq (Float.keyOf m p) (Float.keyOf n q) = True → Float.rankOf m p ≤ Float.rankOf n q
   | True, hp, True, hq, h => omega
   | True, hp, False, hq, h => omega
@@ -424,7 +424,7 @@ theorem Float.rankLeOfKeys (m: Nat) (n: Nat):
 
 theorem Float.rankLtOfKeys (m: Nat) (n: Nat) (vm: Float.isValid m = True)
     (z: ((Nat.equal m 0 ∨ Nat.equal m 9223372036854775808) ∧ (Nat.equal n 0 ∨ Nat.equal n 9223372036854775808)) = False):
-    (p: Bool) → Nat.leq 9223372036854775808 m = p → (q: Bool) → Nat.leq 9223372036854775808 n = q
+    ∀ (p: Bool) => Nat.leq 9223372036854775808 m = p → ∀ (q: Bool) => Nat.leq 9223372036854775808 n = q
       → Int.less (Float.keyOf m p) (Float.keyOf n q) = True → Float.rankOf m p < Float.rankOf n q
   | True, hp, True, hq, h => omega [Float.highBound m vm hp]
   | True, hp, False, hq, h =>
@@ -440,7 +440,7 @@ theorem Float.rankLtOfKeys (m: Nat) (n: Nat) (vm: Float.isValid m = True)
   | False, hp, False, hq, h => omega
 
 theorem Float.keysOfRankLe (m: Nat) (n: Nat) (vm: Float.isValid m = True) (vn: Float.isValid n = True):
-    (p: Bool) → Nat.leq 9223372036854775808 m = p → (q: Bool) → Nat.leq 9223372036854775808 n = q
+    ∀ (p: Bool) => Nat.leq 9223372036854775808 m = p → ∀ (q: Bool) => Nat.leq 9223372036854775808 n = q
       → Float.rankOf m p ≤ Float.rankOf n q
       → (((Nat.equal m 0 ∨ Nat.equal m 9223372036854775808) ∧ (Nat.equal n 0 ∨ Nat.equal n 9223372036854775808))
         ∨ Int.leq (Float.keyOf m p) (Float.keyOf n q)) = True
@@ -456,7 +456,7 @@ theorem Float.keysOfRankLe (m: Nat) (n: Nat) (vm: Float.isValid m = True) (vn: F
     Bool.orRight omega
 
 theorem Float.keysOfRankLt (m: Nat) (n: Nat) (vm: Float.isValid m = True) (vn: Float.isValid n = True):
-    (p: Bool) → Nat.leq 9223372036854775808 m = p → (q: Bool) → Nat.leq 9223372036854775808 n = q
+    ∀ (p: Bool) => Nat.leq 9223372036854775808 m = p → ∀ (q: Bool) => Nat.leq 9223372036854775808 n = q
       → Float.rankOf m p < Float.rankOf n q
       → (¬((Nat.equal m 0 ∨ Nat.equal m 9223372036854775808) ∧ (Nat.equal n 0 ∨ Nat.equal n 9223372036854775808))
         ∧ Int.less (Float.keyOf m p) (Float.keyOf n q)) = True

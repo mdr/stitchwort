@@ -146,7 +146,7 @@ def List.chain: (xs: List a) → (holds: a → a → Bool) → Bool
   | [x, next, ..rest], holds => holds x next ∧ List.chain [next, ..rest] holds
 
 --| Tests that agree on every pair give the same answer.
-theorem List.chainCong: (xs: List a) → (holds1: a → a → Bool) → (holds2: a → a → Bool) → ((x: a) → (y: a) → holds1 x y = holds2 x y) →
+theorem List.chainCong: ∀ (xs: List a) (holds1 holds2: a → a → Bool) => (∀ (x y: a) => holds1 x y = holds2 x y) →
     List.chain xs holds1 = List.chain xs holds2
   | [], holds1, holds2, eh => rfl
   | [x], holds1, holds2, eh => rfl
@@ -419,7 +419,7 @@ def List.occurrences: (xs: List a) → (p: a → Bool) → Nat
 --| this is the usual meaning (test with `Nat.equal v` for each `v`). Counting
 --| turns the proofs into arithmetic, and needs no equality on the elements.
 --| Permutations are as long as each other ([`List.permLength`]).
-def List.Perm (xs: List a) (ys: List a): Prop := (p: a → Bool) → List.occurrences xs p = List.occurrences ys p
+def List.Perm (xs: List a) (ys: List a): Prop := ∀ (p: a → Bool) => List.occurrences xs p = List.occurrences ys p
 
 --| `s` is `xs` with some elements left out, the rest kept in order: each
 --| element of `s` is matched with an element of `xs`, or `xs`'s first element
@@ -435,39 +435,39 @@ def List.Subsequence: (xs: List a) → (ys: List a) → Prop
 --| `F`'s parameters in order, each callback twice, then `(x…) -> f1 x… = f2 x…`
 --| for each.
 -- (docs/proposals/well-founded-recursion.md, stage 3a)
-theorem List.mapCong: (xs: List a) → (f1: a → b) → (f2: a → b) → ((x: a) → f1 x = f2 x) → List.map xs f1 = List.map xs f2
+theorem List.mapCong: ∀ (xs: List a) (f1 f2: a → b) => (∀ (x: a) => f1 x = f2 x) → List.map xs f1 = List.map xs f2
   | [], f1, f2, ef => rfl
   | [x, ..xs], f1, f2, ef => Eq.trans (Eq.cong (y => [y, ..List.map xs f1]) (ef x)) (Eq.cong (ys => [f2 x, ..ys]) (List.mapCong xs f1 f2 ef))
 
-theorem List.filterMapCong: (xs: List a) → (f1: a → Option b) → (f2: a → Option b) → ((x: a) → f1 x = f2 x) → List.filterMap xs f1 = List.filterMap xs f2
+theorem List.filterMapCong: ∀ (xs: List a) (f1 f2: a → Option b) => (∀ (x: a) => f1 x = f2 x) → List.filterMap xs f1 = List.filterMap xs f2
   | [], f1, f2, ef => rfl
   | [x, ..xs], f1, f2, ef => rewrite ef x, List.filterMapCong xs f1 f2 ef
 
-theorem List.findCong: (xs: List a) → (p1: a → Bool) → (p2: a → Bool) → ((x: a) → p1 x = p2 x) → List.find xs p1 = List.find xs p2
+theorem List.findCong: ∀ (xs: List a) (p1 p2: a → Bool) => (∀ (x: a) => p1 x = p2 x) → List.find xs p1 = List.find xs p2
   | [], p1, p2, ep => rfl
   | [x, ..xs], p1, p2, ep => rewrite ep x, List.findCong xs p1 p2 ep
 
-theorem List.anyCong: (xs: List a) → (p1: a → Bool) → (p2: a → Bool) → ((x: a) → p1 x = p2 x) → List.any xs p1 = List.any xs p2
+theorem List.anyCong: ∀ (xs: List a) (p1 p2: a → Bool) => (∀ (x: a) => p1 x = p2 x) → List.any xs p1 = List.any xs p2
   | [], p1, p2, ep => rfl
   | [x, ..xs], p1, p2, ep => rewrite ep x, List.anyCong xs p1 p2 ep
 
-theorem List.allCong: (xs: List a) → (p1: a → Bool) → (p2: a → Bool) → ((x: a) → p1 x = p2 x) → List.all xs p1 = List.all xs p2
+theorem List.allCong: ∀ (xs: List a) (p1 p2: a → Bool) => (∀ (x: a) => p1 x = p2 x) → List.all xs p1 = List.all xs p2
   | [], p1, p2, ep => rfl
   | [x, ..xs], p1, p2, ep => rewrite ep x, List.allCong xs p1 p2 ep
 
-theorem List.occurrencesCong: (xs: List a) → (p1: a → Bool) → (p2: a → Bool) → ((x: a) → p1 x = p2 x) →
+theorem List.occurrencesCong: ∀ (xs: List a) (p1 p2: a → Bool) => (∀ (x: a) => p1 x = p2 x) →
     List.occurrences xs p1 = List.occurrences xs p2
   | [], p1, p2, ep => rfl
   | [x, ..xs], p1, p2, ep =>
     Eq.trans (Eq.cong (b => Bool.toNat b + List.occurrences xs p1) (ep x))
       (Eq.cong (n => Bool.toNat (p2 x) + n) (List.occurrencesCong xs p1 p2 ep))
 
-theorem List.foldLeftCong: (xs: List a) → (z: b) → (f1: b → a → b) → (f2: b → a → b) → ((acc: b) → (x: a) → f1 acc x = f2 acc x) →
+theorem List.foldLeftCong: ∀ (xs: List a) (z: b) (f1 f2: b → a → b) => (∀ (acc: b) (x: a) => f1 acc x = f2 acc x) →
     List.foldLeft xs z f1 = List.foldLeft xs z f2
   | [], z, f1, f2, ef => rfl
   | [x, ..xs], z, f1, f2, ef => Eq.trans (Eq.cong (t => List.foldLeft xs t f1) (ef z x)) (List.foldLeftCong xs (f2 z x) f1 f2 ef)
 
-theorem List.sumByCong [auto add: Add b] (xs: List a) (f1: a → b) (f2: a → b) (ef: (x: a) → f1 x = f2 x): List.sumBy xs f1 = List.sumBy xs f2 :=
+theorem List.sumByCong [auto add: Add b] (xs: List a) (f1: a → b) (f2: a → b) (ef: ∀ (x: a) => f1 x = f2 x): List.sumBy xs f1 = List.sumBy xs f2 :=
   List.foldLeftCong xs Add.zero (acc x => acc + f1 x) (acc x => acc + f2 x) (acc x => Eq.cong (t => acc + t) (ef x))
 
 --| Decides `x ∈ xs` one element at a time from the front, so `x ∈ xs` is a
@@ -502,7 +502,7 @@ test "List.decDistinct" := List.Distinct [1, 2, 3] ∧ ¬(List.Distinct [1, 2, 1
 
 --| The run `List.rangeFrom c s` holds the numbers from `s` up to, not
 --| including, `s + c`.
-theorem List.memRangeFrom (x: Nat): (c: Nat) → (s: Nat) → x ∈ List.rangeFrom c s → s ≤ x < s + c
+theorem List.memRangeFrom (x: Nat): ∀ (c s: Nat) => x ∈ List.rangeFrom c s → s ≤ x < s + c
   | Zero, s, h => Void.exfalso h
   | Succ c, s, Inl q => rewrite <- q in Both (Nat.leRefl s) (Nat.ltAddSuccSelf s c)
   | Succ c, s, Inr m =>
@@ -511,7 +511,7 @@ theorem List.memRangeFrom (x: Nat): (c: Nat) → (s: Nat) → x ∈ List.rangeFr
 
 --| Every number from `s` up to, not including, `s + c` is in
 --| the run `List.rangeFrom c s`.
-theorem List.memRangeFromIntro (x: Nat): (c: Nat) → (s: Nat) → s ≤ x → x < s + c → x ∈ List.rangeFrom c s
+theorem List.memRangeFromIntro (x: Nat): ∀ (c s: Nat) => s ≤ x → x < s + c → x ∈ List.rangeFrom c s
   | Zero, s, lo, hi => Void.exfalso (Nat.lessIrrefl x (Nat.leTrans (Succ x) s x (Nat.ltCongRight x (s + 0) s (Nat.addZero s) hi) lo))
   | Succ c, s, lo, hi =>
     match e: Nat.leq (Succ s) x with
@@ -565,13 +565,13 @@ def List.mapAccumLeft (xs: List a) (initial: s) (f: s → a → Pair s b): Pair 
 def List.unzip (ps: List (Pair a b)): Pair (List a) (List b) := MkPair (List.map ps Pair.fst) (List.map ps Pair.snd)
 
 --| Dropping elements never makes a list longer.
-theorem List.lengthDropLe: (xs: List a) → (n: Nat) → List.length (List.drop xs n) ≤ List.length xs
+theorem List.lengthDropLe: ∀ (xs: List a) (n: Nat) => List.length (List.drop xs n) ≤ List.length xs
   | xs, Zero => Nat.leRefl (List.length xs)
   | [], Succ n => rfl
   | [x, ..xs], Succ n => Nat.leTrans (List.length (List.drop xs n)) (List.length xs) (Succ (List.length xs)) (List.lengthDropLe xs n) (Nat.leSucc (List.length xs))
 
 --| Dropping at least one element of a non-empty list leaves a shorter list.
-theorem List.dropConsLess: (xs: List a) → (n: Nat) → (x: a) → n ≠ 0 → List.length (List.drop [x, ..xs] n) < List.length [x, ..xs]
+theorem List.dropConsLess: ∀ (xs: List a) (n: Nat) (x: a) => n ≠ 0 → List.length (List.drop [x, ..xs] n) < List.length [x, ..xs]
   | xs, Zero, x, h => Void.exfalso (h rfl)
   | xs, Succ n, x, h => Nat.leLessSucc (List.length (List.drop xs n)) (List.length xs) (List.lengthDropLe xs n)
 
@@ -793,11 +793,11 @@ def List.flatMap: (xs: List a) → (f: a → {e} List b) → {e} List b
     List.append ys (List.flatMap rest f)
 
 --| `flatMap` is `concat` of `map`.
-theorem List.flatMapEqConcatMap (f: a → List b): (xs: List a) → List.flatMap xs f = List.concat (List.map xs f)
+theorem List.flatMapEqConcatMap (f: a → List b): ∀ (xs: List a) => List.flatMap xs f = List.concat (List.map xs f)
   | [] => rfl
   | [x, ..rest] => Eq.cong (ys => List.append (f x) ys) (List.flatMapEqConcatMap f rest)
 
-theorem List.flatMapCong (xs: List a) (f1: a → List b) (f2: a → List b) (ef: (x: a) → f1 x = f2 x): List.flatMap xs f1 = List.flatMap xs f2 :=
+theorem List.flatMapCong (xs: List a) (f1: a → List b) (f2: a → List b) (ef: ∀ (x: a) => f1 x = f2 x): List.flatMap xs f1 = List.flatMap xs f2 :=
   Eq.trans (List.flatMapEqConcatMap f1 xs) (Eq.trans (Eq.cong List.concat (List.mapCong xs f1 f2 ef)) (Eq.sym (List.flatMapEqConcatMap f2 xs)))
 
 --| Every pair, the first elements in order and the second elements within each:
@@ -860,34 +860,34 @@ test "List.cross" := [1, 2].cross ["a", "b"] == [MkPair 1 "a", MkPair 1 "b", MkP
 
 --| Callbacks that agree on the list's elements (not everywhere, as for
 --| [`List.mapCong`]) give the same result.
-theorem List.mapCongMem: (xs: List a) → (f1: a → b) → (f2: a → b) → ((x: a) → (m: x ∈ xs) → f1 x = f2 x) → List.map xs f1 = List.map xs f2
+theorem List.mapCongMem: ∀ (xs: List a) (f1 f2: a → b) => (∀ (x: a) (m: x ∈ xs) => f1 x = f2 x) → List.map xs f1 = List.map xs f2
   | [], f1, f2, ef => rfl
   | [x, ..xs], f1, f2, ef => rewrite ef x (Inl rfl), List.mapCongMem xs f1 f2 (y m => ef y (Inr m))
 
-theorem List.filterCongMem: (xs: List a) → (p1: a → Bool) → (p2: a → Bool) → ((x: a) → (m: x ∈ xs) → p1 x = p2 x) → List.filter xs p1 = List.filter xs p2
+theorem List.filterCongMem: ∀ (xs: List a) (p1 p2: a → Bool) => (∀ (x: a) (m: x ∈ xs) => p1 x = p2 x) → List.filter xs p1 = List.filter xs p2
   | [], p1, p2, ep => rfl
   | [x, ..xs], p1, p2, ep => rewrite ep x (Inl rfl), List.filterCongMem xs p1 p2 (y m => ep y (Inr m))
 
-theorem List.anyCongMem: (xs: List a) → (p1: a → Bool) → (p2: a → Bool) → ((x: a) → (m: x ∈ xs) → p1 x = p2 x) → List.any xs p1 = List.any xs p2
+theorem List.anyCongMem: ∀ (xs: List a) (p1 p2: a → Bool) => (∀ (x: a) (m: x ∈ xs) => p1 x = p2 x) → List.any xs p1 = List.any xs p2
   | [], p1, p2, ep => rfl
   | [x, ..xs], p1, p2, ep => rewrite ep x (Inl rfl), List.anyCongMem xs p1 p2 (y m => ep y (Inr m))
 
-theorem List.allCongMem: (xs: List a) → (p1: a → Bool) → (p2: a → Bool) → ((x: a) → (m: x ∈ xs) → p1 x = p2 x) → List.all xs p1 = List.all xs p2
+theorem List.allCongMem: ∀ (xs: List a) (p1 p2: a → Bool) => (∀ (x: a) (m: x ∈ xs) => p1 x = p2 x) → List.all xs p1 = List.all xs p2
   | [], p1, p2, ep => rfl
   | [x, ..xs], p1, p2, ep => rewrite ep x (Inl rfl), List.allCongMem xs p1 p2 (y m => ep y (Inr m))
 
-theorem List.occurrencesCongMem: (xs: List a) → (p1: a → Bool) → (p2: a → Bool) → ((x: a) → (m: x ∈ xs) → p1 x = p2 x) →
+theorem List.occurrencesCongMem: ∀ (xs: List a) (p1 p2: a → Bool) => (∀ (x: a) (m: x ∈ xs) => p1 x = p2 x) →
     List.occurrences xs p1 = List.occurrences xs p2
   | [], p1, p2, ep => rfl
   | [x, ..xs], p1, p2, ep => rewrite ep x (Inl rfl), List.occurrencesCongMem xs p1 p2 (y m => ep y (Inr m))
 
-theorem List.foldLeftCongMem: (xs: List a) → (z: b) → (f1: b → a → b) → (f2: b → a → b) → ((acc: b) → (x: a) → (m: x ∈ xs) → f1 acc x = f2 acc x) →
+theorem List.foldLeftCongMem: ∀ (xs: List a) (z: b) (f1 f2: b → a → b) => (∀ (acc: b) (x: a) (m: x ∈ xs) => f1 acc x = f2 acc x) →
     List.foldLeft xs z f1 = List.foldLeft xs z f2
   | [], z, f1, f2, ef => rfl
   | [x, ..xs], z, f1, f2, ef =>
     Eq.trans (Eq.cong (t => List.foldLeft xs t f1) (ef z x (Inl rfl))) (List.foldLeftCongMem xs (f2 z x) f1 f2 (acc y m => ef acc y (Inr m)))
 
-theorem List.filterMapCongMem: (xs: List a) → (f1: a → Option b) → (f2: a → Option b) → ((x: a) → (m: x ∈ xs) → f1 x = f2 x) →
+theorem List.filterMapCongMem: ∀ (xs: List a) (f1 f2: a → Option b) => (∀ (x: a) (m: x ∈ xs) => f1 x = f2 x) →
     List.filterMap xs f1 = List.filterMap xs f2
   | [], f1, f2, ef => rfl
   | [x, ..xs], f1, f2, ef => rewrite ef x (Inl rfl), List.filterMapCongMem xs f1 f2 (y m => ef y (Inr m))
@@ -896,38 +896,38 @@ theorem List.filterMapCongMem: (xs: List a) → (f1: a → Option b) → (f2: a 
 --| function's `…CongRange` lemma first, then `…CongMem`, then `…Cong`, and
 --| rewriting inside the function has the facts as hypotheses.
 theorem List.mapCongRange (f1: Nat → b) (f2: Nat → b) (from: Nat) (until: Nat)
-    (ef: (x: Nat) → (low: from ≤ x) → (high: x < until) → f1 x = f2 x):
+    (ef: ∀ (x: Nat) (low: from ≤ x) (high: x < until) => f1 x = f2 x):
     List.map (List.range from until) f1 = List.map (List.range from until) f2 :=
   List.mapCongMem (List.range from until) f1 f2 (x m => ef x (And.left (List.memRangeBounds x from until m)) (And.right (List.memRangeBounds x from until m)))
 
 theorem List.filterCongRange (p1: Nat → Bool) (p2: Nat → Bool) (from: Nat) (until: Nat)
-    (ep: (x: Nat) → (low: from ≤ x) → (high: x < until) → p1 x = p2 x):
+    (ep: ∀ (x: Nat) (low: from ≤ x) (high: x < until) => p1 x = p2 x):
     List.filter (List.range from until) p1 = List.filter (List.range from until) p2 :=
   List.filterCongMem (List.range from until) p1 p2 (x m => ep x (And.left (List.memRangeBounds x from until m)) (And.right (List.memRangeBounds x from until m)))
 
 theorem List.anyCongRange (p1: Nat → Bool) (p2: Nat → Bool) (from: Nat) (until: Nat)
-    (ep: (x: Nat) → (low: from ≤ x) → (high: x < until) → p1 x = p2 x):
+    (ep: ∀ (x: Nat) (low: from ≤ x) (high: x < until) => p1 x = p2 x):
     List.any (List.range from until) p1 = List.any (List.range from until) p2 :=
   List.anyCongMem (List.range from until) p1 p2 (x m => ep x (And.left (List.memRangeBounds x from until m)) (And.right (List.memRangeBounds x from until m)))
 
 theorem List.allCongRange (p1: Nat → Bool) (p2: Nat → Bool) (from: Nat) (until: Nat)
-    (ep: (x: Nat) → (low: from ≤ x) → (high: x < until) → p1 x = p2 x):
+    (ep: ∀ (x: Nat) (low: from ≤ x) (high: x < until) => p1 x = p2 x):
     List.all (List.range from until) p1 = List.all (List.range from until) p2 :=
   List.allCongMem (List.range from until) p1 p2 (x m => ep x (And.left (List.memRangeBounds x from until m)) (And.right (List.memRangeBounds x from until m)))
 
 theorem List.occurrencesCongRange (p1: Nat → Bool) (p2: Nat → Bool) (from: Nat) (until: Nat)
-    (ep: (x: Nat) → (low: from ≤ x) → (high: x < until) → p1 x = p2 x):
+    (ep: ∀ (x: Nat) (low: from ≤ x) (high: x < until) => p1 x = p2 x):
     List.occurrences (List.range from until) p1 = List.occurrences (List.range from until) p2 :=
   List.occurrencesCongMem (List.range from until) p1 p2 (x m => ep x (And.left (List.memRangeBounds x from until m)) (And.right (List.memRangeBounds x from until m)))
 
 theorem List.foldLeftCongRange (f1: b → Nat → b) (f2: b → Nat → b) (z: b) (from: Nat) (until: Nat)
-    (ef: (acc: b) → (x: Nat) → (low: from ≤ x) → (high: x < until) → f1 acc x = f2 acc x):
+    (ef: ∀ (acc: b) (x: Nat) (low: from ≤ x) (high: x < until) => f1 acc x = f2 acc x):
     List.foldLeft (List.range from until) z f1 = List.foldLeft (List.range from until) z f2 :=
   List.foldLeftCongMem (List.range from until) z f1 f2
     (acc x m => ef acc x (And.left (List.memRangeBounds x from until m)) (And.right (List.memRangeBounds x from until m)))
 
 --| `sumBy` and `count` are folds, so their congruence lemmas are the fold's.
-theorem List.sumByCongRange [auto add: Add c] (f: Nat → c) (g: Nat → c) (from: Nat) (until: Nat) (h: (x: Nat) → from ≤ x → x < until → f x = g x):
+theorem List.sumByCongRange [auto add: Add c] (f: Nat → c) (g: Nat → c) (from: Nat) (until: Nat) (h: ∀ (x: Nat) => from ≤ x → x < until → f x = g x):
     List.sumBy (List.range from until) f = List.sumBy (List.range from until) g :=
   List.foldLeftCongRange (acc x => acc + f x) (acc x => acc + g x) Add.zero from until (acc x low high => Eq.cong (t => acc + t) (h x low high))
 
@@ -936,45 +936,45 @@ theorem List.sumByCongRange [auto add: Add c] (f: Nat → c) (g: Nat → c) (fro
 --| `List.rangeFrom n 1`, and `(n + 1) - 1` is already `n`). Tried after
 --| [`List.mapCongRange`] and its kin.
 theorem List.mapCongRangeFrom (f1: Nat → b) (f2: Nat → b) (c: Nat) (s: Nat)
-    (ef: (x: Nat) → (low: s ≤ x) → (high: x < s + c) → f1 x = f2 x):
+    (ef: ∀ (x: Nat) (low: s ≤ x) (high: x < s + c) => f1 x = f2 x):
     List.map (List.rangeFrom c s) f1 = List.map (List.rangeFrom c s) f2 :=
   List.mapCongMem (List.rangeFrom c s) f1 f2 (x m => ef x (And.left (List.memRangeFrom x c s m)) (And.right (List.memRangeFrom x c s m)))
 
 theorem List.filterCongRangeFrom (p1: Nat → Bool) (p2: Nat → Bool) (c: Nat) (s: Nat)
-    (ep: (x: Nat) → (low: s ≤ x) → (high: x < s + c) → p1 x = p2 x):
+    (ep: ∀ (x: Nat) (low: s ≤ x) (high: x < s + c) => p1 x = p2 x):
     List.filter (List.rangeFrom c s) p1 = List.filter (List.rangeFrom c s) p2 :=
   List.filterCongMem (List.rangeFrom c s) p1 p2 (x m => ep x (And.left (List.memRangeFrom x c s m)) (And.right (List.memRangeFrom x c s m)))
 
 theorem List.anyCongRangeFrom (p1: Nat → Bool) (p2: Nat → Bool) (c: Nat) (s: Nat)
-    (ep: (x: Nat) → (low: s ≤ x) → (high: x < s + c) → p1 x = p2 x):
+    (ep: ∀ (x: Nat) (low: s ≤ x) (high: x < s + c) => p1 x = p2 x):
     List.any (List.rangeFrom c s) p1 = List.any (List.rangeFrom c s) p2 :=
   List.anyCongMem (List.rangeFrom c s) p1 p2 (x m => ep x (And.left (List.memRangeFrom x c s m)) (And.right (List.memRangeFrom x c s m)))
 
 theorem List.allCongRangeFrom (p1: Nat → Bool) (p2: Nat → Bool) (c: Nat) (s: Nat)
-    (ep: (x: Nat) → (low: s ≤ x) → (high: x < s + c) → p1 x = p2 x):
+    (ep: ∀ (x: Nat) (low: s ≤ x) (high: x < s + c) => p1 x = p2 x):
     List.all (List.rangeFrom c s) p1 = List.all (List.rangeFrom c s) p2 :=
   List.allCongMem (List.rangeFrom c s) p1 p2 (x m => ep x (And.left (List.memRangeFrom x c s m)) (And.right (List.memRangeFrom x c s m)))
 
 theorem List.occurrencesCongRangeFrom (p1: Nat → Bool) (p2: Nat → Bool) (c: Nat) (s: Nat)
-    (ep: (x: Nat) → (low: s ≤ x) → (high: x < s + c) → p1 x = p2 x):
+    (ep: ∀ (x: Nat) (low: s ≤ x) (high: x < s + c) => p1 x = p2 x):
     List.occurrences (List.rangeFrom c s) p1 = List.occurrences (List.rangeFrom c s) p2 :=
   List.occurrencesCongMem (List.rangeFrom c s) p1 p2 (x m => ep x (And.left (List.memRangeFrom x c s m)) (And.right (List.memRangeFrom x c s m)))
 
 theorem List.foldLeftCongRangeFrom (f1: b → Nat → b) (f2: b → Nat → b) (z: b) (c: Nat) (s: Nat)
-    (ef: (acc: b) → (x: Nat) → (low: s ≤ x) → (high: x < s + c) → f1 acc x = f2 acc x):
+    (ef: ∀ (acc: b) (x: Nat) (low: s ≤ x) (high: x < s + c) => f1 acc x = f2 acc x):
     List.foldLeft (List.rangeFrom c s) z f1 = List.foldLeft (List.rangeFrom c s) z f2 :=
   List.foldLeftCongMem (List.rangeFrom c s) z f1 f2
     (acc x m => ef acc x (And.left (List.memRangeFrom x c s m)) (And.right (List.memRangeFrom x c s m)))
 
 --| `sumBy` and `count` are folds, so their congruence lemmas are the fold's.
-theorem List.sumByCongRangeFrom [auto add: Add c] (f: Nat → c) (g: Nat → c): (c: Nat) → (s: Nat) → ((x: Nat) → s ≤ x → x < s + c → f x = g x) →
+theorem List.sumByCongRangeFrom [auto add: Add c] (f: Nat → c) (g: Nat → c): ∀ (c s: Nat) => (∀ (x: Nat) => s ≤ x → x < s + c → f x = g x) →
     List.sumBy (List.rangeFrom c s) f = List.sumBy (List.rangeFrom c s) g :=
   c s h => List.foldLeftCongRangeFrom (acc x => acc + f x) (acc x => acc + g x) Add.zero c s (acc x low high => Eq.cong (t => acc + t) (h x low high))
 
 --| Sums agree when their terms agree on the list's elements.
-theorem List.sumByCongMem [auto add: Add b] (xs: List a) (f: a → b) (g: a → b) (agree: (x: a) → x ∈ xs → f x = g x):
+theorem List.sumByCongMem [auto add: Add b] (xs: List a) (f: a → b) (g: a → b) (agree: ∀ (x: a) => x ∈ xs → f x = g x):
     List.sumBy xs f = List.sumBy xs g :=
   List.foldLeftCongMem xs Add.zero (acc x => acc + f x) (acc x => acc + g x) (acc x m => Eq.cong (t => acc + t) (agree x m))
 
-theorem List.countCongMem (xs: List a) (p1: a → Bool) (p2: a → Bool) (ep: (x: a) → (m: List.Mem x xs) → p1 x = p2 x): List.count xs p1 = List.count xs p2 :=
+theorem List.countCongMem (xs: List a) (p1: a → Bool) (p2: a → Bool) (ep: ∀ (x: a) (m: List.Mem x xs) => p1 x = p2 x): List.count xs p1 = List.count xs p2 :=
   List.foldLeftCongMem xs 0 (n x => Nat.succIf n (p1 x)) (n x => Nat.succIf n (p2 x)) (acc x m => Eq.cong (b => Nat.succIf acc b) (ep x m))

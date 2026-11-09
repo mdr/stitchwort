@@ -67,33 +67,33 @@ def Text.less (a: Text) (b: Text): Bool := Ordering.isLess (Text.compare a b)
 def Text.joinPair (separator: Char): (state: Pair (List Char) (List (List Char))) → List Char
   | MkPair field fields => Text.joinChars separator field fields
 
-theorem Text.joinCons (s: Char) (c: Char) (f: List Char): (fs: List (List Char)) →
+theorem Text.joinCons (s: Char) (c: Char) (f: List Char): ∀ (fs: List (List Char)) =>
     Text.joinChars s [c, ..f] fs = [c, ..Text.joinChars s f fs]
   | [] => rfl
   | [g, ..gs] => rfl
 
 theorem Text.joinSplitCons (s: Char) (c: Char) (cs: List Char):
-    (p: Pair (List Char) (List (List Char))) → Text.joinPair s p = cs →
-    (d: Decidable (c = s)) → Text.joinPair s (Text.splitCons s c (Decidable.toBool d) p) = [c, ..cs]
+    ∀ (p: Pair (List Char) (List (List Char))) => Text.joinPair s p = cs →
+    ∀ (d: Decidable (c = s)) => Text.joinPair s (Text.splitCons s c (Decidable.toBool d) p) = [c, ..cs]
   | MkPair f fs, h, Yes e =>
     Eq.trans (Eq.cong (Cons s) h) (Eq.cong (x => [x, ..cs]) (Eq.sym e))
   | MkPair f fs, h, No r =>
     Eq.trans (Text.joinCons s c f fs) (Eq.cong (Cons c) h)
 
-theorem Text.joinSplitChars (s: Char): (cs: List Char) → Text.joinPair s (Text.splitChars s cs) = cs
+theorem Text.joinSplitChars (s: Char): ∀ (cs: List Char) => Text.joinPair s (Text.splitChars s cs) = cs
   | [] => rfl
   | [c, ..cs] =>
     Text.joinSplitCons s c cs (Text.splitChars s cs) (Text.joinSplitChars s cs) (Char.decEq c s)
 
-theorem Text.charListsOfTexts: (fs: List (List Char)) → Text.charListsOf (Text.textsOf fs) = fs
+theorem Text.charListsOfTexts: ∀ (fs: List (List Char)) => Text.charListsOf (Text.textsOf fs) = fs
   | [] => rfl
   | [f, ..fs] => Eq.cong (Cons f) (Text.charListsOfTexts fs)
 
-theorem Text.joinSplitTexts (s: Char): (p: Pair (List Char) (List (List Char))) →
+theorem Text.joinSplitTexts (s: Char): ∀ (p: Pair (List Char) (List (List Char))) =>
     Text.join (Text.splitTexts p) s = MkText (Text.joinPair s p)
   | MkPair f fs => Eq.cong (l => MkText (Text.joinChars s f l)) (Text.charListsOfTexts fs)
 
-theorem Text.joinSplit: (t: Text) → (s: Char) → Text.join (Text.split t s) s = t
+theorem Text.joinSplit: ∀ (t: Text) (s: Char) => Text.join (Text.split t s) s = t
   | MkText cs, s =>
     Eq.trans (Text.joinSplitTexts s (Text.splitChars s cs)) (Eq.cong MkText (Text.joinSplitChars s cs))
 
@@ -150,7 +150,7 @@ theorem Text.linesCarriageReturnExample: "a\r\nb\r".lines = ["a", "b\r"] := rfl
 theorem Text.linesFinalBreaksExample: "a\n\r\n".lines = ["a", ""] ∧ "a\n\r".lines = ["a", "\r"] := Both rfl rfl
 
 --| `Char.isLineFeedCode` holds of the code 10 only.
-theorem Char.lineFeedCodeIs: (code: Nat) → Char.isLineFeedCode code = True → code = 10
+theorem Char.lineFeedCodeIs: ∀ (code: Nat) => Char.isLineFeedCode code = True → code = 10
   | 0, h => Void.exfalso (Bool.falseNotTrue h)
   | 1, h => Void.exfalso (Bool.falseNotTrue h)
   | 2, h => Void.exfalso (Bool.falseNotTrue h)
@@ -173,7 +173,7 @@ theorem Text.spaceTabPlain (char: Char) (h: (char == ' ' ∨ char == '\t') = Tru
 
 --| `Text.linesFrom` keeps its finished lines apart from the line it is on:
 --| the finished lines (`acc`, newest first) come first, in order.
-theorem Text.linesFromAcc: (chars: List Char) → (line: List Char) → (acc: List Text) →
+theorem Text.linesFromAcc: ∀ (chars line: List Char) (acc: List Text) =>
     Text.linesFrom line acc chars = List.append (List.reverseOnto acc []) (Text.linesFrom line [] chars)
   | [], [], acc => rewrite List.appendNil (List.reverseOnto acc []) in rfl
   | [], [c, ..cs], acc => List.reverseOntoAppend acc [MkText (List.reverseOnto [c, ..cs] [])]
@@ -184,7 +184,7 @@ theorem Text.linesFromAcc: (chars: List Char) → (line: List Char) → (acc: Li
           List.appendAssoc (List.reverseOnto acc []) [Text.endLine line] (Text.linesFrom [] [] chars) in rfl
       | False => Text.linesFromAcc chars [char, ..line] acc
 
-theorem Text.linesFromAppend: (front: List Char) → (line: List Char) → (acc: List Text) → (rest: List Char) →
+theorem Text.linesFromAppend: ∀ (front line: List Char) (acc: List Text) (rest: List Char) =>
     Text.linesFrom line acc (front ++ ['\n'] ++ rest) = Text.linesFrom line acc (front ++ ['\n']) ++ Text.linesFrom [] [] rest
   | [], line, acc, rest => Text.linesFromAcc rest [] [Text.endLine line, ..acc]
   | [char, ..chars], line, acc, rest =>
@@ -199,7 +199,7 @@ theorem Text.linesAppend (front: List Char) (rest: List Char):
     Text.lines (MkText (front ++ ['\n'] ++ rest)) = Text.lines (MkText (front ++ ['\n'])) ++ Text.lines (MkText rest) :=
   Text.linesFromAppend front [] [] rest
 
-theorem Text.linesFromLine: (front: List Char) → List.All (c => Char.isLineFeedCode (Char.toNat c) = False) front → (line: List Char) → (acc: List Text) → (rest: List Char) →
+theorem Text.linesFromLine: ∀ (front: List Char) => List.All (c => Char.isLineFeedCode (Char.toNat c) = False) front → ∀ (line: List Char) (acc: List Text) (rest: List Char) =>
     Text.linesFrom line acc (front ++ ['\n'] ++ rest) = Text.linesFrom [] [Text.endLine (List.reverseOnto front line), ..acc] rest
   | [], none, line, acc, rest => rfl
   | [char, ..chars], Both notFeed others, line, acc, rest =>
@@ -244,7 +244,7 @@ theorem Text.linesPlainLineReturn (middle: List Char) (rest: List Char)
   Eq.trans (Eq.cong (l => Text.lines (MkText l)) (Eq.sym (List.appendAssoc middle ['\r'] ['\n', ..rest])))
     (Eq.trans (Text.linesLine (middle ++ ['\r']) rest noFeed) (Eq.cong (e => [e, ..Text.lines (MkText rest)]) endsPlain))
 
-theorem Text.linesFromNoFeed: (chars: List Char) → List.All (c => Char.isLineFeedCode (Char.toNat c) = False) chars → (line: List Char) → (acc: List Text) →
+theorem Text.linesFromNoFeed: ∀ (chars: List Char) => List.All (c => Char.isLineFeedCode (Char.toNat c) = False) chars → ∀ (line: List Char) (acc: List Text) =>
     Text.linesFrom line acc chars = List.reverseOnto (Text.lastLine (List.reverseOnto chars line) acc) []
   | [], none, line, acc => rfl
   | [char, ..chars], Both notFeed others, line, acc => rewrite notFeed in Text.linesFromNoFeed chars others [char, ..line] acc
@@ -265,17 +265,17 @@ def Text.unlinesChars: (lines: List Text) → List Char
   | [] => []
   | [line, ..lines] => Text.toList line ++ ['\n'] ++ Text.unlinesChars lines
 
-theorem Text.unlinesAppend: (xs: List Text) → (ys: List Text) → Text.unlinesChars (xs ++ ys) = Text.unlinesChars xs ++ Text.unlinesChars ys
+theorem Text.unlinesAppend: ∀ (xs ys: List Text) => Text.unlinesChars (xs ++ ys) = Text.unlinesChars xs ++ Text.unlinesChars ys
   | [], ys => rfl
   | [x, ..xs], ys =>
     Eq.trans (Eq.cong (l => Text.toList x ++ ['\n', ..l]) (Text.unlinesAppend xs ys)) (Eq.sym (List.appendAssoc (Text.toList x) ['\n', ..Text.unlinesChars xs] (Text.unlinesChars ys)))
 
-theorem Text.endLineNoReturn: (line: List Char) → List.All (c => Char.isCarriageReturnCode (Char.toNat c) = False) line → Text.endLine line = MkText (List.reverseOnto line [])
+theorem Text.endLineNoReturn: ∀ (line: List Char) => List.All (c => Char.isCarriageReturnCode (Char.toNat c) = False) line → Text.endLine line = MkText (List.reverseOnto line [])
   | [], none => rfl
   | [char, ..chars], Both notReturn others => rewrite notReturn in rfl
 
-theorem Text.unlinesFrom: (front: List Char) → List.All (c => Char.isCarriageReturnCode (Char.toNat c) = False) front →
-    (line: List Char) → List.All (c => Char.isCarriageReturnCode (Char.toNat c) = False) line →
+theorem Text.unlinesFrom: ∀ (front: List Char) => List.All (c => Char.isCarriageReturnCode (Char.toNat c) = False) front →
+    ∀ (line: List Char) => List.All (c => Char.isCarriageReturnCode (Char.toNat c) = False) line →
     Text.unlinesChars (Text.linesFrom line [] (front ++ ['\n'])) = List.reverseOnto line [] ++ front ++ ['\n']
   | [], none, line, noReturn => rewrite Text.endLineNoReturn line noReturn in rfl
   | [char, ..chars], Both notReturn others, line, noReturn =>
@@ -294,7 +294,7 @@ theorem Text.unlinesLines (front: List Char) (noReturn: List.All (c => Char.isCa
   Text.unlinesFrom front noReturn [] ()
 
 theorem Text.linesFromUnterminated (last: Char) (notFeed: Char.isLineFeedCode (Char.toNat last) = False) (notReturn: Char.isCarriageReturnCode (Char.toNat last) = False):
-    (front: List Char) → (line: List Char) → (acc: List Text) → Text.linesFrom line acc (front ++ [last]) = Text.linesFrom line acc (front ++ [last, '\n'])
+    ∀ (front line: List Char) (acc: List Text) => Text.linesFrom line acc (front ++ [last]) = Text.linesFrom line acc (front ++ [last, '\n'])
   | [], line, acc => rewrite notFeed, notReturn in rfl
   | [char, ..chars], line, acc =>
     match Char.isLineFeedCode (Char.toNat char) with
@@ -395,7 +395,7 @@ def Text.splitOn (text: Text) (sep: Text): List Text := Text.splitOnChars sep.to
 
 theorem Text.sameCharRefl (c: Char): Text.sameChar c c = True := Nat.equalRefl (Char.toNat c)
 
-theorem Text.stripPrefixCharsAppend (t: List Char): (p: List Char) →
+theorem Text.stripPrefixCharsAppend (t: List Char): ∀ (p: List Char) =>
     Text.stripPrefixChars p (List.append p t) = Some t
   | [] => rfl
   | [c, ..ps] =>
@@ -419,7 +419,7 @@ theorem Text.sameCharEq (c: Char) (d: Char): Text.sameChar c d = (c == d) :=
 
 --| The direction of [`Text.stripPrefixCharsSome`] that reads a result: when
 --| stripping `p` from `ys` leaves `rest`, `ys` is `p` followed by `rest`.
-theorem Text.stripPrefixCharsForward: (p: List Char) → (ys: List Char) → [rest: List Char] →
+theorem Text.stripPrefixCharsForward: ∀ (p ys: List Char) [rest: List Char] =>
     Text.stripPrefixChars p ys = Some rest → ys = List.append p rest
   | [], ys, h => Option.someInjective h
   | [c, ..ps], [], h => Void.exfalso (Option.someNotNone rest (Eq.sym h))
@@ -523,7 +523,7 @@ theorem Text.stripSuffixDrop (text: Text) (suffix: Text):
             (rewrite (Text.stripSuffixSome text suffix rest).forward found in
               Text.ext _ _ (List.dropAppendLength (Text.toList rest) (Text.toList suffix) _ (rewrite Text.lengthAppend rest suffix in omega))))
 
-theorem Text.startsWithCharsAppend (t: List Char): (p: List Char) →
+theorem Text.startsWithCharsAppend (t: List Char): ∀ (p: List Char) =>
     Text.startsWithChars p (List.append p t) = True
   | [] => rfl
   | [c, ..ps] =>
@@ -533,7 +533,7 @@ theorem Text.startsWithCharsAppend (t: List Char): (p: List Char) →
 theorem Text.startsWithAppend (p: Text) (t: Text): Text.startsWith (Text.append p t) p = True :=
   Text.startsWithCharsAppend (Text.toList t) (Text.toList p)
 
-theorem Text.takeDropChars: (n: Nat) → (cs: List Char) → List.append (List.take cs n) (List.drop cs n) = cs
+theorem Text.takeDropChars: ∀ (n: Nat) (cs: List Char) => List.append (List.take cs n) (List.drop cs n) = cs
   | Zero, cs => rfl
   | Succ n, [] => rfl
   | Succ n, [c, ..cs] => Eq.cong (Cons c) (Text.takeDropChars n cs)

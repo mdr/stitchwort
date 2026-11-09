@@ -107,30 +107,30 @@ theorem Fail.toResultPure (v: a): Fail.toResult (() => v) = Ok v := rfl
 theorem Fail.toResultFail (msg: Text): Fail.toResult (() => (Fail.fail msg: a)) = Err msg := rfl
 
 --| `need` and `toResult` give `Option.toResult`.
-theorem Fail.toResultNeed (msg: Text): (o: Option a) → Fail.toResult (() => Fail.need o msg) = Option.toResult o msg
+theorem Fail.toResultNeed (msg: Text): ∀ (o: Option a) => Fail.toResult (() => Fail.need o msg) = Option.toResult o msg
   | None => rfl
   | Some x => rfl
 
-theorem Fail.toResultEnsure (msg: Text): (ok: Bool) → Fail.toResult (() => Fail.ensure ok msg) = (if ok then Ok () else Err msg)
+theorem Fail.toResultEnsure (msg: Text): ∀ (ok: Bool) => Fail.toResult (() => Fail.ensure ok msg) = (if ok then Ok () else Err msg)
   | True => rfl
   | False => rfl
 
 --| `orFail` and `toResult` undo each other.
-theorem Fail.toResultOrFail: (r: Result a Text) → Fail.toResult (() => Result.orFail r) = r
+theorem Fail.toResultOrFail: ∀ (r: Result a Text) => Fail.toResult (() => Result.orFail r) = r
   | Ok x => rfl
   | Err m => rfl
 
 --| Reading an `Option` and going on: the form a proof about a parser uses.
-theorem Fail.toResultNeedThen (k: a → {Fail} b) (msg: Text): (o: Option a) →
+theorem Fail.toResultNeedThen (k: a → {Fail} b) (msg: Text): ∀ (o: Option a) =>
     Fail.toResult (() => k (Fail.need o msg)) = Option.fold o (Err msg) (x => Fail.toResult (() => k x))
   | None => rfl
   | Some x => rfl
 
-theorem Fail.toOptionNeed (msg: Text): (o: Option a) → Fail.toOption (() => Fail.need o msg) = o
+theorem Fail.toOptionNeed (msg: Text): ∀ (o: Option a) => Fail.toOption (() => Fail.need o msg) = o
   | None => rfl
   | Some x => rfl
 
-theorem Abort.orFailNeed (msg: Text): (o: Option a) → Fail.toResult (() => Abort.orFail msg (() => Abort.need o)) = Option.toResult o msg
+theorem Abort.orFailNeed (msg: Text): ∀ (o: Option a) => Fail.toResult (() => Abort.orFail msg (() => Abort.need o)) = Option.toResult o msg
   | None => rfl
   | Some x => rfl
 
@@ -164,7 +164,7 @@ theorem Fail.toOptionToResult (t: () → {Fail} a): Fail.toOption t = Result.toO
 --| A block starting with `need x msg` (or `x.orFail msg`) gave `Ok v`: `x` held a value.
 theorem Fail.needEqOk [goal: Prop] [x: Option a] [msg: Text] [k: a → {Fail} b] [v: b]
     (h: Fail.toResult (() => k (Fail.need x msg)) = Ok v)
-    (use: (u: a) → x = Some u → Fail.toResult (() => k u) = Ok v → goal): goal :=
+    (use: ∀ (u: a) => x = Some u → Fail.toResult (() => k u) = Ok v → goal): goal :=
   match e: x with
     | None => Void.exfalso (Result.errNotOk h)
     | Some u => use u rfl h
@@ -180,7 +180,7 @@ theorem Fail.ensureEqOk [goal: Prop] [ok: Bool] [msg: Text] [k: () → {Fail} b]
 --| A block starting with `r.orFail` gave `Ok v`: `r` was `Ok`.
 theorem Fail.orFailEqOk [goal: Prop] [r: Result a Text] [k: a → {Fail} b] [v: b]
     (h: Fail.toResult (() => k (Result.orFail r)) = Ok v)
-    (use: (u: a) → r = Ok u → Fail.toResult (() => k u) = Ok v → goal): goal :=
+    (use: ∀ (u: a) => r = Ok u → Fail.toResult (() => k u) = Ok v → goal): goal :=
   match e: r with
     | Err m => Void.exfalso (Result.errNotOk h)
     | Ok u => use u rfl h
@@ -189,7 +189,7 @@ theorem Fail.orFailEqOk [goal: Prop] [r: Result a Text] [k: a → {Fail} b] [v: 
 --| found from `h`.
 theorem Fail.thenEqOk [goal: Prop] [t: () → {Fail} a] [k: a → {Fail} b] [v: b]
     (h: Fail.toResult (() => k (t ())) = Ok v)
-    (use: (u: a) → Fail.toResult t = Ok u → Fail.toResult (() => k u) = Ok v → goal): goal :=
+    (use: ∀ (u: a) => Fail.toResult t = Ok u → Fail.toResult (() => k u) = Ok v → goal): goal :=
   Result.flatMapEqOk (Fail.toResult t) (x => Fail.toResult (() => k x)) v (rewrite Fail.toResultThen t k at h) use
 
 --| A map over a list fails with the first element's failure, or gives every
@@ -198,7 +198,7 @@ theorem Fail.thenEqOk [goal: Prop] [t: () → {Fail} a] [k: a → {Fail} b] [v: 
 -- `traverse` (a loop) does with the first element, then a split on `f x`: if
 -- it finishes, `toResultThen` and the induction hypothesis say what the rest
 -- gives.
-theorem Fail.toResultMap (f: a → {Fail} b): (xs: List a) →
+theorem Fail.toResultMap (f: a → {Fail} b): ∀ (xs: List a) =>
     Fail.toResult (() => xs.map f) = Result.traverse xs (x => Fail.toResult (() => f x))
   | [] => rfl
   | [x, ..xs] =>

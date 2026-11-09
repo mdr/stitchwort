@@ -16,31 +16,31 @@ def List.getOr: (xs: List a) → (index: Nat) → (fallback: a) → a
 theorem List.getOrExample: List.getOr [7, 8] 1 0 = 8 := rfl
 
 --| An element at an index below the length is in the list.
-theorem List.getOrMem: (xs: List a) → (i: Nat) → (fallback: a) → i < List.length xs → List.getOr xs i fallback ∈ xs
+theorem List.getOrMem: ∀ (xs: List a) (i: Nat) (fallback: a) => i < List.length xs → List.getOr xs i fallback ∈ xs
   | [], i, fallback, h => Void.exfalso (Bool.falseNotTrue h)
   | [x, ..rest], Zero, fallback, h => Inl rfl
   | [x, ..rest], Succ i, fallback, h => Inr (List.getOrMem rest i fallback h)
 
-theorem List.getOrAppendLeft: (xs: List a) → (i: Nat) → (d: a) → (ys: List a) → i < List.length xs →
+theorem List.getOrAppendLeft: ∀ (xs: List a) (i: Nat) (d: a) (ys: List a) => i < List.length xs →
     List.getOr (List.append xs ys) i d = List.getOr xs i d
   | [], i, d, ys, h => Void.exfalso (Bool.falseNotTrue h)
   | [x, ..xs], Zero, d, ys, h => rfl
   | [x, ..xs], Succ i, d, ys, h => List.getOrAppendLeft xs i d ys h
 
-theorem List.getOrAppendRight: (xs: List a) → (i: Nat) → (d: a) → (ys: List a) → List.length xs ≤ i →
+theorem List.getOrAppendRight: ∀ (xs: List a) (i: Nat) (d: a) (ys: List a) => List.length xs ≤ i →
     List.getOr (List.append xs ys) i d = List.getOr ys (i - List.length xs) d
   | [], i, d, ys, h => rfl
   | [x, ..xs], Zero, d, ys, h => Void.exfalso (Bool.falseNotTrue h)
   | [x, ..xs], Succ i, d, ys, h => List.getOrAppendRight xs i d ys h
 
-theorem List.getOrTake: (xs: List a) → (k: Nat) → (i: Nat) → (d: a) → i < k → List.getOr (List.take xs k) i d = List.getOr xs i d
+theorem List.getOrTake: ∀ (xs: List a) (k i: Nat) (d: a) => i < k → List.getOr (List.take xs k) i d = List.getOr xs i d
   | xs, Zero, i, d, h => Void.exfalso (Bool.falseNotTrue h)
   | [], Succ k, i, d, h => rfl
   | [x, ..xs], Succ k, Zero, d, h => rfl
   | [x, ..xs], Succ k, Succ i, d, h => List.getOrTake xs k i d h
 
 --| The first k + 1 elements are the first k, then the element at k.
-theorem List.takeSucc (d: a): (xs: List a) → (k: Nat) → k < List.length xs →
+theorem List.takeSucc (d: a): ∀ (xs: List a) (k: Nat) => k < List.length xs →
     List.take xs (Succ k) = List.append (List.take xs k) [List.getOr xs k d]
   | [], k, h => Void.exfalso (Bool.falseNotTrue h)
   | [x, ..xs], Zero, h => rfl
@@ -48,7 +48,7 @@ theorem List.takeSucc (d: a): (xs: List a) → (k: Nat) → k < List.length xs �
 
 --| What is left after dropping k elements starts with the element at k, when
 --| there is one.
-theorem List.dropAt (d: a): (xs: List a) → (k: Nat) → k < List.length xs →
+theorem List.dropAt (d: a): ∀ (xs: List a) (k: Nat) => k < List.length xs →
     List.drop xs k = [List.getOr xs k d, ..List.drop xs (Succ k)]
   | [], k, h => Void.exfalso (Bool.falseNotTrue h)
   | [x, ..xs], Zero, h => rfl
@@ -56,19 +56,19 @@ theorem List.dropAt (d: a): (xs: List a) → (k: Nat) → k < List.length xs →
 
 --| `getOr` is `List.get` with the fallback for `None` (`List.get`'s lemmas
 --| are in Lemmas.sw).
-theorem List.getOrGet: (xs: List a) → (k: Nat) → (d: a) → List.getOr xs k d = Option.getOrElse (List.get xs k) d
+theorem List.getOrGet: ∀ (xs: List a) (k: Nat) (d: a) => List.getOr xs k d = Option.getOrElse (List.get xs k) d
   | [], k, d => rfl
   | [x, ..xs], Zero, d => rfl
   | [x, ..xs], Succ k, d => List.getOrGet xs k d
 
 --| What `get` finds, `getOr` gives, whatever the fallback.
-theorem List.getOrOfGet: (xs: List a) → (k: Nat) → (d: a) → (v: a) → List.get xs k = Some v → List.getOr xs k d = v
+theorem List.getOrOfGet: ∀ (xs: List a) (k: Nat) (d v: a) => List.get xs k = Some v → List.getOr xs k d = v
   | [], k, d, v, h => Void.exfalso (Option.noneNotSome v h)
   | [x, ..xs], Zero, d, v, h => Option.someInjective h
   | [x, ..xs], Succ k, d, v, h => List.getOrOfGet xs k d v h
 
 --| Within the list, `get` finds what `getOr` gives.
-theorem List.getOfGetOr: (xs: List a) → (k: Nat) → (d: a) → k < List.length xs → List.get xs k = Some (List.getOr xs k d)
+theorem List.getOfGetOr: ∀ (xs: List a) (k: Nat) (d: a) => k < List.length xs → List.get xs k = Some (List.getOr xs k d)
   | [], k, d, h => Void.exfalso (Bool.falseNotTrue h)
   | [x, ..xs], Zero, d, h => rfl
   | [x, ..xs], Succ k, d, h => List.getOfGetOr xs k d h
@@ -77,8 +77,8 @@ theorem List.getOrOfGetExample (xs: List Nat) (k: Nat) (v: Nat) (h: List.get xs 
   Eq.trans (List.getOrOfGet xs k 0 v h) (Eq.sym (List.getOrOfGet xs k 1 v h))
 
 --| Lists of the same length that agree at every index are equal.
-theorem List.extGetOr (d: a): (xs: List a) → (ys: List a) → List.length xs = List.length ys →
-    ((i: Nat) → i < List.length xs → List.getOr xs i d = List.getOr ys i d) → xs = ys
+theorem List.extGetOr (d: a): ∀ (xs ys: List a) => List.length xs = List.length ys →
+    (∀ (i: Nat) => i < List.length xs → List.getOr xs i d = List.getOr ys i d) → xs = ys
   | [], [], e, h => rfl
   | [], [y, ..ys], e, h => Void.exfalso (Nat.zeroNotSucc (List.length ys) e)
   | [x, ..xs], [], e, h => Void.exfalso (Nat.succNotZero (List.length xs) e)
@@ -87,7 +87,7 @@ theorem List.extGetOr (d: a): (xs: List a) → (ys: List a) → List.length xs =
       (Eq.cong (Cons y) (List.extGetOr d xs ys (Nat.succInjective e) (i hi => h (Succ i) hi)))
 
 --| Index i of a block of k elements written n times is index `i % k` of the block.
-theorem List.getOrConcatReplicate (b: List a) (d: a) (k: Nat) [auto hk: k ≠ 0] (hb: List.length b = k): (n: Nat) → (i: Nat) → i < n * k →
+theorem List.getOrConcatReplicate (b: List a) (d: a) (k: Nat) [auto hk: k ≠ 0] (hb: List.length b = k): ∀ (n i: Nat) => i < n * k →
     List.getOr (List.concat (List.replicate n b)) i d = List.getOr b (i % k) d
   | Zero, i, h => Void.exfalso (Bool.falseNotTrue h)
   | Succ n, i, h =>
@@ -107,13 +107,13 @@ theorem List.getOrConcatReplicate (b: List a) (d: a) (k: Nat) [auto hk: k ≠ 0]
             := Eq.cong (y => List.getOr b y d) (Eq.trans (Eq.sym (Nat.addModSelf k (i - k))) (Eq.cong (y => y % k) (Nat.addSubCancel k i t)))
 
 --| `getOr` past the end and after padding, and a list read off by index.
-theorem List.getOrReplicate (x: a): (i: Nat) → (n: Nat) → List.getOr (List.replicate n x) i x = x
+theorem List.getOrReplicate (x: a): ∀ (i n: Nat) => List.getOr (List.replicate n x) i x = x
   | i, Zero => rfl
   | Zero, Succ n => rfl
   | Succ i, Succ n => List.getOrReplicate x i n
 
 --| Copies of the default on the end change no index.
-theorem List.getOrAppendReplicate: (xs: List a) → (x: a) → (k: Nat) → (i: Nat) → List.getOr (List.append xs (List.replicate k x)) i x = List.getOr xs i x
+theorem List.getOrAppendReplicate: ∀ (xs: List a) (x: a) (k i: Nat) => List.getOr (List.append xs (List.replicate k x)) i x = List.getOr xs i x
   | [], x, k, i => List.getOrReplicate x i k
   | [y, ..ys], x, k, Zero => rfl
   | [y, ..ys], x, k, Succ i => List.getOrAppendReplicate ys x k i
@@ -122,13 +122,13 @@ theorem List.getOrPadRight (xs: List a) (x: a) (n: Nat) (i: Nat): List.getOr (Li
   List.getOrAppendReplicate xs x (n - List.length xs) i
 
 --| Past the end, the default.
-theorem List.getOrPast: (xs: List a) → (i: Nat) → (d: a) → List.length xs ≤ i → List.getOr xs i d = d
+theorem List.getOrPast: ∀ (xs: List a) (i: Nat) (d: a) => List.length xs ≤ i → List.getOr xs i d = d
   | [], i, d, h => rfl
   | [x, ..xs], Zero, d, h => Void.exfalso (Bool.falseNotTrue h)
   | [x, ..xs], Succ i, d, h => List.getOrPast xs i d h
 
 --| A list is its elements read off by index.
-theorem List.mapGetOr: (xs: List a) → (d: a) → List.map (List.range 0 (List.length xs)) (i => List.getOr xs i d) = xs
+theorem List.mapGetOr: ∀ (xs: List a) (d: a) => List.map (List.range 0 (List.length xs)) (i => List.getOr xs i d) = xs
   | [], d => rfl
   | [x, ..xs], d =>
     calc List.map (List.rangeFrom (Succ (List.length xs)) 0) (i => List.getOr [x, ..xs] i d)
@@ -139,12 +139,12 @@ theorem List.mapGetOr: (xs: List a) → (d: a) → List.map (List.range 0 (List.
 
 --| `headOr` is index 0; `getOr` of a `map` and of a `zipWith3`; a sum over a
 --| list as a sum over its indices.
-theorem List.headOrGetOr: (xs: List a) → (d: a) → List.headOr xs d = List.getOr xs 0 d
+theorem List.headOrGetOr: ∀ (xs: List a) (d: a) => List.headOr xs d = List.getOr xs 0 d
   | [], d => rfl
   | [x, ..xs], d => rfl
 
 theorem List.getOrZipWith3 (f: a → b → c → e) (d1: a) (d2: b) (d3: c) (d: e) (hd: f d1 d2 d3 = d):
-    (xs: List a) → (ys: List b) → (zs: List c) → List.length ys = List.length xs → List.length zs = List.length xs → (i: Nat) →
+    ∀ (xs: List a) (ys: List b) (zs: List c) => List.length ys = List.length xs → List.length zs = List.length xs → ∀ (i: Nat) =>
     List.getOr (List.zipWith3 xs ys zs f) i d = f (List.getOr xs i d1) (List.getOr ys i d2) (List.getOr zs i d3)
   | [], [], [], h1, h2, i => Eq.sym hd
   | [], [y, ..ys], zs, h1, h2, i => Void.exfalso (Nat.succNotZero (List.length ys) h1)
@@ -155,13 +155,13 @@ theorem List.getOrZipWith3 (f: a → b → c → e) (d1: a) (d2: b) (d3: c) (d: 
   | [x, ..xs], [y, ..ys], [z, ..zs], h1, h2, Succ i =>
     List.getOrZipWith3 f d1 d2 d3 d hd xs ys zs (Nat.succInjective h1) (Nat.succInjective h2) i
 
-theorem List.getOrMap: (xs: List a) → (i: Nat) → (d: a) → (f: a → b) → List.getOr (List.map xs f) i (f d) = f (List.getOr xs i d)
+theorem List.getOrMap: ∀ (xs: List a) (i: Nat) (d: a) (f: a → b) => List.getOr (List.map xs f) i (f d) = f (List.getOr xs i d)
   | [], i, d, f => rfl
   | [x, ..xs], Zero, d, f => rfl
   | [x, ..xs], Succ i, d, f => List.getOrMap xs i d f
 
 --| Index i of `f` mapped over the run `s, s + 1, ..., s + n - 1` is `f (i + s)`.
-theorem List.getOrMapRange (f: Nat → b) (d: b): (n: Nat) → (s: Nat) → (i: Nat) → i < n →
+theorem List.getOrMapRange (f: Nat → b) (d: b): ∀ (n s i: Nat) => i < n →
     List.getOr (List.map (List.rangeFrom n s) f) i d = f (i + s)
   | Zero, s, i, h => Void.exfalso (Bool.falseNotTrue h)
   | Succ n, s, Zero, h => rfl
@@ -175,7 +175,7 @@ theorem List.sumByGetOr (xs: List a) (d: a) (f: a → Nat): List.sumBy xs f = Li
     _ = List.sumBy (List.range 0 (List.length xs)) (i => f (List.getOr xs i d)) := List.sumByMap (List.range 0 (List.length xs)) f (i => List.getOr xs i d)
 
 --| `withIndexFrom s xs` is each index of `xs`, plus `s`, with its element.
-theorem List.withIndexFromRange: (xs: List a) → (d: a) → (s: Nat) →
+theorem List.withIndexFromRange: ∀ (xs: List a) (d: a) (s: Nat) =>
     List.withIndexFrom s xs = List.map (List.range 0 (List.length xs)) (i => MkPair (s + i) (List.getOr xs i d))
   | [], d, s => rfl
   | [x, ..xs], d, s =>
@@ -201,7 +201,7 @@ def List.indexOf [auto eq: DecEq a]: (xs: List a) → (x: a) → Nat
 test "List.indexOf" := [5, 7, 5].indexOf 7 == 1 ∧ [5, 7, 5].indexOf 5 == 0 ∧ [5, 7, 5].indexOf 9 == 3
 
 --| Adding two rows entry by entry.
-theorem List.getOrZipWithAdd: (u: List Nat) → (c: Nat) → (v: List Nat) → c < List.length u → c < List.length v →
+theorem List.getOrZipWithAdd: ∀ (u: List Nat) (c: Nat) (v: List Nat) => c < List.length u → c < List.length v →
     List.getOr (List.zipWith u v Nat.add) c 0 = List.getOr u c 0 + List.getOr v c 0
   | [], c, v, hu, hv => Void.exfalso (Bool.falseNotTrue hu)
   | [x, ..xs], c, [], hu, hv => Void.exfalso (Bool.falseNotTrue hv)
@@ -209,14 +209,14 @@ theorem List.getOrZipWithAdd: (u: List Nat) → (c: Nat) → (v: List Nat) → c
   | [x, ..xs], Succ c, [y, ..ys], hu, hv => List.getOrZipWithAdd xs c ys hu hv
 
 --| Element i of a mapped list, inside it.
-theorem List.getOrMapLt: (xs: List a) → (i: Nat) → (d: a) → (e: b) → i < List.length xs → (f: a → b) → List.getOr (List.map xs f) i e = f (List.getOr xs i d)
+theorem List.getOrMapLt: ∀ (xs: List a) (i: Nat) (d: a) (e: b) => i < List.length xs → ∀ (f: a → b) => List.getOr (List.map xs f) i e = f (List.getOr xs i d)
   | [], i, d, e, h, f => Void.exfalso (Bool.falseNotTrue h)
   | [x, ..xs], Zero, d, e, h, f => rfl
   | [x, ..xs], Succ i, d, e, h, f => List.getOrMapLt xs i d e h f
 
 --| Element i of each element with its index (counted from `start`), and of
 --| `mapWithIndex`, inside the list.
-theorem List.getOrWithIndexFrom (d: a) (fallback: Pair Nat a): (start: Nat) → (xs: List a) → (i: Nat) → i < List.length xs →
+theorem List.getOrWithIndexFrom (d: a) (fallback: Pair Nat a): ∀ (start: Nat) (xs: List a) (i: Nat) => i < List.length xs →
     List.getOr (List.withIndexFrom start xs) i fallback = MkPair (start + i) (List.getOr xs i d)
   | start, [], i, h => Void.exfalso (Bool.falseNotTrue h)
   | start, [x, ..xs], Zero, h => rewrite Nat.addZero start in rfl
@@ -235,7 +235,7 @@ theorem List.getOrMapWithIndex (xs: List a) (i: Nat) (d: a) (e: b) (h: i < List.
 test "List.getOrMapWithIndex" := List.getOr ([5, 6, 7].mapWithIndex (index x => index * x)) 2 0 == 14
 
 --| Entry k of the running accumulations is the fold of the first k elements.
-theorem List.getOrScanLeft (f: b → a → b) (d: b): (xs: List a) → (z: b) → (k: Nat) → k ≤ List.length xs →
+theorem List.getOrScanLeft (f: b → a → b) (d: b): ∀ (xs: List a) (z: b) (k: Nat) => k ≤ List.length xs →
     List.getOr (List.scanLeft xs z f) k d = List.foldLeft (List.take xs k) z f
   | [], z, Zero, h => rfl
   | [], z, Succ k, h => Void.exfalso (Bool.falseNotTrue h)
@@ -245,7 +245,7 @@ theorem List.getOrScanLeft (f: b → a → b) (d: b): (xs: List a) → (z: b) �
 --| Element k of `zipWith xs (scanLeft xs z f) g` is `g` of element k and the
 --| fold of the elements before it. Laying items end to end from `z`, item k
 --| is placed after the first k.
-theorem List.getOrZipWithScanLeft (f: b → a → b) (g: a → b → c) (dx: a) (dc: c): (xs: List a) → (z: b) → (k: Nat) → k < List.length xs →
+theorem List.getOrZipWithScanLeft (f: b → a → b) (g: a → b → c) (dx: a) (dc: c): ∀ (xs: List a) (z: b) (k: Nat) => k < List.length xs →
     List.getOr (List.zipWith xs (List.scanLeft xs z f) g) k dc = g (List.getOr xs k dx) (List.foldLeft (List.take xs k) z f)
   | [], z, k, h => Void.exfalso (Bool.falseNotTrue h)
   | [x, ..xs], z, Zero, h => rfl
@@ -253,7 +253,7 @@ theorem List.getOrZipWithScanLeft (f: b → a → b) (g: a → b → c) (dx: a) 
 
 --| The fold of the first k + 1 elements is one step after the fold of the
 --| first k: neighbouring entries of a scan differ by one step.
-theorem List.foldLeftTakeSucc (f: b → a → b) (d: a): (xs: List a) → (z: b) → (k: Nat) → k < List.length xs →
+theorem List.foldLeftTakeSucc (f: b → a → b) (d: a): ∀ (xs: List a) (z: b) (k: Nat) => k < List.length xs →
     List.foldLeft (List.take xs (Succ k)) z f = f (List.foldLeft (List.take xs k) z f) (List.getOr xs k d)
   | [], z, k, h => Void.exfalso (Bool.falseNotTrue h)
   | [x, ..xs], z, Zero, h => rfl
@@ -267,12 +267,12 @@ theorem List.getOrZipWithScanLeftExample:
 -- sums over indices ------------------------------------------------------------
 
 --| A sum whose terms are all 0.
-theorem List.sumByRangeZero (f: Nat → Nat) (n: Nat) (zero: (j: Nat) → f j = 0): List.sumBy (List.range 0 n) f = 0 :=
+theorem List.sumByRangeZero (f: Nat → Nat) (n: Nat) (zero: ∀ (j: Nat) => f j = 0): List.sumBy (List.range 0 n) f = 0 :=
   List.sumByZeroIntro (List.range 0 n) f (j _ => zero j)
 
 --| A sum over a list is a sum over its indices, up to any bound at least its
 --| length, with 0 past the end.
-theorem List.sumByGet (g: a → Nat): (xs: List a) → (n: Nat) → List.length xs ≤ n →
+theorem List.sumByGet (g: a → Nat): ∀ (xs: List a) (n: Nat) => List.length xs ≤ n →
     List.sumBy xs g = List.sumBy (List.range 0 n) (j => Option.getOrElse (Option.map (List.get xs j) g) 0)
   | [], n, h => Eq.sym (List.sumByRangeZero _ n (j => rfl))
   | [x, ..xs], Zero, h => Void.exfalso (Bool.falseNotTrue h)
@@ -310,7 +310,7 @@ theorem List.sumByZipWithExample: List.sumBy (List.zipWith [1, 2, 3] [10, 20] Na
 
 --| A sum over a range is the same over a longer one when the terms past the
 --| shorter are 0.
-theorem List.sumByRangeExtend (f: Nat → Nat) (n: Nat) (m: Nat) (le: n ≤ m) (zero: (j: Nat) → n ≤ j → f j = 0):
+theorem List.sumByRangeExtend (f: Nat → Nat) (n: Nat) (m: Nat) (le: n ≤ m) (zero: ∀ (j: Nat) => n ≤ j → f j = 0):
     List.sumBy (List.range 0 m) f = List.sumBy (List.range 0 n) f :=
   let rest := List.sumByZeroIntro (List.rangeFrom (m - n) n) f (j mem => zero j (List.memRangeFrom j (m - n) n mem).left)
   calc List.sumBy (List.range 0 m) f
@@ -319,7 +319,7 @@ theorem List.sumByRangeExtend (f: Nat → Nat) (n: Nat) (m: Nat) (le: n ≤ m) (
 
 --| A sum over n + k indices whose first k terms are 0 is the sum of the rest,
 --| counted from 0.
-theorem List.sumByRangeSkipZeros (k: Nat) (f: Nat → Nat) (g: Nat → Nat) (n: Nat) (early: (i: Nat) → i < k → f i = 0) (later: (i: Nat) → f (k + i) = g i):
+theorem List.sumByRangeSkipZeros (k: Nat) (f: Nat → Nat) (g: Nat → Nat) (n: Nat) (early: ∀ (i: Nat) => i < k → f i = 0) (later: ∀ (i: Nat) => f (k + i) = g i):
     List.sumBy (List.range 0 (n + k)) f = List.sumBy (List.range 0 n) g :=
   let first := List.sumByZeroIntro (List.range 0 k) f (i mem => early i (List.memRangeFrom i k 0 mem).right)
   let back: n + k - k = n := omega
@@ -332,13 +332,13 @@ theorem List.sumByRangeSkipZeros (k: Nat) (f: Nat → Nat) (g: Nat → Nat) (n: 
 --| `withIndexFrom s` of a list made by mapping over `withIndexFrom s`: the
 --| indices are the same, so it is `withIndexFrom s xs` with each element
 --| (index, element) pair sent to `(index, h pair)`.
-theorem List.withIndexFromMap: (s: Nat) → (xs: List a) → (h: (Nat, a) → b) →
+theorem List.withIndexFromMap: ∀ (s: Nat) (xs: List a) (h: (Nat, a) → b) =>
     List.withIndexFrom s (List.map (List.withIndexFrom s xs) h) = List.map (List.withIndexFrom s xs) (p => (p.fst, h p))
   | s, [], h => rfl
   | s, [x, ..rest], h => Eq.cong (Cons (s, h (s, x))) (List.withIndexFromMap (Succ s) rest h)
 
 --| Every index of `withIndexFrom t xs` is `t` or more.
-theorem List.memWithIndexFromLe: (t: Nat) → (xs: List a) → (p: (Nat, a)) → p ∈ List.withIndexFrom t xs → t ≤ p.fst
+theorem List.memWithIndexFromLe: ∀ (t: Nat) (xs: List a) (p: (Nat, a)) => p ∈ List.withIndexFrom t xs → t ≤ p.fst
   | t, [], p, member => Void.exfalso member
   | t, [x, ..rest], p, Inl same => rewrite <- same in Nat.leRefl t
   | t, [x, ..rest], p, Inr later =>
@@ -346,7 +346,7 @@ theorem List.memWithIndexFromLe: (t: Nat) → (xs: List a) → (p: (Nat, a)) →
     omega
 
 --| `withIndexFrom s xs` has no repeats: its indices are all different.
-theorem List.distinctWithIndexFrom: (s: Nat) → (xs: List a) → List.Distinct (List.withIndexFrom s xs)
+theorem List.distinctWithIndexFrom: ∀ (s: Nat) (xs: List a) => List.Distinct (List.withIndexFrom s xs)
   | s, [] => Trivial
   | s, [x, ..rest] =>
     Both
@@ -360,7 +360,7 @@ theorem List.distinctWithIndex (xs: List a): List.Distinct xs.withIndex := List.
 
 --| The positions `(s, t)`, `(s, t + 1)`, … of `withIndexFrom t xs` have no
 --| repeats, for any fixed first part `s`.
-theorem List.distinctWithIndexFromPaired (s: b): (t: Nat) → (xs: List a) → List.Distinct (List.map (List.withIndexFrom t xs) (p => (s, p.fst)))
+theorem List.distinctWithIndexFromPaired (s: b): ∀ (t: Nat) (xs: List a) => List.Distinct (List.map (List.withIndexFrom t xs) (p => (s, p.fst)))
   | t, [] => Trivial
   | t, [x, ..rest] =>
     Both

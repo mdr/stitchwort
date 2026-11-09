@@ -64,13 +64,13 @@ theorem Each.collectPure (v: a): Each.collect (() => v) = [v] := rfl
 
 --| Choosing from `xs`, then running `k` on the choice, collects `k`'s
 --| results for each element in turn.
-theorem Each.collectEach (k: a → {Each} b): (xs: List a) →
+theorem Each.collectEach (k: a → {Each} b): ∀ (xs: List a) =>
     Each.collect (() => k (Each.each xs)) = List.flatMap xs (x => Each.collect (() => k x))
   | [] => rfl
   | [x, ..xs] => Eq.cong (List.append (Each.collect (u => k x))) (Each.collectEach k xs)
 
 --| `require ok` before `k`: `k`'s results if `ok`, else none.
-theorem Each.collectRequire (k: () → {Each} b): (ok: Bool) →
+theorem Each.collectRequire (k: () → {Each} b): ∀ (ok: Bool) =>
     Each.collect (() =>
       Each.require ok
       k()) = (if ok then Each.collect k else [])
@@ -78,7 +78,7 @@ theorem Each.collectRequire (k: () → {Each} b): (ok: Bool) →
   | False => rfl
 
 --| `each` of a list collects to the list itself.
-theorem Each.collectEachSelf: (xs: List a) → Each.collect (() => Each.each xs) = xs
+theorem Each.collectEachSelf: ∀ (xs: List a) => Each.collect (() => Each.each xs) = xs
   | [] => rfl
   | [x, ..xs] => Eq.cong (Cons x) (Each.collectEachSelf xs)
 

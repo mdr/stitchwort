@@ -40,7 +40,7 @@ theorem Ord.thenTrans [auto ord: Ord a] (x: a) (y: a) (z: a) [r1 r2 r3: Ordering
 --| Whether both comparisons are `Equal`.
 def Ordering.bothEqual: (x: Ordering) → (y: Ordering) → Bool := matches | Equal, Equal
 
-theorem Ordering.notBothEqual: (c: Ordering) → (d: Ordering) → Ordering.bothEqual c d = False → c = Equal → d = Equal → Void
+theorem Ordering.notBothEqual: ∀ (c d: Ordering) => Ordering.bothEqual c d = False → c = Equal → d = Equal → Void
   | Equal, Equal, t, e1, e2 => Bool.trueNotFalse t
   | Equal, Less, t, e1, e2 => Ordering.lessNotEqual e2
   | Equal, Greater, t, e1, e2 => Ordering.greaterNotEqual e2
@@ -49,8 +49,7 @@ theorem Ordering.notBothEqual: (c: Ordering) → (d: Ordering) → Ordering.both
 
 --| As [`Ordering.andThenTrans`], where the rest need only be transitive when
 --| both first comparisons are `Equal`.
-theorem Ordering.andThenTransWhen: (c1: Ordering) → (c2: Ordering) → (c3: Ordering) →
-    (r1: Ordering) → (r2: Ordering) → (r3: Ordering) →
+theorem Ordering.andThenTransWhen: ∀ (c1 c2 c3 r1 r2 r3: Ordering) =>
     (c1 = Less → c2 = Less → c3 = Less) → (c1 = Equal → c3 = c2) → (c2 = Equal → c3 = c1) →
     (c1 = Equal → c2 = Equal → r1 = Less → r2 = Less → r3 = Less) →
     Ordering.andThen c1 r1 = Less → Ordering.andThen c2 r2 = Less → Ordering.andThen c3 r3 = Less

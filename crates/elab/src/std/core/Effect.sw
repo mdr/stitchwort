@@ -226,7 +226,7 @@ theorem Effect.foldCompDone [op: Type] [res: op → Type] [a r: Type]
 
 --| Running a sequence that performs nothing runs its first part, then the rest.
 theorem Effect.runPureBind [a b: Type]:
-    (computation: Comp NoOp NoRes a) → (next: a → Comp NoOp NoRes b) →
+    ∀ (computation: Comp NoOp NoRes a) (next: a → Comp NoOp NoRes b) =>
     runPure (bind computation next) = runPure (next (runPure computation))
   | Done x, next => rfl
   | Call () rest, next

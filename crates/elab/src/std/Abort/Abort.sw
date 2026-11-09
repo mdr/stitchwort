@@ -54,11 +54,11 @@ def Abort.orElse (fallback: a) (prog: () → {Abort | e} a): {e} a :=
     | Abort.stop u, k => fallback
 
 --| `need` and `toOption` undo each other.
-theorem Abort.toOptionNeed: (o: Option a) → Abort.toOption (() => Abort.need o) = o
+theorem Abort.toOptionNeed: ∀ (o: Option a) => Abort.toOption (() => Abort.need o) = o
   | None => rfl
   | Some x => rfl
 
-theorem Abort.orElseNeed (d: a): (o: Option a) → Abort.orElse d (() => Abort.need o) = Option.getOrElse o d
+theorem Abort.orElseNeed (d: a): ∀ (o: Option a) => Abort.orElse d (() => Abort.need o) = Option.getOrElse o d
   | None => rfl
   | Some x => rfl
 
@@ -91,7 +91,7 @@ theorem Abort.toOptionThen (t: () → {Abort} a) (k: a → {Abort} b):
 --| A block starting with `need x` (or `x.orAbort`) gave `Some v`: `x` held a value.
 theorem Abort.needEqSome [goal: Prop] [x: Option a] [k: a → {Abort} b] [v: b]
     (h: Abort.toOption (() => k (Abort.need x)) = Some v)
-    (use: (u: a) → x = Some u → Abort.toOption (() => k u) = Some v → goal): goal :=
+    (use: ∀ (u: a) => x = Some u → Abort.toOption (() => k u) = Some v → goal): goal :=
   match e: x with
     | None => Void.exfalso (Option.noneNotSome v h)
     | Some u => use u rfl h
@@ -108,7 +108,7 @@ theorem Abort.ensureEqSome [goal: Prop] [ok: Bool] [k: () → {Abort} b] [v: b]
 --| is found from `h`: `Abort.thenEqSome h (bin found rest => …)`.
 theorem Abort.thenEqSome [goal: Prop] [t: () → {Abort} a] [k: a → {Abort} b] [v: b]
     (h: Abort.toOption (() => k (t ())) = Some v)
-    (use: (u: a) → Abort.toOption t = Some u → Abort.toOption (() => k u) = Some v → goal): goal :=
+    (use: ∀ (u: a) => Abort.toOption t = Some u → Abort.toOption (() => k u) = Some v → goal): goal :=
   Option.flatMapEqSome (Abort.toOption t) (x => Abort.toOption (() => k x)) v (rewrite Abort.toOptionThen t k at h) use
 
 test "need Some" := Abort.toOption (() => Abort.need (Some 3)) == Some 3

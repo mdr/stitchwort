@@ -7,18 +7,18 @@
 -- Membership in lists put together
 
 --| An element of the first list is in the two joined.
-theorem List.memAppendLeft (x: a): (xs: List a) → (ys: List a) → x ∈ xs → x ∈ List.append xs ys
+theorem List.memAppendLeft (x: a): ∀ (xs ys: List a) => x ∈ xs → x ∈ List.append xs ys
   | [], ys, m => Void.exfalso m
   | [z, ..zs], ys, Inl e => Inl e
   | [z, ..zs], ys, Inr m => Inr (List.memAppendLeft x zs ys m)
 
 --| An element of the second list is in the two joined.
-theorem List.memAppendRight (x: a): (xs: List a) → (ys: List a) → x ∈ ys → x ∈ List.append xs ys
+theorem List.memAppendRight (x: a): ∀ (xs ys: List a) => x ∈ ys → x ∈ List.append xs ys
   | [], ys, m => m
   | [z, ..zs], ys, m => Inr (List.memAppendRight x zs ys m)
 
 --| What `f` makes from an element of `xs` is in `List.concatMap xs f`.
-theorem List.memConcatMap (f: a → List b) (x: a) (y: b): (xs: List a) → x ∈ xs → y ∈ f x → y ∈ List.concatMap xs f
+theorem List.memConcatMap (f: a → List b) (x: a) (y: b): ∀ (xs: List a) => x ∈ xs → y ∈ f x → y ∈ List.concatMap xs f
   | [], member, made => Void.exfalso member
   | [z, ..zs], Inl same, made => List.memAppendLeft y (f z) (List.concatMap zs f) (J (w e => y ∈ f w) made (Eq.sym same))
   | [z, ..zs], Inr later, made => List.memAppendRight y (f z) (List.concatMap zs f) (List.memConcatMap f x y zs later made)
@@ -37,7 +37,7 @@ theorem List.memConcatMap (f: a → List b) (x: a) (y: b): (xs: List a) → x �
 -- (docs/proposals/decide.md §6.2)
 interface Finite (a: Type) = {
   all: List a,
-  complete: (x: a) → x ∈ all
+  complete: ∀ (x: a) => x ∈ all
 }
 
 instance Bool.instFinite: Finite Bool := {
@@ -58,7 +58,7 @@ instance Ordering.instFinite: Finite Ordering := {
 --| Every option: `None`, then `Some` of every value.
 def Option.allFinite [auto fin: Finite a]: List (Option a) := [None, ..List.concatMap Finite.all (x => [Some x])]
 
-theorem Option.allFiniteComplete [auto fin: Finite a]: (o: Option a) → List.Mem o Option.allFinite
+theorem Option.allFiniteComplete [auto fin: Finite a]: ∀ (o: Option a) => List.Mem o Option.allFinite
   | None => Inl rfl
   | Some x => Inr (List.memConcatMap (y => [Some y]) x (Some x) Finite.all (Finite.complete x) (Inl rfl))
 
@@ -68,7 +68,7 @@ instance Option.instFinite [auto fin: Finite a]: Finite (Option a) := { all = Op
 def Pair.allFinite [auto finA: Finite a] [auto finB: Finite b]: List (Pair a b) :=
   List.concatMap Finite.all (x => List.concatMap Finite.all (y => [MkPair x y]))
 
-theorem Pair.allFiniteComplete [auto finA: Finite a] [auto finB: Finite b]: (p: Pair a b) → List.Mem p Pair.allFinite
+theorem Pair.allFiniteComplete [auto finA: Finite a] [auto finB: Finite b]: ∀ (p: Pair a b) => List.Mem p Pair.allFinite
   | MkPair x y =>
     List.memConcatMap (u => List.concatMap Finite.all (v => [MkPair u v])) x (MkPair x y) Finite.all (Finite.complete x)
       (List.memConcatMap (v => [MkPair x v]) y (MkPair x y) Finite.all (Finite.complete y) (Inl rfl))
