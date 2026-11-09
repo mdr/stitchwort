@@ -57,5 +57,31 @@ class Geomean(unittest.TestCase):
         self.assertIn("20.00x (2 programs)", everything)
 
 
+class Instructions(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        spec = importlib.util.spec_from_file_location("instructions", Path(__file__).resolve().parent / "instructions.py")
+        cls.mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(cls.mod)
+
+    def test_summarise(self):
+        s = self.mod.summarise([100, 110, 104])
+        self.assertEqual((s["min"], s["median"], s["max"]), (100, 104, 110))
+        self.assertAlmostEqual(s["spread"], 10 / 104)
+
+    def test_compare_runs(self):
+        cur = {"a": {"median": 90}, "b": {"median": 200}, "new": {"median": 5}}
+        old = {"a": {"median": 100}, "b": {"median": 100}, "gone": {"median": 7}}
+        changes, mean = self.mod.compare_runs(cur, old)
+        self.assertEqual(set(changes), {"a", "b"})
+        self.assertAlmostEqual(changes["a"], -10.0)
+        self.assertAlmostEqual(changes["b"], 100.0)
+        # sqrt(0.9 * 2.0) - 1
+        self.assertAlmostEqual(mean, (0.9 * 2.0) ** 0.5 * 100 - 100)
+
+    def test_no_overlap(self):
+        self.assertEqual(self.mod.compare_runs({"a": {"median": 1}}, {"b": {"median": 1}}), ({}, None))
+
+
 if __name__ == "__main__":
     unittest.main()

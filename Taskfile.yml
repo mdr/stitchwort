@@ -567,6 +567,25 @@ tasks:
       - cargo build --release -p stitchwort-cli -p stitchwort-standalone {{.DEV_FEATURES}}
       - nix develop .#compare -c bash bench/compare/compare.sh --check --sw {{.BENCH_SW}} {{.CLI_ARGS}}
 
+  bench:instructions:
+    desc: 'Instructions retired by bench/compare programs, repeated, saved and compared (args after --: program names, --runs N, --set core|wide, --save NAME, --against NAME)'
+    summary: |
+      Builds `stitchwort` and its runtime non-incrementally into target/bench
+      (as `bench:compare`), builds each program natively once, runs it N
+      times (default 5) under `/usr/bin/time -l` (macOS) or `perf stat`
+      (Linux), checks every output against expected.txt, and prints the
+      min, median, max and spread of instructions retired. --save NAME
+      writes target/bench/instructions/NAME.json; --against NAME prints the
+      change of each median against it and the geometric mean. For perf
+      lanes' before/after: save on main's commit, then compare on the
+      branch. bench/compare/README.md.
+    env:
+      CARGO_TARGET_DIR: '{{.BENCH_TARGET}}'
+      CARGO_PROFILE_RELEASE_INCREMENTAL: 'false'
+    cmds:
+      - cargo build --release -p stitchwort-cli -p stitchwort-standalone {{.DEV_FEATURES}}
+      - python3 -I bench/compare/instructions.py --sw {{.BENCH_SW}} {{.CLI_ARGS}}
+
   profile:native:
     desc: 'Profile the native executables of bench/compare programs: samply top functions by Stitchwort definition, and counts of runtime calls (args after --: program names, --top N, --focus FUNCTION, --group PREFIX, --by-instruction [--bodies N], --no-counts)'
     summary: |

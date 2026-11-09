@@ -301,6 +301,9 @@ own tickets as described in [board/README.md](../board/README.md).
   (`nix develop -c cargo run --release -p stitchwort-bench`) and record an
   intended change with `-- --update`, saying why in the commit. The
   deterministic counts are checked by `nix flake check` (+10% fails).
+  For native-code speed, `task bench:instructions -- --save before`, then
+  `-- --against before` after the change, compares instructions retired
+  over repeated runs (a steady measure under load).
 - A lane that proves theorems is told to read
   [proving-guide.md](proving-guide.md) first: its rules (never weaken a
   statement, prove against a spec in the problem's words, report "not

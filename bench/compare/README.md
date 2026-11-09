@@ -43,6 +43,27 @@ proxy for one machine. Raw counts (startup not subtracted) are in the JSON
 under `instructions`. Parsing is tested by
 `python3 -I bench/compare/test_instructions.py`.
 
+### Before and after a change: `task bench:instructions`
+
+```
+task bench:instructions -- --save before                 # all core and wide programs, 5 runs each
+task bench:instructions -- --against before              # after the change: % change of medians + geomean
+task bench:instructions -- --set wide --runs 3 --save wide-before
+task bench:instructions -- pidigits binary-trees --runs 2
+```
+
+Builds like `bench:compare` (non-incremental, into `target/bench`), builds
+each program's native executable once, runs it `--runs` times (default 5)
+under the instruction counter above, checks every run's output against
+`expected.txt`, and prints min, median, max and spread
+((max - min) / median) per program. `--save NAME` writes
+`target/bench/instructions/NAME.json` (not committed); `--against NAME`
+adds each median's change against that file and the geometric mean of the
+changes. Counts include startup (the null program is not subtracted), which
+cancels in a comparison. Compare only runs made on the same machine and
+the same kind of build. The comparison and mean are tested by
+`python3 -I bench/compare/test_instructions.py`.
+
 The runners, named as in the table:
 
 | Runner | Command |
