@@ -665,15 +665,25 @@ theorem Map.Spec.lastOrNone: (xs: List a) → Map.Spec.lastOr None xs = List.las
   | [] => rfl
   | [x, ..rest] => Map.Spec.lastOrCons None x rest
 
+--| `minFrom` is `minOr` seeded with the same entry, wrapped in `Some`.
+theorem Map.Tree.minFromOr (kk: k) (vv: v): (l: Map.Tree k v) → Some (Map.Tree.minFrom kk vv l) = Map.Tree.minOr (Some (kk, vv)) l
+  | Tip => rfl
+  | Bin s l2 k2 v2 r2 => rfl
+
+--| `maxFrom` is `maxOr` seeded with the same entry, wrapped in `Some`.
+theorem Map.Tree.maxFromOr (kk: k) (vv: v): (r: Map.Tree k v) → Some (Map.Tree.maxFrom kk vv r) = Map.Tree.maxOr (Some (kk, vv)) r
+  | Tip => rfl
+  | Bin s l2 k2 v2 r2 => rfl
+
 theorem Map.Tree.minOnto: (t: Map.Tree k v) → (acc: List (k, v)) → List.head (Map.Tree.toListOnto t acc) = Map.Tree.minOr (List.head acc) t
   | Tip, acc => rfl
-  | Bin s l kk vv r, acc => Map.Tree.minOnto l [(kk, vv), ..Map.Tree.toListOnto r acc]
+  | Bin s l kk vv r, acc => rewrite Map.Tree.minFromOr kk vv l in Map.Tree.minOnto l [(kk, vv), ..Map.Tree.toListOnto r acc]
 
 theorem Map.Tree.maxOnto: (found: Option (k, v)) → (t: Map.Tree k v) → (acc: List (k, v)) →
     Map.Spec.lastOr found (Map.Tree.toListOnto t acc) = Map.Spec.lastOr (Map.Tree.maxOr found t) acc
   | found, Tip, acc => rfl
   | found, Bin s l kk vv r, acc =>
-    Eq.trans (Map.Tree.maxOnto found l [(kk, vv), ..Map.Tree.toListOnto r acc]) (Map.Tree.maxOnto (Some (kk, vv)) r acc)
+    rewrite Map.Tree.maxFromOr kk vv r in Eq.trans (Map.Tree.maxOnto found l [(kk, vv), ..Map.Tree.toListOnto r acc]) (Map.Tree.maxOnto (Some (kk, vv)) r acc)
 
 theorem Map.Raw.minToList (m: Map.Raw k v [ord := o]): Map.Raw.min m = List.head (Map.Raw.toList m) := Eq.sym (Map.Tree.minOnto m.tree [])
 

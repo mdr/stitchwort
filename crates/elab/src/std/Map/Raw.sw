@@ -193,19 +193,34 @@ def Map.Tree.mapWithKey (f: k → v → w): (tree: Map.Tree k v) → Map.Tree k 
   | Tip => Tip
   | Bin s l kk vv r => Bin s (Map.Tree.mapWithKey f l) kk (f kk vv) (Map.Tree.mapWithKey f r)
 
---| The entry with the smallest key of the tree, or `found` for an empty tree.
+--| The entry with the smallest key of the tree, given the entry `(foundKey, foundValue)`
+--| to answer if the tree is empty. Key and value travel as two arguments so the pair is
+--| built once, at the end, not at every level.
 @[noReceiver]
 @[tailrec]
+def Map.Tree.minFrom (foundKey: k) (foundValue: v): (tree: Map.Tree k v) → (k, v)
+  | Tip => (foundKey, foundValue)
+  | Bin _ l kk vv r => Map.Tree.minFrom kk vv l
+
+--| The entry with the smallest key of the tree, or `found` for an empty tree.
+@[noReceiver]
 def Map.Tree.minOr (found: Option (k, v)): (tree: Map.Tree k v) → Option (k, v)
   | Tip => found
-  | Bin _ l kk vv r => Map.Tree.minOr (Some (kk, vv)) l
+  | Bin _ l kk vv r => Some (Map.Tree.minFrom kk vv l)
+
+--| The entry with the largest key of the tree, given the entry `(foundKey, foundValue)`
+--| to answer if the tree is empty (see `minFrom`).
+@[noReceiver]
+@[tailrec]
+def Map.Tree.maxFrom (foundKey: k) (foundValue: v): (tree: Map.Tree k v) → (k, v)
+  | Tip => (foundKey, foundValue)
+  | Bin _ l kk vv r => Map.Tree.maxFrom kk vv r
 
 --| The entry with the largest key of the tree, or `found` for an empty tree.
 @[noReceiver]
-@[tailrec]
 def Map.Tree.maxOr (found: Option (k, v)): (tree: Map.Tree k v) → Option (k, v)
   | Tip => found
-  | Bin _ l kk vv r => Map.Tree.maxOr (Some (kk, vv)) r
+  | Bin _ l kk vv r => Some (Map.Tree.maxFrom kk vv r)
 
 --| The entry with the largest key below `key` in the tree, or `found` if there is none.
 @[noReceiver]
