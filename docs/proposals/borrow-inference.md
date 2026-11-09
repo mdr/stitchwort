@@ -693,7 +693,10 @@ its module docs are the reference. What differs from §4-§6:
   rewrite turns each body's `Field`/`Unpack`/`Move`/`Take`/`Drop`/`Return` and call operands on
   lent registers into these, strips `MOVE` from an owned value passed to a borrowed position and
   drops it after the call, and keeps every tail call a tail call (D3443: O4/O8 forbid lending an
-  owned value in a tail call). No `LEND` operand bit: a call reads the callee's flags.
+  owned value in a tail call). No `LEND` operand bit: a call reads the callee's flags. A lent
+  register both lent and handed over in one call (`g x x`, `g` borrowing then owning) gives the
+  owned position a counted copy: a new register in a tail call, otherwise the register read
+  unmoved and forgotten after the call (review F1).
 - **The check** (`borrow::check`) runs over every rewritten body and panics at compile time on
   a breach: counting or reusing a lent register, a frame ending while it holds one, a write
   over one, a lent value moved to an owned position without `Own`, lent and owned meeting.
@@ -713,34 +716,39 @@ its module docs are the reference. What differs from §4-§6:
   values), the JavaScript backend (unchanged: it doesn't read the flags), and the docs in
   `fast-runtime.md` and `native-compilation.md` named in §6.
 
-### 12.1 Results (measured, native instructions, base d5bd2f09d)
+### 12.1 Results (measured, native instructions, against main at fdde41179)
 
-`task bench:instructions`, 3 runs each (spread under 0.4%), against the base; B0's estimate is
-§11.2's b1-no-o6 column (counted pairs removed, as a share of instructions):
+After the review's fixes (docs/reviews/SW-2565-borrow-b1-review.md: F1-F4, part of F3) and a
+rebase onto main with SW-2559 (exact cell-cache room). `task bench:instructions`, 3 runs each
+(spread under 0.15%); B0's estimate is §11.2's b1-no-o6 column (counted pairs removed, as a
+share of instructions):
 
-| Program | Before | After | Change | B0 estimate |
+| Program | main | B1 | Change | B0 estimate |
 |---|---:|---:|---:|---:|
-| mapops | 9.47 G | 8.89 G | **-6.09%** | -9.1% |
-| memory-game | 17.84 G | 14.45 G | **-18.98%** | -13.8% |
-| dijkstra | 15.71 G | 15.69 G | -0.13% | -2.5% |
-| disk | 50.30 G | 49.77 G | -1.06% | -3.2% |
-| binary-trees | 20.55 G | 20.56 G | +0.04% | -1.8% |
-| rbmap | 23.36 G | 23.27 G | -0.39% | 0% |
-| rbmap-ck | 10.52 G | 10.41 G | -0.99% | -0.2% |
-| expressions | 156.90 G | 155.56 G | -0.85% | -0.3% |
-| geomean | | | **-3.77%** | |
+| mapops | 9.46 G | 8.85 G | **-6.40%** | -9.1% |
+| memory-game | 17.79 G | 14.36 G | **-19.31%** | -13.8% |
+| dijkstra | 15.91 G | 15.67 G | -1.49% | -2.5% |
+| disk | 50.78 G | 49.55 G | -2.42% | -3.2% |
+| binary-trees | 20.60 G | 20.60 G | +0.01% | -1.8% |
+| rbmap | 23.34 G | 23.28 G | -0.26% | 0% |
+| rbmap-ck | 10.51 G | 10.28 G | -2.13% | -0.2% |
+| expressions | 160.35 G | 155.38 G | -3.10% | -0.3% |
+| geomean | | | **-4.59%** | |
 
-`task bench:aoc` (56 days, all answers right): geomean **-0.96%**; three days moved more than
-3%: 2024/06 -10.8%, 2021/17 -9.5%, 2020/08 -4.9%. The worst day is 2021/01 at +1.16% (117 M
-instructions; not investigated, likely a lent list now dropped whole by the runtime after its
-last walk instead of freed inline, as binary-trees was before *fresh*). Step and frame counts,
-results and hashes are unchanged (the hash tests pass; the rewrite only changes counting).
+`task bench:aoc` (56 days, all answers right, against main built the same way): geomean
+**-2.32%**; 11 days moved more than 3% (2021/17 -11.7%, 2024/06 -11.3%, 2020/08 -5.0%, 2020/20
+-4.2%, 2020/21 -4.0%, 2021/12 -3.5%, 2021/10 -3.4%, 2020/04 -3.1%, 2024/03 -3.1%, 2025/03
+-3.1%, 2020/18 -3.1%), and no day ran more instructions (the worst, 2021/07, -0.05%; 2021/01,
++1.16% before the rebase, is now -1.72%). Results, step and frame counts and hashes are
+unchanged (the hash tests pass; the rewrite only changes counting).
 
-The gate (§6): mapops -3% or better, met; dijkstra better, met only just (-0.13%: in its dump, Map's
-insert path and the rebalancing are owned by O5 and *merge*; `get` borrows); no program worse than +1%, met by
-bench/compare, missed by 2021/01 by 0.16 points.
+The gate (§6): mapops -3% or better, met; dijkstra better, met; no program worse than +1%, met.
 
-**Memory** (§8, peak resident set, before and after, same inputs): mapops 30.1 / 30.0 MB,
+Before the rebase and the fixes, against d5bd2f09d, the geomean was -3.77% and bench:aoc's
+-0.96%, with 2021/01 at +1.16%. Most of the difference is main's own changes meeting borrowing
+(SW-2559 among them); the review's fixes change counting only in the rare shapes they cover.
+
+**Memory** (§8, peak resident set, before and after, same inputs; measured before the rebase): mapops 30.1 / 30.0 MB,
 dijkstra 304.5 / 304.5, memory-game 723.7 / 723.7, disk 1223.8 / 1223.8, binary-trees 70.5 /
 70.5, rbmap 324.4 / 324.3, rbmap-ck 1688.6 / 1688.6, expressions 405.3 / 405.2 MB. No change:
 *fresh* keeps the case §8 worried about (a walked tree freed as it goes) owned.

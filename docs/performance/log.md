@@ -70,7 +70,7 @@ in [../proposals/README.md](../proposals/README.md).
   lists at a counted point: needs the same walk to find the point, and
   throws away blocks the program will want again. Keeping the recount but
   rarer (cutting deeper) was not tried: the exact count removes the cause.
-### SW-2565: borrowed parameters, stage B1 (mapops -6.1%, memory-game -19.0%, AoC geomean -1.0%)
+### SW-2565: borrowed parameters, stage B1 (mapops -6.4%, memory-game -19.3%, AoC geomean -2.3%)
 
 - **Status:** on branch `lane/SW-2565`. Opus. D3441 (build it), D3442 (the machine checks
   borrows), D3443 (step and frame counts unchanged); O6 dropped (orchestrator's call from B0).
@@ -82,11 +82,13 @@ in [../proposals/README.md](../proposals/README.md).
   makes each lent value's life explicit (`Peek`, `Lend`, `Forget`, `Own`), checked at compile
   time. Native code copies lent words with no counting; the machine keeps checked, untraced
   clones. Details and rules: docs/proposals/borrow-inference.md §12.
-- **Measured** (`task bench:instructions --runs 3` against base d5bd2f09d): mapops -6.09%,
-  memory-game -18.98%, disk -1.06%, rbmap-ck -0.99%, expressions -0.85%, rbmap -0.39%,
-  dijkstra -0.13%, binary-trees +0.04%; geomean -3.77%. `task bench:aoc`: geomean -0.96% over 56
-  days, 2024/06 -10.8%, 2021/17 -9.5%, 2020/08 -4.9%; worst 2021/01 +1.16%. Peak memory
-  unchanged on all eight programs (within 0.1 MB).
+- **Measured** (`task bench:instructions --runs 3` against main at fdde41179, after the review's
+  fixes and the rebase onto SW-2559): mapops -6.40%, memory-game -19.31%, expressions -3.10%,
+  disk -2.42%, rbmap-ck -2.13%, dijkstra -1.49%, rbmap -0.26%, binary-trees +0.01%; geomean
+  -4.59%. `task bench:aoc`: geomean -2.32% over 56 days, 11 days over 3% (2021/17 -11.7%,
+  2024/06 -11.3%, 2020/08 -5.0%), none worse (worst 2021/07 -0.05%). Before the rebase, against
+  d5bd2f09d: geomean -3.77%, AoC -0.96%, 2021/01 +1.16%. Peak memory unchanged on all eight
+  programs (within 0.1 MB, measured before the rebase).
 - **Rejected along the way** (measured, one run each; geomean of the eight):
   - The note's rules plus *merge*, without *fresh*: binary-trees +83% (its fresh tree, lent,
     was dropped whole by the runtime instead of freed into the cell cache as walked); +4.49%.
@@ -98,7 +100,7 @@ in [../proposals/README.md](../proposals/README.md).
   - Fields of a fresh value counted as fresh through `Unpack`: rbmap-ck +1.65%, expressions
     +1.42%; -3.18%.
   - Kept: the last but one, except that a copy or a field of a value that stays live doesn't
-    count as handed over (*fed*); -3.77% (3 runs).
+    count as handed over (*fed*); -3.77% (3 runs, before the rebase).
 - **Not done.** B2 (owned copies for O7/O8), B3 (lent reads of owned values), the JS backend.
 
 ### SW-2471: native recursion limit 16 million frames (const-fold depth 23 runs)
