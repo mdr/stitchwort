@@ -1,5 +1,5 @@
 {
-  "next": 2507,
+  "next": 2508,
   "tickets": [
     {
       "id": 47,
@@ -25147,12 +25147,12 @@
     {
       "id": 2498,
       "title": "Design note: compiled handler dispatch (one dispatch closure per handler, clause chosen by the operation's tag; no %elim of eight clauses copied and dropped per operation): est. -9 to -12% expressions, -11 to -14% scan, nothing user-visible; native and JS runtimes",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": "Speedwell",
       "labels": [],
       "epic": "comparative-speed",
-      "body": "From SW-2493 option 2 (docs/reviews/SW-2493-parse-operation-cost.md). Paper lane. 90 min.\n\nStarted 9 Nov 2026 06:43 UTC. Expected: 90 min.\n",
+      "body": "From SW-2493 option 2 (docs/reviews/SW-2493-parse-operation-cost.md). Paper lane. 90 min.\n\nStarted 9 Nov 2026 06:43 UTC. Expected: 90 min.\n\nNote merged 9 Nov 06:55: docs/proposals/compiled-handler-dispatch.md. Stage 1 est. -9 to -14% expressions, -11 to -18% scan, bridge 8-13%; also found a hidden extra partial application per operation for fused state handlers. Decisions for Matt: build stage 1 (rec yes, Opus), allow lower machine step counts (rec yes), JS stays (rec yes). Spike filed as SW-2507. Model result: Opus, worked, 11 min (est. 90).\n",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
@@ -25257,6 +25257,19 @@
       "labels": [],
       "epic": "elaborator-kernel",
       "body": "From SW-2481; after it merges. 45 min.",
+      "created": "2026-11-09",
+      "updated": "2026-11-09",
+      "commits": []
+    },
+    {
+      "id": 2507,
+      "title": "Compiled handler dispatch stage 1a: spike on SW-2493's scratch loops, measurement only (go if Tick <= 5,080 instructions per operation and the eight-operation ability within 100 of Tick); nothing merged before Matt decides stage 1",
+      "status": "doing",
+      "agent": "Opus",
+      "where": "Speedwell",
+      "labels": [],
+      "epic": "comparative-speed",
+      "body": "docs/proposals/compiled-handler-dispatch.md stage 1a. Orchestrator's call: a measure-only spike informs the morning decision; shipping (step counts fall) is Matt's. 90 min.\n\nStarted 9 Nov 2026 06:55 UTC. Expected: 90 min.\n",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
