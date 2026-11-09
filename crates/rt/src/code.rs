@@ -864,6 +864,8 @@ impl<'a> Compiler<'a> {
                     self.later.push(Later::Ctor(n));
                     let args = self.operand_ops(fields, live, true);
                     self.later.pop();
+                    #[cfg(not(feature = "value-census"))]
+                    let _ = t;
                     // The census wants to know which fields are enums.
                     #[cfg(feature = "value-census")]
                     let c = &crate::value_census::tag_with_enum_fields(
