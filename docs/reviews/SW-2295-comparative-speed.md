@@ -277,3 +277,11 @@ skipped forward reuses its `Call` cell). Not yet: SW-2485 (`Map.Tree.minOr`, dis
 Geometric means by time (native / CPython, native / Lean): core **2.62, 11.05**; wide **0.19, 2.42**;
 all **1.25, 7.16**. By instructions: core 2.28, 10.63; wide 0.26, 3.04; all 1.23, 7.43.
 Raw files: Overmind's `target/compare/2026-11-09T054222-overmind.{json,md}`.
+
+## Over-fitting check with bench:aoc (Speedwell, 9 Nov 2026 05:55)
+
+The first full `task bench:aoc` sweep (SW-2453) ran at 05:25 on main after SW-2485 (55/55 days
+correct). Re-run at 05:55 after SW-2487 (`many` reuses its round's mark), which was found on the
+disk and bridge profiles (SW-2484): 38 of the 55 days moved by more than 3%, every one faster, up to
+−13.3% (2025/07), −11.9% (2020/06), −11.8% (2020/03); geometric mean of new/old instructions −2.54%;
+no day slower by more than 1%. So the parser change generalises beyond the two benchmarks it came from.
