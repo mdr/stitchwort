@@ -1,5 +1,5 @@
 {
-  "next": 2537,
+  "next": 2539,
   "tickets": [
     {
       "id": 47,
@@ -25316,12 +25316,12 @@
     {
       "id": 2511,
       "title": "Compiled handler dispatch stage 1b: finish the SW-2507 prototype (keep/SW-2507-dispatch-spike): tests, snapshots, profile names, machine/native agreement, the extra cell per route, bench:compare on all programs; needs Matt's decision on lower machine step counts first",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": "Speedwell",
       "labels": [],
       "epic": "comparative-speed",
-      "body": "Spike measured expressions -24.5%, scan -29.1% instructions; Tick 5,671 -> 3,458 per operation. 2-3 h.\n\nFrom SW-2525: in stage 1b or 2, try one code pointer per operation (Effekt-style table) and keep it only if above noise.\n\nD3440, Matt, 9 Nov 2026 08:54: yes, \"proceed\" (after asking why step counts would matter: only the work limit and measurements).\nStarted 9 Nov 2026 08:54 UTC, Opus. Expected: 180 min.\n",
+      "body": "Spike measured expressions -24.5%, scan -29.1% instructions; Tick 5,671 -> 3,458 per operation. 2-3 h.\n\nFrom SW-2525: in stage 1b or 2, try one code pointer per operation (Effekt-style table) and keep it only if above noise.\n\nD3440, Matt, 9 Nov 2026 08:54: yes, \"proceed\" (after asking why step counts would matter: only the work limit and measurements).\nStarted 9 Nov 2026 08:54 UTC, Opus. Expected: 180 min.\n\nMerged 9 Nov 09:32 (52a2ddc9d). Instructions -14.4% geomean on 7 comparison programs (expressions -25.5%, scan -30.4%, bridge -21.2%, disk -13.8%), bench:aoc -11.0% geomean (55 days, worst +0.24%). Unpack unused-field commit 200f2d6d9 kept: orchestrator call under D3447 (counts only). Perf log entry checked. Model result: Opus, worked, 40 min (est. 180).\n",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
@@ -25628,12 +25628,12 @@
     {
       "id": 2535,
       "title": "Native by default, step 1 (sizing): measure how much of each program compiles natively today (bench/compare, a bench:aoc sample, Rogue, examples), the binary size and build time with Cranelift in the default binary, and plan N5 (differential suite under --native), the machine fallback inside built executables, and N6 for run/test/build, with estimates",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Opus",
-      "where": "",
+      "where": "Speedwell",
       "labels": [],
       "epic": "effects-native",
-      "body": "D3448, Matt, 9 Nov 2026 09:18: yes, finish native code and make it the default for run, test and build (machine kept as --machine and as the fallback, including in built executables). N5 may run the whole differential suite under --native (Matt agreed the broader suite as part of D3448). This step measures and plans only; starts at the next free build slot. 90 min.",
+      "body": "D3448, Matt, 9 Nov 2026 09:18: yes, finish native code and make it the default for run, test and build (machine kept as --machine and as the fallback, including in built executables). N5 may run the whole differential suite under --native (Matt agreed the broader suite as part of D3448). This step measures and plans only; starts at the next free build slot. 90 min.\n\nStarted 9 Nov 2026 09:32 UTC. Expected: 90 min.\n",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
@@ -25647,6 +25647,32 @@
       "labels": [],
       "epic": "effects-native",
       "body": "D3448 yes. After SW-2535's plan; split into lanes from it.",
+      "created": "2026-11-09",
+      "updated": "2026-11-09",
+      "commits": []
+    },
+    {
+      "id": 2537,
+      "title": "Stop lowering handlePlus and each %elim as globals once compiled dispatch replaces every call (code size only)",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "comparative-speed",
+      "body": "From SW-2511. 45 min.",
+      "created": "2026-11-09",
+      "updated": "2026-11-09",
+      "commits": []
+    },
+    {
+      "id": 2538,
+      "title": "Unpack unused-field drop (SW-2511 200f2d6d9) makes 2021/06 +2.25% and 2021/16 +1.92% vs dispatch alone: profile and explain",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "comparative-speed",
+      "body": "From SW-2511. Profile first. 45 min.",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
