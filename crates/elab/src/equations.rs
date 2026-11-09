@@ -112,6 +112,33 @@ const ATTEMPT: stitchwort_core::budget::Limits = stitchwort_core::budget::Limits
 /// the note's guess).
 const SIZE_FACTOR: usize = 10;
 
+/// Whether a right side of `size` nodes is too large to state for an arm
+/// whose elaborated body has `arm_size` (§10).
+fn too_large(size: usize, arm_size: usize) -> bool {
+    size > 256 && size > SIZE_FACTOR.saturating_mul(arm_size)
+}
+
+/// A leaf body with `let`s substituted larger than this isn't read further
+/// for its row's equation, whatever the branches its splits take: reading
+/// it costs time linear in it (a quarter of a second at 150,000 nodes), for
+/// every row, and a chain of `let`s each using the last twice substitutes
+/// to a tree exponential in the chain's length (SW-2512). A body this
+/// large is also more than ten times its arm's (§10), so a row with no
+/// splits loses nothing; a row whose split takes a small branch of it
+/// loses its equation.
+const READ_CAP: usize = 1 << 16;
+
+fn too_large_to_read(size: usize, arm_size: usize) -> String {
+    format!(
+        "its body with `let`s substituted would be {size} nodes, too many to read (over \
+         {READ_CAP}, and ten times its arm's {arm_size})"
+    )
+}
+
+fn too_large_why(size: usize, arm_size: usize) -> String {
+    format!("its right side would be {size} nodes, more than ten times its arm's {arm_size}")
+}
+
 /// An equation that would take more than this many hypotheses `x ≠ k` for
 /// earlier number arms isn't generated (D2189): its proof splits on the
 /// number with every one of them in context, which the kernel refines at
@@ -3036,10 +3063,8 @@ impl Elaborator {
         // §10: a right side much larger than the arm's body (a `let` used
         // many times, substituted) isn't generated.
         let (size, arm_size) = (s.rhs_size, s.arm_size);
-        if size > 256 && size > SIZE_FACTOR * arm_size {
-            return skip(format!(
-                "its right side would be {size} nodes, more than ten times its arm's {arm_size}"
-            ));
+        if too_large(size, arm_size) {
+            return skip(too_large_why(size, arm_size));
         }
         // The proof.
         let tree = self.walk_proof(d, k, shape, shapes, &s.hyps, depth, &body, Then::Own)?;
@@ -3550,10 +3575,8 @@ impl Elaborator {
         let top = binders.len();
         // §10, for the branch's right side too.
         let size = z.subterms().count();
-        if size > 256 && size > SIZE_FACTOR * arm_size {
-            return skip(format!(
-                "its right side would be {size} nodes, more than ten times its arm's {arm_size}"
-            ));
+        if too_large(size, arm_size) {
+            return skip(too_large_why(size, arm_size));
         }
         // The row's proof, walking the definition's tree (its case splits
         // at the top), going on along the proof that its right side is the
@@ -4595,6 +4618,7 @@ impl Elaborator {
     fn right_side(&self, d: &Def, k: usize, shape: &Shape) -> R<(Option<Term>, usize)> {
         match self.seek(d, k, shape)?.found {
             Found::Rhs(t, size) => Ok((Some(t), size)),
+            Found::TooLarge(size, arm_size) => skip(too_large_to_read(size, arm_size)),
             Found::Match => skip(
                 "its right side is a `match` on its variables, compiled into the case tree, so \
                  no one equation states it: each alternative's has its own (`f.eqK.cons`, …)",
@@ -5191,6 +5215,51 @@ fn zeta(g: &Ev, t: &Term) -> stitchwort_core::budget::Result<Term> {
     rebuild(t, &mut |s, _| Ok(Rc::new(zeta(g, s)?)))
 }
 
+/// `zeta(t).subterms().count()`, counted without building it, and whether
+/// `zeta(t)` is a variable under its `Loc`s. A chain of `let`s each using
+/// the last twice substitutes to a tree exponential in the chain's length,
+/// which [`READ_CAP`] must turn down before it is built (SW-2512). `lets`
+/// has, per variable in scope (outermost first), what its `let`'s value
+/// substitutes as, or `None` for another binder's. Sizes saturate.
+fn zeta_size(
+    g: &Ev,
+    t: &Term,
+    lets: &mut Vec<Option<(usize, bool)>>,
+) -> stitchwort_core::budget::Result<(usize, bool)> {
+    g.machine.budget.nesting("equations")?;
+    match t {
+        Term::Var(i) => Ok(lets
+            .len()
+            .checked_sub(i + 1)
+            .and_then(|l| lets[l])
+            .unwrap_or((1, true))),
+        Term::Loc(_, inner) => {
+            let (size, var) = zeta_size(g, inner, lets)?;
+            Ok((size.saturating_add(1), var))
+        }
+        Term::Let(_, _, v, b, _) => {
+            // `instantiate` puts a variable in bare, else the value whole.
+            let (size, var) = zeta_size(g, v, lets)?;
+            lets.push(Some(if var { (1, true) } else { (size, false) }));
+            let r = zeta_size(g, b, lets);
+            lets.pop();
+            r
+        }
+        _ => {
+            let mut children = Vec::new();
+            t.for_each_child(|c, under| children.push((c, under)));
+            let mut size: usize = 1;
+            for (c, under) in children {
+                lets.extend(std::iter::repeat_n(None, under));
+                let r = zeta_size(g, c, lets);
+                lets.truncate(lets.len() - under);
+                size = size.saturating_add(r?.0);
+            }
+            Ok((size, false))
+        }
+    }
+}
+
 /// `t` (at `depth`) with the effect library's plumbing at the empty row and
 /// `Total` computed away (`bindDv Total Empty c next` is `next c`, `CompIn
 /// Empty a` is `a`), so an effect-polymorphic definition's equation reads
@@ -5484,6 +5553,9 @@ enum Found {
     GuardProof,
     /// The right side, and the size of the leaf's body it came from.
     Rhs(Term, usize),
+    /// A right side over [`READ_CAP`] (and [`too_large`]) with its `let`s
+    /// substituted: that size, and its leaf body's.
+    TooLarge(usize, usize),
 }
 
 /// Why a row whose body uses the proof that an earlier arm's condition is
@@ -5592,9 +5664,17 @@ fn find_rhs(
                 } else {
                     rhs
                 };
-                // `let`s substituted, as goals show them (§3.1).
-                let rhs = zeta(g, &rhs)?;
-                out.found = Found::Rhs(rhs, t.subterms().count());
+                // `let`s substituted, as goals show them (§3.1). The
+                // branches a row's splits take are smaller, and §10
+                // bounds what is stated; [`READ_CAP`] bounds what is
+                // built on the way.
+                let arm_size = t.subterms().count();
+                let (size, _) = zeta_size(g, &rhs, &mut Vec::new())?;
+                out.found = if size > READ_CAP && too_large(size, arm_size) {
+                    Found::TooLarge(size, arm_size)
+                } else {
+                    Found::Rhs(zeta(g, &rhs)?, arm_size)
+                };
             }
             None => {
                 if matches!(out.found, Found::None) {
@@ -6653,6 +6733,11 @@ impl<'a> Walk<'a> {
         } else {
             body
         };
+        let size = t.subterms().count();
+        let (full, _) = zeta_size(&g, &body, &mut Vec::new())?;
+        if full > READ_CAP && too_large(full, size) {
+            return skip(too_large_to_read(full, size));
+        }
         let body = zeta(&g, &body)?;
         let mut images = Vec::new();
         for j in 0..self.tk {
@@ -6660,7 +6745,6 @@ impl<'a> Walk<'a> {
                 images.push((j, self.term(&PV::Var(j))?));
             }
         }
-        let size = t.subterms().count();
         if let Some(found) = &mut self.dry {
             found.push(LeafCtx {
                 path: path.to_vec(),
@@ -7409,5 +7493,70 @@ impl Elaborator {
     /// with the reason.
     pub fn equation_skips(&self) -> &[(DefId, String, String)] {
         &self.tables.equation_skips
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::rc::Rc;
+
+    use stitchwort_core::globals::Kernel;
+    use stitchwort_core::{Icit, Term};
+    use stitchwort_syntax::{SourceMap, Span};
+
+    use super::{zeta, zeta_size};
+
+    fn rc(t: Term) -> Rc<Term> {
+        Rc::new(t)
+    }
+
+    fn let_(v: Term, b: Term) -> Term {
+        Term::Let("t".into(), rc(Term::Refl), rc(v), rc(b), false)
+    }
+
+    /// `f a a`, `f` being variable `f`.
+    fn twice(f: usize, a: Term) -> Term {
+        Term::App(
+            rc(Term::App(rc(Term::Var(f)), rc(a.clone()), Icit::Explicit)),
+            rc(a),
+            Icit::Explicit,
+        )
+    }
+
+    /// `zeta_size` counts what `zeta` builds: through `Loc`s, binders, a
+    /// `let` of a variable (put in bare) and a chain of `let`s each using
+    /// the last twice, whose substituted size doubles with each link.
+    #[test]
+    fn zeta_size_counts_what_zeta_builds() {
+        let k = Kernel::default();
+        let g = k.ev();
+        let span = Span::point(SourceMap::new().add("t", ""), 0);
+        let loc = |t: Term| Term::Loc(span, rc(t));
+        // Under `f`, `x`: `let t1 := f x x; …; let tn := f t(n-1) t(n-1); tn`.
+        let chain = |n: usize| {
+            let mut body = loc(Term::Var(0));
+            for i in (1..=n).rev() {
+                // `ti` is under `f`, `x` and i - 1 `let`s.
+                body = let_(loc(twice(i, loc(Term::Var(0)))), body);
+            }
+            body
+        };
+        let cases = [
+            chain(1),
+            chain(6),
+            let_(loc(Term::Var(1)), loc(twice(1, loc(Term::Var(0))))),
+            let_(
+                twice(1, Term::Var(0)),
+                Term::Lam("y".into(), Icit::Explicit, rc(twice(2, loc(Term::Var(1))))),
+            ),
+        ];
+        for t in &cases {
+            let built = zeta(&g, t).unwrap();
+            let (size, var) = zeta_size(&g, t, &mut Vec::new()).unwrap();
+            assert_eq!(size, built.subterms().count(), "{t:?}");
+            assert_eq!(var, matches!(built.strip_loc(), Term::Var(_)), "{t:?}");
+        }
+        let (size, _) = zeta_size(&g, &chain(60), &mut Vec::new()).unwrap();
+        assert!(size > 1 << 60, "{size}");
     }
 }
