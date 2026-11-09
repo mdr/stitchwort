@@ -62,9 +62,9 @@ pub(crate) fn cell(fields: &[Value]) {
 /// Under the census, `Instr::Ctor` and `CtorReuse` carry in their tag's top
 /// byte which of the first eight fields are of enum types (see
 /// [`tag_with_enum_fields`]); this takes it off. Without the census the tag
-/// is the tag.
+/// is the tag. Native code, which has no use for the mask, strips it too.
 #[inline(always)]
-pub(crate) fn split_tag(tag: u32) -> (u32, u8) {
+pub fn split_tag(tag: u32) -> (u32, u8) {
     #[cfg(feature = "value-census")]
     return (tag & 0x00ff_ffff, (tag >> 24) as u8);
     #[cfg(not(feature = "value-census"))]

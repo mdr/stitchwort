@@ -3733,6 +3733,8 @@ impl Gen<'_, '_> {
                 self.assign(pc, token, t);
             }
             Instr::Ctor { dst, tag, args } => {
+                // A census build of the compiler puts an enum mask in the tag.
+                let (tag, _) = stitchwort_rt::value_census::split_tag(tag);
                 let values = self.operands(args);
                 let v = self.new_cell(tag, &values);
                 self.assign(pc, dst, v);
@@ -3742,7 +3744,10 @@ impl Gen<'_, '_> {
                 tag,
                 args,
                 token,
-            } => self.ctor_reuse(pc, dst, tag, args, token),
+            } => {
+                let (tag, _) = stitchwort_rt::value_census::split_tag(tag);
+                self.ctor_reuse(pc, dst, tag, args, token)
+            }
             Instr::NatCase { src, zero } => {
                 let v = self.load(Loc::Reg(src));
                 let nat = self.is_tag(v, TAG_NAT);
