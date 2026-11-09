@@ -63,10 +63,10 @@ in [../proposals/README.md](../proposals/README.md).
   +0.03% (noise), `const-fold` -0.25%; AoC 2024/05 -0.02%, 2024/10 -0.07%. Wall time and peak
   RSS for `rbmap-ck` (1.82 s, 1.26 GB) and `binary-trees` (1.38 s) were identical to the
   hundredth of a second with the switch on or off. All under the 3% bar.
-- **Why it is small.** What `main` returns is a unit and its locals, including `rbmap-ck`'s
+- **Why it is small** (inferred, not separately measured). What `main` returns is a unit and its locals, including `rbmap-ck`'s
   kept versions, die when `main`'s own native frame ends: those frees run inside the program, so
   they are not teardown and Lean's `main` would do them too. What is left to drop afterwards
-  (globals, constants, the cell cache, the closure tables) is a few thousand cells.
+  (globals, constants, the cell cache, the closure tables) is small.
 - **Therefore** the `value::free` share in `rbmap-ck` is the program's own frees (SW-2523's cold
   child loads), not exit teardown. Skipping it would need a different change: freeing the kept
   versions would have to be dropped from the program's end of `main` itself, which is a trick that
