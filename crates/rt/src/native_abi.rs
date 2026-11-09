@@ -2898,7 +2898,7 @@ pub unsafe extern "C" fn sw_eff_step(
         write(0, Value::Data(s.call, fields));
         return STEP_RETURN;
     }
-    let (o, rest) = crate::effect::pair(fields);
+    let (o, rest, spare) = crate::effect::split_call(fields);
     if crate::call_counts::ENABLED {
         crate::call_counts::hit_chain_op();
         crate::call_counts::hit_event(
@@ -2921,13 +2921,15 @@ pub unsafe extern "C" fn sw_eff_step(
                     rest,
                     pending: list,
                 };
-                write(0, crate::effect::skipped(s, counts, o, resume));
+                write(0, crate::effect::skipped(s, counts, o, resume, spare));
                 return STEP_RETURN;
             }
             Err(o) => o,
         },
         _ => o,
     };
+    // Freed here, before the clause runs, as the cell always was.
+    drop(spare);
     if crate::call_counts::ENABLED {
         count_route(run.outline, &handler, &o);
     }

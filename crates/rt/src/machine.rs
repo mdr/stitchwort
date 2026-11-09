@@ -34,8 +34,8 @@ use stitchwort_core::ResourceError;
 use crate::code::{Image, Instr, MOVE, NO_REG, compile};
 use crate::effect::{
     EffectCounts, EffectOp, Handler, Resume, StateRun, StateStep, TranslateResume, delay_k, done_k,
-    field, forwarded, handler_for, jump_k, pair, resume_lazily, skipped, state_handler, state_k,
-    state_step,
+    field, forwarded, handler_for, jump_k, resume_lazily, skipped, split_call, state_handler,
+    state_k, state_step,
 };
 use crate::ir::{GlobalId, GlobalKind, HoleOp, PrimOp, Program, Shapes};
 use crate::natives::{ArrayNative, TextNative};
@@ -850,7 +850,7 @@ impl State {
             // can tell a request in tail position by its `rest`.
             return Ok(Some((Value::Data(s.call, fields), ret)));
         }
-        let (o, rest) = pair(fields);
+        let (o, rest, spare) = split_call(fields);
         let o = match &*handler {
             Handler::Fold {
                 forwards: Some(table),
@@ -862,12 +862,14 @@ impl State {
                         rest,
                         pending,
                     };
-                    return Ok(Some((skipped(s, &mut self.counts, o, resume), ret)));
+                    return Ok(Some((skipped(s, &mut self.counts, o, resume, spare), ret)));
                 }
                 Err(o) => o,
             },
             _ => o,
         };
+        // Freed here, before the clause runs, as the cell always was.
+        drop(spare);
         let resume = |handler| Resume {
             handler,
             rest,
