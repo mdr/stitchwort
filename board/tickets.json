@@ -1,5 +1,5 @@
 {
-  "next": 2571,
+  "next": 2572,
   "tickets": [
     {
       "id": 47,
@@ -25836,12 +25836,12 @@
     {
       "id": 2551,
       "title": "Std lemmas from 2020 day 21: distinctPerm, distinctMapOn (injective on members), all2OfMapRight, all2MapBoth, DecEq.falseOfNe, sorted distinct lists with the same members are equal",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "Speedwell",
       "labels": [],
       "epic": "std-library",
-      "body": "From SW-2541 Proofs. 60 min.\n\nStarted 9 Nov 2026 11:31 UTC in one lane with SW-2551, SW-2552 and SW-2556 (worktree SW-2551). Expected: 120 min together.\n",
+      "body": "From SW-2541 Proofs. 60 min.\n\nStarted 9 Nov 2026 11:31 UTC in one lane with SW-2551, SW-2552 and SW-2556 (worktree SW-2551). Expected: 120 min together.\n\nMerged 9 Nov (lane SW-2551). Statements checked by the orchestrator (D2436). std AREA 24/24, hashes 8/8, days 19-21 answers 3/3. Model result: Sonnet, worked, 35 min (est. 120 for all three).\n",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
@@ -25849,12 +25849,12 @@
     {
       "id": 2552,
       "title": "Aoc.Common: holderOf and its four lemmas (assign's result read as a function) beside Elimination.sw, or as List.lookup over a zip in std",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "Speedwell",
       "labels": [],
       "epic": "aoc-common",
-      "body": "From SW-2541 Proofs/Holders.sw. 45 min.\n\nStarted 9 Nov 2026 11:31 UTC in one lane with SW-2551, SW-2552 and SW-2556 (worktree SW-2551). Expected: 120 min together.\n",
+      "body": "From SW-2541 Proofs/Holders.sw. 45 min.\n\nStarted 9 Nov 2026 11:31 UTC in one lane with SW-2551, SW-2552 and SW-2556 (worktree SW-2551). Expected: 120 min together.\n\nMerged 9 Nov (lane SW-2551). Statements checked by the orchestrator (D2436). std AREA 24/24, hashes 8/8, days 19-21 answers 3/3. Model result: Sonnet, worked, 35 min (est. 120 for all three).\n",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
@@ -25901,12 +25901,12 @@
     {
       "id": 2556,
       "title": "Std count-by-proposition (as day 19's NumberWith): count with a decidable predicate, findable by search",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "Speedwell",
       "labels": [],
       "epic": "std-library",
-      "body": "From SW-2541 friction. 45 min.\n\nStarted 9 Nov 2026 11:31 UTC in one lane with SW-2551, SW-2552 and SW-2556 (worktree SW-2551). Expected: 120 min together.\n",
+      "body": "From SW-2541 friction. 45 min.\n\nStarted 9 Nov 2026 11:31 UTC in one lane with SW-2551, SW-2552 and SW-2556 (worktree SW-2551). Expected: 120 min together.\n\nMerged 9 Nov (lane SW-2551). Statements checked by the orchestrator (D2436). std AREA 24/24, hashes 8/8, days 19-21 answers 3/3. Model result: Sonnet, worked, 35 min (est. 120 for all three).\n",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
@@ -26089,6 +26089,19 @@
       "labels": [],
       "epic": "test-infra",
       "body": "From Overmind job 43 (9 Nov): STITCHWORT_TEST_RUN=native, 2000 batches from seed 1794200000 on 52803b7e2; after ~1 h one worker was alone, spinning in the core evaluator (Value::clone 53%, Unfolding::get 17%, force 10.5%, as_nat_with 9.7%), RSS flat 5.46 GB; stopped at 61 min with no result. Evaluator path, so probably the reference backend running without a step cap. Logs on Overmind j43/. 60 min.\n\nStarted 9 Nov 2026 11:41 UTC. Expected: 60 min.\n",
+      "created": "2026-11-09",
+      "updated": "2026-11-09",
+      "commits": []
+    },
+    {
+      "id": 2571,
+      "title": "Search misses DecEq.falseOfNe for '(x: ?a) -> x != ?y -> (x == ?y) = False': explicit binders in a pattern don't match implicit ones in the lemma (SW-2553 covered only a leading [auto])",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "proof-search",
+      "body": "From SW-2551. 45 min.",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
