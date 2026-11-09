@@ -26319,15 +26319,20 @@
     {
       "id": 2588,
       "title": "After D3458: sweep std and aoc statements to the house style: quantified hypotheses and conclusions written (x: T) -> P where P is a proposition become ∀ (x: T) => P",
-      "status": "backlog",
+      "status": "review",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "Mechanical; after SW-2587 merges. Hashes unchanged (same term). 60 min.\n\nSonnet stands in for DeepSeek until OpenCode works for the agent user (Matt, 9 Nov). Matt wants it done overnight after SW-2587: go through existing code and use ∀ where appropriate.",
+      "body": "Mechanical; after SW-2587 merges. Hashes unchanged (same term). 60 min.\n\nSonnet stands in for DeepSeek until OpenCode works for the agent user (Matt, 9 Nov). Matt wants it done overnight after SW-2587: go through existing code and use ∀ where appropriate.\n\nProgress (lane/SW-2588, 9 Nov 2026): swept with a token-level script (binder arrows whose result is a proposition become `∀`; unused named binders stay in the group so names are kept). Commits: std, aoc, games/rogue, docs. Hash dumps of std+AoC (21378 lines) and std+rogue (6926) identical before and after; `task snap:hashes` passes with no snapshot change; `task test:lane AREA=std` and `task guide:update` pass. Model result: Sonnet, worked, ~25 min (est. 60).\n",
       "created": "2026-11-09",
       "updated": "2026-11-09",
-      "commits": []
+      "commits": [
+        "fc482e459",
+        "14b21b187",
+        "a5a37ec53",
+        "0d8790677"
+      ]
     },
     {
       "id": 2589,
