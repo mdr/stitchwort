@@ -1,0 +1,11 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-TYPE-MISMATCH] Error: type mismatch
+    ╭─[ reject/mismatch-note-huge-unfolding.sw:10:3 ]
+    │
+ 10 │   List.inRangeIff x 1 (n + 340282366920938463463374607431768211456)
+    │   ────────────────────────────────┬───────────────────────────────  
+    │                                   ╰───────────────────────────────── expected `inside x n = True ↔ x ∈ 2 ..= n`, but this has type `List.inRange x 1 (n + 340282366920938463463374607431768211456) = True ↔ x ∈ 1 ..< n + 340282366920938463463374607431768211456`
+────╯
