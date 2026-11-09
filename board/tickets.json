@@ -1,5 +1,5 @@
 {
-  "next": 2593,
+  "next": 2595,
   "tickets": [
     {
       "id": 47,
@@ -26334,41 +26334,47 @@
     {
       "id": 2589,
       "title": "Panic in the pretty printer (crates/core/src/pretty.rs:606, index out of bounds: len 0 index 0) when a parameter's type is a constructor: theorem runOf (cavern: Step) (n: Nat) (closed: Closed cavern n): Run cavern := Step n closed, with Step a constructor of an indexed Prop family (elab fuzzer 0x2585 case 14027, from accept/implicit-record-from-field-of-field.sw)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2589",
       "labels": [],
       "epic": "diagnostics",
-      "body": "Found 9 Nov in compute mode. Repro: target/fuzz-elab/2585-14027.sw (scratchpad copy), stitchwort check --no-cache: thread panics in Printer::go_node via applied; the message being printed refers to a variable outside its names. Expected a type error (a constructor isn't a type). Add as a reject example. 45 min.",
+      "body": "Found 9 Nov in compute mode. Repro: target/fuzz-elab/2585-14027.sw (scratchpad copy), stitchwort check --no-cache: thread panics in Printer::go_node via applied; the message being printed refers to a variable outside its names. Expected a type error (a constructor isn't a type). Add as a reject example. 45 min.\n\nDone 9 Nov: message built before ctor_app's reset; E-NOT-A-TYPE '`Step` is a constructor, so it isn't a type'. Model result: Sonnet, worked, ~20 min (est. 45).",
       "created": "2026-11-09",
       "updated": "2026-11-09",
-      "commits": []
+      "commits": [
+        "b3c6ac8be"
+      ]
     },
     {
       "id": 2590,
       "title": "Search: two internal errors 'applying a constructor' (crates/core/src/value.rs:1234, apply's fallback) in search_bench::proof_uses_find_their_lemma_among_the_first_ten (full tier); find the proof-use queries that make the evaluator apply a constructor value",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2589",
       "labels": [],
       "epic": "proof-search",
-      "body": "Overmind job 54, 9 Nov, 3c92cf18d: assert internal_errors == 0, left 2. Other numbers pass (recall@10 52.1%%). Full-tier only test. 60 min.",
+      "body": "Overmind job 54, 9 Nov, 3c92cf18d: assert internal_errors == 0, left 2. Other numbers pass (recall@10 52.1%%). Full-tier only test. 60 min.\n\nDone 9 Nov: Bool.inspect uses in takeWhile/dropWhile.induct; type_holes now types a hole applied to n explicit args as an n-ary function. Full-tier test passes (389 s). Model result: Sonnet, worked, ~20 min (est. 45).",
       "created": "2026-11-09",
       "updated": "2026-11-09",
-      "commits": []
+      "commits": [
+        "00aeecd51"
+      ]
     },
     {
       "id": 2591,
       "title": "search_at_aoc::search_at_on_aoc_goals doesn't finish: killed at 2 h (job 54) and 73 min (job 51) on Overmind; docs/testing.md says about 10 minutes. Slow or stuck? Find the goal",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2591",
       "labels": [],
       "epic": "proof-search",
-      "body": "Overmind jobs 51 and 54, 9 Nov. Run alone first (Overmind job 55). 45 min.\n\nOvermind job 55 (main 3c92cf18d, 9 Nov): search_at_aoc alone, capped at 60 min. 142 of 143 goals done in about 10 min; the one left is aoc/src/Aoc/Year2024/Day22/Proofs/Keys.sw:111 (digitChangesPossible), still running at the cap, one thread busy the whole time. Repro: run search_at_aoc limited to that goal. Not investigated (compute mode). Same job: 7 leftover tests passed, doctests ok, verify-cache ok.",
+      "body": "Overmind jobs 51 and 54, 9 Nov. Run alone first (Overmind job 55). 45 min.\n\nOvermind job 55 (main 3c92cf18d, 9 Nov): search_at_aoc alone, capped at 60 min. 142 of 143 goals done in about 10 min; the one left is aoc/src/Aoc/Year2024/Day22/Proofs/Keys.sw:111 (digitChangesPossible), still running at the cap, one thread busy the whole time. Repro: run search_at_aoc limited to that goal. Not investigated (compute mode). Same job: 7 leftover tests passed, doctests ok, verify-cache ok.\n\nDone 9 Nov. Cause: term_within printed the whole goal before cutting it (quadratic; a closed list of 130,321 sequences), outside the search budget. Fix: terms over 20,000 nodes go straight to the depth-limited reprints; rewrite_plans' read-back under the comparison budget. Full search_at_aoc now 332 s (was > 60 min). Model result: Sonnet, worked, 37 min (est. 75); review fixup: removed a 1,210-line scratch file committed by mistake.",
       "created": "2026-11-09",
       "updated": "2026-11-09",
-      "commits": []
+      "commits": [
+        "25fc92535"
+      ]
     },
     {
       "id": 2592,
@@ -26379,6 +26385,32 @@
       "labels": [],
       "epic": "syntax-language",
       "body": "From SW-2587's report, 9 Nov. Small to medium. Its neighbours print as ∀, so the goal reads unevenly.",
+      "created": "2026-11-09",
+      "updated": "2026-11-09",
+      "commits": []
+    },
+    {
+      "id": 2593,
+      "title": "Search hole typing, follow-ups from SW-2590: (1) type_holes quotes the parameter type with quote_folded(g, 0, dom), wrong if dom mentions bound variables (env non-empty); check and fix the level; (2) type every hole of a proof-use pattern from the lemma's binder types, including holes under lambdas and applied holes' arguments, to close the class; (3) afresh and the unifier panic on ill-typed solutions instead of failing, hidden by search's catch_unwind as internal_errors",
+      "status": "backlog",
+      "agent": "Opus",
+      "where": "",
+      "labels": [],
+      "epic": "proof-search",
+      "body": "From SW-2590's report and the orchestrator's review, 9 Nov. Unifier-adjacent, so Opus (D2506). No soundness risk: the kernel rechecks every proof, and the search catches the panic.",
+      "created": "2026-11-09",
+      "updated": "2026-11-09",
+      "commits": []
+    },
+    {
+      "id": 2594,
+      "title": "search_at: put the goal-opening phase (open_goal_at, quote_shown of the whole goal: ~7 s on 2024 day 22 digitChangesPossible) under the search's time budget; also check pretty::term_in and the other full-term printers for SW-2591's print-then-cut pattern; docs/testing.md: full-tier search_at_aoc takes about 6 min now, not 10",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "proof-search",
+      "body": "From SW-2591's report, 9 Nov.",
       "created": "2026-11-09",
       "updated": "2026-11-09",
       "commits": []
