@@ -25974,16 +25974,17 @@
     {
       "id": 2561,
       "title": "Entry points per D3452: update docs/proposals/entry-points.md to Matt's decision (any function of a runnable type can be run by name, Unison-style; no annotation; main is a style convention and the default name run looks for); then implement what follows once D3456 is answered",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2561",
       "labels": [],
       "epic": "syntax-language",
-      "body": "D3452, Matt, 9 Nov 2026 10:41: keep the Unison approach: any function with an appropriate signature can be run as an entry point; no annotation; a style convention that it is called main. Open: D3456 (warn on a main that can't run), D3453 (main without ()), D3454 (run NS runs NS.main). 60 min.\n\nD3456, Matt, 9 Nov 2026: no warning on a non-runnable main for now.\n\nProposal updated 10 Nov (9cefde95c): options (a)-(c) rejected by D3452/D3456; D3453, D3454 open with trade-offs; §11: run-by-name already works in a project (E-RUN-TYPE / E-RUN-UNKNOWN); loose files run only main. Left: docs (syntax.md Entry points, guide ch. 1, projects.md), optional loose-file --entry, and D3453/D3454 if yes. Stays in backlog for the docs part. Model result: Sonnet, worked, 3 min (est. 35).",
+      "body": "D3452, Matt, 9 Nov 2026 10:41: keep the Unison approach: any function with an appropriate signature can be run as an entry point; no annotation; a style convention that it is called main. Open: D3456 (warn on a main that can't run), D3453 (main without ()), D3454 (run NS runs NS.main). 60 min.\n\nD3456, Matt, 9 Nov 2026: no warning on a non-runnable main for now.\n\nProposal updated 10 Nov (9cefde95c): options (a)-(c) rejected by D3452/D3456; D3453, D3454 open with trade-offs; §11: run-by-name already works in a project (E-RUN-TYPE / E-RUN-UNKNOWN); loose files run only main. Left: docs (syntax.md Entry points, guide ch. 1, projects.md), optional loose-file --entry, and D3453/D3454 if yes. Stays in backlog for the docs part. Model result: Sonnet, worked, 3 min (est. 35).\n\nDocs done 10 Nov (eeeb2b049): syntax.md 'Entry points', guide ch. 1 bullet, projects.md; every command checked. Not done: loose-file --entry, D3453, D3454 (open). Model result: Sonnet, worked, 2 min (est. 30).",
       "created": "2026-11-09",
       "updated": "2026-11-10",
       "commits": [
-        "9cefde95c"
+        "9cefde95c",
+        "eeeb2b049"
       ]
     },
     {
