@@ -28423,15 +28423,18 @@
     {
       "id": 2720,
       "title": "REPL :t prints e: T",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": ".claude/worktrees/scratch-sw-2720",
       "labels": [],
       "epic": "editor-playground",
-      "body": "From SW-2707 (Software Foundations port, 10 Nov 2026); docs/reviews/SW-2707-software-foundations-port.md §11.",
+      "body": "From SW-2707 (Software Foundations port, 10 Nov 2026); docs/reviews/SW-2707-software-foundations-port.md §11.\nDone 10 Nov (DeepSeek): CLI :t prints 'e: T'; the playground's Evaluate tab accepts :t too; guide and SF comments updated; tests repl::type_only_prints_the_expression_and_its_type and web type_only_says_the_expression_and_its_type. Orchestrator's fixup: guide wording without Rocq, comment rewrap.\nModel result: DeepSeek, worked, 15 min (est. 30).",
       "created": "2026-11-10",
       "updated": "2026-11-10",
-      "commits": []
+      "commits": [
+        "128d83e6d",
+        "7c9e5f9f3"
+      ]
     },
     {
       "id": 2721,
