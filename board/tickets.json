@@ -26805,7 +26805,7 @@
     {
       "id": 2619,
       "title": "Daily tier failed on Linux before any test ran: task test:lanes-nonempty kept the nextest list in a shell variable, which task's shell passes to jq's environment, so exec hit 'argument list too long'",
-      "status": "backlog",
+      "status": "done",
       "agent": "Opus",
       "where": "",
       "labels": [],
@@ -26813,7 +26813,9 @@
       "body": "Overmind daily 10 Nov 04:02 (fc8a32cbd), exit 201 after 5 min. Orchestrator's fix: list through a temp file. Checked here: passes (16 s), and still fails naming an added empty profile.",
       "created": "2026-11-10",
       "updated": "2026-11-10",
-      "commits": []
+      "commits": [
+        "118e34ffb"
+      ]
     }
   ]
 }
