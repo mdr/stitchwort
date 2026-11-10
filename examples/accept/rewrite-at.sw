@@ -49,13 +49,13 @@ theorem inCalc (a: Nat) (b: Nat) (e: a = b) (h: a = 7): b = 7 :=
     _ = 7 := rewrite e at h
 
 -- The goal can be rewritten too, by nesting.
-theorem both (f: Nat → Nat) (g: Nat → Nat) (k: (n: Nat) → f n = g n) (a: Nat) (b: Nat) (e: a = b) (h: f a = 2): g b = 2 :=
+theorem both (f: Nat → Nat) (g: Nat → Nat) (k: ∀ (n: Nat) => f n = g n) (a: Nat) (b: Nat) (e: a = b) (h: f a = 2): g b = 2 :=
   rewrite e at h in rewrite <- k b in h
 
 -- `at` is only special where a rule can end: a variable called `at` can
 -- start a rule, and is bracketed as an argument inside one.
-theorem atAsName (f: Nat → Nat) (at: (n: Nat) → f n = n) (h: f 2 + 1 = 5): 2 + 1 = 5 :=
+theorem atAsName (f: Nat → Nat) (at: ∀ (n: Nat) => f n = n) (h: f 2 + 1 = 5): 2 + 1 = 5 :=
   rewrite at 2 at h
 
-theorem atBracketed (g: Nat → Nat) (p: (n: Nat) → g n = n) (at: Nat) (h: g at = 3): at = 3 :=
+theorem atBracketed (g: Nat → Nat) (p: ∀ (n: Nat) => g n = n) (at: Nat) (h: g at = 3): at = 3 :=
   rewrite p (at) at h

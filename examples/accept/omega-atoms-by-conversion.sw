@@ -6,7 +6,7 @@
 
 import Std (Eq, List, Nat, Void)
 
-theorem sumTakeLe: (xs: List Nat) → (a: Nat) → (b: Nat) → a ≤ b → (xs.take a).sum ≤ (xs.take b).sum
+theorem sumTakeLe: ∀ (xs: List Nat) (a b: Nat) => a ≤ b → (xs.take a).sum ≤ (xs.take b).sum
   | xs, Zero, b, le => omega
   | [], Succ a, b, le => rfl
   | [x, ..xs], Succ a, Zero, le => Void.exfalso (omega)

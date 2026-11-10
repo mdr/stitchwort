@@ -31,7 +31,7 @@ theorem abortThen (t: () → {Abort} a) (k: a → {Abort} b):
 
 -- A thunk written in place: the split is on `f x` itself. `traverse` is a
 -- loop, so its step comes from `Result.traverseCons` first.
-theorem toResultMap (f: a → {Fail} b): (xs: List a) →
+theorem toResultMap (f: a → {Fail} b): ∀ (xs: List a) =>
     Fail.toResult (() => xs.map f) = Result.traverse xs (x => Fail.toResult (() => f x))
   | [] => rfl
   | [x, ..xs] =>

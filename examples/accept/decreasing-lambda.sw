@@ -75,7 +75,7 @@ test "odd parts" := oddParts 1 == 1 ∧ oddParts 3 == 2
 
 -- A theorem can recurse inside a function too: strong induction, from the
 -- step for every number given the result for the smaller ones.
-theorem strong (p: Nat → Prop) (step: (n: Nat) → ((d: Nat) → d < n → p d) → p n) (n: Nat): p n
+theorem strong (p: Nat → Prop) (step: ∀ (n: Nat) => (∀ (d: Nat) => d < n → p d) → p n) (n: Nat): p n
     decreasing n
 :=
   step n (d h => strong p step d)

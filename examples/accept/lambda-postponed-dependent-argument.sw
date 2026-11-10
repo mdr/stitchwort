@@ -16,7 +16,7 @@ def name: Text := applyChecked (p => p.name) rfl ann
 
 test "the lambda is checked after `ann`" := name == "Ann"
 
-theorem memMapElim (f: a → b) (y: b): (xs: List a) → y ∈ xs.map f → Exists a (x => (x ∈ xs) ∧ (f x = y))
+theorem memMapElim (f: a → b) (y: b): ∀ (xs: List a) => y ∈ xs.map f → Exists a (x => (x ∈ xs) ∧ (f x = y))
   | [], member => Void.exfalso member
   | [x, ..rest], Inl here => Witness x (Both (Inl rfl) here)
   | [x, ..rest], Inr later =>

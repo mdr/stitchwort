@@ -21,7 +21,7 @@ theorem lambdaThenList (counts: List ((Char, Char), Nat)) (pair: (Char, Char)) (
 -- A lambda whose hypothesis mentions a `_` a later argument fixes (day 10).
 def next (n: Nat): Option Nat := Some (n + 1)
 
-theorem eachStep (f: Nat → Option Nat) (each: (x: Nat) → (y: Nat) → f x = Some y → x < y) (xs: List Nat) (ran: List.map xs f = List.map xs next) (x: Nat) (y: Nat) (h: f x = Some y): x < y :=
+theorem eachStep (f: Nat → Option Nat) (each: ∀ (x y: Nat) => f x = Some y → x < y) (xs: List Nat) (ran: List.map xs f = List.map xs next) (x: Nat) (y: Nat) (h: f x = Some y): x < y :=
   each x y h
 
 theorem lambdaBeforeHole (xs: List Nat) (x: Nat) (y: Nat) (h: next x = Some y): x < y :=
@@ -38,7 +38,7 @@ def listing (n: Nat): List Nat :=
     | Zero => [0]
     | Succ k => [n, ..listing k]
 
-theorem countIsLength: (n: Nat) → count n = List.length (listing n)
+theorem countIsLength: ∀ (n: Nat) => count n = List.length (listing n)
   | Zero => rfl
   | Succ k => rewrite countIsLength k in rfl
 

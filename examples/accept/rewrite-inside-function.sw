@@ -40,7 +40,7 @@ def total (f: Nat → Nat): List Nat → Nat
   | [] => 0
   | [x, ..xs] => f x + total f xs
 
-theorem totalCong (f1: Nat → Nat) (f2: Nat → Nat) (xs: List Nat) (ef: (x: Nat) → f1 x = f2 x): total f1 xs = total f2 xs :=
+theorem totalCong (f1: Nat → Nat) (f2: Nat → Nat) (xs: List Nat) (ef: ∀ (x: Nat) => f1 x = f2 x): total f1 xs = total f2 xs :=
   match xs with
     | [] => rfl
     | [x, ..rest] => rewrite ef x, totalCong f1 f2 rest ef

@@ -2,7 +2,7 @@ type Image = { rows: List Nat }
 
 def Image.rotate (image: Image): Image := { rows = image.rows.reverse }
 
-def Within (image: Image) (other: Image): Prop := (x: Nat) → x ∈ other.rows → x ∈ image.rows
+def Within (image: Image) (other: Image): Prop := ∀ (x: Nat) => x ∈ other.rows → x ∈ image.rows
 
 theorem withinTrans [a: Image] [b: Image] [c: Image] (first: Within a b) (second: Within b c): Within a c :=
   x on => first x (second x on)

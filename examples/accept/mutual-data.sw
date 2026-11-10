@@ -51,10 +51,10 @@ test "sum" := sumTree example == 10
 test "map" := sumTree (mapTree (n => n + 1) example) == 14
 
 -- Proofs by mutual induction over the two types: mapping changes no sizes.
-theorem sizeMap (f: Nat → Nat): (t: Tree) → size (mapTree f t) = size t
+theorem sizeMap (f: Nat → Nat): ∀ (t: Tree) => size (mapTree f t) = size t
   | Node n kids => Eq.cong Succ (sizeMapForest f kids)
 
-theorem sizeMapForest (f: Nat → Nat): (ts: Forest) →
+theorem sizeMapForest (f: Nat → Nat): ∀ (ts: Forest) =>
     sizeForest (mapForest f ts) = sizeForest ts
   | FNil => rfl
   | FCons t ts =>
@@ -62,7 +62,7 @@ theorem sizeMapForest (f: Nat → Nat): (ts: Forest) →
       (Eq.cong (b => size t + b) (sizeMapForest f ts))
 
 -- Every tree has at least one node.
-theorem sizeNotZero: (t: Tree) → size t ≠ 0
+theorem sizeNotZero: ∀ (t: Tree) => size t ≠ 0
   | Node n kids, a1 => Nat.succNotZero (sizeForest kids) a1
 
 -- Even and odd numbers, as data: each is the successor of the other kind.
@@ -88,11 +88,11 @@ def isOdd: Nat → Bool
   | 0 => False
   | Succ n => isEven n
 
-theorem evenIsEven: (e: Even) → isEven (evenToNat e) = True
+theorem evenIsEven: ∀ (e: Even) => isEven (evenToNat e) = True
   | EZero => rfl
   | ESucc o => oddIsOdd o
 
-theorem oddIsOdd: (o: Odd) → isOdd (oddToNat o) = True
+theorem oddIsOdd: ∀ (o: Odd) => isOdd (oddToNat o) = True
   | OSucc e => evenIsEven e
 
 test "three" := oddToNat (OSucc (ESucc (OSucc EZero))) == 3

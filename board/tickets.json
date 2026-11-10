@@ -26859,12 +26859,12 @@
     {
       "id": 2622,
       "title": "∀ follow-up sweep: what SW-2588 left (examples/, docs/comparisons, docs/repros, binder chains with only unused names, PickBeats), so a style check can start at zero",
-      "status": "backlog",
+      "status": "review",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "From SW-2595's note, 10 Nov. Needed before D3462's option (b) or (c).",
+      "body": "From SW-2595's note, 10 Nov. Needed before D3462's option (b) or (c).\n\nSonnet lane, 10 Nov 04:40: swept examples/ (accept 128 chains in 64 files, projects 29, extract 3, goals 3, soundness 1), docs/comparisons and docs/repros (9 + 1), PickBeats (1, by hand: script skips defs with a let body). Hash stability and examples tests pass, no snapshots changed. Left: examples/goals/forall-printed.sw (tests the printer, snapshot changes), examples/reject untouched.\n",
       "created": "2026-11-10",
       "updated": "2026-11-10",
       "commits": []

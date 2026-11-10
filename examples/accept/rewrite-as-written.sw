@@ -14,7 +14,7 @@ def safe (report: Report): Bool := report.levels.all (n => n < 20)
 -- `Report.isSafe ?0` computes to `List.all ?0.levels …`, which cannot be
 -- matched against `List.all (List.reverse xs) …` to find `?0`; as written,
 -- the call's argument solves it.
-theorem unknownSolved (isSafeCorrect: (report: Report) → report.isSafe = safe report) (xs: List Nat):
+theorem unknownSolved (isSafeCorrect: ∀ (report: Report) => report.isSafe = safe report) (xs: List Nat):
     Report.isSafe { levels = xs.reverse } = safe { levels = xs.reverse } :=
   rewrite isSafeCorrect _
 
@@ -66,6 +66,6 @@ def wrap (n: Nat) (k: Nat): Nat := add k n
 -- With unknowns, the instance is the one the search over the computed goal
 -- would pick, `add c (add a b)` (first in that goal), not the `add a b`
 -- the goal shows; the as-written result is dropped for that reason.
-theorem sameInstance (comm: (x: Nat) → (y: Nat) → add x y = add y x) (a: Nat) (b: Nat) (c: Nat):
+theorem sameInstance (comm: ∀ (x y: Nat) => add x y = add y x) (a: Nat) (b: Nat) (c: Nat):
     wrap (add a b) c = add (add a b) c :=
   rewrite comm _ _ in rfl

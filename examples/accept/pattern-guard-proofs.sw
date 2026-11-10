@@ -26,6 +26,6 @@ theorem bigOnesBig (xs: List Nat) (y: Nat) (h: y ∈ bigOnes xs): y > 2 :=
   Exists.elim ((List.memFilterMap keepBig y xs).forward h) (x both => keepBigGt x y (And.right both))
 
 -- A guarded arm in a theorem: its goal is a proposition.
-theorem lessOrAtLeast: (n: Nat) → n < 3 ∨ 3 <= n
+theorem lessOrAtLeast: ∀ (n: Nat) => n < 3 ∨ 3 <= n
   | n if n < 3 => Inl omega
   | n => Inr omega

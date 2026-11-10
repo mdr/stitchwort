@@ -17,7 +17,7 @@ def reach (flag: Nat → Bool): Nat → Nat → Nat → Bool
         ∨ reach flag k (c + 1) d
     else reach flag k c d
 
-theorem orCases (goal: Prop): (a: Bool) → (b: Bool) → (a ∨ b) = True → (a = True → goal) → (b = True → goal) → goal
+theorem orCases (goal: Prop): ∀ (a b: Bool) => (a ∨ b) = True → (a = True → goal) → (b = True → goal) → goal
   | True, b, h, f, g => f rfl
   | False, b, h, f, g => g h
 
@@ -31,7 +31,7 @@ theorem skip (flag: Nat → Bool) (k: Nat) (c: Nat) (d: Nat) (h: reach flag (Suc
 -- The three ways a beam can have got to `d`. The left operand of `||` is the
 -- inner `match`, written `_`; splitting `c` makes it compute.
 theorem ways (flag: Nat → Bool) (k: Nat) (c: Nat) (d: Nat) (goal: Prop) (h: reach flag (Succ k) c d = True)
-    (left: (b: Nat) → reach flag k b d = True → goal) (right: reach flag k (c + 1) d = True → goal)
+    (left: ∀ (b: Nat) => reach flag k b d = True → goal) (right: reach flag k (c + 1) d = True → goal)
     (straight: reach flag k c d = True → goal): goal :=
   let hr: reach flag (Succ k) c d = True := h
   match e: flag c with

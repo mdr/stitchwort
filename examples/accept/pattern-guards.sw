@@ -143,7 +143,7 @@ def fallThroughWith (n m: Nat): Nat :=
 
 test "match with" := fallThroughWith 9 0 == 1 ∧ fallThroughWith 1 0 == 10 ∧ fallThroughWith 1 4 == 3
 
-theorem zeroOrPositive: (n m: Nat) → m = 0 ∨ m > 0
+theorem zeroOrPositive: ∀ (n m: Nat) => m = 0 ∨ m > 0
   | n, m if n > 5 ∧ m > 0 => Inr omega
   | _, m =>
     match m with

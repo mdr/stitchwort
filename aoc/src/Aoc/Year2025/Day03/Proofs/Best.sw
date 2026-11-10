@@ -122,7 +122,7 @@ def Candidate (k: Nat) (w: Nat) (xs: Bank) (c: Battery) (after: Bank) (y: Batter
 --| `pick`'s choice, followed by `best k` of what comes after it, beats them all.
 def PickBeats (k: Nat) (w: Nat) (xs: Bank) (c: Battery) (after: Bank): Prop :=
   k + w ≤ xs.length → k ≤ after.length → xs.Subsequence after →
-  (y: Battery) → (s: Bank) → s.length = k → Candidate k w xs c after y s →
+  ∀ (y: Battery) (s: Bank) => s.length = k → Candidate k w xs c after y s →
     let (top, rest) := Bank.best.pick w xs c after
     joltageOf [y, ..s] ≤ joltageOf [top, ..Bank.best rest k]
 

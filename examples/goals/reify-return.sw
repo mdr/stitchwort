@@ -13,7 +13,7 @@ theorem toResultThen (t: () → {Fail} a) (k: a → {Fail} b):
 -- computed when the split starts (the equation instantiated the statement),
 -- so only the computation is replaced by `y`; the handlers stay unfolded.
 -- `traverse` is a loop: `Result.traverseCons` gives its step first.
-theorem toResultMap (f: a → {Fail} b): (xs: List a) →
+theorem toResultMap (f: a → {Fail} b): ∀ (xs: List a) =>
     Fail.toResult (() => xs.map f) = Result.traverse xs (x => Fail.toResult (() => f x))
   | [] => rfl
   | [x, ..xs] =>

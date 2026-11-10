@@ -25,7 +25,7 @@ theorem observeIsItsBody (q: QE): observe q = Quot.lift toNat toNatRespects q :=
 -- library, stage 1.4): `rebuild a b (Quot.mk f)` is `f`, by the lift rule
 -- and eta.
 def Pointwise (a: Type) (b: a → Type) (f: (x: a) → b x) (g: (x: a) → b x): Prop :=
-  (x: a) → f x = g x
+  ∀ (x: a) => f x = g x
 
 def FunQ (a: Type) (b: a → Type): Type := Quot ((x: a) → b x) (Pointwise a b)
 
@@ -35,5 +35,5 @@ def evalAt (a: Type) (b: a → Type) (q: FunQ a b) (x: a): b x :=
 def rebuild (a: Type) (b: a → Type) (q: FunQ a b): (x: a) → b x := x => evalAt a b q x
 
 theorem funext (a: Type) (b: a → Type) (f: (x: a) → b x) (g: (x: a) → b x)
-    (h: (x: a) → f x = g x): f = g :=
+    (h: ∀ (x: a) => f x = g x): f = g :=
   Eq.cong (rebuild a b) (Quot.sound [x := f] [y := g] h)

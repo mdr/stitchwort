@@ -12,7 +12,7 @@ def firstOf (xs: List Nat): Option Nat := List.head xs
 type Starts: List Nat → Nat → Prop =
   | Here (n: Nat) (rest: List Nat): Starts [n, ..rest] n
 
-theorem startsOf: (xs: List Nat) → (n: Nat) → firstOf xs = Some n → Starts xs n
+theorem startsOf: ∀ (xs: List Nat) (n: Nat) => firstOf xs = Some n → Starts xs n
   | [], n, h => Void.exfalso (Option.noneNotSome n h)
   | [m, ..rest], n, h => rewrite <- Option.someInjective h in Here m rest
 

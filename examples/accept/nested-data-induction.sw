@@ -71,7 +71,7 @@ def numbersIn: List Packet → Nat
 -- claim for its items, which a lemma over the list takes apart. Each step
 -- is closed by `omega`. `Packet.size (Packets items)` computes as far as the
 -- list is known, so the lemma can state its bound with it.
-theorem numbersInLe: (items: List Packet) → List.All (q => numbers q ≤ Packet.size q) items →
+theorem numbersInLe: ∀ (items: List Packet) => List.All (q => numbers q ≤ Packet.size q) items →
     numbersIn items ≤ Packet.size (Packets items)
   | [], all => rfl
   | [p, ..rest], Both here others =>
@@ -115,8 +115,8 @@ type Nest: Type =
 
 -- The statement of `Nest.induct`, written out.
 theorem nestInduct (motive: Nest → Prop) (leaf: motive Leaf)
-    (deep: (rows: List (List Nest)) → List.All (List.All motive) rows → motive (Deep rows))
-    (maybe: (next: Option (Pair Nest Nat)) → Option.All (Pair.All motive (x => Unit)) next → motive (Maybe next))
+    (deep: ∀ (rows: List (List Nest)) => List.All (List.All motive) rows → motive (Deep rows))
+    (maybe: ∀ (next: Option (Pair Nest Nat)) => Option.All (Pair.All motive (x => Unit)) next → motive (Maybe next))
     (t: Nest): motive t :=
   Nest.induct motive leaf deep maybe t
 
@@ -125,8 +125,8 @@ type Sparse: Type =
   | Dense (n: Nat)
   | Holes (slots: List (Option Sparse))
 
-theorem sparseInduct (motive: Sparse → Prop) (dense: (n: Nat) → motive (Dense n))
-    (holes: (slots: List (Option Sparse)) → List.All (Option.All motive) slots → motive (Holes slots))
+theorem sparseInduct (motive: Sparse → Prop) (dense: ∀ (n: Nat) => motive (Dense n))
+    (holes: ∀ (slots: List (Option Sparse)) => List.All (Option.All motive) slots → motive (Holes slots))
     (t: Sparse): motive t :=
   Sparse.induct motive dense holes t
 
@@ -143,7 +143,7 @@ type Crate: Type =
   | Packed (bag: Bag Crate)
 
 theorem crateInduct (motive: Crate → Prop) (empty: motive Empty)
-    (packed: (bag: Bag Crate) → Bag.All motive bag → motive (Packed bag))
+    (packed: ∀ (bag: Bag Crate) => Bag.All motive bag → motive (Packed bag))
     (t: Crate): motive t :=
   Crate.induct motive empty packed t
 

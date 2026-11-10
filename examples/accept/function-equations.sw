@@ -39,7 +39,7 @@ theorem exNotReg (depth: Nat) (left: Num) (right: Num) (notReg: isReg left = Fal
 
 -- The call is stuck on `left`, so `rewrite` finds it.
 theorem exAtLeast (depth: Nat) (left: Num) (right: Num)
-    (h: (a: Nat) → (b: Nat) → left = Reg a → right = Reg b → Void):
+    (h: ∀ (a b: Nat) => left = Reg a → right = Reg b → Void):
     ex (depth + 1) left ≤ ex depth (Pr left right) :=
   rewrite ex.eq3 depth left right h in omega
 

@@ -7,7 +7,7 @@ import Std (List, Option)
 theorem getZeroHead (t: List Bool): List.get t 0 = List.head t := cases
 
 -- Under a prefix, by recursion on it; `cases` does the last step.
-theorem getAfterPrefix (t: List Bool): (prefix: List Bool) → List.get (List.append prefix t) (List.length prefix) = List.head t
+theorem getAfterPrefix (t: List Bool): ∀ (prefix: List Bool) => List.get (List.append prefix t) (List.length prefix) = List.head t
   | [] => cases
   | [first, ..rest] => getAfterPrefix t rest
 

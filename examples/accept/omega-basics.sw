@@ -78,7 +78,7 @@ theorem twoXEqOne (x: Nat) (h: 2 * x = 1): Void := omega
 theorem splitRegression (x: Nat) (y: Nat) (h1: 1 ≤ 2 * x + 3 * y) (h2: 2 * x + 3 * y ≤ 4) (h3: 2 * y ≤ 3 * x + 1) (h4: 3 * x ≤ 2 * y + 2): Void := omega
 
 -- Extra facts: `omega [...]` adds proofs to the hypotheses, here an instance of a general fact.
-theorem viaList (a: Nat) (b: Nat) (f: Nat → Nat) (h: (n: Nat) → n ≤ f n): a ≤ f a + b := omega [h a]
+theorem viaList (a: Nat) (b: Nat) (f: Nat → Nat) (h: ∀ (n: Nat) => n ≤ f n): a ≤ f a + b := omega [h a]
 
 -- `omega` as the proof of a `calc` step.
 theorem calcStep (a: Nat) (b: Nat) (h: a + 2 ≤ b): a < b :=
