@@ -4,6 +4,8 @@
 
 use std::collections::BTreeMap;
 
+use stitchwort_core::hash::ContentHash;
+use stitchwort_driver::declhash::{self, DeclHash, DeclKind};
 use stitchwort_driver::driver::{Session, with_stack};
 use stitchwort_driver::live::{
     Edit, LiveProject, Place, Problems, Progress, Promise, Refusal, Trial, TrialOutcome,
@@ -350,4 +352,198 @@ fn trial_timings_on_aoc() {
             );
         }
     });
+}
+
+const LAWS: &str = "\
+namespace Laws
+
+import Std (Nat)
+
+def limit: Nat := 100
+
+def twice (n: Nat): Nat := n + n
+
+theorem addZ: ∀ (n: Nat) => n + 0 = n := Nat.addZero
+
+theorem again: ∀ (n: Nat) => n + 0 = n := addZ
+";
+
+fn laws() -> LiveProject {
+    let mut session = Session::navigable_for_stack(STACK);
+    session.use_test_std_cache();
+    let files = BTreeMap::from([("src/laws.sw".to_string(), LAWS.to_string())]);
+    let mut live = LiveProject::new(session, "laws", Some("sources: [src]\n".to_string()), files);
+    finish(&mut live);
+    live
+}
+
+fn same_statement() -> Promise {
+    Promise::SameStatement {
+        renames: BTreeMap::new(),
+    }
+}
+
+/// An edit of the whole of the line starting with `start`.
+fn line_edit(start: &str, new_line: &str) -> Edit {
+    let from = LAWS.find(start).expect("the line");
+    let line = LAWS[..from].matches('\n').count() as u32;
+    let width = LAWS[from..].lines().next().unwrap().encode_utf16().count() as u32;
+    edit("src/laws.sw", [line, 0, line, width], new_line)
+}
+
+/// The statement moved before the colon and the proof applied to it: the
+/// same theorem, another proof term (docs/proposals/theorem-binders.md §7).
+fn eta_edit() -> Edit {
+    line_edit(
+        "theorem addZ",
+        "theorem addZ (n: Nat): n + 0 = n := Nat.addZero n",
+    )
+}
+
+#[test]
+fn edits_that_keep_meaning_pass_both_promises() {
+    run(|| {
+        let mut live = laws();
+        // A docs comment added and a parameter renamed: no hash moves.
+        let edits = [
+            line_edit("def twice", "def twice (m: Nat): Nat := m + m"),
+            edit("src/laws.sw", [2, 0, 2, 0], "-- Not a doc.\n"),
+        ];
+        for promise in [same_meaning(), same_statement()] {
+            let trial = checked(live.trial(&edits, &promise).unwrap());
+            assert_eq!(trial.problems, Problems::default());
+            assert!(trial.proofs_changed.is_empty());
+            live.restore(trial).unwrap();
+        }
+    });
+}
+
+#[test]
+fn a_changed_definition_body_is_refused_by_both_promises() {
+    run(|| {
+        let mut live = laws();
+        let edits = [line_edit("def limit", "def limit: Nat := 101")];
+        for promise in [same_meaning(), same_statement()] {
+            let trial = checked(live.trial(&edits, &promise).unwrap());
+            let names: Vec<&str> = trial
+                .problems
+                .changed
+                .iter()
+                .map(|c| c.name.as_str())
+                .collect();
+            assert_eq!(names, ["limit"], "{:?}", trial.problems);
+            live.restore(trial).unwrap();
+        }
+    });
+}
+
+#[test]
+fn a_changed_statement_is_refused_by_the_statement_promise() {
+    run(|| {
+        let mut live = laws();
+        let edits = [line_edit(
+            "theorem addZ",
+            "theorem addZ: ∀ (n: Nat) => 0 + n = n := n => omega",
+        )];
+        let trial = checked(live.trial(&edits, &same_statement()).unwrap());
+        let names: Vec<&str> = trial
+            .problems
+            .changed
+            .iter()
+            .map(|c| c.name.as_str())
+            .collect();
+        assert!(names.contains(&"addZ"), "{:?}", trial.problems);
+        live.restore(trial).unwrap();
+    });
+}
+
+#[test]
+fn an_eta_change_of_a_proof_keeps_the_statement_not_the_meaning() {
+    run(|| {
+        let mut live = laws();
+        let edits = [eta_edit()];
+
+        let trial = checked(live.trial(&edits, &same_meaning()).unwrap());
+        let changed: Vec<&str> = trial
+            .problems
+            .changed
+            .iter()
+            .map(|c| c.name.as_str())
+            .collect();
+        assert_eq!(changed, ["addZ", "again"], "{:?}", trial.problems);
+        assert_eq!(trial.problems.changed[1].uses.as_deref(), Some("addZ"));
+        live.restore(trial).unwrap();
+
+        // `again` uses `addZ`, so its hash moves too; both statements held.
+        let trial = checked(live.trial(&edits, &same_statement()).unwrap());
+        assert_eq!(trial.problems, Problems::default());
+        assert_eq!(trial.proofs_changed, ["Laws.addZ", "Laws.again"]);
+        live.keep(trial);
+        assert!(live.text("src/laws.sw").unwrap().contains("Nat.addZero n"));
+    });
+}
+
+#[test]
+fn the_project_lists_its_declarations_hashes() {
+    run(|| {
+        let live = laws();
+        let hashes = live.declaration_hashes();
+        let find = |name: &str| hashes.iter().find(|d| d.name == name).expect(name);
+        assert_eq!(find("Laws.limit").kind, DeclKind::Def);
+        assert_eq!(find("Laws.addZ").kind, DeclKind::Theorem);
+        assert!(find("Laws.addZ").hash.is_some() && find("Laws.addZ").type_hash.is_some());
+        // The statement alone: the same for two theorems that state the same.
+        assert_eq!(find("Laws.addZ").type_hash, find("Laws.again").type_hash);
+        assert_ne!(find("Laws.addZ").hash, find("Laws.again").hash);
+        let text = declhash::show(find("Laws.limit").hash);
+        assert_eq!(declhash::parse_hash(&text), find("Laws.limit").hash);
+    });
+}
+
+fn hash_of(byte: u8) -> Option<ContentHash> {
+    Some(ContentHash([byte; 32]))
+}
+
+fn listed(kind: DeclKind, name: &str, hash: u8, ty: u8) -> DeclHash {
+    DeclHash {
+        kind,
+        name: name.to_string(),
+        hash: hash_of(hash),
+        type_hash: hash_of(ty),
+    }
+}
+
+/// Two libraries' hash lists (what `trial-edits --std-dir` compares), by
+/// the two promises.
+#[test]
+fn two_hash_lists_compare_by_the_promise() {
+    let before = [
+        listed(DeclKind::Def, "Std.f", 1, 10),
+        listed(DeclKind::Theorem, "Std.f.ok", 2, 20),
+        listed(DeclKind::Theorem, "Std.g.ok", 3, 30),
+    ];
+    // `f` untouched; `f.ok` has another proof; `g.ok` another statement; a
+    // new declaration.
+    let after = [
+        listed(DeclKind::Def, "Std.f", 1, 10),
+        listed(DeclKind::Theorem, "Std.f.ok", 5, 20),
+        listed(DeclKind::Theorem, "Std.g.ok", 6, 31),
+        listed(DeclKind::Def, "Std.h", 7, 70),
+    ];
+    let meaning = declhash::compare(&before, &after, &same_meaning());
+    let names =
+        |d: &declhash::HashDiff| d.changed.iter().map(|c| c.name.clone()).collect::<Vec<_>>();
+    assert_eq!(names(&meaning), ["Std.f.ok", "Std.g.ok"]);
+    assert_eq!(meaning.added, ["Std.h"]);
+
+    let statement = declhash::compare(&before, &after, &same_statement());
+    assert_eq!(names(&statement), ["Std.g.ok"]);
+    assert_eq!(statement.proofs_changed, ["Std.f.ok"]);
+
+    // A definition may not move its hash under the statement promise, even
+    // with its type hash held.
+    let mut moved = after.clone();
+    moved[0] = listed(DeclKind::Def, "Std.f", 9, 10);
+    let diff = declhash::compare(&before, &moved, &same_statement());
+    assert!(names(&diff).contains(&"Std.f".to_string()), "{diff:?}");
 }

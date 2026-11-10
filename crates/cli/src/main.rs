@@ -19,6 +19,7 @@ use stitchwort_syntax::{Diagnostic, Severity, SourceMap, parse_namespace_line};
 mod build;
 mod doc_cmd;
 mod rename_cmd;
+mod trial_cmd;
 
 #[derive(Parser)]
 #[command(name = "stitchwort", version, about = "The Stitchwort language")]
@@ -422,6 +423,63 @@ enum Command {
         #[command(flatten)]
         cache: CacheArgs,
     },
+    /// Developer tool for sweeps: try edits on the checked project, or an
+    /// edited copy of the standard library, and list the new diagnostics and
+    /// the declarations whose content hash moved. Writes nothing unless
+    /// `--apply`. Exit status: 0 nothing found, 1 problems, 2 refused
+    #[command(hide = true)]
+    TrialEdits {
+        /// JSON: a list of edits (or an object with an `edits` list, as
+        /// `rename --dry-run --json` prints). An edit is `{file, line,
+        /// column, endLine, endColumn, newText}` (from 1), or `{file, text}`
+        /// to replace a whole file
+        edits: Option<PathBuf>,
+        /// Accept a theorem's changed proof if its statement (type hash)
+        /// held; definitions must keep their hash. Default: every
+        /// declaration keeps its hash
+        #[arg(long)]
+        same_statement: bool,
+        /// Write the edited files if nothing was found
+        #[arg(long)]
+        apply: bool,
+        /// With `--apply`, write them even if problems were found
+        #[arg(long, requires = "apply")]
+        anyway: bool,
+        /// Print the result as JSON (version 1)
+        #[arg(long)]
+        json: bool,
+        /// With the global `--std-dir EDITED`: compare the whole library as
+        /// `EDITED` has it with the library as it was, from this directory
+        /// (default: what the environment picks without `--std-dir`)
+        #[arg(long, value_name = "DIR")]
+        std_before: Option<PathBuf>,
+        /// The project folder, if not the folder you're in or the nearest
+        /// one above it
+        #[arg(long)]
+        project: Option<PathBuf>,
+        #[command(flatten)]
+        cache: CacheArgs,
+    },
+    /// Developer tool: print the content hashes of declarations (their
+    /// names, or all of them): the hash, the hash of the statement alone,
+    /// the kind and the full name
+    #[command(hide = true)]
+    Hash {
+        /// Full names; a name includes what is declared under it
+        names: Vec<String>,
+        /// Hash the standard library instead of the project
+        #[arg(long)]
+        std: bool,
+        /// Print JSON (version 1)
+        #[arg(long)]
+        json: bool,
+        /// The project folder, if not the folder you're in or the nearest
+        /// one above it
+        #[arg(long)]
+        project: Option<PathBuf>,
+        #[command(flatten)]
+        cache: CacheArgs,
+    },
     /// Developer tools for measuring the implementation (not a stable interface)
     #[command(hide = true, subcommand)]
     Dev(DevCommand),
@@ -655,6 +713,7 @@ fn main() -> ExitCode {
 }
 
 fn run(cli: Cli) -> ExitCode {
+    let std_dir_given = cli.std_dir.is_some();
     match cli.command {
         Command::Check {
             targets,
@@ -849,6 +908,39 @@ fn run(cli: Cli) -> ExitCode {
             new_name: &new_name,
             anyway,
             dry_run,
+            json,
+            project: project.as_deref(),
+            cache: &cache,
+        }),
+        Command::TrialEdits {
+            edits,
+            same_statement,
+            apply,
+            anyway,
+            json,
+            std_before,
+            project,
+            cache,
+        } => trial_cmd::trial_edits(&trial_cmd::TrialArgs {
+            edits: edits.as_deref(),
+            same_statement,
+            apply,
+            anyway,
+            json,
+            std_before: std_before.as_deref(),
+            std_mode: std_dir_given,
+            project: project.as_deref(),
+            cache: &cache,
+        }),
+        Command::Hash {
+            names,
+            std,
+            json,
+            project,
+            cache,
+        } => trial_cmd::hash(&trial_cmd::HashArgs {
+            names: &names,
+            std,
             json,
             project: project.as_deref(),
             cache: &cache,

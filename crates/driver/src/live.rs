@@ -36,7 +36,7 @@ use crate::project::{
 };
 use crate::rewind::{Cancelled, Mark};
 
-mod trial;
+pub(crate) mod trial;
 pub use trial::{
     ChangedMeaning, Edit, NewDiagnostic, Problems, Promise, Refusal, Trial, TrialOutcome,
 };

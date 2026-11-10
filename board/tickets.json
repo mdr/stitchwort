@@ -27405,12 +27405,12 @@
     {
       "id": 2647,
       "title": "Dev command to print a declaration's content hash (hidden or under dev), so meaning-preserving sweeps and reviews can compare hashes directly instead of through the test cache",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "test-infra",
-      "body": "From SW-2640 (10 Nov 2026). Est. 30 min.",
+      "body": "From SW-2640 (10 Nov 2026). Est. 30 min.\n\nDone with SW-2648 (lane/SW-2648): `stitchwort hash [--std] [--json] [NAME...]` prints each declaration's hash, type hash, kind and name.",
       "created": "2026-11-10",
       "updated": "2026-11-10",
       "commits": []
@@ -27418,14 +27418,14 @@
     {
       "id": 2648,
       "title": "[Sonnet] Trial check for arbitrary edits: an entry point beyond rename (stitchwort apply-edits or a driver API) and a std mode (compare every declaration's hash before and after with --std-dir, as fmt_hashes does), for sweeps that must keep hashes",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2648",
       "labels": [
         "refactoring"
       ],
       "epic": "editor-playground",
-      "body": "From SW-2640 (10 Nov 2026); needed by the theorem-binders sweep if Matt picks it. Est. 120 min.",
+      "body": "From SW-2640 (10 Nov 2026); needed by the theorem-binders sweep if Matt picks it. Est. 120 min.\n\nLane notes (Sonnet, 10 Nov 2026): done in about 25 min of work. Hidden CLI commands `stitchwort trial-edits EDITS.json [--same-statement] [--apply [--anyway]] [--json]` and, with the global `--std-dir EDITED`, `trial-edits` with no file for a whole-library comparison (`--std-before DIR` names the original; default the environment's). `Promise::SameStatement` in crates/driver/src/live/trial.rs; `crates/driver/src/declhash.rs` for hash lists and `compare`. Also `stitchwort hash [--std] [--json] [NAME...]` (SW-2647). Tests: driver `projects` trial (13 pass) and cli `tools` trial_edits (2 pass), plus `running` _examples/ (4 pass).\n",
       "created": "2026-11-10",
       "updated": "2026-11-10",
       "commits": []
