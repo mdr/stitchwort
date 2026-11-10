@@ -45,6 +45,8 @@ pub(super) struct Args<'a> {
     pub dry_run: bool,
     pub plan: bool,
     pub json: bool,
+    /// Theorems to leave as they are.
+    pub keep: &'a [String],
     pub project: Option<&'a Path>,
     pub cache: &'a CacheArgs,
 }
@@ -227,6 +229,20 @@ pub(super) fn theorem_binders(args: &Args) -> ExitCode {
     }
 }
 
+/// Leaves the theorems `keep` names as they are, listed as refused.
+fn hold_back(sweeps: &mut [FileSweep], keep: &[String]) -> Result<(), String> {
+    if keep.is_empty() {
+        return Ok(());
+    }
+    for s in sweeps.iter_mut() {
+        s.run()?;
+        for name in keep {
+            s.refuse(name, "kept as it is (--keep)".to_string());
+        }
+    }
+    Ok(())
+}
+
 /// The rewrites only, unchecked and unwritten.
 fn plan_only(args: &Args, sweeps: &mut [FileSweep]) -> ExitCode {
     for s in sweeps.iter_mut() {
@@ -279,6 +295,9 @@ fn project_sweep(args: &Args, files: &[PathBuf]) -> ExitCode {
             );
         };
         sweeps.push(FileSweep::new(path, text.to_string()));
+    }
+    if let Err(e) = hold_back(&mut sweeps, args.keep) {
+        return refused(args.json, e);
     }
     if args.plan {
         return plan_only(args, &mut sweeps);
@@ -586,6 +605,9 @@ fn std_sweep(args: &Args, files: &[PathBuf]) -> ExitCode {
             Err(e) => return refused(args.json, format!("can't read {}: {e}", f.display())),
         };
         sweeps.push(FileSweep::new(path, text));
+    }
+    if let Err(e) = hold_back(&mut sweeps, args.keep) {
+        return refused(args.json, e);
     }
     if args.plan {
         return plan_only(args, &mut sweeps);

@@ -48,8 +48,9 @@ pub struct DeclHash {
     /// The hash of the statement alone, for a definition.
     pub type_hash: Option<ContentHash>,
     /// The declarations a definition's type and body mention, by full
-    /// name: [`library_hashes`] lists them, so a comparison can say which
-    /// re-proved theorem a moved definition leads to. Empty otherwise.
+    /// name, so a comparison can say which re-proved theorem a moved
+    /// definition leads to. Empty for a data type, and where the list
+    /// came from JSON without them.
     pub uses: Vec<String>,
 }
 
@@ -121,19 +122,6 @@ pub fn session_hashes(session: &Session, first: (usize, usize)) -> Vec<DeclHash>
     }
     for i in first.1..g.env.defs().len() {
         let def = &g.env.defs()[i];
-        let mut terms = vec![def.ty()];
-        terms.extend(def.body().map(|b| b.as_ref()));
-        let mut uses = std::collections::BTreeSet::new();
-        for t in terms {
-            for d in constants(t) {
-                if d.0 != i {
-                    uses.insert(g.env.defs()[d.0].path().to_string());
-                }
-            }
-            for d in data_types(t) {
-                uses.insert(g.env.datas()[d].path().to_string());
-            }
-        }
         out.push(DeclHash {
             kind: if def.theorem() {
                 DeclKind::Theorem
@@ -143,10 +131,29 @@ pub fn session_hashes(session: &Session, first: (usize, usize)) -> Vec<DeclHash>
             name: def.path().to_string(),
             hash: def_hash(g, DefId(i)).ok().flatten(),
             type_hash: type_hash(g, DefId(i)).ok().flatten(),
-            uses: uses.into_iter().collect(),
+            uses: def_uses(g, i),
         });
     }
     out
+}
+
+/// What definition `i`'s type and body mention, by full name.
+pub(crate) fn def_uses(g: &stitchwort_core::Ev, i: usize) -> Vec<String> {
+    let def = &g.env.defs()[i];
+    let mut terms = vec![def.ty()];
+    terms.extend(def.body().map(|b| b.as_ref()));
+    let mut uses = BTreeSet::new();
+    for t in terms {
+        for d in constants(t) {
+            if d.0 != i {
+                uses.insert(g.env.defs()[d.0].path().to_string());
+            }
+        }
+        for d in data_types(t) {
+            uses.insert(g.env.datas()[d].path().to_string());
+        }
+    }
+    uses.into_iter().collect()
 }
 
 /// The core and every library file of the library this process reads, loaded
@@ -310,20 +317,24 @@ pub fn compare(before: &[DeclHash], after: &[DeclHash], promise: &Promise) -> Ha
             )
             .find(|u| changed_names.contains(*u) && !under(u, own) && **u != c.name)
             .cloned();
-        // Only where the change starts: a re-proved declaration that
-        // mentions another (not its own lifted `match`, which may call it
-        // back) may have been re-proved because of it.
-        c.reproved = seen
+        // Only where the change starts: a re-proved theorem whose proof,
+        // its lifted matches included (which may call it back), mentions
+        // another may have been re-proved because of it.
+        let outside: BTreeSet<&str> = seen
             .iter()
-            .filter(|n| reproved_all.contains(**n))
             .filter(|n| {
-                !uses_of
+                uses_of
                     .get(**n)
                     .copied()
                     .unwrap_or(&[])
                     .iter()
                     .any(|u| reproved_all.contains(u) && owner(u) != owner(n))
             })
+            .map(|n| owner(n))
+            .collect();
+        c.reproved = seen
+            .iter()
+            .filter(|n| reproved_all.contains(**n) && !outside.contains(owner(n)))
             .map(|n| n.to_string())
             .collect();
     }

@@ -303,11 +303,25 @@ impl LiveProject {
     /// datas then definitions, namespace by namespace in checking order.
     pub fn declaration_hashes(&self) -> Vec<DeclHash> {
         let hashed = self.hashes(|_, _| true, true);
-        self.steps
-            .iter()
-            .filter_map(|step| hashed.get(&step.name))
-            .flat_map(|h| h.decls.iter().map(DeclHash::from_decl))
-            .collect()
+        let g = &self.session.elab.ev();
+        let mut out = Vec::new();
+        for step in &self.steps {
+            let Some(h) = hashed.get(&step.name) else {
+                continue;
+            };
+            // Datas, then the step's definitions in order.
+            let defs = (0..step.datas.len())
+                .map(|_| None)
+                .chain(step.defs.clone().map(Some));
+            for (decl, def) in h.decls.iter().zip(defs) {
+                let mut listed = DeclHash::from_decl(decl);
+                if let Some(i) = def {
+                    listed.uses = crate::declhash::def_uses(g, i);
+                }
+                out.push(listed);
+            }
+        }
+        out
     }
 
     /// Where the environment is: (data types, definitions).
@@ -760,20 +774,32 @@ impl LiveProject {
                     .filter_map(|u| ids.get(u))
                     .find(|other| !other.starts_with(&format!("{name}.")))
                     .map(|other| short(namespace, other));
-                // Only where the change starts: a re-proved declaration that
-                // mentions another (not its own lifted `match`, which may
-                // call it back) may have been re-proved because of it.
-                let reproved = cone
+                // Only where the change starts: a re-proved theorem whose
+                // proof, its lifted matches included (which may call it
+                // back), mentions another may have been re-proved because
+                // of it.
+                let path = |c: &Id| match c {
+                    Id::Def(i) => g.env.defs()[*i].path().to_string(),
+                    Id::Data(i) => g.env.datas()[*i].path().to_string(),
+                };
+                let outside: BTreeSet<String> = cone
                     .iter()
                     .filter(|c| match c {
                         Id::Def(i) => {
-                            let me = owner(g.env.defs()[*i].path());
-                            !mentioned(*i)
-                                .iter()
-                                .any(|u| accepted_ids.get(u).is_some_and(|name| owner(name) != me))
+                            let me = path(c);
+                            mentioned(*i).iter().any(|u| {
+                                accepted_ids
+                                    .get(u)
+                                    .is_some_and(|name| owner(name) != owner(&me))
+                            })
                         }
-                        Id::Data(_) => true,
+                        Id::Data(_) => false,
                     })
+                    .map(|c| owner(&path(c)).to_string())
+                    .collect();
+                let reproved = cone
+                    .iter()
+                    .filter(|c| !outside.contains(owner(&path(c))))
                     .filter_map(|c| accepted_ids.get(c).cloned())
                     .collect();
                 let (path, range) = match where_declared.find(name) {
