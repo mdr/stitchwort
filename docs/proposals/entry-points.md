@@ -1,9 +1,9 @@
 # Entry points: how a program says where it starts
 
-**Status:** proposed, 9 November 2026. Ticket SW-2550 (D3451). Open
-questions: D3452-D3454 ([§9](#9-questions-for-matt)). Written against
-`lane/SW-2550` from `main` at `3cf9aa769`. Paper lane: nothing was built or
-run.
+**Status:** decided, 10 November 2026. Ticket SW-2550 (D3451), updated for
+D3452 and D3456 by SW-2561. Still open: D3453 and D3454 ([§9](#9-questions-for-matt)).
+Written against `lane/SW-2550` from `main` at `3cf9aa769`. Paper lane:
+nothing was built or run.
 
 Claims about Stitchwort cite `file:line` and were read in the source.
 Claims about other languages are **[cited]** (read in the source linked in
@@ -16,42 +16,34 @@ not re-checked).
 1. [The problem](#1-the-problem)
 2. [What happens today](#2-what-happens-today)
 3. [Prior art](#3-prior-art)
-4. [The three options](#4-the-three-options)
+4. [The options](#4-the-options)
 5. [Which types can be run](#5-which-types-can-be-run)
 6. [Errors and their wording](#6-errors-and-their-wording)
 7. [Hello world, and how it reads to a newcomer](#7-hello-world-and-how-it-reads-to-a-newcomer)
-8. [The work for each option](#8-the-work-for-each-option)
+8. [The work for each option (dropped)](#8-the-work-for-each-option)
 9. [Questions for Matt](#9-questions-for-matt)
 10. [Calls I made](#10-calls-i-made)
-11. [Tickets to file](#11-tickets-to-file)
+11. [What follows, and what already works](#11-what-follows-and-what-already-works)
 - [Sources](#sources)
 
 ## 0. Summary
 
-**Recommendation: option (b).** A program's entry point is the
-definition called `main`, as now, but its type is checked **where it is
-defined**, by the type checker, so `stitchwort check`, `stitchwort test`
-and the editor report a `main` that can't run, not `stitchwort run` alone.
-`main` becomes a reserved name for entry points: Matt's style rule
-(SW-2549) turns into a checked rule. No `@[entry]` attribute for now.
-`stitchwort run Day05.anything` keeps running any function of a runnable
-type by its full name, checked when it's run, as the escape hatch (like
-GHC's `-main-is` or Unison's `run`).
+**Decided.** D3452 (Matt, 9 Nov 2026): any function of a runnable type can be
+run by name, Unison-style. There is no annotation. `main` is a style
+convention (SW-2549: name a definition `main` only when it is a program entry
+point) and the default name `run` looks for. D3456 (Matt, 9 Nov 2026): no
+warning on a `main` that can't run, for now.
 
-Why: it fixes the bug that started this (a broken `main` passes `check`),
-costs a newcomer nothing, needs no change to the 71 AoC days, the 47
-accepting examples or the guide's programs, and matches what nearly every
-language with a `main` does (Rust, Haskell, Lean, Go, C#, Koka, Effekt).
-The annotation's real advantage, several checked entry points with any
-names, is something no Stitchwort program needs today (the one time it
-came up, AoC 2024 day 14's `mainExample`, was solved with `IO.args`
-instead). And (b) leaves the door open: adding `@[entry]` later for extra
-entry points is option (c), with nothing in (b) to undo.
+**Rejected** (§4): `@[entry]` (a), a reserved `main` checked at its
+definition (b), and both (c). The earlier recommendation of (b) is replaced
+by this.
 
-On `def main: {IO} ()` without `()`: **refuse it**, with an error at the
-definition that says to add `()`. Lean accepts `def main : IO Unit`, but in
-Stitchwort the two forms aren't interchangeable: the guide tests a program
-with `IO.simulate input main`, which takes a function.
+**Open:** D3453 (does `main` without `()` count as runnable?) and D3454 (does
+`run NS` run `NS.main`?), each with its trade-off in §9.
+
+**Already true:** in a project, `run` runs any runnable function by its full
+name; a loose file runs only its `main`. What is left to implement is small
+(§11).
 
 ## 1. The problem
 
@@ -76,6 +68,11 @@ only when it is an entry point.
 What we want: a `main` that can't run is an error **where it's written**,
 seen by `check`, `test`, the editor and the playground's Check tab, and the
 rule for what counts as an entry point is the same in every tool.
+
+Matt's answer (D3452, D3456) was not to add that rule: a bad `main` is
+still reported only by `run`, and the "▶ Run" icon can still sit above one.
+The goal above is kept as the problem statement; §4 says which options it
+led to and why they were rejected.
 
 ## 2. What happens today
 
@@ -161,9 +158,15 @@ when run, which is what Stitchwort's `run NS.name` does today.
 - **Lean accepts a non-function `main : IO Unit`**, and so do Haskell and
   Unison's delayed computations in their own way. That bears on §5.
 
-## 4. The three options
+## 4. The options
 
-### (a) The annotation: `@[entry]`
+**D3452 (Matt, 9 Nov 2026) chose a fourth way, (d), which this section
+didn't consider.** It is Unison's: any function of a runnable type can be run
+by name, with no annotation and no reserved name. `main` is a style
+convention and the default name `run` looks for. It is today's `run NS.name`
+and `run file.sw` unchanged. (a), (b) and (c) are kept below as the record.
+
+### (a) The annotation: `@[entry]` (rejected, D3452)
 
 ```stitchwort
 @[entry]
@@ -205,7 +208,7 @@ from any other language writes, is silently not a program, and `run` says
 needs a warning on an unmarked `main`, at which point `main` is special by
 name again: that's option (c).
 
-### (b) `main` by name, checked where it's defined
+### (b) `main` by name, checked where it's defined (rejected, D3452 and D3456)
 
 ```stitchwort
 def main(): {IO} () :=
@@ -240,7 +243,7 @@ rule everywhere. **What it costs:** the name `main` is taken (which Matt's
 style rule already wants), and an extra entry point in the same namespace
 gets no static check or run icon.
 
-### (c) Both
+### (c) Both (rejected, D3452)
 
 `main` is an entry point by name and checked as in (b); `@[entry]` marks
 others, any name, checked the same way, each with a run icon. `@[entry]`
@@ -278,13 +281,11 @@ runtime errors (2) (`docs/syntax.md:908`). There's no need for Lean's
 `IO UInt32` or `List String → IO UInt32` forms, and no ticket asks for an
 exit code.
 
-**The check itself** should be the one the runner does now, moved into the
-elaborator and shared: elaborate `(u => main ()) : () -> {Std.IO,
-Std.Fail, Partial} ()` against the admitted definition, and record which
-row it fits (`MainRow::Io` or `FailIo`, `run.rs:203-224`) for the runner.
-That keeps one definition of "runnable" for `main`, `run NS.name` and the
-runner, including sub-rows and the pure case, which a plain annotation
-wouldn't accept (`docs/proposals/text-and-io.md:70`).
+**The check** stays in the runner (`run.rs:180-225`), shared by `main` and
+`run NS.name`, including sub-rows and the pure case, which a plain annotation
+wouldn't accept (`docs/proposals/text-and-io.md:70`). Moving it into the
+elaborator so `check` could report it was the idea of option (b), which D3452
+and D3456 declined.
 
 **`def main: {IO} ()`, without `()`.** In Stitchwort this is legal and
 means something: a top-level computation, like
@@ -302,13 +303,14 @@ Should it be an entry point?
   constant `main` would be runnable but not testable the same way. And every
   doc, example and lens would have to say "or".
 
-**Recommendation: refuse it, kindly** (D3453). At the definition:
-`E-MAIN-TYPE`, with a note that says exactly what to add (§6). Since (b)
-reports it in the editor, the cost is one squiggle and one keystroke, once.
+**Open** (D3453). It is not decided whether to accept this, or keep
+refusing it with a note that says what to add. The trade-off is in §9.
 
 ## 6. Errors and their wording
 
-Under (b). Codes stay as they are where the meaning doesn't change, so
+**Not taken up.** This section words errors for a `main` checked where it is
+defined, which D3456 declines for now. The wording is kept for when that
+changes; the codes are as they are today.
 scripts and snapshots keep working; wording follows `run.rs`'s current
 messages.
 
@@ -365,6 +367,9 @@ definition of the wrong type, `E-ENTRY-TYPE`, worded as the table above.
 | (a) | `@[entry]` and the same line | an attribute, the guide's first; attributes are otherwise introduced in chapter 11 for the JS boundary (`docs/guide/11-running-and-shipping.md:152-158`) |
 | (c) | as (b) | as (b); `@[entry]` appears only when someone needs a second program |
 
+Under the decided approach (D3452) the newcomer's path is (b)'s: `main`, no
+attribute.
+
 The guide's first sentence about programs is "A program is a `.sw` file
 with a `main` function" (`docs/guide/01-getting-started.md:19`). Under (b)
 it stays true and becomes enforced; one sentence can be added: "If `main`'s
@@ -374,97 +379,93 @@ type.
 
 ## 8. The work for each option
 
-Migration cost doesn't count against an option (D2303); this is listed so
-the stages can be sized.
-
-| Area | (a) | (b) | (c) |
-|---|---|---|---|
-| Elaborator | registry entry (`attributes.rs`), target rules, type check in `after_definition` (`crates/elab/src/lib.rs:3006-3020`, where `check_tailrec` already runs) | the type check and name rule in `after_definition`; the runnable-type check moved from `run.rs:180-225` into the elaborator, recording the row | both |
-| Driver | `Session::main` finds `@[entry]`, chooses among several; `main_named` | `Session::main` trusts the recorded check (the runner's check stays as a defence); wording | both, plus choosing |
-| CLI | `run file.sw NAME` form; `build dir/` scans attributes (`build.rs:243-255`) | none (D3454: `run NS`) | both |
-| Web | manifests unchanged; single-file Run picks among several | none | as (a) |
-| LSP | lens on `@[entry]` (`lens.rs:91-101`) | none: diagnostics arrive from the check | lens on both |
-| Docs | syntax.md Attributes table and a new "Entry points" section, projects.md, guide ch. 1 and ch. 11 | syntax.md "Entry points" (short), projects.md, guide ch. 1 sentence | all of both |
-| Tour (`web/guide/`) | a page would be warranted (new syntax) | none: nothing new to enjoy | as (a) |
-| Sweep | ~71 AoC days, 47 examples, 5 guide examples, comparison scripts, playground examples: add `@[entry]` | the 3 broken examples (SW-2549 already) | as (b) |
-| Tests | reject examples for each error; run tests' snapshots | `examples/reject/main-*.sw` for each row of §6's table; update `running__run__main_must_have_the_right_type.snap` | both |
+Dropped. It sized options (a), (b) and (c), which D3452 rejected. What is
+left to do is in [§11](#11-what-follows-and-what-already-works).
 
 ## 9. Questions for Matt
 
-**D3452: Entry points are the definitions called `main`, with their type
-checked where they're defined (option (b)); no `@[entry]` attribute for
-now. [rec: yes]** It fixes the reported bug in `check` and the editor,
-costs newcomers nothing, matches Rust, Haskell, Lean, Go, Koka and Effekt,
-and needs no sweep. The annotation's gain, several checked entry points
-with any names, hasn't been needed (one case, solved with `IO.args`), and
-(b) can grow into (c) later without undoing anything.
+**Decided**
 
-**D3453: Refuse `def main: {IO} ()` (no `()`) as an entry point, with an
-error at the definition saying to add `()`. [rec: yes]** One form keeps
-`IO.simulate input main` working the way the guide teaches, and the
-editor shows the fix at once. Accepting it (Lean's way) is possible in the
-runner, but gives two non-interchangeable spellings of every program.
+- **D3452 (Matt, 9 Nov 2026): any function of a runnable type can be run by
+  name, Unison-style.** No annotation. `main` is a style convention, and the
+  default name `run` looks for. This rejects options (a), (b) and (c) of §4
+  (all three give `@[entry]` or a reserved `main` checked at its definition).
+- **D3456 (Matt, 9 Nov 2026): no warning on a `main` that can't run, for
+  now.** So `check`, `test` and the editor stay silent about it, and only
+  `run` reports it.
 
-**D3454: `stitchwort run Day05` (a namespace) runs `Day05.main`, as GHC's
-`-main-is Day05` means `Day05.main`. [rec: yes]** A small convenience for
-the 71 AoC days (`run Aoc.Year2025.Day07` instead of
-`…Day07.main`), and `build` already accepts a project folder the same way.
-In a project every definition has a namespace, so a name without a dot
-can only be a namespace; one with dots could in principle be both
-(namespace `Aoc.Year2025.Day07`, and a `def Day07` in `Aoc.Year2025`), and
-that case would be an error naming both. Optional: (b) doesn't need it.
+**Open**
+
+**D3453: does `def main: {IO} ()` (no `()`) count as runnable?** Today it
+doesn't: `run` reports `E-MAIN-TYPE` (§5).
+- *Accept it* (Lean's way): newcomers from Lean and Haskell write it, and
+  `partial-map-main.sw`'s author did. But there would be two spellings of a
+  program that the formatter can't unify, and `IO.simulate input main` in the
+  guide only works with the function form.
+- *Keep refusing it*: one form, the guide's tests keep working, and the
+  error says to add `()`. But it is only seen when the program is run (D3456).
+
+**D3454: does `stitchwort run Day05` (a namespace) run `Day05.main`?** Today
+`run` in a project takes a full function name and anything else is
+`E-RUN-UNKNOWN`.
+- *Yes* (as GHC's `-main-is Day05`): saves typing for the 71 AoC days, and
+  makes `main`'s role as the default name real. A name with dots could be
+  both a namespace and a function (`def Day07` in `Aoc.Year2025`), which would
+  be an error naming both.
+- *No*: nothing new to explain, and `run Day05.main` is already short enough
+  next to the file form.
 
 ## 10. Calls I made
 
-- **Which declarations count** as `main` under (b): top-level, written name
-  exactly `main`, `def` or `export def`. A local `def main`, a parameter, or
-  `def Grid.main` in a type's namespace is an ordinary name. Matches the LSP
-  lens (`lens.rs:94-101`) and `build.rs`'s scan (`build.rs:249-252`), so
-  every tool agrees.
-- **Any other top-level declaration named `main`** (theorem, synonym,
-  instance) is `E-MAIN-TYPE` with a "give it another name" note, rather
-  than a new code; it's the same rule broken.
-- **An unfinished `main`** (one with `?`) is still type-checked at its
-  definition; running it stays `E-UNFINISHED` (`run.rs:184-197`).
-- **Error codes kept** (`E-MAIN-TYPE`, `E-NO-MAIN`, `E-RUN-TYPE`); only the
-  wording and when `E-MAIN-TYPE` appears change.
-- **The runner keeps its own check** as a defence and for `run NS.other`;
-  it reads the row recorded at definition when there is one.
-- **`@[entry]` reserved, not built.** If (c) is wanted later, the name and
-  the target rules in §4(a) are the design to start from.
-- **No tour page** under (b): it adds no syntax.
+- **A theorem, synonym or instance called `main`** gets no error either: with
+  no definition-time rule (D3456), the only report is `run`'s `E-NO-MAIN` or
+  `E-RUN-TYPE`.
+- **Error codes stay** (`E-MAIN-TYPE`, `E-NO-MAIN`, `E-RUN-TYPE`).
+- **`@[entry]` is not reserved.** D3452 says no annotation, so the name is
+  free.
 
-## 11. Tickets to file
+## 11. What follows, and what already works
 
-In order. Each runs only its own targeted tests.
+**Already works** (read in `crates/cli/src/main.rs:1760-1818` and
+`crates/driver/src/run.rs:150-271`; `stitchwort run --help` from the main
+checkout's release binary; nothing was built or run):
 
-1. **SW-2549 first** (already filed, Sonnet, 45 min): fix
-   `partial-map-main.sw` (add `()`), rename `fin-eq.sw`'s and `mutual.sw`'s
-   `main`. Stage 2 makes these errors, so it must land first, or stage 2
-   absorbs it.
-2. **`main`'s type checked at its definition** (Sonnet, 60-75 min;
-   elaborator, user-visible errors). Move the runnable-type check from
-   `crates/driver/src/run.rs:180-225` into the elaborator's
-   `after_definition` (`crates/elab/src/lib.rs:3006`), record the row for
-   the runner, the name rule of §10, and §6's wording and notes. Tests:
-   `task test:one` on the run tests in `crates/cli/tests/running/run.rs`
-   (snapshot `main_must_have_the_right_type` updated), new
-   `examples/reject/main-*.sw` (no `()`, `Nat` result, unhandled ability,
-   `def main: Nat`, `theorem main`), and `examples/accept` files with a
-   `main` via `task test:lane AREA=examples NAME=…`. The formatter's
-   goldens (`crates/fmt/tests/it/golden`) are formatted, not type-checked
-   (`crates/fmt/tests/it/golden.rs:28`), and their `main`s are all
-   runnable anyway.
-3. **Docs** (Sonnet or DeepSeek, 30 min): a short "Entry points" section
-   in `docs/syntax.md` (the rule, the runnable types, the errors), one
-   sentence in `docs/guide/01-getting-started.md`, `docs/projects.md`
-   "Running and testing", and a status line in
-   `docs/proposals/text-and-io.md`. Tests: the guide's checked examples
-   (`task test:one` for the guide snippets).
-4. **If D3454 is yes: `run NS`** (Sonnet, 30-45 min): in `load_main`
-   (`crates/cli/src/main.rs:1699-1739`), a target that names a namespace
-   means `NS.main`; same in `build`. Tests: the project run tests in
-   `crates/driver/tests/projects/run.rs` and `crates/cli/tests/tools/project.rs`.
+- `stitchwort run Day05.anything` in a project runs any function by its full
+  name, if its type is runnable (§2); otherwise `E-RUN-TYPE` (`run.rs:262`),
+  or `E-RUN-UNKNOWN` for a name that isn't there (`run.rs:237`). `--help`
+  says: "A file, or the full name of a function in the project". So D3452 is
+  already true in a project.
+- `stitchwort run file.sw` runs the file's `main` only (`Session::main`,
+  `run.rs:150`), checked when run (`E-MAIN-TYPE`, `E-NO-MAIN`).
+- `build Rogue.main` and the playground manifests name a function, so they
+  already take any runnable function.
+- Nothing checks `main` at its definition. D3456 keeps it so.
+
+**What implementation is left** (small; each runs only its own targeted tests):
+
+1. **Say it in the docs** (Sonnet or DeepSeek, about 20 min): `docs/syntax.md`
+   "Entry points" (the rule from SW-2549: `main` only for an entry point; any
+   runnable function runs by name; the runnable types; that `main` is the
+   default name), a sentence in `docs/guide/01-getting-started.md`, and
+   `docs/projects.md` "Running and testing". No tour page: nothing new to
+   enjoy.
+2. **Run a named function in a loose file** (a gap in D3452; see below): today
+   a file target can only run its `main`. If wanted, a form such as
+   `run file.sw --entry demo`, in `load_main`'s file branch and
+   `Session::main`.
+3. **D3453**, if it is answered yes: `Session::main` tries `main` as a
+   computation as well as `main ()`.
+4. **D3454**, if it is answered yes: in `load_main`, a target that names a
+   namespace means `NS.main`; the same in `build`. Tests:
+   `crates/driver/tests/projects/run.rs`, `crates/cli/tests/tools/project.rs`.
+
+**Unclear in the decisions:** D3452 says "by name" but the file form can't
+name a function, so a loose file's second program can't be run. Whether that
+needs a form (item 2), or the answer is "put it in a project", is not decided.
+The editor's "▶ Run" lens appears only above a definition called `main`
+(`crates/lsp/src/lens.rs:91-101`, read from the syntax, which has no types);
+lenses on other runnable functions would need type information, so they are
+left alone. Both could wait for someone to want them.
 
 ## Sources
 
