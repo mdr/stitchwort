@@ -183,20 +183,23 @@ tasks:
       tier, not the merge tier.
     cmds:
       - |
-        status=0; err=$(mktemp)
+        # The list goes through a file, not a variable: task's shell passes
+        # variables to child processes, and a list of over 128 KB fails jq's
+        # exec on Linux ("argument list too long").
+        status=0; err=$(mktemp); json=$(mktemp)
         for profile in $(grep -oE '^\[profile\.lane-[A-Za-z0-9_-]+\]' .config/nextest.toml | sed -E 's/^\[profile\.(.*)\]$/\1/'); do
-          if ! out=$(cargo nextest list --release --workspace --profile "$profile" --message-format json 2>"$err"); then
+          if ! cargo nextest list --release --workspace --profile "$profile" --message-format json >"$json" 2>"$err"; then
             echo "FAIL: cargo nextest list failed for profile $profile" >&2; head -n 8 "$err" >&2
             status=1
             continue
           fi
-          n=$(printf '%s' "$out" | jq '[.["rust-suites"][]?.testcases | to_entries[] | select(.value["filter-match"].status == "matches")] | length')
+          n=$(jq '[.["rust-suites"][]?.testcases | to_entries[] | select(.value["filter-match"].status == "matches")] | length' "$json")
           if [ "$n" -eq 0 ]; then
             echo "FAIL: nextest profile $profile selects no tests; check its default-filter in .config/nextest.toml" >&2
             status=1
           fi
         done
-        rm -f "$err"; exit $status
+        rm -f "$err" "$json"; exit $status
 
   test:merge:
     desc: Merge tier, under 90 s on a 10-core M1 Pro; run after every merge

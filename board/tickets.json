@@ -1,5 +1,5 @@
 {
-  "next": 2619,
+  "next": 2620,
   "tickets": [
     {
       "id": 47,
@@ -26798,6 +26798,19 @@
       "labels": [],
       "epic": "docs-tutorials",
       "body": "From SW-2533, 10 Nov. docs/reviews/SW-1850-guide-accuracy.md.",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
+    },
+    {
+      "id": 2619,
+      "title": "Daily tier failed on Linux before any test ran: task test:lanes-nonempty kept the nextest list in a shell variable, which task's shell passes to jq's environment, so exec hit 'argument list too long'",
+      "status": "backlog",
+      "agent": "Opus",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
+      "body": "Overmind daily 10 Nov 04:02 (fc8a32cbd), exit 201 after 5 min. Orchestrator's fix: list through a temp file. Checked here: passes (16 s), and still fails naming an added empty profile.",
       "created": "2026-11-10",
       "updated": "2026-11-10",
       "commits": []
