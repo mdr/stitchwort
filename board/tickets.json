@@ -27227,15 +27227,16 @@
     },
     {
       "id": 2636,
-      "title": "[Sonnet] JS backend hangs on bench dijkstra (Aoc.Year2021.Day15.main, run --js): node at 100% CPU for 73 min on Overmind and >10 min on Speedwell at 9af7518d9/0325f693b; native and run give the right answers; job 40 (9 Nov ~10:17) ran it fine. Bisect and fix",
-      "status": "doing",
-      "agent": "Sonnet",
-      "where": ".claude/worktrees/SW-2636",
+      "title": "JS backend: AoC 2021 day 15 (bench dijkstra) under run --js grows ~n^4 with grid size (n=30 crop 14 s; full input est. ~30 min+); not a regression (0c1bf7d94 also hangs); likely whole-structure copies per update where run/native update in place. Profile (node --cpu-prof on the n=30 crop) before changing anything",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
       "labels": [
-        "bug"
+        "bug",
+        "parked"
       ],
       "epic": "effects-native",
-      "body": "Found by Overmind's final bench:compare --all (10 Nov 2026), which hung at this step. Reproduced on Speedwell: cd aoc && ../target/release/stitchwort run --js Aoc.Year2021.Day15.main < inputs/2021/day15.txt, timeout 600 -> rc 124. Correctness bug (the playground and run --js use this backend), not paused speed work. Est. 90 min.",
+      "body": "Found by Overmind's final bench:compare --all (10 Nov 2026), which hung at this step. Reproduced on Speedwell: cd aoc && ../target/release/stitchwort run --js Aoc.Year2021.Day15.main < inputs/2021/day15.txt, timeout 600 -> rc 124. Correctness bug (the playground and run --js use this backend), not paused speed work. Est. 90 min.\nLane result (10 Nov): crates/js unchanged since 0c1bf7d94, which also hangs. Crops of the input (n×n corner, part 2 = 25n² nodes): n=10 0.74 s, n=20 2.7 s, n=30 14 s, answers match run. Speed work is paused (D3465), so parked; the playground uses this backend, so it matters for users running such programs there.\nModel result: Sonnet, worked (diagnosis), 8 min.",
       "created": "2026-11-10",
       "updated": "2026-11-10",
       "commits": []
