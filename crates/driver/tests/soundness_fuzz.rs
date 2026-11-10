@@ -1146,8 +1146,25 @@ fn mutated_theorems_have_no_counterexample() {
             too_expensive: Vec::new(),
         };
         let original = site.text[site.decl.clone()].to_string();
-        let base = check_one(corpus, site, &original, cache, false);
+        let base = check_one(corpus, site, &original, cache, false, true);
         match base {
+            Ok(Checked {
+                too_expensive: Some(tripped),
+                ..
+            }) => {
+                let what = match tripped {
+                    heap_cap::Tripped::Time => "time",
+                    _ => "heap",
+                };
+                eprintln!(
+                    "skipped, the unmutated check ran out of {what} (even the default limits \
+                     of {} MB heap and {} s): {}",
+                    MEM_CAP >> 20,
+                    MUTANT_TIME.as_secs(),
+                    site.label()
+                );
+                return out;
+            }
             Ok(checked) if outcome_of(&checked) != Outcome::Rejected => out.calibrated = true,
             Ok(checked) => {
                 let why = match &checked.audit {
@@ -1188,7 +1205,7 @@ fn mutated_theorems_have_no_counterexample() {
                 continue;
             }
             let began = Instant::now();
-            let checked = check_one(corpus, site, &decl, cache, true);
+            let checked = check_one(corpus, site, &decl, cache, true, false);
             if env_text("SOUND_VERBOSE").is_some() {
                 let shown = checked.as_ref().map(outcome_of);
                 let peak = checked.as_ref().map_or(0, |c| c.peak) >> 20;
@@ -1332,10 +1349,19 @@ fn check_one(
     decl: &str,
     cache: &Path,
     search: bool,
+    calibration: bool,
 ) -> Result<Checked, String> {
+    // The unmutated check is not a mutant: it gets the default limits, not
+    // the per-mutant ones, so a low cap shows up as expensive mutants and
+    // not as a skipped theorem.
+    let (heap, time) = if calibration {
+        (MEM_CAP.max(mem_cap()), MUTANT_TIME.max(mutant_time()))
+    } else {
+        (mem_cap(), mutant_time())
+    };
     on_thread(|| {
         CoreBudget::set_cancel_hook(heap_cap::over_cap);
-        let before = heap_cap::start(mem_cap(), Some(Instant::now() + mutant_time()));
+        let before = heap_cap::start(heap, Some(Instant::now() + time));
         let mut checked = check_site(corpus, site, decl, cache, search);
         checked.peak = heap_cap::peak_since(before);
         match heap_cap::tripped() {
