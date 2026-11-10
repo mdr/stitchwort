@@ -27291,7 +27291,7 @@
     {
       "id": 2640,
       "title": "[Opus] Design note: how a theorem's top-level variables are written (parameters before the colon, ∀ after it, or ∀ before the colon as new syntax), the house rule, and the sweep of ~670 mixed statements",
-      "status": "doing",
+      "status": "review",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-2640",
       "labels": [
@@ -27299,10 +27299,12 @@
         "design"
       ],
       "epic": "syntax-language",
-      "body": "Matt, 10 Nov 2026: after the ∀ sweep (D3458) the same kind of statement is written three ways (~2,260 parameters before the colon, ~240 ': ∀' only, ~430 mixed). Matt wonders whether to allow ∀ before the colon for readability closer to logic and maths, and thinks 'move ∀ variables before the colon' is a sensible house rule as long as nothing (match syntax etc.) relies on the ∀ form. Paper lane; output docs/proposals/theorem-binders.md. Related: D3462 (keeping ∀ style), docs/proposals/forall-style-enforcement.md. Est. 60 min.",
+      "body": "Matt, 10 Nov 2026: after the ∀ sweep (D3458) the same kind of statement is written three ways (~2,260 parameters before the colon, ~240 ': ∀' only, ~430 mixed). Matt wonders whether to allow ∀ before the colon for readability closer to logic and maths, and thinks 'move ∀ variables before the colon' is a sensible house rule as long as nothing (match syntax etc.) relies on the ∀ form. Paper lane; output docs/proposals/theorem-binders.md. Related: D3462 (keeping ∀ style), docs/proposals/forall-style-enforcement.md. Est. 60 min.\n\nLane, 10 Nov: note written, docs/proposals/theorem-binders.md. Finding: 1,958 of the 1,983 ∀-leading theorems are proved by arms, which can only match after the colon, so the ∀ is relied on; but `:= match x with` on header parameters gives the same hash (measured with a test-cache probe, §7), so all can move. Rec: (a+) every variable before the colon, proofs by cases via match; three open questions in §9. Recount (measured): 3,854 parameters only, 817 ∀ only, 1,166 both, 281 none.\n",
       "created": "2026-11-10",
       "updated": "2026-11-10",
-      "commits": []
+      "commits": [
+        "9918a5449"
+      ]
     }
   ]
 }
