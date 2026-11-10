@@ -141,6 +141,23 @@
     min-height: 36px;
   }
 
+  /* The settings menu (the ⚙ button): a small panel under the source pane's header. */
+  .pane-head { position: relative; }
+  #settings-button { font-size: 1rem; padding: 4px 9px; line-height: 1; }
+  #settings-menu {
+    position: absolute; z-index: 20; top: calc(100% + 4px); right: 0;
+    width: min(20rem, calc(100vw - 32px)); box-sizing: border-box;
+    background: var(--paper); color: var(--ink);
+    border: 1px solid var(--line); border-radius: 8px;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18); padding: 10px 14px;
+  }
+  #settings-menu[hidden] { display: none; }
+  #settings-menu h2 { margin: 0 0 6px; font-size: 0.9rem; }
+  #settings-menu fieldset { border: 0; margin: 0 0 6px; padding: 0; }
+  #settings-menu label { display: flex; align-items: center; gap: 8px; padding: 3px 0; font-size: 0.88rem; }
+  #settings-menu label.number input { width: 5.5rem; margin-left: auto; }
+  #settings-menu .note { margin: 4px 0 0; color: var(--muted); font-size: 0.78rem; }
+
   /* The editor is CodeMirror 6 (web/editor/src/editor-entry.js), drawn from
      the page's own colours. Dragging its corner makes it taller. */
   .editor {
@@ -163,7 +180,7 @@
     color: var(--ink);
     font-family: var(--mono);
     font-variation-settings: "MONO" 1, "CASL" 0;
-    font-size: 13.5px;
+    font-size: var(--editor-size, 13.5px);
     font-weight: 400;
     line-height: 1.55;
   }
@@ -449,7 +466,7 @@
      Text boxes get 16px text, as with less a phone zooms in on focusing
      them, and the editor's padding shrinks to leave room for the code. */
   @media (max-width: 600px) {
-    .editor .cm-editor { font-size: 16px; }
+    .editor .cm-editor { font-size: max(16px, var(--editor-size, 16px)); }
     .editor .cm-content { padding: 10px 0; }
     select, input[type="text"], textarea#run-input { font-size: 16px; }
     .output { min-height: 70vh; }
@@ -536,6 +553,21 @@
       <span id="status" class="status idle">Loading the compiler…</span>
       <span id="link-notice" class="status idle" role="status" hidden></span>
       <button id="warning-count" class="status warn" type="button" title="Show the warnings" hidden></button>
+      <button id="settings-button" type="button" aria-label="Editor settings" aria-haspopup="dialog" aria-expanded="false" aria-controls="settings-menu" title="Editor settings">⚙</button>
+      <form id="settings-menu" role="dialog" aria-label="Editor settings" hidden>
+        <h2>Editor settings</h2>
+        <fieldset>
+          <label><input type="checkbox" name="letTypes"> Show the types of <code>let</code>s</label>
+          <label><input type="checkbox" name="semanticColours"> Colour names by what they are</label>
+          <label><input type="checkbox" name="proofSearch"> Offer proofs for <code>?</code></label>
+          <label class="number">Proof search time limit (ms)
+            <input type="number" name="timeLimitMs" min="100" step="100" inputmode="numeric"></label>
+          <label><input type="checkbox" name="formatOnSave"> Format on save (Ctrl/Cmd+S)</label>
+          <label class="number">Font size (px)
+            <input type="number" name="fontSize" min="9" max="32" step="1" inputmode="numeric"></label>
+        </fieldset>
+        <p class="note">Kept in this browser. Escape closes this.</p>
+      </form>
       <button id="share" type="button" title="Copy a link to this program (the code is in the link itself); for an Advent of Code day, a link to the day">Share</button>
       <button id="format" type="button" title="Format the code (Shift+Alt+F)">Format</button>
       <button id="run" class="primary run" type="button" title="Run main (Ctrl+Enter)">Run ▸</button>
@@ -2587,6 +2619,34 @@ export def area: Shape -> Nat
   const projectUri = (path) => `file:///playground/${project.name}/${path}`;
   await versionReady;
   const { createEditor, SINGLE_URI } = await import(`./dist/editor.bundle.js${LOAD}`);
+
+  // ---- Settings (D3468) ------------------------------------------------------
+  // The ⚙ menu. The switches the language server reads are sent to it as in
+  // VS Code (crates/lsp `Settings`); format on save and the font size are the
+  // page's own. Kept in localStorage, as one JSON object.
+  const SETTINGS_KEY = "stitchwort.settings";
+  const DEFAULT_SETTINGS = { letTypes: true, semanticColours: true, proofSearch: true, timeLimitMs: 5000, formatOnSave: true, fontSize: 13.5 };
+  const loadSettings = () => {
+    try {
+      const saved = JSON.parse(stored(SETTINGS_KEY) ?? "{}");
+      const settings = { ...DEFAULT_SETTINGS };
+      for (const [key, value] of Object.entries(saved ?? {})) {
+        if (key in settings && typeof value === typeof settings[key]) settings[key] = value;
+      }
+      return settings;
+    } catch { return { ...DEFAULT_SETTINGS }; }
+  };
+  let settings = loadSettings();
+  /** The settings as the language server reads them. */
+  const serverSettings = () => ({
+    inlayHints: { letTypes: settings.letTypes },
+    proofSearch: { enabled: settings.proofSearch, timeLimitMs: settings.timeLimitMs },
+    semanticColours: settings.semanticColours,
+  });
+  const applySettings = () => {
+    document.documentElement.style.setProperty("--editor-size", `${settings.fontSize}px`);
+    source?.configure(serverSettings());
+  };
   const source = createEditor(document.getElementById("editor"), {
     colour,
     worker: new URL(`lsp-worker.js${LOAD}`, import.meta.url),
@@ -2606,8 +2666,51 @@ export def area: Shape -> Nat
     fileText: (path) => project?.texts.get(path),
     setFile: (path, text) => { if (project?.texts.has(path)) { saveFile(path, text); renderTabs(); } },
     run: () => { if (runButton.disabled) return false; runMain(); return true; },
+    // Ctrl/Cmd+S: formats, when "Format on save" is on; else the browser's.
+    save: () => {
+      if (!settings.formatOnSave || formatButton.disabled) return false;
+      source.format();
+      return true;
+    },
+    settings: serverSettings(),
   });
   window.editor = source;
+  document.documentElement.style.setProperty("--editor-size", `${settings.fontSize}px`);
+
+  const settingsButton = document.getElementById("settings-button");
+  const settingsMenu = document.getElementById("settings-menu");
+  const settingsField = (name) => settingsMenu.elements[name];
+  function showSettings() {
+    for (const name of Object.keys(settings)) {
+      const input = settingsField(name);
+      if (input.type === "checkbox") input.checked = settings[name]; else input.value = settings[name];
+    }
+  }
+  function setSettingsOpen(open) {
+    if (open) showSettings();
+    settingsMenu.hidden = !open;
+    settingsButton.setAttribute("aria-expanded", String(open));
+    if (open) settingsField("letTypes").focus();
+  }
+  settingsButton.addEventListener("click", () => setSettingsOpen(settingsMenu.hidden));
+  settingsMenu.addEventListener("change", (e) => {
+    const input = e.target;
+    const value = input.type === "checkbox" ? input.checked : Number(input.value);
+    if (typeof value === "number" && !(value >= Number(input.min) && (!input.max || value <= Number(input.max)))) {
+      showSettings(); // out of range: back to the last good value
+      return;
+    }
+    settings = { ...settings, [input.name]: value };
+    store(SETTINGS_KEY, JSON.stringify(settings));
+    applySettings();
+  });
+  settingsMenu.addEventListener("submit", (e) => e.preventDefault());
+  settingsMenu.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") { e.stopPropagation(); setSettingsOpen(false); settingsButton.focus(); }
+  });
+  document.addEventListener("pointerdown", (e) => {
+    if (!settingsMenu.hidden && !settingsMenu.contains(e.target) && e.target !== settingsButton) setSettingsOpen(false);
+  });
 
   function notify(text) {
     clearTimeout(noticeTimer);

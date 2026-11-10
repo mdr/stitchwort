@@ -90,6 +90,8 @@ export class Editor {
    *   onGoal(answer, any)         the goal at the caret (`stitchwort/goalAt`'s answer, or null) and whether the document has any open goal
    *   onNotice(text)              something to tell the person (a search is running, a request failed)
    *   run()                       Ctrl+Enter
+   *   save()                      Ctrl/Cmd+S: returns true when it handled the key (else the browser's save)
+   *   settings                    the server's settings (crates/lsp `Settings`), sent at initialize; `configure` changes them
    *   format()                    Shift+Alt+F: when given, instead of the server's formatting
    *   fileText(path)              the text of a file of the open project (a rename edits files that aren't open), or undefined
    *   setFile(path, text)         a rename gave a file of the project this text: the page keeps it
@@ -122,7 +124,8 @@ export class Editor {
     this.handlers = [];
     this.colourField = colouring(options.colour);
     this.startWorker();
-    this.client = new LSPClient({ extensions: languageServerExtensions(), timeout: 300000 }).connect(this.transport());
+    this.settings = options.settings;
+    this.client = new LSPClient({ extensions: languageServerExtensions(), timeout: 300000, initializationOptions: this.settings }).connect(this.transport());
     this.client.workspace.displayFile = (uri) => this.displayFile(uri);
     this.open({ uri: SINGLE_URI, text: "" });
     window.addEventListener("keydown", (e) => this.setMod(e));
@@ -244,6 +247,18 @@ export class Editor {
     };
   }
 
+  /**
+   * Changes the server's settings: sent as `workspace/didChangeConfiguration`,
+   * kept for a restarted server, and the colours and hints asked for again
+   * (the playground's client has no server-to-client refresh).
+   */
+  configure(settings) {
+    this.settings = settings;
+    this.client.config.initializationOptions = settings;
+    this.client.notification("workspace/didChangeConfiguration", { settings: { stitchwort: settings } });
+    for (const uri of this.views.keys()) this.scheduleMarks(uri);
+  }
+
   /** Gives the server a project (see `LanguageServer::add_project`); documents under `root` are then files of it. */
   addProject({ root, sources, paths, texts }) {
     const project = { root, sources, paths, texts };
@@ -321,6 +336,7 @@ export class Editor {
           // Ctrl+Enter, and Cmd+Enter on a Mac, run the program.
           { key: "Ctrl-Enter", run: () => !!options.run?.(), preventDefault: true },
           { key: "Cmd-Enter", run: () => !!options.run?.(), preventDefault: true },
+          { key: "Mod-s", run: () => !!options.save?.() },
           { key: "Mod-.", run: (view) => { this.codeAction(view); return true; } },
           { key: "F2", run: (view) => { this.rename(view); return true; }, preventDefault: true },
           { key: "Mod-[", run: () => { this.goBack(); return true; } },
