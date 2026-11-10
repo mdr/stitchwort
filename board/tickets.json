@@ -1,5 +1,5 @@
 {
-  "next": 2736,
+  "next": 2738,
   "tickets": [
     {
       "id": 47,
@@ -28610,7 +28610,7 @@
       "where": ".claude/worktrees/SW-2734",
       "labels": [],
       "epic": "syntax-language",
-      "body": "D3482 (Matt, 10 Nov 2026); D3490 (Matt, 10 Nov 2026): started at pace 1.00 as a special exception. Opus. Est. 3 h. Built to D3486's recommendation (open), kept separable.",
+      "body": "D3482 (Matt, 10 Nov 2026); D3490 (Matt, 10 Nov 2026): started at pace 1.00 as a special exception. Opus. Est. 3 h. Built to D3486's recommendation (open), kept separable.\nD3486 decided 10 Nov 2026 by SW-2735 (Fable, delegated by Matt): as recommended. See docs/proposals/bool-operators-in-propositions.md §5 for the exact rules.",
       "created": "2026-11-10",
       "updated": "2026-11-10",
       "commits": []
@@ -28618,7 +28618,7 @@
     {
       "id": 2735,
       "title": "[Fable] Decide D3486: a ∧ b on two Bools in a proposition means a = True ∧ b = True (test written in full) or the test (a && b) = True, or a third option; short paper lane",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": ".claude/worktrees/SW-2735",
       "labels": [
@@ -28632,6 +28632,32 @@
       "commits": [
         "08711ccea"
       ]
+    },
+    {
+      "id": 2736,
+      "title": "rewrite h with h: a ∧ b on Bools fails 'isn't an equation': add a note (rewrite with h.left/h.right, or state the test as (a && b) = True)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "From SW-2735 (10 Nov 2026). After SW-2734.",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
+    },
+    {
+      "id": 2737,
+      "title": "Bool-as-proposition stage 6 sweeps: leave the ~15 (… && …) = True statements alone (several are used with rewrite)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "From SW-2735 (10 Nov 2026). Note for the stage 6 briefs.",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
     }
   ]
 }
