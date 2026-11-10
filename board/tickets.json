@@ -1,5 +1,5 @@
 {
-  "next": 2742,
+  "next": 2746,
   "tickets": [
     {
       "id": 47,
@@ -28592,12 +28592,12 @@
     {
       "id": 2733,
       "title": "Decidable record, stage 1 (decidable-record.md §plan): yes/no/refute/does as functions while the type is still Yes | No; sweep every Yes/No arm and construction (std, aoc, examples, ~320 sites)",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2733",
       "labels": [],
       "epic": "syntax-language",
-      "body": "D3480 (Matt, 10 Nov 2026); D3490 (Matt, 10 Nov 2026): started at pace 1.00 as a special exception. Sonnet. Est. 3 h.\n\nProgress (Sonnet lane, about 45 min of the 3 h estimate):\n- Added Decidable.yes, .no, .does (std/core/Decidable.sw) and Decidable.sound, .refute (std/Decidable/Decidable.sw); `does` and `sound` are thin wrappers over toBool and toBoolSound, `refute` over toBoolFalse.\n- Swept constructions (std, aoc, examples) and the splits that don't depend on the decision's computation (as `if h:` or Decidable.elim/elimProof). Yes/No tokens in code: std 261 -> 127 (94 of them in the two Decidable files), aoc 133 -> 63, examples 79 -> 18, rogue 0.\n- Left: splits whose goal holds the decision (iterateUntilStableFixed, aoc 2021 Day05/15/16, 2024 Day13, GridParse, Sides), generic lemmas on a decision variable, examples that test the constructors. These wait for stage 2.\n- Finding: `Decidable.yes rfl` elaborates its argument before the expected type reaches `p` (error `?1 x y h`, not E-REFL), so two reject/soundness examples keep `Yes rfl`.\n- Hash cascade: every Decidable instance edited moves its proofless hash and its dependants' (727 std, 6379 aoc, 220 rogue); all explained by edits (checked with --uses). Repinned Float.decEq (kernel), Int.decEq, Text.decEq, Text.split (runtimes); 336 hash snapshots regenerated (commit a2fde36c2).\n- Tests: library 94 passed; examples sample 4 passed; bound_to_the_prelude 4 passed; builtins:: debug 12 passed (121 s); cached check in aoc (only the two failures main already has: 2020 Day04 Proofs:39, 2024 Day04 Part1:66) and rogue.\n",
+      "body": "D3480 (Matt, 10 Nov 2026); D3490 (Matt, 10 Nov 2026): started at pace 1.00 as a special exception. Sonnet. Est. 3 h.\n\nProgress (Sonnet lane, about 45 min of the 3 h estimate):\n- Added Decidable.yes, .no, .does (std/core/Decidable.sw) and Decidable.sound, .refute (std/Decidable/Decidable.sw); `does` and `sound` are thin wrappers over toBool and toBoolSound, `refute` over toBoolFalse.\n- Swept constructions (std, aoc, examples) and the splits that don't depend on the decision's computation (as `if h:` or Decidable.elim/elimProof). Yes/No tokens in code: std 261 -> 127 (94 of them in the two Decidable files), aoc 133 -> 63, examples 79 -> 18, rogue 0.\n- Left: splits whose goal holds the decision (iterateUntilStableFixed, aoc 2021 Day05/15/16, 2024 Day13, GridParse, Sides), generic lemmas on a decision variable, examples that test the constructors. These wait for stage 2.\n- Finding: `Decidable.yes rfl` elaborates its argument before the expected type reaches `p` (error `?1 x y h`, not E-REFL), so two reject/soundness examples keep `Yes rfl`.\n- Hash cascade: every Decidable instance edited moves its proofless hash and its dependants' (727 std, 6379 aoc, 220 rogue); all explained by edits (checked with --uses). Repinned Float.decEq (kernel), Int.decEq, Text.decEq, Text.split (runtimes); 336 hash snapshots regenerated (commit a2fde36c2).\n- Tests: library 94 passed; examples sample 4 passed; bound_to_the_prelude 4 passed; builtins:: debug 12 passed (121 s); cached check in aoc (only the two failures main already has: 2020 Day04 Proofs:39, 2024 Day04 Part1:66) and rogue.\nDone 10 Nov 2026: helpers yes/no/does/sound/refute; ~270 sites swept; dependent splits left for stage 2. Fixup 1d6f8b817: Char.decEqFrom and Text.decEqFrom stay as matches (elim made two AoC rewrites exceed budget). Verified with aoc --no-cache.\nModel result: Sonnet, needed fixes (claimed two AoC failures pre-existed from cached results; they were its own), 45 + 9 min (est. 180).",
       "created": "2026-11-10",
       "updated": "2026-11-10",
       "commits": [
@@ -28710,6 +28710,58 @@
       "labels": [],
       "epic": "syntax-language",
       "body": "From SW-2734 (10 Nov 2026).",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
+    },
+    {
+      "id": 2742,
+      "title": "Decidable stage 2: check the record form against 2020 Day04 part2Correct and 2024 Day04 Part1:66 with --no-cache (a match on the decision rewrites more cheaply than Decidable.elim in list-comparison goals)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "From SW-2733 (10 Nov 2026).",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
+    },
+    {
+      "id": 2743,
+      "title": "Decidable.yes rfl loses expected-type propagation (E-TYPE-MISMATCH with ?1 instead of E-REFL): stage 2's record or helper should keep E-REFL",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "From SW-2733 (10 Nov 2026).",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
+    },
+    {
+      "id": 2744,
+      "title": "Converted if h: splits use one name for both branches; some else branches read oddly (2024 Day15 Void.exfalso (atNext atFree)): pick neutral names",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "From SW-2733 (10 Nov 2026).",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
+    },
+    {
+      "id": 2745,
+      "title": "Decidable.toBool* used by name in ~80 user sites, and read by name in the elaborator and omega: stage 2 or 4 keeps or sweeps it",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "From SW-2733 (10 Nov 2026).",
       "created": "2026-11-10",
       "updated": "2026-11-10",
       "commits": []
