@@ -26547,9 +26547,9 @@
     {
       "id": 2602,
       "title": "Mismatch note for a side stuck on a variable (choose b p against p): say what it's stuck on, since first_difference_note never reports the outermost layer (examples/reject/refl-note-huge-parser-unfolding)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Sonnet",
-      "where": "",
+      "where": ".claude/worktrees/SW-2602",
       "labels": [],
       "epic": "diagnostics",
       "body": "From SW-2601, 10 Nov. Low.",
@@ -26601,9 +26601,9 @@
     {
       "id": 2606,
       "title": "Soundness-fuzzer closer mutant of Aoc.Year2021.Day16.Proofs.operatorStepComplete still peaks at 2.5 GB after SW-2576 (uncapped read-backs in ignorable_arguments, value_for_message_in, substitute_ins; 64 cases contexts with large hypotheses); also Day13 withinCosts statement+closer mutant hits the 2 GB cap (target/soundness-fuzz/2575-2058-3-expensive.sw); and cases' other full read-backs (take_apart, quote_folded on atoms)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Opus",
-      "where": "",
+      "where": ".claude/worktrees/SW-2606",
       "labels": [],
       "epic": "audit-fuzzing",
       "body": "From SW-2576, 10 Nov. cases is a tactic: Opus (D2506). Repro: SOUND_ONLY=operatorStepComplete task fuzz:soundness …",
