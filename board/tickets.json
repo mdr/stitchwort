@@ -28018,9 +28018,9 @@
     {
       "id": 2690,
       "title": "Theorem binders, round 2: 292 theorems refused because a definition using them would change hash (Std.Set.*, Std.Graph.IndexTable, aoc boxIndex): find the few driving it (proofs embedded in definitions), convert the rest; and the 14 refused with 'prelude/std doesn't check'",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-2690",
       "labels": [],
       "epic": "syntax-language",
       "body": "From SW-2656 (10 Nov 2026). Summaries in /private/tmp/claude-550/sw2656/*.json. Opus (needs judgement on definitions). Est. 2 h.",
