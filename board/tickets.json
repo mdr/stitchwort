@@ -26111,7 +26111,7 @@
     {
       "id": 2572,
       "title": "Checker blows up on effect-fuzzer programs: chains of pure Nat defs with lets, if on % 2 and Fail.toOption (() => next ...), variables reused many times; seed 1794200310 checks for >10 min (also 1794200346, 1794201674, 1794200163, 43). About 1 batch in 1000. Profile and fix (elaborator or kernel)",
-      "status": "doing",
+      "status": "review",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-2572",
       "labels": [],
@@ -26511,9 +26511,9 @@
     {
       "id": 2600,
       "title": "Uncapped readbacks left in mismatch notes (from SW-2580's review): the folded readbacks in the hidden-argument, proof-position and alike-updates checks, and the hypothesis readback in the unused-equation note; cap them like quote_for_note, or share one readback per side between the notes (16660 still does ~8 readbacks of 200k nodes)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Sonnet",
-      "where": "",
+      "where": ".claude/worktrees/SW-2600",
       "labels": [],
       "epic": "diagnostics",
       "body": "From SW-2580's review, 10 Nov. No known input blows them up. Low.",
