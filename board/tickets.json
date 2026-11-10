@@ -26522,12 +26522,12 @@
     {
       "id": 2601,
       "title": "The 'first differ at' note doesn't appear for examples/reject/refl-note-huge-parser-unfolding.sw although the sides first differ at depth 35 (raising first_difference_note's depth to 400 didn't help): find whether the node cap or an ELIDED placeholder stops it",
-      "status": "backlog",
+      "status": "review",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "diagnostics",
-      "body": "From SW-2598 and SW-2580's review, 10 Nov.",
+      "body": "From SW-2598 and SW-2580's review, 10 Nov.\n\nLane notes (0edcc4e61 on lane/SW-2601): the depth-64 readback cut parser-count-differs-from-lemma's difference off (needs 140 < depth <= 200; now 256), which restored Note 1 and the later notes; mismatch-note-huge-unfolding stays at 154 MB. Elided list tail now prints `, …]`. refl-note-huge-parser-unfolding: not fixable by depth; the sides differ at their outermost layer (`choose b (arg => …)` against `arg => …`, left stuck on b), which the note deliberately never reports.\n",
       "created": "2026-11-10",
       "updated": "2026-11-10",
       "commits": []
