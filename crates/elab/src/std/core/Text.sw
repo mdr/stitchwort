@@ -29,8 +29,12 @@ theorem Text.fromToList (t: Text): Text.fromList (Text.toList t) = t :=
 def Text.append (a: Text) (b: Text): Text := MkText (List.append (Text.toList a) (Text.toList b))
 
 --| A decision whether two texts are equal, from one on their characters.
-def Text.decEqFrom (a: Text) (b: Text) (listEq: Decidable (Text.toList a = Text.toList b)): Decidable (a = b) :=
-  Decidable.elim listEq (p => Decidable.yes (Eq.trans (Eq.sym (Text.fromToList a)) (Eq.trans (Eq.cong Text.fromList p) (Text.fromToList b)))) (r => Decidable.no (p => r (Eq.cong Text.toList p)))
+-- A `match` on the decision, not `Decidable.elim`: a rewrite in a proof that
+-- compares lists of characters by computing runs out of budget with `elim`
+-- (aoc 2020 Day04 `part2Correct`, 2024 Day04 `Part1`).
+def Text.decEqFrom (a: Text) (b: Text): (listEq: Decidable (Text.toList a = Text.toList b)) → Decidable (a = b)
+  | Yes p => Decidable.yes (Eq.trans (Eq.sym (Text.fromToList a)) (Eq.trans (Eq.cong Text.fromList p) (Text.fromToList b)))
+  | No r => Decidable.no (p => r (Eq.cong Text.toList p))
 
 --| Decides whether two texts are equal, character by character.
 def Text.decEq (a: Text) (b: Text): Decidable (a = b) := Text.decEqFrom a b (List.decEq Char.decEq (Text.toList a) (Text.toList b))
