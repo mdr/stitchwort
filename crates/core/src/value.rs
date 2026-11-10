@@ -417,6 +417,9 @@ impl std::hash::Hash for Head {
 /// known not to be takes its default: a proof that matches a character
 /// against `'k'`, `'j'` and `_` has the program's own match on `'k'`, `'j'`
 /// and `_` reach its `_` arm in the proof's `_` arm.
+///
+/// Each set has one name ([`crate::machine::ApartSets`]), so two `Apart`s
+/// are equal exactly when they stand for the same numbers.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct Apart(u32);
 
@@ -426,16 +429,14 @@ impl Apart {
 
     /// The set `numbers` (sorted, without duplicates), named in `g`.
     pub fn new(g: &Ev, numbers: Rc<[BigUint]>) -> Apart {
-        let mut sets = g.machine.apart_sets.borrow_mut();
-        sets.push(numbers);
-        Apart(u32::try_from(sets.len()).expect("fewer than 2^32 number cases"))
+        Apart(g.machine.apart_sets.borrow_mut().name(numbers))
     }
 
     /// The numbers, sorted; empty for [`Apart::NONE`].
     pub fn numbers(self, g: &Ev) -> Rc<[BigUint]> {
         match self.0 {
             0 => Rc::from([]),
-            i => g.machine.apart_sets.borrow()[i as usize - 1].clone(),
+            i => g.machine.apart_sets.borrow().get(i),
         }
     }
 
@@ -5398,6 +5399,24 @@ mod tests {
     /// How many pairs the memo holds as different.
     fn remembered_different() -> usize {
         TREE_MEMO.with(|m| m.borrow().different.values().map(Vec::len).sum())
+    }
+
+    /// The editor's kept session matches numbers on every request, so naming
+    /// a set it has seen must not add one (SW-1819).
+    #[test]
+    fn naming_the_same_numbers_again_gives_the_same_apart() {
+        let g = crate::globals::Kernel::default();
+        let ev = g.ev();
+        let set = |ns: &[u32]| -> Rc<[BigUint]> { ns.iter().map(|&n| BigUint::from(n)).collect() };
+        let a = Apart::new(&ev, set(&[1, 2]));
+        let b = Apart::new(&ev, set(&[3]));
+        assert_eq!(g.machine.apart_sets.borrow().len(), 2);
+        assert_eq!(Apart::new(&ev, set(&[1, 2])), a);
+        assert_eq!(Apart::new(&ev, set(&[3])), b);
+        assert_ne!(a, b);
+        assert_ne!(a, Apart::NONE);
+        assert_eq!(g.machine.apart_sets.borrow().len(), 2);
+        assert_eq!(*a.numbers(&ev), *set(&[1, 2]));
     }
 
     #[test]
