@@ -816,8 +816,13 @@ tasks:
       - ./board/serve.sh
 
   vscode:install:
-    desc: Package the VS Code extension and install it into VS Code
+    desc: Build the release CLI, then package the VS Code extension and install it into VS Code
+    summary: |
+      The extension's language server runs target/release/stitchwort, so a
+      stale binary rejects syntax the current std uses (7 Nov binary vs
+      SW-2587's ∀, 10 Nov 2026). Building first keeps the two in step.
     cmds:
+      - task: build
       - ./editors/vscode/install.sh
 
   # Lane checkouts (CLAUDE.md, D2193, D2200), set up by LANE_SETUP above.
