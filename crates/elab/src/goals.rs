@@ -606,7 +606,9 @@ impl Elaborator {
 
     /// By level, whether each variable of the context (shown or `hidden`)
     /// has a type ending in `Prop`, for the printer to write a quantifier
-    /// over `p n` as `∀`.
+    /// over `p n` as `∀`. Each type is read back at the whole context's
+    /// depth, not its variable's level: a match refines a hypothesis to
+    /// mention the branch's fields, bound after it.
     fn predicate_flags(
         &self,
         depth: usize,
@@ -621,7 +623,7 @@ impl Elaborator {
             .chain(hidden.iter().map(|(l, t)| (*l, t)));
         for (level, ty) in typed {
             if level < depth {
-                flags[level] = pretty::is_predicate_type(g, level, ty);
+                flags[level] = pretty::is_predicate_type(g, depth, ty);
             }
         }
         flags
