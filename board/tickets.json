@@ -1,5 +1,5 @@
 {
-  "next": 2620,
+  "next": 2621,
   "tickets": [
     {
       "id": 47,
@@ -26725,15 +26725,17 @@
     {
       "id": 2613,
       "title": "Reference evaluator: normal and conversion have no sharing, so each exponential example needs a hand-kept exclusion in the prelude differential (SW-2583); abort above a size or memory budget and report the definition as too big instead",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-2613",
       "labels": [],
       "epic": "test-infra",
-      "body": "From SW-2583, 10 Nov.",
+      "body": "From SW-2583, 10 Nov.\n\nDone 10 Nov: reference::set_budget (per-thread steps, off by default) checked in eval/quote/conv_in; differential gives each reference job 5M steps (max needed in the daily sample 1.9M), 'too big to compare' skips. All three exclusion lists removed; several old entries now compared. Slices <= 1.3 GB. Found SW-2616's example: refine-keeps-big-call.sw (160k-element list, stack). Model result: Opus, worked, 22 min (est. 75).",
       "created": "2026-11-10",
       "updated": "2026-11-10",
-      "commits": []
+      "commits": [
+        "c6c1e1d74"
+      ]
     },
     {
       "id": 2614,
@@ -26820,6 +26822,19 @@
       "commits": [
         "118e34ffb"
       ]
+    },
+    {
+      "id": 2620,
+      "title": "Prelude differential: print a count of 'too big to compare' skips (and fail above a threshold), so a passing full run shows if the oracle starts comparing less; calibrate the 5M budget on the full corpus, not only the daily sample",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
+      "body": "From SW-2613, 10 Nov.",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
     }
   ]
 }
