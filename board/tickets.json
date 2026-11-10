@@ -1,5 +1,5 @@
 {
-  "next": 2731,
+  "next": 2732,
   "tickets": [
     {
       "id": 47,
@@ -28559,6 +28559,19 @@
       "labels": [],
       "epic": "audit-fuzzing",
       "body": "Overmind, 10 Nov 2026: 1 failure in 12,000 cases (2656 s, at 7385c60c4); oracle 4 (budget); rng state 0xc1e7c11b0647069a; input on Overmind at target/fuzz-elab/25a6-6639.sw (to be copied here). The seed file is itself a slow-check reject example, so first see whether the mutant is just slower or hangs (a missing budget check).\nOrchestrator, 10 Nov 18:10: the mutant only renames the import Bool to Boolthen (E-IMPORT-UNKNOWN). On main (73f08bc75), release CLI on Speedwell, it fails in 1.6 s with E-IMPORT-UNKNOWN then E-RESOURCE, same as the original example (1.65 s). Not reproduced; either fixed since 7385c60c4, or slow only inside the fuzz harness (in-process, different limits) or under load. Overmind times it at 7385c60c4's build after 0x2596. Reproducer: copy at /private/tmp/claude-550/fz-25a6-6639.sw.",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
+    },
+    {
+      "id": 2731,
+      "title": "Daily tier 10 Nov 17:51 (73f08bc75): 6 nextest failures + 4 debug builtins tests; tests pinning std source text and lines moved by the theorem-binder and cases sweeps; builtins:: E-RESOURCE recursion depth in debug",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": ".claude/worktrees/scratch-sw-2731",
+      "labels": [],
+      "epic": "test-infra",
+      "body": "Daily tier report target/tier-report/daily-20261110-175135.md; log in orchestrator scratchpad daily-1110b.log. Stale text: doc.rs:100/144/571 (Toolkit.sw line 237→238), check_cache.rs:633 (Option.map arms text), search_at_aoc.rs:558 (Day18 Reduced.sw arm), server search::what_closes_a_goal (snapshot). Real?: library builtins:: (debug profile) four tests fail E-RESOURCE 'recursed more deeply than allowed' at builtins.rs:274.",
       "created": "2026-11-10",
       "updated": "2026-11-10",
       "commits": []
