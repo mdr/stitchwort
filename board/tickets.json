@@ -1,5 +1,5 @@
 {
-  "next": 2598,
+  "next": 2599,
   "tickets": [
     {
       "id": 47,
@@ -26215,7 +26215,7 @@
     {
       "id": 2580,
       "title": "Elaborator memory blow-up: a match on an indexed family whose index is a huge numeral (Vec a 340282366920938463463374607431768211456, 2^128) uses 10.5 GB within seconds; the coverage or unification step probably unfolds the numeral to Succ chains. Elab fuzzer seed 0x2580 case 770; the fuzzer's watchdog doesn't cap memory, so it took 16 GB and killed the run",
-      "status": "doing",
+      "status": "review",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-2580",
       "labels": [],
@@ -26463,6 +26463,19 @@
       "labels": [],
       "epic": "diagnostics",
       "body": "From SW-2582's report, 10 Nov. Inputs: target/fuzz-elab/ after task fuzz:elab CASES=20000 SEED=0x2582 ONLY=16837 DUMP=1 (case numbers as of main d273ebffe; they move when the examples corpus changes).",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
+    },
+    {
+      "id": 2598,
+      "title": "Mismatch notes say 'computing the right side gives `…`' when the value unfolds past SW-2569's 200k-node readback cap (examples/reject/float-add-is-held's Note 1 lost its useful prefix): show a depth-limited prefix instead, as before, or drop the note when nothing useful is left",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-2598",
+      "labels": [],
+      "epic": "diagnostics",
+      "body": "Regression from SW-2569 (merged 10 Nov 00:20), found by SW-2580's lane; the float-add-is-held snapshot fails on main. Before: `Float.ofBitsFrom (if … || … then 9221120237041090560 else …) …`; after: `…`. SW-2580's quote_for_note (same cap, more notes) is in review and will meet the same question. 30 min.",
       "created": "2026-11-10",
       "updated": "2026-11-10",
       "commits": []
