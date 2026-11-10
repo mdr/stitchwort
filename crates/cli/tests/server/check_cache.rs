@@ -664,8 +664,8 @@ fn an_entry_is_a_miss_when_a_library_file_loaded_beside_it_changed() {
     edit_std(
         &std_dir,
         "Option/Option.sw",
-        "Option.map x f1 = Option.map x f2\n  | None, f1, f2, ef => rfl\n  | Some y, f1, f2, ef => Eq.cong Some (ef y)",
-        "Option.map x f1 = Option.map x f1\n  | None, f1, f2, ef => rfl\n  | Some y, f1, f2, ef => rfl",
+        "Option.map x f1 = Option.map x f2 :=\n  match x with\n    | None => rfl\n    | Some y => Eq.cong Some (ef y)",
+        "Option.map x f1 = Option.map x f1 :=\n  match x with\n    | None => rfl\n    | Some y => rfl",
     );
     let after = check_step(dirs, "a lemma found by lookup changed", &["A", "B"]);
     assert!(after.contains("E-REWRITE-CONG"), "{after}");

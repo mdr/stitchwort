@@ -1998,14 +1998,17 @@ theorem List.foldMinByFirst [auto ord: Ord b] (f: a → b) (xs: List a) (start: 
           let startAbove: f y < f start := ord.lessThanOf (f y) (f start) flipped
           match List.foldMinByFirst f ys y with
             | Witness before (Witness after (Both split earlier)) =>
-              Witness [start, ..before] (Witness after (Both
-                (rewrite split in rfl)
-                (z member =>
+              -- Bound here, not written inline: the inline lambda is checked inside
+              -- three constructor arguments, which a debug build's stack budget
+              -- doesn't allow.
+              let below: (z: a) → z ∈ [start, ..before] → f (List.foldLeft ys y (List.minByStep f)) < f z :=
+                z member =>
                   match member with
                     | Inl same =>
                       rewrite <- same in
                         Ord.leLessTrans (f (List.foldLeft ys y (List.minByStep f))) (f y) (f start) (List.foldMinByLeStart f ys y) startAbove
-                    | Inr inBefore => earlier z inBefore)))
+                    | Inr inBefore => earlier z inBefore
+              Witness [start, ..before] (Witness after (Both (rewrite split in rfl) below))
         | Less => List.foldMinByFirstKeep f ys start y (ord.lessEqOf (f start) (f y) (greater => Ordering.lessNotGreater (Eq.trans (Eq.sym order) greater))) (List.foldMinByFirst f ys start)
         | Equal => List.foldMinByFirstKeep f ys start y (ord.lessEqOf (f start) (f y) (greater => Ordering.equalNotGreater (Eq.trans (Eq.sym order) greater))) (List.foldMinByFirst f ys start)
 
