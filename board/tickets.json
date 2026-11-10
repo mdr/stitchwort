@@ -27388,7 +27388,7 @@
     {
       "id": 2646,
       "title": "[Sonnet] Closing write-up of the speed work (D3465): final section of docs/reviews/SW-2295-comparative-speed.md: where we started and ended, what moved the numbers and what didn't, top parked ideas with estimated gains; numbers from Overmind's final run",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2646",
       "labels": [
