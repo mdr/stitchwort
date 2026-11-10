@@ -33,6 +33,11 @@ use crate::project::{
 };
 use crate::rewind::{Cancelled, Mark};
 
+mod trial;
+pub use trial::{
+    ChangedMeaning, Edit, NewDiagnostic, Problems, Promise, Refusal, Trial, TrialOutcome,
+};
+
 /// A file an answer is about.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Place {
@@ -379,6 +384,10 @@ struct Step {
     files: Vec<(String, String)>,
     outcome: NamespaceOutcome,
     diagnostics: Vec<Diagnostic>,
+    /// The data types and definitions it added to the kernel's environment,
+    /// by index, in the order they were added.
+    datas: std::ops::Range<usize>,
+    defs: std::ops::Range<usize>,
 }
 
 /// A project kept checked in memory.
@@ -597,6 +606,7 @@ impl LiveProject {
         let project = self.project.clone();
         let analysis = self.analysis.as_ref().expect("a plan has an analysis");
         let canonical = &self.canonical;
+        let first = self.env_sizes();
         let outcomes: BTreeMap<&str, NamespaceOutcome> = self
             .steps
             .iter()
@@ -629,12 +639,15 @@ impl LiveProject {
                 return Err(Cancelled);
             }
         };
+        let last = self.env_sizes();
         self.steps.push(Step {
             name,
             mark,
             files,
             outcome,
             diagnostics,
+            datas: first.0..last.0,
+            defs: first.1..last.1,
         });
         Ok(Progress::Checked {
             focus,

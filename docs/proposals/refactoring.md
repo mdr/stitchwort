@@ -1,6 +1,6 @@
 # Refactoring in the editor and playground
 
-**Status:** draft for Matt's review (SW-2626), 10 November 2026. Design note
+**Status:** draft for Matt's review (SW-2626), 10 November 2026; §3.1 updated as built in R2 (SW-2628). Design note
 only: no code changed, nothing built or run. Facts were read in the code at
 `main` `8250e6579`. Sizes are estimates: S under a day, M a few days, L a
 week or more. Nothing here was measured.
@@ -114,27 +114,82 @@ through the check of §3 before it's offered or applied.
 
 Every refactoring produces a set of text edits (possibly in several files)
 and a **promise** about hashes (§3.2). Before the edit is offered (for cheap
-ones) or applied (for the rest), the server runs a **trial**:
+ones) or applied (for the rest), the server runs a **trial**. Built in R2
+(SW-2628) as `LiveProject::trial(edits, promise)` in
+`crates/driver/src/live/trial.rs`, so the playground's server has it too:
 
-1. Refuse at once if the project isn't fully checked, if any file has
-   `E-PARSE`, or if a target is in the library.
-2. Apply the edits to a copy of the texts and check them: `LiveProject`
-   rewinds to the mark before the first changed namespace and checks from
-   there, dependants included. (A new `LiveProject::trial(edits)` in
-   `crates/driver`, so the playground gets it too.)
-3. Compare with the state before: the diagnostics (errors *and* warnings,
-   so a stale doc link counts) must not grow, and the hashes must keep the
-   promise.
-4. Accept: keep the checked state, so the edit costs no second check. Refuse:
-   rewind and restore, and tell the user why ("renaming `h` to `n` would
-   change what `n` means in `step`: line 12").
+1. **Refusals.** The trial refuses at once, with no way to go ahead, when
+   the edits could land in the wrong place or there's nothing to compare
+   with: the project isn't fully checked (`NotChecked`), it can't be checked
+   at all (`CantCheck`: a file without a namespace line, an import cycle), a
+   file has `E-PARSE` (`Unparsed`), an edit is to a library file
+   (`Library`), or an edit doesn't fit the text (`BadEdit`: a file not in
+   the project, a range past a line's end, overlapping edits). Q2's
+   exception for a local rename inside one declaration isn't made: a
+   refusal is the orchestrator's call, reversible.
+2. **Check.** The edits are applied to the project's texts (the old texts
+   kept), and `LiveProject` rewinds to the mark before the first changed
+   namespace and checks from there to the end. That re-checks every later
+   namespace, not only the dependants; with a check cache, those that don't
+   depend on the change replay from it.
+3. **Compare.** The result is a **problem list**, not a verdict:
+   - **New diagnostics**, each with its file, range, code, message and the
+     declaration it's in. Diagnostics are compared by file, code and
+     declaration (renamed through the promise), counting each, so those
+     already there stay allowed (a project with an unfinished `?` can still
+     rename), errors *and* warnings, so a stale doc link counts.
+     `E-NAMESPACE-FAILED` is left out: it only says a namespace used has
+     errors, which are listed themselves.
+   - **Declarations whose meaning changed** but which still check: their
+     hash isn't the one the promise says. Each has its file and range (of
+     its name, in the edited text), because no error will ever point at
+     it. One that uses another changed declaration says so (`uses`), and
+     those that use none come first: they're where to look. Generated
+     declarations (`f.eq1`) aren't listed beside their owner. Only
+     namespaces checked cleanly both before and after are compared; a
+     namespace with errors now has them among the new diagnostics.
+4. **Finish**, either way:
+   - **Keep** (`LiveProject::keep`): the checked state stays, so applying
+     costs no second check. With an empty list that's the normal case;
+     with problems it's **apply anyway** (D3467): the edit goes in and the
+     user or agent fixes the few problem spots by hand, from the list.
+   - **Restore** (`LiveProject::restore`): the old texts go back and are
+     checked again (the session's journal can only go back, so the state
+     before is rebuilt, from the check cache where there is one). The
+     diagnostics and answers are then those from before.
 
-Diagnostics already present stay allowed (a project with an unfinished `?`
-can still rename), as long as each is still there, by code and declaration.
-The cost is a check of the changed namespaces and their dependants; for a
-local rename, that's one namespace plus the namespaces that use it, since
-the file changes. How long that is on `aoc/` was not measured; ticket R1
-measures it.
+The wording, for `doing` = "renaming `h` to `n`" (`Problems::describe`,
+`Refusal::describe`):
+
+- "renaming `h` to `n` would change what `step` means (src/Day05.sw,
+  line 12)", with ", because it uses `cap`" when that's why;
+- "renaming `h` to `n` would cause an error in `step` (src/Day05.sw,
+  line 12): unknown name `h`";
+- "can't check renaming `h` to `n`: `src/Day07.sw` doesn't parse (line 3)";
+  "can't check renaming `h` to `n` yet: the project is still being
+  checked"; "renaming `map` to `each` would change `List.sw`, which is in
+  the standard library and can't be changed here".
+
+The trial can't say which name changed meaning inside `step` (the hash
+covers the whole declaration), so the message names the declaration, not
+the name inside it.
+
+The cost is a check from the first changed namespace on. Measured in
+SW-2628, one run each (`trial_timings_on_aoc` in
+`crates/driver/tests/projects/trial.rs`, run by hand), on part of `aoc/`:
+`Aoc.Common` and the 2021 days, 177 files in 75 namespaces, with a warm
+check cache, on Speedwell:
+
+| Edit | Trial | Restore |
+|---|---|---|
+| Rename `lines` in `Year2021.Day05.main` (3 edits) | 1.7 s | 1.6 s |
+| Rename `range` in `Aoc.Common`'s `Range.size` (3 edits) | 8.9 s | 4.8 s |
+
+Both found no problems, as they shouldn't. The local rename costs more than
+its one namespace because every namespace checked after Day05 is rewound
+too and replays from the cache. For the whole of `aoc/`, where 167 files
+import `Aoc.Common` against 47 here, a Common rename is estimated at about
+30 s (scaled by importers, not measured).
 
 ### 3.2 What hashes promise
 

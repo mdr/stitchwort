@@ -12,5 +12,6 @@ mod project_analysis;
 mod rewind;
 mod run;
 mod test_cache_key;
+mod trial;
 
 use stitchwort_test_alloc as _;
