@@ -13,12 +13,13 @@ def List.gridCells (rows: List (List a)): List ((Nat, Nat), a) :=
   rows.withIndex |> .flatMap (((row, cells)) => cells.withIndex |> .map (((column, cell)) => ((row, column), cell)))
 
 --| What `get` finds is somewhere in the list.
-theorem List.getOfMem: ∀ (xs: List a) (x: a) => x ∈ xs → ∃ (k: Nat) => List.get xs k = Some x
-  | [], x, member => Void.exfalso member
-  | [first, ..rest], x, Inl same => Witness Zero (rewrite same in rfl)
-  | [first, ..rest], x, Inr later =>
-    match List.getOfMem rest x later with
-      | Witness k found => Witness (Succ k) found
+theorem List.getOfMem (xs: List a) (x: a) (member: x ∈ xs): ∃ (k: Nat) => List.get xs k = Some x :=
+  match xs, member with
+    | [], member => Void.exfalso member
+    | [first, ..rest], Inl same => Witness Zero (rewrite same in rfl)
+    | [first, ..rest], Inr later =>
+      match List.getOfMem rest x later with
+        | Witness k found => Witness (Succ k) found
 
 --| `withIndex` pairs `x` with `i` exactly when `x` is element `i`.
 theorem List.memWithIndex (xs: List a) (i: Nat) (x: a): ((i, x) ∈ xs.withIndex) ↔ (List.get xs i = Some x) := {

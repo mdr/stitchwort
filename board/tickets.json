@@ -28125,12 +28125,12 @@
     {
       "id": 2698,
       "title": "Trial promise 'proofs only': a definition may change only in proof subterms, keeping its type hash; then convert the 31 theorems definitions contain (Map.Tree.*, List.memFilter/memAppend/anyOfMem, Graph.visit*, aoc boxIndex*, Maze.*)",
-      "status": "doing",
+      "status": "review",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-2698",
       "labels": [],
       "epic": "syntax-language",
-      "body": "From SW-2690 (10 Nov 2026). Orchestrator's call: build the promise rather than relax the rule by hand. List in /private/tmp/claude-550/sw2690/std11.json. Opus. Est. 3 h.",
+      "body": "From SW-2690 (10 Nov 2026). Orchestrator's call: build the promise rather than relax the rule by hand. List in /private/tmp/claude-550/sw2690/std11.json. Opus. Est. 3 h.\n\nLane (Opus, 10 Nov 2026, est. 3 h, started 14:29, ran 1 h 20 min):\n- Promise: `Promise::ProofsOnly` (`sweep theorem-binders --proofs-only`, `trial-edits --proofs-only`). A declaration may move its hash if its hash without proofs (`hash::proofless_hash`) held: the content hash with each proof position hashed as one marker, references hashed by this hash in turn. Proof positions are erase.rs's run-time proofs, minus types: arguments at Prop-typed parameters, calls of definitions whose result is a proof (a theorem is its statement), constructors' proof fields (`field_sorts`), data proof params, `J`'s proof, `Quot.lift`'s respects-proof, `Quot.ind`/`Quot.sound`. In a recursive group, proof-result members stand apart (else a theorem's lifted `%match` moved it). JS and the runtime drop exactly these (JS: `Quot.lift` is `f q`, `J` its base). Content hashes unchanged (std/aoc/rogue lists identical to SW-2690's).\n- Tests: 5 new (trial.rs): embedded proof accepted by ProofsOnly and refused by SameStatement; computational change refused by both; changed type refused; proofless hash of a theorem is its statement; hash-list compare.\n- Converted all 31: std 26 (one round, 9 built-ins refused as before), aoc 5, rogue none left. Moved and confirmed proof-only (before/after lists compared): std 806 decls (366 defs, 1 data), std+aoc 3636 (1980 defs), std+rogue 860, all 27 moved example snapshots and trip-journal. Only exceptions: the re-proved theorems' own lifted matches (36 std, 7 aoc), part of their proofs.\n- Raw statement (type) hashes moved where they mention a moved def: std 545, std+aoc 1843, std+rogue 549; each statement's hash without proofs held. Decision for Matt below.\n- Commits 16e14f79a (promise), a107d04ec (conversions, snapshots). Tests: new + tools sweep|trial + projects trial (23 pass), binary(library) 94 pass, running _examples 4 pass, cached check aoc (291 ns) and rogue pass.\n- Left: 9 built-ins (registry shape names), 5 `J`/mkExt (body-shape).\n",
       "created": "2026-11-10",
       "updated": "2026-11-10",
       "commits": []

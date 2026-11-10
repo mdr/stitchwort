@@ -22,7 +22,9 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use stitchwort_core::hash::{ContentHash, data_hash, def_hash, type_hash};
+use stitchwort_core::hash::{
+    ContentHash, data_hash, def_hash, proofless_data_hash, proofless_hash, type_hash,
+};
 use stitchwort_core::{DataId, DefId};
 use stitchwort_elab::search::{constants, data_types};
 use stitchwort_syntax::{Diagnostic, Severity, Span};
@@ -67,12 +69,26 @@ pub enum Promise {
     /// changed only in its proof has another hash too, which is accepted on
     /// the same terms. Matched and renamed as for `SameMeaning`.
     SameStatement { renames: BTreeMap<String, String> },
+    /// Only proofs change, inside definitions too: for edits to theorems'
+    /// proofs that definitions embed (a structure's invariant, a
+    /// `Quot.lift`'s respects-proof, a `decreasing` proof). A declaration
+    /// may have another content hash if its hash without proofs
+    /// (`proofless_hash`: the hash with every proof position left out,
+    /// statements kept) holds, so it computes what it did and its
+    /// statement says what it did, up to the proofs inside what it
+    /// mentions. A theorem's hash without proofs is its statement's. The
+    /// kernel still checks every declaration in full: this decides only
+    /// which edits a refactoring calls safe. Matched and renamed as for
+    /// `SameMeaning`.
+    ProofsOnly { renames: BTreeMap<String, String> },
 }
 
 impl Promise {
     fn renames(&self) -> &BTreeMap<String, String> {
         match self {
-            Promise::SameMeaning { renames } | Promise::SameStatement { renames } => renames,
+            Promise::SameMeaning { renames }
+            | Promise::SameStatement { renames }
+            | Promise::ProofsOnly { renames } => renames,
         }
     }
 
@@ -85,12 +101,18 @@ impl Promise {
             (Promise::SameStatement { .. }, Some(a), Some(b)) => {
                 a.theorem && b.theorem && a.ty.is_some() && a.ty == b.ty
             }
+            (Promise::ProofsOnly { .. }, _, _) => {
+                was.proofless.is_some() && was.proofless == now.proofless
+            }
             _ => false,
         }
     }
 
     pub(crate) fn compares_statements(&self) -> bool {
-        matches!(self, Promise::SameStatement { .. })
+        matches!(
+            self,
+            Promise::SameStatement { .. } | Promise::ProofsOnly { .. }
+        )
     }
 
     /// The name declaration `old` should have after the edit.
@@ -253,6 +275,10 @@ pub struct Trial {
     /// proof changed and whose statement held, accepted. Empty under the
     /// other promises.
     pub proofs_changed: Vec<String>,
+    /// Under [`Promise::ProofsOnly`]: the definitions and data types (full
+    /// names) whose hash moved and whose hash without proofs held,
+    /// accepted. Empty under the other promises.
+    pub proofs_only: Vec<String>,
     /// The edited files' texts before.
     before: BTreeMap<String, String>,
 }
@@ -283,6 +309,8 @@ pub(crate) struct Decl {
     pub(crate) hash: Option<ContentHash>,
     /// Only when the promise compares statements, and for definitions.
     pub(crate) statement: Option<Statement>,
+    /// The hash without proofs, only when the promise compares statements.
+    pub(crate) proofless: Option<ContentHash>,
 }
 
 pub(crate) struct Statement {
@@ -382,13 +410,14 @@ impl LiveProject {
             diagnostics: self.new_diagnostics(diagnostics_before),
             changed: Vec::new(),
         };
-        let mut proofs_changed = Vec::new();
+        let mut accepted = Accepted::default();
         if self.fatal.is_empty() {
-            (problems.changed, proofs_changed) = self.changed_meaning(&hashes_before, promise);
+            (problems.changed, accepted) = self.changed_meaning(&hashes_before, promise);
         }
         Ok(TrialOutcome::Checked(Trial {
             problems,
-            proofs_changed,
+            proofs_changed: accepted.theorems,
+            proofs_only: accepted.others,
             before,
         }))
     }
@@ -506,10 +535,14 @@ impl LiveProject {
             let mut decls = Vec::new();
             for i in step.datas.clone() {
                 let hash = data_hash(g, DataId(i)).ok().flatten();
+                let proofless = statements
+                    .then(|| proofless_data_hash(g, DataId(i)).ok().flatten())
+                    .flatten();
                 decls.push(Decl {
                     name: g.env.datas()[i].path().to_string(),
                     hash,
                     statement: None,
+                    proofless,
                 });
             }
             for i in step.defs.clone() {
@@ -518,10 +551,14 @@ impl LiveProject {
                     theorem: g.env.defs()[i].theorem(),
                     ty: type_hash(g, DefId(i)).ok().flatten(),
                 });
+                let proofless = statements
+                    .then(|| proofless_hash(g, DefId(i)).ok().flatten())
+                    .flatten();
                 decls.push(Decl {
                     name: g.env.defs()[i].path().to_string(),
                     hash,
                     statement,
+                    proofless,
                 });
             }
             out.insert(
@@ -641,7 +678,7 @@ impl LiveProject {
         &self,
         before: &BTreeMap<String, Hashed>,
         promise: &Promise,
-    ) -> (Vec<ChangedMeaning>, Vec<String>) {
+    ) -> (Vec<ChangedMeaning>, Accepted) {
         let now = self.hashes(
             |_, name| before.contains_key(name),
             promise.compares_statements(),
@@ -650,6 +687,8 @@ impl LiveProject {
         let mut changed: Vec<(String, String, Option<Id>)> = Vec::new();
         // Declarations whose hash moved and the promise allows.
         let mut accepted: Vec<String> = Vec::new();
+        // Those of them that aren't theorems.
+        let mut others: Vec<String> = Vec::new();
         // Every accepted declaration, generated ones included.
         let mut accepted_ids: BTreeMap<Id, String> = BTreeMap::new();
         for step in &self.steps {
@@ -678,6 +717,9 @@ impl LiveProject {
                         changed.push((step.name.clone(), decl.name.clone(), Some(*id)));
                     } else if exp.1.hash != decl.hash {
                         accepted.push(decl.name.clone());
+                        if !is_theorem(decl) {
+                            others.push(decl.name.clone());
+                        }
                         accepted_ids.insert(*id, decl.name.clone());
                     }
                 }
@@ -693,6 +735,9 @@ impl LiveProject {
                     Some(was) if promise.keeps(was, decl) => {
                         if was.hash != decl.hash {
                             accepted.push(decl.name.clone());
+                            if !is_theorem(decl) {
+                                others.push(decl.name.clone());
+                            }
                             accepted_ids.insert(*id, decl.name.clone());
                         }
                     }
@@ -728,6 +773,9 @@ impl LiveProject {
         }
         changed.retain(|(_, name, _)| !generated(name, &owners));
         accepted.retain(|name| !generated(name, &accepted_names));
+        others.retain(|name| !generated(name, &accepted_names));
+        let other_names: BTreeSet<&String> = others.iter().collect();
+        accepted.retain(|name| !other_names.contains(name));
         let ids: BTreeMap<Id, &str> = changed
             .iter()
             .filter_map(|(_, name, id)| Some(((*id)?, name.as_str())))
@@ -817,7 +865,13 @@ impl LiveProject {
             })
             .collect();
         out.sort_by_key(|c| c.uses.is_some());
-        (out, accepted)
+        (
+            out,
+            Accepted {
+                theorems: accepted,
+                others,
+            },
+        )
     }
 
     /// Where each declaration of the project's files is declared, by full
@@ -831,6 +885,18 @@ impl LiveProject {
         }
         Declarations { by_name }
     }
+}
+
+/// The declarations whose hash moved as the promise allows: theorems whose
+/// proof changed, and (under [`Promise::ProofsOnly`]) the others.
+#[derive(Default)]
+struct Accepted {
+    theorems: Vec<String>,
+    others: Vec<String>,
+}
+
+fn is_theorem(decl: &Decl) -> bool {
+    decl.statement.as_ref().is_some_and(|s| s.theorem)
 }
 
 /// The accepted declarations (re-proved theorems) that `start` mentions,

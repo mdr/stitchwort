@@ -85,6 +85,12 @@ enum SweepCommand {
         /// repeated): listed as refused
         #[arg(long, value_name = "NAME")]
         keep: Vec<String>,
+        /// Check with the "proofs only" promise instead of "same
+        /// statement": a definition whose proofs changed (a theorem it
+        /// embeds was re-proved) is accepted if its hash with proofs left
+        /// out held
+        #[arg(long)]
+        proofs_only: bool,
         /// The project folder, if not the folder you're in or the nearest
         /// one above it
         #[arg(long)]
@@ -481,6 +487,11 @@ enum Command {
         /// declaration keeps its hash
         #[arg(long)]
         same_statement: bool,
+        /// Accept any declaration whose hash with its proofs left out held:
+        /// only proofs changed, a theorem's or those a definition embeds
+        /// (its statement still says the same, and it computes the same)
+        #[arg(long, conflicts_with = "same_statement")]
+        proofs_only: bool,
         /// Write the edited files if nothing was found
         #[arg(long)]
         apply: bool,
@@ -964,6 +975,7 @@ fn run(cli: Cli) -> ExitCode {
         Command::TrialEdits {
             edits,
             same_statement,
+            proofs_only,
             apply,
             anyway,
             json,
@@ -973,6 +985,7 @@ fn run(cli: Cli) -> ExitCode {
         } => trial_cmd::trial_edits(&trial_cmd::TrialArgs {
             edits: edits.as_deref(),
             same_statement,
+            proofs_only,
             apply,
             anyway,
             json,
@@ -989,6 +1002,7 @@ fn run(cli: Cli) -> ExitCode {
             plan,
             json,
             keep,
+            proofs_only,
             project,
             cache,
         }) => sweep_cmd::theorem_binders(&sweep_cmd::Args {
@@ -999,6 +1013,7 @@ fn run(cli: Cli) -> ExitCode {
             plan,
             json,
             keep: &keep,
+            proofs_only,
             project: project.as_deref(),
             cache: &cache,
         }),

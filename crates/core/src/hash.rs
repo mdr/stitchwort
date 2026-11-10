@@ -87,9 +87,61 @@ enum Itself<'a> {
 /// The name the hasher's depth guard reports.
 const PASS: &str = "hasher";
 
+/// Which hash is being computed: the content hash, or the one without
+/// proofs ([`proofless_hash`]).
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Mode {
+    Content,
+    Proofless,
+}
+
+impl Mode {
+    fn cache<'g>(
+        self,
+        g: &'g Ev,
+    ) -> &'g std::cell::RefCell<crate::collections::HashMap<HashKey, ContentHash>> {
+        match self {
+            Mode::Content => &g.caches.hashes,
+            Mode::Proofless => &g.caches.proofless,
+        }
+    }
+}
+
 /// `None` for a definition that isn't final (pending, or failed).
 pub fn def_hash(g: &Ev, id: DefId) -> Result<Option<ContentHash>> {
-    if let Some(hash) = g.caches.hashes.borrow().get(&HashKey::Def(id)) {
+    def_hash_in(g, id, Mode::Content)
+}
+
+/// The content hash of definition `id` with its proofs left out: what a run
+/// computes, which never looks at a proof (`erase.rs`). It is [`def_hash`]
+/// with every subterm at a proof position hashed as one marker, and every
+/// declaration referred to hashed by this hash in turn. A proof position is
+/// a subterm the run never computes: an argument at a parameter whose type
+/// is a proposition, a call of a definition whose result is a proof (a
+/// theorem, applied or not), a constructor's field whose type is a
+/// proposition, a data type's proof parameter, `J`'s proof, `Quot.lift`'s
+/// proof that its function respects the relation, and `Quot.ind` and
+/// `Quot.sound`. A definition whose result is a proof is its type alone.
+/// It is the same as [`def_hash`] for a definition with no proofs in it or
+/// in what it mentions. Statements (types) are kept, so two definitions
+/// with the same hash here have statements that say the same, up to the
+/// proofs inside the definitions they mention.
+///
+/// The refactoring tools compare it to accept a change to a definition's
+/// embedded proofs (`Promise::ProofsOnly`); it decides nothing the kernel
+/// accepts, and nothing is cached by it. `None` while a declaration it
+/// depends on isn't final.
+pub fn proofless_hash(g: &Ev, id: DefId) -> Result<Option<ContentHash>> {
+    def_hash_in(g, id, Mode::Proofless)
+}
+
+/// [`data_hash`] without proofs: see [`proofless_hash`].
+pub fn proofless_data_hash(g: &Ev, id: DataId) -> Result<Option<ContentHash>> {
+    data_hash_in(g, id, Mode::Proofless)
+}
+
+fn def_hash_in(g: &Ev, id: DefId, mode: Mode) -> Result<Option<ContentHash>> {
+    if let Some(hash) = mode.cache(g).borrow().get(&HashKey::Def(id)) {
         return Ok(Some(*hash));
     }
     g.machine.budget.nesting(PASS)?;
@@ -99,38 +151,43 @@ pub fn def_hash(g: &Ev, id: DefId) -> Result<Option<ContentHash>> {
     {
         // `Delay` and its constants have no body: they're their name and
         // type (docs/proposals/partial.md §7.2).
-        let mut h = Hasher::new(g, Itself::Def(id));
+        let mut h = Hasher::new(g, Itself::Def(id), mode);
         h.tag("primitive");
         h.str(prim.name());
         h.term(&def.ty)?;
         let hash = h.finish();
-        g.caches.hashes.borrow_mut().insert(HashKey::Def(id), hash);
+        mode.cache(g).borrow_mut().insert(HashKey::Def(id), hash);
         return Ok(Some(hash));
     }
     if def.state == State::Final && g.env.builtins().float_primitive(id).is_some() {
-        let hash =
-            float_primitive_hash(g, id, crate::float::FLOAT_CONTRACT)?.expect("a float primitive");
-        g.caches.hashes.borrow_mut().insert(HashKey::Def(id), hash);
+        let hash = float_primitive_hash_in(g, id, crate::float::FLOAT_CONTRACT, mode)?
+            .expect("a float primitive");
+        mode.cache(g).borrow_mut().insert(HashKey::Def(id), hash);
         return Ok(Some(hash));
     }
-    let (State::Final, Some(body)) = (def.state, def.body.as_ref()) else {
+    let (State::Final, Some(_)) = (def.state, def.body.as_ref()) else {
         return Ok(None);
     };
-    if let Some(members) = def.group.as_ref().filter(|m| m.len() > 1) {
-        group_hashes(g, members)?;
-        return Ok(g.caches.hashes.borrow().get(&HashKey::Def(id)).copied());
+    // Without proofs, a group is its members that compute: one whose result
+    // is a proof is its statement alone, and the others never mention it
+    // (a call of it is a proof, the marker), so it stands apart. A lifted
+    // `match` of a recursive theorem is then part of the theorem's proof.
+    let members: Option<Vec<DefId>> = def.group.as_ref().map(|m| match mode {
+        Mode::Content => m.to_vec(),
+        Mode::Proofless => m
+            .iter()
+            .copied()
+            .filter(|&m| !crate::erase::proof_positions(g, m).is_some_and(|p| p.result))
+            .collect(),
+    });
+    if let Some(members) = members.filter(|m| m.len() > 1 && m.contains(&id)) {
+        group_hashes(g, &members, mode)?;
+        return Ok(mode.cache(g).borrow().get(&HashKey::Def(id)).copied());
     }
-    let mut h = Hasher::new(g, Itself::Def(id));
-    h.tag("def");
-    h.bool(def.theorem);
-    if def.instance {
-        h.tag("instance");
-    }
-    h.opacity(def)?;
-    h.term(&def.ty)?;
-    h.term(body)?;
+    let mut h = Hasher::new(g, Itself::Def(id), mode);
+    h.declaration(id)?;
     let hash = h.finish();
-    g.caches.hashes.borrow_mut().insert(HashKey::Def(id), hash);
+    mode.cache(g).borrow_mut().insert(HashKey::Def(id), hash);
     Ok(Some(hash))
 }
 
@@ -139,7 +196,7 @@ pub fn def_hash(g: &Ev, id: DefId) -> Result<Option<ContentHash>> {
 /// definition it mentions isn't final.
 pub fn type_hash(g: &Ev, id: DefId) -> Result<Option<ContentHash>> {
     g.machine.budget.nesting(PASS)?;
-    let mut h = Hasher::new(g, Itself::Def(id));
+    let mut h = Hasher::new(g, Itself::Def(id), Mode::Content);
     h.tag("type");
     h.term(&g.def(id).ty)?;
     Ok((!h.unfinished).then(|| h.finish()))
@@ -153,11 +210,20 @@ pub fn type_hash(g: &Ev, id: DefId) -> Result<Option<ContentHash>> {
 /// changes every hash that depends on one. [`def_hash`] uses the current
 /// contract; another is for the test that a bump changes the hashes.
 pub fn float_primitive_hash(g: &Ev, id: DefId, contract: u32) -> Result<Option<ContentHash>> {
+    float_primitive_hash_in(g, id, contract, Mode::Content)
+}
+
+fn float_primitive_hash_in(
+    g: &Ev,
+    id: DefId,
+    contract: u32,
+    mode: Mode,
+) -> Result<Option<ContentHash>> {
     let Some(op) = g.env.builtins().float_primitive(id) else {
         return Ok(None);
     };
     let def = g.def(id);
-    let mut h = Hasher::new(g, Itself::Def(id));
+    let mut h = Hasher::new(g, Itself::Def(id), mode);
     h.tag("primitive");
     h.str(op.name());
     h.tag("float-contract");
@@ -169,7 +235,11 @@ pub fn float_primitive_hash(g: &Ev, id: DefId, contract: u32) -> Result<Option<C
 /// `None` for a data type that isn't final: without its constructors, it
 /// isn't yet the type it will be.
 pub fn data_hash(g: &Ev, id: DataId) -> Result<Option<ContentHash>> {
-    if let Some(hash) = g.caches.hashes.borrow().get(&HashKey::Data(id)) {
+    data_hash_in(g, id, Mode::Content)
+}
+
+fn data_hash_in(g: &Ev, id: DataId, mode: Mode) -> Result<Option<ContentHash>> {
+    if let Some(hash) = mode.cache(g).borrow().get(&HashKey::Data(id)) {
         return Ok(Some(*hash));
     }
     g.machine.budget.nesting(PASS)?;
@@ -178,10 +248,10 @@ pub fn data_hash(g: &Ev, id: DataId) -> Result<Option<ContentHash>> {
         return Ok(None);
     }
     if data.group.len() > 1 {
-        data_group_hashes(g, &data.group)?;
-        return Ok(g.caches.hashes.borrow().get(&HashKey::Data(id)).copied());
+        data_group_hashes(g, &data.group, mode)?;
+        return Ok(mode.cache(g).borrow().get(&HashKey::Data(id)).copied());
     }
-    let mut h = Hasher::new(g, Itself::Data(id));
+    let mut h = Hasher::new(g, Itself::Data(id), mode);
     h.tag("data");
     h.str(&data.path);
     h.sort(data.sort);
@@ -194,28 +264,14 @@ pub fn data_hash(g: &Ev, id: DataId) -> Result<Option<ContentHash>> {
     h.indices(data)?;
     h.ctors(data)?;
     let hash = h.finish();
-    g.caches.hashes.borrow_mut().insert(HashKey::Data(id), hash);
+    mode.cache(g).borrow_mut().insert(HashKey::Data(id), hash);
     Ok(Some(hash))
 }
 
 /// Hashes every member of a final group of two or more definitions, and
 /// stores their hashes.
-fn group_hashes(g: &Ev, members: &[DefId]) -> Result<()> {
-    let declaration = |h: &mut Hasher, id: DefId| -> Result<()> {
-        let def = g.def(id);
-        let body = def
-            .body
-            .as_ref()
-            .expect("internal error: hashing a group that isn't final");
-        h.tag("def");
-        h.bool(def.theorem);
-        if def.instance {
-            h.tag("instance");
-        }
-        h.opacity(def)?;
-        h.term(&def.ty)?;
-        h.term(body)
-    };
+fn group_hashes(g: &Ev, members: &[DefId], mode: Mode) -> Result<()> {
+    let declaration = |h: &mut Hasher, id: DefId| h.declaration(id);
     // Every member's shape, then the canonical order: by shape, and by full
     // name where shapes are the same.
     let mut shapes = Vec::new();
@@ -226,6 +282,7 @@ fn group_hashes(g: &Ev, members: &[DefId]) -> Result<()> {
                 members,
                 order: None,
             },
+            mode,
         );
         h.tag("shape");
         declaration(&mut h, id)?;
@@ -247,6 +304,7 @@ fn group_hashes(g: &Ev, members: &[DefId]) -> Result<()> {
             members,
             order: Some(&order),
         },
+        mode,
     );
     h.tag("group");
     h.usize(members.len());
@@ -255,12 +313,11 @@ fn group_hashes(g: &Ev, members: &[DefId]) -> Result<()> {
     }
     let group = h.finish();
     for (index, &m) in order.iter().enumerate() {
-        let mut h = Hasher::new(g, Itself::Def(members[m]));
+        let mut h = Hasher::new(g, Itself::Def(members[m]), mode);
         h.tag("member");
         h.bytes(&group.0);
         h.usize(index);
-        g.caches
-            .hashes
+        mode.cache(g)
             .borrow_mut()
             .insert(HashKey::Def(members[m]), h.finish());
     }
@@ -269,7 +326,7 @@ fn group_hashes(g: &Ev, members: &[DefId]) -> Result<()> {
 
 /// Hashes every member of a final group of two or more data types, and
 /// stores their hashes.
-fn data_group_hashes(g: &Ev, members: &[DataId]) -> Result<()> {
+fn data_group_hashes(g: &Ev, members: &[DataId], mode: Mode) -> Result<()> {
     // The canonical order: by name, and as declared where names are the same.
     let mut order: Vec<usize> = (0..members.len()).collect();
     order.sort_by(|&a, &b| {
@@ -283,6 +340,7 @@ fn data_group_hashes(g: &Ev, members: &[DataId]) -> Result<()> {
             members,
             order: &order,
         },
+        mode,
     );
     h.tag("data-group");
     h.usize(members.len());
@@ -303,12 +361,11 @@ fn data_group_hashes(g: &Ev, members: &[DataId]) -> Result<()> {
     }
     let group = h.finish();
     for (index, &m) in order.iter().enumerate() {
-        let mut h = Hasher::new(g, Itself::Data(members[m]));
+        let mut h = Hasher::new(g, Itself::Data(members[m]), mode);
         h.tag("data-member");
         h.bytes(&group.0);
         h.usize(index);
-        g.caches
-            .hashes
+        mode.cache(g)
             .borrow_mut()
             .insert(HashKey::Data(members[m]), h.finish());
     }
@@ -318,6 +375,7 @@ fn data_group_hashes(g: &Ev, members: &[DataId]) -> Result<()> {
 struct Hasher<'g> {
     g: &'g Ev<'g>,
     itself: Itself<'g>,
+    mode: Mode,
     inner: blake3::Hasher,
     /// Whether a reference met a declaration that isn't final, hashed as
     /// zeros: the hash then doesn't say what that declaration is.
@@ -325,13 +383,71 @@ struct Hasher<'g> {
 }
 
 impl<'g> Hasher<'g> {
-    fn new(g: &'g Ev<'g>, itself: Itself<'g>) -> Self {
+    fn new(g: &'g Ev<'g>, itself: Itself<'g>, mode: Mode) -> Self {
         Hasher {
             g,
             itself,
+            mode,
             inner: blake3::Hasher::new(),
             unfinished: false,
         }
+    }
+
+    /// Definition `id` (final, with a body) as a whole: its kind, type and
+    /// body. Without proofs, one whose result is a proof is its type alone.
+    fn declaration(&mut self, id: DefId) -> Result<()> {
+        let def = self.g.def(id);
+        let body = def
+            .body
+            .as_ref()
+            .expect("internal error: hashing a definition that isn't final");
+        if self.mode == Mode::Proofless && self.proof_result(id) {
+            self.tag("proof-def");
+            self.bool(def.theorem);
+            return self.term(&def.ty);
+        }
+        self.tag("def");
+        self.bool(def.theorem);
+        if def.instance {
+            self.tag("instance");
+        }
+        self.opacity(def)?;
+        self.term(&def.ty)?;
+        self.term(body)
+    }
+
+    /// Whether definition `id`'s result is a proof. Conservatively not, if
+    /// that isn't known.
+    fn proof_result(&self, id: DefId) -> bool {
+        crate::erase::proof_positions(self.g, id).is_some_and(|p| p.result)
+    }
+
+    /// Without proofs: whether `term` as a whole is a proof the hash leaves
+    /// out (a call of a definition whose result is a proof, `Quot.ind`,
+    /// `Quot.sound`).
+    fn is_proof(&self, term: &Term) -> bool {
+        if self.mode != Mode::Proofless {
+            return false;
+        }
+        match spine_head(term).0 {
+            Term::Def(id) => self.proof_result(*id),
+            Term::Quot(QuotForm::Ind | QuotForm::Sound, _, _) => true,
+            _ => false,
+        }
+    }
+
+    /// Without proofs: whether the argument of application `app` is at a
+    /// proof position of the definition at the head of its spine.
+    fn proof_argument(&self, app: &Term) -> bool {
+        if self.mode != Mode::Proofless {
+            return false;
+        }
+        let (head, args) = spine_head(app);
+        let Term::Def(id) = head else {
+            return false;
+        };
+        crate::erase::proof_positions(self.g, *id)
+            .is_some_and(|p| args > 0 && p.params.get(args - 1).copied().unwrap_or(false))
     }
 
     fn finish(&self) -> ContentHash {
@@ -448,7 +564,7 @@ impl<'g> Hasher<'g> {
         self.tag("opaque");
         let mut unfolded = Vec::new();
         for &id in def.unfolding.iter() {
-            unfolded.push(def_hash(self.g, id)?.map_or([0; 32], |h| h.0));
+            unfolded.push(def_hash_in(self.g, id, self.mode)?.map_or([0; 32], |h| h.0));
         }
         unfolded.sort_unstable();
         unfolded.dedup();
@@ -493,7 +609,7 @@ impl<'g> Hasher<'g> {
                 }
             }
             _ => {
-                let hash = def_hash(self.g, id)?;
+                let hash = def_hash_in(self.g, id, self.mode)?;
                 self.unfinished |= hash.is_none();
                 let hash = hash.map_or([0; 32], |h| h.0);
                 self.tag("ref");
@@ -514,7 +630,7 @@ impl<'g> Hasher<'g> {
             }
             _ => {
                 // Final declarations only refer to final ones.
-                let hash = data_hash(self.g, id)?;
+                let hash = data_hash_in(self.g, id, self.mode)?;
                 self.unfinished |= hash.is_none();
                 let hash = hash.map_or([0; 32], |h| h.0);
                 self.tag("ref");
@@ -551,8 +667,21 @@ impl<'g> Hasher<'g> {
                     continue;
                 }
             };
+            if self.is_proof(term) {
+                self.tag("proof");
+                continue;
+            }
             // The parts of `term`, in order; reversed onto `pending` below.
             let first = pending.len();
+            let proofless = self.mode == Mode::Proofless;
+            // A part at a proof position, without proofs, is the marker.
+            let part = |t, proof: bool| {
+                if proof {
+                    Item::Tag("proof")
+                } else {
+                    Item::Term(t)
+                }
+            };
             match term {
                 Term::Loc(_, t) => pending.push(Item::Term(t)),
                 Term::Var(ix) => {
@@ -564,14 +693,18 @@ impl<'g> Hasher<'g> {
                     self.tag("data");
                     self.data_ref(*d)?;
                     pending.push(Item::Usize(args.len()));
-                    pending.extend(args.iter().map(|t| Item::Term(t)));
+                    pending.extend(args.iter().enumerate().map(|(k, t)| {
+                        part(t, proofless && crate::value::proof_param(self.g, *d, k))
+                    }));
                 }
                 Term::Ctor(d, c, args) => {
                     self.tag("ctor");
                     self.data_ref(*d)?;
                     self.usize(*c);
                     pending.push(Item::Usize(args.len()));
-                    pending.extend(args.iter().map(|t| Item::Term(t)));
+                    pending.extend(args.iter().enumerate().map(|(k, t)| {
+                        part(t, proofless && crate::value::proof_field(self.g, *d, *c, k))
+                    }));
                 }
                 // The value, and `Nat` itself, which the number stands for
                 // (as `Chars` does for `List` and `Char`).
@@ -619,7 +752,7 @@ impl<'g> Hasher<'g> {
                 Term::App(f, a, icit) => {
                     self.tag("app");
                     self.icit(*icit);
-                    pending.extend([Item::Term(f), Item::Term(a)]);
+                    pending.extend([Item::Term(f), part(a, self.proof_argument(term))]);
                 }
                 Term::Ann(e, t) => {
                     self.tag("ann");
@@ -674,7 +807,7 @@ impl<'g> Hasher<'g> {
                 Term::Refl => self.tag("refl"),
                 Term::J(m, b, p) => {
                     self.tag("j");
-                    pending.extend([Item::Term(m), Item::Term(b), Item::Term(p)]);
+                    pending.extend([Item::Term(m), Item::Term(b), part(p, proofless)]);
                 }
                 Term::Proj(d, i, t) => {
                     self.tag("proj");
@@ -687,10 +820,16 @@ impl<'g> Hasher<'g> {
                 // ones included. The erasure flag is determined by the rest
                 // (the kernel recomputes it), so it isn't hashed, as for
                 // `let`.
+                // Without proofs, `Quot.lift`'s fifth argument (its proof
+                // that the function respects the relation) is the marker.
                 Term::Quot(form, args, _) => {
                     self.tag(quot_tag(*form));
                     pending.push(Item::Usize(args.len()));
-                    pending.extend(args.iter().map(|t| Item::Term(t)));
+                    pending.extend(
+                        args.iter()
+                            .enumerate()
+                            .map(|(k, t)| part(t, proofless && *form == QuotForm::Lift && k == 4)),
+                    );
                 }
                 Term::Meta(_) => panic!("internal error: hashing an unsolved metavariable"),
             }
@@ -698,6 +837,18 @@ impl<'g> Hasher<'g> {
         }
         Ok(())
     }
+}
+
+/// The head of `term`'s spine of applications, and how many arguments it's
+/// applied to.
+fn spine_head(term: &Term) -> (&Term, usize) {
+    let mut term = term.strip_loc();
+    let mut args = 0;
+    while let Term::App(f, _, _) = term {
+        args += 1;
+        term = f.strip_loc();
+    }
+    (term, args)
 }
 
 /// The tag a quotient form is hashed with.
@@ -721,7 +872,7 @@ mod tests {
     fn hash_term(term: &Term) -> ContentHash {
         let g = crate::globals::Kernel::default();
         let ev = g.ev();
-        let mut h = Hasher::new(&ev, Itself::Def(DefId(usize::MAX)));
+        let mut h = Hasher::new(&ev, Itself::Def(DefId(usize::MAX)), Mode::Content);
         h.term(term).unwrap();
         h.finish()
     }

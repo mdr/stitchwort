@@ -10,7 +10,9 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use stitchwort_core::hash::{ContentHash, data_hash, def_hash, type_hash};
+use stitchwort_core::hash::{
+    ContentHash, data_hash, def_hash, proofless_data_hash, proofless_hash, type_hash,
+};
 use stitchwort_core::{DataId, DefId};
 
 use stitchwort_elab::search::{constants, data_types};
@@ -47,6 +49,8 @@ pub struct DeclHash {
     pub hash: Option<ContentHash>,
     /// The hash of the statement alone, for a definition.
     pub type_hash: Option<ContentHash>,
+    /// The hash with proofs left out (`proofless_hash`).
+    pub proofless: Option<ContentHash>,
     /// The declarations a definition's type and body mention, by full
     /// name, so a comparison can say which re-proved theorem a moved
     /// definition leads to. Empty for a data type, and where the list
@@ -72,6 +76,7 @@ impl DeclHash {
             name: decl.name.clone(),
             hash: decl.hash,
             type_hash,
+            proofless: decl.proofless,
             uses: Vec::new(),
         }
     }
@@ -84,6 +89,7 @@ impl DeclHash {
                 theorem: self.kind == DeclKind::Theorem,
                 ty: self.type_hash,
             }),
+            proofless: self.proofless,
         }
     }
 }
@@ -117,6 +123,7 @@ pub fn session_hashes(session: &Session, first: (usize, usize)) -> Vec<DeclHash>
             name: g.env.datas()[i].path().to_string(),
             hash: data_hash(g, DataId(i)).ok().flatten(),
             type_hash: None,
+            proofless: proofless_data_hash(g, DataId(i)).ok().flatten(),
             uses: Vec::new(),
         });
     }
@@ -131,6 +138,7 @@ pub fn session_hashes(session: &Session, first: (usize, usize)) -> Vec<DeclHash>
             name: def.path().to_string(),
             hash: def_hash(g, DefId(i)).ok().flatten(),
             type_hash: type_hash(g, DefId(i)).ok().flatten(),
+            proofless: proofless_hash(g, DefId(i)).ok().flatten(),
             uses: def_uses(g, i),
         });
     }
@@ -201,6 +209,9 @@ pub struct HashDiff {
     /// Under [`Promise::SameStatement`]: theorems whose proof changed with
     /// the statement held, accepted.
     pub proofs_changed: Vec<String>,
+    /// Under [`Promise::ProofsOnly`]: definitions and data types whose hash
+    /// moved with their hash without proofs held, accepted.
+    pub proofs_only: Vec<String>,
     /// Declarations only `after` has.
     pub added: Vec<String>,
     /// Declarations only `before` has (after the promise's renames).
@@ -241,7 +252,11 @@ pub fn compare(before: &[DeclHash], after: &[DeclHash], promise: &Promise) -> Ha
                         reproved: Vec::new(),
                     });
                 } else if was.hash != now.hash {
-                    diff.proofs_changed.push(d.name.clone());
+                    if d.kind == DeclKind::Theorem {
+                        diff.proofs_changed.push(d.name.clone());
+                    } else {
+                        diff.proofs_only.push(d.name.clone());
+                    }
                 }
             }
         }
@@ -339,6 +354,12 @@ pub fn compare(before: &[DeclHash], after: &[DeclHash], promise: &Promise) -> Ha
             .collect();
     }
     diff.proofs_changed.retain(|n| !under(n, &proof_owners));
+    let moved_owners: Vec<String> = proof_owners
+        .iter()
+        .chain(&diff.proofs_only)
+        .cloned()
+        .collect();
+    diff.proofs_only.retain(|n| !under(n, &moved_owners));
     diff.added.retain(|n| !under(n, &all_owners));
     diff.removed.retain(|n| !under(n, &all_owners));
     let common_before: Vec<&str> = was

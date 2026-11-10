@@ -1203,13 +1203,14 @@ theorem List.distinctNil: List.Distinct ([]: List a) := Trivial
 theorem List.distinctCons (x: a) (xs: List a) (h: x ∉ xs) (d: List.Distinct xs): List.Distinct [x, ..xs] := Both h d
 
 --| An element of two lists joined is in one of them.
-theorem List.memAppend (x: a): ∀ (xs ys: List a) => x ∈ List.append xs ys → (x ∈ xs) ∨ (x ∈ ys)
-  | [], ys, h => Inr h
-  | [z, ..zs], ys, Inl h => Inl (Inl h)
-  | [z, ..zs], ys, Inr h =>
-    match List.memAppend x zs ys h with
-      | Inl m => Inl (Inr m)
-      | Inr m => Inr m
+theorem List.memAppend (x: a) (xs ys: List a) (h1: x ∈ List.append xs ys): (x ∈ xs) ∨ (x ∈ ys) :=
+  match xs, h1 with
+    | [], h => Inr h
+    | [z, ..zs], Inl h => Inl (Inl h)
+    | [z, ..zs], Inr h =>
+      match List.memAppend x zs ys h with
+        | Inl m => Inl (Inr m)
+        | Inr m => Inr m
 
 -- And back, `List.memAppendLeft` and `List.memAppendRight`, are in the core
 -- (core/Finite.sw): derived `Finite` instances use them.
@@ -1266,19 +1267,20 @@ theorem List.memMapElim (f: a → b) (y: b) (xs: List a) (member: y ∈ List.map
   List.anyMember (x => f x = y) xs (List.memMapAny xs f y member)
 
 --| What `(.filter p)` keeps was in the list, and passes `p`.
-theorem List.memFilter: ∀ (xs: List a) (p: a → Bool) [x: a] => x ∈ List.filter xs p → (x ∈ xs) ∧ (p x = True)
-  | [], p, h => Void.exfalso h
-  | [y, ..ys], p, h =>
-    match e: p y with
-      | True =>
-        match h with
-          | Inl q => Both (Inl q) (rewrite q at e)
-          | Inr m =>
-            match List.memFilter ys p m with
-              | Both inYs px => Both (Inr inYs) px
-      | False =>
-        match List.memFilter ys p h with
-          | Both inYs px => Both (Inr inYs) px
+theorem List.memFilter (xs: List a) (p: a → Bool) [x: a] (h: x ∈ List.filter xs p): (x ∈ xs) ∧ (p x = True) :=
+  match xs with
+    | [] => Void.exfalso h
+    | [y, ..ys] =>
+      match e: p y with
+        | True =>
+          match h with
+            | Inl q => Both (Inl q) (rewrite q at e)
+            | Inr m =>
+              match List.memFilter ys p m with
+                | Both inYs px => Both (Inr inYs) px
+        | False =>
+          match List.memFilter ys p h with
+            | Both inYs px => Both (Inr inYs) px
 
 --| A `filter` that keeps nothing of the list is empty.
 theorem List.filterNone (p: a → Bool) (xs: List a) (h: (∀ (x: a) => x ∈ xs → p x = False)): List.filter xs p = [] :=
@@ -2137,13 +2139,14 @@ theorem List.maximumSameMembers [auto ord: Ord a] (xs: List a) (ys: List a) (int
 test "List.maximum and List.minimum" := List.maximum [3, 9, 2] == Some 9 ∧ List.minimum [3, 9, 2] == Some 2 ∧ List.maximum ([]: List Nat) == None
 
 --| An element that passes makes `List.any` true.
-theorem List.anyOfMem: ∀ (xs: List a) (q: a → Bool) (y: a) (qy: q y = True) => y ∈ xs → List.any xs q = True
-  | [], q, y, qy, m => Void.exfalso m
-  | [x, ..xs], q, y, qy, Inl e => rewrite e, qy in rfl
-  | [x, ..xs], q, y, qy, Inr m =>
-    match c: q x with
-      | True => rfl
-      | False => List.anyOfMem xs q y qy m
+theorem List.anyOfMem (xs: List a) (q: a → Bool) (y: a) (qy: q y = True) (h: y ∈ xs): List.any xs q = True :=
+  match xs, h with
+    | [], m => Void.exfalso m
+    | [x, ..xs], Inl e => rewrite e, qy in rfl
+    | [x, ..xs], Inr m =>
+      match c: q x with
+        | True => rfl
+        | False => List.anyOfMem xs q y qy m
 
 --| When `List.any` is true, some element of the list passes.
 theorem List.anyTrueElim: ∀ (xs: List a) (p: a → Bool) (goal: Prop) => List.any xs p = True → ∀ (cont: ∀ (x: a) => x ∈ xs → p x = True → goal) => goal

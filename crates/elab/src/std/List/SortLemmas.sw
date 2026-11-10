@@ -1478,15 +1478,16 @@ theorem List.sumByFilterMono (keep1: a → Bool) (keep2: a → Bool) (value: a �
 
 --| Counting with a test that passes wherever another does, on the list's
 --| elements, counts at least as many.
-theorem List.countLeMem: ∀ (xs: List a) (p q: a → Bool) => (∀ (x: a) (m: List.Mem x xs) => p x = True → q x = True) →
-    List.count xs p ≤ List.count xs q
-  | [], p, q, weaker => Nat.leRefl 0
-  | [x, ..rest], p, q, weaker =>
-    let below := List.countLeMem rest p q (y m => weaker y (Inr m))
-    rewrite List.countCons rest x p, List.countCons rest x q in
-    match passes: p x with
-      | True => rewrite weaker x (Inl rfl) passes in below
-      | False => Nat.leTrans _ _ _ below (Nat.leAddLeft (Bool.toNat (q x)) (List.count rest q))
+theorem List.countLeMem (xs: List a) (p q: a → Bool) (weaker: (∀ (x: a) (m: List.Mem x xs) => p x = True → q x = True)):
+    List.count xs p ≤ List.count xs q :=
+  match xs with
+    | [] => Nat.leRefl 0
+    | [x, ..rest] =>
+      let below := List.countLeMem rest p q (y m => weaker y (Inr m))
+      rewrite List.countCons rest x p, List.countCons rest x q in
+      match passes: p x with
+        | True => rewrite weaker x (Inl rfl) passes in below
+        | False => Nat.leTrans _ _ _ below (Nat.leAddLeft (Bool.toNat (q x)) (List.count rest q))
 
 --| Counting with a test that passes wherever another does counts strictly more when some element passes it but not the other.
 theorem List.countLtMem: ∀ (xs: List a) (p q: a → Bool) => (∀ (x: a) (m: List.Mem x xs) => p x = True → q x = True) →

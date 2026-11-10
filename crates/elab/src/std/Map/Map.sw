@@ -1209,21 +1209,22 @@ theorem Map.removeInsert [auto ord: Ord k] (key: k) (value: v) (m: Map k v):
 --| [`Map.induction`] on the map whose entries are `xs`: take the first entry
 --| off, and the rest is the smaller map it was inserted into.
 theorem Map.inductionToList [auto ord: Ord k] [p: Map k v → Prop] (base: p Map.empty)
-    (step: ∀ (key: k) (value: v) (m: Map k v) => p m → Map.get m key = None → p (Map.insert m key value)):
-    ∀ (xs: List (k, v)) (m: Map k v) => Map.toList m = xs → p m
-  | [], m, h => rewrite Map.toListInjective m Map.empty h in base
-  | [(kk, vv), ..rest], m, h =>
-    let found: Map.get m kk = Some vv :=
-      Eq.trans (Map.getToList m kk) (Eq.trans (Eq.cong (Map.Tree.lookupList kk) h) (Map.Spec.lookupHead kk vv rest))
-    let back: Map.insert (Map.remove m kk) kk vv = m :=
-      Map.ext ((m.remove kk).insert kk vv) m (other =>
-        match ord.eq.decide other kk with
-          | Yes e => rewrite e in Eq.trans (Map.getInsert kk vv (m.remove kk)) (Eq.sym found)
-          | No ne => Eq.trans (Map.getInsertOther kk vv other ne (m.remove kk)) (Map.getRemoveOther m kk other ne))
-    let smaller: Map.toList (Map.remove m kk) = rest :=
-      Eq.trans (Map.toListRemove m kk) (Eq.trans (Eq.cong (Map.Spec.remove kk) h) (Map.Spec.removeEqual kk kk vv rest (Ord.compareSelf kk)))
-    rewrite Eq.sym back in
-    step kk vv (Map.remove m kk) (Map.inductionToList [p := p] base step rest (Map.remove m kk) smaller) (Map.getRemove m kk)
+    (step: ∀ (key: k) (value: v) (m: Map k v) => p m → Map.get m key = None → p (Map.insert m key value))
+    (xs: List (k, v)) (m: Map k v) (h: Map.toList m = xs): p m :=
+  match xs with
+    | [] => rewrite Map.toListInjective m Map.empty h in base
+    | [(kk, vv), ..rest] =>
+      let found: Map.get m kk = Some vv :=
+        Eq.trans (Map.getToList m kk) (Eq.trans (Eq.cong (Map.Tree.lookupList kk) h) (Map.Spec.lookupHead kk vv rest))
+      let back: Map.insert (Map.remove m kk) kk vv = m :=
+        Map.ext ((m.remove kk).insert kk vv) m (other =>
+          match ord.eq.decide other kk with
+            | Yes e => rewrite e in Eq.trans (Map.getInsert kk vv (m.remove kk)) (Eq.sym found)
+            | No ne => Eq.trans (Map.getInsertOther kk vv other ne (m.remove kk)) (Map.getRemoveOther m kk other ne))
+      let smaller: Map.toList (Map.remove m kk) = rest :=
+        Eq.trans (Map.toListRemove m kk) (Eq.trans (Eq.cong (Map.Spec.remove kk) h) (Map.Spec.removeEqual kk kk vv rest (Ord.compareSelf kk)))
+      rewrite Eq.sym back in
+      step kk vv (Map.remove m kk) (Map.inductionToList [p := p] base step rest (Map.remove m kk) smaller) (Map.getRemove m kk)
 
 --| To prove something of every map, prove it of the empty map, and of a map
 --| with a new key inserted, given it of the map before.
