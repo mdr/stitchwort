@@ -28605,12 +28605,12 @@
     {
       "id": 2734,
       "title": "Bool as a proposition, stage 1 (bool-as-proposition.md): the coercion (a Bool where a Prop is expected means b = True) and printing without = True, with a print-then-read-back test",
-      "status": "doing",
+      "status": "review",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-2734",
       "labels": [],
       "epic": "syntax-language",
-      "body": "D3482 (Matt, 10 Nov 2026); D3490 (Matt, 10 Nov 2026): started at pace 1.00 as a special exception. Opus. Est. 3 h. Built to D3486's recommendation (open), kept separable.",
+      "body": "D3482 (Matt, 10 Nov 2026); D3490 (Matt, 10 Nov 2026): started at pace 1.00 as a special exception. Opus. Est. 3 h. Built to D3486's recommendation (open), kept separable.\n\nProgress (lane, 10 Nov 2026, 19:40-20:15): built in 4162bd7fd. Coercion in check::bool_as_prop (check_type and checks against Prop); if/let/match coerced whole (check::whole_test); sides of = excluded (Decl::not_coerced). Printer: Printer::bare_test; D3486's elaborator half in logic::as_prop. Round-trip test: driver elaboration bool_props. std hashes byte-identical before and after; aoc checks (291 namespaces). Three reject examples became accepts. Guide, syntax.md, proving guide updated.\n",
       "created": "2026-11-10",
       "updated": "2026-11-10",
       "commits": []
