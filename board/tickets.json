@@ -26163,14 +26163,14 @@
     {
       "id": 2576,
       "title": "Soundness fuzzer mutants test peaked at 9.08 GB (seed 0x2574, MUTANTS=4000, CORPUS=aoc,rogue, 2d0c5fc1b) against 2.97 GB in job 35 with another seed: find whether it's the seed or growth since, and bound it",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Sonnet",
-      "where": "",
+      "where": ".claude/worktrees/SW-2576",
       "labels": [],
       "epic": "audit-fuzzing",
       "body": "Overmind job 45, 9 Nov. Log on Overmind j45/run-0x2574.log. 45 min.\n\nOvermind job 48 (seed 0x2575, sampled RSS): baseline 0.5-1.7 GB; the only spike (7.49 GB) is one closer mutant of Aoc.Year2021.Day16.Proofs.operatorStepComplete (Complete.sw), 63.65 s, rejected; next slowest mutant 30 s. No general growth. Job 45 likely the same kind on another seed. Narrowed: find why that closer mutant (SOUND_VERBOSE=2 shows its text) costs 6 GB, and consider a per-mutant memory/time cap.\n",
       "created": "2026-11-09",
-      "updated": "2026-11-09",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
