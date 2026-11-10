@@ -1,5 +1,5 @@
 {
-  "next": 2639,
+  "next": 2640,
   "tickets": [
     {
       "id": 47,
@@ -27270,6 +27270,21 @@
       ],
       "epic": "docs-tutorials",
       "body": "",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
+    },
+    {
+      "id": 2639,
+      "title": "Tutorial part 2: specs. Write down what a correct checkout is apart from the code, prove the code meets it, try statements first with check --counterexamples (continues part 1's shopping basket; Matt's request)",
+      "status": "doing",
+      "agent": "Opus",
+      "where": "",
+      "labels": [
+        "docs"
+      ],
+      "epic": "docs-tutorials",
+      "body": "Matt, 10 Nov 2026: 'Can you write me part 2 of the tutorial?' Part 1 (SW-1666, docs/tutorial/01-proving-programs.sw) ends promising specs, separate from the code, with check --counterexamples. Opus (teaching judgement, as part 1). Expected: 60 min.",
       "created": "2026-11-10",
       "updated": "2026-11-10",
       "commits": []
