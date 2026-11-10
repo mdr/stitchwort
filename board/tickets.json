@@ -1,5 +1,5 @@
 {
-  "next": 2730,
+  "next": 2731,
   "tickets": [
     {
       "id": 47,
@@ -28546,6 +28546,19 @@
       "labels": [],
       "epic": "proof-automation",
       "body": "From SW-2697 (10 Nov 2026). Wait for SW-2704 stage 4 (crossing) before hand-writing.",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
+    },
+    {
+      "id": 2730,
+      "title": "Elab fuzz 0x25a6 case 6639: check still running after 60 s (budget oracle), mutant of reject/as-written-unconfirmed-slow-check.sw",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "audit-fuzzing",
+      "body": "Overmind, 10 Nov 2026: 1 failure in 12,000 cases (2656 s, at 7385c60c4); oracle 4 (budget); rng state 0xc1e7c11b0647069a; input on Overmind at target/fuzz-elab/25a6-6639.sw (to be copied here). The seed file is itself a slow-check reject example, so first see whether the mutant is just slower or hangs (a missing budget check).",
       "created": "2026-11-10",
       "updated": "2026-11-10",
       "commits": []
