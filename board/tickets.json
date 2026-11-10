@@ -26511,12 +26511,12 @@
     {
       "id": 2600,
       "title": "Uncapped readbacks left in mismatch notes (from SW-2580's review): the folded readbacks in the hidden-argument, proof-position and alike-updates checks, and the hypothesis readback in the unused-equation note; cap them like quote_for_note, or share one readback per side between the notes (16660 still does ~8 readbacks of 200k nodes)",
-      "status": "backlog",
+      "status": "review",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "diagnostics",
-      "body": "From SW-2580's review, 10 Nov. No known input blows them up. Low.",
+      "body": "From SW-2580's review, 10 Nov. No known input blows them up. Low.\n\nLane (Sonnet, 10 Nov), commit 880051278 on lane/SW-2600: quote_shown_at_most (core) and Ctx::quote_shown_for_note cap the folded readbacks (hidden, proof, alike-updates) at 200k nodes, dropping the note past it; the unused-equation needle uses quote_for_note. E-REFL reads each side back once (NoteSide, normal and folded, lazily) for all notes. Reject/goal snapshots unchanged. parser-count-differs-from-lemma 9.2 -> 7.3 s, refl-note-huge 3.75 -> 2.1 s, memory unchanged (~150 MB).\n",
       "created": "2026-11-10",
       "updated": "2026-11-10",
       "commits": []
