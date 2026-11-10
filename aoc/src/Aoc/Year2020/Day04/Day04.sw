@@ -81,7 +81,7 @@ def heightValid (value: Text): Bool :=
         | Some number => between (low := 59) (high := 76) number.toNat
         | None => False
 
-def isHexDigit (char: Char): Bool := char.digitValue.isSome ∨ ('a' <= char <= 'f')
+def isHexDigit (char: Char): Bool := char.isAsciiDigit ∨ ('a' <= char <= 'f')
 
 def hairColorValid (value: Text): Bool :=
   value.toList |> matches | ['#', ..digits] => digits.length == 6 ∧ digits.all isHexDigit

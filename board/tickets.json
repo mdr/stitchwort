@@ -26745,12 +26745,12 @@
     {
       "id": 2615,
       "title": "Make Parse.isDigit an alias of Char.isAsciiDigit: reprove std/Parse/Reads.sw:484 and Day04's hairColorChars against Char.isAsciiDigitDigitValue, then switch Day04's isHexDigit",
-      "status": "backlog",
+      "status": "review",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "std-library",
-      "body": "From SW-2566, 10 Nov. Small std lane.",
+      "body": "From SW-2566, 10 Nov. Small std lane.\n\nLane notes: Parse.isDigit now is char.isAsciiDigit; Text.toNatDigits (Reads.sw) reproved via List.allCong + Char.isAsciiDigitDigitValue; Day04 isHexDigit uses Char.isAsciiDigit (hairColorChars stays rfl, no change needed). Checks, prelude binding, hash stability, audit:touched pass.\n",
       "created": "2026-11-10",
       "updated": "2026-11-10",
       "commits": []

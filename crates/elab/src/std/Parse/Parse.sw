@@ -245,7 +245,7 @@ def Parse.takeWhile1 (what: Text) (passes: Char → Bool): {Parse} Text :=
     | chars => Text.fromList chars
 
 --| Whether a character is an ASCII digit, `0` to `9`.
-def Parse.isDigit (char: Char): Bool := char.digitValue.isSome
+def Parse.isDigit (char: Char): Bool := char.isAsciiDigit
 
 --| Whether a character is a space or a tab.
 def Parse.isSpace (char: Char): Bool := char == ' ' ∨ char == '\t'
