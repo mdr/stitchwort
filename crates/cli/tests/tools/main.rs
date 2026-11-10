@@ -18,6 +18,7 @@ mod receiver_first;
 mod redundant_arms;
 mod scope;
 mod std_dir;
+mod sweep;
 mod test_failures;
 mod test_json;
 mod timings;

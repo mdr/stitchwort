@@ -95,7 +95,7 @@ fn refused(json: bool, mode: &str, messages: Vec<String>) -> ExitCode {
 }
 
 /// Checks the project fully.
-fn load(
+pub(super) fn load(
     project_flag: Option<&Path>,
     cache: &CacheArgs,
     what: &str,
@@ -347,7 +347,7 @@ fn decl_json(d: &DeclHash) -> Value {
     })
 }
 
-fn decl_from_json(v: &Value) -> Option<DeclHash> {
+pub(super) fn decl_from_json(v: &Value) -> Option<DeclHash> {
     let kind = match v.get("kind")?.as_str()? {
         "data" => DeclKind::Data,
         "def" => DeclKind::Def,

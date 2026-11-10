@@ -19,6 +19,7 @@ use stitchwort_syntax::{Diagnostic, Severity, SourceMap, parse_namespace_line};
 mod build;
 mod doc_cmd;
 mod rename_cmd;
+mod sweep_cmd;
 mod trial_cmd;
 
 #[derive(Parser)]
@@ -50,6 +51,43 @@ fn new_session(navigation: bool) -> Session {
     } else {
         Session::for_stack(STACK)
     }
+}
+
+#[derive(Subcommand)]
+enum SweepCommand {
+    /// Move theorems' `∀` variables, and the premises their proofs name,
+    /// before the colon; a proof by arms becomes `:= match x with`
+    /// (docs/proposals/theorem-binders.md §5). Each rewrite is checked to
+    /// keep its statement's hash; one that doesn't is refused and listed.
+    /// Exit status: 0 done, 1 not clean (nothing written), 2 refused
+    TheoremBinders {
+        /// Files (`.sw`) or folders to sweep
+        paths: Vec<PathBuf>,
+        /// The files are the standard library's: check an edited copy
+        /// against the library as it is
+        #[arg(long)]
+        std: bool,
+        /// With --std: the library's source folder (default:
+        /// `crates/elab/src/std` here or above)
+        #[arg(long, value_name = "DIR", requires = "std")]
+        std_root: Option<PathBuf>,
+        /// Check, but write nothing
+        #[arg(long)]
+        dry_run: bool,
+        /// Only list what would be rewritten and skipped: no check, nothing
+        /// written
+        #[arg(long)]
+        plan: bool,
+        /// Print the result as JSON (version 1)
+        #[arg(long)]
+        json: bool,
+        /// The project folder, if not the folder you're in or the nearest
+        /// one above it
+        #[arg(long)]
+        project: Option<PathBuf>,
+        #[command(flatten)]
+        cache: CacheArgs,
+    },
 }
 
 #[derive(Subcommand)]
@@ -483,6 +521,10 @@ enum Command {
     /// Developer tools for measuring the implementation (not a stable interface)
     #[command(hide = true, subcommand)]
     Dev(DevCommand),
+    /// Developer tools that rewrite many declarations, writing only what
+    /// the trial check accepts
+    #[command(hide = true, subcommand)]
+    Sweep(SweepCommand),
     /// Format source files in place: indentation, spacing, blank lines and brackets, in the house style. Prints the files it changed
     Fmt {
         /// Files (`.sw`) or folders to format; `-` reads standard input and
@@ -929,6 +971,25 @@ fn run(cli: Cli) -> ExitCode {
             json,
             std_before: std_before.as_deref(),
             std_mode: std_dir_given,
+            project: project.as_deref(),
+            cache: &cache,
+        }),
+        Command::Sweep(SweepCommand::TheoremBinders {
+            paths,
+            std,
+            std_root,
+            dry_run,
+            plan,
+            json,
+            project,
+            cache,
+        }) => sweep_cmd::theorem_binders(&sweep_cmd::Args {
+            paths: &paths,
+            std,
+            std_root: std_root.as_deref(),
+            dry_run,
+            plan,
+            json,
             project: project.as_deref(),
             cache: &cache,
         }),

@@ -1,0 +1,744 @@
+//! `stitchwort sweep theorem-binders` (SW-2655): moves theorems' `∀`
+//! variables, and the premises their proofs name, before the colon
+//! (docs/proposals/theorem-binders.md §5; D3470, D3471), and writes only
+//! what the trial check accepts.
+//!
+//! The rewrite is [`binder_sweep`]'s, on the syntax tree; the files are
+//! then formatted. Every rewrite is checked with the "same statement"
+//! promise: in a project, on the checked project (`LiveProject::trial`);
+//! in the standard library, by loading an edited copy in a child process
+//! and comparing every declaration's hashes with the library as it is (a
+//! process reads the library only once). A theorem whose statement hash
+//! moves, that a definition's changed hash leads back to, or that has a new
+//! diagnostic, is refused: left as it was and listed, and the rest are
+//! checked again, until nothing is found.
+//!
+//! Exit status: 0 done (or nothing to do); 1 something couldn't be checked
+//! clean; 2 refused or not understood.
+
+use std::collections::{BTreeMap, BTreeSet};
+use std::path::{Path, PathBuf};
+use std::process::{Command, ExitCode};
+use std::time::Instant;
+
+use serde_json::{Value, json};
+use stitchwort_driver::binder_sweep::{self, Converted, Skipped};
+use stitchwort_driver::declhash::{self, DeclHash};
+use stitchwort_driver::live::{Edit, Place, Promise, TrialOutcome};
+use stitchwort_syntax::ast::Decl;
+use stitchwort_syntax::{DEFAULT_STACK, SourceMap, parse_module_within};
+
+use super::CacheArgs;
+
+const CLEAN: u8 = 0;
+const PROBLEMS: u8 = 1;
+const REFUSED: u8 = 2;
+
+/// Rounds of trial and refusal before giving up.
+const MAX_ROUNDS: usize = 12;
+
+pub(super) struct Args<'a> {
+    pub paths: &'a [PathBuf],
+    pub std: bool,
+    pub std_root: Option<&'a Path>,
+    pub dry_run: bool,
+    pub plan: bool,
+    pub json: bool,
+    pub project: Option<&'a Path>,
+    pub cache: &'a CacheArgs,
+}
+
+/// A theorem the trial refused.
+#[derive(Clone, Debug)]
+struct Refusal {
+    name: String,
+    line: u32,
+    reason: String,
+}
+
+/// One file's sweep.
+#[derive(Clone, Debug, Default)]
+struct FileSweep {
+    /// As the project or library names it.
+    path: String,
+    original: String,
+    /// Written names the trial refused.
+    keep: BTreeSet<String>,
+    refused: Vec<Refusal>,
+    /// The latest sweep and formatted text.
+    converted: Vec<Converted>,
+    skipped: Vec<Skipped>,
+    text: String,
+    seconds: f64,
+}
+
+impl FileSweep {
+    fn new(path: String, original: String) -> FileSweep {
+        FileSweep {
+            path,
+            text: original.clone(),
+            original,
+            ..FileSweep::default()
+        }
+    }
+
+    /// Sweeps the original again, without the refused theorems, and
+    /// formats the result.
+    fn run(&mut self) -> Result<(), String> {
+        let start = Instant::now();
+        let outcome = binder_sweep::sweep(&self.original, &self.keep)
+            .map_err(|e| format!("{}: {e}", self.path))?;
+        self.converted = outcome.converted;
+        self.skipped = outcome.skipped;
+        self.text = if self.converted.is_empty() {
+            self.original.clone()
+        } else {
+            stitchwort_fmt::format(&outcome.text).map_err(|e| format!("{}: {e}", self.path))?
+        };
+        self.seconds += start.elapsed().as_secs_f64();
+        Ok(())
+    }
+
+    fn changed(&self) -> bool {
+        self.text != self.original
+    }
+
+    /// The converted theorem `name` (a full name, or as named in its
+    /// namespace) means, if any.
+    fn converted_named(&self, name: &str) -> Option<&Converted> {
+        self.converted.iter().find(|c| {
+            name == c.name
+                || name
+                    .strip_suffix(c.name.as_str())
+                    .is_some_and(|p| p.ends_with('.'))
+        })
+    }
+
+    /// The converted theorem at `line` (from 1) of the formatted text.
+    fn converted_at(&self, line: u32) -> Option<&Converted> {
+        let lines = theorem_lines(&self.text);
+        self.converted.iter().find(|c| {
+            lines
+                .get(&c.name)
+                .is_some_and(|(from, to)| *from <= line && line <= *to)
+        })
+    }
+
+    fn refuse(&mut self, name: &str, reason: String) {
+        if let Some(c) = self.converted_named(name).cloned()
+            && self.keep.insert(c.name.clone())
+        {
+            self.refused.push(Refusal {
+                name: c.name,
+                line: c.line,
+                reason,
+            });
+        }
+    }
+}
+
+/// Each theorem's first and last line (from 1), by its name as written.
+fn theorem_lines(text: &str) -> BTreeMap<String, (u32, u32)> {
+    let file = SourceMap::new().add("lines.sw", text);
+    let Ok(module) = parse_module_within(file, text, DEFAULT_STACK) else {
+        return BTreeMap::new();
+    };
+    let line = |offset: u32| text[..offset as usize].matches('\n').count() as u32 + 1;
+    let mut out = BTreeMap::new();
+    let mut current: Option<String> = None;
+    for decl in &module.decls {
+        match decl {
+            Decl::Signature {
+                name,
+                theorem: true,
+                span,
+                ..
+            } => {
+                out.insert(name.text.clone(), (line(span.start), line(span.end)));
+                current = Some(name.text.clone());
+            }
+            Decl::Equation { name, span, .. } if current.as_deref() == Some(&name.text) => {
+                if let Some(range) = out.get_mut(&name.text) {
+                    range.1 = line(span.end);
+                }
+            }
+            _ => current = None,
+        }
+    }
+    out
+}
+
+fn print_json(value: Value) {
+    println!("{}", serde_json::to_string_pretty(&value).expect("JSON"));
+}
+
+fn refused(json: bool, message: String) -> ExitCode {
+    if json {
+        print_json(json!({ "version": 1, "status": "refused", "message": message }));
+    } else {
+        eprintln!("error: {message}");
+    }
+    ExitCode::from(REFUSED)
+}
+
+/// The `.sw` files a path names: itself, or those in a folder.
+fn sw_files(path: &Path, out: &mut Vec<PathBuf>) -> std::io::Result<()> {
+    if path.is_dir() {
+        let mut entries: Vec<PathBuf> = std::fs::read_dir(path)?
+            .map(|e| e.map(|e| e.path()))
+            .collect::<Result<_, _>>()?;
+        entries.sort();
+        for entry in entries {
+            sw_files(&entry, out)?;
+        }
+    } else if path.extension().is_some_and(|e| e == "sw") {
+        out.push(path.to_path_buf());
+    }
+    Ok(())
+}
+
+fn relative(path: &Path, root: &Path) -> Option<String> {
+    let full = path.canonicalize().ok()?;
+    let root = root.canonicalize().ok()?;
+    let rel = full.strip_prefix(&root).ok()?;
+    Some(
+        rel.components()
+            .map(|c| c.as_os_str().to_string_lossy().into_owned())
+            .collect::<Vec<_>>()
+            .join("/"),
+    )
+}
+
+pub(super) fn theorem_binders(args: &Args) -> ExitCode {
+    if args.paths.is_empty() {
+        return refused(args.json, "give the files or folders to sweep".to_string());
+    }
+    let mut files = Vec::new();
+    for p in args.paths {
+        if let Err(e) = sw_files(p, &mut files) {
+            return refused(args.json, format!("can't read {}: {e}", p.display()));
+        }
+    }
+    if args.std {
+        std_sweep(args, &files)
+    } else {
+        project_sweep(args, &files)
+    }
+}
+
+/// The rewrites only, unchecked and unwritten.
+fn plan_only(args: &Args, sweeps: &mut [FileSweep]) -> ExitCode {
+    for s in sweeps.iter_mut() {
+        if let Err(e) = s.run() {
+            return refused(args.json, e);
+        }
+    }
+    report(args, "plan", sweeps, false, true, &[]);
+    ExitCode::from(CLEAN)
+}
+
+fn project_sweep(args: &Args, files: &[PathBuf]) -> ExitCode {
+    let (project, mut live) = match super::trial_cmd::load(
+        args.project,
+        args.cache,
+        "sweep",
+        "sweep theorem-binders src",
+    ) {
+        Ok(loaded) => loaded,
+        Err(messages) => {
+            return refused(args.json, messages.join("; "));
+        }
+    };
+    // A declaration that doesn't check has no hash, and no hash compares
+    // equal to none: the trial would see nothing.
+    let unchecked: Vec<String> = live
+        .declaration_hashes()
+        .into_iter()
+        .filter(|d| d.hash.is_none())
+        .map(|d| d.name)
+        .collect();
+    if !unchecked.is_empty() && !args.plan {
+        return refused(
+            args.json,
+            format!(
+                "the project doesn't check (no hash for {}): fix it first",
+                unchecked.join(", ")
+            ),
+        );
+    }
+    let mut sweeps = Vec::new();
+    for f in files {
+        let Some(path) = relative(f, &project.dir) else {
+            return refused(args.json, format!("{} is not in the project", f.display()));
+        };
+        let Some(text) = live.text(&path) else {
+            return refused(
+                args.json,
+                format!("{path} is not one of the project's files"),
+            );
+        };
+        sweeps.push(FileSweep::new(path, text.to_string()));
+    }
+    if args.plan {
+        return plan_only(args, &mut sweeps);
+    }
+    let promise = Promise::SameStatement {
+        renames: BTreeMap::new(),
+    };
+    let mut clean = false;
+    let mut leftover = Vec::new();
+    let mut proofs_changed: Vec<String> = Vec::new();
+    for _ in 0..MAX_ROUNDS {
+        for s in sweeps.iter_mut() {
+            if let Err(e) = s.run() {
+                return refused(args.json, e);
+            }
+        }
+        let edits: Vec<Edit> = sweeps
+            .iter()
+            .filter(|s| s.changed())
+            .map(|s| whole_file(&s.path, &s.original, &s.text))
+            .collect();
+        if edits.is_empty() {
+            clean = true;
+            break;
+        }
+        let trial = match live.trial(&edits, &promise) {
+            Ok(TrialOutcome::Checked(trial)) => trial,
+            Ok(TrialOutcome::Refused(refusals)) => {
+                let messages: Vec<String> =
+                    refusals.iter().map(|r| r.describe("the sweep")).collect();
+                return refused(args.json, messages.join("; "));
+            }
+            Err(_) => return refused(args.json, "the check was cancelled".to_string()),
+        };
+        let problems = trial.problems.clone();
+        proofs_changed = trial.proofs_changed.clone();
+        let _ = live.restore(trial);
+        if problems.is_empty() {
+            clean = true;
+            break;
+        }
+        let mut found = 0;
+        leftover.clear();
+        for d in &problems.diagnostics {
+            let reason = format!("{}: {}", d.code, d.message);
+            let Some(s) = sweeps.iter_mut().find(|s| s.path == d.path) else {
+                leftover.push(format!("{}: {reason}", d.path));
+                continue;
+            };
+            let name = d
+                .declaration
+                .as_deref()
+                .and_then(|n| s.converted_named(n))
+                .or_else(|| s.converted_at(d.range[0] + 1))
+                .map(|c| c.name.clone());
+            match name {
+                Some(name) => {
+                    s.refuse(&name, reason);
+                    found += 1;
+                }
+                None => leftover.push(format!("{}: {reason}", d.path)),
+            }
+        }
+        for c in &problems.changed {
+            // The theorem itself, or the converted theorem it uses.
+            let mut hit = false;
+            for (name, reason) in [
+                (
+                    Some(c.name.as_str()),
+                    "its statement's hash moved".to_string(),
+                ),
+                (
+                    c.uses.as_deref(),
+                    format!("`{}` uses it and its hash moved", c.name),
+                ),
+            ] {
+                let Some(name) = name else { continue };
+                if let Some(s) = sweeps
+                    .iter_mut()
+                    .find(|s| s.converted_named(name).is_some())
+                {
+                    s.refuse(name, reason);
+                    hit = true;
+                    break;
+                }
+            }
+            if hit {
+                found += 1;
+            } else {
+                leftover.push(format!("`{}` changed", c.name));
+            }
+        }
+        if found == 0 {
+            // A change no converted theorem accounts for directly: the
+            // theorems whose proofs changed are the suspects.
+            found += refuse_changed_proofs(&mut sweeps, &proofs_changed, &leftover);
+        }
+        if found == 0 {
+            break;
+        }
+    }
+    finish(
+        args,
+        "project",
+        &mut sweeps,
+        clean,
+        &leftover,
+        &proofs_changed,
+        |s| Some(project.dir.join(&s.path)),
+    )
+}
+
+fn refuse_changed_proofs(
+    sweeps: &mut [FileSweep],
+    proofs_changed: &[String],
+    leftover: &[String],
+) -> usize {
+    let mut found = 0;
+    let because = format!(
+        "its proof changed, and something it may be used by changed: {}",
+        leftover.join("; ")
+    );
+    for name in proofs_changed {
+        for s in sweeps.iter_mut() {
+            if s.converted_named(name).is_some() {
+                s.refuse(name, because.clone());
+                found += 1;
+            }
+        }
+    }
+    found
+}
+
+fn whole_file(path: &str, old: &str, new: &str) -> Edit {
+    let lines = old.split('\n').count() as u32 - 1;
+    let last = old.rsplit('\n').next().unwrap_or("");
+    Edit {
+        place: Place::Program(path.to_string()),
+        range: [0, 0, lines, last.encode_utf16().count() as u32],
+        new_text: new.to_string(),
+    }
+}
+
+/// The library's hashes, read by a child process from `dir`.
+fn library_hashes(dir: &Path) -> Result<Vec<DeclHash>, String> {
+    let exe = std::env::current_exe().map_err(|e| format!("can't find myself: {e}"))?;
+    let output = Command::new(exe)
+        .arg("--std-dir")
+        .arg(dir)
+        .args(["hash", "--std", "--json"])
+        .output()
+        .map_err(|e| format!("can't run the hash: {e}"))?;
+    if !output.status.success() {
+        return Err(String::from_utf8_lossy(&output.stderr).trim().to_string());
+    }
+    serde_json::from_slice::<Value>(&output.stdout)
+        .ok()
+        .and_then(|v| {
+            v.get("declarations")?
+                .as_array()?
+                .iter()
+                .map(super::trial_cmd::decl_from_json)
+                .collect()
+        })
+        .ok_or_else(|| "can't read the library's hashes".to_string())
+}
+
+fn copy_dir(from: &Path, to: &Path) -> std::io::Result<()> {
+    std::fs::create_dir_all(to)?;
+    for entry in std::fs::read_dir(from)? {
+        let entry = entry?;
+        let target = to.join(entry.file_name());
+        if entry.file_type()?.is_dir() {
+            copy_dir(&entry.path(), &target)?;
+        } else {
+            std::fs::copy(entry.path(), &target)?;
+        }
+    }
+    Ok(())
+}
+
+fn default_std_root() -> Option<PathBuf> {
+    let mut dir = std::env::current_dir().ok()?;
+    loop {
+        let candidate = dir.join("crates/elab/src/std");
+        if candidate.is_dir() {
+            return Some(candidate);
+        }
+        if !dir.pop() {
+            return None;
+        }
+    }
+}
+
+fn std_sweep(args: &Args, files: &[PathBuf]) -> ExitCode {
+    let Some(root) = args
+        .std_root
+        .map(Path::to_path_buf)
+        .or_else(default_std_root)
+    else {
+        return refused(
+            args.json,
+            "can't find the library's source: give --std-root".to_string(),
+        );
+    };
+    let mut sweeps = Vec::new();
+    for f in files {
+        let Some(path) = relative(f, &root) else {
+            return refused(
+                args.json,
+                format!("{} is not in {}", f.display(), root.display()),
+            );
+        };
+        let text = match std::fs::read_to_string(f) {
+            Ok(text) => text,
+            Err(e) => return refused(args.json, format!("can't read {}: {e}", f.display())),
+        };
+        sweeps.push(FileSweep::new(path, text));
+    }
+    if args.plan {
+        return plan_only(args, &mut sweeps);
+    }
+    let before = match library_hashes(&root) {
+        Ok(before) => before,
+        Err(e) => return refused(args.json, format!("the library doesn't load as it is: {e}")),
+    };
+    let copy = std::env::temp_dir().join(format!("stitchwort-sweep-std-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&copy);
+    if let Err(e) = copy_dir(&root, &copy) {
+        return refused(args.json, format!("can't copy the library: {e}"));
+    }
+    let promise = Promise::SameStatement {
+        renames: BTreeMap::new(),
+    };
+    let mut clean = false;
+    let mut leftover = Vec::new();
+    let mut proofs_changed: Vec<String> = Vec::new();
+    for _ in 0..MAX_ROUNDS {
+        for s in sweeps.iter_mut() {
+            if let Err(e) = s.run() {
+                let _ = std::fs::remove_dir_all(&copy);
+                return refused(args.json, e);
+            }
+            if let Err(e) = std::fs::write(copy.join(&s.path), &s.text) {
+                let _ = std::fs::remove_dir_all(&copy);
+                return refused(args.json, format!("can't write the copy: {e}"));
+            }
+        }
+        if !sweeps.iter().any(FileSweep::changed) {
+            clean = true;
+            break;
+        }
+        let mut found = 0;
+        leftover.clear();
+        match library_hashes(&copy) {
+            Err(report) => {
+                // The edited library doesn't load: the report names a file
+                // and line.
+                for s in sweeps.iter_mut() {
+                    for line in lines_named(&report, &s.path) {
+                        if let Some(name) = s.converted_at(line).map(|c| c.name.clone()) {
+                            s.refuse(&name, format!("doesn't check: {}", first_line(&report)));
+                            found += 1;
+                        }
+                    }
+                }
+                if found == 0 {
+                    leftover.push(report);
+                }
+            }
+            Ok(after) => {
+                let diff = declhash::compare(&before, &after, &promise);
+                proofs_changed = diff.proofs_changed.clone();
+                if diff.is_empty() {
+                    clean = true;
+                    break;
+                }
+                for c in &diff.changed {
+                    let reason = match c.kind {
+                        declhash::DeclKind::Theorem => "its statement's hash moved",
+                        _ => "its hash moved",
+                    };
+                    match sweeps
+                        .iter_mut()
+                        .find(|s| s.converted_named(&c.name).is_some())
+                    {
+                        Some(s) => {
+                            s.refuse(&c.name, reason.to_string());
+                            found += 1;
+                        }
+                        None => leftover.push(format!("`{}` changed", c.name)),
+                    }
+                }
+                for n in diff.added.iter().chain(&diff.removed) {
+                    leftover.push(format!("`{n}` added or removed"));
+                }
+                if found == 0 {
+                    found += refuse_changed_proofs(&mut sweeps, &diff.proofs_changed, &leftover);
+                }
+            }
+        }
+        if found == 0 {
+            break;
+        }
+    }
+    let _ = std::fs::remove_dir_all(&copy);
+    finish(
+        args,
+        "std",
+        &mut sweeps,
+        clean,
+        &leftover,
+        &proofs_changed,
+        |s| Some(root.join(&s.path)),
+    )
+}
+
+fn first_line(text: &str) -> &str {
+    text.lines()
+        .map(str::trim)
+        .find(|l| !l.is_empty() && !l.starts_with("error: the library"))
+        .unwrap_or(text)
+}
+
+/// The line numbers a report gives after `path:`.
+fn lines_named(report: &str, path: &str) -> Vec<u32> {
+    let mut out = Vec::new();
+    let needle = format!("{path}:");
+    let mut rest = report;
+    while let Some(at) = rest.find(&needle) {
+        rest = &rest[at + needle.len()..];
+        let digits: String = rest.chars().take_while(char::is_ascii_digit).collect();
+        if let Ok(n) = digits.parse() {
+            out.push(n);
+        }
+    }
+    out
+}
+
+fn finish(
+    args: &Args,
+    mode: &str,
+    sweeps: &mut [FileSweep],
+    clean: bool,
+    leftover: &[String],
+    proofs_changed: &[String],
+    disk: impl Fn(&FileSweep) -> Option<PathBuf>,
+) -> ExitCode {
+    let write = clean && !args.dry_run;
+    if write {
+        for s in sweeps.iter().filter(|s| s.changed()) {
+            let Some(path) = disk(s) else { continue };
+            if let Err(e) = std::fs::write(&path, &s.text) {
+                return refused(args.json, format!("can't write {}: {e}", path.display()));
+            }
+        }
+    }
+    if !clean && !args.json {
+        for l in leftover {
+            eprintln!("unaccounted for: {l}");
+        }
+    }
+    report(args, mode, sweeps, write, clean, proofs_changed);
+    ExitCode::from(if clean { CLEAN } else { PROBLEMS })
+}
+
+fn report(
+    args: &Args,
+    mode: &str,
+    sweeps: &[FileSweep],
+    written: bool,
+    clean: bool,
+    proofs_changed: &[String],
+) {
+    let mut by_reason: BTreeMap<&str, usize> = BTreeMap::new();
+    for s in sweeps {
+        for k in &s.skipped {
+            *by_reason.entry(k.reason.code()).or_default() += 1;
+        }
+    }
+    let converted: usize = sweeps.iter().map(|s| s.converted.len()).sum();
+    let skipped: usize = sweeps.iter().map(|s| s.skipped.len()).sum();
+    let refused: usize = sweeps.iter().map(|s| s.refused.len()).sum();
+    if args.json {
+        let files: Vec<Value> = sweeps
+            .iter()
+            .map(|s| {
+                json!({
+                    "file": s.path,
+                    "seconds": s.seconds,
+                    "converted": s.converted.iter().map(|c| json!({
+                        "name": c.name,
+                        "line": c.line,
+                        "eta": c.eta,
+                        "before": c.before,
+                        "after": c.after,
+                    })).collect::<Vec<_>>(),
+                    "skipped": s.skipped.iter().map(|k| json!({
+                        "name": k.name,
+                        "line": k.line,
+                        "reason": k.reason.code(),
+                        "message": k.reason.describe(),
+                    })).collect::<Vec<_>>(),
+                    "refused": s.refused.iter().map(|r| json!({
+                        "name": r.name,
+                        "line": r.line,
+                        "reason": r.reason,
+                    })).collect::<Vec<_>>(),
+                })
+            })
+            .collect();
+        print_json(json!({
+            "version": 1,
+            "mode": mode,
+            "status": if clean { "clean" } else { "problems" },
+            "written": written,
+            "converted": converted,
+            "skipped": skipped,
+            "refused": refused,
+            "skippedByReason": by_reason,
+            "proofsChanged": proofs_changed,
+            "files": files,
+        }));
+        return;
+    }
+    for s in sweeps {
+        println!(
+            "{}: {} converted, {} skipped, {} refused ({:.2} s)",
+            s.path,
+            s.converted.len(),
+            s.skipped.len(),
+            s.refused.len(),
+            s.seconds
+        );
+        for k in &s.skipped {
+            println!(
+                "  skipped {} (line {}): {}",
+                k.name,
+                k.line,
+                k.reason.describe()
+            );
+        }
+        for r in &s.refused {
+            println!("  refused {} (line {}): {}", r.name, r.line, r.reason);
+        }
+    }
+    println!("{converted} converted, {skipped} skipped, {refused} refused");
+    if !proofs_changed.is_empty() {
+        println!(
+            "{} proof(s) changed with the statement kept",
+            proofs_changed.len()
+        );
+    }
+    for (reason, n) in &by_reason {
+        println!("  skipped {reason}: {n}");
+    }
+    if written {
+        println!("written");
+    } else if clean {
+        println!("nothing was written");
+    } else {
+        println!("not clean: nothing was written");
+    }
+}
