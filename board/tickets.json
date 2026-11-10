@@ -28439,15 +28439,17 @@
     {
       "id": 2721,
       "title": "audit counts written theorems separately from generated ones",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": ".claude/worktrees/scratch-sw-2721",
       "labels": [],
       "epic": "test-infra",
-      "body": "From SW-2707 (Software Foundations port, 10 Nov 2026); docs/reviews/SW-2707-software-foundations-port.md §11.",
+      "body": "From SW-2707 (Software Foundations port, 10 Nov 2026), review §6 item 11.\nDone 10 Nov (DeepSeek): audit says 'audited 38 theorems and 123 generated lemmas: 0 failed, 0 with warnings, 161 passed' (sf/); generated = equations, f.induct, shared-field update lemmas, a record's generated T.ext (told from a written one by span). JSON summary gains 'generated'; 'theorems' is the written count; failed/warned/passed cover all. Review fix: its first version counted failures among written theorems only, so a failing generated lemma printed '0 failed' while exiting 1.\nModel result: DeepSeek, needed fixes (summary counts hid generated failures), 10 + 5 min (est. 40).",
       "created": "2026-11-10",
       "updated": "2026-11-10",
-      "commits": []
+      "commits": [
+        "42433a135"
+      ]
     },
     {
       "id": 2722,
