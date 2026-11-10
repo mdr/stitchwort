@@ -15,7 +15,7 @@ test "squares" := squares ["a", "b", "c"] == [0, 1, 4]
 -- `in` tests membership, and `each` picks one number at a time.
 def isIndex (xs: List Text) (i: Nat): Bool := i in 0 ..< xs.length
 
-def pairsSummingTo (n: Nat): List (Pair Nat Nat) := Each.collect (() =>
+def pairsSummingTo (n: Nat): List (Nat, Nat) := Each.collect (() =>
   let a := each (1 ..= n)
   let b := each (a ..= n)
   require (a + b == n)

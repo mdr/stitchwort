@@ -5,10 +5,10 @@ import Std (Vec)
 def trio: Vec Nat 3 := VCons 1 (VCons 2 (VCons 3 VNil))
 
 -- `head` only accepts a vector that is not empty: no default, no error.
-def first (v: Vec Nat 3): Nat := Vec.head v
+def first (v: Vec Nat 3): Nat := v.head
 
 -- Zipping needs equal lengths, and the type says so.
-def sums (a: Vec Nat 3) (b: Vec Nat 3): Vec Nat 3 := Vec.zipWith a b (x y => x + y)
+def sums (a: Vec Nat 3) (b: Vec Nat 3): Vec Nat 3 := a.zipWith b (x y => x + y)
 
 test "head" := first trio == 1
-test "sum" := Vec.sum (sums trio trio) == 12
+test "sum" := (sums trio trio).sum == 12
