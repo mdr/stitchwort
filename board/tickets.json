@@ -26111,14 +26111,14 @@
     {
       "id": 2572,
       "title": "Checker blows up on effect-fuzzer programs: chains of pure Nat defs with lets, if on % 2 and Fail.toOption (() => next ...), variables reused many times; seed 1794200310 checks for >10 min (also 1794200346, 1794201674, 1794200163, 43). About 1 batch in 1000. Profile and fix (elaborator or kernel)",
-      "status": "backlog",
+      "status": "review",
       "agent": "Opus",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "From SW-2570. Repro: STITCHWORT_EFFECT_FUZZ_SEED=1794200310 STITCHWORT_EFFECT_FUZZ_BATCHES=1 cargo test --release -p stitchwort-cli --test extraction effect_differential::generated -- --nocapture (dump the module). Possibly exponential evaluation of open Nat terms. Profile first. 120 min.",
+      "body": "From SW-2570. Repro: STITCHWORT_EFFECT_FUZZ_SEED=1794200310 STITCHWORT_EFFECT_FUZZ_BATCHES=1 cargo test --release -p stitchwort-cli --test extraction effect_differential::generated -- --nocapture (dump the module). Possibly exponential evaluation of open Nat terms. Profile first. 120 min.\n\nStarted 10 Nov 00:55 (est. 120 min), on lane/SW-2572 (Opus).\n\n10 Nov 01:45, to review. Profile (macOS `sample`, seed 1794200310 shrunk to `let a := if (x + 500000) % 2 == 0 then 4 else 4; if a % 2 == 0 ...`): all the time in `native::as_nat_with` forcing already-unfolded calls under the elaborator's obligations loop. Cause: `(x + k) % 2` multiplies a quotient of k/2 `Succ`s around a stuck step by 2; `*` peels one `Succ` a step, and at each step `native::run` walked the rest of the chain to see it wasn't a number: quadratic in k. Not exponential, not let sharing. Fix (core, `native.rs`, so the kernel computes this way too; docs/core.md updated; needs an Opus review per D2364): `Nat.mul`'s shortcut for unknowns, `(k + m) * n = k*n + m * n` for a number n, in one step; and `native::run` checks every number argument's head before walking a `Succ` chain, so `(k + m) * y` with y unknown is linear too. What's equal is unchanged. Timings (user s): `(x + 16000) % 2` 10.1 -> 0.46, `((x+16000)/2)*y` 9.2 -> 0.56; seed 1794200310's module >10 min -> 4.3 s; the other four seeds 1.0-1.5 s; 200 fuzzer batches from 1794200000 in 51 s, none skipped. Tests: new `resources::remainders_of_long_numbers_check_in_linear_time` (1.5 s), Mul added to `natives::shortcuts_with_unknowns_agree_with_the_definitions` (a mutated shortcut fails it), `a_batch_the_checker_cannot_finish_stops_at_the_deadline` deadline 5 s -> 1 s (the seed now checks in about 4 s). Lanes core, elab, effects, hashes pass. Left: `Nat.divFuel` still builds a quotient one `Succ` a step (linear, ~13 us per unit: `(x + 500000) % 2` forced fully takes 7 s); a divFuel shortcut would be a new kernel shortcut, proposed as a follow-up.\n",
       "created": "2026-11-09",
-      "updated": "2026-11-09",
+      "updated": "2026-11-10",
       "commits": []
     },
     {

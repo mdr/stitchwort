@@ -58,8 +58,9 @@ const DEFAULT_BATCHES: u64 = 64;
 /// this stops it as `resource`, which the test skips.
 const WORK: u64 = 2_000_000_000;
 /// Wall-clock time the checker, or the reference evaluator, may take for
-/// one batch. Steps alone don't bound it: seed 1794200310 checked for over
-/// ten minutes within `WORK`, since the steps there are expensive (SW-2570).
+/// one batch. Steps alone don't bound it, as a step can be expensive: seed
+/// 1794200310 checked for over ten minutes within `WORK` (SW-2570), until
+/// SW-2572 made `*` on a long run of `Succ`s linear.
 ///
 /// Ten times as long in a debug build, which checks the slowest default
 /// batch (seed 43) in about 170 s.
@@ -2026,17 +2027,17 @@ fn generated_effect_programs_agree_on_every_backend() {
 }
 
 /// Seed 1794200310's batch (found by Overmind's run of 2000 batches from
-/// 1794200000, SW-2570) checks for over ten minutes: `p4b2`, a pure `Nat`
-/// function of lets over `if`s and `%` that repeat earlier variables, is
-/// exponential for the checker. It must stop at the deadline, as a skipped
-/// batch, not hang.
+/// 1794200000, SW-2570) is the slowest known to check: about 4 s, for
+/// `p4b2`'s `%` of numbers near a million with an unknown in them (over ten
+/// minutes before SW-2572). With the deadline at 1 s it must stop there, as
+/// a skipped batch, not run on.
 #[test]
 fn a_batch_the_checker_cannot_finish_stops_at_the_deadline() {
     let started = Instant::now();
     let result = std::thread::Builder::new()
         .stack_size(STACK)
         .spawn(|| {
-            DEADLINE_OVERRIDE.with(|d| d.set(Some(Duration::from_secs(5))));
+            DEADLINE_OVERRIDE.with(|d| d.set(Some(Duration::from_secs(1))));
             batch(1_794_200_310)
         })
         .unwrap()

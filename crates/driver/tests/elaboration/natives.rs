@@ -350,12 +350,19 @@ fn shortcuts_with_unknowns_agree_with_the_definitions() {
     with_big_stack(|| {
         let mut session = Session::new();
         let g = &mut session.elab.kernel;
-        for op in [Native::Add, Native::Sub, Native::Leq, Native::EqNat] {
+        for op in [
+            Native::Add,
+            Native::Sub,
+            Native::Leq,
+            Native::EqNat,
+            Native::Mul,
+        ] {
             let id = def(&g.ev(), op.name());
             for k1 in 0..12 {
                 for k2 in 0..12 {
                     // `k1 + x` against `k2 + y`, `k2`, and `k2 + x`; and
-                    // against `y` under `k2` `Succ` constructors. For `Add`
+                    // against `y` under `k2` `Succ` constructors; and `x`
+                    // under `k1` `Succ` constructors against `k2`. For `Add`
                     // these are sums stuck on either side, or both, which
                     // compute on the second side when stuck on the first
                     // (R3 and R4, `nat_add.rs`; crates/driver/tests/
@@ -366,6 +373,7 @@ fn shortcuts_with_unknowns_agree_with_the_definitions() {
                         (plus_var(k1, None), plus_var(k2, Some(0))),
                         (plus_var(k1, Some(0)), plus_var(k2, Some(0))),
                         (plus_var(k1, Some(0)), succs(&g.ev(), k2, Value::var(1))),
+                        (succs(&g.ev(), k1, Value::var(0)), plus_var(k2, None)),
                     ] {
                         let fast = call(&g.ev(), id, &[a.clone(), b.clone()]);
                         g.env.set_disable_natives(true);

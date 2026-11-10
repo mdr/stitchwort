@@ -44,6 +44,46 @@ in [../proposals/README.md](../proposals/README.md).
 
 ---
 
+## 10 Nov 2026
+
+### SW-2572: `*` on a long run of `Succ`s around an unknown is linear, not quadratic
+
+- **Cause** (profiled with macOS `sample` on the effect fuzzer's seed
+  1794200310, the program shrunk by hand). All the time was in the
+  elaborator's obligations loop evaluating `if v % 2 == 0`, inside
+  `native::as_nat_with` forcing calls that were already unfolded
+  (`force_now`, `Unfolding::get`, `Value::clone`). `(x + k) % 2` is
+  `(x + k) - ((x + k) / 2) * 2`; the quotient is `k / 2` `Succ`s around a
+  stuck division step, and `*` recurses on its left side one `Succ` at a
+  time. At each step `native::run` walked the rest of the chain to see
+  whether it was a number before falling back to the case tree: quadratic
+  in `k`. The fuzzer's constants are near a million.
+- **Change** (`crates/core/src/native.rs`; the evaluators' shared natives, so
+  the kernel computes this way too; docs/core.md updated). (1) `Nat.mul`'s
+  shortcut for unknowns: `(k + m) * n` for a number `n` is
+  `k·n + m * n` in one step, stuck on `m`, which is what `k` steps of the
+  definition give. (2) `native::run` forces every number argument's head
+  first and stops when one is plainly no number, before walking a `Succ`
+  chain in another, so `(k + m) * y` with `y` unknown doesn't walk the chain
+  at each of the case tree's steps. Equal values are unchanged; a value
+  stuck under `*` keeps its argument unforced, as the case tree does.
+- **Measured** (release `stitchwort check --no-cache`, user time, machine
+  shared with other lanes). `if (x + 16000) % 2 == 0 …` 10.1 s to 0.46 s;
+  `((x + 16000) / 2) * 2` 11.6 s to 0.47 s; `((x + 16000) / 2) * y` 9.2 s
+  to 0.56 s; the fuzzer's `let a := if (x + 16000) % 2 == 0 then 4 else 4;
+  if a % 2 == 0 …` 16.9 s to 0.70 s. Seed 1794200310's module: over 10 min
+  (its slow program alone over 20 s, stopped) to 4.3 s; seeds 1794200346,
+  1794201674, 1794200163 and 43: 1.0 to 1.5 s each. The fuzzer's 200
+  batches from 1794200000 (three of the slow seeds among them): 51 s, none
+  out of resources. What's left grows
+  linearly, about 13 µs a unit of `k` (`(x + 500000) % 2` forced fully
+  takes 7 s): `Nat.divFuel` builds the quotient one `Succ` a step, as its
+  definition does (see "Not done").
+- **Not done.** A `Nat.divFuel` shortcut for unknowns (take `d` off `n`
+  `q` times at once) would remove the linear part; it would be a new kernel
+  shortcut with its own proof obligations, so it's proposed as a follow-up,
+  not done here.
+
 ## 9 Nov 2026
 
 ### SW-2559: the cell cache's room is exact, so `full` doesn't walk
