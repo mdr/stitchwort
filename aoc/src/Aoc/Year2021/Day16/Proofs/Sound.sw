@@ -142,9 +142,10 @@ theorem readPacketsSound (wanted: Wanted) (reader: BitReader) (packets: List Pac
                   match g: readGroups afterType with
                     | None => cases
                     | Some (groups, after) =>
-                      match d: Nat.decLessThan after.length reader.length with
-                        | No _ => cases
-                        | Yes shorter =>
+                      match d: (after.length < reader.length: Bool) with
+                        | False => cases
+                        | True =>
+                          let shorter: after.length < reader.length := omega [d]
                           match r: readPackets later after with
                             | None => cases
                             | Some (more, left) =>
@@ -168,18 +169,20 @@ theorem readPacketsSound (wanted: Wanted) (reader: BitReader) (packets: List Pac
                           match sp: afterLength.read length.value with
                             | None => cases
                             | Some (inside, following) =>
-                              match d: Nat.decLessThan (BitReader.of inside).length reader.length with
-                                | No _ => cases
-                                | Yes shorter =>
+                              match d: ((BitReader.of inside).length < reader.length: Bool) with
+                                | False => cases
+                                | True =>
+                                  let shorter: (BitReader.of inside).length < reader.length := omega [d]
                                   match i: readPackets Filling (BitReader.of inside) with
                                     | None => cases
                                     | Some (subPackets, emptied) =>
                                       match made: operatorOf version operatorType TotalLength subPackets with
                                         | None => cases
                                         | Some packet =>
-                                          match d2: Nat.decLessThan following.length reader.length with
-                                            | No _ => cases
-                                            | Yes shorterAfter =>
+                                          match d2: (following.length < reader.length: Bool) with
+                                            | False => cases
+                                            | True =>
+                                              let shorterAfter: following.length < reader.length := omega [d2]
                                               match r: readPackets later following with
                                                 | None => cases
                                                 | Some (more, left) =>
@@ -204,18 +207,20 @@ theorem readPacketsSound (wanted: Wanted) (reader: BitReader) (packets: List Pac
                       match l: afterBit.read 11 with
                         | None => cases
                         | Some (count, after) =>
-                          match d: Nat.decLessThan after.length reader.length with
-                            | No _ => cases
-                            | Yes shorter =>
+                          match d: (after.length < reader.length: Bool) with
+                            | False => cases
+                            | True =>
+                              let shorter: after.length < reader.length := omega [d]
                               match i: readPackets (Packets count.value) after with
                                 | None => cases
                                 | Some (subPackets, following) =>
                                   match made: operatorOf version operatorType Count subPackets with
                                     | None => cases
                                     | Some packet =>
-                                      match d2: Nat.decLessThan following.length reader.length with
-                                        | No _ => cases
-                                        | Yes shorterAfter =>
+                                      match d2: (following.length < reader.length: Bool) with
+                                        | False => cases
+                                        | True =>
+                                          let shorterAfter: following.length < reader.length := omega [d2]
                                           match r: readPackets later following with
                                             | None => cases
                                             | Some (more, left) =>

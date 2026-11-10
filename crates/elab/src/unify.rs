@@ -2339,31 +2339,52 @@ fn same_field_types(g: &Unifier<'_>, level: usize, a: &Value, b: &Value) -> Resu
     }
 }
 
-/// Two calls of one record's projection function, `Decidable.holds [?p] r`
-/// against `Decidable.holds [p] d`, where the second computes on (to
-/// `Nat.equal m n`) and the first is stuck: the type's parameters unified,
-/// and the records left to the main comparison, which can put them aside
-/// until an unknown in the way is solved. So they meet as they did before
-/// record eta, when both stopped at the call. Only when a parameter
+/// Two calls that reach one record's projection function,
+/// `Decidable.holds [?p] r` against `Decidable.holds [p] d` where the second
+/// computes on (to `Nat.equal m n`) and the first is stuck: the type's
+/// parameters unified, and the records left to the main comparison, which
+/// can put them aside until an unknown in the way is solved. So they meet
+/// as they did before record eta, when both stopped at the call. The other
+/// call may reach the projection by unfolding a step at a time, as in
+/// [`one_step_apart`]: `near a b`, defined as `Succ a == b`, computes past
+/// `Nat.decEq`'s record to `Nat.equal (Succ a) b`, which has lost the
+/// decision, but its unfolding one step has it. Only when a parameter
 /// mentions an unknown that this solves, and lossy, as for
-/// [`same_field_records`]: one field doesn't determine a record. Without it,
-/// `DecEq.sound e` for `e: (m == n) = True` on numbers, whose `==` computes
-/// to `Nat.equal m n`, can't find `m` and `n`.
+/// [`same_field_records`]: one field doesn't determine a record. Without
+/// it, `DecEq.sound e` for `e: (m == n) = True` on numbers can't find `m`
+/// and `n`.
 fn same_field_calls(g: &Unifier<'_>, level: usize, a: &Value, b: &Value) -> Result<Option<Task>> {
     let (Value::Call(i1, s1, _), Value::Call(i2, s2, _)) = (a, b) else {
         return Ok(None);
     };
-    if i1 != i2 || g.attempt.argument_checks.get() > 0 {
+    if g.attempt.argument_checks.get() > 0 || is_call_field(s1) || is_call_field(s2) {
         return Ok(None);
     }
-    let Some(d) = projection_of(g, *i1) else {
+    let (field, s1, mut other) = match (projection_of(g, *i1), projection_of(g, *i2)) {
+        (Some(f), _) => (f, s1, b.clone()),
+        (None, Some(f)) => (f, s2, a.clone()),
+        (None, None) => return Ok(None),
+    };
+    let s2 = 'found: {
+        for _ in 0..=UNFOLD_STEPS {
+            let Value::Call(id, args, _) = &other else {
+                return Ok(None);
+            };
+            if is_call_field(args) {
+                return Ok(None);
+            }
+            if projection_of(g, *id) == Some(field) {
+                break 'found args.clone();
+            }
+            other = unfold_once(g, *id, args.clone())?;
+        }
         return Ok(None);
     };
-    let np = g.data(d).params().len();
+    let np = g.data(field.0).params().len();
     if np == 0
         || s1.len() != np + 1
         || s2.len() != np + 1
-        || !(may_mention_meta(s1) || may_mention_meta(s2))
+        || !(may_mention_meta(s1) || may_mention_meta(&s2))
     {
         return Ok(None);
     }
@@ -2391,24 +2412,23 @@ fn same_field_calls(g: &Unifier<'_>, level: usize, a: &Value, b: &Value) -> Resu
     }
 }
 
-/// The record type of `id`, if it is a record's generated projection: one
-/// `case` on its last parameter, a value of a type with eta, giving one of
-/// the fields.
-fn projection_of(g: &Unifier<'_>, id: DefId) -> Option<stitchwort_core::DataId> {
+/// The record type of `id` and the field it gives, if it is a record's
+/// generated projection: one `case` on its last parameter, a value of a
+/// type with eta, giving one of the fields.
+fn projection_of(g: &Unifier<'_>, id: DefId) -> Option<(stitchwort_core::DataId, usize)> {
     let mut body = g.def(id).body()?.strip_loc();
     while let Term::Lam(_, _, b) = body {
         body = b.strip_loc();
     }
     match body {
-        Term::Case(0, d, branches)
-            if is_eta_type(&g.ev, *d)
-                && branches.len() == 1
-                && branches[0]
-                    .body
-                    .as_deref()
-                    .is_some_and(|t| matches!(t.strip_loc(), Term::Var(_))) =>
-        {
-            Some(*d)
+        Term::Case(0, d, branches) if is_eta_type(&g.ev, *d) && branches.len() == 1 => {
+            let branch = &branches[0];
+            match branch.body.as_deref().map(Term::strip_loc) {
+                Some(Term::Var(k)) if *k < branch.names.len() => {
+                    Some((*d, branch.names.len() - 1 - k))
+                }
+                _ => None,
+            }
         }
         _ => None,
     }

@@ -5,7 +5,7 @@
 namespace Aoc.Year2021.Day16.Proofs
 import Aoc.Year2021.Day16 (..)
 import Aoc.Year2021.Day16.Spec (..)
-import Std (Bool, Decidable, Eq, Exists, Fail, List, Nat, NonEmptyList, Option, Result, Text, Void)
+import Std (Bool, DecEq, Decidable, Eq, Exists, Fail, List, Nat, NonEmptyList, Option, Result, Text, Void)
 
 theorem versionSumTotal (packet: Packet): versionSum packet = (packetsIn packet).sumBy versionOf :=
   match packet with
@@ -67,9 +67,9 @@ theorem comparisonCompares (comparison: Comparison) (first: Nat) (second: Nat): 
         | True => Less first second (omega [h])
         | False => NotLess first second (omega [h])
     | EqualTo =>
-      match Nat.decEq first second with
-        | Yes same => rewrite same in Equal second
-        | No different => NotEqual first second different
+      match h: first == second with
+        | True => rewrite DecEq.sound h in Equal second
+        | False => NotEqual first second (DecEq.soundFalse first second h)
 
 --| Part 2: a well-formed packet has the value the program computes.
 theorem evaluateCorrect (packet: Packet) (formed: wellFormed packet = True): HasValue packet (evaluate packet) :=

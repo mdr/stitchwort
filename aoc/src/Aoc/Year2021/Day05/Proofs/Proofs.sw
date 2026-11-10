@@ -8,7 +8,7 @@ namespace Aoc.Year2021.Day05.Proofs
 import Aoc.Common (..)
 import Aoc.Year2021.Day05 (..)
 import Aoc.Year2021.Day05.Spec (..)
-import Std (And, Bool, Eq, Exists, Iff, List, Map, Nat, Pair, Void)
+import Std (And, Bool, DecEq, Eq, Exists, Iff, List, Map, Nat, Pair, Void)
 
 --| The answers.
 
@@ -125,11 +125,7 @@ theorem pointStep (line: Line) (shape: (horizontalOrVertical line ∨ diagonal l
 --| A point is another when both coordinates are the same.
 theorem Point.beqMk (x: Nat) (y: Nat) (point: Point): (({ x, y }: Point) == point) = (x == point.x ∧ y == point.y) :=
   match point with
-    | { x = px, y = py } =>
-      match Nat.decEq x px, Nat.decEq y py with
-        | Yes p, Yes q => rfl
-        | Yes p, No r => rfl
-        | No r, dq => rfl
+    | { x = px, y = py } => rfl
 
 -- One coordinate at a time.
 
@@ -182,16 +178,18 @@ theorem pointLinear (x1: Nat) (y1: Nat) (x2: Nat) (y2: Nat) (i: Nat) (x: Nat) (y
     (hi: i ≤ Nat.max (x1.absDiff x2) (y1.absDiff y2)):
     (towards x1 x2 i == x ∧ towards y1 y2 i == y)
       = ((between x1 x x2 ∧ between y1 y y2 ∧ ((x1 == x2 ∨ y1 == y2) ∨ x1.absDiff x == y1.absDiff y)) ∧ i == Nat.max (x1.absDiff x) (y1.absDiff y)) :=
-  match Nat.decEq x1 x2 with
-    | Yes hv =>
+  match vertical: x1 == x2 with
+    | True =>
+      let hv := DecEq.sound vertical
       rewrite towardsFixed x1 x2 i x hv, towardsEq y1 y2 i y (stepsFixedLeft x1 x2 _ i hv hi) in
       combineVertical i (betweenFixed x1 x x2 hv)
-    | No nv =>
-      match Nat.decEq y1 y2 with
-        | Yes hh =>
+    | False =>
+      match horizontal: y1 == y2 with
+        | True =>
+          let hh := DecEq.sound horizontal
           rewrite towardsEq x1 x2 i x (stepsFixedRight y1 y2 _ i hh hi), towardsFixed y1 y2 i y hh in
           combineHorizontal i (betweenFixed y1 y y2 hh)
-        | No nh =>
+        | False =>
           let same := diagonalSame x1 x2 y1 y2 shape
           let bounded := stepsDiagonal same hi
           rewrite towardsEq x1 x2 i x bounded, towardsEq y1 y2 i y (rewrite <- same in bounded) in
@@ -219,13 +217,15 @@ theorem coversLinear (x1: Nat) (y1: Nat) (x2: Nat) (y2: Nat) (x: Nat) (y: Nat)
     (between x1 x x2 ∧ between y1 y y2 ∧ x1.absDiff x * y1.absDiff y2 == y1.absDiff y * x1.absDiff x2)
       = (between x1 x x2 ∧ between y1 y y2 ∧ ((x1 == x2 ∨ y1 == y2) ∨ x1.absDiff x == y1.absDiff y)) :=
   bothThen _ _ (bx by =>
-    match Nat.decEq x1 x2 with
-      | Yes hv =>
+    match vertical: x1 == x2 with
+      | True =>
+        let hv := DecEq.sound vertical
         rewrite productZeroLeft (Nat.absDiff x1 x) (Nat.absDiff y1 y) (Nat.absDiff x1 x2) (Nat.absDiff y1 y2) (betweenFixed x1 x x2 hv bx) (absDiffFixed x1 x2 hv) in rfl
-      | No nv =>
-        match Nat.decEq y1 y2 with
-          | Yes hh =>
+      | False =>
+        match horizontal: y1 == y2 with
+          | True =>
+            let hh := DecEq.sound horizontal
             rewrite productZeroRight (Nat.absDiff x1 x) (Nat.absDiff y1 y) (Nat.absDiff x1 x2) (Nat.absDiff y1 y2) (betweenFixed y1 y y2 hh by) (absDiffFixed y1 y2 hh) in rfl
-          | No nh =>
+          | False =>
             let same := diagonalSame x1 x2 y1 y2 shape
-            rewrite <- same in Nat.mulRightCancelBool (absDiffPositive x1 x2 nv))
+            rewrite <- same in Nat.mulRightCancelBool (absDiffPositive x1 x2 (DecEq.soundFalse x1 x2 vertical)))

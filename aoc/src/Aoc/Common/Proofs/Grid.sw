@@ -73,13 +73,13 @@ theorem adjacentStep (position next: Position) (near: adjacent position next = T
         (sameRow =>
           let rows: row = r := DecEq.sound (Bool.andLeft sameRow)
           Bool.orElim (Bool.andRight sameRow)
-            (right => rewrite <- rows, <- DecEq.sound right in Witness Right rfl)
-            (left => rewrite <- rows, <- DecEq.sound left in Witness Left rfl))
+            (right => rewrite <- rows, <- DecEq.sound [x := column + 1] [y := c] right in Witness Right rfl)
+            (left => rewrite <- rows, <- DecEq.sound [x := c + 1] [y := column] left in Witness Left rfl))
         (sameColumn =>
           let columns: column = c := DecEq.sound (Bool.andLeft sameColumn)
           Bool.orElim (Bool.andRight sameColumn)
-            (down => rewrite <- columns, <- DecEq.sound down in Witness Down rfl)
-            (up => rewrite <- columns, <- DecEq.sound up in Witness Up rfl))
+            (down => rewrite <- columns, <- DecEq.sound [x := row + 1] [y := r] down in Witness Down rfl)
+            (up => rewrite <- columns, <- DecEq.sound [x := r + 1] [y := row] up in Witness Up rfl))
 
 --| The neighbours are the positions a step away...
 theorem memNeighbours (position: Position) (next: Position): (next ∈ position.neighbours) ↔ (∃ (direction: Direction) => position.step direction = Some next) := {
