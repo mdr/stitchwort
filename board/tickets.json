@@ -14830,14 +14830,14 @@
     {
       "id": 1818,
       "title": "[Sonnet] Kept search session leak: each probe reruns failing theorems' counterexample searches and appends a log the rewind never removes; turn counterexamples off in probe sessions (also faster) or cut the log on rewind",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "lsp"
       ],
       "epic": "editor-playground",
-      "body": "From SW-1808's review (docs/reviews/SW-1808-kept-search-session.md, finding 1). Expected: 45 min. Ready now.\n\nAbsorbed by SW-1937 (the tactics review's counterexample lane).\n\n\nAbsorbed by SW-1937 (lane/SW-1937): the log is returned, not pushed, so the kept session no longer grows.\n",
+      "body": "From SW-1808's review (docs/reviews/SW-1808-kept-search-session.md, finding 1). Expected: 45 min. Ready now.\n\nAbsorbed by SW-1937 (the tactics review's counterexample lane).\n\n\nAbsorbed by SW-1937 (lane/SW-1937): the log is returned, not pushed, so the kept session no longer grows.\nModel result: Sonnet, needed fixes (type_hash ignored non-final refs; backstop measured and set to 500 ms by the orchestrator), ~80 min (est. 80).",
       "created": "2026-11-07",
       "updated": "2026-11-10",
       "commits": []
@@ -16621,14 +16621,14 @@
     {
       "id": 1937,
       "title": "[Sonnet] Counterexample search in the editor: return its log instead of pushing it (ends SW-1818's leak), remember results per statement for the session, stop by input count with time as a backstop, start the timer after building the checker",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1937",
       "labels": [
         "tactics"
       ],
       "epic": "proof-automation",
-      "body": "From docs/reviews/code-review-elab-tactics.md (F4-F6). D2700 [rec: yes]. 60-90 min. Absorbs SW-1818.\n\n\nLane notes (Sonnet, 10 Nov 2026, SW-1937 with SW-1818): counterexample_note returns the SearchLog instead of pushing it; the session log is filled only under the test option log_counterexamples. Chose the memo over turning searches off in probes (the brief asks for the memo): per-session memo keyed by core::hash::type_hash plus names, bounded to 256, kept across rewinds. ON_FAILURE time is now a 2000 ms backstop (inputs end it); timer starts after the build (F6). Examples filter and counterexamples tests pass, snapshots unchanged.\n",
+      "body": "From docs/reviews/code-review-elab-tactics.md (F4-F6). D2700 [rec: yes]. 60-90 min. Absorbs SW-1818.\n\n\nLane notes (Sonnet, 10 Nov 2026, SW-1937 with SW-1818): counterexample_note returns the SearchLog instead of pushing it; the session log is filled only under the test option log_counterexamples. Chose the memo over turning searches off in probes (the brief asks for the memo): per-session memo keyed by core::hash::type_hash plus names, bounded to 256, kept across rewinds. ON_FAILURE time is now a 2000 ms backstop (inputs end it); timer starts after the build (F6). Examples filter and counterexamples tests pass, snapshots unchanged.\nModel result: Sonnet, needed fixes (type_hash ignored non-final refs; backstop measured and set to 500 ms by the orchestrator), ~80 min (est. 80).",
       "created": "2026-11-07",
       "updated": "2026-11-10",
       "commits": []
