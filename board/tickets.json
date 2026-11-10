@@ -27735,14 +27735,14 @@
     {
       "id": 2670,
       "title": "docs/core.md: add Proj, its typing rule and record eta; natives pinned by content hash, not type only (core.md:307); update the status line (D3210; SW-2659 F4, F5, F7)",
-      "status": "doing",
+      "status": "review",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-2670",
       "labels": [
         "paper"
       ],
       "epic": "elaborator-kernel",
-      "body": "From SW-2659 (10 Nov 2026). Opus paper lane. Est. 60 min.",
+      "body": "From SW-2659 (10 Nov 2026). Opus paper lane. Est. 60 min.\n\n10 Nov 10:55: done (about 5 min). core.md: `Proj` term and typing rule (`infer_proj`), new \"Record eta\" subsection (`qualifies_for_eta`'s six conditions, projection, rule 1 in `conv`, rule 2 in `value::branch`, the unifier's variant), records flag no longer \"never affects checking\", unfolding policy mentions rule 2; numbers' Trust paragraph rewritten for `pins.rs` (stale pin refuses the library with E-BUILTIN; unpinned only under test-bypass), `NAT_ADD_HASH` and the float paragraph's `FLOAT_DATA_HASH`/`NATIVE_HASHES` (both gone) replaced by the pins, E-BUILTIN's row covers stale pins; status line 10 Nov.\n",
       "created": "2026-11-10",
       "updated": "2026-11-10",
       "commits": []
