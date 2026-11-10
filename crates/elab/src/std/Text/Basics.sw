@@ -87,6 +87,20 @@ def Text.trim (text: Text): Text := MkText (List.reverseOnto (Text.dropSpaces (L
 --| The value of an ASCII digit: `Char.digitValue '7'` is `Some 7`, and a non-digit gives `None`.
 def Char.digitValue (char: Char): Option Nat := if Nat.leq 48 (Char.toNat char) then (if Nat.leq (Char.toNat char) 57 then Some (Char.toNat char - 48) else None) else None
 
+--| Whether a character is an ASCII digit, `0` to `9`: `Char.isAsciiDigit '7'` is `True`.
+--| It is a range test on the code, with no `Option` to unpack;
+--| [`Char.isAsciiDigitDigitValue`] says it agrees with `Char.digitValue`.
+def Char.isAsciiDigit (char: Char): Bool := 48 <= char.toNat <= 57
+
+--| `Char.isAsciiDigit` holds exactly when `Char.digitValue` gives a value.
+theorem Char.isAsciiDigitDigitValue (char: Char): char.isAsciiDigit = char.digitValue.isSome :=
+  match low: Nat.leq 48 char.toNat with
+    | True =>
+      match high: Nat.leq char.toNat 57 with
+        | True => rfl
+        | False => rfl
+    | False => rfl
+
 --| The number the ASCII digits spell, after the digits already read (`acc`); `None` at a non-digit.
 def Text.readDigits (acc: Nat): (chars: List Char) → Option Nat
   | [] => Some acc

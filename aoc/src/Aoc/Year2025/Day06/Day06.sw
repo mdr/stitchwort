@@ -101,11 +101,9 @@ def worksheetError (lines: List Text): Option Text :=
   else if (lines.last.map .trim) == Some "" then
     Some "line ${lines.length}: expected the operator row, got a blank line"
   else
-    (lines.init.withIndex.findMap (((index, row)) => characterError row (index + 1) "a digit" isDigit))
+    (lines.init.withIndex.findMap (((index, row)) => characterError row (index + 1) "a digit" .isAsciiDigit))
       |> .orElse (lines.last.flatMap (row => characterError row lines.length "+ or *" isOperator))
       |> .orElse (blockError lines)
-
-def isDigit (ch: Char): Bool := ch.digitValue.isSome
 
 def isOperator (ch: Char): Bool := Operator.parse ch |> .isSome
 
