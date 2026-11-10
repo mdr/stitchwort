@@ -26584,9 +26584,9 @@
     {
       "id": 2605,
       "title": "effect_differential::a_batch_the_checker_cannot_finish_stops_at_the_deadline depends on seed 1794200310 checking slowly (now ~4 s vs a 1 s deadline); give it an input that is slow by construction",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Sonnet",
-      "where": "",
+      "where": ".claude/worktrees/SW-2605",
       "labels": [],
       "epic": "test-infra",
       "body": "From SW-2572's Opus review (F6), 10 Nov. Small.",
