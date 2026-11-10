@@ -26465,12 +26465,12 @@
     {
       "id": 2597,
       "title": "Elab fuzzer seed 0x2582 cases 16837 (a parse error) and 16869 (a type mismatch) take 6-13 s in the CLI at ~150 MB: profile where a parse error spends 13 s",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2597",
       "labels": [],
       "epic": "diagnostics",
-      "body": "From SW-2582's report, 10 Nov. Inputs: target/fuzz-elab/ after task fuzz:elab CASES=20000 SEED=0x2582 ONLY=16837 DUMP=1 (case numbers as of main d273ebffe; they move when the examples corpus changes).",
+      "body": "From SW-2582's report, 10 Nov. Inputs: target/fuzz-elab/ after task fuzz:elab CASES=20000 SEED=0x2582 ONLY=16837 DUMP=1 (case numbers as of main d273ebffe; they move when the examples corpus changes).\n\nClosed 10 Nov, not reproduced: both inputs check in 0.2-0.3 s at 84-89 MB on main 4ea4d1146 (also under load ~40). Likely fixed by SW-2582/SW-2569's size and note caps. Model result: Sonnet, worked (no change needed), 2 min (est. 45).",
       "created": "2026-11-10",
       "updated": "2026-11-10",
       "commits": []
