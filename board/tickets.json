@@ -27087,7 +27087,7 @@
     {
       "id": 2627,
       "title": "[Sonnet] Rename R1: references a rename can trust: punned fields, import aliases, qualified names (trailing component), decreasing and default expressions walked, named arguments and [n := k] patterns linked to their parameter, doc link ranges",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2627",
       "labels": [
@@ -27095,7 +27095,7 @@
         "refactoring"
       ],
       "epic": "editor-playground",
-      "body": "docs/proposals/refactoring.md §1.2 and §5 (SW-2626). D3467 (Matt, 10 Nov 2026): yes, build rename first (R1-R4), with an apply-anyway mode and a CLI rename for agents. Each fix with a fixture whose references are checked; improves find references today. Est. 120 min.",
+      "body": "docs/proposals/refactoring.md §1.2 and §5 (SW-2626). D3467 (Matt, 10 Nov 2026): yes, build rename first (R1-R4), with an apply-anyway mode and a CLI rename for agents. Each fix with a fixture whose references are checked; improves find references today. Est. 120 min.\nDone (10 Nov): LiveRef/nav::Ref gain name_range, alias, pun; decreasing measures and defaults walked; named arguments linked to the parameter binder or constructor field (project callees only); doc links are refs. Gaps left: named args to library callees and method sections; a constructor field's uses inside the constructor's type; docs of fields/constructors/namespaces; no f.eq2 fixture.\nModel result: Sonnet, worked, 20 min (est. 120).",
       "created": "2026-11-10",
       "updated": "2026-11-10",
       "commits": []
