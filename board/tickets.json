@@ -1,5 +1,5 @@
 {
-  "next": 2732,
+  "next": 2733,
   "tickets": [
     {
       "id": 47,
@@ -28566,12 +28566,25 @@
     {
       "id": 2731,
       "title": "Daily tier 10 Nov 17:51 (73f08bc75): 6 nextest failures + 4 debug builtins tests; tests pinning std source text and lines moved by the theorem-binder and cases sweeps; builtins:: E-RESOURCE recursion depth in debug",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": ".claude/worktrees/scratch-sw-2731",
       "labels": [],
       "epic": "test-infra",
-      "body": "Daily tier report target/tier-report/daily-20261110-175135.md; log in orchestrator scratchpad daily-1110b.log. Stale text: doc.rs:100/144/571 (Toolkit.sw line 237→238), check_cache.rs:633 (Option.map arms text), search_at_aoc.rs:558 (Day18 Reduced.sw arm), server search::what_closes_a_goal (snapshot). Real?: library builtins:: (debug profile) four tests fail E-RESOURCE 'recursed more deeply than allowed' at builtins.rs:274.",
+      "body": "Daily tier report target/tier-report/daily-20261110-175135.md; log in orchestrator scratchpad daily-1110b.log. Stale text: doc.rs:100/144/571 (Toolkit.sw line 237→238), check_cache.rs:633 (Option.map arms text), search_at_aoc.rs:558 (Day18 Reduced.sw arm), server search::what_closes_a_goal (snapshot). Real?: library builtins:: (debug profile) four tests fail E-RESOURCE 'recursed more deeply than allowed' at builtins.rs:274.\nFixed (DeepSeek): stale pins updated (doc.rs now finds the line by name); builtins:: depth caused by SW-2690's binder move in List.foldMinByFirst (3.6 KB over the debug 1.5 MiB budget), fixed by binding a lambda with let. Diagnosis confirmed by restoring the old text.\nModel result: DeepSeek v4.1 Flash, worked, ~45 min (est. 60).",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
+    },
+    {
+      "id": 2732,
+      "title": "Elaboration stack use is fragile: List.foldMinByFirst went 3.6 KB over the debug build's 1.5 MiB budget after only moving binders before the colon (SW-2731); measure stack per frame in check/elab of nested constructor arguments, and whether debug-only builtins tests should run with_stack",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "From SW-2731 (10 Nov 2026). A lambda nested in three constructor arguments; a let fixed it. Investigate in lanes mode (Sonnet or Opus).",
       "created": "2026-11-10",
       "updated": "2026-11-10",
       "commits": []
