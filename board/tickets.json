@@ -26842,9 +26842,9 @@
     {
       "id": 2621,
       "title": "search_at_on_real_2021_goals panics on main: value.rs:3277 'variable at level 3 read back with 2 in scope' (STITCHWORT_AT_BENCH_ONLY=Day13/Proofs/Fold, Proofs/Answers, Day1). Likely one of 9-10 Nov's merges (search hole typing SW-2590, mismatch notes SW-2598/2600/2602, predicate flags SW-2592): bisect and fix",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Opus",
-      "where": "",
+      "where": ".claude/worktrees/SW-2621",
       "labels": [],
       "epic": "proof-search",
       "body": "From SW-2617, 10 Nov 04:20. Repro: STITCHWORT_TIER=daily STITCHWORT_AT_BENCH_ONLY=Day13/Proofs/Fold cargo test -p stitchwort-driver --test search_at_aoc search_at_on_real_2021_goals (22 s debug).",
