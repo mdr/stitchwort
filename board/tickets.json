@@ -28423,9 +28423,9 @@
     {
       "id": 2720,
       "title": "REPL :t prints e: T",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": ".claude/worktrees/scratch-sw-2720",
       "labels": [],
       "epic": "editor-playground",
       "body": "From SW-2707 (Software Foundations port, 10 Nov 2026); docs/reviews/SW-2707-software-foundations-port.md §11.",
@@ -28516,15 +28516,17 @@
     {
       "id": 2727,
       "title": "stitchwort hash prints nothing and exits 0 when the project doesn't check; report the errors",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": ".claude/worktrees/scratch-sw-2727",
       "labels": [],
       "epic": "test-infra",
-      "body": "From SW-2698 (10 Nov 2026).",
+      "body": "From SW-2698 (10 Nov 2026).\nDone 10 Nov (DeepSeek): hash checks the project first (cached) and, if it has errors or open goals, prints check's diagnostics on stderr and exits 1; test hash_reports_the_errors_that_stop_a_project_checking. Orchestrator's call: the extra check pass on a clean project is accepted (hidden dev tool, cached).\nModel result: DeepSeek, worked, 30 min (est. 30).",
       "created": "2026-11-10",
       "updated": "2026-11-10",
-      "commits": []
+      "commits": [
+        "6159a483f"
+      ]
     },
     {
       "id": 2728,
