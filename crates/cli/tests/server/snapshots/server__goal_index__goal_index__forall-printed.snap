@@ -14,7 +14,7 @@ expression: json
         },
         {
           "name": "all",
-          "type": "(n: Nat) → p n"
+          "type": "∀ (n: Nat) => p n"
         },
         {
           "name": "comm",
@@ -29,21 +29,29 @@ expression: json
           "type": "∀ [n: Nat] => n = n"
         },
         {
+          "name": "q",
+          "type": "Nat → Type"
+        },
+        {
+          "name": "bad",
+          "type": "(n: Nat) → q n"
+        },
+        {
           "name": "f",
           "type": "(n: Nat) → Vec Nat n"
         }
       ],
-      "lemma": "theorem shownGoal1 (p: Nat → Prop) (all: (n: Nat) → p n) (comm: ∀ (a b: Nat) => a + b = b + a) (positive: ∀ (n: Nat) => 0 < n → Positive n) (hidden: ∀ [n: Nat] => n = n) (f: (n: Nat) → Vec Nat n): ∀ (xs ys: List Nat) => (xs ++ ys).length = xs.length + ys.length := ?",
+      "lemma": "theorem shownGoal1 (p: Nat → Prop) (all: ∀ (n: Nat) => p n) (comm: ∀ (a b: Nat) => a + b = b + a) (positive: ∀ (n: Nat) => 0 < n → Positive n) (hidden: ∀ [n: Nat] => n = n) (q: Nat → Type) (bad: (n: Nat) → q n) (f: (n: Nat) → Vec Nat n): ∀ (xs ys: List Nat) => (xs ++ ys).length = xs.length + ys.length := ?",
       "target": "∀ (xs ys: List Nat) => (xs ++ ys).length = xs.length + ys.length"
     },
     "labels": [
       {
         "file": 0,
-        "message": "p: Nat → Prop\nall: (n: Nat) → p n\ncomm: ∀ (a b: Nat) => a + b = b + a\npositive: ∀ (n: Nat) => 0 < n → Positive n\nhidden: ∀ [n: Nat] => n = n\nf: (n: Nat) → Vec Nat n\n⊢ ∀ (xs ys: List Nat) => (xs ++ ys).length = xs.length + ys.length",
+        "message": "p: Nat → Prop\nall: ∀ (n: Nat) => p n\ncomm: ∀ (a b: Nat) => a + b = b + a\npositive: ∀ (n: Nat) => 0 < n → Positive n\nhidden: ∀ [n: Nat] => n = n\nq: Nat → Type\nbad: (n: Nat) → q n\nf: (n: Nat) → Vec Nat n\n⊢ ∀ (xs ys: List Nat) => (xs ++ ys).length = xs.length + ys.length",
         "range": [
-          18,
+          21,
           72,
-          18,
+          21,
           73
         ]
       }
@@ -51,9 +59,9 @@ expression: json
     "message": "in `shown`",
     "notes": [],
     "range": [
-      18,
+      21,
       72,
-      18,
+      21,
       73
     ],
     "severity": "goal"

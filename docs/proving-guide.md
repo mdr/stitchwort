@@ -72,9 +72,10 @@ the colon: `(all: ∀ (x: a) => x ∈ xs → p x)`, `theorem t: ∀ (n: Nat) => 
 introduced as before (`all x mem`, `n => …`). A theorem's parameters before
 the colon stay parameters, `theorem plusZero (n: Nat): n + 0 = n`, and a
 function type that isn't a proposition stays an arrow, `(n: Nat) → Vec Nat
-n`. Goals print a quantified proposition with `∀` too, unless its result is
-a variable applied to arguments (`(x: a) → p x`), which the printer can't
-tell is a proposition. Write an ability row's result type
+n`. Goals print a quantified proposition with `∀` too, including one whose
+result is a hypothesis's predicate applied to arguments (`∀ (x: a) => p x`,
+with `p: a → Prop`). Messages, which have no types for the variables, show
+that as `(x: a) → p x`. Write an ability row's result type
 without parentheses: `{Fail} List Nat`, not `{Fail} (List Nat)` (D2307).
 Build and match lists with brackets: `[x, ..xs]` and `[a, b, ..rest]`,
 not `Cons x xs` (D2324); `Cons` stays only where it's used as a function

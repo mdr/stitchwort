@@ -604,6 +604,29 @@ impl Elaborator {
         }
     }
 
+    /// By level, whether each variable of the context (shown or `hidden`)
+    /// has a type ending in `Prop`, for the printer to write a quantifier
+    /// over `p n` as `∀`.
+    fn predicate_flags(
+        &self,
+        depth: usize,
+        context: &[Entry],
+        hidden: &[(usize, Value)],
+    ) -> Vec<bool> {
+        let g = &self.ev();
+        let mut flags = vec![false; depth];
+        let typed = context
+            .iter()
+            .map(|e| (e.level, &e.ty))
+            .chain(hidden.iter().map(|(l, t)| (*l, t)));
+        for (level, ty) in typed {
+            if level < depth {
+                flags[level] = pretty::is_predicate_type(g, level, ty);
+            }
+        }
+        flags
+    }
+
     /// `context` printed, each type with the alias it was named by, if any
     /// (`counts: Counts`, SW-858).
     fn print_hypotheses(
@@ -613,7 +636,8 @@ impl Elaborator {
         context: &[Entry],
     ) -> Vec<Hypothesis> {
         let g = &self.ev();
-        let show = |v: &Value| pretty::value_for_goal(g, scope, names, v);
+        let predicates = self.predicate_flags(names.len(), context, &[]);
+        let show = |v: &Value| pretty::value_for_goal(g, scope, names, &predicates, v);
         context
             .iter()
             .map(|e| Hypothesis {
@@ -746,7 +770,8 @@ impl Elaborator {
         };
         let was = g.machine.glue.replace(self.gluing());
         let locals = self.print_hypotheses(&scope, &p.names, &p.context);
-        let ty = pretty::value_for_goal(g, &scope, &p.names, &p.ty);
+        let predicates = self.predicate_flags(p.names.len(), &p.context, &[]);
+        let ty = pretty::value_for_goal(g, &scope, &p.names, &predicates, &p.ty);
         g.machine.glue.set(was);
         self.goals.borrow_mut().probe.found = Some(ContextAt {
             span: p.span,
@@ -762,7 +787,8 @@ impl Elaborator {
             e: self,
             span: p.span,
         };
-        let show = |v: &Value| pretty::value_for_goal(g, &scope, &p.names, v);
+        let predicates = self.predicate_flags(p.names.len(), &p.context, &p.hidden);
+        let show = |v: &Value| pretty::value_for_goal(g, &scope, &p.names, &predicates, v);
         let hypotheses = self.print_hypotheses(&scope, &p.names, &p.context);
         let mut lines: Vec<String> = hypotheses
             .iter()

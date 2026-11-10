@@ -328,7 +328,8 @@ impl Elaborator {
             g.store.solve_meta(*m, Value::var(i));
         }
         let names: Vec<Name> = vars.iter().map(|(n, _)| n.clone()).collect();
-        let shown = force(g, value.clone()).map(|v| pretty::value_for_goal(g, self, &names, &v));
+        let shown =
+            force(g, value.clone()).map(|v| pretty::value_for_goal(g, self, &names, &[], &v));
         crate::unify::undo_since(g, mark);
         shown
     }
