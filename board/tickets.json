@@ -27794,7 +27794,7 @@
     {
       "id": 2674,
       "title": "Kernel: a data type becomes final with an index type that mentions a failed declaration",
-      "status": "review",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-2674",
       "labels": [
@@ -27809,7 +27809,7 @@
     {
       "id": 2675,
       "title": "Kernel: a data type's parameter types aren't checked for case outside a case tree",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
