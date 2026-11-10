@@ -1,5 +1,5 @@
 {
-  "next": 2646,
+  "next": 2647,
   "tickets": [
     {
       "id": 47,
@@ -27381,6 +27381,21 @@
       ],
       "epic": "editor-playground",
       "body": "From SW-2629 (10 Nov 2026): a rename in AoC Day 2 in the playground took ~130 s. SW-2634 (rewind only dependants) is the main speed fix. Est. 60 min.",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
+    },
+    {
+      "id": 2646,
+      "title": "[Sonnet] Closing write-up of the speed work (D3465): final section of docs/reviews/SW-2295-comparative-speed.md: where we started and ended, what moved the numbers and what didn't, top parked ideas with estimated gains; numbers from Overmind's final run",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "paper"
+      ],
+      "epic": "comparative-speed",
+      "body": "Final comparison (Overmind, 10 Nov 2026, commit 292a85385, runners native,cpython,pypy,lean, 64 answers ok, 2018 s; report on Overmind: target/compare/2026-11-10T095143-overmind.md). Geomeans by time, native/CPython and native/Lean (job 40, f9d2d8320, in brackets): core 1.82x, 7.67x [1.90x, 7.99x]; wide 0.31x, 2.60x [0.32x, 2.68x]; all 15 1.01x, 5.35x [1.04x, 5.55x]. Moved >10% since job 40: binary-trees 2.70 -> 2.14 s (-21%), memory-game 2.85 -> 2.42 s (-15%). No instruction table this time (job 40 had one: all 1.01x / 5.70x), probably no --instructions flag. JS backend not timed (SW-2636). Start after the session restart. Est. 40 min.",
       "created": "2026-11-10",
       "updated": "2026-11-10",
       "commits": []
