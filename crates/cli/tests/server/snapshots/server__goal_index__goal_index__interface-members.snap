@@ -1,5 +1,5 @@
 ---
-source: crates/cli/tests/goal_index.rs
+source: crates/cli/tests/server/goal_index.rs
 expression: json
 ---
 [
@@ -73,16 +73,16 @@ expression: json
         },
         {
           "name": "h",
-          "type": "(x == y) = True"
+          "type": "x == y"
         }
       ],
-      "lemma": "theorem equalSoundGoal1 (a: Type) (eq: DecEq a) (x: a) (y: a) (h: (x == y) = True): x = y := ?",
+      "lemma": "theorem equalSoundGoal1 (a: Type) (eq: DecEq a) (x: a) (y: a) (h: x == y): x = y := ?",
       "target": "x = y"
     },
     "labels": [
       {
         "file": 0,
-        "message": "a: Type\neq: DecEq a\nx: a\ny: a\nh: (x == y) = True\n⊢ x = y",
+        "message": "a: Type\neq: DecEq a\nx: a\ny: a\nh: x == y\n⊢ x = y",
         "range": [
           8,
           83,

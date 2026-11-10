@@ -1,5 +1,5 @@
 ---
-source: crates/cli/tests/goal_index.rs
+source: crates/cli/tests/server/goal_index.rs
 expression: json
 ---
 [
@@ -14,16 +14,16 @@ expression: json
         },
         {
           "name": "all",
-          "type": "next = True"
+          "type": "next"
         }
       ],
-      "lemma": "theorem shownGoal1 (next: Bool) (all: next = True): next = True := ?",
-      "target": "next = True"
+      "lemma": "theorem shownGoal1 (next: Bool) (all: next): next := ?",
+      "target": "next"
     },
     "labels": [
       {
         "file": 0,
-        "message": "next: Bool\nall: next = True\n⊢ next = True",
+        "message": "next: Bool\nall: next\n⊢ next",
         "range": [
           14,
           16,
