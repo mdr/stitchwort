@@ -75,10 +75,9 @@ pub const ON_AUDIT: Budget = Budget {
 /// The most inputs a search on a failing proof tries (§6.3).
 pub const MAX_INPUTS: usize = 2000;
 
-/// The wall-time backstop of a search on a failing proof (§6.3). Inputs
-/// normally end the search, so that a note doesn't vary with the machine's
-/// load (SW-1937, as `ON_AUDIT`).
-pub const TIME_LIMIT_MS: u64 = 2000;
+/// The wall-time backstop of a search on a failing proof (§6.3): long enough
+/// that inputs normally end it, short enough to bound a slow statement.
+pub const TIME_LIMIT_MS: u64 = 500;
 
 /// Evaluation steps one input may take on the fast runtime.
 pub const FAST_STEPS: u64 = 1_000_000;
