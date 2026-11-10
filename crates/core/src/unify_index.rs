@@ -30,7 +30,8 @@
 //! - **Conflict**: `ty` is a data type in `Type i`, and the sides are
 //!   different constructors. The branch is impossible.
 //! - Numbers are `Succ` of their predecessor, `k + x` is `Succ` applied `k`
-//!   times, and a compact list expands one cell, for both rules above.
+//!   times, and a compact list expands one cell, for both rules above. Two
+//!   numbers lose the `Succ`s they share in one step of injectivity.
 //! - **Anything else is stuck**: a type former on a side (types are never
 //!   taken apart, D139), an application that doesn't compute, an equation
 //!   between proofs (its type is a proposition, §6.3.2) that deletion and
@@ -45,6 +46,8 @@ use crate::ev::Ev;
 use crate::native;
 use crate::term::{Name, Sort, Term};
 use crate::value::{Elim, Head, Value, conv, eval, expand_step, force, quote};
+use num_bigint::BigUint;
+use num_traits::Zero;
 
 /// The context unification refines: what each variable stands for and its
 /// type (both by level), other values to keep refined along with them (a
@@ -248,6 +251,25 @@ pub fn unify<'g>(
         if data.sort == Sort::Prop {
             return stuck(Reason::Proof);
         }
+        // Two numbers with `Succ`s in common: injectivity on `Succ` that
+        // many times in one step. Each of those steps would push an entry of
+        // one binder, `Succ`'s field, solved by the next, and neither
+        // deletion nor solution could apply in between (both sides still
+        // start with `Succ`), so only the last entry is pushed: `2^128 =
+        // 2^128 - 1` is `1 = 0` at once, not after 2^128 entries (SW-2580).
+        if Some(d) == g.env.builtins().nat
+            && let Some(succ) = peel_succs(g, d, &lhs, &rhs)?
+        {
+            stack.last_mut().expect("an entry").solved += 1;
+            stack.push(Entry {
+                binders: &data.ctors[1].fields,
+                base: Vec::new(),
+                lhs: vec![succ.0],
+                rhs: vec![succ.1],
+                solved: 0,
+            });
+            continue;
+        }
         let (Some((cl, fields_l)), Some((cr, fields_r))) =
             (constructor(g, d, &lhs), constructor(g, d, &rhs))
         else {
@@ -270,6 +292,46 @@ pub fn unify<'g>(
 
 fn is_type_former(value: &Value) -> bool {
     matches!(value, Value::Data(..) | Value::Pi(..) | Value::Sort(_))
+}
+
+/// If `lhs` and `rhs`, forced values of type `Nat` (data type `d`), both
+/// start with `Succ` (a number above 0, `k + x`, a `Succ` constructor): both
+/// with the `Succ`s they have in common taken off, as repeated injectivity
+/// would, forced as each step of it would force them, but taking off as
+/// many as a number or a `k + x` holds at once.
+fn peel_succs(
+    g: &Ev,
+    d: crate::term::DataId,
+    lhs: &Value,
+    rhs: &Value,
+) -> Result<Option<(Value, Value)>> {
+    let succs = |v: &Value| match v {
+        Value::Nat(n) => (**n).clone(),
+        Value::NatAdd(k, _) => (**k).clone(),
+        Value::Ctor(d2, 1, fields) if *d2 == d && fields.len() == 1 => BigUint::from(1u32),
+        _ => BigUint::zero(),
+    };
+    // `count ≤` the `Succ`s `v` starts with.
+    let peel = |v: Value, count: &BigUint| -> Value {
+        match v {
+            Value::Nat(n) => native::nat_value(&*n - count),
+            Value::NatAdd(k, base) => native::from_view(&*k - count, Some((*base).clone())),
+            Value::Ctor(_, _, fields) => fields[0].clone(),
+            other => other,
+        }
+    };
+    let (mut lhs, mut rhs) = (lhs.clone(), rhs.clone());
+    let mut peeled = false;
+    loop {
+        let shared = succs(&lhs).min(succs(&rhs));
+        if shared.is_zero() {
+            return Ok(peeled.then_some((lhs, rhs)));
+        }
+        g.machine.budget.step()?;
+        lhs = force(g, peel(lhs, &shared))?;
+        rhs = force(g, peel(rhs, &shared))?;
+        peeled = true;
+    }
 }
 
 /// `value` as a constructor of data type `d` and its fields, if it is one:
