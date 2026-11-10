@@ -190,6 +190,11 @@ fn value_hidden(g: &Ev, scope: Option<&dyn NameScope>, names: &[Name], value: &V
     let mut ns = names.to_vec();
     let printer = Printer::new(g, scope);
     printer.show_hidden.set(true);
+    // As in `term_within`: a huge term is printed only to a depth, not in
+    // full and then cut.
+    if t.subterms().nth(FULL_PRINT_NODES).is_some() {
+        printer.max_depth.set(Some(10));
+    }
     let text = printer.print(&mut ns, &t, Prec::Arrow);
     if text.chars().count() <= MESSAGE_LIMIT * 2 {
         return text;
