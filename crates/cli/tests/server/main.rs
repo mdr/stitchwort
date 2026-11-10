@@ -6,6 +6,7 @@ mod goal_index;
 mod live_memory;
 mod lsp;
 mod navigation;
+mod rename;
 mod search;
 mod session;
 

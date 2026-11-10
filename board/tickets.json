@@ -27135,7 +27135,7 @@
     {
       "id": 2630,
       "title": "[Sonnet] Rename R3b: stitchwort rename on the CLI for agents: old name (or file:line:col) and new name, applies when the trial passes, --anyway applies regardless, --json lists what's left to fix (new errors, declarations whose meaning changed)",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2630",
       "labels": [
@@ -27143,7 +27143,7 @@
         "refactoring"
       ],
       "epic": "editor-playground",
-      "body": "D3467 (Matt, 10 Nov 2026). Needs R2 (SW-2628). Est. 60 min.",
+      "body": "D3467 (Matt, 10 Nov 2026). Needs R2 (SW-2628). Est. 60 min.\n\nProgress: built driver::rename (plan_rename, LiveProject::rename_plan) and stitchwort rename (exit 0 clean, 1 problems not written, 2 refused, 3 written with problems). Merged R1 and uses name_range/alias/pun. Tests: cli server rename:: (11), driver trial, examples pass. Docs in syntax.md and workflow.md.\n",
       "created": "2026-11-10",
       "updated": "2026-11-10",
       "commits": []

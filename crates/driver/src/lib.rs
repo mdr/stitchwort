@@ -18,6 +18,7 @@ pub mod live;
 pub mod marks;
 pub mod nav;
 pub mod project;
+pub mod rename;
 pub mod render;
 pub mod rewind;
 pub mod run;
