@@ -33,6 +33,15 @@
 //! `STITCHWORT_EFFECT_FUZZ_VERBOSE=1` prints each batch's seed as it starts
 //! and ends; a batch slower than `STITCHWORT_EFFECT_FUZZ_SLOW` seconds
 //! (default 60) is reported with its seed while it runs.
+//! `STITCHWORT_EFFECT_FUZZ_DUMP=dir` saves each batch's module as
+//! `dir/seed<N>.sw` (creating `dir`) before it is checked, so a hang, a
+//! crash or a generator bug still leaves the source to read or run:
+//!
+//! ```text
+//! STITCHWORT_EFFECT_FUZZ_DUMP=/tmp/fuzz STITCHWORT_EFFECT_FUZZ_SEED=43 \
+//!   STITCHWORT_EFFECT_FUZZ_BATCHES=1 nix develop -c task test:one -- \
+//!   generated_effect_programs_agree_on_every_backend
+//! ```
 
 use std::collections::BTreeMap;
 use std::fmt::Write as _;
