@@ -13,6 +13,9 @@
 //!
 //! `STITCHWORT_AT_BENCH_ONLY=Year2024/Day06` limits it to the goals whose
 //! file path contains that text (any tier but merge and lane).
+//! `STITCHWORT_AT_BENCH_SKIP=<n>` and `STITCHWORT_AT_BENCH_LIMIT=<n>` take a
+//! slice of those goals, to measure or bisect (the rate assertions then need
+//! not hold).
 //! `STITCHWORT_AT_BENCH_VERBOSE=1` prints each goal as it starts and, with
 //! its time, as it ends, to find the slow ones while it runs.
 
@@ -20,7 +23,7 @@ use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
-use stitchwort_driver::driver::{Session, Tier, par_map, tier};
+use stitchwort_driver::driver::{Session, Tier, par_map, par_map_with_at_most, tier};
 use stitchwort_driver::project::{DiskFiles, Entry, Files, project_sources};
 use stitchwort_driver::search_at::{AtOptions, GoalAt, Overlay, ProjectGoal};
 use stitchwort_syntax::ast::{Decl, Expr};
@@ -294,11 +297,23 @@ fn cases(files: &dyn Files) -> Vec<Case> {
     let mut sources = SourceMap::new();
     let found = project_sources(files, "aoc", &mut sources).expect("aoc reads");
     let only = std::env::var("STITCHWORT_AT_BENCH_ONLY").ok();
-    found
+    let mut cases: Vec<Case> = found
         .iter()
         .filter(|(p, _)| only.as_ref().is_none_or(|o| p.contains(o.as_str())))
         .flat_map(|(p, t)| cases_in(p, t))
-        .collect()
+        .collect();
+    let count = |name: &str| {
+        std::env::var(name)
+            .ok()
+            .and_then(|v| v.parse::<usize>().ok())
+    };
+    if let Some(n) = count("STITCHWORT_AT_BENCH_SKIP") {
+        cases.drain(..n.min(cases.len()));
+    }
+    if let Some(n) = count("STITCHWORT_AT_BENCH_LIMIT") {
+        cases.truncate(n);
+    }
+    cases
 }
 
 fn report(label: &str, outcomes: &[Outcome]) {
@@ -365,6 +380,9 @@ fn report(label: &str, outcomes: &[Outcome]) {
     }
 }
 
+/// Goals searched at once in [`search_at_on_aoc_goals`].
+const MAX_GOAL_WORKERS: usize = 3;
+
 /// Every one-lemma proof of the AoC project (a sample in daily), as a goal.
 #[test]
 fn search_at_on_aoc_goals() {
@@ -394,7 +412,16 @@ fn search_at_on_aoc_goals() {
     let mut outcomes = vec![stitchwort_driver::driver::with_stack(STACK, || {
         run(&first[0], &*files, &cache)
     })];
-    outcomes.extend(par_map(STACK, rest, |case| run(case, &*files, &cache)));
+    // Each goal holds a session with the project's files it imports, about
+    // 0.7 GB (measured: 5.7 GB on 8 workers, 1.5 GB on 2, SW-2614), so the
+    // pool is capped by memory, not by cores.
+    outcomes.extend(par_map_with_at_most(
+        STACK,
+        MAX_GOAL_WORKERS,
+        rest,
+        || (),
+        |(), case| run(case, &*files, &cache),
+    ));
     report("AoC theorems proved by one lemma or a closer", &outcomes);
     let lemmas = outcomes.iter().filter(|o| o.case.lemma.is_some()).count();
     let found = (outcomes.iter())

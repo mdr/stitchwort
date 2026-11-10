@@ -12,7 +12,8 @@
 //! skipped (reported).
 //!
 //! `FMT_HASHES=<text>` limits the run to the files and projects whose path
-//! contains it.
+//! contains it. `FMT_HASHES_SKIP=<n>` and `FMT_HASHES_LIMIT=<n>` run a slice
+//! of the standalone files (no projects), and the count check is off.
 
 use std::path::{Path, PathBuf};
 
@@ -31,6 +32,18 @@ const EXCLUDED: [&str; 4] = [
     "examples/soundness/",
     "examples/projects/reject/",
     "crates/fmt/tests/it/golden/",
+];
+
+/// Inputs left out because loading them is a resource runaway, not a
+/// formatting question: each is a fuzz finding whose size is the point, and
+/// together they held 4.5 GB and 1.7 GB at once (the full tier's 7.7 GB,
+/// SW-2614). Their parse and formatting are still checked by the formatter's
+/// own tests.
+const TOO_LARGE_TO_LOAD: [&str; 2] = [
+    // A `Fin` literal of 2^128 unfolds into that many `FSucc`s (SW-2467).
+    "dev/fuzz-findings/2468-12893.sw",
+    // `settle 2^128` builds a deep chain until the resource limit (SW-2468).
+    "dev/fuzz-findings/246f-2415.sw",
 ];
 
 /// Compiled into the compiler: not loadable as files.
@@ -203,6 +216,7 @@ fn formatting_changes_no_declaration_hash() {
     let all: Vec<String> = repo_files::repo_files(&root, &[".sw", "stitchwort.yaml"])
         .into_iter()
         .filter(|p| !EXCLUDED.iter().any(|e| p.starts_with(e)))
+        .filter(|p| !TOO_LARGE_TO_LOAD.contains(&p.as_str()))
         .collect();
 
     // Project roots: the folders of the tracked `stitchwort.yaml`s.
@@ -255,8 +269,23 @@ fn formatting_changes_no_declaration_hash() {
     // A corpus sweep: a fixed sample below the full tier, and the count of
     // files compared expected in proportion.
     let all = standalone.len();
-    let standalone = tier_sample(standalone, 8);
-    let projects = tier_sample(projects, 8);
+    let mut standalone = tier_sample(standalone, 8);
+    let mut projects = tier_sample(projects, 8);
+    // A slice of the standalone files, to measure or bisect; the projects
+    // are left out.
+    let env_count = |name: &str| {
+        std::env::var(name)
+            .ok()
+            .and_then(|v| v.parse::<usize>().ok())
+    };
+    if let Some(n) = env_count("FMT_HASHES_SKIP") {
+        standalone.drain(..n.min(standalone.len()));
+        projects.clear();
+    }
+    if let Some(n) = env_count("FMT_HASHES_LIMIT") {
+        standalone.truncate(n);
+        projects.clear();
+    }
 
     let mut failures = Vec::new();
     let (mut compared, mut not_loadable, mut refused) = (0, 0, 0);
@@ -294,7 +323,9 @@ fn formatting_changes_no_declaration_hash() {
         projects.len(),
     );
     assert!(failures.is_empty(), "{}", failures.join("\n"));
-    if only.is_empty() {
+    let sliced = std::env::var_os("FMT_HASHES_SKIP").is_some()
+        || std::env::var_os("FMT_HASHES_LIMIT").is_some();
+    if only.is_empty() && !sliced {
         assert!(
             compared > 100 * standalone.len() / all,
             "only {compared} files compared"
