@@ -571,6 +571,52 @@ fn nested_maps_check_in_work_polynomial_in_their_depth() {
     }
 }
 
+/// Checking `%` of a number with an unknown in it, `(x + k) % 2`, takes time
+/// linear in `k` (SW-2572). Its quotient `(x + k) / 2` is `k / 2` `Succ`s
+/// around a stuck step, and `%` multiplies it back; `*` took one `Succ` off
+/// a step and walked the rest of the chain each time to see it wasn't a
+/// number, so `k = 16000` took 10 s and the effect fuzzer's programs, with
+/// constants near a million, over ten minutes. Its time, not its steps, is
+/// what's measured: the walk took no steps, only forced calls already
+/// unfolded. `y` unknown takes the case tree one `Succ` at a time, which
+/// was quadratic for the same reason.
+#[test]
+#[cfg_attr(debug_assertions, ignore = "slow in a debug build")]
+fn remainders_of_long_numbers_check_in_linear_time() {
+    use std::time::{Duration, Instant};
+    let source = "import Std (Nat)\n\n\
+                  def remainder (x: Nat): Nat := if (x + 40000) % 2 == 0 then 1 else 2\n\
+                  def times (x: Nat) (y: Nat): Nat := if ((x + 40000) / 2) * y == 0 then 1 else 2\n\
+                  def twice (x: Nat): Nat :=\n  \
+                  let a := if (x + 40000) % 2 == 0 then 4 else 4\n  \
+                  if a % 2 == 0 then 1 else 2\n";
+    let mut session = Session::new();
+    let started = Instant::now();
+    let result = codes(session.load("long.sw", source));
+    let elapsed = started.elapsed();
+    assert!(result.is_empty(), "{result:?}");
+    eprintln!("remainders of long numbers: {elapsed:?}");
+    // Quadratic, this was minutes; linear, it's about a second, most of it
+    // loading the library.
+    assert!(elapsed < Duration::from_secs(10), "took {elapsed:?}");
+}
+
+/// `x * t` with `x` unknown is stuck on `x` at once, and `*`'s shortcut for
+/// unknowns (SW-2572) doesn't compute `t` either, as `Nat.mul`'s definition
+/// never looks at it then: `count 100000000` would take 10^8 steps.
+#[test]
+fn a_product_stuck_on_its_left_does_not_compute_its_right() {
+    let mut session = Session::new();
+    let before = session.elab.kernel.machine.budget.total_work();
+    let source = "def count: (n: Nat) → Nat\n  | Zero => 0\n  | Succ n => Succ (count n)\n\n\
+                  def f (x: Nat): Nat := x * count 100000000\n\n\
+                  theorem t (x: Nat): f x = x * count 100000000 := rfl\n";
+    let result = codes(session.load("stuck.sw", source));
+    assert!(result.is_empty(), "{result:?}");
+    let work = session.elab.kernel.machine.budget.total_work() - before;
+    assert!(work < 1_000_000, "{work} steps");
+}
+
 /// Whatever a check ran out of, the error says which declaration it was
 /// checking, and points at it (SW-843).
 #[test]

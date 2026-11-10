@@ -60,8 +60,7 @@ const WORK: u64 = 2_000_000_000;
 /// Evaluation steps the checker may take for one batch. Steps are the same
 /// on every run and under any machine load, so this, not time, is what stops
 /// a batch the checker can't finish: seed 1794200310 checked for over ten
-/// minutes within `WORK` (SW-2570), at about two million steps a second in a
-/// debug build. The slowest default batch (seed 43) takes 129 million, so
+/// minutes within `WORK` (SW-2570), until SW-2572. The slowest default batch (seed 43) takes 129 million, so
 /// this is three times that.
 const CHECK_WORK: u64 = 400_000_000;
 thread_local! {
@@ -2032,10 +2031,12 @@ fn generated_effect_programs_agree_on_every_backend() {
 }
 
 /// Seed 1794200310's batch (found by Overmind's run of 2000 batches from
-/// 1794200000, SW-2570) checks for over ten minutes: `p4b2`, a pure `Nat`
-/// function of lets over `if`s and `%` that repeat earlier variables, is
-/// exponential for the checker. It must stop at the step limit, as a skipped
-/// batch, not hang.
+/// 1794200000, SW-2570) is the most work known to check: between 40 and 160
+/// million steps, for `p4b2`'s `%` of numbers near a million with an unknown
+/// in them (it checked for over ten minutes before SW-2572 made `*` on a long
+/// run of `Succ`s linear). With the limit at 10 million it must stop there,
+/// as a skipped batch, not run on. A batch slow by construction would not
+/// depend on the checker staying this slow (SW-2605).
 #[test]
 fn a_batch_the_checker_cannot_finish_stops_at_the_step_limit() {
     let started = Instant::now();

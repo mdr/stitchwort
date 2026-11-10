@@ -723,6 +723,32 @@ pub fn view_with(g: &Ev, value: &Value, force: Force) -> budget::Result<(BigUint
     }
 }
 
+/// [`view_with`], but with the base as it was before forcing: as a case
+/// tree that peels the `Succ`s binds it, so a glued call in it stays the
+/// call. `None` for a number, as there.
+fn view_keeping(g: &Ev, value: &Value, force: Force) -> budget::Result<(BigUint, Option<Value>)> {
+    let mut k = BigUint::zero();
+    let mut unforced = value.clone();
+    let mut value = force(g, unforced.clone())?;
+    loop {
+        let next = match &value {
+            Value::Nat(n) => return Ok((k + &**n, None)),
+            Value::NatAdd(n, base) => {
+                k += &**n;
+                (**base).clone()
+            }
+            Value::Ctor(d, 0, _) if Some(*d) == g.env.builtins().nat => return Ok((k, None)),
+            Value::Ctor(d, 1, fields) if Some(*d) == g.env.builtins().nat && fields.len() == 1 => {
+                k += 1u32;
+                fields[0].clone()
+            }
+            _ => return Ok((k, Some(unforced))),
+        };
+        value = force(g, next.clone())?;
+        unforced = next;
+    }
+}
+
 /// The value for `k + base` (see [`view`]).
 pub fn from_view(k: BigUint, base: Option<Value>) -> Value {
     match base {
@@ -1015,6 +1041,43 @@ fn run_partial(
                 explicit(from_view(k2 - &shared, b2)),
             ])))
         }
+        // `mul (Succ m) n = n + mul m n`, so for a number `n`,
+        // `mul (k + m) n = k·n + mul m n`, stuck on `m`: what `k` steps of the
+        // case tree and `add`'s native make of it, in one step. One step at
+        // a time, each would walk the rest of a chain of `k` `Succ`s to find
+        // it isn't a number, which is quadratic in `k`: `(x + 16000) % 2`
+        // multiplies a quotient of 8000 `Succ`s around a stuck step (SW-2572).
+        // `m`'s head is looked at first: with no `Succ` there the case tree
+        // is stuck on `m` and never looks at `n`, so neither may this. Then
+        // `n`, so that a `y` that isn't a number leaves the chain unwalked
+        // (the case tree then peels it one `Succ` a step).
+        (Native::Mul, [m, n]) => {
+            let starts_with_succ = match force(g, (*m).clone())? {
+                Value::NatAdd(..) => true,
+                Value::Ctor(d, 1, _) => Some(d) == g.env.builtins().nat,
+                _ => false,
+            };
+            if !starts_with_succ {
+                return Ok(None);
+            }
+            let Some(times) = as_nat_with(g, n, force)? else {
+                return Ok(None);
+            };
+            let (k, base) = view_keeping(g, m, force)?;
+            let Some(base) = base.filter(|_| !k.is_zero()) else {
+                return Ok(None);
+            };
+            g.machine
+                .budget
+                .number_words(|| number_words(Native::Mul, &[k.clone(), times.clone()]))?;
+            Ok(Some(Outcome::Done(from_view(
+                k * times,
+                Some(Value::Neutral(
+                    Head::Def(id),
+                    vec![explicit(base), explicit((*n).clone())].into(),
+                )),
+            ))))
+        }
         // `eqNatRefl (Succ n) = eqNatRefl n`.
         (Native::EqNatRefl, [n]) => {
             let (k, base) = view(n)?;
@@ -1023,6 +1086,15 @@ fn run_partial(
                 .map(|base| Outcome::Again(vec![explicit(base)])))
         }
         _ => Ok(None),
+    }
+}
+
+/// Whether forced `value` may be a number: it's one, `Zero` or a `Succ`.
+fn number_head(g: &Ev, value: &Value) -> bool {
+    match value {
+        Value::Nat(_) => true,
+        Value::Ctor(d, c, _) => Some(*d) == g.env.builtins().nat && *c <= 1,
+        _ => false,
     }
 }
 
@@ -1081,6 +1153,18 @@ pub fn run(
     else {
         return Ok(None);
     };
+    // An argument whose head is plainly no number (neither a number nor
+    // `Zero` or `Succ`) settles it before a chain of `Succ`s in another is
+    // walked: a recursion peeling one `Succ` a step, as `(k + m) * y` does
+    // for an unknown `y`, would otherwise walk the rest of the chain at
+    // every step, which is quadratic in `k` (SW-2572). The forced heads
+    // aren't kept, so this frame stays small (see `run_partial`): forcing
+    // again finds a call's kept unfolding.
+    for v in values.iter().take(native.numbers()) {
+        if !number_head(g, &force(g, (*v).clone())?) {
+            return run_partial(g, id, native, &values, force);
+        }
+    }
     let mut args = Vec::new();
     for v in values.iter().take(native.numbers()) {
         match as_nat_with(g, v, force)? {
