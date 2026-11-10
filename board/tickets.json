@@ -26829,15 +26829,17 @@
     {
       "id": 2620,
       "title": "Prelude differential: print a count of 'too big to compare' skips (and fail above a threshold), so a passing full run shows if the oracle starts comparing less; calibrate the 5M budget on the full corpus, not only the daily sample",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2620",
       "labels": [],
       "epic": "test-infra",
-      "body": "From SW-2613, 10 Nov.",
+      "body": "From SW-2613, 10 Nov.\n\nDone 10 Nov: skip counter, summary in target/tmp/differential-skips.txt and stderr, MAX_SKIPPED = 60 (full corpus ~48 by slices; daily 0). Overmind's whole-run count to confirm. Model result: Sonnet, worked, 6 min (est. 35).",
       "created": "2026-11-10",
       "updated": "2026-11-10",
-      "commits": []
+      "commits": [
+        "5ec7ea62e"
+      ]
     },
     {
       "id": 2621,
