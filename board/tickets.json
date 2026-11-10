@@ -26829,12 +26829,12 @@
     {
       "id": 2620,
       "title": "Prelude differential: print a count of 'too big to compare' skips (and fail above a threshold), so a passing full run shows if the oracle starts comparing less; calibrate the 5M budget on the full corpus, not only the daily sample",
-      "status": "backlog",
+      "status": "review",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "test-infra",
-      "body": "From SW-2613, 10 Nov.",
+      "body": "From SW-2613, 10 Nov.\n\n\n10 Nov (lane): done. Skips counted in differential.rs; summary line on stderr and in target/tmp/differential-skips.txt; fails above MAX_SKIPPED = 60. Counts: daily sample 0 (merge sample is a subset, so 0), full corpus 48 (4 slices of 132: 5+37+6+0). Not done: the 5M budget calibration on the full corpus beyond these slices (Overmind reports the whole run).\n",
       "created": "2026-11-10",
       "updated": "2026-11-10",
       "commits": []

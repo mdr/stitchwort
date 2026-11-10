@@ -8,13 +8,14 @@
 //! recurses on the Rust stack, so they run on a thread with a large one.
 
 use std::path::Path;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 use stitchwort_core::budget::{ResourceError, Result};
 use stitchwort_core::reference;
 use stitchwort_core::term::Term;
 use stitchwort_core::value::{self, Elim, Head, Spine, Value, machine_runs};
 use stitchwort_core::{DefId, Icit};
-use stitchwort_driver::driver::{Session, par_map, tier_sample, with_stack};
+use stitchwort_driver::driver::{Session, par_map, tier, tier_sample, with_stack};
 use stitchwort_syntax::{SourceMap, Span};
 
 // The deepest example is io.sw's 5,000 prints through `IO.simulate`, which the
@@ -68,6 +69,22 @@ fn param_icits(g: &stitchwort_core::Ev, id: DefId) -> Vec<Icit> {
 /// `STITCHWORT_DIFFERENTIAL_STEPS` overrides it, to measure.
 const REFERENCE_STEPS: u64 = 5_000_000;
 
+/// Comparisons skipped as too big, across the sweep. Skipping hides nothing
+/// from a passing run only if someone looks, so the test reports the count
+/// and fails above [`MAX_SKIPPED`].
+static SKIPPED: AtomicUsize = AtomicUsize::new(0);
+
+/// The most skips the sweep tolerates. The whole corpus (the full tier)
+/// skips 48, nearly all in a few examples (float-playlist.sw, random-seed.sw,
+/// kernel-same-call-arguments.sw, as-written-unconfirmed.sw,
+/// match-bounded-search.sw, ...); a sample can land on more or fewer of
+/// them (the daily sample, 0 on 10 Nov 2026), so one limit serves every tier,
+/// with some room. A new skip is an oracle that compares less than before:
+/// look at which (`--no-capture` lists them) before raising this. Slices
+/// (`STITCHWORT_DIFFERENTIAL_SKIP` or `_LIMIT`) and another step budget skip
+/// other amounts, so they are not checked.
+const MAX_SKIPPED: usize = 60;
+
 fn reference_steps() -> u64 {
     static STEPS: std::sync::OnceLock<u64> = std::sync::OnceLock::new();
     *STEPS.get_or_init(|| {
@@ -89,6 +106,7 @@ fn within_budget<T>(what: impl std::fmt::Display, f: impl FnOnce() -> Result<T>)
         Ok(out) => Some(out),
         Err(ResourceError::Work) => {
             eprintln!("too big to compare: {what}");
+            SKIPPED.fetch_add(1, Ordering::Relaxed);
             None
         }
         Err(e) => panic!("{what}: {e}"),
@@ -283,7 +301,38 @@ fn the_evaluators_agree_on_the_prelude_and_every_example() {
                 assert_eq!(fast, slow, "{what}");
             }
         });
+        report_skips();
     });
+}
+
+/// Says how many comparisons were skipped: on stderr, and in
+/// `differential-skips.txt` in the cargo target folder (nextest shows a
+/// passing test's output only with `--success-output`), and fails the test
+/// above [`MAX_SKIPPED`].
+fn report_skips() {
+    let skipped = SKIPPED.load(Ordering::Relaxed);
+    let tier = tier();
+    let line = format!(
+        "differential: {skipped} comparisons too big to compare (tier {tier:?}, budget {} steps)",
+        reference_steps()
+    );
+    eprintln!("{line}");
+    let file = Path::new(env!("CARGO_TARGET_TMPDIR")).join("differential-skips.txt");
+    let _ = std::fs::write(file, format!("{line}\n"));
+    let sliced = [
+        "STITCHWORT_DIFFERENTIAL_SKIP",
+        "STITCHWORT_DIFFERENTIAL_LIMIT",
+        "STITCHWORT_DIFFERENTIAL_STEPS",
+    ]
+    .iter()
+    .any(|v| std::env::var(v).is_ok());
+    assert!(
+        sliced || skipped <= MAX_SKIPPED,
+        "{line}; the most expected is {}. The oracle compares less than it did: \
+         look at the new `too big to compare` skips (--no-capture lists them) \
+         before raising `MAX_SKIPPED`",
+        MAX_SKIPPED
+    );
 }
 
 fn span() -> Span {
