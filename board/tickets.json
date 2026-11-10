@@ -28138,12 +28138,12 @@
     {
       "id": 2699,
       "title": "Convert the 9 built-in theorems by hand (Decidable.elim*, Bool.ifThenElseCong, elimDecTrueIf, Nat.leTrans, Nat.lexKeepsFirst/lexSecondLess), keeping the better ∀ names; registry _ entries to names",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2699",
       "labels": [],
       "epic": "syntax-language",
-      "body": "From SW-2690 (10 Nov 2026). Touches crates/core/src/registry.rs. Sonnet. Est. 60 min.\n\n\nLane (Sonnet, 10 Nov 2026, 14:35-15:00): converted all 9 by hand (commit 4bf7d97d5). Six shapes unchanged (names kept); registry: Nat.leTrans \"a b c _ _\" -> \"a b c h1 h2\", lexKeepsFirst/lexSecondLess \"... k _ _ _\" -> \"... k lex no h\". No hash moved (std hash --std before/after identical, 5903 lines); snapshots unchanged. Two builtins tests edited (source strings). Tests: core, library, running _examples, aoc cached check, all pass.\n",
+      "body": "From SW-2690 (10 Nov 2026). Touches crates/core/src/registry.rs. Sonnet. Est. 60 min.\n\n\nLane (Sonnet, 10 Nov 2026, 14:35-15:00): converted all 9 by hand (commit 4bf7d97d5). Six shapes unchanged (names kept); registry: Nat.leTrans \"a b c _ _\" -> \"a b c h1 h2\", lexKeepsFirst/lexSecondLess \"... k _ _ _\" -> \"... k lex no h\". No hash moved (std hash --std before/after identical, 5903 lines); snapshots unchanged. Two builtins tests edited (source strings). Tests: core, library, running _examples, aoc cached check, all pass.\nModel result: Sonnet, worked, 27 min (est. 60).",
       "created": "2026-11-10",
       "updated": "2026-11-10",
       "commits": [
