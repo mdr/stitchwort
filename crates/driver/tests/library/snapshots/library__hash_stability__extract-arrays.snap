@@ -1,5 +1,5 @@
 ---
-source: crates/driver/tests/hash_stability.rs
+source: crates/driver/tests/library/hash_stability.rs
 expression: "lines(session, d, f)"
 ---
 Main.fillSum 0a88f14dde80ed2c5c14d79d0aed4eac726cc44af16818f25a63fe6559d809d3

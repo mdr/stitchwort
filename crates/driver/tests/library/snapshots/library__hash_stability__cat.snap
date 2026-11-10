@@ -1,5 +1,5 @@
 ---
-source: crates/driver/tests/hash_stability.rs
+source: crates/driver/tests/library/hash_stability.rs
 expression: "lines(session, d, f)"
 ---
 data Main.cat.Request c18365fda9520a07fb8d7e6e65848c0a34b2a5763c79e7d83f6525d0c7d82c45

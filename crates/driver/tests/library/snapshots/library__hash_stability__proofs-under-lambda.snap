@@ -1,5 +1,5 @@
 ---
-source: crates/driver/tests/hash_stability.rs
+source: crates/driver/tests/library/hash_stability.rs
 expression: "lines(session, d, f)"
 ---
 Main.congModNat 1d6fcd00c8ccb5df89aae703dbf7589ddc886abf7d85e19f05929bdba85731fe
