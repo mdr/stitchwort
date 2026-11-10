@@ -1,5 +1,5 @@
 {
-  "next": 2603,
+  "next": 2604,
   "tickets": [
     {
       "id": 47,
@@ -26545,6 +26545,18 @@
       "labels": [],
       "epic": "diagnostics",
       "body": "From SW-2601, 10 Nov. Low.",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
+    },
+    {
+      "id": 2603,
+      "title": "Kernel shortcut for Nat.divFuel on numbers with unknowns ((x + k) / d builds its quotient one Succ per step: (x + 500000) % 2 takes ~7 s); new kernel shortcut, so it needs a soundness argument and an Opus review",
+      "status": "backlog",
+      "agent": "Opus",
+      "where": "",
+      "labels": [],
+      "body": "From SW-2572's report, 10 Nov.",
       "created": "2026-11-10",
       "updated": "2026-11-10",
       "commits": []
