@@ -28436,9 +28436,9 @@
     {
       "id": 2721,
       "title": "audit counts written theorems separately from generated ones",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": ".claude/worktrees/scratch-sw-2721",
       "labels": [],
       "epic": "test-infra",
       "body": "From SW-2707 (Software Foundations port, 10 Nov 2026); docs/reviews/SW-2707-software-foundations-port.md §11.",
