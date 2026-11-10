@@ -1,6 +1,5 @@
 ---
-source: crates/driver/tests/hash_stability.rs
-assertion_line: 121
+source: crates/driver/tests/library/hash_stability.rs
 expression: "lines(session, d, f)"
 ---
 data Main.Counter a80962457703be3da2341b8712127f289227af50b52051c7d785c2a8c268b103
@@ -21,7 +20,7 @@ Main.total.eq2 87747844ee42d4208a024a3f819a3e3a4b165eed09ad907293fd1e30822b372a
 Main.inner.eq1 697ffd02c72f4ad85c392ade7c43457d46a473c1daf34eb0d27ea8753d8270c8
 Main.inner.eq2 fddfe0ecf747447a7bc09cd5455f49c6fb5fbc9bc4d376325e74eb2cd2093b38
 Main.inner.induct 485a2feb2c6d26e4fb2af5cd6e329cccdae14b00d05fb5f281bb1de390b7758c
-Main.main f464f159744d53a58bd117c8ad83c227b56f341982f07862a477a168606b6a68
+Main.topDown f464f159744d53a58bd117c8ad83c227b56f341982f07862a477a168606b6a68
 Main.evenNotOdd df7d8ee3478d3fe2cf221a73023fe68a083da5d9943e95591f42f01aed7a8419
 Main.oddNotEven 7a89ed3a2d1f4905cfcfa0a7bc9148eb2ecb38a3f6878d18f8337f78f38889a4
 Main.Counter.%res da7da66bd423346190f30af90eacaba822c2578fc97c80c345bdb49bbcdf7cb0
@@ -35,7 +34,7 @@ Main.stepBy ba075407ed362f08e53ef110a4a244e317edf6e47629ded8d655e58dac9abcad
 Main.walk.eq1 8d81d9ae9e8e43b3b13f8ca80ca56cee70efe6cd4f4f62b79b08c6f411a138ab
 Main.walk.eq2 3e99c4f8e9839eb0ee867fa0600b98af4788614ef4d5e8e0241f04012f6d7a68
 Main.shadows aabf62ef52dc3bfc8a7719360c580caf09fdb2aa728c2d9d68e69c7646d0a8f2
-Main.test "main" b8e9c8fe54c57c6db0d953eb772e303a58b38f5759f26344e7775d61f59b88f1
+Main.test "top-down" b8e9c8fe54c57c6db0d953eb772e303a58b38f5759f26344e7775d61f59b88f1
 Main.test "isEven 10" 9200e38d78c8f9270a244a6ce5954162428c1b2d5acf218ba079b584b57bedba
 Main.test "isOdd 7" 5f9ce69317041bbf0df306a2a038f4efd27ce59fd57ba07b0b93d9dbbc3dca36
 Main.test "total" 79013bca38e54462a5072c9a10975ef3f6f6510e9a3a69ef6aa293d9cc872be5

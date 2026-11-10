@@ -72,6 +72,8 @@ Docs are read from the declaration's file as it is, when they are shown. They ar
 - Gives the input format and failure, which the type `List Text → {Fail} Lab` doesn't: ``--| One line per row, all as long as the first: `.` floor, `#` an obstruction, `^` the guard. A failure names the line.`` (`parseLab`).
 - A file doc covers what spans the file: the puzzle in a sentence or two, how to run it, an invariant shared by several functions (the step budget in `Aoc.Year2024.Day06`'s).
 
+**Name a definition `main` only when it is a program entry point**: `def main(): {IO…} ()` (Matt, 9 November 2026). A value or function that a test checks, or an example shows off, is named for what it is (`finComparisons`, `topDown`), not `main`: `stitchwort run` refuses a `main` of any other type (`E-MAIN-TYPE`), and a reader takes `main` to be what runs.
+
 **Theorems.** In application code a theorem's statement usually is its doc; give one a `--|` doc only when the statement needs help: which sentence of the spec it covers, or why a hypothesis is there. In std, a theorem whose name and statement say it all (`List.lengthAppend`) needs no doc. [proving-guide.md](proving-guide.md) §2 has the rule for proofs.
 
 **`--` notes** are for maintainers, with the same parsimony: why the code is as it is, a workaround and its ticket, or something a reader would otherwise "fix". The note on `opaque def lcg` (`games/rogue/src/Rogue/Random.sw`) explains why it is opaque. A note should never narrate what the next lines do. Tools never show `--` notes, so anything a user needs goes in `--|`.

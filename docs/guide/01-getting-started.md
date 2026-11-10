@@ -41,6 +41,7 @@ A few things to notice, all explained in later chapters:
 - The body of `main` is a block: each line runs in order, `let` names a value, and the last line is the result.
 - `"Hello, ${name}!"` inserts a value into text.
 - `test` declares a test, which `stitchwort test` runs; running the program doesn't.
+- `main` is the name for a program's entry point and nothing else: give a helper or a value that a test checks a name that says what it is.
 - `main` comes before `greeting`. Declarations can be in any order.
 
 Run it with input from a file:
