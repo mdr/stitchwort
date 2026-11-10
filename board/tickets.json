@@ -26549,15 +26549,18 @@
     {
       "id": 2602,
       "title": "Mismatch note for a side stuck on a variable (choose b p against p): say what it's stuck on, since first_difference_note never reports the outermost layer (examples/reject/refl-note-huge-parser-unfolding)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2602",
       "labels": [],
       "epic": "diagnostics",
-      "body": "From SW-2601, 10 Nov. Low.",
+      "body": "From SW-2601, 10 Nov. Low.\n\nDone 10 Nov: stuck_on_variable (value.rs) + stuck_side_note (check.rs); dropped when the counterexample note is added. 7 reject snapshots gain the note. Wording listed for Matt in the morning report. The removal matches the note's opening words (is_stuck_side_note); a structural flag would be sturdier. Model result: Sonnet, worked (one review tweak), 6 + 10 min (est. 45).",
       "created": "2026-11-10",
       "updated": "2026-11-10",
-      "commits": []
+      "commits": [
+        "5016af8a9",
+        "f9d4ead2f"
+      ]
     },
     {
       "id": 2603,
