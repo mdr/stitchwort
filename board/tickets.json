@@ -1,5 +1,5 @@
 {
-  "next": 2708,
+  "next": 2713,
   "tickets": [
     {
       "id": 47,
@@ -28192,7 +28192,7 @@
     {
       "id": 2703,
       "title": "[Opus] Design note: Decidable as { does: Bool, sound, complete } (D3480): elaborator if/&&/==, deriving, auto, decreasing, natives, what's removed; staged plan",
-      "status": "review",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-2703",
       "labels": [
@@ -28256,6 +28256,73 @@
       "labels": [],
       "epic": "docs-tutorials",
       "body": "Matt, 10 Nov 2026: 'I'm interested in porting Software Foundations to Stitchwort ... start porting a chapter or two and see what might be lacking.' Friction notes are the main output, as for AoC days (D2427). Est. 3 h.",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
+    },
+    {
+      "id": 2708,
+      "title": "match on d.does fails with E-MATCH-MOTIVE while the goal mentions d.sound: generalise d through eta when a match generalises d.does",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "From SW-2703 (10 Nov 2026), docs/proposals/decidable-record.md.",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
+    },
+    {
+      "id": 2709,
+      "title": "Hedberg's lemmas (Bool.uniqueEq, DecEq.uniqueEq and helpers) may be replaceable by axiom K directly",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "From SW-2703 (10 Nov 2026), docs/proposals/decidable-record.md.",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
+    },
+    {
+      "id": 2710,
+      "title": "byDecision spends ~8 of 10.4 s in the elaborator before the kernel check (300-element membership)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "From SW-2703 (10 Nov 2026), docs/proposals/decidable-record.md.",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
+    },
+    {
+      "id": 2711,
+      "title": "Membership checking isn't linear even with the record Decidable: 3,000 elements take 8.3 s; profile",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "From SW-2703 (10 Nov 2026), docs/proposals/decidable-record.md.",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
+    },
+    {
+      "id": 2712,
+      "title": "[Opus] Design note: a K-like reduction rule for J, so the Nat.equalRefl/Nat.equalSound natives become unnecessary (kernel rule change)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "paper"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "From SW-2703 (10 Nov 2026). Kernel rule: Fable review if built. Est. 2 h.",
       "created": "2026-11-10",
       "updated": "2026-11-10",
       "commits": []
