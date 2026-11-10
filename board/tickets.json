@@ -1,5 +1,5 @@
 {
-  "next": 2679,
+  "next": 2683,
   "tickets": [
     {
       "id": 47,
@@ -313,14 +313,14 @@
     {
       "id": 556,
       "title": "Goal read-back cap (D1280, docs/proposals/goal-readback.md option d): rewrite/match see the unfolded goal except calls whose unfolding exceeds 100k nodes — deferred by Matt 26 Oct",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "goal-as-written",
-      "body": "\n\nFrom docs/proposals/README.md: superseded by docs/proposals/bounded-readback.md. Close? [rec: yes, D2957]",
+      "body": "\n\nFrom docs/proposals/README.md: superseded by docs/proposals/bounded-readback.md. Close? [rec: yes, D2957]\n10 Nov 2026: superseded by bounded read-back (D2541-D2545) and docs/proposals/term-sharing.md (SW-2660). Closing.",
       "created": "2026-10-26",
-      "updated": "2026-11-07",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -27596,7 +27596,7 @@
     {
       "id": 2660,
       "title": "[Fable] Design note: term size and sharing in the unifier and the checker (D3464's 10M-node limit, SW-2418, SW-2639's decreasing chain, fuzz memory runaways): what the end state should be",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": ".claude/worktrees/SW-2660",
       "labels": [
@@ -27858,6 +27858,58 @@
       ],
       "epic": "elaborator-kernel",
       "body": "From SW-2670 (10 Nov 2026). Est. 45 min.",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
+    },
+    {
+      "id": 2679,
+      "title": "A wrong rfl between shared values reads a note back to the 10M limit: grow 30 (Leaf x) = grow 29 (Leaf x) gives E-REFL after 4.3 s, 1.31 GB (with SW-2600)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "From SW-2660 (10 Nov 2026), docs/proposals/term-sharing.md.",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
+    },
+    {
+      "id": 2680,
+      "title": "A true rfl between differently built shared values is exponential: grow n (Leaf x) = grow (n-1) (Node (Leaf x) (Leaf x)) takes 6 x 2^n steps; conversion should remember shared constructor-cell pairs",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "From SW-2660 (10 Nov 2026), docs/proposals/term-sharing.md.",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
+    },
+    {
+      "id": 2681,
+      "title": "Per-declaration counters for the largest read-back and deepest frames (bounded read-back stage 0c); measure over the whole corpus before D3464's 1M limit",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "From SW-2660 (10 Nov 2026), docs/proposals/term-sharing.md.",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
+    },
+    {
+      "id": 2682,
+      "title": "E-RESOURCE wording 'a value was too large to show' misleads when nothing is being shown",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "From SW-2660 (10 Nov 2026), docs/proposals/term-sharing.md.",
       "created": "2026-11-10",
       "updated": "2026-11-10",
       "commits": []
