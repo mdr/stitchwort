@@ -257,8 +257,7 @@ def testAndb34: Prop := andb3 True True False = False
 -- Rocq's `Check` prints the type of an expression, and with `: T` after
 -- it, checks that it has that type. Stitchwort has no such command inside
 -- a file; in `stitchwort repl`, `:t` prints the expression and its type,
--- and in the editor
--- hovering over a name shows it:
+-- and in the editor hovering over a name shows it:
 --
 --     > :t True
 --     True: Bool

@@ -84,7 +84,7 @@ Here are the tests of the program above:
 
 Run `test` again without changing anything and each test says `cached` instead of `ran`. Tests are cached by the content of what they depend on, not by file times, so editing a comment or renaming a local variable doesn't rerun anything, and changing a function reruns exactly the tests that use it.
 
-The REPL evaluates expressions in the context of a file, and prints each result with its type. `:t` prints the expression followed by its type, as Rocq's `Check` does, and `import` lines accumulate. Given these lines (from the file `values.sw` of [chapter 2](02-values-and-definitions.md)):
+The REPL evaluates expressions in the context of a file, and prints each result with its type. `:t` prints the expression with its type, without evaluating it, and `import` lines accumulate. Given these lines (from the file `values.sw` of [chapter 2](02-values-and-definitions.md)):
 
 <!-- snippet: repl-session.txt -->
 ```text
