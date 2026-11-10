@@ -26692,15 +26692,17 @@
     {
       "id": 2612,
       "title": "Soundness fuzzer: the unmutated calibration check runs under the mutant caps, so a low SOUND_MEM_CAP_MB/SOUND_MUTANT_SECS skips the theorem as 'unmutated check rejected'; run it uncapped or say the cap tripped",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2612",
       "labels": [],
       "epic": "audit-fuzzing",
-      "body": "From SW-2610, 10 Nov. Small.",
+      "body": "From SW-2610, 10 Nov. Small.\n\nDone 10 Nov: calibration gets max(default, env cap); a trip says 'ran out of heap|time' instead of 'rejected'. Shown with SOUND_MEM_CAP_MB=1: theorem calibrated, mutants over the cap reported too expensive. Model result: Sonnet, worked, 2 min (est. 30).",
       "created": "2026-11-10",
       "updated": "2026-11-10",
-      "commits": []
+      "commits": [
+        "35e24d70c"
+      ]
     }
   ]
 }
