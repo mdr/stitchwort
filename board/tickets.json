@@ -27197,9 +27197,9 @@
     {
       "id": 2634,
       "title": "[Sonnet] Live project: an edit rewinds every namespace checked after the edited one, not just its dependants; order steps so edited namespaces and their dependants are checked last (a local rename in an AoC day costs 1.7 s trial, mostly unrelated namespaces) [priority: rename in the playground takes ~130 s on an AoC day]",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-2634",
       "labels": [
         "editor"
       ],
@@ -27244,9 +27244,9 @@
     {
       "id": 2637,
       "title": "[Sonnet] Editor settings (D3468): a Stitchwort section in VS Code's Settings (inlay hints, run icons, proof search on ? and its time limit, semantic colours, goals panel auto-open) read by the server at start and on change; format on save on by default for .sw (configurationDefaults); a ⚙ menu in the playground with the same switches plus format on save and font size, kept in localStorage; a Settings paragraph in the guide",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-2637",
       "labels": [
         "editor"
       ],
@@ -27275,9 +27275,9 @@
     {
       "id": 2639,
       "title": "[Opus] Conversion keeps ~1.6 KB per unfolded level of a decreasing-checked recursion (innerN 2^128: 3.3 GB before the 2M-frame E-RESOURCE); shrink what Unfolding retains, or unfold lazily (fuzz_elab 0x25a5 case 4273)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-2639",
       "labels": [
         "bug",
         "fuzz"
@@ -27388,9 +27388,9 @@
     {
       "id": 2646,
       "title": "[Sonnet] Closing write-up of the speed work (D3465): final section of docs/reviews/SW-2295-comparative-speed.md: where we started and ended, what moved the numbers and what didn't, top parked ideas with estimated gains; numbers from Overmind's final run",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-2646",
       "labels": [
         "paper"
       ],
@@ -27416,9 +27416,9 @@
     {
       "id": 2648,
       "title": "[Sonnet] Trial check for arbitrary edits: an entry point beyond rename (stitchwort apply-edits or a driver API) and a std mode (compare every declaration's hash before and after with --std-dir, as fmt_hashes does), for sweeps that must keep hashes",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-2648",
       "labels": [
         "refactoring"
       ],
