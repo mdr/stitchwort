@@ -1,5 +1,5 @@
 {
-  "next": 2597,
+  "next": 2598,
   "tickets": [
     {
       "id": 47,
@@ -24788,9 +24788,9 @@
         "elab"
       ],
       "epic": "audit-fuzzing",
-      "body": "From SW-2452's report: crates/elab/src/check.rs:753, caller alias_notes. Check message snapshots stay the same for normal cases. 45 min.",
+      "body": "From SW-2452's report: crates/elab/src/check.rs:753, caller alias_notes. Check message snapshots stay the same for normal cases. 45 min.\n\n10 Nov: SW-2569 capped show_unfolded at 200k nodes, the same cause; the other show_unfolded/quote_unfolded_shown call sites are unchecked. Check, then likely close.",
       "created": "2026-11-09",
-      "updated": "2026-11-09",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -26070,15 +26070,17 @@
     {
       "id": 2569,
       "title": "examples/reject/mismatch-note-huge-unfolding.sw peaks at 3.8 GB (before and after SW-2554), over the lane tier's 3 GB memory cap: shrink the example or make the note cheaper",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2582",
       "labels": [],
       "epic": "test-infra",
-      "body": "Found 9 Nov when NAME=match matched it. 30 min.",
+      "body": "Found 9 Nov when NAME=match matched it. 30 min.\n\nDone 10 Nov: show_unfolded reads back at most 200,000 nodes (quote_unfolded_shown_at_most); the example 4,033 MB / 17.7 s -> 191 MB / 2.1 s, message unchanged. Model result: Sonnet, worked (with SW-2582), 28 min for both (est. 90).",
       "created": "2026-11-09",
-      "updated": "2026-11-09",
-      "commits": []
+      "updated": "2026-11-10",
+      "commits": [
+        "af882172a"
+      ]
     },
     {
       "id": 2570,
@@ -26241,15 +26243,17 @@
     {
       "id": 2582,
       "title": "Elab fuzzer: seed 0x2582 case 16878 (examples/accept/rows.sw with one comment moved two lines) takes over 6 GB inside the fuzzer, though the CLI checks it cold or warm (original then edited) in 0.2-0.8 s and 81 MB; find which oracle (likely 5, the in-process cache comparisons) blows up and why. Also give the fuzzer a per-case memory cap so one case can't kill the run",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2582",
       "labels": [],
       "epic": "audit-fuzzing",
-      "body": "Found 9 Nov in compute mode by bisecting cases 16661-16900 under STITCHWORT_MEM_CAP_GB=6. Repro: STITCHWORT_MEM_CAP_GB=6 task fuzz:elab CASES=20000 SEED=0x2582 ONLY=16878 DUMP=1. Ruled out: check, test, fmt from the CLI; warm CLI cache. 60 min; escalate to Opus if it's a cache-rewind bug.\n\nSeed 0x2587 (Speedwell, 9 Nov): run killed at 16 GB after 1322 s; last slow case reported was 14659 (repro: task fuzz:elab CASES=20000 SEED=0x2587 FROM=14659 TO=14660). Not bisected (compute mode).\n\nSeed 0x2589 (Speedwell queue, 9 Nov): killed at 16 GB after 968 s, last slow cases reported 10502 and 10609.",
+      "body": "Found 9 Nov in compute mode by bisecting cases 16661-16900 under STITCHWORT_MEM_CAP_GB=6. Repro: STITCHWORT_MEM_CAP_GB=6 task fuzz:elab CASES=20000 SEED=0x2582 ONLY=16878 DUMP=1. Ruled out: check, test, fmt from the CLI; warm CLI cache. 60 min; escalate to Opus if it's a cache-rewind bug.\n\nSeed 0x2587 (Speedwell, 9 Nov): run killed at 16 GB after 1322 s; last slow case reported was 14659 (repro: task fuzz:elab CASES=20000 SEED=0x2587 FROM=14659 TO=14660). Not bisected (compute mode).\n\nSeed 0x2589 (Speedwell queue, 9 Nov): killed at 16 GB after 968 s, last slow cases reported 10502 and 10609.\n\nDone 10 Nov. (1) Per-case cap: a counting allocator in fuzz_elab.rs plus Budget::set_cancel_hook cancels a check over FUZZ_MEM_CAP_MB (default 2048) and reports 'oracle 6 (memory)' with the input saved; the run goes on. (2) The ticket's case numbers moved with the corpus and no longer reproduce. A fresh 2,000-case range found 3 cases at 1.2-1.8 GB, all reaching the 10M-node size limit (E-RESOURCE 'a value was too large to show'), the same in the CLI; not oracle 5 or the cache. The fuzzer's Limits.size is now 1M and E-RESOURCE is acceptable to oracle 4. Underlying: the checker can still spend ~2 GB reaching its 10M-node limit (design question for Matt, morning report). Model result: Sonnet, worked, 28 min (est. 90).",
       "created": "2026-11-09",
-      "updated": "2026-11-09",
-      "commits": []
+      "updated": "2026-11-10",
+      "commits": [
+        "de62d1851"
+      ]
     },
     {
       "id": 2583,
@@ -26444,6 +26448,19 @@
       "labels": [],
       "epic": "editor-playground",
       "body": "From SW-2586's report, 10 Nov. Small.",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
+    },
+    {
+      "id": 2597,
+      "title": "Elab fuzzer seed 0x2582 cases 16837 (a parse error) and 16869 (a type mismatch) take 6-13 s in the CLI at ~150 MB: profile where a parse error spends 13 s",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "diagnostics",
+      "body": "From SW-2582's report, 10 Nov. Inputs: target/fuzz-elab/ after task fuzz:elab CASES=20000 SEED=0x2582 ONLY=16837 DUMP=1 (case numbers as of main d273ebffe; they move when the examples corpus changes).",
       "created": "2026-11-10",
       "updated": "2026-11-10",
       "commits": []
