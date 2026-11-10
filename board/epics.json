@@ -79,12 +79,14 @@
         "Hover on ? shows its goal; notes numbered like the CLI (SW-1675, SW-1676)",
         "Completion in a warm editor 480 ms → 1 ms: one std-loaded session per search thread, rewound (SW-1798)",
         "Code action crash on an unapplied Succ or Cons fixed (SW-1799)",
-        "Kept search session reviewed: answers sound (SW-1808)"
+        "Kept search session reviewed: answers sound (SW-1808)",
+        "Refactoring design note (SW-2626, docs/proposals/refactoring.md)",
+        "Apart sets named once, so the kept session stops growing (SW-1819)"
       ],
       "now": [
-        "Refactoring design note (SW-2626, Opus, paper)",
+        "Rename (D3467): R2 trial check with an apply-anyway problem list (SW-2628, Opus); next R1 references (SW-2627), then R3 rename in both editors (SW-2629), R3b CLI rename (SW-2630), R4 oracle tests (SW-2631)",
         "Code action edits the right text; VS Code Restart Server and *.sw watching (SW-1949, SW-1980)",
-        "Kept search session leaks: counterexample log (SW-1937, absorbs SW-1818) and apart sets (SW-1819)"
+        "Counterexample search log in the kept session (SW-1937, absorbs SW-1818)"
       ],
       "next": [
         "Kept search session: two leaks, panic recovery, hardening, a randomised test (SW-1818 to SW-1823; D2583, D2584)",
