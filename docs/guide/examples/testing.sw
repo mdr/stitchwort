@@ -13,7 +13,7 @@ test "several at once" := wordCount "a" == 1 ∧ wordCount "a b" == 2
 -- begin block
 test "longest word" :=
   let words := "a tea pot of milk".words
-  let longest := words.maxBy (.length)
+  let longest := words.maxBy .length
   longest == Some "milk"
 -- end block
 

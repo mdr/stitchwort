@@ -100,9 +100,9 @@ test "abort" := Abort.toOption (() => halfOf 6) == Some 3 ∧ Abort.toOption (()
 
 -- begin each
 def triples (n: Nat): List (Nat, Nat, Nat) := Each.collect (() =>
-  let a := Each.each (List.range 1 (n + 1))
-  let b := Each.each (List.range a (n + 1))
-  let c := Each.each (List.range b (n + 1))
+  let a := Each.each (1 ..= n)
+  let b := Each.each (a ..= n)
+  let c := Each.each (b ..= n)
   Each.require (a * a + b * b == c * c)
   (a, b, c))
 

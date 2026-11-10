@@ -5,8 +5,8 @@ import Std (Each, List)
 import Std.Each (each, require)
 
 def pairsSummingTo (n: Nat): List (Nat, Nat) := Each.collect (() =>
-  let a := each (List.range 1 (n + 1))
-  let b := each (List.range a (n + 1))
+  let a := each (1 ..= n)
+  let b := each (a ..= n)
   require (a + b == n)
   (a, b))
 

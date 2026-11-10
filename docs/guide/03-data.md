@@ -380,7 +380,7 @@ def adultName (people: List Person): Text :=
     | None => "nobody"
 
 test "found" := adultName [newborn "Bo", ada] == "Ada"
-test "with helpers" := ((findAdult []).map (.name)).getOrElse "nobody" == "nobody"
+test "with helpers" := (findAdult []).map .name |> .getOrElse "nobody" == "nobody"
 ```
 
 `Result a e` is the same idea for operations that can fail with a reason: `Ok value` or `Err error`. [Chapter 6](06-namespaces-and-library.md) has more of both, and [chapter 8](08-abilities.md) shows `Fail`, which is often more convenient than returning a `Result` by hand.
@@ -393,7 +393,7 @@ test "with helpers" := ((findAdult []).map (.name)).getOrElse "nobody" == "nobod
 ```stitchwort
 type Grid = List (List Nat)
 
-def Grid.width (grid: Grid): Nat := grid.map (.length) |> .maximum |> .getOrElse 0
+def Grid.width (grid: Grid): Nat := grid.map .length |> .maximum |> .getOrElse 0
 
 test "a synonym is the type it names" := ([[1, 2, 3], [4]]: Grid).width == 3
 ```

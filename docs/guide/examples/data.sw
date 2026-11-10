@@ -181,7 +181,7 @@ test "a condition picks the arm" := share 12 4 == 3 ∧ share 12 0 == 12
 -- begin synonyms
 type Grid = List (List Nat)
 
-def Grid.width (grid: Grid): Nat := grid.map (.length) |> .maximum |> .getOrElse 0
+def Grid.width (grid: Grid): Nat := grid.map .length |> .maximum |> .getOrElse 0
 
 test "a synonym is the type it names" := ([[1, 2, 3], [4]]: Grid).width == 3
 -- end synonyms
@@ -195,5 +195,5 @@ def adultName (people: List Person): Text :=
     | None => "nobody"
 
 test "found" := adultName [newborn "Bo", ada] == "Ada"
-test "with helpers" := ((findAdult []).map (.name)).getOrElse "nobody" == "nobody"
+test "with helpers" := (findAdult []).map .name |> .getOrElse "nobody" == "nobody"
 -- end option

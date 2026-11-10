@@ -53,7 +53,7 @@ def Tree.toList: Tree → List Nat
   | Leaf => []
   | Node left value right => left.toList ++ [value] ++ right.toList
 
-def treeSort (values: List Nat): List Nat := (values.foldLeft Leaf (tree value => tree.insert value)).toList
+def treeSort (values: List Nat): List Nat := values.foldLeft Leaf Tree.insert |> .toList
 
 test "tree sort" := treeSort [5, 2, 8, 1] == [1, 2, 5, 8]
 ```

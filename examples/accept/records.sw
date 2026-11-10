@@ -55,11 +55,8 @@ theorem fiveBetween: Between 1 10 5 := { above = rfl, below = rfl }
 
 theorem belowOf (b: Between 1 10 5): 5 ≤ 10 := b.below
 
--- An update that changes nothing isn't `rfl` until stage 2 (eta), but it's
--- provable by matching. (After `->`, `{` starts a row of abilities, so a
--- record there is in parentheses.)
-theorem sameAge: (p: Person) → ({ p | age = p.age } = p)
-  | { name, age } => rfl
+-- An update that changes nothing is `rfl`, by record eta.
+theorem sameAge (p: Person): { p | age = p.age } = p := rfl
 
 -- A field called `tag` is an ordinary field.
 type Labelled = { tag: Text, value: Nat }
