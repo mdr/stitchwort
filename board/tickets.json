@@ -28514,9 +28514,9 @@
     {
       "id": 2727,
       "title": "stitchwort hash prints nothing and exits 0 when the project doesn't check; report the errors",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": ".claude/worktrees/scratch-sw-2727",
       "labels": [],
       "epic": "test-infra",
       "body": "From SW-2698 (10 Nov 2026).",
