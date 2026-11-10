@@ -60,6 +60,7 @@ mod arms;
 mod complete;
 mod imports;
 mod lens;
+mod rename;
 mod source;
 use source::sources_hold;
 pub use source::{Disk, Memory, MemoryProject, ProjectFiles, Source};
@@ -116,6 +117,10 @@ pub struct Options {
     pub refresh_tokens: bool,
     /// The same for inlay hints (`workspace/inlayHint/refresh`).
     pub refresh_hints: bool,
+    /// The client can show a message with buttons
+    /// (`window/showMessageRequest`): a refused rename offers "Rename
+    /// anyway" that way. Set by `initialize`.
+    pub offer_rename_anyway: bool,
     /// The members found after the last `.` completed, with the text they
     /// were found from ([`members_at`]), so that the request after the
     /// first letter typed, which asks again, doesn't check the file again.
@@ -239,6 +244,7 @@ impl Options {
             library: Arc::default(),
             refresh_tokens: false,
             refresh_hints: false,
+            offer_rename_anyway: false,
             members: Arc::default(),
             faults: Arc::default(),
         }
@@ -281,7 +287,9 @@ pub fn capabilities() -> serde_json::Value {
         "workspaceSymbolProvider": true,
         "documentFormattingProvider": true,
         "documentRangeFormattingProvider": true,
-        "codeActionProvider": { "codeActionKinds": ["quickfix"] }
+        "codeActionProvider": { "codeActionKinds": ["quickfix"] },
+        "renameProvider": { "prepareProvider": true },
+        "executeCommandProvider": { "commands": [rename::RENAME_ANYWAY] }
     })
 }
 
@@ -302,6 +310,7 @@ fn initialize(params: &serde_json::Value, options: &mut Options) -> (serde_json:
     };
     options.refresh_tokens = supports("/capabilities/workspace/semanticTokens/refreshSupport");
     options.refresh_hints = supports("/capabilities/workspace/inlayHint/refreshSupport");
+    options.offer_rename_anyway = params.pointer("/capabilities/window/showMessage").is_some();
     let document_changes = params
         .pointer("/capabilities/workspace/workspaceEdit/documentChanges")
         .and_then(serde_json::Value::as_bool)
@@ -533,6 +542,8 @@ enum Edit {
     Focus {
         paths: Vec<PathBuf>,
     },
+    /// A request about renaming, answered by the checker.
+    Rename(rename::RenameJob),
 }
 
 impl Edit {
@@ -544,6 +555,7 @@ impl Edit {
             | Edit::Close { path }
             | Edit::Saved { path, .. }
             | Edit::Disk { path } => Some(path),
+            Edit::Rename(job) => job.path(),
             Edit::Focus { .. } => None,
         }
     }
@@ -1046,7 +1058,7 @@ impl Main {
                     self.request(request);
                 }
                 Message::Notification(n) => self.notified(n),
-                Message::Response(_) => {}
+                Message::Response(response) => self.replied(response),
             }
         }
         Ok(())
@@ -1077,7 +1089,90 @@ impl Main {
         }
     }
 
+    /// `textDocument/prepareRename`, `textDocument/rename` and the command
+    /// that renames anyway: jobs for the checker, which has the project and
+    /// answers. They don't stop the check running (they change no text).
+    fn rename_request(&self, request: Request) {
+        let id = request.id.clone();
+        let refuse = |message: &str| {
+            let response = Response::new_err(
+                id.clone(),
+                ErrorCode::RequestFailed as i32,
+                message.to_string(),
+            );
+            let _ = self.connection.sender.send(response.into());
+        };
+        let document_changes = self.document_changes;
+        let file = |uri: &Url| -> Result<PathBuf, &'static str> {
+            if std_path(uri).is_some() {
+                return Err("the standard library can't be renamed here");
+            }
+            if uri.scheme() != "file" {
+                return Err("only files of a project can be renamed in");
+            }
+            uri.to_file_path()
+                .map_err(|()| "only files of a project can be renamed in")
+        };
+        let job = match request.method.as_str() {
+            request::PrepareRenameRequest::METHOD => {
+                let Ok(p) = parse::<lsp_types::TextDocumentPositionParams>(&request) else {
+                    return refuse("unreadable prepareRename request");
+                };
+                match file(&p.text_document.uri) {
+                    Ok(path) => rename::RenameJob::Prepare {
+                        id,
+                        path,
+                        position: p.position,
+                    },
+                    Err(why) => return refuse(why),
+                }
+            }
+            request::Rename::METHOD => {
+                let Ok(p) = parse::<lsp_types::RenameParams>(&request) else {
+                    return refuse("unreadable rename request");
+                };
+                let at = p.text_document_position;
+                match file(&at.text_document.uri) {
+                    Ok(path) => rename::RenameJob::Rename {
+                        id,
+                        path,
+                        position: at.position,
+                        new_name: p.new_name,
+                        document_changes,
+                    },
+                    Err(why) => return refuse(why),
+                }
+            }
+            _ => rename::RenameJob::Anyway {
+                id,
+                document_changes,
+            },
+        };
+        let _ = self.to_checker.send(Edit::Rename(job));
+    }
+
     fn request_uncaught(&self, request: Request) {
+        if matches!(
+            request.method.as_str(),
+            request::PrepareRenameRequest::METHOD | request::Rename::METHOD
+        ) {
+            self.rename_request(request);
+            return;
+        }
+        if request.method == request::ExecuteCommand::METHOD {
+            let command = request.params.get("command").and_then(|c| c.as_str());
+            if command == Some(rename::RENAME_ANYWAY) {
+                self.rename_request(request);
+            } else {
+                let response = Response::new_err(
+                    request.id,
+                    ErrorCode::InvalidParams as i32,
+                    format!("unknown command {}", command.unwrap_or("")),
+                );
+                let _ = self.connection.sender.send(response.into());
+            }
+            return;
+        }
         let request = if request.method == request::CodeActionRequest::METHOD {
             self.code_action(request);
             return;
@@ -1402,6 +1497,17 @@ impl Main {
                 Response::new_ok(id, serde_json::Value::Null),
             );
         }
+    }
+
+    /// The client's response to a request of the server's: only the one that
+    /// offers "rename anyway" matters.
+    fn replied(&self, response: Response) {
+        let job = rename::RenameJob::Reply {
+            id: response.id,
+            result: response.result,
+            document_changes: self.document_changes,
+        };
+        let _ = self.to_checker.send(Edit::Rename(job));
     }
 
     fn edit(&self, edit: Edit) {
@@ -2503,6 +2609,10 @@ struct Checker {
     stopped: Option<String>,
     /// Where recovered errors are shown; none when driven inline.
     notices: Option<Arc<Notices>>,
+    /// The rename last refused for its problems, which can be applied anyway.
+    anyway: Option<rename::Anyway>,
+    /// Warnings kept on the declarations a rename changed the meaning of.
+    warnings: rename::Warnings,
 }
 
 /// A panic in the checker: the workspace it was working on, if known.
@@ -2718,6 +2828,8 @@ impl Checker {
             retired: BTreeSet::new(),
             stopped: None,
             notices: None,
+            anyway: None,
+            warnings: BTreeMap::new(),
         }
     }
 
@@ -3145,6 +3257,13 @@ impl Checker {
     }
 
     fn publish(&mut self, key: &Path, project: bool, answers: Answers) {
+        self.publish_as(key, project, answers, true);
+    }
+
+    /// Publishes `answers`; with `versioned` false the diagnostics aren't
+    /// for any version of a document (they are for the text a rename left,
+    /// which the client has yet to apply).
+    fn publish_as(&mut self, key: &Path, project: bool, answers: Answers, versioned: bool) {
         let mut guard = self.nav.write().unwrap_or_else(|e| e.into_inner());
         let nav = &mut *guard;
         let nav_goals = &mut nav.goals;
@@ -3161,12 +3280,15 @@ impl Checker {
                 && let Some(uri) = ws.uri(key, &place)
             {
                 let path = uri.to_file_path().ok();
-                let version = path.and_then(|p| self.versions.get(&p).copied());
+                let version = path
+                    .and_then(|p| self.versions.get(&p).copied())
+                    .filter(|_| versioned);
                 let mut diagnostics: Vec<lsp_types::Diagnostic> = file
                     .diagnostics
                     .iter()
                     .map(|d| diagnostic(ws, key, d))
                     .collect();
+                diagnostics.extend(rename::warnings_for(&self.warnings, &uri));
                 let mut goals = pos::goals_of(&file);
                 if let Some((_, before)) = self.published.get(&uri) {
                     let kept = goals_kept(before, &file);
@@ -3317,6 +3439,13 @@ impl Checker {
     }
 
     fn apply(&mut self, edit: Edit) {
+        if let Edit::Rename(job) = edit {
+            self.rename_job(job);
+            return;
+        }
+        if let Edit::Change { path, text, .. } = &edit {
+            self.rename_warnings_stale(path, text);
+        }
         self.unanswered = true;
         self.record(&edit);
         if let Some(path) = edit.path()
@@ -3393,6 +3522,7 @@ impl Checker {
                 self.also = paths;
                 self.give_also();
             }
+            Edit::Rename(_) => unreachable!("handled first"),
             Edit::Disk { path } => {
                 let open = self.versions.contains_key(&path);
                 let disk = self.source.read(&path);
@@ -3682,6 +3812,7 @@ impl Inline {
                     self.main.document_changes = document_changes;
                     self.checker.options.refresh_tokens = self.options.refresh_tokens;
                     self.checker.options.refresh_hints = self.options.refresh_hints;
+                    self.checker.options.offer_rename_anyway = self.options.offer_rename_anyway;
                     let response = Response::new_ok(request.id, reply);
                     let _ = self.main.connection.sender.send(response.into());
                 }
@@ -3689,7 +3820,7 @@ impl Inline {
                 _ => self.main.request(request),
             },
             Ok(Message::Notification(n)) => self.main.notified(n),
-            Ok(Message::Response(_)) => {}
+            Ok(Message::Response(response)) => self.main.replied(response),
             Err(e) => trace(|| format!("unreadable message: {e}")),
         }
         self.sent()

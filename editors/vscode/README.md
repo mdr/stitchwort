@@ -57,6 +57,14 @@ Syntax colouring for `.sw` files, and a thin client for the language server
   when it is a comparison. A result from the cache has the description
   "cached" (and says so in the run's output). Debugging and coverage profiles
   are not offered.
+- **Rename.** F2 renames a local, hypothesis, function or theorem in every
+  file of the project, served by `stitchwort lsp` (`prepareRename`, `rename`).
+  The renamed project is checked first: a rename that would cause an error or
+  change what a declaration means is refused, with the problems listed. The
+  server then offers a "Rename anyway" button (`window/showMessageRequest`),
+  and on it applies the edit (`workspace/applyEdit`); the declarations whose
+  meaning changed get a warning until the file is next edited. The extension
+  has no code of its own for this.
 - **Formatting.** Format Document and Format Selection work, served by
   `stitchwort lsp` (a file with a syntax error is left alone). Format on save is
   off, as in VS Code generally; to turn it on for Stitchwort files, add

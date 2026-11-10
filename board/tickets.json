@@ -27119,7 +27119,7 @@
     {
       "id": 2629,
       "title": "[Sonnet] Rename R3: rename locals, hypotheses, functions and theorems in the server and the playground: prepareRename, rename, F2, multi-file edits, a preview listing R2's problems with Rename anyway, a code action menu in the playground",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2629",
       "labels": [
@@ -27127,7 +27127,7 @@
         "refactoring"
       ],
       "epic": "editor-playground",
-      "body": "docs/proposals/refactoring.md §5 (SW-2626). D3467. Needs R1 (SW-2627) and R2 (SW-2628). Est. 150 min.",
+      "body": "docs/proposals/refactoring.md §5 (SW-2626). D3467. Needs R1 (SW-2627) and R2 (SW-2628). Est. 150 min.\n\nProgress (Sonnet lane): prepareRename, rename and the stitchwort.renameAnyway command run on the checker thread (crates/lsp/src/rename.rs). Refused rename: error with data {renameAnyway:true}, plan remembered; VS Code gets a window/showMessageRequest button and a workspace/applyEdit; the playground calls the command and applies the edit itself. Meaning-changed warnings stay until the file is edited. Playground: F2 prompt, multi-file apply, worker copies updated (set_project_file). LSP tests (6 new) and one browser test pass. Not done: rename of a file on its own (no project) is refused; the AoC Day 2 rename takes about 130 s in the wasm trial (browser test 426 s).\n",
       "created": "2026-11-10",
       "updated": "2026-11-10",
       "commits": []
