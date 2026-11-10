@@ -1,5 +1,5 @@
 ---
-source: crates/cli/tests/examples.rs
+source: crates/cli/tests/running/examples.rs
 expression: output
 ---
 [E-REFL] Error: `rfl` can't prove this
@@ -9,7 +9,7 @@ expression: output
     │                                                        ─┬─  
     │                                                         ╰─── `outline c` and `outlineAgain c` aren't equal
     │ 
-    │ Note 1: computing both sides gives `{ c | points = … }` and `{ c | points = … }`
+    │ Note 1: computing both sides gives `{ c | points = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, …] }` and `{ c | points = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, …] }`
     │ 
     │ Note 2: these are different updates that print alike: each `{ x | f = s }` is made into a hidden function of its own, and two are equal only when they replace the same fields with the same values and neither calls the definition it's written in (here they may differ in a part shown as `…`, or one may be in a recursive definition); to prove something about both, name the update as a `def` and use it in both places
     │ 
