@@ -33,9 +33,10 @@
 //!   computes what was checked. They fire only
 //!   on records whose bits are known and valid, and return what the
 //!   definition computes there: a record built by `Float.make`, whose witness
-//!   is `Eq.refl True` on known bits whatever proof it was given; for
-//!   `decEq`, `Yes (Float.bitsExt x y rfl)` or `No (Float.bitsNe x y
-//!   (Nat.equalFalse m n rfl))`, with the arguments as given.
+//!   is `Eq.refl True` on known bits whatever proof it was given. `decEq`
+//!   has no implementation here: it is a decision whose test is
+//!   `Nat.equal` on the bits, native already, so only the runtimes replace
+//!   it.
 //!
 //! The primitives' reduction rules are trusted (DESIGN.md §13); the natives
 //! are trusted only to make runs compute what was checked. They rely on `Float` being exactly the
@@ -62,7 +63,7 @@ use crate::globals::{Kernel, State};
 use crate::native::{Force, as_nat_with, nat_value};
 use crate::registry::Builtin;
 use crate::term::{DataId, DefId, Icit, Sort, Term};
-use crate::value::{Elim, Head, Value, conv, eval};
+use crate::value::{Elim, Value, conv, eval};
 
 /// The version of the semantic contract of the float primitives: their
 /// table, types and reduction rules (docs/proposals/float.md §3.3, §2.5,
@@ -71,7 +72,7 @@ pub const FLOAT_CONTRACT: u32 = 1;
 
 /// The definitions bound here, each with a native or put in one's result,
 /// all pinned in [`crate::pins`].
-pub const PINNED_DEFS: [Builtin; 12] = [
+pub const PINNED_DEFS: [Builtin; 10] = [
     Builtin::FloatNeg,
     Builtin::FloatAbs,
     Builtin::FloatIsNaN,
@@ -82,8 +83,6 @@ pub const PINNED_DEFS: [Builtin; 12] = [
     Builtin::FloatToInt,
     Builtin::FloatAdd,
     Builtin::FloatSub,
-    Builtin::FloatBitsExt,
-    Builtin::FloatBitsNe,
 ];
 
 /// The sign bit.
@@ -538,12 +537,10 @@ pub enum FloatDef {
     Native(FloatNative),
 }
 
-/// The library's `Float` and the theorems a native refers to, once bound.
+/// The library's `Float`, once bound.
 #[derive(Clone, Debug, Default)]
 pub struct FloatBinding {
     pub data: Option<DataId>,
-    pub bits_ext: Option<DefId>,
-    pub bits_ne: Option<DefId>,
 }
 
 type Result<T> = std::result::Result<T, Diagnostic>;
@@ -669,9 +666,8 @@ pub fn define_primitive(g: &mut Kernel, id: DefId, op: FloatOp) -> Result<()> {
     })
 }
 
-/// Binds a definition with a native here, or a theorem a native refers to,
-/// after checking its content hash against the pinned one (which fixes its
-/// type and its definition). `Float` must be bound first.
+/// Binds a definition with a native here, after checking its content hash
+/// against the pinned one (which fixes its type and its definition). `Float` must be bound first.
 pub fn register_def(g: &mut Kernel, id: DefId, b: Builtin) -> Result<()> {
     in_kernel_modes(g, |g| {
         if !PINNED_DEFS.contains(&b) {
@@ -682,24 +678,18 @@ pub fn register_def(g: &mut Kernel, id: DefId, b: Builtin) -> Result<()> {
             return Err(refused(span, b.name(), "`Float` isn't bound"));
         }
         crate::pins::check_def(&g.ev(), id, b)?;
-        match b {
-            Builtin::FloatBitsExt => g.env.builtins_mut().float.bits_ext = Some(id),
-            Builtin::FloatBitsNe => g.env.builtins_mut().float.bits_ne = Some(id),
-            _ => {
-                let native = FloatNative::ALL
-                    .into_iter()
-                    .find(|n| n.builtin() == b)
-                    .expect("every pinned definition is a native or a theorem");
-                let arity = g.def(id).arity;
-                if arity != native.arity() {
-                    return Err(refused(span, b.name(), "its arity isn't the native's"));
-                }
-                g.env
-                    .builtins_mut()
-                    .float_defs
-                    .insert(id, FloatDef::Native(native));
-            }
+        let native = FloatNative::ALL
+            .into_iter()
+            .find(|n| n.builtin() == b)
+            .expect("every pinned definition is a native");
+        let arity = g.def(id).arity;
+        if arity != native.arity() {
+            return Err(refused(span, b.name(), "its arity isn't the native's"));
         }
+        g.env
+            .builtins_mut()
+            .float_defs
+            .insert(id, FloatDef::Native(native));
         Ok(())
     })
 }
@@ -794,7 +784,10 @@ pub fn run(g: &Ev, id: DefId, spine: &[Elim], force: Force) -> budget::Result<Op
         FloatDef::Native(FloatNative::IsFinite) => boolean(is_finite(bits[0])),
         FloatDef::Native(FloatNative::IeeeLt) => boolean(ieee_less(bits[0], bits[1], false)),
         FloatDef::Native(FloatNative::IeeeLe) => boolean(ieee_less(bits[0], bits[1], true)),
-        FloatDef::Native(FloatNative::DecEq) => dec_eq(g, &args, bits[0], bits[1]),
+        // A record whose test is `Nat.equal` on the bits, which is native
+        // already: the definition computes it as fast, so only the runtimes
+        // replace it.
+        FloatDef::Native(FloatNative::DecEq) => None,
         FloatDef::Native(FloatNative::ToInt) => to_int_value(g, bits[0]),
         FloatDef::Native(n @ (FloatNative::Add | FloatNative::Sub)) => {
             Some(float_value(data, n.on_pair(bits[0], bits[1])))
@@ -850,38 +843,6 @@ fn to_int_value(g: &Ev, bits: u64) -> Option<Value> {
             Value::Ctor(option, some, [i].into())
         }
     })
-}
-
-/// What `Float.decEq x y` computes for known bits `m` and `n`: `Yes
-/// (Float.bitsExt x y rfl)`, or `No (Float.bitsNe x y (Nat.equalFalse m n
-/// rfl))` (what `Nat.decEq m n` gives, passed on by `Float.decEqFrom`). The
-/// theorems stay folded, as they do when the definition runs.
-fn dec_eq(g: &Ev, args: &[Value], m: u64, n: u64) -> Option<Value> {
-    let dec = g.env.builtins().decidable?;
-    let arg = |v: Value| Elim::App(v, Icit::Explicit);
-    let (x, y) = (args[0].clone(), args[1].clone());
-    if m == n {
-        let proof = Value::Neutral(
-            Head::Def(g.env.builtins().float.bits_ext?),
-            vec![arg(x), arg(y), arg(Value::Refl)].into(),
-        );
-        Some(Value::Ctor(dec, 0, [proof].into()))
-    } else {
-        let differ = Value::Neutral(
-            Head::Def(g.env.builtins().nat_neq?),
-            vec![
-                arg(nat_value(m.into())),
-                arg(nat_value(n.into())),
-                arg(Value::Refl),
-            ]
-            .into(),
-        );
-        let proof = Value::Neutral(
-            Head::Def(g.env.builtins().float.bits_ne?),
-            vec![arg(x), arg(y), arg(differ)].into(),
-        );
-        Some(Value::Ctor(dec, 1, [proof].into()))
-    }
 }
 
 /// A double's bits as the `Nat` the literal elaborator writes.

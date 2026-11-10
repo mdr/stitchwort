@@ -1392,7 +1392,7 @@ theorem List.consInjectiveHead (x: a) (y: a) (xs: List a) (ys: List a) (p: [x, .
 theorem List.beqCons [auto eq: DecEq a] (x: a) (xs: List a) (y: a) (ys: List a): ([x, ..xs] == [y, ..ys]) = (x == y ∧ xs == ys) :=
   Bool.eqOf _ _
     (same =>
-      let lists := DecEq.sound same
+      let lists := DecEq.sound [x := [x, ..xs]] [y := [y, ..ys]] same
       rewrite List.consInjectiveHead x y xs ys lists, (Eq.cong (.drop 1) lists: xs = ys) in Bool.andIntro (DecEq.refl y) (DecEq.refl ys))
     (both => rewrite DecEq.sound (Bool.andLeft both), DecEq.sound (Bool.andRight both) in DecEq.refl [y, ..ys])
 
@@ -2864,7 +2864,8 @@ theorem List.lengthFilterMapBool (f: a → Option Bool) (xs: List a):
         List.countCons rest x (x => f x == Some False) in
         match f x with
           | None => List.lengthFilterMapBool f rest
-          | Some bit => rewrite List.lengthFilterMapBool f rest in cases
+          | Some True => rewrite List.lengthFilterMapBool f rest in rfl
+          | Some False => rewrite List.lengthFilterMapBool f rest in omega
 
 --| Mapping over a `concat` is the `concat` of mapping over each part.
 theorem List.mapConcat (xss: List (List a)) (k: a → b): xss.concat.map k = (xss.map (xs => xs.map k)).concat :=

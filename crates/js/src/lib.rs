@@ -2999,8 +2999,7 @@ impl<'g> Gen<'g> {
             };
         };
         // A match on the result of the call to itself (inside an inlined
-        // helper) that gives the same constructor back, as `List.decCons`'s
-        // `Yes q => Yes ..` and `No r => No ..` do once proofs are erased, is
+        // helper) that gives the same constructor back, fields erased, is
         // that result: the call is in tail position after all.
         if let Some(call) = self_call
             && self.hole_at(env.len() - 1 - *ix).is_some()
@@ -3128,9 +3127,8 @@ impl<'g> Gen<'g> {
     }
 
     /// Whether a match on a value of data type `d` gives back, in each
-    /// branch, the constructor it matched, whose fields are all erased (a
-    /// decision's `Yes` and `No`, once their proofs are): so the match is the
-    /// value itself.
+    /// branch, the constructor it matched, whose fields are all erased: so
+    /// the match is the value itself.
     fn is_identity_match(&self, d: DataId, branches: &[Branch]) -> bool {
         let data = self.g.data(d);
         if data.sort() == Sort::Prop
@@ -4259,37 +4257,6 @@ impl<'g> Gen<'g> {
         out
     }
 
-    /// Whether `term` is `Yes _` (or `No _`, with `yes` false), the proof
-    /// ignored.
-    fn is_decision(&self, term: &Term, yes: bool) -> bool {
-        let ctor = self
-            .g
-            .env
-            .registry()
-            .ctor(if yes { Builtin::Yes } else { Builtin::No });
-        matches!(term.strip_loc(), Term::Ctor(d, c, _) if Some((*d, *c)) == ctor)
-    }
-
-    /// `Decidable.elim d (h => Yes …) (h => No …)`: `d` itself, since the
-    /// proofs are erased. A derived `==` on a record with one field to
-    /// compare is this, around the field's decision.
-    fn decision_itself<'t>(&self, id: DefId, args: &[&'t Term]) -> Option<&'t Term> {
-        if Some(id) != self.elim_dec {
-            return None;
-        }
-        let [_, _, decision, yes, no] = args else {
-            return None;
-        };
-        match (yes.strip_loc(), no.strip_loc()) {
-            (Term::Lam(_, _, yes), Term::Lam(_, _, no))
-                if self.is_decision(yes, true) && self.is_decision(no, false) =>
-            {
-                Some(decision)
-            }
-            _ => None,
-        }
-    }
-
     /// The comparison of `instance`, an `Ord` instance, if it's a definition
     /// whose own body says which: a record of the fields
     /// (`{ compare = Nat.compare, … }`) or `Ord.fromCompare c …`, with the
@@ -4377,9 +4344,6 @@ impl<'g> Gen<'g> {
 
     /// [`Gen::def_ref`], without building a closed map once.
     fn def_call(&self, id: DefId, args: &[&Term], env: &mut Vec<bool>) -> Fallible<String> {
-        if let Some(decision) = self.decision_itself(id, args) {
-            return self.expr(decision, env);
-        }
         // In an expression, a conditional, with no closures for the branches.
         if let Some((cond, then, otherwise, tag)) = self.conditional(id, args) {
             let cond = self.expr(cond, env)?;
@@ -4821,12 +4785,13 @@ impl<'g> Gen<'g> {
         ))
     }
 
-    /// The tag of `Decidable`'s first constructor (`Yes`).
+    /// The tag of a decision that holds. A decision is stored as its test
+    /// (`Data::unboxed_field`: its proofs are erased), so this is `True`'s.
     fn decision_yes_tag(&self) -> String {
-        self.g.env.registry().data(Builtin::Decidable).map_or_else(
-            || "Yes".into(),
-            |d| self.g.data(d).ctors()[0].name.to_string(),
-        )
+        match self.g.env.registry().ctor(Builtin::True) {
+            Some((d, c)) => self.g.data(d).ctors()[c].name.to_string(),
+            None => "True".into(),
+        }
     }
 
     /// A JS expression for a boundary type, as the runtime's `decode` and
@@ -5338,7 +5303,6 @@ fn native_js(op: native::Native) -> &'static str {
         Native::DivFuel => {
             "(fuel) => (n) => (d) => { if (d === 0n) return 0n; const q = n / d; return q < fuel ? q : fuel; }"
         }
-        Native::DecEqNat => "(m) => (n) => ({ tag: m === n ? \"Yes\" : \"No\" })",
         // Proofs, so they're erased and never emitted.
         Native::EqNatRefl | Native::EqNatSound => "undefined",
     }
@@ -5420,7 +5384,7 @@ fn float_native_js(op: FloatPrim, native_int: bool, native_text: bool) -> String
         FloatPrim::Abs => "(a) => Math.abs(a)".into(),
         FloatPrim::IsNaN => format!("(a) => {}", boolean("a !== a")),
         FloatPrim::IsFinite => format!("(a) => {}", boolean("Number.isFinite(a)")),
-        FloatPrim::DecEq => "(a) => (b) => ({ tag: Object.is(a, b) ? \"Yes\" : \"No\" })".into(),
+        FloatPrim::DecEq => format!("(a) => (b) => {}", boolean("Object.is(a, b)")),
         FloatPrim::IeeeEq => format!("(a) => (b) => {}", boolean("a === b")),
         FloatPrim::IeeeLt => format!("(a) => (b) => {}", boolean("a < b")),
         FloatPrim::IeeeLe => format!("(a) => (b) => {}", boolean("a <= b")),
@@ -5496,7 +5460,7 @@ fn int_native_js(op: IntNative) -> &'static str {
         IntNative::IntModNat => {
             "(a) => (d) => { if (d === 0n) return a < 0n ? 0n : a; const r = a % d; return r < 0n ? r + d : r; }"
         }
-        IntNative::DecEqInt => "(a) => (b) => ({ tag: a === b ? \"Yes\" : \"No\" })",
+        IntNative::DecEqInt => "(a) => (b) => ({ tag: a === b ? \"True\" : \"False\" })",
         IntNative::IntLeq => "(a) => (b) => ({ tag: a <= b ? \"True\" : \"False\" })",
         IntNative::IntLess => "(a) => (b) => ({ tag: a < b ? \"True\" : \"False\" })",
         IntNative::IntCompare => {
@@ -5570,7 +5534,7 @@ fn text_native_js(op: TextNative) -> &'static str {
         }
         TextNative::TextIsEmpty => r#"(t) => ({ tag: t === "" ? "True" : "False" })"#,
         // Well-formed UTF-16 is one-to-one with sequences of scalar values.
-        TextNative::DecEqText => r#"(a) => (b) => ({ tag: a === b ? "Yes" : "No" })"#,
+        TextNative::DecEqText => r#"(a) => (b) => ({ tag: a === b ? "True" : "False" })"#,
         // By scalar value, not code unit. At the first code unit that
         // differs, `codePointAt` gives each side's whole scalar value, or, if
         // the high halves of two pairs were the same, their low halves, which

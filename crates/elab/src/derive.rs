@@ -1075,7 +1075,7 @@ impl Elaborator {
                     &|k| var(&h(k)),
                     &|j| format!("%p{j}"),
                 );
-                let mut body = apps(var("Std.Decidable.Yes"), vec![proof]);
+                let mut body = apps(var("Std.Decidable.yes"), vec![proof]);
                 for &k in data_fields.iter().rev() {
                     let field = format!("{prefix}{}%{k}", ctor.name);
                     let cong = apps(
@@ -1083,7 +1083,7 @@ impl Elaborator {
                         vec![apps(var(&field), vec![var(&a(k))]), var("%e")],
                     );
                     let refute = lam(&["%e"], apps(var(&h(k)), vec![cong]));
-                    let no = apps(var("Std.Decidable.No"), vec![refute]);
+                    let no = apps(var("Std.Decidable.no"), vec![refute]);
                     body = match kinds[k] {
                         Field::Recursive(target) => apps(
                             var("Std.Decidable.elim"),
@@ -1166,7 +1166,7 @@ impl Elaborator {
                     guard: None,
                     name: name.clone(),
                     patterns: vec![Pattern::Var(n("%r")), Pattern::Var(n("%s"))],
-                    rhs: Some(apps(var("Std.Decidable.No"), vec![refute])),
+                    rhs: Some(apps(var("Std.Decidable.no"), vec![refute])),
                     arm: None,
                     span,
                 });

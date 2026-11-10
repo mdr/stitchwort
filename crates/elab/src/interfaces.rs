@@ -291,7 +291,12 @@ impl Elaborator {
         let data_key = self.data_key(d);
         let span = data.span();
         let name = data.name().clone();
-        let relations = relation_pairs(&fields, g.env.builtins().decidable);
+        let relations = relation_pairs(
+            &fields,
+            g.env
+                .registry()
+                .data(stitchwort_core::registry::Builtin::Decidable),
+        );
         let mut methods = Vec::new();
         for (i, (field, _)) in fields.iter().enumerate() {
             let proj = projections[i];

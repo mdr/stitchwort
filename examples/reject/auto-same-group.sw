@@ -10,9 +10,9 @@ type Token: Prop =
 def needsToken: [auto t: Token] → Nat := 1
 
 instance decToken: Nat → Decidable Token
-  | 0      => Decidable.yes MkToken
+  | 0 => Decidable.yes MkToken
   | Succ n => if client n == 0 then Decidable.yes MkToken else decToken n
 
 def client: Nat → Nat
-  | 0      => needsToken
-  | Succ n => if Decidable.toBool (decToken n) then 0 else client n
+  | 0 => needsToken
+  | Succ n => if Decidable.holds (decToken n) then 0 else client n

@@ -4229,10 +4229,10 @@ fn occurs(term: &Term, group: &[DataId]) -> Option<DataId> {
 /// definition: `decision` must have type `decidable P`, where `P` is the
 /// parameter's type, in the context of the parameters before it.
 ///
-/// `decidable` must be shaped like the prelude's `Decidable`: one `Prop`
-/// parameter `p`, and a first constructor whose only field is a proof of `p`.
-/// That's what lets extracted code treat the first constructor as "the
-/// precondition holds".
+/// `decidable` must be shaped like the prelude's `Decidable`: a record with
+/// one `Prop` parameter `p` whose first field is a `Bool` and whose second
+/// says that `True` there proves `p`. That's what lets extracted code treat
+/// the first field being `True` as "the precondition holds".
 pub fn add_validator(
     g: &mut Kernel,
     id: DefId,
@@ -4352,16 +4352,39 @@ pub fn add_field_validator(
     })
 }
 
-/// Whether `decidable` is shaped like the prelude's `Decidable`: one `Prop`
-/// parameter, and two constructors, the first holding a proof of it.
+/// Whether `decidable` is shaped like the prelude's `Decidable`: a record
+/// with one `Prop` parameter `p`, whose fields start with `holds: Bool` and
+/// `sound: holds = True → p`. Its other fields don't matter here: the kernel
+/// checks a validator's type, so a decision it accepts with `holds` `True`
+/// has the proof of `p` behind it.
 fn shaped_like_decidable(g: &Ev, decidable: DataId) -> bool {
+    let Some(bool) = g.env.builtins().bool else {
+        return false;
+    };
+    let is_bool =
+        |t: &Term| matches!(t.strip_loc(), Term::Data(b, args) if *b == bool && args.is_empty());
+    let is_true =
+        |t: &Term| matches!(t.strip_loc(), Term::Ctor(b, 1, fs) if *b == bool && fs.is_empty());
+    // `holds = True → p`, under `p` and `holds`.
+    let is_sound = |t: &Term| match t.strip_loc() {
+        Term::Pi(_, Icit::Explicit, dom, cod) => {
+            matches!(cod.strip_loc(), Term::Var(2))
+                && matches!(dom.strip_loc(), Term::Eq(ty, lhs, rhs)
+                    if ty.as_deref().is_none_or(is_bool)
+                        && matches!(lhs.strip_loc(), Term::Var(0))
+                        && is_true(rhs))
+        }
+        _ => false,
+    };
     g.env.datas().get(decidable.0).is_some_and(|d| {
         d.state == State::Final
+            && d.record
             && d.params.len() == 1
             && matches!(d.params[0].1.strip_loc(), Term::Sort(Sort::Prop))
-            && d.ctors.len() == 2
-            && d.ctors[0].fields.len() == 1
-            && matches!(d.ctors[0].fields[0].1.strip_loc(), Term::Var(0))
+            && d.ctors.len() == 1
+            && d.ctors[0].fields.len() >= 2
+            && is_bool(&d.ctors[0].fields[0].1)
+            && is_sound(&d.ctors[0].fields[1].1)
     })
 }
 

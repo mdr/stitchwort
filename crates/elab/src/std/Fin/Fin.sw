@@ -88,8 +88,8 @@ def Fin.ofNatCheck (n: Nat) (i: Nat): Option (Fin n) := if h: i < n then Some (F
 theorem Fin.ofNatCheckDec (n: Nat) (i: Nat) (d: Decidable (i < n)) (lt: i < n):
     Option.map (Decidable.elim d (h => Some (Fin.ofNatLt n i h)) (h => None)) Fin.toNat = Some i :=
   match d with
-    | Yes h => Eq.cong Some (Fin.toNatOfNatLt n i h)
-    | No r => Void.exfalso (r lt)
+    | { holds = True, sound = s, complete = c } => Eq.cong Some (Fin.toNatOfNatLt n i _)
+    | { holds = False, sound = s, complete = c } => Void.exfalso (Bool.falseNotTrue (c lt))
 
 theorem Fin.ofNatCheckLt (n: Nat) (i: Nat) (h: i < n): Option.map (Fin.ofNatCheck n i) Fin.toNat = Some i :=
   Fin.ofNatCheckDec n i (Bool.decTrue (Nat.leq (Succ i) n)) h

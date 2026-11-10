@@ -128,10 +128,7 @@ theorem Option.getOrElseMap4 (f: a → b → c → e → r) (da: a) (db: b) (dc:
 
 --| `Option.decEq` on two `Some`s gives the values' answer, wrapped by
 --| `Option.decSome`, so `==` on them is `==` on the values.
-theorem Option.decSomeToBool (x: a) (y: a) (d: Decidable (x = y)): Decidable.toBool (Option.decSome x y d) = Decidable.toBool d :=
-  match d with
-    | Yes p => rfl
-    | No r => rfl
+theorem Option.decSomeToBool (x: a) (y: a) (d: Decidable (x = y)): Decidable.holds (Option.decSome x y d) = Decidable.holds d := rfl
 
 theorem Option.someBeqSome [auto eq: DecEq a] (x: a) (y: a): (Some x == Some y) = (x == y) :=
   Option.decSomeToBool x y (DecEq.decide x y)
@@ -235,7 +232,4 @@ theorem Pair.mkInjectiveSnd [x1: a] [y1: b] [x2: a] [y2: b] (h: MkPair x1 y1 = M
 
 --| `==` on two pairs is `==` on both parts.
 theorem Pair.mkBeqMk [auto eqA: DecEq a] [auto eqB: DecEq b] (x1: a) (y1: b) (x2: a) (y2: b): ((x1, y1) == (x2, y2)) = (x1 == x2 ∧ y1 == y2) :=
-  match DecEq.decide x1 x2, DecEq.decide y1 y2 with
-    | Yes p, Yes q => rfl
-    | Yes p, No r => rfl
-    | No r, dq => rfl
+  rfl

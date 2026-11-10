@@ -187,8 +187,9 @@ theorem Vec.ofListCons (x: a) (y: a) (ys: Vec a k) (m: Option (Vec a k))
 
 theorem Vec.ofListDecToList (n: Nat) (xs: List a) (v: Vec a n) (d: Decidable (List.length xs = n)) (h: Vec.ofListDec n xs d = Some v): Vec.toList v = xs :=
   match d with
-    | Yes ok => Eq.trans (Eq.cong Vec.toList (Eq.sym (Eq.cong (.getOrElse (Vec.fromListN n xs ok)) h))) (Vec.toListFromListN n xs ok)
-    | No r => Void.exfalso (Option.noneNotSome v h)
+    | { holds = True, sound = s, complete = c } =>
+      Eq.trans (Eq.cong Vec.toList (Eq.sym (Eq.cong (.getOrElse (Vec.fromListN n xs (s rfl))) h))) (Vec.toListFromListN n xs (s rfl))
+    | { holds = False, sound = s, complete = c } => Void.exfalso (Option.noneNotSome v h)
 
 --| What `ofList` accepts is the list it was given.
 theorem Vec.ofListToList (n: Nat) (xs: List a) (v: Vec a n) (h: Vec.ofList n xs = Some v): Vec.toList v = xs :=
@@ -234,10 +235,13 @@ theorem Vec.fromListNProofs (n: Nat) (xs: List a) (p: List.length xs = n) (q: Li
 theorem Vec.ofListDecSucc (y: a) (zs: List a) (k: Nat) (d: Decidable (List.length zs = k)) (d2: Decidable (List.length [y, ..zs] = Succ k)):
     Vec.ofListDec (Succ k) [y, ..zs] d2 = Option.map (Vec.ofListDec k zs d) (ys => VCons y ys) :=
   match d, d2 with
-    | Yes ok, Yes ok2 => Eq.cong Some (Eq.cong (VCons y) (Vec.fromListNProofs k zs (Nat.succInjective ok2) ok))
-    | Yes ok, No r => Void.exfalso (r (Eq.cong Succ ok))
-    | No r, Yes ok2 => Void.exfalso (r (Nat.succInjective ok2))
-    | No r, No r2 => rfl
+    | { holds = True, sound = s, complete = c }, { holds = True, sound = s2, complete = c2 } =>
+      Eq.cong Some (Eq.cong (VCons y) (Vec.fromListNProofs k zs (Nat.succInjective (s2 rfl)) (s rfl)))
+    | { holds = True, sound = s, complete = c }, { holds = False, sound = s2, complete = c2 } =>
+      Void.exfalso (Bool.falseNotTrue (c2 (Eq.cong Succ (s rfl))))
+    | { holds = False, sound = s, complete = c }, { holds = True, sound = s2, complete = c2 } =>
+      Void.exfalso (Bool.falseNotTrue (c (Nat.succInjective (s2 rfl))))
+    | { holds = False, sound = s, complete = c }, { holds = False, sound = s2, complete = c2 } => rfl
 
 --| `ofList` of a list one longer: its tail's vector, with the head in front.
 theorem Vec.ofListSucc (y: a) (zs: List a) (k: Nat): Vec.ofList (Succ k) [y, ..zs] = Option.map (Vec.ofList k zs) (ys => VCons y ys) :=

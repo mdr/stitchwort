@@ -300,7 +300,7 @@ def List.init: (xs: List a) → List a
 @[tailrec]
 def List.elem: (xs: List a) → (target: a) → (decEq: (x: a) → (y: a) → Decidable (x = y)) → Bool
   | [], target, decEq => False
-  | [x, ..xs], target, decEq => if Decidable.toBool (decEq target x) then True else List.elem xs target decEq
+  | [x, ..xs], target, decEq => if Decidable.holds (decEq target x) then True else List.elem xs target decEq
 
 --| Whether `x` is on the list, by its `DecEq` ([`List.memContains`] says it is
 --| membership).

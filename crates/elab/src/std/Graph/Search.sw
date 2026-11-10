@@ -610,7 +610,7 @@ theorem Graph.relaxAdded [auto ord: Ord s] (costs: Graph.Costs s t) (cost: Nat) 
             | Inl inserted =>
               match same: (total, state) == (cost + weight, next) with
                 | True =>
-                  let equal := DecEq.sound same
+                  let equal := DecEq.sound [x := (total, state)] [y := (cost + weight, next)] same
                   Inr (Witness weight (Both (Inl (Eq.cong (found => (found, weight)) (Eq.sym (Eq.cong Pair.snd equal)))) (Eq.cong Pair.fst equal)))
                 | False =>
                   Inl (Eq.trans (Eq.sym (Set.containsInsertOther queue (cost + weight, next) (total, state) (DecEq.soundFalse _ _ same))) inserted)
@@ -876,7 +876,7 @@ theorem Graph.pendingKept [auto ord: Ord s] (costs: Graph.Costs s t) (queue: Set
     | Inl (Witness found (Both below there)) =>
       match same: (found, state) == (poppedCost, poppedState) with
         | True =>
-          let equal := DecEq.sound same
+          let equal := DecEq.sound [x := (found, state)] [y := (poppedCost, poppedState)] same
           let costsEqual: found = poppedCost := Eq.cong Pair.fst equal
           Inr (Witness poppedFound (Both (rewrite Eq.cong Pair.snd equal in popped) (omega [costsEqual, cheaper, below])))
         | False => Inl (Witness found (Both below (kept (found, state) there (DecEq.soundFalse _ _ same))))

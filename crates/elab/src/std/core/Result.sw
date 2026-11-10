@@ -32,11 +32,11 @@ theorem Result.errNotOk [m: e] [x: a]: Err m ≠ Ok x
 
 --| Decides whether two `Ok`s are equal, from a decision about their values.
 def Result.decOk (x: a) (y: a) (dec: Decidable (x = y)): Decidable ((Ok x: Result a e) = Ok y) :=
-  Decidable.elim dec (p => Decidable.yes (Eq.cong Ok p)) (r => Decidable.no (p => r (Eq.cong (.getOrElse x) p)))
+  Decidable.map dec (Eq.cong Ok) (Eq.cong (.getOrElse x))
 
 --| Decides whether two `Err`s are equal, from a decision about their errors.
 def Result.decErr (m: e) (n: e) (dec: Decidable (m = n)): Decidable ((Err m: Result a e) = Err n) :=
-  Decidable.elim dec (p => Decidable.yes (Eq.cong Err p)) (r => Decidable.no (p => r (Eq.cong (.errorOrElse m) p)))
+  Decidable.map dec (Eq.cong Err) (Eq.cong (.errorOrElse m))
 
 --| Equality of results, from equality of the values and of the errors.
 @[noReceiver]

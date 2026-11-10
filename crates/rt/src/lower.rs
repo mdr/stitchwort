@@ -180,14 +180,9 @@ fn lower_roots(g: &Ev, limits: Limits, roots: Vec<DefId>, entry: &Term) -> Resul
     }
     let entry = cx.frame_body(&[], |cx| cx.expr(entry))?;
     globals.append(&mut cx.hoisted);
-    // The simplifier needs to recognise, and build, `Bool` and `Decidable`.
+    // The simplifier needs to recognise, and build, `Bool`.
     let types = Types {
         bool_: g.env.registry().data(Builtin::Bool).map(|d| cx.type_id(d)),
-        decidable: g
-            .env
-            .registry()
-            .data(Builtin::Decidable)
-            .map(|d| cx.type_id(d)),
     };
     let mut program = Program {
         globals,
@@ -250,8 +245,6 @@ fn shapes(g: &Ev) -> Result<Shapes> {
         true_: ctor(Builtin::True, 0)?,
         none: ctor(Builtin::None, 0)?,
         some: ctor(Builtin::Some, 1)?,
-        yes: ctor(Builtin::Yes, 0)?,
-        no: ctor(Builtin::No, 0)?,
         nil: ctor(Builtin::Nil, 0)?,
         cons: ctor(Builtin::Cons, 2)?,
         pair: ctor(Builtin::MkPair, 2)?,
@@ -925,13 +918,10 @@ impl<'g> Lowerer<'g> {
         if Some(id) == self.to_bool
             && let [_, decision] = args
         {
-            // `a == b` on native values: `toBool (Nat.decEq a b)` is
-            // `Nat.equal a b`, and likewise for `Int` and `Text`.
+            // `a == b` on native values: `toBool (Int.decEq a b)` is the
+            // native equality, and likewise for `Text`.
             let decision = self.expr(decision)?;
             let fused = match decision {
-                Expr::Prim(PrimOp::Nat(Native::DecEqNat), operands) => {
-                    Ok((PrimOp::Nat(Native::EqNat), operands))
-                }
                 Expr::Prim(PrimOp::Int(IntNative::DecEqInt), operands) => {
                     Ok((PrimOp::IntEqual, operands))
                 }

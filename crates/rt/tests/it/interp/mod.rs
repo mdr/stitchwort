@@ -96,9 +96,9 @@ fn boolean(b: bool) -> V {
     ctor(if b { TRUE } else { FALSE }, vec![])
 }
 
-/// `Yes` and `No`, with their proofs erased.
+/// A decision, stored as its test.
 fn decision(b: bool) -> V {
-    ctor(if b { 0 } else { 1 }, vec![])
+    boolean(b)
 }
 
 fn some(v: V) -> V {
@@ -550,7 +550,6 @@ impl<'p> Interp<'p> {
                     Native::Mul => V::Nat(a * nat(&args[1])?),
                     Native::Leq => boolean(a <= nat(&args[1])?),
                     Native::EqNat => boolean(a == nat(&args[1])?),
-                    Native::DecEqNat => decision(a == nat(&args[1])?),
                     Native::DivFuel => {
                         let (n, d) = (nat(&args[1])?, nat(&args[2])?);
                         if d == BigUint::ZERO {

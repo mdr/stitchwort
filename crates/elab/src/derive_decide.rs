@@ -207,7 +207,7 @@ impl Elaborator {
         let ctor_name = format!("{ty_name}.{}", ctor.name);
         let helper = format!("{ty_name}.%{}%P%", ctor.name);
         let mut body = apps(
-            var("Std.Decidable.Yes"),
+            var("Std.Decidable.yes"),
             vec![apps(
                 var(&ctor_name),
                 (0..count).map(|k| var(&h(k))).collect(),
@@ -231,7 +231,7 @@ impl Elaborator {
                 binder: Some(n(&h(k))),
                 cond: Box::new(prop),
                 then: Box::new(body),
-                otherwise: Box::new(apps(var("Std.Decidable.No"), vec![refute])),
+                otherwise: Box::new(apps(var("Std.Decidable.no"), vec![refute])),
                 span,
             };
         }

@@ -103,10 +103,6 @@ pub const PINS: &[Pin] = &[
         "7a01293db3c229872123c2296ce4a5fe9f833bd2cffdfa51e61859dc8adb6cee",
     ),
     kernel(
-        Builtin::DecEqNat,
-        "d033592128b289fbe1307ba2bff2f1a64db65417b9827c5d000610c0a9d583ac",
-    ),
-    kernel(
         Builtin::EqNatRefl,
         "85552196461679359e4cc327d555f606a0bf4685fde0f8380a6aac54bd1283a5",
     ),
@@ -114,25 +110,19 @@ pub const PINS: &[Pin] = &[
         Builtin::EqNatSound,
         "8fbd777ace9149842dbd6dab898cc17b0787260479d793f76af62676f5493352",
     ),
-    // `decEq`'s native puts it in its `No`.
-    kernel(
-        Builtin::NatNeq,
-        "6219ee2062c582c2a0923264b2d93080476f0297e5e7e6c35dffd0f96a675335",
-    ),
     // `Float`, whose `isValid` the float primitives' results rely on, and
-    // the float natives and the theorems `Float.decEq`'s native puts in its
-    // result (`float.rs`).
+    // the float natives (`float.rs`).
     kernel(
         Builtin::Float,
         "e4ff60202ca96f2ac20c3db9d79474c8def3839c88836496a736df95675bceb7",
     ),
     kernel(
         Builtin::FloatNeg,
-        "3a2c5da46c5c819d12fd2bd396f459c416c69554a2e497c87057fb29297bcf98",
+        "1586478f73ef97e19848e8aa9619addf65047594371aa59945d8c3fc05f5f1b2",
     ),
     kernel(
         Builtin::FloatAbs,
-        "13b90d3b993ad04836eb3f1683ac2a75a99a3aee80a9ff2677414282ed695e16",
+        "3697c2ee20d0d0b2548d4d786dc608ecc613226129861403f30890a7f5317ef8",
     ),
     kernel(
         Builtin::FloatIsNaN,
@@ -140,7 +130,7 @@ pub const PINS: &[Pin] = &[
     ),
     kernel(
         Builtin::FloatDecEq,
-        "1c3276aded5ac4d016f2a6ad64fff29ca5d543da67ee0e7874f22974315d87a7",
+        "f102079337b4aa2248aad9e83a41ad073ad51e8c0a1d5a906658b7ff434d62ab",
     ),
     kernel(
         Builtin::FloatIsFinite,
@@ -164,15 +154,7 @@ pub const PINS: &[Pin] = &[
     ),
     kernel(
         Builtin::FloatSub,
-        "665ce2f52a0b1ad15a70d6253c26f5d1b638218819ea5dc130399cd7de93e73b",
-    ),
-    kernel(
-        Builtin::FloatBitsExt,
-        "89edffd7b5e9fb3ae8e3157f90cbe96893843a760424acb64cc9fcf26e499c25",
-    ),
-    kernel(
-        Builtin::FloatBitsNe,
-        "561015c695f767e73dd71a5ea634eb2bbfe4135074d987499f3b2823d4704b81",
+        "17ca690481b8c4afcffa0128505841f85a03f7cf9fcf0434a9f18f0bfa7dcaa8",
     ),
 ];
 
@@ -359,7 +341,6 @@ mod tests {
         for n in crate::native::Native::ALL {
             assert!(pin(n.builtin()).is_some(), "{n:?}");
         }
-        assert!(pin(Builtin::NatNeq).is_some());
     }
 
     #[test]

@@ -66,8 +66,8 @@
 //! `match`es and the closers' terms, and the kernel checks it as such.
 //!
 //! A case still open then is tried by its goal's decision procedure, as
-//! `auto` finds and runs one (docs/proposals/decide.md §6.1.2): `Yes` closes
-//! it with `auto`'s term, `Decidable.fromYes d Trivial`; `No` doesn't fail
+//! `auto` finds and runs one (docs/proposals/decide.md §6.1.2): a test that
+//! computes to `True` closes it with `auto`'s term, `d.sound rfl`; `False` doesn't fail
 //! it, since its hypotheses may still contradict each other.
 //!
 //! A case still open then, whose goal is a `Π`, has the goal's leading
@@ -443,7 +443,7 @@ enum Decided {
 
 /// The decision closer (docs/proposals/decide.md §6.1.2): the goal's
 /// decision procedure, found as `auto` finds one (`auto::decide`), run now,
-/// and on `Yes` the proof `Decidable.fromYes d Trivial` (`auto::from_yes`).
+/// and when its test is `True` the proof `d.sound rfl` (`auto::from_yes`).
 ///
 /// Trust: nothing new enters the trusted base. The term is the one `auto`
 /// writes for `[auto h: P]`; the kernel checks it by running `d` again
@@ -461,13 +461,13 @@ fn by_decision(cx: &mut Ctx, goal: &Value) -> Result<Decided> {
             Err(e) if crate::undo::fatal(&e) => return Err(e),
             Err(_) => return Ok(None),
         };
-        match force(&cx.g(), cx.eval(&decision)?)? {
-            Value::Ctor(_, 0, _) => crate::auto::from_yes(cx, &goal, decision).map(Some),
-            Value::Ctor(..) => {
+        match crate::auto::verdict(cx, &decision)? {
+            Some(true) => crate::auto::from_yes(cx, &goal, decision).map(Some),
+            Some(false) => {
                 no = true;
                 Ok(None)
             }
-            _ => Ok(None),
+            None => Ok(None),
         }
     })?;
     Ok(match found {

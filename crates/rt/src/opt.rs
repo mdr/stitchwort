@@ -23,9 +23,9 @@
 //!   branch's constructor meets it: `toBool (decTrue b)` is `b`. Where
 //!   every branch ends in a constructor, only the arm each takes is copied,
 //!   so the size allowed counts those arms.
-//! - A `match` on a `Bool` is an `if`; `if c then True else False` is `c`;
-//!   a `match` on a decision from `decEq` on native values is an `if` on
-//!   the native equality.
+//! - A `match` on a `Bool` is an `if`; `if c then True else False` is `c`.
+//!   A decision is stored as its test, a `Bool`, so this covers matches on
+//!   decisions too.
 //! - **Calls of known functions**: applying a global, a partial application
 //!   or a closure literal is a direct call; a closure capturing constants
 //!   (`sortBy Nat.compare`'s comparison) gets its own lambda with them
@@ -53,7 +53,7 @@ use crate::ir::{
     Arm, Body, Expr, Global, GlobalId, GlobalKind, Lambda, LambdaId, Lit, MatchKind, PrimOp,
     Program, Slot, TypeId,
 };
-use crate::natives::{IntNative, TextNative};
+use crate::natives::TextNative;
 
 /// The largest body (in [`size`]) that is inlined at a call.
 const INLINE_SIZE: usize = 24;
@@ -83,7 +83,6 @@ pub(crate) const MAX_NESTING: usize = 1000;
 #[derive(Clone, Copy, Debug)]
 pub struct Types {
     pub bool_: Option<TypeId>,
-    pub decidable: Option<TypeId>,
 }
 
 /// Simplifies every body of `p`.
@@ -105,8 +104,6 @@ pub fn optimize(p: &mut Program, types: Types) {
         types,
         true_: p.shapes.true_,
         false_: p.shapes.false_,
-        yes: p.shapes.yes,
-        no: p.shapes.no,
         lambdas: std::mem::take(&mut p.lambdas),
         specialised: HashMap::default(),
         ctor_arity: p
@@ -150,8 +147,6 @@ struct Cx {
     types: Types,
     true_: u32,
     false_: u32,
-    yes: u32,
-    no: u32,
     lambdas: Vec<Lambda>,
     /// Lambdas made by substituting constants for captures, by the lambda
     /// and the constants.
@@ -644,16 +639,6 @@ fn leaves(e: &Expr) -> usize {
     }
 }
 
-/// The native `Bool` equality a `decEq` native decides.
-fn equality(op: PrimOp) -> Option<PrimOp> {
-    match op {
-        PrimOp::Nat(Native::DecEqNat) => Some(PrimOp::Nat(Native::EqNat)),
-        PrimOp::Int(IntNative::DecEqInt) => Some(PrimOp::IntEqual),
-        PrimOp::Text(TextNative::DecEqText) => Some(PrimOp::TextEqual),
-        _ => None,
-    }
-}
-
 // --------------------------------------------------------------- renaming
 
 /// Copies an expression with each variable it binds given a fresh slot,
@@ -865,9 +850,6 @@ enum Known {
     Alias(Expr),
     /// A constructor of this type with these fields (trivial expressions).
     Ctor(TypeId, u32, Vec<Expr>),
-    /// The decision a `decEq` native makes on these arguments: its
-    /// `Bool` version is this native.
-    Decision(PrimOp, Vec<Expr>),
     /// A closure or partial application of trivial values: applying it
     /// is a call.
     Fun(Expr),
@@ -924,11 +906,6 @@ impl Simp<'_> {
             }
             Expr::Closure(_, caps) | Expr::PartialApp(_, caps) if caps.iter().all(trivial) => {
                 self.env.insert(slot, Known::Fun(value.clone()));
-            }
-            Expr::Prim(op, args) => {
-                if let Some(eq) = equality(*op) {
-                    self.env.insert(slot, Known::Decision(eq, args.clone()));
-                }
             }
             _ => {}
         }
@@ -1445,14 +1422,6 @@ impl Simp<'_> {
             return out;
         }
         if let MatchKind::Data(t) = k {
-            // A decision from `decEq` on native values: an `if` on equality.
-            if Some(t) == self.cx.types.decidable
-                && let Expr::Local(s) = &x
-                && let Some(Known::Decision(eq, args)) = self.env.get(s).cloned()
-            {
-                let (yes, no) = self.two(arms, self.cx.yes, self.cx.no);
-                return self.if_(Expr::Prim(eq, args), yes, no);
-            }
             // A match on a `Bool` is an `if`.
             if Some(t) == self.cx.types.bool_ {
                 let (t, e) = self.two(arms, self.cx.true_, self.cx.false_);

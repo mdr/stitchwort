@@ -52,14 +52,10 @@ def Nat.iterateUntilStable [auto eq: DecEq a] (x: a) (step: a → a) (measure: a
 --| The decision `Nat.iterateUntilStable` makes, taken apart: the lemmas below
 --| hand it to these.
 theorem Nat.untilStableDecYes (p: Prop) (x: a) (r: a) (h: p) (d: Decidable p): Decidable.elim d (y => x) (n => r) = x :=
-  match d with
-    | Yes y => rfl
-    | No n => Void.exfalso (n h)
+  Decidable.elimEq d (y => x) (n => r) x (y => rfl) (n => Void.exfalso (n h))
 
 theorem Nat.untilStableDecNo (p: Prop) (x: a) (r: a) (h: ¬p) (d: Decidable p): Decidable.elim d (y => x) (n => r) = r :=
-  match d with
-    | Yes y => Void.exfalso (h y)
-    | No n => rfl
+  Decidable.elimEq d (y => x) (n => r) r (y => Void.exfalso (h y)) (n => rfl)
 
 --| A value `step` leaves alone is already the answer.
 theorem Nat.iterateUntilStableStable [auto eq: DecEq a] (x: a) (step: a → a) (measure: a → Nat)
@@ -81,7 +77,8 @@ theorem Nat.iterateUntilStableFixed [auto eq: DecEq a] (x: a) (step: a → a) (m
     step (Nat.iterateUntilStable x step measure shrinks) = Nat.iterateUntilStable x step measure shrinks
     decreasing measure x
 :=
-  rewrite Nat.iterateUntilStable.unfold x step measure shrinks in
-  match DecEq.decide (step x) x with
-    | Yes y => y
-    | No n => Nat.iterateUntilStableFixed (step x) step measure shrinks [decreasing := shrinks x n]
+  if same: step x = x
+  then rewrite Nat.iterateUntilStableStable x step measure shrinks same in same
+  else
+    rewrite Nat.iterateUntilStableStep x step measure shrinks same in
+    Nat.iterateUntilStableFixed (step x) step measure shrinks [decreasing := shrinks x same]

@@ -81,11 +81,10 @@ theorem Float.bitsNe (x: Float) (y: Float) (h: x.bits ≠ y.bits): x ≠ y :=
 
 --| A decision whether two doubles are equal, from one on their bits.
 def Float.decEqFrom (x: Float) (y: Float) (bitsEq: Decidable (x.bits = y.bits)): Decidable (x = y) :=
-  Decidable.elim bitsEq (h => Decidable.yes (Float.bitsExt x y h)) (h => Decidable.no (Float.bitsNe x y h))
+  Decidable.map bitsEq (Float.bitsExt x y) (e => Eq.cong (k => k.bits) e)
 
---| `==`: the same double. For two known doubles this is `Decidable.yes (Float.bitsExt
---| x y rfl)` or `Decidable.no (Float.bitsNe x y (Nat.equalFalse m n rfl))`, which is
---| what the native gives.
+--| `==`: the same double. Its test is [`Nat.equal`] on the bits; the runtimes
+--| replace it with a native comparison.
 def Float.decEq (x: Float) (y: Float): Decidable (x = y) := Float.decEqFrom x y (Nat.decEq x.bits y.bits)
 
 instance Float.instDecEq: DecEq Float := { decide = Float.decEq }

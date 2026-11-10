@@ -1,69 +1,50 @@
---| What `Decidable.toBool` says about the decision, and [`DecEq.sound`].
+--| What `Decidable.holds` says about the decision, and [`DecEq.sound`].
 -- These were in the core (docs/proposals/prelude-slim.md stage 3). `omega`'s
 -- proofs and guarded arms' generated equations name the `toBool` ones.
 
-theorem Bool.decTrueToBool (c: Bool): Decidable.toBool (Bool.decTrue c) = c :=
-  match c with
-    | True => rfl
-    | False => rfl
+theorem Bool.decTrueToBool (c: Bool): Decidable.holds (Bool.decTrue c) = c := rfl
 
 --| What `a == b` (a decision turned into a `Bool`) says about `a = b`, both ways.
-theorem Decidable.toBoolSound [p: Prop] (d: Decidable p) (e: Decidable.toBool d = True): p :=
+theorem Decidable.toBoolSound [p: Prop] (d: Decidable p) (e: Decidable.holds d = True): p := d.sound e
+
+theorem Decidable.toBoolFalse: ∀ [p: Prop] (d: Decidable p) => Decidable.holds d = False → ¬p
+  | d, e, x => Decidable.refute d e x
+
+theorem Decidable.toBoolOf [p: Prop] (d: Decidable p) (x: p): Decidable.holds d = True := d.complete x
+
+theorem Decidable.toBoolOfNot [p: Prop] (d: Decidable p) (n: ¬p): Decidable.holds d = False :=
   match d with
-    | Yes h => h
-    | No r => cases
-
-theorem Decidable.toBoolFalse: ∀ [p: Prop] (d: Decidable p) => Decidable.toBool d = False → ¬p
-  | Yes h, e, x => cases
-  | No r, e, x => r x
-
---| What a decision's `Bool` says when it is `True`: the proof of `p`.
-theorem Decidable.sound [p: Prop] (d: Decidable p) (e: Decidable.does d = True): p := Decidable.toBoolSound d e
-
---| What a decision's `Bool` says when it is `False`: `p` is refuted. Splitting
---| on the test (`match h: x < y with | True => … | False => …`) and then
---| calling [`Decidable.sound`] or this on its equation `h` is how a proof gets
---| the evidence a `match` on the decision would have bound.
-theorem Decidable.refute [p: Prop] (d: Decidable p) (e: Decidable.does d = False): ¬p := Decidable.toBoolFalse d e
-
-theorem Decidable.toBoolOf [p: Prop] (d: Decidable p) (x: p): Decidable.toBool d = True :=
-  match d with
-    | Yes h => rfl
-    | No r => Void.exfalso (r x)
-
-theorem Decidable.toBoolOfNot [p: Prop] (d: Decidable p) (n: ¬p): Decidable.toBool d = False :=
-  match d with
-    | Yes h => Void.exfalso (n h)
-    | No r => rfl
+    | { holds = True, sound = s, complete = c } => Void.exfalso (n (s rfl))
+    | { holds = False, sound = s, complete = c } => rfl
 
 --| Double negation of a decided proposition: what `¬(n ≠ 3)` says about `n = 3`.
 theorem Decidable.notNotOf [p: Prop] (d: Decidable p) (n: ¬¬p): p :=
-  match d with
-    | Yes h => h
-    | No r => Void.exfalso (n r)
+  match e: d.holds with
+    | True => d.sound e
+    | False => Void.exfalso (n (Decidable.refute d e))
 
 --| What `a && b` says about `p ∧ q`, where `a` and `b` are the decisions' `Bool`s
 --| (`toBool dp = a`): the same four facts as `toBoolOf` and the others, for a
 --| guard `p && q` stated as the conjunction.
-theorem Decidable.andBoolOf [p q: Prop] (dp: Decidable p) (dq: Decidable q) (a b: Bool) (ea: Decidable.toBool dp = a) (eb: Decidable.toBool dq = b) (h: p ∧ q): (a && b) = True :=
+theorem Decidable.andBoolOf [p q: Prop] (dp: Decidable p) (dq: Decidable q) (a b: Bool) (ea: Decidable.holds dp = a) (eb: Decidable.holds dq = b) (h: p ∧ q): (a && b) = True :=
   match a, b with
     | True, True => rfl
     | True, False => Void.exfalso (Bool.falseNotTrue (Eq.trans (Eq.sym eb) (Decidable.toBoolOf dq (And.right h))))
     | False, b => Void.exfalso (Bool.falseNotTrue (Eq.trans (Eq.sym ea) (Decidable.toBoolOf dp (And.left h))))
 
-theorem Decidable.andBoolOfNot [p q: Prop] (dp: Decidable p) (dq: Decidable q) (a b: Bool) (ea: Decidable.toBool dp = a) (eb: Decidable.toBool dq = b) (n: ¬(p ∧ q)): (a && b) = False :=
+theorem Decidable.andBoolOfNot [p q: Prop] (dp: Decidable p) (dq: Decidable q) (a b: Bool) (ea: Decidable.holds dp = a) (eb: Decidable.holds dq = b) (n: ¬(p ∧ q)): (a && b) = False :=
   match a, b with
     | True, True => Void.exfalso (n (Both (Decidable.toBoolSound dp ea) (Decidable.toBoolSound dq eb)))
     | True, False => rfl
     | False, b => rfl
 
-theorem Decidable.andBoolSound [p q: Prop] (dp: Decidable p) (dq: Decidable q) (a b: Bool) (ea: Decidable.toBool dp = a) (eb: Decidable.toBool dq = b) (h: (a && b) = True): p ∧ q :=
+theorem Decidable.andBoolSound [p q: Prop] (dp: Decidable p) (dq: Decidable q) (a b: Bool) (ea: Decidable.holds dp = a) (eb: Decidable.holds dq = b) (h: (a && b) = True): p ∧ q :=
   match a, b with
     | True, True => Both (Decidable.toBoolSound dp ea) (Decidable.toBoolSound dq eb)
     | True, False => cases
     | False, b => cases
 
-theorem Decidable.andBoolFalse: ∀ [p q: Prop] (dp: Decidable p) (dq: Decidable q) (a b: Bool) => Decidable.toBool dp = a → Decidable.toBool dq = b → (a && b) = False → ¬(p ∧ q)
+theorem Decidable.andBoolFalse: ∀ [p q: Prop] (dp: Decidable p) (dq: Decidable q) (a b: Bool) => Decidable.holds dp = a → Decidable.holds dq = b → (a && b) = False → ¬(p ∧ q)
   | dp, dq, True, True, ea, eb, h, n => cases
   | dp, dq, True, False, ea, eb, h, n => Decidable.toBoolFalse dq eb (And.right n)
   | dp, dq, False, b, ea, eb, h, n => Decidable.toBoolFalse dp ea (And.left n)
@@ -71,16 +52,8 @@ theorem Decidable.andBoolFalse: ∀ [p q: Prop] (dp: Decidable p) (dq: Decidable
 --| A conjunction `p && q` decided by [`Decidable.and`] has the `Bool` `a && b`
 --| of its sides' (`toBool dp = a`): what lets a guard `p && q && r` be stated
 --| as `p ∧ q ∧ r`.
-theorem Decidable.andBoolDec [p q: Prop] (dp: Decidable p) (dq: Decidable q) (a b: Bool) (ea: Decidable.toBool dp = a) (eb: Decidable.toBool dq = b): Decidable.toBool (Decidable.and dp dq) = (a && b) :=
-  match dp, dq, a, b with
-    | Yes x, Yes y, True, True => rfl
-    | Yes x, Yes y, True, False => cases
-    | Yes x, Yes y, False, b => cases
-    | Yes x, No r, True, True => cases
-    | Yes x, No r, True, False => rfl
-    | Yes x, No r, False, b => cases
-    | No r, dq, True, b => cases
-    | No r, dq, False, b => rfl
+theorem Decidable.andBoolDec [p q: Prop] (dp: Decidable p) (dq: Decidable q) (a b: Bool) (ea: Decidable.holds dp = a) (eb: Decidable.holds dq = b): Decidable.holds (Decidable.and dp dq) = (a && b) :=
+  J (a' e => Decidable.holds (Decidable.and dp dq) = (a' && b)) (J (b' e => Decidable.holds (Decidable.and dp dq) = (dp.holds && b')) rfl eb) ea
 
 --| `x == y` says `x = y`.
 theorem DecEq.sound [auto decEq: DecEq a] [x: a] [y: a] (h: (x == y) = True): x = y :=
@@ -95,9 +68,7 @@ theorem DecEq.refl [auto eq: DecEq a] (x: a): (x == x) = True := Decidable.toBoo
 
 --| `x != y` false says `x = y`.
 theorem DecEq.neFalse [auto eq: DecEq a] (x: a) (y: a) (h: ((x != y): Bool) = False): x = y :=
-  match d: DecEq.decide x y with
-    | Yes same => same
-    | No differ => cases
+  Decidable.notNotOf (DecEq.decide x y) (differ => Bool.falseNotTrue (Eq.trans (Eq.sym h) (Decidable.toBoolOf (Decidable.not (DecEq.decide x y)) differ)))
 
 --| `x != y` true says they differ; the converse of [`DecEq.trueOfNe`].
 theorem DecEq.neTrue [auto eq: DecEq a] [x: a] [y: a] (h: ((x != y): Bool) = True): x ≠ y :=
@@ -116,12 +87,8 @@ theorem DecEq.falseOfNe [auto eq: DecEq a] [x: a] [y: a] (h: x ≠ y): (x == y) 
 -- it uses [`DecEq.refl`]: in Arith.sw it made every program that loads the
 -- list toolkit load this file too.
 theorem Nat.mulRightCancelBool [a: Nat] [b: Nat] [c: Nat] (nz: c ≠ 0): (a * c == b * c) = (a == b) :=
-  match Nat.decEq a b with
-    | Yes same => rewrite same, DecEq.refl (b * c) in rfl
-    | No differ =>
-      match Nat.decEq (a * c) (b * c) with
-        | Yes e => Void.exfalso (differ (Nat.mulRightCancel a b c nz e))
-        | No e => rfl
+  if same: a = b then rewrite same, DecEq.refl (b * c), DecEq.refl b in rfl
+  else rewrite DecEq.falseOfNe same, DecEq.falseOfNe (e => same (Nat.mulRightCancel a b c nz e)) in rfl
 
 --| A value is never `!=` to itself.
 theorem DecEq.neSelf [auto eq: DecEq a] (x: a): ((x != x): Bool) = False :=
@@ -135,7 +102,7 @@ theorem DecEq.eqComm [auto eq: DecEq a] (x: a) (y: a): (x == y) = (y == x) :=
 
 --| A closed decidable statement, proved by deciding it.
 --| `auto` finds its decision procedure, the elaborator runs it, and the proof
---| is `Decidable.fromYes d Trivial`, which the kernel checks by running `d`
+--| is `d.sound rfl`, which the kernel checks by running `d`'s test
 --| again: `theorem small: 2 + 2 < 5 := byDecision`, `theorem found: Enter ∈
 --| keys := byDecision`. A false one is `E-AUTO-FALSE`; one whose procedure is
 --| stuck on a variable is `E-AUTO-STUCK` (split the variable with `cases`, or

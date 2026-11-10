@@ -8,7 +8,7 @@ def strictlyBelow (a: Nat) (b: Nat): Bool := a < b
 def belowInt (a: Int) (b: Int): Bool := a ≤ b
 def strictlyBelowInt (a: Int) (b: Int): Bool := a < b
 
--- They are the comparison, by `rfl`: no `Decidable.toBool (Bool.decTrue …)` in between.
+-- They are the comparison, by `rfl`: no `Decidable.holds (Bool.decTrue …)` in between.
 theorem belowIsLeq (a: Nat) (b: Nat): below a b = Nat.leq a b := rfl
 theorem strictlyBelowIsLeq (a: Nat) (b: Nat): strictlyBelow a b = Nat.leq (Succ a) b := rfl
 theorem belowIntIsLeq (a: Int) (b: Int): belowInt a b = Int.leq a b := rfl

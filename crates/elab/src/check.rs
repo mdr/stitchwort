@@ -1710,10 +1710,10 @@ pub(crate) const NE_AS_PROP_NOTE: &str =
     "`!=` here is the proposition `≠`; for the `Bool` test write `((a != b): Bool)`";
 
 /// Whether the expected type mentions a proposition `≠` and what was found
-/// is a `Bool` test (`Decidable.toBool …`, or `….toBool`): a `Bool` `!=` that was read as `≠`
+/// is a `Bool` test (`Decidable.holds …`, or `….holds`): a `Bool` `!=` that was read as `≠`
 /// because it sits beside `=` in a statement.
 pub(crate) fn ne_read_as_prop(expected: &str, found: &str) -> bool {
-    expected.contains(" ≠ ") && (found.contains("Decidable.toBool") || found.contains(".toBool"))
+    expected.contains(" ≠ ") && (found.contains("Decidable.holds") || found.contains(".holds"))
 }
 
 /// Whether two forced types are built by the same outermost former (the
@@ -6647,6 +6647,17 @@ pub fn builtin_data(cx: &Ctx, b: Builtin) -> Result<DataId> {
         .registry()
         .data(b)
         .ok_or_else(|| missing_builtin(cx, b))
+}
+
+/// The projection of field `i` of the prelude's `Decidable`: 0 is `holds`, 1
+/// `sound` and 2 `complete`.
+pub fn decidable_field(cx: &Ctx, i: usize) -> Result<stitchwort_core::DefId> {
+    let decidable = builtin_data(cx, Builtin::Decidable)?;
+    cx.e.tables
+        .records
+        .get(&decidable)
+        .and_then(|r| r.projections.get(i).copied().flatten())
+        .ok_or_else(|| missing_builtin(cx, Builtin::Decidable))
 }
 
 /// The prelude's constructor `b`: its data type and index.

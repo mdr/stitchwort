@@ -287,9 +287,9 @@ pub fn prove(cx: &mut Ctx, goal: &Value, depth: usize) -> Result<Term> {
     }
     let decision = decide(cx, &goal, depth)?;
     let shown = cx.show(&goal);
-    match force(&cx.g(), cx.eval(&decision)?)? {
-        Value::Ctor(_, 0, _) => from_yes(cx, &goal, decision),
-        Value::Ctor(_, _, _) => {
+    match verdict(cx, &decision)? {
+        Some(true) => from_yes(cx, &goal, decision),
+        Some(false) => {
             let message = match not_in_list(cx, &goal)? {
                 Some(message) => message,
                 None => format!("`{shown}` is false"),
@@ -344,19 +344,36 @@ fn hidden_name_note(shown: &str) -> Option<String> {
     ))
 }
 
-/// `fromYes [p := goal] decision Trivial`: the proof from a decision that
-/// says `Yes`. (`cases`' decision closer writes it too, `cases.rs`.)
+/// `Decidable.sound [p := goal] decision rfl`: the proof from a decision
+/// whose test computes to `True`, which the kernel checks by running the
+/// test, not the proofs. (`cases`' decision closer writes it too,
+/// `cases.rs`.)
 pub(crate) fn from_yes(cx: &mut Ctx, goal: &Value, decision: Term) -> Result<Term> {
-    let from_yes = builtin_def(cx, Builtin::FromYes)?;
-    let (unit, trivial) = builtin_ctor(cx, Builtin::Trivial)?;
+    let sound = crate::check::decidable_field(cx, 1)?;
     let goal_term = cx.quote_folded(goal)?;
     Ok(Term::app(
         Term::app(
-            Term::app_icit(Term::Def(from_yes), goal_term, Icit::Implicit),
+            Term::app_icit(Term::Def(sound), goal_term, Icit::Implicit),
             decision,
         ),
-        Term::Ctor(unit, trivial, Vec::new()),
+        Term::Refl,
     ))
+}
+
+/// What a decision says, run now: `Some(true)` when its test computes to
+/// `True`, `Some(false)` for `False`, `None` when it's stuck.
+pub(crate) fn verdict(cx: &mut Ctx, decision: &Term) -> Result<Option<bool>> {
+    let Value::Ctor(_, 0, fields) = force(&cx.g(), cx.eval(decision)?)? else {
+        return Ok(None);
+    };
+    let Some(holds) = fields.first() else {
+        return Ok(None);
+    };
+    let (bool, true_) = builtin_ctor(cx, Builtin::True)?;
+    Ok(match force(&cx.g(), holds.clone())? {
+        Value::Ctor(d, c, _) if d == bool => Some(c == true_),
+        _ => None,
+    })
 }
 
 /// A proof of a goal that computing doesn't decide, by a decision procedure
@@ -373,10 +390,7 @@ fn decide_as_written(cx: &mut Ctx, goal: &Value, depth: usize) -> Result<Option<
             let Some(decision) = instantiate(cx, id, decidable, goal, depth, true)? else {
                 return Ok(None);
             };
-            match force(&cx.g(), cx.eval(&decision)?)? {
-                Value::Ctor(_, 0, _) => Ok(Some(decision)),
-                _ => Ok(None),
-            }
+            Ok((verdict(cx, &decision)? == Some(true)).then_some(decision))
         })?;
         if let Some(decision) = found {
             return from_yes(cx, goal, decision).map(Some);

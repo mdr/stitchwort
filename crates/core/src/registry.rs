@@ -109,8 +109,6 @@ const LIBRARY: &[Builtin] = &[
     Builtin::FloatAbs,
     Builtin::FloatIsNaN,
     Builtin::FloatDecEq,
-    Builtin::FloatBitsExt,
-    Builtin::FloatBitsNe,
     Builtin::FloatIeeeEq,
     Builtin::FloatMul,
     Builtin::FloatDiv,
@@ -260,7 +258,6 @@ builtins! {
     DivFuel = "Nat.divFuel": Def,
     // One step of `divFuel`, which goals show as the `/` it comes from
     DivStep = "Nat.divStep": Def,
-    DecEqNat = "Nat.decEq": Def,
     // Integers
     Int = "Int": Data,
     OfNat = "OfNat": Ctor(Builtin::Int),
@@ -314,8 +311,6 @@ builtins! {
     FloatAbs = "Float.abs": Def,
     FloatIsNaN = "Float.isNaN": Def,
     FloatDecEq = "Float.decEq": Def,
-    FloatBitsExt = "Float.bitsExt": Def,
-    FloatBitsNe = "Float.bitsNe": Def,
     // JS's `===` on doubles: a native in the runtimes only
     FloatIeeeEq = "Float.ieeeEq": Def,
     FloatMul = "Float.mul": Def,
@@ -362,10 +357,7 @@ builtins! {
     // `not`, by identity, so `not p` on a proposition can mean `Not p`
     BoolNot = "Bool.not": Def,
     Decidable = "Decidable": Data,
-    Yes = "Yes": Ctor(Builtin::Decidable),
-    No = "No": Ctor(Builtin::Decidable),
-    FromYes = "Decidable.fromYes": Def => "[p] d yes",
-    ToBool = "Decidable.toBool": Def => "[p] d",
+    ToBool = "Decidable.holds": Def => "[p] r",
     // `match h: c < x` on a comparison its decision reduces to `Bool.decTrue b`
     // for matches on `b` itself (crates/elab/src/matching.rs)
     DecTrue = "Bool.decTrue": Def => "b",

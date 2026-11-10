@@ -448,6 +448,7 @@ struct Lib {
     div_step: DefId,
     ite: DefId,
     to_bool: DefId,
+    nat_dec_eq: DefId,
     not: DefId,
     bool_not: DefId,
     less_than: DefId,
@@ -740,6 +741,7 @@ impl Lib {
             div_step: builtin_def(cx, Builtin::DivStep)?,
             ite: builtin_def(cx, Builtin::IfThenElse)?,
             to_bool: builtin_def(cx, Builtin::ToBool)?,
+            nat_dec_eq: def("Std.Nat.decEq")?,
             not: builtin_def(cx, Builtin::Not)?,
             bool_not: builtin_def(cx, Builtin::BoolNot)?,
             less_than: builtin_def(cx, Builtin::LessThan)?,
@@ -845,8 +847,8 @@ fn call_args(value: &Value, def: DefId) -> Option<Vec<Value>> {
 }
 
 /// A `Bool` reading of `l`: `Nat.leq x y`, `Int.leq x y`, `Int.less x y`,
-/// `p && q`, `p || q`, `not p`, or `Decidable.toBool d` (with the
-/// proposition it decides).
+/// `p && q`, `p || q`, `not p`, or `Decidable.holds d` (with the
+/// proposition it decides), `Nat.equal x y` among them as `Nat.decEq x y`'s.
 enum BoolForm {
     Leq(Value, Value),
     IntLeq(Value, Value),
@@ -879,6 +881,20 @@ fn bool_form(cx: &Ctx, lib: &Lib, l: &Value) -> Result<Option<BoolForm>> {
     }
     if let Some([p, d]) = call_args(&l, lib.to_bool).as_deref() {
         return Ok(Some(BoolForm::ToBool(p.clone(), d.clone())));
+    }
+    // `m == n` on numbers: the test of `Nat.decEq m n`, which it computes to.
+    if let Some([x, y]) = call_args(&l, lib.nat_equal).as_deref() {
+        let nat = Rc::new(Value::Data(lib.nat, Vec::new().into()));
+        let p = Value::Eq(
+            nat.into(),
+            Rc::new(x.clone()).into(),
+            Rc::new(y.clone()).into(),
+        );
+        let d = apps(
+            Term::Def(lib.nat_dec_eq),
+            vec![cx.quote_folded(x)?, cx.quote_folded(y)?],
+        );
+        return Ok(Some(BoolForm::ToBool(p, cx.eval(&d)?)));
     }
     if let Some([p]) = call_args(&l, lib.bool_not).as_deref() {
         return Ok(Some(BoolForm::Not(p.clone())));

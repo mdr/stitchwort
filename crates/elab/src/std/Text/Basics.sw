@@ -148,7 +148,7 @@ def Text.splitCons (separator: Char) (char: Char): (isSeparator: Bool) → (stat
 --| The first field of the characters and the fields after it, split at each `separator`.
 def Text.splitChars (separator: Char): (chars: List Char) → Pair (List Char) (List (List Char))
   | [] => MkPair [] []
-  | [char, ..chars] => Text.splitCons separator char (Decidable.toBool (Char.decEq char separator)) (Text.splitChars separator chars)
+  | [char, ..chars] => Text.splitCons separator char (Decidable.holds (Char.decEq char separator)) (Text.splitChars separator chars)
 
 --| The fields joined into one list of characters, `separator` between each two.
 def Text.joinChars (separator: Char) (field: List Char): (fields: List (List Char)) → List Char

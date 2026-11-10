@@ -633,19 +633,8 @@ theorem Nat.powMono (b: Nat) (e: Nat) (f: Nat) (h: e ≤ f): Nat.pow (Succ b) e 
 
 theorem Nat.addTwo (n: Nat): n + 2 = Succ (Succ n) := rewrite Nat.addSucc n 1, Nat.addOne n
 
---| `m == n` on numbers is `Nat.equal m n`, which computes one step at a time
---| (`Succ m == Succ n` becomes `m == n` only through this).
-theorem Nat.decEqFromToBool (m: Nat) (n: Nat) (b: Bool) (h: Nat.equal m n = b): Decidable.toBool (Nat.decEqFrom m n b h) = b :=
-  match b with
-    | True => rfl
-    | False => rfl
-
-theorem Nat.eqIsEqual (m n: Nat): (m == n) = Nat.equal m n :=
-  match m, n with
-    | Zero, Zero => rfl
-    | Zero, Succ n => rfl
-    | Succ m, Zero => rfl
-    | Succ m, Succ n => Nat.decEqFromToBool (Succ m) (Succ n) (Nat.equal m n) rfl
+--| `m == n` on numbers is `Nat.equal m n`: the test of [`Nat.decEq`].
+theorem Nat.eqIsEqual (m n: Nat): (m == n) = Nat.equal m n := rfl
 
 --| A number differs from every smaller one.
 theorem Nat.equalOfLess (b v: Nat) (h: b < v): Nat.equal v b = False :=

@@ -75,10 +75,10 @@ theorem Text.joinCons (s: Char) (c: Char) (f: List Char) (fs: List (List Char)):
 
 theorem Text.joinSplitCons (s: Char) (c: Char) (cs: List Char):
     ∀ (p: Pair (List Char) (List (List Char))) => Text.joinPair s p = cs →
-    ∀ (d: Decidable (c = s)) => Text.joinPair s (Text.splitCons s c (Decidable.toBool d) p) = [c, ..cs]
-  | MkPair f fs, h, Yes e =>
-    Eq.trans (Eq.cong (Cons s) h) (Eq.cong (x => [x, ..cs]) (Eq.sym e))
-  | MkPair f fs, h, No r =>
+    ∀ (d: Decidable (c = s)) => Text.joinPair s (Text.splitCons s c (Decidable.holds d) p) = [c, ..cs]
+  | MkPair f fs, h, { holds = True, sound = e, complete = _ } =>
+    Eq.trans (Eq.cong (Cons s) h) (Eq.cong (x => [x, ..cs]) (Eq.sym (e rfl)))
+  | MkPair f fs, h, { holds = False, sound = _, complete = _ } =>
     Eq.trans (Text.joinCons s c f fs) (Eq.cong (Cons c) h)
 
 theorem Text.joinSplitChars (s: Char) (cs: List Char): Text.joinPair s (Text.splitChars s cs) = cs :=
@@ -423,7 +423,7 @@ theorem Text.stripPrefixAppend (p: Text) (t: Text): Text.stripPrefix (Text.appen
 --| compare by code, as if they used `==`.
 theorem Text.sameCharEq (c: Char) (d: Char): Text.sameChar c d = (c == d) :=
   match same: Text.sameChar c d with
-    | True => rewrite Char.ext c d (Nat.equalSound _ _ same) in Eq.sym (DecEq.refl d)
+    | True => rfl
     | False =>
       match equal: c == d with
         | True => cases
@@ -455,7 +455,7 @@ theorem Text.stripPrefixCharsSome (p: List Char) (ys: List Char) (rest: List Cha
 --| is `a == b`. Use it to move a `Bool` equation between a text and its characters.
 theorem Text.fromListEq [a: List Char] [b: List Char]: (Text.fromList a == Text.fromList b) = (a == b) :=
   match same: a == b with
-    | True => rewrite DecEq.sound same in DecEq.refl (Text.fromList b)
+    | True => rfl
     | False =>
       match equal: Text.fromList a == Text.fromList b with
         | True => Void.exfalso (DecEq.soundFalse a b same (Eq.cong Text.toList (DecEq.sound equal)))
