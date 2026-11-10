@@ -49,11 +49,12 @@ theorem Nat.leSucc (n: Nat): n ≤ Succ n :=
     | Zero => rfl
     | Succ n => Nat.leSucc n
 
-theorem Nat.leTrans: ∀ (a b c: Nat) => a ≤ b → b ≤ c → a ≤ c
-  | Zero, b, c, h1, h2 => rfl
-  | Succ a, Zero, c, h1, h2 => Void.exfalso (Bool.falseNotTrue h1)
-  | Succ a, Succ b, Zero, h1, h2 => Void.exfalso (Bool.falseNotTrue h2)
-  | Succ a, Succ b, Succ c, h1, h2 => Nat.leTrans a b c h1 h2
+theorem Nat.leTrans (a b c: Nat) (h1: a ≤ b) (h2: b ≤ c): a ≤ c :=
+  match a, b, c with
+    | Zero, b, c => rfl
+    | Succ a, Zero, c => Void.exfalso (Bool.falseNotTrue h1)
+    | Succ a, Succ b, Zero => Void.exfalso (Bool.falseNotTrue h2)
+    | Succ a, Succ b, Succ c => Nat.leTrans a b c h1 h2
 
 theorem Nat.leRefl (n: Nat): n ≤ n :=
   match n with
@@ -96,10 +97,12 @@ type Nat.LexLess (a1: Nat) (a2: Nat) (b1: Nat) (b2: Nat): Prop =
 --| When the first number didn't get smaller, it stayed the same, so it's still
 --| below the first fuel; and the second got smaller.
 -- The fuel `decreasing (m1, m2)` compiles to takes these steps.
-theorem Nat.lexKeepsFirst: ∀ (a1 a2 b1 b2 k: Nat) => Nat.LexLess a1 a2 b1 b2 → ¬(a1 < b1) → b1 < k → a1 < k
-  | a1, a2, b1, b2, k, Nat.LexLess.First first, no, h => Void.exfalso (no first)
-  | a1, a2, b1, b2, k, Nat.LexLess.Second same second, no, h => J (z q => z < k) h (Eq.sym same)
+theorem Nat.lexKeepsFirst (a1 a2 b1 b2 k: Nat) (lex: Nat.LexLess a1 a2 b1 b2) (no: ¬(a1 < b1)) (h: b1 < k): a1 < k :=
+  match lex with
+    | Nat.LexLess.First first => Void.exfalso (no first)
+    | Nat.LexLess.Second same second => J (z q => z < k) h (Eq.sym same)
 
-theorem Nat.lexSecondLess: ∀ (a1 a2 b1 b2 k: Nat) => Nat.LexLess a1 a2 b1 b2 → ¬(a1 < b1) → b2 < Succ k → a2 < k
-  | a1, a2, b1, b2, k, Nat.LexLess.First first, no, h => Void.exfalso (no first)
-  | a1, a2, b1, b2, k, Nat.LexLess.Second same second, no, h => Nat.leTrans (Succ a2) b2 k second h
+theorem Nat.lexSecondLess (a1 a2 b1 b2 k: Nat) (lex: Nat.LexLess a1 a2 b1 b2) (no: ¬(a1 < b1)) (h: b2 < Succ k): a2 < k :=
+  match lex with
+    | Nat.LexLess.First first => Void.exfalso (no first)
+    | Nat.LexLess.Second same second => Nat.leTrans (Succ a2) b2 k second h

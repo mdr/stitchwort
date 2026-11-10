@@ -214,7 +214,7 @@ builtins! {
     // `calc` chains combine their steps with these (`crates/elab/src/calc.rs`)
     EqSym = "Eq.sym": Def => "[a] [x] [y] p",
     EqTrans = "Eq.trans": Def => "[a] [x] [y] [z] p q",
-    LeTrans = "Nat.leTrans": Def => "a b c _ _",
+    LeTrans = "Nat.leTrans": Def => "a b c h1 h2",
     LessTrans = "Nat.lessTrans": Def => "m n p h1 h2",
     // What `decreasing` generates refers to these (crates/elab/src/decreasing.rs)
     VoidAbsurd = "Void.absurd": Def => "[a] v",
@@ -231,8 +231,8 @@ builtins! {
     ElimDecEq = "Decidable.elimEq": Def => "[p] [a] d y n z yesEq noEq",
     ElimDecProof = "Decidable.elimProof": Def => "[p] [a] d ifYes ifNo",
     LexLess = "Nat.LexLess": Data,
-    LexKeepsFirst = "Nat.lexKeepsFirst": Def => "a1 a2 b1 b2 k _ _ _",
-    LexSecondLess = "Nat.lexSecondLess": Def => "a1 a2 b1 b2 k _ _ _",
+    LexKeepsFirst = "Nat.lexKeepsFirst": Def => "a1 a2 b1 b2 k lex no h",
+    LexSecondLess = "Nat.lexSecondLess": Def => "a1 a2 b1 b2 k lex no h",
     // Numbers: syntax and natives
     Nat = "Nat": Data,
     Zero = "Zero": Ctor(Builtin::Nat),
