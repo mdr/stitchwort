@@ -21,7 +21,8 @@
 //
 // The page may post {project: {root, sources, paths, texts}}: that project
 // is then read from memory (`LanguageServer::add_project`), for documents
-// opened under its root, as file:///playground/aoc/src/….
+// opened under its root, as file:///playground/aoc/src/…. {setFile: {root,
+// path, text}} gives one of its files other text (`set_project_file`).
 import init, { load_std, std_source, LanguageServer } from "./pkg/stitchwort_web.js";
 
 let server = null;
@@ -173,6 +174,17 @@ async function handle(data) {
   if (data.project !== undefined) {
     await libraryCache;
     loadProject(data.project);
+    return;
+  }
+  if (data.setFile !== undefined) {
+    // A rename changed a file of a project that the editor hasn't opened.
+    const { root, path, text } = data.setFile;
+    await libraryCache;
+    server.set_project_file(root, path, text);
+    const project = projects.find((p) => p.root === root);
+    const at = project?.paths.indexOf(path) ?? -1;
+    if (at >= 0) project.texts[at] = text;
+    searcher?.postMessage({ setFile: data.setFile });
     return;
   }
   const t = performance.now();

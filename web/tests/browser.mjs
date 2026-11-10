@@ -1944,6 +1944,37 @@ test("when the bundled file changes under a saved edit, the edit is kept and a b
   assert.equal(await page.ev(`localStorage.getItem("stitchwort.project.aoc.file.${DAY2}")`), null);
 }, { ms: 120000 });
 
+test("F2 renames a function in every file of a project, including files that are not open", async (page) => {
+  await page.open();
+  await page.untilChecked();
+  await openDay(page, 2);
+  const text = await sourceText(page);
+  // The caret on the definition of `parseRanges`, which two other files of the day use.
+  await page.ev(`(() => { const e = window.editor; e.focus(); const i = e.value.indexOf("def parseRanges") + 6; e.setSelectionRange(i, i); })()`);
+  // The server answers only once the whole project is checked: F2 is tried until it does.
+  let prompt = false;
+  for (let i = 0; i < 60 && !prompt; i++) {
+    await page.key("F2", "F2", 113);
+    prompt = await page.ev(`!!document.querySelector(".rename-panel input")`).catch(() => false);
+    if (!prompt) await sleep(1000);
+  }
+  assert.ok(prompt, "F2 opens the name prompt once the project is checked");
+  assert.equal(await page.ev(`document.querySelector(".rename-panel input").value`), "parseRanges");
+  await page.ev(`(() => { const i = document.querySelector(".rename-panel input"); i.value = "parseIdRanges"; i.form.requestSubmit(); })()`);
+  await page.until(`!document.querySelector(".rename-panel")`, 60000, "the rename to finish");
+  assert.equal(await sourceText(page), text.replace("parseRanges", "parseIdRanges"), "the open file is edited");
+  // Files that are not open changed too: the page keeps them as the project's edits.
+  for (const file of ["Tests/Examples.sw", "Tests/Input.sw"]) {
+    const path = `src/Aoc/Year2025/Day02/${file}`;
+    const stored = await savedEdit(page, path).catch(() => null);
+    assert.ok(stored, `${file} is a saved edit`);
+    assert.match(stored, /parseIdRanges/);
+    assert.doesNotMatch(stored, /parseRanges/);
+  }
+  // And the project still checks.
+  await page.untilStatus(dayStatus(2), 120000);
+}, { ms: 240000 });
+
 test("Evaluate takes full names in a project", async (page) => {
   await page.open();
   await page.untilChecked();
