@@ -1609,17 +1609,25 @@ fn check_leaf(
         }
         return Ok(term);
     }
-    crate::queue::framed(
-        cx,
-        |cx| check(cx, expr, t),
-        |_| LeafFrame {
-            leaf: expr.clone(),
-            decided: decided_leaf(g, decider).map(|(e, op)| (e.clone(), op)),
-            t: t.clone(),
-            decider,
-            what: what.to_string(),
-        },
-    )
+    // A side of an `=` between propositions isn't one a `Bool` is read as a
+    // proposition at (docs/proposals/bool-as-proposition.md §4.1).
+    let mut sides = Vec::new();
+    if matches!(force(&cx.g(), t.clone())?, Value::Sort(Sort::Prop)) {
+        crate::logic::equation_side(cx, expr, &mut sides);
+    }
+    crate::check::without_coercion(cx, sides, |cx| {
+        crate::queue::framed(
+            cx,
+            |cx| check(cx, expr, t),
+            |_| LeafFrame {
+                leaf: expr.clone(),
+                decided: decided_leaf(g, decider).map(|(e, op)| (e.clone(), op)),
+                t: t.clone(),
+                decider,
+                what: what.to_string(),
+            },
+        )
+    })
 }
 
 /// What decided a group's type, if a leaf did: that leaf's expression and

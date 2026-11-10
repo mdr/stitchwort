@@ -1,5 +1,5 @@
 ---
-source: crates/cli/tests/examples.rs
+source: crates/cli/tests/running/examples.rs
 expression: output
 ---
 [GOAL] Goal: in `shown`
@@ -8,8 +8,8 @@ expression: output
  15 │     | [next] => ?
     │                 ┬  
     │                 ╰── next: Bool
-    │                     all: next = True
-    │                     ⊢ next = True
+    │                     all: next
+    │                     ⊢ next
 ────╯
 [GOAL] Goal: in `shown`
     ╭─[ goals/match-unnamed-fields.sw:16:16 ]

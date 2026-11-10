@@ -76,6 +76,24 @@ pub(crate) fn classify<'a>(cx: &Ctx, expr: &'a Expr) -> Option<Logic<'a>> {
     }
 }
 
+/// The addresses of `expr` and of the operands of the `∧`, `∨` and `¬` it
+/// is made of, brackets looked through: a side of an `=` between
+/// propositions, where a `Bool` isn't read as one (`Decl::not_coerced`).
+pub(crate) fn equation_side(cx: &Ctx, expr: &Expr, out: &mut Vec<usize>) {
+    out.push(std::ptr::from_ref(expr) as usize);
+    match expr {
+        Expr::Bracketed(inner, _) => equation_side(cx, inner, out),
+        _ => match classify(cx, expr) {
+            Some(Logic::And(a, b) | Logic::Or(a, b)) => {
+                equation_side(cx, a, out);
+                equation_side(cx, b, out);
+            }
+            Some(Logic::Not(a, _)) => equation_side(cx, a, out),
+            None => {}
+        },
+    }
+}
+
 /// A condition, as `if c` reads it.
 pub(crate) enum Condition {
     /// A `Bool`.
@@ -621,21 +639,24 @@ fn needs_proofs(cx: &Ctx, before: usize) -> Result<bool> {
 }
 
 /// The proposition reading.
+///
+/// Each operand is a proposition, and a `Bool` operand `b` is read as `b =
+/// True` on its own (`check::bool_as_prop`), so `a ∧ b` on two `Bool`s is
+/// `a = True ∧ b = True`, never the test `(a && b) = True`: an operator
+/// written where a proposition is expected is always the logical one
+/// (D3486, docs/proposals/bool-as-proposition.md §4.3). This is the one
+/// place that rule is made; the printer's half of it is
+/// `Printer::bare_test` in `stitchwort_core::pretty`.
 pub(crate) fn as_prop(cx: &mut Ctx, logic: Logic) -> Result<Term> {
     let what = logic.symbol();
     let operand = |cx: &mut Ctx, e: &Expr| -> Result<Term> {
-        let note = format!(
-            "`{what}` here is on propositions; for a `Bool` `b`, the proposition that it's \
-             true is `b = True`"
-        );
         match crate::check::check_type_defaulting(cx, e, Sort::Prop) {
             Ok((term, Sort::Prop)) => Ok(term),
             Ok(_) => Err(
                 Diagnostic::error("E-TYPE-MISMATCH", "expected a proposition")
                     .with_label(e.span(), "this is a type of data, not a proposition")
-                    .with_note(note),
+                    .with_note(format!("`{what}` here is on propositions")),
             ),
-            Err(err) if err.code == "E-NOT-A-TYPE" => Err(err.with_note(note)),
             Err(err) => Err(err),
         }
     };

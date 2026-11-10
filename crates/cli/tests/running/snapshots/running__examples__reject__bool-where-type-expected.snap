@@ -1,0 +1,11 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-TYPE-MISMATCH] Error: type mismatch
+   ╭─[ reject/bool-where-type-expected.sw:4:27 ]
+   │
+ 4 │ def f (b: Bool) (xs: List b): Nat := 0
+   │                           ┬  
+   │                           ╰── expected `Type`, but this has type `Bool`
+───╯

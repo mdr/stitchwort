@@ -70,6 +70,14 @@ pub(crate) struct Decl {
     /// `check::decide_to_bool`, as the condition's proposition reading does
     /// that its own way.
     pub(crate) condition: Cell<usize>,
+    /// The addresses of the expressions a `Bool` isn't read as a proposition
+    /// at, though one is expected there (`check::bool_as_prop`): a side of
+    /// an `=` between propositions, and the operands of the `∧`, `∨` and `¬`
+    /// that side is made of, where coercing would turn a comparison of
+    /// `Bool`s into an equation between propositions; and the results of an
+    /// `if`, `let` or `match` checked against `Prop`, which is coerced whole
+    /// instead (`check::whole_test`).
+    pub(crate) not_coerced: RefCell<Vec<usize>>,
     /// While `logic::condition` tries the `Bool` reading of a condition `a
     /// && b`: the address of `a`, and the conjunction that reading decides
     /// with its decision, once `logic::as_bool` has found them. A guard.
@@ -208,6 +216,7 @@ impl Decl {
             bare_rows_pure,
             late_literals,
             condition,
+            not_coerced,
             conjunction,
             app_expected,
             decreasing,
@@ -241,6 +250,7 @@ impl Decl {
             ("bare_rows_pure", !bare_rows_pure.get()),
             ("late_literals", late_literals.get() == 0),
             ("condition", condition.get() == 0),
+            ("not_coerced", not_coerced.borrow().is_empty()),
             ("conjunction", conjunction.borrow().is_none()),
             ("app_expected", app_expected.borrow().is_none()),
             ("decreasing", decreasing.borrow().is_none()),

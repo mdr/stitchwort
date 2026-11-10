@@ -2,20 +2,21 @@
 source: crates/cli/tests/server/goal_index.rs
 expression: "format!(\"{made} lemmas, {} goals without one\\n\\n{}\", summary.len() - made,\nsummary.join(\"\\n\"))"
 ---
-64 lemmas, 12 goals without one
+65 lemmas, 12 goals without one
 
 beside-error goal 1: theorem zeroMulGoal1: 0 = 0 := ?
 bool-constant-branches goal 1: theorem orFalseGoal1 (b: Bool): b = (if b then True else False) := ?
 bool-constant-branches goal 2: theorem allTwoGoal1 (b: Bool) (c: Bool): (b && c && True) = b := ?
 bool-constant-branches goal 3: theorem anyTwoGoal1 (b: Bool) (c: Bool): (b || c || False) = b := ?
 bool-constant-branches goal 4: theorem besideBoolGoal1 (k: Nat) (b: Bool): (k <= 2) = (k <= 2 && b) := ?
+bool-facts-printed-bare goal 1: theorem shownGoal1 (a: Bool) (b: Bool) (n: Nat) (xs: List Nat) (h1: a) (h2: (a && b) = True) (h3: xs.any (x => x <= n)) (h4: a = False) (h5: ¬a) (h6: a ∧ b) (h7: (a = True) = (b = True)): b := ?
 call-under-binder goal 1: theorem shownGoal1 (xs: List Nat): xs.any isSmall = xs.any (n => isSmall n) := ?
 constant-by-name goal 1: theorem healedAtMostGoal1 (hitPoints: Nat) (rooms: List Nat) (same: rooms = startingRooms): healed hitPoints ≤ maxHitPoints := ?
 counterexample-at-hole goal 1: theorem doubleIsSquareGoal1 (n: Nat): n + n = n * n := ?
 counterexample-big-numbers goal 1: theorem doubleTimesHalvedGoal1 (n: Nat) (count: Nat): (doubleTimes n count).shiftRight count = n := ?
 counterexample-big-numbers goal 2: theorem powTwoIsPowGoal1 (fuel: Nat) (k: Nat): powTwo fuel k = Nat.pow 2 k := ?
 counterexample-out-of-steps goal 1: theorem slowGoal1 (n: Nat): countDown (n.max 100000000) = 1 := ?
-counterexample-weak-evidence goal 1: theorem shortIncreasingGoal1 (xs: List Nat) (h: increasing xs = True): xs.length ≤ 5 := ?
+counterexample-weak-evidence goal 1: theorem shortIncreasingGoal1 (xs: List Nat) (h: increasing xs): xs.length ≤ 5 := ?
 decreasing-callback-argument goal 1: theorem gGoal1 (xs: List Nat) (k: Nat) (other: Nat): (xs.filter (c => c == other)).length < xs.length := ?
 decreasing-callback-argument goal 2: no lemma
 distinct-names goal 1: theorem belowGoal1 (x: Nat) (xs: List Nat): ∃ (x1: Nat) => x1 < x := ?
@@ -26,7 +27,7 @@ implicit-parameter goal 1: def identityGoal1 (a: Type) (x: a): a := ?
 implicit-parameter goal 2: theorem symmetricGoal1 (a: Type) (x: a) (y: a) (h: x = y): y = x := ?
 inferring-position goal 1: no lemma
 interface-members goal 1: theorem compareSameGoal1 (a: Type) (ord: Ord a) (x: a) (y: a): Ord.compare x y = Ord.compare x y := ?
-interface-members goal 2: theorem equalSoundGoal1 (a: Type) (eq: DecEq a) (x: a) (y: a) (h: (x == y) = True): x = y := ?
+interface-members goal 2: theorem equalSoundGoal1 (a: Type) (eq: DecEq a) (x: a) (y: a) (h: x == y): x = y := ?
 lambda-propagated-alias goal 1: def withGoalGoal1 (n: Nat) (counts: Counts): Nat := ?
 lemma-used-later goal 1: theorem addZeroGoal1 (n: Nat): n = n := ?
 let-proofs goal 1: no lemma
@@ -45,7 +46,7 @@ match-induct goal 1: theorem firstBigIsBigGoal1 (xs: List Nat) (y: Nat) (found: 
 match-induct goal 2: theorem firstBigIsBigGoal2 (xs: List Nat) (y: Nat) (x: Nat) (rest: List Nat) (big: 10 ≤ x) (found: Some x = Some y): 10 ≤ y := ?
 match-induct goal 3: theorem firstBigIsBigGoal3 (xs: List Nat) (y: Nat) (x: Nat) (rest: List Nat) (big: (10 <= x) = False) (ih: firstBig rest = Some y → 10 ≤ y) (found: firstBig rest = Some y): 10 ≤ y := ?
 match-refined-hypothesis goal 1: theorem boundedGoal1 (p: Nat → Prop) (small: ∀ (m: Nat) => p m → m < 3) (k: Nat) (holds: p (Succ k)): k ≤ 2 := ?
-match-unnamed-fields goal 1: theorem shownGoal1 (next: Bool) (all: next = True): next = True := ?
+match-unnamed-fields goal 1: theorem shownGoal1 (next: Bool) (all: next): next := ?
 match-unnamed-fields goal 2: no lemma
 operators-and-names goal 1: theorem onNatGoal1 (a: Nat) (b: Nat): (a < b && b <= a + 3 || b < a) = (gentle a b || b < a) := ?
 operators-and-names goal 2: theorem onIntGoal1 (a: Int) (b: Int) (h: a < b) (k: a ≤ b): (a < b && a <= b) = True := ?

@@ -1274,9 +1274,22 @@ impl<'g> Printer<'g> {
                 let rhs = self.print(names, rhs, Prec::Add);
                 (format!("{lhs} {op} {rhs}"), Prec::Eq)
             }
+            // A test being `True` as the test alone, `c.isDigit`, which reads
+            // back to this where a proposition is expected
+            // (docs/proposals/bool-as-proposition.md §4.4).
+            Term::Eq(_, a, b) if self.bare_test(a, b) => self.go(names, a),
             Term::Eq(_, a, b) => {
-                let lhs = self.print(names, a, Prec::Range);
-                let rhs = self.print(names, b, Prec::Range);
+                // A side that is a test being `True` keeps its `= True`: a
+                // side of `=` isn't read as a proposition.
+                let side = |names: &mut Vec<Name>, side: &Term| match side.strip_loc() {
+                    Term::Eq(_, test, t) if self.bare_test(test, t) => {
+                        let test = self.print(names, test, Prec::Range);
+                        format!("({test} = True)")
+                    }
+                    _ => self.print(names, side, Prec::Range),
+                };
+                let lhs = side(names, a);
+                let rhs = side(names, b);
                 (format!("{lhs} = {rhs}"), Prec::Eq)
             }
             Term::J(m, b, p) => self.applied(names, "J".into(), [&**m, &**b, &**p].into_iter()),
@@ -1437,7 +1450,9 @@ impl<'g> Printer<'g> {
     /// `Not p` as the operators that write it, in their Unicode spellings
     /// (D1204): `a ≠ b`, `x ∉ xs`, or `¬p`.
     fn not(&self, names: &mut Vec<Name>, prop: &Term) -> (String, Prec) {
-        if let Term::Eq(_, a, b) = prop.strip_loc() {
+        if let Term::Eq(_, a, b) = prop.strip_loc()
+            && !self.bare_test(a, b)
+        {
             let a = self.print(names, a, Prec::Range);
             let b = self.print(names, b, Prec::Range);
             return (format!("{a} {} {b}", self.sym("≠", "!=")), Prec::Eq);
@@ -1645,6 +1660,50 @@ impl<'g> Printer<'g> {
     }
 
     /// Whether `t` is the constructor `ctor` with no fields.
+    /// Whether `test = rhs` is printed as `test` alone: `rhs` is `True`, and
+    /// the text of `test` reads back, where a proposition is expected, as
+    /// `test = True` and not as some other proposition
+    /// (docs/proposals/bool-as-proposition.md §4.4). So not when `test`'s
+    /// printed form starts with an operator that is logical where a
+    /// proposition is expected (D3486,
+    /// docs/proposals/bool-operators-in-propositions.md §5; the
+    /// elaborator's half of that rule is `logic::as_prop` in
+    /// `stitchwort_elab`):
+    ///
+    /// - `a && b` and `a || b`, which would read back as `a = True ∧ b =
+    ///   True`;
+    /// - `Bool.not a` written as a call rather than `a.not`, which would
+    ///   read back as `¬(a = True)`;
+    /// - `a != b`, which reads back as the proposition `a ≠ b`.
+    ///
+    /// An `if` or a `match` is printed bare: where a proposition is expected
+    /// a test of that shape is read back whole. The constants keep `= True`
+    /// too: `False = True` is the familiar shape of a case that can't happen.
+    fn bare_test(&self, test: &Term, rhs: &Term) -> bool {
+        if !self.is_ctor(rhs, Builtin::True)
+            || self.is_ctor(test, Builtin::True)
+            || self.is_ctor(test, Builtin::False)
+        {
+            return false;
+        }
+        if let Some((_, then, otherwise)) = self.bool_if(test)
+            && !self.both_constants(&then, &otherwise)
+            && (self.is_ctor(&otherwise.1, Builtin::False) || self.is_ctor(&then.1, Builtin::True))
+        {
+            return false;
+        }
+        let (head, args) = full_spine(test.strip_loc());
+        let reg = self.g.env.registry();
+        match head.strip_loc() {
+            Term::Def(id) if reg.is_def(Builtin::BoolNot, *id) => !self.calls.get(),
+            Term::Def(id) if reg.loaded_def(Builtin::ToBool) == Some(*id) => !matches!(
+                args[..],
+                [(prop, Icit::Implicit), _] if self.negated(prop).is_some()
+            ),
+            _ => true,
+        }
+    }
+
     fn is_ctor(&self, t: &Term, ctor: Builtin) -> bool {
         matches!(t.strip_loc(), Term::Ctor(d, c, fields)
             if fields.is_empty() && self.g.env.registry().ctor(ctor) == Some((*d, *c)))

@@ -1,5 +1,5 @@
 ---
-source: crates/cli/tests/examples.rs
+source: crates/cli/tests/running/examples.rs
 expression: output
 ---
 [E-CASES] Error: `cases` can't close the case flag = False (fallback), key = Enter (fallback)
@@ -22,5 +22,5 @@ expression: output
     │ Note 6: this statement is false; a counterexample:
     │           flag = False
     │           key = Enter
-    │         `key ∈ digits ∨ flag = True` is false
+    │         `key ∈ digits ∨ flag` is false
 ────╯
