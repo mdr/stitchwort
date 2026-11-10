@@ -30,9 +30,9 @@ severity 4.
 
 | # | Sev | Where | Finding | Ticket |
 |---|---|---|---|---|
-| F1 | 2 | `crates/driver/src/check_cache.rs:149-173`, `crates/cli/src/main.rs:1440-1451`, `2690`, `2727` | A cache directory copied with a project is trusted: its salt travels with it, and `check`, `test` and `audit` read it by default | SW-2661 |
-| F2 | 3 | `crates/core/src/check.rs:2832`, `3087` | A data type becomes final with an index type that mentions a failed declaration | SW-2662 |
-| F3 | 3 | `crates/core/src/check.rs:2815-2821`, `3378-3403` | A data type's parameter types aren't checked for `case` outside a case tree | SW-2663 |
+| F1 | 2 | `crates/driver/src/check_cache.rs:149-173`, `crates/cli/src/main.rs:1440-1451`, `2690`, `2727` | A cache directory copied with a project is trusted: its salt travels with it, and `check`, `test` and `audit` read it by default | SW-2673 |
+| F2 | 3 | `crates/core/src/check.rs:2832`, `3087` | A data type becomes final with an index type that mentions a failed declaration | SW-2674 |
+| F3 | 3 | `crates/core/src/check.rs:2815-2821`, `3378-3403` | A data type's parameter types aren't checked for `case` outside a case tree | SW-2675 |
 | F4 | 4 | `docs/core.md` (Terms, Typing, Evaluation and conversion) | The spec has no `Proj` term, no projection typing rule and no record-eta rules; it still says "Record eta, if it's added" | none |
 | F5 | 4 | `docs/core.md:307` | The spec says natives are bound by type only and a changed `Nat` library is outside the guarantees; the code pins them by content hash | none |
 | F6 | 4 | `crates/core/src/native.rs:1054-1080`, `docs/core.md:292` | `*`'s shortcut builds a "stuck" call without running it: `Succ (two 0) * 3 = 9` is refused. G9 names only `Nat.add` | none |
