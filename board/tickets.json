@@ -27520,14 +27520,14 @@
     {
       "id": 2655,
       "title": "[Opus] Theorem-binders sweep tool (D3470/D3471): rewrite theorems with a leading ∀ to (a+) on the parsed tree: ∀ binders and named premise columns into the header, remaining arms into := match v1, … with, := x y => lambdas trimmed, lemma bodies given their arguments; verified by hashes (SW-2648's trial entry point and std mode, plus a 'same statement' promise for the few proof-term changes)",
-      "status": "doing",
+      "status": "review",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-2655",
       "labels": [
         "refactoring"
       ],
       "epic": "syntax-language",
-      "body": "docs/proposals/theorem-binders.md §5 (SW-2640). D3470 (a+) for theorems only; D3471 premises the proof names move into the header (read from Matt's example). Needs SW-2648. Est. 1.5-2 days of lane time across tool and checks.",
+      "body": "docs/proposals/theorem-binders.md §5 (SW-2640). D3470 (a+) for theorems only; D3471 premises the proof names move into the header (read from Matt's example). Needs SW-2648. Est. 1.5-2 days of lane time across tool and checks.\n\nLane (Opus, 10 Nov 2026, est. 4 h, started 10:51):\n- 11:05 rewrite module done (crates/driver/src/binder_sweep.rs), on the parsed tree plus tokens; unit tests pass.\n- 11:15 CLI `stitchwort sweep theorem-binders [--std [--std-root DIR]] [--dry-run] [--plan] [--json] PATHS…` (hidden), checks each round with the SameStatement trial (project in-process; std by loading an edited copy in a child), refuses what moves, re-checks until clean, writes, fmt's.\n- Plan over the tree (syntax only): std 1,181 convertible / 83 skipped (of 1,264); aoc 597 / 83 (of 680); rogue 35 / 4 (of 39): matches the note's counts.\n- Trial: std Nat/Arith.sw 55 converted, 0 refused, every hash identical (24 s); AoC 2020 Day 18 19 converted, 0 refused, 17 proofs changed with statements kept (60-80 s, mostly loading aoc).\n- 11:30 fixes from the trial: field names after `.` aren't clashes; a multi-line conclusion stays on the header line (one that started a line became a block and didn't parse: caught as no-parse, not written); a lone `:=` joins the statement. Final plan: std 1,182 / 82, aoc 603 / 77, rogue 37 / 2.\n- Tool only committed (e0a1ed8d4); the two sample conversions (55 + 19 theorems) are in the lane report, not committed. Moved to review.\n",
       "created": "2026-11-10",
       "updated": "2026-11-10",
       "commits": []
