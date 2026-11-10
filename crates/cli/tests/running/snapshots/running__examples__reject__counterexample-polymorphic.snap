@@ -9,11 +9,9 @@ expression: output
    │                                                                                ─┬─  
    │                                                                                 ╰─── `xs ++ ys` and `ys ++ xs` aren't equal
    │ 
-   │ Note 1: the left side is stuck on `xs` and the right side on `ys`: neither can compute further until its variable is known; a `match` (or `cases`) on one splits it
+   │ Note 1: `rfl` proves `a = b` only when both sides compute to the same value
    │ 
-   │ Note 2: `rfl` proves `a = b` only when both sides compute to the same value
-   │ 
-   │ Note 3: this statement is false (with a := Nat); a counterexample:
+   │ Note 2: this statement is false (with a := Nat); a counterexample:
    │           xs = [0]
    │           ys = [1]
    │         `xs ++ ys = ys ++ xs` is false:

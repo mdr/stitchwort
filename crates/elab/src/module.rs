@@ -689,6 +689,8 @@ impl Elaborator {
                 }))
             });
         if let Some((_, d)) = diagnostics.iter_mut().find(|(_, d)| d.severity == wanted) {
+            // Splitting a case won't prove a false statement.
+            d.notes.retain(|n| !crate::check::is_stuck_side_note(n));
             d.notes.push(note);
             d.detail_mut().counterexample = data.map(|b| *b);
         }

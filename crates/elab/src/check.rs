@@ -7214,6 +7214,16 @@ fn match_equation_note(cx: &Ctx, a: &NoteSide, b: &NoteSide) -> Option<String> {
         })
 }
 
+/// Whether `note` is [`stuck_side_note`]'s.
+pub(crate) fn is_stuck_side_note(note: &str) -> bool {
+    [
+        "the left side is stuck on `",
+        "the right side is stuck on `",
+    ]
+    .iter()
+    .any(|p| note.starts_with(p))
+}
+
 /// The note for sides of an `E-REFL` where a call is stuck on a variable
 /// the other side isn't stuck on (`choose b p` against `p`): they differ at
 /// the outermost layer, where the first-difference note doesn't look.
