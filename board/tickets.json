@@ -1,5 +1,5 @@
 {
-  "next": 2659,
+  "next": 2661,
   "tickets": [
     {
       "id": 47,
@@ -12553,16 +12553,16 @@
     {
       "id": 1667,
       "title": "Record eta stage 1b: glued calls whose spine may end in projections (~64 Value::Call sites plus omega/auto/ring call_args users), on lane/SW-1642; then std and rogue pass, snapshots, profile rule 2 (D2509)",
-      "status": "review",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-1642",
       "labels": [
         "kernel"
       ],
       "epic": "record-eta",
-      "body": "D2509-D2511 (Matt, 6 Nov 2026): all as recommended: next an Opus lane on lane/SW-1642 building glued calls whose spine may end in projections (about half a day), before the unifier and Pair stages; for now eta only for types declared as records (departs from D2499 until stage 3); rule 2 fires on unknowns and the unifier compares two records first when both sides end in the same projection. Opus, expected: 240 min; an Opus review follows.\n\nStarted 14:35 by resuming SW-1642's lane (same context and branch).\n\nLane progress (be69745c3, 8943bf9fe, c91991954 on lane/SW-1642): fields of glued calls stay calls (project_call, Frame::CallField); std's own test, roguelike Rules.sw:51 and 2021 day 13 pass; cost roguelike +2.2%, days −5%. Blocked: trip-journal example project fails (rule 2 computes under binders, unfolded quote hits 'too large to show'); a_namespace_checked_alone_has_the_same_hashes likely the same. Waiting on D2514 (how to bound unfolded readback). 2 h 15 min of est. 4 h.\n\nD2514 (Matt, 6 Nov 2026): as recommended: bound unfolded readback by making the elaborator's searches look at goals as written, starting with a short design note on Opus that revisits D484; accessor types read back as written too. Not started yet.\n\nDecided by the orchestrator (Matt, 6 Nov 2026 ~23:00: 'you need to make your best choices on those'): D2551 yes, the general rule 'a definition with a native implementation keeps its record patterns stuck on unknowns' (today only Float.add), on lane/SW-1642. D2552 yes, SW-1667 resumes ahead of bounded-readback stages 1-6b (amends D2545; those stages stay for main). D2553 yes, no per-definition 'stays folded' marker until a second definition needs one. Why: SW-1744 traced the blowup to one cause, the prototype removes every failure stage 0a found, std and the pinned Float hashes check, and on main it changes nothing. Whole-AoC and roguelike checks on the branch still need Matt's OK before SW-1667 merges.\n\nResumed 23:00 6 Nov on Opus with the SW-1744 hold, expected: 2 h.\n\nMerge-ready on lane/SW-1642 (4f0a8a8ce, 560720804, fac0006fa merge of main, 98873e547) except whole-AoC + roguelike (needs Matt's OK) and the Opus review. Builtins::has_native keys the hold (value::eta_held shared by value.rs and reference.rs); examples float-sum-in-a-proof-field (accept), float-sum-stays-a-sum (reject); the_trip_journal_checks in every tier. ~230 hash snapshots regenerated (interface dictionaries carry the no-eta tag; projections in record proofs). All targeted checks pass; trip-journal and 2021 day 13 cost as main; Rogue.Proofs +28%, nearly all resolveOutOfWalls (proof term 4.6k → 106k nodes, from record eta itself). 34 min this session.\n\n7 Nov ~00:35: review fixes in (SW-1768). Ready to merge once Matt OKs one whole-AoC + roguelike run on lane/SW-1642 (no cache, 6 min).\n\n7 Nov: SW-1782 (merged on main) restructures Unfolding in value.rs (Kept/Modes); lane/SW-1642 adds a base field there: expect a textual conflict when record eta merges (SW-1791).",
+      "body": "D2509-D2511 (Matt, 6 Nov 2026): all as recommended: next an Opus lane on lane/SW-1642 building glued calls whose spine may end in projections (about half a day), before the unifier and Pair stages; for now eta only for types declared as records (departs from D2499 until stage 3); rule 2 fires on unknowns and the unifier compares two records first when both sides end in the same projection. Opus, expected: 240 min; an Opus review follows.\n\nStarted 14:35 by resuming SW-1642's lane (same context and branch).\n\nLane progress (be69745c3, 8943bf9fe, c91991954 on lane/SW-1642): fields of glued calls stay calls (project_call, Frame::CallField); std's own test, roguelike Rules.sw:51 and 2021 day 13 pass; cost roguelike +2.2%, days −5%. Blocked: trip-journal example project fails (rule 2 computes under binders, unfolded quote hits 'too large to show'); a_namespace_checked_alone_has_the_same_hashes likely the same. Waiting on D2514 (how to bound unfolded readback). 2 h 15 min of est. 4 h.\n\nD2514 (Matt, 6 Nov 2026): as recommended: bound unfolded readback by making the elaborator's searches look at goals as written, starting with a short design note on Opus that revisits D484; accessor types read back as written too. Not started yet.\n\nDecided by the orchestrator (Matt, 6 Nov 2026 ~23:00: 'you need to make your best choices on those'): D2551 yes, the general rule 'a definition with a native implementation keeps its record patterns stuck on unknowns' (today only Float.add), on lane/SW-1642. D2552 yes, SW-1667 resumes ahead of bounded-readback stages 1-6b (amends D2545; those stages stay for main). D2553 yes, no per-definition 'stays folded' marker until a second definition needs one. Why: SW-1744 traced the blowup to one cause, the prototype removes every failure stage 0a found, std and the pinned Float hashes check, and on main it changes nothing. Whole-AoC and roguelike checks on the branch still need Matt's OK before SW-1667 merges.\n\nResumed 23:00 6 Nov on Opus with the SW-1744 hold, expected: 2 h.\n\nMerge-ready on lane/SW-1642 (4f0a8a8ce, 560720804, fac0006fa merge of main, 98873e547) except whole-AoC + roguelike (needs Matt's OK) and the Opus review. Builtins::has_native keys the hold (value::eta_held shared by value.rs and reference.rs); examples float-sum-in-a-proof-field (accept), float-sum-stays-a-sum (reject); the_trip_journal_checks in every tier. ~230 hash snapshots regenerated (interface dictionaries carry the no-eta tag; projections in record proofs). All targeted checks pass; trip-journal and 2021 day 13 cost as main; Rogue.Proofs +28%, nearly all resolveOutOfWalls (proof term 4.6k → 106k nodes, from record eta itself). 34 min this session.\n\n7 Nov ~00:35: review fixes in (SW-1768). Ready to merge once Matt OKs one whole-AoC + roguelike run on lane/SW-1642 (no cache, 6 min).\n\n7 Nov: SW-1782 (merged on main) restructures Unfolding in value.rs (Kept/Modes); lane/SW-1642 adds a base field there: expect a textual conflict when record eta merges (SW-1791).\nBoard fix (10 Nov 2026): merged on 7 Nov as 319c28c0c (stages 1 and 1b); reviewed as merged in docs/reviews/record-eta-as-merged.md (SW-2068, verdict sound). Closing.",
       "created": "2026-11-06",
-      "updated": "2026-11-07",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -27571,6 +27571,38 @@
       ],
       "epic": "syntax-language",
       "body": "docs/proposals/theorem-binders.md §6. After SW-2656, so the trees start at zero. Est. 120 min.",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
+    },
+    {
+      "id": 2659,
+      "title": "[Fable] Kernel soundness audit, fresh eyes: crates/core against docs/core.md; any way a false theorem is accepted (conversion, reduction rules, eta, literals, decreasing, native shortcuts, Apart sets, caches)",
+      "status": "doing",
+      "agent": "Claude",
+      "where": ".claude/worktrees/SW-2659",
+      "labels": [
+        "paper",
+        "soundness"
+      ],
+      "epic": "audit-fuzzing",
+      "body": "D3473 (Matt, 10 Nov 2026): yes. Paper lane on Fable 5.2. Output docs/reviews/SW-N-kernel-soundness-audit.md; findings filed as tickets. Est. 120 min.",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
+    },
+    {
+      "id": 2660,
+      "title": "[Fable] Design note: term size and sharing in the unifier and the checker (D3464's 10M-node limit, SW-2418, SW-2639's decreasing chain, fuzz memory runaways): what the end state should be",
+      "status": "doing",
+      "agent": "Claude",
+      "where": ".claude/worktrees/SW-2660",
+      "labels": [
+        "paper",
+        "design"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "D3473 (Matt, 10 Nov 2026): yes to two Fable paper lanes; the record-eta review proposed as the second was already done (SW-2068, sound), so the orchestrator chose the size/sharing design question instead. Output docs/proposals/term-sharing.md. Est. 120 min.",
       "created": "2026-11-10",
       "updated": "2026-11-10",
       "commits": []
