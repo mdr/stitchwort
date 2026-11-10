@@ -69,6 +69,13 @@ fn param_icits(g: &stitchwort_core::Ev, id: DefId) -> Vec<Icit> {
 /// (the full tier passed 30 GB, SW-1181). An entry is a name, or `example:
 /// name` for one example's definition. Their closed uses (the module's and the
 /// example's tests) are still compared, except the tests listed here.
+/// In as-written-unconfirmed.sw, `settle x k limit` is a thousand nested
+/// `if`s stuck on `x`, and `rewriteAtLimit` and `matchAtLimit` (with its
+/// `%match1`) hold it: each read back without sharing took over 10 GB (the
+/// example is about not reading that back; their types are left out of
+/// [`TYPE_NORMAL_FORM_TOO_BIG`] and [`CONVERSION_TOO_SLOW`] too, SW-2583).
+/// In let-chain-match.sw, `chain` is 40 `let`s each used twice, 2^40 nodes
+/// with them substituted.
 const NORMAL_FORM_TOO_BIG: &[&str] = &[
     "Random.xor64",
     "Random.next",
@@ -83,6 +90,10 @@ const NORMAL_FORM_TOO_BIG: &[&str] = &[
     "accept/match-bounded-search.sw: describe",
     "accept/match-bounded-search.sw: describe.eq.some",
     "accept/match-bounded-search.sw: describe.eq.none",
+    "accept/as-written-unconfirmed.sw: rewriteAtLimit",
+    "accept/as-written-unconfirmed.sw: matchAtLimit",
+    "accept/as-written-unconfirmed.sw: matchAtLimit.%match1",
+    "accept/let-chain-match.sw: chain",
 ];
 
 /// Definitions whose type's normal form is exponentially large, so only
@@ -97,6 +108,8 @@ const TYPE_NORMAL_FORM_TOO_BIG: &[&str] = &[
     "accept/lemma-on-large-normal-form.sw: applied",
     "accept/match-bounded-search.sw: describe.eq.some",
     "accept/match-bounded-search.sw: describe.eq.none",
+    "accept/as-written-unconfirmed.sw: rewriteAtLimit",
+    "accept/as-written-unconfirmed.sw: matchAtLimit",
 ];
 
 /// Definitions left out of [`compare_conversion`], because the reference's
@@ -111,6 +124,8 @@ const CONVERSION_TOO_SLOW: &[&str] = &[
     "accept/lemma-on-large-normal-form.sw: applied",
     "accept/match-bounded-search.sw: describe.eq.some",
     "accept/match-bounded-search.sw: describe.eq.none",
+    "accept/as-written-unconfirmed.sw: rewriteAtLimit",
+    "accept/as-written-unconfirmed.sw: matchAtLimit",
 ];
 
 /// Whether `list` names definition `name` of `what` (the prelude or an
@@ -261,7 +276,22 @@ fn the_evaluators_agree_on_the_prelude_and_every_example() {
         );
         // Each example in its own session, on the thread pool. A corpus sweep:
         // a fixed sample below the full tier.
-        par_map(STACK, &tier_sample(examples(), 4), |(name, text)| {
+        // `STITCHWORT_DIFFERENTIAL_SKIP` and `_LIMIT` narrow the sweep to a
+        // slice of the sample, to measure or bisect (docs/testing.md).
+        let mut sample = tier_sample(examples(), 4);
+        if let Some(n) = std::env::var("STITCHWORT_DIFFERENTIAL_SKIP")
+            .ok()
+            .and_then(|v| v.parse::<usize>().ok())
+        {
+            sample.drain(..n.min(sample.len()));
+        }
+        if let Some(n) = std::env::var("STITCHWORT_DIFFERENTIAL_LIMIT")
+            .ok()
+            .and_then(|v| v.parse().ok())
+        {
+            sample.truncate(n);
+        }
+        par_map(STACK, &sample, |(name, text)| {
             let mut session = Session::for_stack(STACK);
             session.load(name, text).expect("examples check");
             let g = &session.elab.ev();
