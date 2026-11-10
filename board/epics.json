@@ -81,7 +81,11 @@
         "Code action crash on an unapplied Succ or Cons fixed (SW-1799)",
         "Kept search session reviewed: answers sound (SW-1808)"
       ],
-      "now": [],
+      "now": [
+        "Refactoring design note (SW-2626, Opus, paper)",
+        "Code action edits the right text; VS Code Restart Server and *.sw watching (SW-1949, SW-1980)",
+        "Kept search session leaks: counterexample log (SW-1937, absorbs SW-1818) and apart sets (SW-1819)"
+      ],
       "next": [
         "Kept search session: two leaks, panic recovery, hardening, a randomised test (SW-1818 to SW-1823; D2583, D2584)",
         "Text-only searches and the playground keep std loaded too (SW-1807)",
