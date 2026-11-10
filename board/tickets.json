@@ -27099,7 +27099,7 @@
     {
       "id": 2628,
       "title": "[Opus] Rename R2: a trial check for edits: LiveProject::trial (rewind, check, compare diagnostics and hashes by a rename map, keep or restore), returning a problem list (new diagnostics, declarations whose meaning changed) for both refusal and apply-anyway; timings on aoc/",
-      "status": "doing",
+      "status": "review",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-2628",
       "labels": [
@@ -27107,7 +27107,7 @@
         "refactoring"
       ],
       "epic": "editor-playground",
-      "body": "docs/proposals/refactoring.md §3 (SW-2626). D3467 (Matt, 10 Nov 2026): yes; Matt asked for a mode that proceeds anyway and leaves the few problem sites for the user or agent to fix by hand. Est. 150 min.",
+      "body": "docs/proposals/refactoring.md §3 (SW-2626). D3467 (Matt, 10 Nov 2026): yes; Matt asked for a mode that proceeds anyway and leaves the few problem sites for the user or agent to fix by hand. Est. 150 min.\n\nProgress (lane, 10 Nov 2026, 07:42-08:20): built `LiveProject::trial(edits, promise) -> Result<TrialOutcome, Cancelled>` with `keep`/`restore`, in `crates/driver/src/live/trial.rs`. Outcome is `Refused(Vec<Refusal>)` (NotChecked, CantCheck, Unparsed, Library, BadEdit: no \"anyway\") or `Checked(Trial)` with a `Problems` list (new diagnostics; declarations whose hash changed, each with file, range and `uses`). Wording: `Problems::describe`, `Refusal::describe`. 7 tests in `tests/projects/trial.rs`, all pass. Timings (one run each, Aoc.Common + 2021, 75 namespaces, warm cache): day-local rename trial 1.7 s / restore 1.6 s; Common local rename trial 8.9 s / restore 4.8 s; whole aoc Common est. ~30 s. Note §3.1 updated.\n",
       "created": "2026-11-10",
       "updated": "2026-11-10",
       "commits": []
