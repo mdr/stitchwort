@@ -362,6 +362,9 @@ Each was run on the example named; the output is quoted, shortened.
   and, when every variable is finite, points at `Finite.check`
   (`examples/reject/cases-budget.sw`). Otherwise prove a fact that decides
   several cases at once and pass it with `cases in t`, or `match` by hand.
+  The same error comes sooner when a case grows too large to split: a
+  goal and hypotheses that, written out in full, have more than a million
+  parts (`examples/reject/cases-split-too-large.sw`).
 - **`E-OMEGA`**: the facts don't give the goal. "an integer model …
   satisfies the facts" names values for the atoms; often a fact is missing
   (pass it in `omega […]`) or an atom hides arithmetic (`x % 2`, `x / 2`,
