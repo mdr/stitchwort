@@ -4015,6 +4015,42 @@ pub fn opens_by_tree(g: &Ev, value: &Value) -> bool {
         && !g.env.builtins().float_bound(*id)
 }
 
+/// The level of the variable that call `value` is stuck on, for a note:
+/// `value` forced is a definition applied to all its arguments whose case
+/// tree, walked as [`same_stuck_trees`] walks it, stops at a `case` on a
+/// neutral value headed by a variable. `None` for anything else (a value
+/// that computes, a call stuck on another call or an opaque one, a bare
+/// variable). Error path only; it runs in the machine's budget.
+pub fn stuck_on_variable(g: &Ev, value: &Value) -> Option<usize> {
+    let value = force(g, value.clone()).ok()?;
+    let Value::Neutral(Head::Def(id), spine) = &value else {
+        return None;
+    };
+    let def = g.def(*id);
+    let body = body_seen(g, *id)?;
+    if spine.len() != def.arity
+        || def.arity == 0
+        || folds(g, *id)
+        || def.lift_leaf
+        || g.env.builtins().native(*id).is_some()
+        || g.env.builtins().float_bound(*id)
+    {
+        return None;
+    }
+    let mut args = Vec::with_capacity(spine.len());
+    for elim in spine.iter() {
+        match elim {
+            Elim::App(v, _) => args.push(v.clone()),
+            Elim::J { .. } | Elim::Proj(..) => return None,
+        }
+    }
+    let tree = Term::peel_lams_rc(body, def.arity);
+    match walk_tree(g, tree, args, eta_held(g, *id)).ok()? {
+        TreeEnd::Stuck(_, _, Value::Neutral(Head::Var(level, _), _)) => Some(level),
+        _ => None,
+    }
+}
+
 /// Where a case tree, walked with its environment, ends up.
 enum TreeEnd {
     /// A `case` stuck on the (forced) neutral scrutinee.
