@@ -1,5 +1,5 @@
 {
-  "next": 2738,
+  "next": 2742,
   "tickets": [
     {
       "id": 47,
@@ -28605,12 +28605,12 @@
     {
       "id": 2734,
       "title": "Bool as a proposition, stage 1 (bool-as-proposition.md): the coercion (a Bool where a Prop is expected means b = True) and printing without = True, with a print-then-read-back test",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-2734",
       "labels": [],
       "epic": "syntax-language",
-      "body": "D3482 (Matt, 10 Nov 2026); D3490 (Matt, 10 Nov 2026): started at pace 1.00 as a special exception. Opus. Est. 3 h. Built to D3486's recommendation (open), kept separable.\nD3486 decided 10 Nov 2026 by SW-2735 (Fable, delegated by Matt): as recommended. See docs/proposals/bool-operators-in-propositions.md §5 for the exact rules.",
+      "body": "D3482 (Matt, 10 Nov 2026); D3490 (Matt, 10 Nov 2026): started at pace 1.00 as a special exception. Opus. Est. 3 h. Built to D3486's recommendation (open), kept separable.\nD3486 decided 10 Nov 2026 by SW-2735 (Fable, delegated by Matt): as recommended. See docs/proposals/bool-operators-in-propositions.md §5 for the exact rules.\nModel result: Opus, worked, 30 min (est. 180).",
       "created": "2026-11-10",
       "updated": "2026-11-10",
       "commits": []
@@ -28655,6 +28655,58 @@
       "labels": [],
       "epic": "syntax-language",
       "body": "From SW-2735 (10 Nov 2026). Note for the stage 6 briefs.",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
+    },
+    {
+      "id": 2738,
+      "title": "Printer folds Nat.leq a b = True to a ≤ b, which reads back as a different term (same meaning, different hash): make ≤ round-trip",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "From SW-2734 (10 Nov 2026).",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
+    },
+    {
+      "id": 2739,
+      "title": "Bool != prints as (x.decEq y).not.toBool: print it readably",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "From SW-2734 (10 Nov 2026).",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
+    },
+    {
+      "id": 2740,
+      "title": "(a <= b) = False prints with ASCII <= where the positive form prints ≤",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "From SW-2734 (10 Nov 2026).",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
+    },
+    {
+      "id": 2741,
+      "title": "Stage 6 sweep notes: std test facts written (a ∧ b) = True (Bool.andLeft) become (a && b) = True per D3486; guide 10-proofs cases prose still writes h: (a ∧ b) = True",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "From SW-2734 (10 Nov 2026).",
       "created": "2026-11-10",
       "updated": "2026-11-10",
       "commits": []
