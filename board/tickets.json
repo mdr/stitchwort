@@ -26411,14 +26411,14 @@
     {
       "id": 2593,
       "title": "Search hole typing, follow-ups from SW-2590: (1) type_holes quotes the parameter type with quote_folded(g, 0, dom), wrong if dom mentions bound variables (env non-empty); check and fix the level; (2) type every hole of a proof-use pattern from the lemma's binder types, including holes under lambdas and applied holes' arguments, to close the class; (3) afresh and the unifier panic on ill-typed solutions instead of failing, hidden by search's catch_unwind as internal_errors",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Opus",
-      "where": "",
+      "where": ".claude/worktrees/SW-2593",
       "labels": [],
       "epic": "proof-search",
       "body": "From SW-2590's report and the orchestrator's review, 9 Nov. Unifier-adjacent, so Opus (D2506). No soundness risk: the kernel rechecks every proof, and the search catches the panic.",
       "created": "2026-11-09",
-      "updated": "2026-11-09",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
