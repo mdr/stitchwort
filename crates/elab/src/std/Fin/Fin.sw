@@ -54,8 +54,8 @@ theorem Fin.toNatInjective (i j: Fin n) (h: Fin.toNat i = Fin.toNat j): i = j :=
 -- Written by hand: deriving `==` for an indexed family is not supported yet.
 instance Fin.instDecEq: DecEq (Fin n) :=
   { decide = i j =>
-    if h: Fin.toNat i = Fin.toNat j then Yes (Fin.toNatInjective i j h)
-    else No (e => h (Eq.cong Fin.toNat e)) }
+    if h: Fin.toNat i = Fin.toNat j then Decidable.yes (Fin.toNatInjective i j h)
+    else Decidable.no (e => h (Eq.cong Fin.toNat e)) }
 
 --| Positions in order of their numbers.
 instance Fin.instOrd: Ord (Fin n) := Ord.byKey Fin.toNat Fin.toNatInjective

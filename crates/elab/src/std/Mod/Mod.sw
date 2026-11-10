@@ -175,8 +175,8 @@ instance Mod.instShow: Show (Mod n) := Show.fromText (i => Nat.toText i.value)
 -- not `<`.
 instance Mod.instDecEq [n: Nat]: DecEq (Mod n) :=
   { decide = i j =>
-    if h: i.value = j.value then Yes (Mod.ext i j h)
-    else No (e => h (Eq.cong (k => k.value) e)) }
+    if h: i.value = j.value then Decidable.yes (Mod.ext i j h)
+    else Decidable.no (e => h (Eq.cong (k => k.value) e)) }
 
 --| Numbers in order of their values (not of their clock positions: 99 comes
 --| after 0 even though `99 + 1` is 0).

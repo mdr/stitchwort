@@ -93,9 +93,8 @@ def Vec.fromListN: (n: Nat) → (xs: List a) → (lengthEq: List.length xs = n) 
 def Vec.fromList (xs: List a): Vec a (List.length xs) := Vec.fromListN (List.length xs) xs rfl
 
 --| The list as a vector of length n, given whether its length is n.
-def Vec.ofListDec (n: Nat) (xs: List a): (isLength: Decidable (List.length xs = n)) → Option (Vec a n)
-  | Yes ok => Some (Vec.fromListN n xs ok)
-  | No r => None
+def Vec.ofListDec (n: Nat) (xs: List a) (isLength: Decidable (List.length xs = n)): Option (Vec a n) :=
+  Decidable.elim isLength (ok => Some (Vec.fromListN n xs ok)) (r => None)
 
 --| The list as a vector of length n, or `None` if its length isn't n. Two
 --| loops, `List.length` then `Vec.fromListN`, so stack-safe on long lists.
@@ -163,8 +162,8 @@ theorem Vec.toListInjective (u v: Vec a n) (h: Vec.toList u = Vec.toList v): u =
 -- (docs/proposals/interfaces.md, "As built (stage 2)").
 instance Vec.instDecEq [auto decEq: DecEq a]: DecEq (Vec a n) :=
   { decide = u v =>
-    if h: Vec.toList u = Vec.toList v then Yes (Vec.toListInjective u v h)
-    else No (e => h (Eq.cong Vec.toList e)) }
+    if h: Vec.toList u = Vec.toList v then Decidable.yes (Vec.toListInjective u v h)
+    else Decidable.no (e => h (Eq.cong Vec.toList e)) }
 
 --| Vectors in order: lexicographic, as their lists (`List.instOrd`).
 instance Vec.instOrd [auto ord: Ord a]: Ord (Vec a n) := Ord.byKey Vec.toList Vec.toListInjective

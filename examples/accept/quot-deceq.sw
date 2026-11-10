@@ -10,7 +10,7 @@
 --   $ stitchwort run examples/accept/quot-deceq.sw
 --   True
 --   True
-import Std (Eq, IO)
+import Std (Decidable, Eq, IO)
 
 def AllTrue (x: Bool) (y: Bool): Prop := Unit
 
@@ -25,7 +25,7 @@ theorem rawSame (p: Quot Bool AllTrue) (q: Quot Bool AllTrue): p = q :=
 theorem same: ∀ (p q: Q) => p = q
   | { raw = a }, { raw = b } => Eq.cong (r => ({ raw = r }: Q)) (rawSame a b)
 
-instance qDecEq: DecEq Q := { decide = p q => Yes (same p q) }
+instance qDecEq: DecEq Q := { decide = p q => Decidable.yes (same p q) }
 
 -- `==` is derived for `Box`, using `qDecEq` for its field.
 type Box = { q: Q }

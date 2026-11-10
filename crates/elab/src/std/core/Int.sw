@@ -74,21 +74,19 @@ theorem Int.ofNatInjective (m: Nat) (n: Nat) (p: OfNat m = OfNat n): m = n := Eq
 theorem Int.negSuccInjective [m: Nat] [n: Nat] (p: NegSucc m = NegSucc n): m = n := Nat.succInjective (Eq.cong Int.natAbs p)
 
 --| Decides whether two `OfNat`s are equal, from a decision about their numbers.
-def Int.decOfNat (m: Nat) (n: Nat): (dec: Decidable (m = n)) → Decidable (OfNat m = OfNat n)
-  | Yes p => Yes (Eq.cong OfNat p)
-  | No r => No (p => r (Int.ofNatInjective m n p))
+def Int.decOfNat (m: Nat) (n: Nat) (dec: Decidable (m = n)): Decidable (OfNat m = OfNat n) :=
+  Decidable.elim dec (p => Decidable.yes (Eq.cong OfNat p)) (r => Decidable.no (p => r (Int.ofNatInjective m n p)))
 
 --| Decides whether two `NegSucc`s are equal, from a decision about their numbers.
-def Int.decNegSucc (m: Nat) (n: Nat): (dec: Decidable (m = n)) → Decidable (NegSucc m = NegSucc n)
-  | Yes p => Yes (Eq.cong NegSucc p)
-  | No r => No (p => r (Int.negSuccInjective p))
+def Int.decNegSucc (m: Nat) (n: Nat) (dec: Decidable (m = n)): Decidable (NegSucc m = NegSucc n) :=
+  Decidable.elim dec (p => Decidable.yes (Eq.cong NegSucc p)) (r => Decidable.no (p => r (Int.negSuccInjective p)))
 
---| For two integers this computes `Yes rfl` or a `No` of constant size,
+--| For two integers this computes `Decidable.yes rfl` or a `Decidable.no` of constant size,
 --| however big they are, since [`Nat.decEq`] does.
 def Int.decEq: (a: Int) → (b: Int) → Decidable (a = b)
   | OfNat m, OfNat n => Int.decOfNat m n (Nat.decEq m n)
-  | OfNat m, NegSucc n => No (Int.ofNatNotNegSucc m n)
-  | NegSucc m, OfNat n => No (Int.negSuccNotOfNat m n)
+  | OfNat m, NegSucc n => Decidable.no (Int.ofNatNotNegSucc m n)
+  | NegSucc m, OfNat n => Decidable.no (Int.negSuccNotOfNat m n)
   | NegSucc m, NegSucc n => Int.decNegSucc m n (Nat.decEq m n)
 
 --| Whether `a <= b`, as a `Bool`. Every negative is below every non-negative; among negatives the

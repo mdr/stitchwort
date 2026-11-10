@@ -214,22 +214,21 @@ theorem List.windowsTails (xs: List a) (size: Nat):
     | [], Zero => rfl
     | [], Succ size => List.windowsShort [] (Succ size) rfl
     | [x, ..rest], size =>
-      match Nat.decLessEq size (List.length [x, ..rest]) with
-        | Yes h =>
-          calc List.windows [x, ..rest] size
-            _ = [List.take [x, ..rest] size, ..List.windows rest size] := List.windowsCons x rest size h
-            _ = [List.take [x, ..rest] size, ..List.filter (List.map (List.tails rest) (.take size)) (window => window.length == size)]
-              := Eq.cong (Cons (List.take [x, ..rest] size)) (List.windowsTails rest size)
-            _ = List.filter (List.map (List.tails [x, ..rest]) (.take size)) (window => window.length == size)
-              := Eq.sym (List.filterKeep _ _ _ (rewrite List.lengthTake [x, ..rest] size h in DecEq.refl size))
-        | No h =>
-          calc List.windows [x, ..rest] size
-            _ = [] := List.windowsShort [x, ..rest] size (omega [h])
-            _ = List.windows rest size := Eq.sym (List.windowsShort rest size (omega [h]))
-            _ = List.filter (List.map (List.tails rest) (.take size)) (window => window.length == size) := List.windowsTails rest size
-            _ = List.filter (List.map (List.tails [x, ..rest]) (.take size)) (window => window.length == size)
-              := Eq.sym (List.filterSkip (List.map (List.tails rest) (.take size)) (window => window.length == size) (List.take [x, ..rest] size)
-                (rewrite List.takeAll [x, ..rest] size (omega [h]) in Decidable.toBoolOfNot _ (same => omega [same, h])))
+      if h: size ≤ List.length [x, ..rest] then
+        calc List.windows [x, ..rest] size
+          _ = [List.take [x, ..rest] size, ..List.windows rest size] := List.windowsCons x rest size h
+          _ = [List.take [x, ..rest] size, ..List.filter (List.map (List.tails rest) (.take size)) (window => window.length == size)]
+            := Eq.cong (Cons (List.take [x, ..rest] size)) (List.windowsTails rest size)
+          _ = List.filter (List.map (List.tails [x, ..rest]) (.take size)) (window => window.length == size)
+            := Eq.sym (List.filterKeep _ _ _ (rewrite List.lengthTake [x, ..rest] size h in DecEq.refl size))
+      else
+        calc List.windows [x, ..rest] size
+          _ = [] := List.windowsShort [x, ..rest] size (omega [h])
+          _ = List.windows rest size := Eq.sym (List.windowsShort rest size (omega [h]))
+          _ = List.filter (List.map (List.tails rest) (.take size)) (window => window.length == size) := List.windowsTails rest size
+          _ = List.filter (List.map (List.tails [x, ..rest]) (.take size)) (window => window.length == size)
+            := Eq.sym (List.filterSkip (List.map (List.tails rest) (.take size)) (window => window.length == size) (List.take [x, ..rest] size)
+              (rewrite List.takeAll [x, ..rest] size (omega [h]) in Decidable.toBoolOfNot _ (same => omega [same, h])))
 
 theorem List.windowsExample: List.windows [1, 2, 3, 4] 3 = [[1, 2, 3], [2, 3, 4]] := rfl
 

@@ -189,9 +189,9 @@ theorem NonEmptyList.toListInjective (xs: NonEmptyList a) (ys: NonEmptyList a) (
 --| Decides equality from a decision about the elements: the lists' ([`List.decEq`]).
 @[noReceiver]
 def NonEmptyList.decEq (d: (x: a) → (y: a) → Decidable (x = y)) (xs: NonEmptyList a) (ys: NonEmptyList a): Decidable (xs = ys) :=
-  match List.decEq d xs.toList ys.toList with
-    | Yes same => Yes (NonEmptyList.toListInjective xs ys same)
-    | No different => No (equal => different (Eq.cong NonEmptyList.toList equal))
+  Decidable.elim (List.decEq d xs.toList ys.toList)
+    (same => Decidable.yes (NonEmptyList.toListInjective xs ys same))
+    (different => Decidable.no (equal => different (Eq.cong NonEmptyList.toList equal)))
 
 instance NonEmptyList.instDecEq [auto decEq: DecEq a]: DecEq (NonEmptyList a) :=
   { decide = NonEmptyList.decEq (x y => DecEq.decide x y) }

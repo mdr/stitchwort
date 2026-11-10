@@ -146,8 +146,8 @@ theorem Array.toListInjective (a b: Array t) (h: a.toList = b.toList): a = b :=
 --| `==` on arrays: they're equal exactly when their lists are.
 instance Array.instDecEq [auto decEq: DecEq a]: DecEq (Array a) :=
   { decide = u v =>
-    if h: u.toList = v.toList then Yes (Array.toListInjective u v h)
-    else No (e => h (Eq.cong (.toList) e)) }
+    if h: u.toList = v.toList then Decidable.yes (Array.toListInjective u v h)
+    else Decidable.no (e => h (Eq.cong (.toList) e)) }
 
 --| Arrays in order: lexicographic, as their lists (`List.instOrd`).
 instance Array.instOrd [auto ord: Ord a]: Ord (Array a) := Ord.byKey (.toList) Array.toListInjective

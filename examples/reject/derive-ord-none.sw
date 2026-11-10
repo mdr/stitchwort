@@ -4,7 +4,7 @@
 -- field `tag` is a `Secret`, which has its own `==` but no ordering: its
 -- field is a quotient, which has none.
 
-import Std (Eq, List)
+import Std (Decidable, Eq, List)
 
 def AllSame (x: Nat) (y: Nat): Prop := Unit
 
@@ -18,7 +18,7 @@ theorem Secret.codeSame (p: Quot Nat AllSame) (q: Quot Nat AllSame): p = q :=
 theorem Secret.same: (x: Secret) → (y: Secret) → x = y
   | { code = a }, { code = b } => Eq.cong (c => ({ code = c }: Secret)) (Secret.codeSame a b)
 
-instance Secret.instDecEq: DecEq Secret := { decide = x y => Yes (Secret.same x y) }
+instance Secret.instDecEq: DecEq Secret := { decide = x y => Decidable.yes (Secret.same x y) }
 
 type Tagged = { name: Text, tag: Secret }
 

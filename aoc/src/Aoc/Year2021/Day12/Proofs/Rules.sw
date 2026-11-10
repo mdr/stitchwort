@@ -5,7 +5,7 @@
 namespace Aoc.Year2021.Day12.Proofs
 import Aoc.Year2021.Day12 (..)
 import Aoc.Year2021.Day12.Spec (..)
-import Std (Bool, DecEq, Eq, Exists, List, Nat, Option, Void)
+import Std (Bool, DecEq, Decidable, Eq, Exists, List, Nat, Option, Void)
 
 --| The visit rule as far as a path has gone: with `twice` (part 2) one
 --| small cave may be visited twice. `start` and `end` at most once.
@@ -123,34 +123,34 @@ theorem tracksFresh (passages: List Passage) (twice: Bool) (unvisited: List Cave
   let zero: sofar.visits y = 0 := (unseen y named small notStart notEnd).forward fresh
   let one: (sofar.add y).visits y = 1 := rewrite visitsSelf sofar y, zero in rfl
   let unseen2 := (c: Cave) => (namedC: c ∈ caves passages) => (smallC: c.isBig = False) => (startC: c ≠ Cave.start) => (endC: c ≠ Cave.end) =>
-    match DecEq.decide c y with
-      | Yes same =>
+    Decidable.elimProof (DecEq.decide c y)
+      (same =>
         ({
           forward = found => Void.exfalso (And.right ((withoutMem unvisited y c).forward found) same),
           backward = none => Void.exfalso (omega [rewrite same, one at none])
-        }: (without unvisited y).contains c = True ↔ (sofar.add y).visits c = 0)
-      | No other =>
+        }: (without unvisited y).contains c = True ↔ (sofar.add y).visits c = 0))
+      (other =>
         rewrite visitsNot sofar y c other in {
           forward = found => (unseen c namedC smallC startC endC).forward (And.left ((withoutMem unvisited y c).forward found)),
           backward = none => (withoutMem unvisited y c).backward (Both ((unseen c namedC smallC startC endC).backward none) other)
-        }
+        })
   let each2 := (c: Cave) => (smallC: c.isBig = False) =>
-    match DecEq.decide c y with
-      | Yes same => (rewrite same, one in omega: (sofar.add y).visits c ≤ 1 + Bool.toNat twice)
-      | No other => rewrite visitsNot sofar y c other in each c smallC
+    Decidable.elimProof (DecEq.decide c y)
+      (same => (rewrite same, one in omega: (sofar.add y).visits c ≤ 1 + Bool.toNat twice))
+      (other => rewrite visitsNot sofar y c other in each c smallC)
   let once2 := (a: Cave) => (b: Cave) => (smallA: a.isBig = False) => (smallB: b.isBig = False) =>
     (twiceA: 2 ≤ (sofar.add y).visits a) => (twiceB: 2 ≤ (sofar.add y).visits b) =>
-      match DecEq.decide a y with
-        | Yes sameA => Void.exfalso (omega [rewrite sameA, one at twiceA])
-        | No otherA =>
-          match DecEq.decide b y with
-            | Yes sameB => Void.exfalso (omega [rewrite sameB, one at twiceB])
-            | No otherB => once a b smallA smallB (rewrite visitsNot sofar y a otherA at twiceA) (rewrite visitsNot sofar y b otherB at twiceB)
+      Decidable.elimProof (DecEq.decide a y)
+        (sameA => Void.exfalso (omega [rewrite sameA, one at twiceA]))
+        (otherA =>
+          Decidable.elimProof (DecEq.decide b y)
+            (sameB => Void.exfalso (omega [rewrite sameB, one at twiceB]))
+            (otherB => once a b smallA smallB (rewrite visitsNot sofar y a otherA at twiceA) (rewrite visitsNot sofar y b otherB at twiceB)))
   let spared2 := (left: spare = True) =>
     Both (And.left (spared left)) ((c: Cave) => (smallC: c.isBig = False) =>
-      match DecEq.decide c y with
-        | Yes same => (rewrite same, one in omega: (sofar.add y).visits c ≤ 1)
-        | No other => rewrite visitsNot sofar y c other in And.right (spared left) c smallC)
+      Decidable.elimProof (DecEq.decide c y)
+        (same => (rewrite same, one in omega: (sofar.add y).visits c ≤ 1))
+        (other => rewrite visitsNot sofar y c other in And.right (spared left) c smallC))
   let used2: spare = False → (twice = False) ∨ (∃ (d: Cave) => d.isBig = False ∧ 2 ≤ (sofar.add y).visits d) := none =>
     match used none with
       | Inl part1 => Inl part1
@@ -171,26 +171,26 @@ theorem tracksAgain (passages: List Passage) (twice: Bool) (unvisited: List Cave
   let seen: sofar.visits y ≠ 0 := none => Bool.falseNotTrue (rewrite stale at (unseen y named small notStart notEnd).backward none)
   let two: (sofar.add y).visits y = 2 := rewrite visitsSelf sofar y in omega [atMostOnce y small]
   let unseen2 := (c: Cave) => (namedC: c ∈ caves passages) => (smallC: c.isBig = False) => (startC: c ≠ Cave.start) => (endC: c ≠ Cave.end) =>
-    match DecEq.decide c y with
-      | Yes same =>
+    Decidable.elimProof (DecEq.decide c y)
+      (same =>
         ({
           forward = found => Void.exfalso (Bool.falseNotTrue (rewrite same, stale at found)),
           backward = none => Void.exfalso (omega [rewrite same, two at none])
-        }: unvisited.contains c = True ↔ (sofar.add y).visits c = 0)
-      | No other => rewrite visitsNot sofar y c other in unseen c namedC smallC startC endC
+        }: unvisited.contains c = True ↔ (sofar.add y).visits c = 0))
+      (other => rewrite visitsNot sofar y c other in unseen c namedC smallC startC endC)
   let each2 := (c: Cave) => (smallC: c.isBig = False) =>
     (rewrite part2 in
-      match DecEq.decide c y with
-        | Yes same => (rewrite same, two in rfl: (sofar.add y).visits c ≤ 2)
-        | No other => rewrite visitsNot sofar y c other in omega [atMostOnce c smallC]: (sofar.add y).visits c ≤ 1 + Bool.toNat twice)
+      Decidable.elimProof (DecEq.decide c y)
+        (same => (rewrite same, two in rfl: (sofar.add y).visits c ≤ 2))
+        (other => rewrite visitsNot sofar y c other in omega [atMostOnce c smallC]): (sofar.add y).visits c ≤ 1 + Bool.toNat twice)
   let once2 := (a: Cave) => (b: Cave) => (smallA: a.isBig = False) => (smallB: b.isBig = False) =>
     (twiceA: 2 ≤ (sofar.add y).visits a) => (twiceB: 2 ≤ (sofar.add y).visits b) =>
-      match DecEq.decide a y with
-        | Yes sameA =>
-          match DecEq.decide b y with
-            | Yes sameB => Eq.trans sameA (Eq.sym sameB)
-            | No otherB => Void.exfalso (omega [atMostOnce b smallB, rewrite visitsNot sofar y b otherB at twiceB])
-        | No otherA => Void.exfalso (omega [atMostOnce a smallA, rewrite visitsNot sofar y a otherA at twiceA])
+      Decidable.elimProof (DecEq.decide a y)
+        (sameA =>
+          Decidable.elimProof (DecEq.decide b y)
+            (sameB => Eq.trans sameA (Eq.sym sameB))
+            (otherB => Void.exfalso (omega [atMostOnce b smallB, rewrite visitsNot sofar y b otherB at twiceB])))
+        (otherA => Void.exfalso (omega [atMostOnce a smallA, rewrite visitsNot sofar y a otherA at twiceA]))
   Both unseen2
     (Both (rewrite visitsOther sofar y Cave.start notStart in start)
       (Both (rewrite visitsOther sofar y Cave.end notEnd in end)
@@ -205,17 +205,17 @@ theorem finishWithin (passages: List Passage) (twice: Bool) (unvisited: List Cav
   let one: (sofar.add Cave.end).visits Cave.end = 1 := rewrite visitsSelf sofar Cave.end, end in rfl
   Both
     (c smallC =>
-      match DecEq.decide c Cave.end with
-        | Yes same => (rewrite same, one in omega: (sofar.add Cave.end).visits c ≤ 1 + Bool.toNat twice)
-        | No other => rewrite visitsNot sofar Cave.end c other in each c smallC)
+      Decidable.elimProof (DecEq.decide c Cave.end)
+        (same => (rewrite same, one in omega: (sofar.add Cave.end).visits c ≤ 1 + Bool.toNat twice))
+        (other => rewrite visitsNot sofar Cave.end c other in each c smallC))
     (Both
       (a b smallA smallB twiceA twiceB =>
-        match DecEq.decide a Cave.end with
-          | Yes sameA => Void.exfalso (omega [rewrite sameA, one at twiceA])
-          | No otherA =>
-            match DecEq.decide b Cave.end with
-              | Yes sameB => Void.exfalso (omega [rewrite sameB, one at twiceB])
-              | No otherB => once a b smallA smallB (rewrite visitsNot sofar Cave.end a otherA at twiceA) (rewrite visitsNot sofar Cave.end b otherB at twiceB))
+        Decidable.elimProof (DecEq.decide a Cave.end)
+          (sameA => Void.exfalso (omega [rewrite sameA, one at twiceA]))
+          (otherA =>
+            Decidable.elimProof (DecEq.decide b Cave.end)
+              (sameB => Void.exfalso (omega [rewrite sameB, one at twiceB]))
+              (otherB => once a b smallA smallB (rewrite visitsNot sofar Cave.end a otherA at twiceA) (rewrite visitsNot sofar Cave.end b otherB at twiceB))))
       (Both (rewrite visitsOther sofar Cave.end Cave.start endNotStart in startOnce) (rewrite one in rfl)))
 
 --| A path that goes on from `y` goes on from the cave before it.

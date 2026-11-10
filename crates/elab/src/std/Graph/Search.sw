@@ -1295,12 +1295,11 @@ theorem Graph.breadthDoneCorrect [auto ord: Ord s] (graph: Graph s) (sources: Li
             rewrite <- Eq.cong Pair.snd same, <- Eq.cong Pair.fst same in grows 0 other (sourcesBound other inSources)))
       (state cost got next weight edge =>
         let was := old state cost got
-        match Nat.decLessThan cost depth with
-          | Yes below => grows (cost + 1) next (closedBelow state cost was below next weight edge)
-          | No notBelow =>
-            let atDepth: cost = depth := omega [And.right (settledReach state cost was), notBelow]
-            let inFrontier := (atFrontier state).backward (rewrite <- atDepth in was)
-            rewrite atDepth, <- moreIs in Graph.frontierClosed graph sources reach depth settled frontier invariant state inFrontier next weight edge))
+        if below: cost < depth then grows (cost + 1) next (closedBelow state cost was below next weight edge)
+        else
+          let atDepth: cost = depth := omega [And.right (settledReach state cost was), below]
+          let inFrontier := (atFrontier state).backward (rewrite <- atDepth in was)
+          rewrite atDepth, <- moreIs in Graph.frontierClosed graph sources reach depth settled frontier invariant state inFrontier next weight edge))
 
 --| One level keeps the search state.
 theorem Graph.breadthKeeps [auto ord: Ord s] (graph: Graph s) (sources: List s) (reach: s → Nat → Prop)
@@ -1347,12 +1346,11 @@ theorem Graph.breadthKeeps [auto ord: Ord s] (graph: Graph s) (sources: List s) 
           match origin state cost got with
             | Inr (Both costs others) => Void.exfalso (omega [costs, below])
             | Inl old =>
-              match Nat.decLessThan cost depth with
-                | Yes lower => grows (cost + 1) next (closedBelow state cost old lower next weight edge)
-                | No notLower =>
-                  let atDepth: cost = depth := omega [below, notLower]
-                  let inFrontier := (atFrontier state).backward (rewrite <- atDepth in old)
-                  rewrite atDepth, <- moreIs in Graph.frontierClosed graph sources reach depth settled frontier invariant state inFrontier next weight edge)
+              if lower: cost < depth then grows (cost + 1) next (closedBelow state cost old lower next weight edge)
+              else
+                let atDepth: cost = depth := omega [below, lower]
+                let inFrontier := (atFrontier state).backward (rewrite <- atDepth in old)
+                rewrite atDepth, <- moreIs in Graph.frontierClosed graph sources reach depth settled frontier invariant state inFrontier next weight edge)
         (source member => grows 0 source (sourcesBound source member))))
 
 --| The search returns what `SearchResult` says, from any search state.

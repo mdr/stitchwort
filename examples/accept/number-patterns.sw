@@ -2,7 +2,7 @@
 -- compares the argument with each number; it doesn't count down to it.
 -- See docs/proposals/number-patterns.md.
 
-import Std (Nat)
+import Std (Decidable, Nat)
 
 def statusText: Nat → Text
   | 200 => "OK"
@@ -36,7 +36,7 @@ test "not huge" := not (isHuge 999999999999999999999999999999)
 -- Inside an equation with a number, the argument *is* that number, so the
 -- types of the result and of other arguments that mention it compute.
 def isNotFound: (n: Nat) → Decidable (n = 404)
-  | 404 => Yes rfl
+  | 404 => Decidable.yes rfl
   | n => Nat.decEq n 404
 
 def Shape: Nat → Type

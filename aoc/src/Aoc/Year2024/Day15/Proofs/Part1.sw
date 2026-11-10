@@ -74,15 +74,13 @@ theorem moveSeparate (warehouse: Warehouse) (direction: Direction) (separate: Se
           let facts := firstFreeSome warehouse.boxes direction next (warehouse.boxes.size + 1) free found
           let boxesOffWalls: ∀ (position: Cell) => ((warehouse.boxes.insert free).remove next).contains position = True → warehouse.walls.contains position = False :=
             position member =>
-              match DecEq.decide position next with
-                | Yes atNext => Void.exfalso (Bool.trueNotFalse (Eq.trans (Eq.sym member) (rewrite atNext in Set.containsRemove (warehouse.boxes.insert free) next)))
-                | No notNext =>
-                  match DecEq.decide position free with
-                    | Yes atFree => rewrite atFree in wall
-                    | No notFree =>
-                      And.left separate position
-                        (rewrite <- Set.containsInsertOther warehouse.boxes free position notFree in
-                          rewrite <- Set.containsRemoveOther (warehouse.boxes.insert free) next position notNext in member)
+              if atNext: position = next then Void.exfalso (Bool.trueNotFalse (Eq.trans (Eq.sym member) (rewrite atNext in Set.containsRemove (warehouse.boxes.insert free) next)))
+              else
+                if atFree: position = free then rewrite atFree in wall
+                else
+                  And.left separate position
+                    (rewrite <- Set.containsInsertOther warehouse.boxes free position atFree in
+                      rewrite <- Set.containsRemoveOther (warehouse.boxes.insert free) next position atNext in member)
           let nextOffWalls: warehouse.walls.contains next = False :=
             match And.right facts with
               | Inl same => rewrite <- same in wall
@@ -121,24 +119,22 @@ theorem pushedForward (warehouse: Warehouse) (direction: Direction) (length: Nat
     (position: Cell) (member: (pushedBoxes warehouse direction length).contains position = True): BoxAfterPush warehouse direction length position :=
   let next := warehouse.robot.step direction
   let free := pastLine warehouse direction length
-  match DecEq.decide position next with
-    | Yes atNext =>
-      Void.exfalso (Bool.trueNotFalse (Eq.trans (Eq.sym member) (rewrite atNext in Set.containsRemove (warehouse.boxes.insert free) next)))
-    | No notNext =>
-      let inserted := rewrite Set.containsRemoveOther (warehouse.boxes.insert free) next position notNext at member
-      match DecEq.decide position free with
-        | Yes atFree =>
-          match length with
-            | Zero => Void.exfalso (notNext atFree)
-            | Succ shorter => Inl (Witness shorter (Both (omega) atFree))
-        | No notFree =>
-          let boxed := rewrite Set.containsInsertOther warehouse.boxes free position notFree at inserted
-          match decideAhead warehouse.robot direction length position with
-            | Inl (Witness j (Both below same)) =>
-              match j with
-                | Zero => Void.exfalso (notNext same)
-                | Succ earlier => Inl (Witness earlier (Both (omega) same))
-            | Inr notLine => Inr (Both boxed notLine)
+  if atNext: position = next then
+    Void.exfalso (Bool.trueNotFalse (Eq.trans (Eq.sym member) (rewrite atNext in Set.containsRemove (warehouse.boxes.insert free) next)))
+  else
+    let inserted := rewrite Set.containsRemoveOther (warehouse.boxes.insert free) next position atNext at member
+    if atFree: position = free then
+      match length with
+        | Zero => Void.exfalso (atNext atFree)
+        | Succ shorter => Inl (Witness shorter (Both (omega) atFree))
+    else
+      let boxed := rewrite Set.containsInsertOther warehouse.boxes free position atFree at inserted
+      match decideAhead warehouse.robot direction length position with
+        | Inl (Witness j (Both below same)) =>
+          match j with
+            | Zero => Void.exfalso (atNext same)
+            | Succ earlier => Inl (Witness earlier (Both (omega) same))
+        | Inr notLine => Inr (Both boxed notLine)
 
 --| Each box the puzzle has after a push is one the program has.
 theorem pushedBackward (warehouse: Warehouse) (direction: Direction) (length: Nat) (line: LineOfBoxes warehouse direction length)
@@ -149,21 +145,19 @@ theorem pushedBackward (warehouse: Warehouse) (direction: Direction) (length: Na
     | Inl (Witness i (Both below same)) =>
       let notNext: position ≠ next := atNext => omega [aheadInjective warehouse.robot direction (Succ (i + 1)) 1 (Eq.trans (Eq.sym same) atNext)]
       rewrite Set.containsRemoveOther (warehouse.boxes.insert free) next position notNext in
-        match DecEq.decide (i + 1) length with
-          | Yes last =>
-            let atFree: position = free := rewrite same, <- last, aheadAddOne warehouse.robot direction (i + 1) in rfl
-            rewrite atFree in Set.containsInsert free warehouse.boxes
-          | No inside => Set.containsInsertMono warehouse.boxes free position
-            (rewrite same, <- aheadAddOne warehouse.robot direction (i + 1) in And.left line (i + 1) (omega))
+        if last: i + 1 = length then
+          let atFree: position = free := rewrite same, <- last, aheadAddOne warehouse.robot direction (i + 1) in rfl
+          rewrite atFree in Set.containsInsert free warehouse.boxes
+        else Set.containsInsertMono warehouse.boxes free position
+          (rewrite same, <- aheadAddOne warehouse.robot direction (i + 1) in And.left line (i + 1) (omega))
     | Inr (Both boxed notLine) =>
-      match DecEq.decide position next with
-        | Yes atNext =>
-          match length with
-            | Zero => Void.exfalso (Bool.trueNotFalse (Eq.trans (Eq.sym boxed) (rewrite atNext in And.right line)))
-            | Succ shorter => Void.exfalso (notLine 0 (omega) atNext)
-        | No notNext =>
-          rewrite Set.containsRemoveOther (warehouse.boxes.insert free) next position notNext in
-            Set.containsInsertMono warehouse.boxes free position boxed
+      if atNext: position = next then
+        match length with
+          | Zero => Void.exfalso (Bool.trueNotFalse (Eq.trans (Eq.sym boxed) (rewrite atNext in And.right line)))
+          | Succ shorter => Void.exfalso (notLine 0 (omega) atNext)
+      else
+        rewrite Set.containsRemoveOther (warehouse.boxes.insert free) next position atNext in
+          Set.containsInsertMono warehouse.boxes free position boxed
 
 --| "The robot will also attempt to push those boxes": when nothing blocks
 --| the line, the robot steps forward, and the boxes are the puzzle's.

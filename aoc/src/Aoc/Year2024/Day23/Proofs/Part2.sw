@@ -87,9 +87,8 @@ theorem sizeNone (set: Set Computer) (found: set.popMin = None): set.size = 0 :=
 --| The other candidates are the candidates other than the smallest.
 theorem othersElim (candidates: Set Computer) (candidate: Computer) (others: Set Computer) (othersAre: others = candidates.remove candidate)
     (key: Computer) (held: others.contains key = True): candidates.contains key = True ∧ key ≠ candidate :=
-  match DecEq.decide key candidate with
-    | Yes same => Void.exfalso (Bool.falseNotTrue (Eq.trans (Eq.sym (Set.containsRemove candidates candidate)) (rewrite othersAre, same at held)))
-    | No same => Both (rewrite othersAre, Set.containsRemoveOther candidates candidate key same at held) same
+  if same: key = candidate then Void.exfalso (Bool.falseNotTrue (Eq.trans (Eq.sym (Set.containsRemove candidates candidate)) (rewrite othersAre, same at held)))
+  else Both (rewrite othersAre, Set.containsRemoveOther candidates candidate key same at held) same
 
 theorem othersIntro (candidates: Set Computer) (candidate: Computer) (others: Set Computer) (othersAre: others = candidates.remove candidate)
     (key: Computer) (held: candidates.contains key = True) (different: key ≠ candidate): others.contains key = True :=
@@ -142,13 +141,12 @@ theorem withinWithCandidate (network: Network) (clique: Set Computer) (candidate
     unionElim clique candidates key (((clique.insert candidate).union narrowed).contains key = True) (within key held)
       (inClique => Set.containsUnionLeft (clique.insert candidate) narrowed key (Set.containsInsertMono clique candidate key inClique))
       (wasCandidate =>
-        match DecEq.decide key candidate with
-          | Yes same => Set.containsUnionLeft (clique.insert candidate) narrowed key (rewrite same in Set.containsInsert candidate clique)
-          | No same =>
-            let inOthers := othersIntro candidates candidate others othersAre key wasCandidate same
-            let neighbour := otherOk.right candidate key has held (isSame => same (Eq.sym isSame))
-            Set.containsUnionRight (clique.insert candidate) narrowed key
-              (rewrite Set.containsIntersect (network.links.neighbours candidate) key others, neighbour, inOthers in rfl))
+        if same: key = candidate then Set.containsUnionLeft (clique.insert candidate) narrowed key (rewrite same in Set.containsInsert candidate clique)
+        else
+          let inOthers := othersIntro candidates candidate others othersAre key wasCandidate same
+          let neighbour := otherOk.right candidate key has held (isSame => same (Eq.sym isSame))
+          Set.containsUnionRight (clique.insert candidate) narrowed key
+            (rewrite Set.containsIntersect (network.links.neighbours candidate) key others, neighbour, inOthers in rfl))
 
 --| A clique without the candidate is within the clique and the other
 --| candidates.
@@ -159,9 +157,8 @@ theorem withinWithoutCandidate (clique: Set Computer) (candidates: Set Computer)
     unionElim clique candidates key ((clique.union others).contains key = True) (within key held)
       (inClique => Set.containsUnionLeft clique others key inClique)
       (wasCandidate =>
-        match DecEq.decide key candidate with
-          | Yes same => Void.exfalso (Bool.falseNotTrue (Eq.trans (Eq.sym hasNot) (rewrite <- same in held)))
-          | No same => Set.containsUnionRight clique others key (othersIntro candidates candidate others othersAre key wasCandidate same))
+        if same: key = candidate then Void.exfalso (Bool.falseNotTrue (Eq.trans (Eq.sym hasNot) (rewrite <- same in held)))
+        else Set.containsUnionRight clique others key (othersIntro candidates candidate others othersAre key wasCandidate same))
 
 theorem largestFromAnswers (network: Network) (clique: Set Computer) (candidates: Set Computer) (best: Set Computer)
     (cliqueOk: Clique network clique) (candidatesOk: Candidates network clique candidates) (bestOk: Clique network best):

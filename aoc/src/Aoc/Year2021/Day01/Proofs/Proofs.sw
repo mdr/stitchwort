@@ -63,45 +63,43 @@ theorem windowsCorrect (m: Nat) (depths: List Nat): increasesOver (Succ m) depth
   match depths with
     | [] => rfl
     | [x, ..rest] =>
-      match Nat.decLessThan m (List.length rest) with
-        | Yes h =>
-          -- The window from `x` and the one after it share the `m` elements
-          -- after `x`; the later one gains the element at `m` in `rest`.
-          let shared := List.sum (List.take rest m)
-          let gained := List.getOr rest m 0
-          calc increasesOver (Succ m) [x, ..rest]
-            _ = List.count (List.zip [x, ..rest] [gained, ..List.drop rest (Succ m)]) (pair => pair.fst < pair.snd)
-              := rewrite List.dropAt 0 rest m h
-            _ = Bool.toNat (x < gained) + increasesOver (Succ m) rest
-              := increasesOverCons x rest gained (List.drop rest (Succ m))
-            _ = Bool.toNat (x + shared < shared + gained) + windowIncreases (Succ m) rest
-              := rewrite slideCompare x shared gained, windowsCorrect m rest
-            _ = Bool.toNat (List.sum (List.take [x, ..rest] (Succ m)) < List.sum (List.take rest (Succ m))) + windowIncreases (Succ m) rest
-              := rewrite List.sumCons x (List.take rest m), List.takeSucc 0 rest m h, List.sumAppend (List.take rest m) [gained]
-            _ = increases [List.sum (List.take [x, ..rest] (Succ m)), List.sum (List.take rest (Succ m)), ..List.map (slidingWindows (Succ m) (List.drop rest 1)) List.sum]
-              := rewrite windowsLong m rest h in Eq.sym (increasesCons)
-            _ = increases [List.sum (List.take [x, ..rest] (Succ m)), ..List.map (slidingWindows (Succ m) rest) List.sum]
-              := Eq.cong (ws => increases [List.sum (List.take [x, ..rest] (Succ m)), ..List.map ws List.sum]) (Eq.sym (windowsLong m rest h))
-            _ = windowIncreases (Succ m) [x, ..rest]
-              := Eq.cong (ws => increases (List.map ws List.sum)) (Eq.sym (windowsLong m [x, ..rest] (omega [h])))
-        | No h =>
-          calc increasesOver (Succ m) [x, ..rest]
-            _ = 0 := rewrite List.dropPast rest m (omega [h]) in rfl
-            _ = windowIncreases (Succ m) [x, ..rest] := atMostOneWindow m x rest (omega [h])
+      if h: m < List.length rest then
+        -- The window from `x` and the one after it share the `m` elements
+        -- after `x`; the later one gains the element at `m` in `rest`.
+        let shared := List.sum (List.take rest m)
+        let gained := List.getOr rest m 0
+        calc increasesOver (Succ m) [x, ..rest]
+          _ = List.count (List.zip [x, ..rest] [gained, ..List.drop rest (Succ m)]) (pair => pair.fst < pair.snd)
+            := rewrite List.dropAt 0 rest m h
+          _ = Bool.toNat (x < gained) + increasesOver (Succ m) rest
+            := increasesOverCons x rest gained (List.drop rest (Succ m))
+          _ = Bool.toNat (x + shared < shared + gained) + windowIncreases (Succ m) rest
+            := rewrite slideCompare x shared gained, windowsCorrect m rest
+          _ = Bool.toNat (List.sum (List.take [x, ..rest] (Succ m)) < List.sum (List.take rest (Succ m))) + windowIncreases (Succ m) rest
+            := rewrite List.sumCons x (List.take rest m), List.takeSucc 0 rest m h, List.sumAppend (List.take rest m) [gained]
+          _ = increases [List.sum (List.take [x, ..rest] (Succ m)), List.sum (List.take rest (Succ m)), ..List.map (slidingWindows (Succ m) (List.drop rest 1)) List.sum]
+            := rewrite windowsLong m rest h in Eq.sym (increasesCons)
+          _ = increases [List.sum (List.take [x, ..rest] (Succ m)), ..List.map (slidingWindows (Succ m) rest) List.sum]
+            := Eq.cong (ws => increases [List.sum (List.take [x, ..rest] (Succ m)), ..List.map ws List.sum]) (Eq.sym (windowsLong m rest h))
+          _ = windowIncreases (Succ m) [x, ..rest]
+            := Eq.cong (ws => increases (List.map ws List.sum)) (Eq.sym (windowsLong m [x, ..rest] (omega [h])))
+      else
+        calc increasesOver (Succ m) [x, ..rest]
+          _ = 0 := rewrite List.dropPast rest m (omega [h]) in rfl
+          _ = windowIncreases (Succ m) [x, ..rest] := atMostOneWindow m x rest (omega [h])
 
 --| A list with at most one window has no increases between windows.
 theorem atMostOneWindow (m: Nat) (x: Nat) (rest: List Nat) (short: rest.length ≤ m): 0 = windowIncreases (Succ m) [x, ..rest] :=
-  match Nat.decLessThan m (List.length [x, ..rest]) with
-    | Yes one =>
-      -- exactly one window
-      Eq.sym (calc windowIncreases (Succ m) [x, ..rest]
-        _ = increases (List.map [List.take [x, ..rest] (Succ m), ..slidingWindows (Succ m) rest] List.sum)
-          := Eq.cong (ws => increases (List.map ws List.sum)) (windowsLong m [x, ..rest] one)
-        _ = increases [List.sum (List.take [x, ..rest] (Succ m))]
-          := Eq.cong (ws => increases [List.sum (List.take [x, ..rest] (Succ m)), ..List.map ws List.sum]) (windowsShort m rest short)
-        _ = 0)
-    | No none =>
-      Eq.sym (Eq.cong (ws => increases (List.map ws List.sum)) (windowsShort m [x, ..rest] (omega [none])))
+  if one: m < List.length [x, ..rest] then
+    -- exactly one window
+    Eq.sym (calc windowIncreases (Succ m) [x, ..rest]
+      _ = increases (List.map [List.take [x, ..rest] (Succ m), ..slidingWindows (Succ m) rest] List.sum)
+        := Eq.cong (ws => increases (List.map ws List.sum)) (windowsLong m [x, ..rest] one)
+      _ = increases [List.sum (List.take [x, ..rest] (Succ m))]
+        := Eq.cong (ws => increases [List.sum (List.take [x, ..rest] (Succ m)), ..List.map ws List.sum]) (windowsShort m rest short)
+      _ = 0)
+  else
+    Eq.sym (Eq.cong (ws => increases (List.map ws List.sum)) (windowsShort m [x, ..rest] (omega [one])))
 
 --| Part 2 is the puzzle's count, for every list of depths.
 theorem part2Correct (depths: List Nat): solvePart2 depths = windowIncreases 3 depths := windowsCorrect 2 depths

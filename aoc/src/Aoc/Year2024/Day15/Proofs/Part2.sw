@@ -15,20 +15,18 @@ import Std (And, Bool, DecEq, Decidable, Eq, Exists, Iff, Int, List, Map, Nat, N
 --| A cell a box covers after a step is one it moves into, or one of its own.
 theorem frontOrOwn (box: Cell) (direction: Direction) (cell: Cell) (covered: cell ∈ cellsOf (box.step direction)):
     (cell ∈ frontOf box direction) ∨ (cell ∈ cellsOf box) :=
-  match DecEq.decide cell box with
-    | Yes atBox => Inr (Inl (Eq.sym atBox))
-    | No notBox =>
-      match DecEq.decide cell (box.step Right) with
-        | Yes atRight => Inr (Inr (Inl (Eq.sym atRight)))
-        | No notRight =>
-          let notOwn: ¬(cell ∈ cellsOf box) := own =>
-            match own with
-              | Inl same => notBox (Eq.sym same)
-              | Inr (Inl same) => notRight (Eq.sym same)
-              | Inr (Inr none) => none
-          Inl
-            (List.memFilterIntro (cellsOf (box.step direction)) (other => other ∉ cellsOf box) covered
-              (rewrite Decidable.toBoolOfNot (List.decMem cell (cellsOf box)) notOwn in rfl))
+  if atBox: cell = box then Inr (Inl (Eq.sym atBox))
+  else
+    if atRight: cell = box.step Right then Inr (Inr (Inl (Eq.sym atRight)))
+    else
+      let notOwn: ¬(cell ∈ cellsOf box) := own =>
+        match own with
+          | Inl same => atBox (Eq.sym same)
+          | Inr (Inl same) => atRight (Eq.sym same)
+          | Inr (Inr none) => none
+      Inl
+        (List.memFilterIntro (cellsOf (box.step direction)) (other => other ∉ cellsOf box) covered
+          (rewrite Decidable.toBoolOfNot (List.decMem cell (cellsOf box)) notOwn in rfl))
 
 --| A cell some boxes move into is free for them: not a wall, and every box
 --| covering it is in `group`, so moves too.

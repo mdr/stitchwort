@@ -31,26 +31,28 @@ def List.tailOf: (xs: List a) → List a
 
 --| Decides whether two non-empty lists are equal, from decisions about their heads and tails.
 @[noReceiver]
-def List.decCons (x: a) (y: a) (xs: List a) (ys: List a):
-    (headEq: Decidable (x = y)) → (tailEq: Decidable (xs = ys)) → Decidable ([x, ..xs] = [y, ..ys])
-  | Yes p, Yes q => Yes (J (y' p' => [x, ..xs] = [y', ..ys]) (Eq.cong (Cons x) q) p)
-  | No r, dq => No (e => r (Eq.cong (.headOr x) e))
-  | Yes p, No r => No (e => r (Eq.cong List.tailOf e))
+def List.decCons (x: a) (y: a) (xs: List a) (ys: List a) (headEq: Decidable (x = y)) (tailEq: Decidable (xs = ys)): Decidable ([x, ..xs] = [y, ..ys]) :=
+  Decidable.elim headEq
+    (p => Decidable.elim tailEq
+      (q => Decidable.yes (J (y' p' => [x, ..xs] = [y', ..ys]) (Eq.cong (Cons x) q) p))
+      (r => Decidable.no (e => r (Eq.cong List.tailOf e))))
+    (r => Decidable.no (e => r (Eq.cong (.headOr x) e)))
 
 --| Equality of lists, from equality of their elements.
 @[noReceiver]
 def List.decEq (d: (x: a) → (y: a) → Decidable (x = y)): (xs: List a) → (ys: List a) → Decidable (xs = ys)
-  | [], [] => Yes rfl
-  | [], [y, ..ys] => No (List.nilNotCons y ys)
-  | [x, ..xs], [] => No (List.consNotNil x xs)
+  | [], [] => Decidable.yes rfl
+  | [], [y, ..ys] => Decidable.no (List.nilNotCons y ys)
+  | [x, ..xs], [] => Decidable.no (List.consNotNil x xs)
   | [x, ..xs], [y, ..ys] => List.decCons x y xs ys (d x y) (List.decEq d xs ys)
 
 --| Decides whether two pairs are equal, from decisions about their parts.
-def Pair.decMk (x1: a) (x2: a) (y1: b) (y2: b):
-    (fstEq: Decidable (x1 = x2)) → (sndEq: Decidable (y1 = y2)) → Decidable (MkPair x1 y1 = MkPair x2 y2)
-  | Yes p, Yes q => Yes (J (x' p' => MkPair x1 y1 = MkPair x' y2) (Eq.cong (MkPair x1) q) p)
-  | No r, dq => No (e => r (Eq.cong Pair.fst e))
-  | Yes p, No r => No (e => r (Eq.cong Pair.snd e))
+def Pair.decMk (x1: a) (x2: a) (y1: b) (y2: b) (fstEq: Decidable (x1 = x2)) (sndEq: Decidable (y1 = y2)): Decidable (MkPair x1 y1 = MkPair x2 y2) :=
+  Decidable.elim fstEq
+    (p => Decidable.elim sndEq
+      (q => Decidable.yes (J (x' p' => MkPair x1 y1 = MkPair x' y2) (Eq.cong (MkPair x1) q) p))
+      (r => Decidable.no (e => r (Eq.cong Pair.snd e))))
+    (r => Decidable.no (e => r (Eq.cong Pair.fst e)))
 
 --| Equality of pairs, from equality of their parts.
 @[noReceiver]
@@ -75,16 +77,15 @@ def Option.getOrElse: (option: Option a) → (fallback: a) → a
   | Some x, fallback => x
 
 --| Decides whether two `Some`s are equal, from a decision about their values.
-def Option.decSome (x: a) (y: a): (dec: Decidable (x = y)) → Decidable (Some x = Some y)
-  | Yes p => Yes (Eq.cong Some p)
-  | No r => No (e => r (Eq.cong (.getOrElse x) e))
+def Option.decSome (x: a) (y: a) (dec: Decidable (x = y)): Decidable (Some x = Some y) :=
+  Decidable.elim dec (p => Decidable.yes (Eq.cong Some p)) (r => Decidable.no (e => r (Eq.cong (.getOrElse x) e)))
 
 --| Equality of optional values, from equality of the values.
 @[noReceiver]
 def Option.decEq (d: (x: a) → (y: a) → Decidable (x = y)): (m: Option a) → (n: Option a) → Decidable (m = n)
-  | None, None => Yes rfl
-  | None, Some y => No (Option.noneNotSome y)
-  | Some x, None => No (Option.someNotNone x)
+  | None, None => Decidable.yes rfl
+  | None, Some y => Decidable.no (Option.noneNotSome y)
+  | Some x, None => Decidable.no (Option.someNotNone x)
   | Some x, Some y => Option.decSome x y (d x y)
 
 -- Every element, part or value satisfies the predicate: `List.All`,

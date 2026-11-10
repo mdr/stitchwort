@@ -1,7 +1,7 @@
 -- Indexed data types (docs/proposals/indexed-families.md §8). Each reject/
 -- index-*.sw example is paired with a definition here.
 
-import Std (Nat)
+import Std (Decidable, Nat)
 
 -- Vectors: a list whose length is in its type. `n` in `VCons` is an
 -- implicit field, bound automatically.
@@ -118,11 +118,9 @@ theorem evenInv: Even (Succ (Succ n)) → Even n
   | EvenTwo h => h
 
 instance decEven: (n: Nat) → Decidable (Even n)
-  | 0 => Yes EvenZero
-  | 1 => No notEvenOne
-  | Succ (Succ k) => match decEven k with
-    | Yes h => Yes (EvenTwo h)
-    | No r => No (h => r (evenInv h))
+  | 0 => Decidable.yes EvenZero
+  | 1 => Decidable.no notEvenOne
+  | Succ (Succ k) => Decidable.elim (decEven k) (h => Decidable.yes (EvenTwo h)) (r => Decidable.no (h => r (evenInv h)))
 
 -- Defined together, each with its own indices.
 type EvenM: Nat → Prop =
@@ -153,8 +151,6 @@ test "replicate" := toList (replicate 3 7) == [7, 7, 7]
 test "length" := length (consZero vec12) == 3
 test "get" := get vec12 (FSucc FZero) == 2
 test "depth" := depth (TList (TList TNat)) == 2
-def isEven (n: Nat): Bool := match decEven n with
-  | Yes _ => True
-  | No _ => False
+def isEven (n: Nat): Bool := Decidable.elim (decEven n) (h => True) (r => False)
 
 test "decEven" := isEven 10 ∧ not (isEven 7)

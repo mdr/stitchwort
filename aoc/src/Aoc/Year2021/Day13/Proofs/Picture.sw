@@ -50,19 +50,16 @@ theorem cellOutside (dots: List Point) (spot: Point) (out: height dots ≤ spot.
   match out with
     | Inl low => rewrite getMapRangePast _ (height dots) spot.y low in rfl
     | Inr wide =>
-      match Nat.decLessThan spot.y (height dots) with
-        | Yes inY => rewrite getMapRange _ (height dots) spot.y inY in rewrite getMapRangePast _ (width dots) spot.x wide in rfl
-        | No outY => rewrite getMapRangePast _ (height dots) spot.y omega in rfl
+      if inY: spot.y < height dots then rewrite getMapRange _ (height dots) spot.y inY in rewrite getMapRangePast _ (width dots) spot.x wide in rfl
+      else rewrite getMapRangePast _ (height dots) spot.y omega in rfl
 
 --| So whatever the picture shows is inside it.
 theorem cellSomeInside (dots: List Point) (spot: Point) (c: Char) (found: cellAt (render dots) spot = Some c):
     spot.y < height dots ∧ spot.x < width dots :=
-  match Nat.decLessThan spot.y (height dots) with
-    | No outY => Void.exfalso (Option.noneNotSome c (rewrite cellOutside dots spot (Inl omega) at found))
-    | Yes inY =>
-      match Nat.decLessThan spot.x (width dots) with
-        | No outX => Void.exfalso (Option.noneNotSome c (rewrite cellOutside dots spot (Inr omega) at found))
-        | Yes inX => Both inY inX
+  if inY: spot.y < height dots then
+    if inX: spot.x < width dots then Both inY inX
+    else Void.exfalso (Option.noneNotSome c (rewrite cellOutside dots spot (Inr omega) at found))
+  else Void.exfalso (Option.noneNotSome c (rewrite cellOutside dots spot (Inl omega) at found))
 
 --| A cell shows `#` or `.`, and `#` only for a dot.
 theorem shownChar (b: Bool) (c: Char) (shown: Some (if b then '#' else '.') = Some c): c = '#' ∨ c = '.' :=

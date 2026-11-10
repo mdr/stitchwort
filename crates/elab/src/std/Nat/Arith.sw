@@ -624,7 +624,7 @@ theorem Nat.powSuccPos (b: Nat) (e: Nat): 0 < Nat.pow (Succ b) e :=
 --| `Nat.pow 10 k ≠ 0` (`x % Nat.pow 10 k`), and the same of a definition that
 --| unfolds to such a power.
 instance Nat.decPowSuccNotZero (b: Nat) (e: Nat): Decidable (Nat.pow (Succ b) e ≠ 0) :=
-  Yes (Nat.nonzeroOfPos (Nat.pow (Succ b) e) (Nat.powSuccPos b e))
+  Decidable.yes (Nat.nonzeroOfPos (Nat.pow (Succ b) e) (Nat.powSuccPos b e))
 
 theorem Nat.powMono (b: Nat) (e: Nat) (f: Nat) (h: e ≤ f): Nat.pow (Succ b) e ≤ Nat.pow (Succ b) f :=
   Nat.leCongRight (Nat.pow (Succ b) e) (Nat.pow (Succ b) e * Nat.pow (Succ b) (f - e)) (Nat.pow (Succ b) f)

@@ -3,4 +3,4 @@ namespace Another
 
 import Base (Token)
 
-instance decU: Decidable Token := Yes MkToken
+instance decU: Decidable Token := Std.Decidable.yes MkToken

@@ -215,15 +215,14 @@ theorem Nat.subModSelf (column: Nat) (width: Nat) (past: width ≤ column): (col
 --| lands on a multiple of `d`, that is, wraps back to 0.
 theorem Nat.divSuccStep (d: Nat) (a: Nat) (h: a < d) (n: Nat):
     Bool.toNat ((a + 1) % d == 0) + ((a + 1) % d + n) / d = (a + Succ n) / d :=
-  match Nat.decEq (Succ a) d with
-    | Yes same =>
-      calc Bool.toNat ((a + 1) % d == 0) + ((a + 1) % d + n) / d
-        _ = Succ (n / d) := rewrite (Eq.trans (Eq.cong (t => t % d) same) (Nat.modSelf d): (a + 1) % d = 0)
-        _ = (d + n) / d := Eq.sym (Nat.addDivSelf d n)
-        _ = (Succ a + n) / d := rewrite (omega: d = Succ a)
-        _ = (a + Succ n) / d := rewrite (ring: a + Succ n = Succ a + n)
-    | No differ =>
-      rewrite Nat.modSmall (Succ a) d (omega [differ]: Succ a < d) in rfl
+  if same: Succ a = d then
+    calc Bool.toNat ((a + 1) % d == 0) + ((a + 1) % d + n) / d
+      _ = Succ (n / d) := rewrite (Eq.trans (Eq.cong (t => t % d) same) (Nat.modSelf d): (a + 1) % d = 0)
+      _ = (d + n) / d := Eq.sym (Nat.addDivSelf d n)
+      _ = (Succ a + n) / d := rewrite (omega: d = Succ a)
+      _ = (a + Succ n) / d := rewrite (ring: a + Succ n = Succ a + n)
+  else
+    rewrite Nat.modSmall (Succ a) d (omega [same]: Succ a < d) in rfl
 
 --| Counting backwards from the top of a dial of `Succ m` positions: the
 --| position `Succ m - v` is on a multiple of `Succ m` exactly when `v` is 0.

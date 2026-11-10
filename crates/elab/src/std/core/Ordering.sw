@@ -29,12 +29,12 @@ def Ordering.index: (ordering: Ordering) → Nat
 
 --| Decides whether two orderings are equal.
 def Ordering.decEq: (a: Ordering) → (b: Ordering) → Decidable (a = b)
-  | Less, Less => Yes rfl
-  | Less, Equal => No (p => Nat.zeroNotSucc 0 (Eq.cong Ordering.index p))
-  | Less, Greater => No (p => Nat.zeroNotSucc 1 (Eq.cong Ordering.index p))
-  | Equal, Less => No (p => Nat.zeroNotSucc 0 (Eq.sym (Eq.cong Ordering.index p)))
-  | Equal, Equal => Yes rfl
-  | Equal, Greater => No (p => Nat.zeroNotSucc 0 (Nat.succInjective (Eq.cong Ordering.index p)))
-  | Greater, Less => No (p => Nat.zeroNotSucc 1 (Eq.sym (Eq.cong Ordering.index p)))
-  | Greater, Equal => No (p => Nat.zeroNotSucc 0 (Nat.succInjective (Eq.sym (Eq.cong Ordering.index p))))
-  | Greater, Greater => Yes rfl
+  | Less, Less => Decidable.yes rfl
+  | Less, Equal => Decidable.no (p => Nat.zeroNotSucc 0 (Eq.cong Ordering.index p))
+  | Less, Greater => Decidable.no (p => Nat.zeroNotSucc 1 (Eq.cong Ordering.index p))
+  | Equal, Less => Decidable.no (p => Nat.zeroNotSucc 0 (Eq.sym (Eq.cong Ordering.index p)))
+  | Equal, Equal => Decidable.yes rfl
+  | Equal, Greater => Decidable.no (p => Nat.zeroNotSucc 0 (Nat.succInjective (Eq.cong Ordering.index p)))
+  | Greater, Less => Decidable.no (p => Nat.zeroNotSucc 1 (Eq.sym (Eq.cong Ordering.index p)))
+  | Greater, Equal => Decidable.no (p => Nat.zeroNotSucc 0 (Nat.succInjective (Eq.sym (Eq.cong Ordering.index p))))
+  | Greater, Greater => Decidable.yes rfl

@@ -112,9 +112,9 @@ theorem Key.partsInjective (a: Key) (b: Key) (samePosition: Key.position a = Key
 instance Key.instDecEq: DecEq Key :=
   { decide = a b =>
     if samePosition: Key.position a = Key.position b then
-      if sameChar: Key.charOrSpace a = Key.charOrSpace b then Yes (Key.partsInjective a b samePosition sameChar)
-      else No (e => sameChar (Eq.cong Key.charOrSpace e))
-    else No (e => samePosition (Eq.cong Key.position e)) }
+      if sameChar: Key.charOrSpace a = Key.charOrSpace b then Decidable.yes (Key.partsInjective a b samePosition sameChar)
+      else Decidable.no (e => sameChar (Eq.cong Key.charOrSpace e))
+    else Decidable.no (e => samePosition (Eq.cong Key.position e)) }
 
 --| What decoding the front of some bytes gives.
 type Key.Decoded: Type =
