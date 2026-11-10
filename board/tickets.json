@@ -25784,14 +25784,14 @@
     {
       "id": 2547,
       "title": "Hardened-runtime guard: a hardened binary without allow-jit should run on the machine instead of dying with SIGTRAP",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Sonnet",
-      "where": "",
+      "where": ".claude/worktrees/SW-2547",
       "labels": [],
       "epic": "effects-native",
       "body": "From SW-2535. 45 min.",
       "created": "2026-11-09",
-      "updated": "2026-11-09",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
