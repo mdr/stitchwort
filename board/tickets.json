@@ -27794,14 +27794,14 @@
     {
       "id": 2674,
       "title": "Kernel: a data type becomes final with an index type that mentions a failed declaration",
-      "status": "doing",
+      "status": "review",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-2674",
       "labels": [
         "soundness"
       ],
       "epic": "audit-fuzzing",
-      "body": "Severity 3 (missing guard), from SW-2659 (docs/reviews/SW-2659-kernel-soundness-audit.md, F2).\n\ndeclare_indexed_data_group lets a failed reference through in the parameters and index types ('define_data_group finds it again', crates/core/src/check.rs:2815, 2832). admit_data_group re-checks the parameters, fields and result indices (check.rs:3087, 3113, 3223) but not the members' index telescopes. So a group whose index type mentions a failed definition, with fields and result indices that don't, becomes final, against admissible's invariant (check.rs:3483) and docs/core.md ('nothing built on it is ever accepted').\n\nNo path to False found: the failed definition is a neutral constant and anything mentioning it directly is still refused. No CLI repro (the surface can't write it).\n\nFix: in admit_data_group, pass every member's index types to the first admissible call. A core test: a failed definition in an index type, no constructors, must fail with E-FAILED-DEPENDENCY.",
+      "body": "Severity 3 (missing guard), from SW-2659 (docs/reviews/SW-2659-kernel-soundness-audit.md, F2).\n\ndeclare_indexed_data_group lets a failed reference through in the parameters and index types ('define_data_group finds it again', crates/core/src/check.rs:2815, 2832). admit_data_group re-checks the parameters, fields and result indices (check.rs:3087, 3113, 3223) but not the members' index telescopes. So a group whose index type mentions a failed definition, with fields and result indices that don't, becomes final, against admissible's invariant (check.rs:3483) and docs/core.md ('nothing built on it is ever accepted').\n\nNo path to False found: the failed definition is a neutral constant and anything mentioning it directly is still refused. No CLI repro (the surface can't write it).\n\nFix: in admit_data_group, pass every member's index types to the first admissible call. A core test: a failed definition in an index type, no constructors, must fail with E-FAILED-DEPENDENCY.\n\n\nProgress (10 Nov, Opus lane, 943deae32): guard added in admit_data_group (every member's index types join the first admissible call). Test admission::an_index_type_that_uses_a_failed_declaration_fails_the_type (fails without the guard: \"ok\"). docs/core.md admission rule now names index types and result indices.",
       "created": "2026-11-10",
       "updated": "2026-11-10",
       "commits": []
@@ -27809,14 +27809,14 @@
     {
       "id": 2675,
       "title": "Kernel: a data type's parameter types aren't checked for case outside a case tree",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [
         "soundness"
       ],
       "epic": "audit-fuzzing",
-      "body": "Severity 3 (missing guard), from SW-2659 (docs/reviews/SW-2659-kernel-soundness-audit.md, F3).\n\nSignatures, fields, indices and result indices all go through case_only_in_tree(ty, false) (crates/core/src/check.rs:2303, 3105, 2836, 3228). A data group's parameter types don't, in declare_indexed_data_group (check.rs:2815-2821) or admit_trusted_data_decls (check.rs:3378-3403). check accepts a Case wherever it is checked against a type (a lambda body in an argument: check.rs:438, 541), and a case outside a definition's tree that gets stuck panics (crates/core/src/value.rs:2482).\n\nOnly a wrong elaborator or cache entry reaches it; the result is a panic, not a false theorem.\n\nFix: the same check on each parameter type in both functions, with a core test.",
+      "body": "Severity 3 (missing guard), from SW-2659 (docs/reviews/SW-2659-kernel-soundness-audit.md, F3).\n\nSignatures, fields, indices and result indices all go through case_only_in_tree(ty, false) (crates/core/src/check.rs:2303, 3105, 2836, 3228). A data group's parameter types don't, in declare_indexed_data_group (check.rs:2815-2821) or admit_trusted_data_decls (check.rs:3378-3403). check accepts a Case wherever it is checked against a type (a lambda body in an argument: check.rs:438, 541), and a case outside a definition's tree that gets stuck panics (crates/core/src/value.rs:2482).\n\nOnly a wrong elaborator or cache entry reaches it; the result is a panic, not a false theorem.\n\nFix: the same check on each parameter type in both functions, with a core test.\n\n\nProgress (10 Nov, Opus lane with SW-2674, 943deae32): case_only_in_tree on each parameter type in declare_indexed_data_group and admit_trusted_data_decls. Test admission::a_parameter_type_cannot_hold_a_case covers both paths (without the guard it panics at value.rs:2482).",
       "created": "2026-11-10",
       "updated": "2026-11-10",
       "commits": []
