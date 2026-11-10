@@ -19,9 +19,12 @@
 -- (docs/proposals/float.md)
 --
 -- The kernel, the runtime and the JS backend rely on these exact
--- declarations, by content hash: `FLOAT_DATA_HASH` and the native hashes in
--- `crates/core/src/float.rs`. Change one, and update those (a test prints
--- the new ones) with the natives it affects.
+-- declarations, by content hash: the kernel's pins are in
+-- `crates/core/src/pins.rs`, the runtimes' in `crates/rt/src/natives.rs`.
+-- Change one, and update its pin and the natives it affects: a stale kernel
+-- pin refuses the library (`E-BUILTIN`), and a stale runtime binding is
+-- dropped, which `pinned_hashes` names. `task pins:show` prints the kernel
+-- pins with the hash each declaration has now.
 --
 -- Bit patterns used below: 2^63 = 9223372036854775808 (the sign bit);
 -- +infinity 0x7FF0000000000000 = 9218868437227405312; the NaN
