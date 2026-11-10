@@ -28,6 +28,24 @@ def report: Nat := cap (step 3)
 test \"report\" := report == 108
 ";
 
+/// Named arguments, a punned field and a doc link.
+const EXTRA: &str = "\
+namespace Shop.Extra
+
+import Shop (step)
+
+type Item = { name: Text, price: Nat }
+
+def label (name: Text) (price: Nat): Item := { name, price }
+
+def span (start: Nat) (stop: Nat := start + 1): Nat := stop
+
+def gap: Nat := span 1 (stop := 5)
+
+--| Like [`step`], but for lists.
+def steps: Nat := step 1
+";
+
 fn project(test: &str) -> PathBuf {
     let base =
         std::env::temp_dir().join(format!("stitchwort-rename-{}-{test}", std::process::id()));
@@ -37,6 +55,9 @@ fn project(test: &str) -> PathBuf {
     std::fs::write(dir.join("stitchwort.yaml"), "sources: [src]\n").unwrap();
     std::fs::write(dir.join("src/shop.sw"), SHOP).unwrap();
     std::fs::write(dir.join("src/report.sw"), REPORT).unwrap();
+    if test.starts_with("extra") {
+        std::fs::write(dir.join("src/extra.sw"), EXTRA).unwrap();
+    }
     dir
 }
 
@@ -64,7 +85,11 @@ fn a_function_used_in_two_files_is_renamed() {
     let dir = project("clean");
     let output = rename(&dir, &["Shop.step", "advance"]);
     assert_eq!(output.status.code(), Some(0), "{}", out(&output));
-    assert!(out(&output).contains("renamed `step` to `advance`: 3 places in 2 files"));
+    assert!(
+        out(&output).contains("renamed `step` to `advance`: 3 places in 2 files"),
+        "{}",
+        out(&output)
+    );
     assert!(read(&dir, "src/shop.sw").contains("def advance (count: Nat)"));
     let report = read(&dir, "src/report.sw");
     assert!(report.contains("import Shop (cap, advance)"), "{report}");
@@ -159,4 +184,49 @@ fn dry_run_writes_nothing() {
     );
     assert_eq!(read(&dir, "src/shop.sw"), SHOP);
     assert_eq!(read(&dir, "src/report.sw"), REPORT);
+}
+
+#[test]
+fn a_named_argument_follows_the_parameter() {
+    let dir = project("extra-named");
+    // `stop`, the second parameter of `span`.
+    let output = rename(&dir, &["src/extra.sw:9:25", "end"]);
+    assert_eq!(output.status.code(), Some(0), "{}", out(&output));
+    let extra = read(&dir, "src/extra.sw");
+    assert!(
+        extra.contains("(end: Nat := start + 1): Nat := end"),
+        "{extra}"
+    );
+    assert!(extra.contains("span 1 (end := 5)"), "{extra}");
+}
+
+#[test]
+fn a_doc_link_follows_the_rename() {
+    let dir = project("extra-doc");
+    let output = rename(&dir, &["Shop.step", "advance"]);
+    assert_eq!(output.status.code(), Some(0), "{}", out(&output));
+    let extra = read(&dir, "src/extra.sw");
+    assert!(extra.contains("[`advance`]"), "{extra}");
+    assert!(extra.contains("def steps: Nat := advance 1"), "{extra}");
+}
+
+#[test]
+fn a_punned_field_is_written_out() {
+    let dir = project("extra-pun");
+    // The parameter `name` of `label`.
+    let output = rename(&dir, &["src/extra.sw:7:12", "title"]);
+    assert_eq!(output.status.code(), Some(0), "{}", out(&output));
+    let extra = read(&dir, "src/extra.sw");
+    assert!(
+        extra.contains("(title: Text) (price: Nat): Item := { name = title, price }"),
+        "{extra}"
+    );
+}
+
+#[test]
+fn a_field_is_refused() {
+    let dir = project("extra-field");
+    let output = rename(&dir, &["Shop.Extra.Item.name", "title"]);
+    assert_eq!(output.status.code(), Some(2));
+    assert!(String::from_utf8_lossy(&output.stderr).contains("field"));
 }

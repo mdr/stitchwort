@@ -163,10 +163,15 @@ pub fn plan_rename(
         return Err(RenameError::SameName(old));
     }
 
-    // Where the old name is written: its declaration, and every reference
-    // to the same declaration (matched by where it is declared).
+    // Where the old name is written: every reference to the declaration
+    // (matched by where it is declared) that writes the name itself, not an
+    // alias, at its trailing component; and the declaration's own name.
+    // A punned field `{ name }` becomes `{ name = who }`.
+    let mut sites: BTreeMap<(Place, Range), String> = BTreeMap::new();
+    let pun = format!("{old} = {new}");
+    let generated_prefix = format!("{name}.");
     let mut texts: BTreeMap<String, Option<String>> = BTreeMap::new();
-    let mut slice_of = |path: &str, range: Range| -> Option<(Range, String)> {
+    let mut slice_of = |path: &str, range: Range| -> Option<String> {
         if range[0] != range[2] {
             return None;
         }
@@ -175,51 +180,78 @@ pub fn plan_rename(
             .or_insert_with(|| text(path))
             .as_deref()?;
         let line = text.split('\n').nth(range[0] as usize)?;
-        let slice = utf16_slice(line, range[1], range[3])?;
-        Some((range, slice.to_string()))
+        utf16_slice(line, range[1], range[3]).map(str::to_string)
     };
-    let mut edits = Vec::new();
-
-    let generated_prefix = format!("{name}.");
     for (place, file) in answers {
         let Place::Program(path) = place else {
             continue;
         };
-        let mut found: Vec<(Range, String)> = Vec::new();
-        if *place == loc.place {
-            found.extend(slice_of(path, loc.range));
-        }
         for r in &file.refs {
+            if r.alias {
+                continue;
+            }
             if r.target == loc {
-                found.extend(slice_of(path, r.range));
+                let text = if r.pun { &pun } else { new };
+                sites.insert((place.clone(), r.name_range), text.to_string());
             } else if kind != "local" && r.kind != "local" && r.name.starts_with(&generated_prefix)
             {
                 // A generated declaration (`f.eq1`, `f.induct`) written
                 // after its owner: the owner's component is edited.
                 let rest = &r.name[generated_prefix.len()..];
-                if let Some((range, slice)) = slice_of(path, r.range) {
+                if let Some(slice) = slice_of(path, r.range) {
                     let written = format!("{old}.{rest}");
                     if let Some(at) = ends_with_name(&slice, &written) {
-                        let start = range[3] - utf16_len(&slice[at..]);
-                        edits.push(edit_at(place, range[0], start, &old, new));
+                        let start = r.range[3] - utf16_len(&slice[at..]);
+                        let range = [r.range[0], start, r.range[0], start + utf16_len(&old)];
+                        sites.insert((place.clone(), range), new.to_string());
                     }
                 }
             }
         }
-        for (range, slice) in found {
-            // SW-2627 will record the exact span of a name; until then a
-            // site is edited only where the text there ends with the old
-            // name, so an import alias or a renamed pun is left alone.
-            if let Some(at) = ends_with_name(&slice, &old) {
-                let start = range[3] - utf16_len(&slice[at..]);
-                edits.push(edit_at(place, range[0], start, &old, new));
-            }
-        }
     }
+    // The declaration's name, if no reference covered it. The range may be
+    // a qualified name (`def Pt.sum`): its trailing component is edited.
+    if let Place::Program(path) = &loc.place
+        && !sites.keys().any(|(p, r)| {
+            *p == loc.place && r[2] == loc.range[2] && r[3] == loc.range[3] && r[0] == loc.range[0]
+        })
+        && let Some(slice) = slice_of(path, loc.range)
+        && let Some(at) = ends_with_name(&slice, &old)
+    {
+        let start = loc.range[3] - utf16_len(&slice[at..]);
+        let range = [loc.range[0], start, loc.range[0], start + utf16_len(&old)];
+        sites.insert((loc.place.clone(), range), new.to_string());
+    }
+    let mut edits: Vec<Edit> = sites
+        .into_iter()
+        .map(|((place, range), new_text)| Edit {
+            place,
+            range,
+            new_text,
+        })
+        .collect();
     edits.sort_by(|a, b| (&a.place, a.range).cmp(&(&b.place, b.range)));
     edits.dedup();
 
     let mut renames = BTreeMap::new();
+    if kind == "local"
+        && let Some(file) = answers.get(&loc.place)
+    {
+        // A parameter's default is a declaration of its own, named after
+        // both (`span.stop%default`).
+        let at = (loc.range[0], loc.range[1]);
+        let owner = (file.outline.iter())
+            .filter(|i| {
+                (i.full_range[0], i.full_range[1]) <= at && at <= (i.full_range[2], i.full_range[3])
+            })
+            .min_by_key(|i| (i.full_range[2] - i.full_range[0], i.full_range[3]));
+        if let Some(owner) = owner {
+            renames.insert(
+                format!("{}.{old}%default", owner.name),
+                format!("{}.{new}%default", owner.name),
+            );
+        }
+    }
     if kind != "local" {
         let renamed = match name.rfind('.') {
             Some(dot) => format!("{}{new}", &name[..=dot]),
@@ -235,14 +267,6 @@ pub fn plan_rename(
         edits,
         promise: Promise::SameMeaning { renames },
     })
-}
-
-fn edit_at(place: &Place, line: u32, start: u32, old: &str, new: &str) -> Edit {
-    Edit {
-        place: place.clone(),
-        range: [line, start, line, start + utf16_len(old)],
-        new_text: new.to_string(),
-    }
 }
 
 fn utf16_len(s: &str) -> u32 {
