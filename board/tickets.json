@@ -28618,7 +28618,7 @@
     {
       "id": 2735,
       "title": "[Fable] Decide D3486: a ∧ b on two Bools in a proposition means a = True ∧ b = True (test written in full) or the test (a && b) = True, or a third option; short paper lane",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": ".claude/worktrees/SW-2735",
       "labels": [
@@ -28626,10 +28626,12 @@
         "design"
       ],
       "epic": "syntax-language",
-      "body": "Matt, 10 Nov 2026: 'Do a short Fable 5.2 paper lane to decide'. Its answer is D3486's. SW-2734 (stage 1 coercion) is building to the recommendation with the rule kept in one place. Est. 45 min.",
+      "body": "Matt, 10 Nov 2026: 'Do a short Fable 5.2 paper lane to decide'. Its answer is D3486's. SW-2734 (stage 1 coercion) is building to the recommendation with the rule kept in one place. Est. 45 min.\n\nLane, 10 Nov 2026: D3486 decided yes, as recommended: in a proposition position ∧, ∨, ¬ are always the logical ones and a Bool operand is b = True; the test fact is written and printed (a && b) = True. Chosen by position, never by operand types. Note: docs/proposals/bool-operators-in-propositions.md (options, probe, reasons, exact elaborator and printer rules for SW-2734). SW-2734 needs no design change; two clarifications for it in §5 (coercion applies to the whole inferred term, so an if or match test is coerced whole; printer keeps = True on tests starting with &&, || or prefix not). Took about 5 min.\n",
       "created": "2026-11-10",
       "updated": "2026-11-10",
-      "commits": []
+      "commits": [
+        "08711ccea"
+      ]
     }
   ]
 }

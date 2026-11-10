@@ -218,6 +218,9 @@ existing statements don't depend on which was written.
 
 ### 4.3 The logical operators (D3486)
 
+**Decided: yes, the rule below** (D3486, SW-2735, 10 November 2026):
+[bool-operators-in-propositions.md](bool-operators-in-propositions.md).
+
 `∧` and `&&` are one token, so `a ∧ b` on two `Bool`s in a proposition could
 mean either of two different terms:
 
@@ -722,7 +725,8 @@ parallel after 2.
   every fact prints bare except a test whose top is `&&` or `||`. The
   alternative: two `Bool` operands make the test, printed `a && b`, and
   whether a statement is a test or a proposition then depends on its
-  operands' types.
+  operands' types. **Decided: yes** (SW-2735, 10 November 2026):
+  [bool-operators-in-propositions.md](bool-operators-in-propositions.md).
 - **D3487: Are readings ordinary proved definitions marked `@[reading]`,
   which std and projects can add, and not a fixed list in the compiler?**
   **[rec: yes]** (§5.1 to §5.3). It adds one attribute to the language and
