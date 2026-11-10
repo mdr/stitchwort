@@ -28206,7 +28206,7 @@
     {
       "id": 2704,
       "title": "[Fable] Design note: reading a Bool fact as a proposition (D3482): surface b = True, printing, matching (a && b) = True with ∧/∨/∃ patterns through decisions, one reader shared by omega, auto, cases",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": ".claude/worktrees/SW-2704",
       "labels": [
@@ -28214,10 +28214,12 @@
         "design"
       ],
       "epic": "syntax-language",
-      "body": "From SW-2692 §7.3, §7.5; D3482 (Matt, 10 Nov 2026): yes after a design note. The least settled part. Est. 2 h.",
+      "body": "From SW-2692 §7.3, §7.5; D3482 (Matt, 10 Nov 2026): yes after a design note. The least settled part. Est. 2 h.\n\nProgress (lane, 10 Nov 2026, 14:32-15:10, 40 min of est. 120): note written, docs/proposals/bool-as-proposition.md, with probes in docs/proposals/bool-as-proposition/ (readings.sw checks; today.sw shows today's refusals). Paper lane: no builds or tests, CLI probes only. Design: a Bool in a proposition position means b = True and prints bare; readings are proved Decidable definitions marked @[reading], found from the test's head one layer at a time, driven by the pattern or expected type; patterns, constructors, lambdas and application go through sound/complete; crossing of whole facts as a later stage; omega, auto and cases share the reader. Counted: 650 helper uses removable by patterns, at least 615 by crossing. Open for Matt: D3486 (a ∧ b on Bools is the proposition; (a && b) = True keeps its = True), D3487 (@[reading] definitions, not a compiler list), D3488 (silent crossing, one layer, as stage 4). Seven lanes, about 26 lane-hours estimated. Depends on SW-2703 (Decidable record) from stage 2 on; stage 1 can start now.\n",
       "created": "2026-11-10",
       "updated": "2026-11-10",
-      "commits": []
+      "commits": [
+        "98264202f"
+      ]
     },
     {
       "id": 2705,
