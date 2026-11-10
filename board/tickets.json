@@ -26726,9 +26726,9 @@
     {
       "id": 2614,
       "title": "Full tier memory, the rest: fmt_hashes::formatting_changes_no_declaration_hash at 7.7 GB and search_at_aoc at 2 GB (from SW-2583's ticket); measure each as SW-2583 did and bound it",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Sonnet",
-      "where": "",
+      "where": ".claude/worktrees/SW-2614",
       "labels": [],
       "epic": "test-infra",
       "body": "From SW-2583, 10 Nov. SW-2583 fixed the prelude differential only.",
