@@ -26293,15 +26293,17 @@
     {
       "id": 2586,
       "title": "LSP go-to-definition on the second name of a rewrite list goes to `rfl`: in `| [item, ..rest] => rewrite totalAppend others rest, Nat.addAssoc`, navigating on `addAssoc` opens rfl's definition (found by Matt in VS Code)",
-      "status": "backlog",
+      "status": "review",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "editor-playground",
-      "body": "Matt, 9 Nov 2026. Code:\ntheorem totalAppend (others: List Item): (items: List Item) → totalOf (items ++ others) = totalOf items + totalOf others\n  | [] => rfl\n  | [item, ..rest] => rewrite totalAppend others rest, Nat.addAssoc\nGuess: the nav index gives the second rewrite step's span to a term the rewrite generates (a closing rfl) instead of the Nat.addAssoc reference; check nav for every step of a rewrite list, and rewrite ... in. Add a navigation test. 40 min.",
+      "body": "Matt, 9 Nov 2026. Code:\ntheorem totalAppend (others: List Item): (items: List Item) → totalOf (items ++ others) = totalOf items + totalOf others\n  | [] => rfl\n  | [item, ..rest] => rewrite totalAppend others rest, Nat.addAssoc\nGuess: the nav index gives the second rewrite step's span to a term the rewrite generates (a closing rfl) instead of the Nat.addAssoc reference; check nav for every step of a rewrite list, and rewrite ... in. Add a navigation test. 40 min.\n\nLane notes (Sonnet, 10 Nov 2026): cause: rewrite_goal (crates/elab/src/rewrite.rs) checks a synthesised `rfl` Var at the LAST rule span; nav noted it as a reference there, overwriting the rule name (map insert). Fix: check it under Elaborator::unnoted_in. Test: navigation::every_name_in_a_rewrite_list (first/middle/last steps, <-, at h in, in h). Commit 2aa687a81. Model result: Sonnet, worked, 25 min (est. 40)\n",
       "created": "2026-11-09",
-      "updated": "2026-11-09",
-      "commits": []
+      "updated": "2026-11-10",
+      "commits": [
+        "2aa687a81"
+      ]
     },
     {
       "id": 2587,
