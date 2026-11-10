@@ -28190,7 +28190,7 @@
     {
       "id": 2703,
       "title": "[Opus] Design note: Decidable as { does: Bool, sound, complete } (D3480): elaborator if/&&/==, deriving, auto, decreasing, natives, what's removed; staged plan",
-      "status": "doing",
+      "status": "review",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-2703",
       "labels": [
@@ -28198,7 +28198,7 @@
         "design"
       ],
       "epic": "syntax-language",
-      "body": "From SW-2692 §7.2; D3480 (Matt, 10 Nov 2026): yes after a design note. Est. 2 h.",
+      "body": "From SW-2692 §7.2; D3480 (Matt, 10 Nov 2026): yes after a design note. Est. 2 h.\n\nProgress (Opus, 10 Nov 14:32-15:10): note docs/proposals/decidable-record.md with probes in docs/proposals/decidable-record/ (all check). Measured: Dec.elim with proof-free branches = Bool.ifThenElse on the test by rfl (Unit thunks kept); membership in 300 elements 0.5 s with the record vs 2.2 s today (10.4 s via byDecision). Plan: 5 stages (Sonnet sweep off Yes/No, Opus flip type + kernel registration, Opus elaborator removal, Sonnet std cleanup, measure). Questions D3483 (field name holds vs does), D3484 (drop Nat.decEq native), D3485 (drop Yes/No patterns). Commit 734486d82.\n",
       "created": "2026-11-10",
       "updated": "2026-11-10",
       "commits": []
