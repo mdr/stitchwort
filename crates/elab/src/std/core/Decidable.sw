@@ -36,43 +36,49 @@ def Decidable.elim: [p: Prop] → [a: Type] → (d: Decidable p) → (ifYes: p �
 --| An `if` gives equal results when its branches do, whichever way it goes.
 -- The proofs that `decreasing` generates (`f.unfold`) take a step through an
 -- `if` with these (docs/proposals/well-founded-recursion.md §6.2).
-theorem Decidable.elimCong: ∀ [p: Prop] [a: Type] (d: Decidable p) (y1 y2: p → a) (n1 n2: ¬p → a) (sameYes: ∀ (h: p) => y1 h = y2 h) (sameNo: ∀ (r: ¬p) => n1 r = n2 r) => Decidable.elim d y1 n1 = Decidable.elim d y2 n2
-  | Yes h, y1, y2, n1, n2, ey, en => ey h
-  | No r, y1, y2, n1, n2, ey, en => en r
+theorem Decidable.elimCong [p: Prop] [a: Type] (d: Decidable p) (y1 y2: p → a) (n1 n2: ¬p → a) (sameYes: ∀ (h: p) => y1 h = y2 h) (sameNo: ∀ (r: ¬p) => n1 r = n2 r): Decidable.elim d y1 n1 = Decidable.elim d y2 n2 :=
+  match d with
+    | Yes h => sameYes h
+    | No r => sameNo r
 
 --| [`Decidable.elim`] for a proof: `if` with proofs as branches is this, and a
 --| theorem with `decreasing (m1, m2)` makes its recursive calls through it.
 -- (SW-1015)
 -- (docs/proposals/well-founded-recursion.md, stage 3d)
-theorem Decidable.elimProof: ∀ [p: Prop] [a: Prop] (d: Decidable p) (ifYes: p → a) (ifNo: ¬p → a) => a
-  | Yes h, yes, no => yes h
-  | No r, yes, no => no r
+theorem Decidable.elimProof [p: Prop] [a: Prop] (d: Decidable p) (ifYes: p → a) (ifNo: ¬p → a): a :=
+  match d with
+    | Yes h => ifYes h
+    | No r => ifNo r
 
 --| An `if` equals `z` when both its branches do.
 -- What `decreasing (m1, m2)` generates proves `f.unfold` with it
 -- (docs/proposals/well-founded-recursion.md, stage 3d).
-theorem Decidable.elimEq: ∀ [p: Prop] [a: Type] (d: Decidable p) (y: p → a) (n: ¬p → a) (z: a) (yesEq: ∀ (h: p) => y h = z) (noEq: ∀ (r: ¬p) => n r = z) => Decidable.elim d y n = z
-  | Yes h, y, n, z, ey, en => ey h
-  | No r, y, n, z, ey, en => en r
+theorem Decidable.elimEq [p: Prop] [a: Type] (d: Decidable p) (y: p → a) (n: ¬p → a) (z: a) (yesEq: ∀ (h: p) => y h = z) (noEq: ∀ (r: ¬p) => n r = z): Decidable.elim d y n = z :=
+  match d with
+    | Yes h => yesEq h
+    | No r => noEq r
 
-theorem Bool.ifThenElseCong: ∀ [a: Type] (c: Bool) (t1 t2 e1 e2: Unit → a) (sameThen: ∀ (u: Unit) => t1 u = t2 u) (sameElse: ∀ (u: Unit) => e1 u = e2 u) => Bool.ifThenElse c t1 e1 = Bool.ifThenElse c t2 e2
-  | True, t1, t2, e1, e2, et, ee => et Trivial
-  | False, t1, t2, e1, e2, et, ee => ee Trivial
+theorem Bool.ifThenElseCong [a: Type] (c: Bool) (t1 t2 e1 e2: Unit → a) (sameThen: ∀ (u: Unit) => t1 u = t2 u) (sameElse: ∀ (u: Unit) => e1 u = e2 u): Bool.ifThenElse c t1 e1 = Bool.ifThenElse c t2 e2 :=
+  match c with
+    | True => sameThen Trivial
+    | False => sameElse Trivial
 
 --| An `if` that decides `p` is the plain `if` on `Decidable.toBool d` when its
 --| branches agree with the plain ones.
 -- `f.unfold` of a `decreasing` definition shows the plain `if` where only the
 -- recursive calls' proofs used the condition, and is proved with this and
 -- [`Bool.elimDecTrueIf`] (docs/proposals/decreasing-with-hypothesis.md).
-theorem Decidable.elimIf: ∀ [p: Prop] [a: Type] (d: Decidable p) (y: p → a) (n: ¬p → a) (t e: Unit → a) (sameYes: ∀ (h: p) => y h = t Trivial) (sameNo: ∀ (r: ¬p) => n r = e Trivial) => Decidable.elim d y n = Bool.ifThenElse (Decidable.toBool d) t e
-  | Yes h, y, n, t, e, sy, sn => sy h
-  | No r, y, n, t, e, sy, sn => sn r
+theorem Decidable.elimIf [p: Prop] [a: Type] (d: Decidable p) (y: p → a) (n: ¬p → a) (t e: Unit → a) (sameYes: ∀ (h: p) => y h = t Trivial) (sameNo: ∀ (r: ¬p) => n r = e Trivial): Decidable.elim d y n = Bool.ifThenElse (Decidable.toBool d) t e :=
+  match d with
+    | Yes h => sameYes h
+    | No r => sameNo r
 
 --| [`Decidable.elimIf`] for a `Bool` condition `c`, decided by `Bool.decTrue c`
 --| (and for a comparison, whose decision is that).
-theorem Bool.elimDecTrueIf: ∀ [a: Type] (c: Bool) (y: c = True → a) (n: ¬(c = True) → a) (t e: Unit → a) (sameYes: ∀ (h: c = True) => y h = t Trivial) (sameNo: ∀ (r: ¬(c = True)) => n r = e Trivial) => Decidable.elim (Bool.decTrue c) y n = Bool.ifThenElse c t e
-  | True, y, n, t, e, sy, sn => sy rfl
-  | False, y, n, t, e, sy, sn => sn Bool.falseNotTrue
+theorem Bool.elimDecTrueIf [a: Type] (c: Bool) (y: c = True → a) (n: ¬(c = True) → a) (t e: Unit → a) (sameYes: ∀ (h: c = True) => y h = t Trivial) (sameNo: ∀ (r: ¬(c = True)) => n r = e Trivial): Decidable.elim (Bool.decTrue c) y n = Bool.ifThenElse c t e :=
+  match c with
+    | True => sameYes rfl
+    | False => sameNo Bool.falseNotTrue
 
 -- Decision procedures. `auto` and `if h: …` use those marked `instance`
 -- (docs/proposals/interfaces.md §5.12); `=` is decided through `DecEq`
