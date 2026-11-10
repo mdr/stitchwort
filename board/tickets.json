@@ -1,5 +1,5 @@
 {
-  "next": 2636,
+  "next": 2637,
   "tickets": [
     {
       "id": 47,
@@ -27221,6 +27221,21 @@
       ],
       "epic": "editor-playground",
       "body": "From SW-2627 (10 Nov 2026). The field case matters for R7 (field renames); the rest for find references. Est. 90 min.",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
+    },
+    {
+      "id": 2636,
+      "title": "[Sonnet] JS backend hangs on bench dijkstra (Aoc.Year2021.Day15.main, run --js): node at 100% CPU for 73 min on Overmind and >10 min on Speedwell at 9af7518d9/0325f693b; native and run give the right answers; job 40 (9 Nov ~10:17) ran it fine. Bisect and fix",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-2636",
+      "labels": [
+        "bug"
+      ],
+      "epic": "effects-native",
+      "body": "Found by Overmind's final bench:compare --all (10 Nov 2026), which hung at this step. Reproduced on Speedwell: cd aoc && ../target/release/stitchwort run --js Aoc.Year2021.Day15.main < inputs/2021/day15.txt, timeout 600 -> rc 124. Correctness bug (the playground and run --js use this backend), not paused speed work. Est. 90 min.",
       "created": "2026-11-10",
       "updated": "2026-11-10",
       "commits": []
