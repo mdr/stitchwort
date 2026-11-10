@@ -11,8 +11,8 @@
 //! `Kernel`) and the native number functions, which it calls with its own
 //! `force`, but never calls anything in `value.rs` that evaluates. It isn't
 //! optimised, and only changes when the language's evaluation rules do. It
-//! recurses on the Rust stack, so it's only for small inputs, and it doesn't
-//! count resources.
+//! recurses on the Rust stack, so it's only for small inputs, and it counts
+//! no resources unless a test sets it a step budget ([`set_budget`]).
 //!
 //! Only compiled for tests (the `reference` feature).
 //!
@@ -74,6 +74,36 @@ thread_local! {
 /// ordinary reference evaluator counts nothing.
 pub fn set_plain_budget(steps: u64) {
     PLAIN_STEPS.with(|s| s.set(steps));
+}
+
+thread_local! {
+    /// Steps left to the evaluator in any mode, or `None` for no limit.
+    static STEPS: std::cell::Cell<Option<u64>> = const { std::cell::Cell::new(None) };
+}
+
+/// Gives this thread's reference evaluator, plain or not, `steps`
+/// evaluations, read-back nodes and comparisons before it fails with
+/// [`crate::budget::ResourceError::Work`]; `None` removes the limit (the
+/// default). It shares nothing, so a normal form that is exponentially large
+/// takes exponentially many steps to read back or compare: the budget lets a
+/// test report that it is too big instead of filling memory. A run that
+/// finishes within it gives the same result as one with no budget.
+pub fn set_budget(steps: Option<u64>) {
+    STEPS.with(|s| s.set(steps));
+}
+
+/// One step of the evaluator, counted against [`set_budget`]'s budget and,
+/// in plain mode, [`set_plain_budget`]'s.
+fn step() -> Result<()> {
+    STEPS.with(|s| match s.get() {
+        None => Ok(()),
+        Some(0) => Err(crate::budget::ResourceError::Work),
+        Some(left) => {
+            s.set(Some(left - 1));
+            Ok(())
+        }
+    })?;
+    plain_step()
 }
 
 /// One step of the plain evaluator.
@@ -153,7 +183,7 @@ pub fn compact_or_lazy(g: &Ev, value: &Value) -> Option<&'static str> {
 }
 
 pub fn eval(g: &Ev, env: &[Value], term: &Term) -> Result<Value> {
-    plain_step()?;
+    step()?;
     let eval_all = |args: &[Rc<Term>]| -> Result<Vec<Value>> {
         args.iter().map(|a| eval(g, env, a)).collect()
     };
@@ -681,6 +711,7 @@ fn lift(
 
 /// Converts a value back into a term, with `level` variables in scope.
 pub fn quote(g: &Ev, level: usize, value: &Value) -> Result<Term> {
+    step()?;
     let q = |v: &Value| quote(g, level, v);
     Ok(match force(g, value.clone())? {
         Value::Sort(s) => Term::Sort(s),
@@ -783,7 +814,7 @@ pub fn conv(g: &Ev, level: usize, a: &Value, b: &Value) -> Result<bool> {
 /// partially applied definitions and hidden opaque calls, each compared by
 /// its spine in shortcut mode.
 fn conv_in(g: &Ev, level: usize, a: &Value, b: &Value, mode: Mode) -> Result<bool> {
-    plain_step()?;
+    step()?;
     // Folded calls: the same one applied to equal arguments is equal;
     // otherwise they're compared unfolded.
     if is_folded(g, a) || is_folded(g, b) {

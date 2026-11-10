@@ -9,6 +9,7 @@
 
 use std::path::Path;
 
+use stitchwort_core::budget::{ResourceError, Result};
 use stitchwort_core::reference;
 use stitchwort_core::term::Term;
 use stitchwort_core::value::{self, Elim, Head, Spine, Value, machine_runs};
@@ -26,10 +27,12 @@ const STACK: usize = if cfg!(debug_assertions) { 512 } else { 128 } * 1024 * 102
 
 /// The normal form of `value`, as printed by the reference.
 fn normal(g: &stitchwort_core::Ev, level: usize, value: &Value) -> String {
-    format!(
-        "{:?}",
-        reference::quote(g, level, value).expect("no limits")
-    )
+    try_normal(g, level, value).expect("no limits")
+}
+
+/// [`normal`], failing if the reference runs out of its budget.
+fn try_normal(g: &stitchwort_core::Ev, level: usize, value: &Value) -> Result<String> {
+    Ok(format!("{:?}", reference::quote(g, level, value)?))
 }
 
 /// The icits of a definition's parameters, from its body's lambdas.
@@ -49,95 +52,54 @@ fn param_icits(g: &stitchwort_core::Ev, id: DefId) -> Vec<Icit> {
     icits
 }
 
-/// Definitions whose normal form on fresh variables is exponentially large,
-/// so neither evaluator's result can be quoted. std `Random`'s xor halves its
-/// arguments 64 times, and on a variable `a` the term for `a / 2` is
-/// `Nat.divFuel a a 2`, which mentions `a` twice: each bit multiplies the
-/// normal form's size by 4 (`Random.xorBits k a b` printed: 7,363 characters
-/// at k = 2, 30 million at 8, 485 million at 10), and `Random.xor64` is
-/// k = 64. Everything that calls it on an unknown number is as big: `main` in
-/// random-seed.sw rolls with the seed `IO.randomSeed` gives, a variable in its
-/// normal form. In lemma-on-large-normal-form.sw, `keep x k` on an unknown
-/// `k` is stuck on `k` around `grow 30 (Leaf x)`, a tree of 2^30 nodes written
-/// out (the example is about exactly that). In match-bounded-search.sw,
-/// `answer xs` is `search` on an unknown list unfolded through all of its
-/// 1,000,000,000 steps, each an `if` stuck on `xs`, and `describe` matches on
-/// it (the example is about not reading that back; with them compared, the
-/// test passed 14 GB, SW-1052). Its branch equations `describe.eq.some` and
-/// `describe.eq.none` (SW-1049) mention `answer xs` in their types, so they
-/// are left out here, of their types' normal forms and of conversion too
-/// (the full tier passed 30 GB, SW-1181). An entry is a name, or `example:
-/// name` for one example's definition. Their closed uses (the module's and the
-/// example's tests) are still compared, except the tests listed here.
-/// In as-written-unconfirmed.sw, `settle x k limit` is a thousand nested
-/// `if`s stuck on `x`, and `rewriteAtLimit` and `matchAtLimit` (with its
-/// `%match1`) hold it: each read back without sharing took over 10 GB (the
-/// example is about not reading that back; their types are left out of
-/// [`TYPE_NORMAL_FORM_TOO_BIG`] and [`CONVERSION_TOO_SLOW`] too, SW-2583).
-/// In let-chain-match.sw, `chain` is 40 `let`s each used twice, 2^40 nodes
-/// with them substituted.
-const NORMAL_FORM_TOO_BIG: &[&str] = &[
-    "Random.xor64",
-    "Random.next",
-    "Random.below",
-    "Random.between",
-    "Random.chance",
-    "accept/random-seed.sw: main",
-    "accept/kernel-same-call-arguments.sw: generate",
-    "accept/kernel-same-call-arguments.sw: descend",
-    "accept/lemma-on-large-normal-form.sw: keep",
-    "accept/match-bounded-search.sw: answer",
-    "accept/match-bounded-search.sw: describe",
-    "accept/match-bounded-search.sw: describe.eq.some",
-    "accept/match-bounded-search.sw: describe.eq.none",
-    "accept/as-written-unconfirmed.sw: rewriteAtLimit",
-    "accept/as-written-unconfirmed.sw: matchAtLimit",
-    "accept/as-written-unconfirmed.sw: matchAtLimit.%match1",
-    "accept/let-chain-match.sw: chain",
-];
+/// Steps the reference evaluator may take on one comparison: one normal
+/// form's evaluation and read-back, or one conversion check (see
+/// [`within_budget`]). The reference shares nothing, so a normal form with
+/// sharing the machine keeps, exponentially large written out, takes as many
+/// steps: std `Random`'s xor halves its arguments 64 times, and `a / 2`
+/// mentions `a` twice, so its normal form on a variable grows by 4 per bit;
+/// as-written-unconfirmed.sw's thousand nested `if`s stuck on `x`, or
+/// let-chain-match.sw's 40 `let`s each used twice, are the same. Read back,
+/// they took gigabytes (SW-1052, SW-1181, SW-2583); over the budget they
+/// are reported as too big to compare and skipped. The most any definition
+/// in the daily sample needs is 1.9 million steps (std's
+/// `Float.Model.addBits` on two variables, SW-2613); a step keeps about
+/// 150 bytes, so a comparison that runs out has taken under a gigabyte.
+/// `STITCHWORT_DIFFERENTIAL_STEPS` overrides it, to measure.
+const REFERENCE_STEPS: u64 = 5_000_000;
 
-/// Definitions whose type's normal form is exponentially large, so only
-/// their types' conversion is compared: in kernel-same-call-arguments.sw,
-/// `mix 16 seed` on an unknown seed mentions the seed 3^16 times; in
-/// lemma-on-large-normal-form.sw, `applied`'s type mentions `keep x key`
-/// (see [`NORMAL_FORM_TOO_BIG`]); match-bounded-search.sw's branch
-/// equations mention `answer xs`.
-const TYPE_NORMAL_FORM_TOO_BIG: &[&str] = &[
-    "accept/kernel-same-call-arguments.sw: descendMakes",
-    "accept/kernel-same-call-arguments.sw: descendCells",
-    "accept/lemma-on-large-normal-form.sw: applied",
-    "accept/match-bounded-search.sw: describe.eq.some",
-    "accept/match-bounded-search.sw: describe.eq.none",
-    "accept/as-written-unconfirmed.sw: rewriteAtLimit",
-    "accept/as-written-unconfirmed.sw: matchAtLimit",
-];
+fn reference_steps() -> u64 {
+    static STEPS: std::sync::OnceLock<u64> = std::sync::OnceLock::new();
+    *STEPS.get_or_init(|| {
+        std::env::var("STITCHWORT_DIFFERENTIAL_STEPS")
+            .ok()
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(REFERENCE_STEPS)
+    })
+}
 
-/// Definitions left out of [`compare_conversion`], because the reference's
-/// `conv` (no sharing, no lazy unfolding) walks a tree of exponential size
-/// to compare one with itself, while the machine's takes under a
-/// microsecond. In lemma-on-large-normal-form.sw, `applied`'s type, compared
-/// with itself, reaches `keep x key`, which has the 2^30 nodes of
-/// `grow 30 (Leaf x)` on each side; match-bounded-search.sw's branch
-/// equations reach `answer xs`'s billion steps. Their types are still
-/// compared by the machine in [`compare_definitions`].
-const CONVERSION_TOO_SLOW: &[&str] = &[
-    "accept/lemma-on-large-normal-form.sw: applied",
-    "accept/match-bounded-search.sw: describe.eq.some",
-    "accept/match-bounded-search.sw: describe.eq.none",
-    "accept/as-written-unconfirmed.sw: rewriteAtLimit",
-    "accept/as-written-unconfirmed.sw: matchAtLimit",
-];
-
-/// Whether `list` names definition `name` of `what` (the prelude or an
-/// example): by its name alone, or as `what: name`.
-fn listed(list: &[&str], what: &str, name: &str) -> bool {
-    list.iter()
-        .any(|entry| *entry == name || *entry == format!("{what}: {name}"))
+/// `f`, with the reference evaluator on this thread limited to
+/// [`REFERENCE_STEPS`]; `None` if it ran out, after saying what was too big
+/// to compare.
+fn within_budget<T>(what: impl std::fmt::Display, f: impl FnOnce() -> Result<T>) -> Option<T> {
+    reference::set_budget(Some(reference_steps()));
+    let out = f();
+    reference::set_budget(None);
+    match out {
+        Ok(out) => Some(out),
+        Err(ResourceError::Work) => {
+            eprintln!("too big to compare: {what}");
+            None
+        }
+        Err(e) => panic!("{what}: {e}"),
+    }
 }
 
 /// Compares the two evaluators on everything `g` defines: each definition
 /// applied to fresh variables (open terms, stuck case trees, partial
-/// application), and each definition's type.
+/// application), and each definition's type. A normal form over the
+/// reference's budget is skipped, with the longer applications of the same
+/// definition, which are as big.
 fn compare_definitions(g: &stitchwort_core::Ev, what: &str) -> usize {
     let mut compared = 0;
     for i in 0..g.env.defs().len() {
@@ -148,23 +110,31 @@ fn compare_definitions(g: &stitchwort_core::Ev, what: &str) -> usize {
         }
         let icits = param_icits(g, id);
         // Applied to every prefix of its parameters, so partial
-        // applications are covered too; none for a definition whose normal
-        // form on variables is too big to build (its type is still compared).
-        let too_big = listed(NORMAL_FORM_TOO_BIG, what, def.name());
-        let prefixes = if too_big { 0..0 } else { 0..icits.len() + 1 };
-        for n in prefixes {
+        // applications are covered too.
+        for n in 0..icits.len() + 1 {
+            let applied = format!("{what}: `{}` applied to {n} variable(s)", def.name());
+            // The reference first, so the machine never builds a value whose
+            // read-back is over the budget.
+            let Some(slow) = within_budget(&applied, || {
+                let mut slow = reference::eval(g, &[], &Term::Def(id))?;
+                for (level, icit) in icits.iter().take(n).enumerate() {
+                    slow = reference::apply_icit(g, slow, Value::var(level), *icit)?;
+                }
+                Ok(slow)
+            }) else {
+                break;
+            };
+            let Some(slow_normal) = within_budget(&applied, || try_normal(g, n, &slow)) else {
+                break;
+            };
             let mut fast = value::eval(g, &[], &Term::Def(id)).expect("no limits");
-            let mut slow = reference::eval(g, &[], &Term::Def(id)).expect("no limits");
             for (level, icit) in icits.iter().take(n).enumerate() {
                 fast = value::apply_icit(g, fast, Value::var(level), *icit).expect("no limits");
-                slow = reference::apply_icit(g, slow, Value::var(level), *icit).expect("no limits");
             }
-            assert_eq!(
-                normal(g, n, &fast),
-                normal(g, n, &slow),
-                "{what}: `{}` applied to {n} variable(s)",
-                def.name()
-            );
+            let Some(fast_normal) = within_budget(&applied, || try_normal(g, n, &fast)) else {
+                break;
+            };
+            assert_eq!(fast_normal, slow_normal, "{applied}");
             // The machine's quote (a work list) against the reference's,
             // which expands compact lists: quotation commutes with expansion.
             assert_eq!(
@@ -172,28 +142,27 @@ fn compare_definitions(g: &stitchwort_core::Ev, what: &str) -> usize {
                     "{:?}",
                     reference::expand_term(g, &value::quote(g, n, &fast).expect("no limits"))
                 ),
-                normal(g, n, &fast),
-                "{what}: quoting `{}` applied to {n} variable(s)",
-                def.name()
+                fast_normal,
+                "quoting {applied}"
             );
             assert!(
                 value::conv(g, n, &fast, &slow).expect("no limits"),
-                "{what}: `{}` applied to {n} variable(s) isn't convertible with itself",
-                def.name()
+                "{applied} isn't convertible with itself"
             );
             compared += 1;
         }
-        let ty = reference::eval(g, &[], def.ty()).expect("no limits");
-        assert!(value::conv(g, 0, def.ty_value(), &ty).expect("no limits"));
-        if listed(TYPE_NORMAL_FORM_TOO_BIG, what, def.name()) {
+        let the_type = format!("{what}: the type of `{}`", def.name());
+        let Some(ty) = within_budget(&the_type, || reference::eval(g, &[], def.ty())) else {
             continue;
-        }
-        assert_eq!(
-            normal(g, 0, def.ty_value()),
-            normal(g, 0, &ty),
-            "{what}: the type of `{}`",
-            def.name()
-        );
+        };
+        assert!(value::conv(g, 0, def.ty_value(), &ty).expect("no limits"));
+        let Some(slow) = within_budget(&the_type, || try_normal(g, 0, &ty)) else {
+            continue;
+        };
+        let Some(fast) = within_budget(&the_type, || try_normal(g, 0, def.ty_value())) else {
+            continue;
+        };
+        assert_eq!(fast, slow, "{the_type}");
     }
     compared
 }
@@ -202,11 +171,11 @@ fn compare_definitions(g: &stitchwort_core::Ev, what: &str) -> usize {
 /// only meaningful between values of the same type, so it compares each
 /// definition's value (unapplied, so partially applied definitions and eta
 /// are covered) with every other definition's whose type is convertible
-/// with its own, and each definition's type with the next few types.
+/// with its own, and each definition's type with the next few types. A
+/// pair the reference can't decide within its budget is skipped.
 fn compare_conversion(g: &stitchwort_core::Ev, what: &str) -> usize {
     let defs: Vec<(String, Value, Value)> = (0..g.env.defs().len())
         .filter(|&i| g.env.defs()[i].body().is_some())
-        .filter(|&i| !listed(CONVERSION_TOO_SLOW, what, g.env.defs()[i].name()))
         .map(|i| {
             let def = &g.env.defs()[i];
             let value = value::eval(g, &[], &Term::Def(DefId(i))).expect("no limits");
@@ -214,10 +183,10 @@ fn compare_conversion(g: &stitchwort_core::Ev, what: &str) -> usize {
         })
         .collect();
     let agree = |x: &Value, y: &Value, what: &str| {
+        let slow = within_budget(what, || reference::conv(g, 0, x, y))?;
         let fast = value::conv(g, 0, x, y).expect("no limits");
-        let slow = reference::conv(g, 0, x, y).expect("no limits");
         assert_eq!(fast, slow, "{what}");
-        fast
+        Some(fast)
     };
     let mut compared = 0;
     for (i, (x_name, x, x_ty)) in defs.iter().enumerate() {
@@ -226,8 +195,9 @@ fn compare_conversion(g: &stitchwort_core::Ev, what: &str) -> usize {
                 x_ty,
                 y_ty,
                 &format!("{what}: the types of `{x_name}` and `{y_name}`"),
-            ) {
-                agree(x, y, &format!("{what}: `{x_name}` and `{y_name}`"));
+            ) == Some(true)
+                && agree(x, y, &format!("{what}: `{x_name}` and `{y_name}`")).is_some()
+            {
                 compared += 1;
             }
         }
@@ -298,18 +268,19 @@ fn the_evaluators_agree_on_the_prelude_and_every_example() {
             compare_definitions(g, name);
             compare_conversion(g, name);
             for test in session.elab.tests() {
-                if listed(NORMAL_FORM_TOO_BIG, name, g.def(test.def).name()) {
-                    continue;
-                }
+                let what = format!("{name}: test \"{}\"", test.name);
                 let term = Term::Def(test.def);
+                let Some(slow) = within_budget(&what, || {
+                    let slow = reference::eval(g, &[], &term)?;
+                    try_normal(g, 0, &slow)
+                }) else {
+                    continue;
+                };
                 let fast = value::eval(g, &[], &term).expect("no limits");
-                let slow = reference::eval(g, &[], &term).expect("no limits");
-                assert_eq!(
-                    normal(g, 0, &fast),
-                    normal(g, 0, &slow),
-                    "{name}: test \"{}\"",
-                    test.name
-                );
+                let Some(fast) = within_budget(&what, || try_normal(g, 0, &fast)) else {
+                    continue;
+                };
+                assert_eq!(fast, slow, "{what}");
             }
         });
     });
