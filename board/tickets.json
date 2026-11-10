@@ -1,5 +1,5 @@
 {
-  "next": 2670,
+  "next": 2673,
   "tickets": [
     {
       "id": 47,
@@ -27580,7 +27580,7 @@
     {
       "id": 2659,
       "title": "[Fable] Kernel soundness audit, fresh eyes: crates/core against docs/core.md; any way a false theorem is accepted (conversion, reduction rules, eta, literals, decreasing, native shortcuts, Apart sets, caches)",
-      "status": "doing",
+      "status": "done",
       "agent": "Claude",
       "where": ".claude/worktrees/SW-2659",
       "labels": [
@@ -27588,7 +27588,7 @@
         "soundness"
       ],
       "epic": "audit-fuzzing",
-      "body": "D3473 (Matt, 10 Nov 2026): yes. Paper lane on Fable 5.2. Output docs/reviews/SW-N-kernel-soundness-audit.md; findings filed as tickets. Est. 120 min.",
+      "body": "D3473 (Matt, 10 Nov 2026): yes. Paper lane on Fable 5.2. Output docs/reviews/SW-N-kernel-soundness-audit.md; findings filed as tickets. Est. 120 min.\nMerged 10 Nov. Fable, 18 min (est. 120); read ~10k of 26.9k lines of crates/core. D3475 (cache trust) opened for Matt.",
       "created": "2026-11-10",
       "updated": "2026-11-10",
       "commits": []
@@ -27728,6 +27728,50 @@
       "labels": [],
       "epic": "editor-playground",
       "body": "From SW-2648 (10 Nov 2026). Only if SW-2655's sweep needs it.",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
+    },
+    {
+      "id": 2670,
+      "title": "docs/core.md: add Proj, its typing rule and record eta; natives pinned by content hash, not type only (core.md:307); update the status line (D3210; SW-2659 F4, F5, F7)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "paper"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "From SW-2659 (10 Nov 2026). Opus paper lane. Est. 60 min.",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
+    },
+    {
+      "id": 2671,
+      "title": "Conversion shortcut for * builds a stuck call: Succ (two 0) * 3 = 9 refused though true; hand the rest back to the evaluator, or add * to G9 with an ignored test (SW-2659 F6)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "From SW-2659 (10 Nov 2026). Completeness, not soundness. Est. 60 min.",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
+    },
+    {
+      "id": 2672,
+      "title": "[Fable] Kernel soundness audit, part 2: the code SW-2659 didn't read: value.rs unfolding and forcing (1215-1512, 2489-2812), read-back, identical and shape_hash, inert.rs, sct.rs, nat_add.rs, chars.rs, float.rs arithmetic, positivity, the cache encoder",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "paper",
+        "soundness"
+      ],
+      "epic": "audit-fuzzing",
+      "body": "From SW-2659 (10 Nov 2026). Est. 120 min.",
       "created": "2026-11-10",
       "updated": "2026-11-10",
       "commits": []
