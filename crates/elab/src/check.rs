@@ -764,11 +764,16 @@ impl<'e> Ctx<'e> {
     /// [`Ctx::show`], but with calls unfolded: what `value` computes to,
     /// for a message that says so.
     pub fn show_unfolded(&self, value: &Value) -> String {
-        match stitchwort_core::value::quote_unfolded_shown_at_most(
+        // A message shows a few hundred characters of the top of a value, so
+        // only this many levels are read back (and [`UNFOLD_NODES`] nodes,
+        // for a value that is wide rather than deep).
+        const UNFOLD_DEPTH: usize = 12;
+        match stitchwort_core::value::quote_unfolded_shown_to_depth(
             &self.g(),
             self.level(),
             value,
             UNFOLD_NODES,
+            UNFOLD_DEPTH,
         ) {
             Ok(Some(term)) => {
                 pretty::term_for_message_in(&self.g(), self.e, &self.shown_names(false), &term)
@@ -909,16 +914,24 @@ impl<'e> Ctx<'e> {
     pub fn first_difference_note(&self, a: &Value, b: &Value) -> Option<String> {
         let g = self.g();
         let level = self.level();
-        // No note for a side too big to read back: `Parse.exactly 2^128 p`
-        // unfolds 2^128 levels deep (SW-2580).
+        // Read back only this deep: `Parse.exactly 2^128 p` unfolds 2^128
+        // levels deep (SW-2580). Deeper parts are `…` on both sides, which
+        // compare alike, so a difference is only found above the depth.
+        const DIFFERENCE_DEPTH: usize = 64;
         let shown = |v| {
-            stitchwort_core::value::quote_unfolded_shown_at_most(&g, level, v, UNFOLD_NODES)
-                .ok()
-                .flatten()
+            stitchwort_core::value::quote_unfolded_shown_to_depth(
+                &g,
+                level,
+                v,
+                UNFOLD_NODES,
+                DIFFERENCE_DEPTH,
+            )
+            .ok()
+            .flatten()
         };
         let (x, y) = (shown(a)?, shown(b)?);
         let found = pretty::first_difference_in(&g, self.e, &self.shown_names(false), &x, &y)?;
-        if found.left == found.right {
+        if found.left == found.right || found.left == "…" || found.right == "…" {
             return None;
         }
         let within = found

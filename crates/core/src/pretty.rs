@@ -1005,6 +1005,7 @@ impl<'g> Printer<'g> {
                 names.pop();
                 (format!("let {x} := {value}; {body}"), Prec::Arrow)
             }
+            Term::Meta(crate::value::ELIDED) => ("…".into(), Prec::Atom),
             Term::Meta(_) | Term::App(..) if let Some(shown) = self.placeholder(names, term) => {
                 shown
             }
