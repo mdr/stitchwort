@@ -1,9 +1,10 @@
 # Refactoring in the editor and playground
 
-**Status:** draft for Matt's review (SW-2626), 10 November 2026; §3.1 updated as built in R2 (SW-2628). Design note
-only: no code changed, nothing built or run. Facts were read in the code at
-`main` `8250e6579`. Sizes are estimates: S under a day, M a few days, L a
-week or more. Nothing here was measured.
+**Status:** approved (D3467, 10 November 2026); being built in steps R1 to
+R4. Written as a design note (SW-2626), from the code at `main`
+`8250e6579`; §3.1 now describes the trial check as built in R2 (SW-2628),
+with its measured timings. Sizes are estimates: S under a day, M a few
+days, L a week or more.
 
 **In short.** There is no refactoring today, but most of what rename needs
 is already there: references across a project, read-only library files, and
