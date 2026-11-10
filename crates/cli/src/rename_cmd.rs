@@ -185,7 +185,7 @@ fn parse_target(text: &str, dir: &Path) -> Target {
 
 /// A file as the project names it (relative to its folder, with `/`): the
 /// path may be given from the current folder or from the project's.
-fn project_path(path: &str, dir: &Path) -> String {
+pub(super) fn project_path(path: &str, dir: &Path) -> String {
     let given = PathBuf::from(path);
     let from_cwd = given.canonicalize().ok();
     let root = dir.canonicalize().ok();

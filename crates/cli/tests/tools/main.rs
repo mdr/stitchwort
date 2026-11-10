@@ -21,5 +21,6 @@ mod std_dir;
 mod test_failures;
 mod test_json;
 mod timings;
+mod trial_edits;
 
 use stitchwort_test_alloc as _;

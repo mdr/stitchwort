@@ -20,7 +20,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use stitchwort_core::hash::{ContentHash, data_hash, def_hash};
+use stitchwort_core::hash::{ContentHash, data_hash, def_hash, type_hash};
 use stitchwort_core::{DataId, DefId};
 use stitchwort_elab::search::{constants, data_types};
 use stitchwort_syntax::{Diagnostic, Severity, Span};
@@ -28,6 +28,7 @@ use stitchwort_syntax::{Diagnostic, Severity, Span};
 use super::{
     LiveProject, NamespaceOutcome, OutlineItem, Place, Progress, lsp_range, syntactic_outline,
 };
+use crate::declhash::DeclHash;
 use crate::nav::Range;
 use crate::rewind::Cancelled;
 
@@ -52,17 +53,45 @@ pub enum Promise {
     /// (full names, old to new; a declaration generated from a renamed one,
     /// `f.eq1` or `f.induct`, follows it).
     SameMeaning { renames: BTreeMap<String, String> },
+    /// Every statement stays what it is, and the proofs may change: for
+    /// edits to a theorem's proof term that keep its statement (moving a
+    /// `∀` variable before the colon turns `:= Nat.addZero` into
+    /// `:= n => Nat.addZero n`, another term for the same theorem). A
+    /// theorem may have another content hash if its type hash (what the
+    /// statement says, whatever the proof) holds. Everything else keeps its
+    /// content hash: a definition whose hash moves is a problem, and so is a
+    /// theorem whose statement changed. A theorem that uses another that
+    /// changed only in its proof has another hash too, which is accepted on
+    /// the same terms. Matched and renamed as for `SameMeaning`.
+    SameStatement { renames: BTreeMap<String, String> },
 }
 
 impl Promise {
     fn renames(&self) -> &BTreeMap<String, String> {
         match self {
-            Promise::SameMeaning { renames } => renames,
+            Promise::SameMeaning { renames } | Promise::SameStatement { renames } => renames,
         }
     }
 
+    /// Whether `now` is what the promise allows for `was`.
+    pub(crate) fn keeps(&self, was: &Decl, now: &Decl) -> bool {
+        if was.hash == now.hash {
+            return true;
+        }
+        match (self, &was.statement, &now.statement) {
+            (Promise::SameStatement { .. }, Some(a), Some(b)) => {
+                a.theorem && b.theorem && a.ty.is_some() && a.ty == b.ty
+            }
+            _ => false,
+        }
+    }
+
+    pub(crate) fn compares_statements(&self) -> bool {
+        matches!(self, Promise::SameStatement { .. })
+    }
+
     /// The name declaration `old` should have after the edit.
-    fn renamed(&self, old: &str) -> String {
+    pub(crate) fn renamed(&self, old: &str) -> String {
         let renames = self.renames();
         // The longest renamed name that `old` is or is under.
         let mut best: Option<(&String, &String)> = None;
@@ -210,6 +239,10 @@ impl Refusal {
 #[must_use = "keep or restore the trial"]
 pub struct Trial {
     pub problems: Problems,
+    /// Under [`Promise::SameStatement`]: the theorems (full names) whose
+    /// proof changed and whose statement held, accepted. Empty under the
+    /// other promises.
+    pub proofs_changed: Vec<String>,
     /// The edited files' texts before.
     before: BTreeMap<String, String>,
 }
@@ -231,7 +264,21 @@ enum Id {
 /// definitions, in the order they were added.
 struct Hashed {
     outcome: NamespaceOutcome,
-    decls: Vec<(String, Option<ContentHash>)>,
+    decls: Vec<Decl>,
+}
+
+/// A declaration as the trial compares it.
+pub(crate) struct Decl {
+    pub(crate) name: String,
+    pub(crate) hash: Option<ContentHash>,
+    /// Only when the promise compares statements, and for definitions.
+    pub(crate) statement: Option<Statement>,
+}
+
+pub(crate) struct Statement {
+    pub(crate) theorem: bool,
+    /// `None` while something its type mentions isn't final.
+    pub(crate) ty: Option<ContentHash>,
 }
 
 /// A diagnostic as plain data: (path, range), and the rest.
@@ -242,6 +289,17 @@ struct Placed<'a> {
 }
 
 impl LiveProject {
+    /// Every declaration of the project as checked, with its hashes:
+    /// datas then definitions, namespace by namespace in checking order.
+    pub fn declaration_hashes(&self) -> Vec<DeclHash> {
+        let hashed = self.hashes(|_, _| true, true);
+        self.steps
+            .iter()
+            .filter_map(|step| hashed.get(&step.name))
+            .flat_map(|h| h.decls.iter().map(DeclHash::from_decl))
+            .collect()
+    }
+
     /// Where the environment is: (data types, definitions).
     pub(super) fn env_sizes(&self) -> (usize, usize) {
         let env = &self.session.elab.kernel.env;
@@ -271,7 +329,7 @@ impl LiveProject {
             .iter()
             .position(|s| s.files.iter().any(|(p, _)| edited.contains_key(p)))
             .unwrap_or(self.steps.len());
-        let hashes_before = self.hashes(|k, _| k >= first);
+        let hashes_before = self.hashes(|k, _| k >= first, promise.compares_statements());
         let diagnostics_before = self.diagnostic_keys(promise);
 
         let mut before = BTreeMap::new();
@@ -294,10 +352,15 @@ impl LiveProject {
             diagnostics: self.new_diagnostics(diagnostics_before),
             changed: Vec::new(),
         };
+        let mut proofs_changed = Vec::new();
         if self.fatal.is_empty() {
-            problems.changed = self.changed_meaning(&hashes_before, promise);
+            (problems.changed, proofs_changed) = self.changed_meaning(&hashes_before, promise);
         }
-        Ok(TrialOutcome::Checked(Trial { problems, before }))
+        Ok(TrialOutcome::Checked(Trial {
+            problems,
+            proofs_changed,
+            before,
+        }))
     }
 
     /// Keeps a trial's edits, as checked.
@@ -398,7 +461,11 @@ impl LiveProject {
 
     /// The hashes of the declarations of the steps `wanted` picks, by
     /// namespace.
-    fn hashes(&self, wanted: impl Fn(usize, &str) -> bool) -> BTreeMap<String, Hashed> {
+    fn hashes(
+        &self,
+        wanted: impl Fn(usize, &str) -> bool,
+        statements: bool,
+    ) -> BTreeMap<String, Hashed> {
         let g = &self.session.elab.ev();
         let _op = g.machine.budget.operation(self.session.elab.options.limits);
         let mut out = BTreeMap::new();
@@ -409,11 +476,23 @@ impl LiveProject {
             let mut decls = Vec::new();
             for i in step.datas.clone() {
                 let hash = data_hash(g, DataId(i)).ok().flatten();
-                decls.push((g.env.datas()[i].path().to_string(), hash));
+                decls.push(Decl {
+                    name: g.env.datas()[i].path().to_string(),
+                    hash,
+                    statement: None,
+                });
             }
             for i in step.defs.clone() {
                 let hash = def_hash(g, DefId(i)).ok().flatten();
-                decls.push((g.env.defs()[i].path().to_string(), hash));
+                let statement = statements.then(|| Statement {
+                    theorem: g.env.defs()[i].theorem(),
+                    ty: type_hash(g, DefId(i)).ok().flatten(),
+                });
+                decls.push(Decl {
+                    name: g.env.defs()[i].path().to_string(),
+                    hash,
+                    statement,
+                });
             }
             out.insert(
                 step.name.clone(),
@@ -532,10 +611,15 @@ impl LiveProject {
         &self,
         before: &BTreeMap<String, Hashed>,
         promise: &Promise,
-    ) -> Vec<ChangedMeaning> {
-        let now = self.hashes(|_, name| before.contains_key(name));
+    ) -> (Vec<ChangedMeaning>, Vec<String>) {
+        let now = self.hashes(
+            |_, name| before.contains_key(name),
+            promise.compares_statements(),
+        );
         // (namespace, full name, the declaration now, if there is one).
         let mut changed: Vec<(String, String, Option<Id>)> = Vec::new();
+        // Declarations whose hash moved and the promise allows.
+        let mut accepted: Vec<String> = Vec::new();
         for step in &self.steps {
             let (Some(was), Some(is)) = (before.get(&step.name), now.get(&step.name)) else {
                 continue;
@@ -549,29 +633,36 @@ impl LiveProject {
                 .map(Id::Data)
                 .chain(step.defs.clone().map(Id::Def))
                 .collect();
-            let expected: Vec<(String, Option<ContentHash>)> = was
+            let expected: Vec<(String, &Decl)> = was
                 .decls
                 .iter()
-                .map(|(name, hash)| (promise.renamed(name), *hash))
+                .map(|decl| (promise.renamed(&decl.name), decl))
                 .collect();
             let same_names = expected.len() == is.decls.len()
-                && expected.iter().zip(&is.decls).all(|(e, i)| e.0 == i.0);
+                && expected.iter().zip(&is.decls).all(|(e, i)| e.0 == i.name);
             if same_names {
                 for ((exp, decl), id) in expected.iter().zip(&is.decls).zip(&ids) {
-                    if exp.1 != decl.1 {
-                        changed.push((step.name.clone(), decl.0.clone(), Some(*id)));
+                    if !promise.keeps(exp.1, decl) {
+                        changed.push((step.name.clone(), decl.name.clone(), Some(*id)));
+                    } else if exp.1.hash != decl.hash {
+                        accepted.push(decl.name.clone());
                     }
                 }
                 continue;
             }
             // The declarations moved, or some appeared or went: match by
             // name, and what has no match changed.
-            let was_by_name: BTreeMap<&str, Option<ContentHash>> =
-                expected.iter().map(|(n, h)| (n.as_str(), *h)).collect();
-            let is_names: BTreeSet<&str> = is.decls.iter().map(|(n, _)| n.as_str()).collect();
-            for ((name, hash), id) in is.decls.iter().zip(&ids) {
-                if was_by_name.get(name.as_str()) != Some(hash) {
-                    changed.push((step.name.clone(), name.clone(), Some(*id)));
+            let was_by_name: BTreeMap<&str, &Decl> =
+                expected.iter().map(|(n, d)| (n.as_str(), *d)).collect();
+            let is_names: BTreeSet<&str> = is.decls.iter().map(|d| d.name.as_str()).collect();
+            for (decl, id) in is.decls.iter().zip(&ids) {
+                match was_by_name.get(decl.name.as_str()) {
+                    Some(was) if promise.keeps(was, decl) => {
+                        if was.hash != decl.hash {
+                            accepted.push(decl.name.clone());
+                        }
+                    }
+                    _ => changed.push((step.name.clone(), decl.name.clone(), Some(*id))),
                 }
             }
             for (name, _) in &expected {
@@ -583,13 +674,17 @@ impl LiveProject {
         // A declaration generated from a changed one (`f.eq1`) isn't one
         // more place to look.
         let names: BTreeSet<String> = changed.iter().map(|c| c.1.clone()).collect();
-        changed.retain(|(_, name, _)| {
-            !names.iter().any(|owner| {
+        let generated = |name: &str, owners: &BTreeSet<String>| {
+            owners.iter().any(|owner| {
                 name.len() > owner.len()
                     && name.starts_with(owner.as_str())
                     && name.as_bytes()[owner.len()] == b'.'
             })
-        });
+        };
+        let accepted_names: BTreeSet<String> = accepted.iter().cloned().collect();
+        let owners: BTreeSet<String> = names.union(&accepted_names).cloned().collect();
+        changed.retain(|(_, name, _)| !generated(name, &owners));
+        accepted.retain(|name| !generated(name, &accepted_names));
         let ids: BTreeMap<Id, &str> = changed
             .iter()
             .filter_map(|(_, name, id)| Some(((*id)?, name.as_str())))
@@ -635,7 +730,7 @@ impl LiveProject {
             })
             .collect();
         out.sort_by_key(|c| c.uses.is_some());
-        out
+        (out, accepted)
     }
 
     /// Where each declaration of the project's files is declared, by full

@@ -344,6 +344,21 @@ impl Session {
         .unwrap_or_else(|report| panic!("{report}"))
     }
 
+    /// A session with the whole library loaded from source (the library
+    /// this process reads, `--std-dir` included), under limits for a thread
+    /// with `stack` bytes; the report of what failed to load if it doesn't.
+    pub fn try_eager_library_for_stack(stack: usize) -> Result<Self, String> {
+        Self::start(
+            prelude(),
+            Library::Standard,
+            true,
+            false,
+            false,
+            Limits::for_stack(stack),
+            StdCache::Source,
+        )
+    }
+
     /// [`Session::eager_for_stack`], checking the whole library from source
     /// (the test cache is not used): for the tests whose point is that
     /// check (docs/testing.md, "The test std cache").

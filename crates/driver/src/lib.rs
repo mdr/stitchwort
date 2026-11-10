@@ -10,6 +10,7 @@ pub mod axioms;
 pub mod check_cache;
 pub mod completion;
 pub mod counterexample;
+pub mod declhash;
 pub mod doc;
 pub mod driver;
 pub mod fingerprint;
