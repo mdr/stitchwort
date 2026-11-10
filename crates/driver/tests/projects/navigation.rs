@@ -640,3 +640,36 @@ fn every_name_in_a_rewrite_list() {
     }
     assert_eq!(checked, 12);
 }
+
+/// The `f` in `match induct (f args)` refers to `f`, though the term the
+/// match writes applies `f.induct` at that same span (SW-2596).
+#[test]
+fn the_function_in_match_induct() {
+    let source = "import Std (Nat)\n\n\
+                  def countAbove (k: Nat): List Nat → Nat\n  \
+                    | [] => 0\n  \
+                    | [x, ..xs] => if k ≤ x then Succ (countAbove k xs) else countAbove k xs\n\n\
+                  theorem countAboveLe (k: Nat) (xs: List Nat): countAbove k xs ≤ xs.length :=\n  \
+                    match induct (countAbove k xs) with\n    \
+                      | eq1 => omega\n    \
+                      | eq2IfTrue y ys h ih => ih\n    \
+                      | eq2IfFalse y ys h ih => omega\n";
+    let mut session = Session::navigable();
+    session.load("one.sw", source).expect("checks");
+    let index = index_of(&session);
+    let all = lines(&session, &index, "one.sw");
+    let at = source.find("induct (countAbove").expect("written") + "induct (".len();
+    let found: Vec<_> = index
+        .refs
+        .iter()
+        .filter(|r| {
+            r.span.file.index() == session.elab.std_file_count() && r.span.start as usize == at
+        })
+        .collect();
+    assert!(
+        matches!(found.as_slice(), [r] if matches!(&r.target,
+            NavTarget::Symbol(i) if index.symbols[*i].name.ends_with("countAbove"))),
+        "`countAbove` at {at}: {} references in\n{all}",
+        found.len()
+    );
+}

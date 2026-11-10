@@ -175,7 +175,11 @@ pub(crate) fn check_induct(cx: &mut Ctx, expr: &Expr, goal: &Value) -> Result<Te
         text: format!("{}.induct", head.text),
         span: head.span,
     };
-    let (_, induct_ty) = match infer(cx, &Expr::Var(induct_name.clone())) {
+    // `f.induct` is the compiler's, at the span of the `f` the call (inferred
+    // above) already noted: noting it too would replace that reference.
+    let looked_up =
+        crate::Elaborator::unnoted_in(cx, |cx| infer(cx, &Expr::Var(induct_name.clone())));
+    let (_, induct_ty) = match looked_up {
         Ok(found) => insert(cx, found.0, found.1)?,
         Err(d) => return Err(no_induct(d, &head.text, call.span())),
     };
@@ -205,7 +209,7 @@ pub(crate) fn check_induct(cx: &mut Ctx, expr: &Expr, goal: &Value) -> Result<Te
     for a in &args[..prefix] {
         applied = Expr::App(Box::new(applied), Box::new((*a).clone()));
     }
-    let (with_prefix, ty) = infer(cx, &applied)?;
+    let (with_prefix, ty) = crate::Elaborator::unnoted_in(cx, |cx| infer(cx, &applied))?;
     let (with_prefix, ty) = insert(cx, with_prefix, ty)?;
     let Value::Pi(_, _, motive_ty, rest) = force(&g, ty)? else {
         return Err(motive_error(span, "`f.induct` has no motive"));

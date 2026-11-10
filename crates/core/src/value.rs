@@ -3219,12 +3219,20 @@ fn visit(
         Value::Refl => done.push(Term::Refl),
         Value::Pi(x, i, a, b) => {
             tasks.push(QuoteTask::Pi(x, i));
-            tasks.push(QuoteTask::Visit(level + 1, b.apply(g, Value::var(level))?, depth + 1));
+            tasks.push(QuoteTask::Visit(
+                level + 1,
+                b.apply(g, Value::var(level))?,
+                depth + 1,
+            ));
             tasks.push(QuoteTask::Visit(level, (*a).clone(), depth + 1));
         }
         Value::Lam(x, i, b) => {
             tasks.push(QuoteTask::Lam(x, i));
-            tasks.push(QuoteTask::Visit(level + 1, b.apply(g, Value::var(level))?, depth + 1));
+            tasks.push(QuoteTask::Visit(
+                level + 1,
+                b.apply(g, Value::var(level))?,
+                depth + 1,
+            ));
         }
         Value::Data(d, args) => {
             tasks.push(QuoteTask::Data(d, args.len()));
@@ -3235,7 +3243,15 @@ fn visit(
         Value::Ctor(d, 1, args)
             if mode.unfolds() && Some(d) == g.env.builtins().nat && has_call_base(g, &args) =>
         {
-            visit(g, level, succ_unglued(g, &args[0])?, depth, mode, tasks, done)?;
+            visit(
+                g,
+                level,
+                succ_unglued(g, &args[0])?,
+                depth,
+                mode,
+                tasks,
+                done,
+            )?;
         }
         Value::Ctor(d, c, args) => {
             tasks.push(QuoteTask::Ctor(d, c, args.len()));

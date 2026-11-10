@@ -887,7 +887,9 @@ impl Elaborator {
         }
         // A name taken for an implicitly bound variable (`implicit_guesses`)
         // that is a declaration's: its binder is its own first use, and a
-        // reference to the declaration is noted there.
+        // reference to the declaration is noted there. The name is not a
+        // local anywhere else in the declaration either (a later use in the
+        // body is the declaration's, noted by the elaborator).
         let guesses: stitchwort_core::collections::HashSet<Span> = nav
             .locals
             .iter()
@@ -896,7 +898,7 @@ impl Elaborator {
             .filter(|span| nav.binders.iter().any(|b| b.span == *span))
             .collect();
         for local in &nav.locals {
-            if guesses.contains(&local.span) {
+            if guesses.contains(&local.span) || guesses.contains(&local.binder) {
                 continue;
             }
             refs.push(NavRef {

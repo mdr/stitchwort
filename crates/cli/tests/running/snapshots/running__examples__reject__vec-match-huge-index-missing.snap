@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-NONEXHAUSTIVE] Error: missing case: no alternative of this `match` matches `VCons _ _`
+| VCons _ _ => ?
+    ╭─[ reject/vec-match-huge-index-missing.sw:11:3 ]
+    │
+ 11 │ ╭─▶   match items with
+ 12 │ ├─▶     | VNil => 0
+    │ │                     
+    │ ╰───────────────────── missing case: no alternative of this `match` matches `VCons _ _`
+    │     
+    │     Note: here `items` has type `Vec Nat 340282366920938463463374607431768211456`, and `VCons` can be one
+────╯

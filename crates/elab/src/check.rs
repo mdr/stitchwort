@@ -8,7 +8,7 @@ use crate::kernel;
 use stitchwort_core::chars::{self as compact, Chars};
 use stitchwort_core::partial::Primitive;
 use stitchwort_core::registry::Builtin;
-use stitchwort_core::value::{Closure, Head, apply, eval, force, quote, unused};
+use stitchwort_core::value::{Closure, Head, apply, eval, force, quote, quote_at_most, unused};
 use stitchwort_core::{DataId, Ev, Icit, MAX_LEVEL, Name, Sort, Term, Value, pretty};
 use stitchwort_syntax::ast::{BinOp, Bracket, Expr, Mode, Name as AstName, NegForm, SECTION};
 use stitchwort_syntax::{Diagnostic, Span};
@@ -286,6 +286,10 @@ pub struct Mark {
     scope: usize,
     locals: usize,
 }
+
+/// A message shows a few hundred characters, so a value that unfolds to
+/// more than this many nodes is not read back whole for one (SW-2569).
+const UNFOLD_NODES: u64 = 200_000;
 
 impl<'e> Ctx<'e> {
     pub fn new(e: &'e Elaborator, span: Span) -> Self {
@@ -649,6 +653,15 @@ impl<'e> Ctx<'e> {
         Ok(quote(&self.g(), self.level(), value)?)
     }
 
+    /// [`Ctx::quote`] for a note in a message, or `None` past
+    /// [`UNFOLD_NODES`] nodes: `Parse.exactly 2^128 p` unfolds 2^128 levels
+    /// deep, and a note does without a side that big (SW-2580).
+    pub fn quote_for_note(&self, value: &Value) -> Option<Term> {
+        quote_at_most(&self.g(), self.level(), value, UNFOLD_NODES)
+            .ok()
+            .flatten()
+    }
+
     /// [`Ctx::quote`] with calls written as calls, not their unfoldings
     /// (`value::quote_folded`): for terms the elaboration produces, such as
     /// annotations and helper types.
@@ -752,10 +765,9 @@ impl<'e> Ctx<'e> {
     /// for a message that says so.
     pub fn show_unfolded(&self, value: &Value) -> String {
         // A message shows a few hundred characters of the top of a value, so
-        // only this many levels are read back, and only this many nodes
-        // (for a value that is wide rather than deep).
+        // only this many levels are read back (and [`UNFOLD_NODES`] nodes,
+        // for a value that is wide rather than deep).
         const UNFOLD_DEPTH: usize = 12;
-        const UNFOLD_NODES: u64 = 200_000;
         match stitchwort_core::value::quote_unfolded_shown_to_depth(
             &self.g(),
             self.level(),
@@ -780,7 +792,7 @@ impl<'e> Ctx<'e> {
         }
         let terms: Vec<Term> = values
             .iter()
-            .filter_map(|v| quote(&g, self.level(), v).ok())
+            .filter_map(|v| self.quote_for_note(v))
             .collect();
         let ids = crate::opaque::declined_in(&g, &terms);
         crate::opaque::opaque_notes(self.e, &ids)
@@ -806,7 +818,7 @@ impl<'e> Ctx<'e> {
         let level = self.level();
         let hay: Vec<Term> = values
             .iter()
-            .filter_map(|v| quote(&g, level, v).ok())
+            .filter_map(|v| self.quote_for_note(v))
             .collect();
         if hay.is_empty() {
             return d;
@@ -872,7 +884,7 @@ impl<'e> Ctx<'e> {
         let g = self.g();
         let level = self.level();
         let folded = |v| stitchwort_core::value::quote_shown(&g, level, v).ok();
-        let normal = |v| quote(&g, level, v).ok();
+        let normal = |v| self.quote_for_note(v);
         [(folded(a), folded(b)), (normal(a), normal(b))]
             .iter()
             .any(|pair| match pair {
@@ -888,7 +900,7 @@ impl<'e> Ctx<'e> {
         let g = self.g();
         let level = self.level();
         let folded = |v| stitchwort_core::value::quote_shown(&g, level, v).ok();
-        let normal = |v| quote(&g, level, v).ok();
+        let normal = |v| self.quote_for_note(v);
         [(folded(a), folded(b)), (normal(a), normal(b))]
             .iter()
             .any(|pair| match pair {
@@ -902,10 +914,24 @@ impl<'e> Ctx<'e> {
     pub fn first_difference_note(&self, a: &Value, b: &Value) -> Option<String> {
         let g = self.g();
         let level = self.level();
-        let shown = |v| stitchwort_core::value::quote_unfolded_shown(&g, level, v).ok();
+        // Read back only this deep: `Parse.exactly 2^128 p` unfolds 2^128
+        // levels deep (SW-2580). Deeper parts are `…` on both sides, which
+        // compare alike, so a difference is only found above the depth.
+        const DIFFERENCE_DEPTH: usize = 64;
+        let shown = |v| {
+            stitchwort_core::value::quote_unfolded_shown_to_depth(
+                &g,
+                level,
+                v,
+                UNFOLD_NODES,
+                DIFFERENCE_DEPTH,
+            )
+            .ok()
+            .flatten()
+        };
         let (x, y) = (shown(a)?, shown(b)?);
         let found = pretty::first_difference_in(&g, self.e, &self.shown_names(false), &x, &y)?;
-        if found.left == found.right {
+        if found.left == found.right || found.left == "…" || found.right == "…" {
             return None;
         }
         let within = found
@@ -928,8 +954,8 @@ impl<'e> Ctx<'e> {
         let mut helpers: Vec<stitchwort_core::DefId> = Vec::new();
         for value in values {
             let terms = [
-                stitchwort_core::value::quote_shown(&g, level, value),
-                quote(&g, level, value),
+                stitchwort_core::value::quote_shown(&g, level, value).ok(),
+                self.quote_for_note(value),
             ];
             for term in terms.iter().flatten() {
                 for (t, _) in term.subterms() {
@@ -7059,7 +7085,7 @@ pub(crate) fn refl_after_instances(cx: &mut Ctx, a: &Value, b: &Value) -> Result
 /// `Eq.cong` then proves the goal from an equation between the arguments.
 fn same_function(cx: &Ctx, a: &Value, b: &Value) -> Option<String> {
     let g = cx.g();
-    let (ta, tb) = (cx.quote(a).ok()?, cx.quote(b).ok()?);
+    let (ta, tb) = (cx.quote_for_note(a)?, cx.quote_for_note(b)?);
     let (ha, xa) = ta.spine();
     let (hb, xb) = tb.spine();
     if xa.is_empty() || xb.is_empty() || !stitchwort_core::value::same_term(ha, hb) {
@@ -7087,7 +7113,7 @@ fn match_equation_note(cx: &Ctx, a: &Value, b: &Value) -> Option<String> {
     let g = cx.g();
     let level = cx.level();
     // Compared as normal forms, so that building the note solves nothing.
-    let read = |v: &Value| quote(&g, level, v).ok();
+    let read = |v: &Value| cx.quote_for_note(v);
     let (ta, tb) = (read(a)?, read(b)?);
     let same = crate::matching::same;
     cx.scrutinees
@@ -7197,7 +7223,7 @@ pub(crate) fn refl_error(cx: &Ctx, a: &Value, b: &Value) -> Diagnostic {
     };
     let error = cx.with_unused_equation_notes(error, &[a, b]);
     // A side stuck on a lifted `match`: its branches' equations.
-    let sides: Vec<Term> = [a, b].iter().filter_map(|v| cx.quote(v).ok()).collect();
+    let sides: Vec<Term> = [a, b].iter().filter_map(|v| cx.quote_for_note(v)).collect();
     let sides: Vec<&Term> = sides.iter().collect();
     let error = match crate::equation_notes::branch_note(cx.e, &sides) {
         Some(note) => error.with_note(note),
