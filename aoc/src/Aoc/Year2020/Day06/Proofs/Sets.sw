@@ -31,7 +31,7 @@ theorem intersectContains (lines: List (List Char)) (people: NonEmptyList Person
 --| Whatever some line has is a question.
 theorem anyQuestion: ∀ (lines: List (List Char)) (people: List Person) => List.All2 PersonWritten lines people → ∀ (question: Char) =>
     lines.any (line => line.contains question) = True → Spec.questions.contains question = True
-  | [], [], all, question, found => Void.exfalso (Bool.falseNotTrue found)
+  | [], [], all, question, found => cases
   | [line, ..lines], [person, ..people], Both (Both nonEmpty (Both questions same)) rest, question, found =>
     Bool.orElim found
       (inLine =>

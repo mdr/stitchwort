@@ -79,12 +79,12 @@ theorem notSpace (char: Char) (stops: seqChar char = False): Text.sameChar ' ' c
     | False => rfl
     | True =>
       let same: ' ' = char := DecEq.sound (rewrite Text.sameCharEq ' ' char at e in e)
-      Void.exfalso (Bool.trueNotFalse (rewrite <- same at stops in stops))
+      cases
 
 theorem digitNotQuote (digit: Char) (isDigit: Parse.isDigit digit = True): (digit == '"') = False :=
   match e: digit == '"' with
     | False => rfl
-    | True => Void.exfalso (Bool.trueNotFalse (Eq.sym (rewrite DecEq.sound e at isDigit in isDigit)))
+    | True => cases
 
 theorem runsRuleBody (read: List Char) (rule2: Rule) (written: RuleWritten read rule2) (after: List Char) (stops: Parse.CannotStart seqChar after):
     Parse.Runs ruleBody read after rule2 :=

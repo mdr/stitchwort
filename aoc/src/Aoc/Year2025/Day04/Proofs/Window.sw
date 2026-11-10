@@ -175,8 +175,8 @@ theorem splitSelf (n1 n2 e: Bool) [x: Bool] (h: (e = True → (n1 = True ∧ n2 
     Bool.toNat (n1 ∧ n2 ∧ x) = Bool.toNat ((n1 ∧ n2 ∧ not e) ∧ x) + Bool.toNat (e ∧ x) :=
   match n1, n2, e with
     | True, True, True => rfl
-    | True, False, True => Void.exfalso (Bool.falseNotTrue (And.right (h rfl)))
-    | False, n2, True => Void.exfalso (Bool.falseNotTrue (And.left (h rfl)))
+    | True, False, True => cases
+    | False, n2, True => cases
     | True, True, False => omega
     | True, False, False => rfl
     | False, n2, False => rfl

@@ -24,7 +24,7 @@ theorem part1Complete (bag: Bag) (answer: Nat) (spec: Part1 bag.adapters answer)
   let fits: (bag.chain (highest + 3)).fits = True := rewrite fitsConnects, <- isSort in connects
   rewrite deviceOfHighest bag highest high in
     match f: (bag.chain (highest + 3)).fits with
-      | False => Void.exfalso (Bool.falseNotTrue fits)
+      | False => cases
       | True =>
         rewrite counted, isSort, <- differencesCount [0, ..bag.adapters.sort, highest + 3] 1 (omega),
           <- differencesCount [0, ..bag.adapters.sort, highest + 3] 3 (omega) in rfl

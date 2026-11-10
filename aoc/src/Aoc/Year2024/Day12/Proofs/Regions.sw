@@ -14,7 +14,7 @@ theorem positionsGrow (garden: Garden) (position: Position) (member: position âˆ
   let contains := (Map.memKeys garden.plots position).forward member
   match grows: garden.plantAt position with
     | Some plant => Witness plant rfl
-    | None => Void.exfalso (Bool.falseNotTrue contains)
+    | None => cases
 
 --| After inserting a list of plots, `seen` has what it had and the plots.
 theorem containsInsertAll (seen: Set Position) (plots: List Position) (position: Position):
@@ -119,9 +119,9 @@ theorem covered (garden: Garden) (position: Position) (starts: List Position) (s
 theorem inOneRegion (garden: Garden) (position: Position) (plant: Char) (grows: garden.plantAt position = Some plant):
     regionsWith garden.regions position = 1 :=
   let plots := (start: Position) (member: start âˆˆ garden.positions) => positionsGrow garden start member
-  let once := atMostOnce garden position garden.positions Set.empty (from other has joined => Void.exfalso (Bool.falseNotTrue has)) plots
+  let once := atMostOnce garden position garden.positions Set.empty (from other has joined => cases) plots
   match covered garden position garden.positions Set.empty plots (garden.positionsComplete position plant grows) with
-    | Inl has => Void.exfalso (Bool.falseNotTrue has)
+    | Inl has => cases
     | Inr found => omega [found, And.left once]
 
 --| Each region found is the region of one of the starts.

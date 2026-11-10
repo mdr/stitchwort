@@ -56,7 +56,7 @@ def hasSome (lists: List (List Pattern)): Bool := !lists.isEmpty
 
 theorem someMember (lists: List (List Pattern)) (some: hasSome lists = True): Exists (List Pattern) (list => list ∈ lists) :=
   match lists with
-    | [] => Void.exfalso (Bool.falseNotTrue some)
+    | [] => cases
     | [first, ..rest] => Witness first (Inl rfl)
 
 theorem memberSome (lists: List (List Pattern)) (list: List Pattern) (member: list ∈ lists): hasSome lists = True :=

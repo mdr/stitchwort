@@ -66,5 +66,5 @@ theorem safeFewer (size: Nat) (bytes: List Position) (fewer: Nat) (more: Nat) (l
   match there: (bytes.take fewer).contains position with
     | True =>
       let worse := containsTakeMono position bytes fewer more le there
-      rewrite worse at clear in Void.exfalso (Bool.falseNotTrue clear)
+      rewrite worse at clear in cases
     | False => Bool.andIntro inside rfl

@@ -176,12 +176,12 @@ theorem atOfWithin (grid: Grid a) (rectangle: grid.Rectangle) (position: Positio
     ∃ (x: a) => grid.at position = Some x :=
   let tall := (List.getInRange grid.rows position.row).forward (Bool.andLeft inside)
   match atRow: List.get grid.rows position.row with
-    | None => Void.exfalso (Bool.falseNotTrue tall)
+    | None => cases
     | Some line =>
       let wide: line.length = grid.width := rectangle line (List.memOfGet grid.rows position.row line atRow)
       let across := (List.getInRange line position.column).forward (rewrite wide in Bool.andRight inside)
       match atColumn: List.get line position.column with
-        | None => Void.exfalso (Bool.falseNotTrue across)
+        | None => cases
         | Some x => Witness x rfl
 
 --| The fast lookup is `at`.
@@ -250,7 +250,7 @@ theorem keepsCell (keep: a → Bool) (at: Position) (tile: a) (passes: keep tile
     (match some | (here, tile) if keep tile => here) (at, tile) = Some at :=
   match c: keep tile with
     | True => rfl
-    | False => Void.exfalso (Bool.falseNotTrue passes)
+    | False => cases
 
 --| A position is among those of the cells whose tile passes `keep` exactly
 --| when one of those cells has a tile that does.

@@ -105,7 +105,7 @@ theorem containsComplete (device: Device) (wire: Wire) (value: Bool): Carries de
         match Map.getOfContains device.settled gate.left (containsComplete device gate.left left leftCarries) with
           | Witness leftValue leftIs =>
             match Map.getOfContains device.settled gate.right (containsComplete device gate.right right rightCarries) with
-              | Witness rightValue rightIs => Void.exfalso (Bool.trueNotFalse (Eq.trans (Eq.sym (rewrite leftIs, rightIs in rfl)) notReady))
+              | Witness rightValue rightIs => cases
 
 --| In a well-formed device, every value a wire carries is the value the
 --| gates settle to.

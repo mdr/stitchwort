@@ -134,7 +134,7 @@ theorem tileScoring (fromStart: Map Reindeer Nat) (toEnd: Map Reindeer Nat) (bes
       | (reindeer, first) =>
         let got := (Map.memToList fromStart reindeer first).forward kept
         match after: toEnd.get reindeer with
-          | None => Void.exfalso (Bool.falseNotTrue passed)
+          | None => cases
           | Some second =>
             Witness reindeer (Witness first (Witness second (Both got (Both after (Both (DecEq.sound passed) (And.right both)))))))
 

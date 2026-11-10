@@ -36,8 +36,8 @@ def Stop (strengthOf: Operator → Nat) (strength: Nat) (rest: List Char): Prop 
 theorem symbolInjective (one other: Operator) (same: (Spec.symbol one == Spec.symbol other) = True): one = other :=
   match one, other with
     | Plus, Plus => rfl
-    | Plus, Times => Void.exfalso (Bool.falseNotTrue same)
-    | Times, Plus => Void.exfalso (Bool.falseNotTrue same)
+    | Plus, Times => cases
+    | Times, Plus => cases
     | Times, Times => rfl
 
 def second: List Char → Char
@@ -59,7 +59,7 @@ theorem stopStep (strengthOf: Operator → Nat) (operator: Operator) (more: List
     rewrite equal in omega)
 
 theorem stopClose (strengthOf: Operator → Nat) (rest: List Char): Stop strengthOf 0 ([')'] ++ rest) :=
-  Both rfl (other more same => Void.exfalso (Bool.falseNotTrue (Eq.cong (chars => first chars == ' ') same)))
+  Both rfl (other more same => cases)
 
 theorem stopNil (strengthOf: Operator → Nat): Stop strengthOf 0 [] :=
   Both rfl (other more same => Void.exfalso (List.nilNotCons _ _ same))
@@ -157,10 +157,10 @@ theorem runsOperandParen (strengthOf: Operator → Nat) (self: () → {Parse} Ex
 --| `operator` is not `other`: the words differ.
 theorem absentOther: ∀ (one other: Operator) => (one == other) = False → ∀ (rest: List Char) =>
     Text.stripPrefixChars one.spaced.toList (other.spaced.toList ++ rest) = None
-  | Plus, Plus, different, rest => Void.exfalso (Bool.falseNotTrue (Eq.sym different))
+  | Plus, Plus, different, rest => cases
   | Plus, Times, different, rest => rfl
   | Times, Plus, different, rest => rfl
-  | Times, Times, different, rest => Void.exfalso (Bool.falseNotTrue (Eq.sym different))
+  | Times, Times, different, rest => cases
 
 --| None of `before` is `operator`.
 def NotOperator (operator: Operator): List Operator → Prop
@@ -198,7 +198,7 @@ theorem runsOperatorFrom (target: Operator) (rest: List Char) (before: List Oper
         | False =>
           let later: target ∈ more :=
             match member with
-              | Inl itIsFirst => Void.exfalso (Bool.falseNotTrue (Eq.trans (Eq.sym (rewrite itIsFirst at same in same)) (DecEq.refl _)))
+              | Inl itIsFirst => cases
               | Inr found => found
           rewrite <- List.appendAssoc before [first] more in
             runsOperatorFrom target rest (before ++ [first]) (notOperatorSnoc target first same before notBefore) more later

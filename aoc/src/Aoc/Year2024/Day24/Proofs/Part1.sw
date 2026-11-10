@@ -41,7 +41,7 @@ theorem fireOntoSound (device: Device) (values: Values) (sound: Sound device val
   | [gate, ..rest], fit, settled, settledSound, wire, value, found =>
     let gateFits := fit gate (Inl rfl)
     match fired: gate.fire values with
-      | None => Void.exfalso (Bool.falseNotTrue gateFits.right)
+      | None => cases
       | Some output =>
         fireOntoSound device values sound rest (other member => fit other (Inr member)) _
           (other otherValue inMap =>

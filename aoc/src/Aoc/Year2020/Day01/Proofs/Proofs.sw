@@ -83,7 +83,7 @@ theorem findPairAfterComplete (target: Nat): ∀ (seen: Set Nat) (before: List N
 --| target.
 theorem findPairSound (target: Nat) (entries: List Nat) (a: Nat) (b: Nat) (found: findPair target entries = Some (a, b)):
     ((a, b) ∈ entries.pairs) ∧ (a + b = target) :=
-  let nothingSeen: ∀ (y: Nat) => Set.contains Set.empty y = True → y ∈ [] := y contained => Void.exfalso (Bool.falseNotTrue contained)
+  let nothingSeen: ∀ (y: Nat) => Set.contains Set.empty y = True → y ∈ [] := y contained => cases
   match findPairAfterSound target Set.empty [] nothingSeen entries a b found with
     | Both (Inl (Both aNowhere bIn)) sum => Void.exfalso aNowhere
     | Both (Inr inPairs) sum => Both inPairs sum
@@ -102,7 +102,7 @@ theorem findTripleNoneCons (target: Nat) (x: Nat) (rest: List Nat) (none: findTr
       match pair: findPair (target - x) rest with
         | Some (p, q) => Void.exfalso (Option.someNotNone _ none)
         | None => Both none (fits => rfl)
-    | False => Both none (fits => Void.exfalso (Bool.falseNotTrue fits))
+    | False => Both none (fits => cases)
 
 --| Three entries add up as a list's sum and product do.
 theorem sum3 (a: Nat) (b: Nat) (c: Nat): [a, b, c].sum = a + b + c := ring

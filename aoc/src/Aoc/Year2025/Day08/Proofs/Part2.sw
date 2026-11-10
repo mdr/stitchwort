@@ -38,7 +38,7 @@ theorem countWithout (p: Nat → Bool) (n: Nat) (v: Nat) (hv: p v = True) (vn: v
     countOne (b => p b ∧ (b == v)) n v (rewrite hv, DecEq.refl v in rfl) vn
       (b h => match e: b == v with
         | True => DecEq.sound e
-        | False => Void.exfalso (Bool.falseNotTrue (rewrite Bool.andFalse (p b) at h)))
+        | False => cases)
     in rfl
 
 --| Two numbers below n that pass p, when only one does, are the same.
@@ -152,7 +152,7 @@ theorem oneCircuitOfCount (n: Nat) (done: List (Nat, Nat)) (c: Circuits) (inv: L
     (labelsTellOf n done c inv a b ha hb).forward (rewrite same in DecEq.refl (c.labelOf a))
 
 --| No boxes are always in one circuit.
-theorem oneCircuitOfNone (done: List (Nat, Nat)): OneCircuit 0 done := a b ha hb => Void.exfalso (Bool.falseNotTrue ha)
+theorem oneCircuitOfNone (done: List (Nat, Nat)): OneCircuit 0 done := a b ha hb => cases
 
 --| When not all boxes are in one circuit, the count is above 1.
 theorem countAboveOne (n: Nat) (done: List (Nat, Nat)) (c: Circuits) (inv: Labelled n done c) (counted: Counted n c)
@@ -165,7 +165,7 @@ theorem countAboveOne (n: Nat) (done: List (Nat, Nat)) (c: Circuits) (inv: Label
           List.anyRangeIntro (b => c.labelOf b == b) (Succ m) 0 (c.labelOf 0) omega (counted.labelBelow 0 rfl)
             (rewrite counted.labelOwn 0 rfl in DecEq.refl (c.labelOf 0))
       match e: c.count with
-        | Zero => Void.exfalso (Bool.falseNotTrue atLeastOne)
+        | Zero => cases
         | Succ Zero => Void.exfalso (notOne (oneCircuitOfCount (Succ m) done c inv counted e))
         | Succ (Succ k) => rfl
 
@@ -190,7 +190,7 @@ theorem lastJoinFinds (points: List Point) (ps: List (Nat, Nat)) (k: Nat) (done:
     | [(f, s), ..ps], k =>
       let n := points.length
       match r: boxesBelow n (f, s) with
-        | False => Void.exfalso (Bool.falseNotTrue ok)
+        | False => cases
         | True =>
           let hf: f < n := Bool.andLeft r
           let hs: s < n := Bool.andRight r
@@ -234,7 +234,7 @@ theorem part2NoBoxesToJoin (points: List Point) (h: points.length ≤ 1): solveP
   match points with
     | [] => rfl
     | [p] => rfl
-    | [p, q, ..qs] => Void.exfalso (Bool.falseNotTrue h)
+    | [p, q, ..qs] => cases
 
 -- Some connection is the last needed -----------------------------------------
 
@@ -277,7 +277,7 @@ theorem countedJoinAll (n: Nat) (rest done: List (Nat, Nat)) (c: Circuits)
           countedJoinAll n rest (List.append done [(f, s)]) (c.join f s) ok
             (labelledJoin n done c f s (Bool.andLeft r) (Bool.andRight r) inv)
             (countedJoin n done c f s (Bool.andLeft r) (Bool.andRight r) inv counted)
-        | False => Void.exfalso (Bool.falseNotTrue ok)
+        | False => cases
 
 --| After the first j connections, is there one circuit?
 def oneAfter (points: List Point) (j: Nat): Bool := (joinAll (Circuits.separate points.length) (firstConnections j points)).count == 1
@@ -307,10 +307,10 @@ theorem lastNeededExists (points: List Point) (two: 2 ≤ points.length): Exists
     Nat.firstFromFound (oneAfter points) (Succ total) 0 total omega omega atEnd
   let notAtStart: oneAfter points 0 = False :=
     match e: n == 1 with
-      | True => Void.exfalso (Bool.falseNotTrue (rewrite DecEq.sound e at two))
+      | True => cases
       | False => rfl
   match g: first with
-    | Zero => Void.exfalso (Bool.falseNotTrue (Eq.trans (Eq.sym notAtStart) found))
+    | Zero => cases
     | Succ k =>
       Witness k (Both
         ((oneAfterTells points (Succ k) some).forward found)

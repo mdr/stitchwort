@@ -37,7 +37,7 @@ theorem topGe (z: Nat) (rs: List Range): z ≤ rs.foldLeft z (m r => Nat.max m r
 
 theorem coveredTop (z: Nat) (rs: List Range) (id: Nat) (h: covered rs id = True): id ≤ rs.foldLeft z (m r => Nat.max m r.to) :=
   match rs with
-    | [] => Void.exfalso (Bool.falseNotTrue h)
+    | [] => cases
     | [r, ..rs] =>
       match e: r.contains id with
         | True => omega [topGe (Nat.max z r.to) rs]
@@ -152,7 +152,7 @@ theorem absorbLo (r: Range) (b: Nat) (h: r.from ≤ b) (merged: List Range) (ok:
 
 theorem absorbStacked (r: Range) (merged: List Range) (ok: LoAtMost r.from merged) (s: Stacked merged): Stacked (absorb merged r) :=
   match merged, s with
-    | [], s => Both (id h => Void.exfalso (Bool.falseNotTrue h)) Trivial
+    | [], s => Both (id h => cases) Trivial
     | [last, ..earlier], Both b rest =>
       match e: Nat.leq r.from (last.to + 1) with
         | True => Both b rest

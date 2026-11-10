@@ -13,7 +13,7 @@ theorem PrefixSums.tableAt (c: Nat): ∀ (above: List Nat) (sums: List (List Nat
     (∀ (i: Nat) => i < List.length sums → c < List.length (List.getOr sums i [])) → ∀ (r: Nat) => r ≤ List.length sums →
     List.getOr (List.getOr (PrefixSums.table above sums) r []) c 0 = List.getOr above c 0 + List.sumBy (List.range 0 r) (i => List.getOr (List.getOr sums i []) c 0)
   | above, [], ha, hs, Zero, hr => Eq.sym (Nat.addZero (List.getOr above c 0))
-  | above, [], ha, hs, Succ r, hr => Void.exfalso (Bool.falseNotTrue hr)
+  | above, [], ha, hs, Succ r, hr => cases
   | above, [row, ..rest], ha, hs, Zero, hr => Eq.sym (Nat.addZero (List.getOr above c 0))
   | above, [row, ..rest], ha, hs, Succ r, hr =>
     let hrow: c < List.length row := hs 0 rfl

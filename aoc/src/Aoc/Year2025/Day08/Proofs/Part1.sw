@@ -65,7 +65,7 @@ theorem allPairsBoth (q: Nat → Bool) (xs: List Nat) (h: xs.all q = True): xs.p
     | [x, ..xs] =>
       match e: q x with
         | True => allAppend _ (List.map xs (y => (x, y))) (List.pairs xs) (allMapPairWith q x e xs h) (allPairsBoth q xs h)
-        | False => Void.exfalso (Bool.falseNotTrue h)
+        | False => cases
 
 theorem allMapPairWith (q: Nat → Bool) (x: Nat) (hx: q x = True) (xs: List Nat) (h: xs.all q = True):
     (xs.map (y => (x, y))).all (pair => q pair.fst ∧ q pair.snd) = True :=
@@ -74,7 +74,7 @@ theorem allMapPairWith (q: Nat → Bool) (x: Nat) (hx: q x = True) (xs: List Nat
     | [y, ..ys] =>
       match e: q y with
         | True => rewrite hx in allMapPairWith q x hx ys h
-        | False => Void.exfalso (Bool.falseNotTrue h)
+        | False => cases
 
 theorem connectionsInRange (k: Nat) (points: List Point): List.all (firstConnections k points) (boxesBelow points.length) = True :=
   let n := points.length

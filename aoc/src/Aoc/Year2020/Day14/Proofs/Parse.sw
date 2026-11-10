@@ -33,8 +33,8 @@ theorem readsInstruction: Parse.Reads instruction InstructionWritten :=
 theorem startsWritten (instructions: List Instruction) (starts: startsWithMask instructions = True): StartsWithMask instructions :=
   match instructions with
     | [SetMask mask, ..rest] => Trivial
-    | [Write address value, ..rest] => Void.exfalso (Bool.falseNotTrue starts)
-    | [] => Void.exfalso (Bool.falseNotTrue starts)
+    | [Write address value, ..rest] => cases
+    | [] => cases
 
 --| If `parseProgram` reads `input`, its lines are the program written out.
 theorem parseWritten (input: Text) (program: Program) (parsed: Fail.toResult (() => parseProgram input) = Ok program):

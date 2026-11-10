@@ -74,7 +74,7 @@ theorem divisorWeightsTop (w: Nat → Int) (j: Nat): divisorWeights w (Succ (Suc
 --| The key fact: the weights of the divisors of m from 2 on add up to 1.
 theorem weightsOne (m: Nat) (h: 1 ≤ m): divisorWeights copiesWeight m (m - 1) = (Bool.toNat (Nat.leq 2 m)).toInt :=
   match m with
-    | Zero => Void.exfalso (Bool.falseNotTrue h)
+    | Zero => cases
     | Succ Zero => rfl
     | Succ (Succ j) =>
       calc divisorWeights copiesWeight (Succ (Succ j)) (Succ j)
@@ -85,7 +85,7 @@ theorem weightsOne (m: Nat) (h: 1 ≤ m): divisorWeights copiesWeight m (m - 1) 
 
 --| Divisors of m beyond m count for nothing.
 theorem divisorWeightsAll (w: Nat → Int): ∀ (m: Nat) => 1 ≤ m → ∀ (c: Nat) => m ≤ Succ c → divisorWeights w m c = divisorWeights w m (m - 1)
-  | Zero, hm, c, hc => Void.exfalso (Bool.falseNotTrue hm)
+  | Zero, hm, c, hc => cases
   | Succ k, hm, c, hc =>
     let f: Nat → Int := d => if Nat.divides d (Succ k) then w d else 0
     calc List.sumBy (List.rangeFrom c 2) f

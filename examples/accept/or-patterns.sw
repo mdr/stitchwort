@@ -44,7 +44,7 @@ def both: Nat → Colour → Bool
 theorem vowelsScore (char: Char) (found: isVowel char = True): score char = 1 :=
   match char with
     | 'a' | 'e' | 'i' | 'o' | 'u' => rfl
-    | _ => Void.exfalso (Bool.falseNotTrue found)
+    | _ => cases
 
 test "warm" := [Red, Green, Blue, Yellow].map warm == [True, False, False, True]
 test "vowels" := ['a', 'u', 'y', 'b'].map isVowel == [True, True, False, False]

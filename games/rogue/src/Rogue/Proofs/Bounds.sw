@@ -49,7 +49,7 @@ theorem sectionCorner (index: Nat) (small: index < 6): Corner index :=
     | Succ (Succ (Succ Zero)) => { top = omega, left = omega }
     | Succ (Succ (Succ (Succ Zero))) => { top = omega, left = omega }
     | Succ (Succ (Succ (Succ (Succ Zero)))) => { top = omega, left = omega }
-    | Succ (Succ (Succ (Succ (Succ (Succ more))))) => Void.exfalso (Bool.falseNotTrue small)
+    | Succ (Succ (Succ (Succ (Succ (Succ more))))) => cases
 
 --| A room as `roomFrom` makes it in section `index`, from any rolls below
 --| their bounds (`roll most` is below `Succ most`), fits on the map.
@@ -129,7 +129,7 @@ theorem floorOnScreen (level: Level) (entranceFits: OnMap level.entrance) (exitF
                 | True =>
                   List.anyTrueElim level.corridors (.contains position) (OnScreen position) inCorridor
                     (area listed contained => containedOnScreen area (corridorsFit area listed) position contained)
-                | False => Void.exfalso (Bool.falseNotTrue (Eq.sym open))
+                | False => cases
 
 --| The terrain is drawn 20 rows by 66 columns, whatever the level.
 theorem terrainRows (level: Level): (drawTerrain level).length = levelRows :=

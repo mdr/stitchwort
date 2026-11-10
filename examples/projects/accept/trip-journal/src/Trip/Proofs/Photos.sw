@@ -19,8 +19,8 @@ theorem stillHoldsGives (albums: List Album) (id: Nat):
           | Both same inAlbums =>
             List.anyIntro (a => (Some albumId = Some a.id) ∧ (holds a id = True)) album albums inAlbums
               (Both (rewrite DecEq.sound same in rfl) h)
-      | None => Void.exfalso (Bool.falseNotTrue h)
-  | None, h => Void.exfalso (Bool.falseNotTrue h)
+      | None => cases
+  | None, h => cases
 
 -- Every photo of the merged albums has an owner among them that holds it.
 theorem ownerGives (local: List Album) (remote: List Album) (merged: List Album) (id: Nat) (m: id ∈ photoIds merged):

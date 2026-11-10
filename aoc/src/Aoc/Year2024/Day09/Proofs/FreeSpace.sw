@@ -77,7 +77,7 @@ theorem hasOf (spans: List Span) (span: Span): (FreeSpace.of spans).has span = T
   forward = held =>
     match (hasFoldAdd span spans Map.empty).forward held with
       | Inl pair => pair
-      | Inr empty => Void.exfalso (Bool.falseNotTrue (Eq.trans (Eq.sym (Map.containsInEmpty span.length span.start)) empty)),
+      | Inr empty => cases,
   backward = pair => (hasFoldAdd span spans Map.empty).backward (Inl pair)
 }
 

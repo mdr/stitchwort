@@ -61,7 +61,7 @@ theorem settleSelf (legs: List Leg) (ids: List.Distinct (List.map legs (leg => l
 theorem keepsFits (legs: List Leg) (id: Nat) (pin: Pin) (h: keepsIn legs id pin = True): pinFits legs pin = True :=
   match e: firstCovering legs pin.start with
     | Some leg => Bool.andRight h
-    | None => Void.exfalso (Bool.falseNotTrue h)
+    | None => cases
 
 -- A pin the merge keeps lies wholly inside the first leg covering its start.
 theorem placePinFits (legs: List Leg) (pin: Pin) (pos: Position) (kept: Pin) (h: placePin legs pin pos = Some kept):
@@ -92,4 +92,4 @@ theorem placePinSelf (legs: List Leg) (ids: List.Distinct (List.map legs (leg =>
       rewrite List.findKeyDistinct (l => l.id) legs ids leg (And.right (firstCoveringMem legs pin.start leg e)), DecEq.refl leg.start,
         pinStartAtSame pin, e, DecEq.refl leg.id in
       rewrite fits in rfl
-    | None => Void.exfalso (Bool.falseNotTrue fits)
+    | None => cases

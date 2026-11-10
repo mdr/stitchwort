@@ -22,7 +22,7 @@ def below (c: Fin 10) (x: Fin 10): Bool := c < x
 theorem belowLess (c: Fin 10) (x: Fin 10) (h: below c x = True): Fin.toNat c < Fin.toNat x :=
   match e: c < x with
     | True => omega
-    | False => Void.exfalso (Bool.falseNotTrue h)
+    | False => cases
 
 def largerNat (c: Nat) (x: Nat): Nat := if c < x then x else c
 

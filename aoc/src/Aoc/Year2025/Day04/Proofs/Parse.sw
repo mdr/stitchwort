@@ -41,5 +41,5 @@ theorem gridOfCells (lines: List Text) (grid: Grid) (h: Grid.of lines = Some gri
 theorem parseGridCells (lines: List Text) (grid: Grid) (h: parseGrid lines = Ok grid) (r: Nat) (c: Nat):
     grid.cells r c = (parseLine (lines.getOr r "")).getOr c Floor :=
   match e: findStray lines with
-    | Some (row, column, ch) => Void.exfalso (Bool.falseNotTrue (Eq.cong Result.isOk h))
+    | Some (row, column, ch) => cases
     | None => gridOfCells lines grid (Eq.trans (Eq.sym (Result.toOptionToResult _ (Grid.of lines))) (Eq.cong Result.toOption h)) r c

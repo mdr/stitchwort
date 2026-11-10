@@ -144,7 +144,7 @@ theorem gatherStart (warehouse: Warehouse) (direction: Direction) (fuel: Nat) (g
     (gathered: warehouse.gather direction Set.empty [warehouse.robot.step direction] fuel = Some group):
     (GroupOk warehouse direction group) ∧ (Clear warehouse group (warehouse.robot.step direction)) :=
   let after :=
-    gatherOk warehouse direction fuel Set.empty [warehouse.robot.step direction] group gathered (box held => Void.exfalso (Bool.falseNotTrue held))
+    gatherOk warehouse direction fuel Set.empty [warehouse.robot.step direction] group gathered (box held => cases)
   Both (And.left (And.right after)) (And.right (And.right after) (warehouse.robot.step direction) (Inl rfl))
 
 --| With nothing overlapping, a box covering a cell of another box is that

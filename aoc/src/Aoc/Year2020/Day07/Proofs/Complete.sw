@@ -98,7 +98,7 @@ theorem listStartsWithDigit (read: List Char) (head: Content) (tail: List Conten
 --| "no other bags" doesn't start with a digit.
 theorem noOtherAbsent (digit: Char) (more: List Char) (isDigit: Parse.isDigit digit = True): Text.stripPrefixChars "no other bags".toList [digit, ..more] = None :=
   match same: Text.sameChar 'n' digit with
-    | True => Void.exfalso (Bool.trueNotFalse (Eq.trans (Eq.sym isDigit) (rewrite Eq.sym (DecEq.sound (rewrite Text.sameCharEq 'n' digit at same in same)) in rfl)))
+    | True => cases
     | False => rfl
 
 theorem runsContents (read: List Char) (items: List Content) (written: ContentsWritten read items) (more: List Char): Parse.Runs contents read ['.', ..more] items :=

@@ -62,7 +62,7 @@ theorem reachableSound (size: Nat) (bytes: List Position) (fallen: Nat) (open: r
   let some: (solvePart1 size fallen bytes).isSome = True := open
   match answer: solvePart1 size fallen bytes with
     | Some fewest => Exists.elim (And.left (part1Some size bytes fallen fewest answer)) (steps both => Witness steps (And.left both))
-    | None => Void.exfalso (Bool.falseNotTrue some)
+    | None => cases
 
 --| ...and a path means reachable.
 theorem reachableComplete (size: Nat) (bytes: List Position) (fallen: Nat) (has: HasPath size bytes fallen): reachable size bytes fallen = True :=

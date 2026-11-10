@@ -15,7 +15,7 @@ theorem runsAsValue (p: () → {Parse} a) (read: List Char) (rest: List Char) (v
 theorem digitNotX (char: Char) (isDigit: Parse.isDigit char = True): (char == 'x') = False :=
   match e: char == 'x' with
     | False => rfl
-    | True => Void.exfalso (Bool.trueNotFalse (Eq.sym (rewrite DecEq.sound e at isDigit in isDigit)))
+    | True => cases
 
 theorem declinesX (read: List Char) (after: List Char) (some: read ≠ []) (all: read.all Parse.isDigit = True):
     Parse.Declines (() => Parse.char 'x') (read ++ after) :=

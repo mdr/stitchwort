@@ -13,7 +13,7 @@ theorem notBelow (x: Nat) (y: Nat) (h: x ≤ y): (y < x) = False := omega
 --| In a sorted list, at most k elements are below the one at index k.
 theorem countBelowSorted: ∀ (sorted: List Nat) => List.Sorted Nat.leq sorted → ∀ (k: Nat) => k < sorted.length →
     sorted.count (score => score < sorted.getOr k 0) ≤ k
-  | [], s, k, h => Void.exfalso (Bool.falseNotTrue h)
+  | [], s, k, h => cases
   | [x, ..rest], s, Zero, h =>
     let none := List.countNone rest (score => score < x) (y member => notBelow x y (List.sortedHeadLe Nat.leq Nat.leTrans x y rest s member))
     rewrite List.countCons rest x (score => score < x), notBelow x x (Nat.leRefl x), none in Nat.leRefl 0
@@ -25,7 +25,7 @@ theorem countBelowSorted: ∀ (sorted: List Nat) => List.Sorted Nat.leq sorted �
 --| And at most length - 1 - k above it.
 theorem countAboveSorted: ∀ (sorted: List Nat) => List.Sorted Nat.leq sorted → ∀ (k: Nat) => k < sorted.length →
     sorted.count (score => sorted.getOr k 0 < score) + k + 1 ≤ sorted.length
-  | [], s, k, h => Void.exfalso (Bool.falseNotTrue h)
+  | [], s, k, h => cases
   | [x, ..rest], s, Zero, h =>
     let most := List.countLeLength rest (score => x < score)
     rewrite List.countCons rest x (score => x < score), notBelow x x (Nat.leRefl x) in omega

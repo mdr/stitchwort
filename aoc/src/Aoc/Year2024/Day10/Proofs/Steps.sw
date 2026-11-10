@@ -25,7 +25,7 @@ theorem positionsDistinct (map: TopographicMap): List.Distinct map.positions := 
 theorem higherOnMap (map: TopographicMap) (from: Position) (to: Position) (higher: increasesByOne map from to = True): to ∈ map.positions :=
   match known: map.heightAt from with
     | Some height => positionsComplete map to (height + 1) (DecEq.sound higher)
-    | None => Void.exfalso (Bool.falseNotTrue higher)
+    | None => cases
 
 --| `uphill` is the spec's steps from `from`.
 theorem memUphill (map: TopographicMap) (from: Position) (to: Position): to ∈ map.uphill from ↔ (to ∈ map.positions) ∧ (isStep map from to = True) := {

@@ -25,7 +25,7 @@ theorem orCases (goal: Prop): ∀ (a b: Bool) => (a ∨ b) = True → (a = True 
 theorem skip (flag: Nat → Bool) (k: Nat) (c: Nat) (d: Nat) (h: reach flag (Succ k) c d = True):
     ¬(flag c) = True → reach flag k c d = True :=
   match e: flag c with
-    | True => n => Void.exfalso (Bool.falseNotTrue n)
+    | True => n => cases
     | False => n => h
 
 -- The three ways a beam can have got to `d`. The left operand of `||` is the
@@ -39,7 +39,7 @@ theorem ways (flag: Nat → Bool) (k: Nat) (c: Nat) (d: Nat) (goal: Prop) (h: re
       orCases goal _ (reach flag k (c + 1) d) hr
         (hl =>
           match c with
-            | Zero => Void.exfalso (Bool.falseNotTrue hl)
+            | Zero => cases
             | Succ b => left b hl)
         right
     | False => straight hr

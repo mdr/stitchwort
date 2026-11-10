@@ -98,7 +98,7 @@ theorem countedSound (racetrack: Racetrack) (startOnTrack: onTrack racetrack rac
             let (Both aroundMember saves) := List.memFilter (start.diamond length) (savesFrom toEnd honest threshold start before) endMember
             match gotAfter: toEnd.get end with
               | None =>
-                Void.exfalso (Bool.falseNotTrue saves)
+                cases
               | Some after =>
                 let fits: before + cheatTime ({ start, end }: Cheat) + after + threshold ≤ honest :=
                   saves

@@ -195,7 +195,7 @@ theorem tracksAgain (passages: List Passage) (twice: Bool) (unvisited: List Cave
     (Both (rewrite visitsOther sofar y Cave.start notStart in start)
       (Both (rewrite visitsOther sofar y Cave.end notEnd in end)
         (Both (Both each2 (Both once2 (Both (rewrite visitsOther sofar y Cave.start notStart in startOnce) (rewrite visitsOther sofar y Cave.end notEnd in endOnce))))
-          (Both (left => Void.exfalso (Bool.falseNotTrue left)) (none => Inr (Witness y (Both small (rewrite two in rfl))))))))
+          (Both (left => cases) (none => Inr (Witness y (Both small (rewrite two in rfl))))))))
 
 --| Reaching `end`, the path keeps the rule.
 theorem finishWithin (passages: List Passage) (twice: Bool) (unvisited: List Cave) (spare: Bool) (sofar: Path)

@@ -160,7 +160,7 @@ theorem fillCorrect (garden: Garden) (plant: Char) (start: Position) (stack: Lis
 theorem fillFromStart (garden: Garden) (plant: Char) (start: Position):
     FillResult garden plant start [start] [] (Garden.fill garden plant [start] Set.empty []) :=
   fillCorrect garden plant start [start] Set.empty []
-    (Both (position => { forward = contains => Void.exfalso (Bool.falseNotTrue contains), backward = none => Void.exfalso none })
+    (Both (position => { forward = contains => cases, backward = none => Void.exfalso none })
       (Both Trivial
         (Both (position none => Void.exfalso none)
           (Both

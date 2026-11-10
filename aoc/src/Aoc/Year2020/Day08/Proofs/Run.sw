@@ -40,7 +40,7 @@ theorem unvisitedRemove (length: Nat) (done: List Int) (unvisited: Set Nat) (lef
     match d: other == position with
       | True =>
         rewrite DecEq.sound d, Set.containsRemove unvisited position in {
-          forward = never => Void.exfalso (Bool.falseNotTrue never),
+          forward = never => cases,
           backward = (Both below out) => Void.exfalso (out (List.memAppendRight position.toInt done [position.toInt] (Inl rfl)))
         }
       | False =>

@@ -29,7 +29,7 @@ theorem busesFromHas (start: Nat) (schedule: List Slot) (id: Nat) (h: Listed id 
     | [Listed other, ..rest], Inr member =>
       match busesFromHas (Succ start) rest id member with
         | Witness bus (Both inRest same) => Witness bus (Both (Inr inRest) same)
-    | [OutOfService, ..rest], Inl same => Void.exfalso (Bool.falseNotTrue (Eq.cong isListed same))
+    | [OutOfService, ..rest], Inl same => cases
     | [OutOfService, ..rest], Inr member => busesFromHas (Succ start) rest id member
 
 theorem nextDepartureIs (bus: Bus) (from: Nat): bus.nextDeparture from = Nat.ceilDiv from bus.id * bus.id := rfl

@@ -41,7 +41,7 @@ theorem loopsFromSound (lab: Lab) (sightlines: Sightlines) (simulates: Simulates
   | Succ budget, guard, seen, now, reached, enough, seenBy, says, anySteps, gone =>
     let onTheMap := afterOnMap lab inside now guard reached
     match turned: sightlines.nextTurn guard with
-      | None => Void.exfalso (Bool.falseNotTrue says)
+      | None => cases
       | Some next =>
         Exists.elim (And.left (simulates guard onTheMap) next turned) (steps both =>
           let later: after lab (now + steps) = Some next := Eq.trans (afterAdd lab now guard reached steps) (And.right both)
@@ -81,7 +81,7 @@ theorem seenStart (lab: Lab): SeenBy lab (Set.singleton lab.startGuard) 0 :=
   guard has =>
     match containsInsertEither Set.empty lab.startGuard guard has with
       | Inl isStart => Witness 0 (Both rfl (rewrite isStart in rfl))
-      | Inr inEmpty => Void.exfalso (Bool.falseNotTrue inEmpty)
+      | Inr inEmpty => cases
 
 --| The program's loop test decides `Loops`.
 theorem loopsWithCorrect (lab: Lab) (sightlines: Sightlines) (simulates: Simulates sightlines lab) (inside: onMap lab lab.start = True):

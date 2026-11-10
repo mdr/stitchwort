@@ -30,7 +30,7 @@ theorem runsSeat (kind: Seat) (rest: List Char) (allowed: isSeatChar (symbol kin
 theorem seatAbsent (first: Char) (char: Char) (more: List Char) (member: isSeatChar first = True) (stops: isSeatChar char = False):
     Text.stripPrefixChars [first] [char, ..more] = None :=
   match same: Text.sameChar first char with
-    | True => Void.exfalso (Bool.trueNotFalse (Eq.trans (Eq.sym member) (rewrite DecEq.sound (rewrite Text.sameCharEq first char at same in same) in stops)))
+    | True => cases
     | False => rfl
 
 theorem declinesSeat (input: List Char) (stops: Parse.CannotStart isSeatChar input): Parse.Declines seat input :=

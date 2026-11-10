@@ -18,7 +18,7 @@ theorem mustPrecedeCorrect (rules: List Rule) (x: Nat) (y: Nat): mustPrecede (ru
 theorem brokenHasBoth (x: Nat) (y: Nat) (pages: List Nat) (broken: printedBefore x y pages = False):
     (pages.any (== x) = True) ∧ (pages.any (== y) = True) :=
   match pages with
-    | [] => Void.exfalso (Bool.trueNotFalse broken)
+    | [] => cases
     | [page, ..later] =>
       match laterBroken: printedBefore x y later with
         | False =>

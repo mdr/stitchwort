@@ -50,7 +50,7 @@ theorem productiveRanked (rules: Rules) (rank: Nat → Nat) (bound: Nat) (below:
       (lookupMember rules.numbered number (Alternatives sequences) looked)
     let sequenceProductive := List.allMember _ sequences entryProductive sequence chosen
     match sequence with
-      | [] => Void.exfalso (Bool.falseNotTrue sequenceProductive)
+      | [] => cases
       | [single] => Both (List.consNotNil single []) (only same => rewrite <- List.consInjectiveHead single only [] [] same in omega [sequenceProductive])
       | [first, second, ..others] => Both (List.consNotNil first [second, ..others]) (only same => Void.exfalso (List.consNotNil second others (Eq.cong (.drop 1) same))))
 
@@ -60,7 +60,7 @@ theorem anyEmpty (lefts: List (List Char)) (any: lefts.any .isEmpty = True): [] 
   List.anyTrueElim lefts List.isEmpty _ any (left member empty =>
     match left with
       | [] => member
-      | [letter, ..rest] => Void.exfalso (Bool.falseNotTrue empty))
+      | [letter, ..rest] => cases)
 
 --| `matchesCompletely` reads the rules from a table, but the list gives its answer.
 theorem matchesCompletelyList (rules: Rules) (message: Message):

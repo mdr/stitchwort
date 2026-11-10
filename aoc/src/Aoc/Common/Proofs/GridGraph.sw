@@ -61,7 +61,7 @@ theorem pathWalk (enter: Position → Option Nat) (states: List Position)
       let near := Bool.andLeft path
       let rest2 := Bool.andRight path
       match found: enter next with
-        | None => Void.exfalso (Bool.falseNotTrue rest2)
+        | None => cases
         | Some cost => Both (stepEdgeIntro enter start next cost near found) (pathWalk enter states complete next rest finish rest2)
 
 --| ...costing the sum of what entering its positions costs.
@@ -92,7 +92,7 @@ theorem unitPathCost (enter: Position → Option Nat) (unit: ∀ (position: Posi
 theorem unitEnterCost (enter: Position → Option Nat) (unit: ∀ (position: Position) (cost: Nat) => enter position = Some cost → cost = 1)
     (position: Position) (entered: canEnter enter position = True): enterCost enter position = 1 :=
   match found: enter position with
-    | None => Void.exfalso (Bool.falseNotTrue entered)
+    | None => cases
     | Some cost => unit position cost found
 
 -- Paths

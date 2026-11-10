@@ -77,7 +77,7 @@ theorem growSameElim (garden: Garden) (plot: Position) (other: Position) (same: 
     Exists Char (plant => (garden.plantAt plot = Some plant) ∧ (garden.plantAt other = Some plant)) :=
   match grows: garden.plantAt plot with
     | Some plant => Witness plant (Both rfl (DecEq.sound same))
-    | None => Void.exfalso (Bool.falseNotTrue same)
+    | None => cases
 
 theorem growSameIntro (garden: Garden) (plot: Position) (other: Position) (plant: Char) (here: garden.plantAt plot = Some plant)
     (there: garden.plantAt other = Some plant): growSame garden plot other = True :=
