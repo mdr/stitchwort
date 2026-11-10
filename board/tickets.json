@@ -24781,14 +24781,14 @@
     {
       "id": 2470,
       "title": "Mismatch notes: show_unfolded/quote_unfolded_shown spends up to the 10M-node size limit (~4 s, 2 GB) on a note truncated to 240 chars; give it a small display budget (quote_as has a cap); makes examples/reject/mismatch-note-huge-unfolding.sw cheap",
-      "status": "backlog",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
         "elab"
       ],
       "epic": "audit-fuzzing",
-      "body": "From SW-2452's report: crates/elab/src/check.rs:753, caller alias_notes. Check message snapshots stay the same for normal cases. 45 min.\n\n10 Nov: SW-2569 capped show_unfolded at 200k nodes, the same cause; the other show_unfolded/quote_unfolded_shown call sites are unchecked. Check, then likely close.",
+      "body": "From SW-2452's report: crates/elab/src/check.rs:753, caller alias_notes. Check message snapshots stay the same for normal cases. 45 min.\n\n10 Nov: SW-2569 capped show_unfolded at 200k nodes, the same cause; the other show_unfolded/quote_unfolded_shown call sites are unchecked. Check, then likely close.\n\nClosed 10 Nov (orchestrator): done by SW-2569 (200k-node cap) and SW-2598 (depth-limited readback for show_unfolded and first_difference_note); the remaining uncapped note readbacks are SW-2600.",
       "created": "2026-11-09",
       "updated": "2026-11-10",
       "commits": []
