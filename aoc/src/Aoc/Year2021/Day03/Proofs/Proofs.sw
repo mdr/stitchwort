@@ -12,14 +12,15 @@ import Std (Eq, List, Nat, Option)
 --| numbers that have one.
 
 --| Its 1s are the numbers whose bit is a 1.
-theorem onesInColumn (bitOf: Bits → Option Bool): ∀ (numbers: List Bits) =>
-    (numbers.filterMap bitOf).count (bit => bit) = numbers.count (number => bitOf number == Some True)
-  | [] => rfl
-  | [number, ..rest] =>
-    rewrite List.countCons rest number (number => bitOf number == Some True), <- onesInColumn bitOf rest in
-      match bitOf number with
-        | None => omega
-        | Some bit => rewrite List.countCons (List.filterMap rest bitOf) bit (bit => bit) in cases
+theorem onesInColumn (bitOf: Bits → Option Bool) (numbers: List Bits):
+    (numbers.filterMap bitOf).count (bit => bit) = numbers.count (number => bitOf number == Some True) :=
+  match numbers with
+    | [] => rfl
+    | [number, ..rest] =>
+      rewrite List.countCons rest number (number => bitOf number == Some True), <- onesInColumn bitOf rest in
+        match bitOf number with
+          | None => omega
+          | Some bit => rewrite List.countCons (List.filterMap rest bitOf) bit (bit => bit) in cases
 
 --| So the program's most common bit of a column is 1 when it has no more 0s
 --| than 1s.
@@ -97,12 +98,12 @@ theorem getAfterPrefix (t: Bits) (prefix: Bits): Bits.get (Bits.append prefix t)
 
 --| Keeping the numbers with `bit` after the prefix is keeping the rests that
 --| start with it, without it.
-theorem keepAfterPrefix (prefix: Bits) (bit: Bool): ∀ (rests: List Bits) =>
-    keep (rests.map (rest => Bits.append prefix rest)) (Bits.width prefix) bit
-      = (rests.filterMap (rest => Bits.afterBit rest bit)).map (rest => Bits.append prefix (Bits.cons rest bit))
-  | [] => rfl
-  | [{ bits }, ..others] =>
-    rewrite getAfterPrefix { bits } prefix, keepAfterPrefix prefix bit others in cases
+theorem keepAfterPrefix (prefix: Bits) (bit: Bool) (rests: List Bits): keep (rests.map (rest => Bits.append prefix rest)) (Bits.width prefix) bit
+    = (rests.filterMap (rest => Bits.afterBit rest bit)).map (rest => Bits.append prefix (Bits.cons rest bit)) :=
+  match rests with
+    | [] => rfl
+    | [{ bits }, ..others] =>
+      rewrite getAfterPrefix { bits } prefix, keepAfterPrefix prefix bit others in cases
 
 --| The bit kept moves onto the prefix.
 theorem growPrefix (prefix: Bits) (bit: Bool) (rests: List Bits):
@@ -164,16 +165,16 @@ theorem ratingStep (choose: List Bool → Bool) (criterion: List Bits → Nat �
 --| picks the bit the program's `choose` picks.
 theorem ratingAfterPrefix (choose: List Bool → Bool) (criterion: List Bits → Nat → Bool)
     (agree: ∀ (prefix: Bits) (rests: List Bits) =>
-      criterion (rests.map (rest => Bits.append prefix rest)) (Bits.width prefix) = choose (rests.filterMap Bits.first)):
-    ∀ (k: Nat) (prefix: Bits) (rests: List Bits) =>
-    findRating criterion (rests.map (rest => Bits.append prefix rest)) (List.rangeFrom k (Bits.width prefix))
-      = Option.map (rating choose k rests) (rest => Bits.append prefix rest)
-  | k, prefix, [rest] => rfl
-  | Zero, prefix, [] => rfl
-  | Zero, prefix, [first, second, ..others] => rfl
-  | Succ k, prefix, [] => ratingStep choose criterion agree k prefix [] (ratingAfterPrefix choose criterion agree k)
-  | Succ k, prefix, [first, second, ..others] =>
-    ratingStep choose criterion agree k prefix [first, second, ..others] (ratingAfterPrefix choose criterion agree k)
+      criterion (rests.map (rest => Bits.append prefix rest)) (Bits.width prefix) = choose (rests.filterMap Bits.first))
+    (k: Nat) (prefix: Bits) (rests: List Bits): findRating criterion (rests.map (rest => Bits.append prefix rest)) (List.rangeFrom k (Bits.width prefix))
+      = Option.map (rating choose k rests) (rest => Bits.append prefix rest) :=
+  match k, rests with
+    | k, [rest] => rfl
+    | Zero, [] => rfl
+    | Zero, [first, second, ..others] => rfl
+    | Succ k, [] => ratingStep choose criterion agree k prefix [] (ratingAfterPrefix choose criterion agree k)
+    | Succ k, [first, second, ..others] =>
+      ratingStep choose criterion agree k prefix [first, second, ..others] (ratingAfterPrefix choose criterion agree k)
 
 --| From the whole report.
 theorem ratingCorrect (choose: List Bool → Bool) (criterion: List Bits → Nat → Bool)

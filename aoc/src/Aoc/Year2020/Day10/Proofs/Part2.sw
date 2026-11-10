@@ -25,10 +25,11 @@ theorem connectingCons (device: Nat) (low: Nat) (next: Nat) (higher: List Nat):
 
 def lowerFirst (a: Onward) (b: Onward): Bool := a.joltage <= b.joltage
 
-theorem sortedOnward (device: Nat): ∀ (adapters: List Nat) => List.Sorted Nat.leq adapters → List.Sorted lowerFirst (onwardFrom device adapters)
-  | [], sorted => Trivial
-  | [adapter], sorted => Both Trivial Trivial
-  | [adapter, next, ..higher], Both first rest => Both first (sortedOnward device [next, ..higher] rest)
+theorem sortedOnward (device: Nat) (adapters: List Nat) (sorted: List.Sorted Nat.leq adapters): List.Sorted lowerFirst (onwardFrom device adapters) :=
+  match adapters, sorted with
+    | [], sorted => Trivial
+    | [adapter], sorted => Both Trivial Trivial
+    | [adapter, next, ..higher], Both first rest => Both first (sortedOnward device [next, ..higher] rest)
 
 theorem takeWhileKeep (x: a) (xs: List a) (p: a → Bool) (keep: p x = True): [x, ..xs].takeWhile p = [x, ..xs.takeWhile p] := rewrite keep in rfl
 
@@ -42,26 +43,27 @@ def near (joltage: Nat) (next: Onward): Bool := next.joltage <= joltage + 3
 --| In a table sorted by joltage, those `joltage` can feed are all within 3
 --| jolts of it at the front, so the program stops looking at the first
 --| further one.
-theorem cutAbove (joltage: Nat): ∀ (table: List Onward) => List.Sorted lowerFirst table → (table.takeWhile (near joltage)).sumBy (through joltage) = table.sumBy (through joltage)
-  | [], sorted => rfl
-  | [first, ..rest], Both head sorted =>
-    let all := List.sumByCons rest first (through joltage)
-    if h: first.joltage <= joltage + 3 then
-      let kept := List.sumByCons (rest.takeWhile (near joltage)) first (through joltage)
-      rewrite takeWhileKeep first rest (near joltage) (omega) in
-        let later := cutAbove joltage rest sorted
-        omega
-    else
-      let beyond := List.sumByZeroIntro rest (through joltage) (next member =>
-        let above := List.sortedHeadLe lowerFirst (x y z xy yz => omega) first next rest (Both head sorted) member
-        match c: canFeed joltage next.joltage with
-          | True => Void.exfalso (omega)
-          | False => rfl)
-      let skipped: through joltage first = 0 :=
-        match c: canFeed joltage first.joltage with
-          | True => Void.exfalso (omega)
-          | False => rfl
-      rewrite takeWhileStop first rest (near joltage) (omega) in omega
+theorem cutAbove (joltage: Nat) (table: List Onward) (h1: List.Sorted lowerFirst table): (table.takeWhile (near joltage)).sumBy (through joltage) = table.sumBy (through joltage) :=
+  match table, h1 with
+    | [], sorted => rfl
+    | [first, ..rest], Both head sorted =>
+      let all := List.sumByCons rest first (through joltage)
+      if h: first.joltage <= joltage + 3 then
+        let kept := List.sumByCons (rest.takeWhile (near joltage)) first (through joltage)
+        rewrite takeWhileKeep first rest (near joltage) (omega) in
+          let later := cutAbove joltage rest sorted
+          omega
+      else
+        let beyond := List.sumByZeroIntro rest (through joltage) (next member =>
+          let above := List.sortedHeadLe lowerFirst (x y z xy yz => omega) first next rest (Both head sorted) member
+          match c: canFeed joltage next.joltage with
+            | True => Void.exfalso (omega)
+            | False => rfl)
+        let skipped: through joltage first = 0 :=
+          match c: canFeed joltage first.joltage with
+            | True => Void.exfalso (omega)
+            | False => rfl
+        rewrite takeWhileStop first rest (near joltage) (omega) in omega
 
 theorem waysFull (device: Nat) (low: Nat) (table: List Onward) (sorted: List.Sorted lowerFirst table):
     waysFrom device low table = (if canFeed low device then 1 else 0) + table.sumBy (through low) :=

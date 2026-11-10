@@ -10,18 +10,20 @@ import Aoc.Year2021.Day02.Spec (..)
 import Std (Int, List)
 
 --| Part 1: the horizontal position grows by the sum of the forward moves.
-theorem horizontalAfter (start: Submarine): ∀ (commands: List Command) =>
-    (commands.foldLeft start Submarine.follow).horizontal = start.horizontal + horizontal commands
-  | [] => rfl
-  | [command, ..rest] =>
-    rewrite horizontalAfter (start.follow command) rest, List.sumByCons rest command Command.ahead in cases
+theorem horizontalAfter (start: Submarine) (commands: List Command):
+    (commands.foldLeft start Submarine.follow).horizontal = start.horizontal + horizontal commands :=
+  match commands with
+    | [] => rfl
+    | [command, ..rest] =>
+      rewrite horizontalAfter (start.follow command) rest, List.sumByCons rest command Command.ahead in cases
 
 --| And the depth by the downs less the ups.
-theorem depthAfter (start: Submarine): ∀ (commands: List Command) =>
-    (commands.foldLeft start Submarine.follow).depth = start.depth + commands.sumBy Command.down
-  | [] => omega
-  | [command, ..rest] =>
-    rewrite depthAfter (start.follow command) rest, List.sumByCons rest command Command.down in cases
+theorem depthAfter (start: Submarine) (commands: List Command):
+    (commands.foldLeft start Submarine.follow).depth = start.depth + commands.sumBy Command.down :=
+  match commands with
+    | [] => omega
+    | [command, ..rest] =>
+      rewrite depthAfter (start.follow command) rest, List.sumByCons rest command Command.down in cases
 
 def surface: Submarine := { horizontal = 0, depth = 0 }
 
@@ -36,32 +38,35 @@ theorem aimedDepthCons (aim: Int) (command: Command) (rest: List Command):
   List.sumCons _ _
 
 --| Part 2: the horizontal position is part 1's.
-theorem aimedHorizontalAfter (start: AimedSubmarine): ∀ (commands: List Command) =>
-    (commands.foldLeft start AimedSubmarine.follow).horizontal = start.horizontal + horizontal commands
-  | [] => rfl
-  | [command, ..rest] =>
-    rewrite aimedHorizontalAfter (start.follow command) rest, List.sumByCons rest command Command.ahead in cases
+theorem aimedHorizontalAfter (start: AimedSubmarine) (commands: List Command):
+    (commands.foldLeft start AimedSubmarine.follow).horizontal = start.horizontal + horizontal commands :=
+  match commands with
+    | [] => rfl
+    | [command, ..rest] =>
+      rewrite aimedHorizontalAfter (start.follow command) rest, List.sumByCons rest command Command.ahead in cases
 
 --| The aim moves as part 1's depth does (the part 2 answer doesn't need this,
 --| but it is the program's reading of the aim).
-theorem aimAfter (start: AimedSubmarine): ∀ (commands: List Command) =>
-    (commands.foldLeft start AimedSubmarine.follow).aim = start.aim + commands.sumBy Command.down
-  | [] => omega
-  | [command, ..rest] =>
-    rewrite aimAfter (start.follow command) rest, List.sumByCons rest command Command.down in cases
+theorem aimAfter (start: AimedSubmarine) (commands: List Command):
+    (commands.foldLeft start AimedSubmarine.follow).aim = start.aim + commands.sumBy Command.down :=
+  match commands with
+    | [] => omega
+    | [command, ..rest] =>
+      rewrite aimAfter (start.follow command) rest, List.sumByCons rest command Command.down in cases
 
 --| The depth grows by each forward move times the aim it is made at.
-theorem aimedDepthAfter (start: AimedSubmarine): ∀ (commands: List Command) =>
-    (commands.foldLeft start AimedSubmarine.follow).depth = start.depth + aimedDepth start.aim commands
-  | [] => omega
-  | [command, ..rest] =>
-    rewrite aimedDepthAfter (start.follow command) rest, aimedDepthCons start.aim command rest in
-    -- `cases` would leave the forward move's `start.aim + 0` as it is: it
-    -- doesn't split a record's field (SW-1913).
-    match command with
-      | Forward _ => rewrite Int.addZero start.aim in omega
-      | Down _ => omega
-      | Up _ => omega
+theorem aimedDepthAfter (start: AimedSubmarine) (commands: List Command):
+    (commands.foldLeft start AimedSubmarine.follow).depth = start.depth + aimedDepth start.aim commands :=
+  match commands with
+    | [] => omega
+    | [command, ..rest] =>
+      rewrite aimedDepthAfter (start.follow command) rest, aimedDepthCons start.aim command rest in
+      -- `cases` would leave the forward move's `start.aim + 0` as it is: it
+      -- doesn't split a record's field (SW-1913).
+      match command with
+        | Forward _ => rewrite Int.addZero start.aim in omega
+        | Down _ => omega
+        | Up _ => omega
 
 def aimedSurface: AimedSubmarine := { horizontal = 0, depth = 0, aim = 0 }
 

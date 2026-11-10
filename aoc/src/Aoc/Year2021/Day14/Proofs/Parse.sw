@@ -9,15 +9,16 @@ import Aoc.Year2021.Day14.Spec (..)
 import Std (Bool, DecEq, Eq, Fail, List, Option, Result, Void)
 
 --| If no pair is listed again further on, the pairs are distinct.
-theorem firstRepeatedNone: ∀ (pairs: List ElementPair) => firstRepeated pairs = None → List.Distinct pairs
-  | [], none => ()
-  | [pair, ..rest], none =>
-    match c: List.contains rest pair with
-      | True => Void.exfalso (Option.someNotNone pair none)
-      | False =>
-        let fresh := (member: pair ∈ rest) =>
-          Bool.trueNotFalse (Eq.trans (Eq.sym (List.anyOfMem rest (other => other == pair) pair (DecEq.refl pair) member)) c)
-        Both fresh (firstRepeatedNone rest none)
+theorem firstRepeatedNone (pairs: List ElementPair) (none: firstRepeated pairs = None): List.Distinct pairs :=
+  match pairs with
+    | [] => ()
+    | [pair, ..rest] =>
+      match c: List.contains rest pair with
+        | True => Void.exfalso (Option.someNotNone pair none)
+        | False =>
+          let fresh := (member: pair ∈ rest) =>
+            Bool.trueNotFalse (Eq.trans (Eq.sym (List.anyOfMem rest (other => other == pair) pair (DecEq.refl pair) member)) c)
+          Both fresh (firstRepeatedNone rest none)
 
 --| `checkManual` gives the manual back, and only if no pair has two rules...
 theorem checkManualOk (manual: Manual) (result: Manual) (h: Fail.toResult (() => checkManual manual) = Ok result):

@@ -27,46 +27,49 @@ theorem goalOnFloor (level: Level): isWall level level.goal = False :=
   rewrite middleInside level.exit, Bool.orTrue (level.entrance.contains level.exit.middle) in rfl
 
 --| No placed monster stands on the start...
-theorem placeMonstersClear (level: Level) (start: Position):
-    ∀ (placed planned: List Monster) => Clear start placed → Clear start (placeMonsters level start placed planned)
-  | placed, [], clear => clear
-  | placed, [monster, ..rest], clear =>
-    match picked: pickFree level [monster.position] start placed with
-      | Some position =>
-        let away := pickFreeAway level start placed [monster.position] position picked
-        placeMonstersClear level start (placed ++ [{ monster | position }]) rest (clearSnoc start { monster | position } away placed clear)
-      | None => placeMonstersClear level start placed rest clear
+theorem placeMonstersClear (level: Level) (start: Position)
+    (placed planned: List Monster) (clear: Clear start placed): Clear start (placeMonsters level start placed planned) :=
+  match planned with
+    | [] => clear
+    | [monster, ..rest] =>
+      match picked: pickFree level [monster.position] start placed with
+        | Some position =>
+          let away := pickFreeAway level start placed [monster.position] position picked
+          placeMonstersClear level start (placed ++ [{ monster | position }]) rest (clearSnoc start { monster | position } away placed clear)
+        | None => placeMonstersClear level start placed rest clear
 
 --| ...or in a wall.
-theorem placeMonstersOnFloor (level: Level) (start: Position):
-    ∀ (placed planned: List Monster) => OnFloor level placed → OnFloor level (placeMonsters level start placed planned)
-  | placed, [], onFloor => onFloor
-  | placed, [monster, ..rest], onFloor =>
-    match picked: pickFree level [monster.position] start placed with
-      | Some position =>
-        let inside := pickFreeOnFloor level start placed [monster.position] position picked
-        placeMonstersOnFloor level start (placed ++ [{ monster | position }]) rest (onFloorSnoc level { monster | position } inside placed onFloor)
-      | None => placeMonstersOnFloor level start placed rest onFloor
+theorem placeMonstersOnFloor (level: Level) (start: Position)
+    (placed planned: List Monster) (onFloor: OnFloor level placed): OnFloor level (placeMonsters level start placed planned) :=
+  match planned with
+    | [] => onFloor
+    | [monster, ..rest] =>
+      match picked: pickFree level [monster.position] start placed with
+        | Some position =>
+          let inside := pickFreeOnFloor level start placed [monster.position] position picked
+          placeMonstersOnFloor level start (placed ++ [{ monster | position }]) rest (onFloorSnoc level { monster | position } inside placed onFloor)
+        | None => placeMonstersOnFloor level start placed rest onFloor
 
 --| An item lies on floor, and not on the player's start.
 def Fits (level: Level) (start: Position) (item: Item): Prop := isWall level item.position = False ∧ (item.position == start) = False
 
-theorem placeItemsFit (level: Level) (start: Position):
-    ∀ (placed planned: List Item) => List.All (Fits level start) placed → List.All (Fits level start) (placeItems level start placed planned)
-  | placed, [], fit => fit
-  | placed, [item, ..rest], fit =>
-    match wall: isWall level item.position with
-      | True => placeItemsFit level start placed rest fit
-      | False =>
-        match same: item.position == start with
-          | True => placeItemsFit level start placed rest fit
-          | False =>
-            match stairs: isStairs level item.position with
-              | True => placeItemsFit level start placed rest fit
-              | False =>
-                match taken: (itemAt item.position placed).isSome with
-                  | True => placeItemsFit level start placed rest fit
-                  | False => placeItemsFit level start (placed ++ [item]) rest (List.allAppend (Fits level start) placed [item] fit (Both (Both wall same) Trivial))
+theorem placeItemsFit (level: Level) (start: Position)
+    (placed planned: List Item) (fit: List.All (Fits level start) placed): List.All (Fits level start) (placeItems level start placed planned) :=
+  match planned with
+    | [] => fit
+    | [item, ..rest] =>
+      match wall: isWall level item.position with
+        | True => placeItemsFit level start placed rest fit
+        | False =>
+          match same: item.position == start with
+            | True => placeItemsFit level start placed rest fit
+            | False =>
+              match stairs: isStairs level item.position with
+                | True => placeItemsFit level start placed rest fit
+                | False =>
+                  match taken: (itemAt item.position placed).isSome with
+                    | True => placeItemsFit level start placed rest fit
+                    | False => placeItemsFit level start (placed ++ [item]) rest (List.allAppend (Fits level start) placed [item] fit (Both (Both wall same) Trivial))
 
 --| Whatever the generator planned, the items of a level entered fit.
 theorem arriveItemsFit (state: State) (plan: Plan): List.All (Fits plan.level plan.level.start) (arrive state plan).items :=

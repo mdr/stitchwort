@@ -11,15 +11,17 @@ theorem Bits.complementValue (number: Bits): number.value + number.complement.va
   Nat.fromBitsFlipped number.bits
 
 --| The first bit is the bit at position 0.
-theorem Bits.getZero: ∀ (number: Bits) => number.get 0 = number.first
-  | { bits = [] } => rfl
-  | { bits = [first, ..rest] } => rfl
+theorem Bits.getZero (number: Bits): number.get 0 = number.first :=
+  match number with
+    | { bits = [] } => rfl
+    | { bits = [first, ..rest] } => rfl
 
 theorem Bits.widthAppend (number: Bits) (other: Bits): (number.append other).width = number.width + other.width :=
   List.lengthAppend number.bits other.bits
 
-theorem Bits.emptyAppend: ∀ (number: Bits) => Bits.empty.append number = number
-  | { bits } => rfl
+theorem Bits.emptyAppend (number: Bits): Bits.empty.append number = number :=
+  match number with
+    | { bits } => rfl
 
 --| Appending one bit.
 theorem Bits.widthAppendBit (number: Bits) (bit: Bool): (number.append (Bits.cons Bits.empty bit)).width = Succ number.width :=
@@ -28,9 +30,10 @@ theorem Bits.widthAppendBit (number: Bits) (bit: Bool): (number.append (Bits.con
 theorem Bits.appendAssoc (number: Bits) (other: Bits) (third: Bits): (number.append other).append third = number.append (other.append third) :=
   Eq.cong (bits => { bits }) (List.appendAssoc number.bits other.bits third.bits)
 
-theorem Bits.getAppendList (number: List Bool): ∀ (prefix: List Bool) => (prefix.append number).get prefix.length = number.head
-  | [] => Bits.getZero { bits = number }
-  | [first, ..rest] => Bits.getAppendList number rest
+theorem Bits.getAppendList (number: List Bool) (prefix: List Bool): (prefix.append number).get prefix.length = number.head :=
+  match prefix with
+    | [] => Bits.getZero { bits = number }
+    | [first, ..rest] => Bits.getAppendList number rest
 
 --| The bit after a prefix of `width` bits is the first of what follows it.
 theorem Bits.getAppendWidth (number: Bits) (prefix: Bits): (prefix.append number).get prefix.width = number.first :=

@@ -13,17 +13,19 @@ def masLetters (first: Option Char) (second: Option Char) (third: Option Char): 
   [first, second, third] == [Some 'M', Some 'A', Some 'S'] ∨ [first, second, third] == [Some 'S', Some 'A', Some 'M']
 
 --| The program's MAS test on three letters, present or not.
-theorem masOrNone: ∀ (first second third: Option Char) =>
-    Option.getOrElse (Option.map3 spellsMas first second third) False = masLetters first second third
-  | Some x, Some y, Some z => cases
-  | _, _, _ => cases
+theorem masOrNone (first second third: Option Char):
+    Option.getOrElse (Option.map3 spellsMas first second third) False = masLetters first second third :=
+  match first, second, third with
+    | Some x, Some y, Some z => cases
+    | _, _, _ => cases
 
 --| Both of two tests, present or not.
-theorem bothOrNone: ∀ (one other: Option Bool) =>
-    (Option.map2 (x y => Bool.toNat (x ∧ y)) one other).getOrElse 0 = Bool.toNat (one.getOrElse False ∧ other.getOrElse False)
-  | Some x, Some y => rfl
-  | Some x, None => cases
-  | None, other => rfl
+theorem bothOrNone (one other: Option Bool):
+    (Option.map2 (x y => Bool.toNat (x ∧ y)) one other).getOrElse 0 = Bool.toNat (one.getOrElse False ∧ other.getOrElse False) :=
+  match one, other with
+    | Some x, Some y => rfl
+    | Some x, None => cases
+    | None, other => rfl
 
 --| `countCrosses` centre by centre, up to any bound at least as long as the
 --| row above: centre j + 1 has MAS from column j to j + 2 down to the right,

@@ -72,15 +72,16 @@ theorem divisorWeightsTop (w: Nat → Int) (j: Nat): divisorWeights w (Succ (Suc
       := rewrite Nat.dividesSelf (Succ (Succ j))
 
 --| The key fact: the weights of the divisors of m from 2 on add up to 1.
-theorem weightsOne: ∀ (m: Nat) => 1 ≤ m → divisorWeights copiesWeight m (m - 1) = (Bool.toNat (Nat.leq 2 m)).toInt
-  | Zero, h => Void.exfalso (Bool.falseNotTrue h)
-  | Succ Zero, h => rfl
-  | Succ (Succ j), h =>
-    calc divisorWeights copiesWeight (Succ (Succ j)) (Succ j)
-      _ = divisorWeights copiesWeight (Succ (Succ j)) j + copiesWeight (Succ (Succ j)) := divisorWeightsTop copiesWeight j
-      _ = divisorWeights copiesWeight (Succ (Succ j)) j + (1 - divisorWeights copiesWeight (Succ (Succ j)) j)
-        := rewrite weightBelow j
-      _ = 1 := ring
+theorem weightsOne (m: Nat) (h: 1 ≤ m): divisorWeights copiesWeight m (m - 1) = (Bool.toNat (Nat.leq 2 m)).toInt :=
+  match m with
+    | Zero => Void.exfalso (Bool.falseNotTrue h)
+    | Succ Zero => rfl
+    | Succ (Succ j) =>
+      calc divisorWeights copiesWeight (Succ (Succ j)) (Succ j)
+        _ = divisorWeights copiesWeight (Succ (Succ j)) j + copiesWeight (Succ (Succ j)) := divisorWeightsTop copiesWeight j
+        _ = divisorWeights copiesWeight (Succ (Succ j)) j + (1 - divisorWeights copiesWeight (Succ (Succ j)) j)
+          := rewrite weightBelow j
+        _ = 1 := ring
 
 --| Divisors of m beyond m count for nothing.
 theorem divisorWeightsAll (w: Nat → Int): ∀ (m: Nat) => 1 ≤ m → ∀ (c: Nat) => m ≤ Succ c → divisorWeights w m c = divisorWeights w m (m - 1)
@@ -142,10 +143,11 @@ theorem periodTest (g: Nat → Nat) (len: Nat) (hl: len ≠ 0) (p: Nat) (h: Peri
   List.allRangeIntro (i => g ((i + p) % len) == g i) len 0 (i h1 h2 => Decidable.toBoolOf (Nat.decEq (g ((i + p) % len)) (g i)) (h i h2))
 
 --| A period below the smallest positive one, `Succ j`, is 0.
-theorem periodBelow (g: Nat → Nat) (len: Nat) (hl: len ≠ 0) (j: Nat) (hmin: ∀ (r: Nat) => r < j → isPeriod g len hl (Succ r) = False):
-    ∀ (r: Nat) => Period g len hl r → r < Succ j → r = 0
-  | Zero, hr, lt => rfl
-  | Succ r, hr, lt => Void.exfalso (Bool.trueNotFalse (Eq.trans (Eq.sym (periodTest g len hl (Succ r) hr)) (hmin r lt)))
+theorem periodBelow (g: Nat → Nat) (len: Nat) (hl: len ≠ 0) (j: Nat) (hmin: ∀ (r: Nat) => r < j → isPeriod g len hl (Succ r) = False)
+    (r: Nat) (hr: Period g len hl r) (lt: r < Succ j): r = 0 :=
+  match r with
+    | Zero => rfl
+    | Succ r => Void.exfalso (Bool.trueNotFalse (Eq.trans (Eq.sym (periodTest g len hl (Succ r) hr)) (hmin r lt)))
 
 --| The heart: every period is a multiple of the smallest positive one (the
 --| remainder of the division is a smaller period).
@@ -270,20 +272,21 @@ theorem dividesOfWritten (x: Nat) (n: Nat) (hn: 2 ≤ n) (k: Nat) (hk1: 1 ≤ k)
   rewrite (ring: t * n = n * t), <- eK at Nat.dividesMul n t
 
 --| And back: if n divides the block count, the digits are a block written n times.
-theorem writtenOfDivides (x: Nat) (n: Nat) (hn: 2 ≤ n): ∀ (t: Nat) => blockCount x = t * n → copies x n = True
-  | Zero, e => omega [blockCountPos x]
-  | Succ t, e =>
-    let k := Succ t * smallestPeriod x
-    let ekn: k * n = digitCount x :=
-      calc (Succ t * smallestPeriod x) * n
-        _ = blockCount x * smallestPeriod x := rewrite e in ring
-        _ = digitCount x := Eq.sym (countTimesPeriod x)
-    let hw: writtenAs (Nat.digits x).toList k n = True :=
-      periodWritten (Nat.digits x).toList (digitListNonZero x) k n omega (omega [ekn, Nat.digitCountLength x])
-        (periodCong (digitAt (Nat.digits x).toList) (digitCount x) (List.length (Nat.digits x).toList) (digitCountNonZero x) (digitListNonZero x) (Nat.digitCountLength x) (Succ t * smallestPeriod x)
-          (periodMul (digitAt (Nat.digits x).toList) (digitCount x) (digitCountNonZero x) (smallestPeriod x) (smallestIsPeriod x) (Succ t)))
-    List.anyRangeIntro (k => writtenAs (Nat.digits x).toList k n) (digitCount x) 1 k rfl
-      (omega [Nat.leMulPos k n omega]) hw
+theorem writtenOfDivides (x: Nat) (n: Nat) (hn: 2 ≤ n) (t: Nat) (e: blockCount x = t * n): copies x n = True :=
+  match t with
+    | Zero => omega [blockCountPos x]
+    | Succ t =>
+      let k := Succ t * smallestPeriod x
+      let ekn: k * n = digitCount x :=
+        calc (Succ t * smallestPeriod x) * n
+          _ = blockCount x * smallestPeriod x := rewrite e in ring
+          _ = digitCount x := Eq.sym (countTimesPeriod x)
+      let hw: writtenAs (Nat.digits x).toList k n = True :=
+        periodWritten (Nat.digits x).toList (digitListNonZero x) k n omega (omega [ekn, Nat.digitCountLength x])
+          (periodCong (digitAt (Nat.digits x).toList) (digitCount x) (List.length (Nat.digits x).toList) (digitCountNonZero x) (digitListNonZero x) (Nat.digitCountLength x) (Succ t * smallestPeriod x)
+            (periodMul (digitAt (Nat.digits x).toList) (digitCount x) (digitCountNonZero x) (smallestPeriod x) (smallestIsPeriod x) (Succ t)))
+      List.anyRangeIntro (k => writtenAs (Nat.digits x).toList k n) (digitCount x) 1 k rfl
+        (omega [Nat.leMulPos k n omega]) hw
 
 --| x's digits are a block written n times exactly when n divides the block count.
 theorem copiesDivides (x: Nat) (n: Nat) (hn: 2 ≤ n): copies x n = n.divides (blockCount x) :=

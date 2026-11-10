@@ -19,15 +19,17 @@ theorem getMapRangePast [b: Type] (f: Nat → b) (n: Nat) (i: Nat) (past: n ≤ 
   List.getPast (List.map (List.range 0 n) f) i (rewrite List.lengthMap (List.range 0 n) f in rewrite List.lengthRangeFrom n 0 in past)
 
 --| Every dot of the list is inside the width and height `render` uses.
-theorem widthCovers: ∀ (dots: List Point) (spot: Point) => spot ∈ dots → spot.x < width dots
-  | [], spot, member => Void.exfalso member
-  | [dot, ..rest], spot, Inl same => rewrite <- same in omega [widthCons dot rest, Nat.leMaxLeft (dot.x + 1) (width rest)]
-  | [dot, ..rest], spot, Inr later => omega [widthCons dot rest, widthCovers rest spot later]
+theorem widthCovers (dots: List Point) (spot: Point) (member: spot ∈ dots): spot.x < width dots :=
+  match dots, member with
+    | [], member => Void.exfalso member
+    | [dot, ..rest], Inl same => rewrite <- same in omega [widthCons dot rest, Nat.leMaxLeft (dot.x + 1) (width rest)]
+    | [dot, ..rest], Inr later => omega [widthCons dot rest, widthCovers rest spot later]
 
-theorem heightCovers: ∀ (dots: List Point) (spot: Point) => spot ∈ dots → spot.y < height dots
-  | [], spot, member => Void.exfalso member
-  | [dot, ..rest], spot, Inl same => rewrite <- same in omega [heightCons dot rest, Nat.leMaxLeft (dot.y + 1) (height rest)]
-  | [dot, ..rest], spot, Inr later => omega [heightCons dot rest, heightCovers rest spot later, Nat.leMaxRight (dot.y + 1) (height rest)]
+theorem heightCovers (dots: List Point) (spot: Point) (member: spot ∈ dots): spot.y < height dots :=
+  match dots, member with
+    | [], member => Void.exfalso member
+    | [dot, ..rest], Inl same => rewrite <- same in omega [heightCons dot rest, Nat.leMaxLeft (dot.y + 1) (height rest)]
+    | [dot, ..rest], Inr later => omega [heightCons dot rest, heightCovers rest spot later, Nat.leMaxRight (dot.y + 1) (height rest)]
 
 --| `foldRight` is a `foldLeft` over the reversed list, so these don't hold
 --| by computing.
@@ -63,9 +65,10 @@ theorem cellSomeInside (dots: List Point) (spot: Point) (c: Char) (found: cellAt
         | Yes inX => Both inY inX
 
 --| A cell shows `#` or `.`, and `#` only for a dot.
-theorem shownChar: ∀ (b: Bool) (c: Char) => Some (if b then '#' else '.') = Some c → c = '#' ∨ c = '.'
-  | True, c, shown => Inl (Eq.sym (Option.someInjective shown))
-  | False, c, shown => Inr (Eq.sym (Option.someInjective shown))
+theorem shownChar (b: Bool) (c: Char) (shown: Some (if b then '#' else '.') = Some c): c = '#' ∨ c = '.' :=
+  match b with
+    | True => Inl (Eq.sym (Option.someInjective shown))
+    | False => Inr (Eq.sym (Option.someInjective shown))
 
 theorem shownHash (b: Bool) (shown: Some (if b then '#' else '.') = Some '#'): b = True :=
   cases

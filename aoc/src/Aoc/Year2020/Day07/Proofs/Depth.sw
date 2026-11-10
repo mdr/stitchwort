@@ -23,23 +23,26 @@ def Walk (rules: List Rule) (start: Colour): (between: List Colour) → (finish:
 
 -- Chains and their lengths
 
-theorem deepShorter (rules: List Rule) (colour: Colour) (depth: Nat): ∀ (extra: Nat) => Deep rules (extra + depth) colour → Deep rules depth colour
-  | 0, deep => deep
-  | Succ extra, deep => deepShorter rules colour depth extra (deepDrop rules (extra + depth) colour deep)
+theorem deepShorter (rules: List Rule) (colour: Colour) (depth: Nat) (extra: Nat) (deep: Deep rules (extra + depth) colour): Deep rules depth colour :=
+  match extra with
+    | 0 => deep
+    | Succ extra => deepShorter rules colour depth extra (deepDrop rules (extra + depth) colour deep)
 
-theorem deepDrop (rules: List Rule): ∀ (depth: Nat) (colour: Colour) => Deep rules (Succ depth) colour → Deep rules depth colour
-  | 0, colour, deep => Trivial
-  | Succ depth, colour, Witness inner (Both directly deeper) => Witness inner (Both directly (deepDrop rules depth inner deeper))
+theorem deepDrop (rules: List Rule) (depth: Nat) (colour: Colour) (deep: Deep rules (Succ depth) colour): Deep rules depth colour :=
+  match depth, deep with
+    | 0, deep => Trivial
+    | Succ depth, Witness inner (Both directly deeper) => Witness inner (Both directly (deepDrop rules depth inner deeper))
 
 theorem deepAtMost (rules: List Rule) (colour: Colour) (depth: Nat) (longer: Nat) (le: depth ≤ longer) (deep: Deep rules longer colour): Deep rules depth colour :=
   let same: longer = (longer - depth) + depth := omega
   deepShorter rules colour depth (longer - depth) (rewrite <- same in deep)
 
-theorem deepAfterWalk (rules: List Rule) (finish: Colour) (rest: Nat): ∀ (start: Colour) (between: List Colour) => Walk rules start between finish →
-    Deep rules rest finish → Deep rules (List.length between + 1 + rest) start
-  | start, [], directly, deeper => Witness finish (Both directly deeper)
-  | start, [next, ..others], Both directly walk, deeper =>
-    Witness next (Both directly (deepAfterWalk rules finish rest next others walk deeper))
+theorem deepAfterWalk (rules: List Rule) (finish: Colour) (rest: Nat) (start: Colour) (between: List Colour) (h: Walk rules start between finish)
+    (deeper: Deep rules rest finish): Deep rules (List.length between + 1 + rest) start :=
+  match between, h with
+    | [], directly => Witness finish (Both directly deeper)
+    | [next, ..others], Both directly walk =>
+      Witness next (Both directly (deepAfterWalk rules finish rest next others walk deeper))
 
 theorem walkOfDeep (rules: List Rule): ∀ (steps: Nat) (start: Colour) => Deep rules (Succ steps) start →
     ∃ (between: List Colour) => ∃ (finish: Colour) => List.length between = steps ∧ Walk rules start between finish
@@ -48,21 +51,23 @@ theorem walkOfDeep (rules: List Rule): ∀ (steps: Nat) (start: Colour) => Deep 
     let (Witness between (Witness finish (Both long walk))) := walkOfDeep rules steps inner deeper
     Witness [inner, ..between] (Witness finish (Both (rewrite long in rfl) (Both directly walk)))
 
-theorem walkSplit (rules: List Rule) (middle: Colour) (after: List Colour) (finish: Colour): ∀ (start: Colour) (before: List Colour) =>
-    Walk rules start (before ++ [middle, ..after]) finish → Walk rules start before middle ∧ Walk rules middle after finish
-  | start, [], Both directly walk => Both directly walk
-  | start, [next, ..rest], Both directly walk =>
-    let (Both first second) := walkSplit rules middle after finish next rest walk
-    Both (Both directly first) second
+theorem walkSplit (rules: List Rule) (middle: Colour) (after: List Colour) (finish: Colour) (start: Colour) (before: List Colour)
+    (h: Walk rules start (before ++ [middle, ..after]) finish): Walk rules start before middle ∧ Walk rules middle after finish :=
+  match before, h with
+    | [], Both directly walk => Both directly walk
+    | [next, ..rest], Both directly walk =>
+      let (Both first second) := walkSplit rules middle after finish next rest walk
+      Both (Both directly first) second
 
 -- A chain that comes back to its colour can be made as long as wanted.
 
-theorem loopDeep (rules: List Rule) (colour: Colour) (between: List Colour) (loop: Walk rules colour between colour):
-    ∀ (wanted: Nat) => ∃ (depth: Nat) => wanted ≤ depth ∧ Deep rules depth colour
-  | 0 => Witness 0 (Both (Nat.zeroLe 0) Trivial)
-  | Succ wanted =>
-    let (Witness depth (Both enough deep)) := loopDeep rules colour between loop wanted
-    Witness (List.length between + 1 + depth) (Both (omega) (deepAfterWalk rules colour depth colour between loop deep))
+theorem loopDeep (rules: List Rule) (colour: Colour) (between: List Colour) (loop: Walk rules colour between colour)
+    (wanted: Nat): ∃ (depth: Nat) => wanted ≤ depth ∧ Deep rules depth colour :=
+  match wanted with
+    | 0 => Witness 0 (Both (Nat.zeroLe 0) Trivial)
+    | Succ wanted =>
+      let (Witness depth (Both enough deep)) := loopDeep rules colour between loop wanted
+      Witness (List.length between + 1 + depth) (Both (omega) (deepAfterWalk rules colour depth colour between loop deep))
 
 theorem loopDeepEvery (rules: List Rule) (colour: Colour) (between: List Colour) (loop: Walk rules colour between colour) (depth: Nat): Deep rules depth colour :=
   let (Witness longer (Both enough deep)) := loopDeep rules colour between loop depth
@@ -131,13 +136,14 @@ theorem allSomeEach (f: a → Option b): ∀ (xs: List a) (ys: List b) => List.a
               | None => Void.exfalso (Option.noneNotSome ys found)
               | Some values => allSomeEach f rest values restFound x later
 
-theorem allSomeOfEach (f: a → Option b): ∀ (xs: List a) => (∀ (x: a) => x ∈ xs → ∃ (value: b) => f x = Some value) →
-    ∃ (ys: List b) => List.allSome (xs.map f) = Some ys
-  | [], each => Witness [] rfl
-  | [first, ..rest], each =>
-    let (Witness value atFirst) := each first (Inl rfl)
-    let (Witness values atRest) := allSomeOfEach f rest (x member => each x (Inr member))
-    Witness [value, ..values] (rewrite atFirst, atRest in rfl)
+theorem allSomeOfEach (f: a → Option b) (xs: List a) (each: (∀ (x: a) => x ∈ xs → ∃ (value: b) => f x = Some value)):
+    ∃ (ys: List b) => List.allSome (xs.map f) = Some ys :=
+  match xs with
+    | [] => Witness [] rfl
+    | [first, ..rest] =>
+      let (Witness value atFirst) := each first (Inl rfl)
+      let (Witness values atRest) := allSomeOfEach f rest (x member => each x (Inr member))
+      Witness [value, ..values] (rewrite atFirst, atRest in rfl)
 
 theorem settledNotDeep (rules: List Rule): ∀ (depth: Nat) (colour: Colour) (total: Nat) => Spec.bagsWithin rules depth colour = Some total → Deep rules depth colour → Void
   | 0, colour, total, settled, deep => Option.noneNotSome total settled

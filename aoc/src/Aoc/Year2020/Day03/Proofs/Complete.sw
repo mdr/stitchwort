@@ -10,13 +10,15 @@ import Aoc.Common.Proofs (parseGridComplete)
 import Aoc.Year2020.Day03 (..)
 import Std (Eq, Fail, List, NonEmptyList, Parse, Result, Text, Void)
 
-theorem ofCharSymbol: ∀ (square: Square) => Square.ofChar (symbol square) = square
-  | Open => rfl
-  | Tree => rfl
+theorem ofCharSymbol (square: Square): Square.ofChar (symbol square) = square :=
+  match square with
+    | Open => rfl
+    | Tree => rfl
 
-theorem isSquareSymbol: ∀ (square: Square) => isSquare (symbol square) = True
-  | Open => rfl
-  | Tree => rfl
+theorem isSquareSymbol (square: Square): isSquare (symbol square) = True :=
+  match square with
+    | Open => rfl
+    | Tree => rfl
 
 theorem runsSquare (kind: Square) (rest: List Char) (allowed: isSquare (symbol kind) = True): Parse.Runs square [symbol kind] rest kind :=
   let runs := Parse.runsMap (() => Parse.satisfy "'.' or '#'" isSquare) Square.ofChar [symbol kind] rest (symbol kind)
@@ -29,9 +31,10 @@ theorem declinesSquare (input: List Char) (stops: Parse.CannotStart isSquare inp
       | [] => Parse.declinesSatisfyEnd _ _
       | [char, ..more] => Parse.declinesSatisfy _ _ char more (stops char more rfl))
 
-theorem allSquares: ∀ (row: List Square) => (row.map symbol).all isSquare = True
-  | [] => rfl
-  | [kind, ..more] => rewrite isSquareSymbol kind in allSquares more
+theorem allSquares (row: List Square): (row.map symbol).all isSquare = True :=
+  match row with
+    | [] => rfl
+    | [kind, ..more] => rewrite isSquareSymbol kind in allSquares more
 
 theorem runsRow (line: List Char) (row: List Square) (written: line = row.map symbol) (nonEmpty: row ≠ []):
     Parse.Runs (() => Parse.many1 square |> .toList) line [] row :=

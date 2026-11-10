@@ -52,11 +52,11 @@ Two proofs of the same statement are interchangeable: the checker treats them as
 
 ## Induction is recursion
 
-`n * 1 = n` is true, but `rfl` can't prove it for an unknown `n`: `*` recurses on its first argument, and `n` isn't a known number. (`n + 0 = n` and `n + 1 = Succ n` do hold by computing: `+` is special, and computes on its second argument too when the first is unknown.) The proof goes by cases on `n`, like a function with arms:
+`n * 1 = n` is true, but `rfl` can't prove it for an unknown `n`: `*` recurses on its first argument, and `n` isn't a known number. (`n + 0 = n` and `n + 1 = Succ n` do hold by computing: `+` is special, and computes on its second argument too when the first is unknown.) The proof goes by cases on `n`, like a function with arms. A theorem's variables go before the colon, like a function's parameters, and a proof by cases is a `match` on them (the house style for theorems, D3470; a `def` keeps its arms):
 
 <!-- snippet: proofs.sw#induction -->
 ```stitchwort
-theorem timesOne: ∀ (n: Nat) => n * 1 = n
+theorem timesOne (n: Nat): n * 1 = n := match n with
   | Zero => rfl
   | Succ k => Eq.cong Succ (timesOne k)
 ```
@@ -69,7 +69,7 @@ The skill is in reading what each case needs. Using the induction hypothesis dir
 ```stitchwort
 import Std (Eq)
 
-theorem timesOne: ∀ (n: Nat) => n * 1 = n
+theorem timesOne (n: Nat): n * 1 = n := match n with
   | Zero => rfl
   | Succ k => timesOne k
 ```
@@ -93,7 +93,7 @@ You don't have to know what a case needs before writing it. Put `?` where a proo
 ```stitchwort
 import Std (Eq)
 
-theorem timesOne: ∀ (n: Nat) => n * 1 = n
+theorem timesOne (n: Nat): n * 1 = n := match n with
   | Zero => rfl
   | Succ k => ?
 ```
@@ -125,7 +125,7 @@ def mapList (f: a → b): List a → List b
   | [] => []
   | [x, ..rest] => [f x, ..mapList f rest]
 
-theorem lengthMapList (f: a → b): ∀ (xs: List a) => (mapList f xs).length = xs.length
+theorem lengthMapList (f: a → b) (xs: List a): (mapList f xs).length = xs.length := match xs with
   | [] => rfl
   | [x, ..rest] => Eq.cong Succ (lengthMapList f rest)
 ```
@@ -644,7 +644,7 @@ def sumFast (n: Nat): Nat :=
 
 -- What the loop computes, for any accumulator: the general statement is
 -- what makes the induction go through.
-theorem loopIsSum: ∀ (n total: Nat) => sumFast.loop n total = total + sumTo n
+theorem loopIsSum (n: Nat) (total: Nat): sumFast.loop n total = total + sumTo n := match n, total with
   | Zero, total => rfl
   | Succ k, total => omega [loopIsSum k (total + Succ k)]
 

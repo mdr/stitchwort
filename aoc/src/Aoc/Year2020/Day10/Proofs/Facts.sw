@@ -33,14 +33,15 @@ theorem differencesCount (joltages: List Nat) (difference: Nat) (positive: 1 ≤
   rewrite List.countMap joltages.zipWithNext (d => d == difference) (step => step.snd - step.fst) in
     List.countCongMem joltages.zipWithNext _ _ (step member => cases)
 
-theorem connectsSorted (low: Nat) (device: Nat): ∀ (chain: List Nat) => List.chain [low, ..chain, device] Takes = True → List.Sorted Nat.leq chain
-  | [], connects => Trivial
-  | [x, ..rest], connects =>
-    let later := Bool.andRight connects
-    Both
-      (match rest with
-        | [] => Trivial
-        | [y, ..more] =>
-          let fed: canFeed x y = True := rewrite canFeedTakes in Bool.andLeft later
-          omega)
-      (connectsSorted x device rest later)
+theorem connectsSorted (low: Nat) (device: Nat) (chain: List Nat) (connects: List.chain [low, ..chain, device] Takes = True): List.Sorted Nat.leq chain :=
+  match chain with
+    | [] => Trivial
+    | [x, ..rest] =>
+      let later := Bool.andRight connects
+      Both
+        (match rest with
+          | [] => Trivial
+          | [y, ..more] =>
+            let fed: canFeed x y = True := rewrite canFeedTakes in Bool.andLeft later
+            omega)
+        (connectsSorted x device rest later)

@@ -27,13 +27,14 @@ theorem part1Correct (space: Space) (robots: List Robot) (inside: StartInside sp
 
 --| After any number of laps of `width * height` seconds, every robot is
 --| where it was.
-theorem periodicLaps (space: Space) (seconds: Nat) (robot: Robot):
-    ∀ (laps: Nat) => space.positionAfter (seconds + laps * space.period) robot = space.positionAfter seconds robot
-  | Zero => rewrite Nat.addZero seconds in rfl
-  | Succ laps =>
-    rewrite (omega: seconds + Succ laps * space.period = seconds + laps * space.period + space.period),
-      periodic space (seconds + laps * space.period) robot
-    in periodicLaps space seconds robot laps
+theorem periodicLaps (space: Space) (seconds: Nat) (robot: Robot)
+    (laps: Nat): space.positionAfter (seconds + laps * space.period) robot = space.positionAfter seconds robot :=
+  match laps with
+    | Zero => rewrite Nat.addZero seconds in rfl
+    | Succ laps =>
+      rewrite (omega: seconds + Succ laps * space.period = seconds + laps * space.period + space.period),
+        periodic space (seconds + laps * space.period) robot
+      in periodicLaps space seconds robot laps
 
 theorem periodPositive (space: Space): space.period ≠ 0 := Nat.mulNeZero space.width space.height space.widthPositive space.heightPositive
 

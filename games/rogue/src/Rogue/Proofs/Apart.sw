@@ -14,14 +14,16 @@ def positions (monsters: List Monster): List Position := monsters.map (monster =
 --| No two monsters stand on one cell.
 def Apart (monsters: List Monster): Prop := List.Distinct (positions monsters)
 
-theorem memAppendLeft (x: a) (ys: List a): ∀ (xs: List a) => List.Mem x xs → List.Mem x (xs ++ ys)
-  | [], inside => Void.exfalso inside
-  | [first, ..rest], Inl here => Inl here
-  | [first, ..rest], Inr later => Inr (memAppendLeft x ys rest later)
+theorem memAppendLeft (x: a) (ys: List a) (xs: List a) (inside: List.Mem x xs): List.Mem x (xs ++ ys) :=
+  match xs, inside with
+    | [], inside => Void.exfalso inside
+    | [first, ..rest], Inl here => Inl here
+    | [first, ..rest], Inr later => Inr (memAppendLeft x ys rest later)
 
-theorem memAppendRight (x: a) (ys: List a): ∀ (xs: List a) => List.Mem x ys → List.Mem x (xs ++ ys)
-  | [], inside => inside
-  | [first, ..rest], inside => Inr (memAppendRight x ys rest inside)
+theorem memAppendRight (x: a) (ys: List a) (xs: List a) (inside: List.Mem x ys): List.Mem x (xs ++ ys) :=
+  match xs with
+    | [] => inside
+    | [first, ..rest] => Inr (memAppendRight x ys rest inside)
 
 --| A cell with no monster on it isn't among their positions.
 theorem vacantNotMem (position: Position): ∀ (monsters: List Monster) => monsterAt position monsters = None → ¬(List.Mem position (positions monsters))
@@ -35,19 +37,20 @@ theorem vacantNotMem (position: Position): ∀ (monsters: List Monster) => monst
           | Inr later => vacantNotMem position others vacant later
 
 --| A monster never chooses another monster's cell.
-theorem pickFreeVacant (level: Level) (player: Position) (others: List Monster):
-    ∀ (choices: List Position) (destination: Position) => pickFree level choices player others = Some destination → monsterAt destination others = None
-  | [], destination, picked => Void.exfalso (Option.noneNotSome destination picked)
-  | [choice, ..rest], destination, picked =>
-    match wall: isWall level choice with
-      | True => pickFreeVacant level player others rest destination picked
-      | False =>
-        match same: choice == player with
-          | True => pickFreeVacant level player others rest destination picked
-          | False =>
-            match found: monsterAt choice others with
-              | Some monster => pickFreeVacant level player others rest destination picked
-              | None => rewrite <- Option.someInjective picked in found
+theorem pickFreeVacant (level: Level) (player: Position) (others: List Monster)
+    (choices: List Position) (destination: Position) (picked: pickFree level choices player others = Some destination): monsterAt destination others = None :=
+  match choices with
+    | [] => Void.exfalso (Option.noneNotSome destination picked)
+    | [choice, ..rest] =>
+      match wall: isWall level choice with
+        | True => pickFreeVacant level player others rest destination picked
+        | False =>
+          match same: choice == player with
+            | True => pickFreeVacant level player others rest destination picked
+            | False =>
+              match found: monsterAt choice others with
+                | Some monster => pickFreeVacant level player others rest destination picked
+                | None => rewrite <- Option.someInjective picked in found
 
 theorem positionsAppend (xs: List Monster) (ys: List Monster): positions (xs ++ ys) = positions xs ++ positions ys :=
   List.mapAppend xs ys (monster => monster.position)
@@ -68,19 +71,20 @@ theorem apartMove (moved: List Monster) (monster: Monster) (destination: Positio
       (rewrite <- positionsAppend moved [monster, ..waiting] in apart)
       (rewrite <- positionsAppend moved waiting in fresh)
 
-theorem actAllApart (dice: Dice) (level: Level) (player: Position):
-    ∀ (index: Nat) (outcome: Outcome) (waiting: List Monster) =>
-    Apart (outcome.moved ++ waiting) → Apart (actAll dice level player index outcome waiting).moved
-  | index, outcome, [], apart => rewrite <- List.appendNil outcome.moved in apart
-  | index, outcome, [monster, ..waiting], apart =>
-    match next: monster.position.isNextTo player with
-      | True => actAllApart dice level player (index + 1) _ waiting (apartStay outcome.moved monster monster rfl waiting apart)
-      | False =>
-        match picked: pickFree level (monsterChoices dice index player monster) player (outcome.moved ++ waiting) with
-          | Some destination =>
-            let vacant := pickFreeVacant level player (outcome.moved ++ waiting) (monsterChoices dice index player monster) destination picked
-            actAllApart dice level player (index + 1) _ waiting (apartMove outcome.moved monster destination waiting apart vacant)
-          | None => actAllApart dice level player (index + 1) _ waiting (apartStay outcome.moved monster { monster | position = monster.position } rfl waiting apart)
+theorem actAllApart (dice: Dice) (level: Level) (player: Position)
+    (index: Nat) (outcome: Outcome) (waiting: List Monster)
+    (apart: Apart (outcome.moved ++ waiting)): Apart (actAll dice level player index outcome waiting).moved :=
+  match waiting with
+    | [] => rewrite <- List.appendNil outcome.moved in apart
+    | [monster, ..waiting] =>
+      match next: monster.position.isNextTo player with
+        | True => actAllApart dice level player (index + 1) _ waiting (apartStay outcome.moved monster monster rfl waiting apart)
+        | False =>
+          match picked: pickFree level (monsterChoices dice index player monster) player (outcome.moved ++ waiting) with
+            | Some destination =>
+              let vacant := pickFreeVacant level player (outcome.moved ++ waiting) (monsterChoices dice index player monster) destination picked
+              actAllApart dice level player (index + 1) _ waiting (apartMove outcome.moved monster destination waiting apart vacant)
+            | None => actAllApart dice level player (index + 1) _ waiting (apartStay outcome.moved monster { monster | position = monster.position } rfl waiting apart)
 
 theorem monstersTurnApart (dice: Dice) (state: State) (apart: Apart state.monsters): Apart (monstersTurn dice state).monsters :=
   match phase: state.phase with
@@ -89,9 +93,10 @@ theorem monstersTurnApart (dice: Dice) (state: State) (apart: Apart state.monste
     | Died => apart
     | GaveUp => apart
 
-theorem positionsWound (target: Position) (damage: Nat): ∀ (monsters: List Monster) => positions (monsters.map (wound target damage)) = positions monsters
-  | [] => rfl
-  | [monster, ..others] => rewrite woundStays target damage monster, positionsWound target damage others in rfl
+theorem positionsWound (target: Position) (damage: Nat) (monsters: List Monster): positions (monsters.map (wound target damage)) = positions monsters :=
+  match monsters with
+    | [] => rfl
+    | [monster, ..others] => rewrite woundStays target damage monster, positionsWound target damage others in rfl
 
 theorem playerMovesApart (dice: Dice) (state: State) (direction: Direction) (apart: Apart state.monsters):
     Apart (playerMoves dice state direction).monsters :=
@@ -107,16 +112,17 @@ theorem playerMovesApart (dice: Dice) (state: State) (direction: Direction) (apa
         | False => rewrite enterMonsters state (state.player.toward direction) in apart
 
 --| A new level's monsters are placed one to a cell.
-theorem placeMonstersApart (level: Level) (start: Position):
-    ∀ (placed planned: List Monster) => Apart placed → Apart (placeMonsters level start placed planned)
-  | placed, [], apart => apart
-  | placed, [monster, ..rest], apart =>
-    match picked: pickFree level [monster.position] start placed with
-      | Some position =>
-        let fresh := vacantNotMem position placed (pickFreeVacant level start placed [monster.position] position picked)
-        let joined: Apart (placed ++ [{ monster | position }]) := rewrite positionsAppend placed [{ monster | position }] in List.distinctSnoc (positions placed) position fresh apart
-        placeMonstersApart level start (placed ++ [{ monster | position }]) rest joined
-      | None => placeMonstersApart level start placed rest apart
+theorem placeMonstersApart (level: Level) (start: Position)
+    (placed planned: List Monster) (apart: Apart placed): Apart (placeMonsters level start placed planned) :=
+  match planned with
+    | [] => apart
+    | [monster, ..rest] =>
+      match picked: pickFree level [monster.position] start placed with
+        | Some position =>
+          let fresh := vacantNotMem position placed (pickFreeVacant level start placed [monster.position] position picked)
+          let joined: Apart (placed ++ [{ monster | position }]) := rewrite positionsAppend placed [{ monster | position }] in List.distinctSnoc (positions placed) position fresh apart
+          placeMonstersApart level start (placed ++ [{ monster | position }]) rest joined
+        | None => placeMonstersApart level start placed rest apart
 
 theorem descendApart (dice: Dice) (state: State) (apart: Apart state.monsters): Apart (descend dice state).monsters :=
   let plan := Random.withSeed dice.seed (() => generateLevel (state.level.depth + 1))
@@ -148,10 +154,11 @@ theorem stepApart (seed: Nat) (state: State) (command: Command) (apart: Apart st
 
 --| With the monsters apart, the monster found on each monster's cell is
 --| that monster.
-theorem monsterAtOwnCell (found: Monster): ∀ (monsters: List Monster) => Apart monsters → List.Mem found monsters → monsterAt found.position monsters = Some found
-  | [], apart, inside => Void.exfalso inside
-  | [monster, ..others], Both notMem rest, Inl same => rewrite same, DecEq.refl found.position in rfl
-  | [monster, ..others], Both notMem rest, Inr later =>
-    let elsewhere: monster.position ≠ found.position := same =>
-      notMem (rewrite same in List.memMap others found later (monster => monster.position))
-    rewrite Decidable.toBoolOfNot (DecEq.decide monster.position found.position) elsewhere in monsterAtOwnCell found others rest later
+theorem monsterAtOwnCell (found: Monster) (monsters: List Monster) (apart: Apart monsters) (inside: List.Mem found monsters): monsterAt found.position monsters = Some found :=
+  match monsters, apart, inside with
+    | [], apart, inside => Void.exfalso inside
+    | [monster, ..others], Both notMem rest, Inl same => rewrite same, DecEq.refl found.position in rfl
+    | [monster, ..others], Both notMem rest, Inr later =>
+      let elsewhere: monster.position ≠ found.position := same =>
+        notMem (rewrite same in List.memMap others found later (monster => monster.position))
+      rewrite Decidable.toBoolOfNot (DecEq.decide monster.position found.position) elsewhere in monsterAtOwnCell found others rest later

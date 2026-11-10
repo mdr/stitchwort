@@ -185,9 +185,10 @@ instance Mod.instOrd [n: Nat]: Ord (Mod n) := Ord.byKey ((i: Mod n) => i.value) 
 -- Conversions with `Fin`, the type of positions in a `Vec`.
 
 --| A number below n is below `Mod.size n`.
-theorem Mod.ltSize: ∀ (n x: Nat) => x < n → x < Mod.size n
-  | Zero, x, h => Void.exfalso (Bool.falseNotTrue h)
-  | Succ n, x, h => h
+theorem Mod.ltSize (n x: Nat) (h: x < n): x < Mod.size n :=
+  match n with
+    | Zero => Void.exfalso (Bool.falseNotTrue h)
+    | Succ n => h
 
 --| A position as a number modulo n (the same number).
 def Fin.toMod (i: Fin n): Mod n := { value = Fin.toNat i, isLt = Mod.ltSize n (Fin.toNat i) (Fin.toNatLt i) }
@@ -196,9 +197,10 @@ def Fin.toMod (i: Fin n): Mod n := { value = Fin.toNat i, isLt = Mod.ltSize n (F
 def Mod.toFin [auto ok: n ≠ 0] (i: Mod n): Fin n :=
   Fin.ofNatLt n i.value (Mod.ltOfNeZero n i.value ok i.isLt)
 
-theorem Mod.ltOfNeZero: ∀ (n x: Nat) => n ≠ 0 → x < Mod.size n → x < n
-  | Zero, x, ok, h => Void.exfalso (ok rfl)
-  | Succ n, x, ok, h => h
+theorem Mod.ltOfNeZero (n x: Nat) (ok: n ≠ 0) (h: x < Mod.size n): x < n :=
+  match n with
+    | Zero => Void.exfalso (ok rfl)
+    | Succ n => h
 
 theorem Mod.valueToMod (i: Fin n): (Fin.toMod i).value = Fin.toNat i := rfl
 
@@ -237,12 +239,13 @@ theorem Mod.ofIntNeg [n: Nat] (x: Int): (Mod.ofInt (Int.neg (Mod.ofInt x: Mod n)
         (Eq.trans (Int.modNatModNeg x (Mod.size n) [ok := Mod.sizeNeZero n]) (Eq.sym (Mod.valueOfInt (Int.neg x))))))
 
 --| `Mod.neg` is `-` on the `Int`, wrapped.
-theorem Mod.subModEq (m: Nat): ∀ (v: Nat) => v < Succ m →
-    (Succ m - v) % Succ m = Int.modNat (Int.neg (OfNat v)) (Succ m)
-  | Zero, h => Eq.trans (Nat.modSelf (Succ m)) (Eq.sym (Nat.modSmall 0 (Succ m) h))
-  | Succ w, h =>
-    Eq.trans (Nat.modSmall (m - w) (Succ m) (Nat.subLe m w))
-      (Eq.cong (t => m - t) (Eq.sym (Nat.modSmall w (Succ m) omega)))
+theorem Mod.subModEq (m: Nat) (v: Nat) (h: v < Succ m):
+    (Succ m - v) % Succ m = Int.modNat (Int.neg (OfNat v)) (Succ m) :=
+  match v with
+    | Zero => Eq.trans (Nat.modSelf (Succ m)) (Eq.sym (Nat.modSmall 0 (Succ m) h))
+    | Succ w =>
+      Eq.trans (Nat.modSmall (m - w) (Succ m) (Nat.subLe m w))
+        (Eq.cong (t => m - t) (Eq.sym (Nat.modSmall w (Succ m) omega)))
 
 theorem Mod.negOfInt [n: Nat] (i: Mod n): Mod.neg i = Mod.ofInt (Int.neg i.toInt) :=
   Mod.ext (Mod.neg i) (Mod.ofInt (Int.neg i.toInt))

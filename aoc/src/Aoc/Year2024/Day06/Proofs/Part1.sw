@@ -9,9 +9,10 @@ import Aoc.Year2024.Day06.Spec (..)
 import Std (Eq, List, Nat, Not, Option, Set, Void)
 
 --| Off the map, there is no route.
-theorem routeNone (lab: Lab): ∀ (steps: Nat) => route lab None steps = []
-  | Zero => rfl
-  | Succ steps => rfl
+theorem routeNone (lab: Lab) (steps: Nat): route lab None steps = [] :=
+  match steps with
+    | Zero => rfl
+    | Succ steps => rfl
 
 --| Once she has left, more steps add nothing to the route.
 theorem routeAfterGone (lab: Lab): ∀ (steps: Nat) (guard: Option Guard) => walk lab guard steps = None → ∀ (more: Nat) => steps ≤ more →

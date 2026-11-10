@@ -24,22 +24,24 @@ theorem readGroupsMore (reader: BitReader) (afterBit: BitReader) (after: BitRead
       | No longer => Void.exfalso (longer shorter)
 
 --| A literal's groups, each below 16, are read back from their bits.
-theorem readGroupsBitsFrom (rest: List Bool): ∀ (tail: List Nat) (group: Nat) => ({ head = group, tail }: NonEmptyList Nat).all (group => group < 16) = True →
-    readGroups { unread = groupBitsFrom group tail ++ rest } = Some ({ head = group, tail }, { unread = rest })
-  | [], group, small =>
-    readGroupsLast { unread = groupBitsFrom group [] ++ rest } { unread = Nat.toBits 4 group ++ rest } { unread = rest } group rfl
-      (BitReader.readNumberAppend 4 group rest (omega [small]))
-  | [next, ..more], group, small =>
-    let fits: group < 16 := omega [small]
-    let others: ({ head = next, tail = more }: NonEmptyList Nat).all (group => group < 16) = True := Bool.andRight small
-    let tail := groupBitsFrom next more ++ rest
-    let length := List.lengthAppend (Nat.toBits 4 group) tail
-    readGroupsMore { unread = groupBitsFrom group [next, ..more] ++ rest } { unread = Nat.toBits 4 group ++ tail } { unread = tail } group { head = next, tail = more } { unread = rest } rfl
-      (BitReader.readNumberAppend 4 group tail (omega [fits])) (omega [length, Nat.toBitsLength 4 group]) (readGroupsBitsFrom rest more next others)
+theorem readGroupsBitsFrom (rest: List Bool) (tail: List Nat) (group: Nat) (small: ({ head = group, tail }: NonEmptyList Nat).all (group => group < 16) = True):
+    readGroups { unread = groupBitsFrom group tail ++ rest } = Some ({ head = group, tail }, { unread = rest }) :=
+  match tail with
+    | [] =>
+      readGroupsLast { unread = groupBitsFrom group [] ++ rest } { unread = Nat.toBits 4 group ++ rest } { unread = rest } group rfl
+        (BitReader.readNumberAppend 4 group rest (omega [small]))
+    | [next, ..more] =>
+      let fits: group < 16 := omega [small]
+      let others: ({ head = next, tail = more }: NonEmptyList Nat).all (group => group < 16) = True := Bool.andRight small
+      let tail := groupBitsFrom next more ++ rest
+      let length := List.lengthAppend (Nat.toBits 4 group) tail
+      readGroupsMore { unread = groupBitsFrom group [next, ..more] ++ rest } { unread = Nat.toBits 4 group ++ tail } { unread = tail } group { head = next, tail = more } { unread = rest } rfl
+        (BitReader.readNumberAppend 4 group tail (omega [fits])) (omega [length, Nat.toBitsLength 4 group]) (readGroupsBitsFrom rest more next others)
 
-theorem readGroupsBits (rest: List Bool): ∀ (groups: NonEmptyList Nat) => groups.all (group => group < 16) = True →
-    readGroups { unread = groupBits groups ++ rest } = Some (groups, { unread = rest })
-  | { head, tail }, small => readGroupsBitsFrom rest tail head small
+theorem readGroupsBits (rest: List Bool) (groups: NonEmptyList Nat) (small: groups.all (group => group < 16) = True):
+    readGroups { unread = groupBits groups ++ rest } = Some (groups, { unread = rest }) :=
+  match groups with
+    | { head, tail } => readGroupsBitsFrom rest tail head small
 
 --| What `readGroups` reads is the spec's bits for the groups it gives,
 --| each below 16.

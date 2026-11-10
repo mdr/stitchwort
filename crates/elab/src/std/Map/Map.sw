@@ -26,9 +26,10 @@ type Map (k: Type) (v: Type) [auto ord: Ord k] = { raw: Quot (Map.Raw k v [ord :
 def Map.ofRaw (rawMap: Map.Raw k v [ord := o]): Map k v [ord := o] := { raw = Quot.mk rawMap }
 
 --| To prove something of every map, prove it of the map of every raw map.
-theorem Map.indRaw [p: Map k v [ord := o] → Prop] (h: ∀ (r: Map.Raw k v [ord := o]) => p (Map.ofRaw r)):
-    ∀ (m: Map k v [ord := o]) => p m
-  | { raw = q } => Quot.ind [p := q' => p { raw = q' }] h q
+theorem Map.indRaw [p: Map k v [ord := o] → Prop] (h: ∀ (r: Map.Raw k v [ord := o]) => p (Map.ofRaw r))
+    (m: Map k v [ord := o]): p m :=
+  match m with
+    | { raw = q } => Quot.ind [p := q' => p { raw = q' }] h q
 
 -- Building
 
@@ -317,8 +318,9 @@ theorem Map.rawInjective (p: Quot (Map.Raw k v [ord := o]) Map.Raw.Equiv) (q: Qu
   Quot.ind [p := motive] fromMk p q
 
 --| Maps with the same entries are equal, whatever their values' type.
-theorem Map.toListInjective: ∀ (m n: Map k v [ord := o]) => Map.toList m = Map.toList n → m = n
-  | { raw = p }, { raw = q }, same => Eq.cong (r => ({ raw = r }: Map k v [ord := o])) (Map.rawInjective p q same)
+theorem Map.toListInjective (m n: Map k v [ord := o]) (same: Map.toList m = Map.toList n): m = n :=
+  match m, n with
+    | { raw = p }, { raw = q } => Eq.cong (r => ({ raw = r }: Map k v [ord := o])) (Map.rawInjective p q same)
 
 --| Equal maps have the same entries, and maps with the same entries are equal.
 theorem Map.eqIffToListEq (m: Map k v [ord := o]) (n: Map k v [ord := o]): (m = n) ↔ (Map.toList m = Map.toList n) := {
@@ -503,16 +505,17 @@ theorem Map.minToList (m: Map k v [ord := o]): Map.min m = List.head (Map.toList
   Map.indRaw [p := m' => Map.min m' = List.head (Map.toList m')] (r => Map.Raw.minToList r) m
 
 --| Views of two maps with the same entries left agree.
-theorem Map.viewsAgree: ∀ (x y: Option ((k, v), Map.Raw k v [ord := o])) =>
-    Option.map x (view => (view.fst, Map.Raw.toList view.snd)) = Option.map y (view => (view.fst, Map.Raw.toList view.snd)) →
-    Option.map x (view => (view.fst, Map.ofRaw view.snd)) = Option.map y (view => (view.fst, Map.ofRaw view.snd))
-  | None, None, same => rfl
-  | None, Some view, same => Void.exfalso (Option.noneNotSome _ same)
-  | Some view, None, same => Void.exfalso (Option.someNotNone _ same)
-  | Some (smallest, rest), Some (other, otherRest), same =>
-    let pairs := Option.someInjective same
-    rewrite Eq.cong Pair.fst pairs in
-      Eq.cong (left => Some (other, left)) (Map.toListInjective (Map.ofRaw rest) (Map.ofRaw otherRest) (Eq.cong Pair.snd pairs))
+theorem Map.viewsAgree (x y: Option ((k, v), Map.Raw k v [ord := o]))
+    (same: Option.map x (view => (view.fst, Map.Raw.toList view.snd)) = Option.map y (view => (view.fst, Map.Raw.toList view.snd))):
+    Option.map x (view => (view.fst, Map.ofRaw view.snd)) = Option.map y (view => (view.fst, Map.ofRaw view.snd)) :=
+  match x, y with
+    | None, None => rfl
+    | None, Some view => Void.exfalso (Option.noneNotSome _ same)
+    | Some view, None => Void.exfalso (Option.someNotNone _ same)
+    | Some (smallest, rest), Some (other, otherRest) =>
+      let pairs := Option.someInjective same
+      rewrite Eq.cong Pair.fst pairs in
+        Eq.cong (left => Some (other, left)) (Map.toListInjective (Map.ofRaw rest) (Map.ofRaw otherRest) (Eq.cong Pair.snd pairs))
 
 theorem Map.popMinRespects (a: Map.Raw k v [ord := o]) (b: Map.Raw k v [ord := o]) (same: Map.Raw.Equiv a b): Map.popMinRaw a = Map.popMinRaw b :=
   Map.viewsAgree (Map.Raw.popMin a) (Map.Raw.popMin b)
@@ -636,16 +639,18 @@ theorem Map.getFromList [auto ord: Ord k] (key: k) (xs: List (k, v)): Map.get (M
   Map.Raw.getFromListFast key xs
 
 --| The last pair for a key is in the second list, if it has one.
-theorem Map.lookupLastAppendRight [auto ord: Ord k] (key: k) (ys: List (k, v)) [found: v] (got: Map.lookupLast key ys = Some found):
-    ∀ (xs: List (k, v)) => Map.lookupLast key (xs ++ ys) = Some found
-  | [] => got
-  | [(kk, vv), ..rest] => rewrite Map.lookupLastAppendRight key ys got rest in rfl
+theorem Map.lookupLastAppendRight [auto ord: Ord k] (key: k) (ys: List (k, v)) [found: v] (got: Map.lookupLast key ys = Some found)
+    (xs: List (k, v)): Map.lookupLast key (xs ++ ys) = Some found :=
+  match xs with
+    | [] => got
+    | [(kk, vv), ..rest] => rewrite Map.lookupLastAppendRight key ys got rest in rfl
 
 --| With no pair for the key in the second list, the last is the first list's.
-theorem Map.lookupLastAppendLeft [auto ord: Ord k] (key: k) (ys: List (k, v)) (missing: Map.lookupLast key ys = None):
-    ∀ (xs: List (k, v)) => Map.lookupLast key (xs ++ ys) = Map.lookupLast key xs
-  | [] => missing
-  | [(kk, vv), ..rest] => rewrite Map.lookupLastAppendLeft key ys missing rest in rfl
+theorem Map.lookupLastAppendLeft [auto ord: Ord k] (key: k) (ys: List (k, v)) (missing: Map.lookupLast key ys = None)
+    (xs: List (k, v)): Map.lookupLast key (xs ++ ys) = Map.lookupLast key xs :=
+  match xs with
+    | [] => missing
+    | [(kk, vv), ..rest] => rewrite Map.lookupLastAppendLeft key ys missing rest in rfl
 
 --| A first pair with another key doesn't change the last pair for `key`.
 theorem Map.lookupLastConsOther [auto ord: Ord k] (key: k) (kk: k) (vv: v) (rest: List (k, v)) (apart: key ≠ kk):
@@ -812,11 +817,12 @@ theorem Map.getUnionWith [auto ord: Ord k] (a: Map k v) (key: k) (b: Map k v) (f
     a
 
 --| Merging that keeps the first value is `orElse`.
-theorem Map.Spec.mergeFirst: ∀ (a b: Option v) => Option.merge a b (x y => x) = Option.orElse a b
-  | Some x, Some y => rfl
-  | Some x, None => rfl
-  | None, Some y => rfl
-  | None, None => rfl
+theorem Map.Spec.mergeFirst (a b: Option v): Option.merge a b (x y => x) = Option.orElse a b :=
+  match a, b with
+    | Some x, Some y => rfl
+    | Some x, None => rfl
+    | None, Some y => rfl
+    | None, None => rfl
 
 --| Inserting into a raw map, then taking its class, is inserting into the class.
 theorem Map.ofRawFoldInsert [auto ord: Ord k]: ∀ (xs: List (k, v)) (r: Map.Raw k v) =>
@@ -913,24 +919,25 @@ theorem Map.countsPositive [auto ord: Ord k] (xs: List k) (key: k) (n: Nat) (fou
 --| Weighing a map of counts: each count times `f` of its key, added up. Adding
 --| `n` at `key` with `Nat.add` adds `n * f key`, whether the key is new or
 --| already there.
-theorem Map.specInsertWithWeight [auto ord: Ord k] (f: k → Nat) (key: k) (n: Nat):
-    ∀ (entries: List (k, Nat)) =>
-    List.sumBy (Map.Spec.insertWith Nat.add key n entries) (entry => entry.snd * f entry.fst) = n * f key + List.sumBy entries (entry => entry.snd * f entry.fst)
-  | [] => omega [List.sumByCons [] (key, n) (entry => entry.snd * f entry.fst)]
-  | [(kk, vv), ..rest] =>
-    match e: Ord.compare key kk with
-      | Less => omega [List.sumByCons [(kk, vv), ..rest] (key, n) (entry => entry.snd * f entry.fst)]
-      | Equal =>
-        let same := ord.equal key kk e
-        let spread: (n + vv) * f kk = n * f kk + vv * f kk := ring
-        rewrite same in
-          omega [List.sumByCons rest (kk, n + vv) (entry => entry.snd * f entry.fst), List.sumByCons rest (kk, vv) (entry => entry.snd * f entry.fst), spread]
-      | Greater =>
-        omega [
-          List.sumByCons (Map.Spec.insertWith Nat.add key n rest) (kk, vv) (entry => entry.snd * f entry.fst),
-          List.sumByCons rest (kk, vv) (entry => entry.snd * f entry.fst),
-          Map.specInsertWithWeight f key n rest
-        ]
+theorem Map.specInsertWithWeight [auto ord: Ord k] (f: k → Nat) (key: k) (n: Nat)
+    (entries: List (k, Nat)):
+    List.sumBy (Map.Spec.insertWith Nat.add key n entries) (entry => entry.snd * f entry.fst) = n * f key + List.sumBy entries (entry => entry.snd * f entry.fst) :=
+  match entries with
+    | [] => omega [List.sumByCons [] (key, n) (entry => entry.snd * f entry.fst)]
+    | [(kk, vv), ..rest] =>
+      match e: Ord.compare key kk with
+        | Less => omega [List.sumByCons [(kk, vv), ..rest] (key, n) (entry => entry.snd * f entry.fst)]
+        | Equal =>
+          let same := ord.equal key kk e
+          let spread: (n + vv) * f kk = n * f kk + vv * f kk := ring
+          rewrite same in
+            omega [List.sumByCons rest (kk, n + vv) (entry => entry.snd * f entry.fst), List.sumByCons rest (kk, vv) (entry => entry.snd * f entry.fst), spread]
+        | Greater =>
+          omega [
+            List.sumByCons (Map.Spec.insertWith Nat.add key n rest) (kk, vv) (entry => entry.snd * f entry.fst),
+            List.sumByCons rest (kk, vv) (entry => entry.snd * f entry.fst),
+            Map.specInsertWithWeight f key n rest
+          ]
 
 --| The `insertWith` step: the weight of a map of counts, after adding `n` at
 --| `key`, is `n * f key` more.
@@ -995,9 +1002,10 @@ theorem Map.getGroupMap [auto ord: Ord k] (key: a → k) (value: a → v) (kk: k
           (Map.Spec.notEqualOfCompare kk (key x) (z => Ordering.greaterNotEqual (Eq.trans (Eq.sym e) z))) NonEmptyList.append in
         Map.getGroupMap key value kk rest
 
-theorem Map.orElseNone: ∀ (o: Option a) => Option.orElse o None = o
-  | None => rfl
-  | Some x => rfl
+theorem Map.orElseNone (o: Option a): Option.orElse o None = o :=
+  match o with
+    | None => rfl
+    | Some x => rfl
 
 --| `indexBy` from a starting map: what the map has, else the first element
 --| whose key is `kk`.

@@ -26,12 +26,13 @@ theorem leavesSmall (depth: Nat): ∀ (number: Number) => depth + height number 
 
 --| A number whose leaves are inside at most four pairs is at most four
 --| pairs deep.
-theorem leavesShallow (depth: Nat): ∀ (number: Number) => List.All (leaf => leaf.depth ≤ 4 ∧ leaf.value ≤ 9) (leaves depth number) → depth + height number ≤ 4
-  | Regular value, small => And.left (And.left small)
-  | Pair left right, small =>
-    omega [
-      leavesShallow (depth + 1) left (List.allAppendLeft _ (leaves (depth + 1) left) (leaves (depth + 1) right) small),
-      leavesShallow (depth + 1) right (List.allAppendRight _ (leaves (depth + 1) left) (leaves (depth + 1) right) small)
-    ]
+theorem leavesShallow (depth: Nat) (number: Number) (small: List.All (leaf => leaf.depth ≤ 4 ∧ leaf.value ≤ 9) (leaves depth number)): depth + height number ≤ 4 :=
+  match number with
+    | Regular value => And.left (And.left small)
+    | Pair left right =>
+      omega [
+        leavesShallow (depth + 1) left (List.allAppendLeft _ (leaves (depth + 1) left) (leaves (depth + 1) right) small),
+        leavesShallow (depth + 1) right (List.allAppendRight _ (leaves (depth + 1) left) (leaves (depth + 1) right) small)
+      ]
 
 theorem reducedHeight (number: Number) (reduced: IsReduced number): height number ≤ 4 := leavesShallow 0 number reduced

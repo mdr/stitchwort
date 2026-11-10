@@ -20,33 +20,32 @@ theorem walkAt (numbers: List Nat) (preamble: Nat) (start: Nat) (front: List Nat
   Both (rewrite <- List.getDrop numbers start preamble, <- at in here)
     (rewrite (omega: start + preamble - preamble = start), <- at in rfl)
 
-theorem walkSound (numbers: List Nat) (preamble: Nat) (answer: Nat): ∀ (front: List Nat) (start: Nat) => front = numbers.drop start →
-    ValidBefore numbers preamble (start + preamble) → firstInvalidFrom preamble front = Some answer → Part1 numbers preamble answer
-  | front, start, at, valid, found =>
-    match d: front.drop preamble with
-      | [] => Void.exfalso (Option.noneNotSome answer found)
-      | [number, ..later] =>
-        let (Both atPosition window) := walkAt numbers preamble start front at number later d
-        match c: ({ numbers = front.take preamble }: Window).sumsTo number with
-          | False =>
-            let isAnswer: number = answer := Option.someInjective found
-            Witness (start + preamble)
-              (Both (omega) (Both (rewrite <- isAnswer in atPosition)
-                (Both (rewrite window, <- isAnswer in (sum => Bool.falseNotTrue (Eq.trans (Eq.sym c) (sumsToComplete { numbers = front.take preamble } number sum))))
-                  (earlier bounds => valid earlier (omega)))))
-          | True =>
-            match front with
-              | [] => Void.exfalso (Option.noneNotSome answer found)
-              | [first, ..rest] =>
-                let moved: rest = numbers.drop (start + 1) := rewrite List.dropAdd start 1 numbers, <- at in rfl
-                walkSound numbers preamble answer rest (start + 1) moved
-                  (earlier bounds n listed =>
-                    if h: earlier < start + preamble then valid earlier (omega) n listed
-                    else
-                      let same: earlier = start + preamble := omega
-                      let isNumber: n = number := Option.someInjective (rewrite same at listed in Eq.trans (Eq.sym listed) atPosition)
-                      rewrite same, isNumber, window in sumsToSound { numbers = [first, ..rest].take preamble } number c)
-                  found
+theorem walkSound (numbers: List Nat) (preamble: Nat) (answer: Nat) (front: List Nat) (start: Nat) (at: front = numbers.drop start)
+    (valid: ValidBefore numbers preamble (start + preamble)) (found: firstInvalidFrom preamble front = Some answer): Part1 numbers preamble answer :=
+  match d: front.drop preamble with
+    | [] => Void.exfalso (Option.noneNotSome answer found)
+    | [number, ..later] =>
+      let (Both atPosition window) := walkAt numbers preamble start front at number later d
+      match c: ({ numbers = front.take preamble }: Window).sumsTo number with
+        | False =>
+          let isAnswer: number = answer := Option.someInjective found
+          Witness (start + preamble)
+            (Both (omega) (Both (rewrite <- isAnswer in atPosition)
+              (Both (rewrite window, <- isAnswer in (sum => Bool.falseNotTrue (Eq.trans (Eq.sym c) (sumsToComplete { numbers = front.take preamble } number sum))))
+                (earlier bounds => valid earlier (omega)))))
+        | True =>
+          match front with
+            | [] => Void.exfalso (Option.noneNotSome answer found)
+            | [first, ..rest] =>
+              let moved: rest = numbers.drop (start + 1) := rewrite List.dropAdd start 1 numbers, <- at in rfl
+              walkSound numbers preamble answer rest (start + 1) moved
+                (earlier bounds n listed =>
+                  if h: earlier < start + preamble then valid earlier (omega) n listed
+                  else
+                    let same: earlier = start + preamble := omega
+                    let isNumber: n = number := Option.someInjective (rewrite same at listed in Eq.trans (Eq.sym listed) atPosition)
+                    rewrite same, isNumber, window in sumsToSound { numbers = [first, ..rest].take preamble } number c)
+                found
 
 theorem part1Rules (data: XmasData) (preamble: Nat) (answer: Nat) (found: data.firstInvalid preamble = Some answer):
     Part1 data.numbers preamble answer :=

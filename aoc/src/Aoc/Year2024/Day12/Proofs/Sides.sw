@@ -23,23 +23,26 @@ theorem countQuadrants (f: (Direction, Direction) → Bool):
     List.countCons [(Down, Right)] (Down, Left) f, List.countCons [] (Down, Right) f in omega
 
 --| The spec's first sections of fence at a plot are the grid's starts.
-theorem specSidesCell (region: Region): ∀ (row column: Nat) =>
-    directions.count (isFirstSection region { row, column }) = starts (insideOf region) row column
-  | Zero, Zero => Eq.trans (countDirections (isFirstSection region _)) rfl
-  | Zero, Succ before => Eq.trans (countDirections (isFirstSection region _)) rfl
-  | Succ up, Zero => Eq.trans (countDirections (isFirstSection region _)) rfl
-  | Succ up, Succ before => Eq.trans (countDirections (isFirstSection region _)) rfl
+theorem specSidesCell (region: Region) (row column: Nat):
+    directions.count (isFirstSection region { row, column }) = starts (insideOf region) row column :=
+  match row, column with
+    | Zero, Zero => Eq.trans (countDirections (isFirstSection region _)) rfl
+    | Zero, Succ before => Eq.trans (countDirections (isFirstSection region _)) rfl
+    | Succ up, Zero => Eq.trans (countDirections (isFirstSection region _)) rfl
+    | Succ up, Succ before => Eq.trans (countDirections (isFirstSection region _)) rfl
 
 --| Each side of a plot touches the region where the grid's neighbour is in.
-theorem facesUp (region: Region): ∀ (row column: Nat) => facesRegion region { row, column } Up = above (insideOf region) row column
-  | Zero, column => rfl
-  | Succ up, column => rfl
+theorem facesUp (region: Region) (row column: Nat): facesRegion region { row, column } Up = above (insideOf region) row column :=
+  match row with
+    | Zero => rfl
+    | Succ up => rfl
 
 theorem facesDown (region: Region) (row: Nat) (column: Nat): facesRegion region { row, column } Down = below (insideOf region) row column := rfl
 
-theorem facesLeft (region: Region): ∀ (row column: Nat) => facesRegion region { row, column } Left = leftOf (insideOf region) row column
-  | row, Zero => rfl
-  | row, Succ before => rfl
+theorem facesLeft (region: Region) (row column: Nat): facesRegion region { row, column } Left = leftOf (insideOf region) row column :=
+  match column with
+    | Zero => rfl
+    | Succ before => rfl
 
 theorem facesRight (region: Region) (row: Nat) (column: Nat): facesRegion region { row, column } Right = rightOf (insideOf region) row column := rfl
 
@@ -50,21 +53,24 @@ def diagonalIn (region: Region) (plot: Position) (vertical: Direction) (horizont
     | Some next => facesRegion region next horizontal
     | None => False
 
-theorem diagonalUpLeft (region: Region): ∀ (row column: Nat) =>
-    diagonalIn region { row, column } Up Left = above (leftOf (insideOf region)) row column
-  | Zero, column => rfl
-  | Succ up, Zero => rfl
-  | Succ up, Succ before => rfl
+theorem diagonalUpLeft (region: Region) (row column: Nat):
+    diagonalIn region { row, column } Up Left = above (leftOf (insideOf region)) row column :=
+  match row, column with
+    | Zero, column => rfl
+    | Succ up, Zero => rfl
+    | Succ up, Succ before => rfl
 
-theorem diagonalUpRight (region: Region): ∀ (row column: Nat) =>
-    diagonalIn region { row, column } Up Right = above (rightOf (insideOf region)) row column
-  | Zero, column => rfl
-  | Succ up, column => rfl
+theorem diagonalUpRight (region: Region) (row column: Nat):
+    diagonalIn region { row, column } Up Right = above (rightOf (insideOf region)) row column :=
+  match row with
+    | Zero => rfl
+    | Succ up => rfl
 
-theorem diagonalDownLeft (region: Region): ∀ (row column: Nat) =>
-    diagonalIn region { row, column } Down Left = below (leftOf (insideOf region)) row column
-  | row, Zero => rfl
-  | row, Succ before => rfl
+theorem diagonalDownLeft (region: Region) (row column: Nat):
+    diagonalIn region { row, column } Down Left = below (leftOf (insideOf region)) row column :=
+  match column with
+    | Zero => rfl
+    | Succ before => rfl
 
 theorem diagonalDownRight (region: Region) (row: Nat) (column: Nat):
     diagonalIn region { row, column } Down Right = below (rightOf (insideOf region)) row column := rfl
@@ -109,43 +115,45 @@ theorem isCornerSplit (garden: Garden) (plot: Position) (vertical: Direction) (h
 
 --| The program's corners at a plot of a region are the grid's.
 theorem programCornersCell (garden: Garden) (start: Position) (plant: Char) (grows: garden.plantAt start = Some plant) (region: Region)
-    (isRegion: IsRegion garden start region): ∀ (plot: Position) => plot ∈ region.plots → garden.cornerCount plot = corners (insideOf region) plot.row plot.column
-  | { row, column }, member =>
-    let plot: Position := { row, column }
-    let inside := insideOf region
-    let isIn: inside row column = True := (List.memContains region.plots plot).backward member
-    let faces := (side: Direction) => sameAcrossFaces garden start plant grows region isRegion plot member side
-    let up := Eq.trans (faces Up) (facesUp region row column)
-    let down := Eq.trans (faces Down) (facesDown region row column)
-    let left := Eq.trans (faces Left) (facesLeft region row column)
-    let right := Eq.trans (faces Right) (facesRight region row column)
-    let diagonal := (vertical: Direction) => (horizontal: Direction) => (same: garden.sameAcross plot vertical = True) =>
-      diagonalSame garden start plant grows region isRegion plot member vertical horizontal same
-    omega [
-      countQuadrants (quadrant => garden.isCorner plot quadrant.fst quadrant.snd),
-      isCornerSplit garden plot Up Left (above inside row column) (leftOf inside row column) (above (leftOf inside) row column) up left
-        (same => rewrite <- diagonalUpLeft region row column in diagonal Up Left (Eq.trans up same)),
-      isCornerSplit garden plot Up Right (above inside row column) (rightOf inside row column) (above (rightOf inside) row column) up right
-        (same => rewrite <- diagonalUpRight region row column in diagonal Up Right (Eq.trans up same)),
-      isCornerSplit garden plot Down Left (below inside row column) (leftOf inside row column) (below (leftOf inside) row column) down left
-        (same => rewrite <- diagonalDownLeft region row column in diagonal Down Left (Eq.trans down same)),
-      isCornerSplit garden plot Down Right (below inside row column) (rightOf inside row column) (below (rightOf inside) row column) down right
-        (same => rewrite <- diagonalDownRight region row column in diagonal Down Right (Eq.trans down same)),
-      (rewrite isIn in rfl: corners inside row column
-        = Bool.toNat (convex True (above inside row column) (leftOf inside row column))
-          + Bool.toNat (concave True (above inside row column) (leftOf inside row column) (above (leftOf inside) row column))
-          + (Bool.toNat (convex True (above inside row column) (rightOf inside row column))
-            + Bool.toNat (concave True (above inside row column) (rightOf inside row column) (above (rightOf inside) row column)))
-          + (Bool.toNat (convex True (below inside row column) (leftOf inside row column))
-            + Bool.toNat (concave True (below inside row column) (leftOf inside row column) (below (leftOf inside) row column)))
-          + (Bool.toNat (convex True (below inside row column) (rightOf inside row column))
-            + Bool.toNat (concave True (below inside row column) (rightOf inside row column) (below (rightOf inside) row column))))
-    ]
+    (isRegion: IsRegion garden start region) (plot: Position) (member: plot ∈ region.plots): garden.cornerCount plot = corners (insideOf region) plot.row plot.column :=
+  match plot with
+    | { row, column } =>
+      let plot: Position := { row, column }
+      let inside := insideOf region
+      let isIn: inside row column = True := (List.memContains region.plots plot).backward member
+      let faces := (side: Direction) => sameAcrossFaces garden start plant grows region isRegion plot member side
+      let up := Eq.trans (faces Up) (facesUp region row column)
+      let down := Eq.trans (faces Down) (facesDown region row column)
+      let left := Eq.trans (faces Left) (facesLeft region row column)
+      let right := Eq.trans (faces Right) (facesRight region row column)
+      let diagonal := (vertical: Direction) => (horizontal: Direction) => (same: garden.sameAcross plot vertical = True) =>
+        diagonalSame garden start plant grows region isRegion plot member vertical horizontal same
+      omega [
+        countQuadrants (quadrant => garden.isCorner plot quadrant.fst quadrant.snd),
+        isCornerSplit garden plot Up Left (above inside row column) (leftOf inside row column) (above (leftOf inside) row column) up left
+          (same => rewrite <- diagonalUpLeft region row column in diagonal Up Left (Eq.trans up same)),
+        isCornerSplit garden plot Up Right (above inside row column) (rightOf inside row column) (above (rightOf inside) row column) up right
+          (same => rewrite <- diagonalUpRight region row column in diagonal Up Right (Eq.trans up same)),
+        isCornerSplit garden plot Down Left (below inside row column) (leftOf inside row column) (below (leftOf inside) row column) down left
+          (same => rewrite <- diagonalDownLeft region row column in diagonal Down Left (Eq.trans down same)),
+        isCornerSplit garden plot Down Right (below inside row column) (rightOf inside row column) (below (rightOf inside) row column) down right
+          (same => rewrite <- diagonalDownRight region row column in diagonal Down Right (Eq.trans down same)),
+        (rewrite isIn in rfl: corners inside row column
+          = Bool.toNat (convex True (above inside row column) (leftOf inside row column))
+            + Bool.toNat (concave True (above inside row column) (leftOf inside row column) (above (leftOf inside) row column))
+            + (Bool.toNat (convex True (above inside row column) (rightOf inside row column))
+              + Bool.toNat (concave True (above inside row column) (rightOf inside row column) (above (rightOf inside) row column)))
+            + (Bool.toNat (convex True (below inside row column) (leftOf inside row column))
+              + Bool.toNat (concave True (below inside row column) (leftOf inside row column) (below (leftOf inside) row column)))
+            + (Bool.toNat (convex True (below inside row column) (rightOf inside row column))
+              + Bool.toNat (concave True (below inside row column) (rightOf inside row column) (below (rightOf inside) row column))))
+      ]
 
 --| `total` is the sum over `List.range`.
-theorem totalRange: ∀ (n: Nat) (f: Nat → Nat) => (List.range 0 n).sumBy f = total n f
-  | Zero, f => rfl
-  | Succ n, f => rewrite List.sumByRangeSucc f n, totalRange n (i => f (Succ i)) in rfl
+theorem totalRange (n: Nat) (f: Nat → Nat): (List.range 0 n).sumBy f = total n f :=
+  match n with
+    | Zero => rfl
+    | Succ n => rewrite List.sumByRangeSucc f n, totalRange n (i => f (Succ i)) in rfl
 
 --| The square of the grid with rows and columns up to `last`, row by row.
 def square (last: Nat): List Position :=

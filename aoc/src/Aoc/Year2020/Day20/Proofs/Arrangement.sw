@@ -46,34 +46,36 @@ theorem belowFits (jigsaw: Jigsaw) (tile: Tile) (next: Tile) (found: jigsaw.belo
   match neighbourFound jigsaw tile tile.image.bottom (next => next.image.top == tile.image.bottom) next found with
     | Both fits turned => Both (DecEq.sound fits) turned
 
-theorem rowAfterFits (jigsaw: Jigsaw): ∀ (tile: Tile) (fuel: Nat) => RowFits [tile, ..jigsaw.rowAfter tile fuel]
-  | tile, Zero => Trivial
-  | tile, Succ fuel =>
-    match found: jigsaw.rightOf tile with
-      | None => Trivial
-      | Some next => Both (rightOfFits jigsaw tile next found).left (rowAfterFits jigsaw next fuel)
+theorem rowAfterFits (jigsaw: Jigsaw) (tile: Tile) (fuel: Nat): RowFits [tile, ..jigsaw.rowAfter tile fuel] :=
+  match fuel with
+    | Zero => Trivial
+    | Succ fuel =>
+      match found: jigsaw.rightOf tile with
+        | None => Trivial
+        | Some next => Both (rightOfFits jigsaw tile next found).left (rowAfterFits jigsaw next fuel)
 
 --| From any first tile (`arrange` starts from `topLeft`), every row fits
 --| edge to edge, and so does the first column.
-theorem rowsFromFits (jigsaw: Jigsaw): ∀ (first: Tile) (fuel: Nat) => (∀ (row: List Tile) => row ∈ jigsaw.rowsFrom first fuel → RowFits row) ∧ ColumnFits (jigsaw.rowsFrom first fuel)
-  | first, Zero => Both (row member => Void.exfalso member) Trivial
-  | first, Succ fuel =>
-    let firstRow := rowAfterFits jigsaw first jigsaw.tiles.length
-    match found: jigsaw.below first with
-      | None =>
-        Both
-          (row member =>
-            match member with
-              | Inl same => rewrite <- same in firstRow
-              | Inr never => Void.exfalso never)
-          Trivial
-      | Some next =>
-        let later := rowsFromFits jigsaw next fuel
-        Both
-          (row member =>
-            match member with
-              | Inl same => rewrite <- same in firstRow
-              | Inr more => later.left row more)
-          (match fuel with
-            | Zero => Trivial
-            | Succ more => Both (belowFits jigsaw first next found).left later.right)
+theorem rowsFromFits (jigsaw: Jigsaw) (first: Tile) (fuel: Nat): (∀ (row: List Tile) => row ∈ jigsaw.rowsFrom first fuel → RowFits row) ∧ ColumnFits (jigsaw.rowsFrom first fuel) :=
+  match fuel with
+    | Zero => Both (row member => Void.exfalso member) Trivial
+    | Succ fuel =>
+      let firstRow := rowAfterFits jigsaw first jigsaw.tiles.length
+      match found: jigsaw.below first with
+        | None =>
+          Both
+            (row member =>
+              match member with
+                | Inl same => rewrite <- same in firstRow
+                | Inr never => Void.exfalso never)
+            Trivial
+        | Some next =>
+          let later := rowsFromFits jigsaw next fuel
+          Both
+            (row member =>
+              match member with
+                | Inl same => rewrite <- same in firstRow
+                | Inr more => later.left row more)
+            (match fuel with
+              | Zero => Trivial
+              | Succ more => Both (belowFits jigsaw first next found).left later.right)

@@ -40,9 +40,10 @@ theorem getOrLabelCounts (c: Circuits) (n: Nat) (label: Nat): Map.getOr (labelCo
   Map.getOrCounts label (List.map (List.range 0 n) c.labelOf)
 
 --| Each entry of the histogram is a label and its count.
-theorem entryCount (c: Circuits) (n: Nat): ∀ (e: (Nat, Nat)) => List.Mem e (Map.toList (labelCounts c n)) → e.snd = labelCount c n e.fst
-  | (label, v), m =>
-    Eq.trans (Eq.sym (Eq.cong (.getOrElse 0) ((Map.memToList (labelCounts c n) label v).forward m))) (getOrLabelCounts c n label)
+theorem entryCount (c: Circuits) (n: Nat) (e: (Nat, Nat)) (m: List.Mem e (Map.toList (labelCounts c n))): e.snd = labelCount c n e.fst :=
+  match e with
+    | (label, v) =>
+      Eq.trans (Eq.sym (Eq.cong (.getOrElse 0) ((Map.memToList (labelCounts c n) label v).forward m))) (getOrLabelCounts c n label)
 
 --| A label is counted once at least exactly when some box has it.
 theorem memOfCount (c: Circuits) (n: Nat) (label: Nat) (h: 0 < labelCount c n label): List.Mem label (List.map (List.range 0 n) c.labelOf) :=

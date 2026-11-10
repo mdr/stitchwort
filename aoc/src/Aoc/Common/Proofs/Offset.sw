@@ -12,16 +12,18 @@ import Std (And, Bool, Eq, Int, Nat, Option, Or, Void)
 
 -- Equal parts
 
-theorem positionExt: ∀ (position other: Position) => position.row = other.row → position.column = other.column → position = other
-  | { row, column }, { row = otherRow, column = otherColumn }, rows, columns => rewrite rows, columns in rfl
+theorem positionExt (position other: Position) (rows: position.row = other.row) (columns: position.column = other.column): position = other :=
+  match position, other with
+    | { row, column }, { row = otherRow, column = otherColumn } => rewrite rows, columns in rfl
 
 --| Positions are equal when their rows and columns are, as `Int`s.
 theorem positionExtInt (position: Position) (other: Position) (rows: position.row.toInt = other.row.toInt)
     (columns: position.column.toInt = other.column.toInt): position = other :=
   positionExt position other (omega) (omega)
 
-theorem offsetExt: ∀ (offset other: Offset) => offset.rows = other.rows → offset.columns = other.columns → offset = other
-  | { rows, columns }, { rows = otherRows, columns = otherColumns }, sameRows, sameColumns => rewrite sameRows, sameColumns in rfl
+theorem offsetExt (offset other: Offset) (sameRows: offset.rows = other.rows) (sameColumns: offset.columns = other.columns): offset = other :=
+  match offset, other with
+    | { rows, columns }, { rows = otherRows, columns = otherColumns } => rewrite sameRows, sameColumns in rfl
 
 -- Where an offset lands
 
@@ -66,13 +68,14 @@ theorem offsetNoneOf (position: Position) (offset: Offset)
         | Inr before => Void.exfalso (omega [And.right both])
 
 --| A step is an offset by its direction's.
-theorem stepOffset: ∀ (position: Position) (direction: Direction) => position.step direction = position.offset direction.offset
-  | { row = Zero, column }, Up => Eq.sym (offsetNoneOf { row = Zero, column } (Direction.offset Up) (Inl (omega)))
-  | { row = Succ above, column }, Up => Eq.sym (offsetOf { row = Succ above, column } (Direction.offset Up) { row = above, column } (omega) (omega))
-  | { row, column }, Right => Eq.sym (offsetOf { row, column } (Direction.offset Right) { row, column = column + 1 } (omega) (omega))
-  | { row, column }, Down => Eq.sym (offsetOf { row, column } (Direction.offset Down) { row = row + 1, column } (omega) (omega))
-  | { row, column = Zero }, Left => Eq.sym (offsetNoneOf { row, column = Zero } (Direction.offset Left) (Inr (omega)))
-  | { row, column = Succ before }, Left => Eq.sym (offsetOf { row, column = Succ before } (Direction.offset Left) { row, column = before } (omega) (omega))
+theorem stepOffset (position: Position) (direction: Direction): position.step direction = position.offset direction.offset :=
+  match position, direction with
+    | { row = Zero, column }, Up => Eq.sym (offsetNoneOf { row = Zero, column } (Direction.offset Up) (Inl (omega)))
+    | { row = Succ above, column }, Up => Eq.sym (offsetOf { row = Succ above, column } (Direction.offset Up) { row = above, column } (omega) (omega))
+    | { row, column }, Right => Eq.sym (offsetOf { row, column } (Direction.offset Right) { row, column = column + 1 } (omega) (omega))
+    | { row, column }, Down => Eq.sym (offsetOf { row, column } (Direction.offset Down) { row = row + 1, column } (omega) (omega))
+    | { row, column = Zero }, Left => Eq.sym (offsetNoneOf { row, column = Zero } (Direction.offset Left) (Inr (omega)))
+    | { row, column = Succ before }, Left => Eq.sym (offsetOf { row, column = Succ before } (Direction.offset Left) { row, column = before } (omega) (omega))
 
 -- The laws
 
@@ -117,11 +120,12 @@ theorem offsetStepInjective (offset: Offset) (other: Offset) (direction: Directi
 theorem offsetStepComm (offset: Offset) (first: Direction) (second: Direction): (offset.step first).step second = (offset.step second).step first :=
   offsetExt ((offset.step first).step second) ((offset.step second).step first) (omega) (omega)
 
-theorem offsetStepOpposite (offset: Offset): ∀ (direction: Direction) => (offset.step direction).step direction.opposite = offset
-  | Up => offsetExt ((offset.step Up).step Down) offset (omega) (omega)
-  | Right => offsetExt ((offset.step Right).step Left) offset (omega) (omega)
-  | Down => offsetExt ((offset.step Down).step Up) offset (omega) (omega)
-  | Left => offsetExt ((offset.step Left).step Right) offset (omega) (omega)
+theorem offsetStepOpposite (offset: Offset) (direction: Direction): (offset.step direction).step direction.opposite = offset :=
+  match direction with
+    | Up => offsetExt ((offset.step Up).step Down) offset (omega) (omega)
+    | Right => offsetExt ((offset.step Right).step Left) offset (omega) (omega)
+    | Down => offsetExt ((offset.step Down).step Up) offset (omega) (omega)
+    | Left => offsetExt ((offset.step Left).step Right) offset (omega) (omega)
 
 -- On a grid
 
@@ -168,15 +172,16 @@ theorem wrapPlus (position: Position) (first: Offset) (second: Offset) (height: 
 
 --| Wrapping by `offset` `times` times is wrapping by `times` times it, from
 --| a position on the board.
-theorem wrapIterate (offset: Offset) (height: Nat) (width: Nat) [auto tall: height ≠ 0] [auto wide: width ≠ 0]:
-    ∀ (times: Nat) (position: Position) => position.within height width = True →
-      times.iterate (here => here.wrap offset height width) position = position.wrap (offset.times times.toInt) height width
-  | Zero, position, inside =>
-    Eq.sym
-      (Eq.trans (Eq.cong (moved => position.wrap moved height width) (offsetExt (offset.times (Nat.toInt 0)) Offset.zero (omega) (omega)))
-        (wrapZero position height width inside))
-  | Succ times, position, inside =>
-    Eq.trans (wrapIterate offset height width times (position.wrap offset height width) (wrapWithin position offset height width))
-      (Eq.trans (wrapPlus position offset (offset.times times.toInt) height width)
-        (Eq.cong (moved => position.wrap moved height width)
-          (offsetExt (offset.plus (offset.times times.toInt)) (offset.times (Succ times).toInt) (ring) (ring))))
+theorem wrapIterate (offset: Offset) (height: Nat) (width: Nat) [auto tall: height ≠ 0] [auto wide: width ≠ 0]
+    (times: Nat) (position: Position) (inside: position.within height width = True):
+    times.iterate (here => here.wrap offset height width) position = position.wrap (offset.times times.toInt) height width :=
+  match times with
+    | Zero =>
+      Eq.sym
+        (Eq.trans (Eq.cong (moved => position.wrap moved height width) (offsetExt (offset.times (Nat.toInt 0)) Offset.zero (omega) (omega)))
+          (wrapZero position height width inside))
+    | Succ times =>
+      Eq.trans (wrapIterate offset height width times (position.wrap offset height width) (wrapWithin position offset height width))
+        (Eq.trans (wrapPlus position offset (offset.times times.toInt) height width)
+          (Eq.cong (moved => position.wrap moved height width)
+            (offsetExt (offset.plus (offset.times times.toInt)) (offset.times (Succ times).toInt) (ring) (ring))))

@@ -173,12 +173,13 @@ theorem fillFromStart (garden: Garden) (plant: Char) (start: Position):
 --| Every plot joined to a member of a closed list of plots is a member.
 theorem closedChain (garden: Garden) (plant: Char) (result: List Position)
     (sound: ∀ (position: Position) => position ∈ result → garden.plantAt position = Some plant)
-    (closed: ∀ (member: Position) => member ∈ result → ∀ (next: Position) => next ∈ garden.neighboursGrowing plant member → next ∈ result):
-    ∀ (from: Position) (chain: List Position) (to: Position) => from ∈ result → isChain garden from chain to = True → to ∈ result
-  | from, [], to, member, same => rewrite <- DecEq.sound same in member
-  | from, [next, ..rest], to, member, chained =>
-    closedChain garden plant result sound closed next rest to
-      (closed from member next (touchingGrowing garden plant from next (sound from member) (Bool.andLeft chained))) (Bool.andRight chained)
+    (closed: ∀ (member: Position) => member ∈ result → ∀ (next: Position) => next ∈ garden.neighboursGrowing plant member → next ∈ result)
+    (from: Position) (chain: List Position) (to: Position) (member: from ∈ result) (same: isChain garden from chain to = True): to ∈ result :=
+  match chain, same with
+    | [], same => rewrite <- DecEq.sound same in member
+    | [next, ..rest], chained =>
+      closedChain garden plant result sound closed next rest to
+        (closed from member next (touchingGrowing garden plant from next (sound from member) (Bool.andLeft chained))) (Bool.andRight chained)
 
 --| From a plot growing `plant`, the region is a fill.
 theorem regionOfFill (garden: Garden) (start: Position) (plant: Char) (grows: garden.plantAt start = Some plant):

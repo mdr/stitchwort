@@ -145,10 +145,11 @@ theorem findTripleComplete (target: Nat): ∀ (entries: List Nat) (a b c: Nat) =
 
 --| An answer that is sound and complete is the only answer, when there is
 --| exactly one.
-theorem onlyAnswer (answers: List Nat): ∀ (found: Option Nat) (sound: ∀ (x: Nat) => found = Some x → x ∈ answers) (complete: ∀ (x: Nat) => x ∈ answers → found ≠ None) (answer: Nat) => answer ∈ answers →
-    (∀ (other: Nat) => other ∈ answers → other = answer) → found = Some answer
-  | Some x, sound, complete, answer, isAnswer, only => rewrite only x (sound x rfl) in rfl
-  | None, sound, complete, answer, isAnswer, only => Void.exfalso (complete answer isAnswer rfl)
+theorem onlyAnswer (answers: List Nat) (found: Option Nat) (sound: ∀ (x: Nat) => found = Some x → x ∈ answers) (complete: ∀ (x: Nat) => x ∈ answers → found ≠ None) (answer: Nat) (isAnswer: answer ∈ answers)
+    (only: (∀ (other: Nat) => other ∈ answers → other = answer)): found = Some answer :=
+  match found with
+    | Some x => rewrite only x (sound x rfl) in rfl
+    | None => Void.exfalso (complete answer isAnswer rfl)
 
 --| Part 1's answer is one of the puzzle's.
 theorem part1Sound (entries: List Nat) (answer: Nat) (found: solvePart1 entries = Some answer): answer ∈ part1Answers entries :=

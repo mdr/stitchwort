@@ -24,6 +24,7 @@ theorem startsPocket (slice: Slice) (dimensions: Nat): Spec.Starts slice dimensi
       (Set.containsFromListIff (cubes.map (Cube.inSlice dimensions)) cube).backward (rewrite <- made in List.memMap cubes at member (Cube.inSlice dimensions))
   }
 
-theorem cycles: ∀ (count: Nat) (pocket: Pocket) => Spec.Cycles count pocket.active (Nat.iterate count Pocket.cycle pocket).active
-  | Zero, pocket => rfl
-  | Succ more, pocket => Witness pocket.cycle.active (Both (cube => cycleActive pocket cube) (cycles more pocket.cycle))
+theorem cycles (count: Nat) (pocket: Pocket): Spec.Cycles count pocket.active (Nat.iterate count Pocket.cycle pocket).active :=
+  match count with
+    | Zero => rfl
+    | Succ more => Witness pocket.cycle.active (Both (cube => cycleActive pocket cube) (cycles more pocket.cycle))

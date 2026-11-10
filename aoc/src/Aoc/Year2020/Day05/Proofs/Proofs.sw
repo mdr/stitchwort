@@ -7,12 +7,13 @@ import Aoc.Year2020.Day05 (..)
 import Aoc.Year2020.Day05.Spec (..)
 import Std (Bool, DecEq, Eq, Exists, Fail, List, Nat, Option, Result, Text, Void)
 
-theorem seatIdsWritten: ∀ (lines: List (List Char)) (passes: List Pass) => List.All2 PassWritten lines passes → seatIds lines = passes.map .seatId
-  | [], [], all => rfl
-  | [line, ..lines], [pass, ..passes], Both (Both rows (Both columns same)) rest =>
-    rewrite same, seatIdSpec pass rows columns, seatIdsWritten lines passes rest in rfl
-  | [], [_, .._], impossible => Void.exfalso impossible
-  | [_, .._], [], impossible => Void.exfalso impossible
+theorem seatIdsWritten (lines: List (List Char)) (passes: List Pass) (impossible: List.All2 PassWritten lines passes): seatIds lines = passes.map .seatId :=
+  match lines, passes, impossible with
+    | [], [], all => rfl
+    | [line, ..lines], [pass, ..passes], Both (Both rows (Both columns same)) rest =>
+      rewrite same, seatIdSpec pass rows columns, seatIdsWritten lines passes rest in rfl
+    | [], [_, .._], impossible => Void.exfalso impossible
+    | [_, .._], [], impossible => Void.exfalso impossible
 
 theorem idsWritten (input: Text) (passes: List Pass) (parsed: Fail.toResult (() => parsePasses input) = Ok passes):
     seatIds (input.lines.map Text.toList) = passes.map .seatId :=

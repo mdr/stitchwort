@@ -11,23 +11,27 @@ import Aoc.Common (Direction, Position)
 import Aoc.Year2024.Day06.Spec (..)
 import Std (And, Bool, DecEq, Eq, Exists, Nat, Not, Option, Void)
 
-theorem walkIterate (lab: Lab): ∀ (steps: Nat) (guard: Option Guard) =>
-    walk lab guard steps = Nat.iterate steps (state => state.flatMap lab.step) guard
-  | Zero, guard => rfl
-  | Succ steps, guard => walkIterate lab steps (guard.flatMap lab.step)
+theorem walkIterate (lab: Lab) (steps: Nat) (guard: Option Guard):
+    walk lab guard steps = Nat.iterate steps (state => state.flatMap lab.step) guard :=
+  match steps with
+    | Zero => rfl
+    | Succ steps => walkIterate lab steps (guard.flatMap lab.step)
 
 --| Once off the map, she stays off.
-theorem walkNone (lab: Lab): ∀ (steps: Nat) => walk lab None steps = None
-  | Zero => rfl
-  | Succ steps => walkNone lab steps
+theorem walkNone (lab: Lab) (steps: Nat): walk lab None steps = None :=
+  match steps with
+    | Zero => rfl
+    | Succ steps => walkNone lab steps
 
-theorem walkSucc (lab: Lab): ∀ (steps: Nat) (guard: Option Guard) => walk lab guard (Succ steps) = (walk lab guard steps).flatMap lab.step
-  | Zero, guard => rfl
-  | Succ steps, guard => walkSucc lab steps (guard.flatMap lab.step)
+theorem walkSucc (lab: Lab) (steps: Nat) (guard: Option Guard): walk lab guard (Succ steps) = (walk lab guard steps).flatMap lab.step :=
+  match steps with
+    | Zero => rfl
+    | Succ steps => walkSucc lab steps (guard.flatMap lab.step)
 
-theorem walkAdd (lab: Lab): ∀ (first: Nat) (guard: Option Guard) (second: Nat) => walk lab guard (first + second) = walk lab (walk lab guard first) second
-  | Zero, guard, second => rfl
-  | Succ first, guard, second => walkAdd lab first (guard.flatMap lab.step) second
+theorem walkAdd (lab: Lab) (first: Nat) (guard: Option Guard) (second: Nat): walk lab guard (first + second) = walk lab (walk lab guard first) second :=
+  match first with
+    | Zero => rfl
+    | Succ first => walkAdd lab first (guard.flatMap lab.step) second
 
 --| Gone after `steps`, she is gone after any more.
 theorem walkLater (lab: Lab) (guard: Option Guard) (steps: Nat) (later: Nat) (gone: walk lab guard steps = None) (le: steps ≤ later):
@@ -99,10 +103,11 @@ theorem directionIndexInjective (one: Direction) (other: Direction) (same: direc
     _ = directionOfIndex (directionIndex other) := rewrite same in rfl
     _ = other := directionOfIndexOf other
 
-theorem guardExt: ∀ (one other: Guard) => one.position.row = other.position.row → one.position.column = other.position.column →
-    one.facing = other.facing → one = other
-  | { position = { row, column }, facing }, { position = { row = otherRow, column = otherColumn }, facing = otherFacing }, rows, columns, facings =>
-    rewrite rows, columns, facings in rfl
+theorem guardExt (one other: Guard) (rows: one.position.row = other.position.row) (columns: one.position.column = other.position.column)
+    (facings: one.facing = other.facing): one = other :=
+  match one, other with
+    | { position = { row, column }, facing }, { position = { row = otherRow, column = otherColumn }, facing = otherFacing } =>
+      rewrite rows, columns, facings in rfl
 
 --| Different states on the map have different numbers.
 theorem stateCodeInjective (lab: Lab) (one: Guard) (other: Guard) (oneInside: onMap lab one.position = True) (otherInside: onMap lab other.position = True)

@@ -43,9 +43,10 @@ def Result.traverseLoop (f: a → Result b e) (done: List b): (xs: List a) → R
       | Err m => Err m
 
 --| Two maps are one map of the composite.
-theorem Result.mapMap (f: a → b) (g: b → c): ∀ (r: Result a e) => Result.map (Result.map r f) g = Result.map r (x => g (f x))
-  | Ok x => rfl
-  | Err m => rfl
+theorem Result.mapMap (f: a → b) (g: b → c) (r: Result a e): Result.map (Result.map r f) g = Result.map r (x => g (f x)) :=
+  match r with
+    | Ok x => rfl
+    | Err m => rfl
 
 theorem Result.okInjective [x: a] [y: a] (h: (Ok x: Result a e) = Ok y): x = y := Eq.cong (.getOrElse x) h
 
@@ -100,9 +101,10 @@ def Option.toResult: (option: Option a) → (err: e) → Result a e
   | None, err => Err err
   | Some x, err => Ok x
 
-theorem Result.toOptionToResult (err: e): ∀ (o: Option a) => Result.toOption (Option.toResult o err) = o
-  | None => rfl
-  | Some x => rfl
+theorem Result.toOptionToResult (err: e) (o: Option a): Result.toOption (Option.toResult o err) = o :=
+  match o with
+    | None => rfl
+    | Some x => rfl
 
 test "Result of ()" := (Ok (): Result () Text) == Ok () ∧ (Err "no": Result () Text) != Ok ()
 test "Result.map" := Result.map (Ok 2: Result Nat Text) (+ 1) == Ok 3

@@ -25,12 +25,11 @@ theorem onGridAfter (cavern: Cavern): ∀ (k: Nat) => OnGrid cavern ((flashedAft
   | Succ k, q, flashes => onGridFlash cavern (at level => 9 < energyWith (flashedAfter cavern k).lookup at level) q flashes
 
 --| Before the first round nobody has flashed.
-theorem noneAtStart (cavern: Cavern): ∀ (q: Position) => (flashedAfter cavern 0).has q = False
-  | q =>
-    Eq.trans (hasFlash cavern (_ _ => False) q)
-      (match cavern.grid.at q with
-        | None => rfl
-        | Some level => rfl)
+theorem noneAtStart (cavern: Cavern) (q: Position): (flashedAfter cavern 0).has q = False :=
+  Eq.trans (hasFlash cavern (_ _ => False) q)
+    (match cavern.grid.at q with
+      | None => rfl
+      | Some level => rfl)
 
 --| A spec energy grows with the flashers.
 theorem energyMono (cavern: Cavern) (f: Position → Bool) (g: Position → Bool) (fg: ∀ (q: Position) => f q = True → g q = True)

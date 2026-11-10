@@ -64,9 +64,10 @@ theorem countEmpty (r: Range) (e: Nat.leq r.from r.to = False) (ids: List Nat): 
     _ = r.size := omega
 
 --| The derived order on ranges (by start, then end) puts the smaller start first.
-theorem compareFrom: ∀ (a b: Range) => Ordering.isLessEq (Ord.compare a b) = True → a.from ≤ b.from
-  | { from = f1, to = t1 }, { from = f2, to = t2 }, h =>
-    match e: Nat.compare f1 f2 with
-      | Less => Nat.leOfCompare f1 f2 (g => Ordering.lessNotGreater (Eq.trans (Eq.sym e) g))
-      | Equal => Nat.leOfCompare f1 f2 (g => Ordering.equalNotGreater (Eq.trans (Eq.sym e) g))
-      | Greater => Void.exfalso (Bool.falseNotTrue h)
+theorem compareFrom (a b: Range) (h: Ordering.isLessEq (Ord.compare a b) = True): a.from ≤ b.from :=
+  match a, b with
+    | { from = f1, to = t1 }, { from = f2, to = t2 } =>
+      match e: Nat.compare f1 f2 with
+        | Less => Nat.leOfCompare f1 f2 (g => Ordering.lessNotGreater (Eq.trans (Eq.sym e) g))
+        | Equal => Nat.leOfCompare f1 f2 (g => Ordering.equalNotGreater (Eq.trans (Eq.sym e) g))
+        | Greater => Void.exfalso (Bool.falseNotTrue h)

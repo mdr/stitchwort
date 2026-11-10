@@ -201,9 +201,10 @@ def Grid.step (grid: Grid a) (position: Position) (direction: Direction): Option
     | None => None
 
 --| Mapping the cells keeps the first row's length.
-theorem mapFirstWidth: ∀ (rows: List (List a)) (f: Position → a → b) => firstWidth (mapCells rows f) = firstWidth rows
-  | [], f => rfl
-  | [first, ..rest], f => List.lengthMapWithIndex first (c cell => f { row = 0, column = c } cell)
+theorem mapFirstWidth (rows: List (List a)) (f: Position → a → b): firstWidth (mapCells rows f) = firstWidth rows :=
+  match rows with
+    | [] => rfl
+    | [first, ..rest] => List.lengthMapWithIndex first (c cell => f { row = 0, column = c } cell)
 
 --| `f` of every cell and its position.
 def Grid.map (grid: Grid a) (f: Position → a → b): Grid b :=

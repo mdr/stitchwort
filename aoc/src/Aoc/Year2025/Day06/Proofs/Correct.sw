@@ -29,9 +29,10 @@ theorem columnsAre (lines: List Text):
   rewrite List.transposeFillColumns (List.map lines Text.toList) ' ', List.mapMap lines (.getOr _ ' ') Text.toList
 
 --| Past a bound on every line's length, every column is blank.
-theorem blankPast (w: Nat): ∀ (lines: List Text) => (∀ (r: Nat) => ((lines.map Text.toList).getOr r []).length ≤ w) → blank lines w = True
-  | [], h => rfl
-  | [l, ..rest], h => rewrite List.getOrPast (Text.toList l) w ' ' (h 0) in blankPast w rest (r => h (Succ r))
+theorem blankPast (w: Nat) (lines: List Text) (h: (∀ (r: Nat) => ((lines.map Text.toList).getOr r []).length ≤ w)): blank lines w = True :=
+  match lines with
+    | [] => rfl
+    | [l, ..rest] => rewrite List.getOrPast (Text.toList l) w ' ' (h 0) in blankPast w rest (r => h (Succ r))
 
 --| One problem's block of columns, as the program reads it, against the
 --| spec's reading of the same cells. `Cons c cs` are the problem's columns.
@@ -56,10 +57,11 @@ theorem blockOperator (lines: List Text) (cs: List Nat):
     columnOperator lines _
 
 --| Adding and multiplying don't mind the order.
-theorem evaluateReverse: ∀ (op: Option Operator) (xs: List Nat) => evaluate op xs.reverse = evaluate op xs
-  | None, xs => rfl
-  | Some Add, xs => List.sumReverse xs
-  | Some Multiply, xs => List.productReverse xs
+theorem evaluateReverse (op: Option Operator) (xs: List Nat): evaluate op xs.reverse = evaluate op xs :=
+  match op with
+    | None => rfl
+    | Some Add => List.sumReverse xs
+    | Some Multiply => List.productReverse xs
 
 --| A problem has at least one column.
 theorem problemWide (lines: List Text) (lo: Nat) (hi: Nat) (h: isProblem lines lo hi = True): lo < hi :=
@@ -78,24 +80,26 @@ def blockAnswer2 (b: List (List Char)): Nat := evaluate (Problem.parse b).operat
 def blockOf (lines: List Text) (lo: Nat) (hi: Nat): List (List Char) :=
   (List.rangeFrom (hi - lo) lo).map (column lines)
 
-theorem answer1 (lines: List Text) (lo: Nat) (hi: Nat):
-    ∀ (b: Bool) => isProblem lines lo hi = b →
-    Nat.keepIf (blockAnswer1 (blockOf lines lo hi)) b = Nat.keepIf (evaluate (operatorOf lines lo hi) (rowNumbers lines lo hi)) b
-  | False, h => rfl
-  | True, h =>
-    rewrite problemColumns lo hi (problemWide lines lo hi h),
-      blockOperator lines [lo, ..List.rangeFrom (hi - Succ lo) (Succ lo)],
-      blockRows lines lo (List.rangeFrom (hi - Succ lo) (Succ lo))
+theorem answer1 (lines: List Text) (lo: Nat) (hi: Nat)
+    (b: Bool) (h: isProblem lines lo hi = b):
+    Nat.keepIf (blockAnswer1 (blockOf lines lo hi)) b = Nat.keepIf (evaluate (operatorOf lines lo hi) (rowNumbers lines lo hi)) b :=
+  match b with
+    | False => rfl
+    | True =>
+      rewrite problemColumns lo hi (problemWide lines lo hi h),
+        blockOperator lines [lo, ..List.rangeFrom (hi - Succ lo) (Succ lo)],
+        blockRows lines lo (List.rangeFrom (hi - Succ lo) (Succ lo))
 
-theorem answer2 (lines: List Text) (lo: Nat) (hi: Nat):
-    ∀ (b: Bool) => isProblem lines lo hi = b →
-    Nat.keepIf (blockAnswer2 (blockOf lines lo hi)) b = Nat.keepIf (evaluate (operatorOf lines lo hi) (columnNumbers lines lo hi)) b
-  | False, h => rfl
-  | True, h =>
-    rewrite blockOperator lines (List.rangeFrom (hi - lo) lo),
-      blockColumns lines (List.rangeFrom (hi - lo) lo),
-      List.mapReverse (List.rangeFrom (hi - lo) lo) (c => parseNumber (column lines.init c)),
-      evaluateReverse (operatorOf lines lo hi) ((List.rangeFrom (hi - lo) lo).map (c => parseNumber (column lines.init c)))
+theorem answer2 (lines: List Text) (lo: Nat) (hi: Nat)
+    (b: Bool) (h: isProblem lines lo hi = b):
+    Nat.keepIf (blockAnswer2 (blockOf lines lo hi)) b = Nat.keepIf (evaluate (operatorOf lines lo hi) (columnNumbers lines lo hi)) b :=
+  match b with
+    | False => rfl
+    | True =>
+      rewrite blockOperator lines (List.rangeFrom (hi - lo) lo),
+        blockColumns lines (List.rangeFrom (hi - lo) lo),
+        List.mapReverse (List.rangeFrom (hi - lo) lo) (c => parseNumber (column lines.init c)),
+        evaluateReverse (operatorOf lines lo hi) ((List.rangeFrom (hi - lo) lo).map (c => parseNumber (column lines.init c)))
 
 --| The program's total over the blocks is the total over the problems the
 --| spec finds, for any way `answer` scores a block.

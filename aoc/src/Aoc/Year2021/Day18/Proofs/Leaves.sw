@@ -17,37 +17,44 @@ theorem leavesNotNil (depth: Nat): ∀ (number: Number) => leaves depth number �
   | Regular _, empty => cases
   | Pair left right, empty => List.appendNotNilLeft (leaves (depth + 1) left) (leaves (depth + 1) right) (leavesNotNil (depth + 1) left) empty
 
-theorem addToFirstAppend (amount: Nat) (ys: List Leaf): ∀ (xs: List Leaf) => xs ≠ [] → addToFirst amount (xs ++ ys) = addToFirst amount xs ++ ys
-  | [], some => Void.exfalso (some rfl)
-  | [_, .._], _ => rfl
+theorem addToFirstAppend (amount: Nat) (ys: List Leaf) (xs: List Leaf) (some: xs ≠ []): addToFirst amount (xs ++ ys) = addToFirst amount xs ++ ys :=
+  match xs with
+    | [] => Void.exfalso (some rfl)
+    | [_, .._] => rfl
 
-theorem addToLastCons (amount: Nat) (leaf: Leaf): ∀ (rest: List Leaf) => rest ≠ [] → addToLast amount [leaf, ..rest] = [leaf, ..addToLast amount rest]
-  | [], some => Void.exfalso (some rfl)
-  | [_, .._], _ => rfl
+theorem addToLastCons (amount: Nat) (leaf: Leaf) (rest: List Leaf) (some: rest ≠ []): addToLast amount [leaf, ..rest] = [leaf, ..addToLast amount rest] :=
+  match rest with
+    | [] => Void.exfalso (some rfl)
+    | [_, .._] => rfl
 
-theorem addToLastAppend (amount: Nat) (ys: List Leaf) (some: ys ≠ []): ∀ (xs: List Leaf) => addToLast amount (xs ++ ys) = xs ++ addToLast amount ys
-  | [] => rfl
-  | [x, ..rest] =>
-    rewrite addToLastCons amount x (rest ++ ys) (List.appendNotNilRight rest ys some), addToLastAppend amount ys some rest in rfl
+theorem addToLastAppend (amount: Nat) (ys: List Leaf) (some: ys ≠ []) (xs: List Leaf): addToLast amount (xs ++ ys) = xs ++ addToLast amount ys :=
+  match xs with
+    | [] => rfl
+    | [x, ..rest] =>
+      rewrite addToLastCons amount x (rest ++ ys) (List.appendNotNilRight rest ys some), addToLastAppend amount ys some rest in rfl
 
 --| Adding 0 to a leaf leaves it as it was.
 theorem addZeroLeaf (leaf: Leaf): ({ value = leaf.value + 0, depth = leaf.depth }: Leaf) = leaf := Leaf.ext { value = leaf.value + 0, depth = leaf.depth } leaf (Nat.addZero leaf.value) rfl
 
-theorem addToFirstZero: ∀ (xs: List Leaf) => addToFirst 0 xs = xs
-  | [] => rfl
-  | [leaf, ..rest] => Eq.cong (l => [l, ..rest]) (addZeroLeaf leaf)
+theorem addToFirstZero (xs: List Leaf): addToFirst 0 xs = xs :=
+  match xs with
+    | [] => rfl
+    | [leaf, ..rest] => Eq.cong (l => [l, ..rest]) (addZeroLeaf leaf)
 
-theorem addToLastZero: ∀ (xs: List Leaf) => addToLast 0 xs = xs
-  | [] => rfl
-  | [leaf] => Eq.cong (l => [l]) (addZeroLeaf leaf)
-  | [leaf, next, ..rest] => Eq.cong (Cons leaf) (addToLastZero [next, ..rest])
+theorem addToLastZero (xs: List Leaf): addToLast 0 xs = xs :=
+  match xs with
+    | [] => rfl
+    | [leaf] => Eq.cong (l => [l]) (addZeroLeaf leaf)
+    | [leaf, next, ..rest] => Eq.cong (Cons leaf) (addToLastZero [next, ..rest])
 
-theorem leavesAddLeftmost (amount: Nat): ∀ (depth: Nat) (number: Number) => leaves depth (addLeftmost amount number) = addToFirst amount (leaves depth number)
-  | depth, Regular value => rfl
-  | depth, Pair left right =>
-    rewrite leavesAddLeftmost amount (depth + 1) left, addToFirstAppend amount (leaves (depth + 1) right) (leaves (depth + 1) left) (leavesNotNil (depth + 1) left) in rfl
+theorem leavesAddLeftmost (amount: Nat) (depth: Nat) (number: Number): leaves depth (addLeftmost amount number) = addToFirst amount (leaves depth number) :=
+  match number with
+    | Regular value => rfl
+    | Pair left right =>
+      rewrite leavesAddLeftmost amount (depth + 1) left, addToFirstAppend amount (leaves (depth + 1) right) (leaves (depth + 1) left) (leavesNotNil (depth + 1) left) in rfl
 
-theorem leavesAddRightmost (amount: Nat): ∀ (depth: Nat) (number: Number) => leaves depth (addRightmost amount number) = addToLast amount (leaves depth number)
-  | depth, Regular value => rfl
-  | depth, Pair left right =>
-    rewrite leavesAddRightmost amount (depth + 1) right, addToLastAppend amount (leaves (depth + 1) right) (leavesNotNil (depth + 1) right) (leaves (depth + 1) left) in rfl
+theorem leavesAddRightmost (amount: Nat) (depth: Nat) (number: Number): leaves depth (addRightmost amount number) = addToLast amount (leaves depth number) :=
+  match number with
+    | Regular value => rfl
+    | Pair left right =>
+      rewrite leavesAddRightmost amount (depth + 1) right, addToLastAppend amount (leaves (depth + 1) right) (leavesNotNil (depth + 1) right) (leaves (depth + 1) left) in rfl

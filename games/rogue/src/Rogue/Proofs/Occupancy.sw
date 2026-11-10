@@ -27,44 +27,48 @@ theorem clearTail (position: Position) (monster: Monster) (others: List Monster)
     | True => Void.exfalso (someNotNone monster clear)
     | False => clear
 
-theorem clearSnoc (position: Position) (monster: Monster) (away: (monster.position == position) = False):
-    ∀ (monsters: List Monster) => Clear position monsters → Clear position (monsters ++ [monster])
-  | [], clear => rewrite away
-  | [first, ..rest], clear =>
-    match same: first.position == position with
-      | True => Void.exfalso (someNotNone first clear)
-      | False => clearSnoc position monster away rest clear
+theorem clearSnoc (position: Position) (monster: Monster) (away: (monster.position == position) = False)
+    (monsters: List Monster) (clear: Clear position monsters): Clear position (monsters ++ [monster]) :=
+  match monsters with
+    | [] => rewrite away
+    | [first, ..rest] =>
+      match same: first.position == position with
+        | True => Void.exfalso (someNotNone first clear)
+        | False => clearSnoc position monster away rest clear
 
 --| A monster never chooses the player's cell.
-theorem pickFreeAway (level: Level) (player: Position) (others: List Monster):
-    ∀ (choices: List Position) (destination: Position) => pickFree level choices player others = Some destination → (destination == player) = False
-  | [], destination, picked => Void.exfalso (Option.noneNotSome destination picked)
-  | [choice, ..rest], destination, picked =>
-    match wall: isWall level choice with
-      | True => pickFreeAway level player others rest destination picked
-      | False =>
-        match same: choice == player with
-          | True => pickFreeAway level player others rest destination picked
-          | False =>
-            match taken: (monsterAt choice others).isSome with
-              | True => pickFreeAway level player others rest destination picked
-              | False => rewrite <- Option.someInjective picked in same
+theorem pickFreeAway (level: Level) (player: Position) (others: List Monster)
+    (choices: List Position) (destination: Position) (picked: pickFree level choices player others = Some destination): (destination == player) = False :=
+  match choices with
+    | [] => Void.exfalso (Option.noneNotSome destination picked)
+    | [choice, ..rest] =>
+      match wall: isWall level choice with
+        | True => pickFreeAway level player others rest destination picked
+        | False =>
+          match same: choice == player with
+            | True => pickFreeAway level player others rest destination picked
+            | False =>
+              match taken: (monsterAt choice others).isSome with
+                | True => pickFreeAway level player others rest destination picked
+                | False => rewrite <- Option.someInjective picked in same
 
 --| Changing monsters without moving them keeps them off the cell.
-theorem clearMap (position: Position) (change: Monster → Monster) (stays: ∀ (monster: Monster) => (change monster).position = monster.position):
-    ∀ (monsters: List Monster) => Clear position monsters → Clear position (monsters.map change)
-  | [], clear => rfl
-  | [first, ..rest], clear =>
-    rewrite stays first, clearHead position first rest clear in clearMap position change stays rest (clearTail position first rest clear)
+theorem clearMap (position: Position) (change: Monster → Monster) (stays: ∀ (monster: Monster) => (change monster).position = monster.position)
+    (monsters: List Monster) (clear: Clear position monsters): Clear position (monsters.map change) :=
+  match monsters with
+    | [] => rfl
+    | [first, ..rest] =>
+      rewrite stays first, clearHead position first rest clear in clearMap position change stays rest (clearTail position first rest clear)
 
 --| Dropping monsters keeps the rest off the cell.
-theorem clearFilter (position: Position) (keep: Monster → Bool):
-    ∀ (monsters: List Monster) => Clear position monsters → Clear position (monsters.filter keep)
-  | [], clear => rfl
-  | [first, ..rest], clear =>
-    match kept: keep first with
-      | True => rewrite clearHead position first rest clear in clearFilter position keep rest (clearTail position first rest clear)
-      | False => clearFilter position keep rest (clearTail position first rest clear)
+theorem clearFilter (position: Position) (keep: Monster → Bool)
+    (monsters: List Monster) (clear: Clear position monsters): Clear position (monsters.filter keep) :=
+  match monsters with
+    | [] => rfl
+    | [first, ..rest] =>
+      match kept: keep first with
+        | True => rewrite clearHead position first rest clear in clearFilter position keep rest (clearTail position first rest clear)
+        | False => clearFilter position keep rest (clearTail position first rest clear)
 
 theorem woundStays (target: Position) (damage: Nat) (monster: Monster): (wound target damage monster).position = monster.position :=
   match hit: monster.position == target with
@@ -73,21 +77,22 @@ theorem woundStays (target: Position) (damage: Nat) (monster: Monster): (wound t
 
 --| The monsters' turn keeps them off the player's cell: those that attack
 --| stay where they are, and those that move pick a free cell, or stay.
-theorem actAllClear (dice: Dice) (level: Level) (player: Position):
-    ∀ (index: Nat) (outcome: Outcome) (waiting: List Monster) =>
-    Clear player outcome.moved → Clear player waiting → Clear player (actAll dice level player index outcome waiting).moved
-  | index, outcome, [], moved, rest => moved
-  | index, outcome, [monster, ..waiting], moved, clear =>
-    let away := clearHead player monster waiting clear
-    let rest := clearTail player monster waiting clear
-    match next: monster.position.isNextTo player with
-      | True => actAllClear dice level player (index + 1) _ waiting (clearSnoc player monster away outcome.moved moved) rest
-      | False =>
-        match picked: pickFree level (monsterChoices dice index player monster) player (outcome.moved ++ waiting) with
-          | Some destination =>
-            let fresh := pickFreeAway level player (outcome.moved ++ waiting) (monsterChoices dice index player monster) destination picked
-            actAllClear dice level player (index + 1) _ waiting (clearSnoc player { monster | position = destination } fresh outcome.moved moved) rest
-          | None => actAllClear dice level player (index + 1) _ waiting (clearSnoc player { monster | position = monster.position } away outcome.moved moved) rest
+theorem actAllClear (dice: Dice) (level: Level) (player: Position)
+    (index: Nat) (outcome: Outcome) (waiting: List Monster)
+    (moved: Clear player outcome.moved) (h: Clear player waiting): Clear player (actAll dice level player index outcome waiting).moved :=
+  match waiting, h with
+    | [], rest => moved
+    | [monster, ..waiting], clear =>
+      let away := clearHead player monster waiting clear
+      let rest := clearTail player monster waiting clear
+      match next: monster.position.isNextTo player with
+        | True => actAllClear dice level player (index + 1) _ waiting (clearSnoc player monster away outcome.moved moved) rest
+        | False =>
+          match picked: pickFree level (monsterChoices dice index player monster) player (outcome.moved ++ waiting) with
+            | Some destination =>
+              let fresh := pickFreeAway level player (outcome.moved ++ waiting) (monsterChoices dice index player monster) destination picked
+              actAllClear dice level player (index + 1) _ waiting (clearSnoc player { monster | position = destination } fresh outcome.moved moved) rest
+            | None => actAllClear dice level player (index + 1) _ waiting (clearSnoc player { monster | position = monster.position } away outcome.moved moved) rest
 
 theorem monstersTurnClear (dice: Dice) (state: State) (clear: Clear state.player state.monsters):
     let after := monstersTurn dice state

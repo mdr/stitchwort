@@ -11,10 +11,11 @@ import Aoc.Year2024.Day24.Spec (..)
 import Std (Bool, DecEq, Eq, Exists, List, Nat, Option, Void)
 
 --| Each operation gives the same with its inputs either way round.
-theorem gateOutputComm: ∀ (operation: Operation) (a b: Bool) => gateOutput operation a b = gateOutput operation b a
-  | And, a, b => cases
-  | Or, a, b => cases
-  | Xor, a, b => cases
+theorem gateOutputComm (operation: Operation) (a b: Bool): gateOutput operation a b = gateOutput operation b a :=
+  match operation with
+    | And => cases
+    | Or => cases
+    | Xor => cases
 
 --| Whether a gate does `operation` on `a` and `b`, either way round, as
 --| `outputOf` looks for it.
@@ -187,13 +188,14 @@ theorem carriesMentioned (device: Device) (wire: Wire) (value: Bool): Carries de
 
 --| With every z wire of the gates at most `bits`, so is every z wire among
 --| them.
-theorem zWithinBound (bits: Nat) (bit: Nat): ∀ (gates: List Gate) => zWithin gates bits = True →
-    Z bit ∈ gates.flatMap (gate => [gate.left, gate.right, gate.output]) → bit ≤ bits
-  | [], within, member => Void.exfalso member
-  | [gate, ..rest], within, member =>
-    match List.memAppend (Z bit) [gate.left, gate.right, gate.output] _ member with
-      | Inl here => List.allMember (wire => wire.zBit.all (found => found ≤ bits)) [gate.left, gate.right, gate.output] (Bool.andLeft within) (Z bit) here
-      | Inr there => zWithinBound bits bit rest (Bool.andRight within) there
+theorem zWithinBound (bits: Nat) (bit: Nat) (gates: List Gate) (within: zWithin gates bits = True)
+    (member: Z bit ∈ gates.flatMap (gate => [gate.left, gate.right, gate.output])): bit ≤ bits :=
+  match gates with
+    | [] => Void.exfalso member
+    | [gate, ..rest] =>
+      match List.memAppend (Z bit) [gate.left, gate.right, gate.output] _ member with
+        | Inl here => List.allMember (wire => wire.zBit.all (found => found ≤ bits)) [gate.left, gate.right, gate.output] (Bool.andLeft within) (Z bit) here
+        | Inr there => zWithinBound bits bit rest (Bool.andRight within) there
 
 --| The wires that start with values for an adder are x and y wires.
 theorem inputsNotZ (bits: Nat) (x: Nat) (y: Nat) (bit: Nat) (member: Z bit ∈ (inputsFor bits x y).map .fst): Void :=

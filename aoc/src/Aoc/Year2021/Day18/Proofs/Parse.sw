@@ -10,22 +10,24 @@ import Std (Bool, Fail, List, Nat, Option, Result, Void)
 
 --| A number `reduced` accepts, inside at most four pairs, has its leaves
 --| inside at most four pairs and below 10.
-theorem reducedLeaves: ∀ (depth: Nat) (number: Number) => depth ≤ 4 → reduced depth number = True →
-    List.All (leaf => leaf.depth ≤ 4 ∧ leaf.value ≤ 9) (leaves depth number)
-  | depth, Regular value, shallow, small => Both (Both shallow omega) Trivial
-  | depth, Pair left right, shallow, ok =>
-    let parts := Bool.andRight ok
-    List.allAppend _ (leaves (depth + 1) left) (leaves (depth + 1) right)
-      (reducedLeaves (depth + 1) left (omega [Bool.andLeft ok]) (Bool.andLeft parts))
-      (reducedLeaves (depth + 1) right (omega [Bool.andLeft ok]) (Bool.andRight parts))
+theorem reducedLeaves (depth: Nat) (number: Number) (shallow: depth ≤ 4) (small: reduced depth number = True):
+    List.All (leaf => leaf.depth ≤ 4 ∧ leaf.value ≤ 9) (leaves depth number) :=
+  match number, small with
+    | Regular value, small => Both (Both shallow omega) Trivial
+    | Pair left right, ok =>
+      let parts := Bool.andRight ok
+      List.allAppend _ (leaves (depth + 1) left) (leaves (depth + 1) right)
+        (reducedLeaves (depth + 1) left (omega [Bool.andLeft ok]) (Bool.andLeft parts))
+        (reducedLeaves (depth + 1) right (omega [Bool.andLeft ok]) (Bool.andRight parts))
 
 --| When `firstUnreduced` finds nothing, every number is reduced.
-theorem findUnreducedNone: ∀ (i: Nat) (numbers: List Number) => List.findIndexFrom i (x => not (reduced 0 x)) numbers = None → List.All IsReduced numbers
-  | i, [], _ => Trivial
-  | i, [x, ..rest], none =>
-    match e: reduced 0 x with
-      | True => Both (reducedLeaves 0 x omega e) (findUnreducedNone (Succ i) rest none)
-      | False => Void.exfalso (Option.someNotNone i none)
+theorem findUnreducedNone (i: Nat) (numbers: List Number) (none: List.findIndexFrom i (x => not (reduced 0 x)) numbers = None): List.All IsReduced numbers :=
+  match numbers with
+    | [] => Trivial
+    | [x, ..rest] =>
+      match e: reduced 0 x with
+        | True => Both (reducedLeaves 0 x omega e) (findUnreducedNone (Succ i) rest none)
+        | False => Void.exfalso (Option.someNotNone i none)
 
 --| `checkNumbers` passes its numbers on unchanged, and only if all are
 --| reduced.

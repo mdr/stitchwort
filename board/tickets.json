@@ -27535,14 +27535,14 @@
     {
       "id": 2656,
       "title": "[Sonnet] Run the theorem-binders sweep over std, aoc and games (after the tool), review its refusals by hand, and update the proving guide and docs/guide/10-proofs.md ('a proof by cases is like a function's match' for theorems; arms stay for defs)",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2656",
       "labels": [
         "refactoring"
       ],
       "epic": "syntax-language",
-      "body": "D3470/D3471 (10 Nov 2026). Needs SW-2655. Est. 120 min plus refusals.",
+      "body": "D3470/D3471 (10 Nov 2026). Needs SW-2655. Est. 120 min plus refusals.\n\nLane (Sonnet, 10 Nov 2026, started 11:34, done 12:00):\n- std 987 converted / 195 refused / 82 skipped; aoc 451 / 152 / 77; rogue 37 / 0 / 2. Refusals: 144+148 by \"proof changed and a dependent definition changed\" (the tool kept definitions unchanged), the rest statement-hash or does not check. Skips left for the separate ticket.\n- No pins or hash snapshots changed; one error snapshot repinned (rewrite-premise-unproved: premise now named h). Guide and proving guide updated.\n",
       "created": "2026-11-10",
       "updated": "2026-11-10",
       "commits": []

@@ -15,9 +15,10 @@ def stepsFrom (cavern: Cavern): (steps: Nat) → Cavern
   | Zero => cavern
   | Succ more => stepsFrom cavern.step more
 
-theorem stepsFromSucc: ∀ (steps: Nat) (cavern: Cavern) => stepsFrom cavern (Succ steps) = (stepsFrom cavern steps).step
-  | Zero, cavern => rfl
-  | Succ steps, cavern => stepsFromSucc steps cavern.step
+theorem stepsFromSucc (steps: Nat) (cavern: Cavern): stepsFrom cavern (Succ steps) = (stepsFrom cavern steps).step :=
+  match steps with
+    | Zero => rfl
+    | Succ steps => stepsFromSucc steps cavern.step
 
 --| The program's steps are a run...
 theorem programRun: ∀ (steps: Nat) (cavern: Cavern) => Run cavern steps (stepsFrom cavern steps) (cavern.flashesIn steps)

@@ -16,15 +16,16 @@ theorem contentsAgree (rules: List Rule) (colour: Colour): ({ all = rules }: Rul
       | [] => rfl
       | [first, ..rest] => rfl
 
-theorem bagsAgree (rules: List Rule): ∀ (depth: Nat) (colour: Colour) => ({ all = rules }: Rules).book.bagsToDepth depth colour = Spec.bagsWithin rules depth colour
-  | 0, colour => rfl
-  | Succ depth, colour =>
-    rewrite contentsAgree rules colour,
-      List.mapCong (Spec.contentsOf rules colour)
-        (content => ({ all = rules }: Rules).book.bagsToDepth depth content.colour |> .map (inside => content.count * (1 + inside)))
-        (content => Spec.bagsWithin rules depth content.colour |> .map (inside => content.count * (1 + inside)))
-        (content => rewrite bagsAgree rules depth content.colour in rfl) in
-      rfl
+theorem bagsAgree (rules: List Rule) (depth: Nat) (colour: Colour): ({ all = rules }: Rules).book.bagsToDepth depth colour = Spec.bagsWithin rules depth colour :=
+  match depth with
+    | 0 => rfl
+    | Succ depth =>
+      rewrite contentsAgree rules colour,
+        List.mapCong (Spec.contentsOf rules colour)
+          (content => ({ all = rules }: Rules).book.bagsToDepth depth content.colour |> .map (inside => content.count * (1 + inside)))
+          (content => Spec.bagsWithin rules depth content.colour |> .map (inside => content.count * (1 + inside)))
+          (content => rewrite bagsAgree rules depth content.colour in rfl) in
+        rfl
 
 --| When part 2 gives an answer, the rules settle the total at some depth,
 --| and it is theirs.

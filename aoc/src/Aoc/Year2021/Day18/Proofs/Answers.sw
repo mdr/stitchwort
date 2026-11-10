@@ -7,9 +7,10 @@ import Aoc.Year2021.Day18.Spec (AddsUpTo, IsReduced, IsSum, Part1, Part2, leaves
 import Std (DecEq, Eq, Exists, List, Nat, Option, Void)
 
 --| The program's magnitude is the puzzle's.
-theorem magnitudeSame: ∀ (number: Number) => Aoc.Year2021.Day18.Spec.magnitude number = magnitude number
-  | Regular _ => rfl
-  | Pair left right => rewrite magnitudeSame left, magnitudeSame right in rfl
+theorem magnitudeSame (number: Number): Aoc.Year2021.Day18.Spec.magnitude number = magnitude number :=
+  match number with
+    | Regular _ => rfl
+    | Pair left right => rewrite magnitudeSame left, magnitudeSame right in rfl
 
 --| A sum of two reduced numbers that `add` finishes is their sum, and is
 --| reduced.

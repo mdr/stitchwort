@@ -15,10 +15,11 @@ theorem initialSound (device: Device): Sound device (Map.fromList device.initial
   (wire value found => Starts (lookupLastMem wire value device.initial (Eq.trans (Eq.sym (Map.getFromList wire device.initial)) found)))
 
 --| The program's gates are the puzzle's.
-theorem applyIsGateOutput: ∀ (operation: Operation) (left right: Bool) => operation.apply left right = gateOutput operation left right
-  | And, left, right => cases
-  | Or, left, right => cases
-  | Xor, left, right => cases
+theorem applyIsGateOutput (operation: Operation) (left right: Bool): operation.apply left right = gateOutput operation left right :=
+  match operation with
+    | And => cases
+    | Or => cases
+    | Xor => cases
 
 --| A gate that fires outputs what its wire carries.
 theorem fireSound (device: Device) (values: Values) (sound: Sound device values) (gate: Gate) (wired: gate ∈ device.gates) (value: Bool)

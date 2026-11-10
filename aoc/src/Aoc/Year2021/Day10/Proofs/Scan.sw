@@ -83,9 +83,10 @@ theorem framesBalanced (base: List Token): ∀ (frames: List (Bracket, List Toke
 theorem scanBalanced (line: List Token) (h: scan [] line = Unclosed []): Balanced line := framesBalanced [] [] Empty line h
 
 --| Closing every open bracket, innermost first, leaves none open.
-theorem closeAll: ∀ (stack: List Bracket) => scan stack (stack.map Closer) = Unclosed []
-  | [] => rfl
-  | [bracket, ..below] => Eq.trans (closeTop bracket below (below.map Closer)) (closeAll below)
+theorem closeAll (stack: List Bracket): scan stack (stack.map Closer) = Unclosed [] :=
+  match stack with
+    | [] => rfl
+    | [bracket, ..below] => Eq.trans (closeTop bracket below (below.map Closer)) (closeAll below)
 
 --| A start the scan reads to the end is legal: closing what is open
 --| finishes it.

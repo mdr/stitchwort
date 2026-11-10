@@ -60,7 +60,7 @@ theorem firstIllegalUnique (line: List Token) (a: Token) (b: Token) (first: Firs
       match scanOfFirstIllegal line b second with
         | Witness y (Both isY stopsY) => rewrite isX, isY, corruptedInjective x y (Eq.trans (Eq.sym stopsX) stopsY) in rfl
 
-theorem pointsAgree: ∀ (bracket: Bracket) => syntaxPoints bracket = errorPoints bracket := cases
+theorem pointsAgree (bracket: Bracket): syntaxPoints bracket = errorPoints bracket := cases
 
 --| Each line's score is the spec's.
 theorem lineErrorScore (line: List Token): ErrorScore line (corruptionScore line) :=

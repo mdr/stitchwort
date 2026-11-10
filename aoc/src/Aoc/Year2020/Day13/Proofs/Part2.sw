@@ -15,23 +15,25 @@ theorem departsAfterSpec (bus: Bus) (t: Nat): bus.departsAfter t = True ↔ Spec
 
 def busesFrom (start: Nat) (schedule: List Slot): List Bus := List.filterMap (List.withIndexFrom start schedule) (((offset, slot)) => slot.bus offset)
 
-theorem linedUpFrom (t: Nat): ∀ (start: Nat) (schedule: List Slot) => AllDepart (busesFrom start schedule) t ↔ Spec.LinedUp schedule (t + start)
-  | start, [] => { forward = h => (), backward = h => () }
-  | start, [Listed id, ..rest] =>
-    let next := linedUpFrom t (Succ start) rest
-    let later := rewrite Nat.addSucc t start, <- Nat.addOne (t + start) at next in next
-    {
-      forward = (Both departs all) => Both (Iff.forward (departsAfterSpec { id, offset = start } t) departs) (Iff.forward later all),
-      backward = (Both departs lined) => Both (Iff.backward (departsAfterSpec { id, offset = start } t) departs) (Iff.backward later lined)
-    }
-  | start, [OutOfService, ..rest] =>
-    let next := linedUpFrom t (Succ start) rest
-    rewrite Nat.addSucc t start, <- Nat.addOne (t + start) at next in next
+theorem linedUpFrom (t: Nat) (start: Nat) (schedule: List Slot): AllDepart (busesFrom start schedule) t ↔ Spec.LinedUp schedule (t + start) :=
+  match schedule with
+    | [] => { forward = h => (), backward = h => () }
+    | [Listed id, ..rest] =>
+      let next := linedUpFrom t (Succ start) rest
+      let later := rewrite Nat.addSucc t start, <- Nat.addOne (t + start) at next in next
+      {
+        forward = (Both departs all) => Both (Iff.forward (departsAfterSpec { id, offset = start } t) departs) (Iff.forward later all),
+        backward = (Both departs lined) => Both (Iff.backward (departsAfterSpec { id, offset = start } t) departs) (Iff.backward later lined)
+      }
+    | [OutOfService, ..rest] =>
+      let next := linedUpFrom t (Succ start) rest
+      rewrite Nat.addSucc t start, <- Nat.addOne (t + start) at next in next
 
-theorem positiveFrom: ∀ (start: Nat) (schedule: List Slot) => (∀ (id: Nat) => Listed id ∈ schedule → id ≠ 0) → Positive (busesFrom start schedule)
-  | start, [], h => ()
-  | start, [Listed id, ..rest], h => Both (h id (Inl rfl)) (positiveFrom (Succ start) rest (other member => h other (Inr member)))
-  | start, [OutOfService, ..rest], h => positiveFrom (Succ start) rest (other member => h other (Inr member))
+theorem positiveFrom (start: Nat) (schedule: List Slot) (h: (∀ (id: Nat) => Listed id ∈ schedule → id ≠ 0)): Positive (busesFrom start schedule) :=
+  match schedule with
+    | [] => ()
+    | [Listed id, ..rest] => Both (h id (Inl rfl)) (positiveFrom (Succ start) rest (other member => h other (Inr member)))
+    | [OutOfService, ..rest] => positiveFrom (Succ start) rest (other member => h other (Inr member))
 
 theorem busesLinedUp (notes: Notes) (t: Nat): AllDepart notes.buses t ↔ Spec.LinedUp notes.schedule t :=
   let from := linedUpFrom t 0 notes.schedule

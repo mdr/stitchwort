@@ -6,14 +6,15 @@ import Std (Bool, DecEq, List, Nat, Void)
 theorem containsCons [auto eq: DecEq a] (x: a) (rest: List a) (wanted: a): [x, ..rest].contains wanted = (x == wanted ∨ rest.contains wanted) := rfl
 
 --| What the first `fewer` hold, the first `more` hold too.
-theorem containsTakeMono [auto eq: DecEq a] (wanted: a): ∀ (xs: List a) (fewer more: Nat) => fewer ≤ more →
-    (xs.take fewer).contains wanted = True → (xs.take more).contains wanted = True
-  | xs, Zero, more, le, there => Void.exfalso (Bool.falseNotTrue there)
-  | [], Succ fewer, more, le, there => Void.exfalso (Bool.falseNotTrue there)
-  | [x, ..rest], Succ fewer, Zero, le, there => Void.exfalso (Bool.falseNotTrue le)
-  | [x, ..rest], Succ fewer, Succ more, le, there =>
-    rewrite containsCons x (rest.take more) wanted in
-      rewrite containsCons x (rest.take fewer) wanted at there in
-      match same: x == wanted with
-        | True => rfl
-        | False => containsTakeMono wanted rest fewer more le there
+theorem containsTakeMono [auto eq: DecEq a] (wanted: a) (xs: List a) (fewer more: Nat) (le: fewer ≤ more)
+    (there: (xs.take fewer).contains wanted = True): (xs.take more).contains wanted = True :=
+  match xs, fewer, more with
+    | xs, Zero, more => Void.exfalso (Bool.falseNotTrue there)
+    | [], Succ fewer, more => Void.exfalso (Bool.falseNotTrue there)
+    | [x, ..rest], Succ fewer, Zero => Void.exfalso (Bool.falseNotTrue le)
+    | [x, ..rest], Succ fewer, Succ more =>
+      rewrite containsCons x (rest.take more) wanted in
+        rewrite containsCons x (rest.take fewer) wanted at there in
+        match same: x == wanted with
+          | True => rfl
+          | False => containsTakeMono wanted rest fewer more le there

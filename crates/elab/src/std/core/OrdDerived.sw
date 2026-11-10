@@ -40,26 +40,28 @@ theorem Ord.thenTrans [auto ord: Ord a] (x: a) (y: a) (z: a) [r1 r2 r3: Ordering
 --| Whether both comparisons are `Equal`.
 def Ordering.bothEqual: (x: Ordering) → (y: Ordering) → Bool := matches | Equal, Equal
 
-theorem Ordering.notBothEqual: ∀ (c d: Ordering) => Ordering.bothEqual c d = False → c = Equal → d = Equal → Void
-  | Equal, Equal, t, e1, e2 => Bool.trueNotFalse t
-  | Equal, Less, t, e1, e2 => Ordering.lessNotEqual e2
-  | Equal, Greater, t, e1, e2 => Ordering.greaterNotEqual e2
-  | Less, d, t, e1, e2 => Ordering.lessNotEqual e1
-  | Greater, d, t, e1, e2 => Ordering.greaterNotEqual e1
+theorem Ordering.notBothEqual (c d: Ordering) (t: Ordering.bothEqual c d = False) (e1: c = Equal) (e2: d = Equal): Void :=
+  match c, d with
+    | Equal, Equal => Bool.trueNotFalse t
+    | Equal, Less => Ordering.lessNotEqual e2
+    | Equal, Greater => Ordering.greaterNotEqual e2
+    | Less, d => Ordering.lessNotEqual e1
+    | Greater, d => Ordering.greaterNotEqual e1
 
 --| As [`Ordering.andThenTrans`], where the rest need only be transitive when
 --| both first comparisons are `Equal`.
-theorem Ordering.andThenTransWhen: ∀ (c1 c2 c3 r1 r2 r3: Ordering) =>
-    (c1 = Less → c2 = Less → c3 = Less) → (c1 = Equal → c3 = c2) → (c2 = Equal → c3 = c1) →
-    (c1 = Equal → c2 = Equal → r1 = Less → r2 = Less → r3 = Less) →
-    Ordering.andThen c1 r1 = Less → Ordering.andThen c2 r2 = Less → Ordering.andThen c3 r3 = Less
-  | Less, Less, c3, r1, r2, r3, t, e1, e2, tr, h1, h2 => rewrite t rfl rfl in rfl
-  | Less, Equal, c3, r1, r2, r3, t, e1, e2, tr, h1, h2 => rewrite e2 rfl in rfl
-  | Less, Greater, c3, r1, r2, r3, t, e1, e2, tr, h1, h2 => Void.exfalso (Ordering.greaterNotLess h2)
-  | Equal, Less, c3, r1, r2, r3, t, e1, e2, tr, h1, h2 => rewrite e1 rfl in rfl
-  | Equal, Equal, c3, r1, r2, r3, t, e1, e2, tr, h1, h2 => rewrite e1 rfl in tr rfl rfl h1 h2
-  | Equal, Greater, c3, r1, r2, r3, t, e1, e2, tr, h1, h2 => Void.exfalso (Ordering.greaterNotLess h2)
-  | Greater, c2, c3, r1, r2, r3, t, e1, e2, tr, h1, h2 => Void.exfalso (Ordering.greaterNotLess h1)
+theorem Ordering.andThenTransWhen (c1 c2 c3 r1 r2 r3: Ordering)
+    (t: (c1 = Less → c2 = Less → c3 = Less)) (e1: (c1 = Equal → c3 = c2)) (e2: (c2 = Equal → c3 = c1))
+    (tr: (c1 = Equal → c2 = Equal → r1 = Less → r2 = Less → r3 = Less))
+    (h1: Ordering.andThen c1 r1 = Less) (h2: Ordering.andThen c2 r2 = Less): Ordering.andThen c3 r3 = Less :=
+  match c1, c2 with
+    | Less, Less => rewrite t rfl rfl in rfl
+    | Less, Equal => rewrite e2 rfl in rfl
+    | Less, Greater => Void.exfalso (Ordering.greaterNotLess h2)
+    | Equal, Less => rewrite e1 rfl in rfl
+    | Equal, Equal => rewrite e1 rfl in tr rfl rfl h1 h2
+    | Equal, Greater => Void.exfalso (Ordering.greaterNotLess h2)
+    | Greater, c2 => Void.exfalso (Ordering.greaterNotLess h1)
 
 --| Transitivity with the tags compared first. A derived `trans` uses it for
 --| values not all of one constructor, where `tr` is never needed: the tags

@@ -146,11 +146,12 @@ def List.chain: (xs: List a) → (holds: a → a → Bool) → Bool
   | [x, next, ..rest], holds => holds x next ∧ List.chain [next, ..rest] holds
 
 --| Tests that agree on every pair give the same answer.
-theorem List.chainCong: ∀ (xs: List a) (holds1 holds2: a → a → Bool) => (∀ (x y: a) => holds1 x y = holds2 x y) →
-    List.chain xs holds1 = List.chain xs holds2
-  | [], holds1, holds2, eh => rfl
-  | [x], holds1, holds2, eh => rfl
-  | [x, next, ..rest], holds1, holds2, eh => rewrite eh x next, List.chainCong [next, ..rest] holds1 holds2 eh
+theorem List.chainCong (xs: List a) (holds1 holds2: a → a → Bool) (eh: (∀ (x y: a) => holds1 x y = holds2 x y)):
+    List.chain xs holds1 = List.chain xs holds2 :=
+  match xs with
+    | [] => rfl
+    | [x] => rfl
+    | [x, next, ..rest] => rewrite eh x next, List.chainCong [next, ..rest] holds1 holds2 eh
 
 test "List.zipWithNext" := List.zipWithNext [1, 2, 3] == [MkPair 1 2, MkPair 2 3] ∧ List.zipWithNext [7] == [] ∧ List.zipWithNext ([]: List Nat) == []
 test "List.chain" := List.chain [1, 2, 4] (x y => x < y) ∧ ¬(List.chain [1, 3, 2] (x y => x < y)) ∧ List.chain [5] (x y => x < y)
@@ -435,37 +436,44 @@ def List.Subsequence: (xs: List a) → (ys: List a) → Prop
 --| `F`'s parameters in order, each callback twice, then `(x…) -> f1 x… = f2 x…`
 --| for each.
 -- (docs/proposals/well-founded-recursion.md, stage 3a)
-theorem List.mapCong: ∀ (xs: List a) (f1 f2: a → b) => (∀ (x: a) => f1 x = f2 x) → List.map xs f1 = List.map xs f2
-  | [], f1, f2, ef => rfl
-  | [x, ..xs], f1, f2, ef => Eq.trans (Eq.cong (y => [y, ..List.map xs f1]) (ef x)) (Eq.cong (ys => [f2 x, ..ys]) (List.mapCong xs f1 f2 ef))
+theorem List.mapCong (xs: List a) (f1 f2: a → b) (ef: (∀ (x: a) => f1 x = f2 x)): List.map xs f1 = List.map xs f2 :=
+  match xs with
+    | [] => rfl
+    | [x, ..xs] => Eq.trans (Eq.cong (y => [y, ..List.map xs f1]) (ef x)) (Eq.cong (ys => [f2 x, ..ys]) (List.mapCong xs f1 f2 ef))
 
-theorem List.filterMapCong: ∀ (xs: List a) (f1 f2: a → Option b) => (∀ (x: a) => f1 x = f2 x) → List.filterMap xs f1 = List.filterMap xs f2
-  | [], f1, f2, ef => rfl
-  | [x, ..xs], f1, f2, ef => rewrite ef x, List.filterMapCong xs f1 f2 ef
+theorem List.filterMapCong (xs: List a) (f1 f2: a → Option b) (ef: (∀ (x: a) => f1 x = f2 x)): List.filterMap xs f1 = List.filterMap xs f2 :=
+  match xs with
+    | [] => rfl
+    | [x, ..xs] => rewrite ef x, List.filterMapCong xs f1 f2 ef
 
-theorem List.findCong: ∀ (xs: List a) (p1 p2: a → Bool) => (∀ (x: a) => p1 x = p2 x) → List.find xs p1 = List.find xs p2
-  | [], p1, p2, ep => rfl
-  | [x, ..xs], p1, p2, ep => rewrite ep x, List.findCong xs p1 p2 ep
+theorem List.findCong (xs: List a) (p1 p2: a → Bool) (ep: (∀ (x: a) => p1 x = p2 x)): List.find xs p1 = List.find xs p2 :=
+  match xs with
+    | [] => rfl
+    | [x, ..xs] => rewrite ep x, List.findCong xs p1 p2 ep
 
-theorem List.anyCong: ∀ (xs: List a) (p1 p2: a → Bool) => (∀ (x: a) => p1 x = p2 x) → List.any xs p1 = List.any xs p2
-  | [], p1, p2, ep => rfl
-  | [x, ..xs], p1, p2, ep => rewrite ep x, List.anyCong xs p1 p2 ep
+theorem List.anyCong (xs: List a) (p1 p2: a → Bool) (ep: (∀ (x: a) => p1 x = p2 x)): List.any xs p1 = List.any xs p2 :=
+  match xs with
+    | [] => rfl
+    | [x, ..xs] => rewrite ep x, List.anyCong xs p1 p2 ep
 
-theorem List.allCong: ∀ (xs: List a) (p1 p2: a → Bool) => (∀ (x: a) => p1 x = p2 x) → List.all xs p1 = List.all xs p2
-  | [], p1, p2, ep => rfl
-  | [x, ..xs], p1, p2, ep => rewrite ep x, List.allCong xs p1 p2 ep
+theorem List.allCong (xs: List a) (p1 p2: a → Bool) (ep: (∀ (x: a) => p1 x = p2 x)): List.all xs p1 = List.all xs p2 :=
+  match xs with
+    | [] => rfl
+    | [x, ..xs] => rewrite ep x, List.allCong xs p1 p2 ep
 
-theorem List.occurrencesCong: ∀ (xs: List a) (p1 p2: a → Bool) => (∀ (x: a) => p1 x = p2 x) →
-    List.occurrences xs p1 = List.occurrences xs p2
-  | [], p1, p2, ep => rfl
-  | [x, ..xs], p1, p2, ep =>
-    Eq.trans (Eq.cong (b => Bool.toNat b + List.occurrences xs p1) (ep x))
-      (Eq.cong (n => Bool.toNat (p2 x) + n) (List.occurrencesCong xs p1 p2 ep))
+theorem List.occurrencesCong (xs: List a) (p1 p2: a → Bool) (ep: (∀ (x: a) => p1 x = p2 x)):
+    List.occurrences xs p1 = List.occurrences xs p2 :=
+  match xs with
+    | [] => rfl
+    | [x, ..xs] =>
+      Eq.trans (Eq.cong (b => Bool.toNat b + List.occurrences xs p1) (ep x))
+        (Eq.cong (n => Bool.toNat (p2 x) + n) (List.occurrencesCong xs p1 p2 ep))
 
-theorem List.foldLeftCong: ∀ (xs: List a) (z: b) (f1 f2: b → a → b) => (∀ (acc: b) (x: a) => f1 acc x = f2 acc x) →
-    List.foldLeft xs z f1 = List.foldLeft xs z f2
-  | [], z, f1, f2, ef => rfl
-  | [x, ..xs], z, f1, f2, ef => Eq.trans (Eq.cong (t => List.foldLeft xs t f1) (ef z x)) (List.foldLeftCong xs (f2 z x) f1 f2 ef)
+theorem List.foldLeftCong (xs: List a) (z: b) (f1 f2: b → a → b) (ef: (∀ (acc: b) (x: a) => f1 acc x = f2 acc x)):
+    List.foldLeft xs z f1 = List.foldLeft xs z f2 :=
+  match xs with
+    | [] => rfl
+    | [x, ..xs] => Eq.trans (Eq.cong (t => List.foldLeft xs t f1) (ef z x)) (List.foldLeftCong xs (f2 z x) f1 f2 ef)
 
 theorem List.sumByCong [auto add: Add b] (xs: List a) (f1: a → b) (f2: a → b) (ef: ∀ (x: a) => f1 x = f2 x): List.sumBy xs f1 = List.sumBy xs f2 :=
   List.foldLeftCong xs Add.zero (acc x => acc + f1 x) (acc x => acc + f2 x) (acc x => Eq.cong (t => acc + t) (ef x))
@@ -565,15 +573,17 @@ def List.mapAccumLeft (xs: List a) (initial: s) (f: s → a → Pair s b): Pair 
 def List.unzip (ps: List (Pair a b)): Pair (List a) (List b) := MkPair (List.map ps Pair.fst) (List.map ps Pair.snd)
 
 --| Dropping elements never makes a list longer.
-theorem List.lengthDropLe: ∀ (xs: List a) (n: Nat) => List.length (List.drop xs n) ≤ List.length xs
-  | xs, Zero => Nat.leRefl (List.length xs)
-  | [], Succ n => rfl
-  | [x, ..xs], Succ n => Nat.leTrans (List.length (List.drop xs n)) (List.length xs) (Succ (List.length xs)) (List.lengthDropLe xs n) (Nat.leSucc (List.length xs))
+theorem List.lengthDropLe (xs: List a) (n: Nat): List.length (List.drop xs n) ≤ List.length xs :=
+  match xs, n with
+    | xs, Zero => Nat.leRefl (List.length xs)
+    | [], Succ n => rfl
+    | [x, ..xs], Succ n => Nat.leTrans (List.length (List.drop xs n)) (List.length xs) (Succ (List.length xs)) (List.lengthDropLe xs n) (Nat.leSucc (List.length xs))
 
 --| Dropping at least one element of a non-empty list leaves a shorter list.
-theorem List.dropConsLess: ∀ (xs: List a) (n: Nat) (x: a) => n ≠ 0 → List.length (List.drop [x, ..xs] n) < List.length [x, ..xs]
-  | xs, Zero, x, h => Void.exfalso (h rfl)
-  | xs, Succ n, x, h => Nat.leLessSucc (List.length (List.drop xs n)) (List.length xs) (List.lengthDropLe xs n)
+theorem List.dropConsLess (xs: List a) (n: Nat) (x: a) (h: n ≠ 0): List.length (List.drop [x, ..xs] n) < List.length [x, ..xs] :=
+  match n with
+    | Zero => Void.exfalso (h rfl)
+    | Succ n => Nat.leLessSucc (List.length (List.drop xs n)) (List.length xs) (List.lengthDropLe xs n)
 
 --| Chunks of `n` elements, in order; the last chunk is shorter when `n` doesn't
 --| divide the length. `n = 0` is no sensible chunk size, so it gives the whole
@@ -793,9 +803,10 @@ def List.flatMap: (xs: List a) → (f: a → {e} List b) → {e} List b
     List.append ys (List.flatMap rest f)
 
 --| `flatMap` is `concat` of `map`.
-theorem List.flatMapEqConcatMap (f: a → List b): ∀ (xs: List a) => List.flatMap xs f = List.concat (List.map xs f)
-  | [] => rfl
-  | [x, ..rest] => Eq.cong (ys => List.append (f x) ys) (List.flatMapEqConcatMap f rest)
+theorem List.flatMapEqConcatMap (f: a → List b) (xs: List a): List.flatMap xs f = List.concat (List.map xs f) :=
+  match xs with
+    | [] => rfl
+    | [x, ..rest] => Eq.cong (ys => List.append (f x) ys) (List.flatMapEqConcatMap f rest)
 
 theorem List.flatMapCong (xs: List a) (f1: a → List b) (f2: a → List b) (ef: ∀ (x: a) => f1 x = f2 x): List.flatMap xs f1 = List.flatMap xs f2 :=
   Eq.trans (List.flatMapEqConcatMap f1 xs) (Eq.trans (Eq.cong List.concat (List.mapCong xs f1 f2 ef)) (Eq.sym (List.flatMapEqConcatMap f2 xs)))
@@ -860,37 +871,44 @@ test "List.cross" := [1, 2].cross ["a", "b"] == [MkPair 1 "a", MkPair 1 "b", MkP
 
 --| Callbacks that agree on the list's elements (not everywhere, as for
 --| [`List.mapCong`]) give the same result.
-theorem List.mapCongMem: ∀ (xs: List a) (f1 f2: a → b) => (∀ (x: a) (m: x ∈ xs) => f1 x = f2 x) → List.map xs f1 = List.map xs f2
-  | [], f1, f2, ef => rfl
-  | [x, ..xs], f1, f2, ef => rewrite ef x (Inl rfl), List.mapCongMem xs f1 f2 (y m => ef y (Inr m))
+theorem List.mapCongMem (xs: List a) (f1 f2: a → b) (ef: (∀ (x: a) (m: x ∈ xs) => f1 x = f2 x)): List.map xs f1 = List.map xs f2 :=
+  match xs with
+    | [] => rfl
+    | [x, ..xs] => rewrite ef x (Inl rfl), List.mapCongMem xs f1 f2 (y m => ef y (Inr m))
 
-theorem List.filterCongMem: ∀ (xs: List a) (p1 p2: a → Bool) => (∀ (x: a) (m: x ∈ xs) => p1 x = p2 x) → List.filter xs p1 = List.filter xs p2
-  | [], p1, p2, ep => rfl
-  | [x, ..xs], p1, p2, ep => rewrite ep x (Inl rfl), List.filterCongMem xs p1 p2 (y m => ep y (Inr m))
+theorem List.filterCongMem (xs: List a) (p1 p2: a → Bool) (ep: (∀ (x: a) (m: x ∈ xs) => p1 x = p2 x)): List.filter xs p1 = List.filter xs p2 :=
+  match xs with
+    | [] => rfl
+    | [x, ..xs] => rewrite ep x (Inl rfl), List.filterCongMem xs p1 p2 (y m => ep y (Inr m))
 
-theorem List.anyCongMem: ∀ (xs: List a) (p1 p2: a → Bool) => (∀ (x: a) (m: x ∈ xs) => p1 x = p2 x) → List.any xs p1 = List.any xs p2
-  | [], p1, p2, ep => rfl
-  | [x, ..xs], p1, p2, ep => rewrite ep x (Inl rfl), List.anyCongMem xs p1 p2 (y m => ep y (Inr m))
+theorem List.anyCongMem (xs: List a) (p1 p2: a → Bool) (ep: (∀ (x: a) (m: x ∈ xs) => p1 x = p2 x)): List.any xs p1 = List.any xs p2 :=
+  match xs with
+    | [] => rfl
+    | [x, ..xs] => rewrite ep x (Inl rfl), List.anyCongMem xs p1 p2 (y m => ep y (Inr m))
 
-theorem List.allCongMem: ∀ (xs: List a) (p1 p2: a → Bool) => (∀ (x: a) (m: x ∈ xs) => p1 x = p2 x) → List.all xs p1 = List.all xs p2
-  | [], p1, p2, ep => rfl
-  | [x, ..xs], p1, p2, ep => rewrite ep x (Inl rfl), List.allCongMem xs p1 p2 (y m => ep y (Inr m))
+theorem List.allCongMem (xs: List a) (p1 p2: a → Bool) (ep: (∀ (x: a) (m: x ∈ xs) => p1 x = p2 x)): List.all xs p1 = List.all xs p2 :=
+  match xs with
+    | [] => rfl
+    | [x, ..xs] => rewrite ep x (Inl rfl), List.allCongMem xs p1 p2 (y m => ep y (Inr m))
 
-theorem List.occurrencesCongMem: ∀ (xs: List a) (p1 p2: a → Bool) => (∀ (x: a) (m: x ∈ xs) => p1 x = p2 x) →
-    List.occurrences xs p1 = List.occurrences xs p2
-  | [], p1, p2, ep => rfl
-  | [x, ..xs], p1, p2, ep => rewrite ep x (Inl rfl), List.occurrencesCongMem xs p1 p2 (y m => ep y (Inr m))
+theorem List.occurrencesCongMem (xs: List a) (p1 p2: a → Bool) (ep: (∀ (x: a) (m: x ∈ xs) => p1 x = p2 x)):
+    List.occurrences xs p1 = List.occurrences xs p2 :=
+  match xs with
+    | [] => rfl
+    | [x, ..xs] => rewrite ep x (Inl rfl), List.occurrencesCongMem xs p1 p2 (y m => ep y (Inr m))
 
-theorem List.foldLeftCongMem: ∀ (xs: List a) (z: b) (f1 f2: b → a → b) => (∀ (acc: b) (x: a) (m: x ∈ xs) => f1 acc x = f2 acc x) →
-    List.foldLeft xs z f1 = List.foldLeft xs z f2
-  | [], z, f1, f2, ef => rfl
-  | [x, ..xs], z, f1, f2, ef =>
-    Eq.trans (Eq.cong (t => List.foldLeft xs t f1) (ef z x (Inl rfl))) (List.foldLeftCongMem xs (f2 z x) f1 f2 (acc y m => ef acc y (Inr m)))
+theorem List.foldLeftCongMem (xs: List a) (z: b) (f1 f2: b → a → b) (ef: (∀ (acc: b) (x: a) (m: x ∈ xs) => f1 acc x = f2 acc x)):
+    List.foldLeft xs z f1 = List.foldLeft xs z f2 :=
+  match xs with
+    | [] => rfl
+    | [x, ..xs] =>
+      Eq.trans (Eq.cong (t => List.foldLeft xs t f1) (ef z x (Inl rfl))) (List.foldLeftCongMem xs (f2 z x) f1 f2 (acc y m => ef acc y (Inr m)))
 
-theorem List.filterMapCongMem: ∀ (xs: List a) (f1 f2: a → Option b) => (∀ (x: a) (m: x ∈ xs) => f1 x = f2 x) →
-    List.filterMap xs f1 = List.filterMap xs f2
-  | [], f1, f2, ef => rfl
-  | [x, ..xs], f1, f2, ef => rewrite ef x (Inl rfl), List.filterMapCongMem xs f1 f2 (y m => ef y (Inr m))
+theorem List.filterMapCongMem (xs: List a) (f1 f2: a → Option b) (ef: (∀ (x: a) (m: x ∈ xs) => f1 x = f2 x)):
+    List.filterMap xs f1 = List.filterMap xs f2 :=
+  match xs with
+    | [] => rfl
+    | [x, ..xs] => rewrite ef x (Inl rfl), List.filterMapCongMem xs f1 f2 (y m => ef y (Inr m))
 
 --| Over a run of numbers, the facts are the run's bounds. `rewrite` tries a
 --| function's `…CongRange` lemma first, then `…CongMem`, then `…Cong`, and

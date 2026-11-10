@@ -48,13 +48,14 @@ theorem allAppend (p: a → Bool): ∀ (xs ys: List a) => xs.all p = True → ys
       | True => allAppend p xs ys hx hy
       | False => hx
 
-theorem allTake (p: a → Bool): ∀ (k: Nat) (xs: List a) => xs.all p = True → (xs.take k).all p = True
-  | Zero, xs, h => rfl
-  | Succ k, [], h => rfl
-  | Succ k, [x, ..xs], h =>
-    match e: p x with
-      | True => allTake p k xs h
-      | False => h
+theorem allTake (p: a → Bool) (k: Nat) (xs: List a) (h: xs.all p = True): (xs.take k).all p = True :=
+  match k, xs with
+    | Zero, xs => rfl
+    | Succ k, [] => rfl
+    | Succ k, [x, ..xs] =>
+      match e: p x with
+        | True => allTake p k xs h
+        | False => h
 
 --| If every element passes q, so do both ends of every pair.
 theorem allPairsBoth (q: Nat → Bool): ∀ (xs: List Nat) => xs.all q = True → xs.pairs.all (pair => q pair.fst ∧ q pair.snd) = True
@@ -64,13 +65,14 @@ theorem allPairsBoth (q: Nat → Bool): ∀ (xs: List Nat) => xs.all q = True �
       | True => allAppend _ (List.map xs (y => (x, y))) (List.pairs xs) (allMapPairWith q x e xs h) (allPairsBoth q xs h)
       | False => Void.exfalso (Bool.falseNotTrue h)
 
-theorem allMapPairWith (q: Nat → Bool) (x: Nat) (hx: q x = True): ∀ (xs: List Nat) => xs.all q = True →
-    (xs.map (y => (x, y))).all (pair => q pair.fst ∧ q pair.snd) = True
-  | [], h => rfl
-  | [y, ..ys], h =>
-    match e: q y with
-      | True => rewrite hx in allMapPairWith q x hx ys h
-      | False => Void.exfalso (Bool.falseNotTrue h)
+theorem allMapPairWith (q: Nat → Bool) (x: Nat) (hx: q x = True) (xs: List Nat) (h: xs.all q = True):
+    (xs.map (y => (x, y))).all (pair => q pair.fst ∧ q pair.snd) = True :=
+  match xs with
+    | [] => rfl
+    | [y, ..ys] =>
+      match e: q y with
+        | True => rewrite hx in allMapPairWith q x hx ys h
+        | False => Void.exfalso (Bool.falseNotTrue h)
 
 theorem connectionsInRange (k: Nat) (points: List Point): List.all (firstConnections k points) (boxesBelow points.length) = True :=
   let n := points.length

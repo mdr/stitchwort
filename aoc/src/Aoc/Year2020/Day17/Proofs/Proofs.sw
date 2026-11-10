@@ -16,12 +16,13 @@ theorem startsUnique (slice: Slice) (dimensions: Nat) (one: Set Cube) (other: Se
     backward = there => (starts cube).backward ((alsoStarts cube).forward there)
   })
 
-theorem cyclesUnique: ∀ (count: Nat) (start one other: Set Cube) =>
-    Spec.Cycles count start one → Spec.Cycles count start other → one = other
-  | Zero, start, one, other, same, alsoSame => Eq.trans same (Eq.sym alsoSame)
-  | Succ more, start, one, other, Witness next (Both cycle rest), Witness alsoNext (Both alsoCycle alsoRest) =>
-    let nextSame: next = alsoNext := Set.ext next alsoNext (cube => Eq.trans (cycle cube) (Eq.sym (alsoCycle cube)))
-    cyclesUnique more next one other rest (rewrite nextSame in alsoRest)
+theorem cyclesUnique (count: Nat) (start one other: Set Cube)
+    (same: Spec.Cycles count start one) (alsoSame: Spec.Cycles count start other): one = other :=
+  match count, same, alsoSame with
+    | Zero, same, alsoSame => Eq.trans same (Eq.sym alsoSame)
+    | Succ more, Witness next (Both cycle rest), Witness alsoNext (Both alsoCycle alsoRest) =>
+      let nextSame: next = alsoNext := Set.ext next alsoNext (cube => Eq.trans (cycle cube) (Eq.sym (alsoCycle cube)))
+      cyclesUnique more next one other rest (rewrite nextSame in alsoRest)
 
 --| The spec's answer is the program's and no other.
 theorem answerExactly (slice: Slice) (dimensions: Nat) (answer: Nat):

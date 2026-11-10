@@ -29,9 +29,10 @@ import Std (Bool, Decidable, Eq, Fin, List, Nat, Or, Ordering, Pair, Void)
 -- does at least as well.
 
 --| Digits as numbers are digits.
-theorem finDigits: ∀ (ds: List Battery) => Nat.Digits (ds.map Fin.toNat)
-  | [] => Trivial
-  | [d, ..ds] => Both (Fin.toNatLt d) (finDigits ds)
+theorem finDigits (ds: List Battery): Nat.Digits (ds.map Fin.toNat) :=
+  match ds with
+    | [] => Trivial
+    | [d, ..ds] => Both (Fin.toNatLt d) (finDigits ds)
 
 theorem mapLength (s: List Battery) (r: List Battery) (hl: s.length = r.length):
     (s.map Fin.toNat).length = (r.map Fin.toNat).length :=

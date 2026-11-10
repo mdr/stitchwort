@@ -31,35 +31,38 @@ def window (cells: Cells) (r: Nat) (c: Nat): Nat := colSum cells r c + colSum ce
 def keep (cell: Cell) (window: Nat): Cell := if cell == Roll ∧ 5 ≤ window then Roll else Floor
 
 --| A round never adds a roll.
-theorem keepLe: ∀ (a: Cell) (w: Nat) => Cell.count (keep a w) ≤ Cell.count a
-  | Floor, w => rfl
-  | Roll, w =>
-    match Nat.leq 5 w with
-      | True => rfl
-      | False => rfl
+theorem keepLe (a: Cell) (w: Nat): Cell.count (keep a w) ≤ Cell.count a :=
+  match a with
+    | Floor => rfl
+    | Roll =>
+      match Nat.leq 5 w with
+        | True => rfl
+        | False => rfl
 
 --| What a round leaves of a cell with `n` rolls around it: floor if it was
 --| an accessible roll.
-theorem keepRemove: ∀ (a: Cell) (n: Nat) => keep a (n + a.count) = (if a == Roll ∧ n < 4 then Floor else a)
-  | Floor, n => rfl
-  | Roll, n =>
-    match e: Nat.leq 4 n with
-      | True =>
-        let notFew: Nat.leq (Succ n) 4 = False := omega
-        rewrite notFew in rfl
-      | False =>
-        let few: Nat.leq (Succ n) 4 = True := omega
-        rewrite few in rfl
+theorem keepRemove (a: Cell) (n: Nat): keep a (n + a.count) = (if a == Roll ∧ n < 4 then Floor else a) :=
+  match a with
+    | Floor => rfl
+    | Roll =>
+      match e: Nat.leq 4 n with
+        | True =>
+          let notFew: Nat.leq (Succ n) 4 = False := omega
+          rewrite notFew in rfl
+        | False =>
+          let few: Nat.leq (Succ n) 4 = True := omega
+          rewrite few in rfl
 
 --| The rolls in column j (counted from 1) of three rows.
 def tri (a: Vec Cell w) (x: Vec Cell w) (b: Vec Cell w) (j: Nat): Nat :=
   (Vec.getOr (VCons Floor a) j Floor).count + (Vec.getOr (VCons Floor x) j Floor).count + (Vec.getOr (VCons Floor b) j Floor).count
 
 --| The column sums `peelRow` adds up, counted from 1.
-theorem colsAt (a: Vec Cell w) (x: Vec Cell w) (b: Vec Cell w): ∀ (j: Nat) =>
-    (VCons 0 (a.zipWith3 x b (p q s => Cell.count p + Cell.count q + Cell.count s))).getOr j 0 = tri a x b j
-  | Zero => rfl
-  | Succ i => Vec.getOrZipWith3 (p q s => Cell.count p + Cell.count q + Cell.count s) Floor Floor Floor 0 rfl a x b i
+theorem colsAt (a: Vec Cell w) (x: Vec Cell w) (b: Vec Cell w) (j: Nat):
+    (VCons 0 (a.zipWith3 x b (p q s => Cell.count p + Cell.count q + Cell.count s))).getOr j 0 = tri a x b j :=
+  match j with
+    | Zero => rfl
+    | Succ i => Vec.getOrZipWith3 (p q s => Cell.count p + Cell.count q + Cell.count s) Floor Floor Floor 0 rfl a x b i
 
 --| Row v is row r (counted from 1) of `cells`, cell by cell, border included.
 def RowIs (cells: Cells) (r: Nat) (v: Vec Cell w): Prop := ∀ (j: Nat) => Vec.getOr (VCons Floor v) j Floor = bord cells r j
@@ -126,24 +129,26 @@ theorem cellRound (rows: Vec (Vec Cell w) h) (r: Nat) (c: Nat):
 def near (r: Nat) (x: Nat): Bool := Nat.absDiff r x ≤ 1
 
 --| At most 1 away is one below, the same, or one above.
-theorem nearSplit (v: Nat): ∀ (r x: Nat) =>
-    v.keepIf (near r x) = v.keepIf (r.equal (Succ x)) + v.keepIf (r.equal x) + v.keepIf ((Succ r).equal x)
-  | Zero, Zero => omega
-  | Zero, Succ Zero => rfl
-  | Zero, Succ (Succ k) => rfl
-  | Succ Zero, Zero => omega
-  | Succ (Succ k), Zero => rfl
-  | Succ r, Succ x => nearSplit v r x
+theorem nearSplit (v: Nat) (r x: Nat):
+    v.keepIf (near r x) = v.keepIf (r.equal (Succ x)) + v.keepIf (r.equal x) + v.keepIf ((Succ r).equal x) :=
+  match r, x with
+    | Zero, Zero => omega
+    | Zero, Succ Zero => rfl
+    | Zero, Succ (Succ k) => rfl
+    | Succ Zero, Zero => omega
+    | Succ (Succ k), Zero => rfl
+    | Succ r, Succ x => nearSplit v r x
 
 --| `g` moved one place up: 0 at 0.
 def shift (g: Nat → Nat): Nat → Nat
   | Zero => 0
   | Succ x => g x
 
-theorem pickBelow (g: Nat → Nat) (n: Nat) (hz: ∀ (x: Nat) => n ≤ x → g x = 0): ∀ (r: Nat) =>
-    List.sumBy (List.range 0 n) (x => (g x).keepIf (r.equal (Succ x))) = shift g r
-  | Zero => List.sumRangeFromNone (x => Nat.equal 0 (Succ x)) g n 0 (b h1 h2 => rfl)
-  | Succ r => List.sumRangePick g n r (hz r)
+theorem pickBelow (g: Nat → Nat) (n: Nat) (hz: ∀ (x: Nat) => n ≤ x → g x = 0) (r: Nat):
+    List.sumBy (List.range 0 n) (x => (g x).keepIf (r.equal (Succ x))) = shift g r :=
+  match r with
+    | Zero => List.sumRangeFromNone (x => Nat.equal 0 (Succ x)) g n 0 (b h1 h2 => rfl)
+    | Succ r => List.sumRangePick g n r (hz r)
 
 --| A sum over 0, 1, …, n - 1 of the terms at most 1 from r: the three around
 --| it, counted from 1. `g` is 0 past the end.
@@ -160,24 +165,27 @@ theorem nearSum (g: Nat → Nat) (n: Nat) (hz: ∀ (x: Nat) => n ≤ x → g x =
     _ = shift g r + g r + g (Succ r)
       := rewrite pickBelow g n hz r, List.sumRangePick g n r (hz r), List.sumRangePick g n (Succ r) (hz (Succ r))
 
-theorem isRollCount: ∀ (a: Cell) => Bool.toNat (a == Roll) = a.count
-  | Roll => rfl
-  | Floor => rfl
+theorem isRollCount (a: Cell): Bool.toNat (a == Roll) = a.count :=
+  match a with
+    | Roll => rfl
+    | Floor => rfl
 
 --| Splitting off the position itself.
-theorem splitSelf: ∀ (n1 n2 e: Bool) [x: Bool] => (e = True → (n1 = True ∧ n2 = True)) →
-    Bool.toNat (n1 ∧ n2 ∧ x) = Bool.toNat ((n1 ∧ n2 ∧ not e) ∧ x) + Bool.toNat (e ∧ x)
-  | True, True, True, h => rfl
-  | True, False, True, h => Void.exfalso (Bool.falseNotTrue (And.right (h rfl)))
-  | False, n2, True, h => Void.exfalso (Bool.falseNotTrue (And.left (h rfl)))
-  | True, True, False, h => omega
-  | True, False, False, h => rfl
-  | False, n2, False, h => rfl
+theorem splitSelf (n1 n2 e: Bool) [x: Bool] (h: (e = True → (n1 = True ∧ n2 = True))):
+    Bool.toNat (n1 ∧ n2 ∧ x) = Bool.toNat ((n1 ∧ n2 ∧ not e) ∧ x) + Bool.toNat (e ∧ x) :=
+  match n1, n2, e with
+    | True, True, True => rfl
+    | True, False, True => Void.exfalso (Bool.falseNotTrue (And.right (h rfl)))
+    | False, n2, True => Void.exfalso (Bool.falseNotTrue (And.left (h rfl)))
+    | True, True, False => omega
+    | True, False, False => rfl
+    | False, n2, False => rfl
 
-theorem andKeep: ∀ (a b: Bool) [x: Bool] => Bool.toNat ((a ∧ b) ∧ x) = (x.toNat.keepIf b).keepIf a
-  | True, True => rfl
-  | True, False => rfl
-  | False, b => rfl
+theorem andKeep (a b: Bool) [x: Bool]: Bool.toNat ((a ∧ b) ∧ x) = (x.toNat.keepIf b).keepIf a :=
+  match a, b with
+    | True, True => rfl
+    | True, False => rfl
+    | False, b => rfl
 
 theorem nearSelf (r: Nat): (r.absDiff r ≤ 1) = True := rewrite Nat.absDiffSelf r
 
@@ -205,18 +213,21 @@ theorem selfSum (grid: Grid) (cells: Cells) (below: ∀ (r c: Nat) => grid.heigh
 --| The rolls in row r (counted from 1), columns c, c + 1 and c + 2.
 def rowSum (cells: Cells) (r: Nat) (c: Nat): Nat := (bord cells r c).count + (bord cells r (Succ c)).count + (bord cells r (Succ (Succ c))).count
 
-theorem bordRowShift (cells: Cells) (x: Nat): ∀ (j: Nat) => shift (y => (cells x y).count) j = (bord cells (Succ x) j).count
-  | Zero => rfl
-  | Succ y => rfl
+theorem bordRowShift (cells: Cells) (x: Nat) (j: Nat): shift (y => (cells x y).count) j = (bord cells (Succ x) j).count :=
+  match j with
+    | Zero => rfl
+    | Succ y => rfl
 
-theorem rowSumShift (cells: Cells) (c: Nat): ∀ (r: Nat) => shift (x => rowSum cells (Succ x) c) r = rowSum cells r c
-  | Zero => rfl
-  | Succ x => rfl
+theorem rowSumShift (cells: Cells) (c: Nat) (r: Nat): shift (x => rowSum cells (Succ x) c) r = rowSum cells r c :=
+  match r with
+    | Zero => rfl
+    | Succ x => rfl
 
-theorem bordBelow (grid: Grid) (cells: Cells) (below: ∀ (r c: Nat) => grid.height ≤ r → cells r c = Floor) (x: Nat) (hx: grid.height ≤ x):
-    ∀ (j: Nat) => (bord cells (Succ x) j).count = 0
-  | Zero => rfl
-  | Succ y => Eq.cong Cell.count (below x y hx)
+theorem bordBelow (grid: Grid) (cells: Cells) (below: ∀ (r c: Nat) => grid.height ≤ r → cells r c = Floor) (x: Nat) (hx: grid.height ≤ x)
+    (j: Nat): (bord cells (Succ x) j).count = 0 :=
+  match j with
+    | Zero => rfl
+    | Succ y => Eq.cong Cell.count (below x y hx)
 
 theorem rowSumBelow (grid: Grid) (cells: Cells) (below: ∀ (r c: Nat) => grid.height ≤ r → cells r c = Floor) (c: Nat) (x: Nat) (hx: grid.height ≤ x):
     rowSum cells (Succ x) c = 0 :=

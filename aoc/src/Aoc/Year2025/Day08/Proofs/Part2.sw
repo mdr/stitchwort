@@ -229,10 +229,11 @@ theorem part2Correct (points: List Point) (k: Nat) (last: LastNeeded points k):
     in rfl
 
 --| With fewer than two boxes, they start in one circuit and there is no answer.
-theorem part2NoBoxesToJoin: ∀ (points: List Point) => points.length ≤ 1 → solvePart2 (Boxes.of points) = None
-  | [], h => rfl
-  | [p], h => rfl
-  | [p, q, ..qs], h => Void.exfalso (Bool.falseNotTrue h)
+theorem part2NoBoxesToJoin (points: List Point) (h: points.length ≤ 1): solvePart2 (Boxes.of points) = None :=
+  match points with
+    | [] => rfl
+    | [p] => rfl
+    | [p, q, ..qs] => Void.exfalso (Bool.falseNotTrue h)
 
 -- Some connection is the last needed -----------------------------------------
 

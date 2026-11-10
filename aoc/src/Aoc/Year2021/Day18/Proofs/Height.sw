@@ -5,13 +5,15 @@ namespace Aoc.Year2021.Day18.Proofs
 import Aoc.Year2021.Day18 (..)
 import Std (Nat, Option, Void)
 
-theorem addLeftmostHeight (amount: Nat): ∀ (number: Number) => height (addLeftmost amount number) = height number
-  | Regular _ => rfl
-  | Pair left right => rewrite addLeftmostHeight amount left in rfl
+theorem addLeftmostHeight (amount: Nat) (number: Number): height (addLeftmost amount number) = height number :=
+  match number with
+    | Regular _ => rfl
+    | Pair left right => rewrite addLeftmostHeight amount left in rfl
 
-theorem addRightmostHeight (amount: Nat): ∀ (number: Number) => height (addRightmost amount number) = height number
-  | Regular _ => rfl
-  | Pair left right => rewrite addRightmostHeight amount right in rfl
+theorem addRightmostHeight (amount: Nat) (number: Number): height (addRightmost amount number) = height number :=
+  match number with
+    | Regular _ => rfl
+    | Pair left right => rewrite addRightmostHeight amount right in rfl
 
 --| An explosion in a pair that isn't two regular numbers, from one in a
 --| part, is no higher than the pair (`explode`'s last arm, by its generated

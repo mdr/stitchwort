@@ -23,9 +23,10 @@ theorem Nat.dividesExample: Nat.divides 3 12 = True := rfl
 
 theorem Nat.dividesNotExample: Nat.divides 5 12 = False := rfl
 
-theorem Nat.dividesMul: ∀ (d t: Nat) => Nat.divides d (t * d) = True
-  | Zero, t => Decidable.toBoolOf (Nat.decEq (t * 0) 0) (Nat.mulZero t)
-  | Succ d, t => Decidable.toBoolOf (Nat.decEq ((t * Succ d) % Succ d) 0) (Nat.modAddMul 0 t (Succ d))
+theorem Nat.dividesMul (d t: Nat): Nat.divides d (t * d) = True :=
+  match d with
+    | Zero => Decidable.toBoolOf (Nat.decEq (t * 0) 0) (Nat.mulZero t)
+    | Succ d => Decidable.toBoolOf (Nat.decEq ((t * Succ d) % Succ d) 0) (Nat.modAddMul 0 t (Succ d))
 
 theorem Nat.dividesSelf (d: Nat): Nat.divides d d = True := J (y q => Nat.divides d y = True) (Nat.dividesMul d 1) (Nat.addZero d)
 
@@ -83,11 +84,12 @@ theorem Nat.modMulOfModZero (q: Nat) (z: Nat) (m: Nat) (h: z % m = 0): (q * z) %
     _ = 0 := rewrite Nat.mulZero q in rfl
 
 --| A number from 1 up is divided by nothing bigger than itself.
-theorem Nat.dividesSmall: ∀ (d n: Nat) => 1 ≤ n → n < d → Nat.divides d n = False
-  | Zero, n, h1, h2 => Void.exfalso (Bool.falseNotTrue h2)
-  | Succ d, n, h1, h2 =>
-    Decidable.toBoolOfNot (Nat.decEq (n % Succ d) 0)
-      (e => Bool.falseNotTrue (rewrite <- Nat.modSmall n (Succ d) h2, e at h1))
+theorem Nat.dividesSmall (d n: Nat) (h1: 1 ≤ n) (h2: n < d): Nat.divides d n = False :=
+  match d with
+    | Zero => Void.exfalso (Bool.falseNotTrue h2)
+    | Succ d =>
+      Decidable.toBoolOfNot (Nat.decEq (n % Succ d) 0)
+        (e => Bool.falseNotTrue (rewrite <- Nat.modSmall n (Succ d) h2, e at h1))
 
 theorem Nat.dividesLe (d: Nat) (n: Nat) (hn: 1 ≤ n) (h: Nat.divides d n = True): d ≤ n :=
   match e: Nat.leq d n with
@@ -113,10 +115,11 @@ theorem Nat.divLt (n: Nat) (k: Nat) (h0: 0 < n) (h1: 1 < k): n / k < n :=
     | Succ m => Nat.divLtSucc m k h1
 
 --| A product is 0 only when a factor is (Lean's `Nat.mul_eq_zero`).
-theorem Nat.mulEqZero: ∀ (m n: Nat) => m * n = 0 → (m = 0) ∨ (n = 0)
-  | Zero, n, h => Inl rfl
-  | Succ m, Zero, h => Inr rfl
-  | Succ m, Succ n, h => omega [Nat.leMulPos (Succ m) (Succ n) (omega)]
+theorem Nat.mulEqZero (m n: Nat) (h: m * n = 0): (m = 0) ∨ (n = 0) :=
+  match m, n with
+    | Zero, n => Inl rfl
+    | Succ m, Zero => Inr rfl
+    | Succ m, Succ n => omega [Nat.leMulPos (Succ m) (Succ n) (omega)]
 
 --| A square is 0 only for 0.
 theorem Nat.mulSelfZero (n: Nat) (h: n * n = 0): n = 0 :=
@@ -198,12 +201,13 @@ theorem Nat.mulNeZero: ∀ (a b: Nat) => a ≠ 0 → b ≠ 0 → a * b ≠ 0
   | Succ a, Succ b, aPositive, bPositive, zero => omega
 
 --| Taking one `w` off a number at least `w` leaves its remainder by `w`.
-theorem Nat.subModSelf (column: Nat): ∀ (width: Nat) => width ≤ column → (column - width) % width = column % width
-  | Zero, past => rewrite (omega: column - 0 = column) in rfl
-  | Succ n, past =>
-    let back: column - Succ n + 1 * Succ n = column := omega
-    let shifted := Nat.modAddMul (column - Succ n) 1 (Succ n)
-    rewrite back at shifted in Eq.sym shifted
+theorem Nat.subModSelf (column: Nat) (width: Nat) (past: width ≤ column): (column - width) % width = column % width :=
+  match width with
+    | Zero => rewrite (omega: column - 0 = column) in rfl
+    | Succ n =>
+      let back: column - Succ n + 1 * Succ n = column := omega
+      let shifted := Nat.modAddMul (column - Succ n) 1 (Succ n)
+      rewrite back at shifted in Eq.sym shifted
 
 --| Stepping a counter that wraps at `d`: from a position `a < d`, one step
 --| then `n` more cross the same number of multiples of `d` as `Succ n` steps
@@ -223,9 +227,10 @@ theorem Nat.divSuccStep (d: Nat) (a: Nat) (h: a < d) (n: Nat):
 
 --| Counting backwards from the top of a dial of `Succ m` positions: the
 --| position `Succ m - v` is on a multiple of `Succ m` exactly when `v` is 0.
-theorem Nat.subModBeqZero (m: Nat): ∀ (v: Nat) => v < Succ m → ((Succ m - v) % Succ m == 0) = (v == 0)
-  | Zero, h => rewrite Nat.modSelf (Succ m)
-  | Succ w, h => rewrite Nat.modSmall (m - w) (Succ m) omega, (omega: m - w = Succ (m - Succ w))
+theorem Nat.subModBeqZero (m: Nat) (v: Nat) (h: v < Succ m): ((Succ m - v) % Succ m == 0) = (v == 0) :=
+  match v with
+    | Zero => rewrite Nat.modSelf (Succ m)
+    | Succ w => rewrite Nat.modSmall (m - w) (Succ m) omega, (omega: m - w = Succ (m - Succ w))
 
 test "Nat.mulNeZero" := 3 * 4 != 0
 test "Nat.subModSelf" := (17 - 5) % 5 == 17 % 5

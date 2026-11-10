@@ -77,9 +77,10 @@ theorem boundAlong (maze: Maze) (result: Map Reindeer Nat)
     rewrite <- And.right both in Graph.boundAlong (maze.graph False) result closed reindeer cost bound path last (And.left both))
 
 --| How a way of standing on the end tile is listed.
-theorem endListed (maze: Maze): ∀ (reindeer: Reindeer) => reindeer.position = maze.end → reindeer ∈ maze.endReindeer
-  | { position, facing }, atEnd =>
-    rewrite atEnd in List.memMap headings facing (headingsComplete facing) (way => ({ position = maze.end, facing = way }: Reindeer))
+theorem endListed (maze: Maze) (reindeer: Reindeer) (atEnd: reindeer.position = maze.end): reindeer ∈ maze.endReindeer :=
+  match reindeer with
+    | { position, facing } =>
+      rewrite atEnd in List.memMap headings facing (headingsComplete facing) (way => ({ position = maze.end, facing = way }: Reindeer))
 
 --| Each listed way of standing on the end tile is on it.
 theorem listedAtEnd (maze: Maze) (reindeer: Reindeer) (member: reindeer ∈ maze.endReindeer): reindeer.position = maze.end :=

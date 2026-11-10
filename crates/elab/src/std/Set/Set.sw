@@ -135,21 +135,24 @@ theorem List.toSetFromList [auto ord: Ord k] (items: List k): items.toSet = Set.
 -- Equality: the same keys. A set's map is a quotient (std/Map/Map.sw), so
 -- sets with the same keys are equal, whatever order they were inserted in.
 
-theorem Set.unitEq: ∀ (u w: ()) => u = w
-  | (), () => rfl
+theorem Set.unitEq (u w: ()): u = w :=
+  match u, w with
+    | (), () => rfl
 
 --| Entries whose values are all `()` are fixed by their keys.
-theorem Set.unitEntries: ∀ (xs ys: List (k, ())) => List.map xs Pair.fst = List.map ys Pair.fst → xs = ys
-  | [], [], h => rfl
-  | [], [(b, w), ..ys2], h => Void.exfalso (List.nilNotCons b (List.map ys2 Pair.fst) h)
-  | [(a, u), ..xs2], [], h => Void.exfalso (List.consNotNil a (List.map xs2 Pair.fst) h)
-  | [(a, u), ..xs2], [(b, w), ..ys2], h =>
-    rewrite Eq.cong (.headOr a) h, Set.unitEq u w, Set.unitEntries xs2 ys2 (Eq.cong List.tailOf h) in rfl
+theorem Set.unitEntries (xs ys: List (k, ())) (h: List.map xs Pair.fst = List.map ys Pair.fst): xs = ys :=
+  match xs, ys with
+    | [], [] => rfl
+    | [], [(b, w), ..ys2] => Void.exfalso (List.nilNotCons b (List.map ys2 Pair.fst) h)
+    | [(a, u), ..xs2], [] => Void.exfalso (List.consNotNil a (List.map xs2 Pair.fst) h)
+    | [(a, u), ..xs2], [(b, w), ..ys2] =>
+      rewrite Eq.cong (.headOr a) h, Set.unitEq u w, Set.unitEntries xs2 ys2 (Eq.cong List.tailOf h) in rfl
 
 --| Sets with the same keys in order are equal.
-theorem Set.toListInjective: ∀ (s t: Set k [ord := o]) => Set.toList s = Set.toList t → s = t
-  | { items = m }, { items = n }, same =>
-    Eq.cong (i => ({ items = i }: Set k [ord := o])) (Map.toListInjective m n (Set.unitEntries (Map.toList m) (Map.toList n) same))
+theorem Set.toListInjective (s t: Set k [ord := o]) (same: Set.toList s = Set.toList t): s = t :=
+  match s, t with
+    | { items = m }, { items = n } =>
+      Eq.cong (i => ({ items = i }: Set k [ord := o])) (Map.toListInjective m n (Set.unitEntries (Map.toList m) (Map.toList n) same))
 
 --| `==`: compare the keys in order, by the set's ordering.
 def Set.decEq (set: Set k [ord := o]) (other: Set k [ord := o]): Decidable (set = other) :=
