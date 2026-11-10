@@ -27670,15 +27670,17 @@
     {
       "id": 2665,
       "title": "rewind::a_check_cancelled_at_each_use_of_the_cache_rewinds fails on main: extension-visibility cancelled at cache use 19/22 differs from a fresh check (line 97576 of the JSON)",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2665",
       "labels": [],
       "epic": "editor-playground",
-      "body": "Found 10 Nov 2026 during SW-2634; fails on main (895da6c5b) before SW-2634's merge. Suspects from 9-10 Nov: SW-1937's counterexample memo (process-wide, keyed by type_hash, may survive a cancelled check), SW-2627's nav refs, SW-2628. Repro: nix develop -c task test:one -- a_check_cancelled_at_each_use_of_the_cache_rewinds. Est. 60 min.",
+      "body": "Found 10 Nov 2026 during SW-2634; fails on main (895da6c5b) before SW-2634's merge. Suspects from 9-10 Nov: SW-1937's counterexample memo (process-wide, keyed by type_hash, may survive a cancelled check), SW-2627's nav refs, SW-2628. Repro: nix develop -c task test:one -- a_check_cancelled_at_each_use_of_the_cache_rewinds. Est. 60 min.\n\nCause: SW-2627 (rename R1) links a named argument `[ok := ok]` to the callee parameter from walk data (params, named) that a cache-loaded library file did not have, so the index of a cache-loaded Int.sw differed from a fresh one (not the counterexample memo, which is per session). Fix: the library entry keeps them (FORMAT 30). Rewind group and examples pass.\n",
       "created": "2026-11-10",
       "updated": "2026-11-10",
-      "commits": []
+      "commits": [
+        "8ba6d06dd"
+      ]
     },
     {
       "id": 2666,
