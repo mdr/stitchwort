@@ -42,6 +42,7 @@ A few things to notice, all explained in later chapters:
 - `"Hello, ${name}!"` inserts a value into text.
 - `test` declares a test, which `stitchwort test` runs; running the program doesn't.
 - `main` is the name for a program's entry point and nothing else: give a helper or a value that a test checks a name that says what it is.
+- `stitchwort run hello.sw` runs the file's `main`. `main` is a convention, not a keyword: in a project, `stitchwort run Shop.report` runs any function of that name whose type is `() -> {IO} ()` (or the same with `Fail` and `Partial`, or no abilities at all), and a function of any other type is refused with `E-RUN-TYPE` ([projects](../projects.md#running-and-testing)).
 - `main` comes before `greeting`. Declarations can be in any order.
 
 Run it with input from a file:

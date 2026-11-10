@@ -80,6 +80,22 @@ Docs are read from the declaration's file as it is, when they are shown. They ar
 
 **Coverage** (below) is a target only for std. In application code a low "documented" figure is no problem, and a doc written to raise it is noise (SW-1100 changes the report to match).
 
+### Entry points
+
+There is no annotation for an entry point: a function is one when its type can be run (SW-2561; D3452, Matt, 9 November 2026). The type is `()` to `()`, with abilities among `IO`, `Fail` and `Partial`, so exactly these five:
+
+```
+() -> ()
+() -> {IO} ()
+() -> {IO, Fail} ()
+() -> {IO, Partial} ()
+() -> {IO, Fail, Partial} ()
+```
+
+- **In a project**, `stitchwort run Shop.report` runs the function `Shop.report` by its full name, whatever it is called. A name that isn't in the project is `E-RUN-UNKNOWN` (with a "did you mean" for a near miss); a definition of any other type, such as `Nat` or `Nat → Nat`, is `E-RUN-TYPE`, which lists the five types.
+- **For a file**, `stitchwort run shop.sw` runs the file's `main`, and only that: a file has no way to name another function, so put it in a project to run it. A file without a `main` is `E-NO-MAIN`, and a `main` of another type is `E-MAIN-TYPE`.
+- **`main` is a convention**: the name that `run` looks for in a file, and the name to give a program's one obvious entry point. Nothing checks `main` where it is defined, so a `main` of the wrong type fails only when it is run. The rule above, to name a definition `main` only when it is an entry point, is what keeps the convention meaningful.
+
 ### Doc links
 
 A `--|` line may link to another declaration with ``[`Name`]`` (SW-1042; docs/proposals/documentation.md §7, D2149, D2153). `Name` must be name-shaped: letters, digits, `_`, `'` and `.`, starting with a letter or `_`. Only that is a link: bare `[Name]` is not (`[x]` is list notation), and neither is prose such as ``its `[` is; its `]` `` or a plain `--` note.

@@ -310,6 +310,13 @@ run. Problems found for the project as a whole before checking (a file with no
 namespace line, a reserved namespace, a namespace/type clash, or a bad
 `stitchwort.yaml`) stop every command, `run` included.
 
+There is no entry-point annotation, and `main` is only a convention. In a
+project a function is run by its full name, `stitchwort run Shop.report`, so
+a namespace can have several programs; a type that can't be run is
+`E-RUN-TYPE`, and a name that isn't in the project is `E-RUN-UNKNOWN`. A
+namespace name alone (`run Day05`) names no function and is `E-RUN-UNKNOWN`
+([syntax.md](syntax.md#entry-points)).
+
 A path argument is always **file mode**:
 
 ```
@@ -317,7 +324,7 @@ stitchwort run path/file.sw
 ```
 
 File mode loads that file and the standard library only, inside a project or
-not. The file must have a `main`. A namespace line is optional. An import
+not. The file must have a `main`, which is the only function file mode runs. A namespace line is optional. An import
 from anything but `Std`, or a qualified name reaching outside the file and
 `Std`, is `E-FILE-MODE`. File mode is a reading of the file on its own, so
 its meaning can differ from the project's when the file has sibling files.
