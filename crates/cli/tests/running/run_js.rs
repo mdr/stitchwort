@@ -809,7 +809,7 @@ fn exports_program_at(imports: &str, helpers: &str, defs: &[(&str, &str)], n: u6
 /// `Map.groupBy`, `List.foldRight`, `Map.foldRight` and `Set.foldRight` (once
 /// `foldRight`s that recursed once per element), and the `foldLeft` builders
 /// `Map.fromListWith`, `Map.counts` and `Set.fromList`, on 100,000 elements.
-/// A plain Node's default stack overflowed at about 8,000 elements. Native
+/// A plain Node's default stack overflowed at about 8,000 elements. The machine
 /// and JS print the same.
 #[test]
 fn std_folds_over_long_lists_are_stack_safe() {

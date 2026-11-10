@@ -2120,7 +2120,7 @@ def main(): {IO, Partial} () :=
 /// `run --js` runner, which no source program makes (stage 4c's note):
 /// `main` wrapped in two `Effect.mapSig Effect.sigSwap`s at the term level,
 /// as `io_operations_cross_translations_on_their_way_to_the_runner` does for
-/// the native runner. Each operation is renamed twice and its reply mapped
+/// the machine's runner. Each operation is renamed twice and its reply mapped
 /// back through both; the output is the reference evaluator's for the
 /// unwrapped program.
 #[test]

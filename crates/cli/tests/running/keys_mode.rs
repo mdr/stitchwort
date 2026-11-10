@@ -186,7 +186,7 @@ fn the_walking_example_reads_one_key_at_a_time(js: bool) {
 }
 
 #[test]
-fn keys_mode_then_print_then_normal_exit_native() {
+fn keys_mode_then_print_then_normal_exit_machine() {
     keys_mode_then_print_then_normal_exit(false);
 }
 
@@ -196,7 +196,7 @@ fn keys_mode_then_print_then_normal_exit_js() {
 }
 
 #[test]
-fn an_unhandled_fail_restores_the_terminal_native() {
+fn an_unhandled_fail_restores_the_terminal_machine() {
     an_unhandled_fail_restores_the_terminal(false);
 }
 
@@ -206,7 +206,7 @@ fn an_unhandled_fail_restores_the_terminal_js() {
 }
 
 #[test]
-fn an_io_error_restores_the_terminal_native() {
+fn an_io_error_restores_the_terminal_machine() {
     an_io_error_restores_the_terminal(false);
 }
 
@@ -216,7 +216,7 @@ fn an_io_error_restores_the_terminal_js() {
 }
 
 #[test]
-fn ctrl_c_stops_the_program_and_restores_the_terminal_native() {
+fn ctrl_c_stops_the_program_and_restores_the_terminal_machine() {
     ctrl_c_stops_the_program_and_restores_the_terminal(false);
 }
 
@@ -226,7 +226,7 @@ fn ctrl_c_stops_the_program_and_restores_the_terminal_js() {
 }
 
 #[test]
-fn the_walking_example_reads_one_key_at_a_time_native() {
+fn the_walking_example_reads_one_key_at_a_time_machine() {
     the_walking_example_reads_one_key_at_a_time(false);
 }
 
