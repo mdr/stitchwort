@@ -26070,14 +26070,14 @@
     {
       "id": 2569,
       "title": "examples/reject/mismatch-note-huge-unfolding.sw peaks at 3.8 GB (before and after SW-2554), over the lane tier's 3 GB memory cap: shrink the example or make the note cheaper",
-      "status": "backlog",
+      "status": "review",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "test-infra",
-      "body": "Found 9 Nov when NAME=match matched it. 30 min.",
+      "body": "Found 9 Nov when NAME=match matched it. 30 min.\n\nProgress (lane SW-2582): measured on lane/SW-2582 (release, check --no-cache): 4.03 GB max RSS, 17.7 s. Cause: Ctx::show_unfolded read the value back up to the 10M-node size limit for a note shown in a few hundred characters (SW-2470's cause). Fix: quote_unfolded_shown_at_most with a 200,000-node cap; a bigger unfolding shows as `…`. After: 191 MB, 2.1 s. The example is unchanged and still rejects with E-TYPE-MISMATCH. lane-examples NAME=mismatch and lane-elab pass. This probably also covers SW-2470.\nCommit af882172a on lane/SW-2582.\n",
       "created": "2026-11-09",
-      "updated": "2026-11-09",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -26241,14 +26241,14 @@
     {
       "id": 2582,
       "title": "Elab fuzzer: seed 0x2582 case 16878 (examples/accept/rows.sw with one comment moved two lines) takes over 6 GB inside the fuzzer, though the CLI checks it cold or warm (original then edited) in 0.2-0.8 s and 81 MB; find which oracle (likely 5, the in-process cache comparisons) blows up and why. Also give the fuzzer a per-case memory cap so one case can't kill the run",
-      "status": "backlog",
+      "status": "review",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "audit-fuzzing",
-      "body": "Found 9 Nov in compute mode by bisecting cases 16661-16900 under STITCHWORT_MEM_CAP_GB=6. Repro: STITCHWORT_MEM_CAP_GB=6 task fuzz:elab CASES=20000 SEED=0x2582 ONLY=16878 DUMP=1. Ruled out: check, test, fmt from the CLI; warm CLI cache. 60 min; escalate to Opus if it's a cache-rewind bug.\n\nSeed 0x2587 (Speedwell, 9 Nov): run killed at 16 GB after 1322 s; last slow case reported was 14659 (repro: task fuzz:elab CASES=20000 SEED=0x2587 FROM=14659 TO=14660). Not bisected (compute mode).\n\nSeed 0x2589 (Speedwell queue, 9 Nov): killed at 16 GB after 968 s, last slow cases reported 10502 and 10609.",
+      "body": "Found 9 Nov in compute mode by bisecting cases 16661-16900 under STITCHWORT_MEM_CAP_GB=6. Repro: STITCHWORT_MEM_CAP_GB=6 task fuzz:elab CASES=20000 SEED=0x2582 ONLY=16878 DUMP=1. Ruled out: check, test, fmt from the CLI; warm CLI cache. 60 min; escalate to Opus if it's a cache-rewind bug.\n\nSeed 0x2587 (Speedwell, 9 Nov): run killed at 16 GB after 1322 s; last slow case reported was 14659 (repro: task fuzz:elab CASES=20000 SEED=0x2587 FROM=14659 TO=14660). Not bisected (compute mode).\n\nSeed 0x2589 (Speedwell queue, 9 Nov): killed at 16 GB after 968 s, last slow cases reported 10502 and 10609.\n\nProgress (lane SW-2582), commit de62d1851 on lane/SW-2582.\n- Cap: the fuzz test has a counting allocator (thread-local live bytes) and installs Budget::set_cancel_hook; a check over FUZZ_MEM_CAP_MB (default 2048) is cancelled and reported as oracle 6 (memory) with input saved; the run goes on. Checked with FUZZ_MEM_CAP_MB=64 on cases 16585-16600. Cases above a quarter of the cap are named on stderr.\n- Cause found: the named case numbers no longer reproduce (the corpus changed, so every case number did), but the same seed's range 15900-17900 had cases 16590, 17727, 17829 at 1.2-1.8 GB, in the plain check as well as cold and warm (so not oracle 5, not the cache). CLI repro: 1.4-2.2 GB, E-RESOURCE \"a value was too large to show\": the 10M-node size limit is reached, ~150 B/node. Four workers at once, plus bigger variants, explain 6-16 GB. Fix: the fuzzer's size limit is 1M nodes; those cases now take under 2 s, no heavy-memory lines in the 2000-case run (258 s). Cases 0x2590/13193 and 0x2591/13313 (Overmind) don't reproduce by number either.\n- Not done: the real cost of reaching the size limit (a 10M-node term is 1.3-2.2 GB) is in the CLI too; the fuzzer now avoids it rather than the checker. Cases 0x2582/16837 and 16869 take 12 s with 150 MB (slow, not memory).\n",
       "created": "2026-11-09",
-      "updated": "2026-11-09",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
