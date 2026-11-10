@@ -1,5 +1,5 @@
 {
-  "next": 2625,
+  "next": 2626,
   "tickets": [
     {
       "id": 47,
@@ -4572,12 +4572,13 @@
       "agent": "",
       "where": "",
       "labels": [
-        "perf"
+        "perf",
+        "parked"
       ],
       "epic": "performance",
       "body": "From SW-1137 (F3): LiveProject keeps a full copy of scope, module, instances, library and about ten more tables in each namespace's mark; estimated several hundred MB on aoc, the same failure as SW-1052. Measure first. Also F5: aoc check --no-cache peaks at 1.59 GB against 162 MB in language-server.md.\n\nFrom SW-1180 (merged, backlog review 4 Nov 2026), from SW-1179: the language server holds ~170-185 MB more than its LiveProject on aoc (answers, navigation per file?); measure what it keeps per file. Also make state_edit_loop sample only when the server is idle.",
       "created": "2026-11-03",
-      "updated": "2026-11-04",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -4876,7 +4877,7 @@
       "epic": "performance",
       "body": "From SW-1153.\n\nD2282 (Matt, 3 Nov): not now (\"hard to understand the impact/benefit... maybe another time\"). If raised again, lead with a measured user-visible effect (which real programs check slower, by how much).\n",
       "created": "2026-11-03",
-      "updated": "2026-11-06",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -4886,12 +4887,13 @@
       "agent": "",
       "where": "",
       "labels": [
-        "perf"
+        "perf",
+        "parked"
       ],
       "epic": "performance",
       "body": "From SW-1153/1154 findings 2-4; reproducers in the orchestrator scratchpad r/ (vec*.sw, w*.sw). Continues SW-1106.",
       "created": "2026-11-03",
-      "updated": "2026-11-03",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -4946,12 +4948,13 @@
       "agent": "",
       "where": "",
       "labels": [
-        "perf"
+        "perf",
+        "parked"
       ],
       "epic": "performance",
       "body": "Seen 3 Nov by the SW-1156 verifier; stopped by the orchestrator. Find which namespace blows up unglued; decide whether to keep the switch, limit it to small inputs, or document it.",
       "created": "2026-11-03",
-      "updated": "2026-11-03",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -5384,12 +5387,13 @@
       "agent": "",
       "where": "",
       "labels": [
-        "perf"
+        "perf",
+        "parked"
       ],
       "epic": "performance",
       "body": "SW-1170 finding 2. Adds up for tools and tests that start the CLI many times.\n\nFirst concrete step, from SW-1203 (merged, backlog review 4 Nov 2026), from SW-1199 finding 4: build the standard library's index once, not by parsing all 66 library files in every process (~0.11 s of the 0.22 s floor); every CLI process (tests start many) gains ~0.1 s.\nFrom SW-1170 (closed): the `check --jobs N` idea (parallel checking inside one process; ceiling measured at 5.9x, dev/measurements/parallel-checking.md) stays here if Matt wants it; deprioritised by D2299.",
       "created": "2026-11-04",
-      "updated": "2026-11-04",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -5399,12 +5403,13 @@
       "agent": "",
       "where": "",
       "labels": [
-        "perf"
+        "perf",
+        "parked"
       ],
       "epic": "performance",
       "body": "SW-1170 finding 3. Speeding them shortens the sequential check and any parallel critical path.",
       "created": "2026-11-04",
-      "updated": "2026-11-04",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -5414,12 +5419,13 @@
       "agent": "",
       "where": "",
       "labels": [
-        "perf"
+        "perf",
+        "parked"
       ],
       "epic": "performance",
       "body": "SW-1193 finding 1. Same shape as SW-1193 for stitchwort test.",
       "created": "2026-11-04",
-      "updated": "2026-11-04",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -5429,12 +5435,13 @@
       "agent": "",
       "where": "",
       "labels": [
-        "perf"
+        "perf",
+        "parked"
       ],
       "epic": "performance",
       "body": "SW-1193 follow-up. Today a run with a goal after a skipped namespace rewinds and loads everything (~0.2 s slower than before SW-1193, and loses the ~5x saving). Goals are common during proof work.",
       "created": "2026-11-04",
-      "updated": "2026-11-04",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -5444,12 +5451,13 @@
       "agent": "",
       "where": "",
       "labels": [
-        "perf"
+        "perf",
+        "parked"
       ],
       "epic": "performance",
       "body": "SW-1193 follow-up (SW-1045 link warnings can change without the namespace key).",
       "created": "2026-11-04",
-      "updated": "2026-11-04",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -5474,12 +5482,13 @@
       "agent": "",
       "where": "",
       "labels": [
-        "perf"
+        "perf",
+        "parked"
       ],
       "epic": "performance",
       "body": "SW-1199 item 1 (dev/measurements/cache-load-profile.md). Mostly Day22.Proofs.digitChangesPossible (76% of slow loads) and eight Year2021 Tests examplePartN rfl theorems. Change: evaluate ty_value on first use (or only for replayed declarations). Est. test 3.3 -> ~1.5 s, check --index 3.9 -> ~2.1 s. Core, ~100 call sites; design note and Opus review; after Globals split 8e (both change core's evaluator entry points).\n\nD2303 (Matt, 4 Nov 2026): keep on the backlog.\n",
       "created": "2026-11-04",
-      "updated": "2026-11-04",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -5536,12 +5545,13 @@
       "agent": "",
       "where": "",
       "labels": [
-        "perf"
+        "perf",
+        "parked"
       ],
       "epic": "performance",
       "body": "SW-1199 finding 5 (STITCHWORT_CACHE_DEBUG).\n\nFrom SW-1925: when Float.sw becomes cacheable, the replay undo bug it fixed becomes reachable; switch a_refused_library_entry_takes_back_its_float_bindings to the real Float.sw.",
       "created": "2026-11-04",
-      "updated": "2026-11-07",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -5551,12 +5561,13 @@
       "agent": "",
       "where": "",
       "labels": [
-        "perf"
+        "perf",
+        "parked"
       ],
       "epic": "performance",
       "body": "SW-1199 finding 6; not investigated.",
       "created": "2026-11-04",
-      "updated": "2026-11-04",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -5582,12 +5593,13 @@
       "agent": "",
       "where": "",
       "labels": [
-        "perf"
+        "perf",
+        "parked"
       ],
       "epic": "performance",
       "body": "SW-1201 review nit: Tarjan::new(count) with count = defs + datas, six arrays per audit_one call. Keep and reuse (or use maps keyed by node) for another small audit saving.",
       "created": "2026-11-04",
-      "updated": "2026-11-04",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -5911,12 +5923,13 @@
       "agent": "",
       "where": "",
       "labels": [
-        "performance"
+        "performance",
+        "parked"
       ],
       "epic": "performance",
       "body": "D2343. Matt accepted the plan in docs/proposals/proofs-about-definitions.md (D2340-D2345, 4 Nov 2026).",
       "created": "2026-11-04",
-      "updated": "2026-11-04",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -6048,12 +6061,13 @@
       "agent": "",
       "where": "",
       "labels": [
-        "performance"
+        "performance",
+        "parked"
       ],
       "epic": "performance",
       "body": "D2347 (Matt, 4 Nov 2026), from aoc/NOTES-2020.md day 3. (item 6).",
       "created": "2026-11-04",
-      "updated": "2026-11-04",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -6323,12 +6337,13 @@
       "where": "",
       "labels": [
         "performance",
-        "elab"
+        "elab",
+        "parked"
       ],
       "epic": "performance",
       "body": "Found by SW-1226 (D2342 B), 4 Nov 2026. Measurements in the SW-1226 report.",
       "created": "2026-11-04",
-      "updated": "2026-11-04",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -6609,12 +6624,13 @@
       "agent": "",
       "where": "",
       "labels": [
-        "performance"
+        "performance",
+        "parked"
       ],
       "epic": "performance",
       "body": "From AoC 2020 day 5 (SW-1269), aoc/NOTES-2020.md 'Day 5' item 3 (ranked 3). part2Sound with a concrete 128 * 8 took 2.9 s of checking for a ~500,000-node term; a lemma over any count cut the cold check from 7.7 s to 3.2 s. Find which subterm was large (probably a literal unfolded to Succ chains or a list of 1024 seats evaluated), and fix it or have timings name the large subterm.",
       "created": "2026-11-04",
-      "updated": "2026-11-04",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -8233,12 +8249,13 @@
       "where": "",
       "labels": [
         "lsp",
-        "perf"
+        "perf",
+        "parked"
       ],
       "epic": "performance",
       "body": "From SW-1375's trial, 5 Nov 2026.",
       "created": "2026-11-05",
-      "updated": "2026-11-05",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -10584,12 +10601,13 @@
       "agent": "",
       "where": "",
       "labels": [
-        "elab"
+        "elab",
+        "parked"
       ],
       "epic": "performance",
       "body": "From SW-1534, 6 Nov 2026.",
       "created": "2026-11-06",
-      "updated": "2026-11-06",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -12042,12 +12060,13 @@
       "agent": "",
       "where": "",
       "labels": [
-        "tooling"
+        "tooling",
+        "parked"
       ],
       "epic": "performance",
       "body": "From SW-1528, 6 Nov 2026.",
       "created": "2026-11-06",
-      "updated": "2026-11-06",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -12057,12 +12076,13 @@
       "agent": "",
       "where": "",
       "labels": [
-        "tooling"
+        "tooling",
+        "parked"
       ],
       "epic": "performance",
       "body": "From SW-1528, 6 Nov 2026; predates the profiler.",
       "created": "2026-11-06",
-      "updated": "2026-11-06",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -12702,12 +12722,13 @@
       "agent": "",
       "where": "",
       "labels": [
-        "runtime"
+        "runtime",
+        "parked"
       ],
       "epic": "performance",
       "body": "From SW-1638, 6 Nov 2026.\n\nSW-1163 (7 Nov): the copying program is pushPop in examples/extract/arrays.sw (day 15 makes 0 copies); its None arm returns the whole state, so the copy is needed. Fix: SW-1809 (the note names the site) and SW-1815 (destructure first; guide idiom).",
       "created": "2026-11-06",
-      "updated": "2026-11-07",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -12717,12 +12738,13 @@
       "agent": "",
       "where": "",
       "labels": [
-        "runtime"
+        "runtime",
+        "parked"
       ],
       "epic": "performance",
       "body": "From SW-1638, 6 Nov 2026.",
       "created": "2026-11-06",
-      "updated": "2026-11-06",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -13535,16 +13557,16 @@
     {
       "id": 1734,
       "title": "nextest threads-required for the heavy sweeps, so they don't overlap in memory and thrash",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1734",
       "labels": [
         "perf"
       ],
       "epic": "dev-loop-speed",
-      "body": "From the SW-1716 profile, fix 6. See docs/reviews/SW-1716-dev-loop-profile.md §6.\n\n7 Nov ~02:05, lane/SW-1734 (7f5082978): corpus-sweeps threads-required=5, pooled tests 5 or 2, daily/full test-threads 10, test:merge STITCHWORT_TEST_THREADS=5. Merge tier neutral (A/B within 1%, CPU equal). Daily sweeps subset under load 16-34: per-test times 25-50% lower, wall not better (590 s old vs 665/1152 s new, too noisy). Held in review, not merged: no measured benefit yet; needs one daily run on a quiet machine (with D2556). Model result: Sonnet, worked, 60 min (est. 45).\n\n7 Nov: needs a quiet daily run to show a benefit; folded into D2556's daily run.",
+      "body": "From the SW-1716 profile, fix 6. See docs/reviews/SW-1716-dev-loop-profile.md §6.\n\n7 Nov ~02:05, lane/SW-1734 (7f5082978): corpus-sweeps threads-required=5, pooled tests 5 or 2, daily/full test-threads 10, test:merge STITCHWORT_TEST_THREADS=5. Merge tier neutral (A/B within 1%, CPU equal). Daily sweeps subset under load 16-34: per-test times 25-50% lower, wall not better (590 s old vs 665/1152 s new, too noisy). Held in review, not merged: no measured benefit yet; needs one daily run on a quiet machine (with D2556). Model result: Sonnet, worked, 60 min (est. 45).\n\n7 Nov: needs a quiet daily run to show a benefit; folded into D2556's daily run.\n\nClosed unmerged 10 Nov (D3465, performance wound down): no measured benefit; branch already gone.",
       "created": "2026-11-06",
-      "updated": "2026-11-07",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -13554,12 +13576,13 @@
       "agent": "",
       "where": "",
       "labels": [
-        "perf"
+        "perf",
+        "parked"
       ],
       "epic": "dev-loop-speed",
       "body": "From the SW-1716 profile, fix 12. See docs/reviews/SW-1716-dev-loop-profile.md §6.\n\n7 Nov: not run overnight (the quiet window went to SW-1742). Needs a quiet machine; pair with SW-1802.",
       "created": "2026-11-06",
-      "updated": "2026-11-07",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -14165,16 +14188,16 @@
     {
       "id": 1776,
       "title": "[Sonnet] elab unit tests built into the library behind a unit-tests feature (dev-features turns it on), run by one small test binary with a guard that no test is left out: same 148 tests pass; one clean --timings build (split-elab.md stage 1)",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1776",
       "labels": [
         "perf"
       ],
       "epic": "dev-loop-speed",
-      "body": "From SW-1737, D2563/D2564. Expected: 45 min.\n\n7 Nov ~02:45, lane/SW-1776 (aba0f8be7): elab unit tests behind a unit-tests feature; [lib] test = false; 148 tests via a table (src/unit_tests.rs) and tests/unit.rs wrappers, guard every_unit_test_is_listed; same 145 names, all pass. Clean build: the 36 s elab lib-test compile becomes a 6 s unit binary; net saving not measurable under load (160 s before at load 11-19, 246 s after at load 19-31). Held, not merged: a new elab unit test now needs three edits (marked fn, table, wrapper) and a doc-alias marker instead of #[test]. That workflow cost touches every lane writing elab unit tests; the gain (≈20-30 s per clean build, a core freed per elab rebuild) is unmeasured. For Matt (D2565), after one quiet-machine measurement. Model result: Sonnet, worked, 19 min (est. 45).\n\nMeasured 02:35-02:40 (one run each, back to back, no kache, load 8-23): clean nextest --no-run build 164 s → 144 s real (-20 s, 12%), 1209 → 1075 s CPU (-134 s). D2565 for Matt: take three edits per new elab unit test (and no #[test]/IDE run lens on them) for that? A build.rs-generated table could cut it to one marker.\n\n7 Nov: waiting on Matt's D2565 (rec: yes only if a build.rs generates the table). Branch kept.",
+      "body": "From SW-1737, D2563/D2564. Expected: 45 min.\n\n7 Nov ~02:45, lane/SW-1776 (aba0f8be7): elab unit tests behind a unit-tests feature; [lib] test = false; 148 tests via a table (src/unit_tests.rs) and tests/unit.rs wrappers, guard every_unit_test_is_listed; same 145 names, all pass. Clean build: the 36 s elab lib-test compile becomes a 6 s unit binary; net saving not measurable under load (160 s before at load 11-19, 246 s after at load 19-31). Held, not merged: a new elab unit test now needs three edits (marked fn, table, wrapper) and a doc-alias marker instead of #[test]. That workflow cost touches every lane writing elab unit tests; the gain (≈20-30 s per clean build, a core freed per elab rebuild) is unmeasured. For Matt (D2565), after one quiet-machine measurement. Model result: Sonnet, worked, 19 min (est. 45).\n\nMeasured 02:35-02:40 (one run each, back to back, no kache, load 8-23): clean nextest --no-run build 164 s → 144 s real (-20 s, 12%), 1209 → 1075 s CPU (-134 s). D2565 for Matt: take three edits per new elab unit test (and no #[test]/IDE run lens on them) for that? A build.rs-generated table could cut it to one marker.\n\n7 Nov: waiting on Matt's D2565 (rec: yes only if a build.rs generates the table). Branch kept.\n\nClosed unmerged 10 Nov (D3465, performance wound down; D2565 not taken up): -20 s (12%) on a clean test build against three edits per new unit test.",
       "created": "2026-11-07",
-      "updated": "2026-11-07",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -14559,12 +14582,13 @@
       "agent": "",
       "where": "",
       "labels": [
-        "perf"
+        "perf",
+        "parked"
       ],
       "epic": "dev-loop-speed",
       "body": "From SW-1742: 12% CPU on hash_stability prelude, 17% on std_library. Needs a quiet machine.\n\nNeeds a quiet machine (load < 4): SW-1729's null result was load noise.",
       "created": "2026-11-07",
-      "updated": "2026-11-07",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -14590,12 +14614,13 @@
       "agent": "",
       "where": "",
       "labels": [
-        "test"
+        "test",
+        "parked"
       ],
       "epic": "dev-loop-speed",
       "body": "Waiting on Matt's D2556. Run nothing else alongside.",
       "created": "2026-11-07",
-      "updated": "2026-11-07",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -14605,12 +14630,13 @@
       "agent": "",
       "where": "",
       "labels": [
-        "docs"
+        "docs",
+        "parked"
       ],
       "epic": "dev-loop-speed",
       "body": "Orchestrator's own edit once Matt answers D2574/D2576. Proposed stop-mine text is in the 7 Nov overnight plan (dev/overnight-2026-11-06.md).",
       "created": "2026-11-07",
-      "updated": "2026-11-07",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -14665,12 +14691,13 @@
       "agent": "",
       "where": "",
       "labels": [
-        "perf"
+        "perf",
+        "parked"
       ],
       "epic": "performance",
       "body": "From SW-1163's review (docs/reviews/SW-1163-in-place-reuse-fresh-eyes.md §5, T1). Expected: 60 min. Ready now: no decision needed beyond D2274.\n\nD2273-D2277, D2590-D2592: yes, as recommended (orchestrator's call, 7 Nov; docs/reviews/open-decisions-2026-11-07.md).",
       "created": "2026-11-07",
-      "updated": "2026-11-07",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -14680,12 +14707,13 @@
       "agent": "",
       "where": "",
       "labels": [
-        "perf"
+        "perf",
+        "parked"
       ],
       "epic": "performance",
       "body": "From SW-1163's review (docs/reviews/SW-1163-in-place-reuse-fresh-eyes.md §5, T2). Waiting on D2274, D2590. Expected: 2-3 h.\n\nD2273-D2277, D2590-D2592: yes, as recommended (orchestrator's call, 7 Nov; docs/reviews/open-decisions-2026-11-07.md).",
       "created": "2026-11-07",
-      "updated": "2026-11-07",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -14695,12 +14723,13 @@
       "agent": "",
       "where": "",
       "labels": [
-        "perf"
+        "perf",
+        "parked"
       ],
       "epic": "performance",
       "body": "From SW-1163's review (docs/reviews/SW-1163-in-place-reuse-fresh-eyes.md §5, T3). Expected: 60 min. Decides D2275 and D2276 from data.\n\nD2273-D2277, D2590-D2592: yes, as recommended (orchestrator's call, 7 Nov; docs/reviews/open-decisions-2026-11-07.md).",
       "created": "2026-11-07",
-      "updated": "2026-11-07",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -14710,12 +14739,13 @@
       "agent": "",
       "where": "",
       "labels": [
-        "perf"
+        "perf",
+        "parked"
       ],
       "epic": "performance",
       "body": "From SW-1163's review (docs/reviews/SW-1163-in-place-reuse-fresh-eyes.md §5, T4). Waiting on D2275, which waits on SW-1811's data. 0.5-1 lane-day.\n\nD2273-D2277, D2590-D2592: yes, as recommended (orchestrator's call, 7 Nov; docs/reviews/open-decisions-2026-11-07.md).",
       "created": "2026-11-07",
-      "updated": "2026-11-07",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -14725,12 +14755,13 @@
       "agent": "",
       "where": "",
       "labels": [
-        "perf"
+        "perf",
+        "parked"
       ],
       "epic": "performance",
       "body": "From SW-1163's review (docs/reviews/SW-1163-in-place-reuse-fresh-eyes.md §5, T5). Independent of the rest. Expected: 60 min.\n\nD2273-D2277, D2590-D2592: yes, as recommended (orchestrator's call, 7 Nov; docs/reviews/open-decisions-2026-11-07.md).",
       "created": "2026-11-07",
-      "updated": "2026-11-07",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -14740,12 +14771,13 @@
       "agent": "",
       "where": "",
       "labels": [
-        "perf"
+        "perf",
+        "parked"
       ],
       "epic": "performance",
       "body": "From SW-1163's review (docs/reviews/SW-1163-in-place-reuse-fresh-eyes.md §5, T6). Waiting on D2591 and on SW-1811 finding copies or token misses from such records.\n\nD2273-D2277, D2590-D2592: yes, as recommended (orchestrator's call, 7 Nov; docs/reviews/open-decisions-2026-11-07.md).",
       "created": "2026-11-07",
-      "updated": "2026-11-07",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -14755,12 +14787,13 @@
       "agent": "",
       "where": "",
       "labels": [
-        "perf"
+        "perf",
+        "parked"
       ],
       "epic": "performance",
       "body": "From SW-1163's review (docs/reviews/SW-1163-in-place-reuse-fresh-eyes.md §5, T7). Expected: 30 min. Ready now.\n\nD2273-D2277, D2590-D2592: yes, as recommended (orchestrator's call, 7 Nov; docs/reviews/open-decisions-2026-11-07.md).",
       "created": "2026-11-07",
-      "updated": "2026-11-07",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -14770,12 +14803,13 @@
       "agent": "",
       "where": "",
       "labels": [
-        "perf"
+        "perf",
+        "parked"
       ],
       "epic": "performance",
       "body": "From SW-1163's review (docs/reviews/SW-1163-in-place-reuse-fresh-eyes.md §5, T8). Orchestrator, mechanical.\n\nD2273-D2277, D2590-D2592: yes, as recommended (orchestrator's call, 7 Nov; docs/reviews/open-decisions-2026-11-07.md).",
       "created": "2026-11-07",
-      "updated": "2026-11-07",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -14890,12 +14924,13 @@
       "agent": "",
       "where": "",
       "labels": [
-        "perf"
+        "perf",
+        "parked"
       ],
       "epic": "performance",
       "body": "From docs/proposals/nat-map.md (SW-1603). Waiting on D2595, D2596. Expected: 45 min. Needs a quiet machine.\n\nMatt (7 Nov 2026): may not get to this for a while; the note (docs/proposals/nat-map.md) holds the full reasoning, measurements to take and success numbers.",
       "created": "2026-11-07",
-      "updated": "2026-11-07",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -14905,12 +14940,13 @@
       "agent": "",
       "where": "",
       "labels": [
-        "perf"
+        "perf",
+        "parked"
       ],
       "epic": "performance",
       "body": "From docs/proposals/nat-map.md (SW-1603). Waiting on SW-1824's go and D2597-D2599.\n\nMatt's decisions (docs/proposals/nat-map.md): D2597 native functions over the existing tree values, not a new runtime map type [rec: yes]; D2598 native path for built-in key orders (Nat, Int, Char, Text, Bool, Ordering) and derived Ord over them incl. Pair, List, Option; not Float or hand-written orders [rec: yes]; D2599 a native that stops matching its definition falls back quietly, checked in the fast std lane, rather than refusing the program [rec: yes].",
       "created": "2026-11-07",
-      "updated": "2026-11-07",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -14920,12 +14956,13 @@
       "agent": "",
       "where": "",
       "labels": [
-        "perf"
+        "perf",
+        "parked"
       ],
       "epic": "performance",
       "body": "From docs/proposals/nat-map.md (SW-1603). After SW-1825; D2600.",
       "created": "2026-11-07",
-      "updated": "2026-11-07",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -14935,12 +14972,13 @@
       "agent": "",
       "where": "",
       "labels": [
-        "perf"
+        "perf",
+        "parked"
       ],
       "epic": "performance",
       "body": "From docs/proposals/nat-map.md (SW-1603). D2601.",
       "created": "2026-11-07",
-      "updated": "2026-11-07",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -16902,12 +16940,13 @@
       "agent": "",
       "where": "",
       "labels": [
-        "test-infra"
+        "test-infra",
+        "parked"
       ],
       "epic": "dev-loop-speed",
       "body": "From docs/proposals/kernel-merge-gate.md. Ticket 1. D2760, D2763. 45 min.",
       "created": "2026-11-07",
-      "updated": "2026-11-07",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -16917,12 +16956,13 @@
       "agent": "",
       "where": "",
       "labels": [
-        "test-infra"
+        "test-infra",
+        "parked"
       ],
       "epic": "dev-loop-speed",
       "body": "From docs/proposals/kernel-merge-gate.md. Ticket 2. 30 min.",
       "created": "2026-11-07",
-      "updated": "2026-11-07",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -16932,12 +16972,13 @@
       "agent": "",
       "where": "",
       "labels": [
-        "test-infra"
+        "test-infra",
+        "parked"
       ],
       "epic": "dev-loop-speed",
       "body": "From docs/proposals/kernel-merge-gate.md. Ticket 3. 30 min.\n\nFrom docs/reviews/code-review-tests.md (T4): widen to daily and full, from their junit times.",
       "created": "2026-11-07",
-      "updated": "2026-11-07",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -16947,12 +16988,13 @@
       "agent": "",
       "where": "",
       "labels": [
-        "test-infra"
+        "test-infra",
+        "parked"
       ],
       "epic": "dev-loop-speed",
       "body": "From docs/proposals/kernel-merge-gate.md. Ticket 4. 60-90 min.",
       "created": "2026-11-07",
-      "updated": "2026-11-07",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -16962,12 +17004,13 @@
       "agent": "",
       "where": "",
       "labels": [
-        "test-infra"
+        "test-infra",
+        "parked"
       ],
       "epic": "dev-loop-speed",
       "body": "From docs/proposals/kernel-merge-gate.md. Ticket 5. D2762, after gate:corpus has run on a few lanes. 60 min.",
       "created": "2026-11-07",
-      "updated": "2026-11-07",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -16992,12 +17035,13 @@
       "agent": "",
       "where": "",
       "labels": [
-        "test-infra"
+        "test-infra",
+        "parked"
       ],
       "epic": "dev-loop-speed",
       "body": "From docs/proposals/kernel-merge-gate.md. D2735 [rec: yes]. 60 min.",
       "created": "2026-11-07",
-      "updated": "2026-11-07",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -17852,12 +17896,13 @@
       "agent": "",
       "where": "",
       "labels": [
-        "docs"
+        "docs",
+        "parked"
       ],
       "epic": "performance",
       "body": "From docs/proposals/compute-once.md. Stage 0a; absorbs SW-1576's guide half. 30 min.",
       "created": "2026-11-07",
-      "updated": "2026-11-07",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -17867,12 +17912,13 @@
       "agent": "",
       "where": "",
       "labels": [
-        "tooling"
+        "tooling",
+        "parked"
       ],
       "epic": "performance",
       "body": "From docs/proposals/compute-once.md. Stage 0b; replaces SW-1576's lint. 60 min.",
       "created": "2026-11-07",
-      "updated": "2026-11-07",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -17882,12 +17928,13 @@
       "agent": "",
       "where": "",
       "labels": [
-        "elab"
+        "elab",
+        "parked"
       ],
       "epic": "performance",
       "body": "From docs/proposals/compute-once.md. Stage 1a. D2880-D2882, D2884. Guide, syntax.md and a feature-tour page. 90 min.",
       "created": "2026-11-07",
-      "updated": "2026-11-07",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -17897,12 +17944,13 @@
       "agent": "",
       "where": "",
       "labels": [
-        "runtime"
+        "runtime",
+        "parked"
       ],
       "epic": "performance",
       "body": "From docs/proposals/compute-once.md. Stage 1b, after SW-2024. 90 min.",
       "created": "2026-11-07",
-      "updated": "2026-11-07",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -17912,12 +17960,13 @@
       "agent": "",
       "where": "",
       "labels": [
-        "aoc"
+        "aoc",
+        "parked"
       ],
       "epic": "performance",
       "body": "From docs/proposals/compute-once.md. Stage 1c, after SW-2025. Closes SW-1602. 45 min.",
       "created": "2026-11-07",
-      "updated": "2026-11-07",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -17927,12 +17976,13 @@
       "agent": "",
       "where": "",
       "labels": [
-        "runtime"
+        "runtime",
+        "parked"
       ],
       "epic": "performance",
       "body": "From docs/proposals/compute-once.md. Stage 2. D2883. 75 min.",
       "created": "2026-11-07",
-      "updated": "2026-11-07",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -18137,12 +18187,13 @@
       "agent": "",
       "where": "",
       "labels": [
-        "kernel"
+        "kernel",
+        "parked"
       ],
       "epic": "performance",
       "body": "From docs/proposals/erase-proof-data.md. D2900-D2903. 90 min.",
       "created": "2026-11-07",
-      "updated": "2026-11-07",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -18152,12 +18203,13 @@
       "agent": "",
       "where": "",
       "labels": [
-        "elab"
+        "elab",
+        "parked"
       ],
       "epic": "performance",
       "body": "From docs/proposals/erase-proof-data.md. After SW-2041. 90 min.",
       "created": "2026-11-07",
-      "updated": "2026-11-07",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -18167,12 +18219,13 @@
       "agent": "",
       "where": "",
       "labels": [
-        "runtime"
+        "runtime",
+        "parked"
       ],
       "epic": "performance",
       "body": "From docs/proposals/erase-proof-data.md. After SW-2042. 45 min.",
       "created": "2026-11-07",
-      "updated": "2026-11-07",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -18182,12 +18235,13 @@
       "agent": "",
       "where": "",
       "labels": [
-        "aoc"
+        "aoc",
+        "parked"
       ],
       "epic": "performance",
       "body": "From docs/proposals/erase-proof-data.md. After SW-2043. 60 min.",
       "created": "2026-11-07",
-      "updated": "2026-11-07",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -18197,12 +18251,13 @@
       "agent": "",
       "where": "",
       "labels": [
-        "tooling"
+        "tooling",
+        "parked"
       ],
       "epic": "performance",
       "body": "From docs/proposals/erase-proof-data.md. Stage 3, optional. D2904. 45 min.",
       "created": "2026-11-07",
-      "updated": "2026-11-07",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -19170,12 +19225,13 @@
       "agent": "",
       "where": "",
       "labels": [
-        "core"
+        "core",
+        "parked"
       ],
       "epic": "performance",
       "body": "From docs/proposals/stuck-field-calls.md stage 0. Go rule for 1b: re-runs above 1% of a namespace's check steps, or worse-than-linear growth. 60 min.",
       "created": "2026-11-07",
-      "updated": "2026-11-07",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -19185,12 +19241,13 @@
       "agent": "",
       "where": "",
       "labels": [
-        "core"
+        "core",
+        "parked"
       ],
       "epic": "performance",
       "body": "From docs/proposals/stuck-field-calls.md. After SW-2096 (both edit eta_fields). 40 min.",
       "created": "2026-11-07",
-      "updated": "2026-11-07",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -19200,12 +19257,13 @@
       "agent": "",
       "where": "",
       "labels": [
-        "core"
+        "core",
+        "parked"
       ],
       "epic": "performance",
       "body": "From docs/proposals/stuck-field-calls.md. Only if SW-2110 says go. After SW-2111. 90 min.",
       "created": "2026-11-07",
-      "updated": "2026-11-07",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -19470,12 +19528,13 @@
       "agent": "",
       "where": "",
       "labels": [
-        "rt"
+        "rt",
+        "parked"
       ],
       "epic": "performance",
       "body": "From docs/proposals/interpreter-speed.md. After SW-2129. Its data goes with D3061 to Matt. 90 min.",
       "created": "2026-11-07",
-      "updated": "2026-11-07",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -19485,12 +19544,13 @@
       "agent": "",
       "where": "",
       "labels": [
-        "rt"
+        "rt",
+        "parked"
       ],
       "epic": "performance",
       "body": "From docs/proposals/interpreter-speed.md. After SW-2130 and D3061. 90 min.",
       "created": "2026-11-07",
-      "updated": "2026-11-07",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -19500,12 +19560,13 @@
       "agent": "",
       "where": "",
       "labels": [
-        "rt"
+        "rt",
+        "parked"
       ],
       "epic": "performance",
       "body": "From docs/proposals/interpreter-speed.md. After SW-2131. 45 min.",
       "created": "2026-11-07",
-      "updated": "2026-11-07",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -19515,12 +19576,13 @@
       "agent": "",
       "where": "",
       "labels": [
-        "rt"
+        "rt",
+        "parked"
       ],
       "epic": "performance",
       "body": "From docs/proposals/interpreter-speed.md. Can run beside stage 1, ideally after SW-1810. After D3061. 45 min.",
       "created": "2026-11-07",
-      "updated": "2026-11-07",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -19530,12 +19592,13 @@
       "agent": "",
       "where": "",
       "labels": [
-        "rt"
+        "rt",
+        "parked"
       ],
       "epic": "performance",
       "body": "From docs/proposals/interpreter-speed.md. After SW-2131. 45 min.",
       "created": "2026-11-07",
-      "updated": "2026-11-07",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -19545,12 +19608,13 @@
       "agent": "",
       "where": "",
       "labels": [
-        "rt"
+        "rt",
+        "parked"
       ],
       "epic": "performance",
       "body": "From docs/proposals/interpreter-speed.md. After SW-2131. 90 min. Stages 5 (pre-processed form) and 6 (validator + unchecked registers, needs D3060 reopened) only if 0b's profile supports them.",
       "created": "2026-11-07",
-      "updated": "2026-11-07",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -19560,12 +19624,13 @@
       "agent": "",
       "where": "",
       "labels": [
-        "bench"
+        "bench",
+        "parked"
       ],
       "epic": "performance",
       "body": "From docs/proposals/interpreter-speed.md. 30 min.",
       "created": "2026-11-07",
-      "updated": "2026-11-07",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -19920,12 +19985,13 @@
       "agent": "",
       "where": "",
       "labels": [
-        "bench"
+        "bench",
+        "parked"
       ],
       "epic": "dev-loop-speed",
       "body": "From docs/proposals/cold-std-check.md. Replaces SW-2120. 60 min.",
       "created": "2026-11-07",
-      "updated": "2026-11-07",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -19935,12 +20001,13 @@
       "agent": "",
       "where": "",
       "labels": [
-        "lsp"
+        "lsp",
+        "parked"
       ],
       "epic": "dev-loop-speed",
       "body": "From docs/proposals/cold-std-check.md; can start beside SW-2160. lsp features search/completion and memory tests, cold and warm, against SW-2144's 30 s. 40 min.",
       "created": "2026-11-07",
-      "updated": "2026-11-07",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -19950,12 +20017,13 @@
       "agent": "",
       "where": "",
       "labels": [
-        "std"
+        "std",
+        "parked"
       ],
       "epic": "dev-loop-speed",
       "body": "From docs/proposals/cold-std-check.md, after SW-2160. Opus if the cause is in the elaborator. hash_stability prelude, snap:hashes, pinned_hashes, std_library. May replace SW-985. 60-90 min.",
       "created": "2026-11-07",
-      "updated": "2026-11-07",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -19965,12 +20033,13 @@
       "agent": "",
       "where": "",
       "labels": [
-        "nix"
+        "nix",
+        "parked"
       ],
       "epic": "dev-loop-speed",
       "body": "From docs/proposals/cold-std-check.md. Waits on D3120 (Matt). 90 min.\n\nD3120 — Matt, 7 Nov 2026: \"I have no issues shipping a pre-built cache to speed things up. That seems totally reasonable. I mean, if you're trusting the binary, you might as well trust the cache, right?\"",
       "created": "2026-11-07",
-      "updated": "2026-11-07",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -21885,12 +21954,13 @@
       "agent": "",
       "where": "",
       "labels": [
-        "perf"
+        "perf",
+        "parked"
       ],
       "epic": "comparative-speed",
       "body": "From SW-2290 (docs/proposals/comparative-speed.md): no existing plan covers startup, and it dominates every short program. 30 min to measure.",
       "created": "2026-11-07",
-      "updated": "2026-11-07",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -22071,12 +22141,13 @@
       "agent": "",
       "where": "",
       "labels": [
-        "perf"
+        "perf",
+        "parked"
       ],
       "epic": "comparative-speed",
       "body": "From docs/reviews/SW-2298-native-bignum.md (paper lane; confirm with task bench:compare -- --runs 3 pidigits before and after). 60 min. After SW-2302.",
       "created": "2026-11-07",
-      "updated": "2026-11-07",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -22101,12 +22172,13 @@
       "agent": "",
       "where": "",
       "labels": [
-        "perf"
+        "perf",
+        "parked"
       ],
       "epic": "comparative-speed",
       "body": "From docs/reviews/SW-2298-native-bignum.md (paper lane; confirm with task bench:compare -- --runs 3 pidigits before and after). 30 min. Backlog until SW-2301-SW-2304 are measured.",
       "created": "2026-11-07",
-      "updated": "2026-11-07",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -22193,12 +22265,13 @@
       "agent": "",
       "where": "",
       "labels": [
-        "perf"
+        "perf",
+        "parked"
       ],
       "epic": "comparative-speed",
       "body": "From Overmind job 13. 15 min.",
       "created": "2026-11-07",
-      "updated": "2026-11-07",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -22240,12 +22313,13 @@
       "agent": "",
       "where": "",
       "labels": [
-        "tests"
+        "tests",
+        "parked"
       ],
       "epic": "comparative-speed",
       "body": "From SW-2310's soundness caveat (auto, rewrite, lemma sets not audited). Skipped theorems aren't in scope, so the risk is a failure, not a false pass. 30 min.",
       "created": "2026-11-07",
-      "updated": "2026-11-07",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -22270,12 +22344,13 @@
       "agent": "Sonnet",
       "where": "",
       "labels": [
-        "perf"
+        "perf",
+        "parked"
       ],
       "epic": "comparative-speed",
       "body": "From SW-2313's report. Orchestrator's call to merge the probes as they are: they are right for the three days today.",
       "created": "2026-11-07",
-      "updated": "2026-11-07",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -22285,12 +22360,13 @@
       "agent": "Sonnet",
       "where": "",
       "labels": [
-        "docs"
+        "docs",
+        "parked"
       ],
       "epic": "comparative-speed",
       "body": "From SW-2313: import Std (...) of unused names took 180 ms; using Parse.Reads and Runs took 7.2 s.",
       "created": "2026-11-07",
-      "updated": "2026-11-07",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -22370,12 +22446,13 @@
       "agent": "Opus",
       "where": "",
       "labels": [
-        "perf"
+        "perf",
+        "parked"
       ],
       "epic": "comparative-speed",
       "body": "From docs/research/lean-runtime-speed.md (SW-2318). A hypothesis from reading code: start only if the SW-2296 profile shows this cost is a meaningful share. Est. 5-20%. 60 min.",
       "created": "2026-11-07",
-      "updated": "2026-11-07",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -22440,12 +22517,13 @@
       "agent": "Sonnet",
       "where": "",
       "labels": [
-        "perf"
+        "perf",
+        "parked"
       ],
       "epic": "comparative-speed",
       "body": "From docs/proposals/sharing-repeated-calls.md (SW-2325), its ticket 3. Matt, 8 Nov 2026: merging repeated calls only if it emerges as a clear general-purpose win. Low priority. 45 min.",
       "created": "2026-11-08",
-      "updated": "2026-11-08",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -22679,12 +22757,13 @@
       "where": "",
       "labels": [
         "aoc",
-        "perf"
+        "perf",
+        "parked"
       ],
       "epic": "comparative-speed",
       "body": "From SW-2320's report. Matt, 7 Nov 2026: array-like Grid is fine as long as it satisfies the same theorems. SW-2320 used a per-round lookup table in day 11 instead. Orchestrator's call: next, after the overnight speed work. 90 min.",
       "created": "2026-11-08",
-      "updated": "2026-11-08",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -22776,12 +22855,13 @@
       "agent": "Opus",
       "where": "",
       "labels": [
-        "perf"
+        "perf",
+        "parked"
       ],
       "epic": "comparative-speed",
       "body": "Matt, 8 Nov 2026: 'a way to extend our comparative speed testing, if we sort of reach a natural conclusion, is to pick some other programs to compare.' Not started: queued after the current fixes. Paper 45 min, then ports.",
       "created": "2026-11-08",
-      "updated": "2026-11-08",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -22878,12 +22958,13 @@
       "where": "",
       "labels": [
         "perf",
-        "effects"
+        "effects",
+        "parked"
       ],
       "epic": "comparative-speed",
       "body": "From docs/proposals/operations-in-place.md (SW-2339); D3400 yes (Matt). After SW-2351. Est. further 1.2-1.5x on expressions/scan. 60-90 min.",
       "created": "2026-11-08",
-      "updated": "2026-11-08",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -22894,12 +22975,13 @@
       "where": "",
       "labels": [
         "perf",
-        "effects"
+        "effects",
+        "parked"
       ],
       "epic": "comparative-speed",
       "body": "From docs/proposals/operations-in-place.md (SW-2339); D3400 yes (Matt). Optional, after SW-2352. 90 min.",
       "created": "2026-11-08",
-      "updated": "2026-11-08",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -22910,12 +22992,13 @@
       "where": "",
       "labels": [
         "perf",
-        "effects"
+        "effects",
+        "parked"
       ],
       "epic": "comparative-speed",
       "body": "From SW-2348: generic Fail/Abort handlers go through foldCompD with a variable divergence index; the empty-row variants forward with callD. Part of stage B or C (SW-2349/SW-2350).",
       "created": "2026-11-08",
-      "updated": "2026-11-08",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -23396,12 +23479,13 @@
       "where": "",
       "labels": [
         "perf",
-        "std"
+        "std",
+        "parked"
       ],
       "epic": "comparative-speed",
       "body": "From docs/reviews/SW-2371-map-rebuild-reuse.md. After SW-2382. 60-90 min.\n\nHeld 8 Nov 09:20 (orchestrator) until SW-2384 reports. Matt, 8 Nov: \"not absolutely opposed to reshaping the standard library to make it more performant. But ... if we could solve this in the compiler, that makes it a stronger language overall ... it's just a balance.\"\n\nD3421, Matt, 8 Nov 2026: yes. \"Yes, don't rewrite standard yet. Let's see how this compiler optimization works. And then we can revisit.\" Held until SW-2391 is merged and SW-2392 has measured the residue.\n",
       "created": "2026-11-08",
-      "updated": "2026-11-08",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -23499,12 +23583,13 @@
       "where": "",
       "labels": [
         "perf",
-        "std"
+        "std",
+        "parked"
       ],
       "epic": "comparative-speed",
       "body": "From SW-2382. Small; measure. 30 min.\n\nParked 8 Nov (Matt: \"If you're suggesting park it, let's park it\"), with SW-2383 under D3421: revisit after the reuse-across-calls fix (SW-2391) is measured, since it is a change to std's Map code.\n",
       "created": "2026-11-08",
-      "updated": "2026-11-08",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -23548,12 +23633,13 @@
       "agent": "Sonnet",
       "where": "",
       "labels": [
-        "perf"
+        "perf",
+        "parked"
       ],
       "epic": "comparative-speed",
       "body": "From SW-2384. After SW-2391. 30 min.",
       "created": "2026-11-08",
-      "updated": "2026-11-08",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -23682,12 +23768,13 @@
       "agent": "Sonnet",
       "where": "",
       "labels": [
-        "perf"
+        "perf",
+        "parked"
       ],
       "epic": "comparative-speed",
       "body": "After SW-2399; only if measured worthwhile. 1-1.5 h.",
       "created": "2026-11-08",
-      "updated": "2026-11-08",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -23713,12 +23800,13 @@
       "agent": "Opus",
       "where": "",
       "labels": [
-        "perf"
+        "perf",
+        "parked"
       ],
       "epic": "comparative-speed",
       "body": "From SW-2349 (§10/§11 of operations-in-place.md). 60-90 min.",
       "created": "2026-11-08",
-      "updated": "2026-11-08",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -23728,12 +23816,13 @@
       "agent": "Sonnet",
       "where": "",
       "labels": [
-        "rt"
+        "rt",
+        "parked"
       ],
       "epic": "comparative-speed",
       "body": "From SW-2349 review; orchestrator's call that the text table is acceptable for now. 45 min.",
       "created": "2026-11-08",
-      "updated": "2026-11-08",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -23743,12 +23832,13 @@
       "agent": "Sonnet",
       "where": "",
       "labels": [
-        "perf"
+        "perf",
+        "parked"
       ],
       "epic": "comparative-speed",
       "body": "From SW-2391. Predates it. 45 min.",
       "created": "2026-11-08",
-      "updated": "2026-11-08",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -23808,12 +23898,13 @@
       "where": "",
       "labels": [
         "rt",
-        "perf"
+        "perf",
+        "parked"
       ],
       "epic": "comparative-speed",
       "body": "From SW-2396. Design first. 60-90 min.",
       "created": "2026-11-08",
-      "updated": "2026-11-08",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -23859,12 +23950,13 @@
       "agent": "Sonnet",
       "where": "",
       "labels": [
-        "bench"
+        "bench",
+        "parked"
       ],
       "epic": "comparative-speed",
       "body": "Found by the daily tier, 8 Nov 2026. 30 min.\n\nDaily tier 9 Nov 00:01: still failing: run-machine-calls allocations +10.9% (247 -> 274), run-machine-aoc-2021-15-part1 peak heap +88.9% (5.1 -> 9.6 MB, the cost array). Peak tier memory 9.49 GB (SW-2412 may be resolved).\n\n9 Nov: SW-2462's lane found the baseline 10-70% stale on machine rows (allocations, instructions), so counts_have_not_regressed flags improvements and hides real regressions; re-record on a quiet machine.\n",
       "created": "2026-11-08",
-      "updated": "2026-11-09",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -23939,12 +24031,13 @@
       "agent": "Sonnet",
       "where": "",
       "labels": [
-        "js"
+        "js",
+        "parked"
       ],
       "epic": "comparative-speed",
       "body": "After SW-2415. 1.5-2 h.",
       "created": "2026-11-08",
-      "updated": "2026-11-08",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -24001,12 +24094,13 @@
       "agent": "Sonnet",
       "where": "",
       "labels": [
-        "rt"
+        "rt",
+        "parked"
       ],
       "epic": "comparative-speed",
       "body": "From SW-2405. 60-90 min.",
       "created": "2026-11-08",
-      "updated": "2026-11-08",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -24048,12 +24142,13 @@
       "agent": "Opus",
       "where": "",
       "labels": [
-        "rt"
+        "rt",
+        "parked"
       ],
       "epic": "comparative-speed",
       "body": "From SW-2415 (and SW-2406 finding 1). Design first. 60 min.",
       "created": "2026-11-08",
-      "updated": "2026-11-08",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -24163,12 +24258,13 @@
       "agent": "Sonnet",
       "where": "",
       "labels": [
-        "bench"
+        "bench",
+        "parked"
       ],
       "epic": "comparative-speed",
       "body": "From SW-2324. 20 min.",
       "created": "2026-11-08",
-      "updated": "2026-11-08",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -24178,12 +24274,13 @@
       "agent": "Sonnet",
       "where": "",
       "labels": [
-        "perf"
+        "perf",
+        "parked"
       ],
       "epic": "comparative-speed",
       "body": "From SW-2426. THP is madvise on Overmind; mimalloc may not ask for huge pages. Measure first (perf stat dTLB-load-misses, time). 45 min.\n\nFrom SW-2429: in V3, binary-trees' kernel time grew 0.1 s -> 0.8 s as cells grew (mimalloc returning and refaulting pages?). Try mimalloc large-page and purge-delay options (env, no rebuild) first. Predicted 1.009x geomean.\n",
       "created": "2026-11-08",
-      "updated": "2026-11-08",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -24225,12 +24322,13 @@
       "agent": "Sonnet",
       "where": "",
       "labels": [
-        "rt"
+        "rt",
+        "parked"
       ],
       "epic": "comparative-speed",
       "body": "From SW-2425; joins SW-2415's stored_fields. Investigate 1 h.",
       "created": "2026-11-08",
-      "updated": "2026-11-08",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -24240,12 +24338,13 @@
       "agent": "Sonnet",
       "where": "",
       "labels": [
-        "bench"
+        "bench",
+        "parked"
       ],
       "epic": "comparative-speed",
       "body": "From SW-2425. 30 min.",
       "created": "2026-11-08",
-      "updated": "2026-11-08",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -24272,12 +24371,13 @@
       "agent": "Sonnet",
       "where": "",
       "labels": [
-        "perf"
+        "perf",
+        "parked"
       ],
       "epic": "comparative-speed",
       "body": "From SW-2427 (SW-2432). Inference, not traced: find the mismatched widths first (perf ld_blocks.store_forward with addresses, or read the asm). Overmind (perf). 60 min.",
       "created": "2026-11-08",
-      "updated": "2026-11-08",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -24575,12 +24675,13 @@
       "agent": "Sonnet",
       "where": "",
       "labels": [
-        "bench"
+        "bench",
+        "parked"
       ],
       "epic": "comparative-speed",
       "body": "From SW-2450 (ranks 3, 8). After the first port. 2 h.",
       "created": "2026-11-08",
-      "updated": "2026-11-08",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -24590,12 +24691,13 @@
       "agent": "Sonnet",
       "where": "",
       "labels": [
-        "bench"
+        "bench",
+        "parked"
       ],
       "epic": "comparative-speed",
       "body": "From SW-2450 (ranks 5-7). After the first port. 3 h.",
       "created": "2026-11-08",
-      "updated": "2026-11-08",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -24605,12 +24707,13 @@
       "agent": "Opus",
       "where": "",
       "labels": [
-        "std"
+        "std",
+        "parked"
       ],
       "epic": "comparative-speed",
       "body": "From SW-2450. Std core: Opus (D2506). 1.5 h.",
       "created": "2026-11-08",
-      "updated": "2026-11-08",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -24620,12 +24723,13 @@
       "agent": "Sonnet",
       "where": "",
       "labels": [
-        "bench"
+        "bench",
+        "parked"
       ],
       "epic": "comparative-speed",
       "body": "From SW-2450. 10 min.",
       "created": "2026-11-08",
-      "updated": "2026-11-08",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -24635,12 +24739,13 @@
       "agent": "Sonnet",
       "where": "",
       "labels": [
-        "perf"
+        "perf",
+        "parked"
       ],
       "epic": "comparative-speed",
       "body": "From SW-2450. Profile first. 45 min.",
       "created": "2026-11-08",
-      "updated": "2026-11-08",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -24695,12 +24800,13 @@
       "agent": "Opus",
       "where": "",
       "labels": [
-        "perf"
+        "perf",
+        "parked"
       ],
       "epic": "comparative-speed",
       "body": "Note's stage 3. Waits for D3437 (Matt).",
       "created": "2026-11-08",
-      "updated": "2026-11-08",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -24710,12 +24816,13 @@
       "agent": "Opus",
       "where": "",
       "labels": [
-        "perf"
+        "perf",
+        "parked"
       ],
       "epic": "comparative-speed",
       "body": "Note's stage 4. After SW-2464.",
       "created": "2026-11-08",
-      "updated": "2026-11-08",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -24770,12 +24877,13 @@
       "agent": "Sonnet",
       "where": "",
       "labels": [
-        "bench"
+        "bench",
+        "parked"
       ],
       "epic": "comparative-speed",
       "body": "From SW-2454's report: the core ten's line is entered by hand and the new wide_* keys likewise. Add a --record flag (or a task) that appends the run's entry. 30 min.",
       "created": "2026-11-09",
-      "updated": "2026-11-09",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -24864,11 +24972,13 @@
       "status": "backlog",
       "agent": "Sonnet",
       "where": "",
-      "labels": [],
+      "labels": [
+        "parked"
+      ],
       "epic": "performance",
       "body": "From SW-2461, whose lane wrote its own driver. 30 min.",
       "created": "2026-11-09",
-      "updated": "2026-11-09",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -24877,11 +24987,13 @@
       "status": "backlog",
       "agent": "Sonnet",
       "where": "",
-      "labels": [],
+      "labels": [
+        "parked"
+      ],
       "epic": "comparative-speed",
       "body": "From SW-2474. 30 min.",
       "created": "2026-11-09",
-      "updated": "2026-11-09",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -24991,14 +25103,14 @@
     {
       "id": 2486,
       "title": "Parser: one fused operation for token nat (3 marks + 3 spans per number become one operation); bridge -14 to -23% (extrapolated from measured per-operation cost)",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": "Speedwell",
       "labels": [],
       "epic": "comparative-speed",
-      "body": "From SW-2484 target 2. Bridge is 83% parsing. Design the operation so other token parsers can use it. 90 min.\n\nStarted 9 Nov 2026 05:19 UTC. Expected: 90 min.\n\n05:43, Sonnet result (branch lane/SW-2486, da350645d; worktree kept): new Parse operation spacedNat (one pass: spaces, digits, spaces) and public Parse.natToken; 22 proof arms added (Reads.sw 9, Runs.sw 13), statements unchanged; state-level theorem spacedNatBySpans (one pass = three spans); 16 hash snapshots; bound_to_the_prelude passes. Bridge 102.18 -> 80.56 G (-21.2%); disk +0.56% (longer operation table). HELD for Matt (orchestrator's call): (1) new user-visible std API (natToken); (2) the gain needs every `token nat` call site rewritten to natToken, including bridge's own source (2024 day 7): a benchmark sped up by editing it, the over-fitting Matt warned about. Recommendation: keep the operation, make `token nat` itself use it (specialise token when its argument is nat) so unchanged code gets the gain and no AoC source changes; plus Reads/Runs lemmas for it. Model result: Sonnet, worked, 22 min (est. 90).\n\nNote: SW-2487 merged into Parse.sw and the prelude/parse snapshots; rebase this branch and regenerate snapshots with task snap:hashes if it goes ahead.\n",
+      "body": "From SW-2484 target 2. Bridge is 83% parsing. Design the operation so other token parsers can use it. 90 min.\n\nStarted 9 Nov 2026 05:19 UTC. Expected: 90 min.\n\n05:43, Sonnet result (branch lane/SW-2486, da350645d; worktree kept): new Parse operation spacedNat (one pass: spaces, digits, spaces) and public Parse.natToken; 22 proof arms added (Reads.sw 9, Runs.sw 13), statements unchanged; state-level theorem spacedNatBySpans (one pass = three spans); 16 hash snapshots; bound_to_the_prelude passes. Bridge 102.18 -> 80.56 G (-21.2%); disk +0.56% (longer operation table). HELD for Matt (orchestrator's call): (1) new user-visible std API (natToken); (2) the gain needs every `token nat` call site rewritten to natToken, including bridge's own source (2024 day 7): a benchmark sped up by editing it, the over-fitting Matt warned about. Recommendation: keep the operation, make `token nat` itself use it (specialise token when its argument is nat) so unchanged code gets the gain and no AoC source changes; plus Reads/Runs lemmas for it. Model result: Sonnet, worked, 22 min (est. 90).\n\nNote: SW-2487 merged into Parse.sw and the prelude/parse snapshots; rebase this branch and regenerate snapshots with task snap:hashes if it goes ahead.\n\nDropped 10 Nov (D3465): the gain needs every token nat call site rewritten to natToken (benchmark over-fitting) and adds std API. Measured: bridge -14 to -23% (extrapolated). The cleaner idea is parked as SW-2625.",
       "created": "2026-11-09",
-      "updated": "2026-11-09",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -25124,11 +25236,13 @@
       "status": "backlog",
       "agent": "Sonnet",
       "where": "",
-      "labels": [],
+      "labels": [
+        "parked"
+      ],
       "epic": "comparative-speed",
       "body": "From SW-2492. Note for D3437 (R4 awaits Matt).",
       "created": "2026-11-09",
-      "updated": "2026-11-09",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -25176,11 +25290,13 @@
       "status": "backlog",
       "agent": "Sonnet",
       "where": "",
-      "labels": [],
+      "labels": [
+        "parked"
+      ],
       "epic": "comparative-speed",
       "body": "From SW-2493 option 6. 60 min.",
       "created": "2026-11-09",
-      "updated": "2026-11-09",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -25189,11 +25305,13 @@
       "status": "backlog",
       "agent": "Sonnet",
       "where": "",
-      "labels": [],
+      "labels": [
+        "parked"
+      ],
       "epic": "comparative-speed",
       "body": "From SW-2493; rare today. 45 min.",
       "created": "2026-11-09",
-      "updated": "2026-11-09",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -25371,11 +25489,13 @@
       "status": "backlog",
       "agent": "Sonnet",
       "where": "",
-      "labels": [],
+      "labels": [
+        "parked"
+      ],
       "epic": "comparative-speed",
       "body": "From SW-2513 target 2 (SW-2371 cause 2). After SW-2514. 60 min.\n\nSuperseded by SW-2531 (general form).\n",
       "created": "2026-11-09",
-      "updated": "2026-11-09",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -25397,11 +25517,13 @@
       "status": "backlog",
       "agent": "Sonnet",
       "where": "",
-      "labels": [],
+      "labels": [
+        "parked"
+      ],
       "epic": "comparative-speed",
       "body": "From SW-2510. Profile first. Consider with SW-2511 (compiled dispatch), which may subsume it. 45 min.",
       "created": "2026-11-09",
-      "updated": "2026-11-09",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -25449,11 +25571,13 @@
       "status": "backlog",
       "agent": "Opus",
       "where": "",
-      "labels": [],
+      "labels": [
+        "parked"
+      ],
       "epic": "comparative-speed",
       "body": "From SW-2518. Paper. 60 min.",
       "created": "2026-11-09",
-      "updated": "2026-11-09",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -25462,11 +25586,13 @@
       "status": "backlog",
       "agent": "Sonnet",
       "where": "",
-      "labels": [],
+      "labels": [
+        "parked"
+      ],
       "epic": "comparative-speed",
       "body": "From SW-2518. 45 min.",
       "created": "2026-11-09",
-      "updated": "2026-11-09",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -25475,11 +25601,13 @@
       "status": "backlog",
       "agent": "Sonnet",
       "where": "",
-      "labels": [],
+      "labels": [
+        "parked"
+      ],
       "epic": "comparative-speed",
       "body": "Confirmed by rerun at load 0.66; rbmap unchanged. Overmind bisecting with perf stat (job 37).\n\n08:20: Overmind job 37 bisect: first bad merge 0fdc931a7 (SW-2502, capture-free lambdas built once). rbmap-ck cycles 4.68 -> 5.11 G (+9%) at identical instructions; IPC 2.27 -> 2.08; LLC misses flat, L1 +3%, branch misses +6%: too small to explain it; elapsed +13%. Suspect a dependent load through the shared closure (sw_static_closure helper call / statics table read) or code layout. Next: perf record/annotate both binaries (Overmind keeps them in its scratchpad j37/). Note: SW-2502 is still a net win elsewhere (bench -3.6 to -5.3%, AoC -2.1%).\n\n08:23: Overmind job 38 (perf record, Skylake): ~80% of the extra cycles are one load in value::free (cmpq $1, 0x8(%r13): the child cell's count before freeing it); free's code is identical (moved 0x170); sw_static_closure has no samples. TopdownL1 retiring 55.4 -> 51.4%, backend+bad-spec ~28.5 -> 34.4% (load stall); clock ~3% slower too. LLC flat, L1 +3%. Reading (orchestrator): a data-layout effect: closures no longer allocated per call, so mimalloc hands out a different block pattern and freeing the kept versions walks colder cells. Not caused by the static-closure path itself. Next if pursued: l2_rqsts counters, and whether rbmap-ck's final free should happen at all (process exit could skip it, as Lean does). Back to backlog (orchestrator's call); SW-2502 stays.\n",
       "created": "2026-11-09",
-      "updated": "2026-11-09",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -25527,11 +25655,13 @@
       "status": "backlog",
       "agent": "Sonnet",
       "where": "",
-      "labels": [],
+      "labels": [
+        "parked"
+      ],
       "epic": "comparative-speed",
       "body": "From SW-2526. Compute-heavy, token-light. 60 min.",
       "created": "2026-11-09",
-      "updated": "2026-11-09",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -25540,11 +25670,13 @@
       "status": "backlog",
       "agent": "Sonnet",
       "where": "",
-      "labels": [],
+      "labels": [
+        "parked"
+      ],
       "epic": "comparative-speed",
       "body": "From SW-2525. 45 min.",
       "created": "2026-11-09",
-      "updated": "2026-11-09",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -25659,11 +25791,13 @@
       "status": "backlog",
       "agent": "Sonnet",
       "where": "",
-      "labels": [],
+      "labels": [
+        "parked"
+      ],
       "epic": "comparative-speed",
       "body": "From SW-2511. 45 min.",
       "created": "2026-11-09",
-      "updated": "2026-11-09",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -25672,11 +25806,13 @@
       "status": "backlog",
       "agent": "Sonnet",
       "where": "",
-      "labels": [],
+      "labels": [
+        "parked"
+      ],
       "epic": "comparative-speed",
       "body": "From SW-2511. Profile first. 45 min.",
       "created": "2026-11-09",
-      "updated": "2026-11-09",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -25685,11 +25821,13 @@
       "status": "backlog",
       "agent": "Sonnet",
       "where": "",
-      "labels": [],
+      "labels": [
+        "parked"
+      ],
       "epic": "comparative-speed",
       "body": "From SW-2531. Measure code size too. 60 min.",
       "created": "2026-11-09",
-      "updated": "2026-11-09",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -25698,11 +25836,13 @@
       "status": "backlog",
       "agent": "Sonnet",
       "where": "",
-      "labels": [],
+      "labels": [
+        "parked"
+      ],
       "epic": "comparative-speed",
       "body": "From SW-2531. Wording only. 15 min.",
       "created": "2026-11-09",
-      "updated": "2026-11-09",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -25964,11 +26104,13 @@
       "status": "backlog",
       "agent": "Sonnet",
       "where": "",
-      "labels": [],
+      "labels": [
+        "parked"
+      ],
       "epic": "comparative-speed",
       "body": "From Overmind job 41. No cache/TLB/branch counter explains it; suspected store-to-load or dependency stall in the inlined drop. Needs Linux perf (Overmind). 45 min.\n\nJob 42 (Overmind, 9 Nov): register-allocation regression. The inlined unused-field drop (200f2d6d9) makes Cranelift spill the cell pointer to 0x188(%rsp); every later field read reloads it first (store-forward + load chain). nextAfter +11% samples; the cold drop path itself has almost no samples. Fix: read all needed fields before the drop, or emit the drop after the field reads / out of line, so the cell stays in a register. Annotations in Overmind scratchpad j41/nx-ann-{b,r}.txt.\n",
       "created": "2026-11-09",
-      "updated": "2026-11-09",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -26144,11 +26286,13 @@
       "status": "backlog",
       "agent": "Sonnet",
       "where": "",
-      "labels": [],
+      "labels": [
+        "parked"
+      ],
       "epic": "comparative-speed",
       "body": "After SW-2565 merges. 45 min.",
       "created": "2026-11-09",
-      "updated": "2026-11-09",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -26198,11 +26342,13 @@
       "status": "backlog",
       "agent": "Opus",
       "where": "",
-      "labels": [],
+      "labels": [
+        "parked"
+      ],
       "epic": "comparative-speed",
       "body": "From SW-2565's final report. Measure on the eight programs and bench:aoc. 90 min.",
       "created": "2026-11-09",
-      "updated": "2026-11-09",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -26587,7 +26733,9 @@
       "status": "backlog",
       "agent": "Opus",
       "where": "",
-      "labels": [],
+      "labels": [
+        "parked"
+      ],
       "epic": "performance",
       "body": "From SW-2572's report, 10 Nov.",
       "created": "2026-11-10",
@@ -26900,6 +27048,21 @@
       "commits": [
         "017c6918b"
       ]
+    },
+    {
+      "id": 2625,
+      "title": "Parser: make token nat itself one fused operation (specialise token when its argument is nat), so unchanged code gets SW-2486's gain (bridge est. -14 to -23%) without new std API or call-site rewrites",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "parked"
+      ],
+      "epic": "comparative-speed",
+      "body": "From SW-2486 (dropped 10 Nov, D3465). Branch lane/SW-2486 deleted; commit da350645d has the natToken operation if wanted.",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
     }
   ]
 }

@@ -406,11 +406,7 @@
       ],
       "now": [],
       "next": [
-        "In-place reuse stage 1: the copy note names its sites, then reuse columns in --profile and a measurement (SW-1809, SW-1810, SW-1811; D2273-D2277, D2590)",
-        "Array follow-ups from day 15: stop copying the array on every pop, and the JS memory peak (SW-1678, SW-1679)",
-        "Interpreter speed: about 6.5 ns per instruction (SW-813) and Map speed (SW-814)",
-        "Language-server edit loop: re-check less than a whole file, and the memory of the per-namespace marks (SW-1382, SW-1141); later the in-place reuse plan (SW-1163)",
-        "Faster Map without a new type: profile first, then native Map.Tree functions for structural keys (docs/proposals/nat-map.md; SW-1824 to SW-1827; D2595-D2601)"
+        "Paused 10 Nov 2026 (D3465, Matt): no new work until Matt restarts it; backlog tickets labelled parked. Closing write-up and final Overmind comparison: docs/reviews/SW-2295-comparative-speed.md"
       ],
       "links": [
         "docs/proposals/arrays.md",
@@ -452,17 +448,9 @@
         "Wide set (spectral-norm, const-fold, rbmap, rbmap-ck, mapops) and bench:aoc sweep",
         "Performance log docs/performance/log.md (D3444)"
       ],
-      "now": [
-        "Compiled handler dispatch stage 1b (SW-2511, D3440)",
-        "Borrow inference B0 measurement (SW-2530, D3441)",
-        "In-place reuse across small functions (SW-2531)"
-      ],
+      "now": [],
       "next": [
-        "Skip freeing the heap at native exit, measure first (SW-2524)",
-        "Borrow inference B1 if B0 clears its 3% gate",
-        "Constant hoisting stages 1b and 2 (SW-2497 note; D3438/D3439 open)",
-        "rbmap-ck layout regression after SW-2502 (SW-2523, backlog)",
-        "Direction (D3445/D3446 no, 9 Nov): general performance across program kinds, judged on the wide set and bench:aoc; no parser-specific paths or handler specialisation for now"
+        "Paused 10 Nov 2026 (D3465, Matt): no new work until Matt restarts it; backlog tickets labelled parked. Closing write-up and final Overmind comparison: docs/reviews/SW-2295-comparative-speed.md"
       ],
       "links": [
         "docs/proposals/comparative-speed.md"
@@ -557,10 +545,7 @@
       ],
       "now": [],
       "next": [
-        "Measure the overnight savings with one daily run on a quiet machine (SW-1804, D2556)",
-        "mimalloc in the other test binaries, and kache, measured on a quiet machine (SW-1802, SW-1735)",
-        "elab unit tests in the library, if Matt takes the three-edit cost (SW-1776, D2565)",
-        "Lane rules in CLAUDE.md: dev/stop-mine, rm on variables, test:affected wording (SW-1805, D2574, D2576)"
+        "Paused 10 Nov 2026 (D3465, Matt): no new work until Matt restarts it; backlog tickets labelled parked. Closing write-up and final Overmind comparison: docs/reviews/SW-2295-comparative-speed.md"
       ],
       "links": [
         "D2532",
