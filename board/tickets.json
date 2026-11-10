@@ -26511,15 +26511,17 @@
     {
       "id": 2600,
       "title": "Uncapped readbacks left in mismatch notes (from SW-2580's review): the folded readbacks in the hidden-argument, proof-position and alike-updates checks, and the hypothesis readback in the unused-equation note; cap them like quote_for_note, or share one readback per side between the notes (16660 still does ~8 readbacks of 200k nodes)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2600",
       "labels": [],
       "epic": "diagnostics",
-      "body": "From SW-2580's review, 10 Nov. No known input blows them up. Low.",
+      "body": "From SW-2580's review, 10 Nov. No known input blows them up. Low.\n\nDone 10 Nov: quote_shown_for_note caps the folded readbacks (hidden, proofs, alike-updates) and the unused-equation needle at 200k nodes, dropping the note past it; refl_error shares one lazy NoteSide per side. Snapshots unchanged; refl-note-huge 3.8 -> 2.1 s, parser-count 9.2 -> 7.3 s. Model result: Sonnet, worked, 11 min (est. 40).",
       "created": "2026-11-10",
       "updated": "2026-11-10",
-      "commits": []
+      "commits": [
+        "880051278"
+      ]
     },
     {
       "id": 2601,
