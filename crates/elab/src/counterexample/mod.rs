@@ -75,8 +75,10 @@ pub const ON_AUDIT: Budget = Budget {
 /// The most inputs a search on a failing proof tries (§6.3).
 pub const MAX_INPUTS: usize = 2000;
 
-/// The wall-time backstop of a search on a failing proof (§6.3).
-pub const TIME_LIMIT_MS: u64 = 200;
+/// The wall-time backstop of a search on a failing proof (§6.3). Inputs
+/// normally end the search, so that a note doesn't vary with the machine's
+/// load (SW-1937, as `ON_AUDIT`).
+pub const TIME_LIMIT_MS: u64 = 2000;
 
 /// Evaluation steps one input may take on the fast runtime.
 pub const FAST_STEPS: u64 = 1_000_000;
@@ -253,6 +255,19 @@ struct Batch {
     stopped: bool,
 }
 
+/// The most answers the session remembers; past it, the memo starts again.
+const MEMO_LIMIT: usize = 256;
+
+/// What a remembered answer is for.
+#[derive(Clone, PartialEq, Eq, Hash)]
+pub(crate) struct MemoKey {
+    hash: stitchwort_core::hash::ContentHash,
+    theorem: String,
+    names: Vec<String>,
+    fast: bool,
+    untimed: bool,
+}
+
 /// What one of a statement's binders stands for in the checker.
 enum Slot {
     /// Input `i`.
@@ -268,13 +283,62 @@ impl Elaborator {
     /// After the theorem `def` failed, a note saying its statement is
     /// false, with a counterexample, if one is found. Leaves the
     /// metavariables cleared.
-    pub(crate) fn counterexample_note(&mut self, def: DefId) -> Option<String> {
+    ///
+    /// Also returns what the search did, for the caller to keep or drop: the
+    /// session keeps nothing of its own, except a memo of the answer per
+    /// statement, so the same statement isn't searched twice (SW-1937).
+    pub(crate) fn counterexample_note(&mut self, def: DefId) -> Option<(String, SearchLog)> {
         if self.options.no_counterexamples {
             return None;
         }
-        let (log, note) = self.search_counterexample(def, ON_FAILURE);
-        self.present.counterexample_log.borrow_mut().push(log);
-        note.map(|note| self.with_opaque_counterexample_note(def, note))
+        let key = self.memo_key(def);
+        let cached = key
+            .as_ref()
+            .and_then(|key| self.present.counterexample_memo.borrow().get(key).cloned());
+        let (note, log) = match cached {
+            Some(answer) => answer,
+            None => {
+                let (log, note) = self.search_counterexample(def, ON_FAILURE);
+                // A search the backstop cut short could come out differently
+                // on another run.
+                if let Some(key) = key.filter(|_| !log.timed_out) {
+                    let mut memo = self.present.counterexample_memo.borrow_mut();
+                    if memo.len() >= MEMO_LIMIT {
+                        memo.clear();
+                    }
+                    memo.insert(key, (note.clone(), log.clone()));
+                }
+                (note, log)
+            }
+        };
+        if self.options.log_counterexamples {
+            self.present
+                .counterexample_log
+                .borrow_mut()
+                .push(log.clone());
+        }
+        let note = note?;
+        Some((self.with_opaque_counterexample_note(def, note), log))
+    }
+
+    /// What a search's answer depends on: the statement's content (with its
+    /// dependencies'), the names it shows, and how the search runs.
+    fn memo_key(&self, def: DefId) -> Option<MemoKey> {
+        let g = &self.ev();
+        let hash = stitchwort_core::hash::type_hash(g, def).ok()??;
+        let mut names = Vec::new();
+        let mut written = g.def(def).ty().strip_loc();
+        while let Term::Pi(x, _, _, cod) = written {
+            names.push(x.to_string());
+            written = cod.strip_loc();
+        }
+        Some(MemoKey {
+            hash,
+            theorem: g.def(def).name().to_string(),
+            names,
+            fast: self.options.counterexample_runner.is_some(),
+            untimed: self.options.untimed_counterexamples,
+        })
     }
 
     /// The search runs the program, so it uses the real body of an opaque
@@ -354,8 +418,9 @@ impl Elaborator {
             log.out_of_scope = Some("building the checker declared something".to_string());
             return (log, None);
         }
-        // The time limit counts from here, unless searches are untimed.
-        let timed = started.filter(|_| !self.options.untimed_counterexamples);
+        // The time limit counts from here, not from before the build, which
+        // has its own step limit; untimed searches have none.
+        let timed = clock::now().filter(|_| !self.options.untimed_counterexamples);
         let note = self.run_search(&checker, budget, timed, &mut log);
         log.micros = clock::elapsed_micros(started);
         (log, note)

@@ -31,6 +31,7 @@ fn search_source(name: &str, text: String, fast: bool) -> (Vec<String>, Vec<Sear
     let name = name.to_string();
     with_stack(STACK, move || {
         let mut session = Session::for_stack(STACK);
+        session.elab.options.log_counterexamples = true;
         if !fast {
             session.elab.options.counterexample_runner = None;
         }
@@ -533,5 +534,34 @@ fn scope() {
         for ((part, outcome), n) in &tally {
             println!("{part}\t{n}\t{outcome}");
         }
+    });
+}
+
+/// A kept session probes the same failing theorem over and over (SW-1818):
+/// what it holds of the searches stays the same size, and the statement is
+/// searched once.
+#[test]
+fn repeated_probes_of_a_failing_theorem_leave_the_session_the_same_size() {
+    let text = example("reject/counterexample-reverse-append.sw");
+    with_stack(STACK, move || {
+        let mut session = Session::for_stack(STACK);
+        let mark = session.mark();
+        let mut notes = Vec::new();
+        for _ in 0..20 {
+            let diagnostics = session.load("probe.sw", &text).unwrap_err();
+            notes.push(
+                diagnostics
+                    .iter()
+                    .flat_map(|d| d.notes.iter())
+                    .filter(|n| n.contains("this statement is false"))
+                    .cloned()
+                    .collect::<Vec<_>>(),
+            );
+            session.rewind(&mark);
+            assert_eq!(session.elab.present.counterexample_log.borrow().len(), 0);
+            assert_eq!(session.elab.present.remembered_searches(), 1);
+        }
+        assert_eq!(notes[0].len(), 1, "{notes:?}");
+        assert!(notes.iter().all(|n| *n == notes[0]), "{notes:?}");
     });
 }

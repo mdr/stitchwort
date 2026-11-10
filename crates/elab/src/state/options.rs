@@ -78,6 +78,10 @@ pub struct Options {
     pub counterexample_runner: Option<counterexample::FastRunner>,
     /// For tests: no counterexample search when a theorem fails.
     pub no_counterexamples: bool,
+    /// For tests: keep each failure-time search's log in
+    /// `Presentation::counterexample_log`. Off otherwise, since a kept
+    /// session would grow it with every request (SW-1818).
+    pub log_counterexamples: bool,
     /// Searches stop at their count of inputs, never at their wall-time
     /// limit: for the benchmarks, whose counts must be the same on every
     /// run (a timed search tries as many inputs as the machine manages), and
@@ -138,6 +142,7 @@ impl Options {
             // a library file's don't.
             counterexample_runner: _,
             no_counterexamples: _,
+            log_counterexamples: _,
             untimed_counterexamples: _,
             // Only for a changed prelude, which is checked from source.
             #[cfg(feature = "test-bypass")]
