@@ -14845,16 +14845,16 @@
     {
       "id": 1819,
       "title": "[Opus] Machine::apart_sets gains an entry per number match with a _ arm on every request (kept session leak); reuse equal entries",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-1819",
       "labels": [
         "lsp"
       ],
       "epic": "editor-playground",
       "body": "From SW-1808's review (docs/reviews/SW-1808-kept-search-session.md, finding 2). Kernel state. Expected: 45 min. Ready now.\n\nFrom docs/reviews/code-review-core.md: dedup apart sets by set (confirmed).",
       "created": "2026-11-07",
-      "updated": "2026-11-07",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -16621,16 +16621,16 @@
     {
       "id": 1937,
       "title": "[Sonnet] Counterexample search in the editor: return its log instead of pushing it (ends SW-1818's leak), remember results per statement for the session, stop by input count with time as a backstop, start the timer after building the checker",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1937",
       "labels": [
         "tactics"
       ],
       "epic": "proof-automation",
       "body": "From docs/reviews/code-review-elab-tactics.md (F4-F6). D2700 [rec: yes]. 60-90 min. Absorbs SW-1818.",
       "created": "2026-11-07",
-      "updated": "2026-11-07",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -16801,16 +16801,16 @@
     {
       "id": 1949,
       "title": "[Sonnet] Code action replaces the wrong text: the goal's range comes from the last check but the edit carries the current document version; take the range from the editor's goal diagnostic, or check a ? is there first",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1949",
       "labels": [
         "lsp"
       ],
       "epic": "editor-playground",
       "body": "From docs/reviews/code-review-cli-lsp-web-fmt.md (lane B). 60 min.",
       "created": "2026-11-07",
-      "updated": "2026-11-07",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -17272,16 +17272,16 @@
     {
       "id": 1980,
       "title": "[DeepSeek] VS Code extension: a Restart Server command; watch **/*.sw (client.js:36 watches only stitchwort.yaml, so files changed on disk while closed, after a branch switch or fmt, keep old text until restart)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-1949",
       "labels": [
         "lsp"
       ],
       "epic": "editor-playground",
       "body": "From docs/proposals/lsp-failure-policy.md. Stage 6 and finding. 30 min.\n\nFrom SW-1948: the recovery pop-ups already say 'Restart Server', so this command is now needed.",
       "created": "2026-11-07",
-      "updated": "2026-11-07",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
