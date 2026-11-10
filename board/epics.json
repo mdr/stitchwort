@@ -394,7 +394,7 @@
       "id": "performance",
       "title": "Speed",
       "goal": "Checking a whole project and running a solution are both fast enough that waiting is not part of the workflow.",
-      "status": "active",
+      "status": "paused",
       "done": [
         "Array a with versions: std type, JS extraction and Grid lookups backed by arrays (SW-1637, SW-1638, SW-1639)",
         "Runtime profiler for stitchwort run (SW-1528)",
@@ -419,7 +419,7 @@
       "id": "comparative-speed",
       "title": "Comparative speed",
       "goal": "For the same program, using the same algorithm, Stitchwort runs at least as fast as Python and Lean, and checks equivalent proofs about as fast as Lean (D3330).",
-      "status": "active",
+      "status": "paused",
       "done": [
         "Plan: ten programs, backends, fairness rules, harness, stages (SW-2290, docs/proposals/comparative-speed.md)",
         "Native build faces Python and compiled Lean; interpreter reported (D3340); no targets until the first measurement (D3341)",
@@ -511,7 +511,7 @@
       "id": "dev-loop-speed",
       "title": "Developer loop speed",
       "goal": "Builds, test runs and lanes are fast and light enough that changes flow without waiting on the machine.",
-      "status": "active",
+      "status": "paused",
       "done": [
         "Baseline from the 6 Nov daily tier: 3 h 8 min of test time, ten binaries over half of it",
         "Profile: rebuilds 131-136 s, mostly optimising 137 test binaries; std check 14 s (SW-1716)",
