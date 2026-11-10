@@ -1,5 +1,5 @@
 {
-  "next": 2615,
+  "next": 2616,
   "tickets": [
     {
       "id": 47,
@@ -26035,15 +26035,17 @@
     {
       "id": 2566,
       "title": "Char.isAsciiDigit (and siblings if missing) in std, so isDigit-style tests don't go through digitValue's Option",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2566",
       "labels": [],
       "epic": "std-library",
-      "body": "From SW-2555. 30 min.",
+      "body": "From SW-2555. 30 min.\n\nDone 10 Nov: Char.isAsciiDigit (range test) + Char.isAsciiDigitDigitValue (= digitValue.isSome); isAsciiAlphanumeric uses it; siblings already existed under other names; guide ch. 2 example; Day06's local isDigit removed. Statement checked by the orchestrator (D2436). Day06's 3 audit warnings pre-exist on main. Model result: Sonnet, worked, 8 min (est. 35).",
       "created": "2026-11-09",
       "updated": "2026-11-10",
-      "commits": []
+      "commits": [
+        "748db9ca2"
+      ]
     },
     {
       "id": 2567,
@@ -26736,6 +26738,19 @@
       "labels": [],
       "epic": "test-infra",
       "body": "From SW-2583, 10 Nov. SW-2583 fixed the prelude differential only.",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
+    },
+    {
+      "id": 2615,
+      "title": "Make Parse.isDigit an alias of Char.isAsciiDigit: reprove std/Parse/Reads.sw:484 and Day04's hairColorChars against Char.isAsciiDigitDigitValue, then switch Day04's isHexDigit",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "std-library",
+      "body": "From SW-2566, 10 Nov. Small std lane.",
       "created": "2026-11-10",
       "updated": "2026-11-10",
       "commits": []
