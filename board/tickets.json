@@ -26859,9 +26859,9 @@
     {
       "id": 2622,
       "title": "∀ follow-up sweep: what SW-2588 left (examples/, docs/comparisons, docs/repros, binder chains with only unused names, PickBeats), so a style check can start at zero",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Sonnet",
-      "where": "",
+      "where": ".claude/worktrees/SW-2622",
       "labels": [],
       "epic": "syntax-language",
       "body": "From SW-2595's note, 10 Nov. Needed before D3462's option (b) or (c).",
