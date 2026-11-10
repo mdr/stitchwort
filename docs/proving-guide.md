@@ -66,13 +66,20 @@ statements. Use the operators, not the prefix forms: `a ∧ b`, `a ∨ b`,
 They are the same terms (same hashes), so proofs that take them apart with
 `Inl`, `Both` and so on don't change.
 
-Write "for all" as `∀` in a quantified hypothesis and in a statement after
-the colon: `(all: ∀ (x: a) => x ∈ xs → p x)`, `theorem t: ∀ (n: Nat) => …`
-(D3458). It is the same term as `(x: T) → p`, so it's applied and
-introduced as before (`all x mem`, `n => …`). A theorem's parameters before
-the colon stay parameters, `theorem plusZero (n: Nat): n + 0 = n`, and a
-function type that isn't a proposition stays an arrow, `(n: Nat) → Vec Nat
-n`. Goals print a quantified proposition with `∀` too, including one whose
+A theorem puts every variable before the colon, as a parameter
+(`theorem plusZero (n: Nat): n + 0 = n`), and a proof by cases is a `match`
+on them: `theorem timesOne (n: Nat): n * 1 = n := match n with | Zero => …
+| Succ k => …` (D3470). Premises the proof names are parameters too
+(`(h: x < y)`), not a `→` after the colon (D3471). This is the house style
+for theorems; a `def` keeps its arms and its `→`. `stitchwort sweep
+theorem-binders` converts old-style theorems.
+
+Write "for all" as `∀` in a quantified hypothesis and where a quantifier is
+part of the statement itself, after the colon: `(all: ∀ (x: a) => x ∈ xs →
+p x)`, `theorem t (p: Nat → Prop): (∀ (n: Nat) => p n) → p 0` (D3458). It is
+the same term as `(x: T) → p`, so it's applied and introduced as before
+(`all x mem`, `n => …`). A function type that isn't a proposition stays an
+arrow, `(n: Nat) → Vec Nat n`. Goals print a quantified proposition with `∀` too, including one whose
 result is a hypothesis's predicate applied to arguments (`∀ (x: a) => p x`,
 with `p: a → Prop`). Messages, which have no types for the variables, show
 that as `(x: a) → p x`. Write an ability row's result type
