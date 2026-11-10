@@ -26272,7 +26272,7 @@
       "where": ".claude/worktrees/SW-2584",
       "labels": [],
       "epic": "test-infra",
-      "body": "Overmind job 49, 9 Nov. Seed 43 also takes ~170 s in debug (SW-2570 report); SW-2570 follow-up. 30 min.\n\nOvermind job 50: alone on a quiet machine the effect default test passes in 43.5 s with no skips. Same pattern in two LSP tests (a_newer_edit_cancels_the_check_running, aoc_navigation_matches_check_index): pass alone (9.8 s, 54 s) and in their module (48/48), but under full-tier load took 7-37x as long and gave up waiting for diagnostics. Scope: make these three tests' waits load-proof.\n",
+      "body": "Overmind job 49, 9 Nov. Seed 43 also takes ~170 s in debug (SW-2570 report); SW-2570 follow-up. 30 min.\n\nOvermind job 50: alone on a quiet machine the effect default test passes in 43.5 s with no skips. Same pattern in two LSP tests (a_newer_edit_cancels_the_check_running, aoc_navigation_matches_check_index): pass alone (9.8 s, 54 s) and in their module (48/48), but under full-tier load took 7-37x as long and gave up waiting for diagnostics. Scope: make these three tests' waits load-proof.\n\n10 Nov 00:25, Speedwell (three lanes building): task test:lane AREA=examples NAME=rewrite gave 3 of 12 failed once; the immediate rerun passed 12/12. Names not captured. Another load-sensitive candidate in the examples area.",
       "created": "2026-11-09",
       "updated": "2026-11-10",
       "commits": []
