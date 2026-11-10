@@ -26424,14 +26424,14 @@
     {
       "id": 2594,
       "title": "search_at: put the goal-opening phase (open_goal_at, quote_shown of the whole goal: ~7 s on 2024 day 22 digitChangesPossible) under the search's time budget; also check pretty::term_in and the other full-term printers for SW-2591's print-then-cut pattern; docs/testing.md: full-tier search_at_aoc takes about 6 min now, not 10",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Sonnet",
-      "where": "",
+      "where": ".claude/worktrees/SW-2594",
       "labels": [],
       "epic": "proof-search",
       "body": "From SW-2591's report, 9 Nov.",
       "created": "2026-11-09",
-      "updated": "2026-11-09",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -26465,9 +26465,9 @@
     {
       "id": 2597,
       "title": "Elab fuzzer seed 0x2582 cases 16837 (a parse error) and 16869 (a type mismatch) take 6-13 s in the CLI at ~150 MB: profile where a parse error spends 13 s",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Sonnet",
-      "where": "",
+      "where": ".claude/worktrees/SW-2597",
       "labels": [],
       "epic": "diagnostics",
       "body": "From SW-2582's report, 10 Nov. Inputs: target/fuzz-elab/ after task fuzz:elab CASES=20000 SEED=0x2582 ONLY=16837 DUMP=1 (case numbers as of main d273ebffe; they move when the examples corpus changes).",
