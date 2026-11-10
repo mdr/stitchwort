@@ -742,6 +742,71 @@ fn a_computational_change_fails_both_promises() {
     });
 }
 
+/// A refused definition says where its old and new terms first differ
+/// outside proofs: the argument of a call, not the proof beside it.
+#[test]
+fn a_refused_body_change_names_the_first_differing_subterm() {
+    run(|| {
+        let mut live = proofs();
+        // Both the argument and the proof beside it changed; only the
+        // argument is a difference the proofless hash sees.
+        let edits = [proofs_edit("def five", "def five: Nat := keep 6 (addZ 6)")];
+        let trial = checked(live.trial(&edits, &proofs_only()).unwrap());
+        assert_eq!(
+            changed_names(&trial),
+            ["five", "user"],
+            "{:?}",
+            trial.problems
+        );
+        let five = &trial.problems.changed[0];
+        assert_eq!(five.uses, None);
+        let difference = five.difference.as_ref().expect("a difference");
+        assert_eq!(difference.at, "body, argument 1 of the call to Proofs.keep");
+        assert_eq!(difference.old, "5");
+        assert_eq!(difference.new, "6");
+        // `user` moved only because it uses `five`; its own term agrees.
+        assert_eq!(trial.problems.changed[1].difference, None);
+        let words = trial.problems.describe("the edit");
+        assert!(
+            words[0].contains(
+                "the first difference is at body, argument 1 of the call to Proofs.keep \
+                 (`5` → `6`)"
+            ),
+            "{words:?}"
+        );
+        live.restore(trial).unwrap();
+    });
+}
+
+/// An edit that inserts a definition shifts the ids after it. The old terms
+/// are translated to the re-checked environment's ids by name, so the
+/// refusal still names the right part with the right names, and a caller
+/// whose own term didn't change has no difference.
+#[test]
+fn a_shifted_id_still_names_the_right_difference() {
+    run(|| {
+        let mut live = proofs();
+        // `added` comes before `five`, so `five` and `user` get new ids;
+        // `five`'s body changes too.
+        let edits = [proofs_edit(
+            "def five",
+            "def added: Nat := 7\n\ndef five: Nat := keep 6 (addZ 6)",
+        )];
+        let trial = checked(live.trial(&edits, &proofs_only()).unwrap());
+        let find = |name: &str| trial.problems.changed.iter().find(|c| c.name == name);
+        let five = find("five").expect("five changed");
+        let difference = five.difference.as_ref().expect("a difference");
+        assert_eq!(difference.at, "body, argument 1 of the call to Proofs.keep");
+        assert_eq!(difference.old, "5");
+        assert_eq!(difference.new, "6");
+        // `user` mentions `five`, whose id moved; translating by name
+        // leaves its own term unchanged.
+        assert_eq!(find("user").expect("user changed").difference, None);
+        assert!(find("added").is_some(), "{:?}", trial.problems);
+        live.restore(trial).unwrap();
+    });
+}
+
 /// A definition whose type changes is refused, even where only a
 /// proposition in it changed and its body is the same: its statement says
 /// something else.

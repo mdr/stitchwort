@@ -22,13 +22,15 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
+use stitchwort_core::erase::proof_positions;
 use stitchwort_core::hash::{
     ContentHash, data_hash, def_hash, proofless_data_hash, proofless_hash, type_hash,
 };
-use stitchwort_core::{DataId, DefId};
+use stitchwort_core::{DataId, DefId, Ev};
 use stitchwort_elab::search::{constants, data_types};
 use stitchwort_syntax::{Diagnostic, Severity, Span};
 
+use super::term_diff::{self, DeclTerms, Difference};
 use super::{
     LiveProject, NamespaceOutcome, OutlineItem, Place, Progress, lsp_range, syntactic_outline,
 };
@@ -191,6 +193,9 @@ pub struct ChangedMeaning {
     /// name; a name generated from a theorem (`t.%match1`) is part of its
     /// proof.
     pub reproved: Vec<String>,
+    /// Under [`Promise::ProofsOnly`]: the first place its old and new terms
+    /// differ outside proof positions, when it has one.
+    pub difference: Option<Difference>,
 }
 
 /// What the edits would break.
@@ -232,8 +237,15 @@ impl Problems {
                 Some(other) => format!(", because it uses `{other}`"),
                 None => String::new(),
             };
+            let differs = match &c.difference {
+                Some(d) => format!(
+                    "; the first difference is at {} (`{}` → `{}`)",
+                    d.at, d.old, d.new
+                ),
+                None => String::new(),
+            };
             out.push(format!(
-                "{doing} would change what `{}` means{at}{because}",
+                "{doing} would change what `{}` means{at}{because}{differs}",
                 c.name
             ));
         }
@@ -311,6 +323,9 @@ pub(crate) struct Decl {
     pub(crate) statement: Option<Statement>,
     /// The hash without proofs, only when the promise compares statements.
     pub(crate) proofless: Option<ContentHash>,
+    /// The definition's type and body, only on the "before" side of a
+    /// proofs-only trial, for saying where an edit first differs.
+    pub(crate) terms: Option<DeclTerms>,
 }
 
 pub(crate) struct Statement {
@@ -330,7 +345,7 @@ impl LiveProject {
     /// Every declaration of the project as checked, with its hashes:
     /// datas then definitions, namespace by namespace in checking order.
     pub fn declaration_hashes(&self) -> Vec<DeclHash> {
-        let hashed = self.hashes(|_, _| true, true);
+        let hashed = self.hashes(|_, _| true, true, false);
         let g = &self.session.elab.ev();
         let mut out = Vec::new();
         for step in &self.steps {
@@ -384,9 +399,13 @@ impl LiveProject {
                 .flat_map(|s| dependents(analysis, &s.name))
                 .collect()
         };
+        // Under the proofs-only promise, keep the old terms too: the rewind
+        // below forgets them, and a refusal says where they first differ.
+        let terms = matches!(promise, Promise::ProofsOnly { .. });
         let hashes_before = self.hashes(
             |_, name| affected.contains(name),
             promise.compares_statements(),
+            terms,
         );
         let diagnostics_before = self.diagnostic_keys(promise);
 
@@ -524,6 +543,7 @@ impl LiveProject {
         &self,
         wanted: impl Fn(usize, &str) -> bool,
         statements: bool,
+        terms: bool,
     ) -> BTreeMap<String, Hashed> {
         let g = &self.session.elab.ev();
         let _op = g.machine.budget.operation(self.session.elab.options.limits);
@@ -543,6 +563,7 @@ impl LiveProject {
                     hash,
                     statement: None,
                     proofless,
+                    terms: None,
                 });
             }
             for i in step.defs.clone() {
@@ -554,11 +575,26 @@ impl LiveProject {
                 let proofless = statements
                     .then(|| proofless_hash(g, DefId(i)).ok().flatten())
                     .flatten();
+                let terms = terms.then(|| {
+                    let def = &g.env.defs()[i];
+                    DeclTerms {
+                        ty: std::rc::Rc::new(def.ty().clone()),
+                        body: def.body().cloned(),
+                        proof_result: proof_positions(g, DefId(i))
+                            .is_some_and(|positions| positions.result),
+                        names: term_diff::ref_names(
+                            g,
+                            def.ty(),
+                            def.body().map(|body| body.as_ref()),
+                        ),
+                    }
+                });
                 decls.push(Decl {
                     name: g.env.defs()[i].path().to_string(),
                     hash,
                     statement,
                     proofless,
+                    terms,
                 });
             }
             out.insert(
@@ -682,9 +718,15 @@ impl LiveProject {
         let now = self.hashes(
             |_, name| before.contains_key(name),
             promise.compares_statements(),
+            false,
         );
-        // (namespace, full name, the declaration now, if there is one).
-        let mut changed: Vec<(String, String, Option<Id>)> = Vec::new();
+        let g = &self.session.elab.ev();
+        // The re-checked ids, by name: an edit that adds or removes a
+        // declaration shifts the ids after it.
+        let new_ids = term_diff::NewIds::of(g);
+        // (namespace, full name, the declaration now, if there is one, and
+        // where its terms first differ outside proofs).
+        let mut changed: Vec<(String, String, Option<Id>, Option<Difference>)> = Vec::new();
         // Declarations whose hash moved and the promise allows.
         let mut accepted: Vec<String> = Vec::new();
         // Those of them that aren't theorems.
@@ -714,7 +756,12 @@ impl LiveProject {
             if same_names {
                 for ((exp, decl), id) in expected.iter().zip(&is.decls).zip(&ids) {
                     if !promise.keeps(exp.1, decl) {
-                        changed.push((step.name.clone(), decl.name.clone(), Some(*id)));
+                        changed.push((
+                            step.name.clone(),
+                            decl.name.clone(),
+                            Some(*id),
+                            definition_difference(g, &new_ids, exp.1, *id),
+                        ));
                     } else if exp.1.hash != decl.hash {
                         accepted.push(decl.name.clone());
                         if !is_theorem(decl) {
@@ -741,12 +788,18 @@ impl LiveProject {
                             accepted_ids.insert(*id, decl.name.clone());
                         }
                     }
-                    _ => changed.push((step.name.clone(), decl.name.clone(), Some(*id))),
+                    Some(was) => changed.push((
+                        step.name.clone(),
+                        decl.name.clone(),
+                        Some(*id),
+                        definition_difference(g, &new_ids, was, *id),
+                    )),
+                    None => changed.push((step.name.clone(), decl.name.clone(), Some(*id), None)),
                 }
             }
             for (name, _) in &expected {
                 if !is_names.contains(name.as_str()) {
-                    changed.push((step.name.clone(), name.clone(), None));
+                    changed.push((step.name.clone(), name.clone(), None, None));
                 }
             }
         }
@@ -764,23 +817,22 @@ impl LiveProject {
         let owners: BTreeSet<String> = names.union(&accepted_names).cloned().collect();
         // A changed declaration generated from a re-proved theorem is part
         // of its proof: the cones below go through it.
-        for (_, name, id) in &changed {
+        for (_, name, id, _) in &changed {
             if let Some(id) = id
                 && generated(name, &accepted_names)
             {
                 accepted_ids.insert(*id, name.clone());
             }
         }
-        changed.retain(|(_, name, _)| !generated(name, &owners));
+        changed.retain(|(_, name, _, _)| !generated(name, &owners));
         accepted.retain(|name| !generated(name, &accepted_names));
         others.retain(|name| !generated(name, &accepted_names));
         let other_names: BTreeSet<&String> = others.iter().collect();
         accepted.retain(|name| !other_names.contains(name));
         let ids: BTreeMap<Id, &str> = changed
             .iter()
-            .filter_map(|(_, name, id)| Some(((*id)?, name.as_str())))
+            .filter_map(|(_, name, id, _)| Some(((*id)?, name.as_str())))
             .collect();
-        let g = &self.session.elab.ev();
         let mentioned = |i: usize| -> BTreeSet<Id> {
             let def = &g.env.defs()[i];
             let mut terms = vec![def.ty()];
@@ -797,7 +849,7 @@ impl LiveProject {
         let mut where_declared = self.declared_at();
         let mut out: Vec<ChangedMeaning> = changed
             .iter()
-            .map(|(namespace, name, id)| {
+            .map(|(namespace, name, id, difference)| {
                 let used: BTreeSet<Id> = match id {
                     Some(Id::Def(i)) => mentioned(*i),
                     _ => BTreeSet::new(),
@@ -861,6 +913,7 @@ impl LiveProject {
                     range,
                     uses,
                     reproved,
+                    difference: difference.clone(),
                 }
             })
             .collect();
@@ -897,6 +950,30 @@ struct Accepted {
 
 fn is_theorem(decl: &Decl) -> bool {
     decl.statement.as_ref().is_some_and(|s| s.theorem)
+}
+
+/// Where definition `id`'s old and new type or body first differ outside
+/// proof positions, if `was` kept its terms (a proofs-only trial) and the
+/// declaration is a definition.
+fn definition_difference(
+    g: &Ev,
+    ids: &term_diff::NewIds,
+    was: &Decl,
+    id: Id,
+) -> Option<Difference> {
+    let Id::Def(i) = id else {
+        return None;
+    };
+    let old = was.terms.as_ref()?;
+    let def = &g.env.defs()[i];
+    let new_proof = proof_positions(g, DefId(i)).is_some_and(|positions| positions.result);
+    // A declaration whose result is a proof is its type alone without
+    // proofs: its body is a proof, so a difference there isn't one.
+    let old_body = (!old.proof_result).then_some(old.body.as_deref()).flatten();
+    let new_body = (!new_proof)
+        .then(|| def.body().map(|body| body.as_ref()))
+        .flatten();
+    term_diff::declaration(g, old, old_body, def.ty(), new_body, ids)
 }
 
 /// The accepted declarations (re-proved theorems) that `start` mentions,

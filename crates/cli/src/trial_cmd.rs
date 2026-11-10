@@ -241,6 +241,11 @@ pub(super) fn trial_edits(args: &TrialArgs) -> ExitCode {
                     "line": c.range.map(|r| r[0] + 1),
                     "column": c.range.map(|r| r[1] + 1),
                     "uses": c.uses,
+                    "difference": c.difference.as_ref().map(|d| json!({
+                        "old": d.old,
+                        "new": d.new,
+                        "at": d.at,
+                    })),
                 })
             })
             .collect();

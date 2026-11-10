@@ -90,6 +90,7 @@ impl DeclHash {
                 ty: self.type_hash,
             }),
             proofless: self.proofless,
+            terms: None,
         }
     }
 }

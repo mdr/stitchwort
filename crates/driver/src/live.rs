@@ -36,7 +36,9 @@ use crate::project::{
 };
 use crate::rewind::{Cancelled, Mark};
 
+pub(crate) mod term_diff;
 pub(crate) mod trial;
+pub use term_diff::Difference;
 pub use trial::{
     ChangedMeaning, Edit, NewDiagnostic, Problems, Promise, Refusal, Trial, TrialOutcome,
 };

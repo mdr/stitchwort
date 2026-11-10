@@ -125,6 +125,28 @@ fn trial_edits_reports_by_promise_and_applies_only_when_asked() {
         assert_eq!(output.status.code(), Some(1));
         assert_eq!(names(&json(&output), "changed"), ["limit"]);
     }
+
+    // Proofs only: refused because the body changed outside proofs, and
+    // the JSON says where, as the human text does.
+    let output = stitchwort(
+        &dir,
+        &["trial-edits", "edits.json", "--proofs-only", "--json"],
+    );
+    assert_eq!(output.status.code(), Some(1));
+    let result = json(&output);
+    assert_eq!(names(&result, "changed"), ["limit"]);
+    let difference = &result["changed"][0]["difference"];
+    assert_eq!(difference["at"], "body");
+    assert_eq!(difference["old"], "100");
+    assert_eq!(difference["new"], "101");
+
+    let output = stitchwort(&dir, &["trial-edits", "edits.json", "--proofs-only"]);
+    assert_eq!(output.status.code(), Some(1));
+    let text = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        text.contains("the first difference is at body (`100` → `101`)"),
+        "{text}"
+    );
     let _ = std::fs::remove_dir_all(&dir);
 }
 
