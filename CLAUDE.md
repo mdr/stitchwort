@@ -124,6 +124,11 @@ Details and examples are in "Reporting to Matt" in `docs/workflow.md`.
 Use the cheapest model that can do the work well. Provisional (D2208, Matt,
 2 Nov 2026), from the SW-1084 experiment (three tasks, one run each):
 
+- **Fable:** paper lanes on the hardest and most critical questions, where
+  a mistake is silent or costly to undo: soundness audits of the kernel,
+  reviews of kernel changes, and end-state designs that are hard to reverse
+  (D3473, Matt, 10 Nov 2026). Started as `opus-lane` with the model set to
+  Fable.
 - **Opus:** the hardest, deepest thinking: design decisions and design
   notes, the kernel and soundness, the tricky implementation parts of the
   code base, tricky bugs, specs for other models, and a proof only when it
