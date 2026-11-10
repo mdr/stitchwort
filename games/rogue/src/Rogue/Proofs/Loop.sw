@@ -28,13 +28,14 @@ theorem turnEnd (seed: Nat) (state: State):
     Terminal.simulate [] (() => Random.withSeed seed (() => playTurn state)) = MkPair [frame after |> .map Ansi.strip] after :=
   rfl
 
-theorem turnValid (seed: Nat) (state: State) (valid: Valid state):
-    ∀ (keys: List Key) => Valid (Terminal.simulate keys (() => Random.withSeed seed (() => playTurn state))).snd
-  | [] => resolveValid { seed = lcg seed / 65536 } state Quit valid
-  | [key, ..rest] =>
-    match isCommand: commandOf key with
-      | Some command => resolveValid { seed = lcg seed / 65536 } state command valid
-      | None => valid
+theorem turnValid (seed: Nat) (state: State) (valid: Valid state)
+    (keys: List Key): Valid (Terminal.simulate keys (() => Random.withSeed seed (() => playTurn state))).snd :=
+  match keys with
+    | [] => resolveValid { seed = lcg seed / 65536 } state Quit valid
+    | [key, ..rest] =>
+      match isCommand: commandOf key with
+        | Some command => resolveValid { seed = lcg seed / 65536 } state command valid
+        | None => valid
 
 --| So pressing an arrow, in the real turn under the test handlers, walks that way.
 theorem arrowWalks (seed: Nat) (state: State) (direction: Direction) (rest: List Key) (playing: state.phase = Playing)

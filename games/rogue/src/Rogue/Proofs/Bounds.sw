@@ -41,14 +41,15 @@ theorem sectionFitsAcross (left: Nat) (across: Nat) (offset: Nat) (acrossSmall: 
 --| The top row and left column of section `index`, for the six sections.
 type Corner (index: Nat): Prop = { top: (index / 3) * sectionRows + 1 ≤ 11, left: (index % 3) * sectionColumns + 1 ≤ 45 }
 
-theorem sectionCorner: ∀ (index: Nat) => index < 6 → Corner index
-  | Zero, small => { top = omega, left = omega }
-  | Succ Zero, small => { top = omega, left = omega }
-  | Succ (Succ Zero), small => { top = omega, left = omega }
-  | Succ (Succ (Succ Zero)), small => { top = omega, left = omega }
-  | Succ (Succ (Succ (Succ Zero))), small => { top = omega, left = omega }
-  | Succ (Succ (Succ (Succ (Succ Zero)))), small => { top = omega, left = omega }
-  | Succ (Succ (Succ (Succ (Succ (Succ more))))), small => Void.exfalso (Bool.falseNotTrue small)
+theorem sectionCorner (index: Nat) (small: index < 6): Corner index :=
+  match index with
+    | Zero => { top = omega, left = omega }
+    | Succ Zero => { top = omega, left = omega }
+    | Succ (Succ Zero) => { top = omega, left = omega }
+    | Succ (Succ (Succ Zero)) => { top = omega, left = omega }
+    | Succ (Succ (Succ (Succ Zero))) => { top = omega, left = omega }
+    | Succ (Succ (Succ (Succ (Succ Zero)))) => { top = omega, left = omega }
+    | Succ (Succ (Succ (Succ (Succ (Succ more))))) => Void.exfalso (Bool.falseNotTrue small)
 
 --| A room as `roomFrom` makes it in section `index`, from any rolls below
 --| their bounds (`roll most` is below `Succ most`), fits on the map.
@@ -86,15 +87,16 @@ theorem minPlusDistance (m: Nat) (n: Nat) (bound: Nat) (mSmall: m < bound) (nSma
     | True => omega
     | False => omega
 
-theorem corridorFits (origin: Position) (target: Position) (from: OnScreen origin) (to: OnScreen target):
-    ∀ (area: Area) => List.Mem area (corridorBetween origin target) → OnMap area
-  | area, Inl same =>
-    let originRow := from.low
-    rewrite <- same in { bottom = omega, right = minPlusDistance origin.column target.column levelColumns from.narrow to.narrow }
-  | area, Inr (Inl same) =>
-    let targetColumn := to.narrow
-    rewrite <- same in { bottom = minPlusDistance origin.row target.row levelRows from.low to.low, right = omega }
-  | area, Inr (Inr nothing) => Void.exfalso nothing
+theorem corridorFits (origin: Position) (target: Position) (from: OnScreen origin) (to: OnScreen target)
+    (area: Area) (h: List.Mem area (corridorBetween origin target)): OnMap area :=
+  match h with
+    | Inl same =>
+      let originRow := from.low
+      rewrite <- same in { bottom = omega, right = minPlusDistance origin.column target.column levelColumns from.narrow to.narrow }
+    | Inr (Inl same) =>
+      let targetColumn := to.narrow
+      rewrite <- same in { bottom = minPlusDistance origin.row target.row levelRows from.low to.low, right = omega }
+    | Inr (Inr nothing) => Void.exfalso nothing
 
 --| So do the corridors between rooms that fit.
 theorem corridorsFit (rooms: List Area) (fit: ∀ (area: Area) => List.Mem area rooms → OnMap area) (extra: Nat)
@@ -209,10 +211,11 @@ type Sound (state: State): Prop = { valid: Valid state, framed: Framed state.lev
 theorem startingSound (plan: Plan) (framed: Framed plan.level): Sound (startingState plan) :=
   { valid = startingValid plan, framed }
 
-theorem replaySound: ∀ (turns: List (Nat, Command)) (state: State) => Sound state → Sound (replay state turns)
-  | [], state, sound => sound
-  | [(seed, command), ..rest], state, sound =>
-    replaySound rest (Random.withSeed seed (() => step state command)) { valid = stepValid seed state command sound.valid, framed = stepFramed seed state command sound.framed }
+theorem replaySound (turns: List (Nat, Command)) (state: State) (sound: Sound state): Sound (replay state turns) :=
+  match turns with
+    | [] => sound
+    | [(seed, command), ..rest] =>
+      replaySound rest (Random.withSeed seed (() => step state command)) { valid = stepValid seed state command sound.valid, framed = stepFramed seed state command sound.framed }
 
 --| In a sound state, `render` draws `@` at the player's row and column,
 --| with nothing assumed about where that is.

@@ -32,27 +32,29 @@ def threat (player: Position): List Monster → Nat
 theorem upToAtMost (dice: Dice) (index: Nat) (most: Nat): dice.upTo index most ≤ most unfolding Dice.upTo :=
   omega [Nat.modLt (lcg (lcg (dice.seed + index * 7919)) / 65536) (most + 1)]
 
-theorem strengthPositive: ∀ (kind: Kind) => 1 ≤ kind.strength
-  | Goblin => rfl
-  | Orc => rfl
-  | Troll => rfl
+theorem strengthPositive (kind: Kind): 1 ≤ kind.strength :=
+  match kind with
+    | Goblin => rfl
+    | Orc => rfl
+    | Troll => rfl
 
 theorem blowAtMost (dice: Dice) (index: Nat) (kind: Kind): 1 + dice.upTo index (kind.strength - 1) ≤ kind.strength :=
   omega [upToAtMost dice index (kind.strength - 1), strengthPositive kind]
 
-theorem actAllDamage (dice: Dice) (level: Level) (player: Position):
-    ∀ (index: Nat) (outcome: Outcome) (waiting: List Monster) =>
-    (actAll dice level player index outcome waiting).damage ≤ outcome.damage + threat player waiting
-  | index, outcome, [] => omega
-  | index, outcome, [monster, ..waiting] =>
-    match next: monster.position.isNextTo player with
-      | True =>
-        let rest := actAllDamage dice level player (index + 1) (outcome.add monster _ _) waiting
-        omega [rest, blowAtMost dice (3 * index + 1) monster.kind]
-      | False =>
-        let destination := pickFree level (monsterChoices dice index player monster) player (outcome.moved ++ waiting) |> .getOrElse monster.position
-        let rest := actAllDamage dice level player (index + 1) (outcome.add { monster | position = destination } 0 []) waiting
-        omega [rest]
+theorem actAllDamage (dice: Dice) (level: Level) (player: Position)
+    (index: Nat) (outcome: Outcome) (waiting: List Monster):
+    (actAll dice level player index outcome waiting).damage ≤ outcome.damage + threat player waiting :=
+  match waiting with
+    | [] => omega
+    | [monster, ..waiting] =>
+      match next: monster.position.isNextTo player with
+        | True =>
+          let rest := actAllDamage dice level player (index + 1) (outcome.add monster _ _) waiting
+          omega [rest, blowAtMost dice (3 * index + 1) monster.kind]
+        | False =>
+          let destination := pickFree level (monsterChoices dice index player monster) player (outcome.moved ++ waiting) |> .getOrElse monster.position
+          let rest := actAllDamage dice level player (index + 1) (outcome.add { monster | position = destination } 0 []) waiting
+          omega [rest]
 
 theorem monstersTurnHurt (dice: Dice) (state: State):
     state.hitPoints ≤ (monstersTurn dice state).hitPoints + threat state.player state.monsters :=
@@ -62,9 +64,10 @@ theorem monstersTurnHurt (dice: Dice) (state: State):
     | Died => omega
     | GaveUp => omega
 
-theorem threatNone (player: Position): ∀ (monsters: List Monster) => List.All (monster => monster.position.isNextTo player = False) monsters → threat player monsters = 0
-  | [], none => rfl
-  | [monster, ..rest], Both far others => rewrite far, threatNone player rest others in rfl
+theorem threatNone (player: Position) (monsters: List Monster) (none: List.All (monster => monster.position.isNextTo player = False) monsters): threat player monsters = 0 :=
+  match monsters, none with
+    | [], none => rfl
+    | [monster, ..rest], Both far others => rewrite far, threatNone player rest others in rfl
 
 theorem monstersTurnNoHeal (dice: Dice) (state: State): (monstersTurn dice state).hitPoints ≤ state.hitPoints :=
   match phase: state.phase with

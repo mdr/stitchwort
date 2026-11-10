@@ -19,21 +19,21 @@ theorem glyphAtPlayer (state: State) (terrain: Char): glyphAt (marksIn state sta
 
 --| Among the monsters' marks on a cell's row, the first in the cell's column
 --| is the glyph of the monster `monsterAt` finds there.
-theorem lookupMonsterMark (position: Position) (found: Monster) (rest: List (Nat, Char)):
-    ∀ (monsters: List Monster) => monsterAt position monsters = Some found →
-    (List.append (monsters.filterMap (monster => if monster.position.row == position.row then Some (monster.position.column, monster.kind.glyph) else None)) rest).lookup position.column
-      = Some found.kind.glyph
-  | [], located => Void.exfalso (Option.noneNotSome found located)
-  | [monster, ..others], located =>
-    match same: monster.position == position with
-      | True =>
-        let here := DecEq.sound same
-        let itIs := Option.someInjective located
-        rewrite here, natEqSelf position.row, natEqSelf position.column, itIs in rfl
-      | False =>
-        match sameRow: monster.position.row == position.row with
-          | True => rewrite columnDiffers monster.position position same sameRow in lookupMonsterMark position found rest others located
-          | False => lookupMonsterMark position found rest others located
+theorem lookupMonsterMark (position: Position) (found: Monster) (rest: List (Nat, Char))
+    (monsters: List Monster) (located: monsterAt position monsters = Some found): (List.append (monsters.filterMap (monster => if monster.position.row == position.row then Some (monster.position.column, monster.kind.glyph) else None)) rest).lookup position.column
+      = Some found.kind.glyph :=
+  match monsters with
+    | [] => Void.exfalso (Option.noneNotSome found located)
+    | [monster, ..others] =>
+      match same: monster.position == position with
+        | True =>
+          let here := DecEq.sound same
+          let itIs := Option.someInjective located
+          rewrite here, natEqSelf position.row, natEqSelf position.column, itIs in rfl
+        | False =>
+          match sameRow: monster.position.row == position.row with
+            | True => rewrite columnDiffers monster.position position same sameRow in lookupMonsterMark position found rest others located
+            | False => lookupMonsterMark position found rest others located
 
 --| A monster's cell, unless the player stands there, shows that monster.
 theorem glyphAtMonster (state: State) (position: Position) (found: Monster) (located: monsterAt position state.monsters = Some found)
