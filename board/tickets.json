@@ -27277,14 +27277,14 @@
     {
       "id": 2639,
       "title": "Tutorial part 2: specs. Write down what a correct checkout is apart from the code, prove the code meets it, try statements first with check --counterexamples (continues part 1's shopping basket; Matt's request)",
-      "status": "doing",
+      "status": "review",
       "agent": "Opus",
       "where": "",
       "labels": [
         "docs"
       ],
       "epic": "docs-tutorials",
-      "body": "Matt, 10 Nov 2026: 'Can you write me part 2 of the tutorial?' Part 1 (SW-1666, docs/tutorial/01-proving-programs.sw) ends promising specs, separate from the code, with check --counterexamples. Opus (teaching judgement, as part 1). Expected: 60 min.",
+      "body": "Matt, 10 Nov 2026: 'Can you write me part 2 of the tutorial?' Part 1 (SW-1666, docs/tutorial/01-proving-programs.sw) ends promising specs, separate from the code, with check --counterexamples. Opus (teaching judgement, as part 1). Expected: 60 min.\n\nDone (lane, 10 Nov 2026): docs/tutorial/02-specs.sw (344 lines, 9 steps: setup; a till with a running total; the spec shouldCharge/totalOf; trying a statement with ? and check --counterexamples; the first induction fails (E-REWRITE-NOTHING); generalising the running total (scanAdds, checkoutCorrect); property specs with a false one (percent coupons don't commute, rounding), ∧ (Both), ∃ (Witness); three breaks (spec wrong the same way, till skips the last item, wrong witness); recap). Every quoted goal, note and CLI line checked against the build with each exercise applied (11 variants). Findings for filing: --counterexamples lists and counts the generated Item.ext/Basket.ext theorems; omega's notes on Nat subtraction without the hypothesis are confusing (a \"differ only in\" note); ∃ statements get no counterexample check, so a wrong witness's real model is labelled \"may not be real\". Part 1's closing lines left as they are (part 2 delivers what they promise).\n",
       "created": "2026-11-10",
       "updated": "2026-11-10",
       "commits": []
