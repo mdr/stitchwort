@@ -1,5 +1,5 @@
 {
-  "next": 2624,
+  "next": 2625,
   "tickets": [
     {
       "id": 47,
@@ -26882,6 +26882,19 @@
       "labels": [],
       "epic": "diagnostics",
       "body": "From SW-2621, 10 Nov.",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
+    },
+    {
+      "id": 2624,
+      "title": "Daily tier 10 Nov (b573d4842), 3 failures from tonight's merges: soundness_examples_fail_for_the_expected_reason (SW-2602's stuck-side note in 3 soundness snapshots) and builtins::a_renamed/a_reordered_binder_of_a_shaped_builtin_is_refused (SW-2588's ∀ sweep changed the std text they edit)",
+      "status": "backlog",
+      "agent": "Opus",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
+      "body": "Overmind daily, 70 min, 2412 run, 2409 passed. Log on Overmind: scratchpad/dly2/run.log; report target/tier-report/daily-20261110-041043.md. Orchestrator's fix: snapshots accepted (note text correct), test strings updated to the ∀ form. Verifiers now include test(/soundness_examples/).",
       "created": "2026-11-10",
       "updated": "2026-11-10",
       "commits": []

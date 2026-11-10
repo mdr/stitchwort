@@ -380,8 +380,10 @@ fn refused_after_editing_the_core(from: &str, to: &str) -> Vec<stitchwort_syntax
 
 #[test]
 fn a_renamed_binder_of_a_shaped_builtin_is_refused() {
-    let errors =
-        refused_after_editing_the_core("(yesEq: (h: p) → y h = z)", "(yesEqual: (h: p) → y h = z)");
+    let errors = refused_after_editing_the_core(
+        "(yesEq: ∀ (h: p) => y h = z)",
+        "(yesEqual: ∀ (h: p) => y h = z)",
+    );
     let e = errors
         .iter()
         .find(|d| d.code == "E-BUILTIN")
@@ -398,8 +400,8 @@ fn a_renamed_binder_of_a_shaped_builtin_is_refused() {
 #[test]
 fn a_reordered_binder_of_a_shaped_builtin_is_refused() {
     let errors = refused_after_editing_the_core(
-        "theorem Decidable.elimEq: [p: Prop] → [a: Type] →",
-        "theorem Decidable.elimEq: [a: Type] → [p: Prop] →",
+        "theorem Decidable.elimEq: ∀ [p: Prop] [a: Type]",
+        "theorem Decidable.elimEq: ∀ [a: Type] [p: Prop]",
     );
     let e = errors
         .iter()
