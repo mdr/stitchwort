@@ -26721,12 +26721,12 @@
     {
       "id": 2613,
       "title": "Reference evaluator: normal and conversion have no sharing, so each exponential example needs a hand-kept exclusion in the prelude differential (SW-2583); abort above a size or memory budget and report the definition as too big instead",
-      "status": "backlog",
+      "status": "review",
       "agent": "Opus",
-      "where": "",
+      "where": ".claude/worktrees/SW-2613",
       "labels": [],
       "epic": "test-infra",
-      "body": "From SW-2583, 10 Nov.",
+      "body": "From SW-2583, 10 Nov.\n\nLane (Opus, 10 Nov, 03:54 to 04:16, est. 75 min): `reference::set_budget(Option<u64>)`, a thread-local step count checked at each `eval`, `quote` and `conv_in` call (none set: as before). The prelude differential runs each reference normal form or conversion within 5M steps (`REFERENCE_STEPS`, overridable with `STITCHWORT_DIFFERENTIAL_STEPS`) and prints `too big to compare: …` and skips one over it. All three hand lists removed: every entry is covered by the budget, nothing newly skipped on the slices run (the daily sample skips nothing; most a legit definition needs there is 1.9M, `Float.Model.addBits`). Several old entries are now compared rather than skipped (theorems' values applied to variables, e.g. `rewriteAtLimit`, `matchAtLimit.%match1`, `describe.eq.*`). Peak 1.30 GB on as-written-unconfirmed's slice, 0.69 GB on let-chain-match's. SW-2616's stack overflow: accept/refine-keeps-big-call.sw (full sample index 397), alone in 0.5 s; not fixed here.\n",
       "created": "2026-11-10",
       "updated": "2026-11-10",
       "commits": []
