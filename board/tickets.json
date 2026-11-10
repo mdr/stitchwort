@@ -26623,12 +26623,12 @@
     {
       "id": 2607,
       "title": "Nested ifs make the native IR's value count grow faster than linearly (2.8k values at 1 if, 44k at 12, 77k at 20: every register carried into every join); measure compile time on large bodies and consider passing only live registers to joins",
-      "status": "backlog",
+      "status": "review",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "effects-native",
-      "body": "From SW-2579, 10 Nov. Frames are fine now; this is compile time only. Profile first.",
+      "body": "From SW-2579, 10 Nov. Frames are fine now; this is compile time only. Profile first.\n\nLane note: measured, no code change. Depth 20 compiles in 68 ms (under the 100 ms bar), growth is linear in instructions (about 2 us each); block params are only 9% of values in real days, the rest of the inflated value count is aliases the SSA builder leaves. Real AoC days spend 250-480 ms in native compile, 89% in Cranelift define_function, not in joins. Entry in docs/performance/log.md. Model result: Sonnet, worked, 5 min (est. 60).",
       "created": "2026-11-10",
       "updated": "2026-11-10",
       "commits": []
