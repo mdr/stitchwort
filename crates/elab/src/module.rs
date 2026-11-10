@@ -666,28 +666,22 @@ impl Elaborator {
         if !diagnostics.iter().any(|(_, d)| d.severity == wanted) {
             return;
         }
-        let Some(note) = self.counterexample_note(def) else {
+        let Some((note, log)) = self.counterexample_note(def) else {
             return;
         };
         // The note as data, for the index: the search's log has its bindings.
-        let data = self
-            .present
-            .counterexample_log
-            .borrow()
-            .last()
-            .and_then(|log| {
-                let found = log.found.as_ref()?;
-                Some(Box::new(stitchwort_syntax::Counterexample {
-                    verdict: "false",
-                    types: (log.found_types.iter())
-                        .map(|a| (a.clone(), "Nat".to_string()))
-                        .collect(),
-                    bindings: (found.iter())
-                        .filter_map(|b| b.split_once(" = "))
-                        .map(|(name, value)| (name.to_string(), value.to_string()))
-                        .collect(),
-                }))
-            });
+        let data = log.found.as_ref().map(|found| {
+            Box::new(stitchwort_syntax::Counterexample {
+                verdict: "false",
+                types: (log.found_types.iter())
+                    .map(|a| (a.clone(), "Nat".to_string()))
+                    .collect(),
+                bindings: (found.iter())
+                    .filter_map(|b| b.split_once(" = "))
+                    .map(|(name, value)| (name.to_string(), value.to_string()))
+                    .collect(),
+            })
+        });
         if let Some((_, d)) = diagnostics.iter_mut().find(|(_, d)| d.severity == wanted) {
             // Splitting a case won't prove a false statement.
             d.notes.retain(|n| !crate::check::is_stuck_side_note(n));

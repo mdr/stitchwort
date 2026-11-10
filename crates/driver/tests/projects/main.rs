@@ -9,6 +9,7 @@ mod namespaces;
 mod navigation;
 mod project;
 mod project_analysis;
+mod references;
 mod rewind;
 mod run;
 mod test_cache_key;

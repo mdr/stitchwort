@@ -1,5 +1,5 @@
 {
-  "next": 2635,
+  "next": 2636,
   "tickets": [
     {
       "id": 47,
@@ -14830,16 +14830,16 @@
     {
       "id": 1818,
       "title": "[Sonnet] Kept search session leak: each probe reruns failing theorems' counterexample searches and appends a log the rewind never removes; turn counterexamples off in probe sessions (also faster) or cut the log on rewind",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "lsp"
       ],
       "epic": "editor-playground",
-      "body": "From SW-1808's review (docs/reviews/SW-1808-kept-search-session.md, finding 1). Expected: 45 min. Ready now.\n\nAbsorbed by SW-1937 (the tactics review's counterexample lane).",
+      "body": "From SW-1808's review (docs/reviews/SW-1808-kept-search-session.md, finding 1). Expected: 45 min. Ready now.\n\nAbsorbed by SW-1937 (the tactics review's counterexample lane).\n\n\nAbsorbed by SW-1937 (lane/SW-1937): the log is returned, not pushed, so the kept session no longer grows.\nModel result: Sonnet, needed fixes (type_hash ignored non-final refs; backstop measured and set to 500 ms by the orchestrator), ~80 min (est. 80).",
       "created": "2026-11-07",
-      "updated": "2026-11-07",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -16621,14 +16621,14 @@
     {
       "id": 1937,
       "title": "[Sonnet] Counterexample search in the editor: return its log instead of pushing it (ends SW-1818's leak), remember results per statement for the session, stop by input count with time as a backstop, start the timer after building the checker",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1937",
       "labels": [
         "tactics"
       ],
       "epic": "proof-automation",
-      "body": "From docs/reviews/code-review-elab-tactics.md (F4-F6). D2700 [rec: yes]. 60-90 min. Absorbs SW-1818.",
+      "body": "From docs/reviews/code-review-elab-tactics.md (F4-F6). D2700 [rec: yes]. 60-90 min. Absorbs SW-1818.\n\n\nLane notes (Sonnet, 10 Nov 2026, SW-1937 with SW-1818): counterexample_note returns the SearchLog instead of pushing it; the session log is filled only under the test option log_counterexamples. Chose the memo over turning searches off in probes (the brief asks for the memo): per-session memo keyed by core::hash::type_hash plus names, bounded to 256, kept across rewinds. ON_FAILURE time is now a 2000 ms backstop (inputs end it); timer starts after the build (F6). Examples filter and counterexamples tests pass, snapshots unchanged.\nModel result: Sonnet, needed fixes (type_hash ignored non-final refs; backstop measured and set to 500 ms by the orchestrator), ~80 min (est. 80).",
       "created": "2026-11-07",
       "updated": "2026-11-10",
       "commits": []
@@ -27087,7 +27087,7 @@
     {
       "id": 2627,
       "title": "[Sonnet] Rename R1: references a rename can trust: punned fields, import aliases, qualified names (trailing component), decreasing and default expressions walked, named arguments and [n := k] patterns linked to their parameter, doc link ranges",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2627",
       "labels": [
@@ -27095,7 +27095,7 @@
         "refactoring"
       ],
       "epic": "editor-playground",
-      "body": "docs/proposals/refactoring.md §1.2 and §5 (SW-2626). D3467 (Matt, 10 Nov 2026): yes, build rename first (R1-R4), with an apply-anyway mode and a CLI rename for agents. Each fix with a fixture whose references are checked; improves find references today. Est. 120 min.",
+      "body": "docs/proposals/refactoring.md §1.2 and §5 (SW-2626). D3467 (Matt, 10 Nov 2026): yes, build rename first (R1-R4), with an apply-anyway mode and a CLI rename for agents. Each fix with a fixture whose references are checked; improves find references today. Est. 120 min.\nDone (10 Nov): LiveRef/nav::Ref gain name_range, alias, pun; decreasing measures and defaults walked; named arguments linked to the parameter binder or constructor field (project callees only); doc links are refs. Gaps left: named args to library callees and method sections; a constructor field's uses inside the constructor's type; docs of fields/constructors/namespaces; no f.eq2 fixture.\nModel result: Sonnet, worked, 20 min (est. 120).",
       "created": "2026-11-10",
       "updated": "2026-11-10",
       "commits": []
@@ -27205,6 +27205,22 @@
       ],
       "epic": "editor-playground",
       "body": "From SW-2628 (10 Nov 2026). Also speeds ordinary editing in large projects. Est. 90 min.",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
+    },
+    {
+      "id": 2635,
+      "title": "[Sonnet] Reference gaps left after SW-2627: named arguments to library callees and on method sections (.map (f := …)); a constructor field's uses inside the constructor's type; doc links in docs of fields, constructors and namespaces; an f.eq2 fixture",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "editor",
+        "refactoring"
+      ],
+      "epic": "editor-playground",
+      "body": "From SW-2627 (10 Nov 2026). The field case matters for R7 (field renames); the rest for find references. Est. 90 min.",
       "created": "2026-11-10",
       "updated": "2026-11-10",
       "commits": []
