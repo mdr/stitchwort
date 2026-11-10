@@ -24832,14 +24832,14 @@
     {
       "id": 2466,
       "title": "Formatter not idempotent: fmt fuzz (default seed 0x9e3779b97f4a7c15) case 11532, rng state 0xf22057b48b3300d7, on a comment block from std/Quot/Quot.sw ('The library's quotient lemmas ...'): formatting twice differs from once; fails the daily tier",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2466",
       "labels": [
         "fmt"
       ],
       "epic": "editor-playground",
-      "body": "Found by the daily tier, 9 Nov 2026 00:01 (crates/fmt/tests/it/fuzz.rs:260). Repro: task fuzz:fmt (default), or the input printed in the failure. Fix the formatter; add the input to the formatter's golden or regression tests. 45 min.\nStarted 10 Nov (Matt: fix it alongside D3468's format on save default).",
+      "body": "Found by the daily tier, 9 Nov 2026 00:01 (crates/fmt/tests/it/fuzz.rs:260). Repro: task fuzz:fmt (default), or the input printed in the failure. Fix the formatter; add the input to the formatter's golden or regression tests. 45 min.\nStarted 10 Nov (Matt: fix it alongside D3468's format on save default).\n\nLane notes (10 Nov): the filed case no longer reproduces (the fuzz corpus is examples/accept+reject, which changed; default and 3M-case runs were clean). Mutating quot-library.sw with FUZZ_ONLY found two real causes, both fixed in crates/fmt/src/layout.rs: (1) a line inside a converted bracket at the opener's column stopped the opener joining the line above in pass 1 but not pass 2; (2) a body line right of a header continuation line was nested under it in pass 1 only. Goldens brackets-opener-siblings and header-continuation-body added. FUZZ_ONLY env filter added to the fuzzer.\n",
       "created": "2026-11-09",
       "updated": "2026-11-10",
       "commits": []
