@@ -1,5 +1,5 @@
 ---
-source: crates/driver/tests/hash_stability.rs
+source: crates/driver/tests/library/hash_stability.rs
 expression: "lines(session, d, f)"
 ---
 data Turns.Move 044778ea807fafbc9716f18bfc0e273fdf3502db6805e12b4d9470ca32457a58
@@ -13,7 +13,7 @@ Turns.Move.%compare de1ce19f87f4804b0c91113ea9635d519f2159fabf7a2220283ecd6bcf42
 Turns.Move.%equal 9de0572db40fdfb59c4b512672bfebc683aaea66bb32516e963ffafb386775c2
 Turns.Move.%flip c9200a234f7691d2013bf1175dc3d3d715822078aff13e72f31563b3d05aee28
 Turns.Move.%trans 44f01c8664b7fdca3be8326308ffde204348f4c28b90348255dfc3e976d31f39
-Turns.Move.%instOrd 1c41c8743fd9346bb3a17afa23d0211cd5e8d4190652987cb515520ac360220f
+Turns.Move.%instOrd 0b12ed81344a7ced736837c5f31c8db72bc30f7e7421da0be270e71082c2c1fe
 Turns.Move.%all befe3cdfe9b941106679534634d627cb342127a2386913c2d397f252159c1e78
 Turns.Move.%mem%0 0946f91467840cb8cb9c3134931b2249ccbfa1444c98c996548cb219139c7f41
 Turns.Move.%mem%1 9ed20af784b32433bdf6edf782f09fbffdce6df67c8871603f4899d46724cca7

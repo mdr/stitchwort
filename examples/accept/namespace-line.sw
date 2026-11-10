@@ -27,7 +27,7 @@ def double2 (n: Nat): Nat := n + n
 type Token: Prop =
   | MkToken
 
-instance decToken: Decidable Token := Yes MkToken
+instance decToken: Decidable Token := Std.Decidable.yes MkToken
 
 def needsToken: [auto t: Token] → Nat := 1
 

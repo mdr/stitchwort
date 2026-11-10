@@ -414,9 +414,8 @@ theorem Set.extIff [auto ord: Ord k] (s: Set k) (t: Set k) (same: ∀ (key: k) =
 --| After an insert, a set holds the key inserted and what it held before.
 theorem Set.containsInsertElim [auto ord: Ord k] (s: Set k) (key: k) (other: k) (held: Set.contains (Set.insert s key) other = True):
     (other = key) ∨ (Set.contains s other = True) :=
-  match ord.eq.decide other key with
-    | Yes same => Inl same
-    | No different => Inr (rewrite Set.containsInsertOther s key other different at held)
+  if same: other = key then Inl same
+  else Inr (rewrite Set.containsInsertOther s key other same at held)
 
 -- The facts above as `Iff`s, for a proof that goes from membership in one
 -- direction or the other: each says what holding the key means for the sets
@@ -481,14 +480,13 @@ theorem Set.containsFoldRemove [auto ord: Ord k] (keys: List k) (s: Set k) (key:
         forward = held =>
           match later.forward held with
             | Both inRemoved notRest =>
-              match ord.eq.decide key first with
-                | Yes same => Void.exfalso (Bool.trueNotFalse (Eq.trans (Eq.sym inRemoved) (rewrite same in Set.containsRemove s first)))
-                | No different =>
-                  Both (rewrite Set.containsRemoveOther s first key different at inRemoved)
-                    (member =>
-                      match member with
-                        | Inl same => different (Eq.sym same)
-                        | Inr inRest => notRest inRest),
+              if same: key = first then Void.exfalso (Bool.trueNotFalse (Eq.trans (Eq.sym inRemoved) (rewrite same in Set.containsRemove s first)))
+              else
+                Both (rewrite Set.containsRemoveOther s first key same at inRemoved)
+                  (member =>
+                    match member with
+                      | Inl equal => same (Eq.sym equal)
+                      | Inr inRest => notRest inRest),
         backward = held =>
           let different: key ≠ first := same => And.right held (Inl (Eq.sym same))
           later.backward (Both (rewrite Set.containsRemoveOther s first key different in And.left held) (inRest => And.right held (Inr inRest)))
@@ -592,14 +590,13 @@ theorem Set.unionEmpty [auto ord: Ord k] (a: Set k): Set.union a Set.empty = a :
 
 theorem Set.unionInsert [auto ord: Ord k] (a: Set k) (b: Set k) (key: k): Set.union a (Set.insert b key) = Set.insert (Set.union a b) key :=
   Set.ext (Set.union a (Set.insert b key)) (Set.insert (Set.union a b) key) (other =>
-    match ord.eq.decide other key with
-      | Yes same =>
-        rewrite same, Set.containsUnion a key (Set.insert b key), Set.containsInsert key b, Set.containsInsert key (Set.union a b) in
-        Bool.orTrue (Set.contains a key)
-      | No different =>
-        rewrite Set.containsUnion a other (Set.insert b key), Set.containsInsertOther b key other different,
-          Set.containsInsertOther (Set.union a b) key other different, Set.containsUnion a other b in
-        rfl)
+    if same: other = key then
+      rewrite same, Set.containsUnion a key (Set.insert b key), Set.containsInsert key b, Set.containsInsert key (Set.union a b) in
+      Bool.orTrue (Set.contains a key)
+    else
+      rewrite Set.containsUnion a other (Set.insert b key), Set.containsInsertOther b key other same,
+        Set.containsInsertOther (Set.union a b) key other same, Set.containsUnion a other b in
+      rfl)
 
 --| The size of a union of sets with no key in common is the sum of theirs
 --| (Mathlib's `Finset.card_disjUnion`).
@@ -647,16 +644,15 @@ theorem Set.differenceEmpty [auto ord: Ord k] (a: Set k): Set.difference a Set.e
 theorem Set.differenceInsert [auto ord: Ord k] (a: Set k) (b: Set k) (key: k):
     Set.difference a (Set.insert b key) = Set.remove (Set.difference a b) key :=
   Set.ext (Set.difference a (Set.insert b key)) (Set.remove (Set.difference a b) key) (other =>
-    match ord.eq.decide other key with
-      | Yes same =>
-        rewrite same, Set.containsDifference a key (Set.insert b key), Set.containsInsert key b, Set.containsRemove (Set.difference a b) key in
-        match c: Set.contains a key with
-          | True => rfl
-          | False => rfl
-      | No different =>
-        rewrite Set.containsDifference a other (Set.insert b key), Set.containsInsertOther b key other different,
-          Set.containsRemoveOther (Set.difference a b) key other different, Set.containsDifference a other b in
-        rfl)
+    if same: other = key then
+      rewrite same, Set.containsDifference a key (Set.insert b key), Set.containsInsert key b, Set.containsRemove (Set.difference a b) key in
+      match c: Set.contains a key with
+        | True => rfl
+        | False => rfl
+    else
+      rewrite Set.containsDifference a other (Set.insert b key), Set.containsInsertOther b key other same,
+        Set.containsRemoveOther (Set.difference a b) key other same, Set.containsDifference a other b in
+      rfl)
 
 --| Taking away a subset leaves the rest (Mathlib's `Finset.card_sdiff`).
 theorem Set.sizeDifferenceSubset [auto ord: Ord k] (a: Set k) (b: Set k) (subset: ∀ (key: k) => Set.contains b key = True → Set.contains a key = True):

@@ -3,7 +3,7 @@
 -- (docs/proposals/checker-evaluation.md, option (a)). These are the cases
 -- where it can't, and falls back to computing the value as before.
 
-import Std (List)
+import Std (Decidable, List)
 
 -- An operation whose result type depends on its argument.
 def Payload: Nat → Type
@@ -26,7 +26,7 @@ type Fun = | MkFun (apply: Nat → Nat)
 
 def SameFun (f: Fun) (g: Fun): Prop := f = g
 
-instance decSelf (f: Fun): Decidable (SameFun f f) := Yes rfl
+instance decSelf (f: Fun): Decidable (SameFun f f) := Decidable.yes rfl
 
 def adder (n: Nat): Fun := MkFun (x => x + n)
 

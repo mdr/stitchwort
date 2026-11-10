@@ -1,5 +1,5 @@
 ---
-source: crates/driver/tests/hash_stability.rs
+source: crates/driver/tests/library/hash_stability.rs
 expression: "lines(session, d, f)"
 ---
 data Main.P 1c5bfeb05acfbc6d2ecf99760a9c5e383bcf7a998956f5417f3091cb596e30df
@@ -14,7 +14,7 @@ Main.P.%compare 020f730bcd678edce8fc03e7459601c8e5d12b33212af4dbe595e35374bf8589
 Main.P.%equal 107e889e451f494a50efcc76e693b4d2dcaf0d28aef9269fd8ffdb5e028bdf32
 Main.P.%flip c401af21de888385be9fe7ccfb13dc66a470b78fe03c968143d20a4e8f6d6059
 Main.P.%trans 7ffd4d4a4fdbc114dbcadf236faa9e85c5b0d733942108975255c36aa311815e
-Main.P.%instOrd dacb0dcdf165e4ccb373e733b36f735604501c1884ff63a51782a2efeffbd598
+Main.P.%instOrd c220326023a67e9a93b232082551c075668696c3697b10a4ff9351f7cadd7a61
 Main.P.%all d227016ce8cdbb2df7961ea540e96f2ee2acc507dbda9ea9d05a6421218ba39d
 Main.P.%mem%0 505fb80d153119d33338d299dc90514d0165c8546cffe2e20801da1f6173f5df
 Main.P.%mem%1 1bd9f3bb0d91a9398ef5b267ca159177b56bde250eb8f9749ca1d811b3332201

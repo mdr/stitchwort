@@ -273,6 +273,23 @@ Import what you use: std's theorems live in namespaces that need an import
   Its search stops after 8 levels of nested decisions; past that, pass the
   proof (`Decidable.fromYes …`), as the roguelike did for its 7th key
   (games/rogue/PROOFS.md:192). An `if h: …` puts `h` in scope for `auto`.
+- **A decision is built and taken apart with functions, never `Yes` and
+  `No`** (D3480, SW-2733: `Decidable` is going to become a `Bool` with its
+  two proofs, and only these functions and std core will change). A decision
+  procedure answers `Decidable.yes h` or `Decidable.no r`
+  (`import Std (Decidable)`). To split on one, write `if h: p then … else
+  …`: `h` is the proof of `p` in the first branch and its refutation in the
+  second, and nothing in the goal is rewritten. To refine a goal or
+  hypothesis that has an `if` on `p` (one whose branches don't use the proof
+  is a plain `Bool` test), match on the test: `match e: x < y with | True =>
+  … | False => …`, where `e` is the proof in the `True` arm. A hypothesis
+  `e: (x == y) = False` becomes `x ≠ y` with `Decidable.refute (DecEq.decide
+  x y) e`, and `e: … = True` becomes `x = y` with `Decidable.sound`.
+  `Decidable.does d` is the `Bool` a decision stands for. Until the type
+  changes, a goal that holds the decision itself (the `if h:` of a program
+  whose branch uses `h`) can still only be split by `match d with | Yes … |
+  No …` (`Nat.iterateUntilStableFixed`;
+  `aoc/src/Aoc/Year2021/Day16/Proofs/Complete.sw`).
 - **`byDecision`** (`import Std (byDecision)`) is Lean's `by decide`: it
   proves a closed proposition by running its decision procedure. False is
   `E-AUTO-FALSE`; stuck on a variable is `E-AUTO-STUCK`, so split the

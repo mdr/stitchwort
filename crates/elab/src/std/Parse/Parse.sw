@@ -894,9 +894,7 @@ theorem Parse.runFromTextThere (state: Parse.State) (expected: Text) (rest: List
   rewrite starts, Text.stripPrefixCharsAppend rest expected.toList in rfl
 
 theorem Parse.sameChar (char: Char): (char == char) = True :=
-  match Char.decEq char char with
-    | Yes same => rfl
-    | No different => Void.exfalso (different rfl)
+  DecEq.refl char
 
 theorem Parse.runFromCharThere (state: Parse.State) (expected: Char) (rest: List Char) (k: () → {Parse} a)
     (starts: state.at.rest = [expected, ..rest]):

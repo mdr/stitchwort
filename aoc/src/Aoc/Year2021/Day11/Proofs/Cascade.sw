@@ -92,16 +92,14 @@ theorem stableOfCount (cavern: Cavern) (k: Nat) (same: flashedCount cavern (Succ
 theorem stableOrCount (cavern: Cavern) (k: Nat): (Stable cavern k) ∨ (k + 1 ≤ flashedCount cavern (Succ k)) :=
   match k with
     | Zero =>
-      match Nat.decLessEq (flashedCount cavern 1) (flashedCount cavern 0) with
-        | Yes same => Inl (stableOfCount cavern 0 same)
-        | No more => Inr (omega)
+      if same: flashedCount cavern 1 ≤ flashedCount cavern 0 then Inl (stableOfCount cavern 0 same)
+      else Inr (omega)
     | Succ k =>
       match stableOrCount cavern k with
         | Inl stable => Inl (staysStable cavern k stable)
         | Inr enough =>
-          match Nat.decLessEq (flashedCount cavern (Succ (Succ k))) (flashedCount cavern (Succ k)) with
-            | Yes same => Inl (stableOfCount cavern (Succ k) same)
-            | No more => Inr (omega)
+          if same: flashedCount cavern (Succ (Succ k)) ≤ flashedCount cavern (Succ k) then Inl (stableOfCount cavern (Succ k) same)
+          else Inr (omega)
 
 --| So the round after as many rounds as there are octopuses adds nobody...
 theorem stableAtSize (cavern: Cavern): Stable cavern (positions cavern).length :=
@@ -115,9 +113,8 @@ theorem stableAtSize (cavern: Cavern): Stable cavern (positions cavern).length :
 theorem stableAbove (cavern: Cavern) (n: Nat) (stable: Stable cavern n): ∀ (k: Nat) => n ≤ k → Stable cavern k
   | Zero, below, q, flashes => (rewrite (omega: n = 0) at stable in stable) q flashes
   | Succ k, below, q, flashes =>
-    match Nat.decLessEq n k with
-      | Yes late => staysStable cavern k (stableAbove cavern n stable k late) q flashes
-      | No early => (rewrite (omega: n = Succ k) at stable in stable) q flashes
+    if late: n ≤ k then staysStable cavern k (stableAbove cavern n stable k late) q flashes
+    else (rewrite (omega: n = Succ k) at stable in stable) q flashes
 
 --| One step of `cascade`.
 theorem cascadeStep (cavern: Cavern) (flashed: Flashed) (m: Nat):

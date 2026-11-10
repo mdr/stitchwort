@@ -90,11 +90,10 @@ theorem List.keyMemAppendNewByLeft [auto eq: DecEq k] (key: a → k) (xs: List a
 
 theorem List.keyMemAppendNewByRight [auto eq: DecEq k] (key: a → k) (xs: List a) (ys: List a) (y: a) (m: y ∈ ys):
     key y ∈ List.map (List.appendNewBy xs ys key) key :=
-  match List.decMem (key y) (List.map xs key) with
-    | Yes h =>
+  if h: key y ∈ List.map xs key then
     rewrite List.mapAppend xs (List.differenceBy ys xs key) key in
     List.memAppendLeft (key y) (List.map xs key) (List.map (List.differenceBy ys xs key) key) h
-    | No h =>
+  else
     List.memMap (List.appendNewBy xs ys key) y
       (List.memAppendRight y xs (List.differenceBy ys xs key) ((List.memDifferenceBy y ys xs key).backward (Both m h)))
       key

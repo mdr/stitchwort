@@ -484,7 +484,7 @@ theorem List.sumByCong [auto add: Add b] (xs: List a) (f1: a → b) (f2: a → b
 -- Its type spells out `List.Mem`: `∈` there would make the type mention the
 -- instance itself.
 instance List.decMem [auto eq: DecEq a] (x: a): (xs: List a) → Decidable (List.Mem x xs)
-  | [] => No (none => none)
+  | [] => Decidable.no (none => none)
   | [y, ..ys] => Decidable.or (eq.decide y x) (List.decMem x ys)
 
 test "List.decMem" := 2 ∈ [1, 2, 3] ∧ 4 ∉ [1, 2, 3] ∧ 'a' ∉ []
@@ -503,7 +503,7 @@ def List.Distinct: (xs: List a) → Prop
 --| it (quadratic; `List.isDistinct` is the faster test, given an `Ord`).
 -- Its type spells out `List.Distinct`, as `List.decMem`'s does.
 instance List.decDistinct [auto eq: DecEq a]: (xs: List a) → Decidable (List.Distinct xs)
-  | [] => Yes Trivial
+  | [] => Decidable.yes Trivial
   | [x, ..xs] => Decidable.and (Decidable.not (List.decMem x xs)) (List.decDistinct xs)
 
 test "List.decDistinct" := List.Distinct [1, 2, 3] ∧ ¬(List.Distinct [1, 2, 1]) ∧ List.Distinct ([]: List Nat)

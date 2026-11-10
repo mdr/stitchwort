@@ -91,11 +91,10 @@ theorem syncFound (cavern: Cavern) (answer: Nat) (m k: Nat)
         | False =>
           syncFound cavern answer m (Succ k)
             (earlier below flashes =>
-              match Nat.decLessEq (Succ earlier) (Succ k) with
-                | Yes early => noneBefore earlier early flashes
-                | No late =>
-                  let same: earlier = Succ k := omega
-                  Bool.falseNotTrue (Eq.trans (Eq.sym e) (zerosOfAllFlash cavern k (rewrite same at flashes in flashes))))
+              if early: Succ earlier ≤ Succ k then noneBefore earlier early flashes
+              else
+                let same: earlier = Succ k := omega
+                Bool.falseNotTrue (Eq.trans (Eq.sym e) (zerosOfAllFlash cavern k (rewrite same at flashes in flashes))))
             (rewrite stepsFromSucc k cavern in found)
 
 --| Part 2: if the program answers, its answer is the first step in which
@@ -111,11 +110,10 @@ theorem syncNone (cavern: Cavern): ∀ (m k: Nat) => (stepsFrom cavern k).firstS
     match e: (stepsFrom cavern k).step.allZero with
       | True => Option.noneNotSome (Succ k) (Eq.sym none)
       | False =>
-        match Nat.decLessEq number (Succ k) with
-          | Yes first =>
-            let same: number = Succ k := omega
-            Bool.falseNotTrue (Eq.trans (Eq.sym e) (zerosOfAllFlash cavern k (rewrite same at flashes in flashes)))
-          | No later => syncNone cavern m (Succ k) (rewrite stepsFromSucc k cavern in none) number (omega) (omega) flashes
+        if first: number ≤ Succ k then
+          let same: number = Succ k := omega
+          Bool.falseNotTrue (Eq.trans (Eq.sym e) (zerosOfAllFlash cavern k (rewrite same at flashes in flashes)))
+        else syncNone cavern m (Succ k) (rewrite stepsFromSucc k cavern in none) number (omega) (omega) flashes
 
 --| ...and if it answers nothing, no step up to `syncLimit` is one.
 theorem part2None (cavern: Cavern) (none: cavern.solvePart2 = None) (number: Nat) (high: number ≤ syncLimit):

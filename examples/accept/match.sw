@@ -4,7 +4,7 @@
 -- lifted into a generated definition named after its owner.
 
 import List (length)
-import Std (Eq, Nat, Void)
+import Std (Decidable, Eq, Nat, Void)
 
 -- In the tree: the whole right-hand side.
 def describe (xs: List Nat): Text :=
@@ -47,8 +47,8 @@ def isEmpty (xs: List Nat): Bool := match h: xs.length with
 
 -- The equation used in a branch.
 def lenZero (xs: List Nat): Decidable (xs.length = 0) := match h: xs.length with
-  | Zero => Yes rfl
-  | Succ k => No (e => Nat.equalFalse (Succ k) 0 rfl e)
+  | Zero => Decidable.yes rfl
+  | Succ k => Decidable.no (e => Nat.equalFalse (Succ k) 0 rfl e)
 
 def keep (p: Prop): p → Bool
   | _ => True

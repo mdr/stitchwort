@@ -4,12 +4,12 @@ expression: "lines(session, d, f)"
 ---
 Main.example 4284ae2fabf6f18161a36fcfb59120f38a29aea66e92346a49c4418d4b763096
 Main.test "the example has ten lines" 31cc28c8c60322dde3ca6a7769ba226ec924ffe90b62c1755f70f6a0e025cc33
-Main.test "its first line" f5933f551bec40f3c063caf460635309159127d2137489fbcb9d62284613c49c
-Main.test "it is the same as one line" 03f234cbdf55fe58deb4ea242d1a0948ee0cf8559374a1e9bb1faa74c9f66c33
-Main.test "no trailing newline" 6d2182535da38bf09e09c9457a442ddde3e46cced4f552e32b91d5cbd4db40b9
-Main.test "relative indentation and blank lines" 404150f5ea9fae5bdf8b13c9c9fff8f9a1c141902cb6650ca1577d84c3d8d409
-Main.test "the closing line sets the indentation" 0d7d4e6c998e86f45752b387641da4d08bb1f5f0d01be9cea9f5e13a0029372d
-Main.test "quotes, escapes and interpolation" 2f5e9975c22d13c1aa6d334a2e67dddf820f7e0f28b2c44d3ef1ee872e0014c7
+Main.test "its first line" fb79152bb3bd2f466d8f730f24ba9b4b95e224c309cf001a3c0e78b3540c94a0
+Main.test "it is the same as one line" 49ce1376183c5484785420695cec2556c3c15a80bd8f22622102ae0a5115f4e6
+Main.test "no trailing newline" 2c503441dd1a3567171e57b40512afb0e1a480b342e287b80cf80bead32a7f99
+Main.test "relative indentation and blank lines" e7c9d2a374b61ad34495e886f8a6139607e26f9fbd788fea35a057451b8a49ba
+Main.test "the closing line sets the indentation" 936b45cfc60ea72a56c66e401da6ca43df3d6d3d34b9c4cdeccaba792fca8014
+Main.test "quotes, escapes and interpolation" a68cb82ad1e3a8d264ffa160597509f3dca79b1410ead797c777c4106bb8ab84
 Main.twice fbce0dca2f606ca687c4018f8b79f0c57a1d018b957acab98405052f9a6142c2
-Main.test "interpolation over lines" aef9ed1308e7039d8e52894afd55a0fd50af0c7afb197a4c69e08fdfa6db28d9
+Main.test "interpolation over lines" 3be8ad3c94c0d7d1eabcf213c8577331b1b256b5202890395344343ef42359da
 Main.main 30672b077ea1f2ba961a7531ccbde8505211fe53232b55276d9ae1fb45de01f3

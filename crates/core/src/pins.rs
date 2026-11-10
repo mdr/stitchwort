@@ -140,7 +140,7 @@ pub const PINS: &[Pin] = &[
     ),
     kernel(
         Builtin::FloatDecEq,
-        "f7cf8bb10de1c88bbad420034cae5cc91d7de052946f0f964569412b33cd1551",
+        "1c3276aded5ac4d016f2a6ad64fff29ca5d543da67ee0e7874f22974315d87a7",
     ),
     kernel(
         Builtin::FloatIsFinite,

@@ -50,7 +50,6 @@ theorem carriesUnique (device: Device) (wellFormed: WellFormed device) (wire: Wi
 theorem outputsUnique (device: Device) (wellFormed: WellFormed device) (first: Nat) (second: Nat)
     (outputsFirst: Outputs device first) (outputsSecond: Outputs device second): first = second :=
   Nat.eqOfTestBit first second (bit =>
-    match List.decMem (Z bit) device.wires with
-      | Yes there =>
-        carriesUnique device wellFormed (Z bit) _ _ (outputsFirst.left bit there) (outputsSecond.left bit there)
-      | No absent => Eq.trans (outputsFirst.right bit absent) (Eq.sym (outputsSecond.right bit absent)))
+    if there: Z bit ∈ device.wires then
+      carriesUnique device wellFormed (Z bit) _ _ (outputsFirst.left bit there) (outputsSecond.left bit there)
+    else Eq.trans (outputsFirst.right bit there) (Eq.sym (outputsSecond.right bit there)))

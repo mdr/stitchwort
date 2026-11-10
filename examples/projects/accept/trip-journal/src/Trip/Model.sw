@@ -128,37 +128,37 @@ def PlaceIdsDistinct: Option Itinerary → Prop
 -- search can try the theorems that assume it.
 
 def decAll (p: a → Prop) (dec: (x: a) → Decidable (p x)): (xs: List a) → Decidable (List.All p xs)
-  | [] => Yes Trivial
+  | [] => Decidable.yes Trivial
   | [x, ..xs] => Decidable.and (dec x) (decAll p dec xs)
 
 def decSorted (le: a → a → Bool): (xs: List a) → Decidable (List.Sorted le xs)
-  | [] => Yes Trivial
-  | [x] => Decidable.and (Yes Trivial) (Yes Trivial)
-  | [x, y, ..ys] => Decidable.and (if h: le x y = True then Yes h else No h) (decSorted le [y, ..ys])
+  | [] => Decidable.yes Trivial
+  | [x] => Decidable.and (Decidable.yes Trivial) (Decidable.yes Trivial)
+  | [x, y, ..ys] => Decidable.and (if h: le x y = True then Decidable.yes h else Decidable.no h) (decSorted le [y, ..ys])
 
 instance decContiguousFrom: (start: Float) → (legs: List Leg) → Decidable (ContiguousFrom start legs)
-  | start, [] => Yes Trivial
+  | start, [] => Decidable.yes Trivial
   | start, [leg, ..rest] =>
-    Decidable.and (if h: leg.start = start then Yes h else No h) (decContiguousFrom (start + leg.duration) rest)
+    Decidable.and (if h: leg.start = start then Decidable.yes h else Decidable.no h) (decContiguousFrom (start + leg.duration) rest)
 
 instance decLegsOk (legs: List Leg): Decidable (List.All LegOk legs) :=
-  decAll LegOk (leg => if h: LegOk leg then Yes h else No h) legs
+  decAll LegOk (leg => if h: LegOk leg then Decidable.yes h else Decidable.no h) legs
 
 instance decPinsFit (legs: List Leg) (pins: List Pin): Decidable (List.All (pin => pinFits legs pin = True) pins) :=
-  decAll (pin => pinFits legs pin = True) (pin => if h: pinFits legs pin = True then Yes h else No h) pins
+  decAll (pin => pinFits legs pin = True) (pin => if h: pinFits legs pin = True then Decidable.yes h else Decidable.no h) pins
 
 instance decPinsSorted (pins: List Pin): Decidable (List.Sorted (a b => Float.leq a.start b.start) pins) :=
   decSorted (a b => Float.leq a.start b.start) pins
 
 instance decStopsWithin (legs: List Leg) (stops: List Stop): Decidable (List.All (stop => within legs stop.start = True) stops) :=
-  decAll (stop => within legs stop.start = True) (stop => if h: within legs stop.start = True then Yes h else No h) stops
+  decAll (stop => within legs stop.start = True) (stop => if h: within legs stop.start = True then Decidable.yes h else Decidable.no h) stops
 
 instance decAlbumsWithin (legs: List Leg) (albums: List Album): Decidable (List.All (album => within legs album.start = True) albums) :=
-  decAll (album => within legs album.start = True) (album => if h: within legs album.start = True then Yes h else No h) albums
+  decAll (album => within legs album.start = True) (album => if h: within legs album.start = True then Decidable.yes h else Decidable.no h) albums
 
 instance decPlaceIds: (plan: Option Itinerary) → Decidable (PlaceIdsDistinct plan)
-  | None => Yes Trivial
-  | Some plan => if h: List.Distinct (plan.places.map (place => place.id)) then Yes h else No h
+  | None => Decidable.yes Trivial
+  | Some plan => if h: List.Distinct (plan.places.map (place => place.id)) then Decidable.yes h else Decidable.no h
 
 type WellFormed (trip: Trip): Prop = {
   contiguous: ContiguousFrom 0.0 trip.legs,

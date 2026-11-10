@@ -12,6 +12,6 @@ def client: Nat := needsToken [t := Decidable.fromYes decToken Trivial]
 
 def decToken: Decidable Token := laterHelper
 
-def laterHelper: Decidable Token := Yes MkToken
+def laterHelper: Decidable Token := Decidable.yes MkToken
 
 test "client" := client == 1

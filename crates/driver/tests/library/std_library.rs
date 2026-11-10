@@ -826,11 +826,8 @@ fn no_library_file_declares_a_decision_procedure() {
             "Std.Float.decLessEq",
             "Std.Float.decLessThan",
             "Std.NonEmptyList.decEq",
-            "Std.NonEmptyList.decEq.%match1",
             "Std.Map.decEq",
-            "Std.Map.decEq.%match1",
-            "Std.Set.decEq",
-            "Std.Set.decEq.%match1"
+            "Std.Set.decEq"
         ],
         "every `Decidable` procedure stays in the core (D58), so `auto` never \
          depends on what is loaded"

@@ -1516,14 +1516,13 @@ theorem List.repeatSplit [auto eq: DecEq a] (xs: List a) (notDistinct: ¬List.Di
   match xs with
     | [] => Void.exfalso (notDistinct Trivial)
     | [y, ..rest] =>
-      match List.decMem y rest with
-        | Yes found =>
-          match List.memSplit y rest found with
-            | Witness between (Witness after eq) => Witness [] (Witness y (Witness between (Witness after (Eq.cong (Cons y) eq))))
-        | No missing =>
-          match List.repeatSplit rest (d => notDistinct (Both missing d)) with
-            | Witness before (Witness x (Witness between (Witness after eq))) =>
-              Witness [y, ..before] (Witness x (Witness between (Witness after (Eq.cong (Cons y) eq))))
+      if found: y ∈ rest then
+        match List.memSplit y rest found with
+          | Witness between (Witness after eq) => Witness [] (Witness y (Witness between (Witness after (Eq.cong (Cons y) eq))))
+      else
+        match List.repeatSplit rest (d => notDistinct (Both found d)) with
+          | Witness before (Witness x (Witness between (Witness after eq))) =>
+            Witness [y, ..before] (Witness x (Witness between (Witness after (Eq.cong (Cons y) eq))))
 
 theorem List.pigeonholeExample: ¬List.Distinct [1, 2, 1] :=
   List.pigeonhole [1, 2, 1] [1, 2] (x m =>

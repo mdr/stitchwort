@@ -372,12 +372,12 @@ theorem Map.ext (m: Map k v [ord := o]) (n: Map k v [ord := o]) (h: ∀ (key: k)
       (key => Eq.trans (Eq.sym (Map.getToList m key)) (Eq.trans (h key) (Map.getToList n key))))
 
 --| `==`: compare the entry lists, the keys by the map's ordering. The branch
---| is chosen by the list comparison; `Quot.sound` is only inside the `Yes`
+--| is chosen by the list comparison; `Quot.sound` is only inside the yes
 --| proof, so `==` computes.
 def Map.decEq [auto dv: DecEq v] (m: Map k v [ord := o]) (n: Map k v [ord := o]): Decidable (m = n) :=
-  match List.decEq (Pair.decEq o.eq.decide dv.decide) (Map.toList m) (Map.toList n) with
-    | Yes same => Yes (Map.toListInjective m n same)
-    | No differ => No (same => differ (Eq.cong Map.toList same))
+  Decidable.elim (List.decEq (Pair.decEq o.eq.decide dv.decide) (Map.toList m) (Map.toList n))
+    (same => Decidable.yes (Map.toListInjective m n same))
+    (differ => Decidable.no (same => differ (Eq.cong Map.toList same)))
 
 --| `==` on maps: the same entries.
 instance Map.instDecEq [auto dv: DecEq v]: DecEq (Map k v [ord := o]) := { decide = Map.decEq }
@@ -1162,47 +1162,42 @@ theorem Map.getMapKeys [auto ord: Ord j] (f: k → j) (key: j) (m: Map k v [ord 
 theorem Map.insertComm [auto ord: Ord k] (a: k) (x: v) (b: k) (y: v) (ne: a ≠ b) (m: Map k v):
     (m |> Map.insert a x |> Map.insert b y) = (m |> Map.insert b y |> Map.insert a x) :=
   Map.ext ((m.insert a x).insert b y) ((m.insert b y).insert a x) (key =>
-    match ord.eq.decide key b with
-      | Yes hb =>
-        rewrite hb in
-        Eq.trans (Map.getInsert b y (m.insert a x))
-          (Eq.sym (Eq.trans (Map.getInsertOther a x b (e => ne (Eq.sym e)) (m.insert b y)) (Map.getInsert b y m)))
-      | No hb =>
-        match ord.eq.decide key a with
-          | Yes ha =>
-            rewrite ha in
-            Eq.trans (Eq.trans (Map.getInsertOther b y a ne (m.insert a x)) (Map.getInsert a x m))
-              (Eq.sym (Map.getInsert a x (m.insert b y)))
-          | No ha =>
-            Eq.trans (Eq.trans (Map.getInsertOther b y key hb (m.insert a x)) (Map.getInsertOther a x key ha m))
-              (Eq.sym (Eq.trans (Map.getInsertOther a x key ha (m.insert b y)) (Map.getInsertOther b y key hb m))))
+    if hb: key = b then
+      rewrite hb in
+      Eq.trans (Map.getInsert b y (m.insert a x))
+        (Eq.sym (Eq.trans (Map.getInsertOther a x b (e => ne (Eq.sym e)) (m.insert b y)) (Map.getInsert b y m)))
+    else
+      if ha: key = a then
+        rewrite ha in
+        Eq.trans (Eq.trans (Map.getInsertOther b y a ne (m.insert a x)) (Map.getInsert a x m))
+          (Eq.sym (Map.getInsert a x (m.insert b y)))
+      else
+        Eq.trans (Eq.trans (Map.getInsertOther b y key hb (m.insert a x)) (Map.getInsertOther a x key ha m))
+          (Eq.sym (Eq.trans (Map.getInsertOther a x key ha (m.insert b y)) (Map.getInsertOther b y key hb m))))
 
 --| Inserting the value a key already has changes nothing.
 theorem Map.insertGet [auto ord: Ord k] (m: Map k v) (key: k) (value: v) (h: Map.get m key = Some value): Map.insert m key value = m :=
   Map.ext (m.insert key value) m (other =>
-    match ord.eq.decide other key with
-      | Yes e => rewrite e in Eq.trans (Map.getInsert key value m) (Eq.sym h)
-      | No ne => Map.getInsertOther key value other ne m)
+    if e: other = key then rewrite e in Eq.trans (Map.getInsert key value m) (Eq.sym h)
+    else Map.getInsertOther key value other e m)
 
 --| Inserting at a key twice keeps the second value.
 theorem Map.insertInsert [auto ord: Ord k] (key: k) (x: v) (y: v) (m: Map k v):
     (m |> Map.insert key x |> Map.insert key y) = Map.insert m key y :=
   Map.ext ((m.insert key x).insert key y) (m.insert key y) (other =>
-    match ord.eq.decide other key with
-      | Yes e => rewrite e in Eq.trans (Map.getInsert key y (m.insert key x)) (Eq.sym (Map.getInsert key y m))
-      | No ne =>
-        Eq.trans (Map.getInsertOther key y other ne (m.insert key x))
-          (Eq.trans (Map.getInsertOther key x other ne m) (Eq.sym (Map.getInsertOther key y other ne m))))
+    if e: other = key then rewrite e in Eq.trans (Map.getInsert key y (m.insert key x)) (Eq.sym (Map.getInsert key y m))
+    else
+      Eq.trans (Map.getInsertOther key y other e (m.insert key x))
+        (Eq.trans (Map.getInsertOther key x other e m) (Eq.sym (Map.getInsertOther key y other e m))))
 
 --| Removing a key just inserted removes it from the map before.
 theorem Map.removeInsert [auto ord: Ord k] (key: k) (value: v) (m: Map k v):
     (m |> Map.insert key value |> Map.remove key) = Map.remove m key :=
   Map.ext ((m.insert key value).remove key) (m.remove key) (other =>
-    match ord.eq.decide other key with
-      | Yes e => rewrite e in Eq.trans (Map.getRemove (m.insert key value) key) (Eq.sym (Map.getRemove m key))
-      | No ne =>
-        Eq.trans (Map.getRemoveOther (m.insert key value) key other ne)
-          (Eq.trans (Map.getInsertOther key value other ne m) (Eq.sym (Map.getRemoveOther m key other ne))))
+    if e: other = key then rewrite e in Eq.trans (Map.getRemove (m.insert key value) key) (Eq.sym (Map.getRemove m key))
+    else
+      Eq.trans (Map.getRemoveOther (m.insert key value) key other e)
+        (Eq.trans (Map.getInsertOther key value other e m) (Eq.sym (Map.getRemoveOther m key other e))))
 
 -- Induction over maps
 
@@ -1218,9 +1213,8 @@ theorem Map.inductionToList [auto ord: Ord k] [p: Map k v → Prop] (base: p Map
         Eq.trans (Map.getToList m kk) (Eq.trans (Eq.cong (Map.Tree.lookupList kk) h) (Map.Spec.lookupHead kk vv rest))
       let back: Map.insert (Map.remove m kk) kk vv = m :=
         Map.ext ((m.remove kk).insert kk vv) m (other =>
-          match ord.eq.decide other kk with
-            | Yes e => rewrite e in Eq.trans (Map.getInsert kk vv (m.remove kk)) (Eq.sym found)
-            | No ne => Eq.trans (Map.getInsertOther kk vv other ne (m.remove kk)) (Map.getRemoveOther m kk other ne))
+          if e: other = kk then rewrite e in Eq.trans (Map.getInsert kk vv (m.remove kk)) (Eq.sym found)
+          else Eq.trans (Map.getInsertOther kk vv other e (m.remove kk)) (Map.getRemoveOther m kk other e))
       let smaller: Map.toList (Map.remove m kk) = rest :=
         Eq.trans (Map.toListRemove m kk) (Eq.trans (Eq.cong (Map.Spec.remove kk) h) (Map.Spec.removeEqual kk kk vv rest (Ord.compareSelf kk)))
       rewrite Eq.sym back in

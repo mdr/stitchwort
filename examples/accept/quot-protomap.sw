@@ -21,7 +21,7 @@
 --   Greater
 --   0
 
-import Std (Eq, Iff, IO, List, Map, Nat, Ord, Quot, Text)
+import Std (Decidable, Eq, Iff, IO, List, Map, Nat, Ord, Quot, Text)
 import Std.Map.Tree (Tip, Bin)
 
 type ProtoMap (k: Type) (v: Type) [auto ord: Ord k] = { raw: Quot (Map.Raw k v [ord := ord]) Map.Raw.Equiv }
@@ -98,11 +98,11 @@ theorem ProtoMap.ext (m: ProtoMap k v [ord := o]) (n: ProtoMap k v [ord := o])
       (key => Eq.trans (Eq.sym (ProtoMap.getToList m key)) (Eq.trans (h key) (ProtoMap.getToList n key))))
 
 -- `==`: compare the entry lists. The branch is chosen by the list
--- comparison; `Quot.sound` is only inside the `Yes` proof.
+-- comparison; `Quot.sound` is only inside the yes proof.
 def ProtoMap.decEq [auto dv: DecEq v] (m: ProtoMap k v [ord := o]) (n: ProtoMap k v [ord := o]): Decidable (m = n) :=
-  match DecEq.decide (ProtoMap.toList m) (ProtoMap.toList n) with
-    | Yes same => Yes (ProtoMap.toListInjective m n same)
-    | No differ => No (same => differ (Eq.cong ProtoMap.toList same))
+  Decidable.elim (DecEq.decide (ProtoMap.toList m) (ProtoMap.toList n))
+    (same => Decidable.yes (ProtoMap.toListInjective m n same))
+    (differ => Decidable.no (same => differ (Eq.cong ProtoMap.toList same)))
 
 instance ProtoMap.instDecEq [auto dv: DecEq v]: DecEq (ProtoMap k v [ord := o]) := { decide = ProtoMap.decEq }
 

@@ -156,9 +156,9 @@ theorem Set.toListInjective (s t: Set k [ord := o]) (same: Set.toList s = Set.to
 
 --| `==`: compare the keys in order, by the set's ordering.
 def Set.decEq (set: Set k [ord := o]) (other: Set k [ord := o]): Decidable (set = other) :=
-  match List.decEq o.eq.decide (Set.toList set) (Set.toList other) with
-    | Yes same => Yes (Set.toListInjective set other same)
-    | No differ => No (same => differ (Eq.cong Set.toList same))
+  Decidable.elim (List.decEq o.eq.decide (Set.toList set) (Set.toList other))
+    (same => Decidable.yes (Set.toListInjective set other same))
+    (differ => Decidable.no (same => differ (Eq.cong Set.toList same)))
 
 --| `==` on sets: the same keys.
 instance Set.instDecEq: DecEq (Set k [ord := o]) := { decide = Set.decEq }

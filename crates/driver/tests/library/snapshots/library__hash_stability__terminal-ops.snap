@@ -13,18 +13,18 @@ Main.yesNo.eq.ifTrue fef6803361b7d9d6697321f59cbd8a0d551ab231daecbffb04a7ab24da8
 Main.yesNo.eq.ifFalse c088d84037ecb5427c962dbe5759dcf08c41ce2d41dc88643a81f7085d023aff
 Main.main c7ced55e8d8c470650cca6465ecb9ddff1a0940d4c51eb2dd1c5a3ade47c45ec
 Main.transcript 187dc7e5471e584c5f7e556479ac04a72ca580d99b862fab4bc08687f7a735e1
-Main.test "what main does under IO.simulate" f268999fc3a118ede1702ba26b0ec670896f61540a83a9119ef0fdd7a2e3aa5e
-Main.test "with no input, readBytes gives None" e75b72785347e94997da8b92336cdcd64e9355fdefdbb05e3a50ee5ea81cfc56
+Main.test "what main does under IO.simulate" 4fa70fdd1aadda0924fedcefaf5c4ee5904d18db9029c26895871a282d5ea6e9
+Main.test "with no input, readBytes gives None" bf3a93fefe5058f80ffd0ca4fee2819725eabe858f06f3e11edb5a759b8f76f3
 Main.console fc21b3f57c8188e915e2ba24c5c6deba2c542470c2fda3e8053311fdb7dbce6a
 Main.test "console: no terminals, size unknown" a2ca4f0cfd3cc1e8663dd6c96d73bb5cd9141f9cfab90462ded1841dd3eff937
 Main.keysThenRead 531582e5d65470f8795be305f0283d3a772578668b84898909797036614d1d29
-Main.test "keysMode does nothing" 02dd53411eb1de6e84ca35c0aee70ea697025733f837a1e61f649fb78a7787fd
+Main.test "keysMode does nothing" 3b2b6fe1c472bba84d36681f48b59207aa50be47f2cfedaedc98f9c49b374fa2
 Main.bytesThenLine 63c358b85249d866c2b0ff0ea84be50bb347521fb0fb1c4818d36d8ba96b56e6
-Main.test "readBytes takes the rest of the input, each line ending in LF" ec04730e6a4e5e1cc7d44e6552e181bc399831006f61e245590de40eb660aa4b
+Main.test "readBytes takes the rest of the input, each line ending in LF" 5874461029d861a567a96eea6e8a5a5470684a2897740af2a641e18d98f44354
 Main.lineThenBytes 34854be569138829c32fd93096479b1b6e72bccade6c0d3cb24b28ced0bed380
-Main.test "readBytes after readLine takes what's left" c61ecbd0d45fc8dc492a45949c8e8d831e44fe370b6628410cb713245d28fd97
-Main.test "readBytes at the end is None" 716e9e7e0637f907f0e5cccd7de9f296e9d0b191c91ac027b9a90cd288cb7f9d
+Main.test "readBytes after readLine takes what's left" 66615956c34ee9c4e0934f121e059957a1cc5244d53589ec286ed162806597d9
+Main.test "readBytes at the end is None" e6cb93f3187ced69c422bb9da1e8ba03d7772da66cc300683f2f51d58c966b6a
 Main.writes c8a28ea4b8237f6232922858124d1d1d168e7c924957554ed0d9e337256f0d49
-Main.test "write records one payload each, in order with print" 04a338963c5e57f5ebc125154259d0f633502badae00958e23ff4a307248e73d
-Main.test "UTF-8 of one to four bytes" 8c680bccf0d0f82cf08fce2d28dbfd96815776216f81757542bfc49517b40c61
-Main.test "UTF-8 at the edges of each length" 407a952b9a277809ab8d612174076b9f117657bfe8dacce7276ce328ccdab570
+Main.test "write records one payload each, in order with print" 30112681fc3aff9cb860538f37072025727dafec48313faae21f48a41673a207
+Main.test "UTF-8 of one to four bytes" c71968fe359c58820bceb9c4f5cd317470df3c0b852184cd3810e5c7ed1ea7a6
+Main.test "UTF-8 at the edges of each length" b77e945dbb713f4614b4df4a658632f42f63e6a35dff5ba4a2c6bb7222281307

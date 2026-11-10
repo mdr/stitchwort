@@ -17,6 +17,15 @@ theorem Decidable.toBoolFalse: ∀ [p: Prop] (d: Decidable p) => Decidable.toBoo
   | Yes h, e, x => cases
   | No r, e, x => r x
 
+--| What a decision's `Bool` says when it is `True`: the proof of `p`.
+theorem Decidable.sound [p: Prop] (d: Decidable p) (e: Decidable.does d = True): p := Decidable.toBoolSound d e
+
+--| What a decision's `Bool` says when it is `False`: `p` is refuted. Splitting
+--| on the test (`match h: x < y with | True => … | False => …`) and then
+--| calling [`Decidable.sound`] or this on its equation `h` is how a proof gets
+--| the evidence a `match` on the decision would have bound.
+theorem Decidable.refute [p: Prop] (d: Decidable p) (e: Decidable.does d = False): ¬p := Decidable.toBoolFalse d e
+
 theorem Decidable.toBoolOf [p: Prop] (d: Decidable p) (x: p): Decidable.toBool d = True :=
   match d with
     | Yes h => rfl

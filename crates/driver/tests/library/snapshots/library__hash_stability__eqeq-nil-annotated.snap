@@ -2,6 +2,6 @@
 source: crates/driver/tests/library/hash_stability.rs
 expression: "lines(session, d, f)"
 ---
-Main.test "annotated nil" a7c53725c5a2753f03701961ea1fb6c1b4c1620a31cafa8d646da35b925fa536
-Main.test "annotated brackets" c00dc2769ba45fed7147b5f88e4733b0e25b9a5e41108b81aeaed6fe5aaa060d
-Main.test "unannotated, from the other side" b9757ac2ce99107a0618d5b2ba34dfb03bbf94442cc2dc2c71c7577eecbd3e99
+Main.test "annotated nil" 50e48973bdd0cba6fb279695485745e135f293a082c97e5767cdce44cf511e37
+Main.test "annotated brackets" 033bb2b7bac1283a337232dfa7f21375c0410906f65330dc2c8ba6ca5ec6b7e8
+Main.test "unannotated, from the other side" 902245b854f6930a1a8d6c8f26c64c99d9e1317d5b433a9273e4a2866e5dd87c

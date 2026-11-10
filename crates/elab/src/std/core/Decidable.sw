@@ -28,6 +28,20 @@ def Decidable.toBool: [p: Prop] → (d: Decidable p) → Bool
   | Yes h => True
   | No r => False
 
+--| The decision that `p` holds, from a proof of it. Write `Decidable.yes h`
+--| rather than the constructor: the type of a decision is going to change, and
+--| this and [`Decidable.no`] are then the only things to change.
+def Decidable.yes [p: Prop] (h: p): Decidable p := Yes h
+
+--| The decision that `p` is false, from a refutation of it: [`Decidable.yes`]'s
+--| partner.
+def Decidable.no [p: Prop] (r: ¬p): Decidable p := No r
+
+--| The `Bool` a decision stands for: `True` when it says yes. A `==`, a plain
+--| `if` and `&&` on a decidable proposition are this `Bool`. Its facts are
+--| [`Decidable.sound`], [`Decidable.refute`] and [`Decidable.toBoolOf`].
+def Decidable.does [p: Prop] (d: Decidable p): Bool := Decidable.toBool d
+
 --| `yes` of the proof if the decision is `Yes`, `no` of the refutation if it is `No`: what `if h: p then a else b` means.
 def Decidable.elim: [p: Prop] → [a: Type] → (d: Decidable p) → (ifYes: p → a) → (ifNo: ¬p → a) → a
   | Yes h, yes, no => yes h

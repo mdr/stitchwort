@@ -1,5 +1,5 @@
 ---
-source: crates/driver/tests/hash_stability.rs
+source: crates/driver/tests/library/hash_stability.rs
 expression: "lines(session, d, f)"
 ---
 data Main.Item 482efb4cd1895700d405f3aeb2037298fae0897ff5456f851a38cd15f4ba305b
@@ -11,11 +11,11 @@ Main.Item.%decEq 7c187484f88cdade181bda6ade280b109f6dd78bb8f13cd98f4f8e456d38208
 Main.Item.%instDecEq aa6b430a01106079bb568961a62a3e895ddf442cdbee428eacc6e78fbf077869
 Main.Item.%show e1059e7094ffa52eab41a9f93ae60719c77425924743581eed343bbc36a8e76f
 Main.Item.%instShow 146c605eadebb355064210f1b9d237dc321524a5f44fd91977f1f4c872f85b54
-Main.Item.%compare a07bee9a66c7478c38f631305abb3ab46b5ec69ff525be57deff5d1ed3b6d835
-Main.Item.%equal c97497c78864c684c963cc8ad876eba76ca8f2026cc1d25df8cf7189dcc2d577
-Main.Item.%flip 20448ba4df9649620c8da9b6ab6b1010012a7157d45bb3fa5028352ef63bd49b
-Main.Item.%trans 0e7e0e9b79c3ed9c1ef1b6630692c94ff6c0d75acc5ae099a4d8c7825894231d
-Main.Item.%instOrd f40bc03ffc1f29fadd989cc3509961a464eae38a2cdb01469794dc5e5b7a8f2a
+Main.Item.%compare 492f61673dac918222f2ffc7b8c00ff66ffdb8b4fc4c7ccceba36369460e8336
+Main.Item.%equal 22183ab225118ad37293dd381873efa5742302a5338fc6222e01e00f70f79a1e
+Main.Item.%flip 08112c8e61dc3a64a8255908c9b66814810ff025d3083aa6bc6f8c854ac8d241
+Main.Item.%trans b8702c860623a4eab018ee4a8ffb62bdfb08f24b5525fa2a16ab277575178fbc
+Main.Item.%instOrd a9e25ecbb4221e2d907d47818250a6e06aac20a1babd291d3b07855dcd15006b
 Main.Item.%%mk%F%0 0627ca4522fc06fbd14c0b0a848f1e526f48f0c36bbba689930072acbf254746
 Main.Item.%part%0 95e99b8ae1b9d0efa92b63a47ee2e4ced726a258cee540f3880746f922b3d2cb
 Main.Item.%all cf88153cbb93c6f9d104122cdefd4a039e35019d03ec036a4cafa8fbb6516015

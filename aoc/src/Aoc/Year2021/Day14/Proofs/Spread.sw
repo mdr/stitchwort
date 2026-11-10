@@ -14,11 +14,10 @@ theorem sumByPositive (f: a → Nat) (xs: List a) (positive: 0 < xs.sumBy f): �
   match xs with
     | [] => Void.exfalso omega
     | [x, ..rest] =>
-      match Nat.decLessThan 0 (f x) with
-        | Yes h => Witness x (Both (Inl rfl) h)
-        | No h =>
-          match sumByPositive f rest (omega [List.sumByCons rest x f]) with
-            | Witness y (Both member gives) => Witness y (Both (Inr member) gives)
+      if h: 0 < f x then Witness x (Both (Inl rfl) h)
+      else
+        match sumByPositive f rest (omega [List.sumByCons rest x f]) with
+          | Witness y (Both member gives) => Witness y (Both (Inr member) gives)
 
 --| An element after the first ends a pair.
 theorem memAfterFirst (c: Char) (a: Char) (rest: List Char) (h: c ∈ rest): ∃ (pair: ElementPair) => pair ∈ pairsOf [a, ..rest] ∧ pair.second = c :=
