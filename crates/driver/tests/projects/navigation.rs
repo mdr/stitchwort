@@ -590,3 +590,53 @@ fn a_declared_lowercase_name_in_a_signature_is_not_a_variable() {
         found.len()
     );
 }
+
+/// Every name in a rewrite list refers to its own declaration, whatever its
+/// position, direction or `in` target (SW-2586): a term the rewrite
+/// generates (the closing `rfl`) must not take a written name's place.
+#[test]
+fn every_name_in_a_rewrite_list() {
+    let source = "import Std (Nat)\n\n\
+                  type Item = { price: Nat }\n\n\
+                  def totalOf: List Item -> Nat\n  \
+                    | [] => 0\n  \
+                    | [item, ..rest] => item.price + totalOf rest\n\n\
+                  theorem totalAppend (others: List Item): (items: List Item) -> totalOf (items ++ others) = totalOf items + totalOf others\n  \
+                    | [] => rfl\n  \
+                    | [item, ..rest] => rewrite totalAppend others rest, Nat.addAssoc\n\n\
+                  theorem forward (a b c d: Nat): ((a + b) + c) + d = a + (b + (c + d)) :=\n  \
+                    rewrite Nat.addAssoc a b c, Nat.addAssoc a (b + c) d, Nat.addAssoc b c d\n\n\
+                  theorem mixed (a b c: Nat): (a + b) + c = a + (b + c) :=\n  \
+                    rewrite Nat.addComm a b, Nat.addComm b a, Nat.addAssoc a b c\n\n\
+                  theorem back (a b c d: Nat): a + (b + (c + d)) = ((a + b) + c) + d :=\n  \
+                    rewrite <- Nat.addAssoc b c d, <- Nat.addAssoc a (b + c) d, <- Nat.addAssoc a b c\n\n\
+                  theorem within (a b c: Nat) (h: (a + b) + c = 0): a + (b + c) = 0 :=\n  \
+                    rewrite <- Nat.addAssoc a b c in h\n\n\
+                  theorem at_h (a b c: Nat) (h: a + (b + c) = 0): (a + b) + c = 0 :=\n  \
+                    rewrite <- Nat.addAssoc a b c at h in h\n";
+    let mut session = Session::navigable();
+    session.load("one.sw", source).expect("checks");
+    let index = index_of(&session);
+    let all = lines(&session, &index, "one.sw");
+    let mut checked = 0;
+    for name in ["Nat.addAssoc", "Nat.addComm"] {
+        for (at, _) in source.match_indices(name) {
+            let found: Vec<_> = index
+                .refs
+                .iter()
+                .filter(|r| {
+                    r.span.file.index() == session.elab.std_file_count()
+                        && r.span.start as usize == at
+                })
+                .collect();
+            assert!(
+                matches!(found.as_slice(), [r] if matches!(&r.target,
+                    NavTarget::Symbol(i) if index.symbols[*i].name.ends_with(name))),
+                "`{name}` at {at}: {} references in\n{all}",
+                found.len()
+            );
+            checked += 1;
+        }
+    }
+    assert_eq!(checked, 12);
+}
