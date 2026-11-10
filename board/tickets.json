@@ -28117,7 +28117,7 @@
       "where": ".claude/worktrees/scratch-sw-2697",
       "labels": [],
       "epic": "syntax-language",
-      "body": "From SW-2692 (10 Nov 2026), docs/proposals/bool-and-prop.md.\nSW-2704: 396 such arms (falseNotTrue/trueNotFalse) look closable by cases or () today, no language change; one checked.",
+      "body": "From SW-2692 (10 Nov 2026), docs/proposals/bool-and-prop.md.\nSW-2704: 396 such arms (falseNotTrue/trueNotFalse) look closable by cases or () today, no language change; one checked.\n10 Nov 2026, DeepSeek run 1 (std only): 201 of 231 converted to cases; () gives E-TYPE-MISMATCH here. 30 left, where the Bool equation comes from a lemma or rewrite, not a named hypothesis (listed in the run's report, scratchpad sw2697.log). 9 pins repinned (hash values only), proofless hashes all held, std audit time unchanged (11.3 s, measured). Remaining: aoc, rogue, examples; the 30.\nModel result: DeepSeek v4.1 Flash, worked, ~40 min (est. 45).",
       "created": "2026-11-10",
       "updated": "2026-11-10",
       "commits": []
@@ -28345,12 +28345,12 @@
     {
       "id": 2714,
       "title": "bool-and-prop.md §7.5: Lean 4 shows 'b = true', not 'b' (Lean 3 showed ↑b): correct the note",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": ".claude/worktrees/scratch-sw-2714",
       "labels": [],
       "epic": "syntax-language",
-      "body": "From SW-2704 (10 Nov 2026). One-line doc fix (DeepSeek).",
+      "body": "From SW-2704 (10 Nov 2026). One-line doc fix (DeepSeek).\nModel result: DeepSeek v4.1 Flash, worked, ~5 min (est. 15).",
       "created": "2026-11-10",
       "updated": "2026-11-10",
       "commits": []
