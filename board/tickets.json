@@ -22094,16 +22094,16 @@
     {
       "id": 2300,
       "title": "[Opus] Slow failure: examples/accept/reads-nested-binds.sw with one line of p12 duplicated ('let x2 := nat()') takes 89 s to fail with E-TYPE-MISMATCH (the example itself checks in 10 s); likely the SW-1226 per-level doubling back on the failing path",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "perf"
       ],
       "epic": "elaborator-kernel",
-      "body": "Overmind job 12 (ab5c237ed), fuzz:elab seed 0x6 case 1983, oracle 4 (budget), rng 0x7782aecdf2b3cfff; saved on Overmind at target/fuzz-elab/6-1983.sw. Repro: in p12, after 'let x2 := nat()' add a second 'let x2 := nat()'; leave reads12's nested Parse.readsBind proof. Job 1's case 558 came from the same file, so possibly longstanding, not SW-2269. Step 1 (20 min): time on 0fa08fe74 vs main; profile where the failing path spends its time.\n\nOvermind job 14 (047d1fb66 and 0fa08fe74, quiet, memguard 4 GB): longstanding, not today's. Mutant 92.4 s / 90.3 s; example 10.8 / 10.3 s (flat at every size; that it is library load is inferred, not measured). Before/after SW-1226 (f7663539f) with that era's example plus the duplicated line: passing path 35.8 -> 5.7 s, failing path 61.8 -> 59.2 s: SW-1226 fixed only the passing path. Scaling on 047d1fb66, extra time over the 10.8 s baseline by steps: 4: 0, 6: 0.5, 8: 4.1, 10: 17.8, 12: 80.1 s, about 2.1x per step: per-level doubling on the failing path. Not profiled. Generated inputs on Overmind: soak14/adapt in its scratchpad.",
+      "body": "Overmind job 12 (ab5c237ed), fuzz:elab seed 0x6 case 1983, oracle 4 (budget), rng 0x7782aecdf2b3cfff; saved on Overmind at target/fuzz-elab/6-1983.sw. Repro: in p12, after 'let x2 := nat()' add a second 'let x2 := nat()'; leave reads12's nested Parse.readsBind proof. Job 1's case 558 came from the same file, so possibly longstanding, not SW-2269. Step 1 (20 min): time on 0fa08fe74 vs main; profile where the failing path spends its time.\n\nOvermind job 14 (047d1fb66 and 0fa08fe74, quiet, memguard 4 GB): longstanding, not today's. Mutant 92.4 s / 90.3 s; example 10.8 / 10.3 s (flat at every size; that it is library load is inferred, not measured). Before/after SW-1226 (f7663539f) with that era's example plus the duplicated line: passing path 35.8 -> 5.7 s, failing path 61.8 -> 59.2 s: SW-1226 fixed only the passing path. Scaling on 047d1fb66, extra time over the 10.8 s baseline by steps: 4: 0, 6: 0.5, 8: 4.1, 10: 17.8, 12: 80.1 s, about 2.1x per step: per-level doubling on the failing path. Not profiled. Generated inputs on Overmind: soak14/adapt in its scratchpad.\nClosed 10 Nov 2026: fixed by SW-2638 (same per-level doubling on the failing path).",
       "created": "2026-11-07",
-      "updated": "2026-11-07",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -27259,7 +27259,7 @@
     {
       "id": 2638,
       "title": "[Sonnet] fuzz_elab oracle 4 (budget): case 2799, seed 0x25a5 (rng state 0x3e8ba53b9a08146c, from examples/accept/reads-nested-binds.sw) still running after 60 s; reduce, find where it spins, make it finish or fail with a budget error",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2638",
       "labels": [
@@ -27267,7 +27267,7 @@
         "fuzz"
       ],
       "epic": "audit-fuzzing",
-      "body": "Found by Overmind, fuzz_elab CASES=12000 seed 0x25a5, 10 Nov 2026 (2572 s run). Input on Overmind: target/fuzz-elab/25a5-2799.sw (regenerate with the seed and case, or ask Overmind for the file). Est. 60 min.\n\nLane notes (Sonnet, 10 Nov 2026): cause confirmed, the same as SW-2300 (a duplicate). After the conclusion-first propagation by `_`s fails, `propagate` elaborates the application again with `no_hole_propagation`; there each late-able lambda (`apply_args_postponing`) is tried in place and, on failure, again after the expected type, so n nested lambdas cost 2^n. Fix: inside an in-place trial of an outer lambda in that mode (`in_place_trial`), a nested lambda waits for the expected type at once. Reproducer 51 s -> 1.5 s (reduced example: examples/reject/reads-nested-binds-unknown-field.sw); the 12-bind original 27 s -> 1.35 s. Growth is now polynomial, not exponential. Accept-side examples, hash and elab lane tests unchanged.\n",
+      "body": "Found by Overmind, fuzz_elab CASES=12000 seed 0x25a5, 10 Nov 2026 (2572 s run). Input on Overmind: target/fuzz-elab/25a5-2799.sw (regenerate with the seed and case, or ask Overmind for the file). Est. 60 min.\n\nLane notes (Sonnet, 10 Nov 2026): cause confirmed, the same as SW-2300 (a duplicate). After the conclusion-first propagation by `_`s fails, `propagate` elaborates the application again with `no_hole_propagation`; there each late-able lambda (`apply_args_postponing`) is tried in place and, on failure, again after the expected type, so n nested lambdas cost 2^n. Fix: inside an in-place trial of an outer lambda in that mode (`in_place_trial`), a nested lambda waits for the expected type at once. Reproducer 51 s -> 1.5 s (reduced example: examples/reject/reads-nested-binds-unknown-field.sw); the 12-bind original 27 s -> 1.35 s. Growth is now polynomial, not exponential. Accept-side examples, hash and elab lane tests unchanged.\nDone (10 Nov): in_place_trial in apply_args_postponing; repro 27.3 s -> 1.35 s; examples/reject/reads-nested-binds-unknown-field.sw. Same bug as SW-2300 (closed with it). Whole-AoC coverage from Overmind's daily on the next head.\nModel result: Sonnet, worked, ~25 min (est. 60).",
       "created": "2026-11-10",
       "updated": "2026-11-10",
       "commits": []
