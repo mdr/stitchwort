@@ -2895,6 +2895,12 @@ pub fn quote_shown(g: &Ev, level: usize, value: &Value) -> Result<Term> {
     Ok(quote_as(g, level, value, Readback::Shown, None, None)?.expect("no cap"))
 }
 
+/// [`quote_shown`], or `None` if reading it back visits more than `cap`
+/// nodes: for a note in a message (SW-2600).
+pub fn quote_shown_at_most(g: &Ev, level: usize, value: &Value, cap: u64) -> Result<Option<Term>> {
+    quote_as(g, level, value, Readback::Shown, Some(cap), None)
+}
+
 /// [`quote`] for display: the normal form, but a sum stuck on an unknown is
 /// written `x + k` ([`native::nat_add_shown`], SW-895). For printing only.
 pub fn quote_unfolded_shown(g: &Ev, level: usize, value: &Value) -> Result<Term> {
