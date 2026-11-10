@@ -1,5 +1,5 @@
 {
-  "next": 2604,
+  "next": 2606,
   "tickets": [
     {
       "id": 47,
@@ -26556,7 +26556,34 @@
       "agent": "Opus",
       "where": "",
       "labels": [],
+      "epic": "performance",
       "body": "From SW-2572's report, 10 Nov.",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
+    },
+    {
+      "id": 2604,
+      "title": "Budget: walking a chain of Succs and forcing a call's kept unfolding take no budget steps, so the step budget doesn't bound time (why SW-2570 needed a wall-clock deadline); charge steps there",
+      "status": "backlog",
+      "agent": "Opus",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "From SW-2572's Opus review (F5), 10 Nov. Kernel evaluation, so Opus and a review.",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
+    },
+    {
+      "id": 2605,
+      "title": "effect_differential::a_batch_the_checker_cannot_finish_stops_at_the_deadline depends on seed 1794200310 checking slowly (now ~4 s vs a 1 s deadline); give it an input that is slow by construction",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
+      "body": "From SW-2572's Opus review (F6), 10 Nov. Small.",
       "created": "2026-11-10",
       "updated": "2026-11-10",
       "commits": []
