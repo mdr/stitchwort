@@ -26111,14 +26111,14 @@
     {
       "id": 2572,
       "title": "Checker blows up on effect-fuzzer programs: chains of pure Nat defs with lets, if on % 2 and Fail.toOption (() => next ...), variables reused many times; seed 1794200310 checks for >10 min (also 1794200346, 1794201674, 1794200163, 43). About 1 batch in 1000. Profile and fix (elaborator or kernel)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Opus",
-      "where": "",
+      "where": ".claude/worktrees/SW-2572",
       "labels": [],
       "epic": "elaborator-kernel",
       "body": "From SW-2570. Repro: STITCHWORT_EFFECT_FUZZ_SEED=1794200310 STITCHWORT_EFFECT_FUZZ_BATCHES=1 cargo test --release -p stitchwort-cli --test extraction effect_differential::generated -- --nocapture (dump the module). Possibly exponential evaluation of open Nat terms. Profile first. 120 min.",
       "created": "2026-11-09",
-      "updated": "2026-11-09",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
