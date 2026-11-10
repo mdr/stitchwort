@@ -27596,7 +27596,7 @@
     {
       "id": 2660,
       "title": "[Fable] Design note: term size and sharing in the unifier and the checker (D3464's 10M-node limit, SW-2418, SW-2639's decreasing chain, fuzz memory runaways): what the end state should be",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": ".claude/worktrees/SW-2660",
       "labels": [
@@ -27604,7 +27604,7 @@
         "design"
       ],
       "epic": "elaborator-kernel",
-      "body": "D3473 (Matt, 10 Nov 2026): yes to two Fable paper lanes; the record-eta review proposed as the second was already done (SW-2068, sound), so the orchestrator chose the size/sharing design question instead. Output docs/proposals/term-sharing.md. Est. 120 min.",
+      "body": "D3473 (Matt, 10 Nov 2026): yes to two Fable paper lanes; the record-eta review proposed as the second was already done (SW-2068, sound), so the orchestrator chose the size/sharing design question instead. Output docs/proposals/term-sharing.md. Est. 120 min.\n\nLane (Fable, 10 Nov 2026, started 10:31 UTC, about 35 min, est. 120): docs/proposals/term-sharing.md. Paper lane: nothing built; probes with the release CLI of main (binary 09:47, includes SW-2600).\n- Incidents grouped by what grew: a shared value written as a tree (3 of about 15), numbers unfolded to Succ chains, per-level retention in deep recursion, large unfolded goals. Sharing in terms fixes only the first group.\n- Measured: all of std (4,573 declarations), seven AoC proof namespaces and Rogue.Proofs under STITCHWORT_TIMINGS=decls: most steps in one declaration 9.77M (limit 10^10), largest term 105,898 nodes (limit 10M per read-back), whole-run peak 323 MB. Reaching the 10M limit costs 1.32 to 2.23 GB.\n- Recommendation: keep terms as trees; lower the read-back limit to 1M (D3464); a per-check memory budget at the allocator as a backstop (the fuzzers' heap_cap.rs, made a product limit); carry on with bounded read-back; no DAG terms, hash-consing or Merkle hash now.\n- Three questions for Matt in §7 (D3464 and two for the orchestrator to number). Question 2 disagrees with SW-2639's review, which rejects a memory cap; the note says why.\n- Findings to file (§8): a wrong rfl between shared values still reads a note back to the 10M limit (4.3 s, 1.31 GB); a true rfl between two differently built shared values takes 6 x 2^n conversion steps; no counter for the largest read-back or deepest frames per declaration.\n- Not done: no whole-AoC run (test budget); the largest single read-back and frame depth in real checks are not measured; docs/proposals/README.md's index not updated.\n",
       "created": "2026-11-10",
       "updated": "2026-11-10",
       "commits": []
