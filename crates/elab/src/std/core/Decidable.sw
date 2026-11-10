@@ -157,10 +157,11 @@ def Bool.canon: [x y: Bool] → (dec: Decidable (x = y)) → (h: x = y) → x = 
   | Yes e, p => e
   | No r, p => Void.exfalso (r p)
 
-theorem Bool.canonConst: ∀ [x y: Bool] (d: Decidable (x = y)) (p q: x = y) =>
-    Bool.canon d p = Bool.canon d q
-  | Yes e, p, q => rfl
-  | No r, p, q => Void.exfalso (r p)
+theorem Bool.canonConst [x y: Bool] (d: Decidable (x = y)) (p q: x = y):
+    Bool.canon d p = Bool.canon d q :=
+  match d with
+    | Yes e => rfl
+    | No r => Void.exfalso (r p)
 
 theorem Bool.symThenSelf [x y: Bool] (q: x = y): rfl = Eq.trans (Eq.sym q) q := J (y' q' => rfl = Eq.trans (Eq.sym q') q') rfl q
 

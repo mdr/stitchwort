@@ -67,10 +67,11 @@ def Text.less (a: Text) (b: Text): Bool := Ordering.isLess (Text.compare a b)
 def Text.joinPair (separator: Char): (state: Pair (List Char) (List (List Char))) → List Char
   | MkPair field fields => Text.joinChars separator field fields
 
-theorem Text.joinCons (s: Char) (c: Char) (f: List Char): ∀ (fs: List (List Char)) =>
-    Text.joinChars s [c, ..f] fs = [c, ..Text.joinChars s f fs]
-  | [] => rfl
-  | [g, ..gs] => rfl
+theorem Text.joinCons (s: Char) (c: Char) (f: List Char) (fs: List (List Char)):
+    Text.joinChars s [c, ..f] fs = [c, ..Text.joinChars s f fs] :=
+  match fs with
+    | [] => rfl
+    | [g, ..gs] => rfl
 
 theorem Text.joinSplitCons (s: Char) (c: Char) (cs: List Char):
     ∀ (p: Pair (List Char) (List (List Char))) => Text.joinPair s p = cs →
@@ -80,22 +81,26 @@ theorem Text.joinSplitCons (s: Char) (c: Char) (cs: List Char):
   | MkPair f fs, h, No r =>
     Eq.trans (Text.joinCons s c f fs) (Eq.cong (Cons c) h)
 
-theorem Text.joinSplitChars (s: Char): ∀ (cs: List Char) => Text.joinPair s (Text.splitChars s cs) = cs
-  | [] => rfl
-  | [c, ..cs] =>
-    Text.joinSplitCons s c cs (Text.splitChars s cs) (Text.joinSplitChars s cs) (Char.decEq c s)
+theorem Text.joinSplitChars (s: Char) (cs: List Char): Text.joinPair s (Text.splitChars s cs) = cs :=
+  match cs with
+    | [] => rfl
+    | [c, ..cs] =>
+      Text.joinSplitCons s c cs (Text.splitChars s cs) (Text.joinSplitChars s cs) (Char.decEq c s)
 
-theorem Text.charListsOfTexts: ∀ (fs: List (List Char)) => Text.charListsOf (Text.textsOf fs) = fs
-  | [] => rfl
-  | [f, ..fs] => Eq.cong (Cons f) (Text.charListsOfTexts fs)
+theorem Text.charListsOfTexts (fs: List (List Char)): Text.charListsOf (Text.textsOf fs) = fs :=
+  match fs with
+    | [] => rfl
+    | [f, ..fs] => Eq.cong (Cons f) (Text.charListsOfTexts fs)
 
-theorem Text.joinSplitTexts (s: Char): ∀ (p: Pair (List Char) (List (List Char))) =>
-    Text.join (Text.splitTexts p) s = MkText (Text.joinPair s p)
-  | MkPair f fs => Eq.cong (l => MkText (Text.joinChars s f l)) (Text.charListsOfTexts fs)
+theorem Text.joinSplitTexts (s: Char) (p: Pair (List Char) (List (List Char))):
+    Text.join (Text.splitTexts p) s = MkText (Text.joinPair s p) :=
+  match p with
+    | MkPair f fs => Eq.cong (l => MkText (Text.joinChars s f l)) (Text.charListsOfTexts fs)
 
-theorem Text.joinSplit: ∀ (t: Text) (s: Char) => Text.join (Text.split t s) s = t
-  | MkText cs, s =>
-    Eq.trans (Text.joinSplitTexts s (Text.splitChars s cs)) (Eq.cong MkText (Text.joinSplitChars s cs))
+theorem Text.joinSplit (t: Text) (s: Char): Text.join (Text.split t s) s = t :=
+  match t with
+    | MkText cs =>
+      Eq.trans (Text.joinSplitTexts s (Text.splitChars s cs)) (Eq.cong MkText (Text.joinSplitChars s cs))
 
 -- Lines
 
@@ -150,19 +155,20 @@ theorem Text.linesCarriageReturnExample: "a\r\nb\r".lines = ["a", "b\r"] := rfl
 theorem Text.linesFinalBreaksExample: "a\n\r\n".lines = ["a", ""] ∧ "a\n\r".lines = ["a", "\r"] := Both rfl rfl
 
 --| `Char.isLineFeedCode` holds of the code 10 only.
-theorem Char.lineFeedCodeIs: ∀ (code: Nat) => Char.isLineFeedCode code = True → code = 10
-  | 0, h => Void.exfalso (Bool.falseNotTrue h)
-  | 1, h => Void.exfalso (Bool.falseNotTrue h)
-  | 2, h => Void.exfalso (Bool.falseNotTrue h)
-  | 3, h => Void.exfalso (Bool.falseNotTrue h)
-  | 4, h => Void.exfalso (Bool.falseNotTrue h)
-  | 5, h => Void.exfalso (Bool.falseNotTrue h)
-  | 6, h => Void.exfalso (Bool.falseNotTrue h)
-  | 7, h => Void.exfalso (Bool.falseNotTrue h)
-  | 8, h => Void.exfalso (Bool.falseNotTrue h)
-  | 9, h => Void.exfalso (Bool.falseNotTrue h)
-  | 10, h => rfl
-  | Succ (Succ (Succ (Succ (Succ (Succ (Succ (Succ (Succ (Succ (Succ m)))))))))), h => Void.exfalso (Bool.falseNotTrue h)
+theorem Char.lineFeedCodeIs (code: Nat) (h: Char.isLineFeedCode code = True): code = 10 :=
+  match code with
+    | 0 => Void.exfalso (Bool.falseNotTrue h)
+    | 1 => Void.exfalso (Bool.falseNotTrue h)
+    | 2 => Void.exfalso (Bool.falseNotTrue h)
+    | 3 => Void.exfalso (Bool.falseNotTrue h)
+    | 4 => Void.exfalso (Bool.falseNotTrue h)
+    | 5 => Void.exfalso (Bool.falseNotTrue h)
+    | 6 => Void.exfalso (Bool.falseNotTrue h)
+    | 7 => Void.exfalso (Bool.falseNotTrue h)
+    | 8 => Void.exfalso (Bool.falseNotTrue h)
+    | 9 => Void.exfalso (Bool.falseNotTrue h)
+    | 10 => rfl
+    | Succ (Succ (Succ (Succ (Succ (Succ (Succ (Succ (Succ (Succ (Succ m)))))))))) => Void.exfalso (Bool.falseNotTrue h)
 
 --| A space or a tab is neither a line feed nor a carriage return.
 theorem Text.spaceTabPlain (char: Char) (h: (char == ' ' ∨ char == '\t') = True):
@@ -265,14 +271,16 @@ def Text.unlinesChars: (lines: List Text) → List Char
   | [] => []
   | [line, ..lines] => Text.toList line ++ ['\n'] ++ Text.unlinesChars lines
 
-theorem Text.unlinesAppend: ∀ (xs ys: List Text) => Text.unlinesChars (xs ++ ys) = Text.unlinesChars xs ++ Text.unlinesChars ys
-  | [], ys => rfl
-  | [x, ..xs], ys =>
-    Eq.trans (Eq.cong (l => Text.toList x ++ ['\n', ..l]) (Text.unlinesAppend xs ys)) (Eq.sym (List.appendAssoc (Text.toList x) ['\n', ..Text.unlinesChars xs] (Text.unlinesChars ys)))
+theorem Text.unlinesAppend (xs ys: List Text): Text.unlinesChars (xs ++ ys) = Text.unlinesChars xs ++ Text.unlinesChars ys :=
+  match xs with
+    | [] => rfl
+    | [x, ..xs] =>
+      Eq.trans (Eq.cong (l => Text.toList x ++ ['\n', ..l]) (Text.unlinesAppend xs ys)) (Eq.sym (List.appendAssoc (Text.toList x) ['\n', ..Text.unlinesChars xs] (Text.unlinesChars ys)))
 
-theorem Text.endLineNoReturn: ∀ (line: List Char) => List.All (c => Char.isCarriageReturnCode (Char.toNat c) = False) line → Text.endLine line = MkText (List.reverseOnto line [])
-  | [], none => rfl
-  | [char, ..chars], Both notReturn others => rewrite notReturn in rfl
+theorem Text.endLineNoReturn (line: List Char) (none: List.All (c => Char.isCarriageReturnCode (Char.toNat c) = False) line): Text.endLine line = MkText (List.reverseOnto line []) :=
+  match line, none with
+    | [], none => rfl
+    | [char, ..chars], Both notReturn others => rewrite notReturn in rfl
 
 theorem Text.unlinesFrom: ∀ (front: List Char) => List.All (c => Char.isCarriageReturnCode (Char.toNat c) = False) front →
     ∀ (line: List Char) => List.All (c => Char.isCarriageReturnCode (Char.toNat c) = False) line →
@@ -395,12 +403,13 @@ def Text.splitOn (text: Text) (sep: Text): List Text := Text.splitOnChars sep.to
 
 theorem Text.sameCharRefl (c: Char): Text.sameChar c c = True := Nat.equalRefl (Char.toNat c)
 
-theorem Text.stripPrefixCharsAppend (t: List Char): ∀ (p: List Char) =>
-    Text.stripPrefixChars p (List.append p t) = Some t
-  | [] => rfl
-  | [c, ..ps] =>
-    Eq.trans (Eq.cong (b => if b then Text.stripPrefixChars ps (List.append ps t) else None) (Text.sameCharRefl c))
-      (Text.stripPrefixCharsAppend t ps)
+theorem Text.stripPrefixCharsAppend (t: List Char) (p: List Char):
+    Text.stripPrefixChars p (List.append p t) = Some t :=
+  match p with
+    | [] => rfl
+    | [c, ..ps] =>
+      Eq.trans (Eq.cong (b => if b then Text.stripPrefixChars ps (List.append ps t) else None) (Text.sameCharRefl c))
+        (Text.stripPrefixCharsAppend t ps)
 
 theorem Text.stripPrefixAppend (p: Text) (t: Text): Text.stripPrefix (Text.append p t) p = Some t :=
   Eq.trans (Eq.cong (.map Text.fromList) (Text.stripPrefixCharsAppend (Text.toList t) (Text.toList p)))
@@ -523,20 +532,22 @@ theorem Text.stripSuffixDrop (text: Text) (suffix: Text):
             (rewrite (Text.stripSuffixSome text suffix rest).forward found in
               Text.ext _ _ (List.dropAppendLength (Text.toList rest) (Text.toList suffix) _ (rewrite Text.lengthAppend rest suffix in omega))))
 
-theorem Text.startsWithCharsAppend (t: List Char): ∀ (p: List Char) =>
-    Text.startsWithChars p (List.append p t) = True
-  | [] => rfl
-  | [c, ..ps] =>
-    Eq.trans (Eq.cong (b => if b then Text.startsWithChars ps (List.append ps t) else False) (Text.sameCharRefl c))
-      (Text.startsWithCharsAppend t ps)
+theorem Text.startsWithCharsAppend (t: List Char) (p: List Char):
+    Text.startsWithChars p (List.append p t) = True :=
+  match p with
+    | [] => rfl
+    | [c, ..ps] =>
+      Eq.trans (Eq.cong (b => if b then Text.startsWithChars ps (List.append ps t) else False) (Text.sameCharRefl c))
+        (Text.startsWithCharsAppend t ps)
 
 theorem Text.startsWithAppend (p: Text) (t: Text): Text.startsWith (Text.append p t) p = True :=
   Text.startsWithCharsAppend (Text.toList t) (Text.toList p)
 
-theorem Text.takeDropChars: ∀ (n: Nat) (cs: List Char) => List.append (List.take cs n) (List.drop cs n) = cs
-  | Zero, cs => rfl
-  | Succ n, [] => rfl
-  | Succ n, [c, ..cs] => Eq.cong (Cons c) (Text.takeDropChars n cs)
+theorem Text.takeDropChars (n: Nat) (cs: List Char): List.append (List.take cs n) (List.drop cs n) = cs :=
+  match n, cs with
+    | Zero, cs => rfl
+    | Succ n, [] => rfl
+    | Succ n, [c, ..cs] => Eq.cong (Cons c) (Text.takeDropChars n cs)
 
 theorem Text.takeAppendDrop (t: Text) (n: Nat): Text.append (Text.take t n) (Text.drop t n) = t :=
   Text.ext (Text.append (Text.take t n) (Text.drop t n)) t (Text.takeDropChars n (Text.toList t))

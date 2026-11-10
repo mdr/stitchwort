@@ -139,8 +139,9 @@ def Array.sum (array: Array Nat): Nat := List.sum array.toList
 -- Equality, order and printing
 
 --| Arrays with the same list are the same array.
-theorem Array.toListInjective: ∀ (a b: Array t) => a.toList = b.toList → a = b
-  | { toList = xs }, { toList = ys }, h => Eq.cong (zs => ({ toList = zs }: Array t)) h
+theorem Array.toListInjective (a b: Array t) (h: a.toList = b.toList): a = b :=
+  match a, b with
+    | { toList = xs }, { toList = ys } => Eq.cong (zs => ({ toList = zs }: Array t)) h
 
 --| `==` on arrays: they're equal exactly when their lists are.
 instance Array.instDecEq [auto decEq: DecEq a]: DecEq (Array a) :=
@@ -158,13 +159,14 @@ instance Array.instShow [auto show: Show a]: Show (Array a) :=
 -- Lemmas
 
 --| Lists that agree at every index are equal (past the end, both give `None`).
-theorem List.extGet: ∀ (xs ys: List a) => (∀ (i: Nat) => List.get xs i = List.get ys i) → xs = ys
-  | [], [], h => rfl
-  | [], [y, ..ys], h => Void.exfalso (Option.noneNotSome y (h 0))
-  | [x, ..xs], [], h => Void.exfalso (Option.noneNotSome x (Eq.sym (h 0)))
-  | [x, ..xs], [y, ..ys], h =>
-    Eq.trans (Eq.cong (z => [z, ..xs]) (Option.someInjective (h 0)))
-      (Eq.cong (Cons y) (List.extGet xs ys (i => h (Succ i))))
+theorem List.extGet (xs ys: List a) (h: (∀ (i: Nat) => List.get xs i = List.get ys i)): xs = ys :=
+  match xs, ys with
+    | [], [] => rfl
+    | [], [y, ..ys] => Void.exfalso (Option.noneNotSome y (h 0))
+    | [x, ..xs], [] => Void.exfalso (Option.noneNotSome x (Eq.sym (h 0)))
+    | [x, ..xs], [y, ..ys] =>
+      Eq.trans (Eq.cong (z => [z, ..xs]) (Option.someInjective (h 0)))
+        (Eq.cong (Cons y) (List.extGet xs ys (i => h (Succ i))))
 
 --| Arrays that agree at every index are equal.
 theorem Array.ext (a: Array t) (b: Array t) (h: ∀ (i: Nat) => a.get i = b.get i): a = b :=
@@ -177,17 +179,19 @@ theorem Array.toListFromList (xs: List a): (Array.fromList xs).toList = xs := rf
 theorem Array.toListToArray (xs: List a): xs.toArray.toList = xs := rfl
 
 --| The array of an array's list is the array.
-theorem Array.fromListToList: ∀ (array: Array a) => Array.fromList array.toList = array
-  | { toList = xs } => rfl
+theorem Array.fromListToList (array: Array a): Array.fromList array.toList = array :=
+  match array with
+    | { toList = xs } => rfl
 
 --| The size is the list's length.
 theorem Array.sizeToList (array: Array a): array.size = List.length array.toList := rfl
 
 --| `getLt` finds what `get` finds.
-theorem List.getLtGet: ∀ (xs: List a) (i: Nat) (ok: i < List.length xs) => List.get xs i = Some (List.getLt xs i [ok := ok])
-  | [], i, ok => Void.exfalso (Bool.falseNotTrue ok)
-  | [x, ..xs], Zero, ok => rfl
-  | [x, ..xs], Succ i, ok => List.getLtGet xs i ok
+theorem List.getLtGet (xs: List a) (i: Nat) (ok: i < List.length xs): List.get xs i = Some (List.getLt xs i [ok := ok]) :=
+  match xs, i with
+    | [], i => Void.exfalso (Bool.falseNotTrue ok)
+    | [x, ..xs], Zero => rfl
+    | [x, ..xs], Succ i => List.getLtGet xs i ok
 
 --| `getLt` finds what `get` finds.
 theorem Array.getLtGet (array: Array a) (i: Nat) (ok: i < array.size): array.get i = Some (array.getLt i [ok := ok]) :=

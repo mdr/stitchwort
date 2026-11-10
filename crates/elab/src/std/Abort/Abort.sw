@@ -54,13 +54,15 @@ def Abort.orElse (fallback: a) (prog: () → {Abort | e} a): {e} a :=
     | Abort.stop u, k => fallback
 
 --| `need` and `toOption` undo each other.
-theorem Abort.toOptionNeed: ∀ (o: Option a) => Abort.toOption (() => Abort.need o) = o
-  | None => rfl
-  | Some x => rfl
+theorem Abort.toOptionNeed (o: Option a): Abort.toOption (() => Abort.need o) = o :=
+  match o with
+    | None => rfl
+    | Some x => rfl
 
-theorem Abort.orElseNeed (d: a): ∀ (o: Option a) => Abort.orElse d (() => Abort.need o) = Option.getOrElse o d
-  | None => rfl
-  | Some x => rfl
+theorem Abort.orElseNeed (d: a) (o: Option a): Abort.orElse d (() => Abort.need o) = Option.getOrElse o d :=
+  match o with
+    | None => rfl
+    | Some x => rfl
 
 theorem Abort.toOptionEnsureFalse: Abort.toOption (() => Abort.ensure False) = None := rfl
 

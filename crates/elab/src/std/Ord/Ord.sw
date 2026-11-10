@@ -4,10 +4,11 @@
 -- instance needs them.
 
 --| A comparison that's its own opposite is `Equal`.
-theorem Ordering.flipSelf: ∀ (c: Ordering) => c = Ordering.flip c → c = Equal
-  | Less, h => Void.exfalso (Ordering.lessNotGreater h)
-  | Equal, h => rfl
-  | Greater, h => Void.exfalso (Ordering.greaterNotLess h)
+theorem Ordering.flipSelf (c: Ordering) (h: c = Ordering.flip c): c = Equal :=
+  match c with
+    | Less => Void.exfalso (Ordering.lessNotGreater h)
+    | Equal => rfl
+    | Greater => Void.exfalso (Ordering.greaterNotLess h)
 
 --| Orders `a` by a key, given that the key tells values apart. The relations
 --| are the key's own, applied to the keys, so `x < y` is `key x < key y` and

@@ -443,15 +443,16 @@ def Parse.ManyRuns (p: () → {Parse} a): (steps: List (List Char, a)) → (rest
   | [(read, v), ..steps], rest => read ≠ [] ∧ Parse.Runs p read (Parse.joinReads steps ++ rest) v ∧ Parse.ManyRuns p steps rest
 
 --| A repetition's text has at least a character per round (fuel for `many`).
-theorem Parse.manyStepsShort (p: () → {Parse} a): ∀ (steps: List (List Char, a)) (rest: List Char) => Parse.ManyRuns p steps rest →
-    steps.length ≤ (Parse.joinReads steps).length
-  | [], rest, runs => rfl
-  | [(read, v), ..steps], rest, Both nonEmpty (Both runsP later) =>
-    match read with
-      | [] => Void.exfalso (nonEmpty rfl)
-      | [char, ..more] =>
-        let shorter := Parse.manyStepsShort p steps rest later
-        omega [shorter, List.lengthAppend more (Parse.joinReads steps)]
+theorem Parse.manyStepsShort (p: () → {Parse} a) (steps: List (List Char, a)) (rest: List Char) (runs: Parse.ManyRuns p steps rest):
+    steps.length ≤ (Parse.joinReads steps).length :=
+  match steps, runs with
+    | [], runs => rfl
+    | [(read, v), ..steps], Both nonEmpty (Both runsP later) =>
+      match read with
+        | [] => Void.exfalso (nonEmpty rfl)
+        | [char, ..more] =>
+          let shorter := Parse.manyStepsShort p steps rest later
+          omega [shorter, List.lengthAppend more (Parse.joinReads steps)]
 
 --| `manyFrom` from a state that is at its `before` mark, with enough fuel
 --| (more than the rounds), after `found` (newest first): it gives them all.
@@ -1826,35 +1827,35 @@ theorem Parse.manyRunsOfEach (p: () → {Parse} a) (separator: () → {Parse} ()
     (runsSeparator: ∀ (read after: List Char) (u: ()) => sepSpec read u → Parse.Runs separator read after ())
     (separatorNotEmpty: ∀ (read: List Char) (u: ()) => sepSpec read u → read ≠ [])
     (afterSeparator: ∀ (read after: List Char) (u: ()) => sepSpec read u → valueEnd (read ++ after))
-    (restEnd: valueEnd rest) (declinesEnd: Parse.Declines (() => Parse.sepStep p separator) rest):
-    ∀ (afterFirst: List Char) (values: List a) => Parse.Each (Parse.Then sepSpec (u => spec)) afterFirst values →
-      ∃ (steps: List (List Char, a)) =>
-        afterFirst = Parse.joinReads steps ∧ values = Parse.stepValues steps ∧ Parse.ManyRuns (() => Parse.sepStep p separator) steps rest
-          ∧ valueEnd (afterFirst ++ rest)
-  | afterFirst, [], each => Witness [] (Both each (Both rfl (Both declinesEnd (rewrite each in restEnd))))
-  | afterFirst, [value, ..values], Witness stepRead (Witness remaining (Both split (Both (Witness separatorRead (Witness valueRead (Witness u (Both stepSplit (Both sepOk valueOk))))) more))) =>
-    match Parse.manyRunsOfEach p separator spec sepSpec valueEnd rest runsValue runsSeparator separatorNotEmpty afterSeparator restEnd declinesEnd remaining values more with
-      | Witness steps (Both remainingIs (Both valuesAre (Both manyRuns remainingEnd))) =>
-        let laterEnd: valueEnd (Parse.joinReads steps ++ rest) := rewrite remainingIs at remainingEnd in remainingEnd
-        let notEmpty: stepRead ≠ [] :=
-          match separatorRead with
-            | [] => Void.exfalso (separatorNotEmpty [] u sepOk rfl)
-            | [char, ..others] => rewrite stepSplit in List.consNotNil char (others ++ valueRead)
-        let joined: afterFirst ++ rest = separatorRead ++ (valueRead ++ (remaining ++ rest)) :=
-          rewrite split, stepSplit, List.appendAssoc separatorRead valueRead remaining, List.appendAssoc separatorRead (valueRead ++ remaining) rest,
-            List.appendAssoc valueRead remaining rest in rfl
-        Witness [(stepRead, value), ..steps]
-          (Both (rewrite split, remainingIs in rfl)
-            (Both (rewrite valuesAre in rfl)
-              (Both
-                (Both notEmpty
-                  (Both
-                    (rewrite stepSplit in
-                      Parse.runsSepStep p separator separatorRead valueRead (Parse.joinReads steps ++ rest) value
-                        (runsSeparator separatorRead (valueRead ++ (Parse.joinReads steps ++ rest)) u sepOk)
-                        (runsValue valueRead value (Parse.joinReads steps ++ rest) valueOk laterEnd))
-                    manyRuns))
-                (rewrite joined in afterSeparator separatorRead (valueRead ++ (remaining ++ rest)) u sepOk))))
+    (restEnd: valueEnd rest) (declinesEnd: Parse.Declines (() => Parse.sepStep p separator) rest)
+    (afterFirst: List Char) (values: List a) (each: Parse.Each (Parse.Then sepSpec (u => spec)) afterFirst values): ∃ (steps: List (List Char, a)) =>
+      afterFirst = Parse.joinReads steps ∧ values = Parse.stepValues steps ∧ Parse.ManyRuns (() => Parse.sepStep p separator) steps rest
+        ∧ valueEnd (afterFirst ++ rest) :=
+  match values, each with
+    | [], each => Witness [] (Both each (Both rfl (Both declinesEnd (rewrite each in restEnd))))
+    | [value, ..values], Witness stepRead (Witness remaining (Both split (Both (Witness separatorRead (Witness valueRead (Witness u (Both stepSplit (Both sepOk valueOk))))) more))) =>
+      match Parse.manyRunsOfEach p separator spec sepSpec valueEnd rest runsValue runsSeparator separatorNotEmpty afterSeparator restEnd declinesEnd remaining values more with
+        | Witness steps (Both remainingIs (Both valuesAre (Both manyRuns remainingEnd))) =>
+          let laterEnd: valueEnd (Parse.joinReads steps ++ rest) := rewrite remainingIs at remainingEnd in remainingEnd
+          let notEmpty: stepRead ≠ [] :=
+            match separatorRead with
+              | [] => Void.exfalso (separatorNotEmpty [] u sepOk rfl)
+              | [char, ..others] => rewrite stepSplit in List.consNotNil char (others ++ valueRead)
+          let joined: afterFirst ++ rest = separatorRead ++ (valueRead ++ (remaining ++ rest)) :=
+            rewrite split, stepSplit, List.appendAssoc separatorRead valueRead remaining, List.appendAssoc separatorRead (valueRead ++ remaining) rest,
+              List.appendAssoc valueRead remaining rest in rfl
+          Witness [(stepRead, value), ..steps]
+            (Both (rewrite split, remainingIs in rfl)
+              (Both (rewrite valuesAre in rfl)
+                (Both
+                  (Both notEmpty
+                    (Both
+                      (rewrite stepSplit in
+                        Parse.runsSepStep p separator separatorRead valueRead (Parse.joinReads steps ++ rest) value
+                          (runsSeparator separatorRead (valueRead ++ (Parse.joinReads steps ++ rest)) u sepOk)
+                          (runsValue valueRead value (Parse.joinReads steps ++ rest) valueOk laterEnd))
+                      manyRuns))
+                  (rewrite joined in afterSeparator separatorRead (valueRead ++ (remaining ++ rest)) u sepOk))))
 
 --| `sepBy1 p separator` reads what [`Parse.SepBy`] says was written: the text
 --| `read` as these values. Give how `p` runs on a value written by `spec`
@@ -2009,10 +2010,11 @@ theorem Parse.declinesCharCannotStart (expected: Char) (canStart: Char → Bool)
             Void.exfalso (Bool.trueNotFalse (Eq.trans (Eq.sym allows) (rewrite DecEq.sound e at blocked in blocked))))
 
 --| Spaces and tabs, then `ys`, all pass `q`, if each space or tab does and `ys` does.
-theorem Parse.allSpacesThen (q: Char → Bool) (spaces: ∀ (char: Char) => Parse.isSpace char = True → q char = True) (ys: List Char) (rest: ys.all q = True):
-    ∀ (xs: List Char) => xs.all Parse.isSpace = True → (xs ++ ys).all q = True
-  | [], spaced => rest
-  | [x, ..more], spaced => Bool.andIntro (spaces x (Bool.andLeft spaced)) (Parse.allSpacesThen q spaces ys rest more (Bool.andRight spaced))
+theorem Parse.allSpacesThen (q: Char → Bool) (spaces: ∀ (char: Char) => Parse.isSpace char = True → q char = True) (ys: List Char) (rest: ys.all q = True)
+    (xs: List Char) (spaced: xs.all Parse.isSpace = True): (xs ++ ys).all q = True :=
+  match xs with
+    | [] => rest
+    | [x, ..more] => Bool.andIntro (spaces x (Bool.andLeft spaced)) (Parse.allSpacesThen q spaces ys rest more (Bool.andRight spaced))
 
 --| A parser declines on a blank line's spaces and tabs, its last line break,
 --| and anything after, if it declines on any run of `q` characters followed
@@ -2178,35 +2180,39 @@ theorem Parse.declinesSectionsAtBreaks (p: () → {Parse} a) (canStart: Char →
 
 --| The text and the values of the rounds `many p` makes on items that `p`
 --| reads a character each (`symbol`): the steps are `([symbol v], v)`.
-theorem Parse.joinReadsSymbols (symbol: a → Char): ∀ (items: List a) => Parse.joinReads (items.map (v => ([symbol v], v))) = items.map symbol
-  | [] => rfl
-  | [v, ..more] => rewrite Parse.joinReadsSymbols symbol more in rfl
+theorem Parse.joinReadsSymbols (symbol: a → Char) (items: List a): Parse.joinReads (items.map (v => ([symbol v], v))) = items.map symbol :=
+  match items with
+    | [] => rfl
+    | [v, ..more] => rewrite Parse.joinReadsSymbols symbol more in rfl
 
 --| See [`Parse.joinReadsSymbols`].
-theorem Parse.stepValuesSymbols (symbol: a → Char): ∀ (items: List a) => Parse.stepValues (items.map (v => ([symbol v], v))) = items
-  | [] => rfl
-  | [v, ..more] => rewrite Parse.stepValuesSymbols symbol more in rfl
+theorem Parse.stepValuesSymbols (symbol: a → Char) (items: List a): Parse.stepValues (items.map (v => ([symbol v], v))) = items :=
+  match items with
+    | [] => rfl
+    | [v, ..more] => rewrite Parse.stepValuesSymbols symbol more in rfl
 
 --| The rounds of `many p` over items that `p` reads one character each
 --| (`symbol v`, passing `canStart`), then `rest`, where `p` declines when
 --| `rest` can't start with a character that passes.
 theorem Parse.manyRunsSymbols (p: () → {Parse} a) (symbol: a → Char) (canStart: Char → Bool)
     (runsItem: ∀ (v: a) (after: List Char) => canStart (symbol v) = True → Parse.Runs p [symbol v] after v)
-    (declinesP: ∀ (input: List Char) => Parse.CannotStart canStart input → Parse.Declines p input) (rest: List Char) (stops: Parse.CannotStart canStart rest):
-    ∀ (items: List a) => (items.map symbol).all canStart = True → Parse.ManyRuns p (items.map (v => ([symbol v], v))) rest
-  | [], all => declinesP rest stops
-  | [v, ..more], all =>
-    Both (List.consNotNil (symbol v) [])
-      (Both
-        (runsItem v (Parse.joinReads (more.map (w => ([symbol w], w))) ++ rest) (Bool.andLeft all))
-        (Parse.manyRunsSymbols p symbol canStart runsItem declinesP rest stops more (Bool.andRight all)))
+    (declinesP: ∀ (input: List Char) => Parse.CannotStart canStart input → Parse.Declines p input) (rest: List Char) (stops: Parse.CannotStart canStart rest)
+    (items: List a) (all: (items.map symbol).all canStart = True): Parse.ManyRuns p (items.map (v => ([symbol v], v))) rest :=
+  match items with
+    | [] => declinesP rest stops
+    | [v, ..more] =>
+      Both (List.consNotNil (symbol v) [])
+        (Both
+          (runsItem v (Parse.joinReads (more.map (w => ([symbol w], w))) ++ rest) (Bool.andLeft all))
+          (Parse.manyRunsSymbols p symbol canStart runsItem declinesP rest stops more (Bool.andRight all)))
 
 --| The rounds of `exactly` over items that `p` reads a character each
 --| (`symbol`), see [`Parse.manyRunsSymbols`]; nothing is asked of what follows.
 theorem Parse.stepsRunSymbols (p: () → {Parse} a) (symbol: a → Char) (runsItem: ∀ (v: a) (after: List Char) => Parse.Runs p [symbol v] after v)
-    (rest: List Char): ∀ (items: List a) => Parse.StepsRun p (items.map (v => ([symbol v], v))) rest
-  | [] => rfl
-  | [v, ..more] => Both (runsItem v _) (Parse.stepsRunSymbols p symbol runsItem rest more)
+    (rest: List Char) (items: List a): Parse.StepsRun p (items.map (v => ([symbol v], v))) rest :=
+  match items with
+    | [] => rfl
+    | [v, ..more] => Both (runsItem v _) (Parse.stepsRunSymbols p symbol runsItem rest more)
 
 --| `exactly count p` over `count` items that `p` reads a character each: it
 --| gives the items. For a fixed-width code written one character per item.

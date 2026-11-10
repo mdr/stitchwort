@@ -14,19 +14,22 @@ def Nat.iterate (count: Nat) (step: a → a) (seed: a): a :=
 theorem Nat.iterateSucc (n: Nat) (f: a → a) (x: a): Nat.iterate (Succ n) f x = Nat.iterate n f (f x) := rfl
 
 --| One more step is a step last.
-theorem Nat.iterateSuccLast (f: a → a): ∀ (n: Nat) (x: a) => Nat.iterate (Succ n) f x = f (Nat.iterate n f x)
-  | Zero, x => rfl
-  | Succ n, x => Nat.iterateSuccLast f n (f x)
+theorem Nat.iterateSuccLast (f: a → a) (n: Nat) (x: a): Nat.iterate (Succ n) f x = f (Nat.iterate n f x) :=
+  match n with
+    | Zero => rfl
+    | Succ n => Nat.iterateSuccLast f n (f x)
 
 --| Iterating two functions that agree everywhere gives the same result.
-theorem Nat.iterateCong: ∀ (count: Nat) (f1 f2: a → a) (seed: a) (same: ∀ (x: a) => f1 x = f2 x) => Nat.iterate count f1 seed = Nat.iterate count f2 seed
-  | Zero, f1, f2, seed, same => rfl
-  | Succ n, f1, f2, seed, same => rewrite same seed, Nat.iterateCong n f1 f2 (f2 seed) same
+theorem Nat.iterateCong (count: Nat) (f1 f2: a → a) (seed: a) (same: ∀ (x: a) => f1 x = f2 x): Nat.iterate count f1 seed = Nat.iterate count f2 seed :=
+  match count with
+    | Zero => rfl
+    | Succ n => rewrite same seed, Nat.iterateCong n f1 f2 (f2 seed) same
 
 --| A property every step keeps holds after any number of steps.
-theorem Nat.iterateKeeps (f: a → a) (keep: a → Prop) (kept: ∀ (x: a) => keep x → keep (f x)): ∀ (n: Nat) (x: a) => keep x → keep (Nat.iterate n f x)
-  | Zero, x, h => h
-  | Succ n, x, h => Nat.iterateKeeps f keep kept n (f x) (kept x h)
+theorem Nat.iterateKeeps (f: a → a) (keep: a → Prop) (kept: ∀ (x: a) => keep x → keep (f x)) (n: Nat) (x: a) (h: keep x): keep (Nat.iterate n f x) :=
+  match n with
+    | Zero => h
+    | Succ n => Nat.iterateKeeps f keep kept n (f x) (kept x h)
 
 test "Nat.iterate" := Nat.iterate 3 (* 2) 1 == 8 ∧ Nat.iterate 0 (* 2) 5 == 5
 test "Nat.iterate dot" := (2: Nat).iterate (x => Text.append x "!") "hi" == "hi!!"
@@ -48,13 +51,15 @@ def Nat.iterateUntilStable [auto eq: DecEq a] (x: a) (step: a → a) (measure: a
 
 --| The decision `Nat.iterateUntilStable` makes, taken apart: the lemmas below
 --| hand it to these.
-theorem Nat.untilStableDecYes (p: Prop) (x: a) (r: a) (h: p): ∀ (d: Decidable p) => Decidable.elim d (y => x) (n => r) = x
-  | Yes y => rfl
-  | No n => Void.exfalso (n h)
+theorem Nat.untilStableDecYes (p: Prop) (x: a) (r: a) (h: p) (d: Decidable p): Decidable.elim d (y => x) (n => r) = x :=
+  match d with
+    | Yes y => rfl
+    | No n => Void.exfalso (n h)
 
-theorem Nat.untilStableDecNo (p: Prop) (x: a) (r: a) (h: ¬p): ∀ (d: Decidable p) => Decidable.elim d (y => x) (n => r) = r
-  | Yes y => Void.exfalso (h y)
-  | No n => rfl
+theorem Nat.untilStableDecNo (p: Prop) (x: a) (r: a) (h: ¬p) (d: Decidable p): Decidable.elim d (y => x) (n => r) = r :=
+  match d with
+    | Yes y => Void.exfalso (h y)
+    | No n => rfl
 
 --| A value `step` leaves alone is already the answer.
 theorem Nat.iterateUntilStableStable [auto eq: DecEq a] (x: a) (step: a → a) (measure: a → Nat)

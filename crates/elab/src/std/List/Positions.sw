@@ -29,21 +29,23 @@ theorem List.indexOfLt [auto eq: DecEq a]: ∀ (xs: List a) (x: a) => List.Mem x
           | Inr rest => List.indexOfLt ys x rest
 
 --| `x` is in `xs` exactly when its first place is inside it.
-theorem List.containsIndexOf [auto eq: DecEq a] (x: a): ∀ (xs: List a) => List.contains xs x = (List.indexOf xs x < List.length xs)
-  | [] => rfl
-  | [y, ..rest] =>
-    match e: y == x with
-      | True => rfl
-      | False => List.containsIndexOf x rest
+theorem List.containsIndexOf [auto eq: DecEq a] (x: a) (xs: List a): List.contains xs x = (List.indexOf xs x < List.length xs) :=
+  match xs with
+    | [] => rfl
+    | [y, ..rest] =>
+      match e: y == x with
+        | True => rfl
+        | False => List.containsIndexOf x rest
 
 --| `x` is in `xs` exactly when its first place in `xs` followed by more is inside `xs`.
-theorem List.containsIndexOfAppend [auto eq: DecEq a] (x: a) (more: List a): ∀ (xs: List a) =>
-    List.contains xs x = (List.indexOf (List.append xs more) x < List.length xs)
-  | [] => rfl
-  | [y, ..rest] =>
-    match e: y == x with
-      | True => rfl
-      | False => List.containsIndexOfAppend x more rest
+theorem List.containsIndexOfAppend [auto eq: DecEq a] (x: a) (more: List a) (xs: List a):
+    List.contains xs x = (List.indexOf (List.append xs more) x < List.length xs) :=
+  match xs with
+    | [] => rfl
+    | [y, ..rest] =>
+      match e: y == x with
+        | True => rfl
+        | False => List.containsIndexOfAppend x more rest
 
 --| A fold of `Nat.max` is below `k` exactly when its start and every `f x` are.
 theorem List.foldMaxLt (f: a → Nat) (k: Nat): ∀ (xs: List a) (start: Nat) =>
@@ -67,13 +69,14 @@ theorem List.countRangeEq (n: Nat) (k: Nat): List.count (List.range 0 n) (== k) 
   rewrite List.countRangeFromEq k n 0 in cases
 
 --| Running sums from `start`: entry c is `start` plus the first c elements.
-theorem List.getOrScanAdd: ∀ (row: List Nat) (start c: Nat) => c ≤ List.length row →
-    List.getOr (List.scanLeft row start Nat.add) c 0 = start + List.sumBy (List.range 0 c) (i => List.getOr row i 0)
-  | [], start, Zero, h => Eq.sym (Nat.addZero start)
-  | [], start, Succ c, h => Void.exfalso (Bool.falseNotTrue h)
-  | [x, ..xs], start, Zero, h => Eq.sym (Nat.addZero start)
-  | [x, ..xs], start, Succ c, h =>
-    rewrite List.getOrScanAdd xs (Nat.add start x) c h, List.sumByRangeSucc (i => List.getOr [x, ..xs] i 0) c in omega
+theorem List.getOrScanAdd (row: List Nat) (start c: Nat) (h: c ≤ List.length row):
+    List.getOr (List.scanLeft row start Nat.add) c 0 = start + List.sumBy (List.range 0 c) (i => List.getOr row i 0) :=
+  match row, c with
+    | [], Zero => Eq.sym (Nat.addZero start)
+    | [], Succ c => Void.exfalso (Bool.falseNotTrue h)
+    | [x, ..xs], Zero => Eq.sym (Nat.addZero start)
+    | [x, ..xs], Succ c =>
+      rewrite List.getOrScanAdd xs (Nat.add start x) c h, List.sumByRangeSucc (i => List.getOr [x, ..xs] i 0) c in omega
 
 --| In a sorted list of numbers, an element is at most every later one.
 theorem List.sortedGetOrLe: ∀ (xs: List Nat) (d: Nat) => List.Sorted Nat.leq xs → ∀ (i j: Nat) => i ≤ j → j < List.length xs →

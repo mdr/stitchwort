@@ -107,32 +107,38 @@ theorem Fail.toResultPure (v: a): Fail.toResult (() => v) = Ok v := rfl
 theorem Fail.toResultFail (msg: Text): Fail.toResult (() => (Fail.fail msg: a)) = Err msg := rfl
 
 --| `need` and `toResult` give `Option.toResult`.
-theorem Fail.toResultNeed (msg: Text): ∀ (o: Option a) => Fail.toResult (() => Fail.need o msg) = Option.toResult o msg
-  | None => rfl
-  | Some x => rfl
+theorem Fail.toResultNeed (msg: Text) (o: Option a): Fail.toResult (() => Fail.need o msg) = Option.toResult o msg :=
+  match o with
+    | None => rfl
+    | Some x => rfl
 
-theorem Fail.toResultEnsure (msg: Text): ∀ (ok: Bool) => Fail.toResult (() => Fail.ensure ok msg) = (if ok then Ok () else Err msg)
-  | True => rfl
-  | False => rfl
+theorem Fail.toResultEnsure (msg: Text) (ok: Bool): Fail.toResult (() => Fail.ensure ok msg) = (if ok then Ok () else Err msg) :=
+  match ok with
+    | True => rfl
+    | False => rfl
 
 --| `orFail` and `toResult` undo each other.
-theorem Fail.toResultOrFail: ∀ (r: Result a Text) => Fail.toResult (() => Result.orFail r) = r
-  | Ok x => rfl
-  | Err m => rfl
+theorem Fail.toResultOrFail (r: Result a Text): Fail.toResult (() => Result.orFail r) = r :=
+  match r with
+    | Ok x => rfl
+    | Err m => rfl
 
 --| Reading an `Option` and going on: the form a proof about a parser uses.
-theorem Fail.toResultNeedThen (k: a → {Fail} b) (msg: Text): ∀ (o: Option a) =>
-    Fail.toResult (() => k (Fail.need o msg)) = Option.fold o (Err msg) (x => Fail.toResult (() => k x))
-  | None => rfl
-  | Some x => rfl
+theorem Fail.toResultNeedThen (k: a → {Fail} b) (msg: Text) (o: Option a):
+    Fail.toResult (() => k (Fail.need o msg)) = Option.fold o (Err msg) (x => Fail.toResult (() => k x)) :=
+  match o with
+    | None => rfl
+    | Some x => rfl
 
-theorem Fail.toOptionNeed (msg: Text): ∀ (o: Option a) => Fail.toOption (() => Fail.need o msg) = o
-  | None => rfl
-  | Some x => rfl
+theorem Fail.toOptionNeed (msg: Text) (o: Option a): Fail.toOption (() => Fail.need o msg) = o :=
+  match o with
+    | None => rfl
+    | Some x => rfl
 
-theorem Abort.orFailNeed (msg: Text): ∀ (o: Option a) => Fail.toResult (() => Abort.orFail msg (() => Abort.need o)) = Option.toResult o msg
-  | None => rfl
-  | Some x => rfl
+theorem Abort.orFailNeed (msg: Text) (o: Option a): Fail.toResult (() => Abort.orFail msg (() => Abort.need o)) = Option.toResult o msg :=
+  match o with
+    | None => rfl
+    | Some x => rfl
 
 -- Laws about any computation. Each splits on what the computation does
 -- first, with `match reify` (docs/proposals/proof-reification.md): in each

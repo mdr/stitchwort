@@ -83,23 +83,24 @@ def Key.ofParts (position: Nat) (char: Char): Key :=
     | 14 => Ctrl char
     | _ => Unknown
 
-theorem Key.fromParts: ∀ (key: Key) => Key.ofParts (Key.position key) (Key.charOrSpace key) = key
-  | Printable char => rfl
-  | Enter => rfl
-  | Tab => rfl
-  | Backspace => rfl
-  | Escape => rfl
-  | Delete => rfl
-  | Up => rfl
-  | Down => rfl
-  | Left => rfl
-  | Right => rfl
-  | Home => rfl
-  | End => rfl
-  | PageUp => rfl
-  | PageDown => rfl
-  | Ctrl letter => rfl
-  | Unknown => rfl
+theorem Key.fromParts (key: Key): Key.ofParts (Key.position key) (Key.charOrSpace key) = key :=
+  match key with
+    | Printable char => rfl
+    | Enter => rfl
+    | Tab => rfl
+    | Backspace => rfl
+    | Escape => rfl
+    | Delete => rfl
+    | Up => rfl
+    | Down => rfl
+    | Left => rfl
+    | Right => rfl
+    | Home => rfl
+    | End => rfl
+    | PageUp => rfl
+    | PageDown => rfl
+    | Ctrl letter => rfl
+    | Unknown => rfl
 
 theorem Key.ofPartsCong (p: Nat) (q: Nat) (c: Char) (d: Char) (samePosition: p = q) (sameChar: c = d): Key.ofParts p c = Key.ofParts q d :=
   rewrite samePosition, sameChar in rfl
@@ -273,23 +274,24 @@ def Key.isNamed: (key: Key) → Bool
   | Ctrl letter => False
   | _ => True
 
-theorem Key.nextBytes (rest: List Nat): ∀ (key: Key) => Key.isNamed key = True → Key.next (List.append (Key.bytes key) rest) = Got key rest
-  | Printable char, h => Void.exfalso (Bool.falseNotTrue h)
-  | Enter, h => rfl
-  | Tab, h => rfl
-  | Backspace, h => rfl
-  | Escape, h => Void.exfalso (Bool.falseNotTrue h)
-  | Delete, h => rfl
-  | Up, h => rfl
-  | Down, h => rfl
-  | Left, h => rfl
-  | Right, h => rfl
-  | Home, h => rfl
-  | End, h => rfl
-  | PageUp, h => rfl
-  | PageDown, h => rfl
-  | Ctrl letter, h => Void.exfalso (Bool.falseNotTrue h)
-  | Unknown, h => rfl
+theorem Key.nextBytes (rest: List Nat) (key: Key) (h: Key.isNamed key = True): Key.next (List.append (Key.bytes key) rest) = Got key rest :=
+  match key with
+    | Printable char => Void.exfalso (Bool.falseNotTrue h)
+    | Enter => rfl
+    | Tab => rfl
+    | Backspace => rfl
+    | Escape => Void.exfalso (Bool.falseNotTrue h)
+    | Delete => rfl
+    | Up => rfl
+    | Down => rfl
+    | Left => rfl
+    | Right => rfl
+    | Home => rfl
+    | End => rfl
+    | PageUp => rfl
+    | PageDown => rfl
+    | Ctrl letter => Void.exfalso (Bool.falseNotTrue h)
+    | Unknown => rfl
 
 --| `Escape` comes back when the next byte isn't `[` or `O`; a lone `ESC` at
 --| the end of the bytes is `Incomplete` (the handler decides).

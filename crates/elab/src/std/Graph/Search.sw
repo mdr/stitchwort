@@ -75,10 +75,11 @@ theorem Graph.costAppend (path: List (s, Nat)) (more: List (s, Nat)): Graph.cost
   List.sumByAppend path more Pair.snd
 
 --| A walk, then another from where it ends.
-theorem Graph.walkAppend (graph: Graph s) (more: List (s, Nat)) (finish: s): ∀ (start: s) (path: List (s, Nat)) (middle: s) =>
-    graph.Walk start path middle → graph.Walk middle more finish → graph.Walk start (path ++ more) finish
-  | start, [], middle, walked, after => rewrite walked in after
-  | start, [(next, weight), ..rest], middle, (Both edge later), after => Both edge (Graph.walkAppend graph more finish next rest middle later after)
+theorem Graph.walkAppend (graph: Graph s) (more: List (s, Nat)) (finish: s) (start: s) (path: List (s, Nat)) (middle: s)
+    (walked: graph.Walk start path middle) (after: graph.Walk middle more finish): graph.Walk start (path ++ more) finish :=
+  match path, walked with
+    | [], walked => rewrite walked in after
+    | [(next, weight), ..rest], (Both edge later) => Both edge (Graph.walkAppend graph more finish next rest middle later after)
 
 --| A walk, then one more edge.
 theorem Graph.walkSnoc (graph: Graph s) (start: s) (path: List (s, Nat)) (middle: s) (walked: graph.Walk start path middle) (next: s) (weight: Nat)
@@ -367,26 +368,28 @@ def Graph.IndexTable.setAt [auto ord: Ord s] (index: Graph.Index s) (table: Grap
       }
 
 --| A state has the cost it was last set to.
-theorem Graph.IndexTable.getSetAt [auto ord: Ord s] (index: Graph.Index s) (table: Graph.IndexTable s index) (state: s) (cost: Nat):
-    ∀ (number: Option Nat) (numbered: index.number state = number) =>
-      Graph.IndexTable.get index (Graph.IndexTable.setAt index table state cost number numbered) state = Some cost
-  | Some i, numbered => rewrite numbered in Array.getOrSet table.cells i (Some cost) None (rewrite table.sized in index.below state i numbered)
-  | None, numbered => rewrite numbered in Map.getInsert state cost table.rest
+theorem Graph.IndexTable.getSetAt [auto ord: Ord s] (index: Graph.Index s) (table: Graph.IndexTable s index) (state: s) (cost: Nat)
+    (number: Option Nat) (numbered: index.number state = number):
+    Graph.IndexTable.get index (Graph.IndexTable.setAt index table state cost number numbered) state = Some cost :=
+  match number with
+    | Some i => rewrite numbered in Array.getOrSet table.cells i (Some cost) None (rewrite table.sized in index.below state i numbered)
+    | None => rewrite numbered in Map.getInsert state cost table.rest
 
 --| Setting one state's cost leaves every other state's as it was.
 theorem Graph.IndexTable.getSetAtOther [auto ord: Ord s] (index: Graph.Index s) (table: Graph.IndexTable s index) (state: s) (cost: Nat)
-    (other: s) (apart: other ≠ state): ∀ (number: Option Nat) (numbered: index.number state = number) =>
-      Graph.IndexTable.get index (Graph.IndexTable.setAt index table state cost number numbered) other = Graph.IndexTable.get index table other
-  | Some i, numbered =>
-    match otherNumbered: index.number other with
-      | Some j =>
-        Array.getOrSetOther table.cells i (Some cost) j None
-          (same => apart (Graph.Index.sameNumber index otherNumbered (rewrite <- same at numbered in numbered)))
-      | None => rfl
-  | None, numbered =>
-    match otherNumbered: index.number other with
-      | Some j => rfl
-      | None => Map.getInsertOther state cost other apart table.rest
+    (other: s) (apart: other ≠ state) (number: Option Nat) (numbered: index.number state = number):
+    Graph.IndexTable.get index (Graph.IndexTable.setAt index table state cost number numbered) other = Graph.IndexTable.get index table other :=
+  match number with
+    | Some i =>
+      match otherNumbered: index.number other with
+        | Some j =>
+          Array.getOrSetOther table.cells i (Some cost) j None
+            (same => apart (Graph.Index.sameNumber index otherNumbered (rewrite <- same at numbered in numbered)))
+        | None => rfl
+    | None =>
+      match otherNumbered: index.number other with
+        | Some j => rfl
+        | None => Map.getInsertOther state cost other apart table.rest
 
 --| Costs kept by number in an array, for the states `index` numbers, and in
 --| a `Map` for the rest: what [`Graph.distances`] uses when given an index.

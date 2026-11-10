@@ -17,9 +17,10 @@ def Option.map: (option: Option a) → (f: a → b) → Option b
 -- Here, beside `Option.map`, not in Option/Lemmas.sw: `rewrite` and
 -- `decreasing` look it up by name wherever `Option.map` is loaded
 -- (crates/elab/src/congruence.rs). Its shape is `List.mapCong`'s.
-theorem Option.mapCong: ∀ (x: Option a) (f1 f2: a → b) => (∀ (y: a) => f1 y = f2 y) → Option.map x f1 = Option.map x f2
-  | None, f1, f2, ef => rfl
-  | Some y, f1, f2, ef => Eq.cong Some (ef y)
+theorem Option.mapCong (x: Option a) (f1 f2: a → b) (ef: (∀ (y: a) => f1 y = f2 y)): Option.map x f1 = Option.map x f2 :=
+  match x with
+    | None => rfl
+    | Some y => Eq.cong Some (ef y)
 
 --| Whether there is a value: `(Some 3).isSome` is `True`.
 def Option.isSome: (option: Option a) → Bool
@@ -106,9 +107,10 @@ def Option.flatten: (nested: Option (Option a)) → Option a
   | None => None
   | Some inner => inner
 
-theorem Option.flattenFlatMap: ∀ (x: Option (Option a)) => Option.flatten x = Option.flatMap x id
-  | None => rfl
-  | Some inner => rfl
+theorem Option.flattenFlatMap (x: Option (Option a)): Option.flatten x = Option.flatMap x id :=
+  match x with
+    | None => rfl
+    | Some inner => rfl
 
 theorem Option.toListExample: (Some 3).toList = [3] := rfl
 

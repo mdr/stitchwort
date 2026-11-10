@@ -30,11 +30,12 @@ theorem Set.containsPresent [auto ord: Ord k] (key: k) (m: Map k ()): Map.contai
     | None => rfl
     | Some u => rfl
 
-theorem Set.presentInjective: ∀ (x y: Option ()) => Set.present x = Set.present y → x = y
-  | None, None, h => rfl
-  | None, Some w, h => Void.exfalso (Bool.falseNotTrue h)
-  | Some u, None, h => Void.exfalso (Bool.trueNotFalse h)
-  | Some u, Some w, h => Eq.cong Some (Set.unitEq u w)
+theorem Set.presentInjective (x y: Option ()) (h: Set.present x = Set.present y): x = y :=
+  match x, y with
+    | None, None => rfl
+    | None, Some w => Void.exfalso (Bool.falseNotTrue h)
+    | Some u, None => Void.exfalso (Bool.trueNotFalse h)
+    | Some u, Some w => Eq.cong Some (Set.unitEq u w)
 
 theorem Set.ext [auto ord: Ord k]: ∀ (s t: Set k) => (∀ (key: k) => Set.contains s key = Set.contains t key) → s = t
   | { items = m }, { items = n }, h =>
@@ -179,10 +180,11 @@ theorem Set.containsOfRemove [auto ord: Ord k] (s: Set k) (key: k) (other: k) (t
       Void.exfalso (Bool.falseNotTrue (Eq.trans (Eq.sym (Set.containsRemove s key)) (Eq.trans moved there)))
     | False => Eq.trans (Eq.sym (Set.containsRemoveOther s key other (DecEq.soundFalse other key same))) there
 
-theorem Set.lastMapFst: ∀ (xs: List (k, ())) => Option.map (List.last xs) Pair.fst = List.last (List.map xs Pair.fst)
-  | [] => rfl
-  | [e] => rfl
-  | [e, f, ..rest] => Set.lastMapFst [f, ..rest]
+theorem Set.lastMapFst (xs: List (k, ())): Option.map (List.last xs) Pair.fst = List.last (List.map xs Pair.fst) :=
+  match xs with
+    | [] => rfl
+    | [e] => rfl
+    | [e, f, ..rest] => Set.lastMapFst [f, ..rest]
 
 --| What `below` finds: a member below `key`, and no member between the two.
 theorem Set.belowSome [auto ord: Ord k] (s: Set k) (key: k) (found: k) (h: Set.below s key = Some found):
@@ -324,34 +326,37 @@ theorem Set.containsFromListIff [auto ord: Ord k] (xs: List k) (key: k): (Set.co
 -- `isSubset`: every key of `a` is in `b`
 
 --| `all`'s fold over a set's entries is `List.all` over them.
-theorem Set.foldAll (q: k → Bool): ∀ (z: Bool) (xs: List (k, ())) =>
-    Map.Spec.foldLeft (acc key unit => acc ∧ q key) z xs = (z ∧ List.all xs (e => q e.fst))
-  | True, [] => rfl
-  | False, [] => rfl
-  | z, [(kk, u), ..rest] =>
-    rewrite Set.foldAll q (z ∧ q kk) rest in
-    match c: z with
-      | False => rfl
-      | True =>
-        match d: q kk with
-          | True => rfl
-          | False => rfl
+theorem Set.foldAll (q: k → Bool) (z: Bool) (xs: List (k, ())):
+    Map.Spec.foldLeft (acc key unit => acc ∧ q key) z xs = (z ∧ List.all xs (e => q e.fst)) :=
+  match z, xs with
+    | True, [] => rfl
+    | False, [] => rfl
+    | z, [(kk, u), ..rest] =>
+      rewrite Set.foldAll q (z ∧ q kk) rest in
+      match c: z with
+        | False => rfl
+        | True =>
+          match d: q kk with
+            | True => rfl
+            | False => rfl
 
-theorem Set.allEntriesElim (q: k → Bool) (key: k): ∀ (xs: List (k, ())) => List.all xs (e => q e.fst) = True → List.Mem (key, ()) xs → q key = True
-  | [], h, mem => Void.exfalso mem
-  | [(kk, u), ..rest], h, mem =>
-    match c: q kk with
-      | False => Void.exfalso (Bool.falseNotTrue h)
-      | True =>
-        match mem with
-          | Inl e => Eq.trans (Eq.cong q (Eq.sym (Eq.cong Pair.fst e))) c
-          | Inr later => Set.allEntriesElim q key rest h later
+theorem Set.allEntriesElim (q: k → Bool) (key: k) (xs: List (k, ())) (h: List.all xs (e => q e.fst) = True) (mem: List.Mem (key, ()) xs): q key = True :=
+  match xs with
+    | [] => Void.exfalso mem
+    | [(kk, u), ..rest] =>
+      match c: q kk with
+        | False => Void.exfalso (Bool.falseNotTrue h)
+        | True =>
+          match mem with
+            | Inl e => Eq.trans (Eq.cong q (Eq.sym (Eq.cong Pair.fst e))) c
+            | Inr later => Set.allEntriesElim q key rest h later
 
-theorem Set.allEntriesIntro (q: k → Bool): ∀ (xs: List (k, ())) => (∀ (key: k) => List.Mem (key, ()) xs → q key = True) → List.all xs (e => q e.fst) = True
-  | [], h => rfl
-  | [(kk, u), ..rest], h =>
-    rewrite h kk (Inl (Eq.cong (w => (kk, w)) (Set.unitEq u ()))) in
-    Set.allEntriesIntro q rest (key mem => h key (Inr mem))
+theorem Set.allEntriesIntro (q: k → Bool) (xs: List (k, ())) (h: (∀ (key: k) => List.Mem (key, ()) xs → q key = True)): List.all xs (e => q e.fst) = True :=
+  match xs with
+    | [] => rfl
+    | [(kk, u), ..rest] =>
+      rewrite h kk (Inl (Eq.cong (w => (kk, w)) (Set.unitEq u ()))) in
+      Set.allEntriesIntro q rest (key mem => h key (Inr mem))
 
 theorem Set.isSubsetToList [auto ord: Ord k] (a: Set k) (b: Set k): Set.isSubset a b = List.all (Map.toList a.items) (e => Set.contains b e.fst) :=
   Eq.trans (Map.foldLeftToList (acc key unit => acc ∧ Set.contains b key) True a.items)
@@ -383,10 +388,11 @@ theorem Set.isSubsetSpec [auto ord: Ord k] (a: Set k) (b: Set k):
 
 -- Folds and `map`
 
-theorem Set.foldEntries (f: b → k → b): ∀ (entries: List (k, ())) (initial: b) =>
-    Map.Spec.foldLeft (acc key unit => f acc key) initial entries = List.foldLeft (List.map entries Pair.fst) initial f
-  | [], initial => rfl
-  | [(key, unit), ..rest], initial => Set.foldEntries f rest (f initial key)
+theorem Set.foldEntries (f: b → k → b) (entries: List (k, ())) (initial: b):
+    Map.Spec.foldLeft (acc key unit => f acc key) initial entries = List.foldLeft (List.map entries Pair.fst) initial f :=
+  match entries with
+    | [] => rfl
+    | [(key, unit), ..rest] => Set.foldEntries f rest (f initial key)
 
 --| A fold over a set is a fold over its keys in order.
 theorem Set.foldLeftToList (s: Set k [ord := o]) (initial: b) (f: b → k → b): Set.foldLeft s initial f = List.foldLeft (Set.toList s) initial f :=

@@ -3,14 +3,16 @@
 --| repeats a state never stops.
 
 --| `m + n` steps are `m` steps, then `n`.
-theorem Nat.iterateAdd (f: a → a): ∀ (m n: Nat) (x: a) => Nat.iterate (m + n) f x = Nat.iterate n f (Nat.iterate m f x)
-  | Zero, n, x => rfl
-  | Succ m, n, x => Nat.iterateAdd f m n (f x)
+theorem Nat.iterateAdd (f: a → a) (m n: Nat) (x: a): Nat.iterate (m + n) f x = Nat.iterate n f (Nat.iterate m f x) :=
+  match m with
+    | Zero => rfl
+    | Succ m => Nat.iterateAdd f m n (f x)
 
 --| A value `f` leaves alone stays.
-theorem Nat.iterateFixed (f: a → a) (z: a) (fixed: f z = z): ∀ (n: Nat) => Nat.iterate n f z = z
-  | Zero => rfl
-  | Succ n => rewrite fixed in Nat.iterateFixed f z fixed n
+theorem Nat.iterateFixed (f: a → a) (z: a) (fixed: f z = z) (n: Nat): Nat.iterate n f z = z :=
+  match n with
+    | Zero => rfl
+    | Succ n => rewrite fixed in Nat.iterateFixed f z fixed n
 
 --| Reached at `steps`, a value `f` leaves alone is there at every later step.
 theorem Nat.iterateFixedLater (f: a → a) (x: a) (z: a) (fixed: f z = z) (steps: Nat) (later: Nat)

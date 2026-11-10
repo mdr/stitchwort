@@ -46,9 +46,10 @@ theorem List.nonEmptyToNonEmpty (xs: List a) (h: xs ≠ []): List.nonEmpty xs = 
 --| the converse of [`List.nonEmptyToNonEmpty`], which starts from a list
 --| known not to be empty; [`NonEmptyList.nonEmptyToList`] starts from the
 --| other side.
-theorem List.toListOfNonEmpty: ∀ (xs: List a) (ys: NonEmptyList a) => List.nonEmpty xs = Some ys → ys.toList = xs
-  | [], ordered, made => Void.exfalso (Option.noneNotSome ordered made)
-  | [x, ..rest], ordered, made => rewrite <- Option.someInjective made in rfl
+theorem List.toListOfNonEmpty (xs: List a) (ys: NonEmptyList a) (made: List.nonEmpty xs = Some ys): ys.toList = xs :=
+  match xs, ys with
+    | [], ordered => Void.exfalso (Option.noneNotSome ordered made)
+    | [x, ..rest], ordered => rewrite <- Option.someInjective made in rfl
 
 --| The `List` twins.
 
@@ -64,9 +65,10 @@ theorem NonEmptyList.reduceSingleton (x: a) (f: a → a → a): (NonEmptyList.si
 
 theorem NonEmptyList.reduceFoldLeft (xs: NonEmptyList a) (f: a → a → a): xs.reduce f = List.foldLeft xs.tail xs.head f := rfl
 
-theorem NonEmptyList.lastFromToList (x: a): ∀ (rest: List a) => List.last [x, ..rest] = Some (NonEmptyList.lastFrom x rest)
-  | [] => rfl
-  | [y, ..ys] => NonEmptyList.lastFromToList y ys
+theorem NonEmptyList.lastFromToList (x: a) (rest: List a): List.last [x, ..rest] = Some (NonEmptyList.lastFrom x rest) :=
+  match rest with
+    | [] => rfl
+    | [y, ..ys] => NonEmptyList.lastFromToList y ys
 
 theorem NonEmptyList.lastToList (xs: NonEmptyList a): List.last xs.toList = Some xs.last := NonEmptyList.lastFromToList xs.head xs.tail
 
@@ -94,9 +96,10 @@ theorem NonEmptyList.zipToList (xs: NonEmptyList a) (ys: NonEmptyList b): (xs.zi
 
 theorem NonEmptyList.zipWithToList (xs: NonEmptyList a) (ys: NonEmptyList b) (f: a → b → c): (xs.zipWith ys f).toList = List.zipWith xs.toList ys.toList f := rfl
 
-theorem NonEmptyList.reverseOntoToList: ∀ (acc: NonEmptyList a) (ys: List a) => (NonEmptyList.reverseOnto acc ys).toList = List.reverseOnto ys acc.toList
-  | acc, [] => rfl
-  | acc, [y, ..ys] => NonEmptyList.reverseOntoToList { head = y, tail = [acc.head, ..acc.tail] } ys
+theorem NonEmptyList.reverseOntoToList (acc: NonEmptyList a) (ys: List a): (NonEmptyList.reverseOnto acc ys).toList = List.reverseOnto ys acc.toList :=
+  match ys with
+    | [] => rfl
+    | [y, ..ys] => NonEmptyList.reverseOntoToList { head = y, tail = [acc.head, ..acc.tail] } ys
 
 theorem NonEmptyList.reverseToList (xs: NonEmptyList a): xs.reverse.toList = List.reverse xs.toList :=
   NonEmptyList.reverseOntoToList { head = xs.head, tail = [] } xs.tail

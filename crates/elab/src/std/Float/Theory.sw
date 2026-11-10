@@ -36,16 +36,18 @@ theorem Float.Theory.pow2Pow (k: Nat): Float.Model.pow2 k = Nat.pow 2 k :=
     | False => rfl
 
 --| Every number is below its power of two.
-theorem Float.Theory.ltPow: ∀ (n: Nat) => n < Nat.pow 2 n
-  | Zero => rfl
-  | Succ n => omega [Float.Theory.ltPow n]
+theorem Float.Theory.ltPow (n: Nat): n < Nat.pow 2 n :=
+  match n with
+    | Zero => rfl
+    | Succ n => omega [Float.Theory.ltPow n]
 
 --| `b` is the number of binary digits of a positive `n`: `n < 2^b <= 2n`.
 def Float.Theory.IsBitLength (n: Nat) (b: Nat): Prop := (n < Nat.pow 2 b) ∧ (Nat.pow 2 b ≤ n + n)
 
-theorem Float.Theory.bitLengthSlowZero: ∀ (fuel: Nat) => Float.Model.bitLengthSlow fuel 0 = 0
-  | Zero => rfl
-  | Succ fuel => rfl
+theorem Float.Theory.bitLengthSlowZero (fuel: Nat): Float.Model.bitLengthSlow fuel 0 = 0 :=
+  match fuel with
+    | Zero => rfl
+    | Succ fuel => rfl
 
 theorem Float.Theory.bitLengthSlowSpec: ∀ (fuel n: Nat) => 0 < n → n < Nat.pow 2 fuel
     → Float.Theory.IsBitLength n (Float.Model.bitLengthSlow fuel n)
@@ -712,23 +714,25 @@ theorem Float.Theory.scaleDownPow (d: Nat): ∀ (k: Int) => Float.Model.scaleDow
   | OfNat k => Eq.sym (Nat.mulOne d)
   | NegSucc k => Eq.cong (x => d * x) (Float.Theory.pow2Pow (Succ k))
 
-theorem Float.Theory.upPowPos: ∀ (k: Int) => 0 < Float.Theory.upPow k
-  | OfNat k => Nat.powSuccPos 1 k
-  | NegSucc k => rfl
+theorem Float.Theory.upPowPos (k: Int): 0 < Float.Theory.upPow k :=
+  match k with
+    | OfNat k => Nat.powSuccPos 1 k
+    | NegSucc k => rfl
 
-theorem Float.Theory.downPowPos: ∀ (k: Int) => 0 < Float.Theory.downPow k
-  | OfNat k => rfl
-  | NegSucc k => Nat.powSuccPos 1 (Succ k)
+theorem Float.Theory.downPowPos (k: Int): 0 < Float.Theory.downPow k :=
+  match k with
+    | OfNat k => rfl
+    | NegSucc k => Nat.powSuccPos 1 (Succ k)
 
 --| One step up doubles the fraction.
-theorem Float.Theory.powStep: ∀ (m: Int) =>
-    Float.Theory.upPow m * Float.Theory.downPow (Int.add m (OfNat 1)) * 2
-      = Float.Theory.upPow (Int.add m (OfNat 1)) * Float.Theory.downPow m
-  | OfNat a =>
-    ring
-  | NegSucc Zero => rfl
-  | NegSucc (Succ b) =>
-    ring
+theorem Float.Theory.powStep (m: Int): Float.Theory.upPow m * Float.Theory.downPow (Int.add m (OfNat 1)) * 2
+    = Float.Theory.upPow (Int.add m (OfNat 1)) * Float.Theory.downPow m :=
+  match m with
+    | OfNat a =>
+      ring
+    | NegSucc Zero => rfl
+    | NegSucc (Succ b) =>
+      ring
 
 theorem Float.Theory.powChain (p: Nat) (q: Nat) (r: Nat) (s: Nat) (u: Nat) (v: Nat) (w: Nat)
     (ih: p * s * r = u * v) (step: u * q * 2 = w * s): s * (p * q * (r * 2)) = s * (w * v) :=
@@ -738,21 +742,21 @@ theorem Float.Theory.powChain (p: Nat) (q: Nat) (r: Nat) (s: Nat) (u: Nat) (v: N
         (Eq.trans (Eq.cong (x => v * x) step) (ring: v * (w * s) = s * (w * v)))))
 
 --| `j` steps up multiply it by 2^j.
-theorem Float.Theory.powShift (k: Int): ∀ (j: Nat) =>
-    Float.Theory.upPow k * Float.Theory.downPow (Int.add k (OfNat j)) * Nat.pow 2 j
-      = Float.Theory.upPow (Int.add k (OfNat j)) * Float.Theory.downPow k
-  | Zero =>
-    rewrite Int.addZero k in
-    Nat.mulOne (Float.Theory.upPow k * Float.Theory.downPow k)
-  | Succ j =>
-    rewrite (ring: Int.add k (OfNat (Succ j)) = Int.add (Int.add k (OfNat j)) (OfNat 1)) in
-    Nat.mulCancelLeft (Float.Theory.downPow (Int.add k (OfNat j))) (Float.Theory.downPowPos (Int.add k (OfNat j)))
-      (Float.Theory.upPow k * Float.Theory.downPow (Int.add (Int.add k (OfNat j)) (OfNat 1)) * (Nat.pow 2 j * 2))
-      (Float.Theory.upPow (Int.add (Int.add k (OfNat j)) (OfNat 1)) * Float.Theory.downPow k)
-      (Float.Theory.powChain (Float.Theory.upPow k) (Float.Theory.downPow (Int.add (Int.add k (OfNat j)) (OfNat 1)))
-        (Nat.pow 2 j) (Float.Theory.downPow (Int.add k (OfNat j))) (Float.Theory.upPow (Int.add k (OfNat j)))
-        (Float.Theory.downPow k) (Float.Theory.upPow (Int.add (Int.add k (OfNat j)) (OfNat 1)))
-        (Float.Theory.powShift k j) (Float.Theory.powStep (Int.add k (OfNat j))))
+theorem Float.Theory.powShift (k: Int) (j: Nat): Float.Theory.upPow k * Float.Theory.downPow (Int.add k (OfNat j)) * Nat.pow 2 j
+    = Float.Theory.upPow (Int.add k (OfNat j)) * Float.Theory.downPow k :=
+  match j with
+    | Zero =>
+      rewrite Int.addZero k in
+      Nat.mulOne (Float.Theory.upPow k * Float.Theory.downPow k)
+    | Succ j =>
+      rewrite (ring: Int.add k (OfNat (Succ j)) = Int.add (Int.add k (OfNat j)) (OfNat 1)) in
+      Nat.mulCancelLeft (Float.Theory.downPow (Int.add k (OfNat j))) (Float.Theory.downPowPos (Int.add k (OfNat j)))
+        (Float.Theory.upPow k * Float.Theory.downPow (Int.add (Int.add k (OfNat j)) (OfNat 1)) * (Nat.pow 2 j * 2))
+        (Float.Theory.upPow (Int.add (Int.add k (OfNat j)) (OfNat 1)) * Float.Theory.downPow k)
+        (Float.Theory.powChain (Float.Theory.upPow k) (Float.Theory.downPow (Int.add (Int.add k (OfNat j)) (OfNat 1)))
+          (Nat.pow 2 j) (Float.Theory.downPow (Int.add k (OfNat j))) (Float.Theory.upPow (Int.add k (OfNat j)))
+          (Float.Theory.downPow k) (Float.Theory.upPow (Int.add (Int.add k (OfNat j)) (OfNat 1)))
+          (Float.Theory.powShift k j) (Float.Theory.powStep (Int.add k (OfNat j))))
 
 theorem Float.Theory.quotLess (q: Nat) (b: Nat) (t: Nat) (k: Nat) (low: q * b ≤ t) (h: t < b * k): q < k :=
   Float.Theory.cancelLess q k b (omega [low, h, (ring: b * k = k * b)])
@@ -1157,20 +1161,22 @@ theorem Float.Theory.largestUnder: Float.Theory.magUnits 9218868437227405311 < F
 
 theorem Float.Theory.capAbsurd (o: Nat) (u: Nat) (um: Nat) (a: 1 * o ≤ u * 1) (hu: u ≤ um) (hm: um < o): Void := omega
 
-theorem Float.Theory.roundRatioOfPos (den: Nat) (scale: Int) (z: Bool): ∀ (x: Nat) => 0 < x
-    → Float.Model.roundRatio (OfNat x) den scale z = Float.Model.roundMagnitude False x den (Int.add scale (OfNat 1074))
-  | Zero, p => Void.exfalso (Bool.falseNotTrue p)
-  | Succ k, p => rfl
+theorem Float.Theory.roundRatioOfPos (den: Nat) (scale: Int) (z: Bool) (x: Nat) (p: 0 < x):
+    Float.Model.roundRatio (OfNat x) den scale z = Float.Model.roundMagnitude False x den (Int.add scale (OfNat 1074)) :=
+  match x with
+    | Zero => Void.exfalso (Bool.falseNotTrue p)
+    | Succ k => rfl
 
-theorem Float.Theory.roundRatioOfNeg (den: Nat) (scale: Int) (z: Bool): ∀ (x: Nat) => 0 < x
-    → Float.Model.roundRatio (Int.neg (OfNat x)) den scale z
-    = Float.Model.roundMagnitude False x den (Int.add scale (OfNat 1074)) + 9223372036854775808
-  | Zero, p => Void.exfalso (Bool.falseNotTrue p)
-  | Succ k, p => rfl
+theorem Float.Theory.roundRatioOfNeg (den: Nat) (scale: Int) (z: Bool) (x: Nat) (p: 0 < x): Float.Model.roundRatio (Int.neg (OfNat x)) den scale z
+    = Float.Model.roundMagnitude False x den (Int.add scale (OfNat 1074)) + 9223372036854775808 :=
+  match x with
+    | Zero => Void.exfalso (Bool.falseNotTrue p)
+    | Succ k => rfl
 
-theorem Float.Theory.zeroOrPos: ∀ (m: Nat) => (m = 0) ∨ (0 < m)
-  | Zero => Inl rfl
-  | Succ k => Inr rfl
+theorem Float.Theory.zeroOrPos (m: Nat): (m = 0) ∨ (0 < m) :=
+  match m with
+    | Zero => Inl rfl
+    | Succ k => Inr rfl
 
 --| Rounding a finite pattern's own units gives that pattern.
 theorem Float.Theory.roundsToExact (m: Nat) (r: Nat) (hm: m < 9218868437227405312)
@@ -1194,16 +1200,17 @@ theorem Float.Theory.magnitudeExact (m: Nat) (pm: 0 < m) (hm: m < 92188684372274
   Float.Theory.roundsToExact m (Float.Model.roundMagnitude False (Float.Theory.magUnits m) 1 (OfNat 0)) hm
     (Float.Theory.roundMagnitudeSpec (Float.Theory.magUnits m) 1 (OfNat 0) (Float.Theory.magUnitsLess 0 m pm) rfl)
 
-theorem Float.Theory.unitsRoundPos: ∀ (x: Nat) => 0 < x
-    → Float.Model.roundRatio (Int.signed False x) 1 (-1074) False = Float.Model.roundMagnitude False x 1 (OfNat 0)
-  | Zero, p => Void.exfalso (Bool.falseNotTrue p)
-  | Succ k, p => rfl
+theorem Float.Theory.unitsRoundPos (x: Nat) (p: 0 < x):
+    Float.Model.roundRatio (Int.signed False x) 1 (-1074) False = Float.Model.roundMagnitude False x 1 (OfNat 0) :=
+  match x with
+    | Zero => Void.exfalso (Bool.falseNotTrue p)
+    | Succ k => rfl
 
-theorem Float.Theory.unitsRoundNeg: ∀ (x: Nat) => 0 < x
-    → Float.Model.roundRatio (Int.signed True x) 1 (-1074) True
-    = Float.Model.roundMagnitude False x 1 (OfNat 0) + 9223372036854775808
-  | Zero, p => Void.exfalso (Bool.falseNotTrue p)
-  | Succ k, p => rfl
+theorem Float.Theory.unitsRoundNeg (x: Nat) (p: 0 < x): Float.Model.roundRatio (Int.signed True x) 1 (-1074) True
+    = Float.Model.roundMagnitude False x 1 (OfNat 0) + 9223372036854775808 :=
+  match x with
+    | Zero => Void.exfalso (Bool.falseNotTrue p)
+    | Succ k => rfl
 
 theorem Float.Theory.unitsRoundNonneg: ∀ (m: Nat) => m < 9218868437227405312
     → Float.Model.roundRatio (Int.signed False (Float.Theory.magUnits m)) 1 (-1074) False = m
@@ -1239,23 +1246,27 @@ theorem Float.Theory.roundRatioUnitsBits (bits: Nat) (fin: Float.Theory.FiniteBi
 
 -- Addition on bit patterns
 
-theorem Float.Theory.boolCases: ∀ (b: Bool) => (b = True) ∨ (b = False)
-  | True => Inl rfl
-  | False => Inr rfl
+theorem Float.Theory.boolCases (b: Bool): (b = True) ∨ (b = False) :=
+  match b with
+    | True => Inl rfl
+    | False => Inr rfl
 
-theorem Float.Theory.andFalseRight: ∀ (b: Bool) => (b ∧ False) = False
-  | True => rfl
-  | False => rfl
+theorem Float.Theory.andFalseRight (b: Bool): (b ∧ False) = False :=
+  match b with
+    | True => rfl
+    | False => rfl
 
-theorem Float.Theory.andTrueRight: ∀ (b: Bool) => (b ∧ True) = b
-  | True => rfl
-  | False => rfl
+theorem Float.Theory.andTrueRight (b: Bool): (b ∧ True) = b :=
+  match b with
+    | True => rfl
+    | False => rfl
 
-theorem Float.Theory.andSwap: ∀ (a b: Bool) => (a ∧ b) = (b ∧ a)
-  | True, True => rfl
-  | True, False => rfl
-  | False, True => rfl
-  | False, False => rfl
+theorem Float.Theory.andSwap (a b: Bool): (a ∧ b) = (b ∧ a) :=
+  match a, b with
+    | True, True => rfl
+    | True, False => rfl
+    | False, True => rfl
+    | False, False => rfl
 
 theorem Float.Theory.ifTrue (c: Bool) (x: Nat) (y: Nat) (h: c = True): (if c then x else y) = x := rewrite h in rfl
 
@@ -1395,9 +1406,10 @@ theorem Float.Theory.keyTo (a: Nat) (r: Nat) (s: Nat) (e: r = s) (h: Int.leq (Fl
 theorem Float.Theory.validTo (r: Nat) (s: Nat) (e: r = s) (h: Float.isValid s = True): Float.isValid r = True :=
   J (y w => Float.isValid y = True) h (Eq.sym e)
 
-theorem Float.Theory.keyRefl: ∀ (x: Int) => Int.leq x x = True
-  | OfNat n => Nat.leRefl n
-  | NegSucc n => Nat.leRefl n
+theorem Float.Theory.keyRefl (x: Int): Int.leq x x = True :=
+  match x with
+    | OfNat n => Nat.leRefl n
+    | NegSucc n => Nat.leRefl n
 
 theorem Float.Theory.keySet (a: Nat) (c: Nat.leq 9223372036854775808 a = True):
     Float.Theory.key a = NegSucc (a - 9223372036854775808) :=
@@ -1437,10 +1449,11 @@ theorem Float.Theory.zeroLeZeroBits (a: Nat) (h: (a = 0) ∨ (a = 92233720368547
 
 -- Units and rounding, on patterns
 
-theorem Float.Theory.signedZero: ∀ (s: Bool) (x: Nat) => Int.signed s x = OfNat 0 → x = 0
-  | False, x, h => Int.ofNatInjective x 0 h
-  | True, Zero, h => rfl
-  | True, Succ k, h => Void.exfalso (Int.negSuccNotOfNat k 0 h)
+theorem Float.Theory.signedZero (s: Bool) (x: Nat) (h: Int.signed s x = OfNat 0): x = 0 :=
+  match s, x with
+    | False, x => Int.ofNatInjective x 0 h
+    | True, Zero => rfl
+    | True, Succ k => Void.exfalso (Int.negSuccNotOfNat k 0 h)
 
 --| A pattern with no units is a zero.
 theorem Float.Theory.unitsZeroIsZeroBits (a: Nat) (h: Float.Model.units a = OfNat 0): (a = 0) ∨ (a = 9223372036854775808) :=
@@ -1471,31 +1484,36 @@ theorem Float.Theory.unitsZeroBits (a: Nat) (h: (a = 0) ∨ (a = 922337203685477
 
 --| The zero sign matters only for a zero
 --| numerator.
-theorem Float.Theory.roundRatioSignIrrelevant (den: Nat) (scale: Int) (z1: Bool) (z2: Bool):
-    ∀ (num: Int) => num ≠ OfNat 0 → Float.Model.roundRatio num den scale z1 = Float.Model.roundRatio num den scale z2
-  | OfNat Zero, ne => Void.exfalso (ne rfl)
-  | OfNat (Succ k), ne => rfl
-  | NegSucc k, ne => rfl
+theorem Float.Theory.roundRatioSignIrrelevant (den: Nat) (scale: Int) (z1: Bool) (z2: Bool)
+    (num: Int) (ne: num ≠ OfNat 0): Float.Model.roundRatio num den scale z1 = Float.Model.roundRatio num den scale z2 :=
+  match num with
+    | OfNat Zero => Void.exfalso (ne rfl)
+    | OfNat (Succ k) => rfl
+    | NegSucc k => rfl
 
-theorem Float.Theory.intZeroCases: ∀ (x: Int) => (x = OfNat 0) ∨ (x ≠ OfNat 0)
-  | OfNat Zero => Inl rfl
-  | OfNat (Succ k) => Inr (h => Bool.falseNotTrue (Eq.cong (y => Nat.equal (Int.toNat y) 0) h))
-  | NegSucc k => Inr (Int.negSuccNotOfNat k 0)
+theorem Float.Theory.intZeroCases (x: Int): (x = OfNat 0) ∨ (x ≠ OfNat 0) :=
+  match x with
+    | OfNat Zero => Inl rfl
+    | OfNat (Succ k) => Inr (h => Bool.falseNotTrue (Eq.cong (y => Nat.equal (Int.toNat y) 0) h))
+    | NegSucc k => Inr (Int.negSuccNotOfNat k 0)
 
-theorem Float.Theory.intLessAddPos (k: Nat) (pk: 0 < k): ∀ (x: Int) => Int.less x (Int.add x (OfNat k)) = True
-  | OfNat n => (omega [pk]: Nat.leq (Succ n) (n + k) = True)
-  | NegSucc n =>
-    match h: Succ n - k with
-      | Zero => rfl
-      | Succ j => (omega [h, pk]: Nat.leq (Succ j) n = True)
+theorem Float.Theory.intLessAddPos (k: Nat) (pk: 0 < k) (x: Int): Int.less x (Int.add x (OfNat k)) = True :=
+  match x with
+    | OfNat n => (omega [pk]: Nat.leq (Succ n) (n + k) = True)
+    | NegSucc n =>
+      match h: Succ n - k with
+        | Zero => rfl
+        | Succ j => (omega [h, pk]: Nat.leq (Succ j) n = True)
 
-theorem Float.Theory.orLeftFalse: ∀ (x y: Bool) => (x ∨ y) = False → x = False
-  | True, y, h => Void.exfalso (Bool.trueNotFalse h)
-  | False, y, h => rfl
+theorem Float.Theory.orLeftFalse (x y: Bool) (h: (x ∨ y) = False): x = False :=
+  match x with
+    | True => Void.exfalso (Bool.trueNotFalse h)
+    | False => rfl
 
-theorem Float.Theory.orRightFalse: ∀ (x y: Bool) => (x ∨ y) = False → y = False
-  | x, True, h => Void.exfalso (Bool.trueNotFalse (Eq.trans (Eq.sym (Bool.orTrue x)) h))
-  | x, False, h => rfl
+theorem Float.Theory.orRightFalse (x y: Bool) (h: (x ∨ y) = False): y = False :=
+  match y with
+    | True => Void.exfalso (Bool.trueNotFalse (Eq.trans (Eq.sym (Bool.orTrue x)) h))
+    | False => rfl
 
 --| The result of `addBits` is a valid pattern.
 theorem Float.Theory.addBitsValid (a: Nat) (b: Nat) (va: Float.isValid a = True) (vb: Float.isValid b = True):
@@ -1623,9 +1641,10 @@ theorem Float.Theory.addNegZeroBits (a: Nat) (va: Float.isValid a = True): Float
                 (Float.Theory.roundRatioUnitsBits a (Float.Theory.finiteOf a va n ia))))))
 
 --| Reading a valid pattern back.
-theorem Float.Theory.ofBitsFromBits (b: Nat): ∀ (c: Bool) (h: Float.isValid b = c) => c = True → (Float.ofBitsFrom b c h).bits = b
-  | True, h, e => rfl
-  | False, h, e => Void.exfalso (Bool.falseNotTrue e)
+theorem Float.Theory.ofBitsFromBits (b: Nat) (c: Bool) (h: Float.isValid b = c) (e: c = True): (Float.ofBitsFrom b c h).bits = b :=
+  match c with
+    | True => rfl
+    | False => Void.exfalso (Bool.falseNotTrue e)
 
 theorem Float.Theory.ofBitsBits (b: Nat) (v: Float.isValid b = True): (Float.ofBits b).bits = b :=
   Float.Theory.ofBitsFromBits b (Float.isValid b) rfl v
@@ -1637,9 +1656,10 @@ theorem Float.Theory.signClear (b: Nat) (h: Int.leq (OfNat 0) (Float.Theory.key 
 
 -- Units and rounding, on doubles
 
-theorem Float.Theory.notTrueFalse: ∀ (b: Bool) => (¬b) = True → b = False
-  | True, h => Void.exfalso (Bool.falseNotTrue h)
-  | False, h => rfl
+theorem Float.Theory.notTrueFalse (b: Bool) (h: (¬b) = True): b = False :=
+  match b with
+    | True => Void.exfalso (Bool.falseNotTrue h)
+    | False => rfl
 
 theorem Float.Theory.finiteBits (x: Float) (fin: Float.isFinite x = True): Float.Theory.FiniteBits x.bits :=
   let g: Nat.leq 9218868437227405312 (Float.Model.magnitude x.bits) = False :=
@@ -1749,17 +1769,17 @@ test "Float.Theory.roundRatioStrictMono" :=
 
 --| The sum of two finite doubles: their units' sum, rounded, with `-0.0` only
 --| when both are negative.
-theorem Float.Theory.addFinite: ∀ (x y: Float) => Float.isFinite x = True → Float.isFinite y = True
-    → x + y
+theorem Float.Theory.addFinite (x y: Float) (fx: Float.isFinite x = True) (fy: Float.isFinite y = True): x + y
     = Float.ofBits
     (Float.Model.roundRatio (Int.add (Float.Theory.units x) (Float.Theory.units y)) 1 (-1074)
-    (Float.Model.signBit x.bits ∧ Float.Model.signBit y.bits))
-  | { bits = a, valid = p }, { bits = b, valid = q }, fx, fy =>
-    let fa: Float.Theory.FiniteBits a := Float.Theory.finiteBits { bits = a, valid = p } fx
-    let fb: Float.Theory.FiniteBits b := Float.Theory.finiteBits { bits = b, valid = q } fy
-    Eq.cong Float.ofBits
-      (Float.Theory.addFiniteBits a b (Float.Theory.finiteNotNaN a fa) (Float.Theory.finiteNotNaN b fb)
-        (Float.Theory.finiteNotInfinite a fa) (Float.Theory.finiteNotInfinite b fb))
+    (Float.Model.signBit x.bits ∧ Float.Model.signBit y.bits)) :=
+  match x, y with
+    | { bits = a, valid = p }, { bits = b, valid = q } =>
+      let fa: Float.Theory.FiniteBits a := Float.Theory.finiteBits { bits = a, valid = p } fx
+      let fb: Float.Theory.FiniteBits b := Float.Theory.finiteBits { bits = b, valid = q } fy
+      Eq.cong Float.ofBits
+        (Float.Theory.addFiniteBits a b (Float.Theory.finiteNotNaN a fa) (Float.Theory.finiteNotNaN b fb)
+          (Float.Theory.finiteNotInfinite a fa) (Float.Theory.finiteNotInfinite b fb))
 
 test "Float.Theory.addFinite" :=
   (-0.0) + 0.0 == Float.ofBits (Float.Model.roundRatio (OfNat 0) 1 (-1074) False)
@@ -1797,8 +1817,9 @@ test "adding to both sides of `<=` is not monotone" :=
 --| `0.0 <= d → s - d <= s` is false at `d = NaN`.
 test "subtracting a non-negative double can go up" := 0.0 <= Float.nan ∧ ¬(1.0 - Float.nan <= 1.0)
 
-theorem Float.addComm: ∀ (x y: Float) => x + y = y + x
-  | { bits = a, valid = p }, { bits = b, valid = q } => Eq.cong Float.ofBits (Float.Theory.addBitsComm a b)
+theorem Float.addComm (x y: Float): x + y = y + x :=
+  match x, y with
+    | { bits = a, valid = p }, { bits = b, valid = q } => Eq.cong Float.ofBits (Float.Theory.addBitsComm a b)
 
 test "Float.addComm" :=
   0.1 + 0.2 == 0.2 + 0.1 ∧ (-0.0) + 0.0 == 0.0 + (-0.0) ∧ (-0.0) + (-0.0) == (-0.0) + (-0.0)
