@@ -26692,15 +26692,17 @@
     {
       "id": 2612,
       "title": "Soundness fuzzer: the unmutated calibration check runs under the mutant caps, so a low SOUND_MEM_CAP_MB/SOUND_MUTANT_SECS skips the theorem as 'unmutated check rejected'; run it uncapped or say the cap tripped",
-      "status": "backlog",
+      "status": "review",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "audit-fuzzing",
-      "body": "From SW-2610, 10 Nov. Small.",
+      "body": "From SW-2610, 10 Nov. Small.\n\nLane note (10 Nov): calibration check now uses the default limits (2 GB, 90 s; never lower than the env caps) via check_one's new calibration flag; a trip reports 'the unmutated check ran out of heap/time'. Commit 35e24d70c.",
       "created": "2026-11-10",
       "updated": "2026-11-10",
-      "commits": []
+      "commits": [
+        "35e24d70c"
+      ]
     }
   ]
 }
