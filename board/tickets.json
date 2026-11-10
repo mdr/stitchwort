@@ -25797,15 +25797,17 @@
     {
       "id": 2548,
       "title": "Test harnesses call the machine 'native' (effect_differential.rs BACKENDS, run_js.rs): rename",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2548",
       "labels": [],
       "epic": "effects-native",
-      "body": "From SW-2535. 20 min.",
+      "body": "From SW-2535. 20 min.\n\nDone 10 Nov: five keys_mode tests *_native -> *_machine, three comments; BACKENDS labels were already right. Model result: Sonnet (for DeepSeek), worked, 4 min (est. 20).",
       "created": "2026-11-09",
       "updated": "2026-11-10",
-      "commits": []
+      "commits": [
+        "9024ea394"
+      ]
     },
     {
       "id": 2549,
