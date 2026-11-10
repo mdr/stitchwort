@@ -1,5 +1,5 @@
 {
-  "next": 2640,
+  "next": 2645,
   "tickets": [
     {
       "id": 47,
@@ -27277,14 +27277,86 @@
     {
       "id": 2639,
       "title": "Tutorial part 2: specs. Write down what a correct checkout is apart from the code, prove the code meets it, try statements first with check --counterexamples (continues part 1's shopping basket; Matt's request)",
-      "status": "review",
+      "status": "done",
       "agent": "Opus",
       "where": "",
       "labels": [
         "docs"
       ],
       "epic": "docs-tutorials",
-      "body": "Matt, 10 Nov 2026: 'Can you write me part 2 of the tutorial?' Part 1 (SW-1666, docs/tutorial/01-proving-programs.sw) ends promising specs, separate from the code, with check --counterexamples. Opus (teaching judgement, as part 1). Expected: 60 min.\n\nDone (lane, 10 Nov 2026): docs/tutorial/02-specs.sw (344 lines, 9 steps: setup; a till with a running total; the spec shouldCharge/totalOf; trying a statement with ? and check --counterexamples; the first induction fails (E-REWRITE-NOTHING); generalising the running total (scanAdds, checkoutCorrect); property specs with a false one (percent coupons don't commute, rounding), ∧ (Both), ∃ (Witness); three breaks (spec wrong the same way, till skips the last item, wrong witness); recap). Every quoted goal, note and CLI line checked against the build with each exercise applied (11 variants). Findings for filing: --counterexamples lists and counts the generated Item.ext/Basket.ext theorems; omega's notes on Nat subtraction without the hypothesis are confusing (a \"differ only in\" note); ∃ statements get no counterexample check, so a wrong witness's real model is labelled \"may not be real\". Part 1's closing lines left as they are (part 2 delivers what they promise).\n",
+      "body": "Matt, 10 Nov 2026: 'Can you write me part 2 of the tutorial?' docs/tutorial/02-specs.sw (344 lines, 9 steps: a till with a running total; spec shouldCharge; counterexamples in the hover and check --counterexamples; failed induction from 0 (E-REWRITE-NOTHING); generalised scanAdds; percent-order counterexample from rounding; ∧ with Both, ∃ with Witness; three breaks). 11 variants checked against the release build; orchestrator reviewed statements and arithmetic. Model result: Opus, worked, 11 min (est. 60).",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": [
+        "8a39291bc"
+      ]
+    },
+    {
+      "id": 2640,
+      "title": "check --counterexamples searches compiler-generated T.ext theorems: --verbose prints gave-up/weak-evidence lines for them and the summary counts them (7 theorems for a file with 5). Skip generated theorems (tutorial part 2, SW-2639)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "bug"
+      ],
+      "epic": "docs-tutorials",
+      "body": "",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
+    },
+    {
+      "id": 2641,
+      "title": "omega on Nat subtraction with a missing hypothesis gives a misleading note ('total - (total - target) and total - target differ only in ... no fact connects them'); repro: drop (cheaper: target ≤ total) from priceMatch in docs/tutorial/02-specs.sw (SW-2639)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "bug"
+      ],
+      "body": "",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
+    },
+    {
+      "id": 2642,
+      "title": "Counterexample search on ∃ statements: search the witness's own goal, so a wrong witness's omega model can be confirmed real instead of 'may not be a real counterexample'; repro: priceMatch witness PenceOff target in docs/tutorial/02-specs.sw (SW-2639)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
+    },
+    {
+      "id": 2643,
+      "title": "Hover and check --counterexamples give different counterexamples for the same statement, and --verbose case counts vary between runs (time budget); repro: mixed coupon order in docs/tutorial/02-specs.sw (SW-2639). Low priority",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "bug"
+      ],
+      "body": "",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
+    },
+    {
+      "id": 2644,
+      "title": "Tutorial part 3, candidates from SW-2639: Percent record with a ≤ 100 proof field; match induct for a 3-for-2 deal; calc chains; projects, audit, axioms; which coupon order favours the customer (ring)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "docs"
+      ],
+      "epic": "docs-tutorials",
+      "body": "",
       "created": "2026-11-10",
       "updated": "2026-11-10",
       "commits": []
