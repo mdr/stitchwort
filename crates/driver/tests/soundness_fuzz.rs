@@ -33,24 +33,38 @@
 //! `SOUND_SEED` (decimal or `0x…`) and `SOUND_CORPUS` (`examples`, `std`,
 //! `aoc`, `rogue`, a comma-separated list, or `all`) set a longer or
 //! different run (`task fuzz:soundness`). `SOUND_VERBOSE=1` prints every
-//! case (`2`: with each mutant's text). A finding prints the program and
+//! case (`2`: with each mutant's text). `SOUND_ONLY=text` checks only the
+//! theorems whose label (`file: Namespace.name`) contains `text`, and every
+//! mutation of each (not the few that `SOUND_MUTANTS` would choose). A finding prints the program and
 //! writes it to `target/soundness-fuzz/`.
+//!
+//! A mutant whose check holds more than `MEM_CAP` of heap (`SOUND_MEM_CAP_MB`)
+//! or runs longer than `MUTANT_TIME` (`SOUND_MUTANT_SECS`) is stopped, counted
+//! as "too expensive to check" with its text saved to `target/soundness-fuzz/`,
+//! and the run goes on (SW-2576; the mechanism is `support/heap_cap.rs`, as in
+//! `fuzz_elab.rs`). It is not a finding: nothing was accepted.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::ops::Range;
 use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use stitchwort_core::DefId;
-use stitchwort_core::budget::Limits;
+use stitchwort_core::budget::{Budget as CoreBudget, Limits};
 use stitchwort_driver::audit::{Check, Options, Severity, Status, TheoremAudit};
 use stitchwort_driver::counterexample::Verdict;
 use stitchwort_driver::driver::{Session, Tier, test_threads, tier, tier_sample};
 use stitchwort_driver::project::{DiskFiles, Target, project_sources};
 use stitchwort_elab::counterexample::Budget;
 use stitchwort_syntax::SourceMap;
+
+#[path = "support/heap_cap.rs"]
+mod heap_cap;
+
+#[global_allocator]
+static ALLOCATOR: heap_cap::Counting = heap_cap::Counting;
 
 const SEED: u64 = 0x5eed_0687_50fd_0001;
 /// Statement and proof mutants checked by default, from `examples/accept`
@@ -70,6 +84,13 @@ const SEARCH: Budget = Budget {
     inputs: 2000,
     millis: 2000,
 };
+/// The most heap one mutant's check may hold (`SOUND_MEM_CAP_MB` sets
+/// another). Mutants take 0.2 to 1.5 GB; the one that prompted the cap held
+/// 7 GB for a minute (SW-2576). Four checks run at once.
+const MEM_CAP: i64 = 2 << 30;
+/// The longest one mutant's check may take (`SOUND_MUTANT_SECS`). The
+/// slowest ordinary ones take 30 s.
+const MUTANT_TIME: Duration = Duration::from_secs(90);
 /// At most this many mutants of one theorem.
 const PER_THEOREM: usize = 3;
 
@@ -740,6 +761,10 @@ fn configure(session: &mut Session) {
     session.elab.options.untimed_counterexamples = true;
     // No search on a failing proof: most mutants fail.
     session.elab.options.no_counterexamples = true;
+    // The caps (`heap_cap`) stop a check through the budget's cancel hook.
+    let budget = &session.elab.kernel.machine.budget;
+    budget.set_cancel_flag(Default::default());
+    budget.watch_cancel(true);
 }
 
 /// The theorem `name` of namespace `namespace` (or any, for a file), if
@@ -763,6 +788,8 @@ fn check_site(corpus: &Corpus, site: &Site, decl: &str, cache: &Path, search: bo
         audit: None,
         refuted: false,
         load_error: None,
+        too_expensive: None,
+        peak: 0,
     };
     let mut session = match &site.home {
         Home::Std { path } => {
@@ -879,6 +906,8 @@ fn check_site(corpus: &Corpus, site: &Site, decl: &str, cache: &Path, search: bo
         audit,
         refuted,
         load_error,
+        too_expensive: None,
+        peak: 0,
     }
 }
 
@@ -888,6 +917,11 @@ struct Checked {
     refuted: bool,
     /// The first line of the first error that loading the files gave, if any.
     load_error: Option<String>,
+    /// Stopped for holding more heap, or taking longer, than the caps allow
+    /// (set by [`check_one`]); the rest of this is then not a result.
+    too_expensive: Option<heap_cap::Tripped>,
+    /// The most heap the check held at once, in bytes (set by [`check_one`]).
+    peak: i64,
 }
 
 fn outcome_of(checked: &Checked) -> Outcome {
@@ -994,6 +1028,8 @@ struct JobResult {
     /// Mutants that formatted the same as the original, so weren't checked.
     no_ops: usize,
     failures: Vec<String>,
+    /// Mutants stopped by a cap, not checked: not findings.
+    too_expensive: Vec<String>,
 }
 
 #[test]
@@ -1019,16 +1055,25 @@ fn mutated_theorems_have_no_counterexample() {
 
     // Theorems in random order, each with up to PER_THEOREM mutations, until
     // there are enough.
+    let only = env_text("SOUND_ONLY");
     let mut rng = Rng(seed);
     let mut order: Vec<usize> = (0..corpus.sites.len()).collect();
     rng.shuffle(&mut order);
     let mut jobs = Vec::new();
     let mut count = 0;
     for &s in &order {
+        let site = &corpus.sites[s];
+        if let Some(only) = &only {
+            // Every mutation of the theorems asked for, none of the rest.
+            if site.label().contains(only) {
+                let mutations = mutations_of(site, &corpus.members);
+                jobs.push(Job { site: s, mutations });
+            }
+            continue;
+        }
         if count >= wanted {
             break;
         }
-        let site = &corpus.sites[s];
         let mut all = mutations_of(site, &corpus.members);
         if all.is_empty() {
             continue;
@@ -1078,6 +1123,7 @@ fn mutated_theorems_have_no_counterexample() {
             no_ops: 0,
             results: Vec::new(),
             failures: Vec::new(),
+            too_expensive: Vec::new(),
         };
         let original = site.text[site.decl.clone()].to_string();
         let base = check_one(corpus, site, &original, cache, false);
@@ -1125,8 +1171,9 @@ fn mutated_theorems_have_no_counterexample() {
             let checked = check_one(corpus, site, &decl, cache, true);
             if env_text("SOUND_VERBOSE").is_some() {
                 let shown = checked.as_ref().map(outcome_of);
+                let peak = checked.as_ref().map_or(0, |c| c.peak) >> 20;
                 println!(
-                    "{:.2}s {} ({}): {shown:?}",
+                    "{:.2}s {peak} MB {} ({}): {shown:?}",
                     began.elapsed().as_secs_f64(),
                     site.label(),
                     m.kind()
@@ -1136,6 +1183,27 @@ fn mutated_theorems_have_no_counterexample() {
                 }
             }
             match checked {
+                Ok(Checked {
+                    too_expensive: Some(tripped),
+                    ..
+                }) => {
+                    let tag = format!("{seed:x}-{}-{}-expensive", job.site, out.results.len());
+                    let saved = save_finding(&tag, &decl);
+                    let line = format!(
+                        "{} ({}): stopped after {:.1}s by the {} cap; mutant declaration saved to {}",
+                        site.label(),
+                        m.kind(),
+                        began.elapsed().as_secs_f64(),
+                        match tripped {
+                            heap_cap::Tripped::Time =>
+                                format!("{} s time", mutant_time().as_secs()),
+                            _ => format!("{} MB heap", mem_cap() >> 20),
+                        },
+                        saved.display()
+                    );
+                    eprintln!("soundness_fuzz: too expensive: {line}");
+                    out.too_expensive.push(line);
+                }
                 Ok(checked) => {
                     let outcome = outcome_of(&checked);
                     refuted += usize::from(checked.refuted);
@@ -1175,9 +1243,11 @@ fn mutated_theorems_have_no_counterexample() {
     let refuted: usize = results.iter().map(|r| r.refuted).sum();
     let no_ops: usize = results.iter().map(|r| r.no_ops).sum();
     let mut failures = Vec::new();
+    let mut too_expensive = Vec::new();
     for (job, r) in jobs.iter().zip(&results) {
         calibrated += usize::from(r.calibrated);
         failures.extend(r.failures.iter().cloned());
+        too_expensive.extend(r.too_expensive.iter().cloned());
         let site = &corpus.sites[job.site];
         for (m, outcome, _) in &r.results {
             let row = by_kind.entry(m.kind()).or_default();
@@ -1198,12 +1268,16 @@ fn mutated_theorems_have_no_counterexample() {
     println!(
         "soundness_fuzz mutants: seed {seed:#x}, {:.1}s, {} theorems ({calibrated} checked unmutated), \
          {total} mutants: {rejected} rejected ({refuted} of them refuted by the search), {} accepted ({searched} searched with no \
-         counterexample, {unsearched} out of the search's scope), {no_ops} no-op mutants skipped, {} findings",
+         counterexample, {unsearched} out of the search's scope), {no_ops} no-op mutants skipped, {} too expensive to check, {} findings",
         started.elapsed().as_secs_f64(),
         jobs.len(),
         total - rejected,
+        too_expensive.len(),
         failures.len()
     );
+    for line in &too_expensive {
+        println!("  too expensive: {line}");
+    }
     for (kind, r) in &by_kind {
         println!(
             "  {kind:18} {:5} mutants, {:5} rejected, {:4} accepted unsearched, {:4} accepted searched",
@@ -1239,7 +1313,27 @@ fn check_one(
     cache: &Path,
     search: bool,
 ) -> Result<Checked, String> {
-    on_thread(|| check_site(corpus, site, decl, cache, search))
+    on_thread(|| {
+        CoreBudget::set_cancel_hook(heap_cap::over_cap);
+        let before = heap_cap::start(mem_cap(), Some(Instant::now() + mutant_time()));
+        let mut checked = check_site(corpus, site, decl, cache, search);
+        checked.peak = heap_cap::peak_since(before);
+        match heap_cap::tripped() {
+            heap_cap::Tripped::No => {}
+            tripped => checked.too_expensive = Some(tripped),
+        }
+        checked
+    })
+}
+
+/// The heap cap in bytes: `SOUND_MEM_CAP_MB` or [`MEM_CAP`].
+fn mem_cap() -> i64 {
+    env_number("SOUND_MEM_CAP_MB").map_or(MEM_CAP, |mb| (mb as i64) << 20)
+}
+
+/// The time cap: `SOUND_MUTANT_SECS` or [`MUTANT_TIME`].
+fn mutant_time() -> Duration {
+    env_number("SOUND_MUTANT_SECS").map_or(MUTANT_TIME, Duration::from_secs)
 }
 
 // --- part 2: attempts to prove `Void` --------------------------------------
@@ -2038,5 +2132,3 @@ fn void_attempts_are_rejected() {
         failures.join("\n\n")
     );
 }
-
-use stitchwort_test_alloc as _;

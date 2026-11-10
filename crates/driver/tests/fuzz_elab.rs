@@ -51,8 +51,6 @@
 //! that runs away in memory, which the watchdog is too slow for, can be
 //! found from the log.
 
-use std::alloc::{GlobalAlloc, Layout};
-use std::cell::Cell;
 use std::ops::Range;
 use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::path::{Path, PathBuf};
@@ -63,6 +61,9 @@ use std::time::{Duration, Instant};
 use stitchwort_core::budget::{Budget, Limits};
 use stitchwort_driver::driver::{Session, Tier, test_threads, tier};
 use stitchwort_syntax::{SourceMap, parse_module_recovering};
+
+#[path = "support/heap_cap.rs"]
+mod heap_cap;
 
 /// The default number of cases, about 20 s in the daily tier (four times as
 /// many in the full tier); `FUZZ_CASES` sets another count.
@@ -543,85 +544,8 @@ struct Verdict {
     codes: Vec<&'static str>,
 }
 
-/// mimalloc (as in every test binary) counting each thread's live bytes, so
-/// a check that runs away in memory can be stopped ([`over_cap`]).
-struct Counting;
-
-thread_local! {
-    /// Bytes this thread has allocated and not freed (negative if it frees
-    /// what another thread allocated). Const-initialised and without a
-    /// destructor, so reading it inside the allocator never allocates.
-    static LIVE: Cell<i64> = const { Cell::new(0) };
-    /// The most `LIVE` has been since the thread's check began.
-    static PEAK: Cell<i64> = const { Cell::new(0) };
-    /// The cap the budget's cancel hook applies on this thread.
-    static CAP: Cell<i64> = const { Cell::new(i64::MAX) };
-}
-
-fn grew(bytes: usize) {
-    LIVE.with(|live| {
-        let now = live.get() + bytes as i64;
-        live.set(now);
-        PEAK.with(|peak| peak.set(peak.get().max(now)));
-    });
-}
-
-fn shrank(bytes: usize) {
-    LIVE.with(|live| live.set(live.get() - bytes as i64));
-}
-
-// Why `unsafe`: counting allocations means wrapping the global allocator,
-// and `GlobalAlloc` is an unsafe trait. Why it's sound: each method passes
-// its arguments unchanged to the same method of `MiMalloc`, which meets the
-// trait's contract, and returns what that returned; the counting touches
-// only thread-locals and never allocates.
-#[allow(unsafe_code)]
-unsafe impl GlobalAlloc for Counting {
-    unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
-        // SAFETY: our caller meets `alloc`'s contract, which is `MiMalloc`'s.
-        let ptr = unsafe { mimalloc::MiMalloc.alloc(layout) };
-        if !ptr.is_null() {
-            grew(layout.size());
-        }
-        ptr
-    }
-
-    unsafe fn alloc_zeroed(&self, layout: Layout) -> *mut u8 {
-        // SAFETY: as for `alloc`.
-        let ptr = unsafe { mimalloc::MiMalloc.alloc_zeroed(layout) };
-        if !ptr.is_null() {
-            grew(layout.size());
-        }
-        ptr
-    }
-
-    unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
-        // SAFETY: `ptr` came from this allocator, so from `MiMalloc`, with
-        // this layout.
-        unsafe { mimalloc::MiMalloc.dealloc(ptr, layout) };
-        shrank(layout.size());
-    }
-
-    unsafe fn realloc(&self, ptr: *mut u8, layout: Layout, new_size: usize) -> *mut u8 {
-        // SAFETY: as for `dealloc`, and our caller meets `realloc`'s
-        // contract for `new_size`.
-        let new = unsafe { mimalloc::MiMalloc.realloc(ptr, layout, new_size) };
-        if !new.is_null() {
-            shrank(layout.size());
-            grew(new_size);
-        }
-        new
-    }
-}
-
 #[global_allocator]
-static ALLOCATOR: Counting = Counting;
-
-/// The budget's cancel hook: whether the thread's check holds more heap than
-/// its cap.
-fn over_cap() -> bool {
-    LIVE.with(Cell::get) > CAP.with(Cell::get)
-}
+static ALLOCATOR: heap_cap::Counting = heap_cap::Counting;
 
 /// The cap in bytes: `FUZZ_MEM_CAP_MB` or [`MEM_CAP`].
 fn mem_cap() -> i64 {
@@ -645,10 +569,8 @@ struct Report {
 
 /// `None` if the check held more heap than the cap and was cancelled.
 fn check(text: &str, cache: Option<&Path>) -> Option<Report> {
-    Budget::set_cancel_hook(over_cap);
-    CAP.with(|cap| cap.set(mem_cap()));
-    let before = LIVE.with(Cell::get);
-    PEAK.with(|peak| peak.set(before));
+    Budget::set_cancel_hook(heap_cap::over_cap);
+    let before = heap_cap::start(mem_cap(), None);
     let mut sources = SourceMap::new();
     let file = sources.add("fuzz.sw", text);
     let (module, errors) = parse_module_recovering(file, text, STACK);
@@ -689,7 +611,7 @@ fn check(text: &str, cache: Option<&Path>) -> Option<Report> {
         .collect();
     let codes = diagnostics.iter().map(|d| d.code).collect();
     let messages = diagnostics.iter().map(|d| d.message.clone()).collect();
-    let peak = PEAK.with(Cell::get) - before;
+    let peak = heap_cap::peak_since(before);
     Some(Report {
         verdict: Verdict { accepted, codes },
         parsed,
