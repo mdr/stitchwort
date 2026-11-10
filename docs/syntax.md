@@ -918,7 +918,7 @@ def parse (t: Text): Result Int Text := toResult (() => turn t)
 import Std (Each)
 import Std.Each (each, require)
 
-def pairs (n: Nat): List (Pair Nat Nat) := Each.collect (() =>
+def pairs (n: Nat): List (Nat, Nat) := Each.collect (() =>
   let a := each (1 ..= n)
   let b := each (a ..= n)    -- may depend on `a`
   require (a + b == n)                -- drops this choice unless it holds
