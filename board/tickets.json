@@ -1,5 +1,5 @@
 {
-  "next": 2635,
+  "next": 2636,
   "tickets": [
     {
       "id": 47,
@@ -27205,6 +27205,22 @@
       ],
       "epic": "editor-playground",
       "body": "From SW-2628 (10 Nov 2026). Also speeds ordinary editing in large projects. Est. 90 min.",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
+    },
+    {
+      "id": 2635,
+      "title": "[Sonnet] Reference gaps left after SW-2627: named arguments to library callees and on method sections (.map (f := …)); a constructor field's uses inside the constructor's type; doc links in docs of fields, constructors and namespaces; an f.eq2 fixture",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "editor",
+        "refactoring"
+      ],
+      "epic": "editor-playground",
+      "body": "From SW-2627 (10 Nov 2026). The field case matters for R7 (field renames); the rest for find references. Est. 90 min.",
       "created": "2026-11-10",
       "updated": "2026-11-10",
       "commits": []
