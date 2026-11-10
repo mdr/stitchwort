@@ -1,5 +1,5 @@
 {
-  "next": 2607,
+  "next": 2609,
   "tickets": [
     {
       "id": 47,
@@ -26208,15 +26208,17 @@
     {
       "id": 2579,
       "title": "Native frame blow-up: a lambda whose body is ~20 nested if/else over Nat arithmetic gets a 1.1-2.2 MB native frame, so native refuses the program (2M frames x 2 MB > 64 GiB). Five effect-fuzz batches (Overmind job 46). Find why the frame grows (suspect exponential with if nesting; maybe SW-2557's register-file path) and fix; decide whether the fuzzer should count a refusal as skipped",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-2579",
       "labels": [],
       "epic": "effects-native",
-      "body": "Overmind job 46, 9 Nov, main 894a8b549. Seeds 1794200320, 1794201291, 1794201473 (shrunk to 128/60/94 lines), 1794300165, 1794301295 (batch only). Smallest: def p0b0 (v0: Nat): {IO} Nat := let v2 := digest (List.map (List.range 0 1) (y => if 0 % 2 == 0 then if (y * v0 % 1000003) % 2 == 0 then y else if y % 2 == 0 then v0 else ... [about 20 nested ifs] ... else 3)); ... Reproduce with STITCHWORT_TEST_RUN=native STITCHWORT_EFFECT_FUZZ_SEED=1794201291 STITCHWORT_EFFECT_FUZZ_BATCHES=1 cargo test --release -p stitchwort-cli --test extraction effect_differential::generated -- --nocapture. Profile/measure frame size against nesting depth first. 120 min.",
+      "body": "Overmind job 46, 9 Nov, main 894a8b549. Seeds 1794200320, 1794201291, 1794201473 (shrunk to 128/60/94 lines), 1794300165, 1794301295 (batch only). Smallest: def p0b0 (v0: Nat): {IO} Nat := let v2 := digest (List.map (List.range 0 1) (y => if 0 % 2 == 0 then if (y * v0 % 1000003) % 2 == 0 then y else if y % 2 == 0 then v0 else ... [about 20 nested ifs] ... else 3)); ... Reproduce with STITCHWORT_TEST_RUN=native STITCHWORT_EFFECT_FUZZ_SEED=1794201291 STITCHWORT_EFFECT_FUZZ_BATCHES=1 cargo test --release -p stitchwort-cli --test extraction effect_differential::generated -- --nocapture. Profile/measure frame size against nesting depth first. 120 min.\n\nDone 10 Nov. Not a real frame blow-up: frames.rs read x86-64 prologues and didn't know the stack-probe sequence used for frames of a page or more, so it fell back to 16 bytes per IR value (77k values at 20 ifs). Fix: bound from MachBufferFinalized::frame_layout on both architectures; generated code unchanged. Fuzz seeds 1.2-2.2 MB -> 4.2-6.1 KB (x86-64). Also explains run --native on Linux silently cutting recursion depth to ~30-57k frames for such programs. A native refusal stays a fuzz failure. Model result: Opus, worked, 20 min (est. 120).",
       "created": "2026-11-09",
       "updated": "2026-11-10",
-      "commits": []
+      "commits": [
+        "c407ee4aa"
+      ]
     },
     {
       "id": 2580,
@@ -26607,6 +26609,32 @@
       "labels": [],
       "epic": "audit-fuzzing",
       "body": "From SW-2576, 10 Nov. cases is a tactic: Opus (D2506). Repro: SOUND_ONLY=operatorStepComplete task fuzz:soundness …",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
+    },
+    {
+      "id": 2607,
+      "title": "Nested ifs make the native IR's value count grow faster than linearly (2.8k values at 1 if, 44k at 12, 77k at 20: every register carried into every join); measure compile time on large bodies and consider passing only live registers to joins",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "effects-native",
+      "body": "From SW-2579, 10 Nov. Frames are fine now; this is compile time only. Profile first.",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
+    },
+    {
+      "id": 2608,
+      "title": "Effect fuzzer: document STITCHWORT_EFFECT_FUZZ_DUMP=dir (saves each batch's source) in the file's header doc and docs/testing.md",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
+      "body": "From SW-2579, 10 Nov. Tiny.",
       "created": "2026-11-10",
       "updated": "2026-11-10",
       "commits": []
