@@ -5,9 +5,12 @@
 //! A [`LiveProject`] checks the project's namespaces one at a time
 //! ([`LiveProject::step`]), marking the session before each. When a file's
 //! text changes, it rewinds to the mark before the first namespace whose
-//! files changed and checks from there on: what the edited namespace uses
-//! (if it was rewound too), then the edited namespace, then the rest,
-//! among them the namespaces that use it. The caller decides
+//! files changed. The session's rewind is a stack, so every namespace
+//! checked after that mark goes with it; those that neither changed nor
+//! use what did are checked again first (replayed from the check cache,
+//! when the session has one), then the edited namespaces, then what uses
+//! them. So the edited namespace and its dependants end up the last steps,
+//! and the next edit to them rewinds no further. The caller decides
 //! when to stop between steps, and takes what to show
 //! ([`LiveProject::answers`]) whenever it likes: diagnostics and navigation,
 //! as plain data with LSP positions.
@@ -935,6 +938,25 @@ impl LiveProject {
         } else {
             0
         };
+        // What the rewind throws away, and of it what the edit changed.
+        // The rewind is a stack, so the steps after the first changed one
+        // go with it, whether or not they use it; those that don't are
+        // checked again first (a cache replay, where the session has a
+        // cache), so that the edited namespace and what uses it are the
+        // last steps, and the next edit to it rewinds no further.
+        let changed: Vec<String> = if same_names && self.fatal.is_empty() {
+            (self.steps.iter())
+                .filter(|s| namespace_files.get(&s.name) != Some(&s.files))
+                .map(|s| s.name.clone())
+                .collect()
+        } else {
+            Vec::new()
+        };
+        let mut settled: BTreeSet<String> = (self.steps.iter().skip(keep))
+            .map(|s| s.name.clone())
+            .filter(|n| !changed.contains(n))
+            .collect();
+        let old_analysis = self.analysis.take();
         self.namespace_files = namespace_files;
         self.rewind_to(keep);
         let analysis = loop {
@@ -968,7 +990,34 @@ impl LiveProject {
             .filter(|n| !done.contains(n.as_str()))
             .cloned()
             .collect();
-        let plan = self.order_rest(&analysis, &rest);
+        // Settled: thrown away but not changed, and not using anything
+        // changed, under the edited texts' uses or the ones before.
+        let mut affected: BTreeSet<String> = BTreeSet::new();
+        for name in &changed {
+            affected.extend(dependents(&analysis, name));
+            if let Some(old) = &old_analysis {
+                affected.extend(dependents(old, name));
+            }
+        }
+        settled.retain(|n| rest.contains(n) && !affected.contains(n));
+        // A settled namespace must not use one that isn't (one never
+        // checked, say): the order below puts it first.
+        while let Some(bad) = settled
+            .iter()
+            .find(|n| {
+                analysis.namespace(n).is_some_and(|ns| {
+                    ns.edges
+                        .iter()
+                        .any(|e| rest.contains(&e.target) && !settled.contains(&e.target))
+                })
+            })
+            .cloned()
+        {
+            settled.remove(&bad);
+        }
+        let mut plan =
+            canonical_order(&analysis, &settled).expect("a part of an acyclic project is acyclic");
+        plan.extend(self.order_rest(&analysis, &rest.difference(&settled).cloned().collect()));
         if self.session.elab.uses_check_cache() {
             let namespaces: Vec<NamespaceSources> = analysis
                 .namespaces
