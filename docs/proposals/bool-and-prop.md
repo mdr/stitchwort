@@ -606,7 +606,12 @@ found from a `Bool`, what happens when two fit, and how errors read.
 
 - A `Bool` where a proposition is expected is read as `b = True` (today:
   `E-NOT-A-TYPE` with a note saying to write that). Goals print such a fact
-  as `b`, as SSReflect and Lean do.
+  as `b`, as SSReflect does. Lean 4 prints `b = true`, since its coercion is
+  to that equation and is unfolded when elaborated; Lean 3 printed `↑b`
+  **[cited: L2, for the coercion to `b = true`; the display inferred; Lean
+  3's from memory]**. The recommendation to print `b` also rested on Lean's
+  example; only that part of its support was wrong, and the recommendation
+  is unchanged. The precedent for the bare form is SSReflect's alone.
 - `(a <= b) = False` prints with `≤`, like its positive form.
 - Errors and `rfl` notes fold `Nat.leq a b` back to `a ≤ b` where they
   print a `Bool` (today a note can show `(a <= b).decTrue.toBool`,

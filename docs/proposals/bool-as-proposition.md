@@ -137,9 +137,10 @@ says which reading has it.
 
 - "There is a coercion from every `Bool` `b` to the proposition `b = true`"
   **[cited: L2]**. It is unfolded when elaborated, so goals show `b = true`,
-  not `b`; Lean 3 showed `↑b` **[cited: Z3, for Lean 3; Lean 4's display
-  from memory]**. So bool-and-prop.md §7.5's "as SSReflect and Lean do" is
-  right for SSReflect only.
+  not `b` **[inferred from L2: the coercion's target is the equation, and
+  elaborating it leaves the equation]**. Lean 3 showed `↑b` **[cited: Z3,
+  for Lean 3]**. So bool-and-prop.md §7.5's appeal to Lean's example was
+  right for SSReflect only; that note is corrected (SW-2714).
 - `&&` is `Bool.and` and `∧` is `And`: different notations, never one for
   the other **[cited: L2]**. `a ∧ b` on `Bool`s coerces each side
   **[memory]**.
@@ -803,9 +804,9 @@ Implementation calls, made here and open to change in the lanes:
 - Cost is argued, not measured.
 - How readings interact with effects in a test (`xs.any f` with an
   effectful `f`) was not looked at; tests in propositions are pure.
-- The SSReflect adapter names and Lean 4's goal display are from memory, as
-  marked. Wadler's and McBride and McKinna's papers were read in abstract
-  only.
+- The SSReflect adapter names are from memory, as marked; Lean 4's goal
+  display is inferred from its coercion (§3.2). Wadler's and McBride and
+  McKinna's papers were read in abstract only.
 
 Findings for tickets:
 
@@ -816,8 +817,8 @@ Findings for tickets:
    (§2, measured).
 3. `(a <= b) = False` prints with ASCII `<=` where the positive form prints
    `≤` (§2, measured).
-4. bool-and-prop.md §7.5 says Lean prints such a fact as `b`; Lean 4 shows
-   `b = true` (§3.2).
+4. bool-and-prop.md §7.5 said Lean prints such a fact as `b`; Lean 4 shows
+   `b = true` (§3.2). Corrected there (SW-2714).
 
 ## Sources
 
