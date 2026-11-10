@@ -1953,16 +1953,18 @@ test("F2 renames a function in every file of a project, including files that are
   await page.ev(`(() => { const e = window.editor; e.focus(); const i = e.value.indexOf("def parseRanges") + 6; e.setSelectionRange(i, i); })()`);
   // The server answers only once the whole project is checked: F2 is tried until it does.
   let prompt = false;
-  for (let i = 0; i < 60 && !prompt; i++) {
+  for (let i = 0; i < 240 && !prompt; i++) {
     await page.key("F2", "F2", 113);
     prompt = await page.ev(`!!document.querySelector(".rename-panel input")`).catch(() => false);
     if (!prompt) await sleep(1000);
   }
-  assert.ok(prompt, "F2 opens the name prompt once the project is checked");
+  assert.ok(prompt, `F2 opens the name prompt once the project is checked (notice: ${await page.ev(`document.getElementById("link-notice").textContent`)}; focus: ${await page.ev(`document.activeElement?.className`)})`);
   assert.equal(await page.ev(`document.querySelector(".rename-panel input").value`), "parseRanges");
   await page.ev(`(() => { const i = document.querySelector(".rename-panel input"); i.value = "parseIdRanges"; i.form.requestSubmit(); })()`);
-  await page.until(`!document.querySelector(".rename-panel")`, 60000, "the rename to finish");
-  assert.equal(await sourceText(page), text.replace("parseRanges", "parseIdRanges"), "the open file is edited");
+  await page.until(`!document.querySelector(".rename-panel") || !document.querySelector(".rename-problems").hidden && !document.querySelector(".rename-problems.busy")`, 420000, "the rename to finish")
+    .catch(async (e) => { throw new Error(`${e.message}\n  log: ${await page.ev(`JSON.stringify(window.editor.stats.log.slice(-8))`)}`); });
+  assert.equal(await page.ev(`document.querySelector(".rename-panel")?.innerText ?? ""`), "", "the prompt closes without a refusal");
+  assert.equal(await sourceText(page), text.replaceAll("parseRanges", "parseIdRanges"), "the open file is edited");
   // Files that are not open changed too: the page keeps them as the project's edits.
   for (const file of ["Tests/Examples.sw", "Tests/Input.sw"]) {
     const path = `src/Aoc/Year2025/Day02/${file}`;
@@ -1973,7 +1975,7 @@ test("F2 renames a function in every file of a project, including files that are
   }
   // And the project still checks.
   await page.untilStatus(dayStatus(2), 120000);
-}, { ms: 240000 });
+}, { ms: 900000 });
 
 test("Evaluate takes full names in a project", async (page) => {
   await page.open();

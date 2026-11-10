@@ -122,7 +122,7 @@ export class Editor {
     this.handlers = [];
     this.colourField = colouring(options.colour);
     this.startWorker();
-    this.client = new LSPClient({ extensions: languageServerExtensions(), timeout: 60000 }).connect(this.transport());
+    this.client = new LSPClient({ extensions: languageServerExtensions(), timeout: 300000 }).connect(this.transport());
     this.client.workspace.displayFile = (uri) => this.displayFile(uri);
     this.open({ uri: SINGLE_URI, text: "" });
     window.addEventListener("keydown", (e) => this.setMod(e));
@@ -805,6 +805,7 @@ export class Editor {
 
     const finish = () => { this.closeRename(); view.focus(); };
     const fail = (e) => {
+      problems.classList.remove("busy");
       problems.textContent = e.message ?? String(e);
       problems.hidden = false;
       anyway.hidden = !e.data?.renameAnyway;
@@ -821,7 +822,10 @@ export class Editor {
       if (!newName || newName === old) return finish();
       rename.disabled = true;
       anyway.hidden = true;
-      problems.hidden = true;
+      // The server checks the renamed project first: seconds, and on a project the size of AoC's a few minutes.
+      problems.textContent = "Checking the renamed project…";
+      problems.hidden = false;
+      problems.classList.add("busy");
       plugin.client.sync();
       try {
         await apply(await plugin.client.request("textDocument/rename", { textDocument: { uri: plugin.uri }, position, newName }));

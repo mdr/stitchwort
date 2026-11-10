@@ -25,14 +25,14 @@
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
+#[cfg(target_family = "wasm")]
+use super::wasm::FileUrl as _;
 use lsp_server::{ErrorCode, Notification, Request, RequestId, Response};
 use lsp_types::{Position, Url};
 use serde_json::{Value, json};
 use stitchwort_driver::live::{Answers, Place, Problems, TrialOutcome};
 use stitchwort_driver::rename::{RenameError, RenamePlan, Target};
 use stitchwort_syntax::Severity;
-#[cfg(target_family = "wasm")]
-use super::wasm::FileUrl as _;
 
 use super::{Checker, Work, range};
 
