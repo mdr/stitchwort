@@ -102,6 +102,7 @@ status line now says the wrong thing; the details are in
 | [proof-automation.md](proof-automation.md) | Rewriting under binders, `ring`, and a controlled `simp` | built, stages 0-2 (`crates/elab/src/ring.rs`); `simp` (stage 3) deferred | SW-374; open SW-897, SW-904 |
 | [simp.md](simp.md) | Automatic case splitting, and where `simp` fits | built, stage 1 as `cases`: `crates/elab/src/cases.rs` | SW-592 |
 | [decide.md](decide.md) | `decide`: check every case of a finite statement | built: `crates/elab/src/derive_finite.rs` (SW-807) | SW-800, SW-807 |
+| [bool-and-prop.md](bool-and-prop.md) | Whether a decidable fact lives in `Bool` or `Prop`: tests first, `Decidable` as a `Bool` with proofs, no `propext` | proposed: D3479-D3482 open | SW-2692 |
 | [counterexample-search.md](counterexample-search.md) | Search for a counterexample when a proof fails | built, stages 1-2: `crates/elab/src/counterexample/`; stages 3-4 not built | SW-330, SW-436 |
 | [proof-reification.md](proof-reification.md) | `match reify`: proofs that look inside a computation | built, R1-R2: `crates/elab/src/reify.rs` | SW-419, SW-420; open SW-660 |
 | [tailrec.md](tailrec.md) | A checked `@[tailrec]` attribute | built: `crates/elab/src/tailrec.rs` | SW-1213, SW-1222 |
