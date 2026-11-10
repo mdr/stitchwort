@@ -26424,14 +26424,14 @@
     {
       "id": 2594,
       "title": "search_at: put the goal-opening phase (open_goal_at, quote_shown of the whole goal: ~7 s on 2024 day 22 digitChangesPossible) under the search's time budget; also check pretty::term_in and the other full-term printers for SW-2591's print-then-cut pattern; docs/testing.md: full-tier search_at_aoc takes about 6 min now, not 10",
-      "status": "backlog",
+      "status": "review",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "proof-search",
-      "body": "From SW-2591's report, 9 Nov.",
+      "body": "From SW-2591's report, 9 Nov.\n\nLane notes (10 Nov): deadline now set before open_goal_at in search_at; a time-out while opening returns an empty report (budget.exhausted false, warning \"while opening the goal\"). value_hidden (pretty.rs) was print-then-cut: now depth-limited for terms over 20,000 nodes. Other full printers (term, term_in, term_calls, term_ascii, term_in_full) print everything on purpose, no cut. Callers using shown::cut(pretty::term(..)) quote under SHOWN_NODES (8000) first, so are bounded. docs/testing.md updated. Commit 9bd604778 on lane/SW-2594.\n",
       "created": "2026-11-09",
-      "updated": "2026-11-09",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
