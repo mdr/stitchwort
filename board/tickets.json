@@ -1,5 +1,5 @@
 {
-  "next": 2693,
+  "next": 2698,
   "tickets": [
     {
       "id": 47,
@@ -28044,7 +28044,7 @@
     {
       "id": 2692,
       "title": "[Fable] Design note: Bool versus Prop as the home of decidable facts (≤, =, membership): end state, with prior art (Lean, Agda, Rocq/SSReflect, Idris, Isabelle) and literature",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": ".claude/worktrees/SW-2692",
       "labels": [
@@ -28053,6 +28053,71 @@
       ],
       "epic": "syntax-language",
       "body": "D3478 (Matt, 10 Nov 2026): yes. Migration cost is not a factor (D2303): best end state only. Output docs/proposals/bool-and-prop.md. Est. 2-3 h.\n\nLane (Fable, 10 Nov 2026, started 12:16):\n- Note written: docs/proposals/bool-and-prop.md, with five probe files in docs/proposals/bool-and-prop/ (run with the release CLI; no build, no tests).\n- Recommendation: tests first. What a program can test is defined as its test giving True (as ≤ is today); propositions for what can't be tested; `Decidable` becomes a Bool with its two proofs (Agda's `Dec`) so every `if` is its test by computation; no `propext`.\n- Measured: std has 106 Prop-valued defs (9 test = True, 49 by recursion on data, 48 statements) and 2 inductive families; today's `Decidable.toBool (Nat.decLessEq a b) = Nat.leq a b` fails by `rfl`, the record form passes.\n- Open decisions for Matt: D3479 (tests first), D3480 (Decidable as a record), D3481 (no propext), D3482 (Bool as a proposition on the surface).\n",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
+    },
+    {
+      "id": 2693,
+      "title": "Condition-match printing: the False arm prints '(a <= b) = False' in ASCII while the positive form prints 'a ≤ b'",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "From SW-2692 (10 Nov 2026), docs/proposals/bool-and-prop.md.",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
+    },
+    {
+      "id": 2694,
+      "title": "E-REFL note can show internal terms such as '(a <= b).decTrue.toBool'",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "From SW-2692 (10 Nov 2026), docs/proposals/bool-and-prop.md.",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
+    },
+    {
+      "id": 2695,
+      "title": "Use k ∈ s for Set membership in std and AoC statements instead of 'Set.contains s k = True' (sweep)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "From SW-2692 (10 Nov 2026), docs/proposals/bool-and-prop.md.",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
+    },
+    {
+      "id": 2696,
+      "title": "113 matches name Nat.leq directly where 'match h: a ≤ b' would do (sweep)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "From SW-2692 (10 Nov 2026), docs/proposals/bool-and-prop.md.",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
+    },
+    {
+      "id": 2697,
+      "title": "Impossible ≤ premises: ~420 'Void.exfalso (Bool.falseNotTrue h)' where the () pattern would do (sweep)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "From SW-2692 (10 Nov 2026), docs/proposals/bool-and-prop.md.",
       "created": "2026-11-10",
       "updated": "2026-11-10",
       "commits": []
