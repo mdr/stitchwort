@@ -26202,14 +26202,14 @@
     {
       "id": 2579,
       "title": "Native frame blow-up: a lambda whose body is ~20 nested if/else over Nat arithmetic gets a 1.1-2.2 MB native frame, so native refuses the program (2M frames x 2 MB > 64 GiB). Five effect-fuzz batches (Overmind job 46). Find why the frame grows (suspect exponential with if nesting; maybe SW-2557's register-file path) and fix; decide whether the fuzzer should count a refusal as skipped",
-      "status": "backlog",
+      "status": "review",
       "agent": "Opus",
-      "where": "",
+      "where": "lane/SW-2579",
       "labels": [],
       "epic": "effects-native",
-      "body": "Overmind job 46, 9 Nov, main 894a8b549. Seeds 1794200320, 1794201291, 1794201473 (shrunk to 128/60/94 lines), 1794300165, 1794301295 (batch only). Smallest: def p0b0 (v0: Nat): {IO} Nat := let v2 := digest (List.map (List.range 0 1) (y => if 0 % 2 == 0 then if (y * v0 % 1000003) % 2 == 0 then y else if y % 2 == 0 then v0 else ... [about 20 nested ifs] ... else 3)); ... Reproduce with STITCHWORT_TEST_RUN=native STITCHWORT_EFFECT_FUZZ_SEED=1794201291 STITCHWORT_EFFECT_FUZZ_BATCHES=1 cargo test --release -p stitchwort-cli --test extraction effect_differential::generated -- --nocapture. Profile/measure frame size against nesting depth first. 120 min.",
+      "body": "Overmind job 46, 9 Nov, main 894a8b549. Seeds 1794200320, 1794201291, 1794201473 (shrunk to 128/60/94 lines), 1794300165, 1794301295 (batch only). Smallest: def p0b0 (v0: Nat): {IO} Nat := let v2 := digest (List.map (List.range 0 1) (y => if 0 % 2 == 0 then if (y * v0 % 1000003) % 2 == 0 then y else if y % 2 == 0 then v0 else ... [about 20 nested ifs] ... else 3)); ... Reproduce with STITCHWORT_TEST_RUN=native STITCHWORT_EFFECT_FUZZ_SEED=1794201291 STITCHWORT_EFFECT_FUZZ_BATCHES=1 cargo test --release -p stitchwort-cli --test extraction effect_differential::generated -- --nocapture. Profile/measure frame size against nesting depth first. 120 min.\n\n10 Nov (lane, Opus, 02:14-02:40): cause is the frame *bound*, not the frames. On x86-64 a frame of a page or more starts with stack probes, the prologue reader gave up, and the IR fallback (16 B per SSA value) put real frames of 4.1-6.1 KB at 1.2-2.2 MB. aarch64 read them right (3.7-4.9 KB), so the Mac never refused. Real frames grow linearly with nesting (~160 B an if on x86-64). Fix: bound from Cranelift's MachBufferFinalized::frame_layout on both architectures; generated code unchanged. Regression tests in crates/native/tests/it/frames.rs. Table in docs/performance/log.md (10 Nov). Fuzzer: a native refusal stays a failure (generated frames are a few KB, nowhere near the 34 KB where 2M frames pass the cap). Commit c407ee4aa on lane/SW-2579.\n",
       "created": "2026-11-09",
-      "updated": "2026-11-09",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
