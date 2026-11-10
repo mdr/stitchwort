@@ -26424,15 +26424,17 @@
     {
       "id": 2594,
       "title": "search_at: put the goal-opening phase (open_goal_at, quote_shown of the whole goal: ~7 s on 2024 day 22 digitChangesPossible) under the search's time budget; also check pretty::term_in and the other full-term printers for SW-2591's print-then-cut pattern; docs/testing.md: full-tier search_at_aoc takes about 6 min now, not 10",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2594",
       "labels": [],
       "epic": "proof-search",
-      "body": "From SW-2591's report, 9 Nov.",
+      "body": "From SW-2591's report, 9 Nov.\n\nDone 10 Nov: search_at sets the budget deadline before opening the goal; running out there gives a 'ran out while opening' report with a warning. pretty::value_hidden gets the 20k-node guard; the other full printers print in full on purpose or are already bounded. docs/testing.md: about 6 min. Left: the 'confirmed' phase is outside options.time too (not filed; small). Model result: Sonnet, worked, 40 min (est. 50).",
       "created": "2026-11-09",
       "updated": "2026-11-10",
-      "commits": []
+      "commits": [
+        "9bd604778"
+      ]
     },
     {
       "id": 2595,
