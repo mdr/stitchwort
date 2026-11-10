@@ -122,7 +122,11 @@ def initial (name: Text): Char :=
     | None => '?'
 
 test "initial" := initial "Ada" == 'A' ∧ initial "" == '?'
+
+test "digit tests" := '7'.isAsciiDigit ∧ ¬'x'.isAsciiDigit ∧ 'x'.isAsciiLetter ∧ 'Q'.isAsciiUppercase
 ```
+
+To classify a character, use the tests `isAsciiDigit`, `isAsciiLetter`, `isAsciiLowercase`, `isAsciiUppercase`, `isAsciiAlphanumeric` and `isAsciiSpace`, which look only at the character's code. `Char.digitValue` is the one to use when you want a digit's number (`'7'.digitValue` is `Some 7`).
 
 `Some` and `None` are the two cases of `Option`, Stitchwort's way of saying a value may be missing ([chapter 3](03-data.md)). There is no `null`.
 

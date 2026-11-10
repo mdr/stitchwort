@@ -574,7 +574,8 @@ def Char.isAsciiLetter (char: Char): Bool :=
   (97 <= code <= 122) || (65 <= code <= 90)
 
 --| Whether a character is an ASCII letter or digit.
-def Char.isAsciiAlphanumeric (char: Char): Bool := char.isAsciiLetter || char.digitValue.isSome
+def Char.isAsciiAlphanumeric (char: Char): Bool := char.isAsciiLetter || char.isAsciiDigit
 
 test "Char.isAsciiLetter" := Char.isAsciiLetter 'a' ∧ Char.isAsciiLetter 'Z' ∧ ¬(Char.isAsciiLetter '0') ∧ ¬(Char.isAsciiLetter '.') ∧ ¬(Char.isAsciiLetter 'é')
+test "Char.isAsciiDigit" := Char.isAsciiDigit '0' ∧ Char.isAsciiDigit '7' ∧ Char.isAsciiDigit '9' ∧ ¬(Char.isAsciiDigit '/') ∧ ¬(Char.isAsciiDigit ':') ∧ ¬(Char.isAsciiDigit 'a') ∧ ¬(Char.isAsciiDigit '٣')
 test "Char.isAsciiAlphanumeric" := Char.isAsciiAlphanumeric 'q' ∧ Char.isAsciiAlphanumeric '7' ∧ ¬(Char.isAsciiAlphanumeric '#')

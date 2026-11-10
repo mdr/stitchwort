@@ -91,6 +91,8 @@ def initial (name: Text): Char :=
     | None => '?'
 
 test "initial" := initial "Ada" == 'A' ∧ initial "" == '?'
+
+test "digit tests" := '7'.isAsciiDigit ∧ ¬'x'.isAsciiDigit ∧ 'x'.isAsciiLetter ∧ 'Q'.isAsciiUppercase
 -- end chars
 
 -- begin float
