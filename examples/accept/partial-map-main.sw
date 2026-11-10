@@ -13,7 +13,7 @@ def stepsOfAll (numbers: List Nat): {Partial} List Nat := List.map numbers colla
 def stepsOfRows (rows: List (List Nat)): {Partial} List (List Nat) :=
   List.map rows (row => List.map row collatzSteps)
 
-def main: {IO, Partial} () := IO.print (Nat.toText (List.sum (stepsOfAll [3, 7, 27])))
+def main(): {IO, Partial} () := IO.print (Nat.toText (List.sum (stepsOfAll [3, 7, 27])))
 
 test "map with a partial callback" := stepsOfAll [3, 7, 27] == [7, 16, 111]
 test "nested partial map" := stepsOfRows [[3], [7, 27]] == [[7], [16, 111]]

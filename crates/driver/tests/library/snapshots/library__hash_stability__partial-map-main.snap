@@ -1,5 +1,5 @@
 ---
-source: crates/driver/tests/hash_stability.rs
+source: crates/driver/tests/library/hash_stability.rs
 expression: "lines(session, d, f)"
 ---
 data Main.collatzSteps.Request f4037e63cb216b475669f742dbf6e7686e944d40a4ce6016ff6a6cf54524f73d
@@ -10,6 +10,6 @@ Main.collatzSteps.description 19b66fe269c0fa3b84160f2735edd183e715aac15fe5282b04
 Main.collatzSteps.body 9d6d07ed2a6e671d8101fdb0227c0cddf6dcf6f538fd2ab2f31eac06461b1c51
 Main.stepsOfAll 6bf730d07142827e85e5de2dc8fcd0ab3bc1244f670868e22ac97c6df0dccba6
 Main.stepsOfRows c42731d2905e3b0d01c711205a1d65ccf7ef690860864b3c2053428af7d029ae
-Main.main 7df45143ac1a01315ff7bf9b210ef382965347f9b08ea3d6a36b99d3b7a00024
+Main.main 4e5c69df2f3fa5ccd3f641101f44785011adc087f7fecc68797c6982f9de8c30
 Main.test "map with a partial callback" fefd4671da3a8440d0abacd7ea0fdcf08c8be3b5eb51d8908acd30b3550cc869
 Main.test "nested partial map" a7eb9dc857d562d3f2f51e178625be0ef732db08413c03e1b89cfdf57cbc43c5
