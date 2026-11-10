@@ -619,24 +619,33 @@ impl Session {
         // The goal as the elaborator had it, if it kept it; else its
         // statement, printed and read back.
         let snapshot = found.snapshot(self);
-        let mut goal: Goal = match &snapshot {
+        // Opening the goal computes its target (a closed list of 130,000
+        // sequences took seconds, AoC 2024 day 22), so it is under the
+        // search's time too.
+        self.elab.kernel.machine.budget.take_timed_out();
+        (self.elab.kernel.machine.budget).set_deadline(Some(started + options.time));
+        let opened = match &snapshot {
             Some(snapshot) => {
                 let span = stitchwort_syntax::Span {
                     file: found.file.expect("a snapshot has a file"),
                     start: found.span.0 as u32,
                     end: found.span.1 as u32,
                 };
-                (self.elab.open_goal_at(snapshot, span)).map_err(|d| cannot_open(&data, d))?
+                self.elab.open_goal_at(snapshot, span)
             }
             None => {
                 let stmt = statement(&data);
-                let expr = self
-                    .parse_expression("<goal>", &stmt)
-                    .map_err(|d| cannot_open(&data, d))?;
-                (self.elab.open_goal(&expr, data.hypotheses.len()))
-                    .map_err(|d| cannot_open(&data, d))?
+                match self.parse_expression("<goal>", &stmt) {
+                    Ok(expr) => self.elab.open_goal(&expr, data.hypotheses.len()),
+                    Err(d) => Err(d),
+                }
             }
         };
+        (self.elab.kernel.machine.budget).set_deadline(None);
+        if self.elab.kernel.machine.budget.take_timed_out() {
+            return Ok(ran_out_opening(found, file, options));
+        }
+        let mut goal: Goal = opened.map_err(|d| cannot_open(&data, d))?;
         goal.deadline = Some(started + options.time);
         let g = &self.elab.ev();
         let prop = goal.prop;
@@ -1223,6 +1232,47 @@ fn find_item(session: &Session, path: &str) -> Option<stitchwort_elab::search::I
 }
 
 /// The error for a goal that can't be opened here.
+/// The report of a search whose time ran out while opening the goal: no
+/// suggestions, and the time-out warning the other phases give.
+fn ran_out_opening(found: &FoundGoal, file: &str, options: &AtOptions) -> AtReport {
+    let data = &found.data;
+    AtReport {
+        version: 1,
+        goal: GoalJson {
+            file: file.to_string(),
+            line: found.line,
+            column: found.column,
+            index: found.index,
+            hypotheses: (data.hypotheses.iter())
+                .map(|h| HypJson {
+                    name: h.name.clone(),
+                    ty: h.ty.clone(),
+                })
+                .collect(),
+            target: data.target.clone(),
+            introduced: Vec::new(),
+        },
+        tactics: Vec::new(),
+        results: Vec::new(),
+        rewrites: Vec::new(),
+        induction: Vec::new(),
+        total: Totals {
+            closing: 0,
+            applicable: 0,
+            rewrites: 0,
+        },
+        budget: AtBudget {
+            max_candidates: options.max_candidates,
+            exhausted: false,
+            ..AtBudget::default()
+        },
+        warnings: vec![format!(
+            "the time ran out ({} s) while opening the goal, before any candidate was tried: --time for more",
+            options.time.as_secs_f32()
+        )],
+    }
+}
+
 fn cannot_open(goal: &GoalData, d: Diagnostic) -> Diagnostic {
     let why = if goal.lemma.is_none() {
         "it can't be written as a statement of its own here (a name is shadowed or \

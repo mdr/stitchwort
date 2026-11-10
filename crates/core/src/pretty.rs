@@ -190,6 +190,11 @@ fn value_hidden(g: &Ev, scope: Option<&dyn NameScope>, names: &[Name], value: &V
     let mut ns = names.to_vec();
     let printer = Printer::new(g, scope);
     printer.show_hidden.set(true);
+    // As in `term_within`: a huge term is printed only to a depth, not in
+    // full and then cut.
+    if t.subterms().nth(FULL_PRINT_NODES).is_some() {
+        printer.max_depth.set(Some(10));
+    }
     let text = printer.print(&mut ns, &t, Prec::Arrow);
     if text.chars().count() <= MESSAGE_LIMIT * 2 {
         return text;
@@ -630,6 +635,15 @@ impl<'g> Printer<'g> {
         })
     }
 
+    /// The last element of an open list: `..xs`, or `…` where the tail is
+    /// left out, as the rest of a list too long to show.
+    fn spread(&self, names: &mut Vec<Name>, tail: &Term) -> String {
+        match self.print(names, tail, Prec::Arrow) {
+            left_out if left_out == "…" => left_out,
+            shown => format!("..{shown}"),
+        }
+    }
+
     fn go(&self, names: &mut Vec<Name>, term: &Term) -> (String, Prec) {
         if matches!(term, Term::Loc(..) | Term::Ann(..)) {
             return self.go_node(names, term);
@@ -805,7 +819,7 @@ impl<'g> Printer<'g> {
                     .map(|t| self.print(names, t, Prec::Arrow))
                     .collect();
                 if let Some(rest) = rest {
-                    shown.push(format!("..{}", self.print(names, rest, Prec::Arrow)));
+                    shown.push(self.spread(names, rest));
                 }
                 (format!("[{}]", shown.join(", ")), Prec::Atom)
             }
@@ -892,7 +906,7 @@ impl<'g> Printer<'g> {
                         .iter()
                         .map(|t| self.print(names, t, Prec::Arrow))
                         .collect();
-                    shown.push(format!("..{}", self.print(names, tail, Prec::Arrow)));
+                    shown.push(self.spread(names, tail));
                     return (format!("[{}]", shown.join(", ")), Prec::Atom);
                 }
                 let ctor = &self.g.data(*d).ctors[*c];
@@ -1005,6 +1019,7 @@ impl<'g> Printer<'g> {
                 names.pop();
                 (format!("let {x} := {value}; {body}"), Prec::Arrow)
             }
+            Term::Meta(crate::value::ELIDED) => ("…".into(), Prec::Atom),
             Term::Meta(_) | Term::App(..) if let Some(shown) = self.placeholder(names, term) => {
                 shown
             }

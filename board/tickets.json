@@ -1,5 +1,5 @@
 {
-  "next": 2601,
+  "next": 2606,
   "tickets": [
     {
       "id": 47,
@@ -24781,14 +24781,14 @@
     {
       "id": 2470,
       "title": "Mismatch notes: show_unfolded/quote_unfolded_shown spends up to the 10M-node size limit (~4 s, 2 GB) on a note truncated to 240 chars; give it a small display budget (quote_as has a cap); makes examples/reject/mismatch-note-huge-unfolding.sw cheap",
-      "status": "backlog",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [
         "elab"
       ],
       "epic": "audit-fuzzing",
-      "body": "From SW-2452's report: crates/elab/src/check.rs:753, caller alias_notes. Check message snapshots stay the same for normal cases. 45 min.\n\n10 Nov: SW-2569 capped show_unfolded at 200k nodes, the same cause; the other show_unfolded/quote_unfolded_shown call sites are unchecked. Check, then likely close.",
+      "body": "From SW-2452's report: crates/elab/src/check.rs:753, caller alias_notes. Check message snapshots stay the same for normal cases. 45 min.\n\n10 Nov: SW-2569 capped show_unfolded at 200k nodes, the same cause; the other show_unfolded/quote_unfolded_shown call sites are unchecked. Check, then likely close.\n\nClosed 10 Nov (orchestrator): done by SW-2569 (200k-node cap) and SW-2598 (depth-limited readback for show_unfolded and first_difference_note); the remaining uncapped note readbacks are SW-2600.",
       "created": "2026-11-09",
       "updated": "2026-11-10",
       "commits": []
@@ -26113,7 +26113,7 @@
       "title": "Checker blows up on effect-fuzzer programs: chains of pure Nat defs with lets, if on % 2 and Fail.toOption (() => next ...), variables reused many times; seed 1794200310 checks for >10 min (also 1794200346, 1794201674, 1794200163, 43). About 1 batch in 1000. Profile and fix (elaborator or kernel)",
       "status": "review",
       "agent": "Opus",
-      "where": "",
+      "where": ".claude/worktrees/SW-2572",
       "labels": [],
       "epic": "elaborator-kernel",
       "body": "From SW-2570. Repro: STITCHWORT_EFFECT_FUZZ_SEED=1794200310 STITCHWORT_EFFECT_FUZZ_BATCHES=1 cargo test --release -p stitchwort-cli --test extraction effect_differential::generated -- --nocapture (dump the module). Possibly exponential evaluation of open Nat terms. Profile first. 120 min.\n\nStarted 10 Nov 00:55 (est. 120 min), on lane/SW-2572 (Opus).\n\n10 Nov 01:45, to review. Profile (macOS `sample`, seed 1794200310 shrunk to `let a := if (x + 500000) % 2 == 0 then 4 else 4; if a % 2 == 0 ...`): all the time in `native::as_nat_with` forcing already-unfolded calls under the elaborator's obligations loop. Cause: `(x + k) % 2` multiplies a quotient of k/2 `Succ`s around a stuck step by 2; `*` peels one `Succ` a step, and at each step `native::run` walked the rest of the chain to see it wasn't a number: quadratic in k. Not exponential, not let sharing. Fix (core, `native.rs`, so the kernel computes this way too; docs/core.md updated; needs an Opus review per D2364): `Nat.mul`'s shortcut for unknowns, `(k + m) * n = k*n + m * n` for a number n, in one step; and `native::run` checks every number argument's head before walking a `Succ` chain, so `(k + m) * y` with y unknown is linear too. What's equal is unchanged. Timings (user s): `(x + 16000) % 2` 10.1 -> 0.46, `((x+16000)/2)*y` 9.2 -> 0.56; seed 1794200310's module >10 min -> 4.3 s; the other four seeds 1.0-1.5 s; 200 fuzzer batches from 1794200000 in 51 s, none skipped. Tests: new `resources::remainders_of_long_numbers_check_in_linear_time` (1.5 s), Mul added to `natives::shortcuts_with_unknowns_agree_with_the_definitions` (a mutated shortcut fails it), `a_batch_the_checker_cannot_finish_stops_at_the_deadline` deadline 5 s -> 1 s (the seed now checks in about 4 s). Lanes core, elab, effects, hashes pass. Left: `Nat.divFuel` still builds a quotient one `Succ` a step (linear, ~13 us per unit: `(x + 500000) % 2` forced fully takes 7 s); a divFuel shortcut would be a new kernel shortcut, proposed as a follow-up.\n",
@@ -26163,14 +26163,14 @@
     {
       "id": 2576,
       "title": "Soundness fuzzer mutants test peaked at 9.08 GB (seed 0x2574, MUTANTS=4000, CORPUS=aoc,rogue, 2d0c5fc1b) against 2.97 GB in job 35 with another seed: find whether it's the seed or growth since, and bound it",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Sonnet",
-      "where": "",
+      "where": ".claude/worktrees/SW-2576",
       "labels": [],
       "epic": "audit-fuzzing",
       "body": "Overmind job 45, 9 Nov. Log on Overmind j45/run-0x2574.log. 45 min.\n\nOvermind job 48 (seed 0x2575, sampled RSS): baseline 0.5-1.7 GB; the only spike (7.49 GB) is one closer mutant of Aoc.Year2021.Day16.Proofs.operatorStepComplete (Complete.sw), 63.65 s, rejected; next slowest mutant 30 s. No general growth. Job 45 likely the same kind on another seed. Narrowed: find why that closer mutant (SOUND_VERBOSE=2 shows its text) costs 6 GB, and consider a per-mutant memory/time cap.\n",
       "created": "2026-11-09",
-      "updated": "2026-11-09",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -26275,15 +26275,17 @@
     {
       "id": 2584,
       "title": "Effect differential's default test fails under load since SW-2570: seed 43's check hit the 60 s deadline in the full tier (load 12-14), and the default run requires zero skips. Make the default-seed run load-proof (scale the deadline, use steps not wall time for checking, or allow skips with a reason)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2584",
       "labels": [],
       "epic": "test-infra",
-      "body": "Overmind job 49, 9 Nov. Seed 43 also takes ~170 s in debug (SW-2570 report); SW-2570 follow-up. 30 min.\n\nOvermind job 50: alone on a quiet machine the effect default test passes in 43.5 s with no skips. Same pattern in two LSP tests (a_newer_edit_cancels_the_check_running, aoc_navigation_matches_check_index): pass alone (9.8 s, 54 s) and in their module (48/48), but under full-tier load took 7-37x as long and gave up waiting for diagnostics. Scope: make these three tests' waits load-proof.\n\n10 Nov 00:25, Speedwell (three lanes building): task test:lane AREA=examples NAME=rewrite gave 3 of 12 failed once; the immediate rerun passed 12/12. Names not captured. Another load-sensitive candidate in the examples area.",
+      "body": "Overmind job 49, 9 Nov. Seed 43 also takes ~170 s in debug (SW-2570 report); SW-2570 follow-up. 30 min.\n\nOvermind job 50: alone on a quiet machine the effect default test passes in 43.5 s with no skips. Same pattern in two LSP tests (a_newer_edit_cancels_the_check_running, aoc_navigation_matches_check_index): pass alone (9.8 s, 54 s) and in their module (48/48), but under full-tier load took 7-37x as long and gave up waiting for diagnostics. Scope: make these three tests' waits load-proof.\n\n10 Nov 00:25, Speedwell (three lanes building): task test:lane AREA=examples NAME=rewrite gave 3 of 12 failed once; the immediate rerun passed 12/12. Names not captured. Another load-sensitive candidate in the examples area.\n\nDone 10 Nov. Effect differential: checking has a step cap (CHECK_WORK 400M, 3x seed 43's 129M) instead of the 60 s deadline, which is now a 30 min hang backstop; JS timeout 10 min. LSP tests: one WAIT of 30 min for every wait (returns as soon as the event arrives). Under load 12-60: effect default 142 s no skips; a_newer_edit 1240 s; aoc_navigation 688 s (alone it was 54 s: unexplained, cold cache plus load suspected). Lane overran the agreed 10 min load-test budget (about 50 min of test time, mostly the two LSP tests); final 30 min WAIT not rerun. Model result: Sonnet, worked, 61 min (est. 60).",
       "created": "2026-11-09",
       "updated": "2026-11-10",
-      "commits": []
+      "commits": [
+        "4d747c9b7"
+      ]
     },
     {
       "id": 2585,
@@ -26409,28 +26411,30 @@
     {
       "id": 2593,
       "title": "Search hole typing, follow-ups from SW-2590: (1) type_holes quotes the parameter type with quote_folded(g, 0, dom), wrong if dom mentions bound variables (env non-empty); check and fix the level; (2) type every hole of a proof-use pattern from the lemma's binder types, including holes under lambdas and applied holes' arguments, to close the class; (3) afresh and the unifier panic on ill-typed solutions instead of failing, hidden by search's catch_unwind as internal_errors",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Opus",
-      "where": "",
+      "where": ".claude/worktrees/SW-2593",
       "labels": [],
       "epic": "proof-search",
       "body": "From SW-2590's report and the orchestrator's review, 9 Nov. Unifier-adjacent, so Opus (D2506). No soundness risk: the kernel rechecks every proof, and the search catches the panic.",
       "created": "2026-11-09",
-      "updated": "2026-11-09",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
       "id": 2594,
       "title": "search_at: put the goal-opening phase (open_goal_at, quote_shown of the whole goal: ~7 s on 2024 day 22 digitChangesPossible) under the search's time budget; also check pretty::term_in and the other full-term printers for SW-2591's print-then-cut pattern; docs/testing.md: full-tier search_at_aoc takes about 6 min now, not 10",
-      "status": "backlog",
+      "status": "done",
       "agent": "Sonnet",
-      "where": "",
+      "where": ".claude/worktrees/SW-2594",
       "labels": [],
       "epic": "proof-search",
-      "body": "From SW-2591's report, 9 Nov.",
+      "body": "From SW-2591's report, 9 Nov.\n\nDone 10 Nov: search_at sets the budget deadline before opening the goal; running out there gives a 'ran out while opening' report with a warning. pretty::value_hidden gets the 20k-node guard; the other full printers print in full on purpose or are already bounded. docs/testing.md: about 6 min. Left: the 'confirmed' phase is outside options.time too (not filed; small). Model result: Sonnet, worked, 40 min (est. 50).",
       "created": "2026-11-09",
-      "updated": "2026-11-09",
-      "commits": []
+      "updated": "2026-11-10",
+      "commits": [
+        "9bd604778"
+      ]
     },
     {
       "id": 2595,
@@ -26463,12 +26467,12 @@
     {
       "id": 2597,
       "title": "Elab fuzzer seed 0x2582 cases 16837 (a parse error) and 16869 (a type mismatch) take 6-13 s in the CLI at ~150 MB: profile where a parse error spends 13 s",
-      "status": "backlog",
+      "status": "done",
       "agent": "Sonnet",
-      "where": "",
+      "where": ".claude/worktrees/SW-2597",
       "labels": [],
       "epic": "diagnostics",
-      "body": "From SW-2582's report, 10 Nov. Inputs: target/fuzz-elab/ after task fuzz:elab CASES=20000 SEED=0x2582 ONLY=16837 DUMP=1 (case numbers as of main d273ebffe; they move when the examples corpus changes).",
+      "body": "From SW-2582's report, 10 Nov. Inputs: target/fuzz-elab/ after task fuzz:elab CASES=20000 SEED=0x2582 ONLY=16837 DUMP=1 (case numbers as of main d273ebffe; they move when the examples corpus changes).\n\nClosed 10 Nov, not reproduced: both inputs check in 0.2-0.3 s at 84-89 MB on main 4ea4d1146 (also under load ~40). Likely fixed by SW-2582/SW-2569's size and note caps. Model result: Sonnet, worked (no change needed), 2 min (est. 45).",
       "created": "2026-11-10",
       "updated": "2026-11-10",
       "commits": []
@@ -26476,15 +26480,18 @@
     {
       "id": 2598,
       "title": "Mismatch notes say 'computing the right side gives `…`' when the value unfolds past SW-2569's 200k-node readback cap (examples/reject/float-add-is-held's Note 1 lost its useful prefix): show a depth-limited prefix instead, as before, or drop the note when nothing useful is left",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2598",
       "labels": [],
       "epic": "diagnostics",
-      "body": "Regression from SW-2569 (merged 10 Nov 00:20), found by SW-2580's lane; the float-add-is-held snapshot fails on main. Before: `Float.ofBitsFrom (if … || … then 9221120237041090560 else …) …`; after: `…`. SW-2580's quote_for_note (same cap, more notes) is in review and will meet the same question. 30 min.",
+      "body": "Regression from SW-2569 (merged 10 Nov 00:20), found by SW-2580's lane; the float-add-is-held snapshot fails on main. Before: `Float.ofBitsFrom (if … || … then 9221120237041090560 else …) …`; after: `…`. SW-2580's quote_for_note (same cap, more notes) is in review and will meet the same question. 30 min.\n\nDone 10 Nov: depth-limited readback (quote_unfolded_shown_to_depth; elided parts are Term::Meta(ELIDED) printed as …); show_unfolded reads to depth 12, first_difference_note to 64 and skips a … difference. float-add-is-held back to its original text; refl-note-huge-parser-unfolding's left side now a prefix; mismatch-note-huge-unfolding 153 MB, 1.2-2 s. Model result: Sonnet, worked, 30 min (est. 30).",
       "created": "2026-11-10",
       "updated": "2026-11-10",
-      "commits": []
+      "commits": [
+        "cde453190",
+        "18560a6e8"
+      ]
     },
     {
       "id": 2599,
@@ -26504,12 +26511,81 @@
     {
       "id": 2600,
       "title": "Uncapped readbacks left in mismatch notes (from SW-2580's review): the folded readbacks in the hidden-argument, proof-position and alike-updates checks, and the hypothesis readback in the unused-equation note; cap them like quote_for_note, or share one readback per side between the notes (16660 still does ~8 readbacks of 200k nodes)",
+      "status": "done",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-2600",
+      "labels": [],
+      "epic": "diagnostics",
+      "body": "From SW-2580's review, 10 Nov. No known input blows them up. Low.\n\nDone 10 Nov: quote_shown_for_note caps the folded readbacks (hidden, proofs, alike-updates) and the unused-equation needle at 200k nodes, dropping the note past it; refl_error shares one lazy NoteSide per side. Snapshots unchanged; refl-note-huge 3.8 -> 2.1 s, parser-count 9.2 -> 7.3 s. Model result: Sonnet, worked, 11 min (est. 40).",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": [
+        "880051278"
+      ]
+    },
+    {
+      "id": 2601,
+      "title": "The 'first differ at' note doesn't appear for examples/reject/refl-note-huge-parser-unfolding.sw although the sides first differ at depth 35 (raising first_difference_note's depth to 400 didn't help): find whether the node cap or an ELIDED placeholder stops it",
+      "status": "done",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-2601",
+      "labels": [],
+      "epic": "diagnostics",
+      "body": "From SW-2598 and SW-2580's review, 10 Nov.\n\nWidened 10 Nov 01:15 (orchestrator): SW-2598 regressed examples/reject/parser-count-differs-from-lemma on main: its 'they first differ at' note and the second 'this match' label (and the note about two different (match …)) are gone. Also update-helpers-print-alike's note changed from '{ c | points = … }' to '[1, …, 12, ..…]' (better, but '..…' reads oddly). rejected_examples fails on main until fixed. Diff: orchestrator scratchpad rej-after-2598.txt.\n\nDone 10 Nov: DIFFERENCE_DEPTH 64 -> 256 (parser-count's difference lies between 140 and 200 deep); elided list tails print ', …]'. Orchestrator measured on main: mismatch-note-huge 152 MB / 2.3 s, refl-note-huge-parser 145 MB / 2.9 s, parser-count 154 MB / 9.4 s. refl-note-huge-parser's sides differ at the outermost layer (left stuck on b), so no first-difference note: filed as a stuck-side note. Model result: Sonnet, worked, 20 min (est. 45).",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": [
+        "0edcc4e61"
+      ]
+    },
+    {
+      "id": 2602,
+      "title": "Mismatch note for a side stuck on a variable (choose b p against p): say what it's stuck on, since first_difference_note never reports the outermost layer (examples/reject/refl-note-huge-parser-unfolding)",
       "status": "backlog",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "diagnostics",
-      "body": "From SW-2580's review, 10 Nov. No known input blows them up. Low.",
+      "body": "From SW-2601, 10 Nov. Low.",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
+    },
+    {
+      "id": 2603,
+      "title": "Kernel shortcut for Nat.divFuel on numbers with unknowns ((x + k) / d builds its quotient one Succ per step: (x + 500000) % 2 takes ~7 s); new kernel shortcut, so it needs a soundness argument and an Opus review",
+      "status": "backlog",
+      "agent": "Opus",
+      "where": "",
+      "labels": [],
+      "epic": "performance",
+      "body": "From SW-2572's report, 10 Nov.",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
+    },
+    {
+      "id": 2604,
+      "title": "Budget: walking a chain of Succs and forcing a call's kept unfolding take no budget steps, so the step budget doesn't bound time (why SW-2570 needed a wall-clock deadline); charge steps there",
+      "status": "backlog",
+      "agent": "Opus",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "From SW-2572's Opus review (F5), 10 Nov. Kernel evaluation, so Opus and a review.",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
+    },
+    {
+      "id": 2605,
+      "title": "effect_differential::a_batch_the_checker_cannot_finish_stops_at_the_deadline depends on seed 1794200310 checking slowly (now ~4 s vs a 1 s deadline); give it an input that is slow by construction",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
+      "body": "From SW-2572's Opus review (F6), 10 Nov. Small.",
       "created": "2026-11-10",
       "updated": "2026-11-10",
       "commits": []

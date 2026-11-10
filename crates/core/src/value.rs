@@ -2839,14 +2839,14 @@ fn erased_arg(g: &Ev, f: &Term) -> bool {
 /// Solved metavariables are replaced by their solutions, and a glued call
 /// ([`Value::Call`]) by its unfolding: the normal form.
 pub fn quote(g: &Ev, level: usize, value: &Value) -> Result<Term> {
-    Ok(quote_as(g, level, value, Readback::Unfolded, None)?.expect("no cap"))
+    Ok(quote_as(g, level, value, Readback::Unfolded, None, None)?.expect("no cap"))
 }
 
 /// [`quote`], or `None` if the term would have more than `cap` nodes: for
 /// callers that only inspect the normal form and can do without it when it's
 /// large.
 pub fn quote_at_most(g: &Ev, level: usize, value: &Value, cap: u64) -> Result<Option<Term>> {
-    quote_as(g, level, value, Readback::Unfolded, Some(cap))
+    quote_as(g, level, value, Readback::Unfolded, Some(cap), None)
 }
 
 /// [`quote`], but a glued call ([`Value::Call`]) is written as the call,
@@ -2858,7 +2858,7 @@ pub fn quote_folded(g: &Ev, level: usize, value: &Value) -> Result<Term> {
     if g.machine.glue.get() && force_unglued_first() {
         force_unglued(g, level, value);
     }
-    Ok(quote_as(g, level, value, Readback::Folded, None)?.expect("no cap"))
+    Ok(quote_as(g, level, value, Readback::Folded, None, None)?.expect("no cap"))
 }
 
 /// Instrumentation (SW-1782): with `STITCHWORT_DEBUG_FORCE_UNGLUED` set,
@@ -2892,13 +2892,19 @@ fn force_unglued(g: &Ev, level: usize, value: &Value) {
 /// A sum stuck on an unknown is written `x + k`
 /// ([`native::nat_add_shown`], SW-895).
 pub fn quote_shown(g: &Ev, level: usize, value: &Value) -> Result<Term> {
-    Ok(quote_as(g, level, value, Readback::Shown, None)?.expect("no cap"))
+    Ok(quote_as(g, level, value, Readback::Shown, None, None)?.expect("no cap"))
+}
+
+/// [`quote_shown`], or `None` if reading it back visits more than `cap`
+/// nodes: for a note in a message (SW-2600).
+pub fn quote_shown_at_most(g: &Ev, level: usize, value: &Value, cap: u64) -> Result<Option<Term>> {
+    quote_as(g, level, value, Readback::Shown, Some(cap), None)
 }
 
 /// [`quote`] for display: the normal form, but a sum stuck on an unknown is
 /// written `x + k` ([`native::nat_add_shown`], SW-895). For printing only.
 pub fn quote_unfolded_shown(g: &Ev, level: usize, value: &Value) -> Result<Term> {
-    Ok(quote_as(g, level, value, Readback::UnfoldedShown, None)?.expect("no cap"))
+    Ok(quote_as(g, level, value, Readback::UnfoldedShown, None, None)?.expect("no cap"))
 }
 
 /// [`quote_unfolded_shown`], or `None` if reading it back visits more than
@@ -2910,7 +2916,42 @@ pub fn quote_unfolded_shown_at_most(
     value: &Value,
     cap: u64,
 ) -> Result<Option<Term>> {
-    quote_as(g, level, value, Readback::UnfoldedShown, Some(cap))
+    quote_as(g, level, value, Readback::UnfoldedShown, Some(cap), None)
+}
+
+/// [`quote_unfolded_shown_at_most`], but a part more than `max_depth` levels
+/// below the root is not read back: it is [`ELIDED`], which prints as `…`.
+/// A message shows only the top of a value, so this never unfolds the rest
+/// (SW-2598). Still `None` past `cap` nodes, for a value that is wide
+/// rather than deep.
+pub fn quote_unfolded_shown_to_depth(
+    g: &Ev,
+    level: usize,
+    value: &Value,
+    cap: u64,
+    max_depth: usize,
+) -> Result<Option<Term>> {
+    quote_as(
+        g,
+        level,
+        value,
+        Readback::UnfoldedShown,
+        Some(cap),
+        Some(max_depth),
+    )
+}
+
+/// The metavariable number of the placeholder for a part a depth-limited
+/// readback left out ([`quote_unfolded_shown_to_depth`]): never a real one.
+pub const ELIDED: usize = usize::MAX;
+
+/// Whether reading `value` back takes no work: a leaf, shown whatever the depth.
+fn is_atomic_value(value: &Value) -> bool {
+    match value {
+        Value::Sort(_) | Value::Nat(_) | Value::Refl | Value::Chars(_) => true,
+        Value::Neutral(_, spine) => spine.is_empty(),
+        _ => false,
+    }
 }
 
 /// How [`quote_as`] reads back glued calls.
@@ -2947,11 +2988,12 @@ fn quote_as(
     value: &Value,
     mode: Readback,
     cap: Option<u64>,
+    max_depth: Option<usize>,
 ) -> Result<Option<Term>> {
     // A work list rather than recursion: `tasks` are values still to visit
     // and terms still to assemble, and `done` holds finished terms, which
     // each assembly takes its parts from.
-    let mut tasks = vec![QuoteTask::Visit(level, value.clone())];
+    let mut tasks = vec![QuoteTask::Visit(level, value.clone(), 0)];
     let mut done: Vec<Term> = Vec::new();
     let mut size = 0u64;
     // If it gets too large: which definition's call the whole value was.
@@ -2964,8 +3006,12 @@ fn quote_as(
     let rc = |t: Term| Rc::new(t);
     while let Some(task) = tasks.pop() {
         match task {
-            QuoteTask::Visit(level, value) => {
+            QuoteTask::Visit(level, value, depth) => {
                 g.machine.budget.step()?;
+                if max_depth.is_some_and(|m| depth > m) && !is_atomic_value(&value) {
+                    done.push(Term::Meta(ELIDED));
+                    continue;
+                }
                 size += 1;
                 if cap.is_some_and(|cap| size > cap) {
                     return Ok(None);
@@ -2974,7 +3020,7 @@ fn quote_as(
                     g.machine.budget.set_too_large(root_def);
                     return Err(ResourceError::Size);
                 }
-                visit(g, level, value, mode, &mut tasks, &mut done)?;
+                visit(g, level, value, depth, mode, &mut tasks, &mut done)?;
             }
             QuoteTask::Pi(x, i) => {
                 let (a, b) = pop2(&mut done);
@@ -3040,8 +3086,9 @@ fn quote_as(
 
 /// Quotation still to do.
 enum QuoteTask {
-    /// Quote a value, with this many variables in scope.
-    Visit(usize, Value),
+    /// Quote a value, with this many variables in scope, `depth` levels below
+    /// the root.
+    Visit(usize, Value, usize),
     /// Assemble from the finished terms on top of the stack:
     Pi(Name, Icit),
     Lam(Name, Icit),
@@ -3106,6 +3153,7 @@ fn visit(
     g: &Ev,
     level: usize,
     value: Value,
+    depth: usize,
     mode: Readback,
     tasks: &mut Vec<QuoteTask>,
     done: &mut Vec<Term>,
@@ -3113,7 +3161,7 @@ fn visit(
     // Parts are pushed last-first, so they're finished first-first.
     let visit_all = |tasks: &mut Vec<QuoteTask>, values: &[Value]| {
         for v in values.iter().rev() {
-            tasks.push(QuoteTask::Visit(level, v.clone()));
+            tasks.push(QuoteTask::Visit(level, v.clone(), depth + 1));
         }
     };
     let value = if !mode.unfolds() {
@@ -3130,7 +3178,7 @@ fn visit(
                 tasks.push(QuoteTask::Spine(SpineHead::Term(Term::Def(id)), shapes));
                 for elim in spine.iter().rev() {
                     if let Elim::App(v, _) = elim {
-                        tasks.push(QuoteTask::Visit(level, v.clone()));
+                        tasks.push(QuoteTask::Visit(level, v.clone(), depth + 1));
                     }
                 }
                 return Ok(());
@@ -3138,7 +3186,7 @@ fn visit(
             // Shown, a call that steps at once is read back as that one step,
             // in which the calls it returns stay folded.
             Value::Call(id, spine, _) if mode == Readback::Shown => {
-                tasks.push(QuoteTask::Visit(level, unfold_once(g, id, spine)?));
+                tasks.push(QuoteTask::Visit(level, unfold_once(g, id, spine)?, depth));
                 return Ok(());
             }
             other => force(g, other)?,
@@ -3160,6 +3208,7 @@ fn visit(
             tasks.push(QuoteTask::Visit(
                 level,
                 Value::Call(*id, call, Rc::default()),
+                depth,
             ));
             return Ok(());
         }
@@ -3176,12 +3225,20 @@ fn visit(
         Value::Refl => done.push(Term::Refl),
         Value::Pi(x, i, a, b) => {
             tasks.push(QuoteTask::Pi(x, i));
-            tasks.push(QuoteTask::Visit(level + 1, b.apply(g, Value::var(level))?));
-            tasks.push(QuoteTask::Visit(level, (*a).clone()));
+            tasks.push(QuoteTask::Visit(
+                level + 1,
+                b.apply(g, Value::var(level))?,
+                depth + 1,
+            ));
+            tasks.push(QuoteTask::Visit(level, (*a).clone(), depth + 1));
         }
         Value::Lam(x, i, b) => {
             tasks.push(QuoteTask::Lam(x, i));
-            tasks.push(QuoteTask::Visit(level + 1, b.apply(g, Value::var(level))?));
+            tasks.push(QuoteTask::Visit(
+                level + 1,
+                b.apply(g, Value::var(level))?,
+                depth + 1,
+            ));
         }
         Value::Data(d, args) => {
             tasks.push(QuoteTask::Data(d, args.len()));
@@ -3192,7 +3249,15 @@ fn visit(
         Value::Ctor(d, 1, args)
             if mode.unfolds() && Some(d) == g.env.builtins().nat && has_call_base(g, &args) =>
         {
-            visit(g, level, succ_unglued(g, &args[0])?, mode, tasks, done)?;
+            visit(
+                g,
+                level,
+                succ_unglued(g, &args[0])?,
+                depth,
+                mode,
+                tasks,
+                done,
+            )?;
         }
         Value::Ctor(d, c, args) => {
             tasks.push(QuoteTask::Ctor(d, c, args.len()));
@@ -3200,7 +3265,7 @@ fn visit(
         }
         Value::NatAdd(k, base) => {
             tasks.push(QuoteTask::NatAdd(k));
-            tasks.push(QuoteTask::Visit(level, (*base).clone()));
+            tasks.push(QuoteTask::Visit(level, (*base).clone(), depth + 1));
         }
         Value::Eq(ty, a, b) => {
             tasks.push(QuoteTask::Eq);

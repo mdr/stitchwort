@@ -43,6 +43,26 @@ fn superscript(k: usize) -> String {
         .collect()
 }
 
+/// One side of a failed comparison, for the notes in its message: each
+/// readback ([`Ctx::normal_of`], [`Ctx::shown_of`]) is made the first time a
+/// note asks and shared by the rest, since a big side takes long to read
+/// back (SW-2600).
+pub(crate) struct NoteSide<'a> {
+    value: &'a Value,
+    normal: std::cell::OnceCell<Option<Term>>,
+    shown: std::cell::OnceCell<Option<Term>>,
+}
+
+impl<'a> NoteSide<'a> {
+    pub(crate) fn new(value: &'a Value) -> Self {
+        NoteSide {
+            value,
+            normal: std::cell::OnceCell::new(),
+            shown: std::cell::OnceCell::new(),
+        }
+    }
+}
+
 pub struct Ctx<'e> {
     pub e: &'e Elaborator,
     /// What each variable evaluates to (inside a case branch, the matched
@@ -662,6 +682,29 @@ impl<'e> Ctx<'e> {
             .flatten()
     }
 
+    /// `side`'s normal form for a note, read back on first use ([`NoteSide`]).
+    pub(crate) fn normal_of<'s>(&self, side: &'s NoteSide) -> Option<&'s Term> {
+        side.normal
+            .get_or_init(|| self.quote_for_note(side.value))
+            .as_ref()
+    }
+
+    /// `side` with calls written as calls, for a note, read back on first
+    /// use ([`NoteSide`]).
+    pub(crate) fn shown_of<'s>(&self, side: &'s NoteSide) -> Option<&'s Term> {
+        side.shown
+            .get_or_init(|| self.quote_shown_for_note(side.value))
+            .as_ref()
+    }
+
+    /// [`Ctx::quote_for_note`] with calls written as calls, one that steps
+    /// at once by that step (`value::quote_shown`).
+    pub fn quote_shown_for_note(&self, value: &Value) -> Option<Term> {
+        stitchwort_core::value::quote_shown_at_most(&self.g(), self.level(), value, UNFOLD_NODES)
+            .ok()
+            .flatten()
+    }
+
     /// [`Ctx::quote`] with calls written as calls, not their unfoldings
     /// (`value::quote_folded`): for terms the elaboration produces, such as
     /// annotations and helper types.
@@ -764,11 +807,16 @@ impl<'e> Ctx<'e> {
     /// [`Ctx::show`], but with calls unfolded: what `value` computes to,
     /// for a message that says so.
     pub fn show_unfolded(&self, value: &Value) -> String {
-        match stitchwort_core::value::quote_unfolded_shown_at_most(
+        // A message shows a few hundred characters of the top of a value, so
+        // only this many levels are read back (and [`UNFOLD_NODES`] nodes,
+        // for a value that is wide rather than deep).
+        const UNFOLD_DEPTH: usize = 12;
+        match stitchwort_core::value::quote_unfolded_shown_to_depth(
             &self.g(),
             self.level(),
             value,
             UNFOLD_NODES,
+            UNFOLD_DEPTH,
         ) {
             Ok(Some(term)) => {
                 pretty::term_for_message_in(&self.g(), self.e, &self.shown_names(false), &term)
@@ -781,13 +829,19 @@ impl<'e> Ctx<'e> {
     /// §6.10) for the opaque definitions left folded in `values`, the sides
     /// of a failed comparison. Error path only.
     pub fn with_opaque_notes(&self, d: Diagnostic, values: &[&Value]) -> Diagnostic {
+        let sides: Vec<NoteSide> = values.iter().map(|v| NoteSide::new(v)).collect();
+        self.with_opaque_notes_in(d, &sides)
+    }
+
+    /// [`Ctx::with_opaque_notes`] over sides already (or yet to be) read back.
+    pub(crate) fn with_opaque_notes_in(&self, d: Diagnostic, sides: &[NoteSide]) -> Diagnostic {
         let g = self.g();
         if !g.env.defs().iter().any(|def| def.opaque()) {
             return d;
         }
-        let terms: Vec<Term> = values
+        let terms: Vec<Term> = sides
             .iter()
-            .filter_map(|v| self.quote_for_note(v))
+            .filter_map(|s| self.normal_of(s).cloned())
             .collect();
         let ids = crate::opaque::declined_in(&g, &terms);
         crate::opaque::opaque_notes(self.e, &ids)
@@ -806,15 +860,23 @@ impl<'e> Ctx<'e> {
     /// path only.
     pub(crate) fn with_unused_equation_notes(
         &self,
-        mut d: Diagnostic,
+        d: Diagnostic,
         values: &[&Value],
+    ) -> Diagnostic {
+        let sides: Vec<NoteSide> = values.iter().map(|v| NoteSide::new(v)).collect();
+        self.with_unused_equation_notes_in(d, &sides)
+    }
+
+    /// [`Ctx::with_unused_equation_notes`] over sides already (or yet to be)
+    /// read back.
+    pub(crate) fn with_unused_equation_notes_in(
+        &self,
+        mut d: Diagnostic,
+        sides: &[NoteSide],
     ) -> Diagnostic {
         let g = self.g();
         let level = self.level();
-        let hay: Vec<Term> = values
-            .iter()
-            .filter_map(|v| self.quote_for_note(v))
-            .collect();
+        let hay: Vec<&Term> = sides.iter().filter_map(|s| self.normal_of(s)).collect();
         if hay.is_empty() {
             return d;
         }
@@ -831,13 +893,13 @@ impl<'e> Ctx<'e> {
             ) {
                 continue;
             }
-            let Ok(needle) = quote(&g, level, &lhs) else {
+            let Some(needle) = self.quote_for_note(&lhs) else {
                 continue;
             };
             if matches!(needle.strip_loc(), Term::Ctor(..) | Term::Nat(_)) {
                 continue;
             }
-            let under_binder = |t: &Term| {
+            let under_binder = |t: &&Term| {
                 t.subterms().any(|(sub, under)| {
                     under > 0 && crate::matching::same_shifted(&needle, sub, under, 0)
                 })
@@ -876,32 +938,37 @@ impl<'e> Ctx<'e> {
     /// Whether `a` and `b` differ only in arguments the compiler fills in,
     /// as shown (calls folded) or as computed. Error path only.
     pub fn differ_only_in_hidden(&self, a: &Value, b: &Value) -> bool {
+        self.differ_only_in_hidden_in(&NoteSide::new(a), &NoteSide::new(b))
+    }
+
+    /// [`Ctx::differ_only_in_hidden`] over sides already (or yet to be) read back.
+    pub(crate) fn differ_only_in_hidden_in(&self, a: &NoteSide, b: &NoteSide) -> bool {
         let g = self.g();
-        let level = self.level();
-        let folded = |v| stitchwort_core::value::quote_shown(&g, level, v).ok();
-        let normal = |v| self.quote_for_note(v);
-        [(folded(a), folded(b)), (normal(a), normal(b))]
-            .iter()
-            .any(|pair| match pair {
-                (Some(x), Some(y)) => pretty::differ_only_in_hidden(&g, x, y),
-                _ => false,
-            })
+        [
+            (self.shown_of(a), self.shown_of(b)),
+            (self.normal_of(a), self.normal_of(b)),
+        ]
+        .iter()
+        .any(|pair| match pair {
+            (Some(x), Some(y)) => pretty::differ_only_in_hidden(&g, x, y),
+            _ => false,
+        })
     }
 
     /// Whether `a` and `b` differ only in proof positions (a constructor's
     /// proof field, a data type's proof parameter, a definition's inert
     /// argument), as shown (calls folded) or as computed. Error path only.
-    pub fn differ_only_in_proofs(&self, a: &Value, b: &Value) -> bool {
+    pub(crate) fn differ_only_in_proofs_in(&self, a: &NoteSide, b: &NoteSide) -> bool {
         let g = self.g();
-        let level = self.level();
-        let folded = |v| stitchwort_core::value::quote_shown(&g, level, v).ok();
-        let normal = |v| self.quote_for_note(v);
-        [(folded(a), folded(b)), (normal(a), normal(b))]
-            .iter()
-            .any(|pair| match pair {
-                (Some(x), Some(y)) => pretty::differ_only_in_proofs(&g, x, y),
-                _ => false,
-            })
+        [
+            (self.shown_of(a), self.shown_of(b)),
+            (self.normal_of(a), self.normal_of(b)),
+        ]
+        .iter()
+        .any(|pair| match pair {
+            (Some(x), Some(y)) => pretty::differ_only_in_proofs(&g, x, y),
+            _ => false,
+        })
     }
 
     /// Where what `a` and `b` compute to first differ, as a note. Error
@@ -909,16 +976,24 @@ impl<'e> Ctx<'e> {
     pub fn first_difference_note(&self, a: &Value, b: &Value) -> Option<String> {
         let g = self.g();
         let level = self.level();
-        // No note for a side too big to read back: `Parse.exactly 2^128 p`
-        // unfolds 2^128 levels deep (SW-2580).
+        // Read back only this deep: `Parse.exactly 2^128 p` unfolds 2^128
+        // levels deep (SW-2580). Deeper parts are `…` on both sides, which
+        // compare alike, so a difference is only found above the depth.
+        const DIFFERENCE_DEPTH: usize = 256;
         let shown = |v| {
-            stitchwort_core::value::quote_unfolded_shown_at_most(&g, level, v, UNFOLD_NODES)
-                .ok()
-                .flatten()
+            stitchwort_core::value::quote_unfolded_shown_to_depth(
+                &g,
+                level,
+                v,
+                UNFOLD_NODES,
+                DIFFERENCE_DEPTH,
+            )
+            .ok()
+            .flatten()
         };
         let (x, y) = (shown(a)?, shown(b)?);
         let found = pretty::first_difference_in(&g, self.e, &self.shown_names(false), &x, &y)?;
-        if found.left == found.right {
+        if found.left == found.right || found.left == "…" || found.right == "…" {
             return None;
         }
         let within = found
@@ -936,14 +1011,20 @@ impl<'e> Ctx<'e> {
     /// two different helpers of updates (each prints as `{ x | f = s }`).
     /// Error path only.
     pub fn with_alike_updates_note(&self, d: Diagnostic, values: &[&Value]) -> Diagnostic {
-        let g = self.g();
-        let level = self.level();
+        let sides: Vec<NoteSide> = values.iter().map(|v| NoteSide::new(v)).collect();
+        self.with_alike_updates_note_in(d, &sides)
+    }
+
+    /// [`Ctx::with_alike_updates_note`] over sides already (or yet to be)
+    /// read back.
+    pub(crate) fn with_alike_updates_note_in(
+        &self,
+        d: Diagnostic,
+        sides: &[NoteSide],
+    ) -> Diagnostic {
         let mut helpers: Vec<stitchwort_core::DefId> = Vec::new();
-        for value in values {
-            let terms = [
-                stitchwort_core::value::quote_shown(&g, level, value).ok(),
-                self.quote_for_note(value),
-            ];
+        for side in sides {
+            let terms = [self.shown_of(side), self.normal_of(side)];
             for term in terms.iter().flatten() {
                 for (t, _) in term.subterms() {
                     if let Term::Def(id) = t
@@ -7070,9 +7151,9 @@ pub(crate) fn refl_after_instances(cx: &mut Ctx, a: &Value, b: &Value) -> Result
 
 /// The function both sides apply, when they are applications of the same one:
 /// `Eq.cong` then proves the goal from an equation between the arguments.
-fn same_function(cx: &Ctx, a: &Value, b: &Value) -> Option<String> {
+fn same_function(cx: &Ctx, a: &NoteSide, b: &NoteSide) -> Option<String> {
     let g = cx.g();
-    let (ta, tb) = (cx.quote_for_note(a)?, cx.quote_for_note(b)?);
+    let (ta, tb) = (cx.normal_of(a)?, cx.normal_of(b)?);
     let (ha, xa) = ta.spine();
     let (hb, xb) = tb.spine();
     if xa.is_empty() || xb.is_empty() || !stitchwort_core::value::same_term(ha, hb) {
@@ -7096,12 +7177,12 @@ fn same_function(cx: &Ctx, a: &Value, b: &Value) -> Option<String> {
 /// equation states, where `rfl` fails because the goal came to mention the
 /// scrutinee only after the `match` refined it (after a `rewrite`, say): the
 /// equation proves it. Unnamed, the note says to name it.
-fn match_equation_note(cx: &Ctx, a: &Value, b: &Value) -> Option<String> {
+fn match_equation_note(cx: &Ctx, a: &NoteSide, b: &NoteSide) -> Option<String> {
     let g = cx.g();
     let level = cx.level();
     // Compared as normal forms, so that building the note solves nothing.
     let read = |v: &Value| cx.quote_for_note(v);
-    let (ta, tb) = (read(a)?, read(b)?);
+    let (ta, tb) = (cx.normal_of(a)?, cx.normal_of(b)?);
     let same = crate::matching::same;
     cx.scrutinees
         .iter()
@@ -7110,8 +7191,8 @@ fn match_equation_note(cx: &Ctx, a: &Value, b: &Value) -> Option<String> {
             let needle = needle.shift(&g, level - base, 0).ok()?;
             let value = read(cx.env.get(*var)?)?;
             // The sides are the scrutinee and this branch's value of it.
-            let forward = same(&ta, &needle) && same(&tb, &value);
-            let backward = same(&tb, &needle) && same(&ta, &value);
+            let forward = same(ta, &needle) && same(tb, &value);
+            let backward = same(tb, &needle) && same(ta, &value);
             if !forward && !backward {
                 return None;
             }
@@ -7138,6 +7219,7 @@ fn match_equation_note(cx: &Ctx, a: &Value, b: &Value) -> Option<String> {
 #[inline(never)]
 pub(crate) fn refl_error(cx: &Ctx, a: &Value, b: &Value) -> Diagnostic {
     let (shown_a, shown_b) = (cx.show(a), cx.show(b));
+    let sides = [NoteSide::new(a), NoteSide::new(b)];
     // What the sides compute to: their normal forms, calls unfolded.
     let (normal_a, normal_b) = if cx.g().machine.glue.get() {
         (cx.show_unfolded(a), cx.show_unfolded(b))
@@ -7160,7 +7242,7 @@ pub(crate) fn refl_error(cx: &Ctx, a: &Value, b: &Value) -> Diagnostic {
     // in (`Int.modNat x 3 [ok := p]` with two different proofs `p`).
     let (label, hidden) = if shown_a == shown_b || side_a == side_b {
         let (ha, hb) = (cx.show_hidden(a), cx.show_hidden(b));
-        if ha != hb && cx.differ_only_in_hidden(a, b) {
+        if ha != hb && cx.differ_only_in_hidden_in(&sides[0], &sides[1]) {
             (format!("`{ha}` and `{hb}` aren't equal"), true)
         } else {
             (label, false)
@@ -7189,8 +7271,8 @@ pub(crate) fn refl_error(cx: &Ctx, a: &Value, b: &Value) -> Diagnostic {
     }
     // The sides print the same because they differ only in proofs, which a
     // comparison under an opaque, axiom or same-group call doesn't skip.
-    if !hidden && side_a == side_b && cx.differ_only_in_proofs(a, b) {
-        let hint = same_function(cx, a, b)
+    if !hidden && side_a == side_b && cx.differ_only_in_proofs_in(&sides[0], &sides[1]) {
+        let hint = same_function(cx, &sides[0], &sides[1])
             .map(|f| format!("; prove it with `Eq.cong` (e.g. `Eq.cong {f} h`)"))
             .unwrap_or_default();
         error = error.with_note(format!(
@@ -7200,23 +7282,22 @@ pub(crate) fn refl_error(cx: &Ctx, a: &Value, b: &Value) -> Diagnostic {
     }
     // Both sides still print the same, as written or computed.
     if alike {
-        error = cx.with_alike_updates_note(error, &[a, b]);
+        error = cx.with_alike_updates_note_in(error, &sides);
     }
     let error =
         error.with_note("`rfl` proves `a = b` only when both sides compute to the same value");
-    let error = match match_equation_note(cx, a, b) {
+    let error = match match_equation_note(cx, &sides[0], &sides[1]) {
         Some(note) => error.with_note(note),
         None => error,
     };
-    let error = cx.with_unused_equation_notes(error, &[a, b]);
+    let error = cx.with_unused_equation_notes_in(error, &sides);
     // A side stuck on a lifted `match`: its branches' equations.
-    let sides: Vec<Term> = [a, b].iter().filter_map(|v| cx.quote_for_note(v)).collect();
-    let sides: Vec<&Term> = sides.iter().collect();
-    let error = match crate::equation_notes::branch_note(cx.e, &sides) {
+    let read: Vec<&Term> = sides.iter().filter_map(|s| cx.normal_of(s)).collect();
+    let error = match crate::equation_notes::branch_note(cx.e, &read) {
         Some(note) => error.with_note(note),
         None => error,
     };
-    cx.with_opaque_notes(error, &[a, b])
+    cx.with_opaque_notes_in(error, &sides)
 }
 
 #[cfg(test)]

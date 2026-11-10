@@ -17,7 +17,7 @@ expression: output
      │ │                                       
      │ ╰─────────────────────────────────────── this `match`
      │     
-     │     Note 1: computing both sides gives `…` and `arg => Call (L (%next Parse.isDigit)) (y => Std.Effect.bind (Std.Effect.bind ((match …) "a digit" y) (char => Parse.need … …)) (value => Call (L …) (y => …)))`
+     │     Note 1: computing both sides gives `choose b (arg => Call (L (%next Parse.isDigit)) (y => Std.Effect.bind (Std.Effect.bind ((match …) "a digit" y) (char => Parse.need … …)) (value => Call (L …) (y => …))))` and `arg => Call (L (%next Parse.isDigit)) (y => Std.Effect.bind (Std.Effect.bind ((match …) "a digit" y) (char => Parse.need … …)) (value => Call (L …) (y => …)))`
      │     
      │     Note 2: `rfl` proves `a = b` only when both sides compute to the same value
      │     

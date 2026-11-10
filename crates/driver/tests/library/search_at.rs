@@ -64,6 +64,11 @@ fn options() -> AtOptions {
 
 /// What closes the goal on `line` of `text`.
 fn at(text: &str, line: usize) -> AtReport {
+    at_with(text, line, &options())
+}
+
+/// [`at`], with the given options.
+fn at_with(text: &str, line: usize, options: &AtOptions) -> AtReport {
     with_session(STACK, Session::for_stack, |session| {
         let (file, diagnostics) = load(session, text);
         assert!(
@@ -82,7 +87,7 @@ fn at(text: &str, line: usize) -> AtReport {
             .search_at(
                 &found,
                 "goals.sw",
-                &options(),
+                options,
                 &Scope::File,
                 Some(&mut checking),
             )
@@ -207,6 +212,35 @@ fn a_target_that_binds_a_variable_is_introduced() {
     let first = &report.results[0];
     assert!(first.proof.starts_with("n => "), "{report:#?}");
     all_paste(&report, line);
+}
+
+/// Opening the goal computes its target, which is under the search's time
+/// like the other phases (SW-2594): a goal that takes longer to open than
+/// the time reports that it ran out, instead of opening for as long as it
+/// takes.
+#[test]
+fn a_goal_that_takes_too_long_to_open_reports_running_out() {
+    let text = "\
+import Std (Nat, List)
+
+def countDown (n: Nat) (acc: List Nat): List Nat := match n with
+  | Zero => acc
+  | Succ k => countDown k [k, ..acc]
+
+theorem opening: countDown 100000 [] = [] := ?
+";
+    let options = AtOptions {
+        time: std::time::Duration::ZERO,
+        ..AtOptions::default()
+    };
+    let report = at_with(text, 7, &options);
+    assert!(!report.budget.exhausted, "{report:#?}");
+    assert!(report.results.is_empty() && report.tactics.is_empty());
+    assert!(
+        report.warnings.iter().any(|w| w.contains("while opening")),
+        "{:?}",
+        report.warnings
+    );
 }
 
 #[test]

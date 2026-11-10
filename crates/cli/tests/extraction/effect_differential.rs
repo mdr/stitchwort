@@ -57,21 +57,25 @@ const DEFAULT_BATCHES: u64 = 64;
 /// default of ten billion lets a runaway one spin for hours (SW-2570), so
 /// this stops it as `resource`, which the test skips.
 const WORK: u64 = 2_000_000_000;
-/// Wall-clock time the checker, or the reference evaluator, may take for
-/// one batch. Steps alone don't bound it, as a step can be expensive: seed
-/// 1794200310 checked for over ten minutes within `WORK` (SW-2570), until
-/// SW-2572 made `*` on a long run of `Succ`s linear.
-///
-/// Ten times as long in a debug build, which checks the slowest default
-/// batch (seed 43) in about 170 s.
-const DEADLINE: Duration = Duration::from_secs(if cfg!(debug_assertions) { 600 } else { 60 });
+/// Evaluation steps the checker may take for one batch. Steps are the same
+/// on every run and under any machine load, so this, not time, is what stops
+/// a batch the checker can't finish: seed 1794200310 checked for over ten
+/// minutes within `WORK` (SW-2570), until SW-2572. The slowest default batch (seed 43) takes 129 million, so
+/// this is three times that.
+const CHECK_WORK: u64 = 400_000_000;
 thread_local! {
-    /// A shorter [`DEADLINE`], for the regression test of a runaway batch.
-    static DEADLINE_OVERRIDE: std::cell::Cell<Option<Duration>> = const { std::cell::Cell::new(None) };
+    /// A smaller [`CHECK_WORK`], for the regression test of a runaway batch.
+    static CHECK_WORK_OVERRIDE: std::cell::Cell<Option<u64>> = const { std::cell::Cell::new(None) };
 }
+/// Wall-clock time the checker, or the reference evaluator, may take for one
+/// batch: only a backstop against a hang, since the step limits are what
+/// normally stop a batch. Loose enough for a machine under heavy load (the
+/// slowest default batch checks in about a minute alone, SW-2584).
+const DEADLINE: Duration = Duration::from_secs(30 * 60);
 /// How long the JavaScript run may take before it counts as `resource`:
-/// Node has no step cap of its own.
-const JS_TIMEOUT: Duration = Duration::from_secs(120);
+/// Node has no step cap of its own, so this is its only limit, and a
+/// backstop like [`DEADLINE`].
+const JS_TIMEOUT: Duration = Duration::from_secs(10 * 60);
 /// A batch (or phase) that takes longer than this many seconds is reported
 /// with its seed while it runs and again when it ends
 /// (`STITCHWORT_EFFECT_FUZZ_SLOW`).
@@ -1418,11 +1422,10 @@ fn run_js(program: &stitchwort_js::run::Program, input: &str) -> Run {
 
 fn run_all(source: &str) -> Ran {
     let mut session = Session::for_stack(STACK);
-    session.elab.options.limits.work = WORK;
     let deadline = |session: &Session| {
-        let limit = DEADLINE_OVERRIDE.with(|d| d.get()).unwrap_or(DEADLINE);
-        (session.elab.kernel.machine.budget).set_deadline(Some(Instant::now() + limit));
+        (session.elab.kernel.machine.budget).set_deadline(Some(Instant::now() + DEADLINE));
     };
+    session.elab.options.limits.work = CHECK_WORK_OVERRIDE.with(|w| w.get()).unwrap_or(CHECK_WORK);
     deadline(&session);
     phase("check");
     if let Err(diagnostics) = session.load("generated.sw", source) {
@@ -1444,6 +1447,7 @@ fn run_all(source: &str) -> Ran {
             return Ran::Rejected(stitchwort_cli::render::render(&session.sources, &d, false));
         }
     };
+    session.elab.options.limits.work = WORK;
     deadline(&session);
     phase("reference");
     let mut reference = Vec::new();
@@ -2027,17 +2031,19 @@ fn generated_effect_programs_agree_on_every_backend() {
 }
 
 /// Seed 1794200310's batch (found by Overmind's run of 2000 batches from
-/// 1794200000, SW-2570) is the slowest known to check: about 4 s, for
-/// `p4b2`'s `%` of numbers near a million with an unknown in them (over ten
-/// minutes before SW-2572). With the deadline at 1 s it must stop there, as
-/// a skipped batch, not run on.
+/// 1794200000, SW-2570) is the most work known to check: between 40 and 160
+/// million steps, for `p4b2`'s `%` of numbers near a million with an unknown
+/// in them (it checked for over ten minutes before SW-2572 made `*` on a long
+/// run of `Succ`s linear). With the limit at 10 million it must stop there,
+/// as a skipped batch, not run on. A batch slow by construction would not
+/// depend on the checker staying this slow (SW-2605).
 #[test]
-fn a_batch_the_checker_cannot_finish_stops_at_the_deadline() {
+fn a_batch_the_checker_cannot_finish_stops_at_the_step_limit() {
     let started = Instant::now();
     let result = std::thread::Builder::new()
         .stack_size(STACK)
         .spawn(|| {
-            DEADLINE_OVERRIDE.with(|d| d.set(Some(Duration::from_secs(1))));
+            CHECK_WORK_OVERRIDE.with(|w| w.set(Some(10_000_000)));
             batch(1_794_200_310)
         })
         .unwrap()
