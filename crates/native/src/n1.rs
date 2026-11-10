@@ -793,6 +793,10 @@ fn compile_audited(
     audit: &mut Audit,
 ) -> Result<Compiled, Vec<String>> {
     preflight()?;
+    #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+    if let Some(why) = crate::map_jit::jit_unavailable() {
+        return Err(vec![why]);
+    }
     let plan = plan(program, image, roots)?;
     let dump = std::env::var_os("STITCHWORT_NATIVE_DUMP").is_some();
     let start = Instant::now();
