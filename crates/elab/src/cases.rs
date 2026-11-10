@@ -128,6 +128,9 @@ pub(crate) struct Run {
     closed: RefCell<Closed>,
     /// Set once the budget is exceeded: every case after that fails at once.
     over: Cell<bool>,
+    /// Set when the budget ran out because a case was too large to split
+    /// ([`SPLIT_READ_BACK_NODES`]), not because of the number of cases.
+    over_size: Cell<bool>,
     /// The split that exceeded the budget, `x : T`, when it was a fallback.
     over_fallback: RefCell<Option<String>>,
     /// Whether an `Int` was split into its constructors (`OfNat`, `NegSucc`).
@@ -221,6 +224,7 @@ fn cases_goal(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
         split_int: Cell::new(false),
         closed: RefCell::new(Closed::default()),
         over: Cell::new(false),
+        over_size: Cell::new(false),
         over_fallback: RefCell::new(None),
         atom_types: RefCell::new(Vec::new()),
         over_finite: RefCell::new(None),
@@ -266,11 +270,14 @@ fn cases_goal(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
 
 fn budget_error(run: &Run) -> Diagnostic {
     let atoms = run.atoms.borrow();
-    let mut d = Diagnostic::error(
-        "E-CASES-BUDGET",
-        format!("`cases` made more than {CASES} cases without closing them all"),
-    )
-    .with_label(run.span, "this `cases`");
+    let message = if run.over_size.get() {
+        "`cases` made a case too large to split: its goal and hypotheses, written out in \
+         full, have more than a million parts"
+            .to_string()
+    } else {
+        format!("`cases` made more than {CASES} cases without closing them all")
+    };
+    let mut d = Diagnostic::error("E-CASES-BUDGET", message).with_label(run.span, "this `cases`");
     if let Some(split) = &*run.over_fallback.borrow() {
         d = d.with_note(format!(
             "`cases` tried splitting `{split}` as a fallback; this would exceed the \
@@ -1810,10 +1817,14 @@ fn split_on(cx: &mut Ctx, run: &Rc<Run>, atom: Atom, goal: &Value, fallback: boo
         }
     }
     run.cases.set(run.cases.get() + data.ctors().len() - 1);
-    if run.cases.get() > CASES {
+    let too_many = run.cases.get() > CASES;
+    if too_many || too_large_to_split(cx, goal)? {
         run.over.set(true);
-        *run.over_finite.borrow_mut() = finite_atoms(cx, run)?;
-        if fallback {
+        run.over_size.set(!too_many);
+        if too_many {
+            *run.over_finite.borrow_mut() = finite_atoms(cx, run)?;
+        }
+        if fallback && too_many {
             let ty = atom_type(cx, &cx.quote_folded(&atom.value)?, atom.d)?;
             *run.over_fallback.borrow_mut() = Some(format!("{shown} : {}", cx.show(&ty)));
         }
@@ -1868,6 +1879,35 @@ fn split_on(cx: &mut Ctx, run: &Rc<Run>, atom: Atom, goal: &Value, fallback: boo
         run.span,
         goal,
     )
+}
+
+/// The most nodes of a case's goal and hypotheses, read back unfolded, that
+/// a split generalises. The generalisation (`matching::generalised_now`)
+/// reads all of them back in full and builds its motive and the copied
+/// hypotheses from them, several copies in all: a mutated proof of
+/// `operatorStepComplete` reached a goal of 3.9 million nodes, and the
+/// hypothesis repeating it, after 13 cases, and its split held 2 GB more
+/// (SW-2606). Ordinary splits read back a few thousand. `E-CASES-BUDGET`
+/// says "a million".
+const SPLIT_READ_BACK_NODES: u64 = 1_000_000;
+
+/// Whether the goal and the hypotheses a split would read back in this case
+/// have more than [`SPLIT_READ_BACK_NODES`] nodes between them.
+fn too_large_to_split(cx: &Ctx, goal: &Value) -> Result<bool> {
+    let g = cx.g();
+    let level = cx.level();
+    let mut left = SPLIT_READ_BACK_NODES;
+    let read = (0..level)
+        .filter(|&l| !stale(cx, l))
+        .map(|l| &cx.types[l])
+        .chain([goal]);
+    for value in read {
+        let Some(term) = quote_at_most(&g, level, value, left)? else {
+            return Ok(true);
+        };
+        left = left.saturating_sub(term.subterms().count() as u64);
+    }
+    Ok(false)
 }
 
 /// The variables split so far, `x : T`, if every atom split is a variable
