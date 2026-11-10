@@ -1,5 +1,5 @@
 {
-  "next": 2655,
+  "next": 2659,
   "tickets": [
     {
       "id": 47,
@@ -27299,7 +27299,7 @@
         "design"
       ],
       "epic": "syntax-language",
-      "body": "Matt, 10 Nov 2026: after the ∀ sweep (D3458) the same kind of statement is written three ways (~2,260 parameters before the colon, ~240 ': ∀' only, ~430 mixed). Matt wonders whether to allow ∀ before the colon for readability closer to logic and maths, and thinks 'move ∀ variables before the colon' is a sensible house rule as long as nothing (match syntax etc.) relies on the ∀ form. Paper lane; output docs/proposals/theorem-binders.md. Related: D3462 (keeping ∀ style), docs/proposals/forall-style-enforcement.md. Est. 60 min.\nD3470 (Matt, 10 Nov 2026): (a+) as the preference for theorems only, 'so that the statement of the theorem is clear (match arms on program defs are of course more important)'. D3471 read as yes from Matt's example (h1, h2 in the header), to confirm. D3472 (cosmetic ∀ before the colon) under discussion.",
+      "body": "Matt, 10 Nov 2026: after the ∀ sweep (D3458) the same kind of statement is written three ways (~2,260 parameters before the colon, ~240 ': ∀' only, ~430 mixed). Matt wonders whether to allow ∀ before the colon for readability closer to logic and maths, and thinks 'move ∀ variables before the colon' is a sensible house rule as long as nothing (match syntax etc.) relies on the ∀ form. Paper lane; output docs/proposals/theorem-binders.md. Related: D3462 (keeping ∀ style), docs/proposals/forall-style-enforcement.md. Est. 60 min.\nD3470 (Matt, 10 Nov 2026): (a+) as the preference for theorems only, 'so that the statement of the theorem is clear (match arms on program defs are of course more important)'. D3471 read as yes from Matt's example (h1, h2 in the header), to confirm. D3472 (cosmetic ∀ before the colon) under discussion.\nD3472 (Matt, 10 Nov 2026): yes, a cosmetic ∀ before the colon on theorems, added by stitchwort fmt (required, formatter-kept; left off implicit-only headers).",
       "created": "2026-11-10",
       "updated": "2026-11-10",
       "commits": []
@@ -27511,6 +27511,66 @@
       ],
       "epic": "docs-tutorials",
       "body": "",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
+    },
+    {
+      "id": 2655,
+      "title": "[Opus] Theorem-binders sweep tool (D3470/D3471): rewrite theorems with a leading ∀ to (a+) on the parsed tree: ∀ binders and named premise columns into the header, remaining arms into := match v1, … with, := x y => lambdas trimmed, lemma bodies given their arguments; verified by hashes (SW-2648's trial entry point and std mode, plus a 'same statement' promise for the few proof-term changes)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "refactoring"
+      ],
+      "epic": "syntax-language",
+      "body": "docs/proposals/theorem-binders.md §5 (SW-2640). D3470 (a+) for theorems only; D3471 premises the proof names move into the header (read from Matt's example). Needs SW-2648. Est. 1.5-2 days of lane time across tool and checks.",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
+    },
+    {
+      "id": 2656,
+      "title": "[Sonnet] Run the theorem-binders sweep over std, aoc and games (after the tool), review its refusals by hand, and update the proving guide and docs/guide/10-proofs.md ('a proof by cases is like a function's match' for theorems; arms stay for defs)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "refactoring"
+      ],
+      "epic": "syntax-language",
+      "body": "D3470/D3471 (10 Nov 2026). Needs SW-2655. Est. 120 min plus refusals.",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
+    },
+    {
+      "id": 2657,
+      "title": "[Sonnet] Cosmetic ∀ before a theorem's colon (D3472): the parser accepts theorem name ∀ (…): … (same term, same hash); stitchwort fmt inserts it on every theorem with explicit parameters and leaves it off implicit-only headers; docs/syntax.md, the guide and the proving guide; the sweep tool, rename and doc know the token",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "syntax"
+      ],
+      "epic": "syntax-language",
+      "body": "D3472 (Matt, 10 Nov 2026): yes, required and formatter-kept. After SW-2656 (the (a+) sweep). Est. 1 day.",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
+    },
+    {
+      "id": 2658,
+      "title": "[Sonnet] Warning and quick fix for a theorem whose statement starts with ∀ (D3470): W- code in check, quick fix 'Move ∀ variables before the colon' that runs the trial check before it is offered; together with D3462's warning for -> where ∀ is meant",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "diagnostics"
+      ],
+      "epic": "syntax-language",
+      "body": "docs/proposals/theorem-binders.md §6. After SW-2656, so the trees start at zero. Est. 120 min.",
       "created": "2026-11-10",
       "updated": "2026-11-10",
       "commits": []
