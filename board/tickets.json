@@ -1,5 +1,5 @@
 {
-  "next": 2638,
+  "next": 2640,
   "tickets": [
     {
       "id": 47,
@@ -27252,6 +27252,38 @@
       ],
       "epic": "editor-playground",
       "body": "D3468 (Matt, 10 Nov 2026): yes. Starts after SW-2629 (same extension and playground files). Est. 90 min.",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
+    },
+    {
+      "id": 2638,
+      "title": "[Sonnet] fuzz_elab oracle 4 (budget): case 2799, seed 0x25a5 (rng state 0x3e8ba53b9a08146c, from examples/accept/reads-nested-binds.sw) still running after 60 s; reduce, find where it spins, make it finish or fail with a budget error",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "bug",
+        "fuzz"
+      ],
+      "epic": "audit-fuzzing",
+      "body": "Found by Overmind, fuzz_elab CASES=12000 seed 0x25a5, 10 Nov 2026 (2572 s run). Input on Overmind: target/fuzz-elab/25a5-2799.sw (regenerate with the seed and case, or ask Overmind for the file). Est. 60 min.",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
+    },
+    {
+      "id": 2639,
+      "title": "[Sonnet] fuzz_elab oracle 6 (memory): case 4273, seed 0x25a5 (rng state 0x3c6aa7216ce9712c, from examples/accept/succ-of-folded-call-solves.sw): a check without cache held over 2 GB and was cancelled; reduce, find the growth (compare SW-2467's Fin runaway and SW-2418/D3464's size limit)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "bug",
+        "fuzz"
+      ],
+      "epic": "audit-fuzzing",
+      "body": "Found by Overmind, fuzz_elab CASES=12000 seed 0x25a5, 10 Nov 2026. Input on Overmind: target/fuzz-elab/25a5-4273.sw. Est. 60 min.",
       "created": "2026-11-10",
       "updated": "2026-11-10",
       "commits": []
