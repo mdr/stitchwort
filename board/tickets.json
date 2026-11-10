@@ -27067,7 +27067,7 @@
     {
       "id": 2626,
       "title": "[Opus] Refactoring in the editor and playground: design note (rename first, then what else, in what order, and how each stays correct for proofs)",
-      "status": "review",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-SW-2626",
       "labels": [
