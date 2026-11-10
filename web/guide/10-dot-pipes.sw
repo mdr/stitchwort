@@ -20,5 +20,5 @@ def greetings: List Text := people.map (.greet "Hi")
 
 test "names" := names == ["Ann", "Bo"]
 test "total" := totalAge == 34
-test "method call" := (Person.greet { name = "Cy", age = 1 } "Hi") == "Hi, Cy"
+test "method call" := { name = "Cy", age = 1 }.greet "Hi" == "Hi, Cy"
 test "greetings" := greetings == ["Hi, Ann", "Hi, Bo"]

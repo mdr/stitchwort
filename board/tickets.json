@@ -26792,12 +26792,12 @@
     {
       "id": 2618,
       "title": "stitchwort fmt fails on web/guide/*.sw with 'No such file' (SW-2533); and the rest of SW-1850's review rows: tour pages 09, 10, 12, 15, 23, 31, 32, 34, 35 (§1/§3) and syntax.md §2 (List.range at 920-921, 1103)",
-      "status": "backlog",
+      "status": "review",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "docs-tutorials",
-      "body": "From SW-2533, 10 Nov. docs/reviews/SW-1850-guide-accuracy.md.",
+      "body": "From SW-2533, 10 Nov. docs/reviews/SW-1850-guide-accuracy.md.\n\nLane notes (10 Nov): `fmt` has no path bug: file arguments are relative to the folder it runs from (and `--project` does not change that); `stitchwort` is not on PATH under `nix develop -c`. Documented in docs/workflow.md. Tour pages 09, 10, 12, 15, 23, 31, 32, 34, 35 restyled. syntax.md rows (920-921, 1103) were already fixed. Guide and web tests pass.\n",
       "created": "2026-11-10",
       "updated": "2026-11-10",
       "commits": []
