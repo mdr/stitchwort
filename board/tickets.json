@@ -28252,12 +28252,12 @@
     {
       "id": 2707,
       "title": "[Opus] Port Software Foundations (LF) to Stitchwort, chapters Basics and Induction: a sf/ project, worked proofs ported, exercises stated but unsolved in the repo, friction notes",
-      "status": "doing",
+      "status": "review",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-2707",
       "labels": [],
       "epic": "docs-tutorials",
-      "body": "Matt, 10 Nov 2026: 'I'm interested in porting Software Foundations to Stitchwort ... start porting a chapter or two and see what might be lacking.' Friction notes are the main output, as for AoC days (D2427). Est. 3 h.",
+      "body": "Matt, 10 Nov 2026: 'I'm interested in porting Software Foundations to Stitchwort ... start porting a chapter or two and see what might be lacking.' Friction notes are the main output, as for AoC days (D2427). Est. 3 h.\n\nProgress (lane, 10 Nov 2026, 14:42-15:15, est. 3 h):\n- Licence: lf.tgz (2026-08-24) LICENSE is MIT, \"Copyright (c) 2026\" with no holder named; Preface names Benjamin C. Pierce as LF's Author of Record. sf/LICENSE-SF keeps it verbatim; each file has a header line.\n- Ported: sf/ project, Sf.Lf.Basics (+ Playground, TuplePlayground, NatPlayground, NatPlayground2, LateDays) and Sf.Lf.Induction. 38 worked theorems, 11 tests, all definitions; 32 exercises stated (66 Prop statements, 11 placeholder functions), unsolved. check 0.38 s cold, test 11/11, audit 0 failed.\n- Friction notes: docs/reviews/SW-2707-software-foundations-port.md (top: no Admitted that checks; std/omega/cases give exercises away; std `+` hides the book's stuck examples; goals only at `?`; empty match / inversion gaps for IndProp). Whole LF estimated at 40-45 lane-hours.\n- Commit 7d1d33785 on lane/SW-2707.\n",
       "created": "2026-11-10",
       "updated": "2026-11-10",
       "commits": []
