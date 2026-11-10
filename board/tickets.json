@@ -1,5 +1,5 @@
 {
-  "next": 2690,
+  "next": 2692,
   "tickets": [
     {
       "id": 47,
@@ -27535,14 +27535,14 @@
     {
       "id": 2656,
       "title": "[Sonnet] Run the theorem-binders sweep over std, aoc and games (after the tool), review its refusals by hand, and update the proving guide and docs/guide/10-proofs.md ('a proof by cases is like a function's match' for theorems; arms stay for defs)",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2656",
       "labels": [
         "refactoring"
       ],
       "epic": "syntax-language",
-      "body": "D3470/D3471 (10 Nov 2026). Needs SW-2655. Est. 120 min plus refusals.\n\nLane (Sonnet, 10 Nov 2026, started 11:34, done 12:00):\n- std 987 converted / 195 refused / 82 skipped; aoc 451 / 152 / 77; rogue 37 / 0 / 2. Refusals: 144+148 by \"proof changed and a dependent definition changed\" (the tool kept definitions unchanged), the rest statement-hash or does not check. Skips left for the separate ticket.\n- No pins or hash snapshots changed; one error snapshot repinned (rewrite-premise-unproved: premise now named h). Guide and proving guide updated.\n",
+      "body": "D3470/D3471 (10 Nov 2026). Needs SW-2655. Est. 120 min plus refusals.\n\nLane (Sonnet, 10 Nov 2026, started 11:34, done 12:00):\n- std 987 converted / 195 refused / 82 skipped; aoc 451 / 152 / 77; rogue 37 / 0 / 2. Refusals: 144+148 by \"proof changed and a dependent definition changed\" (the tool kept definitions unchanged), the rest statement-hash or does not check. Skips left for the separate ticket.\n- No pins or hash snapshots changed; one error snapshot repinned (rewrite-premise-unproved: premise now named h). Guide and proving guide updated.\nModel result: Sonnet, worked, 22 min (est. 150). Converted std 987, aoc 451, rogue 37; refused 347 (292 'proof changed and a dependent definition changed'); skipped 161. No hash or pin moved; reject__rewrite-premise-unproved now names the premise h.",
       "created": "2026-11-10",
       "updated": "2026-11-10",
       "commits": []
@@ -28011,6 +28011,32 @@
       "labels": [],
       "epic": "syntax-language",
       "body": "From SW-2655 (10 Nov 2026). Before or with SW-2657.",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
+    },
+    {
+      "id": 2690,
+      "title": "Theorem binders, round 2: 292 theorems refused because a definition using them would change hash (Std.Set.*, Std.Graph.IndexTable, aoc boxIndex): find the few driving it (proofs embedded in definitions), convert the rest; and the 14 refused with 'prelude/std doesn't check'",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "From SW-2656 (10 Nov 2026). Summaries in /private/tmp/claude-550/sw2656/*.json. Opus (needs judgement on definitions). Est. 2 h.",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
+    },
+    {
+      "id": 2691,
+      "title": "fmt: one layout for a theorem's ':= match x with': the sweep wrote match on the next line, the guide uses it inline; fmt accepts both. Make fmt canonical; also drop redundant parens in a premise type '(h: (∀ …))'",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "From SW-2656 (10 Nov 2026). Orchestrator's call: canonical form chosen in the lane, mention to Matt. Est. 60 min.",
       "created": "2026-11-10",
       "updated": "2026-11-10",
       "commits": []
