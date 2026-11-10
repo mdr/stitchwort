@@ -26662,12 +26662,12 @@
     {
       "id": 2610,
       "title": "Soundness fuzzer: SOUND_ONLY never produces statement+closer mutants, so a saved one can't be regenerated; and saved -expensive.sw files weren't found on disk (2575-2058-3). Check where they're written; have SOUND_ONLY cover every mutation kind",
-      "status": "backlog",
+      "status": "review",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "audit-fuzzing",
-      "body": "From SW-2606, 10 Nov.",
+      "body": "From SW-2606, 10 Nov.\n\nLane notes (10 Nov): SOUND_ONLY now adds statement+closer pairs (zeroPlus: 8 mutants -> 28). Saved files were under the old worktree target/ (deleted with it); names used a counter that skipped expensive mutants so they could collide; now indexed by mutant position and printed canonical absolute. Documented in docs/testing.md. Branch lane/SW-2610.\n",
       "created": "2026-11-10",
       "updated": "2026-11-10",
       "commits": []
