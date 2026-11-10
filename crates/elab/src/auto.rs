@@ -1169,14 +1169,22 @@ fn instantiate(
     as_written: bool,
 ) -> Result<Option<Term>> {
     let g = &cx.u();
-    let mut term = Term::Def(id);
     let mut ty = g.def(id).ty_value().clone();
+    // Whether each parameter is mentioned by the ones after it or the
+    // result: one that isn't needs no solution for its unknown.
+    let mut mentioned = Vec::new();
+    let mut written = g.def(id).ty().clone();
+    while let Term::Pi(_, _, _, cod) = written.strip_loc() {
+        mentioned.push(cod.mentions(0));
+        written = (**cod).clone();
+    }
     let mut args = Vec::new();
+    let mut arg_terms = Vec::new();
     while let Value::Pi(_, icit, dom, cod) = force(g, ty.clone())? {
         let meta = cx.fresh_meta();
         let value = cx.eval(&meta)?;
         args.push((value.clone(), icit, (*dom).clone()));
-        term = Term::app_icit(term, meta, icit);
+        arg_terms.push((meta, icit));
         ty = cod.apply(g, value)?;
     }
     let wanted = Value::Data(decidable, vec![prop.clone()].into());
@@ -1188,7 +1196,7 @@ fn instantiate(
     if !fits {
         return Ok(None);
     }
-    for (value, icit, dom) in args {
+    for (i, (value, icit, dom)) in args.into_iter().enumerate() {
         if !matches!(force(g, value.clone())?, Value::Neutral(Head::Meta(_), _)) {
             continue;
         }
@@ -1205,13 +1213,22 @@ fn instantiate(
             _ => return Ok(None),
         };
         let found = match found {
-            Ok(found) => cx.eval(&found)?,
+            Ok(found) => found,
             Err(e) => return give_up_on(e),
         };
-        if !cx.unify(&value, &found)? {
+        // The decision as found goes in the term, not its unknown's
+        // solution read back, and the unknown is solved only if something
+        // after it depends on it: a decision is a record that computes to
+        // its fields, each holding the decisions it was made from
+        // (`Decidable.or dp dq`'s test and proofs all mention `dp` and
+        // `dq`), so read back it grows with each level of nesting.
+        if mentioned.get(i).copied().unwrap_or(true) && !cx.unify(&value, &cx.eval(&found)?)? {
             return Ok(None);
         }
+        arg_terms[i].0 = found;
     }
+    let term =
+        (arg_terms.into_iter()).fold(Term::Def(id), |f, (arg, icit)| Term::app_icit(f, arg, icit));
     Ok(Some(term))
 }
 

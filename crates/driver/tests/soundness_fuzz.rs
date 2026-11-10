@@ -1902,7 +1902,7 @@ fn void_attempts() -> Vec<Attempt> {
     out.push(attempt(
         "instance",
         "type Two: Type =\n  | A\n  | B\n\n\
-         instance Two.instDecEq: DecEq Two := { decide = (x y => Decidable.Yes rfl) }\n\n\
+         instance Two.instDecEq: DecEq Two := { decide = (x y => Decidable.yes rfl) }\n\n\
          theorem boom: A = B := byDecision"
             .to_string(),
     ));

@@ -1,12 +1,11 @@
 -- expect-error: E-TYPE-MISMATCH
--- expect-warning: W-MATCH-NOT-FOUND
+-- expect-warning: W-MATCH-DECISION-IF
 -- SW-1719 (2021 day 18's `split`): a `match` on a decision replaces the
 -- decision where it occurs. An `if` whose branches don't use the proof of its
 -- comparison is a test of the decision's `Bool`, so it doesn't hold the
 -- decision, and the `match` refines nothing. The `False` arm fails with an
--- error about the arm; the warning, given with it, says the `match` found
--- nothing to replace. Matching on the condition (`Nat.leq 10 value`) refines
--- the `if` (accept/match-decision-if.sw).
+-- error about the arm; the warning, given with it, says where the cause is
+-- and what to match on instead.
 import Std (Nat, Option, Void)
 
 type Number =

@@ -1313,7 +1313,9 @@ impl<'a, 'e> Finder<'a, 'e> {
                     Some(u) => u,
                     // A field of a stuck call (`(Bool.decEq a b).holds`)
                     // waits for what the call waits for.
-                    None if stuck_call_field(&next) => next,
+                    None if matches!(&next, Value::Neutral(Head::Def(_), spine) if stitchwort_core::value::is_call_field(spine)) => {
+                        next
+                    }
                     None => break,
                 }
             } else {
@@ -1499,11 +1501,9 @@ impl<'a, 'e> Finder<'a, 'e> {
             };
             // A comparison of numbers that something outside tests (`if
             // x + 1 == y then …`) is one atom, true or false, which `omega`
-            // reads in each case; its `Decidable` and its operands are
-            // `Int`'s insides.
-            if best.is_some()
-                && (number_equality(&g, &current) || number_equality(&g, &force(&g, raw.clone())?))
-            {
+            // reads in each case; what its decision waits for, the operands,
+            // is `Int`'s insides.
+            if best.is_some() && number_equality(&g, &current) {
                 break;
             }
             match self.ctors(d) {
@@ -1538,7 +1538,9 @@ impl<'a, 'e> Finder<'a, 'e> {
                     Some(u) => u,
                     // A field of a stuck call (`(Bool.decEq a b).holds`)
                     // waits for what the call waits for.
-                    None if stuck_call_field(&next) => next,
+                    None if matches!(&next, Value::Neutral(Head::Def(_), spine) if stitchwort_core::value::is_call_field(spine)) => {
+                        next
+                    }
                     None => break,
                 }
             } else {
@@ -1638,10 +1640,6 @@ fn is_ctor_form(value: &Value) -> bool {
     matches!(value, Value::Ctor(..) | Value::Nat(_))
 }
 
-fn stuck_call_field(value: &Value) -> bool {
-    matches!(value, Value::Neutral(Head::Def(_), spine) if stitchwort_core::value::is_call_field(spine))
-}
-
 fn is_stuck(value: &Value) -> bool {
     matches!(value, Value::Neutral(..) | Value::NatAdd(..))
 }
@@ -1688,8 +1686,8 @@ fn read_back(g: &Ev, level: usize, value: &Value) -> Result<Option<Term>> {
     Ok(quote_at_most(g, level, value, READ_BACK_NODES)?)
 }
 
-/// Whether `value` (forced) is a call of `Int.decEq`, or its test
-/// (`(Int.decEq x y).holds`): the decision an `Int` `==` computes through.
+/// Whether `value` (forced) is the test of a call of `Int.decEq`
+/// (`(Int.decEq x y).holds`): what an `Int` `==` is.
 fn number_equality(g: &Ev, value: &Value) -> bool {
     let Value::Neutral(Head::Def(id), _) = value else {
         return false;

@@ -1102,11 +1102,11 @@ fn a_projects_equations() {
 fn a_generalising_matchs_branches_are_skipped_not_refused() {
     let source = r#"
 import List (length)
-import Std (Bool, Eq, Nat)
+import Std (Bool, Decidable, Eq, Nat)
 
 def lenZero (xs: List Nat): Decidable (xs.length = 0) := match h: xs.length with
-  | Zero => Yes rfl
-  | Succ k => No (e => Nat.equalFalse (Succ k) 0 rfl e)
+  | Zero => Decidable.yes rfl
+  | Succ k => Decidable.no (e => Nat.equalFalse (Succ k) 0 rfl e)
 
 def keep (p: Prop): p → Bool
   | _ => True

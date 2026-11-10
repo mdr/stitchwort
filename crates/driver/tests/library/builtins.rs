@@ -50,8 +50,6 @@ fn prelude_binds_every_builtin() {
     // registry's declarations.
     assert_eq!(g.env.builtins().nat, r.data(Builtin::Nat));
     assert_eq!(g.env.builtins().bool, r.data(Builtin::Bool));
-    assert_eq!(g.env.builtins().decidable, r.data(Builtin::Decidable));
-    assert_eq!(g.env.builtins().nat_neq, r.def(Builtin::NatNeq));
     let text = g
         .env
         .builtins()
@@ -381,8 +379,8 @@ fn refused_after_editing_the_core(from: &str, to: &str) -> Vec<stitchwort_syntax
 #[test]
 fn a_renamed_binder_of_a_shaped_builtin_is_refused() {
     let errors = refused_after_editing_the_core(
-        "(yesEq: ∀ (h: p) => y h = z) (noEq: ∀ (r: ¬p) => n r = z): Decidable.elim d y n = z :=\n  match d with\n    | Yes h => yesEq h",
-        "(yesEqual: ∀ (h: p) => y h = z) (noEq: ∀ (r: ¬p) => n r = z): Decidable.elim d y n = z :=\n  match d with\n    | Yes h => yesEqual h",
+        "(yesEq: ∀ (h: p) => y h = z) (noEq: ∀ (r: ¬p) => n r = z): Decidable.elim d y n = z :=\n  match d with\n    | { holds = True, sound = s, complete = c } => yesEq (s rfl)",
+        "(yesEqual: ∀ (h: p) => y h = z) (noEq: ∀ (r: ¬p) => n r = z): Decidable.elim d y n = z :=\n  match d with\n    | { holds = True, sound = s, complete = c } => yesEqual (s rfl)",
     );
     let e = errors
         .iter()

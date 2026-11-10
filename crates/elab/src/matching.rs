@@ -1705,7 +1705,7 @@ fn not_found(
 }
 
 /// The warnings, by scrutinee index, for a `match` on a decision that
-/// computes to `Bool.decTrue b`, found in neither the goal nor a hypothesis,
+/// computes to `Bool.decTrue b`, or to a record whose test is `b`, found in neither the goal nor a hypothesis,
 /// when `b` is the condition of a `Bool.ifThenElse` in one of them: an `if`
 /// whose branches don't use its proof is a test of `b`, so the decision
 /// refines nothing there. Matching on `b` itself refines the `if` in either
@@ -1739,11 +1739,19 @@ fn decision_if(
         let Some(normal) = normal else {
             continue;
         };
+        // `Bool.decTrue b`, or a decision record whose test is `b`.
         let (head, args) = normal.spine();
-        let [b] = args[..] else {
-            continue;
+        let b = match (&args[..], normal.strip_loc()) {
+            ([b], _) if is(head, Builtin::DecTrue) => *b,
+            (_, Term::Ctor(d, 0, fields)) if reg.data(Builtin::Decidable) == Some(*d) => {
+                match fields.first() {
+                    Some(b) => b,
+                    None => continue,
+                }
+            }
+            _ => continue,
         };
-        if !is(head, Builtin::DecTrue) || hypotheses().any(|(_, t)| occurs(normal, t)) {
+        if hypotheses().any(|(_, t)| occurs(normal, t)) {
             continue;
         }
         let tests = |t: &Term| {

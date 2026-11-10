@@ -304,18 +304,34 @@ fn a_proof_cannot_refer_to_a_pending_declaration() {
 #[test]
 fn a_validator_cannot_refer_to_a_pending_declaration() {
     let mut p = Prelude::new();
-    let void = void(&mut p);
-    let decidable = data(&mut p.g, "Decidable", vec![("p", prop())], Sort::Type(0));
+    let bool_ = data(&mut p.g, "Bool", vec![], Sort::Type(0));
+    check::define_ctors(
+        &mut p.g,
+        bool_,
+        vec![ctor("False", vec![]), ctor("True", vec![])],
+    )
+    .unwrap();
+    stitchwort_core::native::register_bool(&mut p.g, bool_).unwrap();
+    let bool_ty = Term::data(bool_, vec![]);
+    let tru = Term::ctor(bool_, 1, vec![]);
+    // `type Decidable (p: Prop) = { holds: Bool, sound: holds = True → p }`.
+    let decidable = check::declare_data_group_as(
+        &mut p.g,
+        vec![("p".into(), prop())],
+        Sort::Type(0),
+        vec![("Decidable".into(), "Decidable".into(), span(), true)],
+    )
+    .unwrap()[0];
     check::define_ctors(
         &mut p.g,
         decidable,
-        vec![
-            ctor("Yes", vec![("proof", v(0))]),
-            ctor(
-                "No",
-                vec![("refutation", arrow(v(0), Term::Data(void, vec![])))],
-            ),
-        ],
+        vec![ctor(
+            "MkDecidable",
+            vec![
+                ("holds", bool_ty.clone()),
+                ("sound", arrow(eq(Some(bool_ty), v(0), tru.clone()), v(1))),
+            ],
+        )],
     )
     .unwrap();
     // f : (n : Nat) -> [auto ok : n = n] -> Nat
@@ -342,7 +358,10 @@ fn a_validator_cannot_refer_to_a_pending_declaration() {
     let r = check::add_validator(&mut p.g, f, 1, decidable, &decision);
     assert_eq!(code(r), "E-MALFORMED");
     // Neighbour: once `dec` is final.
-    let yes = lam("n", Term::ctor(decidable, 0, vec![Term::Refl]));
+    let yes = lam(
+        "n",
+        Term::ctor(decidable, 0, vec![tru, lam("h", Term::Refl)]),
+    );
     check::define_def(&mut p.g, dec, &yes).unwrap();
     let r = check::add_validator(&mut p.g, f, 1, decidable, &decision);
     assert_eq!(code(r), "ok");
@@ -350,24 +369,11 @@ fn a_validator_cannot_refer_to_a_pending_declaration() {
 
 #[test]
 fn builtins_must_be_final() {
-    // `Decidable`'s `No` mentions `Void` before `Void`'s constructors are in:
-    // registering it would let a native `No` rely on `Void` being empty.
+    // A `Bool` whose constructors aren't in yet: registering it would let
+    // natives rely on a shape it might not get.
     let mut p = Prelude::new();
-    let void = data(&mut p.g, "Void", vec![], Sort::Prop);
-    let decidable = data(&mut p.g, "Decidable", vec![("p", prop())], Sort::Type(0));
-    let r = check::define_ctors(
-        &mut p.g,
-        decidable,
-        vec![
-            ctor("Yes", vec![("proof", v(0))]),
-            ctor(
-                "No",
-                vec![("refutation", arrow(v(0), Term::Data(void, vec![])))],
-            ),
-        ],
-    );
-    assert_eq!(code(r), "E-MALFORMED");
-    let r = stitchwort_core::native::register_decidable(&mut p.g, decidable);
+    let bool_ = data(&mut p.g, "Bool", vec![], Sort::Type(0));
+    let r = stitchwort_core::native::register_bool(&mut p.g, bool_);
     assert_eq!(code(r), "E-BUILTIN");
 }
 

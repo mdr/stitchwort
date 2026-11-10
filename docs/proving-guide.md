@@ -271,25 +271,26 @@ Import what you use: std's theorems live in namespaces that need an import
   argument, from evidence given by name, a hypothesis in scope of exactly
   that type, or a decision procedure (DESIGN.md "`auto` and `Decidable`").
   Its search stops after 8 levels of nested decisions; past that, pass the
-  proof (`Decidable.fromYes …`), as the roguelike did for its 7th key
+  proof (`d.sound rfl`), as the roguelike did for its 7th key
   (games/rogue/PROOFS.md:192). An `if h: …` puts `h` in scope for `auto`.
-- **A decision is built and taken apart with functions, never `Yes` and
-  `No`** (D3480, SW-2733: `Decidable` is going to become a `Bool` with its
-  two proofs, and only these functions and std core will change). A decision
-  procedure answers `Decidable.yes h` or `Decidable.no r`
+- **A decision is a record**, `{ holds: Bool, sound: holds = True → p,
+  complete: p → holds = True }` (D3483, SW-2746). Build one test first,
+  `{ holds = Nat.equal m n, sound = …, complete = … }`, so that `==`
+  computes to the test, or with `Decidable.yes h` and `Decidable.no r`
   (`import Std (Decidable)`). To split on one, write `if h: p then … else
   …`: `h` is the proof of `p` in the first branch and its refutation in the
   second, and nothing in the goal is rewritten. To refine a goal or
-  hypothesis that has an `if` on `p` (one whose branches don't use the proof
-  is a plain `Bool` test), match on the test: `match e: x < y with | True =>
-  … | False => …`, where `e` is the proof in the `True` arm. A hypothesis
-  `e: (x == y) = False` becomes `x ≠ y` with `Decidable.refute (DecEq.decide
-  x y) e`, and `e: … = True` becomes `x = y` with `Decidable.sound`.
-  `Decidable.does d` is the `Bool` a decision stands for. Until the type
-  changes, a goal that holds the decision itself (the `if h:` of a program
-  whose branch uses `h`) can still only be split by `match d with | Yes … |
-  No …` (`Nat.iterateUntilStableFixed`;
-  `aoc/src/Aoc/Year2021/Day16/Proofs/Complete.sw`).
+  hypothesis that has an `if` on `p`, match on the test: `match e: x < y
+  with | True => … | False => …`, where `e` is the proof in the `True` arm.
+  A hypothesis `e: (x == y) = False` becomes `x ≠ y` with
+  `DecEq.soundFalse x y e` (or `Decidable.refute d e`), and `e: … = True`
+  becomes `x = y` with `DecEq.sound e` (or `d.sound e`). `d.holds` is the
+  `Bool` a decision stands for. A goal that holds the decision itself (the
+  `if h:` of a program whose branch uses `h`) splits by a `match` on the
+  record, `| { holds = True, sound = s, complete = _ } => … s rfl …`, or,
+  when that is refused (`E-MATCH-MOTIVE`: the decision computes to its
+  fields), by a `match` on what its test waits for (`match h: cave.height
+  with | Zero | Succ _`; `aoc/src/Aoc/Year2021/Day15/Proofs/Levels.sw`).
 - **`byDecision`** (`import Std (byDecision)`) is Lean's `by decide`: it
   proves a closed proposition by running its decision procedure. False is
   `E-AUTO-FALSE`; stuck on a variable is `E-AUTO-STUCK`, so split the
