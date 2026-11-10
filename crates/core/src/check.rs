@@ -2815,6 +2815,14 @@ pub fn declare_indexed_data_group(
         admissible(&cx, params.iter().map(|(_, ty)| ty), None)?;
         let mut checked = Vec::new();
         for (x, ty) in params {
+            // As for every telescope: a `case` only at the top of a
+            // definition (docs/core.md, "Terms").
+            if !case_only_in_tree(&ty, false) {
+                return Err(malformed(
+                    &cx,
+                    "`case` may only appear at the top of a definition",
+                ));
+            }
             let (ty, _) = check_type(&mut cx, &ty)?;
             let value = cx.eval(&ty)?;
             cx.bind(x.clone(), value);
@@ -3082,9 +3090,17 @@ fn admit_data_group(
     members: Vec<(DataId, Vec<CtorDecl>)>,
 ) -> Result<Vec<(DataId, Vec<Ctor>)>> {
     // The members' parameters are one telescope, shared by construction.
+    // `declare_indexed_data_group` let a failed reference through in it and
+    // in every member's index types: nothing built on a failed declaration
+    // is accepted (docs/core.md, "Admission").
     let first = g.data(group[0]);
     let mut cx = Ctx::new(g, first.span);
-    let mut failed = admissible(&cx, first.params.iter().map(|(_, ty)| ty), None)?;
+    let telescopes = first.params.iter().map(|(_, ty)| ty).chain(
+        group
+            .iter()
+            .flat_map(|d| g.data(*d).indices.iter().map(|(_, ty)| ty)),
+    );
+    let mut failed = admissible(&cx, telescopes, None)?;
     for (x, ty) in &first.params {
         let value = cx.eval(ty)?;
         cx.bind(x.clone(), value);
@@ -3382,6 +3398,13 @@ pub fn admit_trusted_data_decls(
         );
         if let Some(dep) = admissible(&cx, types, None)? {
             return Err(failed_dependency(&cx, &first, &dep));
+        }
+        // Structural, so checked even here (docs/core.md, "Terms": `Case`).
+        if !params.iter().all(|(_, ty)| case_only_in_tree(ty, false)) {
+            return Err(malformed(
+                &cx,
+                "`case` may only appear at the top of a definition",
+            ));
         }
         for member in &members {
             if member.record && !member.indices.is_empty() {
