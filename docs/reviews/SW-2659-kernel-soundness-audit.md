@@ -19,9 +19,9 @@ committed) is read and trusted, and trusted entries skip the kernel. The
 salt meant to stop that is stored in the same directory. This is F1.
 
 **This audit did not read the whole crate.** `crates/core` is 26,900
-lines; I read about 9,000 closely. The part most worth a second lane is
-the evaluator's machine (`value.rs` 1027–2190), which I covered only
-through probes. "What I did not read" below is the list.
+lines; I read about 10,000 closely. The parts most worth a second lane
+are how the evaluator unfolds and forces calls (`value.rs` 1215–1512 and
+2489–2812) and read-back. "What I did not read" below is the list.
 
 Counts: 0 at severity 1, 1 at severity 2, 2 at severity 3, 4 at
 severity 4.
@@ -264,6 +264,21 @@ follows types.
   zero, record eta, proof-only records and pairs of case trees: all
   refused.
 
+**The evaluator's rules (`value.rs:1513-2180`, `2216-2312`).**
+- `J` takes its base only on `rfl`; `Quot.lift` computes only on a
+  `Quot.mk`; a projection only takes a field of its own type's
+  constructor; a `case` takes a branch only on a constructor, a number or
+  a compact list, or by eta rule 2.
+- The erased placeholder: `J`, `branch` and `project` test `is_erased`
+  without asking whether erasure is on. That's safe because every one of
+  the nine places that make the placeholder is behind
+  `erasure.active()`, which `in_kernel_modes` turns off, and a kept
+  unfolding records whether it was made erasing (`Kept::fits`).
+- The unused placeholder (`unused()`, for an argument no later type
+  mentions) is only made where `Term::mentions` says the type doesn't use
+  it, and `mentions` counts binders for every form, `case` and `NumCase`
+  scrutinees included.
+
 **The number natives (`native.rs:690-1242`, `pins.rs`).** Each of
 `run_numbers`' arms against the definitions in `std/core/Data.sw` and
 `Division.sw`: `sub` stops at zero, `divFuel` is `min(fuel, n / d)` and 0
@@ -317,10 +332,10 @@ budget are the operation's, and kept.
 
 ## What I did not read
 
-- The evaluator's machine: `eval_step`, `resume` and the frames
-  (`value.rs:1027-2190`). Its rules (`J` on `rfl`, `Quot.lift` on
-  `Quot.mk`, projections, folded and glued calls, R3 and R4) were covered
-  only by probes.
+- How the evaluator applies, unfolds and forces: `run`, `apply_step`,
+  `force_call`, `unfold_now`, `unfold_folded`, `matches_at_once`
+  (`value.rs:1215-1512`, `2489-2812`). Glued and folded calls were covered
+  through conversion and probes, not line by line.
 - Read-back (`value.rs:2842-3380`), `identical` and `shape_hash`
   (`4541-5240`), `Unchanged` (`check.rs:1860-2073`).
 - `inert.rs`, `sct.rs`, `nat_add.rs`, `chars.rs`, `reference.rs`,
