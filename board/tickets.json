@@ -1,5 +1,5 @@
 {
-  "next": 2665,
+  "next": 2668,
   "tickets": [
     {
       "id": 47,
@@ -27197,14 +27197,14 @@
     {
       "id": 2634,
       "title": "[Sonnet] Live project: an edit rewinds every namespace checked after the edited one, not just its dependants; order steps so edited namespaces and their dependants are checked last (a local rename in an AoC day costs 1.7 s trial, mostly unrelated namespaces) [priority: rename in the playground takes ~130 s on an AoC day]",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2634",
       "labels": [
         "editor"
       ],
       "epic": "editor-playground",
-      "body": "From SW-2628 (10 Nov 2026). Also speeds ordinary editing in large projects. Est. 90 min.\n\n\nProgress (lane, 10 Nov 2026): make_plan now orders the steps an edit drops as: unchanged namespaces that do not use a changed one (replayed from the check cache), then the changed ones and their dependants. Trial on AoC (Year2021+Common subset): day-local rename trial 1.8 s -> 0.85 s, restore 1.6 s -> 0.4 s; Common Range.size trial 5.3 s -> 4.3 s, restore 4.3 -> 4.2 s (most days use Common). Test: rewind::an_edit_checks_again_only_what_uses_it.\n",
+      "body": "From SW-2628 (10 Nov 2026). Also speeds ordinary editing in large projects. Est. 90 min.\n\n\nProgress (lane, 10 Nov 2026): make_plan now orders the steps an edit drops as: unchanged namespaces that do not use a changed one (replayed from the check cache), then the changed ones and their dependants. Trial on AoC (Year2021+Common subset): day-local rename trial 1.8 s -> 0.85 s, restore 1.6 s -> 0.4 s; Common Range.size trial 5.3 s -> 4.3 s, restore 4.3 -> 4.2 s (most days use Common). Test: rewind::an_edit_checks_again_only_what_uses_it.\nModel result: Sonnet, worked, 19 min (est. 120). Trial: day-local rename 1.8 -> 0.85 s, Common Range.size 5.3 -> 4.3 s (one run each).",
       "created": "2026-11-10",
       "updated": "2026-11-10",
       "commits": [
@@ -27663,6 +27663,45 @@
       "labels": [],
       "epic": "test-infra",
       "body": "From SW-2637 (10 Nov 2026). Est. 30 min.",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
+    },
+    {
+      "id": 2665,
+      "title": "rewind::a_check_cancelled_at_each_use_of_the_cache_rewinds fails on main: extension-visibility cancelled at cache use 19/22 differs from a fresh check (line 97576 of the JSON)",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-2665",
+      "labels": [],
+      "epic": "editor-playground",
+      "body": "Found 10 Nov 2026 during SW-2634; fails on main (895da6c5b) before SW-2634's merge. Suspects from 9-10 Nov: SW-1937's counterexample memo (process-wide, keyed by type_hash, may survive a cancelled check), SW-2627's nav refs, SW-2628. Repro: nix develop -c task test:one -- a_check_cancelled_at_each_use_of_the_cache_rewinds. Est. 60 min.",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
+    },
+    {
+      "id": 2666,
+      "title": "Live project: the first edit still replays every unrelated later namespace from the cache (~0.4 s of a 0.85 s day trial); a non-stack rewind would avoid it (session change, Opus)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "editor-playground",
+      "body": "From SW-2634 (10 Nov 2026).",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
+    },
+    {
+      "id": 2667,
+      "title": "Trial of an edit to Common takes ~4 s because nearly every day depends on it; skip re-checking dependants when the edited declarations' signatures (type hashes) are unchanged",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "editor-playground",
+      "body": "From SW-2634 (10 Nov 2026).",
       "created": "2026-11-10",
       "updated": "2026-11-10",
       "commits": []
