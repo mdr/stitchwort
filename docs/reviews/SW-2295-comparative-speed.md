@@ -378,3 +378,182 @@ Time worse than instructions: rbmap +1.5% time at -8.5% instructions (a
 0%. Suspected: the Unpack change (cells returned to the cache) altering
 locality, as in SW-2523. Overmind is comparing perf counters of jobs 39 and
 40. rbmap-ck recovered about two thirds of SW-2523's 16%.
+
+## Closing record (10 Nov 2026)
+
+Matt wound the speed work down on 10 Nov (D3465). The epics performance,
+comparative-speed and dev-loop-speed are paused and their backlog tickets carry
+the `parked` label. This section is for whoever restarts it. Every figure is
+marked **measured** (a run or a counter) or **estimated** (a profile-based
+guess or an extrapolation).
+
+### Final comparison (measured)
+
+Overmind (Linux, 8 threads), commit `292a85385`, runners native, cpython, pypy
+and lean. All 64 answers checked correct; 2,018 s. Geomeans of time, native
+relative to the other runner, lower is better; job 40 (`f9d2d8320`) in brackets.
+
+| Set | native / CPython | native / Lean |
+|---|---:|---:|
+| Core (10 programs) | 1.82x (1.90x) | 7.67x (7.99x) |
+| Wide (5 programs) | 0.31x (0.32x) | 2.60x (2.68x) |
+| All 15 | 1.01x (1.04x) | 5.35x (5.55x) |
+
+Moved more than 10% since job 40: binary-trees 2.70 -> 2.14 s (-21%),
+memory-game 2.85 -> 2.42 s (-15%). Most likely borrowed parameters (SW-2565, below) and the
+cell cache's exact count (SW-2559), both merged after job 40 (an attribution
+from the merge order and the instruction counts, not a separate run).
+
+Not covered: no instruction counts this run, and the JavaScript backend wasn't
+timed. AoC 2021 day 15 under `run --js` grows roughly as n^4 with the grid
+width and doesn't finish on the full input (SW-2636, parked). The raw report is
+on Overmind: `target/compare/2026-11-10T095143-overmind.md`.
+
+### 1. Where it started and where it ended (measured)
+
+Core ten, geomean of time, first comparison against last:
+
+| | 8 Nov 00:25, `e8e9acd1e` | 10 Nov, `292a85385` |
+|---|---:|---:|
+| native / CPython | 5.46x | 1.82x |
+| native / Lean | 23.06x | 7.67x |
+
+That is 3.0x closer to both. Per program, start against job 39 (9 Nov 09:22;
+all measured, native seconds):
+
+| Program | start | job 39 |
+|---|---:|---:|
+| pidigits | 1.55 | 1.24 |
+| binary-trees | 4.31 | 2.65 |
+| memory-game | 8.27 | 2.73 |
+| dijkstra | 12.97 | 2.52 |
+| octopus | 15.94 | 2.61 |
+| disk | 21.06 | 8.68 |
+| expressions | 86.30 | 34.23 |
+| scan | 81.85 | 37.09 |
+| matcher | 15.73 | 7.68 |
+| bridge | 22.53 | 11.66 |
+
+(Job 40 then took scan, expressions and bridge down another 25-36% in
+instructions; the last run's per-program table is in Overmind's report.) The
+wide set joined on 9 Nov, so it has no start: its four first programs were 0.20x
+CPython and 2.37x Lean at job 32; with mapops added the five are 0.31x and
+2.60x now. The two sets aren't comparable.
+
+Where it stands: native beats CPython overall (1.01x over all 15, 0.31x on the
+wide set) and on pidigits, binary-trees, memory-game and the Lean programs. It
+is still 5-8x Lean's compiled code, and slow against CPython on the parsing
+programs (expressions and scan were 16x and 45x CPython at job 39).
+
+### 2. What moved the numbers
+
+Core geomean against CPython went 5.46 -> 4.71 -> 3.88 -> 3.55 -> 2.87 -> 2.78
+-> 2.68 -> 2.66 (job 32) -> 2.41 -> 2.18 -> 1.90 -> 1.82 (all measured, in
+`history.toml`). The changes that mattered most:
+
+1. **Inline operations and cheaper cells (8 Nov night).** Hole operations
+   (SW-2328), comparisons and arrays (SW-2329), cells through fixed-size helpers
+   (SW-2321). memory-game 8.26 -> 4.67 s, binary-trees 4.29 -> 3.09 s,
+   geomean 4.7 -> 3.9x CPython (measured).
+2. **Data-structure fixes for specific programs.** Octopus's O(1) grid
+   (SW-2320): 15.9 -> 5.1 s. Dijkstra over a cost table (SW-2394, SW-2396) and
+   reuse across calls (SW-2391): 11.8 -> 2.6 s. One-pass `flatMap` (SW-2323):
+   matcher 15.7 -> 12.6 s. Big numbers by reference (SW-2302): pidigits
+   1.55 -> 1.32 s (all measured).
+3. **Handlers and the effect loop.** Operations in place stage B (forwarding
+   skipped, SW-2349), effect-runtime allocation R1-R3 and R7 (resumption one
+   object, bind node reused: SW-2462 -1.7%, SW-2463 -3.4% on expressions),
+   resumptions moved and closures shared, then compiled handler dispatch plus
+   context inlining (SW-2511, SW-2531): job 40 took scan -35.7%,
+   expressions -30.9%, bridge -25.3% in time (measured).
+4. **Record updates take a unique record apart (SW-2514).** AoC's house style;
+   memory-game -37.9%, octopus -13.6% (time, measured at job 39).
+5. **Borrowed parameters, stage B1 (SW-2565).** Read-only walks stop counting
+   every node. mapops -6.4%, memory-game -19.3% (instructions, measured); the
+   final run shows binary-trees -21% and memory-game -15% in time.
+6. **Method.** Instructions retired as the primary measure, non-incremental
+   builds (SW-2474), the wide set, `bench:aoc` as an over-fitting check.
+
+What caps it: allocation and freeing are about half of native time on the
+parsing programs, the effect machinery about a fifth (SW-2417, estimated from a
+profile).
+
+### 3. What didn't work (or was held)
+
+All of these have entries in [docs/performance/log.md](../performance/log.md).
+
+- **SW-2593** (search hole typing): typed 98.6% of proof variables, but recall
+  is unchanged and the full-tier search benchmark is 14% slower (257 -> 293 s,
+  measured). Not merged; branch `lane/SW-2593` kept. Merge only with a recall
+  gain or no slowdown.
+- **SW-1734** (nextest threads for the heavy sweeps): no measured benefit under
+  load; closed unmerged.
+- **SW-1776** (elab unit tests in their own binary): clean test build 164 ->
+  144 s (measured, one run), but every new elab unit test needs three edits
+  (D2565 never taken up). Closed unmerged.
+- **SW-2486** (fused `token nat`): bridge -21% in instructions (measured), but
+  every call site must be rewritten, including the benchmark's own source:
+  over-fitting. Dropped; the clean form is SW-2625.
+- **SW-2350** (operations in place stage C): effect-loop steps 3-26x fewer but
+  machine time only 1.04-1.11x (measured), against an expected 2-3x. Matt
+  stopped operations in place after stage B (D3430); branch `lane/SW-2350` kept
+  as the record.
+- **SW-2441** (compact values, option E): the experiment gave 1.09x on the
+  decision set and 1.165x on binary-trees, below the 1.10x and 1.25x gate
+  (measured). Not built (D3435).
+- **SW-814** (fused Map balance): -0.17% on `bench:aoc` (measured); dropped. It
+  looks better on mapops (SW-2515, below), so judge it again there.
+- **SW-2488, SW-2494:** `replicate ++` without the copy (at most 1%) and a
+  `literalText` operation (expressions +0.9%, scan -3.2%) dropped.
+- **SW-2523:** rbmap-ck +16% in time at equal instructions; mostly recovered by
+  job 40, cause never found (SW-2538 and SW-2560 are the same kind of
+  mystery).
+
+### 4. Remaining ideas, best first
+
+Gains are per program and **estimated** unless said otherwise.
+
+1. **SW-2625**, fuse `token nat` inside the parser: bridge -14 to -23%
+   (extrapolated from the measured -21% of SW-2486), no new API.
+2. **SW-2515**, inline Map balance/rebuild into `insertWith` (a further
+   -25.6% on mapops by hand; SW-2539 adds 2-3%). Retest SW-814 there.
+3. **SW-2464, SW-2465, SW-2496, SW-2500**, effect-runtime allocation R4/R5 and
+   state clauses without a Jumped object: expressions -2.9 to -5.0% and scan
+   -4.0 to -6.9% for R4, -1.2 to -2.4% for R5, -2.3 to -4.4% for SW-2500.
+4. **SW-2431**, huge pages for native's heap. dTLB misses are 580-1100x Lean's
+   on memory-game and binary-trees (measured, SW-2426); the gain is unknown.
+5. **SW-2437**, store forwarding in value copies: expressions and scan spend
+   5.9-6.2% of cycles on a full store buffer against Lean's 0.05-0.09%
+   (measured); the gain is unestimated.
+6. **SW-2577, SW-2521, SW-2528**, borrow inference follow-ups (lambda captures
+   counted as owned, closures borrowing their function, the effect loop
+   borrowing the step function: 60-100 instructions per operation).
+7. **SW-2322**, a cheaper call protocol (limits and error flag in registers),
+   no estimate.
+8. **SW-2441's option E** (compact values) stays at about 1.09x; not worth it
+   unless the gate changes.
+
+Also parked: SW-2636 (`--js` day 15 at n^4), SW-2501 (`labelWhole` is
+exponential in nesting depth), SW-2411 (the bench baseline is out of date).
+
+### 5. How to restart
+
+Read first: this file's job 40 and final sections, then
+[docs/performance/log.md](../performance/log.md) ("How things are measured" and
+the 9-10 Nov entries), then the parked tickets (`board/board epic
+comparative-speed`). Matt's rule from the work: profile first, change only a
+measured hotspot, and don't edit a benchmark's source to speed it up.
+
+```
+task bench:instructions            # instructions retired for the 15 programs; --save, --against
+task bench:aoc                     # every AoC day, answer-checked, geomean (over-fitting check)
+task bench:compare -- --runners native,cpython,pypy,lean   # on a quiet machine (Overmind)
+```
+
+Run the comparison on a quiet machine with nothing else running; it takes about
+35 min with the wide set (2,018 s last time). The last run had no instruction
+counts; `task bench:instructions` gives them separately. Then add the entry to `bench/compare/history.toml`
+(still by hand, SW-2469) and a section here. Re-record the bench baseline
+(`task bench:update`, which writes `bench/baseline.toml`; checked by `task
+bench`) before judging any regression. Reference runners drift 0-4% between
+runs, so only trust a native change larger than that.
