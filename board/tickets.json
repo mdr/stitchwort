@@ -26628,7 +26628,7 @@
       "where": ".claude/worktrees/SW-2607",
       "labels": [],
       "epic": "effects-native",
-      "body": "From SW-2579, 10 Nov. Frames are fine now; this is compile time only. Profile first.",
+      "body": "From SW-2579, 10 Nov. Frames are fine now; this is compile time only. Profile first.\n\nClosed 10 Nov, no code change: native compile 68 ms at depth 20 (under the 100 ms bar), linear in instructions (~2 us each); block params only ~9% of values. Real programs: ~0.25-0.48 s of a ~1 s native build, spread over the largest bodies, not joins. Model result: Sonnet, worked, 5 min (est. 60).",
       "created": "2026-11-10",
       "updated": "2026-11-10",
       "commits": [
