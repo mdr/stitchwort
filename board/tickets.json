@@ -1,5 +1,5 @@
 {
-  "next": 2621,
+  "next": 2622,
   "tickets": [
     {
       "id": 47,
@@ -26786,12 +26786,12 @@
     {
       "id": 2617,
       "title": "search_at tests: one Session per goal costs ~0.7 GB, so SW-2614 capped search_at_on_aoc_goals at 3 workers (~1.7x slower); share one project session across goals and restore the pool; also measure search_at_on_real_2021_goals (29 goals, uncapped par_map)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2617",
       "labels": [],
       "epic": "test-infra",
-      "body": "From SW-2614, 10 Nov.",
+      "body": "From SW-2614, 10 Nov.\n\nClosed 10 Nov, no change: Session holds Rc/RefCell (not Send/Sync) and a goal's load mutates it (overlay, file scope, re-check), so reuse across goals needs a namespace unload that doesn't exist; cap kept. real_2021 goals ~0.3 GB/worker (debug), left uncapped. Found SW-2621 (panic). Model result: Sonnet, worked, 16 min (est. 50).",
       "created": "2026-11-10",
       "updated": "2026-11-10",
       "commits": []
@@ -26835,6 +26835,19 @@
       "labels": [],
       "epic": "test-infra",
       "body": "From SW-2613, 10 Nov.",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
+    },
+    {
+      "id": 2621,
+      "title": "search_at_on_real_2021_goals panics on main: value.rs:3277 'variable at level 3 read back with 2 in scope' (STITCHWORT_AT_BENCH_ONLY=Day13/Proofs/Fold, Proofs/Answers, Day1). Likely one of 9-10 Nov's merges (search hole typing SW-2590, mismatch notes SW-2598/2600/2602, predicate flags SW-2592): bisect and fix",
+      "status": "backlog",
+      "agent": "Opus",
+      "where": "",
+      "labels": [],
+      "epic": "proof-search",
+      "body": "From SW-2617, 10 Nov 04:20. Repro: STITCHWORT_TIER=daily STITCHWORT_AT_BENCH_ONLY=Day13/Proofs/Fold cargo test -p stitchwort-driver --test search_at_aoc search_at_on_real_2021_goals (22 s debug).",
       "created": "2026-11-10",
       "updated": "2026-11-10",
       "commits": []
