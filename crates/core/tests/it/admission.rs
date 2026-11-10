@@ -443,3 +443,72 @@ fn references_to_declarations_that_do_not_exist_are_refused() {
     let r = check::define_ctors(&mut p.g, DataId(1000), vec![]);
     assert_eq!(code(r), "E-MALFORMED");
 }
+
+#[test]
+fn an_index_type_that_uses_a_failed_declaration_fails_the_type() {
+    let mut p = Prelude::new();
+    let f = declare(&mut p.g, "f", nat_to_nat(p.nat));
+    assert_eq!(define_def(&mut p, f, lam("n", ty())), "E-TYPE-MISMATCH");
+    // D (h: f 0 = 0): Type, with no constructors, so no field or result
+    // index mentions `f`: only the index telescope does.
+    let d = family(
+        &mut p.g,
+        "D",
+        vec![],
+        vec![("h", about(p.nat, f))],
+        Sort::Type(0),
+    );
+    assert_eq!(
+        code(check::define_ctors(&mut p.g, d, vec![])),
+        "E-FAILED-DEPENDENCY"
+    );
+    assert_eq!(data_hash(&p.g.ev(), d).unwrap(), None);
+    // Neighbour: the same index with `f` final.
+    let g = declare(&mut p.g, "g", nat_to_nat(p.nat));
+    assert_eq!(define_def(&mut p, g, lam("n", v(0))), "ok");
+    let e = family(
+        &mut p.g,
+        "E",
+        vec![],
+        vec![("h", about(p.nat, g))],
+        Sort::Type(0),
+    );
+    assert_eq!(code(check::define_ctors(&mut p.g, e, vec![])), "ok");
+}
+
+#[test]
+fn a_parameter_type_cannot_hold_a_case() {
+    let mut p = Prelude::new();
+    // D (n: Nat) (x: (m => case m of Zero => Nat | Succ k => Nat) n): Type.
+    // The `case` is stuck on `n`, and a stuck `case` outside a definition's
+    // tree can't be evaluated.
+    let nat = p.nat_ty();
+    let pick = lam(
+        "m",
+        case(
+            0,
+            p.nat,
+            vec![(vec![], nat.clone()), (vec!["k"], nat.clone())],
+        ),
+    );
+    let pick = Term::Ann(Rc::new(pick), Rc::new(arrow(nat.clone(), ty())));
+    let params = || {
+        vec![
+            ("n".into(), nat.clone()),
+            ("x".into(), app(pick.clone(), [v(0)])),
+        ]
+    };
+    let decl = || {
+        vec![check::DataDecl {
+            name: "D".into(),
+            path: "D".into(),
+            span: span(),
+            record: false,
+            indices: vec![],
+        }]
+    };
+    let r = check::declare_indexed_data_group(&mut p.g, params(), Sort::Type(0), decl());
+    assert_eq!(code(r), "E-MALFORMED");
+    let r = check::admit_trusted_data_decls(&mut p.g, params(), Sort::Type(0), decl());
+    assert_eq!(code(r), "E-MALFORMED");
+}
