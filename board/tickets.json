@@ -27763,7 +27763,7 @@
     {
       "id": 2672,
       "title": "[Fable] Kernel soundness audit, part 2: the code SW-2659 didn't read: value.rs unfolding and forcing (1215-1512, 2489-2812), read-back, identical and shape_hash, inert.rs, sct.rs, nat_add.rs, chars.rs, float.rs arithmetic, positivity, the cache encoder",
-      "status": "doing",
+      "status": "review",
       "agent": "Claude",
       "where": ".claude/worktrees/SW-2672",
       "labels": [
@@ -27771,10 +27771,12 @@
         "soundness"
       ],
       "epic": "audit-fuzzing",
-      "body": "From SW-2659 (10 Nov 2026). Est. 120 min.",
+      "body": "From SW-2659 (10 Nov 2026). Est. 120 min.\n\n**10 Nov 2026, lane (Fable), about 20 min of 120.** Review: docs/reviews/SW-2672-kernel-soundness-audit-2.md. Verdict: no false theorem found and no likely hole; the size-change check, positivity, the evaluator's calls, read-back, `identical`, `inert.rs`, `nat_add.rs`, `chars.rs`, `float.rs` and the cache codec read sound; about 110 probes, nothing false accepted. Findings for the orchestrator to file: G1 (sev 3) read-back's scope check is debug-only (`value.rs:3278`); G2 (sev 3) the cache's term writer shares nodes by address with no lifetime guard (`cache/codec.rs:237`); G3 (sev 3, for SW-2673) a replayed entry's stated hashes are installed, not computed (`cache/mod.rs:2671`); G4 (sev 4) `docs/core.md` doesn't state termination's pinned-field and inlining rules (for SW-2670). Not read by either part: `reference.rs`, `step.rs`, `registry.rs`, `globals.rs:1-760`, the cache key, the elaborator.\n",
       "created": "2026-11-10",
       "updated": "2026-11-10",
-      "commits": []
+      "commits": [
+        "8428e9f1b"
+      ]
     },
     {
       "id": 2673,
