@@ -4,7 +4,7 @@
 
 use stitchwort_core::check::{declare_def, define_def};
 use stitchwort_core::native::{self, Native};
-use stitchwort_core::value::{apply, conv, eval, force, quote};
+use stitchwort_core::value::{apply, conv, eval, force, quote, quote_folded};
 use stitchwort_core::{BigUint, DefId, Kernel, Term, Value};
 use stitchwort_driver::driver::Session;
 use stitchwort_elab::{Elaborator, prelude};
@@ -401,6 +401,71 @@ fn shortcuts_with_unknowns_agree_with_the_definitions() {
                 "Nat.equalRefl({n:?}): native {fast:?}, definition {slow:?}"
             );
         }
+    });
+}
+
+/// `*`'s shortcut, `(k + m) * n = k·n + m * n` for a number `n` and a stuck
+/// `m`, gives the very value one step of `Nat.mul`'s definition gives over
+/// the shortcut for `k - 1` (the same read-back, folded and in full, not only
+/// an equal value; `Term` has no `==`, so its debug form is compared), so read-back and hashes can't tell them apart. With the
+/// case tree's own result at `k = 0`, that's an induction over `k`. The
+/// stuck parts: a variable, a stuck call (glued and not), a folded
+/// `3 * x`; the `Succ`s as a compact `k + m`, as constructors, and mixed.
+#[test]
+fn the_mul_shortcut_is_one_step_of_the_definition() {
+    with_big_stack(|| {
+        let mut session = Session::new();
+        let source = "def count: (n: Nat) → Nat\n  | Zero => 0\n  | Succ n => Succ (count n)\n";
+        assert!(session.load("count.sw", source).is_ok());
+        let g = &mut session.elab.kernel;
+        let mul = def(&g.ev(), Native::Mul.name());
+        let once = unfolded_once(g, Native::Mul);
+        let count = def(&g.ev(), "count");
+        let nat_type = g.env.builtins().nat.expect("`Nat` is bound");
+        for glue in [false, true] {
+            g.machine.glue.set(glue);
+            let ev = g.ev();
+            let bases = [
+                Value::var(0),
+                call(&ev, count, &[Value::var(0)]),
+                call(&ev, mul, &[nat(3), Value::var(0)]),
+            ];
+            let big = native::nat_value(BIG.parse::<BigUint>().unwrap());
+            for base in &bases {
+                for k in 1..6u64 {
+                    let ms = [
+                        native::from_view(BigUint::from(k), Some(base.clone())),
+                        succs(&ev, k, base.clone()),
+                        Value::Ctor(
+                            nat_type,
+                            1,
+                            vec![native::from_view(BigUint::from(k - 1), Some(base.clone()))]
+                                .into(),
+                        ),
+                    ];
+                    for m in &ms {
+                        for n in [nat(0), nat(1), nat(3), big.clone()] {
+                            let args = [m.clone(), n];
+                            let fast = call(&ev, mul, &args);
+                            let slow = call(&ev, once, &args);
+                            let what = format!("glue {glue}, mul{args:?}");
+                            same_result(&ev, &what, &fast, &slow);
+                            assert_eq!(
+                                format!("{:?}", quote(&ev, 1, &fast).unwrap()),
+                                format!("{:?}", quote(&ev, 1, &slow).unwrap()),
+                                "{what}: read back"
+                            );
+                            assert_eq!(
+                                format!("{:?}", quote_folded(&ev, 1, &fast).unwrap()),
+                                format!("{:?}", quote_folded(&ev, 1, &slow).unwrap()),
+                                "{what}: read back folded"
+                            );
+                        }
+                    }
+                }
+            }
+        }
+        g.machine.glue.set(false);
     });
 }
 

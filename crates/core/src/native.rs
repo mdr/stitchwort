@@ -1047,23 +1047,36 @@ fn run_partial(
         // a time, each would walk the rest of a chain of `k` `Succ`s to find
         // it isn't a number, which is quadratic in `k`: `(x + 16000) % 2`
         // multiplies a quotient of 8000 `Succ`s around a stuck step (SW-2572).
-        // `n` is looked at first, so that a `y` that isn't a number leaves
-        // the chain unwalked (the case tree then peels it one `Succ` a step).
+        // `m`'s head is looked at first: with no `Succ` there the case tree
+        // is stuck on `m` and never looks at `n`, so neither may this. Then
+        // `n`, so that a `y` that isn't a number leaves the chain unwalked
+        // (the case tree then peels it one `Succ` a step).
         (Native::Mul, [m, n]) => {
+            let starts_with_succ = match force(g, (*m).clone())? {
+                Value::NatAdd(..) => true,
+                Value::Ctor(d, 1, _) => Some(d) == g.env.builtins().nat,
+                _ => false,
+            };
+            if !starts_with_succ {
+                return Ok(None);
+            }
             let Some(times) = as_nat_with(g, n, force)? else {
                 return Ok(None);
             };
             let (k, base) = view_keeping(g, m, force)?;
-            Ok(match base {
-                Some(base) if !k.is_zero() => Some(Outcome::Done(from_view(
-                    k * times,
-                    Some(Value::Neutral(
-                        Head::Def(id),
-                        vec![explicit(base), explicit((*n).clone())].into(),
-                    )),
-                ))),
-                _ => None,
-            })
+            let Some(base) = base.filter(|_| !k.is_zero()) else {
+                return Ok(None);
+            };
+            g.machine
+                .budget
+                .number_words(|| number_words(Native::Mul, &[k.clone(), times.clone()]))?;
+            Ok(Some(Outcome::Done(from_view(
+                k * times,
+                Some(Value::Neutral(
+                    Head::Def(id),
+                    vec![explicit(base), explicit((*n).clone())].into(),
+                )),
+            ))))
         }
         // `eqNatRefl (Succ n) = eqNatRefl n`.
         (Native::EqNatRefl, [n]) => {
