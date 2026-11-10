@@ -13,6 +13,11 @@ use serde_json::{Value, json};
 use stitchwort_cli::lsp::{Options, serve};
 
 const STACK: usize = 64 * 1024 * 1024;
+/// The longest a test waits for the server's reply or diagnostics. It returns
+/// the moment the event arrives, so the ceiling only matters when the
+/// machine is so loaded that a check takes many times as long (7 to 37 times
+/// in the full tier, SW-2584); a hung server still fails, after this.
+const WAIT: Duration = Duration::from_secs(30 * 60);
 
 struct Client {
     conn: Connection,
@@ -92,7 +97,7 @@ impl Client {
                     None => Ok(resp.result.unwrap_or(Value::Null)),
                 };
             }
-            match self.conn.receiver.recv_timeout(Duration::from_secs(60)) {
+            match self.conn.receiver.recv_timeout(WAIT) {
                 Ok(Message::Response(resp)) => self.responses.push(resp),
                 Ok(Message::Notification(n)) => self.queue.push_back(n),
                 Ok(other) => panic!("unexpected {other:?}"),
@@ -112,7 +117,7 @@ impl Client {
         let r = Request::new(id.clone(), method.to_string(), params);
         self.conn.sender.send(r.into()).unwrap();
         loop {
-            match self.conn.receiver.recv_timeout(Duration::from_secs(120)) {
+            match self.conn.receiver.recv_timeout(WAIT) {
                 Ok(Message::Response(resp)) if resp.id == id => {
                     assert!(resp.error.is_none(), "{method}: {:?}", resp.error);
                     return resp.result.unwrap_or(Value::Null);
@@ -131,7 +136,7 @@ impl Client {
     }
 
     fn diagnostics_checking(&mut self, uri: &str, version: i32, never: Option<i32>) -> Vec<Value> {
-        self.diagnostics_within(uri, version, never, Duration::from_secs(120))
+        self.diagnostics_within(uri, version, never, WAIT)
     }
 
     fn diagnostics_within(
@@ -550,7 +555,7 @@ fn library_navigation_survives_later_namespace_answers() {
     client.open(&first_uri, first);
     assert_eq!(client.diagnostics(&first_uri, 1), Vec::<Value>::new());
     // `Second` is checked in the background, after `First`.
-    let got = client.diagnostics_within(&second_uri, 0, None, Duration::from_secs(120));
+    let got = client.diagnostics_within(&second_uri, 0, None, WAIT);
     assert_eq!(got, Vec::<Value>::new());
     let library = client.at("textDocument/definition", &second_uri, 4, 20);
     let std_uri = library["uri"].as_str().unwrap().to_string();
@@ -972,7 +977,7 @@ fn aoc_navigation_matches_check_index() {
     // expression types) aren't the ones `check` warmed, so some proofs take
     // seconds each (about 100 s in all, measured; SW-1050).
     let last = uri(&project.join(files[1]));
-    client.diagnostics_within(&last, 0, None, Duration::from_secs(600));
+    client.diagnostics_within(&last, 0, None, WAIT);
 
     let mut compared = 0;
     for path in files {
