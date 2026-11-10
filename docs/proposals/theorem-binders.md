@@ -343,6 +343,24 @@ moved, so a sweep that keeps hashes can be checked exactly. Three gaps:
   hash instead of its full hash, and accept a change in a declaration only
   when the trial's `uses` field (trial.rs:132) points at a theorem whose
   statement held. A new `Promise` variant, estimated half a day.
+- Definitions embed proofs (Map's invariants and `Quot.lift`
+  respects-proofs, the Graph searches' `decreasing` proofs), so a
+  re-proved theorem moves the hash of every definition that mentions it,
+  and the hash of every statement that mentions one of those. For these
+  the promise is "proofs only" (`--proofs-only`, SW-2698): compare each
+  declaration's hash without proofs (`hash::proofless_hash`), its content
+  hash with every proof position hashed as one marker and every reference
+  hashed by this hash in turn. The proof positions are what a run never
+  computes (crates/core/src/erase.rs): arguments at parameters whose type is
+  a proposition, calls of definitions whose result is a proof, constructors'
+  proof fields, data types' proof parameters, `J`'s proof, `Quot.lift`'s
+  respects-proof, `Quot.ind` and `Quot.sound`. A theorem's hash without
+  proofs is its statement's; in a recursive group, a member whose result is
+  a proof stands apart from those that compute. Statements are kept, so a
+  declaration passes only if it computes the same and its statement says
+  the same, up to the proofs inside what it mentions. The kernel still
+  checks everything in full: the promise only decides which edits the tool
+  calls safe.
 
 **Forms it can't convert at the same hash** (measured where marked):
 

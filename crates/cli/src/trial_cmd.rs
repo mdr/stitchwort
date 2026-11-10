@@ -34,6 +34,8 @@ const REFUSED: u8 = 2;
 pub(super) struct TrialArgs<'a> {
     pub edits: Option<&'a Path>,
     pub same_statement: bool,
+    /// The `ProofsOnly` promise (`--proofs-only`).
+    pub proofs_only: bool,
     pub apply: bool,
     pub anyway: bool,
     pub json: bool,
@@ -54,20 +56,22 @@ pub(super) struct HashArgs<'a> {
     pub cache: &'a CacheArgs,
 }
 
-fn promise(same_statement: bool) -> Promise {
+fn promise(args: &TrialArgs) -> Promise {
     let renames = BTreeMap::new();
-    if same_statement {
+    if args.proofs_only {
+        Promise::ProofsOnly { renames }
+    } else if args.same_statement {
         Promise::SameStatement { renames }
     } else {
         Promise::SameMeaning { renames }
     }
 }
 
-fn promise_name(same_statement: bool) -> &'static str {
-    if same_statement {
-        "same-statement"
-    } else {
-        "same-meaning"
+pub(super) fn promise_name(promise: &Promise) -> &'static str {
+    match promise {
+        Promise::SameMeaning { .. } => "same-meaning",
+        Promise::SameStatement { .. } => "same-statement",
+        Promise::ProofsOnly { .. } => "proofs-only",
     }
 }
 
@@ -167,7 +171,7 @@ pub(super) fn trial_edits(args: &TrialArgs) -> ExitCode {
         Err(message) => return refused(args.json, mode, vec![message]),
     };
     let doing = "the edits";
-    let trial = match live.trial(&edits, &promise(args.same_statement)) {
+    let trial = match live.trial(&edits, &promise(args)) {
         Ok(TrialOutcome::Checked(trial)) => trial,
         Ok(TrialOutcome::Refused(refusals)) => {
             return refused(
@@ -180,6 +184,7 @@ pub(super) fn trial_edits(args: &TrialArgs) -> ExitCode {
     };
     let problems = trial.problems.clone();
     let proofs_changed = trial.proofs_changed.clone();
+    let proofs_only = trial.proofs_only.clone();
     let messages = problems.describe(doing);
     let clean = problems.is_empty();
     let write = args.apply && (clean || args.anyway);
@@ -242,13 +247,14 @@ pub(super) fn trial_edits(args: &TrialArgs) -> ExitCode {
         print_json(json!({
             "version": 1,
             "mode": mode,
-            "promise": promise_name(args.same_statement),
+            "promise": promise_name(&promise(args)),
             "status": if clean { "clean" } else { "problems" },
             "applied": write,
             "written": written,
             "diagnostics": diagnostics,
             "changed": changed,
             "proofsChanged": proofs_changed,
+            "proofsOnly": proofs_only,
             "messages": messages,
             "refusals": [],
         }));
@@ -261,6 +267,9 @@ pub(super) fn trial_edits(args: &TrialArgs) -> ExitCode {
                 "{} proof(s) changed with the statement kept",
                 proofs_changed.len()
             );
+        }
+        for name in &proofs_only {
+            println!("only proofs changed in {name}");
         }
         if clean {
             println!("nothing found: every declaration is as promised");
@@ -346,6 +355,7 @@ fn decl_json(d: &DeclHash, uses: bool) -> Value {
         "name": d.name,
         "hash": d.hash.map(|h| h.hex()),
         "typeHash": d.type_hash.map(|h| h.hex()),
+        "prooflessHash": d.proofless.map(|h| h.hex()),
     });
     if uses && !d.uses.is_empty() {
         v["uses"] = json!(d.uses);
@@ -366,6 +376,7 @@ pub(super) fn decl_from_json(v: &Value) -> Option<DeclHash> {
         name: v.get("name")?.as_str()?.to_string(),
         hash: hash("hash"),
         type_hash: hash("typeHash"),
+        proofless: hash("prooflessHash"),
         uses: v
             .get("uses")
             .and_then(Value::as_array)
@@ -436,7 +447,7 @@ fn std_trial(args: &TrialArgs) -> ExitCode {
             vec!["can't read the original library's hashes".to_string()],
         );
     };
-    let diff = declhash::compare(&before, &after, &promise(args.same_statement));
+    let diff = declhash::compare(&before, &after, &promise(args));
     std_report(args, &diff, None, true)
 }
 
@@ -467,12 +478,13 @@ fn std_report(
         print_json(json!({
             "version": 1,
             "mode": "std",
-            "promise": promise_name(args.same_statement),
+            "promise": promise_name(&promise(args)),
             "status": if clean { "clean" } else { "problems" },
             "applied": false,
             "diagnostics": diagnostics,
             "changed": changed,
             "proofsChanged": diff.proofs_changed,
+            "proofsOnly": diff.proofs_only,
             "added": diff.added,
             "removed": diff.removed,
             "reordered": diff.reordered,
@@ -496,6 +508,9 @@ fn std_report(
                 "{} proof(s) changed with the statement kept",
                 diff.proofs_changed.len()
             );
+        }
+        for name in &diff.proofs_only {
+            println!("only proofs changed in {name}");
         }
         if clean && loaded {
             println!("nothing found: every declaration is as promised");

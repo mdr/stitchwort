@@ -4411,6 +4411,23 @@ pub fn telescope(g: &Ev, ty: &Value, span: Span) -> Result<Telescope> {
     })
 }
 
+/// Which of an already-checked type's parameters are proofs (their types are
+/// propositions), and whether its result is one: [`telescope`]'s erasure
+/// without the type formers.
+pub fn proof_telescope(g: &Ev, ty: &Value, span: Span) -> Result<(Vec<bool>, bool)> {
+    let mut cx = Ctx::new(g, span);
+    let mut params = Vec::new();
+    let mut ty = force(g, ty.clone())?;
+    while let Value::Pi(x, _, dom, cod) = &ty {
+        params.push(sort_of(&mut cx, dom)? == Sort::Prop);
+        let next = cod.apply(g, Value::var(cx.level()))?;
+        cx.bind(x.clone(), (**dom).clone());
+        ty = force(g, next)?;
+    }
+    let result = sort_of(&mut cx, &ty)? == Sort::Prop;
+    Ok((params, result))
+}
+
 fn is_erased(cx: &mut Ctx, ty: &Value) -> Result<bool> {
     Ok(is_type_former(&cx.g, cx.level(), ty)? || sort_of(cx, ty)? == Sort::Prop)
 }

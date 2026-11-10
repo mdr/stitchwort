@@ -510,6 +510,7 @@ fn listed(kind: DeclKind, name: &str, hash: u8, ty: u8) -> DeclHash {
         name: name.to_string(),
         hash: hash_of(hash),
         type_hash: hash_of(ty),
+        proofless: None,
         uses: Vec::new(),
     }
 }
@@ -632,4 +633,181 @@ fn a_definition_that_mentions_a_reproved_theorem_names_it() {
         );
         live.restore(trial).unwrap();
     });
+}
+
+const PROOFS: &str = "\
+namespace Proofs
+
+import Std (Nat)
+
+theorem addZ: ∀ (n: Nat) => n + 0 = n := Nat.addZero
+
+def keep (n: Nat) (same: n + 0 = n): Nat := n
+
+def five: Nat := keep 5 (addZ 5)
+
+def user: Nat := five + 1
+";
+
+/// A project whose definitions embed a proof: `five` passes `addZ 5` to a
+/// parameter whose type is a proposition.
+fn proofs() -> LiveProject {
+    let mut session = Session::navigable_for_stack(STACK);
+    session.use_test_std_cache();
+    let files = BTreeMap::from([("src/proofs.sw".to_string(), PROOFS.to_string())]);
+    let mut live = LiveProject::new(
+        session,
+        "proofs",
+        Some("sources: [src]\n".to_string()),
+        files,
+    );
+    finish(&mut live);
+    live
+}
+
+fn proofs_only() -> Promise {
+    Promise::ProofsOnly {
+        renames: BTreeMap::new(),
+    }
+}
+
+fn proofs_edit(start: &str, new_line: &str) -> Edit {
+    let from = PROOFS.find(start).expect("the line");
+    let line = PROOFS[..from].matches('\n').count() as u32;
+    let width = PROOFS[from..]
+        .lines()
+        .next()
+        .unwrap()
+        .encode_utf16()
+        .count() as u32;
+    edit("src/proofs.sw", [line, 0, line, width], new_line)
+}
+
+fn changed_names(trial: &Trial) -> Vec<&str> {
+    trial
+        .problems
+        .changed
+        .iter()
+        .map(|c| c.name.as_str())
+        .collect()
+}
+
+/// Re-proving a theorem that a definition embeds moves the definition's
+/// hash, and its callers': refused by "same statement", accepted by
+/// "proofs only", which names the definitions that moved.
+#[test]
+fn an_embedded_proof_that_changes_passes_only_the_proofs_promise() {
+    run(|| {
+        let mut live = proofs();
+        let edits = [proofs_edit(
+            "theorem addZ",
+            "theorem addZ (n: Nat): n + 0 = n := Nat.addZero n",
+        )];
+        let trial = checked(live.trial(&edits, &same_statement()).unwrap());
+        assert_eq!(
+            changed_names(&trial),
+            ["five", "user"],
+            "{:?}",
+            trial.problems
+        );
+        assert_eq!(trial.problems.changed[0].reproved, ["Proofs.addZ"]);
+        live.restore(trial).unwrap();
+
+        let trial = checked(live.trial(&edits, &proofs_only()).unwrap());
+        assert_eq!(trial.problems, Problems::default());
+        assert_eq!(trial.proofs_changed, ["Proofs.addZ"]);
+        assert_eq!(trial.proofs_only, ["Proofs.five", "Proofs.user"]);
+        live.restore(trial).unwrap();
+    });
+}
+
+/// A change to what a definition computes is refused by both promises,
+/// even next to a proof that changed with it.
+#[test]
+fn a_computational_change_fails_both_promises() {
+    run(|| {
+        let mut live = proofs();
+        let edits = [proofs_edit("def five", "def five: Nat := keep 6 (addZ 6)")];
+        for promise in [same_statement(), proofs_only()] {
+            let trial = checked(live.trial(&edits, &promise).unwrap());
+            assert_eq!(
+                changed_names(&trial),
+                ["five", "user"],
+                "{:?}",
+                trial.problems
+            );
+            assert_eq!(trial.problems.changed[1].uses.as_deref(), Some("five"));
+            live.restore(trial).unwrap();
+        }
+    });
+}
+
+/// A definition whose type changes is refused, even where only a
+/// proposition in it changed and its body is the same: its statement says
+/// something else.
+#[test]
+fn a_changed_type_fails_the_proofs_promise() {
+    run(|| {
+        let mut live = proofs();
+        let edits = [
+            proofs_edit("def keep", "def keep (n: Nat) (same: n = n): Nat := n"),
+            proofs_edit("def five", "def five: Nat := keep 5 rfl"),
+        ];
+        let trial = checked(live.trial(&edits, &proofs_only()).unwrap());
+        assert_eq!(
+            changed_names(&trial),
+            ["keep", "five", "user"],
+            "{:?}",
+            trial.problems
+        );
+        assert_eq!(trial.problems.changed[0].uses, None);
+        assert_eq!(trial.problems.changed[1].uses.as_deref(), Some("keep"));
+        live.restore(trial).unwrap();
+    });
+}
+
+/// The hash without proofs is listed, and is a theorem's statement: two
+/// theorems that state the same have the same one. A definition with no
+/// proofs in it or in what it mentions has the same hash both ways.
+#[test]
+fn the_hash_without_proofs_of_a_theorem_is_its_statement() {
+    run(|| {
+        let live = laws();
+        let hashes = live.declaration_hashes();
+        let find = |name: &str| hashes.iter().find(|d| d.name == name).expect(name);
+        assert!(find("Laws.limit").proofless.is_some());
+        assert_eq!(find("Laws.limit").proofless, find("Laws.limit").hash);
+        assert_ne!(find("Laws.addZ").proofless, find("Laws.addZ").hash);
+        assert_eq!(find("Laws.addZ").proofless, find("Laws.again").proofless);
+        assert_ne!(find("Laws.addZ").proofless, find("Laws.twice").proofless);
+    });
+}
+
+/// Two hash lists under "proofs only": a definition whose hash without
+/// proofs held is accepted and listed apart from the theorems; one whose
+/// hash without proofs moved is refused; a list without those hashes
+/// accepts nothing.
+#[test]
+fn two_hash_lists_compare_by_the_proofs_promise() {
+    let with = |mut d: DeclHash, proofless: u8| {
+        d.proofless = hash_of(proofless);
+        d
+    };
+    let before = [
+        with(listed(DeclKind::Theorem, "Std.t", 1, 10), 100),
+        with(listed(DeclKind::Def, "Std.d", 2, 20), 101),
+        with(listed(DeclKind::Def, "Std.e", 3, 30), 102),
+        listed(DeclKind::Def, "Std.old", 4, 40),
+    ];
+    let after = [
+        with(listed(DeclKind::Theorem, "Std.t", 5, 10), 100),
+        with(listed(DeclKind::Def, "Std.d", 6, 20), 101),
+        with(listed(DeclKind::Def, "Std.e", 7, 30), 103),
+        listed(DeclKind::Def, "Std.old", 8, 40),
+    ];
+    let diff = declhash::compare(&before, &after, &proofs_only());
+    let names: Vec<&str> = diff.changed.iter().map(|c| c.name.as_str()).collect();
+    assert_eq!(names, ["Std.e", "Std.old"]);
+    assert_eq!(diff.proofs_changed, ["Std.t"]);
+    assert_eq!(diff.proofs_only, ["Std.d"]);
 }

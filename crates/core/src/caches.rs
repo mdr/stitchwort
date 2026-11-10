@@ -6,7 +6,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use crate::collections::HashMap;
-use crate::erase::DefErasure;
+use crate::erase::{DefErasure, ProofPositions};
 use crate::globals::HashKey;
 use crate::hash::ContentHash;
 
@@ -18,6 +18,11 @@ pub struct EvalCaches {
     /// What each definition erases, worked out on first use from its type,
     /// which never changes once it's final (`erase.rs`).
     pub(crate) erasure_defs: RefCell<Vec<Option<Rc<DefErasure>>>>,
+    /// Content hashes without proofs (`hash::proofless_hash`), computed so
+    /// far.
+    pub(crate) proofless: RefCell<HashMap<HashKey, ContentHash>>,
+    /// Which parts of each definition are proofs (`erase::proof_positions`).
+    pub(crate) proof_positions: RefCell<Vec<Option<Rc<ProofPositions>>>>,
 }
 
 impl EvalCaches {
@@ -28,6 +33,11 @@ impl EvalCaches {
             HashKey::Def(id) => id.0 < defs,
             HashKey::Data(d) => d.0 < datas,
         });
+        self.proofless.borrow_mut().retain(|k, _| match k {
+            HashKey::Def(id) => id.0 < defs,
+            HashKey::Data(d) => d.0 < datas,
+        });
         self.erasure_defs.borrow_mut().truncate(defs);
+        self.proof_positions.borrow_mut().truncate(defs);
     }
 }

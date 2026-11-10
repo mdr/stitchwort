@@ -185,3 +185,41 @@ pub fn of_def(g: &Ev, id: DefId) -> Option<Rc<DefErasure>> {
     defs[id.0] = Some(erasure.clone());
     Some(erasure)
 }
+
+/// Which parts of a definition are proofs: the subset of [`DefErasure`]
+/// that excludes types. The content hash without proofs
+/// ([`crate::hash::proofless_hash`]) leaves out exactly these, since a run
+/// never computes them (rules 1 and 3 above).
+pub struct ProofPositions {
+    /// For each parameter of its type, whether its type is a proposition.
+    pub params: Box<[bool]>,
+    /// Whether its result (after all the parameters) is a proof.
+    pub result: bool,
+}
+
+/// Which parts of definition `id` are proofs, or `None` if it isn't final.
+pub fn proof_positions(g: &Ev, id: DefId) -> Option<Rc<ProofPositions>> {
+    if let Some(Some(known)) = g.caches.proof_positions.borrow().get(id.0) {
+        return Some(known.clone());
+    }
+    let def = g.def(id);
+    if def.state != State::Final {
+        return None;
+    }
+    let was = g.machine.erasure.active.replace(false);
+    let tel = check::proof_telescope(g, &def.ty_value, def.span);
+    g.machine.erasure.active.set(was);
+    // Out of resources: nothing is a proof, which only makes more
+    // differences count.
+    let (params, result) = tel.unwrap_or_default();
+    let positions = Rc::new(ProofPositions {
+        params: params.into(),
+        result,
+    });
+    let mut known = g.caches.proof_positions.borrow_mut();
+    if known.len() <= id.0 {
+        known.resize(id.0 + 1, None);
+    }
+    known[id.0] = Some(positions.clone());
+    Some(positions)
+}

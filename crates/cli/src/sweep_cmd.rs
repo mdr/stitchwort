@@ -12,7 +12,9 @@
 //! moves, whose changed proof a definition mentions (a definition's hash
 //! covers the proofs in it, say a structure's invariant), or that has a
 //! new diagnostic, is refused: left as it was and listed, and the rest are
-//! checked again, until nothing is found.
+//! checked again, until nothing is found. With `--proofs-only` the promise
+//! is "proofs only" instead: a definition whose hash moved only through the
+//! proofs it embeds (its hash without proofs held) is accepted and listed.
 //!
 //! Exit status: 0 done (or nothing to do); 1 something couldn't be checked
 //! clean; 2 refused or not understood.
@@ -47,6 +49,8 @@ pub(super) struct Args<'a> {
     pub json: bool,
     /// Theorems to leave as they are.
     pub keep: &'a [String],
+    /// Check with `Promise::ProofsOnly` instead of `SameStatement`.
+    pub proofs_only: bool,
     pub project: Option<&'a Path>,
     pub cache: &'a CacheArgs,
 }
@@ -302,12 +306,11 @@ fn project_sweep(args: &Args, files: &[PathBuf]) -> ExitCode {
     if args.plan {
         return plan_only(args, &mut sweeps);
     }
-    let promise = Promise::SameStatement {
-        renames: BTreeMap::new(),
-    };
+    let promise = promise(args);
     let mut clean = false;
     let mut leftover = Vec::new();
     let mut proofs_changed: Vec<String> = Vec::new();
+    let mut proofs_only: Vec<String> = Vec::new();
     let mut rounds: Vec<Value> = Vec::new();
     for _ in 0..MAX_ROUNDS {
         for s in sweeps.iter_mut() {
@@ -335,6 +338,7 @@ fn project_sweep(args: &Args, files: &[PathBuf]) -> ExitCode {
         };
         let problems = trial.problems.clone();
         proofs_changed = trial.proofs_changed.clone();
+        proofs_only = trial.proofs_only.clone();
         let _ = live.restore(trial);
         if problems.is_empty() {
             clean = true;
@@ -385,11 +389,22 @@ fn project_sweep(args: &Args, files: &[PathBuf]) -> ExitCode {
     let trail = Trail {
         leftover,
         proofs_changed,
+        proofs_only,
         rounds,
+        promise: super::trial_cmd::promise_name(&promise),
     };
     finish(args, "project", &mut sweeps, clean, &trail, |s| {
         Some(project.dir.join(&s.path))
     })
+}
+
+fn promise(args: &Args) -> Promise {
+    let renames = BTreeMap::new();
+    if args.proofs_only {
+        Promise::ProofsOnly { renames }
+    } else {
+        Promise::SameStatement { renames }
+    }
 }
 
 /// A declaration whose hash moved against the promise.
@@ -621,12 +636,11 @@ fn std_sweep(args: &Args, files: &[PathBuf]) -> ExitCode {
     if let Err(e) = copy_dir(&root, &copy) {
         return refused(args.json, format!("can't copy the library: {e}"));
     }
-    let promise = Promise::SameStatement {
-        renames: BTreeMap::new(),
-    };
+    let promise = promise(args);
     let mut clean = false;
     let mut leftover = Vec::new();
     let mut proofs_changed: Vec<String> = Vec::new();
+    let mut proofs_only: Vec<String> = Vec::new();
     let mut rounds: Vec<Value> = Vec::new();
     for _ in 0..MAX_ROUNDS {
         for s in sweeps.iter_mut() {
@@ -664,6 +678,7 @@ fn std_sweep(args: &Args, files: &[PathBuf]) -> ExitCode {
             Ok(after) => {
                 let diff = declhash::compare(&before, &after, &promise);
                 proofs_changed = diff.proofs_changed.clone();
+                proofs_only = diff.proofs_only.clone();
                 if diff.is_empty() {
                     clean = true;
                     break;
@@ -695,7 +710,9 @@ fn std_sweep(args: &Args, files: &[PathBuf]) -> ExitCode {
     let trail = Trail {
         leftover,
         proofs_changed,
+        proofs_only,
         rounds,
+        promise: super::trial_cmd::promise_name(&promise),
     };
     finish(args, "std", &mut sweeps, clean, &trail, |s| {
         Some(root.join(&s.path))
@@ -732,7 +749,11 @@ fn lines_named<'a>(report: &'a str, path: &str) -> Vec<(u32, &'a str)> {
 struct Trail {
     leftover: Vec<String>,
     proofs_changed: Vec<String>,
+    /// Under the "proofs only" promise: the definitions and data types
+    /// whose proofs changed, accepted.
+    proofs_only: Vec<String>,
     rounds: Vec<Value>,
+    promise: &'static str,
 }
 
 fn finish(
@@ -810,6 +831,7 @@ fn report(
         print_json(json!({
             "version": 1,
             "mode": mode,
+            "promise": trail.promise,
             "status": if clean { "clean" } else { "problems" },
             "written": written,
             "converted": converted,
@@ -817,6 +839,7 @@ fn report(
             "refused": refused,
             "skippedByReason": by_reason,
             "proofsChanged": proofs_changed,
+            "proofsOnly": trail.proofs_only,
             "rounds": trail.rounds,
             "files": files,
         }));
@@ -849,6 +872,9 @@ fn report(
             "{} proof(s) changed with the statement kept",
             proofs_changed.len()
         );
+    }
+    for name in &trail.proofs_only {
+        println!("only proofs changed in {name}");
     }
     for (reason, n) in &by_reason {
         println!("  skipped {reason}: {n}");
