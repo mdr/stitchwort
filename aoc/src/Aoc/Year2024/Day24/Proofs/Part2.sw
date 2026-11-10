@@ -26,21 +26,22 @@ theorem repairDone (bits: Nat) (budget: Nat) (gates: List Gate) (swaps: List (Wi
     | True => Witness [] (Both (rewrite List.appendNil swaps in Eq.sym (Option.someInjective found)) (Both (omega) adder))
     | False => Void.exfalso (Option.noneNotSome result found)
 
-theorem repairSound (bits: Nat): ∀ (budget: Nat) (gates: List Gate) (swaps result: List (Wire, Wire)) =>
-    repair budget bits gates swaps = Some result → Repaired bits budget gates swaps result
-  | Zero, gates, swaps, result, found =>
-    match checked: checkAdder gates bits with
-      | Passes carry => repairDone bits 0 gates swaps result found
-      | Faulty fixes suspects => Void.exfalso (Option.noneNotSome result found)
-  | Succ fewer, gates, swaps, result, found =>
-    match checked: checkAdder gates bits with
-      | Passes carry => repairDone bits (Succ fewer) gates swaps result found
-      | Faulty fixes suspects =>
-        match List.memOfFindMap (fix => repair fewer bits (swapOutputs gates fix) (List.append swaps [fix])) (swapsToTry fixes suspects) result found with
-          | Witness fix (Both _ fixed) =>
-            match repairSound bits fewer (swapOutputs gates fix) (List.append swaps [fix]) result fixed with
-              | Witness more (Both isResult (Both short adder)) =>
-                Witness [fix, ..more] (Both (rewrite isResult, List.appendAssoc swaps [fix] more in rfl) (Both (omega) adder))
+theorem repairSound (bits: Nat) (budget: Nat) (gates: List Gate) (swaps result: List (Wire, Wire))
+    (found: repair budget bits gates swaps = Some result): Repaired bits budget gates swaps result :=
+  match budget with
+    | Zero =>
+      match checked: checkAdder gates bits with
+        | Passes carry => repairDone bits 0 gates swaps result found
+        | Faulty fixes suspects => Void.exfalso (Option.noneNotSome result found)
+    | Succ fewer =>
+      match checked: checkAdder gates bits with
+        | Passes carry => repairDone bits (Succ fewer) gates swaps result found
+        | Faulty fixes suspects =>
+          match List.memOfFindMap (fix => repair fewer bits (swapOutputs gates fix) (List.append swaps [fix])) (swapsToTry fixes suspects) result found with
+            | Witness fix (Both _ fixed) =>
+              match repairSound bits fewer (swapOutputs gates fix) (List.append swaps [fix]) result fixed with
+                | Witness more (Both isResult (Both short adder)) =>
+                  Witness [fix, ..more] (Both (rewrite isResult, List.appendAssoc swaps [fix] more in rfl) (Both (omega) adder))
 
 --| Part 2, sound for every device: the answer names at most four swaps,
 --| which make the device's gates add any two numbers as wide as its x

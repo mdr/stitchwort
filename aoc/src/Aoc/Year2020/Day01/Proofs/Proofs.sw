@@ -37,23 +37,24 @@ theorem pairAheadBack (before: List Nat) (x: Nat) (rest: List Nat) (a: Nat) (b: 
 
 --| What `findPairAfter` finds is a pair ahead summing to the target, when
 --| everything in `seen` was passed.
-theorem findPairAfterSound (target: Nat): ∀ (seen: Set Nat) (before: List Nat) (passed: ∀ (y: Nat) => seen.contains y = True → y ∈ before) (rest: List Nat) (a b: Nat) =>
-    findPairAfter target seen rest = Some (a, b) → (PairAhead before rest a b) ∧ (a + b = target)
-  | seen, before, passed, [], a, b, found => Void.exfalso (Option.noneNotSome (a, b) found)
-  | seen, before, passed, [x, ..rest], a, b, found =>
-    match c: (x <= target && Set.contains seen (target - x)) with
-      | True =>
-        let same := Option.someInjective found
-        let aIs: target - x = a := Pair.mkInjectiveFst same
-        let bIs: x = b := Pair.mkInjectiveSnd same
-        let fits: x <= target := Bool.andLeft c
-        let partner := Bool.andRight c
-        Both (Inl (Both (rewrite <- aIs in passed (target - x) partner) (Inl bIs))) omega
-      | False =>
-        let passedNow: ∀ (y: Nat) => Set.contains (Set.insert seen x) y = True → y ∈ [x, ..before] := y contained =>
-          if h: y = x then Inl (Eq.sym h) else Inr (passed y (rewrite Set.containsInsertOther seen x y h at contained in contained))
-        let after := findPairAfterSound target (Set.insert seen x) [x, ..before] passedNow rest a b found
-        Both (pairAheadBack before x rest a b after.left) after.right
+theorem findPairAfterSound (target: Nat) (seen: Set Nat) (before: List Nat) (passed: ∀ (y: Nat) => seen.contains y = True → y ∈ before) (rest: List Nat) (a b: Nat)
+    (found: findPairAfter target seen rest = Some (a, b)): (PairAhead before rest a b) ∧ (a + b = target) :=
+  match rest with
+    | [] => Void.exfalso (Option.noneNotSome (a, b) found)
+    | [x, ..rest] =>
+      match c: (x <= target && Set.contains seen (target - x)) with
+        | True =>
+          let same := Option.someInjective found
+          let aIs: target - x = a := Pair.mkInjectiveFst same
+          let bIs: x = b := Pair.mkInjectiveSnd same
+          let fits: x <= target := Bool.andLeft c
+          let partner := Bool.andRight c
+          Both (Inl (Both (rewrite <- aIs in passed (target - x) partner) (Inl bIs))) omega
+        | False =>
+          let passedNow: ∀ (y: Nat) => Set.contains (Set.insert seen x) y = True → y ∈ [x, ..before] := y contained =>
+            if h: y = x then Inl (Eq.sym h) else Inr (passed y (rewrite Set.containsInsertOther seen x y h at contained in contained))
+          let after := findPairAfterSound target (Set.insert seen x) [x, ..before] passedNow rest a b found
+          Both (pairAheadBack before x rest a b after.left) after.right
 
 --| And it finds one if there is a pair ahead summing to the target, when
 --| everything passed is in `seen`.
@@ -109,28 +110,29 @@ theorem sum3 (a: Nat) (b: Nat) (c: Nat): [a, b, c].sum = a + b + c := ring
 theorem product3 (a: Nat) (b: Nat) (c: Nat): [a, b, c].product = a * b * c := ring
 
 --| What `findTriple` finds are three entries, in order, summing to the target.
-theorem findTripleSound (target: Nat): ∀ (entries: List Nat) (a b c: Nat) =>
-    findTriple target entries = Some (a, b, c) → ([a, b, c] ∈ entries.combinations 3) ∧ (a + b + c = target)
-  | [], a, b, c, found => Void.exfalso (Option.noneNotSome _ found)
-  | [x, ..rest], a, b, c, found =>
-    let later: findTriple target rest = Some (a, b, c) → ([a, b, c] ∈ [x, ..rest].combinations 3) ∧ (a + b + c = target) := laterFound =>
-      let after := findTripleSound target rest a b c laterFound
-      Both ((List.memCombinationsCons a [b, c] x rest 2).backward (Inr after.left)) after.right
-    match fits: x <= target with
-      | True =>
-        match pair: findPair (target - x) rest with
-          | Some (p, q) =>
-            let same := Option.someInjective found
-            let xIs: x = a := Pair.mkInjectiveFst same
-            let pq := Pair.mkInjectiveSnd same
-            let pIs: p = b := Pair.mkInjectiveFst pq
-            let qIs: q = c := Pair.mkInjectiveSnd pq
-            let sound := findPairSound (target - x) rest p q pair
-            Both
-              (rewrite <- xIs, <- pIs, <- qIs in (List.memCombinationsCons x [p, q] x rest 2).backward (Inl (Both rfl ((List.memCombinationsTwo p q rest).backward sound.left))))
-              omega
-          | None => later found
-      | False => later found
+theorem findTripleSound (target: Nat) (entries: List Nat) (a b c: Nat)
+    (found: findTriple target entries = Some (a, b, c)): ([a, b, c] ∈ entries.combinations 3) ∧ (a + b + c = target) :=
+  match entries with
+    | [] => Void.exfalso (Option.noneNotSome _ found)
+    | [x, ..rest] =>
+      let later: findTriple target rest = Some (a, b, c) → ([a, b, c] ∈ [x, ..rest].combinations 3) ∧ (a + b + c = target) := laterFound =>
+        let after := findTripleSound target rest a b c laterFound
+        Both ((List.memCombinationsCons a [b, c] x rest 2).backward (Inr after.left)) after.right
+      match fits: x <= target with
+        | True =>
+          match pair: findPair (target - x) rest with
+            | Some (p, q) =>
+              let same := Option.someInjective found
+              let xIs: x = a := Pair.mkInjectiveFst same
+              let pq := Pair.mkInjectiveSnd same
+              let pIs: p = b := Pair.mkInjectiveFst pq
+              let qIs: q = c := Pair.mkInjectiveSnd pq
+              let sound := findPairSound (target - x) rest p q pair
+              Both
+                (rewrite <- xIs, <- pIs, <- qIs in (List.memCombinationsCons x [p, q] x rest 2).backward (Inl (Both rfl ((List.memCombinationsTwo p q rest).backward sound.left))))
+                omega
+            | None => later found
+        | False => later found
 
 --| And it finds three whenever there are three.
 theorem findTripleComplete (target: Nat): ∀ (entries: List Nat) (a b c: Nat) =>

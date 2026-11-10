@@ -79,12 +79,13 @@ theorem specWindow (r: Range) (k: Nat) (n: Nat):
   rewrite writeTimesMul k _ n
 
 --| With a multiplier of 0 every id is 0.
-theorem windowZero (from: Nat) (to: Nat): ∀ (c s: Nat) => windowSum from to 0 c s = 0
-  | Zero, s => rfl
-  | Succ c, s =>
-    match h: (from ≤ s * 0 ≤ to) with
-      | True => rewrite (ring: s * 0 = 0) in windowZero from to c (Succ s)
-      | False => windowZero from to c (Succ s)
+theorem windowZero (from: Nat) (to: Nat) (c s: Nat): windowSum from to 0 c s = 0 :=
+  match c with
+    | Zero => rfl
+    | Succ c =>
+      match h: (from ≤ s * 0 ≤ to) with
+        | True => rewrite (ring: s * 0 = 0) in windowZero from to c (Succ s)
+        | False => windowZero from to c (Succ s)
 
 --| One step of `window`, for each place `s` can be: below `bLo`, in `bLo..bHi`, above `bHi`.
 theorem windowBelow (from: Nat) (to: Nat) (d: Nat) (bLo: Nat) (bHi: Nat) (c: Nat) (s: Nat)
@@ -137,21 +138,22 @@ theorem window (from: Nat) (to: Nat) (d: Nat) (bLo: Nat) (bHi: Nat)
     (yesA: ∀ (b: Nat) => bLo ≤ b → from ≤ b * d)
     (noA: ∀ (b: Nat) => Nat.leq bLo b = False → Nat.leq from (b * d) = False)
     (yesB: ∀ (b: Nat) => b ≤ bHi → b * d ≤ to)
-    (noB: ∀ (b: Nat) => Nat.leq b bHi = False → Nat.leq (b * d) to = False):
-    ∀ (c s: Nat) => windowSum from to d c s = d * Nat.span (Nat.max s bLo) (Nat.min (s + c) (Succ bHi))
-  | Zero, s =>
-    rewrite Nat.spanEmpty (Nat.max s bLo) (Nat.min (s + 0) (Succ bHi)) omega in ring
-  | Succ c, s =>
-    match hA: Nat.leq bLo s, hB: Nat.leq s bHi with
-      | True, True =>
-        windowIn from to d bLo bHi c s (Nat.betweenYes from to (s * d) (yesA s hA) (yesB s hB)) hA hB
-          (window from to d bLo bHi yesA noA yesB noB c (Succ s))
-      | True, False =>
-        windowAbove from to d bLo bHi c s (yesA s hA) (noB s hB) omega
-          (window from to d bLo bHi yesA noA yesB noB c (Succ s))
-      | False, _ =>
-        windowBelow from to d bLo bHi c s (noA s hA) omega
-          (window from to d bLo bHi yesA noA yesB noB c (Succ s))
+    (noB: ∀ (b: Nat) => Nat.leq b bHi = False → Nat.leq (b * d) to = False)
+    (c s: Nat): windowSum from to d c s = d * Nat.span (Nat.max s bLo) (Nat.min (s + c) (Succ bHi)) :=
+  match c with
+    | Zero =>
+      rewrite Nat.spanEmpty (Nat.max s bLo) (Nat.min (s + 0) (Succ bHi)) omega in ring
+    | Succ c =>
+      match hA: Nat.leq bLo s, hB: Nat.leq s bHi with
+        | True, True =>
+          windowIn from to d bLo bHi c s (Nat.betweenYes from to (s * d) (yesA s hA) (yesB s hB)) hA hB
+            (window from to d bLo bHi yesA noA yesB noB c (Succ s))
+        | True, False =>
+          windowAbove from to d bLo bHi c s (yesA s hA) (noB s hB) omega
+            (window from to d bLo bHi yesA noA yesB noB c (Succ s))
+        | False, _ =>
+          windowBelow from to d bLo bHi c s (noA s hA) omega
+            (window from to d bLo bHi yesA noA yesB noB c (Succ s))
 
 --| The sum at the end of `blocksAt`, after its `let`s, as a `Nat.span`; 0
 --| when from > to, so no case split.

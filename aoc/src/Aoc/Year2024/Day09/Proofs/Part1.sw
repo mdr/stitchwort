@@ -45,20 +45,21 @@ theorem noFileBlocks (blocks: List Block) (none: lastFile blocks = None): fileBl
 
 --| The last file block is the last of the file blocks; freeing it leaves the
 --| others.
-theorem fileBlocksFreeLast: ∀ (blocks: List Block) (id: Nat) => lastFile blocks = Some id →
-    fileBlocks blocks = (fileBlocks (freeLastFileBlock blocks)).append [id]
-  | [], id, found => Void.exfalso (Option.noneNotSome id found)
-  | [block, ..rest], id, found =>
-    match later: lastFile rest with
-      | Some laterId =>
-        rewrite fileBlocksFreeLast rest laterId later, Option.someInjective found in
+theorem fileBlocksFreeLast (blocks: List Block) (id: Nat) (found: lastFile blocks = Some id):
+    fileBlocks blocks = (fileBlocks (freeLastFileBlock blocks)).append [id] :=
+  match blocks with
+    | [] => Void.exfalso (Option.noneNotSome id found)
+    | [block, ..rest] =>
+      match later: lastFile rest with
+        | Some laterId =>
+          rewrite fileBlocksFreeLast rest laterId later, Option.someInjective found in
+            match block with
+              | FileBlock here => rfl
+              | Free => rfl
+        | None =>
           match block with
-            | FileBlock here => rfl
-            | Free => rfl
-      | None =>
-        match block with
-          | FileBlock here => rewrite noFileBlocks rest later, Option.someInjective found in rfl
-          | Free => Void.exfalso (Option.noneNotSome id found)
+            | FileBlock here => rewrite noFileBlocks rest later, Option.someInjective found in rfl
+            | Free => Void.exfalso (Option.noneNotSome id found)
 
 --| Some block is a file block exactly when there is a last file.
 theorem anyFileBlock (blocks: List Block): blocks.any (block => block.isFile) = (lastFile blocks).isSome :=
@@ -89,20 +90,21 @@ theorem fillFrontAppend (blocks: List Block) (moving extra: List Nat) (count: Na
 
 --| `fillFront` doesn't look past the first `count` blocks: freeing the last
 --| file block changes nothing when there are `count` file blocks before it.
-theorem fillFrontFreeLast: ∀ (blocks: List Block) (moving: List Nat) (count: Nat) => count ≤ fileCount (freeLastFileBlock blocks) →
-    fillFront blocks moving count = fillFront (freeLastFileBlock blocks) moving count
-  | blocks, moving, Zero, bound => rewrite lengthFreeLast blocks in rfl
-  | [], moving, Succ count, bound => rfl
-  | [block, ..rest], moving, Succ count, bound =>
-    match later: lastFile rest with
-      | Some id =>
-        match block with
-          | FileBlock here => Eq.cong (Cons (FileBlock here)) (fillFrontFreeLast rest moving count (omega))
-          | Free =>
-            match moving with
-              | [] => Eq.cong (Cons Free) (fillFrontFreeLast rest [] count (omega))
-              | [next, ..others] => Eq.cong (Cons (FileBlock next)) (fillFrontFreeLast rest others count (omega))
-      | None => Void.exfalso (rewrite noFileBlocks rest later at bound in omega)
+theorem fillFrontFreeLast (blocks: List Block) (moving: List Nat) (count: Nat) (bound: count ≤ fileCount (freeLastFileBlock blocks)):
+    fillFront blocks moving count = fillFront (freeLastFileBlock blocks) moving count :=
+  match blocks, count with
+    | blocks, Zero => rewrite lengthFreeLast blocks in rfl
+    | [], Succ count => rfl
+    | [block, ..rest], Succ count =>
+      match later: lastFile rest with
+        | Some id =>
+          match block with
+            | FileBlock here => Eq.cong (Cons (FileBlock here)) (fillFrontFreeLast rest moving count (omega))
+            | Free =>
+              match moving with
+                | [] => Eq.cong (Cons Free) (fillFrontFreeLast rest [] count (omega))
+                | [next, ..others] => Eq.cong (Cons (FileBlock next)) (fillFrontFreeLast rest others count (omega))
+        | None => Void.exfalso (rewrite noFileBlocks rest later at bound in omega)
 
 --| A file block at the front stays there.
 theorem compactFile (id: Nat) (rest: List Block): compactBlocks [FileBlock id, ..rest] = [FileBlock id, ..compactBlocks rest] :=

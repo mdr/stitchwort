@@ -35,12 +35,13 @@ theorem chainBounded (rules: Rules) (fuel number: Nat): rules.chain fuel number 
 theorem rankBelow (rules: Rules) (number: Nat): rules.rank number < rules.rankBound :=
   omega [chainBounded rules (rules.numbered.length + 1) number]
 
-theorem lookupMember: ∀ (entries: List (Nat, Rule)) (number: Nat) (rule: Rule) => entries.lookup number = Some rule → (number, rule) ∈ entries
-  | [], number, rule, found => Option.noneNotSome rule found
-  | [(entryNumber, value), ..rest], number, rule, found =>
-    match same: entryNumber == number with
-      | True => Inl (rewrite DecEq.sound same, Option.someInjective found in rfl)
-      | False => Inr (lookupMember rest number rule found)
+theorem lookupMember (entries: List (Nat, Rule)) (number: Nat) (rule: Rule) (found: entries.lookup number = Some rule): (number, rule) ∈ entries :=
+  match entries with
+    | [] => Option.noneNotSome rule found
+    | [(entryNumber, value), ..rest] =>
+      match same: entryNumber == number with
+        | True => Inl (rewrite DecEq.sound same, Option.someInjective found in rfl)
+        | False => Inr (lookupMember rest number rule found)
 
 theorem productiveRanked (rules: Rules) (rank: Nat → Nat) (bound: Nat) (below: ∀ (number: Nat) => rank number < bound)
     (productive: rules.productiveWith rank = True): Ranked rules rank bound :=

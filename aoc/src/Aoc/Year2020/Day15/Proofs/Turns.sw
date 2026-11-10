@@ -54,19 +54,21 @@ theorem iterateTurn (starting: Starting) (count: Nat) (game: Game): (Nat.iterate
     | Succ count => rewrite iterateTurn starting count (starting.takeTurn game) in omega
 
 --| `count` more turns keep the game playing, as long as they end by `turns`.
-theorem iteratePlaying (starting: Starting) (turns: Nat): ∀ (count: Nat) (game: Game) =>
-    Playing starting (starting.room turns) game → game.turn + count ≤ turns →
-    Playing starting (starting.room turns) (Nat.iterate count starting.takeTurn game)
-  | Zero, game, playing, short => playing
-  | Succ count, game, playing, short =>
-    iteratePlaying starting turns count (starting.takeTurn game) (takeTurnPlaying starting turns game playing (omega)) (omega)
+theorem iteratePlaying (starting: Starting) (turns: Nat) (count: Nat) (game: Game)
+    (playing: Playing starting (starting.room turns) game) (short: game.turn + count ≤ turns):
+    Playing starting (starting.room turns) (Nat.iterate count starting.takeTurn game) :=
+  match count with
+    | Zero => playing
+    | Succ count =>
+      iteratePlaying starting turns count (starting.takeTurn game) (takeTurnPlaying starting turns game playing (omega)) (omega)
 
-theorem numberSpokenSpec (starting: Starting): ∀ (turn: Nat) => starting.numberSpoken turn = Spec.numberSpoken starting.numbers.toList turn
-  | Zero => rfl
-  | Succ later =>
-    let final := Nat.iterate later starting.takeTurn (Game.begin (starting.room (Succ later)) starting.numbers.head)
-    let playing: Playing starting (starting.room (Succ later)) final :=
-      iteratePlaying starting (Succ later) later _ (beginPlaying starting (Succ later)) (omega)
-    -- Not `rewrite iterateTurn … in omega`: that is E-OMEGA-INTERNAL (aoc/NOTES-2020.md, day 15).
-    let turns: final.turn = Succ later := Eq.trans (iterateTurn starting later _) (Nat.addComm 1 later)
-    Eq.trans (Eq.sym (lastTracks final _ playing.left)) (Eq.cong (Spec.numberSpoken starting.numbers.toList) turns)
+theorem numberSpokenSpec (starting: Starting) (turn: Nat): starting.numberSpoken turn = Spec.numberSpoken starting.numbers.toList turn :=
+  match turn with
+    | Zero => rfl
+    | Succ later =>
+      let final := Nat.iterate later starting.takeTurn (Game.begin (starting.room (Succ later)) starting.numbers.head)
+      let playing: Playing starting (starting.room (Succ later)) final :=
+        iteratePlaying starting (Succ later) later _ (beginPlaying starting (Succ later)) (omega)
+      -- Not `rewrite iterateTurn … in omega`: that is E-OMEGA-INTERNAL (aoc/NOTES-2020.md, day 15).
+      let turns: final.turn = Succ later := Eq.trans (iterateTurn starting later _) (Nat.addComm 1 later)
+      Eq.trans (Eq.sym (lastTracks final _ playing.left)) (Eq.cong (Spec.numberSpoken starting.numbers.toList) turns)

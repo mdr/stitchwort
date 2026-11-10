@@ -204,15 +204,16 @@ theorem Fail.thenEqOk [goal: Prop] [t: () → {Fail} a] [k: a → {Fail} b] [v: 
 -- `traverse` (a loop) does with the first element, then a split on `f x`: if
 -- it finishes, `toResultThen` and the induction hypothesis say what the rest
 -- gives.
-theorem Fail.toResultMap (f: a → {Fail} b): ∀ (xs: List a) =>
-    Fail.toResult (() => xs.map f) = Result.traverse xs (x => Fail.toResult (() => f x))
-  | [] => rfl
-  | [x, ..xs] =>
-    rewrite Result.traverseCons (z => Fail.toResult (() => f z)) x xs in
-    match reify (() => f x) with
-      | return y =>
-        rewrite Fail.toResultThen (() => xs.map f) (ys => [y, ..ys]), Fail.toResultMap f xs in rfl
-      | Fail.stop msg, _ => rfl
+theorem Fail.toResultMap (f: a → {Fail} b) (xs: List a):
+    Fail.toResult (() => xs.map f) = Result.traverse xs (x => Fail.toResult (() => f x)) :=
+  match xs with
+    | [] => rfl
+    | [x, ..xs] =>
+      rewrite Result.traverseCons (z => Fail.toResult (() => f z)) x xs in
+      match reify (() => f x) with
+        | return y =>
+          rewrite Fail.toResultThen (() => xs.map f) (ys => [y, ..ys]), Fail.toResultMap f xs in rfl
+        | Fail.stop msg, _ => rfl
 
 test "Fail: need Some" := Fail.toResult (() => Fail.need (Some 3) "none") == Ok 3
 test "Fail: need None" := Fail.toResult (() => Fail.need (None: Option Nat) "none") == Err "none"

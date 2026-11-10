@@ -18,23 +18,24 @@ theorem combinationsComplete (operators: List Operator) (chosen: List Operator) 
         (List.memMap (combinations operators rest.length) rest (combinationsComplete operators rest (other has => allowed other (Inr has))) (Cons operator))
 
 --| Every combination has the length asked for and only allowed operators.
-theorem combinationsSound (operators: List Operator): ∀ (count: Nat) (chosen: List Operator) => chosen ∈ combinations operators count →
-    (chosen.length = count) ∧ (∀ (operator: Operator) => operator ∈ chosen → operator ∈ operators)
-  | Zero, chosen, listed =>
-    match listed with
-      | Inl same => rewrite <- same in Both rfl (operator none => Void.exfalso none)
-      | Inr none => Void.exfalso none
-  | Succ count, chosen, listed =>
-    List.anyElim (first => chosen ∈ (combinations operators count |> .map (Cons first))) _ operators
-      (List.memFlatMapElim (first => combinations operators count |> .map (Cons first)) chosen operators listed)
-      (first firstAllowed inMap =>
-        List.anyElim (rest => [first, ..rest] = chosen) _ (combinations operators count)
-          (List.memMapAny (combinations operators count) (Cons first) chosen inMap)
-          (rest restListed same =>
-            match combinationsSound operators count rest restListed with
-              | Both length restAllowed =>
-                rewrite <- same in
-                  Both (Eq.cong Succ length) (operator has =>
-                    match has with
-                      | Inl isFirst => rewrite <- isFirst in firstAllowed
-                      | Inr inRest => restAllowed operator inRest)))
+theorem combinationsSound (operators: List Operator) (count: Nat) (chosen: List Operator) (listed: chosen ∈ combinations operators count):
+    (chosen.length = count) ∧ (∀ (operator: Operator) => operator ∈ chosen → operator ∈ operators) :=
+  match count with
+    | Zero =>
+      match listed with
+        | Inl same => rewrite <- same in Both rfl (operator none => Void.exfalso none)
+        | Inr none => Void.exfalso none
+    | Succ count =>
+      List.anyElim (first => chosen ∈ (combinations operators count |> .map (Cons first))) _ operators
+        (List.memFlatMapElim (first => combinations operators count |> .map (Cons first)) chosen operators listed)
+        (first firstAllowed inMap =>
+          List.anyElim (rest => [first, ..rest] = chosen) _ (combinations operators count)
+            (List.memMapAny (combinations operators count) (Cons first) chosen inMap)
+            (rest restListed same =>
+              match combinationsSound operators count rest restListed with
+                | Both length restAllowed =>
+                  rewrite <- same in
+                    Both (Eq.cong Succ length) (operator has =>
+                      match has with
+                        | Inl isFirst => rewrite <- isFirst in firstAllowed
+                        | Inr inRest => restAllowed operator inRest)))

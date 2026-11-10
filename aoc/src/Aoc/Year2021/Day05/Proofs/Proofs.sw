@@ -68,16 +68,17 @@ theorem countedTwice (listed: List Point):
 
 --| A line lists a point once if it covers it, and not at all if it
 --| doesn't.
-theorem pointsCount (line: Line) (shape: (horizontalOrVertical line ∨ diagonal line) = True): ∀ (p: Point) =>
-    line.points.count (== p) = Bool.toNat (covers line p)
-  | point =>
-    let steps := Nat.max (Nat.absDiff line.from.x line.to.x) (Nat.absDiff line.from.y line.to.y)
-    let k := Nat.max (Nat.absDiff line.from.x point.x) (Nat.absDiff line.from.y point.y)
-    Eq.trans (List.countMap (List.range 0 (steps + 1)) (== point) (step => { x = towards line.from.x line.to.x step, y = towards line.from.y line.to.y step }))
-      (Eq.trans
-        (List.countCongMem _ _ (i => covers line point ∧ i == k)
-          (i inRange => pointStep line shape point i (stepInRange steps i inRange)))
-        (countRangeOnce (steps + 1) k (covers line point) (c => coveredWithin line point c)))
+theorem pointsCount (line: Line) (shape: (horizontalOrVertical line ∨ diagonal line) = True) (p: Point):
+    line.points.count (== p) = Bool.toNat (covers line p) :=
+  match p with
+    | point =>
+      let steps := Nat.max (Nat.absDiff line.from.x line.to.x) (Nat.absDiff line.from.y line.to.y)
+      let k := Nat.max (Nat.absDiff line.from.x point.x) (Nat.absDiff line.from.y point.y)
+      Eq.trans (List.countMap (List.range 0 (steps + 1)) (== point) (step => { x = towards line.from.x line.to.x step, y = towards line.from.y line.to.y step }))
+        (Eq.trans
+          (List.countCongMem _ _ (i => covers line point ∧ i == k)
+            (i inRange => pointStep line shape point i (stepInRange steps i inRange)))
+          (countRangeOnce (steps + 1) k (covers line point) (c => coveredWithin line point c)))
 
 --| So every line's points, together, list a point once for each line that
 --| covers it.
@@ -169,8 +170,8 @@ theorem combineVertical [ax: Nat] [ay: Nat] (i: Nat) [bx: Bool] [by: Bool] (h: (
 theorem combineHorizontal [ax: Nat] [ay: Nat] (i: Nat) [bx: Bool] [by: Bool] (h: (by = True → ay = 0)):
     ((bx ∧ i == ax) ∧ by) = ((bx ∧ by ∧ True) ∧ i == Nat.max ax ay) := cases
 
-theorem combineDiagonal [ax: Nat] [ay: Nat] [i: Nat] [d: Nat] (hi: i ≤ d): ∀ [bx: Bool] [by: Bool] [e: Bool] =>
-    (bx = True → ax ≤ d) → (by = True → ay ≤ d) → (e = True → d = 0) →
+theorem combineDiagonal [ax: Nat] [ay: Nat] [i: Nat] [d: Nat] (hi: i ≤ d) [bx: Bool] [by: Bool] [e: Bool]
+    (h: (bx = True → ax ≤ d)) (h1: (by = True → ay ≤ d)) (h2: (e = True → d = 0)):
     ((bx ∧ i == ax) ∧ (by ∧ i == ay)) = ((bx ∧ by ∧ (e ∨ ax == ay)) ∧ i == Nat.max ax ay) := cases
 
 --| The `i`th point of a horizontal, vertical or diagonal line, as

@@ -22,14 +22,15 @@ theorem memBusesFrom (start: Nat) (schedule: List Slot) (bus: Bus) (h: bus ∈ b
     | [Listed id, ..rest], Inr member => Inr (memBusesFrom (Succ start) rest bus member)
     | [OutOfService, ..rest], member => Inr (memBusesFrom (Succ start) rest bus member)
 
-theorem busesFromHas: ∀ (start: Nat) (schedule: List Slot) (id: Nat) => Listed id ∈ schedule → ∃ (bus: Bus) => bus ∈ busesFrom start schedule ∧ bus.id = id
-  | start, [], id, member => Void.exfalso member
-  | start, [Listed other, ..rest], id, Inl same => Witness ({ id = other, offset = start }) (Both (Inl rfl) (Eq.cong idOf same))
-  | start, [Listed other, ..rest], id, Inr member =>
-    match busesFromHas (Succ start) rest id member with
-      | Witness bus (Both inRest same) => Witness bus (Both (Inr inRest) same)
-  | start, [OutOfService, ..rest], id, Inl same => Void.exfalso (Bool.falseNotTrue (Eq.cong isListed same))
-  | start, [OutOfService, ..rest], id, Inr member => busesFromHas (Succ start) rest id member
+theorem busesFromHas (start: Nat) (schedule: List Slot) (id: Nat) (h: Listed id ∈ schedule): ∃ (bus: Bus) => bus ∈ busesFrom start schedule ∧ bus.id = id :=
+  match schedule, h with
+    | [], member => Void.exfalso member
+    | [Listed other, ..rest], Inl same => Witness ({ id = other, offset = start }) (Both (Inl rfl) (Eq.cong idOf same))
+    | [Listed other, ..rest], Inr member =>
+      match busesFromHas (Succ start) rest id member with
+        | Witness bus (Both inRest same) => Witness bus (Both (Inr inRest) same)
+    | [OutOfService, ..rest], Inl same => Void.exfalso (Bool.falseNotTrue (Eq.cong isListed same))
+    | [OutOfService, ..rest], Inr member => busesFromHas (Succ start) rest id member
 
 theorem nextDepartureIs (bus: Bus) (from: Nat): bus.nextDeparture from = Nat.ceilDiv from bus.id * bus.id := rfl
 

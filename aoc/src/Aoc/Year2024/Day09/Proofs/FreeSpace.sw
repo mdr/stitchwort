@@ -44,32 +44,33 @@ theorem hasRemove (free: FreeSpace) (span: Span) (other: Span):
 }
 
 -- Stated for any starting map, since the fold's recursive call starts from the map after the first add.
-theorem hasFoldAdd (span: Span): ∀ (spans: List Span) (free: FreeSpace) =>
-    FreeSpace.has (spans.foldLeft free FreeSpace.add) span = True ↔ ((0 < span.length ∧ span ∈ spans) ∨ free.has span = True)
-  | [], free => {
-    forward = held => Inr held,
-    backward = either =>
-      match either with
-        | Inl pair => Void.exfalso pair.right
-        | Inr held => held
-  }
-  | [x, ..rest], free => {
-    forward = held =>
-      match (hasFoldAdd span rest (free.add x)).forward held with
-        | Inl pair => Inl (Both pair.left (Inr pair.right))
-        | Inr added =>
-          match (hasAdd free x span).forward added with
-            | Inl pair => Inl (Both (rewrite pair.right in pair.left) (Inl (Eq.sym pair.right)))
-            | Inr old => Inr old,
-    backward = either =>
-      (hasFoldAdd span rest (free.add x)).backward
-        (match either with
-          | Inl pair =>
-            match pair.right with
-              | Inl same => Inr ((hasAdd free x span).backward (Inl (Both (rewrite same in pair.left) (Eq.sym same))))
-              | Inr later => Inl (Both pair.left later)
-          | Inr old => Inr ((hasAdd free x span).backward (Inr old)))
-  }
+theorem hasFoldAdd (span: Span) (spans: List Span) (free: FreeSpace):
+    FreeSpace.has (spans.foldLeft free FreeSpace.add) span = True ↔ ((0 < span.length ∧ span ∈ spans) ∨ free.has span = True) :=
+  match spans with
+    | [] => {
+      forward = held => Inr held,
+      backward = either =>
+        match either with
+          | Inl pair => Void.exfalso pair.right
+          | Inr held => held
+    }
+    | [x, ..rest] => {
+      forward = held =>
+        match (hasFoldAdd span rest (free.add x)).forward held with
+          | Inl pair => Inl (Both pair.left (Inr pair.right))
+          | Inr added =>
+            match (hasAdd free x span).forward added with
+              | Inl pair => Inl (Both (rewrite pair.right in pair.left) (Inl (Eq.sym pair.right)))
+              | Inr old => Inr old,
+      backward = either =>
+        (hasFoldAdd span rest (free.add x)).backward
+          (match either with
+            | Inl pair =>
+              match pair.right with
+                | Inl same => Inr ((hasAdd free x span).backward (Inl (Both (rewrite same in pair.left) (Eq.sym same))))
+                | Inr later => Inl (Both pair.left later)
+            | Inr old => Inr ((hasAdd free x span).backward (Inr old)))
+    }
 
 --| The spans of length 0 aren't kept.
 theorem hasOf (spans: List Span) (span: Span): (FreeSpace.of spans).has span = True ↔ (0 < span.length ∧ span ∈ spans) := {

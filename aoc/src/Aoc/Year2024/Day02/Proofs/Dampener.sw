@@ -26,24 +26,25 @@ theorem anyRemovedNever (levels: List Nat) (holds: List Nat → Bool) (never: (�
 
 --| After a good step from `before` to `level`, the one pass is "passes, or
 --| passes with one of `level` and the rest removed".
-theorem passesDampenedAfterCorrect (ok: Nat → Nat → Bool): ∀ (before level: Nat) (rest: List Nat) => ok before level = True →
-    passesDampenedAfter ok before level rest =
-      ([level, ..rest].chain ok || anyRemoved (levels => [before, ..levels].chain ok) [level, ..rest])
-  | before, level, [], good => rfl
-  | before, level, [next, ..rest], good =>
-    match step: ok level next with
-      | True => rewrite passesDampenedAfterCorrect ok level next rest step, step, good in cases
-      | False => rewrite anyRemovedNever rest (levels => ok before level && False) (levels => cases) in cases
+theorem passesDampenedAfterCorrect (ok: Nat → Nat → Bool) (before level: Nat) (rest: List Nat) (good: ok before level = True): passesDampenedAfter ok before level rest =
+    ([level, ..rest].chain ok || anyRemoved (levels => [before, ..levels].chain ok) [level, ..rest]) :=
+  match rest with
+    | [] => rfl
+    | [next, ..rest] =>
+      match step: ok level next with
+        | True => rewrite passesDampenedAfterCorrect ok level next rest step, step, good in cases
+        | False => rewrite anyRemovedNever rest (levels => ok before level && False) (levels => cases) in cases
 
 --| The one pass is "passes, or passes with one level removed".
-theorem passesDampenedCorrect (ok: Nat → Nat → Bool): ∀ (levels: List Nat) =>
-    passesDampened ok levels = (levels.chain ok || anyRemoved (rest => rest.chain ok) levels)
-  | [] => rfl
-  | [level] => rfl
-  | [level, next, ..rest] =>
-    match step: ok level next with
-      | True => rewrite passesDampenedAfterCorrect ok level next rest step, step in cases
-      | False => rewrite anyRemovedNever rest (levels => False) (levels => rfl) in cases
+theorem passesDampenedCorrect (ok: Nat → Nat → Bool) (levels: List Nat):
+    passesDampened ok levels = (levels.chain ok || anyRemoved (rest => rest.chain ok) levels) :=
+  match levels with
+    | [] => rfl
+    | [level] => rfl
+    | [level, next, ..rest] =>
+      match step: ok level next with
+        | True => rewrite passesDampenedAfterCorrect ok level next rest step, step in cases
+        | False => rewrite anyRemovedNever rest (levels => False) (levels => rfl) in cases
 
 --| With the dampener, the program's check is the puzzle's rule.
 theorem isSafeWithDampenerCorrect (report: Report): report.isSafeWithDampener = safeWithDampener report :=

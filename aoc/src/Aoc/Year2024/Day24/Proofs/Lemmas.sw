@@ -69,19 +69,21 @@ theorem maxAtLeast (m: Nat) (n: Nat): m ≤ Nat.max m n ∧ n ≤ Nat.max m n :=
     | True => Both below (Nat.leRefl n)
     | False => Both (Nat.leRefl m) (omega)
 
-theorem countFromAtLeast (bitOf: Wire → Option Nat): ∀ (wires: List Wire) (start: Nat) => start ≤ countFrom bitOf start wires
-  | [], start => Nat.leRefl start
-  | [wire, ..rest], start =>
-    match found: bitOf wire with
-      | None => countFromAtLeast bitOf rest start
-      | Some bit => omega [(maxAtLeast start (bit + 1)).left, countFromAtLeast bitOf rest (Nat.max start (bit + 1))]
+theorem countFromAtLeast (bitOf: Wire → Option Nat) (wires: List Wire) (start: Nat): start ≤ countFrom bitOf start wires :=
+  match wires with
+    | [] => Nat.leRefl start
+    | [wire, ..rest] =>
+      match found: bitOf wire with
+        | None => countFromAtLeast bitOf rest start
+        | Some bit => omega [(maxAtLeast start (bit + 1)).left, countFromAtLeast bitOf rest (Nat.max start (bit + 1))]
 
 --| Every bit `bitOf` finds among the wires is below their count.
-theorem countFromAbove (bitOf: Wire → Option Nat) (wire: Wire) (bit: Nat) (isBit: bitOf wire = Some bit):
-    ∀ (wires: List Wire) (start: Nat) => wire ∈ wires → bit < countFrom bitOf start wires
-  | [], start, member => Void.exfalso member
-  | [other, ..rest], start, Inl same =>
-    rewrite same in
-      rewrite isBit in
-        omega [(maxAtLeast start (bit + 1)).right, countFromAtLeast bitOf rest (Nat.max start (bit + 1))]
-  | [other, ..rest], start, Inr later => countFromAbove bitOf wire bit isBit rest _ later
+theorem countFromAbove (bitOf: Wire → Option Nat) (wire: Wire) (bit: Nat) (isBit: bitOf wire = Some bit)
+    (wires: List Wire) (start: Nat) (member: wire ∈ wires): bit < countFrom bitOf start wires :=
+  match wires, member with
+    | [], member => Void.exfalso member
+    | [other, ..rest], Inl same =>
+      rewrite same in
+        rewrite isBit in
+          omega [(maxAtLeast start (bit + 1)).right, countFromAtLeast bitOf rest (Nat.max start (bit + 1))]
+    | [other, ..rest], Inr later => countFromAbove bitOf wire bit isBit rest _ later

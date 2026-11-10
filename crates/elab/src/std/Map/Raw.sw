@@ -903,26 +903,28 @@ theorem Map.Raw.getInsertWithOther [auto ord: Ord k] (f: v → v → v) (key: k)
 
 --| What `get` says about `map`: it finds what it did, with `f` applied.
 -- (The tree's keys stay where they are, so the proof needs no ordering facts.)
-theorem Map.Tree.getMap [auto ord: Ord k]: ∀ (t: Map.Tree k v) (key: k) (f: v → w) =>
-    Map.Tree.get key (Map.Tree.map f t) = Option.map (Map.Tree.get key t) f
-  | Tip, key, f => rfl
-  | Bin s l kk vv r, key, f =>
-    match e: Ord.compare key kk with
-      | Less => Map.Tree.getMap l key f
-      | Equal => rfl
-      | Greater => Map.Tree.getMap r key f
+theorem Map.Tree.getMap [auto ord: Ord k] (t: Map.Tree k v) (key: k) (f: v → w):
+    Map.Tree.get key (Map.Tree.map f t) = Option.map (Map.Tree.get key t) f :=
+  match t with
+    | Tip => rfl
+    | Bin s l kk vv r =>
+      match e: Ord.compare key kk with
+        | Less => Map.Tree.getMap l key f
+        | Equal => rfl
+        | Greater => Map.Tree.getMap r key f
 
 theorem Map.Raw.getMap [auto ord: Ord k] (m: Map.Raw k v) (key: k) (f: v → w): Map.Raw.get key (Map.Raw.map f m) = Option.map (Map.Raw.get key m) f :=
   Map.Tree.getMap m.tree key f
 
-theorem Map.Tree.getMapWithKey [auto ord: Ord k]: ∀ (t: Map.Tree k v) (key: k) (f: k → v → w) =>
-    Map.Tree.get key (Map.Tree.mapWithKey f t) = Option.map (Map.Tree.get key t) (f key)
-  | Tip, key, f => rfl
-  | Bin s l kk vv r, key, f =>
-    match e: Ord.compare key kk with
-      | Less => Map.Tree.getMapWithKey l key f
-      | Equal => rewrite ord.equal key kk e in rfl
-      | Greater => Map.Tree.getMapWithKey r key f
+theorem Map.Tree.getMapWithKey [auto ord: Ord k] (t: Map.Tree k v) (key: k) (f: k → v → w):
+    Map.Tree.get key (Map.Tree.mapWithKey f t) = Option.map (Map.Tree.get key t) (f key) :=
+  match t with
+    | Tip => rfl
+    | Bin s l kk vv r =>
+      match e: Ord.compare key kk with
+        | Less => Map.Tree.getMapWithKey l key f
+        | Equal => rewrite ord.equal key kk e in rfl
+        | Greater => Map.Tree.getMapWithKey r key f
 
 theorem Map.Raw.getMapWithKey [auto ord: Ord k] (m: Map.Raw k v) (key: k) (f: k → v → w):
     Map.Raw.get key (Map.Raw.mapWithKey f m) = Option.map (Map.Raw.get key m) (f key) :=
@@ -938,19 +940,19 @@ def Map.lookupLast [auto ord: Ord k] (key: k): (entries: List (k, v)) → Option
       | _ => None
 
 --| Adding the pairs to any map: the last pair with the key wins, and if there is none, the map's value stays.
-theorem Map.Raw.getFoldInsert [auto ord: Ord k]: ∀ (m: Map.Raw k v) (key: k) (xs: List (k, v)) =>
-    Map.Raw.get key (List.foldLeft xs m (acc entry => Map.Raw.insert entry.fst entry.snd acc))
-      = Map.Tree.orElse (Map.lookupLast key xs) (Map.Raw.get key m)
-  | m, key, [] => rfl
-  | m, key, [(kk, vv), ..rest] =>
-    rewrite Map.Raw.getFoldInsert (Map.Raw.insert kk vv m) key rest in
-    match found: Map.lookupLast key rest with
-      | Some x => rfl
-      | None =>
-        match e: Ord.compare key kk with
-          | Less => rewrite Map.Raw.getInsertOther kk vv key (x => Ordering.lessNotEqual (Eq.trans (Eq.sym e) (rewrite x in Ord.compareSelf kk))) m in rfl
-          | Equal => rewrite ord.equal key kk e, Map.Raw.getInsert kk vv m in rfl
-          | Greater => rewrite Map.Raw.getInsertOther kk vv key (x => Ordering.greaterNotEqual (Eq.trans (Eq.sym e) (rewrite x in Ord.compareSelf kk))) m in rfl
+theorem Map.Raw.getFoldInsert [auto ord: Ord k] (m: Map.Raw k v) (key: k) (xs: List (k, v)): Map.Raw.get key (List.foldLeft xs m (acc entry => Map.Raw.insert entry.fst entry.snd acc))
+    = Map.Tree.orElse (Map.lookupLast key xs) (Map.Raw.get key m) :=
+  match xs with
+    | [] => rfl
+    | [(kk, vv), ..rest] =>
+      rewrite Map.Raw.getFoldInsert (Map.Raw.insert kk vv m) key rest in
+      match found: Map.lookupLast key rest with
+        | Some x => rfl
+        | None =>
+          match e: Ord.compare key kk with
+            | Less => rewrite Map.Raw.getInsertOther kk vv key (x => Ordering.lessNotEqual (Eq.trans (Eq.sym e) (rewrite x in Ord.compareSelf kk))) m in rfl
+            | Equal => rewrite ord.equal key kk e, Map.Raw.getInsert kk vv m in rfl
+            | Greater => rewrite Map.Raw.getInsertOther kk vv key (x => Ordering.greaterNotEqual (Eq.trans (Eq.sym e) (rewrite x in Ord.compareSelf kk))) m in rfl
 
 --| What `get` says about `fromList`.
 theorem Map.Raw.getFromList [auto ord: Ord k] (key: k) (xs: List (k, v)): Map.Raw.get key (Map.Raw.fromList xs) = Map.lookupLast key xs :=

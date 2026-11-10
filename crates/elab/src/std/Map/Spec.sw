@@ -297,13 +297,13 @@ theorem Map.Raw.toListFold [auto ord: Ord k] (g: Map.Raw k v → k → v → Map
       Eq.trans (Map.Raw.toListFold g h step (g m kk vv) rest)
         (Eq.cong (l => Map.Spec.foldLeft h l rest) (step m kk vv))
 
-theorem Map.Raw.toListFromListOnto [auto ord: Ord k]: ∀ (m: Map.Raw k v) (xs: List (k, v)) =>
-    Map.Raw.toList (List.foldLeft xs m (acc entry => Map.Raw.insert entry.fst entry.snd acc))
-      = List.foldLeft xs (Map.Raw.toList m) (l entry => Map.Spec.insert entry.fst entry.snd l)
-  | m, [] => rfl
-  | m, [(kk, vv), ..rest] =>
-    Eq.trans (Map.Raw.toListFromListOnto (Map.Raw.insert kk vv m) rest)
-      (Eq.cong (l => List.foldLeft rest l (l2 entry => Map.Spec.insert entry.fst entry.snd l2)) (Map.Raw.toListInsert kk vv m))
+theorem Map.Raw.toListFromListOnto [auto ord: Ord k] (m: Map.Raw k v) (xs: List (k, v)): Map.Raw.toList (List.foldLeft xs m (acc entry => Map.Raw.insert entry.fst entry.snd acc))
+    = List.foldLeft xs (Map.Raw.toList m) (l entry => Map.Spec.insert entry.fst entry.snd l) :=
+  match xs with
+    | [] => rfl
+    | [(kk, vv), ..rest] =>
+      Eq.trans (Map.Raw.toListFromListOnto (Map.Raw.insert kk vv m) rest)
+        (Eq.cong (l => List.foldLeft rest l (l2 entry => Map.Spec.insert entry.fst entry.snd l2)) (Map.Raw.toListInsert kk vv m))
 
 theorem Map.Raw.toListFromList [auto ord: Ord k] (xs: List (k, v)):
     Map.Raw.toList (Map.Raw.fromList xs: Map.Raw k v) = Map.Spec.fromList xs :=
@@ -857,26 +857,27 @@ theorem Map.Spec.lastBelowSomeNotNone [auto ord: Ord k] (key: k): ∀ (entry: (k
       | Greater => Map.Spec.lastBelowSomeNotNone key entry rest h
 
 --| `lastBelow` finds what it started with, or an entry of the list below `key`.
-theorem Map.Spec.lastBelowFrom [auto ord: Ord k] (key: k): ∀ (found: Option (k, v)) (xs: List (k, v)) (entry: (k, v)) =>
-    Map.Spec.lastBelow key found xs = Some entry →
-    (found = Some entry) ∨ ((List.Mem entry xs) ∧ (Ord.compare entry.fst key = Less))
-  | found, [], entry, h => Inl h
-  | found, [(kk, vv), ..rest], entry, h =>
-    match d: Ord.compare kk key with
-      | Less =>
-        match Map.Spec.lastBelowFrom key (Some (kk, vv)) rest entry h with
-          | Inl same =>
-            let isHead: (kk, vv) = entry := Option.someInjective same
-            Inr (Both (Inl isHead) (rewrite <- isHead in d))
-          | Inr (Both inRest less) => Inr (Both (Inr inRest) less)
-      | Equal =>
-        match Map.Spec.lastBelowFrom key found rest entry h with
-          | Inl same => Inl same
-          | Inr (Both inRest less) => Inr (Both (Inr inRest) less)
-      | Greater =>
-        match Map.Spec.lastBelowFrom key found rest entry h with
-          | Inl same => Inl same
-          | Inr (Both inRest less) => Inr (Both (Inr inRest) less)
+theorem Map.Spec.lastBelowFrom [auto ord: Ord k] (key: k) (found: Option (k, v)) (xs: List (k, v)) (entry: (k, v))
+    (h: Map.Spec.lastBelow key found xs = Some entry):
+    (found = Some entry) ∨ ((List.Mem entry xs) ∧ (Ord.compare entry.fst key = Less)) :=
+  match xs with
+    | [] => Inl h
+    | [(kk, vv), ..rest] =>
+      match d: Ord.compare kk key with
+        | Less =>
+          match Map.Spec.lastBelowFrom key (Some (kk, vv)) rest entry h with
+            | Inl same =>
+              let isHead: (kk, vv) = entry := Option.someInjective same
+              Inr (Both (Inl isHead) (rewrite <- isHead in d))
+            | Inr (Both inRest less) => Inr (Both (Inr inRest) less)
+        | Equal =>
+          match Map.Spec.lastBelowFrom key found rest entry h with
+            | Inl same => Inl same
+            | Inr (Both inRest less) => Inr (Both (Inr inRest) less)
+        | Greater =>
+          match Map.Spec.lastBelowFrom key found rest entry h with
+            | Inl same => Inl same
+            | Inr (Both inRest less) => Inr (Both (Inr inRest) less)
 
 --| In an ascending list, no key below `key` is above what `lastBelow` finds.
 theorem Map.Spec.lastBelowGreatest [auto ord: Ord k] (key: k): ∀ (lo: Option k) (found: Option (k, v)) (xs: List (k, v)) =>
@@ -1421,14 +1422,15 @@ theorem Map.Tree.joinBuiltWithin (ord: Ord k) (buildRight: List (k, v) → (Map.
           (Both (Both akey (Map.Spec.belowHeadKey ord key (buildRight rest).snd asc)) (Both wl wr))
           (Map.Spec.ascendingWeaken ord lo key akey (buildRight rest).snd asc)
 
-theorem Map.Tree.buildWithin (ord: Ord k): ∀ (fuel n: Nat) (lo: Option k) (xs: List (k, v)) =>
-    Map.Spec.Ascending ord lo xs → Map.Tree.BuiltWithin ord lo (Map.Tree.buildFuel fuel n xs)
-  | Zero, n, lo, xs, asc => Both Trivial asc
-  | Succ fuel, Zero, lo, xs, asc => Both Trivial asc
-  | Succ fuel, Succ m, lo, xs, asc =>
-    Map.Tree.joinBuiltWithin ord (rest => Map.Tree.buildFuel fuel (m - m / 2) rest)
-      (lo2 rest asc2 => Map.Tree.buildWithin ord fuel (m - m / 2) lo2 rest asc2)
-      (Map.Tree.buildFuel fuel (m / 2) xs) lo (Map.Tree.buildWithin ord fuel (m / 2) lo xs asc)
+theorem Map.Tree.buildWithin (ord: Ord k) (fuel n: Nat) (lo: Option k) (xs: List (k, v))
+    (asc: Map.Spec.Ascending ord lo xs): Map.Tree.BuiltWithin ord lo (Map.Tree.buildFuel fuel n xs) :=
+  match fuel, n with
+    | Zero, n => Both Trivial asc
+    | Succ fuel, Zero => Both Trivial asc
+    | Succ fuel, Succ m =>
+      Map.Tree.joinBuiltWithin ord (rest => Map.Tree.buildFuel fuel (m - m / 2) rest)
+        (lo2 rest asc2 => Map.Tree.buildWithin ord fuel (m - m / 2) lo2 rest asc2)
+        (Map.Tree.buildFuel fuel (m / 2) xs) lo (Map.Tree.buildWithin ord fuel (m / 2) lo xs asc)
 
 --| With enough fuel, what's left over is what `drop` leaves.
 theorem Map.Tree.joinBuiltRest (buildRight: List (k, v) → (Map.Tree k v, List (k, v))) (r: Nat)
@@ -1544,17 +1546,18 @@ theorem Map.Raw.toListFromListFast [auto ord: Ord k] (xs: List (k, v)):
     Map.Raw.toList (Map.Raw.fromListFast xs) = Map.Spec.fromList xs :=
   Map.Raw.toListFromListChecked xs (Map.Spec.isAscending None xs) rfl
 
-theorem Map.Raw.toListFromListChecked [auto ord: Ord k] (xs: List (k, v)): ∀ (ascending: Bool) (c: Map.Spec.isAscending None xs = ascending) =>
-    Map.Raw.toList (Map.Raw.fromListChecked xs ascending c) = Map.Spec.fromList xs
-  | True, c =>
-    Eq.trans (Map.Raw.toListFromSorted xs (Map.Spec.ascendingOfCheck None xs c))
-      (Map.Spec.extLookup None xs (Map.Spec.fromList xs) (Map.Spec.ascendingOfCheck None xs c)
-        (rewrite <- Map.Raw.toListFromList xs in Map.Raw.toListSorted (Map.Raw.fromList xs))
-        (key =>
-          Eq.trans (Eq.sym (Map.Spec.lookupLastAscending key None xs (Map.Spec.ascendingOfCheck None xs c)))
-            (Eq.trans (Eq.sym (Map.Raw.getFromList key xs))
-              (Eq.trans (Map.Raw.getToList key (Map.Raw.fromList xs)) (Eq.cong (Map.Tree.lookupList key) (Map.Raw.toListFromList xs))))))
-  | False, c => Map.Raw.toListFromList xs
+theorem Map.Raw.toListFromListChecked [auto ord: Ord k] (xs: List (k, v)) (ascending: Bool) (c: Map.Spec.isAscending None xs = ascending):
+    Map.Raw.toList (Map.Raw.fromListChecked xs ascending c) = Map.Spec.fromList xs :=
+  match ascending with
+    | True =>
+      Eq.trans (Map.Raw.toListFromSorted xs (Map.Spec.ascendingOfCheck None xs c))
+        (Map.Spec.extLookup None xs (Map.Spec.fromList xs) (Map.Spec.ascendingOfCheck None xs c)
+          (rewrite <- Map.Raw.toListFromList xs in Map.Raw.toListSorted (Map.Raw.fromList xs))
+          (key =>
+            Eq.trans (Eq.sym (Map.Spec.lookupLastAscending key None xs (Map.Spec.ascendingOfCheck None xs c)))
+              (Eq.trans (Eq.sym (Map.Raw.getFromList key xs))
+                (Eq.trans (Map.Raw.getToList key (Map.Raw.fromList xs)) (Eq.cong (Map.Tree.lookupList key) (Map.Raw.toListFromList xs))))))
+    | False => Map.Raw.toListFromList xs
 
 theorem Map.Raw.getFromListFast [auto ord: Ord k] (key: k) (xs: List (k, v)):
     Map.Raw.get key (Map.Raw.fromListFast xs) = Map.lookupLast key xs :=
@@ -1751,24 +1754,24 @@ theorem Map.Raw.toListDifference [auto ord: Ord k] (a: Map.Raw k v) (b: Map.Raw 
         | False => Map.Raw.toListMerge (key x y => None) (key x => Some x) (key y => None) a b
 
 --| Removing each key of a list: what is left is what the list doesn't have.
-theorem Map.Raw.getFoldRemove [auto ord: Ord k] (key: k): ∀ (m: Map.Raw k v) (ys: List (k, w)) =>
-    Map.Raw.get key (Map.Spec.foldLeft (acc key2 value => Map.Raw.remove key2 acc) m ys)
-      = Option.filter (Map.Raw.get key m) (value => ¬(Option.isSome (Map.Tree.lookupList key ys)))
-  | m, [] =>
-    match c: Map.Raw.get key m with
-      | None => rfl
-      | Some value => rfl
-  | m, [(kk, vv), ..rest] =>
-    rewrite Map.Raw.getFoldRemove key (Map.Raw.remove kk m) rest in
-    match e: Ord.compare key kk with
-      | Equal =>
-        let gone: Map.Raw.get key (Map.Raw.remove kk m) = None := rewrite ord.equal key kk e in Map.Raw.getRemove kk m
-        rewrite gone in
-        match c: Map.Raw.get key m with
-          | None => rfl
-          | Some value => rfl
-      | Less => rewrite Map.Raw.getRemoveOther kk key (Map.Spec.notEqualOfCompare key kk (z => Ordering.lessNotEqual (Eq.trans (Eq.sym e) z))) m in rfl
-      | Greater => rewrite Map.Raw.getRemoveOther kk key (Map.Spec.notEqualOfCompare key kk (z => Ordering.greaterNotEqual (Eq.trans (Eq.sym e) z))) m in rfl
+theorem Map.Raw.getFoldRemove [auto ord: Ord k] (key: k) (m: Map.Raw k v) (ys: List (k, w)): Map.Raw.get key (Map.Spec.foldLeft (acc key2 value => Map.Raw.remove key2 acc) m ys)
+    = Option.filter (Map.Raw.get key m) (value => ¬(Option.isSome (Map.Tree.lookupList key ys))) :=
+  match ys with
+    | [] =>
+      match c: Map.Raw.get key m with
+        | None => rfl
+        | Some value => rfl
+    | [(kk, vv), ..rest] =>
+      rewrite Map.Raw.getFoldRemove key (Map.Raw.remove kk m) rest in
+      match e: Ord.compare key kk with
+        | Equal =>
+          let gone: Map.Raw.get key (Map.Raw.remove kk m) = None := rewrite ord.equal key kk e in Map.Raw.getRemove kk m
+          rewrite gone in
+          match c: Map.Raw.get key m with
+            | None => rfl
+            | Some value => rfl
+        | Less => rewrite Map.Raw.getRemoveOther kk key (Map.Spec.notEqualOfCompare key kk (z => Ordering.lessNotEqual (Eq.trans (Eq.sym e) z))) m in rfl
+        | Greater => rewrite Map.Raw.getRemoveOther kk key (Map.Spec.notEqualOfCompare key kk (z => Ordering.greaterNotEqual (Eq.trans (Eq.sym e) z))) m in rfl
 
 -- What `get` finds after each.
 

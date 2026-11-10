@@ -115,29 +115,30 @@ theorem countedSound (racetrack: Racetrack) (startOnTrack: onTrack racetrack rac
 --| Every cheat saving at least the threshold is counted.
 theorem countedComplete (racetrack: Racetrack) (startOnTrack: onTrack racetrack racetrack.start = True)
     (endOnTrack: onTrack racetrack racetrack.end = True) (length: Nat) (threshold: Nat) (honest: Nat)
-    (honestFound: racetrack.fromStart.get racetrack.end = Some honest):
-    ∀ (cheat: Cheat) => SavesAtLeast racetrack length threshold cheat → cheat ∈ counted racetrack racetrack.fromStart racetrack.toEnd honest length threshold
-  | { start, end }, saves =>
-    let fromStart := racetrack.fromStart
-    let toEnd := racetrack.toEnd
-    let (Both (Both startOn (Both endOn near)) times) := saves
-    Exists.elim times (fastest rest =>
-      Exists.elim rest (before more =>
-        Exists.elim more (after parts =>
-          let (Both honestFast (Both beforeFast (Both afterFast fits))) := parts
-          let sameHonest: honest = fastest :=
-            Option.someInjective (Eq.trans (Eq.sym honestFound) (fastestFromStart racetrack startOnTrack racetrack.end fastest honestFast))
-          let gotBefore := fastestFromStart racetrack startOnTrack start before beforeFast
-          let gotAfter := fastestToEnd racetrack endOnTrack end endOn after afterFast
-          let saved: savesFrom toEnd honest threshold start before end = True :=
-            rewrite savesFromSome toEnd honest threshold start before end after gotAfter, sameHonest in fits
-          List.memFlatMapIntro (countedFrom fromStart toEnd honest length threshold) start ({ start, end }: Cheat) racetrack.track.toList
-            ((listedOnTrack racetrack start).backward startOn)
-            (rewrite countedFromSome fromStart toEnd honest length threshold start before gotBefore in
-              List.memMap (start.diamond length |> .filter (savesFrom toEnd honest threshold start before)) end
-                (List.memFilterIntro (start.diamond length) (savesFrom toEnd honest threshold start before)
-                  (aroundComplete start length end near) saved)
-                (other => ({ start, end = other }: Cheat))))))
+    (honestFound: racetrack.fromStart.get racetrack.end = Some honest)
+    (cheat: Cheat) (saves: SavesAtLeast racetrack length threshold cheat): cheat ∈ counted racetrack racetrack.fromStart racetrack.toEnd honest length threshold :=
+  match cheat with
+    | { start, end } =>
+      let fromStart := racetrack.fromStart
+      let toEnd := racetrack.toEnd
+      let (Both (Both startOn (Both endOn near)) times) := saves
+      Exists.elim times (fastest rest =>
+        Exists.elim rest (before more =>
+          Exists.elim more (after parts =>
+            let (Both honestFast (Both beforeFast (Both afterFast fits))) := parts
+            let sameHonest: honest = fastest :=
+              Option.someInjective (Eq.trans (Eq.sym honestFound) (fastestFromStart racetrack startOnTrack racetrack.end fastest honestFast))
+            let gotBefore := fastestFromStart racetrack startOnTrack start before beforeFast
+            let gotAfter := fastestToEnd racetrack endOnTrack end endOn after afterFast
+            let saved: savesFrom toEnd honest threshold start before end = True :=
+              rewrite savesFromSome toEnd honest threshold start before end after gotAfter, sameHonest in fits
+            List.memFlatMapIntro (countedFrom fromStart toEnd honest length threshold) start ({ start, end }: Cheat) racetrack.track.toList
+              ((listedOnTrack racetrack start).backward startOn)
+              (rewrite countedFromSome fromStart toEnd honest length threshold start before gotBefore in
+                List.memMap (start.diamond length |> .filter (savesFrom toEnd honest threshold start before)) end
+                  (List.memFilterIntro (start.diamond length) (savesFrom toEnd honest threshold start before)
+                    (aroundComplete start length end near) saved)
+                  (other => ({ start, end = other }: Cheat))))))
 
 --| The program's count is the number of cheats of up to `length`
 --| picoseconds saving at least `threshold`.

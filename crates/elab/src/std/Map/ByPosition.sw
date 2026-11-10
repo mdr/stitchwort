@@ -3,32 +3,34 @@
 -- Kept out of Map.sw because the proof needs `omega`.
 
 --| No position below `s` is numbered from `s`.
-theorem Map.lookupLastBelow (k: Nat): ∀ (s: Nat) (xs: List a) => k < s → Map.lookupLast k (List.withIndexFrom s xs) = None
-  | s, [], h => rfl
-  | s, [x, ..xs], h =>
-    rewrite Map.lookupLastBelow k (Succ s) xs (omega) in
-      match c: Nat.compare k s with
-        | Equal => omega [Nat.compareEqual k s c]
-        | Less => rfl
-        | Greater => rfl
+theorem Map.lookupLastBelow (k: Nat) (s: Nat) (xs: List a) (h: k < s): Map.lookupLast k (List.withIndexFrom s xs) = None :=
+  match xs with
+    | [] => rfl
+    | [x, ..xs] =>
+      rewrite Map.lookupLastBelow k (Succ s) xs (omega) in
+        match c: Nat.compare k s with
+          | Equal => omega [Nat.compareEqual k s c]
+          | Less => rfl
+          | Greater => rfl
 
 --| Position s + i of the elements numbered from s is element i.
-theorem Map.lookupLastWithIndex (d: a): ∀ (s i: Nat) (xs: List a) =>
-    Option.getOrElse (Map.lookupLast (s + i) (List.withIndexFrom s xs)) d = List.getOr xs i d
-  | s, i, [] => rfl
-  | s, Zero, [x, ..xs] =>
-    rewrite Nat.addZero s, Map.lookupLastBelow s (Succ s) xs (Nat.leRefl (Succ s)), Nat.compareSelf s in rfl
-  | s, Succ i, [x, ..xs] =>
-    let ih: Option.getOrElse (Map.lookupLast (Succ (s + i)) (List.withIndexFrom (Succ s) xs)) d = List.getOr xs i d :=
-      Map.lookupLastWithIndex d (Succ s) i xs
-    rewrite Nat.addSucc s i in
-      match r: Map.lookupLast (Succ (s + i)) (List.withIndexFrom (Succ s) xs) with
-        | Some v => ih
-        | None =>
-          match c: Nat.compare (Succ (s + i)) s with
-            | Equal => omega [Nat.compareEqual (Succ (s + i)) s c]
-            | Less => ih
-            | Greater => ih
+theorem Map.lookupLastWithIndex (d: a) (s i: Nat) (xs: List a):
+    Option.getOrElse (Map.lookupLast (s + i) (List.withIndexFrom s xs)) d = List.getOr xs i d :=
+  match i, xs with
+    | i, [] => rfl
+    | Zero, [x, ..xs] =>
+      rewrite Nat.addZero s, Map.lookupLastBelow s (Succ s) xs (Nat.leRefl (Succ s)), Nat.compareSelf s in rfl
+    | Succ i, [x, ..xs] =>
+      let ih: Option.getOrElse (Map.lookupLast (Succ (s + i)) (List.withIndexFrom (Succ s) xs)) d = List.getOr xs i d :=
+        Map.lookupLastWithIndex d (Succ s) i xs
+      rewrite Nat.addSucc s i in
+        match r: Map.lookupLast (Succ (s + i)) (List.withIndexFrom (Succ s) xs) with
+          | Some v => ih
+          | None =>
+            match c: Nat.compare (Succ (s + i)) s with
+              | Equal => omega [Nat.compareEqual (Succ (s + i)) s c]
+              | Less => ih
+              | Greater => ih
 
 --| Looking up a position in `Map.byPosition xs` is `List.getOr` on `xs`,
 --| inside the list and past its end.
@@ -37,20 +39,21 @@ theorem Map.getOrByPosition (xs: List a) (i: Nat) (d: a): Map.getOr (Map.byPosit
 
 --| Position s + i of the elements numbered from s is element i, if there is
 --| one; past the end both are `None`.
-theorem Map.lookupLastWithIndexGet: ∀ (s i: Nat) (xs: List a) =>
-    Map.lookupLast (s + i) (List.withIndexFrom s xs) = List.get xs i
-  | s, i, [] => rfl
-  | s, Zero, [x, ..xs] =>
-    rewrite Nat.addZero s, Map.lookupLastBelow s (Succ s) xs (Nat.leRefl (Succ s)), Nat.compareSelf s in rfl
-  | s, Succ i, [x, ..xs] =>
-    rewrite Nat.addSucc s i in
-      match r: Map.lookupLast (Succ (s + i)) (List.withIndexFrom (Succ s) xs) with
-        | Some v => rewrite <- r in Map.lookupLastWithIndexGet (Succ s) i xs
-        | None =>
-          match c: Nat.compare (Succ (s + i)) s with
-            | Equal => omega [Nat.compareEqual (Succ (s + i)) s c]
-            | Less => rewrite <- r in Map.lookupLastWithIndexGet (Succ s) i xs
-            | Greater => rewrite <- r in Map.lookupLastWithIndexGet (Succ s) i xs
+theorem Map.lookupLastWithIndexGet (s i: Nat) (xs: List a):
+    Map.lookupLast (s + i) (List.withIndexFrom s xs) = List.get xs i :=
+  match i, xs with
+    | i, [] => rfl
+    | Zero, [x, ..xs] =>
+      rewrite Nat.addZero s, Map.lookupLastBelow s (Succ s) xs (Nat.leRefl (Succ s)), Nat.compareSelf s in rfl
+    | Succ i, [x, ..xs] =>
+      rewrite Nat.addSucc s i in
+        match r: Map.lookupLast (Succ (s + i)) (List.withIndexFrom (Succ s) xs) with
+          | Some v => rewrite <- r in Map.lookupLastWithIndexGet (Succ s) i xs
+          | None =>
+            match c: Nat.compare (Succ (s + i)) s with
+              | Equal => omega [Nat.compareEqual (Succ (s + i)) s c]
+              | Less => rewrite <- r in Map.lookupLastWithIndexGet (Succ s) i xs
+              | Greater => rewrite <- r in Map.lookupLastWithIndexGet (Succ s) i xs
 
 --| Looking up a position in `Map.byPosition xs` is `List.get` on `xs`, inside
 --| the list and past its end. The `getOr` version is [`Map.getOrByPosition`].

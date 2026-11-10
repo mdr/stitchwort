@@ -27,9 +27,10 @@ theorem zipNext (x: Nat) (xs: List Nat): List.zip [x, ..xs] xs = List.zipWithNex
     | [y, ..rest] => Eq.cong (Cons (MkPair x y)) (zipNext y rest)
 
 --| Part 1 is the puzzle's count, for every list of depths.
-theorem part1Correct: ∀ (depths: List Nat) => solvePart1 depths = increases depths
-  | [] => rfl
-  | [x, ..xs] => rewrite zipNext x xs in rfl
+theorem part1Correct (depths: List Nat): solvePart1 depths = increases depths :=
+  match depths with
+    | [] => rfl
+    | [x, ..xs] => rewrite zipNext x xs in rfl
 
 --| A list with a whole window at its start: the first window, then the
 --| windows of the rest.

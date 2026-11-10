@@ -33,28 +33,30 @@ theorem pairHeight (depth: Nat) (left: Number) (right: Number) (exploded: Explos
             rewrite addRightmostHeight e.toLeft left in omega [rightLower e rfl]
         | None => Void.exfalso (Option.noneNotSome exploded (rewrite explode.eq3.none.none depth left right notArm2 el er at some in some))
 
-theorem explodeHeight: ∀ (depth: Nat) (number: Number) (exploded: Explosion) => explode depth number = Some exploded → height exploded.number ≤ height number
-  | depth, Regular _, exploded, some => Void.exfalso (Option.noneNotSome exploded some)
-  | depth, Pair (Regular a) (Regular b), exploded, some =>
-    match deep: Nat.leq 4 depth with
-      | True => rewrite <- Option.someInjective some in omega
-      | False => Void.exfalso (Option.noneNotSome exploded some)
-  | depth, Pair (Regular a) (Pair x y), exploded, some =>
-    pairHeight depth (Regular a) (Pair x y) exploded cases some
-      (e found => explodeHeight (depth + 1) (Regular a) e found) (e found => explodeHeight (depth + 1) (Pair x y) e found)
-  | depth, Pair (Pair x y) right, exploded, some =>
-    pairHeight depth (Pair x y) right exploded cases some
-      (e found => explodeHeight (depth + 1) (Pair x y) e found) (e found => explodeHeight (depth + 1) right e found)
+theorem explodeHeight (depth: Nat) (number: Number) (exploded: Explosion) (some: explode depth number = Some exploded): height exploded.number ≤ height number :=
+  match number with
+    | Regular _ => Void.exfalso (Option.noneNotSome exploded some)
+    | Pair (Regular a) (Regular b) =>
+      match deep: Nat.leq 4 depth with
+        | True => rewrite <- Option.someInjective some in omega
+        | False => Void.exfalso (Option.noneNotSome exploded some)
+    | Pair (Regular a) (Pair x y) =>
+      pairHeight depth (Regular a) (Pair x y) exploded cases some
+        (e found => explodeHeight (depth + 1) (Regular a) e found) (e found => explodeHeight (depth + 1) (Pair x y) e found)
+    | Pair (Pair x y) right =>
+      pairHeight depth (Pair x y) right exploded cases some
+        (e found => explodeHeight (depth + 1) (Pair x y) e found) (e found => explodeHeight (depth + 1) right e found)
 
-theorem splitHeight: ∀ (number split2: Number) => split number = Some split2 → height split2 ≤ height number + 1
-  | Regular value, split2, some =>
-    match Nat.leq 10 value with
-      | True => rewrite <- Option.someInjective some in omega
-      | False => Void.exfalso (Option.noneNotSome split2 some)
-  | Pair left right, split2, some =>
-    match el: split left with
-      | Some left2 => rewrite <- Option.someInjective some in omega [splitHeight left left2 el]
-      | None =>
-        match er: split right with
-          | Some right2 => rewrite <- Option.someInjective some in omega [splitHeight right right2 er]
-          | None => Void.exfalso (Option.noneNotSome split2 some)
+theorem splitHeight (number split2: Number) (some: split number = Some split2): height split2 ≤ height number + 1 :=
+  match number with
+    | Regular value =>
+      match Nat.leq 10 value with
+        | True => rewrite <- Option.someInjective some in omega
+        | False => Void.exfalso (Option.noneNotSome split2 some)
+    | Pair left right =>
+      match el: split left with
+        | Some left2 => rewrite <- Option.someInjective some in omega [splitHeight left left2 el]
+        | None =>
+          match er: split right with
+            | Some right2 => rewrite <- Option.someInjective some in omega [splitHeight right right2 er]
+            | None => Void.exfalso (Option.noneNotSome split2 some)

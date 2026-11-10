@@ -179,24 +179,26 @@ theorem Text.spaceTabPlain (char: Char) (h: (char == ' ' ∨ char == '\t') = Tru
 
 --| `Text.linesFrom` keeps its finished lines apart from the line it is on:
 --| the finished lines (`acc`, newest first) come first, in order.
-theorem Text.linesFromAcc: ∀ (chars line: List Char) (acc: List Text) =>
-    Text.linesFrom line acc chars = List.append (List.reverseOnto acc []) (Text.linesFrom line [] chars)
-  | [], [], acc => rewrite List.appendNil (List.reverseOnto acc []) in rfl
-  | [], [c, ..cs], acc => List.reverseOntoAppend acc [MkText (List.reverseOnto [c, ..cs] [])]
-  | [char, ..chars], line, acc =>
-    match Char.isLineFeedCode (Char.toNat char) with
-      | True =>
-        rewrite Text.linesFromAcc chars [] [Text.endLine line, ..acc], Text.linesFromAcc chars [] [Text.endLine line], List.reverseOntoAppend acc [Text.endLine line],
-          List.appendAssoc (List.reverseOnto acc []) [Text.endLine line] (Text.linesFrom [] [] chars) in rfl
-      | False => Text.linesFromAcc chars [char, ..line] acc
+theorem Text.linesFromAcc (chars line: List Char) (acc: List Text):
+    Text.linesFrom line acc chars = List.append (List.reverseOnto acc []) (Text.linesFrom line [] chars) :=
+  match chars, line with
+    | [], [] => rewrite List.appendNil (List.reverseOnto acc []) in rfl
+    | [], [c, ..cs] => List.reverseOntoAppend acc [MkText (List.reverseOnto [c, ..cs] [])]
+    | [char, ..chars], line =>
+      match Char.isLineFeedCode (Char.toNat char) with
+        | True =>
+          rewrite Text.linesFromAcc chars [] [Text.endLine line, ..acc], Text.linesFromAcc chars [] [Text.endLine line], List.reverseOntoAppend acc [Text.endLine line],
+            List.appendAssoc (List.reverseOnto acc []) [Text.endLine line] (Text.linesFrom [] [] chars) in rfl
+        | False => Text.linesFromAcc chars [char, ..line] acc
 
-theorem Text.linesFromAppend: ∀ (front line: List Char) (acc: List Text) (rest: List Char) =>
-    Text.linesFrom line acc (front ++ ['\n'] ++ rest) = Text.linesFrom line acc (front ++ ['\n']) ++ Text.linesFrom [] [] rest
-  | [], line, acc, rest => Text.linesFromAcc rest [] [Text.endLine line, ..acc]
-  | [char, ..chars], line, acc, rest =>
-    match Char.isLineFeedCode (Char.toNat char) with
-      | True => Text.linesFromAppend chars [] [Text.endLine line, ..acc] rest
-      | False => Text.linesFromAppend chars [char, ..line] acc rest
+theorem Text.linesFromAppend (front line: List Char) (acc: List Text) (rest: List Char):
+    Text.linesFrom line acc (front ++ ['\n'] ++ rest) = Text.linesFrom line acc (front ++ ['\n']) ++ Text.linesFrom [] [] rest :=
+  match front with
+    | [] => Text.linesFromAcc rest [] [Text.endLine line, ..acc]
+    | [char, ..chars] =>
+      match Char.isLineFeedCode (Char.toNat char) with
+        | True => Text.linesFromAppend chars [] [Text.endLine line, ..acc] rest
+        | False => Text.linesFromAppend chars [char, ..line] acc rest
 
 --| The lines of a text are the lines of its part up to a line feed, then
 --| the lines of the rest: a line feed ends a line whatever came before it.
@@ -301,13 +303,14 @@ theorem Text.unlinesLines (front: List Char) (noReturn: List.All (c => Char.isCa
     Text.unlinesChars (Text.lines (MkText (front ++ ['\n']))) = front ++ ['\n'] :=
   Text.unlinesFrom front noReturn [] ()
 
-theorem Text.linesFromUnterminated (last: Char) (notFeed: Char.isLineFeedCode (Char.toNat last) = False) (notReturn: Char.isCarriageReturnCode (Char.toNat last) = False):
-    ∀ (front line: List Char) (acc: List Text) => Text.linesFrom line acc (front ++ [last]) = Text.linesFrom line acc (front ++ [last, '\n'])
-  | [], line, acc => rewrite notFeed, notReturn in rfl
-  | [char, ..chars], line, acc =>
-    match Char.isLineFeedCode (Char.toNat char) with
-      | True => Text.linesFromUnterminated last notFeed notReturn chars [] [Text.endLine line, ..acc]
-      | False => Text.linesFromUnterminated last notFeed notReturn chars [char, ..line] acc
+theorem Text.linesFromUnterminated (last: Char) (notFeed: Char.isLineFeedCode (Char.toNat last) = False) (notReturn: Char.isCarriageReturnCode (Char.toNat last) = False)
+    (front line: List Char) (acc: List Text): Text.linesFrom line acc (front ++ [last]) = Text.linesFrom line acc (front ++ [last, '\n']) :=
+  match front with
+    | [] => rewrite notFeed, notReturn in rfl
+    | [char, ..chars] =>
+      match Char.isLineFeedCode (Char.toNat char) with
+        | True => Text.linesFromUnterminated last notFeed notReturn chars [] [Text.endLine line, ..acc]
+        | False => Text.linesFromUnterminated last notFeed notReturn chars [char, ..line] acc
 
 --| A last line without its line feed gives the same lines as with one, if
 --| its last character isn't a carriage return (one there is dropped before
@@ -428,16 +431,17 @@ theorem Text.sameCharEq (c: Char) (d: Char): Text.sameChar c d = (c == d) :=
 
 --| The direction of [`Text.stripPrefixCharsSome`] that reads a result: when
 --| stripping `p` from `ys` leaves `rest`, `ys` is `p` followed by `rest`.
-theorem Text.stripPrefixCharsForward: ∀ (p ys: List Char) [rest: List Char] =>
-    Text.stripPrefixChars p ys = Some rest → ys = List.append p rest
-  | [], ys, h => Option.someInjective h
-  | [c, ..ps], [], h => Void.exfalso (Option.someNotNone rest (Eq.sym h))
-  | [c, ..ps], [y, ..ys], h =>
-    match same: Text.sameChar c y with
-      | True =>
-        rewrite Eq.sym (Char.ext c y (Nat.equalSound _ _ same)) in
-          Eq.cong (Cons c) (Text.stripPrefixCharsForward ps ys h)
-      | False => Void.exfalso (Option.someNotNone rest (Eq.sym h))
+theorem Text.stripPrefixCharsForward (p ys: List Char) [rest: List Char]
+    (h: Text.stripPrefixChars p ys = Some rest): ys = List.append p rest :=
+  match p, ys with
+    | [], ys => Option.someInjective h
+    | [c, ..ps], [] => Void.exfalso (Option.someNotNone rest (Eq.sym h))
+    | [c, ..ps], [y, ..ys] =>
+      match same: Text.sameChar c y with
+        | True =>
+          rewrite Eq.sym (Char.ext c y (Nat.equalSound _ _ same)) in
+            Eq.cong (Cons c) (Text.stripPrefixCharsForward ps ys h)
+        | False => Void.exfalso (Option.someNotNone rest (Eq.sym h))
 
 --| The characters after the prefix `p` are `rest` exactly when the list is
 --| `p` followed by `rest`: `Text.stripPrefixChars p ys = Some rest ↔ ys = p ++ rest`.

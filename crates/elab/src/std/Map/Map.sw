@@ -349,8 +349,9 @@ theorem Map.memToList [auto ord: Ord k] (m: Map k v) (key: k) (value: v): (List.
 theorem Map.containsOfGet [auto ord: Ord k] (m: Map k v) (key: k) (value: v) (h: Map.get m key = Some value): Map.contains m key = True :=
   rewrite h in rfl
 
-theorem Map.containsOfMemToList [auto ord: Ord k] (m: Map k v) (key: k): ∀ (e: (k, v)) => List.Mem e (Map.toList m) → Pair.fst e = key → Map.contains m key = True
-  | (k1, v1), inList, same => rewrite <- same in Map.containsOfGet m k1 v1 ((Map.memToList m k1 v1).forward inList)
+theorem Map.containsOfMemToList [auto ord: Ord k] (m: Map k v) (key: k) (e: (k, v)) (inList: List.Mem e (Map.toList m)) (same: Pair.fst e = key): Map.contains m key = True :=
+  match e with
+    | (k1, v1) => rewrite <- same in Map.containsOfGet m k1 v1 ((Map.memToList m k1 v1).forward inList)
 
 theorem Map.memKeysOfContains [auto ord: Ord k] (m: Map k v) (key: k) (h: Map.contains m key = True): List.Mem key (Map.keys m) :=
   match c: Map.get m key with
@@ -522,21 +523,22 @@ theorem Map.popMinRespects (a: Map.Raw k v [ord := o]) (b: Map.Raw k v [ord := o
     (Eq.trans (Map.Raw.popMinToList a) (Eq.trans (Eq.cong Map.Spec.uncons same) (Eq.sym (Map.Raw.popMinToList b))))
 
 --| `popMinSpec` for one representative, given its view and its entries.
-theorem Map.popMinSpecRaw [auto ord: Ord k] (r: Map.Raw k v):
-    ∀ (x: Option ((k, v), Map.Raw k v)) (entries: List (k, v)) =>
-    Option.map x (view => (view.fst, Map.Raw.toList view.snd)) = Map.Spec.uncons entries → Map.Raw.toList r = entries →
-    Option.map x (view => (view.fst, Map.ofRaw view.snd)) = Option.map (List.head entries) (entry => (entry, Map.remove (Map.ofRaw r) entry.fst))
-  | None, [], viewed, listed => rfl
-  | None, [entry, ..more], viewed, listed => Void.exfalso (Option.noneNotSome _ viewed)
-  | Some view, [], viewed, listed => Void.exfalso (Option.someNotNone _ viewed)
-  | Some ((key, value), rest), [entry, ..more], viewed, listed =>
-    let pairs := Option.someInjective viewed
-    let first: (key, value) = entry := Eq.cong Pair.fst pairs
-    let whole: Map.Raw.toList r = [(key, value), ..Map.Raw.toList rest] := rewrite first, Eq.cong Pair.snd pairs in listed
-    let left: Map.Raw.toList rest = Map.Raw.toList (Map.Raw.remove key r) :=
-      rewrite Map.Raw.toListRemove key r, whole, Ord.compareSelf key in rfl
-    rewrite <- first in
-      Eq.cong (later => Some ((key, value), later)) (Map.toListInjective (Map.ofRaw rest) (Map.ofRaw (Map.Raw.remove key r)) left)
+theorem Map.popMinSpecRaw [auto ord: Ord k] (r: Map.Raw k v)
+    (x: Option ((k, v), Map.Raw k v)) (entries: List (k, v))
+    (viewed: Option.map x (view => (view.fst, Map.Raw.toList view.snd)) = Map.Spec.uncons entries) (listed: Map.Raw.toList r = entries):
+    Option.map x (view => (view.fst, Map.ofRaw view.snd)) = Option.map (List.head entries) (entry => (entry, Map.remove (Map.ofRaw r) entry.fst)) :=
+  match x, entries with
+    | None, [] => rfl
+    | None, [entry, ..more] => Void.exfalso (Option.noneNotSome _ viewed)
+    | Some view, [] => Void.exfalso (Option.someNotNone _ viewed)
+    | Some ((key, value), rest), [entry, ..more] =>
+      let pairs := Option.someInjective viewed
+      let first: (key, value) = entry := Eq.cong Pair.fst pairs
+      let whole: Map.Raw.toList r = [(key, value), ..Map.Raw.toList rest] := rewrite first, Eq.cong Pair.snd pairs in listed
+      let left: Map.Raw.toList rest = Map.Raw.toList (Map.Raw.remove key r) :=
+        rewrite Map.Raw.toListRemove key r, whole, Ord.compareSelf key in rfl
+      rewrite <- first in
+        Eq.cong (later => Some ((key, value), later)) (Map.toListInjective (Map.ofRaw rest) (Map.ofRaw (Map.Raw.remove key r)) left)
 
 --| `popMin` is `min` and `remove` together.
 theorem Map.popMinSpec [auto ord: Ord k] (m: Map k v): Map.popMin m = Option.map (Map.min m) (entry => (entry, Map.remove m entry.fst)) :=
@@ -707,12 +709,12 @@ theorem Map.getOrInsert [auto ord: Ord k] (m: Map k v) (key: k) (value: v) (othe
 
 --| Inserting one value at each of several keys: reading a key among them
 --| gives the value, any other key gives what the map held.
-theorem Map.getOrInsertAll [auto ord: Ord k] (value: v) (other: k) (fallback: v): ∀ (keys: List k) (m: Map k v) =>
-    (keys.foldLeft m (written key => written.insert key value)).getOr other fallback
-      = (if keys.contains other then value else m.getOr other fallback)
-  | [], m => rfl
-  | [key, ..rest], m =>
-    rewrite Map.getOrInsertAll value other fallback rest (m.insert key value), Map.getOrInsert m key value other fallback in cases
+theorem Map.getOrInsertAll [auto ord: Ord k] (value: v) (other: k) (fallback: v) (keys: List k) (m: Map k v): (keys.foldLeft m (written key => written.insert key value)).getOr other fallback
+    = (if keys.contains other then value else m.getOr other fallback) :=
+  match keys with
+    | [] => rfl
+    | [key, ..rest] =>
+      rewrite Map.getOrInsertAll value other fallback rest (m.insert key value), Map.getOrInsert m key value other fallback in cases
 
 --| The values add up to the same as `f` over the keys, when `f` reads the map
 --| (with 0 for a key not in it): the way to sum a map's values with a spec
@@ -789,23 +791,24 @@ theorem Map.containsFilter [auto ord: Ord k] (m: Map k v) (key: k) (p: k → v �
 --| entry in turn. A sorted list has at most one entry at `key`.
 theorem Map.getFold [auto ord: Ord k] (step: Map k w → k → v → Map k w) (h: v → Option w → Option w) (key: k)
     (atKey: ∀ (m: Map k w) (value: v) => Map.get (step m key value) key = h value (Map.get m key))
-    (elsewhere: ∀ (m: Map k w) (kk: k) (value: v) => key ≠ kk → Map.get (step m kk value) key = Map.get m key):
-    ∀ (lo: Option k) (xs: List (k, v)) (m: Map k w) => Map.Spec.Ascending ord lo xs →
-    Map.get (Map.Spec.foldLeft step m xs) key = Map.Spec.atKey h (Map.Tree.lookupList key xs) (Map.get m key)
-  | lo, [], m, asc => rfl
-  | lo, [(kk, vv), ..rest], m, Both a arest =>
-    rewrite Map.getFold step h key atKey elsewhere (Some kk) rest (step m kk vv) arest in
-    match d: Ord.compare key kk with
-      | Equal =>
-        rewrite Map.Spec.lookupBelow key kk rest arest (z => Ordering.equalNotGreater (Eq.trans (Eq.sym d) z)),
-          Eq.sym (ord.equal key kk d) in
-        atKey m vv
-      | Less =>
-        Eq.cong (Map.Spec.atKey h (Map.Tree.lookupList key rest))
-          (elsewhere m kk vv (Map.Spec.notEqualOfCompare key kk (z => Ordering.lessNotEqual (Eq.trans (Eq.sym d) z))))
-      | Greater =>
-        Eq.cong (Map.Spec.atKey h (Map.Tree.lookupList key rest))
-          (elsewhere m kk vv (Map.Spec.notEqualOfCompare key kk (z => Ordering.greaterNotEqual (Eq.trans (Eq.sym d) z))))
+    (elsewhere: ∀ (m: Map k w) (kk: k) (value: v) => key ≠ kk → Map.get (step m kk value) key = Map.get m key)
+    (lo: Option k) (xs: List (k, v)) (m: Map k w) (asc: Map.Spec.Ascending ord lo xs):
+    Map.get (Map.Spec.foldLeft step m xs) key = Map.Spec.atKey h (Map.Tree.lookupList key xs) (Map.get m key) :=
+  match xs, asc with
+    | [], asc => rfl
+    | [(kk, vv), ..rest], Both a arest =>
+      rewrite Map.getFold step h key atKey elsewhere (Some kk) rest (step m kk vv) arest in
+      match d: Ord.compare key kk with
+        | Equal =>
+          rewrite Map.Spec.lookupBelow key kk rest arest (z => Ordering.equalNotGreater (Eq.trans (Eq.sym d) z)),
+            Eq.sym (ord.equal key kk d) in
+          atKey m vv
+        | Less =>
+          Eq.cong (Map.Spec.atKey h (Map.Tree.lookupList key rest))
+            (elsewhere m kk vv (Map.Spec.notEqualOfCompare key kk (z => Ordering.lessNotEqual (Eq.trans (Eq.sym d) z))))
+        | Greater =>
+          Eq.cong (Map.Spec.atKey h (Map.Tree.lookupList key rest))
+            (elsewhere m kk vv (Map.Spec.notEqualOfCompare key kk (z => Ordering.greaterNotEqual (Eq.trans (Eq.sym d) z))))
 
 --| `unionWith`: the values there are, with `f` where both maps have one.
 theorem Map.getUnionWith [auto ord: Ord k] (a: Map k v) (key: k) (b: Map k v) (f: v → v → v):
@@ -825,11 +828,11 @@ theorem Map.Spec.mergeFirst (a b: Option v): Option.merge a b (x y => x) = Optio
     | None, None => rfl
 
 --| Inserting into a raw map, then taking its class, is inserting into the class.
-theorem Map.ofRawFoldInsert [auto ord: Ord k]: ∀ (xs: List (k, v)) (r: Map.Raw k v) =>
-    Map.ofRaw (Map.Spec.foldLeft (acc key value => Map.Raw.insert key value acc) r xs)
-      = Map.Spec.foldLeft (acc key value => Map.insert acc key value) (Map.ofRaw r) xs
-  | [], r => rfl
-  | [(kk, vv), ..rest], r => Map.ofRawFoldInsert rest (Map.Raw.insert kk vv r)
+theorem Map.ofRawFoldInsert [auto ord: Ord k] (xs: List (k, v)) (r: Map.Raw k v): Map.ofRaw (Map.Spec.foldLeft (acc key value => Map.Raw.insert key value acc) r xs)
+    = Map.Spec.foldLeft (acc key value => Map.insert acc key value) (Map.ofRaw r) xs :=
+  match xs with
+    | [] => rfl
+    | [(kk, vv), ..rest] => Map.ofRawFoldInsert rest (Map.Raw.insert kk vv r)
 
 theorem Map.getUnionRaw [auto ord: Ord k] (key: k) (ra: Map.Raw k v) (rb: Map.Raw k v):
     Map.get (Map.union (Map.ofRaw ra) (Map.ofRaw rb)) key = Option.orElse (Map.Raw.get key ra) (Map.Raw.get key rb) :=
@@ -856,15 +859,16 @@ def Map.lookupWithOnto [auto ord: Ord k] (f: v → v → v) (key: k): (found: Op
 --| What `Map.fromListWith xs f` holds at `key`: its values in `xs` combined by `f new old`, if there are any.
 def Map.lookupWith [auto ord: Ord k] (f: v → v → v) (key: k) (xs: List (k, v)): Option v := Map.lookupWithOnto f key None xs
 
-theorem Map.getFoldInsertWith [auto ord: Ord k]: ∀ (m: Map k v) (key: k) (xs: List (k, v)) (f: v → v → v) =>
-    Map.get (List.foldLeft xs m (acc entry => Map.insertWith acc entry.fst entry.snd f)) key = Map.lookupWithOnto f key (Map.get m key) xs
-  | m, key, [], f => rfl
-  | m, key, [(kk, vv), ..rest], f =>
-    rewrite Map.getFoldInsertWith (Map.insertWith m kk vv f) key rest f in
-    match e: Ord.compare key kk with
-      | Less => rewrite Map.getInsertWithOther m kk vv key (Map.Spec.notEqualOfCompare key kk (z => Ordering.lessNotEqual (Eq.trans (Eq.sym e) z))) f in rfl
-      | Equal => rewrite ord.equal key kk e, Map.getInsertWith m kk vv f in rfl
-      | Greater => rewrite Map.getInsertWithOther m kk vv key (Map.Spec.notEqualOfCompare key kk (z => Ordering.greaterNotEqual (Eq.trans (Eq.sym e) z))) f in rfl
+theorem Map.getFoldInsertWith [auto ord: Ord k] (m: Map k v) (key: k) (xs: List (k, v)) (f: v → v → v):
+    Map.get (List.foldLeft xs m (acc entry => Map.insertWith acc entry.fst entry.snd f)) key = Map.lookupWithOnto f key (Map.get m key) xs :=
+  match xs with
+    | [] => rfl
+    | [(kk, vv), ..rest] =>
+      rewrite Map.getFoldInsertWith (Map.insertWith m kk vv f) key rest f in
+      match e: Ord.compare key kk with
+        | Less => rewrite Map.getInsertWithOther m kk vv key (Map.Spec.notEqualOfCompare key kk (z => Ordering.lessNotEqual (Eq.trans (Eq.sym e) z))) f in rfl
+        | Equal => rewrite ord.equal key kk e, Map.getInsertWith m kk vv f in rfl
+        | Greater => rewrite Map.getInsertWithOther m kk vv key (Map.Spec.notEqualOfCompare key kk (z => Ordering.greaterNotEqual (Eq.trans (Eq.sym e) z))) f in rfl
 
 theorem Map.getFromListWith [auto ord: Ord k] (xs: List (k, v)) (key: k) (f: v → v → v):
     Map.get (Map.fromListWith xs f) key = Map.lookupWith f key xs :=
@@ -881,13 +885,13 @@ theorem Map.getOrCountStep [auto ord: Ord k] (m: Map k Nat) (key: k) (x: k):
     | Less => rewrite Map.getInsertWithOther m x 1 key (Map.Spec.notEqualOfCompare key x (z => Ordering.lessNotEqual (Eq.trans (Eq.sym e) z))) Nat.add in rfl
     | Greater => rewrite Map.getInsertWithOther m x 1 key (Map.Spec.notEqualOfCompare key x (z => Ordering.greaterNotEqual (Eq.trans (Eq.sym e) z))) Nat.add in rfl
 
-theorem Map.getOrFoldCount [auto ord: Ord k]: ∀ (m: Map k Nat) (key: k) (xs: List k) =>
-    Map.getOr (List.foldLeft xs m (acc x => Map.insertWith acc x 1 Nat.add)) key 0
-      = List.foldLeft xs (Map.getOr m key 0) (n x => Nat.succIf n (Map.Spec.sameKey key x))
-  | m, key, [] => rfl
-  | m, key, [x, ..rest] =>
-    Eq.trans (Map.getOrFoldCount (Map.insertWith m x 1 Nat.add) key rest)
-      (Eq.cong (n => List.foldLeft rest n (n2 y => Nat.succIf n2 (Map.Spec.sameKey key y))) (Map.getOrCountStep m key x))
+theorem Map.getOrFoldCount [auto ord: Ord k] (m: Map k Nat) (key: k) (xs: List k): Map.getOr (List.foldLeft xs m (acc x => Map.insertWith acc x 1 Nat.add)) key 0
+    = List.foldLeft xs (Map.getOr m key 0) (n x => Nat.succIf n (Map.Spec.sameKey key x)) :=
+  match xs with
+    | [] => rfl
+    | [x, ..rest] =>
+      Eq.trans (Map.getOrFoldCount (Map.insertWith m x 1 Nat.add) key rest)
+        (Eq.cong (n => List.foldLeft rest n (n2 y => Nat.succIf n2 (Map.Spec.sameKey key y))) (Map.getOrCountStep m key x))
 
 --| `counts`: how many elements equal `key`.
 theorem Map.getOrCounts [auto ord: Ord k] (key: k) (xs: List k): (Map.counts xs).getOr key 0 = xs.count (== key) :=
@@ -946,12 +950,12 @@ theorem Map.weightInsertWith [auto ord: Ord k] (m: Map k Nat) (key: k) (n: Nat) 
       = n * f key + List.sumBy (Map.toList m) (entry => entry.snd * f entry.fst) :=
   rewrite Map.toListInsertWith m key n Nat.add in Map.specInsertWithWeight f key n (Map.toList m)
 
-theorem Map.countsFoldWeight [auto ord: Ord k] (f: k → Nat): ∀ (xs: List k) (m: Map k Nat) =>
-    List.sumBy (Map.toList (List.foldLeft xs m (acc x => Map.insertWith acc x 1 Nat.add))) (entry => entry.snd * f entry.fst)
-      = List.sumBy xs f + List.sumBy (Map.toList m) (entry => entry.snd * f entry.fst)
-  | [], m => omega
-  | [x, ..rest], m =>
-    rewrite Map.countsFoldWeight f rest (Map.insertWith m x 1 Nat.add), Map.weightInsertWith m x 1 f, List.sumByCons rest x f in ring
+theorem Map.countsFoldWeight [auto ord: Ord k] (f: k → Nat) (xs: List k) (m: Map k Nat): List.sumBy (Map.toList (List.foldLeft xs m (acc x => Map.insertWith acc x 1 Nat.add))) (entry => entry.snd * f entry.fst)
+    = List.sumBy xs f + List.sumBy (Map.toList m) (entry => entry.snd * f entry.fst) :=
+  match xs with
+    | [] => omega
+    | [x, ..rest] =>
+      rewrite Map.countsFoldWeight f rest (Map.insertWith m x 1 Nat.add), Map.weightInsertWith m x 1 f, List.sumByCons rest x f in ring
 
 --| Weighing `Map.counts xs` by `f` is summing `f` over `xs`: each count times
 --| `f` of its key, added up, equals `xs.sumBy f`.
@@ -960,47 +964,49 @@ theorem Map.sumByCounts [auto ord: Ord k] (xs: List k) (f: k → Nat):
   Eq.trans (Map.countsFoldWeight f xs Map.empty) (omega)
 
 --| `groupBy`: the elements whose key is `kk`, in list order, if there are any.
-theorem Map.getGroupBy [auto ord: Ord k] (key: a → k) (kk: k): ∀ (xs: List a) =>
-    Map.get (Map.groupBy xs key) kk = List.nonEmpty (List.filter xs (x => Map.Spec.sameKey kk (key x)))
-  | [] => rfl
-  | [x, ..rest] =>
-    rewrite List.foldRightCons rest x Map.empty (x m => Map.insertWith m (key x) (NonEmptyList.singleton x) NonEmptyList.append) in
-    match e: Ord.compare kk (key x) with
-      | Equal =>
-        rewrite ord.equal kk (key x) e, Map.getInsertWith (Map.groupBy rest key) (key x) (NonEmptyList.singleton x) NonEmptyList.append, Map.getGroupBy key (key x) rest in
-        match c: List.filter rest (y => Map.Spec.sameKey (key x) (key y)) with
-          | [] => rfl
-          | [y, ..ys] => rfl
-      | Less =>
-        rewrite Map.getInsertWithOther (Map.groupBy rest key) (key x) (NonEmptyList.singleton x) kk
-          (Map.Spec.notEqualOfCompare kk (key x) (z => Ordering.lessNotEqual (Eq.trans (Eq.sym e) z))) NonEmptyList.append in
-        Map.getGroupBy key kk rest
-      | Greater =>
-        rewrite Map.getInsertWithOther (Map.groupBy rest key) (key x) (NonEmptyList.singleton x) kk
-          (Map.Spec.notEqualOfCompare kk (key x) (z => Ordering.greaterNotEqual (Eq.trans (Eq.sym e) z))) NonEmptyList.append in
-        Map.getGroupBy key kk rest
+theorem Map.getGroupBy [auto ord: Ord k] (key: a → k) (kk: k) (xs: List a):
+    Map.get (Map.groupBy xs key) kk = List.nonEmpty (List.filter xs (x => Map.Spec.sameKey kk (key x))) :=
+  match xs with
+    | [] => rfl
+    | [x, ..rest] =>
+      rewrite List.foldRightCons rest x Map.empty (x m => Map.insertWith m (key x) (NonEmptyList.singleton x) NonEmptyList.append) in
+      match e: Ord.compare kk (key x) with
+        | Equal =>
+          rewrite ord.equal kk (key x) e, Map.getInsertWith (Map.groupBy rest key) (key x) (NonEmptyList.singleton x) NonEmptyList.append, Map.getGroupBy key (key x) rest in
+          match c: List.filter rest (y => Map.Spec.sameKey (key x) (key y)) with
+            | [] => rfl
+            | [y, ..ys] => rfl
+        | Less =>
+          rewrite Map.getInsertWithOther (Map.groupBy rest key) (key x) (NonEmptyList.singleton x) kk
+            (Map.Spec.notEqualOfCompare kk (key x) (z => Ordering.lessNotEqual (Eq.trans (Eq.sym e) z))) NonEmptyList.append in
+          Map.getGroupBy key kk rest
+        | Greater =>
+          rewrite Map.getInsertWithOther (Map.groupBy rest key) (key x) (NonEmptyList.singleton x) kk
+            (Map.Spec.notEqualOfCompare kk (key x) (z => Ordering.greaterNotEqual (Eq.trans (Eq.sym e) z))) NonEmptyList.append in
+          Map.getGroupBy key kk rest
 
 --| `groupMap`: the values of the elements whose key is `kk`, in list order, if
 --| there are any ([`Map.groupMap`], [`Map.groupBy`]).
-theorem Map.getGroupMap [auto ord: Ord k] (key: a → k) (value: a → v) (kk: k): ∀ (xs: List a) =>
-    Map.get (Map.groupMap xs key value) kk = List.nonEmpty (List.map (List.filter xs (x => Map.Spec.sameKey kk (key x))) value)
-  | [] => rfl
-  | [x, ..rest] =>
-    rewrite List.foldRightCons rest x Map.empty (x m => Map.insertWith m (key x) (NonEmptyList.singleton (value x)) NonEmptyList.append) in
-    match e: Ord.compare kk (key x) with
-      | Equal =>
-        rewrite ord.equal kk (key x) e, Map.getInsertWith (Map.groupMap rest key value) (key x) (NonEmptyList.singleton (value x)) NonEmptyList.append, Map.getGroupMap key value (key x) rest in
-        match c: List.filter rest (y => Map.Spec.sameKey (key x) (key y)) with
-          | [] => rfl
-          | [y, ..ys] => rfl
-      | Less =>
-        rewrite Map.getInsertWithOther (Map.groupMap rest key value) (key x) (NonEmptyList.singleton (value x)) kk
-          (Map.Spec.notEqualOfCompare kk (key x) (z => Ordering.lessNotEqual (Eq.trans (Eq.sym e) z))) NonEmptyList.append in
-        Map.getGroupMap key value kk rest
-      | Greater =>
-        rewrite Map.getInsertWithOther (Map.groupMap rest key value) (key x) (NonEmptyList.singleton (value x)) kk
-          (Map.Spec.notEqualOfCompare kk (key x) (z => Ordering.greaterNotEqual (Eq.trans (Eq.sym e) z))) NonEmptyList.append in
-        Map.getGroupMap key value kk rest
+theorem Map.getGroupMap [auto ord: Ord k] (key: a → k) (value: a → v) (kk: k) (xs: List a):
+    Map.get (Map.groupMap xs key value) kk = List.nonEmpty (List.map (List.filter xs (x => Map.Spec.sameKey kk (key x))) value) :=
+  match xs with
+    | [] => rfl
+    | [x, ..rest] =>
+      rewrite List.foldRightCons rest x Map.empty (x m => Map.insertWith m (key x) (NonEmptyList.singleton (value x)) NonEmptyList.append) in
+      match e: Ord.compare kk (key x) with
+        | Equal =>
+          rewrite ord.equal kk (key x) e, Map.getInsertWith (Map.groupMap rest key value) (key x) (NonEmptyList.singleton (value x)) NonEmptyList.append, Map.getGroupMap key value (key x) rest in
+          match c: List.filter rest (y => Map.Spec.sameKey (key x) (key y)) with
+            | [] => rfl
+            | [y, ..ys] => rfl
+        | Less =>
+          rewrite Map.getInsertWithOther (Map.groupMap rest key value) (key x) (NonEmptyList.singleton (value x)) kk
+            (Map.Spec.notEqualOfCompare kk (key x) (z => Ordering.lessNotEqual (Eq.trans (Eq.sym e) z))) NonEmptyList.append in
+          Map.getGroupMap key value kk rest
+        | Greater =>
+          rewrite Map.getInsertWithOther (Map.groupMap rest key value) (key x) (NonEmptyList.singleton (value x)) kk
+            (Map.Spec.notEqualOfCompare kk (key x) (z => Ordering.greaterNotEqual (Eq.trans (Eq.sym e) z))) NonEmptyList.append in
+          Map.getGroupMap key value kk rest
 
 theorem Map.orElseNone (o: Option a): Option.orElse o None = o :=
   match o with
@@ -1009,29 +1015,29 @@ theorem Map.orElseNone (o: Option a): Option.orElse o None = o :=
 
 --| `indexBy` from a starting map: what the map has, else the first element
 --| whose key is `kk`.
-theorem Map.getIndexByFrom [auto ord: Ord k] (key: a → k) (kk: k): ∀ (xs: List a) (m: Map k a) =>
-    Map.get (List.foldLeft xs m (index element => Map.insertWith index (key element) element (newer older => older))) kk
-      = Option.orElse (Map.get m kk) (List.find xs (x => Map.Spec.sameKey kk (key x)))
-  | [], m => Eq.sym (Map.orElseNone (Map.get m kk))
-  | [x, ..rest], m =>
-    match e: Ord.compare kk (key x) with
-      | Equal =>
-        rewrite ord.equal kk (key x) e in
-        Eq.trans (Map.getIndexByFrom key (key x) rest (Map.insertWith m (key x) x (newer older => older)))
-          (Eq.trans (Eq.cong (o => Option.orElse o (List.find rest (y => Map.Spec.sameKey (key x) (key y)))) (Map.getInsertWith m (key x) x (newer older => older)))
-            (match c: Map.get m (key x) with
-              | None => rfl
-              | Some o => rfl))
-      | Less =>
-        Eq.trans (Map.getIndexByFrom key kk rest (Map.insertWith m (key x) x (newer older => older)))
-          (Eq.cong (o => Option.orElse o (List.find rest (y => Map.Spec.sameKey kk (key y))))
-            (Map.getInsertWithOther m (key x) x kk
-              (Map.Spec.notEqualOfCompare kk (key x) (z => Ordering.lessNotEqual (Eq.trans (Eq.sym e) z))) (newer older => older)))
-      | Greater =>
-        Eq.trans (Map.getIndexByFrom key kk rest (Map.insertWith m (key x) x (newer older => older)))
-          (Eq.cong (o => Option.orElse o (List.find rest (y => Map.Spec.sameKey kk (key y))))
-            (Map.getInsertWithOther m (key x) x kk
-              (Map.Spec.notEqualOfCompare kk (key x) (z => Ordering.greaterNotEqual (Eq.trans (Eq.sym e) z))) (newer older => older)))
+theorem Map.getIndexByFrom [auto ord: Ord k] (key: a → k) (kk: k) (xs: List a) (m: Map k a): Map.get (List.foldLeft xs m (index element => Map.insertWith index (key element) element (newer older => older))) kk
+    = Option.orElse (Map.get m kk) (List.find xs (x => Map.Spec.sameKey kk (key x))) :=
+  match xs with
+    | [] => Eq.sym (Map.orElseNone (Map.get m kk))
+    | [x, ..rest] =>
+      match e: Ord.compare kk (key x) with
+        | Equal =>
+          rewrite ord.equal kk (key x) e in
+          Eq.trans (Map.getIndexByFrom key (key x) rest (Map.insertWith m (key x) x (newer older => older)))
+            (Eq.trans (Eq.cong (o => Option.orElse o (List.find rest (y => Map.Spec.sameKey (key x) (key y)))) (Map.getInsertWith m (key x) x (newer older => older)))
+              (match c: Map.get m (key x) with
+                | None => rfl
+                | Some o => rfl))
+        | Less =>
+          Eq.trans (Map.getIndexByFrom key kk rest (Map.insertWith m (key x) x (newer older => older)))
+            (Eq.cong (o => Option.orElse o (List.find rest (y => Map.Spec.sameKey kk (key y))))
+              (Map.getInsertWithOther m (key x) x kk
+                (Map.Spec.notEqualOfCompare kk (key x) (z => Ordering.lessNotEqual (Eq.trans (Eq.sym e) z))) (newer older => older)))
+        | Greater =>
+          Eq.trans (Map.getIndexByFrom key kk rest (Map.insertWith m (key x) x (newer older => older)))
+            (Eq.cong (o => Option.orElse o (List.find rest (y => Map.Spec.sameKey kk (key y))))
+              (Map.getInsertWithOther m (key x) x kk
+                (Map.Spec.notEqualOfCompare kk (key x) (z => Ordering.greaterNotEqual (Eq.trans (Eq.sym e) z))) (newer older => older)))
 
 --| `indexBy`: the first element whose key is `kk`.
 theorem Map.getIndexBy [auto ord: Ord k] (key: a → k) (kk: k) (xs: List a):

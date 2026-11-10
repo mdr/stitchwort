@@ -90,13 +90,14 @@ theorem raceCons (racetrack: Racetrack) (position: Position) (direction: Directi
   rewrite moved in rfl
 
 --| Moves then more moves: the more moves from where the first left off.
-theorem raceAppend (racetrack: Racetrack) (more: List Direction): ∀ (position: Position) (moves: List Direction) (middle: Position) =>
-    race racetrack position moves = Some middle → race racetrack position (moves ++ more) = race racetrack middle more
-  | position, [], middle, ended => rewrite Option.someInjective ended in rfl
-  | position, [direction, ..rest], middle, ended =>
-    match moved: moveTo racetrack position direction with
-      | None => Void.exfalso (Option.noneNotSome middle ended)
-      | Some next => raceAppend racetrack more next rest middle ended
+theorem raceAppend (racetrack: Racetrack) (more: List Direction) (position: Position) (moves: List Direction) (middle: Position)
+    (ended: race racetrack position moves = Some middle): race racetrack position (moves ++ more) = race racetrack middle more :=
+  match moves with
+    | [] => rewrite Option.someInjective ended in rfl
+    | [direction, ..rest] =>
+      match moved: moveTo racetrack position direction with
+        | None => Void.exfalso (Option.noneNotSome middle ended)
+        | Some next => raceAppend racetrack more next rest middle ended
 
 --| Moves, then one more.
 theorem raceSnoc (racetrack: Racetrack) (position: Position) (moves: List Direction) (middle: Position)

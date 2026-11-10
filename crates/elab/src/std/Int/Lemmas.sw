@@ -255,13 +255,14 @@ theorem Int.modNatOfLt (size x: Nat) (inside: x < size): x.toInt.modNat size = x
 
 --| One step forward on a line of `size` is adding 1 and wrapping: the
 --| conditional that goes back to 0 at the end is `modNat`.
-theorem Int.modNatSuccWrap: ∀ (size x: Nat) => x < size →
-    (if x + 1 == size then 0 else x + 1) = Int.modNat (x.toInt + 1) size
-  | Zero, x, inside => Void.exfalso (Bool.falseNotTrue inside)
-  | Succ n, x, inside =>
-    match e: x + 1 == Succ n with
-      | True => rewrite (omega [DecEq.sound e]: x = n) in Eq.sym (Nat.modSelf (Succ n))
-      | False => Eq.sym (Nat.modSmall (x + 1) (Succ n) omega)
+theorem Int.modNatSuccWrap (size x: Nat) (inside: x < size):
+    (if x + 1 == size then 0 else x + 1) = Int.modNat (x.toInt + 1) size :=
+  match size with
+    | Zero => Void.exfalso (Bool.falseNotTrue inside)
+    | Succ n =>
+      match e: x + 1 == Succ n with
+        | True => rewrite (omega [DecEq.sound e]: x = n) in Eq.sym (Nat.modSelf (Succ n))
+        | False => Eq.sym (Nat.modSmall (x + 1) (Succ n) omega)
 
 --| One step back on a line of `size` is subtracting 1 and wrapping: the
 --| conditional that goes to the end from 0 is `modNat`.

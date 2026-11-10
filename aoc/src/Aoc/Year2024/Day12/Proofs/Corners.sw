@@ -68,25 +68,25 @@ theorem previousShift (b: Nat → Bool) (first: Bool) (n: Nat): previous (b 0) (
 
 --| Along a line, runs of `b` start where the one before isn't in `b`, and
 --| end where the one after isn't; the count differs only at the ends.
-theorem telescope: ∀ (n: Nat) (b: Nat → Bool) (first: Bool) =>
-    total n (i => Bool.toNat (b i ∧ ¬(previous first b i))) + Bool.toNat (first ∧ b 0)
-      = total n (i => Bool.toNat (b i ∧ ¬(b (Succ i)))) + Bool.toNat (previous first b n ∧ b n)
-  | Zero, b, first => rfl
-  | Succ n, b, first =>
-    let rest := telescope n (i => b (Succ i)) (b 0)
-    let shifted :=
-      totalCong n (i => Bool.toNat (b (Succ i) ∧ ¬(previous first b (Succ i)))) (i => Bool.toNat (b (Succ i) ∧ ¬(previous (b 0) (i => b (Succ i)) i)))
-        (i => rewrite previousShift b first i in rfl)
-    rewrite <- shifted, previousShift b first n at rest in
-      match atZero: b 0, atOne: b 1, before: first with
-        | True, True, True => omega [rest]
-        | True, True, False => omega [rest]
-        | True, False, True => omega [rest]
-        | True, False, False => omega [rest]
-        | False, True, True => omega [rest]
-        | False, True, False => omega [rest]
-        | False, False, True => omega [rest]
-        | False, False, False => omega [rest]
+theorem telescope (n: Nat) (b: Nat → Bool) (first: Bool): total n (i => Bool.toNat (b i ∧ ¬(previous first b i))) + Bool.toNat (first ∧ b 0)
+    = total n (i => Bool.toNat (b i ∧ ¬(b (Succ i)))) + Bool.toNat (previous first b n ∧ b n) :=
+  match n with
+    | Zero => rfl
+    | Succ n =>
+      let rest := telescope n (i => b (Succ i)) (b 0)
+      let shifted :=
+        totalCong n (i => Bool.toNat (b (Succ i) ∧ ¬(previous first b (Succ i)))) (i => Bool.toNat (b (Succ i) ∧ ¬(previous (b 0) (i => b (Succ i)) i)))
+          (i => rewrite previousShift b first i in rfl)
+      rewrite <- shifted, previousShift b first n at rest in
+        match atZero: b 0, atOne: b 1, before: first with
+          | True, True, True => omega [rest]
+          | True, True, False => omega [rest]
+          | True, False, True => omega [rest]
+          | True, False, False => omega [rest]
+          | False, True, True => omega [rest]
+          | False, True, False => omega [rest]
+          | False, False, True => omega [rest]
+          | False, False, False => omega [rest]
 
 --| As many runs start as end, on a line with nothing at `n`.
 theorem startsEqualEnds (n: Nat) (b: Nat → Bool) (stop: b n = False):

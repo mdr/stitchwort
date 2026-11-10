@@ -36,17 +36,18 @@ theorem routesFollow (next: Cave → List Cave) (unvisited: List Cave) (spare: B
 
 --| ...and every route that follows them is listed, if the search goes deep
 --| enough.
-theorem followRoutes (next: Cave → List Cave) (unvisited: List Cave) (spare: Bool) (cave: Cave):
-    ∀ (steps: Nat) (rest: List Cave) => reach unvisited spare cave < steps → Follows next unvisited spare cave rest → rest ∈ routesFrom next unvisited spare cave steps
-  | Zero, rest, enough, follows => Void.exfalso (omega)
-  | Succ more, [], enough, follows => Void.exfalso follows
-  | Succ more, [other, ..tail], enough, Both member after =>
-    List.memConcatMapIntro _ other [other, ..tail] (next cave) member
-      (match e: step unvisited spare cave other with
-        | Finish => rewrite after in Inl rfl
-        | Blocked => Void.exfalso after
-        | Continue left stillSpare =>
-          List.memMap _ tail (followRoutes next left stillSpare other more tail (omega [stepDecreases unvisited spare cave other left stillSpare e]) after) (Cons other))
+theorem followRoutes (next: Cave → List Cave) (unvisited: List Cave) (spare: Bool) (cave: Cave)
+    (steps: Nat) (rest: List Cave) (enough: reach unvisited spare cave < steps) (follows: Follows next unvisited spare cave rest): rest ∈ routesFrom next unvisited spare cave steps :=
+  match steps, rest, follows with
+    | Zero, rest, follows => Void.exfalso (omega)
+    | Succ more, [], follows => Void.exfalso follows
+    | Succ more, [other, ..tail], Both member after =>
+      List.memConcatMapIntro _ other [other, ..tail] (next cave) member
+        (match e: step unvisited spare cave other with
+          | Finish => rewrite after in Inl rfl
+          | Blocked => Void.exfalso after
+          | Continue left stillSpare =>
+            List.memMap _ tail (followRoutes next left stillSpare other more tail (omega [stepDecreases unvisited spare cave other left stillSpare e]) after) (Cons other))
 
 --| Routes on from `other` start with it...
 theorem viaFirst (other: Cave) (after: List (List Cave)) (route: List Cave) (found: route ∈ routesVia other after): route.headOr Cave.start = other :=

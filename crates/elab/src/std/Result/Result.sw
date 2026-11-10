@@ -56,15 +56,16 @@ theorem Result.flatMapEqOk [goal: Prop]: ∀ (r: Result a e) (f: a → Result b 
   | Err m, f, v, h, use => Void.exfalso (Result.errNotOk h)
 
 --| The values done so far go in front of what the rest gives.
-theorem Result.traverseLoopDone (f: a → Result b e): ∀ (xs: List a) (done: List b) =>
-    Result.traverseLoop f done xs = Result.map (Result.traverseLoop f [] xs) (ys => List.reverseOnto done ys)
-  | [], done => rfl
-  | [x, ..xs], done =>
-    match e: f x with
-      | Ok y =>
-        rewrite Result.traverseLoopDone f xs [y, ..done], Result.traverseLoopDone f xs [y],
-          Result.mapMap (ys => List.reverseOnto [y] ys) (ys => List.reverseOnto done ys) (Result.traverseLoop f [] xs) in rfl
-      | Err m => rfl
+theorem Result.traverseLoopDone (f: a → Result b e) (xs: List a) (done: List b):
+    Result.traverseLoop f done xs = Result.map (Result.traverseLoop f [] xs) (ys => List.reverseOnto done ys) :=
+  match xs with
+    | [] => rfl
+    | [x, ..xs] =>
+      match e: f x with
+        | Ok y =>
+          rewrite Result.traverseLoopDone f xs [y, ..done], Result.traverseLoopDone f xs [y],
+            Result.mapMap (ys => List.reverseOnto [y] ys) (ys => List.reverseOnto done ys) (Result.traverseLoop f [] xs) in rfl
+        | Err m => rfl
 
 --| The step of `Result.traverse`, which the loop form hides.
 theorem Result.traverseCons (f: a → Result b e) (x: a) (xs: List a):
@@ -75,26 +76,28 @@ theorem Result.traverseCons (f: a → Result b e) (x: a) (xs: List a):
 
 --| A `traverse` that gave `Ok ys`: each value is what `f` gave for its input,
 --| so whatever `r` each `Ok` of `f` satisfies holds pairwise.
-theorem Result.traverseAll2 (f: a → Result b e) (r: a → b → Prop) (each: ∀ (x: a) (y: b) => f x = Ok y → r x y):
-    ∀ (xs: List a) (ys: List b) => Result.traverse xs f = Ok ys → List.All2 r xs ys
-  | [], ys, done => rewrite <- Result.okInjective done in Trivial
-  | [x, ..rest], ys, done =>
-    Result.flatMapEqOk (f x) (y => Result.map (Result.traverse rest f) (Cons y)) ys (rewrite Result.traverseCons f x rest at done in done)
-      (y first later =>
-        match e: Result.traverse rest f with
-          | Err m => Void.exfalso (Result.errNotOk later)
-          | Ok zs => rewrite <- Result.okInjective later in Both (each x y first) (Result.traverseAll2 f r each rest zs e))
+theorem Result.traverseAll2 (f: a → Result b e) (r: a → b → Prop) (each: ∀ (x: a) (y: b) => f x = Ok y → r x y)
+    (xs: List a) (ys: List b) (done: Result.traverse xs f = Ok ys): List.All2 r xs ys :=
+  match xs with
+    | [] => rewrite <- Result.okInjective done in Trivial
+    | [x, ..rest] =>
+      Result.flatMapEqOk (f x) (y => Result.map (Result.traverse rest f) (Cons y)) ys (rewrite Result.traverseCons f x rest at done in done)
+        (y first later =>
+          match e: Result.traverse rest f with
+            | Err m => Void.exfalso (Result.errNotOk later)
+            | Ok zs => rewrite <- Result.okInjective later in Both (each x y first) (Result.traverseAll2 f r each rest zs e))
 
 --| The converse of [`Result.traverseAll2`]: if `f` gives `Ok y` for every
 --| pair that `r` relates, then `traverse` over lists `r` relates pairwise
 --| gives `Ok` of the second list.
-theorem Result.traverseOfAll2 (f: a → Result b e) (r: a → b → Prop) (each: ∀ (x: a) (y: b) => r x y → f x = Ok y):
-    ∀ (xs: List a) (ys: List b) => List.All2 r xs ys → Result.traverse xs f = Ok ys
-  | [], [], all => rfl
-  | [x, ..rest], [y, ..more], all =>
-    rewrite Result.traverseCons f x rest, each x y (And.left all), Result.traverseOfAll2 f r each rest more (And.right all) in rfl
-  | [], [y, ..more], all => Void.exfalso all
-  | [x, ..rest], [], all => Void.exfalso all
+theorem Result.traverseOfAll2 (f: a → Result b e) (r: a → b → Prop) (each: ∀ (x: a) (y: b) => r x y → f x = Ok y)
+    (xs: List a) (ys: List b) (all: List.All2 r xs ys): Result.traverse xs f = Ok ys :=
+  match xs, ys with
+    | [], [] => rfl
+    | [x, ..rest], [y, ..more] =>
+      rewrite Result.traverseCons f x rest, each x y (And.left all), Result.traverseOfAll2 f r each rest more (And.right all) in rfl
+    | [], [y, ..more] => Void.exfalso all
+    | [x, ..rest], [] => Void.exfalso all
 
 --| The value in an `Option`, or `Err err`: `t.toNat.toResult "not a number"`.
 def Option.toResult: (option: Option a) → (err: e) → Result a e

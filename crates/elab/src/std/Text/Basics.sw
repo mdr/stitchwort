@@ -228,13 +228,14 @@ def Text.wordsFinish: (state: Pair (List Char) (List (List Char))) → List Text
 def Text.words (text: Text): List Text := Text.wordsChars text.toList |> Text.wordsFinish
 
 --| What `dropSpaces` leaves doesn't start with whitespace.
-theorem Text.dropSpacesHead: ∀ (chars: List Char) (first: Char) (rest: List Char) => Text.dropSpaces chars = [first, ..rest] →
-    Char.isWhitespace first = False
-  | [], first, rest, h => Void.exfalso (List.consNotNil first rest (Eq.sym h))
-  | [char, ..chars], first, rest, h =>
-    match space: Char.isWhitespace char with
-      | True => Text.dropSpacesHead chars first rest h
-      | False => rewrite <- Eq.cong (.headOr first) h in space
+theorem Text.dropSpacesHead (chars: List Char) (first: Char) (rest: List Char) (h: Text.dropSpaces chars = [first, ..rest]):
+    Char.isWhitespace first = False :=
+  match chars with
+    | [] => Void.exfalso (List.consNotNil first rest (Eq.sym h))
+    | [char, ..chars] =>
+      match space: Char.isWhitespace char with
+        | True => Text.dropSpacesHead chars first rest h
+        | False => rewrite <- Eq.cong (.headOr first) h in space
 
 --| A trimmed text doesn't end with whitespace.
 theorem Text.trimLast (text: Text) (front: List Char) (last: Char) (h: text.trim.toList = front ++ [last]): Char.isWhitespace last = False :=

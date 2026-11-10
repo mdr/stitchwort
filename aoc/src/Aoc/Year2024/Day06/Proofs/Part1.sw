@@ -24,22 +24,24 @@ theorem routeAfterGone (lab: Lab): ∀ (steps: Nat) (guard: Option Guard) => wal
     rewrite routeAfterGone lab steps (lab.step here) gone more le in rfl
 
 --| With budget enough to leave, the walk collects the route's positions.
-theorem patrolFromRoute (lab: Lab): ∀ (budget: Nat) (guard: Guard) (visited: Set Position) => walk lab (Some guard) budget = None →
-    lab.patrolFrom guard visited budget = Some ((route lab (Some guard) budget).foldLeft visited (set key => set.insert key))
-  | Zero, guard, visited, gone => Void.exfalso (Option.someNotNone guard gone)
-  | Succ budget, guard, visited, gone =>
-    match stepped: lab.step guard with
-      | None => rewrite routeNone lab budget in rfl
-      | Some next => patrolFromRoute lab budget next (visited.insert guard.position) gone
+theorem patrolFromRoute (lab: Lab) (budget: Nat) (guard: Guard) (visited: Set Position) (gone: walk lab (Some guard) budget = None):
+    lab.patrolFrom guard visited budget = Some ((route lab (Some guard) budget).foldLeft visited (set key => set.insert key)) :=
+  match budget with
+    | Zero => Void.exfalso (Option.someNotNone guard gone)
+    | Succ budget =>
+      match stepped: lab.step guard with
+        | None => rewrite routeNone lab budget in rfl
+        | Some next => patrolFromRoute lab budget next (visited.insert guard.position) gone
 
 --| A walk that collects anything leaves within its budget.
-theorem patrolFromGone (lab: Lab): ∀ (budget: Nat) (guard: Guard) (visited found: Set Position) =>
-    lab.patrolFrom guard visited budget = Some found → walk lab (Some guard) budget = None
-  | Zero, guard, visited, found, collected => Void.exfalso (Option.noneNotSome found collected)
-  | Succ budget, guard, visited, found, collected =>
-    match stepped: lab.step guard with
-      | None => walkNone lab budget
-      | Some next => patrolFromGone lab budget next (visited.insert guard.position) found collected
+theorem patrolFromGone (lab: Lab) (budget: Nat) (guard: Guard) (visited found: Set Position)
+    (collected: lab.patrolFrom guard visited budget = Some found): walk lab (Some guard) budget = None :=
+  match budget with
+    | Zero => Void.exfalso (Option.noneNotSome found collected)
+    | Succ budget =>
+      match stepped: lab.step guard with
+        | None => walkNone lab budget
+        | Some next => patrolFromGone lab budget next (visited.insert guard.position) found collected
 
 --| A guard who leaves at all leaves within the budget.
 theorem goneInBudget (lab: Lab) (inside: onMap lab lab.start = True) (steps: Nat) (gone: after lab steps = None):

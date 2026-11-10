@@ -44,12 +44,13 @@ theorem deepAfterWalk (rules: List Rule) (finish: Colour) (rest: Nat) (start: Co
     | [next, ..others], Both directly walk =>
       Witness next (Both directly (deepAfterWalk rules finish rest next others walk deeper))
 
-theorem walkOfDeep (rules: List Rule): ∀ (steps: Nat) (start: Colour) => Deep rules (Succ steps) start →
-    ∃ (between: List Colour) => ∃ (finish: Colour) => List.length between = steps ∧ Walk rules start between finish
-  | 0, start, Witness inner (Both directly _) => Witness [] (Witness inner (Both rfl directly))
-  | Succ steps, start, Witness inner (Both directly deeper) =>
-    let (Witness between (Witness finish (Both long walk))) := walkOfDeep rules steps inner deeper
-    Witness [inner, ..between] (Witness finish (Both (rewrite long in rfl) (Both directly walk)))
+theorem walkOfDeep (rules: List Rule) (steps: Nat) (start: Colour) (h: Deep rules (Succ steps) start):
+    ∃ (between: List Colour) => ∃ (finish: Colour) => List.length between = steps ∧ Walk rules start between finish :=
+  match steps, h with
+    | 0, Witness inner (Both directly _) => Witness [] (Witness inner (Both rfl directly))
+    | Succ steps, Witness inner (Both directly deeper) =>
+      let (Witness between (Witness finish (Both long walk))) := walkOfDeep rules steps inner deeper
+      Witness [inner, ..between] (Witness finish (Both (rewrite long in rfl) (Both directly walk)))
 
 theorem walkSplit (rules: List Rule) (middle: Colour) (after: List Colour) (finish: Colour) (start: Colour) (before: List Colour)
     (h: Walk rules start (before ++ [middle, ..after]) finish): Walk rules start before middle ∧ Walk rules middle after finish :=
@@ -145,31 +146,33 @@ theorem allSomeOfEach (f: a → Option b) (xs: List a) (each: (∀ (x: a) => x �
       let (Witness values atRest) := allSomeOfEach f rest (x member => each x (Inr member))
       Witness [value, ..values] (rewrite atFirst, atRest in rfl)
 
-theorem settledNotDeep (rules: List Rule): ∀ (depth: Nat) (colour: Colour) (total: Nat) => Spec.bagsWithin rules depth colour = Some total → Deep rules depth colour → Void
-  | 0, colour, total, settled, deep => Option.noneNotSome total settled
-  | Succ depth, colour, total, settled, Witness inner (Both (Witness content (Both inContents isInner)) deeper) =>
-    let step := (content: Content) => Spec.bagsWithin rules depth content.colour |> .map (inside => content.count * (1 + inside))
-    match r: List.allSome ((Spec.contentsOf rules colour).map step) with
-      | None => Option.noneNotSome total settled
-      | Some counts =>
-        let (Witness value atContent) := allSomeEach step (Spec.contentsOf rules colour) counts r content inContents
-        match e: Spec.bagsWithin rules depth content.colour with
-          | None => Option.noneNotSome value atContent
-          | Some inside => settledNotDeep rules depth content.colour inside e (rewrite isInner in deeper)
+theorem settledNotDeep (rules: List Rule) (depth: Nat) (colour: Colour) (total: Nat) (settled: Spec.bagsWithin rules depth colour = Some total) (deep: Deep rules depth colour): Void :=
+  match depth, deep with
+    | 0, deep => Option.noneNotSome total settled
+    | Succ depth, Witness inner (Both (Witness content (Both inContents isInner)) deeper) =>
+      let step := (content: Content) => Spec.bagsWithin rules depth content.colour |> .map (inside => content.count * (1 + inside))
+      match r: List.allSome ((Spec.contentsOf rules colour).map step) with
+        | None => Option.noneNotSome total settled
+        | Some counts =>
+          let (Witness value atContent) := allSomeEach step (Spec.contentsOf rules colour) counts r content inContents
+          match e: Spec.bagsWithin rules depth content.colour with
+            | None => Option.noneNotSome value atContent
+            | Some inside => settledNotDeep rules depth content.colour inside e (rewrite isInner in deeper)
 
 theorem contentSettled (rules: List Rule) (depth: Nat) (content: Content) (none: Deep rules depth content.colour → Void):
     ∃ (value: Nat) => (Spec.bagsWithin rules depth content.colour |> .map (inside => content.count * (1 + inside))) = Some value :=
   let (Witness inside e) := noDeepSettled rules depth content.colour none
   Witness (content.count * (1 + inside)) (rewrite e in rfl)
 
-theorem noDeepSettled (rules: List Rule): ∀ (depth: Nat) (colour: Colour) => (Deep rules depth colour → Void) →
-    ∃ (total: Nat) => Spec.bagsWithin rules depth colour = Some total
-  | 0, colour, none => Void.exfalso (none Trivial)
-  | Succ depth, colour, none =>
-    let step := (content: Content) => Spec.bagsWithin rules depth content.colour |> .map (inside => content.count * (1 + inside))
-    let (Witness counts found) := allSomeOfEach step (Spec.contentsOf rules colour) (content inContents =>
-      contentSettled rules depth content (deeper => none (Witness content.colour (Both (Witness content (Both inContents rfl)) deeper))))
-    Witness (List.sum counts) (rewrite found in rfl)
+theorem noDeepSettled (rules: List Rule) (depth: Nat) (colour: Colour) (none: (Deep rules depth colour → Void)):
+    ∃ (total: Nat) => Spec.bagsWithin rules depth colour = Some total :=
+  match depth with
+    | 0 => Void.exfalso (none Trivial)
+    | Succ depth =>
+      let step := (content: Content) => Spec.bagsWithin rules depth content.colour |> .map (inside => content.count * (1 + inside))
+      let (Witness counts found) := allSomeOfEach step (Spec.contentsOf rules colour) (content inContents =>
+        contentSettled rules depth content (deeper => none (Witness content.colour (Both (Witness content (Both inContents rfl)) deeper))))
+      Witness (List.sum counts) (rewrite found in rfl)
 
 --| Whatever depth settles part 2, the program's depth settles it too, to the
 --| same total: it fails with a cycle only where no depth gives an answer.

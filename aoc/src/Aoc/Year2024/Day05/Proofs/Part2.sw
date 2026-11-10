@@ -83,34 +83,35 @@ theorem reorderCorrect (rules: List Rule) (update: Update) (order: StrictTotalOr
 --| Two orderings of the same pages, both in order by a total order, are the
 --| same.
 theorem orderUnique (precedes: Nat → Nat → Bool) (pages: List Nat)
-    (total: ∀ (x y: Nat) => x ∈ pages → y ∈ pages → x ≠ y → precedes x y = False → precedes y x = True):
-    ∀ (first second: List Nat) => List.All (page => page ∈ pages) first → List.Perm first second →
-      inOrder precedes first = True → inOrder precedes second = True → first = second
-  | [], [], inPages, same, firstOrdered, secondOrdered => rfl
-  | [], [y, ..ys], inPages, same, firstOrdered, secondOrdered => Void.exfalso (Nat.zeroNotSucc (List.length ys) (List.permLength [] [y, ..ys] same))
-  | [x, ..xs], [], inPages, same, firstOrdered, secondOrdered => Void.exfalso (Nat.succNotZero (List.length xs) (List.permLength [x, ..xs] [] same))
-  | [x, ..xs], [y, ..ys], Both inX inPages, same, firstOrdered, secondOrdered =>
-    let heads: x = y :=
-      match List.memPerm [y, ..ys] [x, ..xs] (List.permSym [x, ..xs] [y, ..ys] same) y (Inl rfl) with
-        | Inl equal => equal
-        | Inr yLater =>
-          match List.memPerm [x, ..xs] [y, ..ys] same x (Inl rfl) with
-            | Inl equal => Eq.sym equal
-            | Inr xLater =>
-              match equal: x == y with
-                | True => DecEq.sound equal
-                | False =>
-                  let inY := List.allMem (page => page ∈ pages) y xs inPages yLater
-                  let yNotFirst := inOrderLater precedes x xs firstOrdered y yLater
-                  let xNotFirst := inOrderLater precedes y ys secondOrdered x xLater
-                  Void.exfalso (Bool.trueNotFalse
-                    (Eq.trans (Eq.sym (total x y inX inY (other => DecEq.soundFalse x y equal other) xNotFirst)) yNotFirst))
-    let tails: xs = ys :=
-      orderUnique precedes pages total xs ys inPages
-        (property => Nat.addCancelLeft (Bool.toNat (property x)) (List.occurrences xs property) (List.occurrences ys property)
-          (Eq.trans (same property) (Eq.cong (head => Bool.toNat (property head) + List.occurrences ys property) (Eq.sym heads))))
-        (Bool.andRight firstOrdered) (Bool.andRight secondOrdered)
-    rewrite heads, tails in rfl
+    (total: ∀ (x y: Nat) => x ∈ pages → y ∈ pages → x ≠ y → precedes x y = False → precedes y x = True)
+    (first second: List Nat) (h: List.All (page => page ∈ pages) first) (same: List.Perm first second)
+    (firstOrdered: inOrder precedes first = True) (secondOrdered: inOrder precedes second = True): first = second :=
+  match first, second, h with
+    | [], [], inPages => rfl
+    | [], [y, ..ys], inPages => Void.exfalso (Nat.zeroNotSucc (List.length ys) (List.permLength [] [y, ..ys] same))
+    | [x, ..xs], [], inPages => Void.exfalso (Nat.succNotZero (List.length xs) (List.permLength [x, ..xs] [] same))
+    | [x, ..xs], [y, ..ys], Both inX inPages =>
+      let heads: x = y :=
+        match List.memPerm [y, ..ys] [x, ..xs] (List.permSym [x, ..xs] [y, ..ys] same) y (Inl rfl) with
+          | Inl equal => equal
+          | Inr yLater =>
+            match List.memPerm [x, ..xs] [y, ..ys] same x (Inl rfl) with
+              | Inl equal => Eq.sym equal
+              | Inr xLater =>
+                match equal: x == y with
+                  | True => DecEq.sound equal
+                  | False =>
+                    let inY := List.allMem (page => page ∈ pages) y xs inPages yLater
+                    let yNotFirst := inOrderLater precedes x xs firstOrdered y yLater
+                    let xNotFirst := inOrderLater precedes y ys secondOrdered x xLater
+                    Void.exfalso (Bool.trueNotFalse
+                      (Eq.trans (Eq.sym (total x y inX inY (other => DecEq.soundFalse x y equal other) xNotFirst)) yNotFirst))
+      let tails: xs = ys :=
+        orderUnique precedes pages total xs ys inPages
+          (property => Nat.addCancelLeft (Bool.toNat (property x)) (List.occurrences xs property) (List.occurrences ys property)
+            (Eq.trans (same property) (Eq.cong (head => Bool.toNat (property head) + List.occurrences ys property) (Eq.sym heads))))
+          (Bool.andRight firstOrdered) (Bool.andRight secondOrdered)
+      rewrite heads, tails in rfl
 
 --| Under the assumption there is only one correct ordering of an update.
 theorem correctOrderingUnique (rules: List Rule) (update: Update) (order: StrictTotalOrderOn rules update.pages)

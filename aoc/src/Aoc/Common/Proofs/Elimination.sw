@@ -44,20 +44,21 @@ theorem passSteps [auto eq: DecEq a] (settled: List a) (slot: Slot a) (slots: Li
     | Some after => rewrite <- Option.someInjective found in Both (stepRefl slot) (rest after rfl)
     | None => Void.exfalso (Option.noneNotSome next found)
 
-theorem settleSteps [auto eq: DecEq a] (settled: List a): ∀ (slots next: List (Slot a)) => settle settled slots = Some next → List.All2 SlotStep next slots
-  | [], next, found => Void.exfalso (Option.noneNotSome next found)
-  | [slot, ..slots], next, found =>
-    match pick: slot.choice with
-      | Some existing => passSteps settled slot slots next found (settleSteps settled slots)
-      | None =>
-        match left: slot.remaining settled with
-          | [] => passSteps settled slot slots next found (settleSteps settled slots)
-          | [only] =>
-            rewrite <- Option.someInjective found in
-              Both (Both rfl (sound item same =>
-                rewrite <- Option.someInjective same in And.left (List.memFilter slot.candidates (item => not (settled.contains item)) (rewrite left in Inl rfl))))
-                (stepsRefl slots)
-          | [first, second, ..more] => passSteps settled slot slots next found (settleSteps settled slots)
+theorem settleSteps [auto eq: DecEq a] (settled: List a) (slots next: List (Slot a)) (found: settle settled slots = Some next): List.All2 SlotStep next slots :=
+  match slots with
+    | [] => Void.exfalso (Option.noneNotSome next found)
+    | [slot, ..slots] =>
+      match pick: slot.choice with
+        | Some existing => passSteps settled slot slots next found (settleSteps settled slots)
+        | None =>
+          match left: slot.remaining settled with
+            | [] => passSteps settled slot slots next found (settleSteps settled slots)
+            | [only] =>
+              rewrite <- Option.someInjective found in
+                Both (Both rfl (sound item same =>
+                  rewrite <- Option.someInjective same in And.left (List.memFilter slot.candidates (item => not (settled.contains item)) (rewrite left in Inl rfl))))
+                  (stepsRefl slots)
+            | [first, second, ..more] => passSteps settled slot slots next found (settleSteps settled slots)
 
 --| What one round adds to the settled items: one pick, not settled before.
 def Adds [auto eq: DecEq a] (settled: List a) (next: List (Slot a)) (slots: List (Slot a)): Prop :=
@@ -74,23 +75,24 @@ theorem passAdds [auto eq: DecEq a] (settled: List a) (slot: Slot a) (slots: Lis
             rewrite <- Option.someInjective found, settledCons slot after, settledCons slot slots, List.countAppend, List.countAppend, counts other in omega))
     | None => Void.exfalso (Option.noneNotSome next found)
 
-theorem settleAdds [auto eq: DecEq a] (settled: List a): ∀ (slots next: List (Slot a)) => settle settled slots = Some next → Adds settled next slots
-  | [], next, found => Void.exfalso (Option.noneNotSome next found)
-  | [slot, ..slots], next, found =>
-    match pick: slot.choice with
-      | Some existing =>
-        passAdds settled slot slots next found (settleAdds settled slots)
-      | None =>
-        match left: slot.remaining settled with
-          | [] =>
-            passAdds settled slot slots next found (settleAdds settled slots)
-          | [only] =>
-            let kept := And.right (List.memFilter slot.candidates (item => not (settled.contains item)) (rewrite left in Inl rfl))
-            rewrite <- Option.someInjective found in
-              Witness only (Both (Bool.notTrue _ kept) (other =>
-                Eq.trans (List.countCons (chosen slots) only (pick => pick == other)) (Nat.addComm _ _)))
-          | [first, second, ..more] =>
-            passAdds settled slot slots next found (settleAdds settled slots)
+theorem settleAdds [auto eq: DecEq a] (settled: List a) (slots next: List (Slot a)) (found: settle settled slots = Some next): Adds settled next slots :=
+  match slots with
+    | [] => Void.exfalso (Option.noneNotSome next found)
+    | [slot, ..slots] =>
+      match pick: slot.choice with
+        | Some existing =>
+          passAdds settled slot slots next found (settleAdds settled slots)
+        | None =>
+          match left: slot.remaining settled with
+            | [] =>
+              passAdds settled slot slots next found (settleAdds settled slots)
+            | [only] =>
+              let kept := And.right (List.memFilter slot.candidates (item => not (settled.contains item)) (rewrite left in Inl rfl))
+              rewrite <- Option.someInjective found in
+                Witness only (Both (Bool.notTrue _ kept) (other =>
+                  Eq.trans (List.countCons (chosen slots) only (pick => pick == other)) (Nat.addComm _ _)))
+            | [first, second, ..more] =>
+              passAdds settled slot slots next found (settleAdds settled slots)
 
 theorem settleOnce [auto eq: DecEq a] (slots: List (Slot a)) (next: List (Slot a)) (found: settle (chosen slots) slots = Some next) (once: ChosenOnce slots): ChosenOnce next :=
   match settleAdds (chosen slots) slots next found with
@@ -105,18 +107,19 @@ theorem settleOnce [auto eq: DecEq a] (slots: List (Slot a)) (next: List (Slot a
               let before := once other
               omega
 
-theorem allSettledFields: ∀ (slots: List (Slot a)) (order: List a) => allSettled slots = Some order →
-    List.All2 (item slot => slot.choice = Some item) order slots ∧ order = chosen slots
-  | [], order, found => rewrite <- Option.someInjective found in Both Trivial rfl
-  | [slot, ..slots], order, found =>
-    match pick: slot.choice with
-      | Some item =>
-        match rest: allSettled slots with
-          | Some tail =>
-            match allSettledFields slots tail rest with
-              | Both items same => rewrite <- Option.someInjective found in Both (Both pick items) (rewrite same in rfl)
-          | None => Void.exfalso (Option.noneNotSome order found)
-      | None => Void.exfalso (Option.noneNotSome order found)
+theorem allSettledFields (slots: List (Slot a)) (order: List a) (found: allSettled slots = Some order):
+    List.All2 (item slot => slot.choice = Some item) order slots ∧ order = chosen slots :=
+  match slots with
+    | [] => rewrite <- Option.someInjective found in Both Trivial rfl
+    | [slot, ..slots] =>
+      match pick: slot.choice with
+        | Some item =>
+          match rest: allSettled slots with
+            | Some tail =>
+              match allSettledFields slots tail rest with
+                | Both items same => rewrite <- Option.someInjective found in Both (Both pick items) (rewrite same in rfl)
+            | None => Void.exfalso (Option.noneNotSome order found)
+        | None => Void.exfalso (Option.noneNotSome order found)
 
 theorem eliminateFinds [auto eq: DecEq a] (candidates: List (List a)): ∀ (rounds: Nat) (slots: List (Slot a)) => Keeps slots candidates → ChosenOnce slots →
     ∀ (order: List a) => eliminate rounds slots = Some order →
@@ -163,34 +166,35 @@ theorem settledIn [auto eq: DecEq a] (pick: a) (other: List a) (slots: List (Slo
 
 --| An order of distinct items gives a position not yet settled a pick
 --| settled nowhere, and none of `outside`.
-theorem freshOf [auto eq: DecEq a] (outside: List a): ∀ (other: List a) (slots: List (Slot a)) => Agrees other slots → other.Distinct →
-    (∀ (pick: a) => pick ∈ outside → pick ∉ other) →
-    List.All2 (item slot => slot.choice = None → item ∉ outside ++ chosen slots) other slots
-  | [], [], agrees, distinct, apart => Trivial
-  | [item, ..other], [slot, ..slots], Both (Both candidate settledHere) agrees, Both fresh distinct, apart =>
-    let restApart: ∀ (pick: a) => pick ∈ outside ++ chosen [slot] → pick ∉ other := pick member =>
-      match List.memAppend pick outside (chosen [slot]) member with
-        | Inl outer => inOther => apart pick outer (Inr inOther)
-        | Inr here =>
-          match settledField: slot.choice with
-            | Some settledThere =>
-              let same: pick = settledThere := match here with
-                | Inl same => Eq.sym same
-                | Inr none => Void.exfalso none
-              rewrite same, <- settledHere settledThere rfl in fresh
-            | None => Void.exfalso here
-    Both
-      (isOpen member =>
-        match List.memAppend item outside (chosen [slot, ..slots]) member with
-          | Inl outer => apart item outer (Inl rfl)
-          | Inr settled =>
-            match List.memAppend item (chosen [slot]) (chosen slots) (rewrite <- settledCons slot slots in settled) with
-              | Inl here => rewrite isOpen at here in Void.exfalso here
-              | Inr later => fresh (settledIn item other slots agrees later))
-      (List.all2Weaken (laterRule laterSlot unsettled isOpen => rewrite settledCons slot slots, <- List.appendAssoc outside (chosen [slot]) (chosen slots) in unsettled isOpen) other slots
-        (freshOf (outside ++ chosen [slot]) other slots agrees distinct restApart))
-  | [], [slot, ..slots], agrees, distinct, apart => Void.exfalso agrees
-  | [item, ..other], [], agrees, distinct, apart => Void.exfalso agrees
+theorem freshOf [auto eq: DecEq a] (outside: List a) (other: List a) (slots: List (Slot a)) (h: Agrees other slots) (h1: other.Distinct)
+    (apart: (∀ (pick: a) => pick ∈ outside → pick ∉ other)):
+    List.All2 (item slot => slot.choice = None → item ∉ outside ++ chosen slots) other slots :=
+  match other, slots, h, h1 with
+    | [], [], agrees, distinct => Trivial
+    | [item, ..other], [slot, ..slots], Both (Both candidate settledHere) agrees, Both fresh distinct =>
+      let restApart: ∀ (pick: a) => pick ∈ outside ++ chosen [slot] → pick ∉ other := pick member =>
+        match List.memAppend pick outside (chosen [slot]) member with
+          | Inl outer => inOther => apart pick outer (Inr inOther)
+          | Inr here =>
+            match settledField: slot.choice with
+              | Some settledThere =>
+                let same: pick = settledThere := match here with
+                  | Inl same => Eq.sym same
+                  | Inr none => Void.exfalso none
+                rewrite same, <- settledHere settledThere rfl in fresh
+              | None => Void.exfalso here
+      Both
+        (isOpen member =>
+          match List.memAppend item outside (chosen [slot, ..slots]) member with
+            | Inl outer => apart item outer (Inl rfl)
+            | Inr settled =>
+              match List.memAppend item (chosen [slot]) (chosen slots) (rewrite <- settledCons slot slots in settled) with
+                | Inl here => rewrite isOpen at here in Void.exfalso here
+                | Inr later => fresh (settledIn item other slots agrees later))
+        (List.all2Weaken (laterRule laterSlot unsettled isOpen => rewrite settledCons slot slots, <- List.appendAssoc outside (chosen [slot]) (chosen slots) in unsettled isOpen) other slots
+          (freshOf (outside ++ chosen [slot]) other slots agrees distinct restApart))
+    | [], [slot, ..slots], agrees, distinct => Void.exfalso agrees
+    | [item, ..other], [], agrees, distinct => Void.exfalso agrees
 
 theorem passAgrees [auto eq: DecEq a] (settled: List a) (item: a) (other: List a) (slot: Slot a) (slots: List (Slot a)) (next: List (Slot a))
     (found: (settle settled slots).map (Cons slot) = Some next) (agrees: Agrees [item, ..other] [slot, ..slots])
@@ -201,33 +205,34 @@ theorem passAgrees [auto eq: DecEq a] (settled: List a) (item: a) (other: List a
 
 --| A round keeps an order that agrees, when no position yet to be settled
 --| has a settled pick in it.
-theorem settleAgrees [auto eq: DecEq a] (settled: List a): ∀ (other: List a) (slots next: List (Slot a)) => settle settled slots = Some next →
-    Agrees other slots → List.All2 (item slot => slot.choice = None → item ∉ settled) other slots → Agrees other next
-  | other, [], next, found, agrees, fresh => Void.exfalso (Option.noneNotSome next found)
-  | [], [slot, ..slots], next, found, agrees, fresh => Void.exfalso agrees
-  | [item, ..other], [slot, ..slots], next, found, agrees, fresh =>
-    let rest := (after: List (Slot a)) (later: settle settled slots = Some after) => settleAgrees settled other slots after later (And.right agrees) (And.right fresh)
-    let pass := (passed: (settle settled slots).map (Cons slot) = Some next) => passAgrees settled item other slot slots next passed agrees rest
-    match pick: slot.choice with
-      | Some existing =>
-        pass found
-      | None =>
-        match left: slot.remaining settled with
-          | [] =>
-            pass found
-          | [only] =>
-            let notSettled: (settled.contains item) = False := match contained: settled.contains item with
-              | True => Void.exfalso (And.left fresh rfl ((List.memContains settled item).forward contained))
-              | False => rfl
-            let remains: item ∈ slot.remaining settled :=
-              List.memFilterIntro slot.candidates (pick => not (settled.contains pick)) (And.left (And.left agrees)) (rewrite notSettled in rfl)
-            let forced: item = only := match (rewrite left at remains in remains) with
-              | Inl same => Eq.sym same
-              | Inr none => Void.exfalso none
-            rewrite <- Option.someInjective found in
-              Both (Both (And.left (And.left agrees)) (pick same => rewrite forced in Option.someInjective same)) (And.right agrees)
-          | [first, second, ..more] =>
-            pass found
+theorem settleAgrees [auto eq: DecEq a] (settled: List a) (other: List a) (slots next: List (Slot a)) (found: settle settled slots = Some next)
+    (agrees: Agrees other slots) (fresh: List.All2 (item slot => slot.choice = None → item ∉ settled) other slots): Agrees other next :=
+  match other, slots with
+    | other, [] => Void.exfalso (Option.noneNotSome next found)
+    | [], [slot, ..slots] => Void.exfalso agrees
+    | [item, ..other], [slot, ..slots] =>
+      let rest := (after: List (Slot a)) (later: settle settled slots = Some after) => settleAgrees settled other slots after later (And.right agrees) (And.right fresh)
+      let pass := (passed: (settle settled slots).map (Cons slot) = Some next) => passAgrees settled item other slot slots next passed agrees rest
+      match pick: slot.choice with
+        | Some existing =>
+          pass found
+        | None =>
+          match left: slot.remaining settled with
+            | [] =>
+              pass found
+            | [only] =>
+              let notSettled: (settled.contains item) = False := match contained: settled.contains item with
+                | True => Void.exfalso (And.left fresh rfl ((List.memContains settled item).forward contained))
+                | False => rfl
+              let remains: item ∈ slot.remaining settled :=
+                List.memFilterIntro slot.candidates (pick => not (settled.contains pick)) (And.left (And.left agrees)) (rewrite notSettled in rfl)
+              let forced: item = only := match (rewrite left at remains in remains) with
+                | Inl same => Eq.sym same
+                | Inr none => Void.exfalso none
+              rewrite <- Option.someInjective found in
+                Both (Both (And.left (And.left agrees)) (pick same => rewrite forced in Option.someInjective same)) (And.right agrees)
+            | [first, second, ..more] =>
+              pass found
 
 theorem settledSame [auto eq: DecEq a] (other order: List a) (slots: List (Slot a)) (agrees: Agrees other slots)
     (items: List.All2 (item slot => slot.choice = Some item) order slots): other = order :=

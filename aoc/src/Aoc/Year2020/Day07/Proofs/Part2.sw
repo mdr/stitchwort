@@ -36,36 +36,39 @@ theorem part2Rules (rules: Rules) (total: Nat) (solved: Fail.toResult (() => sol
 
 -- The spec's total doesn't depend on the depth it was settled at.
 
-theorem allSomeKeeps (f: a → Option b) (g: a → Option b) (keeps: ∀ (x: a) (v: b) => f x = Some v → g x = Some v):
-    ∀ (xs: List a) (ys: List b) => List.allSome (xs.map f) = Some ys → List.allSome (xs.map g) = Some ys
-  | [], ys, found => found
-  | [x, ..rest], ys, found =>
-    match fx: f x with
-      | None => Void.exfalso (Option.noneNotSome ys found)
-      | Some v =>
-        match r: List.allSome (rest.map f) with
-          | None => Void.exfalso (Option.noneNotSome ys found)
-          | Some vs => rewrite keeps x v fx, allSomeKeeps f g keeps rest vs r in found
+theorem allSomeKeeps (f: a → Option b) (g: a → Option b) (keeps: ∀ (x: a) (v: b) => f x = Some v → g x = Some v)
+    (xs: List a) (ys: List b) (found: List.allSome (xs.map f) = Some ys): List.allSome (xs.map g) = Some ys :=
+  match xs with
+    | [] => found
+    | [x, ..rest] =>
+      match fx: f x with
+        | None => Void.exfalso (Option.noneNotSome ys found)
+        | Some v =>
+          match r: List.allSome (rest.map f) with
+            | None => Void.exfalso (Option.noneNotSome ys found)
+            | Some vs => rewrite keeps x v fx, allSomeKeeps f g keeps rest vs r in found
 
-theorem bagsWithinDeeper (rules: List Rule): ∀ (depth: Nat) (colour: Colour) (total: Nat) =>
-    Spec.bagsWithin rules depth colour = Some total → Spec.bagsWithin rules (Succ depth) colour = Some total
-  | 0, colour, total, settled => Void.exfalso (Option.noneNotSome total settled)
-  | Succ depth, colour, total, settled =>
-    let shallow := (content: Content) => Spec.bagsWithin rules depth content.colour |> .map (inside => content.count * (1 + inside))
-    let deep := (content: Content) => Spec.bagsWithin rules (Succ depth) content.colour |> .map (inside => content.count * (1 + inside))
-    let keeps: ∀ (content: Content) (v: Nat) => shallow content = Some v → deep content = Some v :=
-      content v found =>
-        match e: Spec.bagsWithin rules depth content.colour with
-          | None => Void.exfalso (Option.noneNotSome v found)
-          | Some inside => rewrite bagsWithinDeeper rules depth content.colour inside e in found
-    match r: List.allSome ((Spec.contentsOf rules colour).map shallow) with
-      | None => Void.exfalso (Option.noneNotSome total settled)
-      | Some counts => rewrite allSomeKeeps shallow deep keeps (Spec.contentsOf rules colour) counts r in settled
+theorem bagsWithinDeeper (rules: List Rule) (depth: Nat) (colour: Colour) (total: Nat)
+    (settled: Spec.bagsWithin rules depth colour = Some total): Spec.bagsWithin rules (Succ depth) colour = Some total :=
+  match depth with
+    | 0 => Void.exfalso (Option.noneNotSome total settled)
+    | Succ depth =>
+      let shallow := (content: Content) => Spec.bagsWithin rules depth content.colour |> .map (inside => content.count * (1 + inside))
+      let deep := (content: Content) => Spec.bagsWithin rules (Succ depth) content.colour |> .map (inside => content.count * (1 + inside))
+      let keeps: ∀ (content: Content) (v: Nat) => shallow content = Some v → deep content = Some v :=
+        content v found =>
+          match e: Spec.bagsWithin rules depth content.colour with
+            | None => Void.exfalso (Option.noneNotSome v found)
+            | Some inside => rewrite bagsWithinDeeper rules depth content.colour inside e in found
+      match r: List.allSome ((Spec.contentsOf rules colour).map shallow) with
+        | None => Void.exfalso (Option.noneNotSome total settled)
+        | Some counts => rewrite allSomeKeeps shallow deep keeps (Spec.contentsOf rules colour) counts r in settled
 
-theorem bagsWithinLater (rules: List Rule) (depth: Nat) (colour: Colour) (total: Nat) (settled: Spec.bagsWithin rules depth colour = Some total):
-    ∀ (more: Nat) => Spec.bagsWithin rules (depth + more) colour = Some total
-  | 0 => rewrite Nat.addZero depth in settled
-  | Succ more => bagsWithinDeeper rules (depth + more) colour total (bagsWithinLater rules depth colour total settled more)
+theorem bagsWithinLater (rules: List Rule) (depth: Nat) (colour: Colour) (total: Nat) (settled: Spec.bagsWithin rules depth colour = Some total)
+    (more: Nat): Spec.bagsWithin rules (depth + more) colour = Some total :=
+  match more with
+    | 0 => rewrite Nat.addZero depth in settled
+    | Succ more => bagsWithinDeeper rules (depth + more) colour total (bagsWithinLater rules depth colour total settled more)
 
 --| Part 2's total is unique: rules that settle it at two depths settle it
 --| the same.

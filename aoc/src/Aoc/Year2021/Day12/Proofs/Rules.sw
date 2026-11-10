@@ -285,81 +285,83 @@ theorem smallBlocked (passages: List Passage) (twice: Bool) (unvisited: List Cav
 
 --| Each route the steps allow finishes a path by the rules...
 theorem followsCompletes (passages: List Passage) (next: Cave → List Cave)
-    (adjacent: ∀ (a b: Cave) => b ∈ next a → connected passages a b = True) (twice: Bool):
-    ∀ (rest unvisited: List Cave) (spare: Bool) (cave: Cave) (sofar: Path) =>
-      Tracks passages twice unvisited spare sofar → Follows next unvisited spare cave rest → Completes passages twice sofar cave rest
-  | [], unvisited, spare, cave, sofar, tracks, follows => Void.exfalso follows
-  | [y, ..more], unvisited, spare, cave, sofar, tracks, Both member after =>
-    let joined := adjacent cave y member
-    let named := And.right (connectedNamed passages cave y joined)
-    match isEnd: y == Cave.end with
-      | True =>
-        rewrite after, DecEq.sound isEnd in
-          Both rfl (Both (rewrite followsCons passages cave Cave.end [], (rewrite DecEq.sound isEnd at joined) in rfl) (finishWithin passages twice unvisited spare sofar tracks))
-      | False =>
-        let notEnd := DecEq.soundFalse y Cave.end isEnd
-        match isStart: y == Cave.start with
-          | True => Void.exfalso after
-          | False =>
-            let notStart := DecEq.soundFalse y Cave.start isStart
-            match big: y.isBig with
-              | True =>
-                match bigHere: cave.isBig with
-                  | True => Void.exfalso after
-                  | False =>
-                    completesCons passages twice sofar cave y more joined
-                      (followsCompletes passages next adjacent twice more unvisited spare y (sofar.add y) (tracksBig passages twice unvisited spare sofar y big tracks) after)
-              | False =>
-                match fresh: unvisited.contains y with
-                  | True =>
-                    completesCons passages twice sofar cave y more joined
-                      (followsCompletes passages next adjacent twice more (without unvisited y) spare y (sofar.add y)
-                        (tracksFresh passages twice unvisited spare sofar y big notStart notEnd named fresh tracks) after)
-                  | False =>
-                    match left: spare with
-                      | True =>
-                        completesCons passages twice sofar cave y more joined
-                          (followsCompletes passages next adjacent twice more unvisited False y (sofar.add y)
-                            (tracksAgain passages twice unvisited sofar y big notStart notEnd named fresh tracks) after)
-                      | False => Void.exfalso after
-
---| ...and each path by the rules is a route the steps allow, when no
---| passage joins two big caves.
-theorem completesFollows (passages: List Passage) (promise: NoBigNeighbours passages) (next: Cave → List Cave)
-    (adjacent: ∀ (a b: Cave) => connected passages a b = True → b ∈ next a) (twice: Bool):
-    ∀ (rest unvisited: List Cave) (spare: Bool) (cave: Cave) (sofar: Path) =>
-      Tracks passages twice unvisited spare sofar → Completes passages twice sofar cave rest → Follows next unvisited spare cave rest
-  | [], unvisited, spare, cave, sofar, tracks, completes => Void.exfalso (Option.noneNotSome Cave.end (And.left completes))
-  | [y, ..more], unvisited, spare, cave, sofar, tracks, completes =>
-    match isEnd: y == Cave.end with
-      | True =>
-        let atEnd := DecEq.sound isEnd
-        let joined := Bool.andLeft (rewrite followsCons passages cave y more at And.left (And.right completes))
-        Both (adjacent cave y joined) (endOnly passages twice unvisited spare sofar cave more tracks (rewrite atEnd at completes))
-      | False =>
-        let notEnd := DecEq.soundFalse y Cave.end isEnd
-        let (Both joined onward) := completesSplit passages twice sofar cave y more notEnd completes
-        let named := And.right (connectedNamed passages cave y joined)
-        Both (adjacent cave y joined)
-          (match isStart: y == Cave.start with
-            | True => startBlocked passages twice unvisited spare sofar cave more tracks (rewrite DecEq.sound isStart at completes)
+    (adjacent: ∀ (a b: Cave) => b ∈ next a → connected passages a b = True) (twice: Bool)
+    (rest unvisited: List Cave) (spare: Bool) (cave: Cave) (sofar: Path)
+    (tracks: Tracks passages twice unvisited spare sofar) (follows: Follows next unvisited spare cave rest): Completes passages twice sofar cave rest :=
+  match rest, follows with
+    | [], follows => Void.exfalso follows
+    | [y, ..more], Both member after =>
+      let joined := adjacent cave y member
+      let named := And.right (connectedNamed passages cave y joined)
+      match isEnd: y == Cave.end with
+        | True =>
+          rewrite after, DecEq.sound isEnd in
+            Both rfl (Both (rewrite followsCons passages cave Cave.end [], (rewrite DecEq.sound isEnd at joined) in rfl) (finishWithin passages twice unvisited spare sofar tracks))
+        | False =>
+          let notEnd := DecEq.soundFalse y Cave.end isEnd
+          match isStart: y == Cave.start with
+            | True => Void.exfalso after
             | False =>
               let notStart := DecEq.soundFalse y Cave.start isStart
               match big: y.isBig with
                 | True =>
                   match bigHere: cave.isBig with
-                    | True => Bool.trueNotFalse (rewrite big at promise cave y joined bigHere)
+                    | True => Void.exfalso after
                     | False =>
-                      completesFollows passages promise next adjacent twice more unvisited spare y (sofar.add y)
-                        (tracksBig passages twice unvisited spare sofar y big tracks) onward
+                      completesCons passages twice sofar cave y more joined
+                        (followsCompletes passages next adjacent twice more unvisited spare y (sofar.add y) (tracksBig passages twice unvisited spare sofar y big tracks) after)
                 | False =>
                   match fresh: unvisited.contains y with
                     | True =>
-                      completesFollows passages promise next adjacent twice more (without unvisited y) spare y (sofar.add y)
-                        (tracksFresh passages twice unvisited spare sofar y big notStart notEnd named fresh tracks) onward
+                      completesCons passages twice sofar cave y more joined
+                        (followsCompletes passages next adjacent twice more (without unvisited y) spare y (sofar.add y)
+                          (tracksFresh passages twice unvisited spare sofar y big notStart notEnd named fresh tracks) after)
                     | False =>
                       match left: spare with
                         | True =>
-                          completesFollows passages promise next adjacent twice more unvisited False y (sofar.add y)
-                            (tracksAgain passages twice unvisited sofar y big notStart notEnd named fresh tracks) onward
-                        | False => smallBlocked passages twice unvisited sofar cave y more big notStart notEnd named fresh tracks completes)
+                          completesCons passages twice sofar cave y more joined
+                            (followsCompletes passages next adjacent twice more unvisited False y (sofar.add y)
+                              (tracksAgain passages twice unvisited sofar y big notStart notEnd named fresh tracks) after)
+                        | False => Void.exfalso after
+
+--| ...and each path by the rules is a route the steps allow, when no
+--| passage joins two big caves.
+theorem completesFollows (passages: List Passage) (promise: NoBigNeighbours passages) (next: Cave → List Cave)
+    (adjacent: ∀ (a b: Cave) => connected passages a b = True → b ∈ next a) (twice: Bool)
+    (rest unvisited: List Cave) (spare: Bool) (cave: Cave) (sofar: Path)
+    (tracks: Tracks passages twice unvisited spare sofar) (completes: Completes passages twice sofar cave rest): Follows next unvisited spare cave rest :=
+  match rest with
+    | [] => Void.exfalso (Option.noneNotSome Cave.end (And.left completes))
+    | [y, ..more] =>
+      match isEnd: y == Cave.end with
+        | True =>
+          let atEnd := DecEq.sound isEnd
+          let joined := Bool.andLeft (rewrite followsCons passages cave y more at And.left (And.right completes))
+          Both (adjacent cave y joined) (endOnly passages twice unvisited spare sofar cave more tracks (rewrite atEnd at completes))
+        | False =>
+          let notEnd := DecEq.soundFalse y Cave.end isEnd
+          let (Both joined onward) := completesSplit passages twice sofar cave y more notEnd completes
+          let named := And.right (connectedNamed passages cave y joined)
+          Both (adjacent cave y joined)
+            (match isStart: y == Cave.start with
+              | True => startBlocked passages twice unvisited spare sofar cave more tracks (rewrite DecEq.sound isStart at completes)
+              | False =>
+                let notStart := DecEq.soundFalse y Cave.start isStart
+                match big: y.isBig with
+                  | True =>
+                    match bigHere: cave.isBig with
+                      | True => Bool.trueNotFalse (rewrite big at promise cave y joined bigHere)
+                      | False =>
+                        completesFollows passages promise next adjacent twice more unvisited spare y (sofar.add y)
+                          (tracksBig passages twice unvisited spare sofar y big tracks) onward
+                  | False =>
+                    match fresh: unvisited.contains y with
+                      | True =>
+                        completesFollows passages promise next adjacent twice more (without unvisited y) spare y (sofar.add y)
+                          (tracksFresh passages twice unvisited spare sofar y big notStart notEnd named fresh tracks) onward
+                      | False =>
+                        match left: spare with
+                          | True =>
+                            completesFollows passages promise next adjacent twice more unvisited False y (sofar.add y)
+                              (tracksAgain passages twice unvisited sofar y big notStart notEnd named fresh tracks) onward
+                          | False => smallBlocked passages twice unvisited sofar cave y more big notStart notEnd named fresh tracks completes)

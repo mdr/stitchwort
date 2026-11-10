@@ -33,25 +33,25 @@ theorem allowWithin (fields: List Rule) (wider: List Rule) (value: Nat) (inner: 
 
 --| Ruling out by each of `tickets` in turn, each with a value for each of
 --| the `width` positions.
-theorem foldNarrow (width: Nat): ∀ (tickets: List Ticket) (candidates: List (List Rule)) => candidates.length = width →
-    (∀ (ticket: Ticket) => ticket ∈ tickets → ticket.values.length = width) →
-    (tickets.foldLeft candidates narrow).length = width ∧ List.All2 Within (tickets.foldLeft candidates narrow) candidates
-      ∧ (∀ (ticket: Ticket) => ticket ∈ tickets → List.All2 AllAllow (tickets.foldLeft candidates narrow) ticket.values)
-  | [], candidates, wide, lengths => Both wide (Both (all2Within candidates) (ticket member => Void.exfalso member))
-  | [ticket, ..tickets], candidates, wide, lengths =>
-    let fits: ticket.values.length = candidates.length := Eq.trans (lengths ticket (Inl rfl)) (Eq.sym wide)
-    let narrowed := narrow candidates ticket
-    let narrowedWide: narrowed.length = width := Eq.trans (List.lengthZipWithEq allowing candidates ticket.values (Eq.sym fits)) wide
-    match foldNarrow width tickets narrowed narrowedWide (other member => lengths other (Inr member)) with
-      | Both length (Both within allows) =>
-        Both length
-          (Both (List.all2Compose (x y z => withinTrans x y z) _ _ _ within (narrowWithin candidates ticket.values fits))
-            (other member =>
-              match member with
-                | Inl same =>
-                  rewrite <- same in
-                    List.all2Compose (x y z => allowWithin x y z) _ _ _ within (narrowAllows candidates ticket.values fits)
-                | Inr later => allows other later))
+theorem foldNarrow (width: Nat) (tickets: List Ticket) (candidates: List (List Rule)) (wide: candidates.length = width)
+    (lengths: (∀ (ticket: Ticket) => ticket ∈ tickets → ticket.values.length = width)): (tickets.foldLeft candidates narrow).length = width ∧ List.All2 Within (tickets.foldLeft candidates narrow) candidates
+      ∧ (∀ (ticket: Ticket) => ticket ∈ tickets → List.All2 AllAllow (tickets.foldLeft candidates narrow) ticket.values) :=
+  match tickets with
+    | [] => Both wide (Both (all2Within candidates) (ticket member => Void.exfalso member))
+    | [ticket, ..tickets] =>
+      let fits: ticket.values.length = candidates.length := Eq.trans (lengths ticket (Inl rfl)) (Eq.sym wide)
+      let narrowed := narrow candidates ticket
+      let narrowedWide: narrowed.length = width := Eq.trans (List.lengthZipWithEq allowing candidates ticket.values (Eq.sym fits)) wide
+      match foldNarrow width tickets narrowed narrowedWide (other member => lengths other (Inr member)) with
+        | Both length (Both within allows) =>
+          Both length
+            (Both (List.all2Compose (x y z => withinTrans x y z) _ _ _ within (narrowWithin candidates ticket.values fits))
+              (other member =>
+                match member with
+                  | Inl same =>
+                    rewrite <- same in
+                      List.all2Compose (x y z => allowWithin x y z) _ _ _ within (narrowAllows candidates ticket.values fits)
+                  | Inr later => allows other later))
 
 --| The candidates at each position: one list per field, from the rules,
 --| each allowing the value there of every valid ticket.

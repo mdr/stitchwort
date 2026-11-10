@@ -111,23 +111,24 @@ theorem notNineOfOpen (height: Nat) (open: (height != 9) = True): height ≠ 9 :
 --| A low point that is a 9 has no neighbours on the map (they would be
 --| higher than 9), so no path leaves it, and it isn't in a basin itself.
 theorem closedNoBasin (map: HeightMap) (low: Position) (height: Nat) (member: (low, height) ∈ lowPoints map) (closed: map.isOpen low = False)
-    (location: Position): ∀ (steps: List Position) => inSomeBasin map location = True → isPath map low steps location = True → Void
-  | [], locationOpen, path => Bool.falseNotTrue (Eq.trans (Eq.sym closed) (rewrite DecEq.sound path in locationOpen))
-  | [next, ..rest], locationOpen, path =>
-    let near := Bool.andLeft path
-    let nextOpen := Bool.andLeft (Bool.andRight path)
-    match h: map.heightAt next with
-      | None => Bool.falseNotTrue nextOpen
-      | Some other =>
-        let nextCell := memCellsOfHeight map next other h
-        let lowInfo := List.memFilter map.cells _ member
-        let atNext := List.allMem _ (next, other) map.cells (List.allToAll _ map.cells (And.right lowInfo)) nextCell
-        let lower: (height < other) = True := rewrite near at atNext in atNext
-        let below: height < other := lower
-        let nine := nineOfClosed height (rewrite heightOfMemCells map low height (And.left lowInfo) at closed in closed)
-        let notNine := notNineOfOpen other nextOpen
-        let under10 := heightBelow10 map next other nextCell
-        Void.exfalso (omega [below, nine, notNine, under10])
+    (location: Position) (steps: List Position) (locationOpen: inSomeBasin map location = True) (path: isPath map low steps location = True): Void :=
+  match steps with
+    | [] => Bool.falseNotTrue (Eq.trans (Eq.sym closed) (rewrite DecEq.sound path in locationOpen))
+    | [next, ..rest] =>
+      let near := Bool.andLeft path
+      let nextOpen := Bool.andLeft (Bool.andRight path)
+      match h: map.heightAt next with
+        | None => Bool.falseNotTrue nextOpen
+        | Some other =>
+          let nextCell := memCellsOfHeight map next other h
+          let lowInfo := List.memFilter map.cells _ member
+          let atNext := List.allMem _ (next, other) map.cells (List.allToAll _ map.cells (And.right lowInfo)) nextCell
+          let lower: (height < other) = True := rewrite near at atNext in atNext
+          let below: height < other := lower
+          let nine := nineOfClosed height (rewrite heightOfMemCells map low height (And.left lowInfo) at closed in closed)
+          let notNine := notNineOfOpen other nextOpen
+          let under10 := heightBelow10 map next other nextCell
+          Void.exfalso (omega [below, nine, notNine, under10])
 
 theorem basinSizeClosed (map: HeightMap) (low: Position) (height: Nat) (member: (low, height) ∈ lowPoints map) (closed: map.isOpen low = False):
     BasinSize map low 0 :=

@@ -100,12 +100,13 @@ theorem List.chainInitCons (x: a) (rest: List a) (holds: a → a → Bool)
       Bool.andIntro first kept
 
 --| A `chain` of two tests together holds when the chain of each one does.
-theorem List.chainAnd: ∀ (xs: List a) (holds1 holds2: a → a → Bool) =>
-    List.chain xs (x y => holds1 x y ∧ holds2 x y) = (List.chain xs holds1 ∧ List.chain xs holds2)
-  | [], holds1, holds2 => rfl
-  | [x], holds1, holds2 => rfl
-  | [x, next, ..rest], holds1, holds2 =>
-    rewrite List.chainAnd [next, ..rest] holds1 holds2 in cases
+theorem List.chainAnd (xs: List a) (holds1 holds2: a → a → Bool):
+    List.chain xs (x y => holds1 x y ∧ holds2 x y) = (List.chain xs holds1 ∧ List.chain xs holds2) :=
+  match xs with
+    | [] => rfl
+    | [x] => rfl
+    | [x, next, ..rest] =>
+      rewrite List.chainAnd [next, ..rest] holds1 holds2 in cases
 
 --| `all` over a cons: the head's answer, then the rest's.
 theorem List.allCons (p: a → Bool) (x: a) (xs: List a): List.all [x, ..xs] p = (p x ∧ List.all xs p) := rfl
@@ -152,14 +153,14 @@ theorem List.initExample: List.init [1, 2, 3] = [1, 2] := rfl
 theorem List.initEmpty: List.init ([]: List Nat) = [] := rfl
 
 --| The loop's sides are the two `filter`s, each after what it had sorted.
-theorem List.partitionOntoFilters (p: a → Bool): ∀ (xs kept dropped: List a) =>
-    List.partitionOnto p xs (MkPair kept dropped)
-      = MkPair (List.reverseOnto kept (List.filter xs p)) (List.reverseOnto dropped (List.filter xs (x => ¬(p x))))
-  | [], kept, dropped => rfl
-  | [x, ..xs], kept, dropped =>
-    match p x with
-      | True => List.partitionOntoFilters p xs [x, ..kept] dropped
-      | False => List.partitionOntoFilters p xs kept [x, ..dropped]
+theorem List.partitionOntoFilters (p: a → Bool) (xs kept dropped: List a): List.partitionOnto p xs (MkPair kept dropped)
+    = MkPair (List.reverseOnto kept (List.filter xs p)) (List.reverseOnto dropped (List.filter xs (x => ¬(p x)))) :=
+  match xs with
+    | [] => rfl
+    | [x, ..xs] =>
+      match p x with
+        | True => List.partitionOntoFilters p xs [x, ..kept] dropped
+        | False => List.partitionOntoFilters p xs kept [x, ..dropped]
 
 --| `partition` is the two `filter`s.
 -- (its definition before it became one pass)
@@ -241,12 +242,13 @@ theorem List.anyAppendRight (p: a → Prop) (xs ys: List a) (h: List.Any p ys): 
     | [x, ..xs] => Inr (List.anyAppendRight p xs ys h)
 
 --| `List.any` of two lists joined: either list has one.
-theorem List.anyAppend: ∀ (xs ys: List a) (p: a → Bool) => List.any (List.append xs ys) p = (List.any xs p ∨ List.any ys p)
-  | [], ys, p => rfl
-  | [x, ..xs], ys, p =>
-    match e: p x with
-      | True => rfl
-      | False => List.anyAppend xs ys p
+theorem List.anyAppend (xs ys: List a) (p: a → Bool): List.any (List.append xs ys) p = (List.any xs p ∨ List.any ys p) :=
+  match xs with
+    | [] => rfl
+    | [x, ..xs] =>
+      match e: p x with
+        | True => rfl
+        | False => List.anyAppend xs ys p
 
 theorem List.anyAppendExample: List.any (List.append [1, 2] [3]) (x => x == 3) = (False ∨ True) := rfl
 
@@ -482,13 +484,14 @@ theorem List.countAppend (xs: List a) (ys: List a) (p: a → Bool): List.count (
         (Eq.cong (n => List.count xs p + n) (Eq.sym (List.countOccurrences ys p)))))
 
 --| The length of a `filter` is the `count` with the same test.
-theorem List.lengthFilter: ∀ (xs: List a) (p: a → Bool) => List.length (List.filter xs p) = List.count xs p
-  | [], p => rfl
-  | [x, ..rest], p =>
-    rewrite List.countCons rest x p, <- List.lengthFilter rest p in
-      match keep: p x with
-        | True => rfl
-        | False => rfl
+theorem List.lengthFilter (xs: List a) (p: a → Bool): List.length (List.filter xs p) = List.count xs p :=
+  match xs with
+    | [] => rfl
+    | [x, ..rest] =>
+      rewrite List.countCons rest x p, <- List.lengthFilter rest p in
+        match keep: p x with
+          | True => rfl
+          | False => rfl
 
 --| A count is at most the length, and so is a `filter`'s length; filtering
 --| out an element that is there makes the list shorter.
@@ -501,13 +504,14 @@ theorem List.countLeLength (xs: List a) (p: a → Bool): List.count xs p ≤ Lis
 theorem List.lengthFilterLe (xs: List a) (p: a → Bool): List.length (List.filter xs p) ≤ List.length xs :=
   rewrite List.lengthFilter xs p in List.countLeLength xs p
 
-theorem List.lengthFilterLt (p: a → Bool) (x: a) (dropped: p x = False): ∀ (xs: List a) => x ∈ xs → List.length (List.filter xs p) < List.length xs
-  | [], member => Void.exfalso member
-  | [y, ..rest], Inl same => rewrite same, dropped in omega [List.lengthFilterLe rest p]
-  | [y, ..rest], Inr later =>
-    match p y with
-      | True => List.lengthFilterLt p x dropped rest later
-      | False => omega [List.lengthFilterLt p x dropped rest later]
+theorem List.lengthFilterLt (p: a → Bool) (x: a) (dropped: p x = False) (xs: List a) (member: x ∈ xs): List.length (List.filter xs p) < List.length xs :=
+  match xs, member with
+    | [], member => Void.exfalso member
+    | [y, ..rest], Inl same => rewrite same, dropped in omega [List.lengthFilterLe rest p]
+    | [y, ..rest], Inr later =>
+      match p y with
+        | True => List.lengthFilterLt p x dropped rest later
+        | False => omega [List.lengthFilterLt p x dropped rest later]
 
 --| An element that passes makes the count positive, and the other way
 --| round, for an element counted by `== c`.
@@ -579,31 +583,32 @@ def List.CountWith (p: a → Prop): (items: List a) → (answer: Nat) → Prop
   | [item, ..rest], answer => (p item ∧ ∃ (others: Nat) => List.CountWith p rest others ∧ answer = others + 1) ∨ (¬p item ∧ List.CountWith p rest answer)
 
 --| Counting by a proposition is [`List.count`] by a `Bool` that decides it.
-theorem List.countWithIff [p: a → Prop] (decide: a → Bool) (decides: ∀ (item: a) => decide item = True ↔ p item):
-    ∀ (items: List a) (answer: Nat) => List.CountWith p items answer ↔ answer = items.count decide
-  | [], answer => { forward = none => none, backward = none => none }
-  | [item, ..rest], answer =>
-    let later := List.countWithIff decide decides rest
-    rewrite List.countCons rest item decide in
-      match decided: decide item with
-        | True =>
-          let holds := (decides item).forward decided
-          {
-            forward = counted =>
-              match counted with
-                | Inl (Both yes (Witness others (Both number more))) => omega [(later others).forward number]
-                | Inr (Both no number) => Void.exfalso (no holds),
-            backward = same => Inl (Both holds (Witness (rest.count decide) (Both ((later (rest.count decide)).backward rfl) (omega))))
-          }
-        | False =>
-          let fails: ¬p item := holds => Bool.falseNotTrue (Eq.trans (Eq.sym decided) ((decides item).backward holds))
-          {
-            forward = counted =>
-              match counted with
-                | Inl (Both yes more) => Void.exfalso (fails yes)
-                | Inr (Both no number) => (later answer).forward number,
-            backward = same => Inr (Both fails ((later answer).backward (omega)))
-          }
+theorem List.countWithIff [p: a → Prop] (decide: a → Bool) (decides: ∀ (item: a) => decide item = True ↔ p item)
+    (items: List a) (answer: Nat): List.CountWith p items answer ↔ answer = items.count decide :=
+  match items with
+    | [] => { forward = none => none, backward = none => none }
+    | [item, ..rest] =>
+      let later := List.countWithIff decide decides rest
+      rewrite List.countCons rest item decide in
+        match decided: decide item with
+          | True =>
+            let holds := (decides item).forward decided
+            {
+              forward = counted =>
+                match counted with
+                  | Inl (Both yes (Witness others (Both number more))) => omega [(later others).forward number]
+                  | Inr (Both no number) => Void.exfalso (no holds),
+              backward = same => Inl (Both holds (Witness (rest.count decide) (Both ((later (rest.count decide)).backward rfl) (omega))))
+            }
+          | False =>
+            let fails: ¬p item := holds => Bool.falseNotTrue (Eq.trans (Eq.sym decided) ((decides item).backward holds))
+            {
+              forward = counted =>
+                match counted with
+                  | Inl (Both yes more) => Void.exfalso (fails yes)
+                  | Inr (Both no number) => (later answer).forward number,
+              backward = same => Inr (Both fails ((later answer).backward (omega)))
+            }
 
 --| Dropping a list's start leaves what was appended to it.
 theorem List.dropAppend (start rest: List a): List.drop (List.append start rest) (List.length start) = rest :=
@@ -665,15 +670,16 @@ theorem List.takeOwnLength (xs: List a) (n: Nat): List.take xs (List.length (Lis
 --| states the same step through `List.getOr`, and needs `k < length` in
 --| advance (which this concludes); [`List.dropAt`] says what the drop starts
 --| with.
-theorem List.takeOfDropCons: ∀ (xs: List a) (k: Nat) (y: a) (ys: List a) =>
-    List.drop xs k = [y, ..ys] →
-    List.take xs (k + 1) = List.append (List.take xs k) [y] ∧ k < List.length xs
-  | [], Zero, y, ys, d => cases
-  | [], Succ k, y, ys, d => cases
-  | [x, ..xs], Zero, y, ys, d => Both (rewrite List.consInjectiveHead x y xs ys d in rfl) (omega)
-  | [x, ..xs], Succ k, y, ys, d =>
-    let (Both taken below) := List.takeOfDropCons xs k y ys d
-    Both (rewrite taken in rfl) (omega)
+theorem List.takeOfDropCons (xs: List a) (k: Nat) (y: a) (ys: List a)
+    (d: List.drop xs k = [y, ..ys]):
+    List.take xs (k + 1) = List.append (List.take xs k) [y] ∧ k < List.length xs :=
+  match xs, k with
+    | [], Zero => cases
+    | [], Succ k => cases
+    | [x, ..xs], Zero => Both (rewrite List.consInjectiveHead x y xs ys d in rfl) (omega)
+    | [x, ..xs], Succ k =>
+      let (Both taken below) := List.takeOfDropCons xs k y ys d
+      Both (rewrite taken in rfl) (omega)
 
 --| A longer prefix of `Nat`s sums to at least as much, since every element
 --| is non-negative. [`List.sumDropTakeLe`] compares a slice with the prefix
@@ -928,13 +934,14 @@ theorem List.filterMapSome (xs: List a) (f: a → b): List.filterMap xs (x => So
     | [] => rfl
     | [x, ..xs] => rewrite List.filterMapSome xs f
 
-theorem List.filterMapAppend: ∀ (xs ys: List a) (f: a → Option b) =>
-    List.filterMap (List.append xs ys) f = List.append (List.filterMap xs f) (List.filterMap ys f)
-  | [], ys, f => rfl
-  | [x, ..xs], ys, f =>
-    match f x with
-      | None => List.filterMapAppend xs ys f
-      | Some y => rewrite List.filterMapAppend xs ys f
+theorem List.filterMapAppend (xs ys: List a) (f: a → Option b):
+    List.filterMap (List.append xs ys) f = List.append (List.filterMap xs f) (List.filterMap ys f) :=
+  match xs with
+    | [] => rfl
+    | [x, ..xs] =>
+      match f x with
+        | None => List.filterMapAppend xs ys f
+        | Some y => rewrite List.filterMapAppend xs ys f
 
 theorem List.initMap (xs: List a) (f: a → b): List.init (List.map xs f) = List.map (List.init xs) f :=
   match xs with
@@ -997,27 +1004,28 @@ theorem List.reverseOntoTwice (xs acc: List a): List.reverseOnto (List.reverseOn
 theorem List.reverseReverse (xs: List a): List.reverse (List.reverse xs) = xs := List.reverseOntoTwice xs []
 
 --| Reversing onto an accumulator keeps the elements of both.
-theorem List.memReverseOnto (x: a): ∀ (xs acc: List a) => x ∈ List.reverseOnto xs acc ↔ (x ∈ xs ∨ x ∈ acc)
-  | [], acc => {
-    forward = m => Inr m,
-    backward = h =>
-      match h with
-        | Inl m => Void.exfalso m
-        | Inr m => m
-  }
-  | [y, ..ys], acc => {
-    forward = m =>
-      match (List.memReverseOnto x ys [y, ..acc]).forward m with
-        | Inl i => Inl (Inr i)
-        | Inr (Inl e) => Inl (Inl e)
-        | Inr (Inr i) => Inr i,
-    backward = h =>
-      (List.memReverseOnto x ys [y, ..acc]).backward (
+theorem List.memReverseOnto (x: a) (xs acc: List a): x ∈ List.reverseOnto xs acc ↔ (x ∈ xs ∨ x ∈ acc) :=
+  match xs with
+    | [] => {
+      forward = m => Inr m,
+      backward = h =>
         match h with
-          | Inl (Inl e) => Inr (Inl e)
-          | Inl (Inr i) => Inl i
-          | Inr i => Inr (Inr i))
-  }
+          | Inl m => Void.exfalso m
+          | Inr m => m
+    }
+    | [y, ..ys] => {
+      forward = m =>
+        match (List.memReverseOnto x ys [y, ..acc]).forward m with
+          | Inl i => Inl (Inr i)
+          | Inr (Inl e) => Inl (Inl e)
+          | Inr (Inr i) => Inr i,
+      backward = h =>
+        (List.memReverseOnto x ys [y, ..acc]).backward (
+          match h with
+            | Inl (Inl e) => Inr (Inl e)
+            | Inl (Inr i) => Inl i
+            | Inr i => Inr (Inr i))
+    }
 
 --| A list and its reverse have the same elements.
 theorem List.memReverse (x: a) (xs: List a): x ∈ xs.reverse ↔ x ∈ xs := {
@@ -1114,13 +1122,14 @@ theorem List.anyFalse (xs: List a) (p: a → Bool) (h: (∀ (x: a) => p x = Fals
     | [x, ..xs] => rewrite h x in List.anyFalse xs p h
 
 --| Every element passes both tests when every element passes each.
-theorem List.allAnd: ∀ (xs: List a) (p q: a → Bool) => List.all xs (x => p x ∧ q x) = (List.all xs p ∧ List.all xs q)
-  | [], p, q => rfl
-  | [x, ..xs], p, q =>
-    match px: p x, qx: q x with
-      | True, True => List.allAnd xs p q
-      | True, False => cases
-      | False, qx => rfl
+theorem List.allAnd (xs: List a) (p q: a → Bool): List.all xs (x => p x ∧ q x) = (List.all xs p ∧ List.all xs q) :=
+  match xs with
+    | [] => rfl
+    | [x, ..xs] =>
+      match px: p x, qx: q x with
+        | True, True => List.allAnd xs p q
+        | True, False => cases
+        | False, qx => rfl
 
 theorem Option.flatMapMap (m: Option a) (g: b → Option c) (f: a → b): Option.flatMap (Option.map m f) g = Option.flatMap m (x => g (f x)) :=
   match m with
@@ -1300,12 +1309,13 @@ theorem List.memFlatMapIntro (f: a → List b) (x: a) (y: b) (xs: List a) (h1: x
     | [z, ..zs], Inr h => List.anyAppendRight (w => w = y) (f z) (List.flatMap zs f) (List.memFlatMapIntro f x y zs h m)
 
 --| What is in a `flatMap` is in `f x` for some `x` of the list.
-theorem List.memFlatMapElim (f: a → List b) (y: b): ∀ (xs: List a) => y ∈ List.flatMap xs f → List.Any (x => y ∈ f x) xs
-  | [], h => h
-  | [z, ..zs], h =>
-    match List.memAppend y (f z) (List.flatMap zs f) h with
-      | Inl m => Inl m
-      | Inr m => Inr (List.memFlatMapElim f y zs m)
+theorem List.memFlatMapElim (f: a → List b) (y: b) (xs: List a) (h: y ∈ List.flatMap xs f): List.Any (x => y ∈ f x) xs :=
+  match xs with
+    | [] => h
+    | [z, ..zs] =>
+      match List.memAppend y (f z) (List.flatMap zs f) h with
+        | Inl m => Inl m
+        | Inr m => Inr (List.memFlatMapElim f y zs m)
 
 --| What is in a `flatMap` is in `f x` for some `x` of the list, and back:
 --| [`List.memFlatMapIntro`] and [`List.memFlatMapElim`] as one statement, to
@@ -1331,24 +1341,26 @@ theorem List.distinctMap: ∀ (xs: List a) => List.Distinct xs → ∀ (f: a →
 
 --| Mapping a function that is injective on the list's own members keeps the
 --| list distinct; [`List.distinctMap`] needs it injective everywhere.
-theorem List.distinctMapOn (f: a → b): ∀ (xs: List a) => List.Distinct xs → (∀ (x y: a) => x ∈ xs → y ∈ xs → f x = f y → x = y) → List.Distinct (List.map xs f)
-  | [], distinct, injective => Trivial
-  | [x, ..xs], Both fresh distinct, injective =>
-    Both
-      (member =>
-        match List.memMapElim f (f x) xs member with
-          | Witness y (Both inRest same) => fresh (rewrite injective x y (Inl rfl) (Inr inRest) (Eq.sym same) in inRest))
-      (List.distinctMapOn f xs distinct (first second inFirst inSecond same => injective first second (Inr inFirst) (Inr inSecond) same))
+theorem List.distinctMapOn (f: a → b) (xs: List a) (h: List.Distinct xs) (injective: (∀ (x y: a) => x ∈ xs → y ∈ xs → f x = f y → x = y)): List.Distinct (List.map xs f) :=
+  match xs, h with
+    | [], distinct => Trivial
+    | [x, ..xs], Both fresh distinct =>
+      Both
+        (member =>
+          match List.memMapElim f (f x) xs member with
+            | Witness y (Both inRest same) => fresh (rewrite injective x y (Inl rfl) (Inr inRest) (Eq.sym same) in inRest))
+        (List.distinctMapOn f xs distinct (first second inFirst inSecond same => injective first second (Inr inFirst) (Inr inSecond) same))
 
 --| Two distinct lists with no element in common, joined, are distinct.
-theorem List.distinctAppend: ∀ (xs ys: List a) => List.Distinct xs → List.Distinct ys → List.Disjoint xs ys → List.Distinct (List.append xs ys)
-  | [], ys, dx, dy, dj => dy
-  | [x, ..xs], ys, Both hx dx, dy, Both hj dj =>
-    Both
-      (m => match List.memAppend x xs ys m with
-        | Inl inXs => hx inXs
-        | Inr inYs => hj inYs)
-      (List.distinctAppend xs ys dx dy dj)
+theorem List.distinctAppend (xs ys: List a) (h: List.Distinct xs) (dy: List.Distinct ys) (h1: List.Disjoint xs ys): List.Distinct (List.append xs ys) :=
+  match xs, h, h1 with
+    | [], dx, dj => dy
+    | [x, ..xs], Both hx dx, Both hj dj =>
+      Both
+        (m => match List.memAppend x xs ys m with
+          | Inl inXs => hx inXs
+          | Inr inYs => hj inYs)
+        (List.distinctAppend xs ys dx dy dj)
 
 --| The parts of a list with no repeats have none, and nothing in common.
 theorem List.distinctAppendLeft (xs ys: List a) (h: List.Distinct (List.append xs ys)): List.Distinct xs :=
@@ -1410,12 +1422,13 @@ theorem List.disjointMapCons (ys: List (List a)) (x: a) (y: a) (ne: x ≠ y) (xs
     | [z, ..zs] => Both (List.notMemMapCons x y ne z ys) (List.disjointMapCons ys x y ne zs)
 
 --| A run of numbers has no repeats.
-theorem List.distinctRangeFrom: ∀ (c s: Nat) => List.Distinct (List.rangeFrom c s)
-  | Zero, s => Trivial
-  | Succ c, s =>
-    Both (m => match List.memRangeFrom s c (Succ s) m with
-        | Both above _ => Nat.lessIrrefl s above)
-      (List.distinctRangeFrom c (Succ s))
+theorem List.distinctRangeFrom (c s: Nat): List.Distinct (List.rangeFrom c s) :=
+  match c with
+    | Zero => Trivial
+    | Succ c =>
+      Both (m => match List.memRangeFrom s c (Succ s) m with
+          | Both above _ => Nat.lessIrrefl s above)
+        (List.distinctRangeFrom c (Succ s))
 
 --| A range has no repeats.
 theorem List.distinctRange (a: Nat) (b: Nat): List.Distinct (List.range a b) := List.distinctRangeFrom (b - a) a
@@ -1428,20 +1441,21 @@ theorem List.allOfMem (p: a → Prop) (xs: List a) (h: (∀ (x: a) => x ∈ xs �
 
 --| A `flatMap` of distinct lists has no repeats if the list mapped over has none
 --| and the lists apart: `key` says which element of `xs` each result came from.
-theorem List.distinctFlatMap (f: a → List b) (key: b → a): ∀ (xs: List a) => List.Distinct xs →
-    (∀ (x: a) => x ∈ xs → List.Distinct (f x)) →
-    (∀ (x: a) => x ∈ xs → ∀ (y: b) => y ∈ f x → key y = x) →
-    List.Distinct (List.flatMap xs f)
-  | [], d, distinctEach, keyed => Trivial
-  | [x, ..xs], Both notLater later, distinctEach, keyed =>
-    List.distinctAppend (f x) (List.flatMap xs f)
-      (distinctEach x (Inl rfl))
-      (List.distinctFlatMap f key xs later (z inXs => distinctEach z (Inr inXs)) (z inXs => keyed z (Inr inXs)))
-      -- Nothing in `f x` is in a later `f z`: it would have key `x` and key `z`.
-      (List.allOfMem (y => y ∉ List.flatMap xs f) (f x) (y fromX inLater =>
-        List.anyElim (z => y ∈ f z) Void xs (List.memFlatMapElim f y xs inLater)
-          (z inXs fromZ =>
-            notLater (rewrite Eq.trans (Eq.sym (keyed x (Inl rfl) y fromX)) (keyed z (Inr inXs) y fromZ) in inXs))))
+theorem List.distinctFlatMap (f: a → List b) (key: b → a) (xs: List a) (d: List.Distinct xs)
+    (distinctEach: (∀ (x: a) => x ∈ xs → List.Distinct (f x)))
+    (keyed: (∀ (x: a) => x ∈ xs → ∀ (y: b) => y ∈ f x → key y = x)):
+    List.Distinct (List.flatMap xs f) :=
+  match xs, d with
+    | [], d => Trivial
+    | [x, ..xs], Both notLater later =>
+      List.distinctAppend (f x) (List.flatMap xs f)
+        (distinctEach x (Inl rfl))
+        (List.distinctFlatMap f key xs later (z inXs => distinctEach z (Inr inXs)) (z inXs => keyed z (Inr inXs)))
+        -- Nothing in `f x` is in a later `f z`: it would have key `x` and key `z`.
+        (List.allOfMem (y => y ∉ List.flatMap xs f) (f x) (y fromX inLater =>
+          List.anyElim (z => y ∈ f z) Void xs (List.memFlatMapElim f y xs inLater)
+            (z inXs fromZ =>
+              notLater (rewrite Eq.trans (Eq.sym (keyed x (Inl rfl) y fromX)) (keyed z (Inr inXs) y fromZ) in inXs))))
 
 --| [`List.distinctFlatMap`] for the spelling `concat (map xs f)`.
 theorem List.distinctConcatMap (f: a → List b) (key: b → a) (xs: List a) (distinct: List.Distinct xs)
@@ -1462,18 +1476,19 @@ theorem List.memSplit (x: a) (xs: List a) (member: x ∈ xs): ∃ (before: List 
 --| A list with no repeats whose elements are all in `ys` is no longer than
 --| `ys` (`ys` itself may repeat). The pigeonhole principle for lists is
 --| [`List.pigeonhole`].
-theorem List.distinctLength [auto eq: DecEq a]: ∀ (xs ys: List a) => List.Distinct xs → (∀ (x: a) => x ∈ xs → x ∈ ys) → List.length xs ≤ List.length ys
-  | [], ys, d, drawn => Nat.zeroLe (List.length ys)
-  | [x, ..rest], ys, Both out d, drawn =>
-    let others := ys.filter (y => Bool.not (y == x))
-    let dropped: Bool.not (x == x) = False := rewrite DecEq.refl x in rfl
-    let drawnOthers: ∀ (y: a) => y ∈ rest → y ∈ others :=
-      y inRest =>
-        List.memFilterIntro ys (y => Bool.not (y == x)) (drawn y (Inr inRest))
-          (match e: y == x with
-            | True => Void.exfalso (out (rewrite <- DecEq.sound e in inRest))
-            | False => rfl)
-    omega [List.distinctLength rest others d drawnOthers, List.lengthFilterLt (y => Bool.not (y == x)) x dropped ys (drawn x (Inl rfl))]
+theorem List.distinctLength [auto eq: DecEq a] (xs ys: List a) (h: List.Distinct xs) (drawn: (∀ (x: a) => x ∈ xs → x ∈ ys)): List.length xs ≤ List.length ys :=
+  match xs, h with
+    | [], d => Nat.zeroLe (List.length ys)
+    | [x, ..rest], Both out d =>
+      let others := ys.filter (y => Bool.not (y == x))
+      let dropped: Bool.not (x == x) = False := rewrite DecEq.refl x in rfl
+      let drawnOthers: ∀ (y: a) => y ∈ rest → y ∈ others :=
+        y inRest =>
+          List.memFilterIntro ys (y => Bool.not (y == x)) (drawn y (Inr inRest))
+            (match e: y == x with
+              | True => Void.exfalso (out (rewrite <- DecEq.sound e in inRest))
+              | False => rfl)
+      omega [List.distinctLength rest others d drawnOthers, List.lengthFilterLt (y => Bool.not (y == x)) x dropped ys (drawn x (Inl rfl))]
 
 --| The pigeonhole principle for lists: if every element of `xs` is one of
 --| the elements of `ys`, and `xs` is longer than `ys`, then `xs` repeats an
@@ -1585,40 +1600,44 @@ theorem List.allMem (p: a → Prop) (x: a) (xs: List a) (h1: List.All p xs) (h2:
 -- for code that finds records by an id.
 
 --| What `List.find` finds passes the test and is in the list.
-theorem List.findSome: ∀ (xs: List a) (p: a → Bool) (y: a) => List.find xs p = Some y → (p y = True) ∧ (y ∈ xs)
-  | [], p, y, h => Void.exfalso (Option.noneNotSome y h)
-  | [x, ..xs], p, y, h =>
-    match e: p x with
-      | True => Both (Eq.trans (Eq.cong p (Eq.sym (Option.someInjective h))) e) (Inl (Option.someInjective h))
-      | False =>
-        match List.findSome xs p y h with
-          | Both py m => Both py (Inr m)
+theorem List.findSome (xs: List a) (p: a → Bool) (y: a) (h: List.find xs p = Some y): (p y = True) ∧ (y ∈ xs) :=
+  match xs with
+    | [] => Void.exfalso (Option.noneNotSome y h)
+    | [x, ..xs] =>
+      match e: p x with
+        | True => Both (Eq.trans (Eq.cong p (Eq.sym (Option.someInjective h))) e) (Inl (Option.someInjective h))
+        | False =>
+          match List.findSome xs p y h with
+            | Both py m => Both py (Inr m)
 
 --| `List.find` finds nothing only when no element passes.
-theorem List.findNoneNotMem: ∀ (xs: List a) (p: a → Bool) (x: a) (px: p x = True) => x ∈ xs → List.find xs p = None → Void
-  | [], p, x, px, m, h => m
-  | [z, ..zs], p, x, px, Inl e, h => Option.someNotNone x (rewrite e, px at h)
-  | [z, ..zs], p, x, px, Inr m, h =>
-    match c: p z with
-      | True => Option.someNotNone z h
-      | False => List.findNoneNotMem zs p x px m h
+theorem List.findNoneNotMem (xs: List a) (p: a → Bool) (x: a) (px: p x = True) (h1: x ∈ xs) (h: List.find xs p = None): Void :=
+  match xs, h1 with
+    | [], m => m
+    | [z, ..zs], Inl e => Option.someNotNone x (rewrite e, px at h)
+    | [z, ..zs], Inr m =>
+      match c: p z with
+        | True => Option.someNotNone z h
+        | False => List.findNoneNotMem zs p x px m h
 
 --| Finding nothing means every element fails, as an `all`. So
 --| `find xs bad = None` gives `xs.all (x => ¬(bad x))`, and a search for
 --| one that isn't `good` finding nothing gives `xs.all good`.
-theorem List.findNoneAll: ∀ (xs: List a) (p: a → Bool) => List.find xs p = None → List.all xs (x => ¬(p x)) = True
-  | [], p, h => rfl
-  | [x, ..rest], p, h =>
-    match e: p x with
-      | False => List.findNoneAll rest p h
-      | True => Void.exfalso (Option.someNotNone x h)
+theorem List.findNoneAll (xs: List a) (p: a → Bool) (h: List.find xs p = None): List.all xs (x => ¬(p x)) = True :=
+  match xs with
+    | [] => rfl
+    | [x, ..rest] =>
+      match e: p x with
+        | False => List.findNoneAll rest p h
+        | True => Void.exfalso (Option.someNotNone x h)
 
-theorem List.findNotNoneAll: ∀ (xs: List a) (good: a → Bool) => List.find xs (x => ¬(good x)) = None → List.all xs good = True
-  | [], good, h => rfl
-  | [x, ..rest], good, h =>
-    match e: good x with
-      | True => List.findNotNoneAll rest good h
-      | False => Void.exfalso (Option.someNotNone x h)
+theorem List.findNotNoneAll (xs: List a) (good: a → Bool) (h: List.find xs (x => ¬(good x)) = None): List.all xs good = True :=
+  match xs with
+    | [] => rfl
+    | [x, ..rest] =>
+      match e: good x with
+        | True => List.findNotNoneAll rest good h
+        | False => Void.exfalso (Option.someNotNone x h)
 
 --| Searching the elements paired with their indices (`withIndex`) by the
 --| element alone finds nothing exactly when searching the list does.
@@ -1692,36 +1711,36 @@ test "List.findRangeSome" := List.range 0 10 |> .find (n => n * n > 20) == Some 
 -- carries the induction, `findIndexFrom` (a cons step moves its start).
 
 --| What `findIndexFrom` finds passes, and nothing before it does.
-theorem List.findIndexFromSome (p: a → Bool): ∀ (start: Nat) (xs: List a) (index: Nat) => List.findIndexFrom start p xs = Some index →
-    (start ≤ index) ∧ (∃ (x: a) => (xs.get (index - start) = Some x) ∧ (p x = True))
-      ∧ (∀ (earlier: Nat) => start ≤ earlier → earlier < index → ∀ (y: a) => xs.get (earlier - start) = Some y → p y = False)
-  | start, [], index, h => Void.exfalso (Option.noneNotSome index h)
-  | start, [x, ..rest], index, h =>
-    match e: p x with
-      | True =>
-        let isStart: start = index := Option.someInjective h
-        let zero: index - start = 0 := omega
-        Both (Nat.leOfEq start index isStart)
-          (Both (Witness x (rewrite zero in Both rfl e))
-            (earlier lo hi y g =>
-              let impossible: earlier < earlier := omega
-              Void.exfalso (Nat.lessIrrefl earlier impossible)))
-      | False =>
-        let (Both lo (Both there before)) := List.findIndexFromSome p (Succ start) rest index h
-        let shift: index - start = Succ (index - Succ start) := omega
-        let ok: start ≤ index := omega
-        Both ok
-          (Both (Exists.elim there (w both => Witness w (Both (rewrite shift in both.left) both.right)))
-            (earlier lo2 hi y g =>
-              match same: earlier == start with
-                | True =>
-                  let zero: earlier - start = 0 := omega [DecEq.sound same]
-                  rewrite <- Option.someInjective (rewrite zero at g in g) in e
-                | False =>
-                  let ne: earlier ≠ start := DecEq.soundFalse earlier start same
-                  let later: Succ start ≤ earlier := omega
-                  let shift2: earlier - start = Succ (earlier - Succ start) := omega
-                  before earlier later hi y (rewrite shift2 at g in g)))
+theorem List.findIndexFromSome (p: a → Bool) (start: Nat) (xs: List a) (index: Nat) (h: List.findIndexFrom start p xs = Some index): (start ≤ index) ∧ (∃ (x: a) => (xs.get (index - start) = Some x) ∧ (p x = True))
+    ∧ (∀ (earlier: Nat) => start ≤ earlier → earlier < index → ∀ (y: a) => xs.get (earlier - start) = Some y → p y = False) :=
+  match xs with
+    | [] => Void.exfalso (Option.noneNotSome index h)
+    | [x, ..rest] =>
+      match e: p x with
+        | True =>
+          let isStart: start = index := Option.someInjective h
+          let zero: index - start = 0 := omega
+          Both (Nat.leOfEq start index isStart)
+            (Both (Witness x (rewrite zero in Both rfl e))
+              (earlier lo hi y g =>
+                let impossible: earlier < earlier := omega
+                Void.exfalso (Nat.lessIrrefl earlier impossible)))
+        | False =>
+          let (Both lo (Both there before)) := List.findIndexFromSome p (Succ start) rest index h
+          let shift: index - start = Succ (index - Succ start) := omega
+          let ok: start ≤ index := omega
+          Both ok
+            (Both (Exists.elim there (w both => Witness w (Both (rewrite shift in both.left) both.right)))
+              (earlier lo2 hi y g =>
+                match same: earlier == start with
+                  | True =>
+                    let zero: earlier - start = 0 := omega [DecEq.sound same]
+                    rewrite <- Option.someInjective (rewrite zero at g in g) in e
+                  | False =>
+                    let ne: earlier ≠ start := DecEq.soundFalse earlier start same
+                    let later: Succ start ≤ earlier := omega
+                    let shift2: earlier - start = Succ (earlier - Succ start) := omega
+                    before earlier later hi y (rewrite shift2 at g in g)))
 
 --| What `findIndexFrom` does not find: no member passes.
 theorem List.findIndexFromNone (p: a → Bool): ∀ (start: Nat) (xs: List a) => List.findIndexFrom start p xs = None → ∀ (x: a) => x ∈ xs → p x = False
@@ -1735,33 +1754,34 @@ theorem List.findIndexFromNone (p: a → Bool): ∀ (start: Nat) (xs: List a) =>
           | Inr later => List.findIndexFromNone p (Succ start) rest h x later
 
 --| The first index that passes is what `findIndexFrom` finds.
-theorem List.findIndexFromOf (p: a → Bool): ∀ (start: Nat) (xs: List a) (index: Nat) (x: a) => start ≤ index → xs.get (index - start) = Some x → p x = True →
-    (∀ (earlier: Nat) => start ≤ earlier → earlier < index → ∀ (y: a) => xs.get (earlier - start) = Some y → p y = False) → List.findIndexFrom start p xs = Some index
-  | start, [], index, x, lo, g, passes, before => Void.exfalso (Option.noneNotSome x g)
-  | start, [z, ..rest], index, x, lo, g, passes, before =>
-    match e: p z with
-      | True =>
-        match same: index == start with
-          | True => rewrite DecEq.sound same in rfl
-          | False =>
-            let ne: index ≠ start := DecEq.soundFalse index start same
-            let less: start < index := omega
-            let zero: start - start = 0 := omega
-            Void.exfalso (Bool.falseNotTrue (Eq.trans (Eq.sym (before start (Nat.leRefl start) less z (rewrite zero in rfl))) e))
-      | False =>
-        match same: index == start with
-          | True =>
-            let zero: index - start = 0 := omega [DecEq.sound same]
-            let isZ: z = x := Option.someInjective (rewrite zero at g in g)
-            Void.exfalso (Bool.falseNotTrue (Eq.trans (Eq.sym e) (rewrite isZ in passes)))
-          | False =>
-            let ne: index ≠ start := DecEq.soundFalse index start same
-            let later: Succ start ≤ index := omega
-            let shift: index - start = Succ (index - Succ start) := omega
-            List.findIndexFromOf p (Succ start) rest index x later (rewrite shift at g in g) passes
-              (earlier lo2 hi y g2 =>
-                let shift2: earlier - start = Succ (earlier - Succ start) := omega
-                before earlier (Nat.leTrans start (Succ start) earlier (Nat.leSucc start) lo2) hi y (rewrite shift2 in g2))
+theorem List.findIndexFromOf (p: a → Bool) (start: Nat) (xs: List a) (index: Nat) (x: a) (lo: start ≤ index) (g: xs.get (index - start) = Some x) (passes: p x = True)
+    (before: (∀ (earlier: Nat) => start ≤ earlier → earlier < index → ∀ (y: a) => xs.get (earlier - start) = Some y → p y = False)): List.findIndexFrom start p xs = Some index :=
+  match xs with
+    | [] => Void.exfalso (Option.noneNotSome x g)
+    | [z, ..rest] =>
+      match e: p z with
+        | True =>
+          match same: index == start with
+            | True => rewrite DecEq.sound same in rfl
+            | False =>
+              let ne: index ≠ start := DecEq.soundFalse index start same
+              let less: start < index := omega
+              let zero: start - start = 0 := omega
+              Void.exfalso (Bool.falseNotTrue (Eq.trans (Eq.sym (before start (Nat.leRefl start) less z (rewrite zero in rfl))) e))
+        | False =>
+          match same: index == start with
+            | True =>
+              let zero: index - start = 0 := omega [DecEq.sound same]
+              let isZ: z = x := Option.someInjective (rewrite zero at g in g)
+              Void.exfalso (Bool.falseNotTrue (Eq.trans (Eq.sym e) (rewrite isZ in passes)))
+            | False =>
+              let ne: index ≠ start := DecEq.soundFalse index start same
+              let later: Succ start ≤ index := omega
+              let shift: index - start = Succ (index - Succ start) := omega
+              List.findIndexFromOf p (Succ start) rest index x later (rewrite shift at g in g) passes
+                (earlier lo2 hi y g2 =>
+                  let shift2: earlier - start = Succ (earlier - Succ start) := omega
+                  before earlier (Nat.leTrans start (Succ start) earlier (Nat.leSucc start) lo2) hi y (rewrite shift2 in g2))
 
 --| What `findIndex` finds passes, and nothing before it does.
 theorem List.findIndexSome (xs: List a) (p: a → Bool) (index: Nat) (found: xs.findIndex p = Some index):
@@ -1828,15 +1848,16 @@ theorem List.foldMinLeMember [auto ord: Ord a] (xs: List a) (start x: a) (h: x �
         Ord.leTrans (List.foldLeft ys (Ord.min start y) Ord.min) (Ord.min start y) y (List.foldMinLeStart ys (Ord.min start y)) (Ord.minLeRight start y)
     | [y, ..ys], Inr member => List.foldMinLeMember ys (Ord.min start y) x member
 
-theorem List.foldMinMember [auto ord: Ord a]: ∀ (xs: List a) (start: a) => (List.foldLeft xs start Ord.min = start) ∨ (List.foldLeft xs start Ord.min ∈ xs)
-  | [], start => Inl rfl
-  | [y, ..ys], start =>
-    match List.foldMinMember ys (Ord.min start y) with
-      | Inr member => Inr (Inr member)
-      | Inl same =>
-        match Ord.minEither start y with
-          | Inl isStart => Inl (Eq.trans same isStart)
-          | Inr isY => Inr (Inl (Eq.sym (Eq.trans same isY)))
+theorem List.foldMinMember [auto ord: Ord a] (xs: List a) (start: a): (List.foldLeft xs start Ord.min = start) ∨ (List.foldLeft xs start Ord.min ∈ xs) :=
+  match xs with
+    | [] => Inl rfl
+    | [y, ..ys] =>
+      match List.foldMinMember ys (Ord.min start y) with
+        | Inr member => Inr (Inr member)
+        | Inl same =>
+          match Ord.minEither start y with
+            | Inl isStart => Inl (Eq.trans same isStart)
+            | Inr isY => Inr (Inl (Eq.sym (Eq.trans same isY)))
 
 --| The least element is in the list and at most every element.
 theorem List.minimumSome [auto ord: Ord a] (xs: List a) (least: a) (found: List.minimum xs = Some least): (least ∈ xs) ∧ (∀ (x: a) => x ∈ xs → least <= x) :=
@@ -1887,53 +1908,56 @@ theorem List.minimumSameMembers [auto ord: Ord a] (xs: List a) (ys: List a) (int
 
 --| Folding with `List.minByStep` gives a key at most the start's, and the
 --| start or a member.
-theorem List.foldMinByLeStart [auto ord: Ord b] (f: a → b): ∀ (xs: List a) (start: a) => f (List.foldLeft xs start (List.minByStep f)) <= f start
-  | [], start => Ord.leRefl (f start)
-  | [y, ..ys], start =>
-    match order: Ord.compare (f start) (f y) with
-      | Greater =>
-        let flipped: Ord.compare (f y) (f start) = Less := rewrite order at ord.flip (f start) (f y)
-        Ord.leTrans (f (List.foldLeft ys y (List.minByStep f))) (f y) (f start) (List.foldMinByLeStart f ys y)
-          (Ord.lessLe (f y) (f start) (ord.lessThanOf (f y) (f start) flipped))
-      | Less => List.foldMinByLeStart f ys start
-      | Equal => List.foldMinByLeStart f ys start
+theorem List.foldMinByLeStart [auto ord: Ord b] (f: a → b) (xs: List a) (start: a): f (List.foldLeft xs start (List.minByStep f)) <= f start :=
+  match xs with
+    | [] => Ord.leRefl (f start)
+    | [y, ..ys] =>
+      match order: Ord.compare (f start) (f y) with
+        | Greater =>
+          let flipped: Ord.compare (f y) (f start) = Less := rewrite order at ord.flip (f start) (f y)
+          Ord.leTrans (f (List.foldLeft ys y (List.minByStep f))) (f y) (f start) (List.foldMinByLeStart f ys y)
+            (Ord.lessLe (f y) (f start) (ord.lessThanOf (f y) (f start) flipped))
+        | Less => List.foldMinByLeStart f ys start
+        | Equal => List.foldMinByLeStart f ys start
 
 --| Folding with `List.minByStep` gives a key at most each member's.
-theorem List.foldMinByLeMember [auto ord: Ord b] (f: a → b): ∀ (xs: List a) (start x: a) => x ∈ xs → f (List.foldLeft xs start (List.minByStep f)) <= f x
-  | [], start, x, member => Void.exfalso member
-  | [y, ..ys], start, x, Inl same =>
-    rewrite Eq.sym same in
+theorem List.foldMinByLeMember [auto ord: Ord b] (f: a → b) (xs: List a) (start x: a) (h: x ∈ xs): f (List.foldLeft xs start (List.minByStep f)) <= f x :=
+  match xs, h with
+    | [], member => Void.exfalso member
+    | [y, ..ys], Inl same =>
+      rewrite Eq.sym same in
+        match order: Ord.compare (f start) (f y) with
+          | Greater => List.foldMinByLeStart f ys y
+          | Less =>
+            Ord.leTrans (f (List.foldLeft ys start (List.minByStep f))) (f start) (f y) (List.foldMinByLeStart f ys start)
+              (ord.lessEqOf (f start) (f y) (greater => Ordering.lessNotGreater (Eq.trans (Eq.sym order) greater)))
+          | Equal =>
+            Ord.leTrans (f (List.foldLeft ys start (List.minByStep f))) (f start) (f y) (List.foldMinByLeStart f ys start)
+              (ord.lessEqOf (f start) (f y) (greater => Ordering.equalNotGreater (Eq.trans (Eq.sym order) greater)))
+    | [y, ..ys], Inr member =>
       match order: Ord.compare (f start) (f y) with
-        | Greater => List.foldMinByLeStart f ys y
-        | Less =>
-          Ord.leTrans (f (List.foldLeft ys start (List.minByStep f))) (f start) (f y) (List.foldMinByLeStart f ys start)
-            (ord.lessEqOf (f start) (f y) (greater => Ordering.lessNotGreater (Eq.trans (Eq.sym order) greater)))
-        | Equal =>
-          Ord.leTrans (f (List.foldLeft ys start (List.minByStep f))) (f start) (f y) (List.foldMinByLeStart f ys start)
-            (ord.lessEqOf (f start) (f y) (greater => Ordering.equalNotGreater (Eq.trans (Eq.sym order) greater)))
-  | [y, ..ys], start, x, Inr member =>
-    match order: Ord.compare (f start) (f y) with
-      | Greater => List.foldMinByLeMember f ys y x member
-      | Less => List.foldMinByLeMember f ys start x member
-      | Equal => List.foldMinByLeMember f ys start x member
+        | Greater => List.foldMinByLeMember f ys y x member
+        | Less => List.foldMinByLeMember f ys start x member
+        | Equal => List.foldMinByLeMember f ys start x member
 
 --| Folding with `List.minByStep` gives the start or a member.
-theorem List.foldMinByMember [auto ord: Ord b] (f: a → b): ∀ (xs: List a) (start: a) => (List.foldLeft xs start (List.minByStep f) = start) ∨ (List.foldLeft xs start (List.minByStep f) ∈ xs)
-  | [], start => Inl rfl
-  | [y, ..ys], start =>
-    match order: Ord.compare (f start) (f y) with
-      | Greater =>
-        match List.foldMinByMember f ys y with
-          | Inl same => Inr (Inl (Eq.sym same))
-          | Inr member => Inr (Inr member)
-      | Less =>
-        match List.foldMinByMember f ys start with
-          | Inl same => Inl same
-          | Inr member => Inr (Inr member)
-      | Equal =>
-        match List.foldMinByMember f ys start with
-          | Inl same => Inl same
-          | Inr member => Inr (Inr member)
+theorem List.foldMinByMember [auto ord: Ord b] (f: a → b) (xs: List a) (start: a): (List.foldLeft xs start (List.minByStep f) = start) ∨ (List.foldLeft xs start (List.minByStep f) ∈ xs) :=
+  match xs with
+    | [] => Inl rfl
+    | [y, ..ys] =>
+      match order: Ord.compare (f start) (f y) with
+        | Greater =>
+          match List.foldMinByMember f ys y with
+            | Inl same => Inr (Inl (Eq.sym same))
+            | Inr member => Inr (Inr member)
+        | Less =>
+          match List.foldMinByMember f ys start with
+            | Inl same => Inl same
+            | Inr member => Inr (Inr member)
+        | Equal =>
+          match List.foldMinByMember f ys start with
+            | Inl same => Inl same
+            | Inr member => Inr (Inr member)
 
 --| The case of [`List.foldMinByFirst`] where the start is kept over `y`: given
 --| the split for `start :: ys`, which leaves `y` out, `y` goes after the start.
@@ -1961,27 +1985,27 @@ theorem List.foldMinByFirstKeep [auto ord: Ord b] (f: a → b) (ys: List a) (sta
 --| The result of folding with `List.minByStep` from `start` over `xs` is the
 --| first element of `start :: xs` whose key is the smallest: the list splits
 --| around it, and every element before it has a strictly larger key.
-theorem List.foldMinByFirst [auto ord: Ord b] (f: a → b): ∀ (xs: List a) (start: a) =>
-    ∃ (before: List a) => ∃ (after: List a) =>
-      ([start, ..xs] = before ++ [List.foldLeft xs start (List.minByStep f), ..after]) ∧ (∀ (y: a) => y ∈ before → f (List.foldLeft xs start (List.minByStep f)) < f y)
-  | [], start => Witness [] (Witness [] (Both rfl (y member => Void.exfalso member)))
-  | [y, ..ys], start =>
-    match order: Ord.compare (f start) (f y) with
-      | Greater =>
-        let flipped: Ord.compare (f y) (f start) = Less := rewrite order at ord.flip (f start) (f y)
-        let startAbove: f y < f start := ord.lessThanOf (f y) (f start) flipped
-        match List.foldMinByFirst f ys y with
-          | Witness before (Witness after (Both split earlier)) =>
-            Witness [start, ..before] (Witness after (Both
-              (rewrite split in rfl)
-              (z member =>
-                match member with
-                  | Inl same =>
-                    rewrite <- same in
-                      Ord.leLessTrans (f (List.foldLeft ys y (List.minByStep f))) (f y) (f start) (List.foldMinByLeStart f ys y) startAbove
-                  | Inr inBefore => earlier z inBefore)))
-      | Less => List.foldMinByFirstKeep f ys start y (ord.lessEqOf (f start) (f y) (greater => Ordering.lessNotGreater (Eq.trans (Eq.sym order) greater))) (List.foldMinByFirst f ys start)
-      | Equal => List.foldMinByFirstKeep f ys start y (ord.lessEqOf (f start) (f y) (greater => Ordering.equalNotGreater (Eq.trans (Eq.sym order) greater))) (List.foldMinByFirst f ys start)
+theorem List.foldMinByFirst [auto ord: Ord b] (f: a → b) (xs: List a) (start: a): ∃ (before: List a) => ∃ (after: List a) =>
+    ([start, ..xs] = before ++ [List.foldLeft xs start (List.minByStep f), ..after]) ∧ (∀ (y: a) => y ∈ before → f (List.foldLeft xs start (List.minByStep f)) < f y) :=
+  match xs with
+    | [] => Witness [] (Witness [] (Both rfl (y member => Void.exfalso member)))
+    | [y, ..ys] =>
+      match order: Ord.compare (f start) (f y) with
+        | Greater =>
+          let flipped: Ord.compare (f y) (f start) = Less := rewrite order at ord.flip (f start) (f y)
+          let startAbove: f y < f start := ord.lessThanOf (f y) (f start) flipped
+          match List.foldMinByFirst f ys y with
+            | Witness before (Witness after (Both split earlier)) =>
+              Witness [start, ..before] (Witness after (Both
+                (rewrite split in rfl)
+                (z member =>
+                  match member with
+                    | Inl same =>
+                      rewrite <- same in
+                        Ord.leLessTrans (f (List.foldLeft ys y (List.minByStep f))) (f y) (f start) (List.foldMinByLeStart f ys y) startAbove
+                    | Inr inBefore => earlier z inBefore)))
+        | Less => List.foldMinByFirstKeep f ys start y (ord.lessEqOf (f start) (f y) (greater => Ordering.lessNotGreater (Eq.trans (Eq.sym order) greater))) (List.foldMinByFirst f ys start)
+        | Equal => List.foldMinByFirstKeep f ys start y (ord.lessEqOf (f start) (f y) (greater => Ordering.equalNotGreater (Eq.trans (Eq.sym order) greater))) (List.foldMinByFirst f ys start)
 
 --| `List.minBy` finds a member, and its key is at most every member's.
 theorem List.minBySome [auto ord: Ord b] (xs: List a) (f: a → b) (least: a) (found: List.minBy xs f = Some least):
@@ -2056,15 +2080,16 @@ theorem List.foldMaxGeMember [auto ord: Ord a] (xs: List a) (start x: a) (h: x �
         Ord.leTrans y (Ord.max start y) (List.foldLeft ys (Ord.max start y) Ord.max) (Ord.leMaxRight start y) (List.foldMaxGeStart ys (Ord.max start y))
     | [y, ..ys], Inr member => List.foldMaxGeMember ys (Ord.max start y) x member
 
-theorem List.foldMaxMember [auto ord: Ord a]: ∀ (xs: List a) (start: a) => (List.foldLeft xs start Ord.max = start) ∨ (List.foldLeft xs start Ord.max ∈ xs)
-  | [], start => Inl rfl
-  | [y, ..ys], start =>
-    match List.foldMaxMember ys (Ord.max start y) with
-      | Inr member => Inr (Inr member)
-      | Inl same =>
-        match Ord.maxEither start y with
-          | Inl isStart => Inl (Eq.trans same isStart)
-          | Inr isY => Inr (Inl (Eq.sym (Eq.trans same isY)))
+theorem List.foldMaxMember [auto ord: Ord a] (xs: List a) (start: a): (List.foldLeft xs start Ord.max = start) ∨ (List.foldLeft xs start Ord.max ∈ xs) :=
+  match xs with
+    | [] => Inl rfl
+    | [y, ..ys] =>
+      match List.foldMaxMember ys (Ord.max start y) with
+        | Inr member => Inr (Inr member)
+        | Inl same =>
+          match Ord.maxEither start y with
+            | Inl isStart => Inl (Eq.trans same isStart)
+            | Inr isY => Inr (Inl (Eq.sym (Eq.trans same isY)))
 
 --| The greatest element is in the list and at least every element.
 theorem List.maximumSome [auto ord: Ord a] (xs: List a) (most: a) (found: List.maximum xs = Some most): (most ∈ xs) ∧ (∀ (x: a) => x ∈ xs → x <= most) :=
@@ -2143,17 +2168,18 @@ theorem List.memContains [auto eq: DecEq a] (xs: List a) (x: a): (List.contains 
 --| it is not filled in by `auto`.
 --| Example: `List.countEqDistinct "b" ["a", "b", "c"] byDecision` says
 --| `["a", "b", "c"].count (== "b") = Bool.toNat (["a", "b", "c"].contains "b")`.
-theorem List.countEqDistinct [auto eq: DecEq a] (v: a): ∀ (xs: List a) => List.Distinct xs → List.count xs (== v) = Bool.toNat (List.contains xs v)
-  | [], d => rfl
-  | [y, ..ys], Both notMem d =>
-    Eq.trans
-      (Eq.trans (List.countCons ys y (== v)) (Eq.cong (n => Bool.toNat (y == v) + n) (List.countEqDistinct v ys d)))
-      (match same: y == v with
-        | True =>
-          match later: List.contains ys v with
-            | True => Void.exfalso (notMem (rewrite DecEq.sound same in (List.memContains ys v).forward later))
-            | False => rfl
-        | False => rfl)
+theorem List.countEqDistinct [auto eq: DecEq a] (v: a) (xs: List a) (h: List.Distinct xs): List.count xs (== v) = Bool.toNat (List.contains xs v) :=
+  match xs, h with
+    | [], d => rfl
+    | [y, ..ys], Both notMem d =>
+      Eq.trans
+        (Eq.trans (List.countCons ys y (== v)) (Eq.cong (n => Bool.toNat (y == v) + n) (List.countEqDistinct v ys d)))
+        (match same: y == v with
+          | True =>
+            match later: List.contains ys v with
+              | True => Void.exfalso (notMem (rewrite DecEq.sound same in (List.memContains ys v).forward later))
+              | False => rfl
+          | False => rfl)
 
 --| What `(.find p)` finds passes any other test some element passes.
 theorem List.findAny (xs: List a) (p: a → Bool) (q: a → Bool) (y: a) (qy: q y = True) (h: List.find xs p = Some y): List.any xs q = True :=
@@ -2186,25 +2212,27 @@ theorem List.memMapOfSub (key: a → k) (s: List a) (xs: List a) (sub: ∀ (y: a
     (y inS e => rewrite <- e in List.memMap xs y (sub y inS) key)
 
 --| Keeping some elements keeps their keys distinct.
-theorem List.distinctMapFilter: ∀ (xs: List a) (key: a → k) (p: a → Bool) => List.Distinct (List.map xs key) →
-    List.Distinct (List.map (List.filter xs p) key)
-  | [], key, p, d => Trivial
-  | [x, ..xs], key, p, Both notMem d =>
-    match e: p x with
-      | True =>
-        Both
-          (m => notMem (List.memMapOfSub key (List.filter xs p) xs (y inFiltered => match List.memFilter xs p inFiltered with
-            | Both inXs py => inXs) (key x) m))
-          (List.distinctMapFilter xs key p d)
-      | False => List.distinctMapFilter xs key p d
+theorem List.distinctMapFilter (xs: List a) (key: a → k) (p: a → Bool) (h: List.Distinct (List.map xs key)):
+    List.Distinct (List.map (List.filter xs p) key) :=
+  match xs, h with
+    | [], d => Trivial
+    | [x, ..xs], Both notMem d =>
+      match e: p x with
+        | True =>
+          Both
+            (m => notMem (List.memMapOfSub key (List.filter xs p) xs (y inFiltered => match List.memFilter xs p inFiltered with
+              | Both inXs py => inXs) (key x) m))
+            (List.distinctMapFilter xs key p d)
+        | False => List.distinctMapFilter xs key p d
 
 --| Keeping some elements keeps them distinct.
-theorem List.distinctFilter: ∀ (xs: List a) (p: a → Bool) => List.Distinct xs → List.Distinct (List.filter xs p)
-  | [], p, d => Trivial
-  | [x, ..xs], p, Both notMem d =>
-    match e: p x with
-      | True => Both (m => notMem (And.left (List.memFilter xs p m))) (List.distinctFilter xs p d)
-      | False => List.distinctFilter xs p d
+theorem List.distinctFilter (xs: List a) (p: a → Bool) (h: List.Distinct xs): List.Distinct (List.filter xs p) :=
+  match xs, h with
+    | [], d => Trivial
+    | [x, ..xs], Both notMem d =>
+      match e: p x with
+        | True => Both (m => notMem (And.left (List.memFilter xs p m))) (List.distinctFilter xs p d)
+        | False => List.distinctFilter xs p d
 
 --| A key of a `filterMap`'s result is the key of an element it came from,
 --| when each result has the key of its element.
@@ -2242,24 +2270,26 @@ theorem List.distinctMapFilterExample: List.Distinct (List.map (List.filter [1, 
 
 --| `findMap` is the first of the `filterMap` results, found without building
 --| the rest.
-theorem List.findMapIsHeadFilterMap: ∀ (xs: List a) (f: a → Option b) => List.findMap xs f = List.head (List.filterMap xs f)
-  | [], f => rfl
-  | [x, ..xs], f =>
-    match f x with
-      | None => List.findMapIsHeadFilterMap xs f
-      | Some y => rfl
+theorem List.findMapIsHeadFilterMap (xs: List a) (f: a → Option b): List.findMap xs f = List.head (List.filterMap xs f) :=
+  match xs with
+    | [] => rfl
+    | [x, ..xs] =>
+      match f x with
+        | None => List.findMapIsHeadFilterMap xs f
+        | Some y => rfl
 
 --| What `List.findMap` finds, `f` gives for some element of the list; the
 --| element that gave it is in the list ([`List.findMapIsHeadFilterMap`] says
 --| which one, by way of `filterMap`).
-theorem List.memOfFindMap (f: a → Option b): ∀ (xs: List a) (y: b) => List.findMap xs f = Some y → ∃ (x: a) => x ∈ xs ∧ f x = Some y
-  | [], y, found => Void.exfalso (Option.noneNotSome y found)
-  | [x, ..xs], y, found =>
-    match c: f x with
-      | Some z => Witness x (Both (Inl rfl) (rewrite c in found))
-      | None =>
-        match List.memOfFindMap f xs y found with
-          | Witness later (Both member made) => Witness later (Both (Inr member) made)
+theorem List.memOfFindMap (f: a → Option b) (xs: List a) (y: b) (found: List.findMap xs f = Some y): ∃ (x: a) => x ∈ xs ∧ f x = Some y :=
+  match xs with
+    | [] => Void.exfalso (Option.noneNotSome y found)
+    | [x, ..xs] =>
+      match c: f x with
+        | Some z => Witness x (Both (Inl rfl) (rewrite c in found))
+        | None =>
+          match List.memOfFindMap f xs y found with
+            | Witness later (Both member made) => Witness later (Both (Inr member) made)
 
 theorem List.lengthTails (xs: List a): List.length (List.tails xs) = Succ (List.length xs) :=
   match xs with
@@ -2333,16 +2363,17 @@ theorem List.takeWhileMap (f: a → b) (p: b → Bool) (xs: List a):
 
 --| Counting up from `start`, `takeWhile` stops by `cutoff` when nothing from
 --| `cutoff` on passes, so any count reaching it gives the same.
-theorem List.takeWhileRangeCutoff (p: Nat → Bool) (cutoff: Nat) (fails: ∀ (k: Nat) => cutoff ≤ k → p k = False):
-    ∀ (n m start: Nat) => cutoff ≤ start + n → cutoff ≤ start + m →
-    List.takeWhile (List.rangeFrom n start) p = List.takeWhile (List.rangeFrom m start) p
-  | Zero, Zero, start, reachesN, reachesM => rfl
-  | Zero, Succ m, start, reachesN, reachesM => rewrite fails start omega in rfl
-  | Succ n, Zero, start, reachesN, reachesM => rewrite fails start omega in rfl
-  | Succ n, Succ m, start, reachesN, reachesM =>
-    match passes: p start with
-      | True => rewrite List.takeWhileRangeCutoff p cutoff fails n m (Succ start) omega omega in rfl
-      | False => rfl
+theorem List.takeWhileRangeCutoff (p: Nat → Bool) (cutoff: Nat) (fails: ∀ (k: Nat) => cutoff ≤ k → p k = False)
+    (n m start: Nat) (reachesN: cutoff ≤ start + n) (reachesM: cutoff ≤ start + m):
+    List.takeWhile (List.rangeFrom n start) p = List.takeWhile (List.rangeFrom m start) p :=
+  match n, m with
+    | Zero, Zero => rfl
+    | Zero, Succ m => rewrite fails start omega in rfl
+    | Succ n, Zero => rewrite fails start omega in rfl
+    | Succ n, Succ m =>
+      match passes: p start with
+        | True => rewrite List.takeWhileRangeCutoff p cutoff fails n m (Succ start) omega omega in rfl
+        | False => rfl
 
 --| Everything `takeWhile` takes passes.
 theorem List.allTakeWhile (p: a → Bool) (xs: List a): List.all (List.takeWhile xs p) p = True :=
@@ -2437,10 +2468,11 @@ theorem List.allMapBool (xs: List a) (p: b → Bool) (f: a → b): List.all (Lis
 
 --| Some element of a `flatMap` passes exactly when some list it is made of
 --| has one.
-theorem List.anyFlatMap (f: a → List b) (p: b → Bool): ∀ (xs: List a) => List.any (List.flatMap xs f) p = List.any xs (x => List.any (f x) p)
-  | [] => rfl
-  | [x, ..xs] =>
-    Eq.trans (List.anyAppend (f x) (List.flatMap xs f) p) (Eq.cong (later => List.any (f x) p ∨ later) (List.anyFlatMap f p xs))
+theorem List.anyFlatMap (f: a → List b) (p: b → Bool) (xs: List a): List.any (List.flatMap xs f) p = List.any xs (x => List.any (f x) p) :=
+  match xs with
+    | [] => rfl
+    | [x, ..xs] =>
+      Eq.trans (List.anyAppend (f x) (List.flatMap xs f) p) (Eq.cong (later => List.any (f x) p ∨ later) (List.anyFlatMap f p xs))
 
 --| `List.any` of an `∨` is the `∨` of the `List.any`s.
 theorem List.anyOr (p: a → Bool) (q: a → Bool) (xs: List a): List.any xs (x => p x ∨ q x) = (List.any xs p ∨ List.any xs q) :=
@@ -2473,21 +2505,22 @@ theorem List.permMap (xs: List a) (ys: List a) (h: List.Perm xs ys) (f: a → b)
   p => rewrite List.occurrencesMap xs f p, List.occurrencesMap ys f p in h (x => p (f x))
 
 --| Counting what `(.filter keep)` kept is counting what passes both tests.
-theorem List.occurrencesFilter: ∀ (xs: List a) (keep p: a → Bool) =>
-    List.occurrences (List.filter xs keep) p = List.occurrences xs (x => p x ∧ keep x)
-  | [], keep, p => rfl
-  | [x, ..xs], keep, p =>
-    match e: keep x with
-      | True =>
-        rewrite List.occurrencesFilter xs keep p in
-          match p x with
-            | True => rfl
-            | False => rfl
-      | False =>
-        rewrite List.occurrencesFilter xs keep p in
-          match p x with
-            | True => rfl
-            | False => rfl
+theorem List.occurrencesFilter (xs: List a) (keep p: a → Bool):
+    List.occurrences (List.filter xs keep) p = List.occurrences xs (x => p x ∧ keep x) :=
+  match xs with
+    | [] => rfl
+    | [x, ..xs] =>
+      match e: keep x with
+        | True =>
+          rewrite List.occurrencesFilter xs keep p in
+            match p x with
+              | True => rfl
+              | False => rfl
+        | False =>
+          rewrite List.occurrencesFilter xs keep p in
+            match p x with
+              | True => rfl
+              | False => rfl
 
 --| The first k numbers of a longer run.
 theorem List.takeRangeFrom (k n s: Nat) (h: k ≤ n): List.take (List.rangeFrom n s) k = List.rangeFrom k s :=
@@ -2539,15 +2572,16 @@ theorem List.leFoldMax (xs: List Nat) (x start: Nat) (h: x ∈ xs): x ≤ List.f
     | [y, ..ys], Inr m => List.leFoldMax ys x (Nat.max start y) m
 
 --| The largest is the start or one of the elements.
-theorem List.foldMaxMem: ∀ (xs: List Nat) (start: Nat) => (List.foldLeft xs start Nat.max = start) ∨ (List.foldLeft xs start Nat.max ∈ xs)
-  | [], start => Inl rfl
-  | [y, ..ys], start =>
-    match List.foldMaxMem ys (Nat.max start y) with
-      | Inr m => Inr (Inr m)
-      | Inl e =>
-        match h: Nat.leq start y with
-          | True => Inr (Inl (Eq.sym e))
-          | False => Inl e
+theorem List.foldMaxMem (xs: List Nat) (start: Nat): (List.foldLeft xs start Nat.max = start) ∨ (List.foldLeft xs start Nat.max ∈ xs) :=
+  match xs with
+    | [] => Inl rfl
+    | [y, ..ys] =>
+      match List.foldMaxMem ys (Nat.max start y) with
+        | Inr m => Inr (Inr m)
+        | Inl e =>
+          match h: Nat.leq start y with
+            | True => Inr (Inl (Eq.sym e))
+            | False => Inl e
 
 -- lengths, and sums over ranges ---------------------------------------------
 
@@ -2590,26 +2624,28 @@ theorem List.sumByZeroIntro (xs: List a) (f: a → Nat) (h: (∀ (x: a) => x ∈
 
 --| Dropping elements that fail `q`, when only elements that pass `q` can pass
 --| `p`, changes neither `any p` nor `count p`.
-theorem List.anyFilter: ∀ (xs: List a) (p q: a → Bool) (h: ∀ (x: a) => p x = True → q x = True) => List.any (List.filter xs q) p = List.any xs p
-  | [], p, q, h => rfl
-  | [x, ..xs], p, q, h =>
-    match e: q x with
-      | True => rewrite List.anyFilter xs p q h in rfl
-      | False =>
-        match f: p x with
-          | True => Void.exfalso (Bool.falseNotTrue (Eq.trans (Eq.sym e) (h x f)))
-          | False => List.anyFilter xs p q h
+theorem List.anyFilter (xs: List a) (p q: a → Bool) (h: ∀ (x: a) => p x = True → q x = True): List.any (List.filter xs q) p = List.any xs p :=
+  match xs with
+    | [] => rfl
+    | [x, ..xs] =>
+      match e: q x with
+        | True => rewrite List.anyFilter xs p q h in rfl
+        | False =>
+          match f: p x with
+            | True => Void.exfalso (Bool.falseNotTrue (Eq.trans (Eq.sym e) (h x f)))
+            | False => List.anyFilter xs p q h
 
-theorem List.countFromFilter: ∀ (xs: List a) (n: Nat) (p q: a → Bool) (h: ∀ (x: a) => p x = True → q x = True) =>
-    List.foldLeft (List.filter xs q) n (k x => Nat.succIf k (p x)) = List.foldLeft xs n (k x => Nat.succIf k (p x))
-  | [], n, p, q, h => rfl
-  | [x, ..xs], n, p, q, h =>
-    match e: q x with
-      | True => List.countFromFilter xs (Nat.succIf n (p x)) p q h
-      | False =>
-        match f: p x with
-          | True => Void.exfalso (Bool.falseNotTrue (Eq.trans (Eq.sym e) (h x f)))
-          | False => List.countFromFilter xs n p q h
+theorem List.countFromFilter (xs: List a) (n: Nat) (p q: a → Bool) (h: ∀ (x: a) => p x = True → q x = True):
+    List.foldLeft (List.filter xs q) n (k x => Nat.succIf k (p x)) = List.foldLeft xs n (k x => Nat.succIf k (p x)) :=
+  match xs with
+    | [] => rfl
+    | [x, ..xs] =>
+      match e: q x with
+        | True => List.countFromFilter xs (Nat.succIf n (p x)) p q h
+        | False =>
+          match f: p x with
+            | True => Void.exfalso (Bool.falseNotTrue (Eq.trans (Eq.sym e) (h x f)))
+            | False => List.countFromFilter xs n p q h
 
 theorem List.countFilter (xs: List a) (p: a → Bool) (q: a → Bool) (h: ∀ (x: a) => p x = True → q x = True): List.count (List.filter xs q) p = List.count xs p :=
   List.countFromFilter xs 0 p q h
@@ -2640,33 +2676,36 @@ theorem List.memDrop (xs: List a) (v: a) (n: Nat) (m: v ∈ List.drop xs n): v �
     | [x, ..xs], Succ n => Inr (List.memDrop xs v n m)
 
 --| What passes the test is kept.
-theorem List.memFilterIntro: ∀ (xs: List a) (p: a → Bool) [v: a] => v ∈ xs → p v = True → v ∈ List.filter xs p
-  | [], p, m, h => m
-  | [x, ..xs], p, Inl e, h => rewrite <- e at h in (rewrite h in Inl e)
-  | [x, ..xs], p, Inr m, h =>
-    match e: p x with
-      | True => Inr (List.memFilterIntro xs p m h)
-      | False => List.memFilterIntro xs p m h
+theorem List.memFilterIntro (xs: List a) (p: a → Bool) [v: a] (h1: v ∈ xs) (h: p v = True): v ∈ List.filter xs p :=
+  match xs, h1 with
+    | [], m => m
+    | [x, ..xs], Inl e => rewrite <- e at h in (rewrite h in Inl e)
+    | [x, ..xs], Inr m =>
+      match e: p x with
+        | True => Inr (List.memFilterIntro xs p m h)
+        | False => List.memFilterIntro xs p m h
 
 --| Filtering a mapped list is mapping the filtered list.
-theorem List.filterOfMap: ∀ (xs: List a) (q: b → Bool) (g: a → b) => List.filter (List.map xs g) q = List.map (List.filter xs (x => q (g x))) g
-  | [], q, g => rfl
-  | [x, ..xs], q, g =>
-    match e: q (g x) with
-      | True => rewrite List.filterOfMap xs q g in rfl
-      | False => List.filterOfMap xs q g
+theorem List.filterOfMap (xs: List a) (q: b → Bool) (g: a → b): List.filter (List.map xs g) q = List.map (List.filter xs (x => q (g x))) g :=
+  match xs with
+    | [] => rfl
+    | [x, ..xs] =>
+      match e: q (g x) with
+        | True => rewrite List.filterOfMap xs q g in rfl
+        | False => List.filterOfMap xs q g
 
 --| A pair in `List.pairs xs` is two elements of `xs`.
-theorem List.memPairs (p: (a, a)): ∀ (xs: List a) => p ∈ List.pairs xs → (p.fst ∈ xs) ∧ (p.snd ∈ xs)
-  | [], m => Void.exfalso m
-  | [x, ..xs], m =>
-    match List.memAppend p (List.map xs (y => (x, y))) (List.pairs xs) m with
-      | Inl first =>
-        List.anyElim (y => (x, y) = p) ((p.fst ∈ [x, ..xs]) ∧ (p.snd ∈ [x, ..xs])) xs (List.memMapAny xs (y => (x, y)) p first)
-          (y inXs e => rewrite <- e in Both (Inl rfl) (Inr inXs))
-      | Inr later =>
-        match List.memPairs p xs later with
-          | Both one other => Both (Inr one) (Inr other)
+theorem List.memPairs (p: (a, a)) (xs: List a) (m: p ∈ List.pairs xs): (p.fst ∈ xs) ∧ (p.snd ∈ xs) :=
+  match xs with
+    | [] => Void.exfalso m
+    | [x, ..xs] =>
+      match List.memAppend p (List.map xs (y => (x, y))) (List.pairs xs) m with
+        | Inl first =>
+          List.anyElim (y => (x, y) = p) ((p.fst ∈ [x, ..xs]) ∧ (p.snd ∈ [x, ..xs])) xs (List.memMapAny xs (y => (x, y)) p first)
+            (y inXs e => rewrite <- e in Both (Inl rfl) (Inr inXs))
+        | Inr later =>
+          match List.memPairs p xs later with
+            | Both one other => Both (Inr one) (Inr other)
 
 --| A pair in a list mapped to pairs with a fixed first part: that part, and a member of the list.
 theorem List.memMapPair (c: a) (u: a) (v: b) (xs: List b): ((u, v) ∈ List.map xs (y => (c, y))) ↔ ((u = c) ∧ (v ∈ xs)) :=
@@ -2712,13 +2751,14 @@ theorem List.lastSnoc (x: a) (xs: List a): List.last (List.append xs [x]) = Some
     | [y, z, ..zs] => List.lastSnoc x [z, ..zs]
 
 --| `filterMap` keeps `y` when an element maps to `Some y`.
-theorem List.memFilterMapIntro (f: a → Option b) (x: a) (y: b): ∀ (xs: List a) => x ∈ xs → f x = Some y → y ∈ List.filterMap xs f
-  | [], m, e => Void.exfalso m
-  | [z, ..zs], Inl q, e => rewrite q, e in Inl rfl
-  | [z, ..zs], Inr m, e =>
-    match c: f z with
-      | None => List.memFilterMapIntro f x y zs m e
-      | Some w => Inr (List.memFilterMapIntro f x y zs m e)
+theorem List.memFilterMapIntro (f: a → Option b) (x: a) (y: b) (xs: List a) (h: x ∈ xs) (e: f x = Some y): y ∈ List.filterMap xs f :=
+  match xs, h with
+    | [], m => Void.exfalso m
+    | [z, ..zs], Inl q => rewrite q, e in Inl rfl
+    | [z, ..zs], Inr m =>
+      match c: f z with
+        | None => List.memFilterMapIntro f x y zs m e
+        | Some w => Inr (List.memFilterMapIntro f x y zs m e)
 
 --| What `filterMap` keeps is `Some` of some element.
 theorem List.memFilterMapElim (f: a → Option b) (y: b) (xs: List a) (m: y ∈ List.filterMap xs f): List.Any (x => f x = Some y) xs :=
@@ -2836,30 +2876,32 @@ theorem List.distinctOfMap (key: a → k) (xs: List a) (h: List.Distinct (xs.map
 
 --| Putting an element not in a list with no repeats at its end leaves no
 --| repeats. (`List.uniqueSnoc` is about the function `List.unique`.)
-theorem List.distinctSnoc: ∀ (xs: List a) (y: a) => y ∉ xs → List.Distinct xs → List.Distinct (xs ++ [y])
-  | [], y, out, distinct => Both (m => m) Trivial
-  | [x, ..xs], y, out, Both xOut distinct =>
-    Both
-      (m =>
-        match List.memAppend x xs [y] m with
-          | Inl inRest => xOut inRest
-          | Inr (Inl same) => out (Inl (Eq.sym same))
-          | Inr (Inr none) => none)
-      (List.distinctSnoc xs y (m => out (Inr m)) distinct)
+theorem List.distinctSnoc (xs: List a) (y: a) (out: y ∉ xs) (h: List.Distinct xs): List.Distinct (xs ++ [y]) :=
+  match xs, h with
+    | [], distinct => Both (m => m) Trivial
+    | [x, ..xs], Both xOut distinct =>
+      Both
+        (m =>
+          match List.memAppend x xs [y] m with
+            | Inl inRest => xOut inRest
+            | Inr (Inl same) => out (Inl (Eq.sym same))
+            | Inr (Inr none) => none)
+        (List.distinctSnoc xs y (m => out (Inr m)) distinct)
 
 --| Replacing one element of a list with no repeats by one that is not among
 --| the others leaves no repeats: `before ++ [x, ..after]` becomes
 --| `before ++ [y, ..after]` when `y` is not in `before ++ after`.
-theorem List.distinctSwapMiddle (x: a) (y: a) (after: List a): ∀ (before: List a) =>
-    List.Distinct (before ++ [x, ..after]) → y ∉ before ++ after → List.Distinct (before ++ [y, ..after])
-  | [], Both notMem rest, fresh => Both fresh rest
-  | [first, ..others], Both notMem rest, fresh =>
-    let away: first ∉ others ++ [y, ..after] := inside =>
-      match List.memAppend first others [y, ..after] inside with
-        | Inl early => notMem (List.memAppendLeft first others [x, ..after] early)
-        | Inr (Inl same) => fresh (Inl (Eq.sym same))
-        | Inr (Inr late) => notMem (List.memAppendRight first others [x, ..after] (Inr late))
-    Both away (List.distinctSwapMiddle x y after others rest (inside => fresh (Inr inside)))
+theorem List.distinctSwapMiddle (x: a) (y: a) (after: List a) (before: List a)
+    (h: List.Distinct (before ++ [x, ..after])) (fresh: y ∉ before ++ after): List.Distinct (before ++ [y, ..after]) :=
+  match before, h with
+    | [], Both notMem rest => Both fresh rest
+    | [first, ..others], Both notMem rest =>
+      let away: first ∉ others ++ [y, ..after] := inside =>
+        match List.memAppend first others [y, ..after] inside with
+          | Inl early => notMem (List.memAppendLeft first others [x, ..after] early)
+          | Inr (Inl same) => fresh (Inl (Eq.sym same))
+          | Inr (Inr late) => notMem (List.memAppendRight first others [x, ..after] (Inr late))
+      Both away (List.distinctSwapMiddle x y after others rest (inside => fresh (Inr inside)))
 
 --| A `filterMap` whose function never gives the same value for two different
 --| elements keeps a list free of repeats free of repeats. See

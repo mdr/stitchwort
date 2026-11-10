@@ -19,18 +19,19 @@ def SettlesWithin (specRound: Layout → Layout) (start: Layout) (final: Layout)
 --| than it was given, which leave it alone.
 theorem settleSound (plan: Plan) (specRound: Layout → Layout) (keep: Layout → Prop)
     (agree: ∀ (layout: Layout) => keep layout → layout.round plan = specRound layout)
-    (keeps: ∀ (layout: Layout) => keep layout → keep (specRound layout)) (final: Layout):
-    ∀ (rounds: Nat) (start: Layout) => keep start → start.settle plan rounds = Some final → SettlesWithin specRound start final rounds
-  | Zero, start, kept, stopped => Void.exfalso (Option.noneNotSome final stopped)
-  | Succ more, start, kept, stopped =>
-    let same := agree start kept
-    match e: start.round plan == start with
-      | True =>
-        let here: start = final := Option.someInjective stopped
-        Witness 0 (Both (omega) (Both here (rewrite <- here, <- same in DecEq.sound e)))
-      | False =>
-        let later := settleSound plan specRound keep agree keeps final more (specRound start) (keeps start kept) (rewrite <- same in stopped)
-        Exists.elim later (reached both => Witness (Succ reached) (Both (omega [And.left both]) (And.right both)))
+    (keeps: ∀ (layout: Layout) => keep layout → keep (specRound layout)) (final: Layout)
+    (rounds: Nat) (start: Layout) (kept: keep start) (stopped: start.settle plan rounds = Some final): SettlesWithin specRound start final rounds :=
+  match rounds with
+    | Zero => Void.exfalso (Option.noneNotSome final stopped)
+    | Succ more =>
+      let same := agree start kept
+      match e: start.round plan == start with
+        | True =>
+          let here: start = final := Option.someInjective stopped
+          Witness 0 (Both (omega) (Both here (rewrite <- here, <- same in DecEq.sound e)))
+        | False =>
+          let later := settleSound plan specRound keep agree keeps final more (specRound start) (keeps start kept) (rewrite <- same in stopped)
+          Exists.elim later (reached both => Witness (Succ reached) (Both (omega [And.left both]) (And.right both)))
 
 --| Settled within a limit is settled.
 theorem settlesOfWithin (specRound: Layout → Layout) (start: Layout) (final: Layout) (limit: Nat) (within: SettlesWithin specRound start final limit):

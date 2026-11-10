@@ -2243,18 +2243,18 @@ theorem Parse.runsMany1Symbols (p: () → {Parse} a) (symbol: a → Char) (canSt
 --| [`Parse.runsExactly`] wants: they join to the text, give the values, one per
 --| value, and each runs.
 theorem Parse.eachSteps (p: () → {Parse} a) (spec: List Char → a → Prop) (rest: List Char)
-    (runs: ∀ (read: List Char) (v: a) (after: List Char) => spec read v → Parse.Runs p read after v):
-    ∀ (values: List a) (read: List Char) => Parse.Each spec read values →
-    ∃ (steps: List (List Char, a)) =>
-      Parse.joinReads steps = read ∧ Parse.stepValues steps = values ∧ steps.length = values.length ∧ Parse.StepsRun p steps rest
-  | [], read, each => Witness [] (Both (Eq.sym each) (Both rfl (Both rfl rfl)))
-  | [v, ..values], read, Witness first (Witness more (Both split (Both ok each))) =>
-    match Parse.eachSteps p spec rest runs values more each with
-      | Witness steps (Both joined (Both valued (Both counted stepsRun))) =>
-        Witness [(first, v), ..steps]
-          (Both (rewrite split, joined in rfl)
-            (Both (rewrite valued in rfl)
-              (Both (rewrite counted in rfl) (Both (runs first v (Parse.joinReads steps ++ rest) ok) stepsRun))))
+    (runs: ∀ (read: List Char) (v: a) (after: List Char) => spec read v → Parse.Runs p read after v)
+    (values: List a) (read: List Char) (h: Parse.Each spec read values): ∃ (steps: List (List Char, a)) =>
+      Parse.joinReads steps = read ∧ Parse.stepValues steps = values ∧ steps.length = values.length ∧ Parse.StepsRun p steps rest :=
+  match values, h with
+    | [], each => Witness [] (Both (Eq.sym each) (Both rfl (Both rfl rfl)))
+    | [v, ..values], Witness first (Witness more (Both split (Both ok each))) =>
+      match Parse.eachSteps p spec rest runs values more each with
+        | Witness steps (Both joined (Both valued (Both counted stepsRun))) =>
+          Witness [(first, v), ..steps]
+            (Both (rewrite split, joined in rfl)
+              (Both (rewrite valued in rfl)
+                (Both (rewrite counted in rfl) (Both (runs first v (Parse.joinReads steps ++ rest) ok) stepsRun))))
 
 def Parse.RunsExamples.numbers(): {Parse} NonEmptyList Nat := Parse.lines Parse.nat
 

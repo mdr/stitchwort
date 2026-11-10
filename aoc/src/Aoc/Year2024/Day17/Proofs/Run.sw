@@ -24,23 +24,24 @@ theorem finishedInjective (first: List Nat) (second: List Nat) (same: Finished f
 
 --| A run that finishes outputs what was printed before it, then what a
 --| halting run of the puzzle's computer outputs.
-theorem runHalts (program: List Nat): ∀ (fuel: Nat) (machine: Machine) (printed output: List Nat) =>
-    machine.run program printed fuel = Finished output → ∃ (rest: List Nat) => output = printed.reverse.append rest ∧ Halts program machine rest
-  | Zero, machine, printed, output, finished => Void.exfalso (outOfFuelNotFinished output finished)
-  | Succ fuel, machine, printed, output, finished =>
-    let matches := stepMatches program machine
-    match moved: machine.step program with
-      | Halt =>
-        Witness [] (Both (Eq.trans (Eq.sym (finishedInjective printed.reverse output finished)) (Eq.sym (List.appendNil printed.reverse))) (Stops machine matches))
-      | Fault => Void.exfalso (faultedNotFinished output finished)
-      | Next after None =>
-        match runHalts program fuel after printed output finished with
-          | Witness rest (Both same halts) => Witness rest (Both same (Quiet machine after rest matches halts))
-      | Next after (Some value) =>
-        match runHalts program fuel after [value, ..printed] output finished with
-          | Witness rest (Both same halts) =>
-            Witness [value, ..rest]
-              (Both (rewrite List.reverseCons value printed, List.appendAssoc printed.reverse [value] rest at same) (Prints machine after value rest matches halts))
+theorem runHalts (program: List Nat) (fuel: Nat) (machine: Machine) (printed output: List Nat)
+    (finished: machine.run program printed fuel = Finished output): ∃ (rest: List Nat) => output = printed.reverse.append rest ∧ Halts program machine rest :=
+  match fuel with
+    | Zero => Void.exfalso (outOfFuelNotFinished output finished)
+    | Succ fuel =>
+      let matches := stepMatches program machine
+      match moved: machine.step program with
+        | Halt =>
+          Witness [] (Both (Eq.trans (Eq.sym (finishedInjective printed.reverse output finished)) (Eq.sym (List.appendNil printed.reverse))) (Stops machine matches))
+        | Fault => Void.exfalso (faultedNotFinished output finished)
+        | Next after None =>
+          match runHalts program fuel after printed output finished with
+            | Witness rest (Both same halts) => Witness rest (Both same (Quiet machine after rest matches halts))
+        | Next after (Some value) =>
+          match runHalts program fuel after [value, ..printed] output finished with
+            | Witness rest (Both same halts) =>
+              Witness [value, ..rest]
+                (Both (rewrite List.reverseCons value printed, List.appendAssoc printed.reverse [value] rest at same) (Prints machine after value rest matches halts))
 
 --| From the start, a finished run's output is a halting run's.
 theorem outcomeHalts (registers: Registers) (program: List Nat) (output: List Nat) (finished: outcome registers program = Finished output):
@@ -49,12 +50,13 @@ theorem outcomeHalts (registers: Registers) (program: List Nat) (output: List Na
     | Witness rest (Both same halts) => rewrite same in halts
 
 --| More fuel finishes the same way.
-theorem runMoreFuel (program: List Nat) (extra: Nat): ∀ (fuel: Nat) (machine: Machine) (printed output: List Nat) =>
-    machine.run program printed fuel = Finished output → machine.run program printed (fuel + extra) = Finished output
-  | Zero, machine, printed, output, finished => Void.exfalso (outOfFuelNotFinished output finished)
-  | Succ fuel, machine, printed, output, finished =>
-    match moved: machine.step program with
-      | Halt => finished
-      | Fault => finished
-      | Next after None => runMoreFuel program extra fuel after printed output finished
-      | Next after (Some value) => runMoreFuel program extra fuel after [value, ..printed] output finished
+theorem runMoreFuel (program: List Nat) (extra: Nat) (fuel: Nat) (machine: Machine) (printed output: List Nat)
+    (finished: machine.run program printed fuel = Finished output): machine.run program printed (fuel + extra) = Finished output :=
+  match fuel with
+    | Zero => Void.exfalso (outOfFuelNotFinished output finished)
+    | Succ fuel =>
+      match moved: machine.step program with
+        | Halt => finished
+        | Fault => finished
+        | Next after None => runMoreFuel program extra fuel after printed output finished
+        | Next after (Some value) => runMoreFuel program extra fuel after [value, ..printed] output finished

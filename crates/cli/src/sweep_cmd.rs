@@ -9,8 +9,9 @@
 //! in the standard library, by loading an edited copy in a child process
 //! and comparing every declaration's hashes with the library as it is (a
 //! process reads the library only once). A theorem whose statement hash
-//! moves, that a definition's changed hash leads back to, or that has a new
-//! diagnostic, is refused: left as it was and listed, and the rest are
+//! moves, whose changed proof a definition mentions (a definition's hash
+//! covers the proofs in it, say a structure's invariant), or that has a
+//! new diagnostic, is refused: left as it was and listed, and the rest are
 //! checked again, until nothing is found.
 //!
 //! Exit status: 0 done (or nothing to do); 1 something couldn't be checked
@@ -23,7 +24,7 @@ use std::time::Instant;
 
 use serde_json::{Value, json};
 use stitchwort_driver::binder_sweep::{self, Converted, Skipped};
-use stitchwort_driver::declhash::{self, DeclHash};
+use stitchwort_driver::declhash::{self, DeclHash, owner};
 use stitchwort_driver::live::{Edit, Place, Promise, TrialOutcome};
 use stitchwort_syntax::ast::Decl;
 use stitchwort_syntax::{DEFAULT_STACK, SourceMap, parse_module_within};
@@ -44,6 +45,8 @@ pub(super) struct Args<'a> {
     pub dry_run: bool,
     pub plan: bool,
     pub json: bool,
+    /// Theorems to leave as they are.
+    pub keep: &'a [String],
     pub project: Option<&'a Path>,
     pub cache: &'a CacheArgs,
 }
@@ -226,6 +229,20 @@ pub(super) fn theorem_binders(args: &Args) -> ExitCode {
     }
 }
 
+/// Leaves the theorems `keep` names as they are, listed as refused.
+fn hold_back(sweeps: &mut [FileSweep], keep: &[String]) -> Result<(), String> {
+    if keep.is_empty() {
+        return Ok(());
+    }
+    for s in sweeps.iter_mut() {
+        s.run()?;
+        for name in keep {
+            s.refuse(name, "kept as it is (--keep)".to_string());
+        }
+    }
+    Ok(())
+}
+
 /// The rewrites only, unchecked and unwritten.
 fn plan_only(args: &Args, sweeps: &mut [FileSweep]) -> ExitCode {
     for s in sweeps.iter_mut() {
@@ -233,7 +250,7 @@ fn plan_only(args: &Args, sweeps: &mut [FileSweep]) -> ExitCode {
             return refused(args.json, e);
         }
     }
-    report(args, "plan", sweeps, false, true, &[]);
+    report(args, "plan", sweeps, false, true, &Trail::default());
     ExitCode::from(CLEAN)
 }
 
@@ -279,6 +296,9 @@ fn project_sweep(args: &Args, files: &[PathBuf]) -> ExitCode {
         };
         sweeps.push(FileSweep::new(path, text.to_string()));
     }
+    if let Err(e) = hold_back(&mut sweeps, args.keep) {
+        return refused(args.json, e);
+    }
     if args.plan {
         return plan_only(args, &mut sweeps);
     }
@@ -288,6 +308,7 @@ fn project_sweep(args: &Args, files: &[PathBuf]) -> ExitCode {
     let mut clean = false;
     let mut leftover = Vec::new();
     let mut proofs_changed: Vec<String> = Vec::new();
+    let mut rounds: Vec<Value> = Vec::new();
     for _ in 0..MAX_ROUNDS {
         for s in sweeps.iter_mut() {
             if let Err(e) = s.run() {
@@ -341,53 +362,141 @@ fn project_sweep(args: &Args, files: &[PathBuf]) -> ExitCode {
                 None => leftover.push(format!("{}: {reason}", d.path)),
             }
         }
-        for c in &problems.changed {
-            // The theorem itself, or the converted theorem it uses.
-            let mut hit = false;
-            for (name, reason) in [
-                (
-                    Some(c.name.as_str()),
-                    "its statement's hash moved".to_string(),
-                ),
-                (
-                    c.uses.as_deref(),
-                    format!("`{}` uses it and its hash moved", c.name),
-                ),
-            ] {
-                let Some(name) = name else { continue };
-                if let Some(s) = sweeps
-                    .iter_mut()
-                    .find(|s| s.converted_named(name).is_some())
-                {
-                    s.refuse(name, reason);
-                    hit = true;
-                    break;
-                }
-            }
-            if hit {
-                found += 1;
-            } else {
-                leftover.push(format!("`{}` changed", c.name));
-            }
-        }
+        let moved: Vec<Moved> = problems
+            .changed
+            .iter()
+            .map(|c| Moved {
+                name: c.name.clone(),
+                uses: c.uses.clone(),
+                reproved: c.reproved.clone(),
+            })
+            .collect();
+        found += refuse_moved(&mut sweeps, &moved, &mut leftover);
         if found == 0 {
             // A change no converted theorem accounts for directly: the
             // theorems whose proofs changed are the suspects.
             found += refuse_changed_proofs(&mut sweeps, &proofs_changed, &leftover);
         }
+        rounds.push(round_log(found, &leftover));
         if found == 0 {
             break;
         }
     }
-    finish(
-        args,
-        "project",
-        &mut sweeps,
-        clean,
-        &leftover,
-        &proofs_changed,
-        |s| Some(project.dir.join(&s.path)),
-    )
+    let trail = Trail {
+        leftover,
+        proofs_changed,
+        rounds,
+    };
+    finish(args, "project", &mut sweeps, clean, &trail, |s| {
+        Some(project.dir.join(&s.path))
+    })
+}
+
+/// A declaration whose hash moved against the promise.
+struct Moved {
+    name: String,
+    /// Another moved declaration it mentions.
+    uses: Option<String>,
+    /// The re-proved theorems it mentions, directly or through others
+    /// (full names).
+    reproved: Vec<String>,
+}
+
+/// Refuses the converted theorems that `moved` leads back to, and returns
+/// how many; what none accounts for goes in `leftover`. Only a moved
+/// declaration that mentions nothing else that moved, itself or through
+/// the re-proved theorems it mentions, is a root; the rest may have moved
+/// only because of a root. For each root, in order of
+/// precision: the converted theorems whose re-proved proofs it mentions,
+/// directly or through other re-proved theorems (a definition's hash
+/// covers the proofs it mentions, say a structure's invariant); or itself,
+/// a converted theorem whose statement moved. A converted theorem whose
+/// statement moved along with something it mentions waits for the next
+/// round, unless nothing else is found.
+fn refuse_moved(sweeps: &mut [FileSweep], moved: &[Moved], leftover: &mut Vec<String>) -> usize {
+    let mut found = 0;
+    let refuse = |sweeps: &mut [FileSweep], name: &str, reason: String| -> bool {
+        match sweeps
+            .iter_mut()
+            .find(|s| s.converted_named(name).is_some())
+        {
+            Some(s) => {
+                s.refuse(name, reason);
+                true
+            }
+            None => false,
+        }
+    };
+    let mut waiting = Vec::new();
+    for m in moved {
+        let converted = sweeps.iter().any(|s| s.converted_named(&m.name).is_some());
+        let mut hit = false;
+        match &m.uses {
+            None => {
+                for r in &m.reproved {
+                    hit |= refuse(
+                        sweeps,
+                        owner(r),
+                        format!(
+                            "its proof changed, and `{}` mentions it, so its hash would move",
+                            m.name
+                        ),
+                    );
+                }
+                if converted {
+                    hit |= refuse(sweeps, &m.name, "its statement's hash moved".to_string());
+                }
+            }
+            // What it mentions is among `moved`, and is dealt with there.
+            Some(_) if converted => {
+                waiting.push(m);
+                continue;
+            }
+            Some(_) => {}
+        }
+        if hit {
+            found += 1;
+        } else {
+            let mut line = format!("`{}` changed", m.name);
+            if let Some(u) = &m.uses {
+                line += &format!(" (it mentions `{u}`, which changed)");
+            } else if !m.reproved.is_empty() {
+                line += &format!(
+                    " (it mentions the re-proved {})",
+                    m.reproved
+                        .iter()
+                        .map(|r| format!("`{r}`"))
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                );
+            }
+            leftover.push(line);
+        }
+    }
+    if found == 0 {
+        for m in waiting {
+            let reason = format!(
+                "its statement's hash moved (it mentions `{}`, which moved too)",
+                m.uses.as_deref().unwrap_or_default()
+            );
+            if refuse(sweeps, &m.name, reason) {
+                found += 1;
+            }
+        }
+    }
+    found
+}
+
+/// A round of the trial, for the JSON report: how many refusals it found,
+/// and the changes that mention nothing else changed (where to look).
+fn round_log(found: usize, leftover: &[String]) -> Value {
+    json!({
+        "found": found,
+        "roots": leftover
+            .iter()
+            .filter(|l| !l.contains("which changed)"))
+            .collect::<Vec<_>>(),
+    })
 }
 
 fn refuse_changed_proofs(
@@ -427,7 +536,7 @@ fn library_hashes(dir: &Path) -> Result<Vec<DeclHash>, String> {
     let output = Command::new(exe)
         .arg("--std-dir")
         .arg(dir)
-        .args(["hash", "--std", "--json"])
+        .args(["hash", "--std", "--json", "--uses"])
         .output()
         .map_err(|e| format!("can't run the hash: {e}"))?;
     if !output.status.success() {
@@ -497,6 +606,9 @@ fn std_sweep(args: &Args, files: &[PathBuf]) -> ExitCode {
         };
         sweeps.push(FileSweep::new(path, text));
     }
+    if let Err(e) = hold_back(&mut sweeps, args.keep) {
+        return refused(args.json, e);
+    }
     if args.plan {
         return plan_only(args, &mut sweeps);
     }
@@ -515,6 +627,7 @@ fn std_sweep(args: &Args, files: &[PathBuf]) -> ExitCode {
     let mut clean = false;
     let mut leftover = Vec::new();
     let mut proofs_changed: Vec<String> = Vec::new();
+    let mut rounds: Vec<Value> = Vec::new();
     for _ in 0..MAX_ROUNDS {
         for s in sweeps.iter_mut() {
             if let Err(e) = s.run() {
@@ -537,9 +650,9 @@ fn std_sweep(args: &Args, files: &[PathBuf]) -> ExitCode {
                 // The edited library doesn't load: the report names a file
                 // and line.
                 for s in sweeps.iter_mut() {
-                    for line in lines_named(&report, &s.path) {
+                    for (line, error) in lines_named(&report, &s.path) {
                         if let Some(name) = s.converted_at(line).map(|c| c.name.clone()) {
-                            s.refuse(&name, format!("doesn't check: {}", first_line(&report)));
+                            s.refuse(&name, format!("doesn't check: {error}"));
                             found += 1;
                         }
                     }
@@ -555,22 +668,16 @@ fn std_sweep(args: &Args, files: &[PathBuf]) -> ExitCode {
                     clean = true;
                     break;
                 }
-                for c in &diff.changed {
-                    let reason = match c.kind {
-                        declhash::DeclKind::Theorem => "its statement's hash moved",
-                        _ => "its hash moved",
-                    };
-                    match sweeps
-                        .iter_mut()
-                        .find(|s| s.converted_named(&c.name).is_some())
-                    {
-                        Some(s) => {
-                            s.refuse(&c.name, reason.to_string());
-                            found += 1;
-                        }
-                        None => leftover.push(format!("`{}` changed", c.name)),
-                    }
-                }
+                let moved: Vec<Moved> = diff
+                    .changed
+                    .iter()
+                    .map(|c| Moved {
+                        name: c.name.clone(),
+                        uses: c.uses.clone(),
+                        reproved: c.reproved.clone(),
+                    })
+                    .collect();
+                found += refuse_moved(&mut sweeps, &moved, &mut leftover);
                 for n in diff.added.iter().chain(&diff.removed) {
                     leftover.push(format!("`{n}` added or removed"));
                 }
@@ -579,42 +686,53 @@ fn std_sweep(args: &Args, files: &[PathBuf]) -> ExitCode {
                 }
             }
         }
+        rounds.push(round_log(found, &leftover));
         if found == 0 {
             break;
         }
     }
     let _ = std::fs::remove_dir_all(&copy);
-    finish(
-        args,
-        "std",
-        &mut sweeps,
-        clean,
-        &leftover,
-        &proofs_changed,
-        |s| Some(root.join(&s.path)),
-    )
+    let trail = Trail {
+        leftover,
+        proofs_changed,
+        rounds,
+    };
+    finish(args, "std", &mut sweeps, clean, &trail, |s| {
+        Some(root.join(&s.path))
+    })
 }
 
-fn first_line(text: &str) -> &str {
-    text.lines()
-        .map(str::trim)
-        .find(|l| !l.is_empty() && !l.starts_with("error: the library"))
-        .unwrap_or(text)
-}
-
-/// The line numbers a report gives after `path:`.
-fn lines_named(report: &str, path: &str) -> Vec<u32> {
+/// The line numbers a report gives after `path:`, each with the error
+/// it's under.
+fn lines_named<'a>(report: &'a str, path: &str) -> Vec<(u32, &'a str)> {
     let mut out = Vec::new();
     let needle = format!("{path}:");
-    let mut rest = report;
-    while let Some(at) = rest.find(&needle) {
-        rest = &rest[at + needle.len()..];
-        let digits: String = rest.chars().take_while(char::is_ascii_digit).collect();
-        if let Ok(n) = digits.parse() {
-            out.push(n);
+    let mut error = "";
+    for line in report.lines() {
+        if let Some(at) = line.find("Error: ") {
+            error = line[at + "Error: ".len()..].trim();
+        }
+        if let Some(at) = line.find(&needle) {
+            let digits: String = line[at + needle.len()..]
+                .chars()
+                .take_while(char::is_ascii_digit)
+                .collect();
+            if let Ok(n) = digits.parse() {
+                out.push((n, error));
+            }
         }
     }
     out
+}
+
+/// What the rounds of trials left: what no refusal accounted for in the
+/// last, the proofs that changed with their statements kept, and each
+/// round's log.
+#[derive(Default)]
+struct Trail {
+    leftover: Vec<String>,
+    proofs_changed: Vec<String>,
+    rounds: Vec<Value>,
 }
 
 fn finish(
@@ -622,8 +740,7 @@ fn finish(
     mode: &str,
     sweeps: &mut [FileSweep],
     clean: bool,
-    leftover: &[String],
-    proofs_changed: &[String],
+    trail: &Trail,
     disk: impl Fn(&FileSweep) -> Option<PathBuf>,
 ) -> ExitCode {
     let write = clean && !args.dry_run;
@@ -636,11 +753,11 @@ fn finish(
         }
     }
     if !clean && !args.json {
-        for l in leftover {
+        for l in &trail.leftover {
             eprintln!("unaccounted for: {l}");
         }
     }
-    report(args, mode, sweeps, write, clean, proofs_changed);
+    report(args, mode, sweeps, write, clean, trail);
     ExitCode::from(if clean { CLEAN } else { PROBLEMS })
 }
 
@@ -650,8 +767,9 @@ fn report(
     sweeps: &[FileSweep],
     written: bool,
     clean: bool,
-    proofs_changed: &[String],
+    trail: &Trail,
 ) {
+    let proofs_changed = &trail.proofs_changed;
     let mut by_reason: BTreeMap<&str, usize> = BTreeMap::new();
     for s in sweeps {
         for k in &s.skipped {
@@ -699,6 +817,7 @@ fn report(
             "refused": refused,
             "skippedByReason": by_reason,
             "proofsChanged": proofs_changed,
+            "rounds": trail.rounds,
             "files": files,
         }));
         return;

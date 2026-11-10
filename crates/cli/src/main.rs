@@ -81,6 +81,10 @@ enum SweepCommand {
         /// Print the result as JSON (version 1)
         #[arg(long)]
         json: bool,
+        /// Leave this theorem as it is (a full name, or as written; may be
+        /// repeated): listed as refused
+        #[arg(long, value_name = "NAME")]
+        keep: Vec<String>,
         /// The project folder, if not the folder you're in or the nearest
         /// one above it
         #[arg(long)]
@@ -511,6 +515,9 @@ enum Command {
         /// Print JSON (version 1)
         #[arg(long)]
         json: bool,
+        /// With --json, list the declarations each definition mentions
+        #[arg(long, requires = "json")]
+        uses: bool,
         /// The project folder, if not the folder you're in or the nearest
         /// one above it
         #[arg(long)]
@@ -981,6 +988,7 @@ fn run(cli: Cli) -> ExitCode {
             dry_run,
             plan,
             json,
+            keep,
             project,
             cache,
         }) => sweep_cmd::theorem_binders(&sweep_cmd::Args {
@@ -990,6 +998,7 @@ fn run(cli: Cli) -> ExitCode {
             dry_run,
             plan,
             json,
+            keep: &keep,
             project: project.as_deref(),
             cache: &cache,
         }),
@@ -997,12 +1006,14 @@ fn run(cli: Cli) -> ExitCode {
             names,
             std,
             json,
+            uses,
             project,
             cache,
         } => trial_cmd::hash(&trial_cmd::HashArgs {
             names: &names,
             std,
             json,
+            uses,
             project: project.as_deref(),
             cache: &cache,
         }),
