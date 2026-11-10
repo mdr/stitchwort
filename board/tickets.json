@@ -1,5 +1,5 @@
 {
-  "next": 2668,
+  "next": 2670,
   "tickets": [
     {
       "id": 47,
@@ -27405,7 +27405,7 @@
     {
       "id": 2647,
       "title": "Dev command to print a declaration's content hash (hidden or under dev), so meaning-preserving sweeps and reviews can compare hashes directly instead of through the test cache",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -27418,14 +27418,14 @@
     {
       "id": 2648,
       "title": "[Sonnet] Trial check for arbitrary edits: an entry point beyond rename (stitchwort apply-edits or a driver API) and a std mode (compare every declaration's hash before and after with --std-dir, as fmt_hashes does), for sweeps that must keep hashes",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2648",
       "labels": [
         "refactoring"
       ],
       "epic": "editor-playground",
-      "body": "From SW-2640 (10 Nov 2026); needed by the theorem-binders sweep if Matt picks it. Est. 120 min.\n\nLane notes (Sonnet, 10 Nov 2026): done in about 25 min of work. Hidden CLI commands `stitchwort trial-edits EDITS.json [--same-statement] [--apply [--anyway]] [--json]` and, with the global `--std-dir EDITED`, `trial-edits` with no file for a whole-library comparison (`--std-before DIR` names the original; default the environment's). `Promise::SameStatement` in crates/driver/src/live/trial.rs; `crates/driver/src/declhash.rs` for hash lists and `compare`. Also `stitchwort hash [--std] [--json] [NAME...]` (SW-2647). Tests: driver `projects` trial (13 pass) and cli `tools` trial_edits (2 pass), plus `running` _examples/ (4 pass).\n",
+      "body": "From SW-2640 (10 Nov 2026); needed by the theorem-binders sweep if Matt picks it. Est. 120 min.\n\nLane notes (Sonnet, 10 Nov 2026): done in about 25 min of work. Hidden CLI commands `stitchwort trial-edits EDITS.json [--same-statement] [--apply [--anyway]] [--json]` and, with the global `--std-dir EDITED`, `trial-edits` with no file for a whole-library comparison (`--std-before DIR` names the original; default the environment's). `Promise::SameStatement` in crates/driver/src/live/trial.rs; `crates/driver/src/declhash.rs` for hash lists and `compare`. Also `stitchwort hash [--std] [--json] [NAME...]` (SW-2647). Tests: driver `projects` trial (13 pass) and cli `tools` trial_edits (2 pass), plus `running` _examples/ (4 pass).\nModel result: Sonnet, worked, 25 min (est. 120). Merge conflict with SW-2634 in trial.rs resolved by the orchestrator (affected-namespace filter + statement hashes).",
       "created": "2026-11-10",
       "updated": "2026-11-10",
       "commits": []
@@ -27675,7 +27675,7 @@
       "where": ".claude/worktrees/SW-2665",
       "labels": [],
       "epic": "editor-playground",
-      "body": "Found 10 Nov 2026 during SW-2634; fails on main (895da6c5b) before SW-2634's merge. Suspects from 9-10 Nov: SW-1937's counterexample memo (process-wide, keyed by type_hash, may survive a cancelled check), SW-2627's nav refs, SW-2628. Repro: nix develop -c task test:one -- a_check_cancelled_at_each_use_of_the_cache_rewinds. Est. 60 min.",
+      "body": "Found 10 Nov 2026 during SW-2634; fails on main (895da6c5b) before SW-2634's merge. Suspects from 9-10 Nov: SW-1937's counterexample memo (process-wide, keyed by type_hash, may survive a cancelled check), SW-2627's nav refs, SW-2628. Repro: nix develop -c task test:one -- a_check_cancelled_at_each_use_of_the_cache_rewinds. Est. 60 min.\n10 Nov: under load (verifier beside 4 lanes), four more rewind:: tests failed (emptying_the_caches..., a_language_servers_check_cancelled..., an_edit_checks_again_only_what_uses_it, repeated_edits_of_an_early_namespace...) and all passed when rerun alone: timing-sensitive under load. Worth a look while here.",
       "created": "2026-11-10",
       "updated": "2026-11-10",
       "commits": []
@@ -27702,6 +27702,32 @@
       "labels": [],
       "epic": "editor-playground",
       "body": "From SW-2634 (10 Nov 2026).",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
+    },
+    {
+      "id": 2668,
+      "title": "SameStatement: a theorem whose statement mentions another theorem whose proof changed sees its type hash move and is refused; compare statement hashes modulo re-proved theorems if the sweep hits it",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "editor-playground",
+      "body": "From SW-2648 (10 Nov 2026). Rare; untested.",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
+    },
+    {
+      "id": 2669,
+      "title": "trial-edits: one run covering a project edit and a std edit together (today: run twice)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "editor-playground",
+      "body": "From SW-2648 (10 Nov 2026). Only if SW-2655's sweep needs it.",
       "created": "2026-11-10",
       "updated": "2026-11-10",
       "commits": []
