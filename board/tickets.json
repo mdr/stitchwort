@@ -1,5 +1,5 @@
 {
-  "next": 2645,
+  "next": 2655,
   "tickets": [
     {
       "id": 47,
@@ -22094,16 +22094,16 @@
     {
       "id": 2300,
       "title": "[Opus] Slow failure: examples/accept/reads-nested-binds.sw with one line of p12 duplicated ('let x2 := nat()') takes 89 s to fail with E-TYPE-MISMATCH (the example itself checks in 10 s); likely the SW-1226 per-level doubling back on the failing path",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "perf"
       ],
       "epic": "elaborator-kernel",
-      "body": "Overmind job 12 (ab5c237ed), fuzz:elab seed 0x6 case 1983, oracle 4 (budget), rng 0x7782aecdf2b3cfff; saved on Overmind at target/fuzz-elab/6-1983.sw. Repro: in p12, after 'let x2 := nat()' add a second 'let x2 := nat()'; leave reads12's nested Parse.readsBind proof. Job 1's case 558 came from the same file, so possibly longstanding, not SW-2269. Step 1 (20 min): time on 0fa08fe74 vs main; profile where the failing path spends its time.\n\nOvermind job 14 (047d1fb66 and 0fa08fe74, quiet, memguard 4 GB): longstanding, not today's. Mutant 92.4 s / 90.3 s; example 10.8 / 10.3 s (flat at every size; that it is library load is inferred, not measured). Before/after SW-1226 (f7663539f) with that era's example plus the duplicated line: passing path 35.8 -> 5.7 s, failing path 61.8 -> 59.2 s: SW-1226 fixed only the passing path. Scaling on 047d1fb66, extra time over the 10.8 s baseline by steps: 4: 0, 6: 0.5, 8: 4.1, 10: 17.8, 12: 80.1 s, about 2.1x per step: per-level doubling on the failing path. Not profiled. Generated inputs on Overmind: soak14/adapt in its scratchpad.",
+      "body": "Overmind job 12 (ab5c237ed), fuzz:elab seed 0x6 case 1983, oracle 4 (budget), rng 0x7782aecdf2b3cfff; saved on Overmind at target/fuzz-elab/6-1983.sw. Repro: in p12, after 'let x2 := nat()' add a second 'let x2 := nat()'; leave reads12's nested Parse.readsBind proof. Job 1's case 558 came from the same file, so possibly longstanding, not SW-2269. Step 1 (20 min): time on 0fa08fe74 vs main; profile where the failing path spends its time.\n\nOvermind job 14 (047d1fb66 and 0fa08fe74, quiet, memguard 4 GB): longstanding, not today's. Mutant 92.4 s / 90.3 s; example 10.8 / 10.3 s (flat at every size; that it is library load is inferred, not measured). Before/after SW-1226 (f7663539f) with that era's example plus the duplicated line: passing path 35.8 -> 5.7 s, failing path 61.8 -> 59.2 s: SW-1226 fixed only the passing path. Scaling on 047d1fb66, extra time over the 10.8 s baseline by steps: 4: 0, 6: 0.5, 8: 4.1, 10: 17.8, 12: 80.1 s, about 2.1x per step: per-level doubling on the failing path. Not profiled. Generated inputs on Overmind: soak14/adapt in its scratchpad.\nClosed 10 Nov 2026: fixed by SW-2638 (same per-level doubling on the failing path).",
       "created": "2026-11-07",
-      "updated": "2026-11-07",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -24832,16 +24832,16 @@
     {
       "id": 2466,
       "title": "Formatter not idempotent: fmt fuzz (default seed 0x9e3779b97f4a7c15) case 11532, rng state 0xf22057b48b3300d7, on a comment block from std/Quot/Quot.sw ('The library's quotient lemmas ...'): formatting twice differs from once; fails the daily tier",
-      "status": "backlog",
+      "status": "done",
       "agent": "Sonnet",
-      "where": "",
+      "where": ".claude/worktrees/SW-2466",
       "labels": [
         "fmt"
       ],
       "epic": "editor-playground",
-      "body": "Found by the daily tier, 9 Nov 2026 00:01 (crates/fmt/tests/it/fuzz.rs:260). Repro: task fuzz:fmt (default), or the input printed in the failure. Fix the formatter; add the input to the formatter's golden or regression tests. 45 min.",
+      "body": "Found by the daily tier, 9 Nov 2026 00:01 (crates/fmt/tests/it/fuzz.rs:260). Repro: task fuzz:fmt (default), or the input printed in the failure. Fix the formatter; add the input to the formatter's golden or regression tests. 45 min.\nStarted 10 Nov (Matt: fix it alongside D3468's format on save default).\n\nLane notes (10 Nov): the filed case no longer reproduces (the fuzz corpus is examples/accept+reject, which changed; default and 3M-case runs were clean). Mutating quot-library.sw with FUZZ_ONLY found two real causes, both fixed in crates/fmt/src/layout.rs: (1) a line inside a converted bracket at the opener's column stopped the opener joining the line above in pass 1 but not pass 2; (2) a body line right of a header continuation line was nested under it in pass 1 only. Goldens brackets-opener-siblings and header-continuation-body added. FUZZ_ONLY env filter added to the fuzzer.\nDone (10 Nov): filed case 11532 no longer reproduces (corpus changed); FUZZ_ONLY=quot-library found two real idempotence bugs in crates/fmt/src/layout.rs, fixed with goldens. 1M whole-corpus cases pass in 53 s.\nModel result: Sonnet, worked, 30 min (est. 60).",
       "created": "2026-11-09",
-      "updated": "2026-11-09",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -27119,7 +27119,7 @@
     {
       "id": 2629,
       "title": "[Sonnet] Rename R3: rename locals, hypotheses, functions and theorems in the server and the playground: prepareRename, rename, F2, multi-file edits, a preview listing R2's problems with Rename anyway, a code action menu in the playground",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2629",
       "labels": [
@@ -27127,7 +27127,7 @@
         "refactoring"
       ],
       "epic": "editor-playground",
-      "body": "docs/proposals/refactoring.md §5 (SW-2626). D3467. Needs R1 (SW-2627) and R2 (SW-2628). Est. 150 min.",
+      "body": "docs/proposals/refactoring.md §5 (SW-2626). D3467. Needs R1 (SW-2627) and R2 (SW-2628). Est. 150 min.\n\nProgress (Sonnet lane): prepareRename, rename and the stitchwort.renameAnyway command run on the checker thread (crates/lsp/src/rename.rs). Refused rename: error with data {renameAnyway:true}, plan remembered; VS Code gets a window/showMessageRequest button and a workspace/applyEdit; the playground calls the command and applies the edit itself. Meaning-changed warnings stay until the file is edited. Playground: F2 prompt, multi-file apply, worker copies updated (set_project_file). LSP tests (6 new) and one browser test pass. Not done: rename of a file on its own (no project) is refused; the AoC Day 2 rename takes about 130 s in the wasm trial (browser test 426 s).\nDone (10 Nov): crates/lsp/src/rename.rs; refusal error lists up to 5 problems; Rename anyway via window/showMessageRequest (VS Code) or workspace/executeCommand stitchwort.renameAnyway (playground); warnings 'meaning changed by rename' until the next edit. Not tried in a real VS Code. Single files (no project) refused. A rename in AoC Day 2 in the playground (wasm) took ~130 s; browser test 426 s.\nModel result: Sonnet, worked, ~150 min (est. 150; one network interruption).",
       "created": "2026-11-10",
       "updated": "2026-11-10",
       "commits": []
@@ -27196,7 +27196,7 @@
     },
     {
       "id": 2634,
-      "title": "[Sonnet] Live project: an edit rewinds every namespace checked after the edited one, not just its dependants; order steps so edited namespaces and their dependants are checked last (a local rename in an AoC day costs 1.7 s trial, mostly unrelated namespaces)",
+      "title": "[Sonnet] Live project: an edit rewinds every namespace checked after the edited one, not just its dependants; order steps so edited namespaces and their dependants are checked last (a local rename in an AoC day costs 1.7 s trial, mostly unrelated namespaces) [priority: rename in the playground takes ~130 s on an AoC day]",
       "status": "backlog",
       "agent": "",
       "where": "",
@@ -27227,21 +27227,100 @@
     },
     {
       "id": 2636,
-      "title": "[Sonnet] JS backend hangs on bench dijkstra (Aoc.Year2021.Day15.main, run --js): node at 100% CPU for 73 min on Overmind and >10 min on Speedwell at 9af7518d9/0325f693b; native and run give the right answers; job 40 (9 Nov ~10:17) ran it fine. Bisect and fix",
-      "status": "doing",
-      "agent": "Sonnet",
-      "where": ".claude/worktrees/SW-2636",
+      "title": "JS backend: AoC 2021 day 15 (bench dijkstra) under run --js grows ~n^4 with grid size (n=30 crop 14 s; full input est. ~30 min+); not a regression (0c1bf7d94 also hangs); likely whole-structure copies per update where run/native update in place. Profile (node --cpu-prof on the n=30 crop) before changing anything",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
       "labels": [
-        "bug"
+        "bug",
+        "parked"
       ],
       "epic": "effects-native",
-      "body": "Found by Overmind's final bench:compare --all (10 Nov 2026), which hung at this step. Reproduced on Speedwell: cd aoc && ../target/release/stitchwort run --js Aoc.Year2021.Day15.main < inputs/2021/day15.txt, timeout 600 -> rc 124. Correctness bug (the playground and run --js use this backend), not paused speed work. Est. 90 min.",
+      "body": "Found by Overmind's final bench:compare --all (10 Nov 2026), which hung at this step. Reproduced on Speedwell: cd aoc && ../target/release/stitchwort run --js Aoc.Year2021.Day15.main < inputs/2021/day15.txt, timeout 600 -> rc 124. Correctness bug (the playground and run --js use this backend), not paused speed work. Est. 90 min.\nLane result (10 Nov): crates/js unchanged since 0c1bf7d94, which also hangs. Crops of the input (n×n corner, part 2 = 25n² nodes): n=10 0.74 s, n=20 2.7 s, n=30 14 s, answers match run. Speed work is paused (D3465), so parked; the playground uses this backend, so it matters for users running such programs there.\nModel result: Sonnet, worked (diagnosis), 8 min.",
       "created": "2026-11-10",
       "updated": "2026-11-10",
       "commits": []
     },
     {
       "id": 2637,
+      "title": "[Sonnet] Editor settings (D3468): a Stitchwort section in VS Code's Settings (inlay hints, run icons, proof search on ? and its time limit, semantic colours, goals panel auto-open) read by the server at start and on change; format on save on by default for .sw (configurationDefaults); a ⚙ menu in the playground with the same switches plus format on save and font size, kept in localStorage; a Settings paragraph in the guide",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "editor"
+      ],
+      "epic": "editor-playground",
+      "body": "D3468 (Matt, 10 Nov 2026): yes. Starts after SW-2629 (same extension and playground files). Est. 90 min.",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
+    },
+    {
+      "id": 2638,
+      "title": "[Sonnet] fuzz_elab oracle 4 (budget): case 2799, seed 0x25a5 (rng state 0x3e8ba53b9a08146c, from examples/accept/reads-nested-binds.sw) still running after 60 s; reduce, find where it spins, make it finish or fail with a budget error",
+      "status": "done",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-2638",
+      "labels": [
+        "bug",
+        "fuzz"
+      ],
+      "epic": "audit-fuzzing",
+      "body": "Found by Overmind, fuzz_elab CASES=12000 seed 0x25a5, 10 Nov 2026 (2572 s run). Input on Overmind: target/fuzz-elab/25a5-2799.sw (regenerate with the seed and case, or ask Overmind for the file). Est. 60 min.\n\nLane notes (Sonnet, 10 Nov 2026): cause confirmed, the same as SW-2300 (a duplicate). After the conclusion-first propagation by `_`s fails, `propagate` elaborates the application again with `no_hole_propagation`; there each late-able lambda (`apply_args_postponing`) is tried in place and, on failure, again after the expected type, so n nested lambdas cost 2^n. Fix: inside an in-place trial of an outer lambda in that mode (`in_place_trial`), a nested lambda waits for the expected type at once. Reproducer 51 s -> 1.5 s (reduced example: examples/reject/reads-nested-binds-unknown-field.sw); the 12-bind original 27 s -> 1.35 s. Growth is now polynomial, not exponential. Accept-side examples, hash and elab lane tests unchanged.\nDone (10 Nov): in_place_trial in apply_args_postponing; repro 27.3 s -> 1.35 s; examples/reject/reads-nested-binds-unknown-field.sw. Same bug as SW-2300 (closed with it). Whole-AoC coverage from Overmind's daily on the next head.\nModel result: Sonnet, worked, ~25 min (est. 60).",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
+    },
+    {
+      "id": 2639,
+      "title": "[Opus] Conversion keeps ~1.6 KB per unfolded level of a decreasing-checked recursion (innerN 2^128: 3.3 GB before the 2M-frame E-RESOURCE); shrink what Unfolding retains, or unfold lazily (fuzz_elab 0x25a5 case 4273)",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-2639",
+      "labels": [
+        "bug",
+        "fuzz"
+      ],
+      "epic": "audit-fuzzing",
+      "body": "Found by Overmind, fuzz_elab CASES=12000 seed 0x25a5, 10 Nov 2026. Input on Overmind: target/fuzz-elab/25a5-4273.sw. Est. 60 min.\n\nLane notes (Sonnet, 10 Nov 2026): not fixed; cause found, needs a decision or Opus. The check already stops with a clear E-RESOURCE (\"recursed more deeply than allowed\", 4 s) but only at the evaluator's 2,000,000-frame limit, with 3.3 GB resident. Path: `unify_step` -> `unfold_folded` -> `force_now` -> `value::run`: conversion unfolds `innerN 2^128` (a `decreasing` function, so a fuelled helper) to head normal form before comparing with `innerN 0`'s. Every level pushes a `Frame::Unfolded` (64 bytes) and keeps its `Unfolding` and the helper's per-level values alive: about 1.6 KB per frame (measured: `innerN 200000` succeeds in 3 s and 744 MB, linear in n). A structural recursion of the same shape (no `decreasing`) is cheap (200000 deep: 0.3 s, 147 MB), so the weight is the `decreasing` helper's per-level terms. Not the work limit (10^10 steps, never reached), not postponed problems or a cache, not SW-2467's pattern chain. The options (unlowering `Limits::frames` for elaboration-time conversion only; a bytes-based cap; making conversion unfold lazily one step; shrinking the per-level retention) change what elaboration accepts or touch crates/core, so they are not done here.\nDiagnosis (Sonnet lane, 10 Nov): not the step budget; conversion (unify_step -> unfold_folded -> force_now -> value::run) unfolds innerN 2^128 to head normal form, one Frame::Unfolded per level, until the 2M-frame limit gives E-RESOURCE after 4 s and 3.3 GB. ~1.6 KB retained per level (frames are 64 bytes): the unfolding data and the decreasing helper's per-level values. Without decreasing the same recursion costs 147 MB at 200k. Ruled out: postponed problems, caches, SW-2467's chain, SW-2418. Moved to Opus: shrink the retention (crates/core Unfolding) or unfold lazily.",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
+    },
+    {
+      "id": 2640,
+      "title": "[Opus] Design note: how a theorem's top-level variables are written (parameters before the colon, ∀ after it, or ∀ before the colon as new syntax), the house rule, and the sweep of ~670 mixed statements",
+      "status": "done",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-2640",
+      "labels": [
+        "paper",
+        "design"
+      ],
+      "epic": "syntax-language",
+      "body": "Matt, 10 Nov 2026: after the ∀ sweep (D3458) the same kind of statement is written three ways (~2,260 parameters before the colon, ~240 ': ∀' only, ~430 mixed). Matt wonders whether to allow ∀ before the colon for readability closer to logic and maths, and thinks 'move ∀ variables before the colon' is a sensible house rule as long as nothing (match syntax etc.) relies on the ∀ form. Paper lane; output docs/proposals/theorem-binders.md. Related: D3462 (keeping ∀ style), docs/proposals/forall-style-enforcement.md. Est. 60 min.",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
+    },
+    {
+      "id": 2641,
+      "title": "Formatter fuzz coverage: the daily's 50,000 cases rarely reach idempotence bugs; run a per-file FUZZ_ONLY sweep (every example file, ~300k cases each) as compute work, and raise the daily's default (1M whole-corpus cases take ~1 min)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "fuzz"
+      ],
+      "epic": "audit-fuzzing",
+      "body": "From SW-2466 (10 Nov 2026).",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
+    },
+    {
+      "id": 2642,
       "title": "Tutorial part 1 (shopping basket): bring up to date with language and editor changes since 6 Nov (∀ done in 0d8790677, setup in 7026f87ff)",
       "status": "done",
       "agent": "Sonnet",
@@ -27250,7 +27329,7 @@
         "docs"
       ],
       "epic": "docs-tutorials",
-      "body": "Matt asked (10 Nov 2026) to update the tutorial with the new forall syntax and other recent changes. ∀ already done (SW-2588, 0d8790677); setup step now task vscode:install (7026f87ff, orchestrator). Lane c01bbb23d: run-tests link, Run test marks failures, addCost hover shows the statement as written; every other quoted output checked and still right. Ideas not acted on: Restart Server tip; F2 rename step once SW-2629 merges. Model result: Sonnet, worked, 6 min (est. 30 min)",
+      "body": "Matt asked (10 Nov 2026) to update the tutorial with the new forall syntax and other recent changes. ∀ already done (SW-2588, 0d8790677); setup step now task vscode:install (7026f87ff, orchestrator). Lane c01bbb23d: run-tests link, Run test marks failures, addCost hover shows the statement as written; every other quoted output checked and still right. Ideas not acted on: Restart Server tip; F2 rename step once SW-2629 merges. Model result: Sonnet, worked, 6 min (est. 30 min)\n\nRenumbered from SW-2637 on 10 Nov 2026: two sessions filed tickets at once and the number was taken; commit messages before this say SW-2637.",
       "created": "2026-11-10",
       "updated": "2026-11-10",
       "commits": [
@@ -27260,7 +27339,7 @@
       ]
     },
     {
-      "id": 2638,
+      "id": 2643,
       "title": "Goals and errors print a dot call two ways in one file: (basket.add item).total in one message, Basket.total shopping in another (tutorial part 1, SW-2637). Intended?",
       "status": "backlog",
       "agent": "",
@@ -27269,13 +27348,88 @@
         "bug"
       ],
       "epic": "docs-tutorials",
-      "body": "",
+      "body": "\n\nRenumbered from SW-2638 on 10 Nov 2026: two sessions filed tickets at once and the number was taken; commit messages before this say SW-2638.",
       "created": "2026-11-10",
       "updated": "2026-11-10",
       "commits": []
     },
     {
-      "id": 2639,
+      "id": 2644,
+      "title": "[Sonnet] Rename for a lone file (playground default program, files outside a project): a trial on LiveFile",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "editor",
+        "refactoring"
+      ],
+      "epic": "editor-playground",
+      "body": "From SW-2629 (10 Nov 2026). Est. 60 min.",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
+    },
+    {
+      "id": 2645,
+      "title": "[Sonnet] Rename progress in the editor: a work-done progress report while the trial checks, and rename's browser test (426 s, mostly the trial in wasm) made cheaper or kept out of the regular browser run",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "editor",
+        "refactoring"
+      ],
+      "epic": "editor-playground",
+      "body": "From SW-2629 (10 Nov 2026): a rename in AoC Day 2 in the playground took ~130 s. SW-2634 (rewind only dependants) is the main speed fix. Est. 60 min.",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
+    },
+    {
+      "id": 2646,
+      "title": "[Sonnet] Closing write-up of the speed work (D3465): final section of docs/reviews/SW-2295-comparative-speed.md: where we started and ended, what moved the numbers and what didn't, top parked ideas with estimated gains; numbers from Overmind's final run",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "paper"
+      ],
+      "epic": "comparative-speed",
+      "body": "Final comparison (Overmind, 10 Nov 2026, commit 292a85385, runners native,cpython,pypy,lean, 64 answers ok, 2018 s; report on Overmind: target/compare/2026-11-10T095143-overmind.md). Geomeans by time, native/CPython and native/Lean (job 40, f9d2d8320, in brackets): core 1.82x, 7.67x [1.90x, 7.99x]; wide 0.31x, 2.60x [0.32x, 2.68x]; all 15 1.01x, 5.35x [1.04x, 5.55x]. Moved >10% since job 40: binary-trees 2.70 -> 2.14 s (-21%), memory-game 2.85 -> 2.42 s (-15%). No instruction table this time (job 40 had one: all 1.01x / 5.70x), probably no --instructions flag. JS backend not timed (SW-2636). Start after the session restart. Est. 40 min.",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
+    },
+    {
+      "id": 2647,
+      "title": "Dev command to print a declaration's content hash (hidden or under dev), so meaning-preserving sweeps and reviews can compare hashes directly instead of through the test cache",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
+      "body": "From SW-2640 (10 Nov 2026). Est. 30 min.",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
+    },
+    {
+      "id": 2648,
+      "title": "[Sonnet] Trial check for arbitrary edits: an entry point beyond rename (stitchwort apply-edits or a driver API) and a std mode (compare every declaration's hash before and after with --std-dir, as fmt_hashes does), for sweeps that must keep hashes",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "refactoring"
+      ],
+      "epic": "editor-playground",
+      "body": "From SW-2640 (10 Nov 2026); needed by the theorem-binders sweep if Matt picks it. Est. 120 min.",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
+    },
+    {
+      "id": 2649,
       "title": "Tutorial part 2: specs. Write down what a correct checkout is apart from the code, prove the code meets it, try statements first with check --counterexamples (continues part 1's shopping basket; Matt's request)",
       "status": "done",
       "agent": "Opus",
@@ -27284,7 +27438,7 @@
         "docs"
       ],
       "epic": "docs-tutorials",
-      "body": "Matt, 10 Nov 2026: 'Can you write me part 2 of the tutorial?' docs/tutorial/02-specs.sw (344 lines, 9 steps: a till with a running total; spec shouldCharge; counterexamples in the hover and check --counterexamples; failed induction from 0 (E-REWRITE-NOTHING); generalised scanAdds; percent-order counterexample from rounding; ∧ with Both, ∃ with Witness; three breaks). 11 variants checked against the release build; orchestrator reviewed statements and arithmetic. Model result: Opus, worked, 11 min (est. 60).",
+      "body": "Matt, 10 Nov 2026: 'Can you write me part 2 of the tutorial?' Filed as SW-2639 in another session; renumbered SW-2649 at merge (2639 taken). Commits and messages before the merge say SW-2639. docs/tutorial/02-specs.sw (344 lines, 9 steps: a till with a running total; spec shouldCharge; counterexamples in the hover and check --counterexamples; failed induction from 0 (E-REWRITE-NOTHING); generalised scanAdds; percent-order counterexample from rounding; ∧ with Both, ∃ with Witness; three breaks). 11 variants checked against the release build; orchestrator reviewed statements and arithmetic. Model result: Opus, worked, 11 min (est. 60).",
       "created": "2026-11-10",
       "updated": "2026-11-10",
       "commits": [
@@ -27292,8 +27446,8 @@
       ]
     },
     {
-      "id": 2640,
-      "title": "check --counterexamples searches compiler-generated T.ext theorems: --verbose prints gave-up/weak-evidence lines for them and the summary counts them (7 theorems for a file with 5). Skip generated theorems (tutorial part 2, SW-2639)",
+      "id": 2650,
+      "title": "check --counterexamples searches compiler-generated T.ext theorems: --verbose prints gave-up/weak-evidence lines for them and the summary counts them (7 theorems for a file with 5). Skip generated theorems (tutorial part 2, SW-2649)",
       "status": "backlog",
       "agent": "",
       "where": "",
@@ -27307,8 +27461,8 @@
       "commits": []
     },
     {
-      "id": 2641,
-      "title": "omega on Nat subtraction with a missing hypothesis gives a misleading note ('total - (total - target) and total - target differ only in ... no fact connects them'); repro: drop (cheaper: target ≤ total) from priceMatch in docs/tutorial/02-specs.sw (SW-2639)",
+      "id": 2651,
+      "title": "omega on Nat subtraction with a missing hypothesis gives a misleading note ('total - (total - target) and total - target differ only in ... no fact connects them'); repro: drop (cheaper: target ≤ total) from priceMatch in docs/tutorial/02-specs.sw (SW-2649)",
       "status": "backlog",
       "agent": "",
       "where": "",
@@ -27321,8 +27475,8 @@
       "commits": []
     },
     {
-      "id": 2642,
-      "title": "Counterexample search on ∃ statements: search the witness's own goal, so a wrong witness's omega model can be confirmed real instead of 'may not be a real counterexample'; repro: priceMatch witness PenceOff target in docs/tutorial/02-specs.sw (SW-2639)",
+      "id": 2652,
+      "title": "Counterexample search on ∃ statements: search the witness's own goal, so a wrong witness's omega model can be confirmed real instead of 'may not be a real counterexample'; repro: priceMatch witness PenceOff target in docs/tutorial/02-specs.sw (SW-2649)",
       "status": "backlog",
       "agent": "",
       "where": "",
@@ -27333,8 +27487,8 @@
       "commits": []
     },
     {
-      "id": 2643,
-      "title": "Hover and check --counterexamples give different counterexamples for the same statement, and --verbose case counts vary between runs (time budget); repro: mixed coupon order in docs/tutorial/02-specs.sw (SW-2639). Low priority",
+      "id": 2653,
+      "title": "Hover and check --counterexamples give different counterexamples for the same statement, and --verbose case counts vary between runs (time budget); repro: mixed coupon order in docs/tutorial/02-specs.sw (SW-2649). Low priority",
       "status": "backlog",
       "agent": "",
       "where": "",
@@ -27347,8 +27501,8 @@
       "commits": []
     },
     {
-      "id": 2644,
-      "title": "Tutorial part 3, candidates from SW-2639: Percent record with a ≤ 100 proof field; match induct for a 3-for-2 deal; calc chains; projects, audit, axioms; which coupon order favours the customer (ring)",
+      "id": 2654,
+      "title": "Tutorial part 3, candidates from SW-2649: Percent record with a ≤ 100 proof field; match induct for a 3-for-2 deal; calc chains; projects, audit, axioms; which coupon order favours the customer (ring)",
       "status": "backlog",
       "agent": "",
       "where": "",

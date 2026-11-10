@@ -61,6 +61,13 @@ impl LanguageServer {
             .add(memory_project(root, sources, paths, texts));
     }
 
+    /// The file `path` of the project in `root` has this text, changed by
+    /// the page (a rename edited a file the editor hasn't opened).
+    pub fn set_project_file(&mut self, root: &str, path: &str, text: String) {
+        self.projects
+            .set_file(std::path::Path::new(root), path, text);
+    }
+
     /// Handles one message from the client: what the server sent at once.
     pub fn receive(&mut self, message: &str) -> String {
         array(self.inner.receive(message))
@@ -132,6 +139,12 @@ impl SearchWorker {
     ) {
         self.projects
             .add(memory_project(root, sources, paths, texts));
+    }
+
+    /// As [`LanguageServer::set_project_file`].
+    pub fn set_project_file(&mut self, root: &str, path: &str, text: String) {
+        self.projects
+            .set_file(std::path::Path::new(root), path, text);
     }
 
     /// Runs the search `job` (a `search` of `take_searches`), and returns

@@ -179,6 +179,20 @@ impl Memory {
         projects.push(project);
     }
 
+    /// Gives the file `path` of the project in `root` this text, when the
+    /// page has changed it behind the server's back (a rename that edited a
+    /// file the editor hasn't opened). No such project or file: nothing.
+    pub fn set_file(&self, root: &Path, path: &str, text: String) {
+        let mut projects = self.projects.write().unwrap_or_else(|e| e.into_inner());
+        if let Some(project) = projects.iter_mut().find(|p| p.root == root) {
+            let mut files = (*project.files).clone();
+            if let Some(old) = files.get_mut(path) {
+                *old = text;
+                project.files = Arc::new(files);
+            }
+        }
+    }
+
     /// The project holding `path`, and `path` within it.
     fn locate(&self, path: &Path) -> Option<(MemoryProject, String)> {
         let projects = self.projects.read().unwrap_or_else(|e| e.into_inner());

@@ -9,8 +9,10 @@
 // tokenizer), and everything the language server offers: errors underlined
 // with their messages, hover, go to definition (into other files of a
 // project and into the library, read-only), find references, formatting,
-// completion, signature help, semantic colours, inlay hints on `let`s, and code actions (a proof for a `?`, an `import` for an unknown
-// name), for which the client has no UI.
+// completion, signature help, semantic colours, inlay hints on `let`s, code actions (a proof for a `?`, an `import` for an unknown
+// name), for which the client has no UI, and rename (F2), whose name prompt and
+// multi-file edit are here too: the client's own `renameSymbol` asks for no
+// `prepareRename` and edits only the files that are open.
 import { EditorView, keymap, lineNumbers, drawSelection, Decoration, WidgetType } from "@codemirror/view";
 import { EditorState, StateField, StateEffect, RangeSetBuilder, Prec } from "@codemirror/state";
 import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
@@ -89,6 +91,8 @@ export class Editor {
    *   onNotice(text)              something to tell the person (a search is running, a request failed)
    *   run()                       Ctrl+Enter
    *   format()                    Shift+Alt+F: when given, instead of the server's formatting
+   *   fileText(path)              the text of a file of the open project (a rename edits files that aren't open), or undefined
+   *   setFile(path, text)         a rename gave a file of the project this text: the page keeps it
    */
   constructor(parent, options) {
     this.options = options;
@@ -118,7 +122,7 @@ export class Editor {
     this.handlers = [];
     this.colourField = colouring(options.colour);
     this.startWorker();
-    this.client = new LSPClient({ extensions: languageServerExtensions(), timeout: 60000 }).connect(this.transport());
+    this.client = new LSPClient({ extensions: languageServerExtensions(), timeout: 300000 }).connect(this.transport());
     this.client.workspace.displayFile = (uri) => this.displayFile(uri);
     this.open({ uri: SINGLE_URI, text: "" });
     window.addEventListener("keydown", (e) => this.setMod(e));
@@ -318,6 +322,7 @@ export class Editor {
           { key: "Ctrl-Enter", run: () => !!options.run?.(), preventDefault: true },
           { key: "Cmd-Enter", run: () => !!options.run?.(), preventDefault: true },
           { key: "Mod-.", run: (view) => { this.codeAction(view); return true; } },
+          { key: "F2", run: (view) => { this.rename(view); return true; }, preventDefault: true },
           { key: "Mod-[", run: () => { this.goBack(); return true; } },
           { key: "Escape", run: () => { if (!this.std) return false; this.goBack(); return true; } },
           { key: "F12", run: jumpToDefinition, preventDefault: true },
@@ -741,6 +746,165 @@ export class Editor {
     view.dispatch({ changes: edits.map((e) => ({ from: plugin.fromPosition(e.range.start), to: plugin.fromPosition(e.range.end), insert: e.newText })) });
     return true;
   }
+  // ---- Rename -------------------------------------------------------------------
+
+  /**
+   * F2: asks the server whether the name at the caret can be renamed
+   * (`prepareRename`), shows a prompt for the new name, and applies the
+   * server's edit to every file it touches. A rename that would break
+   * something is refused with the problems listed, and the prompt offers
+   * "Rename anyway" (the server's `stitchwort.renameAnyway` command, which
+   * answers the same edit): the person fixes the few places by hand.
+   */
+  async rename(view = this.view) {
+    const plugin = LSPPlugin.get(view);
+    if (!plugin || this.std || this.stats.stopped) return false;
+    plugin.client.sync();
+    const position = plugin.toPosition(view.state.selection.main.head);
+    let prepared;
+    try {
+      prepared = await plugin.client.request("textDocument/prepareRename", { textDocument: { uri: plugin.uri }, position });
+    } catch (e) {
+      this.options.onNotice?.(e.message ?? String(e));
+      return true;
+    }
+    if (!prepared?.range) {
+      this.options.onNotice?.("There is no name to rename here");
+      return true;
+    }
+    this.renamePrompt(view, plugin, position, prepared.placeholder ?? "");
+    return true;
+  }
+
+  /** The small panel above the editor: the name field, the refusal's words, and "Rename anyway". */
+  renamePrompt(view, plugin, position, old) {
+    this.closeRename();
+    const input = document.createElement("input");
+    input.type = "text";
+    input.name = "name";
+    input.value = old;
+    input.spellcheck = false;
+    input.autocomplete = "off";
+    input.setAttribute("aria-label", `New name for ${old}`);
+    const rename = Object.assign(document.createElement("button"), { type: "submit", textContent: "Rename" });
+    const cancel = Object.assign(document.createElement("button"), { type: "button", textContent: "Cancel" });
+    const anyway = Object.assign(document.createElement("button"), { type: "button", textContent: "Rename anyway", hidden: true });
+    anyway.className = "rename-anyway";
+    const problems = document.createElement("pre");
+    problems.className = "rename-problems";
+    problems.hidden = true;
+    problems.setAttribute("role", "alert");
+    const row = document.createElement("div");
+    row.className = "rename-row";
+    row.append(`Rename ${old} to `, input, rename, anyway, cancel);
+    const form = document.createElement("form");
+    form.className = "rename-panel";
+    form.append(row, problems);
+    this.parent.before(form);
+    this.renamePanel = form;
+
+    const finish = () => { this.closeRename(); view.focus(); };
+    const fail = (e) => {
+      problems.classList.remove("busy");
+      problems.textContent = e.message ?? String(e);
+      problems.hidden = false;
+      anyway.hidden = !e.data?.renameAnyway;
+      rename.disabled = false;
+      if (!anyway.hidden) anyway.focus();
+    };
+    const apply = async (edit) => {
+      await this.applyWorkspaceEdit(edit);
+      finish();
+    };
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const newName = input.value.trim();
+      if (!newName || newName === old) return finish();
+      rename.disabled = true;
+      anyway.hidden = true;
+      // The server checks the renamed project first: seconds, and on a project the size of AoC's a few minutes.
+      problems.textContent = "Checking the renamed project…";
+      problems.hidden = false;
+      problems.classList.add("busy");
+      plugin.client.sync();
+      try {
+        await apply(await plugin.client.request("textDocument/rename", { textDocument: { uri: plugin.uri }, position, newName }));
+      } catch (e) {
+        fail(e);
+      }
+    });
+    anyway.addEventListener("click", async () => {
+      anyway.disabled = true;
+      try {
+        await apply(await plugin.client.request("workspace/executeCommand", { command: "stitchwort.renameAnyway", arguments: [] }));
+      } catch (e) {
+        fail(e);
+      } finally {
+        anyway.disabled = false;
+      }
+    });
+    cancel.addEventListener("click", finish);
+    form.addEventListener("keydown", (e) => { if (e.key === "Escape") { e.preventDefault(); finish(); } });
+    input.focus();
+    input.select();
+  }
+
+  closeRename() {
+    this.renamePanel?.remove();
+    this.renamePanel = null;
+  }
+
+  /**
+   * Applies a `WorkspaceEdit` (`changes`, or `documentChanges`) to the
+   * files of the open project: an open document through its view, any other
+   * file in the page's record of the project (`fileText`, `setFile`) and in
+   * the worker's copy of it, which the server has not read again.
+   */
+  async applyWorkspaceEdit(edit) {
+    const changes = edit?.changes ?? Object.fromEntries((edit?.documentChanges ?? []).map((c) => [c.textDocument.uri, c.edits]));
+    const { options } = this;
+    for (const [uri, edits] of Object.entries(changes)) {
+      const view = this.views.get(uri);
+      const group = Editor.group(uri);
+      const path = uri.slice(group.length);
+      if (view) {
+        const plugin = LSPPlugin.get(view);
+        const changes = edits.map((e) => ({ from: plugin.fromPosition(e.range.start), to: plugin.fromPosition(e.range.end), insert: e.newText }));
+        this.silent++;
+        try {
+          view.dispatch({ changes, userEvent: "rename" });
+        } finally {
+          this.silent--;
+        }
+        if (group) options.setFile?.(path, view.state.doc.toString());
+        continue;
+      }
+      const text = options.fileText?.(path);
+      if (!group || text === undefined) continue;
+      const renamed = applyTextEdits(text, edits);
+      options.setFile?.(path, renamed);
+      const project = this.projects.find((p) => group === `file://${p.root}/`);
+      if (project) {
+        const at = project.paths.indexOf(path);
+        if (at >= 0) project.texts[at] = renamed;
+        this.worker.postMessage({ setFile: { root: project.root, path, text: renamed } });
+      }
+    }
+    // The page saves the open file and checks again.
+    options.onInput?.();
+  }
+}
+
+/** `text` with LSP `edits` applied (positions count UTF-16 units, as JavaScript strings do). */
+function applyTextEdits(text, edits) {
+  const starts = [0];
+  for (let i = text.indexOf("\n"); i >= 0; i = text.indexOf("\n", i + 1)) starts.push(i + 1);
+  const offset = ({ line, character }) => Math.min((starts[line] ?? text.length) + character, text.length);
+  let out = text;
+  const sorted = edits.map((e) => ({ from: offset(e.range.start), to: offset(e.range.end), insert: e.newText }))
+    .sort((a, b) => b.from - a.from);
+  for (const e of sorted) out = out.slice(0, e.from) + e.insert + out.slice(e.to);
+  return out;
 }
 
 /** The client's plugin for a document of the language. */

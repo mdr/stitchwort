@@ -49,6 +49,12 @@ pub(crate) struct Decl {
     /// with its expected type first failed: no application inside is
     /// compared that way (`check::propagate`, D2342).
     pub(crate) no_hole_propagation: Cell<usize>,
+    /// Above zero while a lambda is checked in place in an application
+    /// elaborated again after a propagation by `_`s failed
+    /// (`check::apply_args_postponing`): a lambda inside is not tried in
+    /// place first, only after its application's expected type, so nested
+    /// lambdas that fail aren't each checked twice per level (SW-2638).
+    pub(crate) in_place_trial: Cell<usize>,
     /// Set while asking whether an expression in a pure context performs
     /// anything besides calls whose result is in a bare row (`{e} b`, as
     /// `List.map`'s): those are elaborated as plain calls first, and the row
@@ -198,6 +204,7 @@ impl Decl {
             arm_reach,
             no_propagation,
             no_hole_propagation,
+            in_place_trial,
             bare_rows_pure,
             late_literals,
             condition,
@@ -230,6 +237,7 @@ impl Decl {
             ("arm_reach", arm_reach.borrow().is_empty()),
             ("no_propagation", no_propagation.get() == 0),
             ("no_hole_propagation", no_hole_propagation.get() == 0),
+            ("in_place_trial", in_place_trial.get() == 0),
             ("bare_rows_pure", !bare_rows_pure.get()),
             ("late_literals", late_literals.get() == 0),
             ("condition", condition.get() == 0),

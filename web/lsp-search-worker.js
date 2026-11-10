@@ -25,6 +25,8 @@ function handle(data) {
   if (data.project !== undefined) {
     const p = data.project;
     searcher.add_project(p.root, p.sources, p.paths, p.texts);
+  } else if (data.setFile !== undefined) {
+    searcher.set_project_file(data.setFile.root, data.setFile.path, data.setFile.text);
   } else if (data.job !== undefined) {
     postMessage({ result: searcher.run(data.job) });
   }
