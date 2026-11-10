@@ -28536,9 +28536,9 @@
     {
       "id": 2728,
       "title": "ProofsOnly refusal names the declaration but not the position inside the term",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": ".claude/worktrees/scratch-sw-2728",
       "labels": [],
       "epic": "test-infra",
       "body": "From SW-2698 (10 Nov 2026).",
