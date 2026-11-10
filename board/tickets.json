@@ -26033,14 +26033,14 @@
     {
       "id": 2566,
       "title": "Char.isAsciiDigit (and siblings if missing) in std, so isDigit-style tests don't go through digitValue's Option",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Sonnet",
-      "where": "",
+      "where": ".claude/worktrees/SW-2566",
       "labels": [],
       "epic": "std-library",
       "body": "From SW-2555. 30 min.",
       "created": "2026-11-09",
-      "updated": "2026-11-09",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
