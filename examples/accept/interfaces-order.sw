@@ -25,7 +25,7 @@ instance Item.instBase: Base Item :=
 
 interface Child (a: Type) = {
   base: Base a,
-  law: (x: a) → base.op (base.op x) = base.op x
+  law: ∀ (x: a) => base.op (base.op x) = base.op x
 }
 
 interface Base (a: Type) =

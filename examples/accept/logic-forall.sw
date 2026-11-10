@@ -9,7 +9,7 @@ theorem plusZero: ∀ (n: Nat) => n + 0 = n := n => rfl
 
 theorem plusZeroAscii: forall (n: Nat) => n + 0 = n := plusZero
 
-theorem plusZeroArrow: (n: Nat) -> n + 0 = n := plusZero
+theorem plusZeroArrow: ∀ (n: Nat) => n + 0 = n := plusZero
 
 -- A quantified hypothesis, used at the values it's needed at.
 theorem twice (p: Nat -> Prop) (all: ∀ (n: Nat) => p n): p 1 ∧ p 2 := Both (all 1) (all 2)

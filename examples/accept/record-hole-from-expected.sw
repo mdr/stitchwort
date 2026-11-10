@@ -13,7 +13,7 @@ def count (tally: Tally): List Nat → Tally
 
 def Positive (n: Nat): Prop := n > 0
 
-theorem countPositive: (tally: Tally) → (waiting: List Nat) →
+theorem countPositive: ∀ (tally: Tally) (waiting: List Nat) =>
     List.All Positive tally.seen → List.All Positive waiting → List.All Positive (count tally waiting).seen
   | tally, [], seen, rest => seen
   | tally, [n, ..waiting], seen, Both positive rest =>

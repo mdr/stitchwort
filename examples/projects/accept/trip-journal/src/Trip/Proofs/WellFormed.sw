@@ -95,7 +95,7 @@ theorem mergePinsFit (local: Trip) (remote: Trip) (legs: List Leg): List.All (pi
 def AlbumOk (album: Album): Prop := List.Distinct (album.photos.map Photo.id)
 
 -- Each album of a trip whose photo ids are distinct has distinct photo ids.
-theorem albumsOk: (albums: List Album) → List.Distinct (photoIds albums) → List.All AlbumOk albums
+theorem albumsOk: ∀ (albums: List Album) => List.Distinct (photoIds albums) → List.All AlbumOk albums
   | [], d => Trivial
   | [album, ..rest], d =>
     Both (List.distinctAppendLeft (album.photos.map Photo.id) (photoIds rest) d)
@@ -177,7 +177,7 @@ theorem ownedOf (own: Nat → Option Nat) (album: Album) (x: Nat) (m: x ∈ List
     match List.memFilter album.photos (p => own p.id == Some album.id) (And.left both) with
       | Both inPhotos keep => rewrite <- And.right both in DecEq.sound keep)
 
-theorem ownedIn (own: Nat → Option Nat): (albums: List Album) → (x: Nat) → x ∈ photoIds (albums.map (album => keepOwned own album))
+theorem ownedIn (own: Nat → Option Nat): ∀ (albums: List Album) (x: Nat) => x ∈ photoIds (albums.map (album => keepOwned own album))
     → List.Any (album => own x = Some album.id) albums
   | [], x, m => m
   | [album, ..rest], x, m =>
@@ -187,7 +187,7 @@ theorem ownedIn (own: Nat → Option Nat): (albums: List Album) → (x: Nat) →
 
 -- Albums with distinct ids, each keeping only the photos its owner gives
 -- it, have distinct photo ids.
-theorem ownedDistinct (own: Nat → Option Nat): (albums: List Album) → List.Distinct (List.map albums (album => album.id))
+theorem ownedDistinct (own: Nat → Option Nat): ∀ (albums: List Album) => List.Distinct (List.map albums (album => album.id))
     → List.All AlbumOk albums → List.Distinct (photoIds (albums.map (album => keepOwned own album)))
   | [], ids, oks => Trivial
   | [album, ..rest], Both out ids, Both ok oks =>
@@ -216,7 +216,7 @@ theorem mergeAlbumsWithin (local: Trip) (remote: Trip) (legs: List Leg) (c: Cont
 
 -- The plan
 
-theorem mergePlaceIds: (local: Option Itinerary) → (remote: Option Itinerary) → PlaceIdsDistinct local → PlaceIdsDistinct remote
+theorem mergePlaceIds: ∀ (local remote: Option Itinerary) => PlaceIdsDistinct local → PlaceIdsDistinct remote
     → PlaceIdsDistinct (mergeItinerary local remote)
   | Some old, Some new, dl, dr =>
     match e: old.fileId == new.fileId with

@@ -23,7 +23,7 @@ def chainThrough (fuel: Nat): (xs: List Nat) → Nat
 -- `each`'s type has the scrutinee exactly as written. (AoC 2020 day 19,
 -- `chainBounded`.)
 theorem upToEta (more: Nat) (lists: List (List Nat)) (cap: Nat)
-    (each: (most: Nat) → lists.map (chainThrough more) |> .maximum = Some most → most ≤ cap):
+    (each: ∀ (most: Nat) => lists.map (chainThrough more) |> .maximum = Some most → most ≤ cap):
     chain (Succ more) lists ≤ cap :=
   match found: lists.map (chainThrough more) |> .maximum with
     | None => omega
@@ -55,7 +55,7 @@ def double (n: Nat): Nat := n + n
 -- The arms keep the goal's calls: the `True` arm's goal is `double a =
 -- double a` (where it was `a + a = a + a`), and a lemma about `double`
 -- finds it as written.
-theorem armsKeepCalls (doubled: (n: Nat) → double n = 2 * n) (flag: Bool) (a: Nat):
+theorem armsKeepCalls (doubled: ∀ (n: Nat) => double n = 2 * n) (flag: Bool) (a: Nat):
     (if flag then double a else 0) = (if flag then 0 + double a else 0) :=
   match e: flag with
     | True => rewrite doubled a in rfl

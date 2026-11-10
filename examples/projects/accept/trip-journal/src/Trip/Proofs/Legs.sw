@@ -10,7 +10,7 @@ import Trip.Merge (..)
 
 -- With legs laid end to end from `at`, durations not negative, `at` is at
 -- most the end of the trip.
-theorem atLeLastEnd: (s0: Float) → (leg: Leg) → (rest: List Leg) → ContiguousFrom s0 [leg, ..rest]
+theorem atLeLastEnd: ∀ (s0: Float) (leg: Leg) (rest: List Leg) => ContiguousFrom s0 [leg, ..rest]
     → List.All LegOk [leg, ..rest] → Float.leq s0 (lastEnd [leg, ..rest]) = True
   | s0, leg, [], Both e c, Both (Both pts (Both nonNeg fin)) oks => rewrite <- e in startLeEnd leg nonNeg
   | s0, leg, [next, ..more], Both e c, Both (Both pts (Both nonNeg fin)) oks =>
@@ -18,7 +18,7 @@ theorem atLeLastEnd: (s0: Float) → (leg: Leg) → (rest: List Leg) → Contigu
       (atLeLastEnd (s0 + leg.duration) next more c oks)
 
 -- Each leg starts no earlier than `at`, and ends no later than the trip.
-theorem legBounds: (s0: Float) → (legs: List Leg) → ContiguousFrom s0 legs → List.All LegOk legs → (leg: Leg) → leg ∈ legs
+theorem legBounds: ∀ (s0: Float) (legs: List Leg) => ContiguousFrom s0 legs → List.All LegOk legs → ∀ (leg: Leg) => leg ∈ legs
     → (Float.leq s0 leg.start = True) ∧ (Float.leq leg.end (lastEnd legs) = True)
   | s0, [], c, oks, leg, m => Void.exfalso m
   | s0, [first], Both e c, oks, leg, Inl same =>
@@ -40,11 +40,11 @@ theorem zeroLeLastEnd (legs: List Leg) (c: ContiguousFrom 0.0 legs) (oks: List.A
 
 -- Laying legs out
 
-theorem layoutContiguous: (s0: Float) → (legs: List Leg) → ContiguousFrom s0 (layout s0 legs)
+theorem layoutContiguous: ∀ (s0: Float) (legs: List Leg) => ContiguousFrom s0 (layout s0 legs)
   | s0, [] => Trivial
   | s0, [leg, ..rest] => Both rfl (layoutContiguous (s0 + leg.duration) rest)
 
-theorem layoutIds: (s0: Float) → (legs: List Leg) → List.map (layout s0 legs) (leg => leg.id) = List.map legs (leg => leg.id)
+theorem layoutIds: ∀ (s0: Float) (legs: List Leg) => List.map (layout s0 legs) (leg => leg.id) = List.map legs (leg => leg.id)
   | s0, [] => rfl
   | s0, [leg, ..rest] => Eq.cong (ids => [leg.id, ..ids]) (layoutIds (s0 + leg.duration) rest)
 
@@ -58,16 +58,16 @@ theorem moveLegOk (s0: Float) (leg: Leg) (ok: LegOk leg): LegOk (moveLeg s0 leg)
   match ok with
     | Both pts good => Both (rewrite shiftPointsIds leg.start s0 leg.points in pts) good
 
-theorem layoutOk: (s0: Float) → (legs: List Leg) → List.All LegOk legs → List.All LegOk (layout s0 legs)
+theorem layoutOk: ∀ (s0: Float) (legs: List Leg) => List.All LegOk legs → List.All LegOk (layout s0 legs)
   | s0, [], oks => Trivial
   | s0, [leg, ..rest], Both ok oks => Both (moveLegOk s0 leg ok) (layoutOk (s0 + leg.duration) rest oks)
 
 -- A leg laid where it already is stays as it is.
-theorem moveLegSame: (leg: Leg) → moveLeg leg.start leg = leg
+theorem moveLegSame: ∀ (leg: Leg) => moveLeg leg.start leg = leg
   | { id, start, duration, points, notes = None } => rewrite DecEq.refl start in rfl
   | { id, start, duration, points, notes = Some notes } => rewrite DecEq.refl start in rfl
 
-theorem layoutSame: (s0: Float) → (legs: List Leg) → ContiguousFrom s0 legs → layout s0 legs = legs
+theorem layoutSame: ∀ (s0: Float) (legs: List Leg) => ContiguousFrom s0 legs → layout s0 legs = legs
   | s0, [], c => rfl
   | s0, [leg, ..rest], Both e c =>
     calc layout s0 [leg, ..rest]

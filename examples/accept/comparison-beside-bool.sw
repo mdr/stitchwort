@@ -7,7 +7,7 @@ import Std (List, Nat)
 
 -- The largest of the start and the numbers is below `k` exactly when each
 -- of them is. Before SW-944 this needed `((List.foldLeft … < k): Bool)`.
-theorem foldMaxBelow (k: Nat): (xs: List Nat) → (start: Nat) →
+theorem foldMaxBelow (k: Nat): ∀ (xs: List Nat) (start: Nat) =>
     (List.foldLeft xs start Nat.max < k) = (start < k ∧ List.all xs (x => x < k))
   | [], start => cases
   | [x, ..rest], start => rewrite foldMaxBelow k rest (Nat.max start x) in cases

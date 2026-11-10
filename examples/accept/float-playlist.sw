@@ -15,11 +15,11 @@ def NoNegativeDurations: List Track → Prop
   | [track, ..rest] => (0.0 <= track.duration) ∧ (NoNegativeDurations rest)
 
 theorem nextStartNotEarlier (start: Float) (duration: Float) (nonNegative: 0.0 <= duration):
-    (rest: List Track) → List.LeHead Float.leq start (startTimes (start + duration) rest)
+    ∀ (rest: List Track) => List.LeHead Float.leq start (startTimes (start + duration) rest)
   | [] => Trivial
   | [next, ..more] => Float.addMonotoneRight start duration nonNegative
 
-theorem startTimesAscend: (start: Float) → (tracks: List Track) → NoNegativeDurations tracks
+theorem startTimesAscend: ∀ (start: Float) (tracks: List Track) => NoNegativeDurations tracks
     → List.Sorted Float.leq (startTimes start tracks)
   | start, [], ok => Trivial
   | start, [track, ..rest], Both nonNegative restOk =>

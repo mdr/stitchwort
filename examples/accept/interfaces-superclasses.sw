@@ -9,7 +9,7 @@ interface Base (a: Type) =
 -- `law` mentions the superclass `base`.
 interface Child (a: Type) = {
   base: Base a,
-  law: (x: a) → base.op (base.op x) = base.op x
+  law: ∀ (x: a) => base.op (base.op x) = base.op x
 }
 
 interface Named (a: Type) = {

@@ -11,7 +11,7 @@ theorem holdsMem (album: Album) (id: Nat) (h: holds album id = True): id ∈ alb
 
 -- Where `stillHolds` says yes, an album with that id holds the photo.
 theorem stillHoldsGives (albums: List Album) (id: Nat):
-    (o: Option Nat) → stillHolds albums id o = True → List.Any (album => (o = Some album.id) ∧ (holds album id = True)) albums
+    ∀ (o: Option Nat) => stillHolds albums id o = True → List.Any (album => (o = Some album.id) ∧ (holds album id = True)) albums
   | Some albumId, h =>
     match e: albums.find (album => album.id == albumId) with
       | Some album =>

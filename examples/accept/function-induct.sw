@@ -57,7 +57,7 @@ def lastOr (d: Nat): List Nat → Nat
       | Some y => lastOr y rest
       | None => x
 
-theorem headMem: (xs: List Nat) → (y: Nat) → List.head xs = Some y → List.Mem y xs
+theorem headMem: ∀ (xs: List Nat) (y: Nat) => List.head xs = Some y → List.Mem y xs
   | [], y, h => cases
   | [z, ..zs], y, h => Inl (Option.someInjective h)
 

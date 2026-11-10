@@ -12,13 +12,13 @@ import Trip.Merge (..)
 
 def Album.rebuilt (album: Album): Album := { id = album.id, start = album.start, label = album.label, photos = album.photos }
 
-theorem albumEta: (album: Album) → album.rebuilt = album
+theorem albumEta: ∀ (album: Album) => album.rebuilt = album
   | { id, start, label, photos } => rfl
 
-theorem stopStartAtSame: (stop: Stop) → stop.startAt stop.start = stop
+theorem stopStartAtSame: ∀ (stop: Stop) => stop.startAt stop.start = stop
   | { id, start, name, kind } => rfl
 
-theorem albumStartAtSame: (album: Album) → album.startAt album.start = album
+theorem albumStartAtSame: ∀ (album: Album) => album.startAt album.start = album
   | { id, start, label, photos } => rfl
 
 def rebuildTrip (trip: Trip): Trip := {
@@ -32,12 +32,12 @@ def rebuildTrip (trip: Trip): Trip := {
   summary = trip.summary
 }
 
-theorem tripEta: (trip: Trip) → rebuildTrip trip = trip
+theorem tripEta: ∀ (trip: Trip) => rebuildTrip trip = trip
   | { name, settings, legs, stops, pins, albums, itinerary, summary } => rfl
 
 -- Legs
 
-theorem resolveSelf: (leg: Leg) → resolveLeg leg leg = leg
+theorem resolveSelf: ∀ (leg: Leg) => resolveLeg leg leg = leg
   | { id, start, duration, points, notes = None } =>
     match c: Nat.leq (List.length points + 1) (List.length points) with
       | True => rfl
@@ -64,7 +64,7 @@ theorem mergeLegsSelf (legs: List Leg) (ids: List.Distinct (List.map legs (leg =
 
 -- Stops
 
-theorem planReplacedSelf: (plan: Option Itinerary) → planReplaced plan plan = False
+theorem planReplacedSelf: ∀ (plan: Option Itinerary) => planReplaced plan plan = False
   | Some plan => rewrite DecEq.refl plan.fileId in rfl
   | None => rfl
 
@@ -107,8 +107,8 @@ theorem holdsOf (album: Album) (photo: Photo) (m: photo ∈ album.photos): holds
 
 -- With photo ids distinct across the albums, the first album holding a
 -- photo is the album it is in.
-theorem holderOf: (albums: List Album) → List.Distinct (photoIds albums) → (album: Album) → album ∈ albums → (photo: Photo)
-    → photo ∈ album.photos → holder albums photo.id = Some album.id
+theorem holderOf: ∀ (albums: List Album) => List.Distinct (photoIds albums) → ∀ (album: Album) => album ∈ albums → ∀ (photo: Photo)
+    => photo ∈ album.photos → holder albums photo.id = Some album.id
   | [], d, album, m, photo, p => Void.exfalso m
   | [first, ..rest], d, album, Inl e, photo, p => rewrite e, holdsOf album photo p in rfl
   | [first, ..rest], d, album, Inr m, photo, p =>
@@ -123,7 +123,7 @@ theorem ownerSelf (albums: List Album) (ids: List.Distinct (List.map albums (alb
     (album: Album) (m: album ∈ albums) (photo: Photo) (p: photo ∈ album.photos): owner albums albums albums photo.id = Some album.id :=
   rewrite holderOf albums pd album m photo p, List.findKeyDistinct (a => a.id) albums ids album m, holdsOf album photo p in rfl
 
-theorem keepOwnedSelf (own: Nat → Option Nat) (album: Album) (h: (photo: Photo) → photo ∈ album.photos → own photo.id = Some album.id):
+theorem keepOwnedSelf (own: Nat → Option Nat) (album: Album) (h: ∀ (photo: Photo) => photo ∈ album.photos → own photo.id = Some album.id):
     keepOwned own album = album :=
   rewrite List.filterAll (p => own p.id == Some album.id) album.photos (photo m => rewrite h photo m in DecEq.refl (Some album.id)) in
   albumEta album
@@ -170,7 +170,7 @@ theorem mergeAlbumsSelf (trip: Trip) (lids: List.Distinct (List.map trip.legs (l
 
 -- The plan and the summary
 
-theorem mergeItinerarySelf: (plan: Option Itinerary) → mergeItinerary plan plan = plan
+theorem mergeItinerarySelf: ∀ (plan: Option Itinerary) => mergeItinerary plan plan = plan
   | None => rfl
   | Some { fileId, places } => rewrite DecEq.refl fileId, List.appendNewBySelf places (place => place.id) in rfl
 

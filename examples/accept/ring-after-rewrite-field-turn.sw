@@ -9,7 +9,7 @@ def G.begin (first: Nat): G := { turn = 1, last = first }
 
 def G.step (g: G): G := { turn = g.turn + 1, last = g.last }
 
-theorem iterTurn: (count: Nat) → (g: G) → (Nat.iterate count G.step g).turn = g.turn + count
+theorem iterTurn: ∀ (count: Nat) (g: G) => (Nat.iterate count G.step g).turn = g.turn + count
   | Zero, g => ring
   | Succ count, g => rewrite iterTurn count (G.step g) in ring
 

@@ -45,31 +45,31 @@ def anyRemoved (holds: List Nat → Bool): List Nat → Bool
   | Nil => False
   | Cons x xs => holds xs || anyRemoved (ys => holds (Cons x ys)) xs
 
-theorem anyRemovedCong: (xs: List Nat) → (holds1: List Nat → Bool) → (holds2: List Nat → Bool) →
-    ((ys: List Nat) → holds1 ys = holds2 ys) → anyRemoved holds1 xs = anyRemoved holds2 xs
+theorem anyRemovedCong: ∀ (xs: List Nat) (holds1 holds2: List Nat → Bool) =>
+    (∀ (ys: List Nat) => holds1 ys = holds2 ys) → anyRemoved holds1 xs = anyRemoved holds2 xs
   | Nil, holds1, holds2, same => rfl
   | Cons x xs, holds1, holds2, same =>
     rewrite same xs, anyRemovedCong xs (ys => holds1 (Cons x ys)) (ys => holds2 (Cons x ys)) (ys => same (Cons x ys)) in rfl
 
-theorem anyRemovedNever: (xs: List Nat) → (holds: List Nat → Bool) → ((ys: List Nat) → holds ys = False) → anyRemoved holds xs = False
+theorem anyRemovedNever: ∀ (xs: List Nat) (holds: List Nat → Bool) => (∀ (ys: List Nat) => holds ys = False) → anyRemoved holds xs = False
   | Nil, holds, never => rfl
   | Cons x xs, holds, never =>
     rewrite never xs, anyRemovedNever xs (ys => holds (Cons x ys)) (ys => never (Cons x ys)) in rfl
 
-theorem anyRemovedOr: (xs: List Nat) → (holds1: List Nat → Bool) → (holds2: List Nat → Bool) →
+theorem anyRemovedOr: ∀ (xs: List Nat) (holds1 holds2: List Nat → Bool) =>
     anyRemoved (ys => holds1 ys || holds2 ys) xs = (anyRemoved holds1 xs || anyRemoved holds2 xs)
   | Nil, holds1, holds2 => rfl
   | Cons x xs, holds1, holds2 =>
     rewrite anyRemovedOr xs (ys => holds1 (Cons x ys)) (ys => holds2 (Cons x ys)) in cases
 
 -- Counting from `Succ start` is counting from `start` with each index moved on.
-theorem anyRangeSucc (holds: Nat → Bool): (count: Nat) → (start: Nat) →
+theorem anyRangeSucc (holds: Nat → Bool): ∀ (count start: Nat) =>
     (List.rangeFrom count (Succ start)).any holds = (List.rangeFrom count start).any (index => holds (Succ index))
   | Zero, start => rfl
   | Succ count, start => rewrite anyRangeSucc holds count (Succ start) in rfl
 
 -- `anyRemoved` is the spec's "some `removeAt index`".
-theorem anyRemovedRange: (xs: List Nat) → (holds: List Nat → Bool) →
+theorem anyRemovedRange: ∀ (xs: List Nat) (holds: List Nat → Bool) =>
     anyRemoved holds xs = (List.range 0 xs.length |> .any (index => holds (xs.removeAt index)))
   | Nil, holds => rfl
   | Cons x xs, holds =>
@@ -77,7 +77,7 @@ theorem anyRemovedRange: (xs: List Nat) → (holds: List Nat → Bool) →
 
 -- After a good step from `before` to `level`, `tolerates` is "passes, or
 -- passes with one of `level` and the rest removed".
-theorem toleratesCorrect (ok: Nat → Nat → Bool): (before: Nat) → (level: Nat) → (rest: List Nat) → ok before level = True →
+theorem toleratesCorrect (ok: Nat → Nat → Bool): ∀ (before level: Nat) (rest: List Nat) => ok before level = True →
     tolerates ok before level rest = ((Cons level rest).chain ok || anyRemoved (ys => (Cons before ys).chain ok) (Cons level rest))
   | before, level, Nil, good => rfl
   | before, level, Cons next rest, good =>
@@ -91,7 +91,7 @@ theorem toleratesCorrect (ok: Nat → Nat → Bool): (before: Nat) → (level: N
       | False => rewrite anyRemovedNever rest (ys => ok before level && False) (ys => cases) in cases
 
 -- `toleratesOne` is "passes, or passes with one level removed".
-theorem toleratesOneCorrect (ok: Nat → Nat → Bool): (levels: List Nat) →
+theorem toleratesOneCorrect (ok: Nat → Nat → Bool): ∀ (levels: List Nat) =>
     toleratesOne ok levels = (levels.chain ok || anyRemoved (ys => ys.chain ok) levels)
   | Nil => rfl
   | Cons level Nil => rfl

@@ -44,7 +44,7 @@ theorem insertSwapSize (m: Map Text Nat):
 
 -- Maps that agree on every key are equal, even maps of functions, which
 -- have no `==`.
-theorem functionsExt (m: Map Nat (Nat → Nat)) (n: Map Nat (Nat → Nat)) (h: (key: Nat) → m.get key = n.get key): m = n :=
+theorem functionsExt (m: Map Nat (Nat → Nat)) (n: Map Nat (Nat → Nat)) (h: ∀ (key: Nat) => m.get key = n.get key): m = n :=
   Map.ext m n h
 
 -- `filter` keeps the entries for which the test holds, in key order.

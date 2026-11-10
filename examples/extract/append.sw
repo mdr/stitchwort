@@ -12,7 +12,7 @@
 -- The length of two appended lists is the sum of their lengths.
 import Std (Eq, List)
 
-theorem appendLength: (xs: List a) → (ys: List a) →
+theorem appendLength: ∀ (xs ys: List a) =>
     List.length (List.append xs ys) = List.length xs + List.length ys
   | Nil, ys => rfl
   | Cons x xs, ys => Eq.cong Succ (appendLength xs ys)

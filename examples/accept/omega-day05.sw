@@ -16,7 +16,7 @@ def absorb (merged: List Range) (r: Range): List Range :=
 
 def covered (rs: List Range) (id: Nat): Bool := rs.any (r => r.contains id)
 
-def Below (b: Nat) (rs: List Range): Prop := (id: Nat) → covered rs id = True → id < b
+def Below (b: Nat) (rs: List Range): Prop := ∀ (id: Nat) => covered rs id = True → id < b
 
 def Stacked: List Range → Prop
   | [] => Unit
@@ -26,14 +26,14 @@ def LoAtMost (b: Nat): List Range → Prop
   | [] => Unit
   | [last, .._] => last.from ≤ b
 
-theorem absorbLo (r: Range) (b: Nat) (h: r.from ≤ b): (merged: List Range) → LoAtMost r.from merged → LoAtMost b (absorb merged r)
+theorem absorbLo (r: Range) (b: Nat) (h: r.from ≤ b): ∀ (merged: List Range) => LoAtMost r.from merged → LoAtMost b (absorb merged r)
   | [], ok => h
   | [last, ..earlier], ok =>
     match e: Nat.leq r.from (last.to + 1) with
       | True => omega
       | False => h
 
-theorem absorbStacked (r: Range): (merged: List Range) → LoAtMost r.from merged → Stacked merged → Stacked (absorb merged r)
+theorem absorbStacked (r: Range): ∀ (merged: List Range) => LoAtMost r.from merged → Stacked merged → Stacked (absorb merged r)
   | [], ok, s => Both (id h => Void.exfalso (Bool.falseNotTrue h)) Trivial
   | [last, ..earlier], ok, Both b rest =>
     match e: Nat.leq r.from (last.to + 1) with
@@ -46,11 +46,11 @@ theorem absorbStacked (r: Range): (merged: List Range) → LoAtMost r.from merge
               | False => omega [b id h])
           (Both b rest)
 
-theorem topGe: (z: Nat) → (rs: List Range) → z ≤ rs.foldLeft z (m r => Nat.max m r.to)
+theorem topGe: ∀ (z: Nat) (rs: List Range) => z ≤ rs.foldLeft z (m r => Nat.max m r.to)
   | z, [] => Nat.leRefl z
   | z, [r, ..rs] => omega [Nat.leMaxLeft z r.to, topGe (Nat.max z r.to) rs]
 
-theorem coveredTop: (z: Nat) → (rs: List Range) → (id: Nat) → covered rs id = True → id ≤ rs.foldLeft z (m r => Nat.max m r.to)
+theorem coveredTop: ∀ (z: Nat) (rs: List Range) (id: Nat) => covered rs id = True → id ≤ rs.foldLeft z (m r => Nat.max m r.to)
   | z, [], id, h => Void.exfalso (Bool.falseNotTrue h)
   | z, [r, ..rs], id, h =>
     match e: r.contains id with

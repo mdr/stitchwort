@@ -22,18 +22,18 @@ theorem small (n: Nat): List.sumBy (List.range 0 n) (x => x % Succ n) = List.sum
   rewrite Nat.modSmall
 
 -- The premise is the fact itself: `List.mapCongMem` gives `List.Mem x xs`.
-theorem fixed (xs: List Nat) (f: Nat → Nat) (h: (x: Nat) → List.Mem x xs → f x = x): List.map xs (x => f x) = List.map xs (x => x) :=
+theorem fixed (xs: List Nat) (f: Nat → Nat) (h: ∀ (x: Nat) => List.Mem x xs → f x = x): List.map xs (x => f x) = List.map xs (x => x) :=
   rewrite h
 
 -- A `_` in an argument given explicitly is filled the same way: here by the
 -- fact `List.Mem x xs`.
-theorem bounded (n: Nat) (xs: List Nat) (h: (x: Nat) → List.Mem x xs → x ≤ n):
+theorem bounded (n: Nat) (xs: List Nat) (h: ∀ (x: Nat) => List.Mem x xs → x ≤ n):
     List.map xs (x => x + (n - x)) = List.map xs (x => n) :=
   rewrite Nat.addSubCancel _ _ (h _ _)
 
 -- Inside a function where a premise isn't found, the rule isn't used, and a
 -- later rule can do it: the first rule does the run, the second the list.
-theorem both (n: Nat) (xs: List Nat) (h: (x: Nat) → List.Mem x xs → x ≤ n):
+theorem both (n: Nat) (xs: List Nat) (h: ∀ (x: Nat) => List.Mem x xs → x ≤ n):
     (List.map (List.range 0 n) (x => x + (n - x)), List.map xs (x => x + (n - x)))
       = (List.map (List.range 0 n) (x => n), List.map xs (x => n)) :=
   rewrite Nat.addSubCancel, Nat.addSubCancel _ _ (h _ _)
@@ -45,7 +45,7 @@ def total (f: Nat → Nat): List Nat → Nat
   | [x, ..xs] => f x + total f xs
 
 theorem totalCongRange (f1: Nat → Nat) (f2: Nat → Nat) (c: Nat) (s: Nat)
-    (ef: (x: Nat) → (low: s ≤ x) → (high: x < s + c) → f1 x = f2 x):
+    (ef: ∀ (x: Nat) (low: s ≤ x) (high: x < s + c) => f1 x = f2 x):
     total f1 (List.rangeFrom c s) = total f2 (List.rangeFrom c s) :=
   match c with
     | Zero => rfl

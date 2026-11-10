@@ -94,7 +94,7 @@ theorem summaryMatches (local: Trip) (remote: Trip) (summary: Summary) (h: (merg
 
 -- So if each copy's summary was made from its legs, the merged one is made
 -- from the merged legs.
-def SummaryFresh (trip: Trip): Prop := (summary: Summary) → trip.summary = Some summary → summary = summarize trip.legs
+def SummaryFresh (trip: Trip): Prop := ∀ (summary: Summary) => trip.summary = Some summary → summary = summarize trip.legs
 
 theorem mergeSummaryFresh (local: Trip) (remote: Trip) (fl: SummaryFresh local) (fr: SummaryFresh remote): SummaryFresh (merge local remote) :=
   summary h =>

@@ -22,10 +22,10 @@ instance Pretty.instList [auto p: Pretty a]: Pretty (List a) :=
 -- With a law, which is erased.
 interface Ordered (a: Type) = {
   less: a → a → Bool,
-  irreflexive: (x: a) → less x x = False
+  irreflexive: ∀ (x: a) => less x x = False
 }
 
-theorem lessIrreflexive: (x: Nat) → Nat.leq (x + 1) x = False
+theorem lessIrreflexive: ∀ (x: Nat) => Nat.leq (x + 1) x = False
   | Zero => rfl
   | Succ k => lessIrreflexive k
 
