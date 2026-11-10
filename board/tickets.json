@@ -1,5 +1,5 @@
 {
-  "next": 2601,
+  "next": 2602,
   "tickets": [
     {
       "id": 47,
@@ -26275,15 +26275,17 @@
     {
       "id": 2584,
       "title": "Effect differential's default test fails under load since SW-2570: seed 43's check hit the 60 s deadline in the full tier (load 12-14), and the default run requires zero skips. Make the default-seed run load-proof (scale the deadline, use steps not wall time for checking, or allow skips with a reason)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2584",
       "labels": [],
       "epic": "test-infra",
-      "body": "Overmind job 49, 9 Nov. Seed 43 also takes ~170 s in debug (SW-2570 report); SW-2570 follow-up. 30 min.\n\nOvermind job 50: alone on a quiet machine the effect default test passes in 43.5 s with no skips. Same pattern in two LSP tests (a_newer_edit_cancels_the_check_running, aoc_navigation_matches_check_index): pass alone (9.8 s, 54 s) and in their module (48/48), but under full-tier load took 7-37x as long and gave up waiting for diagnostics. Scope: make these three tests' waits load-proof.\n\n10 Nov 00:25, Speedwell (three lanes building): task test:lane AREA=examples NAME=rewrite gave 3 of 12 failed once; the immediate rerun passed 12/12. Names not captured. Another load-sensitive candidate in the examples area.",
+      "body": "Overmind job 49, 9 Nov. Seed 43 also takes ~170 s in debug (SW-2570 report); SW-2570 follow-up. 30 min.\n\nOvermind job 50: alone on a quiet machine the effect default test passes in 43.5 s with no skips. Same pattern in two LSP tests (a_newer_edit_cancels_the_check_running, aoc_navigation_matches_check_index): pass alone (9.8 s, 54 s) and in their module (48/48), but under full-tier load took 7-37x as long and gave up waiting for diagnostics. Scope: make these three tests' waits load-proof.\n\n10 Nov 00:25, Speedwell (three lanes building): task test:lane AREA=examples NAME=rewrite gave 3 of 12 failed once; the immediate rerun passed 12/12. Names not captured. Another load-sensitive candidate in the examples area.\n\nDone 10 Nov. Effect differential: checking has a step cap (CHECK_WORK 400M, 3x seed 43's 129M) instead of the 60 s deadline, which is now a 30 min hang backstop; JS timeout 10 min. LSP tests: one WAIT of 30 min for every wait (returns as soon as the event arrives). Under load 12-60: effect default 142 s no skips; a_newer_edit 1240 s; aoc_navigation 688 s (alone it was 54 s: unexplained, cold cache plus load suspected). Lane overran the agreed 10 min load-test budget (about 50 min of test time, mostly the two LSP tests); final 30 min WAIT not rerun. Model result: Sonnet, worked, 61 min (est. 60).",
       "created": "2026-11-09",
       "updated": "2026-11-10",
-      "commits": []
+      "commits": [
+        "4d747c9b7"
+      ]
     },
     {
       "id": 2585,
@@ -26476,15 +26478,18 @@
     {
       "id": 2598,
       "title": "Mismatch notes say 'computing the right side gives `…`' when the value unfolds past SW-2569's 200k-node readback cap (examples/reject/float-add-is-held's Note 1 lost its useful prefix): show a depth-limited prefix instead, as before, or drop the note when nothing useful is left",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2598",
       "labels": [],
       "epic": "diagnostics",
-      "body": "Regression from SW-2569 (merged 10 Nov 00:20), found by SW-2580's lane; the float-add-is-held snapshot fails on main. Before: `Float.ofBitsFrom (if … || … then 9221120237041090560 else …) …`; after: `…`. SW-2580's quote_for_note (same cap, more notes) is in review and will meet the same question. 30 min.",
+      "body": "Regression from SW-2569 (merged 10 Nov 00:20), found by SW-2580's lane; the float-add-is-held snapshot fails on main. Before: `Float.ofBitsFrom (if … || … then 9221120237041090560 else …) …`; after: `…`. SW-2580's quote_for_note (same cap, more notes) is in review and will meet the same question. 30 min.\n\nDone 10 Nov: depth-limited readback (quote_unfolded_shown_to_depth; elided parts are Term::Meta(ELIDED) printed as …); show_unfolded reads to depth 12, first_difference_note to 64 and skips a … difference. float-add-is-held back to its original text; refl-note-huge-parser-unfolding's left side now a prefix; mismatch-note-huge-unfolding 153 MB, 1.2-2 s. Model result: Sonnet, worked, 30 min (est. 30).",
       "created": "2026-11-10",
       "updated": "2026-11-10",
-      "commits": []
+      "commits": [
+        "cde453190",
+        "18560a6e8"
+      ]
     },
     {
       "id": 2599,
@@ -26510,6 +26515,19 @@
       "labels": [],
       "epic": "diagnostics",
       "body": "From SW-2580's review, 10 Nov. No known input blows them up. Low.",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
+    },
+    {
+      "id": 2601,
+      "title": "The 'first differ at' note doesn't appear for examples/reject/refl-note-huge-parser-unfolding.sw although the sides first differ at depth 35 (raising first_difference_note's depth to 400 didn't help): find whether the node cap or an ELIDED placeholder stops it",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "diagnostics",
+      "body": "From SW-2598 and SW-2580's review, 10 Nov.",
       "created": "2026-11-10",
       "updated": "2026-11-10",
       "commits": []
