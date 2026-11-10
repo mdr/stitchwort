@@ -1,5 +1,5 @@
 {
-  "next": 2640,
+  "next": 2641,
   "tickets": [
     {
       "id": 47,
@@ -27284,6 +27284,22 @@
       ],
       "epic": "audit-fuzzing",
       "body": "Found by Overmind, fuzz_elab CASES=12000 seed 0x25a5, 10 Nov 2026. Input on Overmind: target/fuzz-elab/25a5-4273.sw. Est. 60 min.",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
+    },
+    {
+      "id": 2640,
+      "title": "[Opus] Design note: how a theorem's top-level variables are written (parameters before the colon, ∀ after it, or ∀ before the colon as new syntax), the house rule, and the sweep of ~670 mixed statements",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-2640",
+      "labels": [
+        "paper",
+        "design"
+      ],
+      "epic": "syntax-language",
+      "body": "Matt, 10 Nov 2026: after the ∀ sweep (D3458) the same kind of statement is written three ways (~2,260 parameters before the colon, ~240 ': ∀' only, ~430 mixed). Matt wonders whether to allow ∀ before the colon for readability closer to logic and maths, and thinks 'move ∀ variables before the colon' is a sensible house rule as long as nothing (match syntax etc.) relies on the ∀ form. Paper lane; output docs/proposals/theorem-binders.md. Related: D3462 (keeping ∀ style), docs/proposals/forall-style-enforcement.md. Est. 60 min.",
       "created": "2026-11-10",
       "updated": "2026-11-10",
       "commits": []
