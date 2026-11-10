@@ -35,8 +35,9 @@
 -- - F12 on a name jumps to its definition, including into the standard
 --   library; Shift-F12 lists its uses.
 -- - Cmd-Shift-O (Ctrl-Shift-O) lists the declarations of this file.
--- - Above each `test` there is a "▶ Run test" link (and "▶ Run" above
---   `main`): click it to run that test and see the result.
+-- - Above each `test` there is a "▶ Run test" link (above the first also
+--   "▶ Run tests", and "▶ Run" above `main`): click it to run that test
+--   and see the result.
 -- - Errors show as red squiggles as you type, without saving. The
 --   Problems panel (Cmd-Shift-M, Ctrl-Shift-M) lists them in full.
 --
@@ -95,10 +96,11 @@ def milk: Item := { name = "milk", pence = 90, count = 1 }
 def shopping: Basket := Basket.empty.add tea |>.add milk
 
 -- Tests are `Bool` expressions run by `stitchwort test`. Run them now from
--- a terminal (Step 1 has the command): they all pass. The editor checks
--- that a test's types are right, but doesn't run it: change `590` to
--- `600` below and nothing turns red, while `stitchwort test` reports a
--- failure. Put it back afterwards.
+-- a terminal (Step 1 has the command), or with "▶ Run tests": they all
+-- pass. The editor checks that a test's types are right, but doesn't run
+-- it as you type: change `590` to `600` below and nothing turns red until
+-- you click "▶ Run test", which then marks the failing test in the file
+-- (`stitchwort test` reports it too). Put it back afterwards.
 
 test "the total adds up each line" := shopping.total == 590
 test "pence off" := (PenceOff 100).apply shopping.total == 490
@@ -125,10 +127,10 @@ theorem addCost (basket: Basket) (item: Item): (basket.add item).total = item.co
 
 theorem emptyTotal: Basket.empty.total = 0 := rfl
 
--- Hover over the name `addCost`: the box shows the statement as the
--- checker reads it, `Basket.total (Basket.add basket item) = …`. The dot
--- form `basket.add item` is a call of `Basket.add`, and messages write it
--- that way. Hover over `rfl` for what `rfl` is.
+-- Hover over the name `addCost`: the box shows the statement as you wrote
+-- it. The dot form `basket.add item` is a call of `Basket.add`, and some
+-- messages write it that way, as `Basket.total shopping`. Hover over
+-- `rfl` for what `rfl` is.
 
 -- ## Step 4. Holes: let the checker tell you what's needed
 --
