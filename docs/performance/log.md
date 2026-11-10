@@ -46,6 +46,43 @@ in [../proposals/README.md](../proposals/README.md).
 
 ## 10 Nov 2026
 
+### SW-2607: native compile time of nested `if`s is linear in instructions; no change (dropped)
+
+- **Status:** measured, no code change. Sonnet.
+- **Question.** SW-2579 found nested `if`s making the IR's value count grow
+  faster than linearly (2.8k values at 1 `if`, 44k at 12, 77k at 20) and
+  guessed that every register was carried into every join. Is native
+  compile time a cost, and would passing only live registers to joins cut it?
+- **Measured** (release CLI, `build --native --verbose`, Mac, the "compiled
+  ... in N ms" figure; the programs are SW-2579's `nested_ifs`):
+
+  | nesting | 1 | 4 | 8 | 12 | 16 | 20 | 24 |
+  |---|---|---|---|---|---|---|---|
+  | native compile, ms | 12.5 | 20.7 | 40.2 | 66.0 | 54.6 | 67.9 | 85.2 |
+
+  Past about 12 levels a body is compiled in parts (SW-2557), so the time
+  stops climbing steeply. At depth 20 it is 68 ms, under the 100 ms bar.
+- **Real programs.** AoC 2024 day 15: 322 bodies, 477 ms of native
+  compile of a 1.18 s `build --native`; day 24: 332 bodies, 465 ms; 2024
+  day 21: 246 ms; 2021 day 18: 250 ms. So native compile is a visible share
+  of a build, but it is not the nested `if`s. With a temporary timer around
+  `define_function`: Cranelift's `define_function` is 89% of it (426 ms of
+  477), at about 2 us an instruction in the real days (215,000 instructions)
+  and in the depth-12 and depth-20 programs alike. Block parameters are
+  27,000 of day 15's 315,000 values (9%); the depth-12 body has 5,766 of
+  104,775. The rest of the value count is not live data: Cranelift's SSA
+  builder creates a parameter for every variable at every join, then removes
+  the redundant ones, leaving the value as an alias in the table. So the
+  growth in values is dead entries, not extra work for the compiler:
+  time follows instructions and blocks, which grow linearly with nesting.
+- **Why no change.** Passing only live registers would remove at most the
+  9% of values that are block parameters, and the redundant ones are already
+  removed by the builder; no measurable gain on compile time, and it would
+  touch every join in the lowering. Dropped. Any compile-time gain in real
+  programs lies in the instruction count per body (the largest bodies,
+  `lambda #34` of day 15 at 13,000 values and 17 ms, and `Warehouse.move`'s
+  match), not in the joins.
+
 ### SW-2578: bench baseline re-recorded after 9 Nov's runtime work (four flagged regressions explained, accepted)
 
 - **Problem.** The daily and full tiers flagged `run-machine-calls`
