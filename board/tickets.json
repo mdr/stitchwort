@@ -1,5 +1,5 @@
 {
-  "next": 2618,
+  "next": 2619,
   "tickets": [
     {
       "id": 47,
@@ -25602,15 +25602,17 @@
     {
       "id": 2533,
       "title": "Guide and tour example-code style rows from SW-1850's review (§1, §3): (.field) sections, List.range, Set.fromList, treeSort, plus examples/accept/records.sw:57-61 and std Array.sw:15-16 docs; checked examples, so run the guide tests",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2533",
       "labels": [],
       "epic": "docs-tutorials",
-      "body": "Left by SW-2532. 60 min.",
+      "body": "Left by SW-2532. 60 min.\n\nDone 10 Nov: (.field) at seven sites, List.range -> ..< / ..= (guide 01, 08, 10 prose, tour 18), treeSort piped, tour 14 .toSet/.toMap, records.sw sameAge is rfl by record eta. Skipped Array.sw docs (already right). Rest of §1/§3 tour rows and syntax.md §2 left. Model result: Sonnet, worked, 5 min (est. 60).",
       "created": "2026-11-09",
       "updated": "2026-11-10",
-      "commits": []
+      "commits": [
+        "c031b6e4c"
+      ]
     },
     {
       "id": 2534,
@@ -26783,6 +26785,19 @@
       "labels": [],
       "epic": "test-infra",
       "body": "From SW-2614, 10 Nov.",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
+    },
+    {
+      "id": 2618,
+      "title": "stitchwort fmt fails on web/guide/*.sw with 'No such file' (SW-2533); and the rest of SW-1850's review rows: tour pages 09, 10, 12, 15, 23, 31, 32, 34, 35 (§1/§3) and syntax.md §2 (List.range at 920-921, 1103)",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "docs-tutorials",
+      "body": "From SW-2533, 10 Nov. docs/reviews/SW-1850-guide-accuracy.md.",
       "created": "2026-11-10",
       "updated": "2026-11-10",
       "commits": []
