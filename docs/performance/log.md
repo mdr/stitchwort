@@ -44,6 +44,63 @@ in [../proposals/README.md](../proposals/README.md).
 
 ---
 
+## 10 Nov 2026
+
+### SW-2579: native frame bounds from Cranelift's frame layout (x86-64 frames of 4 KB were put at 2 MB)
+
+- **Status:** on branch `lane/SW-2579`. Opus.
+- **Problem.** On Overmind (x86-64), five effect-fuzz batches were refused
+  by native code: a lambda of about 20 nested `if`s had a "frame" of
+  1.1-2.2 MB, and 2,000,000 frames of that pass the 64 GiB cap. Under
+  `run --native` the same bound would not refuse but cut the frame limit
+  to 30,000-57,000 frames (`native_frame_limit`).
+- **Cause.** Not the frames: the measurement. `frames::frame_bound` read
+  the frame from the prologue, and on x86-64 a frame of a page or more
+  starts with stack probes, which the reader didn't know, so it took the
+  IR fallback (stack slots plus 16 bytes for every SSA value). Nested
+  `if`s make many values (each bytecode register is three variables, and
+  each join block takes them as parameters: 77,000 values at 20 ifs), so
+  the fallback grew with values while the real frame grew by about 160
+  bytes an `if`. On aarch64 the reader used the unwind pseudo-instructions
+  and was right, so the Mac never saw it.
+- **Change.** The bound is Cranelift's own frame layout,
+  `MachBufferFinalized::frame_layout().frame_to_fp_offset` plus the saved
+  frame pointer and return address, on both architectures; the prologue
+  readers are gone. The generated code is unchanged. On aarch64 the bound
+  is the same except where a tail call to a wider callee grew the frame:
+  the reader counted that growth twice (in `StackAlloc` and in the
+  arguments term), so stubs' bounds drop by up to 48 bytes.
+- **Measured** (widest body's bound in bytes; x86-64 compiled from the same
+  IR by a cross-compiling ISA on the Mac; "before" on aarch64 equals after):
+
+  | program | x86-64 before | x86-64 after | aarch64 |
+  |---|---|---|---|
+  | 1 nested if | 752 | 752 | 752 |
+  | 4 | 944 | 944 | 944 |
+  | 8 | 1,136 | 1,136 | 1,152 |
+  | 12 | 1,328 | 1,328 | 1,344 |
+  | 16 | 2,880 | 2,880 | 2,640 |
+  | 20 | 3,520 | 3,520 | 3,136 |
+  | 24 (heavier branches, the regression test) | 1,802,480 | 4,672 | 4,112 |
+  | 28 (heavier) | 2,376,672 | 5,424 | 5,024 |
+  | fuzz seed 1794200320 | 1,331,136 | 4,192 | 3,712 |
+  | fuzz seed 1794201291 | 1,731,904 | 4,176 | 3,952 |
+  | fuzz seed 1794201473 | 1,187,616 | 4,672 | 4,288 |
+  | fuzz seed 1794300165 | 2,198,864 | 4,208 | 3,872 |
+  | fuzz seed 1794301295 | 2,092,160 | 6,080 | 4,928 |
+
+  The real frame grows linearly with nesting; past about 40 `if`s a body
+  is compiled in parts (SW-2557) and the frame falls to about 1 KB.
+  `task native:bench` (macOS, load average 12-18, best of 3, wall):
+  set_nat 1.216 s, set_keys 0.310, micro_call 0.242, micro_tail 0.262,
+  closures 0.336, effects 0.884; geomean 0.438 s. No earlier entry has
+  these numbers to compare with; the code is the same, so no change is
+  expected **[estimated]**.
+- **Fuzzer.** A native refusal stays a failure, not a skip: generated
+  programs' frames are a few KB, far from the 34 KB at which 2,000,000
+  frames would pass the cap, so a refusal is a bug in native code, as
+  here.
+
 ## 9 Nov 2026
 
 ### SW-2559: the cell cache's room is exact, so `full` doesn't walk

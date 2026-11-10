@@ -1588,6 +1588,10 @@ fixed 16 MiB margin. Now:
   non-tail recursion (the least frame size that finishes, found by
   bisection while building this): 408 against 304 bytes a frame for one
   argument, 1392 against 1169 for six, 2720 against 2352 for twelve.
+  **Since SW-2579** the frame is read from the frame layout Cranelift keeps
+  in the machine buffer (`MachBufferFinalized::frame_layout`) on both
+  architectures: on x86-64 every probed frame took the IR bound, which put
+  bodies of 4–6 KB at 1–2 MB and refused their programs.
 - **The rule.** A run is on the machine unless `frame limit × widest bound`
   fits the stack less `HOST_ROOM` (8 MiB, what the host used above the
   crossing) and `HELPER_ROOM` (8 MiB, what a runtime helper uses at the
