@@ -26623,7 +26623,7 @@
     {
       "id": 2607,
       "title": "Nested ifs make the native IR's value count grow faster than linearly (2.8k values at 1 if, 44k at 12, 77k at 20: every register carried into every join); measure compile time on large bodies and consider passing only live registers to joins",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2607",
       "labels": [],
@@ -26631,7 +26631,9 @@
       "body": "From SW-2579, 10 Nov. Frames are fine now; this is compile time only. Profile first.",
       "created": "2026-11-10",
       "updated": "2026-11-10",
-      "commits": []
+      "commits": [
+        "328a1f46c"
+      ]
     },
     {
       "id": 2608,
