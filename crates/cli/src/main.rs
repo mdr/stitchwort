@@ -18,6 +18,7 @@ use stitchwort_syntax::{Diagnostic, Severity, SourceMap, parse_namespace_line};
 
 mod build;
 mod doc_cmd;
+mod rename_cmd;
 
 #[derive(Parser)]
 #[command(name = "stitchwort", version, about = "The Stitchwort language")]
@@ -386,6 +387,38 @@ enum Command {
         /// skips checking (no elaborated type)
         #[arg(long, default_value_t = 8, value_name = "N")]
         theorems: usize,
+        #[command(flatten)]
+        cache: CacheArgs,
+    },
+    /// Rename a local, hypothesis, function or theorem everywhere in the
+    /// project (docs/proposals/refactoring.md). The renamed project is
+    /// checked first, and compared with the project now: its diagnostics,
+    /// and the meaning (content hash) of every declaration. Written only if
+    /// that finds no problem, or with `--anyway`. Exit status: 0 renamed
+    /// cleanly, 1 problems and nothing written, 2 refused or not understood
+    /// (nothing written; `--anyway` doesn't override that), 3 written with
+    /// problems left to fix
+    Rename {
+        /// A declaration's full name (`Shop.step`), or a position in a
+        /// project file, `src/shop.sw:12:5` (line and column from 1): a
+        /// declaration's name, a use of it, or a local's binder or use
+        target: String,
+        /// The new name: one lowercase identifier, not a keyword
+        new_name: String,
+        /// Write the edits even if the check finds problems, and list them
+        /// as what is left to fix by hand
+        #[arg(long)]
+        anyway: bool,
+        /// Write nothing: list the edits, and the problems
+        #[arg(long)]
+        dry_run: bool,
+        /// Print the result as JSON (version 1)
+        #[arg(long)]
+        json: bool,
+        /// The project folder, if not the folder you're in or the nearest
+        /// one above it
+        #[arg(long)]
+        project: Option<PathBuf>,
         #[command(flatten)]
         cache: CacheArgs,
     },
@@ -803,6 +836,23 @@ fn run(cli: Cli) -> ExitCode {
                 cache: &cache,
             })
         }
+        Command::Rename {
+            target,
+            new_name,
+            anyway,
+            dry_run,
+            json,
+            project,
+            cache,
+        } => rename_cmd::rename(&rename_cmd::Args {
+            target: &target,
+            new_name: &new_name,
+            anyway,
+            dry_run,
+            json,
+            project: project.as_deref(),
+            cache: &cache,
+        }),
         Command::Audit {
             targets,
             json,

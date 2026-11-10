@@ -143,6 +143,16 @@ stitchwort doc --coverage List Vec           # how much is documented (below)
 - **Exit status** is 0 however poor the coverage; a name that isn't a namespace is 2 (with `--coverage` every positional is a namespace).
 - **JSON** (version 1): `namespaces`, each `{namespace, declarations, theorems, undocumented, undocumentedTheorems, unattachedExamples}`, and `total` (each declaration once; only with more than one namespace). Each also has `target`: true for the library, false for a project's namespaces (and for a `total` that includes one); the lists are always there. `declarations` is `{total, documented, withExample}`; `theorems` has no `withExample`. An `undocumented` entry is `{name, kind, file, line, reason}`. The text lists the undocumented declarations of the library (a project's with `--list`); the theorems' are in the JSON.
 
+### Renaming, `stitchwort rename`
+
+`stitchwort rename TARGET NEW-NAME` renames a local, hypothesis, function or theorem everywhere in the project (SW-2630, docs/proposals/refactoring.md). Fields, constructors, types and namespaces are refused for now, as is anything in the standard library.
+
+- **TARGET** is a declaration's full name (`Shop.step`), or a position in a project file, `src/shop.sw:12:5` (line and column from 1): a declaration's name, a use of it, or a local's binder or use. **NEW-NAME** is one lowercase identifier that is not a keyword.
+- The renamed project is checked first, and compared with the project now: new diagnostics (errors and warnings) and declarations whose meaning (content hash) changed, such as a new name that captures a global. Clean, the files are written. With problems nothing is written and they are listed.
+- `--anyway` writes the files even with problems and lists them as what is left to fix by hand. `--dry-run` writes nothing and lists the edits (`file:line:column`) and the problems. `--json` prints version 1 of the result: `status` (`applied`, `applied-with-problems`, `not-applied`, `dry-run` or `refused`), `applied`, `edits` (`file`, `line`, `column`, `endLine`, `endColumn`, `newText`, from 1), `problems` (`kind` of `error`, `warning` or `changed-meaning`, with `file`, `line`, `declaration` and `message`) and `refusals` (`message`). `--project`, `--no-cache` and `--cache-dir` are as for `check`.
+- **Exit status:** 0 renamed cleanly (with `--dry-run`: would be); 1 problems found and nothing written; 2 refused or not understood (no such name, a library name, an unsupported kind, a bad new name, a file that does not parse, a project still unchecked or that cannot be checked), nothing written, and `--anyway` does not change this; 3 written with problems left to fix (`--anyway`).
+- Only the last component of a name is edited at each use, and only where the text there ends with the old name, so an import alias (`import List (map as each)`) keeps its alias.
+
 ## Declarations
 
 ```

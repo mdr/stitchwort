@@ -303,6 +303,10 @@ The main session orchestrates: it chooses lanes, hands each to a background
 agent, then reviews, merges and keeps the board up to date. Agents move their
 own tickets as described in [board/README.md](../board/README.md).
 
+- Agents rename a local, hypothesis, function or theorem with
+  `stitchwort rename` ([syntax.md, "Renaming"](syntax.md#renaming-stitchwort-rename)),
+  not by search and replace: it edits every use, checks that no meaning
+  changed, and writes nothing if it did (`--anyway` to fix by hand).
 - Lanes that change performance run the benchmarks before merging
   (`nix develop -c cargo run --release -p stitchwort-bench`) and record an
   intended change with `-- --update`, saying why in the commit. The
