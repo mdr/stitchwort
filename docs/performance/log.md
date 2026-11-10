@@ -46,6 +46,33 @@ in [../proposals/README.md](../proposals/README.md).
 
 ## 10 Nov 2026
 
+### SW-2609: `ignorable_arguments` profiled in real proofs: not a hotspot (no change)
+
+- **Problem.** SW-2606's profile of a soundness-fuzzer mutant (a bare
+  `cases` in place of a proof, 64 contexts with huge hypotheses) found
+  `ignorable_arguments` (`crates/elab/src/check.rs`), which reads back the goal
+  and every hypothesis type at each `auto` argument, taking most of the CPU.
+  The question was whether it costs anything in unmutated proofs.
+- **Method** (measured). Release build (non-incremental), `stitchwort check
+  --no-cache` of eight AoC proof namespaces picked by how often they use
+  `cases` (Day16 `Sound.sw` most), sampled with macOS `sample` at 1 ms;
+  inclusive samples of the checking thread, outermost frame only.
+- **Result.** `ignorable_arguments` is 0.2% to 1.9% of the checking thread:
+  Aoc.Year2021.Day16.Proofs 69 of 7,329 samples (0.9%, 12.2 s wall),
+  Aoc.Common.Proofs 67 / 4,161 (1.6%, 5.7 s), Aoc.Year2021.Day05.Proofs
+  77 / 4,125 (1.9%, 5.3 s), Aoc.Year2024.Day04.Proofs 7 / 3,372 (0.2%,
+  4.3 s), Aoc.Year2024.Day24.Proofs 68 / 5,046 (1.3%), Aoc.Year2024.Day06.Proofs
+  67 / 4,708 (1.4%), Aoc.Year2024.Day15.Proofs 84 / 5,441 (1.5%),
+  Aoc.Year2021.Day18.Proofs 11 / 1,373 (0.8%). `cases` itself (all of
+  `elab::cases`) is under 1% except Day04 (329, 10%). Most of the calls come
+  from ordinary implicit `auto` arguments, not from `cases`.
+- **Decision.** Not changed: at most about 2% to win, and the mutant case it
+  was found in is already stopped by SW-2606's `E-CASES-BUDGET`. If it is
+  ever worth doing, the cheap form is to cache the hypotheses' mention marks
+  per context, reused while `cx.types` is unchanged (a case split refines
+  earlier types, so the key must be the types, not the level), so each
+  argument reads back only the goal.
+
 ### SW-2578: bench baseline re-recorded after 9 Nov's runtime work (four flagged regressions explained, accepted)
 
 - **Problem.** The daily and full tiers flagged `run-machine-calls`
