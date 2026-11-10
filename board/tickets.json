@@ -26662,9 +26662,9 @@
     {
       "id": 2610,
       "title": "Soundness fuzzer: SOUND_ONLY never produces statement+closer mutants, so a saved one can't be regenerated; and saved -expensive.sw files weren't found on disk (2575-2058-3). Check where they're written; have SOUND_ONLY cover every mutation kind",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Sonnet",
-      "where": "",
+      "where": ".claude/worktrees/SW-2610",
       "labels": [],
       "epic": "audit-fuzzing",
       "body": "From SW-2606, 10 Nov.",
