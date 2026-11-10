@@ -437,3 +437,75 @@ fn failed_import_body() {
     assert_eq!(codes(&sent, "Second"), Some(vec![]));
     assert_eq!(ask(&mut server, "textDocument/hover"), hover);
 }
+
+#[test]
+fn a_closed_file_changed_on_disk_is_reloaded_when_the_client_reports_it() {
+    std::thread::Builder::new()
+        .stack_size(STACK)
+        .spawn(watched_body)
+        .unwrap()
+        .join()
+        .unwrap();
+}
+
+/// SW-1980: the extension watches `**/*.sw`, so a file that is not open
+/// (after a branch switch or `fmt`) is reported as changed, and what imports
+/// it is checked against the new text.
+fn watched_body() {
+    let project = |first: &str| MemoryProject {
+        root: "/memory/proj".into(),
+        sources: vec!["src".into()],
+        files: Arc::new(
+            [
+                ("src/First.sw".to_string(), first.to_string()),
+                (
+                    "src/Second.sw".to_string(),
+                    "namespace Second\nimport First (one)\n\ndef two: Nat := one\n".to_string(),
+                ),
+            ]
+            .into(),
+        ),
+    };
+    let memory = common::cached_memory(STACK);
+    memory.add(project("namespace First\n\ndef one: Nat := 1\n"));
+    let mut server = Inline::new(Options::new(STACK), memory.clone()).unwrap();
+    let uri = |name: &str| format!("file:///memory/proj/src/{name}.sw");
+    for message in [
+        json!({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"capabilities": {}}}),
+        json!({"jsonrpc": "2.0", "method": "initialized", "params": {}}),
+        json!({"jsonrpc": "2.0", "method": "textDocument/didOpen", "params": {"textDocument": {
+            "uri": uri("Second"), "languageId": "stitchwort", "version": 1,
+            "text": "namespace Second\nimport First (one)\n\ndef two: Nat := one\n",
+        }}}),
+    ] {
+        server.receive(&message.to_string());
+    }
+    // The count of the last diagnostics published for Second, once quiet.
+    let settle = |server: &mut Inline| {
+        let mut last = None;
+        loop {
+            let (out, more) = server.tick();
+            for m in out {
+                let m: Value = serde_json::from_str(&m).unwrap();
+                if m["method"] == "textDocument/publishDiagnostics"
+                    && m["params"]["uri"] == uri("Second")
+                {
+                    last = Some(m["params"]["diagnostics"].as_array().unwrap().len());
+                }
+            }
+            if !more {
+                return last;
+            }
+        }
+    };
+    assert_eq!(settle(&mut server), Some(0));
+    // First changes on disk, closed, so that `one` is a Text.
+    memory.add(project("namespace First\n\ndef one: Text := \"a\"\n"));
+    server.receive(
+        &json!({"jsonrpc": "2.0", "method": "workspace/didChangeWatchedFiles", "params": {
+            "changes": [{"uri": uri("First"), "type": 2}],
+        }})
+        .to_string(),
+    );
+    assert_eq!(settle(&mut server), Some(1));
+}

@@ -1031,3 +1031,30 @@ fn searches_in_a_row_give_what_fresh_ones_do() {
         );
     });
 }
+
+/// The goals are from the last check: after the text moved on, a code action
+/// on a stale goal must not edit where the `?` used to be (SW-1949).
+#[test]
+fn a_code_action_on_a_goal_the_text_has_moved_from_offers_nothing() {
+    big_stack(|| {
+        let text =
+            "namespace Demo\n\ndef f: Option (Option Nat) -> Nat\n  | Some o => ?\n  | None => 0\n";
+        let mut s = Session::open(text);
+        // A line typed above the goal, before the check has run again.
+        let typed = text.replace("namespace Demo\n", "namespace Demo\n-- note\n");
+        s.notify(
+            "textDocument/didChange",
+            json!({"textDocument": {"uri": URI, "version": 2},
+                   "contentChanges": [{"text": typed}]}),
+        );
+        // No proof search is queued for the stale goal.
+        let jobs = s.queued_searches(
+            "textDocument/codeAction",
+            json!({"textDocument": {"uri": URI},
+                   "range": {"start": {"line": 3, "character": 14},
+                             "end": {"line": 3, "character": 14}},
+                   "context": {"diagnostics": []}}),
+        );
+        assert!(jobs.is_empty(), "{jobs:?}");
+    });
+}

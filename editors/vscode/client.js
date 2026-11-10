@@ -32,8 +32,10 @@ const documentSelector = [
 ];
 
 // Changes the server hears about without the editor having the file open: a
-// project's configuration decides which files belong to it.
-const watchedGlob = `**/${CONFIG_FILE}`;
+// project's configuration decides which files belong to it, and a source file
+// changed on disk (a branch switch, `fmt`) is reloaded.
+const watchedGlobs = [`**/${CONFIG_FILE}`, '**/*.sw'];
+const watchedGlob = `{${watchedGlobs.join(',')}}`;
 
 const before = (a, b) => a.line < b.line || (a.line === b.line && a.character < b.character);
 
