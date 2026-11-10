@@ -27067,7 +27067,7 @@
     {
       "id": 2626,
       "title": "[Opus] Refactoring in the editor and playground: design note (rename first, then what else, in what order, and how each stays correct for proofs)",
-      "status": "doing",
+      "status": "review",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-SW-2626",
       "labels": [
@@ -27075,7 +27075,7 @@
         "paper"
       ],
       "epic": "editor-playground",
-      "body": "Matt, 10 Nov 2026: look into next tasks for the editor/playground/LSP, e.g. refactoring support. No refactoring exists today: references, add-import, fill match and case split do; rename (roadmap item 6) was never built though its prerequisite SW-1114 is done; extract/inline (item 14) untouched. Paper lane, output docs/proposals/refactoring.md. Expected: 45 min.",
+      "body": "Matt, 10 Nov 2026: look into next tasks for the editor/playground/LSP, e.g. refactoring support. No refactoring exists today: references, add-import, fill match and case split do; rename (roadmap item 6) was never built though its prerequisite SW-1114 is done; extract/inline (item 14) untouched. Paper lane, output docs/proposals/refactoring.md. Expected: 45 min.\n\nProgress (lane, 10 Nov 07:23-07:36): note written, docs/proposals/refactoring.md. Reference gaps that make rename wrong listed in its §1.2 (puns, import aliases, qualified names, decreasing/default expressions, named args); trial check plus hash promises in §3; order R1-R8 and Q1-Q4 for Matt in §5-6.\n",
       "created": "2026-11-10",
       "updated": "2026-11-10",
       "commits": []
