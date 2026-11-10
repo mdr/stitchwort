@@ -26444,15 +26444,17 @@
     {
       "id": 2596,
       "title": "Audit elab for compiler-written expressions given a user's span and elaborated with navigation notes on (SW-2586's rfl was one): each should be under unnoted_in, or its notes would replace the user's reference",
-      "status": "backlog",
+      "status": "review",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "editor-playground",
-      "body": "From SW-2586's report, 10 Nov. Small.",
+      "body": "From SW-2586's report, 10 Nov. Small.\n\nProgress (lane, 10 Nov): audited every Expr built with a user span in crates/elab. Method: temporary check in Nav::note that logged any reference replaced by a different one at the same span, run over examples/accept, goals, extract, docs/guide, web/guide and games/rogue (672 files, no cache). One real clash: match induct (f args), where f.induct at f's span replaced f's reference. Fixed under unnoted_in (af8d8be45), test the_function_in_match_induct. The rest (ability declarations, operator spans of in/not-in, range, braces) do not clash; table in the lane report. Instrumentation removed.\n",
       "created": "2026-11-10",
       "updated": "2026-11-10",
-      "commits": []
+      "commits": [
+        "af8d8be45"
+      ]
     },
     {
       "id": 2597,
