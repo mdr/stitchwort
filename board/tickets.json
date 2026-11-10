@@ -1,5 +1,5 @@
 {
-  "next": 2713,
+  "next": 2715,
   "tickets": [
     {
       "id": 47,
@@ -28117,7 +28117,7 @@
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "From SW-2692 (10 Nov 2026), docs/proposals/bool-and-prop.md.",
+      "body": "From SW-2692 (10 Nov 2026), docs/proposals/bool-and-prop.md.\nSW-2704: 396 such arms (falseNotTrue/trueNotFalse) look closable by cases or () today, no language change; one checked.",
       "created": "2026-11-10",
       "updated": "2026-11-10",
       "commits": []
@@ -28208,7 +28208,7 @@
     {
       "id": 2704,
       "title": "[Fable] Design note: reading a Bool fact as a proposition (D3482): surface b = True, printing, matching (a && b) = True with ∧/∨/∃ patterns through decisions, one reader shared by omega, auto, cases",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": ".claude/worktrees/SW-2704",
       "labels": [
@@ -28325,6 +28325,32 @@
       ],
       "epic": "elaborator-kernel",
       "body": "From SW-2703 (10 Nov 2026). Kernel rule: Fable review if built. Est. 2 h.",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
+    },
+    {
+      "id": 2713,
+      "title": "cases doesn't close a goal from h: a = True and k: a = False (E-CASES)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "From SW-2704 (10 Nov 2026), measured.",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
+    },
+    {
+      "id": 2714,
+      "title": "bool-and-prop.md §7.5: Lean 4 shows 'b = true', not 'b' (Lean 3 showed ↑b): correct the note",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "From SW-2704 (10 Nov 2026). One-line doc fix (DeepSeek).",
       "created": "2026-11-10",
       "updated": "2026-11-10",
       "commits": []
