@@ -1,5 +1,5 @@
 {
-  "next": 2626,
+  "next": 2627,
   "tickets": [
     {
       "id": 47,
@@ -27060,6 +27060,22 @@
       ],
       "epic": "comparative-speed",
       "body": "From SW-2486 (dropped 10 Nov, D3465). Branch lane/SW-2486 deleted; commit da350645d has the natToken operation if wanted.",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
+    },
+    {
+      "id": 2626,
+      "title": "[Opus] Refactoring in the editor and playground: design note (rename first, then what else, in what order, and how each stays correct for proofs)",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-SW-2626",
+      "labels": [
+        "editor",
+        "paper"
+      ],
+      "epic": "editor-playground",
+      "body": "Matt, 10 Nov 2026: look into next tasks for the editor/playground/LSP, e.g. refactoring support. No refactoring exists today: references, add-import, fill match and case split do; rename (roadmap item 6) was never built though its prerequisite SW-1114 is done; extract/inline (item 14) untouched. Paper lane, output docs/proposals/refactoring.md. Expected: 45 min.",
       "created": "2026-11-10",
       "updated": "2026-11-10",
       "commits": []
