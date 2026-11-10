@@ -1,5 +1,5 @@
 {
-  "next": 2703,
+  "next": 2707,
   "tickets": [
     {
       "id": 47,
@@ -28052,7 +28052,7 @@
         "design"
       ],
       "epic": "syntax-language",
-      "body": "D3478 (Matt, 10 Nov 2026): yes. Migration cost is not a factor (D2303): best end state only. Output docs/proposals/bool-and-prop.md. Est. 2-3 h.\n\nLane (Fable, 10 Nov 2026, started 12:16):\n- Note written: docs/proposals/bool-and-prop.md, with five probe files in docs/proposals/bool-and-prop/ (run with the release CLI; no build, no tests).\n- Recommendation: tests first. What a program can test is defined as its test giving True (as ≤ is today); propositions for what can't be tested; `Decidable` becomes a Bool with its two proofs (Agda's `Dec`) so every `if` is its test by computation; no `propext`.\n- Measured: std has 106 Prop-valued defs (9 test = True, 49 by recursion on data, 48 statements) and 2 inductive families; today's `Decidable.toBool (Nat.decLessEq a b) = Nat.leq a b` fails by `rfl`, the record form passes.\n- Open decisions for Matt: D3479 (tests first), D3480 (Decidable as a record), D3481 (no propext), D3482 (Bool as a proposition on the surface).\n",
+      "body": "D3478 (Matt, 10 Nov 2026): yes. Migration cost is not a factor (D2303): best end state only. Output docs/proposals/bool-and-prop.md. Est. 2-3 h.\n\nLane (Fable, 10 Nov 2026, started 12:16):\n- Note written: docs/proposals/bool-and-prop.md, with five probe files in docs/proposals/bool-and-prop/ (run with the release CLI; no build, no tests).\n- Recommendation: tests first. What a program can test is defined as its test giving True (as ≤ is today); propositions for what can't be tested; `Decidable` becomes a Bool with its two proofs (Agda's `Dec`) so every `if` is its test by computation; no `propext`.\n- Measured: std has 106 Prop-valued defs (9 test = True, 49 by recursion on data, 48 statements) and 2 inductive families; today's `Decidable.toBool (Nat.decLessEq a b) = Nat.leq a b` fails by `rfl`, the record form passes.\n- Open decisions for Matt: D3479 (tests first), D3480 (Decidable as a record), D3481 (no propext), D3482 (Bool as a proposition on the surface).\n10 Nov 2026, Matt: D3479 yes (tests first, std author's rule §6.1), D3480 yes (Decidable as a Bool with its two proofs, after its own design note), D3481 yes (no propext; ↔ rewriting under connectives later), D3482 yes (Bool as a proposition on the surface, patterns through its decision, after a design note).",
       "created": "2026-11-10",
       "updated": "2026-11-10",
       "commits": []
@@ -28183,6 +28183,64 @@
       "labels": [],
       "epic": "syntax-language",
       "body": "From SW-2690 (10 Nov 2026). Est. 30 min.",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
+    },
+    {
+      "id": 2703,
+      "title": "[Opus] Design note: Decidable as { does: Bool, sound, complete } (D3480): elaborator if/&&/==, deriving, auto, decreasing, natives, what's removed; staged plan",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-2703",
+      "labels": [
+        "paper",
+        "design"
+      ],
+      "epic": "syntax-language",
+      "body": "From SW-2692 §7.2; D3480 (Matt, 10 Nov 2026): yes after a design note. Est. 2 h.",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
+    },
+    {
+      "id": 2704,
+      "title": "[Fable] Design note: reading a Bool fact as a proposition (D3482): surface b = True, printing, matching (a && b) = True with ∧/∨/∃ patterns through decisions, one reader shared by omega, auto, cases",
+      "status": "doing",
+      "agent": "Claude",
+      "where": ".claude/worktrees/SW-2704",
+      "labels": [
+        "paper",
+        "design"
+      ],
+      "epic": "syntax-language",
+      "body": "From SW-2692 §7.3, §7.5; D3482 (Matt, 10 Nov 2026): yes after a design note. The least settled part. Est. 2 h.",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
+    },
+    {
+      "id": 2705,
+      "title": "Proving guide: the std author's rule for where a fact lives (D3479; bool-and-prop.md §6.1), with the four cases and examples",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "docs-tutorials",
+      "body": "D3479 (Matt, 10 Nov 2026). After the D3480 note so examples match. Sonnet. Est. 45 min.",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
+    },
+    {
+      "id": 2706,
+      "title": "rewrite with ↔ under ∧ ∨ ¬ → ∀ ∃ (generalized rewriting, no axiom) (D3481; bool-and-prop.md §7.4)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "D3481 (Matt, 10 Nov 2026): no propext; this later. Design first (Opus). Est. 2 h design.",
       "created": "2026-11-10",
       "updated": "2026-11-10",
       "commits": []
