@@ -1,5 +1,5 @@
 {
-  "next": 2661,
+  "next": 2664,
   "tickets": [
     {
       "id": 47,
@@ -27603,6 +27603,51 @@
       ],
       "epic": "elaborator-kernel",
       "body": "D3473 (Matt, 10 Nov 2026): yes to two Fable paper lanes; the record-eta review proposed as the second was already done (SW-2068, sound), so the orchestrator chose the size/sharing design question instead. Output docs/proposals/term-sharing.md. Est. 120 min.",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
+    },
+    {
+      "id": 2661,
+      "title": "Check cache: a cache directory copied with a project is trusted (its salt travels with it)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "soundness"
+      ],
+      "epic": "audit-fuzzing",
+      "body": "Severity 2 (likely hole, unconfirmed), from SW-2659 (docs/reviews/SW-2659-kernel-soundness-audit.md, F1).\n\nThe problem: the salt that should stop 'a cache copied from elsewhere (a committed .stitchwort, a download)' (docs/proposals/check-cache.md §3.1) is read from check/header inside the cache directory (crates/driver/src/check_cache.rs:149-173), so a whole directory that arrives with a project fits. Entries are sealed with plain BLAKE3, no secret. Loaded entries go through admit_trusted_*, which skips type and termination checking. check, test and audit all read the cache by default (crates/cli/src/main.rs:1440-1451, 2690, 2727).\n\nConfirmed: cp -Rp a checked project with its .stitchwort to another folder and check there; the std.* entries keep their modification times, so they were read from the copy, not rebuilt.\nNot confirmed: a forged entry proving False (needs the encoder in crates/elab/src/cache/codec.rs).\n\nFix, one of: (a) seal each entry with a keyed hash whose key is per user and outside any project; (b) audit always checks in full, and check-cache.md says a cache directory is as trusted as the compiler. A trust decision: Matt's.",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
+    },
+    {
+      "id": 2662,
+      "title": "Kernel: a data type becomes final with an index type that mentions a failed declaration",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "soundness"
+      ],
+      "epic": "audit-fuzzing",
+      "body": "Severity 3 (missing guard), from SW-2659 (docs/reviews/SW-2659-kernel-soundness-audit.md, F2).\n\ndeclare_indexed_data_group lets a failed reference through in the parameters and index types ('define_data_group finds it again', crates/core/src/check.rs:2815, 2832). admit_data_group re-checks the parameters, fields and result indices (check.rs:3087, 3113, 3223) but not the members' index telescopes. So a group whose index type mentions a failed definition, with fields and result indices that don't, becomes final, against admissible's invariant (check.rs:3483) and docs/core.md ('nothing built on it is ever accepted').\n\nNo path to False found: the failed definition is a neutral constant and anything mentioning it directly is still refused. No CLI repro (the surface can't write it).\n\nFix: in admit_data_group, pass every member's index types to the first admissible call. A core test: a failed definition in an index type, no constructors, must fail with E-FAILED-DEPENDENCY.",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
+    },
+    {
+      "id": 2663,
+      "title": "Kernel: a data type's parameter types aren't checked for case outside a case tree",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "soundness"
+      ],
+      "epic": "audit-fuzzing",
+      "body": "Severity 3 (missing guard), from SW-2659 (docs/reviews/SW-2659-kernel-soundness-audit.md, F3).\n\nSignatures, fields, indices and result indices all go through case_only_in_tree(ty, false) (crates/core/src/check.rs:2303, 3105, 2836, 3228). A data group's parameter types don't, in declare_indexed_data_group (check.rs:2815-2821) or admit_trusted_data_decls (check.rs:3378-3403). check accepts a Case wherever it is checked against a type (a lambda body in an argument: check.rs:438, 541), and a case outside a definition's tree that gets stuck panics (crates/core/src/value.rs:2482).\n\nOnly a wrong elaborator or cache entry reaches it; the result is a panic, not a false theorem.\n\nFix: the same check on each parameter type in both functions, with a core test.",
       "created": "2026-11-10",
       "updated": "2026-11-10",
       "commits": []
