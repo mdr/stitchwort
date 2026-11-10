@@ -917,7 +917,7 @@ impl<'e> Ctx<'e> {
         // Read back only this deep: `Parse.exactly 2^128 p` unfolds 2^128
         // levels deep (SW-2580). Deeper parts are `…` on both sides, which
         // compare alike, so a difference is only found above the depth.
-        const DIFFERENCE_DEPTH: usize = 64;
+        const DIFFERENCE_DEPTH: usize = 256;
         let shown = |v| {
             stitchwort_core::value::quote_unfolded_shown_to_depth(
                 &g,

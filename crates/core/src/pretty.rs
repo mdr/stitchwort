@@ -630,6 +630,15 @@ impl<'g> Printer<'g> {
         })
     }
 
+    /// The last element of an open list: `..xs`, or `…` where the tail is
+    /// left out, as the rest of a list too long to show.
+    fn spread(&self, names: &mut Vec<Name>, tail: &Term) -> String {
+        match self.print(names, tail, Prec::Arrow) {
+            left_out if left_out == "…" => left_out,
+            shown => format!("..{shown}"),
+        }
+    }
+
     fn go(&self, names: &mut Vec<Name>, term: &Term) -> (String, Prec) {
         if matches!(term, Term::Loc(..) | Term::Ann(..)) {
             return self.go_node(names, term);
@@ -805,7 +814,7 @@ impl<'g> Printer<'g> {
                     .map(|t| self.print(names, t, Prec::Arrow))
                     .collect();
                 if let Some(rest) = rest {
-                    shown.push(format!("..{}", self.print(names, rest, Prec::Arrow)));
+                    shown.push(self.spread(names, rest));
                 }
                 (format!("[{}]", shown.join(", ")), Prec::Atom)
             }
@@ -892,7 +901,7 @@ impl<'g> Printer<'g> {
                         .iter()
                         .map(|t| self.print(names, t, Prec::Arrow))
                         .collect();
-                    shown.push(format!("..{}", self.print(names, tail, Prec::Arrow)));
+                    shown.push(self.spread(names, tail));
                     return (format!("[{}]", shown.join(", ")), Prec::Atom);
                 }
                 let ctor = &self.g.data(*d).ctors[*c];
