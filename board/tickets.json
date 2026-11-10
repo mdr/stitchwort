@@ -26721,9 +26721,9 @@
     {
       "id": 2613,
       "title": "Reference evaluator: normal and conversion have no sharing, so each exponential example needs a hand-kept exclusion in the prelude differential (SW-2583); abort above a size or memory budget and report the definition as too big instead",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Opus",
-      "where": "",
+      "where": ".claude/worktrees/SW-2613",
       "labels": [],
       "epic": "test-infra",
       "body": "From SW-2583, 10 Nov.",
