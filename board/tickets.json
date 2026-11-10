@@ -27839,12 +27839,12 @@
     {
       "id": 2677,
       "title": "Float.sw:20-23 comment points to FLOAT_DATA_HASH and float.rs; the pins live in crates/core/src/pins.rs",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": ".claude/worktrees/scratch-sw-2677",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "From SW-2670 (10 Nov 2026). One-line fix.",
+      "body": "From SW-2670 (10 Nov 2026). One-line fix.\nModel result: DeepSeek v4.1 Flash, worked, 7 min (est. 20). First DeepSeek run as the agent user; also fixed the same stale names in float.md, bounded-readback.md, test-cache-key.md, left dated records alone (right call). References checked by orchestrator.",
       "created": "2026-11-10",
       "updated": "2026-11-10",
       "commits": []
