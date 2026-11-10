@@ -26464,14 +26464,14 @@
     {
       "id": 2595,
       "title": "stitchwort fmt option (or a lint) for the ∀ house style, so new statements get it: a function type into a proposition after a theorem's colon or as a hypothesis's type prints as ∀; leave chains of only unused binders",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Sonnet",
-      "where": "",
+      "where": ".claude/worktrees/SW-2595",
       "labels": [],
       "epic": "syntax-language",
       "body": "From SW-2588's report, 10 Nov. Its token-level script (orchestrator scratchpad sweep.py) is a starting point. Not urgent.",
       "created": "2026-11-09",
-      "updated": "2026-11-09",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
