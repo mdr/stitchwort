@@ -26634,12 +26634,12 @@
     {
       "id": 2608,
       "title": "Effect fuzzer: document STITCHWORT_EFFECT_FUZZ_DUMP=dir (saves each batch's source) in the file's header doc and docs/testing.md",
-      "status": "backlog",
+      "status": "review",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "test-infra",
-      "body": "From SW-2579, 10 Nov. Tiny.",
+      "body": "From SW-2579, 10 Nov. Tiny.\n\n\nLane note: documented in effect_differential.rs header and docs/testing.md (a83bbdfca on lane/SW-2608).",
       "created": "2026-11-10",
       "updated": "2026-11-10",
       "commits": []
@@ -26673,12 +26673,12 @@
     {
       "id": 2611,
       "title": "task test:lane AREA=examples NAME=cases ran 0 tests in a worktree (direct EXAMPLES=cases cargo nextest run --profile lane-examples ran 12)",
-      "status": "backlog",
+      "status": "review",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "test-infra",
-      "body": "From SW-2606, 10 Nov. Tiny.",
+      "body": "From SW-2606, 10 Nov. Tiny.\n\n\nLane note: could not reproduce. In the SW-2608 worktree `task test:lane AREA=examples NAME=cases` ran 12 tests (also from crates/cli, with trailing --, NAME before AREA). Note nextest runs the same 12 tests whatever NAME is; NAME only filters the example files inside them. No change made.",
       "created": "2026-11-10",
       "updated": "2026-11-10",
       "commits": []
