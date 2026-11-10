@@ -13,13 +13,13 @@
 --
 -- From a checkout of the Stitchwort repository:
 --
---     nix develop -c cargo build --release -p stitchwort-cli
---     ./editors/vscode/install.sh
+--     nix develop -c task vscode:install
 --
--- The first builds the `stitchwort` program, the second installs the
--- VS Code extension. Put `target/release` on your PATH, or set the setting
--- `stitchwort.path` to `target/release/stitchwort`, then run "Developer:
--- Reload Window" from the command palette (Cmd-Shift-P, or Ctrl-Shift-P).
+-- This builds the `stitchwort` program and installs the VS Code
+-- extension; run it again after pulling, so the two stay in step. Put
+-- `target/release` on your PATH, or set the setting `stitchwort.path` to
+-- `target/release/stitchwort`, then run "Developer: Reload Window" from
+-- the command palette (Cmd-Shift-P, or Ctrl-Shift-P).
 --
 -- Check that it works: in Step 2, hover over `cost` in `def Item.cost`.
 -- A box shows `def Main.Item.cost (item: Item): Nat` and its doc comment
