@@ -593,26 +593,27 @@ theorem Graph.relaxKeeps [auto ord: Ord s] (costs: Graph.Costs s t) (cost: Nat) 
 
 --| Relaxing edges queues nothing but each edge's state at `cost` plus its
 --| cost.
-theorem Graph.relaxAdded [auto ord: Ord s] (costs: Graph.Costs s t) (cost: Nat): ∀ (edges: List (s, Nat)) (queue: Set (Nat, s)) (best: t) (total: Nat) (state: s) =>
-    (Graph.relaxEdges costs cost edges queue best).fst.contains (total, state) = True →
-    (queue.contains (total, state) = True) ∨ (Exists Nat (weight => ((state, weight) ∈ edges) ∧ (total = cost + weight)))
-  | [], queue, best, total, state, there => Inl there
-  | [(next, weight), ..rest], queue, best, total, state, there =>
-    match better: Graph.improves costs best next (cost + weight) with
-      | False =>
-        match Graph.relaxAdded costs cost rest queue best total state there with
-          | Inl old => Inl old
-          | Inr (Witness found (Both member costsEqual)) => Inr (Witness found (Both (Inr member) costsEqual))
-      | True =>
-        match Graph.relaxAdded costs cost rest (queue.insert (cost + weight, next)) (costs.set best next (cost + weight)) total state there with
-          | Inr (Witness found (Both member costsEqual)) => Inr (Witness found (Both (Inr member) costsEqual))
-          | Inl inserted =>
-            match same: (total, state) == (cost + weight, next) with
-              | True =>
-                let equal := DecEq.sound same
-                Inr (Witness weight (Both (Inl (Eq.cong (found => (found, weight)) (Eq.sym (Eq.cong Pair.snd equal)))) (Eq.cong Pair.fst equal)))
-              | False =>
-                Inl (Eq.trans (Eq.sym (Set.containsInsertOther queue (cost + weight, next) (total, state) (DecEq.soundFalse _ _ same))) inserted)
+theorem Graph.relaxAdded [auto ord: Ord s] (costs: Graph.Costs s t) (cost: Nat) (edges: List (s, Nat)) (queue: Set (Nat, s)) (best: t) (total: Nat) (state: s)
+    (there: (Graph.relaxEdges costs cost edges queue best).fst.contains (total, state) = True):
+    (queue.contains (total, state) = True) ∨ (Exists Nat (weight => ((state, weight) ∈ edges) ∧ (total = cost + weight))) :=
+  match edges with
+    | [] => Inl there
+    | [(next, weight), ..rest] =>
+      match better: Graph.improves costs best next (cost + weight) with
+        | False =>
+          match Graph.relaxAdded costs cost rest queue best total state there with
+            | Inl old => Inl old
+            | Inr (Witness found (Both member costsEqual)) => Inr (Witness found (Both (Inr member) costsEqual))
+        | True =>
+          match Graph.relaxAdded costs cost rest (queue.insert (cost + weight, next)) (costs.set best next (cost + weight)) total state there with
+            | Inr (Witness found (Both member costsEqual)) => Inr (Witness found (Both (Inr member) costsEqual))
+            | Inl inserted =>
+              match same: (total, state) == (cost + weight, next) with
+                | True =>
+                  let equal := DecEq.sound same
+                  Inr (Witness weight (Both (Inl (Eq.cong (found => (found, weight)) (Eq.sym (Eq.cong Pair.snd equal)))) (Eq.cong Pair.fst equal)))
+                | False =>
+                  Inl (Eq.trans (Eq.sym (Set.containsInsertOther queue (cost + weight, next) (total, state) (DecEq.soundFalse _ _ same))) inserted)
 
 --| Each cost relaxing edges records in `best` was there before, or is
 --| queued.
@@ -1085,14 +1086,15 @@ def Graph.visitEdges [auto ord: Ord s] (depth: Nat): (edges: List (s, Nat)) → 
     else Graph.visitEdges depth rest (settled.insert state depth) [state, ..next]
 
 --| What visiting edges settled stays settled.
-theorem Graph.visitGrows [auto ord: Ord s] (depth: Nat): ∀ (edges: List (s, Nat)) (settled: Map s Nat) (next: List s) (state: s) (cost: Nat) => settled.get state = Some cost → (Graph.visitEdges depth edges settled next).fst.get state = Some cost
-  | [], settled, next, state, cost, got => got
-  | [(target, weight), ..rest], settled, next, state, cost, got =>
-    match there: settled.contains target with
-      | True => Graph.visitGrows depth rest settled next state cost got
-      | False =>
-        Graph.visitGrows depth rest (settled.insert target depth) [target, ..next] state cost
-          (Map.getInsertKeeps settled target depth there state cost got)
+theorem Graph.visitGrows [auto ord: Ord s] (depth: Nat) (edges: List (s, Nat)) (settled: Map s Nat) (next: List s) (state: s) (cost: Nat) (got: settled.get state = Some cost): (Graph.visitEdges depth edges settled next).fst.get state = Some cost :=
+  match edges with
+    | [] => got
+    | [(target, weight), ..rest] =>
+      match there: settled.contains target with
+        | True => Graph.visitGrows depth rest settled next state cost got
+        | False =>
+          Graph.visitGrows depth rest (settled.insert target depth) [target, ..next] state cost
+            (Map.getInsertKeeps settled target depth there state cost got)
 
 --| Visiting edges keeps what was on the list on it.
 theorem Graph.visitListed [auto ord: Ord s] (depth: Nat) (edges: List (s, Nat)) (settled: Map s Nat) (next: List s) (state: s)
@@ -1129,33 +1131,34 @@ theorem Graph.visitNew [auto ord: Ord s] (depth: Nat) (edges: List (s, Nat)) (se
 
 --| What is on the list after visiting edges was on it, or wasn't settled
 --| before and is now, at `depth`, an edge's state.
-theorem Graph.visitAdded [auto ord: Ord s] (depth: Nat): ∀ (edges: List (s, Nat)) (settled: Map s Nat) (next: List s) (state: s) =>
-    state ∈ (Graph.visitEdges depth edges settled next).snd →
-    (state ∈ next) ∨ ((settled.contains state = False) ∧ (((Graph.visitEdges depth edges settled next).fst.get state = Some depth) ∧ (Exists Nat (weight => (state, weight) ∈ edges))))
-  | [], settled, next, state, member => Inl member
-  | [(target, weight), ..rest], settled, next, state, member =>
-    match there: settled.contains target with
-      | True =>
-        match Graph.visitAdded depth rest settled next state member with
-          | Inl old => Inl old
-          | Inr (Both fresh (Both got (Witness found edge))) => Inr (Both fresh (Both got (Witness found (Inr edge))))
-      | False =>
-        match Graph.visitAdded depth rest (settled.insert target depth) [target, ..next] state member with
-          | Inl (Inl same) =>
-            rewrite <- same in
-              Inr
-                (Both there
-                  (Both
-                    (Graph.visitGrows depth rest (settled.insert target depth) [target, ..next] target depth
-                      (Map.getInsert target depth settled))
-                    (Witness weight (Inl rfl))))
-          | Inl (Inr old) => Inl old
-          | Inr (Both fresh (Both got (Witness found edge))) =>
-            let before: settled.contains state = False :=
-              match was: settled.contains state with
-                | False => rfl
-                | True => Void.exfalso (Bool.falseNotTrue (Eq.trans (Eq.sym fresh) (Map.containsInsertKeeps settled target depth state was)))
-            Inr (Both before (Both got (Witness found (Inr edge))))
+theorem Graph.visitAdded [auto ord: Ord s] (depth: Nat) (edges: List (s, Nat)) (settled: Map s Nat) (next: List s) (state: s)
+    (member: state ∈ (Graph.visitEdges depth edges settled next).snd):
+    (state ∈ next) ∨ ((settled.contains state = False) ∧ (((Graph.visitEdges depth edges settled next).fst.get state = Some depth) ∧ (Exists Nat (weight => (state, weight) ∈ edges)))) :=
+  match edges with
+    | [] => Inl member
+    | [(target, weight), ..rest] =>
+      match there: settled.contains target with
+        | True =>
+          match Graph.visitAdded depth rest settled next state member with
+            | Inl old => Inl old
+            | Inr (Both fresh (Both got (Witness found edge))) => Inr (Both fresh (Both got (Witness found (Inr edge))))
+        | False =>
+          match Graph.visitAdded depth rest (settled.insert target depth) [target, ..next] state member with
+            | Inl (Inl same) =>
+              rewrite <- same in
+                Inr
+                  (Both there
+                    (Both
+                      (Graph.visitGrows depth rest (settled.insert target depth) [target, ..next] target depth
+                        (Map.getInsert target depth settled))
+                      (Witness weight (Inl rfl))))
+            | Inl (Inr old) => Inl old
+            | Inr (Both fresh (Both got (Witness found edge))) =>
+              let before: settled.contains state = False :=
+                match was: settled.contains state with
+                  | False => rfl
+                  | True => Void.exfalso (Bool.falseNotTrue (Eq.trans (Eq.sym fresh) (Map.containsInsertKeeps settled target depth state was)))
+              Inr (Both before (Both got (Witness found (Inr edge))))
 
 --| After visiting edges, every edge's state is settled.
 theorem Graph.visitCovers [auto ord: Ord s] (depth: Nat) (edges: List (s, Nat)) (settled: Map s Nat) (next: List s) (state: s) (weight: Nat) (member: (state, weight) ∈ edges): (Graph.visitEdges depth edges settled next).fst.contains state = True :=

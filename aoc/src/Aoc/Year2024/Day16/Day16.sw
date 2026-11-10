@@ -96,30 +96,32 @@ theorem Maze.holdsListed (maze: Maze) (reindeer: Reindeer) (holds: maze.holds re
         (List.memMap headings facing (headingsComplete facing) (way => ({ position, facing = way }: Reindeer)))
 
 --| What `forward` gives stands on an open tile...
-theorem Maze.forwardHolds (maze: Maze): ∀ (reindeer next: Reindeer) => next ∈ maze.forward reindeer → maze.holds next = True
-  | { position, facing }, next, member =>
-    match stepped: position.step facing.toDirection with
-      | None => Void.exfalso member
-      | Some ahead =>
-        match open: maze.isOpen ahead with
-          | False => Void.exfalso member
-          | True =>
-            match member with
-              | Inl here => rewrite <- here in open
-              | Inr none => Void.exfalso none
+theorem Maze.forwardHolds (maze: Maze) (reindeer next: Reindeer) (member: next ∈ maze.forward reindeer): maze.holds next = True :=
+  match reindeer with
+    | { position, facing } =>
+      match stepped: position.step facing.toDirection with
+        | None => Void.exfalso member
+        | Some ahead =>
+          match open: maze.isOpen ahead with
+            | False => Void.exfalso member
+            | True =>
+              match member with
+                | Inl here => rewrite <- here in open
+                | Inr none => Void.exfalso none
 
 --| ...and so does what `backward` gives.
-theorem Maze.backwardHolds (maze: Maze): ∀ (reindeer next: Reindeer) => next ∈ maze.backward reindeer → maze.holds next = True
-  | { position, facing }, next, member =>
-    match stepped: position.step facing.toDirection.opposite with
-      | None => Void.exfalso member
-      | Some behind =>
-        match open: maze.isOpen behind with
-          | False => Void.exfalso member
-          | True =>
-            match member with
-              | Inl here => rewrite <- here in open
-              | Inr none => Void.exfalso none
+theorem Maze.backwardHolds (maze: Maze) (reindeer next: Reindeer) (member: next ∈ maze.backward reindeer): maze.holds next = True :=
+  match reindeer with
+    | { position, facing } =>
+      match stepped: position.step facing.toDirection.opposite with
+        | None => Void.exfalso member
+        | Some behind =>
+          match open: maze.isOpen behind with
+            | False => Void.exfalso member
+            | True =>
+              match member with
+                | Inl here => rewrite <- here in open
+                | Inr none => Void.exfalso none
 
 --| Steps onto open tiles and turns, from an open tile, end on one.
 theorem Maze.stepsHold (maze: Maze) (moved: List Reindeer) (movedHold: ∀ (other: Reindeer) => other ∈ moved → maze.holds other = True):

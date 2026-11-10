@@ -510,21 +510,23 @@ test "List.decDistinct" := List.Distinct [1, 2, 3] ∧ ¬(List.Distinct [1, 2, 1
 
 --| The run `List.rangeFrom c s` holds the numbers from `s` up to, not
 --| including, `s + c`.
-theorem List.memRangeFrom (x: Nat): ∀ (c s: Nat) => x ∈ List.rangeFrom c s → s ≤ x < s + c
-  | Zero, s, h => Void.exfalso h
-  | Succ c, s, Inl q => rewrite <- q in Both (Nat.leRefl s) (Nat.ltAddSuccSelf s c)
-  | Succ c, s, Inr m =>
-    match List.memRangeFrom x c (Succ s) m with
-      | Both lo hi => Both (Nat.lessLe s x lo) (Nat.ltAddSucc s c x hi)
+theorem List.memRangeFrom (x: Nat) (c s: Nat) (h: x ∈ List.rangeFrom c s): s ≤ x < s + c :=
+  match c, h with
+    | Zero, h => Void.exfalso h
+    | Succ c, Inl q => rewrite <- q in Both (Nat.leRefl s) (Nat.ltAddSuccSelf s c)
+    | Succ c, Inr m =>
+      match List.memRangeFrom x c (Succ s) m with
+        | Both lo hi => Both (Nat.lessLe s x lo) (Nat.ltAddSucc s c x hi)
 
 --| Every number from `s` up to, not including, `s + c` is in
 --| the run `List.rangeFrom c s`.
-theorem List.memRangeFromIntro (x: Nat): ∀ (c s: Nat) => s ≤ x → x < s + c → x ∈ List.rangeFrom c s
-  | Zero, s, lo, hi => Void.exfalso (Nat.lessIrrefl x (Nat.leTrans (Succ x) s x (Nat.ltCongRight x (s + 0) s (Nat.addZero s) hi) lo))
-  | Succ c, s, lo, hi =>
-    match e: Nat.leq (Succ s) x with
-      | True => Inr (List.memRangeFromIntro x c (Succ s) e (Nat.ltSuccAdd s c x hi))
-      | False => Inl (Nat.leAntisym s x lo (Nat.leqFalse (Succ s) x e))
+theorem List.memRangeFromIntro (x: Nat) (c s: Nat) (lo: s ≤ x) (hi: x < s + c): x ∈ List.rangeFrom c s :=
+  match c with
+    | Zero => Void.exfalso (Nat.lessIrrefl x (Nat.leTrans (Succ x) s x (Nat.ltCongRight x (s + 0) s (Nat.addZero s) hi) lo))
+    | Succ c =>
+      match e: Nat.leq (Succ s) x with
+        | True => Inr (List.memRangeFromIntro x c (Succ s) e (Nat.ltSuccAdd s c x hi))
+        | False => Inl (Nat.leAntisym s x lo (Nat.leqFalse (Succ s) x e))
 
 --| `x ∈ List.range a b` gives `a ≤ x < b`; for `omega` and `auto`, which
 --| take a hypothesis `x ∈ a ..< b` apart into `a ≤ x` and `x < b` with it.
