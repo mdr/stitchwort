@@ -27087,7 +27087,7 @@
     {
       "id": 2627,
       "title": "[Sonnet] Rename R1: references a rename can trust: punned fields, import aliases, qualified names (trailing component), decreasing and default expressions walked, named arguments and [n := k] patterns linked to their parameter, doc link ranges",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2627",
       "labels": [
