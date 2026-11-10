@@ -26386,14 +26386,14 @@
     {
       "id": 2592,
       "title": "Goals print a quantified hypothesis whose result is a variable applied to arguments ((n: Nat) → p n, p: Nat → Prop) as an arrow, not ∀, because the printer has no types for the variables in scope; give the goal printer the hypotheses' types (goals.rs, closing.rs, or a typed value_for_goal)",
-      "status": "backlog",
+      "status": "review",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "From SW-2587's report, 9 Nov. Small to medium. Its neighbours print as ∀, so the goal reads unevenly.",
+      "body": "From SW-2587's report, 9 Nov. Small to medium. Its neighbours print as ∀, so the goal reads unevenly.\n\nLane notes (10 Nov): goal printer takes per-level predicate flags (pretty::value_for_goal, is_predicate_type), filled in goals.rs from the context types. Messages and closing.rs unchanged. Docs and forall-printed example updated; two goal_index snapshots moved.\n",
       "created": "2026-11-09",
-      "updated": "2026-11-09",
+      "updated": "2026-11-10",
       "commits": []
     },
     {

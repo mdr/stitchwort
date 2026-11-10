@@ -146,7 +146,7 @@ const MESSAGE_LIMIT: usize = 240;
 /// docs/proposals/folded-calls.md, stage 3). Setting
 /// `STITCHWORT_FULL_TERMS` shows everything.
 pub fn value_for_message(g: &Ev, names: &[Name], value: &Value) -> String {
-    value_within(g, None, names, value, MESSAGE_LIMIT, Prec::Arrow, false)
+    value_within(g, None, names, value, MESSAGE_LIMIT, Prec::Arrow, None)
 }
 
 /// [`value_for_message`], with names as `scope` writes them.
@@ -163,7 +163,7 @@ pub fn value_for_message_in(
         value,
         MESSAGE_LIMIT,
         Prec::Arrow,
-        false,
+        None,
     )
 }
 
@@ -243,7 +243,7 @@ fn difference(
         _ => return None,
     };
     let show = |names: &[Name], t: &Term| {
-        term_within(g, scope, names, t, DIFFERENCE_LIMIT, Prec::Arrow, false)
+        term_within(g, scope, names, t, DIFFERENCE_LIMIT, Prec::Arrow, None)
     };
     let Mismatch {
         mut left,
@@ -296,7 +296,7 @@ pub fn differ_only_in_proofs(g: &Ev, a: &Term, b: &Term) -> bool {
 
 /// [`value_for_message`], for a term.
 pub fn term_for_message(g: &Ev, names: &[Name], term_: &Term) -> String {
-    term_within(g, None, names, term_, MESSAGE_LIMIT, Prec::Arrow, false)
+    term_within(g, None, names, term_, MESSAGE_LIMIT, Prec::Arrow, None)
 }
 
 /// [`term_for_message`], with names as `scope` writes them.
@@ -308,7 +308,7 @@ pub fn term_for_message_in(g: &Ev, scope: &dyn NameScope, names: &[Name], term_:
         term_,
         MESSAGE_LIMIT,
         Prec::Arrow,
-        false,
+        None,
     )
 }
 
@@ -317,23 +317,49 @@ pub fn term_for_message_in(g: &Ev, scope: &dyn NameScope, names: &[Name], term_:
 const GOAL_LIMIT: usize = 4000;
 
 /// [`value_for_message_in`], with the larger limit of a goal's types.
-pub fn value_for_goal(g: &Ev, scope: &dyn NameScope, names: &[Name], value: &Value) -> String {
-    value_within(g, Some(scope), names, value, GOAL_LIMIT, Prec::Arrow, true)
+///
+/// `predicates[level]` says whether the context variable at that level has a
+/// type ending in `Prop` ([`predicate_flags`]), so that `(n: Nat) → p n` is
+/// written as a `∀`; a level past its end is not one.
+pub fn value_for_goal(
+    g: &Ev,
+    scope: &dyn NameScope,
+    names: &[Name],
+    predicates: &[bool],
+    value: &Value,
+) -> String {
+    value_within(
+        g,
+        Some(scope),
+        names,
+        value,
+        GOAL_LIMIT,
+        Prec::Arrow,
+        Some(predicates),
+    )
+}
+
+/// Whether the type `ty` (of a variable at context depth `level`) is
+/// `Prop`, or a function type into it: the variable is a predicate, and
+/// applied to arguments it is a proposition.
+pub fn is_predicate_type(g: &Ev, level: usize, ty: &Value) -> bool {
+    let Ok(mut t) = quote_shown(g, level, ty) else {
+        return false;
+    };
+    loop {
+        match t.strip_loc() {
+            Term::Pi(_, _, _, b) => t = (**b).clone(),
+            Term::Sort(Sort::Prop) => return true,
+            _ => return false,
+        }
+    }
 }
 
 /// [`value_for_message_in`] for one side of an equation shown as `a = b`:
 /// in brackets if it's an operation that binds more loosely than `=`
 /// (`(n < n) = True`).
 pub fn side_for_message_in(g: &Ev, scope: &dyn NameScope, names: &[Name], value: &Value) -> String {
-    value_within(
-        g,
-        Some(scope),
-        names,
-        value,
-        MESSAGE_LIMIT,
-        Prec::Add,
-        false,
-    )
+    value_within(g, Some(scope), names, value, MESSAGE_LIMIT, Prec::Add, None)
 }
 
 /// [`term_within`] for a value, with calls shown as written.
@@ -344,17 +370,17 @@ fn value_within(
     value: &Value,
     limit: usize,
     prec: Prec,
-    equations: bool,
+    goal: Option<&[bool]>,
 ) -> String {
     let Ok(t) = quote_shown(g, names.len(), value) else {
         return "…".into();
     };
-    term_within(g, scope, names, &t, limit, prec, equations)
+    term_within(g, scope, names, &t, limit, prec, goal)
 }
 
 /// [`term_for_message`] at precedence `prec`, with a result longer than
-/// `limit` characters shortened; with `equations`, as a goal writes
-/// decided equations ([`Printer::equations`]).
+/// `limit` characters shortened; as a `goal` (with its context's
+/// `predicates`), writing decided equations ([`Printer::equations`]).
 fn term_within(
     g: &Ev,
     scope: Option<&dyn NameScope>,
@@ -362,12 +388,13 @@ fn term_within(
     term_: &Term,
     limit: usize,
     prec: Prec,
-    equations: bool,
+    goal: Option<&[bool]>,
 ) -> String {
     note_failed_mention(g, term_);
     let printer = || {
         let printer = Printer::new(g, scope);
-        printer.equations.set(equations);
+        printer.equations.set(goal.is_some());
+        *printer.predicates.borrow_mut() = goal.unwrap_or_default().to_vec();
         printer
     };
     let full_terms = std::env::var_os("STITCHWORT_FULL_TERMS").is_some();
@@ -470,6 +497,9 @@ struct Printer<'g> {
     /// The names in scope, to shorten declarations' names by; without it,
     /// names are written from the root.
     scope: Option<&'g dyn NameScope>,
+    /// By context level, whether the variable's type ends in `Prop`
+    /// ([`is_predicate_type`]); empty when the types aren't known.
+    predicates: RefCell<Vec<bool>>,
     /// What `scope` said each written name means, by declaration.
     meant: RefCell<HashMap<(Declaration, String), bool>>,
 }
@@ -486,6 +516,7 @@ impl<'g> Printer<'g> {
             calls: Cell::new(false),
             equations: Cell::new(false),
             scope,
+            predicates: RefCell::new(Vec::new()),
             meant: RefCell::new(HashMap::default()),
         }
     }
@@ -903,7 +934,7 @@ impl<'g> Printer<'g> {
             // variable the result uses (or an implicit one), as the
             // quantifier: `∀ (n: Nat) => n + 0 = n` (D3458).
             Term::Pi(_, icit, _, b)
-                if (icit.is_implicit() || b.mentions(0)) && self.is_proposition(b) =>
+                if (icit.is_implicit() || b.mentions(0)) && self.is_proposition(names, b) =>
             {
                 self.forall(names, term)
             }
@@ -1328,18 +1359,30 @@ impl<'g> Printer<'g> {
     /// any function types, an equation, or a data type declared in `Prop`
     /// (`And`, `Exists`, `Void`, a user's `type Even (n: Nat): Prop`)
     /// applied to its arguments, or a call of a definition whose declared
-    /// type ends in `Prop` (`Nat.lessEq`, `List.Sorted`). A variable
-    /// applied to arguments, `p x`, isn't evidently one, nor is an unknown.
-    fn is_proposition(&self, ty: &Term) -> bool {
+    /// type ends in `Prop` (`Nat.lessEq`, `List.Sorted`), or a context
+    /// variable known to be a predicate applied to arguments (`p x`, with
+    /// `p: Nat → Prop`; see [`value_for_goal`]). A variable not known to be
+    /// one isn't evidently a proposition, nor is an unknown.
+    fn is_proposition(&self, names: &[Name], ty: &Term) -> bool {
         let mut ty = ty.strip_loc();
+        let mut depth = names.len() + 1;
         while let Term::Pi(_, _, _, b) = ty {
             ty = b.strip_loc();
+            depth += 1;
         }
         match ty {
             Term::Eq(..) => true,
             Term::Data(d, _) => self.g.data(*d).sort == Sort::Prop,
             _ => {
                 let (head, _) = full_spine(ty);
+                if let Term::Var(i) = head {
+                    // The level of a variable bound outside the term; those
+                    // bound within it are not known to be predicates.
+                    let level = depth.checked_sub(i + 1);
+                    return level.is_some_and(|l| {
+                        self.predicates.borrow().get(l).copied().unwrap_or(false)
+                    });
+                }
                 let Term::Def(id) = head else {
                     return false;
                 };
