@@ -26634,7 +26634,7 @@
     {
       "id": 2608,
       "title": "Effect fuzzer: document STITCHWORT_EFFECT_FUZZ_DUMP=dir (saves each batch's source) in the file's header doc and docs/testing.md",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2608",
       "labels": [],
@@ -26642,7 +26642,9 @@
       "body": "From SW-2579, 10 Nov. Tiny.",
       "created": "2026-11-10",
       "updated": "2026-11-10",
-      "commits": []
+      "commits": [
+        "a83bbdfca"
+      ]
     },
     {
       "id": 2609,
@@ -26673,12 +26675,12 @@
     {
       "id": 2611,
       "title": "task test:lane AREA=examples NAME=cases ran 0 tests in a worktree (direct EXAMPLES=cases cargo nextest run --profile lane-examples ran 12)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2608",
       "labels": [],
       "epic": "test-infra",
-      "body": "From SW-2606, 10 Nov. Tiny.",
+      "body": "From SW-2606, 10 Nov. Tiny.\n\nClosed 10 Nov, not reproducible: test:lane AREA=examples NAME=cases ran 12 tests in a fresh worktree several ways; Taskfile and nextest profile are correct. If seen again, capture task -v output. Model result: Sonnet, worked, 5 min (est. 25, both tickets).",
       "created": "2026-11-10",
       "updated": "2026-11-10",
       "commits": []
