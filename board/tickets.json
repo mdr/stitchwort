@@ -1,5 +1,5 @@
 {
-  "next": 2602,
+  "next": 2603,
   "tickets": [
     {
       "id": 47,
@@ -26524,12 +26524,27 @@
     {
       "id": 2601,
       "title": "The 'first differ at' note doesn't appear for examples/reject/refl-note-huge-parser-unfolding.sw although the sides first differ at depth 35 (raising first_difference_note's depth to 400 didn't help): find whether the node cap or an ELIDED placeholder stops it",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2601",
       "labels": [],
       "epic": "diagnostics",
-      "body": "From SW-2598 and SW-2580's review, 10 Nov.\n\nWidened 10 Nov 01:15 (orchestrator): SW-2598 regressed examples/reject/parser-count-differs-from-lemma on main: its 'they first differ at' note and the second 'this match' label (and the note about two different (match …)) are gone. Also update-helpers-print-alike's note changed from '{ c | points = … }' to '[1, …, 12, ..…]' (better, but '..…' reads oddly). rejected_examples fails on main until fixed. Diff: orchestrator scratchpad rej-after-2598.txt.",
+      "body": "From SW-2598 and SW-2580's review, 10 Nov.\n\nWidened 10 Nov 01:15 (orchestrator): SW-2598 regressed examples/reject/parser-count-differs-from-lemma on main: its 'they first differ at' note and the second 'this match' label (and the note about two different (match …)) are gone. Also update-helpers-print-alike's note changed from '{ c | points = … }' to '[1, …, 12, ..…]' (better, but '..…' reads oddly). rejected_examples fails on main until fixed. Diff: orchestrator scratchpad rej-after-2598.txt.\n\nDone 10 Nov: DIFFERENCE_DEPTH 64 -> 256 (parser-count's difference lies between 140 and 200 deep); elided list tails print ', …]'. Orchestrator measured on main: mismatch-note-huge 152 MB / 2.3 s, refl-note-huge-parser 145 MB / 2.9 s, parser-count 154 MB / 9.4 s. refl-note-huge-parser's sides differ at the outermost layer (left stuck on b), so no first-difference note: filed as a stuck-side note. Model result: Sonnet, worked, 20 min (est. 45).",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": [
+        "0edcc4e61"
+      ]
+    },
+    {
+      "id": 2602,
+      "title": "Mismatch note for a side stuck on a variable (choose b p against p): say what it's stuck on, since first_difference_note never reports the outermost layer (examples/reject/refl-note-huge-parser-unfolding)",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "diagnostics",
+      "body": "From SW-2601, 10 Nov. Low.",
       "created": "2026-11-10",
       "updated": "2026-11-10",
       "commits": []
