@@ -525,7 +525,9 @@ impl<'a> Layout<'a> {
         let mut dropped = vec![false; n];
         let mut elem_first = vec![false; n];
         let mut trailing_sep = vec![false; n];
+        let mut in_conv = vec![false; n];
         for (id, conv) in convs.iter().enumerate() {
+            in_conv[at(conv.open + 1)..=at(conv.close)].fill(true);
             opens[at(conv.open)] = Some(id);
             closes[at(conv.close)] = Some(id);
             elem_first[at(conv.open + 1)] = true;
@@ -557,14 +559,21 @@ impl<'a> Layout<'a> {
                 trailing_sep[at(k)] = true;
             }
         }
-        let mut group_size: HashMap<(Option<usize>, usize), usize> = HashMap::new();
+        // Lines inside a converted bracket are laid out as its elements,
+        // deeper than the line that opens it, so they are counted apart from
+        // the lines outside: a line like `D, E)` at the opener's column would
+        // otherwise stop the opener joining the line above in the first
+        // pass, only for the second to join it once `D` had moved.
+        let mut group_size: HashMap<(Option<usize>, usize, bool), usize> = HashMap::new();
         for (i, &(first, column)) in old.iter().enumerate() {
             // Lines that start with a comma or closer converted away aren't
             // statements of the block.
             if dropped[at(first)] || drop_paren[at(first)] || closes[at(first)].is_some() {
                 continue;
             }
-            *group_size.entry((old_parent[i], column)).or_default() += 1;
+            *group_size
+                .entry((old_parent[i], column, in_conv[at(first)]))
+                .or_default() += 1;
         }
 
         // Openers that join the line above: the first token of a line that
@@ -579,7 +588,7 @@ impl<'a> Layout<'a> {
                         tokens[o - 1].tok,
                         Tok::ColonEq | Tok::Equals | Tok::FatArrow
                     ))
-                && group_size[&(old_parent[i], old[i].1)] == 1
+                && group_size[&(old_parent[i], old[i].1, in_conv[at(o)])] == 1
                 && !elem_first[at(o)]
                 && trivia[o].leading.is_empty()
                 && trivia[o].blank_lines_before == 0
@@ -866,6 +875,21 @@ impl<'a> Layout<'a> {
                 && !self.ends_with_opener(&lines[p])
             {
                 parent[i] = parent[p];
+            }
+        }
+        // A body line is not nested under a header continuation line, even
+        // when it sits further right than that line: the continuation moves
+        // to +4, so the body would otherwise be pushed right of it in the
+        // first pass and not in the second.
+        for i in 0..lines.len() {
+            if let Some(p) = parent[i]
+                && !in_header(i)
+                && in_header(p)
+                && let Some(pp) = parent[p]
+                && tcol[pp] == 0
+                && tcol[p] != 0
+            {
+                parent[i] = Some(pp);
             }
         }
         let part = |i: usize| -> Part {

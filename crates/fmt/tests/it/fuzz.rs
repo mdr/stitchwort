@@ -12,7 +12,9 @@ use std::path::{Path, PathBuf};
 use stitchwort_fmt::{Error, format};
 
 /// Each case is one format and one re-format. 50,000 keeps the release run
-/// well under ten seconds; set `FUZZ_CASES` for a longer run.
+/// well under ten seconds; set `FUZZ_CASES` for a longer run, and `FUZZ_ONLY`
+/// (a substring of a file name) to mutate only matching example programs,
+/// which digs deeper into one file than the whole corpus does.
 const CASES: usize = 50_000;
 const SEED: u64 = 0x9e37_79b9_7f4a_7c15;
 /// A mutated example can grow a lot when ranges are duplicated; the parser
@@ -124,6 +126,11 @@ fn read_corpus() -> Vec<String> {
         // produces the same cases.
         files.sort();
         for file in files {
+            if let Ok(only) = std::env::var("FUZZ_ONLY")
+                && !file.to_string_lossy().contains(&only)
+            {
+                continue;
+            }
             texts.push(
                 std::fs::read_to_string(&file)
                     .unwrap_or_else(|e| panic!("can't read {}: {e}", file.display())),
