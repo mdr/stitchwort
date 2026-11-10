@@ -2959,8 +2959,24 @@ fn apply_args_postponing(
                     term = Term::app(term, value);
                     continue;
                 }
+                // Inside another lambda's trial in place, in an application
+                // elaborated again after a propagation by `_`s failed, it
+                // waits for the expected type at once: tried in place and
+                // again after it at every level, a failing proof of n
+                // nested lambdas costs 2^n (SW-2638).
+                let again = cx.e.decl.no_hole_propagation.get() > 0;
+                if again && cx.e.decl.in_place_trial.get() > 0 {
+                    let (placeholder, id) = hold_argument(cx, &mut term, &mut ty, &cod)?;
+                    after_expected.push((*value, dom, placeholder, id));
+                    continue;
+                }
                 let snapshot = crate::undo::Snapshot::take(cx);
-                match check_arg(cx, &term, value, &dom) {
+                let trial = &cx.e.decl.in_place_trial;
+                trial.set(trial.get() + usize::from(again));
+                let checked = check_arg(cx, &term, value, &dom);
+                let trial = &cx.e.decl.in_place_trial;
+                trial.set(trial.get() - usize::from(again));
+                match checked {
                     Ok(value) => {
                         ty = cod.apply_lazy(&cx.g(), || eval(&cx.g(), &cx.env, &value))?;
                         term = Term::app(term, value);
@@ -3152,7 +3168,10 @@ fn apply_args_postponing(
                     crate::queue::Failure::Mismatch,
                 )?)
         {
-            return Err(first_error.take().expect("set when the lambda was put off"));
+            return Err(match first_error.take() {
+                Some(first) => first,
+                None => cx.mismatch(expected, &ty),
+            });
         }
         // With the expected type compared, a lambda that still fails is
         // blamed against the goal as it now stands, not the in-place one.
