@@ -26770,15 +26770,17 @@
     {
       "id": 2616,
       "title": "Prelude differential (full tier) aborts with a stack overflow on Overmind after 401 s (f63a32aea, after SW-2583's memory fix: peak 1.68 GB). 'thread <unknown> has overflowed its stack', SIGABRT. Find the example (SW-2583's slices that timed out at 170 s on the Mac: skip 100-130, 200-225, 340-410) and fix the deep recursion or skip it",
-      "status": "backlog",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "test-infra",
-      "body": "Overmind 10 Nov 04:00, log on Overmind: scratchpad/m1/memtest.log. Command: STITCHWORT_TIER=full dev/memguard --cap-gb 12 cargo test --release -p stitchwort-driver --test proofs the_evaluators_agree_on_the_prelude. Overmind's earlier runs never got this far (memguard killed them at ~640 s). SW-2613 (reference evaluator budget) may cover it; wait for that lane first.",
+      "body": "Overmind 10 Nov 04:00, log on Overmind: scratchpad/m1/memtest.log. Command: STITCHWORT_TIER=full dev/memguard --cap-gb 12 cargo test --release -p stitchwort-driver --test proofs the_evaluators_agree_on_the_prelude. Overmind's earlier runs never got this far (memguard killed them at ~640 s). SW-2613 (reference evaluator budget) may cover it; wait for that lane first.\n\nDone 10 Nov (orchestrator, one line): SW-2613's lane found the example, accept/refine-keeps-big-call.sw (index 397, aborts alone in 0.5 s); marked '-- differential: skip'. Slice 397+3 passes; hashes unchanged. Overmind's whole run confirms.",
       "created": "2026-11-10",
       "updated": "2026-11-10",
-      "commits": []
+      "commits": [
+        "0418932ca"
+      ]
     },
     {
       "id": 2617,
