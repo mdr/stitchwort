@@ -1,5 +1,5 @@
 {
-  "next": 2687,
+  "next": 2690,
   "tickets": [
     {
       "id": 47,
@@ -27520,7 +27520,7 @@
     {
       "id": 2655,
       "title": "[Opus] Theorem-binders sweep tool (D3470/D3471): rewrite theorems with a leading ∀ to (a+) on the parsed tree: ∀ binders and named premise columns into the header, remaining arms into := match v1, … with, := x y => lambdas trimmed, lemma bodies given their arguments; verified by hashes (SW-2648's trial entry point and std mode, plus a 'same statement' promise for the few proof-term changes)",
-      "status": "review",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-2655",
       "labels": [
@@ -27535,9 +27535,9 @@
     {
       "id": 2656,
       "title": "[Sonnet] Run the theorem-binders sweep over std, aoc and games (after the tool), review its refusals by hand, and update the proving guide and docs/guide/10-proofs.md ('a proof by cases is like a function's match' for theorems; arms stay for defs)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-2656",
       "labels": [
         "refactoring"
       ],
@@ -27972,6 +27972,45 @@
       ],
       "epic": "audit-fuzzing",
       "body": "From SW-2672 (10 Nov 2026): both audits' probes went through the elaborator, which refuses most false statements first. Design first (Opus). Est. 2 h design.",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
+    },
+    {
+      "id": 2687,
+      "title": "Trial: when a definition's hash moves, name the re-proved theorem it uses (today neither is named, so the sweep refuses broadly)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "editor-playground",
+      "body": "From SW-2655 (10 Nov 2026). Est. 45 min.",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
+    },
+    {
+      "id": 2688,
+      "title": "Theorem binders hand work after the sweep: 44 conclusion-column theorems (¬/≠), 2 absurd arms, 4 std name clashes, 108 ∀-after-premise left by design (review)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "From SW-2655 (10 Nov 2026). After SW-2656.",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
+    },
+    {
+      "id": 2689,
+      "title": "sweep theorem-binders: single files outside projects (examples/, docs/guide examples, web/guide)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "From SW-2655 (10 Nov 2026). Before or with SW-2657.",
       "created": "2026-11-10",
       "updated": "2026-11-10",
       "commits": []
