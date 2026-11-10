@@ -26651,12 +26651,12 @@
     {
       "id": 2609,
       "title": "cases: ignorable_arguments reads every hypothesis back for each implicit argument and dominates CPU in big cases runs; cap its read-backs or cache per context",
-      "status": "doing",
+      "status": "review",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-2609",
       "labels": [],
       "epic": "performance",
-      "body": "From SW-2606, 10 Nov. Profile first.",
+      "body": "From SW-2606, 10 Nov. Profile first.\n\nLane 10 Nov (Opus, branch lane/SW-2609, bdd4b9c61): profiled, not a hotspot in real proofs, no code change. macOS `sample` (1 ms) of `check --no-cache` on eight cases-heavy AoC proof namespaces: ignorable_arguments is 0.2% to 1.9% of the checking thread (Day16.Proofs 0.9% of 12.2 s, Common.Proofs 1.6%, Day05.Proofs 1.9%, 2024 Day04 0.2%, Day24 1.3%, Day06 1.4%, Day15 1.5%, 2021 Day18 0.8%). Performance-log entry added (D3444) with the cheap option (cache hypothesis mention marks keyed on cx.types) should it ever matter. ~5 min.\n",
       "created": "2026-11-10",
       "updated": "2026-11-10",
       "commits": []
