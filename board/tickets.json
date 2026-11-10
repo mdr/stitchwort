@@ -1,5 +1,5 @@
 {
-  "next": 2623,
+  "next": 2624,
   "tickets": [
     {
       "id": 47,
@@ -26846,15 +26846,17 @@
     {
       "id": 2621,
       "title": "search_at_on_real_2021_goals panics on main: value.rs:3277 'variable at level 3 read back with 2 in scope' (STITCHWORT_AT_BENCH_ONLY=Day13/Proofs/Fold, Proofs/Answers, Day1). Likely one of 9-10 Nov's merges (search hole typing SW-2590, mismatch notes SW-2598/2600/2602, predicate flags SW-2592): bisect and fix",
-      "status": "review",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-2621",
       "labels": [],
       "epic": "proof-search",
-      "body": "From SW-2617, 10 Nov 04:20. Repro: STITCHWORT_TIER=daily STITCHWORT_AT_BENCH_ONLY=Day13/Proofs/Fold cargo test -p stitchwort-driver --test search_at_aoc search_at_on_real_2021_goals (22 s debug).\n\nLane (Opus, 10 Nov 04:23-04:45, est. 45 min), branch lane/SW-2621, commit c5e688957. Cause: SW-2592 (96c2cf3c8, merge d5fc48ff5): `predicate_flags` in goals.rs read each hypothesis's type back at its own variable's level, but a match refines a hypothesis to mention the branch's fields, bound after it (`clear: Clear (AlongX line) dot`). Backtrace: value::visit <- quote_shown <- pretty::is_predicate_type <- Elaborator::predicate_flags <- print_goal <- flush_goals. Fix: read back at the context's depth (only the type's shape is looked at). Regression: examples/goals/match-refined-hypothesis.sw (panicked before; goal and goal-index snapshots added, lemmas index 63 -> 64). Tests: Fold/Answers/Day1 slices pass; test:lane search (60) and goals (6) pass; rejected + goal examples pass; goal_index pass.\n",
+      "body": "From SW-2617, 10 Nov 04:20. Repro: STITCHWORT_TIER=daily STITCHWORT_AT_BENCH_ONLY=Day13/Proofs/Fold cargo test -p stitchwort-driver --test search_at_aoc search_at_on_real_2021_goals (22 s debug).\n\nLane (Opus, 10 Nov 04:23-04:45, est. 45 min), branch lane/SW-2621, commit c5e688957. Cause: SW-2592 (96c2cf3c8, merge d5fc48ff5): `predicate_flags` in goals.rs read each hypothesis's type back at its own variable's level, but a match refines a hypothesis to mention the branch's fields, bound after it (`clear: Clear (AlongX line) dot`). Backtrace: value::visit <- quote_shown <- pretty::is_predicate_type <- Elaborator::predicate_flags <- print_goal <- flush_goals. Fix: read back at the context's depth (only the type's shape is looked at). Regression: examples/goals/match-refined-hypothesis.sw (panicked before; goal and goal-index snapshots added, lemmas index 63 -> 64). Tests: Fold/Answers/Day1 slices pass; test:lane search (60) and goals (6) pass; rejected + goal examples pass; goal_index pass.\n\nDone 10 Nov: cause SW-2592 (96c2cf3c8): predicate_flags quoted each hypothesis at its own level; a match rewrites earlier hypotheses to mention later-bound fields, so any open goal in such a branch panicked (plain check too; AoC has no open goals, so night checks missed it). Fix: read back at the context's depth. Regression example examples/goals/match-refined-hypothesis.sw. Model result: Opus, worked, 22 min (est. 45). Lane used git stash once in its own worktree and popped it at once (rule broken, nothing lost).",
       "created": "2026-11-10",
       "updated": "2026-11-10",
-      "commits": []
+      "commits": [
+        "c5e688957"
+      ]
     },
     {
       "id": 2622,
@@ -26870,6 +26872,19 @@
       "commits": [
         "951dd738a"
       ]
+    },
+    {
+      "id": 2623,
+      "title": "Goal display after match n with | Zero => ?: a hypothesis small: n < 3 shows as 0 < 3 (fine) but the conclusion shows computed down to True = True instead of as written (0 < 4); check whether that's intended",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "diagnostics",
+      "body": "From SW-2621, 10 Nov.",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
     }
   ]
 }
