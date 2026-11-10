@@ -754,6 +754,25 @@ test("the goals panel shows the goal at the cursor, and follows it", async (page
   await page.until(`document.getElementById("goalpanel").hidden`, 30000, "the panel to go");
 });
 
+test("the settings menu switches the inlay hints off, keeps the choice, and Escape closes it", async (page) => {
+  const hints = () => page.ev(`document.querySelectorAll(".cm-inlay").length`);
+  await page.open();
+  await page.untilChecked();
+  await page.setSource("def f (n: Nat): Nat :=\n  let a := n + 1\n  a\n");
+  await page.untilChecked();
+  await page.until(`document.querySelectorAll(".cm-inlay").length > 0`, 30000, "the let's type hint");
+  await page.ev(`document.getElementById("settings-button").click()`);
+  assert.equal(await page.ev(`document.getElementById("settings-menu").hidden`), false);
+  assert.equal(await page.ev(`document.getElementById("settings-button").getAttribute("aria-expanded")`), "true");
+  await page.ev(`document.querySelector("#settings-menu [name=letTypes]").click()`);
+  await page.until(`document.querySelectorAll(".cm-inlay").length === 0`, 30000, "the hint to go");
+  assert.equal(await hints(), 0);
+  assert.equal(JSON.parse(await page.ev(`localStorage.getItem("stitchwort.settings")`)).letTypes, false);
+  await page.ev(`document.querySelector("#settings-menu [name=letTypes]").dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }))`);
+  assert.equal(await page.ev(`document.getElementById("settings-menu").hidden`), true);
+  assert.equal(await page.ev(`document.getElementById("settings-button").getAttribute("aria-expanded")`), "false");
+});
+
 /** The labels of the completion list on show, or null when there is none. */
 const completions = (page) => page.ev(`(() => {
   const list = document.querySelector(".cm-tooltip-autocomplete");

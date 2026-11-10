@@ -67,8 +67,8 @@ Syntax colouring for `.sw` files, and a thin client for the language server
   has no code of its own for this.
 - **Formatting.** Format Document and Format Selection work, served by
   `stitchwort lsp` (a file with a syntax error is left alone). Format on save is
-  off, as in VS Code generally; to turn it on for Stitchwort files, add
-  `"[stitchwort]": { "editor.formatOnSave": true }` to your settings.
+  on for Stitchwort files (the extension's `configurationDefaults`); to turn it
+  off, set `"[stitchwort]": { "editor.formatOnSave": false }`.
 - **Library source.** Definitions in the standard library open as the real
   `std/` files when the server read std from a directory (the usual case in a
   checkout, or with `STITCHWORT_STD_DIR`). Such a file gets hover, go to
@@ -78,6 +78,28 @@ Syntax colouring for `.sw` files, and a thin client for the language server
   embedded in the program, definitions open as read-only documents with the
   scheme `stitchwort-std:`, whose text comes from `stitchwort std-source` (run
   by the extension).
+
+## Settings
+
+Every optional feature has a switch in the settings (search for "Stitchwort"),
+on unless noted (D3468):
+
+| Setting | Effect |
+| --- | --- |
+| `stitchwort.inlayHints.letTypes` | the type after a `let` whose type isn't written |
+| `stitchwort.codeLens.run` | the "▶ Run" and "▶ Run test" icons |
+| `stitchwort.proofSearch.enabled` | proofs found for a `?` (and "Split into cases"), offered as quick fixes |
+| `stitchwort.proofSearch.timeLimitMs` | how long one search may run (default 5000) |
+| `stitchwort.semanticColours` | colours from what the checker resolved each name to |
+| `stitchwort.goals.openAutomatically` | open the Goals panel when a `.sw` file with a `?` opens (off by default) |
+| `stitchwort.path` | the `stitchwort` program (restarts the server) |
+
+The first five are sent to the server in `initializationOptions` and, when one
+changes, in `workspace/didChangeConfiguration` (`{"settings": {"stitchwort":
+…}}`; built by `serverSettings` in `client.js`). A feature that is off stays
+advertised and is answered with nothing; the server then asks the editor to
+refresh hints, lenses and colours. The Testing panel is not part of the run
+icons setting.
 
 ## How the client finds and starts the server
 

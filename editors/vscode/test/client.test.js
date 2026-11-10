@@ -110,3 +110,51 @@ test('goals panel: the goalAt answer as escaped html, or a note when there is no
   assert.match(html, /<span class="n">t<\/span>: Nat := <span class="v">n \+ 1<\/span>/);
   assert.match(html, /⊢ a &lt; b/);
 });
+
+test('server settings: the values the server reads, nested as it expects, unset ones left out', () => {
+  const values = {
+    'inlayHints.letTypes': false,
+    'codeLens.run': true,
+    'proofSearch.enabled': true,
+    'proofSearch.timeLimitMs': 2500,
+    semanticColours: false,
+  };
+  assert.deepStrictEqual(cfg.serverSettings((name) => values[name]), {
+    inlayHints: { letTypes: false },
+    codeLens: { run: true },
+    proofSearch: { enabled: true, timeLimitMs: 2500 },
+    semanticColours: false,
+  });
+  assert.deepStrictEqual(cfg.serverSettings(() => undefined), {
+    inlayHints: {},
+    codeLens: {},
+    proofSearch: {},
+  });
+});
+
+test('package.json declares every setting the client sends, and format on save for .sw', () => {
+  const pkg = require('../package.json');
+  const props = pkg.contributes.configuration.properties;
+  for (const name of [
+    'inlayHints.letTypes',
+    'codeLens.run',
+    'proofSearch.enabled',
+    'proofSearch.timeLimitMs',
+    'semanticColours',
+    'goals.openAutomatically',
+  ]) {
+    assert.ok(props[`stitchwort.${name}`], name);
+    assert.ok(props[`stitchwort.${name}`].description, name);
+  }
+  assert.strictEqual(props['stitchwort.goals.openAutomatically'].default, false);
+  assert.deepStrictEqual(pkg.contributes.configurationDefaults['[stitchwort]'], {
+    'editor.formatOnSave': true,
+    'editor.defaultFormatter': 'local.stitchwort',
+  });
+});
+
+test('mentionsGoal: a ? in code, not in a comment or string', () => {
+  assert.ok(cfg.mentionsGoal('def f: Nat := ?\n'));
+  assert.ok(!cfg.mentionsGoal('-- is it? \ndef f: Text := "why?"\n'));
+  assert.ok(cfg.mentionsGoal('def f: Text := "a\\"" ++ ?\n'));
+});

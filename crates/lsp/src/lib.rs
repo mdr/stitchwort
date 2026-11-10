@@ -26,7 +26,7 @@ use std::cell::Cell;
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, RwLock};
 use std::time::Duration;
 
@@ -111,6 +111,10 @@ pub struct Options {
     /// Read when a project or file is loaded, so a host may set it after
     /// starting the server (the playground fetches it meanwhile).
     pub library: Arc<std::sync::OnceLock<Arc<LibraryBundle>>>,
+    /// The editor features the user can switch off, and the search time
+    /// limit; shared by every thread of the server, and changed by
+    /// `workspace/didChangeConfiguration`.
+    pub settings: Arc<Settings>,
     /// The client asked to be told when semantic tokens are out of date
     /// (`workspace/semanticTokens/refresh`) after a check. Set by
     /// `initialize`.
@@ -129,6 +133,89 @@ pub struct Options {
     /// (nothing set in use).
     #[doc(hidden)]
     pub faults: Arc<Faults>,
+}
+
+/// The user's settings (D3468), as the client sends them in
+/// `initializationOptions` and `workspace/didChangeConfiguration`:
+///
+/// ```json
+/// {"inlayHints": {"letTypes": true}, "codeLens": {"run": true},
+///  "proofSearch": {"enabled": true, "timeLimitMs": 5000},
+///  "semanticColours": true}
+/// ```
+///
+/// Every feature is on until switched off; a key left out keeps its value.
+/// A feature the server advertised stays advertised and answers with
+/// nothing when it is off, so no dynamic registration is needed.
+pub struct Settings {
+    inlay_hints: AtomicBool,
+    code_lens: AtomicBool,
+    proof_search: AtomicBool,
+    semantic_colours: AtomicBool,
+    /// The time limit of a code action's search; zero for
+    /// [`Options::search_time`].
+    search_time_ms: AtomicU64,
+    /// The client can be asked to refresh what it draws from the server.
+    refresh_lenses: AtomicBool,
+}
+
+impl Default for Settings {
+    fn default() -> Self {
+        Settings {
+            inlay_hints: AtomicBool::new(true),
+            code_lens: AtomicBool::new(true),
+            proof_search: AtomicBool::new(true),
+            semantic_colours: AtomicBool::new(true),
+            search_time_ms: AtomicU64::new(0),
+            refresh_lenses: AtomicBool::new(false),
+        }
+    }
+}
+
+impl Settings {
+    fn on(flag: &AtomicBool) -> bool {
+        flag.load(Ordering::Relaxed)
+    }
+
+    /// Takes the settings in `value` (the section above, or a client's
+    /// `{"stitchwort": section}` around it); returns whether any changed.
+    pub fn apply(&self, value: &serde_json::Value) -> bool {
+        let value = value.get("stitchwort").unwrap_or(value);
+        let mut changed = false;
+        let mut flag = |target: &AtomicBool, pointer: &str| {
+            if let Some(v) = value.pointer(pointer).and_then(serde_json::Value::as_bool) {
+                changed |= target.swap(v, Ordering::Relaxed) != v;
+            }
+        };
+        flag(&self.inlay_hints, "/inlayHints/letTypes");
+        flag(&self.code_lens, "/codeLens/run");
+        flag(&self.proof_search, "/proofSearch/enabled");
+        flag(&self.semantic_colours, "/semanticColours");
+        if let Some(ms) = value
+            .pointer("/proofSearch/timeLimitMs")
+            .and_then(serde_json::Value::as_u64)
+        {
+            changed |= self.search_time_ms.swap(ms, Ordering::Relaxed) != ms;
+        }
+        changed
+    }
+
+    /// The time limit set, if any.
+    fn search_time(&self) -> Option<u64> {
+        Some(self.search_time_ms.load(Ordering::Relaxed)).filter(|&ms| ms > 0)
+    }
+}
+
+impl std::fmt::Debug for Settings {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Settings")
+            .field("inlay_hints", &Self::on(&self.inlay_hints))
+            .field("code_lens", &Self::on(&self.code_lens))
+            .field("proof_search", &Self::on(&self.proof_search))
+            .field("semantic_colours", &Self::on(&self.semantic_colours))
+            .field("search_time_ms", &self.search_time())
+            .finish()
+    }
 }
 
 /// Panics a test asks the server to cause ([`Options::faults`]). A relaxed
@@ -242,6 +329,7 @@ impl Options {
             search_wanted: 3,
             search_time: Duration::from_secs(5),
             library: Arc::default(),
+            settings: Arc::default(),
             refresh_tokens: false,
             refresh_hints: false,
             offer_rename_anyway: false,
@@ -302,6 +390,9 @@ fn initialize(params: &serde_json::Value, options: &mut Options) -> (serde_json:
     {
         options.debounce = Duration::from_millis(ms);
     }
+    if let Some(settings) = params.get("initializationOptions") {
+        options.settings.apply(settings);
+    }
     let supports = |pointer: &str| {
         params
             .pointer(pointer)
@@ -310,6 +401,10 @@ fn initialize(params: &serde_json::Value, options: &mut Options) -> (serde_json:
     };
     options.refresh_tokens = supports("/capabilities/workspace/semanticTokens/refreshSupport");
     options.refresh_hints = supports("/capabilities/workspace/inlayHint/refreshSupport");
+    options.settings.refresh_lenses.store(
+        supports("/capabilities/workspace/codeLens/refreshSupport"),
+        Ordering::Relaxed,
+    );
     options.offer_rename_anyway = params.pointer("/capabilities/window/showMessage").is_some();
     let document_changes = params
         .pointer("/capabilities/workspace/workspaceEdit/documentChanges")
@@ -403,6 +498,10 @@ pub fn serve_from(
         document_changes,
         faults: options.faults.clone(),
         notices,
+        settings: options.settings.clone(),
+        refreshes: AtomicU64::new(0),
+        refresh_tokens: AtomicBool::new(options.refresh_tokens),
+        refresh_hints: AtomicBool::new(options.refresh_hints),
     };
     let result = main.run();
     // Stops the check in progress; the checker then sees the channel closed.
@@ -578,6 +677,11 @@ pub struct Search {
     uri: Url,
     target: SearchTarget,
     kind: SearchKind,
+    /// The user's time limit for a code action's search, in milliseconds,
+    /// when set ([`Settings`]): carried here because a browser's search
+    /// worker has no settings of its own.
+    #[serde(default)]
+    time_ms: Option<u64>,
 }
 
 #[derive(serde::Serialize, serde::Deserialize)]
@@ -618,11 +722,16 @@ impl Search {
         source: &dyn Source,
         cancel: Arc<AtomicBool>,
     ) -> serde_json::Value {
-        let Search { uri, target, kind } = self;
+        let Search {
+            uri,
+            target,
+            kind,
+            time_ms,
+        } = self;
         match kind {
             SearchKind::CodeAction { range, versioned } => {
                 let mut options = pos::action_options(server.search_wanted);
-                options.time = server.search_time;
+                options.time = time_ms.map_or(server.search_time, Duration::from_millis);
                 let found = match target.project {
                     Some((root, relative, open)) => project_closing_actions(
                         server, source, &root, &relative, open, range, cancel, &options,
@@ -1041,6 +1150,13 @@ struct Main {
     document_changes: bool,
     faults: Arc<Faults>,
     notices: Arc<Notices>,
+    settings: Arc<Settings>,
+    /// Counts the requests Main makes of the client (refreshes).
+    refreshes: AtomicU64,
+    /// The client asked for refreshes of tokens and hints after a check
+    /// ([`Options::refresh_tokens`], [`Options::refresh_hints`]).
+    refresh_tokens: AtomicBool,
+    refresh_hints: AtomicBool,
 }
 
 impl Main {
@@ -1227,18 +1343,24 @@ impl Main {
                     && position_at(t, start + 1) == r.end
             })
         });
-        let (Some(range), Some(target)) = (goal, self.search_target(&uri)) else {
+        let searching = Settings::on(&self.settings.proof_search);
+        let (Some(range), Some(target)) = (
+            goal.filter(|_| searching),
+            self.search_target(&uri).filter(|_| searching),
+        ) else {
             let fixes = self.import_fixes(&uri, &p.context.diagnostics);
             let split = {
                 let texts = self.texts.borrow();
                 let at = p.range.start;
                 (texts.get(&uri)).and_then(|t| arms::split_target(t, at.line, at.character))
             };
-            if let (Some(split), Some(target)) = (split, self.search_target(&uri)) {
+            if let (Some(split), Some(target), true) = (split, self.search_target(&uri), searching)
+            {
                 let document_changes = self.document_changes;
                 self.queue_search(id, &uri.clone(), "codeAction", move |version| Search {
                     uri,
                     target,
+                    time_ms: None,
                     kind: SearchKind::Split {
                         split,
                         versioned: document_changes.then_some(version),
@@ -1257,6 +1379,7 @@ impl Main {
         self.queue_search(id, &uri.clone(), "codeAction", move |version| Search {
             uri,
             target,
+            time_ms: None,
             kind: SearchKind::CodeAction {
                 range,
                 versioned: document_changes.then_some(version),
@@ -1356,6 +1479,7 @@ impl Main {
         self.queue_search(id, &uri.clone(), "contextAt", move |_| Search {
             uri,
             target,
+            time_ms: None,
             kind: SearchKind::ContextAt { line, character },
         });
     }
@@ -1386,6 +1510,7 @@ impl Main {
         self.queue_search(request.id, &uri.clone(), "completion", move |_| Search {
             uri,
             target,
+            time_ms: None,
             kind: SearchKind::Members { dot, wanted },
         });
         None
@@ -1451,7 +1576,8 @@ impl Main {
             cancel: Arc::new(AtomicBool::new(false)),
             answered: AtomicBool::new(false),
         });
-        let search = make(version);
+        let mut search = make(version);
+        search.time_ms = self.settings.search_time();
         let key = (uri.clone(), version, search.key());
         if lock(&self.searches.panicked).contains(&key) {
             self.answer_null(id);
@@ -1508,6 +1634,30 @@ impl Main {
             document_changes: self.document_changes,
         };
         let _ = self.to_checker.send(Edit::Rename(job));
+    }
+
+    /// Asks the client to ask again for what the settings change: hints,
+    /// lenses and tokens, if it said it can refresh them.
+    fn refresh_client(&self) {
+        let lenses = Settings::on(&self.settings.refresh_lenses);
+        for (wanted, method) in [
+            (
+                Settings::on(&self.refresh_tokens),
+                "workspace/semanticTokens/refresh",
+            ),
+            (
+                Settings::on(&self.refresh_hints),
+                "workspace/inlayHint/refresh",
+            ),
+            (lenses, "workspace/codeLens/refresh"),
+        ] {
+            if wanted {
+                let n = self.refreshes.fetch_add(1, Ordering::Relaxed) + 1;
+                let id = lsp_server::RequestId::from(format!("stitchwort-settings-{n}"));
+                let request = Request::new(id, method.to_string(), serde_json::Value::Null);
+                let _ = self.connection.sender.send(request.into());
+            }
+        }
     }
 
     fn edit(&self, edit: Edit) {
@@ -1612,6 +1762,12 @@ impl Main {
                     let _ = self.to_checker.send(Edit::Saved { path, text: p.text });
                 }
             }
+            notification::DidChangeConfiguration::METHOD => {
+                let settings = n.params.get("settings").unwrap_or(&n.params);
+                if self.settings.apply(settings) {
+                    self.refresh_client();
+                }
+            }
             notification::DidChangeWatchedFiles::METHOD => {
                 let Ok(p) =
                     serde_json::from_value::<lsp_types::DidChangeWatchedFilesParams>(n.params)
@@ -1707,6 +1863,9 @@ impl Main {
         p: &lsp_types::InlayHintParams,
     ) -> Option<Vec<lsp_types::InlayHint>> {
         let uri = &p.text_document.uri;
+        if !Settings::on(&self.settings.inlay_hints) {
+            return Some(Vec::new());
+        }
         let texts = self.texts.borrow();
         let text = texts.get(uri)?;
         let (_, ws, place) = locate(nav, uri)?;
@@ -1732,6 +1891,12 @@ impl Main {
     /// `textDocument/semanticTokens/full`: each name coloured by what it
     /// resolved to ([`pos_marks::semantic_marks`]), from the last check.
     fn semantic_tokens(&self, nav: &Nav, uri: &Url) -> Option<lsp_types::SemanticTokens> {
+        if !Settings::on(&self.settings.semantic_colours) {
+            return Some(lsp_types::SemanticTokens {
+                result_id: None,
+                data: Vec::new(),
+            });
+        }
         let (_, ws, place) = locate(nav, uri)?;
         let file = ws.files.get(&place)?;
         let mut data = Vec::new();
@@ -1936,7 +2101,9 @@ impl Main {
                     let texts = self.texts.borrow();
                     let uri = &p.text_document.uri;
                     let lenses = match texts.get(uri) {
-                        Some(text) if uri.scheme() == "file" => {
+                        Some(text)
+                            if uri.scheme() == "file" && Settings::on(&self.settings.code_lens) =>
+                        {
                             lens::code_lenses(uri.as_str(), text)
                         }
                         _ => Vec::new(),
@@ -3753,6 +3920,10 @@ impl Inline {
             document_changes: false,
             faults: options.faults.clone(),
             notices,
+            settings: options.settings.clone(),
+            refreshes: AtomicU64::new(0),
+            refresh_tokens: AtomicBool::new(false),
+            refresh_hints: AtomicBool::new(false),
         };
         Ok(Inline {
             main,
@@ -3810,6 +3981,9 @@ impl Inline {
                 request::Initialize::METHOD => {
                     let (reply, document_changes) = initialize(&request.params, &mut self.options);
                     self.main.document_changes = document_changes;
+                    (self.main.refresh_tokens)
+                        .store(self.options.refresh_tokens, Ordering::Relaxed);
+                    (self.main.refresh_hints).store(self.options.refresh_hints, Ordering::Relaxed);
                     self.checker.options.refresh_tokens = self.options.refresh_tokens;
                     self.checker.options.refresh_hints = self.options.refresh_hints;
                     self.checker.options.offer_rename_anyway = self.options.offer_rename_anyway;

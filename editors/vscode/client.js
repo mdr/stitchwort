@@ -57,6 +57,47 @@ function hoverRangeParams(uri, position, selection) {
   };
 }
 
+// The settings the server reads (crates/lsp `Settings`), as the server wants
+// them: sent in `initializationOptions` and, when one changes, in
+// `workspace/didChangeConfiguration`. `get(name)` reads `stitchwort.<name>`;
+// a setting that is unset is left out so the server keeps its default.
+// (`stitchwort.goals.openAutomatically` and `stitchwort.path` are the
+// extension's own.)
+function serverSettings(get) {
+  const pick = (names) => {
+    const out = {};
+    for (const [key, name] of Object.entries(names)) {
+      const value = get(name);
+      if (value !== undefined && value !== null) out[key] = value;
+    }
+    return out;
+  };
+  return {
+    inlayHints: pick({ letTypes: 'inlayHints.letTypes' }),
+    codeLens: pick({ run: 'codeLens.run' }),
+    proofSearch: pick({ enabled: 'proofSearch.enabled', timeLimitMs: 'proofSearch.timeLimitMs' }),
+    ...pick({ semanticColours: 'semanticColours' }),
+  };
+}
+
+// Whether `text` has a goal hole to show: a `?` outside a `--` comment and
+// outside a string, as a rough scan (the server decides what is a goal).
+function mentionsGoal(text) {
+  for (const line of String(text).split('\n')) {
+    let inString = false;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (inString) {
+        if (ch === '\\') i++;
+        else if (ch === '"') inString = false;
+      } else if (ch === '"') inString = true;
+      else if (ch === '-' && line[i + 1] === '-') break;
+      else if (ch === '?') return true;
+    }
+  }
+  return false;
+}
+
 const GOAL_AT = 'stitchwort/goalAt';
 const TESTS = 'stitchwort/tests';
 
@@ -78,6 +119,8 @@ function goalHtml(answer) {
 }
 
 module.exports = {
+  serverSettings,
+  mentionsGoal,
   GOAL_AT,
   TESTS,
   escapeHtml,

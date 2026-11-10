@@ -1058,3 +1058,101 @@ fn a_code_action_on_a_goal_the_text_has_moved_from_offers_nothing() {
         assert!(jobs.is_empty(), "{jobs:?}");
     });
 }
+
+/// Switching features off (D3468): proof searches are not queued, hints,
+/// lenses and tokens come back empty, and the client is asked to refresh.
+#[test]
+fn switching_features_off_with_a_configuration_change() {
+    big_stack(|| {
+        let text = "namespace Demo\n\ndef f (o: Option Nat): Nat :=\n  let a := 1\n  match o with\n    | Some n => ?\n    | None => a\n\ntest \"a\" := 1 == 1\n";
+        let capabilities = json!({"workspace": {
+            "semanticTokens": {"refreshSupport": true},
+            "inlayHint": {"refreshSupport": true},
+            "codeLens": {"refreshSupport": true},
+        }});
+        let mut s = Session::open_with(text, capabilities);
+        let hints = |s: &mut Session| {
+            s.request(
+                "textDocument/inlayHint",
+                json!({"textDocument": {"uri": URI},
+                       "range": {"start": {"line": 0, "character": 0}, "end": {"line": 8, "character": 0}}}),
+            )
+        };
+        let action = json!({"textDocument": {"uri": URI},
+            "range": {"start": {"line": 5, "character": 17}, "end": {"line": 5, "character": 17}},
+            "context": {"diagnostics": []}});
+        let lenses = json!({"textDocument": {"uri": URI}});
+        let tokens = json!({"textDocument": {"uri": URI}});
+
+        // On by default.
+        assert!(!hints(&mut s).as_array().unwrap().is_empty());
+        assert!(
+            !s.request("textDocument/codeLens", lenses.clone())
+                .as_array()
+                .unwrap()
+                .is_empty()
+        );
+        assert!(
+            !s.request("textDocument/semanticTokens/full", tokens.clone())["data"]
+                .as_array()
+                .unwrap()
+                .is_empty()
+        );
+        let searches = s.queued_searches("textDocument/codeAction", action.clone());
+        assert_eq!(searches.len(), 1, "{searches:?}");
+        let timed: Value = serde_json::from_str(&searches[0]).unwrap();
+        assert!(timed["time_ms"].is_null(), "{timed}");
+
+        // The way VS Code sends them.
+        s.asked.clear();
+        s.notify(
+            "workspace/didChangeConfiguration",
+            json!({"settings": {"stitchwort": {
+                "inlayHints": {"letTypes": false},
+                "codeLens": {"run": false},
+                "proofSearch": {"enabled": false, "timeLimitMs": 1234},
+                "semanticColours": false,
+            }}}),
+        );
+        for method in [
+            "workspace/semanticTokens/refresh",
+            "workspace/inlayHint/refresh",
+            "workspace/codeLens/refresh",
+        ] {
+            assert!(s.asked.iter().any(|m| m == method), "{:?}", s.asked);
+        }
+        assert!(hints(&mut s).as_array().unwrap().is_empty());
+        assert!(
+            s.request("textDocument/codeLens", lenses)
+                .as_array()
+                .unwrap()
+                .is_empty()
+        );
+        assert!(
+            s.request("textDocument/semanticTokens/full", tokens.clone())["data"]
+                .as_array()
+                .unwrap()
+                .is_empty()
+        );
+        let searches = s.queued_searches("textDocument/codeAction", action.clone());
+        assert!(searches.is_empty(), "{searches:?}");
+
+        // Search back on: queued with the time limit.
+        s.asked.clear();
+        s.notify(
+            "workspace/didChangeConfiguration",
+            json!({"settings": {"stitchwort": {"proofSearch": {"enabled": true}}}}),
+        );
+        let searches = s.queued_searches("textDocument/codeAction", action);
+        assert_eq!(searches.len(), 1, "{searches:?}");
+        let timed: Value = serde_json::from_str(&searches[0]).unwrap();
+        assert_eq!(timed["time_ms"], 1234, "{timed}");
+        // Nothing else changed, so a repeated setting asks for no refresh.
+        s.asked.clear();
+        s.notify(
+            "workspace/didChangeConfiguration",
+            json!({"settings": {"stitchwort": {"proofSearch": {"enabled": true}}}}),
+        );
+        assert!(s.asked.is_empty(), "{:?}", s.asked);
+    });
+}

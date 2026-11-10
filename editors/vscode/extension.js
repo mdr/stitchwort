@@ -23,6 +23,12 @@ function configuredPath() {
   return vscode.workspace.getConfiguration('stitchwort').get('path');
 }
 
+// The settings the server reads, from the user's configuration.
+function serverSettings() {
+  const config = vscode.workspace.getConfiguration('stitchwort');
+  return cfg.serverSettings((name) => config.get(name));
+}
+
 function startClient() {
   const folder = (vscode.workspace.workspaceFolders || [])[0];
   const s = cfg.serverCommand(configuredPath(), folder && folder.uri.fsPath);
@@ -35,6 +41,7 @@ function startClient() {
   };
   const clientOptions = {
     documentSelector: cfg.documentSelector,
+    initializationOptions: serverSettings(),
     synchronize: {
       fileEvents: vscode.workspace.createFileSystemWatcher(cfg.watchedGlob),
     },
@@ -164,6 +171,20 @@ function openGoalPanel() {
   refreshGoal();
 }
 
+// With `stitchwort.goals.openAutomatically`, the Goals panel opens when a
+// `.sw` file with a `?` is opened (once per file, and not again after the
+// panel is closed by hand).
+const goalsOffered = new Set();
+function openGoalsFor(document) {
+  if (!document || document.languageId !== cfg.LANGUAGE || document.uri.scheme !== 'file') return;
+  const key = document.uri.toString();
+  if (goalsOffered.has(key)) return;
+  if (!vscode.workspace.getConfiguration('stitchwort').get('goals.openAutomatically')) return;
+  if (!cfg.mentionsGoal(document.getText())) return;
+  goalsOffered.add(key);
+  if (!goalPanel) openGoalPanel();
+}
+
 function activate(context) {
   context.subscriptions.push(
     vscode.commands.registerCommand('stitchwort.showGoals', openGoalPanel),
@@ -174,12 +195,21 @@ function activate(context) {
     vscode.languages.onDidChangeDiagnostics(scheduleGoal),
     vscode.workspace.registerTextDocumentContentProvider(cfg.STD_SCHEME, stdContent),
     vscode.workspace.onDidChangeConfiguration(async (e) => {
-      if (!e.affectsConfiguration('stitchwort.path')) return;
-      await restartServer();
+      if (e.affectsConfiguration('stitchwort.path')) {
+        await restartServer();
+      } else if (e.affectsConfiguration('stitchwort') && client) {
+        // The server asks the editor to redraw hints, lenses and colours.
+        client.sendNotification('workspace/didChangeConfiguration', {
+          settings: { stitchwort: serverSettings() },
+        });
+      }
     }),
+    vscode.workspace.onDidOpenTextDocument(openGoalsFor),
+    vscode.window.onDidChangeActiveTextEditor((editor) => editor && openGoalsFor(editor.document)),
     { dispose: stopClient },
   );
   startClient();
+  for (const document of vscode.workspace.textDocuments) openGoalsFor(document);
   // The server's list of a file's tests; rejects when there's no server, and
   // the Testing panel then reads the text instead.
   const serverTests = async (uri) => {
