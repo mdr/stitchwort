@@ -3,6 +3,7 @@
 -- doesn't mention what's matched, so it's kept as the call, not written out
 -- as its 160,000 elements and evaluated again at every branch: that takes
 -- about 1.2 s here, kept 0.2 s (SW-1106, SW-2481).
+-- differential: skip (a 160,000-element list is deeper than the recursive reference evaluator can go, SW-2616)
 import Std (List, Bool)
 
 def pick (b: Bool) (n: Nat): Nat :=
