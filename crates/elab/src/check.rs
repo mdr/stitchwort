@@ -751,11 +751,19 @@ impl<'e> Ctx<'e> {
     /// [`Ctx::show`], but with calls unfolded: what `value` computes to,
     /// for a message that says so.
     pub fn show_unfolded(&self, value: &Value) -> String {
-        match stitchwort_core::value::quote_unfolded_shown(&self.g(), self.level(), value) {
-            Ok(term) => {
+        // A message shows a few hundred characters, so a value that unfolds
+        // to more than this many nodes is not read back whole.
+        const UNFOLD_NODES: u64 = 200_000;
+        match stitchwort_core::value::quote_unfolded_shown_at_most(
+            &self.g(),
+            self.level(),
+            value,
+            UNFOLD_NODES,
+        ) {
+            Ok(Some(term)) => {
                 pretty::term_for_message_in(&self.g(), self.e, &self.shown_names(false), &term)
             }
-            Err(_) => "…".into(),
+            Ok(None) | Err(_) => "…".into(),
         }
     }
 
