@@ -1,5 +1,5 @@
 {
-  "next": 2637,
+  "next": 2638,
   "tickets": [
     {
       "id": 47,
@@ -27239,6 +27239,24 @@
       "created": "2026-11-10",
       "updated": "2026-11-10",
       "commits": []
+    },
+    {
+      "id": 2637,
+      "title": "Tutorial part 1 (shopping basket): bring up to date with language and editor changes since 6 Nov (∀ done in 0d8790677, setup in 7026f87ff)",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "docs"
+      ],
+      "epic": "docs-tutorials",
+      "body": "Matt asked (10 Nov 2026) to update the tutorial with the new forall syntax and other recent changes. ∀ already done (SW-2588, 0d8790677); setup step now task vscode:install (7026f87ff, orchestrator). Lane: review the rest against changes since 6 Nov. Estimate 30 min.",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": [
+        "0d8790677",
+        "7026f87ff"
+      ]
     }
   ]
 }
