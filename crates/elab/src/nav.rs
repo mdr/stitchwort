@@ -44,8 +44,8 @@ pub(crate) struct Recorder {
     /// The definitions of the files walked.
     pub(crate) outline: Vec<OutlineItem>,
     /// The parameters of the declarations walked, by their binders in the
-    /// declaration's header (not for the library's files, which are not
-    /// walked when loaded from the cache).
+    /// declaration's header (a library file loaded from the cache has its
+    /// own, kept in the entry).
     pub(crate) params: Vec<ParamBinder>,
     /// The names in named arguments `(x := e)` and `[x := p]` that the walk
     /// found, to be linked to the callee's parameter in the index.
@@ -961,8 +961,8 @@ impl Elaborator {
             .filter(|span| nav.binders.iter().any(|b| b.span == *span))
             .collect();
         // The name in a named argument `(x := e)` is a use of the callee's
-        // parameter. (A callee that isn't known, or one in a library file
-        // loaded from the cache, leaves the name as a variable of its own.)
+        // parameter. (A callee that isn't known leaves the name as a variable
+        // of its own.)
         let mut linked: stitchwort_core::collections::HashSet<Span> =
             stitchwort_core::collections::HashSet::default();
         for used in &nav.named {
