@@ -1,5 +1,5 @@
 {
-  "next": 2735,
+  "next": 2736,
   "tickets": [
     {
       "id": 47,
@@ -28611,6 +28611,22 @@
       "labels": [],
       "epic": "syntax-language",
       "body": "D3482 (Matt, 10 Nov 2026); D3490 (Matt, 10 Nov 2026): started at pace 1.00 as a special exception. Opus. Est. 3 h. Built to D3486's recommendation (open), kept separable.",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
+    },
+    {
+      "id": 2735,
+      "title": "[Fable] Decide D3486: a ∧ b on two Bools in a proposition means a = True ∧ b = True (test written in full) or the test (a && b) = True, or a third option; short paper lane",
+      "status": "doing",
+      "agent": "Claude",
+      "where": ".claude/worktrees/SW-2735",
+      "labels": [
+        "paper",
+        "design"
+      ],
+      "epic": "syntax-language",
+      "body": "Matt, 10 Nov 2026: 'Do a short Fable 5.2 paper lane to decide'. Its answer is D3486's. SW-2734 (stage 1 coercion) is building to the recommendation with the rule kept in one place. Est. 45 min.",
       "created": "2026-11-10",
       "updated": "2026-11-10",
       "commits": []
