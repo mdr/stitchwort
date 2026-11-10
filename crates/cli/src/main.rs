@@ -3029,6 +3029,8 @@ fn print_audit(
     args: &AuditArgs,
 ) -> ExitCode {
     use stitchwort_driver::audit;
+    // The counts cover every audited declaration, generated ones included;
+    // only the number before the colon is the theorems written in source.
     let failed = audits
         .iter()
         .filter(|a| a.worst() == Some(audit::Severity::Fail))
@@ -3038,7 +3040,9 @@ fn print_audit(
         .filter(|a| a.worst() == Some(audit::Severity::Warn))
         .count();
     let ok = failed == 0 && (!args.strict || warned == 0);
-    let total = audits.len();
+    let written: Vec<_> = audits.iter().filter(|a| !a.generated).collect();
+    let generated = audits.len() - written.len();
+    let total = written.len();
     if args.json {
         let json = serde_json::json!({
             "version": 1,
@@ -3049,9 +3053,10 @@ fn print_audit(
             "theorems": audits,
             "summary": {
                 "theorems": total,
+                "generated": generated,
                 "failed": failed,
                 "warned": warned,
-                "passed": total - failed - warned,
+                "passed": audits.len() - failed - warned,
             },
         });
         println!("{json}");
@@ -3087,14 +3092,21 @@ fn print_audit(
         }
     }
     let s = if total == 1 { "" } else { "s" };
+    let separated = if generated > 0 {
+        let lemma = if generated == 1 { "lemma" } else { "lemmas" };
+        format!(" and {generated} generated {lemma}")
+    } else {
+        String::new()
+    };
     let strict = if args.strict && warned > 0 {
         " (--strict: warnings fail)"
     } else {
         ""
     };
     println!(
-        "audited {total} theorem{s}: {failed} failed, {warned} with warnings{strict}, {} passed",
-        total - failed - warned
+        "audited {total} theorem{s}{separated}: {failed} failed, {warned} with \
+         warnings{strict}, {} passed",
+        audits.len() - failed - warned
     );
     exit(ok)
 }

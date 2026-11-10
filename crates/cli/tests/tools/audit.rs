@@ -173,7 +173,13 @@ fn json_gives_every_theorem_and_its_findings() {
     assert_eq!(json["allowed_axioms"], serde_json::json!([]));
     assert_eq!(
         json["summary"],
-        serde_json::json!({"theorems": 3, "failed": 1, "warned": 1, "passed": 1})
+        serde_json::json!({
+            "theorems": 3,
+            "generated": 0,
+            "failed": 1,
+            "warned": 1,
+            "passed": 1
+        })
     );
     let theorems = json["theorems"].as_array().unwrap();
     let names: Vec<&str> = theorems
@@ -191,6 +197,48 @@ fn json_gives_every_theorem_and_its_findings() {
     assert_eq!(theorems[2]["findings"][0]["check"], "axioms");
     assert_eq!(theorems[2]["findings"][0]["severity"], "fail");
     assert_eq!(theorems[2]["status"], "checked");
+}
+
+/// Generated declarations are counted apart from the theorems written in
+/// source: a record's `T.ext`, and a variant's shared-field update lemmas.
+#[test]
+fn generated_lemmas_are_counted_apart_from_written_theorems() {
+    let source = "type Grade = { letter: Nat, modifier: Nat }\n\n\
+                  type Change =\n  | Set (letter: Nat) (modifier: Nat)\n  | Keep (letter: Nat) (modifier: Nat)\n\n\
+                  theorem gradeRefl (g: Grade): g = g := rfl\n";
+    let (code, out) = audit_file("generated", source, &["--no-search"]);
+    assert_eq!(code, 0, "{out}");
+    // The record's `Grade.ext`, and Change's four update lemmas.
+    assert_eq!(
+        out,
+        "audited 1 theorem and 5 generated lemmas: 0 failed, 0 with warnings, 6 passed\n"
+    );
+}
+
+/// A generated declaration's failure is counted too, not printed as
+/// `0 failed`: these equations inherit `Quot.sound` from the definition
+/// they unfold.
+#[test]
+fn a_failing_generated_declaration_is_counted_and_fails() {
+    let source = "def AllTrue (x: Bool) (y: Bool): Prop := Unit\n\
+                  def Q: Type := Quot Bool AllTrue\n\n\
+                  def q (n: Nat): Nat :=\n  let e: (Quot.mk False: Q) = Quot.mk True := Quot.sound Trivial\n  n\n\n\
+                  def f: Nat → Nat\n  | 0 => q 0\n  | Succ k => q k\n\n\
+                  theorem clean (n: Nat): n = n := rfl\n";
+    let (code, out) = audit_file(
+        "generated-fail",
+        source,
+        &["--no-search", "--allowed-axioms", ""],
+    );
+    assert_eq!(code, 1, "{out}");
+    let fail = "    fail: uses Quot.sound beyond the allowed axioms (none)\n";
+    assert_eq!(
+        out,
+        format!(
+            "✗ f.eq1\n{fail}✗ f.eq2\n{fail}\
+             audited 1 theorem and 2 generated lemmas: 2 failed, 0 with warnings, 1 passed\n"
+        )
+    );
 }
 
 /// In a project: a namespace, a theorem by its full name, and the
@@ -305,7 +353,9 @@ fn a_statement_naming_a_huge_computation_skips_its_search() {
         "{out}"
     );
     assert!(
-        out.ends_with("0 failed, 0 with warnings, 4 passed\n"),
+        out.ends_with(
+            "audited 1 theorem and 3 generated lemmas: 0 failed, 0 with warnings, 4 passed\n"
+        ),
         "{out}"
     );
 }

@@ -83,6 +83,11 @@ pub enum Status {
 pub struct TheoremAudit {
     /// Its full name.
     pub name: String,
+    /// Whether the compiler generated it rather than the source (an
+    /// equation, a functional induction, an update lemma or a record's
+    /// extensionality lemma).
+    #[serde(skip)]
+    pub generated: bool,
     pub status: Status,
     /// The axioms it depends on, allowed or not (only if it checked).
     pub axioms: Vec<&'static str>,
@@ -118,6 +123,42 @@ pub struct Options {
     /// The counterexample search's budget per theorem; `None` skips the
     /// search (and so the vacuity warning).
     pub search: Option<Budget>,
+}
+
+/// Whether `id` is a declaration the compiler made rather than one written
+/// in source: a definition's equation (`f.eq2`) or functional induction
+/// (`f.induct`), a shared field's update lemma (`T.f.update.g`), or a
+/// record's extensionality lemma (`T.ext`).
+///
+/// The first two have reserved names ([`stitchwort_elab::is_generated_name`]).
+/// An update lemma's name can't be written, and its owner is a data type. A
+/// record gets `T.ext` unless it writes one, so a written `T.ext` is told
+/// apart by its span: the generated one is at its type's own.
+fn is_generated(g: &Ev, id: DefId) -> bool {
+    let def = g.def(id);
+    if stitchwort_elab::is_generated_name(g, def.name()) {
+        return true;
+    }
+    let path = def.path().to_string();
+    if is_update_lemma(g, &path) {
+        return true;
+    }
+    let Some(owner) = path.strip_suffix(".ext") else {
+        return false;
+    };
+    (g.env.datas().iter()).any(|d| &**d.path() == owner && d.record() && d.span() == def.span())
+}
+
+/// Whether `T.f.update.g` names a shared field's generated update lemma:
+/// `update` is its third part from the end, and `T` is a data type.
+fn is_update_lemma(g: &Ev, path: &str) -> bool {
+    let mut parts = path.rsplitn(4, '.');
+    let (Some(_read), Some(op), Some(field), Some(owner)) =
+        (parts.next(), parts.next(), parts.next(), parts.next())
+    else {
+        return false;
+    };
+    op == "update" && !field.is_empty() && (g.env.datas().iter()).any(|d| &**d.path() == owner)
 }
 
 /// The theorems of `g` whose full name `keep` keeps, in the order they were
@@ -167,6 +208,7 @@ impl Session {
         };
         let mut audit = TheoremAudit {
             name: name.to_string(),
+            generated: is_generated(g, id),
             status,
             axioms: Vec::new(),
             search: None,

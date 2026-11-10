@@ -515,6 +515,8 @@ Std.List` for std ([syntax.md](syntax.md#auditing-theorems-stitchwort-audit)).
   hypotheses really contradict each other, the theorem proves nothing:
   fix its statement, or say so in the report. If they are only narrow (a
   monster at exactly the given cell), say so in a line.
-- The report quotes the summary line (`audited N theorems: …`).
+- The report quotes the summary line (`audited N theorems: …`, or
+  `audited N theorems and M generated lemmas: …` when the compiler
+  generated lemmas too).
 
 **At merge** (D2043, Matt, 30 October 2026; trimmed by D2441, 5 Nov 2026): a proof lane's touched namespaces are audited with the search (`task audit:touched -- Aoc.Year2024.Day06`) before it is merged. It isn't inside `task test:merge`, whose 90 s budget the search would break.
