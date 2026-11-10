@@ -27069,7 +27069,7 @@
       "title": "[Opus] Refactoring in the editor and playground: design note (rename first, then what else, in what order, and how each stays correct for proofs)",
       "status": "done",
       "agent": "Opus",
-      "where": ".claude/worktrees/SW-SW-2626",
+      "where": ".claude/worktrees/SW-2626",
       "labels": [
         "editor",
         "paper"
@@ -27123,7 +27123,7 @@
         "refactoring"
       ],
       "epic": "editor-playground",
-      "body": "docs/proposals/refactoring.md §5 (SW-2626). D3467. Needs R1 (SW-SW-2627) and R2 (SW-SW-2628). Est. 150 min.",
+      "body": "docs/proposals/refactoring.md §5 (SW-2626). D3467. Needs R1 (SW-2627) and R2 (SW-2628). Est. 150 min.",
       "created": "2026-11-10",
       "updated": "2026-11-10",
       "commits": []
@@ -27139,7 +27139,7 @@
         "refactoring"
       ],
       "epic": "editor-playground",
-      "body": "D3467 (Matt, 10 Nov 2026). Needs R2 (SW-SW-2628). Est. 60 min.",
+      "body": "D3467 (Matt, 10 Nov 2026). Needs R2 (SW-2628). Est. 60 min.",
       "created": "2026-11-10",
       "updated": "2026-11-10",
       "commits": []
@@ -27155,7 +27155,7 @@
         "refactoring"
       ],
       "epic": "editor-playground",
-      "body": "docs/proposals/refactoring.md §3.3 (SW-2626). D3467. Needs R3 (SW-SW-2629). Est. 90 min.",
+      "body": "docs/proposals/refactoring.md §3.3 (SW-2626). D3467. Needs R3 (SW-2629). Est. 90 min.",
       "created": "2026-11-10",
       "updated": "2026-11-10",
       "commits": []
