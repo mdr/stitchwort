@@ -1,5 +1,5 @@
 {
-  "next": 2692,
+  "next": 2693,
   "tickets": [
     {
       "id": 47,
@@ -28037,6 +28037,22 @@
       "labels": [],
       "epic": "syntax-language",
       "body": "From SW-2656 (10 Nov 2026). Orchestrator's call: canonical form chosen in the lane, mention to Matt. Est. 60 min.",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
+    },
+    {
+      "id": 2692,
+      "title": "[Fable] Design note: Bool versus Prop as the home of decidable facts (≤, =, membership): end state, with prior art (Lean, Agda, Rocq/SSReflect, Idris, Isabelle) and literature",
+      "status": "doing",
+      "agent": "Claude",
+      "where": ".claude/worktrees/SW-2692",
+      "labels": [
+        "paper",
+        "design"
+      ],
+      "epic": "syntax-language",
+      "body": "D3478 (Matt, 10 Nov 2026): yes. Migration cost is not a factor (D2303): best end state only. Output docs/proposals/bool-and-prop.md. Est. 2-3 h.",
       "created": "2026-11-10",
       "updated": "2026-11-10",
       "commits": []
