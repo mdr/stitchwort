@@ -26634,9 +26634,9 @@
     {
       "id": 2608,
       "title": "Effect fuzzer: document STITCHWORT_EFFECT_FUZZ_DUMP=dir (saves each batch's source) in the file's header doc and docs/testing.md",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Sonnet",
-      "where": "",
+      "where": ".claude/worktrees/SW-2608",
       "labels": [],
       "epic": "test-infra",
       "body": "From SW-2579, 10 Nov. Tiny.",
@@ -26673,9 +26673,9 @@
     {
       "id": 2611,
       "title": "task test:lane AREA=examples NAME=cases ran 0 tests in a worktree (direct EXAMPLES=cases cargo nextest run --profile lane-examples ran 12)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Sonnet",
-      "where": "",
+      "where": ".claude/worktrees/SW-2608",
       "labels": [],
       "epic": "test-infra",
       "body": "From SW-2606, 10 Nov. Tiny.",
