@@ -1,5 +1,5 @@
 {
-  "next": 2637,
+  "next": 2638,
   "tickets": [
     {
       "id": 47,
@@ -24832,16 +24832,16 @@
     {
       "id": 2466,
       "title": "Formatter not idempotent: fmt fuzz (default seed 0x9e3779b97f4a7c15) case 11532, rng state 0xf22057b48b3300d7, on a comment block from std/Quot/Quot.sw ('The library's quotient lemmas ...'): formatting twice differs from once; fails the daily tier",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Sonnet",
-      "where": "",
+      "where": ".claude/worktrees/SW-2466",
       "labels": [
         "fmt"
       ],
       "epic": "editor-playground",
-      "body": "Found by the daily tier, 9 Nov 2026 00:01 (crates/fmt/tests/it/fuzz.rs:260). Repro: task fuzz:fmt (default), or the input printed in the failure. Fix the formatter; add the input to the formatter's golden or regression tests. 45 min.",
+      "body": "Found by the daily tier, 9 Nov 2026 00:01 (crates/fmt/tests/it/fuzz.rs:260). Repro: task fuzz:fmt (default), or the input printed in the failure. Fix the formatter; add the input to the formatter's golden or regression tests. 45 min.\nStarted 10 Nov (Matt: fix it alongside D3468's format on save default).",
       "created": "2026-11-09",
-      "updated": "2026-11-09",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -27237,6 +27237,21 @@
       ],
       "epic": "effects-native",
       "body": "Found by Overmind's final bench:compare --all (10 Nov 2026), which hung at this step. Reproduced on Speedwell: cd aoc && ../target/release/stitchwort run --js Aoc.Year2021.Day15.main < inputs/2021/day15.txt, timeout 600 -> rc 124. Correctness bug (the playground and run --js use this backend), not paused speed work. Est. 90 min.\nLane result (10 Nov): crates/js unchanged since 0c1bf7d94, which also hangs. Crops of the input (n×n corner, part 2 = 25n² nodes): n=10 0.74 s, n=20 2.7 s, n=30 14 s, answers match run. Speed work is paused (D3465), so parked; the playground uses this backend, so it matters for users running such programs there.\nModel result: Sonnet, worked (diagnosis), 8 min.",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
+    },
+    {
+      "id": 2637,
+      "title": "[Sonnet] Editor settings (D3468): a Stitchwort section in VS Code's Settings (inlay hints, run icons, proof search on ? and its time limit, semantic colours, goals panel auto-open) read by the server at start and on change; format on save on by default for .sw (configurationDefaults); a ⚙ menu in the playground with the same switches plus format on save and font size, kept in localStorage; a Settings paragraph in the guide",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "editor"
+      ],
+      "epic": "editor-playground",
+      "body": "D3468 (Matt, 10 Nov 2026): yes. Starts after SW-2629 (same extension and playground files). Est. 90 min.",
       "created": "2026-11-10",
       "updated": "2026-11-10",
       "commits": []
