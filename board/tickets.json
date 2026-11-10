@@ -1,5 +1,5 @@
 {
-  "next": 2612,
+  "next": 2613,
   "tickets": [
     {
       "id": 47,
@@ -26662,15 +26662,17 @@
     {
       "id": 2610,
       "title": "Soundness fuzzer: SOUND_ONLY never produces statement+closer mutants, so a saved one can't be regenerated; and saved -expensive.sw files weren't found on disk (2575-2058-3). Check where they're written; have SOUND_ONLY cover every mutation kind",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2610",
       "labels": [],
       "epic": "audit-fuzzing",
-      "body": "From SW-2606, 10 Nov.",
+      "body": "From SW-2606, 10 Nov.\n\nDone 10 Nov: SOUND_ONLY adds every statement mutation x 5 closers (zeroPlus 8 -> 28); saves go to <checkout>/target/soundness-fuzz (lost on worktree:rm, documented), name index is the mutant's position (was results.len(), could overwrite), printed path canonicalised. Model result: Sonnet, worked, 5 min (est. 40).",
       "created": "2026-11-10",
       "updated": "2026-11-10",
-      "commits": []
+      "commits": [
+        "6501352a5"
+      ]
     },
     {
       "id": 2611,
@@ -26681,6 +26683,19 @@
       "labels": [],
       "epic": "test-infra",
       "body": "From SW-2606, 10 Nov. Tiny.\n\nClosed 10 Nov, not reproducible: test:lane AREA=examples NAME=cases ran 12 tests in a fresh worktree several ways; Taskfile and nextest profile are correct. If seen again, capture task -v output. Model result: Sonnet, worked, 5 min (est. 25, both tickets).",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
+    },
+    {
+      "id": 2612,
+      "title": "Soundness fuzzer: the unmutated calibration check runs under the mutant caps, so a low SOUND_MEM_CAP_MB/SOUND_MUTANT_SECS skips the theorem as 'unmutated check rejected'; run it uncapped or say the cap tripped",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "audit-fuzzing",
+      "body": "From SW-2610, 10 Nov. Small.",
       "created": "2026-11-10",
       "updated": "2026-11-10",
       "commits": []
