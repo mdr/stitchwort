@@ -117,8 +117,8 @@ theorem Nat.bitsEqual (m n: Nat) (small: m < 2) (alsoSmall: n < 2) (same: (m == 
   match m, n with
     | Zero, Zero => rfl
     | Succ Zero, Succ Zero => rfl
-    | Zero, Succ Zero => Void.exfalso (Bool.falseNotTrue same)
-    | Succ Zero, Zero => Void.exfalso (Bool.trueNotFalse same)
+    | Zero, Succ Zero => cases
+    | Succ Zero, Zero => cases
     | Succ (Succ m), n => Void.exfalso (omega)
     | m, Succ (Succ n) => Void.exfalso (omega)
 

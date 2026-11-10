@@ -1,11 +1,11 @@
 ---
-source: crates/driver/tests/hash_stability.rs
+source: crates/driver/tests/library/hash_stability.rs
 expression: "lines(session, d, f)"
 ---
 Main.starts ff0576b0d1ccf593c7bf2e63e7868ef4eac5a9ea219648c4e80c228d6902b5be
 Main.slots ca3823a6afc32af9feda150b621d55ed579bf603e1d63aeaebd87c729826da51
-Main.test "starts" e62459ca5c7850eb27bb6b12275a0591d01615c18d1e7f9a340a518dc682127f
-Main.test "slots" 5d317fb1edbda9091f8a9c6d4cace90eba1dad4d586f2ecfb767da0ee0a703f8
+Main.test "starts" 8df69257993f3f6f23ffe8d1e1e780778179f429ed753ea004adda71e03c0253
+Main.test "slots" 38d57aa82fc9c806f0a6251949ac21816bae29c71a6cdbd8691b3063b6c1b0ec
 Main.startAt d01d28e309aa6f553c4aa95c57cea9a8e798e40b387b1de34f05a633e6274e39
 Main.slotAt c969c25f42c874054cb5c1337180d9dba928a364ddb79b4019c13f3c78e67901
 Main.startFromSpans 1c64f0ff683a4233737979a8b4425718c08ef3c6d79c1b739319f2cc3d5f2763

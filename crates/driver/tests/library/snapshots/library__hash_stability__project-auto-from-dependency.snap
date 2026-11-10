@@ -1,5 +1,5 @@
 ---
-source: crates/driver/tests/hash_stability.rs
+source: crates/driver/tests/library/hash_stability.rs
 expression: "lines(session, d, f)"
 ---
 data Base.Token fd52b0c017a386ecd2ec334b5250ed1f2eb943ed3b5363fa56af477166c8c4f0
@@ -7,4 +7,4 @@ Base.needsToken 252e9381be7ea76f46b4bf597f4c71bbda7800506261775c8b6a3b8b5b9a70cc
 A.decA 2ab5c3c4cd4de55cdd25990f746be82e4864d6a872c121e8a8a8992f6b886761
 Another.decU 2ab5c3c4cd4de55cdd25990f746be82e4864d6a872c121e8a8a8992f6b886761
 Day.client b6ea3cf46f17e84f3be7e8f427a5ceb13caa49bae3ec78c2ad88891be9253981
-Day.test "client" 0ec4d658e6e549643224b10731fe3de893ab221ffa6eefc8c0e2b6498cb218e8
+Day.test "client" 731ab417a43f7d9154b3109cbbb6efead5183ed6df5125acd61b2d6af0bd889d

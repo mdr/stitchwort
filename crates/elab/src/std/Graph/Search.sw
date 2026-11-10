@@ -217,7 +217,7 @@ theorem Graph.Costs.getOfHas (costs: Graph.Costs s t) [table: t] [state: s] (the
     ∃ (cost: Nat) => costs.get table state = Some cost :=
   match got: costs.get table state with
     | Some cost => Witness cost rfl
-    | None => Void.exfalso (Bool.falseNotTrue there)
+    | None => cases
 
 --| A state just set is one the table has.
 theorem Graph.Costs.hasSetSame (costs: Graph.Costs s t) (table: t) (state: s) (cost: Nat): costs.has (costs.set table state cost) state = True :=
@@ -304,7 +304,7 @@ def Graph.IndexTable.empty [auto ord: Ord s] (index: Graph.Index s): Graph.Index
   rest = Map.empty,
   sized = Array.sizeReplicate index.size None,
   numbered = i cost state there decoded => Void.exfalso (Option.noneNotSome cost (rewrite Array.getOrReplicate index.size None i at there in there)),
-  unnumbered = state there => Void.exfalso (Bool.falseNotTrue there)
+  unnumbered = state there => cases
 }
 
 --| The cost the table has for `state`: its cell's, or the map's for a state
@@ -559,7 +559,7 @@ def Graph.improves (costs: Graph.Costs s t) (best: t) (state: s) (total: Nat): B
 theorem Graph.improvesFalse (costs: Graph.Costs s t) (best: t) (state: s) (total: Nat) (no: Graph.improves costs best state total = False):
     Exists Nat (known => (costs.get best state = Some known) ∧ (known ≤ total)) :=
   match got: costs.get best state with
-    | None => Void.exfalso (Bool.trueNotFalse no)
+    | None => cases
     | Some known => Witness known (Both rfl omega)
 
 --| A cost that improves is less than any `best` has.
@@ -718,7 +718,7 @@ def Graph.universe (graph: Graph s) (sources: List (s, Nat)): List s := sources.
 theorem Graph.startQueued [auto ord: Ord s] (graph: Graph s) (costs: Graph.Costs s t) (sources: List (s, Nat)) (cost: Nat) (state: s)
     (there: (Graph.relaxEdges costs 0 sources Set.empty costs.empty).fst.contains (cost, state) = True): state ∈ graph.universe sources :=
   match Graph.relaxAdded costs 0 sources Set.empty costs.empty cost state there with
-    | Inl none => Void.exfalso (Bool.falseNotTrue none)
+    | Inl none => cases
     | Inr (Witness start (Both member costsEqual)) =>
       List.memAppendLeft state (sources.map Pair.fst) graph.states (List.memMap sources (state, start) member Pair.fst)
 
@@ -1026,7 +1026,7 @@ theorem Graph.distancesWithCorrect [auto ord: Ord s] (graph: Graph s) (costs: Gr
     Both
       (cost state there =>
         match Graph.relaxAdded costs 0 sources Set.empty costs.empty cost state there with
-          | Inl none => Void.exfalso (Bool.falseNotTrue none)
+          | Inl none => cases
           | Inr (Witness begin (Both member costsEqual)) =>
             let same: cost = begin := omega
             rewrite same in sourcesReach state begin member)

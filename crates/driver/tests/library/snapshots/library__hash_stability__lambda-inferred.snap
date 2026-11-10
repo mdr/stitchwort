@@ -1,12 +1,12 @@
 ---
-source: crates/driver/tests/hash_stability.rs
+source: crates/driver/tests/library/hash_stability.rs
 expression: "lines(session, d, f)"
 ---
 Main.roll b64f3067c458c3ff8187530de2e4f55b191a8a8c57eb859b4b8cc9c7ec3e214c
 Main.test "unit parameter".%match1 c86eeff910bbb579e208a9afa70b0ad00c39505260be48f25cfa4cd84f00a3c8
-Main.test "unit parameter" ffe2161020c3f5bfb4342d1d2dcf39371080cc42d793ab27f1db3794057a7351
-Main.test "fixed by the use" a44f83203f3e9b3d0b1c2923bdb8e602eab7a2e1482cfb34a7b28c3c8bff8973
-Main.test "fixed by the body" bad5eabcc4d710ebaba065c55187b27ea4dc52c9aaec1b0df691792fb315eaee
-Main.test "several parameters" f78741ed55a6f2e1b454199cc936f08b8a081ff8514104b1b3dac4ef52a01120
-Main.test "used twice" 4833b9a4817cf967cf5c44d947b0e54472a36088bfc1d4fefedf67756f353233
-Main.test "passed on" 1019e162582841cce9902120589501873ec5667a0beecaa1d3a45352feb74b06
+Main.test "unit parameter" b883b3767ac9b3f1ff3ad37b44da3a9350287e5bc95ff21cf986fbd2722b79af
+Main.test "fixed by the use" 37e4e745d041c17aae12bb4fdead38f7067ff9f3ec3583eddb1a66c2df48ca4d
+Main.test "fixed by the body" fa85c8639c403ef288ca78b94157dc4a61940c53c73fa05297d5bd263920493a
+Main.test "several parameters" 2ac25a9d5b68edfb8dc8c09d8a4beac16139e052794632df4b158cd1c3a0e93e
+Main.test "used twice" b89f6a19e931c3b23c02da182ee1d4e096e94c8733444c9378e1cd7a0c2a81d3
+Main.test "passed on" fb7c08135ebb6f5744aed98857f1f6dce006a6153c56d8cd01c4b884d5b8ea23

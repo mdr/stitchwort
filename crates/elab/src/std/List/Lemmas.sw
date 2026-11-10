@@ -733,7 +733,7 @@ theorem List.startsWithSplit [auto eq: DecEq a] (xs prefix: List a) (starts: Lis
     List.append prefix (List.drop xs (List.length prefix)) = xs :=
   match xs, prefix with
     | xs, [] => rfl
-    | [], [p, ..ps] => Void.exfalso (Bool.falseNotTrue starts)
+    | [], [p, ..ps] => cases
     | [x, ..xs], [p, ..ps] =>
       rewrite DecEq.sound (Bool.andLeft starts), List.startsWithSplit xs ps (Bool.andRight starts) in rfl
 
@@ -742,7 +742,7 @@ theorem List.startsWithLength [auto eq: DecEq a] (xs prefix: List a) (starts: Li
     List.length prefix ≤ List.length xs :=
   match xs, prefix with
     | xs, [] => rfl
-    | [], [p, ..ps] => Void.exfalso (Bool.falseNotTrue starts)
+    | [], [p, ..ps] => cases
     | [x, ..xs], [p, ..ps] => List.startsWithLength xs ps (Bool.andRight starts)
 
 --| Appending to `prefix` gives `xs` exactly when the appended list is the
@@ -2150,7 +2150,7 @@ theorem List.anyOfMem (xs: List a) (q: a → Bool) (y: a) (qy: q y = True) (h: y
 
 --| When `List.any` is true, some element of the list passes.
 theorem List.anyTrueElim: ∀ (xs: List a) (p: a → Bool) (goal: Prop) => List.any xs p = True → ∀ (cont: ∀ (x: a) => x ∈ xs → p x = True → goal) => goal
-  | [], p, goal, h, k => Void.exfalso (Bool.falseNotTrue h)
+  | [], p, goal, h, k => cases
   | [z, ..zs], p, goal, h, k =>
     match c: p z with
       | True => k z (Inl rfl) c
@@ -2326,7 +2326,7 @@ theorem List.takeWhileAppend (p: a → Bool) (rest: List a) (prefix: List a) (al
     | [x, ..xs] =>
       match p x with
         | True => Eq.cong (Cons x) (List.takeWhileAppend p rest xs all)
-        | False => Void.exfalso (Bool.falseNotTrue all)
+        | False => cases
 
 --| `dropWhile` over a prefix that passes drops it.
 theorem List.dropWhileAppend (p: a → Bool) (rest: List a) (prefix: List a) (all: List.all prefix p = True):
@@ -2336,7 +2336,7 @@ theorem List.dropWhileAppend (p: a → Bool) (rest: List a) (prefix: List a) (al
     | [x, ..xs] =>
       match p x with
         | True => List.dropWhileAppend p rest xs all
-        | False => Void.exfalso (Bool.falseNotTrue all)
+        | False => cases
 
 --| Where `takeWhile` takes nothing, `dropWhile` drops nothing.
 theorem List.dropWhileStops (p: a → Bool) (xs: List a) (stops: List.takeWhile xs p = []): List.dropWhile xs p = xs :=
@@ -2441,14 +2441,14 @@ theorem List.foldLeftZipLeft (step: c → Pair a b → c) (f: c → a → c) (sa
     (xs: List a) (ys: List b) (z: c) (le: List.length xs ≤ List.length ys): List.foldLeft (List.zip xs ys) z step = List.foldLeft xs z f :=
   match xs, ys with
     | [], ys => rfl
-    | [x, ..xs], [] => Void.exfalso (Bool.falseNotTrue le)
+    | [x, ..xs], [] => cases
     | [x, ..xs], [y, ..ys] => rewrite same z x y in List.foldLeftZipLeft step f same xs ys (f z x) le
 
 theorem List.foldRightZipLeft (step: Pair a b → c → c) (f: a → c → c) (same: ∀ (x: a) (y: b) (acc: c) => step (MkPair x y) acc = f x acc)
     (xs: List a) (ys: List b) (z: c) (le: List.length xs ≤ List.length ys): List.foldRight (List.zip xs ys) z step = List.foldRight xs z f :=
   match xs, ys with
     | [], ys => rfl
-    | [x, ..xs], [] => Void.exfalso (Bool.falseNotTrue le)
+    | [x, ..xs], [] => cases
     | [x, ..xs], [y, ..ys] =>
       calc List.foldRight [MkPair x y, ..List.zip xs ys] z step
         _ = step (MkPair x y) (List.foldRight (List.zip xs ys) z step) := List.foldRightCons (List.zip xs ys) (MkPair x y) z step
@@ -2529,7 +2529,7 @@ theorem List.occurrencesFilter (xs: List a) (keep p: a → Bool):
 theorem List.takeRangeFrom (k n s: Nat) (h: k ≤ n): List.take (List.rangeFrom n s) k = List.rangeFrom k s :=
   match k, n with
     | Zero, n => rfl
-    | Succ k, Zero => Void.exfalso (Bool.falseNotTrue h)
+    | Succ k, Zero => cases
     | Succ k, Succ n => rewrite List.takeRangeFrom k n (Succ s) h
 
 --| The pairs of a mapped list are the list's pairs, mapped.
@@ -2966,7 +2966,7 @@ theorem List.allToAll (p: a → Bool) (xs: List a) (h: List.all xs p = True): Li
     | [x, ..xs] =>
       match c: p x with
         | True => Both rfl (List.allToAll p xs h)
-        | False => Void.exfalso (Bool.falseNotTrue h)
+        | False => cases
 
 theorem List.allOfAll (p: a → Bool) (xs: List a) (h1: List.All (x => p x = True) xs): List.all xs p = True :=
   match xs, h1 with
@@ -2982,7 +2982,7 @@ theorem List.allMember (p: a → Bool) (xs: List a) (all: List.all xs p = True) 
 
 theorem List.anyToAny (p: a → Bool) (xs: List a) (h: List.any xs p = True): List.Any (x => p x = True) xs :=
   match xs with
-    | [] => Void.exfalso (Bool.falseNotTrue h)
+    | [] => cases
     | [x, ..xs] =>
       match c: p x with
         | True => Inl rfl
@@ -3043,7 +3043,7 @@ theorem List.mapZipWithLeft (h: c → d) (k: a → d) (g: a → b → c) (same: 
     (xs: List a) (ys: List b) (le: List.length xs ≤ List.length ys): List.map (List.zipWith xs ys g) h = List.map xs k :=
   match xs, ys with
     | [], ys => rfl
-    | [x, ..xs], [] => Void.exfalso (Bool.falseNotTrue le)
+    | [x, ..xs], [] => cases
     | [x, ..xs], [y, ..ys] => rewrite same x y, List.mapZipWithLeft h k g same xs ys le in rfl
 
 theorem List.mapZipWithScanLeft (h: c → d) (k: a → d) (g: a → b → c) (same: ∀ (x: a) (y: b) => h (g x y) = k x)
@@ -3094,7 +3094,7 @@ theorem List.getInRange (xs: List a) (k: Nat): k < List.length xs ↔ Option.isS
 theorem List.getPast (xs: List a) (k: Nat) (h: List.length xs ≤ k): List.get xs k = None :=
   match xs, k with
     | [], k => rfl
-    | [x, ..xs], Zero => Void.exfalso (Bool.falseNotTrue h)
+    | [x, ..xs], Zero => cases
     | [x, ..xs], Succ k => List.getPast xs k h
 
 --| An index where `get` finds something is inside the list; the converse is
@@ -3122,7 +3122,7 @@ theorem List.lengthSet (xs: List a) (i: Nat) (v: a): List.length (List.set xs i 
 --| Inside the list, `get` after a `set` finds the new value.
 theorem List.getSet (xs: List a) (i: Nat) (v: a) (below: i < List.length xs): List.get (List.set xs i v) i = Some v :=
   match xs, i with
-    | [], i => Void.exfalso (Bool.falseNotTrue below)
+    | [], i => cases
     | [x, ..xs], Zero => rfl
     | [x, ..xs], Succ i => List.getSet xs i v (omega)
 
@@ -3228,7 +3228,7 @@ theorem List.getAppend (xs ys: List a) (k: Nat):
 
 theorem List.getAppendLeft (xs ys: List a) (k: Nat) (h: k < List.length xs): List.get (List.append xs ys) k = List.get xs k :=
   match xs, k with
-    | [], k => Void.exfalso (Bool.falseNotTrue h)
+    | [], k => cases
     | [x, ..xs], Zero => rfl
     | [x, ..xs], Succ k => List.getAppendLeft xs ys k h
 
@@ -3236,13 +3236,13 @@ theorem List.getAppendRight (xs ys: List a) (k: Nat) (h: List.length xs ≤ k):
     List.get (List.append xs ys) k = List.get ys (k - List.length xs) :=
   match xs, k with
     | [], k => rfl
-    | [x, ..xs], Zero => Void.exfalso (Bool.falseNotTrue h)
+    | [x, ..xs], Zero => cases
     | [x, ..xs], Succ k => List.getAppendRight xs ys k h
 
 --| `take n` keeps the elements before `n`, and nothing from `n` on.
 theorem List.getTake (xs: List a) (n k: Nat) (h: k < n): List.get (List.take xs n) k = List.get xs k :=
   match xs, n, k with
-    | xs, Zero, k => Void.exfalso (Bool.falseNotTrue h)
+    | xs, Zero, k => cases
     | [], Succ n, k => rfl
     | [x, ..xs], Succ n, Zero => rfl
     | [x, ..xs], Succ n, Succ k => List.getTake xs n k h
@@ -3251,7 +3251,7 @@ theorem List.getTakePast (xs: List a) (n k: Nat) (h: n ≤ k): List.get (List.ta
   match xs, n, k with
     | xs, Zero, k => rfl
     | [], Succ n, k => rfl
-    | [x, ..xs], Succ n, Zero => Void.exfalso (Bool.falseNotTrue h)
+    | [x, ..xs], Succ n, Zero => cases
     | [x, ..xs], Succ n, Succ k => List.getTakePast xs n k h
 
 --| Index j after dropping k is index k + j before.
@@ -3290,7 +3290,7 @@ theorem List.getScanLeft (f: b → a → b) (xs: List a) (z: b) (k: Nat) (h: k �
     List.get (List.scanLeft xs z f) k = Some (List.foldLeft (List.take xs k) z f) :=
   match xs, k with
     | [], Zero => rfl
-    | [], Succ k => Void.exfalso (Bool.falseNotTrue h)
+    | [], Succ k => cases
     | [x, ..xs], Zero => rfl
     | [x, ..xs], Succ k => List.getScanLeft f xs (f z x) k h
 

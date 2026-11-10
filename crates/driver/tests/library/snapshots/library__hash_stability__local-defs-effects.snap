@@ -1,6 +1,5 @@
 ---
-source: crates/driver/tests/hash_stability.rs
-assertion_line: 121
+source: crates/driver/tests/library/hash_stability.rs
 expression: "lines(session, d, f)"
 ---
 data Main.State 85de017bfba669387e7abba0d3cf8705427dca441fe960de4dbe25ac908798f9
@@ -11,4 +10,4 @@ Main.tally 227e30f3f354c5887b0700c462ddcb0214fa4c39399436179a9b4017a902a05e
 Main.tally.add 1fb65c94f424d1e8e721f0c504de0512c8eff281c5d39551f2ea404a9ef00949
 Main.fstOf 85c65787a85e4f47f6e28ad116d1a5fc7b6cf38cbfb7d2b61d75d24a72ae854c
 Main.fstOf.eq1 b2c78c4c517d02b76555fa1fb7310183fe813c82136b60c30d369e33b617ba78
-Main.test "tally" b5d6147c9473843ee21bd0d566ce1a36676cb7f223e6e722ebb46a4cc73aa270
+Main.test "tally" b540d6ebcddd67255e874d79a41b855d5bdf44210a8c63c93150403c9b3cd8b6

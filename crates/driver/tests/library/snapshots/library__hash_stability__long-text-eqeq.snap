@@ -1,10 +1,10 @@
 ---
-source: crates/driver/tests/hash_stability.rs
+source: crates/driver/tests/library/hash_stability.rs
 expression: "lines(session, d, f)"
 ---
 Main.long 423d8fc0cb90dc0cdae9372efe8e81e84bed0e06773602b8529d741fa57e6b2e
 Main.long.eq1 055814c7a832fb42de6e11a18a72de41bbfe92815cad9f1980248acd0d48e19f
 Main.long.eq2 bfbc3fd3344a02ef1b9fa6fbb2005a5b0a96cca334f14f7ceeabe884b4630eaa
 Main.long.induct d1c1f3cd059c81c7a15acc69114c6ca4e4b16209af8c991102abdfbdecbb131e
-Main.test "same long texts" e46ce632e71ad2176344f09cd8d6cae90e3fdd61edaa134c1cd5256d1002de6a
-Main.test "different long texts" 63d168f3f9316a23ea1734fa2a7bce23022dc9e0a740bcd566b9cf2672375123
+Main.test "same long texts" 9453a45b6c249d56544064b0c0fbd60e9882f61eb60874d75a12139fe697c19e
+Main.test "different long texts" f2d8ba41f0bfae802af2e0d8607b7e1e565b9bedc71b062fc8ded892fa75aa75

@@ -1,10 +1,9 @@
 ---
-source: crates/driver/tests/hash_stability.rs
-assertion_line: 121
+source: crates/driver/tests/library/hash_stability.rs
 expression: "lines(session, d, f)"
 ---
 Main.pick 7b81c4309e6e59f3f126302d7427f9221b8decbb8c1f682c6a732eadd28feff0
 Main.pick.eq1 cd870cf2f09ff22413d65917b5d061025d48394eea867d5f1f7206025b9778bf
 Main.pick.eq2 39b6d752633ef3af5f9e48e1b03d066c6e88c42bbda1dd67c2c1da6ff043512a
-Main.test "first" 43f653afd8b1f15617f7917f1881ec2f751ccab8bc84c742ea5b984cd7fe6ba4
-Main.test "second" 8039f2b5872cfe921d2486059720f7dc6ba0d04dd24d0997b7e32e2f12ede435
+Main.test "first" f52b47bee94c5f739e274d2e9e8aa76c7418b78b48772c2d9c099f77702cb121
+Main.test "second" 07d3b2530bb02feab172196eaa9dbcdd22ab9fed58890732aa483fec233e6974

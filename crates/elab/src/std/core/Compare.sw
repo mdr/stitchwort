@@ -108,7 +108,7 @@ theorem Nat.lessOfCompare (m n: Nat) (h: Nat.compare m n = Less): m < n :=
 
 theorem Nat.compareOfLess (m n: Nat) (h: m < n): Nat.compare m n = Less :=
   match m, n with
-    | m, Zero => Void.exfalso (Bool.falseNotTrue h)
+    | m, Zero => cases
     | Zero, Succ n => rfl
     | Succ m, Succ n => Nat.compareOfLess m n h
 
@@ -165,7 +165,7 @@ theorem Int.lessOfCompare (a b: Int) (h: Int.compare a b = Less): Int.LessThan a
 theorem Int.compareOfLess (a b: Int) (h: Int.LessThan a b): Int.compare a b = Less :=
   match a, b with
     | OfNat m, OfNat n => Nat.compareOfLess m n h
-    | OfNat m, NegSucc n => Void.exfalso (Bool.falseNotTrue h)
+    | OfNat m, NegSucc n => cases
     | NegSucc m, OfNat n => rfl
     | NegSucc m, NegSucc n => Nat.compareOfLess n m h
 

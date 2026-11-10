@@ -1,5 +1,5 @@
 ---
-source: crates/driver/tests/hash_stability.rs
+source: crates/driver/tests/library/hash_stability.rs
 expression: "lines(session, d, f)"
 ---
 Main.f 84b2ff18459c4f37f162fdbd2a4e5697ea6c19ae729b7d52f9b541f886e7b159
@@ -8,9 +8,9 @@ Main.lengths 34b54f96e2561197fc5f8cfc2adb185b25559380a574c3ba6c005720e7244693
 Main.anyOf d7fa0274833c8a1b2ef290a6b3b784842471ab8dbe2db4fb4df32a04dc79d151
 Main.pairs ed515c161f80626e7958f240f77de4a654cfb35daec0a43d0631a9c9b13edf14
 Main.waits_for_pairs c2f9fde9ba53dfade4e22c5734b11f8fe1c627386da18b6a15b8fc1b9636f4f9
-Main.test "drop" eeb97f9aff25cb8d4a180b7537fde670017c20f74d825914715ea8e660ededee
-Main.test "drop from nothing" 10325a153cbe5b34c49634dc6809b0141267222d39a6fb3dac0fa55816de547a
-Main.test "at the head" 7a5b543e775c16792b590158ccd11bb3bedb134d368a64ffb218eeb49ccb0163
-Main.test "a section in a section" 1cf31e86f0030150894769669250a2b348a6dcb58a5252c175bcb21eff8b0528
+Main.test "drop" 8fe9f0108460933c4965bdc8506917ec6333bf5be276fc7ac27459fd0acd2f34
+Main.test "drop from nothing" 69499bd9cd998f2c12a66b5129dfb3957a40c48ff966b35e2c064f238a8ca1be
+Main.test "at the head" a5555e6eff12c93e294c202a6cf72b0158d18c133dd6bd99cd0e69a969d65eae
+Main.test "a section in a section" 6206d994934f69cc503ef99cadfbb6cb2dd9c47fcc032c319b19e1e5a55e23a1
 Main.test "any" 93c5be7488d458c6984907fa4c303865e2019fed0ba08fdfb02fc2e40db888af
 Main.test "none" a8aad3231c20fcc7613ddf39db60d34a2d5190401b411af733e64bd103a3f2d5

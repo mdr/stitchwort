@@ -11,10 +11,10 @@ theorem Bool.decTrueToBool (c: Bool): Decidable.toBool (Bool.decTrue c) = c :=
 theorem Decidable.toBoolSound [p: Prop] (d: Decidable p) (e: Decidable.toBool d = True): p :=
   match d with
     | Yes h => h
-    | No r => Void.exfalso (Bool.falseNotTrue e)
+    | No r => cases
 
 theorem Decidable.toBoolFalse: ∀ [p: Prop] (d: Decidable p) => Decidable.toBool d = False → ¬p
-  | Yes h, e, x => Void.exfalso (Bool.trueNotFalse e)
+  | Yes h, e, x => cases
   | No r, e, x => r x
 
 theorem Decidable.toBoolOf [p: Prop] (d: Decidable p) (x: p): Decidable.toBool d = True :=
@@ -51,11 +51,11 @@ theorem Decidable.andBoolOfNot [p q: Prop] (dp: Decidable p) (dq: Decidable q) (
 theorem Decidable.andBoolSound [p q: Prop] (dp: Decidable p) (dq: Decidable q) (a b: Bool) (ea: Decidable.toBool dp = a) (eb: Decidable.toBool dq = b) (h: (a && b) = True): p ∧ q :=
   match a, b with
     | True, True => Both (Decidable.toBoolSound dp ea) (Decidable.toBoolSound dq eb)
-    | True, False => Void.exfalso (Bool.falseNotTrue h)
-    | False, b => Void.exfalso (Bool.falseNotTrue h)
+    | True, False => cases
+    | False, b => cases
 
 theorem Decidable.andBoolFalse: ∀ [p q: Prop] (dp: Decidable p) (dq: Decidable q) (a b: Bool) => Decidable.toBool dp = a → Decidable.toBool dq = b → (a && b) = False → ¬(p ∧ q)
-  | dp, dq, True, True, ea, eb, h, n => Void.exfalso (Bool.trueNotFalse h)
+  | dp, dq, True, True, ea, eb, h, n => cases
   | dp, dq, True, False, ea, eb, h, n => Decidable.toBoolFalse dq eb (And.right n)
   | dp, dq, False, b, ea, eb, h, n => Decidable.toBoolFalse dp ea (And.left n)
 
@@ -65,12 +65,12 @@ theorem Decidable.andBoolFalse: ∀ [p q: Prop] (dp: Decidable p) (dq: Decidable
 theorem Decidable.andBoolDec [p q: Prop] (dp: Decidable p) (dq: Decidable q) (a b: Bool) (ea: Decidable.toBool dp = a) (eb: Decidable.toBool dq = b): Decidable.toBool (Decidable.and dp dq) = (a && b) :=
   match dp, dq, a, b with
     | Yes x, Yes y, True, True => rfl
-    | Yes x, Yes y, True, False => Void.exfalso (Bool.trueNotFalse eb)
-    | Yes x, Yes y, False, b => Void.exfalso (Bool.trueNotFalse ea)
-    | Yes x, No r, True, True => Void.exfalso (Bool.falseNotTrue eb)
+    | Yes x, Yes y, True, False => cases
+    | Yes x, Yes y, False, b => cases
+    | Yes x, No r, True, True => cases
     | Yes x, No r, True, False => rfl
-    | Yes x, No r, False, b => Void.exfalso (Bool.trueNotFalse ea)
-    | No r, dq, True, b => Void.exfalso (Bool.falseNotTrue ea)
+    | Yes x, No r, False, b => cases
+    | No r, dq, True, b => cases
     | No r, dq, False, b => rfl
 
 --| `x == y` says `x = y`.
@@ -88,7 +88,7 @@ theorem DecEq.refl [auto eq: DecEq a] (x: a): (x == x) = True := Decidable.toBoo
 theorem DecEq.neFalse [auto eq: DecEq a] (x: a) (y: a) (h: ((x != y): Bool) = False): x = y :=
   match d: DecEq.decide x y with
     | Yes same => same
-    | No differ => Void.exfalso (Bool.trueNotFalse h)
+    | No differ => cases
 
 --| `x != y` true says they differ; the converse of [`DecEq.trueOfNe`].
 theorem DecEq.neTrue [auto eq: DecEq a] [x: a] [y: a] (h: ((x != y): Bool) = True): x ≠ y :=

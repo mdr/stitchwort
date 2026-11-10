@@ -250,7 +250,7 @@ theorem Int.divExact (value: Int) (below times: Nat) (multiple: value.natAbs = t
 --| A number below `size` wraps to itself.
 theorem Int.modNatOfLt (size x: Nat) (inside: x < size): x.toInt.modNat size = x :=
   match size with
-    | Zero => Void.exfalso (Bool.falseNotTrue inside)
+    | Zero => cases
     | Succ n => Nat.modSmall x (Succ n) inside
 
 --| One step forward on a line of `size` is adding 1 and wrapping: the
@@ -258,7 +258,7 @@ theorem Int.modNatOfLt (size x: Nat) (inside: x < size): x.toInt.modNat size = x
 theorem Int.modNatSuccWrap (size x: Nat) (inside: x < size):
     (if x + 1 == size then 0 else x + 1) = Int.modNat (x.toInt + 1) size :=
   match size with
-    | Zero => Void.exfalso (Bool.falseNotTrue inside)
+    | Zero => cases
     | Succ n =>
       match e: x + 1 == Succ n with
         | True => rewrite (omega [DecEq.sound e]: x = n) in Eq.sym (Nat.modSelf (Succ n))
@@ -269,7 +269,7 @@ theorem Int.modNatSuccWrap (size x: Nat) (inside: x < size):
 theorem Int.modNatPredWrap (size x: Nat) (inside: x < size):
     (if x == 0 then size - 1 else x - 1) = Int.modNat (x.toInt - 1) size :=
   match size, x with
-    | Zero, x => Void.exfalso (Bool.falseNotTrue inside)
+    | Zero, x => cases
     | Succ n, Zero => rfl
     | Succ n, Succ x =>
       rewrite (omega: (Succ x).toInt - 1 = x.toInt) in Eq.sym (Nat.modSmall x (Succ n) omega)

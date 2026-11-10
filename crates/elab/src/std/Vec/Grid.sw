@@ -40,7 +40,7 @@ def Vec.aroundFrom (pad: a) (f: a → a → a → b) (left: a): (xs: Vec a n) �
 theorem Vec.getOrShiftRight (v: Vec a n) (i: Nat) (d fill: a) (h: i < n):
     Vec.getOr (Vec.shiftRight v fill) i d = Vec.getOr (VCons fill v) i d :=
   match v, i with
-    | VNil, i => Void.exfalso (Bool.falseNotTrue h)
+    | VNil, i => cases
     | VCons x xs, Zero => rfl
     | VCons x xs, Succ i => Vec.getOrShiftRight xs i d x h
 
@@ -57,7 +57,7 @@ theorem Vec.getOrShiftLeft (v: Vec a n) (fill: a) (i: Nat):
 theorem Vec.getOrShiftLeftLt (v: Vec a n) (i: Nat) (d fill: a) (h: i < n):
     Vec.getOr (Vec.shiftLeft v fill) i d = Vec.getOr v (Succ i) fill :=
   match v, i with
-    | VNil, i => Void.exfalso (Bool.falseNotTrue h)
+    | VNil, i => cases
     | VCons x xs, Zero => Vec.headOrGetOr xs fill
     | VCons x xs, Succ i => Vec.getOrShiftLeftLt xs i d fill h
 
@@ -74,7 +74,7 @@ theorem Vec.aroundShifts (v: Vec a n) (pad: a) (f: a → a → a → b):
 
 theorem Vec.getOrAroundFrom: ∀ (v: Vec a n) (i: Nat) (d: b) (pad left: a) => i < n → ∀ (f: a → a → a → b) =>
     Vec.getOr (Vec.aroundFrom pad f left v) i d = f (Vec.getOr (VCons left v) i pad) (Vec.getOr v i pad) (Vec.getOr v (Succ i) pad)
-  | VNil, i, d, pad, left, h, f => Void.exfalso (Bool.falseNotTrue h)
+  | VNil, i, d, pad, left, h, f => cases
   | VCons x rest, Zero, d, pad, left, h, f => Eq.cong (f left x) (Vec.headOrGetOr rest pad)
   | VCons x rest, Succ i, d, pad, left, h, f => Vec.getOrAroundFrom rest i d pad x h f
 

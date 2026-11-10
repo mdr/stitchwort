@@ -135,7 +135,7 @@ theorem Float.lowBound (n: Nat) (v: Float.isValid n = True) (e: Nat.equal n 9221
     ∨ (Nat.leq 9223372036854775808 n ∧ Nat.leq n 18442240474082181120)) = True := v
   match a: Nat.leq n 9218868437227405312 with
     | True => rfl
-    | False => Void.exfalso (Bool.falseNotTrue (rewrite e, hk at v2))
+    | False => cases
 
 theorem Float.flipHigh (m: Nat) (h: 9223372036854775808 ≤ m):
     Float.flipSignBits m = m - 9223372036854775808 :=
@@ -209,7 +209,7 @@ def Float.abs (x: Float): Float := Float.make (Float.clearSignBits x.bits) (Floa
 theorem Float.negNegSecond (x: Float) (e: Float.isNaN x = False)
     (c: Bool) (e2: Float.isNaN (Float.make (Float.flipSignBits x.bits) (Float.flipValid x.bits x.valid e)) = c): Float.negFrom (Float.make (Float.flipSignBits x.bits) (Float.flipValid x.bits x.valid e)) c e2 = x :=
   match c with
-    | True => Void.exfalso (Bool.falseNotTrue (Eq.trans (Eq.sym (Float.flipNotNaN x.bits x.valid)) e2))
+    | True => cases
     | False =>
       Float.bitsExt (Float.negFrom (Float.make (Float.flipSignBits x.bits) (Float.flipValid x.bits x.valid e)) False e2) x
         (Float.flipFlip x.bits x.valid)
@@ -376,7 +376,7 @@ def Float.ieeeLe (x: Float) (y: Float): Bool :=
 theorem Float.keyLessLeq (i j: Int) (h: Int.less i j = True): Int.leq i j = True :=
   match i, j with
     | OfNat m, OfNat n => omega
-    | OfNat m, NegSucc n => Void.exfalso (Bool.falseNotTrue h)
+    | OfNat m, NegSucc n => cases
     | NegSucc m, OfNat n => rfl
     | NegSucc m, NegSucc n => omega
 
@@ -384,8 +384,8 @@ theorem Float.ltLeBools (a b c: Bool) (i j: Int) (h: (a ∧ b ∧ ¬c ∧ Int.le
   match a, b, c with
     | True, True, False => Float.keyLessLeq i j h
     | True, True, True => rfl
-    | True, False, c => Void.exfalso (Bool.falseNotTrue h)
-    | False, b, c => Void.exfalso (Bool.falseNotTrue h)
+    | True, False, c => cases
+    | False, b, c => cases
 
 --| JS's `a < b` implies `a <= b`.
 theorem Float.ieeeLtLe (x: Float) (y: Float) (h: Float.ieeeLt x y = True): Float.ieeeLe x y = True :=
@@ -413,7 +413,7 @@ theorem Float.ieeeRankExample: Float.ieeeRank (-Float.infinity) = 0 := rfl
 
 theorem Float.notTrueFalse (b: Bool) (h: (¬b) = True): b = False :=
   match b with
-    | True => Void.exfalso (Bool.falseNotTrue h)
+    | True => cases
     | False => rfl
 
 --| The two zeros, `0.0` and `-0.0`, have the same rank.
@@ -429,7 +429,7 @@ theorem Float.rankLeOfKeys (m: Nat) (n: Nat):
       → Int.leq (Float.keyOf m p) (Float.keyOf n q) = True → Float.rankOf m p ≤ Float.rankOf n q
   | True, hp, True, hq, h => omega
   | True, hp, False, hq, h => omega
-  | False, hp, True, hq, h => Void.exfalso (Bool.falseNotTrue h)
+  | False, hp, True, hq, h => cases
   | False, hp, False, hq, h => omega
 
 theorem Float.rankLtOfKeys (m: Nat) (n: Nat) (vm: Float.isValid m = True)
@@ -445,8 +445,8 @@ theorem Float.rankLtOfKeys (m: Nat) (n: Nat) (vm: Float.isValid m = True)
           | False => omega
           | True =>
             let e0: Nat.equal m 0 = False := Bool.falseOfNotTrue (Nat.equal m 0) (e => omega)
-            Void.exfalso (Bool.trueNotFalse (rewrite e0 at z))
-  | False, hp, True, hq, h => Void.exfalso (Bool.falseNotTrue h)
+            cases
+  | False, hp, True, hq, h => cases
   | False, hp, False, hq, h => omega
 
 theorem Float.keysOfRankLe (m: Nat) (n: Nat) (vm: Float.isValid m = True) (vn: Float.isValid n = True):
@@ -573,14 +573,14 @@ theorem Float.ieeeLeTotal (x: Float) (y: Float) (nx: Float.isNaN x = False) (ny:
     (h: Float.ieeeLe x y = False): Float.ieeeLe y x = True :=
   Float.rankIeeeLe y x ny nx
     (match c: Nat.leq (Float.ieeeRank x) (Float.ieeeRank y) with
-      | True => Void.exfalso (Bool.trueNotFalse (Eq.trans (Eq.sym (Float.rankIeeeLe x y nx ny c)) h))
+      | True => cases
       | False => omega)
 
 theorem Float.ieeeNotLtLe (x: Float) (y: Float) (nx: Float.isNaN x = False) (ny: Float.isNaN y = False)
     (h: Float.ieeeLt x y = False): Float.ieeeLe y x = True :=
   Float.rankIeeeLe y x ny nx
     (match c: Nat.leq (Succ (Float.ieeeRank x)) (Float.ieeeRank y) with
-      | True => Void.exfalso (Bool.trueNotFalse (Eq.trans (Eq.sym (Float.rankIeeeLt x y nx ny c)) h))
+      | True => cases
       | False => omega)
 
 theorem Float.ieeeLeOr (x: Float) (y: Float) (nx: Float.isNaN x = False) (ny: Float.isNaN y = False):

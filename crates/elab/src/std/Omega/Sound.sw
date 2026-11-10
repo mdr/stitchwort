@@ -54,8 +54,8 @@ theorem Omega.dotUnitInt (i: Nat) (vs: List Int): Omega.dot (Omega.unit i) vs = 
 theorem Omega.isZeroEq (x: Int) (h: Omega.isZero x = True): x = OfNat 0 :=
   match x with
     | OfNat Zero => rfl
-    | OfNat (Succ n) => Void.exfalso (Bool.falseNotTrue h)
-    | NegSucc n => Void.exfalso (Bool.falseNotTrue h)
+    | OfNat (Succ n) => cases
+    | NegSucc n => cases
 
 theorem Omega.dotAllZero (as vs: List Int) (h: Omega.allZero as = True): Omega.dot as vs = OfNat 0 :=
   match as, vs with
@@ -196,8 +196,8 @@ theorem Omega.intLeqOfEq [a b: Int] (e: a = b): Int.leq a b = True := J (y p => 
 theorem Omega.intLeAntisym (a b: Int) (h1: Int.leq a b = True) (h2: Int.leq b a = True): a = b :=
   match a, b with
     | OfNat m, OfNat n => Eq.cong OfNat (Nat.leAntisym m n h1 h2)
-    | OfNat m, NegSucc n => Void.exfalso (Bool.falseNotTrue h1)
-    | NegSucc m, OfNat n => Void.exfalso (Bool.falseNotTrue h2)
+    | OfNat m, NegSucc n => cases
+    | NegSucc m, OfNat n => cases
     | NegSucc m, NegSucc n => Eq.cong NegSucc (Nat.leAntisym m n h2 h1)
 
 --| `m < n` as `m + 1 <= n`.
@@ -207,10 +207,10 @@ theorem Omega.natLeqAddOne (m: Nat) (n: Nat) (h: m < n): m + 1 ≤ n := J (y p =
 theorem Omega.intLeqOfLess (a b: Int) (h: Int.less a b = True): Int.leq (Int.add a (OfNat 1)) b = True :=
   match a, b with
     | OfNat m, OfNat n => Omega.natLeqAddOne m n h
-    | OfNat m, NegSucc n => Void.exfalso (Bool.falseNotTrue h)
+    | OfNat m, NegSucc n => cases
     | NegSucc Zero, OfNat n => rfl
     | NegSucc (Succ m), OfNat n => rfl
-    | NegSucc Zero, NegSucc n => Void.exfalso (Bool.falseNotTrue h)
+    | NegSucc Zero, NegSucc n => cases
     | NegSucc (Succ m), NegSucc n => h
 
 --| `Not (a <= b)` is `b + 1 <= a`.
@@ -219,8 +219,8 @@ theorem Omega.intLeqOfNotLeq (a b: Int) (h: Int.leq a b = False): Int.leq (Int.a
     | OfNat m, OfNat n => Omega.natLeqAddOne n m (Nat.leqFalse m n h)
     | OfNat m, NegSucc Zero => rfl
     | OfNat m, NegSucc (Succ n) => rfl
-    | NegSucc m, OfNat n => Void.exfalso (Bool.trueNotFalse h)
-    | NegSucc m, NegSucc Zero => Void.exfalso (Bool.trueNotFalse h)
+    | NegSucc m, OfNat n => cases
+    | NegSucc m, NegSucc Zero => cases
     | NegSucc m, NegSucc (Succ n) => Nat.leqFalse (Succ n) m h
 
 --| `Not (a < b)` is `b <= a`.
@@ -228,14 +228,14 @@ theorem Omega.intLeqOfNotLess (a b: Int) (h: Int.less a b = False): Int.leq b a 
   match a, b with
     | OfNat m, OfNat n => Nat.leqFalse (Succ m) n h
     | OfNat m, NegSucc n => rfl
-    | NegSucc m, OfNat n => Void.exfalso (Bool.trueNotFalse h)
+    | NegSucc m, OfNat n => cases
     | NegSucc m, NegSucc n => Nat.leqFalse (Succ n) m h
 
 --| `a <= b` gives `0 <= b - a`.
 theorem Omega.intSubNonneg (a b: Int) (h: Int.leq a b = True): 0 ≤ Int.add b (Int.neg a) :=
   match a, b with
     | OfNat m, OfNat n => Int.subNonnegOfLe m n h
-    | OfNat m, NegSucc n => Void.exfalso (Bool.falseNotTrue h)
+    | OfNat m, NegSucc n => cases
     | NegSucc m, OfNat n => rfl
     | NegSucc m, NegSucc n =>
       Omega.nonnegEq (Eq.trans (Int.subNatNatSucc m n) (Eq.sym (Int.subOfNats m n))) (Int.subNonnegOfLe n m h)
@@ -404,7 +404,7 @@ theorem Omega.combineHolds (env: Omega.Env) (ctx: List Omega.Row) (hc: Omega.Row
 theorem Omega.divideHolds (env: Omega.Env) (d: Nat) (r: Omega.Row) (ok: Omega.Row.divisible d r = True)
     (h: Omega.Row.Holds env r): Omega.Row.Holds env (Omega.Row.divide d r) :=
   match d, r with
-    | Zero, r => Void.exfalso (Bool.falseNotTrue ok)
+    | Zero, r => cases
     | Succ d, MkRow c ns is =>
       Int.divFloorNonneg d c
         (Omega.dot (Omega.divC d ns) (Omega.toInts (Omega.Env.nats env)) + Omega.dot (Omega.divC d is) (Omega.Env.ints env))

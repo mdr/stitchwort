@@ -1,10 +1,10 @@
 ---
-source: crates/driver/tests/hash_stability.rs
-expression: "lines(&session, d, f)"
+source: crates/driver/tests/library/hash_stability.rs
+expression: "lines(session, d, f)"
 ---
 data Main.Token e46b6051cb924db41b5b4db276738ea7ff27833d2126605c1439ef24eff74105
 Main.needsToken ad3eb1322b05f0b6209609f96db4c1d469a2667e15cdcdd0dbf276c80272a89f
 Main.laterHelper dde95357c41c9fe3880b68c29e1987c5f3605d862d55351066c2c4d30bedac43
 Main.decToken 45a365833f29203fddc2d82d6f9edc24eaa184c63579a041ef52bf363b99d559
 Main.client 516d7a24f847f320d106f531463b6344c08fd0ddadb257d60e854d889ea04161
-Main.test "client" 916747c8764852a967a08f360f717f459386c0cbc1bca8587f6ad49aac39da73
+Main.test "client" a654d2b6fe9ae56005e351cf1294650ce26ffbbfa78e92e81fa7f4f6e7ce5c21

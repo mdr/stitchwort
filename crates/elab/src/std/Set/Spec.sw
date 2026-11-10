@@ -33,8 +33,8 @@ theorem Set.containsPresent [auto ord: Ord k] (key: k) (m: Map k ()): Map.contai
 theorem Set.presentInjective (x y: Option ()) (h: Set.present x = Set.present y): x = y :=
   match x, y with
     | None, None => rfl
-    | None, Some w => Void.exfalso (Bool.falseNotTrue h)
-    | Some u, None => Void.exfalso (Bool.trueNotFalse h)
+    | None, Some w => cases
+    | Some u, None => cases
     | Some u, Some w => Eq.cong Some (Set.unitEq u w)
 
 theorem Set.ext [auto ord: Ord k] (s t: Set k) (h: (∀ (key: k) => Set.contains s key = Set.contains t key)): s = t :=
@@ -347,7 +347,7 @@ theorem Set.allEntriesElim (q: k → Bool) (key: k) (xs: List (k, ())) (h: List.
     | [] => Void.exfalso mem
     | [(kk, u), ..rest] =>
       match c: q kk with
-        | False => Void.exfalso (Bool.falseNotTrue h)
+        | False => cases
         | True =>
           match mem with
             | Inl e => Eq.trans (Eq.cong q (Eq.sym (Eq.cong Pair.fst e))) c
@@ -368,7 +368,7 @@ theorem Set.isSubsetToList [auto ord: Ord k] (a: Set k) (b: Set k): Set.isSubset
 theorem Set.containsToList [auto ord: Ord k] (s: Set k) (key: k): (Set.contains s key = True) ↔ (List.Mem (key, ()) (Map.toList s.items)) := {
   forward = h =>
     match c: Map.get s.items key with
-      | None => Void.exfalso (Bool.falseNotTrue h)
+      | None => cases
       | Some u => (Map.memToList s.items key ()).backward (Eq.trans c (Eq.cong Some (Set.unitEq u ()))),
   backward = mem => rewrite (Map.memToList s.items key ()).forward mem in rfl
 }
@@ -529,7 +529,7 @@ theorem Set.containsMap [auto ordKeys: Ord k] [auto ord: Ord j] (s: Set k) (f: k
   {
     forward = held =>
       match folded.forward (rewrite <- Set.foldLeftToList s Set.empty (acc x => Set.insert acc (f x)) in held) with
-        | Inl none => Void.exfalso (Bool.falseNotTrue none)
+        | Inl none => cases
         | Inr (Witness x (Both member same)) => Witness x (Both ((Set.memToList s x).forward member) same),
     backward = held =>
       match held with
@@ -869,7 +869,7 @@ theorem Map.containsInToList [auto ord: Ord k] [auto itemOrd: Ord v] (m: Map k (
     (m.containsIn key item = True) ↔ (∃ (items: Set v) => ((key, items) ∈ m.toList) ∧ (items.contains item = True)) := {
   forward = there =>
     match found: m.get key with
-      | None => Void.exfalso (Bool.falseNotTrue there)
+      | None => cases
       | Some s => Witness s (Both ((Map.memToList m key s).backward found) there),
   backward = found =>
     let (Witness s (Both member there)) := found

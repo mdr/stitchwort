@@ -1,8 +1,8 @@
 ---
-source: crates/driver/tests/hash_stability.rs
+source: crates/driver/tests/library/hash_stability.rs
 expression: "lines(session, d, f)"
 ---
 Lib.reverse fce476075e74d17039ac6dcaa5d44b3089d346d033920c03f9e437a449a912d6
-Day.test "library" 00cda57d30cc6a15d2931a9d21afb1068113dbee33d69b31da79acea70d80691
-Day.test "project" 6830d789272ce575db4712f018065d5d10730cd49fb139e83ba46cc1e815649e
-Day.test "unqualified" 8e79b509f51343d13199a09124bdde8a9f543b9706d8dd5e8a4ba21289807f84
+Day.test "library" 85e4115609e6a56fd8b506e5e813efc4546cfc41a8bbd23c93186222977400bf
+Day.test "project" 4adbffef4f0ca47a47fe403bb13ced49906d67b508302603dbd09390af24ec7e
+Day.test "unqualified" b9a65586430f1be4ba76eb67361a90d6671f41592ed8815cb08097096832277e

@@ -1,5 +1,5 @@
 ---
-source: crates/driver/tests/hash_stability.rs
+source: crates/driver/tests/library/hash_stability.rs
 expression: "lines(session, d, f)"
 ---
 data Main.countNodes.Request c13bc95e25a07912a4715b9986a28ec2752e0357168cfa26879dbd607720d556
@@ -11,4 +11,4 @@ Main.countNodes.Response dcc8673d80d5821089684f97c750ce389ada461d4c8abaafc8041ac
 Main.countNodes.recur ac86d41abefb70b34917e95c38a9888b957d16046eb963108a70743a3d549544
 Main.countNodes.description 51718d2576d97da866ce0a83342b2cdee487cd0160a8823cc8095970413d116f
 Main.countNodes.body 04f8c8c435e2c9e8b78fb2988cfbcf25fbd9ebc6a27be615fc5f396eb003a29e
-Main.test "countNodes" 6c280d55f9663c84ec051efe8055e3c21b85267c0240ddccfd2e400d5489a03a
+Main.test "countNodes" 992b7133df6250101f296dbff9cefc617acf58623da875fedf0ba9d4b1e9b140

@@ -1,5 +1,5 @@
 ---
-source: crates/driver/tests/hash_stability.rs
+source: crates/driver/tests/library/hash_stability.rs
 expression: "lines(session, d, f)"
 ---
 Loops.countTo f30200e92cd85933b3a2c62d4d1ce6d51599aca54f7dfb54c45e9fe4f6b867a6
@@ -11,5 +11,5 @@ Loops.sumTo.go e9721205e663092bdfe289c5bbdaf9f9b5134fbf465932dd90c35ee230c8c65a
 Loops.sumTo.go.eq1 3193113176aeeab79ee7761c2b2689c436a630b176d3ebcaa97941ba99701d3c
 Loops.sumTo.go.eq2 0b0819e005ff622505c4fe181747b098f8175ec7fa0cc8bd85b93c185148361d
 Loops.sumTo.go.induct 8ca005e5f7b9919d411d1ffec6fdb40bfffd5faa190a7be6dcebb99c3b25eaa1
-Loops.test "count" e1411bba0a08aaea4e4092534990f9413a466f2d793609b786690976f82ab2f5
-Loops.test "sum" ad21cf90a4830e8a2a1bf9c411b0757749090f5df2d27596836c403d358307ab
+Loops.test "count" a879cb124129df29f2c22538d0de53c5aabd029f6625576da5db062b003c3c52
+Loops.test "sum" a61036651fb8865515c002e4e1f7efc0cfed767a830d9f3e2da425b4ac547583

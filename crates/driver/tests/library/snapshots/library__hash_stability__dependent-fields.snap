@@ -1,6 +1,5 @@
 ---
-source: crates/driver/tests/hash_stability.rs
-assertion_line: 121
+source: crates/driver/tests/library/hash_stability.rs
 expression: "lines(session, d, f)"
 ---
 data Main.Tree 6c8377a20ed8abb12af1c1b1238f9c913410877c1957f7f2887b36755b6dbec3
@@ -13,4 +12,4 @@ Main.depth.eq2 ba63728ba41385c1388046113135ff5e90ee5de39d8ceb8aebf3546a9a52ff20
 Main.depth.eq3 698dee47d68a16c99a1f218bbe78969d68b93c2c91781c701044365aa90d1c5d
 Main.depth.induct a321ae2809ee0bb7445316bd97cc0d3d5bdc2caf3f891c863930fdf99084ab7f
 Main.example 0c4891cd2183a2a86c40afdd5114224f76f5893a88dc1f6bb0405b689c7058eb
-Main.test "depth" a1a33511a5f41ebd7e24d5e79d42d11d620e25eaba6e5291700f0ec805d5e47e
+Main.test "depth" 19d68422e995ea272b864faacb4cbe281758bd872715a3fdabd847c16434f929

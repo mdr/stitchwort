@@ -1,5 +1,5 @@
 ---
-source: crates/driver/tests/hash_stability.rs
+source: crates/driver/tests/library/hash_stability.rs
 expression: "lines(session, d, f)"
 ---
 Main.echoLine 1d0ba45859ab6b97cb91be8e0e089015b1bc9e8099d1479b2e6f5b5678704b20
@@ -19,4 +19,4 @@ Main.numberedLength e1e15981b032db09391fae0904b9334f24d7d4f6db86c4eefdefe128ecc8
 Main.countdown 61d810c3f412f31e52df21c3cf7af292554246761a296e0616b0cb4f1eb84490
 Main.countdownLines 204a8a850b65beac71fdb7db5d1c8ac14a4b85fece667c2593345424e09f30c7
 Main.printLines 868f085a59193f3fb25bfcd41e487972ca2269167bcf7e58076d0a1a258357c1
-Main.oneEntryPerPrint 0d220ffed9ee7ad3da64706da71932018b234c64681050e6745016a0db992162
+Main.oneEntryPerPrint 3be4f8669b1c684991bb57975d5e6352207ef8a09e70ba5d777daa8883b9e3ed

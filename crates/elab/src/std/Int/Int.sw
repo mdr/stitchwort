@@ -26,7 +26,7 @@ theorem Int.toNatToInt (n: Nat): Int.toNat (Nat.toInt n) = n := rfl
 theorem Int.toIntToNat (z: Int) (nonneg: 0 ≤ z): Nat.toInt (Int.toNat z) = z :=
   match z with
     | OfNat k => rfl
-    | NegSucc k => Void.exfalso (Bool.falseNotTrue nonneg)
+    | NegSucc k => cases
 
 theorem Int.natAbsToInt (n: Nat): Int.natAbs (Nat.toInt n) = n := rfl
 
@@ -422,14 +422,14 @@ theorem Int.mulCommExample: (-3) * 4 = 4 * (-3) := rfl
 theorem Int.addNonneg (a b: Int) (ha: 0 ≤ a) (hb: 0 ≤ b): 0 ≤ a + b :=
   match a, b with
     | OfNat m, OfNat n => rfl
-    | OfNat m, NegSucc n => Void.exfalso (Bool.falseNotTrue hb)
-    | NegSucc m, b => Void.exfalso (Bool.falseNotTrue ha)
+    | OfNat m, NegSucc n => cases
+    | NegSucc m, b => cases
 
 theorem Int.mulNonneg (a b: Int) (ha: 0 ≤ a) (hb: 0 ≤ b): 0 ≤ a * b :=
   match a, b with
     | OfNat m, OfNat n => rfl
-    | OfNat m, NegSucc n => Void.exfalso (Bool.falseNotTrue hb)
-    | NegSucc m, b => Void.exfalso (Bool.falseNotTrue ha)
+    | OfNat m, NegSucc n => cases
+    | NegSucc m, b => cases
 
 theorem Int.notNonnegOfIsNeg (c: Int) (n1: Int.isNeg c = True) (h: 0 ≤ c): Void :=
   match c with
@@ -461,7 +461,7 @@ theorem Int.subNonnegOfLe (m: Nat) (n: Nat) (h: m ≤ n): 0 ≤ Nat.toInt n - Na
 --| on a whole number.
 theorem Int.negOneSubNonneg (v: Int) (h: Int.leq (OfNat 0) v = False): 0 ≤ Int.add (NegSucc 0) (Int.neg v) :=
   match v with
-    | OfNat n => Void.exfalso (Bool.trueNotFalse h)
+    | OfNat n => cases
     | NegSucc n =>
       J (y e => Int.leq (OfNat 0) y = True) rfl
         (Eq.sym (Eq.trans (Int.subNatNatSucc n 0) (Int.subNatNatZeroRight n)))
@@ -482,7 +482,7 @@ theorem Int.nonnegOfMulAddSmall (d: Nat) (r: Nat) (hr: r ≤ d) (y: Int) (h: 0 �
 
 theorem Int.nonnegOfMulAddMod (d: Nat): ∀ (m: Int) => 0 ≤ m → m < OfNat (Succ d) → ∀ (y: Int) => 0 ≤ OfNat (Succ d) * y + m → 0 ≤ y
   | OfNat r, hm, hd, y, h => Int.nonnegOfMulAddSmall d r hd y h
-  | NegSucc r, hm, hd, y, h => Void.exfalso (Bool.falseNotTrue hm)
+  | NegSucc r, hm, hd, y, h => cases
 
 theorem Int.mulAddAddMul (d: Int) (q: Int) (m: Int) (s: Int): (d * q + m) + d * s = d * (q + s) + m :=
   calc (d * q + m) + d * s

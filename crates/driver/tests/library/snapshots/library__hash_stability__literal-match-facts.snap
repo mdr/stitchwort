@@ -1,5 +1,5 @@
 ---
-source: crates/driver/tests/hash_stability.rs
+source: crates/driver/tests/library/hash_stability.rs
 expression: "lines(session, d, f)"
 ---
 data Main.Command 5abc66d182b73ae7deafcbfd141062db3346403ce9e66f8d55fdb9e268ba6e28
@@ -47,4 +47,4 @@ Main.sign.eq3 40274b9ff7335767edad447b59100288d9720eb43d49b9380f028ae17f27bb6b
 Main.sign.eq4 bb889649d4ad89936808a546d7d4a69a26626716d1e10a3098e870a33fb83d98
 Main.signOther f04d2f0957cff89331a68e02fa241f2c4ca1dc39946b9689767db91ef8c04d96
 Main.test "commands" 9aeaffc5ab5a564f62438f6565be8c73d72b11f7683a04895b166890523cc1d8
-Main.test "kind" 4fa4d04ed8a1b65f2ac1b0f587d236ae90985ec8a0938914700edc09bb5385c3
+Main.test "kind" ca28c9fdd6afbd25114ff1c6cc4c7397925a9923f7e9b60f7d3de5fd8f92fcb2

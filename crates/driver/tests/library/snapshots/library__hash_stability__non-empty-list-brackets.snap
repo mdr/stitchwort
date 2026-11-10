@@ -1,5 +1,5 @@
 ---
-source: crates/driver/tests/hash_stability.rs
+source: crates/driver/tests/library/hash_stability.rs
 expression: "lines(session, d, f)"
 ---
 Main.threeBrackets e7c06efbb4597992df8bab6f7f61f0e098aff4609976572a7f871bd2dd49b7b1
@@ -29,7 +29,7 @@ Main.orNone.eq1 49a4ee2c33943dc5475c32b565edb4fa96050ce5486cf71dd1bbf526db0c58df
 Main.orNone.eq2 a0658c7e458d38142235d3809c16c01c94240090cb2d8a0f2d1ca341e0de50b7
 Main.len 7cca9d12782227d4973184fa439df348f8bd54e9efedfa663efbdfff152b0eb8
 Main.shortLines 7a78ce6618d8d565339c1eb516bafa0ff72e70d545398b2b40ac26949b13b745
-Main.maxOfTwo 5611dc4c2152e3d248b9dae11eb214b85c39971815d241767e5a7b0dfb9a3958
-Main.test "brackets are records" 482bb9e216c5fcd69a5e435fb375a5e03a6904b7d39e03addcd7f0765e00d974
-Main.test "sizes" c7b9f281fe3f880dd1756772e36ee91f2b2dd1f357090644a8c829ea14fab85b
-Main.test "a literal argument" fccdc413f6b1ce9d195476eea9b20d6fc7675803604e566fb31b7ff66090909d
+Main.maxOfTwo 4998977acbdd02d290e9c2d2acba6acc3869b9edfa9a2e43fe2d838d89565f81
+Main.test "brackets are records" 3cece87ede05467cd1aa8c8a9b98a45c66c56645ddfb1728d37464245032c5b2
+Main.test "sizes" ad23f8c0c46af98115d2acbf65026109a9159aa4839fbcc7ee33b53d71e3a21b
+Main.test "a literal argument" a3455c72a63fe10a47e78e22bca3af276d623eaa6eb0ddeb295b7c4e75b9f7e1

@@ -848,8 +848,8 @@ theorem Map.Spec.notLessOfLess (ord: Ord k) (a: k) (b: k) (e: Ord.compare a b = 
 theorem Map.Spec.isLessSound [auto ord: Ord k] (a: k) (b: k) (h: Map.Spec.isLess a b = True): Ord.compare a b = Less :=
   match e: Ord.compare a b with
     | Less => rfl
-    | Equal => Void.exfalso (Bool.falseNotTrue h)
-    | Greater => Void.exfalso (Bool.falseNotTrue h)
+    | Equal => cases
+    | Greater => cases
 
 theorem Map.Spec.isLessOf [auto ord: Ord k] (a: k) (b: k) (h: Ord.compare a b = Less): Map.Spec.isLess a b = True :=
   rewrite h in rfl
@@ -976,9 +976,9 @@ def Map.Spec.sameKey [auto ord: Ord k] (a: k) (b: k): Bool := Ord.compare a b |>
 --| `sameKey` says equal, and is `==` (the `DecEq` in the `Ord`).
 theorem Map.Spec.sameKeySound [auto ord: Ord k] (a: k) (b: k) (h: Map.Spec.sameKey a b = True): a = b :=
   match e: Ord.compare a b with
-    | Less => Void.exfalso (Bool.falseNotTrue h)
+    | Less => cases
     | Equal => ord.equal a b e
-    | Greater => Void.exfalso (Bool.falseNotTrue h)
+    | Greater => cases
 
 theorem Map.Spec.sameKeyDecide [auto ord: Ord k] (a: k) (b: k): Map.Spec.sameKey a b = (b == a) :=
   match e: Ord.compare a b with
@@ -1454,7 +1454,7 @@ theorem Map.Tree.buildRest (fuel n: Nat) (xs: List (k, v)) (h: n ≤ fuel):
     (Map.Tree.buildFuel fuel n xs).snd = List.drop xs n :=
   match fuel, n with
     | Zero, Zero => rfl
-    | Zero, Succ m => Void.exfalso (Bool.falseNotTrue h)
+    | Zero, Succ m => cases
     | Succ fuel, Zero => rfl
     | Succ fuel, Succ m =>
       Eq.trans
@@ -1523,8 +1523,8 @@ theorem Map.Spec.ascendingOfCheck [auto ord: Ord k] (lo: Option k) (xs: List (k,
     | Some lo, [(kk, vv), ..rest] =>
       match c: Ord.compare lo kk with
         | Less => Both rfl (Map.Spec.ascendingOfCheck (Some kk) rest h)
-        | Equal => Void.exfalso (Bool.falseNotTrue h)
-        | Greater => Void.exfalso (Bool.falseNotTrue h)
+        | Equal => cases
+        | Greater => cases
 
 --| On ascending keys the last entry for a key is the only one.
 theorem Map.Spec.lookupLastAscending [auto ord: Ord k] (key: k) (lo: Option k) (xs: List (k, v)) (asc: Map.Spec.Ascending ord lo xs):

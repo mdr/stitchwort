@@ -1,5 +1,5 @@
 ---
-source: crates/driver/tests/hash_stability.rs
+source: crates/driver/tests/library/hash_stability.rs
 expression: "lines(session, d, f)"
 ---
 data A.Cat c43d1cb2f1d552c54e84b22bb85eb6adf5c976349c71ba4feeaeb65c640792a7
@@ -34,4 +34,4 @@ B.Cat.%complete 85a339ed0d20c06050f38d6e1f3ef031394d2bfdbf51d11b3beb4a761e9563f5
 B.Cat.%instFinite 5de615400307f45514110d8e1acbaa495f4ed0c7f85ce09c3812cece6ac5e790
 Cat.f b91fbe0bc9277de80a84a3626937d79646cb24a986585af40490ea4f6bc4f55a
 Day.g 7f2f2a5b95263d5c0227cea9c7ef0350145f1dfeabf43801f284c26526923f1f
-Day.test "the project namespace" f77b88dd61ed73a255b10738a07eb14ecd00aad024e977f6d33f4789fab19df7
+Day.test "the project namespace" cfb1cb9dc9d6831b867376212620110001dd020f51f7d52312d3a6070a69867e

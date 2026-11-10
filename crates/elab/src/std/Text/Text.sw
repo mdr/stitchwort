@@ -157,18 +157,18 @@ theorem Text.linesFinalBreaksExample: "a\n\r\n".lines = ["a", ""] ∧ "a\n\r".li
 --| `Char.isLineFeedCode` holds of the code 10 only.
 theorem Char.lineFeedCodeIs (code: Nat) (h: Char.isLineFeedCode code = True): code = 10 :=
   match code with
-    | 0 => Void.exfalso (Bool.falseNotTrue h)
-    | 1 => Void.exfalso (Bool.falseNotTrue h)
-    | 2 => Void.exfalso (Bool.falseNotTrue h)
-    | 3 => Void.exfalso (Bool.falseNotTrue h)
-    | 4 => Void.exfalso (Bool.falseNotTrue h)
-    | 5 => Void.exfalso (Bool.falseNotTrue h)
-    | 6 => Void.exfalso (Bool.falseNotTrue h)
-    | 7 => Void.exfalso (Bool.falseNotTrue h)
-    | 8 => Void.exfalso (Bool.falseNotTrue h)
-    | 9 => Void.exfalso (Bool.falseNotTrue h)
+    | 0 => cases
+    | 1 => cases
+    | 2 => cases
+    | 3 => cases
+    | 4 => cases
+    | 5 => cases
+    | 6 => cases
+    | 7 => cases
+    | 8 => cases
+    | 9 => cases
     | 10 => rfl
-    | Succ (Succ (Succ (Succ (Succ (Succ (Succ (Succ (Succ (Succ (Succ m)))))))))) => Void.exfalso (Bool.falseNotTrue h)
+    | Succ (Succ (Succ (Succ (Succ (Succ (Succ (Succ (Succ (Succ (Succ m)))))))))) => cases
 
 --| A space or a tab is neither a line feed nor a carriage return.
 theorem Text.spaceTabPlain (char: Char) (h: (char == ' ' ∨ char == '\t') = True):
@@ -426,7 +426,7 @@ theorem Text.sameCharEq (c: Char) (d: Char): Text.sameChar c d = (c == d) :=
     | True => rewrite Char.ext c d (Nat.equalSound _ _ same) in Eq.sym (DecEq.refl d)
     | False =>
       match equal: c == d with
-        | True => Void.exfalso (Bool.falseNotTrue (rewrite DecEq.sound equal, Text.sameCharRefl d at same in Eq.sym same))
+        | True => cases
         | False => rfl
 
 --| The direction of [`Text.stripPrefixCharsSome`] that reads a result: when

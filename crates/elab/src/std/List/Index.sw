@@ -18,14 +18,14 @@ theorem List.getOrExample: List.getOr [7, 8] 1 0 = 8 := rfl
 --| An element at an index below the length is in the list.
 theorem List.getOrMem (xs: List a) (i: Nat) (fallback: a) (h: i < List.length xs): List.getOr xs i fallback ∈ xs :=
   match xs, i with
-    | [], i => Void.exfalso (Bool.falseNotTrue h)
+    | [], i => cases
     | [x, ..rest], Zero => Inl rfl
     | [x, ..rest], Succ i => Inr (List.getOrMem rest i fallback h)
 
 theorem List.getOrAppendLeft (xs: List a) (i: Nat) (d: a) (ys: List a) (h: i < List.length xs):
     List.getOr (List.append xs ys) i d = List.getOr xs i d :=
   match xs, i with
-    | [], i => Void.exfalso (Bool.falseNotTrue h)
+    | [], i => cases
     | [x, ..xs], Zero => rfl
     | [x, ..xs], Succ i => List.getOrAppendLeft xs i d ys h
 
@@ -33,12 +33,12 @@ theorem List.getOrAppendRight (xs: List a) (i: Nat) (d: a) (ys: List a) (h: List
     List.getOr (List.append xs ys) i d = List.getOr ys (i - List.length xs) d :=
   match xs, i with
     | [], i => rfl
-    | [x, ..xs], Zero => Void.exfalso (Bool.falseNotTrue h)
+    | [x, ..xs], Zero => cases
     | [x, ..xs], Succ i => List.getOrAppendRight xs i d ys h
 
 theorem List.getOrTake (xs: List a) (k i: Nat) (d: a) (h: i < k): List.getOr (List.take xs k) i d = List.getOr xs i d :=
   match xs, k, i with
-    | xs, Zero, i => Void.exfalso (Bool.falseNotTrue h)
+    | xs, Zero, i => cases
     | [], Succ k, i => rfl
     | [x, ..xs], Succ k, Zero => rfl
     | [x, ..xs], Succ k, Succ i => List.getOrTake xs k i d h
@@ -47,7 +47,7 @@ theorem List.getOrTake (xs: List a) (k i: Nat) (d: a) (h: i < k): List.getOr (Li
 theorem List.takeSucc (d: a) (xs: List a) (k: Nat) (h: k < List.length xs):
     List.take xs (Succ k) = List.append (List.take xs k) [List.getOr xs k d] :=
   match xs, k with
-    | [], k => Void.exfalso (Bool.falseNotTrue h)
+    | [], k => cases
     | [x, ..xs], Zero => rfl
     | [x, ..xs], Succ k => Eq.cong (Cons x) (List.takeSucc d xs k h)
 
@@ -56,7 +56,7 @@ theorem List.takeSucc (d: a) (xs: List a) (k: Nat) (h: k < List.length xs):
 theorem List.dropAt (d: a) (xs: List a) (k: Nat) (h: k < List.length xs):
     List.drop xs k = [List.getOr xs k d, ..List.drop xs (Succ k)] :=
   match xs, k with
-    | [], k => Void.exfalso (Bool.falseNotTrue h)
+    | [], k => cases
     | [x, ..xs], Zero => rfl
     | [x, ..xs], Succ k => List.dropAt d xs k h
 
@@ -78,7 +78,7 @@ theorem List.getOrOfGet (xs: List a) (k: Nat) (d v: a) (h: List.get xs k = Some 
 --| Within the list, `get` finds what `getOr` gives.
 theorem List.getOfGetOr (xs: List a) (k: Nat) (d: a) (h: k < List.length xs): List.get xs k = Some (List.getOr xs k d) :=
   match xs, k with
-    | [], k => Void.exfalso (Bool.falseNotTrue h)
+    | [], k => cases
     | [x, ..xs], Zero => rfl
     | [x, ..xs], Succ k => List.getOfGetOr xs k d h
 
@@ -100,7 +100,7 @@ theorem List.extGetOr (d: a) (xs ys: List a) (e: List.length xs = List.length ys
 theorem List.getOrConcatReplicate (b: List a) (d: a) (k: Nat) [auto hk: k ≠ 0] (hb: List.length b = k) (n i: Nat) (h: i < n * k):
     List.getOr (List.concat (List.replicate n b)) i d = List.getOr b (i % k) d :=
   match n with
-    | Zero => Void.exfalso (Bool.falseNotTrue h)
+    | Zero => cases
     | Succ n =>
       match t: Nat.leq k i with
         | False =>
@@ -138,7 +138,7 @@ theorem List.getOrPadRight (xs: List a) (x: a) (n: Nat) (i: Nat): List.getOr (Li
 theorem List.getOrPast (xs: List a) (i: Nat) (d: a) (h: List.length xs ≤ i): List.getOr xs i d = d :=
   match xs, i with
     | [], i => rfl
-    | [x, ..xs], Zero => Void.exfalso (Bool.falseNotTrue h)
+    | [x, ..xs], Zero => cases
     | [x, ..xs], Succ i => List.getOrPast xs i d h
 
 --| A list is its elements read off by index.
@@ -181,7 +181,7 @@ theorem List.getOrMap (xs: List a) (i: Nat) (d: a) (f: a → b): List.getOr (Lis
 theorem List.getOrMapRange (f: Nat → b) (d: b) (n s i: Nat) (h: i < n):
     List.getOr (List.map (List.rangeFrom n s) f) i d = f (i + s) :=
   match n, i with
-    | Zero, i => Void.exfalso (Bool.falseNotTrue h)
+    | Zero, i => cases
     | Succ n, Zero => rfl
     | Succ n, Succ i => rewrite <- Nat.addSucc i s in List.getOrMapRange f d n (Succ s) i h
 
@@ -223,14 +223,14 @@ test "List.indexOf" := [5, 7, 5].indexOf 7 == 1 ∧ [5, 7, 5].indexOf 5 == 0 ∧
 theorem List.getOrZipWithAdd (u: List Nat) (c: Nat) (v: List Nat) (hu: c < List.length u) (hv: c < List.length v):
     List.getOr (List.zipWith u v Nat.add) c 0 = List.getOr u c 0 + List.getOr v c 0 :=
   match u, c, v with
-    | [], c, v => Void.exfalso (Bool.falseNotTrue hu)
-    | [x, ..xs], c, [] => Void.exfalso (Bool.falseNotTrue hv)
+    | [], c, v => cases
+    | [x, ..xs], c, [] => cases
     | [x, ..xs], Zero, [y, ..ys] => rfl
     | [x, ..xs], Succ c, [y, ..ys] => List.getOrZipWithAdd xs c ys hu hv
 
 --| Element i of a mapped list, inside it.
 theorem List.getOrMapLt: ∀ (xs: List a) (i: Nat) (d: a) (e: b) => i < List.length xs → ∀ (f: a → b) => List.getOr (List.map xs f) i e = f (List.getOr xs i d)
-  | [], i, d, e, h, f => Void.exfalso (Bool.falseNotTrue h)
+  | [], i, d, e, h, f => cases
   | [x, ..xs], Zero, d, e, h, f => rfl
   | [x, ..xs], Succ i, d, e, h, f => List.getOrMapLt xs i d e h f
 
@@ -239,7 +239,7 @@ theorem List.getOrMapLt: ∀ (xs: List a) (i: Nat) (d: a) (e: b) => i < List.len
 theorem List.getOrWithIndexFrom (d: a) (fallback: Pair Nat a) (start: Nat) (xs: List a) (i: Nat) (h: i < List.length xs):
     List.getOr (List.withIndexFrom start xs) i fallback = MkPair (start + i) (List.getOr xs i d) :=
   match xs, i with
-    | [], i => Void.exfalso (Bool.falseNotTrue h)
+    | [], i => cases
     | [x, ..xs], Zero => rewrite Nat.addZero start in rfl
     | [x, ..xs], Succ i => rewrite Nat.addSucc start i in List.getOrWithIndexFrom d fallback (Succ start) xs i h
 
@@ -260,7 +260,7 @@ theorem List.getOrScanLeft (f: b → a → b) (d: b) (xs: List a) (z: b) (k: Nat
     List.getOr (List.scanLeft xs z f) k d = List.foldLeft (List.take xs k) z f :=
   match xs, k with
     | [], Zero => rfl
-    | [], Succ k => Void.exfalso (Bool.falseNotTrue h)
+    | [], Succ k => cases
     | [x, ..xs], Zero => rfl
     | [x, ..xs], Succ k => List.getOrScanLeft f d xs (f z x) k h
 
@@ -270,7 +270,7 @@ theorem List.getOrScanLeft (f: b → a → b) (d: b) (xs: List a) (z: b) (k: Nat
 theorem List.getOrZipWithScanLeft (f: b → a → b) (g: a → b → c) (dx: a) (dc: c) (xs: List a) (z: b) (k: Nat) (h: k < List.length xs):
     List.getOr (List.zipWith xs (List.scanLeft xs z f) g) k dc = g (List.getOr xs k dx) (List.foldLeft (List.take xs k) z f) :=
   match xs, k with
-    | [], k => Void.exfalso (Bool.falseNotTrue h)
+    | [], k => cases
     | [x, ..xs], Zero => rfl
     | [x, ..xs], Succ k => List.getOrZipWithScanLeft f g dx dc xs (f z x) k h
 
@@ -279,7 +279,7 @@ theorem List.getOrZipWithScanLeft (f: b → a → b) (g: a → b → c) (dx: a) 
 theorem List.foldLeftTakeSucc (f: b → a → b) (d: a) (xs: List a) (z: b) (k: Nat) (h: k < List.length xs):
     List.foldLeft (List.take xs (Succ k)) z f = f (List.foldLeft (List.take xs k) z f) (List.getOr xs k d) :=
   match xs, k with
-    | [], k => Void.exfalso (Bool.falseNotTrue h)
+    | [], k => cases
     | [x, ..xs], Zero => rfl
     | [x, ..xs], Succ k => List.foldLeftTakeSucc f d xs (f z x) k h
 
@@ -300,7 +300,7 @@ theorem List.sumByGet (g: a → Nat) (xs: List a) (n: Nat) (h: List.length xs �
     List.sumBy xs g = List.sumBy (List.range 0 n) (j => Option.getOrElse (Option.map (List.get xs j) g) 0) :=
   match xs, n with
     | [], n => Eq.sym (List.sumByRangeZero _ n (j => rfl))
-    | [x, ..xs], Zero => Void.exfalso (Bool.falseNotTrue h)
+    | [x, ..xs], Zero => cases
     | [x, ..xs], Succ n =>
       let each := (j: Nat) => Option.getOrElse (Option.map (List.get [x, ..xs] j) g) 0
       calc List.sumBy [x, ..xs] g

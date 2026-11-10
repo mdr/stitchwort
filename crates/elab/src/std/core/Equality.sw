@@ -70,8 +70,8 @@ theorem Nat.equalRefl (n: Nat): Nat.equal n n = True :=
 theorem Nat.equalSound (m n: Nat) (h: Nat.equal m n = True): m = n :=
   match m, n with
     | Zero, Zero => rfl
-    | Zero, Succ n => Void.exfalso (Bool.falseNotTrue h)
-    | Succ m, Zero => Void.exfalso (Bool.falseNotTrue h)
+    | Zero, Succ n => cases
+    | Succ m, Zero => cases
     | Succ m, Succ n => Eq.cong Succ (Nat.equalSound m n h)
 
 --| Numbers that [`Nat.equal`] says differ are different.

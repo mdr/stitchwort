@@ -34,7 +34,7 @@ theorem List.differenceByIsFilter [auto eq: DecEq k] (xs: List a) (ys: List a) (
 theorem List.notMemOfNotIn [auto eq: DecEq k] (z: k) (zs: List k) (h: Bool.not (z ∈ zs) = True): z ∉ zs :=
   Decidable.toBoolFalse (List.decMem z zs)
     (match d: Decidable.toBool (List.decMem z zs) with
-      | True => Void.exfalso (Bool.falseNotTrue h)
+      | True => cases
       | False => rfl)
 
 theorem List.notInOfNotMem [auto eq: DecEq k] (z: k) (zs: List k) (out: z ∉ zs): Bool.not (z ∈ zs) = True :=

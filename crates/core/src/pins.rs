@@ -104,7 +104,7 @@ pub const PINS: &[Pin] = &[
     ),
     kernel(
         Builtin::DecEqNat,
-        "41a92ca86b61b27895af9e6bc86e4b1afa069db80d066c4be65298513a928e66",
+        "d033592128b289fbe1307ba2bff2f1a64db65417b9827c5d000610c0a9d583ac",
     ),
     kernel(
         Builtin::EqNatRefl,
@@ -112,7 +112,7 @@ pub const PINS: &[Pin] = &[
     ),
     kernel(
         Builtin::EqNatSound,
-        "3cbc6e4c7b23d6e73aa2fb2248a76dfd7375f5ef9365fb92c1ac43339e7bfcb0",
+        "8fbd777ace9149842dbd6dab898cc17b0787260479d793f76af62676f5493352",
     ),
     // `decEq`'s native puts it in its `No`.
     kernel(
@@ -128,11 +128,11 @@ pub const PINS: &[Pin] = &[
     ),
     kernel(
         Builtin::FloatNeg,
-        "bba54b9dc21a012e16a6640fb2b285c9c75b6385ef1043a52d2a22876500b718",
+        "3a2c5da46c5c819d12fd2bd396f459c416c69554a2e497c87057fb29297bcf98",
     ),
     kernel(
         Builtin::FloatAbs,
-        "27d2d3b0d80963c8869b5952ecfe93ac72ac69fd61307f14616f8c0e3b02d727",
+        "13b90d3b993ad04836eb3f1683ac2a75a99a3aee80a9ff2677414282ed695e16",
     ),
     kernel(
         Builtin::FloatIsNaN,
@@ -140,7 +140,7 @@ pub const PINS: &[Pin] = &[
     ),
     kernel(
         Builtin::FloatDecEq,
-        "d2bafb2f9f556f54aee0c70bfc03387a3e1dfa78203ba103f75567e9e2cd979b",
+        "f7cf8bb10de1c88bbad420034cae5cc91d7de052946f0f964569412b33cd1551",
     ),
     kernel(
         Builtin::FloatIsFinite,
@@ -164,7 +164,7 @@ pub const PINS: &[Pin] = &[
     ),
     kernel(
         Builtin::FloatSub,
-        "af7e848a918ef5781d07c68376c8289585e5107628227bd478dc4c01cb6f1a6b",
+        "665ce2f52a0b1ad15a70d6253c26f5d1b638218819ea5dc130399cd7de93e73b",
     ),
     kernel(
         Builtin::FloatBitsExt,

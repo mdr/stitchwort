@@ -1,5 +1,5 @@
 ---
-source: crates/driver/tests/hash_stability.rs
+source: crates/driver/tests/library/hash_stability.rs
 expression: "lines(session, d, f)"
 ---
 Main.firstIsA ea3172667723fd7b73f987ac09abbb3ade1415960672435b6cbddaab618d7435
@@ -23,8 +23,8 @@ Main.bitRoundTrip 383e4f339c4a7c7d759e656be2b488a3f9a09e06211bfe4506dad765eafa31
 Main.bitIsBit ae428670430d3bfffea623e95b8e1d9aa8417c8b40bf623eb4345ad283baadd4
 Main.hypothesisRefined beb6960ebb8fd86d943f850a021e0a0328c717ffc9f9c419ec77aa95e0e8226a
 Main.pairOfChars a274365ff2a88c53186e0afa81ae02721119c09a46ac849a6ebf4d7c6312eb2f
-Main.test "next" 0f79b75a60282f3aef20b73f80d268fd6094c2ba62bf606065083ce4a80e808a
-Main.test "bits" e7cbb4c6fb67239fc080fcd896c72ae8c12a201eebff4d9fb43bab02a96756fa
+Main.test "next" 8a23a4709b3ede010f192c9db5d20f8a2da06cfd1c96b551e29f5a9304c8d2eb
+Main.test "bits" 41752f9b8a4365360105334718264851d000e208b6c9fa1a45741a4f5e323de3
 Main.firstIsAComputes 38ea3362c63b6d4b9408b8ad21a90189a07cf5ff92f039f01ff3b84e0d2abba7
 Main.nextOfAComputes f6a703611f14e2124d6100200c7dee77b6d2a1a6f7941a2eb637f45976615783
 Main.nestedReturnC bed3d7ce57478ccb9039a7ae9e74341041460258ee25d5f2804cf0f7e32dc230

@@ -1,5 +1,5 @@
 ---
-source: crates/driver/tests/hash_stability.rs
+source: crates/driver/tests/library/hash_stability.rs
 expression: "lines(session, d, f)"
 ---
 data Main.Ten 31da06ed1a78f02069b5f8e474c977866d4dc8d064bffcf41e828f42e1c35523
@@ -65,7 +65,7 @@ Main.Ten.%instFinite 6bc6e26fddbc33785875e9d3594e248b9c7953ca000959f2106c8e286e5
 Main.Ten.ext b63d87e10b1ddfb720c11f039be98b85a8033db570c27e07b19468acb451be13
 Main.Ten.bits 1f829c7f6f2d5869cb1b24f0a03f4a1da9fa0ccdff015fa358a162611e3136f9
 Main.tenBothWays d9fdac60c162b329457790e206af7565671cdc279e7e79c37b3e523a2c969cef
-Main.rowEnds 18f1a973098dc93de86ddfd0f079b3ce14676ae68d5a8d96380737e0e35a893d
-Main.rowEnds.eq1 31572e90fe395e99ea14e5564d08d8a50e58810619303d86cccde3182e5214e2
-Main.rowEndsAll f4fc40eabc32e00a971405b21de6bc15479cbb3b7dba9296289b80d06e9f506d
+Main.rowEnds 85902a406068c8f149fc58b57f5ffce6b5de78dbd8c05e918fcfa8569951fc67
+Main.rowEnds.eq1 afd14a3a7eadab62a5fcd864db9c20ece481fdf788e2dbe195ad3165945394d8
+Main.rowEndsAll 9bb74a18c913bc4b019b5365ba0d89364652fa6d0a2d21a10e1d0b7ac305f739
 Main.squaresBelow 3318f6981eb8b9010e78aaaff6db110b79c2e44da6f20b4ef7fe105f497c01a4

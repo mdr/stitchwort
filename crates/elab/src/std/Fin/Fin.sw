@@ -29,7 +29,7 @@ def Fin.ofNat (i: Nat) [auto ok: i < n]: Fin n := Fin.ofNatLt n i ok
 
 theorem Fin.toNatOfNatLt (n i: Nat) (h: i < n): Fin.toNat (Fin.ofNatLt n i h) = i :=
   match n, i with
-    | Zero, i => Void.exfalso (Bool.falseNotTrue h)
+    | Zero, i => cases
     | Succ n, Zero => rfl
     | Succ n, Succ i => Eq.cong Succ (Fin.toNatOfNatLt n i h)
 
@@ -133,7 +133,7 @@ theorem Fin.anyIntro (p: Fin n → Bool) (i: Fin n) (h: p i = True): Fin.any n p
 
 --| When `Fin.any` is true, some position passes.
 theorem Fin.anyElim (goal: Prop): ∀ (n: Nat) (p: Fin n → Bool) => Fin.any n p = True → ∀ (cont: ∀ (i: Fin n) => p i = True → goal) => goal
-  | Zero, p, h, use => Void.exfalso (Bool.falseNotTrue h)
+  | Zero, p, h, use => cases
   | Succ n, p, h, use =>
     Bool.inspect (p FZero) (u => goal)
       (t => use FZero t)

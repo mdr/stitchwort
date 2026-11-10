@@ -78,7 +78,7 @@ theorem List.getOrScanAdd (row: List Nat) (start c: Nat) (h: c ≤ List.length r
     List.getOr (List.scanLeft row start Nat.add) c 0 = start + List.sumBy (List.range 0 c) (i => List.getOr row i 0) :=
   match row, c with
     | [], Zero => Eq.sym (Nat.addZero start)
-    | [], Succ c => Void.exfalso (Bool.falseNotTrue h)
+    | [], Succ c => cases
     | [x, ..xs], Zero => Eq.sym (Nat.addZero start)
     | [x, ..xs], Succ c =>
       rewrite List.getOrScanAdd xs (Nat.add start x) c h, List.sumByRangeSucc (i => List.getOr [x, ..xs] i 0) c in omega
@@ -86,12 +86,12 @@ theorem List.getOrScanAdd (row: List Nat) (start c: Nat) (h: c ≤ List.length r
 --| In a sorted list of numbers, an element is at most every later one.
 theorem List.sortedGetOrLe: ∀ (xs: List Nat) (d: Nat) => List.Sorted Nat.leq xs → ∀ (i j: Nat) => i ≤ j → j < List.length xs →
     List.getOr xs i d ≤ List.getOr xs j d
-  | [], d, s, i, j, h, lt => Void.exfalso (Bool.falseNotTrue lt)
+  | [], d, s, i, j, h, lt => cases
   | [x, ..rest], d, s, Zero, Zero, h, lt => Nat.leRefl x
-  | [x], d, s, Zero, Succ j, h, lt => Void.exfalso (Bool.falseNotTrue lt)
+  | [x], d, s, Zero, Succ j, h, lt => cases
   | [x, y, ..ys], d, Both first s, Zero, Succ j, h, lt =>
     Nat.leTrans x y (List.getOr [y, ..ys] j d) first (List.sortedGetOrLe [y, ..ys] d s 0 j rfl lt)
-  | [x, ..rest], d, s, Succ i, Zero, h, lt => Void.exfalso (Bool.falseNotTrue h)
+  | [x, ..rest], d, s, Succ i, Zero, h, lt => cases
   | [x, ..rest], d, Both first s, Succ i, Succ j, h, lt => List.sortedGetOrLe rest d s i j h lt
 
 --| A value of a sorted list between the elements at positions i and j is one

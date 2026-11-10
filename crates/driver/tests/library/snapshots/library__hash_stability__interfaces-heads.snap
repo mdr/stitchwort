@@ -1,5 +1,5 @@
 ---
-source: crates/driver/tests/hash_stability.rs
+source: crates/driver/tests/library/hash_stability.rs
 expression: "lines(session, d, f)"
 ---
 data Main.Size 1dda9415b5c12999876443e5c749ad1f032dd13af5ee0a390d21ebfef2075eaa
@@ -29,9 +29,9 @@ Main.Size.instTagged da732241cea9381b61bf339360f1d68487473fa68bd254e350dd1221914
 Main.Optional dd221a7d140669f8d5c8e518ee54946a37d45ced52984172f3e161cee0b7b340
 Main.Size.instOptional 226d06e86c3bbf2f7561046ce9fcdcaa8ed7e37f43b04d503725674b29a843e2
 Main.Size.instOptional.%match1 f7a7b16faf81ed188f448da7262553f92ed31fc5c263535c8dba252137ae2772
-Main.test "nat" 38787c5a488197bf3d0e34cfefae48d5174f8122f474a555294bf3edfd2a644b
-Main.test "list" d59d914fe9c1e81477fe0622a326db0c81678de9398afe2369182b36898fb89d
-Main.test "pair" fc86148ad13e0eb23ff81a5f6be9eb81e4a07aa4fc1d0bcb1a03a65118257e7a
-Main.test "vec" 2be6554fc86b7b1ca7b961fc0ae3cc587e34a14a0ef1f9ae46515ad7b564bbb0
-Main.test "tagged" a95e8b80dac057511653df12558688d5917f623215987e6def72467677c34873
-Main.test "maybe" 3fa766a44e26539a099192b98c16865b819575d025ae5780ed1923b14e2d8a8d
+Main.test "nat" e5a6c025b962b1815f88a4fbc84ade93906de4c59483d97e1d89a8b37d88a931
+Main.test "list" 3f37be16de114ef5a05889f666cfc8843cfe068d18e3940273eba526f64144e8
+Main.test "pair" 5592e93bac7d96b5e5e9b9b5a5bf77ddc60d939bb4187fd1551001b359e5a6c7
+Main.test "vec" 23b0fa0cc7e68e6a335e75ab2e2325285158150203d7c38dda80f0604a878980
+Main.test "tagged" d9102bbbd3eee15612cdfe5dad889f5840f07d1a1a27e05b193b2306f29a8e5a
+Main.test "maybe" 8355e812c6a9bece8ae8385071582c0aa54630e82a9f8d326cac23c45651277f

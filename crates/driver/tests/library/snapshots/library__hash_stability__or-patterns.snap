@@ -1,5 +1,5 @@
 ---
-source: crates/driver/tests/hash_stability.rs
+source: crates/driver/tests/library/hash_stability.rs
 expression: "lines(session, d, f)"
 ---
 data Main.Colour e9f261d3ae42b20b81f9ee97185adac5766e100ed3335d3bacb45221c44383e5
@@ -68,8 +68,8 @@ Main.both.eq2 7f3716c3bcae31b9d2d7fbaf2367210573240757303a044f9088b512012e746e
 Main.vowelsScore 121af31f14c46b62028df6702792926648cc8e994880a203c493ddc7086fca86
 Main.test "warm" 6e98e8078724d3210786e41784e431deef1891ae142e6c62f90d657ad4dbc881
 Main.test "vowels" 966620a5f8476b3aec84598fa55828bda0492d3d08a7c11aed5ede69350cd072
-Main.test "score" a3b46595fa33253a616791e64716f2e54079e08b962ee1e056c3d4a0b0e8d968
+Main.test "score" 8a924f230c4c3a2616d220e83320c32a0786f9172bf1d65bdbd06290e2354e2a
 Main.test "inside a constructor" cdf1852935bb7053f08612394f7d1fb5f0ee73e8231f11666791f59a94506fb0
-Main.test "inside a tuple" 04fb3586375e62725d59f333dd86ae1479af4dc3bdf4de73081db757bc68ea3d
+Main.test "inside a tuple" ac57786b34470c0845e07154accea1739e5699d3f1b1a4f2c5f6f3daa52dc258
 Main.test "inside a list" 5576ccafaa3d936704c02bfb3aab1f283689605e9ad101ebef5207640717c91d
 Main.test "several patterns" 84fe20b013686562ce68dceb3696b2b34af9b2366d5968ee1f40573dbf47eee0

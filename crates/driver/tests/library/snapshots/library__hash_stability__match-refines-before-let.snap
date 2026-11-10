@@ -1,5 +1,5 @@
 ---
-source: crates/driver/tests/hash_stability.rs
+source: crates/driver/tests/library/hash_stability.rs
 expression: "lines(session, d, f)"
 ---
 Main.viaValue dca50f98e39b9416d91dfce6048c5705978bf8025245e98cc2c146510a02734a
@@ -18,8 +18,8 @@ Main.viaType 0ad6eefe40cc564cdff58d5c4037dc5d23d2ea9128fdfb52a8cbba8451e9116d
 Main.viaType.%match2 704dbe7bb7ab8182304c04e16fea2a6ec86abe4fdc55fe46f57faad620422e52
 Main.viaType.%match1 b4fe949494f4551d551b91f878c9a74035bdb104cfae7c59119800644d63b052
 Main.Box 50280d4b32e67bab0ebf30042a82e3430a0add4d771d8b72e7ad253b96edf403
-Main.test "the let's value, in the branch" 771c5560fe49f22c6b591270944612e858235b9efc48ac8a73e76fd9c8eb6eb8
-Main.test "the let's value, in the other branch" 9531fa3135877690df117d1033ea0a623d62ecf810d7e2085d34fd9c880b41e7
-Main.test "the inner match's other arm" 1d34f9d758c4fcd2434f921db158ed59e362dcfd2fd3b0ea71062176382af559
-Main.test "a let of two arguments" 389e82124b4422aeee3a7a914b3aae5cd0f2443a5c2c3eb81f2fd3462cca45c5
-Main.test "the let's type" 4a7399e2e6d22fc7813475d45ea527e48d0d54c4042ec8154700faab87745589
+Main.test "the let's value, in the branch" 3f2128d268e2a278df9b6c05fa102a06c450719722a94a324cf66b404116554a
+Main.test "the let's value, in the other branch" 972c73bc2cf4b25934ed690343a4bb4d26db0410d86626950de4ea9c2eacb826
+Main.test "the inner match's other arm" 471b9fc9b30cb0d3e2f22d28136c71bb74592aa8ea85f8c7150f88b840c08b8b
+Main.test "a let of two arguments" e46a51fae87b3f3884d1db1c08b602eb1beac5ea39d21003814e3282e99634a3
+Main.test "the let's type" 2a3f733a5bb3808a257ceb6e6d0a7c6551c6cef6fae36d22c4ab1d745888b3f8

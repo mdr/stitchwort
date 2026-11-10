@@ -1,10 +1,10 @@
 ---
-source: crates/driver/tests/hash_stability.rs
+source: crates/driver/tests/library/hash_stability.rs
 expression: "lines(session, d, f)"
 ---
 Main.modByNat e146c87a699f4d01a09f3bdf1dfa56eebfd1e0275268e1a59dfa9bb7abdc8893
 Main.divByNat 5ce5efac1ed8178c8e5d293ff8d324e8e8b309de2082a4deef3268c095d23535
 Main.modByNatNonneg 703562700b2c373b2627a59da5e65591a1f518c6739007cd5af18dee4bab3714
-Main.test "remainder by a natural" d57177bededa4045215923ea5cc019c4cc812abf8310bdd99f89cd16075f875a
-Main.test "division by a natural" 5e3770766d6911921b9e83b31b0689599a3b5ec484c123cf85f5c5e9cfbddfda
-Main.test "a negative remainder" 35c74620c39eb2a9c6fd8592f09401fd72aa90980ea2a6816d7b7cd6dddfd443
+Main.test "remainder by a natural" 19b6a2bcace24696eaeda48a6e73154430d6dc46b7bb4991ed8d19961206b26e
+Main.test "division by a natural" 403d0498479f1e80c124f178c78591edb32579876f0d9037fc0debdf0ff461f3
+Main.test "a negative remainder" f826f5065a36a18de8e9b15f647a284796fe076a3597097e75259845df555f29

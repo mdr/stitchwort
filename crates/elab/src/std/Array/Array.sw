@@ -189,7 +189,7 @@ theorem Array.sizeToList (array: Array a): array.size = List.length array.toList
 --| `getLt` finds what `get` finds.
 theorem List.getLtGet (xs: List a) (i: Nat) (ok: i < List.length xs): List.get xs i = Some (List.getLt xs i [ok := ok]) :=
   match xs, i with
-    | [], i => Void.exfalso (Bool.falseNotTrue ok)
+    | [], i => cases
     | [x, ..xs], Zero => rfl
     | [x, ..xs], Succ i => List.getLtGet xs i ok
 

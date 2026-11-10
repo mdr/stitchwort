@@ -1,5 +1,5 @@
 ---
-source: crates/driver/tests/hash_stability.rs
+source: crates/driver/tests/library/hash_stability.rs
 expression: "lines(session, d, f)"
 ---
 data Main.Suit 1b844bd5a200565c27b440cd488c868e35fe20ed1c2d46630dbc0f80297ca55d
@@ -24,16 +24,16 @@ Main.Suit.%complete 4fcbf65d6a5ef6a4f466398873f5eb4aa0e5976d9c143409ac944ca56fe4
 Main.Suit.%instFinite 5080312c861a17814c70f9246bcf5abb214c741267d5d120531d58b3f0b25540
 Main.test "Nat" 5b06f25db036440dcbdd964f94e022a48cab02f962ab3f5817d148654df92af4
 Main.test "Int" eb913b51026d777a4658f36577bc2ce5bd6e61bc20460ca33e1f5f221ed80613
-Main.test "Text" 54998073657a0bcd9607d1340e1b9ae133ce163ad32133e9edb48a847bbd13e1
+Main.test "Text" 9d257b434bbc41dddfe126a0bbe4d1de89e4623251511fa76b5fa769f6fb74ba
 Main.test "a derived Ord" 69ada65140e6ceae076ca2a36595ae341ad0fa7a50098d040778a2e28d485bba
 Main.test "not" 76504e34731e8361d5b4d08417441e3aac0d8198b64a206349c2809b7a99d02c
 Main.test "precedence" 9cde2b115c3af929e3c8d4fbd827ac436b5ab6475d16defeb3c61c98629cf783
-Main.test "a decision" dec36b98f9432a36c588a9e2ccbfca6ae77726fd4e15280cc3e7dbc4075d0b86
+Main.test "a decision" 98ea0f56eee1270268314b5f48d1a30c7032229e3863fb3c92e38fa53026bbd5
 Main.sign 0720ca1e55a247719595688105df0161b7188ce3bf0ea83e27940e2be20f8c9a
 Main.sign.eq.ifTrue 16e06474bb1b55419e54d6010b66d6ab4ed3efe52843a63e87be778843d87aad
 Main.sign.eq.ifFalse.ifTrue d691ac0b9ca358c44afa8982fabb71075eacf734199c4544389ea7da5462e47a
 Main.sign.eq.ifFalse.ifFalse 6caf7dd03fa323ea29161794c84310fa78f9bcec6f048763752e03c66e7dda04
-Main.test "if on >" dc608e9691c01e99bef0e1abaa04a56209a21fc6ea00bdd6fc8fc573d40d0074
+Main.test "if on >" 8670f29b8c5c856be15e1f287af5c6fef159367968242dcde96b38b9352be132
 Main.nonEmpty 6b830ac9be8e122d29d1be04173db3524aef711b7fc8fafcc8b50a6f262afa42
 Main.test "bang on a method call" 6e426878fa24728da07b93fc368ad17dd0a3a26e473027c4f0e9aabdb425d744
 Main.greaterOfLess 6f7981f018ac4235a67e8f51de9d3eab3533ee562823252f7f08995722e5d4f4

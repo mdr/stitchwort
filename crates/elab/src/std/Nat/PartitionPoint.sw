@@ -33,7 +33,7 @@ theorem Nat.partitionPointSplit (low: Nat) (high: Nat) (p: Nat → Bool) (apart:
 --| The search ends at `low` once the range is empty.
 theorem Nat.partitionPointDone (low: Nat) (high: Nat) (p: Nat → Bool) (close: Nat.leq (Succ low) high = False): Nat.partitionPoint low high p = low :=
   rewrite Nat.partitionPoint.unfold low high p in
-    Decidable.elimEq _ _ _ _ (isApart => Void.exfalso (Bool.falseNotTrue (Eq.trans (Eq.sym close) isApart))) (notApart => rfl)
+    Decidable.elimEq _ _ _ _ (isApart => cases) (notApart => rfl)
 
 --| For any test: the answer is from `low` to `high`; `p` holds just before
 --| it, unless it is `low`; and `p` fails at it, unless it is `high`.

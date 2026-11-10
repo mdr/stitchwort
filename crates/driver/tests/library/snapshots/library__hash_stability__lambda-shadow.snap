@@ -1,8 +1,8 @@
 ---
-source: crates/driver/tests/hash_stability.rs
+source: crates/driver/tests/library/hash_stability.rs
 expression: "lines(session, d, f)"
 ---
 Main.shadowed ad17a4ee11cc7c668c0fb97d2f5671946f07cc5dd5486fab32b1e88af242c00f
 Main.renamed ad17a4ee11cc7c668c0fb97d2f5671946f07cc5dd5486fab32b1e88af242c00f
 Main.bracketed 96fb6102cf527e7e8045073b14202342251bc2a3a4a8b966e4c45343c6518056
-Main.test "the lambdas mean what they say" 762aef616c150d8e9837fbbf00806680fe3b1972b6c8e8de922c726a159bfcb9
+Main.test "the lambdas mean what they say" bccf76af4682b9d5940dcdd025af3306959aa306dabf7d808d7911e496779f25

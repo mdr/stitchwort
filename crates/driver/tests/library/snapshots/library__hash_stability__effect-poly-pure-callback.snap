@@ -1,5 +1,5 @@
 ---
-source: crates/driver/tests/hash_stability.rs
+source: crates/driver/tests/library/hash_stability.rs
 expression: "lines(session, d, f)"
 ---
 Main.double c414829fcf948e152547254fc0230633967d54f7573e5a51086a043fc952c88e
@@ -8,10 +8,10 @@ Main.successors b293dbfe2fe821d606dc578ca96f2f0f8f261364c19f941a26552c3caeeb1a35
 Main.tails 6468d519e706c5a8821d7517c0a94979c468b5335574562e1998048a34fa419c
 Main.mapPure ad17a4ee11cc7c668c0fb97d2f5671946f07cc5dd5486fab32b1e88af242c00f
 Main.mapEmptyRow ad17a4ee11cc7c668c0fb97d2f5671946f07cc5dd5486fab32b1e88af242c00f
-Main.doubledOrFail 0450b21e2b606d79985975fb7605d2ae4c65adca13e5c0d67c57e9c220e39c88
-Main.test "map with a named function" 694de9b40755b56024a4cedef96cb3e8d25b98cc21515e8a372258ef7ac46b0e
-Main.test "map with a constructor" 67f88b1b38399a462dd88c1470599a75266961de26152a233a2876dffc5b2e2e
-Main.test "map with a partial application" ef2aa12ce713f9676a4ded869537e7c01a514b7ba737435b7d3f4f5231bf2c8b
-Main.test "map with a pure parameter" ff27f8c7ce33bea89649e1cb0587c9015cc551f14db63037155971abd353f308
-Main.test "map with an empty-row parameter" d4679976af2a157011b0a59e9c3237f67b0452d2363456ac33f3e67c3a4a6148
-Main.test "map with a pure callback in a failing computation" 606924aba6e237f0dc4851814b73a4a33dcdf2507f5a3081e48f5507a13b74cc
+Main.doubledOrFail 9a256d59dc70146ee28284eae7386d56e113f500a8bcfb2828088e42e6f196f9
+Main.test "map with a named function" ae28b5f166f2d234df8dde01a8f57b0cf5838e32e998a8cb3486d3efece84081
+Main.test "map with a constructor" a9dad6ace873a87a8238f5ddfa57f56a244f2880aec8495ec277656a6c568a4a
+Main.test "map with a partial application" decdaf95207240ada8686fd5e7f4ed6c5c5a75dd67e85fe7311d3288520e013a
+Main.test "map with a pure parameter" 0ca66dd3656eccea92cf0ae9ac0c5dfdda1c3f946ddc789450738cfdcc6b798d
+Main.test "map with an empty-row parameter" 352f04d75bf1a32141c7dd6b067e4f2ab7dfde01e486576782dbe3fb11e34d6d
+Main.test "map with a pure callback in a failing computation" 5a86092a23684bf01aa9ee5eae24290ff9b7ec6ee1aec186ef188282c14a7f12

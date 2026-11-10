@@ -356,7 +356,7 @@ theorem Map.containsOfMemToList [auto ord: Ord k] (m: Map k v) (key: k) (e: (k, 
 theorem Map.memKeysOfContains [auto ord: Ord k] (m: Map k v) (key: k) (h: Map.contains m key = True): List.Mem key (Map.keys m) :=
   match c: Map.get m key with
     | Some value => List.memMap (Map.toList m) (key, value) ((Map.memToList m key value).backward c) Pair.fst
-    | None => Void.exfalso (Bool.falseNotTrue h)
+    | None => cases
 
 theorem Map.memKeys [auto ord: Ord k] (m: Map k v) (key: k): List.Mem key (Map.keys m) ↔ Map.contains m key = True := {
   forward = inKeys =>
@@ -733,7 +733,7 @@ theorem Map.sumValuesEqSumByKeys [auto ord: Ord k] (m: Map k Nat) (f: k → Nat)
 theorem Map.getOfContains [auto ord: Ord k] (m: Map k v) (key: k) (there: Map.contains m key = True): Exists v (value => Map.get m key = Some value) :=
   match found: Map.get m key with
     | Some value => Witness value rfl
-    | None => Void.exfalso (Bool.falseNotTrue there)
+    | None => cases
 
 --| A key just inserted is there.
 theorem Map.containsInsertSame [auto ord: Ord k] (m: Map k v) (key: k) (value: v): Map.contains (Map.insert m key value) key = True :=

@@ -1,8 +1,8 @@
 ---
-source: crates/driver/tests/hash_stability.rs
+source: crates/driver/tests/library/hash_stability.rs
 expression: "lines(session, d, f)"
 ---
 Main.apply2 52b3b5cb128a714b66660c387ec98fac2c10ac90610c556972f9e71862a90c1e
 Main.fine 601b3b87ff4abe25aae215131883580cb2a0bdbeafd3811a3c77faef44cf5a2e
 Main.fine.%match1 614cd8835ad00bea1f72d0fbe1e65d3f3aefc66df4a329f13136e950fc3806de
-Main.test "the motive checked when lifted" 1c7b1fbb0149522ef35a5227f0911c8fcb55a887c0751c4d32e1581d2d227516
+Main.test "the motive checked when lifted" 5e271fe180aee2e14af441802844d6f919ec33848d3039eaafac4162d3569edb

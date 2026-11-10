@@ -1,5 +1,5 @@
 ---
-source: crates/driver/tests/hash_stability.rs
+source: crates/driver/tests/library/hash_stability.rs
 expression: "lines(session, d, f)"
 ---
 data Main.Counter c84bc9c7761606859098459e7418c6d10024e91f0e4443047ebeb1465319a2cc
@@ -14,7 +14,7 @@ Main.own 5d706896cbd5023a6dfff4907a882c2b551c23a09f69188a63531b14802e66d2
 Main.own.%match1 8635a7cad925fc5f1d50e9f4a353374effb611d9c1537e8d0cbd81b626e435b6
 Main.counted d208b0ac8ca7c79bf0841070563954253ec227993bc6842450c62c8b545c69c4
 Main.counted.%match1 eaf9dd51a60fa818ce077f89644426e0198ec202a3d864008ab8297c9c375a8d
-Main.test "pure callback" e229a5af0e2fae8a18ba737487d9d78a2668cf3296f6d19da84290ae1696caee
-Main.test "Option" 3f33cea7f0680fc6dc5194ba308ec0211acd527a1fcc22f1d6e38f5a088c28bf
-Main.test "own parameter" aea6d6dbe280ea1c6707c837076c41dac9d9abfacc0b3f3769521c5ffd87f2a7
-Main.test "Counter" caeb06caf4d5e5078653508d204c54fd74107f7db90f87aac4bd6ca14d18550d
+Main.test "pure callback" 9356b2f5a28a89484caaa8b548e37aabaadf92acd10ad39f68d242bc76539f3a
+Main.test "Option" 0ac679a2582e2c3461becdad7e8ed5b70c292854b7b64d0a4c5252936f17e5b3
+Main.test "own parameter" 4fd61c6285d68be4f6443e49f004df624a16ea74f1e7c592b0f0fac0e83ba8c8
+Main.test "Counter" 4f05ce7a19f181c6017a97400cf58f0b01f188e9222ca6744ec6026f8e2b12a2

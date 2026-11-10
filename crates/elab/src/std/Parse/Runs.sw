@@ -1051,7 +1051,7 @@ theorem Parse.digitNotSign (sign: Char) (d: Char) (more: List Char) (signNotDigi
     | False => rfl
     | True =>
       let equal: sign = d := Char.ext sign d (Nat.equalSound _ _ same)
-      Void.exfalso (Bool.falseNotTrue (rewrite equal at signNotDigit in Eq.trans (Eq.sym signNotDigit) digit))
+      cases
 
 --| Digits don't start with a sign character that is not a digit.
 theorem Parse.digitsNotSign (sign: Char) (digits: List Char) (rest: List Char) (some: digits ≠ []) (all: digits.all Parse.isDigit = True)
@@ -1125,7 +1125,7 @@ theorem Parse.runsRepeatOptional (p: () → {Parse} a) (rest: List Char): ∀ (e
     Parse.Runs (() => Parse.repeatOptional extra p found) (Parse.joinReads steps) rest (found.reverse ++ Parse.stepValues steps)
   | Zero, [], found, runs, state, starts, honest =>
     rewrite List.appendNil found.reverse in (Parse.runsPure found.reverse rest) state starts honest
-  | Zero, [step, ..steps], found, runs, state, starts, honest => Void.exfalso (Bool.falseNotTrue runs)
+  | Zero, [step, ..steps], found, runs, state, starts, honest => cases
   | Succ more, [], found, declines, state, starts, honest =>
     rewrite List.appendNil found.reverse in
       (Parse.runsBind (() => Parse.optional p)

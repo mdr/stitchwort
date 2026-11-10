@@ -168,7 +168,7 @@ theorem List.splitGroupsSeparators (ys: List a) (p: a → Bool) (h: List.all ys 
     | [y, ..ys] =>
       match e: p y with
         | True => rewrite List.splitGroupsCons ys y p, e, List.splitGroupsSeparators ys p h
-        | False => Void.exfalso (Bool.falseNotTrue h)
+        | False => cases
 
 theorem List.splitGroupsAppendSeparators (ys: List a) (p: a → Bool) (h: List.all ys p = True) (xs: List a):
     List.splitGroups (List.append xs ys) p = List.splitGroups xs p :=

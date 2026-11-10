@@ -390,7 +390,7 @@ theorem Vec.getOrZipWith3 (f: a → b → c → r) (d1: a) (d2: b) (d3: c) (d: r
 theorem Vec.getOrTabulate (d: a) (n: Nat) (f: Fin n → a) (i: Nat) (h: i < n):
     Vec.getOr (Vec.tabulate n f) i d = f (Fin.ofNatLt n i h) :=
   match n, i with
-    | Zero, i => Void.exfalso (Bool.falseNotTrue h)
+    | Zero, i => cases
     | Succ k, Zero => rfl
     | Succ k, Succ i => Vec.getOrTabulate d k (j => f (FSucc j)) i h
 

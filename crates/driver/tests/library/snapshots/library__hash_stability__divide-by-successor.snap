@@ -1,5 +1,5 @@
 ---
-source: crates/driver/tests/hash_stability.rs
+source: crates/driver/tests/library/hash_stability.rs
 expression: "lines(session, d, f)"
 ---
 Main.rem 724899d9d9208e8b7bfd747fdb2fe591bb3d8c9abe9e1c9591802818a1556a73
@@ -7,6 +7,6 @@ Main.per 47e6026d022dfaa5eb74791a51db15c7259e12b5074fb401c82d03570018e1f4
 Main.upTo fe8a06d38135e4449fab654cd8a590b1f0c3e4f468282303b2f7bcb2f688ebc2
 Main.perPair 0389ae14143c979c0588bc4a2bbd498d0656dad3a613402819dd5654208f79ed
 Main.upToSucc d3d0716fdfaa671862192b732bc4d78322f0cd9e41038e23c0b3cb69167c9d54
-Main.test "upTo" d1a4f1df808ef189530d0f03d499b77e6d21dbe29b25425d24dc03932cafcb75
-Main.test "perPair" 6faf39922045df1dd6adfb45481e2be1e1e156c8eb6c1d8a7c322fd7a8d0fa66
-Main.test "the same as Succ" 19b6757ea4cbff4caba7d611901b9f35ab92a9206b7237a7b28dd1f841489e7b
+Main.test "upTo" 86df722381e3966625bbc52be466dffcdc5fbfb6a97697f122426b8078a846e8
+Main.test "perPair" c5bd53c5c2320b3d3fe75490be6a123c15f10562edafcf5768bfc3982c35232b
+Main.test "the same as Succ" 21defb6bc189f52637de42c215d897a69b189fcfc4504544793200ab58798b69

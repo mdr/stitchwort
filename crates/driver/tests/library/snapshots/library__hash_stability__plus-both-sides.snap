@@ -1,5 +1,5 @@
 ---
-source: crates/driver/tests/hash_stability.rs
+source: crates/driver/tests/library/hash_stability.rs
 expression: "lines(session, d, f)"
 ---
 data Main.Vec 4cc4104f40e64ca89957132f93fe7cb53692d7d69310cda043fe66224774bb54
@@ -24,4 +24,4 @@ Main.appendSwapped.eq2 8f2a934a448b99c35ab3f8175e21fd1744059be670e593ff2e1a374b6
 Main.snoc 5a12c6944967ec14dbd00b6495098c58947806fbe1be7d24b5427803b7ddd074
 Main.snoc.eq1 1ecbf1b8454ea83b802b02178a4534f1ee0620425166d78a29dba4223af230f2
 Main.snoc.eq2 7df40b7cae51c5ba1b633609e0bcb3e257fc307e906a54a04f29fa8a18f04171
-Main.test "head of a snoc" 4c4da6e19a03df48bc7b9fa4734de392854993e3f8c70182c4b5fbd37f2bc52a
+Main.test "head of a snoc" 791fecd24868fc972871fd2abf8d802ba3f93dc82f16ffeb4823f630ff1410ad

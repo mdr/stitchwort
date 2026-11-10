@@ -32,7 +32,7 @@ theorem List.anyConsSelf [auto eq: DecEq a] (y: a) (s: List a): List.any [y, ..s
 
 theorem List.anyTailFalse (p: a → Bool) (y: a) (s: List a) (h: List.any [y, ..s] p = False): List.any s p = False :=
   match e: p y with
-    | True => Void.exfalso (Bool.trueNotFalse h)
+    | True => cases
     | False => h
 
 theorem List.memUniqueFromElim [auto eq: DecEq a] (x: a) (seen xs: List a) (m: x ∈ List.uniqueFrom seen xs): x ∈ xs :=
@@ -93,7 +93,7 @@ theorem List.memUniqueDecEq [auto eq: DecEq a] (x: a) (xs: List a): x ∈ List.u
   forward = m => List.memUniqueFromElim x [] xs m,
   backward = m =>
     match List.memUniqueFromIntro x [] xs m with
-      | Inl none => Void.exfalso (Bool.falseNotTrue none)
+      | Inl none => cases
       | Inr found => found
 }
 
@@ -260,7 +260,7 @@ theorem List.isDistinctFromSound [auto ord: Ord a] (seen: Set a) (xs: List a) (o
     | [] => Trivial
     | [next, ..rest] =>
       match c: Set.contains seen next with
-        | True => Void.exfalso (Bool.falseNotTrue ok)
+        | True => cases
         | False =>
           Both (List.isDistinctSeenNotAhead (Set.insert seen next) next (Set.containsInsert next seen) rest ok)
             (List.isDistinctFromSound (Set.insert seen next) rest ok)

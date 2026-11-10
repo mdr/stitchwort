@@ -155,13 +155,13 @@ theorem List.concatReplicateSnoc (p: List a) (n: Nat): List.concat (List.replica
 theorem List.lengthTake (xs: List a) (k: Nat) (h: k ≤ List.length xs): List.length (List.take xs k) = k :=
   match xs, k with
     | xs, Zero => rfl
-    | [], Succ k => Void.exfalso (Bool.falseNotTrue h)
+    | [], Succ k => cases
     | [x, ..xs], Succ k => Eq.cong Succ (List.lengthTake xs k h)
 
 theorem List.takeAll (xs: List a) (k: Nat) (h: List.length xs ≤ k): List.take xs k = xs :=
   match xs, k with
     | [], Zero => rfl
-    | [x, ..xs], Zero => Void.exfalso (Bool.falseNotTrue h)
+    | [x, ..xs], Zero => cases
     | [], Succ k => rfl
     | [x, ..xs], Succ k => Eq.cong (Cons x) (List.takeAll xs k h)
 
@@ -169,7 +169,7 @@ theorem List.takeAll (xs: List a) (k: Nat) (h: List.length xs ≤ k): List.take 
 theorem List.dropPast (xs: List a) (k: Nat) (h: List.length xs ≤ k): List.drop xs k = [] :=
   match xs, k with
     | [], k => List.dropNil k
-    | [x, ..xs], Zero => Void.exfalso (Bool.falseNotTrue h)
+    | [x, ..xs], Zero => cases
     | [x, ..xs], Succ k => List.dropPast xs k h
 
 -- Sliding windows (`List.windows`): how many there are, how long each is,
@@ -237,7 +237,7 @@ theorem List.windowsExample: List.windows [1, 2, 3, 4] 3 = [[1, 2, 3], [2, 3, 4]
 theorem List.lengthDrop (xs: List a) (n: Nat) (h: n ≤ List.length xs): n + List.length (List.drop xs n) = List.length xs :=
   match xs, n with
     | xs, Zero => rfl
-    | [], Succ n => Void.exfalso (Bool.falseNotTrue h)
+    | [], Succ n => cases
     | [x, ..xs], Succ n => Eq.cong Succ (List.lengthDrop xs n h)
 
 theorem List.lengthDropExample: List.length (List.drop [1, 2, 3, 4, 5] 2) = 3 := rfl
@@ -257,7 +257,7 @@ theorem List.dropAppendLength (xs: List a) (ys: List a) (k: Nat) (h: List.length
 
 theorem List.headTake (xs: List a) (d: a) (k: Nat) (h: 1 ≤ k): List.headOr (List.take xs k) d = List.headOr xs d :=
   match xs, k with
-    | xs, Zero => Void.exfalso (Bool.falseNotTrue h)
+    | xs, Zero => cases
     | [], Succ k => rfl
     | [x, ..xs], Succ k => rfl
 
@@ -471,7 +471,7 @@ theorem List.sortedRange (from: Nat) (until: Nat): List.Sorted Nat.leq (List.ran
 --| `any` over a run of numbers: a witness out, a witness in.
 theorem List.anyRangeElim (q: Nat → Bool) (goal: Prop): ∀ (c s: Nat) => List.any (List.rangeFrom c s) q = True →
     ∀ (cont: ∀ (k: Nat) => s ≤ k → k < s + c → q k = True → goal) => goal
-  | Zero, s, h, k => Void.exfalso (Bool.falseNotTrue h)
+  | Zero, s, h, k => cases
   | Succ c, s, h, k =>
     Bool.inspect (q s) (u => goal)
       (t => k s (Nat.leRefl s) (Nat.ltAddSuccSelf s c) t)
@@ -501,7 +501,7 @@ theorem List.allRangeElim (q: Nat → Bool): ∀ (c s: Nat) => List.all (List.ra
         (ne => List.allRangeElim q c (Succ s)
           (Eq.trans (Eq.cong (b => Bool.ifThenElse b (u => List.all (List.rangeFrom c (Succ s)) q) (u => False)) (Eq.sym t)) h)
           k (Nat.leNeSucc s k h1 (e => Bool.trueNotFalse (Eq.trans (Eq.sym (Decidable.toBoolOf (Nat.decEq k s) (Eq.sym e))) ne))) (Nat.ltSuccAdd s c k h2)))
-      (f => Void.exfalso (Bool.trueNotFalse (Eq.trans (Eq.sym h) (Eq.cong (b => Bool.ifThenElse b (u => List.all (List.rangeFrom c (Succ s)) q) (u => False)) f))))
+      (f => cases)
 
 theorem List.allRangeIntro (q: Nat → Bool) (c s: Nat) (h: (∀ (k: Nat) => s ≤ k → k < s + c → q k = True)): List.all (List.rangeFrom c s) q = True :=
   match c with
@@ -645,8 +645,8 @@ theorem List.sortBySorted (cmp: a → a → Ordering)
 --| If `o` isn't `Less` or `Equal`, its opposite is.
 theorem Ordering.flipNotLessEq (o: Ordering) (h: Ordering.isLessEq o = False): Ordering.isLessEq (Ordering.flip o) = True :=
   match o with
-    | Less => Void.exfalso (Bool.trueNotFalse h)
-    | Equal => Void.exfalso (Bool.trueNotFalse h)
+    | Less => cases
+    | Equal => cases
     | Greater => rfl
 
 --| An `Ord`'s comparison is total, by its `flip` law.
@@ -685,7 +685,7 @@ theorem Ord.isLessEqAntisymm [auto ord: Ord a] (x: a) (y: a)
   match e: Ord.compare x y with
     | Equal => ord.equal x y e
     | Less => Void.exfalso (Bool.falseNotTrue (rewrite ord.flip x y, e at h2))
-    | Greater => Void.exfalso (Bool.falseNotTrue h1)
+    | Greater => cases
 
 --| Sorted by one test is sorted by another that agrees with it.
 theorem List.leHeadCong (le1: a → a → Bool) (le2: a → a → Bool) (h: ∀ (x y: a) => le1 x y = le2 x y) (z: a)
@@ -980,7 +980,7 @@ theorem Bool.toNatAddLeOne (b: Bool) (n: Nat) (h: Bool.toNat b + n ≤ 1): n ≤
   match b, n with
     | False, n => h
     | True, Zero => rfl
-    | True, Succ n => Void.exfalso (Bool.falseNotTrue h)
+    | True, Succ n => cases
 
 --| Distinct keys: at most one element has any key.
 theorem List.occurrencesKeyDistinct [auto eq: DecEq k] (xs: List a) (key: a → k) (kk: k) (h: List.Distinct (List.map xs key)):

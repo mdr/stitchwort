@@ -1,5 +1,5 @@
 ---
-source: crates/driver/tests/hash_stability.rs
+source: crates/driver/tests/library/hash_stability.rs
 expression: "lines(session, d, f)"
 ---
 data Main.Colour 92decf87bd22a27f283e2d322bbc0fc4e4990f0b832d7e3873af50d30db8dc47
@@ -37,7 +37,7 @@ Main.both 2a769880c7350a7220c6447b4802a60a87a1e56070044873cfb6d050e48faf81
 Main.both.eq1 507999fc027c05a2461624f4ec9f90439710c3c41b560ffc391bf36d8f218201
 Main.both.eq2 7c7901ed007daf22596db2f5eecf634c667036b4d94641077f156bfa43edfab3
 Main.both.eq3 e0b6239d59b6ad2b8c5e972a8be2080102b74cf1fe2dec6703e59148d3a29902
-Main.test "key" 718699687a5b1feee600ad88d88631f4d73e8267b5af76eca0be318f571c695f
+Main.test "key" 57ccb02918f16d2f4f2c5dceab026a85a9d0f8d320962ef16b53aed4624722d5
 Main.test "isRed" e26eebdc92cf3b9659d77215e7cc9e47280daad3ab8504dc6a61b25a2aebfd77
-Main.test "step" 765a1a6da1dfca2c0c1ae9c65e1cc406bcb970d47f3fec56a5f97e0d0b38addf
-Main.test "both" ae250294734c2284f4bdd8e07b7f87a2850d9a747c32d25ce400eaf7a087b2fd
+Main.test "step" 0ed32f87b8302ccf14ab9ceb4d3d41c699b0f7ba1d50f6cfbd5b31432c3cd6ff
+Main.test "both" 9414709230de2bbc05f17a9a59c91e9391dce6e1abd9911051302dedad3829be
