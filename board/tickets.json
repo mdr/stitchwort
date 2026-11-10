@@ -14845,14 +14845,14 @@
     {
       "id": 1819,
       "title": "[Opus] Machine::apart_sets gains an entry per number match with a _ arm on every request (kept session leak); reuse equal entries",
-      "status": "review",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-1819",
       "labels": [
         "lsp"
       ],
       "epic": "editor-playground",
-      "body": "From SW-1808's review (docs/reviews/SW-1808-kept-search-session.md, finding 2). Kernel state. Expected: 45 min. Ready now.\n\nFrom docs/reviews/code-review-core.md: dedup apart sets by set (confirmed).\n\nProgress (10 Nov): `Machine::apart_sets` is now `ApartSets`, which interns each set (a map from contents to name beside the vec); `Apart::new` returns an equal set's existing name. Index comparisons (Rebuild/Unchanged in check.rs) now mean \"same facts\"; Head's eq/hash ignore Apart and no Term or cache holds one. Unit test added. Tests: core value:: (17 pass), core it rebuild (8), number_patterns (9), running _examples (4); clippy clean. ~10 min.\n",
+      "body": "From SW-1808's review (docs/reviews/SW-1808-kept-search-session.md, finding 2). Kernel state. Expected: 45 min. Ready now.\n\nFrom docs/reviews/code-review-core.md: dedup apart sets by set (confirmed).\n\nProgress (10 Nov): `Machine::apart_sets` is now `ApartSets`, which interns each set (a map from contents to name beside the vec); `Apart::new` returns an equal set's existing name. Index comparisons (Rebuild/Unchanged in check.rs) now mean \"same facts\"; Head's eq/hash ignore Apart and no Term or cache holds one. Unit test added. Tests: core value:: (17 pass), core it rebuild (8), number_patterns (9), running _examples (4); clippy clean. ~10 min.\nModel result: Opus, worked, 10 min (est. 45).",
       "created": "2026-11-07",
       "updated": "2026-11-10",
       "commits": []
