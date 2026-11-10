@@ -25784,14 +25784,14 @@
     {
       "id": 2547,
       "title": "Hardened-runtime guard: a hardened binary without allow-jit should run on the machine instead of dying with SIGTRAP",
-      "status": "backlog",
+      "status": "review",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "effects-native",
-      "body": "From SW-2535. 45 min.",
+      "body": "\nFrom SW-2535. 45 min.\n\nStarted 10 Nov 2026 03:44 UTC. Expected: 45 min.\n\nDone (commit 0621931d4 on lane/SW-2547): map_jit::jit_unavailable() reads CS_OPS_STATUS (CS_RUNTIME) and the entitlements blob via csops; n1::compile_audited returns an error when hardened without allow-jit. Per D3449 an explicit --native stops with that error (no silent fallback); the test path already falls back to the machine on a compile error. mmap(MAP_JIT) is not a reliable probe: it succeeded in the hardened stitchwort binary, which then trapped at the first pthread_jit_write_protect_np. SW-2545 can call jit_unavailable() to choose the machine when native is the default. Model result: Sonnet, worked, ~10 min (est. 45).\n",
       "created": "2026-11-09",
-      "updated": "2026-11-09",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
