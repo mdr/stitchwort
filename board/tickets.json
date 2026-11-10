@@ -27275,7 +27275,7 @@
     {
       "id": 2639,
       "title": "[Opus] Conversion keeps ~1.6 KB per unfolded level of a decreasing-checked recursion (innerN 2^128: 3.3 GB before the 2M-frame E-RESOURCE); shrink what Unfolding retains, or unfold lazily (fuzz_elab 0x25a5 case 4273)",
-      "status": "review",
+      "status": "doing",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-2639",
       "labels": [
