@@ -1,5 +1,5 @@
 {
-  "next": 2664,
+  "next": 2665,
   "tickets": [
     {
       "id": 47,
@@ -27244,14 +27244,14 @@
     {
       "id": 2637,
       "title": "[Sonnet] Editor settings (D3468): a Stitchwort section in VS Code's Settings (inlay hints, run icons, proof search on ? and its time limit, semantic colours, goals panel auto-open) read by the server at start and on change; format on save on by default for .sw (configurationDefaults); a ⚙ menu in the playground with the same switches plus format on save and font size, kept in localStorage; a Settings paragraph in the guide",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2637",
       "labels": [
         "editor"
       ],
       "epic": "editor-playground",
-      "body": "D3468 (Matt, 10 Nov 2026): yes. Starts after SW-2629 (same extension and playground files). Est. 90 min.\n\nProgress (10 Nov 2026): done in ~15 min. Server Settings (crates/lsp), VS Code settings and configurationDefaults, playground settings menu, guide and README. Tests: lsp package 71/71, vscode client tests, one browser test. Not done: codeLens switch has no playground counterpart (no run icons there).",
+      "body": "D3468 (Matt, 10 Nov 2026): yes. Starts after SW-2629 (same extension and playground files). Est. 90 min.\n\nProgress (10 Nov 2026): done in ~15 min. Server Settings (crates/lsp), VS Code settings and configurationDefaults, playground settings menu, guide and README. Tests: lsp package 71/71, vscode client tests, one browser test. Not done: codeLens switch has no playground counterpart (no run icons there).\nModel result: Sonnet, worked, 15 min (est. 90). VS Code side not run live (unit tests only).",
       "created": "2026-11-10",
       "updated": "2026-11-10",
       "commits": []
@@ -27648,6 +27648,19 @@
       ],
       "epic": "performance",
       "body": "From SW-2639 (10 Nov 2026).",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
+    },
+    {
+      "id": 2664,
+      "title": "VS Code client test runner.test.js 'per-group runs against a stub CLI' is flaky under load (failed once beside a cargo build, passed alone twice)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
+      "body": "From SW-2637 (10 Nov 2026). Est. 30 min.",
       "created": "2026-11-10",
       "updated": "2026-11-10",
       "commits": []
