@@ -20,7 +20,7 @@ use std::path::Path;
 use std::process::{Command, ExitCode};
 
 use serde_json::{Value, json};
-use stitchwort_cli::project::{DiskFiles, project_sources};
+use stitchwort_cli::project::{DiskFiles, Load, Target, project_sources};
 use stitchwort_driver::declhash::{self, DeclHash, DeclKind, HashDiff};
 use stitchwort_driver::live::{Edit, LiveProject, Place, Progress, Promise, TrialOutcome};
 use stitchwort_syntax::{Severity, SourceMap};
@@ -530,7 +530,39 @@ pub(super) fn hash(args: &HashArgs) -> ExitCode {
             }
         }
     } else {
-        match load(args.project, args.cache, "hash in", "hash Foo.bar") {
+        // A project that doesn't check has no hashes to give: report its
+        // errors as `check` does, and fail with its status. Checking first
+        // also keeps the hash load (which loads the whole library) out of
+        // the way of a project that won't get that far.
+        let Some(project) = locate_project(args.project, "hash in", "hash Foo.bar") else {
+            return ExitCode::FAILURE;
+        };
+        let mut session = new_session(false);
+        use_cache(&mut session, args.cache, &project.dir);
+        let loaded = session.load_project_for(
+            &project.files,
+            &project.name,
+            &Target::Everything,
+            Load::Diagnostics,
+        );
+        let (diagnostics, load_failed) = match loaded {
+            Ok(_) => (std::mem::take(&mut session.warnings), false),
+            Err(diagnostics) => (diagnostics, true),
+        };
+        let goals = diagnostics
+            .iter()
+            .filter(|d| d.severity == Severity::Goal)
+            .count();
+        let failed = load_failed || goals > 0;
+        if failed {
+            super::report(&session.sources, &diagnostics);
+            super::report_goals(goals);
+        }
+        super::discard(session);
+        if failed {
+            return super::exit(false);
+        }
+        match load(Some(&project.dir), args.cache, "hash in", "hash Foo.bar") {
             Ok((_, live)) => live.declaration_hashes(),
             Err(messages) => {
                 for m in &messages {

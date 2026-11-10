@@ -170,6 +170,54 @@ fn trial_edits_compares_an_edited_library_with_the_original() {
     let _ = std::fs::remove_dir_all(&cwd);
 }
 
+/// `hash` on a project that doesn't check reports the errors on standard
+/// error as `check` does, and fails with its status (SW-2727).
+#[test]
+fn hash_reports_the_errors_that_stop_a_project_checking() {
+    let dir = scratch("hash-errors");
+    std::fs::create_dir_all(dir.join("src")).unwrap();
+    std::fs::write(dir.join("stitchwort.yaml"), "sources: [src]\n").unwrap();
+    std::fs::write(
+        dir.join("src/bad.sw"),
+        "namespace Other\n\ndef x: Nat := True\n",
+    )
+    .unwrap();
+
+    let check = stitchwort(&dir, &["check", "--no-cache"]);
+    assert_eq!(
+        check.status.code(),
+        Some(1),
+        "check:\n{}",
+        String::from_utf8_lossy(&check.stderr)
+    );
+    let errors = String::from_utf8_lossy(&check.stderr).to_string();
+    assert!(errors.contains("[E-TYPE-MISMATCH]"), "{errors}");
+
+    for args in [
+        &["hash", "--no-cache"][..],
+        &["hash", "--no-cache", "--json"][..],
+    ] {
+        let output = stitchwort(&dir, args);
+        assert_eq!(
+            output.status.code(),
+            Some(1),
+            "{args:?}:\n{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        assert!(
+            output.stdout.is_empty(),
+            "{args:?} printed to standard output:\n{}",
+            String::from_utf8_lossy(&output.stdout)
+        );
+        assert_eq!(
+            String::from_utf8_lossy(&output.stderr),
+            errors,
+            "{args:?} should report the check's errors"
+        );
+    }
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
 fn copy_dir(from: &Path, to: &Path) {
     for entry in std::fs::read_dir(from).unwrap() {
         let entry = entry.unwrap();
