@@ -26390,15 +26390,17 @@
     {
       "id": 2592,
       "title": "Goals print a quantified hypothesis whose result is a variable applied to arguments ((n: Nat) → p n, p: Nat → Prop) as an arrow, not ∀, because the printer has no types for the variables in scope; give the goal printer the hypotheses' types (goals.rs, closing.rs, or a typed value_for_goal)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2592",
       "labels": [],
       "epic": "syntax-language",
-      "body": "From SW-2587's report, 9 Nov. Small to medium. Its neighbours print as ∀, so the goal reads unevenly.",
+      "body": "From SW-2587's report, 9 Nov. Small to medium. Its neighbours print as ∀, so the goal reads unevenly.\n\nDone 10 Nov: value_for_goal takes per-level predicate flags from the hypotheses' types; a context variable of type … → Prop applied to arguments counts as a proposition. Messages unchanged. Left: predicates bound inside the printed term; rewrite-pattern printing (closing.rs). Model result: Sonnet, worked, 60 min (est. 60).",
       "created": "2026-11-09",
       "updated": "2026-11-10",
-      "commits": []
+      "commits": [
+        "96c2cf3c8"
+      ]
     },
     {
       "id": 2593,
