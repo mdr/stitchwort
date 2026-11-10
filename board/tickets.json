@@ -26745,9 +26745,9 @@
     {
       "id": 2615,
       "title": "Make Parse.isDigit an alias of Char.isAsciiDigit: reprove std/Parse/Reads.sw:484 and Day04's hairColorChars against Char.isAsciiDigitDigitValue, then switch Day04's isHexDigit",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Sonnet",
-      "where": "",
+      "where": ".claude/worktrees/SW-2615",
       "labels": [],
       "epic": "std-library",
       "body": "From SW-2566, 10 Nov. Small std lane.",
