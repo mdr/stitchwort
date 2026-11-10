@@ -1,5 +1,5 @@
 {
-  "next": 2729,
+  "next": 2730,
   "tickets": [
     {
       "id": 47,
@@ -28112,12 +28112,12 @@
     {
       "id": 2697,
       "title": "Impossible ≤ premises: ~420 'Void.exfalso (Bool.falseNotTrue h)' where the () pattern would do (sweep)",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": ".claude/worktrees/scratch-sw-2697",
       "labels": [],
       "epic": "syntax-language",
-      "body": "From SW-2692 (10 Nov 2026), docs/proposals/bool-and-prop.md.\nSW-2704: 396 such arms (falseNotTrue/trueNotFalse) look closable by cases or () today, no language change; one checked.\n10 Nov 2026, DeepSeek run 1 (std only): 201 of 231 converted to cases; () gives E-TYPE-MISMATCH here. 30 left, where the Bool equation comes from a lemma or rewrite, not a named hypothesis (listed in the run's report, scratchpad sw2697.log). 9 pins repinned (hash values only), proofless hashes all held, std audit time unchanged (11.3 s, measured). Remaining: aoc, rogue, examples; the 30.\nModel result: DeepSeek v4.1 Flash, worked, ~40 min (est. 45).",
+      "body": "From SW-2692 (10 Nov 2026), docs/proposals/bool-and-prop.md.\nSW-2704: 396 such arms (falseNotTrue/trueNotFalse) look closable by cases or () today, no language change; one checked.\n10 Nov 2026, DeepSeek run 1 (std only): 201 of 231 converted to cases; () gives E-TYPE-MISMATCH here. 30 left, where the Bool equation comes from a lemma or rewrite, not a named hypothesis (listed in the run's report, scratchpad sw2697.log). 9 pins repinned (hash values only), proofless hashes all held, std audit time unchanged (11.3 s, measured). Remaining: aoc, rogue, examples; the 30.\nModel result: DeepSeek v4.1 Flash, worked, ~40 min (est. 45).\nRun 2 (--continue): aoc 106, rogue 6, examples 10 converted; left: about 52 aoc arms with compound arguments and 7 in examples/reject (deliberately kept). Every changed line audited by orchestrator. Total 323 converted.\nModel result: DeepSeek v4.1 Flash, worked, ~35 min (est. 45).",
       "created": "2026-11-10",
       "updated": "2026-11-10",
       "commits": []
@@ -28533,6 +28533,19 @@
       "labels": [],
       "epic": "test-infra",
       "body": "From SW-2698 (10 Nov 2026).",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
+    },
+    {
+      "id": 2729,
+      "title": "The ~80 impossible arms cases can't close (equation from a lemma or rewrite, not a named hypothesis): std 30, aoc ~52; see SW-2697's runs; may need cases on a derived fact (have) or the D3488 crossing",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "From SW-2697 (10 Nov 2026). Wait for SW-2704 stage 4 (crossing) before hand-writing.",
       "created": "2026-11-10",
       "updated": "2026-11-10",
       "commits": []
