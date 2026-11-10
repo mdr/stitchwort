@@ -26547,12 +26547,12 @@
     {
       "id": 2602,
       "title": "Mismatch note for a side stuck on a variable (choose b p against p): say what it's stuck on, since first_difference_note never reports the outermost layer (examples/reject/refl-note-huge-parser-unfolding)",
-      "status": "backlog",
+      "status": "review",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "diagnostics",
-      "body": "From SW-2601, 10 Nov. Low.",
+      "body": "From SW-2601, 10 Nov. Low.\n\nLane (Sonnet, 5 min): commit 5016af8a9 on lane/SW-2602. E-REFL note \"the left/right side is stuck on `x`: ...\" when a folded call is stuck on a variable (value::stuck_on_variable walks the case tree) and the other side is not, or on another one. 10 reject snapshots changed (all gain the note).\n",
       "created": "2026-11-10",
       "updated": "2026-11-10",
       "commits": []
