@@ -141,11 +141,12 @@ theorem declinesLetter (rest: List Char) (stops: Parse.CannotStart Char.isAsciiL
     | [char, ..more] => Parse.declinesSatisfy _ _ char more (stops char more rfl)
 
 --| Letters written one a character are the letters, all lowercase.
-theorem eachLetters: ∀ (letters read: List Char) => Parse.Each LetterWritten read letters → read = letters ∧ letters.all Char.isAsciiLowercase = True
-  | [], read, each => Both each rfl
-  | [found, ..more], read, Witness first (Witness later (Both split (Both (Both single lower) each))) =>
-    match eachLetters more later each with
-      | Both same all => Both (rewrite split, single, same in rfl) (Bool.andIntro lower all)
+theorem eachLetters (letters read: List Char) (h: Parse.Each LetterWritten read letters): read = letters ∧ letters.all Char.isAsciiLowercase = True :=
+  match letters, h with
+    | [], each => Both each rfl
+    | [found, ..more], Witness first (Witness later (Both split (Both (Both single lower) each))) =>
+      match eachLetters more later each with
+        | Both same all => Both (rewrite split, single, same in rfl) (Bool.andIntro lower all)
 
 theorem runsMessage (read: List Char) (message2: Message) (written: MessageWritten read message2) (after: List Char) (stops: Parse.CannotStart Char.isAsciiLowercase after):
     Parse.Runs message read after message2 :=

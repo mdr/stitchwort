@@ -13,12 +13,13 @@ import Std (Bool, Char, Eq, Exists, Fail, List, NonEmptyList, Parse, Result, Set
 def PersonWritten (read: List Char) (person: Person): Prop :=
   read ≠ [] ∧ read.all isQuestion = True ∧ (∀ (question: Char) => person.answers.contains question = read.contains question)
 
-theorem eachLetters: ∀ (read letters: List Char) => Parse.Each (letter char => letter = [char] ∧ isQuestion char = True) read letters →
-    read = letters ∧ letters.all isQuestion = True
-  | read, [], each => Both each rfl
-  | read, [letter, ..rest], Witness first (Witness after (Both split (Both (Both one question) more))) =>
-    match eachLetters after rest more with
-      | Both same questions => Both (rewrite split, one, same in rfl) (rewrite question, questions in rfl)
+theorem eachLetters (read letters: List Char) (each: Parse.Each (letter char => letter = [char] ∧ isQuestion char = True) read letters):
+    read = letters ∧ letters.all isQuestion = True :=
+  match letters, each with
+    | [], each => Both each rfl
+    | [letter, ..rest], Witness first (Witness after (Both split (Both (Both one question) more))) =>
+      match eachLetters after rest more with
+        | Both same questions => Both (rewrite split, one, same in rfl) (rewrite question, questions in rfl)
 
 theorem containsFromList (letters: List Char) (question: Char): (Set.fromList letters).contains question = letters.contains question :=
   Bool.eqOf _ _

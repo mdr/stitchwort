@@ -44,24 +44,25 @@ theorem declinesHexDigitEnd: Parse.Declines hexDigit [] :=
 
 --| The digits of a transmission with bits are read one by one, and give those
 --| bits.
-theorem runsDigits: ∀ (chars: List Char) (bits: List Bool) => transmissionBits chars = Some bits →
-    ∃ (steps: List (List Char, Nat)) => Parse.joinReads steps = chars ∧ Parse.ManyRuns hexDigit steps [] ∧ bitsOfDigits (Parse.stepValues steps) = bits
-  | [], bits, h => Witness [] (Both rfl (Both declinesHexDigitEnd (Option.someInjective h)))
-  | [char, ..rest], bits, h =>
-    match digit: hexDigitBits char with
-      | None => Void.exfalso (Option.noneNotSome bits h)
-      | Some digitBits2 =>
-        match later: transmissionBits rest with
-          | None => Void.exfalso (Option.noneNotSome bits h)
-          | Some more =>
-            match hexValueOf char digitBits2 digit with
-              | Witness value (Both found same) =>
-                match runsDigits rest more later with
-                  | Witness steps (Both joined (Both manyRuns bitsSame)) =>
-                    Witness [([char], value), ..steps]
-                      (Both (rewrite joined in rfl)
-                        (Both (Both (List.consNotNil char []) (Both (runsHexDigit char value (Parse.joinReads steps ++ []) found) manyRuns))
-                          (rewrite <- Option.someInjective h, same, bitsSame in rfl)))
+theorem runsDigits (chars: List Char) (bits: List Bool) (h: transmissionBits chars = Some bits):
+    ∃ (steps: List (List Char, Nat)) => Parse.joinReads steps = chars ∧ Parse.ManyRuns hexDigit steps [] ∧ bitsOfDigits (Parse.stepValues steps) = bits :=
+  match chars with
+    | [] => Witness [] (Both rfl (Both declinesHexDigitEnd (Option.someInjective h)))
+    | [char, ..rest] =>
+      match digit: hexDigitBits char with
+        | None => Void.exfalso (Option.noneNotSome bits h)
+        | Some digitBits2 =>
+          match later: transmissionBits rest with
+            | None => Void.exfalso (Option.noneNotSome bits h)
+            | Some more =>
+              match hexValueOf char digitBits2 digit with
+                | Witness value (Both found same) =>
+                  match runsDigits rest more later with
+                    | Witness steps (Both joined (Both manyRuns bitsSame)) =>
+                      Witness [([char], value), ..steps]
+                        (Both (rewrite joined in rfl)
+                          (Both (Both (List.consNotNil char []) (Both (runsHexDigit char value (Parse.joinReads steps ++ []) found) manyRuns))
+                            (rewrite <- Option.someInjective h, same, bitsSame in rfl)))
 
 --| A transmission, trimmed, that the puzzle's table gives bits is read as
 --| exactly those bits.

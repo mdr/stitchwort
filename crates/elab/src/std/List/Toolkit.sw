@@ -985,9 +985,8 @@ theorem List.foldLeftCongRangeFrom (f1: b → Nat → b) (f2: b → Nat → b) (
     (acc x m => ef acc x (And.left (List.memRangeFrom x c s m)) (And.right (List.memRangeFrom x c s m)))
 
 --| `sumBy` and `count` are folds, so their congruence lemmas are the fold's.
-theorem List.sumByCongRangeFrom [auto add: Add c] (f: Nat → c) (g: Nat → c): ∀ (c s: Nat) => (∀ (x: Nat) => s ≤ x → x < s + c → f x = g x) →
-    List.sumBy (List.rangeFrom c s) f = List.sumBy (List.rangeFrom c s) g :=
-  c s h => List.foldLeftCongRangeFrom (acc x => acc + f x) (acc x => acc + g x) Add.zero c s (acc x low high => Eq.cong (t => acc + t) (h x low high))
+theorem List.sumByCongRangeFrom [auto add: Add c] (f: Nat → c) (g: Nat → c) (c s: Nat) (h: (∀ (x: Nat) => s ≤ x → x < s + c → f x = g x)):
+    List.sumBy (List.rangeFrom c s) f = List.sumBy (List.rangeFrom c s) g := List.foldLeftCongRangeFrom (acc x => acc + f x) (acc x => acc + g x) Add.zero c s (acc x low high => Eq.cong (t => acc + t) (h x low high))
 
 --| Sums agree when their terms agree on the list's elements.
 theorem List.sumByCongMem [auto add: Add b] (xs: List a) (f: a → b) (g: a → b) (agree: ∀ (x: a) => x ∈ xs → f x = g x):

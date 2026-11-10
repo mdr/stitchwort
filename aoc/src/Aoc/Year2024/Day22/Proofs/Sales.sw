@@ -17,24 +17,24 @@ theorem pricesMatch (count: Nat) (buyer: Nat): prices count buyer = offeredPrice
 
 --| Folding sales into a map, keeping the first price for each sequence,
 --| adds the first price in the list for a sequence the map lacks.
-theorem keepFirstGet (key: Changes): ∀ (found: List (Changes, Nat)) (sales: Map Changes Nat) =>
-    (found.foldLeft sales (sales found => sales.insertWith found.fst found.snd (new old => old))).get key =
-      Option.orElse (sales.get key) (found.find (entry => entry.fst == key) |> .map (entry => entry.snd))
-  | [], sales => Eq.sym (Option.orElseNone (sales.get key))
-  | [entry, ..rest], sales =>
-    let later := keepFirstGet key rest (sales.insertWith entry.fst entry.snd (new old => old))
-    match same: entry.fst == key with
-      | True =>
-        let equal := DecEq.sound same
-        rewrite later in
-          rewrite equal, Map.getInsertWith sales key entry.snd (new old => old) in
-            match sales.get key with
-              | None => rfl
-              | Some old => rfl
-      | False =>
-        rewrite later in
-          rewrite Map.getInsertWithOther sales entry.fst entry.snd key (equal => DecEq.soundFalse entry.fst key same (Eq.sym equal)) (new old => old) in
-            rfl
+theorem keepFirstGet (key: Changes) (found: List (Changes, Nat)) (sales: Map Changes Nat): (found.foldLeft sales (sales found => sales.insertWith found.fst found.snd (new old => old))).get key =
+    Option.orElse (sales.get key) (found.find (entry => entry.fst == key) |> .map (entry => entry.snd)) :=
+  match found with
+    | [] => Eq.sym (Option.orElseNone (sales.get key))
+    | [entry, ..rest] =>
+      let later := keepFirstGet key rest (sales.insertWith entry.fst entry.snd (new old => old))
+      match same: entry.fst == key with
+        | True =>
+          let equal := DecEq.sound same
+          rewrite later in
+            rewrite equal, Map.getInsertWith sales key entry.snd (new old => old) in
+              match sales.get key with
+                | None => rfl
+                | Some old => rfl
+        | False =>
+          rewrite later in
+            rewrite Map.getInsertWithOther sales entry.fst entry.snd key (equal => DecEq.soundFalse entry.fst key same (Eq.sym equal)) (new old => old) in
+              rfl
 
 --| Looking for the first place the monkey sells is looking for the first
 --| sale with that sequence.

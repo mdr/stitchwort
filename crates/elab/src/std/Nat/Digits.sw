@@ -351,18 +351,19 @@ theorem Char.digitValueChar (d: Nat) (h: Nat.leq d 9 = True): Char.digitValue (N
     | 9 => rfl
     | Succ (Succ (Succ (Succ (Succ (Succ (Succ (Succ (Succ (Succ d))))))))) => Void.exfalso (Bool.falseNotTrue h)
 
-theorem Char.digitsOntoValues: ∀ (f n: Nat) (acc: List Char) => n < f →
-    List.filterMap (Nat.digitsOnto f n acc) Char.digitValue = Nat.digitsAcc n (List.filterMap acc Char.digitValue)
-  | Zero, n, acc, h => Void.exfalso (Bool.falseNotTrue h)
-  | Succ f, n, acc, h =>
-    match e: Nat.leq n 9 with
-      | True => rewrite Nat.digitsAccSmall n (List.filterMap acc Char.digitValue) e in rewrite Char.digitValueChar n e
-      | False =>
-        rewrite Nat.digitsAccBig n (List.filterMap acc Char.digitValue) e in
-        calc List.filterMap (Nat.digitsOnto f (n / 10) [Nat.digitChar (n % 10), ..acc]) Char.digitValue
-          _ = Nat.digitsAcc (n / 10) (List.filterMap [Nat.digitChar (n % 10), ..acc] Char.digitValue)
-            := Char.digitsOntoValues f (n / 10) [Nat.digitChar (n % 10), ..acc] (Nat.leTrans (Succ (n / 10)) n f (Nat.divTenLess n e) h)
-          _ = Nat.digitsAcc (n / 10) [n % 10, ..List.filterMap acc Char.digitValue] := rewrite Char.digitValueChar (n % 10) (Nat.modLt n 10)
+theorem Char.digitsOntoValues (f n: Nat) (acc: List Char) (h: n < f):
+    List.filterMap (Nat.digitsOnto f n acc) Char.digitValue = Nat.digitsAcc n (List.filterMap acc Char.digitValue) :=
+  match f with
+    | Zero => Void.exfalso (Bool.falseNotTrue h)
+    | Succ f =>
+      match e: Nat.leq n 9 with
+        | True => rewrite Nat.digitsAccSmall n (List.filterMap acc Char.digitValue) e in rewrite Char.digitValueChar n e
+        | False =>
+          rewrite Nat.digitsAccBig n (List.filterMap acc Char.digitValue) e in
+          calc List.filterMap (Nat.digitsOnto f (n / 10) [Nat.digitChar (n % 10), ..acc]) Char.digitValue
+            _ = Nat.digitsAcc (n / 10) (List.filterMap [Nat.digitChar (n % 10), ..acc] Char.digitValue)
+              := Char.digitsOntoValues f (n / 10) [Nat.digitChar (n % 10), ..acc] (Nat.leTrans (Succ (n / 10)) n f (Nat.divTenLess n e) h)
+            _ = Nat.digitsAcc (n / 10) [n % 10, ..List.filterMap acc Char.digitValue] := rewrite Char.digitValueChar (n % 10) (Nat.modLt n 10)
 
 --| A number written in decimal reads back as its digits.
 theorem Char.toTextDigits (n: Nat): List.filterMap (Text.toList (Nat.toText n)) Char.digitValue = (Nat.digits n).toList :=
@@ -370,15 +371,16 @@ theorem Char.toTextDigits (n: Nat): List.filterMap (Text.toList (Nat.toText n)) 
 
 --| `Nat.toText` writes the digits' characters: `Nat.digitsOnto` is
 --| `Nat.digitsAcc` with each digit turned into its character.
-theorem Char.digitsOntoMap: ∀ (f n: Nat) (acc: List Nat) => n < f →
-    Nat.digitsOnto f n (List.map acc Nat.digitChar) = List.map (Nat.digitsAcc n acc) Nat.digitChar
-  | Zero, n, acc, h => Void.exfalso (Bool.falseNotTrue h)
-  | Succ f, n, acc, h =>
-    match e: Nat.leq n 9 with
-      | True => rewrite Nat.digitsAccSmall n acc e
-      | False =>
-        rewrite Nat.digitsAccBig n acc e in
-        Char.digitsOntoMap f (n / 10) [n % 10, ..acc] (Nat.leTrans (Succ (n / 10)) n f (Nat.divTenLess n e) h)
+theorem Char.digitsOntoMap (f n: Nat) (acc: List Nat) (h: n < f):
+    Nat.digitsOnto f n (List.map acc Nat.digitChar) = List.map (Nat.digitsAcc n acc) Nat.digitChar :=
+  match f with
+    | Zero => Void.exfalso (Bool.falseNotTrue h)
+    | Succ f =>
+      match e: Nat.leq n 9 with
+        | True => rewrite Nat.digitsAccSmall n acc e
+        | False =>
+          rewrite Nat.digitsAccBig n acc e in
+          Char.digitsOntoMap f (n / 10) [n % 10, ..acc] (Nat.leTrans (Succ (n / 10)) n f (Nat.divTenLess n e) h)
 
 theorem Char.toTextMap (n: Nat): Text.toList (Nat.toText n) = List.map (Nat.digits n).toList Nat.digitChar :=
   Nat.digitsAs n (l => Text.toList (Nat.toText n) = List.map l Nat.digitChar) (Char.digitsOntoMap (Succ n) n [] (Nat.leRefl n))

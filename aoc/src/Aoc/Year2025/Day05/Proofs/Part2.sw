@@ -35,12 +35,13 @@ theorem topGe (z: Nat) (rs: List Range): z ≤ rs.foldLeft z (m r => Nat.max m r
     | [] => omega
     | [r, ..rs] => omega [topGe (Nat.max z r.to) rs]
 
-theorem coveredTop: ∀ (z: Nat) (rs: List Range) (id: Nat) => covered rs id = True → id ≤ rs.foldLeft z (m r => Nat.max m r.to)
-  | z, [], id, h => Void.exfalso (Bool.falseNotTrue h)
-  | z, [r, ..rs], id, h =>
-    match e: r.contains id with
-      | True => omega [topGe (Nat.max z r.to) rs]
-      | False => coveredTop (Nat.max z r.to) rs id h
+theorem coveredTop (z: Nat) (rs: List Range) (id: Nat) (h: covered rs id = True): id ≤ rs.foldLeft z (m r => Nat.max m r.to) :=
+  match rs with
+    | [] => Void.exfalso (Bool.falseNotTrue h)
+    | [r, ..rs] =>
+      match e: r.contains id with
+        | True => omega [topGe (Nat.max z r.to) rs]
+        | False => coveredTop (Nat.max z r.to) rs id h
 
 --| Ranges, latest first, each starting after every id the ones after it hold.
 def Stacked: List Range → Prop
@@ -56,22 +57,23 @@ theorem headCount (m: Range) (rest: List Range) (n: Nat) (b: Below n [m, ..rest]
 
 --| Stacked ranges hold different ids, so the ids below `n` they hold number
 --| the sum of their sizes.
-theorem stackedCount (n: Nat): ∀ (ms: List Range) => Stacked ms → Below n ms →
-    List.occurrences (List.range 0 n) (id => covered ms id) = ms.sumBy Range.size
-  | [], s, b => List.occurrencesNone (List.range 0 n) (id => covered [] id) (id => rfl)
-  | [m, ..rest], Both bm srest, b =>
-    calc List.occurrences (List.range 0 n) (id => covered [m, ..rest] id)
-      _ = List.occurrences (List.range 0 n) (id => m.contains id) + List.occurrences (List.range 0 n) (id => covered rest id)
-        := List.occurrencesOr (List.range 0 n) (id => m.contains id)
-          (id => covered rest id)
-          (id h =>
-            match t: covered rest id with
-              | True => omega [bm id t, containsLo m id h]
-              | False => rfl)
-      _ = m.size + List.occurrences (List.range 0 n) (id => covered rest id) := rewrite headCount m rest n b
-      _ = m.size + rest.sumBy Range.size
-        := rewrite stackedCount n rest srest (id h => b id (coveredRest m rest id h))
-      _ = [m, ..rest].sumBy Range.size := Eq.sym (List.sumByCons rest m Range.size)
+theorem stackedCount (n: Nat) (ms: List Range) (s: Stacked ms) (b: Below n ms):
+    List.occurrences (List.range 0 n) (id => covered ms id) = ms.sumBy Range.size :=
+  match ms, s with
+    | [], s => List.occurrencesNone (List.range 0 n) (id => covered [] id) (id => rfl)
+    | [m, ..rest], Both bm srest =>
+      calc List.occurrences (List.range 0 n) (id => covered [m, ..rest] id)
+        _ = List.occurrences (List.range 0 n) (id => m.contains id) + List.occurrences (List.range 0 n) (id => covered rest id)
+          := List.occurrencesOr (List.range 0 n) (id => m.contains id)
+            (id => covered rest id)
+            (id h =>
+              match t: covered rest id with
+                | True => omega [bm id t, containsLo m id h]
+                | False => rfl)
+        _ = m.size + List.occurrences (List.range 0 n) (id => covered rest id) := rewrite headCount m rest n b
+        _ = m.size + rest.sumBy Range.size
+          := rewrite stackedCount n rest srest (id h => b id (coveredRest m rest id h))
+        _ = [m, ..rest].sumBy Range.size := Eq.sym (List.sumByCons rest m Range.size)
 
 --| Merging keeps the covered ids (`stackCovers`), and the merged ranges,
 --| latest first, are stacked (`stackStacked`): each starts after every id
@@ -126,38 +128,41 @@ theorem mergedContains (a: Range) (r: Range) (id: Nat) (h1: a.from ≤ r.from) (
         (Eq.sym (Nat.betweenFrom r.from r.to id omega))
     | False, _ => Eq.sym (Nat.betweenBelow r.from r.to id omega)
 
-theorem absorbCovers (r: Range) (id: Nat): ∀ (merged: List Range) => LoAtMost r.from merged →
-    covered (absorb merged r) id = (covered merged id ∨ r.contains id)
-  | [], ok => Bool.orFalse (r.contains id)
-  | [last, ..earlier], ok =>
-    match e: Nat.leq r.from (last.to + 1) with
-      | True =>
-        calc (Range.contains { from = last.from, to = Nat.max last.to r.to } id ∨ covered earlier id)
-          _ = ((last.contains id ∨ r.contains id) ∨ covered earlier id) := rewrite mergedContains last r id ok e
-          _ = (last.contains id ∨ (r.contains id ∨ covered earlier id)) := Bool.orAssoc (last.contains id) (r.contains id) (covered earlier id)
-          _ = (last.contains id ∨ (covered earlier id ∨ r.contains id)) := rewrite Bool.orComm (r.contains id) (covered earlier id)
-          _ = ((last.contains id ∨ covered earlier id) ∨ r.contains id) := Eq.sym (Bool.orAssoc (last.contains id) (covered earlier id) (r.contains id))
-      | False => Bool.orComm (r.contains id) (covered [last, ..earlier] id)
+theorem absorbCovers (r: Range) (id: Nat) (merged: List Range) (ok: LoAtMost r.from merged):
+    covered (absorb merged r) id = (covered merged id ∨ r.contains id) :=
+  match merged with
+    | [] => Bool.orFalse (r.contains id)
+    | [last, ..earlier] =>
+      match e: Nat.leq r.from (last.to + 1) with
+        | True =>
+          calc (Range.contains { from = last.from, to = Nat.max last.to r.to } id ∨ covered earlier id)
+            _ = ((last.contains id ∨ r.contains id) ∨ covered earlier id) := rewrite mergedContains last r id ok e
+            _ = (last.contains id ∨ (r.contains id ∨ covered earlier id)) := Bool.orAssoc (last.contains id) (r.contains id) (covered earlier id)
+            _ = (last.contains id ∨ (covered earlier id ∨ r.contains id)) := rewrite Bool.orComm (r.contains id) (covered earlier id)
+            _ = ((last.contains id ∨ covered earlier id) ∨ r.contains id) := Eq.sym (Bool.orAssoc (last.contains id) (covered earlier id) (r.contains id))
+        | False => Bool.orComm (r.contains id) (covered [last, ..earlier] id)
 
-theorem absorbLo (r: Range) (b: Nat) (h: r.from ≤ b): ∀ (merged: List Range) => LoAtMost r.from merged → LoAtMost b (absorb merged r)
-  | [], ok => h
-  | [last, ..earlier], ok =>
-    match e: Nat.leq r.from (last.to + 1) with
-      | True => omega
-      | False => h
+theorem absorbLo (r: Range) (b: Nat) (h: r.from ≤ b) (merged: List Range) (ok: LoAtMost r.from merged): LoAtMost b (absorb merged r) :=
+  match merged with
+    | [] => h
+    | [last, ..earlier] =>
+      match e: Nat.leq r.from (last.to + 1) with
+        | True => omega
+        | False => h
 
-theorem absorbStacked (r: Range): ∀ (merged: List Range) => LoAtMost r.from merged → Stacked merged → Stacked (absorb merged r)
-  | [], ok, s => Both (id h => Void.exfalso (Bool.falseNotTrue h)) Trivial
-  | [last, ..earlier], ok, Both b rest =>
-    match e: Nat.leq r.from (last.to + 1) with
-      | True => Both b rest
-      | False =>
-        Both
-          (id h =>
-            match i: last.contains id with
-              | True => omega
-              | False => omega [b id h])
-          (Both b rest)
+theorem absorbStacked (r: Range) (merged: List Range) (ok: LoAtMost r.from merged) (s: Stacked merged): Stacked (absorb merged r) :=
+  match merged, s with
+    | [], s => Both (id h => Void.exfalso (Bool.falseNotTrue h)) Trivial
+    | [last, ..earlier], Both b rest =>
+      match e: Nat.leq r.from (last.to + 1) with
+        | True => Both b rest
+        | False =>
+          Both
+            (id h =>
+              match i: last.contains id with
+                | True => omega
+                | False => omega [b id h])
+            (Both b rest)
 
 --| Folding: the next range starts no earlier than the latest merged one.
 def Fits (merged: List Range): List Range → Prop
@@ -169,22 +174,25 @@ theorem fitsNil (xs: List Range): Fits [] xs :=
     | [] => Trivial
     | [x, ..xs] => Trivial
 
-theorem fitsStep (acc: List Range) (x: Range): ∀ (xs: List Range) => LoAtMost x.from acc →
-    List.LeHead (a b => Ordering.isLessEq (Ord.compare a b)) x xs → Fits (absorb acc x) xs
-  | [], ok, hx => Trivial
-  | [y, ..ys], ok, hx => absorbLo x y.from (compareFrom x y hx) acc ok
+theorem fitsStep (acc: List Range) (x: Range) (xs: List Range) (ok: LoAtMost x.from acc)
+    (hx: List.LeHead (a b => Ordering.isLessEq (Ord.compare a b)) x xs): Fits (absorb acc x) xs :=
+  match xs with
+    | [] => Trivial
+    | [y, ..ys] => absorbLo x y.from (compareFrom x y hx) acc ok
 
-theorem foldCovers (id: Nat): ∀ (acc xs: List Range) =>
-    List.Sorted (a b => Ordering.isLessEq (Ord.compare a b)) xs → Fits acc xs →
-    covered (xs.foldLeft acc absorb) id = (covered acc id ∨ covered xs id)
-  | acc, [], s, ok => Eq.sym (Bool.orFalse (covered acc id))
-  | acc, [x, ..xs], Both hx sxs, ok =>
-    calc covered (xs.foldLeft (absorb acc x) absorb) id
-      _ = (covered (absorb acc x) id ∨ covered xs id) := foldCovers id (absorb acc x) xs sxs (fitsStep acc x xs ok hx)
-      _ = ((covered acc id ∨ x.contains id) ∨ covered xs id) := rewrite absorbCovers x id acc ok
-      _ = (covered acc id ∨ covered [x, ..xs] id) := Bool.orAssoc (covered acc id) (x.contains id) (covered xs id)
+theorem foldCovers (id: Nat) (acc xs: List Range)
+    (s: List.Sorted (a b => Ordering.isLessEq (Ord.compare a b)) xs) (ok: Fits acc xs):
+    covered (xs.foldLeft acc absorb) id = (covered acc id ∨ covered xs id) :=
+  match xs, s with
+    | [], s => Eq.sym (Bool.orFalse (covered acc id))
+    | [x, ..xs], Both hx sxs =>
+      calc covered (xs.foldLeft (absorb acc x) absorb) id
+        _ = (covered (absorb acc x) id ∨ covered xs id) := foldCovers id (absorb acc x) xs sxs (fitsStep acc x xs ok hx)
+        _ = ((covered acc id ∨ x.contains id) ∨ covered xs id) := rewrite absorbCovers x id acc ok
+        _ = (covered acc id ∨ covered [x, ..xs] id) := Bool.orAssoc (covered acc id) (x.contains id) (covered xs id)
 
-theorem foldStacked: ∀ (acc xs: List Range) =>
-    List.Sorted (a b => Ordering.isLessEq (Ord.compare a b)) xs → Fits acc xs → Stacked acc → Stacked (xs.foldLeft acc absorb)
-  | acc, [], s, ok, st => st
-  | acc, [x, ..xs], Both hx sxs, ok, st => foldStacked (absorb acc x) xs sxs (fitsStep acc x xs ok hx) (absorbStacked x acc ok st)
+theorem foldStacked (acc xs: List Range)
+    (s: List.Sorted (a b => Ordering.isLessEq (Ord.compare a b)) xs) (ok: Fits acc xs) (st: Stacked acc): Stacked (xs.foldLeft acc absorb) :=
+  match xs, s with
+    | [], s => st
+    | [x, ..xs], Both hx sxs => foldStacked (absorb acc x) xs sxs (fitsStep acc x xs ok hx) (absorbStacked x acc ok st)

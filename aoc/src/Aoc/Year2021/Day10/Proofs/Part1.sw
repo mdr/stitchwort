@@ -69,9 +69,10 @@ theorem lineErrorScore (line: List Token): ErrorScore line (corruptionScore line
     | Unclosed stack => NotCorrupted (legalOfUnclosed line stack e)
 
 --| Part 1 is the total syntax error score, for every list of lines.
-theorem part1Correct: ∀ (lines: List (List Token)) => Part1Answer lines (solvePart1 lines)
-  | [] => NoLines
-  | [line, ..rest] => rewrite List.sumByCons rest line corruptionScore in NextLine (lineErrorScore line) (part1Correct rest)
+theorem part1Correct (lines: List (List Token)): Part1Answer lines (solvePart1 lines) :=
+  match lines with
+    | [] => NoLines
+    | [line, ..rest] => rewrite List.sumByCons rest line corruptionScore in NextLine (lineErrorScore line) (part1Correct rest)
 
 def bracketOf: Token → Bracket
   | Opener bracket => bracket

@@ -102,14 +102,15 @@ def directionTo (position: Position) (next: Position): Direction :=
   if next.row < position.row then Up else if position.row < next.row then Down else if position.column < next.column then Right else Left
 
 --| Each step goes the way it says.
-theorem directionOfStep: ∀ (position: Position) (direction: Direction) (next: Position) => position.step direction = Some next →
-    directionTo position next = direction
-  | { row = Zero, column }, Up, next, stepped => Void.exfalso (Option.noneNotSome next stepped)
-  | { row = Succ row, column }, Up, next, stepped => rewrite <- Option.someInjective stepped in cases
-  | { row, column }, Right, next, stepped => rewrite <- Option.someInjective stepped in cases
-  | { row, column }, Down, next, stepped => rewrite <- Option.someInjective stepped in cases
-  | { row, column = Zero }, Left, next, stepped => Void.exfalso (Option.noneNotSome next stepped)
-  | { row, column = Succ column }, Left, next, stepped => rewrite <- Option.someInjective stepped in cases
+theorem directionOfStep (position: Position) (direction: Direction) (next: Position) (stepped: position.step direction = Some next):
+    directionTo position next = direction :=
+  match position, direction with
+    | { row = Zero, column }, Up => Void.exfalso (Option.noneNotSome next stepped)
+    | { row = Succ row, column }, Up => rewrite <- Option.someInjective stepped in cases
+    | { row, column }, Right => rewrite <- Option.someInjective stepped in cases
+    | { row, column }, Down => rewrite <- Option.someInjective stepped in cases
+    | { row, column = Zero }, Left => Void.exfalso (Option.noneNotSome next stepped)
+    | { row, column = Succ column }, Left => rewrite <- Option.someInjective stepped in cases
 
 --| No position is a neighbour twice...
 theorem neighboursDistinct (position: Position): List.Distinct position.neighbours :=

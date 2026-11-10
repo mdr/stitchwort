@@ -49,44 +49,48 @@ theorem joltageOfConsLe (c: Battery) (s: List Battery) (r: List Battery) (hl: s.
   Nat.fromDigitsConsLe c.toNat (List.map s Fin.toNat) (List.map r Fin.toNat) (mapLength s r hl) h
 
 --| What `pick` returns.
-theorem pickGe: ∀ (w: Nat) (xs: Bank) (c: Battery) (after: Bank) => c.toNat ≤ Fin.toNat (Pair.fst (Bank.best.pick w xs c after))
-  | Zero, xs, c, after => omega
-  | Succ w, [], c, after => omega
-  | Succ w, [x, ..more], c, after =>
-    match e: c < x with
-      | True => omega [pickGe w more x more]
-      | False => pickGe w more c after
+theorem pickGe (w: Nat) (xs: Bank) (c: Battery) (after: Bank): c.toNat ≤ Fin.toNat (Pair.fst (Bank.best.pick w xs c after)) :=
+  match w, xs with
+    | Zero, xs => omega
+    | Succ w, [] => omega
+    | Succ w, [x, ..more] =>
+      match e: c < x with
+        | True => omega [pickGe w more x more]
+        | False => pickGe w more c after
 
-theorem pickLen (k: Nat): ∀ (w: Nat) (xs: Bank) (c: Battery) (after: Bank) =>
-    k + w ≤ xs.length → k ≤ after.length → k ≤ List.length (Pair.snd (Bank.best.pick w xs c after))
-  | Zero, xs, c, after, h1, h2 => h2
-  | Succ w, [], c, after, h1, h2 => h2
-  | Succ w, [x, ..more], c, after, h1, h2 =>
-    match e: c < x with
-      | True => pickLen k w more x more omega omega
-      | False => pickLen k w more c after omega h2
+theorem pickLen (k: Nat) (w: Nat) (xs: Bank) (c: Battery) (after: Bank)
+    (h1: k + w ≤ xs.length) (h2: k ≤ after.length): k ≤ List.length (Pair.snd (Bank.best.pick w xs c after)) :=
+  match w, xs with
+    | Zero, xs => h2
+    | Succ w, [] => h2
+    | Succ w, [x, ..more] =>
+      match e: c < x with
+        | True => pickLen k w more x more omega omega
+        | False => pickLen k w more c after omega h2
 
 --| If the candidate followed by `after`, and what is left to scan, are taken in
 --| order from `t`, so is pick's digit followed by what comes after it.
-theorem pickSub (t: Bank): ∀ (w: Nat) (xs: Bank) (c: Battery) (after: Bank) =>
-    xs.Subsequence t → List.Subsequence [c, ..after] t →
-    List.Subsequence [Pair.fst (Bank.best.pick w xs c after), ..Pair.snd (Bank.best.pick w xs c after)] t
-  | Zero, xs, c, after, hx, hc => hc
-  | Succ w, [], c, after, hx, hc => hc
-  | Succ w, [x, ..more], c, after, hx, hc =>
-    match e: c < x with
-      | True => pickSub t w more x more (List.subsequenceTail x more t hx) hx
-      | False => pickSub t w more c after (List.subsequenceTail x more t hx) hc
+theorem pickSub (t: Bank) (w: Nat) (xs: Bank) (c: Battery) (after: Bank)
+    (hx: xs.Subsequence t) (hc: List.Subsequence [c, ..after] t):
+    List.Subsequence [Pair.fst (Bank.best.pick w xs c after), ..Pair.snd (Bank.best.pick w xs c after)] t :=
+  match w, xs with
+    | Zero, xs => hc
+    | Succ w, [] => hc
+    | Succ w, [x, ..more] =>
+      match e: c < x with
+        | True => pickSub t w more x more (List.subsequenceTail x more t hx) hx
+        | False => pickSub t w more c after (List.subsequenceTail x more t hx) hc
 
 --| 1. `best k bank` is a subsequence of `bank`.
-theorem bestSub: ∀ (k: Nat) (bank: Bank) => List.Subsequence (bank.best k) bank
-  | Zero, bank => Trivial
-  | Succ k, [] => Trivial
-  | Succ k, [d, ..rest] =>
-    let p := Bank.best.pick (rest.length - k) rest d rest
-    List.subsequenceTrans [p.fst, ..Bank.best p.snd k] [p.fst, ..p.snd] [d, ..rest]
-      (Inl (Both rfl (bestSub k p.snd)))
-      (pickSub [d, ..rest] (rest.length - k) rest d rest (List.subsequenceCons d rest rest (List.subsequenceRefl rest)) (List.subsequenceRefl [d, ..rest]))
+theorem bestSub (k: Nat) (bank: Bank): List.Subsequence (bank.best k) bank :=
+  match k, bank with
+    | Zero, bank => Trivial
+    | Succ k, [] => Trivial
+    | Succ k, [d, ..rest] =>
+      let p := Bank.best.pick (rest.length - k) rest d rest
+      List.subsequenceTrans [p.fst, ..Bank.best p.snd k] [p.fst, ..p.snd] [d, ..rest]
+        (Inl (Both rfl (bestSub k p.snd)))
+        (pickSub [d, ..rest] (rest.length - k) rest d rest (List.subsequenceCons d rest rest (List.subsequenceRefl rest)) (List.subsequenceRefl [d, ..rest]))
 
 theorem bestLengthStep (k: Nat) (d: Battery) (rest: Bank)
     (ih: ∀ (a: Bank) => List.length (a.best k) = Nat.min k a.length):
@@ -103,10 +107,11 @@ theorem bestLengthStep (k: Nat) (d: Battery) (rest: Bank)
         (omega: Nat.min k rest.length = rest.length)
 
 --| 2. `best k bank` has k digits, or all of them if there are fewer.
-theorem bestLength: ∀ (k: Nat) (bank: Bank) => List.length (bank.best k) = Nat.min k bank.length
-  | Zero, bank => rfl
-  | Succ k, [] => rfl
-  | Succ k, [d, ..rest] => bestLengthStep k d rest (a => bestLength k a)
+theorem bestLength (k: Nat) (bank: Bank): List.length (bank.best k) = Nat.min k bank.length :=
+  match k, bank with
+    | Zero, bank => rfl
+    | Succ k, [] => rfl
+    | Succ k, [d, ..rest] => bestLengthStep k d rest (a => bestLength k a)
 
 -- 3. No k digits of `bank`, in order, make a larger number than `best k bank`.
 

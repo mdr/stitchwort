@@ -17,18 +17,19 @@ def Tracks (game: Game) (spoken: List Nat): Prop :=
       ∧ (∀ (number: Nat) => number < game.lastSeen.size →
         game.lastSeen.getOr number 0 = ((Spec.turnsBack number older).map (back => game.turn - back)).getOrElse 0)
 
-theorem turnsBackAtMost (number: Nat): ∀ (older: List Nat) (back: Nat) => Spec.turnsBack number older = Some back → back ≤ older.length
-  | [], back, found => Void.exfalso (Option.noneNotSome back found)
-  | [spoken, ..older], back, found =>
-    match same: spoken == number with
-      | True => rewrite <- Option.someInjective found in rfl
-      | False =>
-        match inner: Spec.turnsBack number older with
-          | None => Void.exfalso (Option.noneNotSome back found)
-          | Some earlier =>
-            let atMost := turnsBackAtMost number older earlier inner
-            let isBack := Option.someInjective found
-            omega
+theorem turnsBackAtMost (number: Nat) (older: List Nat) (back: Nat) (found: Spec.turnsBack number older = Some back): back ≤ older.length :=
+  match older with
+    | [] => Void.exfalso (Option.noneNotSome back found)
+    | [spoken, ..older] =>
+      match same: spoken == number with
+        | True => rewrite <- Option.someInjective found in rfl
+        | False =>
+          match inner: Spec.turnsBack number older with
+            | None => Void.exfalso (Option.noneNotSome back found)
+            | Some earlier =>
+              let atMost := turnsBackAtMost number older earlier inner
+              let isBack := Option.someInjective found
+              omega
 
 theorem beginTracks (room: Nat) (first: Nat) (fits: first < room): Tracks (Game.begin room first) [first] :=
   Witness [] (Both rfl (Both rfl (Both (rewrite Array.sizeReplicate room 0 in fits) (number inside => Array.getOrReplicate room 0 number))))

@@ -21,15 +21,16 @@ theorem clearOfFind (fold: Fold) (dots: List Point) (none: dots.find (dot => not
 
 --| If no fold is blocked, folding a list that holds the dots, the promise
 --| is kept for every fold.
-theorem unblockedPromise: ∀ (folds: List Fold) (index: Nat) (dots: List Point) (marked: Point → Prop) => Holds dots marked →
-    firstBlockedFrom index dots folds = None → Promise folds marked
-  | [], index, dots, marked, holds, none => Trivial
-  | [fold, ..rest], index, dots, marked, holds, none =>
-    match e: dots.find (dot => not (clears fold dot)) with
-      | Some dot => Void.exfalso (Option.someNotNone (index, dot) none)
-      | None =>
-        let clear := (dot: Point) (isMarked: marked dot) => clearOfFind fold dots e dot ((holds dot).backward isMarked)
-        Both clear (unblockedPromise rest (index + 1) (foldOnce dots fold) (AfterFold fold marked) (foldOnceHolds dots marked fold holds clear) none)
+theorem unblockedPromise (folds: List Fold) (index: Nat) (dots: List Point) (marked: Point → Prop) (holds: Holds dots marked)
+    (none: firstBlockedFrom index dots folds = None): Promise folds marked :=
+  match folds with
+    | [] => Trivial
+    | [fold, ..rest] =>
+      match e: dots.find (dot => not (clears fold dot)) with
+        | Some dot => Void.exfalso (Option.someNotNone (index, dot) none)
+        | None =>
+          let clear := (dot: Point) (isMarked: marked dot) => clearOfFind fold dots e dot ((holds dot).backward isMarked)
+          Both clear (unblockedPromise rest (index + 1) (foldOnce dots fold) (AfterFold fold marked) (foldOnceHolds dots marked fold holds clear) none)
 
 --| `checkPaper` gives the paper back, and only if no fold is blocked...
 theorem checkPaperOk (paper: Paper) (result: Paper) (h: Fail.toResult (() => checkPaper paper) = Ok result):

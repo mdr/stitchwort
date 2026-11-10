@@ -23,9 +23,8 @@ theorem lengthPositive (xs: List a) (notEmpty: xs ≠ []): 1 ≤ xs.length :=
     | [x, ..rest] => omega
 
 --| Each rule of a sequence reads at least a letter.
-theorem matchedLength (rules: Rules) (rank: Nat → Nat) (bound: Nat) (ranked: Ranked rules rank bound):
-    ∀ (sequence: List Nat) (read: List Char) => Matches rules sequence read → sequence.length ≤ read.length
-    := sequence read matched =>
+theorem matchedLength (rules: Rules) (rank: Nat → Nat) (bound: Nat) (ranked: Ranked rules rank bound)
+    (sequence: List Nat) (read: List Char) (matched: Matches rules sequence read): sequence.length ≤ read.length :=
   match matched with
     | MatchesNothing => omega
     | MatchesLetter [later := later] [rest := rest] rule laterMatch => omega [matchedLength rules rank bound ranked later rest laterMatch]

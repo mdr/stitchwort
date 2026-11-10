@@ -42,17 +42,18 @@ theorem pairNone (depth: Nat) (left: Number) (right: Number) (none: explode dept
       Both (And.left parts) (Both (And.right parts) omega)
 
 --| With nothing inside more than four pairs, nothing explodes.
-theorem explodeNoneShallow: ∀ (depth: Nat) (number: Number) => explode depth number = None → depth ≤ 4 → depth + height number ≤ 5 →
-    depth + height number ≤ 4 ∧ (∀ (rest: List Leaf) => firstDeep (leaves depth number ++ rest) = shift (leaves depth number) (firstDeep rest))
-  | depth, Regular value, none, shallow, fits => Both shallow (rest => cases)
-  | depth, Pair left right, none, shallow, fits =>
-    let parts := pairNone depth left right none fits
-    let inLeft := explodeNoneShallow (depth + 1) left (And.left parts) (And.right (And.right parts)) omega
-    let inRight := explodeNoneShallow (depth + 1) right (And.left (And.right parts)) (And.right (And.right parts)) omega
-    Both (omega [And.left inLeft, And.left inRight])
-      (rest =>
-        rewrite List.appendAssoc (leaves (depth + 1) left) (leaves (depth + 1) right) rest, And.right inLeft (leaves (depth + 1) right ++ rest), And.right inRight rest in
-          shiftAppend (leaves (depth + 1) left) (leaves (depth + 1) right) (firstDeep rest))
+theorem explodeNoneShallow (depth: Nat) (number: Number) (none: explode depth number = None) (shallow: depth ≤ 4) (fits: depth + height number ≤ 5):
+    depth + height number ≤ 4 ∧ (∀ (rest: List Leaf) => firstDeep (leaves depth number ++ rest) = shift (leaves depth number) (firstDeep rest)) :=
+  match number with
+    | Regular value => Both shallow (rest => cases)
+    | Pair left right =>
+      let parts := pairNone depth left right none fits
+      let inLeft := explodeNoneShallow (depth + 1) left (And.left parts) (And.right (And.right parts)) omega
+      let inRight := explodeNoneShallow (depth + 1) right (And.left (And.right parts)) (And.right (And.right parts)) omega
+      Both (omega [And.left inLeft, And.left inRight])
+        (rest =>
+          rewrite List.appendAssoc (leaves (depth + 1) left) (leaves (depth + 1) right) rest, And.right inLeft (leaves (depth + 1) right ++ rest), And.right inRight rest in
+            shiftAppend (leaves (depth + 1) left) (leaves (depth + 1) right) (firstDeep rest))
 
 --| Where `explode` found its pair, in the spec's terms: `firstDeep` finds
 --| `found` in the number's leaves, whatever follows them, and the leaves
@@ -108,22 +109,23 @@ theorem pairFound (depth: Nat) (left: Number) (right: Number) (exploded: Explosi
 
 --| In a number with nothing inside more than five pairs, `explode` explodes
 --| the pair the spec does, as the spec does.
-theorem explodeFound: ∀ (depth: Nat) (number: Number) (exploded: Explosion) => explode depth number = Some exploded → depth + height number ≤ 5 →
-    Found depth number exploded
-  | depth, Regular _, exploded, some, _ => Void.exfalso (Option.noneNotSome exploded some)
-  | depth, Pair (Regular a) (Regular b), exploded, some, fits =>
-    match deep: Nat.leq 4 depth with
-      | True =>
-        rewrite <- Option.someInjective some in
-          Witness ({ before = [], left = { value = a, depth = depth + 1 }, right = { value = b, depth = depth + 1 }, after = [] })
-            (Both (rest => cases) (before rest => rewrite List.appendNil before in rfl))
-      | False => Void.exfalso (Option.noneNotSome exploded some)
-  | depth, Pair (Regular a) (Pair x y), exploded, some, fits =>
-    pairFound depth (Regular a) (Pair x y) exploded cases some omega omega
-      (e found => explodeFound (depth + 1) (Regular a) e found omega) (e found => explodeFound (depth + 1) (Pair x y) e found omega)
-  | depth, Pair (Pair x y) right, exploded, some, fits =>
-    pairFound depth (Pair x y) right exploded cases some omega omega
-      (e found => explodeFound (depth + 1) (Pair x y) e found omega) (e found => explodeFound (depth + 1) right e found omega)
+theorem explodeFound (depth: Nat) (number: Number) (exploded: Explosion) (some: explode depth number = Some exploded) (fits: depth + height number ≤ 5):
+    Found depth number exploded :=
+  match number with
+    | Regular _ => Void.exfalso (Option.noneNotSome exploded some)
+    | Pair (Regular a) (Regular b) =>
+      match deep: Nat.leq 4 depth with
+        | True =>
+          rewrite <- Option.someInjective some in
+            Witness ({ before = [], left = { value = a, depth = depth + 1 }, right = { value = b, depth = depth + 1 }, after = [] })
+              (Both (rest => cases) (before rest => rewrite List.appendNil before in rfl))
+        | False => Void.exfalso (Option.noneNotSome exploded some)
+    | Pair (Regular a) (Pair x y) =>
+      pairFound depth (Regular a) (Pair x y) exploded cases some omega omega
+        (e found => explodeFound (depth + 1) (Regular a) e found omega) (e found => explodeFound (depth + 1) (Pair x y) e found omega)
+    | Pair (Pair x y) right =>
+      pairFound depth (Pair x y) right exploded cases some omega omega
+        (e found => explodeFound (depth + 1) (Pair x y) e found omega) (e found => explodeFound (depth + 1) right e found omega)
 
 --| So, at the top: what `explode` gives has the leaves the spec's explosion
 --| gives, and when it finds nothing, nor does the spec.

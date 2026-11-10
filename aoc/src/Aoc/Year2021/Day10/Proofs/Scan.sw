@@ -16,14 +16,15 @@ def continue (start: Scan) (rest: List Token): Scan :=
 
 --| Scanning two pieces is scanning the first, then the second from where it
 --| left off.
-theorem scanAppend: ∀ (stack: List Bracket) (xs ys: List Token) => scan stack (xs ++ ys) = continue (scan stack xs) ys
-  | stack, [], ys => rfl
-  | stack, [Opener bracket, ..rest], ys => scanAppend [bracket, ..stack] rest ys
-  | [], [Closer bracket, ..rest], ys => rfl
-  | [top, ..below], [Closer bracket, ..rest], ys =>
-    match same: top == bracket with
-      | True => scanAppend below rest ys
-      | False => rfl
+theorem scanAppend (stack: List Bracket) (xs ys: List Token): scan stack (xs ++ ys) = continue (scan stack xs) ys :=
+  match stack, xs with
+    | stack, [] => rfl
+    | stack, [Opener bracket, ..rest] => scanAppend [bracket, ..stack] rest ys
+    | [], [Closer bracket, ..rest] => rfl
+    | [top, ..below], [Closer bracket, ..rest] =>
+      match same: top == bracket with
+        | True => scanAppend below rest ys
+        | False => rfl
 
 --| A balanced piece leaves the stack as it found it.
 theorem balancedScan (stack: List Bracket) (rest: List Token): Balanced line → scan stack (line ++ rest) = scan stack rest

@@ -1,12 +1,12 @@
 ---
-source: crates/driver/tests/hash_stability.rs
+source: crates/driver/tests/library/hash_stability.rs
 expression: "lines(session, d, f)"
 ---
 Main.holds fb1ea86cf73637c22cd33e183a445ad1884df3a4beb81ee0b651f9de0ba746e3
 Main.three 152c00866573576bce80531fd23d8c687f6c3163670ecb1ab6377425b1a3b429
 Main.test "rfl waits for the literal" 64144fc986e44dc27115343cadf1e31d7744d69fb0c96853fbc6946b391e24a3
-Main.positiveKept 8ab040439dc40fd8287f913a92f89ea679cba0498895de3f79cd9f17eca3b4f2
-Main.positiveAlone 67a738210af2b774719ad323809e93925553404505ca0e105adf5e1e8762b1fc
+Main.positiveKept d02cebcceafb181dba68e5083eaa4d846935c089707568c030553c8bfa299c6d
+Main.positiveAlone 991fdaebb482bba42b1b83ae0079bf8d36121650b588366c31089cff843e5a7a
 Main.ruleSettled ac3c6a0a53cdb3d49bfe9d7289cd670d1c5a1abd1d5b9147cdb3f399b09e4bd9
 Main.positives 971d6eaf8c0cd2a0f5dcb2cb8714f3931dacbaea9a04bc6a5518a60149de1636
 Main.test "decided as on Nat" 5e6af7ebfaba16e9f9590919044126222e34aa5d7bd20defb832d56fdb1c7bfb

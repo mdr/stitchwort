@@ -17,23 +17,24 @@ def LeavesAfter (rules: Rules) (fuel: Nat) (number: Nat): Prop :=
   ∀ (message left: List Char) => left ∈ rules.leftAfter fuel number message →
     ∃ (read: List Char) => message = read ++ left ∧ Leads rules number read
 
-theorem soundAll (rules: Rules) (fuel: Nat) (leaves: ∀ (number: Nat) => LeavesAfter rules fuel number):
-    ∀ (sequence: List Nat) (message left: List Char) => left ∈ rules.leftAfterAll fuel sequence message →
-      ∃ (read: List Char) => message = read ++ left ∧ Matches rules sequence read
-  | [], message, left, Inl same => Witness [] (Both same MatchesNothing)
-  | [], message, left, Inr never => Void.exfalso never
-  | [number, ..later], message, left, found =>
-    match (List.memFlatMap (left => rules.leftAfterAll fuel later left) left (rules.leftAfter fuel number message)).forward found with
-      | Witness middle (Both first rest) =>
-        match leaves number message middle first with
-          | Witness firstRead (Both split leads) =>
-            match soundAll rules fuel leaves later middle left rest with
-              | Witness restRead (Both restSplit matched) =>
-                Witness (firstRead ++ restRead)
-                  (Both (rewrite split, restSplit in Eq.sym (List.appendAssoc firstRead restRead left)) (leads later restRead matched))
+theorem soundAll (rules: Rules) (fuel: Nat) (leaves: ∀ (number: Nat) => LeavesAfter rules fuel number)
+    (sequence: List Nat) (message left: List Char) (found: left ∈ rules.leftAfterAll fuel sequence message):
+    ∃ (read: List Char) => message = read ++ left ∧ Matches rules sequence read :=
+  match sequence, found with
+    | [], Inl same => Witness [] (Both same MatchesNothing)
+    | [], Inr never => Void.exfalso never
+    | [number, ..later], found =>
+      match (List.memFlatMap (left => rules.leftAfterAll fuel later left) left (rules.leftAfter fuel number message)).forward found with
+        | Witness middle (Both first rest) =>
+          match leaves number message middle first with
+            | Witness firstRead (Both split leads) =>
+              match soundAll rules fuel leaves later middle left rest with
+                | Witness restRead (Both restSplit matched) =>
+                  Witness (firstRead ++ restRead)
+                    (Both (rewrite split, restSplit in Eq.sym (List.appendAssoc firstRead restRead left)) (leads later restRead matched))
 
-theorem sound (rules: Rules): ∀ (fuel number: Nat) => LeavesAfter rules fuel number
-    := fuel number message left found =>
+theorem sound (rules: Rules) (fuel number: Nat): LeavesAfter rules fuel number
+    := message left found =>
   match fuel with
     | Zero => Void.exfalso found
     | Succ more =>

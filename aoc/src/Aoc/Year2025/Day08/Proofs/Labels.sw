@@ -90,15 +90,16 @@ theorem lookupBelow (b: Nat) (c s: Nat) (h: b < s):
           | Greater => rfl
 
 --| ... and each box from s on is its own label.
-theorem lookupRange (b: Nat): ∀ (c s: Nat) => s ≤ b → b < s + c →
-    Map.lookupLast b (List.map (List.rangeFrom c s) (box => (box, box))) = Some b
-  | Zero, s, h1, h2 => omega
-  | Succ c, s, h1, h2 =>
-    match e: Nat.equal s b with
-      | True =>
-        rewrite <- Nat.equalSound s b e, lookupBelow s c (Succ s) omega, Ord.compareSelf s in rfl
-      | False =>
-        rewrite lookupRange b c (Succ s) omega omega in rfl
+theorem lookupRange (b: Nat) (c s: Nat) (h1: s ≤ b) (h2: b < s + c):
+    Map.lookupLast b (List.map (List.rangeFrom c s) (box => (box, box))) = Some b :=
+  match c with
+    | Zero => omega
+    | Succ c =>
+      match e: Nat.equal s b with
+        | True =>
+          rewrite <- Nat.equalSound s b e, lookupBelow s c (Succ s) omega, Ord.compareSelf s in rfl
+        | False =>
+          rewrite lookupRange b c (Succ s) omega omega in rfl
 
 theorem storedAtStart (n: Nat) (b: Nat) (h: b < n): Map.get (Circuits.separate n).labels b = Some b :=
   rewrite Map.getFromList b (List.map (List.range 0 n) (box => (box, box))) in lookupRange b n 0 omega h
@@ -188,17 +189,18 @@ theorem labelledJoin (n: Nat) (done: List (Nat, Nat)) (c: Circuits) (f: Nat) (s:
     | False => labelledMoved n done c f s hf hs e inv
 
 --| Joining a list of connections keeps them.
-theorem labelledJoinAll (n: Nat): ∀ (rest done: List (Nat, Nat)) (c: Circuits) =>
-    rest.all (boxesBelow n) = True → Labelled n done c →
-    Labelled n (done.append rest) (joinAll c rest)
-  | [], done, c, ok, inv => rewrite List.appendNil done in inv
-  | [(f, s), ..rest], done, c, ok, inv =>
-    match r: boxesBelow n (f, s) with
-      | True =>
-        rewrite <- List.appendAssoc done [(f, s)] rest in
-          labelledJoinAll n rest (List.append done [(f, s)]) (c.join f s) ok
-            (labelledJoin n done c f s (Bool.andLeft r) (Bool.andRight r) inv)
-      | False => Void.exfalso (Bool.falseNotTrue ok)
+theorem labelledJoinAll (n: Nat) (rest done: List (Nat, Nat)) (c: Circuits)
+    (ok: rest.all (boxesBelow n) = True) (inv: Labelled n done c):
+    Labelled n (done.append rest) (joinAll c rest) :=
+  match rest with
+    | [] => rewrite List.appendNil done in inv
+    | [(f, s), ..rest] =>
+      match r: boxesBelow n (f, s) with
+        | True =>
+          rewrite <- List.appendAssoc done [(f, s)] rest in
+            labelledJoinAll n rest (List.append done [(f, s)]) (c.join f s) ok
+              (labelledJoin n done c f s (Bool.andLeft r) (Bool.andRight r) inv)
+        | False => Void.exfalso (Bool.falseNotTrue ok)
 
 -- The label theorem -----------------------------------------------------------
 

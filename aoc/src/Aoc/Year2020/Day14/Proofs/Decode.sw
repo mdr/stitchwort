@@ -9,58 +9,60 @@ import Aoc.Year2020.Day14 (Spec)
 import Std (Bool, DecEq, Eq, List, Nat, Void)
 
 --| What `decodeBits` lists fits the mask and the address, bit by bit.
-theorem decodedFit: ∀ (mask: List MaskBit) (address bits: List Bool) => bits ∈ decodeBits mask address →
-    address.length = mask.length → bits.length = mask.length ∧ Spec.allFit mask address bits = True
-  | [], [], bits, member, same =>
-    match member with
-      | Inl isNil => rewrite <- isNil in Both rfl rfl
-      | Inr none => Void.exfalso none
-  | [Off, ..mask], [bit, ..address], bits, member, same =>
-    match List.memMapElim (Cons bit) bits (decodeBits mask address) member with
-      | Witness rest (Both inRest built) =>
-        match decodedFit mask address rest inRest (omega) with
-          | Both length fit => rewrite <- built in Both (omega) (rewrite fit, DecEq.refl bit in rfl)
-  | [On, ..mask], [bit, ..address], bits, member, same =>
-    match List.memMapElim (Cons True) bits (decodeBits mask address) member with
-      | Witness rest (Both inRest built) =>
-        match decodedFit mask address rest inRest (omega) with
-          | Both length fit => rewrite <- built in Both (omega) (rewrite fit in rfl)
-  | [X, ..mask], [bit, ..address], bits, member, same =>
-    let rest := decodeBits mask address
-    match List.memAppend bits (rest.map (Cons False)) (rest.map (Cons True)) member with
-      | Inl low =>
-        match List.memMapElim (Cons False) bits rest low with
-          | Witness tail (Both inRest built) =>
-            match decodedFit mask address tail inRest (omega) with
-              | Both length fit => rewrite <- built in Both (omega) (rewrite fit in rfl)
-      | Inr high =>
-        match List.memMapElim (Cons True) bits rest high with
-          | Witness tail (Both inRest built) =>
-            match decodedFit mask address tail inRest (omega) with
-              | Both length fit => rewrite <- built in Both (omega) (rewrite fit in rfl)
-  | [], [bit, ..address], bits, member, same => Void.exfalso (omega)
-  | [maskBit, ..mask], [], bits, member, same => Void.exfalso (omega)
+theorem decodedFit (mask: List MaskBit) (address bits: List Bool) (member: bits ∈ decodeBits mask address)
+    (same: address.length = mask.length): bits.length = mask.length ∧ Spec.allFit mask address bits = True :=
+  match mask, address with
+    | [], [] =>
+      match member with
+        | Inl isNil => rewrite <- isNil in Both rfl rfl
+        | Inr none => Void.exfalso none
+    | [Off, ..mask], [bit, ..address] =>
+      match List.memMapElim (Cons bit) bits (decodeBits mask address) member with
+        | Witness rest (Both inRest built) =>
+          match decodedFit mask address rest inRest (omega) with
+            | Both length fit => rewrite <- built in Both (omega) (rewrite fit, DecEq.refl bit in rfl)
+    | [On, ..mask], [bit, ..address] =>
+      match List.memMapElim (Cons True) bits (decodeBits mask address) member with
+        | Witness rest (Both inRest built) =>
+          match decodedFit mask address rest inRest (omega) with
+            | Both length fit => rewrite <- built in Both (omega) (rewrite fit in rfl)
+    | [X, ..mask], [bit, ..address] =>
+      let rest := decodeBits mask address
+      match List.memAppend bits (rest.map (Cons False)) (rest.map (Cons True)) member with
+        | Inl low =>
+          match List.memMapElim (Cons False) bits rest low with
+            | Witness tail (Both inRest built) =>
+              match decodedFit mask address tail inRest (omega) with
+                | Both length fit => rewrite <- built in Both (omega) (rewrite fit in rfl)
+        | Inr high =>
+          match List.memMapElim (Cons True) bits rest high with
+            | Witness tail (Both inRest built) =>
+              match decodedFit mask address tail inRest (omega) with
+                | Both length fit => rewrite <- built in Both (omega) (rewrite fit in rfl)
+    | [], [bit, ..address] => Void.exfalso (omega)
+    | [maskBit, ..mask], [] => Void.exfalso (omega)
 
 --| Every list of bits that fits the mask and the address is listed.
-theorem fitDecoded: ∀ (mask: List MaskBit) (address bits: List Bool) => address.length = mask.length →
-    bits.length = mask.length → Spec.allFit mask address bits = True → bits ∈ decodeBits mask address
-  | [], [], [], sameAddress, sameBits, fit => Inl rfl
-  | [Off, ..mask], [bit, ..address], [chosen, ..bits], sameAddress, sameBits, fit =>
-    rewrite DecEq.sound (Bool.andLeft fit) in
-      List.memMap (decodeBits mask address) bits (fitDecoded mask address bits (omega) (omega) (Bool.andRight fit)) (Cons bit)
-  | [On, ..mask], [bit, ..address], [chosen, ..bits], sameAddress, sameBits, fit =>
-    rewrite Bool.andLeft fit in
-      List.memMap (decodeBits mask address) bits (fitDecoded mask address bits (omega) (omega) (Bool.andRight fit)) (Cons True)
-  | [X, ..mask], [bit, ..address], [chosen, ..bits], sameAddress, sameBits, fit =>
-    let rest := decodeBits mask address
-    let inRest := fitDecoded mask address bits (omega) (omega) (Bool.andRight fit)
-    match chosen with
-      | False => List.memAppendLeft [False, ..bits] (rest.map (Cons False)) (rest.map (Cons True)) (List.memMap rest bits inRest (Cons False))
-      | True => List.memAppendRight [True, ..bits] (rest.map (Cons False)) (rest.map (Cons True)) (List.memMap rest bits inRest (Cons True))
-  | [], [], [chosen, ..bits], sameAddress, sameBits, fit => Void.exfalso (omega)
-  | [], [bit, ..address], bits, sameAddress, sameBits, fit => Void.exfalso (omega)
-  | [maskBit, ..mask], [], bits, sameAddress, sameBits, fit => Void.exfalso (omega)
-  | [maskBit, ..mask], [bit, ..address], [], sameAddress, sameBits, fit => Void.exfalso (omega)
+theorem fitDecoded (mask: List MaskBit) (address bits: List Bool) (sameAddress: address.length = mask.length)
+    (sameBits: bits.length = mask.length) (fit: Spec.allFit mask address bits = True): bits ∈ decodeBits mask address :=
+  match mask, address, bits with
+    | [], [], [] => Inl rfl
+    | [Off, ..mask], [bit, ..address], [chosen, ..bits] =>
+      rewrite DecEq.sound (Bool.andLeft fit) in
+        List.memMap (decodeBits mask address) bits (fitDecoded mask address bits (omega) (omega) (Bool.andRight fit)) (Cons bit)
+    | [On, ..mask], [bit, ..address], [chosen, ..bits] =>
+      rewrite Bool.andLeft fit in
+        List.memMap (decodeBits mask address) bits (fitDecoded mask address bits (omega) (omega) (Bool.andRight fit)) (Cons True)
+    | [X, ..mask], [bit, ..address], [chosen, ..bits] =>
+      let rest := decodeBits mask address
+      let inRest := fitDecoded mask address bits (omega) (omega) (Bool.andRight fit)
+      match chosen with
+        | False => List.memAppendLeft [False, ..bits] (rest.map (Cons False)) (rest.map (Cons True)) (List.memMap rest bits inRest (Cons False))
+        | True => List.memAppendRight [True, ..bits] (rest.map (Cons False)) (rest.map (Cons True)) (List.memMap rest bits inRest (Cons True))
+    | [], [], [chosen, ..bits] => Void.exfalso (omega)
+    | [], [bit, ..address], bits => Void.exfalso (omega)
+    | [maskBit, ..mask], [], bits => Void.exfalso (omega)
+    | [maskBit, ..mask], [bit, ..address], [] => Void.exfalso (omega)
 
 theorem decodeSound (mask: Mask) (address: Nat) (target: Nat) (member: target ∈ mask.decode address): Spec.Decodes mask address target = True :=
   let width := mask.bits.length

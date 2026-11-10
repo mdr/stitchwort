@@ -86,39 +86,41 @@ theorem valuesAreCounts (c: Circuits) (n: Nat): c.sizes n = List.map (Map.keys (
 def firstBox (c: Circuits) (b: Nat): Bool := ¬(List.range 0 b |> .any (other => c.labelOf other == c.labelOf b))
 
 --| The labels of the first boxes don't repeat ...
-theorem firstsDistinct (c: Circuits): ∀ (k s: Nat) => List.Distinct (List.map (List.filter (List.rangeFrom k s) (firstBox c)) c.labelOf)
-  | Zero, s => Trivial
-  | Succ k, s =>
-    match e: firstBox c s with
-      | True =>
-        Both
-          (m =>
-            List.anyElim (b => c.labelOf b = c.labelOf s) Void (List.filter (List.rangeFrom k (Succ s)) (firstBox c))
-              (List.memMapAny _ c.labelOf (c.labelOf s) m)
-              (b mb same =>
-                match List.memFilter (List.rangeFrom k (Succ s)) (firstBox c) mb with
-                  | Both inRange first =>
-                    let lower: List.any (List.range 0 b) (other => c.labelOf other == c.labelOf b) = True :=
-                      List.anyRangeIntro (other => c.labelOf other == c.labelOf b) b 0 s omega
-                        (omega [List.memRangeFrom b k (Succ s) inRange]) (rewrite same, DecEq.refl (c.labelOf s) in rfl)
-                    Bool.falseNotTrue (rewrite lower at first)))
-          (firstsDistinct c k (Succ s))
-      | False => firstsDistinct c k (Succ s)
+theorem firstsDistinct (c: Circuits) (k s: Nat): List.Distinct (List.map (List.filter (List.rangeFrom k s) (firstBox c)) c.labelOf) :=
+  match k with
+    | Zero => Trivial
+    | Succ k =>
+      match e: firstBox c s with
+        | True =>
+          Both
+            (m =>
+              List.anyElim (b => c.labelOf b = c.labelOf s) Void (List.filter (List.rangeFrom k (Succ s)) (firstBox c))
+                (List.memMapAny _ c.labelOf (c.labelOf s) m)
+                (b mb same =>
+                  match List.memFilter (List.rangeFrom k (Succ s)) (firstBox c) mb with
+                    | Both inRange first =>
+                      let lower: List.any (List.range 0 b) (other => c.labelOf other == c.labelOf b) = True :=
+                        List.anyRangeIntro (other => c.labelOf other == c.labelOf b) b 0 s omega
+                          (omega [List.memRangeFrom b k (Succ s) inRange]) (rewrite same, DecEq.refl (c.labelOf s) in rfl)
+                      Bool.falseNotTrue (rewrite lower at first)))
+            (firstsDistinct c k (Succ s))
+        | False => firstsDistinct c k (Succ s)
 
 --| ... and they are all the labels: each box's label is a first box's.
-theorem firstOf (c: Circuits) (n: Nat): ∀ (fuel b: Nat) => b < fuel → b < n →
-    List.Mem (c.labelOf b) (List.map (List.filter (List.range 0 n) (firstBox c)) c.labelOf)
-  | Zero, b, h, hb => Void.exfalso (Bool.falseNotTrue h)
-  | Succ fuel, b, h, hb =>
-    match g: List.any (List.range 0 b) (other => c.labelOf other == c.labelOf b) with
-      | False =>
-        List.memMap _ b (List.memFilterIntro (List.range 0 n) (firstBox c) (List.memRangeFromIntro b n 0 omega hb) (rewrite g in rfl)) c.labelOf
-      | True =>
-        List.anyTrueElim (List.range 0 b) (other => c.labelOf other == c.labelOf b)
-          (List.Mem (c.labelOf b) (List.map (List.filter (List.range 0 n) (firstBox c)) c.labelOf)) g
-          (other mo same =>
-            let below := List.memRangeFrom other b 0 mo
-            rewrite <- DecEq.sound same in firstOf c n fuel other omega omega)
+theorem firstOf (c: Circuits) (n: Nat) (fuel b: Nat) (h: b < fuel) (hb: b < n):
+    List.Mem (c.labelOf b) (List.map (List.filter (List.range 0 n) (firstBox c)) c.labelOf) :=
+  match fuel with
+    | Zero => Void.exfalso (Bool.falseNotTrue h)
+    | Succ fuel =>
+      match g: List.any (List.range 0 b) (other => c.labelOf other == c.labelOf b) with
+        | False =>
+          List.memMap _ b (List.memFilterIntro (List.range 0 n) (firstBox c) (List.memRangeFromIntro b n 0 omega hb) (rewrite g in rfl)) c.labelOf
+        | True =>
+          List.anyTrueElim (List.range 0 b) (other => c.labelOf other == c.labelOf b)
+            (List.Mem (c.labelOf b) (List.map (List.filter (List.range 0 n) (firstBox c)) c.labelOf)) g
+            (other mo same =>
+              let below := List.memRangeFrom other b 0 mo
+              rewrite <- DecEq.sound same in firstOf c n fuel other omega omega)
 
 theorem labelOfFirst (c: Circuits) (n: Nat) (label: Nat) (m: List.Mem label (List.map (List.filter (List.range 0 n) (firstBox c)) c.labelOf)):
     List.Mem label (List.map (List.range 0 n) c.labelOf) :=

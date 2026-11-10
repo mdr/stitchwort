@@ -26,16 +26,17 @@ theorem movedNear (aim: Position) (to: Position) (direction: Direction) (next: P
     | Right => rewrite <- Option.someInjective step in omega
 
 --| A walk has at least as many moves as the distance between its ends.
-theorem walkDistance (rows: List (List (Option k))): ∀ (start: Position) (route: List Direction) (end: Position) =>
-    walk rows start route = Some end → distance start end ≤ route.length
-  | start, [], end, walked => rewrite <- Option.someInjective walked in omega
-  | start, [direction, ..rest], end, walked =>
-    match step: moved start direction with
-      | None => Void.exfalso (Option.noneNotSome end walked)
-      | Some next =>
-        match found: keyAt rows next with
-          | None => Void.exfalso (Option.noneNotSome end walked)
-          | Some key => omega [movedNear start end direction next step, walkDistance rows next rest end walked]
+theorem walkDistance (rows: List (List (Option k))) (start: Position) (route: List Direction) (end: Position)
+    (walked: walk rows start route = Some end): distance start end ≤ route.length :=
+  match route with
+    | [] => rewrite <- Option.someInjective walked in omega
+    | [direction, ..rest] =>
+      match step: moved start direction with
+        | None => Void.exfalso (Option.noneNotSome end walked)
+        | Some next =>
+          match found: keyAt rows next with
+            | None => Void.exfalso (Option.noneNotSome end walked)
+            | Some key => omega [movedNear start end direction next step, walkDistance rows next rest end walked]
 
 --| Pressing a route's keys yourself takes a press per move and one for A.
 theorem routeCostYours (route: List Direction): Costs.yours.routeCost route = route.length + 1 :=

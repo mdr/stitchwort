@@ -182,10 +182,9 @@ theorem wordsAbsentBefore (operator: Operator) (rest: List Char)
 
 --| `target`, one of `operators`, none of `before` being it: the parser for `before ++ operators`
 --| reads its word and gives it.
-theorem runsOperatorFrom (target: Operator) (rest: List Char) (before: List Operator) (notBefore: NotOperator target before):
-    ∀ (operators: List Operator) => target ∈ operators →
-      Parse.Runs (() => operator (before ++ operators)) target.spaced.toList rest target
-    := operators member =>
+theorem runsOperatorFrom (target: Operator) (rest: List Char) (before: List Operator) (notBefore: NotOperator target before)
+    (operators: List Operator) (member: target ∈ operators):
+    Parse.Runs (() => operator (before ++ operators)) target.spaced.toList rest target :=
   match operators with
     | [] => Void.exfalso member
     | [first, ..more] =>
@@ -287,39 +286,38 @@ theorem goodStepsSnoc (strengthOf: Operator → Nat) (strength: Nat) (bound: Nat
 
 --| Every expression at a level is its first operand, binding more strongly, followed by a
 --| chain of steps, the parser's.
-theorem chainOf (strengthOf: Operator → Nat) (strength: Nat):
-    ∀ (expression: Expression) (read: List Char) => Spec.Written expression read → Spec.Follows strengthOf expression
-      → Spec.BindsAtLeast strengthOf strength expression
-      → ∃ (start: Expression) => ∃ (startRead: List Char) => ∃ (steps: List (List Char, (Expression → Expression → Expression, Expression))) =>
-        expression = Parse.chainFold start (Parse.stepValues steps) ∧ read = startRead ++ Parse.joinReads steps ∧ Spec.Written start startRead
-          ∧ Spec.Follows strengthOf start ∧ Spec.BindsAtLeast strengthOf (strength + 1) start ∧ size start ≤ size expression
-          ∧ GoodSteps strengthOf strength (size expression) steps
-  | Number value, read, written, follows, binds =>
-    Witness (Number value) (Witness read (Witness []
-      (Both rfl (Both (Eq.sym (List.appendNil read)) (Both written (Both follows (Both Trivial (Both omega Trivial))))))))
-  | Parenthesised inner, read, written, follows, binds =>
-    Witness (Parenthesised inner) (Witness read (Witness []
-      (Both rfl (Both (Eq.sym (List.appendNil read)) (Both written (Both follows (Both Trivial (Both omega Trivial))))))))
-  | Operation operator left right, read, Witness leftRead (Witness rightRead (Both split (Both leftWritten rightWritten))),
-    Both leftBinds (Both rightBinds (Both leftFollows rightFollows)), binds =>
-    if tighter: strength + 1 ≤ strengthOf operator then
-      Witness (Operation operator left right) (Witness read (Witness []
-        (Both rfl (Both (Eq.sym (List.appendNil read))
-          (Both (Witness leftRead (Witness rightRead (Both split (Both leftWritten rightWritten))))
-            (Both (Both leftBinds (Both rightBinds (Both leftFollows rightFollows))) (Both tighter (Both omega Trivial))))))))
-    else
-      let same: strengthOf operator = strength := omega [binds, tighter]
-      match chainOf strengthOf strength left leftRead leftWritten leftFollows (rewrite <- same in leftBinds) with
-        | Witness start (Witness startRead (Witness steps (Both made (Both leftSplit (Both startWritten (Both startFollows (Both startBinds (Both smaller good)))))))) =>
-          let rightStep := ([' ', Spec.symbol operator, ' '] ++ rightRead, (Operator.node operator, right))
-          Witness start (Witness startRead (Witness (steps ++ [rightStep])
-            (Both (rewrite chainFoldSnoc start ([' ', Spec.symbol operator, ' '] ++ rightRead) (Operator.node operator) right steps, <- made in rfl)
-              (Both (rewrite joinReadsSnoc ([' ', Spec.symbol operator, ' '] ++ rightRead) (Operator.node operator, right) steps, split, leftSplit in
-                  List.appendAssoc startRead (Parse.joinReads steps) ([' ', Spec.symbol operator, ' '] ++ rightRead))
-                (Both startWritten (Both startFollows (Both startBinds (Both omega
-                  (goodStepsSnoc strengthOf strength (size (Operation operator left right)) ([' ', Spec.symbol operator, ' '] ++ rightRead) (Operator.node operator) right steps
-                    (goodStepsWeaken strengthOf strength (size left) (size (Operation operator left right)) omega steps good)
-                    (Witness operator (Witness rightRead (Both rfl (Both same (Both rfl (Both rightWritten (Both rightFollows (Both (rewrite <- same in rightBinds) omega)))))))))))))))))
+theorem chainOf (strengthOf: Operator → Nat) (strength: Nat)
+    (expression: Expression) (read: List Char) (written: Spec.Written expression read) (follows: Spec.Follows strengthOf expression)
+    (binds: Spec.BindsAtLeast strengthOf strength expression): ∃ (start: Expression) => ∃ (startRead: List Char) => ∃ (steps: List (List Char, (Expression → Expression → Expression, Expression))) =>
+      expression = Parse.chainFold start (Parse.stepValues steps) ∧ read = startRead ++ Parse.joinReads steps ∧ Spec.Written start startRead
+        ∧ Spec.Follows strengthOf start ∧ Spec.BindsAtLeast strengthOf (strength + 1) start ∧ size start ≤ size expression
+        ∧ GoodSteps strengthOf strength (size expression) steps :=
+  match expression, written, follows with
+    | Number value, written, follows =>
+      Witness (Number value) (Witness read (Witness []
+        (Both rfl (Both (Eq.sym (List.appendNil read)) (Both written (Both follows (Both Trivial (Both omega Trivial))))))))
+    | Parenthesised inner, written, follows =>
+      Witness (Parenthesised inner) (Witness read (Witness []
+        (Both rfl (Both (Eq.sym (List.appendNil read)) (Both written (Both follows (Both Trivial (Both omega Trivial))))))))
+    | Operation operator left right, Witness leftRead (Witness rightRead (Both split (Both leftWritten rightWritten))), Both leftBinds (Both rightBinds (Both leftFollows rightFollows)) =>
+      if tighter: strength + 1 ≤ strengthOf operator then
+        Witness (Operation operator left right) (Witness read (Witness []
+          (Both rfl (Both (Eq.sym (List.appendNil read))
+            (Both (Witness leftRead (Witness rightRead (Both split (Both leftWritten rightWritten))))
+              (Both (Both leftBinds (Both rightBinds (Both leftFollows rightFollows))) (Both tighter (Both omega Trivial))))))))
+      else
+        let same: strengthOf operator = strength := omega [binds, tighter]
+        match chainOf strengthOf strength left leftRead leftWritten leftFollows (rewrite <- same in leftBinds) with
+          | Witness start (Witness startRead (Witness steps (Both made (Both leftSplit (Both startWritten (Both startFollows (Both startBinds (Both smaller good)))))))) =>
+            let rightStep := ([' ', Spec.symbol operator, ' '] ++ rightRead, (Operator.node operator, right))
+            Witness start (Witness startRead (Witness (steps ++ [rightStep])
+              (Both (rewrite chainFoldSnoc start ([' ', Spec.symbol operator, ' '] ++ rightRead) (Operator.node operator) right steps, <- made in rfl)
+                (Both (rewrite joinReadsSnoc ([' ', Spec.symbol operator, ' '] ++ rightRead) (Operator.node operator, right) steps, split, leftSplit in
+                    List.appendAssoc startRead (Parse.joinReads steps) ([' ', Spec.symbol operator, ' '] ++ rightRead))
+                  (Both startWritten (Both startFollows (Both startBinds (Both omega
+                    (goodStepsSnoc strengthOf strength (size (Operation operator left right)) ([' ', Spec.symbol operator, ' '] ++ rightRead) (Operator.node operator) right steps
+                      (goodStepsWeaken strengthOf strength (size left) (size (Operation operator left right)) omega steps good)
+                      (Witness operator (Witness rightRead (Both rfl (Both same (Both rfl (Both rightWritten (Both rightFollows (Both (rewrite <- same in rightBinds) omega)))))))))))))))))
 
 --| What follows the steps of a chain stops it at the next strength.
 theorem afterSteps (strengthOf: Operator → Nat) (strength: Nat) (bound: Nat) (rest: List Char) (stop: Stop strengthOf strength rest)
@@ -336,31 +334,31 @@ theorem afterSteps (strengthOf: Operator → Nat) (strength: Nat) (bound: Nat) (
 theorem runsSteps (strengthOf: Operator → Nat) (strength: Nat) (operators: List Operator) (term: () → {Parse} Expression) (limit: Nat) (bound: Nat)
     (exactHere: ∀ (other: Operator) => (other ∈ operators ↔ strengthOf other = strength))
     (termRuns: ∀ (right: Expression) => size right < bound → ∀ (rightRead rest: List Char) => rightRead.length ≤ limit → Spec.Written right rightRead
-      → Spec.Follows strengthOf right → Spec.BindsAtLeast strengthOf (strength + 1) right → Stop strengthOf (strength + 1) rest → Parse.Runs term rightRead rest right):
-    ∀ (steps: List (List Char, (Expression → Expression → Expression, Expression))) (rest: List Char) => GoodSteps strengthOf strength bound steps
-      → (Parse.joinReads steps).length ≤ limit → Stop strengthOf strength rest
-      → Parse.ManyRuns (() => Parse.chainStep term (() => Operator.node (operator operators))) steps rest
-  | [], rest, good, short, stop =>
-    Parse.declinesChainStep term (() => Operator.node (operator operators)) rest
-      (Parse.declinesBind (() => operator operators) Operator.node rest
-        (Parse.declinesPick (operators.map (other => (other.spaced, other))) rest
-          (wordsAbsentAll rest operators (other member => stopAbsent strengthOf strength rest stop other ((exactHere other).forward member)))))
-  | [(read, (combine, right)), ..steps], rest, Both (Witness op (Witness rightRead (Both split (Both same (Both made (Both written (Both follows (Both binds small)))))))) later,
-    short, stop =>
-    let readLength: read.length = 3 + rightRead.length := rewrite split in List.lengthAppend [' ', Spec.symbol op, ' '] rightRead
-    let total: (Parse.joinReads [(read, (combine, right)), ..steps]).length = read.length + (Parse.joinReads steps).length :=
-      List.lengthAppend read (Parse.joinReads steps)
-    let afterStops := afterSteps strengthOf strength bound rest stop steps later
-    let member := (exactHere op).backward same
-    Both (rewrite split in List.consNotNil ' ' _)
-      (Both
-        (rewrite split, made in
-          Parse.runsChainStep term (() => Operator.node (operator operators)) [' ', Spec.symbol op, ' '] rightRead (Parse.joinReads steps ++ rest)
-            (Operator.node op) right
-            (Parse.runsMap (() => operator operators) Operator.node [' ', Spec.symbol op, ' '] (rightRead ++ (Parse.joinReads steps ++ rest)) op
-              (runsOperator op (rightRead ++ (Parse.joinReads steps ++ rest)) operators member))
-            (termRuns right small rightRead (Parse.joinReads steps ++ rest) (omega [short, total, readLength]) written follows binds afterStops))
-        (runsSteps strengthOf strength operators term limit bound exactHere termRuns steps rest later (omega [short, total, readLength]) stop))
+      → Spec.Follows strengthOf right → Spec.BindsAtLeast strengthOf (strength + 1) right → Stop strengthOf (strength + 1) rest → Parse.Runs term rightRead rest right)
+    (steps: List (List Char, (Expression → Expression → Expression, Expression))) (rest: List Char) (good: GoodSteps strengthOf strength bound steps)
+    (short: (Parse.joinReads steps).length ≤ limit) (stop: Stop strengthOf strength rest):
+    Parse.ManyRuns (() => Parse.chainStep term (() => Operator.node (operator operators))) steps rest :=
+  match steps, good with
+    | [], good =>
+      Parse.declinesChainStep term (() => Operator.node (operator operators)) rest
+        (Parse.declinesBind (() => operator operators) Operator.node rest
+          (Parse.declinesPick (operators.map (other => (other.spaced, other))) rest
+            (wordsAbsentAll rest operators (other member => stopAbsent strengthOf strength rest stop other ((exactHere other).forward member)))))
+    | [(read, (combine, right)), ..steps], Both (Witness op (Witness rightRead (Both split (Both same (Both made (Both written (Both follows (Both binds small)))))))) later =>
+      let readLength: read.length = 3 + rightRead.length := rewrite split in List.lengthAppend [' ', Spec.symbol op, ' '] rightRead
+      let total: (Parse.joinReads [(read, (combine, right)), ..steps]).length = read.length + (Parse.joinReads steps).length :=
+        List.lengthAppend read (Parse.joinReads steps)
+      let afterStops := afterSteps strengthOf strength bound rest stop steps later
+      let member := (exactHere op).backward same
+      Both (rewrite split in List.consNotNil ' ' _)
+        (Both
+          (rewrite split, made in
+            Parse.runsChainStep term (() => Operator.node (operator operators)) [' ', Spec.symbol op, ' '] rightRead (Parse.joinReads steps ++ rest)
+              (Operator.node op) right
+              (Parse.runsMap (() => operator operators) Operator.node [' ', Spec.symbol op, ' '] (rightRead ++ (Parse.joinReads steps ++ rest)) op
+                (runsOperator op (rightRead ++ (Parse.joinReads steps ++ rest)) operators member))
+              (termRuns right small rightRead (Parse.joinReads steps ++ rest) (omega [short, total, readLength]) written follows binds afterStops))
+          (runsSteps strengthOf strength operators term limit bound exactHere termRuns steps rest later (omega [short, total, readLength]) stop))
 
 -- Completeness
 
@@ -441,16 +439,16 @@ theorem parseComplete (input: Text) (precedence: Precedence) (strengthOf: Operat
       rfl
 
 --| Lines that each mean one expression mean one list of them.
-theorem linesUnique (all: List (List Operator)) (strengthOf: Operator → Nat) (exactAll: Exact strengthOf 0 all):
-    ∀ (lines: List (List Char)) (ones others: List Expression)
-      => List.All2 (Spec.Means strengthOf) lines ones → List.All2 (Spec.Means strengthOf) lines others → ones = others
-  | [], [], [], none, alsoNone => rfl
-  | [line, ..lines], [one, ..ones], [other, ..others], Both means rest, Both alsoMeans alsoRest =>
-    rewrite writtenUnique all strengthOf exactAll line one other means alsoMeans, linesUnique all strengthOf exactAll lines ones others rest alsoRest in rfl
-  | [], [], [other, ..others], none, alsoNone => Void.exfalso alsoNone
-  | [], [one, ..ones], others, none, alsoNone => Void.exfalso none
-  | [line, ..lines], [], others, none, alsoNone => Void.exfalso none
-  | [line, ..lines], [one, ..ones], [], means, alsoNone => Void.exfalso alsoNone
+theorem linesUnique (all: List (List Operator)) (strengthOf: Operator → Nat) (exactAll: Exact strengthOf 0 all)
+    (lines: List (List Char)) (ones others: List Expression) (none: List.All2 (Spec.Means strengthOf) lines ones) (alsoNone: List.All2 (Spec.Means strengthOf) lines others): ones = others :=
+  match lines, ones, others, none, alsoNone with
+    | [], [], [], none, alsoNone => rfl
+    | [line, ..lines], [one, ..ones], [other, ..others], Both means rest, Both alsoMeans alsoRest =>
+      rewrite writtenUnique all strengthOf exactAll line one other means alsoMeans, linesUnique all strengthOf exactAll lines ones others rest alsoRest in rfl
+    | [], [], [other, ..others], none, alsoNone => Void.exfalso alsoNone
+    | [], [one, ..ones], others, none, alsoNone => Void.exfalso none
+    | [line, ..lines], [], others, none, alsoNone => Void.exfalso none
+    | [line, ..lines], [one, ..ones], [], means, alsoNone => Void.exfalso alsoNone
 
 theorem samePrecedenceExact: Exact Spec.part1Strength 0 samePrecedence.levels :=
   Both

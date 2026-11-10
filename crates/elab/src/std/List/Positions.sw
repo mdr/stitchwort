@@ -7,26 +7,28 @@
 -- don't load Omega.
 
 --| The element at `x`'s position is `x`.
-theorem List.getOrIndexOf [auto eq: DecEq a]: ∀ (xs: List a) (d x: a) => List.Mem x xs → List.getOr xs (List.indexOf xs x) d = x
-  | [], d, x, m => Void.exfalso m
-  | [y, ..ys], d, x, m =>
-    match e: y == x with
-      | True => DecEq.sound e
-      | False =>
-        match m with
-          | Inl q => Void.exfalso (DecEq.soundFalse y x e q)
-          | Inr rest => List.getOrIndexOf ys d x rest
+theorem List.getOrIndexOf [auto eq: DecEq a] (xs: List a) (d x: a) (m: List.Mem x xs): List.getOr xs (List.indexOf xs x) d = x :=
+  match xs with
+    | [] => Void.exfalso m
+    | [y, ..ys] =>
+      match e: y == x with
+        | True => DecEq.sound e
+        | False =>
+          match m with
+            | Inl q => Void.exfalso (DecEq.soundFalse y x e q)
+            | Inr rest => List.getOrIndexOf ys d x rest
 
 --| An element's position is inside the list.
-theorem List.indexOfLt [auto eq: DecEq a]: ∀ (xs: List a) (x: a) => List.Mem x xs → List.indexOf xs x < List.length xs
-  | [], x, m => Void.exfalso m
-  | [y, ..ys], x, m =>
-    match e: y == x with
-      | True => rfl
-      | False =>
-        match m with
-          | Inl q => Void.exfalso (DecEq.soundFalse y x e q)
-          | Inr rest => List.indexOfLt ys x rest
+theorem List.indexOfLt [auto eq: DecEq a] (xs: List a) (x: a) (m: List.Mem x xs): List.indexOf xs x < List.length xs :=
+  match xs with
+    | [] => Void.exfalso m
+    | [y, ..ys] =>
+      match e: y == x with
+        | True => rfl
+        | False =>
+          match m with
+            | Inl q => Void.exfalso (DecEq.soundFalse y x e q)
+            | Inr rest => List.indexOfLt ys x rest
 
 --| `x` is in `xs` exactly when its first place is inside it.
 theorem List.containsIndexOf [auto eq: DecEq a] (x: a) (xs: List a): List.contains xs x = (List.indexOf xs x < List.length xs) :=
@@ -48,21 +50,24 @@ theorem List.containsIndexOfAppend [auto eq: DecEq a] (x: a) (more: List a) (xs:
         | False => List.containsIndexOfAppend x more rest
 
 --| A fold of `Nat.max` is below `k` exactly when its start and every `f x` are.
-theorem List.foldMaxLt (f: a → Nat) (k: Nat): ∀ (xs: List a) (start: Nat) =>
-    ((List.foldLeft xs start (m x => Nat.max m (f x)) < k): Bool) = (start < k ∧ List.all xs (x => f x < k))
-  | [], start => cases
-  | [x, ..rest], start => rewrite List.foldMaxLt f k rest (Nat.max start (f x)) in cases
+theorem List.foldMaxLt (f: a → Nat) (k: Nat) (xs: List a) (start: Nat):
+    ((List.foldLeft xs start (m x => Nat.max m (f x)) < k): Bool) = (start < k ∧ List.all xs (x => f x < k)) :=
+  match xs with
+    | [] => cases
+    | [x, ..rest] => rewrite List.foldMaxLt f k rest (Nat.max start (f x)) in cases
 
 --| A fold of `Nat.min` is below `k` exactly when its start or some `f x` is.
-theorem List.foldMinLt (f: a → Nat) (k: Nat): ∀ (xs: List a) (start: Nat) =>
-    ((List.foldLeft xs start (m x => Nat.min m (f x)) < k): Bool) = (start < k ∨ List.any xs (x => f x < k))
-  | [], start => cases
-  | [x, ..rest], start => rewrite List.foldMinLt f k rest (Nat.min start (f x)) in cases
+theorem List.foldMinLt (f: a → Nat) (k: Nat) (xs: List a) (start: Nat):
+    ((List.foldLeft xs start (m x => Nat.min m (f x)) < k): Bool) = (start < k ∨ List.any xs (x => f x < k)) :=
+  match xs with
+    | [] => cases
+    | [x, ..rest] => rewrite List.foldMinLt f k rest (Nat.min start (f x)) in cases
 
 --| A run of numbers has `k` once if `k` is in it, and not at all otherwise.
-theorem List.countRangeFromEq (k: Nat): ∀ (c s: Nat) => List.count (List.rangeFrom c s) (== k) = Bool.toNat (s ≤ k < s + c)
-  | Zero, s => cases
-  | Succ c, s => rewrite List.countCons (List.rangeFrom c (Succ s)) s (== k), List.countRangeFromEq k c (Succ s) in cases
+theorem List.countRangeFromEq (k: Nat) (c s: Nat): List.count (List.rangeFrom c s) (== k) = Bool.toNat (s ≤ k < s + c) :=
+  match c with
+    | Zero => cases
+    | Succ c => rewrite List.countCons (List.rangeFrom c (Succ s)) s (== k), List.countRangeFromEq k c (Succ s) in cases
 
 --| `List.range 0 n` has `k` once if `k < n`, and not at all otherwise.
 theorem List.countRangeEq (n: Nat) (k: Nat): List.count (List.range 0 n) (== k) = Bool.toNat (k < n) :=

@@ -180,37 +180,38 @@ theorem countNotOne (n: Nat) (done: List (Nat, Nat)) (c: Circuits) (inv: Labelle
 
 --| Walking the connections `ps` after `done`: if connection k of `ps` is the
 --| last needed, `Circuits.lastJoin` stops there.
-theorem lastJoinFinds (points: List Point): ∀ (ps: List (Nat, Nat)) (k: Nat) (done: List (Nat, Nat)) (c: Circuits) =>
-    Labelled points.length done c → Counted points.length c → ps.all (boxesBelow points.length) = True →
-    OneCircuit points.length (done.append (ps.take (Succ k))) → ¬(OneCircuit points.length (done.append (ps.take k))) →
-    c.lastJoin (ps.map (connectionKey points)) = Some ((ps.getOr k (0, 0)).fst, (ps.getOr k (0, 0)).snd)
-  | [], Zero, done, c, inv, counted, ok, after, before => Void.exfalso (before after)
-  | [], Succ k, done, c, inv, counted, ok, after, before => Void.exfalso (before after)
-  | [(f, s), ..ps], k, done, c, inv, counted, ok, after, before =>
-    let n := points.length
-    match r: boxesBelow n (f, s) with
-      | False => Void.exfalso (Bool.falseNotTrue ok)
-      | True =>
-        let hf: f < n := Bool.andLeft r
-        let hs: s < n := Bool.andRight r
-        let inv2 := labelledJoin n done c f s hf hs inv
-        let counted2 := countedJoin n done c f s hf hs inv counted
-        match k with
-          | Zero =>
-            -- Connection 0 of `ps`: before it, more than one circuit; after it, one.
-            let notYet: ¬(OneCircuit n done) := one => before (rewrite List.appendNil done in one)
-            let some: 0 < n := match n with | Zero => Void.exfalso (notYet (oneCircuitOfNone done)) | Succ m => rfl
-            rewrite countAboveOne n done c inv counted notYet, countOneOf n (List.append done [(f, s)]) (c.join f s) inv2 counted2 some after
-              in rfl
-          | Succ k =>
-            -- A later connection: after this one, not yet one circuit.
-            let moreAfter: ∀ (e: (Nat, Nat)) => List.Mem e (List.append done [(f, s)]) → List.Mem e (List.append done [(f, s), ..List.take ps k]) :=
-              e m => rewrite <- List.appendAssoc done [(f, s)] (List.take ps k) in List.anyAppendLeft (y => y = e) (List.append done [(f, s)]) (List.take ps k) m
-            let notYet: ¬(OneCircuit n (List.append done [(f, s)])) := one => before (oneCircuitMore n _ _ moreAfter one)
-            rewrite countNotOne n (List.append done [(f, s)]) (c.join f s) inv2 counted2 notYet, Bool.andFalse (c.count > 1) in
-              lastJoinFinds points ps k (List.append done [(f, s)]) (c.join f s) inv2 counted2 ok
-                (rewrite List.appendAssoc done [(f, s)] (List.take ps (Succ k)) in after)
-                (rewrite List.appendAssoc done [(f, s)] (List.take ps k) in before)
+theorem lastJoinFinds (points: List Point) (ps: List (Nat, Nat)) (k: Nat) (done: List (Nat, Nat)) (c: Circuits)
+    (inv: Labelled points.length done c) (counted: Counted points.length c) (ok: ps.all (boxesBelow points.length) = True)
+    (after: OneCircuit points.length (done.append (ps.take (Succ k)))) (before: ¬(OneCircuit points.length (done.append (ps.take k)))):
+    c.lastJoin (ps.map (connectionKey points)) = Some ((ps.getOr k (0, 0)).fst, (ps.getOr k (0, 0)).snd) :=
+  match ps, k with
+    | [], Zero => Void.exfalso (before after)
+    | [], Succ k => Void.exfalso (before after)
+    | [(f, s), ..ps], k =>
+      let n := points.length
+      match r: boxesBelow n (f, s) with
+        | False => Void.exfalso (Bool.falseNotTrue ok)
+        | True =>
+          let hf: f < n := Bool.andLeft r
+          let hs: s < n := Bool.andRight r
+          let inv2 := labelledJoin n done c f s hf hs inv
+          let counted2 := countedJoin n done c f s hf hs inv counted
+          match k with
+            | Zero =>
+              -- Connection 0 of `ps`: before it, more than one circuit; after it, one.
+              let notYet: ¬(OneCircuit n done) := one => before (rewrite List.appendNil done in one)
+              let some: 0 < n := match n with | Zero => Void.exfalso (notYet (oneCircuitOfNone done)) | Succ m => rfl
+              rewrite countAboveOne n done c inv counted notYet, countOneOf n (List.append done [(f, s)]) (c.join f s) inv2 counted2 some after
+                in rfl
+            | Succ k =>
+              -- A later connection: after this one, not yet one circuit.
+              let moreAfter: ∀ (e: (Nat, Nat)) => List.Mem e (List.append done [(f, s)]) → List.Mem e (List.append done [(f, s), ..List.take ps k]) :=
+                e m => rewrite <- List.appendAssoc done [(f, s)] (List.take ps k) in List.anyAppendLeft (y => y = e) (List.append done [(f, s)]) (List.take ps k) m
+              let notYet: ¬(OneCircuit n (List.append done [(f, s)])) := one => before (oneCircuitMore n _ _ moreAfter one)
+              rewrite countNotOne n (List.append done [(f, s)]) (c.join f s) inv2 counted2 notYet, Bool.andFalse (c.count > 1) in
+                lastJoinFinds points ps k (List.append done [(f, s)]) (c.join f s) inv2 counted2 ok
+                  (rewrite List.appendAssoc done [(f, s)] (List.take ps (Succ k)) in after)
+                  (rewrite List.appendAssoc done [(f, s)] (List.take ps k) in before)
 
 theorem allOrderInRange (points: List Point): List.all (connectionOrder points) (boxesBelow points.length) = True :=
   rewrite List.allPerm (connectionOrder points) (allPairs points.length) (List.sortOnPerm (allPairs points.length) (connectionKey points))
@@ -238,18 +239,19 @@ theorem part2NoBoxesToJoin (points: List Point) (h: points.length ≤ 1): solveP
 -- Some connection is the last needed -----------------------------------------
 
 --| Every pair a < b of the numbers from s on is a pair of them.
-theorem memPairs (a: Nat) (b: Nat) (ab: a < b): ∀ (c s: Nat) => s ≤ a → b < s + c → List.Mem (a, b) (List.pairs (List.rangeFrom c s))
-  | Zero, s, h1, h2 => omega
-  | Succ c, s, h1, h2 =>
-    let h3: b < Succ s + c := omega
-    match e: Nat.equal s a with
-      | True =>
-        rewrite <- Nat.equalSound s a e in
-          List.anyAppendLeft (y => y = (s, b)) (List.map (List.rangeFrom c (Succ s)) (y => (s, y))) (List.pairs (List.rangeFrom c (Succ s)))
-            (List.memMap (List.rangeFrom c (Succ s)) b (List.memRangeFromIntro b c (Succ s) (rewrite Nat.equalSound s a e in ab) h3) (y => (s, y)))
-      | False =>
-        List.anyAppendRight (y => y = (a, b)) (List.map (List.rangeFrom c (Succ s)) (y => (s, y))) (List.pairs (List.rangeFrom c (Succ s)))
-          (memPairs a b ab c (Succ s) omega h3)
+theorem memPairs (a: Nat) (b: Nat) (ab: a < b) (c s: Nat) (h1: s ≤ a) (h2: b < s + c): List.Mem (a, b) (List.pairs (List.rangeFrom c s)) :=
+  match c with
+    | Zero => omega
+    | Succ c =>
+      let h3: b < Succ s + c := omega
+      match e: Nat.equal s a with
+        | True =>
+          rewrite <- Nat.equalSound s a e in
+            List.anyAppendLeft (y => y = (s, b)) (List.map (List.rangeFrom c (Succ s)) (y => (s, y))) (List.pairs (List.rangeFrom c (Succ s)))
+              (List.memMap (List.rangeFrom c (Succ s)) b (List.memRangeFromIntro b c (Succ s) (rewrite Nat.equalSound s a e in ab) h3) (y => (s, y)))
+        | False =>
+          List.anyAppendRight (y => y = (a, b)) (List.map (List.rangeFrom c (Succ s)) (y => (s, y))) (List.pairs (List.rangeFrom c (Succ s)))
+            (memPairs a b ab c (Succ s) omega h3)
 
 --| Every pair of boxes is one of the connections.
 theorem memOrder (points: List Point) (a: Nat) (b: Nat) (ab: a < b) (bn: b < points.length): List.Mem (a, b) (connectionOrder points) :=
@@ -265,16 +267,17 @@ theorem allConnectionsJoinAll (points: List Point): OneCircuit points.length (co
       | Equal => rewrite Nat.compareEqual a b e in Itself b
       | Greater => Backwards (Connected (memOrder points b a (Nat.lessOfCompare b a (rewrite e at Nat.compareFlip a b)) ha))
 
-theorem countedJoinAll (n: Nat): ∀ (rest done: List (Nat, Nat)) (c: Circuits) =>
-    rest.all (boxesBelow n) = True → Labelled n done c → Counted n c → Counted n (joinAll c rest)
-  | [], done, c, ok, inv, counted => counted
-  | [(f, s), ..rest], done, c, ok, inv, counted =>
-    match r: boxesBelow n (f, s) with
-      | True =>
-        countedJoinAll n rest (List.append done [(f, s)]) (c.join f s) ok
-          (labelledJoin n done c f s (Bool.andLeft r) (Bool.andRight r) inv)
-          (countedJoin n done c f s (Bool.andLeft r) (Bool.andRight r) inv counted)
-      | False => Void.exfalso (Bool.falseNotTrue ok)
+theorem countedJoinAll (n: Nat) (rest done: List (Nat, Nat)) (c: Circuits)
+    (ok: rest.all (boxesBelow n) = True) (inv: Labelled n done c) (counted: Counted n c): Counted n (joinAll c rest) :=
+  match rest with
+    | [] => counted
+    | [(f, s), ..rest] =>
+      match r: boxesBelow n (f, s) with
+        | True =>
+          countedJoinAll n rest (List.append done [(f, s)]) (c.join f s) ok
+            (labelledJoin n done c f s (Bool.andLeft r) (Bool.andRight r) inv)
+            (countedJoin n done c f s (Bool.andLeft r) (Bool.andRight r) inv counted)
+        | False => Void.exfalso (Bool.falseNotTrue ok)
 
 --| After the first j connections, is there one circuit?
 def oneAfter (points: List Point) (j: Nat): Bool := (joinAll (Circuits.separate points.length) (firstConnections j points)).count == 1

@@ -35,38 +35,39 @@ theorem undoAdd (last: Nat) (target: Nat) (v: Nat): (v + last == target) = (last
 
 --| The backwards search over the numbers after `first`, last one first, is
 --| the forwards search over them in order.
-theorem canMakeReaches (operators: List Operator) (first: Nat): ∀ (reversed: List Nat) (target: Nat) =>
-    canMake operators first target reversed = reaches operators first (== target) reversed.reverse
-  | [], target => DecEq.eqComm target first
-  | [last, ..earlier], target =>
-    let before := canMakeReaches operators first earlier
-    rewrite List.reverseCons last earlier, reachesAppend operators (== target) last earlier.reverse first,
-      reachesAny operators operators (operator value => combine operator value last == target) earlier.reverse first
-      in List.anyCongMem operators _ _ (operator has =>
-        let rest := earlier.reverse
-        match operator with
-          | Add =>
-            rewrite before (target - last) in
-              Eq.sym (Eq.trans (reachesCong operators _ (value => last <= target && value == target - last) (undoAdd last target) rest first)
-                (reachesAnd operators (last <= target) (== target - last) rest first))
-          | Multiply =>
-            match last with
-              | Zero =>
-                Eq.sym (Eq.trans (reachesCong operators _ (value => (target == 0) && True)
-                    (value => rewrite Nat.mulZero value, DecEq.eqComm 0 target in Eq.sym (Bool.andTrue (target == 0))) rest first)
-                  (rewrite reachesAnd operators (target == 0) (value => True) rest first, reachesAnything operators Multiply has rest first
-                    in Bool.andTrue (target == 0)))
-              | Succ less =>
-                rewrite before (target / Succ less) in
-                  Eq.sym (Eq.trans (reachesCong operators _ (value => target % Succ less == 0 && value == target / Succ less)
-                      (value => Eq.trans (Eq.cong (product => product == target) (Eq.sym (Nat.addZero (value * Succ less))))
-                        (Nat.mulAddDivMatch (Succ less) 0 rfl value target)) rest first)
-                    (reachesAnd operators (target % Succ less == 0) (== target / Succ less) rest first))
-          | Concatenate =>
-            rewrite before (target / placeValue last) in
-              Eq.sym (Eq.trans (reachesCong operators _ (value => target % placeValue last == last && value == target / placeValue last)
-                  (value => rewrite concatenateArithmetic value last in Nat.mulAddDivMatch (placeValue last) last (belowPlaceValue last) value target) rest first)
-                (reachesAnd operators (target % placeValue last == last) (== target / placeValue last) rest first)))
+theorem canMakeReaches (operators: List Operator) (first: Nat) (reversed: List Nat) (target: Nat):
+    canMake operators first target reversed = reaches operators first (== target) reversed.reverse :=
+  match reversed with
+    | [] => DecEq.eqComm target first
+    | [last, ..earlier] =>
+      let before := canMakeReaches operators first earlier
+      rewrite List.reverseCons last earlier, reachesAppend operators (== target) last earlier.reverse first,
+        reachesAny operators operators (operator value => combine operator value last == target) earlier.reverse first
+        in List.anyCongMem operators _ _ (operator has =>
+          let rest := earlier.reverse
+          match operator with
+            | Add =>
+              rewrite before (target - last) in
+                Eq.sym (Eq.trans (reachesCong operators _ (value => last <= target && value == target - last) (undoAdd last target) rest first)
+                  (reachesAnd operators (last <= target) (== target - last) rest first))
+            | Multiply =>
+              match last with
+                | Zero =>
+                  Eq.sym (Eq.trans (reachesCong operators _ (value => (target == 0) && True)
+                      (value => rewrite Nat.mulZero value, DecEq.eqComm 0 target in Eq.sym (Bool.andTrue (target == 0))) rest first)
+                    (rewrite reachesAnd operators (target == 0) (value => True) rest first, reachesAnything operators Multiply has rest first
+                      in Bool.andTrue (target == 0)))
+                | Succ less =>
+                  rewrite before (target / Succ less) in
+                    Eq.sym (Eq.trans (reachesCong operators _ (value => target % Succ less == 0 && value == target / Succ less)
+                        (value => Eq.trans (Eq.cong (product => product == target) (Eq.sym (Nat.addZero (value * Succ less))))
+                          (Nat.mulAddDivMatch (Succ less) 0 rfl value target)) rest first)
+                      (reachesAnd operators (target % Succ less == 0) (== target / Succ less) rest first))
+            | Concatenate =>
+              rewrite before (target / placeValue last) in
+                Eq.sym (Eq.trans (reachesCong operators _ (value => target % placeValue last == last && value == target / placeValue last)
+                    (value => rewrite concatenateArithmetic value last in Nat.mulAddDivMatch (placeValue last) last (belowPlaceValue last) value target) rest first)
+                  (reachesAnd operators (target % placeValue last == last) (== target / placeValue last) rest first)))
 
 --| The program's check is the puzzle's "could possibly be true", for any
 --| operators.

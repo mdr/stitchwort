@@ -61,15 +61,16 @@ theorem completionFold (closers: List Bracket) (score: Nat):
 
 --| The program's scores are the incomplete lines' completion scores, in
 --| order.
-theorem completionScoresCorrect: ∀ (lines: List (List Token)) => CompletionScores lines (lines.filterMap autocompleteScore)
-  | [] => NoneLeft
-  | [line, ..rest] =>
-    match e: scan [] line with
-      | Corrupted illegal => Skipped (incomplete => notCorruptedOfLegal line illegal (And.left incomplete) e) (completionScoresCorrect rest)
-      | Unclosed [] => Skipped (incomplete => And.right incomplete (scanBalanced line e)) (completionScoresCorrect rest)
-      | Unclosed [top, ..below] =>
-        rewrite completionFold [top, ..below] 0 in
-          Scored [closers := [top, ..below]] (incompleteOfUnclosed line top below e) (completesOfUnclosed e) (completionScoresCorrect rest)
+theorem completionScoresCorrect (lines: List (List Token)): CompletionScores lines (lines.filterMap autocompleteScore) :=
+  match lines with
+    | [] => NoneLeft
+    | [line, ..rest] =>
+      match e: scan [] line with
+        | Corrupted illegal => Skipped (incomplete => notCorruptedOfLegal line illegal (And.left incomplete) e) (completionScoresCorrect rest)
+        | Unclosed [] => Skipped (incomplete => And.right incomplete (scanBalanced line e)) (completionScoresCorrect rest)
+        | Unclosed [top, ..below] =>
+          rewrite completionFold [top, ..below] 0 in
+            Scored [closers := [top, ..below]] (incompleteOfUnclosed line top below e) (completesOfUnclosed e) (completionScoresCorrect rest)
 
 --| The spec's list of completion scores is unique.
 theorem completionScoresUnique (lines: List (List Token)) (a: List Nat) (b: List Nat): CompletionScores lines a → CompletionScores lines b → a = b

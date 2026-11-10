@@ -37,30 +37,32 @@ theorem stepEdgeIntro (enter: Position → Option Nat) (from: Position) (next: P
 --| A walk is a path through the positions it enters, and costs what
 --| entering them costs...
 theorem walkPath (enter: Position → Option Nat) (states: List Position)
-    (complete: ∀ (position: Position) (cost: Nat) => enter position = Some cost → position ∈ states):
-    ∀ (start: Position) (path: List (Position, Nat)) (finish: Position) => (stepGraph enter states complete).Walk start path finish →
-      isPath (canEnter enter) start (path.map Pair.fst) finish = True ∧ Graph.cost path = (path.map Pair.fst).sumBy (enterCost enter)
-  | start, [], finish, walked => Both (rewrite walked in DecEq.refl finish) rfl
-  | start, [(next, weight), ..rest], finish, (Both edge later) =>
-    let (Both near found) := stepEdgeElim enter start next weight edge
-    let (Both restPath restCost) := walkPath enter states complete next rest finish later
-    let entered: enterCost enter next = weight := rewrite found in rfl
-    Both (Bool.andIntro near (Bool.andIntro (rewrite found in rfl) restPath))
-      (omega [Graph.costCons next weight rest, restCost, List.sumByCons (rest.map Pair.fst) next (enterCost enter), entered])
+    (complete: ∀ (position: Position) (cost: Nat) => enter position = Some cost → position ∈ states)
+    (start: Position) (path: List (Position, Nat)) (finish: Position) (walked: (stepGraph enter states complete).Walk start path finish):
+    isPath (canEnter enter) start (path.map Pair.fst) finish = True ∧ Graph.cost path = (path.map Pair.fst).sumBy (enterCost enter) :=
+  match path, walked with
+    | [], walked => Both (rewrite walked in DecEq.refl finish) rfl
+    | [(next, weight), ..rest], (Both edge later) =>
+      let (Both near found) := stepEdgeElim enter start next weight edge
+      let (Both restPath restCost) := walkPath enter states complete next rest finish later
+      let entered: enterCost enter next = weight := rewrite found in rfl
+      Both (Bool.andIntro near (Bool.andIntro (rewrite found in rfl) restPath))
+        (omega [Graph.costCons next weight rest, restCost, List.sumByCons (rest.map Pair.fst) next (enterCost enter), entered])
 
 --| ...and a path is a walk, each step costing what entering its position
 --| costs...
 theorem pathWalk (enter: Position → Option Nat) (states: List Position)
-    (complete: ∀ (position: Position) (cost: Nat) => enter position = Some cost → position ∈ states):
-    ∀ (start: Position) (steps: List Position) (finish: Position) => isPath (canEnter enter) start steps finish = True →
-      (stepGraph enter states complete).Walk start (steps.map (next => (next, enterCost enter next))) finish
-  | start, [], finish, path => DecEq.sound path
-  | start, [next, ..rest], finish, path =>
-    let near := Bool.andLeft path
-    let rest2 := Bool.andRight path
-    match found: enter next with
-      | None => Void.exfalso (Bool.falseNotTrue rest2)
-      | Some cost => Both (stepEdgeIntro enter start next cost near found) (pathWalk enter states complete next rest finish rest2)
+    (complete: ∀ (position: Position) (cost: Nat) => enter position = Some cost → position ∈ states)
+    (start: Position) (steps: List Position) (finish: Position) (path: isPath (canEnter enter) start steps finish = True):
+    (stepGraph enter states complete).Walk start (steps.map (next => (next, enterCost enter next))) finish :=
+  match steps with
+    | [] => DecEq.sound path
+    | [next, ..rest] =>
+      let near := Bool.andLeft path
+      let rest2 := Bool.andRight path
+      match found: enter next with
+        | None => Void.exfalso (Bool.falseNotTrue rest2)
+        | Some cost => Both (stepEdgeIntro enter start next cost near found) (pathWalk enter states complete next rest finish rest2)
 
 --| ...costing the sum of what entering its positions costs.
 theorem pathWalkCost (enter: Position → Option Nat)

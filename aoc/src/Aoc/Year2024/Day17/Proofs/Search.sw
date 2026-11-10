@@ -18,21 +18,22 @@ theorem amongLows (a: Nat): a ∈ List.map (List.range 0 8) (low => a / 8 * 8 + 
 
 --| For an output of the loop shape, every value that outputs `target` is a
 --| candidate for it.
-theorem candidatesComplete (output: Nat → List Nat) (shape: LoopShape output): ∀ (target: List Nat) (a: Nat) => output a = target → a ∈ candidates output target
-  | [], a, outputs =>
-    match shape a with
-      | Witness first same => Void.exfalso (List.consNotNil first _ (Eq.trans (Eq.sym same) outputs))
-  | [value, ..rest], a, outputs =>
-    match shape a with
-      | Witness first same =>
-        let tail: rest = (if a < 8 then [] else output (a / 8)) := Eq.cong (list => List.drop list 1) (Eq.trans (Eq.sym outputs) same)
-        let high: a / 8 ∈ candidates output rest :=
-          match small: a < 8 with
-            | True => rewrite tail in Inl (Eq.sym (Nat.divSmall a 8 small))
-            | False => candidatesComplete output shape rest (a / 8) (Eq.sym tail)
-        List.memFilterIntro _ (candidate => output candidate == [value, ..rest])
-          (List.memFlatMapIntro (high => List.map (List.range 0 8) (low => high * 8 + low)) (a / 8) a (candidates output rest) high (amongLows a))
-          (rewrite outputs in DecEq.refl [value, ..rest])
+theorem candidatesComplete (output: Nat → List Nat) (shape: LoopShape output) (target: List Nat) (a: Nat) (outputs: output a = target): a ∈ candidates output target :=
+  match target with
+    | [] =>
+      match shape a with
+        | Witness first same => Void.exfalso (List.consNotNil first _ (Eq.trans (Eq.sym same) outputs))
+    | [value, ..rest] =>
+      match shape a with
+        | Witness first same =>
+          let tail: rest = (if a < 8 then [] else output (a / 8)) := Eq.cong (list => List.drop list 1) (Eq.trans (Eq.sym outputs) same)
+          let high: a / 8 ∈ candidates output rest :=
+            match small: a < 8 with
+              | True => rewrite tail in Inl (Eq.sym (Nat.divSmall a 8 small))
+              | False => candidatesComplete output shape rest (a / 8) (Eq.sym tail)
+          List.memFilterIntro _ (candidate => output candidate == [value, ..rest])
+            (List.memFlatMapIntro (high => List.map (List.range 0 8) (low => high * 8 + low)) (a / 8) a (candidates output rest) high (amongLows a))
+            (rewrite outputs in DecEq.refl [value, ..rest])
 
 --| What the search returns is positive and outputs the target.
 theorem lowestSound (output: Nat → List Nat) (target: List Nat) (a: Nat) (found: lowestOutputting output target = Some a): (0 < a) ∧ (output a = target) :=

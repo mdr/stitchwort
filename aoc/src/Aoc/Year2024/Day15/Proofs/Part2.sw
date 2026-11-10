@@ -72,70 +72,71 @@ theorem inBoxesAtCovers (warehouse: Warehouse) (box: Cell) (cell: Cell) (found: 
 
 --| What `gather` returns holds the group it started with, its boxes move
 --| only into free cells, and the cells it was asked to look at are free.
-theorem gatherOk (warehouse: Warehouse) (direction: Direction): ∀ (fuel: Nat) (group: Set Cell) (pending: List Cell) (result: Set Cell) => warehouse.gather direction group pending fuel = Some result → GatherInvariant warehouse direction group pending →
-    (∀ (box: Cell) => group.contains box = True → result.contains box = True) ∧ ((GroupOk warehouse direction result) ∧ (∀ (cell: Cell) => cell ∈ pending → Clear warehouse result cell))
-  | fuel, group, [], result, found, invariant =>
-    rewrite <- Option.someInjective found in
-      Both (box held => held)
-        (Both
-          (box held =>
-            Both (And.left (invariant box held))
-              (cell front =>
-                match And.right (invariant box held) cell front with
-                  | Inl none => Void.exfalso none
-                  | Inr clear => clear))
-          (cell none => Void.exfalso none))
-  | Zero, group, [cell, ..rest], result, found, invariant => Void.exfalso (Option.noneNotSome result found)
-  | Succ fuel, group, [cell, ..rest], result, gathered, invariant =>
-    match wall: warehouse.walls.contains cell with
-      | True => Void.exfalso (Option.noneNotSome result gathered)
-      | False =>
-        let found := warehouse.boxesAt cell |> .filter (box => !group.contains box)
-        let larger := found.foldLeft group Set.insert
-        let pending := found.flatMap (box => frontOf box direction) ++ rest
-        let grows: ∀ (box: Cell) => group.contains box = True → larger.contains box = True :=
-          box held => Iff.backward (Set.containsFoldInsertMap (x => x) found group box) (Inl held)
-        let newOrOld: ∀ (box: Cell) => larger.contains box = True → (group.contains box = True) ∨ (box ∈ found) :=
-          box held =>
-            match Iff.forward (Set.containsFoldInsertMap (x => x) found group box) held with
-              | Inl old => Inl old
-              | Inr (Witness x (Both member same)) => Inr (rewrite <- same in member)
-        let cellClear: Clear warehouse larger cell :=
-          Both wall
-            (box boxed covers =>
-              match held: group.contains box with
-                | True => grows box held
-                | False =>
-                  Iff.backward (Set.containsFoldInsertMap (x => x) found group box)
-                    (Inr
-                      (Witness box
-                        (Both
-                          (List.memFilterIntro (warehouse.boxesAt cell) (other => !group.contains other)
-                            (coversInBoxesAt warehouse box cell boxed covers) (rewrite held in rfl))
-                          rfl))))
-        let invariantAfter: GatherInvariant warehouse direction larger pending :=
-          box held =>
-            match newOrOld box held with
-              | Inl old =>
-                Both (And.left (invariant box old))
-                  (front inFront =>
-                    match And.right (invariant box old) front inFront with
-                      | Inl (Inl isCell) => Inr (rewrite <- isCell in cellClear)
-                      | Inl (Inr inRest) => Inl (List.memAppendRight front (found.flatMap (box => frontOf box direction)) rest inRest)
-                      | Inr clear => Inr (clearMono warehouse group larger front clear grows))
-              | Inr isFound =>
-                Both (And.left (inBoxesAtCovers warehouse box cell (And.left (List.memFilter (warehouse.boxesAt cell) (other => !group.contains other) isFound))))
-                  (front inFront =>
-                    Inl
-                      (List.memAppendLeft front (found.flatMap (box => frontOf box direction)) rest
-                        (List.memFlatMapIntro (box => frontOf box direction) box front found isFound inFront)))
-        let after := gatherOk warehouse direction fuel larger pending result gathered invariantAfter
-        Both (box held => And.left after box (grows box held))
-          (Both (And.left (And.right after))
-            (front member =>
-              match member with
-                | Inl isCell => rewrite <- isCell in clearMono warehouse larger result cell cellClear (And.left after)
-                | Inr inRest => And.right (And.right after) front (List.memAppendRight front (found.flatMap (box => frontOf box direction)) rest inRest)))
+theorem gatherOk (warehouse: Warehouse) (direction: Direction) (fuel: Nat) (group: Set Cell) (pending: List Cell) (result: Set Cell) (h: warehouse.gather direction group pending fuel = Some result) (invariant: GatherInvariant warehouse direction group pending):
+    (∀ (box: Cell) => group.contains box = True → result.contains box = True) ∧ ((GroupOk warehouse direction result) ∧ (∀ (cell: Cell) => cell ∈ pending → Clear warehouse result cell)) :=
+  match fuel, pending, h with
+    | fuel, [], found =>
+      rewrite <- Option.someInjective found in
+        Both (box held => held)
+          (Both
+            (box held =>
+              Both (And.left (invariant box held))
+                (cell front =>
+                  match And.right (invariant box held) cell front with
+                    | Inl none => Void.exfalso none
+                    | Inr clear => clear))
+            (cell none => Void.exfalso none))
+    | Zero, [cell, ..rest], found => Void.exfalso (Option.noneNotSome result found)
+    | Succ fuel, [cell, ..rest], gathered =>
+      match wall: warehouse.walls.contains cell with
+        | True => Void.exfalso (Option.noneNotSome result gathered)
+        | False =>
+          let found := warehouse.boxesAt cell |> .filter (box => !group.contains box)
+          let larger := found.foldLeft group Set.insert
+          let pending := found.flatMap (box => frontOf box direction) ++ rest
+          let grows: ∀ (box: Cell) => group.contains box = True → larger.contains box = True :=
+            box held => Iff.backward (Set.containsFoldInsertMap (x => x) found group box) (Inl held)
+          let newOrOld: ∀ (box: Cell) => larger.contains box = True → (group.contains box = True) ∨ (box ∈ found) :=
+            box held =>
+              match Iff.forward (Set.containsFoldInsertMap (x => x) found group box) held with
+                | Inl old => Inl old
+                | Inr (Witness x (Both member same)) => Inr (rewrite <- same in member)
+          let cellClear: Clear warehouse larger cell :=
+            Both wall
+              (box boxed covers =>
+                match held: group.contains box with
+                  | True => grows box held
+                  | False =>
+                    Iff.backward (Set.containsFoldInsertMap (x => x) found group box)
+                      (Inr
+                        (Witness box
+                          (Both
+                            (List.memFilterIntro (warehouse.boxesAt cell) (other => !group.contains other)
+                              (coversInBoxesAt warehouse box cell boxed covers) (rewrite held in rfl))
+                            rfl))))
+          let invariantAfter: GatherInvariant warehouse direction larger pending :=
+            box held =>
+              match newOrOld box held with
+                | Inl old =>
+                  Both (And.left (invariant box old))
+                    (front inFront =>
+                      match And.right (invariant box old) front inFront with
+                        | Inl (Inl isCell) => Inr (rewrite <- isCell in cellClear)
+                        | Inl (Inr inRest) => Inl (List.memAppendRight front (found.flatMap (box => frontOf box direction)) rest inRest)
+                        | Inr clear => Inr (clearMono warehouse group larger front clear grows))
+                | Inr isFound =>
+                  Both (And.left (inBoxesAtCovers warehouse box cell (And.left (List.memFilter (warehouse.boxesAt cell) (other => !group.contains other) isFound))))
+                    (front inFront =>
+                      Inl
+                        (List.memAppendLeft front (found.flatMap (box => frontOf box direction)) rest
+                          (List.memFlatMapIntro (box => frontOf box direction) box front found isFound inFront)))
+          let after := gatherOk warehouse direction fuel larger pending result gathered invariantAfter
+          Both (box held => And.left after box (grows box held))
+            (Both (And.left (And.right after))
+              (front member =>
+                match member with
+                  | Inl isCell => rewrite <- isCell in clearMono warehouse larger result cell cellClear (And.left after)
+                  | Inr inRest => And.right (And.right after) front (List.memAppendRight front (found.flatMap (box => frontOf box direction)) rest inRest)))
 
 --| The group a move gathers: its boxes move only into free cells, and the
 --| robot's next cell is free.
@@ -384,14 +385,16 @@ theorem moveAllWideWalls (warehouse: Warehouse) (moves: List Direction): (wareho
     | [] => rfl
     | [move, ..rest] => Eq.trans (moveAllWideWalls (warehouse.moveWide move) rest) (moveWideWalls warehouse move)
 
-theorem moveAllWideSeparate: ∀ (warehouse: Warehouse) (moves: List Direction) => WideSeparate warehouse → WideSeparate (warehouse.moveAllWide moves)
-  | warehouse, [], separate => separate
-  | warehouse, [move, ..rest], separate => moveAllWideSeparate (warehouse.moveWide move) rest (moveWideSeparate warehouse move separate)
+theorem moveAllWideSeparate (warehouse: Warehouse) (moves: List Direction) (separate: WideSeparate warehouse): WideSeparate (warehouse.moveAllWide moves) :=
+  match moves with
+    | [] => separate
+    | [move, ..rest] => moveAllWideSeparate (warehouse.moveWide move) rest (moveWideSeparate warehouse move separate)
 
 theorem moveAllWideWhole (warehouse: Warehouse) (moves: List Direction) (separate: WideSeparate warehouse): Whole (warehouse.moveAllWide moves) :=
   wholeOfSeparate (warehouse.moveAllWide moves) (moveAllWideSeparate warehouse moves separate)
 
-theorem moveAllWideCount: ∀ (warehouse: Warehouse) (moves: List Direction) => WideSeparate warehouse → boxCount (warehouse.moveAllWide moves) = boxCount warehouse
-  | warehouse, [], separate => rfl
-  | warehouse, [move, ..rest], separate =>
-    Eq.trans (moveAllWideCount (warehouse.moveWide move) rest (moveWideSeparate warehouse move separate)) (moveWideCount warehouse move separate)
+theorem moveAllWideCount (warehouse: Warehouse) (moves: List Direction) (separate: WideSeparate warehouse): boxCount (warehouse.moveAllWide moves) = boxCount warehouse :=
+  match moves with
+    | [] => rfl
+    | [move, ..rest] =>
+      Eq.trans (moveAllWideCount (warehouse.moveWide move) rest (moveWideSeparate warehouse move separate)) (moveWideCount warehouse move separate)

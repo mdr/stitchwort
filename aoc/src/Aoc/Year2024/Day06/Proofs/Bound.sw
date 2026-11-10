@@ -65,13 +65,14 @@ theorem stepOnMap (lab: Lab) (guard: Guard) (inside: onMap lab guard.position = 
         | False => rewrite <- Option.someInjective stepped in aheadOnMap lab guard inside position ahead
 
 --| She stays on the map until she leaves it.
-theorem afterOnMap (lab: Lab) (inside: onMap lab lab.start = True): ∀ (steps: Nat) (guard: Guard) => after lab steps = Some guard → onMap lab guard.position = True
-  | Zero, guard, reached => rewrite <- Option.someInjective reached in inside
-  | Succ steps, guard, reached =>
-    let reachedStep: (after lab steps).flatMap lab.step = Some guard := rewrite <- walkSucc lab steps (Some lab.startGuard) in reached
-    match before: after lab steps with
-      | None => Void.exfalso (Option.noneNotSome guard reachedStep)
-      | Some earlier => stepOnMap lab earlier (afterOnMap lab inside steps earlier before) guard reachedStep
+theorem afterOnMap (lab: Lab) (inside: onMap lab lab.start = True) (steps: Nat) (guard: Guard) (reached: after lab steps = Some guard): onMap lab guard.position = True :=
+  match steps with
+    | Zero => rewrite <- Option.someInjective reached in inside
+    | Succ steps =>
+      let reachedStep: (after lab steps).flatMap lab.step = Some guard := rewrite <- walkSucc lab steps (Some lab.startGuard) in reached
+      match before: after lab steps with
+        | None => Void.exfalso (Option.noneNotSome guard reachedStep)
+        | Some earlier => stepOnMap lab earlier (afterOnMap lab inside steps earlier before) guard reachedStep
 
 --| A direction as 0 to 3, so `stateCode` keeps a state below `stateCount`.
 def directionIndex: Direction → Nat

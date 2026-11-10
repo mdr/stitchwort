@@ -41,17 +41,18 @@ theorem wrapSmall (level: Nat) (small: level ≤ 9): wrap level = level := rewri
 --| ...and takes 9 from one above.
 theorem wrapLarge (level: Nat) (large: 9 < level): wrap level = level - 9 := rewrite large in rfl
 
-theorem iterateRaise: ∀ (count level: Nat) => level ≤ 9 → level + count ≤ 17 → count.iterate raise level = wrap (level + count)
-  | Zero, level, low, sum => rewrite Nat.addZero level, wrapSmall level low in rfl
-  | Succ count, level, low, sum =>
-    match nine: Nat.decEq level 9 with
-      | Yes same =>
-        let later := iterateRaise count 1 (omega) (omega [sum, same])
-        rewrite later, wrapSmall (1 + count) (omega [sum, same]), wrapLarge (level + Succ count) (omega [same]) in omega [same]
-      | No other =>
-        let later := iterateRaise count (level + 1) (omega [low, other]) (omega [sum])
-        let same: level + 1 + count = level + Succ count := omega
-        rewrite later, same in rfl
+theorem iterateRaise (count level: Nat) (low: level ≤ 9) (sum: level + count ≤ 17): count.iterate raise level = wrap (level + count) :=
+  match count with
+    | Zero => rewrite Nat.addZero level, wrapSmall level low in rfl
+    | Succ count =>
+      match nine: Nat.decEq level 9 with
+        | Yes same =>
+          let later := iterateRaise count 1 (omega) (omega [sum, same])
+          rewrite later, wrapSmall (1 + count) (omega [sum, same]), wrapLarge (level + Succ count) (omega [same]) in omega [same]
+        | No other =>
+          let later := iterateRaise count (level + 1) (omega [low, other]) (omega [sum])
+          let same: level + 1 + count = level + Succ count := omega
+          rewrite later, same in rfl
 
 --| On a rectangle, the full cave's map has the spec's levels.
 theorem tiledLevelsAgree (cave: Cave) (rectangle: Rectangle cave) (position: Position): tiledLevelAt cave position = cave.tiled.levelAt position :=

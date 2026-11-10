@@ -11,15 +11,16 @@ import Std (And, Bool, DecEq, Decidable, Eq, Exists, Iff, Int, List, Map, Nat, N
 
 --| What `firstFree` finds: a position without a box, which is where it
 --| started or past a box there.
-theorem firstFreeSome (boxes: Set Cell) (direction: Direction): ∀ (start: Cell) (fuel: Nat) (free: Cell) =>
-    firstFree boxes direction start fuel = Some free → (boxes.contains free = False) ∧ ((free = start) ∨ (boxes.contains start = True))
-  | start, Zero, free, found => Void.exfalso (Option.noneNotSome free found)
-  | start, Succ fuel, free, found =>
-    match c: boxes.contains start with
-      | True => Both (And.left (firstFreeSome boxes direction (start.step direction) fuel free found)) (Inr rfl)
-      | False =>
-        let same := Option.someInjective found
-        Both (rewrite <- same in c) (Inl (Eq.sym same))
+theorem firstFreeSome (boxes: Set Cell) (direction: Direction) (start: Cell) (fuel: Nat) (free: Cell)
+    (found: firstFree boxes direction start fuel = Some free): (boxes.contains free = False) ∧ ((free = start) ∨ (boxes.contains start = True)) :=
+  match fuel with
+    | Zero => Void.exfalso (Option.noneNotSome free found)
+    | Succ fuel =>
+      match c: boxes.contains start with
+        | True => Both (And.left (firstFreeSome boxes direction (start.step direction) fuel free found)) (Inr rfl)
+        | False =>
+          let same := Option.someInjective found
+          Both (rewrite <- same in c) (Inl (Eq.sym same))
 
 --| Along a line of `length` boxes from `start`, `firstFree` finds the
 --| position past them, given more fuel than boxes.
@@ -222,10 +223,12 @@ theorem moveAllWalls (warehouse: Warehouse) (moves: List Direction): (warehouse.
     | [] => rfl
     | [move, ..rest] => Eq.trans (moveAllWalls (warehouse.move move) rest) (moveWalls warehouse move)
 
-theorem moveAllCount: ∀ (warehouse: Warehouse) (moves: List Direction) => boxCount (warehouse.moveAll moves) = boxCount warehouse
-  | warehouse, [] => rfl
-  | warehouse, [move, ..rest] => Eq.trans (moveAllCount (warehouse.move move) rest) (moveCount warehouse move)
+theorem moveAllCount (warehouse: Warehouse) (moves: List Direction): boxCount (warehouse.moveAll moves) = boxCount warehouse :=
+  match moves with
+    | [] => rfl
+    | [move, ..rest] => Eq.trans (moveAllCount (warehouse.move move) rest) (moveCount warehouse move)
 
-theorem moveAllSeparate: ∀ (warehouse: Warehouse) (moves: List Direction) => Separate warehouse → Separate (warehouse.moveAll moves)
-  | warehouse, [], separate => separate
-  | warehouse, [move, ..rest], separate => moveAllSeparate (warehouse.move move) rest (moveSeparate warehouse move separate)
+theorem moveAllSeparate (warehouse: Warehouse) (moves: List Direction) (separate: Separate warehouse): Separate (warehouse.moveAll moves) :=
+  match moves with
+    | [] => separate
+    | [move, ..rest] => moveAllSeparate (warehouse.move move) rest (moveSeparate warehouse move separate)

@@ -13,21 +13,23 @@ theorem part1Correct (entries: List Entry): solvePart1 entries = part1Answer ent
   rewrite List.lengthFilter entries validPart1 in List.countCongMem _ _ _ (e m => validByCountSpec e)
 
 --| Characters numbered from `start` hold nothing at a position before `start`.
-theorem holdsNothingBefore (letter: Char): ∀ (chars: List Char) (start position: Nat) => position < start →
-    List.any (List.withIndexFrom start chars) (((at, char)) => at == position ∧ char == letter) = False
-  | [], start, position, before => rfl
-  | [c, ..rest], start, position, before =>
-    rewrite holdsNothingBefore letter rest (Succ start) position (Nat.lessLe position start before) in cases
+theorem holdsNothingBefore (letter: Char) (chars: List Char) (start position: Nat) (before: position < start):
+    List.any (List.withIndexFrom start chars) (((at, char)) => at == position ∧ char == letter) = False :=
+  match chars with
+    | [] => rfl
+    | [c, ..rest] =>
+      rewrite holdsNothingBefore letter rest (Succ start) position (Nat.lessLe position start before) in cases
 
 --| Numbered from `start`, the character at `start + index` is the list's
 --| `index`th, counting from 0.
-theorem holdsGet (letter: Char): ∀ (chars: List Char) (start index position: Nat) => position = start + index →
-    List.any (List.withIndexFrom start chars) (((at, char)) => at == position ∧ char == letter) = (List.get chars index == Some letter)
-  | [], start, index, position, is => rfl
-  | [c, ..rest], start, Zero, position, is =>
-    rewrite holdsNothingBefore letter rest (Succ start) position omega in cases
-  | [c, ..rest], start, Succ index, position, is =>
-    rewrite holdsGet letter rest (Succ start) index position omega in cases
+theorem holdsGet (letter: Char) (chars: List Char) (start index position: Nat) (is: position = start + index):
+    List.any (List.withIndexFrom start chars) (((at, char)) => at == position ∧ char == letter) = (List.get chars index == Some letter) :=
+  match chars, index with
+    | [], index => rfl
+    | [c, ..rest], Zero =>
+      rewrite holdsNothingBefore letter rest (Succ start) position omega in cases
+    | [c, ..rest], Succ index =>
+      rewrite holdsGet letter rest (Succ start) index position omega in cases
 
 theorem letterAtSpec (entry: Entry) (position: Nat): entry.letterAt position = holdsLetter entry position :=
   match position with
