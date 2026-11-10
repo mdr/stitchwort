@@ -26195,14 +26195,14 @@
     {
       "id": 2578,
       "title": "Bench baseline after 9 Nov's runtime work: run-machine-calls allocations 247 -> 441 (+78.5%) and run-machine-loop 205 -> 332 (+62%), peak heap 4 -> 5 kB, flagged as regressions; check-number-columns steps +12.9%. Explain the fixed extra allocations (B1's lent clones? dispatch tables?), fix if real, then update bench/baseline.toml to keep the large gains (aoc-2021-11 instructions -69%, 2021-15 -77%, set allocations -88%) and extract-js's new input",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Sonnet",
-      "where": "",
+      "where": ".claude/worktrees/SW-2578",
       "labels": [],
       "epic": "comparative-speed",
       "body": "Daily tier 9 Nov on 5e3d050b0: report target/tier-report/daily-20261109-131742.md. 45 min.\n\nFull tier on Overmind (job 49) adds: run-machine-aoc-2021-15-part1 peak heap +103.5% (5.1 -> 10.3 MB) with allocations -70% (cell cache holding blocks? its cap is above this program's heap), and check-number-columns steps +12.9% (669,003 -> 755,301). examples and extract-js inputs changed: need --update.\n",
       "created": "2026-11-09",
-      "updated": "2026-11-09",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
@@ -26270,14 +26270,14 @@
     {
       "id": 2583,
       "title": "Full tier can't finish on Overmind (15.5 GB): proofs differential::the_evaluators_agree_on_the_prelude_and_every_example reaches 11+ GB at ~640 s and memguard kills the tier (8 and 9 Nov, ~77 min, 131/2399 tests). Find what holds the memory (per-example state kept? thread count?) and bound it",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Sonnet",
-      "where": "",
+      "where": ".claude/worktrees/SW-2583",
       "labels": [],
       "epic": "test-infra",
       "body": "Overmind job 49, 9 Nov, 67a51661f; also 8 Nov 99fb2ce82. Report on Overmind target/tier-report/full-20261109-145358.md. Profile first. 60 min.\n\nJob 51: also library fmt_hashes::formatting_changes_no_declaration_hash at 7.73 GB after 68 s, and search_at_aoc at 2 GB. The full tier as a whole doesn't fit 15.5 GB at the default thread count.\n\nSpeedwell 9 Nov 18:40 (M1 Pro, 10 cores, STITCHWORT_TIER=full, each test alone, cap 24 GB): the differential test reached 24.95 GB in 57 s and fmt_hashes 24.91 GB in 55 s, both killed. So the growth scales with cores or is unbounded, not a fixed 11 GB need. Measure memory over time and per thread first.\n\n9 Nov 23:45, Speedwell, main 8056e4c05: task test:lane AREA=cli peaked at 5.23 GB after 3.6 s and was killed at the 3 GB lane cap (10 tests cancelled); the immediate rerun passed 86/86 under the same cap. Three lanes were building at the time. The lane tier's cli area is intermittently over its own cap.",
       "created": "2026-11-09",
-      "updated": "2026-11-09",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
