@@ -25812,15 +25812,17 @@
     {
       "id": 2549,
       "title": "Accept examples with a misleading or broken main: partial-map-main.sw's main lacks () so run rejects it (E-MAIN-TYPE) though it's meant to run; fin-eq.sw (main: Bool) and mutual.sw (main: Nat) name a tested value main: rename. Add a check that every accept example whose main has a runnable type runs",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2549",
       "labels": [],
       "epic": "test-infra",
-      "body": "From SW-2535's coverage (9 Nov). main-fail.sw and main-fail-partial-deep.sw exit 1 by design (unhandled Fail; the latter needs stdin). 45 min.\n\nStyle rule (Matt, 9 Nov 2026): name a definition `main` only when it is a program entry point (`main(): {IO…} ()`); add it to docs/syntax.md \"What to write\" and the guide, and sweep examples/, web/guide and docs for non-entry `main`s.\n",
+      "body": "From SW-2535's coverage (9 Nov). main-fail.sw and main-fail-partial-deep.sw exit 1 by design (unhandled Fail; the latter needs stdin). 45 min.\n\nStyle rule (Matt, 9 Nov 2026): name a definition `main` only when it is a program entry point (`main(): {IO…} ()`); add it to docs/syntax.md \"What to write\" and the guide, and sweep examples/, web/guide and docs for non-entry `main`s.\n\nDone 10 Nov: partial-map-main.sw main is an entry point; fin-eq.sw main -> finComparisons (+test), mutual.sw main -> topDown; style rule in syntax.md 'What to write' and guide ch. 1; examples_print_the_same_both_ways now fails on a non-entry def main. Model result: Sonnet, worked, 5 min (est. 50).",
       "created": "2026-11-09",
       "updated": "2026-11-10",
-      "commits": []
+      "commits": [
+        "fa306226b"
+      ]
     },
     {
       "id": 2550,
