@@ -1,5 +1,5 @@
 {
-  "next": 2632,
+  "next": 2634,
   "tickets": [
     {
       "id": 47,
@@ -16801,14 +16801,14 @@
     {
       "id": 1949,
       "title": "[Sonnet] Code action replaces the wrong text: the goal's range comes from the last check but the edit carries the current document version; take the range from the editor's goal diagnostic, or check a ? is there first",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1949",
       "labels": [
         "lsp"
       ],
       "epic": "editor-playground",
-      "body": "From docs/reviews/code-review-cli-lsp-web-fmt.md (lane B). 60 min.\n\nProgress (Sonnet lane): code_action now checks a ? sits at the goal's range in the current text, else offers nothing. Test features::a_code_action_on_a_goal_the_text_has_moved_from_offers_nothing fails without the fix, passes with it.\n",
+      "body": "From docs/reviews/code-review-cli-lsp-web-fmt.md (lane B). 60 min.\n\nProgress (Sonnet lane): code_action now checks a ? sits at the goal's range in the current text, else offers nothing. Test features::a_code_action_on_a_goal_the_text_has_moved_from_offers_nothing fails without the fix, passes with it.\nModel result: Sonnet, worked, 35 min for both (est. 75).",
       "created": "2026-11-07",
       "updated": "2026-11-10",
       "commits": [
@@ -17274,14 +17274,14 @@
     {
       "id": 1980,
       "title": "[DeepSeek] VS Code extension: a Restart Server command; watch **/*.sw (client.js:36 watches only stitchwort.yaml, so files changed on disk while closed, after a branch switch or fmt, keep old text until restart)",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1949",
       "labels": [
         "lsp"
       ],
       "epic": "editor-playground",
-      "body": "From docs/proposals/lsp-failure-policy.md. Stage 6 and finding. 30 min.\n\nFrom SW-1948: the recovery pop-ups already say 'Restart Server', so this command is now needed.\n\nProgress (Sonnet lane): added stitchwort.restartServer command (package.json, extension.js; the config-change restart uses it); watchedGlob now {**/stitchwort.yaml,**/*.sw}. Server already handles didChangeWatchedFiles for .sw (Edit::Disk); test memory::a_closed_file_changed_on_disk_is_reloaded_when_the_client_reports_it. runs.js watcher already had **/*.sw. The 'Restart Server' pop-ups are vscode-languageclient's own, not in extension code, so not wired to the command.\n",
+      "body": "From docs/proposals/lsp-failure-policy.md. Stage 6 and finding. 30 min.\n\nFrom SW-1948: the recovery pop-ups already say 'Restart Server', so this command is now needed.\n\nProgress (Sonnet lane): added stitchwort.restartServer command (package.json, extension.js; the config-change restart uses it); watchedGlob now {**/stitchwort.yaml,**/*.sw}. Server already handles didChangeWatchedFiles for .sw (Edit::Disk); test memory::a_closed_file_changed_on_disk_is_reloaded_when_the_client_reports_it. runs.js watcher already had **/*.sw. The 'Restart Server' pop-ups are vscode-languageclient's own, not in extension code, so not wired to the command.\nModel result: Sonnet, worked, 35 min for both (est. 75).",
       "created": "2026-11-07",
       "updated": "2026-11-10",
       "commits": [
@@ -27087,9 +27087,9 @@
     {
       "id": 2627,
       "title": "[Sonnet] Rename R1: references a rename can trust: punned fields, import aliases, qualified names (trailing component), decreasing and default expressions walked, named arguments and [n := k] patterns linked to their parameter, doc link ranges",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-2627",
       "labels": [
         "editor",
         "refactoring"
@@ -27160,6 +27160,36 @@
       ],
       "epic": "editor-playground",
       "body": "docs/proposals/refactoring.md §3.3 (SW-2626). D3467. Needs R3 (SW-2629). Est. 90 min.",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
+    },
+    {
+      "id": 2632,
+      "title": "[Sonnet] Language server recovery notices offer Stitchwort: Restart Server as an action (window/showMessageRequest or a client error handler); today they are plain text, and the command exists since SW-1980",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "editor"
+      ],
+      "epic": "editor-playground",
+      "body": "From SW-1980's lane (10 Nov 2026). Est. 30 min.",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
+    },
+    {
+      "id": 2633,
+      "title": "[Sonnet] Language server: a changed .sw file outside any project and not open isn't reloaded on didChangeWatchedFiles (projects' closed files are, SW-1980)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "editor"
+      ],
+      "epic": "editor-playground",
+      "body": "From SW-1980's lane (10 Nov 2026). Low priority. Est. 20 min.",
       "created": "2026-11-10",
       "updated": "2026-11-10",
       "commits": []
