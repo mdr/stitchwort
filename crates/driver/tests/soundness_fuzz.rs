@@ -35,8 +35,14 @@
 //! different run (`task fuzz:soundness`). `SOUND_VERBOSE=1` prints every
 //! case (`2`: with each mutant's text). `SOUND_ONLY=text` checks only the
 //! theorems whose label (`file: Namespace.name`) contains `text`, and every
-//! mutation of each (not the few that `SOUND_MUTANTS` would choose). A finding prints the program and
-//! writes it to `target/soundness-fuzz/`.
+//! mutation of each (not the few that `SOUND_MUTANTS` would choose), with
+//! each statement mutation paired with each closer. A finding prints the
+//! program and writes it to `target/soundness-fuzz/` of the checkout the test
+//! was built from, not the cargo target dir (so in a lane's worktree, it goes
+//! with `task worktree:rm`: copy a saved file out first). The report prints
+//! the file's absolute path. Files are named `<seed>-<theorem number>-<mutant
+//! number>[-expensive].sw`; the mutant number counts the theorem's mutants
+//! in order, so it is stable for a `SOUND_ONLY` run with the same corpus.
 //!
 //! A mutant whose check holds more than `MEM_CAP` of heap (`SOUND_MEM_CAP_MB`)
 //! or runs longer than `MUTANT_TIME` (`SOUND_MUTANT_SECS`) is stopped, counted
@@ -974,6 +980,8 @@ fn scratch(tag: &str) -> PathBuf {
 fn save_finding(tag: &str, text: &str) -> PathBuf {
     let dir = root().join("target/soundness-fuzz");
     let _ = std::fs::create_dir_all(&dir);
+    // Absolute and without `..`, so the report's path can be pasted.
+    let dir = dir.canonicalize().unwrap_or(dir);
     let path = dir.join(format!("{tag}.sw"));
     let _ = std::fs::write(&path, text);
     path
@@ -1066,7 +1074,19 @@ fn mutated_theorems_have_no_counterexample() {
         if let Some(only) = &only {
             // Every mutation of the theorems asked for, none of the rest.
             if site.label().contains(only) {
-                let mutations = mutations_of(site, &corpus.members);
+                let mut mutations = mutations_of(site, &corpus.members);
+                // Each statement mutation with each closer, as the sampler
+                // pairs them (SW-2610).
+                let paired: Vec<Mutation> = mutations
+                    .iter()
+                    .filter(|m| m.changes_statement(site))
+                    .flat_map(|m| {
+                        CLOSERS
+                            .iter()
+                            .map(|c| Mutation::Both(Box::new(m.clone()), c))
+                    })
+                    .collect();
+                mutations.extend(paired);
                 jobs.push(Job { site: s, mutations });
             }
             continue;
@@ -1161,7 +1181,7 @@ fn mutated_theorems_have_no_counterexample() {
             }
         }
         let mut refuted = 0;
-        for m in &job.mutations {
+        for (index, m) in job.mutations.iter().enumerate() {
             let decl = render(site, m);
             if same_after_formatting(&decl, &original) {
                 out.no_ops += 1;
@@ -1187,7 +1207,7 @@ fn mutated_theorems_have_no_counterexample() {
                     too_expensive: Some(tripped),
                     ..
                 }) => {
-                    let tag = format!("{seed:x}-{}-{}-expensive", job.site, out.results.len());
+                    let tag = format!("{seed:x}-{}-{index}-expensive", job.site);
                     let saved = save_finding(&tag, &decl);
                     let line = format!(
                         "{} ({}): stopped after {:.1}s by the {} cap; mutant declaration saved to {}",
@@ -1214,7 +1234,7 @@ fn mutated_theorems_have_no_counterexample() {
                             .and_then(|a| a.search.as_ref())
                             .map(|s| s.line.clone())
                             .unwrap_or_default();
-                        let tag = format!("{seed:x}-{}-{}", job.site, out.results.len());
+                        let tag = format!("{seed:x}-{}-{index}", job.site);
                         let saved = save_finding(&tag, &decl);
                         out.failures.push(format!(
                             "SOUNDNESS: {} ({}) accepted with a counterexample: {line}\n  \
