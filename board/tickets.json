@@ -1,5 +1,5 @@
 {
-  "next": 2627,
+  "next": 2632,
   "tickets": [
     {
       "id": 47,
@@ -27076,6 +27076,86 @@
       ],
       "epic": "editor-playground",
       "body": "Matt, 10 Nov 2026: look into next tasks for the editor/playground/LSP, e.g. refactoring support. No refactoring exists today: references, add-import, fill match and case split do; rename (roadmap item 6) was never built though its prerequisite SW-1114 is done; extract/inline (item 14) untouched. Paper lane, output docs/proposals/refactoring.md. Expected: 45 min.\n\nProgress (lane, 10 Nov 07:23-07:36): note written, docs/proposals/refactoring.md. Reference gaps that make rename wrong listed in its §1.2 (puns, import aliases, qualified names, decreasing/default expressions, named args); trial check plus hash promises in §3; order R1-R8 and Q1-Q4 for Matt in §5-6.\n",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
+    },
+    {
+      "id": 2627,
+      "title": "[Sonnet] Rename R1: references a rename can trust: punned fields, import aliases, qualified names (trailing component), decreasing and default expressions walked, named arguments and [n := k] patterns linked to their parameter, doc link ranges",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "editor",
+        "refactoring"
+      ],
+      "epic": "editor-playground",
+      "body": "docs/proposals/refactoring.md §1.2 and §5 (SW-2626). D3467 (Matt, 10 Nov 2026): yes, build rename first (R1-R4), with an apply-anyway mode and a CLI rename for agents. Each fix with a fixture whose references are checked; improves find references today. Est. 120 min.",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
+    },
+    {
+      "id": 2628,
+      "title": "[Opus] Rename R2: a trial check for edits: LiveProject::trial (rewind, check, compare diagnostics and hashes by a rename map, keep or restore), returning a problem list (new diagnostics, declarations whose meaning changed) for both refusal and apply-anyway; timings on aoc/",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-2628",
+      "labels": [
+        "editor",
+        "refactoring"
+      ],
+      "epic": "editor-playground",
+      "body": "docs/proposals/refactoring.md §3 (SW-2626). D3467 (Matt, 10 Nov 2026): yes; Matt asked for a mode that proceeds anyway and leaves the few problem sites for the user or agent to fix by hand. Est. 150 min.",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
+    },
+    {
+      "id": 2629,
+      "title": "[Sonnet] Rename R3: rename locals, hypotheses, functions and theorems in the server and the playground: prepareRename, rename, F2, multi-file edits, a preview listing R2's problems with Rename anyway, a code action menu in the playground",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "editor",
+        "refactoring"
+      ],
+      "epic": "editor-playground",
+      "body": "docs/proposals/refactoring.md §5 (SW-2626). D3467. Needs R1 (SW-SW-2627) and R2 (SW-SW-2628). Est. 150 min.",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
+    },
+    {
+      "id": 2630,
+      "title": "[Sonnet] Rename R3b: stitchwort rename on the CLI for agents: old name (or file:line:col) and new name, applies when the trial passes, --anyway applies regardless, --json lists what's left to fix (new errors, declarations whose meaning changed)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "editor",
+        "refactoring"
+      ],
+      "epic": "editor-playground",
+      "body": "D3467 (Matt, 10 Nov 2026). Needs R2 (SW-SW-2628). Est. 60 min.",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
+    },
+    {
+      "id": 2631,
+      "title": "[Sonnet] Rename R4: rename oracle tests: rename every name of the examples and projects (sampled), hashes unchanged; round trip; in the daily tier (generalises SW-686's local renames)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "editor",
+        "refactoring"
+      ],
+      "epic": "editor-playground",
+      "body": "docs/proposals/refactoring.md §3.3 (SW-2626). D3467. Needs R3 (SW-SW-2629). Est. 90 min.",
       "created": "2026-11-10",
       "updated": "2026-11-10",
       "commits": []
