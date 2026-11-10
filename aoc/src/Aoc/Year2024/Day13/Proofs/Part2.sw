@@ -30,8 +30,8 @@ theorem cramerFewest (machine: Machine) (nonzero: machine.determinant ≠ 0):
 
 theorem fewestTokensCorrect (machine: Machine) (nonzero: machine.determinant ≠ 0): IsFewest machine machine.fewestTokens :=
   match Int.decEq machine.determinant 0 with
-    | Yes isZero => Void.exfalso (nonzero isZero)
-    | No proof => cramerFewest machine proof
+    | { holds = True, sound = isZero, complete = _ } => Void.exfalso (nonzero (isZero rfl))
+    | { holds = False, sound = _, complete = c } => cramerFewest machine (e => Bool.falseNotTrue (c e))
 
 theorem correctedIsSpec (machine: Machine): machine.corrected = correctedMachine machine := rfl
 

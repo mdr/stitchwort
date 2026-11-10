@@ -6265,8 +6265,12 @@ fn propagate(
 /// any other argument, so in one of its parts (the `rewrite` in
 /// `List.filterSkip _ _ _ (rewrite …)`). An error about a whole argument
 /// that isn't a lambda (`True` in `chooseFirst 5 True` at `Int`) keeps the
-/// second's message, which says how its type was fixed.
+/// second's message, which says how its type was fixed, unless the first
+/// isn't a type mismatch: then the argument was checked against what it
+/// must be and failed at that (`rfl` in `Decidable.yes rfl`, `E-REFL`), where
+/// the second only had an unknown to check it against.
 fn in_same_argument(args: &[Arg], first: &Diagnostic, second: &Diagnostic) -> bool {
+    let whole_ok = first.code != "E-TYPE-MISMATCH";
     let (Some(first), Some(second)) = (first.labels.first(), second.labels.first()) else {
         return false;
     };
@@ -6279,7 +6283,7 @@ fn in_same_argument(args: &[Arg], first: &Diagnostic, second: &Diagnostic) -> bo
         }
         Arg::Explicit(value) => {
             let whole = value.span();
-            let part = |span: Span| inside(whole, span) && span != whole;
+            let part = |span: Span| inside(whole, span) && (whole_ok || span != whole);
             part(first.span) && part(second.span)
         }
         _ => false,

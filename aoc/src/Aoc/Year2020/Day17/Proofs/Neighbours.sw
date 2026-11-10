@@ -42,14 +42,10 @@ theorem countWithin1 (xs ys: List Int): (within1 xs).count (== ys) = Bool.toNat 
         rewrite countPrefixed (x - 1) (within1 xs) y ys, countPrefixed x (within1 xs) y ys, countPrefixed (x + 1) (within1 xs) y ys, countWithin1 xs ys in windowAnd x y (Spec.within1 xs ys)
 
 theorem equalCubes (here: List Int) (there: List Int): (({ coordinates = here }: Cube) == { coordinates = there }) = (here == there) :=
-  Bool.eqOf _ _
-    (same => rewrite (Eq.cong (.coordinates) (DecEq.sound same): here = there) in DecEq.refl there)
-    (same => rewrite DecEq.sound same in DecEq.refl ({ coordinates = there }: Cube))
+  rfl
 
 theorem differentCubes (here: List Int) (there: List Int): ((({ coordinates = here }: Cube) != { coordinates = there }): Bool) = ((here != there): Bool) :=
-  match e: ((here != there): Bool) with
-    | True => DecEq.trueOfNe (same => DecEq.neTrue e (Eq.cong (.coordinates) same))
-    | False => rewrite DecEq.neFalse here there e in DecEq.neSelf ({ coordinates = there }: Cube)
+  rfl
 
 theorem countNeighbours (cube other: Cube): cube.neighbours.count (== other) = Bool.toNat (Spec.neighbours cube other) :=
   match cube, other with

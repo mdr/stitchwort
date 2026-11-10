@@ -55,10 +55,10 @@ theorem documentedKeys:
 def commandKeys: List Char := ['h', 'j', 'k', 'l', 'a', 's', 'w', 'd', '.', '>', 'p', 'q']
 
 --| A key in `commandKeys`, decided: in each arm below the key is a literal,
---| so the decision computes to `Yes`. (Not an `auto` argument: `auto`
+--| so the decision's test computes to `True`. (Not an `auto` argument: `auto`
 --| searches at most 8 deep, and `'w'` is the 7th key.)
-theorem listedKey (char: Char) (yes: Decidable.IsYes (List.decMem char commandKeys)): char ∈ commandKeys :=
-  Decidable.fromYes (List.decMem char commandKeys) yes
+theorem listedKey (char: Char) (yes: (List.decMem char commandKeys).holds = True): char ∈ commandKeys :=
+  (List.decMem char commandKeys).sound yes
 
 --| No other printable key is a command: a printable key that is a command
 --| is one of h/j/k/l, a/s/w/d, `.`, `>`, `p` and `q`.
@@ -67,7 +67,7 @@ theorem listedKey (char: Char) (yes: Decidable.IsYes (List.decMem char commandKe
 -- is none of those, so `commandOfChar` takes its `_` arm too.
 theorem onlyListedKeys (char: Char) (command: Command) (found: commandOfChar char = Some command): char ∈ commandKeys :=
   match char with
-    | 'k' | 'w' | 'j' | 's' | 'h' | 'a' | 'l' | 'd' | '.' | '>' | 'p' | 'q' => listedKey char Trivial
+    | 'k' | 'w' | 'j' | 's' | 'h' | 'a' | 'l' | 'd' | '.' | '>' | 'p' | 'q' => listedKey char rfl
     | _ => Void.exfalso (Option.noneNotSome command found)
 
 --| And no other key at all: a key that is a command is an arrow, or one of

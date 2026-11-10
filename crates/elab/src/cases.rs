@@ -1311,6 +1311,9 @@ impl<'a, 'e> Finder<'a, 'e> {
             current = if is_folded(&g, &next) {
                 match unfold_folded(&g, &next)? {
                     Some(u) => u,
+                    // A field of a stuck call (`(Bool.decEq a b).holds`)
+                    // waits for what the call waits for.
+                    None if stuck_call_field(&next) => next,
                     None => break,
                 }
             } else {
@@ -1498,7 +1501,9 @@ impl<'a, 'e> Finder<'a, 'e> {
             // x + 1 == y then …`) is one atom, true or false, which `omega`
             // reads in each case; its `Decidable` and its operands are
             // `Int`'s insides.
-            if best.is_some() && number_equality(&g, &force(&g, raw.clone())?) {
+            if best.is_some()
+                && (number_equality(&g, &current) || number_equality(&g, &force(&g, raw.clone())?))
+            {
                 break;
             }
             match self.ctors(d) {
@@ -1531,6 +1536,9 @@ impl<'a, 'e> Finder<'a, 'e> {
             current = if is_folded(&g, &next) {
                 match unfold_folded(&g, &next)? {
                     Some(u) => u,
+                    // A field of a stuck call (`(Bool.decEq a b).holds`)
+                    // waits for what the call waits for.
+                    None if stuck_call_field(&next) => next,
                     None => break,
                 }
             } else {
@@ -1630,6 +1638,10 @@ fn is_ctor_form(value: &Value) -> bool {
     matches!(value, Value::Ctor(..) | Value::Nat(_))
 }
 
+fn stuck_call_field(value: &Value) -> bool {
+    matches!(value, Value::Neutral(Head::Def(_), spine) if stitchwort_core::value::is_call_field(spine))
+}
+
 fn is_stuck(value: &Value) -> bool {
     matches!(value, Value::Neutral(..) | Value::NatAdd(..))
 }
@@ -1676,8 +1688,8 @@ fn read_back(g: &Ev, level: usize, value: &Value) -> Result<Option<Term>> {
     Ok(quote_at_most(g, level, value, READ_BACK_NODES)?)
 }
 
-/// Whether `value` (forced) is a call of `Int.decEq`: the decision an `Int`
-/// `==` computes through.
+/// Whether `value` (forced) is a call of `Int.decEq`, or its test
+/// (`(Int.decEq x y).holds`): the decision an `Int` `==` computes through.
 fn number_equality(g: &Ev, value: &Value) -> bool {
     let Value::Neutral(Head::Def(id), _) = value else {
         return false;

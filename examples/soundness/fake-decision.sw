@@ -1,8 +1,9 @@
--- expect-error: E-TYPE-MISMATCH
+-- expect-error: E-REFL
 
-import Std (Decidable, Nat)
+import Std (Nat)
 
--- `Decidable.fromYes d Trivial` is how a decision becomes a proof. It must not work
--- when the decision is `No`: here `Decidable.IsYes (Nat.decEq 1 2)` computes to `Void`,
--- which `Trivial` doesn't prove.
-theorem oneIsTwo: 1 = 2 := Decidable.fromYes (Nat.decEq 1 2) Trivial
+-- `d.sound rfl` is how a decision becomes a proof: `rfl` proves that its test
+-- is `True`. It must not work when the test is `False`: here
+-- `(Nat.decEq 1 2).holds` computes to `False`, which `rfl` doesn't prove
+-- `True`.
+theorem oneIsTwo: 1 = 2 := (Nat.decEq 1 2).sound rfl

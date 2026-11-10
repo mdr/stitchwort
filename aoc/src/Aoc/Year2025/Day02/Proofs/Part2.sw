@@ -47,8 +47,8 @@ def divisorWeights (w: Nat → Int) (m: Nat) (c: Nat): Int :=
 
 --| A guard that holds takes the first branch.
 theorem guardHolds [p: Prop] [a: Type]: ∀ (d: Decidable p) => p → ∀ (x y: a) => Decidable.elim d (g => x) (r => y) = x
-  | Yes q, h, x, y => rfl
-  | No r, h, x, y => Void.exfalso (r h)
+  | { holds = True, sound = _, complete = _ }, h, x, y => rfl
+  | { holds = False, sound = _, complete = c }, h, x, y => Void.exfalso (Bool.falseNotTrue (c h))
 
 --| The weight of m = j + 2 is 1, less the weights of its divisors below m
 --| (`weight.unfold`, with the guard `d < m` discharged for each d of the run).

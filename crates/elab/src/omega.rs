@@ -449,6 +449,7 @@ struct Lib {
     ite: DefId,
     to_bool: DefId,
     nat_dec_eq: DefId,
+    int_dec_eq: DefId,
     not: DefId,
     bool_not: DefId,
     less_than: DefId,
@@ -742,6 +743,7 @@ impl Lib {
             ite: builtin_def(cx, Builtin::IfThenElse)?,
             to_bool: builtin_def(cx, Builtin::ToBool)?,
             nat_dec_eq: def("Std.Nat.decEq")?,
+            int_dec_eq: builtin_def(cx, Builtin::DecEqInt)?,
             not: builtin_def(cx, Builtin::Not)?,
             bool_not: builtin_def(cx, Builtin::BoolNot)?,
             less_than: builtin_def(cx, Builtin::LessThan)?,
@@ -895,6 +897,20 @@ fn bool_form(cx: &Ctx, lib: &Lib, l: &Value) -> Result<Option<BoolForm>> {
             vec![cx.quote_folded(x)?, cx.quote_folded(y)?],
         );
         return Ok(Some(BoolForm::ToBool(p, cx.eval(&d)?)));
+    }
+    // `x == y` on `Int`s: the test of `Int.decEq x y`, a field of that call.
+    if let Value::Neutral(Head::Def(id), spine) = &l
+        && *id == lib.int_dec_eq
+        && let [Elim::App(x, _), Elim::App(y, _), Elim::Proj(_, 0)] = &spine[..]
+    {
+        let int = Rc::new(Value::Data(lib.int, Vec::new().into()));
+        let p = Value::Eq(
+            int.into(),
+            Rc::new(x.clone()).into(),
+            Rc::new(y.clone()).into(),
+        );
+        let d = Value::Neutral(Head::Def(*id), spine[..2].to_vec().into());
+        return Ok(Some(BoolForm::ToBool(p, d)));
     }
     if let Some([p]) = call_args(&l, lib.bool_not).as_deref() {
         return Ok(Some(BoolForm::Not(p.clone())));

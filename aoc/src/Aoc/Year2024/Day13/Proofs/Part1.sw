@@ -101,8 +101,9 @@ theorem withinCosts (machine: Machine) (costs: List Nat) (costsWin: ∀ (tokensS
       tokens aPresses bPresses ∈ costs)
     (searched: machine.searchTokens 100 = costs.minimum): machine.fewestTokensWithin 100 = costs.minimum :=
   match Int.decEq machine.determinant 0 with
-    | Yes isZero => searched
-    | No nonzero => cramerWithinCosts machine nonzero costs costsWin winsListed
+    | { holds = True, sound = _, complete = _ } => searched
+    | { holds = False, sound = _, complete = c } =>
+      cramerWithinCosts machine (e => Bool.falseNotTrue (c e)) costs costsWin winsListed
 
 theorem withinCorrect (machine: Machine): machine.fewestTokensWithin 100 = Spec.fewestTokens machine :=
   withinCosts machine (winningCosts machine) (winningCostsWin machine) (winListed machine) (searchIsSpec machine)

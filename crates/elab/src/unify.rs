@@ -2354,6 +2354,15 @@ fn same_field_types(g: &Unifier<'_>, level: usize, a: &Value, b: &Value) -> Resu
 /// it, `DecEq.sound e` for `e: (m == n) = True` on numbers can't find `m`
 /// and `n`.
 fn same_field_calls(g: &Unifier<'_>, level: usize, a: &Value, b: &Value) -> Result<Option<Task>> {
+    if !matches!(a, Value::Call(..) | Value::Neutral(Head::Meta(_), _))
+        || !matches!(b, Value::Call(..) | Value::Neutral(Head::Meta(_), _))
+        || !g.machine.glue.get()
+    {
+        return Ok(None);
+    }
+    // A solved unknown (`Bool.orElim`'s `?a`, solved as `n == 3`) stands for
+    // its solution, which keeps the call.
+    let (a, b) = (&force_solved(g, a.clone())?, &force_solved(g, b.clone())?);
     let (Value::Call(i1, s1, _), Value::Call(i2, s2, _)) = (a, b) else {
         return Ok(None);
     };

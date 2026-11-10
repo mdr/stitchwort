@@ -8,7 +8,7 @@ type Token: Prop =
 
 def needsToken: [auto t: Token] → Nat := 1
 
-def client: Nat := needsToken [t := Decidable.fromYes decToken Trivial]
+def client: Nat := needsToken [t := decToken.sound rfl]
 
 def decToken: Decidable Token := laterHelper
 
