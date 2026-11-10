@@ -121,6 +121,17 @@ pub struct Ref {
     /// For the head of a call that left defaulted parameters out: the
     /// defaults it used.
     pub defaults: Option<String>,
+    /// What a rename of the target edits: the last component of the written
+    /// name (`map` in `List.map`; `range` covers the whole name).
+    pub name_range: Range,
+    /// The text written here is not the target's name (a use of an import's
+    /// alias, `import List (map as each)`, or an operator's symbol): a
+    /// rename of the target must leave it.
+    pub alias: bool,
+    /// A punned record field, `{ name }`: this and another reference (the
+    /// field, the variable) have one range. A rename edits one of them to
+    /// `{ label = name }` or `{ name = who }`.
+    pub pun: bool,
 }
 
 #[derive(Clone, Debug)]
@@ -437,6 +448,9 @@ pub fn index_data_of(
         Some(crate::doc::equations_hover(&session.elab.ev(), ids))
     };
     let mut symbols = Vec::with_capacity(index.symbols.len());
+    // The links in the docs of the program's declarations that name a
+    // declaration: file, range of the name, and the declaration's full name.
+    let mut doc_links: Vec<(usize, Range, String, String)> = Vec::new();
     for symbol in &index.symbols {
         let file = file_of(symbol.span, &mut files);
         let at = range(&mut lines, sources, symbol.span, last_component(symbol));
@@ -497,6 +511,21 @@ pub fn index_data_of(
                     })
                     .collect(),
             });
+        if user(symbol.span.file)
+            && let Some(doc) = &doc
+            && let Some(parsed) = docs
+                .get(&symbol.span.file)
+                .and_then(|d| d.get(&symbol.span.start))
+        {
+            for (link, resolved) in parsed.links.iter().zip(&doc.links) {
+                if let Some(target) = &resolved.target {
+                    // Inside the brackets and backticks.
+                    let name = Span::new(link.span.file, link.span.start + 2, link.span.end - 2);
+                    let at = range(&mut lines, sources, name, None);
+                    doc_links.push((file, at, link.name.clone(), target.clone()));
+                }
+            }
+        }
         symbols.push(Symbol {
             name: symbol.name.clone(),
             kind: symbol.kind,
@@ -534,13 +563,54 @@ pub fn index_data_of(
                 }
             }
         };
+        let (name_range, alias) = match &r.target {
+            NavTarget::Symbol(s) => {
+                let target = &index.symbols[*s].name;
+                written_name(&mut lines, sources, r.span, at, target)
+            }
+            NavTarget::Binder { .. } => (at, false),
+        };
         refs.push(Ref {
             file,
             range: at,
             target,
             ty: r.ty.clone(),
             defaults: r.defaults.clone(),
+            name_range,
+            alias,
+            pun: r.pun,
         });
+    }
+    // A link in a doc is a reference to the declaration it names.
+    let by_name: HashMap<&str, usize> = symbols
+        .iter()
+        .enumerate()
+        .rev()
+        .map(|(i, s): (usize, &Symbol)| (s.name.as_str(), i))
+        .collect();
+    let mut linked = false;
+    for (file, at, written, target) in doc_links {
+        let Some(&s) = by_name.get(target.as_str()) else {
+            continue;
+        };
+        let tail = written.rsplit('.').next().unwrap_or(&written);
+        let last = target.rsplit('.').next().unwrap_or(&target);
+        let width: u32 = tail.chars().map(|c| c.len_utf16() as u32).sum();
+        let name_range = [at[0], at[3] - width, at[2], at[3]];
+        linked = true;
+        refs.push(Ref {
+            file,
+            range: at,
+            target: RefTarget::Symbol(s),
+            ty: symbols[s].ty.clone(),
+            defaults: None,
+            name_range,
+            alias: last != tail,
+            pun: false,
+        });
+    }
+    if linked {
+        refs.sort_by_key(|r| (r.file, r.range));
     }
 
     let mut exprs = Vec::new();
@@ -808,6 +878,30 @@ impl Lines {
 /// `def List.length`. (A test's name is its description.)
 fn last_component(symbol: &stitchwort_elab::NavSymbol) -> Option<&str> {
     (symbol.kind != "test").then(|| symbol.name.rsplit('.').next().unwrap_or_default())
+}
+
+/// The range of the last component of the name written at `span` (`range`
+/// is its range), and whether that component isn't `target`'s name.
+fn written_name(
+    lines: &mut Lines,
+    sources: &SourceMap,
+    span: Span,
+    full: Range,
+    target: &str,
+) -> (Range, bool) {
+    let text = &sources.get(span.file).text;
+    let Some(written) = text.get(span.start as usize..span.end as usize) else {
+        return (full, false);
+    };
+    let tail = written.rsplit('.').next().unwrap_or(written);
+    let last = target.rsplit('.').next().unwrap_or(target);
+    let alias = last.trim_start_matches('%') != tail;
+    if tail.len() == written.len() {
+        return (full, alias);
+    }
+    let start = span.end - tail.len() as u32;
+    let name = range(lines, sources, Span::new(span.file, start, span.end), None);
+    (name, alias)
 }
 
 /// With `last`, the span covers a dotted name whose last component is

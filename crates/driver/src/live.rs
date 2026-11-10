@@ -75,6 +75,16 @@ pub struct LiveRef {
     /// For the head of a call that left defaulted parameters out: the
     /// defaults it used, "`step` left out: its default `1`".
     pub defaults: Option<String>,
+    /// What a rename of the target edits: the last component of the written
+    /// name (`map` in `List.map`; `range` covers the whole name).
+    pub name_range: Range,
+    /// The text written here is not the target's name (a use of an import's
+    /// alias, or an operator's symbol): a rename of the target leaves it.
+    pub alias: bool,
+    /// A punned record field `{ name }`: this and another reference (the
+    /// field, the variable) have one range. A rename edits it to
+    /// `{ label = name }` (the field) or `{ name = who }` (the variable).
+    pub pun: bool,
 }
 
 /// A declaration of a file, for its outline.
@@ -307,6 +317,9 @@ pub fn answers_from(index: &Index, wanted: &BTreeSet<String>, unplaced: &str) ->
             doc,
             equations,
             defaults: r.defaults.clone(),
+            name_range: r.name_range,
+            alias: r.alias,
+            pun: r.pun,
         });
     }
     // The outline: the program's declarations, by file.
