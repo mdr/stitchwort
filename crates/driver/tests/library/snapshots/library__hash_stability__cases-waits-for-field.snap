@@ -1,5 +1,5 @@
 ---
-source: crates/driver/tests/hash_stability.rs
+source: crates/driver/tests/library/hash_stability.rs
 expression: "lines(session, d, f)"
 ---
 data Main.Flags 1c0f202ceecc28015541b255962548130519b0802616f08376117c286200288e
@@ -11,11 +11,11 @@ Main.Flags.%decEq 270386fc3bfb144590d9c3be1392d3414ca88cfe3415c1b14e71d2ce3588a7
 Main.Flags.%instDecEq 0f5b2bfbd6eae65e38a376486ef681597f736c0afae74ad77f34c6045a82f0c7
 Main.Flags.%show 961fd1e4c22940a1fe8ac0dcb5aada7a730c5ae0e218d5a49b5669d9cbe06f00
 Main.Flags.%instShow 09c96b5d591c36b6dd04584b01b49783265de394ca588f9fbf3e9720c79389fb
-Main.Flags.%compare 7a5588883657d0477699c8f50b0a8ff8c42a794ec6c8fe135597e319e3d96a8f
-Main.Flags.%equal 7a37d52be968a7aaa5c2d4d9079799732a6152cf29c1bb7d30ce48d3f8f05747
-Main.Flags.%flip 92bcf329faf4fcf5288d1434393fd0df674c101ccd75211f91fe0b0937227600
-Main.Flags.%trans ef4eac40eac65d3ddaa3384cf957f38d25f26dd0c2b9d86b3c436bd571aa44f0
-Main.Flags.%instOrd d7e939b40b02d41731e2ce20df9cce3a021039a169fabae3a4df1f0b46c0d61d
+Main.Flags.%compare 7159d0e926decdb49a7e65fe37b347c0591b0e3cb3e653a8ff922c802f9522a9
+Main.Flags.%equal 1bd2dcf05a3cf25b2960d9de271b85b5f91b722341e734dfe3923cb2824a02ca
+Main.Flags.%flip 8e72ea93c8e5b0ddea68732833d3705d18c3ae32a89b6d1b0e7923afc580b71c
+Main.Flags.%trans 43a153f6d2c1184f425993d92c6efe447969ecec234c079bbb58ece724f1e97b
+Main.Flags.%instOrd 64f5afe778124b4b77ab7d39221699fde802b3c3f97c8d55ee7fe0d3112add20
 Main.Flags.%%mk%F%0 0627ca4522fc06fbd14c0b0a848f1e526f48f0c36bbba689930072acbf254746
 Main.Flags.%%mk%F%1 66f7f0231bed41b8959ae38ab5290e32c635f1f4fe3384a40b690e9cf1d393de
 Main.Flags.%part%0%1 09a4a520103574fb990cece95a1955c9e2f8534a5f5e42ae6992ee6225afc647

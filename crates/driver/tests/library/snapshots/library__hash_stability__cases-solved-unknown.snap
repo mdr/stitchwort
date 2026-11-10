@@ -1,5 +1,5 @@
 ---
-source: crates/driver/tests/hash_stability.rs
+source: crates/driver/tests/library/hash_stability.rs
 expression: "lines(session, d, f)"
 ---
 data Main.Box 457b230727413cfa2f4457d35de7113308dc1bae02e06149389769d2c1bd8b44
@@ -13,7 +13,7 @@ Main.Box.%compare 6f96f5cd20b7838c7714234e6c5e275e1f8150269c19df3bebcce4e50aa703
 Main.Box.%equal 73e24f0b1d7fb0290c8ab657af0b396fdf828e7afc1962c613740f99954cd38b
 Main.Box.%flip 113ee24cf5bf51c57a9243eef9ba42bfa4a4c52f18a8aa266484bf80966bf0f6
 Main.Box.%trans f371378507bebb8bde0e90399173fe02ac06b3941c1c48a6b5c633df17266b2b
-Main.Box.%instOrd b3ffb0a0df41d307da87332d7e0e3716c61da370ecf41e8d7b861ea8f36ac847
+Main.Box.%instOrd 052a3d9a7e0638dc9ed3437b94a0b66017677b1735f83f27b9dc93be630e8f20
 Main.Box.%MkBox%F%0 2e83f3965b5ca2a3ed8876f533c4abd9ca5713d3f01e322e72aaeb7f2411fb54
 Main.Box.%part%0 6369a0947c15c18830f9a09bb6a0762ee263bc96970a6eb833c80af473efd75c
 Main.Box.%all 625a3f936f4f9cddda44062364cccee0d13817ddadfa4a6c836b8806d1609210

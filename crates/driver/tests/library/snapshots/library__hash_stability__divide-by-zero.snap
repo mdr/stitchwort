@@ -5,9 +5,9 @@ expression: "lines(session, d, f)"
 Main.ratio 8e8fe4ee66cf811b51f5f446a9829bd83c723359edcc91d53a6abf32474d1780
 Main.test "Nat by 0" 00f56b6400839d14507fe77723bce7baae2fa1d2d76133eaec793c2621b2705d
 Main.test "a variable divisor" 4dddab0329115d5e2933b8c0f60df5fb8e38729fb75024d7f5f71a57dc0b0e4a
-Main.test "Nat.divMod and Nat.ceilDiv by 0" 65844af08c5ddec1e3393ee56216e65fb90aa13988540967aef0609d8b4a750d
-Main.test "Int by 0" 00ce0edae4ec141bc7de5056f0fbe56491dc7c4c3258d8420855b3c5e7ab5e8b
-Main.test "every Int convention by 0" 64ec4849cbe28d258e757782e74425cf33d9246ab217593334aae5472de4a891
+Main.test "Nat.divMod and Nat.ceilDiv by 0" bc42f907a74dbe7ecf1e90df461034e42352ac27026e65650550132293b96968
+Main.test "Int by 0" 3b2f83ed17423aadac1d6c96ac7a4970f5d583f9f18d8248389645d49ca39005
+Main.test "every Int convention by 0" 916c0092c7a79ca46ca28422725bf82f8d4867a4fe279bfb4e8b167ff38a5094
 Main.test "Int.modNat by 0" d5dbb2d310433158c7ccd12dd5e41840a46d38abc251b812aafc1241b298dfc9
 Main.divByZero 13bba530e547df021156b5b6a1adcff15302617478dc150c35b816067fce9133
 Main.modByZero aae3fcd717e67f7275c77a879749a76770d8074481667271b78acf12d4811b0e

@@ -1,5 +1,5 @@
 ---
-source: crates/driver/tests/hash_stability.rs
+source: crates/driver/tests/library/hash_stability.rs
 expression: "lines(session, d, f)"
 ---
 data Main.Key ad73bd8bd23bb3d56838dbc45d82cac76e8aab506df53d0b22fb6bc0932a14bf
@@ -13,7 +13,7 @@ Main.Key.%compare a5237072509322b6cb838eb7a241135ec107be67a1393c7db8bdb312201a10
 Main.Key.%equal bcde889db2743125ebc6bd5c837b23375cf233532e63117f34474e77194063ab
 Main.Key.%flip 725deedffe16ddabbeed223f354d871f5d891419e1c48e3571fd9524eb78fd9a
 Main.Key.%trans b32d5460c33fe9078ef62d528ad9b2334cb5a337fd122f360c9197fe5c55f6ee
-Main.Key.%instOrd 03fe7d4772e8b4649e08514e4e47d72779c91203404964ac2639639beceed93f
+Main.Key.%instOrd 8fab5140d4155276430baca94f8ae405935c025e35dd53f0a6bc19a811d00fab
 Main.Key.%all 98a9abd70afe2662e210b53b874a95cb9c6aa8dbe80bf214320be80b326b0f64
 Main.Key.%mem%0 2f588aab27b89f621ac819e8f44f17a28908df3d2bcf72f0747236afc2e46d07
 Main.Key.%mem%1 9f4f2f1b06e827bcb019833cfaec2151314ea4da27388723785be91975c2d98f

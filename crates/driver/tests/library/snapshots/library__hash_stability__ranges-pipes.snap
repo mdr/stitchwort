@@ -5,6 +5,6 @@ expression: "lines(session, d, f)"
 Main.viaRange 5e812660d6f98e8490804a6337105c59bd9ff2a7bbe38d4c7859468f4628b1ae
 Main.viaCall 5e812660d6f98e8490804a6337105c59bd9ff2a7bbe38d4c7859468f4628b1ae
 Main.bracketed 6253c670d435350061f0beaa89f4d33a80e02681c786139b5a1c83f95c5a822f
-Main.test "a range starts a chain" 1ca9c3cdc743a4f70b59bfde8ca92e654e12b52566a48aed0a7d694dc3a75b65
-Main.test "the chain's values" fc0ec36d017698f03d6a18e7228305f9f4229c51b62242c8f64936d985e4f641
-Main.test "a bracketed range" 5dcb0c693fcd2f3376a6a30cd0d23356381da1918f2958a5bba9b23cecbf3549
+Main.test "a range starts a chain" e3f6cf84ce1a3d1a3c445cbc77da005631b6b0393932a95efb1718a4b2568b86
+Main.test "the chain's values" 09ac03b671d4cf4e716a1f4b65287446fee7a17f05a7e0387c57a2f90c4b966d
+Main.test "a bracketed range" 0bf89c71e0edb927ac4848040032553569ed53e55e88bed96e97d7a584f07edb

@@ -8,5 +8,5 @@ Main.test "unit parameter" b883b3767ac9b3f1ff3ad37b44da3a9350287e5bc95ff21cf986f
 Main.test "fixed by the use" 37e4e745d041c17aae12bb4fdead38f7067ff9f3ec3583eddb1a66c2df48ca4d
 Main.test "fixed by the body" fa85c8639c403ef288ca78b94157dc4a61940c53c73fa05297d5bd263920493a
 Main.test "several parameters" 2ac25a9d5b68edfb8dc8c09d8a4beac16139e052794632df4b158cd1c3a0e93e
-Main.test "used twice" b89f6a19e931c3b23c02da182ee1d4e096e94c8733444c9378e1cd7a0c2a81d3
-Main.test "passed on" fb7c08135ebb6f5744aed98857f1f6dce006a6153c56d8cd01c4b884d5b8ea23
+Main.test "used twice" 58c54ec1ae9a566970588e5de8abad1696c50e8056cfc3c8b68b909241369143
+Main.test "passed on" 7c7a9b6238f82e1302e9e5b3c495f386d850f5833b644d0af22c8e77d6e203bb
