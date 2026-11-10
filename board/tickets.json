@@ -27135,9 +27135,9 @@
     {
       "id": 2630,
       "title": "[Sonnet] Rename R3b: stitchwort rename on the CLI for agents: old name (or file:line:col) and new name, applies when the trial passes, --anyway applies regardless, --json lists what's left to fix (new errors, declarations whose meaning changed)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-2630",
       "labels": [
         "editor",
         "refactoring"
