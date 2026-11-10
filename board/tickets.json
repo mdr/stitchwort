@@ -1,5 +1,5 @@
 {
-  "next": 2642,
+  "next": 2644,
   "tickets": [
     {
       "id": 47,
@@ -27315,6 +27315,40 @@
       ],
       "epic": "audit-fuzzing",
       "body": "From SW-2466 (10 Nov 2026).",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
+    },
+    {
+      "id": 2642,
+      "title": "Tutorial part 1 (shopping basket): bring up to date with language and editor changes since 6 Nov (∀ done in 0d8790677, setup in 7026f87ff)",
+      "status": "done",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [
+        "docs"
+      ],
+      "epic": "docs-tutorials",
+      "body": "Matt asked (10 Nov 2026) to update the tutorial with the new forall syntax and other recent changes. ∀ already done (SW-2588, 0d8790677); setup step now task vscode:install (7026f87ff, orchestrator). Lane c01bbb23d: run-tests link, Run test marks failures, addCost hover shows the statement as written; every other quoted output checked and still right. Ideas not acted on: Restart Server tip; F2 rename step once SW-2629 merges. Model result: Sonnet, worked, 6 min (est. 30 min)\n\nRenumbered from SW-2637 on 10 Nov 2026: two sessions filed tickets at once and the number was taken; commit messages before this say SW-2637.",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": [
+        "0d8790677",
+        "7026f87ff",
+        "c01bbb23d"
+      ]
+    },
+    {
+      "id": 2643,
+      "title": "Goals and errors print a dot call two ways in one file: (basket.add item).total in one message, Basket.total shopping in another (tutorial part 1, SW-2637). Intended?",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "bug"
+      ],
+      "epic": "docs-tutorials",
+      "body": "\n\nRenumbered from SW-2638 on 10 Nov 2026: two sessions filed tickets at once and the number was taken; commit messages before this say SW-2638.",
       "created": "2026-11-10",
       "updated": "2026-11-10",
       "commits": []
