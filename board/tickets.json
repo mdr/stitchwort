@@ -27839,9 +27839,9 @@
     {
       "id": 2677,
       "title": "Float.sw:20-23 comment points to FLOAT_DATA_HASH and float.rs; the pins live in crates/core/src/pins.rs",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": ".claude/worktrees/scratch-sw-2677",
       "labels": [],
       "epic": "elaborator-kernel",
       "body": "From SW-2670 (10 Nov 2026). One-line fix.",
