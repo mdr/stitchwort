@@ -1,5 +1,5 @@
 {
-  "next": 2733,
+  "next": 2735,
   "tickets": [
     {
       "id": 47,
@@ -28585,6 +28585,32 @@
       "labels": [],
       "epic": "elaborator-kernel",
       "body": "From SW-2731 (10 Nov 2026). A lambda nested in three constructor arguments; a let fixed it. Investigate in lanes mode (Sonnet or Opus).",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
+    },
+    {
+      "id": 2733,
+      "title": "Decidable record, stage 1 (decidable-record.md §plan): yes/no/refute/does as functions while the type is still Yes | No; sweep every Yes/No arm and construction (std, aoc, examples, ~320 sites)",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-2733",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "D3480 (Matt, 10 Nov 2026); D3490 (Matt, 10 Nov 2026): started at pace 1.00 as a special exception. Sonnet. Est. 3 h.",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
+    },
+    {
+      "id": 2734,
+      "title": "Bool as a proposition, stage 1 (bool-as-proposition.md): the coercion (a Bool where a Prop is expected means b = True) and printing without = True, with a print-then-read-back test",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-2734",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "D3482 (Matt, 10 Nov 2026); D3490 (Matt, 10 Nov 2026): started at pace 1.00 as a special exception. Opus. Est. 3 h. Built to D3486's recommendation (open), kept separable.",
       "created": "2026-11-10",
       "updated": "2026-11-10",
       "commits": []
