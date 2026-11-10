@@ -659,15 +659,11 @@ fn the_function_in_match_induct() {
     let index = index_of(&session);
     let all = lines(&session, &index, "one.sw");
     let at = source.find("induct (countAbove").expect("written") + "induct (".len();
-    // Declarations only: the index also reads this `countAbove` as a local
-    // (a separate gap).
     let found: Vec<_> = index
         .refs
         .iter()
         .filter(|r| {
-            r.span.file.index() == session.elab.std_file_count()
-                && r.span.start as usize == at
-                && matches!(r.target, NavTarget::Symbol(_))
+            r.span.file.index() == session.elab.std_file_count() && r.span.start as usize == at
         })
         .collect();
     assert!(
