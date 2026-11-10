@@ -7,6 +7,7 @@ mod live_memory;
 mod lsp;
 mod navigation;
 mod rename;
+mod repl;
 mod search;
 mod session;
 

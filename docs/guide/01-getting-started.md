@@ -84,7 +84,7 @@ Here are the tests of the program above:
 
 Run `test` again without changing anything and each test says `cached` instead of `ran`. Tests are cached by the content of what they depend on, not by file times, so editing a comment or renaming a local variable doesn't rerun anything, and changing a function reruns exactly the tests that use it.
 
-The REPL evaluates expressions in the context of a file, and prints each result with its type. `:t` shows the type alone, and `import` lines accumulate. Given these lines (from the file `values.sw` of [chapter 2](02-values-and-definitions.md)):
+The REPL evaluates expressions in the context of a file, and prints each result with its type. `:t` prints the expression followed by its type, as Rocq's `Check` does, and `import` lines accumulate. Given these lines (from the file `values.sw` of [chapter 2](02-values-and-definitions.md)):
 
 <!-- snippet: repl-session.txt -->
 ```text
@@ -102,7 +102,7 @@ it prints:
 Stitchwort 0.1.0. Enter an expression to evaluate it, `import Std (List)` to use a namespace's names, `:t expr` for its type, `:q` to quit.
 42: Nat
 "Ada bought 2 items: [3, 4], costing 7": Text
-Nat → Text
+describe: Nat → Text
 [0, 1, 2, 3]: List Nat
 ```
 

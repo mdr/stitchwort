@@ -3579,14 +3579,15 @@ fn eval(path: &Path, expr: &str, cache: &CacheArgs) -> ExitCode {
     }
 }
 
-/// Evaluates `expr`, or with `type_only`, shows its type.
+/// Evaluates `expr`, or with `type_only`, shows it with its type.
 fn evaluate(session: &mut Session, expr: &str, type_only: bool) -> Result<String, Diagnostic> {
-    let expr = session.parse_expression("<input>", expr)?;
+    let expr = expr.trim();
+    let parsed = session.parse_expression("<input>", expr)?;
     if type_only {
-        let (_, ty) = session.elab.infer_expr(&expr)?;
-        return Ok(session.elab.show(&ty));
+        let (_, ty) = session.elab.infer_expr(&parsed)?;
+        return Ok(format!("{expr}: {}", session.elab.show(&ty)));
     }
-    let (value, ty) = session.elab.eval_expr(&expr)?;
+    let (value, ty) = session.elab.eval_expr(&parsed)?;
     Ok(format!("{value}: {ty}"))
 }
 

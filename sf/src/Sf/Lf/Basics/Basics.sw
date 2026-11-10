@@ -256,15 +256,16 @@ def testAndb34: Prop := andb3 True True False = False
 -- Every expression has a type that says what sort of thing it computes.
 -- Rocq's `Check` prints the type of an expression, and with `: T` after
 -- it, checks that it has that type. Stitchwort has no such command inside
--- a file; in `stitchwort repl`, `:t` prints a type, and in the editor
+-- a file; in `stitchwort repl`, `:t` prints the expression and its type,
+-- and in the editor
 -- hovering over a name shows it:
 --
 --     > :t True
---     Bool
+--     True: Bool
 --     > :t negb True
---     Bool
+--     negb True: Bool
 --     > :t negb
---     Bool → Bool
+--     negb: Bool → Bool
 --
 -- Functions like `negb` are data values too, just like `True` and
 -- `False`. Their types are *function types*, written with arrows:

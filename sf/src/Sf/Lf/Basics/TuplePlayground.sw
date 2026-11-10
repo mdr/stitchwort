@@ -24,8 +24,8 @@ type Nybble =
 -- Rocq's `Check (bits B1 B0 B1 B0) : nybble` asks for the type of an
 -- expression and checks it. Stitchwort has no command inside a file for
 -- that; in `stitchwort repl`, `:t Bits B1 B0 B1 B0` prints
--- `Sf.Lf.Basics.TuplePlayground.Nybble`, and in the editor the type shows
--- on hover.
+-- `Bits B1 B0 B1 B0: Sf.Lf.Basics.TuplePlayground.Nybble`, and in the
+-- editor the type shows on hover.
 
 -- The `Bits` constructor wraps its contents. Pattern matching unwraps
 -- them, as in `allZero`, which tests whether every bit of a nybble is

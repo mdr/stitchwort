@@ -308,8 +308,25 @@ fn evaluate_in(session: &mut Session, imports: &str, expr: &str) -> String {
             return failure_in(session, &errors);
         }
     }
-    if expr.trim().is_empty() {
+    let expr = expr.trim();
+    if expr.is_empty() {
         return r#"{"ok":true,"value":"","type":""}"#.to_string();
+    }
+    // `:t expr` is the CLI REPL's type-only form: the expression as typed,
+    // then its type, which the Evaluate tab shows as `expr: type`.
+    if let Some(type_only) = expr.strip_prefix(":t ") {
+        let type_only = type_only.trim();
+        let result = session
+            .parse_expression("expression", type_only)
+            .and_then(|e| session.elab.infer_expr(&e));
+        return match result {
+            Ok((_, ty)) => format!(
+                r#"{{"ok":true,"value":{},"type":{}}}"#,
+                json_string(type_only),
+                json_string(&session.elab.show(&ty))
+            ),
+            Err(error) => failure_in(session, &[error]),
+        };
     }
     let result = session
         .parse_expression("expression", expr)
@@ -901,6 +918,16 @@ mod tests {
         assert_eq!(
             evaluate("", "import Std (List)", ""),
             r#"{"ok":true,"value":"","type":""}"#
+        );
+    }
+
+    /// `:t expr` is the CLI REPL's type-only form: the expression as typed,
+    /// then its type, without evaluating it.
+    #[test]
+    fn type_only_says_the_expression_and_its_type() {
+        assert_eq!(
+            evaluate("", "", ":t  1 + 2  "),
+            r#"{"ok":true,"value":"1 + 2","type":"Nat"}"#
         );
     }
 
