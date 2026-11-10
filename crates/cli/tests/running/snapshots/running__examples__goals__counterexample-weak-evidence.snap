@@ -1,5 +1,5 @@
 ---
-source: crates/cli/tests/examples.rs
+source: crates/cli/tests/running/examples.rs
 expression: output
 ---
 [GOAL] Goal: in `shortIncreasing`
@@ -8,6 +8,6 @@ expression: output
  14 │ theorem shortIncreasing (xs: List Nat) (h: increasing xs = True): xs.length < 6 := ?
     │                                                                                    ┬  
     │                                                                                    ╰── xs: List Nat
-    │                                                                                        h: increasing xs = True
+    │                                                                                        h: increasing xs
     │                                                                                        ⊢ xs.length ≤ 5
 ────╯

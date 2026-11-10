@@ -4201,8 +4201,12 @@ pub fn check(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
     cx.g().machine.budget.nesting(PASS)?;
     let span = expr.span();
     with_span(cx, span, |cx| {
-        let term = check_inner(cx, expr, expected)
-            .map_err(|e| crate::numbers::explain_default(cx, e, &[expected]))?;
+        let term = match whole_test(cx, expr, expected) {
+            Ok(Some(term)) => Ok(term),
+            Ok(None) => check_inner(cx, expr, expected),
+            Err(e) => Err(e),
+        }
+        .map_err(|e| crate::numbers::explain_default(cx, e, &[expected]))?;
         cx.e.note_expr(cx, span, expected, true);
         Ok(Term::Loc(span, Rc::new(term)))
     })
@@ -5214,13 +5218,7 @@ pub(crate) fn if_h_condition(cx: &mut Ctx, h: &AstName, cond: &Expr) -> Result<(
         return Ok((binding.inline(cx, &prop)?, binding.wrap(decision)));
     }
     let (prop, sort) = check_type(cx, cond).map_err(|e| {
-        if e.code == "E-NOT-A-TYPE" {
-            e.with_note(format!(
-                "`if {0}: P` needs a proposition `P`; for a `Bool` `c`, write `if c then … else …`, \
-                 or `if {0}: c = True then … else …` to have `{0}: c = True` in the branches",
-                h.text
-            ))
-        } else if is_true_test(cond) {
+        if is_true_test(cond) {
             e.with_note(format!(
                 "in `if {}: …` the guard is already a proposition: write `if {}: a < b then` \
                  for `a < b`, without `= True`",
@@ -5554,6 +5552,11 @@ fn fallback_named(cx: &mut Ctx, expr: &Expr, expected: &Value, named: &Value) ->
     name_unknown(cx, &found, named)?;
     if let Some(term) = decide_to_bool(cx, expr, &term, &found, expected)? {
         return Ok(term);
+    }
+    if matches!(force(&cx.g(), expected.clone())?, Value::Sort(Sort::Prop))
+        && let Some(prop) = bool_as_prop(cx, expr, &term, &found)?
+    {
+        return Ok(prop);
     }
     if !matches!(expr, Expr::App(..)) {
         return compare(cx, term, &found, expected);
@@ -7048,15 +7051,131 @@ pub(crate) fn check_type_defaulting(
                 Err(not_a_type(cx, span, &ty))
             }
         }
-        other => Err(not_a_type(cx, span, &other)),
+        other => match bool_as_prop(cx, expr, &term, &other)? {
+            Some(prop) => Ok((prop, Sort::Prop)),
+            None => Err(not_a_type(cx, span, &other)),
+        },
+    }
+}
+
+/// `term`, a `Bool` `b` written as `expr` where a proposition is expected,
+/// as the proposition `b = True` (docs/proposals/bool-as-proposition.md
+/// §4): the same term as writing the equation out, so which was written
+/// doesn't show in a hash. `None` if `found` isn't `Bool`, or `expr` is a
+/// side of an `=` ([`Decl::not_coerced`](crate::state::Decl)).
+pub(crate) fn bool_as_prop(
+    cx: &Ctx,
+    expr: &Expr,
+    term: &Term,
+    found: &Value,
+) -> Result<Option<Term>> {
+    let is_bool = matches!(force(&cx.g(), found.clone())?,
+        Value::Data(d, _) if cx.g().env.registry().is_data(Builtin::Bool, d));
+    if !is_bool || is_equation_side(cx, expr) {
+        return Ok(None);
+    }
+    Ok(Some(crate::logic::true_prop(cx, term.clone())?))
+}
+
+fn is_equation_side(cx: &Ctx, expr: &Expr) -> bool {
+    let address = std::ptr::from_ref(expr) as usize;
+    cx.e.decl.not_coerced.borrow().contains(&address)
+}
+
+/// `f`, with a `Bool` not read as a proposition at the expressions whose
+/// addresses are `at` ([`Decl::not_coerced`](crate::state::Decl)).
+pub(crate) fn without_coercion<T>(
+    cx: &mut Ctx,
+    at: Vec<usize>,
+    f: impl FnOnce(&mut Ctx) -> Result<T>,
+) -> Result<T> {
+    if at.is_empty() {
+        return f(cx);
+    }
+    let marked = at.len();
+    cx.e.decl.not_coerced.borrow_mut().extend(at);
+    let result = f(cx);
+    let mut marks = cx.e.decl.not_coerced.borrow_mut();
+    let kept = marks.len() - marked;
+    marks.truncate(kept);
+    result
+}
+
+/// The results of `expr`, an `if`, `let` or `match`, through the ones
+/// nested in them: where an expected proposition is pushed in.
+fn results(expr: &Expr, out: &mut Vec<usize>) {
+    match expr {
+        Expr::Bracketed(inner, _) => results(inner, out),
+        Expr::If {
+            then, otherwise, ..
+        } => {
+            for branch in [then, otherwise] {
+                out.push(std::ptr::from_ref(&**branch) as usize);
+                results(branch, out);
+            }
+        }
+        Expr::Let { body, .. } => {
+            out.push(std::ptr::from_ref(&**body) as usize);
+            results(body, out);
+        }
+        Expr::Match { alts, .. } => {
+            for alt in alts {
+                out.push(std::ptr::from_ref(&alt.body) as usize);
+                results(&alt.body, out);
+            }
+        }
+        _ => {}
+    }
+}
+
+/// `expr`, an `if`, `let` or `match` checked against `Prop`
+/// (`expected`): pushed in, as for any type, unless its results are
+/// `Bool`s; then it is a test, and the proposition is the whole test being
+/// `True`, as where a type is expected ([`check_type`]), not a test per
+/// branch (docs/proposals/bool-operators-in-propositions.md §5, rule 2).
+/// `None` for any other expression.
+fn whole_test(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Option<Term>> {
+    let mut at = Vec::new();
+    results(expr, &mut at);
+    if at.is_empty() || !matches!(force(&cx.g(), expected.clone())?, Value::Sort(Sort::Prop)) {
+        return Ok(None);
+    }
+    let pushed = without_coercion(cx, at, |cx| {
+        crate::undo::attempt(cx, |cx| check_inner(cx, expr, expected))
+    })?;
+    if let Some(term) = pushed {
+        return Ok(Some(term));
+    }
+    let whole = crate::undo::attempt(cx, |cx| {
+        let (term, found) = infer(cx, expr)?;
+        match bool_as_prop(cx, expr, &term, &found)? {
+            Some(prop) => Ok(prop),
+            None => Err(Diagnostic::error("E-TYPE-MISMATCH", "not a test")),
+        }
+    })?;
+    match whole {
+        Some(prop) => Ok(Some(prop)),
+        // Neither: the error is the one pushing in gives.
+        None => check_inner(cx, expr, expected).map(Some),
     }
 }
 
 fn not_a_type(cx: &Ctx, span: Span, ty: &Value) -> Diagnostic {
-    Diagnostic::error("E-NOT-A-TYPE", "expected a type").with_label(
+    let error = Diagnostic::error("E-NOT-A-TYPE", "expected a type").with_label(
         span,
         format!("this has type `{}`, so it isn't a type", cx.show(ty)),
-    )
+    );
+    let is_bool = matches!(force(&cx.g(), ty.clone()),
+        Ok(Value::Data(d, _)) if cx.g().env.registry().is_data(Builtin::Bool, d));
+    if is_bool {
+        // A `Bool` is refused only as a side of an `=` ([`bool_as_prop`]).
+        error.with_note(
+            "a `Bool` stands for the proposition that it is `True`, but not as a side of `=`, \
+             where that would make an equation between propositions: write its `= True` out",
+        )
+    } else {
+        error
+    }
 }
 
 fn infer_j(cx: &mut Ctx, motive: &Expr, base: &Expr, proof: &Expr) -> Result<(Term, Value)> {

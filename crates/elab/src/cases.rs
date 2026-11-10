@@ -533,7 +533,12 @@ fn path(cx: &Ctx) -> Vec<String> {
     (0..cx.level())
         .filter(|&l| is_equation(cx, l) && cx.name_of_level(l).is_some())
         .map(|l| {
-            let shown = cx.show(&cx.types[l]);
+            // A split is shown as the assignment it is, `b = True`, not as
+            // the fact `b` that goals show it as.
+            let shown = match force(&cx.g(), cx.types[l].clone()) {
+                Ok(Value::Eq(_, a, b)) => format!("{} = {}", cx.show_side(&a), cx.show_side(&b)),
+                _ => cx.show(&cx.types[l]),
+            };
             if is_fallback(cx, l) {
                 format!("{shown} (fallback)")
             } else {

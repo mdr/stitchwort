@@ -1,5 +1,5 @@
 ---
-source: crates/cli/tests/examples.rs
+source: crates/cli/tests/running/examples.rs
 expression: output
 ---
 [E-OMEGA] Error: `omega` can't prove `a + b + c + d ≤ 4`
@@ -17,5 +17,5 @@ expression: output
    │ 
    │ Note 4: `omega` splits at most 8 disjunctions among the facts, and more are left (the one from hb); split some by `match` first
    │ 
-   │ Note 5: in the case `(a.decEq 1).toBool = True` of the disjunction from ha
+   │ Note 5: in the case `(a.decEq 1).toBool` of the disjunction from ha
 ───╯

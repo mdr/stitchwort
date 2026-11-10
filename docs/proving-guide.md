@@ -66,6 +66,14 @@ statements. Use the operators, not the prefix forms: `a ∧ b`, `a ∨ b`,
 They are the same terms (same hashes), so proofs that take them apart with
 `Inl`, `Both` and so on don't change.
 
+A `Bool` where a proposition is expected means `b = True`
+(docs/syntax.md, "A `Bool` as a proposition"), so state a test's fact
+bare: `(h: xs.any p)`, `isSmall m ∧ isSmall n`, `¬a`. State facts with
+`∧`; write `(a && b) = True` only for a fact a program hands you and you
+mean to `rewrite` with, since that is the term an `if a && b` or a
+`match h: a && b` gives (D3486). Keep `= True` on a side of `=`, and write
+`b = False` as it is.
+
 A theorem puts every variable before the colon, as a parameter
 (`theorem plusZero (n: Nat): n + 0 = n`), and a proof by cases is a `match`
 on them: `theorem timesOne (n: Nat): n * 1 = n := match n with | Zero => …

@@ -83,7 +83,7 @@ expression: "serde_json::to_string_pretty(&report).unwrap()"
       "direction": "rightToLeft",
       "equation": "eq",
       "file": "std/List/SortLemmas.sw",
-      "goal": "(a.compare c).isLessEq = True",
+      "goal": "(a.compare c).isLessEq",
       "import": "import Std (Nat)",
       "line": 576,
       "name": "Std.Nat.compareLeq",

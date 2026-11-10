@@ -185,6 +185,14 @@ def safeAt (v: Vec Nat 3) (i: Nat): Option Nat :=
   if inRange: i < 3 then Some (v.getLt i) else None
 -- end decide
 
+-- begin bool-statement
+def isSmall (n: Nat): Bool := n <= 3
+
+theorem smallBoth (m: Nat) (n: Nat) (h: isSmall m ∧ isSmall n): isSmall n := h.right
+
+theorem smallSame (n: Nat) (h: isSmall n): isSmall n = True := h
+-- end bool-statement
+
 -- begin dependent
 def pick (v: Vec Nat 3): Nat := v.get 2
 

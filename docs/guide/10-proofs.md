@@ -505,6 +505,19 @@ def safeAt (v: Vec Nat 3) (i: Nat): Option Nat :=
 
 `Vec.getLt` takes `[auto ok: i < n]`, so it can't be called out of range. Inside the `then` branch of `if inRange: i < 3`, the fact is in scope and `auto` finds it.
 
+A `Bool` can be stated too. Where a statement is expected (after the colon, in a parameter's type, in `if h: …`, or beside `∧`, `∨`, `¬`, `→` and `↔`), a `Bool` `b` means `b = True`, the statement that it computes to `True`. `∧`, `∨` and `¬` there are always the statement operators, each `Bool` beside them read on its own: `isSmall m ∧ isSmall n` is `isSmall m = True ∧ isSmall n = True`.
+
+<!-- snippet: proofs.sw#bool-statement -->
+```stitchwort
+def isSmall (n: Nat): Bool := n <= 3
+
+theorem smallBoth (m: Nat) (n: Nat) (h: isSmall m ∧ isSmall n): isSmall n := h.right
+
+theorem smallSame (n: Nat) (h: isSmall n): isSmall n = True := h
+```
+
+The two ways of writing it are the same statement, so `smallSame` is proved by `h` itself, and goals show `isSmall n = True` as `isSmall n`. The one place to write `= True` out is a fact about the `Bool` `a && b` itself, as a program's `if` hands it over: `(a && b) = True`, which goals show that way too, since `a && b` alone would mean `a ∧ b`. A side of `=` is never read as a statement, so `(a == b) = c` still compares `Bool`s.
+
 To use a condition in a proof, `match` on it. `match fits: e with` splits on the value of `e`, replaces `e` with that value in the goal, and names the equation `fits`:
 
 <!-- snippet: proofs.sw#match-equation -->

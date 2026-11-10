@@ -1,5 +1,5 @@
 ---
-source: crates/cli/tests/examples.rs
+source: crates/cli/tests/running/examples.rs
 expression: output
 ---
 [GOAL] Goal: in `compareSame`
@@ -22,6 +22,6 @@ expression: output
    │                                                                                        eq: DecEq a
    │                                                                                        x: a
    │                                                                                        y: a
-   │                                                                                        h: (x == y) = True
+   │                                                                                        h: x == y
    │                                                                                        ⊢ x = y
 ───╯

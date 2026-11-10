@@ -1,5 +1,5 @@
 ---
-source: crates/cli/tests/examples.rs
+source: crates/cli/tests/running/examples.rs
 expression: output
 ---
 [E-TYPE-MISMATCH] Error: type mismatch
@@ -10,7 +10,7 @@ expression: output
     │                 ╰───── the `match`'s scrutinee, still in this type
  12 │     | True => big
     │               ─┬─  
-    │                ╰─── expected `True = False`, but this has type `isBig n = True`
+    │                ╰─── expected `True = False`, but this has type `isBig n`
     │ 
     │ Note 1: a term written out inside a branch (an explicit argument, or a type you wrote) isn't refined by the `match`: only the goal and the variables in scope are, so it still has the scrutinee in it. Write `_` for such an argument, so it is inferred from the hypothesis (docs/syntax.md, "Proving things about a definition with an inner `match`")
     │ 
