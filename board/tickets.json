@@ -26215,14 +26215,14 @@
     {
       "id": 2580,
       "title": "Elaborator memory blow-up: a match on an indexed family whose index is a huge numeral (Vec a 340282366920938463463374607431768211456, 2^128) uses 10.5 GB within seconds; the coverage or unification step probably unfolds the numeral to Succ chains. Elab fuzzer seed 0x2580 case 770; the fuzzer's watchdog doesn't cap memory, so it took 16 GB and killed the run",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Opus",
-      "where": "",
+      "where": ".claude/worktrees/SW-2580",
       "labels": [],
       "epic": "elaborator-kernel",
       "body": "Found 9 Nov in compute mode: task fuzz:elab CASES=20000 SEED=0x2580 ONLY=770 DUMP=1. Repro (mutated examples/reject Vec match): type Vec (a: Type): Nat → Type = | VNil: Vec a 340282366920938463463374607431768211456 | VCons (x: a) (xs: Vec a n): Vec a (Succ n); def head (items: Vec Nat 340282366920938463463374607431768211456): Nat := match items with | VNil => 0. Expected: E-NONEXHAUSTIVE quickly. Also consider a memory cap per fuzz case. Unifier/coverage is core language (D2506), so Opus. 90 min.\n\nSecond repro, same class (elab fuzzer 0x2582 case 16660, mutated examples/reject parser exactly-35-vs-36 example): Parse.exactly 340282366920938463463374607431768211456 Parse.digit compared against Parse.exactly 35: 44 s alone under 6 GB, and with the parallel cases the run passed 16 GB. So the fix should cover numerals unfolded during conversion/unification generally, not only coverage. ONLY=16660 DUMP=1 SEED=0x2582 CASES=20000.\n",
       "created": "2026-11-09",
-      "updated": "2026-11-09",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
