@@ -121,7 +121,7 @@ For sorting, the simplest way is often a comparison function or a key:
 def highestFirst (cards: List Card): List Card := cards.sortBy (a b => Ord.compare b.rank a.rank)
 
 test "sort another way" := highestFirst [twoOfClubs, aceOfSpades] == [aceOfSpades, twoOfClubs]
-test "sort by a key" := [aceOfSpades, twoOfClubs].sortOn (.suit) == [twoOfClubs, aceOfSpades]
+test "sort by a key" := [aceOfSpades, twoOfClubs].sortOn .suit == [twoOfClubs, aceOfSpades]
 ```
 
 ## Replacing what's derived

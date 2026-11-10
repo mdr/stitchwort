@@ -70,7 +70,7 @@ test "inside a list" := "${[freezing]}" == "[0°C]"
 def highestFirst (cards: List Card): List Card := cards.sortBy (a b => Ord.compare b.rank a.rank)
 
 test "sort another way" := highestFirst [twoOfClubs, aceOfSpades] == [aceOfSpades, twoOfClubs]
-test "sort by a key" := [aceOfSpades, twoOfClubs].sortOn (.suit) == [twoOfClubs, aceOfSpades]
+test "sort by a key" := [aceOfSpades, twoOfClubs].sortOn .suit == [twoOfClubs, aceOfSpades]
 -- end custom-order
 
 -- begin add

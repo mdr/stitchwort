@@ -26,7 +26,7 @@ A test can be a block, with `let`s before the condition:
 ```stitchwort
 test "longest word" :=
   let words := "a tea pot of milk".words
-  let longest := words.maxBy (.length)
+  let longest := words.maxBy .length
   longest == Some "milk"
 ```
 

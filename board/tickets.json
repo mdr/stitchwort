@@ -25602,14 +25602,14 @@
     {
       "id": 2533,
       "title": "Guide and tour example-code style rows from SW-1850's review (§1, §3): (.field) sections, List.range, Set.fromList, treeSort, plus examples/accept/records.sw:57-61 and std Array.sw:15-16 docs; checked examples, so run the guide tests",
-      "status": "backlog",
+      "status": "review",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "docs-tutorials",
-      "body": "Left by SW-2532. 60 min.",
+      "body": "Left by SW-2532. 60 min.\n\nLane 10 Nov 2026, 04:00-04:15 UTC. Applied: seven (.field) sections, List.range sites (guide 1:93, 8:207-209, 10:145, tour 18-each), treeSort, tour 14-map-set rows, records.sw sameAge now `rfl` (record eta; hash snapshot records.snap updated). Skipped: Array.sw docs (already fixed upstream). Guide, web and hash_stability checks pass.\n",
       "created": "2026-11-09",
-      "updated": "2026-11-09",
+      "updated": "2026-11-10",
       "commits": []
     },
     {

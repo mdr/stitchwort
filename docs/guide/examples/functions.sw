@@ -76,7 +76,7 @@ def wordLengths (line: Text): List Nat :=
   line
     |> .split ' '
     |> .filter (word => word ≠ "")
-    |> .map (.length)
+    |> .map .length
 
 test "pipes" := wordLengths "the  quick fox" == [3, 5, 3]
 -- end pipes

@@ -1,5 +1,5 @@
 ---
-source: crates/driver/tests/hash_stability.rs
+source: crates/driver/tests/library/hash_stability.rs
 expression: "lines(session, d, f)"
 ---
 data Main.Person 7ef823eb5d0be4f494678189439c6b2e378badc6766e0713f3f7df9bf88f95cd
@@ -74,7 +74,7 @@ Main.Between.%%mk%P%1 809045458476f748df53da08049e0575c4eb969c13b070e3953666c97a
 Main.Between.%instDecidable cbb12be7cc2f30a661a0347da768e315c2768c50f9ce39974452dd9bcab44740
 Main.fiveBetween fbd3d889d29f8e9a4bfbed4b772ad7f390467c294fc9e0ae6e8e4127b9203853
 Main.belowOf 4b5afb664c0ece5d4b71792ebcebfb1e27f5be4d81e7993e6b691ea46a33a16d
-Main.sameAge 9a1b21adbe453f0ac0c4e5ca6ee7c417c0e46cceb236aabb22563ed423b76a01
+Main.sameAge 66d53d2b9784c7c69eaa416e0d953c8f8e9f6a743b1a6cd80c31d04adde6ea2b
 Main.Labelled.tag 5ad9b2686694d23798000ed471a4ff3bbd358443652e6ab9d5250a99f5be7b3e
 Main.Labelled.value f1e63fdfe9893e625ce644e5fa4bab80155f73b3cdf670a73591a9ed9cc3ab13
 Main.Labelled.%%mk%0 4b623aefa9a8a2b9235e9b1307ef90b549612ba0392d0ed0712e2b9202525577

@@ -10,7 +10,7 @@ type Discount =
 -- A `Nat` is a `bigint`, a record a plain object, an `Option` a value or
 -- `undefined`, and a variant an object with a `$tag`.
 export def total (items: List Item) (discount: Discount): Nat :=
-  let full := items.map (.pence) |> .sum
+  let full := items.map .pence |> .sum
   match discount with
     | NoDiscount => full
     | PercentOff percent => full - full * percent / 100
