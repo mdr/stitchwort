@@ -26651,9 +26651,9 @@
     {
       "id": 2609,
       "title": "cases: ignorable_arguments reads every hypothesis back for each implicit argument and dominates CPU in big cases runs; cap its read-backs or cache per context",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Opus",
-      "where": "",
+      "where": ".claude/worktrees/SW-2609",
       "labels": [],
       "epic": "performance",
       "body": "From SW-2606, 10 Nov. Profile first.",
@@ -26692,9 +26692,9 @@
     {
       "id": 2612,
       "title": "Soundness fuzzer: the unmutated calibration check runs under the mutant caps, so a low SOUND_MEM_CAP_MB/SOUND_MUTANT_SECS skips the theorem as 'unmutated check rejected'; run it uncapped or say the cap tripped",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Sonnet",
-      "where": "",
+      "where": ".claude/worktrees/SW-2612",
       "labels": [],
       "epic": "audit-fuzzing",
       "body": "From SW-2610, 10 Nov. Small.",
