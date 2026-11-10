@@ -27197,17 +27197,19 @@
     {
       "id": 2634,
       "title": "[Sonnet] Live project: an edit rewinds every namespace checked after the edited one, not just its dependants; order steps so edited namespaces and their dependants are checked last (a local rename in an AoC day costs 1.7 s trial, mostly unrelated namespaces) [priority: rename in the playground takes ~130 s on an AoC day]",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2634",
       "labels": [
         "editor"
       ],
       "epic": "editor-playground",
-      "body": "From SW-2628 (10 Nov 2026). Also speeds ordinary editing in large projects. Est. 90 min.",
+      "body": "From SW-2628 (10 Nov 2026). Also speeds ordinary editing in large projects. Est. 90 min.\n\n\nProgress (lane, 10 Nov 2026): make_plan now orders the steps an edit drops as: unchanged namespaces that do not use a changed one (replayed from the check cache), then the changed ones and their dependants. Trial on AoC (Year2021+Common subset): day-local rename trial 1.8 s -> 0.85 s, restore 1.6 s -> 0.4 s; Common Range.size trial 5.3 s -> 4.3 s, restore 4.3 -> 4.2 s (most days use Common). Test: rewind::an_edit_checks_again_only_what_uses_it.\n",
       "created": "2026-11-10",
       "updated": "2026-11-10",
-      "commits": []
+      "commits": [
+        "4f4367e1e"
+      ]
     },
     {
       "id": 2635,
