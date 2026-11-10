@@ -52,8 +52,9 @@ pub enum Reason {
     NameClash,
     /// The arms aren't each on a line of their own (`:= match | … | …`).
     InlineArms,
-    /// A `:=` body this module can't rewrite: a typed lambda, or a lambda
-    /// that binds some of the variables around a body that isn't a call.
+    /// A `:=` body this module can't rewrite: a typed lambda, a lambda
+    /// that binds some of the variables around a body that isn't a call,
+    /// or a built-in form that takes no more arguments (`J m b e`).
     BodyShape,
     /// A comment in the statement or before the proof would be lost.
     Comment,
@@ -628,7 +629,7 @@ impl<'a> Source<'a> {
                     .collect();
                 let rest = columns - bound;
                 let tactic = body.tactic();
-                if rest > 0 && !tactic && !body.applicable() {
+                if rest > 0 && !tactic && (!body.applicable() || body.fixed_arity()) {
                     return Err(Reason::BodyShape);
                 }
                 for _ in 0..rest {
@@ -1177,6 +1178,17 @@ impl<'a> Body<'a> {
         )
     }
 
+    /// Whether the body (after its lambda) is a call of a built-in form
+    /// that takes exactly the arguments it has (`J m b e`, `Quot.lift f
+    /// h q`), so can't be given more, even in brackets.
+    fn fixed_arity(&self) -> bool {
+        let mut head = self.inner();
+        while let Some(Expr::App(f, _)) = head {
+            head = Some(f.as_ref());
+        }
+        matches!(head, Some(Expr::Var(n)) if n.text == "J" || n.text.starts_with("Quot."))
+    }
+
     /// Whether the body (after its lambda) is a tactic that introduces the
     /// goal's binders itself.
     fn tactic(&self) -> bool {
@@ -1285,6 +1297,12 @@ theorem t (x d: Nat) (ls: List Nat) (h: x < d): ls.length = ls.length :=
             "theorem addZ (n: Nat): n + 0 = n := Nat.addZero n\n"
         );
         assert!(outcome.converted[0].eta);
+        // `J` takes exactly three arguments, so can't be given more.
+        let outcome = one(
+            "theorem t (e: a = b): ∀ (q: P b) => Q a b q := J (x y => ∀ (q: P x) => Q a x q) base e\n",
+        );
+        assert!(outcome.converted.is_empty());
+        assert!(matches!(outcome.skipped[0].reason, Reason::BodyShape));
         // A premise the proof doesn't name gets a fresh name.
         assert_eq!(
             converted("theorem t: ∀ (n: Nat) => 0 < n → 1 ≤ n := Nat.foo\n"),

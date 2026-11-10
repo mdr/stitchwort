@@ -30,7 +30,7 @@ use stitchwort_syntax::{Diagnostic, Severity, Span};
 use super::{
     LiveProject, NamespaceOutcome, OutlineItem, Place, Progress, lsp_range, syntactic_outline,
 };
-use crate::declhash::DeclHash;
+use crate::declhash::{DeclHash, owner};
 use crate::nav::Range;
 use crate::project::dependents;
 use crate::rewind::Cancelled;
@@ -162,6 +162,13 @@ pub struct ChangedMeaning {
     /// any: then this one may have changed only because of it. Those
     /// without one are where to look first.
     pub uses: Option<String>,
+    /// The theorems whose proof changed (and whose statement held) that
+    /// this declaration mentions, directly or through other such
+    /// theorems, and that mention no other: a definition's hash covers the
+    /// proofs it mentions, so one of these may be why it moved. By full
+    /// name; a name generated from a theorem (`t.%match1`) is part of its
+    /// proof.
+    pub reproved: Vec<String>,
 }
 
 /// What the edits would break.
@@ -629,6 +636,8 @@ impl LiveProject {
         let mut changed: Vec<(String, String, Option<Id>)> = Vec::new();
         // Declarations whose hash moved and the promise allows.
         let mut accepted: Vec<String> = Vec::new();
+        // Every accepted declaration, generated ones included.
+        let mut accepted_ids: BTreeMap<Id, String> = BTreeMap::new();
         for step in &self.steps {
             let (Some(was), Some(is)) = (before.get(&step.name), now.get(&step.name)) else {
                 continue;
@@ -655,6 +664,7 @@ impl LiveProject {
                         changed.push((step.name.clone(), decl.name.clone(), Some(*id)));
                     } else if exp.1.hash != decl.hash {
                         accepted.push(decl.name.clone());
+                        accepted_ids.insert(*id, decl.name.clone());
                     }
                 }
                 continue;
@@ -669,6 +679,7 @@ impl LiveProject {
                     Some(was) if promise.keeps(was, decl) => {
                         if was.hash != decl.hash {
                             accepted.push(decl.name.clone());
+                            accepted_ids.insert(*id, decl.name.clone());
                         }
                     }
                     _ => changed.push((step.name.clone(), decl.name.clone(), Some(*id))),
@@ -692,6 +703,15 @@ impl LiveProject {
         };
         let accepted_names: BTreeSet<String> = accepted.iter().cloned().collect();
         let owners: BTreeSet<String> = names.union(&accepted_names).cloned().collect();
+        // A changed declaration generated from a re-proved theorem is part
+        // of its proof: the cones below go through it.
+        for (_, name, id) in &changed {
+            if let Some(id) = id
+                && generated(name, &accepted_names)
+            {
+                accepted_ids.insert(*id, name.clone());
+            }
+        }
         changed.retain(|(_, name, _)| !generated(name, &owners));
         accepted.retain(|name| !generated(name, &accepted_names));
         let ids: BTreeMap<Id, &str> = changed
@@ -699,32 +719,63 @@ impl LiveProject {
             .filter_map(|(_, name, id)| Some(((*id)?, name.as_str())))
             .collect();
         let g = &self.session.elab.ev();
+        let mentioned = |i: usize| -> BTreeSet<Id> {
+            let def = &g.env.defs()[i];
+            let mut terms = vec![def.ty()];
+            terms.extend(def.body().map(|b| b.as_ref()));
+            terms
+                .into_iter()
+                .flat_map(|t| {
+                    let defs = constants(t).into_iter().map(|d| Id::Def(d.0));
+                    let datas = data_types(t).into_iter().map(Id::Data);
+                    defs.chain(datas).collect::<Vec<_>>()
+                })
+                .collect()
+        };
         let mut where_declared = self.declared_at();
         let mut out: Vec<ChangedMeaning> = changed
             .iter()
             .map(|(namespace, name, id)| {
                 let used: BTreeSet<Id> = match id {
-                    Some(Id::Def(i)) => {
-                        let def = &g.env.defs()[*i];
-                        let mut terms = vec![def.ty()];
-                        terms.extend(def.body().map(|b| b.as_ref()));
-                        terms
-                            .into_iter()
-                            .flat_map(|t| {
-                                let defs = constants(t).into_iter().map(|d| Id::Def(d.0));
-                                let datas = data_types(t).into_iter().map(Id::Data);
-                                defs.chain(datas).collect::<Vec<_>>()
-                            })
-                            .collect()
-                    }
+                    Some(Id::Def(i)) => mentioned(*i),
                     _ => BTreeSet::new(),
                 };
-                let uses = used
+                let cone = reproved_cone(&used, &accepted_ids, &mentioned, &|i| {
+                    let path = g.env.defs()[i].path();
+                    path.len() > name.len()
+                        && path.starts_with(name.as_str())
+                        && path.as_bytes()[name.len()] == b'.'
+                });
+                // What it mentions, and what its cone does: a re-proved
+                // theorem may have been re-proved because of another change.
+                let mut reach = used.clone();
+                for c in &cone {
+                    if let Id::Def(i) = c {
+                        reach.extend(mentioned(*i));
+                    }
+                }
+                let uses = reach
                     .iter()
                     .filter(|u| Some(**u) != *id)
                     .filter_map(|u| ids.get(u))
                     .find(|other| !other.starts_with(&format!("{name}.")))
                     .map(|other| short(namespace, other));
+                // Only where the change starts: a re-proved declaration that
+                // mentions another (not its own lifted `match`, which may
+                // call it back) may have been re-proved because of it.
+                let reproved = cone
+                    .iter()
+                    .filter(|c| match c {
+                        Id::Def(i) => {
+                            let me = owner(g.env.defs()[*i].path());
+                            !mentioned(*i)
+                                .iter()
+                                .any(|u| accepted_ids.get(u).is_some_and(|name| owner(name) != me))
+                        }
+                        Id::Data(_) => true,
+                    })
+                    .filter_map(|c| accepted_ids.get(c).cloned())
+                    .collect();
                 let (path, range) = match where_declared.find(name) {
                     Some((path, range)) => (Some(path), Some(range)),
                     None => (None, None),
@@ -735,6 +786,7 @@ impl LiveProject {
                     path,
                     range,
                     uses,
+                    reproved,
                 }
             })
             .collect();
@@ -753,6 +805,34 @@ impl LiveProject {
         }
         Declarations { by_name }
     }
+}
+
+/// The accepted declarations (re-proved theorems) that `start` mentions,
+/// directly or through other accepted ones, and the definitions generated
+/// from the declaration `start` belongs to that lead to them (`own`: a
+/// recursive definition's `decreasing` proofs).
+fn reproved_cone(
+    start: &BTreeSet<Id>,
+    accepted: &BTreeMap<Id, String>,
+    mentioned: &dyn Fn(usize) -> BTreeSet<Id>,
+    own: &dyn Fn(usize) -> bool,
+) -> BTreeSet<Id> {
+    let follow = |u: &Id| accepted.contains_key(u) || matches!(u, Id::Def(i) if own(*i));
+    let mut seen: BTreeSet<Id> = BTreeSet::new();
+    let mut todo: Vec<Id> = start.iter().filter(|u| follow(u)).copied().collect();
+    while let Some(id) = todo.pop() {
+        if !seen.insert(id) {
+            continue;
+        }
+        if let Id::Def(i) = id {
+            todo.extend(
+                mentioned(i)
+                    .into_iter()
+                    .filter(|u| follow(u) && !seen.contains(u)),
+            );
+        }
+    }
+    seen
 }
 
 struct Declarations {

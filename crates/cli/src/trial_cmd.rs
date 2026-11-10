@@ -48,6 +48,8 @@ pub(super) struct HashArgs<'a> {
     pub names: &'a [String],
     pub std: bool,
     pub json: bool,
+    /// With `json`: list what each definition mentions.
+    pub uses: bool,
     pub project: Option<&'a Path>,
     pub cache: &'a CacheArgs,
 }
@@ -338,13 +340,17 @@ fn read_edits(path: &Path, live: &LiveProject, dir: &Path) -> Result<Vec<Edit>, 
     Ok(edits)
 }
 
-fn decl_json(d: &DeclHash) -> Value {
-    json!({
+fn decl_json(d: &DeclHash, uses: bool) -> Value {
+    let mut v = json!({
         "kind": d.kind.word(),
         "name": d.name,
         "hash": d.hash.map(|h| h.hex()),
         "typeHash": d.type_hash.map(|h| h.hex()),
-    })
+    });
+    if uses && !d.uses.is_empty() {
+        v["uses"] = json!(d.uses);
+    }
+    v
 }
 
 pub(super) fn decl_from_json(v: &Value) -> Option<DeclHash> {
@@ -360,6 +366,15 @@ pub(super) fn decl_from_json(v: &Value) -> Option<DeclHash> {
         name: v.get("name")?.as_str()?.to_string(),
         hash: hash("hash"),
         type_hash: hash("typeHash"),
+        uses: v
+            .get("uses")
+            .and_then(Value::as_array)
+            .map(|a| {
+                a.iter()
+                    .filter_map(|u| u.as_str().map(str::to_string))
+                    .collect()
+            })
+            .unwrap_or_default(),
     })
 }
 
@@ -528,7 +543,7 @@ pub(super) fn hash(args: &HashArgs) -> ExitCode {
     if args.json {
         print_json(json!({
             "version": 1,
-            "declarations": shown.iter().map(|d| decl_json(d)).collect::<Vec<_>>(),
+            "declarations": shown.iter().map(|d| decl_json(d, args.uses)).collect::<Vec<_>>(),
             "missing": missing,
         }));
     } else {

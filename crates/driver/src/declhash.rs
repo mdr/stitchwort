@@ -8,10 +8,12 @@
 //! library is read once per process, so "before" and "after" a library edit
 //! are two processes' lists (`stitchwort trial-edits --std-dir`).
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use stitchwort_core::hash::{ContentHash, data_hash, def_hash, type_hash};
 use stitchwort_core::{DataId, DefId};
+
+use stitchwort_elab::search::{constants, data_types};
 
 use crate::driver::Session;
 use crate::live::Promise;
@@ -45,6 +47,10 @@ pub struct DeclHash {
     pub hash: Option<ContentHash>,
     /// The hash of the statement alone, for a definition.
     pub type_hash: Option<ContentHash>,
+    /// The declarations a definition's type and body mention, by full
+    /// name: [`library_hashes`] lists them, so a comparison can say which
+    /// re-proved theorem a moved definition leads to. Empty otherwise.
+    pub uses: Vec<String>,
 }
 
 impl DeclHash {
@@ -65,6 +71,7 @@ impl DeclHash {
             name: decl.name.clone(),
             hash: decl.hash,
             type_hash,
+            uses: Vec::new(),
         }
     }
 
@@ -109,10 +116,24 @@ pub fn session_hashes(session: &Session, first: (usize, usize)) -> Vec<DeclHash>
             name: g.env.datas()[i].path().to_string(),
             hash: data_hash(g, DataId(i)).ok().flatten(),
             type_hash: None,
+            uses: Vec::new(),
         });
     }
     for i in first.1..g.env.defs().len() {
         let def = &g.env.defs()[i];
+        let mut terms = vec![def.ty()];
+        terms.extend(def.body().map(|b| b.as_ref()));
+        let mut uses = std::collections::BTreeSet::new();
+        for t in terms {
+            for d in constants(t) {
+                if d.0 != i {
+                    uses.insert(g.env.defs()[d.0].path().to_string());
+                }
+            }
+            for d in data_types(t) {
+                uses.insert(g.env.datas()[d].path().to_string());
+            }
+        }
         out.push(DeclHash {
             kind: if def.theorem() {
                 DeclKind::Theorem
@@ -122,6 +143,7 @@ pub fn session_hashes(session: &Session, first: (usize, usize)) -> Vec<DeclHash>
             name: def.path().to_string(),
             hash: def_hash(g, DefId(i)).ok().flatten(),
             type_hash: type_hash(g, DefId(i)).ok().flatten(),
+            uses: uses.into_iter().collect(),
         });
     }
     out
@@ -135,6 +157,15 @@ pub fn library_hashes(stack: usize) -> Result<Vec<DeclHash>, String> {
     Ok(session_hashes(&session, (0, 0)))
 }
 
+/// The declaration a generated one (`t.%match1`, a lifted `match`) is
+/// part of: itself if it isn't generated.
+pub fn owner(name: &str) -> &str {
+    match name.find(".%") {
+        Some(at) => &name[..at],
+        None => name,
+    }
+}
+
 /// A declaration that exists on both sides whose hash isn't what the
 /// promise says.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -143,6 +174,16 @@ pub struct HashChange {
     pub kind: DeclKind,
     pub was: Option<ContentHash>,
     pub now: Option<ContentHash>,
+    /// Another changed declaration this one mentions, if any (when `after`
+    /// lists what each mentions): then it may have changed only because of
+    /// that one.
+    pub uses: Option<String>,
+    /// The theorems whose proof changed (and whose statement held) that it
+    /// mentions, directly or through other such theorems, and that mention
+    /// no other: a definition's hash covers the proofs it mentions, so one
+    /// of these may be why it moved. A name generated from a theorem
+    /// (`t.%match1`) is part of its proof.
+    pub reproved: Vec<String>,
 }
 
 /// What [`compare`] found.
@@ -176,8 +217,7 @@ pub fn compare(before: &[DeclHash], after: &[DeclHash], promise: &Promise) -> Ha
         .map(|d| (promise.renamed(&d.name), d.to_decl()))
         .collect();
     let was_by_name: BTreeMap<&str, &Decl> = was.iter().map(|(n, d)| (n.as_str(), d)).collect();
-    let now_names: std::collections::BTreeSet<&str> =
-        after.iter().map(|d| d.name.as_str()).collect();
+    let now_names: BTreeSet<&str> = after.iter().map(|d| d.name.as_str()).collect();
     let mut diff = HashDiff::default();
     for d in after {
         let now = d.to_decl();
@@ -190,6 +230,8 @@ pub fn compare(before: &[DeclHash], after: &[DeclHash], promise: &Promise) -> Ha
                         kind: d.kind,
                         was: was.hash,
                         now: d.hash,
+                        uses: None,
+                        reproved: Vec::new(),
                     });
                 } else if was.hash != now.hash {
                     diff.proofs_changed.push(d.name.clone());
@@ -216,7 +258,75 @@ pub fn compare(before: &[DeclHash], after: &[DeclHash], promise: &Promise) -> Ha
         .chain(&proof_owners)
         .cloned()
         .collect();
-    diff.changed.retain(|c| !under(&c.name, &changed_owners));
+    // Every re-proved declaration, and every declaration generated from
+    // one (a lifted `match` is part of its theorem's proof, whatever its
+    // own kind), for the cones.
+    let reproved_all: BTreeSet<String> = proof_owners
+        .iter()
+        .cloned()
+        .chain(
+            diff.changed
+                .iter()
+                .filter(|c| under(&c.name, &proof_owners))
+                .map(|c| c.name.clone()),
+        )
+        .collect();
+    let uses_of: BTreeMap<&str, &[String]> = after
+        .iter()
+        .map(|d| (d.name.as_str(), d.uses.as_slice()))
+        .collect();
+    // A theorem's own lifted `match` is part of its proof.
+    diff.changed.retain(|c| !under(&c.name, &all_owners));
+    let changed_names: BTreeSet<String> = diff.changed.iter().map(|c| c.name.clone()).collect();
+    for c in &mut diff.changed {
+        let mentioned = uses_of.get(c.name.as_str()).copied().unwrap_or(&[]);
+        // Through re-proved declarations, and through those generated from
+        // this one (a recursive definition's `decreasing` proofs).
+        let own = std::slice::from_ref(&c.name);
+        let follow = |u: &str| reproved_all.contains(u) || under(u, own);
+        let mut seen: BTreeSet<&str> = BTreeSet::new();
+        let mut todo: Vec<&str> = mentioned
+            .iter()
+            .map(String::as_str)
+            .filter(|u| follow(u))
+            .collect();
+        while let Some(name) = todo.pop() {
+            if !seen.insert(name) {
+                continue;
+            }
+            for u in uses_of.get(name).copied().unwrap_or(&[]) {
+                if follow(u) && !seen.contains(u.as_str()) {
+                    todo.push(u);
+                }
+            }
+        }
+        // Another change it or its cone mentions: a re-proved theorem may
+        // have been re-proved because of it.
+        c.uses = mentioned
+            .iter()
+            .chain(
+                seen.iter()
+                    .flat_map(|n| uses_of.get(n).copied().unwrap_or(&[])),
+            )
+            .find(|u| changed_names.contains(*u) && !under(u, own) && **u != c.name)
+            .cloned();
+        // Only where the change starts: a re-proved declaration that
+        // mentions another (not its own lifted `match`, which may call it
+        // back) may have been re-proved because of it.
+        c.reproved = seen
+            .iter()
+            .filter(|n| reproved_all.contains(**n))
+            .filter(|n| {
+                !uses_of
+                    .get(**n)
+                    .copied()
+                    .unwrap_or(&[])
+                    .iter()
+                    .any(|u| reproved_all.contains(u) && owner(u) != owner(n))
+            })
+            .map(|n| n.to_string())
+            .collect();
+    }
     diff.proofs_changed.retain(|n| !under(n, &proof_owners));
     diff.added.retain(|n| !under(n, &all_owners));
     diff.removed.retain(|n| !under(n, &all_owners));

@@ -511,6 +511,9 @@ enum Command {
         /// Print JSON (version 1)
         #[arg(long)]
         json: bool,
+        /// With --json, list the declarations each definition mentions
+        #[arg(long, requires = "json")]
+        uses: bool,
         /// The project folder, if not the folder you're in or the nearest
         /// one above it
         #[arg(long)]
@@ -997,12 +1000,14 @@ fn run(cli: Cli) -> ExitCode {
             names,
             std,
             json,
+            uses,
             project,
             cache,
         } => trial_cmd::hash(&trial_cmd::HashArgs {
             names: &names,
             std,
             json,
+            uses,
             project: project.as_deref(),
             cache: &cache,
         }),

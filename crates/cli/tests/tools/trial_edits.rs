@@ -128,8 +128,8 @@ fn trial_edits_reports_by_promise_and_applies_only_when_asked() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
-/// An edited copy of the library: one theorem's proof lifted into a helper.
-/// The original is the library this run reads.
+/// An edited copy of the library: one theorem given another proof of the
+/// same statement. The original is the library this run reads.
 #[test]
 fn trial_edits_compares_an_edited_library_with_the_original() {
     let std = Path::new(env!("CARGO_MANIFEST_DIR")).join("../elab/src/std");
@@ -137,8 +137,8 @@ fn trial_edits_compares_an_edited_library_with_the_original() {
     copy_dir(&std, &copy);
     let file = copy.join("Bool/ToNat.sw");
     let text = std::fs::read_to_string(&file).unwrap();
-    let before = "theorem Bool.toNatOdd: ∀ (b: Bool) => (b.toNat % 2 == 1) = b\n  | False";
-    let after = "theorem Bool.toNatOdd: ∀ (b: Bool) => (b.toNat % 2 == 1) = b := b => match b with\n  | False";
+    let before = "theorem Bool.toNatOdd (b: Bool): (b.toNat % 2 == 1) = b :=\n  match b with\n    | False => rfl";
+    let after = "theorem Bool.toNatOdd (b: Bool): (b.toNat % 2 == 1) = b :=\n  match b with\n    | False => Eq.sym rfl";
     assert!(text.contains(before));
     std::fs::write(&file, text.replace(before, after)).unwrap();
 

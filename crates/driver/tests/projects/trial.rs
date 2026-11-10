@@ -510,7 +510,13 @@ fn listed(kind: DeclKind, name: &str, hash: u8, ty: u8) -> DeclHash {
         name: name.to_string(),
         hash: hash_of(hash),
         type_hash: hash_of(ty),
+        uses: Vec::new(),
     }
+}
+
+fn using(mut decl: DeclHash, uses: &[&str]) -> DeclHash {
+    decl.uses = uses.iter().map(|u| u.to_string()).collect();
+    decl
 }
 
 /// Two libraries' hash lists (what `trial-edits --std-dir` compares), by
@@ -546,4 +552,84 @@ fn two_hash_lists_compare_by_the_promise() {
     moved[0] = listed(DeclKind::Def, "Std.f", 9, 10);
     let diff = declhash::compare(&before, &moved, &same_statement());
     assert!(names(&diff).contains(&"Std.f".to_string()), "{diff:?}");
+}
+
+/// A definition that mentions a proof (a structure's invariant, a
+/// `decreasing` proof) moves when the proof does: the comparison names the
+/// re-proved theorem where the change starts, and what moved only because
+/// of another change says so.
+#[test]
+fn a_moved_definition_names_the_proof_it_mentions() {
+    let before = [
+        listed(DeclKind::Theorem, "Std.base", 1, 10),
+        listed(DeclKind::Theorem, "Std.t", 2, 20),
+        listed(DeclKind::Def, "Std.t.%match1", 3, 30),
+        listed(DeclKind::Theorem, "Std.u", 4, 40),
+        listed(DeclKind::Def, "Std.d", 5, 50),
+        listed(DeclKind::Def, "Std.e", 6, 60),
+    ];
+    // `t` has another proof, with its lifted `match` (which calls `t`
+    // back); `u` is re-proved only because it uses `t`; `d` mentions `u`;
+    // `e` mentions `d`.
+    let after = [
+        listed(DeclKind::Theorem, "Std.base", 1, 10),
+        using(
+            listed(DeclKind::Theorem, "Std.t", 7, 20),
+            &["Std.t.%match1", "Std.base"],
+        ),
+        using(listed(DeclKind::Def, "Std.t.%match1", 8, 31), &["Std.t"]),
+        using(listed(DeclKind::Theorem, "Std.u", 9, 40), &["Std.t"]),
+        using(listed(DeclKind::Def, "Std.d", 10, 50), &["Std.u"]),
+        using(listed(DeclKind::Def, "Std.e", 11, 60), &["Std.d"]),
+    ];
+    let diff = declhash::compare(&before, &after, &same_statement());
+    let moved: Vec<(&str, Option<&str>, Vec<&str>)> = diff
+        .changed
+        .iter()
+        .map(|c| {
+            (
+                c.name.as_str(),
+                c.uses.as_deref(),
+                c.reproved.iter().map(String::as_str).collect(),
+            )
+        })
+        .collect();
+    assert_eq!(
+        moved,
+        [
+            ("Std.d", None, vec!["Std.t", "Std.t.%match1"]),
+            ("Std.e", Some("Std.d"), vec![]),
+        ]
+    );
+    assert_eq!(declhash::owner("Std.t.%match1"), "Std.t");
+}
+
+/// A definition that mentions a proof moves with it: the trial names the
+/// re-proved theorem where the change starts, through the theorems
+/// between.
+#[test]
+fn a_definition_that_mentions_a_reproved_theorem_names_it() {
+    run(|| {
+        let mut live = laws();
+        let add = [line_edit(
+            "def twice",
+            "def proofOf (n: Nat): n + 0 = n := again n",
+        )];
+        let trial = checked(live.trial(&add, &same_meaning()).unwrap());
+        live.keep(trial);
+        let trial = checked(live.trial(&[eta_edit()], &same_statement()).unwrap());
+        let changed: Vec<(&str, Option<&str>, &[String])> = trial
+            .problems
+            .changed
+            .iter()
+            .map(|c| (c.name.as_str(), c.uses.as_deref(), c.reproved.as_slice()))
+            .collect();
+        assert_eq!(
+            changed,
+            [("proofOf", None, &["Laws.addZ".to_string()][..])],
+            "{:?}",
+            trial.problems
+        );
+        live.restore(trial).unwrap();
+    });
 }
