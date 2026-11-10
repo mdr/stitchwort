@@ -67,7 +67,7 @@ use stitchwort_core::{DataId, DefId, Ev, Name, Sort, Term};
 use stitchwort_syntax::{FileId, Span};
 
 use crate::library::{Needs, PendingKind};
-use crate::nav::{LocalUse, Noted};
+use crate::nav::{LocalUse, NamedUse, Noted, ParamBinder};
 use crate::project::SourceUnit;
 use crate::scope::ScopeOp;
 use crate::state::{self, Transaction, UnitId};
@@ -78,7 +78,7 @@ use stitchwort_syntax::{Diagnostic, Label, Severity};
 
 /// The version of the entry format, part of every key: a change to what an
 /// entry holds or how it is written bumps it, and old entries are misses.
-pub const FORMAT: u32 = 29;
+pub const FORMAT: u32 = 30;
 
 const MAGIC: &[u8; 8] = b"SWCHECK\0";
 
@@ -183,7 +183,9 @@ pub(crate) struct Before {
     defs: usize,
     datas: usize,
     tables: state::TablesMark,
-    nav: Option<(usize, usize, usize)>,
+    /// How many locals, binders, outline items, parameters and named
+    /// arguments navigation held.
+    nav: Option<(usize, usize, usize, usize, usize)>,
 }
 
 /// A unit's write-set (docs/proposals/elaborator-state.md §4.8.3): the keys
@@ -390,7 +392,13 @@ impl Elaborator {
             tables: self.tables.mark(self.ids()),
             nav: self.present.nav.as_ref().map(|nav| {
                 let nav = nav.borrow();
-                (nav.locals.len(), nav.binders.len(), nav.outline.len())
+                (
+                    nav.locals.len(),
+                    nav.binders.len(),
+                    nav.outline.len(),
+                    nav.params.len(),
+                    nav.named.len(),
+                )
             }),
         }
     }
@@ -1731,7 +1739,7 @@ impl Elaborator {
         // What code navigation recorded in the unit's files.
         let own = |file: &FileId| unit.own_files.contains(file);
         match (&self.present.nav, before.nav) {
-            (Some(nav), Some((locals, binders, outline))) => {
+            (Some(nav), Some((locals, binders, outline, params, named))) => {
                 let nav = nav.borrow();
                 if !nav.pending.is_empty() || nav.outline.len() != outline {
                     return Err("navigation left something unfinished".to_string());
@@ -1803,6 +1811,37 @@ impl Elaborator {
                         e.span_after(u.span, &mut prev);
                         e.str(&u.name);
                         e.span_after(u.binder, &mut u.span.start.clone());
+                    }
+                }
+                // A library file's parameters and named arguments, which
+                // link the second to the first in the index, are not found
+                // again when it loads from the entry (it isn't walked).
+                let (params, named): (Vec<&ParamBinder>, Vec<&NamedUse>) = if unit.library {
+                    (
+                        (nav.params[params..].iter())
+                            .filter(|p| own(&p.owner.file))
+                            .collect(),
+                        (nav.named[named..].iter())
+                            .filter(|u| own(&u.span.file))
+                            .collect(),
+                    )
+                } else {
+                    (Vec::new(), Vec::new())
+                };
+                e.w.usize(params.len());
+                let mut prev = 0;
+                for p in &params {
+                    e.span_after(p.owner, &mut prev);
+                    e.str(&p.name);
+                    e.span_after(p.binder, &mut p.owner.start.clone());
+                }
+                e.w.usize(named.len());
+                let mut prev = 0;
+                for u in &named {
+                    e.span_after(u.span, &mut prev);
+                    e.str(&u.name);
+                    for at in u.head {
+                        e.span_after(at, &mut u.span.start.clone());
                     }
                 }
                 // A namespace's are found again by walking its syntax.
@@ -2079,6 +2118,8 @@ struct NavEntry {
     local_types: Vec<(Span, String)>,
     locals: Vec<(Span, String, Span)>,
     binders: Vec<(Span, String, Span)>,
+    params: Vec<ParamBinder>,
+    named: Vec<NamedUse>,
     fields: Vec<(Span, String, Span)>,
 }
 
@@ -3085,6 +3126,8 @@ impl Elaborator {
             for (span, name, binder) in entry.binders {
                 nav.binders.push(LocalUse { span, name, binder });
             }
+            nav.params.extend(entry.params);
+            nav.named.extend(entry.named);
             for (at, name, span) in entry.fields {
                 nav.field_spans.insert((at, name), span);
             }
@@ -3165,6 +3208,8 @@ fn read_tables(b: &mut Body, files: usize, early: usize) -> Read<Rest> {
             local_types: Vec::new(),
             locals: Vec::new(),
             binders: Vec::new(),
+            params: Vec::new(),
+            named: Vec::new(),
             fields: Vec::new(),
         };
         let n = b.count()?;
@@ -3207,6 +3252,29 @@ fn read_tables(b: &mut Body, files: usize, early: usize) -> Read<Rest> {
                 let binder = b.span_after(&mut span.start.clone())?;
                 uses.push((span, name, binder));
             }
+        }
+        let n = b.count()?;
+        let mut prev = 0;
+        for _ in 0..n {
+            let owner = b.span_after(&mut prev)?;
+            let name = b.string()?;
+            let binder = b.span_after(&mut owner.start.clone())?;
+            nav.params.push(ParamBinder {
+                owner,
+                name,
+                binder,
+            });
+        }
+        let n = b.count()?;
+        let mut prev = 0;
+        for _ in 0..n {
+            let span = b.span_after(&mut prev)?;
+            let name = b.string()?;
+            let head = [
+                b.span_after(&mut span.start.clone())?,
+                b.span_after(&mut span.start.clone())?,
+            ];
+            nav.named.push(NamedUse { head, name, span });
         }
         let n = b.count()?;
         let mut prev = 0;
