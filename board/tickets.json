@@ -27259,9 +27259,9 @@
     {
       "id": 2638,
       "title": "[Sonnet] fuzz_elab oracle 4 (budget): case 2799, seed 0x25a5 (rng state 0x3e8ba53b9a08146c, from examples/accept/reads-nested-binds.sw) still running after 60 s; reduce, find where it spins, make it finish or fail with a budget error",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-2638",
       "labels": [
         "bug",
         "fuzz"
@@ -27275,9 +27275,9 @@
     {
       "id": 2639,
       "title": "[Sonnet] fuzz_elab oracle 6 (memory): case 4273, seed 0x25a5 (rng state 0x3c6aa7216ce9712c, from examples/accept/succ-of-folded-call-solves.sw): a check without cache held over 2 GB and was cancelled; reduce, find the growth (compare SW-2467's Fin runaway and SW-2418/D3464's size limit)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-2638",
       "labels": [
         "bug",
         "fuzz"
