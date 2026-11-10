@@ -26779,9 +26779,9 @@
     {
       "id": 2617,
       "title": "search_at tests: one Session per goal costs ~0.7 GB, so SW-2614 capped search_at_on_aoc_goals at 3 workers (~1.7x slower); share one project session across goals and restore the pool; also measure search_at_on_real_2021_goals (29 goals, uncapped par_map)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Sonnet",
-      "where": "",
+      "where": ".claude/worktrees/SW-2617",
       "labels": [],
       "epic": "test-infra",
       "body": "From SW-2614, 10 Nov.",
@@ -26792,9 +26792,9 @@
     {
       "id": 2618,
       "title": "stitchwort fmt fails on web/guide/*.sw with 'No such file' (SW-2533); and the rest of SW-1850's review rows: tour pages 09, 10, 12, 15, 23, 31, 32, 34, 35 (§1/§3) and syntax.md §2 (List.range at 920-921, 1103)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Sonnet",
-      "where": "",
+      "where": ".claude/worktrees/SW-2618",
       "labels": [],
       "epic": "docs-tutorials",
       "body": "From SW-2533, 10 Nov. docs/reviews/SW-1850-guide-accuracy.md.",
