@@ -1,5 +1,5 @@
 {
-  "next": 2609,
+  "next": 2612,
   "tickets": [
     {
       "id": 47,
@@ -26606,15 +26606,17 @@
     {
       "id": 2606,
       "title": "Soundness-fuzzer closer mutant of Aoc.Year2021.Day16.Proofs.operatorStepComplete still peaks at 2.5 GB after SW-2576 (uncapped read-backs in ignorable_arguments, value_for_message_in, substitute_ins; 64 cases contexts with large hypotheses); also Day13 withinCosts statement+closer mutant hits the 2 GB cap (target/soundness-fuzz/2575-2058-3-expensive.sw); and cases' other full read-backs (take_apart, quote_folded on atoms)",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-2606",
       "labels": [],
       "epic": "audit-fuzzing",
-      "body": "From SW-2576, 10 Nov. cases is a tactic: Opus (D2506). Repro: SOUND_ONLY=operatorStepComplete task fuzz:soundness …",
+      "body": "From SW-2576, 10 Nov. cases is a tactic: Opus (D2506). Repro: SOUND_ONLY=operatorStepComplete task fuzz:soundness …\n\nDone 10 Nov: a split whose goal and hypotheses read back over 1M nodes (SPLIT_READ_BACK_NODES) stops with E-CASES-BUDGET 'made a case too large to split'. The memory was matching::generalised_now copying a 3.9M-node goal, not the suspects. Day16 mutant 40 s / 2.9 GB -> 12 s / 433 MB; Day13 withinCosts mutant 90+ s / 3.1+ GB -> 6.4 s / 395 MB. New example cases-split-too-large. Orchestrator's call: the wording and the 1M limit kept (listed for Matt). Model result: Opus, worked, 40 min (est. 90).",
       "created": "2026-11-10",
       "updated": "2026-11-10",
-      "commits": []
+      "commits": [
+        "6cc6233a4"
+      ]
     },
     {
       "id": 2607,
@@ -26638,6 +26640,45 @@
       "labels": [],
       "epic": "test-infra",
       "body": "From SW-2579, 10 Nov. Tiny.",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
+    },
+    {
+      "id": 2609,
+      "title": "cases: ignorable_arguments reads every hypothesis back for each implicit argument and dominates CPU in big cases runs; cap its read-backs or cache per context",
+      "status": "backlog",
+      "agent": "Opus",
+      "where": "",
+      "labels": [],
+      "epic": "performance",
+      "body": "From SW-2606, 10 Nov. Profile first.",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
+    },
+    {
+      "id": 2610,
+      "title": "Soundness fuzzer: SOUND_ONLY never produces statement+closer mutants, so a saved one can't be regenerated; and saved -expensive.sw files weren't found on disk (2575-2058-3). Check where they're written; have SOUND_ONLY cover every mutation kind",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "audit-fuzzing",
+      "body": "From SW-2606, 10 Nov.",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
+    },
+    {
+      "id": 2611,
+      "title": "task test:lane AREA=examples NAME=cases ran 0 tests in a worktree (direct EXAMPLES=cases cargo nextest run --profile lane-examples ran 12)",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
+      "body": "From SW-2606, 10 Nov. Tiny.",
       "created": "2026-11-10",
       "updated": "2026-11-10",
       "commits": []
