@@ -26601,12 +26601,12 @@
     {
       "id": 2606,
       "title": "Soundness-fuzzer closer mutant of Aoc.Year2021.Day16.Proofs.operatorStepComplete still peaks at 2.5 GB after SW-2576 (uncapped read-backs in ignorable_arguments, value_for_message_in, substitute_ins; 64 cases contexts with large hypotheses); also Day13 withinCosts statement+closer mutant hits the 2 GB cap (target/soundness-fuzz/2575-2058-3-expensive.sw); and cases' other full read-backs (take_apart, quote_folded on atoms)",
-      "status": "backlog",
+      "status": "review",
       "agent": "Opus",
       "where": "",
       "labels": [],
       "epic": "audit-fuzzing",
-      "body": "From SW-2576, 10 Nov. cases is a tactic: Opus (D2506). Repro: SOUND_ONLY=operatorStepComplete task fuzz:soundness …",
+      "body": "From SW-2576, 10 Nov. cases is a tactic: Opus (D2506). Repro: SOUND_ONLY=operatorStepComplete task fuzz:soundness …\n\nLane notes (Opus, 10 Nov, branch lane/SW-2606, 6cc6233a4). Expected 90 min, took about 40.\n- Measured with mi_process_info spans: the memory is one split's generalisation (matching::generalised_now), which read back a 3.9M-node goal and a hypothesis repeating it, after 13 cases: 370 MB -> 2.8 GB. The suspects (ignorable_arguments, Finder::new, take_apart) cost time, not the peak.\n- Fix: before a split, cases reads back what the split would (goal + non-stale hypotheses, unfolded) up to 1M nodes in all; over that, E-CASES-BUDGET \"made a case too large to split\".\n- Day16 closer mutant: 40 s / 2.9 GB -> 12 s / 430 MB (unmutated namespace 11 s / 305 MB). Day13 withinCosts + cases: over 90 s and 3 GB (still running) -> 6 s / 395 MB; all 18 statement mutations + cases under 385 MB.\n- Regression: examples/reject/cases-split-too-large.sw (accepted before, 10 s / 3 GB).\n",
       "created": "2026-11-10",
       "updated": "2026-11-10",
       "commits": []
