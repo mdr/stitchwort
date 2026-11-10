@@ -3,15 +3,17 @@ source: crates/cli/tests/running/examples.rs
 expression: output
 ---
 [GOAL] Goal: in `shown`
-    ╭─[ goals/forall-printed.sw:19:73 ]
+    ╭─[ goals/forall-printed.sw:22:73 ]
     │
- 19 │     : (xs ys: List Nat) -> (xs ++ ys).length = xs.length + ys.length := ?
+ 22 │     : (xs ys: List Nat) -> (xs ++ ys).length = xs.length + ys.length := ?
     │                                                                         ┬  
     │                                                                         ╰── p: Nat → Prop
-    │                                                                             all: (n: Nat) → p n
+    │                                                                             all: ∀ (n: Nat) => p n
     │                                                                             comm: ∀ (a b: Nat) => a + b = b + a
     │                                                                             positive: ∀ (n: Nat) => 0 < n → Positive n
     │                                                                             hidden: ∀ [n: Nat] => n = n
+    │                                                                             q: Nat → Type
+    │                                                                             bad: (n: Nat) → q n
     │                                                                             f: (n: Nat) → Vec Nat n
     │                                                                             ⊢ ∀ (xs ys: List Nat) => (xs ++ ys).length = xs.length + ys.length
 ────╯
