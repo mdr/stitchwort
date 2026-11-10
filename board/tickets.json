@@ -25784,15 +25784,17 @@
     {
       "id": 2547,
       "title": "Hardened-runtime guard: a hardened binary without allow-jit should run on the machine instead of dying with SIGTRAP",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2547",
       "labels": [],
       "epic": "effects-native",
-      "body": "From SW-2535. 45 min.",
+      "body": "From SW-2535. 45 min.\n\nDone 10 Nov: map_jit::jit_unavailable (csops status + entitlements; fails open) checked in compile_audited. Explicit --native errors per D3449 (no fallback); test --native already falls back. Demonstrated SIGTRAP (exit 133) before, clean error after, allow-jit restores native. SW-2545 should reuse jit_unavailable. Model result: Sonnet, worked, 10 min (est. 45).",
       "created": "2026-11-09",
       "updated": "2026-11-10",
-      "commits": []
+      "commits": [
+        "0621931d4"
+      ]
     },
     {
       "id": 2548,
