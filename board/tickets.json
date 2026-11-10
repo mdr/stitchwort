@@ -1,5 +1,5 @@
 {
-  "next": 2677,
+  "next": 2679,
   "tickets": [
     {
       "id": 47,
@@ -27735,7 +27735,7 @@
     {
       "id": 2670,
       "title": "docs/core.md: add Proj, its typing rule and record eta; natives pinned by content hash, not type only (core.md:307); update the status line (D3210; SW-2659 F4, F5, F7)",
-      "status": "review",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-2670",
       "labels": [
@@ -27830,6 +27830,34 @@
       "labels": [],
       "epic": "test-infra",
       "body": "From SW-2665 (10 Nov 2026). Est. 45 min.",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
+    },
+    {
+      "id": 2677,
+      "title": "Float.sw:20-23 comment points to FLOAT_DATA_HASH and float.rs; the pins live in crates/core/src/pins.rs",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "From SW-2670 (10 Nov 2026). One-line fix.",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
+    },
+    {
+      "id": 2678,
+      "title": "docs/core.md Typing: no rules for Quot, Chars or NumCase's inferred type; check other sections, add if missing (D3210)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "paper"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "From SW-2670 (10 Nov 2026). Est. 45 min.",
       "created": "2026-11-10",
       "updated": "2026-11-10",
       "commits": []
