@@ -1,5 +1,5 @@
 {
-  "next": 2613,
+  "next": 2615,
   "tickets": [
     {
       "id": 47,
@@ -26272,15 +26272,17 @@
     {
       "id": 2583,
       "title": "Full tier can't finish on Overmind (15.5 GB): proofs differential::the_evaluators_agree_on_the_prelude_and_every_example reaches 11+ GB at ~640 s and memguard kills the tier (8 and 9 Nov, ~77 min, 131/2399 tests). Find what holds the memory (per-example state kept? thread count?) and bound it",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2583",
       "labels": [],
       "epic": "test-infra",
-      "body": "Overmind job 49, 9 Nov, 67a51661f; also 8 Nov 99fb2ce82. Report on Overmind target/tier-report/full-20261109-145358.md. Profile first. 60 min.\n\nJob 51: also library fmt_hashes::formatting_changes_no_declaration_hash at 7.73 GB after 68 s, and search_at_aoc at 2 GB. The full tier as a whole doesn't fit 15.5 GB at the default thread count.\n\nSpeedwell 9 Nov 18:40 (M1 Pro, 10 cores, STITCHWORT_TIER=full, each test alone, cap 24 GB): the differential test reached 24.95 GB in 57 s and fmt_hashes 24.91 GB in 55 s, both killed. So the growth scales with cores or is unbounded, not a fixed 11 GB need. Measure memory over time and per thread first.\n\n9 Nov 23:45, Speedwell, main 8056e4c05: task test:lane AREA=cli peaked at 5.23 GB after 3.6 s and was killed at the 3 GB lane cap (10 tests cancelled); the immediate rerun passed 86/86 under the same cap. Three lanes were building at the time. The lane tier's cli area is intermittently over its own cap.",
+      "body": "Overmind job 49, 9 Nov, 67a51661f; also 8 Nov 99fb2ce82. Report on Overmind target/tier-report/full-20261109-145358.md. Profile first. 60 min.\n\nJob 51: also library fmt_hashes::formatting_changes_no_declaration_hash at 7.73 GB after 68 s, and search_at_aoc at 2 GB. The full tier as a whole doesn't fit 15.5 GB at the default thread count.\n\nSpeedwell 9 Nov 18:40 (M1 Pro, 10 cores, STITCHWORT_TIER=full, each test alone, cap 24 GB): the differential test reached 24.95 GB in 57 s and fmt_hashes 24.91 GB in 55 s, both killed. So the growth scales with cores or is unbounded, not a fixed 11 GB need. Measure memory over time and per thread first.\n\n9 Nov 23:45, Speedwell, main 8056e4c05: task test:lane AREA=cli peaked at 5.23 GB after 3.6 s and was killed at the 3 GB lane cap (10 tests cancelled); the immediate rerun passed 86/86 under the same cap. Three lanes were building at the time. The lane tier's cli area is intermittently over its own cap.\n\nDone 10 Nov: cause was two examples, not retention: as-written-unconfirmed.sw (settle's 1000 nested ifs read back without sharing, 8+ GB in one thread) and let-chain-match.sw chain (2^40 nodes); x up to 8 threads. Added to the exclusion lists; STITCHWORT_DIFFERENTIAL_SKIP/_LIMIT slice filters. Slices all <= 2 GB; est. full test peak 2-3 GB (unmeasured whole). Not covered: fmt_hashes 7.7 GB, search_at_aoc 2 GB, cli lane cap (separate). Model result: Sonnet, worked, 55 min (est. 60).",
       "created": "2026-11-09",
       "updated": "2026-11-10",
-      "commits": []
+      "commits": [
+        "e149f2dac"
+      ]
     },
     {
       "id": 2584,
@@ -26707,6 +26709,32 @@
       "commits": [
         "35e24d70c"
       ]
+    },
+    {
+      "id": 2613,
+      "title": "Reference evaluator: normal and conversion have no sharing, so each exponential example needs a hand-kept exclusion in the prelude differential (SW-2583); abort above a size or memory budget and report the definition as too big instead",
+      "status": "backlog",
+      "agent": "Opus",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
+      "body": "From SW-2583, 10 Nov.",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
+    },
+    {
+      "id": 2614,
+      "title": "Full tier memory, the rest: fmt_hashes::formatting_changes_no_declaration_hash at 7.7 GB and search_at_aoc at 2 GB (from SW-2583's ticket); measure each as SW-2583 did and bound it",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
+      "body": "From SW-2583, 10 Nov. SW-2583 fixed the prelude differential only.",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
     }
   ]
 }
