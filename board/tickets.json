@@ -26829,9 +26829,9 @@
     {
       "id": 2620,
       "title": "Prelude differential: print a count of 'too big to compare' skips (and fail above a threshold), so a passing full run shows if the oracle starts comparing less; calibrate the 5M budget on the full corpus, not only the daily sample",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Sonnet",
-      "where": "",
+      "where": ".claude/worktrees/SW-2620",
       "labels": [],
       "epic": "test-infra",
       "body": "From SW-2613, 10 Nov.",
