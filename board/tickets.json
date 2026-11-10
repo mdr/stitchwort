@@ -1,5 +1,5 @@
 {
-  "next": 2596,
+  "next": 2597,
   "tickets": [
     {
       "id": 47,
@@ -26293,15 +26293,17 @@
     {
       "id": 2586,
       "title": "LSP go-to-definition on the second name of a rewrite list goes to `rfl`: in `| [item, ..rest] => rewrite totalAppend others rest, Nat.addAssoc`, navigating on `addAssoc` opens rfl's definition (found by Matt in VS Code)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2586",
       "labels": [],
       "epic": "editor-playground",
-      "body": "Matt, 9 Nov 2026. Code:\ntheorem totalAppend (others: List Item): (items: List Item) → totalOf (items ++ others) = totalOf items + totalOf others\n  | [] => rfl\n  | [item, ..rest] => rewrite totalAppend others rest, Nat.addAssoc\nGuess: the nav index gives the second rewrite step's span to a term the rewrite generates (a closing rfl) instead of the Nat.addAssoc reference; check nav for every step of a rewrite list, and rewrite ... in. Add a navigation test. 40 min.",
+      "body": "Matt, 9 Nov 2026. Code:\ntheorem totalAppend (others: List Item): (items: List Item) → totalOf (items ++ others) = totalOf items + totalOf others\n  | [] => rfl\n  | [item, ..rest] => rewrite totalAppend others rest, Nat.addAssoc\nGuess: the nav index gives the second rewrite step's span to a term the rewrite generates (a closing rfl) instead of the Nat.addAssoc reference; check nav for every step of a rewrite list, and rewrite ... in. Add a navigation test. 40 min.\n\nDone 10 Nov: the rfl that closes a rewrite without in was checked at the last rule's span and replaced its nav reference; now checked under unnoted_in. Test navigation::every_name_in_a_rewrite_list (12 occurrences). Model result: Sonnet, worked, 21 min (est. 40). Follow-up: audit elab for other synthesised expressions that reuse user spans with notes on (filed).",
       "created": "2026-11-09",
-      "updated": "2026-11-09",
-      "commits": []
+      "updated": "2026-11-10",
+      "commits": [
+        "2aa687a81"
+      ]
     },
     {
       "id": 2587,
@@ -26431,6 +26433,19 @@
       "body": "From SW-2588's report, 10 Nov. Its token-level script (orchestrator scratchpad sweep.py) is a starting point. Not urgent.",
       "created": "2026-11-09",
       "updated": "2026-11-09",
+      "commits": []
+    },
+    {
+      "id": 2596,
+      "title": "Audit elab for compiler-written expressions given a user's span and elaborated with navigation notes on (SW-2586's rfl was one): each should be under unnoted_in, or its notes would replace the user's reference",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "editor-playground",
+      "body": "From SW-2586's report, 10 Nov. Small.",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
       "commits": []
     }
   ]
