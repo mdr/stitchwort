@@ -60,8 +60,10 @@ const WORK: u64 = 2_000_000_000;
 /// Evaluation steps the checker may take for one batch. Steps are the same
 /// on every run and under any machine load, so this, not time, is what stops
 /// a batch the checker can't finish: seed 1794200310 checked for over ten
-/// minutes within `WORK` (SW-2570), until SW-2572. The slowest default batch (seed 43) takes 129 million, so
-/// this is three times that.
+/// minutes within `WORK` (SW-2570), until SW-2572. The default batches check
+/// in at most about 14 million (seed 43: 13 million; measured with
+/// `total_work`, which includes loading the library, about 10 million), so
+/// this leaves a wide margin.
 const CHECK_WORK: u64 = 400_000_000;
 thread_local! {
     /// A smaller [`CHECK_WORK`], for the regression test of a runaway batch.
@@ -2030,27 +2032,43 @@ fn generated_effect_programs_agree_on_every_backend() {
     }
 }
 
-/// Seed 1794200310's batch (found by Overmind's run of 2000 batches from
-/// 1794200000, SW-2570) is the most work known to check: between 40 and 160
-/// million steps, for `p4b2`'s `%` of numbers near a million with an unknown
-/// in them (it checked for over ten minutes before SW-2572 made `*` on a long
-/// run of `Succ`s linear). With the limit at 10 million it must stop there,
-/// as a skipped batch, not run on. A batch slow by construction would not
-/// depend on the checker staying this slow (SW-2605).
+/// A module whose check takes far more steps than any limit, by
+/// construction: `rfl` must unfold the naive, doubly recursive `fib 40`,
+/// which is about 3 * 10^8 calls, some 50 steps each (measured on `fib 22`),
+/// however fast one step becomes, since the checker has no memo table to
+/// share its two recursive calls.
+const SLOW_BY_CONSTRUCTION: &str = "
+def fib: Nat -> Nat
+  | 0 => 0
+  | 1 => 1
+  | Succ (Succ n) => fib n + fib (Succ n)
+
+theorem fibForty: fib 40 = 102334155 := rfl
+
+def main(): {IO} () := ()
+";
+
+/// A module the checker cannot finish stops at the step limit, as
+/// `Exhausted` (which a batch skips), not by running on. The input is slow by
+/// construction, so the test doesn't depend on how fast the checker is
+/// (SW-2605; it used seed 1794200310, which SW-2572 made 100 times faster).
 #[test]
 fn a_batch_the_checker_cannot_finish_stops_at_the_step_limit() {
     let started = Instant::now();
-    let result = std::thread::Builder::new()
+    let ran = std::thread::Builder::new()
         .stack_size(STACK)
         .spawn(|| {
             CHECK_WORK_OVERRIDE.with(|w| w.set(Some(10_000_000)));
-            batch(1_794_200_310)
+            run_all(&format!("{PRELUDE}{SLOW_BY_CONSTRUCTION}"))
         })
         .unwrap()
         .join()
         .unwrap();
-    assert!(result.failure.is_none(), "{:?}", result.failure);
-    assert_eq!(result.inconclusive, PER_BATCH, "the batch was not skipped");
+    match ran {
+        Ran::Exhausted(why) => assert!(why.contains("E-RESOURCE"), "{why}"),
+        Ran::Rejected(errors) => panic!("did not check: {errors}"),
+        Ran::Runs(_) => panic!("the checker finished"),
+    }
     assert!(
         started.elapsed() < Duration::from_secs(60),
         "took {:?}",
