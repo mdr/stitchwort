@@ -46,6 +46,72 @@ in [../proposals/README.md](../proposals/README.md).
 
 ## 10 Nov 2026
 
+### SW-2578: bench baseline re-recorded after 9 Nov's runtime work (four flagged regressions explained, accepted)
+
+- **Problem.** The daily and full tiers flagged `run-machine-calls`
+  allocations 247 to 441, `run-machine-loop` allocations 205 to 332 and
+  peak heap 4 to 5 kB, `run-machine-aoc-2021-15-part1` peak heap 5.1 to 10.3
+  MB, and `check-number-columns` steps 669,003 to 755,301 (+12.9%), while
+  gains of up to -77% machine instructions weren't in the baseline. No code
+  changed: the baseline was re-recorded (`--update`, release build, 10 Nov;
+  `examples` and `extract-js` inputs changed too, 1498 to 1542 files and 56
+  to 57).
+- **Method** (measured). Bench of the two `run-machine` programs at chosen
+  commits, in a scratch worktree, release build, counts only; the same for
+  `check-number-columns` and `run-machine-aoc-2021-15`. Counts are
+  deterministic, so one run each is exact.
+- **`run-machine-calls`/`-loop` allocations: borrow inference (SW-2565 B1,
+  `e687be8bf`), a per-run constant.** Calls 276 to 441 (+165), loop 214 to
+  332 (+118) at that commit alone; nothing else moved by more than a few
+  allocations. The benchmarks' counted region is `run_main_on`, which builds
+  the image, and B1's `borrow::apply` (inference over every reachable body,
+  a state vector and a pending map per body per pass, then the rewrite and
+  check) now runs in it. The cost grows with the number of bodies in the
+  image, not with iterations: the programs run 200,000 outer calls and 4
+  million tail calls, and a total of 441 or 332 allocations can't scale with
+  either.
+  The few smaller steps before it are also constants: calls 247 to 255
+  (8 Nov, before `3de6c1834`), +19 with SW-2405's sum loops (`96bf4836a`:
+  the program's `1 + down n` becomes a loop, so machine instructions fell
+  12.6% and peak heap 10 to 6 kB in the same step), +2 with SW-2531's inlining
+  (`748dc58a3`). Loop 205 to 212 is also before 9 Nov. Not removed: 100 to
+  170 allocations once per run is under 0.001% of a typical run's
+  allocations (AoC days: 1 to 10 million) and well under a
+  millisecond, and trimming them means restructuring B1's analysis (reusing
+  `forward`'s buffers across passes) for no measurable gain. Accepted.
+- **`run-machine-loop` peak heap 3.8 to 5.2 kB.** The inference's working
+  set (the same constant, at its peak), nothing a run keeps. Accepted.
+- **`run-machine-aoc-2021-15-part1` peak heap 5.1 to 10.3 MB: SW-2396
+  (`3496aee5f`), intended.** `Graph.distances (index := ...)` keeps the
+  costs in arrays: 5.3 to 9.6 MB at that merge, with allocations -44% and
+  machine instructions -71% (54.0 M to 22.5 M). The cell cache (SW-2363) was
+  the suspect and is not the cause: with `cell_cache::ENABLED` false the
+  peak is unchanged at 10.3 MB. Accepted: a dense table is the point of
+  the change.
+- **`check-number-columns` steps 669,003 to 755,301: SW-2481 (merge
+  `11ed0d905`), intended.** Case refinement now rebuilds substituted values
+  keeping sharing and charges the steps for the rebuild. The lane's first
+  version ran 959,829 steps and 1,575,835 allocations here; its review fixes
+  (`e8fbef207`: keep unchanged calls, share spines, charge steps) cut that
+  to 755,301 steps and 1,170,115 allocations (allocations +1.0% against the
+  old baseline). The rest is the charge, which is the budget doing its job
+  (a 256-arm Fin table went 86 s to 12 s, and a 200-arm unknown bound from
+  out of memory to 15 s). `check-number-dependent` rose 6.6% in the same
+  merge, under the threshold. Accepted.
+- **Baseline changes** (new / old): `run-machine-calls` allocations 441 /
+  247, peak 7 kB / 10 kB, instructions 26.8 M / 30.2 M; `run-machine-loop`
+  allocations 332 / 205, peak 5 kB / 4 kB; `run-machine-set` allocations
+  213,575 / 1,719,446 (-87.6%), instructions -12.3%; `aoc-2020-19`
+  allocations -47.8%, instructions -20.6%; `aoc-2021-11` allocations
+  -67.1%, instructions 173.4 M / 567.2 M (-69.4%); `aoc-2024-09`
+  allocations -64.0%, instructions -23.1%; `aoc-2021-15-part1`
+  allocations 1.30 M / 4.38 M (-70.3%), instructions 17.8 M / 78.7 M
+  (-77.3%), peak 10.3 / 5.1 MB; `check-number-columns` steps as above; the
+  new `examples` and `extract-js` fingerprints. Times (`time_ms`) in this
+  file were recorded while other lanes were running tests, so they are
+  rougher than usual (they are only compared by hand); re-record on a quiet
+  machine when timing matters.
+
 ### SW-2572: `*` on a long run of `Succ`s around an unknown is linear, not quadratic
 
 - **Cause** (profiled with macOS `sample` on the effect fuzzer's seed
