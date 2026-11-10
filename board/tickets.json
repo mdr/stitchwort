@@ -16801,17 +16801,19 @@
     {
       "id": 1949,
       "title": "[Sonnet] Code action replaces the wrong text: the goal's range comes from the last check but the edit carries the current document version; take the range from the editor's goal diagnostic, or check a ? is there first",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1949",
       "labels": [
         "lsp"
       ],
       "epic": "editor-playground",
-      "body": "From docs/reviews/code-review-cli-lsp-web-fmt.md (lane B). 60 min.",
+      "body": "From docs/reviews/code-review-cli-lsp-web-fmt.md (lane B). 60 min.\n\nProgress (Sonnet lane): code_action now checks a ? sits at the goal's range in the current text, else offers nothing. Test features::a_code_action_on_a_goal_the_text_has_moved_from_offers_nothing fails without the fix, passes with it.\n",
       "created": "2026-11-07",
       "updated": "2026-11-10",
-      "commits": []
+      "commits": [
+        "01d5a61a5"
+      ]
     },
     {
       "id": 1950,
@@ -17272,17 +17274,19 @@
     {
       "id": 1980,
       "title": "[DeepSeek] VS Code extension: a Restart Server command; watch **/*.sw (client.js:36 watches only stitchwort.yaml, so files changed on disk while closed, after a branch switch or fmt, keep old text until restart)",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1949",
       "labels": [
         "lsp"
       ],
       "epic": "editor-playground",
-      "body": "From docs/proposals/lsp-failure-policy.md. Stage 6 and finding. 30 min.\n\nFrom SW-1948: the recovery pop-ups already say 'Restart Server', so this command is now needed.",
+      "body": "From docs/proposals/lsp-failure-policy.md. Stage 6 and finding. 30 min.\n\nFrom SW-1948: the recovery pop-ups already say 'Restart Server', so this command is now needed.\n\nProgress (Sonnet lane): added stitchwort.restartServer command (package.json, extension.js; the config-change restart uses it); watchedGlob now {**/stitchwort.yaml,**/*.sw}. Server already handles didChangeWatchedFiles for .sw (Edit::Disk); test memory::a_closed_file_changed_on_disk_is_reloaded_when_the_client_reports_it. runs.js watcher already had **/*.sw. The 'Restart Server' pop-ups are vscode-languageclient's own, not in extension code, so not wired to the command.\n",
       "created": "2026-11-07",
       "updated": "2026-11-10",
-      "commits": []
+      "commits": [
+        "01d5a61a5"
+      ]
     },
     {
       "id": 1981,
