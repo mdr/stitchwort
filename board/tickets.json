@@ -27119,9 +27119,9 @@
     {
       "id": 2629,
       "title": "[Sonnet] Rename R3: rename locals, hypotheses, functions and theorems in the server and the playground: prepareRename, rename, F2, multi-file edits, a preview listing R2's problems with Rename anyway, a code action menu in the playground",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-2629",
       "labels": [
         "editor",
         "refactoring"
@@ -27135,7 +27135,7 @@
     {
       "id": 2630,
       "title": "[Sonnet] Rename R3b: stitchwort rename on the CLI for agents: old name (or file:line:col) and new name, applies when the trial passes, --anyway applies regardless, --json lists what's left to fix (new errors, declarations whose meaning changed)",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2630",
       "labels": [
@@ -27143,7 +27143,7 @@
         "refactoring"
       ],
       "epic": "editor-playground",
-      "body": "D3467 (Matt, 10 Nov 2026). Needs R2 (SW-2628). Est. 60 min.\n\nProgress: built driver::rename (plan_rename, LiveProject::rename_plan) and stitchwort rename (exit 0 clean, 1 problems not written, 2 refused, 3 written with problems). Merged R1 and uses name_range/alias/pun. Tests: cli server rename:: (11), driver trial, examples pass. Docs in syntax.md and workflow.md.\n",
+      "body": "D3467 (Matt, 10 Nov 2026). Needs R2 (SW-2628). Est. 60 min.\n\nProgress: built driver::rename (plan_rename, LiveProject::rename_plan) and stitchwort rename (exit 0 clean, 1 problems not written, 2 refused, 3 written with problems). Merged R1 and uses name_range/alias/pun. Tests: cli server rename:: (11), driver trial, examples pass. Docs in syntax.md and workflow.md.\nDone (10 Nov): driver::rename::plan_rename and LiveProject::rename_plan (for R3); exit codes 0 clean, 1 problems (nothing written), 2 refused, 3 written with problems (--anyway; orchestrator's call). Parameter defaults are declarations Owner.param%default: a rename map needs them.\nModel result: Sonnet, worked, ~60 min (est. 120).",
       "created": "2026-11-10",
       "updated": "2026-11-10",
       "commits": []
