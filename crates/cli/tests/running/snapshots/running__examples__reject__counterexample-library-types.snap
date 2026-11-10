@@ -39,9 +39,11 @@ expression: output
     │                                                      ─┬─  
     │                                                       ╰─── `v.head` and `0` aren't equal
     │ 
-    │ Note 1: `rfl` proves `a = b` only when both sides compute to the same value
+    │ Note 1: the left side is stuck on `v`: it can't compute further until `v` is known; a `match` on `v` (or `cases v`) splits it
     │ 
-    │ Note 2: this statement is false; a counterexample:
+    │ Note 2: `rfl` proves `a = b` only when both sides compute to the same value
+    │ 
+    │ Note 3: this statement is false; a counterexample:
     │           v = Vec.fromList [1, 0, 0]
     │         `v.head = 0` is false:
     │           left:  1

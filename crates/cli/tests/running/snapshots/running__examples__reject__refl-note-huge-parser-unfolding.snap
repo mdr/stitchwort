@@ -19,7 +19,9 @@ expression: output
      │     
      │     Note 1: computing both sides gives `choose b (arg => Call (L (%next Parse.isDigit)) (y => Std.Effect.bind (Std.Effect.bind ((match …) "a digit" y) (char => Parse.need … …)) (value => Call (L …) (y => …))))` and `arg => Call (L (%next Parse.isDigit)) (y => Std.Effect.bind (Std.Effect.bind ((match …) "a digit" y) (char => Parse.need … …)) (value => Call (L …) (y => …)))`
      │     
-     │     Note 2: `rfl` proves `a = b` only when both sides compute to the same value
+     │     Note 2: the left side is stuck on `b`: it can't compute further until `b` is known; a `match` on `b` (or `cases b`) splits it
      │     
-     │     Note 3: `(match …)` is a `match` written inside `Parse.satisfy`, marked "this `match`" above; the compiler turned it into a function that source can't name. The same `match` written again is another such function, equal to it only if neither calls the definition it's written in. To state a lemma about it, make it a local `def` in its arm and refer to it as `owner.name`, where `owner` is the definition it is written in (docs/syntax.md, "Proving things about a definition with an inner `match`")
+     │     Note 3: `rfl` proves `a = b` only when both sides compute to the same value
+     │     
+     │     Note 4: `(match …)` is a `match` written inside `Parse.satisfy`, marked "this `match`" above; the compiler turned it into a function that source can't name. The same `match` written again is another such function, equal to it only if neither calls the definition it's written in. To state a lemma about it, make it a local `def` in its arm and refer to it as `owner.name`, where `owner` is the definition it is written in (docs/syntax.md, "Proving things about a definition with an inner `match`")
 ─────╯

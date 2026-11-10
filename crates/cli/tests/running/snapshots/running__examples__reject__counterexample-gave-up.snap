@@ -9,5 +9,7 @@ expression: output
    │                                                                                  ─┬─  
    │                                                                                   ╰─── `xs.length` and `0` aren't equal
    │ 
-   │ Note: `rfl` proves `a = b` only when both sides compute to the same value
+   │ Note 1: the left side is stuck on `xs`: it can't compute further until `xs` is known; a `match` on `xs` (or `cases xs`) splits it
+   │ 
+   │ Note 2: `rfl` proves `a = b` only when both sides compute to the same value
 ───╯

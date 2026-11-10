@@ -11,9 +11,11 @@ expression: output
     │ 
     │ Note 1: computing the right side gives `(size shape + (size shape + size shape)) * size shape`
     │ 
-    │ Note 2: `rfl` proves `a = b` only when both sides compute to the same value
+    │ Note 2: the left side is stuck on `shape`: it can't compute further until `shape` is known; a `match` on `shape` (or `cases shape`) splits it
     │ 
-    │ Note 3: this statement is false; a counterexample:
+    │ Note 3: `rfl` proves `a = b` only when both sides compute to the same value
+    │ 
+    │ Note 4: this statement is false; a counterexample:
     │           shape = Square 1
     │         `area shape = 3 * size shape * size shape` is false:
     │           left:  1

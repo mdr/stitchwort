@@ -7214,6 +7214,40 @@ fn match_equation_note(cx: &Ctx, a: &NoteSide, b: &NoteSide) -> Option<String> {
         })
 }
 
+/// The note for sides of an `E-REFL` where a call is stuck on a variable
+/// the other side isn't stuck on (`choose b p` against `p`): they differ at
+/// the outermost layer, where the first-difference note doesn't look.
+fn stuck_side_note(cx: &Ctx, a: &Value, b: &Value) -> Option<String> {
+    let g = cx.g();
+    let (sa, sb) = (
+        stitchwort_core::value::stuck_on_variable(&g, a),
+        stitchwort_core::value::stuck_on_variable(&g, b),
+    );
+    if sa == sb {
+        return None;
+    }
+    let names = cx.shown_names(false);
+    let name = |level: usize| names.get(level).map(|n| n.to_string());
+    let hint = |v: &str| {
+        format!(
+            "it can't compute further until `{v}` is known; a `match` on `{v}` (or `cases {v}`) splits it"
+        )
+    };
+    match (sa.and_then(name), sb.and_then(name)) {
+        (Some(x), Some(y)) => Some(format!(
+            "the left side is stuck on `{x}` and the right side on `{y}`: neither can compute \
+             further until its variable is known; a `match` (or `cases`) on one splits it"
+        )),
+        (Some(x), None) if sb.is_none() => {
+            Some(format!("the left side is stuck on `{x}`: {}", hint(&x)))
+        }
+        (None, Some(y)) if sa.is_none() => {
+            Some(format!("the right side is stuck on `{y}`: {}", hint(&y)))
+        }
+        _ => None,
+    }
+}
+
 /// The `E-REFL` error for sides `a` and `b` that aren't equal (kept out of
 /// `check`, whose stack frame is on every recursion).
 #[inline(never)]
@@ -7283,6 +7317,9 @@ pub(crate) fn refl_error(cx: &Ctx, a: &Value, b: &Value) -> Diagnostic {
     // Both sides still print the same, as written or computed.
     if alike {
         error = cx.with_alike_updates_note_in(error, &sides);
+    }
+    if let Some(note) = stuck_side_note(cx, a, b) {
+        error = error.with_note(note);
     }
     let error =
         error.with_note("`rfl` proves `a = b` only when both sides compute to the same value");
