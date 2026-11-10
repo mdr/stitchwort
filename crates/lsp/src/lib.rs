@@ -1121,6 +1121,17 @@ impl Main {
                     .find(|r| key(r.start) <= key(p.range.end) && key(p.range.start) <= key(r.end))
             })
         };
+        // The goals are from the last check; the text may have moved on
+        // since (the edit would land in the wrong place), so offer a goal
+        // only where a `?` still sits in the current text.
+        let goal = goal.filter(|r| {
+            let texts = self.texts.borrow();
+            texts.get(&uri).is_some_and(|t| {
+                let start = offset_at(t, r.start);
+                t.get(start..).is_some_and(|rest| rest.starts_with('?'))
+                    && position_at(t, start + 1) == r.end
+            })
+        });
         let (Some(range), Some(target)) = (goal, self.search_target(&uri)) else {
             let fixes = self.import_fixes(&uri, &p.context.diagnostics);
             let split = {

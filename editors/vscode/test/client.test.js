@@ -23,7 +23,7 @@ test('document selector: files and library documents of the language', () => {
     { scheme: 'file', language: 'stitchwort' },
     { scheme: 'stitchwort-std', language: 'stitchwort' },
   ]);
-  assert.strictEqual(cfg.watchedGlob, '**/stitchwort.yaml');
+  assert.strictEqual(cfg.watchedGlob, '{**/stitchwort.yaml,**/*.sw}');
 });
 
 // Starts the fake the way the client starts the real server (command, args).

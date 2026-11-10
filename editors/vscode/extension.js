@@ -67,6 +67,12 @@ function startClient() {
   });
 }
 
+async function restartServer() {
+  warnedMissingCli = false;
+  await stopClient();
+  startClient();
+}
+
 function stopClient() {
   const c = client;
   client = undefined;
@@ -161,6 +167,7 @@ function openGoalPanel() {
 function activate(context) {
   context.subscriptions.push(
     vscode.commands.registerCommand('stitchwort.showGoals', openGoalPanel),
+    vscode.commands.registerCommand('stitchwort.restartServer', restartServer),
     vscode.window.onDidChangeTextEditorSelection(scheduleGoal),
     vscode.window.onDidChangeActiveTextEditor(scheduleGoal),
     // Diagnostics (so goals) arrive a moment after the text changes.
@@ -168,9 +175,7 @@ function activate(context) {
     vscode.workspace.registerTextDocumentContentProvider(cfg.STD_SCHEME, stdContent),
     vscode.workspace.onDidChangeConfiguration(async (e) => {
       if (!e.affectsConfiguration('stitchwort.path')) return;
-      warnedMissingCli = false;
-      await stopClient();
-      startClient();
+      await restartServer();
     }),
     { dispose: stopClient },
   );
