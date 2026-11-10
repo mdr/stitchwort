@@ -1,5 +1,5 @@
 {
-  "next": 2649,
+  "next": 2655,
   "tickets": [
     {
       "id": 47,
@@ -27424,6 +27424,93 @@
       ],
       "epic": "editor-playground",
       "body": "From SW-2640 (10 Nov 2026); needed by the theorem-binders sweep if Matt picks it. Est. 120 min.",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
+    },
+    {
+      "id": 2649,
+      "title": "Tutorial part 2: specs. Write down what a correct checkout is apart from the code, prove the code meets it, try statements first with check --counterexamples (continues part 1's shopping basket; Matt's request)",
+      "status": "done",
+      "agent": "Opus",
+      "where": "",
+      "labels": [
+        "docs"
+      ],
+      "epic": "docs-tutorials",
+      "body": "Matt, 10 Nov 2026: 'Can you write me part 2 of the tutorial?' Filed as SW-2639 in another session; renumbered SW-2649 at merge (2639 taken). Commits and messages before the merge say SW-2639. docs/tutorial/02-specs.sw (344 lines, 9 steps: a till with a running total; spec shouldCharge; counterexamples in the hover and check --counterexamples; failed induction from 0 (E-REWRITE-NOTHING); generalised scanAdds; percent-order counterexample from rounding; ∧ with Both, ∃ with Witness; three breaks). 11 variants checked against the release build; orchestrator reviewed statements and arithmetic. Model result: Opus, worked, 11 min (est. 60).",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": [
+        "8a39291bc"
+      ]
+    },
+    {
+      "id": 2650,
+      "title": "check --counterexamples searches compiler-generated T.ext theorems: --verbose prints gave-up/weak-evidence lines for them and the summary counts them (7 theorems for a file with 5). Skip generated theorems (tutorial part 2, SW-2649)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "bug"
+      ],
+      "epic": "docs-tutorials",
+      "body": "",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
+    },
+    {
+      "id": 2651,
+      "title": "omega on Nat subtraction with a missing hypothesis gives a misleading note ('total - (total - target) and total - target differ only in ... no fact connects them'); repro: drop (cheaper: target ≤ total) from priceMatch in docs/tutorial/02-specs.sw (SW-2649)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "bug"
+      ],
+      "body": "",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
+    },
+    {
+      "id": 2652,
+      "title": "Counterexample search on ∃ statements: search the witness's own goal, so a wrong witness's omega model can be confirmed real instead of 'may not be a real counterexample'; repro: priceMatch witness PenceOff target in docs/tutorial/02-specs.sw (SW-2649)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
+    },
+    {
+      "id": 2653,
+      "title": "Hover and check --counterexamples give different counterexamples for the same statement, and --verbose case counts vary between runs (time budget); repro: mixed coupon order in docs/tutorial/02-specs.sw (SW-2649). Low priority",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "bug"
+      ],
+      "body": "",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
+    },
+    {
+      "id": 2654,
+      "title": "Tutorial part 3, candidates from SW-2649: Percent record with a ≤ 100 proof field; match induct for a 3-for-2 deal; calc chains; projects, audit, axioms; which coupon order favours the customer (ring)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "docs"
+      ],
+      "epic": "docs-tutorials",
+      "body": "",
       "created": "2026-11-10",
       "updated": "2026-11-10",
       "commits": []
