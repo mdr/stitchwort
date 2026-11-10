@@ -1,5 +1,5 @@
 {
-  "next": 2617,
+  "next": 2618,
   "tickets": [
     {
       "id": 47,
@@ -26734,15 +26734,17 @@
     {
       "id": 2614,
       "title": "Full tier memory, the rest: fmt_hashes::formatting_changes_no_declaration_hash at 7.7 GB and search_at_aoc at 2 GB (from SW-2583's ticket); measure each as SW-2583 did and bound it",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2614",
       "labels": [],
       "epic": "test-infra",
-      "body": "From SW-2583, 10 Nov. SW-2583 fixed the prelude differential only.",
+      "body": "From SW-2583, 10 Nov. SW-2583 fixed the prelude differential only.\n\nDone 10 Nov: fmt_hashes: 2468-12893.sw (4.5 GB) and 246f-2415.sw (1.7 GB) in TOO_LARGE_TO_LOAD; slices <= 1.6 GB (was 8.3). search_at_on_aoc_goals: ~0.7 GB session per worker, capped at 3 workers (13 goals 5.66 -> 2.25 GB, 39 -> 66 s). Slice filters FMT_HASHES_SKIP/LIMIT, STITCHWORT_AT_BENCH_SKIP/LIMIT. Not done: search_at_on_real_2021_goals unmeasured; whole tests unrun (Overmind). Model result: Sonnet, worked, 50 min (est. 60).",
       "created": "2026-11-10",
       "updated": "2026-11-10",
-      "commits": []
+      "commits": [
+        "a5c14717f"
+      ]
     },
     {
       "id": 2615,
@@ -26768,6 +26770,19 @@
       "labels": [],
       "epic": "test-infra",
       "body": "Overmind 10 Nov 04:00, log on Overmind: scratchpad/m1/memtest.log. Command: STITCHWORT_TIER=full dev/memguard --cap-gb 12 cargo test --release -p stitchwort-driver --test proofs the_evaluators_agree_on_the_prelude. Overmind's earlier runs never got this far (memguard killed them at ~640 s). SW-2613 (reference evaluator budget) may cover it; wait for that lane first.",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
+    },
+    {
+      "id": 2617,
+      "title": "search_at tests: one Session per goal costs ~0.7 GB, so SW-2614 capped search_at_on_aoc_goals at 3 workers (~1.7x slower); share one project session across goals and restore the pool; also measure search_at_on_real_2021_goals (29 goals, uncapped par_map)",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
+      "body": "From SW-2614, 10 Nov.",
       "created": "2026-11-10",
       "updated": "2026-11-10",
       "commits": []
