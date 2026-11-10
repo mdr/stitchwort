@@ -26792,15 +26792,17 @@
     {
       "id": 2618,
       "title": "stitchwort fmt fails on web/guide/*.sw with 'No such file' (SW-2533); and the rest of SW-1850's review rows: tour pages 09, 10, 12, 15, 23, 31, 32, 34, 35 (§1/§3) and syntax.md §2 (List.range at 920-921, 1103)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2618",
       "labels": [],
       "epic": "docs-tutorials",
-      "body": "From SW-2533, 10 Nov. docs/reviews/SW-1850-guide-accuracy.md.",
+      "body": "From SW-2533, 10 Nov. docs/reviews/SW-1850-guide-accuracy.md.\n\nDone 10 Nov: fmt on web/guide is not a bug (paths are relative to the cwd; documented in workflow.md); tour 09, 10, 12, 15, 23, 31, 32, 34, 35 restyled; syntax.md §2 rows already out of date. Model result: Sonnet, worked, 15 min (est. 50).",
       "created": "2026-11-10",
       "updated": "2026-11-10",
-      "commits": []
+      "commits": [
+        "2bfe3ab72"
+      ]
     },
     {
       "id": 2619,
