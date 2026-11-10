@@ -1,5 +1,5 @@
 {
-  "next": 2683,
+  "next": 2687,
   "tickets": [
     {
       "id": 47,
@@ -27763,7 +27763,7 @@
     {
       "id": 2672,
       "title": "[Fable] Kernel soundness audit, part 2: the code SW-2659 didn't read: value.rs unfolding and forcing (1215-1512, 2489-2812), read-back, identical and shape_hash, inert.rs, sct.rs, nat_add.rs, chars.rs, float.rs arithmetic, positivity, the cache encoder",
-      "status": "review",
+      "status": "done",
       "agent": "Claude",
       "where": ".claude/worktrees/SW-2672",
       "labels": [
@@ -27788,7 +27788,7 @@
         "soundness"
       ],
       "epic": "audit-fuzzing",
-      "body": "Severity 2 (likely hole, unconfirmed), from SW-2659 (docs/reviews/SW-2659-kernel-soundness-audit.md, F1).\n\nThe problem: the salt that should stop 'a cache copied from elsewhere (a committed .stitchwort, a download)' (docs/proposals/check-cache.md §3.1) is read from check/header inside the cache directory (crates/driver/src/check_cache.rs:149-173), so a whole directory that arrives with a project fits. Entries are sealed with plain BLAKE3, no secret. Loaded entries go through admit_trusted_*, which skips type and termination checking. check, test and audit all read the cache by default (crates/cli/src/main.rs:1440-1451, 2690, 2727).\n\nConfirmed: cp -Rp a checked project with its .stitchwort to another folder and check there; the std.* entries keep their modification times, so they were read from the copy, not rebuilt.\nNot confirmed: a forged entry proving False (needs the encoder in crates/elab/src/cache/codec.rs).\n\nFix, one of: (a) seal each entry with a keyed hash whose key is per user and outside any project; (b) audit always checks in full, and check-cache.md says a cache directory is as trusted as the compiler. A trust decision: Matt's.",
+      "body": "Severity 2 (likely hole, unconfirmed), from SW-2659 (docs/reviews/SW-2659-kernel-soundness-audit.md, F1).\n\nThe problem: the salt that should stop 'a cache copied from elsewhere (a committed .stitchwort, a download)' (docs/proposals/check-cache.md §3.1) is read from check/header inside the cache directory (crates/driver/src/check_cache.rs:149-173), so a whole directory that arrives with a project fits. Entries are sealed with plain BLAKE3, no secret. Loaded entries go through admit_trusted_*, which skips type and termination checking. check, test and audit all read the cache by default (crates/cli/src/main.rs:1440-1451, 2690, 2727).\n\nConfirmed: cp -Rp a checked project with its .stitchwort to another folder and check there; the std.* entries keep their modification times, so they were read from the copy, not rebuilt.\nNot confirmed: a forged entry proving False (needs the encoder in crates/elab/src/cache/codec.rs).\n\nFix, one of: (a) seal each entry with a keyed hash whose key is per user and outside any project; (b) audit always checks in full, and check-cache.md says a cache directory is as trusted as the compiler. A trust decision: Matt's.\nAlso (SW-2672 G3, cache/mod.rs:2671-2688): after a replay, the entry's stated hashes are installed without being computed; later entries' dependency checks trust them. Fix: a mode, on in tests and audit, that recomputes and refuses a mismatch. Part of D3475.",
       "created": "2026-11-10",
       "updated": "2026-11-10",
       "commits": []
@@ -27912,6 +27912,66 @@
       "labels": [],
       "epic": "elaborator-kernel",
       "body": "From SW-2660 (10 Nov 2026), docs/proposals/term-sharing.md.",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
+    },
+    {
+      "id": 2683,
+      "title": "Read-back checks a variable is in scope with debug_assert! only (value.rs:3278): make it a real check (SW-2672 G1)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "soundness"
+      ],
+      "epic": "audit-fuzzing",
+      "body": "From SW-2672 (10 Nov 2026), severity 3, not reachable today. Opus (kernel). Est. 45 min.",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
+    },
+    {
+      "id": 2684,
+      "title": "Cache term writer shares nodes by address; a temporary passed in would decode to a different term: tie the writer's lifetime to the terms (codec.rs:237, 272; SW-2672 G2)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "soundness"
+      ],
+      "epic": "audit-fuzzing",
+      "body": "From SW-2672 (10 Nov 2026), severity 3, not reachable today. Est. 60 min.",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
+    },
+    {
+      "id": 2685,
+      "title": "docs/core.md termination rule: add the pinned-field case for rebuilt constructors (termination.rs:641) and inlined single-use lifted matches (termination.rs:250) (SW-2672 G4)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "paper"
+      ],
+      "epic": "elaborator-kernel",
+      "body": "From SW-2672 (10 Nov 2026). Est. 30 min.",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
+    },
+    {
+      "id": 2686,
+      "title": "A way to give the kernel core terms directly (a core-term fuzzer, or a small text format for crates/core), so its checks are tested without the elaborator in front",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "soundness"
+      ],
+      "epic": "audit-fuzzing",
+      "body": "From SW-2672 (10 Nov 2026): both audits' probes went through the elaborator, which refuses most false statements first. Design first (Opus). Est. 2 h design.",
       "created": "2026-11-10",
       "updated": "2026-11-10",
       "commits": []
