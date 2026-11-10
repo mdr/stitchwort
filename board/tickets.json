@@ -1,5 +1,5 @@
 {
-  "next": 2707,
+  "next": 2708,
   "tickets": [
     {
       "id": 47,
@@ -28241,6 +28241,19 @@
       "labels": [],
       "epic": "proof-automation",
       "body": "D3481 (Matt, 10 Nov 2026): no propext; this later. Design first (Opus). Est. 2 h design.",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
+    },
+    {
+      "id": 2707,
+      "title": "[Opus] Port Software Foundations (LF) to Stitchwort, chapters Basics and Induction: a sf/ project, worked proofs ported, exercises stated but unsolved in the repo, friction notes",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-2707",
+      "labels": [],
+      "epic": "docs-tutorials",
+      "body": "Matt, 10 Nov 2026: 'I'm interested in porting Software Foundations to Stitchwort ... start porting a chapter or two and see what might be lacking.' Friction notes are the main output, as for AoC days (D2427). Est. 3 h.",
       "created": "2026-11-10",
       "updated": "2026-11-10",
       "commits": []
