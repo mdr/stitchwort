@@ -27520,9 +27520,9 @@
     {
       "id": 2655,
       "title": "[Opus] Theorem-binders sweep tool (D3470/D3471): rewrite theorems with a leading ∀ to (a+) on the parsed tree: ∀ binders and named premise columns into the header, remaining arms into := match v1, … with, := x y => lambdas trimmed, lemma bodies given their arguments; verified by hashes (SW-2648's trial entry point and std mode, plus a 'same statement' promise for the few proof-term changes)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-2655",
       "labels": [
         "refactoring"
       ],
@@ -27735,9 +27735,9 @@
     {
       "id": 2670,
       "title": "docs/core.md: add Proj, its typing rule and record eta; natives pinned by content hash, not type only (core.md:307); update the status line (D3210; SW-2659 F4, F5, F7)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-2670",
       "labels": [
         "paper"
       ],
@@ -27763,9 +27763,9 @@
     {
       "id": 2672,
       "title": "[Fable] Kernel soundness audit, part 2: the code SW-2659 didn't read: value.rs unfolding and forcing (1215-1512, 2489-2812), read-back, identical and shape_hash, inert.rs, sct.rs, nat_add.rs, chars.rs, float.rs arithmetic, positivity, the cache encoder",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Claude",
+      "where": ".claude/worktrees/SW-2672",
       "labels": [
         "paper",
         "soundness"
@@ -27794,9 +27794,9 @@
     {
       "id": 2674,
       "title": "Kernel: a data type becomes final with an index type that mentions a failed declaration",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-2674",
       "labels": [
         "soundness"
       ],
