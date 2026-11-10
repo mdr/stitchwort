@@ -1,5 +1,5 @@
 {
-  "next": 2647,
+  "next": 2649,
   "tickets": [
     {
       "id": 47,
@@ -27291,7 +27291,7 @@
     {
       "id": 2640,
       "title": "[Opus] Design note: how a theorem's top-level variables are written (parameters before the colon, ∀ after it, or ∀ before the colon as new syntax), the house rule, and the sweep of ~670 mixed statements",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-2640",
       "labels": [
@@ -27396,6 +27396,34 @@
       ],
       "epic": "comparative-speed",
       "body": "Final comparison (Overmind, 10 Nov 2026, commit 292a85385, runners native,cpython,pypy,lean, 64 answers ok, 2018 s; report on Overmind: target/compare/2026-11-10T095143-overmind.md). Geomeans by time, native/CPython and native/Lean (job 40, f9d2d8320, in brackets): core 1.82x, 7.67x [1.90x, 7.99x]; wide 0.31x, 2.60x [0.32x, 2.68x]; all 15 1.01x, 5.35x [1.04x, 5.55x]. Moved >10% since job 40: binary-trees 2.70 -> 2.14 s (-21%), memory-game 2.85 -> 2.42 s (-15%). No instruction table this time (job 40 had one: all 1.01x / 5.70x), probably no --instructions flag. JS backend not timed (SW-2636). Start after the session restart. Est. 40 min.",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
+    },
+    {
+      "id": 2647,
+      "title": "Dev command to print a declaration's content hash (hidden or under dev), so meaning-preserving sweeps and reviews can compare hashes directly instead of through the test cache",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
+      "body": "From SW-2640 (10 Nov 2026). Est. 30 min.",
+      "created": "2026-11-10",
+      "updated": "2026-11-10",
+      "commits": []
+    },
+    {
+      "id": 2648,
+      "title": "[Sonnet] Trial check for arbitrary edits: an entry point beyond rename (stitchwort apply-edits or a driver API) and a std mode (compare every declaration's hash before and after with --std-dir, as fmt_hashes does), for sweeps that must keep hashes",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "refactoring"
+      ],
+      "epic": "editor-playground",
+      "body": "From SW-2640 (10 Nov 2026); needed by the theorem-binders sweep if Matt picks it. Est. 120 min.",
       "created": "2026-11-10",
       "updated": "2026-11-10",
       "commits": []
