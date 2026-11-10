@@ -481,7 +481,8 @@ theorem Text.toNatDigits (chars: List Char):
     Text.toNat (Text.fromList chars) = (if chars ≠ [] ∧ chars.all Parse.isDigit then Some (Parse.digitsValue chars) else None) :=
   match chars with
     | [] => rfl
-    | [char, ..rest] => Text.readDigitsValue 0 [char, ..rest]
+    | [char, ..rest] =>
+      rewrite List.allCong [char, ..rest] Parse.isDigit (char => char.digitValue.isSome) Char.isAsciiDigitDigitValue in Text.readDigitsValue 0 [char, ..rest]
 
 theorem Parse.readsNeed (found: Option a) (message: Text): Parse.Reads (() => Parse.need found message) (read value => read = [] ∧ found = Some value) :=
   match found with
