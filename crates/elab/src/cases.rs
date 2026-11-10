@@ -96,7 +96,7 @@ use stitchwort_core::collections::HashMap;
 use stitchwort_core::registry::Builtin;
 use stitchwort_core::term::Branch;
 use stitchwort_core::value::{
-    Elim, Head, body_seen, conv, eval, force, is_folded, quote, unfold_folded,
+    Elim, Head, body_seen, conv, eval, force, is_folded, quote_at_most, unfold_folded,
 };
 use stitchwort_core::{DataId, Icit, Name, Sort, Term, Value};
 use stitchwort_syntax::ast::{self, Alt, Expr, Pattern};
@@ -1116,6 +1116,9 @@ struct Finder<'a, 'e> {
     /// The split equations' left sides, as types hold them: values known
     /// in this case, never split again.
     known: Vec<Term>,
+    /// The ones too large to read back ([`READ_BACK_NODES`]), compared as
+    /// values.
+    known_big: Vec<Value>,
     /// Values visited, against runaway sharing.
     visits: usize,
     in_goal: bool,
@@ -1149,14 +1152,17 @@ const VISITS: usize = 100_000;
 impl<'a, 'e> Finder<'a, 'e> {
     fn new(cx: &'a Ctx<'e>, run: &'a Run) -> Self {
         let mut known = Vec::new();
+        let mut known_big = Vec::new();
         for level in 0..cx.level() {
             if !is_equation(cx, level) {
                 continue;
             }
-            if let Ok(Value::Eq(_, l, _)) = force(&cx.g(), cx.types[level].clone())
-                && let Ok(t) = quote(&cx.g(), cx.level(), &l)
-            {
-                known.push(t);
+            if let Ok(Value::Eq(_, l, _)) = force(&cx.g(), cx.types[level].clone()) {
+                match read_back(&cx.g(), cx.level(), &l) {
+                    Ok(Some(t)) => known.push(t),
+                    Ok(None) => known_big.push((*l).clone()),
+                    Err(_) => {}
+                }
             }
         }
         Finder {
@@ -1165,6 +1171,7 @@ impl<'a, 'e> Finder<'a, 'e> {
             single: None,
             stuck: None,
             known,
+            known_big,
             visits: 0,
             in_goal: false,
             under_stuck: 0,
@@ -1243,7 +1250,9 @@ impl<'a, 'e> Finder<'a, 'e> {
     fn survey_chain(&mut self, stuck: &Value, first: Option<(Value, DataId)>) -> Result<()> {
         let cx = self.cx;
         let g = cx.g();
-        let start = quote(&g, cx.level(), stuck)?;
+        let Some(start) = read_back(&g, cx.level(), stuck)? else {
+            return Ok(());
+        };
         let survey = self.survey.as_ref().expect("in the survey pass");
         if survey.seen.iter().any(|t| crate::matching::same(t, &start)) {
             return Ok(());
@@ -1281,7 +1290,10 @@ impl<'a, 'e> Finder<'a, 'e> {
             if is_first {
                 continue;
             }
-            seen.push(quote(&g, cx.level(), &raw)?);
+            let Some(term) = read_back(&g, cx.level(), &raw)? else {
+                return Ok(());
+            };
+            seen.push(term);
             end = Some((raw.clone(), d));
             let next = force(&g, raw)?;
             current = if is_folded(&g, &next) {
@@ -1298,7 +1310,7 @@ impl<'a, 'e> Finder<'a, 'e> {
         }
         let end = match end {
             Some((raw, d)) if atom_outside && direct && recursive(cx, d) => {
-                Some((quote(&g, cx.level(), &raw)?, raw, d))
+                read_back(&g, cx.level(), &raw)?.map(|term| (term, raw, d))
             }
             _ => None,
         };
@@ -1327,7 +1339,10 @@ impl<'a, 'e> Finder<'a, 'e> {
                 continue;
             }
             for field in fields.iter() {
-                if crate::matching::same(&quote(&g, cx.level(), field)?, term) {
+                let Some(read) = read_back(&g, cx.level(), field)? else {
+                    continue;
+                };
+                if crate::matching::same(&read, term) {
                     return Ok(true);
                 }
             }
@@ -1563,11 +1578,21 @@ impl<'a, 'e> Finder<'a, 'e> {
     }
 
     fn is_known(&self, value: &Value) -> Result<bool> {
-        if self.known.is_empty() {
+        if self.known.is_empty() && self.known_big.is_empty() {
             return Ok(false);
         }
-        let t = quote(&self.cx.g(), self.cx.level(), value)?;
-        Ok(self.known.iter().any(|k| crate::matching::same(k, &t)))
+        let g = self.cx.g();
+        match read_back(&g, self.cx.level(), value)? {
+            Some(t) => Ok(self.known.iter().any(|k| crate::matching::same(k, &t))),
+            None => {
+                for k in &self.known_big {
+                    if conv(&g, self.cx.level(), k, value)? {
+                        return Ok(true);
+                    }
+                }
+                Ok(false)
+            }
+        }
     }
 
     /// The number of constructors of `d` if it's splittable.
@@ -1582,7 +1607,10 @@ impl<'a, 'e> Finder<'a, 'e> {
 }
 
 fn has_meta(cx: &Ctx, value: &Value) -> Result<bool> {
-    let t = cx.quote(value)?;
+    // Too large to read back: not split, as if it had one.
+    let Some(t) = read_back(&cx.g(), cx.level(), value)? else {
+        return Ok(true);
+    };
     Ok(t.subterms().any(|(t, _)| matches!(t, Term::Meta(_))))
 }
 
@@ -1620,6 +1648,20 @@ fn int_arithmetic(g: &Ev, value: &Value) -> bool {
             &**g.def(*id).path(),
             "Std.Int.subNatNat" | "Std.Int.subNatNatFrom"
         )
+}
+
+/// The most nodes of a value's normal form that the search for an atom
+/// reads back to compare. A scrutinee can unfold to a term that doubles with
+/// every split, because the value shares its parts and a read-back copies
+/// them: a mutated proof of `operatorStepComplete` reached 3.9 million nodes
+/// in 15 cases, read back several times per case, and held 7 GB (SW-2576).
+/// Folding the calls doesn't help; the term is large either way.
+const READ_BACK_NODES: u64 = 100_000;
+
+/// `value` as a term for comparing with others, or `None` if its normal
+/// form has more than [`READ_BACK_NODES`] nodes.
+fn read_back(g: &Ev, level: usize, value: &Value) -> Result<Option<Term>> {
+    Ok(quote_at_most(g, level, value, READ_BACK_NODES)?)
 }
 
 /// Whether `value` (forced) is a call of `Int.decEq`: the decision an `Int`
