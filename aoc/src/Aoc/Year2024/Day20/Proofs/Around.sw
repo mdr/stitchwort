@@ -28,15 +28,16 @@ theorem aroundSound (position: Position) (length: Nat) (other: Position) (member
         rewrite <- same in omega [rowLow, rowHigh, columnLow, columnHigh]))
 
 --| Every position at most `length` away is listed.
-theorem aroundComplete (position: Position) (length: Nat): ∀ (other: Position) => position.distance other ≤ length → other ∈ position.diamond length
-  | { row, column }, near =>
-    let spare := length - Nat.absDiff row position.row
-    rewrite aroundRows position length in
-      List.memFlatMapIntro (aroundRow position length) row ({ row, column }: Position) (List.range (position.row - length) (position.row + length + 1))
-        (((List.memRange row (position.row - length) (position.row + length + 1)).backward (Both (omega [near]) (Nat.leLessSucc row (position.row + length) (omega [near])))))
-        (List.memMap (List.range (position.column - spare) (position.column + spare + 1)) column
-          (((List.memRange column (position.column - spare) (position.column + spare + 1)).backward (Both (omega [near]) (Nat.leLessSucc column (position.column + spare) (omega [near])))))
-          (other => ({ row, column = other }: Position)))
+theorem aroundComplete (position: Position) (length: Nat) (other: Position) (near: position.distance other ≤ length): other ∈ position.diamond length :=
+  match other with
+    | { row, column } =>
+      let spare := length - Nat.absDiff row position.row
+      rewrite aroundRows position length in
+        List.memFlatMapIntro (aroundRow position length) row ({ row, column }: Position) (List.range (position.row - length) (position.row + length + 1))
+          (((List.memRange row (position.row - length) (position.row + length + 1)).backward (Both (omega [near]) (Nat.leLessSucc row (position.row + length) (omega [near])))))
+          (List.memMap (List.range (position.column - spare) (position.column + spare + 1)) column
+            (((List.memRange column (position.column - spare) (position.column + spare + 1)).backward (Both (omega [near]) (Nat.leLessSucc column (position.column + spare) (omega [near])))))
+            (other => ({ row, column = other }: Position)))
 
 --| No position is listed twice.
 theorem distinctAround (position: Position) (length: Nat): List.Distinct (position.diamond length) :=

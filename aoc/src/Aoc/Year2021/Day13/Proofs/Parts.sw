@@ -16,9 +16,10 @@ theorem foldsHold: ∀ (folds: List Fold) (dots: List Point) (marked: Point → 
     foldsHold rest (foldOnce dots fold) (AfterFold fold marked) (foldOnceHolds dots marked fold holds promise.left) promise.right spot
 
 --| ...and lists each dot once, as every fold drops repeats.
-theorem foldsDistinct: ∀ (folds: List Fold) (dots: List Point) => List.Distinct dots → List.Distinct (folds.foldLeft dots foldOnce)
-  | [], dots, distinct => distinct
-  | [fold, ..rest], dots, distinct => foldsDistinct rest (foldOnce dots fold) (List.distinctUnique (dots.map (foldDot fold)))
+theorem foldsDistinct (folds: List Fold) (dots: List Point) (distinct: List.Distinct dots): List.Distinct (folds.foldLeft dots foldOnce) :=
+  match folds with
+    | [] => distinct
+    | [fold, ..rest] => foldsDistinct rest (foldOnce dots fold) (List.distinctUnique (dots.map (foldDot fold)))
 
 --| `foldAll` holds the dots after the folds, each once.
 theorem foldAllHolds (folds: List Fold) (dots: List Point) (promise: Promise folds (Listed dots)): Holds (foldAll folds dots) (AfterFolds folds (Listed dots)) :=

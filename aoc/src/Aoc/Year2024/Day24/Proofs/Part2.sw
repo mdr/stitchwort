@@ -69,17 +69,19 @@ theorem yNamed (bits: Nat) (y: Nat) (wire: Wire) (member: wire ∈ ((List.range 
       match List.memMapElim (k => (Y k, Nat.testBit y k)) pair _ inPairs with
         | Witness k (Both inRange isPair) => rewrite <- isWire, <- isPair in rfl
 
-theorem notXAndY: ∀ (wire: Wire) => wire.xBit.isSome = True → wire.yBit.isSome = True → Void
-  | X bit, isX, isY => Bool.falseNotTrue isY
-  | Y bit, isX, isY => Bool.falseNotTrue isX
-  | Z bit, isX, isY => Bool.falseNotTrue isX
-  | Other name, isX, isY => Bool.falseNotTrue isX
+theorem notXAndY (wire: Wire) (isX: wire.xBit.isSome = True) (isY: wire.yBit.isSome = True): Void :=
+  match wire with
+    | X bit => Bool.falseNotTrue isY
+    | Y bit => Bool.falseNotTrue isX
+    | Z bit => Bool.falseNotTrue isX
+    | Other name => Bool.falseNotTrue isX
 
-theorem notInputOutput: ∀ (wire: Wire) => (wire.xBit.isNone ∧ wire.yBit.isNone) = True → (wire.xBit.isSome ∨ wire.yBit.isSome) = True → Void
-  | X bit, output, input => Bool.falseNotTrue output
-  | Y bit, output, input => Bool.falseNotTrue output
-  | Z bit, output, input => Bool.falseNotTrue input
-  | Other name, output, input => Bool.falseNotTrue input
+theorem notInputOutput (wire: Wire) (output: (wire.xBit.isNone ∧ wire.yBit.isNone) = True) (input: (wire.xBit.isSome ∨ wire.yBit.isSome) = True): Void :=
+  match wire with
+    | X bit => Bool.falseNotTrue output
+    | Y bit => Bool.falseNotTrue output
+    | Z bit => Bool.falseNotTrue input
+    | Other name => Bool.falseNotTrue input
 
 --| Well-wired gates, with the x and y wires of two numbers as the wires
 --| that start with values, make a well-formed device.

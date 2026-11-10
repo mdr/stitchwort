@@ -58,10 +58,11 @@ theorem visitsSelf (xs: Path) (y: Cave): (xs.add y).visits y = xs.visits y + 1 :
 theorem visitsOther (xs: Path) (y: Cave) (cave: Cave) (ne: y ≠ cave): (xs.add y).visits cave = xs.visits cave :=
   rewrite visitsSnoc xs y cave, differ y cave ne in omega
 
-theorem visitsMember (cave: Cave): ∀ (xs: List Cave) => cave ∈ xs → 1 ≤ Path.visits { caves = xs } cave
-  | [], member => Void.exfalso member
-  | [x, ..rest], Inl same => rewrite same, DecEq.refl cave in omega
-  | [x, ..rest], Inr later => omega [visitsMember cave rest later]
+theorem visitsMember (cave: Cave) (xs: List Cave) (member: cave ∈ xs): 1 ≤ Path.visits { caves = xs } cave :=
+  match xs, member with
+    | [], member => Void.exfalso member
+    | [x, ..rest], Inl same => rewrite same, DecEq.refl cave in omega
+    | [x, ..rest], Inr later => omega [visitsMember cave rest later]
 
 --| A path on: what was so far, the next cave, then the rest.
 theorem appendStep (sofar: Path) (y: Cave) (more: List Cave): sofar.extend [y, ..more] = (sofar.add y).extend more :=

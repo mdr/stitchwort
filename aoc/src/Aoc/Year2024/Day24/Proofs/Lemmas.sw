@@ -15,16 +15,17 @@ theorem testBitAbove (n: Nat) (bits: Nat) (bit: Nat) (small: n < Nat.pow 2 bits)
   testBitSmall n bit (omega [Nat.powMono 1 bits bit above])
 
 --| What `Map.lookupLast` finds is one of the pairs.
-theorem lookupLastMem [auto ord: Ord k] (key: k) (value: v): ∀ (pairs: List (k, v)) => Map.lookupLast key pairs = Some value → (key, value) ∈ pairs
-  | [], found => Void.exfalso (Option.noneNotSome value found)
-  | [(other, otherValue), ..rest], found =>
-    match later: Map.lookupLast key rest with
-      | Some laterValue => Inr (lookupLastMem key value rest (Eq.trans later found))
-      | None =>
-        match same: Ord.compare key other with
-          | Equal => Inl (rewrite ord.equal key other same, Option.someInjective found in rfl)
-          | Less => Void.exfalso (Option.noneNotSome value found)
-          | Greater => Void.exfalso (Option.noneNotSome value found)
+theorem lookupLastMem [auto ord: Ord k] (key: k) (value: v) (pairs: List (k, v)) (found: Map.lookupLast key pairs = Some value): (key, value) ∈ pairs :=
+  match pairs with
+    | [] => Void.exfalso (Option.noneNotSome value found)
+    | [(other, otherValue), ..rest] =>
+      match later: Map.lookupLast key rest with
+        | Some laterValue => Inr (lookupLastMem key value rest (Eq.trans later found))
+        | None =>
+          match same: Ord.compare key other with
+            | Equal => Inl (rewrite ord.equal key other same, Option.someInjective found in rfl)
+            | Less => Void.exfalso (Option.noneNotSome value found)
+            | Greater => Void.exfalso (Option.noneNotSome value found)
 
 --| The lowest bit of a number written lowest first, and the rest.
 theorem fromBitsLow (bit: Bool) (rest: List Bool): Nat.testBit ((Bits.fromLowFirst [bit, ..rest]).value) 0 = bit :=

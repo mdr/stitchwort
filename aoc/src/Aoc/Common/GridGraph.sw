@@ -47,21 +47,21 @@ def boxGraph (height: Nat) (width: Nat) (cost: Position → Nat): Graph Position
   stepGraph (boxEnter height width cost) (positions height width) (position c found => boxEnterListed height width cost position c found)
 
 --| A position that can be entered is one of the box's.
-theorem boxEnterListed (height: Nat) (width: Nat) (cost: Position → Nat): ∀ (position: Position) (c: Nat) =>
-    boxEnter height width cost position = Some c → position ∈ positions height width
-  | position, c, found =>
-    match inside: position.within height width with
-      | False => Void.exfalso (Option.noneNotSome c found)
-      | True => memPositionsOfWithin height width position inside
+theorem boxEnterListed (height: Nat) (width: Nat) (cost: Position → Nat) (position: Position) (c: Nat)
+    (found: boxEnter height width cost position = Some c): position ∈ positions height width :=
+  match inside: position.within height width with
+    | False => Void.exfalso (Option.noneNotSome c found)
+    | True => memPositionsOfWithin height width position inside
 
 --| A position within the box is one of its positions.
-theorem memPositionsOfWithin (height: Nat) (width: Nat): ∀ (position: Position) => position.within height width = True → position ∈ positions height width
-  | { row, column }, inside =>
-    let below: row < height := Bool.andLeft inside
-    let before: column < width := Bool.andRight inside
-    List.memFlatMapIntro (row => List.range 0 width |> .map (column => ({ row, column }: Position))) row { row, column } (List.range 0 height)
-      (List.memRangeFromIntro row height 0 (omega) (omega [below]))
-      (List.memMap (List.range 0 width) column (List.memRangeFromIntro column width 0 (omega) (omega [before])) (column => ({ row, column }: Position)))
+theorem memPositionsOfWithin (height: Nat) (width: Nat) (position: Position) (inside: position.within height width = True): position ∈ positions height width :=
+  match position with
+    | { row, column } =>
+      let below: row < height := Bool.andLeft inside
+      let before: column < width := Bool.andRight inside
+      List.memFlatMapIntro (row => List.range 0 width |> .map (column => ({ row, column }: Position))) row { row, column } (List.range 0 height)
+        (List.memRangeFromIntro row height 0 (omega) (omega [below]))
+        (List.memMap (List.range 0 width) column (List.memRangeFromIntro column width 0 (omega) (omega [before])) (column => ({ row, column }: Position)))
 
 --| The graph of rows of cells: entering a position costs `enter` of it and
 --| its cell (`None`: it can't be entered); off the rows, nothing can be

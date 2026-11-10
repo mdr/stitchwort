@@ -29,13 +29,14 @@ theorem fieldOrderValid (notes: Notes) (order: List Rule) (found: notes.fieldOrd
                         (allow ticket (validTicketValid notes ticket nearby valid)))))
     | False => Void.exfalso (Option.noneNotSome order found)
 
-theorem departureProductSpec: ∀ (order: List Rule) (values: List Nat) => ({ values }: Ticket).departureProduct order = Spec.departureProduct order values
-  | [rule, ..order], [value, ..values] =>
-    match departure: rule.field.startsWith "departure" with
-      | True => rewrite List.productCons value _ in Eq.cong (rest => value * rest) (departureProductSpec order values)
-      | False => rewrite Nat.oneMul (Spec.departureProduct order values) in departureProductSpec order values
-  | [], values => rfl
-  | [rule, ..order], [] => rfl
+theorem departureProductSpec (order: List Rule) (values: List Nat): ({ values }: Ticket).departureProduct order = Spec.departureProduct order values :=
+  match order, values with
+    | [rule, ..order], [value, ..values] =>
+      match departure: rule.field.startsWith "departure" with
+        | True => rewrite List.productCons value _ in Eq.cong (rest => value * rest) (departureProductSpec order values)
+        | False => rewrite Nat.oneMul (Spec.departureProduct order values) in departureProductSpec order values
+    | [], values => rfl
+    | [rule, ..order], [] => rfl
 
 --| Part 2: if the program gives an answer, it is the departure product
 --| under an order of the fields the puzzle allows.

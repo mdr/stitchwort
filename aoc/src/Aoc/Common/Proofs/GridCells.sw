@@ -36,13 +36,14 @@ theorem memCells (rows: List (List a)) (position: Position) (x: a): ((position, 
 }
 
 --| The cell at a position after `mapCells` is `f` of the cell there before.
-theorem cellAtMapCells (rows: List (List a)) (f: Position → a → b): ∀ (position: Position) =>
-    cellAt (mapCells rows f) position = Option.map (cellAt rows position) (f position)
-  | { row = r, column = c } =>
-    rewrite List.getMapWithIndex rows (r row => row.mapWithIndex (c cell => f { row = r, column = c } cell)) r in
-      match List.get rows r with
-        | None => rfl
-        | Some row => List.getMapWithIndex row (c cell => f { row = r, column = c } cell) c
+theorem cellAtMapCells (rows: List (List a)) (f: Position → a → b) (position: Position):
+    cellAt (mapCells rows f) position = Option.map (cellAt rows position) (f position) :=
+  match position with
+    | { row = r, column = c } =>
+      rewrite List.getMapWithIndex rows (r row => row.mapWithIndex (c cell => f { row = r, column = c } cell)) r in
+        match List.get rows r with
+          | None => rfl
+          | Some row => List.getMapWithIndex row (c cell => f { row = r, column = c } cell) c
 
 --| `mapCells` of functions equal at every cell.
 theorem mapCellsCong (rows: List (List a)) (g1: Position → a → b) (g2: Position → a → b)
@@ -96,28 +97,30 @@ theorem cellPositionsDistinct (rows: List (List a)): List.Distinct ((cells rows)
       (x y same => pairExt x y (Eq.cong Position.row same) (Eq.cong Position.column same))
 
 --| Pairs with equal parts are equal.
-theorem pairExt: ∀ (x y: (Nat, Nat)) => x.fst = y.fst → x.snd = y.snd → x = y
-  | (a, b), (c, d), first, second => rewrite first, second in rfl
+theorem pairExt (x y: (Nat, Nat)) (first: x.fst = y.fst) (second: x.snd = y.snd): x = y :=
+  match x, y with
+    | (a, b), (c, d) => rewrite first, second in rfl
 
 --| No position is in `gridCells` twice.
 theorem gridPositionsDistinct (rows: List (List a)): List.Distinct (rows.gridCells.map Pair.fst) :=
   rewrite List.flatMapEqConcatMap (p => rowCells p.fst p.snd) (List.withIndex rows) in rowsDistinct 0 rows
 
 --| The positions of the cells of rows s, s + 1, …: no repeats.
-theorem rowsDistinct: ∀ (s: Nat) (rows: List (List a)) =>
-    List.Distinct (List.map (List.concat (List.map (List.withIndexFrom s rows) (p => rowCells p.fst p.snd))) Pair.fst)
-  | s, [] => Trivial
-  | s, [row, ..rest] =>
-    let later := List.concat (List.map (List.withIndexFrom (Succ s) rest) (p => rowCells p.fst p.snd))
-    rewrite List.mapAppend (rowCells s row) later Pair.fst in
-      List.distinctAppend (List.map (rowCells s row) Pair.fst) (List.map later Pair.fst)
-        (rewrite List.mapMap (List.withIndex row) Pair.fst (((c, cell)) => ((s, c), cell)) in List.distinctWithIndexFromPaired s 0 row)
-        (rowsDistinct (Succ s) rest)
-        (List.allOfMem (q => q ∉ List.map later Pair.fst) (List.map (rowCells s row) Pair.fst) (q inRow inLater =>
-          Exists.elim (List.memMapElim Pair.fst q (rowCells s row) inRow) (cell both =>
-            let atRow: s = q.fst := rewrite <- And.right both in Eq.sym (rowCellsRow s row cell (And.left both))
-            let below := rowsAbove (Succ s) rest q inLater
-            omega)))
+theorem rowsDistinct (s: Nat) (rows: List (List a)):
+    List.Distinct (List.map (List.concat (List.map (List.withIndexFrom s rows) (p => rowCells p.fst p.snd))) Pair.fst) :=
+  match rows with
+    | [] => Trivial
+    | [row, ..rest] =>
+      let later := List.concat (List.map (List.withIndexFrom (Succ s) rest) (p => rowCells p.fst p.snd))
+      rewrite List.mapAppend (rowCells s row) later Pair.fst in
+        List.distinctAppend (List.map (rowCells s row) Pair.fst) (List.map later Pair.fst)
+          (rewrite List.mapMap (List.withIndex row) Pair.fst (((c, cell)) => ((s, c), cell)) in List.distinctWithIndexFromPaired s 0 row)
+          (rowsDistinct (Succ s) rest)
+          (List.allOfMem (q => q ∉ List.map later Pair.fst) (List.map (rowCells s row) Pair.fst) (q inRow inLater =>
+            Exists.elim (List.memMapElim Pair.fst q (rowCells s row) inRow) (cell both =>
+              let atRow: s = q.fst := rewrite <- And.right both in Eq.sym (rowCellsRow s row cell (And.left both))
+              let below := rowsAbove (Succ s) rest q inLater
+              omega)))
 
 --| Row r's cells are in row r.
 theorem rowCellsRow (r: Nat) (row: List a) (cell: ((Nat, Nat), a)) (member: cell ∈ rowCells r row): cell.fst.fst = r :=

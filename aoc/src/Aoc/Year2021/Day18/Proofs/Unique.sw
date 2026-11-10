@@ -7,13 +7,14 @@ import Aoc.Year2021.Day18.Spec (IsSum, Leaf, ReducesTo, leaves)
 import Std (Eq, Exists, List, Nat, Option, Void)
 
 --| Reducing ends in one place.
-theorem reducesToUnique (b: List Leaf): ∀ (start a: List Leaf) => ReducesTo start a → ReducesTo start b → a = b
-  | start, a, Reduced done, Reduced _ => rfl
-  | start, a, Reduced done, Steps step _ => Void.exfalso (Option.noneNotSome _ (Eq.trans (Eq.sym done) step))
-  | start, a, Steps step _, Reduced done => Void.exfalso (Option.noneNotSome _ (Eq.trans (Eq.sym done) step))
-  | start, a, Steps [next := next1] step1 rest1, Steps [next := next2] step2 rest2 =>
-    let same := Option.someInjective (Eq.trans (Eq.sym step1) step2)
-    reducesToUnique b next2 a (rewrite same at rest1 in rest1) rest2
+theorem reducesToUnique (b: List Leaf) (start a: List Leaf) (h: ReducesTo start a) (h1: ReducesTo start b): a = b :=
+  match h, h1 with
+    | Reduced done, Reduced _ => rfl
+    | Reduced done, Steps step _ => Void.exfalso (Option.noneNotSome _ (Eq.trans (Eq.sym done) step))
+    | Steps step _, Reduced done => Void.exfalso (Option.noneNotSome _ (Eq.trans (Eq.sym done) step))
+    | Steps [next := next1] step1 rest1, Steps [next := next2] step2 rest2 =>
+      let same := Option.someInjective (Eq.trans (Eq.sym step1) step2)
+      reducesToUnique b next2 a (rewrite same at rest1 in rest1) rest2
 
 def headValue: List Leaf → Nat
   | [] => 0

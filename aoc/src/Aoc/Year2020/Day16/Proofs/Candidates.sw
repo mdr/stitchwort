@@ -10,9 +10,10 @@ def AllAllow (fields: List Rule) (value: Nat): Prop := ∀ (rule: Rule) => rule 
 
 def Within (fields: List Rule) (wider: List Rule): Prop := ∀ (rule: Rule) => rule ∈ fields → rule ∈ wider
 
-theorem all2Within: ∀ (fields: List (List Rule)) => List.All2 Within fields fields
-  | [] => Trivial
-  | [first, ..rest] => Both (rule member => member) (all2Within rest)
+theorem all2Within (fields: List (List Rule)): List.All2 Within fields fields :=
+  match fields with
+    | [] => Trivial
+    | [first, ..rest] => Both (rule member => member) (all2Within rest)
 
 theorem narrowWithin (candidates: List (List Rule)) (values: List Nat) (same: values.length = candidates.length):
     List.All2 Within (List.zipWith candidates values allowing) candidates :=

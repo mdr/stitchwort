@@ -17,21 +17,22 @@ def Follows (next: Cave → List Cave) (unvisited: List Cave) (spare: Bool) (cav
         | Continue left stillSpare => Follows next left stillSpare other rest)
 
 --| Every route listed follows the steps...
-theorem routesFollow (next: Cave → List Cave) (unvisited: List Cave) (spare: Bool) (cave: Cave):
-    ∀ (steps: Nat) (rest: List Cave) => rest ∈ routesFrom next unvisited spare cave steps → Follows next unvisited spare cave rest
-  | Zero, rest, found => Void.exfalso found
-  | Succ more, rest, found =>
-    List.anyElim _ _ (next cave) (List.memConcatMapElim _ rest (next cave) found) (other member inOther =>
-      Exists.elim (List.memMapElim (Cons other) rest _ inOther) (tail both =>
-        let (Both inTail same) := both
-        rewrite <- same in
-          match e: step unvisited spare cave other with
-            | Finish =>
-              match inTail with
-                | Inl empty => rewrite <- empty in Both member rfl
-                | Inr nothing => Void.exfalso nothing
-            | Blocked => Void.exfalso inTail
-            | Continue left stillSpare => Both member (routesFollow next left stillSpare other more tail inTail)))
+theorem routesFollow (next: Cave → List Cave) (unvisited: List Cave) (spare: Bool) (cave: Cave)
+    (steps: Nat) (rest: List Cave) (found: rest ∈ routesFrom next unvisited spare cave steps): Follows next unvisited spare cave rest :=
+  match steps with
+    | Zero => Void.exfalso found
+    | Succ more =>
+      List.anyElim _ _ (next cave) (List.memConcatMapElim _ rest (next cave) found) (other member inOther =>
+        Exists.elim (List.memMapElim (Cons other) rest _ inOther) (tail both =>
+          let (Both inTail same) := both
+          rewrite <- same in
+            match e: step unvisited spare cave other with
+              | Finish =>
+                match inTail with
+                  | Inl empty => rewrite <- empty in Both member rfl
+                  | Inr nothing => Void.exfalso nothing
+              | Blocked => Void.exfalso inTail
+              | Continue left stillSpare => Both member (routesFollow next left stillSpare other more tail inTail)))
 
 --| ...and every route that follows them is listed, if the search goes deep
 --| enough.
@@ -57,15 +58,16 @@ theorem viaDistinct (other: Cave) (after: List (List Cave)) (distinct: List.Dist
 
 --| The search lists each route once, if each cave's neighbours are listed
 --| once.
-theorem routesDistinct (next: Cave → List Cave) (distinctNext: ∀ (cave: Cave) => List.Distinct (next cave)) (unvisited: List Cave) (spare: Bool) (cave: Cave):
-    ∀ (steps: Nat) => List.Distinct (routesFrom next unvisited spare cave steps)
-  | Zero => Trivial
-  | Succ more =>
-    List.distinctConcatMap _ (route => route.headOr Cave.start) (next cave) (distinctNext cave)
-      (other member =>
-        viaDistinct other _
-          (match e: step unvisited spare cave other with
-            | Finish => Both (nothing => nothing) Trivial
-            | Blocked => Trivial
-            | Continue left stillSpare => routesDistinct next distinctNext left stillSpare other more))
-      (other member route found => viaFirst other _ route found)
+theorem routesDistinct (next: Cave → List Cave) (distinctNext: ∀ (cave: Cave) => List.Distinct (next cave)) (unvisited: List Cave) (spare: Bool) (cave: Cave)
+    (steps: Nat): List.Distinct (routesFrom next unvisited spare cave steps) :=
+  match steps with
+    | Zero => Trivial
+    | Succ more =>
+      List.distinctConcatMap _ (route => route.headOr Cave.start) (next cave) (distinctNext cave)
+        (other member =>
+          viaDistinct other _
+            (match e: step unvisited spare cave other with
+              | Finish => Both (nothing => nothing) Trivial
+              | Blocked => Trivial
+              | Continue left stillSpare => routesDistinct next distinctNext left stillSpare other more))
+        (other member route found => viaFirst other _ route found)

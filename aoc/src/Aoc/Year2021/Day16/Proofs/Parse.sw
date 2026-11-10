@@ -37,11 +37,12 @@ theorem readsHexDigit: Parse.Reads hexDigit (read value => ∃ (char: Char) => r
 
 --| Hexadecimal digits read one after another: their bits are the
 --| transmission's.
-theorem digitsBits: ∀ (read: List Char) (values: List Nat) =>
-    Parse.Each (read value => ∃ (char: Char) => read = [char] ∧ hexValue char = Some value) read values → transmissionBits read = Some (bitsOfDigits values)
-  | read, [], none => rewrite none in rfl
-  | read, [value, ..values], Witness first (Witness rest (Both split (Both (Witness char (Both one found)) others))) =>
-    rewrite split, one, hexAgree char value found, digitsBits rest values others in rfl
+theorem digitsBits (read: List Char) (values: List Nat)
+    (none: Parse.Each (read value => ∃ (char: Char) => read = [char] ∧ hexValue char = Some value) read values): transmissionBits read = Some (bitsOfDigits values) :=
+  match values, none with
+    | [], none => rewrite none in rfl
+    | [value, ..values], Witness first (Witness rest (Both split (Both (Witness char (Both one found)) others))) =>
+      rewrite split, one, hexAgree char value found, digitsBits rest values others in rfl
 
 --| The digits `readDigits` reads are the input's, all hexadecimal.
 theorem readDigitsBits (input: Text) (values: List Nat) (read: Fail.toResult (() => readDigits input) = Ok values):

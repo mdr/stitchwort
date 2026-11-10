@@ -32,29 +32,33 @@ def tokenSteps: List Token → List (List Char, Token)
   | [] => []
   | [which, ..more] => [([which.char], which), ..tokenSteps more]
 
-theorem joinTokenSteps: ∀ (tokens: List Token) => Parse.joinReads (tokenSteps tokens) = tokens.map Token.char
-  | [] => rfl
-  | [which, ..more] => rewrite joinTokenSteps more in rfl
+theorem joinTokenSteps (tokens: List Token): Parse.joinReads (tokenSteps tokens) = tokens.map Token.char :=
+  match tokens with
+    | [] => rfl
+    | [which, ..more] => rewrite joinTokenSteps more in rfl
 
-theorem stepTokens: ∀ (tokens: List Token) => Parse.stepValues (tokenSteps tokens) = tokens
-  | [] => rfl
-  | [which, ..more] => rewrite stepTokens more in rfl
+theorem stepTokens (tokens: List Token): Parse.stepValues (tokenSteps tokens) = tokens :=
+  match tokens with
+    | [] => rfl
+    | [which, ..more] => rewrite stepTokens more in rfl
 
-theorem tokenManyRuns: ∀ (tokens: List Token) => Parse.ManyRuns token (tokenSteps tokens) []
-  | [] => declinesTokenEnd
-  | [which, ..more] =>
-    Both (List.consNotNil which.char [])
-      (Both (runsToken (Parse.joinReads (tokenSteps more) ++ []) which) (tokenManyRuns more))
+theorem tokenManyRuns (tokens: List Token): Parse.ManyRuns token (tokenSteps tokens) [] :=
+  match tokens with
+    | [] => declinesTokenEnd
+    | [which, ..more] =>
+      Both (List.consNotNil which.char [])
+        (Both (runsToken (Parse.joinReads (tokenSteps more) ++ []) which) (tokenManyRuns more))
 
 --| `many token` on the characters of some tokens.
 theorem runsLine (chars: List Char) (tokens: List Token) (written: tokens.map Token.char = chars): Parse.Runs (() => Parse.many token) chars [] tokens :=
   let runs := Parse.runsMany token (tokenSteps tokens) [] (tokenManyRuns tokens)
   rewrite joinTokenSteps tokens, stepTokens tokens, written at runs in runs
 
-theorem linesRun: ∀ (lines: List (List Token)) =>
-    List.All2 (chars tokens => Parse.Runs (() => Parse.many token) chars [] tokens) (lines.map (tokens => tokens.map Token.char)) lines
-  | [] => Trivial
-  | [tokens, ..more] => Both (runsLine (tokens.map Token.char) tokens rfl) (linesRun more)
+theorem linesRun (lines: List (List Token)):
+    List.All2 (chars tokens => Parse.Runs (() => Parse.many token) chars [] tokens) (lines.map (tokens => tokens.map Token.char)) lines :=
+  match lines with
+    | [] => Trivial
+    | [tokens, ..more] => Both (runsLine (tokens.map Token.char) tokens rfl) (linesRun more)
 
 --| Input whose lines are the characters of these lists of tokens is read as
 --| them.

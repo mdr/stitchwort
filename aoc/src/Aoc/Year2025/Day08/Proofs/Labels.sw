@@ -31,12 +31,13 @@ def boxesBelow (n: Nat) (pair: (Nat, Nat)): Bool := Nat.leq (Succ pair.fst) n �
 -- Facts about `Joined` -------------------------------------------------------
 
 --| More connections join at least the same boxes.
-theorem joinedMore (xs: List (Nat, Nat)) (ys: List (Nat, Nat)) (more: ∀ (e: (Nat, Nat)) => List.Mem e xs → List.Mem e ys):
-    ∀ (a b: Nat) => Joined xs a b → Joined ys a b
-  | a, a, Itself a => Itself a
-  | a, b, Connected m => Connected (more (a, b) m)
-  | a, b, Backwards j => Backwards (joinedMore xs ys more b a j)
-  | a, c, Chain [b := m] j k => Chain (joinedMore xs ys more a m j) (joinedMore xs ys more m c k)
+theorem joinedMore (xs: List (Nat, Nat)) (ys: List (Nat, Nat)) (more: ∀ (e: (Nat, Nat)) => List.Mem e xs → List.Mem e ys)
+    (a b: Nat) (h: Joined xs a b): Joined ys a b :=
+  match b, h with
+    | a, Itself a => Itself a
+    | b, Connected m => Connected (more (a, b) m)
+    | b, Backwards j => Backwards (joinedMore xs ys more b a j)
+    | c, Chain [b := m] j k => Chain (joinedMore xs ys more a m j) (joinedMore xs ys more m c k)
 
 --| ... in particular, connections added at the end.
 theorem joinedAppend (xs: List (Nat, Nat)) (extra: List (Nat, Nat)) (a: Nat) (b: Nat) (j: Joined xs a b): Joined (xs.append extra) a b :=
@@ -44,12 +45,13 @@ theorem joinedAppend (xs: List (Nat, Nat)) (extra: List (Nat, Nat)) (a: Nat) (b:
 
 --| If the two boxes of every connection have the same label, so do any two
 --| joined boxes: each link of the chain keeps the label.
-theorem sameLabelOfJoined (label: Nat → Nat) (xs: List (Nat, Nat)) (agree: ∀ (a b: Nat) => List.Mem (a, b) xs → label a = label b):
-    ∀ (a b: Nat) => Joined xs a b → label a = label b
-  | a, a, Itself a => rfl
-  | a, b, Connected m => agree a b m
-  | a, b, Backwards j => Eq.sym (sameLabelOfJoined label xs agree b a j)
-  | a, c, Chain [b := m] j k => Eq.trans (sameLabelOfJoined label xs agree a m j) (sameLabelOfJoined label xs agree m c k)
+theorem sameLabelOfJoined (label: Nat → Nat) (xs: List (Nat, Nat)) (agree: ∀ (a b: Nat) => List.Mem (a, b) xs → label a = label b)
+    (a b: Nat) (h: Joined xs a b): label a = label b :=
+  match b, h with
+    | a, Itself a => rfl
+    | b, Connected m => agree a b m
+    | b, Backwards j => Eq.sym (sameLabelOfJoined label xs agree b a j)
+    | c, Chain [b := m] j k => Eq.trans (sameLabelOfJoined label xs agree a m j) (sameLabelOfJoined label xs agree m c k)
 
 --| The connection just added.
 theorem memLast (e: (Nat, Nat)) (xs: List (Nat, Nat)): List.Mem e (xs.append [e]) := List.anyAppendRight (y => y = e) xs [e] (Inl rfl)
@@ -76,15 +78,16 @@ type Labelled (n: Nat) (done: List (Nat, Nat)) (circuits: Circuits): Prop = {
 -- At the start each box is its own label ----------------------------------
 
 --| The map built from (s, s), (s + 1, s + 1), ..., has nothing for a box below s ...
-theorem lookupBelow (b: Nat): ∀ (c s: Nat) => b < s →
-    Map.lookupLast b (List.map (List.rangeFrom c s) (box => (box, box))) = None
-  | Zero, s, h => rfl
-  | Succ c, s, h =>
-    rewrite lookupBelow b c (Succ s) omega in
-      match e: Ord.compare b s with
-        | Less => rfl
-        | Equal => omega [Nat.compareEqual b s e]
-        | Greater => rfl
+theorem lookupBelow (b: Nat) (c s: Nat) (h: b < s):
+    Map.lookupLast b (List.map (List.rangeFrom c s) (box => (box, box))) = None :=
+  match c with
+    | Zero => rfl
+    | Succ c =>
+      rewrite lookupBelow b c (Succ s) omega in
+        match e: Ord.compare b s with
+          | Less => rfl
+          | Equal => omega [Nat.compareEqual b s e]
+          | Greater => rfl
 
 --| ... and each box from s on is its own label.
 theorem lookupRange (b: Nat): ∀ (c s: Nat) => s ≤ b → b < s + c →

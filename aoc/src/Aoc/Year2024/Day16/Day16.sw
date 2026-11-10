@@ -85,14 +85,15 @@ def Maze.endReindeer (maze: Maze): List Reindeer := headings.map (facing => ({ p
 
 def Maze.startReindeer (maze: Maze): Reindeer := { position = maze.start, facing = East }
 
-theorem headingsComplete: ∀ (facing: Heading) => facing ∈ headings := cases
+theorem headingsComplete (facing: Heading): facing ∈ headings := cases
 
 --| A way of standing on an open tile is on the list.
-theorem Maze.holdsListed (maze: Maze): ∀ (reindeer: Reindeer) => maze.holds reindeer = True → reindeer ∈ maze.reindeer
-  | { position, facing }, holds =>
-    List.memFlatMapIntro (place => headings.map (way => ({ position = place, facing = way }: Reindeer))) position
-      ({ position, facing }: Reindeer) maze.openTiles.toList (Map.memKeysOfContains maze.openTiles.items position holds)
-      (List.memMap headings facing (headingsComplete facing) (way => ({ position, facing = way }: Reindeer)))
+theorem Maze.holdsListed (maze: Maze) (reindeer: Reindeer) (holds: maze.holds reindeer = True): reindeer ∈ maze.reindeer :=
+  match reindeer with
+    | { position, facing } =>
+      List.memFlatMapIntro (place => headings.map (way => ({ position = place, facing = way }: Reindeer))) position
+        ({ position, facing }: Reindeer) maze.openTiles.toList (Map.memKeysOfContains maze.openTiles.items position holds)
+        (List.memMap headings facing (headingsComplete facing) (way => ({ position, facing = way }: Reindeer)))
 
 --| What `forward` gives stands on an open tile...
 theorem Maze.forwardHolds (maze: Maze): ∀ (reindeer next: Reindeer) => next ∈ maze.forward reindeer → maze.holds next = True

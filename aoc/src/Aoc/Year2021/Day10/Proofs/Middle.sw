@@ -57,14 +57,15 @@ theorem middleIsMiddle (scores: List Nat) (some: scores ≠ []): Middle scores (
   Both member (Both (omega) (omega))
 
 --| The scores that aren't above `a` and those that are make up the list.
-theorem countSplit (a: Nat): ∀ (xs: List Nat) => xs.count (score => not (a < score)) + xs.count (score => a < score) = xs.length
-  | [] => rfl
-  | [x, ..rest] =>
-    let split := countSplit a rest
-    rewrite List.countCons rest x (score => not (a < score)), List.countCons rest x (score => a < score) in
-      match above: a < x with
-        | True => omega
-        | False => omega
+theorem countSplit (a: Nat) (xs: List Nat): xs.count (score => not (a < score)) + xs.count (score => a < score) = xs.length :=
+  match xs with
+    | [] => rfl
+    | [x, ..rest] =>
+      let split := countSplit a rest
+      rewrite List.countCons rest x (score => not (a < score)), List.countCons rest x (score => a < score) in
+        match above: a < x with
+          | True => omega
+          | False => omega
 
 --| With an odd number of scores, a middle score can't be below another.
 theorem middleNotBelow (scores: List Nat) (a: Nat) (b: Nat) (odd: scores.length % 2 = 1) (first: Middle scores a) (second: Middle scores b) (less: a < b): Void :=

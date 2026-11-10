@@ -23,16 +23,17 @@ theorem firstFreeSome (boxes: Set Cell) (direction: Direction): ∀ (start: Cell
 
 --| Along a line of `length` boxes from `start`, `firstFree` finds the
 --| position past them, given more fuel than boxes.
-theorem firstFreeLine (boxes: Set Cell) (direction: Direction): ∀ (length: Nat) (start: Cell) (fuel: Nat) => length < fuel →
-    (∀ (i: Nat) => i < length → boxes.contains (ahead start direction i) = True) → boxes.contains (ahead start direction length) = False →
-    firstFree boxes direction start fuel = Some (ahead start direction length)
-  | length, start, Zero, enough, line, free => Void.exfalso (omega)
-  | Zero, start, Succ fuel, enough, line, free => rewrite free in rfl
-  | Succ length, start, Succ fuel, enough, line, free =>
-    rewrite line 0 (omega) in
-      rewrite aheadFrom start direction length at
-        firstFreeLine boxes direction length (start.step direction) fuel (omega)
-          (i below => rewrite aheadFrom start direction i in line (Succ i) (omega)) (rewrite aheadFrom start direction length in free)
+theorem firstFreeLine (boxes: Set Cell) (direction: Direction) (length: Nat) (start: Cell) (fuel: Nat) (enough: length < fuel)
+    (line: (∀ (i: Nat) => i < length → boxes.contains (ahead start direction i) = True)) (free: boxes.contains (ahead start direction length) = False):
+    firstFree boxes direction start fuel = Some (ahead start direction length) :=
+  match length, fuel with
+    | length, Zero => Void.exfalso (omega)
+    | Zero, Succ fuel => rewrite free in rfl
+    | Succ length, Succ fuel =>
+      rewrite line 0 (omega) in
+        rewrite aheadFrom start direction length at
+          firstFreeLine boxes direction length (start.step direction) fuel (omega)
+            (i below => rewrite aheadFrom start direction i in line (Succ i) (omega)) (rewrite aheadFrom start direction length in free)
 
 --| A move never moves a wall.
 theorem moveWalls (warehouse: Warehouse) (direction: Direction): (warehouse.move direction).walls = warehouse.walls := cases
@@ -177,25 +178,26 @@ theorem pushMoves (warehouse: Warehouse) (direction: Direction) (length: Nat) (l
 
 --| From `start`, either the boxes in a line end within `fuel` positions, or
 --| all `fuel` positions hold boxes.
-theorem boxesEndOrFill (boxes: Set Cell) (direction: Direction): ∀ (start: Cell) (fuel: Nat) =>
-    (∃ (length: Nat) => length < fuel ∧ (∀ (i: Nat) => i < length → boxes.contains (ahead start direction i) = True) ∧ boxes.contains (ahead start direction length) = False) ∨ (∀ (i: Nat) => i < fuel → boxes.contains (ahead start direction i) = True)
-  | start, Zero => Inr (i below => Void.exfalso (omega))
-  | start, Succ fuel =>
-    match here: boxes.contains start with
-      | False => Inl (Witness 0 (Both (omega) (Both (i below => Void.exfalso (omega)) here)))
-      | True =>
-        let fromStart: ∀ (i: Nat) => (boxes.contains (ahead (start.step direction) direction i) = True) → boxes.contains (ahead start direction (Succ i)) = True :=
-          i boxed => rewrite <- aheadFrom start direction i in boxed
-        let atOrAfter: ∀ (k: Nat) => (∀ (i: Nat) => i < k → boxes.contains (ahead (start.step direction) direction i) = True) → ∀ (i: Nat) => i < Succ k →
-            boxes.contains (ahead start direction i) = True :=
-          k rest i below =>
-            match i with
-              | Zero => here
-              | Succ j => fromStart j (rest j (omega))
-        match boxesEndOrFill boxes direction (start.step direction) fuel with
-          | Inl (Witness length (Both below (Both boxed free))) =>
-            Inl (Witness (Succ length) (Both (omega) (Both (atOrAfter length boxed) (rewrite <- aheadFrom start direction length in free))))
-          | Inr full => Inr (atOrAfter fuel full)
+theorem boxesEndOrFill (boxes: Set Cell) (direction: Direction) (start: Cell) (fuel: Nat):
+    (∃ (length: Nat) => length < fuel ∧ (∀ (i: Nat) => i < length → boxes.contains (ahead start direction i) = True) ∧ boxes.contains (ahead start direction length) = False) ∨ (∀ (i: Nat) => i < fuel → boxes.contains (ahead start direction i) = True) :=
+  match fuel with
+    | Zero => Inr (i below => Void.exfalso (omega))
+    | Succ fuel =>
+      match here: boxes.contains start with
+        | False => Inl (Witness 0 (Both (omega) (Both (i below => Void.exfalso (omega)) here)))
+        | True =>
+          let fromStart: ∀ (i: Nat) => (boxes.contains (ahead (start.step direction) direction i) = True) → boxes.contains (ahead start direction (Succ i)) = True :=
+            i boxed => rewrite <- aheadFrom start direction i in boxed
+          let atOrAfter: ∀ (k: Nat) => (∀ (i: Nat) => i < k → boxes.contains (ahead (start.step direction) direction i) = True) → ∀ (i: Nat) => i < Succ k →
+              boxes.contains (ahead start direction i) = True :=
+            k rest i below =>
+              match i with
+                | Zero => here
+                | Succ j => fromStart j (rest j (omega))
+          match boxesEndOrFill boxes direction (start.step direction) fuel with
+            | Inl (Witness length (Both below (Both boxed free))) =>
+              Inl (Witness (Succ length) (Both (omega) (Both (atOrAfter length boxed) (rewrite <- aheadFrom start direction length in free))))
+            | Inr full => Inr (atOrAfter fuel full)
 
 --| Every move meets a line of boxes, maybe of none: so `pushBlocked` and
 --| `pushMoves` say what every move does.
@@ -215,9 +217,10 @@ theorem lineExists (warehouse: Warehouse) (direction: Direction): ∃ (length: N
 
 --| After every move: the walls are where they were, the number of boxes is
 --| the same, and nothing overlaps if nothing did at the start.
-theorem moveAllWalls: ∀ (warehouse: Warehouse) (moves: List Direction) => (warehouse.moveAll moves).walls = warehouse.walls
-  | warehouse, [] => rfl
-  | warehouse, [move, ..rest] => Eq.trans (moveAllWalls (warehouse.move move) rest) (moveWalls warehouse move)
+theorem moveAllWalls (warehouse: Warehouse) (moves: List Direction): (warehouse.moveAll moves).walls = warehouse.walls :=
+  match moves with
+    | [] => rfl
+    | [move, ..rest] => Eq.trans (moveAllWalls (warehouse.move move) rest) (moveWalls warehouse move)
 
 theorem moveAllCount: ∀ (warehouse: Warehouse) (moves: List Direction) => boxCount (warehouse.moveAll moves) = boxCount warehouse
   | warehouse, [] => rfl

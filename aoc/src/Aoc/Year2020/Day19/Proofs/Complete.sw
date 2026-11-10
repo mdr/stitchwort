@@ -17,9 +17,10 @@ def Ranked (rules: Rules) (rank: Nat → Nat) (bound: Nat): Prop :=
     ∧ (∀ (number: Nat) (sequences: List (List Nat)) => ruleNumbered rules number = Some (Alternatives sequences) → ∀ (sequence: List Nat) =>
       sequence ∈ sequences → sequence ≠ [] ∧ (∀ (only: Nat) => sequence = [only] → rank only < rank number))
 
-theorem lengthPositive: ∀ (xs: List a) => xs ≠ [] → 1 ≤ xs.length
-  | [], notEmpty => Void.exfalso (notEmpty rfl)
-  | [x, ..rest], notEmpty => omega
+theorem lengthPositive (xs: List a) (notEmpty: xs ≠ []): 1 ≤ xs.length :=
+  match xs with
+    | [] => Void.exfalso (notEmpty rfl)
+    | [x, ..rest] => omega
 
 --| Each rule of a sequence reads at least a letter.
 theorem matchedLength (rules: Rules) (rank: Nat → Nat) (bound: Nat) (ranked: Ranked rules rank bound):
@@ -52,29 +53,31 @@ theorem scaleStep (shorter: Nat) (longer: Nat) (bound: Nat) (less: shorter + 1 �
 --| A rule followed by others, with fuel enough for them all: there is
 --| enough for the rule's own part, and for the others'.
 theorem fuelledSplit (bound: Nat) (rank: Nat → Nat) (below: ∀ (number: Nat) => rank number < bound) (fuel: Nat) (number: Nat)
-    (headRead: List Char) (laterRead: List Char) (headLong: 1 ≤ headRead.length):
-    ∀ (later: List Nat) => later.length ≤ laterRead.length → Fuelled bound rank fuel [number, ..later] (headRead ++ laterRead) →
-      headRead.length * bound + rank number < fuel ∧ Fuelled bound rank fuel later laterRead
-  | [], long, fuelled =>
-    let whole := List.lengthAppend headRead laterRead
-    Both (omega [Nat.leMulRight headRead.length (headRead ++ laterRead).length bound (omega [whole])]) Trivial
-  | [second], long, fuelled =>
-    let whole := List.lengthAppend headRead laterRead
-    Both (omega [scaleStep headRead.length (headRead ++ laterRead).length bound (omega [whole]), below number])
-      (omega [scaleStep laterRead.length (headRead ++ laterRead).length bound (omega [whole]), below second])
-  | [second, third, ..more], long, fuelled =>
-    let whole := List.lengthAppend headRead laterRead
-    Both (omega [scaleStep headRead.length (headRead ++ laterRead).length bound (omega [whole]), below number])
-      (omega [Nat.leMulRight laterRead.length (headRead ++ laterRead).length bound (omega [whole])])
+    (headRead: List Char) (laterRead: List Char) (headLong: 1 ≤ headRead.length)
+    (later: List Nat) (long: later.length ≤ laterRead.length) (fuelled: Fuelled bound rank fuel [number, ..later] (headRead ++ laterRead)):
+    headRead.length * bound + rank number < fuel ∧ Fuelled bound rank fuel later laterRead :=
+  match later with
+    | [] =>
+      let whole := List.lengthAppend headRead laterRead
+      Both (omega [Nat.leMulRight headRead.length (headRead ++ laterRead).length bound (omega [whole])]) Trivial
+    | [second] =>
+      let whole := List.lengthAppend headRead laterRead
+      Both (omega [scaleStep headRead.length (headRead ++ laterRead).length bound (omega [whole]), below number])
+        (omega [scaleStep laterRead.length (headRead ++ laterRead).length bound (omega [whole]), below second])
+    | [second, third, ..more] =>
+      let whole := List.lengthAppend headRead laterRead
+      Both (omega [scaleStep headRead.length (headRead ++ laterRead).length bound (omega [whole]), below number])
+        (omega [Nat.leMulRight laterRead.length (headRead ++ laterRead).length bound (omega [whole])])
 
 --| Enough fuel for a rule is enough, less one, for each of its
 --| alternatives.
 theorem fuelledInner (bound: Nat) (rank: Nat → Nat) (more: Nat) (number: Nat) (read: List Char)
-    (enough: read.length * bound + rank number < Succ more):
-    ∀ (alternative: List Nat) => (∀ (only: Nat) => alternative = [only] → rank only < rank number) → Fuelled bound rank more alternative read
-  | [], lower => Trivial
-  | [only], lower => omega [lower only rfl]
-  | [first, second, ..others], lower => omega
+    (enough: read.length * bound + rank number < Succ more)
+    (alternative: List Nat) (lower: (∀ (only: Nat) => alternative = [only] → rank only < rank number)): Fuelled bound rank more alternative read :=
+  match alternative with
+    | [] => Trivial
+    | [only] => omega [lower only rfl]
+    | [first, second, ..others] => omega
 
 theorem completeAll (rules: Rules) (rank: Nat → Nat) (bound: Nat) (ranked: Ranked rules rank bound):
     ∀ (sequence: List Nat) (read: List Char) => Matches rules sequence read → ∀ (fuel: Nat) => Fuelled bound rank fuel sequence read →

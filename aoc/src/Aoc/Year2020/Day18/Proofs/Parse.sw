@@ -19,15 +19,17 @@ def Ranked (strengthOf: Operator → Nat): (strength: Nat) → (levels: List (Li
 def Level (strengthOf: Operator → Nat) (strength: Nat) (read: List Char) (expression: Expression): Prop :=
   Spec.Written expression read ∧ Spec.Follows strengthOf expression ∧ Spec.BindsAtLeast strengthOf strength expression
 
-theorem bindsWeaken (strengthOf: Operator → Nat) (strength: Nat): ∀ (expression: Expression) =>
-    Spec.BindsAtLeast strengthOf (strength + 1) expression → Spec.BindsAtLeast strengthOf strength expression
-  | Number value, binds => Trivial
-  | Operation operator left right, binds => omega
-  | Parenthesised inner, binds => Trivial
+theorem bindsWeaken (strengthOf: Operator → Nat) (strength: Nat) (expression: Expression)
+    (binds: Spec.BindsAtLeast strengthOf (strength + 1) expression): Spec.BindsAtLeast strengthOf strength expression :=
+  match expression with
+    | Number value => Trivial
+    | Operation operator left right => omega
+    | Parenthesised inner => Trivial
 
-theorem spacedWritten: ∀ (operator: Operator) => (operator.spaced).toList = [' ', Spec.symbol operator, ' ']
-  | Plus => rfl
-  | Times => rfl
+theorem spacedWritten (operator: Operator): (operator.spaced).toList = [' ', Spec.symbol operator, ' '] :=
+  match operator with
+    | Plus => rfl
+    | Times => rfl
 
 theorem readsOperator (operators: List Operator):
     Parse.Reads (() => operator operators) (read found => found ∈ operators ∧ read = [' ', Spec.symbol found, ' ']) :=

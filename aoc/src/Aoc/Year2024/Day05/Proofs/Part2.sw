@@ -35,11 +35,12 @@ theorem mayPrecedeTransitive (precedes: Nat → Nat → Bool) (pages: List Nat)
           Void.exfalso (Bool.falseNotTrue (rewrite transitive z x y inZ inX inY zFirst xFirst at yz))
 
 --| Pages each of which may come before every later one are in order.
-theorem inOrderOfPairwise (precedes: Nat → Nat → Bool):
-    ∀ (pages: List Nat) => List.Pairwise (page next => mayPrecede precedes page next = True) pages → inOrder precedes pages = True
-  | [], pairwise => rfl
-  | [page, ..later], Both first rest =>
-    rewrite List.allOfAll (laterPage => !(precedes laterPage page)) later first, inOrderOfPairwise precedes later rest in rfl
+theorem inOrderOfPairwise (precedes: Nat → Nat → Bool)
+    (pages: List Nat) (pairwise: List.Pairwise (page next => mayPrecede precedes page next = True) pages): inOrder precedes pages = True :=
+  match pages, pairwise with
+    | [], pairwise => rfl
+    | [page, ..later], Both first rest =>
+      rewrite List.allOfAll (laterPage => !(precedes laterPage page)) later first, inOrderOfPairwise precedes later rest in rfl
 
 --| In pages in order, no later page must come before an earlier one.
 theorem inOrderLater (precedes: Nat → Nat → Bool) (page: Nat) (later: List Nat) (ordered: inOrder precedes [page, ..later] = True)
@@ -123,8 +124,9 @@ theorem correctOrderingUnique (rules: List Rule) (update: Update) (order: Strict
         (Eq.trans (inOrderRuleSays rules first) firstOrdered) (Eq.trans (inOrderRuleSays rules second) secondOrdered)
 
 --| Updates with the same pages are the same.
-theorem updateExt: ∀ (first second: Update) => first.pages = second.pages → first = second
-  | { pages = firstPages }, { pages = secondPages }, same => rewrite same in rfl
+theorem updateExt (first second: Update) (same: first.pages = second.pages): first = second :=
+  match first, second with
+    | { pages = firstPages }, { pages = secondPages } => rewrite same in rfl
 
 --| Part 2 adds up the middle pages of the updates not in the right order,
 --| once correctly ordered, by any correct ordering.

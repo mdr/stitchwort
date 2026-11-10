@@ -42,9 +42,10 @@ theorem winsBefore (drawn: List Nat) (rest: List Nat) (someDrawn: 0 < drawn.leng
       Eq.sym (List.foldMinLt (turn => turn) (List.length drawn) (List.map board.lines lineTurn) (List.length (drawn ++ rest)))
 
 --| The draw at `List.length drawn` is the one after `drawn`.
-theorem drawOn (number: Nat) (later: List Nat): ∀ (drawn: List Nat) => (drawn ++ [number, ..later]).getOr drawn.length 0 = number
-  | [] => rfl
-  | [first, ..others] => drawOn number later others
+theorem drawOn (number: Nat) (later: List Nat) (drawn: List Nat): (drawn ++ [number, ..later]).getOr drawn.length 0 = number :=
+  match drawn with
+    | [] => rfl
+    | [first, ..others] => drawOn number later others
 
 --| The spec's score of a board that wins on the draw of `number`, at
 --| `List.length drawn`, is the program's.
@@ -66,27 +67,27 @@ theorem laterTurn (j: Nat) (t: Nat): ((j ≤ t ∧ not (t < Succ j)): Bool) = (S
 
 --| The game from any point: the boards that haven't won yet, playing the
 --| draws to come, win turn by turn.
-theorem playFrom (playing: List Board): ∀ (rest drawn: List Nat) =>
-    play drawn (playing.filter (board => drawn.length ≤ board.winningTurn (drawn ++ rest))) rest
-      = (List.rangeFrom rest.length drawn.length).flatMap
-        (turn => (playing.filter (board => board.winningTurn (drawn ++ rest) == turn)).map (board => board.score (drawn ++ rest) turn))
-  | [], drawn => rfl
-  | [number, ..later], drawn =>
-    let turnOf := (board: Board) => board.winningTurn (drawn ++ [number, ..later])
-    let wonNow :=
-      Eq.trans (List.filterFilter (board => List.length drawn ≤ turnOf board) (wins (drawn ++ [number])) playing)
-        (List.filterCongMem playing _ (board => turnOf board == List.length drawn)
-          (board inPlaying => rewrite winsAfterDraw drawn number later board in thisTurn (List.length drawn) (turnOf board)))
-    let stillPlaying :=
-      Eq.trans (List.filterFilter (board => List.length drawn ≤ turnOf board) (board => not (wins (drawn ++ [number]) board)) playing)
-        (List.filterCongMem playing _ (board => Succ (List.length drawn) ≤ turnOf board)
-          (board inPlaying => rewrite winsAfterDraw drawn number later board in laterTurn (List.length drawn) (turnOf board)))
-    let afterNow:
-        play (drawn ++ [number]) (List.filter playing (board => Succ (List.length drawn) ≤ turnOf board)) later
-          = List.flatMap (List.rangeFrom (List.length later) (Succ (List.length drawn)))
-            (turn => List.map (List.filter playing (board => turnOf board == turn)) (board => board.score (drawn ++ [number, ..later]) turn)) :=
-      rewrite List.appendAssoc drawn [number] later, List.lengthSnoc drawn number at playFrom playing later (drawn ++ [number])
-    rewrite wonNow, stillPlaying, afterNow, List.mapCong _ _ _ (scoreAt drawn number later) in rfl
+theorem playFrom (playing: List Board) (rest drawn: List Nat): play drawn (playing.filter (board => drawn.length ≤ board.winningTurn (drawn ++ rest))) rest
+    = (List.rangeFrom rest.length drawn.length).flatMap
+      (turn => (playing.filter (board => board.winningTurn (drawn ++ rest) == turn)).map (board => board.score (drawn ++ rest) turn)) :=
+  match rest with
+    | [] => rfl
+    | [number, ..later] =>
+      let turnOf := (board: Board) => board.winningTurn (drawn ++ [number, ..later])
+      let wonNow :=
+        Eq.trans (List.filterFilter (board => List.length drawn ≤ turnOf board) (wins (drawn ++ [number])) playing)
+          (List.filterCongMem playing _ (board => turnOf board == List.length drawn)
+            (board inPlaying => rewrite winsAfterDraw drawn number later board in thisTurn (List.length drawn) (turnOf board)))
+      let stillPlaying :=
+        Eq.trans (List.filterFilter (board => List.length drawn ≤ turnOf board) (board => not (wins (drawn ++ [number]) board)) playing)
+          (List.filterCongMem playing _ (board => Succ (List.length drawn) ≤ turnOf board)
+            (board inPlaying => rewrite winsAfterDraw drawn number later board in laterTurn (List.length drawn) (turnOf board)))
+      let afterNow:
+          play (drawn ++ [number]) (List.filter playing (board => Succ (List.length drawn) ≤ turnOf board)) later
+            = List.flatMap (List.rangeFrom (List.length later) (Succ (List.length drawn)))
+              (turn => List.map (List.filter playing (board => turnOf board == turn)) (board => board.score (drawn ++ [number, ..later]) turn)) :=
+        rewrite List.appendAssoc drawn [number] later, List.lengthSnoc drawn number at playFrom playing later (drawn ++ [number])
+      rewrite wonNow, stillPlaying, afterNow, List.mapCong _ _ _ (scoreAt drawn number later) in rfl
 
 --| The program's boards on a turn, found from their pairs with their turns.
 theorem onTurn (draws: List Nat) (turn: Nat) (boards: List Board):

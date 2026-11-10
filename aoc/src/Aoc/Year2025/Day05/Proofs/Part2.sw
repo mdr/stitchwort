@@ -30,9 +30,10 @@ theorem coveredSkip (m: Range) (rest: List Range) (id: Nat) (f: m.contains id = 
 def Below (b: Nat) (rs: List Range): Prop := ∀ (id: Nat) => covered rs id = True → id < b
 
 --| Every id the ranges hold is at most the largest end.
-theorem topGe: ∀ (z: Nat) (rs: List Range) => z ≤ rs.foldLeft z (m r => Nat.max m r.to)
-  | z, [] => omega
-  | z, [r, ..rs] => omega [topGe (Nat.max z r.to) rs]
+theorem topGe (z: Nat) (rs: List Range): z ≤ rs.foldLeft z (m r => Nat.max m r.to) :=
+  match rs with
+    | [] => omega
+    | [r, ..rs] => omega [topGe (Nat.max z r.to) rs]
 
 theorem coveredTop: ∀ (z: Nat) (rs: List Range) (id: Nat) => covered rs id = True → id ≤ rs.foldLeft z (m r => Nat.max m r.to)
   | z, [], id, h => Void.exfalso (Bool.falseNotTrue h)
@@ -163,9 +164,10 @@ def Fits (merged: List Range): List Range → Prop
   | [] => Unit
   | [x, .._] => LoAtMost x.from merged
 
-theorem fitsNil: ∀ (xs: List Range) => Fits [] xs
-  | [] => Trivial
-  | [x, ..xs] => Trivial
+theorem fitsNil (xs: List Range): Fits [] xs :=
+  match xs with
+    | [] => Trivial
+    | [x, ..xs] => Trivial
 
 theorem fitsStep (acc: List Range) (x: Range): ∀ (xs: List Range) => LoAtMost x.from acc →
     List.LeHead (a b => Ordering.isLessEq (Ord.compare a b)) x xs → Fits (absorb acc x) xs

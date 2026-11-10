@@ -106,22 +106,24 @@ def throughRobots: (robots: Nat) → List DirectionKey → Option (List Directio
   | Zero, presses => Some presses
   | Succ others, presses => operate directionalRows directionalStart presses |> .flatMap (throughRobots others)
 
-theorem typedThrough: ∀ (robots: Nat) (presses: List DirectionKey) =>
-    typed robots presses = throughRobots robots presses |> .flatMap (operate numericRows numericStart)
-  | Zero, presses => rfl
-  | Succ others, presses =>
-    match driven: operate directionalRows directionalStart presses with
-      | None => rfl
-      | Some keys => typedThrough others keys
+theorem typedThrough (robots: Nat) (presses: List DirectionKey):
+    typed robots presses = throughRobots robots presses |> .flatMap (operate numericRows numericStart) :=
+  match robots with
+    | Zero => rfl
+    | Succ others =>
+      match driven: operate directionalRows directionalStart presses with
+        | None => rfl
+        | Some keys => typedThrough others keys
 
 --| The robot nearest the door is the last one the presses pass through.
-theorem throughRobotsLast: ∀ (robots: Nat) (presses: List DirectionKey) =>
-    throughRobots (Succ robots) presses = throughRobots robots presses |> .flatMap (operate directionalRows directionalStart)
-  | Zero, presses => flatMapIntoSome (operate directionalRows directionalStart presses)
-  | Succ others, presses =>
-    match driven: operate directionalRows directionalStart presses with
-      | None => rfl
-      | Some keys => throughRobotsLast others keys
+theorem throughRobotsLast (robots: Nat) (presses: List DirectionKey):
+    throughRobots (Succ robots) presses = throughRobots robots presses |> .flatMap (operate directionalRows directionalStart) :=
+  match robots with
+    | Zero => flatMapIntoSome (operate directionalRows directionalStart presses)
+    | Succ others =>
+      match driven: operate directionalRows directionalStart presses with
+        | None => rfl
+        | Some keys => throughRobotsLast others keys
 
 theorem yourPressesThrough: ∀ (level: Nat) (keys: List DirectionKey) => throughRobots level (yourPresses level keys) = Some keys
   | Zero, keys => rfl

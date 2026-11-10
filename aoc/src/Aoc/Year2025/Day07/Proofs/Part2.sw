@@ -39,12 +39,13 @@ theorem countStep (l: Vec Bool w) (rest: List (Vec Bool w)) (r: Nat) (c: Nat) (b
     | False => ih c
 
 --| Every column's count is the number of timelines from it.
-theorem countsAre (w: Nat): ∀ (ls: List (Vec Bool w)) (r c: Nat) =>
-    Vec.getOr (countsBelow w ls) c 1 = List.length (timelinesFrom r c ls)
-  | [], r, c => Vec.getOrReplicate 1 w c
-  | [l, ..rest], r, c =>
-    rewrite List.foldRightCons rest l (Vec.replicate w 1) splitRow, splitRowAt l (countsBelow w rest) c in
-      countStep l rest r c (countsBelow w rest) (c => countsAre w rest (r + 1) c)
+theorem countsAre (w: Nat) (ls: List (Vec Bool w)) (r c: Nat):
+    Vec.getOr (countsBelow w ls) c 1 = List.length (timelinesFrom r c ls) :=
+  match ls with
+    | [] => Vec.getOrReplicate 1 w c
+    | [l, ..rest] =>
+      rewrite List.foldRightCons rest l (Vec.replicate w 1) splitRow, splitRowAt l (countsBelow w rest) c in
+        countStep l rest r c (countsBelow w rest) (c => countsAre w rest (r + 1) c)
 
 --| Part 2 is right: for every manifold, the printed answer is the number of
 --| timelines of the particle from S.

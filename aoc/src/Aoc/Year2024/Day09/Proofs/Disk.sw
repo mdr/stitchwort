@@ -85,16 +85,17 @@ theorem findCovering (position: Nat): ∀ (files: List File) => List.Pairwise Fi
           | Inr later => findCovering position rest pairwise file later covered
 
 --| The number at `position` of the covering file, or 0, is the sum over files.
-theorem drawnNumber (position: Nat): ∀ (files: List File) => List.Pairwise File.Beside files →
-    (files.find (file => file.span.covers position) |> .map (file => FileBlock file.id) |> .getOrElse Free).idOr 0 = files.sumBy (file => file.numberAt position)
-  | [], pairwise => rfl
-  | [first, ..rest], Both others pairwise =>
-    match e: first.span.covers position with
-      | True =>
-        let others := List.sumByZeroIntro rest (file => file.numberAt position)
-          (other member => besideNumber first other position (List.allMem (File.Beside first) other rest others member) e)
-        Eq.sym (Eq.trans (List.sumByFrom rest first.id (file => file.numberAt position)) (rewrite others in Nat.addZero first.id))
-      | False => Eq.trans (drawnNumber position rest pairwise) (Eq.sym (List.sumByFrom rest 0 (file => file.numberAt position)))
+theorem drawnNumber (position: Nat) (files: List File) (h: List.Pairwise File.Beside files):
+    (files.find (file => file.span.covers position) |> .map (file => FileBlock file.id) |> .getOrElse Free).idOr 0 = files.sumBy (file => file.numberAt position) :=
+  match files, h with
+    | [], pairwise => rfl
+    | [first, ..rest], Both others pairwise =>
+      match e: first.span.covers position with
+        | True =>
+          let others := List.sumByZeroIntro rest (file => file.numberAt position)
+            (other member => besideNumber first other position (List.allMem (File.Beside first) other rest others member) e)
+          Eq.sym (Eq.trans (List.sumByFrom rest first.id (file => file.numberAt position)) (rewrite others in Nat.addZero first.id))
+        | False => Eq.trans (drawnNumber position rest pairwise) (Eq.sym (List.sumByFrom rest 0 (file => file.numberAt position)))
 
 --| A span doesn't cover a position at or past its end.
 theorem notCoversPast (span: Span) (position: Nat) (past: span.end ≤ position): span.covers position = False :=

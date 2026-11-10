@@ -30,30 +30,32 @@ theorem orthogonalElim (from: Position) (to: Position) (step: isOrthogonalStep f
           (Bool.orElim (Bool.andRight upOrDown) (down => Inl (DecEq.sound down)) (up => Inr (DecEq.sound up)))))
 
 --| A step in any direction is one orthogonal step.
-theorem stepOrthogonal: ∀ (from: Position) (side: Direction) (to: Position) => from.step side = Some to → Orthogonal from to
-  | { row = Succ above, column }, Up, to, stepped => rewrite <- Option.someInjective stepped in Inr (Both rfl (Inr (omega)))
-  | { row = Zero, column }, Up, to, stepped => Void.exfalso (Option.noneNotSome to stepped)
-  | { row, column }, Down, to, stepped => rewrite <- Option.someInjective stepped in Inr (Both rfl (Inl (omega)))
-  | { row, column = Succ before }, Left, to, stepped => rewrite <- Option.someInjective stepped in Inl (Both rfl (Inr (omega)))
-  | { row, column = Zero }, Left, to, stepped => Void.exfalso (Option.noneNotSome to stepped)
-  | { row, column }, Right, to, stepped => rewrite <- Option.someInjective stepped in Inl (Both rfl (Inl (omega)))
+theorem stepOrthogonal (from: Position) (side: Direction) (to: Position) (stepped: from.step side = Some to): Orthogonal from to :=
+  match from, side with
+    | { row = Succ above, column }, Up => rewrite <- Option.someInjective stepped in Inr (Both rfl (Inr (omega)))
+    | { row = Zero, column }, Up => Void.exfalso (Option.noneNotSome to stepped)
+    | { row, column }, Down => rewrite <- Option.someInjective stepped in Inr (Both rfl (Inl (omega)))
+    | { row, column = Succ before }, Left => rewrite <- Option.someInjective stepped in Inl (Both rfl (Inr (omega)))
+    | { row, column = Zero }, Left => Void.exfalso (Option.noneNotSome to stepped)
+    | { row, column }, Right => rewrite <- Option.someInjective stepped in Inl (Both rfl (Inl (omega)))
 
 --| One orthogonal step is a step in some direction.
-theorem orthogonalStep: ∀ (from to: Position) => Orthogonal from to → Exists Direction (side => from.step side = Some to)
-  | { row, column }, { row = toRow, column = toColumn }, Inl (Both rows (Inl right)) =>
-    let same: Succ column = toColumn := omega
-    rewrite <- rows, <- same in Witness Right rfl
-  | { row, column = Zero }, { row = toRow, column = toColumn }, Inl (Both rows (Inr left)) => Void.exfalso (omega)
-  | { row, column = Succ before }, { row = toRow, column = toColumn }, Inl (Both rows (Inr left)) =>
-    let same: before = toColumn := omega
-    rewrite <- rows, <- same in Witness Left rfl
-  | { row, column }, { row = toRow, column = toColumn }, Inr (Both columns (Inl down)) =>
-    let same: Succ row = toRow := omega
-    rewrite <- columns, <- same in Witness Down rfl
-  | { row = Zero, column }, { row = toRow, column = toColumn }, Inr (Both columns (Inr up)) => Void.exfalso (omega)
-  | { row = Succ above, column }, { row = toRow, column = toColumn }, Inr (Both columns (Inr up)) =>
-    let same: above = toRow := omega
-    rewrite <- columns, <- same in Witness Up rfl
+theorem orthogonalStep (from to: Position) (h: Orthogonal from to): Exists Direction (side => from.step side = Some to) :=
+  match from, to, h with
+    | { row, column }, { row = toRow, column = toColumn }, Inl (Both rows (Inl right)) =>
+      let same: Succ column = toColumn := omega
+      rewrite <- rows, <- same in Witness Right rfl
+    | { row, column = Zero }, { row = toRow, column = toColumn }, Inl (Both rows (Inr left)) => Void.exfalso (omega)
+    | { row, column = Succ before }, { row = toRow, column = toColumn }, Inl (Both rows (Inr left)) =>
+      let same: before = toColumn := omega
+      rewrite <- rows, <- same in Witness Left rfl
+    | { row, column }, { row = toRow, column = toColumn }, Inr (Both columns (Inl down)) =>
+      let same: Succ row = toRow := omega
+      rewrite <- columns, <- same in Witness Down rfl
+    | { row = Zero, column }, { row = toRow, column = toColumn }, Inr (Both columns (Inr up)) => Void.exfalso (omega)
+    | { row = Succ above, column }, { row = toRow, column = toColumn }, Inr (Both columns (Inr up)) =>
+      let same: above = toRow := omega
+      rewrite <- columns, <- same in Witness Up rfl
 
 theorem orthogonalSymmetric (from: Position) (to: Position) (orthogonal: Orthogonal from to): Orthogonal to from :=
   match orthogonal with
@@ -63,11 +65,12 @@ theorem orthogonalSymmetric (from: Position) (to: Position) (orthogonal: Orthogo
     | Inr (Both columns (Inr up)) => Inr (Both (Eq.sym columns) (Inl up))
 
 --| Every direction is one of `directions`.
-theorem memDirections: ∀ (side: Direction) => side ∈ directions
-  | Up => Inl rfl
-  | Right => Inr (Inl rfl)
-  | Down => Inr (Inr (Inl rfl))
-  | Left => Inr (Inr (Inr (Inl rfl)))
+theorem memDirections (side: Direction): side ∈ directions :=
+  match side with
+    | Up => Inl rfl
+    | Right => Inr (Inl rfl)
+    | Down => Inr (Inr (Inl rfl))
+    | Left => Inr (Inr (Inr (Inl rfl)))
 
 --| `growSame` as an equation.
 theorem growSameElim (garden: Garden) (plot: Position) (other: Position) (same: growSame garden plot other = True):

@@ -14,18 +14,19 @@ import Std (Bool, Eq, List, Nat, Option, Void)
 
 --| The walk depends only on what `find` says at each position.
 theorem firstSeatCong (f: Position → Option Seat) (g: Position → Option Seat) (same: ∀ (position: Position) => f position = g position)
-    (from: Position) (direction: Offset): ∀ (distance steps: Nat) => firstSeat f from direction distance steps = firstSeat g from direction distance steps
-  | distance, Zero => rfl
-  | distance, Succ more =>
-    match from.offset (direction.times distance.toInt) with
-      | None => rfl
-      | Some next =>
-        rewrite same next in
-        match g next with
-          | None => rfl
-          | Some Floor => firstSeatCong f g same from direction (distance + 1) more
-          | Some Empty => rfl
-          | Some Occupied => rfl
+    (from: Position) (direction: Offset) (distance steps: Nat): firstSeat f from direction distance steps = firstSeat g from direction distance steps :=
+  match steps with
+    | Zero => rfl
+    | Succ more =>
+      match from.offset (direction.times distance.toInt) with
+        | None => rfl
+        | Some next =>
+          rewrite same next in
+          match g next with
+            | None => rfl
+            | Some Floor => firstSeatCong f g same from direction (distance + 1) more
+            | Some Empty => rfl
+            | Some Occupied => rfl
 
 --| The cell `distance` steps from `from` in `direction`, by what `find`
 --| says is there (`Spec.cellAlong` with the layout's `at`).
@@ -39,19 +40,19 @@ def sightFrom (find: Position → Option Seat) (from: Position) (direction: Offs
 
 --| Whether the walk ends at an occupied seat is whether the first seat on
 --| the line of sight is occupied.
-theorem walkSeen (find: Position → Option Seat) (from: Position) (direction: Offset): ∀ (distance steps: Nat) =>
-    (firstSeat find from direction distance steps).any (near => find near == Some Occupied)
-      = ((sightFrom find from direction distance steps).find (((_, seat)) => seat != Floor)).any (((_, seat)) => seat == Occupied)
-  | distance, Zero => rfl
-  | distance, Succ more =>
-    match from.offset (direction.times distance.toInt) with
-      | None => rfl
-      | Some next =>
-        match e: find next with
-          | None => rfl
-          | Some Floor => walkSeen find from direction (distance + 1) more
-          | Some Empty => rewrite e in rfl
-          | Some Occupied => rewrite e in rfl
+theorem walkSeen (find: Position → Option Seat) (from: Position) (direction: Offset) (distance steps: Nat): (firstSeat find from direction distance steps).any (near => find near == Some Occupied)
+    = ((sightFrom find from direction distance steps).find (((_, seat)) => seat != Floor)).any (((_, seat)) => seat == Occupied) :=
+  match steps with
+    | Zero => rfl
+    | Succ more =>
+      match from.offset (direction.times distance.toInt) with
+        | None => rfl
+        | Some next =>
+          match e: find next with
+            | None => rfl
+            | Some Floor => walkSeen find from direction (distance + 1) more
+            | Some Empty => rewrite e in rfl
+            | Some Occupied => rewrite e in rfl
 
 --| Checking a position found for an occupied seat, with the table or
 --| with `at`.
@@ -98,33 +99,34 @@ theorem roundShape (layout: Layout) (considered: Position → Nat) (crowded: Nat
 --| the same positions give the same walk.
 theorem firstSeatPlan (f: Position → Option Seat) (g: Position → Option Seat)
     (same: ∀ (position: Position) => (f position).map Seat.isSeat = (g position).map Seat.isSeat)
-    (from: Position) (direction: Offset): ∀ (distance steps: Nat) => firstSeat f from direction distance steps = firstSeat g from direction distance steps
-  | distance, Zero => rfl
-  | distance, Succ more =>
-    match from.offset (direction.times distance.toInt) with
-      | None => rfl
-      | Some next =>
-        let plan := same next
-        match f next with
-          | None =>
-            match g next with
-              | None => rfl
-              | Some seat => Void.exfalso (Option.noneNotSome seat.isSeat plan)
-          | Some Floor =>
-            match g next with
-              | None => Void.exfalso (Option.noneNotSome False (Eq.sym plan))
-              | Some Floor => firstSeatPlan f g same from direction (distance + 1) more
-              | Some Empty => Void.exfalso (Bool.falseNotTrue (Option.someInjective plan))
-              | Some Occupied => Void.exfalso (Bool.falseNotTrue (Option.someInjective plan))
-          | Some Empty =>
-            match g next with
-              | None => Void.exfalso (Option.noneNotSome True (Eq.sym plan))
-              | Some Floor => Void.exfalso (Bool.falseNotTrue (Eq.sym (Option.someInjective plan)))
-              | Some Empty => rfl
-              | Some Occupied => rfl
-          | Some Occupied =>
-            match g next with
-              | None => Void.exfalso (Option.noneNotSome True (Eq.sym plan))
-              | Some Floor => Void.exfalso (Bool.falseNotTrue (Eq.sym (Option.someInjective plan)))
-              | Some Empty => rfl
-              | Some Occupied => rfl
+    (from: Position) (direction: Offset) (distance steps: Nat): firstSeat f from direction distance steps = firstSeat g from direction distance steps :=
+  match steps with
+    | Zero => rfl
+    | Succ more =>
+      match from.offset (direction.times distance.toInt) with
+        | None => rfl
+        | Some next =>
+          let plan := same next
+          match f next with
+            | None =>
+              match g next with
+                | None => rfl
+                | Some seat => Void.exfalso (Option.noneNotSome seat.isSeat plan)
+            | Some Floor =>
+              match g next with
+                | None => Void.exfalso (Option.noneNotSome False (Eq.sym plan))
+                | Some Floor => firstSeatPlan f g same from direction (distance + 1) more
+                | Some Empty => Void.exfalso (Bool.falseNotTrue (Option.someInjective plan))
+                | Some Occupied => Void.exfalso (Bool.falseNotTrue (Option.someInjective plan))
+            | Some Empty =>
+              match g next with
+                | None => Void.exfalso (Option.noneNotSome True (Eq.sym plan))
+                | Some Floor => Void.exfalso (Bool.falseNotTrue (Eq.sym (Option.someInjective plan)))
+                | Some Empty => rfl
+                | Some Occupied => rfl
+            | Some Occupied =>
+              match g next with
+                | None => Void.exfalso (Option.noneNotSome True (Eq.sym plan))
+                | Some Floor => Void.exfalso (Bool.falseNotTrue (Eq.sym (Option.someInjective plan)))
+                | Some Empty => rfl
+                | Some Occupied => rfl

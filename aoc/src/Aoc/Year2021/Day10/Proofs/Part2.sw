@@ -23,13 +23,14 @@ theorem completesOfUnclosed [line: List Token] [stack: List Bracket] (h: scan []
   scanBalanced (line ++ stack.map Closer) (rewrite scanAppend [] line (stack.map Closer), h in closeAll stack)
 
 --| Only the open brackets, closed innermost first, close them all.
-theorem closersExact: ∀ (stack closers: List Bracket) => scan stack (closers.map Closer) = Unclosed [] → closers = stack
-  | stack, [], h => Eq.sym (unclosedInjective stack [] h)
-  | [], [closer, ..rest], h => cases
-  | [top, ..below], [closer, ..rest], h =>
-    match same: top == closer with
-      | True => rewrite closersExact below rest h, DecEq.sound same in rfl
-      | False => cases
+theorem closersExact (stack closers: List Bracket) (h: scan stack (closers.map Closer) = Unclosed []): closers = stack :=
+  match stack, closers with
+    | stack, [] => Eq.sym (unclosedInjective stack [] h)
+    | [], [closer, ..rest] => cases
+    | [top, ..below], [closer, ..rest] =>
+      match same: top == closer with
+        | True => rewrite closersExact below rest h, DecEq.sound same in rfl
+        | False => cases
 
 --| Any completion of a line is what its scan leaves open.
 theorem completionIsOpen (line: List Token) (stack: List Bracket) (open: scan [] line = Unclosed stack) (closers: List Bracket) (completes: Completes line closers):
@@ -50,12 +51,13 @@ theorem incompleteOfUnclosed (line: List Token) (top: Bracket) (below: List Brac
       let closed: Unclosed [top, ..below] = Unclosed [] := Eq.trans (Eq.sym e) (balancedScanNil line balanced)
       cases)
 
-theorem completionPointsAgree: ∀ (bracket: Bracket) => completionPoints bracket = autocompletePoints bracket := cases
+theorem completionPointsAgree (bracket: Bracket): completionPoints bracket = autocompletePoints bracket := cases
 
-theorem completionFold: ∀ (closers: List Bracket) (score: Nat) =>
-    closers.foldLeft score (total bracket => total * 5 + completionPoints bracket) = completionTotal score closers
-  | [], score => rfl
-  | [bracket, ..rest], score => rewrite <- completionPointsAgree bracket in completionFold rest (score * 5 + completionPoints bracket)
+theorem completionFold (closers: List Bracket) (score: Nat):
+    closers.foldLeft score (total bracket => total * 5 + completionPoints bracket) = completionTotal score closers :=
+  match closers with
+    | [] => rfl
+    | [bracket, ..rest] => rewrite <- completionPointsAgree bracket in completionFold rest (score * 5 + completionPoints bracket)
 
 --| The program's scores are the incomplete lines' completion scores, in
 --| order.

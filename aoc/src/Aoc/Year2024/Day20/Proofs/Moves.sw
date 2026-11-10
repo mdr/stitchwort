@@ -22,18 +22,19 @@ def opposite: Direction → Direction
   | Right => Left
 
 --| A step back the opposite way returns to where it started.
-theorem stepBack: ∀ (position: Position) (direction: Direction) (next: Position) => position.step direction = Some next →
-    next.step (opposite direction) = Some position
-  | { row, column }, Down, next, stepped => rewrite <- Option.someInjective stepped in rfl
-  | { row, column }, Right, next, stepped => rewrite <- Option.someInjective stepped in rfl
-  | { row, column }, Up, next, stepped =>
-    match row with
-      | Zero => Void.exfalso (Option.noneNotSome next stepped)
-      | Succ above => rewrite <- Option.someInjective stepped in rfl
-  | { row, column }, Left, next, stepped =>
-    match column with
-      | Zero => Void.exfalso (Option.noneNotSome next stepped)
-      | Succ before => rewrite <- Option.someInjective stepped in rfl
+theorem stepBack (position: Position) (direction: Direction) (next: Position) (stepped: position.step direction = Some next):
+    next.step (opposite direction) = Some position :=
+  match position, direction with
+    | { row, column }, Down => rewrite <- Option.someInjective stepped in rfl
+    | { row, column }, Right => rewrite <- Option.someInjective stepped in rfl
+    | { row, column }, Up =>
+      match row with
+        | Zero => Void.exfalso (Option.noneNotSome next stepped)
+        | Succ above => rewrite <- Option.someInjective stepped in rfl
+    | { row, column }, Left =>
+      match column with
+        | Zero => Void.exfalso (Option.noneNotSome next stepped)
+        | Succ before => rewrite <- Option.someInjective stepped in rfl
 
 --| A move is a step onto track.
 theorem moveCases (racetrack: Racetrack) (position: Position) (direction: Direction) (next: Position)

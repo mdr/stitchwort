@@ -155,6 +155,6 @@ theorem sameDigit (wiring: Segment → Segment) (wired: IsWiring wiring) (patter
       rewrite <- hasDrawn wiring pattern first firstShows wire, <- hasDrawn wiring pattern second secondShows wire in boolEqSelf (pattern.has wire))
   digitsDiffer first second firstBelow secondBelow (rewrite <- allRewired wiring wired agree in atWires)
 
-theorem boolEqSelf: ∀ (b: Bool) => (b == b) = True := cases
+theorem boolEqSelf (b: Bool): (b == b) = True := cases
 
 theorem notNone (o: Option a) (some: o.isSome = True) (none: o = None): Void := rewrite none at some in Bool.falseNotTrue some

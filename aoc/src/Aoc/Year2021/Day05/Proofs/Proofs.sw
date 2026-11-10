@@ -35,13 +35,14 @@ theorem overlapsCorrect (lines: List Line) (shapes: lines.all (line => horizonta
 theorem straightLines (lines: List Line): lines.filter Line.isStraight = lines.filter horizontalOrVertical := rfl
 
 --| ... and each of them is horizontal or vertical.
-theorem straightShapes: ∀ (lines: List Line) =>
-    (lines.filter Line.isStraight).all (line => horizontalOrVertical line ∨ diagonal line) = True
-  | [] => rfl
-  | [line, ..rest] =>
-    match e: Line.isStraight line with
-      | True => rewrite straightShapes rest in rewrite e in rfl
-      | False => straightShapes rest
+theorem straightShapes (lines: List Line):
+    (lines.filter Line.isStraight).all (line => horizontalOrVertical line ∨ diagonal line) = True :=
+  match lines with
+    | [] => rfl
+    | [line, ..rest] =>
+      match e: Line.isStraight line with
+        | True => rewrite straightShapes rest in rewrite e in rfl
+        | False => straightShapes rest
 
 -- Counting with a map.
 
@@ -91,9 +92,10 @@ theorem listedCoveredBy (lines: List Line) (shapes: lines.all (line => horizonta
 
 --| The step a line takes to reach a point, `k`, is the only one there: the
 --| steps `0` to `n - 1` count it once if it is one of them.
-theorem countRangeOnce (n: Nat) (k: Nat): ∀ (c: Bool) => (c = True → k < n) → (List.range 0 n).count (i => c ∧ i == k) = c.toNat
-  | False, inRange => List.countFalse (List.range 0 n)
-  | True, inRange => rewrite inRange rfl at List.countRangeEq n k
+theorem countRangeOnce (n: Nat) (k: Nat) (c: Bool) (inRange: (c = True → k < n)): (List.range 0 n).count (i => c ∧ i == k) = c.toNat :=
+  match c with
+    | False => List.countFalse (List.range 0 n)
+    | True => rewrite inRange rfl at List.countRangeEq n k
 
 theorem stepInRange (steps: Nat) (i: Nat) (inRange: i ∈ List.range 0 (steps + 1)): i ≤ steps :=
   let bounds := List.memRangeFrom i (steps + 1) 0 inRange
@@ -106,7 +108,7 @@ theorem coveredWithin (line: Line) (point: Point) (c: covers line point = True):
   let by := betweenBound line.from.y point.y line.to.y (secondOf c)
   omega
 
-theorem secondOf: ∀ [a: Bool] [b: Bool] [c: Bool] => (a ∧ b ∧ c) = True → b = True := cases
+theorem secondOf [a: Bool] [b: Bool] [c: Bool] (h: (a ∧ b ∧ c) = True): b = True := cases
 
 --| The `i`th point of a line is the point `(x, y)` when the line covers it
 --| and it is `k` steps from the first end.
@@ -161,10 +163,10 @@ theorem diagonalSame (x1: Nat) (x2: Nat) (y1: Nat) (y2: Nat) (h: (x1.absDiff x2 
 -- line. `ax` and `ay` are how far the point is across and down from the
 -- first end, and `bx` and `by` whether it is between the ends.
 
-theorem combineVertical [ax: Nat] [ay: Nat] (i: Nat): ∀ [bx: Bool] [by: Bool] => (bx = True → ax = 0) →
+theorem combineVertical [ax: Nat] [ay: Nat] (i: Nat) [bx: Bool] [by: Bool] (h: (bx = True → ax = 0)):
     (bx ∧ (by ∧ i == ay)) = ((bx ∧ by ∧ True) ∧ i == Nat.max ax ay) := cases
 
-theorem combineHorizontal [ax: Nat] [ay: Nat] (i: Nat): ∀ [bx: Bool] [by: Bool] => (by = True → ay = 0) →
+theorem combineHorizontal [ax: Nat] [ay: Nat] (i: Nat) [bx: Bool] [by: Bool] (h: (by = True → ay = 0)):
     ((bx ∧ i == ax) ∧ by) = ((bx ∧ by ∧ True) ∧ i == Nat.max ax ay) := cases
 
 theorem combineDiagonal [ax: Nat] [ay: Nat] [i: Nat] [d: Nat] (hi: i ≤ d): ∀ [bx: Bool] [by: Bool] [e: Bool] =>
@@ -197,10 +199,11 @@ theorem pointLinear (x1: Nat) (y1: Nat) (x2: Nat) (y2: Nat) (i: Nat) (x: Nat) (y
 
 -- The spec's proportion, on these lines.
 
-theorem bothThen [p: Bool] [q: Bool]: ∀ (bx by: Bool) => (bx = True → by = True → p = q) → (bx ∧ by ∧ p) = (bx ∧ by ∧ q)
-  | False, by, h => rfl
-  | True, False, h => rfl
-  | True, True, h => rewrite h rfl rfl in rfl
+theorem bothThen [p: Bool] [q: Bool] (bx by: Bool) (h: (bx = True → by = True → p = q)): (bx ∧ by ∧ p) = (bx ∧ by ∧ q) :=
+  match bx, by with
+    | False, by => rfl
+    | True, False => rfl
+    | True, True => rewrite h rfl rfl in rfl
 
 theorem productZeroLeft (ax: Nat) (ay: Nat) (dx: Nat) (dy: Nat) (h1: ax = 0) (h2: dx = 0): (ax * dy == ay * dx) = True :=
   rewrite h1, h2, Nat.mulZero ay in rfl

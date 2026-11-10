@@ -46,12 +46,13 @@ theorem atMostOther (machine: Machine) (tokens: Nat) (others: Nat) (fewest: Fewe
     | Witness aPresses (Witness bPresses (Both won costs)) => rewrite <- costs in And.right fewest aPresses bPresses won
 
 --| A machine has one fewest number of tokens, or none.
-theorem fewestUnique (machine: Machine): ∀ (first second: Option Nat) => IsFewest machine first → IsFewest machine second → first = second
-  | None, None, firstFewest, secondFewest => rfl
-  | Some tokens, None, firstFewest, secondFewest => Void.exfalso (winsAgainst machine tokens firstFewest secondFewest)
-  | None, Some tokens, firstFewest, secondFewest => Void.exfalso (winsAgainst machine tokens secondFewest firstFewest)
-  | Some tokens, Some others, firstFewest, secondFewest =>
-    Eq.cong Some (omega [atMostOther machine tokens others firstFewest secondFewest, atMostOther machine others tokens secondFewest firstFewest])
+theorem fewestUnique (machine: Machine) (first second: Option Nat) (firstFewest: IsFewest machine first) (secondFewest: IsFewest machine second): first = second :=
+  match first, second with
+    | None, None => rfl
+    | Some tokens, None => Void.exfalso (winsAgainst machine tokens firstFewest secondFewest)
+    | None, Some tokens => Void.exfalso (winsAgainst machine tokens secondFewest firstFewest)
+    | Some tokens, Some others =>
+      Eq.cong Some (omega [atMostOther machine tokens others firstFewest secondFewest, atMostOther machine others tokens secondFewest firstFewest])
 
 --| The spec's part 2 has one answer.
 theorem part2AnswerUnique (machines: List Machine) (first: Nat) (second: Nat) (firstAnswer: Part2Answer machines first)

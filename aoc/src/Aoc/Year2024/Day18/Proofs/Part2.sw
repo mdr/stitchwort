@@ -35,26 +35,27 @@ theorem pastEnd (bytes: List Position) (index: Nat) (missing: bytes.get index = 
   Bool.falseNotTrue (Eq.trans (Eq.sym (Eq.trans (Eq.sym (List.isSomeGet bytes index)) (Eq.cong Option.isSome missing))) inside)
 
 --| Part 2's byte, for each count the search can end at.
-theorem part2SomeCases (size: Nat) (bytes: List Position) (byte: Position) (answer: solvePart2 size bytes = Some byte):
-    ∀ (found: Nat) => Nat.partitionPoint 0 (bytes.length + 1) (reachable size bytes) = found → IsFirstBlocking size bytes byte
-  | Zero, ended => Void.exfalso (Option.noneNotSome byte (rewrite ended at answer in answer))
-  | Succ index, ended =>
-    let got: bytes.get index = Some byte := rewrite ended at answer in answer
-    let inside: index < bytes.length := Eq.trans (Eq.sym (List.isSomeGet bytes index)) (rewrite got in rfl)
-    let (Both above (Both below (Both before after))) := Nat.partitionPointBounds 0 (bytes.length + 1) (reachable size bytes) (Nat.zeroLe (bytes.length + 1))
-    let opened: reachable size bytes index = True :=
-      match rewrite ended at before in before with
-        | Inl zero => Void.exfalso (omega [zero])
-        | Inr holds => holds
-    let same: index + 1 = Succ index := omega
-    let blocked: reachable size bytes (Succ index) = False :=
-      match rewrite ended at after in after with
-        | Inl high => Void.exfalso (omega [high, inside])
-        | Inr fails => fails
-    Witness index
-      (Both got
-        (Both (has => Bool.falseNotTrue (Eq.trans (Eq.sym blocked) (reachableComplete size bytes (Succ index) (rewrite <- same in has))))
-          (earlier le => hasPathFewer size bytes earlier index le (reachableSound size bytes index opened))))
+theorem part2SomeCases (size: Nat) (bytes: List Position) (byte: Position) (answer: solvePart2 size bytes = Some byte)
+    (found: Nat) (ended: Nat.partitionPoint 0 (bytes.length + 1) (reachable size bytes) = found): IsFirstBlocking size bytes byte :=
+  match found with
+    | Zero => Void.exfalso (Option.noneNotSome byte (rewrite ended at answer in answer))
+    | Succ index =>
+      let got: bytes.get index = Some byte := rewrite ended at answer in answer
+      let inside: index < bytes.length := Eq.trans (Eq.sym (List.isSomeGet bytes index)) (rewrite got in rfl)
+      let (Both above (Both below (Both before after))) := Nat.partitionPointBounds 0 (bytes.length + 1) (reachable size bytes) (Nat.zeroLe (bytes.length + 1))
+      let opened: reachable size bytes index = True :=
+        match rewrite ended at before in before with
+          | Inl zero => Void.exfalso (omega [zero])
+          | Inr holds => holds
+      let same: index + 1 = Succ index := omega
+      let blocked: reachable size bytes (Succ index) = False :=
+        match rewrite ended at after in after with
+          | Inl high => Void.exfalso (omega [high, inside])
+          | Inr fails => fails
+      Witness index
+        (Both got
+          (Both (has => Bool.falseNotTrue (Eq.trans (Eq.sym blocked) (reachableComplete size bytes (Succ index) (rewrite <- same in has))))
+            (earlier le => hasPathFewer size bytes earlier index le (reachableSound size bytes index opened))))
 
 --| When part 2 finds a byte, it is the first whose fall leaves no path.
 theorem part2Some (size: Nat) (bytes: List Position) (byte: Position) (answer: solvePart2 size bytes = Some byte):
@@ -64,22 +65,21 @@ theorem part2Some (size: Nat) (bytes: List Position) (byte: Position) (answer: s
 --| No first blocking byte, for each count the search can end at.
 theorem part2NoneCases (size: Nat) (bytes: List Position) (answer: solvePart2 size bytes = None) (byte: Position) (index: Nat)
     (got: bytes.get index = Some byte) (blockedAfter: ¬(HasPath size bytes (index + 1)))
-    (openBefore: ∀ (earlier: Nat) => earlier ≤ index → HasPath size bytes earlier):
-    ∀ (found: Nat) => Nat.partitionPoint 0 (bytes.length + 1) (reachable size bytes) = found → Void
-  | found, ended =>
-    let inside: index < bytes.length := Eq.trans (Eq.sym (List.isSomeGet bytes index)) (rewrite got in rfl)
-    let (Both holdsBefore failsAfter) :=
-      Nat.partitionPointSpec 0 (bytes.length + 1) (reachable size bytes) (Nat.zeroLe (bytes.length + 1)) (smaller larger le open =>
-        reachableFewer size bytes smaller larger le open)
-    match found with
-      | Zero =>
-        let startBlocked := failsAfter 0 (rewrite ended in Nat.leRefl 0) (omega)
-        Bool.falseNotTrue (Eq.trans (Eq.sym startBlocked) (reachableComplete size bytes 0 (openBefore 0 (Nat.zeroLe index))))
-      | Succ last =>
-        let missing: bytes.get last = None := rewrite ended at answer in answer
-        let past: ¬(last < bytes.length) := pastEnd bytes last missing
-        let stillOpen := holdsBefore (index + 1) (Nat.zeroLe (index + 1)) (rewrite ended in omega [past, inside])
-        blockedAfter (reachableSound size bytes (index + 1) stillOpen)
+    (openBefore: ∀ (earlier: Nat) => earlier ≤ index → HasPath size bytes earlier)
+    (found: Nat) (ended: Nat.partitionPoint 0 (bytes.length + 1) (reachable size bytes) = found): Void :=
+  let inside: index < bytes.length := Eq.trans (Eq.sym (List.isSomeGet bytes index)) (rewrite got in rfl)
+  let (Both holdsBefore failsAfter) :=
+    Nat.partitionPointSpec 0 (bytes.length + 1) (reachable size bytes) (Nat.zeroLe (bytes.length + 1)) (smaller larger le open =>
+      reachableFewer size bytes smaller larger le open)
+  match found with
+    | Zero =>
+      let startBlocked := failsAfter 0 (rewrite ended in Nat.leRefl 0) (omega)
+      Bool.falseNotTrue (Eq.trans (Eq.sym startBlocked) (reachableComplete size bytes 0 (openBefore 0 (Nat.zeroLe index))))
+    | Succ last =>
+      let missing: bytes.get last = None := rewrite ended at answer in answer
+      let past: ¬(last < bytes.length) := pastEnd bytes last missing
+      let stillOpen := holdsBefore (index + 1) (Nat.zeroLe (index + 1)) (rewrite ended in omega [past, inside])
+      blockedAfter (reachableSound size bytes (index + 1) stillOpen)
 
 --| When part 2 finds no byte, no byte is the first whose fall leaves no
 --| path.

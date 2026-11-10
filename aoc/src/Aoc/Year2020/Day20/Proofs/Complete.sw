@@ -42,19 +42,21 @@ theorem declinesPixel (rest: List Char) (stops: Parse.CannotStart pixelChar rest
         Both (stripDifferent '#' [] char more (Bool.orFalseLeft _ _ (stops char more rfl)))
           (Both (stripDifferent '.' [] char more (Bool.orFalseRight _ _ (stops char more rfl))) rfl))
 
-theorem allPixels: ∀ (pixels: List Pixel) => (pixels.map pixelSymbol).all pixelChar = True
-  | [] => rfl
-  | [shape, ..more] => rewrite allPixels more in (match shape with | Rough => rfl | Calm => rfl)
+theorem allPixels (pixels: List Pixel): (pixels.map pixelSymbol).all pixelChar = True :=
+  match pixels with
+    | [] => rfl
+    | [shape, ..more] => rewrite allPixels more in (match shape with | Rough => rfl | Calm => rfl)
 
 theorem pixelWritten (read: List Char) (shape: Pixel) (written: PixelWritten read shape): read = [pixelSymbol shape] :=
   match written with
     | Inl (Both single same) => rewrite same, single in rfl
     | Inr (Both single same) => rewrite same, single in rfl
 
-theorem eachPixels: ∀ (pixels: List Pixel) (read: List Char) => Parse.Each PixelWritten read pixels → read = pixels.map pixelSymbol
-  | [], read, each => each
-  | [shape, ..more], read, Witness first (Witness later (Both split (Both written each))) =>
-    rewrite split, pixelWritten first shape written, eachPixels more later each in rfl
+theorem eachPixels (pixels: List Pixel) (read: List Char) (h: Parse.Each PixelWritten read pixels): read = pixels.map pixelSymbol :=
+  match pixels, h with
+    | [], each => each
+    | [shape, ..more], Witness first (Witness later (Both split (Both written each))) =>
+      rewrite split, pixelWritten first shape written, eachPixels more later each in rfl
 
 theorem runsRow (read: List Char) (row: List Pixel) (written: RowWritten read row) (after: List Char) (stops: Parse.CannotStart pixelChar after):
     Parse.Runs pixelRow read after row :=

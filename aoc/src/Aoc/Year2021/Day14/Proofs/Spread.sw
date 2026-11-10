@@ -10,22 +10,24 @@ import Aoc.Year2021.Day14.Spec (..)
 import Std (Bool, DecEq, Eq, Exists, Iff, List, Map, Nat, Option, Ord, Void)
 
 --| A sum with a positive term has a member that gives it.
-theorem sumByPositive (f: a → Nat): ∀ (xs: List a) => 0 < xs.sumBy f → ∃ (x: a) => x ∈ xs ∧ 0 < f x
-  | [], positive => Void.exfalso omega
-  | [x, ..rest], positive =>
-    match Nat.decLessThan 0 (f x) with
-      | Yes h => Witness x (Both (Inl rfl) h)
-      | No h =>
-        match sumByPositive f rest (omega [List.sumByCons rest x f]) with
-          | Witness y (Both member gives) => Witness y (Both (Inr member) gives)
+theorem sumByPositive (f: a → Nat) (xs: List a) (positive: 0 < xs.sumBy f): ∃ (x: a) => x ∈ xs ∧ 0 < f x :=
+  match xs with
+    | [] => Void.exfalso omega
+    | [x, ..rest] =>
+      match Nat.decLessThan 0 (f x) with
+        | Yes h => Witness x (Both (Inl rfl) h)
+        | No h =>
+          match sumByPositive f rest (omega [List.sumByCons rest x f]) with
+            | Witness y (Both member gives) => Witness y (Both (Inr member) gives)
 
 --| An element after the first ends a pair.
-theorem memAfterFirst (c: Char) (a: Char): ∀ (rest: List Char) => c ∈ rest → ∃ (pair: ElementPair) => pair ∈ pairsOf [a, ..rest] ∧ pair.second = c
-  | [], member => Void.exfalso member
-  | [b, ..more], Inl same => Witness ({ first = a, second = b }) (Both (Inl rfl) same)
-  | [b, ..more], Inr member =>
-    match memAfterFirst c b more member with
-      | Witness pair (Both inPairs ends) => Witness pair (Both (Inr inPairs) ends)
+theorem memAfterFirst (c: Char) (a: Char) (rest: List Char) (h: c ∈ rest): ∃ (pair: ElementPair) => pair ∈ pairsOf [a, ..rest] ∧ pair.second = c :=
+  match rest, h with
+    | [], member => Void.exfalso member
+    | [b, ..more], Inl same => Witness ({ first = a, second = b }) (Both (Inl rfl) same)
+    | [b, ..more], Inr member =>
+      match memAfterFirst c b more member with
+        | Witness pair (Both inPairs ends) => Witness pair (Both (Inr inPairs) ends)
 
 --| A pair of the polymer has a count in the counts that stand for it.
 theorem pairCounted (counts: PairCounts) (polymer: List Char) (represents: Represents counts polymer) (pair: ElementPair) (member: pair ∈ pairsOf polymer):

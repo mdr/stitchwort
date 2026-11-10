@@ -27,12 +27,13 @@ theorem sequencesFrom (changes: List Int) (first: Int) (second: Int) (third: Int
 --| Membership carried across an equation, without computing the list.
 theorem memOfEq (xs: List a) [x y: a] (same: x = y) (member: x ∈ xs): y ∈ xs := J (other same => other ∈ xs) member same
 
-theorem findMapAny (f: a → Option b) (found: b): ∀ (xs: List a) => xs.findMap f = Some found → List.Any (x => f x = Some found) xs
-  | [], some => Void.exfalso (Option.noneNotSome found some)
-  | [x, ..rest], some =>
-    match here: f x with
-      | Some value => Inl some
-      | None => Inr (findMapAny f found rest some)
+theorem findMapAny (f: a → Option b) (found: b) (xs: List a) (some: xs.findMap f = Some found): List.Any (x => f x = Some found) xs :=
+  match xs with
+    | [] => Void.exfalso (Option.noneNotSome found some)
+    | [x, ..rest] =>
+      match here: f x with
+        | Some value => Inl some
+        | None => Inr (findMapAny f found rest some)
 
 --| Where the monkey sells, the sequence is the changes of five digits, so it
 --| is in any list of sequences that holds those.
@@ -43,19 +44,20 @@ theorem findMapAny (f: a → Option b) (found: b): ∀ (xs: List a) => xs.findMa
 theorem sellsAtIn (possible: List Changes)
     (contains: ∀ (a b c d e: Nat) => a < 10 → b < 10 → c < 10 → d < 10 → e < 10 →
       ({ first = change a b, second = change b c, third = change c d, fourth = change d e }: Changes) ∈ possible)
-    (sequence: Changes) (price: Nat): ∀ (later: List Nat) => (∀ (x: Nat) => x ∈ later → x < 10) → sellsAt sequence later = Some price → sequence ∈ possible
-  | [a, b, c, d, e, ..rest], digits, sells =>
-    match same: ({ first = change a b, second = change b c, third = change c d, fourth = change d e }: Changes) == sequence with
-      | True =>
-        memOfEq possible (DecEq.sound same)
-          (contains a b c d e (digits a (Inl rfl)) (digits b (Inr (Inl rfl))) (digits c (Inr (Inr (Inl rfl)))) (digits d (Inr (Inr (Inr (Inl rfl)))))
-            (digits e (Inr (Inr (Inr (Inr (Inl rfl)))))))
-      | False => Void.exfalso (Option.noneNotSome price sells)
-  | [], digits, sells => Void.exfalso (Option.noneNotSome price sells)
-  | [a], digits, sells => Void.exfalso (Option.noneNotSome price sells)
-  | [a, b], digits, sells => Void.exfalso (Option.noneNotSome price sells)
-  | [a, b, c], digits, sells => Void.exfalso (Option.noneNotSome price sells)
-  | [a, b, c, d], digits, sells => Void.exfalso (Option.noneNotSome price sells)
+    (sequence: Changes) (price: Nat) (later: List Nat) (digits: (∀ (x: Nat) => x ∈ later → x < 10)) (sells: sellsAt sequence later = Some price): sequence ∈ possible :=
+  match later with
+    | [a, b, c, d, e, ..rest] =>
+      match same: ({ first = change a b, second = change b c, third = change c d, fourth = change d e }: Changes) == sequence with
+        | True =>
+          memOfEq possible (DecEq.sound same)
+            (contains a b c d e (digits a (Inl rfl)) (digits b (Inr (Inl rfl))) (digits c (Inr (Inr (Inl rfl)))) (digits d (Inr (Inr (Inr (Inl rfl)))))
+              (digits e (Inr (Inr (Inr (Inr (Inl rfl)))))))
+        | False => Void.exfalso (Option.noneNotSome price sells)
+    | [] => Void.exfalso (Option.noneNotSome price sells)
+    | [a] => Void.exfalso (Option.noneNotSome price sells)
+    | [a, b] => Void.exfalso (Option.noneNotSome price sells)
+    | [a, b, c] => Void.exfalso (Option.noneNotSome price sells)
+    | [a, b, c, d] => Void.exfalso (Option.noneNotSome price sells)
 
 theorem pricesDigits (count: Nat) (buyer: Nat) (price: Nat) (inPrices: price ∈ prices count buyer): price < 10 :=
   List.anyElim _ (price < 10) (secrets count buyer) (List.memMapAny (secrets count buyer) (% 10) price inPrices)
@@ -77,11 +79,12 @@ theorem salesIn (possible: List Changes) (contains: HoldsDigitChanges possible) 
       sellsAtIn possible contains key price later (x inLater => pricesDigits count buyer x (List.memOfMemTails x pricesOf later member inLater)) sellsHere)
 
 --| A merged total comes from one side or the other.
-theorem mergeSides (holds: Prop) (value: Nat): ∀ (x y: Option Nat) => x.merge y Nat.add = Some value →
-    (∀ (t: Nat) => x = Some t → holds) → (∀ (s: Nat) => y = Some s → holds) → holds
-  | Some t, y, merged, fromX, fromY => fromX t rfl
-  | None, Some s, merged, fromX, fromY => fromY s rfl
-  | None, None, merged, fromX, fromY => Void.exfalso (Option.noneNotSome value merged)
+theorem mergeSides (holds: Prop) (value: Nat) (x y: Option Nat) (merged: x.merge y Nat.add = Some value)
+    (fromX: (∀ (t: Nat) => x = Some t → holds)) (fromY: (∀ (s: Nat) => y = Some s → holds)): holds :=
+  match x, y with
+    | Some t, y => fromX t rfl
+    | None, Some s => fromY s rfl
+    | None, None => Void.exfalso (Option.noneNotSome value merged)
 
 theorem totalsIn (possible: List Changes) (contains: HoldsDigitChanges possible) (count: Nat): ∀ (buyers: List Nat) (totals: Map Changes Nat) =>
     (∀ (key: Changes) (value: Nat) => totals.get key = Some value → key ∈ possible) → ∀ (key: Changes) (value: Nat) =>

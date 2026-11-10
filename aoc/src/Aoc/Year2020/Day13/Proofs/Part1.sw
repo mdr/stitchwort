@@ -15,11 +15,12 @@ def isListed: Slot → Bool
   | Listed _ => True
   | OutOfService => False
 
-theorem memBusesFrom: ∀ (start: Nat) (schedule: List Slot) (bus: Bus) => bus ∈ busesFrom start schedule → Listed bus.id ∈ schedule
-  | start, [], bus, member => Void.exfalso member
-  | start, [Listed id, ..rest], bus, Inl same => Inl (rewrite <- same in rfl)
-  | start, [Listed id, ..rest], bus, Inr member => Inr (memBusesFrom (Succ start) rest bus member)
-  | start, [OutOfService, ..rest], bus, member => Inr (memBusesFrom (Succ start) rest bus member)
+theorem memBusesFrom (start: Nat) (schedule: List Slot) (bus: Bus) (h: bus ∈ busesFrom start schedule): Listed bus.id ∈ schedule :=
+  match schedule, h with
+    | [], member => Void.exfalso member
+    | [Listed id, ..rest], Inl same => Inl (rewrite <- same in rfl)
+    | [Listed id, ..rest], Inr member => Inr (memBusesFrom (Succ start) rest bus member)
+    | [OutOfService, ..rest], member => Inr (memBusesFrom (Succ start) rest bus member)
 
 theorem busesFromHas: ∀ (start: Nat) (schedule: List Slot) (id: Nat) => Listed id ∈ schedule → ∃ (bus: Bus) => bus ∈ busesFrom start schedule ∧ bus.id = id
   | start, [], id, member => Void.exfalso member

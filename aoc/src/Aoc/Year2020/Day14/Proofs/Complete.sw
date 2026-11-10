@@ -45,10 +45,11 @@ theorem runsInstruction (read: List Char) (item: Instruction) (written: Instruct
                       (Parse.runsNat valueRead [] vSome vAll rfl)
                       (Parse.runsPure (Write (Parse.digitsValue addressRead) (Parse.digitsValue valueRead)) [])))))
 
-theorem startsComplete: ∀ (instructions: List Instruction) => StartsWithMask instructions → startsWithMask instructions = True
-  | [SetMask mask, ..rest], starts => rfl
-  | [Write address value, ..rest], starts => Void.exfalso starts
-  | [], starts => Void.exfalso starts
+theorem startsComplete (instructions: List Instruction) (starts: StartsWithMask instructions): startsWithMask instructions = True :=
+  match instructions with
+    | [SetMask mask, ..rest] => rfl
+    | [Write address value, ..rest] => Void.exfalso starts
+    | [] => Void.exfalso starts
 
 --| Input that is a program written out is read as that program.
 theorem parseComplete (input: Text) (program: Program) (written: ProgramWritten (input.lines.map Text.toList) program):

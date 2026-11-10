@@ -7,13 +7,13 @@ import Aoc.Year2020.Day14 (..)
 import Aoc.Year2020.Day14 (Spec)
 import Std (Bool, Eq, List, Nat, Void)
 
-theorem maskedBits: ∀ (mask: List MaskBit) (value: List Bool) => value.length = mask.length →
-    List.zipWith (List.zipWith value (mask.map MaskBit.isFloating) (a b => a && b)) (mask.map MaskBit.isOn) (a b => a || b)
-      = List.zipWith mask value Spec.overwrite
-  | [], [], same => rfl
-  | [bit, ..mask], [first, ..value], same => rewrite maskedBits mask value (omega) in cases
-  | [], [first, ..value], same => Void.exfalso (omega)
-  | [bit, ..mask], [], same => Void.exfalso (omega)
+theorem maskedBits (mask: List MaskBit) (value: List Bool) (same: value.length = mask.length): List.zipWith (List.zipWith value (mask.map MaskBit.isFloating) (a b => a && b)) (mask.map MaskBit.isOn) (a b => a || b)
+    = List.zipWith mask value Spec.overwrite :=
+  match mask, value with
+    | [], [] => rfl
+    | [bit, ..mask], [first, ..value] => rewrite maskedBits mask value (omega) in cases
+    | [], [first, ..value] => Void.exfalso (omega)
+    | [bit, ..mask], [] => Void.exfalso (omega)
 
 --| Part 1's rule is the puzzle's: `applyTo` overwrites each bit as the spec does.
 theorem applyToMasked (mask: Mask) (value: Nat): mask.applyTo value = Spec.masked mask value :=

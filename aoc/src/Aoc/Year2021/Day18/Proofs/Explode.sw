@@ -12,9 +12,10 @@ def shift (xs: List Leaf): Option Exploding → Option Exploding
   | Some found => Some { found | before = xs ++ found.before }
   | None => None
 
-theorem shiftAppend (xs: List Leaf) (ys: List Leaf): ∀ (found: Option Exploding) => shift xs (shift ys found) = shift (xs ++ ys) found
-  | None => rfl
-  | Some found => Eq.cong Some (Exploding.ext ({ found | before = xs ++ (ys ++ found.before) }) ({ found | before = (xs ++ ys) ++ found.before }) (Eq.sym (List.appendAssoc xs ys found.before)) rfl rfl rfl)
+theorem shiftAppend (xs: List Leaf) (ys: List Leaf) (found: Option Exploding): shift xs (shift ys found) = shift (xs ++ ys) found :=
+  match found with
+    | None => rfl
+    | Some found => Eq.cong Some (Exploding.ext ({ found | before = xs ++ (ys ++ found.before) }) ({ found | before = (xs ++ ys) ++ found.before }) (Eq.sym (List.appendAssoc xs ys found.before)) rfl rfl rfl)
 
 --| A pair that isn't two regular numbers, in which nothing explodes, has
 --| nothing exploding in either part (`explode`'s last arm, by its generated

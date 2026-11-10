@@ -33,9 +33,10 @@ theorem declinesCube (rest: List Char) (stops: Parse.CannotStart cubeChar rest):
         Both (stripDifferent '#' [] char more (Bool.orFalseLeft _ _ (stops char more rfl)))
           (Both (stripDifferent '.' [] char more (Bool.orFalseRight _ _ (stops char more rfl))) rfl))
 
-theorem allCubes: ∀ (states: List CubeState) => (states.map symbol).all cubeChar = True
-  | [] => rfl
-  | [state, ..more] => rewrite allCubes more in (match state with | Active => rfl | Inactive => rfl)
+theorem allCubes (states: List CubeState): (states.map symbol).all cubeChar = True :=
+  match states with
+    | [] => rfl
+    | [state, ..more] => rewrite allCubes more in (match state with | Active => rfl | Inactive => rfl)
 
 theorem runsRow (line: List Char) (row: List CubeState) (written: RowWritten line row) (nonEmpty: row ≠ []):
     Parse.Runs (() => Parse.many1 cubeState |> .toList) line [] row :=

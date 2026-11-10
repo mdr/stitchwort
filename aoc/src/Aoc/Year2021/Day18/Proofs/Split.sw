@@ -12,9 +12,10 @@ def prefixed (xs: List Leaf): Option (List Leaf) → Option (List Leaf)
   | Some after => Some (xs ++ after)
   | None => None
 
-theorem prefixedAppend (xs: List Leaf) (ys: List Leaf): ∀ (split: Option (List Leaf)) => prefixed xs (prefixed ys split) = prefixed (xs ++ ys) split
-  | None => rfl
-  | Some after => Eq.cong Some (Eq.sym (List.appendAssoc xs ys after))
+theorem prefixedAppend (xs: List Leaf) (ys: List Leaf) (split: Option (List Leaf)): prefixed xs (prefixed ys split) = prefixed (xs ++ ys) split :=
+  match split with
+    | None => rfl
+    | Some after => Eq.cong Some (Eq.sym (List.appendAssoc xs ys after))
 
 --| Where `split` finds nothing, nor does the spec.
 theorem splitNoneLeaves (depth: Nat): ∀ (number: Number) => split number = None → ∀ (rest: List Leaf) =>

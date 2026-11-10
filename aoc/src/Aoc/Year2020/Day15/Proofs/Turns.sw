@@ -48,9 +48,10 @@ theorem lastTracks (game: Game) (spoken: List Nat) (tracks: Tracks game spoken):
   match tracks with
     | Witness older (Both isSpoken rest) => rewrite isSpoken in rfl
 
-theorem iterateTurn (starting: Starting): ∀ (count: Nat) (game: Game) => (Nat.iterate count starting.takeTurn game).turn = game.turn + count
-  | Zero, game => omega
-  | Succ count, game => rewrite iterateTurn starting count (starting.takeTurn game) in omega
+theorem iterateTurn (starting: Starting) (count: Nat) (game: Game): (Nat.iterate count starting.takeTurn game).turn = game.turn + count :=
+  match count with
+    | Zero => omega
+    | Succ count => rewrite iterateTurn starting count (starting.takeTurn game) in omega
 
 --| `count` more turns keep the game playing, as long as they end by `turns`.
 theorem iteratePlaying (starting: Starting) (turns: Nat): ∀ (count: Nat) (game: Game) =>

@@ -43,9 +43,10 @@ theorem finalHolds (maze: Maze): ∀ (reindeer: Reindeer) => maze.holds reindeer
       | Some next => finalHolds maze next (moveHolds maze reindeer holds way next moved) rest last ended
 
 --| The last of a list, with one more in front.
-theorem lastCons: ∀ (first: a) (rest: List a) (last: a) => rest.last = Some last → [first, ..rest].last = Some last
-  | first, [], last, ended => Void.exfalso (Option.noneNotSome last ended)
-  | first, [second, ..more], last, ended => ended
+theorem lastCons (first: a) (rest: List a) (last: a) (ended: rest.last = Some last): [first, ..rest].last = Some last :=
+  match rest with
+    | [] => Void.exfalso (Option.noneNotSome last ended)
+    | [second, ..more] => ended
 
 --| `follow` ends where `final` does.
 theorem followFinal (maze: Maze): ∀ (reindeer: Reindeer) (moves: List Move) (standings: List Reindeer) =>

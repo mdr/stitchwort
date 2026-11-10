@@ -13,22 +13,24 @@ theorem differ (x: Cave) (y: Cave) (ne: x ≠ y): (x == y) = False :=
     | False => rfl
 
 --| Looking a cave up in a table built from a list of caves.
-theorem lookupBuilt (f: Cave → List Cave) (cave: Cave): ∀ (cs: List Cave) => cave ∈ cs → List.lookup (cs.map (c => (c, f c))) cave = Some (f cave)
-  | [], member => Void.exfalso member
-  | [c, ..rest], member =>
-    match e: c == cave with
-      | True => rewrite DecEq.sound e in rfl
-      | False =>
-        match member with
-          | Inl same => Void.exfalso (Bool.trueNotFalse (rewrite same, DecEq.refl cave at e))
-          | Inr later => lookupBuilt f cave rest later
+theorem lookupBuilt (f: Cave → List Cave) (cave: Cave) (cs: List Cave) (member: cave ∈ cs): List.lookup (cs.map (c => (c, f c))) cave = Some (f cave) :=
+  match cs with
+    | [] => Void.exfalso member
+    | [c, ..rest] =>
+      match e: c == cave with
+        | True => rewrite DecEq.sound e in rfl
+        | False =>
+          match member with
+            | Inl same => Void.exfalso (Bool.trueNotFalse (rewrite same, DecEq.refl cave at e))
+            | Inr later => lookupBuilt f cave rest later
 
-theorem lookupMissing (f: Cave → List Cave) (cave: Cave): ∀ (cs: List Cave) => ¬(cave ∈ cs) → List.lookup (cs.map (c => (c, f c))) cave = None
-  | [], missing => rfl
-  | [c, ..rest], missing =>
-    match e: c == cave with
-      | True => Void.exfalso (missing (Inl (DecEq.sound e)))
-      | False => lookupMissing f cave rest (later => missing (Inr later))
+theorem lookupMissing (f: Cave → List Cave) (cave: Cave) (cs: List Cave) (missing: ¬(cave ∈ cs)): List.lookup (cs.map (c => (c, f c))) cave = None :=
+  match cs with
+    | [] => rfl
+    | [c, ..rest] =>
+      match e: c == cave with
+        | True => Void.exfalso (missing (Inl (DecEq.sound e)))
+        | False => lookupMissing f cave rest (later => missing (Inr later))
 
 --| Both caves of a passage are named in one.
 theorem endsNamed (passages: List Passage) (passage: Passage) (member: passage ∈ passages):

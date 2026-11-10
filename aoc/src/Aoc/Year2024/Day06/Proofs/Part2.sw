@@ -35,17 +35,18 @@ def onRoute (lab: Lab) (guard: Option Guard) (steps: Nat) (position: Position): 
 
 --| With the obstruction off her route for one step more, the walk in the
 --| changed lab is the walk in the old one.
-theorem walkWithSame (lab: Lab) (blocker: Position): ∀ (steps: Nat) (guard: Option Guard) => onRoute lab guard (Succ steps) blocker = False →
-    walk (lab.withObstruction blocker) guard steps = walk lab guard steps
-  | Zero, guard, absent => rfl
-  | Succ steps, None, absent => rewrite walkNone (lab.withObstruction blocker) steps, walkNone lab steps in rfl
-  | Succ steps, Some here, absent =>
-    let restAbsent: onRoute lab (lab.step here) (Succ steps) blocker = False := Bool.orFalseRight _ _ absent
-    let fresh := (ahead: Position) (inFront: lab.ahead here = Some ahead) (blocked: lab.obstructions.contains ahead = False) =>
-      let movedAbsent := rewrite stepMoves lab here ahead inFront blocked at restAbsent
-      let notSame: Map.Spec.sameKey blocker ahead = False := Bool.orFalseLeft _ _ movedAbsent
-      DecEq.soundFalse ahead blocker (rewrite Map.Spec.sameKeyDecide blocker ahead at notSame)
-    rewrite stepWithSame lab blocker here fresh in walkWithSame lab blocker steps (lab.step here) restAbsent
+theorem walkWithSame (lab: Lab) (blocker: Position) (steps: Nat) (guard: Option Guard) (absent: onRoute lab guard (Succ steps) blocker = False):
+    walk (lab.withObstruction blocker) guard steps = walk lab guard steps :=
+  match steps, guard with
+    | Zero, guard => rfl
+    | Succ steps, None => rewrite walkNone (lab.withObstruction blocker) steps, walkNone lab steps in rfl
+    | Succ steps, Some here =>
+      let restAbsent: onRoute lab (lab.step here) (Succ steps) blocker = False := Bool.orFalseRight _ _ absent
+      let fresh := (ahead: Position) (inFront: lab.ahead here = Some ahead) (blocked: lab.obstructions.contains ahead = False) =>
+        let movedAbsent := rewrite stepMoves lab here ahead inFront blocked at restAbsent
+        let notSame: Map.Spec.sameKey blocker ahead = False := Bool.orFalseLeft _ _ movedAbsent
+        DecEq.soundFalse ahead blocker (rewrite Map.Spec.sameKeyDecide blocker ahead at notSame)
+      rewrite stepWithSame lab blocker here fresh in walkWithSame lab blocker steps (lab.step here) restAbsent
 
 --| A new obstruction off the route of a guard who leaves can't trap her.
 theorem offRouteFree (lab: Lab) (inside: onMap lab lab.start = True) (steps: Nat) (gone: after lab steps = None) (blocker: Position)
@@ -74,22 +75,24 @@ theorem stepSettled (lab: Lab) (guard: Guard) (settled: settledAt lab guard.posi
           let landed := aheadOnMap lab guard (Bool.andLeft settled) ahead inFront
           rewrite <- Option.someInjective stepped in (cases: settledAt lab ahead = True)
 
-theorem routeSettled (lab: Lab) (position: Position): ∀ (steps: Nat) (guard: Option Guard) => settledIfAny lab guard = True →
-    onRoute lab guard steps position = True → settledAt lab position = True
-  | Zero, guard, settled, has => Void.exfalso (Bool.falseNotTrue has)
-  | Succ steps, None, settled, has => Void.exfalso (Bool.falseNotTrue has)
-  | Succ steps, Some here, settled, has =>
-    Bool.orElim has
-      (same => rewrite Map.Spec.sameKeySound position here.position same in settled)
-      (rest =>
-        let nextSettled: settledIfAny lab (lab.step here) = True :=
-          match stepped: lab.step here with
-            | None => rfl
-            | Some next => stepSettled lab here settled next stepped
-        routeSettled lab position steps (lab.step here) nextSettled rest)
+theorem routeSettled (lab: Lab) (position: Position) (steps: Nat) (guard: Option Guard) (settled: settledIfAny lab guard = True)
+    (has: onRoute lab guard steps position = True): settledAt lab position = True :=
+  match steps, guard with
+    | Zero, guard => Void.exfalso (Bool.falseNotTrue has)
+    | Succ steps, None => Void.exfalso (Bool.falseNotTrue has)
+    | Succ steps, Some here =>
+      Bool.orElim has
+        (same => rewrite Map.Spec.sameKeySound position here.position same in settled)
+        (rest =>
+          let nextSettled: settledIfAny lab (lab.step here) = True :=
+            match stepped: lab.step here with
+              | None => rfl
+              | Some next => stepSettled lab here settled next stepped
+          routeSettled lab position steps (lab.step here) nextSettled rest)
 
-theorem positionEta: ∀ (position: Position) => ({ row = position.row, column = position.column }: Position) = position
-  | { row, column } => rfl
+theorem positionEta (position: Position): ({ row = position.row, column = position.column }: Position) = position :=
+  match position with
+    | { row, column } => rfl
 
 --| Every position on the map is in `positions`.
 theorem positionsOnMap (lab: Lab) (position: Position) (inside: onMap lab position = True):

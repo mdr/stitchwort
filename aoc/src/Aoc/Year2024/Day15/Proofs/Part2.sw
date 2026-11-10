@@ -379,9 +379,10 @@ theorem moveWideWalls (warehouse: Warehouse) (direction: Direction): (warehouse.
 --| After every move: the walls are where they were, nothing overlaps if
 --| nothing did at the start (so the robot is never on a wall or a box), and
 --| every box is whole.
-theorem moveAllWideWalls: ∀ (warehouse: Warehouse) (moves: List Direction) => (warehouse.moveAllWide moves).walls = warehouse.walls
-  | warehouse, [] => rfl
-  | warehouse, [move, ..rest] => Eq.trans (moveAllWideWalls (warehouse.moveWide move) rest) (moveWideWalls warehouse move)
+theorem moveAllWideWalls (warehouse: Warehouse) (moves: List Direction): (warehouse.moveAllWide moves).walls = warehouse.walls :=
+  match moves with
+    | [] => rfl
+    | [move, ..rest] => Eq.trans (moveAllWideWalls (warehouse.moveWide move) rest) (moveWideWalls warehouse move)
 
 theorem moveAllWideSeparate: ∀ (warehouse: Warehouse) (moves: List Direction) => WideSeparate warehouse → WideSeparate (warehouse.moveAllWide moves)
   | warehouse, [], separate => separate

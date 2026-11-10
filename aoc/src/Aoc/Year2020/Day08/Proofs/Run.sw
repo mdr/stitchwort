@@ -22,9 +22,10 @@ def Ended (program: Program) (executed: List Int) (last: State): (outcome: Outco
 def Unvisited (length: Nat) (done: List Int) (unvisited: Set Nat): Prop :=
   ∀ (position: Nat) => unvisited.contains position = True ↔ (position < length ∧ position.toInt ∉ done)
 
-theorem nextIs: ∀ (next: Int) (position: Nat) => next.toNatChecked = Some position → next = position.toInt
-  | OfNat n, position, found => Eq.cong OfNat (Option.someInjective found)
-  | NegSucc n, position, found => Void.exfalso (Option.noneNotSome position found)
+theorem nextIs (next: Int) (position: Nat) (found: next.toNatChecked = Some position): next = position.toInt :=
+  match next with
+    | OfNat n => Eq.cong OfNat (Option.someInjective found)
+    | NegSucc n => Void.exfalso (Option.noneNotSome position found)
 
 theorem executeSteps (program: Program) (state: State) (instruction: Instruction) (at: instructionAt program state.next = Some instruction):
     Step program state (instruction.execute state) :=
