@@ -3,10 +3,12 @@
 //! checking the edited text, before anyone commits to them.
 //!
 //! [`LiveProject::trial`] applies the edits, rewinds to the mark before the
-//! first namespace they change and checks from there, dependants included,
-//! then compares with the state before: the diagnostics (by file, code and
-//! declaration, so those already there stay allowed) and every
-//! declaration's content hash against the refactoring's [`Promise`]. What
+//! first namespace they change and checks from there (the namespaces that
+//! use the edited ones last, see the module `live`), then compares with the
+//! state before: the diagnostics (by file, code and declaration, so those
+//! already there stay allowed) and the content hash of every declaration of
+//! the edited namespaces and those using them against the refactoring's
+//! [`Promise`]. What
 //! it finds is a list of problems, not a verdict: the caller refuses the
 //! edit when there are any, or applies it anyway and leaves the few
 //! problem spots for the user to fix (D3467). Then [`LiveProject::keep`]
@@ -29,6 +31,7 @@ use super::{
     LiveProject, NamespaceOutcome, OutlineItem, Place, Progress, lsp_range, syntactic_outline,
 };
 use crate::nav::Range;
+use crate::project::dependents;
 use crate::rewind::Cancelled;
 
 /// A text edit: `range` of the file at `place`, in the text as it is now,
@@ -263,15 +266,18 @@ impl LiveProject {
             Err(refusal) => return Ok(TrialOutcome::Refused(vec![refusal])),
         };
         // What is compared: the diagnostics of every namespace, and the
-        // hashes of those the edit rewinds (the first with an edited file,
-        // and all after it). Those before keep their declarations as they
-        // are, so their hashes can't differ.
-        let first = self
-            .steps
-            .iter()
-            .position(|s| s.files.iter().any(|(p, _)| edited.contains_key(p)))
-            .unwrap_or(self.steps.len());
-        let hashes_before = self.hashes(|k, _| k >= first);
+        // hashes of the declarations of the namespaces with an edited file
+        // and those that use them. The others keep their declarations, so
+        // their hashes can't differ.
+        let affected: BTreeSet<String> = {
+            let analysis = self.analysis.as_ref().expect("checked");
+            self.steps
+                .iter()
+                .filter(|s| s.files.iter().any(|(p, _)| edited.contains_key(p)))
+                .flat_map(|s| dependents(analysis, &s.name))
+                .collect()
+        };
+        let hashes_before = self.hashes(|_, name| affected.contains(name));
         let diagnostics_before = self.diagnostic_keys(promise);
 
         let mut before = BTreeMap::new();

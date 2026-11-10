@@ -26,7 +26,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use stitchwort_core::hash::{data_hash, def_hash};
 use stitchwort_core::{DataId, DefId};
 use stitchwort_driver::driver::{Session, full_tier, par_map, tier_sample, with_stack};
-use stitchwort_driver::live::{LiveProject, Progress};
+use stitchwort_driver::live::{LiveProject, Place, Progress};
 use stitchwort_driver::nav::index_json;
 use stitchwort_driver::project::{DiskFiles, Target};
 use stitchwort_driver::render::render;
@@ -820,4 +820,116 @@ fn a_check_cancelled_at_each_use_of_the_cache_rewinds() {
     let cancelled = cancelled.iter().filter(|c| **c).count();
     eprintln!("{cancelled} of {} checks cancelled", points.len());
     assert!(cancelled * 2 > points.len(), "most were cancelled");
+}
+
+// ---- editing re-checks what an edit can affect ------------------------------
+
+/// A's text, with a number no run has used before: its cache entries are
+/// new, so that the cache's hits and misses are the run's own.
+fn order_a() -> String {
+    let nonce = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_nanos();
+    format!("namespace Order.A\n\ndef base: Nat := {nonce}\n")
+}
+const ORDER_B: &str = "namespace Order.B\n\nimport Order.A (base)\n\ndef next: Nat := base + 1\n";
+const ORDER_C: &str = "namespace Order.C\n\ndef lone: Nat := 7\n";
+
+fn order_files(a: &str) -> BTreeMap<String, String> {
+    BTreeMap::from([
+        ("src/a.sw".to_string(), a.to_string()),
+        ("src/b.sw".to_string(), ORDER_B.to_string()),
+        ("src/c.sw".to_string(), ORDER_C.to_string()),
+    ])
+}
+
+fn order_project(files: BTreeMap<String, String>) -> LiveProject {
+    let mut session = Session::navigable_for_stack(STACK);
+    session.use_test_std_cache();
+    LiveProject::new(
+        session,
+        "order",
+        Some("sources: [src]\n".to_string()),
+        files,
+    )
+}
+
+/// Steps `live` until everything is checked, giving the namespaces it
+/// checked, in order.
+fn checked_log(live: &mut LiveProject) -> Vec<String> {
+    let mut log = Vec::new();
+    while let Progress::Checked { .. } = live.step().expect("not cancelled") {
+        log.push(live.last_checked().unwrap().to_string());
+    }
+    log
+}
+
+/// A, then B using A, then C using neither. An edit of A rewinds the kernel
+/// to before A, which drops C too; C is checked again first (replayed from
+/// the check cache, not elaborated), then A and B, so A and its user are
+/// the last steps and the next edit of A leaves C alone. The diagnostics
+/// and answers are a fresh check's, and so are the cache's hits.
+#[test]
+fn an_edit_checks_again_only_what_uses_it() {
+    with_stack(STACK, || {
+        let order_a = order_a();
+        let mut live = order_project(order_files(&order_a));
+        assert_eq!(checked_log(&mut live), ["Order.A", "Order.B", "Order.C"]);
+        let stats = |live: &LiveProject| live.session.elab.check_cache_stats();
+
+        // The first edit: C goes with the rewind, and comes back from the
+        // cache before A.
+        let before = stats(&live);
+        let edited = format!("{order_a}\ndef more: Nat := base + 1\n");
+        live.set_text("src/a.sw", Some(edited));
+        assert_eq!(checked_log(&mut live), ["Order.C", "Order.A", "Order.B"]);
+        let after = stats(&live);
+        assert_eq!(
+            after.namespace_hits - before.namespace_hits,
+            1,
+            "C replayed"
+        );
+        assert_eq!(
+            after.namespace_misses - before.namespace_misses,
+            2,
+            "A and B elaborated"
+        );
+
+        // The second, which breaks B: C is not touched at all.
+        let before = stats(&live);
+        let broken = order_a.replace("base", "root");
+        live.set_text("src/a.sw", Some(broken.clone()));
+        assert_eq!(checked_log(&mut live), ["Order.A", "Order.B"]);
+        let after = stats(&live);
+        assert_eq!(
+            after.namespace_hits, before.namespace_hits,
+            "C not replayed"
+        );
+        assert_eq!(
+            after.namespace_misses - before.namespace_misses,
+            2,
+            "A and B elaborated; C not"
+        );
+
+        let mut fresh = order_project(order_files(&broken));
+        checked_log(&mut fresh);
+        let (now, then) = (live.answers(), fresh.answers());
+        assert!(
+            now.values().any(|file| !file.diagnostics.is_empty()),
+            "B no longer finds `base`"
+        );
+        assert_eq!(format!("{now:?}"), format!("{then:?}"));
+
+        // And back: the same answers as the first check's.
+        live.set_text("src/a.sw", Some(order_a.clone()));
+        assert_eq!(checked_log(&mut live), ["Order.A", "Order.B"]);
+        let mut first = order_project(order_files(&order_a));
+        checked_log(&mut first);
+        let (mut now, mut then) = (live.answers(), first.answers());
+        // The library's answers were given with the first call.
+        now.retain(|place, _| matches!(place, Place::Program(_)));
+        then.retain(|place, _| matches!(place, Place::Program(_)));
+        assert_eq!(format!("{now:?}"), format!("{then:?}"));
+    });
 }
