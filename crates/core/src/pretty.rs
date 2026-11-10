@@ -344,7 +344,7 @@ pub fn value_for_goal(
     )
 }
 
-/// Whether the type `ty` (of a variable at context depth `level`) is
+/// Whether the type `ty` (a value under `level` binders) is
 /// `Prop`, or a function type into it: the variable is a predicate, and
 /// applied to arguments it is a proposition.
 pub fn is_predicate_type(g: &Ev, level: usize, ty: &Value) -> bool {
