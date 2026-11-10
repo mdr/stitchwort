@@ -26485,9 +26485,9 @@
     {
       "id": 2599,
       "title": "Navigation: the syntactic local walk records a later 'match induct (countAbove k xs)' as a use of a local 'countAbove' bound by the theorem's result type (countAboveLe … : countAbove k xs ≤ …), which is also recorded as a definition; find why the result type binds a local there",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Sonnet",
-      "where": "",
+      "where": ".claude/worktrees/SW-2599",
       "labels": [],
       "epic": "editor-playground",
       "body": "From SW-2596's report, 10 Nov. The new test the_function_in_match_induct filters to declaration references to avoid it.",
