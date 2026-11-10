@@ -26267,15 +26267,17 @@
     {
       "id": 2584,
       "title": "Effect differential's default test fails under load since SW-2570: seed 43's check hit the 60 s deadline in the full tier (load 12-14), and the default run requires zero skips. Make the default-seed run load-proof (scale the deadline, use steps not wall time for checking, or allow skips with a reason)",
-      "status": "backlog",
+      "status": "review",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "test-infra",
-      "body": "Overmind job 49, 9 Nov. Seed 43 also takes ~170 s in debug (SW-2570 report); SW-2570 follow-up. 30 min.\n\nOvermind job 50: alone on a quiet machine the effect default test passes in 43.5 s with no skips. Same pattern in two LSP tests (a_newer_edit_cancels_the_check_running, aoc_navigation_matches_check_index): pass alone (9.8 s, 54 s) and in their module (48/48), but under full-tier load took 7-37x as long and gave up waiting for diagnostics. Scope: make these three tests' waits load-proof.\n",
+      "body": "Overmind job 49, 9 Nov. Seed 43 also takes ~170 s in debug (SW-2570 report); SW-2570 follow-up. 30 min.\n\nOvermind job 50: alone on a quiet machine the effect default test passes in 43.5 s with no skips. Same pattern in two LSP tests (a_newer_edit_cancels_the_check_running, aoc_navigation_matches_check_index): pass alone (9.8 s, 54 s) and in their module (48/48), but under full-tier load took 7-37x as long and gave up waiting for diagnostics. Scope: make these three tests' waits load-proof.\n\n\nLane note: checking now capped at 400M steps (wall clock only a 30 min backstop); LSP tests wait on events up to 30 min. Commit on lane/SW-2584.\n",
       "created": "2026-11-09",
-      "updated": "2026-11-09",
-      "commits": []
+      "updated": "2026-11-10",
+      "commits": [
+        "4d747c9b7"
+      ]
     },
     {
       "id": 2585,
