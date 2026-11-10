@@ -134,6 +134,17 @@ pub fn def_hash(g: &Ev, id: DefId) -> Result<Option<ContentHash>> {
     Ok(Some(hash))
 }
 
+/// The hash of the type of definition `id` alone, with the hashes of what it
+/// mentions: what a statement says, whatever its proof. `None` while a
+/// definition it mentions isn't final.
+pub fn type_hash(g: &Ev, id: DefId) -> Result<Option<ContentHash>> {
+    g.machine.budget.nesting(PASS)?;
+    let mut h = Hasher::new(g, Itself::Def(id));
+    h.tag("type");
+    h.term(&g.def(id).ty)?;
+    Ok((!h.unfinished).then(|| h.finish()))
+}
+
 /// The hash of float primitive `id` (`Float.add`, …) under version
 /// `contract` of the float contract: `None` if `id` isn't one. A primitive
 /// has no body: it's its name, as the operation tag, the contract's version
@@ -308,6 +319,9 @@ struct Hasher<'g> {
     g: &'g Ev<'g>,
     itself: Itself<'g>,
     inner: blake3::Hasher,
+    /// Whether a reference met a declaration that isn't final, hashed as
+    /// zeros: the hash then doesn't say what that declaration is.
+    unfinished: bool,
 }
 
 impl<'g> Hasher<'g> {
@@ -316,6 +330,7 @@ impl<'g> Hasher<'g> {
             g,
             itself,
             inner: blake3::Hasher::new(),
+            unfinished: false,
         }
     }
 
@@ -478,7 +493,9 @@ impl<'g> Hasher<'g> {
                 }
             }
             _ => {
-                let hash = def_hash(self.g, id)?.map_or([0; 32], |h| h.0);
+                let hash = def_hash(self.g, id)?;
+                self.unfinished |= hash.is_none();
+                let hash = hash.map_or([0; 32], |h| h.0);
                 self.tag("ref");
                 self.bytes(&hash);
             }
@@ -497,7 +514,9 @@ impl<'g> Hasher<'g> {
             }
             _ => {
                 // Final declarations only refer to final ones.
-                let hash = data_hash(self.g, id)?.map_or([0; 32], |h| h.0);
+                let hash = data_hash(self.g, id)?;
+                self.unfinished |= hash.is_none();
+                let hash = hash.map_or([0; 32], |h| h.0);
                 self.tag("ref");
                 self.bytes(&hash);
             }
