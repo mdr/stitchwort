@@ -326,7 +326,9 @@ fn rewrite_goal(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
                 text: "rfl".into(),
                 span: rules.last().expect("a rule").span,
             });
-            match check(cx, &rfl, &goal) {
+            // The `rfl` is the compiler's, at the last rule's span: noting it
+            // would replace that rule's own reference.
+            match crate::Elaborator::unnoted_in(cx, |cx| check(cx, &rfl, &goal)) {
                 Err(e) if e.code == "E-REFL" => {
                     return Err(e.with_note(format!(
                         "this is the goal after rewriting; `rewrite p` without `in` closes it with `rfl`: `{}`",
