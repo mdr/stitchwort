@@ -25974,14 +25974,14 @@
     {
       "id": 2561,
       "title": "Entry points per D3452: update docs/proposals/entry-points.md to Matt's decision (any function of a runnable type can be run by name, Unison-style; no annotation; main is a style convention and the default name run looks for); then implement what follows once D3456 is answered",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Sonnet",
-      "where": "",
+      "where": ".claude/worktrees/SW-2561",
       "labels": [],
       "epic": "syntax-language",
       "body": "D3452, Matt, 9 Nov 2026 10:41: keep the Unison approach: any function with an appropriate signature can be run as an entry point; no annotation; a style convention that it is called main. Open: D3456 (warn on a main that can't run), D3453 (main without ()), D3454 (run NS runs NS.main). 60 min.\n\nD3456, Matt, 9 Nov 2026: no warning on a non-runnable main for now.\n",
       "created": "2026-11-09",
-      "updated": "2026-11-09",
+      "updated": "2026-11-10",
       "commits": []
     },
     {
