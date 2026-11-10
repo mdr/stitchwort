@@ -28501,15 +28501,17 @@
     {
       "id": 2726,
       "title": "hash_stability snapshots' source: headers are stale (28 repinned now point at tests/library/, the rest don't)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "test-infra",
-      "body": "From SW-2698 (10 Nov 2026).",
+      "body": "From SW-2698 (10 Nov 2026). Done by the orchestrator (one sed): 86 headers said tests/hash_stability.rs.",
       "created": "2026-11-10",
       "updated": "2026-11-10",
-      "commits": []
+      "commits": [
+        "195507ec2"
+      ]
     },
     {
       "id": 2727,
