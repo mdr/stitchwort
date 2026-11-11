@@ -447,6 +447,8 @@ struct Lib {
     div_fuel: DefId,
     div_step: DefId,
     ite: DefId,
+    /// What `Decidable.elim` computes to (`crate::carry::elim_helper`).
+    elim_helper: Option<DefId>,
     to_bool: DefId,
     nat_dec_eq: DefId,
     int_dec_eq: DefId,
@@ -741,6 +743,7 @@ impl Lib {
             div_fuel: builtin_def(cx, Builtin::DivFuel)?,
             div_step: builtin_def(cx, Builtin::DivStep)?,
             ite: builtin_def(cx, Builtin::IfThenElse)?,
+            elim_helper: crate::carry::elim_helper(&cx.g()),
             to_bool: builtin_def(cx, Builtin::ToBool)?,
             nat_dec_eq: def("Std.Nat.decEq")?,
             int_dec_eq: builtin_def(cx, Builtin::DecEqInt)?,
@@ -926,6 +929,16 @@ fn bool_form(cx: &Ctx, lib: &Lib, l: &Value) -> Result<Option<BoolForm>> {
         }
         if is_ctor(cx, &then, lib.tru)? {
             return Ok(Some(BoolForm::Or(p.clone(), otherwise)));
+        }
+    }
+    // The same on a decided proposition, `Decidable.elim d (_ => q) (_ =>
+    // False)` computed: the test, `d.holds`, for `p`.
+    if let Some((p, then, otherwise)) = crate::carry::as_if(&cx.g(), lib.elim_helper, &l)? {
+        if is_ctor(cx, &otherwise, lib.fls)? {
+            return Ok(Some(BoolForm::And(p, then)));
+        }
+        if is_ctor(cx, &then, lib.tru)? {
+            return Ok(Some(BoolForm::Or(p, otherwise)));
         }
     }
     Ok(None)

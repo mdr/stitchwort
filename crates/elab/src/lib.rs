@@ -17,6 +17,7 @@ mod builtin_docs;
 pub use builtin_docs::is_builtin;
 pub mod cache;
 mod calc;
+mod carry;
 mod chain;
 mod check;
 pub mod closing;
@@ -1153,15 +1154,7 @@ impl Elaborator {
     /// solutions into `term`, failing if any are unsolved. The end of a
     /// declaration part for the queued checks too: they are resumed with
     /// the obligations, defaulted, or reported stuck (`queue.rs`, W4).
-    fn finish(&self, term: &Term, level: usize) -> Result<Term> {
-        let zonked = self.finish_unsettled(term, level)?;
-        self.settle_tagged(&zonked)
-    }
-
-    /// [`Elaborator::finish`] but for settling the tagged `if`s, which the
-    /// caller does: a `decreasing` step keeps some of its tags
-    /// ([`Elaborator::settle_tagged_keeping`]).
-    pub(crate) fn finish_unsettled(&self, term: &Term, level: usize) -> Result<Term> {
+    pub(crate) fn finish(&self, term: &Term, level: usize) -> Result<Term> {
         self.compare_awaiting_helpers()?;
         let stuck = self.settle_queue()?;
         self.settle_rows(stuck)?;
@@ -1171,22 +1164,6 @@ impl Elaborator {
             None => self.zonk(term, level)?,
         };
         Ok(zonked)
-    }
-
-    /// `term`, a finished body, with the conjunctions the elaborator tagged
-    /// settled (`logic::settle_tagged`).
-    pub(crate) fn settle_tagged(&self, term: &Term) -> Result<Term> {
-        self.settle_tagged_keeping(term, false)
-    }
-
-    /// [`Elaborator::settle_tagged`]; with `keep_plain`, plain `if`s in a
-    /// `decreasing` body whose proof the branches use keep their tag
-    /// (`logic::tag_plain`), for `decreasing/plain.rs`.
-    pub(crate) fn settle_tagged_keeping(&self, term: &Term, keep_plain: bool) -> Result<Term> {
-        if self.decl.tagged_conjunctions.get() {
-            return logic::settle_tagged(self, term, keep_plain);
-        }
-        Ok(term.clone())
     }
 
     /// Substitutes metavariable solutions into `term`, failing if any are

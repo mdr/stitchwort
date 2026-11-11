@@ -2,33 +2,31 @@
 //! call under it its condition, or a `match` its equation
 //! (docs/proposals/decreasing-with-hypothesis.md, stages 1 and 2).
 //!
-//! In a `decreasing` body a plain `if` is elaborated as `if _: …` would be,
-//! `Decidable.elim d (h => a) (h => b)`, its decision tagged with the `Bool`
-//! the plain `if` is on (`logic::tag_plain`). Where only recursive calls'
-//! proofs use `h`, `f.%step` keeps the `Decidable.elim` (the calls need it)
-//! and two more definitions are made:
+//! A plain `if` on a decided proposition is `Decidable.elim d (_ => a) (_ =>
+//! b)`, as an `if _: …` (a `Bool` condition `c` is decided by
+//! `Bool.decTrue c` in a `decreasing` body), so a recursive call under it
+//! can use the condition. `f.%step` keeps the calls' proofs, and two more
+//! definitions are made:
 //!
-//! 1. `f.%plain (x…) (%rec: (y…) -> B) (c…): B`, the body with each such `if`
-//!    as `Bool.ifThenElse b (_ => a) (_ => b)` and each recursive call
-//!    without its proof. A `match` lifted from the body is passed `y… p =>
-//!    %rec y…`.
+//! 1. `f.%plain (x…) (%rec: (y…) -> B) (c…): B`, the body with each
+//!    recursive call without its proof, so its `if`s' proofs go unused and
+//!    they print as the plain `if`. A `match` lifted from the body is
+//!    passed `y… p => %rec y…`.
 //! 2. `f.%plain.%same (x…) (r: (y…) -> B) (c…): f.%step x… (y… p => r y…)
-//!    c… = f.%plain x… r c…`, by `f.%step`'s case tree, and at each leaf by
-//!    `Decidable.elimIf` or `Bool.elimDecTrueIf` at each such `if`, through
-//!    the `if`s around it by `Decidable.elimCong` and `Bool.ifThenElseCong`,
-//!    through a `let` by the same `let`, and in an argument by rewriting one
-//!    `if` at a time (`J`).
+//!    c… = f.%plain x… r c…`: by computation where the two differ only in
+//!    the calls' proofs, and at a twin's call (below) by its own lemma,
+//!    through the `if`s around it by `Decidable.elimCong` and
+//!    `Bool.ifThenElseCong`, through a `let` by the same `let`, and in an
+//!    argument by rewriting one call at a time (`J`).
 //!
-//! `f.unfold` is then `f x… = f.%plain x… (y… => f y…)`. An `if` whose `h`
-//! something else uses, or that sits where the proof doesn't go (inside a
-//! function passed to another, a condition), stays a `Decidable.elim` in
-//! `f.%plain` too.
+//! `f.unfold` is then `f x… = f.%plain x… (y… => f y…)`. It is made when the
+//! body has such an `if` whose proof a call uses (binder `_`, from
+//! `check::check_if_in`), or a twin.
 //!
 //! Stage 2: a `match` in the body, lifted to `H` (`f.%step.%match1`), is
 //! passed its equation `e = s` (`rfl`), named or not, when an arm calls the
 //! definition (`matching.rs`, [`super::FOUND`]). Such an `H` gets a twin `H'`
-//! (`H.%plain`), made the same way as `f.%plain` from its own case tree
-//! (its plain `if`s are kept tagged for this, `lifted_helper_body`), and
+//! (`H.%plain`), made the same way as `f.%plain` from its own case tree, and
 //! without the parameters its plain body doesn't need: the equation, and
 //! any fact only a call's proof used. `H.%plain.%same` says `H x… (y… p =>
 //! r y…) … = H' …`, and `f.%plain` calls `H'` wherever the proof reaches,
@@ -42,12 +40,10 @@ use std::rc::Rc;
 use stitchwort_core::collections::HashMap;
 use stitchwort_core::registry::Builtin;
 use stitchwort_core::term::{Branch, NumArm};
-use stitchwort_core::value::same_term;
 use stitchwort_core::{DefId, Ev, Icit, Name, Term};
 use stitchwort_syntax::Span;
 
 use super::{Binder, Plan, apps, instantiate, internal_error, lams, pis, split_pis, var};
-use crate::logic::PLAIN;
 use crate::{Elaborator, Result, kernel};
 
 /// What `f.unfold` is stated with when the body has plain `if`s to show.
@@ -62,29 +58,10 @@ pub(super) struct PlainView {
 struct Lemmas {
     elim: DefId,
     ite: DefId,
-    to_bool: DefId,
-    dec_true: DefId,
-    /// The standard decisions of comparisons, each `Bool.decTrue` of the
-    /// comparison's `Bool` (`bind::comparison`).
-    comparisons: Vec<DefId>,
-    /// `Decidable.elimIf` and `Bool.elimDecTrueIf`, if loaded: without
-    /// one, no `if` it would prove is shown plainly.
-    elim_if: Option<DefId>,
-    true_if: Option<DefId>,
     elim_cong: DefId,
     if_cong: DefId,
     /// The twins made so far, by the lifted `match` they're of.
     twins: HashMap<DefId, Twin>,
-}
-
-/// Which lemma turns a tagged `if` into the plain one.
-#[derive(Clone, Copy)]
-enum Kind {
-    /// `b` is `Decidable.holds d`: `Decidable.elimIf`.
-    ToBool,
-    /// `d` is `Bool.decTrue b`, or a comparison's decision, which is that
-    /// by definition: `Bool.elimDecTrueIf`.
-    DecTrue,
 }
 
 /// A term with the parts the proof rewrites marked, as `decreasing.rs`'s
@@ -202,10 +179,10 @@ fn children(
 /// and the proof to find. It never reaches the kernel.
 const TWIN: &str = "%twin";
 
-/// Whether `t` holds a tagged `if` or a marked call of a twin.
+/// Whether `t` holds a marked call of a twin.
 fn tagged(t: &Term) -> bool {
     t.subterms()
-        .any(|(t, _)| matches!(t, Term::Let(name, ..) if &**name == PLAIN || &**name == TWIN))
+        .any(|(t, _)| matches!(t, Term::Let(name, ..) if &**name == TWIN))
 }
 
 /// The call `let %twin := Refl in call` marks.
@@ -267,20 +244,6 @@ struct Twin {
     kept: Vec<usize>,
 }
 
-/// The tag of decision `d`, `let %plain := b in d'`: `b` and `d'`.
-fn untag(
-    g: &Ev,
-    d: &Term,
-) -> std::result::Result<Option<(Term, Term)>, stitchwort_core::budget::ResourceError> {
-    let Term::Let(name, _, b, inner, _) = d.strip_loc() else {
-        return Ok(None);
-    };
-    if &**name != PLAIN {
-        return Ok(None);
-    }
-    Ok(Some(((**b).clone(), inner.instantiate(g, b)?)))
-}
-
 /// What `%rec` is passed and called as in `f.%plain`, where it takes no
 /// proof: `adapt` makes the step's body into that.
 struct Rec {
@@ -340,21 +303,6 @@ impl Lemmas {
         Some(Lemmas {
             elim: def(Builtin::ElimDec)?,
             ite: def(Builtin::IfThenElse)?,
-            to_bool: def(Builtin::ToBool)?,
-            dec_true: def(Builtin::DecTrue)?,
-            comparisons: [
-                Builtin::DecLessEqNat,
-                Builtin::DecLessThanNat,
-                Builtin::DecLessEqInt,
-                Builtin::DecLessThanInt,
-                Builtin::FloatDecLessEq,
-                Builtin::FloatDecLessThan,
-            ]
-            .into_iter()
-            .filter_map(|b| r.loaded_def(b))
-            .collect(),
-            elim_if: def(Builtin::ElimDecIf),
-            true_if: def(Builtin::ElimDecTrueIf),
             elim_cong: def(Builtin::ElimDecCong)?,
             if_cong: def(Builtin::IfCong)?,
             twins: HashMap::default(),
@@ -365,71 +313,9 @@ impl Lemmas {
         matches!(head, Term::Def(d) if *d == id)
     }
 
-    /// Which lemma shows that deciding with `d` is the plain `if` on `b`,
-    /// if it's loaded.
-    fn kind(&self, b: &Term, d: &Term) -> Option<Kind> {
-        let kind = self.shape(b, d)?;
-        match kind {
-            Kind::ToBool => self.elim_if,
-            Kind::DecTrue => self.true_if,
-        }
-        .map(|_| kind)
-    }
-
-    /// [`Lemmas::kind`], loaded or not.
-    fn shape(&self, b: &Term, d: &Term) -> Option<Kind> {
-        let (bh, bargs) = spine_owned(b);
-        if self.is(&bh, self.to_bool)
-            && let Some((d2, _)) = bargs.last()
-            && same_term(d2, d)
-        {
-            return Some(Kind::ToBool);
-        }
-        let (dh, dargs) = spine_owned(d);
-        if self.is(&dh, self.dec_true)
-            && let [(c, _)] = &dargs[..]
-            && same_term(c, b)
-        {
-            return Some(Kind::DecTrue);
-        }
-        // A comparison's decision is `Bool.decTrue` of the `Bool` its plain
-        // `if` is on (`bind::comparison`), by definition.
-        if let Term::Def(id) = dh
-            && self.comparisons.contains(&id)
-            && dargs.len() == 2
-        {
-            return Some(Kind::DecTrue);
-        }
-        // Both found with the operands bound, `(x… => b') ops…` and `(x… =>
-        // d') ops…` (`bind::Bound`): as `b'` and `d'` are.
-        if !bargs.is_empty()
-            && bargs.len() == dargs.len()
-            && bargs
-                .iter()
-                .zip(&dargs)
-                .all(|((x, _), (y, _))| same_term(x, y))
-        {
-            let body = |head: &Term| -> Option<Term> {
-                let mut t = match head.strip_loc() {
-                    Term::Ann(e, _) => e.strip_loc().clone(),
-                    t => t.clone(),
-                };
-                for _ in 0..bargs.len() {
-                    t = match &t {
-                        Term::Lam(_, _, body) => body.strip_loc().clone(),
-                        _ => return None,
-                    };
-                }
-                Some(t)
-            };
-            return self.shape(&body(&bh)?, &body(&dh)?);
-        }
-        None
-    }
-
-    /// `t` with the tags kept only on `if`s `f.%plain` can show plainly and
-    /// `f.%plain.%same` can prove so; `count` counts those. `allowed`: the
-    /// proof reaches `t`'s position.
+    /// `t` with each call of a lifted `match` that has a twin marked where
+    /// `f.%plain.%same`'s proof reaches it; `count` counts them. `allowed`:
+    /// the proof reaches `t`'s position.
     /// `root`: `t` is a whole leaf, a branch of an `if` or the body of a
     /// `let` that is, where a `let` can be gone through.
     #[allow(clippy::too_many_arguments)]
@@ -445,7 +331,6 @@ impl Lemmas {
         g.machine.budget.nesting(super::PASS)?;
         let work = |t: &Term| {
             t.subterms().any(|(t, _)| match t {
-                Term::Let(name, ..) => &**name == PLAIN,
                 Term::Def(d) => self.twins.contains_key(d),
                 _ => false,
             })
@@ -479,44 +364,16 @@ impl Lemmas {
                 other => this.mark(g, other, depth, false, false, count),
             }
         };
-        // Where the proof doesn't reach, every tag goes: a type argument, a
-        // decision or a tag itself, which `pre` and `post` would otherwise
-        // rewrite apart.
+        // Where the proof doesn't reach, nothing is marked: a type argument
+        // or a decision, which `pre` and `post` would otherwise rewrite
+        // apart.
         let strip = |this: &Lemmas, a: &(Term, Icit), count: &mut usize| -> Result<(Term, Icit)> {
             Ok((this.mark(g, &a.0, depth, false, false, count)?, a.1))
         };
         if self.is(&head, self.elim) && args.len() == 5 {
-            let (decision, tag) = match untag(g, &args[2].0)? {
-                Some((b, d)) => (d, Some(self.mark(g, &b, depth, false, false, count)?)),
-                None => (args[2].0.clone(), None),
-            };
-            let decision = self.mark(g, &decision, depth, false, false, count)?;
+            let decision = self.mark(g, &args[2].0, depth, false, false, count)?;
             let y = branch(self, &args[3].0, count)?;
             let n = branch(self, &args[4].0, count)?;
-            // As `f.%plain` has them: a twin's call there may leave out a
-            // fact the branch's `match` was passed.
-            let unused = |b: &Term| -> Result<bool> {
-                Ok(matches!(&self.post(g, b)?, Term::Lam(_, _, body) if !body.mentions(0)))
-            };
-            let decision = match tag {
-                Some(b)
-                    if allowed
-                        && unused(&y)?
-                        && unused(&n)?
-                        && self.kind(&b, &decision).is_some() =>
-                {
-                    *count += 1;
-                    let bool_ty = Term::Data(
-                        g.env
-                            .registry()
-                            .data(Builtin::Bool)
-                            .ok_or_else(|| internal_error("`Bool` isn't loaded"))?,
-                        Vec::new(),
-                    );
-                    Term::let_(PLAIN.into(), bool_ty, b, decision.shift(g, 1, 0)?)
-                }
-                _ => decision,
-            };
             return Ok(apps(
                 head,
                 [
@@ -571,11 +428,6 @@ impl Lemmas {
                 Rc::new(self.mark(g, e, depth, allowed, false, count)?),
                 Rc::new(self.mark(g, ty, depth, false, false, count)?),
             )),
-            // A tag not on a whole `Decidable.elim`'s decision.
-            Term::Let(name, ..) if &**name == PLAIN => match untag(g, t)? {
-                Some((_, d)) => self.mark(g, &d, depth, false, false, count),
-                None => Ok(t.clone()),
-            },
             Term::Let(x, ty, v, b, e) => Ok(Term::Let(
                 x.clone(),
                 Rc::new(self.mark(g, ty, depth, false, false, count)?),
@@ -587,6 +439,25 @@ impl Lemmas {
                 self.mark(g, c, d, false, false, count)
             }),
         }
+    }
+
+    /// How many plain `if`s `t` has whose condition a recursive call's
+    /// proof uses: a `Decidable.elim` whose branches bind the proof as `_`
+    /// (`check::check_if_in`) and one of which mentions it. `f.%plain`
+    /// shows them without those proofs.
+    fn plain_ifs(&self, t: &Term) -> usize {
+        let plain = |b: &Term| matches!(b.strip_loc(), Term::Lam(x, _, _) if &**x == "_");
+        let uses = |b: &Term| matches!(b.strip_loc(), Term::Lam(_, _, body) if body.mentions(0));
+        (t.subterms())
+            .filter(|(node, _)| {
+                let (head, args) = spine_owned(node);
+                self.is(&head, self.elim)
+                    && args.len() == 5
+                    && plain(&args[3].0)
+                    && plain(&args[4].0)
+                    && (uses(&args[3].0) || uses(&args[4].0))
+            })
+            .count()
     }
 
     /// [`Lemmas::mark`] for the step's own case tree, whose leaves the
@@ -604,54 +475,34 @@ impl Lemmas {
         }
     }
 
-    /// How many tags `t` has, if each is on a whole `Decidable.elim`'s
-    /// decision or around a twin's call, as [`Lemmas::mark`] leaves them and
-    /// `pre`, `post` and the proof expect; `usize::MAX` if one isn't.
+    /// How many marks `t` has, if each is around a twin's call, as
+    /// [`Lemmas::mark`] leaves them and `pre`, `post` and the proof expect;
+    /// `usize::MAX` if one isn't.
     fn kept(&self, t: &Term) -> usize {
-        let mut tags = 0;
+        let mut marks = 0;
         let mut placed = 0;
         for (node, _) in t.subterms() {
-            match node {
-                Term::Let(name, _, _, body, _) if &**name == TWIN => {
-                    tags += 1;
-                    placed += usize::from(self.twin_of(body).is_some());
-                }
-                Term::Let(name, ..) if &**name == PLAIN => tags += 1,
-                Term::App(..) => {
-                    let (head, args) = spine_owned(node);
-                    placed += usize::from(
-                        self.is(&head, self.elim)
-                            && args.len() == 5
-                            && matches!(args[2].0.strip_loc(),
-                                Term::Let(name, ..) if &**name == PLAIN),
-                    );
-                }
-                _ => {}
+            if let Term::Let(name, _, _, body, _) = node
+                && &**name == TWIN
+            {
+                marks += 1;
+                placed += usize::from(self.twin_of(body).is_some());
             }
         }
-        if tags == placed { tags } else { usize::MAX }
+        if marks == placed { marks } else { usize::MAX }
     }
 
-    /// `t` as `f.%step` has it: every tag dropped.
+    /// `t` as `f.%step` has it: every mark dropped.
     fn pre(&self, g: &Ev, t: &Term) -> Result<Term> {
         Ok(t.rewrite_up(g, &mut |node| {
             if let Some(call) = twin_call(g, node)? {
                 return Ok(Some(call));
             }
-            let (head, args) = spine_owned(node);
-            if !self.is(&head, self.elim) || args.len() != 5 {
-                return Ok(None);
-            }
-            let Some((_, decision)) = untag(g, &args[2].0)? else {
-                return Ok(None);
-            };
-            let mut args = args;
-            args[2].0 = decision;
-            Ok(Some(apps(head, args)))
+            Ok(None)
         })?)
     }
 
-    /// `t` as `f.%plain` has it: every tagged `if` the plain `if`.
+    /// `t` as `f.%plain` has it: every marked call the twin's.
     fn post(&self, g: &Ev, t: &Term) -> Result<Term> {
         Ok(t.rewrite_up(g, &mut |node| {
             if let Some(call) = twin_call(g, node)? {
@@ -671,18 +522,7 @@ impl Lemmas {
                 });
                 return Ok(Some(apps(Term::Def(twin.twin), args)));
             }
-            let (head, args) = spine_owned(node);
-            if !self.is(&head, self.elim) || args.len() != 5 {
-                return Ok(None);
-            }
-            let Some((b, _)) = untag(g, &args[2].0)? else {
-                return Ok(None);
-            };
-            let head = Term::app_icit(Term::Def(self.ite), args[1].0.clone(), Icit::Implicit);
-            Ok(Some(Term::app(
-                Term::app(Term::app(head, b), args[3].0.clone()),
-                args[4].0.clone(),
-            )))
+            Ok(None)
         })?)
     }
 
@@ -758,7 +598,7 @@ impl Lemmas {
                     .map(|f| self.part(g, f, depth, holes))
                     .collect::<Result<_>>()?,
             ),
-            _ => return Err(internal_error("a plain `if` where its proof can't reach")),
+            _ => return Err(internal_error("a twin's call where its proof can't reach")),
         })
     }
 
@@ -773,9 +613,9 @@ impl Lemmas {
         (args.len() == twin.arity).then_some((args, twin))
     }
 
-    /// A proof for `t` when it is one step of its own: a tagged `if`, an
-    /// `if` around one, a marked call of a twin, or, where its type `ty` is
-    /// known, a `let` around one.
+    /// A proof for `t` when it is one step of its own: a marked call of a
+    /// twin, an `if` around one, or, where its type `ty` is known, a `let`
+    /// around one.
     fn hole_proof(
         &self,
         g: &Ev,
@@ -814,30 +654,6 @@ impl Lemmas {
             let (sy, sn) = (branch_proof(&args[3].0, a)?, branch_proof(&args[4].0, a)?);
             let (y1, n1) = (self.pre(g, &args[3].0)?, self.pre(g, &args[4].0)?);
             let (y2, n2) = (self.post(g, &args[3].0)?, self.post(g, &args[4].0)?);
-            if let Some((b, d)) = untag(g, &args[2].0)? {
-                let kind = self
-                    .kind(&b, &d)
-                    .ok_or_else(|| internal_error("a plain `if` with no lemma"))?;
-                let mut lemma_args = match kind {
-                    Kind::ToBool => vec![
-                        args[0].clone(),
-                        (a.clone(), Icit::Implicit),
-                        (self.pre(g, &d)?, Icit::Explicit),
-                    ],
-                    Kind::DecTrue => vec![(a.clone(), Icit::Implicit), (b, Icit::Explicit)],
-                };
-                lemma_args.extend(
-                    [y1, n1, y2, n2, sy, sn]
-                        .into_iter()
-                        .map(|t| (t, Icit::Explicit)),
-                );
-                let lemma = match kind {
-                    Kind::ToBool => self.elim_if,
-                    Kind::DecTrue => self.true_if,
-                }
-                .ok_or_else(|| internal_error("a plain `if` whose lemma isn't loaded"))?;
-                return Ok(Some(apps(Term::Def(lemma), lemma_args)));
-            }
             if !tagged(&args[3].0) && !tagged(&args[4].0) {
                 return Ok(None);
             }
@@ -915,9 +731,7 @@ fn rebuild(
 }
 
 impl Elaborator {
-    /// `f.%plain` and `f.%plain.%same` for `f.%step` (`step`), whose body
-    /// with its plain `if`s still tagged is `tagged` (`None`: it has none),
-    /// and the twins of the `match`es lifted from it (`helpers`), which are
+    /// `f.%plain` and `f.%plain.%same` for `f.%step` (`step`), and the twins of the `match`es lifted from it (`helpers`), which are
     /// pushed to `made`, with the spans of their `match`es to `lifted`, for
     /// `tables.lifted` once all succeeded; `None` when nothing can be shown
     /// plainly.
@@ -925,7 +739,6 @@ impl Elaborator {
         &mut self,
         plan: &Plan,
         step: DefId,
-        tagged: Option<&Term>,
         helpers: &[DefId],
         made: &mut Vec<DefId>,
         lifted: &mut Vec<(DefId, Span)>,
@@ -944,14 +757,13 @@ impl Elaborator {
             return Err(internal_error("refused for a test (`refuse_plain_view`)"));
         }
         let g = &self.ev();
-        let body = match tagged {
-            Some(t) => t.clone(),
-            None if l.twins.is_empty() => return Ok(None),
-            None => (g.def(step).body())
-                .ok_or_else(|| internal_error("a step without a body"))?
-                .as_ref()
-                .clone(),
-        };
+        let body = (g.def(step).body())
+            .ok_or_else(|| internal_error("a step without a body"))?
+            .as_ref()
+            .clone();
+        if l.twins.is_empty() && l.plain_ifs(&body) == 0 {
+            return Ok(None);
+        }
         let a = plan.n() + 1;
         let (tel, result) = split_pis(g.def(step).ty(), Some(a));
         if tel.len() != a {
@@ -1004,18 +816,6 @@ impl Elaborator {
         let Some(body) = def.body().cloned() else {
             return Ok(None);
         };
-        // With its plain `if`s still tagged, if it has any. The records are
-        // kept exact (`lifted_helper_body`), so this only checks that the
-        // record tags the body the kernel has: a kernel rewind could give
-        // the id to a definition that wasn't lifted, and keep the record.
-        let recorded = (self.decl.decreasing.borrow().as_ref())
-            .and_then(|a| a.tagged_helpers.borrow().get(&h).cloned());
-        let body = match recorded {
-            Some(tagged) if same_term(&self.settle_tagged(&tagged)?, &body) => Rc::new(tagged),
-            _ => body,
-        };
-        let g = &self.ev();
-        let def = g.def(h);
         if body
             .subterms()
             .any(|(t, _)| matches!(t, Term::Def(d) if *d >= h && helpers.contains(d)))
@@ -1041,7 +841,7 @@ impl Elaborator {
     /// The plain form of a definition with parameters `tel`, result type
     /// `result` and body `body` (its lambdas around a case tree), whose
     /// parameter `rec` is `%rec`: `name`, the same with `%rec` taking no
-    /// proof and its plain `if`s and twins' calls plain, and `name.%same`,
+    /// proof and twins' calls plain, and `name.%same`,
     /// that the definition with `y… p => r y…` for `%rec` is it with `r`.
     /// With `drop`, parameters the plain body doesn't need are left out
     /// (a lifted `match`'s); `None` if it would be the definition itself.
@@ -1074,7 +874,7 @@ impl Elaborator {
         let marked = l.mark_tree(g, &adapted, a, &mut count)?;
         if l.kept(&marked) != count {
             return Err(internal_error(
-                "the plain `if`s marked aren't the ones counted",
+                "the twins' calls marked aren't the ones counted",
             ));
         }
         // Again after `post`: a twin's call drops the arguments its twin
@@ -1102,7 +902,7 @@ impl Elaborator {
             }
         }
         let kept: Vec<usize> = (0..a).filter(|&i| needed[i]).collect();
-        if count == 0 && kept.len() == a {
+        if count == 0 && l.plain_ifs(&tree) == 0 && kept.len() == a {
             return Ok(None);
         }
         let new_level = |l: usize| kept.iter().position(|&k| k == l).unwrap_or(0);

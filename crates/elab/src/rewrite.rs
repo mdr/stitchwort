@@ -1090,6 +1090,71 @@ fn replace_occurrences_as(
     folded: bool,
     remaining: &mut u64,
 ) -> Result<Replaced> {
+    let before = *remaining;
+    match replace_occurrences_carrying(
+        cx,
+        rule,
+        place,
+        equation,
+        goal,
+        shape,
+        recent,
+        by_instances,
+        folded,
+        false,
+        remaining,
+    ) {
+        // A decision's test, replaced where the decision is, takes the
+        // decision's proofs with it: tried second, so nothing that checks
+        // the usual way changes.
+        Err(e) if e.code == "E-REWRITE-MOTIVE" && is_bool(cx, &equation.carrier)? => {
+            let mut again = before;
+            match replace_occurrences_carrying(
+                cx,
+                rule,
+                place,
+                equation,
+                goal,
+                shape,
+                recent,
+                by_instances,
+                folded,
+                true,
+                &mut again,
+            ) {
+                Ok(found) => {
+                    *remaining = again;
+                    Ok(found)
+                }
+                Err(again) if fatal(&again) => Err(again),
+                Err(_) => Err(e),
+            }
+        }
+        other => other,
+    }
+}
+
+/// Whether `ty` is `Bool`.
+fn is_bool(cx: &Ctx, ty: &Value) -> Result<bool> {
+    let bool_data = crate::check::builtin_data(cx, stitchwort_core::registry::Builtin::Bool)?;
+    Ok(matches!(force(&cx.g(), ty.clone())?, Value::Data(d, _) if d == bool_data))
+}
+
+/// [`replace_occurrences_as`], carrying decisions' proofs along if `carry`.
+#[allow(clippy::too_many_arguments)]
+fn replace_occurrences_carrying(
+    cx: &mut Ctx,
+    rule: &RewriteRule,
+    place: Place,
+    equation: &Equation,
+    goal: &Value,
+    shape: Shape,
+    recent: usize,
+    by_instances: bool,
+    folded: bool,
+    carry_everywhere: bool,
+    remaining: &mut u64,
+) -> Result<Replaced> {
     let g = cx.g();
     let lhs_term = if folded {
         cx.quote_folded(&equation.lhs)?
@@ -1102,7 +1167,11 @@ fn replace_occurrences_as(
     };
     let open = equation.open(&lhs_term);
     let level = cx.level();
-    let search = Search::new(
+    let carried = match is_bool(cx, &equation.carrier)? {
+        true => Some(carried_equation(cx, place, equation, &lhs_term)?),
+        false => None,
+    };
+    let mut search = Search::new(
         cx,
         rule,
         place,
@@ -1114,6 +1183,7 @@ fn replace_occurrences_as(
         folded,
         *remaining,
     )?;
+    search.carry = carried.map(|(carry, equation)| (carry, level, equation, carry_everywhere));
     // The goal with the occurrences replaced by `x`, under `x _ =>`.
     let moved = |l| Ok(Term::Var(level + 2 - 1 - l));
     let searched_term = match shape {
@@ -1129,6 +1199,7 @@ fn replace_occurrences_as(
         return Err(e);
     }
     let first = search.first.take();
+    let search_carried = search.carried.get();
     drop(search);
     let searched = searched?;
     // Searching by instances only solves the rule's unknowns: the equation
@@ -1162,7 +1233,8 @@ fn replace_occurrences_as(
     };
     let lhs = &equation.lhs;
     check_motive(cx, rule, place, &motive, &equation.carrier, from, lhs)?;
-    match round_trip(cx, &motive, lhs, &proof_value, goal, remaining)? {
+    let carried_any = search_carried;
+    match round_trip(cx, &motive, lhs, &proof_value, goal, carried_any, remaining)? {
         Some(true) => {}
         Some(false) if round_trip_awaiting_helpers(cx, &motive, lhs, &proof_value, goal)? => {}
         Some(false) => {
@@ -1277,6 +1349,14 @@ struct Search<'a, 'e> {
     error: RefCell<Option<Diagnostic>>,
     /// The first occurrence selected, in the goal's own context.
     first: RefCell<Option<Term>>,
+    /// Set to carry decisions' proofs along the motive's equation
+    /// (`crate::carry`): the carrier, the goal's level, and the equation
+    /// `lhs = x'` in the motive's context.
+    /// Whether everywhere the test is met, or only where the decision is
+    /// known to need it.
+    carry: Option<(crate::carry::Carry, usize, Term, bool)>,
+    /// Whether a decision's proofs were carried along.
+    carried: Cell<bool>,
 }
 
 impl<'a, 'e> Search<'a, 'e> {
@@ -1311,8 +1391,33 @@ impl<'a, 'e> Search<'a, 'e> {
             stats: RefCell::new(Stats::default()),
             error: RefCell::new(None),
             first: RefCell::new(None),
+            carry: None,
+            carried: Cell::new(false),
         })
     }
+}
+
+/// What a decision's proofs are carried along in a rewrite's motive `x' q
+/// => …`: `q` itself where `J` starts from the left side, and otherwise
+/// (`q: rhs = x'`) `lhs = x'` through the rule.
+fn carried_equation(
+    cx: &Ctx,
+    place: Place,
+    equation: &Equation,
+    lhs: &Term,
+) -> Result<(crate::carry::Carry, Term)> {
+    let carry = crate::carry::Carry::new(cx)?;
+    let g = cx.g();
+    let q = Term::Var(0);
+    let equation = match place {
+        Place::Target(_) | Place::Inside => q,
+        Place::Goal => {
+            let rhs = cx.quote(&equation.rhs)?;
+            let to_rhs = carry.sym(&g, &rhs, equation.to_lhs.clone())?;
+            carry.then(&g, &lhs.shift(&g, 2, 0)?, to_rhs.shift(&g, 2, 0)?, q)?
+        }
+    };
+    Ok((carry, equation))
 }
 
 impl Search<'_, '_> {
@@ -1327,6 +1432,9 @@ impl Search<'_, '_> {
             return None;
         }
         self.stats.borrow_mut().visited += 1;
+        if let Some(found) = self.carried(t, under) {
+            return Some(found);
+        }
         if key(t, under).as_ref() != Some(&self.key) {
             return None;
         }
@@ -1354,6 +1462,84 @@ impl Search<'_, '_> {
                 Some(t.clone())
             }
         }
+    }
+
+    /// `t` with a decision's proofs carried along the motive's equation, if
+    /// it is one of the forms that need it (`crate::carry`) and its test is
+    /// an occurrence.
+    fn carried(&self, t: &Term, under: usize) -> Option<Term> {
+        let (carry, level, equation, everywhere) = self.carry.as_ref()?;
+        let (met, holds) = carry.met(t)?;
+        if key(&holds, under).as_ref() != Some(&self.key) || mentions_bound(&holds, under) {
+            return None;
+        }
+        let found = (|| -> Result<Option<Term>> {
+            if !everywhere && !self.decides_other(&met.sound(carry.decidable), under)? {
+                return Ok(None);
+            }
+            if self.decide(&holds, under)?.is_none() {
+                return Ok(None);
+            }
+            self.stats.borrow_mut().matched += 1;
+            self.carried.set(true);
+            let g = self.cx.borrow().g();
+            let lhs = self.lhs_term.borrow().shift(&g, under + 2, 0)?;
+            let moved = |l| Ok(Term::Var(level + 2 - 1 - l));
+            let part = |p: &Term| {
+                crate::lift::replace_with_under(&g, p, *level, under, &moved, &|t, under| {
+                    self.visit(t, under)
+                })
+            };
+            let c = equation.shift(&g, under, 0)?;
+            let x = Term::Var(under + 1);
+            Ok(Some(carry.carried(&g, met, &lhs, &c, x, &part)?))
+        })();
+        match found {
+            Ok(found) => found,
+            Err(e) => {
+                *self.error.borrow_mut() = Some(e);
+                Some(t.clone())
+            }
+        }
+    }
+
+    /// Whether the decision whose `sound` is `sound` is known to decide a
+    /// proposition that isn't about the left side (`a ∧ b` for an `if` on
+    /// `a && b`): its type, inferred, doesn't mention it. Replacing the test
+    /// alone would then leave the proofs typed by the old one. A proposition
+    /// that mentions it (`m ≤ n` for `Nat.leq m n`) is replaced with the
+    /// test, and the proofs, often `h => h`, type as they are.
+    fn decides_other(&self, sound: &Term, under: usize) -> Result<bool> {
+        if mentions_bound(sound, under) {
+            return Ok(false);
+        }
+        let g = self.cx.borrow().g();
+        let level = self.cx.borrow().level();
+        let sound = match under {
+            0 => sound.clone(),
+            _ => crate::lift::replace_with(
+                &g,
+                sound,
+                level + under,
+                &|l| Ok(Term::Var(level - 1 - l)),
+                &|_, _| None,
+            )?,
+        };
+        let mut kcx = self.kcx.borrow_mut();
+        let ty = match kernel::without_glue(&g, || kernel::infer(&mut kcx, &sound)) {
+            Ok((_, ty)) => ty,
+            Err(e) if fatal(&e) => return Err(e),
+            Err(_) => return Ok(false),
+        };
+        let Value::Pi(_, _, _, cod) = force(&g, ty)? else {
+            return Ok(false);
+        };
+        let p = cod.apply(&g, Value::var(level))?;
+        let p = stitchwort_core::value::quote(&g, level + 1, &p)?;
+        Ok(!crate::matching::occurs(
+            &self.lhs_term.borrow().shift(&g, 1, 0)?,
+            &p,
+        ))
     }
 
     /// Whether `t` is an occurrence of the left side, solving the rule's
@@ -1674,13 +1860,19 @@ fn round_trip(
     lhs: &Value,
     proof: &Value,
     goal: &Value,
+    carried: bool,
     remaining: &mut u64,
 ) -> Result<Option<bool>> {
     let g = cx.g();
     g.machine.budget.limited(remaining, || -> Result<bool> {
         let motive = cx.eval(motive)?;
         let back = apply(&g, apply(&g, motive, lhs.clone())?, proof.clone())?;
-        cx.unify(&back, goal)
+        // Carried decisions differ from the goal's only in their proofs,
+        // which unification compares where two calls of a `match`'s helper
+        // are compared by their arguments; the kernel's comparison, which
+        // goes on to unfold them, decides.
+        Ok(cx.unify(&back, goal)?
+            || (carried && stitchwort_core::value::conv(&g, cx.level(), &back, goal)?))
     })
 }
 
@@ -2253,20 +2445,38 @@ mod tests {
         let lhs = Value::Sort(Sort::Type(0));
         let mut remaining = 1_000_000;
         assert_eq!(
-            round_trip(&cx, &right, &lhs, &Value::Refl, &goal, &mut remaining).unwrap(),
+            round_trip(
+                &cx,
+                &right,
+                &lhs,
+                &Value::Refl,
+                &goal,
+                false,
+                &mut remaining
+            )
+            .unwrap(),
             Some(true)
         );
         // ...and one that dropped an occurrence, `x _ => x = x`, gives
         // `Type0 = Type0` too, but `x _ => Type1 = x` doesn't.
         let wrong = lam(eq(ty(1), Term::Var(1)));
         assert_eq!(
-            round_trip(&cx, &wrong, &lhs, &Value::Refl, &goal, &mut remaining).unwrap(),
+            round_trip(
+                &cx,
+                &wrong,
+                &lhs,
+                &Value::Refl,
+                &goal,
+                false,
+                &mut remaining
+            )
+            .unwrap(),
             Some(false)
         );
         // Out of budget is neither.
         let mut none = 0;
         assert_eq!(
-            round_trip(&cx, &right, &lhs, &Value::Refl, &goal, &mut none).unwrap(),
+            round_trip(&cx, &right, &lhs, &Value::Refl, &goal, false, &mut none).unwrap(),
             None
         );
     }

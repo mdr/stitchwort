@@ -9,7 +9,7 @@ expression: output
     │                                                                           ─┬─  
     │                                                                            ╰─── `r.repeated k n` and `0` aren't equal
     │ 
-    │ Note 1: computing the left side gives `if (((List.rangeFrom n 0).foldLeft 0 (acc x => …)).equal 0).not then if (if … <= … then … / … else Nat.pow 10 …) <= (if … <= … then … - 1 else … / …) then (List.rangeFrom n 0).foldLeft 0 (acc x => …) * (… * … / 2) else 0 else 0`
+    │ Note 1: computing the left side gives `if (List.rangeFrom n 0).foldLeft 0 (acc x => acc + …) ≠ 0 then if (if … <= … then … / … else Nat.pow 10 …) ≤ (if … <= … then … - 1 else … / …) then (List.rangeFrom n 0).foldLeft 0 (acc x => …) * (… * … / 2) else 0 else 0`
     │ 
     │ Note 2: `rfl` proves `a = b` only when both sides compute to the same value
     │ 

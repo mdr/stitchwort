@@ -415,9 +415,8 @@ Each was run on the example named; the output is quoted, shortened.
     goal, so inside its arm a hypothesis already has the branch's form: use
     it as it is rather than rewriting it
     (`examples/reject/rewrite-refined-by-match.sw`). A proof follows a
-    program's `if` by matching on its `Bool` (its condition), not on the
-    comparison's decision, which can silently miss an `if` compiled to a `Bool`
-    test (`W-MATCH-DECISION-IF`, below), also for `if a && b`: one
+    program's `if` by matching on its `Bool` (its condition), or on the
+    comparison's decision when the arms need its proofs; also for `if a && b`: one
     `match e: a && b with` refines the goal, and `omega` reads `e` as
     `a ∧ b` or `¬(a ∧ b)` (`examples/accept/match-if-and.sw`). Usually the goal
     unfolded the definition first: rewrite with a lemma about the unfolded
@@ -434,15 +433,6 @@ Each was run on the example named; the output is quoted, shortened.
     An unnamed `match` is given it too, but only when its arms fail: it
     is often a case split for the arms' own sake (SW-1721,
     `examples/reject/match-not-found-unnamed.sw`).
-  - `W-MATCH-DECISION-IF`: a `match` on a decision (`Nat.decLessThan 9
-    value`) that finds neither the decision nor a hypothesis holding it, while
-    its `Bool` (`Nat.leq 10 value`) is the condition of an `if` in the goal or a
-    hypothesis. An `if` whose branches don't use its comparison's proof is a
-    test of the `Bool`, so the decision match refines nothing in it. The
-    warning names the condition: `match h: 10 <= value with | True => … |
-    False => …`, which refines the `if` whichever form it has. Given for
-    named and unnamed matches, whether or not the arms fail
-    (`examples/reject/match-decision-if.sw`, 2021 day 18's `split`).
   - `E-REWRITE-MOTIVE`: replacing the term makes the goal ill-typed, usually
     because an `auto` proof (the `i < xs.length` in `xs.getLt i`) is about
     it. Rewrite a larger term (`xs.getLt i`), or use `calc`
