@@ -220,6 +220,11 @@ fn a_target_that_binds_a_variable_is_introduced() {
 /// takes.
 #[test]
 fn a_goal_that_takes_too_long_to_open_reports_running_out() {
+    // 10,000 folds take more evaluation steps than the budget's first poll
+    // (`budget::POLL`, 16,384), so opening is cut short by the zero time; at
+    // 2,000 it finishes before then and opens the goal, which isn't what this
+    // tests. It was 100,000, which took minutes in a debug build for the same
+    // outcome.
     let text = "\
 import Std (Nat, List)
 
@@ -227,7 +232,7 @@ def countDown (n: Nat) (acc: List Nat): List Nat := match n with
   | Zero => acc
   | Succ k => countDown k [k, ..acc]
 
-theorem opening: countDown 100000 [] = [] := ?
+theorem opening: countDown 10000 [] = [] := ?
 ";
     let options = AtOptions {
         time: std::time::Duration::ZERO,

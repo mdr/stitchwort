@@ -383,11 +383,21 @@ fn go_replace(
         return Ok(t);
     }
     let go = |t: &Rc<Term>, under| go_replace(g, t, depth, under, f, hook, head).map(Rc::new);
+    // The level of the free variable `ix`, under `under` binders, in a
+    // context of `depth` variables: `ix >= under` must be one of them.
+    let level = |ix: usize| -> usize {
+        debug_assert!(
+            ix < depth + under,
+            "lifting: free de Bruijn index {ix} is out of range for a context of {depth} \
+             variables under {under} binders (it must be less than {depth} + {under})"
+        );
+        depth - 1 - (ix - under)
+    };
     let var = |ix: usize| -> Result<Term> {
         if ix < under {
             return Ok(Term::Var(ix));
         }
-        Ok(f(depth - 1 - (ix - under))?.shift(g, under, 0)?)
+        Ok(f(level(ix))?.shift(g, under, 0)?)
     };
     let split = |ix: usize| -> Result<usize> {
         match var(ix)? {
@@ -419,7 +429,7 @@ fn go_replace(
         Term::Lam(x, i, b) => Term::Lam(x.clone(), *i, go(b, under + 1)?),
         Term::App(h, a, i) => {
             let h = match h.strip_loc() {
-                Term::Var(ix) if *ix >= under => match head(depth - 1 - (ix - under))? {
+                Term::Var(ix) if *ix >= under => match head(level(*ix))? {
                     Some(ty) => Rc::new(Term::Ann(
                         Rc::new(var(*ix)?),
                         Rc::new(ty.shift(g, under, 0)?),
