@@ -225,13 +225,81 @@ and deletes it once the work is merged or dropped (D2193, D2200, Matt,
   once another checkout has built the same code (72 s cold). Build-script
   runs aren't cached, so the driver's build fingerprint is always computed
   afresh. The main checkout doesn't use kache: every merge is built and
-  tested without it.
+  tested without it. The same file switches off two of kache's shortcuts
+  (see "kache and stale artifacts" below); `task kache:config` rewrites it
+  without making a checkout.
 - Both clone the AoC and roguelike check caches (`.stitchwort/`)
   copy-on-write, so a first `stitchwort check` of AoC takes about 3 s, not
   a minute.
 - The recipe is in `Taskfile.yml` (`LANE_SETUP`), so it changes in one
   place. Measurements behind it: sccache and a cloned `target/` were tried
   first (66 s and 48 s).
+
+### kache and stale artifacts (SW-2936, 11 Nov 2026)
+
+**What happened.** SW-2932's lane edited `stitchwort-elab`, then built the
+CLI, and the driver could not see the new methods: kache had served an
+`elab` built from the code before the edit, until the lane cleaned and built
+with `RUSTC_WRAPPER=` empty. It was not cargo's fingerprints (a worktree's
+`target/` starts empty; `worktree:new` clones only the check caches) and
+not a feature or path-remapping mix-up. It was kache's key.
+
+**Cause.** kache 1.0.0 (nixpkgs) has a compile-first path: when it has an
+input record for a crate (the list of files the last build read) and the key
+predicted from it misses, it runs the compile and only then derives the key,
+by hashing the files the compile's dep-info lists, as they are *after* the
+compile. A file saved while rustc runs (a lane's editor, on a compile that
+took 116 s under load) gives artifacts of the old code stored under the key
+of the new content. Every later build of that content, in that checkout or
+any other with the same key, is a hit that restores the old code. Upstream
+fixed it in 1.1 (kunobi-ninja/kache#1489, "never store a compile-first
+result after a source changed mid-compile"): the store gate acted on the
+changed-file flag only with `modified_input_guard`, which is off by default.
+It showed in kache's event log (`~/Library/Caches/kache/events.jsonl`): the
+`elab` entry stored at 20:41 lacked `BrokenTest` (checked in the stored
+blob), but its key's `sources` hash was the same as the later builds
+that did compile it; four later builds hit it; no pre-pass ran
+(`dep_info_runs 0`, about 100 files hashed, not 6,000).
+
+**Reproduction.** `dev/kache-stale-check` (below) does it in 40 s: build
+`elab`, edit it, start a build, edit it again six seconds into the compile,
+build once more with no edit. On kache's defaults the last build is a
+`local_hit` taking 0.2 s and the artifact lacks the second edit. Adaptive
+incremental compilation hides the bug in a checkout that has edited the
+crate before (it compiles outside the cache), so the check turns it off; the
+lane's first compile in a fresh checkout is the exposed case.
+
+**Fix.** `.claude/worktrees/.cargo/config.toml` (`KACHE_CONFIG_SETUP` in the
+`Taskfile.yml`) sets `KACHE_DEFERRED_DISCOVERY = "0"`, so a missed key is
+re-derived by the dep-info pre-pass before the compile, from the files as
+rustc will read them (about 0.5 s per miss), and `KACHE_MODIFIED_INPUT_GUARD
+= "1"`, so a result is not stored when a keyed file was written after the
+compile began. Each alone made the check pass; both are set. The check fails
+on defaults and passes with them.
+
+**Applying it.** The file is shared by every checkout and untracked: run
+`task kache:config` in the main checkout (or any `worktree:new`) once after
+merging; the next build in each checkout uses it. Entries stored before the
+fix stay in the cache; one for a crate name and `-C metadata` (the checkout's
+path) that no later checkout shares is harmless, but `kache purge
+--crate-name stitchwort_elab` (and the other `stitchwort_*` crates) removes
+any. `task kache:check` after changing kache's version or this file.
+The real fix is kache 1.1 or later (the nixpkgs one is 1.0.0; upstream is at
+2.0.x): when the pin moves, the switches can go, and `task kache:check`
+shows whether they are still needed.
+
+**Which results could have been affected.** Only lane builds in checkouts
+under `.claude/worktrees` (the main checkout, the verifier and the merge
+tier build without kache, so a merged result was never kache's). The
+symptom is usually loud (a method or type "not found", as in SW-2932) but a
+body-only edit would run the old code with no error. A lane is suspect if it
+edited a workspace crate while a build of that crate was running, in a
+checkout that had no earlier build of it, and then saw a result that
+disagrees with its code. Kache's log keeps the builds with their times
+(`kache explain <crate>`, or `events.jsonl`: a `miss` with `dep_info_runs` 0
+and `key_hash_hits + key_hash_misses` near the crate's file count was keyed
+after its compile); compare each such compile's interval with the lane's edit
+times. A clean rebuild with `RUSTC_WRAPPER=` empty is the test of one run.
 
 ## The test tiers
 

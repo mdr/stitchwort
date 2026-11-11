@@ -10,6 +10,33 @@
 version: '3'
 
 vars:
+  # The cargo config that makes every checkout under .claude/worktrees build
+  # through kache. Rewritten by each worktree:new and scratch:new, and alone by
+  # `task kache:config`; `task kache:check` tests that it holds.
+  #
+  # The two KACHE_ switches close a stale-artifact bug in kache 1.0.0 (nixpkgs;
+  # fixed upstream in 1.1, kunobi-ninja/kache#1489; SW-2936, docs/workflow.md
+  # "kache and stale artifacts"): when a crate's input record predicted a key
+  # that missed, kache compiled first and keyed the result afterwards from the
+  # files as they were then, so a file saved during the compile stored the old
+  # code under the new content's key, and every later build of that content
+  # restored it. DEFERRED_DISCOVERY=0 keys before the compile (the dep-info
+  # pre-pass, about 0.5 s per miss); MODIFIED_INPUT_GUARD=1 refuses to store a
+  # result when a keyed file was written after the compile began.
+  KACHE_CONFIG_SETUP: |
+    mkdir -p '{{.ROOT_DIR}}/.claude/worktrees/.cargo'
+    cat > '{{.ROOT_DIR}}/.claude/worktrees/.cargo/config.toml' <<'TOML'
+    # Written by task worktree:new / scratch:new / kache:config (Taskfile.yml,
+    # D2200): lane checkouts build through kache. Build-script runs aren't
+    # cached, so crates/driver/build.rs's fingerprint is always computed afresh.
+    # The last two switches stop kache 1.0.0 storing stale artifacts (SW-2936).
+    [build]
+    rustc-wrapper = "kache"
+    [env]
+    KACHE_BUILD_SCRIPT_CACHE = "0"
+    KACHE_DEFERRED_DISCOVERY = "0"
+    KACHE_MODIFIED_INPUT_GUARD = "1"
+    TOML
   # Shell for worktree:new and scratch:new, which make "$wt" under
   # .claude/worktrees/. Every checkout there builds through kache (the
   # compiler cache in the devShell), from .claude/worktrees/.cargo/config.toml,
@@ -17,16 +44,7 @@ vars:
   # Stitchwort check caches are cloned copy-on-write on APFS (macOS's
   # /bin/cp -c; the Nix cp has no -c).
   LANE_SETUP: |
-    mkdir -p '{{.ROOT_DIR}}/.claude/worktrees/.cargo'
-    cat > '{{.ROOT_DIR}}/.claude/worktrees/.cargo/config.toml' <<'TOML'
-    # Written by task worktree:new / scratch:new (Taskfile.yml, D2200): lane
-    # checkouts build through kache. Build-script runs aren't cached, so
-    # crates/driver/build.rs's fingerprint is always computed afresh.
-    [build]
-    rustc-wrapper = "kache"
-    [env]
-    KACHE_BUILD_SCRIPT_CACHE = "0"
-    TOML
+    {{.KACHE_CONFIG_SETUP}}
     for d in aoc/.stitchwort games/rogue/.stitchwort; do
       if [ -d '{{.ROOT_DIR}}'/"$d" ]; then /bin/cp -c -R '{{.ROOT_DIR}}'/"$d" "$wt/$d"; fi
     done
@@ -876,6 +894,19 @@ tasks:
         git -C '{{.ROOT_DIR}}' worktree add -q -b "lane/$name" "$wt" main
         {{.LANE_SETUP}}
         echo "$wt"
+
+  kache:config:
+    silent: true
+    desc: 'Rewrite .claude/worktrees/.cargo/config.toml (kache and its stale-artifact switches) without making a checkout; worktree:new does the same'
+    cmds:
+      - |
+        set -eu
+        {{.KACHE_CONFIG_SETUP}}
+
+  kache:check:
+    desc: 'Test that kache does not store a stale artifact when a file is saved during a compile (SW-2936; 1-2 min; makes and deletes a worktree)'
+    cmds:
+      - '{{.ROOT_DIR}}/dev/kache-stale-check'
 
   worktree:rm:
     silent: true
