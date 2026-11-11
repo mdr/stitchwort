@@ -2147,7 +2147,15 @@ fn print_tests(results: &[TestResult], grouped: bool) -> ExitCode {
             ),
             Outcome::Failed => (
                 "✗",
-                if result.cached { "cached" } else { "ran" },
+                // A test with `unfinished` never ran: its code reaches an
+                // open goal, or uses a declaration with an error.
+                if result.unfinished.is_some() {
+                    "not run"
+                } else if result.cached {
+                    "cached"
+                } else {
+                    "ran"
+                },
                 match (&result.unfinished, result.detail.as_ref()) {
                     (Some(why), _) => format!("  ({why})"),
                     (None, Some(d)) => match d.comparison.as_ref() {
