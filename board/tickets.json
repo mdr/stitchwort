@@ -1,5 +1,5 @@
 {
-  "next": 2796,
+  "next": 2799,
   "tickets": [
     {
       "id": 47,
@@ -29004,12 +29004,12 @@
     {
       "id": 2763,
       "title": "SF port: the book's own nat and bool for the Basics and Induction exercises (Sf.Lf.Nat with plus, mult, eqb and no lemmas, as NatPlayground does); say in the port which exercises std's automation solves (D3495)",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2763",
       "labels": [],
       "epic": "docs-tutorials",
-      "body": "D3495 (Matt, 11 Nov 2026): yes. From docs/reviews/SW-2707-software-foundations-port.md §6 items 2-3. After SW-2762 (both edit sf/). Est. 1.5 h.\n\nProgress (Sonnet, 11 Nov 2026, commit 8ed3fa331 on lane/SW-2763): sf/src/Sf/Lf/Nat.sw (`Sf.Lf.Nat`: `Nat` with O/S, pred, plus, mult, minus, `ofNat` for numerals; replaces NatPlayground and NatPlayground2) used by Basics and Induction; Basics/Library.sw proves `multNO`/`multNSm` (the book's mult_n_O/mult_n_Sm, from Rocq's library). Bool stays std's (book proofs are case analysis; port's andb/orb/negb are already its own). LateDays stays on std Nat. sf/README.md lists which exercises std's omega/ring/cases/rfl solve (measured on std-Nat copies). `check` exits 0, 77 goal warnings (unchanged); `test` 11 pass. The book's stuck examples are stuck again (plusN0FirstTry, plus1Neq0FirstTry; error text quoted).\n",
+      "body": "D3495 (Matt, 11 Nov 2026): yes. From docs/reviews/SW-2707-software-foundations-port.md §6 items 2-3. After SW-2762 (both edit sf/). Est. 1.5 h.\n\nProgress (Sonnet, 11 Nov 2026, commit 8ed3fa331 on lane/SW-2763): sf/src/Sf/Lf/Nat.sw (`Sf.Lf.Nat`: `Nat` with O/S, pred, plus, mult, minus, `ofNat` for numerals; replaces NatPlayground and NatPlayground2) used by Basics and Induction; Basics/Library.sw proves `multNO`/`multNSm` (the book's mult_n_O/mult_n_Sm, from Rocq's library). Bool stays std's (book proofs are case analysis; port's andb/orb/negb are already its own). LateDays stays on std Nat. sf/README.md lists which exercises std's omega/ring/cases/rfl solve (measured on std-Nat copies). `check` exits 0, 77 goal warnings (unchanged); `test` 11 pass. The book's stuck examples are stuck again (plusN0FirstTry, plus1Neq0FirstTry; error text quoted).\nDone 11 Nov. Model result: Sonnet, worked, 14 min (est. 1.5 h). Bool stays std's (port's own negb/andb/orb); LateDays stays on std Nat. sf check exit 0, 77 goals.",
       "created": "2026-11-11",
       "updated": "2026-11-11",
       "commits": []
@@ -29429,6 +29429,45 @@
       "where": "",
       "labels": [],
       "epic": "editor-playground",
+      "body": "",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2796,
+      "title": "Numerals for a user-defined nat: a literal hook (fromNat-style) so 3 can denote a type like SF's Nat; today the port writes ofNat 3 (SW-2763). Language design: note first",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2797,
+      "title": "A worked proof that uses an unfinished exercise (plusRearrange using addComm := ?) isn't checked until the exercise is solved; Rocq's Admitted still checks it. Option: under open-goals: warn, treat a ? lemma as assumed when checking its users (SW-2763). Design question for Matt",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2798,
+      "title": "import Sf.Lf.Nat (Nat, O, S, plus) is an error: naming a constructor in an import list should work, or say 'constructors come with their type' with a fix (SW-2763)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "diagnostics",
       "body": "",
       "created": "2026-11-11",
       "updated": "2026-11-11",
