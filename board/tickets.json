@@ -28899,9 +28899,9 @@
     {
       "id": 2756,
       "title": "Keep SW-2746's examples scan script as a tool (copy at /private/tmp/claude-550/exscan-sw2746.sh)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": ".claude/worktrees/scratch-sw-2756",
       "labels": [],
       "epic": "test-infra",
       "body": "",
