@@ -191,6 +191,8 @@ under any path, such as `/stitchwort/`):
 | `#example/input-and-output-main` | Input and output: main |
 | `#example/extract-to-javascript` | Extract to JavaScript |
 | `#aoc/YYYY/dayNN` (`#aoc/2025/day01`, `#aoc/2024/day01` and so on) | The AoC project at that day's program, as the dropdown's "Day N" under "Advent of Code YYYY" does |
+| `#sf/<chapter>` (`#sf/basics`, `#sf/induction`, `#sf/lists`, `#sf/poly`) | The Software Foundations port (`sf/`) at that chapter's first file; open goals (`?`) show as goals, as `check: open-goals: warn` does for `stitchwort check` |
+| `#book/<N>` (`#book/3`) | The book *Proving with Stitchwort* (`book/`, bundled once the folder exists) at chapter N's first file |
 | `#guide/<section>` | The language guide, at that section |
 
 An example's slug is its dropdown name in lowercase, with each run of other
