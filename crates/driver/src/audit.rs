@@ -152,18 +152,22 @@ pub struct Options {
 pub(crate) struct Generated {
     /// The full names of the declarations at each span.
     at: HashMap<Span, Vec<Rc<str>>>,
+    /// Each full name, to the definition that has it.
+    by_path: HashMap<Rc<str>, DefId>,
 }
 
 impl Generated {
     pub(crate) fn new(g: &Ev) -> Self {
         let mut at: HashMap<Span, Vec<Rc<str>>> = HashMap::default();
-        for def in g.env.defs() {
+        let mut by_path: HashMap<Rc<str>, DefId> = HashMap::default();
+        for (i, def) in g.env.defs().iter().enumerate() {
             at.entry(def.span()).or_default().push(def.path().clone());
+            by_path.insert(def.path().clone(), DefId(i));
         }
         for data in g.env.datas() {
             at.entry(data.span()).or_default().push(data.path().clone());
         }
-        Generated { at }
+        Generated { at, by_path }
     }
 
     /// Whether `id` is a declaration the compiler made.
@@ -180,6 +184,14 @@ impl Generated {
             path.strip_prefix(&**owner)
                 .is_some_and(|rest| rest.starts_with('.'))
         })
+    }
+
+    /// Whether the definition with full name `path` is one the compiler
+    /// made; `false` for a name no definition has (a hypothesis, say).
+    pub(crate) fn contains_name(&self, g: &Ev, path: &str) -> bool {
+        self.by_path
+            .get(path)
+            .is_some_and(|id| self.contains(g, *id))
     }
 }
 

@@ -187,17 +187,19 @@ impl Session {
     /// Searches the statement of every theorem of the program (not the
     /// library's) whose full name `keep` keeps, whether its proof checked or
     /// failed, within `budget`, in the order they were declared
-    /// (docs/proposals/counterexample-search.md §7.3). Not a definition's
-    /// generated equations (`f.eqK`, docs/proposals/function-equations.md):
-    /// they restate its arms and are proved by construction, so a search
-    /// could only spend its inputs on them, a line per arm of every
-    /// function (SW-1051).
+    /// (docs/proposals/counterexample-search.md §7.3). Not a declaration
+    /// the compiler made rather than the source ([`crate::audit::Generated`]):
+    /// a definition's equations (`f.eqK`, docs/proposals/function-equations.md)
+    /// restate its arms and are proved by construction, so a search could
+    /// only spend its inputs on them, a line per arm of every function
+    /// (SW-1051); nor its `f.induct`, `f.unfold` or a type's lemmas.
     pub fn search_theorems(
         &mut self,
         budget: Budget,
         keep: &dyn Fn(&str) -> bool,
     ) -> Vec<TheoremSearch> {
         let g = &self.elab.ev();
+        let generated = crate::audit::Generated::new(g);
         let theorems: Vec<(DefId, String, bool)> = (0..g.env.defs().len())
             .map(DefId)
             .filter_map(|id| {
@@ -207,7 +209,7 @@ impl Session {
                 (def.theorem()
                     && !path.contains('%')
                     && !path.starts_with("Std.")
-                    && !stitchwort_elab::is_generated_name(g, def.name())
+                    && !generated.contains(g, id)
                     && matches!(state, State::Final | State::Failed)
                     && keep(&path))
                 // Checked assuming an open goal holds isn't checked: a

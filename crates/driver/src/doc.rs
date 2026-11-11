@@ -1308,13 +1308,11 @@ impl Session {
 /// the order of the arms (`f.eq2` before `f.eq2.or1` before `f.eq3`).
 pub(crate) fn generated_equations(g: &Ev) -> BTreeMap<String, Vec<(Vec<usize>, DefId)>> {
     let mut by_owner: BTreeMap<String, Vec<(Vec<usize>, DefId)>> = BTreeMap::new();
+    let generated = crate::audit::Generated::new(g);
     for id in (0..g.env.defs().len()).map(DefId) {
         let d = g.def(id);
         // Not the hidden lemmas branches use (`f.%match1.eq2`).
-        if !d.theorem()
-            || !stitchwort_elab::is_generated_name(g, d.name())
-            || d.path().contains('%')
-        {
+        if !d.theorem() || !generated.contains(g, id) || d.path().contains('%') {
             continue;
         }
         // The owner is what precedes the first `.eqK` (or `.eq`, below a

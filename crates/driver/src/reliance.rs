@@ -143,7 +143,9 @@ impl Session {
 
     /// The goals `reported` lists, and what relies on or waits for them.
     /// Goals the elaborator couldn't state as an assumption (see
-    /// `assume.rs`) are listed with nothing that relies on them.
+    /// `assume.rs`) are listed with nothing that relies on them. Only
+    /// definitions and theorems are listed in `relied_on_by` and the rely
+    /// counts, never types.
     pub fn reliance(&self, reported: &[Diagnostic]) -> Reliance {
         let assumptions = self.elab.assumptions();
         let defs = self.elab.ev().env.defs().len();
