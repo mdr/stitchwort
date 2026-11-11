@@ -1,5 +1,5 @@
 {
-  "next": 2830,
+  "next": 2831,
   "tickets": [
     {
       "id": 47,
@@ -29855,6 +29855,19 @@
       "title": "A carried (or unknown-skipped) rewrite motive passes check_motive and fails later with a confusing E-TYPE-MISMATCH about x' (SW-2812 reproducer on main; std Parse/Runs.sw:1045 with the usual motive): stricter check or retry when the failure comes later; decides_other's syntax check vs computed matching (rewrite.rs)",
       "status": "backlog",
       "agent": "Opus",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2830,
+      "title": "rewrite: when carrying a decision's proofs fails with an error the user can't act on (kernel E-CANNOT-INFER), report E-REWRITE-MOTIVE or an internal error, not 'add a type annotation' (SW-2828); decides_other can't tell when a lambda sound needs carrying (infer its body under h: s = True); drop the call-for-sound workaround comment in examples/accept/rewrite-decision-plain-first.sw",
+      "status": "backlog",
+      "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
