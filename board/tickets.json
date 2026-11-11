@@ -30713,12 +30713,12 @@
     {
       "id": 2894,
       "title": "[Sonnet] Book G3: goal at any point in the playground's goal panel, as VS Code has had since SW-2778/SW-2780 (proving-with-stitchwort-outline.md)",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "editor-playground",
-      "body": "",
+      "body": "\nBrowser 86/87 (only the jump test, fixed by SW-2915). Model result: Sonnet, worked, 6 min (est. 75).",
       "created": "2026-11-11",
       "updated": "2026-11-11",
       "commits": []
