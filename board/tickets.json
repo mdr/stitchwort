@@ -30108,12 +30108,12 @@
     {
       "id": 2848,
       "title": "Debug-only panics go unseen (examples run the release CLI): debug_assert in lift::go_replace that a free index is below depth + under, with a clear message; search_at::a_goal_that_takes_too_long_to_open_reports_running_out takes 176 s in debug vs 1.7 s release: mark slow or make cheaper (SW-2842)",
-      "status": "doing",
+      "status": "review",
       "agent": "DeepSeek",
       "where": ".claude/worktrees/scratch-sw-2848",
       "labels": [],
       "epic": "test-infra",
-      "body": "",
+      "body": "\nModel result: DeepSeek, worked, ~35 min (est. 30). debug_assert in go_replace's level(); search_at timeout test at countDown 10000 (still past budget::POLL), debug 32 s -> 15.5 s warm.",
       "created": "2026-11-11",
       "updated": "2026-11-11",
       "commits": []
