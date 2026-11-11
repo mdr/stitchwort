@@ -2369,7 +2369,7 @@
     {
       "id": 1004,
       "title": "Goal printing: lifted match helpers (f.%match1) still print by internal name",
-      "status": "next",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [
