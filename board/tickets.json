@@ -19897,7 +19897,7 @@
     {
       "id": 2154,
       "title": "[Sonnet] Goals print a lifted match helper (f.%match1) as (match <scrutinees> with …), from the scrutinee positions the elaborator records; check first that the module cache keeps them for std's helpers",
-      "status": "review",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [
