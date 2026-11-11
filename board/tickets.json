@@ -30371,12 +30371,12 @@
     {
       "id": 2868,
       "title": "f.induct: number-literal alternatives in lifted matches (0 is one Zero split, n > 0 a Succ chain) need nested splitting on multi-constructor types, one design with SW-1089's Some None / Some (Some k) case; would cover Aoc 2024 Day17 Machine.run. Also re-measure the proposal's skip counts (stale: badOperatorIn gone, Key.allWithin now generates) (SW-1073)",
-      "status": "doing",
+      "status": "review",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-2868",
       "labels": [],
       "epic": "proof-automation",
-      "body": "",
+      "body": "Progress (11 Nov 2026, Opus, 16:04 to 16:40): one design, nested splitting (docs/proposals/function-equations.md, \"Nested splitting (SW-2868)\"). Below each constructor of the scrutinee, the first alternative that agrees with the splits so far has its next unsplit constructor split by that field type's %split lemma; a number literal up to 64 is a Succ chain around Zero. At each place its variables are the split values, its equation is rebuilt by J, and each hypothesis that an earlier alternative didn't match (catch-all: about the scrutinee; `Some n` after `Some 0`: `n ≠ 0`) is refuted with an %apart definition. Machine.run (2024 day 17) now gets f.induct. Terms for SW-1073's shapes are unchanged (function-induct* and match-induct hash snapshots unchanged). New example function-induct-split.sw (collect / score / weigh). %apart through a field declared at a type parameter (Some's) is stated at the closed instance, else skipped with a reason; the same guard fixes a pre-existing kernel refusal in Tree::refute (`match x | Some 2 | Some (Succ n) | _` on a row variable). Skip list re-checked by doc (proposal): std 5 of 9 now made; AoC Machine.run and largestFrom made. Findings: 2021 day 16 readPackets.induct is refused by the kernel (E-NOT-A-FUNCTION, on main too); transmissionBits and sumMagnitudes get no f.induct and no reason (recursive call only in a several-expression match's scrutinee).\n",
       "created": "2026-11-11",
       "updated": "2026-11-11",
       "commits": []
