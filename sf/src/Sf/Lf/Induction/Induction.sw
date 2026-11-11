@@ -2,12 +2,13 @@
 -- ("Induction: Proof by Induction"), ported to Stitchwort. Copyright and
 -- licence: sf/LICENSE-SF. Names and exercises follow the conventions
 -- described at the top of Basics.sw: an exercise is a theorem or function
--- with `?` for the reader to fill in.
+-- with `?` for the reader to fill in. The numbers are the book's own, from
+-- Nat.sw, not the library's (see README.md).
 
 namespace Sf.Lf.Induction
 import Sf.Lf.Basics (..)
-import Sf.Lf.Basics.NatPlayground2 (plus)
-import Std (Eq, Nat)
+import Sf.Lf.Nat (Nat, ofNat, plus, mult, minus)
+import Std (Eq)
 
 -- # Separate Compilation
 --
@@ -24,27 +25,23 @@ import Std (Eq, Nat)
 
 -- # Proof by Induction
 --
--- We proved that `0` is a neutral element for `+` on the *left* by
+-- We proved that `O` is a neutral element for `plus` on the *left* by
 -- computing. In the book, the proof that it is also neutral on the
 -- *right*,
 --
 --     Theorem add_0_r_firsttry : forall n:nat, n + 0 = n.
 --
 -- can't be done the same way: `n` is unknown, so the `match` in the
--- definition of `+` can't compute.
+-- definition of `plus` can't compute.
 --
--- Stitchwort's library `+` computes here anyway. When its first argument
--- is unknown, it computes on its second: `n + 0` is `n`, and `n + Succ m`
--- is `Succ (n + m)` (docs/proposals/nat-add-recursion.md). So `rfl` proves
--- it:
-
-theorem add0RFirstTry (n: Nat): n + 0 = n := rfl
-
--- That hides the point of this chapter, so here it is with the book's own
--- `plus` from Basics (NatPlayground2.sw), which, like Rocq's, computes
--- only on its first argument. `rfl` fails, and says why:
+-- (This is why the port uses the book's own numbers, Nat.sw, here.
+-- Stitchwort's library `+` computes on its second argument when its first
+-- is unknown, so `n + 0 = n` is `rfl` for it, and the chapter's first
+-- example would have nothing to show.)
 --
---     theorem plusN0FirstTry (n: Nat): plus n 0 = n := rfl
+-- With the book's `plus`, `rfl` fails, and says why:
+--
+--     theorem plusN0FirstTry (n: Nat): plus n O = n := rfl
 --
 --     [E-REFL] Error: `rfl` can't prove this
 --       ╰─── `plus n 0` and `n` aren't equal
@@ -52,17 +49,16 @@ theorem add0RFirstTry (n: Nat): n + 0 = n := rfl
 --               until `n` is known; a `match` on `n` (or `cases n`) splits it
 --
 -- Splitting `n` into cases, as the note suggests, doesn't get us much
--- further. The case `n = Zero` goes through, but in the case `n = Succ
--- n'` we are stuck in the same way. Writing `?` for that case shows its
--- goal:
+-- further. The case `n = O` goes through, but in the case `n = S n'` we
+-- are stuck in the same way. Writing `?` for that case shows its goal:
 --
---     theorem plusN0SecondTry (n: Nat): plus n 0 = n := match n with
---       | Zero => rfl
---       | Succ n' => ?
+--     theorem plusN0SecondTry (n: Nat): plus n O = n := match n with
+--       | O => rfl
+--       | S n' => ?
 --
 --     [GOAL] Goal: in `plusN0SecondTry`
 --       ╰── n': Nat
---           ⊢ Succ (plus n' 0) = Succ n'
+--           ⊢ S (plus n' O) = S n'
 --
 -- We could split `n'` too, but since `n` can be arbitrarily large, we'd
 -- never get all the way there.
@@ -73,45 +69,38 @@ theorem add0RFirstTry (n: Nat): n + 0 = n := rfl
 -- proposition involving a natural number `n`, and we want to show that
 -- `P` holds for every `n`, we can reason like this:
 --
--- - show that `P(Zero)` holds;
--- - show that, for any `n'`, if `P(n')` holds, then so does `P(Succ n')`;
+-- - show that `P(O)` holds;
+-- - show that, for any `n'`, if `P(n')` holds, then so does `P(S n')`;
 -- - conclude that `P(n)` holds for all `n`.
 --
 -- In Rocq, the `induction` tactic turns the goal `P(n)` into those two
 -- subgoals, the second with the hypothesis `P(n')` named (`IHn'`). In
 -- Stitchwort, induction is recursion: the proof is a `match` on `n`, as
--- for case analysis, and in the `Succ n'` case the theorem may call
+-- for case analysis, and in the `S n'` case the theorem may call
 -- itself on `n'`. That call is the induction hypothesis: it proves
 -- `P(n')`. The checker accepts it because `n'` is smaller than `n`, as
 -- it would for a recursive function, so the recursion always ends.
 
-theorem plusN0 (n: Nat): plus n 0 = n := match n with
-  | Zero => rfl
-  | Succ n' => Eq.cong Succ (plusN0 n')
+theorem plusN0 (n: Nat): plus n O = n := match n with
+  | O => rfl
+  | S n' => Eq.cong S (plusN0 n')
 
--- In the case `Zero`, `plus 0 0 = 0` computes. In the case `Succ n'`, the
--- goal `plus (Succ n') 0 = Succ n'` computes to `Succ (plus n' 0) = Succ
--- n'`. The induction hypothesis, `plusN0 n'`, proves `plus n' 0 = n'`,
--- and `Eq.cong Succ` puts a `Succ` on both sides. The book's proof of
+-- In the case `O`, `plus O O = O` computes. In the case `S n'`, the goal
+-- `plus (S n') O = S n'` computes to `S (plus n' O) = S n'`. The
+-- induction hypothesis, `plusN0 n'`, proves `plus n' O = n'`, and
+-- `Eq.cong S` puts an `S` on both sides. The book's proof of
 -- that case is `simpl. rewrite -> IHn'. reflexivity.`; the Stitchwort
 -- term `rewrite plusN0 n' in rfl` is the same steps and proves it too.
 --
--- The book's `add_0_r` is the same theorem for the library's `+`. With
--- the library's `+` it holds by computing, as shown above, but the proof
--- by induction works as well:
+-- (The book calls this `add_0_r`, with Rocq's `+`; it is the same theorem.)
+--
+-- Another one by induction:
 
-theorem add0R (n: Nat): n + 0 = n := match n with
-  | Zero => rfl
-  | Succ n' => Eq.cong Succ (add0R n')
+theorem minusNN (n: Nat): minus n n = O := match n with
+  | O => rfl
+  | S n' => minusNN n'
 
--- The library's `-` gets no help from its second argument, so this one
--- needs induction:
-
-theorem minusNN (n: Nat): n - n = 0 := match n with
-  | Zero => rfl
-  | Succ n' => minusNN n'
-
--- In the case `Succ n'`, `Succ n' - Succ n'` computes to `n' - n'`, so
+-- In the case `S n'`, `minus (S n') (S n')` computes to `minus n' n'`, so
 -- the induction hypothesis is the whole proof.
 --
 -- Stitchwort can also do induction that follows a function's own
@@ -122,29 +111,25 @@ theorem minusNN (n: Nat): n - n = 0 := match n with
 --
 -- Prove these by induction. You might need results proved before.
 
-theorem mul0R (n: Nat): n * 0 = 0 := ?
+theorem mul0R (n: Nat): mult n O = O := ?
 
-theorem plusNSm (n m: Nat): Succ (n + m) = n + Succ m := ?
+theorem plusNSm (n m: Nat): S (plus n m) = plus n (S m) := ?
 
-theorem addComm (n m: Nat): n + m = m + n := ?
+theorem addComm (n m: Nat): plus n m = plus m n := ?
 
-theorem addAssoc (n m p: Nat): n + (m + p) = n + m + p := ?
-
--- (Stitchwort's library proves all four, as `Nat.mulZero`,
--- `Nat.addSucc`, `Nat.addComm` and `Nat.addAssoc`, and `omega` proves
--- the last three outright. For the exercise, prove them yourself.)
+theorem addAssoc (n m p: Nat): plus n (plus m p) = plus (plus n m) p := ?
 
 -- Exercise: 2 stars, standard (double_plus)
 --
 -- This function doubles its argument:
 
 def double (n: Nat): Nat := match n with
-  | Zero => Zero
-  | Succ n' => Succ (Succ (double n'))
+  | O => O
+  | S n' => S (S (double n'))
 
 -- Use induction to prove this simple fact about `double`:
 
-theorem doublePlus (n: Nat): double n = n + n := ?
+theorem doublePlus (n: Nat): double n = plus n n := ?
 
 -- Exercise: 2 stars, standard (eqb_refl)
 --
@@ -158,9 +143,9 @@ theorem eqbRefl (n: Nat): eqb n n = True := ?
 -- One awkward aspect of `even n` is its recursive call on `n - 2`, which
 -- makes proofs about it by induction on `n` harder: we may need an
 -- induction hypothesis about `n - 2`. This lemma characterises
--- `even (Succ n)` in a way that works better with induction:
+-- `even (S n)` in a way that works better with induction:
 
-theorem evenS (n: Nat): even (Succ n) = negb (even n) := ?
+theorem evenS (n: Nat): even (S n) = negb (even n) := ?
 
 -- # Proofs Within Proofs
 --
@@ -171,32 +156,31 @@ theorem evenS (n: Nat): even (Succ n) = negb (even n) := ?
 -- Stitchwort's `rewrite` takes the equation as a proof, written in
 -- place:
 
-theorem mult0Plus' (n m: Nat): (n + 0 + 0) * m = n * m := rewrite add0R n in rfl
+theorem mult0Plus' (n m: Nat): mult (plus (plus n O) O) m = mult n m := rewrite plusN0 n, plusN0 n in rfl
 
--- Here `add0R n` proves `n + 0 = n`, which rewrites `n + 0 + 0` to
--- `n + 0` and then to `n`. (With the library's `+` the goal holds by
--- computing anyway: `rfl` alone proves it.) A fact with no lemma to cite
--- can be stated in place with its proof, `rewrite (omega: n + 0 + 0 = n)
--- in rfl`, which is the closest thing to `replace`.
+-- Here `plusN0 n` proves `plus n O = n`, which rewrites `plus (plus n O)
+-- O` to `plus n O` and then to `n`. A fact with no lemma to cite can be
+-- stated in place with its proof, `rewrite (proof: a = b) in rfl`, which
+-- is the closest thing to `replace`.
 --
 -- As another example, suppose we want to prove `(n + m) + (p + q) =
 -- (m + n) + (p + q)`. The two sides differ only in the order of `m` and
 -- `n` in the first inner `+`, so commutativity of addition should turn
 -- one into the other. But `rewrite` isn't very smart about *where* it
--- applies a rule. There are three uses of `+`, and rewriting with the
--- library's `Nat.addComm` (the book uses `add_comm`, the exercise above)
--- with no arguments affects only the *outer* one:
+-- applies a rule. There are three uses of `plus`, and rewriting with
+-- `addComm` (the exercise above, as the book uses `add_comm`) with no
+-- arguments affects only the *outer* one:
 --
---     theorem plusRearrangeFirstTry (n m p q: Nat): n + m + (p + q) = m + n + (p + q) :=
---       rewrite Nat.addComm in rfl
+--     theorem plusRearrangeFirstTry (n m p q: Nat): plus (plus n m) (plus p q) = plus (plus m n) (plus p q) :=
+--       rewrite addComm in rfl
 --
 --     [E-REFL] Error: `rfl` can't prove this
---       ╰─── `p + q + (n + m)` and `m + n + (p + q)` aren't equal
+--       ╰─── `plus (plus p q) (plus n m)` and `plus (plus m n) (plus p q)` aren't equal
 --
 -- The book uses `replace` to point at the right `+`. In Stitchwort, give
--- the rule its arguments, and it rewrites `n + m` and nothing else:
+-- the rule its arguments, and it rewrites `plus n m` and nothing else:
 
-theorem plusRearrange (n m p q: Nat): n + m + (p + q) = m + n + (p + q) := rewrite Nat.addComm n m in rfl
+theorem plusRearrange (n m p q: Nat): plus (plus n m) (plus p q) = plus (plus m n) (plus p q) := rewrite addComm n m in rfl
 
 -- # Formal vs. Informal Proof
 --
@@ -237,9 +221,9 @@ theorem plusRearrange (n m p q: Nat): n + m + (p + q) = m + n + (p + q) := rewri
 -- argument. The cases are visible as the arms of the `match`, and each
 -- arm says what proves its case:
 
-theorem addAssoc' (n m p: Nat): n + (m + p) = n + m + p := match n with
-  | Zero => rfl
-  | Succ n' => Eq.cong Succ (addAssoc' n' m p)
+theorem addAssoc' (n m p: Nat): plus n (plus m p) = plus (plus n m) p := match n with
+  | O => rfl
+  | S n' => Eq.cong S (addAssoc' n' m p)
 
 -- A (pedantic) mathematician might write the proof like this:
 --
@@ -249,29 +233,29 @@ theorem addAssoc' (n m p: Nat): n + (m + p) = n + m + p := match n with
 --
 --   *Proof*: by induction on `n`.
 --
---   - First, suppose `n = 0`. We must show that
+--   - First, suppose `n = O`. We must show that
 --
---         0 + (m + p) = (0 + m) + p.
+--         O + (m + p) = (O + m) + p.
 --
 --     This follows directly from the definition of `+`.
 --
---   - Next, suppose `n = Succ n'`, where
+--   - Next, suppose `n = S n'`, where
 --
 --         n' + (m + p) = (n' + m) + p.
 --
 --     We must now show that
 --
---         (Succ n') + (m + p) = ((Succ n') + m) + p.
+--         (S n') + (m + p) = ((S n') + m) + p.
 --
 --     By the definition of `+`, this follows from
 --
---         Succ (n' + (m + p)) = Succ ((n' + m) + p),
+--         S (n' + (m + p)) = S ((n' + m) + p),
 --
 --     which is immediate from the induction hypothesis. *Qed*.
 --
 -- The overall form is the same as the Stitchwort term's: an arm for each
 -- case, in the same order. The term is more explicit than the informal
--- proof in some ways (`Eq.cong Succ` says how the hypothesis gives the
+-- proof in some ways (`Eq.cong S` says how the hypothesis gives the
 -- goal) and less in others: it doesn't restate the goal of each case.
 -- Writing `?` in an arm, or hovering over it in the editor, shows that
 -- goal.
@@ -301,13 +285,13 @@ theorem addAssoc' (n m p: Nat): n + (m + p) = n + m + p := match n with
 -- Use `rewrite` with stated facts, as `replace` would be used, to prove
 -- `addShuffle3`. You don't need induction yet.
 
-theorem addShuffle3 (n m p: Nat): n + (m + p) = m + (n + p) := ?
+theorem addShuffle3 (n m p: Nat): plus n (plus m p) = plus m (plus n p) := ?
 
 -- Now prove commutativity of multiplication. You will probably want to
 -- find (or define and prove) a helper theorem to use in this one. Hint:
--- what is `n * (1 + k)`?
+-- what is `mult n (plus (S O) k)`?
 
-theorem mulComm (m n: Nat): m * n = n * m := ?
+theorem mulComm (m n: Nat): mult m n = mult n m := ?
 
 -- Exercise: 3 stars, standard, optional (more_exercises)
 --
@@ -315,25 +299,25 @@ theorem mulComm (m n: Nat): m * n = n * m := ?
 -- whether (a) it can be proved by computing and rewriting alone, (b) it
 -- also needs case analysis (`match`), or (c) it also needs induction.
 -- Write down your prediction, then fill in the proof. (This is just to
--- encourage you to reflect before you hack.) Stitchwort's library `+`,
+-- encourage you to reflect before you hack.)
 -- which computes on its second argument when the first is unknown,
 -- moves some of these from (b) or (c) to (a).
 
 theorem lebRefl (n: Nat): leb n n = True := ?
 
-theorem zeroNeqbS (n: Nat): eqb 0 (Succ n) = False := ?
+theorem zeroNeqbS (n: Nat): eqb O (S n) = False := ?
 
 theorem andbFalseR (b: Bool): andb b False = False := ?
 
-theorem sNeqb0 (n: Nat): eqb (Succ n) 0 = False := ?
+theorem sNeqb0 (n: Nat): eqb (S n) O = False := ?
 
-theorem mult1L (n: Nat): 1 * n = n := ?
+theorem mult1L (n: Nat): mult (S O) n = n := ?
 
 theorem all3Spec (b c: Bool): orb (andb b c) (orb (negb b) (negb c)) = True := ?
 
-theorem multPlusDistrR (n m p: Nat): (n + m) * p = n * p + m * p := ?
+theorem multPlusDistrR (n m p: Nat): mult (plus n m) p = plus (mult n p) (mult m p) := ?
 
-theorem multAssoc (n m p: Nat): n * (m * p) = n * m * p := ?
+theorem multAssoc (n m p: Nat): mult n (mult m p) = mult (mult n m) p := ?
 
 -- # Nat to Bin and Back to Nat
 --
@@ -356,14 +340,14 @@ theorem multAssoc (n m p: Nat): n * (m * p) = n * m * p := ?
 --                |                           |
 --                v                           v
 --               Nat ----------------------> Nat
---                             Succ
+--                              S
 --
 -- That is, incrementing a binary number and then converting it to unary
 -- gives the same result as converting it first and then incrementing.
 -- If changing your definitions of `incr` or `binToNat` makes this easier
 -- to prove, feel free to.
 
-theorem binToNatPresIncr (b: Bin): binToNat (incr b) = 1 + binToNat b := ?
+theorem binToNatPresIncr (b: Bin): binToNat (incr b) = plus (S O) (binToNat b) := ?
 
 -- Exercise: 3 stars, standard (nat_bin_nat)
 --
@@ -395,7 +379,7 @@ theorem natBinNat (n: Nat): binToNat (natToBin n) = n := ?
 --
 -- Prove this lemma about `double`, defined earlier in the chapter.
 
-theorem doubleIncr (n: Nat): double (Succ n) = Succ (Succ (double n)) := ?
+theorem doubleIncr (n: Nat): double (S n) = S (S (double n)) := ?
 
 -- Now define a similar doubling function for `Bin`.
 

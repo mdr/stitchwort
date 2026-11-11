@@ -8,8 +8,49 @@ Copyright and licence: [LICENSE-SF](LICENSE-SF).
 
 | Chapter | Namespace | Files |
 |---|---|---|
-| Basics.v | `Sf.Lf.Basics` | `src/Sf/Lf/Basics/Basics.sw`, with the book's modules as namespaces beside it: `Playground`, `TuplePlayground`, `NatPlayground`, `NatPlayground2`, `LateDays` |
+| Basics.v | `Sf.Lf.Basics` | `src/Sf/Lf/Basics/Basics.sw`, with the book's modules as namespaces beside it: `Playground`, `TuplePlayground`, `LateDays`; `NatPlayground` and `NatPlayground2` are `src/Sf/Lf/Nat.sw` (below); `Library.sw` proves the two library lemmas the chapter quotes |
 | Induction.v | `Sf.Lf.Induction` | `src/Sf/Lf/Induction/Induction.sw` |
+
+**The book's own numbers.** Basics and Induction work on the numbers of
+`src/Sf/Lf/Nat.sw` (`Sf.Lf.Nat`): the type `Nat` with constructors `O` and
+`S`, and `plus`, `mult` and `minus`, as the book's `NatPlayground` and
+`NatPlayground2` define them, with no lemmas. Booleans, and the book's
+`andb`, `orb`, `eqb`, `leb`, are the library's `Bool` and functions of the
+port's own. The reason is that the library's `Nat` has a large stock of
+proved facts (`Nat.addComm`, `Nat.mulZero`, ...), decision procedures
+(`omega`, `ring`, `cases`) and an addition that computes on its second
+argument, and between them they solve many exercises in one word; the book
+keeps these out of the reader's way and so does the port. Costs: number
+literals stand for the library's `Nat` only, so `3` is written `ofNat 3`
+(a function that computes to `S (S (S O))`; `O` and `S O` are written as
+they are), and the operators `+ * - <=` aren't available, so call `plus`,
+`mult`, `minus`, `leb` by name. The `LateDays` module (grades, and
+`lateDays: Nat` with `<`) still uses the library's `Nat`: its exercises
+are about the policy, not about numbers.
+
+**Which exercises the library solves.** On the library's `Nat` (so not
+on the port's), measured by trying `rfl`, `omega`, `ring` and `cases` on
+each exercise's statement:
+
+- *`omega` or `cases` prove them outright:* `plusIdExercise`, `multN1`,
+  `mul0R`, `plusNSm`, `addComm`, `addAssoc`, `addShuffle3`, `mulComm`,
+  `mult1L`, `zeroNbeqPlus1`, `zeroNeqbS`, `sNeqb0`, `doubleIncr`. (`ring`
+  proves the multiplication ones too, and also `multPlusDistrR` and
+  `multAssoc`, which `omega` can't.)
+- *`rfl` proves them, because the library's `+` computes on its second
+  argument:* `plusNSm`, `mult1L`, `zeroNbeqPlus1`, `zeroNeqbS`,
+  `sNeqb0`, `doubleIncr`, and the chapter's own `plus1Neq0FirstTry` and
+  `n + 0 = n`, the book's examples of computing getting stuck.
+- *`cases` proves the Boolean ones:* `andbTrueElim2`, `andbEqOrb`,
+  `andbFalseR`, `all3Spec`. These are on the library's `Bool` here too,
+  since the book's proofs of them are case analysis anyway, and `cases` is
+  the same work done for you.
+- *Not solved by any of them:* `doublePlus`, `eqbRefl`, `evenS`, `lebRefl`
+  and `identityFnAppliedTwice` need induction or a hand proof, and the
+  `Bin` exercises are definitions and proofs about them.
+
+Doing the exercises by hand is the point; use these only to see what the
+tools do.
 
 Read the files in the book's order: Basics.sw says where each module's file
 comes in.
