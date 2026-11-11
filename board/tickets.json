@@ -1,5 +1,5 @@
 {
-  "next": 2922,
+  "next": 2926,
   "tickets": [
     {
       "id": 47,
@@ -31064,11 +31064,63 @@
     {
       "id": 2921,
       "title": "[Opus] Paper: the Goals panel, compared with other provers (Lean, Rocq, Agda, Idris, Isabelle, F*/Dafny...): what a goal shows (computed or as written, after a split), hypotheses, steps and diffs, cursor-following, with pros and cons and a recommendation (Matt, 11 Nov 2026)",
-      "status": "doing",
+      "status": "review",
       "agent": "Opus",
       "where": "",
       "labels": [],
       "epic": "editor-playground",
+      "body": "",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2922,
+      "title": "[DeepSeek] Unfinished-test message says \"its body is `?`\" even when the ? is only part of the body; say \"it has an unfinished ? at …\" in that case (SW-2909)",
+      "status": "backlog",
+      "agent": "DeepSeek",
+      "where": "",
+      "labels": [],
+      "epic": "diagnostics",
+      "body": "",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2923,
+      "title": "[Sonnet] Inside a match arm, rfl's error shows the statement before the arm's substitution ('beats m m and True aren't equal' in the Rock arm; should say beats Rock Rock) (SW-2921)",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "diagnostics",
+      "body": "",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2924,
+      "title": "[DeepSeek] The same sum prints as (a + 1) before a rewrite and as Succ b after it in the Goals panel's steps (SW-2921)",
+      "status": "backlog",
+      "agent": "DeepSeek",
+      "where": "",
+      "labels": [],
+      "epic": "diagnostics",
+      "body": "",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2925,
+      "title": "[Sonnet] A let's name is inlined into later hypotheses (fact: n + n = n + n where the source says twice = n + n); keep the let's name (SW-2921)",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "diagnostics",
       "body": "",
       "created": "2026-11-11",
       "updated": "2026-11-11",
