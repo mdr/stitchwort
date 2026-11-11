@@ -1,5 +1,5 @@
 {
-  "next": 2934,
+  "next": 2936,
   "tickets": [
     {
       "id": 47,
@@ -19897,7 +19897,7 @@
     {
       "id": 2154,
       "title": "[Sonnet] Goals print a lifted match helper (f.%match1) as (match <scrutinees> with …), from the scrutinee positions the elaborator records; check first that the module cache keeps them for std's helpers",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [
@@ -31226,6 +31226,32 @@
       "labels": [],
       "epic": "docs-tutorials",
       "body": "\nMatt, 11 Nov 2026: 'yes, fold the calc version into SW-2933'. Checked version (on a copy of the book):\ntheorem beatsMeansWin (mine: Move) (theirs: Move) (h: beats mine theirs): play mine theirs = Win :=\n  calc play mine theirs\n    _ = (if beats mine theirs then Win else if beats theirs mine then Lose else Draw)\n    _ = (if True then Win else if beats theirs mine then Lose else Draw) := rewrite h in rfl\n    _ = Win\nThen rewrite h as the shortcut (same as the book's cases-after-by-hand pattern). Starts after SW-2932 (same files).",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2934,
+      "title": "[DeepSeek] explain_lifted searches message text for helper names; read a record of which helpers the printer showed as (match … with …) and restore D229's 'this match' note (SW-2154)",
+      "status": "backlog",
+      "agent": "DeepSeek",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
+      "body": "",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2935,
+      "title": "[DeepSeek] EXAMPLES=<name> with -E 'test(/_examples/)' also runs the tools guide:: tests (~10 min at nice 15); make the example filter select only the examples tests so a lane can run one example in seconds (SW-2154)",
+      "status": "backlog",
+      "agent": "DeepSeek",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
+      "body": "",
       "created": "2026-11-11",
       "updated": "2026-11-11",
       "commits": []
