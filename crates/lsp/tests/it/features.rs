@@ -857,6 +857,7 @@ fn a_code_action_on_a_goal_offers_a_search_that_runs_when_asked() {
             titles.iter().all(|t| !t.starts_with("Replace ? with")),
             "{titles:?}"
         );
+        assert_eq!(titles.last(), Some(&"Search for a proof"), "{titles:?}");
         let search = actions
             .iter()
             .find(|a| a["title"] == "Search for a proof")
