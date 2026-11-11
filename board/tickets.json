@@ -30302,12 +30302,12 @@
     {
       "id": 2863,
       "title": "No cheap way to check one std file: stitchwort check --std-dir … <std file> treats it as user code (namespace errors) and check/eval --std-dir don't type-check std theorem bodies (a broken Nat.dividesElim passed eval --std-dir); lanes editing std only find mistakes in the library test. Add a way to check one std namespace (e.g. check --std Std.Nat.Arith) (SW-2831)",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2863",
       "labels": [],
       "epic": "test-infra",
-      "body": "",
+      "body": "Progress (Sonnet lane, 11 Nov 2026, est. 75 min): cause was lazy loading, not skipped bodies: a library file is checked in full (broken `Nat.dividesElim` is reported) as soon as something needs it, but `check FILE`/`eval` with --std-dir only load what the program names, so a program that never imports Nat/Divides.sw never saw the break. Added `stitchwort [--std-dir DIR] check --std TARGET...` (TARGET: `Nat/Arith.sw`, a folder `Nat`, or `Std.Nat.Arith`): loads those files and what they need, full bodies, check cache for unchanged files; errors as check; exit 1; E-STD-TARGET for an unknown name. Test: check_cache.rs `check_std_checks_the_named_library_file_in_full`. docs/testing.md \"Checking a std edit\". Wording call for the orchestrator: `--std` flag on `check` with path/dotted targets.\n",
       "created": "2026-11-11",
       "updated": "2026-11-11",
       "commits": []

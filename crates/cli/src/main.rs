@@ -30,7 +30,8 @@ struct Cli {
     /// Read the standard library from this directory (laid out as
     /// `crates/elab/src/std`) instead of the copy built in, so edits to it
     /// take effect without a rebuild. The environment variable
-    /// `STITCHWORT_STD_DIR` does the same; this wins
+    /// `STITCHWORT_STD_DIR` does the same; this wins. A library file is
+    /// checked only when a program needs it: `check --std` checks named ones
     #[arg(long, global = true, value_name = "DIR")]
     std_dir: Option<PathBuf>,
     /// Show each goal in full. Without it, a line of a goal (a hypothesis,
@@ -141,6 +142,19 @@ enum Command {
         /// Files (a name ending in `.sw`, or with a `/`), or namespaces of
         /// the project; not both
         targets: Vec<String>,
+        /// The targets are standard library files or folders, not a
+        /// project's: `Nat/Arith.sw`, `Nat`, or `Std.Nat.Arith`. Each is
+        /// checked in full, theorem bodies included, with the files it
+        /// needs, from the library `--std-dir` names (or the usual one);
+        /// unchanged files come from the check cache. A library file is
+        /// only checked when something needs it, so `check FILE` of a
+        /// program that doesn't use an edited library file doesn't see it
+        #[arg(
+            long,
+            requires = "targets",
+            conflicts_with_all = ["project", "index", "only", "counterexamples"]
+        )]
+        std: bool,
         /// The project folder (the one with `stitchwort.yaml`), if not the
         /// folder you're in or the nearest one above it
         #[arg(long)]
@@ -799,6 +813,13 @@ fn run(cli: Cli) -> ExitCode {
     match cli.command {
         Command::Check {
             targets,
+            std: true,
+            cache,
+            ..
+        } => check_std(&targets, &cache),
+        Command::Check {
+            targets,
+            std: false,
             project,
             index,
             only,
@@ -1513,6 +1534,26 @@ fn write_index(
         Err(err) => {
             eprintln!("error: can't write {index}: {err}");
             false
+        }
+    }
+}
+
+/// `check --std`: the library files and folders `targets` name, with what
+/// they need, checked in full.
+fn check_std(targets: &[String], cache: &CacheArgs) -> ExitCode {
+    let mut session = new_session(false);
+    use_cache(&mut session, cache, Path::new("."));
+    match session.elab.check_library_targets(targets) {
+        Ok(files) => {
+            let plural = if files.len() == 1 { "" } else { "s" };
+            eprintln!("checked {} standard library file{plural}", files.len());
+            discard(session);
+            ExitCode::SUCCESS
+        }
+        Err(diagnostics) => {
+            report(&session.sources, &diagnostics);
+            discard(session);
+            ExitCode::FAILURE
         }
     }
 }
