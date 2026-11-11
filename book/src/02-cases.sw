@@ -209,7 +209,8 @@ theorem beatsMeansWinSteps (mine: Move) (theirs: Move) (h: beats mine theirs): p
 -- Put the cursor on each `_` line with the Goals panel open: it shows what
 -- the chain has proved so far. On the last line it says
 --
---     so far play mine theirs = Win
+--     so far play mine theirs = (if True then Win else if beats theirs mine then Lose else Draw)
+--            computes to play mine theirs = Win
 --     line   ⊢ Win = Win
 --
 -- The same proof in one word:
@@ -227,7 +228,8 @@ theorem beatsMeansWin (mine: Move) (theirs: Move) (h: beats mine theirs): play m
 --
 --     before ⊢ play mine theirs = Win
 --     rule   beats mine theirs
---     after  ⊢ Win = Win
+--     after  ⊢ (if True then Win else if beats theirs mine then Lose else Draw) = Win
+--            computes to Win = Win
 --
 -- Sometimes a hypothesis rules a case out. Rock beats only scissors:
 
