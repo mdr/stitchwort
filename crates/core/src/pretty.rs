@@ -3264,15 +3264,15 @@ fn note_failed_mention(g: &Ev, level: usize, term: &Term) {
 /// Whether `term` uses a failed definition; `waits` is set if it uses one
 /// that may be stuck on an open goal (`Shown::waits_on_goal`).
 fn mentions_failed(g: &Ev, term: &Term, waits: &mut bool) -> bool {
-    if let Term::Def(d) = term {
-        if g.def(*d).state() == crate::globals::State::Failed {
-            return true;
+    // Iteratively: a shown term can be nested far deeper than the stack.
+    term.subterms().any(|(t, _)| match t {
+        Term::Def(d) if g.def(*d).state() == crate::globals::State::Failed => true,
+        Term::Def(d) => {
+            *waits = *waits || g.shown.waits_on_goal(*d);
+            false
         }
-        *waits = *waits || g.shown.waits_on_goal(*d);
-    }
-    let mut found = false;
-    term.for_each_child(|c, _| found = found || mentions_failed(g, c, waits));
-    found
+        _ => false,
+    })
 }
 
 /// Whether `term`, under `level` variables, computed to its normal form,
@@ -3287,14 +3287,26 @@ fn stuck_on_goal(g: &Ev, level: usize, term: &Term) -> bool {
     if !in_scope {
         return false;
     }
-    let env: Vec<Value> = (0..level).map(Value::var).collect();
-    let Ok(value) = crate::value::eval(g, &env, term) else {
-        return false;
+    // On the side, within a small budget of its own: a message mustn't
+    // compute deeply (`countDown 100000 []`), nor change how the check it
+    // reports on ran out.
+    let limits = crate::budget::Limits {
+        work: 100_000,
+        size: CAP,
+        frames: 10_000,
+        ..crate::budget::Limits::default()
     };
-    let Ok(Some(normal)) = crate::value::quote_unfolded_shown_at_most(g, level, &value, CAP) else {
-        return false;
-    };
-    normal
-        .subterms()
-        .any(|(t, _)| matches!(t, Term::Def(d) if g.def(*d).assumption().is_some()))
+    g.machine.budget.aside(limits, || {
+        let env: Vec<Value> = (0..level).map(Value::var).collect();
+        let Ok(value) = crate::value::eval(g, &env, term) else {
+            return false;
+        };
+        let Ok(Some(normal)) = crate::value::quote_unfolded_shown_at_most(g, level, &value, CAP)
+        else {
+            return false;
+        };
+        normal
+            .subterms()
+            .any(|(t, _)| matches!(t, Term::Def(d) if g.def(*d).assumption().is_some()))
+    })
 }
