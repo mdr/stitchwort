@@ -23,19 +23,25 @@ Syntax colouring for `.sw` files, and a thin client for the language server
   computed in the extension.
 - **Goals panel.** Run "Stitchwort: Show Goals" from the command palette: a
   panel opens beside the editor and follows the cursor, anywhere in the file
-  (docs/proposals/goal-at-any-point.md, stage 1). It shows the names in scope
-  with their types and `let` values, and then: `⊢ goal` in a proof, `expected
-  T` for a program expression, `has type T` where only the type found is known.
+  (docs/proposals/goal-at-any-point.md, stages 1 and 3). It names the
+  declaration, shows the names in scope with their types and `let` values, and
+  then: `⊢ goal` in a proof, `expected T` for a program expression (with `has
+  type U` below it when the expression's own type differs), `has type T` where
+  only the type found is known. On a step of a proof (a `rewrite` rule, an
+  arm's pattern, `match … with`, a `calc` line, a lambda's parameter, a `let`'s
+  name, the `then` or `else` of `if h:`, the signature) it shows the goal
+  before the step, a rewrite rule as used, and the goal after it in bold, with
+  the names the step brings into scope marked `+`.
   On a `?` it asks `stitchwort/goalAt` 150 ms after the cursor or the text
   moves, and shows that hole's goal. Elsewhere it asks `stitchwort/contextAt`
   after the cursor has rested 300 ms (the server checks the file again, 0.3 to
   1.6 s on real files). An answer a later move has overtaken is dropped, and the
   previous answer stays until the next arrives. Where `contextAt` has nothing
-  (a comment, a pattern, a signature) it shows the declaration's nearest `?` if
-  it has one, else the last answer, dimmed. `?` goals are what the server
-  already published as the blue diagnostics, so they also stay through an edit
-  that doesn't parse. Not yet: the type found next to the expected one when they
-  differ (`contextAt` sends one), and a step's goal before and after.
+  (a comment, a blank line) it shows the declaration's nearest `?` if it has
+  one, else the last answer, dimmed. `?` goals are what the server already
+  published as the blue diagnostics, so they also stay through an edit that
+  doesn't parse. Not yet: Next/Previous Step commands, and highlighting the
+  part of a goal a step changed.
 - **Run icons** (SW-1121, D2513). The server offers code lenses
   (`textDocument/codeLens`, `crates/lsp/src/lens.rs`) in every `.sw` file, a
   single file outside a project too: "▶ Run test" above each `test`, "▶ Run

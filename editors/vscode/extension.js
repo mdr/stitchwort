@@ -131,6 +131,11 @@ body { font-family: var(--vscode-editor-font-family, monospace); font-size: var(
 .n { color: var(--vscode-symbolIcon-variableForeground, var(--vscode-textLink-foreground)); }
 .v { opacity: 0.8; }
 .goal { border-top: 1px solid var(--vscode-panel-border); margin-top: 8px; padding-top: 8px; font-weight: bold; }
+.before, .rule, .found { white-space: pre-wrap; margin: 2px 0; opacity: 0.75; }
+.before { border-top: 1px solid var(--vscode-panel-border); margin-top: 8px; padding-top: 8px; }
+.before + .rule + .goal, .before + .goal, .rule + .goal { border-top: none; margin-top: 2px; padding-top: 0; }
+.added { color: var(--vscode-gitDecoration-addedResourceForeground); }
+.label { opacity: 0.7; }
 .none, .stale { opacity: 0.6; }
 .note { font-style: italic; margin: 0 0 6px; }
 </style></head><body>${body}</body></html>`;

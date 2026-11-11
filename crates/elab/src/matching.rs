@@ -309,6 +309,7 @@ pub(crate) fn in_tree(cx: &mut Ctx, expr: &Expr, goal: &Value) -> Option<Result<
         Err(e) => return Some(Err(e)),
     }
     let (scrutinees, alts, span, kind) = parts(expr);
+    note_match_step(cx, alts, span, goal);
     let mut columns = Vec::new();
     for s in scrutinees {
         let level = variable(cx, s)?;
@@ -326,6 +327,41 @@ pub(crate) fn in_tree(cx: &mut Ctx, expr: &Expr, goal: &Value) -> Option<Result<
     )
 }
 
+/// A probe's step for a `match` at `span` against `goal`: its head is
+/// `match … with`, and it numbers its arms.
+fn note_match_step(cx: &Ctx, alts: &[Alt], span: stitchwort_syntax::Span, goal: &Value) {
+    let Some(first) = alts.first() else {
+        return;
+    };
+    let head = stitchwort_syntax::Span {
+        end: first.span.start,
+        ..span
+    };
+    if !cx.e.records_steps(head) {
+        return;
+    }
+    let parts = (alts.iter())
+        .map(|a| stitchwort_syntax::Span {
+            end: a.body.span().start,
+            ..a.span
+        })
+        .collect();
+    cx.e.note_step(
+        cx,
+        crate::goals::StepNote {
+            form: crate::goals::StepForm::Match,
+            head,
+            index: Some((0, alts.len())),
+            before: None,
+            after: goal.clone(),
+            adds: Vec::new(),
+            rule: None,
+            parts,
+            target: None,
+        },
+    );
+}
+
 /// A `match`, lifted (§4.4).
 pub(crate) fn check_match(cx: &mut Ctx, expr: &Expr, goal: &Value) -> Result<Term> {
     if crate::patlet::applies(cx, expr, goal)? {
@@ -335,6 +371,7 @@ pub(crate) fn check_match(cx: &mut Ctx, expr: &Expr, goal: &Value) -> Result<Ter
         return crate::check::check(cx, body, goal);
     }
     let (scrutinees, alts, span, kind) = parts(expr);
+    note_match_step(cx, alts, span, goal);
     note_tuple_match(cx, scrutinees, span);
     let base = cx.level();
     let mark = cx.mark();

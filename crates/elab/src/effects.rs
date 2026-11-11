@@ -4659,6 +4659,16 @@ pub fn pure_let(
             if let Some(w) = written {
                 cx.set_written(w);
             }
+            if let Some(t) = expected {
+                crate::check::note_binder_step(
+                    cx,
+                    crate::goals::StepForm::Let,
+                    name.span,
+                    None,
+                    t,
+                    t,
+                );
+            }
             // The body's type is computed with the name standing for the
             // value, so it never mentions the name: it's the block's type.
             match expected {

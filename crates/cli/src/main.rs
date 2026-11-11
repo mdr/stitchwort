@@ -2659,27 +2659,49 @@ fn goal_at(at: &str, project: Option<&Path>, json: bool, cache: &CacheArgs) -> E
 }
 
 /// `goal --at --json`'s answer: version 1; `at` (`file`, `line`, `column`,
-/// 1-based); `context`: `kind` (`proof` or `program`), `target` (the goal,
-/// or the expected type), `checked` (whether `target` is what the
-/// expression was checked against rather than a type found for it), `range`
-/// (the expression: 1-based `line`, `column`, `endLine`, `endColumn`; columns
-/// in UTF-16 units) and `locals` (`name`, `type`, `value?`).
+/// 1-based); `declaration`; `context`: `kind` (`proof` or `program`),
+/// `target` (the goal, or the expected type), `checked` (whether `target`
+/// is what the expression was checked against rather than a type found for
+/// it), `hasType` (the type found, when it isn't `target`), `range` (the
+/// expression: 1-based `line`, `column`, `endLine`, `endColumn`; columns in
+/// UTF-16 units), `locals` (`name`, `type`, `value?`) and `step` (on a step
+/// of a proof, else null: `form`, `description`, `range`, `index` and `of`
+/// from 1, `before`, `after`, `kind`, `adds`, `rule`, `target`).
 fn goal_json(
     file: &str,
     line: usize,
     column: usize,
     context: &stitchwort_driver::at::Context,
 ) -> serde_json::Value {
-    let [l1, c1, l2, c2] = context.range;
+    let range = |[l1, c1, l2, c2]: [u32; 4]| serde_json::json!({"line": l1 + 1, "column": c1 + 1, "endLine": l2 + 1, "endColumn": c2 + 1});
+    let kind = |proof: bool| if proof { "proof" } else { "program" };
+    let step = context.step.as_ref().map(|s| {
+        serde_json::json!({
+            "form": s.form,
+            "description": s.description,
+            "range": range(s.range),
+            "index": s.index,
+            "of": s.of,
+            "kind": kind(s.proof),
+            "before": s.before,
+            "after": s.after,
+            "adds": s.adds,
+            "rule": s.rule,
+            "target": s.target,
+        })
+    });
     serde_json::json!({
         "version": 1,
         "at": {"file": file, "line": line, "column": column},
+        "declaration": context.declaration,
         "context": {
-            "kind": if context.proof { "proof" } else { "program" },
+            "kind": kind(context.proof),
             "target": context.ty,
             "checked": context.checked,
-            "range": {"line": l1 + 1, "column": c1 + 1, "endLine": l2 + 1, "endColumn": c2 + 1},
+            "hasType": context.found,
+            "range": range(context.range),
             "locals": context.locals,
+            "step": step,
         },
     })
 }

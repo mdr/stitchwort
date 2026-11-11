@@ -125,6 +125,49 @@ test('goals panel: a context answer is a goal in a proof, an expected type in a 
   assert.match(cfg.contextHtml(null), /No open goal/);
 });
 
+test('goals panel: expected T and has type U when they differ', () => {
+  const body = cfg.contextHtml({
+    type: 'Int', checked: true, kind: 'program', hasType: 'Nat', locals: [], declaration: 'widen',
+  });
+  assert.match(body, /in `widen`/);
+  assert.match(body, /expected Int/);
+  assert.match(body, /has type Nat/);
+  assert.doesNotMatch(cfg.contextHtml({ type: 'Nat', checked: true, kind: 'program', locals: [] }), /has type/);
+});
+
+test('goals panel: a step shows the goal before and after, and what it added', () => {
+  const rule = cfg.contextHtml({
+    type: '0 = 0', checked: true, kind: 'proof', declaration: 'multN0M0',
+    locals: [{ name: 'q', type: 'Nat' }],
+    step: { form: 'rewriteRule', description: 'rule 2 of 2 of `rewrite`', kind: 'proof',
+      before: 'q * 0 = 0', after: '0 = 0', rule: 'q * 0 = 0', adds: [] },
+  });
+  assert.match(rule, /in `multN0M0`, rule 2 of 2 of `rewrite`/);
+  assert.match(rule, /before ⊢ <\/span>q \* 0 = 0/);
+  assert.match(rule, /rule <\/span>q \* 0 = 0/);
+  assert.match(rule, /after ⊢ <\/span>0 = 0/);
+  const arm = cfg.contextHtml({
+    type: 'Succ k = Succ k', checked: true, kind: 'proof',
+    locals: [{ name: 'k', type: 'Nat' }],
+    step: { form: 'arm', description: 'arm 2 of 2, `| Succ k`', kind: 'proof',
+      before: 'n = n', after: 'Succ k = Succ k', adds: ['k'] },
+  });
+  assert.match(arm, /class="h added">\+ <span class="n">k<\/span>/);
+  const line = cfg.contextHtml({
+    type: 'b = c', checked: true, kind: 'proof', locals: [],
+    step: { form: 'calcLine', description: 'line 2 of 2 of `calc`', kind: 'proof',
+      before: 'a = b', after: 'b = c', adds: [] },
+  });
+  assert.match(line, /so far <\/span>a = b/);
+  assert.match(line, /line ⊢ <\/span>b = c/);
+  const at = cfg.contextHtml({
+    type: 'a = c', checked: true, kind: 'proof', locals: [],
+    step: { form: 'rewriteRule', description: 'rule 1 of 1 of `rewrite … at h1`', kind: 'proof',
+      before: 'a = b', after: 'a = c', rule: 'b = c', target: 'h1', adds: [] },
+  });
+  assert.match(at, /before h1: <\/span>a = b/);
+});
+
 test('goals panel: the hole under the cursor, else the context, else the nearest hole', () => {
   const at = (line, character) => ({ line, character });
   const goal = { range: { start: at(3, 2), end: at(3, 3) }, owner: '`f`', goal: 'g', context: [] };

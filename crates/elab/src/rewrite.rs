@@ -196,6 +196,7 @@ fn rewrite_at(cx: &mut Ctx, expr: &Expr, expected: Option<&Value>) -> Result<(Te
     let mut term = fact;
     let mut outcome = Ok(());
     for (index, rule) in rules.iter().enumerate() {
+        let before = cx.e.records_steps(rule.span).then(|| ty.clone());
         match rewrite_once(
             cx,
             rule,
@@ -208,9 +209,22 @@ fn rewrite_at(cx: &mut Ctx, expr: &Expr, expected: Option<&Value>) -> Result<(Te
             &mut stats,
         ) {
             Ok(steps) => {
+                let used = cx.e.take_rule();
                 for step in steps {
                     ty = step.goal;
                     term = Term::J(Rc::new(step.motive), Rc::new(term), Rc::new(step.proof));
+                }
+                if before.is_some() {
+                    let note = rule_step(rule.span, (index, rules.len()), before, &ty, used);
+                    cx.e.note_step(
+                        cx,
+                        crate::goals::StepNote {
+                            target: Some(
+                                name.map_or_else(|| "the term".into(), |n| n.text.clone()),
+                            ),
+                            ..note
+                        },
+                    );
                 }
             }
             Err(e) => {
@@ -306,9 +320,15 @@ fn rewrite_goal(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
             &mut stats,
         ) {
             Ok(found) => {
+                let used = cx.e.take_rule();
+                let before = cx.e.records_steps(rule.span).then(|| goal.clone());
                 for step in found {
                     goal = step.goal.clone();
                     steps.push(step);
+                }
+                if before.is_some() {
+                    let note = rule_step(rule.span, (index, rules.len()), before, &goal, used);
+                    cx.e.note_step(cx, note);
                 }
             }
             Err(e) => {
@@ -344,6 +364,27 @@ fn rewrite_goal(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
         term = Term::J(Rc::new(step.motive), Rc::new(term), Rc::new(step.proof));
     }
     Ok(term)
+}
+
+/// A rule's step, for a probe: the goal before and after it.
+fn rule_step(
+    head: Span,
+    index: (usize, usize),
+    before: Option<Value>,
+    after: &Value,
+    rule: Option<Value>,
+) -> crate::goals::StepNote {
+    crate::goals::StepNote {
+        form: crate::goals::StepForm::RewriteRule,
+        head,
+        index: Some(index),
+        before,
+        after: after.clone(),
+        adds: Vec::new(),
+        rule,
+        parts: Vec::new(),
+        target: None,
+    }
 }
 
 /// The unknowns in `term`: the `auto` proofs still to be found.
@@ -1172,6 +1213,13 @@ fn replace_occurrences_as(
             let candidate = first.as_ref().unwrap_or(searched_term);
             return Err(budget_error(cx, rule, place, candidate, lhs));
         }
+    }
+    if cx.e.records_steps(rule.span) {
+        cx.e.note_rule(Value::Eq(
+            Rc::new(equation.carrier.clone()).into(),
+            Rc::new(equation.lhs.clone()).into(),
+            Rc::new(equation.rhs.clone()).into(),
+        ));
     }
     let motive_value = cx.eval(&motive)?;
     // A left side with unknowns of the rule's own (an argument left open)
