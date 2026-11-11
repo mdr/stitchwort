@@ -29723,7 +29723,7 @@
     {
       "id": 2819,
       "title": "Stage 3 cleanups: carried_any rename, Search::carry doc, plain.rs:734 long line, matching.rs:2149 wording, match-if-and.sw header, Builtin::ToBool → Holds; syntax.md:1534 hypothesis wording; record in decidable-record.md that bind.rs's generalisation and short_circuit stay (docs/reviews/SW-2761-decidable-stage3-review.md)",
-      "status": "doing",
+      "status": "next",
       "agent": "DeepSeek",
       "where": ".claude/worktrees/scratch-sw-2819",
       "labels": [],
