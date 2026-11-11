@@ -28958,12 +28958,12 @@
     {
       "id": 2760,
       "title": "Audit with search at 96d29b46b (11 Nov, Overmind): 0 failed, 147 vacuity warnings (std 10: Float.Theory magUnits*/halveLow/firstLow/firstHigh/addInfComm, Parse lines*/lineBreak*; rogue 10, among them the generated Level.ext/Plan.ext/State.ext and .eq lemmas; aoc 127, list on Overmind's scratchpad au/aoc.log). Triage which are narrow hypotheses vs truly vacuous; generated ext/eq lemmas probably shouldn't be warned about",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2760",
       "labels": [],
       "epic": "audit-fuzzing",
-      "body": "\nD3493 (Matt, 11 Nov 2026): run in lanes mode beside Decidable stage 3.\n",
+      "body": "D3493 (Matt, 11 Nov 2026): run in lanes mode beside Decidable stage 3.\n\nProgress (11 Nov): audit with search run on std, rogue, aoc (0 failed; 10/10/126 warnings). All classified: 0 vacuous, 62 generated, 83 narrow, 1 unsure. Report: docs/reviews/SW-2760-vacuity-triage.md (lane/SW-2760). Model result: Sonnet, worked, 25 min (est. 90).\n",
       "created": "2026-11-11",
       "updated": "2026-11-11",
       "commits": []
