@@ -30005,7 +30005,7 @@
       "where": ".claude/worktrees/SW-2840",
       "labels": [],
       "epic": "diagnostics",
-      "body": "",
+      "body": "\nD3513 (Matt, 11 Nov 2026): yes, the new wording ('cases couldn't close the case it reached by the splits …').",
       "created": "2026-11-11",
       "updated": "2026-11-11",
       "commits": []
