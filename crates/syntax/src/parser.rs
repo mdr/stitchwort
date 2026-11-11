@@ -12,8 +12,8 @@
 //! one ending in an operator (like `->`) continues it too.
 
 use crate::ast::{
-    Alt, BinOp, Binder, Bracket, CHAIN, CalcStep, Clause, CtorDecl, Decl, Expr, Guard, Import,
-    ImportItem, InductAlt, LocalDef, MatchKind, Mode, Module, Name, NamespaceDecl, NegForm,
+    Alt, BinOp, Binder, Bracket, CHAIN, CalcStep, Clause, CtorDecl, Decl, Expr, FailedName, Guard,
+    Import, ImportItem, InductAlt, LocalDef, MatchKind, Mode, Module, Name, NamespaceDecl, NegForm,
     Pattern, RewriteRule, Row, SECTION, Scrutinee,
 };
 use crate::lexer::{Tok, Token, lex, lex_with_bars};
@@ -105,8 +105,9 @@ pub fn parse_module_recovering(
         let attrs = match parser.attributes() {
             Ok(attrs) => attrs,
             Err(diagnostic) => {
+                let error_at = diagnostic.primary_span();
                 errors.push(*diagnostic);
-                failed.extend(declared_names_of(group));
+                failed.extend(failed_names_of(group, error_at));
                 continue;
             }
         };
@@ -126,8 +127,9 @@ pub fn parse_module_recovering(
                 _ => None,
             };
             if let Some(diagnostic) = refused {
+                let error_at = diagnostic.primary_span();
                 errors.push(diagnostic);
-                failed.extend(declared_names_of(group));
+                failed.extend(failed_names_of(group, error_at));
                 continue;
             }
         }
@@ -194,8 +196,9 @@ pub fn parse_module_recovering(
                 decls.extend(parsed)
             }
             Err(diagnostic) => {
+                let error_at = diagnostic.primary_span();
                 errors.push(*diagnostic);
-                failed.extend(declared_names_of(group));
+                failed.extend(failed_names_of(group, error_at));
             }
         }
     }
@@ -277,6 +280,15 @@ fn declared_names_of(group: &[Token]) -> Vec<Name> {
         }
     }
     names
+}
+
+/// The names `group` would declare, marked as failed at the first error of
+/// the declaration (`error_at`).
+fn failed_names_of(group: &[Token], error_at: Option<Span>) -> Vec<FailedName> {
+    declared_names_of(group)
+        .into_iter()
+        .map(|name| FailedName { name, error_at })
+        .collect()
 }
 
 /// Reads only a file's namespace line: `Some` if the file's first
@@ -7199,7 +7211,7 @@ mod tests {
         let file = sources.add("test.sw", text);
         let (module, errors) = parse_module_recovering(file, text, DEFAULT_STACK);
         assert_eq!(errors.len(), 1, "{errors:?}");
-        assert!(module.failed.iter().any(|n| n.text == "b"));
+        assert!(module.failed.iter().any(|n| n.name.text == "b"));
     }
 
     #[test]
@@ -8875,7 +8887,7 @@ mod tests {
             })
             .collect();
         assert_eq!(kept, ["a", "d"]);
-        let failed: Vec<&str> = module.failed.iter().map(|n| n.text.as_str()).collect();
+        let failed: Vec<&str> = module.failed.iter().map(|n| n.name.text.as_str()).collect();
         assert_eq!(failed, ["b", "T", "MkT", "c"]);
     }
 

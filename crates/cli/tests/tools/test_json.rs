@@ -318,6 +318,26 @@ def good (n: Nat): Nat := n + 1
 test "good works" := good 1 == 2
 "#;
 
+/// A declaration whose error is late in its body, so its name is not where
+/// the error is reported (SW-2944).
+const LIB_WITH_A_LATE_TYPE_ERROR: &str = r#"namespace A
+
+def bad (n: Nat): Nat := n + True
+"#;
+
+/// The same for a syntax error after the declaration's name.
+const LIB_WITH_A_LATE_SYNTAX_ERROR: &str = r#"namespace A
+
+def bad (n: Nat): Nat := n +
+"#;
+
+const ONE_IMPORTER: &str = r#"namespace B
+
+import A (bad)
+
+def use (n: Nat): Nat := bad n
+"#;
+
 /// A project whose namespace `B` imports a healthy and a broken name from
 /// `A`, with `A`'s text `lib`.
 fn importer_project(name: &str, lib: &str) -> PathBuf {
@@ -336,6 +356,27 @@ fn source_project(name: &str, a: &str, b: &str) -> PathBuf {
     std::fs::write(dir.join("src/a.sw"), a).unwrap();
     std::fs::write(dir.join("src/b.sw"), b).unwrap();
     dir
+}
+
+/// The places (`line`, `column`) in `stderr`'s excerpts that name `file`, in
+/// the order they're printed.
+fn excerpt_positions(stderr: &str, file: &str) -> Vec<(usize, usize)> {
+    stderr
+        .lines()
+        .filter_map(|line| {
+            let rest = line
+                .trim_start()
+                .strip_prefix("╭─[ ")
+                .or_else(|| line.trim_start().strip_prefix("├─[ "))?;
+            let place = rest.split(" ]").next()?;
+            let (name, rest) = place.rsplit_once(':')?;
+            let (name, line) = name.rsplit_once(':')?;
+            if !name.ends_with(file) {
+                return None;
+            }
+            Some((line.parse().ok()?, rest.parse().ok()?))
+        })
+        .collect()
 }
 
 /// A test's (namespace, name, outcome, message).
@@ -436,6 +477,35 @@ fn an_import_of_a_name_lost_to_a_syntax_error_says_so_once() {
         .map(|(ns, name, outcome, _)| (ns.as_str(), name.as_str(), outcome.as_str()))
         .collect();
     assert_eq!(outcomes, [("B", "good works", "passed")]);
+}
+
+/// SW-2944: the import's "the error is here" label is exactly where the
+/// failed declaration's first error is reported, not at the declaration's
+/// name. Covers a type error late in the body and a syntax error there.
+#[test]
+fn the_imports_error_label_is_where_the_error_is_reported() {
+    let cases = [
+        ("late-type", LIB_WITH_A_LATE_TYPE_ERROR, "[E-TYPE-MISMATCH]"),
+        ("late-syntax", LIB_WITH_A_LATE_SYNTAX_ERROR, "[E-PARSE]"),
+    ];
+    for (name, lib, code) in cases {
+        let dir = source_project(name, lib, ONE_IMPORTER);
+        let output = Command::new(env!("CARGO_BIN_EXE_stitchwort"))
+            .arg("check")
+            .current_dir(&dir)
+            .stdin(Stdio::null())
+            .output()
+            .expect("run stitchwort");
+        let _ = std::fs::remove_dir_all(&dir);
+        let stderr = String::from_utf8(output.stderr).unwrap();
+        assert!(!output.status.success(), "{stderr}");
+        assert_eq!(stderr.matches(code).count(), 1, "{stderr}");
+        assert_eq!(stderr.matches("[E-USES-FAILED]").count(), 1, "{stderr}");
+        // `A`'s own error, and the label under it.
+        let positions = excerpt_positions(&stderr, "a.sw");
+        assert_eq!(positions.len(), 2, "{stderr}");
+        assert_eq!(positions[0], positions[1], "{stderr}");
+    }
 }
 
 /// The check cache never serves an importer as it was before the namespace
