@@ -1,7 +1,7 @@
 # Software Foundations in Stitchwort
 
-A port of the first three chapters of *Software Foundations*, Volume 1:
-*Logical Foundations* (Basics, Induction and Lists), from the book's Rocq sources
+A port of the first four chapters of *Software Foundations*, Volume 1:
+*Logical Foundations* (Basics, Induction, Lists and Poly), from the book's Rocq sources
 to Stitchwort. The book's prose is kept as comments, its definitions and
 worked proofs are translated, and its exercises are stated but not solved.
 Copyright and licence: [LICENSE-SF](LICENSE-SF).
@@ -11,6 +11,7 @@ Copyright and licence: [LICENSE-SF](LICENSE-SF).
 | Basics.v | `Sf.Lf.Basics` | `src/Sf/Lf/Basics/Basics.sw`, with the book's modules as namespaces beside it: `Playground`, `TuplePlayground`, `LateDays`; `NatPlayground` and `NatPlayground2` are `src/Sf/Lf/Nat.sw` (below); `Library.sw` proves the two library lemmas the chapter quotes |
 | Induction.v | `Sf.Lf.Induction` | `src/Sf/Lf/Induction/Induction.sw` |
 | Lists.v | `Sf.Lf.Lists` | `src/Sf/Lf/Lists/NatList.sw` first: the book's module `NatList`, which is most of the chapter (`Sf.Lf.Lists.NatList`); then `Lists.sw`, the Partial Maps section's `Id`; then `PartialMap.sw`, its module `PartialMap` |
+| Poly.v | `Sf.Lf.Poly` | `src/Sf/Lf/Poly/Poly.sw` first; the book's modules beside it: `MumbleGrumble.sw` (an exercise), `OptionPlayground.sw`, `Exercises.sw` (`Sf.Lf.Poly.Exercises`, the Additional Exercises) and `Church.sw` (`Sf.Lf.Poly.Exercises.Church`) |
 
 **The book's own numbers.** The chapters work on the numbers of
 `src/Sf/Lf/Nat.sw` (`Sf.Lf.Nat`): the type `Nat` with constructors `O` and
@@ -38,6 +39,15 @@ a library list as `ofNat` converts a number. The library's list lemmas and
 automation don't reach `NatList`: of the chapter's exercises, `cases`
 proves only the two about pairs (`sndFstIsSwap`, `fstSwapIsSnd`), and
 `rfl` the tests of the functions you write, as the book intends.
+
+Poly's polymorphic lists and pairs are the book's own too, `List a` with
+`Nil` and `Cons`, and `Prod a b` with `Pair`, defined in Poly.sw; they
+hide the library's `List` (imported there as `StdList`) and don't use its
+`(x, y)` pairs. So none of std's list lemmas (`List.appendNil`,
+`List.reverseReverse`, ...) prove Poly's exercises, and `cases` proves
+none of them. A list of examples is written `ofList [True, False]`, or for
+numbers `ofNats [1, 2, 3]`. Options are the library's `Option`, as in the
+book, which uses Rocq's.
 
 **Which exercises the library solves.** On the library's `Nat` (so not
 on the port's), measured by trying `rfl`, `omega`, `ring` and `cases` on
@@ -87,4 +97,6 @@ What was easy and hard to port, and what Stitchwort could change, is in
 [docs/reviews/SW-2707-software-foundations-port.md](../docs/reviews/SW-2707-software-foundations-port.md)
 (Basics, Induction) and
 [docs/reviews/SW-2836-sf-lists.md](../docs/reviews/SW-2836-sf-lists.md)
-(Lists).
+(Lists) and
+[docs/reviews/SW-2845-sf-poly.md](../docs/reviews/SW-2845-sf-poly.md)
+(Poly).
