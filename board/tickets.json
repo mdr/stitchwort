@@ -1,5 +1,5 @@
 {
-  "next": 2882,
+  "next": 2883,
   "tickets": [
     {
       "id": 47,
@@ -30547,6 +30547,19 @@
       "where": "",
       "labels": [],
       "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2882,
+      "title": "A failed rfl on a long chain of stuck sums is very slow to report: the cost is in building the error message (check::refl_error -> Ctx::show), 90M steps / 3.4 s at depth 1,000, over 60 s at 10,000; bound the display. Also: comparing two Nat.add chains recurses on the Rust stack once per level in the per-argument case-tree comparison (E-RESOURCE at depth 1,000 in a test thread). (SW-2875)",
+      "status": "backlog",
+      "agent": "Opus",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
       "body": "",
       "created": "2026-11-11",
       "updated": "2026-11-11",
