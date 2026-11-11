@@ -241,6 +241,41 @@ fn a_failing_generated_declaration_is_counted_and_fails() {
     );
 }
 
+/// A generated record's `T.ext` lemma is marked `generated` in the JSON, and
+/// its vacuity warning is suppressed: the compiler wrote its hypotheses, so
+/// a random miss says nothing (SW-2765; SW-2760's (c) policy).
+#[test]
+fn a_generated_ext_lemma_is_marked_generated_and_not_warned_about() {
+    // A record big enough that the enumerated inputs don't reach it, and
+    // with a `Char` so the random phase runs: its two records are drawn
+    // separately, so the hypotheses never hold.
+    let source = "type W0 = | Mk0 (n: Nat)\n\
+                  type W1 = | Mk1 (w: W0)\n\
+                  type W2 = | Mk2 (w: W1)\n\
+                  type W3 = | Mk3 (w: W2)\n\n\
+                  type R = { w: W3, n0: Nat, n1: Nat, c0: Char, c1: Char }\n\n\
+                  theorem refl (x: R): x = x := rfl\n";
+    let (code, out) = audit_file("generated-ext", source, &["--json"]);
+    assert_eq!(code, 0, "{out}");
+    let json: serde_json::Value = serde_json::from_str(&out).expect("one JSON object");
+    let ext = json["theorems"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|t| t["name"] == "R.ext")
+        .expect("the generated ext lemma");
+    assert_eq!(ext["generated"], true, "{out}");
+    assert_eq!(ext["search"]["verdict"], "never-held", "{out}");
+    assert!(
+        !ext["findings"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|f| f["check"] == "vacuous"),
+        "{out}"
+    );
+}
+
 /// In a project: a namespace, a theorem by its full name, and the
 /// allowlist from `stitchwort.yaml`.
 #[test]

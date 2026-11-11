@@ -86,7 +86,6 @@ pub struct TheoremAudit {
     /// Whether the compiler generated it rather than the source (an
     /// equation, a functional induction, an update lemma or a record's
     /// extensionality lemma).
-    #[serde(skip)]
     pub generated: bool,
     pub status: Status,
     /// The axioms it depends on, allowed or not (only if it checked).
@@ -272,15 +271,17 @@ impl Session {
                      search is wrong: please report it"
                 ),
             }),
-            Verdict::NeverHeld if !search.refutes => audit.findings.push(Finding {
-                check: Check::Vacuous,
-                severity: Severity::Warn,
-                message: format!(
-                    "no input made the hypotheses true ({held} of {} cases): if they \
-                     contradict each other, the theorem is vacuous",
-                    log.tried
-                ),
-            }),
+            Verdict::NeverHeld if !search.refutes && !audit.generated => {
+                audit.findings.push(Finding {
+                    check: Check::Vacuous,
+                    severity: Severity::Warn,
+                    message: format!(
+                        "no input made the hypotheses true ({held} of {} cases): if they \
+                         contradict each other, the theorem is vacuous",
+                        log.tried
+                    ),
+                });
+            }
             _ => {}
         }
         audit.search = Some(SearchSummary {
