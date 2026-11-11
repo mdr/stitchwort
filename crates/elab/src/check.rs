@@ -3303,7 +3303,8 @@ fn finish_application(
                     &ty,
                     expected,
                     crate::queue::Failure::Mismatch,
-                )?)
+                )?
+                || crate::interfaces::unify_guessing_instance(cx, &ty, expected, metas_from)?)
         {
             return Err(match first_error.take() {
                 Some(first) => first,

@@ -1756,6 +1756,99 @@ pub(crate) fn find_ready_dictionaries(
     }
 }
 
+/// [`crate::undo::unify`] of `ty` with `expected`, after choosing the global
+/// instance that makes them equal for the one dictionary this application
+/// made and hasn't found yet.
+///
+/// `DecEq.trueOfNe (same => …)` against `(a + a != n) = True`: `expected`
+/// has the instance's method already applied (`Nat.decEq (a + a) n`), while
+/// `ty` is `DecEq.decide ?d ?x ?y`, stuck on a dictionary whose type only
+/// `?x` and `?y` could say, and only the comparison can solve those. Each
+/// instance without prerequisites is tried, and the comparison is made with
+/// the one that fits only if exactly one does, so nothing is chosen that the
+/// expected type doesn't force. A dictionary whose type is known is just
+/// found. Several unsolved dictionaries, or none, is `false`.
+pub(crate) fn unify_guessing_instance(
+    cx: &mut Ctx,
+    ty: &Value,
+    expected: &Value,
+    metas_from: usize,
+) -> Result<bool> {
+    if cx.e.tables.interfaces.is_empty() {
+        return Ok(false);
+    }
+    let g = cx.g();
+    let mut unknown = Vec::new();
+    let obligations: Vec<Obligation> = cx.e.attempt.obligations.borrow().clone();
+    for ob in obligations {
+        let Term::Meta(m) = ob.meta.spine().0 else {
+            continue;
+        };
+        if *m < metas_from || g.meta_solution(*m).is_some() {
+            continue;
+        }
+        if let Some((interface, arg)) = interface_goal(cx.e, &ob.goal)? {
+            unknown.push((ob, interface, arg));
+        }
+    }
+    let [(ob, interface, arg)] = unknown.as_slice() else {
+        return Ok(false);
+    };
+    // A type that is known needs no guess for its head, only its instance.
+    let heads: Vec<Option<DataId>> = if matches!(
+        force(&g, refresh(cx, arg)?)?,
+        Value::Neutral(Head::Meta(_), _)
+    ) {
+        (cx.e.tables.instances.iter())
+            .filter(|((i, _), info)| i == interface && info.valid && info.params.is_empty())
+            .map(|((_, head), _)| Some(*head))
+            .collect()
+    } else {
+        vec![None]
+    };
+    let mut fitting = Vec::new();
+    for head in heads {
+        let snapshot = crate::undo::Snapshot::take(cx);
+        let fits = guess_with(cx, ob, *interface, arg, head, ty, expected);
+        snapshot.restore(cx);
+        if fits? {
+            fitting.push(head);
+        }
+    }
+    let [head] = fitting.as_slice() else {
+        return Ok(false);
+    };
+    crate::undo::attempt(cx, |cx| {
+        if guess_with(cx, ob, *interface, arg, *head, ty, expected)? {
+            Ok(())
+        } else {
+            Err(cx.error("E-INTERNAL", "a guessed instance stopped fitting", "here"))
+        }
+    })
+    .map(|done| done.is_some())
+}
+
+/// Whether `ty` and `expected` unify once the obligation `ob`'s type is the
+/// type `head` and its dictionary the global instance for it.
+fn guess_with(
+    cx: &mut Ctx,
+    ob: &Obligation,
+    interface: DataId,
+    arg: &Value,
+    head: Option<DataId>,
+    ty: &Value,
+    expected: &Value,
+) -> Result<bool> {
+    let head_type = head.map(|head| Value::Data(head, Vec::new().into()));
+    let typed = match head_type {
+        Some(t) => cx.unify(arg, &t)?,
+        None => true,
+    };
+    Ok(typed
+        && matches!(attempt(cx, ob, interface, arg)?, Attempt::Solved)
+        && cx.unify(ty, expected)?)
+}
+
 /// The library's interface called `path` (`Std.Add`), once it's declared.
 pub(crate) fn library_interface(e: &Elaborator, path: &str) -> Option<DataId> {
     match e.scope.get(path) {
