@@ -28363,7 +28363,7 @@
       "where": ".claude/worktrees/SW-2715",
       "labels": [],
       "epic": "editor-playground",
-      "body": "From SW-2707 (Software Foundations port, 10 Nov 2026); docs/reviews/SW-2707-software-foundations-port.md §11.\nD3496 (Matt, 11 Nov 2026): yes, general (not only SF), with a CLI form for agents; start with an Opus design note that also reviews other languages' and the literature's ideas for interactive proof understanding. Paper lane. Est. 2.5 h.\nD3497 (Matt, 11 Nov 2026): yes: the Goals panel follows the cursor everywhere with each step's goal before and after; hover adds goals only at step positions (arm pattern, rewrite rule, calc line, omega, cases, rfl).",
+      "body": "From SW-2707 (Software Foundations port, 10 Nov 2026); docs/reviews/SW-2707-software-foundations-port.md §11.\nD3496 (Matt, 11 Nov 2026): yes, general (not only SF), with a CLI form for agents; start with an Opus design note that also reviews other languages' and the literature's ideas for interactive proof understanding. Paper lane. Est. 2.5 h.\nD3497 (Matt, 11 Nov 2026): yes: the Goals panel follows the cursor everywhere with each step's goal before and after; hover adds goals only at step positions (arm pattern, rewrite rule, calc line, omega, cases, rfl).\nD3498 (Matt, 11 Nov 2026): yes: stitchwort goal --at FILE:LINE[:COL], with --steps and --json; exit 0 with an answer, 2 with none.",
       "created": "2026-11-10",
       "updated": "2026-11-11",
       "commits": []
