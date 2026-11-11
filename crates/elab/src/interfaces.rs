@@ -1758,7 +1758,9 @@ pub(crate) fn find_ready_dictionaries(
 
 /// [`crate::undo::unify`] of `ty` with `expected`, after choosing the global
 /// instance that makes them equal for the one dictionary this application
-/// made and hasn't found yet.
+/// made and hasn't found yet. `own` are its metavariables (`own_dictionaries`):
+/// a dictionary made inside another argument's lambda lives in a deeper
+/// context, which this one can't evaluate it in.
 ///
 /// `DecEq.trueOfNe (same => …)` against `(a + a != n) = True`: `expected`
 /// has the instance's method already applied (`Nat.decEq (a + a) n`), while
@@ -1766,13 +1768,14 @@ pub(crate) fn find_ready_dictionaries(
 /// `?x` and `?y` could say, and only the comparison can solve those. Each
 /// instance without prerequisites is tried, and the comparison is made with
 /// the one that fits only if exactly one does, so nothing is chosen that the
-/// expected type doesn't force. A dictionary whose type is known is just
+/// expected type doesn't force. Only instances without prerequisites or head
+/// variables are tried: `List Nat` and `Fin n` operands are not found. A dictionary whose type is known is just
 /// found. Several unsolved dictionaries, or none, is `false`.
 pub(crate) fn unify_guessing_instance(
     cx: &mut Ctx,
     ty: &Value,
     expected: &Value,
-    metas_from: usize,
+    own: &[usize],
 ) -> Result<bool> {
     if cx.e.tables.interfaces.is_empty() {
         return Ok(false);
@@ -1784,7 +1787,7 @@ pub(crate) fn unify_guessing_instance(
         let Term::Meta(m) = ob.meta.spine().0 else {
             continue;
         };
-        if *m < metas_from || g.meta_solution(*m).is_some() {
+        if !own.contains(m) || g.meta_solution(*m).is_some() {
             continue;
         }
         if let Some((interface, arg)) = interface_goal(cx.e, &ob.goal)? {
@@ -1811,21 +1814,29 @@ pub(crate) fn unify_guessing_instance(
         let snapshot = crate::undo::Snapshot::take(cx);
         let fits = guess_with(cx, ob, *interface, arg, head, ty, expected);
         snapshot.restore(cx);
-        if fits? {
+        // A trial that errors (an ambiguous instance, a spent budget) is a
+        // guess that doesn't fit: the caller reports the original mismatch.
+        if fits.or_else(not_fatal)? {
             fitting.push(head);
         }
     }
     let [head] = fitting.as_slice() else {
         return Ok(false);
     };
-    crate::undo::attempt(cx, |cx| {
-        if guess_with(cx, ob, *interface, arg, *head, ty, expected)? {
-            Ok(())
-        } else {
-            Err(cx.error("E-INTERNAL", "a guessed instance stopped fitting", "here"))
-        }
-    })
-    .map(|done| done.is_some())
+    let done = crate::undo::transaction(cx, |cx| {
+        let fits = guess_with(cx, ob, *interface, arg, *head, ty, expected).or_else(not_fatal)?;
+        Ok(fits.then_some(()))
+    })?;
+    Ok(done.is_some())
+}
+
+/// A trial's error other than running out of resources: the trial doesn't fit.
+fn not_fatal(e: Diagnostic) -> Result<bool> {
+    if crate::undo::fatal(&e) {
+        Err(e)
+    } else {
+        Ok(false)
+    }
 }
 
 /// Whether `ty` and `expected` unify once the obligation `ob`'s type is the

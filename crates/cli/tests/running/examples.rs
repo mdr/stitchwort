@@ -517,6 +517,7 @@ const PRINTS_UNKNOWNS: &[&str] = &[
     "reject/fin-literal-unknown-bound.sw",
     "reject/instance-stuck.sw",
     "reject/instance-unknown-type.sw",
+    "reject/lambda-after-expected-instance-nested.sw",
     "reject/lambda-after-expected-unfolded.sw",
     "reject/lambda-pattern-annotation-shape.sw",
     "reject/match-equation-leaves-solution.sw",

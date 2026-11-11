@@ -3295,6 +3295,10 @@ fn finish_application(
         // (`readsDone { first, second } _ …`, whose record waits for the
         // `Pair` the expected type names) holds what it can and waits for
         // the rest, so the unknowns it does fix reach the lambdas (SW-1406).
+        // Last, a dictionary of this call whose type is unknown is chosen
+        // from the expected type if exactly one instance makes them equal
+        // (`unify_guessing_instance`): `(a + a != n)` has its instance's
+        // method applied, so `decide ?d ?x ?y` can't be compared with it.
         if implicit_next
             || !(crate::undo::unify(cx, &ty, expected)?
                 || crate::undo::unify_solving_arguments(cx, &ty, expected)?
@@ -3304,7 +3308,12 @@ fn finish_application(
                     expected,
                     crate::queue::Failure::Mismatch,
                 )?
-                || crate::interfaces::unify_guessing_instance(cx, &ty, expected, metas_from)?)
+                || crate::interfaces::unify_guessing_instance(
+                    cx,
+                    &ty,
+                    expected,
+                    &own_dictionaries(&term),
+                )?)
         {
             return Err(match first_error.take() {
                 Some(first) => first,
