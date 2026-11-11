@@ -29775,15 +29775,17 @@
     {
       "id": 2823,
       "title": "Decidable stage 4: std cleanup: delete or rfl the bridging lemmas (decidable-record.md §5.2), restate Hedberg's lemmas, deriving (DecEq) test first (T.%same); includes SW-2820. After SW-2812",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2823",
       "labels": [],
       "epic": "proof-automation",
-      "body": "",
+      "body": "\nProgress (Sonnet lane, 11 Nov 2026): deleted Decidable.elimIf, Bool.elimDecTrueIf and registry ElimDecIf/ElimDecTrueIf; the five andBool* lemmas, andBoolDec and Bool.decTrueToBool (equations.rs now decides a conjunction guard with Decidable.and and applies the toBool lemmas to it); Option.decSomeToBool, Nat.untilStableDecYes/No. Hedberg stated once as Decidable.canon/canonConst/symThenSelf/fromCanon/uniqueEq; DecEq.uniqueEq calls it (DecEq's four copies gone). Bool.* Hedberg kept: restating it changed Float.decEq's native pin (via Bool.uniqueEq in Float.bitsExt). Kept toBoolSound/Of/OfNot/False (omega.rs, equations.rs, induct.rs build terms with them) and Fin.ofNatCheckDec (a match on holds hits E-MATCH-MOTIVE). Pins pass; prelude snapshot accepted.\n",
       "created": "2026-11-11",
       "updated": "2026-11-11",
-      "commits": []
+      "commits": [
+        "e2ad14038 ff92093f7"
+      ]
     },
     {
       "id": 2824,

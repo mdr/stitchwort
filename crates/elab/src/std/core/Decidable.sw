@@ -83,23 +83,6 @@ theorem Bool.ifThenElseCong [a: Type] (c: Bool) (t1 t2 e1 e2: Unit → a) (sameT
     | True => sameThen Trivial
     | False => sameElse Trivial
 
---| An `if` that decides `p` is the plain `if` on `Decidable.holds d` when its
---| branches agree with the plain ones.
--- `f.unfold` of a `decreasing` definition shows the plain `if` where only the
--- recursive calls' proofs used the condition, and is proved with this and
--- [`Bool.elimDecTrueIf`] (docs/proposals/decreasing-with-hypothesis.md).
-theorem Decidable.elimIf [p: Prop] [a: Type] (d: Decidable p) (y: p → a) (n: ¬p → a) (t e: Unit → a) (sameYes: ∀ (h: p) => y h = t Trivial) (sameNo: ∀ (r: ¬p) => n r = e Trivial): Decidable.elim d y n = Bool.ifThenElse (Decidable.holds d) t e :=
-  match d with
-    | { holds = True, sound = s, complete = c } => sameYes (s rfl)
-    | { holds = False, sound = s, complete = c } => sameNo _
-
---| [`Decidable.elimIf`] for a `Bool` condition `c`, decided by `Bool.decTrue c`
---| (and for a comparison, whose decision is that).
-theorem Bool.elimDecTrueIf [a: Type] (c: Bool) (y: c = True → a) (n: ¬(c = True) → a) (t e: Unit → a) (sameYes: ∀ (h: c = True) => y h = t Trivial) (sameNo: ∀ (r: ¬(c = True)) => n r = e Trivial): Decidable.elim (Bool.decTrue c) y n = Bool.ifThenElse c t e :=
-  match c with
-    | True => sameYes rfl
-    | False => sameNo _
-
 -- Decision procedures. `auto` and `if h: …` use those marked `instance`
 -- (docs/proposals/interfaces.md §5.12); `=` is decided through `DecEq`
 -- instead (below), and the procedures for `=` here are what its instances
@@ -211,6 +194,35 @@ instance Nat.decLessEq (m: Nat) (n: Nat): Decidable (m ≤ n) := { holds = Nat.l
 
 --| `m < n` is decided by computing `Nat.leq (m + 1) n`.
 instance Nat.decLessThan (m: Nat) (n: Nat): Decidable (m < n) := { holds = Nat.leq (Succ m) n, sound = h => h, complete = h => h }
+
+--| Hedberg's argument, for any type whose equality has a decision: `canon`
+--| turns any proof of `x = y` into the one the decision gives, ignoring which
+--| proof it was given.
+def Decidable.canon [x y: a] (dec: Decidable (x = y)) (h: x = y): x = y :=
+  match e: dec.holds with
+    | True => dec.sound e
+    | False => Void.exfalso (Decidable.refute dec e h)
+
+--| Every proof of `x = y` has the same canonical form.
+theorem Decidable.canonConst [x y: a] (dec: Decidable (x = y)) (p q: x = y): Decidable.canon dec p = Decidable.canon dec q :=
+  match dec with
+    | { holds = True, sound = s, complete = c } => rfl
+    | { holds = False, sound = s, complete = c } => Void.exfalso (Bool.falseNotTrue (c p))
+
+theorem Decidable.symThenSelf [x y: a] (q: x = y): rfl = Eq.trans (Eq.sym q) q := J (y' q' => rfl = Eq.trans (Eq.sym q') q') rfl q
+
+--| Every proof can be recovered from its canonical one.
+theorem Decidable.fromCanon (decide: (x: a) → (y: a) → Decidable (x = y)) (x: a) (y: a) (p: x = y):
+    p = Eq.trans (Eq.sym (Decidable.canon (decide x x) rfl)) (Decidable.canon (decide x y) p) :=
+  J (y' p' => p' = Eq.trans (Eq.sym (Decidable.canon (decide x x) rfl)) (Decidable.canon (decide x y') p'))
+    (Decidable.symThenSelf (Decidable.canon (decide x x) rfl)) p
+
+--| Proofs of an equation in a type with decidable equality are unique.
+theorem Decidable.uniqueEq (decide: (x: a) → (y: a) → Decidable (x = y)) (x: a) (y: a) (p: x = y) (q: x = y): p = q :=
+  J (z e => p = z)
+    (J (r e => p = Eq.trans (Eq.sym (Decidable.canon (decide x x) rfl)) r)
+      (Decidable.fromCanon decide x y p) (Decidable.canonConst (decide x y) p q))
+    (J (z e => z = q) rfl (Decidable.fromCanon decide x y q))
 
 --| Proofs that two booleans are equal are unique. This is Hedberg's argument,
 --| which works for any type with decidable equality: [`Bool.canon`] turns any proof

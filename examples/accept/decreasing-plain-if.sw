@@ -32,7 +32,7 @@ theorem gcdUnfolds (a: Nat) (b: Nat): gcd a b = (if a % b < b then gcd b (a % b)
   gcd.unfold a b
 
 -- A proposition decided other than by a comparison (`Nat.decEq`): `f.unfold`
--- shows the plain `if` through `Decidable.elimIf`.
+-- shows the plain `if`.
 def countDown (n: Nat): Nat
     decreasing n
 :=

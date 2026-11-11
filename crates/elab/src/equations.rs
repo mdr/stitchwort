@@ -1103,16 +1103,13 @@ struct BranchLib {
     /// that the definition tests by its `Bool` is stated as the
     /// proposition only with them.
     to_bool_lemmas: Option<[DefId; 4]>,
-    /// `Decidable.andBoolOf`, `andBoolOfNot`, `andBoolSound` and
-    /// `andBoolFalse`, the same four for a conjunction `a && b`
-    /// ([`Decided::Conj`]).
-    and_lemmas: Option<[DefId; 4]>,
-    /// `Bool.decTrue`, and `Bool.decTrueToBool` (`holds (decTrue c) = c`).
-    dec_true: Option<(DefId, DefId)>,
+    /// `Bool.decTrue`, which decides a `Bool` operand `c` as `c = True`.
+    dec_true: Option<DefId>,
     and_data: DataId,
-    /// `Decidable.and` and `Decidable.andBoolDec` (`holds (and dp dq) = (a
-    /// && b)`), which decide a conjunction that is itself an operand.
-    and_dec: Option<(DefId, DefId)>,
+    /// `Decidable.and`, whose `holds` is the `a && b` of its sides', so a
+    /// conjunction ([`Decided::Conj`]) is decided by it and the four
+    /// lemmas above apply to that decision.
+    and_dec: Option<DefId>,
     /// `Decidable.notNotOf` and `Decidable.not`, which decide `¬Q` from `Q`'s decision.
     not_not: Option<(DefId, DefId)>,
 }
@@ -1129,8 +1126,7 @@ enum Decided {
 }
 
 /// `a && b` read as the conjunction `pa ∧ pb`: each side's proposition
-/// `p`, its decision `d`, its `Bool` `x` and the proof `e` of `holds d =
-/// x`.
+/// `p` and its decision `d`, whose `holds` is that side's `Bool`.
 #[derive(Clone)]
 struct ConjView {
     left: Operand,
@@ -1141,8 +1137,6 @@ struct ConjView {
 struct Operand {
     prop: Term,
     decision: Term,
-    value: Term,
-    equation: Term,
 }
 
 impl Decided {
@@ -1166,8 +1160,6 @@ impl Decided {
                     Ok(Operand {
                         prop: sh(&o.prop)?,
                         decision: sh(&o.decision)?,
-                        value: sh(&o.value)?,
-                        equation: sh(&o.equation)?,
                     })
                 };
                 Decided::Conj(Box::new(ConjView {
@@ -1185,23 +1177,8 @@ impl Decided {
         match self {
             Decided::One(p, d) => lib.to_bool_lemma(which, p.clone(), d.clone(), h),
             Decided::Conj(v) => {
-                let lemmas = lib
-                    .and_lemmas
-                    .ok_or_else(|| Stop::Skip("`Decidable.andBoolOf` isn't loaded yet".into()))?;
-                Ok(apps(
-                    Term::Def(lemmas[which]),
-                    [
-                        (v.left.prop.clone(), Icit::Implicit),
-                        (v.right.prop.clone(), Icit::Implicit),
-                        (v.left.decision.clone(), Icit::Explicit),
-                        (v.right.decision.clone(), Icit::Explicit),
-                        (v.left.value.clone(), Icit::Explicit),
-                        (v.right.value.clone(), Icit::Explicit),
-                        (v.left.equation.clone(), Icit::Explicit),
-                        (v.right.equation.clone(), Icit::Explicit),
-                        (h, Icit::Explicit),
-                    ],
-                ))
+                let decision = lib.conjunction_decision(v)?;
+                lib.to_bool_lemma(which, self.prop(lib), decision, h)
             }
         }
     }
@@ -1210,6 +1187,22 @@ impl Decided {
 impl BranchLib {
     fn bool_ty(&self) -> Term {
         Term::Data(self.bool, Vec::new())
+    }
+
+    /// `Decidable.and` of a conjunction's sides' decisions.
+    fn conjunction_decision(&self, v: &ConjView) -> R<Term> {
+        let and = self
+            .and_dec
+            .ok_or_else(|| Stop::Skip("`Decidable.and` isn't loaded yet".into()))?;
+        Ok(apps(
+            Term::Def(and),
+            [
+                (v.left.prop.clone(), Icit::Implicit),
+                (v.right.prop.clone(), Icit::Implicit),
+                (v.left.decision.clone(), Icit::Explicit),
+                (v.right.decision.clone(), Icit::Explicit),
+            ],
+        ))
     }
 
     fn bool_value(&self, value: bool) -> Term {
@@ -1237,47 +1230,17 @@ impl BranchLib {
             return Ok(Some(Operand {
                 prop: p,
                 decision: d,
-                value: c.clone(),
-                equation: Term::Refl,
             }));
         }
         if let Some(view) = self.conjunction(g, c)? {
-            let (Some((and, by)), Some(lemmas)) = (self.and_dec, self.and_lemmas) else {
-                return Ok(None);
-            };
-            let _ = lemmas;
-            let (l, r) = (&view.left, &view.right);
-            let ps = [
-                (l.prop.clone(), Icit::Implicit),
-                (r.prop.clone(), Icit::Implicit),
-            ];
-            let prop = Term::data(self.and_data, vec![l.prop.clone(), r.prop.clone()]);
-            let decision = apps(
-                Term::Def(and),
-                ps.iter().cloned().chain([
-                    (l.decision.clone(), Icit::Explicit),
-                    (r.decision.clone(), Icit::Explicit),
-                ]),
+            let prop = Term::data(
+                self.and_data,
+                vec![view.left.prop.clone(), view.right.prop.clone()],
             );
-            let equation = apps(
-                Term::Def(by),
-                ps.iter().cloned().chain([
-                    (l.decision.clone(), Icit::Explicit),
-                    (r.decision.clone(), Icit::Explicit),
-                    (l.value.clone(), Icit::Explicit),
-                    (r.value.clone(), Icit::Explicit),
-                    (l.equation.clone(), Icit::Explicit),
-                    (r.equation.clone(), Icit::Explicit),
-                ]),
-            );
-            return Ok(Some(Operand {
-                prop,
-                decision,
-                value: c.clone(),
-                equation,
-            }));
+            let decision = self.conjunction_decision(&view)?;
+            return Ok(Some(Operand { prop, decision }));
         }
-        let Some((dec_true, to_bool)) = self.dec_true else {
+        let Some(dec_true) = self.dec_true else {
             return Ok(None);
         };
         Ok(Some(Operand {
@@ -1287,15 +1250,13 @@ impl BranchLib {
                 Rc::new(self.bool_value(true)),
             ),
             decision: Term::app(Term::Def(dec_true), c.clone()),
-            value: c.clone(),
-            equation: Term::app(Term::Def(to_bool), c.clone()),
         }))
     }
 
     /// `c` as `a && b` (`if a then b else False`), each side an
     /// [`Operand`].
     fn conjunction(&self, g: &Ev, c: &Term) -> R<Option<ConjView>> {
-        if self.and_lemmas.is_none() {
+        if self.and_dec.is_none() || self.to_bool_lemmas.is_none() {
             return Ok(None);
         }
         let (head, args) = spine_icit(c.strip_loc());
@@ -4546,27 +4507,9 @@ impl Elaborator {
                     self.lookup_def("Std.Decidable.toBoolFalse")?,
                 ])
             })(),
-            and_lemmas: (|| {
-                Some([
-                    self.lookup_def("Std.Decidable.andBoolOf")?,
-                    self.lookup_def("Std.Decidable.andBoolOfNot")?,
-                    self.lookup_def("Std.Decidable.andBoolSound")?,
-                    self.lookup_def("Std.Decidable.andBoolFalse")?,
-                ])
-            })(),
-            dec_true: (|| {
-                Some((
-                    r.def(Builtin::DecTrue)?,
-                    self.lookup_def("Std.Bool.decTrueToBool")?,
-                ))
-            })(),
+            dec_true: r.def(Builtin::DecTrue),
             and_data: r.data(Builtin::And).ok_or_else(none)?,
-            and_dec: (|| {
-                Some((
-                    self.lookup_def("Std.Decidable.and")?,
-                    self.lookup_def("Std.Decidable.andBoolDec")?,
-                ))
-            })(),
+            and_dec: self.lookup_def("Std.Decidable.and"),
             not_not: (|| {
                 Some((
                     self.lookup_def("Std.Decidable.notNotOf")?,

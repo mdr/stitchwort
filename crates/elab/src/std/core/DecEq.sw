@@ -44,30 +44,7 @@ instance Option.instDecEq [auto decEq: DecEq a]: DecEq (Option a) :=
 instance Result.instDecEq [auto decEqA: DecEq a] [auto decEqE: DecEq e]: DecEq (Result a e) :=
   { decide = Result.decEq (x y => DecEq.decide x y) (x y => DecEq.decide x y) }
 
---| Proofs of an equation in a type with decidable equality are unique:
---| Hedberg's argument, as for `Bool` above. [`DecEq.canon`] turns any proof of
---| `x = y` into the one the decision gives, ignoring which proof it was
---| given, and every proof can be recovered from its canonical one.
-def DecEq.canon [x y: a] (dec: Decidable (x = y)) (h: x = y): x = y :=
-  match e: dec.holds with
-    | True => dec.sound e
-    | False => Void.exfalso (Decidable.refute dec e h)
-
-theorem DecEq.canonConst [x y: a] (d: Decidable (x = y)) (p q: x = y):
-    DecEq.canon d p = DecEq.canon d q :=
-  match d with
-    | { holds = True, sound = s, complete = c } => rfl
-    | { holds = False, sound = s, complete = c } => Void.exfalso (Bool.falseNotTrue (c p))
-
-theorem DecEq.symThenSelf [x y: a] (q: x = y): rfl = Eq.trans (Eq.sym q) q := J (y' q' => rfl = Eq.trans (Eq.sym q') q') rfl q
-
-theorem DecEq.fromCanon [auto decEq: DecEq a] (x: a) (y: a) (p: x = y):
-    p = Eq.trans (Eq.sym (DecEq.canon (DecEq.decide [decEq := decEq] x x) rfl)) (DecEq.canon (DecEq.decide [decEq := decEq] x y) p) :=
-  J (y' p' => p' = Eq.trans (Eq.sym (DecEq.canon (DecEq.decide [decEq := decEq] x x) rfl)) (DecEq.canon (DecEq.decide [decEq := decEq] x y') p'))
-    (DecEq.symThenSelf (DecEq.canon (DecEq.decide [decEq := decEq] x x) rfl)) p
-
+--| Proofs of an equation in a type with decidable equality are unique
+--| ([`Decidable.uniqueEq`], Hedberg's argument).
 theorem DecEq.uniqueEq [auto decEq: DecEq a] [x y: a] (p: x = y) (q: x = y): p = q :=
-  J (z e => p = z)
-    (J (r e => p = Eq.trans (Eq.sym (DecEq.canon (DecEq.decide [decEq := decEq] x x) rfl)) r)
-      (DecEq.fromCanon x y p) (DecEq.canonConst (DecEq.decide [decEq := decEq] x y) p q))
-    (J (z e => z = q) rfl (DecEq.fromCanon x y q))
+  Decidable.uniqueEq (DecEq.decide [decEq := decEq]) x y p q
