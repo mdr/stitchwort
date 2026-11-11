@@ -30358,9 +30358,9 @@
     {
       "id": 2867,
       "title": "function_induct::a_nested_pattern_in_a_lifted_match fails on main's debug build: E-RESOURCE 'nested too deeply' checking List.sumByFilter (256 MB stack doesn't help; release CLI checks it fine); likely work_limit or the stack floor (SW-1073)",
-      "status": "next",
+      "status": "doing",
       "agent": "Sonnet",
-      "where": "",
+      "where": ".claude/worktrees/SW-2867",
       "labels": [],
       "epic": "test-infra",
       "body": "",
