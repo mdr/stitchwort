@@ -1,5 +1,5 @@
 {
-  "next": 2823,
+  "next": 2825,
   "tickets": [
     {
       "id": 47,
@@ -29632,9 +29632,9 @@
     {
       "id": 2812,
       "title": "rewrite after Decidable stage 3: no pass rewrites without carrying; decides_other judges from sound's folded type, so a rewrite that worked before could now fail with E-REWRITE-MOTIVE where the goal has the proposition unfolded: try the plain motive first, as matching.rs does (rewrite.rs:1089-1135, 1477, 1509) (docs/reviews/SW-2761-decidable-stage3-review.md)",
-      "status": "next",
+      "status": "doing",
       "agent": "Opus",
-      "where": "",
+      "where": ".claude/worktrees/SW-2812",
       "labels": [],
       "epic": "proof-automation",
       "body": "",
@@ -29767,6 +29767,32 @@
       "where": "",
       "labels": [],
       "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2823,
+      "title": "Decidable stage 4: std cleanup: delete or rfl the bridging lemmas (decidable-record.md §5.2), restate Hedberg's lemmas, deriving (DecEq) test first (T.%same); includes SW-2820. After SW-2812",
+      "status": "next",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2824,
+      "title": "Decidable stage 5: measure Nat.equalRefl/equalSound natives (D3484), JS allocation, the 3,000-element checking curve (decidable-record.md §4.1, §8). Paper plus probes",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
       "body": "",
       "created": "2026-11-11",
       "updated": "2026-11-11",
