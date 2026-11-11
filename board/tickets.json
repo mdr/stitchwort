@@ -28457,11 +28457,13 @@
       "status": "backlog",
       "agent": "",
       "where": "",
-      "labels": [],
+      "labels": [
+        "parked"
+      ],
       "epic": "syntax-language",
-      "body": "From SW-2707 (Software Foundations port, 10 Nov 2026); docs/reviews/SW-2707-software-foundations-port.md §11.",
+      "body": "From SW-2707 (Software Foundations port, 10 Nov 2026); docs/reviews/SW-2707-software-foundations-port.md §11.\nMatt, 11 Nov 2026: not wanted at this stage (parked).",
       "created": "2026-11-10",
-      "updated": "2026-11-10",
+      "updated": "2026-11-11",
       "commits": []
     },
     {
