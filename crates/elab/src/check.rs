@@ -4,6 +4,7 @@
 
 use std::rc::Rc;
 
+use crate::goals::StepForm;
 use crate::kernel;
 use stitchwort_core::chars::{self as compact, Chars};
 use stitchwort_core::partial::Primitive;
@@ -4219,8 +4220,17 @@ fn typed_lambda(
     let mark = cx.mark();
     let var = Value::var(cx.level());
     cx.bind(&name.text, dom.clone());
-    let cod = cod.apply(&g, var)?;
-    let result = check(cx, body, &cod);
+    let body_ty = cod.apply(&g, var)?;
+    if cx.e.records_steps(name.span) {
+        let before = Value::Pi(
+            name.text.as_str().into(),
+            icit,
+            Rc::new(dom.clone()).into(),
+            cod.clone(),
+        );
+        note_binder_step(cx, StepForm::Lambda, name.span, None, &before, &body_ty);
+    }
+    let result = check(cx, body, &body_ty);
     cx.reset(mark);
     Ok(Term::Lam(name.text.as_str().into(), icit, Rc::new(result?)))
 }
@@ -4276,9 +4286,41 @@ fn check_binder_lambda(
     }
 }
 
+/// A probe's step at `head`, a name just bound (the last variable of
+/// `cx`): `before` is the goal it was bound under, `after` the goal of what
+/// it is in scope for.
+pub(crate) fn note_binder_step(
+    cx: &Ctx,
+    form: StepForm,
+    head: Span,
+    index: Option<(usize, usize)>,
+    before: &Value,
+    after: &Value,
+) {
+    if !cx.e.records_steps(head) {
+        return;
+    }
+    cx.e.note_step(
+        cx,
+        crate::goals::StepNote {
+            form,
+            head,
+            index,
+            before: Some(before.clone()),
+            after: after.clone(),
+            adds: vec![cx.level() - 1],
+            rule: None,
+            parts: Vec::new(),
+            target: None,
+        },
+    );
+}
+
 pub fn check(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
     cx.g().machine.budget.nesting(PASS)?;
     let span = expr.span();
+    // A probe notes the goal before the check, which may fail.
+    cx.e.note_probe(cx, span, expected, true);
     with_span(cx, span, |cx| {
         let term = match whole_test(cx, expr, expected) {
             Ok(Some(term)) => Ok(term),
@@ -4688,6 +4730,7 @@ pub(crate) fn check_value(
             let var = Value::var(cx.level());
             cx.bind(&first.text, (**dom).clone());
             let cod = cod.apply(&g, var)?;
+            note_binder_step(cx, StepForm::Lambda, first.span, None, &expected, &cod);
             let check_body = |cx: &mut Ctx| {
                 let result = if rest.is_empty() {
                     settle_section_comparison(cx, first, body, &cod)
@@ -5132,6 +5175,50 @@ pub(crate) fn check_if(
     otherwise: &Expr,
     expected: &Value,
 ) -> Result<Term> {
+    // A probe's steps: `then` and `else`, each with `h` in scope.
+    if binder.is_some()
+        && cx.e.records_steps(Span {
+            end: otherwise.span().end,
+            ..cond.span()
+        })
+    {
+        let heads = [
+            Span {
+                start: cond.span().end,
+                end: then.span().start,
+                ..cond.span()
+            },
+            Span {
+                start: then.span().end,
+                end: otherwise.span().start,
+                ..cond.span()
+            },
+        ];
+        fn branch<'a>(
+            index: usize,
+            head: Span,
+            body: &'a Expr,
+        ) -> impl FnMut(&mut Ctx, &Value) -> Result<Term> + 'a {
+            move |cx, expected| {
+                note_binder_step(cx, StepForm::If, head, Some((index, 2)), expected, expected);
+                check(cx, body, expected)
+            }
+        }
+        return check_if_with(
+            cx,
+            binder,
+            cond,
+            &mut CheckedBranch {
+                run: branch(0, heads[0], then),
+                hides_proof: false,
+            },
+            &mut CheckedBranch {
+                run: branch(1, heads[1], otherwise),
+                hides_proof: false,
+            },
+            expected,
+        );
+    }
     check_if_with(
         cx,
         binder,

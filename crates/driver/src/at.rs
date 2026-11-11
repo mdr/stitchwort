@@ -600,10 +600,10 @@ impl Session {
 // ---- context -----------------------------------------------------------
 
 /// What is known at a cursor: the type of the smallest expression there,
-/// and the names in scope.
+/// and the names in scope; or, on a step of a proof, the goal after it.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct Context {
-    /// The expression the answer is about.
+    /// The expression (or step) the answer is about.
     pub range: Range,
     /// Its type: what it was checked against when `checked` (the expected
     /// type), else the type found for it.
@@ -613,26 +613,183 @@ pub struct Context {
     /// Whether `ty` is a proposition: the answer is a goal to prove, not the
     /// type of a program's expression.
     pub proof: bool,
+    /// The type found for the expression, when it isn't `ty`, the one it
+    /// was checked against (D3499: `expected T`, `has type U`).
+    pub found: Option<String>,
     /// The names in scope there, a variable before anything whose type
     /// mentions it; the same list and the same printing as a goal's.
     pub locals: Vec<Local>,
+    /// The declaration it is in, as written.
+    pub declaration: Option<String>,
+    /// The step of the proof the cursor is on, if any.
+    pub step: Option<Step>,
+    /// Every step of the declaration, in source order.
+    pub steps: Vec<Step>,
+}
+
+/// A step of a proof: a place where its goal changes
+/// (docs/proposals/goal-at-any-point.md §3.1).
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+pub struct Step {
+    /// `match`, `arm`, `rewriteRule`, `calcLine`, `lambda`, `let`, `if`, or
+    /// `statement` in a declaration's signature (its body's goal).
+    pub form: &'static str,
+    /// Where it is, as a reader would name it: "rule 2 of 2 of `rewrite`".
+    pub description: String,
+    /// The text it answers for: a rule, an arm's pattern, a calc line up to
+    /// its proof, a parameter, a `let`'s name.
+    pub range: Range,
+    /// Which of how many, from 1: a rule of its `rewrite`, an arm of its
+    /// `match`, a line of its `calc`, `then` (1) or `else` (2).
+    pub index: Option<usize>,
+    pub of: Option<usize>,
+    /// The goal before the step: for a `calc` line, what the lines before
+    /// it prove.
+    pub before: Option<String>,
+    /// The goal after it: for a `calc` line, the line's statement.
+    pub after: String,
+    /// Whether the goals are propositions.
+    pub proof: bool,
+    /// The names the step brings into scope.
+    pub adds: Vec<String>,
+    /// A rewrite rule's equation as used, its unknowns solved.
+    pub rule: Option<String>,
+    /// For `rewrite … at h`: `h`, whose type the rules rewrite.
+    pub target: Option<String>,
+    /// The names in scope after the step.
+    pub locals: Vec<Local>,
+}
+
+impl Step {
+    fn of(step: stitchwort_elab::StepAt, text: &str) -> Step {
+        use stitchwort_elab::StepForm;
+        let (l1, c1) = position_at(text, step.head.start as usize);
+        let (l2, c2) = position_at(text, step.head.end as usize);
+        let written = (text.get(step.head.start as usize..step.head.end as usize))
+            .unwrap_or("")
+            .trim()
+            .trim_end_matches("=>")
+            .trim_end_matches(":=")
+            .trim();
+        let numbered = |what: &str| match step.index {
+            Some((i, n)) => format!("{what} {} of {n}", i + 1),
+            None => what.to_string(),
+        };
+        // A declaration's own body, `name (params): T := body`, is the arm
+        // of no `match`: its head is the signature, and what it adds are the
+        // parameters, the declaration's own.
+        let statement = step.form == StepForm::Arm && !written.starts_with('|');
+        let description = match step.form {
+            _ if statement => "the statement".into(),
+            StepForm::Match => match step.index {
+                Some((_, n)) => format!("`match` with {n} arm{}", if n == 1 { "" } else { "s" }),
+                None => "`match`".into(),
+            },
+            StepForm::Arm => format!("{}, `{written}`", numbered("arm")),
+            StepForm::RewriteRule => match &step.target {
+                Some(h) => format!("{} of `rewrite … at {h}`", numbered("rule")),
+                None => format!("{} of `rewrite`", numbered("rule")),
+            },
+            StepForm::CalcLine => format!("{} of `calc`, `{written}`", numbered("line")),
+            StepForm::Lambda => format!("parameter `{written}`"),
+            StepForm::Let => format!("`let {written}`"),
+            StepForm::If => match step.index {
+                Some((1, _)) => "`else` of `if`".into(),
+                _ => "`then` of `if`".into(),
+            },
+        };
+        Step {
+            form: if statement {
+                "statement"
+            } else {
+                step.form.name()
+            },
+            description,
+            range: [l1, c1, l2, c2],
+            index: step.index.map(|(i, _)| i + 1),
+            of: step.index.map(|(_, n)| n),
+            before: step.before,
+            after: step.after,
+            proof: step.proof,
+            adds: if statement { Vec::new() } else { step.adds },
+            rule: step.rule,
+            target: step.target,
+            locals: step.locals.into_iter().map(Local::of).collect(),
+        }
+    }
+}
+
+impl Local {
+    fn of(h: stitchwort_syntax::Hypothesis) -> Local {
+        Local {
+            name: h.name,
+            ty: h.ty,
+            value: h.value,
+        }
+    }
 }
 
 impl Context {
-    /// The answer as the command line prints it: the names in scope, then
-    /// `⊢ goal` in a proof or `expected T` in a program.
+    /// The answer as the command line prints it: where it is, the names in
+    /// scope, then `⊢ goal` in a proof or `expected T` in a program (and
+    /// `has type U` when the expression's own type differs); on a step, the
+    /// goal before and after it.
     pub fn render_text(&self) -> String {
         let mut out = String::new();
-        for local in &self.locals {
-            match &local.value {
-                Some(value) => {
-                    out.push_str(&format!("  {}: {} := {value}\n", local.name, local.ty))
-                }
-                None => out.push_str(&format!("  {}: {}\n", local.name, local.ty)),
+        if let Some(declaration) = &self.declaration {
+            match &self.step {
+                Some(step) => out.push_str(&format!("in `{declaration}`, {}\n", step.description)),
+                None => out.push_str(&format!("in `{declaration}`\n")),
             }
         }
-        let label = if self.proof { "⊢" } else { "expected" };
-        out.push_str(&format!("  {label} {}\n", self.ty));
+        let added =
+            |name: &str| (self.step.as_ref()).is_some_and(|s| s.adds.iter().any(|a| a == name));
+        for local in &self.locals {
+            let mark = if added(&local.name) { "+ " } else { "" };
+            match &local.value {
+                Some(value) => out.push_str(&format!(
+                    "  {mark}{}: {} := {value}\n",
+                    local.name, local.ty
+                )),
+                None => out.push_str(&format!("  {mark}{}: {}\n", local.name, local.ty)),
+            }
+        }
+        let goal = |proof: bool| if proof { "⊢" } else { "expected" };
+        match &self.step {
+            Some(step) => {
+                // `rewrite … at h` rewrites `h`'s type, not the goal.
+                let target = step.target.as_ref().map(|h| format!("{h}:"));
+                let label = target.as_deref().unwrap_or(goal(step.proof));
+                match step.form {
+                    "calcLine" => {
+                        if let Some(before) = &step.before {
+                            out.push_str(&format!("  so far {before}\n"));
+                        }
+                        out.push_str(&format!("  line   {label} {}\n", step.after));
+                    }
+                    "match" | "statement" => out.push_str(&format!("  {label} {}\n", step.after)),
+                    _ => {
+                        if let Some(before) = &step.before {
+                            out.push_str(&format!("  before {label} {before}\n"));
+                        }
+                        if let Some(rule) = &step.rule {
+                            out.push_str(&format!("  rule   {rule}\n"));
+                        }
+                        out.push_str(&format!("  after  {label} {}\n", step.after));
+                    }
+                }
+            }
+            // Nothing was expected: the type is the one found.
+            None if !self.checked && !self.proof => {
+                out.push_str(&format!("  has type {}\n", self.ty))
+            }
+            None => {
+                out.push_str(&format!("  {} {}\n", goal(self.proof), self.ty));
+                if let Some(found) = &self.found {
+                    out.push_str(&format!("  has type {found}\n"));
+                }
+            }
+        }
         out
     }
 }
@@ -647,12 +804,12 @@ impl Session {
             ty: found.ty,
             checked: found.checked,
             proof: found.proof,
-            locals: (found.locals.into_iter())
-                .map(|h| Local {
-                    name: h.name,
-                    ty: h.ty,
-                    value: h.value,
-                })
+            found: found.found,
+            locals: found.locals.into_iter().map(Local::of).collect(),
+            declaration: found.declaration,
+            step: found.step.map(|s| Step::of(s, text)),
+            steps: (found.steps.into_iter())
+                .map(|s| Step::of(s, text))
                 .collect(),
         })
     }

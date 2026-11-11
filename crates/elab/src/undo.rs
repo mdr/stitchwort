@@ -18,8 +18,8 @@
 //!   and the resumptions it made, with the terms they filled in;
 //! - with code navigation on, the local variables' types noted for printing
 //!   (`nav.rs`), which may mention the metavariables dropped;
-//! - the open goals noted (`goals.rs`), and the `_`s noted as proofs, for
-//!   the same reason;
+//! - the open goals noted (`goals.rs`), the `_`s noted as proofs, and a
+//!   probe's steps, for the same reason;
 //! - the local context and the current span;
 //! - the unifier's note of solutions made by comparing arguments
 //!   (`Attempt::lossy`), cut with the trail. Its other state is set around
@@ -61,6 +61,7 @@ pub(crate) struct Snapshot {
     attempt: AttemptMark,
     local_types: usize,
     goals: usize,
+    steps: usize,
 }
 
 impl Snapshot {
@@ -71,6 +72,7 @@ impl Snapshot {
             attempt: cx.e.attempt.mark(),
             local_types: cx.e.pending_local_types(),
             goals: cx.e.pending_goals(),
+            steps: cx.e.pending_steps(),
         }
     }
 
@@ -105,6 +107,7 @@ impl Snapshot {
         cx.e.attempt.restore(self.attempt);
         cx.e.drop_local_types_since(self.local_types);
         cx.e.drop_goals_since(self.goals);
+        cx.e.drop_steps_since(self.steps);
         cx.reset(self.mark);
         cx.span = self.span;
     }

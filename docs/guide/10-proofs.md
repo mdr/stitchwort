@@ -747,12 +747,29 @@ stitchwort goal --at proofs.sw:42 --json # the same, for a script
 
 ```
 proofs.sw:42:5
+in `swapSum`
   a: Nat
   b: Nat
   ⊢ b + a = b + a
 ```
 
-It prints the names in scope and `⊢` the goal in a proof, or `expected T` in program code. The point can be anywhere inside an expression: in the body of a `rewrite`, you get the goal after the rules before it. It exits with 0 with an answer and 2 with none (a comment, a signature, a pattern, between declarations), and checks the file as `check` does, so it takes as long as that. A file of a project is read in the project from any folder.
+It names the declaration, then prints the names in scope and `⊢` the goal in a proof, or `expected T` in program code (with `has type U` below it when the expression's own type is different). The point can be anywhere inside an expression: in the body of a `rewrite`, you get the goal after the rules before it; on an expression that fails to check, the goal it was meant to prove.
+
+On a step of a proof, where the goal changes, it shows the goal before the step and after it. A rule of a `rewrite` chain shows the rule as it was used between the two:
+
+```
+proofs.sw:12:26
+in `multN0M0`, rule 2 of 2 of `rewrite`
+  p: Nat
+  q: Nat
+  before ⊢ q * 0 = 0
+  rule   q * 0 = 0
+  after  ⊢ 0 = 0
+```
+
+The other steps are an arm's pattern (the `match`'s goal before, the arm's after, and its pattern's variables marked `+`), a line of a `calc` (what the lines before it prove, and the line's own statement), a lambda's parameter, a `let`'s name, the `then` and `else` of `if h:`, and the signature (the statement to prove, with the parameters). The editor's Goals panel shows the same.
+
+It exits with 0 with an answer and 2 with none (a comment, a blank line, between declarations), and checks the file as `check` does, so it takes as long as that. A file of a project is read in the project from any folder.
 
 ## Checking one theorem
 

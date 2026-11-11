@@ -558,9 +558,12 @@ theorems that merely contain it.
 **See the goal at any point with `stitchwort goal --at FILE:LINE[:COL]`.**
 You don't need a `?` there: it prints the names in scope and `⊢` the goal at
 that point of a finished or half-written proof (`expected T` in program
-code), so you can follow a `rewrite` chain or a `match` arm without editing
-the file. `--json` gives the same for a script. Exit 2 means nothing was
-checked there (a comment, a signature); a file of a project is read in the
+code). On a step it gives the goal before and after: put the point on each
+rule of a `rewrite` chain in turn, on an arm's pattern, or on a `calc` line's
+`_`, to follow the proof without editing the file; on an expression that
+fails, it gives the goal it had to prove. `--json` gives the same for a
+script (`context.step` has `before`, `after` and `rule`). Exit 2 means
+nothing was checked there (a comment); a file of a project is read in the
 project from any folder, taking about as long as `check` of the file
 ([syntax.md](syntax.md#the-goal-at-a-point-stitchwort-goal---at)).
 

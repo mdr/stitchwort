@@ -1,6 +1,7 @@
 //! `stitchwort goal --at FILE:LINE[:COL]` (SW-2779, docs/proposals/
-//! goal-at-any-point.md stage 2), end to end with the built command: the
-//! goal at a proof point, the expected type at a program point, no answer,
+//! goal-at-any-point.md stages 2 and 3), end to end with the built command:
+//! the goal at a proof point, the steps of a proof (SW-2780), the expected
+//! type at a program point, no answer,
 //! the JSON object, and a file of a project.
 
 use std::path::{Path, PathBuf};
@@ -55,7 +56,10 @@ fn goal_at() {
     std::fs::write(dir.join("t.sw"), FILE).unwrap();
     let (code, out, err) = goal(&dir, &["--at", "t.sw:9"]);
     assert_eq!(code, 0, "{out}{err}");
-    assert_eq!(out, "t.sw:9:3\n  a: Nat\n  b: Nat\n  ⊢ a + b = b + a\n");
+    assert_eq!(
+        out,
+        "t.sw:9:3\nin `swap`\n  a: Nat\n  b: Nat\n  ⊢ a + b = b + a\n"
+    );
     // Inside the rewrite's body: the goal after the rule.
     let (code, out, _) = goal(&dir, &["--at", "t.sw:9:30"]);
     assert_eq!(code, 0);
@@ -64,7 +68,7 @@ fn goal_at() {
     assert_eq!(code, 0, "{out}{err}");
     assert_eq!(
         out,
-        "t.sw:5:3\n  n: Nat\n  m: Nat := n + 1\n  expected Nat\n"
+        "t.sw:5:3\nin `bump`\n  n: Nat\n  m: Nat := n + 1\n  has type Nat\n"
     );
     let (code, out, err) = goal(&dir, &["--at", "t.sw:7"]);
     assert_eq!(code, 2, "{out}");
@@ -91,6 +95,8 @@ fn goal_at() {
         serde_json::json!({"name": "b", "type": "Nat"})
     );
     assert_eq!(context["range"]["line"], 9);
+    assert_eq!(answer["declaration"], "swap");
+    assert_eq!(context["step"], Value::Null);
     let (_, out, _) = goal(&dir, &["--at", "t.sw:5", "--json"]);
     let answer: Value = serde_json::from_str(&out).unwrap();
     assert_eq!(answer["context"]["kind"], "program");
@@ -139,4 +145,149 @@ fn goal_at_in_a_project() {
     let (code, out, _) = goal(&dir, &["--at", "src/tiny.sw:1"]);
     assert_eq!(code, 2, "{out}");
     let _ = std::fs::remove_dir_all(dir.parent().unwrap());
+}
+
+const STEPS: &str = "\
+import Std (Nat)
+
+theorem multN0M0 (p q: Nat): p * 0 + q * 0 = 0 :=
+  rewrite Nat.mulZero p, Nat.mulZero q in rfl
+
+theorem addZeroLeft (n: Nat): 0 + n = n :=
+  match n with
+    | Zero => rfl
+    | Succ k => rfl
+
+theorem chain (a b c: Nat) (h1: a = b) (h2: b = c): a = c :=
+  calc a
+    _ = b := h1
+    _ = c := h2
+
+theorem swap (p q: Prop): p ∧ q → q ∧ p :=
+  pq =>
+    let left := And.left pq
+    Both (And.right pq) left
+
+def pick (b: Bool) (n: Nat): Nat :=
+  if h: b then n else 0
+
+theorem atH (a b c: Nat) (h1: a = b) (h2: b = c): a = c :=
+  rewrite h2 at h1 in h1
+
+theorem broken (n: Nat): n + 1 = Succ n :=
+  Nat.nope n
+
+def widen (n: Nat): Int := n
+
+theorem addZero (n: Nat): n + 0 = n := rfl
+";
+
+/// `goal --at` at `at` in [`STEPS`], as text, less its first line (the
+/// point).
+fn step_at(dir: &Path, at: &str) -> String {
+    let (code, out, err) = goal(dir, &["--at", &format!("s.sw:{at}")]);
+    assert_eq!(code, 0, "{at}: {out}{err}");
+    out.split_once('\n').unwrap().1.to_string()
+}
+
+/// Each form of step (docs/proposals/goal-at-any-point.md §3.1): the goal
+/// before it, what it adds, and the goal after it.
+#[test]
+fn goal_at_steps() {
+    let dir = folder("steps");
+    std::fs::write(dir.join("s.sw"), STEPS).unwrap();
+    // Each rule of a chain: the goal it rewrote, the rule as used, the goal
+    // it left.
+    assert_eq!(
+        step_at(&dir, "4:26"),
+        "in `multN0M0`, rule 2 of 2 of `rewrite`\n  p: Nat\n  q: Nat\n  \
+         before ⊢ q * 0 = 0\n  rule   q * 0 = 0\n  after  ⊢ 0 = 0\n"
+    );
+    // An arm's pattern: the `match`'s goal, the pattern's variables, the
+    // arm's goal.
+    assert_eq!(
+        step_at(&dir, "9:7"),
+        "in `addZeroLeft`, arm 2 of 2, `| Succ k`\n  + k: Nat\n  \
+         before ⊢ n = n\n  after  ⊢ Succ k = Succ k\n"
+    );
+    assert!(
+        step_at(&dir, "7:3").starts_with("in `addZeroLeft`, `match` with 2 arms\n"),
+        "on `match`"
+    );
+    // A calc line: what the lines before prove, and the line's statement.
+    assert_eq!(
+        step_at(&dir, "14:5"),
+        "in `chain`, line 2 of 2 of `calc`, `_ = c`\n  a: Nat\n  b: Nat\n  c: Nat\n  \
+         h1: a = b\n  h2: b = c\n  so far a = b\n  line   ⊢ b = c\n"
+    );
+    // In the line's proof, the expression's own goal.
+    assert!(step_at(&dir, "13:14").starts_with("in `chain`\n"));
+    assert!(
+        step_at(&dir, "17:3")
+            .ends_with("  + pq: p ∧ q\n  before ⊢ p ∧ q → q ∧ p\n  after  ⊢ q ∧ p\n"),
+        "a lambda's parameter"
+    );
+    assert!(
+        step_at(&dir, "18:9").contains("in `swap`, `let left`\n")
+            && step_at(&dir, "18:9").contains("  + left: p := pq.left\n"),
+        "a `let`"
+    );
+    assert!(
+        step_at(&dir, "22:20")
+            .starts_with("in `pick`, `else` of `if`\n  b: Bool\n  n: Nat\n  + h: ¬b\n")
+    );
+    // `rewrite … at h` rewrites `h`'s type.
+    assert!(
+        step_at(&dir, "25:11")
+            .ends_with("  before h1: a = b\n  rule   b = c\n  after  h1: a = c\n"),
+        "at h"
+    );
+    // In a signature: the statement, with the parameters in scope.
+    assert_eq!(
+        step_at(&dir, "6:10"),
+        "in `addZeroLeft`, the statement\n  n: Nat\n  ⊢ n = n\n"
+    );
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// A failing expression has the goal it was checked against; a program
+/// point whose type differs from the one expected shows both (D3499);
+/// `rfl` shows its goal as a `?` there would.
+#[test]
+fn goal_at_failing_and_has_type() {
+    let dir = folder("failing");
+    std::fs::write(dir.join("s.sw"), STEPS).unwrap();
+    assert_eq!(
+        step_at(&dir, "28:3"),
+        "in `broken`\n  n: Nat\n  ⊢ n + 1 = Succ n\n"
+    );
+    assert_eq!(
+        step_at(&dir, "30:28"),
+        "in `widen`\n  n: Nat\n  expected Int\n  has type Nat\n"
+    );
+    // `n + 0` computes as it is elaborated, so the goal reads `n = n`, as
+    // `?` in place of `rfl` reads it (SW-2791).
+    assert_eq!(
+        step_at(&dir, "32:41"),
+        "in `addZero`\n  n: Nat\n  ⊢ n = n\n"
+    );
+    let (code, out, _) = goal(&dir, &["--at", "s.sw:30:28", "--json"]);
+    assert_eq!(code, 0);
+    let answer: Value = serde_json::from_str(&out).unwrap();
+    assert_eq!(answer["context"]["target"], "Int");
+    assert_eq!(answer["context"]["hasType"], "Nat");
+    let (_, out, _) = goal(&dir, &["--at", "s.sw:4:26", "--json"]);
+    let answer: Value = serde_json::from_str(&out).unwrap();
+    assert_eq!(answer["declaration"], "multN0M0");
+    let step = &answer["context"]["step"];
+    assert_eq!(step["form"], "rewriteRule");
+    assert_eq!(
+        (&step["index"], &step["of"]),
+        (&Value::from(2), &Value::from(2))
+    );
+    assert_eq!(step["before"], "q * 0 = 0");
+    assert_eq!(step["rule"], "q * 0 = 0");
+    assert_eq!(step["after"], "0 = 0");
+    assert_eq!(step["range"]["column"], 26);
+    let _ = std::fs::remove_dir_all(&dir);
 }

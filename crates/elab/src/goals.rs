@@ -120,6 +120,15 @@ struct Probe {
     /// ([`Elaborator::probe_members`]), and what can be written there.
     members_at: Option<(FileId, u32)>,
     members: Option<Vec<crate::nav::ScopeName>>,
+    /// The text of the declaration the probed position is in: its steps
+    /// are recorded, and only its ([`Elaborator::probe_declaration`]).
+    within: Option<Span>,
+    steps: Vec<StepPending>,
+    printed: Vec<StepAt>,
+    /// The declaration the answer is in, as goals head it.
+    declaration: Option<String>,
+    /// The equation of the rewrite rule matched last, as used.
+    rule: Option<Value>,
 }
 
 #[derive(Clone)]
@@ -128,8 +137,98 @@ struct ProbePending {
     ty: Value,
     checked: bool,
     proof: bool,
+    /// The type found for the expression, when it was also checked
+    /// against `ty` (inferred, then compared).
+    found: Option<Value>,
     names: Vec<Name>,
     context: Vec<Entry>,
+}
+
+/// A step of a proof: a place where the goal changes
+/// (docs/proposals/goal-at-any-point.md §3.1).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum StepForm {
+    /// `match e with`: its goal, before any arm.
+    Match,
+    /// `| pattern =>`: the arm's goal, with its pattern's variables.
+    Arm,
+    /// A rule of `rewrite r1, r2 in t`, or of `rewrite … at h`.
+    RewriteRule,
+    /// A line `_ R e` of a `calc`.
+    CalcLine,
+    /// A lambda's parameter.
+    Lambda,
+    /// `let x := v`.
+    Let,
+    /// The `then` or `else` of `if h: c`.
+    If,
+}
+
+impl StepForm {
+    /// The name `goal --at --json` and the editor use.
+    pub fn name(self) -> &'static str {
+        match self {
+            StepForm::Match => "match",
+            StepForm::Arm => "arm",
+            StepForm::RewriteRule => "rewriteRule",
+            StepForm::CalcLine => "calcLine",
+            StepForm::Lambda => "lambda",
+            StepForm::Let => "let",
+            StepForm::If => "if",
+        }
+    }
+}
+
+/// A step, as the form noting it knows it (`Elaborator::note_step`).
+#[derive(Clone)]
+pub(crate) struct StepNote {
+    pub form: StepForm,
+    /// The text the step answers for: an arm's pattern up to its body, a
+    /// rule, a calc line up to its proof, a parameter, a `let`'s name.
+    pub head: Span,
+    /// Which of how many (0-based): a rule of its `rewrite`, a line of its
+    /// `calc`, `then` (0) or `else` (1); a `match` gives its number of arms.
+    pub index: Option<(usize, usize)>,
+    /// The goal before the step, when it has one of its own; an arm takes
+    /// its `match`'s.
+    pub before: Option<Value>,
+    pub after: Value,
+    /// The levels the step binds.
+    pub adds: Vec<usize>,
+    /// A rewrite rule's equation, as used.
+    pub rule: Option<Value>,
+    /// A `match`'s arms' heads, which number its arms' steps.
+    pub parts: Vec<Span>,
+    /// For a rule of `rewrite … at h`: `h`, whose type before and after
+    /// are what changes.
+    pub target: Option<String>,
+}
+
+#[derive(Clone)]
+struct StepPending {
+    note: StepNote,
+    proof: bool,
+    names: Vec<Name>,
+    context: Vec<Entry>,
+}
+
+/// A step printed: see [`StepNote`].
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct StepAt {
+    pub form: StepForm,
+    pub head: Span,
+    pub index: Option<(usize, usize)>,
+    pub before: Option<String>,
+    pub after: String,
+    /// Whether the goals are propositions.
+    pub proof: bool,
+    /// The names in scope after the step.
+    pub locals: Vec<Hypothesis>,
+    /// Those of `locals` the step added.
+    pub adds: Vec<String>,
+    pub rule: Option<String>,
+    pub target: Option<String>,
+    parts: Vec<Span>,
 }
 
 /// What is known at a position of a file: see [`Elaborator::probe_context`].
@@ -144,9 +243,19 @@ pub struct ContextAt {
     /// Whether `ty` is a proposition (the expression is a proof): the
     /// editor shows `⊢ ty` for a proof and `expected ty` for a program.
     pub proof: bool,
+    /// The type found for the expression, when it differs from the one it
+    /// was checked against (`ty`).
+    pub found: Option<String>,
     /// The names in scope there, as a goal lists them (a variable before
     /// anything whose type mentions it).
     pub locals: Vec<Hypothesis>,
+    /// The declaration it is in, as written (`addZero`).
+    pub declaration: Option<String>,
+    /// The step at the position, if it is on one; `ty` and `locals` are
+    /// then the goal after it and the names in scope there.
+    pub step: Option<StepAt>,
+    /// Every step of the declaration, in source order.
+    pub steps: Vec<StepAt>,
 }
 
 /// The names in scope where a goal at `span` is printed: the file's, as for
@@ -722,17 +831,131 @@ impl Elaborator {
         files.iter().any(|f| f.file == Some(probed))
     }
 
-    /// What [`Elaborator::probe_context`] found, once: none if no
-    /// expression checked contains the position (it is in a signature, a
-    /// comment, a pattern, a declaration that didn't parse).
+    /// What [`Elaborator::probe_context`] found, once: none if neither an
+    /// expression checked nor a step contains the position (it is in a
+    /// signature, a comment, a declaration that didn't parse).
     pub fn take_probed_context(&self) -> Option<ContextAt> {
         self.flush_goals();
-        std::mem::take(&mut self.goals.borrow_mut().probe).found
+        let probe = std::mem::take(&mut self.goals.borrow_mut().probe);
+        let (file, at) = probe.want?;
+        let mut steps = probe.printed;
+        // A step checked twice (an arm compiled again) keeps the last.
+        let mut seen = stitchwort_core::collections::HashSet::default();
+        steps.reverse();
+        steps.retain(|s| seen.insert((s.form, s.head.start, s.head.end)));
+        steps.sort_by_key(|s| (s.head.start, std::cmp::Reverse(s.head.end)));
+        number_arms(&mut steps);
+        let step = (steps.iter())
+            .filter(|s| s.head.file == file && s.head.start <= at && at < s.head.end)
+            .min_by_key(|s| s.head.end - s.head.start)
+            .cloned();
+        let mut found = match (probe.found, &step) {
+            (_, Some(step)) => ContextAt {
+                span: step.head,
+                ty: step.after.clone(),
+                checked: true,
+                proof: step.proof,
+                found: None,
+                locals: step.locals.clone(),
+                declaration: None,
+                step: None,
+                steps: Vec::new(),
+            },
+            (Some(found), None) => found,
+            (None, None) => return None,
+        };
+        found.declaration = probe.declaration;
+        found.step = step;
+        found.steps = steps;
+        Some(found)
+    }
+
+    /// Notes the declaration of `module` the probed position is in, if
+    /// any: its steps are recorded while it is checked. Its text is that of
+    /// every declaration of its name (a signature and its equations).
+    pub(crate) fn probe_declaration(&self, module: &stitchwort_syntax::ast::Module) {
+        use stitchwort_syntax::ast::Decl;
+        let mut goals = self.goals.borrow_mut();
+        let Some((file, at)) = goals.probe.want else {
+            return;
+        };
+        let name = |d: &Decl| match d {
+            Decl::Signature { name, .. }
+            | Decl::Equation { name, .. }
+            | Decl::Data { name, .. }
+            | Decl::Ability { name, .. } => Some(name.text.clone()),
+            Decl::Test { .. } => None,
+        };
+        let inside = |d: &Decl| d.span().file == file && d.span().start <= at && at <= d.span().end;
+        let Some(hit) = module.decls.iter().find(|d| inside(d)) else {
+            return;
+        };
+        let mut span = hit.span();
+        if let Some(written) = name(hit) {
+            for d in &module.decls {
+                if d.span().file == file && name(d).as_ref() == Some(&written) {
+                    span = span.to(d.span());
+                }
+            }
+        }
+        goals.probe.within = Some(span);
+    }
+
+    /// Whether a step at `head` is recorded: it is in the probed
+    /// declaration, and written there (not generated, and not empty, as
+    /// what a declaration generates can be at an empty span).
+    pub(crate) fn records_steps(&self, head: Span) -> bool {
+        let goals = self.goals.borrow();
+        let Some(within) = goals.probe.within else {
+            return false;
+        };
+        head.file == within.file
+            && head.start < head.end
+            && within.start <= head.start
+            && head.end <= within.end
+            && !(self.present.nav.as_ref()).is_some_and(|nav| nav.borrow().generated > 0)
+    }
+
+    /// Notes a step, with the names in scope after it in `cx`; call when
+    /// [`Elaborator::records_steps`] says so.
+    pub(crate) fn note_step(&self, cx: &Ctx, note: StepNote) {
+        let names = cx.shown_names(true);
+        let (mut context, mut hidden) = scope_entries(cx, &names);
+        drop_superseded(cx, &note.after, &mut context, &mut hidden);
+        let context = dependency_order(&cx.g(), cx.level(), context);
+        let proof = crate::rewrite::is_proof_type(cx, &note.after).unwrap_or(false);
+        self.goals.borrow_mut().probe.steps.push(StepPending {
+            note,
+            proof,
+            names,
+            context,
+        });
+    }
+
+    /// A rewrite rule matched, as used: its equation with its unknowns
+    /// solved, for the step [`Elaborator::take_rule`] notes.
+    pub(crate) fn note_rule(&self, rule: Value) {
+        self.goals.borrow_mut().probe.rule = Some(rule);
+    }
+
+    pub(crate) fn take_rule(&self) -> Option<Value> {
+        self.goals.borrow_mut().probe.rule.take()
+    }
+
+    pub(crate) fn pending_steps(&self) -> usize {
+        self.goals.borrow().probe.steps.len()
+    }
+
+    /// Drops the steps noted after the first `len`: their attempt was
+    /// undone.
+    pub(crate) fn drop_steps_since(&self, len: usize) {
+        self.goals.borrow_mut().probe.steps.truncate(len);
     }
 
     /// The expression at `span`, of type `ty` (checked against it if
     /// `checked`), in `cx`: kept if it is the smallest so far to contain
-    /// the probed position.
+    /// the probed position. Also called on entry to a check, so that an
+    /// expression that fails has its goal.
     pub(crate) fn note_probe(&self, cx: &Ctx, span: Span, ty: &Value, checked: bool) {
         let Some((file, at)) = self.goals.borrow().probe.want else {
             return;
@@ -745,10 +968,25 @@ impl Elaborator {
             return;
         }
         let mut goals = self.goals.borrow_mut();
-        if let Some(p) = &goals.probe.pending
-            && p.span.end - p.span.start < span.end - span.start
-        {
-            return;
+        let mut found = None;
+        if let Some(p) = &mut goals.probe.pending {
+            if p.span.end - p.span.start < span.end - span.start {
+                return;
+            }
+            // The same expression noted again: once on entry to its check,
+            // once with the type inferred for it, once checked. Both the
+            // type expected and the type found are kept.
+            if p.span == span {
+                match (p.checked, checked) {
+                    (true, false) => {
+                        p.found = Some(ty.clone());
+                        return;
+                    }
+                    (false, true) => found = Some(p.ty.clone()),
+                    (true, true) => found = p.found.clone(),
+                    (false, false) => {}
+                }
+            }
         }
         let names = cx.shown_names(true);
         let (mut context, mut hidden) = scope_entries(cx, &names);
@@ -759,34 +997,84 @@ impl Elaborator {
             ty: ty.clone(),
             checked,
             proof: crate::rewrite::is_proof_type(cx, ty).unwrap_or(false),
+            found,
             names,
             context,
         });
     }
 
-    /// Prints the context a probe noted, while its metavariables have their
-    /// solutions.
+    /// Prints the context and steps a probe noted, while their
+    /// metavariables have their solutions.
     fn flush_probe(&self) {
-        let Some(p) = self.goals.borrow_mut().probe.pending.take() else {
+        let (pending, steps) = {
+            let mut goals = self.goals.borrow_mut();
+            let probe = &mut goals.probe;
+            (probe.pending.take(), std::mem::take(&mut probe.steps))
+        };
+        if pending.is_none() && steps.is_empty() {
             return;
-        };
+        }
         let g = &self.ev();
-        let scope = GoalScope {
-            e: self,
-            span: p.span,
-        };
         let was = g.machine.glue.replace(self.gluing());
-        let locals = self.print_hypotheses(&scope, &p.names, &p.context);
-        let predicates = self.predicate_flags(p.names.len(), &p.context, &[]);
-        let ty = pretty::value_for_goal(g, &scope, &p.names, &predicates, &p.ty);
-        g.machine.glue.set(was);
-        self.goals.borrow_mut().probe.found = Some(ContextAt {
-            span: p.span,
-            ty,
-            checked: p.checked,
-            proof: p.proof,
-            locals,
+        let mut printed = Vec::new();
+        for s in &steps {
+            let scope = GoalScope {
+                e: self,
+                span: s.note.head,
+            };
+            let predicates = self.predicate_flags(s.names.len(), &s.context, &[]);
+            let show = |v: &Value| pretty::value_for_goal(g, &scope, &s.names, &predicates, v);
+            let locals = self.print_hypotheses(&scope, &s.names, &s.context);
+            let adds = (s.context.iter())
+                .filter(|e| s.note.adds.contains(&e.level))
+                .map(|e| e.name.clone())
+                .collect();
+            printed.push(StepAt {
+                form: s.note.form,
+                head: s.note.head,
+                index: s.note.index,
+                before: s.note.before.as_ref().map(show),
+                after: show(&s.note.after),
+                proof: s.proof,
+                locals,
+                adds,
+                rule: s.note.rule.as_ref().map(show),
+                target: s.note.target.clone(),
+                parts: s.note.parts.clone(),
+            });
+        }
+        let found = pending.map(|p| {
+            let scope = GoalScope {
+                e: self,
+                span: p.span,
+            };
+            let locals = self.print_hypotheses(&scope, &p.names, &p.context);
+            let predicates = self.predicate_flags(p.names.len(), &p.context, &[]);
+            let show = |v: &Value| pretty::value_for_goal(g, &scope, &p.names, &predicates, v);
+            let ty = show(&p.ty);
+            let found = p.found.as_ref().map(show).filter(|f| *f != ty);
+            ContextAt {
+                span: p.span,
+                ty,
+                checked: p.checked,
+                proof: p.proof,
+                found,
+                locals,
+                declaration: None,
+                step: None,
+                steps: Vec::new(),
+            }
         });
+        g.machine.glue.set(was);
+        let owner = self.goal_owner().0;
+        let owner = owner.trim_matches('`').to_string();
+        let mut goals = self.goals.borrow_mut();
+        let probe = &mut goals.probe;
+        probe.printed.extend(printed);
+        if let Some(found) = found {
+            probe.found = Some(found);
+        }
+        probe.declaration = Some(owner);
     }
 
     fn print_goal(&self, p: &Pending) -> Found {
@@ -1265,4 +1553,24 @@ pub(crate) fn close_over(binders: &[SnapBinder], body: Term, ty: Term) -> Term {
         }
     }
     Term::Ann(std::rc::Rc::new(body), std::rc::Rc::new(ty))
+}
+
+/// Gives each arm the `match` it is in: its number among the `match`'s
+/// arms, and the `match`'s goal as the arm's goal before. `steps` are in
+/// source order, so a `match` comes before its arms.
+fn number_arms(steps: &mut [StepAt]) {
+    let matches: Vec<(Vec<Span>, Option<String>)> = (steps.iter())
+        .filter(|s| s.form == StepForm::Match)
+        .map(|s| (s.parts.clone(), Some(s.after.clone())))
+        .collect();
+    for step in steps.iter_mut().filter(|s| s.form == StepForm::Arm) {
+        for (parts, goal) in &matches {
+            if let Some(i) = parts.iter().position(|p| p.start == step.head.start) {
+                step.index = Some((i, parts.len()));
+                if step.before.is_none() {
+                    step.before = goal.clone();
+                }
+            }
+        }
+    }
 }

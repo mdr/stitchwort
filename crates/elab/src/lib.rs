@@ -90,7 +90,7 @@ pub use kernel::{
 pub use library::LibraryIndex;
 pub mod std_dir;
 pub use equations::{is_equation_name, is_function_induct, is_generated_name};
-pub use goals::{ContextAt, GoalSnapshot};
+pub use goals::{ContextAt, GoalSnapshot, StepAt, StepForm};
 pub use rewind::Mark;
 pub use scope::edit_distance;
 pub use state::JournalStats;
@@ -4575,6 +4575,26 @@ fn check_leaf(cx: &mut Ctx, tree: &Tree, goal: &Value, guarded: bool) -> Result<
     hide_unnamed_variables(cx);
     let order = written_order(cx, aliases, written);
     let saved_order = std::mem::replace(&mut cx.order, order);
+    let head = Span {
+        end: rhs.span().start,
+        ..*span
+    };
+    if cx.e.records_steps(head) {
+        cx.e.note_step(
+            cx,
+            goals::StepNote {
+                form: goals::StepForm::Arm,
+                head,
+                index: None,
+                before: None,
+                after: goal.clone(),
+                adds: aliases.iter().map(|(_, level)| *level).collect(),
+                rule: None,
+                parts: Vec::new(),
+                target: None,
+            },
+        );
+    }
     // A `match` that's the whole right-hand side, on variables of the
     // equation, splits them further here
     // (docs/proposals/syntax-conveniences.md §4.3).

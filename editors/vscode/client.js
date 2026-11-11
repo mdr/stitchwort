@@ -129,14 +129,49 @@ const hypothesisRows = (context) =>
     .join('');
 
 // The body of the Goals panel for the server's `stitchwort/contextAt` answer
-// ({range, type, checked, kind, locals}): `⊢ T` for a proof being checked
-// against a goal, `expected T` for a program expression checked against a
-// type, and `has type T` where there was no expected type, only the type
-// found (the server doesn't send both when they differ).
+// ({range, type, checked, kind, hasType, locals, declaration, step}): `⊢ T`
+// for a proof being checked against a goal, `expected T` for a program
+// expression checked against a type (and `has type U` below it when the type
+// found differs, D3499), and `has type T` where there was no expected type.
+// On a step of a proof (a rewrite rule, an arm, a calc line, a parameter, a
+// `let`, a branch of `if h:`) the goal before it, and after it in bold; the
+// names the step brought into scope are marked `+`.
 function contextHtml(answer) {
   if (!answer) return goalHtml(null);
+  const step = answer.step;
+  const where = [answer.declaration && `\`${answer.declaration}\``, step && step.description]
+    .filter(Boolean)
+    .join(', ');
+  const owner = where ? `<div class="owner">in ${escapeHtml(where)}</div>` : '';
+  const added = new Set((step && step.adds) || []);
+  const rows = (answer.locals || [])
+    .map((h) => {
+      const value = h.value === undefined ? '' : ` := <span class="v">${escapeHtml(h.value)}</span>`;
+      const mark = added.has(h.name) ? ['<div class="h added">+ ', '</div>'] : ['<div class="h">', '</div>'];
+      return `${mark[0]}<span class="n">${escapeHtml(h.name)}</span>: ${escapeHtml(h.type)}${value}${mark[1]}`;
+    })
+    .join('');
+  if (step) {
+    const sign = step.target ? `${step.target}: ` : step.kind === 'proof' ? '⊢ ' : 'expected ';
+    const line = (cls, label, text) =>
+      `<div class="${cls}"><span class="label">${label}</span>${escapeHtml(text)}</div>`;
+    const parts = [];
+    if (step.form === 'calcLine') {
+      if (step.before) parts.push(line('before', 'so far ', step.before));
+      parts.push(line('goal', `line ${sign}`, step.after));
+    } else if (step.form === 'match' || step.form === 'statement') {
+      parts.push(line('goal', sign, step.after));
+    } else {
+      if (step.before) parts.push(line('before', `before ${sign}`, step.before));
+      if (step.rule) parts.push(line('rule', 'rule ', step.rule));
+      parts.push(line('goal', `after ${sign}`, step.after));
+    }
+    return `${owner}${rows}${parts.join('')}`;
+  }
   const label = !answer.checked ? 'has type ' : answer.kind === 'proof' ? '⊢ ' : 'expected ';
-  return `${hypothesisRows(answer.locals)}<div class="goal">${label}${escapeHtml(answer.type)}</div>`;
+  const found =
+    answer.checked && answer.hasType ? `<div class="found">has type ${escapeHtml(answer.hasType)}</div>` : '';
+  return `${owner}${rows}<div class="goal">${label}${escapeHtml(answer.type)}</div>${found}`;
 }
 
 const positionInRange = (p, r) =>

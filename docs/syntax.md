@@ -1649,25 +1649,52 @@ theorem timesOne (n: Nat): n * 1 = n :=
 - **A project may allow open goals** (D3489, D3494): with `check: open-goals: warn` in its `stitchwort.yaml`, `stitchwort check` reports each open goal as a warning, with the same message and place, says "N goals open, allowed by `check: open-goals: warn`", and exits 0 if nothing else fails. It is for a project that is meant to have unfinished parts, such as a book's exercises. The values are `warn` and `fail` (the default, as above); any other is `E-PROJECT-CONFIG`. Only `check` reads it: `audit` still fails each unfinished theorem and everything that uses one, and `test`, `run` and `build` treat open goals as they always do. A single file given by path has no project, so it always fails.
 - **`?` is never filled in by the compiler**, unlike `_`. Where `_` stands for a proof the compiler can't work out (`E-UNSOLVED`), the error suggests writing `?` there to see what's needed.
 - Examples: `examples/goals/` (each one's goals are in `crates/cli/tests/snapshots/examples__goals__*.snap`). The design: [lsp-goal-holes.md](proposals/lsp-goal-holes.md).
-- **The editor shows the goal anywhere, not only at a `?`.** The Goals panel ("Stitchwort: Show Goals") follows the cursor through the whole file: in a proof it shows the names in scope and `⊢` the goal of the expression there, in a program `expected T` (or `has type T` where nothing was expected). It asks the server's `stitchwort/contextAt` once the cursor has rested about 0.3 s, and keeps the previous answer until the next arrives (docs/proposals/goal-at-any-point.md, stage 1). The playground's Goals section still shows `?` goals only.
+- **The editor shows the goal anywhere, not only at a `?`.** The Goals panel ("Stitchwort: Show Goals") follows the cursor through the whole file: in a proof it shows the names in scope and `⊢` the goal of the expression there, in a program `expected T` (with `has type U` below it when the expression's own type differs, or `has type T` alone where nothing was expected). On a step of a proof (a `rewrite` rule, an arm's pattern, a `calc` line, a parameter, a `let`, a branch of `if h:`) it shows the goal before the step and after it, as `goal --at` does (below). It asks the server's `stitchwort/contextAt` once the cursor has rested about 0.3 s, and keeps the previous answer until the next arrives (docs/proposals/goal-at-any-point.md, stage 1). The playground's Goals section still shows `?` goals only.
 
 ### The goal at a point, `stitchwort goal --at`
 
-`stitchwort goal --at FILE:LINE[:COL]` prints the goal and the names in scope at a point of a file, without a `?` there (SW-2779; stage 2 of [goal-at-any-point.md](proposals/goal-at-any-point.md)): the command-line form of the editor's Goals panel (above), for agents and scripts.
+`stitchwort goal --at FILE:LINE[:COL]` prints the goal and the names in scope at a point of a file, without a `?` there (stages 2 and 3 of [goal-at-any-point.md](proposals/goal-at-any-point.md)): the command-line form of the editor's Goals panel (above), for agents and scripts.
 
 ```
 $ stitchwort goal --at chain.sw:9
 chain.sw:9:3
+in `swap`
   a: Nat
   b: Nat
   ⊢ a + b = b + a
 ```
 
-- **The point**: line and column count from 1 (the column in characters); without a column, the line's first character that isn't a blank. The answer is for the smallest expression checked at the point that contains it, whose `range` the JSON gives. In a proof that is `⊢` the goal there: in a `rewrite`'s body, the goal after its rules; in an arm, the arm's. In program code it is `expected T` (a `let`'s value shows as `m: Nat := n + 1`). Where the elaborator found a type rather than checking against one (`checked: false` in the JSON), the type is shown the same way; the second type, "has type U", is not in the command yet.
-- **Scope**: as for `search --at`: a file on its own is read as `check FILE` sees it, and a file of a project (found from the file's folder up, or `--project DIR`; under its source folders) is read in the project through its check cache. The file is checked again with a probe at the point, so the command takes about as long as `check` of the file.
-- **Exit status**: 0 with an answer; 2 with none there (a comment, a signature or pattern, a blank line, or a declaration whose checking stopped before the point) or for a bad argument (`E-GOAL-AT`: no line, unreadable file, a project that doesn't contain the file); 1 for a file that doesn't parse (its errors are printed).
-- **`--json`**: `version` (1) and `at` (`file`, `line`, `column`, as given or as the line's first character), then `context`: `kind` (`proof` or `program`), `target` (the goal, or the expected type), `checked`, `range` (`line`, `column`, `endLine`, `endColumn` of the expression, 1-based, columns in UTF-16 units) and `locals` (each `name`, `type` and, for a `let` of data, `value`). With no answer, `context` is `null` (exit 2). An error is `{"version": 1, "error": {"code", "message"}}`.
-- **Not yet**: a point inside the rules of a chain or a `match` arm's pattern often has no answer of its own; per-step goals (`--steps`, the goal before and after each rule) come in a later stage.
+On a **step** of a proof, the place where its goal changes, it shows the goal before the step and after it, and marks with `+` the names the step brings into scope:
+
+```
+$ stitchwort goal --at basics.sw:4:26
+basics.sw:4:26
+in `multN0M0`, rule 2 of 2 of `rewrite`
+  p: Nat
+  q: Nat
+  before ⊢ q * 0 = 0
+  rule   q * 0 = 0
+  after  ⊢ 0 = 0
+
+$ stitchwort goal --at basics.sw:14:5
+basics.sw:14:5
+in `chain`, line 2 of 2 of `calc`, `_ = c`
+  a: Nat
+  b: Nat
+  c: Nat
+  h1: a = b
+  h2: b = c
+  so far a = b
+  line   ⊢ b = c
+```
+
+- **The point**: line and column count from 1 (the column in characters); without a column, the line's first character that isn't a blank. The answer is for the step the point is on, else the smallest expression checked there, whose `range` the JSON gives. The first line after the point names the declaration, and the step if there is one.
+- **Steps**: a rule of a `rewrite` (before, the rule's equation as used, after; for `rewrite … at h`, `h`'s type before and after); an arm's pattern up to its `=>` (the `match`'s goal, the pattern's variables, the arm's goal); `match … with` itself (its goal); a `calc` line up to its proof (`so far`, what the lines before it prove, and `line`, its statement); a lambda's parameter; a `let`'s name; the `then` and `else` of `if h:` (with `h: c` or `h: ¬c`); and a declaration's signature (`the statement`: its body's goal, with the parameters in scope). In a step's proof or body the answer is that expression's, as anywhere else.
+- **Goals**: in a proof, `⊢` the goal: what the expression has to prove, also when it fails to (an unknown name, a proof of something else). In program code, `expected T`, and below it `has type U` when the expression's own type differs (`def widen (n: Nat): Int := n` on `n`); where nothing was expected, `has type T` alone. Goals print as `?` goals do: arithmetic computes as it is checked, so `theorem addZero (n: Nat): n + 0 = n := rfl` shows `⊢ n = n` on `rfl`.
+- **Scope**: as for `search --at`: a file on its own is read as `check FILE` sees it, and a file of a project (found from the file's folder up, or `--project DIR`; under its source folders) is read in the project through its check cache. The file is checked again with a probe at the point, so the command takes about as long as `check` of the file; the steps are recorded only for the declaration the point is in, and only on this request, never by `check`.
+- **Exit status**: 0 with an answer; 2 with none there (a comment, a blank line, or a declaration whose checking stopped before the point) or for a bad argument (`E-GOAL-AT`: no line, unreadable file, a project that doesn't contain the file); 1 for a file that doesn't parse (its errors are printed).
+- **`--json`**: `version` (1), `at` (`file`, `line`, `column`, as given or as the line's first character) and `declaration`, then `context`: `kind` (`proof` or `program`), `target` (the goal, or the expected type), `checked`, `hasType` (the type found, when it isn't `target`; else null), `range` (`line`, `column`, `endLine`, `endColumn` of the expression or step, 1-based, columns in UTF-16 units), `locals` (each `name`, `type` and, for a `let` of data, `value`) and `step`: null, or `form` (`rewriteRule`, `arm`, `match`, `calcLine`, `lambda`, `let`, `if`, `statement`), `description` (as the text heading says it), `range`, `index` and `of` (from 1: rule 2 of 2), `kind`, `before`, `after`, `adds` (the names it brings into scope), `rule` and `target` (`h` of `rewrite … at h`). On a step, `target` and `locals` are the goal after it and the names in scope there. With no answer, `context` is `null` (exit 2). An error is `{"version": 1, "error": {"code", "message"}}`.
+- **Not yet**: every step of a declaration in one call (`--steps`) and the editor's Next/Previous Step commands; what `cases` split into and which facts `omega` used; goals after an error in the same branch.
 
 ### Counterexamples to a theorem
 

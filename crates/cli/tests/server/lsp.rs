@@ -2332,8 +2332,17 @@ fn context_at_answers_anywhere_in_an_expression() {
     assert_eq!(next["type"], "Nat");
     assert_eq!(next["value"], "start + y");
     assert_eq!(found["range"]["start"]["line"], 5);
-    // Nothing in the `match` arm's pattern, or in the signature's name.
-    assert_eq!(context_at(&mut client, 0, 5), Value::Null);
+    // In the signature: the statement, its body's expected type.
+    let statement = context_at(&mut client, 0, 5);
+    assert_eq!(statement["step"]["form"], "statement", "{statement:?}");
+    assert_eq!(statement["type"], "Nat", "{statement:?}");
+    // On an arm's pattern: the arm, and what its pattern binds.
+    let arm = context_at(&mut client, 3, 8);
+    assert_eq!(
+        arm["step"]["description"], "arm 2 of 2, `| Cons y rest`",
+        "{arm:?}"
+    );
+    assert_eq!(arm["step"]["adds"], json!(["y", "rest"]), "{arm:?}");
     client.shutdown();
     let _ = std::fs::remove_dir_all(&dir);
 }
@@ -2361,6 +2370,43 @@ fn context_at_says_whether_the_type_is_a_proposition() {
     assert_eq!(proof["type"], "double n = n + n", "{proof:?}");
     let program = context_at(&mut client, 0, 30);
     assert_eq!(program["kind"], "program", "{program:?}");
+    client.shutdown();
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// On a rewrite rule the answer has the step: the goal before and after
+/// the rule; a program point whose type differs from the one expected has
+/// both (D3499).
+#[test]
+fn context_at_a_step_and_has_type() {
+    let dir = temp_dir("context-at-step");
+    let file = dir.join("step.sw");
+    let text = "theorem flip (a b: Nat) (h: a = b): b = a :=\n  rewrite h in rfl\n\n\
+                def widen (n: Nat): Int := n\n";
+    std::fs::write(&file, text).unwrap();
+    let uri = uri(&file);
+    let mut client = Client::start();
+    client.open(&uri, text);
+    client.diagnostics(&uri, 1);
+    let context_at = |client: &mut Client, line: u32, character: u32| {
+        client.request(
+            "stitchwort/contextAt",
+            json!({"textDocument": {"uri": uri}, "position": {"line": line, "character": character}}),
+        )
+    };
+    let rule = context_at(&mut client, 1, 10);
+    assert_eq!(rule["declaration"], "flip", "{rule:?}");
+    let step = &rule["step"];
+    assert_eq!(step["form"], "rewriteRule", "{rule:?}");
+    assert_eq!(step["description"], "rule 1 of 1 of `rewrite`");
+    assert_eq!(step["before"], "b = a");
+    assert_eq!(step["rule"], "a = b");
+    assert_eq!(step["after"], "b = b");
+    assert_eq!(rule["type"], "b = b");
+    let program = context_at(&mut client, 3, 27);
+    assert_eq!(program["type"], "Int", "{program:?}");
+    assert_eq!(program["hasType"], "Nat", "{program:?}");
+    assert_eq!(program["step"], serde_json::Value::Null);
     client.shutdown();
     let _ = std::fs::remove_dir_all(&dir);
 }

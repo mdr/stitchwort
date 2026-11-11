@@ -319,6 +319,9 @@ impl Elaborator {
                 .into();
             }
         }
+        for f in files {
+            self.probe_declaration(f.module);
+        }
         let mut diagnostics: Vec<(usize, Diagnostic)> = Vec::new();
         let mut first_test = self.tables.tests.len();
         self.unit.module = ModuleState {

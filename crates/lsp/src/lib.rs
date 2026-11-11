@@ -1462,9 +1462,11 @@ impl Main {
     /// through its check cache, the file's own namespace unreplayed), so
     /// like the code action it runs on a search thread, and a newer
     /// request for the document, or an edit, supersedes it. The answer is
-    /// `{range, type, checked, kind, locals: [{name, type, value?}]}`
-    /// (`kind` is `proof` when the type is a proposition, else `program`),
-    /// or null.
+    /// `{range, type, checked, kind, hasType, locals: [{name, type,
+    /// value?}], declaration, step}` (`kind` is `proof` when the type is a
+    /// proposition, else `program`; `hasType` the type found when it isn't
+    /// `type`; `step`, on a step of a proof, `{form, description, range,
+    /// index, of, kind, before, after, adds, rule, target}`), or null.
     fn context_at(&self, request: Request) {
         let id = request.id.clone();
         let Ok(p) = serde_json::from_value::<lsp_types::TextDocumentPositionParams>(request.params)
@@ -4176,13 +4178,34 @@ fn context_at(
 ) -> serde_json::Value {
     let found = with_context(server, source, target, line, character, cancel, |_, c| c);
     match found {
-        Some(c) => serde_json::json!({
-            "range": range(c.range),
-            "type": c.ty,
-            "checked": c.checked,
-            "kind": if c.proof { "proof" } else { "program" },
-            "locals": c.locals,
-        }),
+        Some(c) => {
+            let kind = |proof: bool| if proof { "proof" } else { "program" };
+            let step = c.step.as_ref().map(|s| {
+                serde_json::json!({
+                    "form": s.form,
+                    "description": s.description,
+                    "range": range(s.range),
+                    "index": s.index,
+                    "of": s.of,
+                    "kind": kind(s.proof),
+                    "before": s.before,
+                    "after": s.after,
+                    "adds": s.adds,
+                    "rule": s.rule,
+                    "target": s.target,
+                })
+            });
+            serde_json::json!({
+                "range": range(c.range),
+                "type": c.ty,
+                "checked": c.checked,
+                "kind": kind(c.proof),
+                "hasType": c.found,
+                "locals": c.locals,
+                "declaration": c.declaration,
+                "step": step,
+            })
+        }
         None => serde_json::Value::Null,
     }
 }

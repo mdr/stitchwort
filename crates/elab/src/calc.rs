@@ -107,7 +107,7 @@ fn elaborate(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value, Ends)> {
     let ty_term = Rc::new(cx.quote(&ty)?);
     let nat_ty = Value::Data(nat(cx)?, Vec::new().into());
     let mut link: Option<Link> = None;
-    for step in steps {
+    for (index, step) in steps.iter().enumerate() {
         let rel = Rel::of(step.rel);
         if rel != Rel::Eq && !cx.unify(&ty, &nat_ty)? {
             return Err(relation_error(cx, step, rel, &ty));
@@ -120,6 +120,29 @@ fn elaborate(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value, Ends)> {
         let prop_term = relation(cx, rel, &ty_term, end, next.clone())?;
         let prop = cx.eval(&prop_term)?;
         let line = written(cx, &prop_term);
+        let head = Span {
+            end: step
+                .proof
+                .as_ref()
+                .map_or(step.span.end, |p| p.span().start),
+            ..step.span
+        };
+        if cx.e.records_steps(head) {
+            cx.e.note_step(
+                cx,
+                crate::goals::StepNote {
+                    form: crate::goals::StepForm::CalcLine,
+                    head,
+                    index: Some((index, steps.len())),
+                    before: link.as_ref().map(|l| l.prop.clone()),
+                    after: prop.clone(),
+                    adds: Vec::new(),
+                    rule: None,
+                    parts: Vec::new(),
+                    target: None,
+                },
+            );
+        }
         let proof = match &step.proof {
             Some(p) => check_step(cx, p, &prop, &prop_term, &line)?,
             None => by_computation(cx, step, &prop, &line)?,
