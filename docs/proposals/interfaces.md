@@ -673,6 +673,20 @@ structure or waits, so nothing depends on the order obligations or
 candidates are tried in, declaration order, file order, load order or
 which namespaces were checked first.
 
+**From the expected type (SW-2864).** One more way to settle a call's own
+dictionary, used only when a comparison of the call's type with the
+expected type has failed and an argument is waiting for it: if the
+dictionary's type is unknown and the call has exactly one such dictionary,
+each global instance of the interface without parameters is tried, inside a
+snapshot, as the head of that type, and the call's type compared with the
+expected type again. The head is chosen only if exactly one instance makes
+them equal; the dictionary is then found by the steps above. It never
+looks at dictionaries made in other arguments, an instance with
+parameters, or a local dictionary, and an error in a trial means it doesn't
+fit, so the original mismatch is what's reported. This is what lets
+`DecEq.trueOfNe (same => …)` meet `(a + a != n) = True`, whose `!=` has
+the instance's method already applied.
+
 ### 5.6 One instance per type, checked locally
 
 **The rules** (D158), all normative:

@@ -326,6 +326,64 @@ fn calls(g: &Ev, d: &Def, t: &Term, depth: usize, under: usize, out: &mut Vec<Ih
     }
 }
 
+/// `step` with the marks of [`Def::mark_rec`] dropped from the terms the
+/// proof takes from it.
+fn unmark_step(g: &Ev, d: &Def, step: Step) -> R<Step> {
+    let all = |ts: Vec<(Term, Icit)>| -> R<Vec<(Term, Icit)>> {
+        (ts.into_iter())
+            .map(|(t, icit)| Ok((unmark(g, d, &t)?, icit)))
+            .collect()
+    };
+    Ok(match step {
+        Step::Ite { depth, head, args } => Step::Ite {
+            depth,
+            head,
+            args: all(args)?,
+        },
+        Step::Dec {
+            depth,
+            args,
+            yes,
+            uniq,
+            normal,
+        } => Step::Dec {
+            depth,
+            args: all(args)?,
+            yes,
+            uniq,
+            normal: match normal {
+                Some((t, x)) => Some((unmark(g, d, &t)?, x)),
+                None => None,
+            },
+        },
+        Step::Helper {
+            depth,
+            after,
+            head,
+            args,
+            cols,
+            col_tys,
+            eq,
+            hyp,
+            proof,
+            result,
+        } => Step::Helper {
+            depth,
+            after,
+            head,
+            args: all(args)?,
+            cols,
+            col_tys: (col_tys.iter())
+                .map(|t| Ok(unmark(g, d, t)?))
+                .collect::<R<_>>()?,
+            eq,
+            hyp,
+            proof,
+            result,
+        },
+    })
+}
+
 /// The core's lemmas the proof splits with.
 struct Splitters {
     inspect: DefId,
@@ -506,6 +564,17 @@ impl Elaborator {
                 if steps.len() != choices.len() {
                     return skip("a branch's splits couldn't be followed");
                 }
+                // A recursive call can be in a split's scrutinee or
+                // condition too (`match f rest with`), so in a hypothesis.
+                // Its mark is no term the kernel takes (`f y… p` applies
+                // `f`'s result to `p`), and only the right side's calls
+                // need their proofs.
+                let binders = (binders.into_iter())
+                    .map(|(x, icit, ty)| Ok((x, icit, unmark(g, d, &ty)?)))
+                    .collect::<R<Vec<_>>>()?;
+                let steps = (steps.into_iter())
+                    .map(|s| unmark_step(g, d, s))
+                    .collect::<R<Vec<_>>>()?;
                 cases.push(Case {
                     row: k,
                     name: case_name(suffix).into(),

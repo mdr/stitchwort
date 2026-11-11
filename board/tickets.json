@@ -1,5 +1,5 @@
 {
-  "next": 2881,
+  "next": 2883,
   "tickets": [
     {
       "id": 47,
@@ -18545,9 +18545,9 @@
         "elab"
       ],
       "epic": "elaborator-kernel",
-      "body": "From docs/proposals/postpone-fixed-point.md. After SW-2063 and D2930. Case 4 accept example; lambda-after-expected-unfolded.sw to accept if it checks; queue unit tests; snap:hashes, hash_stability. Closes SW-963 (2). 60-90 min.",
+      "body": "From docs/proposals/postpone-fixed-point.md. After SW-2063 and D2930. Case 4 accept example; lambda-after-expected-unfolded.sw to accept if it checks; queue unit tests; snap:hashes, hash_stability. Closes SW-963 (2). 60-90 min.\n11 Nov 2026: lambda-after-expected-unfolded.sw now checks (SW-2864's instance guess picks the fold's Add dictionary) and moved to accept/; this ticket no longer needs to move it.",
       "created": "2026-11-07",
-      "updated": "2026-11-07",
+      "updated": "2026-11-11",
       "commits": []
     },
     {
@@ -30319,12 +30319,12 @@
     {
       "id": 2864,
       "title": "DecEq.trueOfNe (same => …) can't infer same's type when the goal is (a + a != n) = True: the lambda is elaborated before the result type is unified (SW-2831)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2864",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "Progress (Sonnet lane, 11 Nov 2026): the ordering was not the cause. The lambda is already held until the expected type is compared (apply_args_postponing / finish_application); that comparison failed: the call's result is `DecEq.decide ?d ?x ?y` (dictionary unsolved, its type unknown), while `!=` in the expected type already has the instance's method applied (`Nat.decEq (a + a) n`), so neither x, y nor the instance could be solved and omega ran without `same`'s type (the omega error hid the mismatch). Fix: interfaces::unify_guessing_instance, a last fallback in finish_application's comparison: if exactly one instance (or the found one, when the type is known) makes the types equal, it is chosen. New example lambda-after-expected-instance.sw (+ hash snapshot); 2020 Day09 Proofs/Window.sw back to `DecEq.trueOfNe (same => differ (omega))`. Checked: repro, 13 lambda/implicit examples, 12 postponement unit tests, Day09.\nVerifier: reject/lambda-after-expected-unfolded.sw now checks (a true theorem the guess makes inferable); moved to accept/ by the orchestrator with a new hash snapshot. Uncached aoc 69.8 s. Model result: Sonnet, needed fixes (Opus review: context must-fix, trial errors), 22 + 4 min (est. 75).",
       "created": "2026-11-11",
       "updated": "2026-11-11",
       "commits": []
@@ -30477,12 +30477,12 @@
     {
       "id": 2876,
       "title": "Aoc.Year2021.Day16.readPackets.induct is refused by the kernel (E-NOT-A-FUNCTION) on main; would fail a_projects_inducts. Find the shape (small repro didn't reproduce) and fix or skip with a reason (SW-2868)",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-2876",
       "labels": [],
       "epic": "proof-automation",
-      "body": "",
+      "body": "Estimate: 75 min.\n\nProgress (11 Nov 2026, 17:05): cause found and fixed in 25 min (commit 4a57a1811). A `decreasing` definition that calls itself in a lifted `match`'s scrutinee (or an `if` condition) and again in a branch: while `f.induct` is made, recursive calls are marked with their decrease proof (`f y… p`); the right side was unmarked, but the case binders (hypothesis `f rest p = None`) and the steps' scrutinee terms weren't, so the statement applied `f`'s result to `p` (E-NOT-A-FUNCTION). Repro: examples/accept/function-induct-call-in-scrutinee.sw (fails on main, passes here). Fix: `induct_cases` unmarks binders and steps (`unmark_step`). On this branch alone readPackets.induct now skips at its nested `Some (False, …)` pattern; with SW-2868 cherry-picked on top (clean) it is made, and function_induct:: tests and all function-induct examples pass. Finding: a call only in a scrutinee gets no induction hypothesis (and a definition whose only calls are there gets no f.induct, silently).\nOpus review: no must-fix (docs/reviews/SW-2876-induct-marks-review.md); follow-ups SW-2881. Verifier passed: readPackets.induct is now made; uncached aoc 66 s. Model result: Opus, worked, 20 min (est. 75).",
       "created": "2026-11-11",
       "updated": "2026-11-11",
       "commits": []
@@ -30529,6 +30529,32 @@
     {
       "id": 2880,
       "title": "Canonical-instance lookup in the unifier: when a method of an unsolved dictionary meets a call to a function exactly one instance uses for that method, pick that instance (Coq canonical structures); no trials, covers instances with parameters (List, Fin n, Set k); replaces SW-2864's unify_guessing_instance. docs/reviews/SW-2864-guessing-instance-review.md (5)",
+      "status": "backlog",
+      "agent": "Opus",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2881,
+      "title": "f.induct marks follow-ups (SW-2876 review): debug_assert that unmark(t) == t on a decreasing definition's generated statement and proof before declaring (not a parameter-count check, which fires on function-returning f); run unmark only for decreasing definitions; unmark_step strips only args (or all its fields consistently); make the example show the hypotheses' types. docs/reviews/SW-2876-induct-marks-review.md",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2882,
+      "title": "A failed rfl on a long chain of stuck sums is very slow to report: the cost is in building the error message (check::refl_error -> Ctx::show), 90M steps / 3.4 s at depth 1,000, over 60 s at 10,000; bound the display. Also: comparing two Nat.add chains recurses on the Rust stack once per level in the per-argument case-tree comparison (E-RESOURCE at depth 1,000 in a test thread). (SW-2875)",
       "status": "backlog",
       "agent": "Opus",
       "where": "",
