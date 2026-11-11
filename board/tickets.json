@@ -3506,9 +3506,9 @@
     {
       "id": 1073,
       "title": "f.induct: lifted-match alternatives with a catch-all or a literal pattern get no case (6 skips: 4 std, 2 AoC)",
-      "status": "next",
+      "status": "doing",
       "agent": "Sonnet",
-      "where": "",
+      "where": ".claude/worktrees/SW-1073",
       "labels": [
         "elaborator",
         "proof"
@@ -3516,7 +3516,7 @@
       "epic": "proof-automation",
       "body": "From SW-1057 (2 Nov 2026), decided yes (Claude, delegated). Quantified IHs for calls under binders / non-tail matches (12 skips) stay on §9's later row.\n\n\n2 Nov 2026: the List.unfold part is done (experiment SW-1084, Sonnet's version, merged; Opus review: merge as is, follow-ups SW-1089). Nested patterns in lifted matches on non-indexed one-constructor types now get their case. Merge tier 1052/1052 after accepting the new example's hash snapshot (e831790e; the lane hadn't run hash_stability), function_induct 5/5 with the library and AoC sweeps, audits clean. Catch-alls and literals in lifted matches remain. Model result: Sonnet, needed fixes (missing hash snapshot for its new example).\n",
       "created": "2026-11-02",
-      "updated": "2026-11-04",
+      "updated": "2026-11-11",
       "commits": []
     },
     {
