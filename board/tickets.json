@@ -30477,12 +30477,12 @@
     {
       "id": 2876,
       "title": "Aoc.Year2021.Day16.readPackets.induct is refused by the kernel (E-NOT-A-FUNCTION) on main; would fail a_projects_inducts. Find the shape (small repro didn't reproduce) and fix or skip with a reason (SW-2868)",
-      "status": "review",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-2876",
       "labels": [],
       "epic": "proof-automation",
-      "body": "Estimate: 75 min.\n\nProgress (11 Nov 2026, 17:05): cause found and fixed in 25 min (commit 4a57a1811). A `decreasing` definition that calls itself in a lifted `match`'s scrutinee (or an `if` condition) and again in a branch: while `f.induct` is made, recursive calls are marked with their decrease proof (`f y… p`); the right side was unmarked, but the case binders (hypothesis `f rest p = None`) and the steps' scrutinee terms weren't, so the statement applied `f`'s result to `p` (E-NOT-A-FUNCTION). Repro: examples/accept/function-induct-call-in-scrutinee.sw (fails on main, passes here). Fix: `induct_cases` unmarks binders and steps (`unmark_step`). On this branch alone readPackets.induct now skips at its nested `Some (False, …)` pattern; with SW-2868 cherry-picked on top (clean) it is made, and function_induct:: tests and all function-induct examples pass. Finding: a call only in a scrutinee gets no induction hypothesis (and a definition whose only calls are there gets no f.induct, silently).\n",
+      "body": "Estimate: 75 min.\n\nProgress (11 Nov 2026, 17:05): cause found and fixed in 25 min (commit 4a57a1811). A `decreasing` definition that calls itself in a lifted `match`'s scrutinee (or an `if` condition) and again in a branch: while `f.induct` is made, recursive calls are marked with their decrease proof (`f y… p`); the right side was unmarked, but the case binders (hypothesis `f rest p = None`) and the steps' scrutinee terms weren't, so the statement applied `f`'s result to `p` (E-NOT-A-FUNCTION). Repro: examples/accept/function-induct-call-in-scrutinee.sw (fails on main, passes here). Fix: `induct_cases` unmarks binders and steps (`unmark_step`). On this branch alone readPackets.induct now skips at its nested `Some (False, …)` pattern; with SW-2868 cherry-picked on top (clean) it is made, and function_induct:: tests and all function-induct examples pass. Finding: a call only in a scrutinee gets no induction hypothesis (and a definition whose only calls are there gets no f.induct, silently).\nOpus review: no must-fix (docs/reviews/SW-2876-induct-marks-review.md); follow-ups SW-2881. Verifier passed: readPackets.induct is now made; uncached aoc 66 s. Model result: Opus, worked, 20 min (est. 75).",
       "created": "2026-11-11",
       "updated": "2026-11-11",
       "commits": []
