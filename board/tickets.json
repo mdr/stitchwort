@@ -31259,12 +31259,12 @@
     {
       "id": 2936,
       "title": "[Sonnet] kache served a stale stitchwort-elab to a fresh worktree's cli build (new methods missing until RUSTC_WRAPPER= and a clean): a compiler cache returning wrong artifacts; reproduce and fix the cache key or disable the case (SW-2932)",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "dev-loop-speed",
-      "body": "\nD3526 (Matt, 11 Nov 2026): the one token-heavy lane tonight. Expected: 75 min.\n\nLane notes (Sonnet, 11 Nov 2026, ~45 min): reproduced, cause found, fixed in our setup. Cause: kache 1.0.0 (nixpkgs) compile-first keying: a missed predicted key is re-derived after the compile from the files as they are then, so a file saved during the compile stores the old code under the new content's key (upstream kache#1489, fixed in 1.1; our pin is 1.0.0). Evidence in SW-2932's kache log: the elab entry stored at 20:41 lacks BrokenTest but shares its sources hash with the later builds; four later builds hit it. Not cargo fingerprints, not the target clone (none), not features or path remapping. Fix: the lane cargo config sets KACHE_DEFERRED_DISCOVERY=0 and KACHE_MODIFIED_INPUT_GUARD=1 (each alone passes the check); task kache:config (rewrite the shared file) and task kache:check (reproduces: STALE on defaults, ok with the switches, 40 s); docs/workflow.md \"kache and stale artifacts\". To apply: task kache:config in the main checkout after merge; optional kache purge --crate-name stitchwort_<crate>. Follow-up: move the kache pin to 1.1+ (upstream is at 2.0.x), then drop the switches. Model result: Sonnet, worked, 45 min (est. 75).\n",
+      "body": "\nD3526 (Matt, 11 Nov 2026): the one token-heavy lane tonight. Expected: 75 min.\n\nLane notes (Sonnet, 11 Nov 2026, ~45 min): reproduced, cause found, fixed in our setup. Cause: kache 1.0.0 (nixpkgs) compile-first keying: a missed predicted key is re-derived after the compile from the files as they are then, so a file saved during the compile stores the old code under the new content's key (upstream kache#1489, fixed in 1.1; our pin is 1.0.0). Evidence in SW-2932's kache log: the elab entry stored at 20:41 lacks BrokenTest but shares its sources hash with the later builds; four later builds hit it. Not cargo fingerprints, not the target clone (none), not features or path remapping. Fix: the lane cargo config sets KACHE_DEFERRED_DISCOVERY=0 and KACHE_MODIFIED_INPUT_GUARD=1 (each alone passes the check); task kache:config (rewrite the shared file) and task kache:check (reproduces: STALE on defaults, ok with the switches, 40 s); docs/workflow.md \"kache and stale artifacts\". To apply: task kache:config in the main checkout after merge; optional kache purge --crate-name stitchwort_<crate>. Follow-up: move the kache pin to 1.1+ (upstream is at 2.0.x), then drop the switches. Model result: Sonnet, worked, 45 min (est. 75).\nkache:check passes on main after kache:config; stitchwort_* entries purged. Model result: Sonnet, worked, 40 min (est. 75).",
       "created": "2026-11-11",
       "updated": "2026-11-11",
       "commits": [
@@ -31339,12 +31339,12 @@
     {
       "id": 2942,
       "title": "[DeepSeek] Goals panel on a middle calc line (_ = … := rewrite h in rfl) shows the chain's overall end as 'line ⊢ … = Win', not the step's own statement (… = (if True …)); first and last lines are right (SW-2933, book 02-cases.sw:191:7)",
-      "status": "review",
+      "status": "done",
       "agent": "DeepSeek",
       "where": "",
       "labels": [],
       "epic": "editor-playground",
-      "body": "\nModel result: DeepSeek, worked, ~20 min (est. 40). Adds StepNote.after_written for calc lines. Reviewed; waits for the next batch (after SW-2940's verifier).",
+      "body": "\nModel result: DeepSeek, worked, ~20 min (est. 40). Adds StepNote.after_written for calc lines. Reviewed; waits for the next batch (after SW-2940's verifier).\nMerged after a --continue merge with SW-2927; goal tests 13/13.",
       "created": "2026-11-11",
       "updated": "2026-11-11",
       "commits": []
