@@ -29958,13 +29958,13 @@
     },
     {
       "id": 2837,
-      "title": "Using unfinished proofs, stage 2 follow-ups (SW-2805): the can't-be-checked-yet rule only applies when the relying declaration is in the user's module (a user in another namespace stuck on a goal shows a real error); it is approximate (an error whose message merely shows a relying definition is called unfinished); two anonymous instances sharing a declaration key share an assumption; memoise the reliance walk (O(declarations) per component)",
-      "status": "backlog",
+      "title": "Using unfinished proofs, stage 2 fixes from the Opus review (docs/reviews/SW-2805-assumptions-stage2-review.md): M1 counterexamples calls a goal-relying theorem checked; S1 is_unfinished from terms; S2 stuck rule only when stuck; S3 memoised walk",
+      "status": "doing",
       "agent": "Opus",
-      "where": "",
+      "where": ".claude/worktrees/SW-2837",
       "labels": [],
       "epic": "proof-automation",
-      "body": "",
+      "body": "\nOpus review of SW-2805: M1 must-fix (counterexample.rs:206 treats Final as checked); S1 reliance marks miss derive_pending_ord, failed components' helpers, data in eval: read unfinished off terms (memoised like audit); S2 waits_on_goal hides real errors (double 2 = 5 := rfl becomes silent unfinished under warn): apply only when actually stuck on an assumption; S3 memoise the walk, skip data, no per-component module scan. Includes this ticket's earlier items (cross-module stuck rule, anonymous instances).",
       "created": "2026-11-11",
       "updated": "2026-11-11",
       "commits": []
