@@ -1,5 +1,5 @@
 {
-  "next": 2793,
+  "next": 2796,
   "tickets": [
     {
       "id": 47,
@@ -29385,6 +29385,45 @@
     {
       "id": 2792,
       "title": "Share the FILE:LINE[:COL] splitting between search --at and goal --at in crates/cli/src/main.rs (SW-2779)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "editor-playground",
+      "body": "",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2793,
+      "title": "stitchwort test under check: open-goals: warn still exits 1 on any open goal ('77 goals open … aren't finished' in sf/): should test follow check's setting? Decision for Matt (SW-2762)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2794,
+      "title": "Under open-goals: warn, stitchwort index / --index records goals as warnings, not goals: check what code navigation does with that (SW-2762)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2795,
+      "title": "LSP and web loaders use Config::default() and don't read check: open-goals; decide when a problems panel needs it (SW-2762)",
       "status": "backlog",
       "agent": "",
       "where": "",
