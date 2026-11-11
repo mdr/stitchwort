@@ -30687,7 +30687,7 @@
     {
       "id": 2892,
       "title": "[Sonnet] Book G1: bundle book/ and sf/ in the playground (bundle-projects.sh accepts the check: key and more than sources: [src]; chapter entries; a link per chapter); covers SW-2723 (docs/proposals/proving-with-stitchwort-outline.md)",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
@@ -30882,7 +30882,7 @@
     {
       "id": 2907,
       "title": "[DeepSeek] 'Search for a proof' is added before the splits, so the playground's Cmd+. menu lists it first; list it last, after the quick actions (SW-2890)",
-      "status": "review",
+      "status": "done",
       "agent": "DeepSeek",
       "where": "",
       "labels": [],
@@ -30895,7 +30895,7 @@
     {
       "id": 2908,
       "title": "[DeepSeek] Bundler's book_entries expects src/Book/ChNN…, but the book's chapters are src/00-setting-up.sw, 01-computing.sw, …: list book chapters from src/NN-*.sw in order (SW-2892, SW-2902)",
-      "status": "review",
+      "status": "done",
       "agent": "DeepSeek",
       "where": "",
       "labels": [],
@@ -30973,12 +30973,12 @@
     {
       "id": 2914,
       "title": "[Sonnet] Browser tier: 6 failures after SW-2892 (and SW-2890): content-hash test (version.json in the worker's requests), roguelike-is-a-second-project (deep-equal; likely the dropdown now lists sf/book), W-MODULE-NAME warning format, JavaScript tab, Run with scripted input, error underlined after a jump. Run at load ~33 (17 min). Find which are caused by SW-2892/SW-2890 (compare with a build at 9ebedf6de) and fix those; file the rest with reasons",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "editor-playground",
-      "body": "",
+      "body": "\nVerifier: browser 85/86 (the jump test, SW-2915, fails as before), affected 665/665. Model result: Sonnet, worked, 17 min (est. 75).",
       "created": "2026-11-11",
       "updated": "2026-11-11",
       "commits": []
