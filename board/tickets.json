@@ -1,5 +1,5 @@
 {
-  "next": 2761,
+  "next": 2762,
   "tickets": [
     {
       "id": 47,
@@ -28973,6 +28973,19 @@
       "labels": [],
       "epic": "audit-fuzzing",
       "body": "",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2761,
+      "title": "Decidable record, stage 3: remove the elaborator machinery that chose between the two forms of if (unused_proof_if, %conj/%plain, tested_bool, W-MATCH-DECISION-IF); omega, equations and decreasing on holds",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-2761",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "D3480; D3492 (Matt, 11 Nov 2026): run on Opus as a third exception to compute mode (pace 0.95).\n\nPlan: docs/proposals/decidable-record.md §8 stage 3 and §5.1: remove unused_proof_if/kept_if/tagged_if, the %conj/%plain tags and settle_tagged, tested_bool, W-MATCH-DECISION-IF and its examples; generalise bind.rs's comparison case; omega and equations.rs on holds; the if half of decreasing/plain.rs; docs/syntax.md and the guide. Also SW-2751 (match through an if, E-MATCH-MOTIVE since stage 2) and, if they fall out, SW-2708, SW-2750. Opus. Est. 6 h.\n",
       "created": "2026-11-11",
       "updated": "2026-11-11",
       "commits": []
