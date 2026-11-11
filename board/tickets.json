@@ -1,5 +1,5 @@
 {
-  "next": 2821,
+  "next": 2822,
   "tickets": [
     {
       "id": 47,
@@ -29736,6 +29736,19 @@
     {
       "id": 2820,
       "title": "Decidable stage 4 can drop Decidable.elimIf/elimDecTrueIf and registry ElimDecIf/ElimDecTrueIf (unused by Rust after SW-2761); short_circuit can go only after 5 aoc proofs (2020 Day17, Day04, 2025 Day04, Day08) stop rewriting with Bool.andTrue/andFalse",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2821,
+      "title": "f.eq.* hypotheses for or and not conditions read (Decidable.or …).holds = True: make them readable (docs/reviews/SW-2761-decidable-stage3-review.md)",
       "status": "backlog",
       "agent": "Sonnet",
       "where": "",
