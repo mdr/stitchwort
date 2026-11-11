@@ -31181,12 +31181,12 @@
     {
       "id": 2930,
       "title": "[DeepSeek] Goals panel: a cursor on the word rewrite shows only the goal; show the step (before, rule, after) there too, not only on the rule (book SW-2918)",
-      "status": "doing",
+      "status": "review",
       "agent": "DeepSeek",
       "where": "",
       "labels": [],
       "epic": "editor-playground",
-      "body": "",
+      "body": "\nModel result: DeepSeek, worked, ~30 min (est. 40). Rewrite AST keeps keyword/at/in spans; StepNote.extra. Reviewed; waits for the next batch.",
       "created": "2026-11-11",
       "updated": "2026-11-11",
       "commits": []
