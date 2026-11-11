@@ -29194,15 +29194,17 @@
     {
       "id": 2778,
       "title": "Goal at any point, stage 1: the Goals panel follows the cursor everywhere using the existing stitchwort/contextAt request; ⊢ for proofs, expected T (+ has type U) in programs (docs/proposals/goal-at-any-point.md; D3496-D3499)",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2778",
       "labels": [],
       "epic": "editor-playground",
-      "body": "",
+      "body": "Progress (lane, 710d77343): the Goals panel (editors/vscode) now follows the cursor everywhere. goalAt first (150 ms); if the cursor is not on the hole, contextAt after 300 ms rest; proof shows ⊢, program shows expected T, unchecked shows has type T; stale answers dropped by a counter, last answer kept while pending, dimmed with a note when there is none. contextAt gained kind (proof/program) via is_proof_type in note_probe. contextAt does not return both the expected and found types, so \"expected T, has type U when they differ\" (D3499) is not done: left for stage 3. Tests: client.test.js 11/11; lsp.rs context_at_answers_anywhere and context_at_says_whether (new) pass; context_at_in_a_projects_file takes over 76 s even in release on main (preexisting), not finished on this branch in debug.\n",
       "created": "2026-11-11",
       "updated": "2026-11-11",
-      "commits": []
+      "commits": [
+        "710d77343"
+      ]
     },
     {
       "id": 2779,
