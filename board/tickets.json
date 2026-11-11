@@ -1,5 +1,5 @@
 {
-  "next": 2869,
+  "next": 2870,
   "tickets": [
     {
       "id": 47,
@@ -30376,6 +30376,21 @@
       "where": "",
       "labels": [],
       "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2869,
+      "title": "Skip the bounds check in Array.getLt on the machine and native code when its proof is real: today both look the index up with a checked .get(i) (crates/rt/src/prims.rs:899) and panic if it fails, even though the erased proof already guarantees the index is in range. Use an unchecked read where the proof doesn't rely on an open goal; keep the check (and D3516's stop-naming-the-goal, if decided) where it does. Profile first (an array-heavy AoC day) and record the gain in the performance log. JS has no check today (Matt, 11 Nov 2026)",
+      "status": "backlog",
+      "agent": "Opus",
+      "where": "",
+      "labels": [
+        "parked"
+      ],
+      "epic": "performance",
       "body": "",
       "created": "2026-11-11",
       "updated": "2026-11-11",
