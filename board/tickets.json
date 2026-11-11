@@ -1,5 +1,5 @@
 {
-  "next": 2865,
+  "next": 2866,
   "tickets": [
     {
       "id": 47,
@@ -30320,6 +30320,19 @@
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2865,
+      "title": "Rename Decidable.toBoolOfNot (the last toBool-named decision lemma; it turns not-p into d.holds = False) to fit the record, e.g. Decidable.holdsFalse, the converse of refute: user-visible lemma name, Matt's call (SW-2831 review)",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "std-library",
       "body": "",
       "created": "2026-11-11",
       "updated": "2026-11-11",
