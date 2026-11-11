@@ -1,5 +1,5 @@
 {
-  "next": 2837,
+  "next": 2838,
   "tickets": [
     {
       "id": 47,
@@ -29541,7 +29541,7 @@
     {
       "id": 2805,
       "title": "Using unfinished proofs, stage 2: each ? becomes an assumption; users kernel-checked; the can't-be-checked-yet rule; count sf/ and aoc/ fallbacks (docs/proposals/using-unfinished-proofs.md; D3504-D3507)",
-      "status": "review",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-2805",
       "labels": [],
@@ -29559,7 +29559,7 @@
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "\nFrom SW-2805 (stage 2): replace the elaborator's unfinished marks with relied_on per declaration and name the goal from each assumption's label; say in audit and goal that equation lemmas (half.eq1, eq2) exist for a definition with a ? and are unfinished; summary lines are interim ('checked assuming the goals hold', D3511 pending).",
       "created": "2026-11-11",
       "updated": "2026-11-11",
       "commits": []
@@ -29952,6 +29952,19 @@
       "labels": [],
       "epic": "docs-tutorials",
       "body": "Matt, 11 Nov 2026, D3510: yes, port the next chapter so it's ready when he works through Induction. Est. 3 h. Follows SW-2707 (Basics, Induction), SW-2762 (exercises as ?), SW-2763 (own nat).",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2837,
+      "title": "Using unfinished proofs, stage 2 follow-ups (SW-2805): the can't-be-checked-yet rule only applies when the relying declaration is in the user's module (a user in another namespace stuck on a goal shows a real error); it is approximate (an error whose message merely shows a relying definition is called unfinished); two anonymous instances sharing a declaration key share an assumption; memoise the reliance walk (O(declarations) per component)",
+      "status": "backlog",
+      "agent": "Opus",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
       "created": "2026-11-11",
       "updated": "2026-11-11",
       "commits": []
