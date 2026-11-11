@@ -82,6 +82,7 @@ fn goal_of(session: &Session, id: DefId) -> Option<FoundGoal> {
             name: fresh.clone(),
             ty,
             value: None,
+            splits: None,
         });
         names.push(fresh.as_str().into());
         t = cod.strip_loc();
