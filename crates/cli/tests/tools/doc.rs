@@ -321,7 +321,7 @@ fn theorems_are_ranked_for_filter_map_map_and_add() {
     let names: Vec<&str> = theorems.iter().map(|(n, _)| *n).collect();
     assert_eq!(
         names[..3],
-        ["Std.Nat.addZero", "Std.Nat.addOne", "Std.Ring.natAddOne"]
+        ["Std.Nat.addZero", "Std.Nat.zeroAdd", "Std.Nat.addOne"]
     );
     assert!(names.contains(&"Std.Nat.addComm"), "{names:?}");
     assert!(names.contains(&"Std.Nat.addAssoc"), "{names:?}");
