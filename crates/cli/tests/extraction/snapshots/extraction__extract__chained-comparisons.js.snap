@@ -781,8 +781,9 @@ const $Std$dDecidable$dand = (v2, v3) => (v2.tag === "True" ? v3 : { tag: "False
 const $Std$dDecidable$dor = (v2, v3) => (v2.tag === "True" ? { tag: "True" } : v3);
 const $Std$dNat$ddecLessEq = $Std$dNat$dleq;
 const $Std$dNat$ddecLessThan = (v0, v1) => $Std$dNat$dleq((v0 + 1n), v1);
+const $Std$dDecidable$dandThen = (v2, v3) => (v2.tag === "True" ? (v3)(undefined) : { tag: "False" });
 const $Main$dtwice = (v0) => $Std$dNat$dadd(v0, v0);
-const $Main$dinRange = (v0) => (((v1) => ($Std$dNat$dleq(3n, v1).tag === "True" ? $Std$dNat$dleq(v1, 9n) : { tag: "False" }))($Main$dtwice(v0)).tag === "True" ? 1n : 0n);
+const $Main$dinRange = (v0) => (((v1) => $Std$dDecidable$dandThen($Std$dNat$ddecLessThan(2n, v1), ((v2) => $Std$dNat$dleq(v1, 9n))))($Main$dtwice(v0)).tag === "True" ? 1n : 0n);
 const $Main$dnamed = (v0) => (((v1) => $Std$dDecidable$dand($Std$dNat$ddecLessThan(2n, v1), $Std$dNat$dleq(v1, 9n)))($Main$dtwice(v0)).tag === "True" ? 1n : 0n);
 const $Main$dasBool = (v0) => { const v1 = $Main$dtwice(v0); return ($Std$dNat$dleq(3n, v1).tag === "True" ? $Std$dNat$dleq(v1, 9n) : { tag: "False" }); };
 const $Main$dnested = (v0) => (((v1) => $Std$dDecidable$dand($Std$dBool$dnot($Std$dNat$dequal(v0, 0n)), $Std$dDecidable$dand($Std$dNat$ddecLessThan(2n, v1), $Std$dNat$dleq(v1, 9n))))($Main$dtwice(v0)).tag === "True" ? v0 : 0n);

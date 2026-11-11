@@ -884,7 +884,20 @@ const $Std$dDecidable$dholds = (v1) => {
   const v2 = v1;
   return v2;
 };
+const $Std$dDecidable$delim$d$gmatch1 = (v2, v3, v4, v5) => {
+  switch (v5.tag) {
+    case "False": {
+      return (v4)(undefined);
+    }
+    case "True": {
+      return (v3)(undefined);
+    }
+  }
+  throw new Error("unreachable");
+};
+const $Std$dDecidable$delim = (v2, v3, v4) => $Std$dDecidable$delim$d$gmatch1(v2, v3, v4, v2);
 const $Std$dNat$ddecEq = $Std$dNat$dequal;
+const $Std$dNat$ddecLessThan = (v0, v1) => $Std$dNat$dleq((v0 + 1n), v1);
 const $Std$dText$dappend = (a, b) => a + b;
 const $Std$dNat$dtoText = (n) => n.toString();
 const $Std$dEffect$dfoldComp = (done, call, c) => effFold(done, call, c, null);
@@ -1251,7 +1264,7 @@ const $Main$dStop$drelays = (v1, v2) => {
     return $Main$dStop$drelay$e(((v4) => $Main$dStop$drelays(v3, v2)));
   }
 };
-const $Main$dchecked = (v0) => ($Std$dNat$dleq(6n, v0).tag === "True" ? $Std$dEffect$dbind({ tag: "Call", o: { tag: "L", o: { tag: "%stop", x: $Std$dText$dappend("too big: ", $Std$dShow$d$gtoText($Std$dNat$dinstShow)(v0)) } }, rest: ((v2) => ({ tag: "Done", value: v2 })) }, ((v2) => ({ tag: "Done", value: $Std$dEmpty$dabsurd(v2) }))) : { tag: "Done", value: $Std$dNat$dadd(v0, 1n) });
+const $Main$dchecked = (v0) => ($Std$dNat$ddecLessThan(5n, v0).tag === "True" ? $Std$dEffect$dbind({ tag: "Call", o: { tag: "L", o: { tag: "%stop", x: $Std$dText$dappend("too big: ", $Std$dShow$d$gtoText($Std$dNat$dinstShow)(v0)) } }, rest: ((v2) => ({ tag: "Done", value: v2 })) }, ((v2) => ({ tag: "Done", value: $Std$dEmpty$dabsurd(v2) }))) : { tag: "Done", value: $Std$dNat$dadd(v0, 1n) });
 const $Main$dstopped = (v0, v1) => $Main$dStop$dtoResult$e(((v2) => $Main$dStop$drelays($Std$dNat$dmin(v0, 20n), ((v3) => $Std$dList$dmap({ tag: "Ops" }, { tag: "Total" }, v1, ((v4) => $Main$dchecked(v4)))))));
 const $Main$dpickOrStop = (v0) => $Std$dEffect$dbind($Std$dEffect$dtranslate((sigmap$0 ??= $Std$dEffect$dsigCase($Std$dEffect$dsigLeft, $Std$dEffect$dsigFromNo)), $Main$dpicks(v0)), ((v1) => ($Std$dNat$dequal(v1, 20n).tag === "True" ? $Std$dEffect$dbind({ tag: "Call", o: { tag: "R", o: { tag: "L", o: { tag: "%stop", x: "twenty" } } }, rest: ((v3) => ({ tag: "Done", value: v3 })) }, ((v3) => ({ tag: "Done", value: $Std$dEmpty$dabsurd(v3) }))) : { tag: "Done", value: v1 })));
 const $Main$dresumeEachResult$e = (v2, v3) => {

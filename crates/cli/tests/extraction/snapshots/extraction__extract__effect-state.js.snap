@@ -885,7 +885,20 @@ const $Std$dDecidable$dholds = (v1) => {
   const v2 = v1;
   return v2;
 };
+const $Std$dDecidable$delim$d$gmatch1 = (v2, v3, v4, v5) => {
+  switch (v5.tag) {
+    case "False": {
+      return (v4)(undefined);
+    }
+    case "True": {
+      return (v3)(undefined);
+    }
+  }
+  throw new Error("unreachable");
+};
+const $Std$dDecidable$delim = (v2, v3, v4) => $Std$dDecidable$delim$d$gmatch1(v2, v3, v4, v2);
 const $Std$dNat$ddecEq = $Std$dNat$dequal;
+const $Std$dNat$ddecLessEq = $Std$dNat$dleq;
 const $Std$dEffect$dfoldComp = (done, call, c) => effFold(done, call, c, null);
 const $Std$dEffect$dbind = effBind;
 const $Std$dEffect$dsigInject = (v4, v5) => {
