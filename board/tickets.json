@@ -1,5 +1,5 @@
 {
-  "next": 2846,
+  "next": 2847,
   "tickets": [
     {
       "id": 47,
@@ -30070,6 +30070,19 @@
       "where": ".claude/worktrees/SW-2845",
       "labels": [],
       "epic": "docs-tutorials",
+      "body": "",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2846,
+      "title": "Full-tier tests skip silently under nextest --profile full without STITCHWORT_TIER=full (only the Taskfile sets it, Taskfile.yml:330): make the full profile set it, or have full_tier() fail loudly when the profile is full but the variable isn't (Overmind rerun, 11 Nov 2026)",
+      "status": "backlog",
+      "agent": "DeepSeek",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
       "body": "",
       "created": "2026-11-11",
       "updated": "2026-11-11",
