@@ -69,7 +69,7 @@ comes in.
 ```sh
 stitchwort check      # every definition and worked proof; a warning per exercise left
 stitchwort test       # the `Compute` examples, written as tests
-stitchwort repl src/Sf/Lf/Basics/Basics.sw   # evaluate, and `:t` for types
+stitchwort repl src/Sf/Lf/Basics/Basics.sw   # that file's namespace, in the project; `:t` for types
 ```
 
 **Exercises.** An exercise is its statement with `?` where your work

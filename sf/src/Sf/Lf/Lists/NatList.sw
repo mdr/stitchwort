@@ -33,9 +33,10 @@ type NatProd =
 -- constructor `Pair` to two arguments of type `Nat`."
 --
 -- The book's `Check (pair 3 5) : natprod` asks Rocq to confirm a type.
--- Stitchwort's REPL does that with `:t` (`stitchwort repl
--- src/Sf/Lf/Lists/NatList.sw`, then `:t Pair (ofNat 3) (ofNat 5)`), and
--- in the editor, hovering over an expression shows its type.
+-- Stitchwort's REPL does that with `:t` (in this folder, `stitchwort repl
+-- src/Sf/Lf/Lists/NatList.sw`, then `import Sf.Lf.Nat (ofNat)` and `:t
+-- Pair (ofNat 3) (ofNat 5)`), and in the editor, hovering over an
+-- expression shows its type.
 --
 -- Functions for taking a pair apart are defined by pattern matching:
 
