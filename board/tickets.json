@@ -30817,12 +30817,12 @@
     {
       "id": 2902,
       "title": "[Opus] Proving with Stitchwort, chapters 0-2: book/ project, Setting up, Computing, Cases (D3521; outline docs/proposals/proving-with-stitchwort-outline.md)",
-      "status": "doing",
+      "status": "review",
       "agent": "Opus",
       "where": "",
       "labels": [],
       "epic": "docs-tutorials",
-      "body": "D3521 (Matt, 11 Nov 2026): 'yes, let's write this book or the first few chapters ... do the book first or the first chapter or two of the book and then push it so I can try it out in VS Code and then work on the playground.' Expected: 120 min.",
+      "body": "D3521 (Matt, 11 Nov 2026): 'yes, let's write this book or the first few chapters ... do the book first or the first chapter or two of the book and then push it so I can try it out in VS Code and then work on the playground.' Expected: 120 min.\n\nProgress (Opus, 19:15): book/ written: stitchwort.yaml, README, src/00-setting-up.sw, 01-computing.sw, 02-cases.sw (~5,400 words; files numbered so VS Code's explorer lists them in order, namespaces Book.SettingUp/Computing/Cases). `stitchwort check` in book/: passes, 11 goals open (the exercises); `stitchwort test`: 8 passed. Every exercise solved in a scratch copy and checked against rfl and cases; editor steps (Split on m, column split, arm-variable split, Add the missing arms, rewrite before/after) checked by driving `stitchwort lsp`. Commit 80785cd4a on lane/SW-2902. Friction: a test of an unfinished (?) function is silently left out of `stitchwort test`; Split on a `_` column nests (SW-2886, book works round it); E-REFL's \"stuck on m\" note missing when stuck inside an `if`; hover on a ? repeats the goal twice in the markdown.\n",
       "created": "2026-11-11",
       "updated": "2026-11-11",
       "commits": []

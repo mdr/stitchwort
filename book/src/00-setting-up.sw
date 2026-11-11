@@ -1,0 +1,164 @@
+-- Proving with Stitchwort
+--
+-- Chapter 0. Setting up
+--
+-- About 15 minutes.
+--
+-- This book teaches you to prove things about programs. You write a small
+-- program, say what it should do as a theorem, and then show that it
+-- does, with the editor helping at every step. You need to know how to
+-- program in a typed language (TypeScript, Rust, Scala, Kotlin, anything
+-- like them). You don't need to know any logic: the book starts from
+-- nothing.
+--
+-- Each chapter is a file like this one. Read it from top to bottom in the
+-- editor. The text is in comments (lines starting `--`); the code between
+-- them is real, and the editor checks it as you read. The steps tell you
+-- what to do: hover over a name, press a key, change a line and see what
+-- happens. Do them; reading alone teaches much less.
+--
+-- This chapter gets the editor working and shows you the few things you
+-- will use on every page after this one.
+
+-- ## 0.1 Opening the book in VS Code
+--
+-- From a checkout of the Stitchwort repository, in a terminal:
+--
+--     nix develop -c task vscode:install
+--
+-- This builds the `stitchwort` program and installs the VS Code extension.
+-- Run it again after you pull new changes, so the two stay in step. Then
+-- put the repository's `target/release` folder on your PATH, or set the
+-- VS Code setting `stitchwort.path` to the full path of
+-- `target/release/stitchwort`.
+--
+-- In VS Code, choose File > Open Folder... and open the `book` folder of
+-- the repository (the folder with `stitchwort.yaml` in it). Its `src`
+-- folder holds one file per chapter; you are reading the first.
+--
+-- To check that it works, hover the mouse over the name `square` in the
+-- code below. A box appears with
+--
+--     def Book.SettingUp.square (n: Nat): Nat
+--
+-- and the comment written above it. If no box appears, open the Output
+-- panel (View > Output), pick "Stitchwort" from the list at its top
+-- right, and read the log: it usually says what went wrong, most often
+-- that VS Code can't find the `stitchwort` program. After fixing that,
+-- run "Developer: Reload Window" from the command palette (Cmd-Shift-P on
+-- a Mac, Ctrl-Shift-P elsewhere).
+--
+-- In this book, Cmd means Ctrl if you aren't on a Mac.
+
+namespace Book.SettingUp
+
+-- ## 0.2 A five-line program
+
+--| The square of `n`.
+def square (n: Nat): Nat := n * n
+
+test "three squared is nine" := square 3 == 9
+
+theorem squareOfThree: square 3 = 9 := rfl
+
+-- Three declarations:
+--
+-- - `def` defines a function. `square` takes a number, `n`, of type `Nat`
+--   (the natural numbers: 0, 1, 2, ...) and gives back a `Nat`. The line
+--   above it, starting `--|`, is its documentation: that's what the hover
+--   box showed.
+-- - `test` runs some code and checks that it gives `True`.
+-- - `theorem` states a fact, `square 3 = 9`, and after `:=` gives its
+--   proof. `rfl` is the simplest proof there is: it says "compute both
+--   sides, and they come out the same". Chapter 1 says much more about
+--   it.
+--
+-- Hover over other names too: `Nat`, `rfl`, `==`. Hovering is how you ask
+-- the editor what something is, and you will do it all the time.
+
+-- ## 0.3 Running a test
+--
+-- Above the `test` line there is a small "▶ Run test" link. Click it. A
+-- message at the bottom right says the test passed.
+--
+-- Now change the `9` in the test to `10` and click "▶ Run test" again. This
+-- time the message says it failed, the line is marked, and the Output
+-- panel shows both sides of the comparison: `9` against `10`. Put the `9`
+-- back.
+--
+-- Notice that nothing turned red while you typed `10`: the editor checks
+-- that a test makes sense (its types) as you type, but runs it only when
+-- you ask. The flask icon in the left-hand bar opens the Testing panel,
+-- which lists every test in the book and runs any of them, or all.
+
+-- ## 0.4 Breaking a theorem
+--
+-- Change the `9` in `squareOfThree` to `10`. This time the line turns red
+-- at once, without running anything: theorems are checked as you type.
+-- Hover over the red `rfl` to read why. The message says that `rfl` can't
+-- prove this, that the left side computes to `9`, and that the statement
+-- is false. Put the `9` back and the red goes away.
+--
+-- That is the difference between a test and a theorem, and the reason for
+-- this book: a test checks one input when you run it, and a theorem is
+-- checked all the time, and can speak about every input at once.
+
+-- ## 0.5 A hole, and the Goals panel
+--
+-- A `?` stands for a part you haven't written yet. Try it: replace the
+-- `rfl` in `squareOfThree` with `?`.
+--
+-- The `?` is underlined, but not in red: it's an open goal, not an
+-- error. Hover over it. The box shows what has to go in its place,
+-- after the `⊢` sign:
+--
+--     ⊢ square 3 = 9
+--
+-- That's the goal: the thing left to prove at that point. Here it is the
+-- whole statement, because the whole proof is missing. In later chapters
+-- the goal will change as you build a proof up piece by piece, and
+-- reading it will be the main thing you do.
+--
+-- Now open the Goals panel: run "Stitchwort: Show Goals" from the command
+-- palette (Cmd-Shift-P). A panel opens beside the editor and shows the
+-- goal wherever your cursor is, so you don't need to hover. Keep it open
+-- from now on: every chapter uses it.
+--
+-- Put `rfl` back in place of the `?`.
+
+-- ## 0.6 Seeing what's left to do
+--
+-- Exercises in this book are holes. A theorem for you to prove ends with
+-- `:= ?`, and a function for you to write has `?` as its body. Each one
+-- has a label above it, like this:
+--
+--     -- Exercise 2.1 (one star). No move beats itself.
+--
+-- The stars say how hard it is, from one to three. "(by hand)" means the
+-- editor could do the exercise for you in one word, and the point is to
+-- do it yourself first.
+--
+-- To see every hole still open:
+--
+-- - The Problems panel (Cmd-Shift-M) lists each `?` in the open files,
+--   with its goal. Click one to jump to it.
+-- - In a terminal, in the `book` folder, `stitchwort goal` lists every
+--   open goal of the whole book, and what relies on each.
+-- - `stitchwort check` checks the whole book. It passes while holes are
+--   open, and ends by counting them ("12 goals open"), because this
+--   project's `stitchwort.yaml` says `open-goals: warn`.
+--
+-- A hole doesn't stop you going on: a later theorem can use an earlier one
+-- that is still `?`, and the editor carries on checking past it.
+
+-- ## 0.7 Two more things worth knowing
+--
+-- - Saving a file formats it (spacing and line breaks), so don't be
+--   surprised when it moves a little. VS Code's setting
+--   `"[stitchwort]": { "editor.formatOnSave": false }` turns that off.
+-- - F12 on a name jumps to where it is defined, including into the
+--   standard library: try it on `Nat`. Go back with Ctrl-minus (on a Mac,
+--   Ctrl and the minus key; elsewhere, Alt-Left).
+--
+-- That's all the setup. Chapter 1, in `01-computing.sw`, starts the book
+-- proper: a small game, its tests, and its first theorems.
