@@ -1,0 +1,14 @@
+---
+source: crates/cli/tests/running/examples.rs
+assertion_line: 692
+expression: output
+---
+[E-UNSOLVED] Error: can't work out an implicit argument
+   ╭─[ reject/unsolved-header-hole.sw:7:17 ]
+   │
+ 7 │ def mynil: List _ := Nil
+   │                 ┬  
+   │                 ╰── the compiler couldn't work out what goes here
+   │ 
+   │ Note: a `_` in a declaration's type must be worked out from the type alone, since the header is checked before the body: write the type here
+───╯
