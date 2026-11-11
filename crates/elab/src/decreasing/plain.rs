@@ -731,8 +731,9 @@ fn rebuild(
 }
 
 impl Elaborator {
-    /// `f.%plain` and `f.%plain.%same` for `f.%step` (`step`), and the twins of the `match`es lifted from it (`helpers`), which are
-    /// pushed to `made`, with the spans of their `match`es to `lifted`, for
+    /// `f.%plain` and `f.%plain.%same` for `f.%step` (`step`), and the
+    /// twins of the `match`es lifted from it (`helpers`), which are pushed
+    /// to `made`, with the spans of their `match`es to `lifted`, for
     /// `tables.lifted` once all succeeded; `None` when nothing can be shown
     /// plainly.
     pub(super) fn plain_view(

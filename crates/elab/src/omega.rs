@@ -744,7 +744,7 @@ impl Lib {
             div_step: builtin_def(cx, Builtin::DivStep)?,
             ite: builtin_def(cx, Builtin::IfThenElse)?,
             elim_helper: crate::carry::elim_helper(&cx.g()),
-            to_bool: builtin_def(cx, Builtin::ToBool)?,
+            to_bool: builtin_def(cx, Builtin::Holds)?,
             nat_dec_eq: def("Std.Nat.decEq")?,
             int_dec_eq: builtin_def(cx, Builtin::DecEqInt)?,
             not: builtin_def(cx, Builtin::Not)?,

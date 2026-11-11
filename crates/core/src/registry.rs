@@ -353,7 +353,7 @@ builtins! {
     // `not`, by identity, so `not p` on a proposition can mean `Not p`
     BoolNot = "Bool.not": Def,
     Decidable = "Decidable": Data,
-    ToBool = "Decidable.holds": Def => "[p] r",
+    Holds = "Decidable.holds": Def => "[p] r",
     // `match h: c < x` on a comparison its decision reduces to `Bool.decTrue b`
     // for matches on `b` itself (crates/elab/src/matching.rs)
     DecTrue = "Bool.decTrue": Def => "b",

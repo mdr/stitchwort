@@ -424,7 +424,7 @@ impl<'g> Lowerer<'g> {
             array_natives,
             shapes: g.env.defs().iter().map(|_| OnceCell::new()).collect(),
             if_then_else: g.env.registry().def(Builtin::IfThenElse),
-            to_bool: g.env.registry().def(Builtin::ToBool),
+            to_bool: g.env.registry().def(Builtin::Holds),
             effect: EffectNatives::new(g),
             fusion: EffectNatives::new(g).and_then(|_| StateFusion::new(g)),
             classifier: EffectNatives::new(g).and_then(|_| Classifier::new(g)),

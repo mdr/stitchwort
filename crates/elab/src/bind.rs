@@ -182,7 +182,7 @@ impl Decision {
     /// `(x… => holds {prop'} d) operands…`, so that its type, `Bool`,
     /// doesn't mention them and the kernel doesn't compute them either.
     pub(crate) fn into_bool(self, cx: &Ctx, prop: Term) -> Result<Term> {
-        let to_bool = Term::Def(builtin_def(cx, Builtin::ToBool)?);
+        let to_bool = Term::Def(builtin_def(cx, Builtin::Holds)?);
         let bool_ty = Term::data(builtin_data(cx, Builtin::Bool)?, Vec::new());
         let of = |prop: Term, d: Term| {
             // The standard decision of `m <= n` is `Bool.decTrue (Nat.leq m n)`,

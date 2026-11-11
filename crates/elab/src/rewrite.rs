@@ -1324,8 +1324,8 @@ fn replace_occurrences_carrying(
     };
     let lhs = &equation.lhs;
     check_motive(cx, rule, place, &motive, &equation.carrier, from, lhs)?;
-    let carried_any = search_carried;
-    match round_trip(cx, &motive, lhs, &proof_value, goal, carried_any, remaining)? {
+    let any_carried = search_carried;
+    match round_trip(cx, &motive, lhs, &proof_value, goal, any_carried, remaining)? {
         Some(true) => {}
         Some(false) if round_trip_awaiting_helpers(cx, &motive, lhs, &proof_value, goal)? => {}
         Some(false) => {
@@ -1447,9 +1447,12 @@ struct Search<'a, 'e> {
     error: RefCell<Option<Diagnostic>>,
     /// The first occurrence selected, in the goal's own context.
     first: RefCell<Option<Term>>,
-    /// Set to carry decisions' proofs along the motive's equation
-    /// (`crate::carry`): the carrier, the goal's level, and the equation
-    /// `lhs = x'` in the motive's context, and where.
+    /// Set only when occurrences are replaced with carrying
+    /// ([`Carrying::WhereOther`] or [`Carrying::Everywhere`]), to carry
+    /// decisions' proofs along the motive's equation (`crate::carry`) when
+    /// the search meets a decision whose proof the motive would otherwise
+    /// generalise: the carrier, the goal's level, the equation `lhs = x'`
+    /// in the motive's context, and where.
     carry: Option<(crate::carry::Carry, usize, Term, Carrying)>,
     /// Whether a decision's proofs were carried along.
     carried: Cell<bool>,
