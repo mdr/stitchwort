@@ -140,7 +140,9 @@ fn goal_at_in_a_project() {
     let (code, out, err) = goal(dir.parent().unwrap(), &["--at", "tiny/src/tiny.sw:6"]);
     assert_eq!(code, 0, "{out}{err}");
     assert!(
-        out.ends_with("  before ⊢ a + b = b + a\n  rule   a + b = b + a\n  after  ⊢ b + a = b + a\n"),
+        out.ends_with(
+            "  before ⊢ a + b = b + a\n  rule   a + b = b + a\n  after  ⊢ b + a = b + a\n"
+        ),
         "{out}"
     );
     let (code, out, _) = goal(&dir, &["--at", "src/tiny.sw:1"]);
