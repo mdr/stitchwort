@@ -1,5 +1,5 @@
 {
-  "next": 2914,
+  "next": 2915,
   "tickets": [
     {
       "id": 47,
@@ -30659,12 +30659,12 @@
     {
       "id": 2890,
       "title": "[Sonnet] Cmd+. answers at once: proof search leaves the code-action request; a 'Search for a proof' action runs it only when picked (D3519)",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "editor-playground",
-      "body": "D3519 (Matt, 11 Nov 2026): 'for simplicity and to make it clear what you're doing, offer a search for a proof option for the quick actions so that it's always quick. We can think about maybe doing some background stuff later on.' Background search (cursor ?, after a pause, cached by goal) is deferred. Expected: 75 min.",
+      "body": "D3519 (Matt, 11 Nov 2026): 'for simplicity and to make it clear what you're doing, offer a search for a proof option for the quick actions so that it's always quick. We can think about maybe doing some background stuff later on.' Background search (cursor ?, after a pause, cached by goal) is deferred. Expected: 75 min.\nMerged with SW-2902; affected 678/678, merge tier 1319/1319; browser test rewritten, not yet run (SW-2914). Model result: Sonnet, worked, 23 min (est. 75).",
       "created": "2026-11-11",
       "updated": "2026-11-11",
       "commits": []
@@ -30817,12 +30817,12 @@
     {
       "id": 2902,
       "title": "[Opus] Proving with Stitchwort, chapters 0-2: book/ project, Setting up, Computing, Cases (D3521; outline docs/proposals/proving-with-stitchwort-outline.md)",
-      "status": "review",
+      "status": "done",
       "agent": "Opus",
       "where": "",
       "labels": [],
       "epic": "docs-tutorials",
-      "body": "D3521 (Matt, 11 Nov 2026): 'yes, let's write this book or the first few chapters ... do the book first or the first chapter or two of the book and then push it so I can try it out in VS Code and then work on the playground.' Expected: 120 min.\n\nProgress (Opus, 19:15): book/ written: stitchwort.yaml, README, src/00-setting-up.sw, 01-computing.sw, 02-cases.sw (~5,400 words; files numbered so VS Code's explorer lists them in order, namespaces Book.SettingUp/Computing/Cases). `stitchwort check` in book/: passes, 11 goals open (the exercises); `stitchwort test`: 8 passed. Every exercise solved in a scratch copy and checked against rfl and cases; editor steps (Split on m, column split, arm-variable split, Add the missing arms, rewrite before/after) checked by driving `stitchwort lsp`. Commit 80785cd4a on lane/SW-2902. Friction: a test of an unfinished (?) function is silently left out of `stitchwort test`; Split on a `_` column nests (SW-2886, book works round it); E-REFL's \"stuck on m\" note missing when stuck inside an `if`; hover on a ? repeats the goal twice in the markdown.\n",
+      "body": "D3521 (Matt, 11 Nov 2026): 'yes, let's write this book or the first few chapters ... do the book first or the first chapter or two of the book and then push it so I can try it out in VS Code and then work on the playground.' Expected: 120 min.\n\nProgress (Opus, 19:15): book/ written: stitchwort.yaml, README, src/00-setting-up.sw, 01-computing.sw, 02-cases.sw (~5,400 words; files numbered so VS Code's explorer lists them in order, namespaces Book.SettingUp/Computing/Cases). `stitchwort check` in book/: passes, 11 goals open (the exercises); `stitchwort test`: 8 passed. Every exercise solved in a scratch copy and checked against rfl and cases; editor steps (Split on m, column split, arm-variable split, Add the missing arms, rewrite before/after) checked by driving `stitchwort lsp`. Commit 80785cd4a on lane/SW-2902. Friction: a test of an unfinished (?) function is silently left out of `stitchwort test`; Split on a `_` column nests (SW-2886, book works round it); E-REFL's \"stuck on m\" note missing when stuck inside an `if`; hover on a ? repeats the goal twice in the markdown.\nbook/ checks (11 goals open, the exercises). Model result: Opus, worked, 14 min (est. 120).",
       "created": "2026-11-11",
       "updated": "2026-11-11",
       "commits": []
@@ -30965,6 +30965,19 @@
       "where": "",
       "labels": [],
       "epic": "std-library",
+      "body": "",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2914,
+      "title": "[Sonnet] Browser tier: 6 failures after SW-2892 (and SW-2890): content-hash test (version.json in the worker's requests), roguelike-is-a-second-project (deep-equal; likely the dropdown now lists sf/book), W-MODULE-NAME warning format, JavaScript tab, Run with scripted input, error underlined after a jump. Run at load ~33 (17 min). Find which are caused by SW-2892/SW-2890 (compare with a build at 9ebedf6de) and fix those; file the rest with reasons",
+      "status": "next",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "editor-playground",
       "body": "",
       "created": "2026-11-11",
       "updated": "2026-11-11",
