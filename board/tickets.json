@@ -1,5 +1,5 @@
 {
-  "next": 2871,
+  "next": 2872,
   "tickets": [
     {
       "id": 47,
@@ -3506,7 +3506,7 @@
     {
       "id": 1073,
       "title": "f.induct: lifted-match alternatives with a catch-all or a literal pattern get no case (6 skips: 4 std, 2 AoC)",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1073",
       "labels": [
@@ -3514,7 +3514,7 @@
         "proof"
       ],
       "epic": "proof-automation",
-      "body": "From SW-1057 (2 Nov 2026), decided yes (Claude, delegated). Quantified IHs for calls under binders / non-tail matches (12 skips) stay on §9's later row.\n\n\n2 Nov 2026: the List.unfold part is done (experiment SW-1084, Sonnet's version, merged; Opus review: merge as is, follow-ups SW-1089). Nested patterns in lifted matches on non-indexed one-constructor types now get their case. Merge tier 1052/1052 after accepting the new example's hash snapshot (e831790e; the lane hadn't run hash_stability), function_induct 5/5 with the library and AoC sweeps, audits clean. Catch-alls and literals in lifted matches remain. Model result: Sonnet, needed fixes (missing hash snapshot for its new example).\n\nProgress (11 Nov 2026, Sonnet): a lifted `match`'s catch-all alternative now gets its case. At each constructor no other alternative takes, the split lemma's branch binds the fields and `e = C fields`, proves each hypothesis `(vars) → e = p → Void` that the earlier alternatives didn't match (a `J` along `e = C fields`, then along the hypothesis, with the `%apart` discriminator shared with the tree's overlap proofs), and gives the catch-all's proof under those `let`s. Std now gets `Map.Tree.lookupList.induct`, `Map.Spec.lastBelow.induct`, `Map.lookupWithOnto.induct`; example `examples/accept/function-induct-catchall.sw`; test `a_catch_all_in_a_lifted_match`. Number literals still skip, with their own reason (a literal above 0 is a chain of `Succ`, a nested pattern on a type with two constructors). Machine.run (2024 day 17) stays skipped: its `Next after (Some value)` is a nested pattern on `Option`. Pre-existing: `function_induct::a_nested_pattern_in_a_lifted_match` fails on main too (E-RESOURCE while checking `List.sumByFilter`).",
+      "body": "From SW-1057 (2 Nov 2026), decided yes (Claude, delegated). Quantified IHs for calls under binders / non-tail matches (12 skips) stay on §9's later row.\n\n\n2 Nov 2026: the List.unfold part is done (experiment SW-1084, Sonnet's version, merged; Opus review: merge as is, follow-ups SW-1089). Nested patterns in lifted matches on non-indexed one-constructor types now get their case. Merge tier 1052/1052 after accepting the new example's hash snapshot (e831790e; the lane hadn't run hash_stability), function_induct 5/5 with the library and AoC sweeps, audits clean. Catch-alls and literals in lifted matches remain. Model result: Sonnet, needed fixes (missing hash snapshot for its new example).\n\nProgress (11 Nov 2026, Sonnet): a lifted `match`'s catch-all alternative now gets its case. At each constructor no other alternative takes, the split lemma's branch binds the fields and `e = C fields`, proves each hypothesis `(vars) → e = p → Void` that the earlier alternatives didn't match (a `J` along `e = C fields`, then along the hypothesis, with the `%apart` discriminator shared with the tree's overlap proofs), and gives the catch-all's proof under those `let`s. Std now gets `Map.Tree.lookupList.induct`, `Map.Spec.lastBelow.induct`, `Map.lookupWithOnto.induct`; example `examples/accept/function-induct-catchall.sw`; test `a_catch_all_in_a_lifted_match`. Number literals still skip, with their own reason (a literal above 0 is a chain of `Succ`, a nested pattern on a type with two constructors). Machine.run (2024 day 17) stays skipped: its `Next after (Some value)` is a nested pattern on `Option`. Pre-existing: `function_induct::a_nested_pattern_in_a_lifted_match` fails on main too (E-RESOURCE while checking `List.sumByFilter`).\nModel result: Sonnet, worked, 22 min (est. 90). Catch-alls done; literal alternatives filed as SW-2868. Verifier passed (one flaky timings test under load, passed on rerun).",
       "created": "2026-11-02",
       "updated": "2026-11-11",
       "commits": [
@@ -30399,6 +30399,19 @@
     {
       "id": 2870,
       "title": "Proof tests set session limits for a 2 MiB stack on 64/256 MiB threads: ~39 Session::new() calls in crates/driver/tests/proofs/*.rs can fail E-RESOURCE in debug like SW-2867; move them to Session::for_stack with a shared constant or a with_session helper; optionally make Budget::start's stack-check flag the mismatch as a setup error (SW-2867)",
+      "status": "backlog",
+      "agent": "DeepSeek",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
+      "body": "",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2871,
+      "title": "timings::declarations_are_listed_slowest_first_with_full_names is flaky under load (expected Main.slow first, got Main.even, Main.odd at load ~50; passed on rerun): make 'slow' slower by a wide margin or compare by step counts (SW-1073 verifier)",
       "status": "backlog",
       "agent": "DeepSeek",
       "where": "",
