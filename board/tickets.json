@@ -1,5 +1,5 @@
 {
-  "next": 2760,
+  "next": 2761,
   "tickets": [
     {
       "id": 47,
@@ -28954,6 +28954,19 @@
     {
       "id": 2759,
       "title": "Check that no readback reaches a variable outside its context: a fuzz or audit oracle over messages and counterexamples (after SW-2757's erased-placeholder readback bug)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "audit-fuzzing",
+      "body": "",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2760,
+      "title": "Audit with search at 96d29b46b (11 Nov, Overmind): 0 failed, 147 vacuity warnings (std 10: Float.Theory magUnits*/halveLow/firstLow/firstHigh/addInfComm, Parse lines*/lineBreak*; rogue 10, among them the generated Level.ext/Plan.ext/State.ext and .eq lemmas; aoc 127, list on Overmind's scratchpad au/aoc.log). Triage which are narrow hypotheses vs truly vacuous; generated ext/eq lemmas probably shouldn't be warned about",
       "status": "backlog",
       "agent": "",
       "where": "",
