@@ -3927,7 +3927,7 @@ impl Drop for TempDir {
 fn eval(path: &Path, expr: &str, cache: &CacheArgs) -> ExitCode {
     let mut session = new_session(false);
     use_cache(&mut session, cache, Path::new("."));
-    if !load(&mut session, path) {
+    if !load_for_evaluation(&mut session, path) {
         return ExitCode::FAILURE;
     }
     match evaluate(&mut session, expr, false) {
@@ -3940,6 +3940,43 @@ fn eval(path: &Path, expr: &str, cache: &CacheArgs) -> ExitCode {
             ExitCode::FAILURE
         }
     }
+}
+
+/// Loads `path` for `eval` and `repl`. A source file of a project (found
+/// from the file's folder, as `check` and `test` find it) is loaded as its
+/// namespace in the project, so its imports of other namespaces resolve, and
+/// the namespace's names are imported for the expressions typed. Any other
+/// file is loaded on its own.
+fn load_for_evaluation(session: &mut Session, path: &Path) -> bool {
+    let Ok(Some((dir, _))) = project_of_file(path, None) else {
+        return load(session, path);
+    };
+    let Ok(text) = std::fs::read_to_string(path) else {
+        return load(session, path);
+    };
+    let mut scratch = SourceMap::new();
+    let id = scratch.add("<file>", text.as_str());
+    let Ok(Some(line)) = parse_namespace_line(id, &text) else {
+        return load(session, path);
+    };
+    let namespace = line.path.text;
+    let project = Project {
+        name: project_name(&dir),
+        files: DiskFiles { root: dir.clone() },
+        dir,
+    };
+    if !load_project(
+        session,
+        &project,
+        &Target::Namespaces(vec![namespace.clone()]),
+    ) {
+        return false;
+    }
+    let diagnostics = session.add_imports("<input>", &format!("import {namespace} (..)"));
+    if !diagnostics.is_empty() {
+        report(&session.sources, &diagnostics);
+    }
+    true
 }
 
 /// Evaluates `expr`, or with `type_only`, shows it with its type.
@@ -3957,7 +3994,7 @@ fn evaluate(session: &mut Session, expr: &str, type_only: bool) -> Result<String
 fn repl(path: Option<&Path>) -> ExitCode {
     let mut session = new_session(false);
     if let Some(path) = path
-        && !load(&mut session, path)
+        && !load_for_evaluation(&mut session, path)
     {
         return ExitCode::FAILURE;
     }
