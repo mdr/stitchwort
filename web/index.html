@@ -2336,7 +2336,7 @@ export def area: Shape -> Nat
       return;
     }
 
-    if (!checked.ok) {
+    if (!checked.ok && view !== "tests") {
       output.append(el("p", { className: "hint" }, "Fix the errors first; the Check tab shows them."),
                     ...errorsOf(checked));
       return;
@@ -2349,7 +2349,10 @@ export def area: Shape -> Nat
       if (current !== rendering || !result) return;
       output.replaceChildren();
       // The server's check passed but this session's didn't: say why.
-      if (!result.ok) { output.append(...errorsOf(result)); return; }
+      if (!result.ok && !result.tests) { output.append(...errorsOf(result)); return; }
+      // Errors elsewhere don't stop the tests that don't use them.
+      if (!result.ok) output.append(el("p", { className: "hint" },
+        "The source has errors (the Check tab shows them). These tests don't use them, or fail saying so."));
       output.dataset.for = src; // which source these results are for (the browser tests wait on it)
       if (result.tests.length === 0) {
         output.append(el("p", { className: "hint" }, 'No tests yet. Add one: test "name" := leq (1 + 1) 2'));

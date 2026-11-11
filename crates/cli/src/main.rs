@@ -1853,9 +1853,10 @@ impl TestOutput<'_> {
         results: &[TestResult],
         grouped: bool,
         asked_for_some: bool,
+        errors: bool,
     ) -> ExitCode {
         if self.json {
-            print_tests_json(session, results, asked_for_some)
+            print_tests_json(session, results, asked_for_some, errors)
         } else {
             print_tests(results, grouped)
         }
@@ -1887,28 +1888,36 @@ fn test(
             cache
         }
     };
+    // Whatever checks runs, also when a declaration has errors: a test that
+    // uses one fails, saying so (D3523).
     let run_tests = |session: &Session, cache: &Cache| {
         let keep = |test: &stitchwort_elab::TestDecl| output.only.is_none_or(|n| n == test.name);
-        if reference {
-            return session.run_tests_where(cache, keep);
-        }
-        #[cfg(feature = "native")]
-        if let Some(verbose) = native {
-            let native = NativeTestCompiler { verbose };
-            return session.run_tests_native_where(cache, keep, &native);
-        }
-        session.run_tests_fast_where(cache, keep)
+        let results = if reference {
+            session.run_tests_where(cache, keep)
+        } else {
+            #[cfg(feature = "native")]
+            let native_results = native.map(|verbose| {
+                let native = NativeTestCompiler { verbose };
+                session.run_tests_native_where(cache, keep, &native)
+            });
+            #[cfg(not(feature = "native"))]
+            let native_results = None;
+            native_results.unwrap_or_else(|| session.run_tests_fast_where(cache, keep))
+        };
+        session.with_broken_tests(results, |name| output.only.is_none_or(|n| n == name))
     };
     match target {
         Some(file) if is_file_target(file) => {
             use_cache(&mut session, cache, Path::new("."));
             let mut reported = Vec::new();
-            if !load_file_into(&mut session, Path::new(file), Some("tested"), &mut reported) {
+            let loaded =
+                load_file_into(&mut session, Path::new(file), Some("tested"), &mut reported);
+            if !loaded && !something_checked(&session) {
                 return ExitCode::FAILURE;
             }
             let cache = test_cache(cache, Path::new("."));
             let results = run_tests(&session, &cache);
-            let code = output.print(&session, &results, false, output.only.is_some());
+            let code = output.print(&session, &results, false, output.only.is_some(), !loaded);
             let code = if verified(&cache) {
                 code
             } else {
@@ -1926,7 +1935,7 @@ fn test(
                 }
                 none
             });
-            if goals > 0 || none {
+            if goals > 0 || none || !loaded {
                 ExitCode::FAILURE
             } else {
                 code
@@ -1946,7 +1955,7 @@ fn test(
             };
             use_cache(&mut session, cache, &project.dir);
             let mut reported = Vec::new();
-            if load_project_counting(
+            let loaded = load_project_counting(
                 &mut session,
                 &project,
                 &target,
@@ -1954,8 +1963,8 @@ fn test(
                 config.open_goals,
                 &mut reported,
             )
-            .is_none()
-            {
+            .is_some();
+            if !loaded && !something_checked(&session) {
                 return ExitCode::FAILURE;
             }
             let cache = test_cache(cache, &project.dir);
@@ -1965,6 +1974,7 @@ fn test(
                 &results,
                 true,
                 output.only.is_some() || target_name.is_some(),
+                !loaded,
             );
             let code = if verified(&cache) {
                 code
@@ -1987,13 +1997,19 @@ fn test(
                 }
                 _ => false,
             };
-            if goals > 0 || none {
+            if goals > 0 || none || !loaded {
                 ExitCode::FAILURE
             } else {
                 code
             }
         }
     }
+}
+
+/// Whether a load that failed still checked some tests, which then run
+/// (D3523): the errors are reported, and the run still fails.
+fn something_checked(session: &Session) -> bool {
+    !session.elab.tests().is_empty() || !session.elab.broken_tests().is_empty()
 }
 
 /// `test --native`'s compiler (`stitchwort_driver::test_run::NativeTests`):
@@ -2052,7 +2068,12 @@ impl stitchwort_driver::test_run::NativeTests for NativeTestCompiler {
 /// Prints the results as `test --json` describes: one JSON object, with
 /// where each test is declared and, for a failure, the message an editor
 /// shows and the sides it compares.
-fn print_tests_json(session: &Session, results: &[TestResult], asked_for_some: bool) -> ExitCode {
+fn print_tests_json(
+    session: &Session,
+    results: &[TestResult],
+    asked_for_some: bool,
+    errors: bool,
+) -> ExitCode {
     let tests: Vec<serde_json::Value> = results
         .iter()
         .map(|r| {
@@ -2102,7 +2123,8 @@ fn print_tests_json(session: &Session, results: &[TestResult], asked_for_some: b
         })
         .collect();
     let ok = results.iter().all(|r| r.outcome == Outcome::Passed)
-        && !(asked_for_some && results.is_empty());
+        && !(asked_for_some && results.is_empty())
+        && !errors;
     println!("{}", serde_json::json!({"ok": ok, "tests": tests}));
     exit(ok)
 }

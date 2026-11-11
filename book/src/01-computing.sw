@@ -77,10 +77,13 @@ test "nobody wins a draw" := not (beats Rock Rock)
 -- Now break the program. In `beats`, change the arm `Paper, Rock => True`
 -- to `Paper, Scissors => True`, a slip anyone could make. The tests don't
 -- turn red, because tests run only when you ask. Two theorems further down
--- do turn red by themselves (section 1.6 is about those), and while they
--- are red the tests can't run at all: click "▶ Run tests" and the message is
--- the first error, "`rfl` can't prove this". Put the arm back and click
--- again to see them pass.
+-- do turn red by themselves (section 1.6 is about those), but they don't
+-- stop the tests: a test runs whenever everything it uses checks, and these
+-- tests use `beats` and `play`, not the theorems. Click "▶ Run tests" and
+-- two of them fail: "paper wraps rock", which is the arm you changed
+-- ("evaluated to False"), and "rock against paper loses" in section 1.4
+-- (`==` is False, with `Draw` on the left and `Lose` on the right). The
+-- other five pass. Put the arm back and click again to see all seven pass.
 
 -- ## 1.4 Outcomes, and `if`
 --
@@ -205,9 +208,10 @@ theorem otherSideOfAWin: otherSide (play Paper Rock) = Lose := rfl
 -- `if beats theirs mine then Win`, swapping the two moves.
 -- `paperLosesToScissors` and `otherSideOfAWin` turn red straight away;
 -- hover over the first, and the notes say that `play Paper Scissors` now
--- computes to `Win`, and that the statement is false. The tests would
--- catch the slip too, but as in section 1.3 they don't run while theorems
--- are red. Put `play` back, and delete `rockAlwaysWins`.
+-- computes to `Win`, and that the statement is false. The tests catch the
+-- slip too, and as in section 1.3 they run while the theorems are red:
+-- "rock against paper loses" fails, with `Win` on the left and `Lose` on
+-- the right. Put `play` back, and delete `rockAlwaysWins`.
 --
 -- What you've seen:
 --

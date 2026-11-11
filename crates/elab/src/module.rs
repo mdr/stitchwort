@@ -52,7 +52,7 @@ use stitchwort_syntax::ast::{self, BinOp, Clause, Decl, Expr, Module, Pattern};
 use stitchwort_syntax::{Diagnostic, FileId, Severity, Span};
 
 use crate::project::SourceUnit;
-use crate::{Elaborator, Global, error, goals, interfaces};
+use crate::{BrokenTest, Elaborator, Global, error, goals, interfaces};
 
 /// What a declaration of the module is.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -195,6 +195,10 @@ pub(crate) struct ModuleState {
     /// wasn't checked, because something it computes with is stuck on
     /// them, or it uses what waits for them.
     pub waiting: HashMap<usize, Rc<[DefId]>>,
+    /// For each item that failed with errors: the item the errors come from
+    /// (itself, or what it uses) and where the first one is reported
+    /// ([`Elaborator::note_error_source`]).
+    pub error_sources: HashMap<usize, (usize, Option<Span>)>,
     /// Data types (by item) whose `Ord` is derived once their module's own
     /// `DecEq` instance is checked.
     pub ord_after_dec_eq: HashMap<usize, DataId>,
@@ -487,6 +491,9 @@ impl Elaborator {
                 rest.into_iter()
                     .filter(|(_, d)| d.code != goals::UNFINISHED),
             );
+            if failed && !unfinished {
+                self.note_error_source(&items, &component, &diagnostics[before..]);
+            }
             let position = items[component[0]].position;
             diagnostics.extend(goals.into_iter().map(|d| (position, d)));
             let used_unfinished = goals::take_used_unfinished();
@@ -912,6 +919,58 @@ impl Elaborator {
             };
             *d = failed_name(&name);
         }
+    }
+
+    /// Records where the errors of `component`, which failed with `found`,
+    /// come from, and, if it is a test that only failed because of what it
+    /// uses, that it is a broken test (D3523).
+    fn note_error_source(
+        &mut self,
+        items: &[Item],
+        component: &[usize],
+        found: &[(usize, Diagnostic)],
+    ) {
+        let errors: Vec<&Diagnostic> = found
+            .iter()
+            .map(|(_, d)| d)
+            .filter(|d| d.severity == Severity::Error)
+            .collect();
+        let Some(first) = errors.first() else {
+            return;
+        };
+        let used = if errors.iter().all(|d| d.code == "E-FAILED-DEPENDENCY") {
+            (component.iter())
+                .flat_map(|i| &self.unit.module.items[*i].deps)
+                .filter(|d| d.speculative.is_none() && !component.contains(&d.item))
+                .map(|d| d.item)
+                .find(|i| self.unit.module.items[*i].status == Status::Failed)
+                .filter(|i| self.unit.module.error_sources.contains_key(i))
+        } else {
+            None
+        };
+        let source = match used {
+            Some(item) => self.unit.module.error_sources[&item],
+            None => (component[0], first.primary_span()),
+        };
+        for &i in component {
+            self.unit.module.error_sources.insert(i, source);
+        }
+        let (Some(used), [i]) = (used, component) else {
+            return;
+        };
+        let Decl::Test { name, span, .. } = items[*i].decl else {
+            return;
+        };
+        let module = &self.unit.module;
+        let broken = BrokenTest {
+            name: name.to_string(),
+            namespace: module.namespace.clone().unwrap_or_default(),
+            span: *span,
+            uses: module.items[used].name.clone(),
+            broken: module.items[source.0].name.clone(),
+            error_at: source.1,
+        };
+        self.session.broken_tests.push(broken);
     }
 
     /// Step 1: the module's declarations, with every name they declare
