@@ -31430,12 +31430,12 @@
     {
       "id": 2949,
       "title": "[DeepSeek] task test:example selects test(/_examples/) only, so projects/ examples (rejected_projects_…, goal_projects_…) silently don't run; include the project sweeps (SW-2945)",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": "",
       "labels": [],
       "epic": "test-infra",
-      "body": "",
+      "body": "\nModel result: DeepSeek, worked, ~8 min (est. 15). test:example NAME=syntax-error-lost-name: 7/7 incl. rejected_projects.",
       "created": "2026-11-11",
       "updated": "2026-11-11",
       "commits": []
