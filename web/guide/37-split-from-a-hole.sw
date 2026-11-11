@@ -1,29 +1,39 @@
 import Std (Bool, Void)
 
 -- Start a proof with `?` for the whole body, and let the editor split it.
--- With the cursor on the `?`, the light bulb offers "Split on `b`" and
--- "Split on `c`": a variable for each data type in scope. The hypothesis `h`
--- is a fact, not data, so it isn't offered. "Split on `b`" writes
+-- With the cursor on the `?`, the light bulb offers "Split on `l`" and
+-- "Split on `urgent`": a variable for each data type in scope. The
+-- hypothesis `h` is a fact, not data, so it isn't offered. "Split on `l`"
+-- writes
 --
---   theorem andbElim (b c: Bool) (h: andb b c = True): c = True := match b with
---     | False => ?
---     | True => ?
+--   theorem goIfUrgent (l: Light) (urgent: Bool) (h: urgent = True):
+--       canGo l urgent = True := match l with
+--     | Red => ?
+--     | Amber => ?
+--     | Green => ?
 --
--- "Split on `c`" on the second `?` then adds `c` as a new column of that same
--- `match`, instead of nesting another one inside; the other arm gets `_`:
+-- "Split on `urgent`" on the first `?` then adds `urgent` as a new column
+-- of that same `match`, instead of nesting another one inside; the other
+-- arms get `_`:
 --
---     | False, _ => ?
---     | True, False => ?
---     | True, True => ?
+--     | Red, False => ?
+--     | Red, True => ?
+--     | Amber, _ => ?
+--     | Green, _ => ?
 --
 -- Each `?` shows its own goal, with `h` already refined for that case, so
--- only the proofs are left to write. A cursor on `b` in the header offers
+-- only the proofs are left to write. A cursor on `l` in the header offers
 -- the same split when the body is a single `?`.
-def andb (b c: Bool): Bool := match b with
-  | True => c
-  | False => False
+type Light = | Red | Amber | Green
 
-theorem andbElim (b c: Bool) (h: andb b c = True): c = True := match b, c with
-  | False, _ => Void.exfalso (Bool.falseNotTrue h)
-  | True, False => h
-  | True, True => rfl
+def canGo (l: Light) (urgent: Bool): Bool := match l with
+  | Red => urgent
+  | Amber => True
+  | Green => True
+
+theorem goIfUrgent (l: Light) (urgent: Bool) (h: urgent = True):
+    canGo l urgent = True := match l, urgent with
+  | Red, False => Void.exfalso (Bool.falseNotTrue h)
+  | Red, True => rfl
+  | Amber, _ => rfl
+  | Green, _ => rfl
