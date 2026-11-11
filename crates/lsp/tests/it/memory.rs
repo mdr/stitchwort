@@ -325,6 +325,9 @@ fn between_body() {
 
 #[test]
 fn a_namespace_whose_import_failed_gets_one_error_there_until_the_import_is_fixed() {
+    // A type error in `First`: `Second` is checked, and says once, on the
+    // import, what waits for the broken name (D3524). A syntax error:
+    // `Second` isn't checked, and keeps its last answers.
     std::thread::Builder::new()
         .stack_size(STACK)
         .spawn(failed_import_body)
@@ -336,6 +339,7 @@ fn a_namespace_whose_import_failed_gets_one_error_there_until_the_import_is_fixe
 fn failed_import_body() {
     let good = "namespace First\n\ndef one: Nat := 1\n\ndef two: Nat := 2\n";
     let broken = "namespace First\n\ndef one: Nat := \"oops\"\n\ndef two: Nat := 2\n";
+    let unparsed = "namespace First\n\ndef one: Nat := (1\n\ndef two: Nat := 2\n";
     let second = "namespace Second\nimport First (one, two)\n\ndef three: Nat := one + two\n\ndef four: Nat := three + one\n";
     let memory = common::cached_memory(STACK);
     memory.add(MemoryProject {
@@ -422,16 +426,28 @@ fn failed_import_body() {
     change(&mut server, 2, broken);
     let sent = settle(&mut server);
     assert_eq!(codes(&sent, "First"), Some(vec!["E-TYPE-MISMATCH".into()]));
+    assert_eq!(codes(&sent, "Second"), Some(vec!["E-USES-FAILED".into()]));
+    // The dependent is checked: hover and definition still work.
+    assert_eq!(ask(&mut server, "textDocument/hover"), hover);
+    assert_eq!(ask(&mut server, "textDocument/definition"), definition);
+
+    // A syntax error instead: the dependent isn't checked, and keeps its
+    // last good hover and definition.
+    change(&mut server, 4, good);
+    let sent = settle(&mut server);
+    assert_eq!(codes(&sent, "Second"), Some(vec![]));
+    change(&mut server, 5, unparsed);
+    let sent = settle(&mut server);
+    assert_eq!(codes(&sent, "First"), Some(vec!["E-PARSE".into()]));
     assert_eq!(
         codes(&sent, "Second"),
         Some(vec!["E-NAMESPACE-FAILED".into()])
     );
-    // The skipped dependent keeps its last good hover and definition.
     assert_eq!(ask(&mut server, "textDocument/hover"), hover);
     assert_eq!(ask(&mut server, "textDocument/definition"), definition);
 
     // Fixing the shared file checks the dependent again.
-    change(&mut server, 3, good);
+    change(&mut server, 6, good);
     let sent = settle(&mut server);
     assert_eq!(codes(&sent, "First"), Some(vec![]));
     assert_eq!(codes(&sent, "Second"), Some(vec![]));

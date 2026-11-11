@@ -685,8 +685,8 @@ impl LiveProject {
         let mut out = Vec::new();
         for placed in self.placed_diagnostics() {
             let d = placed.diagnostic;
-            if d.code == "E-NAMESPACE-FAILED" {
-                // Says only that a namespace used has errors, and those are
+            if d.code == "E-NAMESPACE-FAILED" || d.code == "E-USES-FAILED" {
+                // Says only that something used has errors, and those are
                 // listed themselves.
                 continue;
             }

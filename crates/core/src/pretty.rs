@@ -3263,8 +3263,8 @@ fn note_failed_mention(g: &Ev, level: usize, term: &Term) {
         return;
     }
     let mut waits = false;
-    if mentions_failed(g, term, &mut waits) {
-        g.shown.note_failed_mentioned();
+    if let Some(def) = mentions_failed(g, term, &mut waits) {
+        g.shown.note_failed_mentioned(def);
     } else if waits && g.shown.wants_stuck_mention() {
         let goals = stuck_on_goal(g, level, term);
         if !goals.is_empty() {
@@ -3273,17 +3273,17 @@ fn note_failed_mention(g: &Ev, level: usize, term: &Term) {
     }
 }
 
-/// Whether `term` uses a failed definition; `waits` is set if it uses one
-/// that may be stuck on an open goal (`Shown::waits_on_goal`).
-fn mentions_failed(g: &Ev, term: &Term, waits: &mut bool) -> bool {
+/// The first failed definition `term` uses, if any; `waits` is set if it
+/// uses one that may be stuck on an open goal (`Shown::waits_on_goal`).
+fn mentions_failed(g: &Ev, term: &Term, waits: &mut bool) -> Option<DefId> {
     // Iteratively: a shown term can be nested far deeper than the stack.
-    term.subterms().any(|(t, _)| match t {
-        Term::Def(d) if g.def(*d).state() == crate::globals::State::Failed => true,
+    term.subterms().find_map(|(t, _)| match t {
+        Term::Def(d) if g.def(*d).state() == crate::globals::State::Failed => Some(*d),
         Term::Def(d) => {
             *waits = *waits || g.shown.waits_on_goal(*d);
-            false
+            None
         }
-        _ => false,
+        _ => None,
     })
 }
 

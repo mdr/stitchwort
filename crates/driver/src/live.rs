@@ -394,6 +394,42 @@ pub fn answers_from(index: &Index, wanted: &BTreeSet<String>, unplaced: &str) ->
 
 // ---- projects -----------------------------------------------------------
 
+/// While a namespace that `ns` uses has syntax errors, or wasn't checked
+/// for that reason, `ns` isn't checked either, and keeps the answers it had
+/// ([`LiveProject::keep_last_good`]): its waiting marks would otherwise
+/// come and go with every keystroke in a half-typed body. The error for
+/// that, naming the first such namespace in `order`, the project's
+/// canonical order. A namespace with other errors doesn't stop it: what in
+/// `ns` uses its failed declarations waits for them, and the rest is
+/// checked, as `check` does (docs/proposals/tests-with-errors.md §6).
+fn blocked_by_syntax(
+    analysis: &Analysis,
+    order: &[String],
+    ns: &Namespace,
+    outcomes: &BTreeMap<&str, NamespaceOutcome>,
+) -> Option<Diagnostic> {
+    let skipped = |m: &str| outcomes.get(m) == Some(&NamespaceOutcome::Skipped);
+    let unparsed = |m: &str| {
+        outcomes.get(m) == Some(&NamespaceOutcome::Failed)
+            && analysis
+                .namespace(m)
+                .is_some_and(|n| !n.parse_errors.is_empty())
+    };
+    let edge = (order.iter())
+        .filter(|m| skipped(m) || unparsed(m))
+        .find_map(|m| ns.edges.iter().find(|e| &e.target == m))?;
+    let (m, name) = (&edge.target, &ns.name);
+    let why = if skipped(m) {
+        format!("namespace {m} isn't checked, so neither is {name}")
+    } else {
+        format!("namespace {m} has a syntax error, so {name} isn't checked until it's fixed")
+    };
+    Some(
+        Diagnostic::error("E-NAMESPACE-FAILED", why)
+            .with_label(edge.span, format!("`{name}` uses `{m}` here")),
+    )
+}
+
 /// A namespace checked, and the mark before it.
 struct Step {
     name: String,
@@ -632,8 +668,10 @@ impl LiveProject {
             .collect();
         let checked = self.session.cancellable_at(&mark, |s| {
             let ns = parse_namespace(s, &project, &name, &files);
-            let found =
-                s.check_project_namespace(analysis, canonical, &ns, &|m| outcomes.get(m).copied());
+            let found = match blocked_by_syntax(analysis, canonical, &ns, &outcomes) {
+                Some(skipped) => (vec![skipped], NamespaceOutcome::Skipped),
+                None => s.check_project_namespace(analysis, &ns),
+            };
             let mut names: Vec<(String, Vec<ScopeName>)> = Vec::new();
             if focus {
                 for ((path, _), id) in files.iter().zip(&ns.files) {
@@ -719,7 +757,8 @@ impl LiveProject {
         answers
     }
 
-    /// A namespace skipped because an import failed was not elaborated, so
+    /// A namespace skipped because one it uses has syntax errors
+    /// ([`blocked_by_syntax`]) was not elaborated, so
     /// it has no answers of its own; its files serve the ones they had when
     /// last checked cleanly, as long as their text is unchanged (the
     /// positions in them would be wrong otherwise: then they have none).

@@ -262,3 +262,158 @@ fn a_file_with_an_error_still_runs_the_tests_that_dont_use_it() {
         .collect();
     assert_eq!(outcomes, ["passed", "failed", "failed", "failed"]);
 }
+
+const LIB_WITH_AN_ERROR: &str = r#"namespace A
+
+def double (n: Nat): Nat := n + n
+
+def broken (n: Nat): Nat := "oops"
+
+test "double works" := double 2 == 4
+"#;
+
+const IMPORTER: &str = r#"namespace B
+
+import A (double, broken)
+
+def quad (n: Nat): Nat := double (double n)
+
+def quadBroken (n: Nat): Nat := broken (double n)
+
+def again (n: Nat): Nat := broken n + broken n
+
+theorem quadOne: quad 1 = 4 := rfl
+
+test "quad works" := quad 1 == 4
+test "quad of broken" := quadBroken 1 == 4
+"#;
+
+/// A project whose namespace `B` imports a healthy and a broken name from
+/// `A`, with `A`'s text `lib`.
+fn importer_project(name: &str, lib: &str) -> PathBuf {
+    let dir = std::env::temp_dir().join(format!(
+        "stitchwort-json-importer-{}-{name}",
+        std::process::id()
+    ));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(dir.join("src")).unwrap();
+    std::fs::write(dir.join("stitchwort.yaml"), "sources: [src]\n").unwrap();
+    std::fs::write(dir.join("src/a.sw"), lib).unwrap();
+    std::fs::write(dir.join("src/b.sw"), IMPORTER).unwrap();
+    dir
+}
+
+/// A test's (namespace, name, outcome, message).
+type Row = (String, String, String, String);
+
+/// `test --json` in `dir` with `args`: the tests, standard error, and
+/// success.
+fn project_tests(dir: &Path, args: &[&str]) -> (Vec<Row>, String, bool) {
+    let output = Command::new(env!("CARGO_BIN_EXE_stitchwort"))
+        .args(["test", "--json"])
+        .args(args)
+        .current_dir(dir)
+        .stdin(Stdio::null())
+        .output()
+        .expect("run stitchwort");
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    let v: Value = serde_json::from_str(&stdout).expect(&stdout);
+    assert_eq!(v["ok"], output.status.success());
+    let tests = (v["tests"].as_array().unwrap().iter())
+        .map(|t| {
+            let text = |k: &str| t[k].as_str().unwrap_or_default().to_string();
+            (
+                text("namespace"),
+                text("name"),
+                text("outcome"),
+                text("message"),
+            )
+        })
+        .collect();
+    (tests, stderr, output.status.success())
+}
+
+#[test]
+fn an_importer_of_a_namespace_with_an_error_is_checked_and_its_tests_run() {
+    let dir = importer_project("checked", LIB_WITH_AN_ERROR);
+    let (tests, stderr, ok) = project_tests(&dir, &["--no-cache"]);
+    let _ = std::fs::remove_dir_all(&dir);
+    assert!(!ok, "{stderr}");
+    let outcomes: Vec<(&str, &str, &str)> = (tests.iter())
+        .map(|(ns, name, outcome, _)| (ns.as_str(), name.as_str(), outcome.as_str()))
+        .collect();
+    assert_eq!(
+        outcomes,
+        [
+            ("A", "double works", "passed"),
+            ("B", "quad works", "passed"),
+            ("B", "quad of broken", "failed"),
+        ]
+    );
+    let message = &tests[2].3;
+    assert!(
+        message
+            .starts_with("it uses `quadBroken`, which depends on `broken`, which has an error (")
+            && message.ends_with("src/a.sw:5:29)"),
+        "{message}"
+    );
+    // `broken` is reported where it is, and once in `b.sw`, on the import,
+    // for the two declarations and the test that wait for it.
+    assert_eq!(stderr.matches("[E-TYPE-MISMATCH]").count(), 1, "{stderr}");
+    assert_eq!(stderr.matches("[E-USES-FAILED]").count(), 1, "{stderr}");
+    assert!(
+        stderr.contains("`broken` has an error, so 3 declarations here can't be checked"),
+        "{stderr}"
+    );
+    assert!(
+        stderr.contains("waiting for it: `quadBroken`, `again`, test \"quad of broken\""),
+        "{stderr}"
+    );
+    assert!(stderr.contains("b.sw:3:19"), "{stderr}");
+    assert!(!stderr.contains("E-NAMESPACE-FAILED"), "{stderr}");
+    assert!(!stderr.contains("E-FAILED-DEPENDENCY"), "{stderr}");
+}
+
+/// The check cache never serves an importer as it was before the namespace
+/// it imports broke or was fixed: the importer's key covers what it
+/// imports, and a namespace with errors is never stored.
+#[test]
+fn an_importer_follows_its_dependency_through_the_cache() {
+    let dir = importer_project("cache", LIB_WITH_AN_ERROR);
+    let cache = dir.join("cache");
+    let cache = cache.to_str().unwrap();
+    let args = ["--cache-dir", cache];
+    let without = |tests: Vec<Row>| -> Vec<(String, String, String)> {
+        tests
+            .into_iter()
+            .map(|(_, name, o, m)| (name, o, m))
+            .collect()
+    };
+    let (first, first_err, ok) = project_tests(&dir, &args);
+    assert!(!ok);
+    let (second, second_err, ok) = project_tests(&dir, &args);
+    assert!(!ok);
+    assert_eq!(without(first.clone()), without(second));
+    assert_eq!(first_err, second_err);
+    // Fixed: `B` has no error, and its test runs on its merits.
+    std::fs::write(
+        dir.join("src/a.sw"),
+        LIB_WITH_AN_ERROR.replace("\"oops\"", "n"),
+    )
+    .unwrap();
+    for _ in 0..2 {
+        let (fixed, stderr, ok) = project_tests(&dir, &args);
+        assert!(!ok, "a test fails");
+        assert!(!stderr.contains("[E-"), "{stderr}");
+        assert_eq!(fixed[2].1, "quad of broken");
+        assert_eq!(fixed[2].3, "`==` is False");
+    }
+    // Broken again: not the fixed answer from the cache.
+    std::fs::write(dir.join("src/a.sw"), LIB_WITH_AN_ERROR).unwrap();
+    let (broken, stderr, ok) = project_tests(&dir, &args);
+    let _ = std::fs::remove_dir_all(&dir);
+    assert!(!ok);
+    assert_eq!(stderr.matches("[E-USES-FAILED]").count(), 1, "{stderr}");
+    assert_eq!(without(broken), without(first));
+}
