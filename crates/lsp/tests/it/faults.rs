@@ -185,7 +185,7 @@ fn a_panicking_search_is_answered_and_the_next_search_works() {
     assert!(
         actions.iter().any(|a| a["title"]
             .as_str()
-            .is_some_and(|t| t.starts_with("Replace ? with"))),
+            .is_some_and(|t| t == "Search for a proof")),
         "{second}"
     );
     s.stop();

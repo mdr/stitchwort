@@ -98,6 +98,33 @@ function mentionsGoal(text) {
   return false;
 }
 
+// "Search for a proof" (D3519): the code action on a `?` carries this
+// command, and the server runs the search when it is executed. The answer is
+// {version, range, proofs: [{title, newText}], timeLimitMs}, or null when the text moved on
+// during the search; the client picks one and applies it.
+const SEARCH_PROOF = 'stitchwort.searchProof';
+
+// Seconds as the message words them: 5000 ms is "5", 1500 ms "1.5".
+const seconds = (ms) => String(Math.round(ms / 100) / 10);
+
+const noProofMessage = (timeLimitMs) => `No proof found within ${seconds(timeLimitMs)} s`;
+
+// QuickPick items for the proofs of an answer, best first (the server's
+// order): the proof text, and how it was found.
+function proofPicks(answer) {
+  return ((answer && answer.proofs) || []).map((p) => ({
+    label: p.newText,
+    description: (/\(([^()]*)\)$/.exec(p.title) || [])[1],
+    proof: p,
+  }));
+}
+
+// Whether a proof found for the document at `answer.version` can still replace
+// the `?` now: the document is at the same version, or the text at the answer's
+// range is still a `?`.
+const proofStillApplies = (answer, currentVersion, textAtRange) =>
+  answer.version === currentVersion || textAtRange === '?';
+
 const GOAL_AT = 'stitchwort/goalAt';
 const CONTEXT_AT = 'stitchwort/contextAt';
 const TESTS = 'stitchwort/tests';
@@ -200,6 +227,10 @@ function staleBody(last) {
 }
 
 module.exports = {
+  SEARCH_PROOF,
+  noProofMessage,
+  proofPicks,
+  proofStillApplies,
   serverSettings,
   CONTEXT_AT,
   contextHtml,

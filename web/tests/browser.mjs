@@ -2502,7 +2502,7 @@ test("the roguelike's files open without false errors", async (page) => {
   assert.equal(await page.ev(`window.editor.stats.restarts`), 0);
 }, { ms: 280000 });
 
-test("a code action on a ? fills it in", async (page) => {
+test("a code action on a ? offers a proof search, and the proof picked fills it in", async (page) => {
   await page.open();
   await page.untilChecked();
   await page.setSource("def two : Nat := 2\n\ntheorem two_is_two : two = 2 := ?\n");
@@ -2510,9 +2510,15 @@ test("a code action on a ? fills it in", async (page) => {
   await sleep(500);
   await caretAt(page, "?");
   await page.key(".", "Period", 190, { modifiers: CMD });
-  await page.until(`!window.editor.value.includes("?")`, 100000, "the proof");
+  // The list comes at once, without a search having run.
+  await page.until(`document.querySelector(".pick-panel") !== null`, 20000, "the code actions");
+  assert.ok((await page.ev(`window.editor.lastCodeActions`)).includes("Search for a proof"));
+  assert.ok(!(await page.ev(`window.editor.lastCodeActions`)).some((t) => t.startsWith("Replace ? with")));
+  await page.ev(`[...document.querySelectorAll(".pick-item")].find((b) => b.textContent.includes("Search for a proof")).click()`);
+  await page.until(`document.querySelector(".pick-panel [role=option]") !== null && document.querySelector(".pick-panel").getAttribute("aria-label").startsWith("Replace")`, 100000, "the proofs");
+  await page.ev(`document.querySelector(".pick-panel .pick-item").click()`);
+  await page.until(`!window.editor.value.includes("?")`, 20000, "the proof");
   assert.match(await sourceText(page), /two = 2 := (rfl|omega|cases|Std\.byDecision)\n$/);
-  assert.match((await page.ev(`window.editor.lastCodeActions`))[0], /^Replace \? with/);
 }, { ms: 120000 });
 
 test("a let without a type shows its type after the name, and the drawn text is still the document", async (page) => {

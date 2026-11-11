@@ -377,7 +377,7 @@ pub fn capabilities() -> serde_json::Value {
         "documentRangeFormattingProvider": true,
         "codeActionProvider": { "codeActionKinds": ["quickfix"] },
         "renameProvider": { "prepareProvider": true },
-        "executeCommandProvider": { "commands": [rename::RENAME_ANYWAY] }
+        "executeCommandProvider": { "commands": [rename::RENAME_ANYWAY, SEARCH_PROOF] }
     })
 }
 
@@ -686,11 +686,12 @@ pub struct Search {
 
 #[derive(serde::Serialize, serde::Deserialize)]
 enum SearchKind {
-    /// What closes the goal at `range` ([`Main::code_action`]); with
-    /// `versioned`, edits name that version of the document.
-    CodeAction {
+    /// What closes the goal at `range` ([`SEARCH_PROOF`]), as
+    /// `{version, range, proofs: [{title, newText}], timeLimitMs}`, for the
+    /// document at `version`, the search having had `timeLimitMs`.
+    Proofs {
         range: lsp_types::Range,
-        versioned: Option<i32>,
+        version: i32,
     },
     /// The context at a position ([`Main::context_at`]).
     ContextAt { line: u32, character: u32 },
@@ -738,45 +739,26 @@ impl Search {
             time_ms,
         } = self;
         match kind {
-            SearchKind::CodeAction { range, versioned } => {
+            SearchKind::Proofs { range, version } => {
                 let mut options = pos::action_options(server.search_wanted);
                 options.time = time_ms.map_or(server.search_time, Duration::from_millis);
                 let found = match target.project.clone() {
                     Some((root, relative, open)) => project_closing_actions(
-                        server,
-                        source,
-                        &root,
-                        &relative,
-                        open,
-                        range,
-                        cancel.clone(),
-                        &options,
+                        server, source, &root, &relative, open, range, cancel, &options,
                     ),
                     None => {
                         closing_actions(server, source, &target.path, &target.text, range, &options)
                     }
                 };
-                let mut actions = match code_actions(found, &uri, range, versioned) {
-                    serde_json::Value::Array(a) => a,
-                    _ => Vec::new(),
-                };
-                let text = target.text.clone();
-                actions.extend(hole_splits(
-                    server,
-                    source,
-                    target,
-                    &text,
-                    range.start,
-                    None,
-                    &uri,
-                    versioned,
-                    cancel,
-                ));
-                if actions.is_empty() {
-                    serde_json::Value::Null
-                } else {
-                    serde_json::Value::Array(actions)
-                }
+                let proofs: Vec<_> = (found.unwrap_or_default().iter())
+                    .map(|a| serde_json::json!({"title": a.title, "newText": a.new_text}))
+                    .collect();
+                serde_json::json!({
+                    "version": version,
+                    "range": range,
+                    "proofs": proofs,
+                    "timeLimitMs": options.time.as_millis() as u64,
+                })
             }
             SearchKind::SplitHole {
                 hole,
@@ -1332,6 +1314,8 @@ impl Main {
             let command = request.params.get("command").and_then(|c| c.as_str());
             if command == Some(rename::RENAME_ANYWAY) {
                 self.rename_request(request);
+            } else if command == Some(SEARCH_PROOF) {
+                self.search_proof(request);
             } else {
                 let response = Response::new_err(
                     request.id,
@@ -1397,11 +1381,11 @@ impl Main {
             })
         });
         let searching = Settings::on(&self.settings.proof_search);
+        let fixes = self.import_fixes(&uri, &p.context.diagnostics);
         let (Some(range), Some(target)) = (
             goal.filter(|_| searching),
             self.search_target(&uri).filter(|_| searching),
         ) else {
-            let fixes = self.import_fixes(&uri, &p.context.diagnostics);
             let header = {
                 let texts = self.texts.borrow();
                 let at = p.range.start;
@@ -1451,16 +1435,86 @@ impl Main {
                 .send(Response::new_ok(id, fixes).into());
             return;
         };
+        // The search for a proof is offered, not run: everything else is
+        // answered at once (D3519).
+        let mut fixes = fixes.as_array().cloned().unwrap_or_default();
+        fixes.push(serde_json::json!({
+            "title": SEARCH_TITLE,
+            "kind": "quickfix",
+            "command": {
+                "title": SEARCH_TITLE,
+                "command": SEARCH_PROOF,
+                "arguments": [{"uri": uri.as_str(), "range": range}],
+            },
+        }));
         let document_changes = self.document_changes;
         self.queue_search(id, &uri.clone(), "codeAction", move |version| Search {
             uri,
             target,
             time_ms: None,
-            kind: SearchKind::CodeAction {
-                range,
+            kind: SearchKind::SplitHole {
+                hole: range.start,
+                only: None,
                 versioned: document_changes.then_some(version),
+                fixes: serde_json::Value::Array(fixes),
             },
         });
+    }
+
+    /// `workspace/executeCommand` of [`SEARCH_PROOF`], with the document's
+    /// URI and the range of its `?`: runs the proof search the code action
+    /// offered. The answer is [`SearchKind::Proofs`]' (an empty `proofs`
+    /// when nothing closes the goal), or null when the text moved on
+    /// meanwhile; an error when the `?` is no longer there to start from.
+    fn search_proof(&self, request: Request) {
+        let id = request.id.clone();
+        let argument = request.params.get("arguments").and_then(|a| a.get(0));
+        let uri = argument
+            .and_then(|a| a.get("uri"))
+            .and_then(|u| u.as_str())
+            .and_then(|u| Url::parse(u).ok());
+        let range = argument
+            .and_then(|a| a.get("range"))
+            .and_then(|r| serde_json::from_value::<lsp_types::Range>(r.clone()).ok());
+        let (Some(uri), Some(range)) = (uri, range) else {
+            self.fail_request(id, ErrorCode::InvalidParams, "bad arguments".to_string());
+            return;
+        };
+        let still_a_hole = self.texts.borrow().get(&uri).is_some_and(|t| {
+            let start = offset_at(t, range.start);
+            t.get(start..).is_some_and(|rest| rest.starts_with('?'))
+                && position_at(t, start + 1) == range.end
+        });
+        if !still_a_hole {
+            self.fail_request(
+                id,
+                ErrorCode::RequestFailed,
+                "The ? has moved or changed since the search was offered".to_string(),
+            );
+            return;
+        }
+        let target = self
+            .search_target(&uri)
+            .filter(|_| Settings::on(&self.settings.proof_search));
+        let Some(target) = target else {
+            self.fail_request(
+                id,
+                ErrorCode::RequestFailed,
+                "Proof search is switched off".to_string(),
+            );
+            return;
+        };
+        self.queue_search(id, &uri.clone(), "searchProof", move |version| Search {
+            uri,
+            target,
+            time_ms: None,
+            kind: SearchKind::Proofs { range, version },
+        });
+    }
+
+    fn fail_request(&self, id: lsp_server::RequestId, code: ErrorCode, message: String) {
+        let response = Response::new_err(id, code as i32, message);
+        let _ = self.connection.sender.send(response.into());
     }
 
     /// The quick fixes for the unknown names among `diagnostics`: each adds
@@ -4630,33 +4684,11 @@ fn ranged(r: lsp_types::Range) -> [u32; 4] {
     [r.start.line, r.start.character, r.end.line, r.end.character]
 }
 
-/// The code actions for the client: each edit replaces `range` of the
-/// document.
-fn code_actions(
-    found: Option<Vec<pos::Action>>,
-    uri: &Url,
-    range: lsp_types::Range,
-    versioned: Option<i32>,
-) -> serde_json::Value {
-    let Some(found) = found else {
-        return serde_json::Value::Null;
-    };
-    let action = |a: &pos::Action| {
-        let edits = [serde_json::json!({"range": range, "newText": a.new_text})];
-        // A client that applies versioned edits checks the version itself;
-        // the others get the plain form (the server has already dropped a
-        // result for text that moved on).
-        let edit = match versioned {
-            Some(version) => serde_json::json!({"documentChanges": [{
-                "textDocument": {"uri": uri.as_str(), "version": version},
-                "edits": edits,
-            }]}),
-            None => serde_json::json!({"changes": {uri.as_str(): edits}}),
-        };
-        serde_json::json!({"title": a.title, "kind": "quickfix", "edit": edit})
-    };
-    serde_json::Value::Array(found.iter().map(action).collect())
-}
+/// The command of the code action that searches for a proof of a `?`
+/// (D3519): the search runs when it is picked, not in the code-action
+/// request, which answers at once.
+pub const SEARCH_PROOF: &str = "stitchwort.searchProof";
+const SEARCH_TITLE: &str = "Search for a proof";
 
 /// The custom request for the goal at the cursor (docs/proposals/
 /// lsp-goal-holes.md §5, D640).

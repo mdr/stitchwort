@@ -236,3 +236,27 @@ test('mentionsGoal: a ? in code, not in a comment or string', () => {
   assert.ok(!cfg.mentionsGoal('-- is it? \ndef f: Text := "why?"\n'));
   assert.ok(cfg.mentionsGoal('def f: Text := "a\\"" ++ ?\n'));
 });
+
+test('search for a proof: picks show the proof text, best first; the messages and the staleness rule', () => {
+  assert.strictEqual(cfg.SEARCH_PROOF, 'stitchwort.searchProof');
+  const answer = {
+    version: 3,
+    range: { start: { line: 1, character: 4 }, end: { line: 1, character: 5 } },
+    proofs: [
+      { title: 'Replace ? with `Nat.addComm m n` (exact, Std.Nat.addComm)', newText: 'Nat.addComm m n' },
+      { title: 'Replace ? with `omega` (closes it alone)', newText: 'omega' },
+    ],
+  };
+  const picks = cfg.proofPicks(answer);
+  assert.deepStrictEqual(
+    picks.map((p) => [p.label, p.description]),
+    [['Nat.addComm m n', 'exact, Std.Nat.addComm'], ['omega', 'closes it alone']],
+  );
+  assert.strictEqual(picks[0].proof, answer.proofs[0]);
+  assert.deepStrictEqual(cfg.proofPicks({ proofs: [] }), []);
+  assert.strictEqual(cfg.noProofMessage(5000), 'No proof found within 5 s');
+  assert.strictEqual(cfg.noProofMessage(1500), 'No proof found within 1.5 s');
+  assert.ok(cfg.proofStillApplies(answer, 3, 'x'), 'same version');
+  assert.ok(cfg.proofStillApplies(answer, 4, '?'), 'moved version, ? still there');
+  assert.ok(!cfg.proofStillApplies(answer, 4, 'n'));
+});
