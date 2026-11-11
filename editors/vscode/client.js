@@ -99,6 +99,7 @@ function mentionsGoal(text) {
 }
 
 const GOAL_AT = 'stitchwort/goalAt';
+const CONTEXT_AT = 'stitchwort/contextAt';
 const TESTS = 'stitchwort/tests';
 
 const escapeHtml = (s) =>
@@ -118,8 +119,58 @@ function goalHtml(answer) {
   return `<div class="owner">in ${escapeHtml(answer.owner)}</div>${rows}<div class="goal">⊢ ${escapeHtml(answer.goal)}</div>`;
 }
 
+// The context list of an answer, as rows.
+const hypothesisRows = (context) =>
+  (context || [])
+    .map((h) => {
+      const value = h.value === undefined ? '' : ` := <span class="v">${escapeHtml(h.value)}</span>`;
+      return `<div class="h"><span class="n">${escapeHtml(h.name)}</span>: ${escapeHtml(h.type)}${value}</div>`;
+    })
+    .join('');
+
+// The body of the Goals panel for the server's `stitchwort/contextAt` answer
+// ({range, type, checked, kind, locals}): `⊢ T` for a proof being checked
+// against a goal, `expected T` for a program expression checked against a
+// type, and `has type T` where there was no expected type, only the type
+// found (the server doesn't send both when they differ).
+function contextHtml(answer) {
+  if (!answer) return goalHtml(null);
+  const label = !answer.checked ? 'has type ' : answer.kind === 'proof' ? '⊢ ' : 'expected ';
+  return `${hypothesisRows(answer.locals)}<div class="goal">${label}${escapeHtml(answer.type)}</div>`;
+}
+
+const positionInRange = (p, r) =>
+  !(p.line < r.start.line || (p.line === r.start.line && p.character < r.start.character)) &&
+  !(p.line > r.end.line || (p.line === r.end.line && p.character > r.end.character));
+
+// Whether a `goalAt` answer is for a hole under `position`: the server also
+// answers with the nearest hole of the declaration, which is only the second
+// choice when the cursor is somewhere else.
+const goalIsHere = (goal, position) => !!goal && !!goal.range && positionInRange(position, goal.range);
+
+// Which answer the panel shows: the hole under the cursor, else the
+// expression's context, else the declaration's nearest hole; null when none.
+function panelBody(goal, context, position) {
+  if (goalIsHere(goal, position)) return goalHtml(goal);
+  if (context) return contextHtml(context);
+  if (goal) return goalHtml(goal);
+  return null;
+}
+
+// How a missing answer is shown: the last body kept, dimmed with a note, or
+// the plain "none" note when nothing was shown before.
+function staleBody(last) {
+  if (!last) return goalHtml(null);
+  return `<div class="stale"><p class="note">Nothing at the cursor; the last answer:</p>${last}</div>`;
+}
+
 module.exports = {
   serverSettings,
+  CONTEXT_AT,
+  contextHtml,
+  panelBody,
+  staleBody,
+  goalIsHere,
   mentionsGoal,
   GOAL_AT,
   TESTS,

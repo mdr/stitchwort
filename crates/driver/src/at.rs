@@ -610,6 +610,9 @@ pub struct Context {
     #[serde(rename = "type")]
     pub ty: String,
     pub checked: bool,
+    /// Whether `ty` is a proposition: the answer is a goal to prove, not the
+    /// type of a program's expression.
+    pub proof: bool,
     /// The names in scope there, a variable before anything whose type
     /// mentions it; the same list and the same printing as a goal's.
     pub locals: Vec<Local>,
@@ -624,6 +627,7 @@ impl Session {
             range: [l1, c1, l2, c2],
             ty: found.ty,
             checked: found.checked,
+            proof: found.proof,
             locals: (found.locals.into_iter())
                 .map(|h| Local {
                     name: h.name,
