@@ -18,6 +18,11 @@ theorem sumOf (x: Nat) (y: Nat) (h: y = two 0): x + y = x + 2 := omega
 
 theorem asInt (x: Nat): x.toInt + (two 0).toInt = x.toInt + 2 := omega
 
+-- A folded call inside a sum that is itself stuck on a variable.
+theorem nested (x: Nat) (y: Nat): x + (y + two 0) = x + y + 2 := omega
+
+theorem nestedInt (x: Nat) (y: Nat): (x + (y + two 0)).toInt = x.toInt + y.toInt + 2 := omega
+
 -- A call that is slow to unfold in a fact the goal doesn't need doesn't make
 -- `omega` fail: it stays an atom once unfolding takes too long.
 def fib (n: Nat): Nat
