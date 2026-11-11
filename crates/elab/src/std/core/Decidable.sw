@@ -224,8 +224,33 @@ theorem Decidable.uniqueEq (decide: (x: a) → (y: a) → Decidable (x = y)) (x:
       (Decidable.fromCanon decide x y p) (Decidable.canonConst (decide x y) p q))
     (J (z e => z = q) rfl (Decidable.fromCanon decide x y q))
 
---| Proofs that two booleans are equal are unique.
-theorem Bool.uniqueEq (x: Bool) (y: Bool) (p: x = y) (q: x = y): p = q := Decidable.uniqueEq Bool.decEq x y p q
+--| Proofs that two booleans are equal are unique. This is Hedberg's argument,
+--| which works for any type with decidable equality: [`Bool.canon`] turns any proof
+--| of `x = y` into one chosen by [`Bool.decEq`], so it ignores which proof it was
+--| given, and every proof can be recovered from its canonical one.
+def Bool.canon [x y: Bool] (dec: Decidable (x = y)) (h: x = y): x = y :=
+  match e: dec.holds with
+    | True => dec.sound e
+    | False => Void.exfalso (Decidable.refute dec e h)
+
+theorem Bool.canonConst [x y: Bool] (d: Decidable (x = y)) (p q: x = y):
+    Bool.canon d p = Bool.canon d q :=
+  match d with
+    | { holds = True, sound = s, complete = c } => rfl
+    | { holds = False, sound = s, complete = c } => Void.exfalso (Bool.falseNotTrue (c p))
+
+theorem Bool.symThenSelf [x y: Bool] (q: x = y): rfl = Eq.trans (Eq.sym q) q := J (y' q' => rfl = Eq.trans (Eq.sym q') q') rfl q
+
+theorem Bool.fromCanon (x: Bool) (y: Bool) (p: x = y):
+    p = Eq.trans (Eq.sym (Bool.canon (Bool.decEq x x) rfl)) (Bool.canon (Bool.decEq x y) p) :=
+  J (y' p' => p' = Eq.trans (Eq.sym (Bool.canon (Bool.decEq x x) rfl)) (Bool.canon (Bool.decEq x y') p'))
+    (Bool.symThenSelf (Bool.canon (Bool.decEq x x) rfl)) p
+
+theorem Bool.uniqueEq (x: Bool) (y: Bool) (p: x = y) (q: x = y): p = q :=
+  J (z e => p = z)
+    (J (r e => p = Eq.trans (Eq.sym (Bool.canon (Bool.decEq x x) rfl)) r)
+      (Bool.fromCanon x y p) (Bool.canonConst (Bool.decEq x y) p q))
+    (J (z e => z = q) rfl (Bool.fromCanon x y q))
 
 --| `Void` is decided: it is false. Membership in a list written out computes
 --| to `y = x || … || Void`, decided one disjunct at a time, and this is the
