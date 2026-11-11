@@ -5,7 +5,7 @@ expression: "lines(session, d, f)"
 Day.input 1c288c45f3bb3ebd648434d4f008a26cf4b95bb2a1d18d28ee60c44a3b33df03
 Day.beside 6f7ff92aa35d46489d77bdd4ef906fd77c5bd5797756495f2c87f026bc725d73
 Day.numbers ea35d19e8dee6041ec57b82f232c37aeeed0ee158608f7245a87d719a308f554
-Day.test "the whole text" 009e72986cde97cfa86380805d6dc9a984cc90afe57412b20c68c558933e4384
-Day.test "its lines" 119ebf500e16d985ddd2e8517da69b9453ea4ff42fc94c9fc39627e1d8d14981
-Day.test "a file beside this one" 16c06398aabd3b4e9eb70dd65bbbaad2428724d22bf8610ac73382c29638a40b
-Day.test "unicode survives" 847892eaf938f21303d7120fad3b4a4d83c44caa503b6aa07175b26a3d7a0a7d
+Day.test "the whole text" 48cb0b9ee04a48d26aeba7c32cfc7fbe7b66a5e03958060a7f98afafac99b689
+Day.test "its lines" d139a7a2c68489976f64914d6713d49d025dc1d5a8495ea27a0397b27cc627fd
+Day.test "a file beside this one" 9156ec06b7605ef09a1a21a7cb20ac791ba996663d6cccef8e9a74899d69d707
+Day.test "unicode survives" 69f3f6106f57749cb37c2202677dd366d4d7064e6b45c751984265d6b826bd0b

@@ -12,8 +12,8 @@ Main.test "a pure use compared with ==" e757bdf417bc77e58bdfa826706b064f2e894427
 Main.useFirst a9bbf85b3c83fb88c3eb8f682b2a8de4f4261d2661896f4065485447d39265c2
 Main.test "a pure use on a computed receiver" f63efd0d892b492c7e5d16b4d34d9fcff3733910dd1bc053203e2542bea7948c
 Main.halve 89fb6bd966b3fb098df108fc95ef27f28f904a4df832337180d47796c72c3761
-Main.test "an effectful use, failing" 10b2044b545e2aa6c112f3805252d4dc37da3468ccdea78d71edbb813e6804e3
-Main.test "an effectful use, succeeding" dbff0d28fd5845a4ed0c1754c63b3568e55c9676d97f37bac6515057867ea712
+Main.test "an effectful use, failing" 23da447471531e2b5d94a762c14d6ccb48be88a37499785a5668134c96b2249b
+Main.test "an effectful use, succeeding" 815f5cc176ff87394fbb6eebfa8a50a1273676db11524ce11aaeab99b2383ef0
 Main.sayAndDouble ceee317d523afc6de1beccc010d073acc557162edc0b17fbd86952c6915383b9
 Main.ResultOf d662d75d331f3f0d0c29450b7b39626edacba5776bd045e138c8465cd7ad73e1
 Main.Answer 3565e1888bb065f8f9883e4d8e0a978f61101adb39f923ca2a7e8a11e1b882ee
@@ -59,4 +59,4 @@ Main.Hit.%trans c63ed3b0a94cb6581a174dc7df09e0288d4c861a8e98688a0407407158034616
 Main.Hit.%instOrd 1eef384000543d54ddada191a9736d1b1f8f8266b3ad3c5608cba79f27db77af
 Main.Hit.ext ee58889506f62a40b48106923311e149bf0dc69496a1f57ce26d2e5f912775cd
 Main.prefixed 529cae7a7175bb74c10419271ecb2dd5d900cb4324a31512769a36e79cf82622
-Main.test "a constructor with a record literal, in a computation" 47832ab0ead64106ad94a2e6916f72c9d9f1040d3249909bbd8ceadce3eb235f
+Main.test "a constructor with a record literal, in a computation" 88300b0389050dda82267bf7af72d9f29473d4f8280cb1fc4afa96a2d2699d81
