@@ -1,5 +1,5 @@
 {
-  "next": 2907,
+  "next": 2908,
   "tickets": [
     {
       "id": 47,
@@ -30705,7 +30705,7 @@
       "where": "",
       "labels": [],
       "epic": "editor-playground",
-      "body": "",
+      "body": "\nSW-2890 added a Cmd+. pick list to the playground (web/editor/src/editor-entry.js): check after it merges whether anything of G2 is left.",
       "created": "2026-11-11",
       "updated": "2026-11-11",
       "commits": []
@@ -30869,6 +30869,19 @@
     {
       "id": 2906,
       "title": "[DeepSeek] Taskfile sf:check and book:check tasks (check with open goals allowed), and add them to the merge or daily tier (SW-2892, SW-2723)",
+      "status": "backlog",
+      "agent": "DeepSeek",
+      "where": "",
+      "labels": [],
+      "epic": "editor-playground",
+      "body": "",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2907,
+      "title": "[DeepSeek] 'Search for a proof' is added before the splits, so the playground's Cmd+. menu lists it first; list it last, after the quick actions (SW-2890)",
       "status": "backlog",
       "agent": "DeepSeek",
       "where": "",
