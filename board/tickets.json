@@ -1,5 +1,5 @@
 {
-  "next": 2881,
+  "next": 2882,
   "tickets": [
     {
       "id": 47,
@@ -30534,6 +30534,19 @@
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2881,
+      "title": "f.induct marks follow-ups (SW-2876 review): debug_assert that unmark(t) == t on a decreasing definition's generated statement and proof before declaring (not a parameter-count check, which fires on function-returning f); run unmark only for decreasing definitions; unmark_step strips only args (or all its fields consistently); make the example show the hypotheses' types. docs/reviews/SW-2876-induct-marks-review.md",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
       "body": "",
       "created": "2026-11-11",
       "updated": "2026-11-11",
