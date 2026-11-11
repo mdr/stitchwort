@@ -1,5 +1,5 @@
 {
-  "next": 2863,
+  "next": 2865,
   "tickets": [
     {
       "id": 47,
@@ -30294,6 +30294,32 @@
       "where": "",
       "labels": [],
       "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2863,
+      "title": "No cheap way to check one std file: stitchwort check --std-dir … <std file> treats it as user code (namespace errors) and check/eval --std-dir don't type-check std theorem bodies (a broken Nat.dividesElim passed eval --std-dir); lanes editing std only find mistakes in the library test. Add a way to check one std namespace (e.g. check --std Std.Nat.Arith) (SW-2831)",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-2863",
+      "labels": [],
+      "epic": "test-infra",
+      "body": "",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2864,
+      "title": "DecEq.trueOfNe (same => …) can't infer same's type when the goal is (a + a != n) = True: the lambda is elaborated before the result type is unified (SW-2831)",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
       "body": "",
       "created": "2026-11-11",
       "updated": "2026-11-11",
