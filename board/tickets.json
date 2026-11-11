@@ -29450,12 +29450,12 @@
     {
       "id": 2798,
       "title": "Import lists may name constructors: (Nat, O, S) accepted silently; (S) alone imports just that constructor (D3503)",
-      "status": "doing",
+      "status": "review",
       "agent": "DeepSeek",
       "where": ".claude/worktrees/scratch-sw-2798",
       "labels": [],
       "epic": "diagnostics",
-      "body": "\nD3503 (Matt, 11 Nov 2026): yes, as in the title. Docs: docs/syntax.md imports section and the guide's imports chapter; update the E-IMPORT-UNKNOWN note. Est. 45 min.",
+      "body": "\nD3503 (Matt, 11 Nov 2026): yes, as in the title. Docs: docs/syntax.md imports section and the guide's imports chapter; update the E-IMPORT-UNKNOWN note. Est. 45 min.\nModel result: DeepSeek, needed fixes (edited the main checkout by absolute path; stopped and resumed with a clone-only rule), ~50 min (est. 45). Ambiguous constructor name → E-AMBIGUOUS (its call).",
       "created": "2026-11-11",
       "updated": "2026-11-11",
       "commits": []
