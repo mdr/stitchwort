@@ -29937,12 +29937,12 @@
     {
       "id": 2835,
       "title": "JS output: unused helpers still emitted (Decidable.elim and its %match1), Bool.not stays a call; unfolds_decision matches Std.Decidable.* by name (a rule on result type would be sturdier); fold Succ over a computed value (SW-2825)",
-      "status": "doing",
+      "status": "review",
       "agent": "DeepSeek",
       "where": ".claude/worktrees/scratch-sw-2835",
       "labels": [],
       "epic": "effects-native",
-      "body": "",
+      "body": "\nModel result: DeepSeek, worked, ~40 min (est. 45). Unused helpers (Decidable.elim, Bool.ifThenElse, Bool.not, decision combinators) no longer emitted; Bool.not inline as a negated tag test; unfolds_decision by result type plus a record-body guard; Succ folding was already done. Extraction snapshots shrank by ~600 lines; run_lines_agree passes.",
       "created": "2026-11-11",
       "updated": "2026-11-11",
       "commits": []
