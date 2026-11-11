@@ -12,7 +12,9 @@
 //!   and the test fails once it's rejected so the marker gets removed.
 //! - `goals/` (and `projects/goals/`): must report open goals (`?`), and no
 //!   errors unless the file declares one with `-- expect-error:`; their tests
-//!   must pass. The rendered goals (and errors) are snapshot-tested.
+//!   must pass, unless the file names one on an `-- expect-test-failure:` line
+//!   that must fail because it reaches an open goal. The rendered goals (and
+//!   errors) are snapshot-tested.
 //!
 //! See `examples/README.md`.
 
@@ -28,6 +30,7 @@ use stitchwort_syntax::{Diagnostic, Severity, SourceMap};
 const KNOWN_GAP: &str = "-- known-gap";
 const EXPECT_ERROR: &str = "-- expect-error:";
 const EXPECT_WARNING: &str = "-- expect-warning:";
+const EXPECT_TEST_FAILURE: &str = "-- expect-test-failure:";
 
 struct Example {
     /// Path relative to `examples/`, e.g. `reject/non-positive.sw`.
@@ -44,6 +47,12 @@ impl Example {
     /// The warning code declared in the file's leading comment lines.
     fn expected_warning(&self) -> Option<&str> {
         self.declared(EXPECT_WARNING)
+    }
+
+    /// The test declared to fail, in the file's leading comment lines, because
+    /// its code reaches an open goal.
+    fn expected_test_failure(&self) -> Option<&str> {
+        self.declared(EXPECT_TEST_FAILURE)
     }
 
     fn declared(&self, prefix: &str) -> Option<&str> {
@@ -264,11 +273,13 @@ fn reported(session: &mut Session, loaded: Result<(), Vec<Diagnostic>>) -> (bool
 }
 
 /// A `goals/` example or project, checked: it reports at least one goal;
-/// no errors, or some with the code it declares; and its tests pass. Gives
-/// the rendered goals and errors, to snapshot.
+/// no errors, or some with the code it declares; and its tests pass, except
+/// one it declares must fail at an open goal. Gives the rendered goals and
+/// errors, to snapshot.
 fn assert_goals(
     name: &str,
     expected: Option<&str>,
+    expected_test_failure: Option<&str>,
     session: &mut Session,
     loaded: Result<(), Vec<Diagnostic>>,
 ) -> String {
@@ -293,7 +304,25 @@ fn assert_goals(
         ),
     }
     if ok {
-        for result in session.run_tests(&Cache::disabled()) {
+        let results = session.run_tests(&Cache::disabled());
+        if let Some(test) = expected_test_failure {
+            let result = results
+                .iter()
+                .find(|result| result.name == test)
+                .unwrap_or_else(|| panic!("{name}: no test named \"{test}\" to fail"));
+            assert!(
+                result.outcome == Outcome::Failed,
+                "{name}: test \"{test}\" was expected to fail, but it passed"
+            );
+            assert!(
+                result.unfinished.is_some(),
+                "{name}: test \"{test}\" failed, but not because it reaches an open goal"
+            );
+        }
+        for result in &results {
+            if expected_test_failure == Some(result.name.as_str()) {
+                continue;
+            }
             assert!(
                 result.outcome == Outcome::Passed,
                 "{name}: test \"{}\" failed",
@@ -316,6 +345,7 @@ fn goal_examples_report_their_goals() {
         let output = assert_goals(
             &example.name,
             example.expected_error(),
+            example.expected_test_failure(),
             &mut session,
             loaded,
         );
@@ -334,6 +364,7 @@ fn goal_projects_report_their_goals() {
         let loaded = load_project(name, path, &mut session);
         let output = assert_goals(
             &format!("projects/goals/{name}"),
+            None,
             None,
             &mut session,
             loaded,
