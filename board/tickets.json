@@ -1,5 +1,5 @@
 {
-  "next": 2762,
+  "next": 2763,
   "tickets": [
     {
       "id": 47,
@@ -28975,6 +28975,19 @@
       "labels": [],
       "epic": "syntax-language",
       "body": "D3480; D3492 (Matt, 11 Nov 2026): run on Opus as a third exception to compute mode (pace 0.95).\n\nPlan: docs/proposals/decidable-record.md §8 stage 3 and §5.1: remove unused_proof_if/kept_if/tagged_if, the %conj/%plain tags and settle_tagged, tested_bool, W-MATCH-DECISION-IF and its examples; generalise bind.rs's comparison case; omega and equations.rs on holds; the if half of decreasing/plain.rs; docs/syntax.md and the guide. Also SW-2751 (match through an if, E-MATCH-MOTIVE since stage 2) and, if they fall out, SW-2708, SW-2750. Opus. Est. 6 h.\n",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2762,
+      "title": "Project setting check: open-goals: warn (default fail): check reports open goals as warnings and exits 0; audit still fails unfinished theorems and their dependants; test unchanged; docs (syntax.md Goals and project file, guide); then use it in sf/ and restate the port's exercises with ? (D3489, D3494)",
+      "status": "next",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "D3489 (Matt, 11 Nov 2026): yes, let a project allow unfinished proofs. D3494 (Matt, 11 Nov 2026): the key is check: open-goals: warn | fail (default fail), grouped by command like audit: allowed-axioms. From docs/reviews/SW-2707-software-foundations-port.md §4, §6 item 1. Second step (separate commit): sf/ sets it, and exercises become theorems and functions with ? instead of Prop definitions and placeholder bodies. Est. 2 h.",
       "created": "2026-11-11",
       "updated": "2026-11-11",
       "commits": []
