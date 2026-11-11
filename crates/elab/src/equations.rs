@@ -3323,7 +3323,7 @@ impl Elaborator {
         }
         kernel::define_group(&mut self.kernel, &self.tables, &[(id, proof)])?;
         if let Some(item) = self.unit.module.item {
-            self.unit.module.def_items.insert(id, item);
+            self.unit.module.note_def(id, item);
         }
         let key = format!("{}.{suffix}", d.key);
         self.scope
@@ -4367,7 +4367,7 @@ impl Elaborator {
         }
         kernel::define_group(&mut self.kernel, &self.tables, &[(id, he.proof.clone())])?;
         if let Some(item) = self.unit.module.item {
-            self.unit.module.def_items.insert(id, item);
+            self.unit.module.note_def(id, item);
         }
         Ok(id)
     }

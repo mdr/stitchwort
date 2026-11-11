@@ -134,7 +134,7 @@ impl Elaborator {
                 false,
                 *span,
             )?;
-            self.unit.module.def_items.insert(id, *item);
+            self.unit.module.note_def(id, *item);
             self.scope.insert(&key, Global::Def(id), name.span, false);
             kernel::define_def(&mut self.kernel, &self.tables, id, &body).map_err(|d| {
                 Diagnostic::error(

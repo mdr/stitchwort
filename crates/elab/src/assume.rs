@@ -15,11 +15,13 @@
 //! declaration's own group, the declaration itself, a `match` lifted from
 //! it), or mentions a variable the hole can't take.
 //!
-//! Nothing that relies on an assumption counts as finished. Which
-//! declarations do is read off their checked terms
-//! (`assumption::relied_on`), and they are marked unfinished as before
-//! (`module.rs`), so every command treats them as it treated a declaration
-//! with a `?` until the reporting stage names the goals.
+//! Nothing that relies on an assumption counts as finished.
+//! `Elaborator::is_unfinished` reads which declarations do off their
+//! checked terms (`assumption::relies_on`, remembered per final
+//! declaration), so every command treats them as it treated a declaration
+//! with a `?` until the reporting stage names the goals, however they were
+//! made. The component's items are also marked unfinished (`module.rs`),
+//! for their status and the check cache.
 
 use std::cell::Cell;
 
@@ -58,29 +60,34 @@ impl Elaborator {
         self.floor().is_some()
     }
 
-    /// The assumptions the definitions `defs` and data types `datas` rely
-    /// on, read off their checked terms.
-    pub(crate) fn relied_on(
-        &self,
-        defs: impl IntoIterator<Item = DefId>,
-        datas: impl IntoIterator<Item = DataId>,
-    ) -> std::collections::BTreeSet<DefId> {
-        let Some(floor) = self.floor() else {
-            return Default::default();
-        };
-        let roots: Vec<Decl> = (defs.into_iter().map(Decl::Def))
-            .chain(datas.into_iter().map(Decl::Data))
-            .collect();
-        assumption::relied_on_skipping(
+    /// An open goal's assumption declaration `d` relies on, read off the
+    /// checked terms (`assumption::relies_on`, remembered for final
+    /// declarations), or `None` if it relies on none.
+    pub(crate) fn goal_relied_on(&self, d: impl Into<Decl>) -> Option<DefId> {
+        let floor = self.floor()?;
+        assumption::relies_on(
             &self.ev(),
-            &roots,
+            d.into(),
             &|d| matches!(d, Decl::Def(id) if id.0 < floor.floor),
         )
     }
 
     /// Whether definition `id` relies on an open goal's assumption.
     pub fn relies_on_goal(&self, id: DefId) -> bool {
-        !self.relied_on([id], []).is_empty()
+        self.goal_relied_on(id).is_some()
+    }
+
+    /// Whether `term` mentions a definition or data type that isn't
+    /// finished (`Elaborator::is_unfinished`): for an expression typed in,
+    /// which has no status of its own.
+    pub(crate) fn mentions_unfinished(&self, term: &Term) -> bool {
+        term.subterms().any(|(t, _)| match t {
+            Term::Def(id) => self.is_unfinished(*id),
+            Term::Data(d, _) | Term::Ctor(d, _, _) | Term::Case(_, d, _) | Term::Proj(d, ..) => {
+                self.tables.is_unfinished(HashKey::Data(*d)) || self.goal_relied_on(*d).is_some()
+            }
+            _ => false,
+        })
     }
 
     /// The declaration whose `?` assumption `id` stands for, by its full
@@ -266,38 +273,44 @@ impl Elaborator {
         Some(id)
     }
 
-    /// Marks what the component just checked relies on an open goal's
-    /// assumption as unfinished, as a declaration with a `?` was before
-    /// assumptions: its definitions from `defs` on and data types from
-    /// `datas` on, and those of its `items`. Whether it does.
+    /// Marks the declarations the component just checked that rely on an
+    /// open goal's assumption as unfinished, as a declaration with a `?`
+    /// was before assumptions: those of its `items`, and the definitions
+    /// from `defs` on and data types from `datas` on. Whether any of its
+    /// own do: a definition made in passing for another item (a waiting
+    /// instance) doesn't count. `is_unfinished` reads reliance off the
+    /// terms whatever is marked; the marks are for the component's status
+    /// and the check cache.
     pub(crate) fn mark_relying(&mut self, items: &[usize], defs: usize, datas: usize) -> bool {
         if !self.any_assumption() {
             return false;
         }
-        let g = &self.ev();
-        let mut def_ids: Vec<DefId> = (self.unit.module.def_items.iter())
-            .filter(|(id, item)| items.contains(item) && id.0 < g.env.defs().len())
-            .map(|(id, _)| *id)
+        let module = &self.unit.module;
+        let own = |id: &DefId| module.def_items.get(id).is_none_or(|i| items.contains(i));
+        let mut def_ids: Vec<DefId> = (items.iter())
+            .flat_map(|i| module.item_defs.get(i).into_iter().flatten().copied())
+            .filter(|id| id.0 < defs)
             .collect();
-        def_ids.extend((defs..g.env.defs().len()).map(DefId));
-        let data_ids: Vec<DataId> = (datas..g.env.datas().len()).map(DataId).collect();
-        if self
-            .relied_on(def_ids.iter().copied(), data_ids.iter().copied())
-            .is_empty()
-        {
-            return false;
-        }
+        def_ids.extend((defs..self.kernel.env.defs().len()).map(DefId));
+        let data_ids = (datas..self.kernel.env.datas().len()).map(DataId);
+        let relying_defs: Vec<(DefId, bool)> = (def_ids.into_iter())
+            .filter(|id| self.goal_relied_on(*id).is_some())
+            .map(|id| (id, own(&id)))
+            .collect();
+        let relying_datas: Vec<DataId> = data_ids
+            .filter(|d| self.goal_relied_on(*d).is_some())
+            .collect();
         let owners = &self.session.owners;
-        for id in def_ids {
+        for &(id, _) in &relying_defs {
             if !self.tables.is_unfinished(HashKey::Def(id)) {
                 self.tables.unfinished_defs.insert(owners, id, ());
             }
         }
-        for d in data_ids {
+        for &d in &relying_datas {
             if !self.tables.is_unfinished(HashKey::Data(d)) {
                 self.tables.unfinished_datas.insert(owners, d, ());
             }
         }
-        true
+        !relying_datas.is_empty() || relying_defs.iter().any(|(_, own)| *own)
     }
 }

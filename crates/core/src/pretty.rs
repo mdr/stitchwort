@@ -395,7 +395,7 @@ fn term_within(
     prec: Prec,
     goal: Option<&[bool]>,
 ) -> String {
-    note_failed_mention(g, term_);
+    note_failed_mention(g, names.len(), term_);
     let printer = || {
         let printer = Printer::new(g, scope);
         printer.equations.set(goal.is_some());
@@ -3243,17 +3243,58 @@ fn open_list<'t>(g: &Ev, term: &'t Term) -> Option<(Vec<&'t Term>, &'t Term)> {
 
 /// Records on `g` that a message showed a term that uses a definition that
 /// failed: whatever went wrong then is fallout of that failure (see
-/// `Shown::note_failed_mentioned`). Looks at the whole term, whatever the
-/// message elides.
-fn note_failed_mention(g: &Ev, term: &Term) {
+/// `Shown::note_failed_mentioned`). Or, failing that, one that is stuck on
+/// an open goal's assumption once computed (`Shown::note_stuck_on_goal`):
+/// not one that merely calls a definition relying on a goal, which may
+/// use the goal only in a proof and compute normally. Looks at the whole
+/// term, whatever the message elides; `level` is how many variables it is
+/// under.
+fn note_failed_mention(g: &Ev, level: usize, term: &Term) {
     if !g.shown.wants_failed_mention() || g.machine.budget.stack_exhausted() {
         return;
     }
-    if let Term::Def(d) = term
-        && (g.def(*d).state() == crate::globals::State::Failed || g.shown.waits_on_goal(*d))
-    {
+    let mut waits = false;
+    if mentions_failed(g, term, &mut waits) {
         g.shown.note_failed_mentioned();
-        return;
+    } else if waits && g.shown.wants_stuck_mention() && stuck_on_goal(g, level, term) {
+        g.shown.note_stuck_on_goal();
     }
-    term.for_each_child(|c, _| note_failed_mention(g, c));
+}
+
+/// Whether `term` uses a failed definition; `waits` is set if it uses one
+/// that may be stuck on an open goal (`Shown::waits_on_goal`).
+fn mentions_failed(g: &Ev, term: &Term, waits: &mut bool) -> bool {
+    if let Term::Def(d) = term {
+        if g.def(*d).state() == crate::globals::State::Failed {
+            return true;
+        }
+        *waits = *waits || g.shown.waits_on_goal(*d);
+    }
+    let mut found = false;
+    term.for_each_child(|c, _| found = found || mentions_failed(g, c, waits));
+    found
+}
+
+/// Whether `term`, under `level` variables, computed to its normal form,
+/// mentions an open goal's assumption. `false` if that is too large to read
+/// back or can't be computed: the message is then taken at its word.
+fn stuck_on_goal(g: &Ev, level: usize, term: &Term) -> bool {
+    const CAP: u64 = 10_000;
+    let in_scope = term.subterms().all(|(t, binders)| match t {
+        Term::Var(i) | Term::Case(i, ..) | Term::NumCase(i, ..) => *i < binders + level,
+        _ => true,
+    });
+    if !in_scope {
+        return false;
+    }
+    let env: Vec<Value> = (0..level).map(Value::var).collect();
+    let Ok(value) = crate::value::eval(g, &env, term) else {
+        return false;
+    };
+    let Ok(Some(normal)) = crate::value::quote_unfolded_shown_at_most(g, level, &value, CAP) else {
+        return false;
+    };
+    normal
+        .subterms()
+        .any(|(t, _)| matches!(t, Term::Def(d) if g.def(*d).assumption().is_some()))
 }

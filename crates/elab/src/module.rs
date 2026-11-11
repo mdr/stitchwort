@@ -182,8 +182,12 @@ pub(crate) struct ModuleState {
     /// The item being elaborated.
     pub item: Option<usize>,
     pub phase: Phase,
-    /// The item that declared each definition of this module.
+    /// The item that declared each definition of this module
+    /// ([`ModuleState::note_def`]).
     pub def_items: HashMap<DefId, usize>,
+    /// The definitions each item declared: [`Self::def_items`] the other
+    /// way round.
+    pub item_defs: HashMap<usize, Vec<DefId>>,
     /// The key of every name the module declares.
     pub names: HashSet<String>,
     /// Data types (by item) whose `Ord` is derived once their module's own
@@ -196,6 +200,19 @@ pub(crate) struct ModuleState {
 }
 
 impl ModuleState {
+    /// Notes that `item` declared definition `id`.
+    pub fn note_def(&mut self, id: DefId, item: usize) {
+        if let Some(old) = self.def_items.insert(id, item) {
+            if old == item {
+                return;
+            }
+            if let Some(defs) = self.item_defs.get_mut(&old) {
+                defs.retain(|d| *d != id);
+            }
+        }
+        self.item_defs.entry(item).or_default().push(id);
+    }
+
     /// Whether `item` is in the component being checked.
     pub fn in_current(&self, item: usize) -> bool {
         self.current.contains(&item)
@@ -415,6 +432,7 @@ impl Elaborator {
             // component's.
             self.clear_goals();
             self.decl.failed_mentioned.set(false);
+            self.decl.stuck_on_goal.set(false);
             let timed = crate::timings::enabled();
             if timed {
                 crate::timings::decl_begin(&self.ev());
@@ -776,12 +794,11 @@ impl Elaborator {
     /// or pending until the component is abandoned.
     fn mark_unfinished(&mut self, component: &[usize], defs: usize, datas: usize) {
         let g = &self.ev();
-        let mut def_ids: Vec<DefId> = Vec::new();
-        for (id, item) in &self.unit.module.def_items {
-            if component.contains(item) && g.def(*id).state() != State::Final {
-                def_ids.push(*id);
-            }
-        }
+        let mut def_ids: Vec<DefId> = (component.iter())
+            .flat_map(|i| self.unit.module.item_defs.get(i).into_iter().flatten())
+            .filter(|id| g.def(**id).state() != State::Final)
+            .copied()
+            .collect();
         def_ids.extend(
             (defs..g.env.defs().len())
                 .filter(|&id| g.env.defs()[id].state() != State::Final)
@@ -805,8 +822,11 @@ impl Elaborator {
     /// the text: messages elide), its errors are fallout of that failure (a
     /// failed definition is stuck, so a proof about it won't check): they
     /// become one saying the failed declaration has errors, which goes
-    /// without saying when that failure is reported too. Unknown names stay,
-    /// and so does everything when no message showed a failed definition.
+    /// without saying when that failure is reported too. When one showed a
+    /// term stuck on an open goal's assumption (`Decl::stuck_on_goal`), from
+    /// this module or another, they can't be decided until the goal is
+    /// filled, so they are unfinished. Unknown names stay, and so does
+    /// everything when no message showed either.
     fn blame_failed_dependency(
         &self,
         component: &[usize],
@@ -823,14 +843,15 @@ impl Elaborator {
             })
             .map(|d| (d, self.unit.module.items[d.item].name.as_str()))
             .collect();
-        if failed.is_empty() || !self.decl.failed_mentioned.get() {
+        let blamed = !failed.is_empty() && self.decl.failed_mentioned.get();
+        if !blamed && !self.decl.stuck_on_goal.get() {
             return;
         }
         // Blamed on a declaration with errors if there is one; if they're
-        // all unfinished, so is this (D636).
-        let errored = failed
-            .iter()
-            .position(|(d, _)| self.unit.module.items[d.item].status == Status::Failed);
+        // all unfinished, or it is stuck on a goal, so is this (D636).
+        let errored = (failed.iter())
+            .position(|(d, _)| self.unit.module.items[d.item].status == Status::Failed)
+            .filter(|_| blamed);
         for (_, d) in &mut diagnostics[before..] {
             if d.severity != Severity::Error
                 || d.code == "E-UNKNOWN-NAME"

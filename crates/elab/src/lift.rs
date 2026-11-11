@@ -788,7 +788,7 @@ impl Elaborator {
                 }
                 self.metas().solve_meta(d.meta, eval(g, &[], &call)?);
                 if let Some(item) = self.unit.module.item {
-                    self.unit.module.def_items.insert(id, item);
+                    self.unit.module.note_def(id, item);
                 }
                 match &d.local {
                     Some(local) => {

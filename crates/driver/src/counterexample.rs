@@ -210,7 +210,12 @@ impl Session {
                     && !stitchwort_elab::is_generated_name(g, def.name())
                     && matches!(state, State::Final | State::Failed)
                     && keep(&path))
-                .then(|| (id, def.name().to_string(), state == State::Final))
+                // Checked assuming an open goal holds isn't checked: a
+                // counterexample may only show the goal is false.
+                .then(|| {
+                    let checked = state == State::Final && !self.elab.relies_on_goal(id);
+                    (id, def.name().to_string(), checked)
+                })
             })
             .collect();
         theorems
