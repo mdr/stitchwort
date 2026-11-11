@@ -3016,14 +3016,19 @@ pub(crate) fn fold_back(
 ///
 /// [`Budget::attempt`]: stitchwort_core::budget::Budget::attempt
 pub(crate) fn cheaply<T>(g: &Ev, f: impl FnOnce() -> Result<T>) -> Option<T> {
-    let _op = g.machine.budget.attempt(stitchwort_core::Limits {
+    let _op = g.machine.budget.attempt(cheap_limits());
+    f().ok()
+}
+
+/// [`cheaply`]'s limits: the same in every build, `stack` included (SW-962).
+fn cheap_limits() -> stitchwort_core::Limits {
+    stitchwort_core::Limits {
         work: 100_000,
         stack: 128 * 1024,
         size: 10_000,
         frames: 10_000,
         native_frames: 10_000,
-    });
-    f().ok()
+    }
 }
 
 /// Whether a `let`'s value, as a normal form, is worth folding back: an
@@ -3045,15 +3050,27 @@ pub(crate) type Around = (usize, usize, Rc<Term>);
 /// of a `let`'s value that [`refold`] looks for. A solution is written as
 /// written ([`zonk_in`]) but falls back to the unfolding where a call can't
 /// be written; one solved from a value read back folded holds that form;
-/// and a decision's solution is found on the unfolded goal (D484).
+/// and a decision's solution is found on the unfolded goal (D484). The
+/// as-written form costs no computing, so it comes first; the other two
+/// each run within [`cheap_limits`] of their own, and one that doesn't fit
+/// is left out, so a value too large to unfold still folds back as written.
 pub(crate) fn value_forms(g: &Ev, level: usize, value: &Value) -> Result<Vec<Term>> {
-    let unfolded = quote(g, level, value)?;
     if !g.machine.glue.get() {
         // No calls: the forms are the same.
-        return Ok(vec![unfolded]);
+        return Ok(vec![quote(g, level, value)?]);
     }
     let mut forms = vec![quote_as_written(g, level, value)?];
-    for form in [quote_folded(g, level, value)?, unfolded] {
+    for folded in [true, false] {
+        let read = || match folded {
+            true => quote_folded(g, level, value),
+            false => quote(g, level, value),
+        };
+        let form = (g.machine.budget).aside(cheap_limits(), read);
+        // Cancelled, or out of the operation's own stack: passed on.
+        if let Some(e) = g.machine.budget.exhausted() {
+            return Err(e);
+        }
+        let Ok(form) = form else { continue };
         if !(forms.iter()).any(|f| stitchwort_core::value::same_term(f, &form)) {
             forms.push(form);
         }
@@ -3085,13 +3102,15 @@ pub(crate) fn zonk_in(
 }
 
 /// The budget for unfolding a solution to lose an unknown its calls'
-/// arguments mention ([`zonk_in`]).
+/// arguments mention ([`zonk_in`]): the same in every build, `stack`
+/// included, as [`cheaply`]'s (SW-962).
 fn unfolding_limits() -> stitchwort_core::Limits {
     stitchwort_core::Limits {
         work: 100_000,
+        stack: 128 * 1024,
         size: 20_000,
         frames: 10_000,
-        ..stitchwort_core::Limits::default()
+        native_frames: 10_000,
     }
 }
 
@@ -3306,8 +3325,15 @@ fn zonk_changed(
                     .machine
                     .budget
                     .aside(unfolding_limits(), || quote(g, level, &value));
-                if let Ok(unfolded) = unfolded {
-                    solved = unfolded;
+                // Running out of the side budget is "no unfolding"; the
+                // operation running out, or being cancelled, is passed on.
+                if let Some(e) = g.machine.budget.exhausted() {
+                    return Err(ZonkError::Resource(e));
+                }
+                match unfolded {
+                    Ok(unfolded) => solved = unfolded,
+                    Err(ResourceError::Work | ResourceError::Size | ResourceError::Depth) => {}
+                    Err(e) => return Err(ZonkError::Resource(e)),
                 }
             }
             if let Some(m) = unsolved(&solved) {
@@ -3988,6 +4014,30 @@ mod tests {
                 .any(|(t, _)| matches!(t, Term::Def(d) if *d == id)),
             "{solution:?}"
         );
+    }
+
+    /// An unknown only in an argument a call drops (`first x0 ?n`) doesn't
+    /// stop the solution being zonked: the call is unfolded, within the
+    /// fallback's budget, and the unknown goes with it.
+    #[test]
+    fn an_unknown_only_in_a_dropped_argument_is_unfolded_away() {
+        let (fresh, id) = with_first();
+        let g = &fresh.unifier();
+        let (n, _) = meta(g, &[]);
+        let (m, lhs) = meta(g, &[0]);
+        let call = Term::app(Term::app(Term::Def(id), Term::Var(0)), Term::Meta(n));
+        let call = eval(g, &[Value::var(0)], &call).unwrap();
+        assert!(unify(g, 1, &lhs, &call).unwrap());
+        let solution = quote_as_written(g, 0, &g.meta_solution(m).expect("solved")).unwrap();
+        assert!(
+            solution
+                .subterms()
+                .any(|(t, _)| matches!(t, Term::Meta(k) if *k == n)),
+            "{solution:?}"
+        );
+        let zonked = zonk(g, 1, &Term::app(Term::Meta(m), Term::Var(0))).expect("unfolded");
+        assert!(matches!(zonked, Term::Var(0)), "{zonked:?}");
+        assert!(g.meta_solution(n).is_none());
     }
 
     #[test]

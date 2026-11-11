@@ -413,3 +413,30 @@ fn a_use_of_what_waits_for_a_goal_waits_for_it_too() {
     assert_eq!(out.status.code(), Some(1), "{stderr}");
     assert!(stderr.contains("`1` and `2` aren't equal"), "{stderr}");
 }
+
+/// A goal whose statement steps at once, many times (`countDown 100000 []`),
+/// is stated as written, without computing it: it becomes an assumption the
+/// next theorem relies on, rather than running out or falling back (SW-2843).
+#[test]
+fn a_goal_that_would_compute_deeply_is_assumed_as_written() {
+    let dir = project("deep", "check:\n  open-goals: warn\n");
+    std::fs::write(
+        dir.join("src/a.sw"),
+        "namespace Book\n\n\
+         def countDown (n: Nat) (acc: List Nat): List Nat := match n with\n  \
+         | Zero => acc\n  \
+         | Succ k => countDown k [k, ..acc]\n\n\
+         theorem opening: countDown 100000 [] = [] := ?\n\n\
+         theorem user: countDown 100000 [] = [] := opening\n",
+    )
+    .unwrap();
+    let out = stitchwort(&dir, &["check"]);
+    let _ = std::fs::remove_dir_all(&dir);
+    let stderr = text(&out.stderr);
+    assert_eq!(out.status.code(), Some(0), "{stderr}");
+    assert!(!stderr.contains("E-RESOURCE"), "{stderr}");
+    assert!(
+        stderr.contains("1 declaration relies on open goals"),
+        "{stderr}"
+    );
+}
