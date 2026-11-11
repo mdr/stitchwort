@@ -1648,6 +1648,7 @@ theorem timesOne (n: Nat): n * 1 = n :=
 - **`check` fails while any goal is open**, after printing them and "N goals open", so a project with holes never passes in CI. `test` runs the tests of what's finished, then fails the same way. `run` runs `main` if `main` is finished (if what it needs has a `?`, it says so and doesn't run). `build` builds nothing while a goal is open. `eval` and the REPL refuse an expression that uses something unfinished. `axioms` refuses an unfinished definition.
 - **`?` is never filled in by the compiler**, unlike `_`. Where `_` stands for a proof the compiler can't work out (`E-UNSOLVED`), the error suggests writing `?` there to see what's needed.
 - Examples: `examples/goals/` (each one's goals are in `crates/cli/tests/snapshots/examples__goals__*.snap`). The design: [lsp-goal-holes.md](proposals/lsp-goal-holes.md).
+- **The editor shows the goal anywhere, not only at a `?`.** The Goals panel ("Stitchwort: Show Goals") follows the cursor through the whole file: in a proof it shows the names in scope and `⊢` the goal of the expression there, in a program `expected T` (or `has type T` where nothing was expected). It asks the server's `stitchwort/contextAt` once the cursor has rested about 0.3 s, and keeps the previous answer until the next arrives (docs/proposals/goal-at-any-point.md, stage 1). The playground's Goals section still shows `?` goals only.
 
 ### Counterexamples to a theorem
 

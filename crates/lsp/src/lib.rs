@@ -1462,7 +1462,9 @@ impl Main {
     /// through its check cache, the file's own namespace unreplayed), so
     /// like the code action it runs on a search thread, and a newer
     /// request for the document, or an edit, supersedes it. The answer is
-    /// `{range, type, checked, locals: [{name, type, value?}]}`, or null.
+    /// `{range, type, checked, kind, locals: [{name, type, value?}]}`
+    /// (`kind` is `proof` when the type is a proposition, else `program`),
+    /// or null.
     fn context_at(&self, request: Request) {
         let id = request.id.clone();
         let Ok(p) = serde_json::from_value::<lsp_types::TextDocumentPositionParams>(request.params)
@@ -4178,6 +4180,7 @@ fn context_at(
             "range": range(c.range),
             "type": c.ty,
             "checked": c.checked,
+            "kind": if c.proof { "proof" } else { "program" },
             "locals": c.locals,
         }),
         None => serde_json::Value::Null,

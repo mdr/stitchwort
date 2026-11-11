@@ -103,15 +103,24 @@ const stdContent = {
   },
 };
 
-// The Goals panel: shows the goal at the cursor (`stitchwort/goalAt`, docs/
-// proposals/lsp-goal-holes.md D640), asked again when the cursor or the text
-// moves, after a short pause. The server answers from the goals it already
-// published, so it is cheap.
+// The Goals panel follows the cursor everywhere (docs/proposals/
+// goal-at-any-point.md, stage 1). `stitchwort/goalAt` answers from the goals
+// the server already published, so it is cheap and asked 150 ms after the
+// cursor or the text moves. When the cursor isn't on a hole, the goal or
+// expected type of the expression there is `stitchwort/contextAt`, which
+// checks the file again (0.3 to 1.6 s on real files), so it is asked only
+// after the cursor has rested 300 ms. An answer that a later move has
+// overtaken is dropped, and the last answer stays on screen until the next
+// arrives.
 const GOAL_DEBOUNCE_MS = 150;
+const CONTEXT_DEBOUNCE_MS = 300;
 /** @type {vscode.WebviewPanel | undefined} */
 let goalPanel;
 let goalTimer;
+let contextTimer;
 let goalAsked = 0;
+/** The body last shown for an answer, kept while the next is pending. */
+let lastBody;
 
 const goalPage = (body) => `<!doctype html><html><head><meta charset="utf-8">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline';">
@@ -122,33 +131,53 @@ body { font-family: var(--vscode-editor-font-family, monospace); font-size: var(
 .n { color: var(--vscode-symbolIcon-variableForeground, var(--vscode-textLink-foreground)); }
 .v { opacity: 0.8; }
 .goal { border-top: 1px solid var(--vscode-panel-border); margin-top: 8px; padding-top: 8px; font-weight: bold; }
-.none { opacity: 0.6; }
+.none, .stale { opacity: 0.6; }
+.note { font-style: italic; margin: 0 0 6px; }
 </style></head><body>${body}</body></html>`;
 
 function showGoal(body) {
+  lastBody = body;
   if (goalPanel) goalPanel.webview.html = goalPage(body);
+}
+
+// An answer from the server, or null if there is none or the request failed
+// (a request the server superseded fails too).
+async function ask(method, editor) {
+  try {
+    return await client.sendRequest(method, {
+      textDocument: { uri: editor.document.uri.toString() },
+      position: { line: editor.selection.active.line, character: editor.selection.active.character },
+    });
+  } catch (err) {
+    return null;
+  }
 }
 
 async function refreshGoal() {
   const editor = vscode.window.activeTextEditor;
   if (!goalPanel || !client || !editor || editor.document.languageId !== cfg.LANGUAGE) return;
-  const asked = ++goalAsked;
-  let answer = null;
-  try {
-    answer = await client.sendRequest(cfg.GOAL_AT, {
-      textDocument: { uri: editor.document.uri.toString() },
-      position: { line: editor.selection.active.line, character: editor.selection.active.character },
-    });
-  } catch (err) {
-    answer = null;
-  }
+  const asked = goalAsked;
+  const goal = await ask(cfg.GOAL_AT, editor);
   // A newer question was sent meanwhile: its answer is the one to show.
-  if (asked === goalAsked) showGoal(cfg.goalHtml(answer));
+  if (asked !== goalAsked) return;
+  const position = editor.selection.active;
+  if (cfg.goalIsHere(goal, position)) return showGoal(cfg.goalHtml(goal));
+  // Not on a hole: the nearest hole of the declaration is only a fallback.
+  // Meanwhile the previous answer stays.
+  clearTimeout(contextTimer);
+  contextTimer = setTimeout(async () => {
+    const context = await ask(cfg.CONTEXT_AT, editor);
+    if (asked !== goalAsked || !goalPanel) return;
+    const body = cfg.panelBody(goal, context, position);
+    showGoal(body === null ? cfg.staleBody(lastBody) : body);
+  }, CONTEXT_DEBOUNCE_MS - GOAL_DEBOUNCE_MS);
 }
 
 function scheduleGoal() {
   if (!goalPanel) return;
   clearTimeout(goalTimer);
+  clearTimeout(contextTimer);
+  goalAsked++; // answers to questions sent before this move are dropped
   goalTimer = setTimeout(refreshGoal, GOAL_DEBOUNCE_MS);
 }
 
@@ -164,7 +193,9 @@ function openGoalPanel() {
     );
     goalPanel.onDidDispose(() => {
       goalPanel = undefined;
+      lastBody = undefined;
       clearTimeout(goalTimer);
+      clearTimeout(contextTimer);
     });
   }
   showGoal(cfg.goalHtml(null));

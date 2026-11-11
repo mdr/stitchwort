@@ -111,6 +111,41 @@ test('goals panel: the goalAt answer as escaped html, or a note when there is no
   assert.match(html, /⊢ a &lt; b/);
 });
 
+test('goals panel: a context answer is a goal in a proof, an expected type in a program', () => {
+  assert.strictEqual(cfg.CONTEXT_AT, 'stitchwort/contextAt');
+  const locals = [{ name: 'n', type: 'Nat' }];
+  const proof = cfg.contextHtml({ type: 'a < b', checked: true, kind: 'proof', locals });
+  assert.match(proof, /<span class="n">n<\/span>: Nat/);
+  assert.match(proof, /⊢ a &lt; b/);
+  const program = cfg.contextHtml({ type: 'List <Nat>', checked: true, kind: 'program', locals });
+  assert.match(program, /expected List &lt;Nat&gt;/);
+  assert.doesNotMatch(program, /⊢/);
+  // No expected type: the type found.
+  assert.match(cfg.contextHtml({ type: 'Nat', checked: false, kind: 'program', locals: [] }), /has type Nat/);
+  assert.match(cfg.contextHtml(null), /No open goal/);
+});
+
+test('goals panel: the hole under the cursor, else the context, else the nearest hole', () => {
+  const at = (line, character) => ({ line, character });
+  const goal = { range: { start: at(3, 2), end: at(3, 3) }, owner: '`f`', goal: 'g', context: [] };
+  const context = { type: 'Nat', checked: true, kind: 'program', locals: [] };
+  assert.ok(cfg.goalIsHere(goal, at(3, 2)));
+  assert.ok(!cfg.goalIsHere(goal, at(2, 8)));
+  assert.ok(!cfg.goalIsHere(null, at(2, 8)));
+  assert.match(cfg.panelBody(goal, context, at(3, 3)), /⊢ g/);
+  assert.match(cfg.panelBody(goal, context, at(2, 8)), /expected Nat/);
+  assert.match(cfg.panelBody(goal, null, at(2, 8)), /⊢ g/);
+  assert.strictEqual(cfg.panelBody(null, null, at(2, 8)), null);
+});
+
+test('goals panel: no answer keeps the last one, dimmed with a note', () => {
+  assert.match(cfg.staleBody(undefined), /No open goal/);
+  const kept = cfg.staleBody('<div class="goal">⊢ g</div>');
+  assert.match(kept, /class="stale"/);
+  assert.match(kept, /Nothing at the cursor/);
+  assert.match(kept, /⊢ g/);
+});
+
 test('server settings: the values the server reads, nested as it expects, unset ones left out', () => {
   const values = {
     'inlayHints.letTypes': false,

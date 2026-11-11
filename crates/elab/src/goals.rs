@@ -127,6 +127,7 @@ struct ProbePending {
     span: Span,
     ty: Value,
     checked: bool,
+    proof: bool,
     names: Vec<Name>,
     context: Vec<Entry>,
 }
@@ -140,6 +141,9 @@ pub struct ContextAt {
     /// found for it.
     pub ty: String,
     pub checked: bool,
+    /// Whether `ty` is a proposition (the expression is a proof): the
+    /// editor shows `⊢ ty` for a proof and `expected ty` for a program.
+    pub proof: bool,
     /// The names in scope there, as a goal lists them (a variable before
     /// anything whose type mentions it).
     pub locals: Vec<Hypothesis>,
@@ -754,6 +758,7 @@ impl Elaborator {
             span,
             ty: ty.clone(),
             checked,
+            proof: crate::rewrite::is_proof_type(cx, ty).unwrap_or(false),
             names,
             context,
         });
@@ -779,6 +784,7 @@ impl Elaborator {
             span: p.span,
             ty,
             checked: p.checked,
+            proof: p.proof,
             locals,
         });
     }
