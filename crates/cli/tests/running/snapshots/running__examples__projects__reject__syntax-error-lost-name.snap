@@ -1,0 +1,24 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-PARSE] Error: expected a name, but found `[`
+   ╭─[ syntax-error-lost-name/src/a.sw:4:5 ]
+   │
+ 4 │ def [beats] (n: Nat): Nat := n
+   │     ┬  
+   │     ╰── expected a name, but found `[`
+───╯
+[E-USES-FAILED] Error: `A` has a syntax error, so `beats` can't be found
+   ╭─[ syntax-error-lost-name/src/b.sw:4:11 ]
+   │
+ 4 │ import A (beats)
+   │           ──┬──  
+   │             ╰──── `beats` can't be found here
+   │
+   ├─[ syntax-error-lost-name/src/a.sw:4:5 ]
+   │
+ 4 │ def [beats] (n: Nat): Nat := n
+   │     ┬  
+   │     ╰── the syntax error is here
+───╯

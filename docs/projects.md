@@ -274,10 +274,15 @@ name that resolves into `M`.
   declarations gets one `E-USES-FAILED` per broken name, on its import of
   the name (or on the first declaration that waits, if the file doesn't
   import it by name), listing what waits. Everything else is checked as
-  usual, its goals are shown and its tests run. `check` still exits 1. In
-  the editor, while a namespace has a *syntax* error, the namespaces that
-  use it aren't checked (`E-NAMESPACE-FAILED`) and keep the answers they
-  had, so they don't change with every keystroke.
+  usual, its goals are shown and its tests run. `check` still exits 1. A
+  namespace with a *syntax* error may have lost a declaration altogether:
+  an import of a name it no longer declares then says so once, on the
+  import (`E-USES-FAILED`: "`A` has a syntax error, so `beats` can't be
+  found"), pointing at the syntax error, and what uses the name waits for
+  it rather than being told it is unknown. In the editor, while a namespace
+  has a syntax error, the namespaces that use it aren't checked
+  (`E-NAMESPACE-FAILED`) and keep the answers they had, so they don't change
+  with every keystroke.
 
 ## `auto` across files
 
@@ -392,7 +397,7 @@ the working directory. `--cache-dir` overrides both.
 | `E-NAMESPACE-CLASH` | A dotted namespace name is also a type declared in its parent namespace. |
 | `E-FOREIGN-NAMESPACE` | A file adds something other than a function to another namespace's type, or names another namespace as a declaration's qualifier. |
 | `E-EXTENSION-CLASH` | A function added to another namespace's type has the name of one of the type's own. |
-| `E-USES-FAILED` | Declarations of this file use a declaration of another namespace that has an error, so they can't be checked until it's fixed: one per broken name per file, listing what waits. |
+| `E-USES-FAILED` | Declarations of this file use a declaration of another namespace that has an error, so they can't be checked until it's fixed: one per broken name per file, listing what waits. Also an import of a name that namespace no longer declares because it has a syntax error (`A` has a syntax error, so `beats` can't be found). |
 | `E-NAMESPACE-FAILED` | In the editor only: a namespace wasn't checked because a namespace it depends on has a syntax error. |
 | `E-NAMESPACE-UNKNOWN` | A command named a namespace the project doesn't have. |
 | `E-UNKNOWN-THEOREM` | `check --only` named something that is not a theorem of the namespaces being checked. |

@@ -298,9 +298,34 @@ test "quad works" := quad 1 == 4
 test "quad of broken" := quadBroken 1 == 4
 "#;
 
+/// `A` has a syntax error in `beats`' header, so that declaration is lost
+/// (SW-2945).
+const LIB_WITH_A_SYNTAX_ERROR: &str = r#"namespace A
+
+def double (n: Nat): Nat := n + n
+
+def [beats] (n: Nat): Nat := n
+"#;
+
+const SYNTAX_IMPORTER: &str = r#"namespace B
+
+import A (beats)
+
+def use (n: Nat): Nat := beats n
+
+def good (n: Nat): Nat := n + 1
+
+test "good works" := good 1 == 2
+"#;
+
 /// A project whose namespace `B` imports a healthy and a broken name from
 /// `A`, with `A`'s text `lib`.
 fn importer_project(name: &str, lib: &str) -> PathBuf {
+    source_project(name, lib, IMPORTER)
+}
+
+/// A project of two files, `A`'s text and `B`'s.
+fn source_project(name: &str, a: &str, b: &str) -> PathBuf {
     let dir = std::env::temp_dir().join(format!(
         "stitchwort-json-importer-{}-{name}",
         std::process::id()
@@ -308,8 +333,8 @@ fn importer_project(name: &str, lib: &str) -> PathBuf {
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(dir.join("src")).unwrap();
     std::fs::write(dir.join("stitchwort.yaml"), "sources: [src]\n").unwrap();
-    std::fs::write(dir.join("src/a.sw"), lib).unwrap();
-    std::fs::write(dir.join("src/b.sw"), IMPORTER).unwrap();
+    std::fs::write(dir.join("src/a.sw"), a).unwrap();
+    std::fs::write(dir.join("src/b.sw"), b).unwrap();
     dir
 }
 
@@ -383,6 +408,34 @@ fn an_importer_of_a_namespace_with_an_error_is_checked_and_its_tests_run() {
     assert!(stderr.contains("b.sw:3:19"), "{stderr}");
     assert!(!stderr.contains("E-NAMESPACE-FAILED"), "{stderr}");
     assert!(!stderr.contains("E-FAILED-DEPENDENCY"), "{stderr}");
+}
+
+/// SW-2945: `A`'s syntax error loses `beats`, so `B`'s import of it says why
+/// once, on the import, rather than `beats` being unknown where it is used
+/// (docs/proposals/tests-with-errors.md §4.2). The rest of `B` is checked.
+#[test]
+fn an_import_of_a_name_lost_to_a_syntax_error_says_so_once() {
+    let dir = source_project("syntax", LIB_WITH_A_SYNTAX_ERROR, SYNTAX_IMPORTER);
+    let (tests, stderr, ok) = project_tests(&dir, &["--no-cache"]);
+    let _ = std::fs::remove_dir_all(&dir);
+    assert!(!ok, "{stderr}");
+    assert_eq!(stderr.matches("[E-PARSE]").count(), 1, "{stderr}");
+    assert_eq!(stderr.matches("[E-USES-FAILED]").count(), 1, "{stderr}");
+    assert!(
+        stderr.contains("`A` has a syntax error, so `beats` can't be found"),
+        "{stderr}"
+    );
+    // On the import, and at `A`'s syntax error.
+    assert!(stderr.contains("b.sw:3:11"), "{stderr}");
+    assert!(stderr.contains("a.sw:5:5"), "{stderr}");
+    assert!(!stderr.contains("E-UNKNOWN-NAME"), "{stderr}");
+    assert!(!stderr.contains("E-IMPORT-UNKNOWN"), "{stderr}");
+    // The declaration that uses `beats` waits; `B`'s other declaration and
+    // its test are checked and run.
+    let outcomes: Vec<(&str, &str, &str)> = (tests.iter())
+        .map(|(ns, name, outcome, _)| (ns.as_str(), name.as_str(), outcome.as_str()))
+        .collect();
+    assert_eq!(outcomes, [("B", "good works", "passed")]);
 }
 
 /// The check cache never serves an importer as it was before the namespace

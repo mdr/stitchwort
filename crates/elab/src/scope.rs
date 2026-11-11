@@ -2283,6 +2283,18 @@ impl Elaborator {
                         self.wildcard_failed(import);
                         continue;
                     }
+                    // A namespace with syntax errors may have lost every
+                    // name it declares, so the path itself isn't in scope:
+                    // say why, once per imported name, rather than that
+                    // there is no such namespace (§4.2).
+                    if let Some(found) = self.import_unparsed_path(import) {
+                        diagnostics.extend(found);
+                        self.scope
+                            .import_failed
+                            .extend(import.items.iter().map(|i| i.local().text.clone()));
+                        self.wildcard_failed(import);
+                        continue;
+                    }
                     let mut d = error(
                         "E-IMPORT-UNKNOWN",
                         import.path.span,
@@ -2365,7 +2377,17 @@ impl Elaborator {
                     // constructors: `import N (S)` imports just `S` (D3503).
                     match self.constructors_named(&namespace, &name.text).as_slice() {
                         [] => {
-                            diagnostics.push(self.import_unknown(&namespace, name));
+                            match self.import_unparsed_at(&namespace, name) {
+                                Some(d) => {
+                                    diagnostics.push(d);
+                                    // What uses the name waits for the
+                                    // syntax error, so it isn't reported
+                                    // again as unknown (§4.2).
+                                    self.scope.import_failed.insert(item.text.clone());
+                                    self.scope.import_failed.insert(name.text.clone());
+                                }
+                                None => diagnostics.push(self.import_unknown(&namespace, name)),
+                            }
                             continue;
                         }
                         [only] => {
@@ -2766,6 +2788,52 @@ impl Elaborator {
         Diagnostic::error("E-IMPORT-WILDCARD", message)
             .with_label(path.span, label)
             .with_note(note)
+    }
+
+    /// `E-USES-FAILED` for an import whose namespace isn't in scope at all
+    /// (it lost every declaration): one per item, or one for the whole
+    /// namespace when it imports `(..)`.
+    fn import_unparsed_path(&self, import: &Import) -> Option<Vec<Diagnostic>> {
+        if import.everything.is_some() {
+            let error_at = *self.session.project_syntax_errors.get(&import.path.text)?;
+            let mut d = Diagnostic::error(
+                "E-USES-FAILED",
+                format!(
+                    "`{}` has a syntax error, so its names can't be found",
+                    import.path.text
+                ),
+            )
+            .with_label(import.path.span, "its declarations are missing");
+            if let Some(span) = error_at {
+                d = d.with_label(span, "the syntax error is here");
+            }
+            return Some(vec![d]);
+        }
+        let found: Vec<Diagnostic> = (import.items.iter())
+            .filter_map(|whole| self.import_unparsed_at(&import.path.text, &whole.name))
+            .collect();
+        (!found.is_empty()).then_some(found)
+    }
+
+    /// `E-USES-FAILED` for an import of `item` from `namespace`, which no
+    /// longer declares it because its file has a syntax error
+    /// (docs/proposals/tests-with-errors.md §4.2): `None` when the
+    /// namespace has no syntax error, so the name is simply unknown.
+    fn import_unparsed_at(&self, namespace: &str, item: &ast::Name) -> Option<Diagnostic> {
+        let error_at = *self.session.project_syntax_errors.get(namespace)?;
+        let mut d = Diagnostic::error(
+            "E-USES-FAILED",
+            format!(
+                "`{}` has a syntax error, so `{}` can't be found",
+                display(namespace),
+                item.text
+            ),
+        )
+        .with_label(item.span, format!("`{}` can't be found here", item.text));
+        if let Some(span) = error_at {
+            d = d.with_label(span, "the syntax error is here");
+        }
+        Some(d)
     }
 
     fn import_unknown(&self, namespace: &str, item: &ast::Name) -> Diagnostic {
