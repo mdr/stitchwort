@@ -1,5 +1,5 @@
 {
-  "next": 2842,
+  "next": 2844,
   "tickets": [
     {
       "id": 47,
@@ -30018,6 +30018,32 @@
       "where": "",
       "labels": [],
       "epic": "test-infra",
+      "body": "",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2842,
+      "title": "Variable index underflow at crates/elab/src/lift.rs:390 inside rewrite::tidy -> replace_with (debug panics with subtraction overflow; release wraps silently and could build a wrong term), reached by search_at::a_goal_that_takes_too_long_to_open_reports_running_out; before stage 2 the debug test aborted with SIGILL (SW-2837)",
+      "status": "next",
+      "agent": "Opus",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2843,
+      "title": "Zonk reads a term back fully unfolded whenever it meets an unsolved unknown (unify.rs:3285-3288), which can compute deeply anywhere it's used; and count how many sf/ goals still become assumptions after SW-2837's no-unfold rule (SW-2805 had 77 of 77) (SW-2837)",
+      "status": "next",
+      "agent": "Opus",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
       "body": "",
       "created": "2026-11-11",
       "updated": "2026-11-11",
