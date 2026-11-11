@@ -1,5 +1,5 @@
 {
-  "next": 2849,
+  "next": 2852,
   "tickets": [
     {
       "id": 47,
@@ -30109,6 +30109,45 @@
       "where": "",
       "labels": [],
       "epic": "test-infra",
+      "body": "",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2849,
+      "title": "repl and eval don't load the project: in sf/, stitchwort repl src/Sf/Lf/Poly/Poly.sw fails 'there's no namespace Sf.Lf.Nat'; find the project from the current folder as check, test and doc do; fix the sf/ README's repl line and the :t comments in Basics.sw and NatList.sw (SW-2845)",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-2849",
+      "labels": [],
+      "epic": "docs-tutorials",
+      "body": "",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2850,
+      "title": "Messages: E-UNSOLVED on a hole in a header's type suggests f [x := …], which doesn't apply (SW-2845)",
+      "status": "backlog",
+      "agent": "DeepSeek",
+      "where": "",
+      "labels": [],
+      "epic": "diagnostics",
+      "body": "",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2851,
+      "title": "Std from SF Poly (SW-2845): List.foldRightLength, List.foldRightMap, List.flatMapAppend, List.unzipZip / zipUnzip, a curry function with uncurryCurry and curryUncurry (std has only uncurry)",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "std-library",
       "body": "",
       "created": "2026-11-11",
       "updated": "2026-11-11",
