@@ -735,61 +735,20 @@ const encodeFast = (fast, t, v) => {
 
 
 const $Std$dNat$dadd = (m, n) => m + n;
-const $Std$dBool$dnot = (v0) => {
-  switch (v0.tag) {
-    case "False": {
-      return { tag: "True" };
-    }
-    case "True": {
-      return { tag: "False" };
-    }
-  }
-  throw new Error("unreachable");
-};
-const $Std$dBool$difThenElse = (v1, v2, v3) => {
-  switch (v1.tag) {
-    case "False": {
-      return (v3)(undefined);
-    }
-    case "True": {
-      return (v2)(undefined);
-    }
-  }
-  throw new Error("unreachable");
-};
 const $Std$dNat$dleq = (m, n) => ({ tag: m <= n ? "True" : "False" });
 const $Std$dNat$dequal = (m, n) => ({ tag: m === n ? "True" : "False" });
 const $Std$dDecidable$dholds = (v1) => {
   const v2 = v1;
   return v2;
 };
-const $Std$dDecidable$delim$d$gmatch1 = (v2, v3, v4, v5) => {
-  switch (v5.tag) {
-    case "False": {
-      return (v4)(undefined);
-    }
-    case "True": {
-      return (v3)(undefined);
-    }
-  }
-  throw new Error("unreachable");
-};
-const $Std$dDecidable$delim = (v2, v3, v4) => $Std$dDecidable$delim$d$gmatch1(v2, v3, v4, v2);
-const $Std$dNat$ddecEq = $Std$dNat$dequal;
-const $Std$dDecidable$dnot = $Std$dBool$dnot;
-const $Std$dDecidable$dand = (v2, v3) => (v2.tag === "True" ? v3 : { tag: "False" });
-const $Std$dDecidable$dor = (v2, v3) => (v2.tag === "True" ? { tag: "True" } : v3);
-const $Std$dNat$ddecLessEq = $Std$dNat$dleq;
-const $Std$dNat$ddecLessThan = (v0, v1) => $Std$dNat$dleq((v0 + 1n), v1);
-const $Std$dDecidable$dandThen = (v2, v3) => (v2.tag === "True" ? (v3)(undefined) : { tag: "False" });
 const $Main$dtwice = (v0) => $Std$dNat$dadd(v0, v0);
 const $Main$dinRange = (v0) => (((v1) => ($Std$dNat$dleq(3n, v1).tag === "True" ? $Std$dNat$dleq(v1, 9n) : { tag: "False" }))($Main$dtwice(v0)).tag === "True" ? 1n : 0n);
 const $Main$dnamed = (v0) => (((v1) => ($Std$dNat$dleq(3n, v1).tag === "True" ? $Std$dNat$dleq(v1, 9n) : { tag: "False" }))($Main$dtwice(v0)).tag === "True" ? 1n : 0n);
 const $Main$dasBool = (v0) => { const v1 = $Main$dtwice(v0); return ($Std$dNat$dleq(3n, v1).tag === "True" ? $Std$dNat$dleq(v1, 9n) : { tag: "False" }); };
-const $Main$dnested = (v0) => (((v1) => ($Std$dBool$dnot($Std$dNat$dequal(v0, 0n)).tag === "True" ? ($Std$dNat$dleq(3n, v1).tag === "True" ? $Std$dNat$dleq(v1, 9n) : { tag: "False" }) : { tag: "False" }))($Main$dtwice(v0)).tag === "True" ? v0 : 0n);
+const $Main$dnested = (v0) => (((v1) => (({ tag: !(($Std$dNat$dequal(v0, 0n)).tag === "True") ? "True" : "False" }).tag === "True" ? ($Std$dNat$dleq(3n, v1).tag === "True" ? $Std$dNat$dleq(v1, 9n) : { tag: "False" }) : { tag: "False" }))($Main$dtwice(v0)).tag === "True" ? v0 : 0n);
 const $Main$deither = (v0) => (((v1) => ($Std$dNat$dequal(v0, 0n).tag === "True" ? { tag: "True" } : ($Std$dNat$dleq(3n, v1).tag === "True" ? $Std$dNat$dleq(v1, 9n) : { tag: "False" })))($Main$dtwice(v0)).tag === "True" ? 1n : 0n);
-const $Main$dnegated = (v0) => (((v1) => $Std$dBool$dnot(($Std$dNat$dleq(3n, v1).tag === "True" ? $Std$dNat$dleq(v1, 9n) : { tag: "False" })))($Main$dtwice(v0)).tag === "True" ? 1n : 0n);
-const $Main$dguarded = (v0) => (((v1) => ($Std$dBool$dnot($Std$dNat$dequal(v0, 0n)).tag === "True" ? ($Std$dNat$dleq(3n, v1).tag === "True" ? $Std$dNat$dleq(v1, 9n) : { tag: "False" }) : { tag: "False" }))($Main$dtwice(v0)).tag === "True" ? 1n : 0n);
+const $Main$dnegated = (v0) => (((v1) => ({ tag: !((($Std$dNat$dleq(3n, v1).tag === "True" ? $Std$dNat$dleq(v1, 9n) : { tag: "False" })).tag === "True") ? "True" : "False" }))($Main$dtwice(v0)).tag === "True" ? 1n : 0n);
+const $Main$dguarded = (v0) => (((v1) => (({ tag: !(($Std$dNat$dequal(v0, 0n)).tag === "True") ? "True" : "False" }).tag === "True" ? ($Std$dNat$dleq(3n, v1).tag === "True" ? $Std$dNat$dleq(v1, 9n) : { tag: "False" }) : { tag: "False" }))($Main$dtwice(v0)).tag === "True" ? 1n : 0n);
 
 function $$inRange(arg0) {
   try {

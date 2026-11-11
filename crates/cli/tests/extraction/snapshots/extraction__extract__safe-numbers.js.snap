@@ -766,41 +766,12 @@ define(info$Main$dCounter, [
 ]);
 
 const $Std$dNat$dadd = (m, n) => m + n;
-const $Std$dBool$difThenElse = (v1, v2, v3) => {
-  switch (v1.tag) {
-    case "False": {
-      return (v3)(undefined);
-    }
-    case "True": {
-      return (v2)(undefined);
-    }
-  }
-  throw new Error("unreachable");
-};
 const $Std$dNat$dleq = (m, n) => ({ tag: m <= n ? "True" : "False" });
 const $Std$dNat$dequal = (m, n) => ({ tag: m === n ? "True" : "False" });
 const $Std$dDecidable$dholds = (v1) => {
   const v2 = v1;
   return v2;
 };
-const $Std$dDecidable$dyes = { tag: "True" };
-const $Std$dDecidable$dno = { tag: "False" };
-const $Std$dDecidable$dmap = (v2) => v2;
-const $Std$dDecidable$delim$d$gmatch1 = (v2, v3, v4, v5) => {
-  switch (v5.tag) {
-    case "False": {
-      return (v4)(undefined);
-    }
-    case "True": {
-      return (v3)(undefined);
-    }
-  }
-  throw new Error("unreachable");
-};
-const $Std$dDecidable$delim = (v2, v3, v4) => $Std$dDecidable$delim$d$gmatch1(v2, v3, v4, v2);
-const $Std$dNat$ddecEq = $Std$dNat$dequal;
-const $Std$dNat$ddecLessEq = $Std$dNat$dleq;
-const $Std$dDecidable$dandThen = (v2, v3) => (v2.tag === "True" ? (v3)(undefined) : { tag: "False" });
 const $Std$dInt$dneg = (a) => -a;
 const $Std$dInt$dnatAbs = (a) => (a < 0n ? -a : a);
 const $Std$dInt$dtoNat = (a) => (a < 0n ? 0n : a);
@@ -820,8 +791,8 @@ const $Std$dSafeInt$dvalue = (v0) => {
 };
 const $Std$dSafeNat$dofNat = (v0) => ($Std$dNat$dleq(v0, 9007199254740991n).tag === "True" ? { tag: "Some", value: v0 } : { tag: "None" });
 const $Std$dSafeInt$dofInt = (v0) => ($Std$dNat$dleq($Std$dInt$dnatAbs(v0), 9007199254740991n).tag === "True" ? { tag: "Some", value: v0 } : { tag: "None" });
-const $Std$dSafeNat$dinstDecEq = ((v0) => ((v1) => ($Std$dNat$dequal(v0, v1).tag === "True" ? $Std$dDecidable$dyes : $Std$dDecidable$dno)));
-const $Std$dSafeInt$dinstDecEq = ((v0) => ((v1) => ($Std$dInt$ddecEq(v0, v1).tag === "True" ? $Std$dDecidable$dyes : $Std$dDecidable$dno)));
+const $Std$dSafeNat$dinstDecEq = ((v0) => ((v1) => ($Std$dNat$dequal(v0, v1).tag === "True" ? { tag: "True" } : { tag: "False" })));
+const $Std$dSafeInt$dinstDecEq = ((v0) => ((v1) => ($Std$dInt$ddecEq(v0, v1).tag === "True" ? { tag: "True" } : { tag: "False" })));
 const $Std$dList$dmap$e = (v4, v5) => {
   let s4 = v4, s5 = v5;
   let h$ = null, l$ = null, k$ = null;

@@ -761,7 +761,6 @@ const $Std$dDecidable$dholds = (v1) => {
   const v2 = v1;
   return v2;
 };
-const $Std$dNat$ddecEq = $Std$dNat$dequal;
 const $Main$dhalf = (v0) => {
   let s0 = v0;
   let a$ = 0n;

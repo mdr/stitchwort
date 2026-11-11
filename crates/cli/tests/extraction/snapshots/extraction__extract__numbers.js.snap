@@ -740,17 +740,6 @@ const $Std$dVoid$dabsurd = () => {
 const $Std$dNat$dadd = (m, n) => m + n;
 const $Std$dNat$dsub = (m, n) => (m >= n ? m - n : 0n);
 const $Std$dNat$dmul = (m, n) => m * n;
-const $Std$dBool$dnot = (v0) => {
-  switch (v0.tag) {
-    case "False": {
-      return { tag: "True" };
-    }
-    case "True": {
-      return { tag: "False" };
-    }
-  }
-  throw new Error("unreachable");
-};
 const $Std$dNat$dleq = (m, n) => ({ tag: m <= n ? "True" : "False" });
 const $Std$dList$dlengthOnto = (v1, v2) => {
   let s1 = v1, s2 = v2;
@@ -777,21 +766,6 @@ const $Std$dDecidable$dholds = (v1) => {
   const v2 = v1;
   return v2;
 };
-const $Std$dDecidable$delim$d$gmatch1 = (v2, v3, v4, v5) => {
-  switch (v5.tag) {
-    case "False": {
-      return (v4)(undefined);
-    }
-    case "True": {
-      return (v3)(undefined);
-    }
-  }
-  throw new Error("unreachable");
-};
-const $Std$dDecidable$delim = (v2, v3, v4) => $Std$dDecidable$delim$d$gmatch1(v2, v3, v4, v2);
-const $Std$dNat$ddecEq = $Std$dNat$dequal;
-const $Std$dDecidable$dnot = $Std$dBool$dnot;
-const $Std$dNat$ddecLessThan = (v0, v1) => $Std$dNat$dleq((v0 + 1n), v1);
 const $Std$dNat$ddivFuel = (fuel, n, d) => { if (d === 0n) return 0n; const q = n / d; return q < fuel ? q : fuel; };
 const $Std$dNat$ddiv = (v0, v1) => $Std$dNat$ddivFuel(v0, v0, v1);
 const $Std$dNat$dmod = (v0, v1) => $Std$dNat$dsub(v0, $Std$dNat$dmul($Std$dNat$ddiv(v0, v1), v1));
@@ -815,7 +789,7 @@ const $Main$dtotal = (v0) => {
     throw new Error("unreachable");
   }
 };
-const $Main$daverage = (v0) => ($Std$dBool$dnot($Std$dNat$dequal($Std$dList$dlength(v0), 0n)).tag === "True" ? $Std$dNat$ddiv($Main$dtotal(v0), $Std$dList$dlength(v0)) : 0n);
+const $Main$daverage = (v0) => (({ tag: !(($Std$dNat$dequal($Std$dList$dlength(v0), 0n)).tag === "True") ? "True" : "False" }).tag === "True" ? $Std$dNat$ddiv($Main$dtotal(v0), $Std$dList$dlength(v0)) : 0n);
 const $Main$dget = (v1, v2) => {
   let s1 = v1, s2 = v2;
   for (;;) {
