@@ -30882,12 +30882,12 @@
     {
       "id": 2907,
       "title": "[DeepSeek] 'Search for a proof' is added before the splits, so the playground's Cmd+. menu lists it first; list it last, after the quick actions (SW-2890)",
-      "status": "backlog",
+      "status": "review",
       "agent": "DeepSeek",
       "where": "",
       "labels": [],
       "epic": "editor-playground",
-      "body": "",
+      "body": "\n\nLane note (19:40): done on lane/SW-2914 commit 7a8c54267; see the lane report.",
       "created": "2026-11-11",
       "updated": "2026-11-11",
       "commits": []
@@ -30895,12 +30895,12 @@
     {
       "id": 2908,
       "title": "[DeepSeek] Bundler's book_entries expects src/Book/ChNN…, but the book's chapters are src/00-setting-up.sw, 01-computing.sw, …: list book chapters from src/NN-*.sw in order (SW-2892, SW-2902)",
-      "status": "backlog",
+      "status": "review",
       "agent": "DeepSeek",
       "where": "",
       "labels": [],
       "epic": "editor-playground",
-      "body": "",
+      "body": "\n\nLane note (19:40): done on lane/SW-2914 commit 7a8c54267; see the lane report.",
       "created": "2026-11-11",
       "updated": "2026-11-11",
       "commits": []
@@ -30973,12 +30973,12 @@
     {
       "id": 2914,
       "title": "[Sonnet] Browser tier: 6 failures after SW-2892 (and SW-2890): content-hash test (version.json in the worker's requests), roguelike-is-a-second-project (deep-equal; likely the dropdown now lists sf/book), W-MODULE-NAME warning format, JavaScript tab, Run with scripted input, error underlined after a jump. Run at load ~33 (17 min). Find which are caused by SW-2892/SW-2890 (compare with a build at 9ebedf6de) and fix those; file the rest with reasons",
-      "status": "next",
+      "status": "review",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "editor-playground",
-      "body": "",
+      "body": "\n\nLane note (19:40): done on lane/SW-2914 commit 7a8c54267; see the lane report.",
       "created": "2026-11-11",
       "updated": "2026-11-11",
       "commits": []
