@@ -36,5 +36,11 @@ theorem Char.ext (x y: Char) (e: Char.toNat x = Char.toNat y): x = y :=
 def Char.decEqFrom (x: Char) (y: Char) (natEq: Decidable (Char.toNat x = Char.toNat y)): Decidable (x = y) :=
   Decidable.map natEq (Char.ext x y) (Eq.cong Char.toNat)
 
---| Decides whether two characters are equal, by their codes.
-def Char.decEq (x: Char) (y: Char): Decidable (x = y) := Char.decEqFrom x y (Nat.decEq (Char.toNat x) (Char.toNat y))
+--| Decides whether two characters are equal, by their codes. Written as the
+--| record rather than through [`Char.decEqFrom`], so that its test is
+--| computed in place, without building `Nat.decEq`'s record first.
+def Char.decEq (x: Char) (y: Char): Decidable (x = y) := {
+  holds = Nat.equal (Char.toNat x) (Char.toNat y),
+  sound = h => Char.ext x y (Nat.equalSound (Char.toNat x) (Char.toNat y) h),
+  complete = e => J (y' e' => Nat.equal (Char.toNat x) (Char.toNat y') = True) (Nat.equalRefl (Char.toNat x)) e
+}

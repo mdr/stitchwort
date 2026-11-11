@@ -793,8 +793,6 @@ const $Std$dDecidable$dholds = (v1) => {
   const v2 = v1;
   return v2;
 };
-const $Std$dDecidable$dmap = (v2) => v2;
-const $Std$dNat$ddecEq = $Std$dNat$dequal;
 const $Std$dChar$dtoNat = (v0) => {
   switch (v0.tag) {
     case "MkChar": {
@@ -804,7 +802,6 @@ const $Std$dChar$dtoNat = (v0) => {
   }
   throw new Error("unreachable");
 };
-const $Std$dChar$ddecEqFrom = (v0, v1, v2) => v2;
 const $Std$dChar$ddecEq = (v0, v1) => $Std$dNat$dequal($Std$dChar$dtoNat(v0), $Std$dChar$dtoNat(v1));
 const $Std$dText$dtoList = charsOfText;
 const $Std$dNat$dtoText = (n) => n.toString();
