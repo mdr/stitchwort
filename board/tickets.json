@@ -28536,15 +28536,17 @@
     {
       "id": 2728,
       "title": "ProofsOnly refusal names the declaration but not the position inside the term",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": ".claude/worktrees/scratch-sw-2728",
       "labels": [],
       "epic": "test-infra",
-      "body": "From SW-2698 (10 Nov 2026).",
+      "body": "From SW-2698 (10 Nov 2026).\nDone 11 Nov (DeepSeek): a proofs-only refusal of a definition says where its old and new terms first differ outside proof positions (path, old → new), in text and JSON ('difference'). The old terms' ids are translated by full name into the re-checked environment first (ids shift when an edit adds a declaration earlier). The --std-dir mode compares two processes' hash lists and has no terms, so it is unchanged. Tests a_refused_body_change_names_the_first_differing_subterm, a_shifted_id_still_names_the_right_difference.\nModel result: DeepSeek, needed fixes (compared and printed old ids in the new environment), 42 + 23 min (est. 60).",
       "created": "2026-11-10",
-      "updated": "2026-11-10",
-      "commits": []
+      "updated": "2026-11-11",
+      "commits": [
+        "30aedc8d8"
+      ]
     },
     {
       "id": 2729,
