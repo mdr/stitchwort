@@ -1467,7 +1467,7 @@ fn equation(cx: &mut Ctx, op: BinOp, a: Term, b: Term, t: &Value) -> Result<(Ter
             let not = builtin_def(cx, Builtin::Not)?;
             Ok((Term::app(Term::Def(not), eq), prop))
         }
-        // `a == b` is `toBool d`, for a decision procedure `d` for `a = b`,
+        // `a == b` is `holds d`, for a decision procedure `d` for `a = b`,
         // found as for `if h : a = b`.
         // The search sees the operands as variables where it can
         // (`bind.rs`), so they aren't computed here or by the kernel.

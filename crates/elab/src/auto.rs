@@ -19,8 +19,8 @@
 //!    passing a procedure explicitly makes it a dependency, checked first. Its arguments are found by unification, and any
 //!    `Decidable` or auto arguments it needs are found recursively, one
 //!    deeper each time, up to `MAX_DEPTH`. It's run at
-//!    compile time, and must say `Yes`. The proof is then `fromYes d Trivial`,
-//!    which the kernel re-checks by running `d` itself.
+//!    compile time, and its test must be `True`. The proof is then `d.sound
+//!    rfl`, which the kernel re-checks by computing `d`'s test itself.
 //!
 //! Between 1 and 2, a lexicographic `decreasing` obligation, `Nat.LexLess a1
 //! a2 b1 b2`, is split: `a1 < b1`, or else `a1` the same as `b1` and `a2 <

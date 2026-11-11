@@ -431,9 +431,9 @@ fn visibly_false(cx: &Ctx, goal: &Value) -> Result<bool> {
 
 /// What the decision closer made of a goal.
 enum Decided {
-    /// Its decision procedure says `Yes`: the proof.
+    /// Its decision procedure's test is `True`: the proof.
     Yes(Term),
-    /// It says `No`. The case isn't failed for that: its hypotheses may
+    /// The test is `False`. The case isn't failed for that: its hypotheses may
     /// still contradict each other (decide/closer_order.sw,
     /// `falseGoalImpossibleCase`), which a later step may show.
     No,

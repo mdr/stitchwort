@@ -27,7 +27,7 @@
 //! `Nat`, or `Not (a <= b)`; other forms reach these through proved bridge
 //! lemmas, applied in the emitted term: `Nat.leq a b = False`
 //! (`Nat.leqFalse`), `(p && q) = True` (`Bool.andLeft`/`andRight`),
-//! `Decidable.toBool d = True`/`False`, which is how `a <= b` inside `&&`
+//! `Decidable.holds d = True`/`False`, which is how `a <= b` inside `&&`
 //! comes out (`Decidable.toBoolSound`/`toBoolFalse`), and `And p q`
 //! (`And.left`/`right`), and likewise `||` and `not` (`Bool.orFalseLeft`,
 //! `Bool.notTrue`, ...). Each is read again until it's arithmetic.
@@ -1675,7 +1675,7 @@ impl Reader<'_> {
                             Some(BoolForm::Leq(x, y)) => {
                                 self.facts.push(fact(Kind::NotLe, false, &x, &y));
                             }
-                            // `Not (Decidable.toBool d = True)`, and the
+                            // `Not (Decidable.holds d = True)`, and the
                             // same on `Int`: `= False` first.
                             Some(
                                 BoolForm::ToBool(..)

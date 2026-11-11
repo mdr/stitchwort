@@ -3873,7 +3873,7 @@ impl<'g> Gen<'g> {
     /// generated as `let`s ([`Gen::inline_let`], [`Gen::function_body`]),
     /// not as a closure made and called on the spot. The elaborator writes
     /// `a == b` and `x ∈ xs` that way, with the operands bound
-    /// (`(a => toBool (decEq a b)) x`, elab's `bind.rs`), so inside a
+    /// (`(a => holds (decEq a b)) x`, elab's `bind.rs`), so inside a
     /// callback the closure would be made once for each element. Each `let`
     /// computes its argument before the body, as the call would have; one
     /// the body doesn't use isn't computed.
@@ -5666,7 +5666,7 @@ fn mentions(js: &str, name: &str) -> bool {
 /// `match`'s scrutinee (which must be a variable), so that its value can
 /// be put in its place without computing it more often. Types and
 /// equations, which run as `undefined` (`Gen::expr`), don't count: a
-/// decision's proposition (`toBool {a = b} d`) mentions its operands;
+/// decision's proposition (`holds {a = b} d`) mentions its operands;
 /// nor do a definition's erased arguments, or a call that's erased.
 fn single_use<'t>(codegen: &Gen, body: &'t Term) -> bool {
     let mut uses = 0;

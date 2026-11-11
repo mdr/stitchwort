@@ -582,7 +582,7 @@ fn lifted(
     generalised(cx, columns, exprs, alts, &[], span, kind, goal, base, None)
 }
 
-/// `b`, when `normal` is `Decidable.toBool {p} (Bool.decTrue b)`: the two
+/// `b`, when `normal` is `Decidable.holds {p} (Bool.decTrue b)`: the two
 /// are the same `Bool` (by cases on `b`), and `b` is the one an unfolded
 /// `if` on the same decision mentions.
 fn tested_bool(cx: &Ctx, normal: &Term) -> Option<Term> {

@@ -177,7 +177,7 @@ fn each_kind_of_recursion_and_split() {
                 "(motive: List Bool → Nat → Prop) → (eq1: motive [] 0) → \
                  (eq2IfTrue: (b: Bool) → (rest: List Bool) → b = False → \
                  motive rest (countFresh rest) → motive [b, ..rest] (1 + countFresh rest)) → \
-                 (eq2IfFalse: (b: Bool) → (rest: List Bool) → b = True → \
+                 (eq2IfFalse: (b: Bool) → (rest: List Bool) → b → \
                  motive rest (countFresh rest) → motive [b, ..rest] (countFresh rest)) → \
                  (x: List Bool) → motive x (countFresh x)",
             ),

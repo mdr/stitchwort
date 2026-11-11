@@ -1,5 +1,5 @@
 ---
-source: crates/cli/tests/examples.rs
+source: crates/cli/tests/running/examples.rs
 expression: warnings
 ---
 [W-MATCH-DECISION-IF] Warning: this `match` on a decision doesn't refine the `if` in `pos`
@@ -7,7 +7,7 @@ expression: warnings
     │
  27 │   match Nat.decLessThan n limit with
     │         ───────────┬───────────  
-    │                    ╰───────────── looked for `(n < limit).decTrue`
+    │                    ╰───────────── looked for `{ holds = n < limit, sound = h => h, complete = h => h }`
     │ 
     │ Note 1: the `if` tests the `Bool` `n < limit` directly, since its branches don't use the proof of the comparison, so it doesn't hold the decision
     │ 

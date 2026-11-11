@@ -867,7 +867,7 @@ struct Shape {
 /// arm uses, or `if h: P`). `cond` is a term at the shape's depth.
 ///
 /// `prop` is set where the `Bool` is a decided proposition's,
-/// `Decidable.toBool d` (but not a comparison's, which reads as itself):
+/// `Decidable.holds d` (but not a comparison's, which reads as itself):
 /// the hypotheses say the proposition, `P` and `¬P`.
 #[derive(Clone)]
 struct GuardRead {
@@ -1107,10 +1107,10 @@ struct BranchLib {
     /// `andBoolFalse`, the same four for a conjunction `a && b`
     /// ([`Decided::Conj`]).
     and_lemmas: Option<[DefId; 4]>,
-    /// `Bool.decTrue`, and `Bool.decTrueToBool` (`toBool (decTrue c) = c`).
+    /// `Bool.decTrue`, and `Bool.decTrueToBool` (`holds (decTrue c) = c`).
     dec_true: Option<(DefId, DefId)>,
     and_data: DataId,
-    /// `Decidable.and` and `Decidable.andBoolDec` (`toBool (and dp dq) = (a
+    /// `Decidable.and` and `Decidable.andBoolDec` (`holds (and dp dq) = (a
     /// && b)`), which decide a conjunction that is itself an operand.
     and_dec: Option<(DefId, DefId)>,
     /// `Decidable.notNotOf` and `Decidable.not`, which decide `¬Q` from `Q`'s decision.
@@ -1121,7 +1121,7 @@ struct BranchLib {
 /// guard say it.
 #[derive(Clone)]
 enum Decided {
-    /// `Decidable.toBool [P] d`.
+    /// `Decidable.holds [P] d`.
     One(Term, Term),
     /// `a && b`, as `if a then b else False`, each operand a decided
     /// proposition's `Bool` or another `Bool` `c` (as `c = True`).
@@ -1129,7 +1129,7 @@ enum Decided {
 }
 
 /// `a && b` read as the conjunction `pa ∧ pb`: each side's proposition
-/// `p`, its decision `d`, its `Bool` `x` and the proof `e` of `toBool d =
+/// `p`, its decision `d`, its `Bool` `x` and the proof `e` of `holds d =
 /// x`.
 #[derive(Clone)]
 struct ConjView {
@@ -1220,7 +1220,7 @@ impl BranchLib {
         )
     }
 
-    /// `P` and `d`, when `c` is `Decidable.toBool [P] d`: a decided
+    /// `P` and `d`, when `c` is `Decidable.holds [P] d`: a decided
     /// proposition's `Bool` that isn't a comparison's.
     fn decided(&self, c: &Term) -> Option<(Term, Term)> {
         let (head, args) = c.spine();
@@ -1355,7 +1355,7 @@ impl BranchLib {
     }
 
     /// `lemma [P] d h`, with `lemma` one of [`BranchLib::to_bool_lemmas`]:
-    /// 0 `toBoolOf` (`P` to `toBool d = True`), 1 `toBoolOfNot`, 2
+    /// 0 `toBoolOf` (`P` to `holds d = True`), 1 `toBoolOfNot`, 2
     /// `toBoolSound` (back to `P`), 3 `toBoolFalse`.
     fn to_bool_lemma(&self, which: usize, p: Term, d: Term, h: Term) -> R<Term> {
         let lemmas = self
@@ -7027,7 +7027,7 @@ impl<'a> Walk<'a> {
         };
         let recorded = self.shapes[j].as_ref().ok().and_then(|s| s.guard.as_ref());
         // For a condition stated as its proposition but tested by its
-        // `Bool` `toBool d`: `P` and `d` here, to go between the two.
+        // `Bool` `holds d`: `P` and `d` here, to go between the two.
         let decided = match recorded {
             Some(r) if r.prop.is_some() => {
                 Some(blib.decided_view(&g, &read.args[1].0)?.ok_or_else(|| {

@@ -5700,7 +5700,7 @@ fn awaiting_note(
 
 /// Where a `Bool` is expected, a proposition with a decision procedure is
 /// decided, as Lean's `decide` coercion does: `term : Prop` becomes
-/// `Decidable.toBool {term} decision`, so `List.filter (n => n <= k) xs`
+/// `Decidable.holds {term} decision`, so `List.filter (n => n <= k) xs`
 /// works. `None` (nothing done) unless `expected` is the library's `Bool`
 /// and `found` is `Prop`, so other comparisons don't pay for it. A
 /// condition (`if c`, `&&` …) whose `Bool` reading is being tried isn't

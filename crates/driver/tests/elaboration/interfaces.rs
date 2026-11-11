@@ -369,7 +369,7 @@ def same (m: Nat) (n: Nat): Bool := m == n
     assert!(records.is_empty(), "{records:?}");
     // `==` on a library type is still the field's term (stage 2's projection).
     let (defs, _) = body_of(&source, "same");
-    assert_eq!(defs, ["Decidable.toBool", "Nat.decEq"]);
+    assert_eq!(defs, ["Decidable.holds", "Nat.decEq"]);
 }
 
 /// An operator whose dictionary is found only after it (a let-bound

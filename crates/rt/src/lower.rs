@@ -918,7 +918,7 @@ impl<'g> Lowerer<'g> {
         if Some(id) == self.to_bool
             && let [_, decision] = args
         {
-            // `a == b` on native values: `toBool (Int.decEq a b)` is the
+            // `a == b` on native values: `holds (Int.decEq a b)` is the
             // native equality, and likewise for `Text`.
             let decision = self.expr(decision)?;
             let fused = match decision {

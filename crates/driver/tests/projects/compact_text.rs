@@ -187,7 +187,9 @@ fn one_text(session: &mut Session, t: &str) {
         format!("Text.join (Text.split {t} ',') ','"),
         format!("Text.toNat {t}"),
         format!("Text.fromList (Text.toList {t})"),
-        format!("Text.decEq {t} {t}"),
+        // A decision by its test: its proofs, read back whole, pass the
+        // size limit (they repeat the proofs they are built from).
+        format!("(Text.decEq {t} {t}).holds"),
         format!("swapFirst {t}"),
         format!("countChars {t}"),
         format!("copyText {t}"),
@@ -201,7 +203,7 @@ fn one_text(session: &mut Session, t: &str) {
 fn two_texts(session: &mut Session, a: &str, b: &str) {
     let (la, lb) = (literal(a), literal(b));
     for expr in [
-        format!("Text.decEq {la} {lb}"),
+        format!("(Text.decEq {la} {lb}).holds"),
         format!("Text.compare {la} {lb}"),
         format!("Text.less {la} {lb}"),
         format!("{la} ++ {lb}"),
@@ -425,7 +427,7 @@ fn medium_texts() {
             let decision = call(session, "Text.decEq", &[a, b]);
             let g = &session.elab.ev();
             let _op = g.machine.budget.operation(session.elab.options.limits);
-            let to_bool = value::eval(g, &[], &Term::Def(def(g, "Decidable.toBool"))).unwrap();
+            let to_bool = value::eval(g, &[], &Term::Def(def(g, "Decidable.holds"))).unwrap();
             let to_bool = value::apply_icit(g, to_bool, value::unused(), Icit::Implicit).unwrap();
             normal(session, &value::apply(g, to_bool, decision).unwrap())
         };

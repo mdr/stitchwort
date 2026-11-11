@@ -1,6 +1,6 @@
 //! Simplifying the lowered IR before it runs (fast-runtime.md, "As built
 //! (stage 4)"). Lowering keeps the program's own structure, so a comparison
-//! `a < b` on `Nat` is a call of `Decidable.toBool` on a call of
+//! `a < b` on `Nat` is a call of `Decidable.holds` on a call of
 //! `Nat.decLessThan`, which calls `Bool.decTrue`; `==` on `Char` goes
 //! through `Char.decEq`; and an `Ord` method is a projection out of a
 //! dictionary, then a closure call. This pass removes that overhead, the
@@ -20,7 +20,7 @@
 //!   literal) takes its arm, with no test.
 //! - **Case of case**: a `match` (or `if`) on the result of a branching
 //!   expression is pushed into the branches, when it's small, so that each
-//!   branch's constructor meets it: `toBool (decTrue b)` is `b`. Where
+//!   branch's constructor meets it: `holds (decTrue b)` is `b`. Where
 //!   every branch ends in a constructor, only the arm each takes is copied,
 //!   so the size allowed counts those arms.
 //! - A `match` on a `Bool` is an `if`; `if c then True else False` is `c`.

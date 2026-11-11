@@ -317,9 +317,9 @@ pub enum PrimOp {
     Int(IntNative),
     /// `NegSucc n`, which is `-n - 1`, for a native `Int`.
     NegSucc,
-    /// `a == b` on native `Int`s, as a `Bool`: `toBool (Int.decEq a b)`.
+    /// `a == b` on native `Int`s, as a `Bool`: `holds (Int.decEq a b)`.
     IntEqual,
-    /// `a == b` on native `Text`s, as a `Bool`: `toBool (Text.decEq a b)`.
+    /// `a == b` on native `Text`s, as a `Bool`: `holds (Text.decEq a b)`.
     TextEqual,
     /// A `Text` operation; `TextFromList` is also `MkText`, and
     /// `TextToList` takes it apart.

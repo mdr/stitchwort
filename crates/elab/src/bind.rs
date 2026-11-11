@@ -49,8 +49,8 @@ pub(crate) fn cheap(term: &Term) -> bool {
 /// cheap to write but not to compute: the kernel computes a `let`'s value
 /// when a type it evaluates mentions the variable, and its evaluator is
 /// strict. So `let x := solve input; x == 42` decided as
-/// `toBool {x = 42} (Nat.decEq x 42)` computes `solve input` while it's
-/// type-checked; bound, `(y => toBool {y = 42} (Nat.decEq y 42)) x`, the
+/// `holds {x = 42} (Nat.decEq x 42)` computes `solve input` while it's
+/// type-checked; bound, `(y => holds {y = 42} (Nat.decEq y 42)) x`, the
 /// types mention only `y` (SW-412: day 9's real-input test spent 2 minutes
 /// in the kernel).
 fn costly_let(cx: &Ctx, outer: usize, term: &Term) -> bool {
@@ -177,9 +177,9 @@ impl Decision {
         }
     }
 
-    /// `Decidable.toBool {prop} d`, in the outer scope. With the operands
+    /// `Decidable.holds {prop} d`, in the outer scope. With the operands
     /// bound, the whole of it goes under the binders,
-    /// `(x… => toBool {prop'} d) operands…`, so that its type, `Bool`,
+    /// `(x… => holds {prop'} d) operands…`, so that its type, `Bool`,
     /// doesn't mention them and the kernel doesn't compute them either.
     pub(crate) fn into_bool(self, cx: &Ctx, prop: Term) -> Result<Term> {
         let to_bool = Term::Def(builtin_def(cx, Builtin::ToBool)?);
@@ -187,7 +187,7 @@ impl Decision {
         let of = |prop: Term, d: Term| {
             // The standard decision of `m <= n` is `Bool.decTrue (Nat.leq m n)`,
             // and its `Bool` is `Nat.leq m n` itself: written that way, it
-            // prints and computes as the comparison, not as `toBool (decTrue …)`
+            // prints and computes as the comparison, not as `holds (decTrue …)`
             // (SW-206 item 4).
             if let Some(direct) = comparison(cx, &d) {
                 return direct;

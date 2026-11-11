@@ -17,5 +17,5 @@ expression: output
    │ 
    │ Note 4: `omega` splits at most 8 disjunctions among the facts, and more are left (the one from hb); split some by `match` first
    │ 
-   │ Note 5: in the case `(a.decEq 1).toBool` of the disjunction from ha
+   │ Note 5: in the case `(a.decEq 1).holds` of the disjunction from ha
 ───╯

@@ -247,7 +247,7 @@ builtins! {
     LessEq = "Nat.LessEq": Def,
     LessThan = "Nat.LessThan": Def,
     // The standard decisions of `<=` and `<`: in a `Bool` they read as the
-    // comparison itself (`Nat.leq`, `Int.leq`, `Int.less`), not as `toBool`
+    // comparison itself (`Nat.leq`, `Int.leq`, `Int.less`), not as the `holds`
     // of them
     DecLessEqNat = "Nat.decLessEq": Def,
     DecLessThanNat = "Nat.decLessThan": Def,
