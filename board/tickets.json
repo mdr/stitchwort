@@ -6144,9 +6144,9 @@
         "tests"
       ],
       "epic": "test-infra",
-      "body": "Found by SW-1224, 4 Nov 2026.\n\nFrom SW-1094 (merged, backlog review 4 Nov 2026): `a_newer_edit_cancels_the_check_running` once took 298 s and 8.4 GB under load (31 Oct, SW-921, D2214); after SW-1104 it measured 107 s / 1.8 GB on a quiet machine (342 s was contention). SW-1104's lane already narrowed the lsp group, so the 267-347 s figures above are probably from before it: re-measure first. If it still holds GBs or minutes, find whether that is inherent or held longer than needed.",
+      "body": "Found by SW-1224, 4 Nov 2026.\n\nFrom SW-1094 (merged, backlog review 4 Nov 2026): `a_newer_edit_cancels_the_check_running` once took 298 s and 8.4 GB under load (31 Oct, SW-921, D2214); after SW-1104 it measured 107 s / 1.8 GB on a quiet machine (342 s was contention). SW-1104's lane already narrowed the lsp group, so the 267-347 s figures above are probably from before it: re-measure first. If it still holds GBs or minutes, find whether that is inherent or held longer than needed.\n11 Nov 2026 18:05: a_newer_edit_cancels_the_check_running failed ('the stale check should have been cancelled') after 241 s at load ~58 during the SW-1920 verifier; passed alone in 6.5 s at 18:12.",
       "created": "2026-11-04",
-      "updated": "2026-11-04",
+      "updated": "2026-11-11",
       "commits": []
     },
     {
