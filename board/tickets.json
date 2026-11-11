@@ -31300,12 +31300,12 @@
     {
       "id": 2939,
       "title": "[DeepSeek] A test passing a ?-proved theorem as a proof prints plain '✓ … ran'; add '(assuming <name>)' to the result line (SW-2938 finding)",
-      "status": "doing",
+      "status": "review",
       "agent": "DeepSeek",
       "where": "",
       "labels": [],
       "epic": "test-infra",
-      "body": "",
+      "body": "\nModel result: DeepSeek, worked, ~20 min (est. 40). Reviewed; waits for SW-2945 to batch.",
       "created": "2026-11-11",
       "updated": "2026-11-11",
       "commits": []
