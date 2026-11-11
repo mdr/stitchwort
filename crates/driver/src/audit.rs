@@ -201,6 +201,9 @@ impl Session {
     ) -> TheoremAudit {
         let g = &self.elab.ev();
         let status = match g.def(id).state() {
+            // Checked assuming an open goal holds, which never passes
+            // (docs/core.md "Assumptions (open goals)").
+            State::Final if self.elab.relies_on_goal(id) => Status::Unfinished,
             State::Final => Status::Checked,
             _ if self.elab.marked_unfinished(HashKey::Def(id)) => Status::Unfinished,
             _ => Status::Failed,

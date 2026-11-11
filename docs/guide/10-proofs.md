@@ -108,10 +108,10 @@ theorem timesOne (n: Nat): n * 1 = n := match n with
    │               ╰── k: Nat
    │                   ⊢ k * 1 + 1 = Succ k
 ───╯
-1 goal open: the declarations with them, and what uses them, aren't finished, so they aren't checked
+1 goal open: the declarations with them, and what uses them, aren't finished: they're checked assuming the goals hold
 ```
 
-A declaration with a `?` isn't an error, but it isn't finished either: it isn't checked, and `check` fails until every goal is closed (unless the project's `stitchwort.yaml` says `check: open-goals: warn`, which makes `check` report each as a warning and pass; `audit` still fails them). You can state a lemma with `?` as its proof and use it in the main theorem first, then come back to it. In the editor, the goal shows on hover, and "Stitchwort: Show Goals" opens a panel that follows the cursor. It works anywhere in a file, not only on a `?`: put the cursor in a proof, on an arm's body or a step of a `calc`, and it shows the names in scope and `⊢` what that expression has to prove. In program code it shows `expected T` instead, or `has type T` where nothing was expected. Moving the cursor updates the panel after a short pause (about a third of a second, longer in a big file); until then the last answer stays, and where there is nothing to show (a comment, a pattern, a signature) it is kept, dimmed.
+A declaration with a `?` isn't an error, but it isn't finished either: it is checked assuming the goal holds, and so is what uses it, so a mistake in them shows now, but none of them is finished, and `check` fails until every goal is closed (unless the project's `stitchwort.yaml` says `check: open-goals: warn`, which makes `check` report each as a warning and pass; `audit` still fails them). You can state a lemma with `?` as its proof and use it in the main theorem first, then come back to it. In the editor, the goal shows on hover, and "Stitchwort: Show Goals" opens a panel that follows the cursor. It works anywhere in a file, not only on a `?`: put the cursor in a proof, on an arm's body or a step of a `calc`, and it shows the names in scope and `⊢` what that expression has to prove. In program code it shows `expected T` instead, or `has type T` where nothing was expected. Moving the cursor updates the panel after a short pause (about a third of a second, longer in a big file); until then the last answer stays, and where there is nothing to show (a comment, a pattern, a signature) it is kept, dimmed.
 
 The goal is shown computed, as the checker sees it, so it is often a step further along than what you wrote: `k * 1 + 1`, not `Succ k * 1`.
 
@@ -404,7 +404,7 @@ theorem countAboveLe (k: Nat) (xs: List Nat): countAbove k xs ≤ xs.length :=
    │                                  ih: countAbove k ys ≤ ys.length
    │                                  ⊢ countAbove k ys ≤ ys.length
 ───╯
-1 goal open: the declarations with them, and what uses them, aren't finished, so they aren't checked
+1 goal open: the declarations with them, and what uses them, aren't finished: they're checked assuming the goals hold
 ```
 
 The names after the case bind its variables, then the condition it was taken under, then the induction hypotheses. Here `ih` is the statement for the tail `ys`. In the true branch the goal, once computed, is the same statement, so `ih` is the proof; in the false branch `omega` closes the goal from `ih`. Without `match induct`, the same proof is a function by cases on `xs` that also splits on the `if`.
@@ -480,7 +480,7 @@ theorem countBigAtMost (xs: List Nat): countBig xs ≤ xs.length :=
    │                                ih: countBig rest ≤ rest.length
    │                                ⊢ countBig rest ≤ rest.length
 ───╯
-1 goal open: the declarations with them, and what uses them, aren't finished, so they aren't checked
+1 goal open: the declarations with them, and what uses them, aren't finished: they're checked assuming the goals hold
 ```
 
 Not every arm gets an equation. Where the right side computes on the proof of a condition, the equation isn't generated and naming it says why; prove that case by hand, with `f.unfold` or by matching on the condition. An arm that only passes the proof on, where nothing computes on it (as `Fin.ofNatLt n i h` takes `h: i < n`), gets its equation. The rules are in [syntax.md](../syntax.md), under "Guards".
@@ -562,7 +562,7 @@ theorem clampToAtMost (limit: Nat) (n: Nat): clampTo limit n ≤ limit :=
    │                    fits: (n <= limit) = False
    │                    ⊢ limit ≤ limit
 ───╯
-2 goals open: the declarations with them, and what uses them, aren't finished, so they aren't checked
+2 goals open: the declarations with them, and what uses them, aren't finished: they're checked assuming the goals hold
 ```
 
 On `Nat`, the statement `a <= b` computes to `Nat.leq a b = True`, and goals are shown computed: that is shown as `a ≤ b`, and the `Bool` `Nat.leq a b` alone as `a <= b`. In the `True` branch the goal is then exactly `fits`, and in the `False` branch it is `limit <= limit`, which `Nat.leRefl limit` proves.

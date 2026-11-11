@@ -3250,7 +3250,7 @@ fn note_failed_mention(g: &Ev, term: &Term) {
         return;
     }
     if let Term::Def(d) = term
-        && g.def(*d).state() == crate::globals::State::Failed
+        && (g.def(*d).state() == crate::globals::State::Failed || g.shown.waits_on_goal(*d))
     {
         g.shown.note_failed_mentioned();
         return;

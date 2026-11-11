@@ -357,7 +357,7 @@ impl Session {
             .elab
             .tests()
             .iter()
-            .filter(|test| selected(test))
+            .filter(|test| selected(test) && !self.elab.is_unfinished(test.def))
             .filter(|test| {
                 let _op = g.machine.budget.operation(self.elab.options.limits);
                 match def_hash(g, test.def) {

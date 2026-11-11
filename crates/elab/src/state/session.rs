@@ -88,6 +88,8 @@ pub struct Session {
     pub(crate) paths: RefCell<super::paths::DeclPaths>,
     /// The checkpoints of the tables that log their changes (§4.8.2).
     pub(crate) journal: super::journal::Journal<crate::rewind::LogPositions>,
+    /// Where the open goals' assumptions start (`assume.rs`).
+    pub(crate) assumed: crate::assume::Assumed,
 }
 
 /// What a rewind mark keeps of a [`Session`]: the bookkeeping a later load
@@ -131,6 +133,8 @@ impl Session {
             cache_stats: _,
             library_interface_digest: _,
             stats: _,
+            // Checked on use (`assume.rs`).
+            assumed: _,
         } = self;
         Mark {
             project_namespaces: project_namespaces.clone(),
@@ -168,6 +172,8 @@ impl Session {
             cache_stats: _,
             library_interface_digest: _,
             stats: _,
+            // Checked on use (`assume.rs`).
+            assumed: _,
         } = self;
         *project_namespaces = mark.project_namespaces.clone();
         *project_prefixes = mark.project_prefixes.clone();

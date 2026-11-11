@@ -39,15 +39,15 @@ pub(crate) const UNFINISHED: &str = "E-UNFINISHED";
 /// A goal noted, not printed yet.
 #[derive(Clone)]
 pub(crate) struct Pending {
-    span: Span,
+    pub(crate) span: Span,
     /// The frozen metavariable standing for the hole.
-    meta: usize,
+    pub(crate) meta: usize,
     expected: Value,
     /// The type checked against, as it is (`expected` may be a display
     /// form of it), for [`GoalSnapshot`].
-    target: Value,
+    pub(crate) target: Value,
     /// The context's display names, for printing.
-    names: Vec<Name>,
+    pub(crate) names: Vec<Name>,
     /// The entries of the context shown.
     context: Vec<Entry>,
     /// The context's own variables not shown (a compiler-made `%x`, a `_`):
@@ -73,6 +73,12 @@ pub(crate) struct Pending {
     /// list a case split took apart), at most one for each of its type's
     /// binders.
     owner_args: Vec<Value>,
+    /// How many variables are in scope at the hole.
+    pub(crate) level: usize,
+    /// The variables the hole's metavariable is applied to, in that order:
+    /// each one's level and type, and whether the compiler made it (`%…`).
+    /// Its assumption takes them as parameters ([`Elaborator::assume_goals`]).
+    pub(crate) applied: Vec<(usize, Value, bool)>,
 }
 
 #[derive(Clone)]
@@ -101,7 +107,7 @@ struct Found {
 /// The goals of the declaration being checked.
 #[derive(Clone, Default)]
 pub(crate) struct Goals {
-    pending: Vec<Pending>,
+    pub(crate) pending: Vec<Pending>,
     /// Printed: one per span, the last checked there.
     found: Vec<Found>,
     /// The context asked for at a position ([`Elaborator::probe_context`]).
@@ -379,11 +385,17 @@ pub(crate) fn hole(cx: &Ctx, expected: &Value) -> Term {
     // Each variable as its hypothesis is named, `n✝` for one that can't be
     // referred to here, numbered where two would be alike (SW-1000).
     let shown_names = cx.shown_names(true);
+    let mut applied = Vec::new();
     for (level, value) in cx.env.iter().enumerate() {
         let own =
             matches!(value, Value::Neutral(Head::Var(l, _), s) if *l == level && s.is_empty());
         if own {
             term = Term::app(term, Term::Var(cx.level() - 1 - level));
+            applied.push((
+                level,
+                cx.types[level].clone(),
+                cx.names[level].starts_with('%'),
+            ));
         }
     }
     let (mut context, mut hidden) = scope_entries(cx, &shown_names);
@@ -422,6 +434,8 @@ pub(crate) fn hole(cx: &Ctx, expected: &Value) -> Term {
         prop,
         owner_def,
         owner_args,
+        level: cx.level(),
+        applied,
     });
     term
 }
@@ -1379,7 +1393,7 @@ pub(crate) struct SnapVar {
 
 /// The levels `term`, in a context of `level` variables, mentions; `None`
 /// if it has an unknown in it.
-fn levels_in(term: &Term, level: usize) -> Option<Vec<usize>> {
+pub(crate) fn levels_in(term: &Term, level: usize) -> Option<Vec<usize>> {
     let mut out = Vec::new();
     for (t, binders) in term.subterms() {
         match t {
