@@ -336,6 +336,22 @@ impl Budget {
         }
     }
 
+    /// Runs `f` as an [`Budget::attempt`] within `limits`, leaving no trace
+    /// in what the running operation reports: where it ran out, and the
+    /// definition last entered, are as they were. For a computation a
+    /// message makes on the side, which may run out without saying so.
+    pub fn aside<T>(&self, limits: Limits, f: impl FnOnce() -> T) -> T {
+        let entered = self.entered.get();
+        let ran_out_in = self.ran_out_in.get();
+        let result = {
+            let _attempt = self.attempt(limits);
+            f()
+        };
+        self.entered.set(entered);
+        self.ran_out_in.set(ran_out_in);
+        result
+    }
+
     /// Like [`Budget::attempt`], for callers that can't hold a borrow of the
     /// budget: the attempt ends with [`Budget::restore`].
     pub fn start_attempt(&self, limits: Limits) -> Saved {
