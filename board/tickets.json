@@ -1,5 +1,5 @@
 {
-  "next": 2866,
+  "next": 2867,
   "tickets": [
     {
       "id": 47,
@@ -30333,6 +30333,19 @@
       "where": "",
       "labels": [],
       "epic": "std-library",
+      "body": "",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2866,
+      "title": "search_at, doc and counterexample still use the name-only is_generated_name, so they treat .unfold and other span-detected generated lemmas (type induct/size/accessors/ext) as written; move them to SW-2856's Generated. Also document that types never appear in 'relied on by' or the rely counts (SW-2856)",
+      "status": "backlog",
+      "agent": "DeepSeek",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
       "body": "",
       "created": "2026-11-11",
       "updated": "2026-11-11",
