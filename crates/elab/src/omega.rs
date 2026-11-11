@@ -3133,9 +3133,15 @@ fn read_context<'l>(cx: &mut Ctx, lib: &'l Lib, extra: &[Extra]) -> Result<Reade
         {
             reader.waiting.push(note);
         }
+        if let Some(note) = unknown_type_note(cx, &name, &ty)? {
+            reader.waiting.push(note);
+        }
         reader.read(cx, proof, &ty, &name, 0)?;
     }
     for (name, term, ty) in cx.visible_locals()? {
+        if let Some(note) = unknown_type_note(cx, &name, &ty)? {
+            reader.waiting.push(note);
+        }
         reader.read(cx, term, &ty, &name, 0)?;
     }
     for e in extra {
@@ -3152,6 +3158,26 @@ fn read_context<'l>(cx: &mut Ctx, lib: &'l Lib, extra: &[Extra]) -> Result<Reade
         }
     }
     Ok(reader)
+}
+
+/// Whether `ty` is an unsolved unknown, or an equality whose type is one:
+/// `omega` can't read a hypothesis of that type yet.
+fn unknown_type(cx: &Ctx, ty: &Value) -> Result<bool> {
+    Ok(match force(&cx.g(), ty.clone())? {
+        Value::Neutral(Head::Meta(_), _) => true,
+        Value::Eq(inner, _, _) => matches!(
+            force(&cx.g(), (*inner).clone())?,
+            Value::Neutral(Head::Meta(_), _)
+        ),
+        _ => false,
+    })
+}
+
+/// A note for a local hypothesis called `name` whose type isn't known yet:
+/// `omega` skips it, so the failure says why it's missing from the facts.
+fn unknown_type_note(cx: &Ctx, name: &str, ty: &Value) -> Result<Option<String>> {
+    Ok(unknown_type(cx, ty)?
+        .then(|| format!("`{name}`'s type isn't known yet here, so omega couldn't use it")))
 }
 
 /// A note for a `let` called `name` whose type is a function ending in a
