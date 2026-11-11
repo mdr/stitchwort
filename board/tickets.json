@@ -30986,12 +30986,12 @@
     {
       "id": 2915,
       "title": "[Sonnet] Browser test 'in a project, after a jump into another file and the whole project's check, an error in the day is underlined' fails on a quiet machine, also at 9ebedf6de: after the jump the whole-project check takes ~120 s and the Day02 error isn't published within 60 s; the published log fills with Year2021 files at count 0 (republishing every file after one edit?) (SW-2914)",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "editor-playground",
-      "body": "",
+      "body": "\nBrowser 87/87, affected 925/925. Model result: Sonnet, worked, 25 min (est. 90).",
       "created": "2026-11-11",
       "updated": "2026-11-11",
       "commits": []
@@ -31012,7 +31012,7 @@
     {
       "id": 2917,
       "title": "[DeepSeek] Offer 'Search for a proof' only on a ? whose expected type is a proposition (a theorem-proving context), not on a ? in a program (expected type a data type such as Nat or List a) (Matt, 11 Nov 2026)",
-      "status": "review",
+      "status": "done",
       "agent": "DeepSeek",
       "where": "",
       "labels": [],
