@@ -1,5 +1,6 @@
 ---
 source: crates/cli/tests/server/search.rs
+assertion_line: 556
 expression: "serde_json::to_string_pretty(&report).unwrap()"
 ---
 {
@@ -12,10 +13,10 @@ expression: "serde_json::to_string_pretty(&report).unwrap()"
       "rejected": 0
     },
     "internalErrors": 0,
-    "matched": 43,
+    "matched": 44,
     "maxCandidates": 50,
     "outOfBudget": 3,
-    "tried": 43,
+    "tried": 44,
     "truncated": false
   },
   "goal": {
