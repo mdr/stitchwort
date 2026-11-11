@@ -140,7 +140,7 @@ plus the wall time and `uptime` before and after. The orchestrator carries
 on meanwhile; lanes that finish wait for the next batch, so the tree
 doesn't change under the verifier. A failure becomes a fix for an agent,
 or the merge that caused it is reverted; bisecting a batch's merges is
-cheap, as nothing is pushed until Matt asks. Only one verifier runs at a time, and
+cheap while the batch is unpushed. Only one verifier runs at a time, and
 none while timing-sensitive work is running.
 
 After each merge the tests run are a selection that fits the change, not a
