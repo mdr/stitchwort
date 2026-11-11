@@ -1,0 +1,23 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-OMEGA] Error: `omega` can't prove `drop k 1 = 0`
+    ╭─[ reject/omega-folded-call-stuck.sw:13:43 ]
+    │
+ 13 │ theorem dropOne (k: Nat): drop k 1 = 0 := omega
+    │                                           ──┬──  
+    │                                             ╰──── an integer model of the arithmetic abstraction satisfies the facts and the goal's negation
+    │ 
+    │ Note 1: facts: none in scope
+    │ 
+    │ Note 2: atoms: `drop k 1`
+    │ 
+    │ Note 3: an integer model of the arithmetic abstraction (it may not be a real counterexample): drop k 1 = 1
+    │ 
+    │ Note 4: this statement is false; a counterexample:
+    │           k = 0
+    │         `drop k 1 = 0` is false:
+    │           left:  1
+    │           right: 0
+────╯

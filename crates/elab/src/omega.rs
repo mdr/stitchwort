@@ -64,7 +64,11 @@
 //! `Nat.divFuelBound`, whose fuel `f + 1` is `x` or a number more,
 //! `Nat.leAddLeft`); `x % k` computes to `x - q * k`, a subtraction atom
 //! over it. `x / 0`, stuck as `Nat.divFuel f x 0` on the fuel `f`, is an
-//! atom with the fact that it is 0 (`Nat.divFuelZero f x`).
+//! atom with the fact that it is 0 (`Nat.divFuelZero f x`). A call folded by
+//! name (a `decreasing` definition's) is read as what it unfolds to when
+//! that is arithmetic of the kinds above, so `two 0` is `2`; a call that is
+//! stuck, unfolds to something else, or takes more than [`UNFOLD_WORK`]
+//! steps stays an atom as written.
 //!
 //! **`Int`** works the same way over `Int` syntax (`ITerm`), read as `Int`
 //! arithmetic computes: `a <= b` is `Int.leq a b = True`, `a < b` is
@@ -2020,6 +2024,11 @@ struct Quoter {
     products: Vec<(usize, Value, Value, bool)>,
 }
 
+/// Steps a folded call may take to unfold in [`Quoter::unfolded_arithmetic`]
+/// before it stays an atom, as small as the comparisons that find an atom
+/// again.
+const UNFOLD_WORK: u64 = 20_000;
+
 /// Quoting stopped at an unsolved metavariable.
 struct Unknown;
 
@@ -2130,6 +2139,9 @@ impl Quoter {
             }
             return Ok(Ok(NTerm::V(q)));
         }
+        if let Some(unfolded) = self.unfolded_arithmetic(cx, lib, &base, false)? {
+            return self.quote(cx, lib, &unfolded, span);
+        }
         if let Some(reduced) = recomputed(cx, &base)? {
             return self.quote(cx, lib, &reduced, span);
         }
@@ -2229,6 +2241,9 @@ impl Quoter {
                 });
             }
             return Ok(Ok(ITerm::V(i)));
+        }
+        if let Some(unfolded) = self.unfolded_arithmetic(cx, lib, &value, true)? {
+            return self.quote_int(cx, lib, &unfolded, span);
         }
         if let Some(reduced) = recomputed(cx, &value)? {
             return self.quote_int(cx, lib, &reduced, span);
@@ -2412,6 +2427,75 @@ impl Quoter {
                 }
             }
         }
+    }
+
+    /// What a call folded by name (a `decreasing` definition's call) unfolds
+    /// to, if that is arithmetic `quote` can read: a number, `k + x`, or a
+    /// sum, product, subtraction, `max`/`min` or division. `None` when the
+    /// call isn't folded, is stuck, unfolds to something else (a call stuck on
+    /// a variable unfolds to the definition's internal form, which as an atom
+    /// would read worse than the call as written), or takes more than
+    /// [`UNFOLD_WORK`] steps: `omega` quotes every fact in scope, so an
+    /// expensive call in one the goal doesn't need must not fail it. In each
+    /// case the caller keeps the folded call as it is.
+    fn unfolded_arithmetic(
+        &self,
+        cx: &Ctx,
+        lib: &Lib,
+        value: &Value,
+        int: bool,
+    ) -> Result<Option<Value>> {
+        let g = cx.g();
+        let attempt = g.machine.budget.aside(
+            Limits {
+                work: UNFOLD_WORK,
+                stack: 128 * 1024,
+                size: 10_000,
+                frames: 10_000,
+                native_frames: 10_000,
+            },
+            || -> Result<Option<Value>> {
+                let Some(unfolded) = unfold_folded(&g, value)? else {
+                    return Ok(None);
+                };
+                let unfolded = force(&g, unfolded)?;
+                let reads = if int {
+                    self.reads_as_int(cx, lib, &unfolded)?
+                } else {
+                    self.reads_as_nat(cx, lib, &unfolded)?
+                };
+                Ok(reads.then_some(unfolded))
+            },
+        );
+        // Running out is "keep the call", as `atom`'s comparisons take it.
+        Ok(attempt.unwrap_or(None))
+    }
+
+    /// Whether `quote` takes `value` apart as something other than an atom.
+    fn reads_as_nat(&self, cx: &Ctx, lib: &Lib, value: &Value) -> Result<bool> {
+        let (k, base) = stitchwort_core::native::view(&cx.g(), value)?;
+        Ok(base.is_none()
+            || k != BigUint::default()
+            || self.mul_left(cx, lib, value)?.is_some()
+            || call_args(value, lib.add).is_some()
+            || call_args(value, lib.mul).is_some()
+            || self.operation(cx, lib, value)?.is_some()
+            || self.division(cx, lib, value)?.is_some())
+    }
+
+    /// Whether `quote_int` takes `value` apart as something other than an atom.
+    fn reads_as_int(&self, cx: &Ctx, lib: &Lib, value: &Value) -> Result<bool> {
+        if let Value::Ctor(d, c, fields) = value
+            && fields.len() == 1
+            && *d == lib.of_nat.0
+            && (*c == lib.of_nat.1 || *c == lib.neg_succ.1)
+        {
+            return Ok(true);
+        }
+        Ok(call_args(value, lib.int_add).is_some()
+            || call_args(value, lib.int_neg).is_some()
+            || call_args(value, lib.int_mul).is_some()
+            || self.sub_nat_nat(cx, lib, value)?.is_some())
     }
 
     /// The atom `value` is, adding it if it's new; `int` says it's an `Int`.
