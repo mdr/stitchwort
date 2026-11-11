@@ -3,6 +3,7 @@
 //! ones it shows, binder names included, and what isn't generated is
 //! recorded with its reason.
 
+use crate::common::{BIG_STACK, STACK};
 use stitchwort_core::{Name, Term};
 use stitchwort_driver::driver::Session;
 
@@ -86,9 +87,9 @@ fn with_session(f: impl FnOnce(&Session) + Send + 'static) {
 
 fn with_source(source: String, f: impl FnOnce(&Session) + Send + 'static) {
     std::thread::Builder::new()
-        .stack_size(64 << 20)
+        .stack_size(STACK)
         .spawn(move || {
-            let mut session = Session::new();
+            let mut session = Session::for_stack(STACK);
             if let Err(errors) = session.load("equations.sw", &source) {
                 panic!("doesn't load: {errors:#?}");
             }
@@ -318,9 +319,9 @@ fn a_catch_all_after_more_than_64_number_arms_is_skipped_with_its_reason() {
 #[ignore]
 fn the_librarys_equations() {
     std::thread::Builder::new()
-        .stack_size(256 << 20)
+        .stack_size(BIG_STACK)
         .spawn(|| {
-            let mut session = Session::eager();
+            let mut session = Session::eager_for_stack(BIG_STACK);
             session.elab.generate_deferred_equations().unwrap();
             let g = &session.elab.ev();
             let made: Vec<&str> = g
@@ -873,9 +874,9 @@ theorem byRfl (x: Nat) (rest: List Nat) (h: Nat.leq 10 x = True):
   rfl
 "#;
     std::thread::Builder::new()
-        .stack_size(64 << 20)
+        .stack_size(STACK)
         .spawn(move || {
-            let mut session = Session::new();
+            let mut session = Session::for_stack(STACK);
             let errors = session
                 .load("wall.sw", source)
                 .expect_err("the three proofs fail");
@@ -953,7 +954,7 @@ fn box_equations(session: &Session) -> Vec<(String, String, [u8; 32])> {
 
 fn in_thread(f: impl FnOnce() + Send + 'static) {
     std::thread::Builder::new()
-        .stack_size(64 << 20)
+        .stack_size(STACK)
         .spawn(f)
         .unwrap()
         .join()
@@ -1010,7 +1011,7 @@ fn a_library_equation_is_the_same_however_it_is_made() {
 #[test]
 fn search_makes_the_equations_of_a_file_with_its_own_constructors() {
     in_thread(|| {
-        let mut session = Session::new();
+        let mut session = Session::for_stack(STACK);
         let program = "import Std (Map, Nat)\n\ndef one: Map Nat Nat := Map.singleton 1 1\n";
         if let Err(errors) = session.load("map.sw", program) {
             panic!("doesn't load: {errors:#?}");
@@ -1036,7 +1037,7 @@ fn search_makes_the_equations_of_a_file_with_its_own_constructors() {
 #[ignore]
 fn a_projects_equations() {
     std::thread::Builder::new()
-        .stack_size(256 << 20)
+        .stack_size(BIG_STACK)
         .spawn(|| {
             let project = std::env::var("EQUATIONS_PROJECT").unwrap_or_else(|_| "aoc".to_string());
             let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -1044,7 +1045,7 @@ fn a_projects_equations() {
                 .join(&project);
             let name = root.file_name().unwrap().to_string_lossy().to_string();
             let files = stitchwort_driver::project::DiskFiles { root };
-            let mut session = Session::eager_for_stack(256 << 20);
+            let mut session = Session::eager_for_stack(BIG_STACK);
             let first = session.elab.kernel.env.defs().len();
             if let Err(errors) = session.load_project(
                 &files,
@@ -1144,10 +1145,10 @@ def usesH (xs: List Nat): Bool := match h: xs.length with
 #[test]
 fn library_equations_come_out_the_same_whoever_asks() {
     std::thread::Builder::new()
-        .stack_size(64 << 20)
+        .stack_size(STACK)
         .spawn(|| {
             let imports = "import Std (List, Nat)\n\n";
-            let mut driven = Session::new();
+            let mut driven = Session::for_stack(STACK);
             driven.elab.options.glue = false;
             driven
                 .load(
@@ -1171,7 +1172,7 @@ fn library_equations_come_out_the_same_whoever_asks() {
                 .collect();
             assert!(names.len() > 100, "{} equations", names.len());
 
-            let mut asked = Session::new();
+            let mut asked = Session::for_stack(STACK);
             for (i, name) in names.iter().enumerate() {
                 let source = format!("{imports}def use{i}: _ := {name}\n");
                 let _ = asked.load(&format!("asked{i}.sw"), &source);
