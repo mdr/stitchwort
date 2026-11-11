@@ -29762,12 +29762,12 @@
     {
       "id": 2822,
       "title": "Kernel assumptions follow-ups (Fable review of SW-2804): assume refuses a label already in use (F3); relied_on follows Term::Nat, NumCase, Chars like the hasher, with tests through a data field, validator, run body and unfolding list (F4); add_validator and float::register_def refuse an assumption (F5, F6); relied_on roots for data types (F8); docs/core.md gaps and stale comments at value.rs:2582 and erase.rs:39 (docs/reviews/SW-2804-assumptions-review.md)",
-      "status": "doing",
+      "status": "review",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-2822",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "Progress (11 Nov 2026, Opus lane, 12:08-12:20): done in one commit on lane/SW-2822. F3 `assume` refuses a label already in use (E-MALFORMED, label alone, by scanning the defs so it stays right after a rewind); F4 `relied_on` follows Term::Nat/NumCase to Nat and Chars to List and Char; F5 `add_validator` and F6 `float::register_def` refuse an assumption; F8 `relied_on` takes `Decl` roots (Def or Data). docs/core.md's assumptions section gained the unique-label rule, the full \"never gets a body\" list, a Running paragraph conditional on the goal being true, \"closed but needn't compute\", `Final` no longer meaning \"relies on none\", the literal edges and pins, and which half of the check-cache rule is structural; stale comments in value.rs (`sealed`, eta while running) and erase.rs fixed. Tests: assumptions:: (17 pass, 5 new) and pinned_hashes (5 pass). F1, F2, F7 left to SW-2805 and SW-2809. The literal edges in F4 can't be tested to find an assumption (the pins make it unreachable), so they're covered by review only.\n",
       "created": "2026-11-11",
       "updated": "2026-11-11",
       "commits": []

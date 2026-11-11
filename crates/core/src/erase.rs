@@ -43,7 +43,17 @@
 //! differ only where they're proofs or types, which are never printed or
 //! compared (`print` takes `Text`, a test is a `Bool`). Proofs are already
 //! checked (and total) when the program runs, so skipping them can't hide a
-//! failure. Like JS, a proof in a position that isn't erased (passed through
+//! failure.
+//!
+//! An open goal's assumption that is a proof is erased too, and the
+//! argument above holds for it only if its goal is true: it is the one proof
+//! that isn't checked. Under a false goal the run can treat a value as the
+//! wrong type (`J` on `h : 2 = 3` takes its base), reach a branch that has
+//! no body, or not terminate (an assumed `decreasing` goal); what a run
+//! does about that is undecided (docs/core.md "Assumptions (open goals)",
+//! Running).
+//!
+//! Like JS, a proof in a position that isn't erased (passed through
 //! a polymorphic function, say) is still the placeholder if it was made by
 //! rule 3, and is only ever passed along.
 //!

@@ -674,6 +674,11 @@ pub fn register_def(g: &mut Kernel, id: DefId, b: Builtin) -> Result<()> {
             return Ok(());
         }
         let span = g.def(id).span;
+        // An open goal's assumption never computes. Its pin would refuse it
+        // too, but that is an accident of hashing, not a rule.
+        if g.def(id).assumption().is_some() {
+            return Err(refused(span, b.name(), "it's an open goal's assumption"));
+        }
         if g.env.builtins().float.data.is_none() {
             return Err(refused(span, b.name(), "`Float` isn't bound"));
         }

@@ -17,27 +17,41 @@ use crate::collections::HashSet;
 use crate::ev::Ev;
 use crate::term::{DataId, DefId, Term};
 
-#[derive(Clone, Copy, PartialEq, Eq, Hash)]
-enum Node {
+/// A declaration the walk starts from or reaches.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum Decl {
     Def(DefId),
     Data(DataId),
+}
+
+impl From<DefId> for Decl {
+    fn from(id: DefId) -> Self {
+        Decl::Def(id)
+    }
+}
+
+impl From<DataId> for Decl {
+    fn from(id: DataId) -> Self {
+        Decl::Data(id)
+    }
 }
 
 /// The assumptions `roots` rely on, together: every assumption reachable
 /// from their checked types and bodies (a root that is itself one
 /// included). Empty means none is used. Declarations that aren't final are
 /// walked as far as they have terms.
-pub fn relied_on(g: &Ev, roots: &[DefId]) -> BTreeSet<DefId> {
+pub fn relied_on(g: &Ev, roots: &[Decl]) -> BTreeSet<DefId> {
+    let builtins = g.env.builtins();
     let mut found = BTreeSet::new();
-    let mut seen: HashSet<Node> = HashSet::default();
-    let mut pending: Vec<Node> = roots.iter().map(|id| Node::Def(*id)).collect();
+    let mut seen: HashSet<Decl> = HashSet::default();
+    let mut pending: Vec<Decl> = roots.to_vec();
     while let Some(node) = pending.pop() {
         if !seen.insert(node) {
             continue;
         }
         let mut terms: Vec<&Term> = Vec::new();
         match node {
-            Node::Def(id) => {
+            Decl::Def(id) => {
                 let def = g.def(id);
                 if def.assumption.is_some() {
                     found.insert(id);
@@ -46,9 +60,9 @@ pub fn relied_on(g: &Ev, roots: &[DefId]) -> BTreeSet<DefId> {
                 terms.extend(def.body.as_deref());
                 terms.extend(def.run_body.as_deref());
                 terms.extend(def.validators.iter().map(|v| &v.decision));
-                pending.extend(def.unfolding.iter().map(|d| Node::Def(*d)));
+                pending.extend(def.unfolding.iter().map(|d| Decl::Def(*d)));
             }
-            Node::Data(id) => {
+            Decl::Data(id) => {
                 let data = g.data(id);
                 terms.extend(data.params().iter().map(|(_, t)| t));
                 terms.extend(data.indices().iter().map(|(_, t)| t));
@@ -62,11 +76,22 @@ pub fn relied_on(g: &Ev, roots: &[DefId]) -> BTreeSet<DefId> {
         for term in terms {
             for (sub, _) in term.subterms() {
                 match sub {
-                    Term::Def(id) => pending.push(Node::Def(*id)),
+                    Term::Def(id) => pending.push(Decl::Def(*id)),
                     Term::Data(id, _)
                     | Term::Ctor(id, _, _)
                     | Term::Case(_, id, _)
-                    | Term::Proj(id, ..) => pending.push(Node::Data(*id)),
+                    | Term::Proj(id, ..) => pending.push(Decl::Data(*id)),
+                    // Literals refer to their data types implicitly, as the
+                    // hasher counts them (`Char`'s fields include its
+                    // validity proof).
+                    Term::Nat(_) | Term::NumCase(..) => {
+                        pending.extend(builtins.nat.map(Decl::Data))
+                    }
+                    Term::Chars(_) => {
+                        if let Some(text) = &builtins.text {
+                            pending.extend([Decl::Data(text.list), Decl::Data(text.char)]);
+                        }
+                    }
                     _ => {}
                 }
             }

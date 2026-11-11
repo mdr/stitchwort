@@ -2388,8 +2388,9 @@ fn push_def(
 /// `ty` is checked to be a type (in any universe) that refers only to final
 /// declarations: a pending one is `E-MALFORMED` (so the goal of a `?` that
 /// mentions its own group can't be assumed), and a failed one is
-/// `E-FAILED-DEPENDENCY` here, since there's no later step to find it. On
-/// any refusal nothing is added.
+/// `E-FAILED-DEPENDENCY` here, since there's no later step to find it. A
+/// `label` some assumption already has is `E-MALFORMED`. On any refusal
+/// nothing is added.
 ///
 /// The constant never unfolds, so it's a neutral head wherever it's used:
 /// a premise, like `Quot.sound`, not a rule. Nothing can give it a body
@@ -2414,6 +2415,23 @@ pub fn assume(
             return Err(malformed(
                 &cx,
                 "`case` may only appear at the top of a definition",
+            ));
+        }
+        // The label and type are the assumption's identity in hashes, so
+        // two with one label and type would be two constants conversion
+        // tells apart with one hash. The label alone is refused: it names
+        // one `?`, so a second use is a numbering slip whatever the type.
+        if g.env
+            .defs()
+            .iter()
+            .any(|d| d.assumption.as_deref() == Some(&label))
+        {
+            return Err(malformed(
+                &cx,
+                format!(
+                    "a second assumption for open goal {} of `{}`",
+                    label.hole, label.owner
+                ),
             ));
         }
         if let Some(dep) = admissible(&cx, [ty], None)? {
@@ -4317,6 +4335,11 @@ pub fn add_validator(
                 &cx,
                 "a validator for a definition that isn't final",
             ));
+        }
+        // An assumption is exactly its label and type, as `assume` made it
+        // and as it's hashed: nothing is added to it afterwards.
+        if def.assumption.is_some() {
+            return Err(malformed(&cx, "a validator for an open goal's assumption"));
         }
         let Some((_, prop, true)) = tel.params.get(param) else {
             return Err(malformed(
