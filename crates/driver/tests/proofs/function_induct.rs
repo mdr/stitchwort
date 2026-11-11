@@ -405,6 +405,64 @@ theorem unfoldNone (seed: s) (step: s → Option (Pair a s)) (measure: s → Nat
     });
 }
 
+/// A lifted `match` with a catch-all alternative (SW-1073): its case takes
+/// the hypotheses that the earlier alternatives didn't match, as the
+/// equation does, proved at each constructor the catch-all takes. One with a
+/// literal pattern isn't split, and says so.
+#[test]
+fn a_catch_all_in_a_lifted_match() {
+    let source = r#"
+import Std (Eq, List, Nat, Option, Ord, Ordering)
+
+def below (k: Nat): List Nat → Nat
+  | Nil => 0
+  | Cons x rest =>
+    match Ord.compare x k with
+      | Less => Succ (below k rest)
+      | _ => below k rest
+
+-- The earlier alternative has a field: `notSome: (y: Nat) → … = Some y → Void`.
+def skipTo (d: Nat): List Nat → Nat
+  | Nil => d
+  | Cons x rest =>
+    match List.head rest with
+      | Some y => skipTo y rest
+      | _ => x
+
+-- A catch-all after two constructors of three leaves one for it.
+def third: List Ordering → Nat
+  | Nil => 0
+  | Cons x rest =>
+    match x with
+      | Less => 1
+      | Equal => third rest
+      | _ => third rest
+
+def literal: List Nat → Nat
+  | Nil => 0
+  | Cons x rest =>
+    match x % 3 with
+      | 0 => Succ (literal rest)
+      | _ => literal rest
+"#
+    .to_string();
+    with_source(source, |session| {
+        let below = generated(session, "below.induct");
+        assert!(
+            below.contains("→ Ord.compare x k = Less → motive")
+                && below.contains("→ Ord.compare x k ≠ Less → motive"),
+            "{below}"
+        );
+        let skip_to = generated(session, "skipTo.induct");
+        assert!(
+            skip_to.contains("(∀ (y: Nat) => rest.head ≠ Some y) → motive"),
+            "{skip_to}"
+        );
+        generated(session, "third.induct");
+        assert!(skipped(session, "literal.induct").contains("literal"));
+    });
+}
+
 /// Using them: a theorem by each, the motive written out; a note for a
 /// definition that isn't recursive, and the name reserved.
 #[test]

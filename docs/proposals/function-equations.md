@@ -1587,7 +1587,9 @@ program that names no library equation pays nothing for std's.
    uses the refutation), so neither is the case. A generator could split on the decision itself
    (`d = No r` makes the right side compute), but that is a case equation of its own.
 4. **Not covered in 2a**: an overlap hypothesis that a number or character arm makes; a lifted
-   `match` with a catch-all or literals; a nested pattern whose inner type has several
+   `match` with a number literal (a catch-all gets its case since SW-1073: at each constructor
+   no other alternative takes, the hypotheses that the earlier alternatives didn't match are
+   proved from the split's equation `e = C fields`, by the `%apart` definitions below); a nested pattern whose inner type has several
    constructors or indices, whose constructor has a later field whose type depends on the nested
    one, or a nested `match` below a split of its own (a nested pattern over non-indexed
    one-constructor types, `Some (MkPair v next)`, is split again by the inner type's `%splitN`
