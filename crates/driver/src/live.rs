@@ -942,10 +942,8 @@ impl LiveProject {
         };
         // What the rewind throws away, and of it what the edit changed.
         // The rewind is a stack, so the steps after the first changed one
-        // go with it, whether or not they use it; those that don't are
-        // checked again first (a cache replay, where the session has a
-        // cache), so that the edited namespace and what uses it are the
-        // last steps, and the next edit to it rewinds no further.
+        // go with it, whether or not they use it; those that don't (the
+        // settled ones) are checked again after the edited namespace.
         let changed: Vec<String> = if same_names && self.fatal.is_empty() {
             (self.steps.iter())
                 .filter(|s| namespace_files.get(&s.name) != Some(&s.files))
@@ -1017,9 +1015,27 @@ impl LiveProject {
         {
             settled.remove(&bad);
         }
-        let mut plan =
-            canonical_order(&analysis, &settled).expect("a part of an acyclic project is acyclic");
-        plan.extend(self.order_rest(&analysis, &rest.difference(&settled).cloned().collect()));
+        // What the edit changed is checked first, with what it uses, so
+        // that its diagnostics come at once; the settled steps (checked
+        // again from the cache, or in full without one: minutes, for a
+        // large project) follow. None of them uses the first part, as
+        // `settled` was made above.
+        let mut front: BTreeSet<String> = rest.difference(&settled).cloned().collect();
+        front.extend(
+            self.focus_namespaces()
+                .into_iter()
+                .filter(|n| rest.contains(n)),
+        );
+        let needed: Vec<String> = front.iter().cloned().collect();
+        let front: BTreeSet<String> = (closure(&analysis, &needed).into_iter())
+            .filter(|n| rest.contains(n))
+            .chain(front)
+            .collect();
+        let tail: BTreeSet<String> = settled.difference(&front).cloned().collect();
+        let mut plan = self.order_rest(&analysis, &front);
+        plan.extend(
+            canonical_order(&analysis, &tail).expect("a part of an acyclic project is acyclic"),
+        );
         if self.session.elab.uses_check_cache() {
             let namespaces: Vec<NamespaceSources> = analysis
                 .namespaces
