@@ -30195,9 +30195,9 @@
     {
       "id": 2855,
       "title": "A user of a declaration that waits for a goal is an error: theorem usesHalfOne: halfOne = halfOne := rfl (halfOne waits for half's goal) gives E-FAILED-DEPENDENCY and check exits 1 under warn; the name-lookup path for failed globals skips blame_failed_dependency; should be unfinished and listed as waiting, transitively (users of waiting declarations are not named today) (SW-2806)",
-      "status": "next",
+      "status": "doing",
       "agent": "Opus",
-      "where": "",
+      "where": ".claude/worktrees/SW-2855",
       "labels": [],
       "epic": "proof-automation",
       "body": "",
