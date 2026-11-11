@@ -29987,7 +29987,7 @@
     {
       "id": 2839,
       "title": "stitchwort search: list open (?) theorems, marked open (they're usable since SW-2805); look at why search took 40 s on the 10-namespace sf/ project (SW-2836)",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2839",
       "labels": [],
@@ -30158,7 +30158,7 @@
     {
       "id": 2852,
       "title": "repl and eval in a project: don't print a [GOAL] warning per open exercise on load (noisy in sf/); repl with no file in a project could offer the project's namespaces; now that repl loads projects (SW-2849), Poly's comments that point readers at doc instead of repl can say repl (SW-2849, SW-2845)",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2852",
       "labels": [],
@@ -30173,7 +30173,7 @@
     {
       "id": 2853,
       "title": "Constructors take their type's parameter names as named implicit arguments: Nil [a := Nat], Cons [a := Nat] 1 Nil, None [a := Text] (D3514, Matt, 11 Nov 2026: 'just like functions can'); Nil Nat stays an error; guide and syntax.md lines; then SF Poly's mumble-grumble answers can match the book (SW-2845)",
-      "status": "review",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-2853",
       "labels": [],
@@ -30199,7 +30199,7 @@
     {
       "id": 2855,
       "title": "A user of a declaration that waits for a goal is an error: theorem usesHalfOne: halfOne = halfOne := rfl (halfOne waits for half's goal) gives E-FAILED-DEPENDENCY and check exits 1 under warn; the name-lookup path for failed globals skips blame_failed_dependency; should be unfinished and listed as waiting, transitively (users of waiting declarations are not named today) (SW-2806)",
-      "status": "review",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-2855",
       "labels": [],
@@ -30238,7 +30238,7 @@
     {
       "id": 2858,
       "title": "repl :t on a declaration with an open body (an unfinished exercise) gives E-UNFINISHED; its header's type is known, so :t should print it (a learner asks for the type of an exercise they haven't done); repl with no file in a project could offer its namespaces; share check's and repl's goals-line wording (SW-2852)",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2858",
       "labels": [],
