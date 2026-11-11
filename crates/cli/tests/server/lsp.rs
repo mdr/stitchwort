@@ -2323,6 +2323,7 @@ fn context_at_answers_anywhere_in_an_expression() {
     };
     let found = context_at(&mut client, 5, 18);
     assert_eq!(found["type"], "Nat", "{found:?}");
+    assert_eq!(found["kind"], "program", "{found:?}");
     let names: Vec<&str> = (found["locals"].as_array().expect("locals").iter())
         .map(|l| l["name"].as_str().unwrap())
         .collect();
@@ -2333,6 +2334,33 @@ fn context_at_answers_anywhere_in_an_expression() {
     assert_eq!(found["range"]["start"]["line"], 5);
     // Nothing in the `match` arm's pattern, or in the signature's name.
     assert_eq!(context_at(&mut client, 0, 5), Value::Null);
+    client.shutdown();
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// `kind` tells a goal to prove from the type of a program's expression.
+#[test]
+fn context_at_says_whether_the_type_is_a_proposition() {
+    let dir = temp_dir("context-at-kind");
+    let file = dir.join("kind.sw");
+    let text =
+        "def double (n: Nat): Nat := n + n\n\ntheorem twice (n: Nat): double n = n + n :=\n  rfl\n";
+    std::fs::write(&file, text).unwrap();
+    let uri = uri(&file);
+    let mut client = Client::start();
+    client.open(&uri, text);
+    client.diagnostics(&uri, 1);
+    let context_at = |client: &mut Client, line: u32, character: u32| {
+        client.request(
+            "stitchwort/contextAt",
+            json!({"textDocument": {"uri": uri}, "position": {"line": line, "character": character}}),
+        )
+    };
+    let proof = context_at(&mut client, 3, 3);
+    assert_eq!(proof["kind"], "proof", "{proof:?}");
+    assert_eq!(proof["type"], "double n = n + n", "{proof:?}");
+    let program = context_at(&mut client, 0, 30);
+    assert_eq!(program["kind"], "program", "{program:?}");
     client.shutdown();
     let _ = std::fs::remove_dir_all(&dir);
 }
