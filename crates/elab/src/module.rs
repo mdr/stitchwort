@@ -2921,13 +2921,11 @@ pub(crate) static REWRITE_MARKER: std::sync::LazyLock<ast::Name> =
 /// proposition, and its proofs go between the two with these
 /// (`equations.rs`, `BranchLib::to_bool_lemmas`); so does a conjunction of
 /// them (decided by `Decidable.and`).
-pub(crate) static GUARD_LEMMAS: std::sync::LazyLock<[ast::Name; 7]> =
+pub(crate) static GUARD_LEMMAS: std::sync::LazyLock<[ast::Name; 5]> =
     std::sync::LazyLock::new(|| {
         [
-            "Std.Decidable.toBoolOf",
             "Std.Decidable.toBoolOfNot",
-            "Std.Decidable.toBoolSound",
-            "Std.Decidable.toBoolFalse",
+            "Std.Decidable.refute",
             "Std.Bool.decTrue",
             "Std.Decidable.notNotOf",
             "Std.Decidable.not",

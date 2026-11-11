@@ -984,7 +984,7 @@ theorem Map.Spec.sameKeyDecide [auto ord: Ord k] (a: k) (b: k): Map.Spec.sameKey
   match e: Ord.compare a b with
     | Less =>
       Eq.sym (Decidable.toBoolOfNot (DecEq.decide b a) (q => Map.Spec.notEqualOfCompare a b (z => Ordering.lessNotEqual (Eq.trans (Eq.sym e) z)) (Eq.sym q)))
-    | Equal => Eq.sym (Decidable.toBoolOf (DecEq.decide b a) (Eq.sym (ord.equal a b e)))
+    | Equal => Eq.sym ((DecEq.decide b a).complete (Eq.sym (ord.equal a b e)))
     | Greater =>
       Eq.sym (Decidable.toBoolOfNot (DecEq.decide b a) (q => Map.Spec.notEqualOfCompare a b (z => Ordering.greaterNotEqual (Eq.trans (Eq.sym e) z)) (Eq.sym q)))
 
@@ -1976,11 +1976,11 @@ def Map.Raw.same [auto dv: DecEq v] (m: Map.Raw k v [ord := o]) (n: Map.Raw k v 
 
 theorem Map.Raw.sameSound [auto dv: DecEq v] (m: Map.Raw k v [ord := o]) (n: Map.Raw k v [ord := o])
     (h: Map.Raw.same m n = True): Map.Raw.Equiv m n :=
-  Decidable.toBoolSound (DecEq.decide (Map.Raw.toList m) (Map.Raw.toList n)) h
+  (DecEq.decide (Map.Raw.toList m) (Map.Raw.toList n)).sound h
 
 theorem Map.Raw.sameComplete [auto dv: DecEq v] (m: Map.Raw k v [ord := o]) (n: Map.Raw k v [ord := o])
     (h: Map.Raw.Equiv m n): Map.Raw.same m n = True :=
-  Decidable.toBoolOf (DecEq.decide (Map.Raw.toList m) (Map.Raw.toList n)) h
+  (DecEq.decide (Map.Raw.toList m) (Map.Raw.toList n)).complete h
 
 theorem Map.Raw.sameIff [auto dv: DecEq v] (m: Map.Raw k v [ord := o]) (n: Map.Raw k v [ord := o]):
     (Map.Raw.same m n = True) ↔ (Map.Raw.Equiv m n) :=

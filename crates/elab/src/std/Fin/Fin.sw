@@ -172,7 +172,7 @@ theorem Fin.anyEqAnd (j: Fin n) (q: Fin n → Bool): Fin.any n (i => (i == j) �
   Bool.eqOf (Fin.any n (i => (i == j) ∧ q i)) (q j)
     (h => Fin.anyElim (q j = True) n (i => (i == j) ∧ q i) h
       (i hi => rewrite <- DecEq.sound (Bool.andLeft hi) in Bool.andRight hi))
-    (h => Fin.anyIntro (i => (i == j) ∧ q i) j (Bool.andIntro (Decidable.toBoolOf (DecEq.decide j j) rfl) h))
+    (h => Fin.anyIntro (i => (i == j) ∧ q i) j (Bool.andIntro ((DecEq.decide j j).complete rfl) h))
 
 theorem Fin.anyExample: Fin.any 5 (i => Fin.toNat i == 3) = True := rfl
 

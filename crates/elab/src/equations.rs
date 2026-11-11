@@ -1098,11 +1098,11 @@ struct BranchLib {
     deceq_decide: Option<DefId>,
     inspect: Option<DefId>,
     to_bool: DefId,
-    /// `Decidable.toBoolOf`, `toBoolOfNot`, `toBoolSound` and
-    /// `toBoolFalse`, if std is loaded: a guard on a decided proposition
-    /// that the definition tests by its `Bool` is stated as the
-    /// proposition only with them.
-    to_bool_lemmas: Option<[DefId; 4]>,
+    /// `Decidable` and `Decidable.refute` and `Decidable.toBoolOfNot`, if
+    /// std is loaded: a guard on a decided proposition that the definition
+    /// tests by its `Bool` is stated as the proposition only with them and
+    /// the decision's `sound` and `complete` fields.
+    to_bool_lemmas: Option<(DataId, DefId, DefId)>,
     /// `Bool.decTrue`, which decides a `Bool` operand `c` as `c = True`.
     dec_true: Option<DefId>,
     and_data: DataId,
@@ -1170,9 +1170,9 @@ impl Decided {
         })
     }
 
-    /// The lemma `which` (0 `toBoolOf`, 1 `toBoolOfNot`, 2 `toBoolSound`, 3
-    /// `toBoolFalse`, or the conjunction's) of the proposition and the
-    /// `Bool`, applied to `h`.
+    /// The proof `which` (0 `d.complete`, 1 `Decidable.toBoolOfNot`, 2
+    /// `d.sound`, 3 `Decidable.refute`; for a conjunction, its decision's)
+    /// of the proposition and the `Bool`, applied to `h`.
     fn lemma(&self, lib: &BranchLib, which: usize, h: Term) -> R<Term> {
         match self {
             Decided::One(p, d) => lib.to_bool_lemma(which, p.clone(), d.clone(), h),
@@ -1315,21 +1315,26 @@ impl BranchLib {
         Some(((*q).clone(), dq.clone()))
     }
 
-    /// `lemma [P] d h`, with `lemma` one of [`BranchLib::to_bool_lemmas`]:
-    /// 0 `toBoolOf` (`P` to `holds d = True`), 1 `toBoolOfNot`, 2
-    /// `toBoolSound` (back to `P`), 3 `toBoolFalse`.
+    /// `which` applied to `h`, for the decision `d` of `p`: 0 `d.complete`
+    /// (`p` to `holds d = True`), 1 `toBoolOfNot` (`¬p` to `holds d = False`),
+    /// 2 `d.sound` (back to `p`), 3 `refute d` (`holds d = False` to `¬p`).
     fn to_bool_lemma(&self, which: usize, p: Term, d: Term, h: Term) -> R<Term> {
-        let lemmas = self
+        let (decidable, of_not, refute) = self
             .to_bool_lemmas
-            .ok_or_else(|| Stop::Skip("`Decidable.toBoolOf` isn't loaded yet".into()))?;
-        Ok(apps(
-            Term::Def(lemmas[which]),
-            [
-                (p, Icit::Implicit),
-                (d, Icit::Explicit),
-                (h, Icit::Explicit),
-            ],
-        ))
+            .ok_or_else(|| Stop::Skip("`Decidable.refute` isn't loaded yet".into()))?;
+        let field = |k| Term::Proj(decidable, k, Rc::new(d.clone()));
+        let lemma = |f: DefId| {
+            apps(
+                Term::Def(f),
+                [(p.clone(), Icit::Implicit), (d.clone(), Icit::Explicit)],
+            )
+        };
+        Ok(match which {
+            0 => apps(field(2), [(h, Icit::Explicit)]),
+            1 => apps(lemma(of_not), [(h, Icit::Explicit)]),
+            2 => apps(field(1), [(h, Icit::Explicit)]),
+            _ => apps(lemma(refute), [(h, Icit::Explicit)]),
+        })
     }
 
     /// `b` and whether `X` is `True`, when `p` is `b = X` with `X` a
@@ -4500,12 +4505,11 @@ impl Elaborator {
             inspect: self.lookup_def("Std.Bool.inspect"),
             to_bool: r.def(Builtin::Holds).ok_or_else(none)?,
             to_bool_lemmas: (|| {
-                Some([
-                    self.lookup_def("Std.Decidable.toBoolOf")?,
+                Some((
+                    r.data(Builtin::Decidable)?,
                     self.lookup_def("Std.Decidable.toBoolOfNot")?,
-                    self.lookup_def("Std.Decidable.toBoolSound")?,
-                    self.lookup_def("Std.Decidable.toBoolFalse")?,
-                ])
+                    self.lookup_def("Std.Decidable.refute")?,
+                ))
             })(),
             dec_true: r.def(Builtin::DecTrue),
             and_data: r.data(Builtin::And).ok_or_else(none)?,

@@ -285,7 +285,7 @@ theorem digitsRep (b: Nat) (hb: 1 ≤ b) (n: Nat):
         _ = List.concat (List.replicate (Succ (Succ n)) (Nat.digits b).toList) := Eq.sym (List.concatReplicateSnoc (Nat.digits b).toList (Succ n))
 
 theorem writtenRepOf (p: List Nat) (k: Nat) (hk: p.length = k) (n: Nat): writtenAs (List.concat (List.replicate (Succ n) p)) k (Succ n) = True :=
-  Decidable.toBoolOf (List.decEq (a b => Nat.decEq a b) (List.concat (List.replicate (Succ n) (List.take (List.concat (List.replicate (Succ n) p)) k))) (List.concat (List.replicate (Succ n) p)))
+  (List.decEq (a b => Nat.decEq a b) (List.concat (List.replicate (Succ n) (List.take (List.concat (List.replicate (Succ n) p)) k))) (List.concat (List.replicate (Succ n) p))).complete
     (rewrite <- hk, List.takeAppend p (List.concat (List.replicate n p)))
 
 theorem repDigits (j: Nat) (b: Nat) (h1: Nat.pow 10 j ≤ b) (h2: b < Nat.pow 10 (Succ j)) (n: Nat) (hn: 1 ≤ n):
@@ -323,7 +323,7 @@ theorem repBlockCount (x: Nat) (n: Nat) (hn: 2 ≤ n) (k: Nat) (h: 1 ≤ k): Lis
       match hq: writtenAs (Nat.digits x).toList (Succ j) n with
         | True =>
           List.sumRangeFromOne (b => writeTimes (Succ j) b n == x) (b => x) (Nat.fromDigits (List.take (Nat.digits x).toList (Succ j)))
-            (Decidable.toBoolOf (Nat.decEq (writeTimes (Succ j) (Nat.fromDigits (List.take (Nat.digits x).toList (Succ j))) n) x) (repValue x (Succ j) n hn hq))
+            ((Nat.decEq (writeTimes (Succ j) (Nat.fromDigits (List.take (Nat.digits x).toList (Succ j))) n) x).complete (repValue x (Succ j) n hn hq))
             (b hb => repInjective (Succ j) b (Nat.fromDigits (List.take (Nat.digits x).toList (Succ j))) n omega
               (Eq.trans (DecEq.sound hb) (Eq.sym (repValue x (Succ j) n hn hq))))
             (Nat.pow 10 (Succ j) - Nat.pow 10 j) (Nat.pow 10 j)

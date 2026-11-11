@@ -103,7 +103,7 @@ theorem mergePinsSelf (trip: Trip) (ids: List.Distinct (List.map trip.legs (leg 
 -- Albums
 
 theorem holdsOf (album: Album) (photo: Photo) (m: photo ∈ album.photos): holds album photo.id = True :=
-  Decidable.toBoolOf (List.decMem photo.id (album.photos.map Photo.id)) (List.memMap album.photos photo m Photo.id)
+  (List.decMem photo.id (album.photos.map Photo.id)).complete (List.memMap album.photos photo m Photo.id)
 
 -- With photo ids distinct across the albums, the first album holding a
 -- photo is the album it is in.

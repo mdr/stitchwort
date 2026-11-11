@@ -16,7 +16,7 @@ theorem sumsToSound (window: Window) (number: Nat) (sums: window.sumsTo number =
 
 theorem sumsToComplete (window: Window) (number: Nat) (sum: SumOfTwo window.numbers number): window.sumsTo number = True :=
   let (Witness a (Witness b (Both member (Both partner (Both differ total))))) := sum
-  let unequal: ((a + a != number): Bool) = True := Decidable.toBoolOf _ (same => differ (omega))
+  let unequal: ((a + a != number): Bool) = True := (Decidable.not (DecEq.decide (a + a) number)).complete (same => differ (omega))
   let present: (Set.fromList window.numbers).contains (number - a) = True :=
     (Set.containsFromListIff window.numbers (number - a)).backward (rewrite (omega: number - a = b) in partner)
   List.anyOfMem window.numbers (a => a <= number && a + a != number && (Set.fromList window.numbers).contains (number - a)) a

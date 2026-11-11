@@ -2216,8 +2216,8 @@ impl Tree<'_> {
             let unit = PV::Term(Term::Ctor(d, c, Vec::new()), depth + 1);
             let cond = self.guard_arg(&node, 1, fvals)?;
             // A decided proposition stated as itself, tested by its `Bool`
-            // `holds d`: the facts are `toBoolSound d h` and
-            // `toBoolFalse d h`.
+            // `holds d`: the facts are `d.sound h` and
+            // `Decidable.refute d h`.
             let stated = self.shapes[j]
                 .as_ref()
                 .ok()

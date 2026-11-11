@@ -140,7 +140,7 @@ theorem periodOfTest (g: Nat → Nat) (len: Nat) (hl: len ≠ 0) (p: Nat) (h: is
   i hi => DecEq.sound (List.allRangeElim (i => g ((i + p) % len) == g i) len 0 h i omega hi)
 
 theorem periodTest (g: Nat → Nat) (len: Nat) (hl: len ≠ 0) (p: Nat) (h: Period g len hl p): isPeriod g len hl p = True :=
-  List.allRangeIntro (i => g ((i + p) % len) == g i) len 0 (i h1 h2 => Decidable.toBoolOf (Nat.decEq (g ((i + p) % len)) (g i)) (h i h2))
+  List.allRangeIntro (i => g ((i + p) % len) == g i) len 0 (i h1 h2 => (Nat.decEq (g ((i + p) % len)) (g i)).complete (h i h2))
 
 --| A period below the smallest positive one, `Succ j`, is 0.
 theorem periodBelow (g: Nat → Nat) (len: Nat) (hl: len ≠ 0) (j: Nat) (hmin: ∀ (r: Nat) => r < j → isPeriod g len hl (Succ r) = False)
@@ -200,7 +200,7 @@ theorem periodWritten (ds: List Nat) (hl: ds.length ≠ 0) (k: Nat) (n: Nat) [au
   let ht: List.length (List.take ds k) = k := List.lengthTake ds k (omega [Nat.leMulPos k n hn])
   let len: List.length (List.concat (List.replicate n (List.take ds k))) = n * k :=
     Eq.trans (List.lengthConcatReplicate (List.take ds k) n) (Eq.cong (t => n * t) ht)
-  Decidable.toBoolOf (List.decEq (a b => Nat.decEq a b) (List.concat (List.replicate n (List.take ds k))) ds)
+  (List.decEq (a b => Nat.decEq a b) (List.concat (List.replicate n (List.take ds k))) ds).complete
     (List.extGetOr 0 (List.concat (List.replicate n (List.take ds k))) ds omega
       (i hi =>
         calc List.getOr (List.concat (List.replicate n (List.take ds k))) i 0

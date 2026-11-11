@@ -134,7 +134,7 @@ theorem notMemDirections (direction: Direction): ∀ (others: List Direction) =>
     others.all (other => directionIndex other != directionIndex direction) = True → direction ∉ others
   | [], differ, member => member
   | [other, ..rest], differ, Inl same =>
-    Decidable.toBoolSound _ (Bool.andLeft differ) (rewrite same in rfl)
+    DecEq.neTrue (Bool.andLeft differ) (rewrite same in rfl)
   | [other, ..rest], differ, Inr later => notMemDirections direction rest (Bool.andRight differ) later
 
 --| ...and there are at most four.

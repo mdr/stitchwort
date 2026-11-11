@@ -32,7 +32,7 @@ theorem List.differenceByIsFilter [auto eq: DecEq k] (xs: List a) (ys: List a) (
 
 --| What the filter keeps says its key is new.
 theorem List.notMemOfNotIn [auto eq: DecEq k] (z: k) (zs: List k) (h: Bool.not (z ∈ zs) = True): z ∉ zs :=
-  Decidable.toBoolFalse (List.decMem z zs)
+  Decidable.refute (List.decMem z zs)
     (match d: Decidable.holds (List.decMem z zs) with
       | True => cases
       | False => rfl)
@@ -102,7 +102,7 @@ theorem List.keyMemAppendNewByRight [auto eq: DecEq k] (key: a → k) (xs: List 
 theorem List.differenceByCovered [auto eq: DecEq k] (xs: List a) (ys: List a) (key: a → k)
     (covered: ∀ (x: a) => x ∈ xs → key x ∈ List.map ys key): List.differenceBy xs ys key = [] :=
   List.filterNone (x => key x ∉ List.map ys key) xs (x m =>
-    rewrite Decidable.toBoolOf (List.decMem (key x) (List.map ys key)) (covered x m) in rfl)
+    rewrite (List.decMem (key x) (List.map ys key)).complete (covered x m) in rfl)
 
 --| `differenceBy` keeps everything when no key of `xs` is a key of `ys`.
 theorem List.differenceByDisjoint [auto eq: DecEq k] (xs: List a) (ys: List a) (key: a → k)
