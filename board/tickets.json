@@ -29840,7 +29840,7 @@
     {
       "id": 2828,
       "title": "rewrite h in rfl with h: Nat.equal m n = True on (if m = n then 1 else 0) = 1 fails with E-CANNOT-INFER, on main before and after SW-2812: bug in carrying through Nat.decEq or in the message",
-      "status": "review",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-2828",
       "labels": [],
