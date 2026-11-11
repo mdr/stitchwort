@@ -19904,7 +19904,7 @@
         "goals"
       ],
       "epic": "diagnostics",
-      "body": "From docs/proposals/goal-printing-gaps.md. Lane D, after SW-2151, SW-2152, SW-2153. Replaces SW-1004. 60 min.\n\n\n11 Nov (lane): printer prints a call of a lifted match helper as (match s1, s2 with …) from MatchColumns (Shown::match_columns; the cache already keeps them, rows.rs). examples/goals/lifted-match.sw; cases-int-arithmetic snapshot %match1 -> (match command with …). Not done: explain_lifted still text-based (no D229 note for printer-made forms); no std helper reproduced in a goal.\n",
+      "body": "From docs/proposals/goal-printing-gaps.md. Lane D, after SW-2151, SW-2152, SW-2153. Replaces SW-1004. 60 min.",
       "created": "2026-11-07",
       "updated": "2026-11-11",
       "commits": []

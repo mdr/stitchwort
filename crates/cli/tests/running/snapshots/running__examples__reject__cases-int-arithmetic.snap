@@ -22,7 +22,7 @@ expression: output
     │ Note 6: this statement is false; a counterexample:
     │           depth = 0
     │           command = Up 1
-    │         `depth + command.down = depth - (match command with …)` is false:
+    │         `depth + command.down = depth - upAfter.%match1 command` is false:
     │           left:  1
     │           right: -1
 ────╯

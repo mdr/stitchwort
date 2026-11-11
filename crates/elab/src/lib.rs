@@ -367,11 +367,6 @@ impl stitchwort_core::Shown for Elaborator {
         self.tables.update_shown.get(&id).cloned()
     }
 
-    fn match_columns(&self, id: DefId) -> Option<Rc<[usize]>> {
-        let recorded = self.tables.match_columns.get(&id)?;
-        Some(recorded.cols.as_slice().into())
-    }
-
     fn param_defaults(&self, id: DefId) -> Option<Rc<stitchwort_core::globals::ParamDefaults>> {
         self.tables.param_defaults.get(&id).cloned()
     }

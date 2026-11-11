@@ -1036,9 +1036,6 @@ impl<'g> Printer<'g> {
             Term::Meta(m) => (format!("?{m}"), Prec::Atom),
             Term::App(..) if let Some(shown) = self.label(names, term) => shown,
             Term::App(..) if let Some(shown) = self.update(names, term) => (shown, Prec::Atom),
-            Term::App(..) if let Some(shown) = self.lifted_match(names, term) => {
-                (shown, Prec::Atom)
-            }
             Term::App(..)
                 if !self.show_hidden.get()
                     && let Some(shown) = self.call_with_defaults(names, term) =>
@@ -2305,26 +2302,6 @@ impl<'g> Printer<'g> {
                 args.get(p)
                     .is_some_and(|(param, _)| crate::value::same_term(param, arg))
             })
-    }
-
-    /// A call of a lifted `match`'s helper (`Shown::match_columns`), as the
-    /// `match` with its scrutinees and the alternatives left out:
-    /// `(match s₁, s₂ with …)`. Not source: the alternatives aren't shown,
-    /// and written out they would make a different helper.
-    fn lifted_match(&self, names: &mut Vec<Name>, term: &Term) -> Option<String> {
-        let (head, args) = term.spine();
-        let Term::Def(id) = head else {
-            return None;
-        };
-        let cols = self.g.shown.match_columns(*id)?;
-        if args.len() != self.g.def(*id).arity() || cols.iter().any(|&c| c >= args.len()) {
-            return None;
-        }
-        let scrutinees: Vec<String> = cols
-            .iter()
-            .map(|&c| self.print(names, args[c], Prec::Arrow))
-            .collect();
-        Some(format!("(match {} with …)", scrutinees.join(", ")))
     }
 
     /// A call of an update's helper (`Shown::update_shown`), as the update:

@@ -74,13 +74,6 @@ pub trait Shown {
         None
     }
 
-    /// For a lifted `match`'s helper `id`: which of its parameters are the
-    /// scrutinees, in the order written. A call of it is shown as the
-    /// `match` (`(match s₁, s₂ with …)`), not by the helper's internal name.
-    fn match_columns(&self, _id: DefId) -> Option<Rc<[usize]>> {
-        None
-    }
-
     /// The parameter defaults of definition `id`'s header.
     fn param_defaults(&self, _id: DefId) -> Option<Rc<ParamDefaults>> {
         None
