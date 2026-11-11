@@ -171,7 +171,7 @@ no `bin`).
 - **Editor:** hover; the Problems panel and the playground's goal list;
   run a test (VS Code "▶ Run test"; playground Tests tab); open the Goals
   panel (VS Code "Stitchwort: Show Goals"; the playground's panel under the
-  editor appears by itself once the file has a `?`).
+  editor appears by itself at the first answer, as VS Code's does).
 - **Exercises:** none; one "put a `?` here and hover it" step.
 
 ### Part I. Programs and their proofs
@@ -210,8 +210,7 @@ no `bin`).
   playground applies only the first code action, gap G2); *Add the missing
   arms* on `E-NONEXHAUSTIVE` (VS Code yes; playground first action only);
   split a pattern variable in an arm ("Split `x` into its cases"); the
-  Goals panel following the cursor between arms (VS Code yes; playground
-  only at `?`, gap G3).
+  Goals panel following the cursor between arms (VS Code and the playground, G3).
 - **Exercises:**
   1. No move beats itself: `¬ beats m m`, by splitting `m` (one star).
   2. `beats a b → ¬ beats b a`, by splitting `a` and then `b` in the same
@@ -233,7 +232,7 @@ no `bin`).
   chapter, §4), the generated equations (`double.eq2`, shown on hover).
 - **Editor:** hover on a use of a function to see its equations; the
   Goals panel at each step of a `rewrite` chain (VS Code yes, goal at any
-  point stages 1 to 3; playground no, G3); the `E-REWRITE-NOTHING` and
+  point stages 1 to 3; the playground too, G3); the `E-REWRITE-NOTHING` and
   `E-REFL` notes, which show the goal after rewriting; rename a lemma (F2;
   both, in a project).
 - **Exercises (all on the reader's own functions, which `omega` treats as
@@ -341,7 +340,7 @@ both sides, chaining them.
 - **Features:** `Both`, `Inl`/`Inr`, `Witness`, `{ forward, backward }`,
   `Void` and `| ()` for an impossible case, `∈` on lists, `Prop`.
 - **Editor:** the expected type in the Goals panel away from `?` (VS Code
-  yes, `stitchwort/contextAt`; playground G3); split on a hypothesis of
+  yes, `stitchwort/contextAt`; the playground too); split on a hypothesis of
   type `a ∨ b` (not offered today: G4).
 - **Note for the author:** `False` in a statement is the `Bool` `False`,
   read as `False = True` (measured: `cases` reports "goal: False = True").
@@ -495,8 +494,8 @@ chapter names what they've been doing.
 | Action | Chapter | VS Code | Playground | Evidence |
 |---|---|---|---|---|
 | Hover: type, doc, equations | 1 | yes | yes | lsp-client `languageServerExtensions`, editor-entry.js header |
-| Goal of a `?` (panel) | 0 | yes ("Show Goals") | yes, under the editor while the file has a `?` | extension.js; index.html `showGoal`, editor-entry.js `refreshGoal` |
-| Goal anywhere, steps of `rewrite`/`calc`/arms | 3 | yes (SW-2778, SW-2780) | no: asks `goalAt` only when the file has a goal diagnostic, never `contextAt` | editor-entry.js `refreshGoal`; syntax.md "The editor shows the goal anywhere" (G3) |
+| Goal of a `?` (panel) | 0 | yes ("Show Goals") | yes, under the editor | extension.js; index.html `showGoal`, editor-entry.js `refreshGoal` |
+| Goal anywhere, steps of `rewrite`/`calc`/arms | 3 | yes (SW-2778, SW-2780) | yes (SW-2894): `goalAt`, then `contextAt` after 300 ms, as VS Code | editor-entry.js `refreshGoal`; syntax.md "The editor shows the goal anywhere" (G3) |
 | Add the missing arms | 2 | yes, light bulb | first code action applied, no menu | editor-entry.js `codeAction` applies `actions[0]` (G2) |
 | Split on `x` from a `?` / split an arm's variable | 2 | yes (SW-2885) | first action only | as above (G2) |
 | Proof offered / "Search for a proof" on a `?` | 4 | yes (SW-2890 in flight) | first action only; search in wasm runs without the kept session (SW-1807) | lib.rs `code_action`; G2 |
@@ -581,7 +580,7 @@ Each is one line; the ones the first chapters need are marked **(ch. N)**.
   playground: Cmd-. lists every action at the cursor (Add the missing
   arms, Split on each variable, Search for a proof, imports) instead of
   applying the first one.
-- **G3 (playground goals; ch. 3).** Goal at any point in the playground:
+- **G3 (playground goals; ch. 3) — done, SW-2894.** Goal at any point in the playground:
   ask `stitchwort/contextAt` away from `?` and show the before/after steps,
   as VS Code's panel does since SW-2778/SW-2780; show the panel whether or
   not the file has a `?`.

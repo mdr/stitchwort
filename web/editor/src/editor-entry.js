@@ -87,7 +87,7 @@ export class Editor {
    *   onInput()                   the text changed (by typing, a format, a code action; not by `value =`)
    *   onFile(path)                a jump to a file of the project: the page opens it (and calls `open`)
    *   onStd(path | null)          a library file is shown, or the user's text is back
-   *   onGoal(answer, any)         the goal at the caret (`stitchwort/goalAt`'s answer, or null) and whether the document has any open goal
+   *   onGoal(answer, hide)        the goal or expected type at the caret ({goal, context, here}: the answers of `stitchwort/goalAt` and `stitchwort/contextAt`), or null when there is none; `hide` when there is no document to ask about
    *   onNotice(text)              something to tell the person (a search is running, a request failed)
    *   run()                       Ctrl+Enter
    *   save()                      Ctrl/Cmd+S: returns true when it handled the key (else the browser's save)
@@ -385,7 +385,7 @@ export class Editor {
     this.shown = view;
     const uri = [...this.views].find(([, v]) => v === view)?.[0];
     if (uri) this.scheduleGoal(uri);
-    else this.options.onGoal?.(null, false);
+    else this.options.onGoal?.(null, true);
     view.requestMeasure();
     if (focused) view.focus();
   }
@@ -642,26 +642,40 @@ export class Editor {
   scheduleGoal(uri) {
     if (!this.options.onGoal || this.user !== this.views.get(uri)) return;
     clearTimeout(this.goalTimer);
+    clearTimeout(this.contextTimer);
+    this.goalAsked++;
     this.goalTimer = setTimeout(() => this.refreshGoal(uri), 150);
   }
 
   /**
-   * The same request as VS Code's Goals panel: the server answers from the
-   * goals it last published, so there is no second check.
+   * The same requests as VS Code's Goals panel, in the same order. First
+   * `stitchwort/goalAt`, answered from the goals the server last published:
+   * if the caret is on a `?` that is the answer. Otherwise, once the caret
+   * has rested 300 ms in all, `stitchwort/contextAt`, which checks the file
+   * again, for the goal or expected type of the expression there; the
+   * nearest `?` of the declaration is the fallback. The answer goes to
+   * `onGoal({goal, context})` (either may be null; `goal.here` says the
+   * caret is on it), or `onGoal(null)` when there is no answer, so the page
+   * can keep the last one on show.
    */
   async refreshGoal(uri) {
     const view = this.views.get(uri);
     const plugin = view && LSPPlugin.get(view);
     if (!plugin || view !== this.user) return;
-    if (this.shown !== view) return this.options.onGoal(null, false);
-    const any = (this.published.get(uri) ?? []).some((d) => d.code === "GOAL");
+    if (this.shown !== view) return this.options.onGoal(null, true);
     const asked = ++this.goalAsked;
-    let answer = null;
-    if (any) {
-      const position = plugin.toPosition(view.state.selection.main.head);
-      answer = await plugin.client.request("stitchwort/goalAt", { textDocument: { uri }, position }).catch(() => null);
-    }
-    if (asked === this.goalAsked) this.options.onGoal(answer, any);
+    const position = plugin.toPosition(view.state.selection.main.head);
+    const params = { textDocument: { uri }, position };
+    const ask = (method) => plugin.client.request(method, params).catch(() => null);
+    const goal = await ask("stitchwort/goalAt");
+    if (asked !== this.goalAsked) return;
+    if (goal?.range && positionInRange(position, goal.range)) return this.options.onGoal({ goal, context: null, here: true });
+    clearTimeout(this.contextTimer);
+    this.contextTimer = setTimeout(async () => {
+      const context = await ask("stitchwort/contextAt");
+      if (asked !== this.goalAsked) return;
+      this.options.onGoal(context || goal ? { goal, context, here: false } : null);
+    }, 150);
   }
 
   // ---- Semantic colours and inlay hints -----------------------------------------
@@ -1026,4 +1040,10 @@ function client_plugin(client, uri) {
 
 export function createEditor(parent, options) {
   return new Editor(parent, options);
+}
+
+/** Whether `p` is inside the LSP range `r` (ends included). */
+function positionInRange(p, r) {
+  return !(p.line < r.start.line || (p.line === r.start.line && p.character < r.start.character))
+    && !(p.line > r.end.line || (p.line === r.end.line && p.character > r.end.character));
 }
