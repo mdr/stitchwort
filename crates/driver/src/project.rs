@@ -109,6 +109,7 @@ impl Session {
         target: &Target,
         load: Load,
     ) -> Result<Loaded, Vec<Diagnostic>> {
+        self.elab.clear_broken_tests();
         if !analysis.diagnostics.is_empty() {
             return Err(analysis.diagnostics);
         }

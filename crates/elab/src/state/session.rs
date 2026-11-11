@@ -103,6 +103,11 @@ pub struct Session {
     /// are rewritten here whenever it is checked (`fail_unchecked_names`),
     /// so a rewind needn't cut it.
     pub(crate) waiting_names: RefCell<BTreeMap<String, Rc<[stitchwort_core::DefId]>>>,
+    /// The tests that couldn't be checked because they use a declaration
+    /// with an error, in the order the namespaces were checked
+    /// ([`crate::BrokenTest`]). A log for the host to read after a load,
+    /// which clears it first; a rewind leaves it.
+    pub(crate) broken_tests: Vec<crate::BrokenTest>,
 }
 
 /// What a rewind mark keeps of a [`Session`]: the bookkeeping a later load
@@ -150,6 +155,7 @@ impl Session {
             assumed: _,
             blocked: _,
             waiting_names: _,
+            broken_tests: _,
         } = self;
         Mark {
             project_namespaces: project_namespaces.clone(),
@@ -191,6 +197,7 @@ impl Session {
             assumed: _,
             blocked: _,
             waiting_names: _,
+            broken_tests: _,
         } = self;
         *project_namespaces = mark.project_namespaces.clone();
         *project_prefixes = mark.project_prefixes.clone();

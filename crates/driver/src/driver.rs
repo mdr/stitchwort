@@ -1038,8 +1038,9 @@ pub struct TestResult {
     pub hash: Option<ContentHash>,
     /// For a failed test, what can be said about why (D601).
     pub detail: Option<Failure>,
-    /// For a test that wasn't run because its code reaches an open goal
-    /// (`?`), why, naming the `?` and where it is: the test fails
+    /// For a test that wasn't run, why: its code reaches an open goal
+    /// (`?`), naming the `?` and where it is, or it uses a declaration with
+    /// an error ([`Session::with_broken_tests`]). The test fails
     /// (`outcome` is [`Outcome::Failed`]). Never cached.
     pub unfinished: Option<String>,
 }
@@ -1509,14 +1510,78 @@ impl Session {
     /// the attributes before it): `text` is empty, `line` and `column`
     /// count from 1.
     pub fn test_location(&self, namespace: &str, name: &str) -> Option<Part> {
-        let test = self
-            .elab
-            .tests()
-            .iter()
-            .find(|t| t.namespace == namespace && t.name == name)?;
-        let mut at = self.part(test.span)?;
+        let span = self.test_span(namespace, name)?;
+        let mut at = self.part(span)?;
         at.text.clear();
         Some(at)
+    }
+
+    /// Where the test `name` of `namespace` is declared, whether it could be
+    /// checked or not.
+    fn test_span(&self, namespace: &str, name: &str) -> Option<stitchwort_syntax::Span> {
+        let same = |n: &str, ns: &str| n == name && ns == namespace;
+        (self.elab.tests().iter())
+            .find(|t| same(&t.name, &t.namespace))
+            .map(|t| t.span)
+            .or_else(|| {
+                (self.elab.broken_tests().iter())
+                    .find(|t| same(&t.name, &t.namespace))
+                    .map(|t| t.span)
+            })
+    }
+
+    /// `results` with the tests that couldn't be checked because they use a
+    /// declaration with an error (`Elaborator::broken_tests`, D3523), those
+    /// whose name `keep` keeps, each failed saying so: in `results` among
+    /// the tests of its namespace, in source order.
+    pub fn with_broken_tests(
+        &self,
+        mut results: Vec<TestResult>,
+        keep: impl Fn(&str) -> bool,
+    ) -> Vec<TestResult> {
+        let order = |s: stitchwort_syntax::Span| (s.file.index(), s.start);
+        for test in self.elab.broken_tests().iter().filter(|t| keep(&t.name)) {
+            let place = |span: stitchwort_syntax::Span| {
+                let file = self.sources.get(span.file);
+                let end = (span.start as usize).min(file.text.len());
+                let before = file.text.get(..end)?;
+                let line = before.matches('\n').count() + 1;
+                let column = before.rsplit('\n').next().map_or(0, |l| l.chars().count()) + 1;
+                Some(format!("{}:{line}:{column}", file.name))
+            };
+            let at = (test
+                .error_at
+                .filter(|s| s.file.index() < self.sources.len()))
+            .and_then(place)
+            .map_or_else(String::new, |p| format!(" ({p})"));
+            let how = if test.uses == test.broken {
+                String::new()
+            } else {
+                format!(", which depends on `{}`", test.broken)
+            };
+            let why = format!("it uses `{}`{how}, which has an error{at}", test.uses);
+            let result = TestResult {
+                name: test.name.clone(),
+                namespace: test.namespace.clone(),
+                outcome: Outcome::Failed,
+                cached: false,
+                hash: None,
+                detail: None,
+                unfinished: Some(why),
+            };
+            let span_of = |r: &TestResult| self.test_span(&r.namespace, &r.name).map(order);
+            let same_namespace = |r: &TestResult| r.namespace == test.namespace;
+            let index = (results.iter())
+                .position(|r| same_namespace(r) && span_of(r).is_some_and(|o| o > order(test.span)))
+                .or_else(|| {
+                    (results.iter())
+                        .rposition(same_namespace)
+                        .map(|last| last + 1)
+                })
+                .unwrap_or(results.len());
+            results.insert(index, result);
+        }
+        results
     }
 
     fn part(&self, span: stitchwort_syntax::Span) -> Option<Part> {

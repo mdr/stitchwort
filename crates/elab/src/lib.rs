@@ -257,6 +257,23 @@ pub struct TestDecl {
     pub unfinished: Option<String>,
 }
 
+/// A test that couldn't be checked because it uses a declaration with an
+/// error (D3523): it isn't a [`TestDecl`], having no definition, but
+/// `stitchwort test` fails it, saying why, and runs the others.
+#[derive(Clone, Debug)]
+pub struct BrokenTest {
+    pub name: String,
+    /// The namespace of the module that declares it; empty if it has none.
+    pub namespace: String,
+    pub span: Span,
+    /// The declaration it uses that has an error.
+    pub uses: String,
+    /// The declaration the error is in: `uses` itself, or something it uses.
+    pub broken: String,
+    /// Where the error is reported, if it has a place.
+    pub error_at: Option<Span>,
+}
+
 /// The shape of a test's expression, for showing why it failed: through
 /// `let`s and `&&`, down to the comparisons. Its terms are closed (the
 /// `let`s around them are put back), and only run after the test has failed.
@@ -775,6 +792,17 @@ impl Elaborator {
     /// The tests declared so far, in the order they run.
     pub fn tests(&self) -> &[TestDecl] {
         &self.tables.tests
+    }
+
+    /// The tests the last load couldn't check because they use a
+    /// declaration with an error, in load order (D3523).
+    pub fn broken_tests(&self) -> &[BrokenTest] {
+        &self.session.broken_tests
+    }
+
+    /// Forgets [`Self::broken_tests`]: a host does, before it loads a project.
+    pub fn clear_broken_tests(&mut self) {
+        self.session.broken_tests.clear();
     }
 
     /// The first declaration with an open goal (`?`) that definition `id`

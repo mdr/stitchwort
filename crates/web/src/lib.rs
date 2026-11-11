@@ -218,7 +218,18 @@ pub fn std_source(path: &str) -> String {
 pub fn test(source: &str, known: &str) -> String {
     let session = match load_shared(source) {
         Ok(session) => session,
-        Err(failed) => return failed,
+        // The errors, with the results of the tests that don't use what has
+        // them (`ok` stays false).
+        Err(failed) => {
+            let (session, _) = load_keeping(source);
+            let tests = session.elab.tests().len() + session.elab.broken_tests().len();
+            return match failed.strip_suffix('}') {
+                Some(errors) if tests > 0 => {
+                    format!("{errors},{}}}", test_fields(&session, known, false))
+                }
+                _ => failed,
+            };
+        }
     };
     test_answer(&session, known, false)
 }
@@ -226,9 +237,19 @@ pub fn test(source: &str, known: &str) -> String {
 /// [`test`]'s answer for a loaded session; each result also has its
 /// `namespace` if `with_namespace`.
 fn test_answer(session: &Session, known: &str, with_namespace: bool) -> String {
+    format!(
+        r#"{{"ok":true,{}}}"#,
+        test_fields(session, known, with_namespace)
+    )
+}
+
+/// `"tests": […], "added": "…"`, the part of [`test_answer`] that is the
+/// results.
+fn test_fields(session: &Session, known: &str, with_namespace: bool) -> String {
     let cache = Cache::memory(known_results(known));
+    let results = session.run_tests_fast(&cache);
     let tests: Vec<String> = session
-        .run_tests_fast(&cache)
+        .with_broken_tests(results, |_| true)
         .iter()
         .map(|r| {
             let outcome = match r.outcome {
@@ -268,7 +289,7 @@ fn test_answer(session: &Session, known: &str, with_namespace: bool) -> String {
         })
         .collect();
     format!(
-        r#"{{"ok":true,"tests":[{}],"added":{}}}"#,
+        r#""tests":[{}],"added":{}"#,
         tests.join(","),
         json_string(&added)
     )
@@ -685,6 +706,13 @@ fn load_shared(source: &str) -> Result<Rc<Session>, String> {
 /// A session with `source` loaded, or the answer for a source that doesn't
 /// load: its errors, and its warnings, if any.
 fn load(source: &str) -> Result<Session, String> {
+    let (session, loaded) = load_keeping(source);
+    loaded.map(|()| session)
+}
+
+/// [`load`], also giving the session when the source has errors: the tests
+/// that don't use a declaration with an error still run (D3523).
+fn load_keeping(source: &str) -> (Session, Result<(), String>) {
     #[cfg(test)]
     LOADS.with(|loads| loads.set(loads.get() + 1));
     let mut session = new_session();
@@ -692,8 +720,8 @@ fn load(source: &str) -> Result<Session, String> {
     {
         session.elab.options.limits = session_limits();
     }
-    match session.load(FILE, source) {
-        Ok(_) => Ok(session),
+    let loaded = match session.load(FILE, source) {
+        Ok(_) => Ok(()),
         Err(diagnostics) => {
             let (goals, diagnostics) = split_goals(diagnostics);
             let (warnings, errors): (Vec<_>, Vec<_>) = diagnostics
@@ -706,7 +734,8 @@ fn load(source: &str) -> Result<Session, String> {
                 goals_field(&session, &goals)
             ))
         }
-    }
+    };
+    (session, loaded)
 }
 
 /// `,"warnings":["…",…]`, or nothing if there are none.
@@ -877,6 +906,22 @@ mod tests {
             "{whole}"
         );
         assert!(!whole.contains(r#""part""#), "{whole}");
+    }
+
+    #[test]
+    fn tests_run_beside_an_error_that_they_dont_use() {
+        let source = "def good: Nat := 1\ndef broken: Nat := \"x\"\n\
+                      test \"fine\" := good == 1\ntest \"uses it\" := broken == 1\n";
+        let answer = test(source, "");
+        assert!(answer.starts_with(r#"{"ok":false,"errors":"#), "{answer}");
+        assert!(
+            answer.contains(r#""name":"fine","passed":true,"outcome":"passed""#),
+            "{answer}"
+        );
+        assert!(
+            answer.contains(r#""name":"uses it","passed":false,"outcome":"failed","cached":false,"why":"it uses `broken`, which has an error"#),
+            "{answer}"
+        );
     }
 
     /// Forgets the remembered load and resets the [`load`] count.
