@@ -19,8 +19,8 @@
 //!    passing a procedure explicitly makes it a dependency, checked first. Its arguments are found by unification, and any
 //!    `Decidable` or auto arguments it needs are found recursively, one
 //!    deeper each time, up to `MAX_DEPTH`. It's run at
-//!    compile time, and must say `Yes`. The proof is then `fromYes d Trivial`,
-//!    which the kernel re-checks by running `d` itself.
+//!    compile time, and its test must be `True`. The proof is then `d.sound
+//!    rfl`, which the kernel re-checks by computing `d`'s test itself.
 //!
 //! Between 1 and 2, a lexicographic `decreasing` obligation, `Nat.LexLess a1
 //! a2 b1 b2`, is split: `a1 < b1`, or else `a1` the same as `b1` and `a2 <
@@ -287,9 +287,9 @@ pub fn prove(cx: &mut Ctx, goal: &Value, depth: usize) -> Result<Term> {
     }
     let decision = decide(cx, &goal, depth)?;
     let shown = cx.show(&goal);
-    match force(&cx.g(), cx.eval(&decision)?)? {
-        Value::Ctor(_, 0, _) => from_yes(cx, &goal, decision),
-        Value::Ctor(_, _, _) => {
+    match verdict(cx, &decision)? {
+        Some(true) => from_yes(cx, &goal, decision),
+        Some(false) => {
             let message = match not_in_list(cx, &goal)? {
                 Some(message) => message,
                 None => format!("`{shown}` is false"),
@@ -344,19 +344,36 @@ fn hidden_name_note(shown: &str) -> Option<String> {
     ))
 }
 
-/// `fromYes [p := goal] decision Trivial`: the proof from a decision that
-/// says `Yes`. (`cases`' decision closer writes it too, `cases.rs`.)
+/// `Decidable.sound [p := goal] decision rfl`: the proof from a decision
+/// whose test computes to `True`, which the kernel checks by running the
+/// test, not the proofs. (`cases`' decision closer writes it too,
+/// `cases.rs`.)
 pub(crate) fn from_yes(cx: &mut Ctx, goal: &Value, decision: Term) -> Result<Term> {
-    let from_yes = builtin_def(cx, Builtin::FromYes)?;
-    let (unit, trivial) = builtin_ctor(cx, Builtin::Trivial)?;
+    let sound = crate::check::decidable_field(cx, 1)?;
     let goal_term = cx.quote_folded(goal)?;
     Ok(Term::app(
         Term::app(
-            Term::app_icit(Term::Def(from_yes), goal_term, Icit::Implicit),
+            Term::app_icit(Term::Def(sound), goal_term, Icit::Implicit),
             decision,
         ),
-        Term::Ctor(unit, trivial, Vec::new()),
+        Term::Refl,
     ))
+}
+
+/// What a decision says, run now: `Some(true)` when its test computes to
+/// `True`, `Some(false)` for `False`, `None` when it's stuck.
+pub(crate) fn verdict(cx: &mut Ctx, decision: &Term) -> Result<Option<bool>> {
+    let Value::Ctor(_, 0, fields) = force(&cx.g(), cx.eval(decision)?)? else {
+        return Ok(None);
+    };
+    let Some(holds) = fields.first() else {
+        return Ok(None);
+    };
+    let (bool, true_) = builtin_ctor(cx, Builtin::True)?;
+    Ok(match force(&cx.g(), holds.clone())? {
+        Value::Ctor(d, c, _) if d == bool => Some(c == true_),
+        _ => None,
+    })
 }
 
 /// A proof of a goal that computing doesn't decide, by a decision procedure
@@ -373,10 +390,7 @@ fn decide_as_written(cx: &mut Ctx, goal: &Value, depth: usize) -> Result<Option<
             let Some(decision) = instantiate(cx, id, decidable, goal, depth, true)? else {
                 return Ok(None);
             };
-            match force(&cx.g(), cx.eval(&decision)?)? {
-                Value::Ctor(_, 0, _) => Ok(Some(decision)),
-                _ => Ok(None),
-            }
+            Ok((verdict(cx, &decision)? == Some(true)).then_some(decision))
         })?;
         if let Some(decision) = found {
             return from_yes(cx, goal, decision).map(Some);
@@ -1155,14 +1169,22 @@ fn instantiate(
     as_written: bool,
 ) -> Result<Option<Term>> {
     let g = &cx.u();
-    let mut term = Term::Def(id);
     let mut ty = g.def(id).ty_value().clone();
+    // Whether each parameter is mentioned by the ones after it or the
+    // result: one that isn't needs no solution for its unknown.
+    let mut mentioned = Vec::new();
+    let mut written = g.def(id).ty().clone();
+    while let Term::Pi(_, _, _, cod) = written.strip_loc() {
+        mentioned.push(cod.mentions(0));
+        written = (**cod).clone();
+    }
     let mut args = Vec::new();
+    let mut arg_terms = Vec::new();
     while let Value::Pi(_, icit, dom, cod) = force(g, ty.clone())? {
         let meta = cx.fresh_meta();
         let value = cx.eval(&meta)?;
         args.push((value.clone(), icit, (*dom).clone()));
-        term = Term::app_icit(term, meta, icit);
+        arg_terms.push((meta, icit));
         ty = cod.apply(g, value)?;
     }
     let wanted = Value::Data(decidable, vec![prop.clone()].into());
@@ -1174,7 +1196,7 @@ fn instantiate(
     if !fits {
         return Ok(None);
     }
-    for (value, icit, dom) in args {
+    for (i, (value, icit, dom)) in args.into_iter().enumerate() {
         if !matches!(force(g, value.clone())?, Value::Neutral(Head::Meta(_), _)) {
             continue;
         }
@@ -1191,13 +1213,22 @@ fn instantiate(
             _ => return Ok(None),
         };
         let found = match found {
-            Ok(found) => cx.eval(&found)?,
+            Ok(found) => found,
             Err(e) => return give_up_on(e),
         };
-        if !cx.unify(&value, &found)? {
+        // The decision as found goes in the term, not its unknown's
+        // solution read back, and the unknown is solved only if something
+        // after it depends on it: a decision is a record that computes to
+        // its fields, each holding the decisions it was made from
+        // (`Decidable.or dp dq`'s test and proofs all mention `dp` and
+        // `dq`), so read back it grows with each level of nesting.
+        if mentioned.get(i).copied().unwrap_or(true) && !cx.unify(&value, &cx.eval(&found)?)? {
             return Ok(None);
         }
+        arg_terms[i].0 = found;
     }
+    let term =
+        (arg_terms.into_iter()).fold(Term::Def(id), |f, (arg, icit)| Term::app_icit(f, arg, icit));
     Ok(Some(term))
 }
 

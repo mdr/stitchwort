@@ -39,8 +39,9 @@ def Mod.ofNat [n: Nat] (x: Nat): Mod n :=
 
 theorem Mod.valueOfNat [n: Nat] (x: Nat): (Mod.ofNat x: Mod n).value = x % Mod.size n :=
   match Bool.decEq (Nat.leq (Succ (x % Mod.size n)) (Mod.size n)) True with
-    | Yes h => rfl
-    | No h => Void.exfalso (h (Nat.modLt x (Mod.size n) [ok := Mod.sizeNeZero n]))
+    | { holds = True, sound = _, complete = _ } => rfl
+    | { holds = False, sound = _, complete = c } =>
+      Void.exfalso (Bool.falseNotTrue (c (Nat.modLt x (Mod.size n) [ok := Mod.sizeNeZero n])))
 
 --| `x` wrapped into range, Euclidean: `(Mod.ofInt (-1): Mod 100)` is 99.
 def Mod.ofInt [n: Nat] (x: Int): Mod n := Mod.ofNat (Int.modNat x (Mod.size n))

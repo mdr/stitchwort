@@ -10,15 +10,15 @@ import Std (Bool, Eq, Nat, Option, Void)
 
 def step (n: Nat) (k: Nat): Nat := n * k + 1
 
--- Each round is an `if` stuck on `x`, so `settle x k 1000` computes to a
--- thousand nested `if`s, too large to show.
+-- Each round is an `if` stuck on `x`, so `settle x k 3000` computes to
+-- three thousand nested `if`s, too large to show.
 def settle (x: Nat) (k: Nat): (rounds: Nat) → Option Nat
   | Zero => None
   | Succ more =>
     let next := step x k
     if next == x then Some x else settle next k more
 
-def limit: Nat := 1000
+def limit: Nat := 3000
 
 -- `solved`'s type holds `settle x k limit` as written. (The shape of AoC
 -- 2020 day 11, `settledExactly`, with the limit written as `roundLimit`.)

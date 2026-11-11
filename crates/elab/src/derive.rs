@@ -48,12 +48,12 @@
 //!
 //! T.%decEq : [a : _] -> [auto decEq: DecEq a] -> (r : T a) -> (s : T a) -> Decidable (r = s)
 //! T.%decEq (C2 a0 a1) (C2 b0 b1) =
-//!   if h0 : a0 = b0 then
-//!     if h1 : a1 = b1 then Yes (J (y q => (C2 a0 a1 : T a) = C2 b0 y) (J … rfl h0) h1)
-//!     else No (e => h1 (Eq.cong (T.%C2%1 a1) e))
-//!   else No (e => h0 (Eq.cong (T.%C2%0 a0) e))
+//!   Decidable.map (Decidable.andThen (DecEq.decide a0 b0) (u => DecEq.decide a1 b1))
+//!     (q => J (y q => (C2 a0 a1 : T a) = C2 b0 y) (J … rfl (And.left q)) (And.right q))
+//!     (e => Both (Eq.cong (T.%C2%0 a0) e) (Eq.cong (T.%C2%1 a1) e))
+//! T.%decEq C1 C1 = Decidable.yes rfl   -- a constructor without data fields
 //! …   -- one equation for each constructor
-//! T.%decEq r s = No (T.%differ r s rfl)
+//! T.%decEq r s = Decidable.no (T.%differ r s rfl)
 //!
 //! instance T.%instDecEq : [a : _] -> [auto decEq: DecEq a] -> DecEq (T a) :=
 //!   { decide = T.%decEq }
@@ -64,9 +64,12 @@
 //! so `rfl` proves `Nat.equal` of them is `False`. (That's n² - n checks for
 //! n constructors, which is why the proof is in `T.%differ`, checked once.)
 //! A field of type `T a` is decided by calling `T.%decEq` on it (structural
-//! recursion) through `Decidable.elim`; any other data field with `if h:`,
-//! which finds its `DecEq` instance, the dictionaries in scope among the
-//! candidates.
+//! recursion); any other data field by `DecEq.decide`, which finds its
+//! instance, the dictionaries in scope among the candidates. The decisions
+//! are joined by `andThen`, so `r == s` on two constructors computes to
+//! their fields' tests joined by `&&`, the later ones run only once the
+//! earlier ones hold: `({ x = a, y = c }: Point) == { x = b, y = d }` is
+//! `a == b && c == d` by `rfl`.
 //!
 //! With proof fields, the proof that equal data gives equal values goes in
 //! two steps. First, for any proofs `z` of the proof fields' types (with
@@ -960,7 +963,6 @@ impl Elaborator {
         let param = |j: usize| format!("%p{j}");
         let a = |k: usize| format!("%a{k}");
         let b = |k: usize| format!("%b{k}");
-        let h = |k: usize| format!("%h{k}");
         let dec_eq_of = |m: usize| format!("{}decEq", member_prefix(&ty_name, m));
         let deciders: Vec<usize> = (0..np).filter(|j| plan.deciders[*j]).collect();
         // The dictionaries' names: `decEq`, or one per parameter after it
@@ -1063,6 +1065,20 @@ impl Elaborator {
                 let data_fields: Vec<usize> =
                     (0..count).filter(|k| kinds[*k] != Field::Proof).collect();
                 let is_proof: Vec<bool> = kinds.iter().map(|k| *k == Field::Proof).collect();
+                let last = data_fields.len().saturating_sub(1);
+                // Data field `k`'s equation, from `%q`, the conjunction of
+                // all of them: `And.left (And.right … %q)`.
+                let part = |k: usize| {
+                    let i = data_fields.iter().position(|&j| j == k).unwrap_or(0);
+                    let mut x = var("%q");
+                    for _ in 0..i {
+                        x = apps(var("Std.And.right"), vec![x]);
+                    }
+                    if i < last {
+                        x = apps(var("Std.And.left"), vec![x]);
+                    }
+                    x
+                };
                 let proof = fields_equal(
                     span,
                     &ctor_name,
@@ -1072,36 +1088,42 @@ impl Elaborator {
                     &this,
                     &a,
                     &b,
-                    &|k| var(&h(k)),
+                    &part,
                     &|j| format!("%p{j}"),
                 );
-                let mut body = apps(var("Std.Decidable.Yes"), vec![proof]);
-                for &k in data_fields.iter().rev() {
-                    let field = format!("{prefix}{}%{k}", ctor.name);
-                    let cong = apps(
-                        var("Std.Eq.cong"),
-                        vec![apps(var(&field), vec![var(&a(k))]), var("%e")],
-                    );
-                    let refute = lam(&["%e"], apps(var(&h(k)), vec![cong]));
-                    let no = apps(var("Std.Decidable.No"), vec![refute]);
-                    body = match kinds[k] {
-                        Field::Recursive(target) => apps(
-                            var("Std.Decidable.elim"),
-                            vec![
-                                apps(var(&dec_eq_of(target)), vec![var(&a(k)), var(&b(k))]),
-                                lam(&[&h(k)], body),
-                                lam(&[&h(k)], no),
-                            ],
-                        ),
-                        _ => Expr::If {
-                            binder: Some(n(&h(k))),
-                            cond: Box::new(eq(var(&a(k)), var(&b(k)))),
-                            then: Box::new(body),
-                            otherwise: Box::new(no),
-                            span,
-                        },
+                let body = if data_fields.is_empty() {
+                    apps(var("Std.Decidable.yes"), vec![proof])
+                } else {
+                    // The fields' decisions joined by `andThen`, so the
+                    // test is their tests' `&&`, each run only once those
+                    // before it hold.
+                    let decision = |k: usize| match kinds[k] {
+                        Field::Recursive(target) => {
+                            apps(var(&dec_eq_of(target)), vec![var(&a(k)), var(&b(k))])
+                        }
+                        _ => apps(var("Std.DecEq.decide"), vec![var(&a(k)), var(&b(k))]),
                     };
-                }
+                    let cong = |k: usize| {
+                        let field = format!("{prefix}{}%{k}", ctor.name);
+                        apps(
+                            var("Std.Eq.cong"),
+                            vec![apps(var(&field), vec![var(&a(k))]), var("%e")],
+                        )
+                    };
+                    let mut all = decision(data_fields[last]);
+                    let mut equal = cong(data_fields[last]);
+                    for &k in data_fields[..last].iter().rev() {
+                        all = apps(
+                            var("Std.Decidable.andThen"),
+                            vec![decision(k), lam(&["%u"], all)],
+                        );
+                        equal = apps(var("Std.And.Both"), vec![cong(k), equal]);
+                    }
+                    apps(
+                        var("Std.Decidable.map"),
+                        vec![all, lam(&["%q"], proof), lam(&["%e"], equal)],
+                    )
+                };
                 equations.push(Decl::Equation {
                     guard: None,
                     name: name.clone(),
@@ -1166,7 +1188,7 @@ impl Elaborator {
                     guard: None,
                     name: name.clone(),
                     patterns: vec![Pattern::Var(n("%r")), Pattern::Var(n("%s"))],
-                    rhs: Some(apps(var("Std.Decidable.No"), vec![refute])),
+                    rhs: Some(apps(var("Std.Decidable.no"), vec![refute])),
                     arm: None,
                     span,
                 });

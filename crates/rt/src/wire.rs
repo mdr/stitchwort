@@ -143,7 +143,6 @@ tags!(
         Native::Leq,
         Native::EqNat,
         Native::DivFuel,
-        Native::DecEqNat,
         Native::EqNatRefl,
         Native::EqNatSound
     ]
@@ -283,8 +282,6 @@ shapes!(
     true_,
     none,
     some,
-    yes,
-    no,
     nil,
     cons,
     pair,

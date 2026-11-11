@@ -376,7 +376,7 @@ fn decided(
     Ok(Some(Condition::Decided { prop, decision }))
 }
 
-/// `expr` as a `Bool`: a decided proposition is `Decidable.toBool` of its
+/// `expr` as a `Bool`: a decided proposition is `Decidable.holds` of its
 /// decision.
 pub(crate) fn bool_operand(cx: &mut Ctx, expr: &Expr, what: &str) -> Result<Term> {
     let condition = condition(cx, expr, what)?;
@@ -575,7 +575,7 @@ pub(crate) fn short_circuit(
                 // Nothing in `b` can have used the assumption (only the
                 // search for an auto argument's proof sees it), so it's
                 // `if a then b else False` on the decision's `Bool`, as
-                // ever: the same term as `Bool.and (toBool …) b` reads, so
+                // ever: the same term as `Bool.and (… .holds) b` reads, so
                 // the library's facts about `&&` on `Bool`s apply to it.
                 let truth = match decision {
                     Some(decision) => decision.into_bool(cx, prop)?,

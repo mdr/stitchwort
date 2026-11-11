@@ -66,8 +66,8 @@
 //! `match`es and the closers' terms, and the kernel checks it as such.
 //!
 //! A case still open then is tried by its goal's decision procedure, as
-//! `auto` finds and runs one (docs/proposals/decide.md §6.1.2): `Yes` closes
-//! it with `auto`'s term, `Decidable.fromYes d Trivial`; `No` doesn't fail
+//! `auto` finds and runs one (docs/proposals/decide.md §6.1.2): a test that
+//! computes to `True` closes it with `auto`'s term, `d.sound rfl`; `False` doesn't fail
 //! it, since its hypotheses may still contradict each other.
 //!
 //! A case still open then, whose goal is a `Π`, has the goal's leading
@@ -431,9 +431,9 @@ fn visibly_false(cx: &Ctx, goal: &Value) -> Result<bool> {
 
 /// What the decision closer made of a goal.
 enum Decided {
-    /// Its decision procedure says `Yes`: the proof.
+    /// Its decision procedure's test is `True`: the proof.
     Yes(Term),
-    /// It says `No`. The case isn't failed for that: its hypotheses may
+    /// The test is `False`. The case isn't failed for that: its hypotheses may
     /// still contradict each other (decide/closer_order.sw,
     /// `falseGoalImpossibleCase`), which a later step may show.
     No,
@@ -443,7 +443,7 @@ enum Decided {
 
 /// The decision closer (docs/proposals/decide.md §6.1.2): the goal's
 /// decision procedure, found as `auto` finds one (`auto::decide`), run now,
-/// and on `Yes` the proof `Decidable.fromYes d Trivial` (`auto::from_yes`).
+/// and when its test is `True` the proof `d.sound rfl` (`auto::from_yes`).
 ///
 /// Trust: nothing new enters the trusted base. The term is the one `auto`
 /// writes for `[auto h: P]`; the kernel checks it by running `d` again
@@ -461,13 +461,13 @@ fn by_decision(cx: &mut Ctx, goal: &Value) -> Result<Decided> {
             Err(e) if crate::undo::fatal(&e) => return Err(e),
             Err(_) => return Ok(None),
         };
-        match force(&cx.g(), cx.eval(&decision)?)? {
-            Value::Ctor(_, 0, _) => crate::auto::from_yes(cx, &goal, decision).map(Some),
-            Value::Ctor(..) => {
+        match crate::auto::verdict(cx, &decision)? {
+            Some(true) => crate::auto::from_yes(cx, &goal, decision).map(Some),
+            Some(false) => {
                 no = true;
                 Ok(None)
             }
-            _ => Ok(None),
+            None => Ok(None),
         }
     })?;
     Ok(match found {
@@ -1311,6 +1311,11 @@ impl<'a, 'e> Finder<'a, 'e> {
             current = if is_folded(&g, &next) {
                 match unfold_folded(&g, &next)? {
                     Some(u) => u,
+                    // A field of a stuck call (`(Bool.decEq a b).holds`)
+                    // waits for what the call waits for.
+                    None if matches!(&next, Value::Neutral(Head::Def(_), spine) if stitchwort_core::value::is_call_field(spine)) => {
+                        next
+                    }
                     None => break,
                 }
             } else {
@@ -1496,9 +1501,9 @@ impl<'a, 'e> Finder<'a, 'e> {
             };
             // A comparison of numbers that something outside tests (`if
             // x + 1 == y then …`) is one atom, true or false, which `omega`
-            // reads in each case; its `Decidable` and its operands are
-            // `Int`'s insides.
-            if best.is_some() && number_equality(&g, &force(&g, raw.clone())?) {
+            // reads in each case; what its decision waits for, the operands,
+            // is `Int`'s insides.
+            if best.is_some() && number_equality(&g, &current) {
                 break;
             }
             match self.ctors(d) {
@@ -1531,6 +1536,11 @@ impl<'a, 'e> Finder<'a, 'e> {
             current = if is_folded(&g, &next) {
                 match unfold_folded(&g, &next)? {
                     Some(u) => u,
+                    // A field of a stuck call (`(Bool.decEq a b).holds`)
+                    // waits for what the call waits for.
+                    None if matches!(&next, Value::Neutral(Head::Def(_), spine) if stitchwort_core::value::is_call_field(spine)) => {
+                        next
+                    }
                     None => break,
                 }
             } else {
@@ -1676,8 +1686,8 @@ fn read_back(g: &Ev, level: usize, value: &Value) -> Result<Option<Term>> {
     Ok(quote_at_most(g, level, value, READ_BACK_NODES)?)
 }
 
-/// Whether `value` (forced) is a call of `Int.decEq`: the decision an `Int`
-/// `==` computes through.
+/// Whether `value` (forced) is the test of a call of `Int.decEq`
+/// (`(Int.decEq x y).holds`): what an `Int` `==` is.
 fn number_equality(g: &Ev, value: &Value) -> bool {
     let Value::Neutral(Head::Def(id), _) = value else {
         return false;

@@ -182,6 +182,10 @@ pub struct ExportSig {
     pub result: Boundary,
 }
 
+/// What a [`Gen::forwarder`] does at run time: the position of the
+/// parameter it applies, and of the parameters it applies it to.
+type Forward = (usize, Vec<usize>);
+
 /// A proof parameter of an export, checked at runtime by a decision procedure.
 pub struct Check {
     /// Its position among all the function's parameters.
@@ -2195,6 +2199,8 @@ struct Gen<'g> {
     /// Definitions that are, at run time, one generated before them: with
     /// that one's JS name, which every use names instead ([`Gen::share`]).
     aliases: RefCell<HashMap<DefId, String>>,
+    /// [`Gen::forwarder`]'s answers, by definition.
+    forwarders: RefCell<HashMap<DefId, Option<Forward>>>,
 }
 
 /// What the generator decides about a definition from its type.
@@ -2372,6 +2378,7 @@ impl<'g> Gen<'g> {
             emitted: RefCell::default(),
             values: RefCell::default(),
             aliases: RefCell::default(),
+            forwarders: RefCell::default(),
         })
     }
 
@@ -2999,8 +3006,7 @@ impl<'g> Gen<'g> {
             };
         };
         // A match on the result of the call to itself (inside an inlined
-        // helper) that gives the same constructor back, as `List.decCons`'s
-        // `Yes q => Yes ..` and `No r => No ..` do once proofs are erased, is
+        // helper) that gives the same constructor back, fields erased, is
         // that result: the call is in tail position after all.
         if let Some(call) = self_call
             && self.hole_at(env.len() - 1 - *ix).is_some()
@@ -3127,10 +3133,144 @@ impl<'g> Gen<'g> {
         Ok(out)
     }
 
+    /// What `id` does at run time, if its run-time body only applies one
+    /// of its parameters to others (or gives one back), seen through what
+    /// an unboxed record is at run time (its one runtime field, D866) and
+    /// through calls of other such definitions: the parameters' positions,
+    /// the function's and its arguments'. `Decidable.holds` and
+    /// `Decidable.map` give their decision back (a decision is stored as
+    /// its test), `DecEq.%decide` its dictionary, and `DecEq.decide d x y`
+    /// is `d x y`. A full call of one is that application
+    /// ([`Gen::passed_through`]).
+    fn forwarder(&self, id: DefId) -> Option<Forward> {
+        if let Some(known) = self.forwarders.borrow().get(&id) {
+            return known.clone();
+        }
+        // Not one while it's being worked out, so definitions that forward
+        // to each other end.
+        self.forwarders.borrow_mut().insert(id, None);
+        let found = self.find_forwarder(id);
+        self.forwarders.borrow_mut().insert(id, found.clone());
+        found
+    }
+
+    fn find_forwarder(&self, id: DefId) -> Option<Forward> {
+        if self.is_native(id) {
+            return None;
+        }
+        let def = self.g.def(id);
+        let arity = def.arity();
+        let mut body = def.run_body()?.strip_loc().clone();
+        for _ in 0..arity {
+            let Term::Lam(_, _, inner) = &body else {
+                return None;
+            };
+            body = inner.strip_loc().clone();
+        }
+        let mut steps = 0;
+        while let Some(next) = self.passed_through(&body) {
+            body = next.strip_loc().clone();
+            steps += 1;
+            if steps > 8 {
+                return None;
+            }
+        }
+        let info = self.try_info(id).ok()?;
+        if info.convention != Convention::Function {
+            return None;
+        }
+        let position = |t: &Term| match t.strip_loc() {
+            Term::Var(ix) => arity.checked_sub(ix + 1).filter(|k| !info.mask[*k]),
+            _ => None,
+        };
+        let (head, args) = body.spine();
+        let f = position(head)?;
+        let args = args.into_iter().map(position).collect::<Option<Vec<_>>>()?;
+        Some((f, args))
+    }
+
+    /// `term` as the same value at run time one step on, if that's
+    /// simpler: an unboxed record's constructor is its runtime field, a
+    /// projection of that field the record, and a full call of a
+    /// [`Gen::forwarder`] definition the application it makes (applied
+    /// to any arguments after). So a loop sees a call to itself through
+    /// `Decidable.map` and `Decidable.and`, as `List.decEq` makes one.
+    fn passed_through(&self, term: &Term) -> Option<Term> {
+        match term.strip_loc() {
+            Term::Ctor(d, 0, fields) => Some((*fields[self.unboxed(*d)?]).clone()),
+            Term::Proj(d, i, x) if self.unboxed(*d) == Some(*i) => Some((**x).clone()),
+            // A match on an unboxed record giving its runtime field (a
+            // projection function's body) is the record.
+            Term::Case(ix, d, branches) if branches.len() == 1 => {
+                let k = self.unboxed(*d)?;
+                let branch = &branches[0];
+                let n = branch.names.len();
+                match branch.body.as_ref()?.strip_loc() {
+                    Term::Var(j) if j + 1 + k == n => Some(Term::Var(*ix)),
+                    Term::Var(j) if *j >= n => Some(Term::Var(j - n)),
+                    _ => None,
+                }
+            }
+            _ => {
+                let (head, args) = term.spine();
+                let Term::Def(id) = head else {
+                    return None;
+                };
+                let arity = self.g.def(*id).arity();
+                if args.len() < arity || self.empty_call(*id, &args) {
+                    return None;
+                }
+                let (f, passed) = self.forwarder(*id)?;
+                let mut out = args[f].clone();
+                for k in passed {
+                    out = Term::app(out, args[k].clone());
+                }
+                for arg in &args[arity..] {
+                    out = Term::app(out, (*arg).clone());
+                }
+                Some(out)
+            }
+        }
+    }
+
+    /// The function a constant gives at run time, if its run-time body is
+    /// one: a definition, or a lambda that passes its parameters on to one,
+    /// seen through unboxed records. So a call through an instance with one
+    /// method, `Text.instDecEq`, is a call of that method's definition,
+    /// `Text.decEq`.
+    fn known_function(&self, id: DefId) -> Option<DefId> {
+        let def = self.g.def(id);
+        if def.arity() != 0 || self.is_native(id) {
+            return None;
+        }
+        let mut body = def.run_body()?.strip_loc().clone();
+        for _ in 0..8 {
+            let Some(next) = self.passed_through(&body) else {
+                break;
+            };
+            body = next.strip_loc().clone();
+        }
+        let mut lams = 0;
+        let mut inner = &body;
+        while let Term::Lam(_, _, b) = inner.strip_loc() {
+            lams += 1;
+            inner = b;
+        }
+        let (head, args) = inner.spine();
+        let Term::Def(f) = head.strip_loc() else {
+            return None;
+        };
+        let forwards = args.len() == lams
+            && args
+                .iter()
+                .enumerate()
+                .all(|(i, a)| matches!(a.strip_loc(), Term::Var(ix) if *ix == lams - 1 - i));
+        (forwards && *f != id).then_some(*f)
+    }
+
     /// Whether a match on a value of data type `d` gives back, in each
-    /// branch, the constructor it matched, whose fields are all erased (a
-    /// decision's `Yes` and `No`, once their proofs are): so the match is the
-    /// value itself.
+    /// branch, the constructor it matched, whose fields are all erased: so
+    /// the match is the value itself.
     fn is_identity_match(&self, d: DataId, branches: &[Branch]) -> bool {
         let data = self.g.data(d);
         if data.sort() == Sort::Prop
@@ -3199,6 +3339,9 @@ impl<'g> Gen<'g> {
         // with the arguments bound to its parameters.
         if let Some(reduced) = self.apply_fn_hole(term, env.len())? {
             return self.tail(&reduced, env, depth, call);
+        }
+        if let Some(same) = self.passed_through(term) {
+            return self.tail(&same, env, depth, call);
         }
         // A variable that stands for a call to itself, in a helper that's
         // been inlined: the next turn.
@@ -3875,7 +4018,7 @@ impl<'g> Gen<'g> {
     /// generated as `let`s ([`Gen::inline_let`], [`Gen::function_body`]),
     /// not as a closure made and called on the spot. The elaborator writes
     /// `a == b` and `x ∈ xs` that way, with the operands bound
-    /// (`(a => toBool (decEq a b)) x`, elab's `bind.rs`), so inside a
+    /// (`(a => holds (decEq a b)) x`, elab's `bind.rs`), so inside a
     /// callback the closure would be made once for each element. Each `let`
     /// computes its argument before the body, as the call would have; one
     /// the body doesn't use isn't computed.
@@ -4207,6 +4350,25 @@ impl<'g> Gen<'g> {
 
     /// A call to a definition, leaving out its erased arguments.
     fn def_ref(&self, id: DefId, args: &[&Term], env: &mut Vec<bool>) -> Fallible<String> {
+        if !args.is_empty() {
+            let arity = self.g.def(id).arity();
+            if args.len() >= arity
+                && !self.empty_call(id, args)
+                && let Some((f, passed)) = self.forwarder(id)
+            {
+                let mut same = args[f].clone();
+                for k in passed {
+                    same = Term::app(same, args[k].clone());
+                }
+                for arg in &args[arity..] {
+                    same = Term::app(same, (*arg).clone());
+                }
+                return self.expr(&same, env);
+            }
+            if let Some(f) = self.known_function(id) {
+                return self.def_ref(f, args, env);
+            }
+        }
         // A closed signature map (a `translate`'s, say): built at its first
         // use and kept in a module variable, not built again on every call
         // (stitchwort_rt::hoist). Generated code is pure and total, so when
@@ -4257,37 +4419,6 @@ impl<'g> Gen<'g> {
             );
         }
         out
-    }
-
-    /// Whether `term` is `Yes _` (or `No _`, with `yes` false), the proof
-    /// ignored.
-    fn is_decision(&self, term: &Term, yes: bool) -> bool {
-        let ctor = self
-            .g
-            .env
-            .registry()
-            .ctor(if yes { Builtin::Yes } else { Builtin::No });
-        matches!(term.strip_loc(), Term::Ctor(d, c, _) if Some((*d, *c)) == ctor)
-    }
-
-    /// `Decidable.elim d (h => Yes …) (h => No …)`: `d` itself, since the
-    /// proofs are erased. A derived `==` on a record with one field to
-    /// compare is this, around the field's decision.
-    fn decision_itself<'t>(&self, id: DefId, args: &[&'t Term]) -> Option<&'t Term> {
-        if Some(id) != self.elim_dec {
-            return None;
-        }
-        let [_, _, decision, yes, no] = args else {
-            return None;
-        };
-        match (yes.strip_loc(), no.strip_loc()) {
-            (Term::Lam(_, _, yes), Term::Lam(_, _, no))
-                if self.is_decision(yes, true) && self.is_decision(no, false) =>
-            {
-                Some(decision)
-            }
-            _ => None,
-        }
     }
 
     /// The comparison of `instance`, an `Ord` instance, if it's a definition
@@ -4377,9 +4508,6 @@ impl<'g> Gen<'g> {
 
     /// [`Gen::def_ref`], without building a closed map once.
     fn def_call(&self, id: DefId, args: &[&Term], env: &mut Vec<bool>) -> Fallible<String> {
-        if let Some(decision) = self.decision_itself(id, args) {
-            return self.expr(decision, env);
-        }
         // In an expression, a conditional, with no closures for the branches.
         if let Some((cond, then, otherwise, tag)) = self.conditional(id, args) {
             let cond = self.expr(cond, env)?;
@@ -4821,12 +4949,13 @@ impl<'g> Gen<'g> {
         ))
     }
 
-    /// The tag of `Decidable`'s first constructor (`Yes`).
+    /// The tag of a decision that holds. A decision is stored as its test
+    /// (`Data::unboxed_field`: its proofs are erased), so this is `True`'s.
     fn decision_yes_tag(&self) -> String {
-        self.g.env.registry().data(Builtin::Decidable).map_or_else(
-            || "Yes".into(),
-            |d| self.g.data(d).ctors()[0].name.to_string(),
-        )
+        match self.g.env.registry().ctor(Builtin::True) {
+            Some((d, c)) => self.g.data(d).ctors()[c].name.to_string(),
+            None => "True".into(),
+        }
     }
 
     /// A JS expression for a boundary type, as the runtime's `decode` and
@@ -5338,7 +5467,6 @@ fn native_js(op: native::Native) -> &'static str {
         Native::DivFuel => {
             "(fuel) => (n) => (d) => { if (d === 0n) return 0n; const q = n / d; return q < fuel ? q : fuel; }"
         }
-        Native::DecEqNat => "(m) => (n) => ({ tag: m === n ? \"Yes\" : \"No\" })",
         // Proofs, so they're erased and never emitted.
         Native::EqNatRefl | Native::EqNatSound => "undefined",
     }
@@ -5420,7 +5548,7 @@ fn float_native_js(op: FloatPrim, native_int: bool, native_text: bool) -> String
         FloatPrim::Abs => "(a) => Math.abs(a)".into(),
         FloatPrim::IsNaN => format!("(a) => {}", boolean("a !== a")),
         FloatPrim::IsFinite => format!("(a) => {}", boolean("Number.isFinite(a)")),
-        FloatPrim::DecEq => "(a) => (b) => ({ tag: Object.is(a, b) ? \"Yes\" : \"No\" })".into(),
+        FloatPrim::DecEq => format!("(a) => (b) => {}", boolean("Object.is(a, b)")),
         FloatPrim::IeeeEq => format!("(a) => (b) => {}", boolean("a === b")),
         FloatPrim::IeeeLt => format!("(a) => (b) => {}", boolean("a < b")),
         FloatPrim::IeeeLe => format!("(a) => (b) => {}", boolean("a <= b")),
@@ -5496,7 +5624,7 @@ fn int_native_js(op: IntNative) -> &'static str {
         IntNative::IntModNat => {
             "(a) => (d) => { if (d === 0n) return a < 0n ? 0n : a; const r = a % d; return r < 0n ? r + d : r; }"
         }
-        IntNative::DecEqInt => "(a) => (b) => ({ tag: a === b ? \"Yes\" : \"No\" })",
+        IntNative::DecEqInt => "(a) => (b) => ({ tag: a === b ? \"True\" : \"False\" })",
         IntNative::IntLeq => "(a) => (b) => ({ tag: a <= b ? \"True\" : \"False\" })",
         IntNative::IntLess => "(a) => (b) => ({ tag: a < b ? \"True\" : \"False\" })",
         IntNative::IntCompare => {
@@ -5570,7 +5698,7 @@ fn text_native_js(op: TextNative) -> &'static str {
         }
         TextNative::TextIsEmpty => r#"(t) => ({ tag: t === "" ? "True" : "False" })"#,
         // Well-formed UTF-16 is one-to-one with sequences of scalar values.
-        TextNative::DecEqText => r#"(a) => (b) => ({ tag: a === b ? "Yes" : "No" })"#,
+        TextNative::DecEqText => r#"(a) => (b) => ({ tag: a === b ? "True" : "False" })"#,
         // By scalar value, not code unit. At the first code unit that
         // differs, `codePointAt` gives each side's whole scalar value, or, if
         // the high halves of two pairs were the same, their low halves, which
@@ -5702,7 +5830,7 @@ fn mentions(js: &str, name: &str) -> bool {
 /// `match`'s scrutinee (which must be a variable), so that its value can
 /// be put in its place without computing it more often. Types and
 /// equations, which run as `undefined` (`Gen::expr`), don't count: a
-/// decision's proposition (`toBool {a = b} d`) mentions its operands;
+/// decision's proposition (`holds {a = b} d`) mentions its operands;
 /// nor do a definition's erased arguments, or a call that's erased.
 fn single_use<'t>(codegen: &Gen, body: &'t Term) -> bool {
     let mut uses = 0;

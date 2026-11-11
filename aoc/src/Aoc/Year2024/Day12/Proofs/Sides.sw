@@ -76,10 +76,7 @@ theorem diagonalDownRight (region: Region) (row: Nat) (column: Nat):
     diagonalIn region { row, column } Down Right = below (rightOf (insideOf region)) row column := rfl
 
 --| `!=` is `!` of `==`.
-theorem notEqualNot (x: Option Char) (y: Option Char): ((x != y): Bool) = Bool.not (x == y) :=
-  match decision: DecEq.decide x y with
-    | Yes same => rfl
-    | No differ => rfl
+theorem notEqualNot (x: Option Char) (y: Option Char): ((x != y): Bool) = Bool.not (x == y) := rfl
 
 --| Where a side of a plot in a region faces the same plant, the plot
 --| diagonally across grows another exactly when it isn't in the region.

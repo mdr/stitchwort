@@ -2,8 +2,8 @@
 -- expect-warning: W-MATCH-DECISION-IF
 -- SW-1719 (2021 day 18's `split`): a `match` on a decision replaces the
 -- decision where it occurs. An `if` whose branches don't use the proof of its
--- comparison is a test of the `Bool` inside the decision, so it doesn't hold
--- the decision, and the `match` refines nothing. The `No` arm fails with an
+-- comparison is a test of the decision's `Bool`, so it doesn't hold the
+-- decision, and the `match` refines nothing. The `False` arm fails with an
 -- error about the arm; the warning, given with it, says where the cause is
 -- and what to match on instead.
 import Std (Nat, Option, Void)
@@ -18,5 +18,5 @@ def split: Number → Option Number
 
 theorem splitBig (value: Nat) (halves: Number) (some: split (Regular value) = Some halves): 10 ≤ value :=
   match Nat.decLessThan 9 value with
-    | Yes big => big
-    | No _ => Void.exfalso (Option.noneNotSome halves some)
+    | { holds = True, sound = big, complete = _ } => big rfl
+    | { holds = False, sound = _, complete = _ } => Void.exfalso (Option.noneNotSome halves some)

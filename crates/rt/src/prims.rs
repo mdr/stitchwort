@@ -34,8 +34,10 @@ pub fn boolean(s: &Shapes, b: bool) -> Value {
     Value::Tag(if b { s.true_ } else { s.false_ })
 }
 
+/// A decision: stored as its test, a `Bool`, since its proofs are erased
+/// (`Data::unboxed_field`).
 fn decision(s: &Shapes, b: bool) -> Value {
-    Value::Tag(if b { s.yes } else { s.no })
+    boolean(s, b)
 }
 
 /// `LT`, `EQ` or `GT`.
@@ -485,7 +487,6 @@ pub fn eval(s: &Shapes, op: PrimOp, args: &[&Value]) -> Value {
             Native::Mul => nat_mul(args[0], args[1]),
             Native::Leq => boolean(s, nat_cmp(args[0], args[1]) != Ordering::Greater),
             Native::EqNat => boolean(s, num_eq(args[0], args[1])),
-            Native::DecEqNat => decision(s, num_eq(args[0], args[1])),
             Native::DivFuel => div_fuel(args[0], args[1], args[2]),
             Native::EqNatRefl | Native::EqNatSound => Value::Erased,
         },

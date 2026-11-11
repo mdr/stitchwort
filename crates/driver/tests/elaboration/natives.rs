@@ -272,9 +272,6 @@ fn a_native_is_registered_once() {
     let again = native::register_native(g, add, Native::Add).unwrap_err();
     assert_eq!(again.code, "E-BUILTIN");
     assert!(again.message.contains("already"), "{}", again.message);
-    let neq = def(&g.ev(), "Nat.equalFalse");
-    let again = native::register_nat_neq(g, neq).unwrap_err();
-    assert!(again.message.contains("already"), "{}", again.message);
     // Another definition is refused for its pin before anything else.
     let sub = def(&g.ev(), Native::Sub.name());
     let other = native::register_native(g, sub, Native::Add).unwrap_err();
@@ -312,17 +309,6 @@ fn builtins_with_the_wrong_shape_are_refused() {
         as_prelude(&format!(
             "{nat}\ntype B : Type =\n  | F\n  | T\n\ndef Nat.leq (m : Nat) (n : Nat) : B := T\n"
         )),
-        ["E-BUILTIN"]
-    );
-    // A `Decidable` whose `Yes` doesn't hold a proof.
-    assert_eq!(
-        as_prelude(
-            "type Void : Prop\n\n\
-             def Not (p : Prop) : Prop := p -> Void\n\n\
-             type Decidable (p : Prop) : Type =\n  \
-             | Yes (proof : Not p)\n  \
-             | No (refutation : Not p)\n"
-        ),
         ["E-BUILTIN"]
     );
     // Outside the prelude, these names mean nothing special.
@@ -500,12 +486,6 @@ fn accepts(source: &str) {
 const COPIES: &str = "\
 import Std (Bool, Nat, Void)
 
-def myDecEqNat : (m : Nat) -> (n : Nat) -> Decidable (m = n)
-  | Zero,   Zero   => Yes rfl
-  | Zero,   Succ n => No (Nat.equalFalse 0 (Succ n) rfl)
-  | Succ m, Zero   => No (Nat.equalFalse (Succ m) 0 rfl)
-  | Succ m, Succ n => Nat.decEqFrom (Succ m) (Succ n) (Nat.equal m n) rfl
-
 theorem myEqNatRefl : (n : Nat) -> Nat.equal n n = True
   | Zero   => rfl
   | Succ n => myEqNatRefl n
@@ -520,27 +500,10 @@ theorem myEqNatSound : (m : Nat) -> (n : Nat) -> Nat.equal m n = True -> m = n
 const BIG: &str = "1180591620717411303424"; // 2^70
 
 /// `rfl` proves a native's result equal to its definition's, for the natives
-/// that return proofs. (`decEqNat 3 5` used to give a different refutation.)
+/// that return proofs.
 #[test]
 fn rfl_proves_proof_natives_equal_to_their_definitions() {
     let mut source = COPIES.to_string();
-    let pairs = [
-        ("0", "0"),
-        ("0", "1"),
-        ("1", "0"),
-        ("1", "1"),
-        ("3", "5"),
-        ("5", "3"),
-        ("4", "4"),
-        ("0", BIG),
-        (BIG, "1"),
-        (BIG, BIG),
-        (BIG, "1180591620717411303425"),
-    ];
-    for (i, (m, n)) in pairs.iter().enumerate() {
-        source +=
-            &format!("\ntheorem sameDec{i} : myDecEqNat {m} {n} = Nat.decEq {m} {n} := rfl\n");
-    }
     for n in ["0", "1", "7"] {
         source += &format!(
             "\n\

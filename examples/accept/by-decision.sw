@@ -1,7 +1,7 @@
 -- `byDecision` (docs/proposals/decide.md §2, §6.2): a closed decidable
 -- statement, proved by running its decision procedure. It is `auto` under a
--- name: the proof is `Decidable.fromYes d Trivial`, which the kernel checks
--- by running `d` again. A false one is `E-AUTO-FALSE`.
+-- name: the proof is `d.sound rfl`, which the kernel checks by running `d`'s
+-- test again. A false one is `E-AUTO-FALSE`.
 import Std (byDecision, List, Nat)
 
 type Key =

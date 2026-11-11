@@ -7,9 +7,9 @@
 //!
 //! instance Ok.%instDecidable [n: _]: Std.Decidable (Ok n) :=
 //!   if %h0: Ok.%%mk%P%0 n then
-//!     if %h1: Ok.%%mk%P%1 n %h0 then Std.Decidable.Yes (Ok.%mk %h0 %h1)
-//!     else Std.Decidable.No (%r => %h1 %r.even)
-//!   else Std.Decidable.No (%r => %h0 %r.small)
+//!     if %h1: Ok.%%mk%P%1 n %h0 then Std.Decidable.yes (Ok.%mk %h0 %h1)
+//!     else Std.Decidable.no (%r => %h1 %r.even)
+//!   else Std.Decidable.no (%r => %h0 %r.small)
 //! ```
 //!
 //! so `auto`, `byDecision`, `if h: Ok n` and the counterexample search
@@ -203,11 +203,11 @@ impl Elaborator {
             attrs: Vec::new(),
             span,
         };
-        // Yes (T.%mk %h0 …), under an `if %hk:` for each field.
+        // Decidable.yes (T.%mk %h0 …), under an `if %hk:` for each field.
         let ctor_name = format!("{ty_name}.{}", ctor.name);
         let helper = format!("{ty_name}.%{}%P%", ctor.name);
         let mut body = apps(
-            var("Std.Decidable.Yes"),
+            var("Std.Decidable.yes"),
             vec![apps(
                 var(&ctor_name),
                 (0..count).map(|k| var(&h(k))).collect(),
@@ -231,7 +231,7 @@ impl Elaborator {
                 binder: Some(n(&h(k))),
                 cond: Box::new(prop),
                 then: Box::new(body),
-                otherwise: Box::new(apps(var("Std.Decidable.No"), vec![refute])),
+                otherwise: Box::new(apps(var("Std.Decidable.no"), vec![refute])),
                 span,
             };
         }

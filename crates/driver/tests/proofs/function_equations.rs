@@ -448,7 +448,7 @@ fn branch_equations() {
             ),
             (
                 "countFresh.eq2.ifFalse",
-                "(b: Bool) → (rest: List Bool) → (notFresh: b = True) → \
+                "(b: Bool) → (rest: List Bool) → (notFresh: b) → \
                  countFresh [b, ..rest] = countFresh rest",
             ),
             // The printer shows `Nat.leq 4 x = True` as `3 < x`.
@@ -584,13 +584,13 @@ fn a_destructuring_let_before_a_tail_split_gets_its_branches() {
             (
                 "cellAhead.eq.zero.ifTrue",
                 "(cell: Cell) → (isZero: cell.row = 0) → \
-                 (h1: (x => (x.decEq 0).toBool) cell.column = True) → \
+                 (h1: (x => (x.decEq 0).holds) cell.column) → \
                  cellAhead cell = None",
             ),
             (
                 "cellAhead.eq.zero.ifFalse",
                 "(cell: Cell) → (isZero: cell.row = 0) → \
-                 (h1: (x => (x.decEq 0).toBool) cell.column = False) → \
+                 (h1: (x => (x.decEq 0).holds) cell.column = False) → \
                  cellAhead cell = Some cell.column",
             ),
             (
@@ -609,7 +609,7 @@ fn a_destructuring_let_before_a_tail_split_gets_its_branches() {
             ),
             (
                 "flagged.eq.ifTrue",
-                "(f: Flagged) → (h1: f.flag = True) → flagged f = f.value",
+                "(f: Flagged) → (h1: f.flag) → flagged f = f.value",
             ),
             (
                 "flagged.eq.ifFalse",
@@ -734,9 +734,9 @@ theorem threeOther (a: Option Nat) (c: Nat) (ha: a = None) (hc: c = 0): three 1 
 fn a_match_on_several_expressions_is_stated_as_on_their_tuple() {
     with_source(SEVERAL.to_string(), |s| {
         let not_zero = "(k: Nat) → (a: Option Nat) → (b: Option Nat) → \
-                        (h1: (k.decEq 0).toBool = False)";
+                        (h1: (k.decEq 0).holds = False)";
         let three_not_zero = "(k: Nat) → (a: Option Nat) → (b: Bool) → (c: Nat) → \
-                              (h1: (k.decEq 0).toBool = False)";
+                              (h1: (k.decEq 0).holds = False)";
         let cases = [
             (
                 "two.eq.ifFalse.alt1",
@@ -776,7 +776,7 @@ fn a_match_on_several_expressions_is_stated_as_on_their_tuple() {
             (
                 "three.eq.ifFalse.alt4",
                 format!(
-                    "{three_not_zero} → (notAlt1: ∀ (x: Nat) => a = Some x → b ≠ True) → \
+                    "{three_not_zero} → (notAlt1: ∀ (x: Nat) => a = Some x → ¬b) → \
                      (notAlt2: b = False → c ≠ 0) → (notAlt3: ∀ (n: Nat) => a = None → c ≠ Succ n) → \
                      three k a b c = 2"
                 ),
@@ -1094,7 +1094,7 @@ fn a_projects_equations() {
 }
 
 /// SW-1182: a lifted `match h: e` that generalises `e` in the goal has
-/// alternatives whose right sides have the type at their pattern (`Yes rfl:
+/// alternatives whose right sides have the type at their pattern (`Decidable.yes rfl:
 /// Decidable (0 = 0)`), not at `e`, so its branch equations are skipped with
 /// the reason; they were stated ill-typed and refused by the kernel. One
 /// whose result type doesn't mention `e` still gets its equations.
@@ -1102,11 +1102,11 @@ fn a_projects_equations() {
 fn a_generalising_matchs_branches_are_skipped_not_refused() {
     let source = r#"
 import List (length)
-import Std (Bool, Eq, Nat)
+import Std (Bool, Decidable, Eq, Nat)
 
 def lenZero (xs: List Nat): Decidable (xs.length = 0) := match h: xs.length with
-  | Zero => Yes rfl
-  | Succ k => No (e => Nat.equalFalse (Succ k) 0 rfl e)
+  | Zero => Decidable.yes rfl
+  | Succ k => Decidable.no (e => Nat.equalFalse (Succ k) 0 rfl e)
 
 def keep (p: Prop): p → Bool
   | _ => True

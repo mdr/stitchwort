@@ -80,7 +80,7 @@ struct Lemmas {
 /// Which lemma turns a tagged `if` into the plain one.
 #[derive(Clone, Copy)]
 enum Kind {
-    /// `b` is `Decidable.toBool d`: `Decidable.elimIf`.
+    /// `b` is `Decidable.holds d`: `Decidable.elimIf`.
     ToBool,
     /// `d` is `Bool.decTrue b`, or a comparison's decision, which is that
     /// by definition: `Bool.elimDecTrueIf`.

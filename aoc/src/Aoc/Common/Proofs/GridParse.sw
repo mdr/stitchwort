@@ -23,9 +23,10 @@ theorem checkedGrid (read: () → {Fail} List (List a)) (grid: Grid a) (parsed: 
 --| as long as the first.
 theorem checkGridOk (rows: List (List a)) (grid: Grid a) (h: Fail.toResult (() => checkGrid rows) = Ok grid):
     grid.Rectangle ∧ 0 < grid.width ∧ 0 < grid.height :=
-  match decided: Nat.decEq (firstWidth rows) 0 with
-    | Yes empty => Void.exfalso (Result.errNotOk h)
-    | No wide =>
+  match Nat.decEq (firstWidth rows) 0 with
+    | { holds = True, sound = _, complete = _ } => Void.exfalso (Result.errNotOk h)
+    | { holds = False, sound = _, complete = c } =>
+      let wide: firstWidth rows ≠ 0 := e => Bool.falseNotTrue (c e)
       match e: firstRagged rows with
         | Some (index, _) => Void.exfalso (Result.errNotOk h)
         | None =>
@@ -38,9 +39,9 @@ theorem checkGridOk (rows: List (List a)) (grid: Grid a) (h: Fail.toResult (() =
 
 --| `checkGrid` passes its rows on unchanged.
 theorem checkGridRows (rows: List (List a)) (grid: Grid a) (h: Fail.toResult (() => checkGrid rows) = Ok grid): rows = grid.rows :=
-  match decided: Nat.decEq (firstWidth rows) 0 with
-    | Yes empty => Void.exfalso (Result.errNotOk h)
-    | No wide =>
+  match Nat.decEq (firstWidth rows) 0 with
+    | { holds = True, sound = _, complete = _ } => Void.exfalso (Result.errNotOk h)
+    | { holds = False, sound = _, complete = _ } =>
       match ragged: firstRagged rows with
         | Some (index, _) => Void.exfalso (Result.errNotOk h)
         | None => Eq.cong Grid.rows (Result.okInjective h)
@@ -54,9 +55,9 @@ theorem tallOfWide (rows: List (List a)) (wide: 0 < firstWidth rows): 0 < rows.l
 --| The converse of `checkGridOk`: a grid that is a rectangle, with a cell, is
 --| what `checkGrid` makes of its own rows.
 theorem checkGridComplete (grid: Grid a) (rectangle: grid.Rectangle): Fail.toResult (() => checkGrid grid.rows) = Ok grid :=
-  match decided: Nat.decEq (firstWidth grid.rows) 0 with
-    | Yes empty => Void.exfalso (grid.widthNonZero empty)
-    | No wide =>
+  match Nat.decEq (firstWidth grid.rows) 0 with
+    | { holds = True, sound = s, complete = _ } => Void.exfalso (grid.widthNonZero (s rfl))
+    | { holds = False, sound = _, complete = _ } =>
       match ragged: firstRagged grid.rows with
         | Some (index, row) =>
           Void.exfalso (Option.noneNotSome (index, row)

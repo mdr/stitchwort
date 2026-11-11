@@ -153,8 +153,8 @@ def trapsAt (lab: Lab) (trapped: Position → Bool) (position: Position): Bool :
 --| The Boolean shape of `keepsTrapsAt` on the route: the start is out on
 --| both sides, and elsewhere a route position is free.
 theorem shapeOnRoute [p: Prop] [atStart: Decidable p] [blocked: Bool] [onTheMap: Bool] [loops: Bool] [trap: Bool] (mapped: onTheMap = True)
-    (settled: (Decidable.toBool atStart || !blocked) = True) (same: loops = trap):
-    (Decidable.toBool (Decidable.not atStart) && loops) = (onTheMap && (Decidable.toBool (Decidable.not atStart) && !blocked && trap)) :=
+    (settled: (Decidable.holds atStart || !blocked) = True) (same: loops = trap):
+    (Decidable.holds (Decidable.not atStart) && loops) = (onTheMap && (Decidable.holds (Decidable.not atStart) && !blocked && trap)) :=
   rewrite same in cases
 
 --| Off the route nothing is kept.

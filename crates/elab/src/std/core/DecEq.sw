@@ -48,15 +48,16 @@ instance Result.instDecEq [auto decEqA: DecEq a] [auto decEqE: DecEq e]: DecEq (
 --| Hedberg's argument, as for `Bool` above. [`DecEq.canon`] turns any proof of
 --| `x = y` into the one the decision gives, ignoring which proof it was
 --| given, and every proof can be recovered from its canonical one.
-def DecEq.canon: [x y: a] → (dec: Decidable (x = y)) → (h: x = y) → x = y
-  | Yes e, p => e
-  | No r, p => Void.exfalso (r p)
+def DecEq.canon [x y: a] (dec: Decidable (x = y)) (h: x = y): x = y :=
+  match e: dec.holds with
+    | True => dec.sound e
+    | False => Void.exfalso (Decidable.refute dec e h)
 
 theorem DecEq.canonConst [x y: a] (d: Decidable (x = y)) (p q: x = y):
     DecEq.canon d p = DecEq.canon d q :=
   match d with
-    | Yes e => rfl
-    | No r => Void.exfalso (r p)
+    | { holds = True, sound = s, complete = c } => rfl
+    | { holds = False, sound = s, complete = c } => Void.exfalso (Bool.falseNotTrue (c p))
 
 theorem DecEq.symThenSelf [x y: a] (q: x = y): rfl = Eq.trans (Eq.sym q) q := J (y' q' => rfl = Eq.trans (Eq.sym q') q') rfl q
 

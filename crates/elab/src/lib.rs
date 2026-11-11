@@ -3038,7 +3038,6 @@ impl Elaborator {
         match bound {
             Some(Builtin::Nat) => native::register_nat(&mut self.kernel, d)?,
             Some(Builtin::Bool) => native::register_bool(&mut self.kernel, d)?,
-            Some(Builtin::Decidable) => native::register_decidable(&mut self.kernel, d)?,
             Some(Builtin::Float) => stitchwort_core::float::register_data(&mut self.kernel, d)?,
             // `Char` comes after `List`. If either isn't the declaration
             // the compact representation of text was written for, text
@@ -3068,7 +3067,6 @@ impl Elaborator {
         }
         pins::check_bound_def(&mut self.kernel, id, b)?;
         match b {
-            Builtin::NatNeq => native::register_nat_neq(&mut self.kernel, id)?,
             // `+` computes on its second argument too from here on.
             Builtin::NatAddSucc => stitchwort_core::nat_add::register(&mut self.kernel, id)?,
             b if stitchwort_core::float::PINNED_DEFS.contains(&b) => {

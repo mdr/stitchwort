@@ -31,7 +31,7 @@ fn a_decision_procedure_added_in_a_later_file_is_found() {
     session
         .load(
             "dec.sw",
-            "instance decToken : Decidable Token := Yes MkToken",
+            "instance decToken : Decidable Token := Std.Decidable.yes MkToken",
         )
         .expect("loads");
     session
@@ -46,11 +46,11 @@ fn a_decision_procedure_below_the_use_is_still_not_used() {
     // `decToken` is written below it.
     let source = format!(
         "{TOKEN}
-def first : Nat := needsToken [t := Std.Decidable.fromYes decToken Trivial]
+def first : Nat := needsToken [t := decToken.sound rfl]
 
 def client : Nat := needsToken
 
-instance decToken : Decidable Token := Yes MkToken
+instance decToken : Decidable Token := Std.Decidable.yes MkToken
 
 def after : Nat := needsToken
 "
@@ -72,7 +72,7 @@ type Coin : Prop =
 
 def needsCoin : [auto c : Coin] -> Nat := 1
 
-instance decCoin : Decidable Coin := Yes MkCoin
+instance decCoin : Decidable Coin := Std.Decidable.yes MkCoin
 ";
 
 #[test]
@@ -82,7 +82,7 @@ fn a_decision_procedure_declared_after_a_search_in_the_same_file_is_found() {
         "{TOKEN}{COIN}
 def warm : Nat := needsCoin
 
-instance decToken : Decidable Token := Yes MkToken
+instance decToken : Decidable Token := Std.Decidable.yes MkToken
 
 def late : Nat := needsToken
 "
@@ -105,7 +105,7 @@ import Early (warm)
 
 def used : Nat := warm
 
-instance decToken : Decidable Token := Yes MkToken
+instance decToken : Decidable Token := Std.Decidable.yes MkToken
 ";
     let day = "namespace Day\n\nimport Base (needsToken)\nimport A (decToken)\n\ndef late : Nat := needsToken\n";
     let files = MemoryFiles {
@@ -138,7 +138,7 @@ fn a_decision_procedure_declared_after_a_rewind_is_found() {
     session
         .load(
             "dec.sw",
-            "def decToken : Decidable Token := Yes MkToken\n\ndef z : Nat := 0",
+            "def decToken : Decidable Token := Std.Decidable.yes MkToken\n\ndef z : Nat := 0",
         )
         .expect("loads");
     let errors = session
@@ -150,7 +150,7 @@ fn a_decision_procedure_declared_after_a_rewind_is_found() {
     session
         .load(
             "dec.sw",
-            "instance decToken : Decidable Token := Yes MkToken\n\ndef z : Nat := 0",
+            "instance decToken : Decidable Token := Std.Decidable.yes MkToken\n\ndef z : Nat := 0",
         )
         .expect("loads");
     session
@@ -171,7 +171,7 @@ fn a_decision_procedure_unmarked_after_a_rewind_is_not_used() {
     session
         .load(
             "dec.sw",
-            "instance decToken : Decidable Token := Yes MkToken\n\ndef z : Nat := 0",
+            "instance decToken : Decidable Token := Std.Decidable.yes MkToken\n\ndef z : Nat := 0",
         )
         .expect("loads");
     session
@@ -181,7 +181,7 @@ fn a_decision_procedure_unmarked_after_a_rewind_is_not_used() {
     session
         .load(
             "dec.sw",
-            "def decToken : Decidable Token := Yes MkToken\n\ndef z : Nat := 0",
+            "def decToken : Decidable Token := Std.Decidable.yes MkToken\n\ndef z : Nat := 0",
         )
         .expect("loads");
     let errors = session

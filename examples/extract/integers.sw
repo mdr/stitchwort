@@ -52,7 +52,7 @@ export def modNat (a: Int) (d: Nat): Nat := Int.modNat a d
 
 export def natDivMod (n: Nat) (d: Nat): List Nat := [n / d, n % d]
 
-export def decEq (a: Int) (b: Int): Bool := Decidable.toBool (Int.decEq a b)
+export def decEq (a: Int) (b: Int): Bool := Decidable.holds (Int.decEq a b)
 
 export def leq (a: Int) (b: Int): Bool := Int.leq a b
 

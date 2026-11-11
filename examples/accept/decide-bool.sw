@@ -1,5 +1,5 @@
 -- A proposition with a decision procedure can be used where a `Bool` is
--- expected: it's decided (`Decidable.toBool` of its decision), as Lean's
+-- expected: it's decided (`Decidable.holds` of its decision), as Lean's
 -- `decide` coercion does.
 
 def small (k: Nat) (size: Nat) (xs: List Nat): List Nat :=

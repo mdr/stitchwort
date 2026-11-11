@@ -39,7 +39,7 @@ theorem natLessThan: Ord.lessThan 2 3 = (2 < 3) := rfl
 theorem natLessEq: Ord.lessEq 3 3 = (3 ≤ 3) := rfl
 
 -- Decided from the same dictionary.
-test "decided" := Decidable.toBool (Ord.decLessThan "a" "b")
+test "decided" := Decidable.holds (Ord.decLessThan "a" "b")
 
 -- Another order, passed by name: a named alternative built with
 -- `Ord.fromCompare`, which takes the comparison and its three laws.

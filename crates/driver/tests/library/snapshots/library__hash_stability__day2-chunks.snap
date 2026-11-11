@@ -2,13 +2,13 @@
 source: crates/driver/tests/library/hash_stability.rs
 expression: "lines(session, d, f)"
 ---
-Main.repeatsWith b610a6cac9c8dc01180afdfc562584df8bb7d7fd563d6c4d47ec8f8a18de8542
-Main.repeatsAny d5f855d3de6ba29cbe9629f812200ea7bf71ee58c742a28832e18595b0fe3c04
-Main.test "1212 repeats a block of two" ac6fd8899d6a4fb9205c577f755a0aa39d3cf4b1b2172d40da59b31d89bbe723
-Main.test "1212 is not a block of three" 692094afdad2a7642ab309b931e68cc23073b2354059c6a7a0cd5808b4faefef
-Main.test "block length zero never repeats" 8237acd5b5d20f0c6d3b159a130f30449653364db1ca3d73dcdb2b85d5877b75
-Main.test "111 repeats a block of one" d82f081d934956eae143e9cdff238c8ac9cfc56714f4a87b7f437d1766c2d0ae
-Main.test "12341234 repeats a block of four" c755c84f16cd8362c0231ec9733a23ba69aed859c05d9df22ac395dd27ee2e53
-Main.test "123123123 is found" 5d09b3b1bf7bc1bae2cc4f01e68b7d830db1d3c887b91eb7e35d0dc77513c388
-Main.test "1213 repeats nothing" d76b93b3a04101667d2e7a4c6d56bc6cf2ade7428380846cc8f1d96ac824e545
-Main.test "a repeat is its block, repeated" 2c7ff58cdae562b6cc9c8cc126a9134bac7e7389ad50ee172f7b24b9e495cc0b
+Main.repeatsWith 8db2588f2e7994123a3e5e6fd6ac8e67bd0b04c411fbd138c151a2316edf9399
+Main.repeatsAny a55f8f33f14c6900957f642441b9ce7911bb2d7529b02203782f39d8b8fae0ec
+Main.test "1212 repeats a block of two" e6d5fd4e05e0cf4c42f2f0239c7739d116544e9b5d7c93eb3ffb012220f72ede
+Main.test "1212 is not a block of three" 99bb5260a7b3a1970c06f827cf62e19eb5740e839408b8cf630ee0cf4e640a9a
+Main.test "block length zero never repeats" a492fe2abb95f2a62c62dc1003fe68bf32d5a84e394bcd926326179f27323898
+Main.test "111 repeats a block of one" c1b6ca5c301f4b0382b3c5b649f6da0afa9623abd5cc418f1be9f39915500509
+Main.test "12341234 repeats a block of four" df791c356a359f18b3567dabfda94b4e584622fa408be18b5aa56cc47e1a1859
+Main.test "123123123 is found" 9bba0e3edcd1cbb774dc75e08ba3010f4a0e8c04303471ac610070c5288dce57
+Main.test "1213 repeats nothing" b419574a4e8ee5d045ec97cc2a5bc55426e3fe9d060727a626ff585cc7cedf27
+Main.test "a repeat is its block, repeated" 4e0acc78ab9f853311448f3db47ba9c335a171eabbc932b52af459f56786fe41

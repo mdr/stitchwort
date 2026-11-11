@@ -1,5 +1,5 @@
 ---
-source: crates/cli/tests/examples.rs
+source: crates/cli/tests/running/examples.rs
 expression: output
 ---
 [E-REFL] Error: `rfl` can't prove this
@@ -9,7 +9,7 @@ expression: output
    │                                                                                       ─┬─  
    │                                                                                        ╰─── `xs.count (== id)` and `xs.count (id ==)` aren't equal
    │ 
-   │ Note 1: computing both sides gives `xs.foldLeft 0 (n x => n.succIf (x.decEq id).toBool)` and `xs.foldLeft 0 (n x => n.succIf (id.decEq x).toBool)`
+   │ Note 1: computing both sides gives `xs.foldLeft 0 (n x => n.succIf (x.equal id))` and `xs.foldLeft 0 (n x => n.succIf (id.equal x))`
    │ 
    │ Note 2: `rfl` proves `a = b` only when both sides compute to the same value
 ───╯

@@ -1128,8 +1128,11 @@ impl<'g> Printer<'g> {
                         let result = self.print(names, result, Prec::App);
                         return (format!("{{{row}}} {result}"), Prec::App);
                     }
-                    // A projection, as written: `x.name` or `p.fst`.
-                    if let Some(field) = self.projection_field(*id)
+                    // A projection, as written: `x.name` or `p.fst`. Not a
+                    // decision's test, which the operator rules below print
+                    // as the `==` or `<` it elaborates from where they can.
+                    if self.g.env.registry().loaded_def(Builtin::ToBool) != Some(*id)
+                        && let Some(field) = self.projection_field(*id)
                         && let [arg] = &args[..]
                     {
                         let arg = self.print(names, arg, Prec::Atom);
@@ -1217,8 +1220,8 @@ impl<'g> Printer<'g> {
                     // it's a variable, a dictionary in scope, which the
                     // method finds itself (`Ord.compare [ord := Nat.instOrd]
                     // x y`).
-                    // `toBool (DecEq.%decide d a b)`, `d` a dictionary in
-                    // scope, is `a == b` as it elaborates there.
+                    // `(DecEq.%decide d a b).holds`, `d` a dictionary in
+                    // scope, is `a == b` as it elaborates there (SW-1000).
                     if self.g.env.registry().loaded_def(Builtin::ToBool) == Some(*id)
                         && let [decision] = &args[..]
                         && let Some((lhs, rhs)) = self.decide_in_scope(decision)
@@ -1790,8 +1793,8 @@ impl<'g> Printer<'g> {
     /// The operator and operands of a `Bool` comparison, as `<` and `<=`
     /// elaborate: on `Nat`, `Nat.leq (Succ a) b` and `Nat.leq a b`; on `Int`
     /// and `Float`, `Int.less a b`, `Int.leq a b` and `Float`'s alike; and
-    /// through an `Ord` dictionary, `Decidable.toBool (Ord.decLessThan d a
-    /// b)` and `Decidable.toBool (Ord.decLessEq d a b)`.
+    /// through an `Ord` dictionary, `Decidable.holds (Ord.decLessThan d a
+    /// b)` and `Decidable.holds (Ord.decLessEq d a b)`.
     fn comparison<'t>(&self, term: &'t Term) -> Option<(&'static str, &'t Term, &'t Term)> {
         let (head, args) = explicit_spine(term.strip_loc());
         let Term::Def(id) = head else {
@@ -1865,14 +1868,13 @@ impl<'g> Printer<'g> {
         }
     }
 
-    /// The sides of `Decidable.toBool {a = b} d`, to be written `a == b`:
+    /// The sides of `Decidable.holds {a = b} d`, to be written `a == b`:
     /// only where that elaborates to this term or one it computes to, and
-    /// only in a goal. `a == b` elaborates to `toBool {a = b} (f a b)`, `f`
+    /// only in a goal. `a == b` elaborates to `holds {a = b} (f a b)`, `f`
     /// what the scope's `==` decides an equation of the type by
     /// ([`NameScope::eq_decision`]). `d` is that, or something it computes
-    /// to with the goal's `level` variables unknown: `Nat.decEq (Succ m)
-    /// (Succ n)` is a goal's `Nat.decEqFrom (Succ m) (Succ n) (Nat.equal m
-    /// n) rfl` once computed, and `a == b` pasted back checks as the same.
+    /// to with the goal's `level` variables unknown, which `a == b` pasted
+    /// back checks as the same.
     fn decided_equation<'t>(&self, level: usize, term: &'t Term) -> Option<(&'t Term, &'t Term)> {
         if !self.equations.get() || self.show_hidden.get() {
             return None;
@@ -1980,7 +1982,7 @@ impl<'g> Printer<'g> {
     /// The operator, the precedence its operand in a section is printed at,
     /// and the two operands of an operation a section can write. Besides the
     /// operators printed everywhere, these include the `Bool` ones as they
-    /// are elaborated: `a == b` is `Decidable.toBool {a = b} d`, `a != b`
+    /// are elaborated: `a == b` is `Decidable.holds {a = b} d`, `a != b`
     /// the same with `Not (a = b)`, `a < b` on `Nat` is `Nat.leq (Succ a)
     /// b`, and `a <= b` is `Nat.leq a b`.
     fn operation<'t>(&self, term: &'t Term) -> Option<(&'static str, Prec, &'t Term, &'t Term)> {

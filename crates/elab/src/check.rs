@@ -1710,10 +1710,10 @@ pub(crate) const NE_AS_PROP_NOTE: &str =
     "`!=` here is the proposition `≠`; for the `Bool` test write `((a != b): Bool)`";
 
 /// Whether the expected type mentions a proposition `≠` and what was found
-/// is a `Bool` test (`Decidable.toBool …`, or `….toBool`): a `Bool` `!=` that was read as `≠`
+/// is a `Bool` test (`Decidable.holds …`, or `….holds`): a `Bool` `!=` that was read as `≠`
 /// because it sits beside `=` in a statement.
 pub(crate) fn ne_read_as_prop(expected: &str, found: &str) -> bool {
-    expected.contains(" ≠ ") && (found.contains("Decidable.toBool") || found.contains(".toBool"))
+    expected.contains(" ≠ ") && (found.contains("Decidable.holds") || found.contains(".holds"))
 }
 
 /// Whether two forced types are built by the same outermost former (the
@@ -5700,7 +5700,7 @@ fn awaiting_note(
 
 /// Where a `Bool` is expected, a proposition with a decision procedure is
 /// decided, as Lean's `decide` coercion does: `term : Prop` becomes
-/// `Decidable.toBool {term} decision`, so `List.filter (n => n <= k) xs`
+/// `Decidable.holds {term} decision`, so `List.filter (n => n <= k) xs`
 /// works. `None` (nothing done) unless `expected` is the library's `Bool`
 /// and `found` is `Prop`, so other comparisons don't pay for it. A
 /// condition (`if c`, `&&` …) whose `Bool` reading is being tried isn't
@@ -6265,8 +6265,12 @@ fn propagate(
 /// any other argument, so in one of its parts (the `rewrite` in
 /// `List.filterSkip _ _ _ (rewrite …)`). An error about a whole argument
 /// that isn't a lambda (`True` in `chooseFirst 5 True` at `Int`) keeps the
-/// second's message, which says how its type was fixed.
+/// second's message, which says how its type was fixed, unless the first
+/// isn't a type mismatch: then the argument was checked against what it
+/// must be and failed at that (`rfl` in `Decidable.yes rfl`, `E-REFL`), where
+/// the second only had an unknown to check it against.
 fn in_same_argument(args: &[Arg], first: &Diagnostic, second: &Diagnostic) -> bool {
+    let whole_ok = first.code != "E-TYPE-MISMATCH";
     let (Some(first), Some(second)) = (first.labels.first(), second.labels.first()) else {
         return false;
     };
@@ -6279,7 +6283,7 @@ fn in_same_argument(args: &[Arg], first: &Diagnostic, second: &Diagnostic) -> bo
         }
         Arg::Explicit(value) => {
             let whole = value.span();
-            let part = |span: Span| inside(whole, span) && span != whole;
+            let part = |span: Span| inside(whole, span) && (whole_ok || span != whole);
             part(first.span) && part(second.span)
         }
         _ => false,
@@ -6647,6 +6651,17 @@ pub fn builtin_data(cx: &Ctx, b: Builtin) -> Result<DataId> {
         .registry()
         .data(b)
         .ok_or_else(|| missing_builtin(cx, b))
+}
+
+/// The projection of field `i` of the prelude's `Decidable`: 0 is `holds`, 1
+/// `sound` and 2 `complete`.
+pub fn decidable_field(cx: &Ctx, i: usize) -> Result<stitchwort_core::DefId> {
+    let decidable = builtin_data(cx, Builtin::Decidable)?;
+    cx.e.tables
+        .records
+        .get(&decidable)
+        .and_then(|r| r.projections.get(i).copied().flatten())
+        .ok_or_else(|| missing_builtin(cx, Builtin::Decidable))
 }
 
 /// The prelude's constructor `b`: its data type and index.

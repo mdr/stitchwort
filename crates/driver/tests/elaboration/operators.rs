@@ -248,7 +248,7 @@ fn primitive_and_uniform_lowering_agree_on_the_library_and_aoc() {
 
 /// §5.16's acceptance cases, by the terms: a generic `if x < y` is decided
 /// by `Ord.decLessThan` from the same dictionary, `ord` (step 2), its
-/// `Bool` taken by `Decidable.toBool` since neither branch uses the proof; a
+/// `Bool` taken by `Decidable.holds` since neither branch uses the proof; a
 /// predicate behind a definition is unfolded and decided the same way (step
 /// 5, then 2); `beforeNat`, given `Nat.descending` by name, decides with its
 /// dictionary's decider, not `Nat.decLessThan` (so it agrees with `before`:
@@ -262,21 +262,21 @@ fn relation_deciders_come_from_the_same_dictionary() {
     assert_eq!(
         decided("before"),
         "(fun implicit (fun auto (fun (fun ((((Std.Bool.ifThenElse implicit (Std.Bool )) \
-         ((Std.Decidable.toBool implicit ((((Std.Ord.lessThan implicit #3) auto #2) #1) #0)) \
+         ((Std.Decidable.holds implicit ((((Std.Ord.lessThan implicit #3) auto #2) #1) #0)) \
          ((((Std.Ord.decLessThan implicit #3) auto #2) #1) #0))) (fun (True ))) (fun (False \
          )))))))"
     );
     assert_eq!(
         decided("below"),
         "(fun implicit (fun auto (fun (fun ((((Std.Bool.ifThenElse implicit (Std.Bool )) \
-         ((Std.Decidable.toBool implicit ((((Main.Below implicit #3) auto #2) #1) #0)) \
+         ((Std.Decidable.holds implicit ((((Main.Below implicit #3) auto #2) #1) #0)) \
          ((((Std.Ord.decLessThan implicit #3) auto #2) #1) #0))) (fun (True ))) (fun (False \
          )))))))"
     );
     assert_eq!(
         decided("beforeNat"),
         "(fun auto (fun (fun ((((Std.Bool.ifThenElse implicit (Std.Bool )) \
-         ((Std.Decidable.toBool implicit ((((Std.Ord.lessThan implicit (Std.Nat )) auto #2) \
+         ((Std.Decidable.holds implicit ((((Std.Ord.lessThan implicit (Std.Nat )) auto #2) \
          #1) #0)) ((((Std.Ord.decLessThan implicit (Std.Nat )) auto #2) #1) #0))) (fun (True \
          ))) (fun (False ))))))"
     );
@@ -285,7 +285,7 @@ fn relation_deciders_come_from_the_same_dictionary() {
     // decider comes from the same dictionary, by name, as written.
     assert_eq!(
         decided("textBefore"),
-        "(fun (fun ((((Std.Bool.ifThenElse implicit (Std.Bool )) ((Std.Decidable.toBool \
+        "(fun (fun ((((Std.Bool.ifThenElse implicit (Std.Bool )) ((Std.Decidable.holds \
          implicit ((((Std.Ord.lessThan implicit (Std.Text )) auto Std.Text.instOrd) #1) #0)) \
          ((((Std.Ord.decLessThan implicit (Std.Text )) auto Std.Text.instOrd) #1) #0))) (fun \
          (True ))) (fun (False )))))"
@@ -295,7 +295,7 @@ fn relation_deciders_come_from_the_same_dictionary() {
     assert_eq!(
         decided("withOrd"),
         "(fun auto (fun (fun ((((Std.Bool.ifThenElse implicit (Std.Nat )) \
-         ((Std.Decidable.toBool implicit ((((Std.Ord.lessThan implicit (Std.Nat )) auto #2) \
+         ((Std.Decidable.holds implicit ((((Std.Ord.lessThan implicit (Std.Nat )) auto #2) \
          #1) #0)) ((((Std.Ord.decLessThan implicit (Std.Nat )) auto #2) #1) #0))) (fun \
          ((Std.Nat.add #2) #1))) (fun ((Std.Nat.mul #2) #1))))))"
     );

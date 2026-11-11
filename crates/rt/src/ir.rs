@@ -81,7 +81,7 @@ pub struct Program {
 /// builds, as tags (a constructor's index in its type): found in the
 /// checked program's prelude when it's lowered, each checked to have the
 /// runtime fields the runtime expects. A constructor without runtime fields
-/// is nullary at run time (`Yes`, whose proof is erased). `Ordering`'s
+/// is nullary at run time. `Ordering`'s
 /// `LT`, `EQ`, `GT` are tags 0, 1, 2: the natives that build them are bound
 /// to their prelude definitions by content hash ([`crate::natives`]).
 #[derive(Clone, Copy, Debug)]
@@ -92,9 +92,6 @@ pub struct Shapes {
     /// `None`: no fields; `Some x`.
     pub none: u32,
     pub some: u32,
-    /// `Yes`, `No`: no runtime fields (the proofs are erased).
-    pub yes: u32,
-    pub no: u32,
     /// `Nil`: no fields; `Cons x xs`.
     pub nil: u32,
     pub cons: u32,
@@ -320,9 +317,9 @@ pub enum PrimOp {
     Int(IntNative),
     /// `NegSucc n`, which is `-n - 1`, for a native `Int`.
     NegSucc,
-    /// `a == b` on native `Int`s, as a `Bool`: `toBool (Int.decEq a b)`.
+    /// `a == b` on native `Int`s, as a `Bool`: `holds (Int.decEq a b)`.
     IntEqual,
-    /// `a == b` on native `Text`s, as a `Bool`: `toBool (Text.decEq a b)`.
+    /// `a == b` on native `Text`s, as a `Bool`: `holds (Text.decEq a b)`.
     TextEqual,
     /// A `Text` operation; `TextFromList` is also `MkText`, and
     /// `TextToList` takes it apart.

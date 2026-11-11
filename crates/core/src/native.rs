@@ -57,27 +57,23 @@ pub enum Native {
     EqNat,
     /// `divFuel fuel n d`: how many times `d` fits into `n`, at most `fuel`.
     DivFuel,
-    /// `decEqNat m n : Decidable (m = n)`: `Yes rfl` or `No (natNeq m n rfl)`,
-    /// exactly what its definition computes.
-    DecEqNat,
     /// `eqNatRefl n : eqNat n n = True`, which is `rfl` for any number. Without
-    /// this, using `natNeq` would count down its first argument.
+    /// this, a proof of `eqNat n n = True` would count down `n`.
     EqNatRefl,
     /// `eqNatSound m n h : m = n`, which is `rfl` when `m` and `n` are the same
-    /// number, whatever `h` is. Without this, the `Yes` that `decEqNat`'s
-    /// definition computes would count down its arguments.
+    /// number, whatever `h` is. Without this, transporting along a decided
+    /// equation (`Nat.decEq m n`'s `sound`) would count down its arguments.
     EqNatSound,
 }
 
 impl Native {
-    pub const ALL: [Native; 9] = [
+    pub const ALL: [Native; 8] = [
         Native::Add,
         Native::Sub,
         Native::Mul,
         Native::Leq,
         Native::EqNat,
         Native::DivFuel,
-        Native::DecEqNat,
         Native::EqNatRefl,
         Native::EqNatSound,
     ];
@@ -91,7 +87,6 @@ impl Native {
             Native::Leq => Builtin::Leq,
             Native::EqNat => Builtin::EqNat,
             Native::DivFuel => Builtin::DivFuel,
-            Native::DecEqNat => Builtin::DecEqNat,
             Native::EqNatRefl => Builtin::EqNatRefl,
             Native::EqNatSound => Builtin::EqNatSound,
         }
@@ -127,11 +122,6 @@ pub struct Builtins {
     pub nat: Option<DataId>,
     /// `Bool`: constructor 0 is `False`, constructor 1 is `True`.
     pub bool: Option<DataId>,
-    /// `Decidable p`: constructor 0 is `Yes`, constructor 1 is `No`.
-    pub decidable: Option<DataId>,
-    /// `natNeq : (m n : Nat) -> eqNat m n = False -> Not (m = n)`, which
-    /// `decEqNat`'s definition puts in its `No`, and so the native does too.
-    pub nat_neq: Option<DefId>,
     natives: HashMap<DefId, Native>,
     /// The same registrations the other way round: each native is
     /// registered at most once.
@@ -251,8 +241,6 @@ impl Builtins {
         let Builtins {
             nat,
             bool,
-            decidable,
-            nat_neq,
             // Keyed by definition: cut by id.
             natives: _,
             native_defs: _,
@@ -270,8 +258,6 @@ impl Builtins {
         BuiltinsMark {
             nat: *nat,
             bool: *bool,
-            decidable: *decidable,
-            nat_neq: *nat_neq,
             nat_add_rule: *nat_add_rule,
             text: text.clone(),
             float: float.clone(),
@@ -285,8 +271,6 @@ impl Builtins {
         let Builtins {
             nat,
             bool,
-            decidable,
-            nat_neq,
             natives,
             native_defs,
             primitives,
@@ -306,16 +290,12 @@ impl Builtins {
         let BuiltinsMark {
             nat: was_nat,
             bool: was_bool,
-            decidable: was_decidable,
-            nat_neq: was_nat_neq,
             nat_add_rule: was_nat_add_rule,
             text: was_text,
             float: was_float,
         } = mark.clone();
         *nat = was_nat;
         *bool = was_bool;
-        *decidable = was_decidable;
-        *nat_neq = was_nat_neq;
         *nat_add_rule = was_nat_add_rule;
         *text = was_text;
         *float = was_float;
@@ -330,8 +310,6 @@ impl Builtins {
         let Builtins {
             nat,
             bool,
-            decidable,
-            nat_neq,
             natives,
             native_defs,
             primitives,
@@ -346,8 +324,7 @@ impl Builtins {
         } = self;
         let _ = writeln!(
             out,
-            "builtins nat {nat:?} bool {bool:?} decidable {decidable:?} nat_neq {nat_neq:?} \
-             nat_add_rule {nat_add_rule:?}"
+            "builtins nat {nat:?} bool {bool:?} nat_add_rule {nat_add_rule:?}"
         );
         // `small` is made from the two, so it isn't printed.
         let text = text.as_ref().map(|t| (t.list, t.char));
@@ -385,8 +362,6 @@ impl Builtins {
 pub(crate) struct BuiltinsMark {
     nat: Option<DataId>,
     bool: Option<DataId>,
-    decidable: Option<DataId>,
-    nat_neq: Option<DefId>,
     nat_add_rule: Option<DefId>,
     text: Option<crate::chars::CompactText>,
     float: crate::float::FloatBinding,
@@ -445,54 +420,9 @@ pub fn register_bool(g: &mut Kernel, d: DataId) -> Result<()> {
     })
 }
 
-/// Registers `Decidable (p : Prop)`, which must be `Yes p | No (Not p)`.
-/// Checked by comparing it with the type it must have, so a native `Yes`
-/// built from `rfl` and a native `No` built from `natNeq` are well-typed.
-pub fn register_decidable(g: &mut Kernel, d: DataId) -> Result<()> {
-    in_kernel_modes(g, |g| {
-        let data = g.data(d);
-        let p = Value::var(0);
-        // `No`'s field relies on `Void` being empty, so it must be final.
-        let void = g.env.registry().data(Builtin::Void);
-        let shaped = data.state == State::Final
-            && data.params.len() == 1
-            && data.indices.is_empty()
-            && data.sort == Sort::Type(0)
-            && data_sig(&g.ev(), d) == [vec![0], vec![0]];
-        let shaped = shaped
-            && match void {
-                None => false,
-                Some(void) => {
-                    let params = [p.clone()];
-                    let yes = eval(&g.ev(), &params, &data.ctors[0].fields[0].1)?;
-                    let no = eval(&g.ev(), &params, &data.ctors[1].fields[0].1)?;
-                    let param = eval(&g.ev(), &[], &data.params[0].1)?;
-                    let not_p = Value::Pi(
-                        "h".into(),
-                        Icit::Explicit,
-                        Shared::new(p.clone()),
-                        crate::value::Closure {
-                            env: [p.clone()].into(),
-                            body: Rc::new(Term::Data(void, Vec::new())),
-                        },
-                    );
-                    conv(&g.ev(), 0, &param, &Value::Sort(Sort::Prop))?
-                        && conv(&g.ev(), 1, &yes, &p)?
-                        && conv(&g.ev(), 1, &no, &not_p)?
-                }
-            };
-        if !shaped {
-            return Err(shape_error(data.span, "Decidable"));
-        }
-        g.env.builtins_mut().decidable = Some(d);
-        Ok(())
-    })
-}
-
 /// Registers a native implementation for definition `id`, after checking
 /// that it is the declaration the native was written for ([`crate::pins`])
-/// and its type. Natives returning `Bool` or `Decidable` need those
-/// registered first. Each native is registered once, and each definition
+/// and its type. Natives returning `Bool` need it registered first. Each native is registered once, and each definition
 /// has at most one.
 pub fn register_native(g: &mut Kernel, id: DefId, native: Native) -> Result<()> {
     in_kernel_modes(g, |g| {
@@ -523,22 +453,6 @@ fn register_shaped(g: &mut Kernel, id: DefId, native: Native) -> Result<()> {
     let result = match native {
         Native::Add | Native::Sub | Native::Mul | Native::DivFuel => Some(nat_ty()),
         Native::Leq | Native::EqNat => g.env.builtins().bool.map(|b| Term::Data(b, Vec::new())),
-        // (m : Nat) -> (n : Nat) -> Decidable (m = n), and `natNeq` must exist.
-        Native::DecEqNat => g
-            .env
-            .builtins()
-            .decidable
-            .filter(|_| g.env.builtins().nat_neq.is_some())
-            .map(|dec| {
-                Term::data(
-                    dec,
-                    vec![Term::Eq(
-                        Some(Rc::new(nat_ty())),
-                        Rc::new(Term::Var(1)),
-                        Rc::new(Term::Var(0)),
-                    )],
-                )
-            }),
         // (m : Nat) -> (n : Nat) -> eqNat m n = True -> m = n
         Native::EqNatSound => g
             .env
@@ -614,61 +528,6 @@ fn register_shaped(g: &mut Kernel, id: DefId, native: Native) -> Result<()> {
 /// The definition registered with native implementation `native`.
 fn native_def(g: &Ev, native: Native) -> Option<DefId> {
     g.env.builtins().native_defs.get(&native).copied()
-}
-
-/// Registers `natNeq : (m n : Nat) -> eqNat m n = False -> Not (m = n)`.
-/// Like a native, it must be the pinned declaration ([`crate::pins`]), and
-/// it is registered once.
-pub fn register_nat_neq(g: &mut Kernel, id: DefId) -> Result<()> {
-    in_kernel_modes(g, |g| {
-        crate::pins::check_def(&g.ev(), id, Builtin::NatNeq)?;
-        let def = g.def(id);
-        let span = def.span;
-        if g.env.builtins().nat_neq.is_some() {
-            return Err(
-                Diagnostic::error("E-BUILTIN", "`Nat.equalFalse` is bound already")
-                    .with_label(span, "a second binding"),
-            );
-        }
-        let (State::Final, Some(nat), Some(bool), Some(eq_nat), Some(void)) = (
-            def.state,
-            g.env.builtins().nat,
-            g.env.builtins().bool,
-            native_def(&g.ev(), Native::EqNat),
-            g.env.registry().data(Builtin::Void),
-        ) else {
-            return Err(shape_error(span, "natNeq"));
-        };
-        let pi =
-            |dom: Term, cod: Term| Term::Pi("x".into(), Icit::Explicit, Rc::new(dom), Rc::new(cod));
-        let nat_ty = || Rc::new(Term::Data(nat, Vec::new()));
-        let expected = pi(
-            Term::Data(nat, Vec::new()),
-            pi(
-                Term::Data(nat, Vec::new()),
-                pi(
-                    Term::Eq(
-                        Some(Rc::new(Term::Data(bool, Vec::new()))),
-                        Rc::new(Term::app(
-                            Term::app(Term::Def(eq_nat), Term::Var(1)),
-                            Term::Var(0),
-                        )),
-                        Rc::new(Term::Ctor(bool, 0, Vec::new())),
-                    ),
-                    pi(
-                        Term::Eq(Some(nat_ty()), Rc::new(Term::Var(2)), Rc::new(Term::Var(1))),
-                        Term::Data(void, Vec::new()),
-                    ),
-                ),
-            ),
-        );
-        // It must still need its last argument, so applying it to three stays stuck.
-        if def.arity != 4 || !conv(&g.ev(), 0, &eval(&g.ev(), &[], &expected)?, &def.ty_value)? {
-            return Err(shape_error(span, "natNeq"));
-        }
-        g.env.builtins_mut().nat_neq = Some(id);
-        Ok(())
-    })
 }
 
 /// A number value. `Zero` and `Succ` of a number are numbers too.
@@ -1216,27 +1075,6 @@ fn run_numbers(g: &Ev, native: Native, args: &[BigUint]) -> Option<Value> {
         // When the numbers differ, the definition unfolds instead (to a proof
         // from `h`, which can only be a hypothesis).
         (Native::EqNatSound, [m, n]) => (m == n).then_some(Value::Refl),
-        (Native::DecEqNat, [m, n]) => {
-            let dec = g.env.builtins().decidable?;
-            if m == n {
-                Some(Value::Ctor(dec, 0, [Value::Refl].into()))
-            } else {
-                // `natNeq m n rfl`, as the definition's `False` case gives
-                // (`eqNat m n` is `False`, so `h` is `rfl`). It's stuck until
-                // it's given a proof of `m = n`, and there isn't one.
-                let arg = |v| Elim::App(v, Icit::Explicit);
-                let refutation = Value::Neutral(
-                    Head::Def(g.env.builtins().nat_neq?),
-                    vec![
-                        arg(nat_value(m.clone())),
-                        arg(nat_value(n.clone())),
-                        arg(Value::Refl),
-                    ]
-                    .into(),
-                );
-                Some(Value::Ctor(dec, 1, [refutation].into()))
-            }
-        }
         _ => None,
     }
 }

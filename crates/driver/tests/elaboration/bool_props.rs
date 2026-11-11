@@ -76,7 +76,7 @@ fn a_call() {
 
 #[test]
 fn equality_test() {
-    statement("(n == 3) = True", "(n.decEq 3).toBool");
+    statement("(n == 3) = True", "(n.decEq 3).holds");
 }
 
 #[test]

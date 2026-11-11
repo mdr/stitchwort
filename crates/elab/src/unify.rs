@@ -1317,6 +1317,10 @@ fn unify_step(
     if one_step_apart(g, level, a, b)? {
         return Ok(true);
     }
+    if let Some(records) = same_field_calls(g, level, a, b)? {
+        work.push(records);
+        return Ok(true);
+    }
     if meta_against_call(g, level, a, b)? {
         return Ok(true);
     }
@@ -1550,6 +1554,12 @@ fn unify_step(
         | (Value::Neutral(..), Value::Neutral(Head::Meta(_), _))
             if same_field_records(g, level, &a, &b, mode)? =>
         {
+            true
+        }
+        (Value::Neutral(..), Value::Neutral(..))
+            if let Some(records) = same_field_types(g, level, &a, &b)? =>
+        {
+            work.push(records);
             true
         }
         (Value::Neutral(Head::Meta(m), spine), other)
@@ -2224,17 +2234,213 @@ fn type_of(g: &Unifier<'_>, v: &Value) -> Result<Option<Known>> {
         },
         _ => return Ok(None),
     };
+    // The value so far, for a projection's later fields, whose types mention
+    // the earlier ones.
+    let (head, start) = match &v {
+        Value::Neutral(h, spine) => (Some(*h), spine.len() - args.len()),
+        _ => (None, 0),
+    };
     let mut ty = ty;
-    for elim in args {
-        let Elim::App(arg, _) = elim else {
-            return Ok(None);
-        };
-        let Value::Pi(_, _, _, cod) = force(g, ty)? else {
-            return Ok(None);
-        };
-        ty = cod.apply(g, arg.clone())?;
+    for (k, elim) in args.iter().enumerate() {
+        match elim {
+            Elim::App(arg, _) => {
+                let Value::Pi(_, _, _, cod) = force(g, ty)? else {
+                    return Ok(None);
+                };
+                ty = cod.apply(g, arg.clone())?;
+            }
+            Elim::Proj(d, i) => {
+                let (Value::Data(d2, params), Some(head)) = (force(g, ty)?, head) else {
+                    return Ok(None);
+                };
+                let data = g.data(*d);
+                if d2 != *d || data.ctors().len() != 1 {
+                    return Ok(None);
+                }
+                let Value::Neutral(_, spine) = &v else {
+                    return Ok(None);
+                };
+                let record = Value::Neutral(head, Spine::from(spine[..start + k].to_vec()));
+                let mut env: Vec<Value> = params.to_vec();
+                for j in 0..*i {
+                    env.push(project(*d, j, record.clone()));
+                }
+                let Some((_, field)) = data.ctors()[0].fields.get(*i) else {
+                    return Ok(None);
+                };
+                ty = eval(g, &env, field)?;
+            }
+            _ => return Ok(None),
+        }
     }
     Ok(Some(Known::Type(ty)))
+}
+
+/// The same field of two records of a type with parameters, whose records
+/// don't unify yet, `(?d.decide ?x ?y).holds` against `(List.decEq f xs
+/// ys).holds`: their types' parameters unified, and the records left to the
+/// main comparison, which can put them aside until the unknown in the way
+/// is solved. A projection doesn't keep its record type's parameters
+/// (`Term::Proj`), where a call of the projection function did (`Decidable.holds
+/// [p] d`), so without this the parameters' unknowns (`?x`, `?y`) would be
+/// lost. Lossy, as [`same_field_records`] is: the pair it gives is a
+/// sufficient condition, not a necessary one.
+fn same_field_types(g: &Unifier<'_>, level: usize, a: &Value, b: &Value) -> Result<Option<Task>> {
+    let (Value::Neutral(h1, s1), Value::Neutral(h2, s2)) = (a, b) else {
+        return Ok(None);
+    };
+    let (Some(Elim::Proj(d1, i1)), Some(Elim::Proj(d2, i2))) = (s1.last(), s2.last()) else {
+        return Ok(None);
+    };
+    if (d1, i1) != (d2, i2) || g.data(*d1).params().is_empty() {
+        return Ok(None);
+    }
+    // As in [`same_field_records`]: a stuck field of a call kept by name has
+    // the call, glued, as its record.
+    let record = |v: &Value, h: &Head, s: &Spine| {
+        let spine = Spine::from(s[..s.len() - 1].to_vec());
+        match h {
+            Head::Def(id) if g.machine.glue.get() && is_folded(g, v) => {
+                Value::Call(*id, spine, Default::default())
+            }
+            _ => Value::Neutral(*h, spine),
+        }
+    };
+    let record_a = record(a, h1, s1);
+    let record_b = record(b, h2, s2);
+    let params = |v: &Value| -> Result<Option<Vec<Value>>> {
+        let Some(Known::Type(ty)) = type_of(g, v)? else {
+            return Ok(None);
+        };
+        Ok(match force(g, ty)? {
+            Value::Data(d, args) if d == *d1 => Some(args.to_vec()),
+            _ => None,
+        })
+    };
+    let (Some(pa), Some(pb)) = (params(&record_a)?, params(&record_b)?) else {
+        return Ok(None);
+    };
+    if pa.len() != pb.len() {
+        return Ok(None);
+    }
+    let trail = g.store.meta_trail.borrow().len();
+    let tasks: Vec<Task> = pa
+        .into_iter()
+        .zip(pb)
+        .rev()
+        .map(|(x, y)| Task::Values(level, x, y))
+        .collect();
+    if nested(g, || run(g, tasks, Mode::Normal))? && g.store.meta_trail.borrow().len() > trail {
+        note_lossy(g, trail);
+        Ok(Some(Task::Values(level, record_a, record_b)))
+    } else {
+        undo_since(g, trail);
+        Ok(None)
+    }
+}
+
+/// Two calls that reach one record's projection function,
+/// `Decidable.holds [?p] r` against `Decidable.holds [p] d` where the second
+/// computes on (to `Nat.equal m n`) and the first is stuck: the type's
+/// parameters unified, and the records left to the main comparison, which
+/// can put them aside until an unknown in the way is solved. So they meet
+/// as they did before record eta, when both stopped at the call. The other
+/// call may reach the projection by unfolding a step at a time, as in
+/// [`one_step_apart`]: `near a b`, defined as `Succ a == b`, computes past
+/// `Nat.decEq`'s record to `Nat.equal (Succ a) b`, which has lost the
+/// decision, but its unfolding one step has it. Only when a parameter
+/// mentions an unknown that this solves, and lossy, as for
+/// [`same_field_records`]: one field doesn't determine a record. Without
+/// it, `DecEq.sound e` for `e: (m == n) = True` on numbers can't find `m`
+/// and `n`.
+fn same_field_calls(g: &Unifier<'_>, level: usize, a: &Value, b: &Value) -> Result<Option<Task>> {
+    if !matches!(a, Value::Call(..) | Value::Neutral(Head::Meta(_), _))
+        || !matches!(b, Value::Call(..) | Value::Neutral(Head::Meta(_), _))
+        || !g.machine.glue.get()
+    {
+        return Ok(None);
+    }
+    // A solved unknown (`Bool.orElim`'s `?a`, solved as `n == 3`) stands for
+    // its solution, which keeps the call.
+    let (a, b) = (&force_solved(g, a.clone())?, &force_solved(g, b.clone())?);
+    let (Value::Call(i1, s1, _), Value::Call(i2, s2, _)) = (a, b) else {
+        return Ok(None);
+    };
+    if g.attempt.argument_checks.get() > 0 || is_call_field(s1) || is_call_field(s2) {
+        return Ok(None);
+    }
+    let (field, s1, mut other) = match (projection_of(g, *i1), projection_of(g, *i2)) {
+        (Some(f), _) => (f, s1, b.clone()),
+        (None, Some(f)) => (f, s2, a.clone()),
+        (None, None) => return Ok(None),
+    };
+    let s2 = 'found: {
+        for _ in 0..=UNFOLD_STEPS {
+            let Value::Call(id, args, _) = &other else {
+                return Ok(None);
+            };
+            if is_call_field(args) {
+                return Ok(None);
+            }
+            if projection_of(g, *id) == Some(field) {
+                break 'found args.clone();
+            }
+            other = unfold_once(g, *id, args.clone())?;
+        }
+        return Ok(None);
+    };
+    let np = g.data(field.0).params().len();
+    if np == 0
+        || s1.len() != np + 1
+        || s2.len() != np + 1
+        || !(may_mention_meta(s1) || may_mention_meta(&s2))
+    {
+        return Ok(None);
+    }
+    let arg = |e: &Elim| match e {
+        Elim::App(v, _) => Some(v.clone()),
+        _ => None,
+    };
+    let mut tasks = Vec::new();
+    for (x, y) in s1[..np].iter().zip(&s2[..np]).rev() {
+        let (Some(x), Some(y)) = (arg(x), arg(y)) else {
+            return Ok(None);
+        };
+        tasks.push(Task::Values(level, x, y));
+    }
+    let (Some(r1), Some(r2)) = (arg(&s1[np]), arg(&s2[np])) else {
+        return Ok(None);
+    };
+    let trail = g.store.meta_trail.borrow().len();
+    if nested(g, || run(g, tasks, Mode::Normal))? && g.store.meta_trail.borrow().len() > trail {
+        note_lossy(g, trail);
+        Ok(Some(Task::Values(level, r1, r2)))
+    } else {
+        undo_since(g, trail);
+        Ok(None)
+    }
+}
+
+/// The record type of `id` and the field it gives, if it is a record's
+/// generated projection: one `case` on its last parameter, a value of a
+/// type with eta, giving one of the fields.
+fn projection_of(g: &Unifier<'_>, id: DefId) -> Option<(stitchwort_core::DataId, usize)> {
+    let mut body = g.def(id).body()?.strip_loc();
+    while let Term::Lam(_, _, b) = body {
+        body = b.strip_loc();
+    }
+    match body {
+        Term::Case(0, d, branches) if is_eta_type(&g.ev, *d) && branches.len() == 1 => {
+            let branch = &branches[0];
+            match branch.body.as_deref().map(Term::strip_loc) {
+                Some(Term::Var(k)) if *k < branch.names.len() => {
+                    Some((*d, branch.names.len() - 1 - k))
+                }
+                _ => None,
+            }
+        }
+        _ => None,
+    }
 }
 
 /// An unsolved metavariable against a glued call (`?x` against `invalid r`):

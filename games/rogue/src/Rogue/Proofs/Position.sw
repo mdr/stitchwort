@@ -21,6 +21,7 @@ theorem positionExt (p: Position) (q: Position) (sameRow: p.row = q.row) (sameCo
 
 --| Two cells on the same row that aren't the same cell are in different columns.
 theorem columnDiffers (p: Position) (q: Position) (differ: (p == q) = False) (sameRow: (p.row == q.row) = True): (p.column == q.column) = False :=
+  let notSame := DecEq.soundFalse p q differ
   match sameColumn: p.column == q.column with
-    | True => Void.exfalso (DecEq.soundFalse p q differ (positionExt p q (natSound p.row q.row sameRow) (natSound p.column q.column sameColumn)))
+    | True => Void.exfalso (notSame (positionExt p q (natSound p.row q.row sameRow) (natSound p.column q.column sameColumn)))
     | False => rfl

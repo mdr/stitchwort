@@ -14,9 +14,9 @@ theorem literalStep (wanted: Wanted) (later: Wanted) (reader: BitReader) (afterV
     (typeRead: afterVersion.readNumber 3 = Some (4, afterType)) (groupsRead: readGroups afterType = Some (groups, after)) (shorter: after.length < reader.length):
     readPackets wanted reader = andThen (Literal version groups) (readPackets later after) :=
   rewrite readPackets.unfold wanted reader, next, versionRead, typeRead, groupsRead in
-    match Nat.decLessThan after.length reader.length with
-      | Yes _ => rfl
-      | No longer => Void.exfalso (longer shorter)
+    match h: (after.length < reader.length: Bool) with
+      | True => rfl
+      | False => omega [h, shorter]
 
 --| One step on an operator with a total length, its fields read.
 theorem totalStep (wanted: Wanted) (later: Wanted) (reader: BitReader) (afterVersion: BitReader) (afterType: BitReader) (afterBit: BitReader)
@@ -30,13 +30,13 @@ theorem totalStep (wanted: Wanted) (later: Wanted) (reader: BitReader) (afterVer
     (made: operatorOf version operatorType TotalLength subPackets = Some packet) (shorterAfter: following.length < reader.length):
     readPackets wanted reader = andThen packet (readPackets later following) :=
   rewrite readPackets.unfold wanted reader, next, versionRead, typeRead, operatorRead, lengthType, lengthRead, lengthValue, split in
-    match Nat.decLessThan (BitReader.of inside).length reader.length with
-      | No longer => Void.exfalso (longer shorter)
-      | Yes _ =>
+    match h: ((BitReader.of inside).length < reader.length: Bool) with
+      | False => omega [h, shorter]
+      | True =>
         rewrite insideRead, made in
-          match Nat.decLessThan following.length reader.length with
-            | No longer => Void.exfalso (longer shorterAfter)
-            | Yes _ => rfl
+          match h: (following.length < reader.length: Bool) with
+            | False => omega [h, shorterAfter]
+            | True => rfl
 
 --| One step on an operator with a number of sub-packets, its fields read.
 theorem countStep (wanted: Wanted) (later: Wanted) (reader: BitReader) (afterVersion: BitReader) (afterType: BitReader) (afterBit: BitReader)
@@ -48,13 +48,13 @@ theorem countStep (wanted: Wanted) (later: Wanted) (reader: BitReader) (afterVer
     (made: operatorOf version operatorType Count subPackets = Some packet) (shorterAfter: following.length < reader.length):
     readPackets wanted reader = andThen packet (readPackets later following) :=
   rewrite readPackets.unfold wanted reader, next, versionRead, typeRead, operatorRead, lengthType, countRead, countValue in
-    match Nat.decLessThan after.length reader.length with
-      | No longer => Void.exfalso (longer shorter)
-      | Yes _ =>
+    match h: (after.length < reader.length: Bool) with
+      | False => omega [h, shorter]
+      | True =>
         rewrite subPacketsRead, made in
-          match Nat.decLessThan following.length reader.length with
-            | No longer => Void.exfalso (longer shorterAfter)
-            | Yes _ => rfl
+          match h: (following.length < reader.length: Bool) with
+            | False => omega [h, shorterAfter]
+            | True => rfl
 
 theorem typeIdSmall (operatorType: OperatorType): typeId operatorType < 8 := cases
 

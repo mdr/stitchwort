@@ -582,7 +582,7 @@ fn lifted(
     generalised(cx, columns, exprs, alts, &[], span, kind, goal, base, None)
 }
 
-/// `b`, when `normal` is `Decidable.toBool {p} (Bool.decTrue b)`: the two
+/// `b`, when `normal` is `Decidable.holds {p} (Bool.decTrue b)`: the two
 /// are the same `Bool` (by cases on `b`), and `b` is the one an unfolded
 /// `if` on the same decision mentions.
 fn tested_bool(cx: &Ctx, normal: &Term) -> Option<Term> {
@@ -934,7 +934,7 @@ fn generalised_now(
     if let Some(e) = too_large {
         let e = ran_out_at(e, span, "while generalising this `match`");
         return unconfirmed_now(
-            cx, columns, exprs, alts, absurd, span, kind, goal, base, skip, e,
+            cx, columns, exprs, alts, absurd, span, kind, goal, base, skip, e, true,
         );
     }
     // What the scrutinees are looked for in: the variables' types and the
@@ -958,7 +958,7 @@ fn generalised_now(
         // can't run and this `match` fails today: as written, unconfirmed.
         Err(e) if crate::undo::recoverable(cx, &e) => {
             return unconfirmed_now(
-                cx, columns, exprs, alts, absurd, span, kind, goal, base, skip, e,
+                cx, columns, exprs, alts, absurd, span, kind, goal, base, skip, e, true,
             );
         }
         Err(e) => return Err(e),
@@ -1082,10 +1082,31 @@ fn generalised_now(
     let (bound, motive_later) = match kept {
         Some(bound) => (bound, false),
         None => {
-            let bound = bind_generalised(cx, &exprs, &today, None, base)?;
-            let later =
-                skip.is_none() && check_motive(cx, base, &bound.extra, &bound.motive, span)?;
-            (bound, later)
+            let snapshot = crate::undo::Snapshot::take(cx);
+            let usual = (|| -> Result<_> {
+                let bound = bind_generalised(cx, &exprs, &today, None, base)?;
+                let later =
+                    skip.is_none() && check_motive(cx, base, &bound.extra, &bound.motive, span)?;
+                Ok((bound, later))
+            })();
+            match usual {
+                Ok(usual) => usual,
+                // A decision that computes to its record's fields, `Nat.decEq m
+                // n`, splits a program's `if h:` only as written: generalised
+                // where it has computed, its test is under proofs typed by
+                // it (`Nat.equalSound m n`), and the motive is ill-formed.
+                // The call as written is what the old constructors' `match`
+                // abstracted. Only for records, and only where the usual
+                // generalisation fails, so nothing that checks changes; the
+                // motive is checked now and by the kernel.
+                Err(e) if e.code == "E-MATCH-MOTIVE" && skip.is_none() && records(cx, &exprs)? => {
+                    snapshot.restore(cx);
+                    return unconfirmed_now(
+                        cx, columns, exprs, alts, absurd, span, kind, goal, base, skip, e, false,
+                    );
+                }
+                Err(e) => return Err(e),
+            }
         }
     };
     in_arms(
@@ -1118,6 +1139,9 @@ fn generalised_now(
 /// only which hypotheses are refined: a copy of the scrutinee hidden inside
 /// a call stays unrefined, so an arm that needed it fails with its own
 /// error. Nothing false can be accepted.
+///
+/// Also the fallback when the usual generalisation of record scrutinees has
+/// an ill-formed motive ([`generalised_now`]), without the warning.
 #[allow(clippy::too_many_arguments)]
 fn unconfirmed_now(
     cx: &mut Ctx,
@@ -1131,6 +1155,9 @@ fn unconfirmed_now(
     base: usize,
     skip: Option<Skip>,
     cause: Diagnostic,
+    // Whether to say so (`W-MATCH-UNCONFIRMED`): not when the usual
+    // generalisation ran and its motive was ill-formed.
+    warn: bool,
 ) -> Result<Term> {
     // What `cause` noted as too large, for its report if it is returned:
     // reading back on this path can note another.
@@ -1174,7 +1201,7 @@ fn unconfirmed_now(
     as_written::report(written.outcome, span);
     let at = exprs.first().map_or(span, |s| s.span);
     let warning = as_written::unconfirmed_warning(at);
-    {
+    if warn {
         let mut warnings = cx.e.attempt.lambda_warnings.borrow_mut();
         let first = Some(at);
         if !(warnings.iter())
@@ -1198,6 +1225,18 @@ fn unconfirmed_now(
         &normals,
         Vec::new(),
     )
+}
+
+/// Whether every scrutinee is a value of a record type with eta.
+fn records(cx: &Ctx, exprs: &[Scrut]) -> Result<bool> {
+    let g = cx.g();
+    for s in exprs {
+        match stitchwort_core::value::force(&g, s.ty.clone())? {
+            Value::Data(d, _) if stitchwort_core::value::is_eta_type(&g, d) => {}
+            _ => return Ok(false),
+        }
+    }
+    Ok(true)
 }
 
 /// A generalised `match`'s alternatives checked against its motive, and
@@ -1666,7 +1705,7 @@ fn not_found(
 }
 
 /// The warnings, by scrutinee index, for a `match` on a decision that
-/// computes to `Bool.decTrue b`, found in neither the goal nor a hypothesis,
+/// computes to `Bool.decTrue b`, or to a record whose test is `b`, found in neither the goal nor a hypothesis,
 /// when `b` is the condition of a `Bool.ifThenElse` in one of them: an `if`
 /// whose branches don't use its proof is a test of `b`, so the decision
 /// refines nothing there. Matching on `b` itself refines the `if` in either
@@ -1700,11 +1739,19 @@ fn decision_if(
         let Some(normal) = normal else {
             continue;
         };
+        // `Bool.decTrue b`, or a decision record whose test is `b`.
         let (head, args) = normal.spine();
-        let [b] = args[..] else {
-            continue;
+        let b = match (&args[..], normal.strip_loc()) {
+            ([b], _) if is(head, Builtin::DecTrue) => *b,
+            (_, Term::Ctor(d, 0, fields)) if reg.data(Builtin::Decidable) == Some(*d) => {
+                match fields.first() {
+                    Some(b) => b,
+                    None => continue,
+                }
+            }
+            _ => continue,
         };
-        if !is(head, Builtin::DecTrue) || hypotheses().any(|(_, t)| occurs(normal, t)) {
+        if hypotheses().any(|(_, t)| occurs(normal, t)) {
             continue;
         }
         let tests = |t: &Term| {

@@ -27,7 +27,7 @@
 //! `Nat`, or `Not (a <= b)`; other forms reach these through proved bridge
 //! lemmas, applied in the emitted term: `Nat.leq a b = False`
 //! (`Nat.leqFalse`), `(p && q) = True` (`Bool.andLeft`/`andRight`),
-//! `Decidable.toBool d = True`/`False`, which is how `a <= b` inside `&&`
+//! `Decidable.holds d = True`/`False`, which is how `a <= b` inside `&&`
 //! comes out (`Decidable.toBoolSound`/`toBoolFalse`), and `And p q`
 //! (`And.left`/`right`), and likewise `||` and `not` (`Bool.orFalseLeft`,
 //! `Bool.notTrue`, ...). Each is read again until it's arithmetic.
@@ -448,6 +448,8 @@ struct Lib {
     div_step: DefId,
     ite: DefId,
     to_bool: DefId,
+    nat_dec_eq: DefId,
+    int_dec_eq: DefId,
     not: DefId,
     bool_not: DefId,
     less_than: DefId,
@@ -740,6 +742,8 @@ impl Lib {
             div_step: builtin_def(cx, Builtin::DivStep)?,
             ite: builtin_def(cx, Builtin::IfThenElse)?,
             to_bool: builtin_def(cx, Builtin::ToBool)?,
+            nat_dec_eq: def("Std.Nat.decEq")?,
+            int_dec_eq: builtin_def(cx, Builtin::DecEqInt)?,
             not: builtin_def(cx, Builtin::Not)?,
             bool_not: builtin_def(cx, Builtin::BoolNot)?,
             less_than: builtin_def(cx, Builtin::LessThan)?,
@@ -845,8 +849,8 @@ fn call_args(value: &Value, def: DefId) -> Option<Vec<Value>> {
 }
 
 /// A `Bool` reading of `l`: `Nat.leq x y`, `Int.leq x y`, `Int.less x y`,
-/// `p && q`, `p || q`, `not p`, or `Decidable.toBool d` (with the
-/// proposition it decides).
+/// `p && q`, `p || q`, `not p`, or `Decidable.holds d` (with the
+/// proposition it decides), `Nat.equal x y` among them as `Nat.decEq x y`'s.
 enum BoolForm {
     Leq(Value, Value),
     IntLeq(Value, Value),
@@ -879,6 +883,34 @@ fn bool_form(cx: &Ctx, lib: &Lib, l: &Value) -> Result<Option<BoolForm>> {
     }
     if let Some([p, d]) = call_args(&l, lib.to_bool).as_deref() {
         return Ok(Some(BoolForm::ToBool(p.clone(), d.clone())));
+    }
+    // `m == n` on numbers: the test of `Nat.decEq m n`, which it computes to.
+    if let Some([x, y]) = call_args(&l, lib.nat_equal).as_deref() {
+        let nat = Rc::new(Value::Data(lib.nat, Vec::new().into()));
+        let p = Value::Eq(
+            nat.into(),
+            Rc::new(x.clone()).into(),
+            Rc::new(y.clone()).into(),
+        );
+        let d = apps(
+            Term::Def(lib.nat_dec_eq),
+            vec![cx.quote_folded(x)?, cx.quote_folded(y)?],
+        );
+        return Ok(Some(BoolForm::ToBool(p, cx.eval(&d)?)));
+    }
+    // `x == y` on `Int`s: the test of `Int.decEq x y`, a field of that call.
+    if let Value::Neutral(Head::Def(id), spine) = &l
+        && *id == lib.int_dec_eq
+        && let [Elim::App(x, _), Elim::App(y, _), Elim::Proj(_, 0)] = &spine[..]
+    {
+        let int = Rc::new(Value::Data(lib.int, Vec::new().into()));
+        let p = Value::Eq(
+            int.into(),
+            Rc::new(x.clone()).into(),
+            Rc::new(y.clone()).into(),
+        );
+        let d = Value::Neutral(Head::Def(*id), spine[..2].to_vec().into());
+        return Ok(Some(BoolForm::ToBool(p, d)));
     }
     if let Some([p]) = call_args(&l, lib.bool_not).as_deref() {
         return Ok(Some(BoolForm::Not(p.clone())));
@@ -1643,7 +1675,7 @@ impl Reader<'_> {
                             Some(BoolForm::Leq(x, y)) => {
                                 self.facts.push(fact(Kind::NotLe, false, &x, &y));
                             }
-                            // `Not (Decidable.toBool d = True)`, and the
+                            // `Not (Decidable.holds d = True)`, and the
                             // same on `Int`: `= False` first.
                             Some(
                                 BoolForm::ToBool(..)

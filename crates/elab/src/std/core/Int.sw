@@ -75,14 +75,14 @@ theorem Int.negSuccInjective [m: Nat] [n: Nat] (p: NegSucc m = NegSucc n): m = n
 
 --| Decides whether two `OfNat`s are equal, from a decision about their numbers.
 def Int.decOfNat (m: Nat) (n: Nat) (dec: Decidable (m = n)): Decidable (OfNat m = OfNat n) :=
-  Decidable.elim dec (p => Decidable.yes (Eq.cong OfNat p)) (r => Decidable.no (p => r (Int.ofNatInjective m n p)))
+  Decidable.map dec (Eq.cong OfNat) (Int.ofNatInjective m n)
 
 --| Decides whether two `NegSucc`s are equal, from a decision about their numbers.
 def Int.decNegSucc (m: Nat) (n: Nat) (dec: Decidable (m = n)): Decidable (NegSucc m = NegSucc n) :=
-  Decidable.elim dec (p => Decidable.yes (Eq.cong NegSucc p)) (r => Decidable.no (p => r (Int.negSuccInjective p)))
+  Decidable.map dec (Eq.cong NegSucc) (p => Int.negSuccInjective p)
 
---| For two integers this computes `Decidable.yes rfl` or a `Decidable.no` of constant size,
---| however big they are, since [`Nat.decEq`] does.
+--| Its test is [`Nat.equal`] on the numbers, for two of the same sign, so it
+--| runs natively however big they are.
 def Int.decEq: (a: Int) → (b: Int) → Decidable (a = b)
   | OfNat m, OfNat n => Int.decOfNat m n (Nat.decEq m n)
   | OfNat m, NegSucc n => Decidable.no (Int.ofNatNotNegSucc m n)

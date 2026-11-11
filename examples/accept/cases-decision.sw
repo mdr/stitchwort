@@ -1,7 +1,7 @@
 -- `cases`' decision closer (docs/proposals/decide.md §6.1.2): a case that no
 -- other closer proves, with nothing left to split, is closed by running the
--- goal's decision procedure, as `auto` does, when it says `Yes`. The proof
--- is `auto`'s, `Decidable.fromYes d Trivial`, which the kernel runs again.
+-- goal's decision procedure, as `auto` does, when its test is `True`. The
+-- proof is `auto`'s, `d.sound rfl`, which the kernel runs again.
 import Std (Bool, List, Nat, Void)
 
 type Key =
@@ -15,7 +15,7 @@ def keys: List Key := [K0, K1, K2]
 -- `omega` proves a disjunction of equations of keys.
 theorem inKeys: K1 ∈ keys := cases
 
--- `Decidable.or` decides left to right: a left side that decides `Yes` is
+-- `Decidable.or` decides left to right: a left side whose test is `True` is
 -- enough, with the right side stuck on `flag`.
 theorem leftYes (flag: Bool): (K1 ∈ keys) ∨ (flag = True) := cases
 

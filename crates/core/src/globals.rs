@@ -304,7 +304,7 @@ impl Def {
 
 /// A decision procedure for an exported function's proof parameter `param`,
 /// in the context of the parameters before it. Extracted JS runs it on the
-/// decoded inputs, and rejects them unless it says `Yes`.
+/// decoded inputs, and rejects them unless its test is `True`.
 #[derive(Clone)]
 pub struct Validator {
     pub param: usize,

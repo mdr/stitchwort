@@ -230,31 +230,27 @@ fn edge_cases_agree_in_both_modes() {
 }
 
 /// R2 test 2: `Int.decEq`'s whole result, proofs included, is the same with
-/// natives on and off; and it's `Yes rfl` when the integers are equal.
+/// natives on and off; and its test is `True` exactly when the integers are
+/// equal.
 #[test]
 fn decisions_agree_in_both_modes() {
     with_stack(STACK, || {
         let mut session = Session::eager();
         let g = &mut session.elab.kernel;
         let dec_eq = def(&g.ev(), "Int.decEq");
-        let (_, yes) = g.env.registry().ctor(Builtin::Yes).expect("`Yes`");
+        let (bool_, yes) = g.env.registry().ctor(Builtin::True).expect("`True`");
+        let tru = Value::Ctor(bool_, yes, Vec::new().into());
         for a in -6..=6i64 {
             for b in -6..=6i64 {
                 let (v, nf) = run(g, dec_eq, &[ex(int(&g.ev(), a)), ex(int(&g.ev(), b))], 0);
-                let Value::Ctor(_, c, fields) = &v else {
+                let Value::Ctor(_, _, fields) = &v else {
                     panic!("Int.decEq {a} {b}: {nf}")
                 };
+                let holds = value::conv(&g.ev(), 0, &fields[0], &tru).unwrap();
                 if a == b {
-                    assert_eq!(*c, yes, "Int.decEq {a} {b}: {nf}");
-                    // A folded theorem's call (`Eq.cong`) that unfolds to
-                    // `refl`.
-                    let p = fields.last().unwrap();
-                    assert!(
-                        value::conv(&g.ev(), 0, p, &Value::Refl).unwrap(),
-                        "Int.decEq {a} {b}: {nf}"
-                    );
+                    assert!(holds, "Int.decEq {a} {b}: {nf}");
                 } else {
-                    assert_ne!(*c, yes, "Int.decEq {a} {b}: {nf}");
+                    assert!(!holds, "Int.decEq {a} {b}: {nf}");
                 }
             }
         }
@@ -356,8 +352,13 @@ fn open_terms_agree_in_both_modes() {
             2,
         );
 
-        // Decisions: different constructors decide at once, whatever the
-        // fields; the same constructor waits for its fields.
+        // Decisions: a record whose test is decided at once for different
+        // constructors, whatever the fields; for the same constructor, the
+        // test waits for the fields.
+        let test = |v: &Value| match v {
+            Value::Ctor(_, 0, fields) => Some(fields[0].clone()),
+            _ => None,
+        };
         for args in [
             [
                 ex(of_nat(&g.ev(), x.clone())),
@@ -369,7 +370,8 @@ fn open_terms_agree_in_both_modes() {
             ],
         ] {
             let (v, nf) = run(g, def(&g.ev(), "Int.decEq"), &args, 2);
-            assert!(matches!(v, Value::Ctor(..)), "{nf}");
+            let t = value::force(&g.ev(), test(&v).expect(&nf)).unwrap();
+            assert!(matches!(t, Value::Ctor(..)), "{nf}");
         }
         for args in [
             [
@@ -387,7 +389,8 @@ fn open_terms_agree_in_both_modes() {
             ],
         ] {
             let (v, nf) = run(g, def(&g.ev(), "Int.decEq"), &args, 2);
-            assert!(matches!(v, Value::Neutral(..)), "{nf}");
+            let t = value::force(&g.ev(), test(&v).expect(&nf)).unwrap();
+            assert!(matches!(t, Value::Neutral(..)), "{nf}");
         }
         // `OfNat (x + 2) = OfNat 1` is decided: `x + 2` isn't `1`.
         let args = [
@@ -395,7 +398,8 @@ fn open_terms_agree_in_both_modes() {
             ex(of_nat(&g.ev(), nat(1))),
         ];
         let (v, nf) = run(g, def(&g.ev(), "Int.decEq"), &args, 1);
-        assert!(matches!(v, Value::Ctor(..)), "{nf}");
+        let t = value::force(&g.ev(), test(&v).expect(&nf)).unwrap();
+        assert!(matches!(t, Value::Ctor(..)), "{nf}");
 
         // Division: an unknown divisor is stuck (the zero case needs to see
         // it); an unknown dividend over a known divisor computes to a
@@ -656,10 +660,11 @@ fn big_values_agree_with_an_independent_implementation() {
     ];
     let ops: Vec<(&str, DefId)> = names.iter().map(|op| (*op, def(&g.ev(), op))).collect();
     let dec_eq = def(&g.ev(), "Int.decEq");
-    let (_, yes) = g.env.registry().ctor(Builtin::Yes).unwrap();
+    let (bool_, yes) = g.env.registry().ctor(Builtin::True).unwrap();
+    let tru = Value::Ctor(bool_, yes, Vec::new().into());
     // The largest normal form of a decision seen so far, not counting the
-    // digits of the numbers in it: for `Yes`, and for `No` by the signs.
-    let mut sizes = [None::<usize>; 5];
+    // digits of the numbers in it, by the signs.
+    let mut sizes = [None::<usize>; 6];
     for a in &values {
         for d in &values {
             // Truncating, then Leijen's corrections.
@@ -696,16 +701,17 @@ fn big_values_agree_with_an_independent_implementation() {
                 &[ex(big_int(&g.ev(), a)), ex(big_int(&g.ev(), d))],
                 0,
             );
-            let Value::Ctor(_, c, _) = v else {
+            let Value::Ctor(_, _, fields) = &v else {
                 panic!("Int.decEq {a} {d}: {nf}")
             };
-            assert_eq!(c == yes, a == d, "Int.decEq {a} {d}: {nf}");
+            let holds = value::conv(&g.ev(), 0, &fields[0], &tru).unwrap();
+            assert_eq!(holds, a == d, "Int.decEq {a} {d}: {nf}");
             let size = nf.chars().filter(|c| !c.is_ascii_digit()).count();
             let negative = |i: &BigInt| usize::from(i.sign() == Sign::Minus);
-            let shape = if c == yes {
-                0
+            let shape = if holds {
+                negative(a)
             } else {
-                1 + 2 * negative(a) + negative(d)
+                2 + 2 * negative(a) + negative(d)
             };
             let seen = &mut sizes[shape];
             match seen {
