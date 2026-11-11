@@ -30108,9 +30108,9 @@
     {
       "id": 2848,
       "title": "Debug-only panics go unseen (examples run the release CLI): debug_assert in lift::go_replace that a free index is below depth + under, with a clear message; search_at::a_goal_that_takes_too_long_to_open_reports_running_out takes 176 s in debug vs 1.7 s release: mark slow or make cheaper (SW-2842)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "DeepSeek",
-      "where": "",
+      "where": ".claude/worktrees/scratch-sw-2848",
       "labels": [],
       "epic": "test-infra",
       "body": "",
@@ -30319,9 +30319,9 @@
     {
       "id": 2864,
       "title": "DecEq.trueOfNe (same => …) can't infer same's type when the goal is (a + a != n) = True: the lambda is elaborated before the result type is unified (SW-2831)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Sonnet",
-      "where": "",
+      "where": ".claude/worktrees/SW-2864",
       "labels": [],
       "epic": "elaborator-kernel",
       "body": "",
