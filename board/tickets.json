@@ -29840,12 +29840,12 @@
     {
       "id": 2828,
       "title": "rewrite h in rfl with h: Nat.equal m n = True on (if m = n then 1 else 0) = 1 fails with E-CANNOT-INFER, on main before and after SW-2812: bug in carrying through Nat.decEq or in the message",
-      "status": "doing",
+      "status": "review",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-2828",
       "labels": [],
       "epic": "proof-automation",
-      "body": "Found by SW-2812. Repro:\n```\nimport Std (Bool, Eq, Nat)\n\ntheorem c (m: Nat) (n: Nat) (h: Nat.equal m n = True): (if m = n then 1 else 0) = 1 :=\n  rewrite h in rfl\n```",
+      "body": "Found by SW-2812. Repro:\n```\nimport Std (Bool, Eq, Nat)\n\ntheorem c (m: Nat) (n: Nat) (h: Nat.equal m n = True): (if m = n then 1 else 0) = 1 :=\n  rewrite h in rfl\n```\n\nProgress (11 Nov, Opus lane): cause found and fixed. The usual motive fails (the decision's `sound` is typed by `Nat.equal m n = True`), so rewrite carries `Nat.decEq`'s proofs along the equation (carry.rs). Its proofs are lambdas (`h => Nat.equalSound m n h`), and carrying built the redexes `(h => S) e` and `(h => C) h'`; the kernel can't infer a lambda's type, so checking the motive failed with the kernel's E-CANNOT-INFER. Only decisions whose proofs are calls (as in rewrite-decision-plain-first) worked. Fix in `Carry::carried`: a lambda `sound` takes the carried proof through a `let` typed `s = True`; a lambda `complete` takes its argument, a variable, by substitution. Example examples/accept/rewrite-decision-lambda-proofs.sw with its hash snapshot. Tests: the repro checks; EXAMPLES=rewrite-decision-lambda-proofs,rewrite-decision running examples tests 3/3 pass; hash_stability::examples for the new example passes. Commit 8405657db.\n",
       "created": "2026-11-11",
       "updated": "2026-11-11",
       "commits": []
