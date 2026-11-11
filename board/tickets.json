@@ -1,5 +1,5 @@
 {
-  "next": 2936,
+  "next": 2938,
   "tickets": [
     {
       "id": 47,
@@ -31207,7 +31207,7 @@
     {
       "id": 2932,
       "title": "[Sonnet] Tests run despite errors elsewhere: run every test whose dependencies all check; a test that depends on a declaration with an error fails with that error as its reason; errors still reported and the run still exits non-zero (D3523)",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
@@ -31251,6 +31251,32 @@
       "where": "",
       "labels": [],
       "epic": "test-infra",
+      "body": "",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2936,
+      "title": "[Sonnet] kache served a stale stitchwort-elab to a fresh worktree's cli build (new methods missing until RUSTC_WRAPPER= and a clean): a compiler cache returning wrong artifacts; reproduce and fix the cache key or disable the case (SW-2932)",
+      "status": "next",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "dev-loop-speed",
+      "body": "",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2937,
+      "title": "[DeepSeek] stitchwort test labels a test that failed without running (unfinished ?, broken dependency) as 'ran'; label it 'not run' (SW-2909, SW-2932)",
+      "status": "backlog",
+      "agent": "DeepSeek",
+      "where": "",
+      "labels": [],
+      "epic": "diagnostics",
       "body": "",
       "created": "2026-11-11",
       "updated": "2026-11-11",
