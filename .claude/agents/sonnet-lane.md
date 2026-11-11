@@ -15,8 +15,9 @@ Before anything else, read `CLAUDE.md` at the repo root and follow it: the
 - Tests: minimal and tactical (Matt, 11 Nov 2026). Run a select few tests
   by name: the ones you added and the ones your change could break, one
   command at a time, each under about two minutes. Never run a whole test
-  binary or package, the examples suite, a std-wide audit, an `aoc/` or
-  `games/rogue` check (cached or not), the benchmark, or a workspace-wide
+  binary or package, the examples suite, a std-wide audit, a whole-project `aoc/`
+  or `games/rogue` check (cached or not; checking the one AoC day or
+  roguelike namespace you edited is fine, D3517), the benchmark, or a workspace-wide
   build of test targets: the verifier and the tiers do that after merging.
   If you think you need one, stop and ask the orchestrator. Prefix builds
   and tests with `nice -n 15`. A brief may allow more only with Matt's
