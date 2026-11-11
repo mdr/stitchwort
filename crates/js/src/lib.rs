@@ -4506,6 +4506,59 @@ impl<'g> Gen<'g> {
         }
     }
 
+    /// Whether a call of `id` with `args` arguments is worth replacing by the
+    /// definition's body: `Decidable.and`, `andThen`, `or` and `not`, and `m < n`
+    /// on `Nat`, fully applied. Their bodies are one expression and build a
+    /// decision, stored as its test (a name list, since other `Decidable`
+    /// definitions match, which an unfolded body can't).
+    fn unfolds_decision(&self, id: DefId, args: usize) -> bool {
+        let def = self.g.def(id);
+        let path: &str = def.path();
+        matches!(
+            path,
+            "Std.Decidable.and"
+                | "Std.Decidable.andThen"
+                | "Std.Decidable.or"
+                | "Std.Decidable.not"
+                | "Std.Nat.decLessThan"
+        ) && args >= def.arity()
+            && !self.is_native(id)
+    }
+
+    /// The body of the definition `id`, whose run-time `body` is a lambda
+    /// per parameter, with `args` in place of the parameters (and any
+    /// arguments beyond them applied to it). None unless each parameter is
+    /// used at most once and never matched on, so that no argument is
+    /// computed twice or has to be a variable. An argument is then computed
+    /// where the body uses it, in a branch if that's where it is.
+    fn unfold(&self, body: &Term, id: DefId, args: &[&Term]) -> Fallible<Option<Term>> {
+        let arity = self.g.def(id).arity();
+        let mut out = body;
+        for _ in 0..arity {
+            let Term::Lam(_, _, inner) = out.strip_loc() else {
+                return Ok(None);
+            };
+            out = inner;
+        }
+        // What the body is at run time: a decision is its test, so its
+        // proofs and `holds` are gone, and a parameter is not matched on.
+        let mut out = out.rewrite_up(self.g, &mut |t| Ok(self.passed_through(t)))?;
+        for j in (0..arity).rev() {
+            let uses = out
+                .subterms()
+                .filter(|(t, binders)| matches!(t, Term::Var(ix) if *ix == *binders))
+                .count();
+            if uses > 1 || scrutinised(&out) {
+                return Ok(None);
+            }
+            out = out.instantiate(self.g, &args[j].shift(self.g, j, 0)?)?;
+        }
+        for arg in &args[arity..] {
+            out = Term::app(out, (*arg).clone());
+        }
+        Ok(Some(out))
+    }
+
     /// [`Gen::def_ref`], without building a closed map once.
     fn def_call(&self, id: DefId, args: &[&Term], env: &mut Vec<bool>) -> Fallible<String> {
         // In an expression, a conditional, with no closures for the branches.
@@ -4524,6 +4577,15 @@ impl<'g> Gen<'g> {
                 "({cond}.tag === {} ? {then} : {otherwise})",
                 js_string_literal(&tag)
             ));
+        }
+        // A decision combinator's body is a conditional on its operands'
+        // tests, so a call is that conditional, not a call of a helper that
+        // takes the second operand as a closure.
+        if self.unfolds_decision(id, args.len())
+            && let Some(head) = self.g.def(id).run_body()
+            && let Some(unfolded) = self.unfold(head, id, args)?
+        {
+            return self.expr(&unfolded, env);
         }
         if Some(id) == self.ord_compare
             && let [_, instance, rest @ ..] = args

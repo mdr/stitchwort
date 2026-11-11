@@ -29803,12 +29803,12 @@
     {
       "id": 2825,
       "title": "JS extraction after Decidable stage 3: a decided if compiles to calls of Decidable.elim and its %match1 helper (and andThen with closures) instead of an inline ternary; inline elim, andThen and decLessThan as the JS backend did for Bool.ifThenElse (extraction snapshots, 11 Nov)",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2825",
       "labels": [],
       "epic": "effects-native",
-      "body": "",
+      "body": "\n\nProgress (Sonnet, 11 Nov): Decidable.elim was already an inline conditional in crates/js (Gen::conditional); what remained were calls of andThen/and/or and Nat.decLessThan. Gen::unfold (crates/js/src/lib.rs) now replaces a full call of those five by their run-time body (decision = its test, so proofs/holds vanish via passed_through), when each parameter is used at most once. inRange is back to the pre-stage-3 form. 9 snapshots shrank; the elim helper and Bool.not calls are unchanged. Tests: generated_code_is_stable and extract:: (60 tests) pass. Commit 23a3c7949 on lane/SW-2825.\n",
       "created": "2026-11-11",
       "updated": "2026-11-11",
       "commits": []

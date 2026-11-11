@@ -903,7 +903,7 @@ const $Main$dCounter$d$gdecEq = (v0, v1) => {
   const v3 = v0.delta;
   const v4 = v1.count;
   const v5 = v1.delta;
-  return $Std$dDecidable$dandThen($Std$dSafeNat$dinstDecEq(v2)(v4), ((v6) => $Std$dSafeInt$dinstDecEq(v3)(v5)));
+  return ($Std$dSafeNat$dinstDecEq(v2)(v4).tag === "True" ? $Std$dSafeInt$dinstDecEq(v3)(v5) : { tag: "False" });
 };
 const $Main$dbump = (v0) => $Std$dSafeNat$dofNat($Std$dNat$dadd($Main$dCounter$dcount(v0), $Std$dInt$dtoNat($Main$dCounter$ddelta(v0))));
 const $Main$dsumAll = (v0) => $Std$dSafeNat$dofNat($Std$dList$dfoldLeft$e(v0, 0n, ((v1) => ((v2) => $Std$dNat$dadd(v1, v2)))));
