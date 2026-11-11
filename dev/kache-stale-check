@@ -1,0 +1,66 @@
+#!/bin/bash
+# Does kache serve a stale artifact? (SW-2936; docs/workflow.md, "kache and
+# stale artifacts".) Run from the main checkout or a lane, inside `nix develop`:
+#
+#   task kache:check
+#
+# In a temporary worktree under .claude/worktrees (so the lane cargo config and
+# its kache switches apply), it builds elab once, so that kache holds an input
+# record for it; then edits elab, starts a second build, and edits elab again
+# while that build's rustc runs (the lane's editor saving during a compile);
+# then builds with no further edit. The last build must contain the second
+# edit. Kache 1.0.0 without the switches in the Taskfile's KACHE_CONFIG_SETUP
+# fails here: the final build is a hit on the artifact of the old code.
+#
+# Adaptive incremental is switched off for the run, since it hides the bug by
+# compiling an edited crate outside the cache. About 1 to 2 minutes; deletes
+# its worktree at the end.
+set -eu
+
+common=$(git rev-parse --path-format=absolute --git-common-dir)
+main=$(dirname "$common")
+cfg="$main/.claude/worktrees/.cargo/config.toml"
+# KACHE_CHECK_SKIP_CONFIG=1 skips this, for trying the check against kache's
+# defaults or a switch set in the environment instead.
+if [ -z "${KACHE_CHECK_SKIP_CONFIG:-}" ]; then
+  for want in KACHE_DEFERRED_DISCOVERY KACHE_MODIFIED_INPUT_GUARD; do
+    grep -q "^$want" "$cfg" 2>/dev/null || {
+      echo "$cfg lacks $want: run 'task kache:config' first" >&2
+      exit 2
+    }
+  done
+fi
+
+tree="$main/.claude/worktrees/kache-check-$$"
+scratch=$(mktemp -d)
+trap 'git -C "$main" worktree remove --force "$tree" >/dev/null 2>&1 || true; rm -rf "$scratch"' EXIT
+git -C "$main" worktree add -q --detach "$tree" HEAD
+printf '[cache]\nadaptive_incremental = false\n' >"$scratch/kache.toml"
+export KACHE_CONFIG="$scratch/kache.toml"
+cd "$tree"
+
+marker=$RANDOM$RANDOM
+add_method() {
+  printf '\nimpl BrokenTest {\n    pub fn %s_%s(&self) -> usize { self.name.len() + 1 }\n}\n' "$1" "$marker" >>crates/elab/src/lib.rs
+}
+
+nice -n 15 cargo build -q -p stitchwort-elab 2>&1 | tail -3
+add_method first
+nice -n 15 cargo build -q -p stitchwort-elab >"$scratch/build.log" 2>&1 &
+build=$!
+for _ in $(seq 1 600); do
+  pgrep -f "crate-name stitchwort_elab" >/dev/null && break
+  sleep 0.2
+done
+sleep 6
+add_method second
+wait "$build"
+nice -n 15 cargo build -q -p stitchwort-elab 2>&1 | tail -3
+
+if cat target/debug/deps/libstitchwort_elab-*.rmeta | grep -a -q "second_$marker"; then
+  echo "kache-check: ok, the build after the edit made during a compile has the edit"
+else
+  echo "kache-check: STALE: kache served an elab without the edit saved during its compile" >&2
+  echo "(see docs/workflow.md, 'kache and stale artifacts')" >&2
+  exit 1
+fi
