@@ -29762,7 +29762,7 @@
     {
       "id": 2822,
       "title": "Kernel assumptions follow-ups (Fable review of SW-2804): assume refuses a label already in use (F3); relied_on follows Term::Nat, NumCase, Chars like the hasher, with tests through a data field, validator, run body and unfolding list (F4); add_validator and float::register_def refuse an assumption (F5, F6); relied_on roots for data types (F8); docs/core.md gaps and stale comments at value.rs:2582 and erase.rs:39 (docs/reviews/SW-2804-assumptions-review.md)",
-      "status": "review",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-2822",
       "labels": [],
@@ -29816,7 +29816,7 @@
     {
       "id": 2826,
       "title": "Merge tier can't pass: memguard (4 GB cap) kills it because build::native_code_out_of_frames_reports_as_run_does's runaway native program reaches ~5-6 GB before its frame limit; lower the program's frame limit in the test or its memory, so the merge tier fits its cap (11 Nov)",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2826",
       "labels": [],
