@@ -1,5 +1,5 @@
 {
-  "next": 2825,
+  "next": 2827,
   "tickets": [
     {
       "id": 47,
@@ -29793,6 +29793,32 @@
       "where": "",
       "labels": [],
       "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2825,
+      "title": "JS extraction after Decidable stage 3: a decided if compiles to calls of Decidable.elim and its %match1 helper (and andThen with closures) instead of an inline ternary; inline elim, andThen and decLessThan as the JS backend did for Bool.ifThenElse (extraction snapshots, 11 Nov)",
+      "status": "next",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "effects-native",
+      "body": "",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2826,
+      "title": "Merge tier can't pass: memguard (4 GB cap) kills it because build::native_code_out_of_frames_reports_as_run_does's runaway native program reaches ~5-6 GB before its frame limit; lower the program's frame limit in the test or its memory, so the merge tier fits its cap (11 Nov)",
+      "status": "next",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
       "body": "",
       "created": "2026-11-11",
       "updated": "2026-11-11",
