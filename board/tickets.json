@@ -1,5 +1,5 @@
 {
-  "next": 2822,
+  "next": 2823,
   "tickets": [
     {
       "id": 47,
@@ -29546,7 +29546,7 @@
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "\nFrom stage 1 (SW-2804): code that treats a bodiless finished declaration as a primitive must handle assumptions: crates/js/src/run.rs:136, js/src/lib.rs:2708, rt/src/lower.rs:481 and :651, elab/src/cache/mod.rs:1474 and :1604, rt test filters in lower.rs and differential.rs. Check cache keeps skipping namespaces with or relying on goals until stage 5. A goal whose type mentions an unfinished declaration is E-MALFORMED in the kernel: fall back to today's behaviour before calling assume. Stage 3 reports reliance via core's assumption::relied_on.",
+      "body": "\nFrom stage 1 (SW-2804): code that treats a bodiless finished declaration as a primitive must handle assumptions: crates/js/src/run.rs:136, js/src/lib.rs:2708, rt/src/lower.rs:481 and :651, elab/src/cache/mod.rs:1474 and :1604, rt test filters in lower.rs and differential.rs. Check cache keeps skipping namespaces with or relying on goals until stage 5. A goal whose type mentions an unfinished declaration is E-MALFORMED in the kernel: fall back to today's behaviour before calling assume. Stage 3 reports reliance via core's assumption::relied_on.\nFable review F2 (high): State::Final no longer means finished, but driver audit.rs:204 maps it to Checked, axioms.rs ignores Def::assumption, nothing outside tests calls relied_on. Stage 2 must land with stage 3's gates, or keep marking reliers unfinished until then. (docs/reviews/SW-2804-assumptions-review.md)",
       "created": "2026-11-11",
       "updated": "2026-11-11",
       "commits": []
@@ -29598,7 +29598,7 @@
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "\nFable review F1 (high): under a false goal, an erased proof-typed assumption can give a mistyped value (h: Nat = Bool := ?; h ▸ 0 runs as 0 at Bool) or reach panic! 'impossible branch' (value.rs:2312, pick False ?). Check rt, native and JS on both, turn the panic into a diagnostic naming the goal, and bring the result to Matt before shipping (D3507). F7: rt lower.rs:130, js lib.rs:1001, js run.rs:152 say 'hasn't been checked successfully' for a data-typed assumption: name the open goal. (docs/reviews/SW-2804-assumptions-review.md)",
       "created": "2026-11-11",
       "updated": "2026-11-11",
       "commits": []
@@ -29754,6 +29754,19 @@
       "where": "",
       "labels": [],
       "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2822,
+      "title": "Kernel assumptions follow-ups (Fable review of SW-2804): assume refuses a label already in use (F3); relied_on follows Term::Nat, NumCase, Chars like the hasher, with tests through a data field, validator, run body and unfolding list (F4); add_validator and float::register_def refuse an assumption (F5, F6); relied_on roots for data types (F8); docs/core.md gaps and stale comments at value.rs:2582 and erase.rs:39 (docs/reviews/SW-2804-assumptions-review.md)",
+      "status": "next",
+      "agent": "Opus",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
       "body": "",
       "created": "2026-11-11",
       "updated": "2026-11-11",
