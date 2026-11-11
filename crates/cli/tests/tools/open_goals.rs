@@ -1,7 +1,8 @@
 //! `check: open-goals:` in `stitchwort.yaml` (SW-2762, D3489, D3494), end to
 //! end: `check` reports open goals as warnings under `warn`, `audit` doesn't
 //! change, `test` skips tests that use an unfinished declaration (D3500), and
-//! a bad value is a project-file error.
+//! a bad value is a project-file error. What uses an open goal is checked
+//! assuming it holds, and stays unfinished (SW-2805).
 
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output, Stdio};
@@ -156,6 +157,50 @@ fn an_unknown_key_under_check_names_the_known_one() {
     assert_eq!(out.status.code(), Some(1), "{stderr}");
     assert!(
         stderr.contains("the known key under `check:` is `open-goals`"),
+        "{stderr}"
+    );
+}
+
+/// What uses an open goal is checked by the kernel assuming the goal holds
+/// (docs/proposals/using-unfinished-proofs.md, SW-2805): a proof that goes
+/// round in circles is an error now, not when the goal is filled. What
+/// relies on a goal is still unfinished: `audit` fails it, and a use that
+/// has to compute through a `?` is unfinished rather than an error.
+#[test]
+fn users_of_an_open_goal_are_checked_and_stay_unfinished() {
+    let dir = project("users", "check:\n  open-goals: warn\n");
+    std::fs::write(
+        dir.join("src/u.sw"),
+        "namespace Book\n\n\
+         theorem uses (n: Nat): 0 + n = n := exercise n\n\n\
+         theorem twoIsTwo: two = two := rfl\n\n\
+         theorem twoIsThree: two = 3 := rfl\n",
+    )
+    .unwrap();
+    let out = stitchwort(&dir, &["check"]);
+    let stderr = text(&out.stderr);
+    assert_eq!(out.status.code(), Some(0), "{stderr}");
+    let audit = stitchwort(&dir, &["audit", "--no-search"]);
+    let stdout = text(&audit.stdout);
+    assert_eq!(audit.status.code(), Some(1), "{stdout}");
+    for name in ["Book.uses", "Book.twoIsTwo", "Book.twoIsThree"] {
+        assert!(
+            stdout.contains(&format!("✗ {name}\n    fail: unfinished")),
+            "{stdout}"
+        );
+    }
+    std::fs::write(
+        dir.join("src/u.sw"),
+        "namespace Book\n\n\
+         theorem circular (n: Nat): 0 + n = n := let _ := exercise n; circular n\n",
+    )
+    .unwrap();
+    let out = stitchwort(&dir, &["check"]);
+    let _ = std::fs::remove_dir_all(&dir);
+    let stderr = text(&out.stderr);
+    assert_eq!(out.status.code(), Some(1), "{stderr}");
+    assert!(
+        stderr.contains("can't show that `Book.circular` terminates"),
         "{stderr}"
     );
 }

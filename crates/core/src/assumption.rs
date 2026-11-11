@@ -41,12 +41,20 @@ impl From<DataId> for Decl {
 /// included). Empty means none is used. Declarations that aren't final are
 /// walked as far as they have terms.
 pub fn relied_on(g: &Ev, roots: &[Decl]) -> BTreeSet<DefId> {
+    relied_on_skipping(g, roots, &|_| false)
+}
+
+/// [`relied_on`], not walking into the declarations `skip` names: the
+/// caller knows they rely on no assumption (they were final before any
+/// assumption was made, say). A skipped declaration that does rely on one
+/// hides it, so `skip` must be sure.
+pub fn relied_on_skipping(g: &Ev, roots: &[Decl], skip: &dyn Fn(Decl) -> bool) -> BTreeSet<DefId> {
     let builtins = g.env.builtins();
     let mut found = BTreeSet::new();
     let mut seen: HashSet<Decl> = HashSet::default();
     let mut pending: Vec<Decl> = roots.to_vec();
     while let Some(node) = pending.pop() {
-        if !seen.insert(node) {
+        if !seen.insert(node) || skip(node) {
             continue;
         }
         let mut terms: Vec<&Term> = Vec::new();

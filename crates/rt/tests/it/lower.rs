@@ -29,8 +29,11 @@ fn well_formed(program: &Program, what: &str) {
 /// Every definition with a body (or a primitive), lowered together.
 fn lower_everything(session: &Session, what: &str) -> usize {
     let g = &session.elab.ev();
+    // Not what relies on an open goal: it may reach the goal's assumption,
+    // which has nothing to run.
     let ids: Vec<DefId> = (0..g.env.defs().len())
         .map(DefId)
+        .filter(|id| !session.elab.is_unfinished(*id))
         .filter(|id| g.def(*id).body().is_some() || g.env.builtins().primitive(*id).is_some())
         .collect();
     let program = lower_definitions(g, session.elab.options.limits, &ids)

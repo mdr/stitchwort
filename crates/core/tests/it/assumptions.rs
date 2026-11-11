@@ -10,7 +10,7 @@
 use std::rc::Rc;
 
 use crate::common::*;
-use stitchwort_core::assumption::{Decl, relied_on};
+use stitchwort_core::assumption::{Decl, relied_on, relied_on_skipping};
 use stitchwort_core::check;
 use stitchwort_core::globals::{Assumption, State};
 use stitchwort_core::hash::{ContentHash, def_hash};
@@ -380,6 +380,36 @@ fn reliance_is_read_off_the_checked_terms() {
             .collect::<Vec<_>>(),
         vec![goal]
     );
+}
+
+#[test]
+fn a_skipped_declaration_is_not_walked() {
+    let mut p = Prelude::new();
+    let goal = add_comm_goal(&mut p);
+    let nat = p.nat_ty();
+    let (one, two) = (p.num(1), p.num(2));
+    let statement = eq(
+        Some(nat.clone()),
+        p.plus(one.clone(), two.clone()),
+        p.plus(two.clone(), one.clone()),
+    );
+    let direct = theorem(
+        &mut p.g,
+        "direct",
+        statement.clone(),
+        app(Term::Def(goal), [one, two]),
+    )
+    .unwrap();
+    let chained = theorem(&mut p.g, "chained", statement, Term::Def(direct)).unwrap();
+    let walk = |skip: &dyn Fn(Decl) -> bool| -> Vec<DefId> {
+        relied_on_skipping(&p.g.ev(), &[chained.into()], skip)
+            .into_iter()
+            .collect()
+    };
+    assert_eq!(walk(&|_| false), vec![goal]);
+    // The caller vouches for `direct`, so what it uses isn't looked at.
+    assert_eq!(walk(&|d| d == Decl::Def(direct)), Vec::<DefId>::new());
+    assert_eq!(walk(&|d| d == Decl::Def(goal)), Vec::<DefId>::new());
 }
 
 #[test]

@@ -635,10 +635,14 @@ impl Elaborator {
         // (`queue.rs`, W2).
         self.resume_before_lifting()?;
         if self.attempt.drafts.borrow().is_empty() {
+            self.assume_goals();
             return Ok(Vec::new());
         }
         self.solve_obligations()?;
         self.check_motives_later()?;
+        // Before the helpers are made: a goal in one is then its call of
+        // the assumption, which lifts like any other term.
+        self.assume_goals();
         let drafts = std::mem::take(&mut *self.attempt.drafts.borrow_mut());
         Ok(self.resolve_batch(owner, drafts, join)?.0)
     }

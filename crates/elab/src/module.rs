@@ -447,8 +447,12 @@ impl Elaborator {
             // Unfinished, not wrong: the only errors stand for open goals
             // (`goals::UNFINISHED`), which aren't reported as errors (D636).
             let unfinished = !errors.is_empty() && errors.iter().all(|c| *c == goals::UNFINISHED);
+            // Checked by the kernel assuming its goals, or those of what it
+            // uses, hold: still not finished (`assume.rs`).
+            let relying = !failed && self.mark_relying(&component, defs_before, datas_before);
             for &i in &component {
                 self.unit.module.items[i].status = match (failed, unfinished) {
+                    (false, _) if relying => Status::Unfinished,
                     (false, _) => Status::Checked,
                     (true, true) => Status::Unfinished,
                     (true, false) => Status::Failed,
@@ -504,6 +508,9 @@ impl Elaborator {
                 if component.len() == 1 && !ran_out {
                     self.note_counterexample(&items[component[0]], &mut diagnostics[before..]);
                 }
+            } else if relying && component.len() == 1 && !ran_out {
+                // A proof that is wholly `?`, checked assuming its goal.
+                self.note_counterexample(&items[component[0]], &mut diagnostics[before..]);
             }
             // A data type's `Ord`, waiting for its module's own `DecEq`
             // instance, once that instance is checked.

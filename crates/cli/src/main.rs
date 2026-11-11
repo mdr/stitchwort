@@ -1222,20 +1222,22 @@ fn report_allowed_goals(reported: &[Diagnostic]) {
         let s = if goals == 1 { "" } else { "s" };
         eprintln!(
             "{goals} goal{s} open, allowed by `check: open-goals: warn`: the declarations with \
-             them, and what uses them, aren't checked, and `stitchwort audit` fails them"
+             them, and what uses them, are checked assuming the goals hold, and `stitchwort \
+             audit` fails them"
         );
     }
 }
 
 /// "2 goals open", after the goals themselves, if there are any
 /// (docs/proposals/lsp-goal-holes.md, D636): a declaration with one isn't
-/// finished, and nor is anything that uses it, so none of them is checked.
+/// finished, and nor is anything that uses it, though the kernel checks
+/// them assuming the goals hold (docs/proposals/using-unfinished-proofs.md).
 fn report_goals(goals: usize) {
     if goals > 0 {
         let s = if goals == 1 { "" } else { "s" };
         eprintln!(
             "{goals} goal{s} open: the declarations with them, and what uses them, aren't \
-             finished, so they aren't checked"
+             finished: they're checked assuming the goals hold"
         );
     }
 }

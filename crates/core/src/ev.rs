@@ -88,6 +88,14 @@ pub trait Shown {
 
     /// Records that a message showed a term that uses a failed definition.
     fn note_failed_mentioned(&self) {}
+
+    /// Whether a message showing a call of final definition `id` counts as
+    /// showing a failed one ([`Shown::note_failed_mentioned`]): one checked
+    /// assuming an open goal holds, which a computation can be stuck on
+    /// (docs/core.md "Assumptions (open goals)").
+    fn waits_on_goal(&self, _id: DefId) -> bool {
+        false
+    }
 }
 
 /// No hints.

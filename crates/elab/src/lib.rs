@@ -9,6 +9,7 @@
 #[cfg(test)]
 use stitchwort_test_alloc as _;
 
+mod assume;
 mod attributes;
 mod auto;
 mod autobind;
@@ -377,6 +378,17 @@ impl stitchwort_core::Shown for Elaborator {
 
     fn note_failed_mentioned(&self) {
         self.decl.failed_mentioned.set(true);
+    }
+
+    /// A definition that relies on an open goal and computes: a comparison
+    /// that shows a call of it may be stuck on the goal's assumption, so
+    /// the error is "can't be checked until the goal is filled", not the
+    /// reader's mistake (docs/proposals/using-unfinished-proofs.md §4,
+    /// "Blocked users"). A theorem is a proof, which nothing computes with.
+    fn waits_on_goal(&self, id: DefId) -> bool {
+        self.tables
+            .is_unfinished(stitchwort_core::globals::HashKey::Def(id))
+            && !self.kernel.def(id).theorem()
     }
 }
 
@@ -786,11 +798,15 @@ impl Elaborator {
         }
     }
 
-    /// Whether definition `id` isn't checked by the kernel. In a session
-    /// that loaded without errors, that's an unfinished one: it, or
-    /// something it uses, has an open goal (`?`).
+    /// Whether definition `id` isn't finished: not checked by the kernel,
+    /// or checked assuming an open goal (`?`) holds (`assume.rs`). In a
+    /// session that loaded without errors, it, or something it uses, has
+    /// an open goal.
     pub fn is_unfinished(&self, id: DefId) -> bool {
         self.kernel.def(id).state() != stitchwort_core::globals::State::Final
+            || self
+                .tables
+                .is_unfinished(stitchwort_core::globals::HashKey::Def(id))
     }
 
     /// Whether the elaborator gave up on declaration `key` for an open
@@ -1474,6 +1490,12 @@ impl Elaborator {
                     }
                     _ => None,
                 })
+            }),
+            // Checked assuming an open goal holds: named as before, or by
+            // the declaration the goal is in.
+            Ok(()) => (self.relied_on([id], []).first()).and_then(|a| {
+                self.unfinished_use(id)
+                    .or_else(|| self.assumption_owner(*a))
             }),
             _ => None,
         };
