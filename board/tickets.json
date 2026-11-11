@@ -30567,13 +30567,13 @@
     },
     {
       "id": 2883,
-      "title": "SW-2879's note fires for a lambda's data parameter too: in reject/lambda-body-error-against-goal, x: ?a (a Type) gets ''s type isn't known yet here, so omega couldn't use it', which is noise (x is a value, not a fact). Emit it only when the hypothesis could be a fact: the unknown's own type is Prop, or an equality whose type is unknown (the SW-2879 cases), not a meta of sort Type; restore that example's message",
+      "title": "omega: SW-2879 note fires for a data parameter whose type is unknown (noise); emit it only when the hypothesis could be a fact",
       "status": "next",
       "agent": "DeepSeek",
       "where": "",
       "labels": [],
       "epic": "diagnostics",
-      "body": "",
+      "body": "In reject/lambda-body-error-against-goal, `x: ?a` (a value of an unknown Type) now gets \"`x`'s type isn't known yet here, so omega couldn't use it\": noise, since x is a value, not a fact. Emit the note only when the unknown could stand for a fact (its own type is Prop, or an equality whose type is unknown, the SW-2879 cases), not for a meta of sort Type; restore that example's message. (SW-2879)",
       "created": "2026-11-11",
       "updated": "2026-11-11",
       "commits": []
