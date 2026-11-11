@@ -19897,7 +19897,7 @@
     {
       "id": 2154,
       "title": "[Sonnet] Goals print a lifted match helper (f.%match1) as (match <scrutinees> with …), from the scrutinee positions the elaborator records; check first that the module cache keeps them for std's helpers",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [
@@ -31324,12 +31324,12 @@
     {
       "id": 2941,
       "title": "[DeepSeek] examples/goals/test-hole.sw fails goal_examples_report_their_goals since SW-2909 (a test whose body is ? now fails); update the example's comment and its expected outcome (expect-error header or harness) so it documents the SW-2909 rule",
-      "status": "doing",
+      "status": "review",
       "agent": "DeepSeek",
       "where": "",
       "labels": [],
       "epic": "test-infra",
-      "body": "",
+      "body": "\nModel result: DeepSeek, worked, ~12 min (est. 25). Added -- expect-test-failure: harness marker. Reviewed; waits for the next batch.",
       "created": "2026-11-11",
       "updated": "2026-11-11",
       "commits": []
