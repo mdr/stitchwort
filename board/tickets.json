@@ -1,5 +1,5 @@
 {
-  "next": 2772,
+  "next": 2775,
   "tickets": [
     {
       "id": 47,
@@ -28553,7 +28553,7 @@
     {
       "id": 2730,
       "title": "check hangs (no budget charged) on a mutant of reject/as-written-unconfirmed-slow-check.sw: hypothesis outer x k 0 vs match on outer x k 12 (elab fuzz 0x25a6 case 6639)",
-      "status": "doing",
+      "status": "review",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-2730",
       "labels": [],
@@ -29106,6 +29106,45 @@
       "where": "",
       "labels": [],
       "epic": "audit-fuzzing",
+      "body": "",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2772,
+      "title": "kernel::same_call_failures_do_not_repeat_work fails in debug on main (E-RESOURCE instead of E-REFL), found by SW-2730",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2773,
+      "title": "E-TYPE-MISMATCH prints unsolved implicit arguments (?3, ?4 of Option.someInjective) in as-written-unconfirmed-other-rounds without explicit arguments; and the W-MATCH-NOT-FOUND note about lambdas in the goal is irrelevant there (SW-2730)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "diagnostics",
+      "body": "",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2774,
+      "title": "same_term (pretty-printer, decreasing) is still uncharged after SW-2730 (bounded by the pair memo, but outside any budget); free_variables recomputed per closure layer, cache if it shows in a profile",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
       "body": "",
       "created": "2026-11-11",
       "updated": "2026-11-11",
