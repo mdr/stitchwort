@@ -6,6 +6,12 @@
 --| `Add` and `Mul` instances): order and subtraction facts proved by induction,
 --| then the division law and `n % d < d`.
 
+--| Adding zero on the left leaves the number alone (Lean's `Nat.zero_add`).
+theorem Nat.zeroAdd (n: Nat): 0 + n = n := rfl
+
+--| A successor on the left steps out of the sum (Lean's `Nat.succ_add`).
+theorem Nat.succAdd (m n: Nat): Succ m + n = Succ (m + n) := rfl
+
 theorem Nat.addCancelLeft (a b c: Nat) (h: a + b = a + c): b = c :=
   match a with
     | Zero => h
