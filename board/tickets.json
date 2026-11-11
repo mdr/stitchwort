@@ -19897,14 +19897,14 @@
     {
       "id": 2154,
       "title": "[Sonnet] Goals print a lifted match helper (f.%match1) as (match <scrutinees> with …), from the scrutinee positions the elaborator records; check first that the module cache keeps them for std's helpers",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "goals"
       ],
       "epic": "diagnostics",
-      "body": "From docs/proposals/goal-printing-gaps.md. Lane D, after SW-2151, SW-2152, SW-2153. Replaces SW-1004. 60 min.\n\n\n11 Nov (lane): printer prints a call of a lifted match helper as (match s1, s2 with …) from MatchColumns (Shown::match_columns; the cache already keeps them, rows.rs). examples/goals/lifted-match.sw; cases-int-arithmetic snapshot %match1 -> (match command with …). Not done: explain_lifted still text-based (no D229 note for printer-made forms); no std helper reproduced in a goal.\n",
+      "body": "From docs/proposals/goal-printing-gaps.md. Lane D, after SW-2151, SW-2152, SW-2153. Replaces SW-1004. 60 min.\n\n\n11 Nov (lane): printer prints a call of a lifted match helper as (match s1, s2 with …) from MatchColumns (Shown::match_columns; the cache already keeps them, rows.rs). examples/goals/lifted-match.sw; cases-int-arithmetic snapshot %match1 -> (match command with …). Not done: explain_lifted still text-based (no D229 note for printer-made forms); no std helper reproduced in a goal.\nReverted once (10 reject snapshots regressed: if printed as match, D229 note lost); fixed. Examples+goal tests 36/36. Model result: Sonnet, needed fixes (regressions its one-example run missed), ~40 min (est. 60).",
       "created": "2026-11-07",
       "updated": "2026-11-11",
       "commits": []
@@ -31324,7 +31324,7 @@
     {
       "id": 2941,
       "title": "[DeepSeek] examples/goals/test-hole.sw fails goal_examples_report_their_goals since SW-2909 (a test whose body is ? now fails); update the example's comment and its expected outcome (expect-error header or harness) so it documents the SW-2909 rule",
-      "status": "review",
+      "status": "done",
       "agent": "DeepSeek",
       "where": "",
       "labels": [],
