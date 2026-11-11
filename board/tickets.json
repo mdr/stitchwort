@@ -1,5 +1,5 @@
 {
-  "next": 2836,
+  "next": 2837,
   "tickets": [
     {
       "id": 47,
@@ -29939,6 +29939,19 @@
       "labels": [],
       "epic": "effects-native",
       "body": "",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2836,
+      "title": "SF port: chapter Lists (Software Foundations LF) into sf/ as Sf.Lf.Lists: worked proofs ported, exercises as ? statements on the book's own nat/bool, friction notes (D3510, Matt, 11 Nov 2026)",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-2836",
+      "labels": [],
+      "epic": "docs-tutorials",
+      "body": "Matt, 11 Nov 2026, D3510: yes, port the next chapter so it's ready when he works through Induction. Est. 3 h. Follows SW-2707 (Basics, Induction), SW-2762 (exercises as ?), SW-2763 (own nat).",
       "created": "2026-11-11",
       "updated": "2026-11-11",
       "commits": []
