@@ -1819,7 +1819,6 @@ fn verified(cache: &Cache) -> bool {
             Outcome::Passed => "passed",
             Outcome::Failed => "failed",
             Outcome::OutOfResources(_) => "unfinished",
-            Outcome::Skipped => "skipped",
         };
         eprintln!(
             "error: cache disagrees with a fresh run: {}.{} (hash {}): cached {}, fresh {}",
@@ -1888,29 +1887,17 @@ fn test(
             cache
         }
     };
-    let run_tests = |session: &Session, cache: &Cache, skip_unfinished: bool| {
+    let run_tests = |session: &Session, cache: &Cache| {
         let keep = |test: &stitchwort_elab::TestDecl| output.only.is_none_or(|n| n == test.name);
         if reference {
-            return if skip_unfinished {
-                session.run_tests_where_skipping_unfinished(cache, keep)
-            } else {
-                session.run_tests_where(cache, keep)
-            };
+            return session.run_tests_where(cache, keep);
         }
         #[cfg(feature = "native")]
         if let Some(verbose) = native {
             let native = NativeTestCompiler { verbose };
-            return if skip_unfinished {
-                session.run_tests_native_where_skipping_unfinished(cache, keep, &native)
-            } else {
-                session.run_tests_native_where(cache, keep, &native)
-            };
+            return session.run_tests_native_where(cache, keep, &native);
         }
-        if skip_unfinished {
-            session.run_tests_fast_where_skipping_unfinished(cache, keep)
-        } else {
-            session.run_tests_fast_where(cache, keep)
-        }
+        session.run_tests_fast_where(cache, keep)
     };
     match target {
         Some(file) if is_file_target(file) => {
@@ -1920,7 +1907,7 @@ fn test(
                 return ExitCode::FAILURE;
             }
             let cache = test_cache(cache, Path::new("."));
-            let results = run_tests(&session, &cache, false);
+            let results = run_tests(&session, &cache);
             let code = output.print(&session, &results, false, output.only.is_some());
             let code = if verified(&cache) {
                 code
@@ -1952,7 +1939,6 @@ fn test(
             let Some(config) = read_project_config(&project) else {
                 return ExitCode::FAILURE;
             };
-            let warn = config.open_goals == stitchwort_cli::project::OpenGoals::Warn;
             let target_name = target;
             let target = match target {
                 Some(name) => Target::Subtrees(vec![name.to_string()]),
@@ -1973,7 +1959,7 @@ fn test(
                 return ExitCode::FAILURE;
             }
             let cache = test_cache(cache, &project.dir);
-            let results = run_tests(&session, &cache, warn);
+            let results = run_tests(&session, &cache);
             let code = output.print(
                 &session,
                 &results,
@@ -2073,20 +2059,17 @@ fn print_tests_json(session: &Session, results: &[TestResult], asked_for_some: b
             let (outcome, message) = match r.outcome {
                 Outcome::Passed => ("passed", None),
                 Outcome::Failed => {
-                    let message = match r.detail.as_ref().and_then(|d| d.comparison.as_ref()) {
-                        Some(c) => format!("`{}` is False", c.op),
-                        None => "evaluated to False".to_string(),
+                    let message = match (&r.unfinished, r.detail.as_ref()) {
+                        (Some(why), _) => why.clone(),
+                        (None, Some(d)) => match d.comparison.as_ref() {
+                            Some(c) => format!("`{}` is False", c.op),
+                            None => "evaluated to False".to_string(),
+                        },
+                        (None, None) => "evaluated to False".to_string(),
                     };
                     ("failed", Some(message))
                 }
                 Outcome::OutOfResources(e) => ("unfinished", Some(format!("no result: {e}"))),
-                Outcome::Skipped => (
-                    "skipped",
-                    Some(match &r.skipped {
-                        Some(reason) => reason.clone(),
-                        None => "uses a declaration with an open goal".to_string(),
-                    }),
-                ),
             };
             let at = session.test_location(&r.namespace, &r.name);
             let mut test = serde_json::json!({
@@ -2118,9 +2101,7 @@ fn print_tests_json(session: &Session, results: &[TestResult], asked_for_some: b
             test
         })
         .collect();
-    let ok = results
-        .iter()
-        .all(|r| matches!(r.outcome, Outcome::Passed | Outcome::Skipped))
+    let ok = results.iter().all(|r| r.outcome == Outcome::Passed)
         && !(asked_for_some && results.is_empty());
     println!("{}", serde_json::json!({"ok": ok, "tests": tests}));
     exit(ok)
@@ -2145,23 +2126,19 @@ fn print_tests(results: &[TestResult], grouped: bool) -> ExitCode {
             Outcome::Failed => (
                 "✗",
                 if result.cached { "cached" } else { "ran" },
-                match result.detail.as_ref().and_then(|d| d.comparison.as_ref()) {
-                    Some(c) => format!("  (`{}` is False)", c.op),
-                    None => "  (evaluated to False)".to_string(),
+                match (&result.unfinished, result.detail.as_ref()) {
+                    (Some(why), _) => format!("  ({why})"),
+                    (None, Some(d)) => match d.comparison.as_ref() {
+                        Some(c) => format!("  (`{}` is False)", c.op),
+                        None => "  (evaluated to False)".to_string(),
+                    },
+                    (None, None) => "  (evaluated to False)".to_string(),
                 },
             ),
             Outcome::OutOfResources(e) => (
                 "!",
                 if result.cached { "cached" } else { "ran" },
                 format!("  (no result: {e})"),
-            ),
-            Outcome::Skipped => (
-                "-",
-                "skipped",
-                match &result.skipped {
-                    Some(reason) => format!(": {reason}"),
-                    None => ": uses a declaration with an open goal".to_string(),
-                },
             ),
         };
         println!("  {mark} {:width$}  {how}{why}", result.name);
@@ -2186,25 +2163,19 @@ fn print_tests(results: &[TestResult], grouped: bool) -> ExitCode {
     let count = |f: fn(&Outcome) -> bool| results.iter().filter(|r| f(&r.outcome)).count();
     let passed = count(|o| *o == Outcome::Passed);
     let failed = count(|o| *o == Outcome::Failed);
-    let skipped = count(|o| matches!(o, Outcome::Skipped));
     let unfinished = count(|o| matches!(o, Outcome::OutOfResources(_)));
     let cached = results.iter().filter(|r| r.cached).count();
-    let skipped_note = if skipped > 0 {
-        format!(", {skipped} skipped")
-    } else {
-        String::new()
-    };
     let unfinished_note = if unfinished > 0 {
         format!(", {unfinished} ran out of resources")
     } else {
         String::new()
     };
     println!(
-        "{} test(s): {passed} passed, {failed} failed{skipped_note}{unfinished_note} \
+        "{} test(s): {passed} passed, {failed} failed{unfinished_note} \
          ({cached} from the cache)",
         results.len(),
     );
-    exit(passed + skipped == results.len())
+    exit(passed == results.len())
 }
 
 /// Loads `target` (a file, or the full name of a function in the project)

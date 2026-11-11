@@ -1,6 +1,6 @@
 //! `check: open-goals:` in `stitchwort.yaml` (SW-2762, D3489, D3494), end to
 //! end: `check` reports open goals as warnings under `warn`, `audit` doesn't
-//! change, `test` skips tests that use an unfinished declaration (D3500), and
+//! change, `test` fails tests that reach an unfinished declaration (SW-2909), and
 //! a bad value is a project-file error. What uses an open goal is checked
 //! assuming it holds, and stays unfinished (SW-2805).
 
@@ -82,7 +82,7 @@ fn audit_still_fails_unfinished_theorems_under_warn() {
 }
 
 #[test]
-fn a_test_that_reaches_an_open_goal_is_skipped_under_warn() {
+fn a_test_that_reaches_an_open_goal_fails_under_warn() {
     let dir = project("test-warn", "check:\n  open-goals: warn\n");
     std::fs::write(
         dir.join("src/t.sw"),
@@ -92,20 +92,53 @@ fn a_test_that_reaches_an_open_goal_is_skipped_under_warn() {
     )
     .unwrap();
     let out = stitchwort(&dir, &["test"]);
+    let json = stitchwort(&dir, &["test", "--json"]);
     let _ = std::fs::remove_dir_all(&dir);
     let stderr = text(&out.stderr);
     let stdout = text(&out.stdout);
-    assert_eq!(out.status.code(), Some(0), "{stdout}{stderr}");
+    assert_eq!(out.status.code(), Some(1), "{stdout}{stderr}");
     assert!(stdout.contains("✓ one is one"), "{stdout}");
     assert!(
-        stdout.contains("skipped: relies on `two`'s goal ("),
+        stdout.contains("✗ two is two  ran  (`two` isn't written yet: its body is `?` (")
+            && stdout.contains("src/a.sw:7:17))"),
         "{stdout}"
     );
-    assert!(stdout.contains("1 passed, 0 failed, 1 skipped"), "{stdout}");
+    assert!(stdout.contains("2 test(s): 1 passed, 1 failed"), "{stdout}");
     assert!(
         stderr.contains("2 goals open, allowed by `check: open-goals: warn`"),
         "{stderr}"
     );
+    let json = text(&json.stdout);
+    assert_eq!(json_status(&json), Some(1), "{json}");
+    assert!(json.contains(r#""outcome":"failed""#), "{json}");
+    assert!(
+        json.contains("`two` isn't written yet: its body is `?` ("),
+        "{json}"
+    );
+}
+
+/// A test that only mentions a theorem with an open goal, which is erased
+/// when the test runs, isn't affected.
+#[test]
+fn a_test_that_mentions_an_unfinished_theorem_still_runs() {
+    let dir = project("test-theorem", "check:\n  open-goals: warn\n");
+    std::fs::write(
+        dir.join("src/t.sw"),
+        "namespace Book\n\n\
+         def next (n: Nat) (h: 0 + n = n): Nat := n + 1\n\n\
+         test \"uses a proof\" := next 1 (exercise 1) == 2\n",
+    )
+    .unwrap();
+    let out = stitchwort(&dir, &["test"]);
+    let _ = std::fs::remove_dir_all(&dir);
+    let stdout = text(&out.stdout);
+    assert_eq!(out.status.code(), Some(0), "{stdout}{}", text(&out.stderr));
+    assert!(stdout.contains("✓ uses a proof"), "{stdout}");
+}
+
+fn json_status(json: &str) -> Option<i32> {
+    // `"ok":false` is what a nonzero exit says.
+    json.contains(r#""ok":false"#).then_some(1)
 }
 
 #[test]
