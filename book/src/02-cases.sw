@@ -181,19 +181,51 @@ theorem noAndAnything (b: Answer): both No b = No := rfl
 -- `theirs`, then ...". Inside the proof, `h` is evidence that it's true,
 -- and you can use it.
 
+-- Here is the proof one step at a time, as a `calc` chain (a chain of
+-- equalities, read down the page: the first line says where it starts and
+-- each `_ = ...` line says what the previous value equals):
+
+theorem beatsMeansWinSteps (mine: Move) (theirs: Move) (h: beats mine theirs): play mine theirs = Win :=
+  calc play mine theirs
+    _ = (if beats mine theirs then Win else if beats theirs mine then Lose else Draw)
+    _ = (if True then Win else if beats theirs mine then Lose else Draw) := rewrite h in rfl
+    _ = Win
+
+-- `_` stands for the value on the line above, so each line is one equation:
+-- `play mine theirs = (if beats mine theirs ...)`, and so on. The chain
+-- proves the first value equals the last, which is the theorem. A line with
+-- no `:=` needs no reason: the checker just computes, and it must agree.
+-- Here:
+--
+-- 1. The first step unfolds `play`, which is computing.
+-- 2. The second uses `h`. It is the equation `beats mine theirs = True` (a
+--    `Bool` used as a statement means it is `True`; the Goals panel writes
+--    it as `h: beats mine theirs`). `rewrite h in rfl` replaces `beats mine
+--    theirs` by `True`, and then `rfl` checks the two sides are now equal.
+-- 3. The last step computes the `if`: `if True then Win else ...` is `Win`.
+--
+-- Put the cursor on each `_` line with the Goals panel open: it shows what
+-- the chain has proved so far. On the last line it says
+--
+--     so far play mine theirs = Win
+--     line   ⊢ Win = Win
+--
+-- The same proof in one word:
+
 theorem beatsMeansWin (mine: Move) (theirs: Move) (h: beats mine theirs): play mine theirs = Win :=
   rewrite h
 
--- `h` is the equation `beats mine theirs = True` (a `Bool` as a statement
--- means it is `True`; the Goals panel writes it as `h: beats mine theirs`). `rewrite h` finds `beats mine theirs` in the goal,
--- once `play` is computed, and replaces it with `True`. That leaves `if
--- True then Win else ...`, which computes to `Win`, and `rewrite` finishes
--- with `rfl` by itself. No cases at all: the proof follows `play`'s `if`
--- instead of the moves.
+-- `rewrite h` does all three steps. It computes until it finds `beats mine
+-- theirs` (unfolding `play`), replaces it with `True`, and finishes by
+-- computing, which turns `if True then Win else ...` into `Win`. No cases
+-- at all: the proof follows `play`'s `if` instead of the moves.
 --
 -- Put the cursor on `rewrite`, with the Goals panel open: it shows the goal
--- before the rewrite (`play mine theirs = Win`), the rule
--- (`beats mine theirs`) and the goal after it (`Win = Win`).
+-- before the rewrite, the rule and the goal after it:
+--
+--     before ⊢ play mine theirs = Win
+--     rule   beats mine theirs
+--     after  ⊢ Win = Win
 --
 -- Sometimes a hypothesis rules a case out. Rock beats only scissors:
 
