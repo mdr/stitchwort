@@ -140,6 +140,7 @@ fn elaborate(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value, Ends)> {
                     rule: None,
                     parts: Vec::new(),
                     target: None,
+                    extra: Vec::new(),
                 },
             );
         }

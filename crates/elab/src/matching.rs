@@ -358,6 +358,7 @@ fn note_match_step(cx: &Ctx, alts: &[Alt], span: stitchwort_syntax::Span, goal: 
             rule: None,
             parts,
             target: None,
+            extra: Vec::new(),
         },
     );
 }

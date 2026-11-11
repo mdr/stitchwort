@@ -208,6 +208,9 @@ pub(crate) struct StepNote {
     /// For a rule of `rewrite … at h`: `h`, whose type before and after
     /// are what changes.
     pub target: Option<String>,
+    /// Other places the step answers for: a `rewrite`'s keyword, `at` and
+    /// `in` (the rule itself is [`StepNote::head`]).
+    pub extra: Vec<Span>,
 }
 
 #[derive(Clone)]
@@ -235,6 +238,8 @@ pub struct StepAt {
     pub rule: Option<String>,
     pub target: Option<String>,
     parts: Vec<Span>,
+    /// Places besides `head` the step answers for (`StepNote::extra`).
+    extra: Vec<Span>,
 }
 
 /// What is known at a position of a file: see [`Elaborator::probe_context`].
@@ -903,6 +908,13 @@ impl Elaborator {
         let step = (steps.iter())
             .filter(|s| s.head.file == file && s.head.start <= at && at < s.head.end)
             .min_by_key(|s| s.head.end - s.head.start)
+            .or_else(|| {
+                // A rule's `rewrite`, `at` or `in`: the first rule's step,
+                // as `steps` are in source order.
+                (steps.iter()).find(|s| {
+                    (s.extra.iter()).any(|r| r.file == file && r.start <= at && at < r.end)
+                })
+            })
             .cloned();
         let mut found = match (probe.found, &step) {
             (_, Some(step)) => ContextAt {
@@ -1096,6 +1108,7 @@ impl Elaborator {
                 rule: s.note.rule.as_ref().map(show),
                 target: s.note.target.clone(),
                 parts: s.note.parts.clone(),
+                extra: s.note.extra.clone(),
             });
         }
         let found = pending.map(|p| {

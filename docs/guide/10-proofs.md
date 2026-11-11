@@ -778,7 +778,7 @@ in `multN0M0`, rule 2 of 2 of `rewrite`
   after  ⊢ 0 = 0
 ```
 
-The other steps are an arm's pattern (the `match`'s goal before, the arm's after, and its pattern's variables marked `+`), a line of a `calc` (what the lines before it prove, and the line's own statement), a lambda's parameter, a `let`'s name, the `then` and `else` of `if h:`, and the signature (the statement to prove, with the parameters). The editor's Goals panel shows the same.
+The cursor on a rule's `rewrite`, `at` or `in` shows the same step as on the rule itself (with several rules, the first rule's). The other steps are an arm's pattern (the `match`'s goal before, the arm's after, and its pattern's variables marked `+`), a line of a `calc` (what the lines before it prove, and the line's own statement), a lambda's parameter, a `let`'s name, the `then` and `else` of `if h:`, and the signature (the statement to prove, with the parameters). The editor's Goals panel shows the same.
 
 It exits with 0 with an answer and 2 with none (a comment, a blank line, between declarations), and checks the file as `check` does, so it takes as long as that. A file of a project is read in the project from any folder.
 

@@ -191,8 +191,8 @@ theorem beatsMeansWin (mine: Move) (theirs: Move) (h: beats mine theirs): play m
 -- with `rfl` by itself. No cases at all: the proof follows `play`'s `if`
 -- instead of the moves.
 --
--- Put the cursor on the `h` after `rewrite`, with the Goals panel open: it
--- shows the goal before the rewrite (`play mine theirs = Win`), the rule
+-- Put the cursor on `rewrite`, with the Goals panel open: it shows the goal
+-- before the rewrite (`play mine theirs = Win`), the rule
 -- (`beats mine theirs`) and the goal after it (`Win = Win`).
 --
 -- Sometimes a hypothesis rules a case out. Rock beats only scissors:

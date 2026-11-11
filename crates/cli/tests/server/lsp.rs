@@ -2411,6 +2411,57 @@ fn context_at_a_step_and_has_type() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
+/// The `rewrite`, `at` and `in` keywords answer with their first rule's
+/// step, as the rule itself does (SW-2930).
+#[test]
+fn context_at_a_rewrite_keyword_shows_the_rule_step() {
+    let dir = temp_dir("context-at-rewrite-keyword");
+    let file = dir.join("keyword.sw");
+    let text = "theorem flip (a b: Nat) (h: a = b): b = a :=\n  rewrite h in rfl\n\n\
+                theorem twice (a b c: Nat) (h1: a = b) (h2: b = c): a = c :=\n  rewrite h1, h2 in rfl\n\n\
+                theorem atH (a b c: Nat) (h1: a = b) (h2: b = c): a = c :=\n  rewrite h2 at h1 in h1\n";
+    std::fs::write(&file, text).unwrap();
+    let uri = uri(&file);
+    let mut client = Client::start();
+    client.open(&uri, text);
+    client.diagnostics(&uri, 1);
+    let context_at = |client: &mut Client, line: u32, character: u32| {
+        client.request(
+            "stitchwort/contextAt",
+            json!({"textDocument": {"uri": uri}, "position": {"line": line, "character": character}}),
+        )
+    };
+    // On the rule, its `rewrite`, and its `in`: one step.
+    let rule = context_at(&mut client, 1, 10);
+    assert_eq!(rule["step"]["description"], "rule 1 of 1 of `rewrite`");
+    assert_eq!(context_at(&mut client, 1, 3)["step"], rule["step"]);
+    assert_eq!(context_at(&mut client, 1, 13)["step"], rule["step"]);
+
+    // Several rules: the keyword, `in` and the first rule give its step;
+    // the second rule still gives its own.
+    let first = context_at(&mut client, 4, 10);
+    assert_eq!(first["step"]["description"], "rule 1 of 2 of `rewrite`");
+    assert_eq!(first["step"]["before"], "a = c");
+    assert_eq!(first["step"]["rule"], "a = b");
+    assert_eq!(first["step"]["after"], "b = c");
+    assert_eq!(context_at(&mut client, 4, 3)["step"], first["step"]);
+    assert_eq!(context_at(&mut client, 4, 18)["step"], first["step"]);
+    let second = context_at(&mut client, 4, 14);
+    assert_eq!(second["step"]["description"], "rule 2 of 2 of `rewrite`");
+    assert_ne!(second["step"], first["step"]);
+
+    // On `at`, in `rewrite … at h`.
+    let target = context_at(&mut client, 7, 10);
+    assert_eq!(
+        target["step"]["description"],
+        "rule 1 of 1 of `rewrite … at h1`"
+    );
+    assert_eq!(context_at(&mut client, 7, 13)["step"], target["step"]);
+    assert_eq!(context_at(&mut client, 7, 20)["step"], target["step"]);
+    client.shutdown();
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
 #[test]
 fn context_at_in_a_projects_file_reads_the_editors_text() {
     let dir = temp_dir("context-at-project");

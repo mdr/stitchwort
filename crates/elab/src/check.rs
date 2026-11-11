@@ -4379,6 +4379,7 @@ pub(crate) fn note_binder_step(
             rule: None,
             parts: Vec::new(),
             target: None,
+            extra: Vec::new(),
         },
     );
 }

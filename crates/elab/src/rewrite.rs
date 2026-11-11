@@ -160,11 +160,18 @@ fn rewrite_at(cx: &mut Ctx, expr: &Expr, expected: Option<&Value>) -> Result<(Te
         rules,
         target: Some(target),
         body,
+        keyword,
+        at,
+        in_,
         span,
     } = expr
     else {
         unreachable!("only called on a rewrite with a target");
     };
+    let extra = [Some(*keyword), *at, *in_]
+        .into_iter()
+        .flatten()
+        .collect::<Vec<_>>();
     let name = match &**target {
         Expr::Var(n) if cx.lookup(&n.text).is_some() || cx.local(&n.text)?.is_some() => Some(n),
         _ => None,
@@ -215,7 +222,14 @@ fn rewrite_at(cx: &mut Ctx, expr: &Expr, expected: Option<&Value>) -> Result<(Te
                     term = Term::J(Rc::new(step.motive), Rc::new(term), Rc::new(step.proof));
                 }
                 if before.is_some() {
-                    let note = rule_step(rule.span, (index, rules.len()), before, &ty, used);
+                    let note = rule_step(
+                        rule.span,
+                        (index, rules.len()),
+                        before,
+                        &ty,
+                        used,
+                        extra.clone(),
+                    );
                     cx.e.note_step(
                         cx,
                         crate::goals::StepNote {
@@ -286,6 +300,9 @@ fn rewrite_goal(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
         rules,
         target,
         body,
+        keyword,
+        at,
+        in_,
         span,
     } = expr
     else {
@@ -294,6 +311,10 @@ fn rewrite_goal(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
     if target.is_some() {
         return Ok(rewrite_at(cx, expr, Some(expected))?.0);
     }
+    let extra = [Some(*keyword), *at, *in_]
+        .into_iter()
+        .flatten()
+        .collect::<Vec<_>>();
     let budget = search_budget(cx);
     let mut remaining = budget;
     let mut stats = Stats::default();
@@ -327,7 +348,14 @@ fn rewrite_goal(cx: &mut Ctx, expr: &Expr, expected: &Value) -> Result<Term> {
                     steps.push(step);
                 }
                 if before.is_some() {
-                    let note = rule_step(rule.span, (index, rules.len()), before, &goal, used);
+                    let note = rule_step(
+                        rule.span,
+                        (index, rules.len()),
+                        before,
+                        &goal,
+                        used,
+                        extra.clone(),
+                    );
                     cx.e.note_step(cx, note);
                 }
             }
@@ -373,6 +401,7 @@ fn rule_step(
     before: Option<Value>,
     after: &Value,
     rule: Option<Value>,
+    extra: Vec<Span>,
 ) -> crate::goals::StepNote {
     crate::goals::StepNote {
         form: crate::goals::StepForm::RewriteRule,
@@ -384,6 +413,7 @@ fn rule_step(
         rule,
         parts: Vec::new(),
         target: None,
+        extra,
     }
 }
 

@@ -4673,6 +4673,7 @@ fn check_leaf(cx: &mut Ctx, tree: &Tree, goal: &Value, guarded: bool) -> Result<
                 rule: None,
                 parts: Vec::new(),
                 target: None,
+                extra: Vec::new(),
             },
         );
     }
