@@ -735,6 +735,25 @@ theorem orElseIsGetOrElse (fallback: a) (t: () → {Fail} a): Fail.orElse fallba
 
 In each clause, the computation in the goal is replaced by what it did, and both handlers compute. `reify` is only allowed in proofs: a program can run a computation or hand it to a handler, but can't look inside it.
 
+## The goal at any point, from the command line
+
+To see what a step of a finished proof has to prove, without editing it, ask for the goal at a line and column (counted from 1):
+
+```sh
+stitchwort goal --at proofs.sw:42:5
+stitchwort goal --at proofs.sw:42        # the line's first character
+stitchwort goal --at proofs.sw:42 --json # the same, for a script
+```
+
+```
+proofs.sw:42:5
+  a: Nat
+  b: Nat
+  ⊢ b + a = b + a
+```
+
+It prints the names in scope and `⊢` the goal in a proof, or `expected T` in program code. The point can be anywhere inside an expression: in the body of a `rewrite`, you get the goal after the rules before it. It exits with 0 with an answer and 2 with none (a comment, a signature, a pattern, between declarations), and checks the file as `check` does, so it takes as long as that. A file of a project is read in the project from any folder.
+
 ## Checking one theorem
 
 In a project with many theorems, `stitchwort check --only` checks just the ones you name, by full name, and the theorems they use:
