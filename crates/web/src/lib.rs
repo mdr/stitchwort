@@ -209,7 +209,8 @@ pub fn std_source(path: &str) -> String {
 /// Runs a program's tests, reusing the results in `known`:
 /// `{"ok": true, "tests": [{"name": …, "passed": …, "outcome": …, "cached": …,
 /// "detail": {"op": …, "left": …, "right": …}}],
-/// "added": "…"}`, where the outcome is `passed`, `failed`, or what the test
+/// "added": "…"}`, where the outcome is `passed`, `failed` (a test that reaches
+/// an unfinished `?` also has a `why`), or what the test
 /// ran out of. `known` is one `KEY passed` or `KEY failed` per line, and
 /// malformed lines are ignored; `added` is the results that weren't cached,
 /// in the same format (empty if none).
@@ -234,10 +235,6 @@ fn test_answer(session: &Session, known: &str, with_namespace: bool) -> String {
                 Outcome::Passed => "passed".to_string(),
                 Outcome::Failed => "failed".to_string(),
                 Outcome::OutOfResources(e) => format!("no result: {e}"),
-                Outcome::Skipped => match &r.skipped {
-                    Some(reason) => reason.clone(),
-                    None => "uses a declaration with an open goal".to_string(),
-                },
             };
             let namespace = if with_namespace {
                 format!(r#","namespace":{}"#, json_string(&r.namespace))
@@ -245,6 +242,10 @@ fn test_answer(session: &Session, known: &str, with_namespace: bool) -> String {
                 String::new()
             };
             let detail = failure_json(r.detail.as_ref());
+            let detail = match &r.unfinished {
+                Some(why) => format!(r#","why":{}{detail}"#, json_string(why)),
+                None => detail,
+            };
             format!(
                 r#"{{"name":{}{namespace},"passed":{},"outcome":{},"cached":{}{detail}}}"#,
                 json_string(&r.name),
@@ -261,7 +262,7 @@ fn test_answer(session: &Session, known: &str, with_namespace: bool) -> String {
             let outcome = match outcome {
                 Outcome::Passed => "passed",
                 Outcome::Failed => "failed",
-                Outcome::OutOfResources(_) | Outcome::Skipped => return String::new(),
+                Outcome::OutOfResources(_) => return String::new(),
             };
             format!("{key} {outcome}\n")
         })

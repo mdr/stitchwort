@@ -1025,10 +1025,6 @@ pub enum Outcome {
     /// It ran out of resources before finishing: neither passed nor failed.
     /// Never cached.
     OutOfResources(ResourceError),
-    /// It uses a declaration with an open goal, so it wasn't run: the
-    /// declaration is [`TestResult::skipped`]. Only when the project's
-    /// `check: open-goals` is `warn` (D3500). Never cached.
-    Skipped,
 }
 
 pub struct TestResult {
@@ -1042,8 +1038,10 @@ pub struct TestResult {
     pub hash: Option<ContentHash>,
     /// For a failed test, what can be said about why (D601).
     pub detail: Option<Failure>,
-    /// For a skipped test, the declaration with an open goal (`?`) it uses.
-    pub skipped: Option<String>,
+    /// For a test that wasn't run because its code reaches an open goal
+    /// (`?`), why, naming the `?` and where it is: the test fails
+    /// (`outcome` is [`Outcome::Failed`]). Never cached.
+    pub unfinished: Option<String>,
 }
 
 /// Why a test failed, as far as it can be told: the part of the test that is
@@ -1381,7 +1379,7 @@ impl Cache {
         let Some(verify) = &self.verify else {
             return;
         };
-        if matches!(outcome, Outcome::OutOfResources(_) | Outcome::Skipped) {
+        if matches!(outcome, Outcome::OutOfResources(_)) {
             return;
         }
         let unit = Self::unit(&test.namespace, &test.name);
@@ -1424,7 +1422,7 @@ impl Cache {
             return;
         }
         // Not a result: running it again with other limits may finish.
-        if matches!(outcome, Outcome::OutOfResources(_) | Outcome::Skipped) {
+        if matches!(outcome, Outcome::OutOfResources(_)) {
             return;
         }
         if let Some(memory) = &self.memory {
@@ -1440,7 +1438,7 @@ impl Cache {
         let text = match outcome {
             Outcome::Passed => "passed",
             Outcome::Failed => "failed",
-            Outcome::OutOfResources(_) | Outcome::Skipped => unreachable!(),
+            Outcome::OutOfResources(_) => unreachable!(),
         };
         if let Some(parent) = path.parent() {
             let _ = std::fs::create_dir_all(parent);

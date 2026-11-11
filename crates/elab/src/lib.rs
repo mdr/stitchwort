@@ -253,8 +253,7 @@ pub struct TestDecl {
     /// comparison, or the part of an `&&` that is false.
     pub probe: Option<Probe>,
     /// For a test that uses a declaration with an open goal (`?`), the open
-    /// goal's declaration (D3500): `check: open-goals: warn` reports the
-    /// test as skipped instead of failing.
+    /// goal's declaration: `stitchwort test` fails it, saying so (SW-2909).
     pub unfinished: Option<String>,
 }
 
@@ -1525,8 +1524,7 @@ impl Elaborator {
             Ok(()) => self.tables.tests.push(test),
             Err(d) => {
                 // A test that uses an unfinished declaration is still a
-                // test: `stitchwort test` reports it as skipped under
-                // `check: open-goals: warn` (D3500).
+                // test: `stitchwort test` fails it, naming the `?` (SW-2909).
                 if d.code == goals::UNFINISHED {
                     self.tables.tests.push(test);
                 }

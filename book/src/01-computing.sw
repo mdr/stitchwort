@@ -260,8 +260,9 @@ theorem fourStepsFromAmber: (Amber |> next |> next |> next |> next) = Amber := ?
 --| Whether `a` implies `b`: `True` unless `a` holds and `b` doesn't.
 def implies (a: Bool) (b: Bool): Bool := ?
 
--- Hint: a test of a function that is still `?` isn't run; `stitchwort test`
--- lists it as skipped, naming the `?`, until the function is written.
+-- Hint: a test of a function that is still `?` fails, naming the `?`:
+-- `stitchwort test` says "`implies` isn't written yet", and the test passes
+-- once the function is written.
 
 theorem trueImpliesFalse: implies True False = False := ?
 

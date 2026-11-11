@@ -2369,7 +2369,7 @@ export def area: Shape -> Nat
         }
         list.append(el("li", { className: t.passed ? "pass" : "fail" },
           el("span", { className: "mark" }, t.passed ? "✓" : unfinished ? "!" : "✗"),
-          el("span", {}, t.name + (t.passed ? "" : unfinished ? ` (${t.outcome})` : t.detail ? ` (\`${t.detail.op}\` is False)` : " (evaluated to False)")),
+          el("span", {}, t.name + (t.passed ? "" : unfinished ? ` (${t.outcome})` : t.why ? ` (${t.why})` : t.detail ? ` (\`${t.detail.op}\` is False)` : " (evaluated to False)")),
           el("span", { className: "how" }, t.cached ? "cached" : "ran"),
           ...(t.detail || t.part ? [el("div", { className: "detail" }, [
             ...(t.detail ? [`left:  ${t.detail.left}`, `right: ${t.detail.right}`] : []),

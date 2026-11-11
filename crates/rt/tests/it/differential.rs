@@ -104,7 +104,6 @@ pub fn run_tests_where(
             Outcome::Passed => true,
             Outcome::Failed => false,
             Outcome::OutOfResources(_) => continue,
-            Outcome::Skipped => continue,
         };
         // A test that runs partial code (D1183) is a `Delay`, which
         // `stitchwort test` steps as `run` steps a partial `main`; `global`

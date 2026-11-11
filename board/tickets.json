@@ -30908,12 +30908,12 @@
     {
       "id": 2909,
       "title": "[Sonnet] stitchwort test: a test that reaches an unfinished ? fails (naming the ? and where it is), instead of being left out silently (Matt, 11 Nov 2026)",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "diagnostics",
-      "body": "\nMatt, 11 Nov 2026, on the book's hint ('a test of a function that is still ? isn't run'): 'I think it should fail the test actually!'",
+      "body": "Matt, 11 Nov 2026, on the book's hint ('a test of a function that is still ? isn't run'): 'I think it should fail the test actually!'\n\nProgress (sonnet lane, 11 Nov 2026): done on lane/SW-2909. Unfinished tests now fail (Outcome::Skipped removed); goals that are proofs/types (erased) don't count. Tests: open_goals.rs by name, 5 pass. Book: 8 tests, 0 fail (no exercise tests written).",
       "created": "2026-11-11",
       "updated": "2026-11-11",
       "commits": []

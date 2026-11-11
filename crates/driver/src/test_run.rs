@@ -223,25 +223,60 @@ impl TestMachine {
 }
 
 impl Session {
-    /// Why `test` isn't run: it relies on, or waits for, open goals, which
-    /// it names, or uses an unfinished declaration.
-    fn skip_reason(&self, test: &stitchwort_elab::TestDecl) -> String {
-        use crate::reliance::describe_goals;
-        let (ids, waits) = if self.elab.relies_on_goal(test.def) {
-            (self.elab.goals_relied_on(test.def), false)
+    /// Why `test` can't run, as the message of its failure, or `None` if
+    /// it can. It can't if it relies on, or waits for, open goals in code,
+    /// which the message names with where each `?` is, or uses an
+    /// unfinished declaration. An open goal that is a proof (or a type) is
+    /// erased when the test runs, so a test that only mentions a theorem
+    /// with a `?` still runs.
+    fn unfinished_message(&self, test: &stitchwort_elab::TestDecl) -> Option<String> {
+        let ids: std::collections::BTreeSet<_> = if self.elab.relies_on_goal(test.def) {
+            let relied = self.elab.goals_relied_on(test.def);
+            let g = &self.elab.ev();
+            let code: std::collections::BTreeSet<_> = relied
+                .iter()
+                .copied()
+                .filter(|id| !stitchwort_core::erase::of_def(g, *id).is_some_and(|e| e.result))
+                .collect();
+            if code.is_empty() && !relied.is_empty() {
+                return None;
+            }
+            code
         } else {
-            (self.elab.blocked_on(test.def).into_iter().collect(), true)
+            self.elab.blocked_on(test.def).into_iter().collect()
         };
         let goals = self.goal_places(&ids);
-        let named = describe_goals(&goals, true);
-        match (goals.is_empty(), waits) {
-            (true, _) => match &test.unfinished {
-                Some(uses) => format!("uses {uses}, which has an open goal"),
-                None => "uses a declaration with an open goal".to_string(),
-            },
-            (false, false) => format!("relies on {named}"),
-            (false, true) => format!("can't be checked until {named} is filled"),
+        if goals.is_empty() {
+            return Some(match &test.unfinished {
+                Some(uses) => format!("`{uses}` isn't written yet: it has an open goal `?`"),
+                None => "it uses a declaration that isn't written yet: it has an open goal `?`"
+                    .to_string(),
+            });
         }
+        let named: Vec<String> = goals
+            .iter()
+            .take(3)
+            .map(|g| {
+                format!(
+                    "`{}` isn't written yet: its body is `?` ({})",
+                    g.short(),
+                    g.place()
+                )
+            })
+            .collect();
+        let more = match goals.len() {
+            0..=3 => String::new(),
+            n => format!("; and {} more", n - 3),
+        };
+        Some(format!("{}{more}", named.join("; ")))
+    }
+
+    /// [`Self::unfinished_message`] for a test that is unfinished at all.
+    fn unfinished_message_if_unfinished(&self, test: &stitchwort_elab::TestDecl) -> Option<String> {
+        self.elab
+            .is_unfinished(test.def)
+            .then(|| self.unfinished_message(test))
+            .flatten()
     }
 
     /// Runs every test of the program loaded so far, using cached results
@@ -249,7 +284,7 @@ impl Session {
     /// program's (docs/proposals/std-library.md §4.7): see
     /// [`Session::run_library_tests`].
     pub fn run_tests(&self, cache: &Cache) -> Vec<TestResult> {
-        self.run_selected(cache, &|test| !test.library, Runner::Reference, false)
+        self.run_selected(cache, &|test| !test.library, Runner::Reference)
     }
 
     /// [`Session::run_tests`], for only the tests `keep` keeps.
@@ -262,23 +297,6 @@ impl Session {
             cache,
             &|test| !test.library && keep(test),
             Runner::Reference,
-            false,
-        )
-    }
-
-    /// [`Session::run_tests_where`], reporting a test that uses a declaration
-    /// with an open goal (`?`) as skipped rather than leaving it out
-    /// (`check: open-goals: warn`, D3500).
-    pub fn run_tests_where_skipping_unfinished(
-        &self,
-        cache: &Cache,
-        keep: impl Fn(&stitchwort_elab::TestDecl) -> bool,
-    ) -> Vec<TestResult> {
-        self.run_selected(
-            cache,
-            &|test| !test.library && keep(test),
-            Runner::Reference,
-            true,
         )
     }
 
@@ -287,7 +305,7 @@ impl Session {
     /// or finish runs on the reference evaluator, which also still explains
     /// a failure (SW-412).
     pub fn run_tests_fast(&self, cache: &Cache) -> Vec<TestResult> {
-        self.run_selected(cache, &|test| !test.library, Runner::Machine, false)
+        self.run_selected(cache, &|test| !test.library, Runner::Machine)
     }
 
     /// [`Session::run_tests_fast`], for only the tests `keep` keeps.
@@ -296,28 +314,7 @@ impl Session {
         cache: &Cache,
         keep: impl Fn(&stitchwort_elab::TestDecl) -> bool,
     ) -> Vec<TestResult> {
-        self.run_selected(
-            cache,
-            &|test| !test.library && keep(test),
-            Runner::Machine,
-            false,
-        )
-    }
-
-    /// [`Session::run_tests_fast_where`], reporting a test that uses a
-    /// declaration with an open goal (`?`) as skipped rather than leaving it
-    /// out (`check: open-goals: warn`, D3500).
-    pub fn run_tests_fast_where_skipping_unfinished(
-        &self,
-        cache: &Cache,
-        keep: impl Fn(&stitchwort_elab::TestDecl) -> bool,
-    ) -> Vec<TestResult> {
-        self.run_selected(
-            cache,
-            &|test| !test.library && keep(test),
-            Runner::Machine,
-            true,
-        )
+        self.run_selected(cache, &|test| !test.library && keep(test), Runner::Machine)
     }
 
     /// [`Session::run_tests_fast_where`], as native code where it can
@@ -336,31 +333,13 @@ impl Session {
             cache,
             &|test| !test.library && keep(test),
             Runner::Native(native),
-            false,
-        )
-    }
-
-    /// [`Session::run_tests_native_where`], reporting a test that uses a
-    /// declaration with an open goal (`?`) as skipped rather than leaving it
-    /// out (`check: open-goals: warn`, D3500).
-    pub fn run_tests_native_where_skipping_unfinished(
-        &self,
-        cache: &Cache,
-        keep: impl Fn(&stitchwort_elab::TestDecl) -> bool,
-        native: &dyn NativeTests,
-    ) -> Vec<TestResult> {
-        self.run_selected(
-            cache,
-            &|test| !test.library && keep(test),
-            Runner::Native(native),
-            true,
         )
     }
 
     /// Runs the tests of the core and of the library files loaded (all of
     /// them, in [`Session::with_library_tests`]).
     pub fn run_library_tests(&self, cache: &Cache) -> Vec<TestResult> {
-        self.run_selected(cache, &|test| test.library, Runner::Reference, false)
+        self.run_selected(cache, &|test| test.library, Runner::Reference)
     }
 
     /// The tests `selected` that `cache` has no result for, lowered together
@@ -378,7 +357,7 @@ impl Session {
             .elab
             .tests()
             .iter()
-            .filter(|test| selected(test) && !self.elab.is_unfinished(test.def))
+            .filter(|test| selected(test) && self.unfinished_message_if_unfinished(test).is_none())
             .filter(|test| {
                 let _op = g.machine.budget.operation(self.elab.options.limits);
                 match def_hash(g, test.def) {
@@ -409,13 +388,7 @@ impl Session {
         Some((TestMachine { program }, wanted))
     }
 
-    fn run_selected(
-        &self,
-        cache: &Cache,
-        selected: &Selection,
-        runner: Runner,
-        skip_unfinished: bool,
-    ) -> Vec<TestResult> {
+    fn run_selected(&self, cache: &Cache, selected: &Selection, runner: Runner) -> Vec<TestResult> {
         let g = &self.elab.ev();
         // A result is kept per runner: the two are only differentially
         // tested to agree (docs/proposals/fast-runtime.md).
@@ -449,21 +422,19 @@ impl Session {
             .tests()
             .iter()
             .filter(|test| selected(test))
-            .filter(|test| skip_unfinished || !self.elab.is_unfinished(test.def))
             .map(|test| {
                 // Each test is one operation, with its own resource limits:
                 // hashing it, then running it unless its result is cached.
                 let _op = g.machine.budget.operation(self.elab.options.limits);
-                if skip_unfinished && self.elab.is_unfinished(test.def) {
-                    let uses = self.skip_reason(test);
+                if let Some(why) = self.unfinished_message_if_unfinished(test) {
                     return TestResult {
                         name: test.name.clone(),
                         namespace: test.namespace.clone(),
-                        outcome: Outcome::Skipped,
+                        outcome: Outcome::Failed,
                         cached: false,
                         hash: None,
                         detail: None,
-                        skipped: Some(uses),
+                        unfinished: Some(why),
                     };
                 }
                 let hash = match def_hash(g, test.def) {
@@ -476,7 +447,7 @@ impl Session {
                             cached: false,
                             hash: None,
                             detail: None,
-                            skipped: None,
+                            unfinished: None,
                         };
                     }
                 };
@@ -489,7 +460,7 @@ impl Session {
                         cached: true,
                         hash: Some(hash),
                         detail: self.failure(test, outcome),
-                        skipped: None,
+                        unfinished: None,
                     };
                 }
                 // A test that runs partial code is a `Delay` (D1183).
@@ -546,7 +517,7 @@ impl Session {
                     cached: false,
                     hash: Some(hash),
                     detail: self.failure(test, outcome),
-                    skipped: None,
+                    unfinished: None,
                 }
             })
             .collect();
