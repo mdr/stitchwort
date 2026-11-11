@@ -30080,12 +30080,12 @@
     {
       "id": 2846,
       "title": "Full-tier tests skip silently under nextest --profile full without STITCHWORT_TIER=full (only the Taskfile sets it, Taskfile.yml:330): make the full profile set it, or have full_tier() fail loudly when the profile is full but the variable isn't (Overmind rerun, 11 Nov 2026)",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": ".claude/worktrees/scratch-sw-2846",
       "labels": [],
       "epic": "test-infra",
-      "body": "",
+      "body": "\nModel result: DeepSeek, worked, ~25 min incl. a 527 s full-tier test run (est. 30). Verifier passed.",
       "created": "2026-11-11",
       "updated": "2026-11-11",
       "commits": []
@@ -30212,12 +30212,12 @@
     {
       "id": 2856,
       "title": "Stage 3 reporting follow-ups (SW-2806): is_generated doesn't know .unfold names (gcd2.unfold counted as written); written() name heuristic may count derived instances; goals_relied_on walks per declaration without a memo; a declaration stuck on several goals lists only the first message's goals",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2856",
       "labels": [],
       "epic": "proof-automation",
-      "body": "\n\nProgress: (1) is_generated now recognises gcd2.unfold, and any declaration made for another one (a type's induct, inductMem, size, ext, update lemmas), by span plus name prefix (Generated in audit.rs). (2) written() uses it; the old name heuristic is subsumed. (3) goals_relied_on returns early via the cached relies_on walk for a declaration that relies on none; no measurable time change on sf/ (goal 0.9 s either way). (4) note_stuck_on_goal merges every message's goals instead of the first only. Tests: two added in crates/cli/tests/tools/open_goals.rs. Left: a full memo of goal sets (not needed on sf/).\n",
+      "body": "\n\nProgress: (1) is_generated now recognises gcd2.unfold, and any declaration made for another one (a type's induct, inductMem, size, ext, update lemmas), by span plus name prefix (Generated in audit.rs). (2) written() uses it; the old name heuristic is subsumed. (3) goals_relied_on returns early via the cached relies_on walk for a declaration that relies on none; no measurable time change on sf/ (goal 0.9 s either way). (4) note_stuck_on_goal merges every message's goals instead of the first only. Tests: two added in crates/cli/tests/tools/open_goals.rs. Left: a full memo of goal sets (not needed on sf/).\nModel result: Sonnet, worked, 17 min (est. 75). Verifier passed.",
       "created": "2026-11-11",
       "updated": "2026-11-11",
       "commits": [
@@ -30304,12 +30304,12 @@
     {
       "id": 2863,
       "title": "No cheap way to check one std file: stitchwort check --std-dir … <std file> treats it as user code (namespace errors) and check/eval --std-dir don't type-check std theorem bodies (a broken Nat.dividesElim passed eval --std-dir); lanes editing std only find mistakes in the library test. Add a way to check one std namespace (e.g. check --std Std.Nat.Arith) (SW-2831)",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2863",
       "labels": [],
       "epic": "test-infra",
-      "body": "Progress (Sonnet lane, 11 Nov 2026, est. 75 min): cause was lazy loading, not skipped bodies: a library file is checked in full (broken `Nat.dividesElim` is reported) as soon as something needs it, but `check FILE`/`eval` with --std-dir only load what the program names, so a program that never imports Nat/Divides.sw never saw the break. Added `stitchwort [--std-dir DIR] check --std TARGET...` (TARGET: `Nat/Arith.sw`, a folder `Nat`, or `Std.Nat.Arith`): loads those files and what they need, full bodies, check cache for unchanged files; errors as check; exit 1; E-STD-TARGET for an unknown name. Test: check_cache.rs `check_std_checks_the_named_library_file_in_full`. docs/testing.md \"Checking a std edit\". Wording call for the orchestrator: `--std` flag on `check` with path/dotted targets.\n",
+      "body": "Progress (Sonnet lane, 11 Nov 2026, est. 75 min): cause was lazy loading, not skipped bodies: a library file is checked in full (broken `Nat.dividesElim` is reported) as soon as something needs it, but `check FILE`/`eval` with --std-dir only load what the program names, so a program that never imports Nat/Divides.sw never saw the break. Added `stitchwort [--std-dir DIR] check --std TARGET...` (TARGET: `Nat/Arith.sw`, a folder `Nat`, or `Std.Nat.Arith`): loads those files and what they need, full bodies, check cache for unchanged files; errors as check; exit 1; E-STD-TARGET for an unknown name. Test: check_cache.rs `check_std_checks_the_named_library_file_in_full`. docs/testing.md \"Checking a std edit\". Wording call for the orchestrator: `--std` flag on `check` with path/dotted targets.\nModel result: Sonnet, worked, ~7 min (est. 75). Verifier passed.",
       "created": "2026-11-11",
       "updated": "2026-11-11",
       "commits": []
