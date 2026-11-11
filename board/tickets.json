@@ -30070,7 +30070,7 @@
       "where": ".claude/worktrees/SW-2845",
       "labels": [],
       "epic": "docs-tutorials",
-      "body": "",
+      "body": "\nProgress (lane, 11 Nov 2026, 14:01-14:16, est. 3 h): Sf.Lf.Poly in 5 files (Poly, MumbleGrumble, OptionPlayground, Exercises, Church), the book's own List and Prod (D3512); 34 worked theorems + list123Same, 20 exercises (29 statements, 11 functions) as ?; sf/ check 178 goals, test 12/12; all 40 goals solvable (scratch). Friction notes: docs/reviews/SW-2845-sf-poly.md (repl/eval don't load the project, SW-2849; no constructor type arguments, D3514; silent waiting on a goal, to SW-2806; nested list notation). Model result: Opus, worked, 15 min (est. 180).",
       "created": "2026-11-11",
       "updated": "2026-11-11",
       "commits": []
