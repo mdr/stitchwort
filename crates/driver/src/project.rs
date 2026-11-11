@@ -1456,6 +1456,12 @@ pub trait Files {
     fn entries(&self, dir: &str) -> std::io::Result<Vec<Entry>>;
     fn read(&self, path: &str) -> std::io::Result<String>;
 
+    /// Whether `path` is a file, so a source entry that is a file is not
+    /// reported as a folder that doesn't exist.
+    fn is_file(&self, path: &str) -> bool {
+        self.read(path).is_ok()
+    }
+
     /// The same files for `include` to read (`Session::load_project` hands
     /// them over), if `include` can read them.
     fn include_files(&self) -> Option<std::rc::Rc<dyn stitchwort_elab::project::IncludeFiles>> {
@@ -1518,6 +1524,10 @@ impl Files for DiskFiles {
 
     fn read(&self, path: &str) -> std::io::Result<String> {
         std::fs::read_to_string(self.path(path))
+    }
+
+    fn is_file(&self, path: &str) -> bool {
+        self.path(path).is_file()
     }
 }
 
@@ -1610,15 +1620,29 @@ pub fn project_sources(
     let mut found: BTreeMap<String, String> = BTreeMap::new();
     let mut errors = Vec::new();
     for root in &config.sources {
-        if files.entries(root).is_err() {
+        if let Err(e) = files.entries(root) {
             let shown = if root.is_empty() { "." } else { root };
-            errors.push(
-                config_error(
+            if files.is_file(root) {
+                errors.push(config_error(
                     &display,
-                    format!("the source folder `{shown}` doesn't exist"),
-                )
-                .with_note("create it, or list your folders under `sources` in `stitchwort.yaml`"),
-            );
+                    format!("`{shown}` is a file; `sources` lists folders"),
+                ));
+            } else if e.kind() == std::io::ErrorKind::NotFound {
+                errors.push(
+                    config_error(
+                        &display,
+                        format!("the source folder `{shown}` doesn't exist"),
+                    )
+                    .with_note(
+                        "create it, or list your folders under `sources` in `stitchwort.yaml`",
+                    ),
+                );
+            } else {
+                errors.push(Diagnostic::error(
+                    "E-IO",
+                    format!("can't read the folder `{project}/{shown}`: {e}"),
+                ));
+            }
             continue;
         }
         walk(files, project, root, &mut found, &mut errors);
@@ -1637,8 +1661,16 @@ fn walk(
     found: &mut BTreeMap<String, String>,
     errors: &mut Vec<Diagnostic>,
 ) {
-    let Ok(mut entries) = files.entries(dir) else {
-        return;
+    let mut entries = match files.entries(dir) {
+        Ok(entries) => entries,
+        Err(e) => {
+            let shown = if dir.is_empty() { "." } else { dir };
+            errors.push(Diagnostic::error(
+                "E-IO",
+                format!("can't read the folder `{project}/{shown}`: {e}"),
+            ));
+            return;
+        }
     };
     // Errors are found in name order, not the directory's.
     entries.sort_by(|a, b| a.name.cmp(&b.name));
