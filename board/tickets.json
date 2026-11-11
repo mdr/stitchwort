@@ -1,5 +1,5 @@
 {
-  "next": 2799,
+  "next": 2800,
   "tickets": [
     {
       "id": 47,
@@ -29449,12 +29449,25 @@
     },
     {
       "id": 2798,
-      "title": "import Sf.Lf.Nat (Nat, O, S, plus) is an error: naming a constructor in an import list should work, or say 'constructors come with their type' with a fix (SW-2763)",
+      "title": "Import lists may name constructors: (Nat, O, S) accepted silently; (S) alone imports just that constructor (D3503)",
+      "status": "next",
+      "agent": "DeepSeek",
+      "where": "",
+      "labels": [],
+      "epic": "diagnostics",
+      "body": "\nD3503 (Matt, 11 Nov 2026): yes, as in the title. Docs: docs/syntax.md imports section and the guide's imports chapter; update the E-IMPORT-UNKNOWN note. Est. 45 min.",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2799,
+      "title": "Question for later (Matt, 11 Nov 2026): should importing a type stop bringing its constructors implicitly, so imports say exactly what they bring? Revisit; not now (D3503)",
       "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [],
-      "epic": "diagnostics",
+      "epic": "syntax-language",
       "body": "",
       "created": "2026-11-11",
       "updated": "2026-11-11",
