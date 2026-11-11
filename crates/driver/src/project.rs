@@ -888,6 +888,17 @@ pub fn analyse_parsed(
         })
         .collect();
     diagnostics.extend(clashes(&namespaces));
+    // A namespace that lost a declaration to a syntax error says so where
+    // one of its importers names it, rather than there being no such name
+    // (docs/proposals/tests-with-errors.md §4.2).
+    let syntax_errors: BTreeMap<String, Option<Span>> = (namespaces.iter())
+        .filter(|n| !n.parse_errors.is_empty())
+        .map(|n| {
+            let at = (n.parse_errors.iter()).find_map(|d| d.primary_span());
+            (n.name.clone(), at)
+        })
+        .collect();
+    elab.set_project_syntax_errors(syntax_errors);
     elab.set_project_namespaces(namespaces.iter().map(|n| n.name.clone()));
     // Every namespace's names first, since an import of everything from one
     // is read while another's edges are found.

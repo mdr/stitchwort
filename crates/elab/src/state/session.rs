@@ -31,6 +31,11 @@ pub struct Session {
     /// What `import N (..)` brings from each project namespace whose files
     /// parsed (`project::set_project_names`).
     pub(crate) project_names: Arc<BTreeMap<String, BTreeSet<String>>>,
+    /// For each project namespace with syntax errors, where the first one is
+    /// (`project::set_project_syntax_errors`): an import from it that names
+    /// a declaration it no longer has says so, instead of that the name is
+    /// unknown (docs/proposals/tests-with-errors.md §4.2). Set whole.
+    pub(crate) project_syntax_errors: Arc<BTreeMap<String, Option<stitchwort_syntax::Span>>>,
     /// Where `include` reads from, and where each source file is in it
     /// (`project::read_include`). Without them `include` is
     /// `E-INCLUDE-UNAVAILABLE`. The host sets it as it loads a project or
@@ -123,6 +128,7 @@ pub(crate) struct Mark {
     project_namespaces: Arc<BTreeSet<String>>,
     project_prefixes: Arc<BTreeSet<String>>,
     project_names: Arc<BTreeMap<String, BTreeSet<String>>>,
+    project_syntax_errors: Arc<BTreeMap<String, Option<stitchwort_syntax::Span>>>,
     include_files: Option<Rc<dyn project::IncludeFiles>>,
     library: Option<library::LibraryState>,
     namespace_sources: Arc<HashMap<String, cache::Key>>,
@@ -138,6 +144,7 @@ impl Session {
             project_namespaces,
             project_prefixes,
             project_names,
+            project_syntax_errors,
             include_files,
             library,
             namespace_sources,
@@ -169,6 +176,7 @@ impl Session {
             project_namespaces: project_namespaces.clone(),
             project_prefixes: project_prefixes.clone(),
             project_names: project_names.clone(),
+            project_syntax_errors: project_syntax_errors.clone(),
             include_files: include_files.clone(),
             library: library.clone(),
             namespace_sources: namespace_sources.clone(),
@@ -184,6 +192,7 @@ impl Session {
             project_namespaces,
             project_prefixes,
             project_names,
+            project_syntax_errors,
             include_files,
             library,
             namespace_sources,
@@ -211,6 +220,7 @@ impl Session {
         *project_namespaces = mark.project_namespaces.clone();
         *project_prefixes = mark.project_prefixes.clone();
         *project_names = mark.project_names.clone();
+        *project_syntax_errors = mark.project_syntax_errors.clone();
         *include_files = mark.include_files.clone();
         *library = mark.library.clone();
         *namespace_sources = mark.namespace_sources.clone();
