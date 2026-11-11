@@ -2130,6 +2130,9 @@ impl Quoter {
             }
             return Ok(Ok(NTerm::V(q)));
         }
+        if let Some(unfolded) = unfold_folded(&g, &base)? {
+            return self.quote(cx, lib, &unfolded, span);
+        }
         if let Some(reduced) = recomputed(cx, &base)? {
             return self.quote(cx, lib, &reduced, span);
         }
@@ -2229,6 +2232,9 @@ impl Quoter {
                 });
             }
             return Ok(Ok(ITerm::V(i)));
+        }
+        if let Some(unfolded) = unfold_folded(&cx.g(), &value)? {
+            return self.quote_int(cx, lib, &unfolded, span);
         }
         if let Some(reduced) = recomputed(cx, &value)? {
             return self.quote_int(cx, lib, &reduced, span);

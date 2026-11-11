@@ -21386,14 +21386,14 @@
     {
       "id": 2253,
       "title": "[Sonnet] Elaborator shape rules against folded calls, step 1: omega treats a folded call like two 0 as an unknown atom (omega.rs:1959); see through it (cases and ring are later steps)",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2253",
       "labels": [
         "core"
       ],
       "epic": "elaborator-kernel",
-      "body": "From docs/reviews/SW-2251-equality-rule.md. Probes in the session scratchpad probes/. Waits on D3260. 60 min.\n\nD3250/D3260 — Matt, 7 Nov 2026: \"approve with those changes\" (adopt the equality rule with SW-2251's changes: a call that can be unfolded is compared by its case tree when its arguments differ; the deliberate limits named and shared by every mode; the property suite is the test of record).\n\n7 Nov, step 1 attempt (Sonnet, 5 min): blocked on SW-2260 (G2). The patch is two unfold_folded calls in Quoter::quote / quote_int before the recomputed fallback (omega.rs); omega then reads two 0 as 2, but its final check compares x + 2 with x + two 0, which is G2. Rerun after SW-2260 merges. Nothing committed.",
+      "body": "From docs/reviews/SW-2251-equality-rule.md. Probes in the session scratchpad probes/. Waits on D3260. 60 min.\n\nD3250/D3260 — Matt, 7 Nov 2026: \"approve with those changes\" (adopt the equality rule with SW-2251's changes: a call that can be unfolded is compared by its case tree when its arguments differ; the deliberate limits named and shared by every mode; the property suite is the test of record).\n\n7 Nov, step 1 attempt (Sonnet, 5 min): blocked on SW-2260 (G2). The patch is two unfold_folded calls in Quoter::quote / quote_int before the recomputed fallback (omega.rs); omega then reads two 0 as 2, but its final check compares x + 2 with x + two 0, which is G2. Rerun after SW-2260 merges. Nothing committed.\n\n11 Nov 2026, Sonnet, ~10 min: reapplied the two unfold_folded calls (Quoter::quote, quote_int) before the recomputed fallback. With SW-2260 in, the final check passes. New examples/accept/omega-folded-call.sw (5 theorems over `two 0`) fails without the patch (E-OMEGA, \"x = two 0\" gives model x = 3) and checks with it. Snapshots: new omega-folded-call; decreasing-lex and decreasing-match-fact hashes changed (omega proofs inside decreasing obligations now read folded calls). Native pins untouched. Needs cases/ring steps later.\n",
       "created": "2026-11-07",
       "updated": "2026-11-11",
       "commits": []
