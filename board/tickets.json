@@ -28704,14 +28704,14 @@
     {
       "id": 2740,
       "title": "(a <= b) = False prints with ASCII <= where the positive form prints ≤",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": ".claude/worktrees/scratch-sw-2740",
       "labels": [],
       "epic": "syntax-language",
       "body": "From SW-2734 (10 Nov 2026).",
       "created": "2026-11-10",
-      "updated": "2026-11-10",
+      "updated": "2026-11-11",
       "commits": []
     },
     {
