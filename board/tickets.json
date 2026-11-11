@@ -29559,7 +29559,7 @@
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "\nFrom SW-2805 (stage 2): replace the elaborator's unfinished marks with relied_on per declaration and name the goal from each assumption's label; say in audit and goal that equation lemmas (half.eq1, eq2) exist for a definition with a ? and are unfinished; summary lines are interim ('checked assuming the goals hold', D3511 pending).",
+      "body": "\nFrom SW-2805 (stage 2): replace the elaborator's unfinished marks with relied_on per declaration and name the goal from each assumption's label; say in audit and goal that equation lemmas (half.eq1, eq2) exist for a definition with a ? and are unfinished; summary lines are interim ('checked assuming the goals hold', D3511, Matt, 11 Nov 2026: yes, keep until stage 3).",
       "created": "2026-11-11",
       "updated": "2026-11-11",
       "commits": []
