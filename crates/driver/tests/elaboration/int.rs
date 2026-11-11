@@ -352,8 +352,13 @@ fn open_terms_agree_in_both_modes() {
             2,
         );
 
-        // Decisions: different constructors decide at once, whatever the
-        // fields; the same constructor waits for its fields.
+        // Decisions: a record whose test is decided at once for different
+        // constructors, whatever the fields; for the same constructor, the
+        // test waits for the fields.
+        let test = |v: &Value| match v {
+            Value::Ctor(_, 0, fields) => Some(fields[0].clone()),
+            _ => None,
+        };
         for args in [
             [
                 ex(of_nat(&g.ev(), x.clone())),
@@ -365,7 +370,8 @@ fn open_terms_agree_in_both_modes() {
             ],
         ] {
             let (v, nf) = run(g, def(&g.ev(), "Int.decEq"), &args, 2);
-            assert!(matches!(v, Value::Ctor(..)), "{nf}");
+            let t = value::force(&g.ev(), test(&v).expect(&nf)).unwrap();
+            assert!(matches!(t, Value::Ctor(..)), "{nf}");
         }
         for args in [
             [
@@ -383,7 +389,8 @@ fn open_terms_agree_in_both_modes() {
             ],
         ] {
             let (v, nf) = run(g, def(&g.ev(), "Int.decEq"), &args, 2);
-            assert!(matches!(v, Value::Neutral(..)), "{nf}");
+            let t = value::force(&g.ev(), test(&v).expect(&nf)).unwrap();
+            assert!(matches!(t, Value::Neutral(..)), "{nf}");
         }
         // `OfNat (x + 2) = OfNat 1` is decided: `x + 2` isn't `1`.
         let args = [
@@ -391,7 +398,8 @@ fn open_terms_agree_in_both_modes() {
             ex(of_nat(&g.ev(), nat(1))),
         ];
         let (v, nf) = run(g, def(&g.ev(), "Int.decEq"), &args, 1);
-        assert!(matches!(v, Value::Ctor(..)), "{nf}");
+        let t = value::force(&g.ev(), test(&v).expect(&nf)).unwrap();
+        assert!(matches!(t, Value::Ctor(..)), "{nf}");
 
         // Division: an unknown divisor is stuck (the zero case needs to see
         // it); an unknown dividend over a known divisor computes to a
@@ -655,9 +663,8 @@ fn big_values_agree_with_an_independent_implementation() {
     let (bool_, yes) = g.env.registry().ctor(Builtin::True).unwrap();
     let tru = Value::Ctor(bool_, yes, Vec::new().into());
     // The largest normal form of a decision seen so far, not counting the
-    // digits of the numbers in it: for equal numbers, and for different ones
-    // by the signs.
-    let mut sizes = [None::<usize>; 5];
+    // digits of the numbers in it, by the signs.
+    let mut sizes = [None::<usize>; 6];
     for a in &values {
         for d in &values {
             // Truncating, then Leijen's corrections.
@@ -702,9 +709,9 @@ fn big_values_agree_with_an_independent_implementation() {
             let size = nf.chars().filter(|c| !c.is_ascii_digit()).count();
             let negative = |i: &BigInt| usize::from(i.sign() == Sign::Minus);
             let shape = if holds {
-                0
+                negative(a)
             } else {
-                1 + 2 * negative(a) + negative(d)
+                2 + 2 * negative(a) + negative(d)
             };
             let seen = &mut sizes[shape];
             match seen {

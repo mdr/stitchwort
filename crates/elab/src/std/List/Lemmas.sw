@@ -1711,6 +1711,23 @@ test "List.findRangeSome" := List.range 0 10 |> .find (n => n * n > 20) == Some 
 -- `List.findIndex`: what the first index that passes is, in the form that
 -- carries the induction, `findIndexFrom` (a cons step moves its start).
 
+--| A step of [`List.findIndexFromSome`]: when `x` fails `p` and nothing in
+--| `rest` from `start + 1` up to `index` passes, nothing in `[x, ..rest]`
+--| from `start` up to `index` does.
+theorem List.findIndexFromSomeBefore (p: a → Bool) (x: a) (rest: List a) (start: Nat) (index: Nat) (e: p x = False)
+    (before: ∀ (earlier: Nat) => Succ start ≤ earlier → earlier < index → ∀ (y: a) => rest.get (earlier - Succ start) = Some y → p y = False):
+    ∀ (earlier: Nat) => start ≤ earlier → earlier < index → ∀ (y: a) => [x, ..rest].get (earlier - start) = Some y → p y = False :=
+  earlier lo2 hi y g =>
+    match same: earlier == start with
+      | True =>
+        let zero: earlier - start = 0 := omega [DecEq.sound same]
+        rewrite <- Option.someInjective (rewrite zero at g in g) in e
+      | False =>
+        let ne: earlier ≠ start := DecEq.soundFalse earlier start same
+        let later: Succ start ≤ earlier := omega
+        let shift2: earlier - start = Succ (earlier - Succ start) := omega
+        before earlier later hi y (rewrite shift2 at g in g)
+
 --| What `findIndexFrom` finds passes, and nothing before it does.
 theorem List.findIndexFromSome (p: a → Bool) (start: Nat) (xs: List a) (index: Nat) (h: List.findIndexFrom start p xs = Some index): (start ≤ index) ∧ (∃ (x: a) => (xs.get (index - start) = Some x) ∧ (p x = True))
     ∧ (∀ (earlier: Nat) => start ≤ earlier → earlier < index → ∀ (y: a) => xs.get (earlier - start) = Some y → p y = False) :=
@@ -1732,16 +1749,7 @@ theorem List.findIndexFromSome (p: a → Bool) (start: Nat) (xs: List a) (index:
           let ok: start ≤ index := omega
           Both ok
             (Both (Exists.elim there (w both => Witness w (Both (rewrite shift in both.left) both.right)))
-              (earlier lo2 hi y g =>
-                match same: earlier == start with
-                  | True =>
-                    let zero: earlier - start = 0 := omega [DecEq.sound same]
-                    rewrite <- Option.someInjective (rewrite zero at g in g) in e
-                  | False =>
-                    let ne: earlier ≠ start := DecEq.soundFalse earlier start same
-                    let later: Succ start ≤ earlier := omega
-                    let shift2: earlier - start = Succ (earlier - Succ start) := omega
-                    before earlier later hi y (rewrite shift2 at g in g)))
+              (List.findIndexFromSomeBefore p x rest start index e before))
 
 --| What `findIndexFrom` does not find: no member passes.
 theorem List.findIndexFromNone (p: a → Bool): ∀ (start: Nat) (xs: List a) => List.findIndexFrom start p xs = None → ∀ (x: a) => x ∈ xs → p x = False

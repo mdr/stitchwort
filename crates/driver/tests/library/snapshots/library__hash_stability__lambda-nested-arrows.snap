@@ -3,13 +3,13 @@ source: crates/driver/tests/library/hash_stability.rs
 expression: "lines(session, d, f)"
 ---
 Main.roll b64f3067c458c3ff8187530de2e4f55b191a8a8c57eb859b4b8cc9c7ec3e214c
-Main.test "let, fixed by the body" becbe17656719d35e78fc5fa46f5aafaee9e6a5549d67558df28b38552e6f482
-Main.test "let, fixed by the use" cbc520068439e9c97f0b10ea2ce8d687f188f99cc1c26a17cb27e7e950805e70
-Main.test "let, three parameters" fad39553375c8c916f4fd029a19d831b8ae0bf96d35b814d5a05f5e203118fee
+Main.test "let, fixed by the body" 724d57f4b336cee6a11c26a2df00e5a96b39ba35083dbaec309d2064e44bd414
+Main.test "let, fixed by the use" bec7b668cadab27662c98818247ce7343bfac1a1e9f877cc51683010c21a8cc7
+Main.test "let, three parameters" 2ce81e109006cbb31ecc39d0940da51970f64505c633a2bca30088611da30ece
 Main.checkedNested a64e5c538e285d132ed8217a425206e5bee66f6aa5331ff5ee44459c18b7ca93
 Main.checkedFlat a64e5c538e285d132ed8217a425206e5bee66f6aa5331ff5ee44459c18b7ca93
-Main.test "let, with effects" 73a72ea378289a730afd4e45270a5eb8ae26126037ae6301c398f698bc002ef1
+Main.test "let, with effects" a2d9b4a88762a32064ed26246e469aab0a208d5b94ad3caa56a1d09ac4fe4ed1
 Main.apply2 4ec4f71709d5a4feee46e3f3b2f1c439c1f52daa8fa704d41dc916a2ae9796a1
 Main.applyAny 16cd7d0da0ac194c94a8ba3f8c40accb45a725c520ebec7a9eee75303b7fa97a
-Main.test "argument, known type" d4c4f2e498619d2cfbb1472f51c15581498172b53d44769fc42795eef010c741
-Main.test "argument, unknown type" 3249e8e2d7dfab30c2ee3fb769c3531e9bb9f91ad2991eacadf0de246fa455dc
+Main.test "argument, known type" 586ae530dc136a9b9c8ed7a6d73a528728137ba326ea1eefff4dd65a91d8474a
+Main.test "argument, unknown type" 3ee22e925b847c2ad76be2debc165b6cefdf95ffdec574705914e39223ceb4ac

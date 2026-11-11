@@ -26,33 +26,33 @@ Main.takeWhileOrder 321fac6b9815352ce4a69e90c09755e7fc6206b92497e3e94524ed69d50a
 Main.flatMapOrder 95b59a1c88873dc6bd294d30f50a9e22031c477cf22fa7157f05d6206739f482
 Main.partitionOrder 757395b29c4f2de5a8ff246982aa91628191e22b896f0ae03f1088a06b54f5f4
 Main.spanOrder 68acbff1493b5d70ee0f40f0b55cdc3349bed88ad1da8fe1e85c73395374ecc0
-Main.test "filter: in order, once each" 417c79910211d50bab57fa9e7c52618d12a1c7a7f9ef29e8d04a3d9b083282f5
-Main.test "foldLeft: in order" 75e7f42b608c5b1c2455d05e53ca51be35bf599ff3c4a7bb2ebf9ab7e46095c9
-Main.test "foldRight: last to first" 96c2f241f608cc0ad7d45e536683d0b938542a57e6e6d1a43582b2416a30f14a
-Main.test "sumBy: in order" 863fdb52ce6f39804641f9c933f90165a860c632b5020472132d5f1052045739
-Main.test "count: in order" 4695e585827dd7b604ead0d753c2e1dc08a4f077a212599aede267a8aa3702ef
-Main.test "any: stops at the first yes" 9262d2bf8bda0bd8417c852bf880b398c96092f354429b41a91211b9114cc60a
-Main.test "any: all of them for no" 2dab3b39f0d8380eb3dbfe66216a383bd200c8084bcbc8f02ca7ca80234dac66
-Main.test "all: stops at the first no" 7986ef13141fc897966a0c6775fdd6a576a56063dd38d158971d2a6d35aebe89
-Main.test "all: all of them for yes" 39bec07a85cde1f1e8a4f69b5aaeed0584a250ae3c8bc9dcd7b860b24f7a1237
-Main.test "find: stops at the element found" a8fab303fc4bb2e12ab4d04ebe92d8f6953a8f729c9c9862d2d98dd23dc72f5e
-Main.test "filterMap: in order" 8c39385e621ddb44241ec88786d4dc67f37ba00885a5cfdd9269b8d9965de08c
-Main.test "findMap: stops at the first Some" 807dd31e5c32b7e53784f33dbe76f66214b71dfa6c6a8101062795e8a081d175
-Main.test "findMap: all of them for None" aed61058d5014968188197795038fb8c6593a984fee071872dfbb0fc3299fb52
-Main.test "takeWhile: stops at the first no" 1f98d5d651147c0751a444c9d761afd1b7f4ce4c4915bbd9721e3168923c91f3
-Main.test "flatMap: in order" 7f177883a964dc9ed4b4a93e26151cc0299254bad0ca3b5b087ecc1211ae9882
-Main.test "partition: one pass, in order" e39fed03531fc3190dd397972c63b7e13823b9c4eea9103495d778f2a13820c6
-Main.test "span: one pass, stops at the first no" 2a5ff9cf438518b48fa1be496106ff7dd874a7c49368012e22b0d31506a07b3b
+Main.test "filter: in order, once each" 1a6fb0602629da53d759cda56829f1c97f036ecd07d3ab9d3b5856a6244cbce5
+Main.test "foldLeft: in order" 61be187775835adf774c66428e6a0dec57026f95da883aaac1bc8a88de8f7042
+Main.test "foldRight: last to first" 895a61dedfebea371eedf59f3793aef459be01ef216cf34fe0a1fd7b96fcd176
+Main.test "sumBy: in order" 10b71961ee79c955968cd1bf6a84a73d095c99dd0e6b5081d48fd48238c063b2
+Main.test "count: in order" c4e25b967593a59defd269f840884bf8441b524a3f63f7c4b295eed670d0d98e
+Main.test "any: stops at the first yes" 37fd63104279ace2633446ee6923cceae01b6c6925dc3385274bef77e01a8690
+Main.test "any: all of them for no" a72567032c693434119baba4903f3ce5f0a1d04950146d793e6dc84a85f5c235
+Main.test "all: stops at the first no" 6b16b71f8c17cd0b6c9dbffb06b2b178416d1a682c917da23103408b26f125a7
+Main.test "all: all of them for yes" 9c2c17cdf1a3691d58036c5755173417408c08be09b54502422d43b2819a3e35
+Main.test "find: stops at the element found" 6255858695cc2565ce2d10ed8f9256ddcc17b882e04da9f403217a8bd29a3b8f
+Main.test "filterMap: in order" 13a76a61a0c5f9ac0140760835a8e7e36660d893825f72465343984f61d55fde
+Main.test "findMap: stops at the first Some" 638a5c2be0bebd7e88703235ec16872f35d76cf93a6b9b559608a6fea74d2244
+Main.test "findMap: all of them for None" b84a036685b6976bb0db6009920348b547f2060ba909d05c6dc0197d2714c1b7
+Main.test "takeWhile: stops at the first no" 880389e11ddc4b84b619eb8f18afb2e014e342f38eaea3227505f5b1c90b2989
+Main.test "flatMap: in order" 7672963835f65d6dfe3d6dacb9bebabe81a2fad2df263789b85905351672c34e
+Main.test "partition: one pass, in order" 99b8b9536af634a5b769427a22d4b620c2db699e26e163534d8978b0b0def586
+Main.test "span: one pass, stops at the first no" 756a49590a84fd6182fad20d7b1de9595cdc1481ab69c354f035d4614681b8b3
 Main.isSmall 61613675debf7b93ccb2c72972ac129337a497ce082241f8c888f25df051df24
 Main.filterFirstBad b99143e86c62c3327a0d151131384d875b384d6468f63c4a7e324f5ce4c829e0
 Main.partitionFirstBad c1607c221bf2f876fffefc00add5d0e897c69b1848337f52e2be70a599721c0c
 Main.countFirstBad be94cf90a3365a3ef276a1f63a7da05cb7b78141bcedf186352df8fd945ffa6a
 Main.allFirstBad a4394c61af01cd6f065249868a1bebf2e0a7e44a432201ceb58bbb7a280e85f6
-Main.test "filter: the first bad element" 3f96aec8cb7873ce4c56534977b735f92a6e207c497330f44c7a5bc1e1afe323
-Main.test "filter: all good" d2a54fba6b7faf675e0eeccdef00b88ad0ba602c9dc502a362b3283e72fbba36
-Main.test "partition: the first bad element" 654b045f8936555c6dd396fd63bb544ba46a5b27f38feee092dc46e5eb278be9
-Main.test "count: the first bad element" a72c0a3065f980c1168ef7fee45a0764cec4836fef418759090746dcd59034ed
-Main.test "all: the first bad element" 4635d35284a589bda8e7767757a0b3fdcf3695786ea9d2d562b581fd6c92db8a
+Main.test "filter: the first bad element" 7192b52cc3544f1bfd411dd95238c8ac3bf502b5eb2a98955d47502d5eec1347
+Main.test "filter: all good" a8c343dd969569833e86ee11236ea94627aa53c0febfd2ccc1875716ba4288d2
+Main.test "partition: the first bad element" 47df02942dcb63119e5d2f7b6b1efc7f45e193ab9df6ced192e5af45c5f507c8
+Main.test "count: the first bad element" 44f3672a44e134b8dc6ef95658781d9cbaa78dac0cf3768982d2ea95274e6ec7
+Main.test "all: the first bad element" a20d3787ec537b72fe036e778da0d21d83f0df7dd0a0bc526a92029fc2fa562e
 Main.pureFilter 3f522ae4eb659917d5bb6678eacf363e8c8dd3e3f981c7437326e05d584443b4
 Main.pureFilter.eq1 28ad810927d8cedba36ebd07592b27c09c537b3d6c476a86f238a30332a56469
 Main.pureFilter.eq2 e697e88e487db26ffca814dbdf9258894c463af64b6c33d54ed5258c7034015e

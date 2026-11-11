@@ -78,7 +78,7 @@ const TEXT_NATIVES: &[(Builtin, TextNative, &str)] = &[
     (
         Builtin::DecEqText,
         TextNative::DecEqText,
-        "a6c6d427f6131137ce845fb20457b4481af63c0f3dff5d2a452b3306bad4ea08",
+        "8849b490d608b9c3f1b041f0d885814cb1159f87ec338c06661c4918d24b75d0",
     ),
     (
         Builtin::TextCompare,
@@ -118,7 +118,7 @@ const TEXT_NATIVES: &[(Builtin, TextNative, &str)] = &[
     (
         Builtin::TextSplit,
         TextNative::TextSplit,
-        "461de75415409afb7f64127248d0616c3e62867a89c01d9de662024896742ac0",
+        "faa6816ea26a8a580ecaebb1269c36ffcd8a00bd4d75ea998271dfef95c58737",
     ),
     (
         Builtin::TextJoin,
@@ -437,7 +437,7 @@ const INT_NATIVES: &[(Builtin, IntNative, &str)] = &[
     (
         Builtin::DecEqInt,
         IntNative::DecEqInt,
-        "ce5872ce8adcf4474709def4a7d64fd0375f3246437096dd243379b30ae51e57",
+        "899cc83d383d086c21d4cc020ffbbcfed0bd37121a4adcdf3250839ed84c9ab3",
     ),
     (
         Builtin::IntLeq,

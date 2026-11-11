@@ -1,24 +1,27 @@
 ---
 source: crates/rt/tests/it/lower.rs
-assertion_line: 291
 expression: "ir(r#\"\nimport Std (Nat, Text, Int)\ndef signed (t: Text): Int :=\n  match Text.toInt t with\n    | Some n => n * -3 + 7\n    | None => 0\n\ndef main(): {IO} () :=\n  let parts := Text.split \"12,-5,x\" ','\n  IO.print (Text.join (parts.map (t => Int.toText (signed t))) ' ')\n  IO.print (if Text.length \"abc\" == 3 && \"a\" < \"b\" then \"yes\" else \"no\")\n\"#)"
 ---
+fn Std.Bool.not(v0) {1 slots} =
+  if v0 then
+    False
+  else
+    True
 fn Std.Bool.ifThenElse(v0, v1, v2) {3 slots} =
   if v0 then
     apply v1(erased)
   else
     apply v2(erased)
-fn Std.Decidable.toBool(v0) {1 slots} =
-  match v0: Decidable {
-    Yes => True
-    No => False
-  }
-native Std.Nat.decEq = %Nat.decEq/2
+native Std.Nat.equal = %Nat.equal/2
+fn Std.Decidable.holds(v0) {1 slots} = v0
+const Std.Decidable.yes {0 slots} = True
+const Std.Decidable.no {0 slots} = False
+fn Std.Nat.decEq(v0, v1) {2 slots} = %Nat.equal(v0, v1)
 fn Std.Decidable.not(v0) {1 slots} =
-  match v0: Decidable {
-    Yes => No
-    No => Yes
-  }
+  if v0 then
+    False
+  else
+    True
 fn Std.Ordering.index(v0) {1 slots} =
   match v0: Ordering {
     Less => 0
@@ -29,21 +32,21 @@ fn Std.Ordering.decEq(v0, v1) {2 slots} =
   match v0: Ordering {
     Less =>
       match v1: Ordering {
-        Less => Yes
-        Equal => No
-        Greater => No
+        Less => Std.Decidable.yes
+        Equal => Std.Decidable.no
+        Greater => Std.Decidable.no
       }
     Equal =>
       match v1: Ordering {
-        Less => No
-        Equal => Yes
-        Greater => No
+        Less => Std.Decidable.no
+        Equal => Std.Decidable.yes
+        Greater => Std.Decidable.no
       }
     Greater =>
       match v1: Ordering {
-        Less => No
-        Equal => No
-        Greater => Yes
+        Less => Std.Decidable.no
+        Equal => Std.Decidable.no
+        Greater => Std.Decidable.yes
       }
   }
 native Std.Text.decEq = %DecEqText/2
@@ -66,29 +69,53 @@ fn Std.Ord.fromCompare(v0, v1) {2 slots} =
   %mk(v0, v1, λ0[c0 = v1](v0, v1) {3 slots} =>
     let v2 = apply c0(v0, v1)
     match v2: Ordering {
-      Less => Yes
-      Equal => No
-      Greater => No
+      Less => Std.Decidable.yes
+      Equal => Std.Decidable.no
+      Greater => Std.Decidable.no
     }, λ1[c0 = v1](v0, v1) {3 slots} =>
     let v2 = apply c0(v0, v1)
     match v2: Ordering {
-      Less => Yes
-      Equal => Yes
-      Greater => No
+      Less =>
+        if Std.Decidable.no then
+          False
+        else
+          True
+      Equal =>
+        if Std.Decidable.no then
+          False
+        else
+          True
+      Greater =>
+        if Std.Decidable.yes then
+          False
+        else
+          True
     })
 const Std.Text.instOrd {0 slots} =
   %mk(Std.Text.instDecEq, Std.Text.compare, λ5(v0, v1) {3 slots} =>
     let v2 = %TextCompare(v0, v1)
     match v2: Ordering {
-      Less => Yes
-      Equal => No
-      Greater => No
+      Less => Std.Decidable.yes
+      Equal => Std.Decidable.no
+      Greater => Std.Decidable.no
     }, λ6(v0, v1) {3 slots} =>
     let v2 = %TextCompare(v0, v1)
     match v2: Ordering {
-      Less => Yes
-      Equal => Yes
-      Greater => No
+      Less =>
+        if Std.Decidable.no then
+          False
+        else
+          True
+      Equal =>
+        if Std.Decidable.no then
+          False
+        else
+          True
+      Greater =>
+        if Std.Decidable.yes then
+          False
+        else
+          True
     })
 fn Std.List.map[empty](v0, v1) {4 slots} =
   let v2 = %HoleNew()
@@ -118,9 +145,21 @@ fn Main.main(v0) {3 slots} =
       } then
         let v1 = %TextCompare("a", "b")
         match v1: Ordering {
-          Less => "yes"
-          Equal => "no"
-          Greater => "no"
+          Less =>
+            if Std.Decidable.yes then
+              "yes"
+            else
+              "no"
+          Equal =>
+            if Std.Decidable.no then
+              "yes"
+            else
+              "no"
+          Greater =>
+            if Std.Decidable.no then
+              "yes"
+            else
+              "no"
         }
       else
         "no"
@@ -167,9 +206,21 @@ entry {2 slots} =
         } then
           let v1 = %TextCompare("a", "b")
           match v1: Ordering {
-            Less => "yes"
-            Equal => "no"
-            Greater => "no"
+            Less =>
+              if Std.Decidable.yes then
+                "yes"
+              else
+                "no"
+            Equal =>
+              if Std.Decidable.no then
+                "yes"
+              else
+                "no"
+            Greater =>
+              if Std.Decidable.no then
+                "yes"
+              else
+                "no"
           }
         else
           "no"

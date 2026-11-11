@@ -6,4 +6,4 @@ import Std (Decidable)
 
 def isNotFound: (n: Nat) → Decidable (n = 404)
   | 404 => Decidable.yes rfl
-  | n   => Decidable.yes rfl
+  | n => Decidable.yes rfl
