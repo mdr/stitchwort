@@ -31012,12 +31012,12 @@
     {
       "id": 2917,
       "title": "[DeepSeek] Offer 'Search for a proof' only on a ? whose expected type is a proposition (a theorem-proving context), not on a ? in a program (expected type a data type such as Nat or List a) (Matt, 11 Nov 2026)",
-      "status": "doing",
+      "status": "review",
       "agent": "DeepSeek",
       "where": "",
       "labels": [],
       "epic": "editor-playground",
-      "body": "",
+      "body": "\nModel result: DeepSeek, worked, ~25 min (est. 30). Uses Pending.prop (is_proof_type) as GoalData.prop; command refuses 'not a proof goal'. Reviewed; waits for the next batch.",
       "created": "2026-11-11",
       "updated": "2026-11-11",
       "commits": []
