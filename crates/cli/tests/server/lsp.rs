@@ -2446,8 +2446,29 @@ fn context_at_in_a_projects_file_reads_the_editors_text() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
-/// The code action at a `?` (SW-915 stage 2): replace it with what closes
-/// it, kernel-checked by `search --at`; none away from a goal.
+/// Runs the "Search for a proof" action among `actions` (D3519): the
+/// answer of its command, and that no proof was among the actions.
+fn run_proof_search(client: &mut Client, actions: &Value) -> Value {
+    let actions = actions.as_array().expect("actions");
+    assert!(
+        !actions
+            .iter()
+            .any(|a| a["title"].as_str().unwrap().starts_with("Replace ? with")),
+        "{actions:?}"
+    );
+    let search = (actions.iter())
+        .find(|a| a["title"] == "Search for a proof")
+        .unwrap_or_else(|| panic!("{actions:?}"));
+    client.request(
+        "workspace/executeCommand",
+        json!({"command": search["command"]["command"],
+               "arguments": search["command"]["arguments"]}),
+    )
+}
+
+/// The code action at a `?` (SW-915 stage 2, D3519): "Search for a proof",
+/// whose command replaces the `?` with what closes it, kernel-checked by
+/// `search --at`; none away from a goal.
 #[test]
 fn a_code_action_at_a_goal_offers_what_closes_it() {
     let dir = temp_dir("code-action");
@@ -2468,19 +2489,25 @@ fn a_code_action_at_a_goal_offers_what_closes_it() {
         )
     };
     let found = actions(&mut client, 2, 50);
-    let titles: Vec<&str> = (found.as_array().expect("actions").iter())
-        .map(|a| a["title"].as_str().unwrap())
+    let answer = run_proof_search(&mut client, &found);
+    let proofs = answer["proofs"].as_array().expect("proofs");
+    let titles: Vec<&str> = proofs
+        .iter()
+        .map(|p| p["title"].as_str().unwrap())
         .collect();
     assert!(
         titles.contains(&"Replace ? with `Nat.addComm m n` (exact, Std.Nat.addComm)"),
         "{titles:?}"
     );
-    let first = (found.as_array().unwrap().iter())
-        .find(|a| a["title"].as_str().unwrap().contains("Nat.addComm"))
+    let first = (proofs.iter())
+        .find(|p| p["title"].as_str().unwrap().contains("Nat.addComm"))
         .unwrap();
-    let edit = &first["edit"]["changes"][uri.as_str()][0];
-    assert_eq!(edit["newText"], "Nat.addComm m n");
-    assert_eq!(edit["range"]["start"], json!({"line": 2, "character": 49}));
+    assert_eq!(first["newText"], "Nat.addComm m n");
+    assert_eq!(
+        answer["range"]["start"],
+        json!({"line": 2, "character": 49})
+    );
+    assert_eq!(answer["version"], 1);
     assert_eq!(actions(&mut client, 0, 3), Value::Null);
     client.shutdown();
     let _ = std::fs::remove_dir_all(&dir);
@@ -2528,24 +2555,26 @@ fn a_code_action_at_a_goal_in_a_project_offers_what_closes_it() {
         json!({"textDocument": {"uri": uri}, "range": {"start": at, "end": at},
                "context": {"diagnostics": []}}),
     );
-    let titles: Vec<&str> = (found.as_array().expect("actions").iter())
-        .map(|a| a["title"].as_str().unwrap())
+    let answer = run_proof_search(&mut client, &found);
+    let proofs = answer["proofs"].as_array().expect("proofs");
+    let titles: Vec<&str> = proofs
+        .iter()
+        .map(|p| p["title"].as_str().unwrap())
         .collect();
     assert!(
         titles.contains(&"Replace ? with `Shop.Spec.doubleSwap a b` (exact, Shop.Spec.doubleSwap)"),
         "{titles:?}"
     );
-    let first = (found.as_array().unwrap().iter())
-        .find(|a| {
-            a["title"]
-                .as_str()
-                .unwrap()
-                .contains("doubleSwap a b` (exact")
-        })
-        .unwrap();
-    let edit = &first["edit"]["changes"][uri.as_str()][0];
-    assert_eq!(edit["newText"], "Shop.Spec.doubleSwap a b");
-    assert_eq!(edit["range"]["start"], json!({"line": 6, "character": 68}));
+    assert_eq!(
+        answer["range"]["start"],
+        json!({"line": 6, "character": 68})
+    );
+    assert!(
+        proofs
+            .iter()
+            .any(|p| p["newText"] == "Shop.Spec.doubleSwap a b"),
+        "{proofs:?}"
+    );
     client.shutdown();
     let _ = std::fs::remove_dir_all(&dir);
 }
@@ -2768,6 +2797,7 @@ fn swap_action(client: &mut Client, uri: &str) -> RequestId {
 fn first_proof_only() -> Options {
     let mut options = Options::new(STACK);
     options.search_wanted = 1;
+    options.search_time = Duration::from_secs(120);
     options
 }
 
@@ -2786,7 +2816,9 @@ fn a_code_action_edit_names_its_document_version_when_the_client_can_use_it() {
     client.diagnostics(&uri, 1);
     let id = swap_action(&mut client, &uri);
     let found = client.response(&id).unwrap();
-    let first = &found.as_array().expect("actions")[0];
+    let first = (found.as_array().expect("actions").iter())
+        .find(|a| a["title"].as_str().unwrap().starts_with("Split on"))
+        .unwrap_or_else(|| panic!("{found}"));
     assert!(first["edit"]["changes"].is_null(), "{first}");
     let change = &first["edit"]["documentChanges"][0];
     assert_eq!(change["textDocument"], json!({"uri": uri, "version": 1}));

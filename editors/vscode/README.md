@@ -101,8 +101,8 @@ on unless noted (D3468):
 | --- | --- |
 | `stitchwort.inlayHints.letTypes` | the type after a `let` whose type isn't written |
 | `stitchwort.codeLens.run` | the "▶ Run" and "▶ Run test" icons |
-| `stitchwort.proofSearch.enabled` | proofs found for a `?` (and "Split into cases"), offered as quick fixes |
-| `stitchwort.proofSearch.timeLimitMs` | how long one search may run (default 5000) |
+| `stitchwort.proofSearch.enabled` | "Search for a proof" on a `?` (and the "Split" quick fixes there) |
+| `stitchwort.proofSearch.timeLimitMs` | how long one "Search for a proof" may run (default 5000) |
 | `stitchwort.semanticColours` | colours from what the checker resolved each name to |
 | `stitchwort.goals.openAutomatically` | open the Goals panel when a `.sw` file with a `?` opens (off by default) |
 | `stitchwort.path` | the `stitchwort` program (restarts the server) |

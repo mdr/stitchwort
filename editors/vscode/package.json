@@ -54,8 +54,8 @@
         },
         "stitchwort.inlayHints.letTypes": {"type": "boolean", "default": true, "description": "Show the type after a `let` whose type isn't written."},
         "stitchwort.codeLens.run": {"type": "boolean", "default": true, "description": "Show the Run and Run test icons above `main` and each `test`."},
-        "stitchwort.proofSearch.enabled": {"type": "boolean", "default": true, "description": "Offer proofs that close a goal `?`, found by searching, as quick fixes."},
-        "stitchwort.proofSearch.timeLimitMs": {"type": "number", "default": 5000, "minimum": 100, "description": "How long a proof search may run, in milliseconds, before it gives up with what it has found."},
+        "stitchwort.proofSearch.enabled": {"type": "boolean", "default": true, "description": "Offer \"Search for a proof\" on a goal `?` (the quick fixes answer at once; the search runs when you pick it), and the quick fixes that split a variable."},
+        "stitchwort.proofSearch.timeLimitMs": {"type": "number", "default": 5000, "minimum": 100, "description": "How long a proof search may run, in milliseconds, before it gives up with what it has found, once you pick \"Search for a proof\"."},
         "stitchwort.semanticColours": {"type": "boolean", "default": true, "description": "Colour names by what the checker found them to be (functions, types, theorems and so on), beyond the syntax colouring."},
         "stitchwort.goals.openAutomatically": {"type": "boolean", "default": false, "description": "Open the Goals panel when you open a `.sw` file that has a goal `?`."}
       }

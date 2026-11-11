@@ -825,29 +825,91 @@ fn a_non_exhaustive_match_gets_its_missing_arms_added() {
     });
 }
 
-/// The closing search prints each candidate as a bare term, so a constructor
-/// it shows unapplied (`Succ`, with no argument) must print as its name
-/// (SW-1799).
+/// The code action at a `?` runs no proof search (D3519): the jobs it
+/// queues are the splits, and it offers "Search for a proof", whose command
+/// then runs the search and answers the candidates. The closing search
+/// prints each candidate as a bare term, so a constructor it shows
+/// unapplied (`Succ`, with no argument) must print as its name (SW-1799).
 #[test]
-fn a_code_action_on_a_goal_prints_unapplied_constructors() {
+fn a_code_action_on_a_goal_offers_a_search_that_runs_when_asked() {
     big_stack(|| {
         let text =
             "namespace Demo\n\ndef f: Option (Option Nat) -> Nat\n  | Some o => ?\n  | None => 0\n";
         let mut s = Session::open(text);
-        let actions = s.request_searched(
-            "textDocument/codeAction",
-            json!({"textDocument": {"uri": URI},
-                   "range": {"start": {"line": 3, "character": 14},
-                             "end": {"line": 3, "character": 14}},
-                   "context": {"diagnostics": []}}),
-        );
+        let at = json!({"textDocument": {"uri": URI},
+                        "range": {"start": {"line": 3, "character": 14},
+                                  "end": {"line": 3, "character": 14}},
+                        "context": {"diagnostics": []}});
+        let jobs = s.queued_searches("textDocument/codeAction", at.clone());
+        assert_eq!(jobs.len(), 1, "{jobs:?}");
+        let job: Value = serde_json::from_str(&jobs[0]).unwrap();
+        assert!(job["kind"]["Proofs"].is_null(), "{job}");
+        assert!(job["kind"]["SplitHole"].is_object(), "{job}");
+
+        let actions = s.request_searched("textDocument/codeAction", at);
         let actions = actions.as_array().unwrap_or_else(|| panic!("{actions}"));
+        let titles: Vec<&str> = actions
+            .iter()
+            .map(|a| a["title"].as_str().unwrap())
+            .collect();
+        assert!(titles.contains(&"Split on `o`"), "{titles:?}");
         assert!(
-            actions.iter().any(|a| a["title"]
+            titles.iter().all(|t| !t.starts_with("Replace ? with")),
+            "{titles:?}"
+        );
+        let search = actions
+            .iter()
+            .find(|a| a["title"] == "Search for a proof")
+            .unwrap_or_else(|| panic!("{titles:?}"));
+        assert_eq!(search["command"]["command"], "stitchwort.searchProof");
+
+        let answer = s.request_searched(
+            "workspace/executeCommand",
+            json!({"command": search["command"]["command"],
+                   "arguments": search["command"]["arguments"]}),
+        );
+        let proofs = answer["proofs"]
+            .as_array()
+            .unwrap_or_else(|| panic!("{answer}"));
+        assert!(
+            proofs.iter().any(|p| p["title"]
                 .as_str()
                 .is_some_and(|t| t.starts_with("Replace ? with `0`"))),
-            "{actions:?}"
+            "{proofs:?}"
         );
+        assert_eq!(
+            answer["range"]["start"],
+            json!({"line": 3, "character": 14})
+        );
+        assert_eq!(answer["version"], 1);
+    });
+}
+
+/// The search command refuses to start from a `?` that has moved.
+#[test]
+fn the_search_command_on_a_moved_goal_is_refused() {
+    big_stack(|| {
+        let text =
+            "namespace Demo\n\ndef f: Option (Option Nat) -> Nat\n  | Some o => ?\n  | None => 0\n";
+        let mut s = Session::open(text);
+        let typed = text.replace("namespace Demo\n", "namespace Demo\n-- note\n");
+        s.change(2, &typed);
+        let id = s.next_id;
+        s.next_id += 1;
+        let message = json!({"jsonrpc": "2.0", "id": id, "method": "workspace/executeCommand",
+            "params": {"command": "stitchwort.searchProof", "arguments": [{
+                "uri": URI,
+                "range": {"start": {"line": 3, "character": 14},
+                          "end": {"line": 3, "character": 15}}}]}});
+        let replies: Vec<Value> = s
+            .server
+            .receive(&message.to_string())
+            .iter()
+            .map(|m| serde_json::from_str(m).unwrap())
+            .collect();
+        let reply = replies.iter().find(|m| m["id"] == id).unwrap();
+        assert!(reply["error"]["message"].is_string(), "{reply}");
+        assert!(s.server.take_searches().is_empty());
     });
 }
 

@@ -47,6 +47,12 @@ function startClient() {
     },
     outputChannelName: 'Stitchwort',
     middleware: {
+      // "Search for a proof" runs the search now, with progress, and offers
+      // what it finds (the server answers the code action without searching).
+      executeCommand(command, args, next) {
+        if (command !== cfg.SEARCH_PROOF) return next(command, args);
+        return searchForProof(args[0]);
+      },
       // Hovering inside a selection asks for the selected expression's type.
       provideHover(document, position, token, next) {
         const editor = vscode.window.activeTextEditor;
@@ -72,6 +78,48 @@ function startClient() {
       );
     }
   });
+}
+
+// The search a "Search for a proof" action asks for: runs on the server while a
+// cancellable progress notification shows, then a pick of the proofs found
+// (the best first) whose choice replaces the `?`. A text that moved on is
+// applied to only while the `?` is still where the search started.
+async function searchForProof({ uri, range }) {
+  const c = client;
+  if (!c) return;
+  let answer;
+  try {
+    answer = await vscode.window.withProgress(
+      { location: vscode.ProgressLocation.Notification, title: 'Stitchwort: searching for a proof…', cancellable: true },
+      (_, token) => c.sendRequest('workspace/executeCommand', { command: cfg.SEARCH_PROOF, arguments: [{ uri, range }] }, token),
+    );
+  } catch (err) {
+    if (err && err.code !== -32800) vscode.window.showWarningMessage(`Stitchwort: ${err.message}`);
+    return;
+  }
+  if (!answer) {
+    vscode.window.showInformationMessage('Stitchwort: the file changed during the search; try again.');
+    return;
+  }
+  const picks = cfg.proofPicks(answer);
+  if (!picks.length) {
+    vscode.window.showInformationMessage(cfg.noProofMessage(answer.timeLimitMs));
+    return;
+  }
+  const picked = await vscode.window.showQuickPick(picks, {
+    title: 'Replace ? with a proof',
+    placeHolder: 'Proofs that close the goal, best first',
+  });
+  if (!picked) return;
+  const document = await vscode.workspace.openTextDocument(vscode.Uri.parse(uri));
+  const where = c.protocol2CodeConverter.asRange(answer.range);
+  if (!cfg.proofStillApplies(answer, document.version, document.getText(where))) {
+    vscode.window.showWarningMessage('Stitchwort: the ? has moved since the search; no proof was inserted.');
+    return;
+  }
+  const edit = new vscode.WorkspaceEdit();
+  edit.replace(document.uri, where, picked.proof.newText);
+  await vscode.workspace.applyEdit(edit);
 }
 
 async function restartServer() {

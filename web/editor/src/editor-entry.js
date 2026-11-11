@@ -724,13 +724,17 @@ export class Editor {
   }
 
   /**
-   * Code actions at the selection (the client has no UI for them): the
-   * first one's edit is applied. A proof search on a `?` takes seconds, the
-   * page is told meanwhile.
+   * Code actions at the selection (the client has no UI for them). The
+   * server answers at once; a single plain edit is applied, anything else
+   * (several actions, or "Search for a proof") is offered in a pick list.
+   * "Search for a proof" runs the search when it is picked (it takes
+   * seconds, the page is told meanwhile) and offers the proofs found in
+   * another pick list (D3519).
    */
   async codeAction(view = this.view) {
     const plugin = LSPPlugin.get(view);
     if (!plugin || this.std) return false;
+    this.closePick();
     plugin.client.sync();
     const { from, to } = view.state.selection.main;
     const notice = this.options.onNotice;
@@ -752,16 +756,108 @@ export class Editor {
       notice?.(`Code actions failed: ${e.message ?? e}`);
       return true;
     }
-    const edits = actions?.[0]?.edit?.changes?.[plugin.uri];
-    this.lastCodeActions = (actions ?? []).map((a) => a.title);
-    if (!edits) {
-      notice?.(actions?.length ? "" : "No code action here");
+    actions = actions ?? [];
+    this.lastCodeActions = actions.map((a) => a.title);
+    if (!actions.length) {
+      notice?.("No code action here");
       return true;
     }
-    notice?.(actions[0].title);
-    view.dispatch({ changes: edits.map((e) => ({ from: plugin.fromPosition(e.range.start), to: plugin.fromPosition(e.range.end), insert: e.newText })) });
+    const apply = (edits, title) => {
+      notice?.(title);
+      view.dispatch({ changes: edits.map((e) => ({ from: plugin.fromPosition(e.range.start), to: plugin.fromPosition(e.range.end), insert: e.newText })) });
+    };
+    const editsOf = (a) => a.edit?.changes?.[plugin.uri];
+    if (actions.length === 1 && editsOf(actions[0])) {
+      apply(editsOf(actions[0]), actions[0].title);
+      return true;
+    }
+    notice?.("");
+    this.pick(view, "Code actions", actions.map((a) => ({
+      label: a.title,
+      run: () => (a.command ? this.searchProof(view, plugin, a.command) : editsOf(a) && apply(editsOf(a), a.title)),
+    })));
     return true;
   }
+
+  /**
+   * The "Search for a proof" command: the server runs the search now; the
+   * proofs it found are offered, best first, and the one picked replaces
+   * the `?` if it is still there.
+   */
+  async searchProof(view, plugin, command) {
+    const notice = this.options.onNotice;
+    notice?.("Searching for a proof…");
+    let answer;
+    try {
+      answer = await plugin.client.request("workspace/executeCommand", { command: command.command, arguments: command.arguments });
+    } catch (e) {
+      notice?.(e.message ?? String(e));
+      return;
+    }
+    if (!answer) {
+      notice?.("The text changed during the search; try again");
+      return;
+    }
+    if (!answer.proofs.length) {
+      notice?.(`No proof found within ${Math.round(answer.timeLimitMs / 100) / 10} s`);
+      return;
+    }
+    notice?.("");
+    this.pick(view, "Replace ? with a proof", answer.proofs.map((p) => ({
+      label: p.newText,
+      detail: p.title.match(/\(([^()]*)\)$/)?.[1],
+      run: () => {
+        const from = plugin.fromPosition(answer.range.start);
+        const to = plugin.fromPosition(answer.range.end);
+        if (view.state.sliceDoc(from, to) !== "?") {
+          notice?.("The ? has moved since the search; no proof was inserted");
+          return;
+        }
+        notice?.(p.title);
+        view.dispatch({ changes: { from, to, insert: p.newText } });
+      },
+    })));
+  }
+
+  /**
+   * A small pick list above the editor (like the rename panel): arrow keys
+   * move, Enter or a click runs the item's `run`, Escape closes it.
+   */
+  pick(view, title, items) {
+    this.closePick();
+    const panel = document.createElement("div");
+    panel.className = "rename-panel pick-panel";
+    panel.setAttribute("role", "listbox");
+    panel.setAttribute("aria-label", title);
+    const heading = Object.assign(document.createElement("div"), { textContent: title });
+    panel.append(heading);
+    const finish = () => { this.closePick(); view.focus(); };
+    const buttons = items.map((item) => {
+      const b = Object.assign(document.createElement("button"), { type: "button" });
+      b.className = "pick-item";
+      b.setAttribute("role", "option");
+      b.append(Object.assign(document.createElement("code"), { textContent: item.label }));
+      if (item.detail) b.append(" ", Object.assign(document.createElement("span"), { className: "pick-detail", textContent: item.detail }));
+      b.addEventListener("click", () => { finish(); item.run(); });
+      panel.append(b);
+      return b;
+    });
+    panel.addEventListener("keydown", (e) => {
+      const i = buttons.indexOf(document.activeElement);
+      if (e.key === "Escape") { e.preventDefault(); finish(); }
+      else if (e.key === "ArrowDown") { e.preventDefault(); buttons[(i + 1) % buttons.length].focus(); }
+      else if (e.key === "ArrowUp") { e.preventDefault(); buttons[(i + buttons.length - 1) % buttons.length].focus(); }
+    });
+    this.parent.before(panel);
+    this.pickPanel = panel;
+    buttons[0]?.focus();
+  }
+
+  closePick() {
+    this.pickPanel?.remove();
+    this.pickPanel = null;
+  }
+
   // ---- Rename -------------------------------------------------------------------
 
   /**
