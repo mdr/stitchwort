@@ -105,7 +105,12 @@ Details and examples are in "Reporting to Matt" in `docs/workflow.md`.
   names Matt gave the work, each item's status first.
 - "aw" means a table of active work. Every table of running work has the
   same seven columns: Ticket, Epic, Machine, Model, Paper, Running for,
-  Summary.
+  Summary. "Running for" is measured with a command each time, never
+  recalled or estimated: the worktree's creation time (`/usr/bin/stat -f
+  '%SB' -t '%H:%M' .claude/worktrees/SW-N`) against `date`, `ps -o etime=`
+  for a DeepSeek run, and the start time Overmind reported for its job
+  (Matt, 11 Nov 2026: a table guessed from memory got stage 3's time
+  wrong by over an hour). See "Reporting to Matt" in `docs/workflow.md`.
 - Before quoting how long a job takes, look up how long it took before, and
   set a stop point up front (Matt stopped a "two-minute" job at 25 min,
   5 Nov 2026).
