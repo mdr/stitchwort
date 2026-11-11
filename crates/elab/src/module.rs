@@ -975,9 +975,9 @@ impl Elaborator {
     fn note_failed_sources(&mut self, files: &[SourceUnit]) {
         let parse_failed: Vec<(String, (String, Option<Span>))> = (files.iter())
             .flat_map(|unit| &unit.module.failed)
-            .filter_map(|name| {
-                let key = self.declaration_key(name).ok()?;
-                Some((key, (name.text.clone(), Some(name.span))))
+            .filter_map(|failed| {
+                let key = self.declaration_key(&failed.name).ok()?;
+                Some((key, (failed.name.text.clone(), failed.error_at)))
             })
             .collect();
         let module = &self.unit.module;
@@ -1422,7 +1422,8 @@ impl Elaborator {
     /// error having been reported) rather than `E-UNKNOWN-NAME`.
     fn declare_parse_failed(&mut self, files: &[SourceUnit]) {
         for unit in files {
-            for name in &unit.module.failed {
+            for failed in &unit.module.failed {
+                let name = &failed.name;
                 let Ok(key) = self.declaration_key(name) else {
                     continue;
                 };

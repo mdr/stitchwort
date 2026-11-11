@@ -1105,6 +1105,16 @@ impl ImportItem {
     }
 }
 
+/// A name declared by a declaration that failed to parse
+/// ([`Module::failed`]), and where that declaration's first error is
+/// reported.
+#[derive(Clone, Debug)]
+pub struct FailedName {
+    pub name: Name,
+    /// The primary span of the declaration's first error, if it has one.
+    pub error_at: Option<Span>,
+}
+
 /// `namespace Day05`: the first line of a file, saying which namespace its
 /// declarations go in (docs/proposals/multi-file.md §4.2).
 #[derive(Clone, Debug)]
@@ -1123,7 +1133,7 @@ pub struct Module {
     pub decls: Vec<Decl>,
     /// Names declared by declarations that failed to parse, so aren't in
     /// `decls` (only `parse_module_recovering` fills it).
-    pub failed: Vec<Name>,
+    pub failed: Vec<FailedName>,
     /// The doc links (``[`Name`]``) in the file's `--|` comments, in order:
     /// resolved after the namespace is checked
     /// (docs/proposals/documentation.md §7).
