@@ -1,5 +1,5 @@
 {
-  "next": 2775,
+  "next": 2778,
   "tickets": [
     {
       "id": 47,
@@ -29140,6 +29140,45 @@
     {
       "id": 2774,
       "title": "same_term (pretty-printer, decreasing) is still uncharged after SW-2730 (bounded by the pair memo, but outside any budget); free_variables recomputed per closure layer, cache if it shows in a profile",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2775,
+      "title": "Property test for identical_within's pair memo: random DAG-shaped pairs, memoised walk vs IDENTICAL_UNRECORDED = usize::MAX, plus a solved-meta case over 64 pairs with a repeated meta-headed pair (docs/reviews/SW-2730-same-closure-review.md A)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "audit-fuzzing",
+      "body": "",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2776,
+      "title": "same_closure_solved stays exponential under chains of solved metas (each same_when_solved starts a fresh seen set): ?1 := [?2, ?2], ?2 := [?3, ?3] … now E-RESOURCE instead of a hang; share the seen set or memo across the solved retries (review B, unconfirmed)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2777,
+      "title": "Comment at value.rs ~4844 says same_closure_solved does no evaluation, but force_solved computes a head with gluing off (review C)",
       "status": "backlog",
       "agent": "",
       "where": "",
