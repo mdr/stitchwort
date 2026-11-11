@@ -30516,12 +30516,12 @@
     {
       "id": 2879,
       "title": "omega in a lambda whose parameter type is still unsolved reports 'can't prove' with a facts list silently missing that hypothesis: add a note ('same has an unsolved type') (SW-2864)",
-      "status": "doing",
+      "status": "review",
       "agent": "DeepSeek",
       "where": ".claude/worktrees/scratch-sw-2879",
       "labels": [],
       "epic": "diagnostics",
-      "body": "",
+      "body": "\nModel result: DeepSeek, needed fixes (its example was solved by SW-2864, merged meanwhile; reworked to List Nat operands via --continue), ~20 + 10 min (est. 30). Waits for the next batch.",
       "created": "2026-11-11",
       "updated": "2026-11-11",
       "commits": []
