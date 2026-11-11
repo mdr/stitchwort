@@ -29937,9 +29937,9 @@
     {
       "id": 2835,
       "title": "JS output: unused helpers still emitted (Decidable.elim and its %match1), Bool.not stays a call; unfolds_decision matches Std.Decidable.* by name (a rule on result type would be sturdier); fold Succ over a computed value (SW-2825)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "DeepSeek",
-      "where": "",
+      "where": ".claude/worktrees/scratch-sw-2835",
       "labels": [],
       "epic": "effects-native",
       "body": "",
