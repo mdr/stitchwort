@@ -1,5 +1,5 @@
 {
-  "next": 2875,
+  "next": 2876,
   "tickets": [
     {
       "id": 47,
@@ -30454,6 +30454,19 @@
       "status": "doing",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-2874",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2875,
+      "title": "G2 reread walks a right-nested chain to the bottom at every comparison level: quadratic in depth, and for a chain with no folded call (rep 10000 x, k * x in the plain evaluator) the walk costs no budget steps (~10^8 uncounted visits at depth 10,000). Measure a depth-10,000 chain; if it matters, charge a step per level or make the walk iterative (which also makes the E-RESOURCE depth independent of build profile). Also: the stack error's wording ('nested too deeply for the conversion'; Depth would match same_spines). Review: docs/reviews/SW-2874-g2-nested-sums-review.md 3c, 4c, 7",
+      "status": "backlog",
+      "agent": "Opus",
+      "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
       "body": "",
