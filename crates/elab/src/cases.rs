@@ -1854,7 +1854,7 @@ fn split_on(cx: &mut Ctx, run: &Rc<Run>, atom: Atom, goal: &Value, fallback: boo
     // A decision's test, `d.holds`, is split as what it computes to: that
     // is what an `if` on `d`, unfolded, is stuck on.
     let term = cx.quote_folded(&atom.value)?;
-    let holds = g.env.registry().def(Builtin::ToBool);
+    let holds = g.env.registry().def(Builtin::Holds);
     let term = match term.spine().0 {
         Term::Def(id) if Some(*id) == holds => cx.quote(&atom.value)?,
         Term::Proj(d, 0, _) if g.env.registry().data(Builtin::Decidable) == Some(*d) => {

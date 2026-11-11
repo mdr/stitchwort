@@ -1131,7 +1131,7 @@ impl<'g> Printer<'g> {
                     // A projection, as written: `x.name` or `p.fst`. Not a
                     // decision's test, which the operator rules below print
                     // as the `==` or `<` it elaborates from where they can.
-                    if self.g.env.registry().loaded_def(Builtin::ToBool) != Some(*id)
+                    if self.g.env.registry().loaded_def(Builtin::Holds) != Some(*id)
                         && let Some(field) = self.projection_field(*id)
                         && let [arg] = &args[..]
                     {
@@ -1226,7 +1226,7 @@ impl<'g> Printer<'g> {
                     // x y`).
                     // `(DecEq.%decide d a b).holds`, `d` a dictionary in
                     // scope, is `a == b` as it elaborates there (SW-1000).
-                    if self.g.env.registry().loaded_def(Builtin::ToBool) == Some(*id)
+                    if self.g.env.registry().loaded_def(Builtin::Holds) == Some(*id)
                         && let [decision] = &args[..]
                         && let Some((lhs, rhs)) = self.decide_in_scope(decision)
                     {
@@ -1703,7 +1703,7 @@ impl<'g> Printer<'g> {
         let reg = self.g.env.registry();
         match head.strip_loc() {
             Term::Def(id) if reg.is_def(Builtin::BoolNot, *id) => !self.calls.get(),
-            Term::Def(id) if reg.loaded_def(Builtin::ToBool) == Some(*id) => !matches!(
+            Term::Def(id) if reg.loaded_def(Builtin::Holds) == Some(*id) => !matches!(
                 args[..],
                 [(prop, Icit::Implicit), _] if self.negated(prop).is_some()
             ),
@@ -1804,7 +1804,7 @@ impl<'g> Printer<'g> {
         let Term::Def(id) = head else {
             return None;
         };
-        if self.g.env.registry().loaded_def(Builtin::ToBool) == Some(*id) {
+        if self.g.env.registry().loaded_def(Builtin::Holds) == Some(*id) {
             let [decision] = args[..] else {
                 return None;
             };
@@ -1888,7 +1888,7 @@ impl<'g> Printer<'g> {
         let Term::Def(id) = head else {
             return None;
         };
-        if self.g.env.registry().loaded_def(Builtin::ToBool) != Some(*id) {
+        if self.g.env.registry().loaded_def(Builtin::Holds) != Some(*id) {
             return None;
         }
         let [(prop, Icit::Implicit), (decision, Icit::Explicit)] = args[..] else {
@@ -2001,7 +2001,7 @@ impl<'g> Printer<'g> {
             return None;
         };
         let reg = &self.g.env.registry();
-        if reg.loaded_def(Builtin::ToBool) == Some(*id) {
+        if reg.loaded_def(Builtin::Holds) == Some(*id) {
             let [(prop, Icit::Implicit), (_, Icit::Explicit)] = args[..] else {
                 return None;
             };

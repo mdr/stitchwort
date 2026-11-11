@@ -4498,7 +4498,7 @@ impl Elaborator {
             deceq_unique,
             deceq_decide: self.lookup_def("Std.DecEq.decide"),
             inspect: self.lookup_def("Std.Bool.inspect"),
-            to_bool: r.def(Builtin::ToBool).ok_or_else(none)?,
+            to_bool: r.def(Builtin::Holds).ok_or_else(none)?,
             to_bool_lemmas: (|| {
                 Some([
                     self.lookup_def("Std.Decidable.toBoolOf")?,
@@ -4949,7 +4949,7 @@ fn plain_ifs(g: &Ev, t: &Term) -> R<Term> {
     ) else {
         return Ok(t.clone());
     };
-    let to_bool = r.def(Builtin::ToBool);
+    let to_bool = r.def(Builtin::Holds);
     let dec_true = r.def(Builtin::DecTrue);
     let and_then = r.def(Builtin::DecAndThen);
     let bool_ty = Term::Data(bool_data, Vec::new());

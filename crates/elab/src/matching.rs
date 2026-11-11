@@ -2183,8 +2183,9 @@ impl Generalise<'_> {
         let (i, level) = self.exprs.iter().enumerate().find_map(|(i, e)| {
             let level = (*tr.equations.get(i)?)?;
             let e = (*e)?;
-            // Only a decision's test: a scrutinee of another type is
-            // generalised inside the record's proofs' types as well.
+            // Only a decision's test: a scrutinee of another form (a
+            // comparison's `Bool`, `Bool.not d.holds`) is generalised
+            // inside the record's proofs' types as well.
             if !matches!(e.strip_loc(), Term::Proj(d, 0, _) if *d == tr.carry.decidable) {
                 return None;
             }

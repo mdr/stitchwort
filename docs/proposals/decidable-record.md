@@ -263,8 +263,8 @@ replaces it; the `if` it handled is one term already.
 | `check.rs:5352` `unused_proof_if`, `kept_if`, `tagged_if`, `Unused` (≈170 lines) | rewrites an `if` whose branches don't use the proof to `Bool.ifThenElse` on the decision's `Bool` | goes: both forms are one term (§3.1) |
 | `check.rs:5469` `decided_if`, `:5147` `check_proof_if` | `Decidable.elim` / `elimProof` | the same library functions, now defined by a match on `does` |
 | `logic.rs:700-800` `%conj` and `%plain` tags, `settle_tagged` | keep the plain `Bool` beside a decision until the branches are known | go |
-| `logic.rs:171` `conjunction`, `short_circuit` | `Decidable.andThen`; chooses `elim` or `ifThenElse` by whether `b` needs `a`'s proof | `andThen` stays; the choice goes |
-| `bind.rs:212` `comparison` | six comparisons' decisions written as their `Bool` | generalised: any instance whose body is a record literal has its `does` written in place |
+| `logic.rs:171` `conjunction`, `short_circuit` | `Decidable.andThen`; chooses `elim` or `ifThenElse` by whether `b` needs `a`'s proof | `andThen` stays; the choice stays (see below) |
+| `bind.rs:212` `comparison` | six comparisons' decisions written as their `Bool` | kept: only the six comparisons, which pin runtime natives (see below) |
 | `bind.rs:180` `into_bool` | `Decidable.toBool d` | `d.does` (or the inlined test) |
 | `matching.rs:588` `tested_bool` | reads `toBool (decTrue b)` as `b` | goes: `(Bool.decTrue b).does` is `b` |
 | `matching.rs:1265`, `:1731` `W-MATCH-DECISION-IF` | warns that a decision match misses an `if` | goes, with `examples/{accept,reject}/match-decision-if.sw` |
@@ -275,6 +275,15 @@ replaces it; the `if` it handled is one term already.
 | `decreasing.rs:613`, `:750` (`decreasing (m1, m2)`) | `Decidable.elim(Proof) (Nat.decLessThan …)` | unchanged: `elim` and `elimProof` keep their signatures |
 | `congruence.rs:94`, `:267`; `counterexample/mod.rs:1053`; `tailrec.rs:611` | know `Decidable.elim` by name | `elim` unfolds to `ifThenElse`'s shape; keep or drop the special case |
 | `derive.rs:1078-1089` (`deriving (DecEq)`), `derive_decide.rs` (records of propositions) | write `Yes`/`No` under `if h:` | write the test, then the two proofs (§5.3) |
+
+**Two planned removals were dropped.** `short_circuit`'s choice between
+`elim` and `ifThenElse`, and `bind.rs`'s generalisation, both stay. The
+generalisation would save only a few steps now that a record computes to
+the same `Bool` by one projection of a literal, and it would make `==`
+elaborate to a different term, so lemmas stated with `==` (`DecEq.sound
+e`, `List/Lemmas.sw:1688`) would stop unifying with it and all need
+restating. Forcing `elim` on `&&` breaks the 5 `aoc/` proofs that rewrite
+with `Bool.andTrue`/`andFalse`.
 
 ### 5.2 Std, `aoc/`, examples
 
@@ -392,7 +401,7 @@ Each stage leaves `main` green. Estimates are mine, untested.
 |---|---|---|---|
 | 1 | **Stop naming the constructors.** With the type still `Yes \| No`, add `Decidable.yes`, `.no`, `.refute` and `.does` (today `toBool`) as functions, and rewrite every `Yes`/`No` arm and construction in `aoc/`, std outside `core/Decidable.sw`, examples and `derive*.rs`'s generated source to `if h:`, `match h: <test>` or the functions (about 320 sites outside `core/Decidable.sw`, §5.2). Pure sweep; hashes change, statements don't. | Sonnet | 3 h |
 | 2 | **Flip the type.** `core/Decidable.sw`, `Decidable/Decidable.sw`, the 16 std instances as record literals; `register_decidable`, `DecEqNat`, pins, validator shape (`core/src/check.rs`, `native.rs`, `pins.rs`), `docs/core.md`; `rt` and `js` tag code; `auto` writes `d.sound rfl`. Elaborator otherwise untouched: `unused_proof_if` and the tags still run, now harmlessly. | Opus (kernel, std core) | 5 h |
-| 3 | **Remove what had to choose.** `unused_proof_if` and friends, `%conj`/`%plain`, `tested_bool`, `W-MATCH-DECISION-IF` and its examples, `bind.rs`'s comparison case generalised, `omega` and `equations.rs` on `does`, the `if` half of `decreasing/plain.rs`; `docs/syntax.md`, guide. | Opus (elaborator core) | 6 h |
+| 3 | **Remove what had to choose.** `unused_proof_if` and friends, `%conj`/`%plain`, `tested_bool`, `W-MATCH-DECISION-IF` and its examples, `omega` and `equations.rs` on `does`, the `if` half of `decreasing/plain.rs` (`bind.rs`'s comparison case stays, §5.1); `docs/syntax.md`, guide. | Opus (elaborator core) | 6 h |
 | 4 | **Std cleanup.** Delete or `rfl` the bridging lemmas (§5.2), restate Hedberg's lemmas, `deriving (DecEq)` test first (`T.%same`). | Sonnet | 3 h |
 | 5 | **Measure.** Natives `Nat.equalRefl`/`equalSound` (D3484); JS allocation; the 3,000-element checking curve (§4.1). | Sonnet, paper plus probes | 1 h |
 

@@ -1,8 +1,8 @@
 -- SW-1434: a proof follows `if a && b` with one `match e:` on the whole
--- `Bool`, as it follows any other `if`. The `if` is in a function with a
--- `decreasing` measure, whose recursive call is checked after the `if` is
--- written, so it is not yet known then whether the branches use its proof;
--- they don't, and the `if` is on `a && b`.
+-- `Bool`, as it follows any other `if`. The `if`s here are in a function
+-- with a `decreasing` measure and in helpers lifted from a lambda, a
+-- `match` arm and a local `def`; the example checks that a `match` on the
+-- condition's `Bool` refines each of them.
 import Std (Nat, Bool, Void, List, Option)
 
 def run (target: Nat) (front: List Nat) (count: Nat) (sum: Nat) (rest: List Nat): Option (List Nat)
