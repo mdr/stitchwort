@@ -162,7 +162,7 @@ theorem part2Correct (city: City) (onMap: ∀ (antenna: Antenna) => antenna ∈ 
   Eq.cong Set.size
     (locationsCorrect city (((start, end)) => city.harmonics start end) (point first second => inLine point first second)
       (first second firstIn secondIn same point inside =>
-        harmonicsCorrect city first.position second.position (onMap first firstIn) (Decidable.toBoolSound _ (Bool.andRight same)) point
+        harmonicsCorrect city first.position second.position (onMap first firstIn) (DecEq.neTrue (Bool.andRight same)) point
           inside))
 
 --| A point is in line with itself and any other.

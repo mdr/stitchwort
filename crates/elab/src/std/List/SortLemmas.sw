@@ -418,7 +418,7 @@ theorem List.sumRangeFromZero (f: Nat → Nat): ∀ (c s: Nat) => List.sumBy (Li
 
 --| Sums over the ids of a run that pick out `y`.
 theorem List.sumRangeFromEq (y: Nat) (c: Nat) (s: Nat) (h1: s ≤ y) (h2: y < s + c): List.sumBy (List.rangeFrom c s) (x => Nat.keepIf x (y == x)) = y :=
-  List.sumRangeFromOne (x => y == x) (x => x) y (Decidable.toBoolOf (Nat.decEq y y) rfl) (b h => Eq.sym (Decidable.toBoolSound (Nat.decEq y b) h)) c s h1 h2
+  List.sumRangeFromOne (x => y == x) (x => x) y ((Nat.decEq y y).complete rfl) (b h => Eq.sym ((Nat.decEq y b).sound h)) c s h1 h2
 
 theorem List.sumRangeFromEqNone (y: Nat) (c: Nat) (s: Nat) (h: ∀ (x: Nat) => s ≤ x → x < s + c → y ≠ x): List.sumBy (List.rangeFrom c s) (x => Nat.keepIf x (y == x)) = 0 :=
   List.sumRangeFromNone (x => y == x) (x => x) c s (b h1 h2 => Decidable.toBoolOfNot (Nat.decEq y b) (h b h1 h2))
@@ -496,10 +496,10 @@ theorem List.allRangeElim (q: Nat → Bool): ∀ (c s: Nat) => List.all (List.ra
   | Succ c, s, h, k, h1, h2 =>
     Bool.inspect (q s) (u => q k = True)
       (t => Bool.inspect (k == s) (u => q k = True)
-        (e => rewrite <- Decidable.toBoolSound (Nat.decEq k s) e at t)
+        (e => rewrite <- (Nat.decEq k s).sound e at t)
         (ne => List.allRangeElim q c (Succ s)
           (Eq.trans (Eq.cong (b => Bool.ifThenElse b (u => List.all (List.rangeFrom c (Succ s)) q) (u => False)) (Eq.sym t)) h)
-          k (Nat.leNeSucc s k h1 (e => Bool.trueNotFalse (Eq.trans (Eq.sym (Decidable.toBoolOf (Nat.decEq k s) (Eq.sym e))) ne))) (Nat.ltSuccAdd s c k h2)))
+          k (Nat.leNeSucc s k h1 (e => Bool.trueNotFalse (Eq.trans (Eq.sym ((Nat.decEq k s).complete (Eq.sym e))) ne))) (Nat.ltSuccAdd s c k h2)))
       (f => cases)
 
 theorem List.allRangeIntro (q: Nat → Bool) (c s: Nat) (h: (∀ (k: Nat) => s ≤ k → k < s + c → q k = True)): List.all (List.rangeFrom c s) q = True :=
@@ -534,9 +534,9 @@ theorem Nat.firstFromBefore (q: Nat → Bool) (c s j: Nat) (h1: s ≤ j) (h2: j 
       Bool.inspect (q s) (u => q j = False)
         (t => Void.exfalso (Nat.lessIrrefl j (Nat.leTrans (Succ j) s j (Nat.ltCongRight j (Nat.firstFrom q (Succ c) s) s (Nat.firstFromStop q c s t) h2) h1)))
         (f => Bool.inspect (j == s) (u => q j = False)
-          (e => rewrite <- Decidable.toBoolSound (Nat.decEq j s) e at f)
+          (e => rewrite <- (Nat.decEq j s).sound e at f)
           (ne => Nat.firstFromBefore q c (Succ s) j
-            (Nat.leNeSucc s j h1 (e => Bool.trueNotFalse (Eq.trans (Eq.sym (Decidable.toBoolOf (Nat.decEq j s) (Eq.sym e))) ne)))
+            (Nat.leNeSucc s j h1 (e => Bool.trueNotFalse (Eq.trans (Eq.sym ((Nat.decEq j s).complete (Eq.sym e))) ne)))
             (Nat.ltCongRight j (Nat.firstFrom q (Succ c) s) (Nat.firstFrom q c (Succ s)) (Nat.firstFromSkip q c s f) h2)))
 
 theorem Nat.firstFromFound (q: Nat → Bool) (c s k: Nat) (h1: s ≤ k) (h2: k < s + c) (hk: q k = True): q (Nat.firstFrom q c s) = True :=
@@ -958,18 +958,18 @@ theorem List.sortWithOfSortedExample (xs: List Nat) (s: List.Sorted Nat.leq xs):
 --| key, something is found.
 theorem List.findKey [auto eq: DecEq k] (xs: List a) (key: a → k) (kk: k) (y: a) (h: List.find xs (x => key x == kk) = Some y): key y = kk :=
   match List.findSome xs (x => key x == kk) y h with
-    | Both py m => Decidable.toBoolSound (DecEq.decide (key y) kk) py
+    | Both py m => (DecEq.decide (key y) kk).sound py
 
 theorem List.findKeySome [auto eq: DecEq k] (xs: List a) (key: a → k) (kk: k) (m: List.Mem kk (List.map xs key)):
     List.find xs (x => key x == kk) ≠ None :=
   h => List.anyElim (x => key x = kk) Void xs (List.memMapAny xs key kk m)
-    (x inXs e => List.findNoneNotMem xs (z => key z == kk) x (Decidable.toBoolOf (DecEq.decide (key x) kk) e) inXs h)
+    (x inXs e => List.findNoneNotMem xs (z => key z == kk) x ((DecEq.decide (key x) kk).complete e) inXs h)
 
 --| Permutations have the same elements.
 theorem List.memPerm [auto eq: DecEq a] (xs: List a) (ys: List a) (h: List.Perm xs ys) (x: a) (m: List.Mem x xs): List.Mem x ys :=
   List.anyTrueElim ys (y => y == x) (List.Mem x ys)
-    (Eq.trans (Eq.sym (List.anyPerm xs ys h (y => y == x))) (List.anyOfMem xs (y => y == x) x (Decidable.toBoolOf (DecEq.decide x x) rfl) m))
-    (y inYs e => rewrite <- Decidable.toBoolSound (DecEq.decide y x) e in inYs)
+    (Eq.trans (Eq.sym (List.anyPerm xs ys h (y => y == x))) (List.anyOfMem xs (y => y == x) x ((DecEq.decide x x).complete rfl) m))
+    (y inYs e => rewrite <- (DecEq.decide y x).sound e in inYs)
 
 --| Counting with a test the first element passes.
 theorem List.occurrencesConsTrue (xs: List a) (p: a → Bool) (x: a) (px: p x = True): List.occurrences [x, ..xs] p = Succ (List.occurrences xs p) :=
@@ -994,7 +994,7 @@ theorem List.occurrencesKeyDistinct [auto eq: DecEq k] (xs: List a) (key: a → 
             | Succ m =>
               Void.exfalso (List.anyTrueElim xs (y => key y == kk) Void (rewrite List.anyOccurrences xs (y => key y == kk), n in rfl)
                 (y inXs py =>
-                  notMem (rewrite Eq.trans (Decidable.toBoolSound (DecEq.decide (key x) kk) t) (Eq.sym (Decidable.toBoolSound (DecEq.decide (key y) kk) py))
+                  notMem (rewrite Eq.trans ((DecEq.decide (key x) kk).sound t) (Eq.sym ((DecEq.decide (key y) kk).sound py))
                     in List.memMap xs y inXs key))))
         (f => List.occurrencesKeyDistinct xs key kk d)
 
@@ -1010,10 +1010,10 @@ theorem List.distinctOfOccurrences [auto eq: DecEq k] (xs: List a) (key: a → k
             match n: List.occurrences xs (z => key z == key x) with
               | Zero =>
                 Bool.falseNotTrue (Eq.trans (Eq.sym (rewrite n at List.anyOccurrences xs (z => key z == key x)))
-                  (List.anyOfMem xs (z => key z == key x) y (Decidable.toBoolOf (DecEq.decide (key y) (key x)) e) inXs))
+                  (List.anyOfMem xs (z => key z == key x) y ((DecEq.decide (key y) (key x)).complete e) inXs))
               | Succ c =>
                 Bool.falseNotTrue (rewrite n at Eq.trans (Eq.sym (Eq.cong (t => Nat.leq t 1)
-                  (List.occurrencesConsTrue xs (z => key z == key x) x (Decidable.toBoolOf (DecEq.decide (key x) (key x)) rfl)))) (h (key x)))))
+                  (List.occurrencesConsTrue xs (z => key z == key x) x ((DecEq.decide (key x) (key x)).complete rfl)))) (h (key x)))))
         (List.distinctOfOccurrences xs key (kk => Bool.toNatAddLeOne (key x == kk) (List.occurrences xs (z => key z == kk)) (h kk)))
 
 --| Rearranging a list keeps its keys distinct.

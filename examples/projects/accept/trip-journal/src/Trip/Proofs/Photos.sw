@@ -7,7 +7,7 @@ import Trip.Model (..)
 import Trip.Merge (..)
 
 theorem holdsMem (album: Album) (id: Nat) (h: holds album id = True): id ∈ album.photos.map Photo.id :=
-  Decidable.toBoolSound (List.decMem id (album.photos.map Photo.id)) h
+  (List.decMem id (album.photos.map Photo.id)).sound h
 
 -- Where `stillHolds` says yes, an album with that id holds the photo.
 theorem stillHoldsGives (albums: List Album) (id: Nat):
@@ -40,7 +40,7 @@ theorem ownerGives (local: List Album) (remote: List Album) (merged: List Album)
                 (List.memFlatMapElim (a => a.photos.map Photo.id) id merged m)
                 (a inMerged inA =>
                   Void.exfalso (List.findNoneNotMem merged (b => holds b id) a
-                    (Decidable.toBoolOf (List.decMem id (a.photos.map Photo.id)) inA) inMerged f))
+                    ((List.decMem id (a.photos.map Photo.id)).complete inA) inMerged f))
 
 -- A photo of an album that owns it is kept there.
 theorem keptWhereOwned (own: Nat → Option Nat) (album: Album) (id: Nat) (o: own id = Some album.id) (h: holds album id = True):

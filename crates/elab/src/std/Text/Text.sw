@@ -174,8 +174,8 @@ theorem Char.lineFeedCodeIs (code: Nat) (h: Char.isLineFeedCode code = True): co
 theorem Text.spaceTabPlain (char: Char) (h: (char == ' ' ∨ char == '\t') = True):
     Char.isLineFeedCode (Char.toNat char) = False ∧ Char.isCarriageReturnCode (Char.toNat char) = False :=
   Bool.orElim h
-    (left => rewrite Decidable.toBoolSound (Char.decEq char ' ') left in Both rfl rfl)
-    (right => rewrite Decidable.toBoolSound (Char.decEq char '\t') right in Both rfl rfl)
+    (left => rewrite (Char.decEq char ' ').sound left in Both rfl rfl)
+    (right => rewrite (Char.decEq char '\t').sound right in Both rfl rfl)
 
 --| `Text.linesFrom` keeps its finished lines apart from the line it is on:
 --| the finished lines (`acc`, newest first) come first, in order.

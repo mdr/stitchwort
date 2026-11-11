@@ -27,7 +27,7 @@ def BoolEq (x: Bool) (y: Bool): Prop := x = y
 
 def boolDecides (x: Bool) (y: Bool): ((x == y) = True) ↔ (BoolEq x y) := {
   forward = DecEq.sound,
-  backward = e => rewrite e in Decidable.toBoolOf (DecEq.decide y y) rfl
+  backward = e => rewrite e in (DecEq.decide y y).complete rfl
 }
 
 -- In the quotient of `Bool` by its own equality, `True` and `False` stay apart.

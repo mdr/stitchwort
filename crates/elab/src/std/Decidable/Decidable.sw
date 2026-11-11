@@ -1,15 +1,9 @@
 --| What `Decidable.holds` says about the decision, and [`DecEq.sound`].
--- These were in the core (docs/proposals/prelude-slim.md stage 3). `omega`'s
--- proofs and guarded arms' generated equations name the `toBool` ones.
+-- These were in the core (docs/proposals/prelude-slim.md stage 3). Guarded
+-- arms' generated equations and `omega`'s proofs name `toBoolOfNot`.
 
---| What `a == b` (a decision turned into a `Bool`) says about `a = b`, both ways.
-theorem Decidable.toBoolSound [p: Prop] (d: Decidable p) (e: Decidable.holds d = True): p := d.sound e
-
-theorem Decidable.toBoolFalse: ∀ [p: Prop] (d: Decidable p) => Decidable.holds d = False → ¬p
-  | d, e, x => Decidable.refute d e x
-
-theorem Decidable.toBoolOf [p: Prop] (d: Decidable p) (x: p): Decidable.holds d = True := d.complete x
-
+--| A refutation of `p` gives `holds d = False`: the converse of
+--| [`Decidable.refute`], which has no field of its own.
 theorem Decidable.toBoolOfNot [p: Prop] (d: Decidable p) (n: ¬p): Decidable.holds d = False :=
   match d with
     | { holds = True, sound = s, complete = c } => Void.exfalso (n (s rfl))
@@ -23,18 +17,18 @@ theorem Decidable.notNotOf [p: Prop] (d: Decidable p) (n: ¬¬p): p :=
 
 --| `x == y` says `x = y`.
 theorem DecEq.sound [auto decEq: DecEq a] [x: a] [y: a] (h: (x == y) = True): x = y :=
-  Decidable.toBoolSound (DecEq.decide x y) h
+  (DecEq.decide x y).sound h
 
 --| `x == y` is false only for different values.
 theorem DecEq.soundFalse [auto eq: DecEq a] (x: a) (y: a) (h: (x == y) = False) (same: x = y): Void :=
-  Bool.falseNotTrue (Eq.trans (Eq.sym h) (Decidable.toBoolOf (DecEq.decide x y) same))
+  Bool.falseNotTrue (Eq.trans (Eq.sym h) ((DecEq.decide x y).complete same))
 
 --| `x == x` is `True`, for any `DecEq` instance.
-theorem DecEq.refl [auto eq: DecEq a] (x: a): (x == x) = True := Decidable.toBoolOf (DecEq.decide x x) rfl
+theorem DecEq.refl [auto eq: DecEq a] (x: a): (x == x) = True := (DecEq.decide x x).complete rfl
 
 --| `x != y` false says `x = y`.
 theorem DecEq.neFalse [auto eq: DecEq a] (x: a) (y: a) (h: ((x != y): Bool) = False): x = y :=
-  Decidable.notNotOf (DecEq.decide x y) (differ => Bool.falseNotTrue (Eq.trans (Eq.sym h) (Decidable.toBoolOf (Decidable.not (DecEq.decide x y)) differ)))
+  Decidable.notNotOf (DecEq.decide x y) (differ => Bool.falseNotTrue (Eq.trans (Eq.sym h) ((Decidable.not (DecEq.decide x y)).complete differ)))
 
 --| `x != y` true says they differ; the converse of [`DecEq.trueOfNe`].
 theorem DecEq.neTrue [auto eq: DecEq a] [x: a] [y: a] (h: ((x != y): Bool) = True): x ≠ y :=
@@ -42,7 +36,7 @@ theorem DecEq.neTrue [auto eq: DecEq a] [x: a] [y: a] (h: ((x != y): Bool) = Tru
 
 --| `x ≠ y` says `x != y`; the converse of [`DecEq.neTrue`].
 theorem DecEq.trueOfNe [auto eq: DecEq a] [x: a] [y: a] (h: x ≠ y): ((x != y): Bool) = True :=
-  Decidable.toBoolOf (Decidable.not (DecEq.decide x y)) h
+  (Decidable.not (DecEq.decide x y)).complete h
 
 --| `x ≠ y` says `x == y` is false; the converse of [`DecEq.soundFalse`].
 theorem DecEq.falseOfNe [auto eq: DecEq a] [x: a] [y: a] (h: x ≠ y): (x == y) = False :=

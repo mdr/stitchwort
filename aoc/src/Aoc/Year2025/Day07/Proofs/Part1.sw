@@ -31,7 +31,7 @@ theorem andOr (a: Bool) [x: Bool] [y: Bool]: ((a ∧ x) ∨ (a ∧ y)) = (a ∧ 
     | True => rfl
     | False => rfl
 
-theorem natEqSelf (n: Nat): (n == n) = True := Decidable.toBoolOf (DecEq.decide n n) rfl
+theorem natEqSelf (n: Nat): (n == n) = True := (DecEq.decide n n).complete rfl
 
 theorem natEqBelow (m: Nat) (n: Nat) (h: m < n): (m == n) = False := Decidable.toBoolOfNot (DecEq.decide m n) (e => omega)
 

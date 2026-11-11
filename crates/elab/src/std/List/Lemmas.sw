@@ -3033,8 +3033,8 @@ theorem List.anyIff (xs: List a) (p: a → Bool): List.any xs p = True ↔ List.
   { forward = List.anyToAny p xs, backward = List.anyOfAny p xs }
 
 --| Membership written with `any` and `==` is `x ∈ xs`. (`x ∈ xs` as a
---| `Bool` is `List.decMem`'s decision: [`Decidable.toBoolSound`] and
---| [`Decidable.toBoolOf`] take it to the proposition and back.)
+--| `Bool` is `List.decMem`'s decision: its `sound` and
+--| `complete` take it to the proposition and back.)
 theorem List.anyEqIff [auto eq: DecEq a] (x: a) (xs: List a): List.any xs (== x) = True ↔ x ∈ xs := {
   forward = h => List.anyTrueElim xs (== x) (x ∈ xs) h (y m e => rewrite <- DecEq.sound e in m),
   backward = m => List.anyOfMem xs (== x) x (DecEq.refl x) m

@@ -124,4 +124,4 @@ theorem allRedOrGreenKeys (tiles: List Point) (first: Corner) (second: Corner) (
               List.sumByZeroIntro (List.range left (lastColumn + 1)) (c => PrefixSums.cell cells r c) (c cm =>
                 let colIn := ((List.memRange _ _ _).forward cm)
                 rewrite cellAt tiles r c (omega) (omega), List.allBetweenElim rowAll (colIn.left) (colIn.right) in rfl))
-          Decidable.toBoolOf (Nat.decEq (PrefixSums.block floor.outside top bottom left right) 0) (Eq.trans blockIs zero))
+          (Nat.decEq (PrefixSums.block floor.outside top bottom left right) 0).complete (Eq.trans blockIs zero))

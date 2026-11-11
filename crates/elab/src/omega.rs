@@ -28,7 +28,7 @@
 //! lemmas, applied in the emitted term: `Nat.leq a b = False`
 //! (`Nat.leqFalse`), `(p && q) = True` (`Bool.andLeft`/`andRight`),
 //! `Decidable.holds d = True`/`False`, which is how `a <= b` inside `&&`
-//! comes out (`Decidable.toBoolSound`/`toBoolFalse`), and `And p q`
+//! comes out (`d.sound` and `Decidable.refute`), and `And p q`
 //! (`And.left`/`right`), and likewise `||` and `not` (`Bool.orFalseLeft`,
 //! `Bool.notTrue`, ...). Each is read again until it's arithmetic.
 //!
@@ -142,9 +142,7 @@ pub(crate) const LIBRARY: &[&str] = &[
     "Std.Bool.notOfFalse",
     "Std.Bool.notOfTrue",
     "Std.Or.elim",
-    "Std.Decidable.toBoolSound",
-    "Std.Decidable.toBoolFalse",
-    "Std.Decidable.toBoolOf",
+    "Std.Decidable.refute",
     "Std.Decidable.toBoolOfNot",
     "Std.Nat.max",
     "Std.Nat.min",
@@ -366,11 +364,10 @@ struct Lib {
     not_of_false: DefId,
     not_of_true: DefId,
     prop_or_elim: DefId,
-    to_bool_sound: DefId,
-    to_bool_false: DefId,
+    decidable: DataId,
+    refute: DefId,
     decidable_not: DefId,
     not_not_of: DefId,
-    to_bool_of: DefId,
     to_bool_of_not: DefId,
     and_fst: DefId,
     and_snd: DefId,
@@ -663,11 +660,15 @@ impl Lib {
             not_of_false: def("Std.Bool.notOfFalse")?,
             not_of_true: def("Std.Bool.notOfTrue")?,
             prop_or_elim: def("Std.Or.elim")?,
-            to_bool_sound: def("Std.Decidable.toBoolSound")?,
-            to_bool_false: def("Std.Decidable.toBoolFalse")?,
+            decidable: cx
+                .g()
+                .env
+                .registry()
+                .data(Builtin::Decidable)
+                .ok_or_else(|| missing("Decidable"))?,
+            refute: def("Std.Decidable.refute")?,
             decidable_not: def("Std.Decidable.not")?,
             not_not_of: def("Std.Decidable.notNotOf")?,
-            to_bool_of: def("Std.Decidable.toBoolOf")?,
             to_bool_of_not: def("Std.Decidable.toBoolOfNot")?,
             and_fst: def("Std.And.left")?,
             and_snd: def("Std.And.right")?,
@@ -977,6 +978,15 @@ fn lemma(cx: &Ctx, which: DefId, args: &[(Term, Value)]) -> Result<(Term, Value)
     Ok((term, ty))
 }
 
+/// The field `k` (1 `sound`, 2 `complete`) of the decision `d`, applied to
+/// `proof`.
+fn decision_field(cx: &Ctx, lib: &Lib, k: usize, d: &Value, proof: Term) -> Result<Term> {
+    Ok(Term::app(
+        Term::Proj(lib.decidable, k, Rc::new(cx.quote_folded(d)?)),
+        proof,
+    ))
+}
+
 /// A value with its term.
 fn both(cx: &Ctx, value: &Value) -> Result<(Term, Value)> {
     Ok((cx.quote_folded(value)?, value.clone()))
@@ -1071,8 +1081,7 @@ fn prove_goal(
                 }
                 (Some(true), Some(BoolForm::ToBool(p, d))) => {
                     let proof = prove_goal(cx, lib, &p, extra, span)?;
-                    let args = [both(cx, &p)?, both(cx, &d)?, (proof, p.clone())];
-                    return Ok(lemma(cx, lib.to_bool_of, &args)?.0);
+                    return decision_field(cx, lib, 2, &d, proof);
                 }
                 (Some(false), Some(BoolForm::ToBool(p, d))) => {
                     let proof = refute_hypothesis(cx, lib, &p, extra, span)?;
@@ -1606,13 +1615,12 @@ impl Reader<'_> {
                         self.read(cx, right, &ty, origin, depth + 1)?;
                     }
                     (true, Some(BoolForm::ToBool(p, d))) => {
-                        let args = [both(cx, &p)?, both(cx, &d)?, (proof.clone(), prop.clone())];
-                        let (sound, ty) = lemma(cx, lib.to_bool_sound, &args)?;
-                        self.read(cx, sound, &ty, origin, depth + 1)?;
+                        let sound = decision_field(cx, lib, 1, &d, proof.clone())?;
+                        self.read(cx, sound, &p, origin, depth + 1)?;
                     }
                     (false, Some(BoolForm::ToBool(p, d))) => {
                         let args = [both(cx, &p)?, both(cx, &d)?, (proof.clone(), prop.clone())];
-                        let (not_p, ty) = lemma(cx, lib.to_bool_false, &args)?;
+                        let (not_p, ty) = lemma(cx, lib.refute, &args)?;
                         // `a != b` is the decision of `¬(a = b)`, so its
                         // `False` is `¬¬(a = b)`: the decision of `a = b`
                         // inside it is decided, and the double negation goes.
