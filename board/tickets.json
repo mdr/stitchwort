@@ -28478,19 +28478,6 @@
       "commits": []
     },
     {
-      "id": 2724,
-      "title": "Guide page: Coming from Rocq (from the SF port)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
-      "labels": [],
-      "epic": "docs-tutorials",
-      "body": "From SW-2707 (Software Foundations port, 10 Nov 2026); docs/reviews/SW-2707-software-foundations-port.md §11.",
-      "created": "2026-11-10",
-      "updated": "2026-11-10",
-      "commits": []
-    },
-    {
       "id": 2725,
       "title": "std sweep reads downstream projects' hash lists and runs the ProofsOnly comparison itself",
       "status": "backlog",
