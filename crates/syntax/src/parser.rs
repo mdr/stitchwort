@@ -3292,8 +3292,10 @@ impl<'t> Parser<'t> {
             }
         }
         let word = |p: &Self, w: &str| matches!(p.peek(), Some(Tok::Lower(x)) if x == w);
+        let mut at_keyword = None;
         let target = if word(self, "at") {
             let at = self.bump().span;
+            at_keyword = Some(at);
             if self.peek().is_none_or(|t| *t == Tok::KwIn) || self.is_stop(self.pos) {
                 return Err(rewrite_at_without_target(at).into());
             }
@@ -3312,8 +3314,10 @@ impl<'t> Parser<'t> {
             .tokens
             .get(self.pos)
             .is_some_and(|t| t.tok == Tok::KwIn && t.line_start && t.column >= column);
+        let mut in_keyword = None;
         let body = if self.peek() == Some(&Tok::KwIn) || own_line {
             let first = self.bump().span;
+            in_keyword = Some(first);
             let body_start = self.pos;
             let body = self.expr()?;
             self.rewrite_membership(&body, body_start, first)?;
@@ -3329,6 +3333,9 @@ impl<'t> Parser<'t> {
             rules,
             target,
             body,
+            keyword: start,
+            at: at_keyword,
+            in_: in_keyword,
             span: start.to(end),
         })
     }

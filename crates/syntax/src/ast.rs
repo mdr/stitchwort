@@ -225,6 +225,12 @@ pub enum Expr {
         rules: Vec<RewriteRule>,
         target: Option<Box<Expr>>,
         body: Option<Box<Expr>>,
+        /// The `rewrite` keyword's span.
+        keyword: Span,
+        /// The `at` keyword's span, with a target.
+        at: Option<Span>,
+        /// The `in` keyword's span, with a body.
+        in_: Option<Span>,
         span: Span,
     },
     /// `omega`, or `omega [e1, e2]` with extra facts (docs/syntax.md,
