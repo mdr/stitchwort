@@ -1,5 +1,5 @@
 {
-  "next": 2943,
+  "next": 2946,
   "tickets": [
     {
       "id": 47,
@@ -31342,6 +31342,45 @@
       "where": "",
       "labels": [],
       "epic": "editor-playground",
+      "body": "",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2943,
+      "title": "[Opus] Tests with errors stage 2 (docs/proposals/tests-with-errors.md): reporting (check error summary, test with its own error is a failed result, test --json errors, audit verdicts with errors) and implicit uses of failed declarations across namespaces: instance search with a broken Ord instance gives a fresh E-TYPE-MISMATCH instead of waiting (SW-2940)",
+      "status": "backlog",
+      "agent": "Opus",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
+      "body": "",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2944,
+      "title": "[DeepSeek] E-USES-FAILED 'the error is here' label sits a few columns from the printed error position (76:37 vs 76:41) (SW-2940)",
+      "status": "backlog",
+      "agent": "DeepSeek",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
+      "body": "",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2945,
+      "title": "[DeepSeek] A parse error that destroys an imported name gives E-UNKNOWN-NAME on the import instead of the note's '`A` has a syntax error, so `beats` can't be found' (SW-2940)",
+      "status": "backlog",
+      "agent": "DeepSeek",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
       "body": "",
       "created": "2026-11-11",
       "updated": "2026-11-11",
