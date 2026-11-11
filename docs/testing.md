@@ -61,7 +61,7 @@ Two things make a tier, and the tasks set both:
 
 - **Which tests run** is a [nextest profile](https://nexte.st/docs/configuration/) of the tier's name in `.config/nextest.toml`, through its `default-filter` (a [filterset](https://nexte.st/docs/filtersets/)): `merge`, `daily`, `full`, and `lane-AREA` for each lane area. A filter on the command line is intersected with it (`task test:merge -- -E 'package(stitchwort-core)'`). nextest has no includes, so the `merge` profile's filter is generated from the lane profiles' by `dev/nextest-merge` (the lanes but `lane-goals` and `lane-web`, plus a few wider parts); edit a lane, run it, and `python3 dev/test-affected_test.py` fails while the file is stale (SW-1778).
 - **Every dev and test build has one set of features** (below), including native code, so that `crates/cli/tests/running/build.rs` tests `build --native`; the default `stitchwort` leaves Cranelift out.
-- **How much of a corpus a sweep covers** is the environment variable `STITCHWORT_TIER` (`lane`, `merge`, `daily` or `full`; unset means `daily`), read by `stitchwort_driver::driver::tier()`. A corpus sweep (a test that checks every example, std file or AoC day) takes `tier_sample(items, daily_stride)`: a fixed sample, every `daily_stride`-th item in sorted order in the daily tier, every `4 × daily_stride`-th in merge and lane, and all of them in full. A test or part of one that only the full tier runs asks `full_tier(name)`, which prints what was skipped.
+- **How much of a corpus a sweep covers** is the environment variable `STITCHWORT_TIER` (`lane`, `merge`, `daily` or `full`), read by `stitchwort_driver::driver::tier()`, which falls back to nextest's `NEXTEST_PROFILE` when the variable is unset (the profiles have the tiers' names, `lane-AREA` being `lane`, and `default` means `daily`), so the profile alone is enough. A corpus sweep (a test that checks every example, std file or AoC day) takes `tier_sample(items, daily_stride)`: a fixed sample, every `daily_stride`-th item in sorted order in the daily tier, every `4 × daily_stride`-th in merge and lane, and all of them in full. A test or part of one that only the full tier runs asks `full_tier(name)`, which prints what was skipped.
 
 Both are needed: a profile can only include or leave out a whole test, and the sweeps are single tests whose cost is the size of the corpus. The profiles keep the lists of what runs in one file that nextest checks; the environment variable keeps each sweep's sample next to the code that knows what is in its corpus. A sweep's assertion about how much it covered (say, "more than 1,000 arguments named") scales with the sample, and is exactly the old one in the full tier.
 
@@ -212,7 +212,7 @@ If none exists the process stops with a message naming the places tried. WebAsse
 The tiers are above; `task --list` has the rest. By hand, or for what has no task:
 
 ```sh
-cargo nextest run --release --workspace --profile merge    # a tier without Task (set STITCHWORT_TIER to match)
+cargo nextest run --release --workspace --profile merge    # a tier without Task (the profile names the tier)
 cargo insta review                             # after changing an error message
 cargo llvm-cov --workspace --summary-only      # coverage per file
 cargo mutants --package stitchwort-core --test-workspace=true --jobs 6   # slow: minutes to an hour

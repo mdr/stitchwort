@@ -6,7 +6,14 @@
 # tier_sample`) and whether full-only tests run (`full_tier`). The tasks in
 # Taskfile.yml set both; by hand:
 #
-#   STITCHWORT_TIER=merge cargo nextest run --release --workspace --profile merge
+#   cargo nextest run --release --workspace --profile merge
+#
+# Nextest puts the profile in each test's environment as NEXTEST_PROFILE, and
+# `tier()` falls back to it when STITCHWORT_TIER is unset: the profile names
+# match the tiers (`full`, `merge`, `daily`, and `lane-AREA` for `lane`), and
+# `default` means `daily`. So a profile alone says which tier it is, and
+# `--profile full` runs the full-tier tests without the variable; a set
+# STITCHWORT_TIER still wins when both are given.
 #
 #   lane-AREA  under 10 s: a handful of fast tests for one area, while working
 #   merge      under 90 s on a 10-core M1 Pro: a broad smoke test, after every
