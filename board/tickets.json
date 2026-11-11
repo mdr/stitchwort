@@ -1,5 +1,5 @@
 {
-  "next": 2933,
+  "next": 2934,
   "tickets": [
     {
       "id": 47,
@@ -31213,6 +31213,19 @@
       "labels": [],
       "epic": "test-infra",
       "body": "D3523 (Matt, 11 Nov 2026): 'in most programming languages I've used, any compile error won't let you run anything. But I guess it seems pretty innocuous if you can check all the declarations that the test depends on. Then, yes, you can test.' Found by SW-2918 (book chapter 1's Paper/Scissors slip). Expected: 60 min.",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2933,
+      "title": "[Sonnet] Book 2.5 beatsMeansWin: walk through rewrite step by step (h is beats mine theirs = True; the goal play mine theirs = Win; rewrite unfolds play to find beats mine theirs inside the if; replaces it by True; if True computes to Win; rfl), with the Goals panel's before/rule/after; Matt didn't follow the current paragraph (11 Nov 2026)",
+      "status": "next",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "docs-tutorials",
+      "body": "",
       "created": "2026-11-11",
       "updated": "2026-11-11",
       "commits": []
