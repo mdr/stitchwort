@@ -1,5 +1,5 @@
 {
-  "next": 2828,
+  "next": 2830,
   "tickets": [
     {
       "id": 47,
@@ -29833,6 +29833,32 @@
       "labels": [],
       "epic": "proof-automation",
       "body": "\n\nProgress: golden terms updated to Decidable.elim (leastNat, leastInt, before, below, beforeNat, textBefore, withOrd); operators:: 6/6 pass.\n",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2828,
+      "title": "rewrite h in rfl with h: Nat.equal m n = True on (if m = n then 1 else 0) = 1 fails with E-CANNOT-INFER, on main before and after SW-2812: bug in carrying through Nat.decEq or in the message",
+      "status": "next",
+      "agent": "Opus",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "Found by SW-2812. Repro:\n```\nimport Std (Bool, Eq, Nat)\n\ntheorem c (m: Nat) (n: Nat) (h: Nat.equal m n = True): (if m = n then 1 else 0) = 1 :=\n  rewrite h in rfl\n```",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2829,
+      "title": "A carried (or unknown-skipped) rewrite motive passes check_motive and fails later with a confusing E-TYPE-MISMATCH about x' (SW-2812 reproducer on main; std Parse/Runs.sw:1045 with the usual motive): stricter check or retry when the failure comes later; decides_other's syntax check vs computed matching (rewrite.rs)",
+      "status": "backlog",
+      "agent": "Opus",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
       "created": "2026-11-11",
       "updated": "2026-11-11",
       "commits": []
