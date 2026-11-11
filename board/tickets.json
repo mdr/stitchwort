@@ -30156,15 +30156,17 @@
     {
       "id": 2852,
       "title": "repl and eval in a project: don't print a [GOAL] warning per open exercise on load (noisy in sf/); repl with no file in a project could offer the project's namespaces; now that repl loads projects (SW-2849), Poly's comments that point readers at doc instead of repl can say repl (SW-2849, SW-2845)",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2852",
       "labels": [],
       "epic": "docs-tutorials",
-      "body": "",
+      "body": "\n\nProgress (Sonnet, 11 Nov): `load_for_evaluation` now reads the project config; with `open-goals: warn` it prints \"N goals open in this project; `stitchwort goal` lists them\" instead of a box per goal (other diagnostics and errors unchanged; without `warn`, boxes as before). Test `repl::open_goals_allowed_by_the_project_print_one_line`. Poly.sw: `combine`'s type now points at repl `:t combine`; `List`, `hdError`, `prodUncurry` keep `stitchwort doc`, since `:t` on an unfinished exercise gives E-UNFINISHED. Not done: repl with no file offering the project's namespaces.\n",
       "created": "2026-11-11",
       "updated": "2026-11-11",
-      "commits": []
+      "commits": [
+        "dc81bb342"
+      ]
     },
     {
       "id": 2853,
