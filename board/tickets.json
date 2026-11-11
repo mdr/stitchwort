@@ -31220,12 +31220,12 @@
     {
       "id": 2933,
       "title": "[Sonnet] Book 2.5 beatsMeansWin: teach rewrite with a calc chain first (unfold play; rewrite h; compute the if), then rewrite h as the one-word shortcut, with the Goals panel's before/rule/after (Matt, 11 Nov 2026)",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "docs-tutorials",
-      "body": "\nMatt, 11 Nov 2026: 'yes, fold the calc version into SW-2933'. Checked version (on a copy of the book):\ntheorem beatsMeansWin (mine: Move) (theirs: Move) (h: beats mine theirs): play mine theirs = Win :=\n  calc play mine theirs\n    _ = (if beats mine theirs then Win else if beats theirs mine then Lose else Draw)\n    _ = (if True then Win else if beats theirs mine then Lose else Draw) := rewrite h in rfl\n    _ = Win\nThen rewrite h as the shortcut (same as the book's cases-after-by-hand pattern). Starts after SW-2932 (same files).",
+      "body": "\n\nMatt, 11 Nov 2026: 'yes, fold the calc version into SW-2933'. Checked version (on a copy of the book):\ntheorem beatsMeansWin (mine: Move) (theirs: Move) (h: beats mine theirs): play mine theirs = Win :=\n  calc play mine theirs\n    _ = (if beats mine theirs then Win else if beats theirs mine then Lose else Draw)\n    _ = (if True then Win else if beats theirs mine then Lose else Draw) := rewrite h in rfl\n    _ = Win\nThen rewrite h as the shortcut (same as the book's cases-after-by-hand pattern). Starts after SW-2932 (same files).\n\nLane note (Sonnet, 11 Nov 2026): 2.5 now shows beatsMeansWinSteps (calc) then beatsMeansWin (rewrite h), both kept; Goals panel output quoted from `goal --at`; exercise count unchanged. Book check/test pass.\n",
       "created": "2026-11-11",
       "updated": "2026-11-11",
       "commits": []
