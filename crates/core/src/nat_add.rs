@@ -126,63 +126,158 @@ pub fn stuck_value(
 /// Evaluation doesn't do this (it reads `n` with `force` only), so goals
 /// and read-back keep `x + two 0`, and `rewrite` and `match` find the sum
 /// as written; only the comparisons and `case`s that read the sum call it.
+///
+/// The walk goes to the bottom of a right-nested chain of sums, including
+/// one that unfolding builds (`y + f m y` for each `m` below `f 200 y`);
+/// the one cut is a folded `k * x`, whose head is `x`'s. It's a loop, not
+/// a recursion, and takes a step per sum it goes down to, so a deep chain
+/// costs budget and not stack. A comparison reads the chain's sums one
+/// after another as it goes down the two sides, so `unread` keeps the sums
+/// a walk found nothing to unfold in, and a later walk stops at one: a
+/// chain `rep 10000 x` is walked once, not once per level (SW-2875).
+/// `unread` must only be kept while `force` and `unfold` would give the
+/// same answers, as within one comparison with no metavariable solved.
 pub fn reread(
     g: &Ev,
     value: &Value,
     force: Force,
     unfold: impl Fn(&Value) -> budget::Result<Option<Value>>,
+    unread: &mut Unread,
 ) -> budget::Result<Option<Value>> {
-    reread_with(g, value, force, &unfold)
-}
-
-/// [`reread`], recursing into a stuck sum in the second argument. The
-/// recursion is on a proper part of `value` (the base of `n`), or on what
-/// `unfold` made of one, which is evaluation under the operation's budget;
-/// a recursion level is checked against the operation's stack. So the walk
-/// goes to the bottom of a right-nested chain of sums, including one that
-/// unfolding builds (`y + f m y` for each `m` below `f 200 y`); the one cut
-/// is a folded `k * x`, whose head is `x`'s.
-fn reread_with<F>(g: &Ev, value: &Value, force: Force, unfold: &F) -> budget::Result<Option<Value>>
-where
-    F: Fn(&Value) -> budget::Result<Option<Value>>,
-{
-    let Value::Neutral(Head::Def(id), spine) = value else {
+    let Some(mut sum) = Sum::of(g, value) else {
         return Ok(None);
     };
-    let [Elim::App(m, _), Elim::App(n, _)] = &spine[..] else {
-        return Ok(None);
-    };
-    if g.env.builtins().nat_add_rule != Some(*id) {
+    if unread.contains(value) {
         return Ok(None);
     }
-    g.machine.budget.nesting("conversion")?;
-    let mut n = n.clone();
-    let mut unfolded = false;
+    // The sums `sum` is below, outermost first, each with the `Succ`s over
+    // the next one's.
+    let mut above: Vec<(Sum, BigUint)> = Vec::new();
+    let mut walked = vec![value.clone()];
+    let mut unfolded_any = false;
     loop {
-        let (k, base) = view_with(g, &n, force)?;
-        let Some(base) = base else { break };
-        // `k * x` left folded unfolds to `x + (k - 1) * x`, and so on `k`
-        // levels down, all stuck on the variable `x`: R3 and R4 never find
-        // a `Zero` or a `Succ` in it, and `k` can be 2^53.
-        if let Value::Neutral(Head::Def(f), args) = &base
-            && crate::native::folds_mul(g, *f, args)
-        {
-            break;
-        }
-        let next = match unfold(&base)? {
-            Some(next) => next,
-            None => match reread_with(g, &base, force, unfold)? {
-                Some(next) => next,
-                None => break,
+        let (k, base) = view_with(g, &sum.n, force)?;
+        let next = match base {
+            None => None,
+            // `k * x` left folded unfolds to `x + (k - 1) * x`, and so on `k`
+            // levels down, all stuck on the variable `x`: R3 and R4 never
+            // find a `Zero` or a `Succ` in it, and `k` can be 2^53.
+            Some(Value::Neutral(Head::Def(f), args)) if crate::native::folds_mul(g, f, &args) => {
+                None
+            }
+            Some(base) => match unfold(&base)? {
+                Some(next) => {
+                    unfolded_any = true;
+                    Some(next)
+                }
+                None => match Sum::of(g, &base) {
+                    Some(below) if !unread.contains(&base) => {
+                        g.machine.budget.step()?;
+                        walked.push(base);
+                        above.push((std::mem::replace(&mut sum, below), k));
+                        continue;
+                    }
+                    _ => None,
+                },
             },
         };
-        n = crate::native::from_view(k, Some(next));
-        unfolded = true;
+        if let Some(next) = next {
+            sum.n = crate::native::from_view(k, Some(next));
+            sum.unfolded = true;
+            continue;
+        }
+        // `sum` is read as far as it goes; hand what it reads to (by R3 and
+        // R4 on the `n` it's part of) the sums above, until one of them has
+        // more to read.
+        let mut read = sum.read(g, force)?;
+        loop {
+            let Some((mut parent, k)) = above.pop() else {
+                // Nothing unfolded: a walk from any sum below the first
+                // goes over the same sums from there down, unfolding
+                // nothing either, so each reads as nothing.
+                if !unfolded_any {
+                    unread.extend(walked);
+                }
+                return Ok(read);
+            };
+            if let Some(next) = read {
+                parent.n = crate::native::from_view(k, Some(next));
+                parent.unfolded = true;
+                sum = parent;
+                break;
+            }
+            read = parent.read(g, force)?;
+        }
     }
-    if !unfolded {
-        return Ok(None);
+}
+
+/// A stuck `m + n` of the `Nat.add` the rules are bound to, as
+/// [`reread`] reads it: `n` as read so far, and whether anything in it
+/// was unfolded.
+struct Sum {
+    id: DefId,
+    m: Value,
+    n: Value,
+    unfolded: bool,
+}
+
+impl Sum {
+    fn of(g: &Ev, value: &Value) -> Option<Sum> {
+        let Value::Neutral(Head::Def(id), spine) = value else {
+            return None;
+        };
+        let [Elim::App(m, _), Elim::App(n, _)] = &spine[..] else {
+            return None;
+        };
+        (g.env.builtins().nat_add_rule == Some(*id)).then(|| Sum {
+            id: *id,
+            m: m.clone(),
+            n: n.clone(),
+            unfolded: false,
+        })
     }
-    stuck_value(g, *id, m, &n, force)
+
+    /// What R3 and R4 make of the sum with `n` as read, if anything in it
+    /// was unfolded.
+    fn read(&self, g: &Ev, force: Force) -> budget::Result<Option<Value>> {
+        if !self.unfolded {
+            return Ok(None);
+        }
+        stuck_value(g, self.id, &self.m, &self.n, force)
+    }
+}
+
+/// The stuck sums [`reread`] found nothing to unfold in, kept for the rest
+/// of a comparison. Filed by the addresses of their spines, and holding the
+/// values so an address isn't reused while it's filed. With the shortcuts
+/// off (`value::set_shortcuts_disabled`) nothing is filed, so each walk is
+/// made in full.
+#[derive(Default)]
+pub struct Unread {
+    spines: crate::collections::HashSet<usize>,
+    kept: Vec<Value>,
+}
+
+impl Unread {
+    fn contains(&self, value: &Value) -> bool {
+        match value {
+            Value::Neutral(_, spine) => self.spines.contains(&spine.addr()),
+            _ => false,
+        }
+    }
+
+    fn extend(&mut self, values: Vec<Value>) {
+        if crate::value::shortcuts_disabled() {
+            return;
+        }
+        for value in values {
+            if let Value::Neutral(_, spine) = &value
+                && self.spines.insert(spine.addr())
+            {
+                self.kept.push(value);
+            }
+        }
+    }
 }
 
 /// The stuck call `add m n`.

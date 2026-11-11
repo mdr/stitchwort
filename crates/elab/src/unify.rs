@@ -1043,9 +1043,13 @@ enum Task {
 
 /// The pairs of calls of one definition found different during one
 /// outermost comparison, filed by [`CallKey`] and found again by their
-/// shapes (`ShapeMemo`); see the note above.
+/// shapes (`ShapeMemo`); see the note above. Also the stuck sums found to
+/// have nothing for rule E to read ([`reread_sum`]).
 #[derive(Default)]
-pub(crate) struct CallMemo(ShapeMemo<CallKey>);
+pub(crate) struct CallMemo {
+    calls: ShapeMemo<CallKey>,
+    sums: (Effects, nat_add::Unread),
+}
 
 /// What a pair of calls in a [`CallMemo`] is filed under besides its
 /// shapes: mode, level, the definition called, and what had been solved
@@ -1063,6 +1067,26 @@ fn effects(g: &Unifier<'_>) -> Effects {
         g.store.meta_trail.borrow().len(),
         g.attempt.postponed.borrow().as_ref().map_or(0, Vec::len),
     )
+}
+
+/// `value` read by rule E (`nat_add::reread`), the sums found to have
+/// nothing to read kept in the outermost comparison's [`CallMemo`] while
+/// nothing is solved, taken back or put aside: a solution can give such a
+/// sum's bottom something to unfold.
+fn reread_sum(g: &Unifier<'_>, value: &Value) -> Result<Option<Value>> {
+    let now = effects(g);
+    // Taken out of the memo while the walk evaluates, and put back after.
+    let mut unread = match g.attempt.call_memo.borrow_mut().as_mut() {
+        Some(memo) if memo.sums.0 == now => std::mem::take(&mut memo.sums.1),
+        _ => nat_add::Unread::default(),
+    };
+    let read = nat_add::reread(g, value, force, |x| unfold_folded(g, x), &mut unread)?;
+    if let Some(memo) = g.attempt.call_memo.borrow_mut().as_mut()
+        && effects(g) == now
+    {
+        memo.sums = (now, unread);
+    }
+    Ok(read)
 }
 
 /// Where `a` against `b` is filed in the [`CallMemo`] now, if they are
@@ -1085,7 +1109,7 @@ fn call_key(
     let Some(memo) = memo.as_mut() else {
         return Ok(None);
     };
-    memo.0
+    memo.calls
         .file(&g.ev, (mode, level, *i1, effects(g)), a, b)
         .map(Some)
 }
@@ -1094,7 +1118,7 @@ fn call_key(
 /// ([`CallMemo`]).
 fn known_different(g: &Unifier<'_>, at: &ShapeKey<CallKey>, a: &Value, b: &Value) -> Result<bool> {
     match g.attempt.call_memo.borrow().as_ref() {
-        Some(memo) => memo.0.contains(&g.ev, at, a, b),
+        Some(memo) => memo.calls.contains(&g.ev, at, a, b),
         None => Ok(false),
     }
 }
@@ -1111,7 +1135,7 @@ fn record_different(g: &Unifier<'_>, work: &[Task]) {
         if let Task::Open(at, a, b) = task
             && at.0.3 == now
         {
-            memo.0.insert(*at, a, b);
+            memo.calls.insert(*at, a, b);
         }
     }
 }
@@ -1359,7 +1383,7 @@ fn unify_step(
     }
     // A sum stuck on its first argument, with a folded call in its second,
     // as what R3 and R4 make of it (G2), as in `conv`.
-    let reread = |v: &Value| nat_add::reread(g, v, force, |x| unfold_folded(g, x));
+    let reread = |v: &Value| reread_sum(g, v);
     if let Some(a2) = reread(&a)? {
         work.push(Task::Values(level, a2, b));
         return Ok(true);

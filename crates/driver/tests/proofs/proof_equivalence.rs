@@ -1387,6 +1387,22 @@ fn nested_sum_reads_a_long_unfolded_chain() {
     assert!(differ_steps < 1_000_000, "{differ_steps} steps");
 }
 
+/// A chain with nothing folded in it, 400 sums deep, is read once per
+/// comparison, not once per level: each sum it goes down to is a step, so
+/// walking it at every level would take about 320,000 more (SW-2875; about
+/// 75,000 when written). Deeper chains run out of stack in this test's
+/// thread, comparing the sums' arguments.
+#[test]
+fn nested_sum_walks_a_plain_chain_once() {
+    let chain = "def repEnd (n: Nat) (x: Nat) (e: Nat): Nat :=\n  match n with\n    | Zero => e\n    | Succ k => x + repEnd k x e\n";
+    let (result, steps) = load_nested(&format!(
+        "{chain}\ntheorem same (x y: Nat): repEnd 400 x y = repEnd 399 x (x + y) := rfl\n"
+    ));
+    result.expect("same is accepted");
+    eprintln!("steps: {steps}");
+    assert!(steps < 200_000, "{steps} steps");
+}
+
 #[test]
 fn probe_g3_number_scrutinee() {
     load_probe(
