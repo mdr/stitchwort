@@ -30238,12 +30238,12 @@
     {
       "id": 2858,
       "title": "repl :t on a declaration with an open body (an unfinished exercise) gives E-UNFINISHED; its header's type is known, so :t should print it (a learner asks for the type of an exercise they haven't done); repl with no file in a project could offer its namespaces; share check's and repl's goals-line wording (SW-2852)",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2858",
       "labels": [],
       "epic": "docs-tutorials",
-      "body": "",
+      "body": "Progress (Sonnet, 11 Nov 2026): cause was infer_expr's mentions_unfinished refusal, which :t shared with eval. Added Elaborator::infer_expr_type_only (skips that refusal; the kernel still checks the term), used by the repl's :t. Evaluating still refuses (E-UNFINISHED, generic wording: the goal-naming stage-3 wording exists only for run's main). Shared open_goals_allowed() between check's report_goals and the repl's start-up line. sf Poly.sw hdError and Exercises.sw prodUncurry comments now mention :t. Test: type_only_works_on_a_declaration_with_an_open_goal. Not done: repl with no file offering namespaces.",
       "created": "2026-11-11",
       "updated": "2026-11-11",
       "commits": []

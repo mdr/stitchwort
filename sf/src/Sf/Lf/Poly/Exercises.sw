@@ -71,8 +71,8 @@ def prodUncurry (f: a → b → c) (p: Prod a b): c := ?
 
 theorem testMap1': map (plus (ofNat 3)) (ofNats [2, 0, 2]) = ofNats [5, 3, 5] := rfl
 
--- Thought exercise: before asking `stitchwort doc` (or hovering in
--- the editor), can you work out the two functions' types?
+-- Thought exercise: before asking `:t` in the REPL, `stitchwort doc` (or
+-- hovering in the editor), can you work out the two functions' types?
 
 theorem uncurryCurry (f: a → b → c) (x: a) (y: b): prodCurry (prodUncurry f) x y = f x y := ?
 

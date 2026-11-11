@@ -735,7 +735,17 @@ impl Elaborator {
     /// One operation, with its own resource limits.
     pub fn infer_expr(&mut self, expr: &Expr) -> Result<(Term, Value)> {
         let saved = self.kernel.machine.budget.start(self.options.limits);
-        let result = self.infer_expr_in_operation(expr);
+        let result = self.infer_expr_in_operation(expr, false);
+        self.kernel.machine.budget.restore(saved);
+        result.map_err(|d| self.locate(d, expr.span()))
+    }
+
+    /// [`Elaborator::infer_expr`] for a caller that only shows the type and
+    /// never runs the term (`:t`): a declaration with an open goal is fine
+    /// there, since its header is checked and the `?` is an assumption.
+    pub fn infer_expr_type_only(&mut self, expr: &Expr) -> Result<(Term, Value)> {
+        let saved = self.kernel.machine.budget.start(self.options.limits);
+        let result = self.infer_expr_in_operation(expr, true);
         self.kernel.machine.budget.restore(saved);
         result.map_err(|d| self.locate(d, expr.span()))
     }
@@ -936,7 +946,7 @@ impl Elaborator {
     /// printing the value.
     pub fn eval_expr(&mut self, expr: &Expr) -> Result<(String, String)> {
         let saved = self.kernel.machine.budget.start(self.options.limits);
-        let inferred = self.infer_expr_in_operation(expr);
+        let inferred = self.infer_expr_in_operation(expr, false);
         let run = || -> Result<(String, String)> {
             let (term, ty) = inferred?;
             let value = eval(&self.ev(), &[], &term)?;
@@ -989,8 +999,8 @@ impl Elaborator {
         out
     }
 
-    fn infer_expr_in_operation(&mut self, expr: &Expr) -> Result<(Term, Value)> {
-        self.glued(|e| e.infer_expr_glued(expr))
+    fn infer_expr_in_operation(&mut self, expr: &Expr, type_only: bool) -> Result<(Term, Value)> {
+        self.glued(|e| e.infer_expr_glued(expr, type_only))
     }
 
     /// The limits of one tried proof: the options', but no value larger
@@ -1130,7 +1140,7 @@ impl Elaborator {
         Ok(Checked::Closed)
     }
 
-    fn infer_expr_glued(&mut self, expr: &Expr) -> Result<(Term, Value)> {
+    fn infer_expr_glued(&mut self, expr: &Expr, type_only: bool) -> Result<(Term, Value)> {
         self.clear_metas();
         self.session.standalone_inputs += 1;
         let key = format!("<input {}>", self.session.standalone_inputs);
@@ -1157,7 +1167,7 @@ impl Elaborator {
         // A `?` typed in is never shown as a goal; and nothing unfinished
         // runs: it has no body.
         self.clear_goals();
-        if self.mentions_unfinished(&term) {
+        if !type_only && self.mentions_unfinished(&term) {
             return Err(goals::uses_unfinished(Some(expr.span())));
         }
         kernel::without_glue(&self.ev(), || {
