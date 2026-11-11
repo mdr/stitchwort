@@ -29004,9 +29004,9 @@
     {
       "id": 2763,
       "title": "SF port: the book's own nat and bool for the Basics and Induction exercises (Sf.Lf.Nat with plus, mult, eqb and no lemmas, as NatPlayground does); say in the port which exercises std's automation solves (D3495)",
-      "status": "next",
+      "status": "doing",
       "agent": "Sonnet",
-      "where": "",
+      "where": ".claude/worktrees/SW-2763",
       "labels": [],
       "epic": "docs-tutorials",
       "body": "D3495 (Matt, 11 Nov 2026): yes. From docs/reviews/SW-2707-software-foundations-port.md §6 items 2-3. After SW-2762 (both edit sf/). Est. 1.5 h.",
