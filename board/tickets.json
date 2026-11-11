@@ -1,5 +1,5 @@
 {
-  "next": 2932,
+  "next": 2933,
   "tickets": [
     {
       "id": 47,
@@ -31200,6 +31200,19 @@
       "labels": [],
       "epic": "editor-playground",
       "body": "",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2932,
+      "title": "[Sonnet] Tests run despite errors elsewhere: run every test whose dependencies all check; a test that depends on a declaration with an error fails with that error as its reason; errors still reported and the run still exits non-zero (D3523)",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
+      "body": "D3523 (Matt, 11 Nov 2026): 'in most programming languages I've used, any compile error won't let you run anything. But I guess it seems pretty innocuous if you can check all the declarations that the test depends on. Then, yes, you can test.' Found by SW-2918 (book chapter 1's Paper/Scissors slip). Expected: 60 min.",
       "created": "2026-11-11",
       "updated": "2026-11-11",
       "commits": []
