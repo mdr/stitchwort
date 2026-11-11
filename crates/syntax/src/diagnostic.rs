@@ -101,6 +101,10 @@ pub struct GoalData {
     pub hypotheses: Vec<Hypothesis>,
     /// What must be shown, as after `⊢`.
     pub target: String,
+    /// Whether the target is a proposition (a proof goal), if that was
+    /// known when the hole was checked: `None` when its sort couldn't be
+    /// told.
+    pub prop: Option<bool>,
     /// The goal as a declaration of its own, to paste at the top level of
     /// the file (`theorem fGoal1 (n: Nat): n + 0 = n := ?`), when every
     /// name in it means there what it means at the goal.

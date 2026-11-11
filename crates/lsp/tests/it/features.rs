@@ -825,20 +825,18 @@ fn a_non_exhaustive_match_gets_its_missing_arms_added() {
     });
 }
 
-/// The code action at a `?` runs no proof search (D3519): the jobs it
+/// The code action at a proof goal runs no search (D3519): the jobs it
 /// queues are the splits, and it offers "Search for a proof", whose command
-/// then runs the search and answers the candidates. The closing search
-/// prints each candidate as a bare term, so a constructor it shows
-/// unapplied (`Succ`, with no argument) must print as its name (SW-1799).
+/// then runs the search and answers the candidates.
 #[test]
 fn a_code_action_on_a_goal_offers_a_search_that_runs_when_asked() {
     big_stack(|| {
-        let text =
-            "namespace Demo\n\ndef f: Option (Option Nat) -> Nat\n  | Some o => ?\n  | None => 0\n";
+        let text = "namespace Demo\n\ntheorem f (o: Option (Option Nat)): o = o := ?\n";
         let mut s = Session::open(text);
+        let character = text.lines().nth(2).unwrap().find('?').unwrap() as u32;
         let at = json!({"textDocument": {"uri": URI},
-                        "range": {"start": {"line": 3, "character": 14},
-                                  "end": {"line": 3, "character": 14}},
+                        "range": {"start": {"line": 2, "character": character},
+                                  "end": {"line": 2, "character": character}},
                         "context": {"diagnostics": []}});
         let jobs = s.queued_searches("textDocument/codeAction", at.clone());
         assert_eq!(jobs.len(), 1, "{jobs:?}");
@@ -875,14 +873,79 @@ fn a_code_action_on_a_goal_offers_a_search_that_runs_when_asked() {
         assert!(
             proofs.iter().any(|p| p["title"]
                 .as_str()
-                .is_some_and(|t| t.starts_with("Replace ? with `0`"))),
+                .is_some_and(|t| t.starts_with("Replace ? with `rfl`"))),
             "{proofs:?}"
         );
         assert_eq!(
             answer["range"]["start"],
-            json!({"line": 3, "character": 14})
+            json!({"line": 2, "character": character})
         );
         assert_eq!(answer["version"], 1);
+    });
+}
+
+/// "Search for a proof" is offered only on a `?` whose expected type is a
+/// proposition (SW-2917): a theorem's goal, not a `def`'s body, where the
+/// expected type is data (`Nat`). The command refuses the program hole too.
+#[test]
+fn a_code_action_offers_a_proof_search_only_on_a_proof_goal() {
+    big_stack(|| {
+        let text =
+            "namespace Demo\n\ndef f (n: Nat): Nat := ?\n\ntheorem t (n: Nat): n + 0 = n := ?\n";
+        let mut s = Session::open(text);
+        let at = |line: usize| text.lines().nth(line).unwrap().find('?').unwrap() as u32;
+        let code_action = |s: &mut Session, line: u32, character: u32| {
+            s.request_searched(
+                "textDocument/codeAction",
+                json!({"textDocument": {"uri": URI},
+                       "range": {"start": {"line": line, "character": character},
+                                 "end": {"line": line, "character": character}},
+                       "context": {"diagnostics": []}}),
+            )
+        };
+        let titles = |actions: &Value| -> Vec<String> {
+            actions
+                .as_array()
+                .map(|all| {
+                    all.iter()
+                        .map(|a| a["title"].as_str().unwrap().to_string())
+                        .collect()
+                })
+                .unwrap_or_default()
+        };
+        let program = code_action(&mut s, 2, at(2));
+        let offered = titles(&program);
+        assert!(
+            !offered.iter().any(|t| t == "Search for a proof"),
+            "a program ?: {offered:?}"
+        );
+        // The command refuses it as well.
+        let id = s.next_id;
+        s.next_id += 1;
+        let message = json!({"jsonrpc": "2.0", "id": id, "method": "workspace/executeCommand",
+            "params": {"command": "stitchwort.searchProof", "arguments": [{
+                "uri": URI,
+                "range": {"start": {"line": 2, "character": at(2)},
+                          "end": {"line": 2, "character": at(2) + 1}}}]}});
+        let replies: Vec<Value> = s
+            .server
+            .receive(&message.to_string())
+            .iter()
+            .map(|m| serde_json::from_str(m).unwrap())
+            .collect();
+        let reply = replies.iter().find(|m| m["id"] == id).unwrap();
+        assert_eq!(reply["error"]["message"], "not a proof goal", "{reply}");
+        assert!(
+            s.server.take_searches().is_empty(),
+            "the program ? was searched"
+        );
+
+        let proof = code_action(&mut s, 4, at(4));
+        let offered = titles(&proof);
+        assert!(
+            offered.iter().any(|t| t == "Search for a proof"),
+            "a proof ?: {offered:?}"
+        );
     });
 }
 

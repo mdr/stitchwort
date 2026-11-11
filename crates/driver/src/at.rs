@@ -144,6 +144,10 @@ pub struct Goal {
     /// What must be shown (after `⊢`).
     pub goal: String,
     pub context: Vec<Local>,
+    /// Whether the goal is a proposition (a proof goal), if its sort was
+    /// known when the hole was checked.
+    #[serde(skip)]
+    pub prop: Option<bool>,
     /// The goal as the command line prints it (the label, then the notes).
     pub text: String,
 }
@@ -179,6 +183,7 @@ pub fn goals_of(file: &FileAnswers) -> Vec<Goal> {
                         splits: h.splits.clone(),
                     })
                     .collect(),
+                prop: data.prop,
                 text: body.join("\n"),
             })
         })

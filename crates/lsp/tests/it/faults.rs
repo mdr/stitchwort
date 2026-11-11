@@ -183,9 +183,9 @@ fn a_panicking_search_is_answered_and_the_next_search_works() {
         .as_array()
         .unwrap_or_else(|| panic!("{second}"));
     assert!(
-        actions.iter().any(|a| a["title"]
-            .as_str()
-            .is_some_and(|t| t == "Search for a proof")),
+        actions
+            .iter()
+            .any(|a| a["title"].as_str().is_some_and(|t| t == "Split on `o`")),
         "{second}"
     );
     s.stop();

@@ -1179,6 +1179,7 @@ impl Elaborator {
         diagnostic.detail_mut().goal = Some(GoalData {
             hypotheses,
             target,
+            prop: p.prop,
             lemma: None,
         });
         Found {

@@ -1369,14 +1369,18 @@ impl Main {
             nav.goals.get(&uri).and_then(|goals| {
                 goals
                     .iter()
-                    .map(|g| range(g.range))
-                    .find(|r| key(r.start) <= key(p.range.end) && key(p.range.start) <= key(r.end))
+                    .find(|g| {
+                        let r = range(g.range);
+                        key(r.start) <= key(p.range.end) && key(p.range.start) <= key(r.end)
+                    })
+                    .cloned()
             })
         };
         // The goals are from the last check; the text may have moved on
         // since (the edit would land in the wrong place), so offer a goal
         // only where a `?` still sits in the current text.
-        let goal = goal.filter(|r| {
+        let goal = goal.filter(|g| {
+            let r = range(g.range);
             let texts = self.texts.borrow();
             texts.get(&uri).is_some_and(|t| {
                 let start = offset_at(t, r.start);
@@ -1386,7 +1390,7 @@ impl Main {
         });
         let searching = Settings::on(&self.settings.proof_search);
         let fixes = self.import_fixes(&uri, &p.context.diagnostics);
-        let (Some(range), Some(target)) = (
+        let (Some(goal), Some(target)) = (
             goal.filter(|_| searching),
             self.search_target(&uri).filter(|_| searching),
         ) else {
@@ -1440,16 +1444,23 @@ impl Main {
                 .send(Response::new_ok(id, fixes).into());
             return;
         };
+        let range = range(goal.range);
+        // Only a `?` whose expected type is a proposition is a proof goal:
+        // a hole in a program's data (`Nat`, `List a`) has no proof to
+        // search for. When the sort wasn't known, don't offer it.
+        let proof = goal.prop == Some(true);
         // The search for a proof is offered, not run: everything else is
         // answered at once (D3519).
-        let search = serde_json::json!({
-            "title": SEARCH_TITLE,
-            "kind": "quickfix",
-            "command": {
+        let search = proof.then(|| {
+            serde_json::json!({
                 "title": SEARCH_TITLE,
-                "command": SEARCH_PROOF,
-                "arguments": [{"uri": uri.as_str(), "range": range}],
-            },
+                "kind": "quickfix",
+                "command": {
+                    "title": SEARCH_TITLE,
+                    "command": SEARCH_PROOF,
+                    "arguments": [{"uri": uri.as_str(), "range": range}],
+                },
+            })
         });
         let document_changes = self.document_changes;
         self.queue_search(id, &uri.clone(), "codeAction", move |version| Search {
@@ -1461,7 +1472,7 @@ impl Main {
                 only: None,
                 versioned: document_changes.then_some(version),
                 fixes,
-                last: Some(search),
+                last: search,
             },
         });
     }
@@ -1470,7 +1481,8 @@ impl Main {
     /// URI and the range of its `?`: runs the proof search the code action
     /// offered. The answer is [`SearchKind::Proofs`]' (an empty `proofs`
     /// when nothing closes the goal), or null when the text moved on
-    /// meanwhile; an error when the `?` is no longer there to start from.
+    /// meanwhile; an error when the `?` is no longer there to start from,
+    /// or when it isn't a proof goal.
     fn search_proof(&self, request: Request) {
         let id = request.id.clone();
         let argument = request.params.get("arguments").and_then(|a| a.get(0));
@@ -1496,6 +1508,25 @@ impl Main {
                 ErrorCode::RequestFailed,
                 "The ? has moved or changed since the search was offered".to_string(),
             );
+            return;
+        }
+        // The `?` must still be the proof goal the action was offered on:
+        // a hole in a program has no proof to search for, and when the
+        // sort isn't known it isn't offered either.
+        let proof = {
+            let nav = self.nav.read().unwrap_or_else(|e| e.into_inner());
+            let at = [
+                range.start.line,
+                range.start.character,
+                range.end.line,
+                range.end.character,
+            ];
+            (nav.goals.get(&uri))
+                .and_then(|goals| goals.iter().find(|g| g.range == at))
+                .and_then(|g| g.prop)
+        };
+        if proof != Some(true) {
+            self.fail_request(id, ErrorCode::RequestFailed, "not a proof goal".to_string());
             return;
         }
         let target = self

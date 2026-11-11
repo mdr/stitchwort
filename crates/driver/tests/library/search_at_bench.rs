@@ -101,6 +101,7 @@ fn goal_of(session: &Session, id: DefId) -> Option<FoundGoal> {
         data: GoalData {
             hypotheses,
             target,
+            prop: Some(true),
             lemma: Some(String::new()),
         },
     })
