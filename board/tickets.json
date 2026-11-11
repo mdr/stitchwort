@@ -30495,7 +30495,7 @@
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "\nReview (SW-2868): worse than a missing message: a recursive call in a lifted match's scrutinee is a real recursive call, so the user is told the function doesn't call itself (false) and the induction principle lacks a hypothesis.",
+      "body": "\nReview (SW-2868): worse than a missing message: a recursive call in a lifted match's scrutinee is a real recursive call, so the user is told the function doesn't call itself (false) and the induction principle lacks a hypothesis.\nSW-2876 lane: make_induct skips with an empty reason (skip(\"\")) when the only recursive calls are in scrutinees; common shape (match f rest with None => …, Some n => Some (n + 1)); readPackets also gets no IH for its scrutinee call. Record a reason at least; giving scrutinee calls hypotheses is a design question. Also consider a debug_assert that no Term::Def(f) call in a generated statement/proof has more than f's parameter count of arguments (catches the SW-2876 class).",
       "created": "2026-11-11",
       "updated": "2026-11-11",
       "commits": []
@@ -30516,9 +30516,9 @@
     {
       "id": 2879,
       "title": "omega in a lambda whose parameter type is still unsolved reports 'can't prove' with a facts list silently missing that hypothesis: add a note ('same has an unsolved type') (SW-2864)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "DeepSeek",
-      "where": "",
+      "where": ".claude/worktrees/scratch-sw-2879",
       "labels": [],
       "epic": "diagnostics",
       "body": "",
