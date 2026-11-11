@@ -30451,12 +30451,12 @@
     {
       "id": 2874,
       "title": "Equality G2 nested sums: nat_add::reread doesn't reread a nested stuck sum, so x + (y + two 0) = x + y + 2 fails conversion (omega's E-OMEGA-INTERNAL with SW-2253; the Int analogue too). Make reread recurse when the base is a stuck Nat.add; proof_equivalence case; docs/core.md gaps-table line. Blocks SW-2253 (docs/reviews/SW-2253-omega-folded-review.md item 2)",
-      "status": "doing",
+      "status": "review",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-2874",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "Progress (11 Nov 2026, Opus, 16:04 to 16:40): one design, nested splitting (docs/proposals/function-equations.md, \"Nested splitting (SW-2868)\"). Below each constructor of the scrutinee, the first alternative that agrees with the splits so far has its next unsplit constructor split by that field type's %split lemma; a number literal up to 64 is a Succ chain around Zero. At each place its variables are the split values, its equation is rebuilt by J, and each hypothesis that an earlier alternative didn't match (catch-all: about the scrutinee; `Some n` after `Some 0`: `n ≠ 0`) is refuted with an %apart definition. Machine.run (2024 day 17) now gets f.induct. Terms for SW-1073's shapes are unchanged (function-induct* and match-induct hash snapshots unchanged). New example function-induct-split.sw (collect / score / weigh). %apart through a field declared at a type parameter (Some's) is stated at the closed instance, else skipped with a reason; the same guard fixes a pre-existing kernel refusal in Tree::refute (`match x | Some 2 | Some (Succ n) | _` on a row variable). Skip list re-checked by doc (proposal): std 5 of 9 now made; AoC Machine.run and largestFrom made. Findings: 2021 day 16 readPackets.induct is refused by the kernel (E-NOT-A-FUNCTION, on main too); transmissionBits and sumMagnitudes get no f.induct and no reason (recursive call only in a several-expression match's scrutinee).\n\nReview follow-up (16:42, Fable review docs/reviews/SW-2874-g2-nested-sums-review.md): 5b, nat_add.rs module comment now says evaluation leaves folded calls and comparisons read them with `reread`; `reread_with`'s doc says the walk reaches the bottom of a right-nested chain with `k * x` the one cut. 6, four tests: `nested_sum_with_a_folded_number_is_still_told_apart` (+ 3 is E-REFL), `nested_sum_leaves_a_large_folded_product` (2^53 * z; fails with E-RESOURCE when the cut is switched off), `nested_sum_reads_a_long_unfolded_chain` (f 200 y, equal and different, under 1M steps), and a numeral-arm `match` in the nested probe. 6/6 pass. 3c and 7 left for their own tickets.\n",
       "created": "2026-11-11",
       "updated": "2026-11-11",
       "commits": []
