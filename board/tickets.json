@@ -30054,7 +30054,7 @@
     {
       "id": 2844,
       "title": "Std: Nat.zeroAdd (0 + n = n) and Nat.succAdd (S m + n = S (m + n)) in Nat/Arith.sw (addition recurses on the right, so these need induction) (SW-2838)",
-      "status": "review",
+      "status": "done",
       "agent": "DeepSeek",
       "where": ".claude/worktrees/scratch-sw-2844",
       "labels": [],
