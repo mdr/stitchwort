@@ -43,8 +43,9 @@ const MAX_RANDOM_VALUES: usize = 1000;
 /// proof field doesn't hold.
 const PROOF_RETRIES: usize = 16;
 
-/// The characters enumerated, in order: a `Char`'s size is its position.
-const ALPHABET: [char; 4] = ['a', 'b', '0', ' '];
+/// The characters enumerated, in order: a `Char`'s size is its position. The
+/// line breaks are here so a statement about them (a parse's) can find one.
+const ALPHABET: [char; 7] = ['a', 'b', '0', ' ', '\n', '\r', '\t'];
 
 /// The `Float`s enumerated, by size: `0.0`, then `1.0` and `-1.0`, then
 /// halves and twos.
@@ -1195,7 +1196,7 @@ const SMALL_NUMBER: usize = 4;
 /// A random number up to `size` (or [`NUMBER_FLOOR`]), or, one time in ten
 /// (less often for one in a larger input), one at an edge of a
 /// machine word (the fast runtime switches representation at 2^64,
-/// `rt/src/value.rs`).
+/// `rt/src/value.rs`), or at 2^52 or 2^53 (`Float`'s normal range's ends).
 fn random_nat(size: usize, top: bool, rng: &mut Rng) -> BigUint {
     // Rarer for a number inside a larger input, which has more of them:
     // one edge number (a count of rounds past 2^64, a cell far above any
@@ -1207,6 +1208,10 @@ fn random_nat(size: usize, top: bool, rng: &mut Rng) -> BigUint {
         let two = BigUint::from(2u32);
         let edges = [
             two.pow(32),
+            two.pow(52),
+            two.pow(52) + 1u32,
+            two.pow(53) - 1u32,
+            two.pow(53),
             two.pow(63),
             two.pow(64) - 1u32,
             two.pow(64),
