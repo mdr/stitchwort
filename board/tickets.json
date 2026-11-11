@@ -1,5 +1,5 @@
 {
-  "next": 2873,
+  "next": 2874,
   "tickets": [
     {
       "id": 47,
@@ -30425,6 +30425,19 @@
     {
       "id": 2872,
       "title": "A goal whose statement names a big computation (countDown 100000 [] = []) still costs ~0.4-0.5 s each and prints as ⊢ … = …: the cost is outside zonk (counterexample search or goal display computing the statement?); find and bound it. Also: quote_folded forces calls that step at once in the elaborator's written type annotations, lifted helpers' types and messages: (MkProxy: Proxy (countDown 100000 [])) and (rfl: countDown 100000 [] = …) still hit E-RESOURCE; decide which sites should read back as written (SW-2843; related SW-1534, SW-1835)",
+      "status": "backlog",
+      "agent": "Opus",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2873,
+      "title": "Zonk's unfolding fallback (SW-2843) unfolds the whole solution when an unknown sits only in an argument a call drops, and gives up past 20k nodes/10k frames: unfold per call, only calls whose arguments mention an unknown (unfold_where, SW-1835). Review: docs/reviews/SW-2843-zonk-as-written-review.md 3a",
       "status": "backlog",
       "agent": "Opus",
       "where": "",
