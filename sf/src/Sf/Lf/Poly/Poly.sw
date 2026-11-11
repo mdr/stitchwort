@@ -64,9 +64,10 @@ type List (a: Type) =
 -- What sort of thing is `List` itself? A function from types to types:
 -- for any type `a`, `List a` is the type of lists whose elements are of
 -- type `a`. The book's `Check list : Type -> Type` asks Rocq to confirm
--- that. In the editor, hovering over a name shows its type, and in sf/
--- `stitchwort doc Sf.Lf.Poly.List` prints its header, `type List (a:
--- Type)`.
+-- that. In the editor, hovering over a name shows its type. In sf/,
+-- `stitchwort repl src/Sf/Lf/Poly/Poly.sw` then `:t List Nat` gives
+-- `Type`, and `stitchwort doc Sf.Lf.Poly.List` prints the header, `type
+-- List (a: Type)`.
 --
 -- The parameter `a` becomes a parameter of the constructors `Nil` and
 -- `Cons` too. Here Stitchwort and Rocq differ. In Rocq, `nil` and `cons`
@@ -310,7 +311,8 @@ def combine (lx: List a) (ly: List b): List (Prod a b) := match lx, ly with
 --
 -- Answer these on paper, then check your answers with Stitchwort:
 --
--- - What is the type of `combine`? (`stitchwort doc Sf.Lf.Poly.combine`.)
+-- - What is the type of `combine`? (In `stitchwort repl
+--   src/Sf/Lf/Poly/Poly.sw`, `:t combine`.)
 -- - What does `combine (ofNats [1, 2]) (ofList [False, False, True,
 --   True])` compute to? (Write your answer as a test, `test "combine" :=
 --   combine … == …`, and run `stitchwort test`.)

@@ -4141,12 +4141,29 @@ fn load_for_evaluation(session: &mut Session, path: &Path) -> bool {
         files: DiskFiles { root: dir.clone() },
         dir,
     };
-    if !load_project(
-        session,
-        &project,
-        &Target::Namespaces(vec![namespace.clone()]),
-    ) {
+    let Some(config) = read_project_config(&project) else {
         return false;
+    };
+    let target = Target::Namespaces(vec![namespace.clone()]);
+    match session.load_project_for(&project.files, &project.name, &target, Load::Everything) {
+        Ok(_) => {
+            let mut reported = std::mem::take(&mut session.warnings);
+            let goals = goals_open(&reported);
+            if config.open_goals == stitchwort_cli::project::OpenGoals::Warn && goals > 0 {
+                // A project that allows open goals (a course's exercises)
+                // would otherwise print a box for each one on every start.
+                reported.retain(|d| d.severity != Severity::Goal);
+                report(&session.sources, &reported);
+                let s = if goals == 1 { "" } else { "s" };
+                eprintln!("{goals} goal{s} open in this project; `stitchwort goal` lists them");
+            } else {
+                report(&session.sources, &reported);
+            }
+        }
+        Err(diagnostics) => {
+            report(&session.sources, &diagnostics);
+            return false;
+        }
     }
     let diagnostics = session.add_imports("<input>", &format!("import {namespace} (..)"));
     if !diagnostics.is_empty() {
