@@ -1,5 +1,5 @@
 {
-  "next": 2854,
+  "next": 2855,
   "tickets": [
     {
       "id": 47,
@@ -30169,11 +30169,24 @@
     {
       "id": 2853,
       "title": "Constructors take their type's parameter names as named implicit arguments: Nil [a := Nat], Cons [a := Nat] 1 Nil, None [a := Text] (D3514, Matt, 11 Nov 2026: 'just like functions can'); Nil Nat stays an error; guide and syntax.md lines; then SF Poly's mumble-grumble answers can match the book (SW-2845)",
-      "status": "next",
+      "status": "doing",
       "agent": "Opus",
-      "where": "",
+      "where": ".claude/worktrees/SW-2853",
       "labels": [],
       "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2854,
+      "title": "as-written-unconfirmed.sw: checking alone holds 1.37 GB and takes ~31 s (check phase, not lowering); every_example_lowers spawns 8 sessions at once: cap workers with par_map_with_at_most if more headroom is wanted (SW-2847)",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
       "body": "",
       "created": "2026-11-11",
       "updated": "2026-11-11",
