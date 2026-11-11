@@ -30,6 +30,7 @@ use stitchwort_elab::closing::{Arg, Goal, Plan};
 use stitchwort_elab::search::{Candidate, Kind};
 use stitchwort_syntax::{Diagnostic, FileId, GoalData, Severity, SourceMap};
 
+use crate::audit::Generated;
 use crate::driver::Session;
 use crate::project::Files;
 use crate::search::{Scope, hidden, import_line};
@@ -989,6 +990,7 @@ impl Session {
         let gave_up = std::mem::take(&mut checker.gave_up);
         drop(checker);
         let session = &*self;
+        let generated = Generated::new(&session.elab.ev());
         // What closes before what applies; among either, a written theorem
         // before a generated equation (`f.eqK`, whose side may compute to
         // the goal's: docs/proposals/function-equations.md §3.4, SW-1055),
@@ -996,7 +998,7 @@ impl Session {
         results.sort_by_key(|(s, rank)| {
             (
                 s.class == "applicable",
-                stitchwort_elab::is_generated_name(&session.elab.ev(), &s.name),
+                generated.contains_name(&session.elab.ev(), &s.name),
                 class_rank(s.class),
                 s.witnesses,
                 s.goals.len(),

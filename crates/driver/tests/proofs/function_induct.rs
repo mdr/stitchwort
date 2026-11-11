@@ -3,6 +3,7 @@
 //! split, in the unfolding form with a fixed prefix and cases named after
 //! the equations, and what isn't generated, with the reason.
 
+use crate::common::{BIG_STACK, STACK};
 use stitchwort_core::{Name, Term};
 use stitchwort_driver::driver::Session;
 
@@ -106,9 +107,9 @@ fn statement(g: &stitchwort_core::Ev, ty: &Term) -> String {
 
 fn with_source(source: String, f: impl FnOnce(&Session) + Send + 'static) {
     std::thread::Builder::new()
-        .stack_size(64 << 20)
+        .stack_size(STACK)
         .spawn(move || {
-            let mut session = Session::new();
+            let mut session = Session::for_stack(STACK);
             if let Err(errors) = session.load("induct.sw", &source) {
                 panic!("doesn't load: {errors:#?}");
             }
@@ -506,9 +507,9 @@ theorem Count.induct: Nat := 0
 "#
     );
     std::thread::Builder::new()
-        .stack_size(64 << 20)
+        .stack_size(STACK)
         .spawn(move || {
-            let mut session = Session::new();
+            let mut session = Session::for_stack(STACK);
             let errors = session.load("induct.sw", &wrong).expect_err("they fail");
             let mut codes: Vec<&str> = errors.iter().map(|d| d.code).collect();
             codes.sort_unstable();
@@ -540,9 +541,9 @@ theorem Count.induct: Nat := 0
 #[ignore]
 fn the_librarys_inducts() {
     std::thread::Builder::new()
-        .stack_size(256 << 20)
+        .stack_size(BIG_STACK)
         .spawn(|| {
-            let mut session = Session::eager();
+            let mut session = Session::eager_for_stack(BIG_STACK);
             session.elab.generate_deferred_equations().unwrap();
             report(&session, |_| true);
         })
@@ -558,7 +559,7 @@ fn the_librarys_inducts() {
 #[ignore]
 fn a_projects_inducts() {
     std::thread::Builder::new()
-        .stack_size(256 << 20)
+        .stack_size(BIG_STACK)
         .spawn(|| {
             let project = std::env::var("INDUCT_PROJECT").unwrap_or_else(|_| "aoc".to_string());
             let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -566,7 +567,7 @@ fn a_projects_inducts() {
                 .join(&project);
             let name = root.file_name().unwrap().to_string_lossy().to_string();
             let files = stitchwort_driver::project::DiskFiles { root };
-            let mut session = Session::eager_for_stack(256 << 20);
+            let mut session = Session::eager_for_stack(BIG_STACK);
             let target = stitchwort_driver::project::Target::Everything;
             if let Err(errors) = session.load_project(&files, &name, &target) {
                 panic!("{project} doesn't load: {errors:#?}");

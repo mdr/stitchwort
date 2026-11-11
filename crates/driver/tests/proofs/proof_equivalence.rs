@@ -922,6 +922,29 @@ fn contexts() -> Vec<Ctx> {
                 (expected, app(sig.def("Nat.add"), vec![var(N, 0), h]))
             },
         },
+        // A sum whose second argument is a sum, read by R3 and R4 in turn
+        // (SW-2874).
+        Ctx {
+            name: "n + (n + hole)",
+            closed_only: false,
+            build: |sig, b, _, h| {
+                let plus = |x: Term, y: Term| app(sig.def("Nat.add"), vec![x, y]);
+                (
+                    plus(var(N, 0), plus(var(N, 0), b.clone())),
+                    plus(var(N, 0), plus(var(N, 0), h)),
+                )
+            },
+        },
+        Ctx {
+            name: "n + (n + hole), against Succ^k (n + n)",
+            closed_only: true,
+            build: |sig, _, k, h| {
+                let plus = |x: Term, y: Term| app(sig.def("Nat.add"), vec![x, y]);
+                let expected =
+                    (0..k.unwrap()).fold(plus(var(N, 0), var(N, 0)), |t, _| succ_term(sig, t));
+                (expected, plus(var(N, 0), plus(var(N, 0), h)))
+            },
+        },
         Ctx {
             name: "hole + n",
             closed_only: false,
@@ -1260,6 +1283,39 @@ fn probe_g2_sum_with_a_folded_number() {
         "g2.sw",
         include_str!("../../../../docs/repros/sw-2236/g2.sw"),
     );
+}
+
+/// G2 for a sum nested in `+`'s second argument (SW-2874): the inner sum
+/// is read by R3 and R4 too, by `Nat` and through `Int`.
+const NESTED_SUM: &str = r#"
+import Std (Nat, Int)
+
+def two (x: Nat): Nat
+    decreasing x
+:=
+  match x with
+    | Zero => 2
+    | Succ m => two m [decreasing := omega]
+
+def isPos (n: Nat): Nat :=
+  match n with
+    | Zero => 0
+    | Succ _ => 1
+
+theorem nested (x y: Nat): x + (y + two 0) = x + y + 2 := rfl
+
+theorem deeper (x y z: Nat): x + (y + (z + two 0)) = Succ (Succ (x + (y + z))) := rfl
+
+theorem twice (x y: Nat): x + (two 0 + (y + two 0)) = x + (y + 4) := rfl
+
+theorem matched (x y: Nat): isPos (x + (y + two 0)) = 1 := rfl
+
+theorem nestedInt (x y: Nat): (x + (y + two 0)).toInt = x.toInt + y.toInt + 2 := rfl
+"#;
+
+#[test]
+fn probe_g2_nested_sum_with_a_folded_number() {
+    load_probe("g2-nested.sw", NESTED_SUM);
 }
 
 #[test]

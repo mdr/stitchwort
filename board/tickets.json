@@ -1,5 +1,5 @@
 {
-  "next": 2871,
+  "next": 2875,
   "tickets": [
     {
       "id": 47,
@@ -3506,7 +3506,7 @@
     {
       "id": 1073,
       "title": "f.induct: lifted-match alternatives with a catch-all or a literal pattern get no case (6 skips: 4 std, 2 AoC)",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-1073",
       "labels": [
@@ -3514,7 +3514,7 @@
         "proof"
       ],
       "epic": "proof-automation",
-      "body": "From SW-1057 (2 Nov 2026), decided yes (Claude, delegated). Quantified IHs for calls under binders / non-tail matches (12 skips) stay on §9's later row.\n\n\n2 Nov 2026: the List.unfold part is done (experiment SW-1084, Sonnet's version, merged; Opus review: merge as is, follow-ups SW-1089). Nested patterns in lifted matches on non-indexed one-constructor types now get their case. Merge tier 1052/1052 after accepting the new example's hash snapshot (e831790e; the lane hadn't run hash_stability), function_induct 5/5 with the library and AoC sweeps, audits clean. Catch-alls and literals in lifted matches remain. Model result: Sonnet, needed fixes (missing hash snapshot for its new example).\n\nProgress (11 Nov 2026, Sonnet): a lifted `match`'s catch-all alternative now gets its case. At each constructor no other alternative takes, the split lemma's branch binds the fields and `e = C fields`, proves each hypothesis `(vars) → e = p → Void` that the earlier alternatives didn't match (a `J` along `e = C fields`, then along the hypothesis, with the `%apart` discriminator shared with the tree's overlap proofs), and gives the catch-all's proof under those `let`s. Std now gets `Map.Tree.lookupList.induct`, `Map.Spec.lastBelow.induct`, `Map.lookupWithOnto.induct`; example `examples/accept/function-induct-catchall.sw`; test `a_catch_all_in_a_lifted_match`. Number literals still skip, with their own reason (a literal above 0 is a chain of `Succ`, a nested pattern on a type with two constructors). Machine.run (2024 day 17) stays skipped: its `Next after (Some value)` is a nested pattern on `Option`. Pre-existing: `function_induct::a_nested_pattern_in_a_lifted_match` fails on main too (E-RESOURCE while checking `List.sumByFilter`).",
+      "body": "From SW-1057 (2 Nov 2026), decided yes (Claude, delegated). Quantified IHs for calls under binders / non-tail matches (12 skips) stay on §9's later row.\n\n\n2 Nov 2026: the List.unfold part is done (experiment SW-1084, Sonnet's version, merged; Opus review: merge as is, follow-ups SW-1089). Nested patterns in lifted matches on non-indexed one-constructor types now get their case. Merge tier 1052/1052 after accepting the new example's hash snapshot (e831790e; the lane hadn't run hash_stability), function_induct 5/5 with the library and AoC sweeps, audits clean. Catch-alls and literals in lifted matches remain. Model result: Sonnet, needed fixes (missing hash snapshot for its new example).\n\nProgress (11 Nov 2026, Sonnet): a lifted `match`'s catch-all alternative now gets its case. At each constructor no other alternative takes, the split lemma's branch binds the fields and `e = C fields`, proves each hypothesis `(vars) → e = p → Void` that the earlier alternatives didn't match (a `J` along `e = C fields`, then along the hypothesis, with the `%apart` discriminator shared with the tree's overlap proofs), and gives the catch-all's proof under those `let`s. Std now gets `Map.Tree.lookupList.induct`, `Map.Spec.lastBelow.induct`, `Map.lookupWithOnto.induct`; example `examples/accept/function-induct-catchall.sw`; test `a_catch_all_in_a_lifted_match`. Number literals still skip, with their own reason (a literal above 0 is a chain of `Succ`, a nested pattern on a type with two constructors). Machine.run (2024 day 17) stays skipped: its `Next after (Some value)` is a nested pattern on `Option`. Pre-existing: `function_induct::a_nested_pattern_in_a_lifted_match` fails on main too (E-RESOURCE while checking `List.sumByFilter`).\nModel result: Sonnet, worked, 22 min (est. 90). Catch-alls done; literal alternatives filed as SW-2868. Verifier passed (one flaky timings test under load, passed on rerun).",
       "created": "2026-11-02",
       "updated": "2026-11-11",
       "commits": [
@@ -30134,9 +30134,9 @@
     {
       "id": 2850,
       "title": "Messages: E-UNSOLVED on a hole in a header's type suggests f [x := …], which doesn't apply (SW-2845)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "DeepSeek",
-      "where": "",
+      "where": ".claude/worktrees/scratch-sw-2850",
       "labels": [],
       "epic": "diagnostics",
       "body": "",
@@ -30345,12 +30345,12 @@
     {
       "id": 2866,
       "title": "search_at, doc and counterexample still use the name-only is_generated_name, so they treat .unfold and other span-detected generated lemmas (type induct/size/accessors/ext) as written; move them to SW-2856's Generated. Also document that types never appear in 'relied on by' or the rely counts (SW-2856)",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": ".claude/worktrees/scratch-sw-2866",
       "labels": [],
       "epic": "proof-automation",
-      "body": "",
+      "body": "\nModel result: DeepSeek, worked, ~30 min (est. 30). Counterexample search no longer searches T.ext (generated); new test a_decreasing_definitions_unfold_is_not_searched.",
       "created": "2026-11-11",
       "updated": "2026-11-11",
       "commits": []
@@ -30358,12 +30358,12 @@
     {
       "id": 2867,
       "title": "function_induct::a_nested_pattern_in_a_lifted_match fails on main's debug build: E-RESOURCE 'nested too deeply' checking List.sumByFilter (256 MB stack doesn't help; release CLI checks it fine); likely work_limit or the stack floor (SW-1073)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2867",
       "labels": [],
       "epic": "test-infra",
-      "body": "",
+      "body": "Progress: cause was the test's own session, not the build profile. `Session::new()` has limits for a 2 MiB thread (about 1.5 MiB of measured stack), and the test thread had 64 MiB, so the session's stack floor, not the thread, decided. Debug frames are several times larger than release, so the library's deeper proofs (List.sumByFilter, loaded on demand) exceeded that budget only in debug; a bigger thread changed nothing. Fix: the file's sessions are made with `Session::for_stack(STACK)` for the thread's size (and the ignored eager ones likewise). All four function_induct tests pass in debug.\nModel result: Sonnet, worked, 5 min (est. 60). Verifier passed.",
       "created": "2026-11-11",
       "updated": "2026-11-11",
       "commits": []
@@ -30371,9 +30371,9 @@
     {
       "id": 2868,
       "title": "f.induct: number-literal alternatives in lifted matches (0 is one Zero split, n > 0 a Succ chain) need nested splitting on multi-constructor types, one design with SW-1089's Some None / Some (Some k) case; would cover Aoc 2024 Day17 Machine.run. Also re-measure the proposal's skip counts (stale: badOperatorIn gone, Key.allWithin now generates) (SW-1073)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Opus",
-      "where": "",
+      "where": ".claude/worktrees/SW-2868",
       "labels": [],
       "epic": "proof-automation",
       "body": "",
@@ -30399,12 +30399,64 @@
     {
       "id": 2870,
       "title": "Proof tests set session limits for a 2 MiB stack on 64/256 MiB threads: ~39 Session::new() calls in crates/driver/tests/proofs/*.rs can fail E-RESOURCE in debug like SW-2867; move them to Session::for_stack with a shared constant or a with_session helper; optionally make Budget::start's stack-check flag the mismatch as a setup error (SW-2867)",
-      "status": "backlog",
+      "status": "review",
       "agent": "DeepSeek",
-      "where": "",
+      "where": ".claude/worktrees/scratch-sw-2870",
       "labels": [],
       "epic": "test-infra",
+      "body": "\nModel result: DeepSeek, worked, ~20 min (est. 30). Shared STACK/BIG_STACK in tests/proofs/common.rs; function_equations, function_induct, nat_add_rule moved; the rest weren't on enlarged threads. with_library_files still uses default limits (no _for_stack variant).",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2871,
+      "title": "timings::declarations_are_listed_slowest_first_with_full_names is flaky under load (expected Main.slow first, got Main.even, Main.odd at load ~50; passed on rerun): make 'slow' slower by a wide margin or compare by step counts (SW-1073 verifier)",
+      "status": "review",
+      "agent": "DeepSeek",
+      "where": ".claude/worktrees/scratch-sw-2871",
+      "labels": [],
+      "epic": "test-infra",
+      "body": "\nModel result: DeepSeek, worked, ~15 min (est. 20). Checks slow is present and has the most steps (deterministic) instead of first by wall clock; sortedness still checked.",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2872,
+      "title": "A goal whose statement names a big computation (countDown 100000 [] = []) still costs ~0.4-0.5 s each and prints as ⊢ … = …: the cost is outside zonk (counterexample search or goal display computing the statement?); find and bound it. Also: quote_folded forces calls that step at once in the elaborator's written type annotations, lifted helpers' types and messages: (MkProxy: Proxy (countDown 100000 [])) and (rfl: countDown 100000 [] = …) still hit E-RESOURCE; decide which sites should read back as written (SW-2843; related SW-1534, SW-1835)",
+      "status": "backlog",
+      "agent": "Opus",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
       "body": "",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2873,
+      "title": "Zonk's unfolding fallback (SW-2843) unfolds the whole solution when an unknown sits only in an argument a call drops, and gives up past 20k nodes/10k frames: unfold per call, only calls whose arguments mention an unknown (unfold_where, SW-1835). Review: docs/reviews/SW-2843-zonk-as-written-review.md 3a",
+      "status": "backlog",
+      "agent": "Opus",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2874,
+      "title": "Equality G2 nested sums: nat_add::reread doesn't reread a nested stuck sum, so x + (y + two 0) = x + y + 2 fails conversion (omega's E-OMEGA-INTERNAL with SW-2253; the Int analogue too). Make reread recurse when the base is a stuck Nat.add; proof_equivalence case; docs/core.md gaps-table line. Blocks SW-2253 (docs/reviews/SW-2253-omega-folded-review.md item 2)",
+      "status": "review",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-2874",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "Started 16:09, est. 75 min.\n\nProgress (16:26): done in 17 min. `nat_add::reread` now reads a stuck sum in `+`'s second argument by the same rule, recursively (`x + (y + two 0)` is `2 + (x + y)`), bounded by the operation's stack (`budget.nesting`) and, through unfolding, its work budget. A folded `k * x` there is skipped: without that, std's Float.Theory (`K * b + K * b`, K ~ 2^53) recursed k deep and ran out (E-RESOURCE); its head is the variable's, never `Zero`/`Succ`, so nothing is missed. Tests: wrapping matrix gains `n + (n + hole)` contexts (11 pairs fail in every mode without the fix, pass with it), probe `probe_g2_nested_sum_with_a_folded_number` (Nat, deeper, twice, `case`, Int via `.toInt`). docs/core.md: rule E text and G2 row. For the Fable review: a decreasing def unfolding to a long right-nested chain (`f (Succ m) y = y + f m y`) is now walked to the bottom where it used to stop after one unfold: E-RESOURCE at stack depth possible, and the walk repeats per comparison level (quadratic in chain depth).\n",
       "created": "2026-11-11",
       "updated": "2026-11-11",
       "commits": []
