@@ -30371,9 +30371,9 @@
     {
       "id": 2868,
       "title": "f.induct: number-literal alternatives in lifted matches (0 is one Zero split, n > 0 a Succ chain) need nested splitting on multi-constructor types, one design with SW-1089's Some None / Some (Some k) case; would cover Aoc 2024 Day17 Machine.run. Also re-measure the proposal's skip counts (stale: badOperatorIn gone, Key.allWithin now generates) (SW-1073)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Opus",
-      "where": "",
+      "where": ".claude/worktrees/SW-2868",
       "labels": [],
       "epic": "proof-automation",
       "body": "",
@@ -30399,12 +30399,12 @@
     {
       "id": 2870,
       "title": "Proof tests set session limits for a 2 MiB stack on 64/256 MiB threads: ~39 Session::new() calls in crates/driver/tests/proofs/*.rs can fail E-RESOURCE in debug like SW-2867; move them to Session::for_stack with a shared constant or a with_session helper; optionally make Budget::start's stack-check flag the mismatch as a setup error (SW-2867)",
-      "status": "doing",
+      "status": "review",
       "agent": "DeepSeek",
       "where": ".claude/worktrees/scratch-sw-2870",
       "labels": [],
       "epic": "test-infra",
-      "body": "",
+      "body": "\nModel result: DeepSeek, worked, ~20 min (est. 30). Shared STACK/BIG_STACK in tests/proofs/common.rs; function_equations, function_induct, nat_add_rule moved; the rest weren't on enlarged threads. with_library_files still uses default limits (no _for_stack variant).",
       "created": "2026-11-11",
       "updated": "2026-11-11",
       "commits": []
