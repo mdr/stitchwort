@@ -38,11 +38,20 @@ pub struct Limits {
 impl Limits {
     /// The reference evaluator's limits: its work limit as steps, and its
     /// frame limit.
+    ///
+    /// `STITCHWORT_NATIVE_FRAMES=N` lowers the native ceiling to at most `N`
+    /// frames, never raises it. A native frame is hundreds of bytes of real
+    /// stack, so running a native program out of frames at the default
+    /// ceiling touches gigabytes (about 6 GB at 16 million): a test of that
+    /// report sets this to run out at a depth that is cheap to reach.
     pub fn from_core(limits: CoreLimits) -> Limits {
+        let lowered = std::env::var("STITCHWORT_NATIVE_FRAMES")
+            .ok()
+            .and_then(|n| n.parse::<usize>().ok());
         Limits {
             steps: limits.work,
             frames: limits.frames,
-            native_frames: limits.native_frames,
+            native_frames: lowered.map_or(limits.native_frames, |n| n.min(limits.native_frames)),
             number_words: false,
         }
     }

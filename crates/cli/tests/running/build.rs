@@ -85,13 +85,19 @@ fn work_dir(name: &str) -> PathBuf {
 
 /// `stitchwort ARGS` in `dir`, linking with the test build's library.
 fn stitchwort(dir: &Path, args: &[&str], input: &[u8]) -> Output {
+    stitchwort_with_env(dir, args, input, &[])
+}
+
+/// [`stitchwort`] with more environment variables set.
+fn stitchwort_with_env(dir: &Path, args: &[&str], input: &[u8], env: &[(&str, &str)]) -> Output {
     let mut command = match args.split_first() {
         Some((subcommand, flags)) => crate::common::cli_with(subcommand, flags),
         None => crate::common::cli_plain("--help"),
     };
     command
         .current_dir(dir)
-        .env("STITCHWORT_RUNTIME", runtime_library());
+        .env("STITCHWORT_RUNTIME", runtime_library())
+        .envs(env.iter().copied());
     run_with_input(command, input)
 }
 
@@ -992,7 +998,17 @@ fn native_code_out_of_frames_reports_as_run_does() {
                   def main () : {IO} () :=\n  \
                     IO.print (Nat.toText (count (20 * 1000 * 1000)))\n";
     std::fs::write(dir.join("runaway.sw"), source).expect("write the source");
-    build(&dir, &["runaway.sw", "--native", "--cache-dir", CACHE]);
+    // Running out at the default 16 million frames touches about 6 GB of
+    // stack; a ceiling of one
+    // million reports the same way for about 0.4 GB.
+    let low = [("STITCHWORT_NATIVE_FRAMES", "1000000")];
+    let built = stitchwort_with_env(
+        &dir,
+        &["build", "runaway.sw", "--native", "--cache-dir", CACHE],
+        b"",
+        &low,
+    );
+    assert!(built.status.success(), "{}", text(&built.stderr));
     let exe = dir.join("runaway");
     assert!(!native_trampolines(&exe).is_empty(), "`count` is compiled");
     let built = run_executable(&exe, b"");
@@ -1006,10 +1022,11 @@ fn native_code_out_of_frames_reports_as_run_does() {
     // The machine's note on where the recursion was deepest, from the
     // frames that left native code with the error (stage NO5 of
     // native-only.md). The count is native code's own depth budget, 16
-    // million frames (`Limits::native_frames`, D3450), not the machine's.
+    // million frames (`Limits::native_frames`, D3450) lowered to one million
+    // by the environment, not the machine's.
     assert!(
         stderr.contains(
-            "\n  note: the recursion was deepest in `Main.count` (15999999 frames pending)\n"
+            "\n  note: the recursion was deepest in `Main.count` (999999 frames pending)\n"
         ),
         "{stderr}"
     );
@@ -1017,7 +1034,7 @@ fn native_code_out_of_frames_reports_as_run_does() {
         &["run", "--native", "--cache-dir", CACHE, "runaway.sw"][..],
         &["run", "--cache-dir", CACHE, "runaway.sw"],
     ] {
-        let ran = stitchwort(&dir, runner, b"");
+        let ran = stitchwort_with_env(&dir, runner, b"", &low);
         assert_eq!(ran.status.code(), Some(2), "{runner:?}");
         assert_eq!(text(&ran.stdout), text(&built.stdout), "{runner:?}");
         // The same message and notes as `run`'s report.
