@@ -31311,12 +31311,12 @@
     {
       "id": 2940,
       "title": "[Opus] Tests with errors stage 1 (D3524): importers of a namespace with errors are checked per declaration; failed names cross imports as failed; E-USES-FAILED once per broken name per file on the import replaces E-NAMESPACE-FAILED; importers' tests, goals, hovers; live project; docs and book text (docs/proposals/tests-with-errors.md)",
-      "status": "doing",
+      "status": "review",
       "agent": "Opus",
       "where": "",
       "labels": [],
       "epic": "test-infra",
-      "body": "D3524 (Matt, 11 Nov 2026): 'Yes.' Design: docs/proposals/tests-with-errors.md (SW-2938) stage 1. Expected: 150 min.",
+      "body": "D3524 (Matt, 11 Nov 2026): 'Yes.' Design: docs/proposals/tests-with-errors.md (SW-2938) stage 1. Expected: 150 min.\n\nLane notes (Opus, 11 Nov 2026, ~45 min): commit ad5228865 on lane/SW-2940. Importers are checked per declaration; what uses another namespace's failed declaration waits (errors dropped), one E-USES-FAILED per root broken declaration per file, on the import (or first waiting declaration), noting what waits. Waiting chains name the root (Session::failed_sources), also for broken-test messages. Recognised: name lookup, kernel refusal, dot calls, computing through it in a proof (printer hook now passes the DefId). Not recognised: instance search (`Red < Green` with a broken `Ord` instance gives a fresh E-TYPE-MISMATCH; stage 2's note). Cache: no change needed (Merkle keys; errored namespaces never stored); tested both ways. Live project skips importers only while a used namespace has a syntax error (E-NAMESPACE-FAILED kept for that). Book with the slip: chapter 2 checked, 11 goals, 8 tests (6 pass, 2 fail); 3 of chapter 2's own proofs now go red (false under the slipped table), previously hidden. Tests run by name: 5 test_json, driver project a_failed_declaration_stops_only_what_uses_it, lsp memory failed-import, cli server aoc_navigation_matches_check_index (273 s, slow as before), web shared-file error, rejected_projects (failed, extension-in-owner). Not run: browser.mjs (edited expectation).\n",
       "created": "2026-11-11",
       "updated": "2026-11-11",
       "commits": []
