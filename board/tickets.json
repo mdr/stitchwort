@@ -1,5 +1,5 @@
 {
-  "next": 2892,
+  "next": 2902,
   "tickets": [
     {
       "id": 47,
@@ -30683,6 +30683,136 @@
       "commits": [
         "74ce2fa15"
       ]
+    },
+    {
+      "id": 2892,
+      "title": "[Sonnet] Book G1: bundle book/ and sf/ in the playground (bundle-projects.sh accepts the check: key and more than sources: [src]; chapter entries; a link per chapter); covers SW-2723 (docs/proposals/proving-with-stitchwort-outline.md)",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "editor-playground",
+      "body": "",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2893,
+      "title": "[Sonnet] Book G2: the playground's Cmd+. applies actions[0] with no menu; show a menu of code actions (split, add missing arms, search for a proof) (proving-with-stitchwort-outline.md)",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "editor-playground",
+      "body": "",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2894,
+      "title": "[Sonnet] Book G3: goal at any point in the playground's goal panel, as VS Code has had since SW-2778/SW-2780 (proving-with-stitchwort-outline.md)",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "editor-playground",
+      "body": "",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2895,
+      "title": "[Opus] Book G4: split actions for hypotheses of indexed families (evidence like Even n) and for ∨, ∧, ∃ (proving-with-stitchwort-outline.md)",
+      "status": "backlog",
+      "agent": "Opus",
+      "where": "",
+      "labels": [],
+      "epic": "editor-playground",
+      "body": "",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2896,
+      "title": "[Opus] Book G5: cases inverts a hypothesis of an inductive family (today 'nothing to split on') (proving-with-stitchwort-outline.md)",
+      "status": "backlog",
+      "agent": "Opus",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2897,
+      "title": "[DeepSeek] Book G6: stitchwort goal --summary: open goals per namespace; also in the playground's status line (proving-with-stitchwort-outline.md)",
+      "status": "backlog",
+      "agent": "DeepSeek",
+      "where": "",
+      "labels": [],
+      "epic": "docs-tutorials",
+      "body": "",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2898,
+      "title": "[Sonnet] Book G7: a task that tries rfl, cases, omega, ring and search on every ? of a project and lists the exercises they close alone (proving-with-stitchwort-outline.md)",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "docs-tutorials",
+      "body": "",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2899,
+      "title": "Book G8: a packaged install: release binary and VS Code extension, no checkout needed (proving-with-stitchwort-outline.md)",
+      "status": "backlog",
+      "agent": "Opus",
+      "where": "",
+      "labels": [],
+      "epic": "docs-tutorials",
+      "body": "",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2900,
+      "title": "Book G9: an HTML rendering of chapter files (proving-with-stitchwort-outline.md)",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "docs-tutorials",
+      "body": "",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2901,
+      "title": "[DeepSeek] Book G10: False in a statement reads as the Bool (False = True): a hover or note saying so, suggesting Void (proving-with-stitchwort-outline.md)",
+      "status": "backlog",
+      "agent": "DeepSeek",
+      "where": "",
+      "labels": [],
+      "epic": "diagnostics",
+      "body": "",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
     }
   ]
 }
