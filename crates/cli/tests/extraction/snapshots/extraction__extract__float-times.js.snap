@@ -757,17 +757,6 @@ define(info$Std$dOption, [
   ["Some", [["value", param(0)]]],
 ]);
 
-const $Std$dBool$difThenElse = (v1, v2, v3) => {
-  switch (v1.tag) {
-    case "False": {
-      return (v3)(undefined);
-    }
-    case "True": {
-      return (v2)(undefined);
-    }
-  }
-  throw new Error("unreachable");
-};
 const $Std$dList$dmap$e = (v4, v5) => {
   let s4 = v4, s5 = v5;
   let h$ = null, l$ = null, k$ = null;

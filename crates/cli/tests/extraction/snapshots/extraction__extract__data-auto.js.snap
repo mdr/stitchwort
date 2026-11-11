@@ -734,17 +734,6 @@ const encodeFast = (fast, t, v) => {
 };
 
 
-const $Std$dBool$difThenElse = (v1, v2, v3) => {
-  switch (v1.tag) {
-    case "False": {
-      return (v3)(undefined);
-    }
-    case "True": {
-      return (v2)(undefined);
-    }
-  }
-  throw new Error("unreachable");
-};
 const $Std$dNat$dleq = (m, n) => ({ tag: m <= n ? "True" : "False" });
 const $Std$dList$dappend = (v1, v2) => {
   let s1 = v1, s2 = v2;

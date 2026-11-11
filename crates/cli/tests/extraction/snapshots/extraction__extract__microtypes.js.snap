@@ -779,28 +779,6 @@ define(info$Main$dTags, [
 const $Std$dNat$dadd = (m, n) => m + n;
 const $Std$dNat$dsub = (m, n) => (m >= n ? m - n : 0n);
 const $Std$dNat$dmul = (m, n) => m * n;
-const $Std$dBool$dnot = (v0) => {
-  switch (v0.tag) {
-    case "False": {
-      return { tag: "True" };
-    }
-    case "True": {
-      return { tag: "False" };
-    }
-  }
-  throw new Error("unreachable");
-};
-const $Std$dBool$difThenElse = (v1, v2, v3) => {
-  switch (v1.tag) {
-    case "False": {
-      return (v3)(undefined);
-    }
-    case "True": {
-      return (v2)(undefined);
-    }
-  }
-  throw new Error("unreachable");
-};
 const $Std$dNat$dleq = (m, n) => ({ tag: m <= n ? "True" : "False" });
 const $Std$dList$dlengthOnto = (v1, v2) => {
   let s1 = v1, s2 = v2;
@@ -847,18 +825,15 @@ const $Std$dDecidable$dholds = (v1) => {
   const v2 = v1;
   return v2;
 };
-const $Std$dDecidable$dyes = { tag: "True" };
-const $Std$dDecidable$dno = { tag: "False" };
-const $Std$dDecidable$dmap = (v2) => v2;
 const $Std$dBool$ddecEq = (v0, v1) => {
   switch (v0.tag) {
     case "False": {
       switch (v1.tag) {
         case "False": {
-          return $Std$dDecidable$dyes;
+          return { tag: "True" };
         }
         case "True": {
-          return $Std$dDecidable$dno;
+          return { tag: "False" };
         }
       }
       throw new Error("unreachable");
@@ -866,10 +841,10 @@ const $Std$dBool$ddecEq = (v0, v1) => {
     case "True": {
       switch (v1.tag) {
         case "False": {
-          return $Std$dDecidable$dno;
+          return { tag: "False" };
         }
         case "True": {
-          return $Std$dDecidable$dyes;
+          return { tag: "True" };
         }
       }
       throw new Error("unreachable");
@@ -877,7 +852,6 @@ const $Std$dBool$ddecEq = (v0, v1) => {
   }
   throw new Error("unreachable");
 };
-const $Std$dDecidable$dnot = $Std$dBool$dnot;
 const $Std$dChar$dtoNat = (v0) => {
   switch (v0.tag) {
     case "MkChar": {
@@ -908,13 +882,13 @@ const $Std$dOrdering$ddecEq = (v0, v1) => {
     case "Less": {
       switch (v1.tag) {
         case "Less": {
-          return $Std$dDecidable$dyes;
+          return { tag: "True" };
         }
         case "Equal": {
-          return $Std$dDecidable$dno;
+          return { tag: "False" };
         }
         case "Greater": {
-          return $Std$dDecidable$dno;
+          return { tag: "False" };
         }
       }
       throw new Error("unreachable");
@@ -922,13 +896,13 @@ const $Std$dOrdering$ddecEq = (v0, v1) => {
     case "Equal": {
       switch (v1.tag) {
         case "Less": {
-          return $Std$dDecidable$dno;
+          return { tag: "False" };
         }
         case "Equal": {
-          return $Std$dDecidable$dyes;
+          return { tag: "True" };
         }
         case "Greater": {
-          return $Std$dDecidable$dno;
+          return { tag: "False" };
         }
       }
       throw new Error("unreachable");
@@ -936,13 +910,13 @@ const $Std$dOrdering$ddecEq = (v0, v1) => {
     case "Greater": {
       switch (v1.tag) {
         case "Less": {
-          return $Std$dDecidable$dno;
+          return { tag: "False" };
         }
         case "Equal": {
-          return $Std$dDecidable$dno;
+          return { tag: "False" };
         }
         case "Greater": {
-          return $Std$dDecidable$dyes;
+          return { tag: "True" };
         }
       }
       throw new Error("unreachable");
@@ -977,7 +951,7 @@ const $Std$dOrd$d$gcompare = (v1) => {
   return v3;
 };
 const $Std$dOrd$dcompare = $Std$dOrd$d$gcompare;
-const $Std$dOrd$dfromCompare = (v1, v2) => ({ eq: v1, compare: v2, decLessThan: ((v6) => ((v7) => $Std$dOrdering$ddecEq((v2)(v6)(v7), { tag: "Less" }))), decLessEq: ((v6) => ((v7) => $Std$dBool$dnot($Std$dOrdering$ddecEq((v2)(v6)(v7), { tag: "Greater" })))) });
+const $Std$dOrd$dfromCompare = (v1, v2) => ({ eq: v1, compare: v2, decLessThan: ((v6) => ((v7) => $Std$dOrdering$ddecEq((v2)(v6)(v7), { tag: "Less" }))), decLessEq: ((v6) => ((v7) => ({ tag: !(($Std$dOrdering$ddecEq((v2)(v6)(v7), { tag: "Greater" })).tag === "True") ? "True" : "False" }))) });
 const $Std$dText$dinstOrd = $Std$dOrd$dfromCompare($Std$dText$dinstDecEq, ($Std$dText$dcompare$c ??= ($p0) => ($p1) => $Std$dText$dcompare($p0, $p1)));
 const $Std$dShow$d$gtoText = (v1) => {
   const v2 = v1.toText;

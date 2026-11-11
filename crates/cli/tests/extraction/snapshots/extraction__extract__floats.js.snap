@@ -758,46 +758,21 @@ define(info$Std$dOption, [
   ["Some", [["value", param(0)]]],
 ]);
 
-const $Std$dBool$difThenElse = (v1, v2, v3) => {
-  switch (v1.tag) {
-    case "False": {
-      return (v3)(undefined);
-    }
-    case "True": {
-      return (v2)(undefined);
-    }
-  }
-  throw new Error("unreachable");
-};
 const $Std$dNat$dleq = (m, n) => ({ tag: m <= n ? "True" : "False" });
 const $Std$dNat$dequal = (m, n) => ({ tag: m === n ? "True" : "False" });
 const $Std$dDecidable$dholds = (v1) => {
   const v2 = v1;
   return v2;
 };
-const $Std$dDecidable$dyes = { tag: "True" };
-const $Std$dDecidable$dno = { tag: "False" };
-const $Std$dDecidable$delim$d$gmatch1 = (v2, v3, v4, v5) => {
-  switch (v5.tag) {
-    case "False": {
-      return (v4)(undefined);
-    }
-    case "True": {
-      return (v3)(undefined);
-    }
-  }
-  throw new Error("unreachable");
-};
-const $Std$dDecidable$delim = (v2, v3, v4) => $Std$dDecidable$delim$d$gmatch1(v2, v3, v4, v2);
 const $Std$dBool$ddecEq = (v0, v1) => {
   switch (v0.tag) {
     case "False": {
       switch (v1.tag) {
         case "False": {
-          return $Std$dDecidable$dyes;
+          return { tag: "True" };
         }
         case "True": {
-          return $Std$dDecidable$dno;
+          return { tag: "False" };
         }
       }
       throw new Error("unreachable");
@@ -805,10 +780,10 @@ const $Std$dBool$ddecEq = (v0, v1) => {
     case "True": {
       switch (v1.tag) {
         case "False": {
-          return $Std$dDecidable$dno;
+          return { tag: "False" };
         }
         case "True": {
-          return $Std$dDecidable$dyes;
+          return { tag: "True" };
         }
       }
       throw new Error("unreachable");

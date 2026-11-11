@@ -736,26 +736,12 @@ const encodeFast = (fast, t, v) => {
 
 const $Std$dNat$dsub = (m, n) => (m >= n ? m - n : 0n);
 const $Std$dNat$dmul = (m, n) => m * n;
-const $Std$dBool$dnot = (v0) => {
-  switch (v0.tag) {
-    case "False": {
-      return { tag: "True" };
-    }
-    case "True": {
-      return { tag: "False" };
-    }
-  }
-  throw new Error("unreachable");
-};
 const $Std$dNat$dleq = (m, n) => ({ tag: m <= n ? "True" : "False" });
 const $Std$dNat$dequal = (m, n) => ({ tag: m === n ? "True" : "False" });
 const $Std$dDecidable$dholds = (v1) => {
   const v2 = v1;
   return v2;
 };
-const $Std$dNat$ddecEq = $Std$dNat$dequal;
-const $Std$dDecidable$dnot = $Std$dBool$dnot;
-const $Std$dNat$ddecLessEq = $Std$dNat$dleq;
 const $Std$dNat$ddivFuel = (fuel, n, d) => { if (d === 0n) return 0n; const q = n / d; return q < fuel ? q : fuel; };
 const $Std$dNat$ddiv = (v0, v1) => $Std$dNat$ddivFuel(v0, v0, v1);
 const $Main$dapplyDiscount = (v0, v1) => $Std$dNat$dsub(v0, $Std$dNat$ddiv($Std$dNat$dmul(v0, v1), 100n));
@@ -778,7 +764,7 @@ function $$perPerson(arg0, arg1) {
   try {
     const v0 = decodeFast(dec$1, ty$1, arg0, "total");
     const v1 = decodeFast(dec$1, ty$1, arg1, "people");
-    if ($Std$dBool$dnot($Std$dNat$dequal(v1, 0n)).tag !== "True") {
+    if (({ tag: !(($Std$dNat$dequal(v1, 0n)).tag === "True") ? "True" : "False" }).tag !== "True") {
       throw new StitchwortInputError("precondition `people != 0` doesn't hold");
     }
     return encodeFast(enc$2, ty$1, $Main$dperPerson(v0, v1));

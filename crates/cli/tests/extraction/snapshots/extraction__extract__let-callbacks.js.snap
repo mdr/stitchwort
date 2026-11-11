@@ -841,28 +841,6 @@ const effTranslate = (m, c, pending) => {
 
 const $Std$dNat$dadd = (m, n) => m + n;
 const $Std$dNat$dmul = (m, n) => m * n;
-const $Std$dBool$dnot = (v0) => {
-  switch (v0.tag) {
-    case "False": {
-      return { tag: "True" };
-    }
-    case "True": {
-      return { tag: "False" };
-    }
-  }
-  throw new Error("unreachable");
-};
-const $Std$dBool$difThenElse = (v1, v2, v3) => {
-  switch (v1.tag) {
-    case "False": {
-      return (v3)(undefined);
-    }
-    case "True": {
-      return (v2)(undefined);
-    }
-  }
-  throw new Error("unreachable");
-};
 const $Std$dList$dlengthOnto = (v1, v2) => {
   let s1 = v1, s2 = v2;
   for (;;) {
@@ -911,10 +889,7 @@ const $Std$dDecidable$dholds = (v1) => {
   const v2 = v1;
   return v2;
 };
-const $Std$dDecidable$dno = { tag: "False" };
 const $Std$dNat$ddecEq = $Std$dNat$dequal;
-const $Std$dDecidable$dnot = $Std$dBool$dnot;
-const $Std$dDecidable$dor = (v2, v3) => (v2.tag === "True" ? { tag: "True" } : v3);
 const $Std$dText$dappend = (a, b) => a + b;
 const $Std$dText$ddecEq = (a, b) => ({ tag: a === b ? "True" : "False" });
 const $Std$dEffect$dfoldComp = (done, call, c) => effFold(done, call, c, null);
@@ -1113,7 +1088,7 @@ const $Std$dList$ddecMem = (v1, v2, v3) => {
     const v1 = s1, v2 = s2, v3 = s3;
     switch (v3.tag) {
       case "Nil": {
-        return $Std$dDecidable$dno;
+        return { tag: "False" };
       }
       case "Cons": {
         const v4 = v3.head;
@@ -1140,10 +1115,10 @@ const $Main$dCard$did = (v0) => {
   const v2 = v0.n;
   return v1;
 };
-const $Main$dnotIn = (v0, v1) => { const v2 = $Std$dList$dmap$e(v1, ((v2) => $Std$dText$dappend(v2, ""))); return $Std$dList$dfilter$e(v0, ((v3) => $Std$dBool$dnot($Std$dList$ddecMem($Std$dText$dinstDecEq, $Main$dCard$did(v3), v2)))); };
+const $Main$dnotIn = (v0, v1) => { const v2 = $Std$dList$dmap$e(v1, ((v2) => $Std$dText$dappend(v2, ""))); return $Std$dList$dfilter$e(v0, ((v3) => ({ tag: !(($Std$dList$ddecMem($Std$dText$dinstDecEq, $Main$dCard$did(v3), v2)).tag === "True") ? "True" : "False" }))); };
 const $Main$dcountEq = (v0, v1) => { const v2 = $Std$dText$dappend(v1, ""); return $Std$dList$dlength($Std$dList$dfilter$e(v0, ((v3) => $Std$dText$ddecEq($Main$dCard$did(v3), v2)))); };
 const $Main$dshifted = (v0, v1) => { const v2 = $Std$dNat$dadd(v1, 1n); const v3 = $Std$dNat$dmul(v2, 2n); return $Std$dList$dmap$e(v0, ((v4) => $Std$dNat$dadd($Std$dNat$dadd(v4, v2), v3))); };
-const $Main$danyAll = (v0, v1) => { const v2 = $Std$dList$dmap$e(v1, ((v2) => $Std$dNat$dmul(v2, 2n))); return ($Std$dList$dany$e(v0, ((v3) => $Std$dList$ddecMem($Std$dNat$dinstDecEq, $Std$dNat$dadd(v3, v3), v2))).tag === "True" ? $Std$dList$dall$e(v0, ((v4) => $Std$dBool$dnot($Std$dList$ddecMem($Std$dNat$dinstDecEq, $Std$dNat$dadd(v4, 1n), v2)))) : { tag: "False" }); };
+const $Main$danyAll = (v0, v1) => { const v2 = $Std$dList$dmap$e(v1, ((v2) => $Std$dNat$dmul(v2, 2n))); return ($Std$dList$dany$e(v0, ((v3) => $Std$dList$ddecMem($Std$dNat$dinstDecEq, $Std$dNat$dadd(v3, v3), v2))).tag === "True" ? $Std$dList$dall$e(v0, ((v4) => ({ tag: !(($Std$dList$ddecMem($Std$dNat$dinstDecEq, $Std$dNat$dadd(v4, 1n), v2)).tag === "True") ? "True" : "False" }))) : { tag: "False" }); };
 const $Main$dweighted = (v0, v1) => { const v2 = $Std$dNat$dadd(v1, 3n); return $Std$dList$dfoldLeft$e(v0, 0n, ((v3) => ((v4) => $Std$dNat$dadd(v3, $Std$dNat$dmul(v4, v2))))); };
 const $Main$dusedTwice = (v0, v1) => $Std$dList$dmap$e(v0, ((v2) => { const v3 = $Std$dNat$dmul(v2, v1); return $Std$dNat$dadd(v3, v3); }));
 const $Main$ddirect = (v0) => { const v1 = $Std$dNat$dmul(v0, 3n); return $Std$dNat$dadd(v1, v1); };
@@ -1157,7 +1132,7 @@ const $Main$dLog$d$gelim = (v1, v2, v3) => {
   throw new Error("unreachable");
 };
 const $Main$dcollect = (v0) => $Std$dEffect$drunPure(effFoldCompLazy(((v1) => ({ tag: "Done", value: { tag: "Cons", head: v1, tail: { tag: "Nil" } } })), (($s5, $s6) => (($p7) => ($p8) => $Std$dEffect$dhandlePlus($s5, $s6, $p7, $p8)))((($s1) => (($p2) => ($p3) => $Main$dLog$d$gelim($s1, $p2, $p3)))(((v1) => ((v2) => ({ tag: "Done", value: $Std$dList$dappend({ tag: "Cons", head: v1, tail: { tag: "Nil" } }, $Std$dEffect$drunPure((v2)({ tag: "UnitValue" }))) })))), ((v1) => ((v2) => ({ tag: "Call", o: $Std$dEffect$dsigInject($Std$dEffect$dsigFromNo, v1), rest: ((v3) => (v2)($Std$dEffect$dsigReply($Std$dEffect$dsigFromNo, v1, v3))) })))), (v0)({ tag: "UnitValue" })));
-const $Main$dsteps = (v0, v1) => $Std$dEffect$dbind({ tag: "Call", o: { tag: "L", o: { tag: "%log", x: 100n } }, rest: ((v2) => ({ tag: "Done", value: v2 })) }, ((v2) => { const v3 = $Std$dNat$dadd(v1, 1n); return $Std$dEffect$dbind({ tag: "Call", o: { tag: "L", o: { tag: "%log", x: v3 } }, rest: ((v4) => ({ tag: "Done", value: v4 })) }, ((v4) => { const v5 = $Std$dList$dfilter$e(v0, ((v5) => $Std$dBool$dnot($Std$dNat$dequal(v5, v3)))); return $Std$dEffect$dbind({ tag: "Call", o: { tag: "L", o: { tag: "%log", x: $Std$dList$dlength(v5) } }, rest: ((v6) => ({ tag: "Done", value: v6 })) }, ((v6) => { const v7 = $Std$dList$dfoldLeft$e(v5, 0n, ((v7) => ((v8) => $Std$dNat$dadd(v7, $Std$dNat$dmul(v8, v3))))); return $Std$dEffect$dbind({ tag: "Call", o: { tag: "L", o: { tag: "%log", x: v7 } }, rest: ((v8) => ({ tag: "Done", value: v8 })) }, ((v8) => ({ tag: "Done", value: $Std$dNat$dadd(v7, v3) }))); })); })); }));
+const $Main$dsteps = (v0, v1) => $Std$dEffect$dbind({ tag: "Call", o: { tag: "L", o: { tag: "%log", x: 100n } }, rest: ((v2) => ({ tag: "Done", value: v2 })) }, ((v2) => { const v3 = $Std$dNat$dadd(v1, 1n); return $Std$dEffect$dbind({ tag: "Call", o: { tag: "L", o: { tag: "%log", x: v3 } }, rest: ((v4) => ({ tag: "Done", value: v4 })) }, ((v4) => { const v5 = $Std$dList$dfilter$e(v0, ((v5) => ({ tag: !(($Std$dNat$dequal(v5, v3)).tag === "True") ? "True" : "False" }))); return $Std$dEffect$dbind({ tag: "Call", o: { tag: "L", o: { tag: "%log", x: $Std$dList$dlength(v5) } }, rest: ((v6) => ({ tag: "Done", value: v6 })) }, ((v6) => { const v7 = $Std$dList$dfoldLeft$e(v5, 0n, ((v7) => ((v8) => $Std$dNat$dadd(v7, $Std$dNat$dmul(v8, v3))))); return $Std$dEffect$dbind({ tag: "Call", o: { tag: "L", o: { tag: "%log", x: v7 } }, rest: ((v8) => ({ tag: "Done", value: v8 })) }, ((v8) => ({ tag: "Done", value: $Std$dNat$dadd(v7, v3) }))); })); })); }));
 const $Main$dlogged = (v0, v1) => $Main$dcollect(((v2) => $Main$dsteps(v0, v1)));
 
 function $$notIn(arg0, arg1) {

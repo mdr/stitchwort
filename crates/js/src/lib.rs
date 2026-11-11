@@ -2135,6 +2135,11 @@ struct Gen<'g> {
     if_then_else: Option<DefId>,
     /// `Decidable.elim`, which `if h: p then a else b` becomes.
     elim_dec: Option<DefId>,
+    /// `Bool.not`, whose calls are the opposite test.
+    bool_not: Option<DefId>,
+    /// The prelude's `Decidable` type: a definition whose result is one
+    /// decides a proposition ([`Gen::unfolds_decision`]).
+    decidable: Option<DataId>,
     /// `Ord.compare` and `Ord.fromCompare`: a comparison through an instance
     /// the code names is a call of its `compare` ([`Gen::known_compare`]).
     ord_compare: Option<DefId>,
@@ -2357,6 +2362,8 @@ impl<'g> Gen<'g> {
             infos: g.env.defs().iter().map(|_| OnceCell::new()).collect(),
             if_then_else: g.env.registry().def(Builtin::IfThenElse),
             elim_dec: g.env.registry().def(Builtin::ElimDec),
+            bool_not: g.env.registry().def(Builtin::BoolNot),
+            decidable: g.env.registry().data(Builtin::Decidable),
             ord_compare: g.env.registry().def(Builtin::OrdCompare),
             ord_from_compare: g.env.registry().def(Builtin::OrdFromCompare),
             nat_add: nat.and(g.env.registry().def(Builtin::Add)),
@@ -2396,8 +2403,14 @@ impl<'g> Gen<'g> {
     ) -> Result<Vec<DefId>, Diagnostic> {
         let g = self.g;
         let failure = RefCell::new(None);
-        let reach =
-            specialise::reachable(&self.spec, roots, entries, |id| match self.try_info(id) {
+        // An inlined call's body may fail to unfold with the stack or a
+        // limit; that's the generator's error, reported after reachability.
+        let inline_failure = RefCell::new(None);
+        let reach = specialise::reachable_inlining(
+            &self.spec,
+            roots,
+            entries,
+            |id| match self.try_info(id) {
                 Ok(info) => {
                     info.result_erased || self.is_native(id) || (delay && info.delay.is_some())
                 }
@@ -2405,9 +2418,20 @@ impl<'g> Gen<'g> {
                     failure.borrow_mut().get_or_insert(e);
                     true
                 }
-            })?;
+            },
+            |id, args| match self.inlined(id, args) {
+                Ok(inlined) => inlined,
+                Err(e) => {
+                    inline_failure.borrow_mut().get_or_insert(e);
+                    specialise::Inlined::No
+                }
+            },
+        )?;
         if let Some(e) = failure.into_inner() {
             return Err(e);
+        }
+        if let Some(e) = inline_failure.into_inner() {
+            return Err(Diagnostic::from(e));
         }
         let wanted: Vec<DefId> = (0..g.env.defs().len())
             .map(DefId)
@@ -4507,22 +4531,73 @@ impl<'g> Gen<'g> {
     }
 
     /// Whether a call of `id` with `args` arguments is worth replacing by the
-    /// definition's body: `Decidable.and`, `andThen`, `or` and `not`, and `m < n`
-    /// on `Nat`, fully applied. Their bodies are one expression and build a
-    /// decision, stored as its test (a name list, since other `Decidable`
-    /// definitions match, which an unfolded body can't).
+    /// definition's body: a fully applied definition whose result is a
+    /// `Decidable p`, whose body is one expression that builds the record
+    /// (which is stored as its test). Matching the result type rather than
+    /// the names keeps this working when the library's names change; other
+    /// decisions (`Bool.decEq`'s case tree, say) keep their calls, because
+    /// [`Gen::unfold`] refuses a body that matches on a parameter.
     fn unfolds_decision(&self, id: DefId, args: usize) -> bool {
         let def = self.g.def(id);
-        let path: &str = def.path();
-        matches!(
-            path,
-            "Std.Decidable.and"
-                | "Std.Decidable.andThen"
-                | "Std.Decidable.or"
-                | "Std.Decidable.not"
-                | "Std.Nat.decLessThan"
-        ) && args >= def.arity()
+        self.result_is_decidable(id)
+            && args >= def.arity()
             && !self.is_native(id)
+            && self.builds_decision(id)
+    }
+
+    /// Whether `id`'s run-time body, under its parameters, is a decision
+    /// record built here rather than a case tree or a call. Restricting
+    /// unfolding to those keeps a recursive decision from unfolding into
+    /// itself forever (the case trees are already refused, by
+    /// [`scrutinised`]).
+    fn builds_decision(&self, id: DefId) -> bool {
+        let Some(decidable) = self.decidable else {
+            return false;
+        };
+        let Some(body) = self.g.def(id).run_body() else {
+            return false;
+        };
+        let mut body = body.strip_loc();
+        for _ in 0..self.g.def(id).arity() {
+            let Term::Lam(_, _, inner) = body else {
+                return false;
+            };
+            body = inner.strip_loc();
+        }
+        matches!(body, Term::Ctor(d, _, _) if *d == decidable)
+    }
+
+    /// Whether `id`'s type ends in `Decidable p`.
+    fn result_is_decidable(&self, id: DefId) -> bool {
+        let Some(decidable) = self.decidable else {
+            return false;
+        };
+        let mut ty = self.g.def(id).ty().strip_loc();
+        while let Term::Pi(_, _, _, codomain) = ty {
+            ty = codomain.strip_loc();
+        }
+        matches!(ty, Term::Data(d, _) if *d == decidable)
+    }
+
+    /// How a call of `id` with `args` is generated: as a conditional built
+    /// from the arguments ([`Gen::conditional`]), as the unfolded body
+    /// ([`Gen::unfolds_decision`]), or as a call. This is what reachability
+    /// must assume, so that a definition no call remains of isn't generated
+    /// ([`specialise::reachable_inlining`]).
+    fn inlined(&self, id: DefId, args: &[&Term]) -> Fallible<specialise::Inlined> {
+        if Some(id) == self.bool_not && args.len() == 1 {
+            return Ok(specialise::Inlined::Args);
+        }
+        if self.conditional(id, args).is_some() {
+            return Ok(specialise::Inlined::Args);
+        }
+        if self.unfolds_decision(id, args.len())
+            && let Some(head) = self.g.def(id).run_body()
+            && self.unfold(head, id, args)?.is_some()
+        {
+            return Ok(specialise::Inlined::Body);
+        }
+        Ok(specialise::Inlined::No)
     }
 
     /// The body of the definition `id`, whose run-time `body` is a lambda
@@ -4576,6 +4651,16 @@ impl<'g> Gen<'g> {
             return Ok(format!(
                 "({cond}.tag === {} ? {then} : {otherwise})",
                 js_string_literal(&tag)
+            ));
+        }
+        // `Bool.not b` is the opposite test, so `!` on `b`'s tag: no call
+        // remains to the definition (whose body switches on the tag).
+        if Some(id) == self.bool_not
+            && let [b] = args
+        {
+            let b = self.expr(b, env)?;
+            return Ok(format!(
+                "({{ tag: !(({b}).tag === \"True\") ? \"True\" : \"False\" }})"
             ));
         }
         // A decision combinator's body is a conditional on its operands'

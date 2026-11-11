@@ -735,17 +735,6 @@ const encodeFast = (fast, t, v) => {
 
 
 const $Std$dNat$dadd = (m, n) => m + n;
-const $Std$dBool$difThenElse = (v1, v2, v3) => {
-  switch (v1.tag) {
-    case "False": {
-      return (v3)(undefined);
-    }
-    case "True": {
-      return (v2)(undefined);
-    }
-  }
-  throw new Error("unreachable");
-};
 const $Std$dList$dappend = (v1, v2) => {
   let s1 = v1, s2 = v2;
   let h$ = null, l$ = null, k$ = null;
@@ -802,7 +791,6 @@ const $Std$dChar$dtoNat = (v0) => {
   }
   throw new Error("unreachable");
 };
-const $Std$dChar$ddecEq = (v0, v1) => $Std$dNat$dequal($Std$dChar$dtoNat(v0), $Std$dChar$dtoNat(v1));
 const $Std$dText$dtoList = charsOfText;
 const $Std$dNat$dtoText = (n) => n.toString();
 const $Main$dsumFrom = (v0, v1) => {
@@ -852,7 +840,7 @@ const $Main$dcountFrom = (v0, v1, v2) => {
         const v3 = v2.head;
         const v4 = v2.tail;
         s0 = v0;
-        s1 = ($Std$dChar$ddecEq(v0, v3).tag === "True" ? $Std$dNat$dadd(v1, 1n) : v1);
+        s1 = ($Std$dNat$dequal($Std$dChar$dtoNat(v0), $Std$dChar$dtoNat(v3)).tag === "True" ? $Std$dNat$dadd(v1, 1n) : v1);
         s2 = v4;
         continue;
       }

@@ -201,6 +201,29 @@ fn generated_code_is_stable() {
     }
 }
 
+/// A helper that an `if h:` or a decision combinator unfolds to is not
+/// emitted when every call of it was unfolded away (SW-2835).
+#[test]
+fn unfolded_helpers_are_not_emitted() {
+    let examples = examples();
+    let (_, _, session) = examples.get("chained-comparisons.sw");
+    let output = stitchwort_js::generate(&session.elab.backend(), session.elab.options.limits)
+        .expect("extraction succeeds");
+    for helper in [
+        // `Decidable.elim` and the helper its lifted `match` became.
+        "const $Std$dDecidable$delim",
+        "const $Std$dDecidable$delim$d$gmatch1",
+        // `Bool.not` and `Bool.ifThenElse`, the tests' own helpers.
+        "const $Std$dBool$dnot",
+        "const $Std$dBool$difThenElse",
+    ] {
+        assert!(
+            !output.js.contains(helper),
+            "`{helper}` is emitted though every call of it is unfolded away"
+        );
+    }
+}
+
 /// The generated declarations type-check. The `tsc` runs, one per example,
 /// take about 10 s, so this is in the daily tier and `generated_code_is_stable`
 /// in the merge tier.
