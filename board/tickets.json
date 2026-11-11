@@ -29606,7 +29606,7 @@
     {
       "id": 2810,
       "title": "JS extraction disagrees with the reference evaluator: discount.sw perPerson(2n, 0n) gives \"rejected\" in JS (native_text, native_int) but 0n in the reference (extract::random_inputs_agree_with_the_reference_evaluator, extract.rs:373; Overmind full tier at a25e6f71f, 11 Nov). Check whether it reproduces on main first",
-      "status": "review",
+      "status": "done",
       "agent": "DeepSeek",
       "where": ".claude/worktrees/scratch-sw-2810",
       "labels": [],
