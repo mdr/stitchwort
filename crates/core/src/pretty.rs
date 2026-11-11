@@ -1166,6 +1166,10 @@ impl<'g> Printer<'g> {
                             Prec::Arrow,
                         );
                     }
+                    // `if c then a else b` on a decided proposition.
+                    if let Some(shown) = self.decided_if(names, term, *id) {
+                        return shown;
+                    }
                     // A partial computation: `{IO, Partial} a`.
                     if self.g.env.builtins().primitive(*id)
                         == Some(crate::partial::Primitive::Delay)
@@ -2439,6 +2443,53 @@ impl<'g> Printer<'g> {
         takes_record.then(|| field.to_string())
     }
 
+    /// `if p then a else b`, or `if h: p then a else b` where a branch uses
+    /// the proof, for `Decidable.elim [p] [r] d (h => a) (h => b)` and for
+    /// the call of its helper it computes to (`Decidable.elim.%match1 p r d
+    /// (h => a) (h => b) t e`), whose test the decision `d` holds.
+    fn decided_if(&self, names: &mut Vec<Name>, term: &Term, id: DefId) -> Option<(String, Prec)> {
+        let reg = self.g.env.registry();
+        let elim = reg.def(Builtin::ElimDec)?;
+        let (_, args) = full_spine(term);
+        let whole = (id == elim && args.len() == 5)
+            || (args.len() == 7 && Some(id) == elim_helper(self.g, elim));
+        if !whole {
+            return None;
+        }
+        let (prop, then, otherwise) = (args[0].0, args[3].0, args[4].0);
+        let (Term::Lam(x, _, yes), Term::Lam(y, _, no)) = (then.strip_loc(), otherwise.strip_loc())
+        else {
+            return None;
+        };
+        let used = yes.mentions(0) || no.mentions(0);
+        let name = if yes.mentions(0) || !no.mentions(0) {
+            x
+        } else {
+            y
+        };
+        let mut branch = |body: &Term| {
+            names.push(name.clone());
+            let text = if matches!(body.strip_loc(), Term::Lam(..)) {
+                self.print(names, body, Prec::Or)
+            } else {
+                self.print(names, body, Prec::Arrow)
+            };
+            names.pop();
+            text
+        };
+        let (yes, no) = (branch(yes), branch(no));
+        let prop = self.print(names, prop, Prec::Arrow);
+        let binder = if used {
+            format!("{name}: ")
+        } else {
+            String::new()
+        };
+        Some((
+            format!("if {binder}{prop} then {yes} else {no}"),
+            Prec::Arrow,
+        ))
+    }
+
     /// The body of `t`, if it's a lambda whose body doesn't use its parameter:
     /// one of the branches of `if c then a else b`.
     fn unused_branch(&self, names: &mut Vec<Name>, t: &Term) -> Option<String> {
@@ -2998,6 +3049,22 @@ fn full_spine(term: &Term) -> (&Term, Vec<(&Term, Icit)>) {
     }
     args.reverse();
     (head, args)
+}
+
+/// The helper `Decidable.elim` (`elim`) computes to: the head of its body.
+fn elim_helper(g: &Ev, elim: DefId) -> Option<DefId> {
+    let mut body = g.def(elim).body()?.strip_loc();
+    while let Term::Lam(_, _, b) = body {
+        body = b.strip_loc();
+    }
+    let mut head = body;
+    while let Term::App(f, _, _) = head {
+        head = f.strip_loc();
+    }
+    match head {
+        Term::Def(id) => Some(*id),
+        _ => None,
+    }
 }
 
 fn explicit_spine(term: &Term) -> (&Term, Vec<&Term>) {

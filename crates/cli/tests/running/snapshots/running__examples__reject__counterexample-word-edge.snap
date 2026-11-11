@@ -1,5 +1,5 @@
 ---
-source: crates/cli/tests/examples.rs
+source: crates/cli/tests/running/examples.rs
 expression: output
 ---
 [E-REFL] Error: `rfl` can't prove this
@@ -9,7 +9,7 @@ expression: output
    │                                           ─┬─  
    │                                            ╰─── `wrap n` and `n` aren't equal
    │ 
-   │ Note 1: computing the left side gives `if n <= 18446744073709551615 then n else 0`
+   │ Note 1: computing the left side gives `if n ≤ 18446744073709551615 then n else 0`
    │ 
    │ Note 2: `rfl` proves `a = b` only when both sides compute to the same value
    │ 

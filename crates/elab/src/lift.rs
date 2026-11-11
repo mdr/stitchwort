@@ -340,6 +340,19 @@ pub(crate) fn replace_with(
     go_replace(g, term, depth, 0, f, hook, &|_| Ok(None))
 }
 
+/// [`replace_with`] on `term` found under `under` binders of its own, for a
+/// hook that rebuilds a node and replaces inside its parts.
+pub(crate) fn replace_with_under(
+    g: &Ev,
+    term: &Term,
+    depth: usize,
+    under: usize,
+    f: &dyn Fn(usize) -> Result<Term>,
+    hook: &dyn Fn(&Term, usize) -> Option<Term>,
+) -> Result<Term> {
+    go_replace(g, term, depth, under, f, hook, &|_| Ok(None))
+}
+
 /// [`replace`], where a variable applied to arguments, at a level that
 /// `head` gives a type for (a term in the target context), is replaced
 /// annotated with that type: for a variable whose replacement is a value
@@ -809,11 +822,9 @@ impl Elaborator {
             let mut bodies = Vec::new();
             for &(i, id) in &members {
                 let (_, lam, _) = self.parts(&drafts[i], &ordered[i], &|_| false, true)?;
-                bodies.push((id, self.lifted_helper_body(id, &lam)?));
+                bodies.push((id, lam));
                 if let Some(run) = self.run_body(&drafts[i], &ordered[i])? {
-                    self.decl
-                        .pending_run_bodies
-                        .push((id, self.settle_tagged(&run)?));
+                    self.decl.pending_run_bodies.push((id, run));
                 }
             }
             let ids: HashSet<DefId> = members.iter().map(|(_, id)| *id).collect();

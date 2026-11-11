@@ -1851,7 +1851,17 @@ fn split_on(cx: &mut Ctx, run: &Rc<Run>, atom: Atom, goal: &Value, fallback: boo
         });
         return Err(Diagnostic::error("E-CASES-BUDGET", "over budget"));
     }
+    // A decision's test, `d.holds`, is split as what it computes to: that
+    // is what an `if` on `d`, unfolded, is stuck on.
     let term = cx.quote_folded(&atom.value)?;
+    let holds = g.env.registry().def(Builtin::ToBool);
+    let term = match term.spine().0 {
+        Term::Def(id) if Some(*id) == holds => cx.quote(&atom.value)?,
+        Term::Proj(d, 0, _) if g.env.registry().data(Builtin::Decidable) == Some(*d) => {
+            cx.quote(&atom.value)?
+        }
+        _ => term,
+    };
     let ty = atom_type(cx, &term, atom.d)?;
     let depth = (0..cx.level()).filter(|&l| is_equation(cx, l)).count();
     let name = ast::Name {

@@ -416,6 +416,7 @@ fn search(
         depth: base + e,
         exprs: today.occurrences,
         copies: &Default::default(),
+        transport: None,
     };
     let mut pairs = vec![(goal_unfolded, todays.apply(&g, today.goal_term)?)];
     for ((l, _), unfolded) in copied.iter().zip(unfolded_types) {

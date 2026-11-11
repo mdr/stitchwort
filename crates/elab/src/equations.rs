@@ -2235,6 +2235,14 @@ impl Elaborator {
             skip_all(self, "its body isn't available");
             return Ok(());
         };
+        let body = match plain_ifs(&self.ev(), &body) {
+            Ok(body) => Rc::new(body),
+            Err(Stop::Skip(why)) => {
+                skip_all(self, &why);
+                return Ok(());
+            }
+            Err(Stop::Error(e)) => return Err(e),
+        };
         let tree_params = arity + usize::from(tree_lams.is_some());
         if self.kernel.def(tree_def).arity() != tree_params {
             skip_all(
@@ -4263,6 +4271,7 @@ impl Elaborator {
             .body()
             .cloned()
             .ok_or_else(|| Stop::Skip("its `match`'s helper has no body".into()))?;
+        let body = Rc::new(plain_ifs(g, &body)?);
         let special = special_params(g, &binders);
         if special.iter().any(Option::is_some) {
             return skip("its `match`'s helper is polymorphic in abilities");
@@ -4975,6 +4984,154 @@ fn match_pattern(
         },
         _ => closed(pat) && stitchwort_core::value::same_term(pat, t),
     }
+}
+
+/// `t` with each plain `if` on a decided proposition as the `if` on the
+/// decision's `Bool`: `Decidable.elim [p] [a] d (_ => y) (_ => n)` whose
+/// branches don't use the proof is `Bool.ifThenElse [a] b (_ => y) (_ =>
+/// n)`, `b` the test as a plain `if`'s condition reads it
+/// (`bind::Decision::into_bool`: a comparison's `Bool`, `c` for `Bool.decTrue
+/// c`, `a && b` for `Decidable.andThen`, else `Decidable.holds [p] d`). The
+/// two compute alike (docs/proposals/decidable-record.md §3.1), so the
+/// equations are stated, and proved, as for a `Bool` `if`, with the
+/// hypotheses `b = True` and `b = False`. An `if h:` (its binder named)
+/// stays as it is.
+fn plain_ifs(g: &Ev, t: &Term) -> R<Term> {
+    let r = g.env.registry();
+    let (Some(elim), Some(ite), Some(bool_data), Some((_, fls))) = (
+        r.def(Builtin::ElimDec),
+        r.def(Builtin::IfThenElse),
+        r.data(Builtin::Bool),
+        r.ctor(Builtin::False),
+    ) else {
+        return Ok(t.clone());
+    };
+    let to_bool = r.def(Builtin::ToBool);
+    let dec_true = r.def(Builtin::DecTrue);
+    let and_then = r.def(Builtin::DecAndThen);
+    let bool_ty = Term::Data(bool_data, Vec::new());
+    let is = |t: &Term, id: Option<DefId>| matches!(t.strip_loc(), Term::Def(h) if Some(*h) == id);
+    // The test of decision `d` of `p`, as a plain `if` reads it.
+    fn test(
+        g: &Ev,
+        d: &Term,
+        p: &Term,
+        is: &dyn Fn(&Term, Option<DefId>) -> bool,
+        ids: (Option<DefId>, Option<DefId>, Option<DefId>, DefId),
+        bool_ty: &Term,
+        fls: Term,
+    ) -> Option<Term> {
+        let (to_bool, dec_true, and_then, ite) = ids;
+        if let Some(c) = crate::bind::comparison_in(g, d) {
+            return Some(c);
+        }
+        let (head, args) = spine_icit(d.strip_loc());
+        if is(head, dec_true) && args.len() == 1 {
+            return Some(args[0].0.clone());
+        }
+        if is(head, and_then) && args.len() == 4 {
+            let (pa, pb) = (&args[0].0, &args[1].0);
+            let a = test(g, &args[2].0, pa, is, ids, bool_ty, fls.clone())?;
+            let Term::Lam(x, i, db) = args[3].0.strip_loc() else {
+                return None;
+            };
+            if db.mentions(0) {
+                return None;
+            }
+            let b = test(
+                g,
+                db,
+                &pb.shift(g, 1, 0).ok()?,
+                is,
+                ids,
+                bool_ty,
+                fls.clone(),
+            )?;
+            let head = Term::app_icit(Term::Def(ite), bool_ty.clone(), Icit::Implicit);
+            return Some(apps(
+                head,
+                [
+                    (a, Icit::Explicit),
+                    (Term::Lam(x.clone(), *i, Rc::new(b)), Icit::Explicit),
+                    (
+                        Term::Lam("_".into(), Icit::Explicit, Rc::new(fls)),
+                        Icit::Explicit,
+                    ),
+                ],
+            ));
+        }
+        // With the operands bound, `(x… => d') ops…` (`bind::Bound`).
+        if let Term::Ann(lam, pi) = head
+            && !args.is_empty()
+        {
+            let k = args.len();
+            let mut body = lam.strip_loc();
+            let mut cod = pi.strip_loc();
+            let mut names = Vec::new();
+            for _ in 0..k {
+                match (body, cod) {
+                    (Term::Lam(x, i, b), Term::Pi(_, _, _, c)) => {
+                        names.push((x.clone(), *i));
+                        body = b.strip_loc();
+                        cod = c.strip_loc();
+                    }
+                    _ => return None,
+                }
+            }
+            let Term::Data(_, ps) = cod else {
+                return None;
+            };
+            let inner = test(g, body, ps.first()?, is, ids, bool_ty, fls)?;
+            let mut pi_bool = bool_ty.shift(g, k, 0).ok()?;
+            let mut pis = Vec::new();
+            let mut node = pi.strip_loc();
+            for _ in 0..k {
+                if let Term::Pi(x, i, a, c) = node {
+                    pis.push((x.clone(), *i, a.clone()));
+                    node = c.strip_loc();
+                }
+            }
+            for (x, i, a) in pis.into_iter().rev() {
+                pi_bool = Term::Pi(x, i, a, Rc::new(pi_bool));
+            }
+            let lam_bool = names
+                .into_iter()
+                .rev()
+                .fold(inner, |b, (x, i)| Term::Lam(x, i, Rc::new(b)));
+            return Some(apps(Term::Ann(Rc::new(lam_bool), Rc::new(pi_bool)), args));
+        }
+        let to_bool = to_bool?;
+        Some(Term::app(
+            Term::app_icit(Term::Def(to_bool), p.clone(), Icit::Implicit),
+            d.clone(),
+        ))
+    }
+    let ids = (to_bool, dec_true, and_then, ite);
+    let fls = Term::Ctor(bool_data, fls, Vec::new());
+    Ok(t.rewrite_up(g, &mut |node| {
+        let (head, args) = spine_icit(node);
+        if !is(head, Some(elim)) || args.len() != 5 {
+            return Ok(None);
+        }
+        let plain = |b: &Term| {
+            matches!(b.strip_loc(), Term::Lam(x, _, body) if &**x == "_" && !body.mentions(0))
+        };
+        if !plain(&args[3].0) || !plain(&args[4].0) {
+            return Ok(None);
+        }
+        let Some(c) = test(g, &args[2].0, &args[0].0, &is, ids, &bool_ty, fls.clone()) else {
+            return Ok(None);
+        };
+        let head = Term::app_icit(Term::Def(ite), args[1].0.clone(), Icit::Implicit);
+        Ok(Some(apps(
+            head,
+            [
+                (c, Icit::Explicit),
+                (args[3].0.clone(), Icit::Explicit),
+                (args[4].0.clone(), Icit::Explicit),
+            ],
+        )))
+    })?)
 }
 
 /// `t` as a head applied to arguments, with how each is passed, looking

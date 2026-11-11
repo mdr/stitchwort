@@ -210,11 +210,16 @@ impl Decision {
 /// `Int.less m n`, and the `Float` ones `Float.leq m n` and
 /// `Float.less m n` (one native call each in the runtimes).
 fn comparison(cx: &Ctx, d: &Term) -> Option<Term> {
+    comparison_in(&cx.g(), d)
+}
+
+/// [`comparison`], given the definitions.
+pub(crate) fn comparison_in(g: &stitchwort_core::Ev, d: &Term) -> Option<Term> {
     let (head, args) = d.spine();
     let Term::Def(id) = head else {
         return None;
     };
-    let reg = &cx.g().env.registry();
+    let reg = &g.env.registry();
     let [m, n] = args[..] else {
         return None;
     };

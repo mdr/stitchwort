@@ -102,10 +102,6 @@ pub(crate) struct Active {
     /// The second measure of a lexicographic pair, `decreasing (m1, m2)`.
     pub second: Option<Term>,
     pub header: usize,
-    /// The `match`es lifted from the step whose plain `if`s keep their
-    /// tags (`Elaborator::settle_tagged_keeping`), for `plain.rs`; the
-    /// kernel has them without.
-    pub tagged_helpers: std::cell::RefCell<HashMap<DefId, Term>>,
 }
 
 /// A parameter in a telescope: its name, how it's passed, and its type (in
@@ -809,6 +805,9 @@ enum Tpl {
     App(Box<Tpl>, Box<Tpl>, Icit),
     Ctor(DataId, usize, Vec<Tpl>),
     Ann(Box<Tpl>, Term),
+    /// An equation with a recursive call in a side: the proposition of an
+    /// `if` on a `Bool` that calls the definition, `c = True`.
+    Eq(Option<Term>, Box<Tpl>, Box<Tpl>),
     Loc(Span, Box<Tpl>),
 }
 
@@ -1071,8 +1070,7 @@ impl Elaborator {
             p,
         };
         // 1. The step.
-        let (step, first_helper, tagged) =
-            self.decreasing_step(&plan, &key, def_name, equations)?;
+        let (step, first_helper) = self.decreasing_step(&plan, &key, def_name, equations)?;
         let g = &self.ev();
         let n = plan.n();
         if g.def(step).arity() != n + 1 {
@@ -1110,8 +1108,7 @@ impl Elaborator {
             let irrel = self.generated(&plan, |e| e.decreasing_irrel(&plan, step, go, respects))?;
             made.push(irrel);
             let mut twins = Vec::new();
-            let view =
-                self.plain_view_or_not(&plan, step, tagged.as_ref(), &st.helpers, &mut twins)?;
+            let view = self.plain_view_or_not(&plan, step, &st.helpers, &mut twins)?;
             made.extend(twins);
             if let Some(v) = &view {
                 made.extend([v.view, v.same]);
@@ -1339,7 +1336,7 @@ impl Elaborator {
         key: &str,
         def_name: &ast::Name,
         equations: &[Decl],
-    ) -> Result<(DefId, usize, Option<Term>)> {
+    ) -> Result<(DefId, usize)> {
         let g = &self.ev();
         let (n, s) = (plan.n(), plan.header);
         // Parameter `l` of `f` is at level `l` before `%rec` and `l + 1` after.
@@ -1419,7 +1416,6 @@ impl Elaborator {
             measure: plan.measure.clone(),
             second: plan.second.clone(),
             header: s,
-            tagged_helpers: Default::default(),
         });
         let ty_value = self.kernel.def(step).ty_value().clone();
         let written = Rc::new(self.kernel.def(step).ty().clone());
@@ -1435,45 +1431,16 @@ impl Elaborator {
                 )
             })?;
             let joined = e.lift(&step_key, true)?;
-            let finished = e.finish_unsettled(&term, 0)?;
-            Ok((e.settle_tagged_keeping(&finished, true)?, joined))
+            Ok((e.finish(&term, 0)?, joined))
         })?;
         if !joined.is_empty() {
             return Err(internal_error(
                 "a `match` in a definition with `decreasing` refers to it directly",
             ));
         }
-        // The plain `if`s whose proofs the branches use are still tagged
-        // (`logic::tag_plain`): the step decides them, and `f.unfold` is
-        // stated with them plain (`plain.rs`).
-        let stripped = self.settle_tagged(&body)?;
-        let tagged = (!same_term(&stripped, &body)).then_some(body);
-        kernel::define_group(&mut self.kernel, &self.tables, &[(step, stripped)])
+        kernel::define_group(&mut self.kernel, &self.tables, &[(step, body)])
             .map_err(|d| self.explain_lifted(d))?;
-        Ok((step, first_helper, tagged))
-    }
-
-    /// The body of `id`, a `match` lifted from the body being elaborated
-    /// (`lam`, its lambdas around a case tree), with its tagged `if`s
-    /// settled; in a `decreasing` body, the one with the tags of plain `if`s
-    /// whose proof a recursive call uses is kept for `plain.rs`.
-    pub(crate) fn lifted_helper_body(&self, id: DefId, lam: &Term) -> Result<Term> {
-        if self.decl.decreasing.borrow().is_none() {
-            return self.settle_tagged(lam);
-        }
-        let tagged = self.settle_tagged_keeping(lam, true)?;
-        let stripped = self.settle_tagged(&tagged)?;
-        if let Some(active) = self.decl.decreasing.borrow().as_ref() {
-            // Exact for `id`'s latest body: a kernel rewind can give the id
-            // to another helper, whose record mustn't be the first's.
-            let mut records = active.tagged_helpers.borrow_mut();
-            if same_term(&stripped, &tagged) {
-                records.remove(&id);
-            } else {
-                records.insert(id, tagged);
-            }
-        }
-        Ok(stripped)
+        Ok((step, first_helper))
     }
 
     /// Runs one step of generating, turning a refusal into a message that
@@ -1499,13 +1466,12 @@ impl Elaborator {
         &mut self,
         plan: &Plan,
         step: DefId,
-        tagged: Option<&Term>,
         helpers: &[DefId],
         made: &mut Vec<DefId>,
     ) -> Result<Option<plain::PlainView>> {
         let mark = self.kernel.mark();
         let mut lifted = Vec::new();
-        match self.plain_view(plan, step, tagged, helpers, made, &mut lifted) {
+        match self.plain_view(plan, step, helpers, made, &mut lifted) {
             Ok(view) => {
                 lifted.into_iter().for_each(|l| self.tables.lifted.push(l));
                 Ok(view)
@@ -2208,6 +2174,11 @@ impl Elaborator {
                 Box::new(self.template(st, inner, leaf, sites, span)?),
                 (**ty).clone(),
             ),
+            Term::Eq(ty, a, b) if ty.as_ref().is_none_or(|ty| !leaf.mentions(ty)) => Tpl::Eq(
+                ty.as_deref().cloned(),
+                Box::new(self.template(st, a, leaf, sites, span)?),
+                Box::new(self.template(st, b, leaf, sites, span)?),
+            ),
             Term::Ctor(d, c, fields) => {
                 if fields.iter().any(|f| leaf.mentions(f) && is_lambda(f)) {
                     return Err(unsupported_shape(
@@ -2773,6 +2744,14 @@ fn rebuild(
                 .collect::<Result<_>>()?,
         ),
         Tpl::Ann(inner, ty) => Term::Ann(Rc::new(go(inner)?), Rc::new(ty.shift(g, shift, 0)?)),
+        Tpl::Eq(ty, a, b) => Term::Eq(
+            ty.as_ref()
+                .map(|ty| ty.shift(g, shift, 0))
+                .transpose()?
+                .map(Rc::new),
+            Rc::new(go(a)?),
+            Rc::new(go(b)?),
+        ),
         Tpl::Loc(span, inner) => Term::Loc(*span, Rc::new(go(inner)?)),
     })
 }

@@ -5426,20 +5426,18 @@ fn check_if_in(
         None => {
             let unit_data = builtin_data(cx, Builtin::Unit)?;
             let condition = crate::logic::condition(cx, cond, "if")?;
-            // A decision that has to wait is made now for the branches'
-            // proofs; if they don't use them, the `Bool` it is waits.
-            let waiting =
-                matches!(condition, crate::logic::Condition::Waiting { .. }).then(|| cond.span());
-            let (prop, decision, unused) = match condition.decided_now(cx, cond.span())? {
+            // On a decided proposition the branches may use its proof, as
+            // in `if h:`; where they don't, the term is the plain `if` on
+            // the decision's test all the same, by computation
+            // (docs/proposals/decidable-record.md §3.1).
+            let (prop, decision) = match condition.decided_now(cx, cond.span())? {
                 // In a `decreasing` body the branches get `cond = True` (or
                 // its negation), so a recursive call under the `if` can use
-                // it; `f.unfold` shows the plain `if` all the same
-                // (docs/proposals/decreasing-with-hypothesis.md, stage 1).
+                // it (docs/proposals/decreasing-with-hypothesis.md, stage 1).
                 crate::logic::Condition::Bool(cond) if crate::logic::in_decreasing(cx) => {
                     let prop = crate::logic::true_prop(cx, cond.clone())?;
                     let dec_true = builtin_def(cx, Builtin::DecTrue)?;
-                    let decision = Term::app(Term::Def(dec_true), cond.clone());
-                    (prop, decision, Unused::Bool(cond))
+                    (prop, Term::app(Term::Def(dec_true), cond))
                 }
                 crate::logic::Condition::Bool(cond) => {
                     let unit = Value::Data(unit_data, Vec::new().into());
@@ -5452,31 +5450,11 @@ fn check_if_in(
                 crate::logic::Condition::Waiting { .. } => {
                     unreachable!("decided_now decides a waiting condition")
                 }
-                crate::logic::Condition::Decided { prop, decision } => {
-                    let unused = match waiting {
-                        Some(span) => Unused::Waiting(span),
-                        None => Unused::Decision(decision.clone()),
-                    };
-                    (prop, decision.term(cx)?, unused)
-                }
+                crate::logic::Condition::Decided { prop, decision } => (prop, decision.term(cx)?),
                 // `if a && b`: the branches may use its proof, `a ∧ b`.
-                crate::logic::Condition::Conjunction {
-                    as_bool,
-                    prop,
-                    decision,
-                } => (prop, decision, Unused::Bool(as_bool)),
+                crate::logic::Condition::Conjunction { prop, decision, .. } => (prop, decision),
             };
-            let decided = decided_if(
-                cx,
-                "_",
-                prop.clone(),
-                decision,
-                result_ty.clone(),
-                &branch,
-                then,
-                otherwise,
-            )?;
-            unused_proof_if(cx, decided, unused, prop, result_ty)
+            decided_if(cx, "_", prop, decision, result_ty, &branch, then, otherwise)
         }
         Some(h) => {
             let (prop, decision) = if_h_condition(cx, h, cond)?;
@@ -5494,136 +5472,6 @@ fn is_true_test(cond: &Expr) -> bool {
         Expr::Bracketed(inner, _) => is_true_test(inner),
         _ => false,
     }
-}
-
-/// What an `if` on a decided proposition is on when its branches don't use
-/// the proof ([`unused_proof_if`]).
-enum Unused {
-    /// The decision's `Bool`.
-    Decision(crate::bind::Decision),
-    /// The `Bool` of a decision that had to wait (`decision_blocker`), once
-    /// it can be made, not the one made at once.
-    Waiting(Span),
-    /// The `Bool` reading of `a && b` ([`crate::logic::Condition::Conjunction`]).
-    Bool(Term),
-}
-
-/// `if c then a else b` on a decided proposition `c` whose branches don't
-/// use the proof: `ifThenElse` on the decision's `Bool`, the term a `Bool`
-/// is expected (`filter (x => x < k)`) gives, so lemmas stated with a
-/// `Bool` test match. `decided` (the `elimDec` form) where a branch uses
-/// the proof (an `auto` argument found from it) or may yet.
-fn unused_proof_if(
-    cx: &mut Ctx,
-    decided: Term,
-    unused: Unused,
-    prop: Term,
-    result_ty: Term,
-) -> Result<Term> {
-    let Term::App(rest, otherwise, _) = &decided else {
-        return Ok(decided);
-    };
-    let Term::App(_, then, _) = &**rest else {
-        return Ok(decided);
-    };
-    let level = cx.level();
-    let zonked = |cx: &Ctx, branch: &Term| -> Result<Term> {
-        crate::unify::zonk_in(&cx.u(), level, branch, &|_| true, &[]).map_err(|e| match e {
-            crate::unify::ZonkError::Resource(e) => Diagnostic::from(e),
-            crate::unify::ZonkError::Unsolved(_) => {
-                unreachable!("every unsolved metavariable is kept")
-            }
-        })
-    };
-    // A number literal waiting for its type (K4) is applied to every
-    // variable in scope, the proof too, but it is a literal once filled:
-    // it doesn't use the proof (step 4.3).
-    let literals = |t: &Term, _: usize| {
-        crate::queue::waiting_literal(cx.e, t).then(|| Term::Nat(Rc::new(0u32.into())))
-    };
-    let uses_proof = |branch: &Term| match branch.strip_loc() {
-        Term::Lam(_, _, body) => match crate::unify::fold_back(&cx.g(), body, 0, &literals) {
-            Ok(Some(body)) => body.mentions(0),
-            _ => body.mentions(0),
-        },
-        _ => true,
-    };
-    let mut branches = [zonked(cx, then)?, zonked(cx, otherwise)?];
-    // An unsolved metavariable is applied to the proof, as to every
-    // variable in scope. Instances whose type is known are found now, so
-    // that one that doesn't use the proof doesn't count as using it.
-    if branches.iter().any(uses_proof) {
-        let unsolved: Vec<usize> = (branches.iter())
-            .flat_map(|b| b.subterms().map(|(t, _)| t))
-            .filter_map(|t| match t {
-                Term::Meta(m) => Some(*m),
-                _ => None,
-            })
-            .collect();
-        if unsolved.is_empty() || !cx.e.solve_ready_instances_keeping(&[], Some(&unsolved))? {
-            return kept_if(cx, decided, unused, prop, !unsolved.is_empty());
-        }
-        branches = [zonked(cx, then)?, zonked(cx, otherwise)?];
-        if branches.iter().any(uses_proof) {
-            return kept_if(cx, decided, unused, prop, true);
-        }
-    }
-    let cond = match unused {
-        Unused::Decision(decision) => decision.into_bool(cx, prop)?,
-        Unused::Waiting(span) => {
-            let bool_ty = Value::Data(builtin_data(cx, Builtin::Bool)?, Vec::new().into());
-            decide_or_wait(cx, span, &prop, &bool_ty, Depth::Written)?
-        }
-        Unused::Bool(cond) => cond,
-    };
-    let ite = builtin_def(cx, Builtin::IfThenElse)?;
-    let head = Term::app_icit(Term::Def(ite), result_ty, Icit::Implicit);
-    Ok(Term::app(
-        Term::app(Term::app(head, cond), (**then).clone()),
-        (**otherwise).clone(),
-    ))
-}
-
-/// `decided`, an `if` whose branches use (or may use) its proof. In a
-/// `decreasing` body its decision is tagged with the `Bool` the plain `if`
-/// would be on (`logic::tag_plain`), so that `f.unfold` can show that `if`
-/// when only recursive calls' proofs use it; elsewhere as [`tagged_if`].
-fn kept_if(cx: &mut Ctx, decided: Term, unused: Unused, prop: Term, maybe: bool) -> Result<Term> {
-    if crate::logic::in_decreasing(cx) {
-        let plain = match &unused {
-            Unused::Decision(decision) => Some(decision.clone().into_bool(cx, prop)?),
-            Unused::Bool(c) => Some(c.clone()),
-            Unused::Waiting(_) => None,
-        };
-        if let Some(plain) = plain {
-            return crate::logic::tag_plain(cx, &decided, &plain);
-        }
-    }
-    tagged_if(cx, decided, &unused, maybe)
-}
-
-/// `decided`, an `if` on a conjunction `a && b` whose branches are not known
-/// to leave its proof alone (`maybe`: only because a helper they call isn't
-/// lifted yet), with its decision tagged by `a && b` for
-/// `logic::settle_tagged`, which makes it an `if` on `a && b` once they are.
-fn tagged_if(cx: &mut Ctx, decided: Term, unused: &Unused, maybe: bool) -> Result<Term> {
-    let (Unused::Bool(tag), true) = (unused, maybe) else {
-        return Ok(decided);
-    };
-    let Term::App(rest, otherwise, i3) = &decided else {
-        return Ok(decided);
-    };
-    let Term::App(rest, then, i2) = &**rest else {
-        return Ok(decided);
-    };
-    let Term::App(head, decision, i1) = &**rest else {
-        return Ok(decided);
-    };
-    let tagged = crate::logic::tag_decision(cx, decision, tag)?;
-    cx.e.decl.tagged_conjunctions.set(true);
-    let rebuilt = Term::App(Rc::clone(head), Rc::new(tagged), *i1);
-    let rebuilt = Term::App(Rc::new(rebuilt), Rc::clone(then), *i2);
-    Ok(Term::App(Rc::new(rebuilt), Rc::clone(otherwise), *i3))
 }
 
 /// `elimDec decision (name => then) (name => otherwise)`, where `decision`
