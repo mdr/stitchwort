@@ -30672,15 +30672,17 @@
     {
       "id": 2891,
       "title": "[Opus] Proving with Stitchwort: outline of a new Stitchwort-native proving tutorial (same arc as SF LF chapters 1-4 and on), teaching the editor (VS Code and playground) as part of the method (D3520)",
-      "status": "doing",
+      "status": "review",
       "agent": "Opus",
       "where": "",
       "labels": [],
       "epic": "docs-tutorials",
-      "body": "D3520 (Matt, 11 Nov 2026): 'having a new native Stitchwork tutorial would be useful that is just focused on purely ... communicating the same general ideas but in a very Stitchwork-specific way. I would like it to teach the reader about the capabilities of the editor as well. So I guess the two targets would be they're running it in VS Code or they're running it in the playground on the web, and that they can do stuff like case split ... start the new book.' Written fresh (not SF prose); sf/ stays the faithful port. Paper lane: outline first, for Matt to review before chapters. Expected: 60 min.",
+      "body": "D3520 (Matt, 11 Nov 2026): 'having a new native Stitchwork tutorial would be useful that is just focused on purely ... communicating the same general ideas but in a very Stitchwork-specific way. I would like it to teach the reader about the capabilities of the editor as well. So I guess the two targets would be they're running it in VS Code or they're running it in the playground on the web, and that they can do stuff like case split ... start the new book.' Written fresh (not SF prose); sf/ stays the faithful port. Paper lane: outline first, for Matt to review before chapters. Expected: 60 min.\n\nProgress (Opus lane, 11 Nov 2026): outline written, docs/proposals/proving-with-stitchwort-outline.md (commit 74ce2fa15 on lane/SW-2891). 16 chapters in 3 parts; editor-action matrix verified by reading code; gaps G1-G10; 8 decisions for Matt. Paper only; ran the release binary twice on a scratch file (inductive props, inversion, | () forms). Moved to review.\n",
       "created": "2026-11-11",
       "updated": "2026-11-11",
-      "commits": []
+      "commits": [
+        "74ce2fa15"
+      ]
     }
   ]
 }
