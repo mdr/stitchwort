@@ -1,5 +1,5 @@
 {
-  "next": 2803,
+  "next": 2804,
   "tickets": [
     {
       "id": 47,
@@ -29507,6 +29507,19 @@
       "where": "",
       "labels": [],
       "epic": "diagnostics",
+      "body": "",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2803,
+      "title": "A def written with bar arms (def half: Nat -> Nat, then arms): cursor on the signature shows expected x (Succ (Succ k)), a generated type (SW-2780; predates it)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "editor-playground",
       "body": "",
       "created": "2026-11-11",
       "updated": "2026-11-11",
