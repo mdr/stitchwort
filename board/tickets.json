@@ -30134,7 +30134,7 @@
     {
       "id": 2850,
       "title": "Messages: E-UNSOLVED on a hole in a header's type suggests f [x := …], which doesn't apply (SW-2845)",
-      "status": "review",
+      "status": "done",
       "agent": "DeepSeek",
       "where": ".claude/worktrees/scratch-sw-2850",
       "labels": [],
