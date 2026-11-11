@@ -1,5 +1,5 @@
 {
-  "next": 2791,
+  "next": 2793,
   "tickets": [
     {
       "id": 47,
@@ -29234,7 +29234,7 @@
       "where": "",
       "labels": [],
       "epic": "editor-playground",
-      "body": "\nAlso: contextAt returns only one type, so D3499's 'expected T plus has type U when they differ' needs the server to return both (stage 1, SW-2778, shows expected T only).",
+      "body": "\nAlso: contextAt returns only one type, so D3499's 'expected T plus has type U when they differ' needs the server to return both (stage 1, SW-2778, shows expected T only).\nFrom stage 2 (SW-2779): no answer at a rewrite rule's own text (Nat.addComm a b); goal --at has no declaration or afterError field yet — add them with steps.",
       "created": "2026-11-11",
       "updated": "2026-11-11",
       "commits": []
@@ -29359,6 +29359,32 @@
     {
       "id": 2790,
       "title": "goalAt returns the declaration's nearest ? for any cursor in it, written for a holes-only panel: return null off the hole and leave the fallback to the client (SW-2778)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "editor-playground",
+      "body": "",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2791,
+      "title": "goal --at on rfl in theorem addZero (n: Nat): n + 0 = n := rfl prints ⊢ n = n (the reduced form), not the statement as written: settle in stage 3 against goal-as-written (SW-2779)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "editor-playground",
+      "body": "",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2792,
+      "title": "Share the FILE:LINE[:COL] splitting between search --at and goal --at in crates/cli/src/main.rs (SW-2779)",
       "status": "backlog",
       "agent": "",
       "where": "",
