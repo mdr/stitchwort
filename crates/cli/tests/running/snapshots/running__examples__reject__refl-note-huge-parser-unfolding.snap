@@ -17,7 +17,7 @@ expression: output
      │ │                                       
      │ ╰─────────────────────────────────────── this `match`
      │     
-     │     Note 1: computing both sides gives `choose b (arg => Call (L (%next Parse.isDigit)) (y => Std.Effect.bind (Std.Effect.bind ((match …) "a digit" y) (char => Parse.need … …)) (value => Call (L …) (y => …))))` and `arg => Call (L (%next Parse.isDigit)) (y => Std.Effect.bind (Std.Effect.bind ((match …) "a digit" y) (char => Parse.need … …)) (value => Call (L …) (y => …)))`
+     │     Note 1: computing both sides gives `choose b (arg => Call (L (%next Parse.isDigit)) (y => Std.Effect.bind (Std.Effect.bind (match y with …) (char => Parse.need (Std.Option.flatMap … …) "expected a digit")) (value => Call (L (%next Parse.isDigit)) (y => Std.Effect.bind … …))))` and `arg => Call (L (%next Parse.isDigit)) (y => Std.Effect.bind (Std.Effect.bind (match y with …) (char => Parse.need (Std.Option.flatMap … …) "expected a digit")) (value => Call (L (%next Parse.isDigit)) (y => Std.Effect.bind … …)))`
      │     
      │     Note 2: the left side is stuck on `b`: it can't compute further until `b` is known; a `match` on `b` (or `cases b`) splits it
      │     

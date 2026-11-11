@@ -171,6 +171,12 @@ pub(crate) struct Decl {
     /// matches can explain it. (Before SW-1149 it was a log that only grew,
     /// emptied only by a rewind.)
     pub(crate) tuple_matches: RefCell<Vec<(Span, String, Vec<String>)>>,
+    /// The calls of lifted `match` helpers the printer showed as
+    /// `(match … with …)`, by that text, so `explain_lifted` finds which
+    /// `match` a message means. Kept between declarations like
+    /// [`Self::stuck_on_goal`] (the messages are explained after the
+    /// declaration is done), and emptied as the next one starts.
+    pub(crate) matches_shown: RefCell<Vec<(String, DefId)>>,
     /// The characters whose patterns became number patterns (by span), so
     /// a missing case can be reported as characters. Written and read while
     /// one pattern match is compiled. (Before SW-1149 it grew over the
@@ -195,7 +201,9 @@ impl Decl {
     pub(crate) fn reset(&mut self) {
         let failed_mentioned = self.failed_mentioned.get();
         let stuck_on_goal = self.stuck_on_goal.take();
+        let matches_shown = self.matches_shown.take();
         *self = Decl {
+            matches_shown: RefCell::new(matches_shown),
             failed_mentioned: Cell::new(failed_mentioned),
             stuck_on_goal: RefCell::new(stuck_on_goal),
             ..Decl::default()
@@ -207,6 +215,7 @@ impl Decl {
         self.reset();
         self.failed_mentioned.set(false);
         self.stuck_on_goal.take();
+        self.matches_shown.take();
     }
 
     /// The first field that isn't empty, if any: none should be between
@@ -216,6 +225,7 @@ impl Decl {
             // Kept between declarations on purpose (see its doc).
             failed_mentioned: _,
             stuck_on_goal: _,
+            matches_shown: _,
             sides_capture,
             arm_reach,
             no_propagation,

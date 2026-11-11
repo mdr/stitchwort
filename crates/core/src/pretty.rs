@@ -1272,6 +1272,11 @@ impl<'g> Printer<'g> {
                         Dot::No => {}
                     }
                 }
+                // Last, so the notations that print a library helper (`if`
+                // on a decision) are tried first.
+                if let Some(shown) = self.lifted_match(names, term) {
+                    return (shown, Prec::Atom);
+                }
                 let head = self.print(names, head, Prec::App);
                 self.applied(names, head, args.into_iter())
             }
@@ -2302,6 +2307,34 @@ impl<'g> Printer<'g> {
                 args.get(p)
                     .is_some_and(|(param, _)| crate::value::same_term(param, arg))
             })
+    }
+
+    /// A call of a lifted `match`'s helper (`Shown::match_columns`), as the
+    /// `match` with its scrutinees and the alternatives left out:
+    /// `(match s₁, s₂ with …)`. Not source: the alternatives aren't shown,
+    /// and written out they would make a different helper.
+    fn lifted_match(&self, names: &mut Vec<Name>, term: &Term) -> Option<String> {
+        let (head, args) = term.spine();
+        let Term::Def(id) = head else {
+            return None;
+        };
+        // Only a `match` written in source: a definition's own clauses
+        // (`Bool.ifThenElse`, `Nat.leq`) record columns too, and print as
+        // the call or notation they have.
+        if !self.g.def(*id).name().contains(".%match") {
+            return None;
+        }
+        let cols = self.g.shown.match_columns(*id)?;
+        if args.len() != self.g.def(*id).arity() || cols.iter().any(|&c| c >= args.len()) {
+            return None;
+        }
+        let scrutinees: Vec<String> = cols
+            .iter()
+            .map(|&c| self.print(names, args[c], Prec::Arrow))
+            .collect();
+        let shown = format!("(match {} with …)", scrutinees.join(", "));
+        self.g.shown.note_match_shown(*id, &shown);
+        Some(shown)
     }
 
     /// A call of an update's helper (`Shown::update_shown`), as the update:

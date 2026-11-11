@@ -74,6 +74,18 @@ pub trait Shown {
         None
     }
 
+    /// For a lifted `match`'s helper `id`: which of its parameters are the
+    /// scrutinees, in the order written. A call of it is shown as the
+    /// `match` (`(match s₁, s₂ with …)`), not by the helper's internal name.
+    fn match_columns(&self, _id: DefId) -> Option<Rc<[usize]>> {
+        None
+    }
+
+    /// Records that the printer showed a call of lifted `match` helper `id`
+    /// as `text`, so a message that contains `text` can say where that
+    /// `match` is (`Elaborator::explain_lifted`).
+    fn note_match_shown(&self, _id: DefId, _text: &str) {}
+
     /// The parameter defaults of definition `id`'s header.
     fn param_defaults(&self, _id: DefId) -> Option<Rc<ParamDefaults>> {
         None

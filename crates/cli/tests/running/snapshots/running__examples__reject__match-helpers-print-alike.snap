@@ -16,7 +16,7 @@ expression: output
     │                                                          ─┬─  
     │                                                           ╰─── `foo xs` and `bar xs` aren't equal
     │ 
-    │ Note 1: computing both sides gives `xs.foldLeft 0 (acc o => (match …) acc o)` and `xs.foldLeft 0 (acc o => (match …) acc o)`
+    │ Note 1: computing both sides gives `xs.foldLeft 0 (acc o => (match o with …))` and `xs.foldLeft 0 (acc o => (match o with …))`
     │ 
     │ Note 2: `rfl` proves `a = b` only when both sides compute to the same value
     │ 
