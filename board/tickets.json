@@ -29214,12 +29214,12 @@
     {
       "id": 2779,
       "title": "Goal at any point, stage 2: stitchwort goal --at FILE:LINE[:COL], text and --json, exit 0 with an answer and 2 with none (docs/proposals/goal-at-any-point.md; D3496-D3499)",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2779",
       "labels": [],
       "epic": "editor-playground",
-      "body": "\n\n\nProgress (Sonnet lane, 10:04-10:16, est. 60 min): stage 2 done in 28f35ee1a. `stitchwort goal --at FILE:LINE[:COL]` (text and --json) over context_at_text/context_at_project; 0 answer, 2 none or bad argument, 1 file does not parse. Tests: crates/cli/tests/server/goal_at.rs (3 tests, pass). Docs: guide ch. 10, syntax.md, proving-guide. Open calls: no `declaration` field (the answer has none yet); first non-blank column when no COL; parse check before probing. Rewrite-rule positions and patterns often answer none until stage 3.\n",
+      "body": "\n\n\nProgress (Sonnet lane, 10:04-10:16, est. 60 min): stage 2 done in 28f35ee1a. `stitchwort goal --at FILE:LINE[:COL]` (text and --json) over context_at_text/context_at_project; 0 answer, 2 none or bad argument, 1 file does not parse. Tests: crates/cli/tests/server/goal_at.rs (3 tests, pass). Docs: guide ch. 10, syntax.md, proving-guide. Open calls: no `declaration` field (the answer has none yet); first non-blank column when no COL; parse check before probing. Rewrite-rule positions and patterns often answer none until stage 3.\nDone 11 Nov. Model result: Sonnet, worked, 12 min (est. 60). Verifier 8/8; guide tests 4/4.",
       "created": "2026-11-11",
       "updated": "2026-11-11",
       "commits": [
