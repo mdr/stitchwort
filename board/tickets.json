@@ -1,5 +1,5 @@
 {
-  "next": 2872,
+  "next": 2873,
   "tickets": [
     {
       "id": 47,
@@ -30412,11 +30412,24 @@
     {
       "id": 2871,
       "title": "timings::declarations_are_listed_slowest_first_with_full_names is flaky under load (expected Main.slow first, got Main.even, Main.odd at load ~50; passed on rerun): make 'slow' slower by a wide margin or compare by step counts (SW-1073 verifier)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "DeepSeek",
-      "where": "",
+      "where": ".claude/worktrees/scratch-sw-2871",
       "labels": [],
       "epic": "test-infra",
+      "body": "",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2872,
+      "title": "A goal whose statement names a big computation (countDown 100000 [] = []) still costs ~0.4-0.5 s each and prints as ⊢ … = …: the cost is outside zonk (counterexample search or goal display computing the statement?); find and bound it. Also: quote_folded forces calls that step at once in the elaborator's written type annotations, lifted helpers' types and messages: (MkProxy: Proxy (countDown 100000 [])) and (rfl: countDown 100000 [] = …) still hit E-RESOURCE; decide which sites should read back as written (SW-2843; related SW-1534, SW-1835)",
+      "status": "backlog",
+      "agent": "Opus",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
       "body": "",
       "created": "2026-11-11",
       "updated": "2026-11-11",
