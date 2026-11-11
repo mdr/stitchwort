@@ -463,6 +463,37 @@ fn config_booleans_and_numbers_are_text() {
     assert_eq!(d.labels.len(), 1);
 }
 
+/// `check: open-goals:` is `warn` or `fail`, and `fail` when left out.
+#[test]
+fn config_open_goals_is_warn_or_fail() {
+    use stitchwort_driver::project::OpenGoals;
+    let open_goals = |text: &str| {
+        let mut sources = stitchwort_syntax::SourceMap::new();
+        let id = sources.add("proj/stitchwort.yaml", text);
+        parse_config(id, "proj/stitchwort.yaml", text).map(|c| c.open_goals)
+    };
+    let open_goals_ok = |text: &str| open_goals(text).unwrap();
+    assert_eq!(open_goals_ok(""), OpenGoals::Fail);
+    assert_eq!(
+        open_goals_ok("check:\n  open-goals: fail\n"),
+        OpenGoals::Fail
+    );
+    assert_eq!(
+        open_goals_ok("check:\n  open-goals: warn\n"),
+        OpenGoals::Warn
+    );
+    let d = open_goals("check:\n  open-goals: maybe\n").unwrap_err();
+    assert!(
+        d.message.ends_with("`maybe`, which isn't a setting"),
+        "{}",
+        d.message
+    );
+    assert_eq!(
+        d.notes,
+        ["the settings are `warn` and `fail` (the default)"]
+    );
+}
+
 #[test]
 fn config_errors_say_what_is_wrong() {
     let d = config("sources: [a]\nsources: [b]\n").unwrap_err();
@@ -473,7 +504,10 @@ fn config_errors_say_what_is_wrong() {
     );
     let d = config("source: [a]\n").unwrap_err();
     assert!(d.message.ends_with("unknown key `source`"), "{}", d.message);
-    assert_eq!(d.notes, ["the known keys are `sources` and `audit`"]);
+    assert_eq!(
+        d.notes,
+        ["the known keys are `sources`, `audit` and `check`"]
+    );
     let d = config("audit:\n  allowed-axiom: [Quot.sound]\n").unwrap_err();
     assert!(
         d.message.ends_with("unknown key `allowed-axiom`"),

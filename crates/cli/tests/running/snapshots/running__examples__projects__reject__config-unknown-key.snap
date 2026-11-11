@@ -9,5 +9,5 @@ expression: output
    │ ┬  
    │ ╰── here
    │ 
-   │ Note: the known keys are `sources` and `audit`
+   │ Note: the known keys are `sources`, `audit` and `check`
 ───╯

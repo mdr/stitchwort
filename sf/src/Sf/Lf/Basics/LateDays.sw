@@ -1,8 +1,8 @@
 -- Software Foundations, Volume 1: Logical Foundations, Basics.v, section
 -- "Course Late Policies, Formalized" (module `LateDays`), ported to
 -- Stitchwort. Copyright and licence: sf/LICENSE-SF. Exercises are stated
--- as in Basics.sw: a `Prop` definition for a theorem to prove, a
--- placeholder body for a function to write.
+-- as in Basics.sw: a statement or a function with `?` for the reader to
+-- fill in.
 
 namespace Sf.Lf.Basics.LateDays
 
@@ -84,7 +84,7 @@ test "letterComparison B F" := letterComparison B F == Greater
 
 -- Exercise: 1 star, standard (letter_comparison)
 
-def letterComparisonEq: Prop := ∀ (l: Letter) => letterComparison l l = Equal
+theorem letterComparisonEq (l: Letter): letterComparison l l = Equal := ?
 
 -- The same strategy compares two modifiers, ordered `Plus > Natural >
 -- Minus`.
@@ -106,19 +106,18 @@ def modifierComparison (m1 m2: Modifier): Ordering := match m1, m2 with
 -- `g1` and `g2` together, but don't list all the cases: split on the
 -- result of a suitable call to `letterComparison`, to get just three.
 
---| Exercise (grade_comparison): replace this placeholder with the
---| definition.
-def gradeComparison (g1 g2: Grade): Ordering := Equal
+--| Exercise (grade_comparison): replace the `?` with the definition.
+def gradeComparison (g1 g2: Grade): Ordering := ?
 
 -- These unit tests should hold once it is defined correctly.
 
-def testGradeComparison1: Prop := gradeComparison (MkGrade A Minus) (MkGrade B Plus) = Greater
+theorem testGradeComparison1: gradeComparison (MkGrade A Minus) (MkGrade B Plus) = Greater := ?
 
-def testGradeComparison2: Prop := gradeComparison (MkGrade A Minus) (MkGrade A Plus) = Less
+theorem testGradeComparison2: gradeComparison (MkGrade A Minus) (MkGrade A Plus) = Less := ?
 
-def testGradeComparison3: Prop := gradeComparison (MkGrade F Plus) (MkGrade F Plus) = Equal
+theorem testGradeComparison3: gradeComparison (MkGrade F Plus) (MkGrade F Plus) = Equal := ?
 
-def testGradeComparison4: Prop := gradeComparison (MkGrade B Minus) (MkGrade C Plus) = Greater
+theorem testGradeComparison4: gradeComparison (MkGrade B Minus) (MkGrade C Plus) = Greater := ?
 
 -- Now a late penalty. First, what it means to lower the letter of a
 -- grade. `F` is already the lowest, so it is left alone.
@@ -161,7 +160,7 @@ theorem lowerLetterFIsF: lowerLetter F = F := rfl
 
 -- Exercise: 2 stars, standard (lower_letter_lowers)
 
-def lowerLetterLowers: Prop := ∀ (l: Letter) => letterComparison F l = Less → letterComparison (lowerLetter l) l = Less
+theorem lowerLetterLowers (l: Letter) (h: letterComparison F l = Less): letterComparison (lowerLetter l) l = Less := ?
 
 -- Exercise: 2 stars, standard (lower_grade)
 --
@@ -175,27 +174,27 @@ def lowerLetterLowers: Prop := ∀ (l: Letter) => letterComparison F l = Less �
 -- letter. Don't list all the cases. (The book's solution is under 10
 -- lines.)
 
---| Exercise (lower_grade): replace this placeholder with the definition.
-def lowerGrade (g: Grade): Grade := g
+--| Exercise (lower_grade): replace the `?` with the definition.
+def lowerGrade (g: Grade): Grade := ?
 
-def lowerGradeAPlus: Prop := lowerGrade (MkGrade A Plus) = MkGrade A Natural
+theorem lowerGradeAPlus: lowerGrade (MkGrade A Plus) = MkGrade A Natural := ?
 
-def lowerGradeANatural: Prop := lowerGrade (MkGrade A Natural) = MkGrade A Minus
+theorem lowerGradeANatural: lowerGrade (MkGrade A Natural) = MkGrade A Minus := ?
 
-def lowerGradeAMinus: Prop := lowerGrade (MkGrade A Minus) = MkGrade B Plus
+theorem lowerGradeAMinus: lowerGrade (MkGrade A Minus) = MkGrade B Plus := ?
 
-def lowerGradeBPlus: Prop := lowerGrade (MkGrade B Plus) = MkGrade B Natural
+theorem lowerGradeBPlus: lowerGrade (MkGrade B Plus) = MkGrade B Natural := ?
 
-def lowerGradeFNatural: Prop := lowerGrade (MkGrade F Natural) = MkGrade F Minus
+theorem lowerGradeFNatural: lowerGrade (MkGrade F Natural) = MkGrade F Minus := ?
 
-def lowerGradeTwice: Prop := lowerGrade (lowerGrade (MkGrade B Minus)) = MkGrade C Natural
+theorem lowerGradeTwice: lowerGrade (lowerGrade (MkGrade B Minus)) = MkGrade C Natural := ?
 
-def lowerGradeThrice: Prop := lowerGrade (lowerGrade (lowerGrade (MkGrade B Minus))) = MkGrade C Minus
+theorem lowerGradeThrice: lowerGrade (lowerGrade (lowerGrade (MkGrade B Minus))) = MkGrade C Minus := ?
 
 -- The book states this one as a theorem rather than an example only as a
 -- hint that it is used in proofs below.
 
-def lowerGradeFMinus: Prop := lowerGrade (MkGrade F Minus) = MkGrade F Minus
+theorem lowerGradeFMinus: lowerGrade (MkGrade F Minus) = MkGrade F Minus := ?
 
 -- Exercise: 3 stars, standard (lower_grade_lowers)
 --
@@ -205,7 +204,7 @@ def lowerGradeFMinus: Prop := lowerGrade (MkGrade F Minus) = MkGrade F Minus
 -- only need to split a letter in one case, and the case for `F` will
 -- probably use `lowerGradeFMinus`.
 
-def lowerGradeLowers: Prop := ∀ (g: Grade) => gradeComparison (MkGrade F Minus) g = Less → gradeComparison (lowerGrade g) g = Less
+theorem lowerGradeLowers (g: Grade) (h: gradeComparison (MkGrade F Minus) g = Less): gradeComparison (lowerGrade g) g = Less := ?
 
 -- With a function that lowers a grade by one step, we can write a
 -- late-days policy. Given a number of late days, `applyLatePolicy`
@@ -255,11 +254,11 @@ theorem applyLatePolicyUnfold (lateDays: Nat) (g: Grade):
 
 -- Exercise: 2 stars, standard (no_penalty_for_mostly_on_time)
 
-def noPenaltyForMostlyOnTime: Prop := ∀ (lateDays: Nat) (g: Grade) => lateDays < 9 → applyLatePolicy lateDays g = g
+theorem noPenaltyForMostlyOnTime (lateDays: Nat) (g: Grade) (h: lateDays < 9): applyLatePolicy lateDays g = g := ?
 
 -- If a student has between 9 and 16 late days, their final grade is
 -- lowered by one step.
 
 -- Exercise: 2 stars, standard (graded_lowered_once)
 
-def gradeLoweredOnce: Prop := ∀ (lateDays: Nat) (g: Grade) => (lateDays < 9) = False → lateDays < 17 → applyLatePolicy lateDays g = lowerGrade g
+theorem gradeLoweredOnce (lateDays: Nat) (g: Grade) (h1: (lateDays < 9) = False) (h2: lateDays < 17): applyLatePolicy lateDays g = lowerGrade g := ?

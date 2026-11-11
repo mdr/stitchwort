@@ -1232,6 +1232,14 @@ pub fn cycle_diagnostic(analysis: &Analysis, chain: &[String]) -> Diagnostic {
 struct RawConfig {
     sources: Option<Vec<String>>,
     audit: Option<RawAudit>,
+    check: Option<RawCheck>,
+}
+
+/// `check:` in `stitchwort.yaml` (SW-2762).
+#[derive(serde::Deserialize, Default)]
+#[serde(deny_unknown_fields, rename_all = "kebab-case")]
+struct RawCheck {
+    open_goals: Option<String>,
 }
 
 /// `audit:` in `stitchwort.yaml` (SW-912).
@@ -1250,6 +1258,19 @@ pub struct Config {
     /// the project lists them; `None` means the default
     /// (`audit::DEFAULT_ALLOWED`).
     pub allowed_axioms: Option<Vec<String>>,
+    /// What `stitchwort check` does with an open goal (`check: open-goals:`).
+    pub open_goals: OpenGoals,
+}
+
+/// How `stitchwort check` treats an open goal (`?`), per project
+/// (D3489, D3494). `audit` fails unfinished theorems either way.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum OpenGoals {
+    /// An open goal fails the check.
+    #[default]
+    Fail,
+    /// An open goal is reported as a warning, and the check can still pass.
+    Warn,
 }
 
 fn config_error(display: &str, what: impl std::fmt::Display) -> Diagnostic {
@@ -1301,6 +1322,17 @@ pub fn parse_config(file: FileId, display: &str, text: &str) -> Result<Config, D
             normalised.push(path);
         }
     }
+    let open_goals = match raw.check.and_then(|c| c.open_goals).as_deref() {
+        None | Some("fail") => OpenGoals::Fail,
+        Some("warn") => OpenGoals::Warn,
+        Some(other) => {
+            return Err(config_error(
+                display,
+                format!("`check: open-goals:` is `{other}`, which isn't a setting"),
+            )
+            .with_note("the settings are `warn` and `fail` (the default)"));
+        }
+    };
     let allowed_axioms = raw.audit.and_then(|a| a.allowed_axioms);
     if let Some(unknown) = allowed_axioms
         .iter()
@@ -1319,6 +1351,7 @@ pub fn parse_config(file: FileId, display: &str, text: &str) -> Result<Config, D
     Ok(Config {
         sources: normalised,
         allowed_axioms,
+        open_goals,
     })
 }
 
@@ -1335,8 +1368,10 @@ fn yaml_error(file: FileId, display: &str, text: &str, e: &serde_saphyr::Error) 
         let expected = first.split_once("expected ").map_or("", |(_, rest)| rest);
         if expected.contains("allowed-axioms") {
             note = Some("the known key under `audit:` is `allowed-axioms`");
+        } else if expected.contains("open-goals") {
+            note = Some("the known key under `check:` is `open-goals`");
         } else if expected.contains("sources") || expected.contains("audit") {
-            note = Some("the known keys are `sources` and `audit`");
+            note = Some("the known keys are `sources`, `audit` and `check`");
         }
         format!("unknown key `{key}`")
     } else {

@@ -11,19 +11,15 @@
 -- namespaces in files next to this one.
 --
 -- Exercises. The book leaves each exercise for the reader, ending it with
--- `Admitted`, and asks that solutions not be posted. Here:
---
--- - a theorem to prove is stated as a definition of a `Prop`, named as in
---   the book: `def plusIdExercise: Prop := ∀ (n m o: Nat) => …`. To do the
---   exercise, turn it into a theorem with the same statement and a proof,
---   `theorem plusIdExercise (n m o: Nat) (h1: n = m) …: … := …`;
--- - a function to write is defined with a placeholder body, marked
---   "Exercise", so that the definitions after it that use it still check.
---   The placeholder is not the answer: replace it.
---
--- Stitchwort's `?` is the nearest thing to `Admitted`, but a project with
--- a `?` in it doesn't pass `stitchwort check`, which is why this port
--- doesn't use it for the exercises (docs/reviews/SW-2707-software-foundations-port.md).
+-- `Admitted`, and asks that solutions not be posted. Here an exercise is
+-- its statement with `?` where the reader's work goes: a theorem to prove
+-- ends in `:= ?`, and a function to write has `?` as its body; what uses
+-- an unfinished function is unfinished too, and is checked once it is
+-- filled in.
+-- `stitchwort.yaml` says `check: open-goals: warn`, so `stitchwort check`
+-- reports each `?` as a warning, with its goal, and passes; solving an
+-- exercise removes its warning. `stitchwort audit` still fails every
+-- theorem that rests on a `?`.
 
 namespace Sf.Lf.Basics
 import Std (Nat)
@@ -224,32 +220,32 @@ test "invert BwWhite" := invert BwWhite == BwBlack
 -- Hint: if a proof by `rfl` fails, check that `nandb` computes on
 -- `True` and `False`: a definition by `match` on its arguments does.
 
---| Exercise (nandb): replace this placeholder with the definition.
-def nandb (b1: Bool) (b2: Bool): Bool := False
+--| Exercise (nandb): replace the `?` with the definition.
+def nandb (b1: Bool) (b2: Bool): Bool := ?
 
-def testNandb1: Prop := nandb True False = True
+theorem testNandb1: nandb True False = True := ?
 
-def testNandb2: Prop := nandb False False = True
+theorem testNandb2: nandb False False = True := ?
 
-def testNandb3: Prop := nandb False True = True
+theorem testNandb3: nandb False True = True := ?
 
-def testNandb4: Prop := nandb True True = False
+theorem testNandb4: nandb True True = False := ?
 
 -- Exercise: 1 star, standard (andb3)
 --
 -- Do the same for `andb3`. It should return `True` when all of its inputs
 -- are `True`, and `False` otherwise.
 
---| Exercise (andb3): replace this placeholder with the definition.
-def andb3 (b1: Bool) (b2: Bool) (b3: Bool): Bool := False
+--| Exercise (andb3): replace the `?` with the definition.
+def andb3 (b1: Bool) (b2: Bool) (b3: Bool): Bool := ?
 
-def testAndb31: Prop := andb3 True True True = True
+theorem testAndb31: andb3 True True True = True := ?
 
-def testAndb32: Prop := andb3 False True True = False
+theorem testAndb32: andb3 False True True = False := ?
 
-def testAndb33: Prop := andb3 True False True = False
+theorem testAndb33: andb3 True False True = False := ?
 
-def testAndb34: Prop := andb3 True True False = False
+theorem testAndb34: andb3 True True False = False := ?
 
 -- ## Types
 --
@@ -404,12 +400,12 @@ def exp (base power: Nat): Nat := match power with
 --
 -- Translate it into Stitchwort.
 
---| Exercise (factorial): replace this placeholder with the definition.
-def factorial (n: Nat): Nat := Zero
+--| Exercise (factorial): replace the `?` with the definition.
+def factorial (n: Nat): Nat := ?
 
-def testFactorial1: Prop := factorial 3 = 6
+theorem testFactorial1: factorial 3 = 6 := ?
 
-def testFactorial2: Prop := factorial 5 = 10 * 12
+theorem testFactorial2: factorial 5 = 10 * 12 := ?
 
 -- The book now gives `plus`, `minus` and `mult` the infix notations `+`,
 -- `-` and `*`, with precedence levels. Stitchwort's `+`, `-` and `*` on
@@ -471,14 +467,14 @@ theorem testLeb3': (4 <= 2) = False := rfl
 -- `l`ess-`t`han. Hint: instead of a new recursion, define it from a
 -- previous function.
 
---| Exercise (ltb): replace this placeholder with the definition.
-def ltb (n m: Nat): Bool := False
+--| Exercise (ltb): replace the `?` with the definition.
+def ltb (n m: Nat): Bool := ?
 
-def testLtb1: Prop := ltb 2 2 = False
+theorem testLtb1: ltb 2 2 = False := ?
 
-def testLtb2: Prop := ltb 2 4 = True
+theorem testLtb2: ltb 2 4 = True := ?
 
-def testLtb3: Prop := ltb 4 2 = False
+theorem testLtb3: ltb 4 2 = False := ?
 
 -- # Proof by Simplification
 --
@@ -548,7 +544,7 @@ theorem plusIdExample (n m: Nat) (h: n = m): n + n = m + m := rewrite h in rfl
 --
 -- Prove this. (It has two hypotheses, `n = m` and `m = o`.)
 
-def plusIdExercise: Prop := ∀ (n m o: Nat) => n = m → m = o → n + m = m + o
+theorem plusIdExercise (n m o: Nat) (h1: n = m) (h2: m = o): n + m = m + o := ?
 
 -- Rocq's `Admitted` accepts a theorem without proof. That is useful when
 -- developing a long proof: state the lemmas you expect to need, admit
@@ -556,8 +552,9 @@ def plusIdExercise: Prop := ∀ (n m o: Nat) => n = m → m = o → n + m = m + 
 -- `Admitted` is a door left open for nonsense to enter the checked world.
 -- Stitchwort's `?` plays that part while developing: a theorem whose
 -- proof is (or contains) `?` can be used by the theorems after it, the
--- checker shows the goal at the `?`, and `stitchwort check` fails until
--- every `?` is filled, so the door is never left open by accident.
+-- checker shows the goal at the `?`, and `stitchwort check` reports it
+-- as a warning (a project's own choice, `check: open-goals: warn`; by
+-- default it fails), so the door is never left open by accident.
 --
 -- Rocq's `Check` also shows the statements of theorems. The book looks at
 -- two from its standard library, `mult_n_O: forall n, 0 = n * 0` and
@@ -581,7 +578,7 @@ theorem multN0M0 (p q: Nat): p * 0 + q * 0 = 0 := rewrite Nat.mulZero p, Nat.mul
 -- Use `Nat.mulSucc` and `Nat.mulZero` to prove this. (Recall that `1` is
 -- `Succ Zero`.)
 
-def multN1: Prop := ∀ (p: Nat) => p * 1 = p
+theorem multN1 (p: Nat): p * 1 = p := ?
 
 -- # Proof by Case Analysis
 --
@@ -682,7 +679,7 @@ theorem andb3Exchange' (b c d: Bool): andb (andb b c) d = andb (andb b d) c := c
 -- prove (in Stitchwort an impossible case is the pattern `()`, or
 -- `Void.exfalso` of a proof of `False = True`).
 
-def andbTrueElim2: Prop := ∀ (b c: Bool) => andb b c = True → c = True
+theorem andbTrueElim2 (b c: Bool) (h: andb b c = True): c = True := ?
 
 -- Many proofs split a variable right after introducing it. Rocq has a
 -- shorthand, `intros [|n]`, which loses the equation `eqn:E` would give.
@@ -703,7 +700,7 @@ theorem andbCommutative'' (b c: Bool): andb b c = andb c b := match b, c with
 
 -- Exercise: 1 star, standard (zero_nbeq_plus_1)
 
-def zeroNbeqPlus1: Prop := ∀ (n: Nat) => eqb 0 (n + 1) = False
+theorem zeroNbeqPlus1 (n: Nat): eqb 0 (n + 1) = False := ?
 
 -- ## More on Notation (Optional)
 --
@@ -748,7 +745,7 @@ def plus' (n m: Nat): Nat := match n with
 
 -- Exercise: 1 star, standard (identity_fn_applied_twice)
 
-def identityFnAppliedTwice: Prop := ∀ (f: Bool → Bool) => (∀ (x: Bool) => f x = x) → ∀ (b: Bool) => f (f b) = b
+theorem identityFnAppliedTwice (f: Bool → Bool) (h: ∀ (x: Bool) => f x = x) (b: Bool): f (f b) = b := ?
 
 -- Exercise: 1 star, standard (negation_fn_applied_twice)
 --
@@ -761,7 +758,7 @@ def identityFnAppliedTwice: Prop := ∀ (f: Bool → Bool) => (∀ (x: Bool) => 
 -- will probably need both `match` and `rewrite`, but splitting everything
 -- in sight is not the best way.
 
-def andbEqOrb: Prop := ∀ (b c: Bool) => andb b c = orb b c → b = c
+theorem andbEqOrb (b c: Bool) (h: andb b c = orb b c): b = c := ?
 
 -- ## Course Late Policies, Formalized
 --
@@ -799,34 +796,34 @@ type Bin =
 -- Complete the definitions of an increment function `incr` for binary
 -- numbers, and of `binToNat`, which converts a binary number to unary.
 
---| Exercise (binary): replace this placeholder with the definition.
-def incr (m: Bin): Bin := m
+--| Exercise (binary): replace the `?` with the definition.
+def incr (m: Bin): Bin := ?
 
---| Exercise (binary): replace this placeholder with the definition.
-def binToNat (m: Bin): Nat := Zero
+--| Exercise (binary): replace the `?` with the definition.
+def binToNat (m: Bin): Nat := ?
 
 -- These unit tests should hold once the functions are defined correctly.
 -- Of course, unit tests don't fully show that they are right: we return
 -- to that at the end of the next chapter.
 
-def testBinIncr1: Prop := incr (B1 Z) = B0 (B1 Z)
+theorem testBinIncr1: incr (B1 Z) = B0 (B1 Z) := ?
 
-def testBinIncr2: Prop := incr (B0 (B1 Z)) = B1 (B1 Z)
+theorem testBinIncr2: incr (B0 (B1 Z)) = B1 (B1 Z) := ?
 
-def testBinIncr3: Prop := incr (B1 (B1 Z)) = B0 (B0 (B1 Z))
+theorem testBinIncr3: incr (B1 (B1 Z)) = B0 (B0 (B1 Z)) := ?
 
-def testBinIncr4: Prop := binToNat (B0 (B1 Z)) = 2
+theorem testBinIncr4: binToNat (B0 (B1 Z)) = 2 := ?
 
-def testBinIncr5: Prop := binToNat (incr (B1 Z)) = 1 + binToNat (B1 Z)
+theorem testBinIncr5: binToNat (incr (B1 Z)) = 1 + binToNat (B1 Z) := ?
 
-def testBinIncr6: Prop := binToNat (incr (incr (B1 Z))) = 2 + binToNat (B1 Z)
+theorem testBinIncr6: binToNat (incr (incr (B1 Z))) = 2 + binToNat (B1 Z) := ?
 
-def testBinIncr7: Prop := binToNat (B0 (B0 (B0 (B1 Z)))) = 8
+theorem testBinIncr7: binToNat (B0 (B0 (B0 (B1 Z)))) = 8 := ?
 
 -- # Testing Your Solutions
 --
 -- Each chapter of the book comes with a test script (`BasicsTest.v`) that
 -- checks the exercises are solved and their statements unchanged. Here,
--- `stitchwort check` in sf/ checks every proof, and `stitchwort audit
--- Sf.Lf.Basics` reports any theorem that rests on an unfinished `?` or an
--- axiom.
+-- `stitchwort check` in sf/ checks every proof and warns of each exercise
+-- left open, and `stitchwort audit Sf.Lf.Basics` reports any theorem that
+-- rests on an unfinished `?` or an axiom.

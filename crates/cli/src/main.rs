@@ -1196,6 +1196,37 @@ fn goals_open(reported: &[Diagnostic]) -> usize {
         .count()
 }
 
+/// `project`'s `stitchwort.yaml`, or `None` after reporting why it can't be
+/// read.
+fn read_project_config(project: &Project) -> Option<stitchwort_cli::project::Config> {
+    let text = std::fs::read_to_string(project.dir.join("stitchwort.yaml")).unwrap_or_default();
+    let mut sources = SourceMap::new();
+    let id = sources.add("stitchwort.yaml", text.clone());
+    match stitchwort_cli::project::parse_config(id, "stitchwort.yaml", &text) {
+        Ok(config) => Some(config),
+        Err(d) => {
+            report(&sources, &[d]);
+            None
+        }
+    }
+}
+
+/// With `check: open-goals: warn`, the goals were reported as warnings:
+/// says how many, and that they don't fail the check.
+fn report_allowed_goals(reported: &[Diagnostic]) {
+    let goals = reported
+        .iter()
+        .filter(|d| d.severity == Severity::Warning && d.code == "GOAL")
+        .count();
+    if goals > 0 {
+        let s = if goals == 1 { "" } else { "s" };
+        eprintln!(
+            "{goals} goal{s} open, allowed by `check: open-goals: warn`: the declarations with \
+             them, and what uses them, aren't checked, and `stitchwort audit` fails them"
+        );
+    }
+}
+
 /// "2 goals open", after the goals themselves, if there are any
 /// (docs/proposals/lsp-goal-holes.md, D636): a declaration with one isn't
 /// finished, and nor is anything that uses it, so none of them is checked.
@@ -1275,7 +1306,15 @@ fn load_project_into(
     target: &Target,
     reported: &mut Vec<Diagnostic>,
 ) -> bool {
-    load_project_counting(session, project, target, Load::Everything, reported).is_some()
+    load_project_counting(
+        session,
+        project,
+        target,
+        Load::Everything,
+        stitchwort_cli::project::OpenGoals::Fail,
+        reported,
+    )
+    .is_some()
 }
 
 /// [`load_project_into`], giving the number of namespaces checked.
@@ -1284,11 +1323,17 @@ fn load_project_counting(
     project: &Project,
     target: &Target,
     load: Load,
+    open_goals: stitchwort_cli::project::OpenGoals,
     reported: &mut Vec<Diagnostic>,
 ) -> Option<(usize, Option<TheoremCount>)> {
     match session.load_project_for(&project.files, &project.name, target, load) {
         Ok(loaded) => {
             reported.extend(std::mem::take(&mut session.warnings));
+            if open_goals == stitchwort_cli::project::OpenGoals::Warn {
+                for d in reported.iter_mut().filter(|d| d.severity == Severity::Goal) {
+                    d.severity = Severity::Warning;
+                }
+            }
             report(&session.sources, reported);
             Some((loaded.checked.len(), loaded.theorems))
         }
@@ -1490,6 +1535,9 @@ fn check(
     } else {
         Target::Namespaces(targets.to_vec())
     };
+    let Some(config) = read_project_config(&project) else {
+        return ExitCode::FAILURE;
+    };
     let mut session = new_session(index.is_some());
     use_cache(&mut session, cache, &project.dir);
     let mut reported = Vec::new();
@@ -1500,9 +1548,17 @@ fn check(
     } else {
         Load::Everything
     };
-    let checked = load_project_counting(&mut session, &project, &target, load, &mut reported);
+    let checked = load_project_counting(
+        &mut session,
+        &project,
+        &target,
+        load,
+        config.open_goals,
+        &mut reported,
+    );
     let goals = goals_open(&reported);
     report_goals(goals);
+    report_allowed_goals(&reported);
     let mut ok = checked.is_some() && goals == 0;
     if let (true, Some((count, theorems))) = (ok, checked) {
         let plural = if count == 1 { "" } else { "s" };
@@ -4071,7 +4127,7 @@ fn report(sources: &SourceMap, diagnostics: &[Diagnostic]) {
     let color = std::io::stderr().is_terminal();
     let full_goals = FULL_GOALS.load(std::sync::atomic::Ordering::Relaxed);
     for diagnostic in diagnostics {
-        if diagnostic.severity == Severity::Goal && !full_goals {
+        if diagnostic.code == "GOAL" && !full_goals {
             let cut = stitchwort_cli::render::with_long_goal_lines_cut(
                 diagnostic,
                 stitchwort_cli::render::GOAL_LINE_LIMIT,

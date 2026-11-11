@@ -1,8 +1,8 @@
 -- Software Foundations, Volume 1: Logical Foundations, Induction.v
 -- ("Induction: Proof by Induction"), ported to Stitchwort. Copyright and
 -- licence: sf/LICENSE-SF. Names and exercises follow the conventions
--- described at the top of Basics.sw: a theorem to prove is a `Prop`
--- definition, a function to write has a placeholder body.
+-- described at the top of Basics.sw: an exercise is a theorem or function
+-- with `?` for the reader to fill in.
 
 namespace Sf.Lf.Induction
 import Sf.Lf.Basics (..)
@@ -122,13 +122,13 @@ theorem minusNN (n: Nat): n - n = 0 := match n with
 --
 -- Prove these by induction. You might need results proved before.
 
-def mul0R: Prop := ∀ (n: Nat) => n * 0 = 0
+theorem mul0R (n: Nat): n * 0 = 0 := ?
 
-def plusNSm: Prop := ∀ (n m: Nat) => Succ (n + m) = n + Succ m
+theorem plusNSm (n m: Nat): Succ (n + m) = n + Succ m := ?
 
-def addComm: Prop := ∀ (n m: Nat) => n + m = m + n
+theorem addComm (n m: Nat): n + m = m + n := ?
 
-def addAssoc: Prop := ∀ (n m p: Nat) => n + (m + p) = n + m + p
+theorem addAssoc (n m p: Nat): n + (m + p) = n + m + p := ?
 
 -- (Stitchwort's library proves all four, as `Nat.mulZero`,
 -- `Nat.addSucc`, `Nat.addComm` and `Nat.addAssoc`, and `omega` proves
@@ -144,14 +144,14 @@ def double (n: Nat): Nat := match n with
 
 -- Use induction to prove this simple fact about `double`:
 
-def doublePlus: Prop := ∀ (n: Nat) => double n = n + n
+theorem doublePlus (n: Nat): double n = n + n := ?
 
 -- Exercise: 2 stars, standard (eqb_refl)
 --
 -- This relates the computed equality `eqb` on numbers to the logical
 -- equality `=` on booleans.
 
-def eqbRefl: Prop := ∀ (n: Nat) => eqb n n = True
+theorem eqbRefl (n: Nat): eqb n n = True := ?
 
 -- Exercise: 2 stars, standard, optional (even_S)
 --
@@ -160,7 +160,7 @@ def eqbRefl: Prop := ∀ (n: Nat) => eqb n n = True
 -- induction hypothesis about `n - 2`. This lemma characterises
 -- `even (Succ n)` in a way that works better with induction:
 
-def evenS: Prop := ∀ (n: Nat) => even (Succ n) = negb (even n)
+theorem evenS (n: Nat): even (Succ n) = negb (even n) := ?
 
 -- # Proofs Within Proofs
 --
@@ -301,13 +301,13 @@ theorem addAssoc' (n m p: Nat): n + (m + p) = n + m + p := match n with
 -- Use `rewrite` with stated facts, as `replace` would be used, to prove
 -- `addShuffle3`. You don't need induction yet.
 
-def addShuffle3: Prop := ∀ (n m p: Nat) => n + (m + p) = m + (n + p)
+theorem addShuffle3 (n m p: Nat): n + (m + p) = m + (n + p) := ?
 
 -- Now prove commutativity of multiplication. You will probably want to
 -- find (or define and prove) a helper theorem to use in this one. Hint:
 -- what is `n * (1 + k)`?
 
-def mulComm: Prop := ∀ (m n: Nat) => m * n = n * m
+theorem mulComm (m n: Nat): m * n = n * m := ?
 
 -- Exercise: 3 stars, standard, optional (more_exercises)
 --
@@ -319,21 +319,21 @@ def mulComm: Prop := ∀ (m n: Nat) => m * n = n * m
 -- which computes on its second argument when the first is unknown,
 -- moves some of these from (b) or (c) to (a).
 
-def lebRefl: Prop := ∀ (n: Nat) => leb n n = True
+theorem lebRefl (n: Nat): leb n n = True := ?
 
-def zeroNeqbS: Prop := ∀ (n: Nat) => eqb 0 (Succ n) = False
+theorem zeroNeqbS (n: Nat): eqb 0 (Succ n) = False := ?
 
-def andbFalseR: Prop := ∀ (b: Bool) => andb b False = False
+theorem andbFalseR (b: Bool): andb b False = False := ?
 
-def sNeqb0: Prop := ∀ (n: Nat) => eqb (Succ n) 0 = False
+theorem sNeqb0 (n: Nat): eqb (Succ n) 0 = False := ?
 
-def mult1L: Prop := ∀ (n: Nat) => 1 * n = n
+theorem mult1L (n: Nat): 1 * n = n := ?
 
-def all3Spec: Prop := ∀ (b c: Bool) => orb (andb b c) (orb (negb b) (negb c)) = True
+theorem all3Spec (b c: Bool): orb (andb b c) (orb (negb b) (negb c)) = True := ?
 
-def multPlusDistrR: Prop := ∀ (n m p: Nat) => (n + m) * p = n * p + m * p
+theorem multPlusDistrR (n m p: Nat): (n + m) * p = n * p + m * p := ?
 
-def multAssoc: Prop := ∀ (n m p: Nat) => n * (m * p) = n * m * p
+theorem multAssoc (n m p: Nat): n * (m * p) = n * m * p := ?
 
 -- # Nat to Bin and Back to Nat
 --
@@ -363,14 +363,14 @@ def multAssoc: Prop := ∀ (n m p: Nat) => n * (m * p) = n * m * p
 -- If changing your definitions of `incr` or `binToNat` makes this easier
 -- to prove, feel free to.
 
-def binToNatPresIncr: Prop := ∀ (b: Bin) => binToNat (incr b) = 1 + binToNat b
+theorem binToNatPresIncr (b: Bin): binToNat (incr b) = 1 + binToNat b := ?
 
 -- Exercise: 3 stars, standard (nat_bin_nat)
 --
 -- Write a function that converts natural numbers to binary numbers.
 
---| Exercise (nat_bin_nat): replace this placeholder with the definition.
-def natToBin (n: Nat): Bin := Z
+--| Exercise (nat_bin_nat): replace the `?` with the definition.
+def natToBin (n: Nat): Bin := ?
 
 -- Prove that converting any `Nat` to `Bin` and back gives the number we
 -- started with. Hint: the proof should go through smoothly with the
@@ -379,7 +379,7 @@ def natToBin (n: Nat): Bin := Z
 -- proof by induction follows the recursion of the program it is about, so
 -- make the recursions as simple as possible.
 
-def natBinNat: Prop := ∀ (n: Nat) => binToNat (natToBin n) = n
+theorem natBinNat (n: Nat): binToNat (natToBin n) = n := ?
 
 -- # Bin to Nat and Back to Bin (Advanced)
 --
@@ -395,20 +395,20 @@ def natBinNat: Prop := ∀ (n: Nat) => binToNat (natToBin n) = n
 --
 -- Prove this lemma about `double`, defined earlier in the chapter.
 
-def doubleIncr: Prop := ∀ (n: Nat) => double (Succ n) = Succ (Succ (double n))
+theorem doubleIncr (n: Nat): double (Succ n) = Succ (Succ (double n)) := ?
 
 -- Now define a similar doubling function for `Bin`.
 
---| Exercise (double_bin): replace this placeholder with the definition.
-def doubleBin (b: Bin): Bin := b
+--| Exercise (double_bin): replace the `?` with the definition.
+def doubleBin (b: Bin): Bin := ?
 
 -- Check that it doubles zero correctly.
 
-def doubleBinZero: Prop := doubleBin Z = Z
+theorem doubleBinZero: doubleBin Z = Z := ?
 
 -- Prove this lemma, which corresponds to `doubleIncr`.
 
-def doubleIncrBin: Prop := ∀ (b: Bin) => doubleBin (incr b) = incr (incr (doubleBin b))
+theorem doubleIncrBin (b: Bin): doubleBin (incr b) = incr (incr (doubleBin b)) := ?
 
 -- Back to the theorem we wanted, `binNatBinFails`. It fails because for
 -- some `Bin`s we don't get back the *original* `Bin`, but an
@@ -435,8 +435,8 @@ def doubleIncrBin: Prop := ∀ (b: Bin) => doubleBin (incr b) = incr (incr (doub
 -- `Bin`, and process each bit only once. Don't try to "look ahead" at
 -- later bits.
 
---| Exercise (bin_nat_bin): replace this placeholder with the definition.
-def normalize (b: Bin): Bin := b
+--| Exercise (bin_nat_bin): replace the `?` with the definition.
+def normalize (b: Bin): Bin := ?
 
 -- It is wise to check with some examples that `normalize` works as you
 -- intend before going on. (Write them here.)
@@ -448,4 +448,4 @@ def normalize (b: Bin): Bin := b
 -- for the `B0` case (which also uses `doubleIncrBin`) and one for the
 -- `B1` case.
 
-def binNatBin: Prop := ∀ (b: Bin) => natToBin (binToNat b) = normalize b
+theorem binNatBin (b: Bin): natToBin (binToNat b) = normalize b := ?

@@ -209,6 +209,7 @@ impl MemoryProject {
         Config {
             sources: self.sources.clone(),
             allowed_axioms: None,
+            open_goals: Default::default(),
         }
     }
 
@@ -262,6 +263,7 @@ impl Source for Memory {
                 config: Config {
                     sources: Vec::new(),
                     allowed_axioms: None,
+                    open_goals: Default::default(),
                 },
                 config_text: String::new(),
                 files: Arc::default(),
