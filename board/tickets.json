@@ -29030,12 +29030,12 @@
     {
       "id": 2765,
       "title": "audit: no vacuity warning for generated declarations (keep their counterexample search); put generated in the audit JSON (drop serde skip on TheoremAudit.generated) — removes 62 of 146 warnings (docs/reviews/SW-2760-vacuity-triage.md)",
-      "status": "doing",
+      "status": "review",
       "agent": "DeepSeek",
       "where": ".claude/worktrees/scratch-sw-2765",
       "labels": [],
       "epic": "audit-fuzzing",
-      "body": "",
+      "body": "\nModel result: DeepSeek, worked, 50 min (est. 45). Std vacuity warnings 10 → 6 (magUnitsNormal, linesBreak, lineBreakNotSpace, lineBreakChar cleared).",
       "created": "2026-11-11",
       "updated": "2026-11-11",
       "commits": []
@@ -29043,12 +29043,12 @@
     {
       "id": 2766,
       "title": "Counterexample generators: add newline, carriage return and tab to ALPHABET and random_char; edges near 2^52 and 2^53 in random_nat — clears 10 std vacuity warnings (docs/reviews/SW-2760-vacuity-triage.md)",
-      "status": "doing",
+      "status": "review",
       "agent": "DeepSeek",
       "where": ".claude/worktrees/scratch-sw-2765",
       "labels": [],
       "epic": "audit-fuzzing",
-      "body": "",
+      "body": "\nModel result: DeepSeek, worked, 50 min (est. 45). Std vacuity warnings 10 → 6 (magUnitsNormal, linesBreak, lineBreakNotSpace, lineBreakChar cleared).",
       "created": "2026-11-11",
       "updated": "2026-11-11",
       "commits": []
@@ -29061,7 +29061,7 @@
       "where": "",
       "labels": [],
       "epic": "audit-fuzzing",
-      "body": "",
+      "body": "\nAfter SW-2766: remaining std warnings Float.Theory.{magUnitsStepAcross, halveLow, firstLow, firstHigh, addInfComm} need several related large values (2^52 - 1 etc.) at once, and Parse.linesBlank needs three specific lists; this ticket's constants pool is the next step for them.",
       "created": "2026-11-11",
       "updated": "2026-11-11",
       "commits": []
