@@ -1,5 +1,5 @@
 {
-  "next": 2921,
+  "next": 2922,
   "tickets": [
     {
       "id": 47,
@@ -31053,6 +31053,19 @@
       "title": "[DeepSeek] Browser test DUMP helper: record didChange in the published log so post-edit publishes are told from the earlier burst (SW-2915)",
       "status": "backlog",
       "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "editor-playground",
+      "body": "",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2921,
+      "title": "[Opus] Paper: the Goals panel, compared with other provers (Lean, Rocq, Agda, Idris, Isabelle, F*/Dafny...): what a goal shows (computed or as written, after a split), hypotheses, steps and diffs, cursor-following, with pros and cons and a recommendation (Matt, 11 Nov 2026)",
+      "status": "doing",
+      "agent": "Opus",
       "where": "",
       "labels": [],
       "epic": "editor-playground",
