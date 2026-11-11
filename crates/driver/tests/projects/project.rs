@@ -177,26 +177,27 @@ fn foreign_namespace() {
 }
 
 #[test]
-fn a_failed_namespace_stops_its_dependents_only() {
-    let lib = "namespace Lib\n\ndef f: Nat := True\n";
-    let day = "namespace Day\n\nimport Lib (f)\n\ndef g: Nat := f\n";
+fn a_failed_declaration_stops_only_what_uses_it() {
+    let lib = "namespace Lib\n\ndef f: Nat := True\n\ndef k: Nat := 1\n";
+    let day = "namespace Day\n\nimport Lib (f, k)\n\ndef g: Nat := f\n\ndef h: Nat := g + f\n\ndef fine: Nat := k\n\ndef wrong: Nat := False\n";
     let other = "namespace Other\n\ndef h: Nat := 1\n\ntest \"h\" := h == 1\n";
     let files = [("lib.sw", lib), ("day.sw", day), ("other.sw", other)];
     let found = errors(&files);
-    let found_codes = codes(&found);
-    assert!(
-        found_codes.contains(&"E-NAMESPACE-FAILED"),
-        "{found_codes:?}"
-    );
-    assert_eq!(found_codes.len(), 2, "{found:#?}");
-    let failed = found
-        .iter()
-        .find(|d| d.code == "E-NAMESPACE-FAILED")
-        .unwrap();
+    // `Day` is checked: its own error is found, and what uses `f` waits,
+    // said once, on the import (D3524).
     assert_eq!(
-        failed.message,
-        "namespace Lib has errors, so Day isn't checked"
+        codes(&found),
+        ["E-TYPE-MISMATCH", "E-USES-FAILED", "E-TYPE-MISMATCH"],
+        "{found:#?}"
     );
+    let uses = &found[1];
+    assert_eq!(
+        uses.message,
+        "`f` has an error, so 2 declarations here can't be checked until it's fixed"
+    );
+    assert_eq!(uses.notes, ["waiting for it: `g`, `h`"]);
+    let day_file = uses.primary_span().unwrap().file;
+    assert_eq!(found[2].primary_span().unwrap().file, day_file);
     // The independent namespace can be checked alone.
     let (session, result) = load_target(&files, &Target::Namespaces(vec!["Other".into()]));
     result.unwrap_or_else(|e| panic!("{e:#?}"));
@@ -204,7 +205,7 @@ fn a_failed_namespace_stops_its_dependents_only() {
     // Its own error is reported too.
     let broken = "namespace Other\n\ndef h: Nat := False\n";
     let found = errors(&[("lib.sw", lib), ("day.sw", day), ("other.sw", broken)]);
-    assert_eq!(found.len(), 3, "{found:#?}");
+    assert_eq!(found.len(), 4, "{found:#?}");
 }
 
 #[test]

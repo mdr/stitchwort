@@ -404,8 +404,13 @@ impl stitchwort_core::Shown for Elaborator {
         !self.decl.failed_mentioned.get()
     }
 
-    fn note_failed_mentioned(&self) {
+    fn note_failed_mentioned(&self, def: DefId) {
         self.decl.failed_mentioned.set(true);
+        // One of another namespace's: the declaration waits for it.
+        let path = self.kernel.def(def).path().to_string();
+        if !self.unit.module.names.contains(&path) {
+            crate::module::note_failed_used(&path);
+        }
     }
 
     /// A definition that relies on an open goal and computes, so a term

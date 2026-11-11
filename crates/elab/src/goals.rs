@@ -607,7 +607,12 @@ pub(crate) fn unfinished_dependency<'t>(
     own: &[HashKey],
     error: Diagnostic,
 ) -> Diagnostic {
-    if error.code != "E-FAILED-DEPENDENCY" || tables.unfinished_count() == 0 {
+    if error.code != "E-FAILED-DEPENDENCY" {
+        return error;
+    }
+    let terms: Vec<&Term> = terms.into_iter().collect();
+    crate::module::note_failed_in(g, &terms, own);
+    if tables.unfinished_count() == 0 {
         return error;
     }
     let mut used = Vec::new();

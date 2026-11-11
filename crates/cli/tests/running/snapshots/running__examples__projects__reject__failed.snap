@@ -1,5 +1,5 @@
 ---
-source: crates/cli/tests/examples.rs
+source: crates/cli/tests/running/examples.rs
 expression: output
 ---
 [E-TYPE-MISMATCH] Error: type mismatch
@@ -9,10 +9,16 @@ expression: output
    │               ──┬─  
    │                 ╰─── expected `Nat`, but this has type `Bool`
 ───╯
-[E-NAMESPACE-FAILED] Error: namespace Lib has errors, so Day isn't checked
-   ╭─[ failed/src/day.sw:4:8 ]
+[E-USES-FAILED] Error: `f` has an error, so `g` can't be checked until it's fixed
+   ╭─[ failed/src/day.sw:5:13 ]
    │
- 4 │ import Lib (f)
-   │        ─┬─  
-   │         ╰─── `Day` uses `Lib` here
+ 5 │ import Lib (f)
+   │             ┬  
+   │             ╰── `f` has an error
+   │
+   ├─[ failed/src/lib.sw:4:15 ]
+   │
+ 4 │ def f: Nat := True
+   │               ──┬─  
+   │                 ╰─── the error is here
 ───╯

@@ -1908,9 +1908,10 @@ test("an error in a shared file shows in the Check tab, marks its tab, and links
     errors: [...document.querySelectorAll("#output pre.errors")].map((p) => p.textContent),
     marked: [...document.querySelectorAll("#filetabs button[data-errors]")].map((b) => b.firstChild.textContent),
     jumps: [...document.querySelectorAll("#output button.jump")].map((b) => b.textContent) })`);
-  assert.ok(shown.errors.length >= 2, shown.errors.join("\n"));
+  assert.ok(shown.errors.length >= 1, shown.errors.join("\n"));
   assert.match(shown.errors[0], /E-TYPE-MISMATCH/);
-  assert.match(shown.errors[1], /E-NAMESPACE-FAILED/, "listed after the error that caused it");
+  // Day 2 doesn't use `broken`, so it's checked as usual (D3524).
+  assert.ok(!shown.errors.some((e) => /E-NAMESPACE-FAILED|E-USES-FAILED/.test(e)), shown.errors.join("\n"));
   assert.ok(shown.marked.includes("Common/Range.sw"));
   const line = range.split("\n").length + 1;
   assert.match(shown.jumps[0], new RegExp(`^src/Aoc/Common/Range\\.sw:${line}:`));

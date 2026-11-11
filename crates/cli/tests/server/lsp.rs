@@ -1102,10 +1102,11 @@ fn aoc_navigation_matches_check_index() {
     assert_eq!(place(&project, &found[0]["location"]), files[0]);
 
     // An edit that breaks `Aoc.Year2025.Day01`, unsaved: its diagnostics, and its
-    // dependents' (`Aoc.Year2025.Day01.Proofs` can't be checked).
+    // dependents' (`Aoc.Year2025.Day01.Proofs` says once that what uses
+    // `Dial.isZero` can't be checked until it's fixed).
     let broken = text.replace(
-        "def solvePart1 (turns: List Turn): Nat :=",
-        "def solvePart1 (turns: List Turn): Text :=",
+        "def Dial.isZero (dial: Dial n): Bool := dial.position.isZero",
+        "def Dial.isZero (dial: Dial n): Bool := \"no\"",
     );
     assert_ne!(broken, text);
     client.change(&first, 2, &broken);
@@ -1119,7 +1120,7 @@ fn aoc_navigation_matches_check_index() {
             break;
         }
     }
-    assert_eq!(codes(&dependent), ["E-NAMESPACE-FAILED"], "{dependent:?}");
+    assert_eq!(codes(&dependent), ["E-USES-FAILED"], "{dependent:?}");
     client.change(&first, 3, &text);
     assert_eq!(client.diagnostics(&first, 3), Vec::<Value>::new());
     client.shutdown();

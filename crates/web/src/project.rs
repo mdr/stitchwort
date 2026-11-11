@@ -614,7 +614,9 @@ mod tests {
             answer.starts_with(r#"{"ok":false,"errors":"[E-"#),
             "{answer}"
         );
-        assert!(answer.contains("[E-NAMESPACE-FAILED]"), "{answer}");
+        // Day 2 doesn't use `broken`, so it's checked as usual (D3524).
+        assert!(!answer.contains("[E-NAMESPACE-FAILED]"), "{answer}");
+        assert!(!answer.contains("[E-USES-FAILED]"), "{answer}");
         assert!(
             answer.contains(r#""file":"src/Aoc/Common/Range.sw","line":"#),
             "{answer}"
@@ -624,11 +626,6 @@ mod tests {
         assert!(
             answer.contains(r#""line":28,"column":21,"endLine":27,"endColumn":23,"#),
             "{answer}"
-        );
-        assert!(
-            answer.contains(
-                r#""code":"E-NAMESPACE-FAILED","file":"src/Aoc/Year2025/Day02/Day02.sw""#
-            )
         );
     }
 
