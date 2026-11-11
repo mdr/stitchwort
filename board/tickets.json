@@ -29814,12 +29814,12 @@
     {
       "id": 2826,
       "title": "Merge tier can't pass: memguard (4 GB cap) kills it because build::native_code_out_of_frames_reports_as_run_does's runaway native program reaches ~5-6 GB before its frame limit; lower the program's frame limit in the test or its memory, so the merge tier fits its cap (11 Nov)",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2826",
       "labels": [],
       "epic": "test-infra",
-      "body": "",
+      "body": "Progress: the cause is the native depth ceiling (16 million frames, Limits::native_frames) times the program's real native frame (about 370 bytes): running out touches about 6 GB of stack, and no setting could lower it. Added STITCHWORT_NATIVE_FRAMES (lowers the ceiling only; default unchanged) in Limits::from_core, and the test sets it to 1000000. Max RSS 6.2 GB to 0.58 GB (the machine-run leg, 2M frames, is now the largest). Commit on lane/SW-2826.",
       "created": "2026-11-11",
       "updated": "2026-11-11",
       "commits": []
