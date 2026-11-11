@@ -29632,7 +29632,7 @@
     {
       "id": 2812,
       "title": "rewrite after Decidable stage 3: no pass rewrites without carrying; decides_other judges from sound's folded type, so a rewrite that worked before could now fail with E-REWRITE-MOTIVE where the goal has the proposition unfolded: try the plain motive first, as matching.rs does (rewrite.rs:1089-1135, 1477, 1509) (docs/reviews/SW-2761-decidable-stage3-review.md)",
-      "status": "review",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-2812",
       "labels": [],
