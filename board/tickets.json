@@ -1,5 +1,5 @@
 {
-  "next": 2939,
+  "next": 2940,
   "tickets": [
     {
       "id": 47,
@@ -31285,8 +31285,21 @@
     {
       "id": 2938,
       "title": "[Fable] Paper: running tests (and checking) in the presence of errors and unfinished ?s, end to end: what runs, what fails with which reason, namespaces that import a broken one (D3524 open), cascade errors, what trust a passing test or theorem then carries, editor/playground/cache behaviour, compared with other languages (Matt, 11 Nov 2026)",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
+      "body": "\nNote: docs/proposals/tests-with-errors.md. Fable, 10 min (est. 90). Decisions D3524 (importers checked per declaration), D3525 (one test rule) raised; D-b, D-d..f wait for those.",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2939,
+      "title": "[DeepSeek] A test passing a ?-proved theorem as a proof prints plain '✓ … ran'; add '(assuming <name>)' to the result line (SW-2938 finding)",
+      "status": "backlog",
+      "agent": "DeepSeek",
       "where": "",
       "labels": [],
       "epic": "test-infra",
