@@ -29883,12 +29883,12 @@
     {
       "id": 2831,
       "title": "Rust emits d.sound, d.complete and Decidable.refute instead of the toBool* lemmas (omega.rs, equations.rs, induct.rs); then the toBool* family can go (except toBoolOfNot) and ~40 std/aoc call sites move to the fields (SW-2823)",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2831",
       "labels": [],
       "epic": "proof-automation",
-      "body": "Progress (Sonnet lane, 11 Nov 2026): omega.rs, equations.rs (BranchLib::to_bool_lemma) and the GUARD_LEMMAS list in module.rs now emit `Term::Proj(Decidable, 1|2, d)` (sound, complete) and `Decidable.refute`; deleted Decidable.toBoolSound/toBoolOf/toBoolFalse; kept toBoolOfNot (no field equivalent). Moved 40 call sites (std 31, aoc 12 incl. 4 `_` ones now DecEq.neTrue or an explicit decision, examples 4). Pins pass; hash snapshots accepted (hashes plus the three removed names only). Commit 69d0f9df9.\n",
+      "body": "Progress (Sonnet lane, 11 Nov 2026): omega.rs, equations.rs (BranchLib::to_bool_lemma) and the GUARD_LEMMAS list in module.rs now emit `Term::Proj(Decidable, 1|2, d)` (sound, complete) and `Decidable.refute`; deleted Decidable.toBoolSound/toBoolOf/toBoolFalse; kept toBoolOfNot (no field equivalent). Moved 40 call sites (std 31, aoc 12 incl. 4 `_` ones now DecEq.neTrue or an explicit decision, examples 4). Pins pass; hash snapshots accepted (hashes plus the three removed names only). Commit 69d0f9df9.\nModel result: Sonnet, worked, 12 min (est. 120). Opus review: no must-fix (docs/reviews/SW-2831-decision-fields-review.md); verifier passed incl. uncached aoc/rogue/sf.",
       "created": "2026-11-11",
       "updated": "2026-11-11",
       "commits": []
