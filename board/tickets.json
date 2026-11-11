@@ -1,5 +1,5 @@
 {
-  "next": 2867,
+  "next": 2869,
   "tickets": [
     {
       "id": 47,
@@ -29593,12 +29593,12 @@
     {
       "id": 2809,
       "title": "Running with open goals (D3507): run/build/test run programs with open goals, warning line, value-? reached at run time stops naming the goal; test under warn runs tests instead of skipping (replaces SW-2793's skip); check what the runtime does with a false proof the program uses (bound, termination, cast) and report to Matt before shipping if it isn't a clear error (docs/proposals/using-unfinished-proofs.md; D3504-D3507)",
-      "status": "doing",
+      "status": "backlog",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-2809",
       "labels": [],
       "epic": "syntax-language",
-      "body": "\nFable review F1 (high): under a false goal, an erased proof-typed assumption can give a mistyped value (h: Nat = Bool := ?; h ▸ 0 runs as 0 at Bool) or reach panic! 'impossible branch' (value.rs:2312, pick False ?). Check rt, native and JS on both, turn the panic into a diagnostic naming the goal, and bring the result to Matt before shipping (D3507). F7: rt lower.rs:130, js lib.rs:1001, js run.rs:152 say 'hasn't been checked successfully' for a data-typed assumption: name the open goal. (docs/reviews/SW-2804-assumptions-review.md)",
+      "body": "\nFable review F1 (high): under a false goal, an erased proof-typed assumption can give a mistyped value (h: Nat = Bool := ?; h ▸ 0 runs as 0 at Bool) or reach panic! 'impossible branch' (value.rs:2312, pick False ?). Check rt, native and JS on both, turn the panic into a diagnostic naming the goal, and bring the result to Matt before shipping (D3507). F7: rt lower.rs:130, js lib.rs:1001, js run.rs:152 say 'hasn't been checked successfully' for a data-typed assumption: name the open goal. (docs/reviews/SW-2804-assumptions-review.md)\nParked (Matt, 11 Nov 2026): D3516 (what a run does at a cast or Array.getLt bound whose proof relies on a goal; rec: run-time bound check, stop at casts, JS load-time fix, warning names unchecked goals, mark passes relying on goals) goes on the backlog undecided. Work stays on lane/SW-2809 (ab1b7dcb8, 7eb0b39e9); Opus review docs/reviews/SW-2809-running-with-goals-review.md.",
       "created": "2026-11-11",
       "updated": "2026-11-11",
       "commits": []
@@ -30346,6 +30346,32 @@
       "status": "doing",
       "agent": "DeepSeek",
       "where": ".claude/worktrees/scratch-sw-2866",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2867,
+      "title": "function_induct::a_nested_pattern_in_a_lifted_match fails on main's debug build: E-RESOURCE 'nested too deeply' checking List.sumByFilter (256 MB stack doesn't help; release CLI checks it fine); likely work_limit or the stack floor (SW-1073)",
+      "status": "next",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
+      "body": "",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2868,
+      "title": "f.induct: number-literal alternatives in lifted matches (0 is one Zero split, n > 0 a Succ chain) need nested splitting on multi-constructor types, one design with SW-1089's Some None / Some (Some k) case; would cover Aoc 2024 Day17 Machine.run. Also re-measure the proposal's skip counts (stale: badOperatorIn gone, Key.allWithin now generates) (SW-1073)",
+      "status": "backlog",
+      "agent": "Opus",
+      "where": "",
       "labels": [],
       "epic": "proof-automation",
       "body": "",
