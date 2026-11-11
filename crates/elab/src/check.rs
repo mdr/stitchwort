@@ -7119,27 +7119,24 @@ pub(crate) fn without_coercion<T>(
 /// The results of `expr`, an `if`, `let` or `match`, through the ones
 /// nested in them: where an expected proposition is pushed in.
 fn results(expr: &Expr, out: &mut Vec<usize>) {
-    match expr {
-        Expr::Bracketed(inner, _) => results(inner, out),
-        Expr::If {
-            then, otherwise, ..
-        } => {
-            for branch in [then, otherwise] {
-                out.push(std::ptr::from_ref(&**branch) as usize);
-                results(branch, out);
-            }
+    // A work list, in the order of a recursive walk: a block of `let`s nests
+    // as deeply as it has lines, which a recursion would follow before any
+    // stack check had run.
+    let address = |e: &Expr| std::ptr::from_ref(e) as usize;
+    let mut work: Vec<(&Expr, bool)> = vec![(expr, false)];
+    while let Some((expr, is_result)) = work.pop() {
+        if is_result {
+            out.push(address(expr));
         }
-        Expr::Let { body, .. } => {
-            out.push(std::ptr::from_ref(&**body) as usize);
-            results(body, out);
+        match expr {
+            Expr::Bracketed(inner, _) => work.push((inner, false)),
+            Expr::If {
+                then, otherwise, ..
+            } => work.extend([(&**otherwise, true), (&**then, true)]),
+            Expr::Let { body, .. } => work.push((body, true)),
+            Expr::Match { alts, .. } => work.extend(alts.iter().rev().map(|a| (&a.body, true))),
+            _ => {}
         }
-        Expr::Match { alts, .. } => {
-            for alt in alts {
-                out.push(std::ptr::from_ref(&alt.body) as usize);
-                results(&alt.body, out);
-            }
-        }
-        _ => {}
     }
 }
 
