@@ -29030,7 +29030,7 @@
     {
       "id": 2765,
       "title": "audit: no vacuity warning for generated declarations (keep their counterexample search); put generated in the audit JSON (drop serde skip on TheoremAudit.generated) — removes 62 of 146 warnings (docs/reviews/SW-2760-vacuity-triage.md)",
-      "status": "review",
+      "status": "done",
       "agent": "DeepSeek",
       "where": ".claude/worktrees/scratch-sw-2765",
       "labels": [],
@@ -29043,7 +29043,7 @@
     {
       "id": 2766,
       "title": "Counterexample generators: add newline, carriage return and tab to ALPHABET and random_char; edges near 2^52 and 2^53 in random_nat — clears 10 std vacuity warnings (docs/reviews/SW-2760-vacuity-triage.md)",
-      "status": "review",
+      "status": "done",
       "agent": "DeepSeek",
       "where": ".claude/worktrees/scratch-sw-2765",
       "labels": [],
@@ -29199,12 +29199,12 @@
     {
       "id": 2778,
       "title": "Goal at any point, stage 1: the Goals panel follows the cursor everywhere using the existing stitchwort/contextAt request; ⊢ for proofs, expected T (+ has type U) in programs (docs/proposals/goal-at-any-point.md; D3496-D3499)",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2778",
       "labels": [],
       "epic": "editor-playground",
-      "body": "Progress (lane, 710d77343): the Goals panel (editors/vscode) now follows the cursor everywhere. goalAt first (150 ms); if the cursor is not on the hole, contextAt after 300 ms rest; proof shows ⊢, program shows expected T, unchecked shows has type T; stale answers dropped by a counter, last answer kept while pending, dimmed with a note when there is none. contextAt gained kind (proof/program) via is_proof_type in note_probe. contextAt does not return both the expected and found types, so \"expected T, has type U when they differ\" (D3499) is not done: left for stage 3. Tests: client.test.js 11/11; lsp.rs context_at_answers_anywhere and context_at_says_whether (new) pass; context_at_in_a_projects_file takes over 76 s even in release on main (preexisting), not finished on this branch in debug.\n",
+      "body": "Progress (lane, 710d77343): the Goals panel (editors/vscode) now follows the cursor everywhere. goalAt first (150 ms); if the cursor is not on the hole, contextAt after 300 ms rest; proof shows ⊢, program shows expected T, unchecked shows has type T; stale answers dropped by a counter, last answer kept while pending, dimmed with a note when there is none. contextAt gained kind (proof/program) via is_proof_type in note_probe. contextAt does not return both the expected and found types, so \"expected T, has type U when they differ\" (D3499) is not done: left for stage 3. Tests: client.test.js 11/11; lsp.rs context_at_answers_anywhere and context_at_says_whether (new) pass; context_at_in_a_projects_file takes over 76 s even in release on main (preexisting), not finished on this branch in debug.\nDone 11 Nov. Model result: Sonnet, worked, 15 min (est. 45); has type U deferred to stage 3 (SW-2780). Verifier 129/129, client 11/11.",
       "created": "2026-11-11",
       "updated": "2026-11-11",
       "commits": [
