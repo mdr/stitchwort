@@ -4475,7 +4475,7 @@ impl Elaborator {
                 Ok((d, c))
             }
             (Global::Unchecked(item), ..) => Err(self.unchecked(&used, item)),
-            (Global::Failed, ..) => Err(module::failed_name(&used)),
+            (Global::Failed, ..) => Err(self.failed_global(&used)),
             (Global::Pending(file, _), ..) => Err(self.unloaded(&used, file)),
             _ => {
                 let error = error(

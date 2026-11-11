@@ -349,3 +349,67 @@ fn goals_show_earlier_holes_as_question_marks_and_owners_as_written() {
     assert!(names.contains(&"Book.gcd2"), "{names:?}");
     assert!(names.contains(&"Book.test \"never\""), "{names:?}");
 }
+
+/// A use of a declaration that waits for a goal waits for the same goal,
+/// down a chain of uses and across namespaces, and is named with it; one
+/// whose signature waited, so has no definition, too. A real error beside
+/// such a use is still reported (SW-2855).
+#[test]
+fn a_use_of_what_waits_for_a_goal_waits_for_it_too() {
+    let dir = project("transitive", "check:\n  open-goals: warn\n");
+    std::fs::write(
+        dir.join("src/h.sw"),
+        "namespace Book\n\n\
+         def half: Nat -> Nat\n  | Zero => 0\n  | Succ k => ?\n\n\
+         theorem halfOne: half 1 = 0 := rfl\n\n\
+         theorem usesHalfOne: halfOne = halfOne := rfl\n\n\
+         theorem usesUses: usesHalfOne = usesHalfOne := rfl\n\n\
+         theorem sigWaits: (rfl: half 1 = 0) = rfl := rfl\n",
+    )
+    .unwrap();
+    std::fs::write(
+        dir.join("src/o.sw"),
+        "namespace Other\n\n\
+         theorem otherUses: Book.usesHalfOne = Book.usesHalfOne := rfl\n\n\
+         theorem otherSig: Book.sigWaits = Book.sigWaits := rfl\n",
+    )
+    .unwrap();
+    let out = stitchwort(&dir, &["check"]);
+    let stderr = text(&out.stderr);
+    assert_eq!(out.status.code(), Some(0), "{stderr}");
+    assert!(!stderr.contains("E-FAILED-DEPENDENCY"), "{stderr}");
+    for name in [
+        "Book.halfOne ",
+        "Book.usesHalfOne ",
+        "Book.usesUses ",
+        "Book.sigWaits ",
+        "Other.otherUses ",
+        "Other.otherSig ",
+    ] {
+        let line = stderr.lines().find(|l| l.trim_start().starts_with(name));
+        assert!(
+            line.is_some_and(|l| l.contains("needs `half`'s goal")),
+            "{name}: {stderr}"
+        );
+    }
+    let goal = text(&stitchwort(&dir, &["goal"]).stdout);
+    assert!(
+        goal.contains("Book.usesUses") && goal.contains("Other.otherSig"),
+        "{goal}"
+    );
+    let audit = text(&stitchwort(&dir, &["audit"]).stdout);
+    assert!(
+        audit.contains("✗ Other.otherUses\n    fail: can't be checked until `half`'s goal"),
+        "{audit}"
+    );
+    std::fs::write(
+        dir.join("src/b.sw"),
+        "namespace Book\n\ntheorem bad (h: halfOne = halfOne): 1 = 2 := rfl\n",
+    )
+    .unwrap();
+    let out = stitchwort(&dir, &["check"]);
+    let _ = std::fs::remove_dir_all(&dir);
+    let stderr = text(&out.stderr);
+    assert_eq!(out.status.code(), Some(1), "{stderr}");
+    assert!(stderr.contains("`1` and `2` aren't equal"), "{stderr}");
+}

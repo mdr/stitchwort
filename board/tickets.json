@@ -30199,12 +30199,12 @@
     {
       "id": 2855,
       "title": "A user of a declaration that waits for a goal is an error: theorem usesHalfOne: halfOne = halfOne := rfl (halfOne waits for half's goal) gives E-FAILED-DEPENDENCY and check exits 1 under warn; the name-lookup path for failed globals skips blame_failed_dependency; should be unfinished and listed as waiting, transitively (users of waiting declarations are not named today) (SW-2806)",
-      "status": "doing",
+      "status": "review",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-2855",
       "labels": [],
       "epic": "proof-automation",
-      "body": "",
+      "body": "Progress (Opus lane, 11 Nov 2026, 14:44-15:07, est. 75 min): cause was not the name-lookup path for the reported case. `halfOne` has a declared kernel definition (its statement checked), and the kernel lets a failed reference through a declared type, refusing it at define; `unfinished_dependency` reworded refusals as unfinished only for bodies, so `usesHalfOne: halfOne = halfOne := rfl` stayed E-FAILED-DEPENDENCY. Fixed by scanning members' types too (elab `kernel::define_group`). Transitive waiting: every place a use of an unfinished declaration becomes unfinished notes the goals it waits for (goals.rs `USED_UNFINISHED`), and the component's blocked set is their union with `stuck_on_goal`, so check, goal and audit name every user down a chain and across namespaces. The real name-lookup gap is a declaration whose signature waited (no definition): another namespace saw `Global::Failed` and got \"has errors\"; now `Session::waiting_names` keeps its key and goals, `failed_global` makes the use unfinished, and check/goal list it. A real error beside such a use is still reported (test). Commit 9fd0e3e20. Tests: tools `open_goals|audit::` 28/28 incl. new `a_use_of_what_waits_for_a_goal_waits_for_it_too`; sf check unchanged (178 goals, 102 relying). Not done: audit doesn't list declarations with no definition (it walks kernel definitions).\n",
       "created": "2026-11-11",
       "updated": "2026-11-11",
       "commits": []

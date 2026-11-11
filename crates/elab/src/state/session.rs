@@ -98,6 +98,11 @@ pub struct Session {
     pub(crate) blocked: RefCell<
         stitchwort_core::collections::HashMap<stitchwort_core::DefId, Rc<[stitchwort_core::DefId]>>,
     >,
+    /// The same for a declaration whose signature waited, so it has no
+    /// definition: its open goals' assumptions, by key. A namespace's names
+    /// are rewritten here whenever it is checked (`fail_unchecked_names`),
+    /// so a rewind needn't cut it.
+    pub(crate) waiting_names: RefCell<BTreeMap<String, Rc<[stitchwort_core::DefId]>>>,
 }
 
 /// What a rewind mark keeps of a [`Session`]: the bookkeeping a later load
@@ -144,6 +149,7 @@ impl Session {
             // Checked on use (`assume.rs`).
             assumed: _,
             blocked: _,
+            waiting_names: _,
         } = self;
         Mark {
             project_namespaces: project_namespaces.clone(),
@@ -184,6 +190,7 @@ impl Session {
             // Checked on use (`assume.rs`).
             assumed: _,
             blocked: _,
+            waiting_names: _,
         } = self;
         *project_namespaces = mark.project_namespaces.clone();
         *project_prefixes = mark.project_prefixes.clone();
