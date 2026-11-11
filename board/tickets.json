@@ -1,5 +1,5 @@
 {
-  "next": 2946,
+  "next": 2948,
   "tickets": [
     {
       "id": 47,
@@ -31259,7 +31259,7 @@
     {
       "id": 2936,
       "title": "[Sonnet] kache served a stale stitchwort-elab to a fresh worktree's cli build (new methods missing until RUSTC_WRAPPER= and a clean): a compiler cache returning wrong artifacts; reproduce and fix the cache key or disable the case (SW-2932)",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
@@ -31381,6 +31381,32 @@
       "where": "",
       "labels": [],
       "epic": "test-infra",
+      "body": "",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2946,
+      "title": "[DeepSeek] web/bundle-projects.sh (rm -rf then copy) can interleave when two playground builds overlap in one checkout, as bundle-std.sh did (corrupt std.bundle broke the browser suite, SW-2940); write to a temp dir and rename",
+      "status": "backlog",
+      "agent": "DeepSeek",
+      "where": "",
+      "labels": [],
+      "epic": "editor-playground",
+      "body": "",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2947,
+      "title": "[Sonnet] Move kache to 1.1+ (upstream 2.0.x; stale-store bug kache#1489 fixed in 1.1): bump the pin in the project flake (or overlay), drop KACHE_DEFERRED_DISCOVERY=0 / KACHE_MODIFIED_INPUT_GUARD=1 if no longer needed, re-run task kache:check (SW-2936)",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "dev-loop-speed",
       "body": "",
       "created": "2026-11-11",
       "updated": "2026-11-11",
