@@ -31207,12 +31207,12 @@
     {
       "id": 2932,
       "title": "[Sonnet] Tests run despite errors elsewhere: run every test whose dependencies all check; a test that depends on a declaration with an error fails with that error as its reason; errors still reported and the run still exits non-zero (D3523)",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "test-infra",
-      "body": "D3523 (Matt, 11 Nov 2026): 'in most programming languages I've used, any compile error won't let you run anything. But I guess it seems pretty innocuous if you can check all the declarations that the test depends on. Then, yes, you can test.' Found by SW-2918 (book chapter 1's Paper/Scissors slip). Expected: 60 min.\n\nLane notes (Sonnet, 11 Nov 2026, ~45 min): elab records a BrokenTest for a test whose only errors are E-FAILED-DEPENDENCY (module.rs note_error_source); driver Session::with_broken_tests merges them into the results; CLI, web crate and playground Tests tab run what checks. Erased positions: a broken theorem mentioned only where a proof goes still fails the test (it cannot be checked without the name), unlike SW-2909 where the theorem is merely unfinished and checks. Limit: namespaces that use a failed namespace are not checked (E-NAMESPACE-FAILED), so their tests do not run or appear. Tests: 3 new in crates/cli/tests/tools/test_json.rs, 1 in crates/web.\n",
+      "body": "D3523 (Matt, 11 Nov 2026): 'in most programming languages I've used, any compile error won't let you run anything. But I guess it seems pretty innocuous if you can check all the declarations that the test depends on. Then, yes, you can test.' Found by SW-2918 (book chapter 1's Paper/Scissors slip). Expected: 60 min.\n\nLane notes (Sonnet, 11 Nov 2026, ~45 min): elab records a BrokenTest for a test whose only errors are E-FAILED-DEPENDENCY (module.rs note_error_source); driver Session::with_broken_tests merges them into the results; CLI, web crate and playground Tests tab run what checks. Erased positions: a broken theorem mentioned only where a proof goes still fails the test (it cannot be checked without the name), unlike SW-2909 where the theorem is merely unfinished and checks. Limit: namespaces that use a failed namespace are not checked (E-NAMESPACE-FAILED), so their tests do not run or appear. Tests: 3 new in crates/cli/tests/tools/test_json.rs, 1 in crates/web.\nOwn tests 58/58, browser 87/87, examples 3/4 (the 4th is test-hole from SW-2909, fixed by SW-2941). Model result: Sonnet, worked, 19 min (est. 60).",
       "created": "2026-11-11",
       "updated": "2026-11-11",
       "commits": []
