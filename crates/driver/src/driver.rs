@@ -151,11 +151,11 @@ pub fn par_map_with_at_most<S, T: Sync, R: Send>(
 }
 
 /// The test tier being run (docs/testing.md, "Tiers"): `STITCHWORT_TIER`
-/// is `lane`, `merge`, `daily` or `full`, and unset means `daily`. Which
-/// tests run at all is chosen by the nextest profile of the same name
-/// (`.config/nextest.toml`); the tier decides how much of a corpus a sweep
-/// covers ([`tier_sample`]) and whether a full-only part of a test runs
-/// ([`full_tier`]).
+/// is `lane`, `merge`, `daily` or `full`; when it is unset, the nextest
+/// profile of the same name (`.config/nextest.toml`) says which tier, and
+/// no profile at all means `daily` ([`tier`]). The tier decides how much of
+/// a corpus a sweep covers ([`tier_sample`]) and whether a full-only part of
+/// a test runs ([`full_tier`]).
 #[doc(hidden)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Tier {
@@ -165,16 +165,40 @@ pub enum Tier {
     Full,
 }
 
-/// The tier from `STITCHWORT_TIER`; panics on an unknown name, so a typo
-/// doesn't quietly run the wrong amount.
+/// The tier from `STITCHWORT_TIER`; when that is unset, from the nextest
+/// profile, which nextest puts in each test's `NEXTEST_PROFILE` and
+/// `.config/nextest.toml` names after the tier (`full`, `merge`, `daily`, and
+/// `lane-AREA` for a lane): so `cargo nextest run --profile full` runs the
+/// full-only tests without the variable having to be set. `default` (and no
+/// profile at all) means `daily`. A set `STITCHWORT_TIER` wins. Panics on an
+/// unknown name, so a typo doesn't quietly run the wrong amount.
 #[doc(hidden)]
 pub fn tier() -> Tier {
-    match std::env::var("STITCHWORT_TIER").as_deref() {
-        Err(_) | Ok("" | "daily") => Tier::Daily,
-        Ok("lane") => Tier::Lane,
-        Ok("merge") => Tier::Merge,
-        Ok("full") => Tier::Full,
-        Ok(other) => panic!("STITCHWORT_TIER={other}: expected lane, merge, daily or full"),
+    let named = std::env::var("STITCHWORT_TIER").ok();
+    let profile = std::env::var("NEXTEST_PROFILE").ok();
+    tier_from(named.as_deref(), profile.as_deref())
+}
+
+/// [`tier`] from the two names it reads, so that its fallback is testable
+/// without changing the process environment that other tests see.
+fn tier_from(named: Option<&str>, profile: Option<&str>) -> Tier {
+    if let Some(name) = named {
+        return match name {
+            "" | "daily" => Tier::Daily,
+            "lane" => Tier::Lane,
+            "merge" => Tier::Merge,
+            "full" => Tier::Full,
+            other => panic!("STITCHWORT_TIER={other}: expected lane, merge, daily or full"),
+        };
+    }
+    match profile {
+        None | Some("" | "default" | "daily") => Tier::Daily,
+        Some("merge") => Tier::Merge,
+        Some("full") => Tier::Full,
+        Some(name) if name == "lane" || name.starts_with("lane-") => Tier::Lane,
+        Some(other) => {
+            panic!("NEXTEST_PROFILE={other}: expected default, lane-AREA, merge, daily or full")
+        }
     }
 }
 
@@ -1569,6 +1593,31 @@ impl Session {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_nextest_profile_names_the_tier_when_the_variable_does_not() {
+        assert_eq!(tier_from(None, Some("full")), Tier::Full);
+        assert_eq!(tier_from(None, Some("merge")), Tier::Merge);
+        assert_eq!(tier_from(None, Some("lane-syntax")), Tier::Lane);
+        assert_eq!(tier_from(None, Some("lane-search")), Tier::Lane);
+        assert_eq!(tier_from(None, Some("daily")), Tier::Daily);
+        assert_eq!(tier_from(None, Some("default")), Tier::Daily);
+        assert_eq!(tier_from(None, None), Tier::Daily);
+    }
+
+    #[test]
+    fn a_set_variable_wins_over_the_nextest_profile() {
+        assert_eq!(tier_from(Some("daily"), Some("full")), Tier::Daily);
+        assert_eq!(tier_from(Some(""), Some("full")), Tier::Daily);
+        assert_eq!(tier_from(Some("merge"), Some("full")), Tier::Merge);
+        assert_eq!(tier_from(Some("full"), Some("default")), Tier::Full);
+    }
+
+    #[test]
+    #[should_panic(expected = "NEXTEST_PROFILE=ful")]
+    fn an_unknown_nextest_profile_panics() {
+        tier_from(None, Some("ful"));
+    }
 
     #[test]
     fn a_part_keeps_the_brackets_the_parser_left_out_of_its_span() {
