@@ -1,5 +1,5 @@
 {
-  "next": 2927,
+  "next": 2932,
   "tickets": [
     {
       "id": 47,
@@ -2369,7 +2369,7 @@
     {
       "id": 1004,
       "title": "Goal printing: lifted match helpers (f.%match1) still print by internal name",
-      "status": "backlog",
+      "status": "next",
       "agent": "",
       "where": "",
       "labels": [
@@ -2378,7 +2378,7 @@
       "epic": "diagnostics",
       "body": "Left by SW-1000. No faithful source form found: writing the match out makes a different helper (the E-REFL in SW-980); folding back to the owner's call needs higher-order matching because not all the owner's parameters reach the helper (rules in 2021 day 14's expand). Not reproduced outside the AoC proofs. Also noted: Float display now prints Int comparisons of two Float.orderKeys as Float x < y, including hypotheses written in Int form for omega (trip-journal Proofs/Order.sw keys) - faithful, but hides the Int form.\n\n7 Nov: planned in docs/proposals/goal-printing-gaps.md (lanes SW-2151-SW-2155).",
       "created": "2026-11-01",
-      "updated": "2026-11-07",
+      "updated": "2026-11-11",
       "commits": []
     },
     {
@@ -31025,12 +31025,12 @@
     {
       "id": 2918,
       "title": "[Sonnet] Book chapters 0-2: check every quoted goal, message, hover and editor result against the real output; 2.1 says the Rock arm's goal is 'beats Rock Rock = False' but the Goals panel shows 'False = False' (Matt, 11 Nov 2026)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "docs-tutorials",
-      "body": "",
+      "body": "\nModel result: Sonnet, worked, 18 min (est. 60). 11 quotes fixed; findings filed.",
       "created": "2026-11-11",
       "updated": "2026-11-11",
       "commits": []
@@ -31131,6 +31131,71 @@
       "title": "[Sonnet] Split from a ? on a variable the enclosing arm already binds (a named pattern like theirs, or a _ column) nests a match; it should expand that arm in place, as splitting from the pattern does (Matt, 11 Nov 2026); covers SW-2886",
       "status": "doing",
       "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "editor-playground",
+      "body": "",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2927,
+      "title": "[Sonnet] Goals print as written with a dimmed 'computes to' line when the computed form differs, everywhere goals are shown (panel, hover, playground, check, goal, --json); 240-char cut, folded; no form switch (D3522; docs/proposals/goals-panel.md). After SW-1004",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "editor-playground",
+      "body": "D3522 (Matt, 11 Nov 2026): 'that sounds like a good solution, showing both.' Then update book 2.1 back to the as-written goal plus the computes-to line, guide 10-proofs.md:127, syntax.md:1659/1734.",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2928,
+      "title": "[Sonnet] Proof search offers theorems declared after the goal in the same file (otherSideSwaps is offered otherSideSwapsAgain, the book's own later answer; it would offer an exercise's solution once filled in); search only what precedes the goal (book SW-2918)",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "proof-search",
+      "body": "",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2929,
+      "title": "[Sonnet] A Bool used as a statement shows without its '= True': hypothesis h: beats mine theirs, hover on rockBeatsScissors shows beats Rock Scissors; show '= True' (or say it's a Bool fact) so a learner sees the statement (book SW-2918; with D3522)",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "diagnostics",
+      "body": "",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2930,
+      "title": "[DeepSeek] Goals panel: a cursor on the word rewrite shows only the goal; show the step (before, rule, after) there too, not only on the rule (book SW-2918)",
+      "status": "backlog",
+      "agent": "DeepSeek",
+      "where": "",
+      "labels": [],
+      "epic": "editor-playground",
+      "body": "",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2931,
+      "title": "[DeepSeek] LSP textDocument/definition on a std type (Bool) hung in a script driving stitchwort lsp; check F12 on Bool in VS Code and with a test (book SW-2918)",
+      "status": "backlog",
+      "agent": "DeepSeek",
       "where": "",
       "labels": [],
       "epic": "editor-playground",
