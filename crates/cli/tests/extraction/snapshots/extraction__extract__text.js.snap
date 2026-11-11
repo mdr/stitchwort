@@ -806,7 +806,6 @@ const $Std$dDecidable$dholds = (v1) => {
 };
 const $Std$dDecidable$dyes = { tag: "True" };
 const $Std$dDecidable$dno = { tag: "False" };
-const $Std$dDecidable$dmap = (v2) => v2;
 const $Std$dDecidable$delim$d$gmatch1 = (v2, v3, v4, v5) => {
   switch (v5.tag) {
     case "False": {
@@ -819,7 +818,6 @@ const $Std$dDecidable$delim$d$gmatch1 = (v2, v3, v4, v5) => {
   throw new Error("unreachable");
 };
 const $Std$dDecidable$delim = (v2, v3, v4) => $Std$dDecidable$delim$d$gmatch1(v2, v3, v4, v2);
-const $Std$dNat$ddecEq = $Std$dNat$dequal;
 const $Std$dBool$ddecEq = (v0, v1) => {
   switch (v0.tag) {
     case "False": {
@@ -858,7 +856,6 @@ const $Std$dChar$dtoNat = (v0) => {
   throw new Error("unreachable");
 };
 const $Std$dChar$dfromNat = (v0) => ($Std$dBool$ddecEq($Std$dChar$disScalar(v0), { tag: "True" }).tag === "True" ? { tag: "Some", value: { tag: "MkChar", code: v0 } } : { tag: "None" });
-const $Std$dChar$ddecEqFrom = (v0, v1, v2) => v2;
 const $Std$dChar$ddecEq = (v0, v1) => $Std$dNat$dequal($Std$dChar$dtoNat(v0), $Std$dChar$dtoNat(v1));
 const $Std$dText$dtoList = charsOfText;
 const $Std$dText$dfromList = textOfChars;
