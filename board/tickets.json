@@ -29528,9 +29528,9 @@
     {
       "id": 2804,
       "title": "Using unfinished proofs, stage 1: kernel assumption form for open goals, and docs/core.md (D3210) (docs/proposals/using-unfinished-proofs.md; D3504-D3507)",
-      "status": "next",
+      "status": "doing",
       "agent": "Opus",
-      "where": "",
+      "where": ".claude/worktrees/SW-2804",
       "labels": [],
       "epic": "syntax-language",
       "body": "",
