@@ -1,0 +1,124 @@
+---
+source: crates/cli/tests/server/goal_index.rs
+expression: json
+---
+[
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "x",
+          "type": "Nat"
+        },
+        {
+          "name": "rest",
+          "type": "List Nat"
+        },
+        {
+          "name": "flag",
+          "type": "Bool"
+        }
+      ],
+      "target": "x ≤ 3 ∧ (match flag with …)"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "x: Nat\nrest: List Nat\nflag: Bool\n⊢ x ≤ 3 ∧ (match flag with …)",
+        "range": [
+          12,
+          88,
+          12,
+          89
+        ]
+      }
+    ],
+    "message": "in `followsCons`",
+    "notes": [],
+    "range": [
+      12,
+      88,
+      12,
+      89
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "flag",
+          "type": "Bool"
+        },
+        {
+          "name": "n",
+          "type": "Nat"
+        }
+      ],
+      "target": "(match flag with …) ≤ n"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "flag: Bool\nn: Nat\n⊢ (match flag with …) ≤ n",
+        "range": [
+          15,
+          96,
+          15,
+          97
+        ]
+      }
+    ],
+    "message": "in `statementMatch`",
+    "notes": [],
+    "range": [
+      15,
+      96,
+      15,
+      97
+    ],
+    "severity": "goal"
+  },
+  {
+    "code": "GOAL",
+    "file": 0,
+    "goal": {
+      "hypotheses": [
+        {
+          "name": "a",
+          "type": "Nat"
+        },
+        {
+          "name": "b",
+          "type": "Nat"
+        }
+      ],
+      "target": "(match a, b with …) ≤ 2"
+    },
+    "labels": [
+      {
+        "file": 0,
+        "message": "a: Nat\nb: Nat\n⊢ (match a, b with …) ≤ 2",
+        "range": [
+          18,
+          104,
+          18,
+          105
+        ]
+      }
+    ],
+    "message": "in `pairMatch`",
+    "notes": [],
+    "range": [
+      18,
+      104,
+      18,
+      105
+    ],
+    "severity": "goal"
+  }
+]
