@@ -1,7 +1,7 @@
 # Software Foundations in Stitchwort
 
-A port of the first two chapters of *Software Foundations*, Volume 1:
-*Logical Foundations* (Basics and Induction), from the book's Rocq sources
+A port of the first three chapters of *Software Foundations*, Volume 1:
+*Logical Foundations* (Basics, Induction and Lists), from the book's Rocq sources
 to Stitchwort. The book's prose is kept as comments, its definitions and
 worked proofs are translated, and its exercises are stated but not solved.
 Copyright and licence: [LICENSE-SF](LICENSE-SF).
@@ -10,8 +10,9 @@ Copyright and licence: [LICENSE-SF](LICENSE-SF).
 |---|---|---|
 | Basics.v | `Sf.Lf.Basics` | `src/Sf/Lf/Basics/Basics.sw`, with the book's modules as namespaces beside it: `Playground`, `TuplePlayground`, `LateDays`; `NatPlayground` and `NatPlayground2` are `src/Sf/Lf/Nat.sw` (below); `Library.sw` proves the two library lemmas the chapter quotes |
 | Induction.v | `Sf.Lf.Induction` | `src/Sf/Lf/Induction/Induction.sw` |
+| Lists.v | `Sf.Lf.Lists` | `src/Sf/Lf/Lists/NatList.sw` first: the book's module `NatList`, which is most of the chapter (`Sf.Lf.Lists.NatList`); then `Lists.sw`, the Partial Maps section's `Id`; then `PartialMap.sw`, its module `PartialMap` |
 
-**The book's own numbers.** Basics and Induction work on the numbers of
+**The book's own numbers.** The chapters work on the numbers of
 `src/Sf/Lf/Nat.sw` (`Sf.Lf.Nat`): the type `Nat` with constructors `O` and
 `S`, and `plus`, `mult` and `minus`, as the book's `NatPlayground` and
 `NatPlayground2` define them, with no lemmas. Booleans, and the book's
@@ -27,6 +28,16 @@ they are), and the operators `+ * - <=` aren't available, so call `plus`,
 `mult`, `minus`, `leb` by name. The `LateDays` module (grades, and
 `lateDays: Nat` with `<`) still uses the library's `Nat`: its exercises
 are about the policy, not about numbers.
+
+**The book's own lists.** Lists defines `NatList` with constructors `Nil`
+and `Cons`, and `app`, `rev`, `length` and the rest, as the book does.
+Stitchwort's list syntax (`[1, 2, 3]`, `[x, ..l]`) and `++` always mean
+the library's `List`, so they don't apply to `NatList`: `app` is called by
+name, and a list of numbers is written `ofList [1, 2, 3]`, which converts
+a library list as `ofNat` converts a number. The library's list lemmas and
+automation don't reach `NatList`: of the chapter's exercises, `cases`
+proves only the two about pairs (`sndFstIsSwap`, `fstSwapIsSnd`), and
+`rfl` the tests of the functions you write, as the book intends.
 
 **Which exercises the library solves.** On the library's `Nat` (so not
 on the port's), measured by trying `rfl`, `omega`, `ring` and `cases` on
@@ -73,4 +84,7 @@ book's authors ask that solutions not be posted publicly, so please keep
 yours out of public repositories.
 
 What was easy and hard to port, and what Stitchwort could change, is in
-[docs/reviews/SW-2707-software-foundations-port.md](../docs/reviews/SW-2707-software-foundations-port.md).
+[docs/reviews/SW-2707-software-foundations-port.md](../docs/reviews/SW-2707-software-foundations-port.md)
+(Basics, Induction) and
+[docs/reviews/SW-2836-sf-lists.md](../docs/reviews/SW-2836-sf-lists.md)
+(Lists).

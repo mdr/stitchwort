@@ -29946,12 +29946,12 @@
     {
       "id": 2836,
       "title": "SF port: chapter Lists (Software Foundations LF) into sf/ as Sf.Lf.Lists: worked proofs ported, exercises as ? statements on the book's own nat/bool, friction notes (D3510, Matt, 11 Nov 2026)",
-      "status": "doing",
+      "status": "review",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-2836",
       "labels": [],
       "epic": "docs-tutorials",
-      "body": "Matt, 11 Nov 2026, D3510: yes, port the next chapter so it's ready when he works through Induction. Est. 3 h. Follows SW-2707 (Basics, Induction), SW-2762 (exercises as ?), SW-2763 (own nat).",
+      "body": "Matt, 11 Nov 2026, D3510: yes, port the next chapter so it's ready when he works through Induction. Est. 3 h. Follows SW-2707 (Basics, Induction), SW-2762 (exercises as ?), SW-2763 (own nat).\n\nProgress (11 Nov, lane, Opus): done in a742934c7. sf/src/Sf/Lf/Lists/: NatList.sw (the book's module NatList), Lists.sw (Id, eqbId), PartialMap.sw. 22 worked theorems (the book's 21 plus mylist1), 19 exercises as 48 `?` statements and 13 `?` functions, 1 test. `stitchwort check` in sf/ passes (~1.5 s, 138 open goals, 61 of them this chapter's); `stitchwort test` 12/12. All exercises solved in a scratch copy (not committed): every one first time; `cases` proves only the two pair exercises. README updated. Friction notes: docs/reviews/SW-2836-sf-lists.md (top: no list notation for the book's own list type, so `ofList [1, 2, 3]`, `Cons`, `app`, and goals print unary; constructor named like its type still E-AMBIGUOUS (`Id`); open `?` lemmas can't be used or found by search, which took 40 s here; five std list lemmas missing).\n",
       "created": "2026-11-11",
       "updated": "2026-11-11",
       "commits": []
