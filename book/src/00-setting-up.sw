@@ -145,8 +145,9 @@ theorem squareOfThree: square 3 = 9 := rfl
 -- - In a terminal, in the `book` folder, `stitchwort goal` lists every
 --   open goal of the whole book, and what relies on each.
 -- - `stitchwort check` checks the whole book. It passes while holes are
---   open, and ends by counting them ("12 goals open"), because this
---   project's `stitchwort.yaml` says `open-goals: warn`.
+--   open, and counts them ("11 goals open, allowed by `check:
+--   open-goals: warn`"), because this project's `stitchwort.yaml` says
+--   `open-goals: warn`.
 --
 -- A hole doesn't stop you going on: a later theorem can use an earlier one
 -- that is still `?`, and the editor carries on checking past it.

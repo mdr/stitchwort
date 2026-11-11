@@ -71,13 +71,16 @@ test "rock doesn't beat paper" := not (beats Rock Paper)
 test "nobody wins a draw" := not (beats Rock Rock)
 
 -- A test is some code that should come out `True`. Click "▶ Run tests"
--- above the first one: all five pass.
+-- above the first one: it runs every test in the file, the five here and
+-- the two in section 1.4, and the message says 7 passed.
 --
 -- Now break the program. In `beats`, change the arm `Paper, Rock => True`
 -- to `Paper, Scissors => True`, a slip anyone could make. The tests don't
--- turn red, because tests run only when you ask: click "▶ Run tests"
--- again, and "paper wraps rock" fails. (Two theorems further down do
--- turn red by themselves; section 1.6 is about those.) Put the arm back.
+-- turn red, because tests run only when you ask. Two theorems further down
+-- do turn red by themselves (section 1.6 is about those), and while they
+-- are red the tests can't run at all: click "▶ Run tests" and the message is
+-- the first error, "`rfl` can't prove this". Put the arm back and click
+-- again to see them pass.
 
 -- ## 1.4 Outcomes, and `if`
 --
@@ -147,7 +150,7 @@ theorem otherSideOfAWin: otherSide (play Paper Rock) = Lose := rfl
 -- `rockBeatsScissors` has no `=` at all. A `Bool` used as a statement means
 -- "this is `True`", so the statement is `beats Rock Scissors = True`, and
 -- `rfl` proves it by computing. Hover over `rockBeatsScissors` to see its
--- statement.
+-- statement, which the box writes as just `beats Rock Scissors`.
 --
 -- So far a theorem is no better than a test: it says something about
 -- one round. The point of theorems is that they can say something about
@@ -167,6 +170,8 @@ theorem otherSideOfAWin: otherSide (play Paper Rock) = Lose := rfl
 --     `beats m m` and `False` aren't equal
 --     Note 1: the left side is stuck on `m`: it can't compute further until
 --             `m` is known; a `match` on `m` (or `cases m`) splits it
+--     Note 2: `rfl` proves `a = b` only when both sides compute to the same
+--             value
 --
 -- The statement is true, but `rfl` can't see that. To compute `beats m m`,
 -- the checker has to pick an arm, and it can't pick one without knowing
@@ -182,8 +187,11 @@ theorem otherSideOfAWin: otherSide (play Paper Rock) = Lose := rfl
 --
 -- Hover over the `?`. As well as the goal, the box says
 --
---     this statement is false; a counterexample:
---       m = Rock
+--     Note: this statement is false; a counterexample:
+--             m = Rock
+--           `beats Rock m` is false:
+--             left:  False
+--             right: True
 --
 -- The checker tried the statement on moves, and found one that breaks it:
 -- rock doesn't beat rock. A counterexample like this is worth more than
@@ -196,10 +204,10 @@ theorem otherSideOfAWin: otherSide (play Paper Rock) = Lose := rfl
 -- Now one with a wrong program instead. Change the first arm of `play` to
 -- `if beats theirs mine then Win`, swapping the two moves.
 -- `paperLosesToScissors` and `otherSideOfAWin` turn red straight away;
--- hover over the first, and a note says the statement is false, because
--- `play Paper Scissors` is now `Win`. The tests catch the slip too, but
--- only when you run them. Put `play` back, and delete
--- `rockAlwaysWins`.
+-- hover over the first, and the notes say that `play Paper Scissors` now
+-- computes to `Win`, and that the statement is false. The tests would
+-- catch the slip too, but as in section 1.3 they don't run while theorems
+-- are red. Put `play` back, and delete `rockAlwaysWins`.
 --
 -- What you've seen:
 --
@@ -253,7 +261,7 @@ theorem fourStepsFromAmber: (Amber |> next |> next |> next |> next) = Amber := ?
 def implies (a: Bool) (b: Bool): Bool := ?
 
 -- Hint: a test of a function that is still `?` isn't run; `stitchwort test`
--- leaves it out until the function is written.
+-- lists it as skipped, naming the `?`, until the function is written.
 
 theorem trueImpliesFalse: implies True False = False := ?
 
