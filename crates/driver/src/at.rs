@@ -618,6 +618,25 @@ pub struct Context {
     pub locals: Vec<Local>,
 }
 
+impl Context {
+    /// The answer as the command line prints it: the names in scope, then
+    /// `⊢ goal` in a proof or `expected T` in a program.
+    pub fn render_text(&self) -> String {
+        let mut out = String::new();
+        for local in &self.locals {
+            match &local.value {
+                Some(value) => {
+                    out.push_str(&format!("  {}: {} := {value}\n", local.name, local.ty))
+                }
+                None => out.push_str(&format!("  {}: {}\n", local.name, local.ty)),
+            }
+        }
+        let label = if self.proof { "⊢" } else { "expected" };
+        out.push_str(&format!("  {label} {}\n", self.ty));
+        out
+    }
+}
+
 impl Session {
     fn probed(&self, text: &str) -> Option<Context> {
         let found = self.elab.take_probed_context()?;

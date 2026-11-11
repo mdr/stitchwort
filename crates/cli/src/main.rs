@@ -392,6 +392,25 @@ enum Command {
         #[command(flatten)]
         cache: CacheArgs,
     },
+    /// The goal at a point of a proof, and the names in scope there: `⊢
+    /// goal` in a proof, `expected T` in program code (docs/syntax.md, "The
+    /// goal at a point"). Exits with status 0 with an answer, 2 with none
+    /// there or for a bad argument, 1 if the file doesn't parse
+    Goal {
+        /// FILE:LINE[:COL], 1-based; without COL, the line's first
+        /// character that isn't a blank
+        #[arg(long, value_name = "FILE:LINE[:COL]")]
+        at: String,
+        /// The answer as a JSON object (docs/syntax.md, "The goal at a
+        /// point")
+        #[arg(long)]
+        json: bool,
+        /// The project folder, if not the nearest one above the file
+        #[arg(long)]
+        project: Option<PathBuf>,
+        #[command(flatten)]
+        cache: CacheArgs,
+    },
     /// What a declaration does: its header, doc, examples (tests and
     /// `…Example` theorems named after it) and theorems about it, or a
     /// namespace's docs and what it declares (docs/syntax.md, "Doc
@@ -853,6 +872,12 @@ fn run(cli: Cli) -> ExitCode {
             project,
             cache,
         } => axioms(&target, &names, project.as_deref(), &cache),
+        Command::Goal {
+            at,
+            json,
+            project,
+            cache,
+        } => goal_at(&at, project.as_deref(), json, &cache),
         Command::Search {
             query,
             file,
@@ -2487,6 +2512,194 @@ fn search_at(
     let result = session.search_at(&found, &name, options, &Scope::File, Some(&mut checking));
     discard(checking);
     finish_search_at(session, result, json, log, at, started)
+}
+
+/// Splits `FILE`, `FILE:LINE` or `FILE:LINE:COL` into the file and the
+/// numbers after it, in order.
+fn split_at_argument(at: &str) -> (&str, Vec<usize>) {
+    let mut path = at;
+    let mut numbers = Vec::new();
+    for _ in 0..2 {
+        match path.rsplit_once(':') {
+            Some((head, tail)) if tail.parse::<usize>().is_ok() => {
+                numbers.push(tail.parse::<usize>().expect("just parsed"));
+                path = head;
+            }
+            _ => break,
+        }
+    }
+    numbers.reverse();
+    (path, numbers)
+}
+
+/// `goal --at FILE:LINE[:COL]`: the goal and the names in scope at a point,
+/// found by checking the file with a probe there
+/// ([`stitchwort_driver::Session::context_at_text`], and
+/// `context_at_project` for a file of a project).
+fn goal_at(at: &str, project: Option<&Path>, json: bool, cache: &CacheArgs) -> ExitCode {
+    let fail = |code: &str, message: String, status: u8| {
+        if json {
+            println!(
+                "{}",
+                serde_json::json!({"version": 1, "error": {"code": code, "message": message}})
+            );
+        }
+        eprintln!("error: {message}");
+        ExitCode::from(status)
+    };
+    let (path, numbers) = split_at_argument(at);
+    let (line, column) = match numbers[..] {
+        [line] => (line, None),
+        [line, column] => (line, Some(column)),
+        _ => {
+            return fail(
+                "E-GOAL-AT",
+                "--at takes FILE:LINE or FILE:LINE:COL".into(),
+                2,
+            );
+        }
+    };
+    if line == 0 || column == Some(0) {
+        return fail("E-GOAL-AT", "lines and columns count from 1".into(), 2);
+    }
+    let path = Path::new(path);
+    let text = match std::fs::read_to_string(path) {
+        Ok(text) => text,
+        Err(err) => {
+            return fail(
+                "E-GOAL-AT",
+                format!("can't read {}: {err}", path.display()),
+                2,
+            );
+        }
+    };
+    let Some(line_text) = text.split('\n').nth(line - 1) else {
+        return fail(
+            "E-GOAL-AT",
+            format!("{} has no line {line}", path.display()),
+            2,
+        );
+    };
+    let line_text = line_text.strip_suffix('\r').unwrap_or(line_text);
+    // The column as the answer reports it (1-based, in characters), and the
+    // protocol's (0-based, in UTF-16 units) for the probe.
+    let column = match column {
+        Some(column) => column,
+        None => match line_text.chars().position(|c| !c.is_whitespace()) {
+            Some(i) => i + 1,
+            None => return no_goal(path, line, 1, json),
+        },
+    };
+    let character: u32 = (line_text.chars().take(column - 1))
+        .map(|c| c.len_utf16() as u32)
+        .sum();
+    // A file that doesn't parse has no answer to give; say why.
+    let mut sources = SourceMap::new();
+    let id = sources.add(path.display().to_string(), text.clone());
+    if let Err(diagnostics) = stitchwort_syntax::parse_module(id, &text) {
+        report(&sources, &diagnostics);
+        if json {
+            println!(
+                "{}",
+                serde_json::json!({"version": 1, "error": {
+                    "code": "E-GOAL-AT-PARSE",
+                    "message": format!("{} doesn't parse", path.display()),
+                }})
+            );
+        }
+        return ExitCode::from(1);
+    }
+    let name = path.display().to_string();
+    let mut session = new_session(false);
+    let found = match project_of_file(path, project) {
+        Ok(Some((dir, relative))) => {
+            let cache_dir = cache_dir(cache, &dir);
+            let files = DiskFiles { root: dir.clone() };
+            session.context_at_project(
+                &project_name(&dir),
+                &files,
+                &relative,
+                cache_dir.as_deref(),
+                (line - 1) as u32,
+                character,
+            )
+        }
+        Ok(None) => {
+            use_cache(&mut session, cache, Path::new("."));
+            let folder = path
+                .parent()
+                .filter(|p| !p.as_os_str().is_empty())
+                .unwrap_or(Path::new("."));
+            if let Some(file) = path.file_name().and_then(|n| n.to_str()) {
+                session.include_in_folder(
+                    std::rc::Rc::new(DiskFiles {
+                        root: folder.to_path_buf(),
+                    }),
+                    file,
+                );
+            }
+            session.context_at_text(&name, &text, (line - 1) as u32, character)
+        }
+        Err(message) => return fail("E-GOAL-AT", message, 2),
+    };
+    let Some(context) = found else {
+        return no_goal(path, line, column, json);
+    };
+    if json {
+        println!(
+            "{}",
+            serde_json::to_string(&goal_json(&name, line, column, &context))
+                .expect("an answer serialises")
+        );
+    } else {
+        println!("{name}:{line}:{column}");
+        print!("{}", context.render_text());
+    }
+    ExitCode::SUCCESS
+}
+
+/// `goal --at --json`'s answer: version 1; `at` (`file`, `line`, `column`,
+/// 1-based); `context`: `kind` (`proof` or `program`), `target` (the goal,
+/// or the expected type), `checked` (whether `target` is what the
+/// expression was checked against rather than a type found for it), `range`
+/// (the expression: 1-based `line`, `column`, `endLine`, `endColumn`; columns
+/// in UTF-16 units) and `locals` (`name`, `type`, `value?`).
+fn goal_json(
+    file: &str,
+    line: usize,
+    column: usize,
+    context: &stitchwort_driver::at::Context,
+) -> serde_json::Value {
+    let [l1, c1, l2, c2] = context.range;
+    serde_json::json!({
+        "version": 1,
+        "at": {"file": file, "line": line, "column": column},
+        "context": {
+            "kind": if context.proof { "proof" } else { "program" },
+            "target": context.ty,
+            "checked": context.checked,
+            "range": {"line": l1 + 1, "column": c1 + 1, "endLine": l2 + 1, "endColumn": c2 + 1},
+            "locals": context.locals,
+        },
+    })
+}
+
+/// Nothing was checked at the point (a comment, a signature, between
+/// declarations): status 2, with `"context": null` in JSON.
+fn no_goal(path: &Path, line: usize, column: usize, json: bool) -> ExitCode {
+    let name = path.display();
+    if json {
+        println!(
+            "{}",
+            serde_json::json!({
+                "version": 1,
+                "at": {"file": name.to_string(), "line": line, "column": column},
+                "context": null,
+            })
+        );
+    }
+    eprintln!("no goal at {name}:{line}:{column}: nothing was checked there");
+    ExitCode::from(2)
 }
 
 /// The project that file `path` is a source file of: `--project`'s, or the

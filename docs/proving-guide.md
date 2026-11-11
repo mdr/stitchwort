@@ -555,6 +555,15 @@ Aoc.Year2024.Day06` lists a namespace's declarations with their summaries.
 search '"filterMap"'` ranks the declaration with that name first, then the
 theorems that merely contain it.
 
+**See the goal at any point with `stitchwort goal --at FILE:LINE[:COL]`.**
+You don't need a `?` there: it prints the names in scope and `⊢` the goal at
+that point of a finished or half-written proof (`expected T` in program
+code), so you can follow a `rewrite` chain or a `match` arm without editing
+the file. `--json` gives the same for a script. Exit 2 means nothing was
+checked there (a comment, a signature); a file of a project is read in the
+project from any folder, taking about as long as `check` of the file
+([syntax.md](syntax.md#the-goal-at-a-point-stitchwort-goal---at)).
+
 **At a `?`, run `stitchwort search --at FILE:LINE` before writing a proof by
 hand.** It lists the lemmas that close the goal there, as proofs to paste,
 each checked by the kernel (`exact`, `withHypotheses`, `afterObligations`),
