@@ -30065,15 +30065,17 @@
     {
       "id": 2845,
       "title": "SF port: chapter Poly (Software Foundations LF) into sf/ as Sf.Lf.Poly: the book's own polymorphic list (D3512, Matt, 11 Nov 2026: our own list, not std's), worked proofs ported, exercises as ? statements, friction notes",
-      "status": "doing",
+      "status": "review",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-2845",
       "labels": [],
       "epic": "docs-tutorials",
-      "body": "",
+      "body": "Estimate: 3 h (brief). Started 14:01, done 14:20 (about 20 min).\n\nProgress (11 Nov 2026, Opus lane): Poly.v ported whole to sf/src/Sf/Lf/Poly/ (Poly.sw, MumbleGrumble.sw, OptionPlayground.sw, Exercises.sw, Church.sw; 930 lines) on the book's own `List a` and `Prod a b` (D3512), options the library's. 34 of 34 worked theorems proved (plus `list123Same`), 20 exercises stated as 29 statements and 11 functions with `?`. `stitchwort check` in sf/ passes, 178 goals open (40 Poly's), 1.6 s; `stitchwort test` 12/12. All 40 goals solved in a scratch copy, first time (nothing committed); `cases` proves none. README updated. Friction notes: docs/reviews/SW-2845-sf-poly.md (top: list notation now nested; constructors' type parameters can't be given explicitly or by name; `repl`/`eval` don't load a project, so the earlier chapters' `:t` advice is broken; proofs computing through an unfinished `?` pass silently, even contradictory ones).\n",
       "created": "2026-11-11",
       "updated": "2026-11-11",
-      "commits": []
+      "commits": [
+        "665a735a9"
+      ]
     }
   ]
 }
