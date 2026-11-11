@@ -1,5 +1,5 @@
 {
-  "next": 2747,
+  "next": 2748,
   "tickets": [
     {
       "id": 47,
@@ -28590,15 +28590,17 @@
     {
       "id": 2732,
       "title": "Elaboration stack use is fragile: List.foldMinByFirst went 3.6 KB over the debug build's 1.5 MiB budget after only moving binders before the colon (SW-2731); measure stack per frame in check/elab of nested constructor arguments, and whether debug-only builtins tests should run with_stack",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": ".claude/worktrees/scratch-sw-2732",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "From SW-2731 (10 Nov 2026). A lambda nested in three constructor arguments; a let fixed it. Investigate in lanes mode (Sonnet or Opus).",
+      "body": "From SW-2731 (10 Nov 2026).\nDone 11 Nov (DeepSeek): docs/reviews/SW-2732-elaboration-stack.md. The 1.5 MiB that bit was four builtins tests (hidden_session) checking all of std on Session::new()'s default guard, unlike the other whole-library tests (16 MiB). They now use STACK. Debug frames are 7.8-9.3x release per nesting level, so the old guard was ~190 KiB in release terms: a false positive, not a release risk.\nModel result: DeepSeek, worked, 49 min (est. 60).",
       "created": "2026-11-10",
       "updated": "2026-11-11",
-      "commits": []
+      "commits": [
+        "a899767b0"
+      ]
     },
     {
       "id": 2733,
@@ -28788,6 +28790,19 @@
       "body": "D3480; D3483 (Matt, 10 Nov 2026): the field is `holds`; D3484: remove the Nat.decEq native (keep Nat.equalRefl/equalSound until stage 5 measures); D3485: drop Yes/No as patterns (Decidable.yes/.no stay as functions); D3491 (Matt, 10 Nov 2026): run tonight on Opus as a second exception to compute mode (pace 1.01).\n\nPlan: docs/proposals/decidable-record.md §8 stage 2, plus the ~230 dependent Yes/No splits stage 1 left (std ~105, aoc ~102, rogue ~11, examples ~10), since the flip removes the constructors. Stage-1 helper `Decidable.does` becomes the field `holds`. Also SW-2742 (check 2020 Day04 part2Correct and 2024 Day04 Part1:66 with --no-cache) and SW-2743 (Decidable.yes rfl keeps E-REFL) if cheap. Opus. Est. 7 h (5 h flip + 2 h splits).\n\n\nProgress (22:37, 10 Nov): type flipped and std checks (audit Std: 3135 passed), commit 3c2bc37bf. Decidable is the record; Nat.decEq is a literal over Nat.equal; DecEqNat/NatNeq/FloatBitsExt/FloatBitsNe natives and pins gone; Float.decEq/neg/abs/sub repinned (Decidable's hash cascades through their omega proofs). Unifier: two projections of the same field now unify their record type's parameters first (the implicit `p` that `Decidable.holds [p] d` carried and `Proj` drops). omega reads `Nat.equal x y` goals as `Nat.decEq`'s test. A few std proofs where `==` on pairs/lists now computes to `&&` of component tests give `DecEq.sound [x := …] [y := …]`.\n",
       "created": "2026-11-10",
       "updated": "2026-11-10",
+      "commits": []
+    },
+    {
+      "id": 2747,
+      "title": "Elaborator frames are large: one level of nested application costs ~13.6 KB of stack in release (~106 KB debug), 11 Rust frames (check → check_inner → check_value → fallback_named → propagate → apply_args_with → apply_args_postponing → check_arg → queue::framed → check); constructors ~6 KB. Find the big locals (stack-size per fn) and box or split them",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "From SW-2732 (11 Nov 2026), docs/reviews/SW-2732-elaboration-stack.md: CLI limit at 48 MiB is ~3,700 nested applications in release, ~475 in debug.",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
       "commits": []
     }
   ]
