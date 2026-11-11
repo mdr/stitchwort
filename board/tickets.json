@@ -30054,12 +30054,12 @@
     {
       "id": 2844,
       "title": "Std: Nat.zeroAdd (0 + n = n) and Nat.succAdd (S m + n = S (m + n)) in Nat/Arith.sw (addition recurses on the right, so these need induction) (SW-2838)",
-      "status": "doing",
+      "status": "review",
       "agent": "DeepSeek",
       "where": ".claude/worktrees/scratch-sw-2844",
       "labels": [],
       "epic": "std-library",
-      "body": "",
+      "body": "\nProgress (DeepSeek, 11 Nov 2026): std's Nat.add recurses on its first argument (core/Data.sw), so both lemmas are the defining equations, proved by rfl; added as named Nat forms for search (Add.zeroAdd is the interface field). Statements checked by the orchestrator. Prelude snapshot: two new lines; pins unchanged. Model result: DeepSeek, worked, ~15 min (est. 30).",
       "created": "2026-11-11",
       "updated": "2026-11-11",
       "commits": []
@@ -30343,9 +30343,9 @@
     {
       "id": 2866,
       "title": "search_at, doc and counterexample still use the name-only is_generated_name, so they treat .unfold and other span-detected generated lemmas (type induct/size/accessors/ext) as written; move them to SW-2856's Generated. Also document that types never appear in 'relied on by' or the rely counts (SW-2856)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "DeepSeek",
-      "where": "",
+      "where": ".claude/worktrees/scratch-sw-2866",
       "labels": [],
       "epic": "proof-automation",
       "body": "",
