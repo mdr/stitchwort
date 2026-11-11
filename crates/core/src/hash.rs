@@ -165,6 +165,23 @@ fn def_hash_in(g: &Ev, id: DefId, mode: Mode) -> Result<Option<ContentHash>> {
         mode.cache(g).borrow_mut().insert(HashKey::Def(id), hash);
         return Ok(Some(hash));
     }
+    if def.state == State::Final
+        && let Some(label) = def.assumption()
+    {
+        // An open goal's assumption has no body: it's its label and type,
+        // the same with or without proofs. The label is the one place a
+        // name is hashed, so two `?`s with the same goal stay distinct and
+        // filling one changes every user's hash (docs/core.md "Assumptions
+        // (open goals)").
+        let mut h = Hasher::new(g, Itself::Def(id), mode);
+        h.tag("assume");
+        h.str(&label.owner);
+        h.usize(label.hole as usize);
+        h.term(&def.ty)?;
+        let hash = h.finish();
+        mode.cache(g).borrow_mut().insert(HashKey::Def(id), hash);
+        return Ok(Some(hash));
+    }
     let (State::Final, Some(_)) = (def.state, def.body.as_ref()) else {
         return Ok(None);
     };

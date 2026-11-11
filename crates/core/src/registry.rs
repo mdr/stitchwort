@@ -751,7 +751,7 @@ pub fn bind_data(g: &mut Kernel, d: DataId) -> Option<Builtin> {
 pub fn bind_def(g: &mut Kernel, id: DefId) -> Option<Builtin> {
     in_kernel_modes(g, |g| {
         let def = g.def(id);
-        if def.state != State::Final {
+        if def.state != State::Final || def.assumption().is_some() {
             return None;
         }
         let b = unbound(&g.ev(), &def.name, |k| k == Kind::Def)?;

@@ -1500,6 +1500,7 @@ fn quick(g: &Ev, term: &Rc<Term>, env: &Env) -> Option<Value> {
             let def = g.def(*id);
             match body_seen(g, *id) {
                 Some(_) if def.arity == 0 && !folds(g, *id) => None,
+                None if def.assumption.is_some() && erases_result(g, *id) => Some(erased()),
                 _ => Some(Value::Neutral(Head::Def(*id), Spine::new())),
             }
         }
@@ -1517,6 +1518,11 @@ fn eval_step(g: &Ev, term: Rc<Term>, env: Env, stack: &mut Vec<Frame>) -> Result
             let def = g.def(*id);
             match body_seen(g, *id) {
                 Some(_) if def.arity == 0 && erases_result(g, *id) => Control::Return(erased()),
+                // An open goal's assumption that is a proof (or a type) is
+                // erased like a theorem; one that is data stays neutral.
+                None if def.assumption.is_some() && erases_result(g, *id) => {
+                    Control::Return(erased())
+                }
                 // While gluing, a constant written in the source, or a
                 // parameter default's helper, is kept as a call with no
                 // arguments: read back by name, unfolded when forced. Other
@@ -2808,11 +2814,12 @@ pub fn unfold_folded(g: &Ev, value: &Value) -> Result<Option<Value>> {
     }
 }
 
-/// Whether, while erasing, definition `id` (with a body) applied to all its
-/// parameters is erased rather than run (`erase.rs`).
+/// Whether, while erasing, definition `id` (with a body, or an open goal's
+/// assumption) applied to all its parameters is erased rather than run
+/// (`erase.rs`).
 fn erases_result(g: &Ev, id: DefId) -> bool {
     g.machine.erasure.active()
-        && g.def(id).body.is_some()
+        && (g.def(id).body.is_some() || g.def(id).assumption.is_some())
         && erase::of_def(g, id).is_some_and(|e| e.result)
 }
 

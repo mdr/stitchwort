@@ -2374,9 +2374,64 @@ fn push_def(
         run_body: None,
         param_default: false,
         tailrec: false,
+        assumption: None,
         span,
     });
     Ok(DefId(g.env.defs().len() - 1))
+}
+
+/// Adds an open goal's **assumption** (docs/core.md "Assumptions (open
+/// goals)"; docs/proposals/using-unfinished-proofs.md, option A): a constant
+/// of type `ty` with no body, final at once, standing for the `?` that
+/// `label` names. `span` is where the `?` is.
+///
+/// `ty` is checked to be a type (in any universe) that refers only to final
+/// declarations: a pending one is `E-MALFORMED` (so the goal of a `?` that
+/// mentions its own group can't be assumed), and a failed one is
+/// `E-FAILED-DEPENDENCY` here, since there's no later step to find it. On
+/// any refusal nothing is added.
+///
+/// The constant never unfolds, so it's a neutral head wherever it's used:
+/// a premise, like `Quot.sound`, not a rule. Nothing can give it a body
+/// afterwards (it isn't pending), a run body ([`set_run_body`]) or a
+/// native. Which declarations rely on assumptions is read off their checked
+/// terms ([`crate::assumption::relied_on`]); the kernel itself keeps no
+/// record of it.
+pub fn assume(
+    g: &mut Kernel,
+    name: &Name,
+    path: &Name,
+    ty: &Term,
+    label: crate::globals::Assumption,
+    span: Span,
+) -> Result<DefId> {
+    in_kernel_modes(g, |g| {
+        // A type is checked with every opaque definition hidden.
+        let _set = g.machine.transparent.set(Rc::default());
+        let ev = g.ev();
+        let mut cx = Ctx::new(&ev, span);
+        if !case_only_in_tree(ty, false) {
+            return Err(malformed(
+                &cx,
+                "`case` may only appear at the top of a definition",
+            ));
+        }
+        if let Some(dep) = admissible(&cx, [ty], None)? {
+            return Err(failed_dependency(&cx, name, &dep));
+        }
+        // Glued, as `declare_def` checks a signature; the kept value is
+        // made unglued by `push_def`.
+        let was = g.machine.glue.replace(true);
+        let checked = check_type(&mut cx, ty);
+        g.machine.glue.set(was);
+        let (ty, _) = checked?;
+        let id = push_def(g, name, path, ty, false, false, span)?;
+        let def = &mut g.env.defs_mut()[id.0];
+        def.assumption = Some(Rc::new(label));
+        def.recursive = false;
+        def.state = State::Final;
+        Ok(id)
+    })
 }
 
 /// Gives pending definition `id` the type `ty` instead of the one it was
@@ -2456,6 +2511,11 @@ fn run_body_shape(g: &Ev, id: DefId, body: &Term) -> Result<()> {
             &cx,
             "a run body for a definition that isn't final",
         ));
+    }
+    // An assumption has nothing to run: a run body would be an unhashed
+    // filling of its goal.
+    if def.assumption.is_some() {
+        return Err(malformed(&cx, "a run body for an open goal's assumption"));
     }
     if def.run_body.is_some() || body.count_lams() != def.arity {
         return Err(malformed(
