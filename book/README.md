@@ -30,7 +30,7 @@ To see which exercises are still open, from this folder:
 
 ```
 stitchwort goal     # every open `?`, and what relies on it
-stitchwort check    # checks the book; ends with "N goals open"
+stitchwort check    # checks the book; says "N goals open, allowed by ..."
 stitchwort test     # runs the chapters' tests
 ```
 

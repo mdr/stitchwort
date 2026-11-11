@@ -42,12 +42,15 @@ import Book.Computing (Move, beats, Outcome, play, otherSide)
 -- cursor from one `?` to the next and watch the Goals panel. In the first
 -- arm it shows
 --
---     ⊢ beats Rock Rock = False
+--     ⊢ False = False
 --
--- Inside the arm for `Rock`, the checker knows that `m` is `Rock`, so the
--- goal says `Rock` where it said `m`, and `beats Rock Rock` can compute.
--- Each arm is now a goal `rfl` proves. Replace each `?` with `rfl`, and
--- you have the proof back:
+-- Inside the arm for `Rock`, the checker knows that `m` is `Rock`, so
+-- `beats m m` is `beats Rock Rock`, and that can compute: the first three
+-- arms of `beats` don't fit, the last one does, and the answer is `False`.
+-- The panel shows the goal after that computing, so it no longer says
+-- `beats`. The other two arms show `False = False` as well. Each arm is now
+-- a goal `rfl` proves, since both sides are the same. Replace each `?`
+-- with `rfl`, and you have the proof back:
 
 theorem noSelfWin (m: Move): beats m m = False :=
   match m with
@@ -182,14 +185,15 @@ theorem beatsMeansWin (mine: Move) (theirs: Move) (h: beats mine theirs): play m
   rewrite h
 
 -- `h` is the equation `beats mine theirs = True` (a `Bool` as a statement
--- means it is `True`). `rewrite h` finds `beats mine theirs` in the goal,
+-- means it is `True`; the Goals panel writes it as `h: beats mine theirs`). `rewrite h` finds `beats mine theirs` in the goal,
 -- once `play` is computed, and replaces it with `True`. That leaves `if
 -- True then Win else ...`, which computes to `Win`, and `rewrite` finishes
 -- with `rfl` by itself. No cases at all: the proof follows `play`'s `if`
 -- instead of the moves.
 --
--- Put the cursor on `rewrite` with the Goals panel open: it shows the goal
--- before and after the rewrite.
+-- Put the cursor on the `h` after `rewrite`, with the Goals panel open: it
+-- shows the goal before the rewrite (`play mine theirs = Win`), the rule
+-- (`beats mine theirs`) and the goal after it (`Win = Win`).
 --
 -- Sometimes a hypothesis rules a case out. Rock beats only scissors:
 
@@ -227,9 +231,10 @@ theorem rockBeatsOnlyScissorsAgain (theirs: Move) (h: beats Rock theirs): theirs
   cases
 
 -- Try replacing the proofs of `noSelfWin` and `otherSideTwice` with
--- `cases` too. On a `?`, Cmd-. also offers "Search for a proof", which
--- looks for a proof that closes the goal and offers it, already checked;
--- for goals like these it finds `cases`.
+-- `cases` too. On a `?`, Cmd-. also offers "Search for a proof" (after the
+-- split actions), which looks for proofs that close the goal and lists
+-- them, best first, each already checked; for goals like these the first is
+-- `cases`.
 --
 -- When to use which:
 --
