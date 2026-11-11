@@ -16,6 +16,13 @@ native Std.Nat.equal = %Nat.equal/2
 fn Std.Decidable.holds(v0) {1 slots} = v0
 const Std.Decidable.yes {0 slots} = True
 const Std.Decidable.no {0 slots} = False
+fn Std.Decidable.elim(v0, v1, v2) {3 slots} = Std.Decidable.elim.%match1(v0, v1, v2, v0)
+fn Std.Decidable.elim.%match1(v0, v1, v2, v3) {4 slots} =
+  if v3 then
+    apply v1(erased)
+  else
+    apply v2(erased)
+fn Std.Bool.decTrue(v0) {1 slots} = v0
 fn Std.Nat.decEq(v0, v1) {2 slots} = %Nat.equal(v0, v1)
 fn Std.Decidable.not(v0) {1 slots} =
   if v0 then
@@ -49,6 +56,11 @@ fn Std.Ordering.decEq(v0, v1) {2 slots} =
         Greater => Std.Decidable.yes
       }
   }
+fn Std.Decidable.andThen(v0, v1) {2 slots} =
+  if v0 then
+    apply v1(erased)
+  else
+    False
 native Std.Text.decEq = %DecEqText/2
 native Std.Text.compare = %TextCompare/2
 native Std.Int.add = %IntAdd/2
@@ -92,13 +104,13 @@ fn Std.Ord.fromCompare(v0, v1) {2 slots} =
           True
     })
 const Std.Text.instOrd {0 slots} =
-  %mk(Std.Text.instDecEq, Std.Text.compare, λ5(v0, v1) {3 slots} =>
+  %mk(Std.Text.instDecEq, Std.Text.compare, λ8(v0, v1) {3 slots} =>
     let v2 = %TextCompare(v0, v1)
     match v2: Ordering {
       Less => Std.Decidable.yes
       Equal => Std.Decidable.no
       Greater => Std.Decidable.no
-    }, λ6(v0, v1) {3 slots} =>
+    }, λ9(v0, v1) {3 slots} =>
     let v2 = %TextCompare(v0, v1)
     match v2: Ordering {
       Less =>
@@ -137,7 +149,7 @@ fn Main.main(v0) {3 slots} =
     let v2 = Std.List.map[empty][0](v1)
     Done(%TextJoin(v2, MkChar(32)))
   }, λ3(v0) {1 slots} =>
-    Call(L(%print(v0)), done-k)), λ4(v0) {2 slots} =>
+    Call(L(%print(v0)), done-k)), λ7(v0) {2 slots} =>
     let v1 = {
       if {
         let v1 = %TextLength("abc")
@@ -198,7 +210,7 @@ entry {2 slots} =
       let v1 = Std.List.map[empty][0](v0)
       Done(%TextJoin(v1, MkChar(32)))
     }, λ3(v0) {1 slots} =>
-      Call(L(%print(v0)), done-k)), λ4(v0) {2 slots} =>
+      Call(L(%print(v0)), done-k)), λ7(v0) {2 slots} =>
       let v1 = {
         if {
           let v1 = %TextLength("abc")

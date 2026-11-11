@@ -10,20 +10,21 @@ fn Std.Bool.ifThenElse(v0, v1, v2) {3 slots} =
 native Std.Nat.leq = %Nat.leq/2
 native Std.Nat.equal = %Nat.equal/2
 fn Std.Decidable.holds(v0) {1 slots} = v0
-fn Std.Decidable.map(v0) {1 slots} = v0
 fn Std.Nat.decEq(v0, v1) {2 slots} = %Nat.equal(v0, v1)
 fn Std.Char.toNat(v0) {2 slots} =
   match v0: Char {
     MkChar(code: v1) => v1
   }
-fn Std.Char.decEqFrom(v0, v1, v2) {3 slots} = v2
-fn Std.Char.decEq(v0, v1) {4 slots} =
-  match v0: Char {
-    MkChar(code: v2) =>
-      match v1: Char {
-        MkChar(code: v3) => %Nat.equal(v2, v3)
-      }
-  }
+fn Std.Char.decEq(v0, v1) {3 slots} =
+  %Nat.equal({
+    match v0: Char {
+      MkChar(code: v2) => v2
+    }
+  }, {
+    match v1: Char {
+      MkChar(code: v2) => v2
+    }
+  })
 native Std.Text.decEq = %DecEqText/2
 native Std.Int.decEq = %DecEqInt/2
 native Std.Int.less = %IntLess/2
@@ -38,13 +39,16 @@ fn Main.ints(v0, v1) {2 slots} =
     True
   else
     %IntLess(v0, v1)
-fn Main.chars(v0, v1) {4 slots} =
-  match v0: Char {
-    MkChar(code: v2) =>
-      match v1: Char {
-        MkChar(code: v3) => %Nat.equal(v2, v3)
-      }
-  }
+fn Main.chars(v0, v1) {3 slots} =
+  %Nat.equal({
+    match v0: Char {
+      MkChar(code: v2) => v2
+    }
+  }, {
+    match v1: Char {
+      MkChar(code: v2) => v2
+    }
+  })
 fn Main.texts(v0, v1) {2 slots} = %TextEqual(v0, v1)
 fn Main.main(v0) {1 slots} =
   if %IntEqual(int(3), int(-4)) then
