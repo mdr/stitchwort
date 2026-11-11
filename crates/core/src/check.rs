@@ -615,7 +615,9 @@ fn check_let_value(
     Ok((x.clone(), Rc::new(ty), value, erased))
 }
 
-/// The universe that `ty` lives in.
+/// The universe that `ty` lives in. `ty` must be well typed in `cx`: the
+/// arms for equations, data types and applied variables answer without
+/// looking at its arguments.
 pub(crate) fn sort_of(cx: &mut Ctx, ty: &Value) -> Result<Sort> {
     match &*force_ref(&cx.g, ty)? {
         Value::Sort(s) => return universe_above(cx, *s),
