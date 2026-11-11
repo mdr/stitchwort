@@ -31337,7 +31337,7 @@
     {
       "id": 2942,
       "title": "[DeepSeek] Goals panel on a middle calc line (_ = … := rewrite h in rfl) shows the chain's overall end as 'line ⊢ … = Win', not the step's own statement (… = (if True …)); first and last lines are right (SW-2933, book 02-cases.sw:191:7)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "DeepSeek",
       "where": "",
       "labels": [],
