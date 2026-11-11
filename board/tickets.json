@@ -30607,7 +30607,7 @@
     {
       "id": 2886,
       "title": "[Sonnet] Split from a ?: a _ column can't be split again (the action nests a match c instead of expanding the _ into the constructors) (SW-2885)",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
@@ -31129,12 +31129,12 @@
     {
       "id": 2926,
       "title": "[Sonnet] Split from a ? on a variable the enclosing arm already binds (a named pattern like theirs, or a _ column) nests a match; it should expand that arm in place, as splitting from the pattern does (Matt, 11 Nov 2026); covers SW-2886",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "editor-playground",
-      "body": "",
+      "body": "\nBrowser 87/87, lsp split tests 6/6. Model result: Sonnet, worked, 15 min (est. 60).",
       "created": "2026-11-11",
       "updated": "2026-11-11",
       "commits": []
@@ -31181,7 +31181,7 @@
     {
       "id": 2930,
       "title": "[DeepSeek] Goals panel: a cursor on the word rewrite shows only the goal; show the step (before, rule, after) there too, not only on the rule (book SW-2918)",
-      "status": "review",
+      "status": "done",
       "agent": "DeepSeek",
       "where": "",
       "labels": [],
