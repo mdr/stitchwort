@@ -1310,12 +1310,81 @@ theorem twice (x y: Nat): x + (two 0 + (y + two 0)) = x + (y + 4) := rfl
 
 theorem matched (x y: Nat): isPos (x + (y + two 0)) = 1 := rfl
 
+def small (n: Nat): Nat :=
+  match n with
+    | 0 => 10
+    | 1 => 11
+    | _ => 12
+
+-- Numeral arms: a `NumCase`, which reads the sum for its `Succ`s.
+theorem numberMatched (x y: Nat): small (x + (y + two 0)) = 12 := rfl
+
 theorem nestedInt (x y: Nat): (x + (y + two 0)).toInt = x.toInt + y.toInt + 2 := rfl
 "#;
 
 #[test]
 fn probe_g2_nested_sum_with_a_folded_number() {
     load_probe("g2-nested.sw", NESTED_SUM);
+}
+
+/// Loads `NESTED_SUM` with `extra` after it: what the load said, and how
+/// many steps it took.
+fn load_nested(extra: &str) -> (Result<(), String>, u64) {
+    let mut session = Session::eager();
+    let before = session.elab.ev().machine.budget.total_work();
+    let result = session
+        .load("nested.sw", &format!("{NESTED_SUM}\n{extra}"))
+        .map(|_| ())
+        .map_err(|e| format!("{e:?}"));
+    let steps = session.elab.ev().machine.budget.total_work() - before;
+    (result, steps)
+}
+
+/// Reading the nested sum tells it apart from a different number: a type
+/// error, not acceptance and not E-RESOURCE.
+#[test]
+fn nested_sum_with_a_folded_number_is_still_told_apart() {
+    let (result, _) = load_nested("theorem wrong (x y: Nat): x + (y + two 0) = x + y + 3 := rfl\n");
+    let err = result.expect_err("rejected");
+    assert!(!err.contains("E-RESOURCE"), "{err}");
+    assert!(err.contains("E-REFL"), "{err}");
+}
+
+/// A folded `k * x` under a sum's second argument isn't unfolded: it would
+/// be `k` levels of sums stuck on `x`, and std's Float.Theory has `k` near
+/// 2^53. The sides are written apart, so their values aren't shared.
+#[test]
+fn nested_sum_leaves_a_large_folded_product() {
+    let (result, steps) = load_nested(
+        "theorem big (x y z: Nat): x + (y + 9007199254740992 * z) = x + (y + 9007199254740992 * z) := rfl\n\
+         theorem bigDiffers (x y z: Nat): x + (y + 9007199254740992 * z) = x + (z + 9007199254740992 * y) := rfl\n",
+    );
+    let err = result.expect_err("bigDiffers is rejected");
+    assert!(!err.contains("E-RESOURCE"), "{err}");
+    assert!(err.contains("E-REFL") && !err.contains("`big`"), "{err}");
+    assert!(steps < 1_000_000, "{steps} steps");
+}
+
+/// A right-nested chain that unfolding builds, 200 sums deep, is read to
+/// the bottom: equal to itself and different from a shorter one, each
+/// answered, not E-RESOURCE, and the whole load under a million steps
+/// (about 137,000 and 411,000 when written).
+#[test]
+fn nested_sum_reads_a_long_unfolded_chain() {
+    let chain = "def f (m: Nat) (y: Nat): Nat\n    decreasing m\n:=\n  match m with\n    | Zero => 0\n    | Succ k => y + f k y [decreasing := omega]\n";
+    let (result, same_steps) = load_nested(&format!(
+        "{chain}\ntheorem same (x y: Nat): x + f 200 y = x + f 200 y := rfl\n"
+    ));
+    result.expect("same is accepted");
+    let (result, differ_steps) = load_nested(&format!(
+        "{chain}\ntheorem differ (x y: Nat): x + f 200 y = x + f 199 y := rfl\n"
+    ));
+    let err = result.expect_err("differ is rejected");
+    assert!(!err.contains("E-RESOURCE"), "{err}");
+    assert!(err.contains("E-REFL"), "{err}");
+    eprintln!("steps: same {same_steps}, differ {differ_steps}");
+    assert!(same_steps < 1_000_000, "{same_steps} steps");
+    assert!(differ_steps < 1_000_000, "{differ_steps} steps");
 }
 
 #[test]

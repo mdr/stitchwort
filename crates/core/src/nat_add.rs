@@ -31,11 +31,12 @@
 //! tree gets stuck, with natives on or off: the rule is not a native, and
 //! switching the natives off doesn't switch it off.
 //!
-//! Looking at the second argument forces it (a glued call is unfolded, a
-//! solved metavariable replaced), but does not unfold a call left folded
-//! by name. The only such call of type `Nat` is `k * x` with `x` a variable
-//! (`native::folds_mul`), which unfolds to `x + (k - 1) * x`, stuck on `x`:
-//! never `Zero` or a `Succ`, so nothing is missed (the proposal's §9.2, A3).
+//! Looking at the second argument while evaluating forces it (a glued call
+//! is unfolded, a solved metavariable replaced), but does not unfold a call
+//! left folded by name (a `decreasing` definition's, or `k * x` with `x` a
+//! variable, `native::folds_mul`): evaluation leaves `x + two 0` as written.
+//! The comparisons and eliminations that read such a sum unfold those calls
+//! with [`reread`], as rule E asks (docs/core.md, "The equality rule").
 //!
 //! **Why it's sound** (the argument in full, with its assumptions, is in the
 //! proposal's §9): R3 and R4 are typed, left-linear, first-order rules on
@@ -137,7 +138,10 @@ pub fn reread(
 /// [`reread`], recursing into a stuck sum in the second argument. The
 /// recursion is on a proper part of `value` (the base of `n`), or on what
 /// `unfold` made of one, which is evaluation under the operation's budget;
-/// a recursion level is checked against the operation's stack.
+/// a recursion level is checked against the operation's stack. So the walk
+/// goes to the bottom of a right-nested chain of sums, including one that
+/// unfolding builds (`y + f m y` for each `m` below `f 200 y`); the one cut
+/// is a folded `k * x`, whose head is `x`'s.
 fn reread_with<F>(g: &Ev, value: &Value, force: Force, unfold: &F) -> budget::Result<Option<Value>>
 where
     F: Fn(&Value) -> budget::Result<Option<Value>>,
