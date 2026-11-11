@@ -1,8 +1,10 @@
 //! `W-DOC-LINK` (docs/proposals/documentation.md §7, D2149, D2153, SW-1042):
 //! which doc links resolve, and that the library has no broken one.
 
-use stitchwort_driver::driver::Session;
+use stitchwort_driver::driver::{Session, with_stack};
 use stitchwort_syntax::Diagnostic;
+
+const STACK: usize = 16 * 1024 * 1024;
 
 /// The `W-DOC-LINK` warnings of `text` loaded as a file.
 fn link_warnings(text: &str) -> Vec<Diagnostic> {
@@ -25,14 +27,16 @@ fn messages(text: &str) -> Vec<String> {
 /// keeps clean) and the core leaves none.
 #[test]
 fn the_library_has_no_broken_doc_links() {
-    let session = Session::eager_from_source();
-    let found: Vec<_> = session
-        .warnings
-        .iter()
-        .filter(|w| w.code == "W-DOC-LINK")
-        .map(|w| w.message.as_str())
-        .collect();
-    assert!(found.is_empty(), "{found:#?}");
+    with_stack(STACK, || {
+        let session = Session::eager_from_source_for_stack(STACK);
+        let found: Vec<_> = session
+            .warnings
+            .iter()
+            .filter(|w| w.code == "W-DOC-LINK")
+            .map(|w| w.message.as_str())
+            .collect();
+        assert!(found.is_empty(), "{found:#?}");
+    });
 }
 
 /// A library file with a broken link doesn't load: the library keeps the

@@ -6,7 +6,7 @@
 //! limits, which are sized for them.
 
 use stitchwort_core::{Limits, ResourceError};
-use stitchwort_driver::driver::{Cache, Outcome, Session, tier_sample};
+use stitchwort_driver::driver::{Cache, Outcome, Session, tier_sample, with_stack};
 
 // mimalloc, the CLI's allocator, and so the language server's. With macOS's own,
 // `running_out_at_any_point_only_ever_means_no_answer` grew to 6.7 GB,
@@ -723,4 +723,60 @@ fn a_doubling_hypothesis_is_never_unfolded_in_full() {
         ..Limits::default()
     };
     session.load("doubling.sw", &source).expect("checks");
+}
+
+/// A proof that splits a list and rewrites in each arm: running out of stack
+/// inside it, at any depth, leaves the elaborator's contexts and lifted
+/// terms consistent for what is checked next.
+const SPLIT_PROOF: &str = "
+import Std (Add, Eq, List)
+
+theorem sumByFlatMapAgain [auto add: Add c] (xs: List a) (f: b → c) (g: a → List b): List.sumBy (List.flatMap xs g) f = List.sumBy xs (x => List.sumBy (g x) f) :=
+  match xs with
+    | [] => rfl
+    | [x, ..xs] =>
+      Eq.trans (List.sumByAppend (g x) (List.flatMap xs g) f)
+        (Eq.trans (Eq.cong (t => List.sumBy (g x) f + t) (sumByFlatMapAgain xs f g)) (Eq.sym (List.sumByCons xs x (x => List.sumBy (g x) f))))
+
+def afterwards (n : Nat) : Nat := n + 1
+";
+
+/// With the stack guard at sizes from a few kilobytes up, a quarter again each time, loading either
+/// succeeds or fails, and the first error is running out of resources; a
+/// session that ran out checks a later file as usual. Debug builds run it
+/// too: their arithmetic overflow checks are what notice contexts that
+/// disagree after an error unwinds.
+#[test]
+fn running_out_of_stack_at_any_point_only_ever_means_no_answer() {
+    const STACK: usize = 64 * 1024 * 1024;
+    with_stack(STACK, || {
+        let roomy = Limits::for_stack(STACK);
+        let mut stack = 16 * 1024;
+        loop {
+            let mut session = Session::new();
+            session.elab.options.limits = Limits { stack, ..roomy };
+            let finished = match session.load("proof.sw", SPLIT_PROOF) {
+                Err(diagnostics) => {
+                    assert_eq!(
+                        diagnostics[0].code, "E-RESOURCE",
+                        "stack {stack}: {diagnostics:?}"
+                    );
+                    false
+                }
+                Ok(_) => true,
+            };
+            session.elab.options.limits = roomy;
+            session
+                .load(
+                    "later.sw",
+                    "def double (n : Nat) : Nat := n + n\n\ntest \"double\" := double 21 == 42\n",
+                )
+                .unwrap_or_else(|d| panic!("stack {stack}: a later file: {d:?}"));
+            if finished {
+                break;
+            }
+            stack += 1 + stack / 4;
+            assert!(stack < roomy.stack, "never checked");
+        }
+    });
 }

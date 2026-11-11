@@ -28934,15 +28934,20 @@
     {
       "id": 2758,
       "title": "Std doesn't load in debug test threads per SW-2757's lane: 'nested too deeply' at std/List/SortLemmas.sw:348 (List.sumByFilter), then subtraction overflows at crates/elab/src/lift.rs:377 and :409 after the resource error unwinds (depth bookkeeping off on unwind). Reproduce on main in debug: std_library::every_builtin_is_bound_once_every_file_has_loaded",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2758",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "From SW-2757's lane (11 Nov). Orchestrator confirmed at 89461a197 (before Decidable stage 2) and c31dd0a04: run::readall_lines_split_like_text_lines and std_library::every_builtin_is_bound_once_every_file_has_loaded fail in the debug profile with E-RESOURCE; the daily tier runs them in release, so it doesn't see this. At b39e96551, 27 tests in binary(library)|running _examples|text|char fail in debug only.\nD3493 (Matt, 11 Nov 2026): run in lanes mode beside Decidable stage 3.\n",
+      "body": "From SW-2757's lane (11 Nov). Orchestrator confirmed at 89461a197 (before Decidable stage 2) and c31dd0a04: run::readall_lines_split_like_text_lines and std_library::every_builtin_is_bound_once_every_file_has_loaded fail in the debug profile with E-RESOURCE; the daily tier runs them in release, so it doesn't see this. At b39e96551, 27 tests in binary(library)|running _examples|text|char fail in debug only.\nD3493 (Matt, 11 Nov 2026): run in lanes mode beside Decidable stage 3.\n\n\nProgress (11 Nov 2026, Sonnet lane, branch lane/SW-2758, ~1 h): (1) The debug failure is a budget mismatch, not std depth: std's load needs a guard of 0.41 to 0.48 MiB in release (swept `eager_from_source_for_stack`: 544 KB of stack fails, 635 KB loads), and debug frames are 8 to 9 times that (SW-2732), so the default 1.5 MiB guard can't hold it in debug. The run tests, doc-link test and three std_library tests now run on STACK (16 MiB); they pass in debug (63 s to 190 s, whole-std debug loads). I could not reproduce the lift.rs:377/:409 overflow on this tree: not in the failing tests' output, and not in sweeps of the stack guard over a list-splitting proof (release with overflow checks on, and debug). Added `running_out_of_stack_at_any_point_only_ever_means_no_answer` (resources.rs) as a guard for that bookkeeping; no fix made, as there is nothing to fix without a repro. (2) SW-2748: the abort was `check::results`, called by `whole_test` on every `check` before the stack check, recursing down the whole let/if/match chain; now a work list. long_blocks and long_pattern_blocks pass in debug. (3) SW-2747: one level of nested application 13.6 KB to 12.3 KB in release (threshold 115 to 127 levels at 1.5 MiB); no single frame dominated.\n",
       "created": "2026-11-11",
       "updated": "2026-11-11",
-      "commits": []
+      "commits": [
+        "d51dc532c",
+        "4bb11beea",
+        "c7105db6c",
+        "228717d95"
+      ]
     },
     {
       "id": 2759,

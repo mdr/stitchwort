@@ -2819,45 +2819,81 @@ pub(crate) fn apply_args_with(
     args: &[Arg],
     supply: &mut Supply,
 ) -> Result<(Term, Value)> {
-    // Named arguments: in their parameters' places (`named.rs`).
-    let ordered;
-    let args = if crate::named::any(args) {
-        let sig = crate::named::signature(cx, &head.1)?;
-        // Names behind a type that computes once the arguments are given:
-        // `(pick 1) (count := 2)` for `pick 1 (count := 2)`.
-        if let Some((first, rest)) = crate::named::split(cx, &sig, args)? {
-            let head = apply_args_with(cx, head, &first, supply)?;
-            return apply_args_with(cx, head, &rest, supply);
-        }
-        let slots = crate::named::plan(cx, &sig, args, None)?;
-        match crate::named::positional(&slots) {
-            Some(positional) => {
-                ordered = positional;
-                &ordered[..]
-            }
-            None => return crate::named::apply_slots(cx, head, &slots),
-        }
-    } else {
-        args
-    };
-    let relevant =
-        (args.iter()).any(|a| matches!(a, Arg::Explicit(value) if numbers_in_list(value)));
-    let run = |cx: &mut Ctx, head: (Term, Value), supply: &mut Supply| {
-        let mut first_error = None;
-        match apply_args_postponing(cx, head, args, supply, &mut first_error) {
-            Err(e) if !crate::undo::fatal(&e) => Err(first_error.unwrap_or(e)),
-            result => result,
-        }
-    };
-    if !relevant {
-        return run(cx, head, supply);
+    // The rarer cases are functions of their own, so that this one's frame,
+    // which every nested application's argument stands on, holds only what
+    // the common path needs.
+    if crate::named::any(args) {
+        return apply_named_args(cx, head, args, supply);
     }
-    // A list with number literals among the arguments: as written first,
-    // and only if that fails with it checked last (`numbers_in_list`).
+    apply_args_in_place(cx, head, args, supply)
+}
+
+/// [`apply_args_with`] for arguments all in their parameters' places.
+#[inline]
+fn apply_args_in_place(
+    cx: &mut Ctx,
+    head: (Term, Value),
+    args: &[Arg],
+    supply: &mut Supply,
+) -> Result<(Term, Value)> {
+    if (args.iter()).any(|a| matches!(a, Arg::Explicit(value) if numbers_in_list(value))) {
+        return apply_args_retrying(cx, head, args, supply);
+    }
+    apply_args_once(cx, head, args, supply)
+}
+
+/// [`apply_args_with`] for arguments some of which are named: in their
+/// parameters' places (`named.rs`).
+#[inline(never)]
+fn apply_named_args(
+    cx: &mut Ctx,
+    head: (Term, Value),
+    args: &[Arg],
+    supply: &mut Supply,
+) -> Result<(Term, Value)> {
+    let sig = crate::named::signature(cx, &head.1)?;
+    // Names behind a type that computes once the arguments are given:
+    // `(pick 1) (count := 2)` for `pick 1 (count := 2)`.
+    if let Some((first, rest)) = crate::named::split(cx, &sig, args)? {
+        let head = apply_args_with(cx, head, &first, supply)?;
+        return apply_args_with(cx, head, &rest, supply);
+    }
+    let slots = crate::named::plan(cx, &sig, args, None)?;
+    match crate::named::positional(&slots) {
+        Some(positional) => apply_args_in_place(cx, head, &positional, supply),
+        None => crate::named::apply_slots(cx, head, &slots),
+    }
+}
+
+/// One go at [`apply_args_postponing`], giving the first argument error kept
+/// for after the expected type where one failed in place.
+#[inline]
+fn apply_args_once(
+    cx: &mut Ctx,
+    head: (Term, Value),
+    args: &[Arg],
+    supply: &mut Supply,
+) -> Result<(Term, Value)> {
+    let mut first_error = None;
+    match apply_args_postponing(cx, head, args, supply, &mut first_error) {
+        Err(e) if !crate::undo::fatal(&e) => Err(first_error.unwrap_or(e)),
+        result => result,
+    }
+}
+
+/// A list with number literals among the arguments: as written first, and
+/// only if that fails with it checked last (`numbers_in_list`).
+#[inline(never)]
+fn apply_args_retrying(
+    cx: &mut Ctx,
+    head: (Term, Value),
+    args: &[Arg],
+    supply: &mut Supply,
+) -> Result<(Term, Value)> {
     let saved = supply.clone();
     let (result, left) = retrying(cx, |cx| {
         let mut left = saved.clone();
-        run(cx, head.clone(), &mut left).map(|result| (result, left))
+        apply_args_once(cx, head.clone(), args, &mut left).map(|result| (result, left))
     })?;
     *supply = left;
     Ok(result)
@@ -2904,6 +2940,7 @@ fn retrying<T>(cx: &mut Ctx, f: impl Fn(&mut Ctx) -> Result<T>) -> Result<T> {
 
 /// [`apply_args_with`], keeping the error of the first argument that failed
 /// in place and was kept for after the expected type.
+#[inline(never)]
 fn apply_args_postponing(
     cx: &mut Ctx,
     head: (Term, Value),
@@ -3105,6 +3142,48 @@ fn apply_args_postponing(
             }
         }
     }
+    let held = Held {
+        postponed,
+        searches,
+        after_expected,
+        expecting,
+        queued_from,
+        metas_from,
+    };
+    finish_application(cx, term, ty, held, first_error)
+}
+
+/// The arguments [`apply_args_postponing`] held back, and where the
+/// application began.
+struct Held<'a> {
+    postponed: Vec<(&'a Expr, Value, Value, usize)>,
+    searches: Vec<(&'a Expr, Value, Value, usize)>,
+    after_expected: Vec<(&'a Expr, Value, Value, usize)>,
+    expecting: Option<Value>,
+    queued_from: usize,
+    metas_from: usize,
+}
+
+/// The end of [`apply_args_postponing`]: the held arguments, checked once
+/// the others are. Its own function so that the frame of the loop over the
+/// arguments, which each nested argument's check stands on, doesn't hold
+/// this part's locals.
+#[inline(never)]
+fn finish_application(
+    cx: &mut Ctx,
+    mut term: Term,
+    mut ty: Value,
+    held: Held<'_>,
+    first_error: &mut Option<Diagnostic>,
+) -> Result<(Term, Value)> {
+    let Held {
+        postponed,
+        searches,
+        after_expected,
+        expecting,
+        queued_from,
+        metas_from,
+    } = held;
     for (value, dom, placeholder, id) in postponed {
         let checked = match check(cx, value, &dom) {
             Ok(checked) => checked,
@@ -7119,27 +7198,24 @@ pub(crate) fn without_coercion<T>(
 /// The results of `expr`, an `if`, `let` or `match`, through the ones
 /// nested in them: where an expected proposition is pushed in.
 fn results(expr: &Expr, out: &mut Vec<usize>) {
-    match expr {
-        Expr::Bracketed(inner, _) => results(inner, out),
-        Expr::If {
-            then, otherwise, ..
-        } => {
-            for branch in [then, otherwise] {
-                out.push(std::ptr::from_ref(&**branch) as usize);
-                results(branch, out);
-            }
+    // A work list, in the order of a recursive walk: a block of `let`s nests
+    // as deeply as it has lines, which a recursion would follow before any
+    // stack check had run.
+    let address = |e: &Expr| std::ptr::from_ref(e) as usize;
+    let mut work: Vec<(&Expr, bool)> = vec![(expr, false)];
+    while let Some((expr, is_result)) = work.pop() {
+        if is_result {
+            out.push(address(expr));
         }
-        Expr::Let { body, .. } => {
-            out.push(std::ptr::from_ref(&**body) as usize);
-            results(body, out);
+        match expr {
+            Expr::Bracketed(inner, _) => work.push((inner, false)),
+            Expr::If {
+                then, otherwise, ..
+            } => work.extend([(&**otherwise, true), (&**then, true)]),
+            Expr::Let { body, .. } => work.push((body, true)),
+            Expr::Match { alts, .. } => work.extend(alts.iter().rev().map(|a| (&a.body, true))),
+            _ => {}
         }
-        Expr::Match { alts, .. } => {
-            for alt in alts {
-                out.push(std::ptr::from_ref(&alt.body) as usize);
-                results(&alt.body, out);
-            }
-        }
-        _ => {}
     }
 }
 
