@@ -58,7 +58,7 @@ fn goal_at() {
     assert_eq!(code, 0, "{out}{err}");
     assert_eq!(
         out,
-        "t.sw:9:3\nin `swap`\n  a: Nat\n  b: Nat\n  ⊢ a + b = b + a\n"
+        "t.sw:9:3\nin `swap`, rule 1 of 1 of `rewrite`\n  a: Nat\n  b: Nat\n  before ⊢ a + b = b + a\n  rule   a + b = b + a\n  after  ⊢ b + a = b + a\n"
     );
     // Inside the rewrite's body: the goal after the rule.
     let (code, out, _) = goal(&dir, &["--at", "t.sw:9:30"]);
@@ -88,7 +88,7 @@ fn goal_at() {
     );
     let context = &answer["context"];
     assert_eq!(context["kind"], "proof");
-    assert_eq!(context["target"], "a + b = b + a");
+    assert_eq!(context["target"], "b + a = b + a");
     assert_eq!(context["checked"], true);
     assert_eq!(
         context["locals"][1],
@@ -96,7 +96,8 @@ fn goal_at() {
     );
     assert_eq!(context["range"]["line"], 9);
     assert_eq!(answer["declaration"], "swap");
-    assert_eq!(context["step"], Value::Null);
+    // Line 9 starts at `rewrite`, whose keyword shows its rule's step (SW-2930).
+    assert_ne!(context["step"], Value::Null);
     let (_, out, _) = goal(&dir, &["--at", "t.sw:5", "--json"]);
     let answer: Value = serde_json::from_str(&out).unwrap();
     assert_eq!(answer["context"]["kind"], "program");
@@ -139,7 +140,7 @@ fn goal_at_in_a_project() {
     let (code, out, err) = goal(dir.parent().unwrap(), &["--at", "tiny/src/tiny.sw:6"]);
     assert_eq!(code, 0, "{out}{err}");
     assert!(
-        out.ends_with("  a: Nat\n  b: Nat\n  ⊢ a + b = b + a\n"),
+        out.ends_with("  before ⊢ a + b = b + a\n  rule   a + b = b + a\n  after  ⊢ b + a = b + a\n"),
         "{out}"
     );
     let (code, out, _) = goal(&dir, &["--at", "src/tiny.sw:1"]);
