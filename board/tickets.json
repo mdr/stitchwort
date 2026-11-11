@@ -1,5 +1,5 @@
 {
-  "next": 2948,
+  "next": 2949,
   "tickets": [
     {
       "id": 47,
@@ -31142,7 +31142,7 @@
     {
       "id": 2927,
       "title": "[Sonnet] Goals print as written with a dimmed 'computes to' line when the computed form differs, everywhere goals are shown (panel, hover, playground, check, goal, --json); 240-char cut, folded; no form switch (D3522; docs/proposals/goals-panel.md). After SW-1004",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
@@ -31246,7 +31246,7 @@
     {
       "id": 2935,
       "title": "[DeepSeek] EXAMPLES=<name> with -E 'test(/_examples/)' also runs the tools guide:: tests (~10 min at nice 15); make the example filter select only the examples tests so a lane can run one example in seconds (SW-2154)",
-      "status": "review",
+      "status": "done",
       "agent": "DeepSeek",
       "where": "",
       "labels": [],
@@ -31272,7 +31272,7 @@
     {
       "id": 2937,
       "title": "[DeepSeek] stitchwort test labels a test that failed without running (unfinished ?, broken dependency) as 'ran'; label it 'not run' (SW-2909, SW-2932)",
-      "status": "review",
+      "status": "done",
       "agent": "DeepSeek",
       "where": "",
       "labels": [],
@@ -31311,7 +31311,7 @@
     {
       "id": 2940,
       "title": "[Opus] Tests with errors stage 1 (D3524): importers of a namespace with errors are checked per declaration; failed names cross imports as failed; E-USES-FAILED once per broken name per file on the import replaces E-NAMESPACE-FAILED; importers' tests, goals, hovers; live project; docs and book text (docs/proposals/tests-with-errors.md)",
-      "status": "review",
+      "status": "done",
       "agent": "Opus",
       "where": "",
       "labels": [],
@@ -31407,6 +31407,19 @@
       "where": "",
       "labels": [],
       "epic": "dev-loop-speed",
+      "body": "",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2948,
+      "title": "[Opus] Browser test 'in a project, after a jump into another file and the whole project's check, an error in the day is underlined' took 123 s at load 2.4 on 11 Nov 23:08 (passes, but SW-2915 had it underlining in 0.8 s); it also failed under load twice tonight. Profile which step is slow; suspect SW-2940 (importers now checked) or SW-2927 (as-written printing)",
+      "status": "next",
+      "agent": "Opus",
+      "where": "",
+      "labels": [],
+      "epic": "editor-playground",
       "body": "",
       "created": "2026-11-11",
       "updated": "2026-11-11",
