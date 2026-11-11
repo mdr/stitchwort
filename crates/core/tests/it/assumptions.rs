@@ -17,7 +17,7 @@ use stitchwort_core::hash::{ContentHash, def_hash};
 use stitchwort_core::native::{self, Native};
 use stitchwort_core::term::Term;
 use stitchwort_core::value::{Head, Value, eval};
-use stitchwort_core::{DefId, Icit, Kernel, Limits, Sort};
+use stitchwort_core::{DefId, Icit, Kernel, Limits, ResourceError, Sort};
 
 fn label(owner: &str, hole: u32) -> Assumption {
     Assumption {
@@ -634,8 +634,10 @@ fn a_user_s_hash_covers_the_assumption() {
 
 // Running
 
+/// A running program can't compute with a `?` standing for data: it stops,
+/// saying which (D3507).
 #[test]
-fn running_erases_a_proof_assumption_and_keeps_a_value_one_stuck() {
+fn running_erases_a_proof_assumption_and_stops_at_a_value_one() {
     let mut p = Prelude::new();
     let goal = add_comm_goal(&mut p);
     let nat = p.nat_ty();
@@ -648,8 +650,11 @@ fn running_erases_a_proof_assumption_and_keeps_a_value_one_stuck() {
         stitchwort_core::erase::is_erased(&proof),
         "a proof is erased"
     );
-    let value = eval(&ev, &[], &Term::Def(hole)).unwrap();
-    assert!(matches!(value, Value::Neutral(Head::Def(id), _) if id == hole));
+    assert_eq!(
+        eval(&ev, &[], &Term::Def(hole)).err(),
+        Some(ResourceError::Unreachable)
+    );
+    assert_eq!(p.g.machine.erasure.reached(), Some(hole));
 }
 
 /// The memoised walk (`relies_on`) agrees with the full one, and a rewind

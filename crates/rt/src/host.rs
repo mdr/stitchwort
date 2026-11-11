@@ -34,6 +34,14 @@ pub enum RunError {
     /// whole run, or since it last waited for input (a live run's
     /// [`crate::run::LimitScope`]).
     OutputLimit { max: usize },
+    /// The run reached code it has no way to run
+    /// ([`ResourceError::Unreachable`]), in the body of global `at` if
+    /// known: an open goal's constant (named `half.?1`), or a branch the
+    /// kernel found impossible, which only a false goal's erased proof
+    /// reaches. The driver, which knows the goals, words it
+    /// (`Session::unreachable_diagnostic`); [`RunError::diagnostic`] says
+    /// what the runtime alone can.
+    Unreachable { at: Option<std::rc::Rc<str>> },
     /// `main` failed with this message, and nothing handled it
     /// (`Fail`, docs/proposals/errors.md §3.5). The runner reports it as
     /// `error: <msg>` and exits with 1; it is not a runtime error.
@@ -56,6 +64,20 @@ impl fmt::Display for RunError {
                 write!(f, "the program printed more than {max} bytes, its limit")
             }
             RunError::Failed(msg) => write!(f, "{msg}"),
+            RunError::Unreachable { at } => match at.as_deref().and_then(goal_of) {
+                Some((owner, hole)) => write!(
+                    f,
+                    "the program reached open goal {hole} of `{owner}` (a `?`), which has no \
+                     value to run"
+                ),
+                None => write!(
+                    f,
+                    "the program reached a branch that can't be reached{}: a proof it relies \
+                     on is an open goal (`?`) whose statement is false",
+                    at.as_ref()
+                        .map_or(String::new(), |at| format!(" in `{at}`"))
+                ),
+            },
         }
     }
 }
@@ -76,9 +98,18 @@ impl RunError {
             RunError::OutputLimit { .. } => Diagnostic::error("E-OUTPUT", self.to_string())
                 .with_label(main, "while running this program"),
             RunError::Failed(msg) => Diagnostic::error("E-FAIL", msg.clone()),
+            RunError::Unreachable { .. } => Diagnostic::error("E-UNREACHABLE", self.to_string())
+                .with_label(main, "while running this program"),
             _ => Diagnostic::error("E-IO", self.to_string()),
         }
     }
+}
+
+/// The declaration and number of the open goal whose assumption is named
+/// `name` (`half.?1`: `half`'s first `?`), if it is one.
+pub fn goal_of(name: &str) -> Option<(&str, u32)> {
+    let (owner, hole) = name.rsplit_once(".?")?;
+    Some((owner, hole.parse().ok()?))
 }
 
 impl From<ResourceError> for RunError {

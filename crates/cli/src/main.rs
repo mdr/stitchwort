@@ -1737,6 +1737,7 @@ fn verified(cache: &Cache) -> bool {
             Outcome::Failed => "failed",
             Outcome::OutOfResources(_) => "unfinished",
             Outcome::Skipped => "skipped",
+            Outcome::Stopped => "stopped",
         };
         eprintln!(
             "error: cache disagrees with a fresh run: {}.{} (hash {}): cached {}, fresh {}",
@@ -2005,6 +2006,7 @@ fn print_tests_json(session: &Session, results: &[TestResult], asked_for_some: b
                         None => "uses a declaration with an open goal".to_string(),
                     }),
                 ),
+                Outcome::Stopped => ("failed", Some(stopped_message(r))),
             };
             let at = session.test_location(&r.namespace, &r.name);
             let mut test = serde_json::json!({
@@ -2044,6 +2046,16 @@ fn print_tests_json(session: &Session, results: &[TestResult], asked_for_some: b
     exit(ok)
 }
 
+/// Why a test stopped ([`Outcome::Stopped`]): "reached `two`'s goal
+/// (a.sw:7), which has no value to run".
+fn stopped_message(result: &TestResult) -> String {
+    match &result.reached {
+        Some(what) if what.starts_with('`') => format!("reached {what}, which has no value to run"),
+        Some(what) => format!("reached {what}"),
+        None => "reached code with nothing to run".to_string(),
+    }
+}
+
 /// Prints the results, with each namespace's name above its tests if
 /// `grouped`.
 fn print_tests(results: &[TestResult], grouped: bool) -> ExitCode {
@@ -2081,6 +2093,7 @@ fn print_tests(results: &[TestResult], grouped: bool) -> ExitCode {
                     None => ": uses a declaration with an open goal".to_string(),
                 },
             ),
+            Outcome::Stopped => ("✗", "ran", format!("  ({})", stopped_message(result))),
         };
         println!("  {mark} {:width$}  {how}{why}", result.name);
         if let Some(detail) = &result.detail {
@@ -2103,7 +2116,7 @@ fn print_tests(results: &[TestResult], grouped: bool) -> ExitCode {
     }
     let count = |f: fn(&Outcome) -> bool| results.iter().filter(|r| f(&r.outcome)).count();
     let passed = count(|o| *o == Outcome::Passed);
-    let failed = count(|o| *o == Outcome::Failed);
+    let failed = count(|o| matches!(o, Outcome::Failed | Outcome::Stopped));
     let skipped = count(|o| matches!(o, Outcome::Skipped));
     let unfinished = count(|o| matches!(o, Outcome::OutOfResources(_)));
     let cached = results.iter().filter(|r| r.cached).count();
@@ -2131,18 +2144,16 @@ fn load_main(
     target: &str,
     project: Option<&Path>,
     cache: &CacheArgs,
-) -> Result<(Session, Main, usize), ExitCode> {
+) -> Result<(Session, Main), ExitCode> {
     let mut session = new_session(false);
-    let goals;
     let main = if is_file_target(target) {
         use_cache(&mut session, cache, Path::new("."));
         let mut reported = Vec::new();
         if !load_file_into(&mut session, Path::new(target), Some("run"), &mut reported) {
             return Err(ExitCode::FAILURE);
         }
-        // What's finished can run; `main` can't if it isn't (`Session::main`).
-        goals = goals_open(&reported);
-        report_goals(goals);
+        // What's checked can run, assuming its goals hold (`Session::main`).
+        report_goals(goals_open(&reported));
         session.main()
     } else {
         let Some(project) = locate_project(project, "run", "run hello.sw") else {
@@ -2177,8 +2188,7 @@ fn load_main(
             Ok(_) => {
                 let reported = std::mem::take(&mut session.warnings);
                 report(&session.sources, &reported);
-                goals = goals_open(&reported);
-                report_goals(goals);
+                report_goals(goals_open(&reported));
             }
             Err(diagnostics) => {
                 report(&session.sources, &diagnostics);
@@ -2194,7 +2204,16 @@ fn load_main(
             return Err(ExitCode::FAILURE);
         }
     };
-    Ok((session, main, goals))
+    Ok((session, main))
+}
+
+/// Before running or building what relies on open goals (D3507): one line
+/// naming them, since the results mean something only if they hold.
+/// `verb` is "running" or "building".
+fn warn_goals(session: &Session, verb: &str, terms: &[stitchwort_core::Term]) {
+    if let Some(line) = session.running_with_goals(verb, terms) {
+        eprintln!("warning: {line}");
+    }
 }
 
 /// `run`: a file's `main`, or a function of the project by its full name.
@@ -2234,10 +2253,11 @@ fn run_target(
         },
         None => Runner::Machine,
     };
-    let (mut session, main, _) = match load_main(target, project, cache) {
+    let (mut session, main) = match load_main(target, project, cache) {
         Ok(loaded) => loaded,
         Err(code) => return code,
     };
+    warn_goals(&session, "running", std::slice::from_ref(main.term()));
     if js {
         run_main_js(&mut session, main)
     } else {
@@ -2270,7 +2290,7 @@ fn opcode_census(
     project: Option<&Path>,
     cache: &CacheArgs,
 ) -> ExitCode {
-    let (session, main, _) = match load_main(target, project, cache) {
+    let (session, main) = match load_main(target, project, cache) {
         Ok(loaded) => loaded,
         Err(code) => return code,
     };
@@ -3662,6 +3682,11 @@ fn run_main(session: &mut Session, main: &Main, runner: Runner) -> ExitCode {
             eprintln!("error: {msg}");
             ExitCode::FAILURE
         }
+        Err(stitchwort_cli::run::RunError::Unreachable { at }) => {
+            let d = session.unreachable_diagnostic(at.as_deref(), main.term(), main.span);
+            report(&session.sources, &[d]);
+            ExitCode::from(2)
+        }
         Err(err) => {
             report(&session.sources, &[err.diagnostic(main)]);
             ExitCode::from(2)
@@ -3803,7 +3828,7 @@ fn run_main_native(
 /// directory and runs it with Node, which inherits standard input, output
 /// and error.
 fn run_main_js(session: &mut Session, main: Main) -> ExitCode {
-    use stitchwort_js::run::{EXIT_FAIL, EXIT_IO, EXIT_RESOURCE};
+    use stitchwort_js::run::{EXIT_FAIL, EXIT_IO, EXIT_RESOURCE, EXIT_UNREACHABLE};
     let program = match session.extract_program(&main) {
         Ok(program) => program,
         Err(diagnostic) => {
@@ -3870,6 +3895,13 @@ fn run_main_js(session: &mut Session, main: Main) -> ExitCode {
         }
         Some(EXIT_IO) => {
             report(&session.sources, &[Diagnostic::error("E-IO", message())]);
+            ExitCode::from(2)
+        }
+        Some(EXIT_UNREACHABLE) => {
+            let at = message();
+            let at = (!at.is_empty()).then_some(at.as_str());
+            let d = session.unreachable_diagnostic(at, main.term(), main.span);
+            report(&session.sources, &[d]);
             ExitCode::from(2)
         }
         // Node has reported what went wrong.
@@ -3950,6 +3982,10 @@ fn evaluate(session: &mut Session, expr: &str, type_only: bool) -> Result<String
         let (_, ty) = session.elab.infer_expr(&parsed)?;
         return Ok(format!("{expr}: {}", session.elab.show(&ty)));
     }
+    // What relies on open goals runs, assuming they hold (D3507).
+    if let Ok((term, _)) = session.elab.infer_expr(&parsed) {
+        warn_goals(session, "running", &[term]);
+    }
     let (value, ty) = session.elab.eval_expr(&parsed)?;
     Ok(format!("{value}: {ty}"))
 }
@@ -4026,9 +4062,8 @@ fn build(
     if !load_file_into(&mut session, path, Some("built"), &mut reported) {
         return ExitCode::FAILURE;
     }
-    if refuse_goals(&reported) {
-        return ExitCode::FAILURE;
-    }
+    report_goals(goals_open(&reported));
+    warn_goals(&session, "building", &session.exports(None));
     let output = match session.extract() {
         Ok(output) => output,
         Err(diagnostic) => {
@@ -4069,9 +4104,8 @@ fn build_namespace(
     ) {
         return ExitCode::FAILURE;
     }
-    if refuse_goals(&reported) {
-        return ExitCode::FAILURE;
-    }
+    report_goals(goals_open(&reported));
+    warn_goals(&session, "building", &session.exports(Some(namespace)));
     match session.extract_namespace(namespace) {
         Ok(output) => {
             let map = source_map.then_some(MapSources {
@@ -4085,24 +4119,6 @@ fn build_namespace(
             ExitCode::FAILURE
         }
     }
-}
-
-/// `build` doesn't write JavaScript while goals are open: only checked code
-/// is built (D636). Says so if there are any.
-fn refuse_goals(reported: &[Diagnostic]) -> bool {
-    refuse_open_goals(goals_open(reported))
-}
-
-/// [`refuse_goals`], given how many goals are open.
-fn refuse_open_goals(goals: usize) -> bool {
-    if goals > 0 {
-        let s = if goals == 1 { "" } else { "s" };
-        eprintln!(
-            "error: nothing was built: {goals} goal{s} open; fill in every `?` first, so that \
-             everything built is checked"
-        );
-    }
-    goals > 0
 }
 
 /// What a source map needs to name the `.sw` files: the sources, and for a

@@ -238,6 +238,10 @@ fn test_answer(session: &Session, known: &str, with_namespace: bool) -> String {
                     Some(uses) => format!("uses {uses}, which has an open goal"),
                     None => "uses a declaration with an open goal".to_string(),
                 },
+                Outcome::Stopped => match &r.reached {
+                    Some(what) => format!("reached {what}"),
+                    None => "reached code with nothing to run".to_string(),
+                },
             };
             let namespace = if with_namespace {
                 format!(r#","namespace":{}"#, json_string(&r.namespace))
@@ -261,7 +265,9 @@ fn test_answer(session: &Session, known: &str, with_namespace: bool) -> String {
             let outcome = match outcome {
                 Outcome::Passed => "passed",
                 Outcome::Failed => "failed",
-                Outcome::OutOfResources(_) | Outcome::Skipped => return String::new(),
+                Outcome::OutOfResources(_) | Outcome::Skipped | Outcome::Stopped => {
+                    return String::new();
+                }
             };
             format!("{key} {outcome}\n")
         })
@@ -572,6 +578,9 @@ fn run_main_in(
             .with_note("`IO.readLine()` gives `None` at the end of the input"),
             // Unhandled `Fail` (D1048): shown like the CLI prints it.
             RunError::Failed(msg) => return format!("error: {msg}\n"),
+            RunError::Unreachable { at } => {
+                session.unreachable_diagnostic(at.as_deref(), main.term(), main.span)
+            }
             error => error.diagnostic(main),
         };
         rendered(&session, &[error])

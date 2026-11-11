@@ -351,13 +351,14 @@ impl Session {
         cache: &Cache,
         selected: &Selection,
         modes: &str,
+        with_goals: bool,
     ) -> Option<(TestMachine, Vec<stitchwort_core::DefId>)> {
         let g = &self.elab.ev();
         let wanted: Vec<stitchwort_core::DefId> = self
             .elab
             .tests()
             .iter()
-            .filter(|test| selected(test) && !self.elab.is_unfinished(test.def))
+            .filter(|test| selected(test) && self.runs(test.def, with_goals))
             .filter(|test| {
                 let _op = g.machine.budget.operation(self.elab.options.limits);
                 match def_hash(g, test.def) {
@@ -393,7 +394,7 @@ impl Session {
         cache: &Cache,
         selected: &Selection,
         runner: Runner,
-        skip_unfinished: bool,
+        with_goals: bool,
     ) -> Vec<TestResult> {
         let g = &self.elab.ev();
         // A result is kept per runner: the two are only differentially
@@ -409,7 +410,7 @@ impl Session {
         let (lowered, wanted) = match runner {
             Runner::Reference => (None, Vec::new()),
             Runner::Machine | Runner::Native(_) => self
-                .lower_tests(cache, selected, &modes)
+                .lower_tests(cache, selected, &modes, with_goals)
                 .map_or((None, Vec::new()), |(lowered, wanted)| {
                     (Some(lowered), wanted)
                 }),
@@ -428,12 +429,12 @@ impl Session {
             .tests()
             .iter()
             .filter(|test| selected(test))
-            .filter(|test| skip_unfinished || !self.elab.is_unfinished(test.def))
+            .filter(|test| with_goals || !self.elab.is_unfinished(test.def))
             .map(|test| {
                 // Each test is one operation, with its own resource limits:
                 // hashing it, then running it unless its result is cached.
                 let _op = g.machine.budget.operation(self.elab.options.limits);
-                if skip_unfinished && self.elab.is_unfinished(test.def) {
+                if !self.runs(test.def, with_goals) {
                     let uses = test
                         .unfinished
                         .clone()
@@ -446,6 +447,7 @@ impl Session {
                         hash: None,
                         detail: None,
                         skipped: Some(uses),
+                        reached: None,
                     };
                 }
                 let hash = match def_hash(g, test.def) {
@@ -459,6 +461,7 @@ impl Session {
                             hash: None,
                             detail: None,
                             skipped: None,
+                            reached: None,
                         };
                     }
                 };
@@ -472,6 +475,7 @@ impl Session {
                         hash: Some(hash),
                         detail: self.failure(test, outcome),
                         skipped: None,
+                        reached: None,
                     };
                 }
                 // A test that runs partial code is a `Delay` (D1183).
@@ -516,9 +520,12 @@ impl Session {
                         // `Bool` is `False | True`: constructor 1 is `True`.
                         Ok(Value::Ctor(_, 1, _)) => Outcome::Passed,
                         Ok(_) => Outcome::Failed,
+                        Err(ResourceError::Unreachable) => Outcome::Stopped,
                         Err(e) => Outcome::OutOfResources(e),
                     }
                 });
+                let reached = (outcome == Outcome::Stopped)
+                    .then(|| self.reached(g.machine.erasure.reached(), test.def));
                 cache.verify_result(test, &hash, &modes, outcome);
                 cache.put(&unit, &hash, &modes, outcome);
                 TestResult {
@@ -529,6 +536,7 @@ impl Session {
                     hash: Some(hash),
                     detail: self.failure(test, outcome),
                     skipped: None,
+                    reached,
                 }
             })
             .collect();
@@ -540,6 +548,33 @@ impl Session {
             ));
         }
         results
+    }
+
+    /// Whether test `def` runs: always if it's finished, and under
+    /// `check: open-goals: warn` (`with_goals`, D3507) if it's checked
+    /// assuming open goals hold. One the kernel hasn't checked (a `?` that
+    /// couldn't be assumed) has nothing to run.
+    fn runs(&self, def: stitchwort_core::DefId, with_goals: bool) -> bool {
+        if with_goals {
+            self.elab.kernel.def(def).state() == stitchwort_core::globals::State::Final
+        } else {
+            !self.elab.is_unfinished(def)
+        }
+    }
+
+    /// What a test that stopped with [`Outcome::Stopped`] reached: the open
+    /// goal `at` (its assumption), or, for `None`, a branch only a false
+    /// goal among those test `def` relies on can reach.
+    fn reached(&self, at: Option<stitchwort_core::DefId>, def: stitchwort_core::DefId) -> String {
+        if let Some(at) = at {
+            return self.describe_goal(at);
+        }
+        let goals = self.goals_relied_on(&[Term::Def(def)]);
+        let named: Vec<String> = goals.iter().map(|g| self.describe_goal(*g)).collect();
+        format!(
+            "a branch that can't be reached, so one of the open goals it relies on is false: {}",
+            named.join(", ")
+        )
     }
 
     /// Steps `term`, a partial computation that performs nothing (a test

@@ -180,8 +180,11 @@ impl Session {
     fn main_call(&mut self, index: usize, name: &str) -> Result<Main, CallError> {
         let def = &self.elab.kernel.env.defs()[index];
         let (span, ty) = (def.span(), self.elab.show(def.ty_value()));
-        // It has no body to run (docs/proposals/lsp-goal-holes.md, D636).
-        if self.elab.is_unfinished(stitchwort_core::DefId(index)) {
+        // One the kernel hasn't checked (a `?` that couldn't be assumed) has
+        // no body to run (docs/proposals/lsp-goal-holes.md, D636); one that
+        // relies on open goals is checked assuming they hold, and runs
+        // (D3507).
+        if def.state() != stitchwort_core::globals::State::Final {
             return Err(CallError::Other(
                 Diagnostic::error(
                     "E-UNFINISHED",
@@ -223,6 +226,112 @@ impl Session {
             }
         }
         Err(CallError::Type { span, ty })
+    }
+
+    /// The open goals' assumptions a run of `terms` relies on, oldest
+    /// first.
+    pub fn goals_relied_on(&self, terms: &[Term]) -> Vec<stitchwort_core::DefId> {
+        self.elab.goals_relied_on(terms)
+    }
+
+    /// How an open goal's assumption `id` is named to the reader: "`half`'s
+    /// goal (half.sw:3)", or with its number when its declaration has more
+    /// than one.
+    pub fn describe_goal(&self, id: stitchwort_core::DefId) -> String {
+        let def = self.elab.kernel.def(id);
+        let (file, line) = crate::render::location(&self.sources, def.span());
+        match stitchwort_rt::host::goal_of(def.path()) {
+            Some((owner, hole)) => {
+                let several = (self.elab.kernel.env.defs().iter())
+                    .filter_map(|d| d.assumption())
+                    .filter(|a| a.owner.as_ref() as &str == owner)
+                    .nth(1)
+                    .is_some();
+                let number = if several {
+                    format!(" {hole}")
+                } else {
+                    String::new()
+                };
+                let name = (self.elab.goal_owner_name(id)).unwrap_or_else(|| owner.to_string());
+                format!("`{name}`'s goal{number} ({file}:{line})")
+            }
+            None => format!("`{}` ({file}:{line})", def.path()),
+        }
+    }
+
+    /// The warning before running `terms` (`main ()`, an expression; `verb`
+    /// is "running"), or building them ("building"), when they rely on open
+    /// goals (D3507): the results mean something only if the goals hold.
+    /// `None` if they rely on none.
+    pub fn running_with_goals(&self, verb: &str, terms: &[Term]) -> Option<String> {
+        let goals = self.goals_relied_on(terms);
+        if goals.is_empty() {
+            return None;
+        }
+        let (n, them) = match goals.len() {
+            1 => ("1 open goal".to_string(), "it"),
+            n => (format!("{n} open goals"), "them"),
+        };
+        let named: Vec<String> = goals.iter().map(|g| self.describe_goal(*g)).collect();
+        Some(format!(
+            "{verb} with {n}; results rely on {them}: {}",
+            named.join(", ")
+        ))
+    }
+
+    /// The error for a run of `term` that stopped at code with nothing to run
+    /// ([`RunError::Unreachable`]), in the body of global `at`: an open
+    /// goal standing for data, or a branch only a false goal's erased proof
+    /// reaches (docs/core.md, "Assumptions (open goals)", Running).
+    pub fn unreachable_diagnostic(&self, at: Option<&str>, term: &Term, span: Span) -> Diagnostic {
+        let g = &self.elab.ev();
+        let def = |name: &str| {
+            (g.env.defs().iter())
+                .rposition(|d| **d.path() == *name)
+                .map(stitchwort_core::DefId)
+        };
+        if let Some(id) = at.and_then(def)
+            && g.def(id).assumption().is_some()
+        {
+            return Diagnostic::error(
+                "E-UNREACHABLE",
+                format!(
+                    "the program reached {}, which has no value to run",
+                    self.describe_goal(id)
+                ),
+            )
+            .with_label(g.def(id).span(), "this `?` was reached while running")
+            .with_label(span, "while running this")
+            .with_note("fill in the goal to run this part of the program");
+        }
+        let goals = self.goals_relied_on(std::slice::from_ref(term));
+        let place = match at.and_then(def) {
+            Some(id) => format!(" in `{}`", g.def(id).name()),
+            None => String::new(),
+        };
+        if goals.is_empty() {
+            return Diagnostic::error(
+                "E-INTERNAL",
+                format!(
+                    "internal error: the program reached a branch that can't be reached{place}"
+                ),
+            )
+            .with_label(span, "while running this");
+        }
+        let named: Vec<String> = goals.iter().map(|g| self.describe_goal(*g)).collect();
+        Diagnostic::error(
+            "E-UNREACHABLE",
+            format!(
+                "the program reached a branch that can't be reached{place}: one of the open goals \
+                 it relies on is false"
+            ),
+        )
+        .with_label(span, "while running this")
+        .with_note(format!(
+            "a goal's proof isn't run, so a false one lets the program reach code its type \
+             rules out; it relies on {}",
+            named.join(", ")
+        ))
     }
 
     /// Finds the definition a project's `run` names by its full name
@@ -517,6 +626,13 @@ impl Session {
                     .collect();
                 Err(RunError::Deep(parts.join(", ")))
             }
+            Err(RunError::Resource(ResourceError::Unreachable)) => Err(RunError::Unreachable {
+                at: g
+                    .machine
+                    .erasure
+                    .reached()
+                    .map(|id| g.def(id).path().clone()),
+            }),
             other => other,
         }
     }

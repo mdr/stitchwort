@@ -117,6 +117,9 @@ pub(crate) struct State {
     /// When the frame limit was hit: the codes with the most pending frames,
     /// and how many each had ([`Machine::depth_report`]).
     deepest: Vec<(u32, usize)>,
+    /// The code the run last stopped in with [`ResourceError::Unreachable`]
+    /// ([`Machine::unreachable_at`]).
+    reached: Option<u32>,
     /// Instructions executed so far by [`run`], added to the thread's total
     /// ([`instructions_executed`]) as each run ends.
     executed: u64,
@@ -190,6 +193,7 @@ impl<'p> Machine<'p> {
                 scratch: Vec::new(),
                 counts: EffectCounts::default(),
                 deepest: Vec::new(),
+                reached: None,
                 executed: 0,
                 profile: None,
             },
@@ -235,6 +239,15 @@ impl<'p> Machine<'p> {
     /// After the run stopped for recursing too deeply: which functions had
     /// the most pending calls, as "`List.append` (120000 calls), …". A
     /// function value that isn't a definition is "a lambda".
+    /// After the run stopped with [`ResourceError::Unreachable`]: the full
+    /// name of the global it stopped in (an open goal's is `half.?1`), if
+    /// it was a global's body.
+    pub fn unreachable_at(&self) -> Option<Rc<str>> {
+        let code = self.st.reached?;
+        let g = crate::shared::global_of_code(&self.image.global_code, &self.image.folds, code)?;
+        Some(self.program.globals[g].name.clone())
+    }
+
     pub fn depth_report(&self) -> Option<String> {
         crate::shared::depth_report(&self.st.deepest, &self.image.folds, |code| {
             body_name(
@@ -354,6 +367,10 @@ impl crate::run::Executor for Machine<'_> {
 
     fn depth_report(&self) -> Option<String> {
         Machine::depth_report(self)
+    }
+
+    fn unreachable_at(&self) -> Option<Rc<str>> {
+        Machine::unreachable_at(self)
     }
 }
 
@@ -1590,7 +1607,13 @@ fn run(program: &Program, image: &Image, st: &mut State, mut pending: Pending) -
                     pending = Some((v, frame.ret));
                     continue 'outer;
                 }
-                Instr::Unreachable => panic!("internal error: reached unreachable code"),
+                // An open goal's constant, or a branch the kernel found
+                // impossible, which only a false goal's erased proof reaches.
+                Instr::Unreachable => {
+                    save!();
+                    st.reached = st.frames.last().map(|f| f.code);
+                    return Err(ResourceError::Unreachable);
+                }
                 Instr::Peek { dst, src, i } => {
                     still_owned(&reg!(src));
                     let v = match &reg!(src) {

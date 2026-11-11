@@ -914,9 +914,26 @@ impl Session {
         stitchwort_js::generate(&self.elab.backend(), self.elab.options.limits)
     }
 
-    /// An error if any of the exports among `ids` is unfinished (it, or
-    /// something it uses, has an open goal, `?`): it has no body to
-    /// generate, and only checked code is built (D636).
+    /// The exports loaded so far, or those of namespace `namespace`, as
+    /// terms: what a build of them runs ([`Session::running_with_goals`]).
+    pub fn exports(&self, namespace: Option<&str>) -> Vec<Term> {
+        let g = &self.elab.ev();
+        let ids: Vec<usize> = match namespace {
+            Some(n) => self.elab.namespace_def_range(n).collect(),
+            None => (0..g.env.defs().len()).collect(),
+        };
+        (ids.into_iter())
+            .map(stitchwort_core::DefId)
+            .filter(|id| g.def(*id).export())
+            .map(Term::Def)
+            .collect()
+    }
+
+    /// An error if any of the exports among `ids` isn't checked (it, or
+    /// something it uses, has an open goal, `?`, that couldn't be assumed):
+    /// it has no body to generate, and only checked code is built (D636).
+    /// One that relies on open goals is checked assuming they hold, and is
+    /// built (D3507).
     fn refuse_unfinished(
         &self,
         ids: impl Iterator<Item = stitchwort_core::DefId>,
@@ -924,7 +941,7 @@ impl Session {
         let g = &self.elab.ev();
         for id in ids {
             let def = g.def(id);
-            if def.export() && self.elab.is_unfinished(id) {
+            if def.export() && def.state() != stitchwort_core::globals::State::Final {
                 return Err(Diagnostic::error(
                     "E-UNFINISHED",
                     format!(
@@ -1005,6 +1022,10 @@ pub enum Outcome {
     /// declaration is [`TestResult::skipped`]. Only when the project's
     /// `check: open-goals` is `warn` (D3500). Never cached.
     Skipped,
+    /// It reached code with nothing to run: an open goal (`?`) standing
+    /// for data, or a branch only a false goal's erased proof reaches
+    /// ([`TestResult::reached`] says which). A failure. Never cached.
+    Stopped,
 }
 
 pub struct TestResult {
@@ -1020,6 +1041,9 @@ pub struct TestResult {
     pub detail: Option<Failure>,
     /// For a skipped test, the declaration with an open goal (`?`) it uses.
     pub skipped: Option<String>,
+    /// For a test that stopped ([`Outcome::Stopped`]), what it reached:
+    /// "`two`'s goal (a.sw:7)".
+    pub reached: Option<String>,
 }
 
 /// Why a test failed, as far as it can be told: the part of the test that is
@@ -1357,7 +1381,10 @@ impl Cache {
         let Some(verify) = &self.verify else {
             return;
         };
-        if matches!(outcome, Outcome::OutOfResources(_) | Outcome::Skipped) {
+        if matches!(
+            outcome,
+            Outcome::OutOfResources(_) | Outcome::Skipped | Outcome::Stopped
+        ) {
             return;
         }
         let unit = Self::unit(&test.namespace, &test.name);
@@ -1400,7 +1427,10 @@ impl Cache {
             return;
         }
         // Not a result: running it again with other limits may finish.
-        if matches!(outcome, Outcome::OutOfResources(_) | Outcome::Skipped) {
+        if matches!(
+            outcome,
+            Outcome::OutOfResources(_) | Outcome::Skipped | Outcome::Stopped
+        ) {
             return;
         }
         if let Some(memory) = &self.memory {
@@ -1416,7 +1446,7 @@ impl Cache {
         let text = match outcome {
             Outcome::Passed => "passed",
             Outcome::Failed => "failed",
-            Outcome::OutOfResources(_) | Outcome::Skipped => unreachable!(),
+            Outcome::OutOfResources(_) | Outcome::Skipped | Outcome::Stopped => unreachable!(),
         };
         if let Some(parent) = path.parent() {
             let _ = std::fs::create_dir_all(parent);

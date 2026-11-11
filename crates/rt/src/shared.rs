@@ -154,6 +154,17 @@ pub(crate) fn body_name<'a>(
     "an anonymous function".to_string()
 }
 
+/// The global whose body `code` is (`global_code`, by global), a copy
+/// taking a reuse token counted as its original (`folds`).
+pub(crate) fn global_of_code(
+    global_code: &[Option<u32>],
+    folds: &stitchwort_core::collections::HashMap<u32, u32>,
+    code: u32,
+) -> Option<usize> {
+    let code = folds.get(&code).copied().unwrap_or(code);
+    global_code.iter().position(|c| *c == Some(code))
+}
+
 /// The depth note for `deepest` ([`deepest`]): the three bodies with the
 /// most frames, most first, each named with `name` ([`body_name`]), a
 /// copy taking a reuse token counted as its original (`folds`, from a

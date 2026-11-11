@@ -1,8 +1,9 @@
 //! `check: open-goals:` in `stitchwort.yaml` (SW-2762, D3489, D3494), end to
 //! end: `check` reports open goals as warnings under `warn`, `audit` doesn't
-//! change, `test` skips tests that use an unfinished declaration (D3500), and
-//! a bad value is a project-file error. What uses an open goal is checked
-//! assuming it holds, and stays unfinished (SW-2805).
+//! change, `test` runs tests that rely on an open goal (D3507), and a bad
+//! value is a project-file error. What uses an open goal is checked assuming
+//! it holds, and stays unfinished (SW-2805); `run` and `build` run and build
+//! it, after a warning, and a run stops at a `?` it reaches (D3507).
 
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output, Stdio};
@@ -84,13 +85,18 @@ fn audit_still_fails_unfinished_theorems_under_warn() {
     assert!(stdout.contains("✗ Book.exercise"), "{stdout}");
 }
 
+/// Under `warn`, a test that relies on an open goal runs (D3507): one that
+/// doesn't reach it passes as usual, and one that reaches a `?` standing for
+/// data fails, naming the goal.
 #[test]
-fn a_test_that_reaches_an_open_goal_is_skipped_under_warn() {
+fn a_test_that_reaches_an_open_goal_fails_naming_it_under_warn() {
     let dir = project("test-warn", "check:\n  open-goals: warn\n");
     std::fs::write(
         dir.join("src/t.sw"),
         "namespace Book\n\n\
+         def orTwo (b: Bool): Nat := if b then 1 else two\n\n\
          test \"one is one\" := 1 == 1\n\n\
+         test \"orTwo True\" := orTwo True == 1\n\n\
          test \"two is two\" := two == 2\n",
     )
     .unwrap();
@@ -98,17 +104,134 @@ fn a_test_that_reaches_an_open_goal_is_skipped_under_warn() {
     let _ = std::fs::remove_dir_all(&dir);
     let stderr = text(&out.stderr);
     let stdout = text(&out.stdout);
-    assert_eq!(out.status.code(), Some(0), "{stdout}{stderr}");
+    assert_eq!(out.status.code(), Some(1), "{stdout}{stderr}");
     assert!(stdout.contains("✓ one is one"), "{stdout}");
+    assert!(stdout.contains("✓ orTwo True"), "{stdout}");
     assert!(
-        stdout.contains("skipped: uses two, which has an open goal"),
+        stdout.contains("✗ two is two  ran  (reached `two`'s goal ("),
         "{stdout}"
     );
-    assert!(stdout.contains("1 passed, 0 failed, 1 skipped"), "{stdout}");
+    assert!(
+        stdout.contains("src/a.sw:7), which has no value to run)"),
+        "{stdout}"
+    );
+    assert!(stdout.contains("2 passed, 1 failed"), "{stdout}");
     assert!(
         stderr.contains("2 goals open, allowed by `check: open-goals: warn`"),
         "{stderr}"
     );
+}
+
+/// `run` runs a program that relies on open goals, after a warning naming
+/// them (D3507); a `?` standing for data that the run reaches stops it,
+/// naming the goal, on every backend.
+#[test]
+fn run_warns_and_stops_at_an_open_goal_it_reaches() {
+    let dir = project("run", "sources: [src]\n");
+    std::fs::write(
+        dir.join("src/m.sw"),
+        "namespace Book\n\n\
+         import Std (Nat)\n\n\
+         def main(): {IO} () :=\n  \
+           IO.print \"start\"\n  \
+           IO.print (if 1 == 1 then \"one\" else Nat.toText two)\n  \
+           IO.print (Nat.toText two)\n",
+    )
+    .unwrap();
+    let mut runs = vec![
+        vec!["run", "Book.main"],
+        vec!["run", "--reference", "Book.main"],
+    ];
+    if cfg!(feature = "native") {
+        runs.push(vec!["run", "--native", "Book.main"]);
+    }
+    if Command::new("node").arg("--version").output().is_ok() {
+        runs.push(vec!["run", "--js", "Book.main"]);
+    }
+    for args in runs {
+        let out = stitchwort(&dir, &args);
+        let stderr = text(&out.stderr);
+        let stdout = text(&out.stdout);
+        assert_eq!(out.status.code(), Some(2), "{args:?}: {stdout}{stderr}");
+        // JS computes a module's constants as it loads, so `two` stops it
+        // before `main` prints.
+        if !args.contains(&"--js") {
+            assert_eq!(stdout, "start\none\n", "{args:?}: {stderr}");
+        }
+        assert!(
+            stderr
+                .contains("warning: running with 1 open goal; results rely on it: `two`'s goal ("),
+            "{args:?}: {stderr}"
+        );
+        assert!(
+            stderr.contains("[E-UNREACHABLE] Error: the program reached `two`'s goal ("),
+            "{args:?}: {stderr}"
+        );
+    }
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// A false proof left as `?` lets a run reach a branch its types rule out;
+/// the run stops there with an error that names the goals it relies on,
+/// rather than an internal error (F1, docs/reviews/SW-2804-assumptions-review.md).
+#[test]
+fn run_stops_at_an_impossible_branch_reached_through_a_false_goal() {
+    let dir = project("impossible", "sources: [src]\n");
+    std::fs::write(
+        dir.join("src/m.sw"),
+        "namespace Book\n\n\
+         import Std (Nat, List)\n\n\
+         theorem inRange: 5 < List.length [10, 20, 30] := ?\n\n\
+         def main(): {IO} () := IO.print (Nat.toText (List.getLt [10, 20, 30] 5 [ok := inRange]))\n",
+    )
+    .unwrap();
+    // The evaluator's own stop is `indexed::running_into_an_impossible_branch_stops_the_run`
+    // in the core's tests: here, the compiled runners.
+    let mut runs = vec![vec!["run", "Book.main"]];
+    if cfg!(feature = "native") {
+        runs.push(vec!["run", "--native", "Book.main"]);
+    }
+    if Command::new("node").arg("--version").output().is_ok() {
+        runs.push(vec!["run", "--js", "Book.main"]);
+    }
+    for args in runs {
+        let out = stitchwort(&dir, &args);
+        let stderr = text(&out.stderr);
+        assert_eq!(out.status.code(), Some(2), "{args:?}: {stderr}");
+        assert!(
+            stderr.contains("the program reached a branch that can't be reached"),
+            "{args:?}: {stderr}"
+        );
+        assert!(
+            stderr.contains("one of the open goals it relies on is false"),
+            "{args:?}: {stderr}"
+        );
+        assert!(stderr.contains("`inRange`'s goal ("), "{args:?}: {stderr}");
+        assert!(stderr.contains("src/m.sw:5)"), "{args:?}: {stderr}");
+    }
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// `build --js` builds exports that rely on open goals, after a warning; a
+/// call that reaches one throws an `Error` named `Unreachable`.
+#[test]
+fn build_js_builds_with_open_goals_after_a_warning() {
+    let dir = project("build", "sources: [src]\n");
+    std::fs::write(
+        dir.join("src/e.sw"),
+        "namespace Book\n\nexport def twice: Nat := two + two\n",
+    )
+    .unwrap();
+    let out = stitchwort(&dir, &["build", "--js", "Book", "-o", "out"]);
+    let stderr = text(&out.stderr);
+    let js = std::fs::read_to_string(dir.join("out/Book.js")).unwrap_or_default();
+    let _ = std::fs::remove_dir_all(&dir);
+    assert_eq!(out.status.code(), Some(0), "{stderr}");
+    assert!(
+        stderr.contains("warning: building with 1 open goal; results rely on it: `two`'s goal"),
+        "{stderr}"
+    );
+    assert!(js.contains("name: \"Unreachable\""), "{js}");
 }
 
 #[test]

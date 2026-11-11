@@ -941,10 +941,30 @@ impl Elaborator {
             let (term, ty) = inferred?;
             let value = eval(&self.ev(), &[], &term)?;
             let g = &self.ev();
+            let quoted = stitchwort_core::value::quote(g, 0, &value)?;
+            // A value stuck on an open goal standing for data (D3507), as a
+            // run stops there.
+            if let Some(owner) = quoted.subterms().find_map(|(t, _)| match t {
+                Term::Def(id)
+                    if g.def(*id).assumption().is_some()
+                        && !stitchwort_core::erase::of_def(g, *id).is_some_and(|e| e.result) =>
+                {
+                    self.goal_owner_name(*id)
+                }
+                _ => None,
+            }) {
+                return Err(Diagnostic::error(
+                    "E-UNREACHABLE",
+                    format!(
+                        "the value reached an open goal of `{owner}` (a `?`), which has no value \
+                         to compute with"
+                    ),
+                ));
+            }
             let show = |v: &Value| -> std::result::Result<String, stitchwort_core::ResourceError> {
                 pretty::term_in_full(g, &[], &stitchwort_core::value::quote(g, 0, v)?)
             };
-            Ok((show(&value)?, show(&ty)?))
+            Ok((pretty::term_in_full(g, &[], &quoted)?, show(&ty)?))
         };
         let result = run();
         self.kernel.machine.budget.restore(saved);
@@ -1154,10 +1174,11 @@ impl Elaborator {
         let term = self.finish(&term, 0)?;
         self.finish(&ty, 0)?;
         self.clear_metas();
-        // A `?` typed in is never shown as a goal; and nothing unfinished
-        // runs: it has no body.
+        // A `?` typed in is never shown as a goal; and nothing unchecked
+        // runs: it has no body. What relies on an open goal is checked, and
+        // runs (D3507): the caller says so.
         self.clear_goals();
-        if self.mentions_unfinished(&term) {
+        if self.mentions_unchecked(&term) {
             return Err(goals::uses_unfinished(Some(expr.span())));
         }
         kernel::without_glue(&self.ev(), || {

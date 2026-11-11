@@ -16,12 +16,13 @@
 //! it), or mentions a variable the hole can't take.
 //!
 //! Nothing that relies on an assumption counts as finished.
-//! `Elaborator::is_unfinished` reads which declarations do off their
-//! checked terms (`assumption::relies_on`, remembered per final
-//! declaration), so every command treats them as it treated a declaration
-//! with a `?` until the reporting stage names the goals, however they were
-//! made. The component's items are also marked unfinished (`module.rs`),
-//! for their status and the check cache.
+//! `Elaborator::is_unfinished` reads which declarations do off their checked
+//! terms (`assumption::relies_on`, remembered per final declaration), so
+//! `check`, `audit` and `axioms` treat them as they treated a declaration with
+//! a `?` until the reporting stage names the goals, however they were made;
+//! `run`, `build`, `eval` and `test` (under `check: open-goals: warn`) run
+//! them (D3507). The component's items are also marked unfinished
+//! (`module.rs`), for their status and the check cache.
 
 use std::cell::Cell;
 
@@ -90,6 +91,32 @@ impl Elaborator {
         self.goal_relied_on(id).is_some()
     }
 
+    /// Every open goal's assumption `terms` rely on, through the
+    /// declarations they mention, oldest first: what a run of them relies
+    /// on.
+    pub fn goals_relied_on(&self, terms: &[Term]) -> Vec<DefId> {
+        let Some(floor) = self.floor() else {
+            return Vec::new();
+        };
+        let roots: Vec<Decl> = (terms.iter().flat_map(Term::subterms))
+            .filter_map(|(t, _)| match t {
+                Term::Def(id) => Some(Decl::Def(*id)),
+                Term::Data(d, _)
+                | Term::Ctor(d, _, _)
+                | Term::Case(_, d, _)
+                | Term::Proj(d, ..) => Some(Decl::Data(*d)),
+                _ => None,
+            })
+            .collect();
+        assumption::relied_on_skipping(
+            &self.ev(),
+            &roots,
+            &|d| matches!(d, Decl::Def(id) if id.0 < floor.floor),
+        )
+        .into_iter()
+        .collect()
+    }
+
     /// Whether `term` mentions a definition or data type that isn't
     /// finished (`Elaborator::is_unfinished`): for an expression typed in,
     /// which has no status of its own.
@@ -101,6 +128,46 @@ impl Elaborator {
             }
             _ => false,
         })
+    }
+
+    /// Whether `term` mentions a definition or data type the kernel hasn't
+    /// checked: one with a `?` that couldn't be assumed, or what uses it.
+    /// What relies only on open goals' assumptions is checked, and can run.
+    pub(crate) fn mentions_unchecked(&self, term: &Term) -> bool {
+        term.subterms().any(|(t, _)| match t {
+            Term::Def(id) => self.kernel.def(*id).state() != stitchwort_core::globals::State::Final,
+            Term::Data(d, _) | Term::Ctor(d, _, _) | Term::Case(_, d, _) | Term::Proj(d, ..) => {
+                self.tables.is_unfinished(HashKey::Data(*d)) && self.goal_relied_on(*d).is_none()
+            }
+            _ => false,
+        })
+    }
+
+    /// The declaration whose `?` assumption `id` stands for, by the name
+    /// its goal's message gives it, without its namespace (`inRange`, not
+    /// `Book.inRange`), and a helper the compiler made for one
+    /// (`spin.%step`) as that one.
+    pub fn goal_owner_name(&self, id: DefId) -> Option<String> {
+        let a = self.kernel.env.defs().get(id.0)?.assumption()?;
+        let mut owner: &str = &a.owner;
+        while let Some((outer, last)) = owner.rsplit_once('.')
+            && last.starts_with('%')
+        {
+            owner = outer;
+        }
+        let Some(at) = (self.kernel.env.defs().iter()).position(|d| **d.path() == *owner) else {
+            return Some(owner.to_string());
+        };
+        let name = self.kernel.env.defs()[at].name().to_string();
+        let namespace = (self.tables.namespace_defs.iter())
+            .find(|(_, range)| range.contains(&at))
+            .map(|(namespace, _)| namespace);
+        Some(
+            match namespace.and_then(|n| name.strip_prefix(&format!("{n}."))) {
+                Some(short) => short.to_string(),
+                None => name,
+            },
+        )
     }
 
     /// The declaration whose `?` assumption `id` stands for, by its full

@@ -162,7 +162,7 @@ use stitchwort_rt::native_abi::{
     self as abi, ARRAY_ITEMS_AT, ARRAY_LEN_AT, ApplyPlan, Context, CrossingCode, FUN_CAPTURES_AT,
     FUN_CLOSURE, FUN_KEY_MASK, NativeIslands, Numbering, OUT_OF_FRAMES, OUT_OF_STEPS, OWNING_TAGS,
     RC_VALUE_AT, STRONG_AT, TAG_ARRAY, TAG_DATA, TAG_FLOAT, TAG_FUN, TAG_INT, TAG_NAT, TAG_TAG,
-    Tables, VALUE_SIZE, WEAK_AT,
+    Tables, UNREACHABLE, VALUE_SIZE, WEAK_AT,
 };
 use stitchwort_rt::natives::{ArrayNative, IntNative, TextNative};
 use stitchwort_rt::value::Value;
@@ -4341,8 +4341,14 @@ impl Gen<'_, '_> {
                 switch.emit(&mut self.b, r[0], default);
                 return false;
             }
+            // An open goal's constant, or a branch the kernel found
+            // impossible: the run stops, as the machine's does, saying
+            // which body it stopped in.
             Instr::Unreachable => {
-                self.b.ins().trap(TrapCode::unwrap_user(2));
+                let live = self.live(pc);
+                let body = self.iconst(u64::from(self.code_index));
+                self.ctx_store(Context::REACHED_AT, body);
+                self.exit_now(&live, Some(UNREACHABLE), &[], &[]);
                 return false;
             }
             // Lent values (`stitchwort_rt::borrow`): held without a count.

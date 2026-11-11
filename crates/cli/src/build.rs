@@ -31,8 +31,7 @@ use stitchwort_cli::project::{analyse, project_sources};
 use stitchwort_syntax::ast::Decl;
 
 use super::{
-    CacheArgs, discard, load_main, locate_project, new_session, project_name, refuse_open_goals,
-    report,
+    CacheArgs, discard, load_main, locate_project, new_session, project_name, report, warn_goals,
 };
 
 /// The runtime library's file name.
@@ -143,13 +142,11 @@ pub fn build_executable(
         );
         return ExitCode::FAILURE;
     }
-    let (session, main, goals) = match load_main(&entry, project, cache) {
+    let (session, main) = match load_main(&entry, project, cache) {
         Ok(loaded) => loaded,
         Err(code) => return code,
     };
-    if refuse_open_goals(goals) {
-        return ExitCode::FAILURE;
-    }
+    warn_goals(&session, "building", std::slice::from_ref(main.term()));
     let program = match session.lower_fast(&main) {
         Ok(program) => program,
         Err(e) => {

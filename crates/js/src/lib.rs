@@ -991,7 +991,11 @@ pub fn generate_exports(
         // a module with errors, but if it were asked to, the JS would call a
         // function that isn't there.
         let def = g.def(id);
-        if def.body().is_none() && !codegen.info(id).result_erased && !codegen.is_native(id) {
+        if def.body().is_none()
+            && def.assumption().is_none()
+            && !codegen.info(id).result_erased
+            && !codegen.is_native(id)
+        {
             return Err(Diagnostic::error(
                 "E-EXPORT",
                 format!("can't generate JavaScript for `{}`", def.name()),
@@ -2688,6 +2692,9 @@ impl<'g> Gen<'g> {
                 js
             };
             return Ok(format!("const {} = {js};\n", def_name(def.path())));
+        }
+        if def.assumption().is_some() {
+            return Ok(goal_stopper(self.g, id));
         }
         let Some(body) = def.run_body() else {
             unreachable!("`generate_with` refuses a definition without a body");
@@ -6062,6 +6069,36 @@ fn slot(level: usize) -> String {
 /// A definition's JS name, from its full logical name (`Std.List.length`):
 /// `$` and the name, [`encode`]d. A name starts with a letter or `_`, so a
 /// definition's JS name is never `$$…`, which is an export's wrapper's.
+/// The declaration of an open goal's assumption that stands for data (a
+/// `?` the program computes with): it throws an `Error` named
+/// `Unreachable`, with the goal's assumption's name as `at` (`half.?1`),
+/// when the run reaches it. A function (the goal is stated over the
+/// variables in scope at the `?`) throws when it's called; anything else
+/// when the module is loaded, as a constant computing to it would.
+fn goal_stopper(g: &View<'_>, id: DefId) -> String {
+    let def = g.def(id);
+    let path = def.path();
+    let at = js_string_literal(path);
+    let message = match stitchwort_rt::host::goal_of(path) {
+        Some((owner, hole)) => js_string_literal(&format!(
+            "the program reached open goal {hole} of `{owner}` (a `?`), which has no value to run"
+        )),
+        None => at.clone(),
+    };
+    let throw = format!(
+        "throw Object.assign(new Error({message}), {{ name: \"Unreachable\", at: {at} }});"
+    );
+    let function = matches!(
+        stitchwort_core::value::force(g, def.ty_value().clone()),
+        Ok(stitchwort_core::Value::Pi(..))
+    );
+    if function {
+        format!("const {} = () => {{ {throw} }};\n", def_name(path))
+    } else {
+        format!("const {} = (() => {{ {throw} }})();\n", def_name(path))
+    }
+}
+
 fn def_name(path: &str) -> String {
     if path.starts_with(|c: char| c.is_ascii_alphabetic() || c == '_') {
         format!("${}", encode(path))
