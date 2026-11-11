@@ -183,6 +183,12 @@ theorem broken (n: Nat): n + 1 = Succ n :=
 def widen (n: Nat): Int := n
 
 theorem addZero (n: Nat): n + 0 = n := rfl
+
+theorem middle (a b: Nat) (h1: a = b) (h2: b = 2): a = 2 :=
+  calc a
+    _ = b := h1
+    _ = 1 + 1 := h2
+    _ = 2
 ";
 
 /// `goal --at` at `at` in [`STEPS`], as text, less its first line (the
@@ -249,6 +255,28 @@ fn goal_at_steps() {
     assert_eq!(
         step_at(&dir, "6:10"),
         "in `addZeroLeft`, the statement\n  n: Nat\n  ⊢ n = n\n"
+    );
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// A `calc` line with a `:=` shows its own statement, not the chain's end:
+/// the previous value is computed (`_` stands for it) but the line's own
+/// right side stays as written, even when it computes to something else
+/// (SW-2942).
+#[test]
+fn goal_at_calc_middle_line() {
+    let dir = folder("calc-middle");
+    std::fs::write(dir.join("s.sw"), STEPS).unwrap();
+    assert_eq!(
+        step_at(&dir, "37:5"),
+        "in `middle`, line 2 of 3 of `calc`, `_ = 1 + 1`\n  a: Nat\n  b: Nat\n  \
+         h1: a = b\n  h2: b = 2\n  so far a = b\n  line   ⊢ b = 1 + 1\n"
+    );
+    // The last line still computes the previous value: `1 + 1` is `2`.
+    assert_eq!(
+        step_at(&dir, "38:5"),
+        "in `middle`, line 3 of 3 of `calc`, `_ = 2`\n  a: Nat\n  b: Nat\n  \
+         h1: a = b\n  h2: b = 2\n  so far a = 2\n  line   ⊢ 2 = 2\n"
     );
     let _ = std::fs::remove_dir_all(&dir);
 }
