@@ -29398,9 +29398,9 @@
     {
       "id": 2793,
       "title": "stitchwort test follows check: open-goals: warn: tests that don't use an unfinished declaration run as usual; tests that do are reported as skipped naming the open goal; exit 0 if nothing else fails (D3500)",
-      "status": "next",
+      "status": "doing",
       "agent": "DeepSeek",
-      "where": "",
+      "where": ".claude/worktrees/scratch-sw-2793",
       "labels": [],
       "epic": "syntax-language",
       "body": "\nD3500 (Matt, 11 Nov 2026): yes, as above. Est. 45 min.",
