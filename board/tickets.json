@@ -1,5 +1,5 @@
 {
-  "next": 2848,
+  "next": 2849,
   "tickets": [
     {
       "id": 47,
@@ -30091,8 +30091,21 @@
     {
       "id": 2847,
       "title": "rt: lower::every_example_lowers alone uses over 11.6 GB (killed by memguard at 136 s on Overmind, 1cc09543e, -j 1, full tier): find which example or what in lowering holds the memory (profile first), make it fit well under the cap; check whether it is a recent regression (Decidable stage 3, new examples)",
-      "status": "next",
+      "status": "doing",
       "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-2847",
+      "labels": [],
+      "epic": "test-infra",
+      "body": "",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2848,
+      "title": "Debug-only panics go unseen (examples run the release CLI): debug_assert in lift::go_replace that a free index is below depth + under, with a clear message; search_at::a_goal_that_takes_too_long_to_open_reports_running_out takes 176 s in debug vs 1.7 s release: mark slow or make cheaper (SW-2842)",
+      "status": "backlog",
+      "agent": "DeepSeek",
       "where": "",
       "labels": [],
       "epic": "test-infra",
