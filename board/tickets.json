@@ -28358,7 +28358,7 @@
     {
       "id": 2715,
       "title": "Goal at any point of a proof: editor (hover/Show Goals anywhere, not only at ?) and stitchwort goal --at file:line:col for agents; design note first, with a review of other systems' interactive proof understanding",
-      "status": "doing",
+      "status": "review",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-2715",
       "labels": [],
