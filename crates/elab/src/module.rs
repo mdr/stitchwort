@@ -2706,7 +2706,9 @@ fn take_failed_used() -> Vec<String> {
 }
 
 /// Notes the failed definitions and data types `terms` refer to, other
-/// than `own` (`FAILED_USED`): the kernel refused them for it.
+/// than `own` (`FAILED_USED`): the kernel refused them for it. Each by its
+/// name from the root, which is its key in the scope (its path has the
+/// module's prefix, `Main.` for a single file, which no key has).
 pub(crate) fn note_failed_in(
     g: &stitchwort_core::Ev,
     terms: &[&stitchwort_core::Term],
@@ -2719,13 +2721,13 @@ pub(crate) fn note_failed_in(
             let (key, state, path) = match t {
                 Term::Def(id) if id.0 < g.env.defs().len() => {
                     let def = g.def(*id);
-                    (HashKey::Def(*id), def.state(), def.path().to_string())
+                    (HashKey::Def(*id), def.state(), def.name().to_string())
                 }
                 Term::Data(d, _) | Term::Ctor(d, _, _) | Term::Case(_, d, _)
                     if d.0 < g.env.datas().len() =>
                 {
                     let data = g.data(*d);
-                    (HashKey::Data(*d), data.state(), data.path().to_string())
+                    (HashKey::Data(*d), data.state(), data.name().to_string())
                 }
                 _ => continue,
             };
