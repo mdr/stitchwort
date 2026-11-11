@@ -714,8 +714,15 @@ fn proofs_hold(g: &View<'_>, b: &Boundary, value: &Value) -> bool {
             let checked = data.validators().iter().filter(|v| v.ctor == *c).all(|v| {
                 let mut env = params.clone();
                 env.extend(fields[..v.field].iter().cloned());
+                // A decision holds when its test, the record's first
+                // field, is `True`.
                 let decision = force(g, eval(g, &env, &v.decision).unwrap()).unwrap();
-                matches!(decision, Value::Ctor(_, 0, _))
+                let Value::Ctor(_, 0, decision) = decision else {
+                    return false;
+                };
+                let test = force(g, decision[0].clone()).unwrap();
+                matches!(test, Value::Ctor(d, c, _)
+                    if g.env.registry().ctor(Builtin::True) == Some((d, c)))
             });
             let runtime = fields
                 .iter()
@@ -1754,7 +1761,7 @@ refused(() => m.bump(41), /^c: expected a non-negative bigint$/);
 
 // A proof field is checked, wherever the microtype is.
 assert.equal(m.domain("ada@example.com"), "ada@example.com");
-refused(() => m.domain("nobody"), /^e: proof field `valid` \(`Email\.isValid value = True`\) doesn't hold$/);
+refused(() => m.domain("nobody"), /^e: proof field `valid` \(`Email\.isValid value`\) doesn't hold$/);
 
 // Maps from a microtype are plain objects, in `Text`'s order; their keys'
 // proof fields are checked.
@@ -1810,7 +1817,8 @@ fn microtype_comparisons_are_their_fields() {
         ("CardId$d$gcompare", "Text$dcompare"),
         ("CardId$d$ginstDecEq", "Text$dinstDecEq"),
         ("CardId$d$ginstOrd", "Text$dinstOrd"),
-        ("Count$d$gdecEq", "Nat$ddecEq"),
+        // `Nat.decEq` is `Nat.equal` at run time (a decision is its test).
+        ("Count$d$gdecEq", "Nat$dequal"),
         ("Count$d$gcompare", "Nat$dcompare"),
         ("Count$d$ginstDecEq", "Nat$dinstDecEq"),
         ("Email$d$gdecEq", "Text$ddecEq"),
@@ -1825,7 +1833,7 @@ fn microtype_comparisons_are_their_fields() {
     // code calls its `compare`, and the library is passed `Text.instOrd`.
     for line in [
         "const $Main$dorder = $Std$dText$dcompare;",
-        "const $Main$dsame = (v0, v1) => $Std$dDecidable$dtoBool($Std$dText$ddecEq(v0, v1));",
+        "const $Main$dsame = $Std$dText$ddecEq;",
         "const $Main$ddistinctIds = (v0) => $Std$dList$dunique($Std$dText$dinstOrd, v0);",
     ] {
         assert!(output.js.contains(line), "no `{line}` in:\n{}", output.js);
