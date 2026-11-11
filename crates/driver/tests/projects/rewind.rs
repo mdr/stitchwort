@@ -866,10 +866,10 @@ fn checked_log(live: &mut LiveProject) -> Vec<String> {
 }
 
 /// A, then B using A, then C using neither. An edit of A rewinds the kernel
-/// to before A, which drops C too; C is checked again first (replayed from
-/// the check cache, not elaborated), then A and B, so A and its user are
-/// the last steps and the next edit of A leaves C alone. The diagnostics
-/// and answers are a fresh check's, and so are the cache's hits.
+/// to before A, which drops C too; A and its user are checked again first
+/// (so that their diagnostics come at once), then C, replayed from the
+/// check cache, not elaborated. The diagnostics and answers are a fresh
+/// check's, and so are the cache's hits.
 #[test]
 fn an_edit_checks_again_only_what_uses_it() {
     with_stack(STACK, || {
@@ -879,11 +879,11 @@ fn an_edit_checks_again_only_what_uses_it() {
         let stats = |live: &LiveProject| live.session.elab.check_cache_stats();
 
         // The first edit: C goes with the rewind, and comes back from the
-        // cache before A.
+        // cache after A and B.
         let before = stats(&live);
         let edited = format!("{order_a}\ndef more: Nat := base + 1\n");
         live.set_text("src/a.sw", Some(edited));
-        assert_eq!(checked_log(&mut live), ["Order.C", "Order.A", "Order.B"]);
+        assert_eq!(checked_log(&mut live), ["Order.A", "Order.B", "Order.C"]);
         let after = stats(&live);
         assert_eq!(
             after.namespace_hits - before.namespace_hits,
@@ -896,15 +896,16 @@ fn an_edit_checks_again_only_what_uses_it() {
             "A and B elaborated"
         );
 
-        // The second, which breaks B: C is not touched at all.
+        // The second, which breaks B.
         let before = stats(&live);
         let broken = order_a.replace("base", "root");
         live.set_text("src/a.sw", Some(broken.clone()));
-        assert_eq!(checked_log(&mut live), ["Order.A", "Order.B"]);
+        assert_eq!(checked_log(&mut live), ["Order.A", "Order.B", "Order.C"]);
         let after = stats(&live);
         assert_eq!(
-            after.namespace_hits, before.namespace_hits,
-            "C not replayed"
+            after.namespace_hits - before.namespace_hits,
+            1,
+            "C replayed"
         );
         assert_eq!(
             after.namespace_misses - before.namespace_misses,
@@ -923,7 +924,7 @@ fn an_edit_checks_again_only_what_uses_it() {
 
         // And back: the same answers as the first check's.
         live.set_text("src/a.sw", Some(order_a.clone()));
-        assert_eq!(checked_log(&mut live), ["Order.A", "Order.B"]);
+        assert_eq!(checked_log(&mut live), ["Order.A", "Order.B", "Order.C"]);
         let mut first = order_project(order_files(&order_a));
         checked_log(&mut first);
         let (mut now, mut then) = (live.answers(), first.answers());
