@@ -31246,7 +31246,7 @@
     {
       "id": 2935,
       "title": "[DeepSeek] EXAMPLES=<name> with -E 'test(/_examples/)' also runs the tools guide:: tests (~10 min at nice 15); make the example filter select only the examples tests so a lane can run one example in seconds (SW-2154)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "DeepSeek",
       "where": "",
       "labels": [],
@@ -31272,12 +31272,12 @@
     {
       "id": 2937,
       "title": "[DeepSeek] stitchwort test labels a test that failed without running (unfinished ?, broken dependency) as 'ran'; label it 'not run' (SW-2909, SW-2932)",
-      "status": "doing",
+      "status": "review",
       "agent": "DeepSeek",
       "where": "",
       "labels": [],
       "epic": "diagnostics",
-      "body": "",
+      "body": "\nModel result: DeepSeek, worked, ~15 min (est. 30). Reviewed; waits for the next batch.",
       "created": "2026-11-11",
       "updated": "2026-11-11",
       "commits": []
