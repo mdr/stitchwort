@@ -16368,7 +16368,7 @@
     {
       "id": 1920,
       "title": "[DeepSeek] A source subfolder that can't be listed is skipped silently (check passes without its files); a source 'folder' that is a file is reported as missing",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [
@@ -16377,7 +16377,7 @@
       "epic": "diagnostics",
       "body": "From docs/reviews/code-review-driver.md (lane B). M2. 30 min.",
       "created": "2026-11-07",
-      "updated": "2026-11-07",
+      "updated": "2026-11-11",
       "commits": []
     },
     {
@@ -30568,7 +30568,7 @@
     {
       "id": 2883,
       "title": "omega: SW-2879 note fires for a data parameter whose type is unknown (noise); emit it only when the hypothesis could be a fact",
-      "status": "review",
+      "status": "done",
       "agent": "DeepSeek",
       "where": "",
       "labels": [],
