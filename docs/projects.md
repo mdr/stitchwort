@@ -33,9 +33,12 @@ Folders whose names start with `.` are skipped, so `.stitchwort/` and `.git/`
 are ignored. Files that aren't `.sw` are ignored. A folder that doesn't
 exist, or a source path that is absolute or contains `..`, is an error. So is
 a `stitchwort.yaml` inside another project. `sources` must be a list:
-`sources: src` (a bare string) is `E-PROJECT-CONFIG`. The only other key is
+`sources: src` (a bare string) is `E-PROJECT-CONFIG`. The other keys are
 `audit:`, whose `allowed-axioms:` lists the axioms `stitchwort audit` allows
-(default `Quot.sound`); an unknown key is an error.
+(default `Quot.sound`), and `check:`, whose `open-goals:` is `warn` or `fail`
+(default): with `warn`, `stitchwort check` reports each open goal `?` as a
+warning and exits 0 if nothing else fails (`audit` still fails unfinished
+theorems). An unknown key, or a value other than those, is an error.
 
 A flat layout uses `sources: [.]`.
 

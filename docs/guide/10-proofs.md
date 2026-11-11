@@ -111,7 +111,7 @@ theorem timesOne (n: Nat): n * 1 = n := match n with
 1 goal open: the declarations with them, and what uses them, aren't finished, so they aren't checked
 ```
 
-A declaration with a `?` isn't an error, but it isn't finished either: it isn't checked, and `check` fails until every goal is closed. You can state a lemma with `?` as its proof and use it in the main theorem first, then come back to it. In the editor, the goal shows on hover, and "Stitchwort: Show Goals" opens a panel that follows the cursor.
+A declaration with a `?` isn't an error, but it isn't finished either: it isn't checked, and `check` fails until every goal is closed (unless the project's `stitchwort.yaml` says `check: open-goals: warn`, which makes `check` report each as a warning and pass; `audit` still fails them). You can state a lemma with `?` as its proof and use it in the main theorem first, then come back to it. In the editor, the goal shows on hover, and "Stitchwort: Show Goals" opens a panel that follows the cursor.
 
 The goal is shown computed, as the checker sees it, so it is often a step further along than what you wrote: `k * 1 + 1`, not `Succ k * 1`.
 
