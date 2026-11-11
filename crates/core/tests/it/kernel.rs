@@ -1146,24 +1146,62 @@ fn matching_refines_the_types_of_later_variables() {
 
 // Validators: what extracted JS runs to check an export's preconditions.
 
-/// A prelude with `Decidable`, and a definition `f : (n : Nat) -> [auto ok : n = n] -> Nat`.
-fn with_decidable() -> (Prelude, stitchwort_core::DataId, stitchwort_core::DefId) {
-    let mut p = Prelude::new();
-    let void = data(&mut p.g, "Void", vec![], Sort::Prop);
-    stitchwort_core::check::define_ctors(&mut p.g, void, vec![]).unwrap();
-    let decidable = data(&mut p.g, "Decidable", vec![("p", prop())], Sort::Type(0));
+/// A prelude's `Bool`, registered, with its type and `True`.
+fn with_bool(p: &mut Prelude) -> (stitchwort_core::DataId, Term, Term) {
+    let bool_ = data(&mut p.g, "Bool", vec![], Sort::Type(0));
     stitchwort_core::check::define_ctors(
         &mut p.g,
-        decidable,
-        vec![
-            ctor("Yes", vec![("proof", v(0))]),
-            ctor(
-                "No",
-                vec![("refutation", arrow(v(0), Term::Data(void, vec![])))],
-            ),
-        ],
+        bool_,
+        vec![ctor("False", vec![]), ctor("True", vec![])],
     )
     .unwrap();
+    stitchwort_core::native::register_bool(&mut p.g, bool_).unwrap();
+    (
+        bool_,
+        Term::data(bool_, vec![]),
+        Term::ctor(bool_, 1, vec![]),
+    )
+}
+
+/// A record type with parameters `params` and fields `fields`.
+fn record_type(
+    p: &mut Prelude,
+    name: &str,
+    params: Vec<(&str, Term)>,
+    fields: Vec<(&str, Term)>,
+) -> stitchwort_core::DataId {
+    let d = stitchwort_core::check::declare_data_group_as(
+        &mut p.g,
+        params.into_iter().map(|(x, t)| (x.into(), t)).collect(),
+        Sort::Type(0),
+        vec![(name.into(), name.into(), span(), true)],
+    )
+    .unwrap()[0];
+    stitchwort_core::check::define_ctors(&mut p.g, d, vec![ctor(&format!("Mk{name}"), fields)])
+        .unwrap();
+    d
+}
+
+/// A prelude with `Decidable`, the record `{ holds: Bool, sound: holds =
+/// True → p }`, and a definition `f : (n : Nat) -> [auto ok : n = n] -> Nat`;
+/// with `True`.
+fn with_decidable() -> (
+    Prelude,
+    stitchwort_core::DataId,
+    stitchwort_core::DefId,
+    Term,
+) {
+    let mut p = Prelude::new();
+    let (_, bool_ty, tru) = with_bool(&mut p);
+    let decidable = record_type(
+        &mut p,
+        "Decidable",
+        vec![("p", prop())],
+        vec![
+            ("holds", bool_ty.clone()),
+            ("sound", arrow(eq(Some(bool_ty), v(0), tru.clone()), v(1))),
+        ],
+    );
     let ty = pi(
         "n",
         p.nat_ty(),
@@ -1176,7 +1214,7 @@ fn with_decidable() -> (Prelude, stitchwort_core::DataId, stitchwort_core::DefId
     );
     let body = lam("n", Term::Lam("ok".into(), Icit::Auto, Rc::new(v(1))));
     let f = define(&mut p.g, "f", ty, body).unwrap();
-    (p, decidable, f)
+    (p, decidable, f, tru)
 }
 
 fn validate(
@@ -1193,25 +1231,25 @@ fn validate(
 
 #[test]
 fn accepts_a_validator_that_decides_the_precondition() {
-    let (mut p, decidable, f) = with_decidable();
-    // `Yes rfl`, in the context [n].
-    let yes = Term::ctor(decidable, 0, vec![Term::Refl]);
+    let (mut p, decidable, f, tru) = with_decidable();
+    // `{ holds = True, sound = h => rfl }`, in the context [n].
+    let yes = Term::ctor(decidable, 0, vec![tru, lam("h", Term::Refl)]);
     assert_eq!(validate(&mut p, f, 1, decidable, yes), "ok");
     assert_eq!(p.g.def(f).validators().len(), 1);
 }
 
 #[test]
 fn rejects_validators_that_do_not_decide_the_precondition() {
-    let (mut p, decidable, f) = with_decidable();
-    let yes = || Term::ctor(decidable, 0, vec![Term::Refl]);
+    let (mut p, decidable, f, tru) = with_decidable();
+    let yes = || Term::ctor(decidable, 0, vec![tru.clone(), lam("h", Term::Refl)]);
     // Not for a proof parameter: `n` is data.
     assert_eq!(validate(&mut p, f, 0, decidable, yes()), "E-MALFORMED");
     // No such parameter.
     assert_eq!(validate(&mut p, f, 5, decidable, yes()), "E-MALFORMED");
-    // A decision of something else: `Yes` of a proof of `0 = 0` has type
-    // `Decidable (0 = 0)`, not `Decidable (n = n)`.
+    // A decision of something else: one of `0 = 0` has type `Decidable (0
+    // = 0)`, not `Decidable (n = n)`.
     let other = Term::Ann(
-        Rc::new(Term::ctor(decidable, 0, vec![Term::Refl])),
+        Rc::new(yes()),
         Rc::new(Term::data(decidable, vec![eq(None, p.num(0), p.num(0))])),
     );
     assert_eq!(validate(&mut p, f, 1, decidable, other), "E-TYPE-MISMATCH");
@@ -1222,40 +1260,48 @@ fn rejects_validators_that_do_not_decide_the_precondition() {
 
 #[test]
 fn rejects_validators_whose_data_type_is_not_shaped_like_decidable() {
-    let (mut p, _, f) = with_decidable();
-    // Each of these differs from `Decidable` in one way that matters: extracted
-    // JS reads the first constructor as "the precondition holds".
-    type Shape<'a> = (Vec<(&'a str, Term)>, Vec<stitchwort_core::check::CtorDecl>);
+    let (mut p, _, f, tru) = with_decidable();
+    let bool_ty = match &tru {
+        Term::Ctor(b, _, _) => Term::data(*b, vec![]),
+        _ => unreachable!(),
+    };
+    let sound = |p_ix: usize| arrow(eq(Some(bool_ty.clone()), v(0), tru.clone()), v(p_ix));
+    // Each of these differs from `Decidable` in one way that matters:
+    // extracted JS reads the first field being `True` as "the precondition
+    // holds".
+    type Shape<'a> = (Vec<(&'a str, Term)>, Vec<(&'a str, Term)>);
     let shapes: Vec<Shape> = vec![
         // A `Type` parameter instead of a `Prop`.
         (
             vec![("p", ty())],
-            vec![ctor("Yes", vec![("proof", v(0))]), ctor("No", vec![])],
+            vec![("holds", bool_ty.clone()), ("sound", sound(1))],
         ),
         // Two parameters.
         (
             vec![("p", prop()), ("q", prop())],
-            vec![ctor("Yes", vec![("proof", v(1))]), ctor("No", vec![])],
+            vec![("holds", bool_ty.clone()), ("sound", sound(2))],
         ),
-        // Only one constructor.
+        // Only the test.
+        (vec![("p", prop())], vec![("holds", bool_ty.clone())]),
+        // The test isn't a `Bool`.
         (
             vec![("p", prop())],
-            vec![ctor("Yes", vec![("proof", v(0))])],
+            vec![
+                ("holds", p.nat_ty()),
+                ("sound", arrow(eq(None, v(0), p.num(1)), v(1))),
+            ],
         ),
-        // The first constructor carries no proof.
+        // The second field doesn't say that `True` proves `p`.
         (
             vec![("p", prop())],
-            vec![ctor("Yes", vec![]), ctor("No", vec![("proof", v(0))])],
-        ),
-        // The first constructor carries something other than a proof of `p`.
-        (
-            vec![("p", prop())],
-            vec![ctor("Yes", vec![("proof", prop())]), ctor("No", vec![])],
+            vec![
+                ("holds", bool_ty.clone()),
+                ("sound", arrow(eq(Some(bool_ty.clone()), v(0), v(0)), v(1))),
+            ],
         ),
     ];
-    for (i, (params, ctors)) in shapes.into_iter().enumerate() {
-        let d = data(&mut p.g, &format!("Fake{i}"), params, Sort::Type(1));
-        stitchwort_core::check::define_ctors(&mut p.g, d, ctors).expect("data checks");
+    for (i, (params, fields)) in shapes.into_iter().enumerate() {
+        let d = record_type(&mut p, &format!("Fake{i}"), params, fields);
         // Whatever the decision term, the shape is refused first.
         assert_eq!(
             validate(&mut p, f, 1, d, Term::Refl),
@@ -1263,6 +1309,15 @@ fn rejects_validators_whose_data_type_is_not_shaped_like_decidable() {
             "shape {i}"
         );
     }
+    // Not a record: `Yes p | No`.
+    let two = data(&mut p.g, "TwoCtors", vec![("p", prop())], Sort::Type(0));
+    stitchwort_core::check::define_ctors(
+        &mut p.g,
+        two,
+        vec![ctor("Yes", vec![("proof", v(0))]), ctor("No", vec![])],
+    )
+    .unwrap();
+    assert_eq!(validate(&mut p, f, 1, two, Term::Refl), "E-MALFORMED");
 }
 
 // Refinement with dependent fields (from the second review of the abilities
