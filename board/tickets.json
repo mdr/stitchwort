@@ -31365,7 +31365,7 @@
     {
       "id": 2944,
       "title": "[DeepSeek] E-USES-FAILED 'the error is here' label sits a few columns from the printed error position (76:37 vs 76:41) (SW-2940)",
-      "status": "doing",
+      "status": "review",
       "agent": "DeepSeek",
       "where": "",
       "labels": [],
