@@ -30134,12 +30134,12 @@
     {
       "id": 2850,
       "title": "Messages: E-UNSOLVED on a hole in a header's type suggests f [x := …], which doesn't apply (SW-2845)",
-      "status": "doing",
+      "status": "review",
       "agent": "DeepSeek",
       "where": ".claude/worktrees/scratch-sw-2850",
       "labels": [],
       "epic": "diagnostics",
-      "body": "",
+      "body": "\nModel result: DeepSeek, worked, ~20 min (est. 30). Header/signature phase gets the new note; a local definition's header (Phase::Body) keeps the old one.",
       "created": "2026-11-11",
       "updated": "2026-11-11",
       "commits": []
