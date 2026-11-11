@@ -1,5 +1,5 @@
 {
-  "next": 2902,
+  "next": 2903,
   "tickets": [
     {
       "id": 47,
@@ -30810,6 +30810,19 @@
       "labels": [],
       "epic": "diagnostics",
       "body": "",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2902,
+      "title": "[Opus] Proving with Stitchwort, chapters 0-2: book/ project, Setting up, Computing, Cases (D3521; outline docs/proposals/proving-with-stitchwort-outline.md)",
+      "status": "doing",
+      "agent": "Opus",
+      "where": "",
+      "labels": [],
+      "epic": "docs-tutorials",
+      "body": "D3521 (Matt, 11 Nov 2026): 'yes, let's write this book or the first few chapters ... do the book first or the first chapter or two of the book and then push it so I can try it out in VS Code and then work on the playground.' Expected: 120 min.",
       "created": "2026-11-11",
       "updated": "2026-11-11",
       "commits": []
