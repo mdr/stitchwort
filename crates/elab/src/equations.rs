@@ -4986,8 +4986,6 @@ fn match_pattern(
     }
 }
 
-/// `t` as a head applied to arguments, with how each is passed, looking
-/// through locations.
 /// `t` with each plain `if` on a decided proposition as the `if` on the
 /// decision's `Bool`: `Decidable.elim [p] [a] d (_ => y) (_ => n)` whose
 /// branches don't use the proof is `Bool.ifThenElse [a] b (_ => y) (_ =>
@@ -5136,6 +5134,8 @@ fn plain_ifs(g: &Ev, t: &Term) -> R<Term> {
     })?)
 }
 
+/// `t` as a head applied to arguments, with how each is passed, looking
+/// through locations.
 fn spine_icit(t: &Term) -> (&Term, Vec<(Term, Icit)>) {
     let mut args = Vec::new();
     let mut head = t.strip_loc();
