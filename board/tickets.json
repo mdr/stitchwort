@@ -28703,13 +28703,13 @@
     },
     {
       "id": 2740,
-      "title": "(a <= b) = False prints with ASCII <= where the positive form prints ≤",
-      "status": "doing",
+      "title": "(a <= b) = False prints with ASCII <= where the positive form prints ≤ — by design, no change",
+      "status": "done",
       "agent": "DeepSeek",
       "where": ".claude/worktrees/scratch-sw-2740",
       "labels": [],
       "epic": "syntax-language",
-      "body": "From SW-2734 (10 Nov 2026).",
+      "body": "From SW-2734 (10 Nov 2026).\nClosed 11 Nov by the orchestrator, no change: the printing rule (D1204, D1211, D3458; docs/syntax.md 'Printing', guide 10-proofs) shows a statement's operators in Unicode (n ≤ limit) and a Bool computation in ASCII ((n <= limit) = False) so the two can be told apart. The finding misread that as an inconsistency. DeepSeek's run (40 min) changed the printer to print statements in ASCII too and rewrote the docs to match; dropped unmerged.\nModel result: DeepSeek, failed (followed a wrong brief: rewrote the documented rule instead of flagging the conflict), 41 min (est. 40). The brief was at fault: it asserted the bug without checking the docs.",
       "created": "2026-11-10",
       "updated": "2026-11-11",
       "commits": []
