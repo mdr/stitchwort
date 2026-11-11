@@ -181,6 +181,7 @@ body { font-family: var(--vscode-editor-font-family, monospace); font-size: var(
 .goal { border-top: 1px solid var(--vscode-panel-border); margin-top: 8px; padding-top: 8px; font-weight: bold; }
 .before, .rule, .found { white-space: pre-wrap; margin: 2px 0; opacity: 0.75; }
 .before { border-top: 1px solid var(--vscode-panel-border); margin-top: 8px; padding-top: 8px; }
+.computed { white-space: pre-wrap; margin: 2px 0; opacity: 0.6; }
 .before + .rule + .goal, .before + .goal, .rule + .goal { border-top: none; margin-top: 2px; padding-top: 0; }
 .added { color: var(--vscode-gitDecoration-addedResourceForeground); }
 .label { opacity: 0.7; }

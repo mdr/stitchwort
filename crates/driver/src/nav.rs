@@ -977,7 +977,7 @@ fn index_of_files(session: &Session, wanted: &dyn Fn(FileId) -> bool) -> NavInde
 
 /// `text` as a JSON string.
 /// A goal's `goal` member: `{"hypotheses":[{"name","type","value"?}],
-/// "target","lemma"?}`, each part as the goal's label prints it.
+/// "target","targetComputed"?,"lemma"?}`, each part as the goal's label prints it.
 fn goal_json(out: &mut String, goal: &GoalData) {
     out.push_str(r#"{"hypotheses":["#);
     for (i, h) in goal.hypotheses.iter().enumerate() {
@@ -995,7 +995,12 @@ fn goal_json(out: &mut String, goal: &GoalData) {
         }
         out.push('}');
     }
-    let _ = write!(out, r#"],"target":{}"#, string(&goal.target));
+    // The goal as written; what it computes to only when it prints
+    // differently (D3522).
+    let _ = write!(out, r#"],"target":{}"#, string(goal.shown()));
+    if let Some(computed) = goal.computed() {
+        let _ = write!(out, r#","targetComputed":{}"#, string(computed));
+    }
     if let Some(lemma) = &goal.lemma {
         let _ = write!(out, r#","lemma":{}"#, string(lemma));
     }

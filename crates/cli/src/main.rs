@@ -2909,6 +2909,7 @@ fn goal_list(project: Option<&Path>, json: bool, cache: &CacheArgs) -> ExitCode 
                     "line": g.place.line,
                     "column": g.place.column,
                     "goal": g.target,
+                    "goalComputed": g.computed,
                     "reliedOnBy": g.relied_on_by,
                     "blocking": g.blocking,
                     "equationLemmas": g.equations,
@@ -2917,7 +2918,7 @@ fn goal_list(project: Option<&Path>, json: bool, cache: &CacheArgs) -> ExitCode 
             .collect();
         println!(
             "{}",
-            serde_json::json!({"version": 1, "open": goals.len(), "goals": goals})
+            serde_json::json!({"version": 2, "open": goals.len(), "goals": goals})
         );
         discard(session);
         return ExitCode::SUCCESS;
@@ -2935,6 +2936,12 @@ fn goal_list(project: Option<&Path>, json: bool, cache: &CacheArgs) -> ExitCode 
             g.place.place(),
             g.target.replace('\n', "\n    ")
         );
+        if let Some(computed) = &g.computed {
+            println!(
+                "    computes to {}",
+                stitchwort_syntax::cut_computed(computed)
+            );
+        }
         let list = |names: &[String]| {
             const SHOWN: usize = 8;
             let mut text = names
@@ -2975,7 +2982,7 @@ fn goal_list(project: Option<&Path>, json: bool, cache: &CacheArgs) -> ExitCode 
     ExitCode::SUCCESS
 }
 
-/// `goal --at --json`'s answer: version 1; `at` (`file`, `line`, `column`,
+/// `goal --at --json`'s answer: version 2; `at` (`file`, `line`, `column`,
 /// 1-based); `declaration`; `context`: `kind` (`proof` or `program`),
 /// `target` (the goal, or the expected type), `checked` (whether `target`
 /// is what the expression was checked against rather than a type found for
@@ -2983,7 +2990,10 @@ fn goal_list(project: Option<&Path>, json: bool, cache: &CacheArgs) -> ExitCode 
 /// expression: 1-based `line`, `column`, `endLine`, `endColumn`; columns in
 /// UTF-16 units), `locals` (`name`, `type`, `value?`) and `step` (on a step
 /// of a proof, else null: `form`, `description`, `range`, `index` and `of`
-/// from 1, `before`, `after`, `kind`, `adds`, `rule`, `target`).
+/// from 1, `before`, `after`, `kind`, `adds`, `rule`, `target`). Every
+/// goal (`target`, `before`, `after`) is as written, and its
+/// `…Computed` twin (`targetComputed`, `beforeComputed`, `afterComputed`)
+/// is what it computes to, or null when it prints the same (D3522).
 fn goal_json(
     file: &str,
     line: usize,
@@ -3001,19 +3011,22 @@ fn goal_json(
             "of": s.of,
             "kind": kind(s.proof),
             "before": s.before,
+            "beforeComputed": s.before_computed,
             "after": s.after,
+            "afterComputed": s.after_computed,
             "adds": s.adds,
             "rule": s.rule,
             "target": s.target,
         })
     });
     serde_json::json!({
-        "version": 1,
+        "version": 2,
         "at": {"file": file, "line": line, "column": column},
         "declaration": context.declaration,
         "context": {
             "kind": kind(context.proof),
             "target": context.ty,
+            "targetComputed": context.ty_computed,
             "checked": context.checked,
             "hasType": context.found,
             "range": range(context.range),

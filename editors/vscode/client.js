@@ -143,8 +143,18 @@ function goalHtml(answer) {
       return `<div class="h"><span class="n">${escapeHtml(h.name)}</span>: ${escapeHtml(h.type)}${value}</div>`;
     })
     .join('');
-  return `<div class="owner">in ${escapeHtml(answer.owner)}</div>${rows}<div class="goal">⊢ ${escapeHtml(answer.goal)}</div>`;
+  return `<div class="owner">in ${escapeHtml(answer.owner)}</div>${rows}<div class="goal">⊢ ${escapeHtml(answer.goal)}</div>${computesHtml(answer.goalComputed)}`;
 }
+
+// The `computes to` line under a goal printed as written, when what it
+// computes to prints differently (D3522); dimmed by the panel's style, and
+// cut at 240 characters like a message's notes.
+const COMPUTES_TO_LIMIT = 240;
+const computesHtml = (computed) => {
+  if (!computed) return '';
+  const cut = [...computed].length > COMPUTES_TO_LIMIT ? [...computed].slice(0, COMPUTES_TO_LIMIT - 1).join('') + '…' : computed;
+  return `<div class="computed">computes to ${escapeHtml(cut)}</div>`;
+};
 
 // The context list of an answer, as rows.
 const hypothesisRows = (context) =>
@@ -184,21 +194,21 @@ function contextHtml(answer) {
       `<div class="${cls}"><span class="label">${label}</span>${escapeHtml(text)}</div>`;
     const parts = [];
     if (step.form === 'calcLine') {
-      if (step.before) parts.push(line('before', 'so far ', step.before));
-      parts.push(line('goal', `line ${sign}`, step.after));
+      if (step.before) parts.push(line('before', 'so far ', step.before), computesHtml(step.beforeComputed));
+      parts.push(line('goal', `line ${sign}`, step.after), computesHtml(step.afterComputed));
     } else if (step.form === 'match' || step.form === 'statement') {
-      parts.push(line('goal', sign, step.after));
+      parts.push(line('goal', sign, step.after), computesHtml(step.afterComputed));
     } else {
-      if (step.before) parts.push(line('before', `before ${sign}`, step.before));
+      if (step.before) parts.push(line('before', `before ${sign}`, step.before), computesHtml(step.beforeComputed));
       if (step.rule) parts.push(line('rule', 'rule ', step.rule));
-      parts.push(line('goal', `after ${sign}`, step.after));
+      parts.push(line('goal', `after ${sign}`, step.after), computesHtml(step.afterComputed));
     }
     return `${owner}${rows}${parts.join('')}`;
   }
   const label = !answer.checked ? 'has type ' : answer.kind === 'proof' ? '⊢ ' : 'expected ';
   const found =
     answer.checked && answer.hasType ? `<div class="found">has type ${escapeHtml(answer.hasType)}</div>` : '';
-  return `${owner}${rows}<div class="goal">${label}${escapeHtml(answer.type)}</div>${found}`;
+  return `${owner}${rows}<div class="goal">${label}${escapeHtml(answer.type)}</div>${computesHtml(answer.typeComputed)}${found}`;
 }
 
 const positionInRange = (p, r) =>

@@ -31147,7 +31147,7 @@
       "where": "",
       "labels": [],
       "epic": "editor-playground",
-      "body": "D3522 (Matt, 11 Nov 2026): 'that sounds like a good solution, showing both.' Then update book 2.1 back to the as-written goal plus the computes-to line, guide 10-proofs.md:127, syntax.md:1659/1734.",
+      "body": "D3522 (Matt, 11 Nov 2026): 'that sounds like a good solution, showing both.' Then update book 2.1 back to the as-written goal plus the computes-to line, guide 10-proofs.md:127, syntax.md:1659/1734.\n\nProgress (Sonnet lane, 11 Nov 2026): done in branch lane/SW-2927. Goals print as written (new `Readback::AsWrittenShown`: calls kept, sums still `x + k`), with `computes to` (cut at 240) when the computed form differs: Diagnostic label, `stitchwort goal` (--at, no --at, --json v2: `targetComputed`, `beforeComputed`, `afterComputed`, `goalComputed`), LSP goalAt/contextAt, VS Code panel and playground (dimmed). Not done: hypotheses stay as the checker has them (as written lost `(+ 1)` sections and unfolded record projections); a goal whose written form names a `%helper` stays computed-only; SW-2942's `StepNote.after_written` not folded (not on main yet).\n",
       "created": "2026-11-11",
       "updated": "2026-11-11",
       "commits": []

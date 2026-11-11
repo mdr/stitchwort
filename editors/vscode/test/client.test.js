@@ -125,6 +125,19 @@ test('goals panel: a context answer is a goal in a proof, an expected type in a 
   assert.match(cfg.contextHtml(null), /No open goal/);
 });
 
+test('goals panel: a goal as written has a dimmed computes-to line under it, cut at 240 characters', () => {
+  const html = cfg.goalHtml({ owner: '`f`', goal: 'beats Rock Rock = False', goalComputed: 'False = False', context: [] });
+  assert.match(html, /⊢ beats Rock Rock = False<\/div><div class="computed">computes to False = False<\/div>/);
+  assert.doesNotMatch(cfg.goalHtml({ owner: 'f', goal: 'a', goalComputed: null, context: [] }), /computes to/);
+  const step = cfg.contextHtml({
+    type: 'x', checked: true, kind: 'proof', locals: [],
+    step: { form: 'arm', kind: 'proof', before: 'beats m m = False', after: 'beats Rock Rock = False', afterComputed: 'False = False' },
+  });
+  assert.match(step, /after ⊢ <\/span>beats Rock Rock = False<\/div><div class="computed">computes to False = False/);
+  const long = cfg.contextHtml({ type: 'a', typeComputed: 'x'.repeat(300), checked: true, kind: 'proof', locals: [] });
+  assert.match(long, /computes to x{239}…</);
+});
+
 test('goals panel: expected T and has type U when they differ', () => {
   const body = cfg.contextHtml({
     type: 'Int', checked: true, kind: 'program', hasType: 'Nat', locals: [], declaration: 'widen',

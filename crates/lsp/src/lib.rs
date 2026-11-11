@@ -4355,7 +4355,9 @@ fn context_at(
                     "of": s.of,
                     "kind": kind(s.proof),
                     "before": s.before,
+                    "beforeComputed": s.before_computed,
                     "after": s.after,
+                    "afterComputed": s.after_computed,
                     "adds": s.adds,
                     "rule": s.rule,
                     "target": s.target,
@@ -4364,6 +4366,7 @@ fn context_at(
             serde_json::json!({
                 "range": range(c.range),
                 "type": c.ty,
+                "typeComputed": c.ty_computed,
                 "checked": c.checked,
                 "kind": kind(c.proof),
                 "hasType": c.found,
@@ -4746,6 +4749,7 @@ fn goal_at(nav: &Nav, uri: &Url, position: Position) -> Option<serde_json::Value
         "range": range(found.range),
         "owner": found.owner,
         "goal": found.goal,
+        "goalComputed": found.goal_computed,
         "context": found.context,
         "text": found.text,
     }))

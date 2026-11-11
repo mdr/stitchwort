@@ -141,8 +141,11 @@ pub struct Goal {
     pub range: Range,
     /// What the hole is in: "`addZero`".
     pub owner: String,
-    /// What must be shown (after `⊢`).
+    /// What must be shown (after `⊢`), as written (D3522).
     pub goal: String,
+    /// What it computes to, when that prints differently.
+    #[serde(rename = "goalComputed")]
+    pub goal_computed: Option<String>,
     pub context: Vec<Local>,
     /// Whether the goal is a proposition (a proof goal), if its sort was
     /// known when the hole was checked.
@@ -174,7 +177,8 @@ pub fn goals_of(file: &FileAnswers) -> Vec<Goal> {
                     .strip_prefix("in ")
                     .unwrap_or(&d.message)
                     .to_string(),
-                goal: data.target.clone(),
+                goal: data.shown().to_string(),
+                goal_computed: data.computed().map(str::to_string),
                 context: (data.hypotheses.iter())
                     .map(|h| Local {
                         name: h.name.clone(),
@@ -619,6 +623,10 @@ pub struct Context {
     /// type), else the type found for it.
     #[serde(rename = "type")]
     pub ty: String,
+    /// What `ty` computes to, when that prints differently (D3522: `ty` is
+    /// as written).
+    #[serde(rename = "typeComputed")]
+    pub ty_computed: Option<String>,
     pub checked: bool,
     /// Whether `ty` is a proposition: the answer is a goal to prove, not the
     /// type of a program's expression.
@@ -656,8 +664,14 @@ pub struct Step {
     /// The goal before the step: for a `calc` line, what the lines before
     /// it prove.
     pub before: Option<String>,
+    /// What `before` computes to, when that prints differently.
+    #[serde(rename = "beforeComputed")]
+    pub before_computed: Option<String>,
     /// The goal after it: for a `calc` line, the line's statement.
     pub after: String,
+    /// What `after` computes to, when that prints differently.
+    #[serde(rename = "afterComputed")]
+    pub after_computed: Option<String>,
     /// Whether the goals are propositions.
     pub proof: bool,
     /// The names the step brings into scope.
@@ -708,6 +722,14 @@ impl Step {
                 _ => "`then` of `if`".into(),
             },
         };
+        let before = match step.before {
+            Some(computed) => {
+                let (shown, computed) = written_first(computed, step.before_written);
+                (Some(shown), computed)
+            }
+            None => (None, None),
+        };
+        let after = written_first(step.after, step.after_written);
         Step {
             form: if statement {
                 "statement"
@@ -718,14 +740,25 @@ impl Step {
             range: [l1, c1, l2, c2],
             index: step.index.map(|(i, _)| i + 1),
             of: step.index.map(|(_, n)| n),
-            before: step.before,
-            after: step.after,
+            before: before.0,
+            before_computed: before.1,
+            after: after.0,
+            after_computed: after.1,
             proof: step.proof,
             adds: if statement { Vec::new() } else { step.adds },
             rule: step.rule,
             target: step.target,
             locals: step.locals.into_iter().map(Local::of).collect(),
         }
+    }
+}
+
+/// What a reader sees first and what it computes to, from a goal's computed
+/// print and its print as written, if that differs (D3522).
+fn written_first(computed: String, written: Option<String>) -> (String, Option<String>) {
+    match written {
+        Some(written) => (written, Some(computed)),
+        None => (computed, None),
     }
 }
 
@@ -737,6 +770,15 @@ impl Local {
             value: h.value,
             splits: h.splits,
         }
+    }
+}
+
+/// The line `computes to …` under a goal printed after `indent` columns,
+/// plain (the editors dim it), cut to [`stitchwort_syntax::COMPUTES_TO_LIMIT`].
+fn computes_to(out: &mut String, indent: usize, computed: &Option<String>) {
+    if let Some(computed) = computed {
+        let cut = stitchwort_syntax::cut_computed(computed);
+        out.push_str(&format!("{:indent$}computes to {cut}\n", ""));
     }
 }
 
@@ -775,18 +817,26 @@ impl Context {
                     "calcLine" => {
                         if let Some(before) = &step.before {
                             out.push_str(&format!("  so far {before}\n"));
+                            computes_to(&mut out, 9, &step.before_computed);
                         }
                         out.push_str(&format!("  line   {label} {}\n", step.after));
+                        computes_to(&mut out, 9, &step.after_computed);
                     }
-                    "match" | "statement" => out.push_str(&format!("  {label} {}\n", step.after)),
+                    "match" | "statement" => {
+                        out.push_str(&format!("  {label} {}\n", step.after));
+                        computes_to(&mut out, 2, &step.after_computed);
+                    }
                     _ => {
+                        let at = 9;
                         if let Some(before) = &step.before {
                             out.push_str(&format!("  before {label} {before}\n"));
+                            computes_to(&mut out, at, &step.before_computed);
                         }
                         if let Some(rule) = &step.rule {
                             out.push_str(&format!("  rule   {rule}\n"));
                         }
                         out.push_str(&format!("  after  {label} {}\n", step.after));
+                        computes_to(&mut out, at, &step.after_computed);
                     }
                 }
             }
@@ -796,6 +846,7 @@ impl Context {
             }
             None => {
                 out.push_str(&format!("  {} {}\n", goal(self.proof), self.ty));
+                computes_to(&mut out, 2, &self.ty_computed);
                 if let Some(found) = &self.found {
                     out.push_str(&format!("  has type {found}\n"));
                 }
@@ -810,9 +861,11 @@ impl Session {
         let found = self.elab.take_probed_context()?;
         let (l1, c1) = position_at(text, found.span.start as usize);
         let (l2, c2) = position_at(text, found.span.end as usize);
+        let ty = written_first(found.ty, found.ty_written);
         Some(Context {
             range: [l1, c1, l2, c2],
-            ty: found.ty,
+            ty: ty.0,
+            ty_computed: ty.1,
             checked: found.checked,
             proof: found.proof,
             found: found.found,

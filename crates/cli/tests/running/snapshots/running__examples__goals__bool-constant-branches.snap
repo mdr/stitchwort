@@ -17,7 +17,8 @@ expression: output
     │                                                                     ┬  
     │                                                                     ╰── b: Bool
     │                                                                         c: Bool
-    │                                                                         ⊢ (b && c && True) = b
+    │                                                                         ⊢ [b, c].all (x => x) = b
+    │                                                                           computes to (b && c && True) = b
     │ 
     │ Note: this statement is false; a counterexample:
     │         b = True
@@ -33,7 +34,8 @@ expression: output
     │                                                                     ┬  
     │                                                                     ╰── b: Bool
     │                                                                         c: Bool
-    │                                                                         ⊢ (b || c || False) = b
+    │                                                                         ⊢ [b, c].any (x => x) = b
+    │                                                                           computes to (b || c || False) = b
     │ 
     │ Note: this statement is false; a counterexample:
     │         b = False
