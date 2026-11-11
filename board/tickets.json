@@ -1,5 +1,5 @@
 {
-  "next": 2844,
+  "next": 2845,
   "tickets": [
     {
       "id": 47,
@@ -30026,9 +30026,9 @@
     {
       "id": 2842,
       "title": "Variable index underflow at crates/elab/src/lift.rs:390 inside rewrite::tidy -> replace_with (debug panics with subtraction overflow; release wraps silently and could build a wrong term), reached by search_at::a_goal_that_takes_too_long_to_open_reports_running_out; before stage 2 the debug test aborted with SIGILL (SW-2837)",
-      "status": "next",
+      "status": "doing",
       "agent": "Opus",
-      "where": "",
+      "where": ".claude/worktrees/SW-2842",
       "labels": [],
       "epic": "elaborator-kernel",
       "body": "",
@@ -30044,6 +30044,19 @@
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2844,
+      "title": "Std: Nat.zeroAdd (0 + n = n) and Nat.succAdd (S m + n = S (m + n)) in Nat/Arith.sw (addition recurses on the right, so these need induction) (SW-2838)",
+      "status": "backlog",
+      "agent": "DeepSeek",
+      "where": "",
+      "labels": [],
+      "epic": "std-library",
       "body": "",
       "created": "2026-11-11",
       "updated": "2026-11-11",
