@@ -30607,15 +30607,17 @@
     {
       "id": 2886,
       "title": "[Sonnet] Split from a ?: a _ column can't be split again (the action nests a match c instead of expanding the _ into the constructors) (SW-2885)",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "editor-playground",
-      "body": "",
+      "body": "\n\nProgress: done on lane/SW-2926 (fe8fe5eec): split from a ? expands the arm in place (named variable, _ column, constructor field); tests added; book 2.3 and guide updated.\n",
       "created": "2026-11-11",
       "updated": "2026-11-11",
-      "commits": []
+      "commits": [
+        "fe8fe5eec"
+      ]
     },
     {
       "id": 2887,
@@ -31129,15 +31131,17 @@
     {
       "id": 2926,
       "title": "[Sonnet] Split from a ? on a variable the enclosing arm already binds (a named pattern like theirs, or a _ column) nests a match; it should expand that arm in place, as splitting from the pattern does (Matt, 11 Nov 2026); covers SW-2886",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "editor-playground",
-      "body": "",
+      "body": "\n\nProgress: done on lane/SW-2926 (fe8fe5eec): split from a ? expands the arm in place (named variable, _ column, constructor field); tests added; book 2.3 and guide updated.\n",
       "created": "2026-11-11",
       "updated": "2026-11-11",
-      "commits": []
+      "commits": [
+        "fe8fe5eec"
+      ]
     }
   ]
 }
