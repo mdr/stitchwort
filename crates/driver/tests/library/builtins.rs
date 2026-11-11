@@ -268,8 +268,12 @@ test "records differ" := (({ x = 1, y = 2 } : Point) == { x = 1, y = 3 }) == Fal
 test "char literal" := Char.toNat 'a' == 97
 "#;
 
+/// `PROGRAM` imports `Std`, so this checks the whole library. Run it on a
+/// thread of [`STACK`] bytes, as the tests below that load the library eagerly
+/// are: the default test thread's guard is 1.5 MiB, which a debug build's
+/// frames exhaust about eight times sooner than release's (SW-2732).
 fn hidden_session() -> Session {
-    let mut session = Session::new();
+    let mut session = Session::for_stack(STACK);
     if let Err(errors) = session.load("test.sw", PROGRAM) {
         panic!("{errors:#?}");
     }
@@ -278,62 +282,70 @@ fn hidden_session() -> Session {
 
 #[test]
 fn syntax_means_the_prelude_whatever_its_names_mean() {
-    let session = hidden_session();
-    let results = session.run_tests(&Cache::disabled());
-    assert!(!results.is_empty());
-    for result in &results {
-        assert_eq!(result.outcome, Outcome::Passed, "{}", result.name);
-    }
+    with_stack(STACK, || {
+        let session = hidden_session();
+        let results = session.run_tests(&Cache::disabled());
+        assert!(!results.is_empty());
+        for result in &results {
+            assert_eq!(result.outcome, Outcome::Passed, "{}", result.name);
+        }
+    });
 }
 
 #[test]
 fn natives_stay_on_the_prelude_definitions() {
-    let session = hidden_session();
-    let g = &session.elab.ev();
-    let add = g.env.registry().def(Builtin::Add).unwrap();
-    assert!(g.env.builtins().native(add).is_some());
-    // The program's own `add` is the last definition of that name.
-    let mine = g
-        .env
-        .defs()
-        .iter()
-        .rposition(|d| &**d.name() == "add")
-        .unwrap();
-    assert_ne!(mine, add.0);
-    assert!(
-        g.env
-            .builtins()
-            .native(stitchwort_core::DefId(mine))
-            .is_none()
-    );
+    with_stack(STACK, || {
+        let session = hidden_session();
+        let g = &session.elab.ev();
+        let add = g.env.registry().def(Builtin::Add).unwrap();
+        assert!(g.env.builtins().native(add).is_some());
+        // The program's own `add` is the last definition of that name.
+        let mine = g
+            .env
+            .defs()
+            .iter()
+            .rposition(|d| &**d.name() == "add")
+            .unwrap();
+        assert_ne!(mine, add.0);
+        assert!(
+            g.env
+                .builtins()
+                .native(stitchwort_core::DefId(mine))
+                .is_none()
+        );
+    });
 }
 
 #[test]
 fn the_runner_uses_the_prelude_simulate_and_io() {
-    let mut session = hidden_session();
-    assert_eq!(session.simulate(&[]).unwrap(), ["one", "4", "ab"]);
-    let main = session.main().unwrap();
-    let mut output = Vec::new();
-    session.run_main(&main, &mut &b""[..], &mut output).unwrap();
-    assert_eq!(String::from_utf8(output).unwrap(), "one\n4\nab\n");
+    with_stack(STACK, || {
+        let mut session = hidden_session();
+        assert_eq!(session.simulate(&[]).unwrap(), ["one", "4", "ab"]);
+        let main = session.main().unwrap();
+        let mut output = Vec::new();
+        session.run_main(&main, &mut &b""[..], &mut output).unwrap();
+        assert_eq!(String::from_utf8(output).unwrap(), "one\n4\nab\n");
+    });
 }
 
 #[test]
 fn a_programs_own_list_prints_as_itself() {
-    let mut session = hidden_session();
-    let show = |session: &mut Session, text: &str| {
-        let expr = session.parse_expression("<t>", text).unwrap();
-        session.elab.eval_expr(&expr).unwrap()
-    };
-    // The program's `List`: constructors, not a list literal.
-    let (value, ty) = show(&mut session, "mine");
-    assert_eq!(value, "Cons 1 Nil");
-    assert_eq!(ty, "List Nat");
-    // The prelude's: a literal, and `()` for its unit.
-    let (value, _) = show(&mut session, "[1, 2] ++ [3]");
-    assert_eq!(value, "[1, 2, 3]");
-    let (value, ty) = show(&mut session, "()");
-    assert_eq!((value.as_str(), ty.as_str()), ("()", "()"));
+    with_stack(STACK, || {
+        let mut session = hidden_session();
+        let show = |session: &mut Session, text: &str| {
+            let expr = session.parse_expression("<t>", text).unwrap();
+            session.elab.eval_expr(&expr).unwrap()
+        };
+        // The program's `List`: constructors, not a list literal.
+        let (value, ty) = show(&mut session, "mine");
+        assert_eq!(value, "Cons 1 Nil");
+        assert_eq!(ty, "List Nat");
+        // The prelude's: a literal, and `()` for its unit.
+        let (value, _) = show(&mut session, "[1, 2] ++ [3]");
+        assert_eq!(value, "[1, 2, 3]");
+        let (value, ty) = show(&mut session, "()");
+        assert_eq!((value.as_str(), ty.as_str()), ("()", "()"));
+    });
 }
 
 #[test]
