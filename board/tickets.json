@@ -2369,7 +2369,7 @@
     {
       "id": 1004,
       "title": "Goal printing: lifted match helpers (f.%match1) still print by internal name",
-      "status": "doing",
+      "status": "next",
       "agent": "",
       "where": "",
       "labels": [
@@ -19897,7 +19897,7 @@
     {
       "id": 2154,
       "title": "[Sonnet] Goals print a lifted match helper (f.%match1) as (match <scrutinees> with …), from the scrutinee positions the elaborator records; check first that the module cache keeps them for std's helpers",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [
@@ -19906,7 +19906,7 @@
       "epic": "diagnostics",
       "body": "From docs/proposals/goal-printing-gaps.md. Lane D, after SW-2151, SW-2152, SW-2153. Replaces SW-1004. 60 min.",
       "created": "2026-11-07",
-      "updated": "2026-11-07",
+      "updated": "2026-11-11",
       "commits": []
     },
     {
