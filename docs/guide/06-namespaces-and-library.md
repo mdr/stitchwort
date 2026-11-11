@@ -32,7 +32,7 @@ def numbers (line: Text): List Nat := line.split ',' |> .filterMap Text.toNat
 - **Full names.** `Std.Text.toNat` always works.
 - **Syntax.** `+`, `==`, `++`, `if`, literals and `${…}` always mean the library's.
 
-`import N (a, b)` brings particular names into scope: `import Std.Fail (fail, need)` lets you write `fail` for `Fail.fail`. `import N (..)` brings every name declared directly in `N`, at a lower priority than the file's own names and named imports. Types outside the prelude, such as `Map`, `Set`, `Vec`, `Array` and `Float`, need an import even for the type's name.
+`import N (a, b)` brings particular names into scope: `import Std.Fail (fail, need)` lets you write `fail` for `Fail.fail`. A constructor may be named too: beside its type, `import Turns (Move, Clockwise)`, it adds nothing, since importing the type already brings its constructors; alone, `import Turns (Counterclockwise)`, it imports just that constructor, and neither the type nor the type's other constructors. `import N (..)` brings every name declared directly in `N`, at a lower priority than the file's own names and named imports. Types outside the prelude, such as `Map`, `Set`, `Vec`, `Array` and `Float`, need an import even for the type's name.
 
 A short name means, first found: a local variable, the file's own declaration, a name imported by name, a name from an `(..)` import, the prelude. So a file can declare its own `length` or `Option` without a clash.
 
