@@ -1,5 +1,5 @@
 {
-  "next": 2940,
+  "next": 2941,
   "tickets": [
     {
       "id": 47,
@@ -31304,6 +31304,19 @@
       "labels": [],
       "epic": "test-infra",
       "body": "",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2940,
+      "title": "[Opus] Tests with errors stage 1 (D3524): importers of a namespace with errors are checked per declaration; failed names cross imports as failed; E-USES-FAILED once per broken name per file on the import replaces E-NAMESPACE-FAILED; importers' tests, goals, hovers; live project; docs and book text (docs/proposals/tests-with-errors.md)",
+      "status": "doing",
+      "agent": "Opus",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
+      "body": "D3524 (Matt, 11 Nov 2026): 'Yes.' Design: docs/proposals/tests-with-errors.md (SW-2938) stage 1. Expected: 150 min.",
       "created": "2026-11-11",
       "updated": "2026-11-11",
       "commits": []
