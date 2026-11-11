@@ -30986,7 +30986,7 @@
     {
       "id": 2915,
       "title": "[Sonnet] Browser test 'in a project, after a jump into another file and the whole project's check, an error in the day is underlined' fails on a quiet machine, also at 9ebedf6de: after the jump the whole-project check takes ~120 s and the Day02 error isn't published within 60 s; the published log fills with Year2021 files at count 0 (republishing every file after one edit?) (SW-2914)",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
