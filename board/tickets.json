@@ -31272,7 +31272,7 @@
     {
       "id": 2937,
       "title": "[DeepSeek] stitchwort test labels a test that failed without running (unfinished ?, broken dependency) as 'ran'; label it 'not run' (SW-2909, SW-2932)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "DeepSeek",
       "where": "",
       "labels": [],
