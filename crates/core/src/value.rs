@@ -3272,6 +3272,15 @@ fn visit(
             tasks.push(QuoteTask::Eq);
             visit_all(tasks, &[(*ty).clone(), (*a).clone(), (*b).clone()]);
         }
+        // The erased placeholder ([`erase::erased`]), applied or not, stands
+        // for a proof or a type no binder has: it reads back as the elision
+        // `…`, which no checked term contains, rather than as a variable
+        // outside the context (whose index would wrap). Values computed with
+        // erasure on hold it in their erased fields, and an error message's
+        // counterexample puts it for a hypothesis's proof.
+        Value::Neutral(Head::Var(l, _), _) if l == erase::ERASED => {
+            done.push(Term::Meta(ELIDED));
+        }
         Value::Neutral(head, spine) => {
             let head = match head {
                 Head::Var(l, _) => {
