@@ -3,6 +3,7 @@
 //! split, in the unfolding form with a fixed prefix and cases named after
 //! the equations, and what isn't generated, with the reason.
 
+use crate::common::{BIG_STACK, STACK};
 use stitchwort_core::{Name, Term};
 use stitchwort_driver::driver::Session;
 
@@ -103,12 +104,6 @@ fn statement(g: &stitchwort_core::Ev, ty: &Term) -> String {
     }
     out + &stitchwort_core::pretty::term(g, &names, t)
 }
-
-/// The tests' thread stack, and the session's limits are made for the same
-/// size: a session built with `Session::new()` assumes a 2 MiB thread, and
-/// in a debug build (whose frames are several times larger) the library's
-/// deeper proofs ran out of that budget however big the thread was.
-const STACK: usize = 64 << 20;
 
 fn with_source(source: String, f: impl FnOnce(&Session) + Send + 'static) {
     std::thread::Builder::new()
@@ -546,9 +541,9 @@ theorem Count.induct: Nat := 0
 #[ignore]
 fn the_librarys_inducts() {
     std::thread::Builder::new()
-        .stack_size(256 << 20)
+        .stack_size(BIG_STACK)
         .spawn(|| {
-            let mut session = Session::eager_for_stack(256 << 20);
+            let mut session = Session::eager_for_stack(BIG_STACK);
             session.elab.generate_deferred_equations().unwrap();
             report(&session, |_| true);
         })
@@ -564,7 +559,7 @@ fn the_librarys_inducts() {
 #[ignore]
 fn a_projects_inducts() {
     std::thread::Builder::new()
-        .stack_size(256 << 20)
+        .stack_size(BIG_STACK)
         .spawn(|| {
             let project = std::env::var("INDUCT_PROJECT").unwrap_or_else(|_| "aoc".to_string());
             let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -572,7 +567,7 @@ fn a_projects_inducts() {
                 .join(&project);
             let name = root.file_name().unwrap().to_string_lossy().to_string();
             let files = stitchwort_driver::project::DiskFiles { root };
-            let mut session = Session::eager_for_stack(256 << 20);
+            let mut session = Session::eager_for_stack(BIG_STACK);
             let target = stitchwort_driver::project::Target::Everything;
             if let Err(errors) = session.load_project(&files, &name, &target) {
                 panic!("{project} doesn't load: {errors:#?}");
