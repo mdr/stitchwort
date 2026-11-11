@@ -31142,7 +31142,7 @@
     {
       "id": 2927,
       "title": "[Sonnet] Goals print as written with a dimmed 'computes to' line when the computed form differs, everywhere goals are shown (panel, hover, playground, check, goal, --json); 240-char cut, folded; no form switch (D3522; docs/proposals/goals-panel.md). After SW-1004",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
