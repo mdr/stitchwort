@@ -49,7 +49,7 @@ collide. Within one tag, both sides are the same Rust type, and neither
 of one type to one address are one object. `&Shared` and `&Rc<Term>`
 deref to the heap value (106, 5178), so "inline vs Rc'd" gives the
 address of the value itself either way. An `Elim` is never a pair: its
-`Value`s are pushed (5110, 5123-5124), each at its own address in the
+`Value`s are pushed (5114, 5126-5127), each at its own address in the
 spine's allocation. Keys are ordered, so `(p, q)` doesn't stand for
 `(q, p)`.
 
