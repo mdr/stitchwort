@@ -114,6 +114,10 @@ pub struct Hypothesis {
     pub ty: String,
     /// For a `let` of data, its value.
     pub value: Option<String>,
+    /// The patterns that split it into its type's constructors, as they
+    /// resolve where it is in scope; `None` unless its type is a data type
+    /// without indices (not a proposition or a function).
+    pub splits: Option<Vec<String>>,
 }
 
 /// A counterexample the search found, as the note shows it.

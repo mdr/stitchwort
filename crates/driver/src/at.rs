@@ -129,6 +129,10 @@ pub struct Local {
     /// For a `let` of data, its value.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub value: Option<String>,
+    /// How it splits into its type's constructors, as written where it is
+    /// in scope ([`Session::split_patterns`]).
+    #[serde(skip)]
+    pub splits: Option<Vec<String>>,
 }
 
 /// An open goal `?`.
@@ -172,6 +176,7 @@ pub fn goals_of(file: &FileAnswers) -> Vec<Goal> {
                         name: h.name.clone(),
                         ty: h.ty.clone(),
                         value: h.value.clone(),
+                        splits: h.splits.clone(),
                     })
                     .collect(),
                 text: body.join("\n"),
@@ -725,6 +730,7 @@ impl Local {
             name: h.name,
             ty: h.ty,
             value: h.value,
+            splits: h.splits,
         }
     }
 }
@@ -985,31 +991,16 @@ impl Session {
 impl Session {
     /// The patterns that split the variable `local` of `context` into its
     /// constructors (`MissingCases::fills` form), if its type is a data
-    /// type this session knows ([`stitchwort_elab::Elaborator::
-    /// constructor_patterns`]).
+    /// type ([`stitchwort_elab::Elaborator::constructor_patterns`], found
+    /// from the elaborated type, not its printed name).
     pub fn split_patterns(&self, context: &Context, local: &str) -> Option<Vec<String>> {
-        let ty = &context.locals.iter().rev().find(|l| l.name == local)?.ty;
-        // A type that is an application of one data type: an operator at
-        // the top (`Nat -> Nat`, `a = b`, `Nat × Nat`) is a function, a
-        // proposition or a pair, whatever its first word is.
-        let mut depth = 0usize;
-        for c in ty.chars() {
-            match c {
-                '(' | '[' | '{' => depth += 1,
-                ')' | ']' | '}' => depth = depth.saturating_sub(1),
-                c if depth == 0
-                    && !(c.is_alphanumeric() || c.is_whitespace() || "_'.".contains(c)) =>
-                {
-                    return None;
-                }
-                _ => {}
-            }
-        }
-        let head = ty.split_whitespace().next()?;
-        if !head.starts_with(|c: char| c.is_alphabetic()) {
-            return None;
-        }
-        self.elab.constructor_patterns(head)
+        context
+            .locals
+            .iter()
+            .rev()
+            .find(|l| l.name == local)?
+            .splits
+            .clone()
     }
 
     /// The variables of `context` that can be split, each with the

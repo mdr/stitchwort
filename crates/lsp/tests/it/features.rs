@@ -1036,6 +1036,41 @@ fn a_goal_splits_a_nat_a_list_and_a_parameter_named_in_the_header() {
 }
 
 #[test]
+fn a_split_of_a_program_s_own_nat_uses_its_constructors_not_the_preludes() {
+    big_stack(|| {
+        let text = "namespace Demo\n\ntype Nat = | O | S (n: Nat)\n\ndef plus (n m: Nat): Nat := match n with\n  | O => m\n  | S k => S (plus k m)\n\ntheorem plusO (n: Nat): plus n O = n := ?\n\ndef pred (n: Nat): Nat := match n with\n  | m => ?\n";
+        let mut s = Session::open(text);
+        let (_, applied) = split_at(&mut s, 2, text, hole(text, 0), "Split on `n`");
+        let applied = applied.unwrap();
+        assert!(
+            applied.contains(":= match n with\n  | O => ?\n  | S n1 => ?\n"),
+            "{applied}"
+        );
+        s.change(3, &applied);
+        assert!(
+            errors(&s)
+                .iter()
+                .all(|d| !d["message"].as_str().unwrap_or_default().contains("Succ")),
+            "{:?}",
+            s.diagnostics
+        );
+        // The variable of an arm.
+        let (_, applied) = split_at(&mut s, 4, text, hole(text, 1), "Split on `m`");
+        let applied = applied.unwrap();
+        assert!(
+            applied.ends_with("  | m => match m with\n    | O => ?\n    | S n1 => ?\n"),
+            "{applied}"
+        );
+        s.change(5, &applied);
+        assert!(
+            errors(&s).iter().all(|d| d["code"] != "E-UNKNOWN-NAME"),
+            "{:?}",
+            s.diagnostics
+        );
+    });
+}
+
+#[test]
 fn the_outline_asked_as_the_file_opens_is_not_empty() {
     big_stack(|| {
         let text =

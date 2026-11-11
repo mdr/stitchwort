@@ -785,6 +785,17 @@ impl Elaborator {
         flags
     }
 
+    /// The patterns that split a variable of type `ty` (see
+    /// [`Elaborator::constructor_patterns`]), if its type, unfolded, is a
+    /// data type.
+    fn split_patterns_of(&self, ty: &Value) -> Option<Vec<String>> {
+        let g = &self.ev();
+        match stitchwort_core::value::force(g, ty.clone()).ok()? {
+            Value::Data(d, _) => self.constructor_patterns(d),
+            _ => None,
+        }
+    }
+
     /// `context` printed, each type with the alias it was named by, if any
     /// (`counts: Counts`, SW-858).
     fn print_hypotheses(
@@ -807,6 +818,7 @@ impl Elaborator {
                     .unwrap_or_else(|| e.ty.clone()),
                 ),
                 value: e.value.as_ref().map(show),
+                splits: self.split_patterns_of(&e.ty),
             })
             .collect()
     }

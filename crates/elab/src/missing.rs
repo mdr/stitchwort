@@ -205,18 +205,20 @@ pub(crate) fn fold(all: Vec<Diagnostic>) -> Vec<Diagnostic> {
 }
 
 impl Elaborator {
-    /// The patterns that split a value of the data type named `name`, one
-    /// per constructor, in the form of [`MissingCases::fills`]: a list as
-    /// `[]` and `[_, .._]`, a pair as `(_, _)`, a field with a declared
-    /// name as `‹name›`. The last type of that name is taken, so a program's
-    /// own shadows the library's. `None` for a name that isn't a data type
-    /// here, and for an indexed family (some constructors may not fit).
-    pub fn constructor_patterns(&self, name: &str) -> Option<Vec<String>> {
+    /// The patterns that split a value of data type `d`, one per
+    /// constructor, in the form of [`MissingCases::fills`]: a list as `[]`
+    /// and `[_, .._]`, a pair as `(_, _)`, a field with a declared name as
+    /// `‹name›`. Constructors are written as they resolve at the current
+    /// spot ([`Elaborator::ctor_written`]). `None` for an indexed family
+    /// (some constructors may not fit) and for a proposition.
+    pub fn constructor_patterns(&self, d: DataId) -> Option<Vec<String>> {
         let g = &self.ev();
         let reg = g.env.registry();
-        let d = DataId(g.env.datas().iter().rposition(|d| &**d.name() == name)?);
         let data = g.data(d);
-        if !data.indices().is_empty() || data.ctors().is_empty() {
+        if !data.indices().is_empty()
+            || data.ctors().is_empty()
+            || data.sort() == stitchwort_core::Sort::Prop
+        {
             return None;
         }
         let non_empty = reg.loaded_data(Builtin::NonEmptyList) == Some(d);
@@ -235,7 +237,7 @@ impl Elaborator {
             } else if reg.ctor(Builtin::UnitValue) == here {
                 "()".to_string()
             } else {
-                let mut text = ctor.name.to_string();
+                let mut text = self.ctor_written(d, c);
                 for i in fields {
                     text.push(' ');
                     text.push_str(&hole(&ctor.fields[i].0));
@@ -244,6 +246,37 @@ impl Elaborator {
             });
         }
         Some(out)
+    }
+
+    /// Constructor `c` of `d` as a pattern here can write it: its short
+    /// name when that means it (`S` after `import Sf.Nat (Nat, S)`, or the
+    /// prelude's own), else qualified by its type (`Nat.Succ`, or the type's
+    /// full key), so that a program's own type that shares a name with
+    /// another one is not confused with it.
+    pub(crate) fn ctor_written(&self, d: DataId, c: usize) -> String {
+        let g = &self.ev();
+        let short = g.data(d).ctors()[c].name.to_string();
+        let data_short = g.data(d).name().to_string();
+        let full = format!(
+            "{}.{short}",
+            stitchwort_core::pretty::NameScope::full_name(
+                self,
+                stitchwort_core::pretty::Declaration::Data(d)
+            )
+        );
+        for candidate in [short.clone(), format!("{data_short}.{short}"), full] {
+            if let crate::scope::Resolved::Found {
+                global: crate::Global::Ctor(d2, c2),
+                rest,
+                ..
+            } = self.resolve_any(&candidate)
+                && (d2, c2) == (d, c)
+                && rest.is_empty()
+            {
+                return candidate;
+            }
+        }
+        short
     }
 
     /// Writes into each `Tree::Missing` the pattern row it stands for.
@@ -405,10 +438,11 @@ impl Elaborator {
                 }
             })
             .collect();
+        let written = self.ctor_written(d, c);
         if args.is_empty() {
-            return ctor.name.to_string();
+            return written;
         }
-        let text = format!("{} {}", ctor.name, args.join(" "));
+        let text = format!("{written} {}", args.join(" "));
         if atom { format!("({text})") } else { text }
     }
 }
