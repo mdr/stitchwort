@@ -1,5 +1,5 @@
 {
-  "next": 2949,
+  "next": 2950,
   "tickets": [
     {
       "id": 47,
@@ -31378,12 +31378,12 @@
     {
       "id": 2945,
       "title": "[DeepSeek] A parse error that destroys an imported name gives E-UNKNOWN-NAME on the import instead of the note's '`A` has a syntax error, so `beats` can't be found' (SW-2940)",
-      "status": "doing",
+      "status": "review",
       "agent": "DeepSeek",
       "where": "",
       "labels": [],
       "epic": "test-infra",
-      "body": "",
+      "body": "\nModel result: DeepSeek, worked, ~25 min (est. 40). Reviewed.",
       "created": "2026-11-11",
       "updated": "2026-11-11",
       "commits": []
@@ -31422,6 +31422,19 @@
       "where": "",
       "labels": [],
       "epic": "editor-playground",
+      "body": "",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2949,
+      "title": "[DeepSeek] task test:example selects test(/_examples/) only, so projects/ examples (rejected_projects_…, goal_projects_…) silently don't run; include the project sweeps (SW-2945)",
+      "status": "backlog",
+      "agent": "DeepSeek",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
       "body": "",
       "created": "2026-11-11",
       "updated": "2026-11-11",
