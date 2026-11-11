@@ -30065,7 +30065,7 @@
     {
       "id": 2845,
       "title": "SF port: chapter Poly (Software Foundations LF) into sf/ as Sf.Lf.Poly: the book's own polymorphic list (D3512, Matt, 11 Nov 2026: our own list, not std's), worked proofs ported, exercises as ? statements, friction notes",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-2845",
       "labels": [],
