@@ -233,7 +233,17 @@ fn a_run_with_an_error_prints_the_tests_and_fails() {
     let stdout = String::from_utf8(output.stdout).unwrap();
     assert_eq!(output.status.code(), Some(1), "{stdout}");
     assert!(stdout.contains("✓ independent passes"), "{stdout}");
-    assert!(stdout.contains("✗ uses a broken def"), "{stdout}");
+    assert!(
+        stdout.contains("✗ uses a broken def   not run  (it uses `broken`, which has an error ("),
+        "{stdout}"
+    );
+    assert!(
+        stdout.contains(
+            "✗ uses it indirectly  not run  (it uses `twice`, which depends on `broken`, \
+             which has an error ("
+        ),
+        "{stdout}"
+    );
     assert!(stdout.contains("4 test(s): 1 passed, 3 failed"), "{stdout}");
 }
 
