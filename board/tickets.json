@@ -1,5 +1,5 @@
 {
-  "next": 2764,
+  "next": 2765,
   "tickets": [
     {
       "id": 47,
@@ -28901,15 +28901,17 @@
     {
       "id": 2756,
       "title": "Keep SW-2746's examples scan script as a tool (copy at /private/tmp/claude-550/exscan-sw2746.sh)",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": ".claude/worktrees/scratch-sw-2756",
       "labels": [],
       "epic": "test-infra",
-      "body": "",
+      "body": "From SW-2746 (11 Nov 2026). Done (DeepSeek): dev/examples-scan and task examples:scan; first run: 17 mismatches across 1532 examples (mostly extra warnings not in headers).\nModel result: DeepSeek, worked, 11 min (est. 25).",
       "created": "2026-11-11",
       "updated": "2026-11-11",
-      "commits": []
+      "commits": [
+        "21be22fb1"
+      ]
     },
     {
       "id": 2757,
@@ -29001,6 +29003,19 @@
       "labels": [],
       "epic": "docs-tutorials",
       "body": "D3495 (Matt, 11 Nov 2026): yes. From docs/reviews/SW-2707-software-foundations-port.md §6 items 2-3. After SW-2762 (both edit sf/). Est. 1.5 h.",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2764,
+      "title": "examples:scan reports 17 examples whose expect headers don't match the codes check reports (mostly an extra warning: W-MATCH-NOT-FOUND, W-LAMBDA-SHADOW, W-RECEIVER-NOT-FIRST, W-NO-EFFECT; some a second error after E-PARSE); add the codes to the headers or fix the examples, then make the scan part of a tier",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
+      "body": "",
       "created": "2026-11-11",
       "updated": "2026-11-11",
       "commits": []
