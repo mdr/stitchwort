@@ -30263,12 +30263,12 @@
     },
     {
       "id": 2860,
-      "title": "Check a decidable proof goal where its erased proof is used at run time: a companion decide function per proof ? with a Decidable instance; runners insert if decide then erased else stop ('reached inRange's goal, which is false here: 5 < 3'); catches bounds, decreasing measures, value-equality casts; not type equalities (docs/reviews/SW-2809-running-with-goals-review.md option (e))|Opus|proof-automation",
-      "status": "backlog",
+      "title": "Duplicate of SW-2861 (filed twice by mistake)",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
-      "body": "",
+      "body": "Duplicate of SW-2861; closed.",
       "created": "2026-11-11",
       "updated": "2026-11-11",
       "commits": []
