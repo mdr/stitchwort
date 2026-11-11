@@ -98,12 +98,23 @@ fn declarations_are_listed_slowest_first_with_full_names() {
     let rows: Vec<&Row> = all.iter().filter(|r| r.name.starts_with("Main.")).collect();
     let names: Vec<&str> = rows.iter().map(|r| r.name.as_str()).collect();
     assert_eq!(rows.len(), 28, "{names:?}");
-    assert_eq!(names[0], "Main.slow", "{names:?}");
+    assert!(names.contains(&"Main.slow"), "{names:?}");
     assert!(names.contains(&"Main.even, Main.odd"), "{names:?}");
     assert!(names.contains(&"Main.test \"small\""), "{names:?}");
     assert!(names.contains(&"Main.small24"), "{names:?}");
-    // `slow` took evaluation steps; a constant made one small term.
-    assert!(rows[0].steps > 3000, "{}", rows[0].steps);
+    // The table is sorted by wall-clock time, so under load a descheduled
+    // trivial declaration can overtake `slow`; the sortedness loop above
+    // checks the order itself. `slow`'s work is deterministic: it took
+    // evaluation steps, more than any other row from this file, where a
+    // constant made one small term.
+    let slow = rows.iter().find(|r| r.name == "Main.slow").expect("slow");
+    assert!(slow.steps > 3000, "{}", slow.steps);
+    assert!(
+        rows.iter().all(|r| r.steps <= slow.steps),
+        "{} is not the most steps: {:?}",
+        slow.name,
+        rows.iter().map(|r| (&r.name, r.steps)).collect::<Vec<_>>()
+    );
     let small = rows.iter().find(|r| r.name == "Main.small3").unwrap();
     assert!(small.nodes > 0 && small.nodes < 10, "{}", small.nodes);
 
