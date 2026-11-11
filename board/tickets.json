@@ -29229,9 +29229,9 @@
     {
       "id": 2780,
       "title": "Goal at any point, stage 3: steps (before / change / after) for arms, rewrite rules, calc lines, lambdas, let, if h:; the whole declaration recorded; goal of a failing expression (docs/proposals/goal-at-any-point.md; D3496-D3499)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Opus",
-      "where": "",
+      "where": ".claude/worktrees/SW-2780",
       "labels": [],
       "epic": "editor-playground",
       "body": "\nAlso: contextAt returns only one type, so D3499's 'expected T plus has type U when they differ' needs the server to return both (stage 1, SW-2778, shows expected T only).\nFrom stage 2 (SW-2779): no answer at a rewrite rule's own text (Nat.addComm a b); goal --at has no declaration or afterError field yet — add them with steps.",
