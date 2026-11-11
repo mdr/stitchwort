@@ -194,6 +194,35 @@ select = [
   { package = "driver", binary = "projects", test = "^navigation::" },
 ]
 
+# An open goal is a kernel assumption (SW-2805), so assume.rs, assumption.rs
+# and goals.rs change what the goal tests, `at`, `search_at` and the audit see.
+# elab-search's profile left these out and an over-budget cut dropped
+# search_at, so a regression in goal handling slipped through (SW-2811).
+[[rule]]
+id = "open-goals"
+extra = true
+rank = 1
+paths = ["crates/elab/src/assume.rs", "crates/core/src/assumption.rs", "crates/elab/src/goals.rs"]
+why = "open goals become assumptions that the kernel checks users against: the goal, `at`, search_at and audit tests"
+select = [
+  { package = "cli", binary = "tools", test = "^(open_goals|audit)::" },
+  { package = "core", binary = "it", test = "^assumptions::" },
+  { package = "driver", binary = "elaboration", test = "^at::" },
+  { package = "driver", binary = "library", test = "^search_at::" },
+]
+cheap_only = 5.0
+
+[[rule]]
+id = "open-goals-slow"
+extra = true
+rank = 2
+paths = ["crates/elab/src/assume.rs", "crates/core/src/assumption.rs", "crates/elab/src/goals.rs"]
+why = "the rest of search_at (10 to 14 s each), which a quick run can leave out"
+select = [
+  { package = "driver", binary = "library", test = "^search_at::" },
+]
+cheap_only = 30.0
+
 [[rule]]
 id = "elab-auto"
 extra = true

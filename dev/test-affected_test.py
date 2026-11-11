@@ -330,6 +330,20 @@ class ChangedTestFile(unittest.TestCase):
         self.assertEqual(res["empty"], [])
         self.assertFalse([n for n in notes if "selects no test" in n])
 
+    def test_a_helper_beside_a_real_test_keeps_the_changed_test_when_over_budget(self):
+        """SW-2811: with the whole binary over the budget, the test the diff
+        touches still runs."""
+        old = ta.changed_test_names, dict(ta.TEST_NAMES)
+        ta.changed_test_names = lambda path, range_: ["quick_one", "cached_memory"]
+        ta.TEST_NAMES.update(enabled=True, range=None)
+        try:
+            res, _ = pick(["crates/lsp/tests/it/features.rs"], inv=INV + self.LSP, budget=5)
+        finally:
+            ta.changed_test_names = old[0]
+            ta.TEST_NAMES.update(old[1])
+        self.assertIn("features::quick_one", ids_of(res))
+        self.assertNotIn("features::slow_one", ids_of(res))
+
     def test_an_empty_rule_is_reported_for_the_refresh(self):
         res, _ = pick(["crates/lsp/tests/it/features.rs"], inv=INV, budget=1000)
         self.assertIn("test-file", res["empty"])

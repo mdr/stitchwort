@@ -439,12 +439,15 @@ def assign_rules(files, cfg, users, notes):
 def widen_for_helpers(rules, inv):
     """A changed test file whose diff names functions that are not tests (a
     helper the tests share) can affect any test in the file: the whole binary
-    becomes the most relevant rule, in place of the named tests."""
+    becomes a most relevant rule beside the named tests. The named tests stay
+    their own rule, which is never cut (below), so when the whole binary is
+    over the budget the tests the diff touches still run."""
     changed = rules.get("test-file-changed")
     whole = rules.get("test-file")
     if not changed or not whole:
         return
-    for sel in changed.select:
+    widen = False
+    for sel in list(changed.select):
         body = sel["test"].removeprefix("^").removesuffix("$")
         names = body[body.index("(") + 1:-1].split("|")
         # A merged test binary's tests are `module::name`; the diff names the
@@ -453,10 +456,16 @@ def widen_for_helpers(rules, inv):
         binary = {k: v for k, v in sel.items() if k != "test"}
         have = {t["name"] for t in inv if selector_matches(binary, t)}
         if have and any(prefix + n not in have for n in names):
-            whole.rank, whole.cheap_only = 1, False
-            whole.why = "the changed test file, whose diff touches code the tests share"
+            widen = True
+            # Named tests that exist stay in their own rule; a selector that
+            # names none would select nothing, so it goes.
+            if not any(prefix + n in have for n in names):
+                changed.select.remove(sel)
+    if widen:
+        whole.rank, whole.cheap_only = 1, False
+        whole.why = "the changed test file, whose diff touches code the tests share"
+        if not changed.select:
             del rules["test-file-changed"]
-            return
 
 
 def example_selectors(examples):
@@ -581,7 +590,9 @@ def select(files, cfg, inv_mod, inv, budget, notes, use_crate_graph=True, names=
                       key=lambda r: (current([r])[2]["estimate"], r.id))
         kept = [r for r in kept if not is_protected(r)]
         for r in mine:
-            if not any(is_protected(k) for k in kept) or current(kept + [r])[2]["estimate"] <= budget:
+            # The tests a diff of a test file adds or edits always run.
+            if r.id == "test-file-changed" or not any(is_protected(k) for k in kept) \
+                    or current(kept + [r])[2]["estimate"] <= budget:
                 kept.append(r)
             else:
                 cut.append(r)
