@@ -159,6 +159,21 @@ impl Carry {
         Term::J(Rc::new(motive(body)), Rc::new(h), Rc::new(c.clone()))
     }
 
+    /// `s = t[X]` from `c: s0 = X`, where `s = t[s0]`: `J (y _ => s = t[y])
+    /// rfl c`. `ty` is `t[y]` under the motive's two binders.
+    pub(crate) fn along(&self, g: &Ev, s: &Term, ty: Term, c: &Term) -> Result<Term> {
+        let body = Term::Eq(
+            Some(Rc::new(self.bool_ty.clone())),
+            Rc::new(s.shift(g, 2, 0)?),
+            Rc::new(ty),
+        );
+        Ok(Term::J(
+            Rc::new(motive(body)),
+            Rc::new(Term::Refl),
+            Rc::new(c.clone()),
+        ))
+    }
+
     /// `lhs = y` from `k: lhs = rhs` and `q: rhs = y`: `J (y _ => lhs = y) k q`.
     /// `lhs` is a term in the result's context.
     pub(crate) fn then(&self, g: &Ev, lhs: &Term, k: Term, q: Term) -> Result<Term> {

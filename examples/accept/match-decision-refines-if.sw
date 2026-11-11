@@ -2,7 +2,7 @@
 -- the same term, `Decidable.elim` on the decision, whether or not the
 -- branches use the proof. So a `match` on the decision, or on its test,
 -- refines the `if` either way, in the goal and in a hypothesis.
-import Std (Nat, Option, Void)
+import Std (List, Nat, Option, Void)
 
 def below (n: Nat) (limit: Nat) (ok: n < limit): Nat := limit - n
 
@@ -41,3 +41,9 @@ theorem splitBig (value: Nat) (halves: Number) (some: split (Regular value) = So
   match Nat.decLessEq 10 value with
     | { holds = True, sound = big, complete = _ } => big rfl
     | { holds = False, sound = _, complete = _ } => Void.exfalso (Option.noneNotSome halves some)
+
+-- `cases` splits the test of `xs = []` inside the decision of `xs ≠ []`,
+-- `Decidable.not`, whose own test is `not` of it (2020 day 4's heights).
+def allZeroAndNot (xs: List Nat): Bool := (if xs ≠ [] then xs.all (x => x == 0) else False) && False
+
+theorem allZeroAndNotFalse (xs: List Nat): False = allZeroAndNot xs := cases

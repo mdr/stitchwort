@@ -2127,11 +2127,65 @@ impl Generalise<'_> {
         })())
     }
 
+    /// A record whose test mentions a scrutinee, a decision's test, without
+    /// being it (`Decidable.not d`'s, `Bool.not d.holds`, split on
+    /// `d.holds`):
+    /// its proofs carried along the test's own equation, `t[s] = t[X]`,
+    /// made from the scrutinee's.
+    fn transported_inside(
+        &self,
+        g: &Ev,
+        tr: &Transport,
+        met: &crate::carry::Met,
+        holds: &Term,
+        under: usize,
+    ) -> Option<Result<Term>> {
+        let crate::carry::Met::Record(sound, complete) = met else {
+            return None;
+        };
+        let (i, level) = self.exprs.iter().enumerate().find_map(|(i, e)| {
+            let level = (*tr.equations.get(i)?)?;
+            let e = (*e)?;
+            // Only a decision's test: a scrutinee of another type is
+            // generalised inside the record's proofs' types as well.
+            if !matches!(e.strip_loc(), Term::Proj(d, 0, _) if *d == tr.carry.decidable) {
+                return None;
+            }
+            let inside = holds
+                .subterms()
+                .any(|(t, u)| same_shifted(e, t, under + u, 0));
+            (inside && !same_shifted(e, holds, under, 0)).then_some((i, level))
+        })?;
+        Some((|| {
+            let e = self.exprs[i].expect("found above");
+            let var = |l| self.var(l);
+            let s = lift::replace_with_under(g, holds, self.base, under, &var, &|_, _| None)?;
+            let x = self.apply_under(g, holds, under)?;
+            let inner = under + 2;
+            let ty = lift::replace_with_under(
+                g,
+                &holds.shift(g, 2, 0)?,
+                self.base,
+                inner,
+                &var,
+                &|t, u| same_shifted(e, t, u, 0).then(|| Term::Var(u - inner + 1)),
+            )?;
+            let c = Term::Var(self.depth + under - 1 - level);
+            let c = tr.carry.along(g, &s, ty, &c)?;
+            let met = crate::carry::Met::Record(sound, complete);
+            tr.carry
+                .carried(g, met, &s, &c, x, &|part| self.apply_under(g, part, under))
+        })())
+    }
+
     /// `t` with a decision's proofs carried along, if it is one of the
     /// forms that need it and its test is a scrutinee carried along.
     fn transported(&self, g: &Ev, t: &Term, under: usize) -> Option<Result<Term>> {
         let tr = self.transport?;
         let (met, holds) = tr.carry.met(t)?;
+        if let Some(found) = self.transported_inside(g, tr, &met, &holds, under) {
+            return Some(found);
+        }
         let (i, level) = self.exprs.iter().enumerate().find_map(|(i, e)| {
             let level = (*tr.equations.get(i)?)?;
             e.is_some_and(|e| same_shifted(e, &holds, under, 0))
