@@ -29559,7 +29559,7 @@
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "\nFrom SW-2805 (stage 2): replace the elaborator's unfinished marks with relied_on per declaration and name the goal from each assumption's label; say in audit and goal that equation lemmas (half.eq1, eq2) exist for a definition with a ? and are unfinished; summary lines are interim ('checked assuming the goals hold', D3511, Matt, 11 Nov 2026: yes, keep until stage 3).",
+      "body": "\nFrom SW-2805 (stage 2): replace the elaborator's unfinished marks with relied_on per declaration and name the goal from each assumption's label; say in audit and goal that equation lemmas (half.eq1, eq2) exist for a definition with a ? and are unfinished; summary lines are interim ('checked assuming the goals hold', D3511, Matt, 11 Nov 2026: yes, keep until stage 3).\nFrom SW-2837: review notes N1-N6 for stage 3 (docs/reviews/SW-2805-assumptions-stage2-review.md: decreasing labels under the step key, test keys with namespace twice, goal printing shows an earlier hole's assumption name); the stuck check reads back up to 10,000 nodes under the step budget (watch for E-RESOURCE); a value whose proof part holds an assumption counts as stuck (conservative).",
       "created": "2026-11-11",
       "updated": "2026-11-11",
       "commits": []
