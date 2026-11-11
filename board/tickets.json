@@ -28991,7 +28991,7 @@
     {
       "id": 2762,
       "title": "Project setting check: open-goals: warn (default fail): check reports open goals as warnings and exits 0; audit still fails unfinished theorems and their dependants; test unchanged; docs (syntax.md Goals and project file, guide); then use it in sf/ and restate the port's exercises with ? (D3489, D3494)",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2762",
       "labels": [],
