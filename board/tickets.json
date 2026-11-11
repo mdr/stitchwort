@@ -30477,9 +30477,9 @@
     {
       "id": 2876,
       "title": "Aoc.Year2021.Day16.readPackets.induct is refused by the kernel (E-NOT-A-FUNCTION) on main; would fail a_projects_inducts. Find the shape (small repro didn't reproduce) and fix or skip with a reason (SW-2868)",
-      "status": "next",
+      "status": "doing",
       "agent": "Opus",
-      "where": "",
+      "where": ".claude/worktrees/SW-2876",
       "labels": [],
       "epic": "proof-automation",
       "body": "",
