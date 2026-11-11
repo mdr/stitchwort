@@ -30041,9 +30041,9 @@
     {
       "id": 2843,
       "title": "Zonk reads a term back fully unfolded whenever it meets an unsolved unknown (unify.rs:3285-3288), which can compute deeply anywhere it's used; and count how many sf/ goals still become assumptions after SW-2837's no-unfold rule (SW-2805 had 77 of 77) (SW-2837)",
-      "status": "next",
+      "status": "doing",
       "agent": "Opus",
-      "where": "",
+      "where": ".claude/worktrees/SW-2843",
       "labels": [],
       "epic": "elaborator-kernel",
       "body": "",
