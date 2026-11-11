@@ -1,5 +1,5 @@
 {
-  "next": 2915,
+  "next": 2917,
   "tickets": [
     {
       "id": 47,
@@ -30882,7 +30882,7 @@
     {
       "id": 2907,
       "title": "[DeepSeek] 'Search for a proof' is added before the splits, so the playground's Cmd+. menu lists it first; list it last, after the quick actions (SW-2890)",
-      "status": "backlog",
+      "status": "review",
       "agent": "DeepSeek",
       "where": "",
       "labels": [],
@@ -30895,7 +30895,7 @@
     {
       "id": 2908,
       "title": "[DeepSeek] Bundler's book_entries expects src/Book/ChNN…, but the book's chapters are src/00-setting-up.sw, 01-computing.sw, …: list book chapters from src/NN-*.sw in order (SW-2892, SW-2902)",
-      "status": "backlog",
+      "status": "review",
       "agent": "DeepSeek",
       "where": "",
       "labels": [],
@@ -30973,7 +30973,33 @@
     {
       "id": 2914,
       "title": "[Sonnet] Browser tier: 6 failures after SW-2892 (and SW-2890): content-hash test (version.json in the worker's requests), roguelike-is-a-second-project (deep-equal; likely the dropdown now lists sf/book), W-MODULE-NAME warning format, JavaScript tab, Run with scripted input, error underlined after a jump. Run at load ~33 (17 min). Find which are caused by SW-2892/SW-2890 (compare with a build at 9ebedf6de) and fix those; file the rest with reasons",
-      "status": "doing",
+      "status": "review",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "editor-playground",
+      "body": "",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2915,
+      "title": "[Sonnet] Browser test 'in a project, after a jump into another file and the whole project's check, an error in the day is underlined' fails on a quiet machine, also at 9ebedf6de: after the jump the whole-project check takes ~120 s and the Day02 error isn't published within 60 s; the published log fills with Year2021 files at count 0 (republishing every file after one edit?) (SW-2914)",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "editor-playground",
+      "body": "",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2916,
+      "title": "[DeepSeek] Browser tests: many do open(); pick(...) without waiting for the first check (the race that broke two tests in SW-2914); make pick wait for the page to be ready",
+      "status": "backlog",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
