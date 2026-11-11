@@ -784,7 +784,7 @@ tasks:
     # Every input build.sh reads, directly or through the scripts it calls:
     # the Cargo workspace (manifests, sources, build scripts, target config),
     # the scripts themselves, the worker script write-version.sh hashes, and
-    # the AoC and roguelike files bundle-projects.sh copies. The guide pages
+    # the AoC, roguelike, sf and book files bundle-projects.sh copies. The guide pages
     # are served, not bundled, so they are not here.
     sources:
       - Cargo.toml
@@ -805,6 +805,10 @@ tasks:
       - aoc/inputs/[0-9][0-9][0-9][0-9]/*.txt
       - games/rogue/stitchwort.yaml
       - games/rogue/src/**/*.sw
+      - sf/stitchwort.yaml
+      - sf/src/**/*.sw
+      - book/stitchwort.yaml
+      - book/src/**/*.sw
     generates:
       - web/pkg/stitchwort_web_bg.wasm
       - web/pkg/stitchwort_web.js
@@ -813,6 +817,7 @@ tasks:
       - web/pkg/version.json
       - web/pkg/projects/aoc/manifest.json
       - web/pkg/projects/rogue/manifest.json
+      - web/pkg/projects/sf/manifest.json
     cmds:
       - ./web/build.sh
 

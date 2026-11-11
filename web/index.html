@@ -1095,7 +1095,7 @@ export def area: Shape -> Nat
   const runHint = el("p", { className: "hint" });
   /** The run panel's explanation, for `main` of the program or of a project's day. */
   function setRunHint() {
-    const main = project ? project.manifest.days[project.day].main : "main";
+    const main = (project && project.manifest.days[project.day].main) || "main";
     runButton.title = `Run ${main} (Ctrl+Enter)`;
     // A live day has no input box: its keys come from the terminal pane.
     const live = !!project?.manifest.days[project.day].live;
@@ -1610,7 +1610,7 @@ export def area: Shape -> Nat
   const bundlePromises = new Map();
 
   /** The bundled projects, in the Example dropdown's order. */
-  const PROJECT_NAMES = ["aoc", "rogue"];
+  const PROJECT_NAMES = ["aoc", "rogue", "sf", "book"];
   /** The project a dropdown value (`aoc:3`) is for, or null. */
   const projectOfId = (id) => PROJECT_NAMES.find((name) => id.startsWith(`${name}:`)) ?? null;
   const keysOf = (name) => `stitchwort.project.${name}.`;
@@ -1919,7 +1919,7 @@ export def area: Shape -> Nat
     showEntryLink(id);
     store(`${keysOf(name)}open`, project.open);
     evalImports = [];
-    evalInput = day.evalInput ?? (day.main === "Aoc.Year2025.Day02.main" ? "Aoc.Year2025.Day02.Tests.exampleRanges.map Aoc.Year2025.Day02.solvePart1" : `${day.main.replace(/main$/, "Tests.example")}`);
+    evalInput = day.evalInput ?? (!day.main ? "" : day.main === "Aoc.Year2025.Day02.main" ? "Aoc.Year2025.Day02.Tests.exampleRanges.map Aoc.Year2025.Day02.solvePart1" : `${day.main.replace(/main$/, "Tests.example")}`);
     // The Run input: what was saved for this day, else the day's first
     // bundled input (the example).
     inputChoice.replaceChildren(el("option", { value: "" }, "Input…"),
@@ -1957,14 +1957,16 @@ export def area: Shape -> Nat
   // Direct links to the Example dropdown's entries: `#example/<slug>`, the
   // slug being the entry's name in lowercase with runs of other characters
   // as `-` (`#example/proofs-about-lists`), and `#aoc/YYYY/dayNN`
-  // (`#aoc/2025/day02`).
+  // (`#aoc/2025/day02`). A chapter project's entries are `#sf/basics` (the
+  // Software Foundations port) and `#book/3` (the book's chapter 3): the entry's
+  // `slug` in the manifest.
   const linkNotice = document.getElementById("link-notice");
   const slugOf = (title) => title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
   const dayNumber = (day) => String(day.open.match(/Day(\d+)\.sw$/)?.[1] ?? "").padStart(2, "0");
   /** A project entry's part of its link: `2025/day02` for a day of Advent of Code, else the slug of its title. */
   /** A project entry's name: `2024 / Day 1` for a day with a year, else its title. */
   const dayName = (day) => (day.year ? `${day.year} / ${day.title}` : day.title);
-  const daySlug = (name, day) => (name === "aoc" ? `${day.year}/day${dayNumber(day)}` : slugOf(day.title));
+  const daySlug = (name, day) => (name === "aoc" ? `${day.year}/day${dayNumber(day)}` : day.slug ?? slugOf(day.title));
 
   /** The fragment for a dropdown value, without the `#`. */
   function hashFor(id) {

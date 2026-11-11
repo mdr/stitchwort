@@ -111,18 +111,24 @@
             ];
           };
           # What the playground bundles of the AoC project (its sources and
-          # example and puzzle inputs) and of the roguelike (its sources),
-          # listed explicitly.
+          # example and puzzle inputs), of the roguelike, of the Software
+          # Foundations port and of the book (their sources), listed
+          # explicitly. book/ is optional: bundle-projects.sh skips it.
           aocBundle = lib.fileset.toSource {
             root = ./.;
-            fileset = lib.fileset.unions [
+            fileset = lib.fileset.unions ([
               ./aoc/stitchwort.yaml
               ./games/rogue/stitchwort.yaml
               (lib.fileset.fileFilter (file: file.hasExt "sw") ./games/rogue/src)
               (lib.fileset.fileFilter (file: file.hasExt "sw") ./aoc/src)
               (lib.fileset.fileFilter (file: file.hasExt "txt") ./aoc/examples)
               (lib.fileset.fileFilter (file: file.hasExt "txt") ./aoc/inputs)
-            ];
+              ./sf/stitchwort.yaml
+              (lib.fileset.fileFilter (file: file.hasExt "sw") ./sf/src)
+            ] ++ lib.optionals (builtins.pathExists ./book/stitchwort.yaml) [
+              ./book/stitchwort.yaml
+              (lib.fileset.fileFilter (file: file.hasExt "sw") ./book/src)
+            ]);
           };
           # The standard library, as files: the installed binary reads it
           # from `../share/stitchwort/std` beside itself, and the playground

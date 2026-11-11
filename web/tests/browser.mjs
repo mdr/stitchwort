@@ -529,7 +529,8 @@ test("the compiler's files are asked for by content hash (pkg/version.json)", as
   await page.pick("aoc:0");
   await page.untilStatus(dayStatus(1), 60000);
   const manifest = await page.ev(`performance.getEntriesByType("resource").map((e) => new URL(e.name).pathname.split("/").pop() + new URL(e.name).search).filter((a) => a.startsWith("manifest.json"))`);
-  assert.deepEqual(manifest, Array(2).fill(`manifest.json?v=${version.projects}`), "one manifest per bundled project");
+  // aoc, rogue and sf, and book when book/ exists.
+  assert.ok(manifest.length >= 3 && manifest.every((a) => a === `manifest.json?v=${version.projects}`), `one manifest per bundled project: ${manifest}`);
 });
 
 test("every example checks, and passes its tests but the failing one", async (page) => {
@@ -2173,6 +2174,25 @@ test("Ctrl-C stops the roguelike", async (page) => {
   assert.equal(await liveState(page), "interrupted");
   assert.equal(await page.ev(`document.getElementById("run").disabled`), false);
 }, { ms: 400000 });
+
+// The Software Foundations port (sf/), bundled with chapters as its entries -------
+
+test("sf/ is a project with a chapter per entry, opens by link, and shows open goals as goals", async (page) => {
+  await page.open({ hash: "#sf/induction" });
+  const groups = await page.until(`[...document.querySelectorAll("#example optgroup")].some((g) => g.label === "Software Foundations (port)") &&
+    [...document.querySelectorAll("#example optgroup")].map((g) => [g.label, [...g.children].map((o) => o.value + "=" + o.textContent)])`, 10000, "every group");
+  assert.deepEqual(groups.find(([label]) => label === "Software Foundations (port)"),
+    ["Software Foundations (port)", ["sf:0=Basics", "sf:1=Induction", "sf:2=Lists", "sf:3=Poly"]]);
+  const manifest = await page.ev(`fetch("pkg/projects/sf/manifest.json").then((r) => r.json())`);
+  assert.equal(manifest.openGoals, "warn");
+  assert.ok(manifest.files.every((p) => /^src\/.*\.sw$/.test(p)), manifest.files.join());
+  assert.equal(await page.ev(`fetch("pkg/projects/sf/stitchwort.yaml").then((r) => r.status)`), 404);
+  // The exercises are open goals, which are not errors.
+  await page.until(`/ goals? open$/.test(document.getElementById("status").textContent)`, 120000, "Induction's goals");
+  assert.equal(await page.ev(`document.getElementById("example").value`), "sf:1");
+  assert.equal(await page.ev(`location.hash`), "#sf/induction");
+  assert.ok((await fileTabs(page)).includes("Induction.sw"));
+}, { ms: 200000 });
 
 test("only the listed folders are bundled: sources, examples and puzzle inputs", async (page) => {
   await page.open();
