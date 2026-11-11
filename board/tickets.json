@@ -29194,9 +29194,9 @@
     {
       "id": 2778,
       "title": "Goal at any point, stage 1: the Goals panel follows the cursor everywhere using the existing stitchwort/contextAt request; ⊢ for proofs, expected T (+ has type U) in programs (docs/proposals/goal-at-any-point.md; D3496-D3499)",
-      "status": "next",
+      "status": "doing",
       "agent": "Sonnet",
-      "where": "",
+      "where": ".claude/worktrees/SW-2778",
       "labels": [],
       "epic": "editor-playground",
       "body": "",
