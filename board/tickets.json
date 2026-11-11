@@ -28991,15 +28991,18 @@
     {
       "id": 2762,
       "title": "Project setting check: open-goals: warn (default fail): check reports open goals as warnings and exits 0; audit still fails unfinished theorems and their dependants; test unchanged; docs (syntax.md Goals and project file, guide); then use it in sf/ and restate the port's exercises with ? (D3489, D3494)",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2762",
       "labels": [],
       "epic": "syntax-language",
-      "body": "D3489 (Matt, 11 Nov 2026): yes, let a project allow unfinished proofs. D3494 (Matt, 11 Nov 2026): the key is check: open-goals: warn | fail (default fail), grouped by command like audit: allowed-axioms. From docs/reviews/SW-2707-software-foundations-port.md §4, §6 item 1. Second step (separate commit): sf/ sets it, and exercises become theorems and functions with ? instead of Prop definitions and placeholder bodies. Est. 2 h.",
+      "body": "D3489 (Matt, 11 Nov 2026): yes, let a project allow unfinished proofs. D3494 (Matt, 11 Nov 2026): the key is check: open-goals: warn | fail (default fail), grouped by command like audit: allowed-axioms. From docs/reviews/SW-2707-software-foundations-port.md §4, §6 item 1. Second step (separate commit): sf/ sets it, and exercises become theorems and functions with ? instead of Prop definitions and placeholder bodies. Est. 2 h.\n\n\nProgress (11 Nov 2026): commit 10473599a adds `check: open-goals: warn | fail` (driver `Config.open_goals`, parsed with a message naming the allowed values; CLI `check` on a project turns open goals into warnings and prints \"N goals open, allowed by ...\"; audit, test, run, build and the LSP are unchanged). Tests: crates/cli/tests/tools/open_goals.rs (6) and a driver config test; docs in syntax.md, projects.md and guide 10-proofs. Commit f1a4a2bfa: sf/ sets it, and its 66 theorem exercises and 11 functions to write are statements with `?`; `check` in sf/ exits 0 with 77 warnings. Audit fails 67 (the 66 exercises plus the worked applyLatePolicyUnfold, which uses lowerGrade).\n",
       "created": "2026-11-11",
       "updated": "2026-11-11",
-      "commits": []
+      "commits": [
+        "10473599a",
+        "f1a4a2bfa"
+      ]
     },
     {
       "id": 2763,
