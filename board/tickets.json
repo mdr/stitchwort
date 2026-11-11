@@ -29725,12 +29725,12 @@
     {
       "id": 2819,
       "title": "Stage 3 cleanups: carried_any rename, Search::carry doc, plain.rs:734 long line, matching.rs:2149 wording, match-if-and.sw header, Builtin::ToBool → Holds; syntax.md:1534 hypothesis wording; record in decidable-record.md that bind.rs's generalisation and short_circuit stay (docs/reviews/SW-2761-decidable-stage3-review.md)",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": ".claude/worktrees/scratch-sw-2819",
       "labels": [],
       "epic": "proof-automation",
-      "body": "",
+      "body": "\nModel result: DeepSeek, worked, ~20 min (est. 30).",
       "created": "2026-11-11",
       "updated": "2026-11-11",
       "commits": []
@@ -29974,7 +29974,7 @@
     {
       "id": 2838,
       "title": "Std lemmas from SF Lists (SW-2836): List.replicateAdd (replicate (m + n) x = replicate m x ++ replicate n x), List.reverseInjective, List.filterAppend, a head/headOr relation, and a generic involution-is-injective lemma (std has no namespace for facts about functions)",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2838",
       "labels": [],
