@@ -1,5 +1,5 @@
 {
-  "next": 2889,
+  "next": 2890,
   "tickets": [
     {
       "id": 47,
@@ -30634,6 +30634,19 @@
       "id": 2888,
       "title": "[Sonnet] Split from a ?: offered only on a ? that is a whole body (after := or =>, or alone on its line), not a ? inside an expression (SW-2885)",
       "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "editor-playground",
+      "body": "",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2889,
+      "title": "[Sonnet] Splits pick the wrong type when two share a name: constructor_patterns looks a type up by its bare name (missing.rs:217), so in SF (Sf.Lf.Nat.Nat with O | S) 'Split on n' writes std's Zero/Succ; affects split from a ? and the arm split. Resolve the local's actual type; write constructors as they're in scope (qualify if not)",
+      "status": "doing",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
