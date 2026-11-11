@@ -160,20 +160,21 @@ tasks:
       - '{{.GUARD}} --cap-gb {{.MEM_CAP_DAILY}} -- cargo nextest run --release $({{.SCOPE}} -- {{.CLI_ARGS}}) {{.CLI_ARGS}}'
 
   test:example:
-    desc: 'Check one example''s snapshots: NAME is part of a file name, or a comma-separated list (task test:example NAME=test-hole)'
+    desc: 'Check one example''s snapshots: NAME is part of a file or project folder name, or a comma-separated list (task test:example NAME=test-hole)'
     summary: |
-      Runs only the CLI's example tests, filtered by NAME: the accepted,
-      rejected, soundness and goal sweeps, without the tools binary's
-      guide:: tests (which ignore EXAMPLES and take minutes). NAME is a part
-      of an example file name, or a comma-separated list
-      (task test:example NAME=synonym,map). Corpus sweeps take the daily
-      sample; set STITCHWORT_TIER=lane for the smallest, full for all.
+      Runs only the CLI's example and project tests, filtered by NAME: the
+      accepted, rejected, soundness and goal sweeps, without the tools
+      binary's guide:: tests (which ignore EXAMPLES and take minutes). NAME
+      is part of an example file name or project folder name, or a
+      comma-separated list (task test:example NAME=synonym,map). Corpus
+      sweeps take the daily sample; set STITCHWORT_TIER=lane for the
+      smallest, full for all.
     requires:
       vars: [NAME]
     env:
       EXAMPLES: '{{.NAME}}'
     cmds:
-      - '{{.GUARD}} --cap-gb {{.MEM_CAP_DAILY}} -- cargo nextest run --release -p stitchwort-cli -E ''binary(running) & test(/_examples/)'''
+      - '{{.GUARD}} --cap-gb {{.MEM_CAP_DAILY}} -- cargo nextest run --release -p stitchwort-cli -E ''binary(running) & test(/examples::(accepted|goal|rejected|soundness)/)'''
 
   test:affected:
     desc: "Run the tests a diff can affect (task test:affected; -- --dry-run prints only, --explain says why)"
