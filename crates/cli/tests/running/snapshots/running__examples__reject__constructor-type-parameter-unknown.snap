@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-UNKNOWN-NAME] Error: `None` has no such field or type parameter
+   ╭─[ reject/constructor-type-parameter-unknown.sw:6:35 ]
+   │
+ 6 │ def nothing: Option Text := None [t := Text]
+   │                                   ┬  
+   │                                   ╰── not a field of `None` or a parameter of `Option`
+   │ 
+   │ Note: its parameters are `[a]` (round brackets: explicit, square: implicit)
+───╯

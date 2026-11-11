@@ -574,6 +574,9 @@ def implicitNamed: Nat := pick [label := "a"] (x := 1) [count := 3]
 def ctorPositional: Shape := Circle 1 "a"
 def ctorNamed: Shape := Circle (id := "a") (radius := 1)
 
+def ctorParamPositional: List Nat := Cons 1 Nil
+def ctorParamNamed: List Nat := Cons [a := Nat] 1 Nil
+
 def mixedPositional: Nat := clampTo 1 3 2
 def mixedNamed: Nat := clampTo (high := 2) 1 3
 "#;
@@ -595,7 +598,7 @@ def mixedNamed: Nat := clampTo (high := 2) 1 3
         );
         checked += 1;
     }
-    assert_eq!(checked, 8);
+    assert_eq!(checked, 9);
 }
 
 /// The hash of each declaration `text` adds, by full name (`data …` for a

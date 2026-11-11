@@ -49,6 +49,14 @@ test "by name, in any order" := clamp (value := 50) (high := 10) (low := 0) == 1
 test "leaving some out" := [1, 50, 200].map (clamp (low := 5) (high := 100)) == [5, 50, 100]
 -- end named
 
+-- begin named-constructors
+type Pair (a: Type) (b: Type) =
+  | MkPair (first: a) (second: b)
+
+test "an empty list of integers" := (Nil [a := Int]).length == 0
+test "the type's parameters by name" := MkPair [b := Text] [a := Int] 1 "one" == MkPair (1: Int) "one"
+-- end named-constructors
+
 -- begin param-defaults
 def price (base: Nat) (quantity: Nat := 1) (discount: Nat := 0): Nat := base * quantity - discount
 
