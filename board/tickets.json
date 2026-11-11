@@ -29450,7 +29450,7 @@
     {
       "id": 2798,
       "title": "Import lists may name constructors: (Nat, O, S) accepted silently; (S) alone imports just that constructor (D3503)",
-      "status": "review",
+      "status": "done",
       "agent": "DeepSeek",
       "where": ".claude/worktrees/scratch-sw-2798",
       "labels": [],
@@ -29528,7 +29528,7 @@
     {
       "id": 2804,
       "title": "Using unfinished proofs, stage 1: kernel assumption form for open goals, and docs/core.md (D3210) (docs/proposals/using-unfinished-proofs.md; D3504-D3507)",
-      "status": "review",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-2804",
       "labels": [],
@@ -29827,7 +29827,7 @@
     {
       "id": 2827,
       "title": "operators.rs golden-term tests still expect Bool.ifThenElse after Decidable stage 3 (SW-2761): golden_terms_on_nat_and_int and relation_deciders_come_from_the_same_dictionary fail on main; update to Decidable.elim and their comments",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2827",
       "labels": [],
