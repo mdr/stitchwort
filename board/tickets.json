@@ -1,5 +1,5 @@
 {
-  "next": 2853,
+  "next": 2854,
   "tickets": [
     {
       "id": 47,
@@ -30161,6 +30161,19 @@
       "where": "",
       "labels": [],
       "epic": "docs-tutorials",
+      "body": "",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2853,
+      "title": "Constructors take their type's parameter names as named implicit arguments: Nil [a := Nat], Cons [a := Nat] 1 Nil, None [a := Text] (D3514, Matt, 11 Nov 2026: 'just like functions can'); Nil Nat stays an error; guide and syntax.md lines; then SF Poly's mumble-grumble answers can match the book (SW-2845)",
+      "status": "next",
+      "agent": "Opus",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
       "body": "",
       "created": "2026-11-11",
       "updated": "2026-11-11",
