@@ -16,7 +16,9 @@ use std::path::Path;
 
 use stitchwort_core::hash::{ContentHash, data_hash, def_hash};
 use stitchwort_core::{DataId, DefId};
-use stitchwort_driver::driver::{Session, Tier, par_map, par_map_with_at_most, tier, tier_sample};
+use stitchwort_driver::driver::{
+    Session, Tier, par_map, par_map_with_at_most, tier, tier_sample, with_session,
+};
 use stitchwort_driver::project::{DiskFiles, Target};
 use stitchwort_driver::rewind::Mark;
 
@@ -297,8 +299,9 @@ fn lines(session: &Session, first_data: usize, first_def: usize) -> String {
 fn prelude() {
     // The snapshot is of the library this run reads (`STITCHWORT_STD_DIR`).
     eprintln!("hash_stability: {}", stitchwort_elab::std_text().mode());
-    let session = Session::eager_from_source();
-    let text = lines(&session, 0, 0);
+    let text = with_session(STACK, Session::eager_from_source_for_stack, |session| {
+        lines(session, 0, 0)
+    });
     let mut sorted: Vec<&str> = text.lines().collect();
     sorted.sort_by_key(|l| {
         (

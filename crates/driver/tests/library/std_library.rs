@@ -9,7 +9,9 @@ use std::path::{Path, PathBuf};
 use stitchwort_core::hash::{data_hash, def_hash};
 use stitchwort_core::registry::{Builtin, Home, Kind};
 use stitchwort_core::{DataId, DefId};
-use stitchwort_driver::driver::{Cache, Outcome, Session, full_tier, par_map_with, tier_sample};
+use stitchwort_driver::driver::{
+    Cache, Outcome, Session, full_tier, par_map_with, tier_sample, with_stack,
+};
 use stitchwort_driver::project::{DiskFiles, Target};
 use stitchwort_driver::render::render;
 use stitchwort_elab::{LibraryIndex, library_files, prelude};
@@ -131,32 +133,34 @@ fn library_files_do_not_form_a_cycle() {
 
 #[test]
 fn the_index_holds_exactly_the_names_an_eager_load_makes() {
-    let session = Session::eager_from_source();
-    let index = standard_index();
-    assert!(
-        session.elab.pending_keys().is_empty(),
-        "names still pending after every file loaded: {:?}",
-        session.elab.pending_keys()
-    );
-    // Every name the index promises exists, and every name the library
-    // declares (not the compiler's `%` names, nor a definition's local
-    // helpers `f.go`) is promised. A candidate shared-field accessor is
-    // declared only if its field is shared (docs/proposals/variant-fields.md
-    // §12.1): `Exists.value` isn't (data out of a proof).
-    let keys: BTreeSet<String> = session.elab.scope_keys().into_iter().collect();
-    let promised: BTreeSet<String> = index.names().map(|(k, _)| k.to_string()).collect();
-    let candidates: BTreeSet<&str> = index.candidates().collect();
-    assert!(candidates.contains("Std.Exists.value"), "{candidates:?}");
-    let missing: Vec<&String> = promised
-        .difference(&keys)
-        .filter(|k| !candidates.contains(k.as_str()))
-        .collect();
-    assert!(missing.is_empty(), "promised but not declared: {missing:?}");
-    let unpromised: Vec<&String> = keys.difference(&promised).collect();
-    assert!(
-        unpromised.is_empty(),
-        "declared but not in the index: {unpromised:?}"
-    );
+    with_stack(STACK, || {
+        let session = Session::eager_from_source_for_stack(STACK);
+        let index = standard_index();
+        assert!(
+            session.elab.pending_keys().is_empty(),
+            "names still pending after every file loaded: {:?}",
+            session.elab.pending_keys()
+        );
+        // Every name the index promises exists, and every name the library
+        // declares (not the compiler's `%` names, nor a definition's local
+        // helpers `f.go`) is promised. A candidate shared-field accessor is
+        // declared only if its field is shared (docs/proposals/variant-fields.md
+        // §12.1): `Exists.value` isn't (data out of a proof).
+        let keys: BTreeSet<String> = session.elab.scope_keys().into_iter().collect();
+        let promised: BTreeSet<String> = index.names().map(|(k, _)| k.to_string()).collect();
+        let candidates: BTreeSet<&str> = index.candidates().collect();
+        assert!(candidates.contains("Std.Exists.value"), "{candidates:?}");
+        let missing: Vec<&String> = promised
+            .difference(&keys)
+            .filter(|k| !candidates.contains(k.as_str()))
+            .collect();
+        assert!(missing.is_empty(), "promised but not declared: {missing:?}");
+        let unpromised: Vec<&String> = keys.difference(&promised).collect();
+        assert!(
+            unpromised.is_empty(),
+            "declared but not in the index: {unpromised:?}"
+        );
+    });
 }
 
 #[test]
@@ -792,67 +796,71 @@ fn a_library_file_that_doesnt_check_is_reported_as_internal() {
 
 #[test]
 fn no_library_file_declares_a_decision_procedure() {
-    let session = Session::eager_from_source();
-    // Except `Float`'s equality (docs/proposals/float.md, "As built"): it
-    // decides only equations between `Float`s, which no program can write
-    // without loading std/Float/Float.sw, so `auto` still can't depend on
-    // what else is loaded. It is a definition of its own because the kernel
-    // binds a native to it. The same holds for `Map`'s and `Set`'s equality
-    // (docs/proposals/map-equality.md §8.3): an equation between maps or sets
-    // needs their file loaded. So does `List.decMem` (D1201), which decides
-    // `List.Mem`, declared beside it in std/List/Toolkit.sw. So does
-    // `List.decDistinct` (SW-983), which decides `List.Distinct`, declared
-    // beside it in the same file: only a goal that is or unfolds to
-    // `List.Distinct` matches it, and that needs the toolkit loaded. And `Float.decLessEq` and
-    // `Float.decLessThan`, which decide `Float.LessEq` and `Float.LessThan`,
-    // what `x <= y` and `x < y` on `Float` are, declared beside them. And
-    // `Nat.decPowSuccNotZero`, which decides `Nat.pow (Succ b) e ≠ 0`: only a
-    // goal that is or unfolds to a `Nat.pow` matches it, and `Nat.pow` is
-    // declared beside it in std/Nat/Arith.sw. And `List.decSorted` with its
-    // helper `List.decLeHead` (SW-1273), which decide `List.Sorted` and
-    // `List.LeHead`, declared beside them in std/List/Sort.sw. And
-    // `NonEmptyList.decEq`, which decides equality of `NonEmptyList`s: an
-    // equation between them needs std/NonEmptyList/NonEmptyList.sw loaded.
-    assert_eq!(
-        session.elab.library_decision_procedures(),
-        [
-            "Std.Nat.decPowSuccNotZero",
-            "Std.List.decMem",
-            "Std.List.decDistinct",
-            "Std.List.decLeHead",
-            "Std.List.decSorted",
-            "Std.Float.decEqFrom",
-            "Std.Float.decEq",
-            "Std.Float.decLessEq",
-            "Std.Float.decLessThan",
-            "Std.NonEmptyList.decEq",
-            "Std.Map.decEq",
-            "Std.Set.decEq"
-        ],
-        "every `Decidable` procedure stays in the core (D58), so `auto` never \
+    with_stack(STACK, || {
+        let session = Session::eager_from_source_for_stack(STACK);
+        // Except `Float`'s equality (docs/proposals/float.md, "As built"): it
+        // decides only equations between `Float`s, which no program can write
+        // without loading std/Float/Float.sw, so `auto` still can't depend on
+        // what else is loaded. It is a definition of its own because the kernel
+        // binds a native to it. The same holds for `Map`'s and `Set`'s equality
+        // (docs/proposals/map-equality.md §8.3): an equation between maps or sets
+        // needs their file loaded. So does `List.decMem` (D1201), which decides
+        // `List.Mem`, declared beside it in std/List/Toolkit.sw. So does
+        // `List.decDistinct` (SW-983), which decides `List.Distinct`, declared
+        // beside it in the same file: only a goal that is or unfolds to
+        // `List.Distinct` matches it, and that needs the toolkit loaded. And `Float.decLessEq` and
+        // `Float.decLessThan`, which decide `Float.LessEq` and `Float.LessThan`,
+        // what `x <= y` and `x < y` on `Float` are, declared beside them. And
+        // `Nat.decPowSuccNotZero`, which decides `Nat.pow (Succ b) e ≠ 0`: only a
+        // goal that is or unfolds to a `Nat.pow` matches it, and `Nat.pow` is
+        // declared beside it in std/Nat/Arith.sw. And `List.decSorted` with its
+        // helper `List.decLeHead` (SW-1273), which decide `List.Sorted` and
+        // `List.LeHead`, declared beside them in std/List/Sort.sw. And
+        // `NonEmptyList.decEq`, which decides equality of `NonEmptyList`s: an
+        // equation between them needs std/NonEmptyList/NonEmptyList.sw loaded.
+        assert_eq!(
+            session.elab.library_decision_procedures(),
+            [
+                "Std.Nat.decPowSuccNotZero",
+                "Std.List.decMem",
+                "Std.List.decDistinct",
+                "Std.List.decLeHead",
+                "Std.List.decSorted",
+                "Std.Float.decEqFrom",
+                "Std.Float.decEq",
+                "Std.Float.decLessEq",
+                "Std.Float.decLessThan",
+                "Std.NonEmptyList.decEq",
+                "Std.Map.decEq",
+                "Std.Set.decEq"
+            ],
+            "every `Decidable` procedure stays in the core (D58), so `auto` never \
          depends on what is loaded"
-    );
-    // The check does find one.
-    let files = [(
-        "A.sw",
-        "def Nat.libDec (n: Nat): Decidable (n = n) := Nat.decEq n n\n",
-    )];
-    let session = Session::with_library_files(&files, true, false).unwrap();
-    assert_eq!(
-        session.elab.library_decision_procedures(),
-        ["Std.Nat.libDec"]
-    );
+        );
+        // The check does find one.
+        let files = [(
+            "A.sw",
+            "def Nat.libDec (n: Nat): Decidable (n = n) := Nat.decEq n n\n",
+        )];
+        let session = Session::with_library_files(&files, true, false).unwrap();
+        assert_eq!(
+            session.elab.library_decision_procedures(),
+            ["Std.Nat.libDec"]
+        );
+    });
 }
 
 // ------------------------------------------------------------------ natives
 
 #[test]
 fn every_builtin_is_bound_once_every_file_has_loaded() {
-    let session = Session::eager_from_source();
-    session
-        .elab
-        .check_registry_complete()
-        .expect("the registry is complete");
+    with_stack(STACK, || {
+        let session = Session::eager_from_source_for_stack(STACK);
+        session
+            .elab
+            .check_registry_complete()
+            .expect("the registry is complete");
+    });
 }
 
 #[test]

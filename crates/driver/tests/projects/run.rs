@@ -11,11 +11,16 @@ use std::io::{self, BufRead, Read, Write};
 use std::rc::Rc;
 
 use stitchwort_core::{Limits, ResourceError};
-use stitchwort_driver::driver::Session;
+use stitchwort_driver::driver::{Session, with_stack};
 use stitchwort_driver::run::RunError;
 
+/// The tests' thread stack: a program that imports the library loads the part
+/// of it its names reach, which in a debug build needs more than the default
+/// 1.5 MiB guard (docs/reviews/SW-2732-elaboration-stack.md).
+const STACK: usize = 16 * 1024 * 1024;
+
 fn load(source: &str) -> Session {
-    let mut session = Session::new();
+    let mut session = Session::for_stack(STACK);
     if let Err(errors) = session.load("test.sw", source) {
         panic!("{errors:#?}");
     }
@@ -182,171 +187,197 @@ fn encodings(lines: &[&str]) -> Vec<Vec<u8>> {
 
 #[test]
 fn the_runner_prints_what_simulate_records() {
-    for (name, source) in programs() {
-        let mut session = load(&source);
-        for lines in INPUTS {
-            let expected: String = session
-                .simulate(lines)
-                .unwrap_or_else(|e| panic!("{e:?}"))
-                .iter()
-                .map(|p| format!("{p}\n"))
-                .collect();
-            for input in encodings(lines) {
-                let (out, result) = run_session(&mut session, &input);
-                result.unwrap_or_else(|e| panic!("{name}: {e}"));
-                assert_eq!(
-                    out,
-                    expected,
-                    "{name}, input {:?}",
-                    String::from_utf8_lossy(&input)
-                );
+    with_stack(STACK, || {
+        for (name, source) in programs() {
+            let mut session = load(&source);
+            for lines in INPUTS {
+                let expected: String = session
+                    .simulate(lines)
+                    .unwrap_or_else(|e| panic!("{e:?}"))
+                    .iter()
+                    .map(|p| format!("{p}\n"))
+                    .collect();
+                for input in encodings(lines) {
+                    let (out, result) = run_session(&mut session, &input);
+                    result.unwrap_or_else(|e| panic!("{name}: {e}"));
+                    assert_eq!(
+                        out,
+                        expected,
+                        "{name}, input {:?}",
+                        String::from_utf8_lossy(&input)
+                    );
+                }
             }
         }
-    }
+    });
 }
 
 /// Programs that read with `readAll`, which keeps line endings: simulate
 /// agrees with the runner when each line ends in LF.
 #[test]
 fn readall_under_the_runner_matches_simulate() {
-    for source in [SLURP, MIXED] {
-        let mut session = load(source);
-        for lines in INPUTS {
-            let expected: String = session
-                .simulate(lines)
-                .unwrap_or_else(|e| panic!("{e:?}"))
-                .iter()
-                .map(|p| format!("{p}\n"))
-                .collect();
-            let input: String = lines.iter().map(|l| format!("{l}\n")).collect();
-            let (out, result) = run_session(&mut session, input.as_bytes());
-            result.unwrap_or_else(|e| panic!("{e}"));
-            assert_eq!(out, expected, "input {input:?}");
+    with_stack(STACK, || {
+        for source in [SLURP, MIXED] {
+            let mut session = load(source);
+            for lines in INPUTS {
+                let expected: String = session
+                    .simulate(lines)
+                    .unwrap_or_else(|e| panic!("{e:?}"))
+                    .iter()
+                    .map(|p| format!("{p}\n"))
+                    .collect();
+                let input: String = lines.iter().map(|l| format!("{l}\n")).collect();
+                let (out, result) = run_session(&mut session, input.as_bytes());
+                result.unwrap_or_else(|e| panic!("{e}"));
+                assert_eq!(out, expected, "input {input:?}");
+            }
         }
-    }
+    });
 }
 
 // The interpreter's contract
 
 #[test]
 fn readall_gives_the_input_as_it_is() {
-    assert_eq!(output(SLURP, b""), "[]\n");
-    assert_eq!(output(SLURP, b"a\nb\n"), "[a\nb\n]\n");
-    assert_eq!(output(SLURP, b"a\r\nb\r\n"), "[a\r\nb\r\n]\n");
-    // The final line needs no line ending, and a final CR stays.
-    assert_eq!(output(SLURP, b"a\nb"), "[a\nb]\n");
-    assert_eq!(output(SLURP, b"a\r"), "[a\r]\n");
-    assert_eq!(output(SLURP, b"\n\n"), "[\n\n]\n");
-    let input = "h\u{E9}llo\n\u{1F600}\nx\0y";
-    assert_eq!(output(SLURP, input.as_bytes()), format!("[{input}]\n"));
+    with_stack(STACK, || {
+        assert_eq!(output(SLURP, b""), "[]\n");
+        assert_eq!(output(SLURP, b"a\nb\n"), "[a\nb\n]\n");
+        assert_eq!(output(SLURP, b"a\r\nb\r\n"), "[a\r\nb\r\n]\n");
+        // The final line needs no line ending, and a final CR stays.
+        assert_eq!(output(SLURP, b"a\nb"), "[a\nb]\n");
+        assert_eq!(output(SLURP, b"a\r"), "[a\r]\n");
+        assert_eq!(output(SLURP, b"\n\n"), "[\n\n]\n");
+        let input = "h\u{E9}llo\n\u{1F600}\nx\0y";
+        assert_eq!(output(SLURP, input.as_bytes()), format!("[{input}]\n"));
+    });
 }
 
 #[test]
 fn readall_after_readline_gives_the_rest() {
-    assert_eq!(
-        output(MIXED, b"a\r\nb\r\nc"),
-        "[a]\nall=[b\r\nc]\n<end>\nagain=[]\n"
-    );
-    assert_eq!(output(MIXED, b"a\n"), "[a]\nall=[]\n<end>\nagain=[]\n");
-    assert_eq!(output(MIXED, b""), "<end>\nall=[]\n<end>\nagain=[]\n");
+    with_stack(STACK, || {
+        assert_eq!(
+            output(MIXED, b"a\r\nb\r\nc"),
+            "[a]\nall=[b\r\nc]\n<end>\nagain=[]\n"
+        );
+        assert_eq!(output(MIXED, b"a\n"), "[a]\nall=[]\n<end>\nagain=[]\n");
+        assert_eq!(output(MIXED, b""), "<end>\nall=[]\n<end>\nagain=[]\n");
+    });
 }
 
 #[test]
 fn readline_after_readall_is_end_of_input() {
-    let source = r#"
+    with_stack(STACK, || {
+        let source = r#"
 def main () : {IO} () :=
   IO.print (IO.readAll ())
   match IO.readLine () with
     | None => IO.print "<end>"
     | Some l  => IO.print l
 "#;
-    assert_eq!(output(source, b"a\nb\n"), "a\nb\n\n<end>\n");
+        assert_eq!(output(source, b"a\nb\n"), "a\nb\n\n<end>\n");
+    });
 }
 
 #[test]
 fn readall_lines_split_like_text_lines() {
-    assert_eq!(output(LINES, b"a\r\nb"), "<a>\n<b>\n");
-    assert_eq!(output(LINES, b"a\nb\n"), "<a>\n<b>\n");
-    assert_eq!(output(LINES, b""), "");
-    assert_eq!(output(LINES, b"\n"), "<>\n");
+    with_stack(STACK, || {
+        assert_eq!(output(LINES, b"a\r\nb"), "<a>\n<b>\n");
+        assert_eq!(output(LINES, b"a\nb\n"), "<a>\n<b>\n");
+        assert_eq!(output(LINES, b""), "");
+        assert_eq!(output(LINES, b"\n"), "<>\n");
+    });
 }
 
 #[test]
 fn invalid_utf8_in_readall_is_an_error_with_a_line_number() {
-    // Lines already read, newlines before the bad byte, and one.
-    for (input, line) in [(&b"\xff"[..], 1), (b"a\n\xff", 2), (b"a\nb\n\xc3\n", 3)] {
-        let (out, result) = run(SLURP, input);
-        assert_eq!(out, "", "{input:?}");
+    with_stack(STACK, || {
+        // Lines already read, newlines before the bad byte, and one.
+        for (input, line) in [(&b"\xff"[..], 1), (b"a\n\xff", 2), (b"a\nb\n\xc3\n", 3)] {
+            let (out, result) = run(SLURP, input);
+            assert_eq!(out, "", "{input:?}");
+            assert!(
+                matches!(result, Err(RunError::InvalidUtf8 { line: l }) if l == line),
+                "{input:?}: {result:?}"
+            );
+        }
+        let (out, result) = run(MIXED, b"x\ny\n\xff");
+        assert_eq!(out, "[x]\n");
         assert!(
-            matches!(result, Err(RunError::InvalidUtf8 { line: l }) if l == line),
-            "{input:?}: {result:?}"
+            matches!(result, Err(RunError::InvalidUtf8 { line: 3 })),
+            "{result:?}"
         );
-    }
-    let (out, result) = run(MIXED, b"x\ny\n\xff");
-    assert_eq!(out, "[x]\n");
-    assert!(
-        matches!(result, Err(RunError::InvalidUtf8 { line: 3 })),
-        "{result:?}"
-    );
+    });
 }
 
 #[test]
 fn empty_input_is_end_of_input() {
-    assert_eq!(output(ECHO, b""), "<end>\n<end>\n<end>\n<end>\n");
+    with_stack(STACK, || {
+        assert_eq!(output(ECHO, b""), "<end>\n<end>\n<end>\n<end>\n");
+    });
 }
 
 #[test]
 fn an_empty_line_is_not_end_of_input() {
-    assert_eq!(output(ECHO, b"\n"), "[]\n<end>\n<end>\n<end>\n");
-    assert_eq!(output(ECHO, b"\r\n\n"), "[]\n[]\n<end>\n<end>\n");
+    with_stack(STACK, || {
+        assert_eq!(output(ECHO, b"\n"), "[]\n<end>\n<end>\n<end>\n");
+        assert_eq!(output(ECHO, b"\r\n\n"), "[]\n[]\n<end>\n<end>\n");
+    });
 }
 
 #[test]
 fn a_final_line_without_a_line_ending_is_read_once() {
-    assert_eq!(output(ECHO, b"a\nb"), "[a]\n[b]\n<end>\n<end>\n");
+    with_stack(STACK, || {
+        assert_eq!(output(ECHO, b"a\nb"), "[a]\n[b]\n<end>\n<end>\n");
+    });
 }
 
 #[test]
 fn only_a_trailing_lf_and_a_cr_before_it_are_removed() {
-    assert_eq!(output(ECHO, b"a\r\nb\r\n"), "[a]\n[b]\n<end>\n<end>\n");
-    // A CR anywhere else is part of the line.
-    assert_eq!(output(ECHO, b"a\rb\n"), "[a\rb]\n<end>\n<end>\n<end>\n");
-    assert_eq!(output(ECHO, b"a\r\r\n"), "[a\r]\n<end>\n<end>\n<end>\n");
-    assert_eq!(output(ECHO, b"\ra\n"), "[\ra]\n<end>\n<end>\n<end>\n");
-    // Without an LF, a final CR stays.
-    assert_eq!(output(ECHO, b"a\r"), "[a\r]\n<end>\n<end>\n<end>\n");
-    // Spaces aren't trimmed.
-    assert_eq!(output(ECHO, b" a \t\n"), "[ a \t]\n<end>\n<end>\n<end>\n");
+    with_stack(STACK, || {
+        assert_eq!(output(ECHO, b"a\r\nb\r\n"), "[a]\n[b]\n<end>\n<end>\n");
+        // A CR anywhere else is part of the line.
+        assert_eq!(output(ECHO, b"a\rb\n"), "[a\rb]\n<end>\n<end>\n<end>\n");
+        assert_eq!(output(ECHO, b"a\r\r\n"), "[a\r]\n<end>\n<end>\n<end>\n");
+        assert_eq!(output(ECHO, b"\ra\n"), "[\ra]\n<end>\n<end>\n<end>\n");
+        // Without an LF, a final CR stays.
+        assert_eq!(output(ECHO, b"a\r"), "[a\r]\n<end>\n<end>\n<end>\n");
+        // Spaces aren't trimmed.
+        assert_eq!(output(ECHO, b" a \t\n"), "[ a \t]\n<end>\n<end>\n<end>\n");
+    });
 }
 
 #[test]
 fn text_is_read_and_written_as_utf8() {
-    let input = "h\u{E9}llo\ne\u{301}\n\u{1F600}\nx\0y\n";
-    assert_eq!(
-        output(ECHO, input.as_bytes()),
-        "[h\u{E9}llo]\n[e\u{301}]\n[\u{1F600}]\n[x\0y]\n"
-    );
+    with_stack(STACK, || {
+        let input = "h\u{E9}llo\ne\u{301}\n\u{1F600}\nx\0y\n";
+        assert_eq!(
+            output(ECHO, input.as_bytes()),
+            "[h\u{E9}llo]\n[e\u{301}]\n[\u{1F600}]\n[x\0y]\n"
+        );
+    });
 }
 
 #[test]
 fn invalid_utf8_is_an_error_not_end_of_input() {
-    for bad in [
-        &b"\xff"[..],
-        b"\xc3",         // a truncated sequence
-        b"\xed\xa0\x80", // an encoded surrogate
-        b"\xc0\x80",     // an overlong NUL
-    ] {
-        let mut input = b"ok\n".to_vec();
-        input.extend_from_slice(bad);
-        input.extend_from_slice(b"\nnever read\n");
-        let (out, result) = run(ECHO, &input);
-        // What was printed before the error still appears.
-        assert_eq!(out, "[ok]\n", "{bad:?}");
-        assert!(
-            matches!(result, Err(RunError::InvalidUtf8 { line: 2 })),
-            "{bad:?}: {result:?}"
-        );
-    }
+    with_stack(STACK, || {
+        for bad in [
+            &b"\xff"[..],
+            b"\xc3",         // a truncated sequence
+            b"\xed\xa0\x80", // an encoded surrogate
+            b"\xc0\x80",     // an overlong NUL
+        ] {
+            let mut input = b"ok\n".to_vec();
+            input.extend_from_slice(bad);
+            input.extend_from_slice(b"\nnever read\n");
+            let (out, result) = run(ECHO, &input);
+            // What was printed before the error still appears.
+            assert_eq!(out, "[ok]\n", "{bad:?}");
+            assert!(
+                matches!(result, Err(RunError::InvalidUtf8 { line: 2 })),
+                "{bad:?}: {result:?}"
+            );
+        }
+    });
 }
 
 /// Input that fails once `data` is used up.
@@ -379,13 +410,15 @@ impl BufRead for FailingInput {
 
 #[test]
 fn a_read_error_is_an_error_not_end_of_input() {
-    let mut session = load(ECHO);
-    let main = session.main().unwrap();
-    let mut output = Vec::new();
-    let result = session.run_main(&main, &mut FailingInput { data: b"a\n" }, &mut output);
-    assert_eq!(String::from_utf8(output).unwrap(), "[a]\n");
-    assert!(matches!(result, Err(RunError::Read(_))), "{result:?}");
-    assert_eq!(result.unwrap_err().diagnostic(&main).code, "E-IO");
+    with_stack(STACK, || {
+        let mut session = load(ECHO);
+        let main = session.main().unwrap();
+        let mut output = Vec::new();
+        let result = session.run_main(&main, &mut FailingInput { data: b"a\n" }, &mut output);
+        assert_eq!(String::from_utf8(output).unwrap(), "[a]\n");
+        assert!(matches!(result, Err(RunError::Read(_))), "{result:?}");
+        assert_eq!(result.unwrap_err().diagnostic(&main).code, "E-IO");
+    });
 }
 
 /// Output that records what's written and flushed, in order, to `log`, and
@@ -469,70 +502,82 @@ fn run_logged(
 
 #[test]
 fn output_is_flushed_before_every_read_and_at_the_end() {
-    let (log, result) = run_logged(GREET, b"Ada\n", false, false);
-    result.unwrap();
-    assert_eq!(
-        log,
-        [
-            "write Name?",
-            "write \n",
-            "flush",
-            "read",
-            "write Hello, Ada!",
-            "write \n",
-            "flush"
-        ]
-    );
+    with_stack(STACK, || {
+        let (log, result) = run_logged(GREET, b"Ada\n", false, false);
+        result.unwrap();
+        assert_eq!(
+            log,
+            [
+                "write Name?",
+                "write \n",
+                "flush",
+                "read",
+                "write Hello, Ada!",
+                "write \n",
+                "flush"
+            ]
+        );
+    });
 }
 
 #[test]
 fn a_write_error_stops_the_program() {
-    let (log, result) = run_logged(GREET, b"Ada\n", true, false);
-    // Nothing was read: the program stopped at its first `print`. (What was
-    // written before an error is flushed, as far as possible.)
-    assert_eq!(log, ["flush"]);
-    assert!(
-        matches!(&result, Err(RunError::Write(e)) if e.kind() == io::ErrorKind::BrokenPipe),
-        "{result:?}"
-    );
+    with_stack(STACK, || {
+        let (log, result) = run_logged(GREET, b"Ada\n", true, false);
+        // Nothing was read: the program stopped at its first `print`. (What was
+        // written before an error is flushed, as far as possible.)
+        assert_eq!(log, ["flush"]);
+        assert!(
+            matches!(&result, Err(RunError::Write(e)) if e.kind() == io::ErrorKind::BrokenPipe),
+            "{result:?}"
+        );
+    });
 }
 
 #[test]
 fn a_flush_error_stops_the_program() {
-    // The flush before the read fails, so the program never reads.
-    let (log, result) = run_logged(GREET, b"Ada\n", false, true);
-    assert_eq!(log, ["write Name?", "write \n"]);
-    assert!(matches!(result, Err(RunError::Write(_))), "{result:?}");
-    // The flush at the end counts too.
-    let (_, result) = run_logged(
-        "def main () : {IO} () := IO.print \"x\"\n",
-        b"",
-        false,
-        true,
-    );
-    assert!(matches!(result, Err(RunError::Write(_))), "{result:?}");
+    with_stack(STACK, || {
+        // The flush before the read fails, so the program never reads.
+        let (log, result) = run_logged(GREET, b"Ada\n", false, true);
+        assert_eq!(log, ["write Name?", "write \n"]);
+        assert!(matches!(result, Err(RunError::Write(_))), "{result:?}");
+        // The flush at the end counts too.
+        let (_, result) = run_logged(
+            "def main () : {IO} () := IO.print \"x\"\n",
+            b"",
+            false,
+            true,
+        );
+        assert!(matches!(result, Err(RunError::Write(_))), "{result:?}");
+    });
 }
 
 #[test]
 fn a_payload_with_a_line_feed_is_written_as_it_is() {
-    let source = "def main () : {IO} () :=\n  IO.print \"a\\nb\"\n  IO.print \"\"\n";
-    assert_eq!(output(source, b""), "a\nb\n\n");
+    with_stack(STACK, || {
+        let source = "def main () : {IO} () :=\n  IO.print \"a\\nb\"\n  IO.print \"\"\n";
+        assert_eq!(output(source, b""), "a\nb\n\n");
+    });
 }
 
 #[test]
 fn a_pure_main_runs_and_prints_nothing() {
-    assert_eq!(output("def main () : () := ()\n", b"unread\n"), "");
+    with_stack(STACK, || {
+        assert_eq!(output("def main () : () := ()\n", b"unread\n"), "");
+    });
 }
 
 #[test]
 fn many_operations_run_without_growing_the_stack() {
-    let source = "def printMany : Nat -> {IO} ()\n  \
+    with_stack(STACK, || {
+        let source = "def printMany : Nat -> {IO} ()\n  \
                   | 0      => ()\n  \
                   | Succ n =>\n    \
                   IO.print \"x\"\n    \
                   printMany n\n\n\
                   def main () : {IO} () := printMany 20000\n";
-    assert_eq!(output(source, b""), "x\n".repeat(20000));
+        assert_eq!(output(source, b""), "x\n".repeat(20000));
+    });
 }
 
 // Resources
@@ -551,46 +596,50 @@ def main () : {IO} () :=
 
 #[test]
 fn running_out_of_resources_stops_the_program() {
-    let mut session = load(SLOW);
-    session.elab.options.limits = Limits {
-        work: 100_000,
-        ..Limits::default()
-    };
-    let (out, result) = run_session(&mut session, b"");
-    assert_eq!(out, "before\n");
-    let Err(e) = result else {
-        panic!("it should run out")
-    };
-    assert!(
-        matches!(e, RunError::Resource(ResourceError::Work)),
-        "{e:?}"
-    );
-    let main = session.main().unwrap();
-    let diagnostic = e.diagnostic(&main);
-    assert_eq!(diagnostic.code, "E-RESOURCE");
-    assert_eq!(diagnostic.labels[0].span, main.span);
+    with_stack(STACK, || {
+        let mut session = load(SLOW);
+        session.elab.options.limits = Limits {
+            work: 100_000,
+            ..Limits::default()
+        };
+        let (out, result) = run_session(&mut session, b"");
+        assert_eq!(out, "before\n");
+        let Err(e) = result else {
+            panic!("it should run out")
+        };
+        assert!(
+            matches!(e, RunError::Resource(ResourceError::Work)),
+            "{e:?}"
+        );
+        let main = session.main().unwrap();
+        let diagnostic = e.diagnostic(&main);
+        assert_eq!(diagnostic.code, "E-RESOURCE");
+        assert_eq!(diagnostic.labels[0].span, main.span);
+    });
 }
 
 #[test]
 fn each_step_between_operations_has_its_own_limits() {
-    // 2,000 prints take more than 100,000 steps in all, but few each.
-    let source = "def printMany : Nat -> {IO} ()\n  \
+    with_stack(STACK, || {
+        // 2,000 prints take more than 100,000 steps in all, but few each.
+        let source = "def printMany : Nat -> {IO} ()\n  \
                   | 0      => ()\n  \
                   | Succ n =>\n    \
                   IO.print \"x\"\n    \
                   printMany n\n\n\
                   def main () : {IO} () := printMany 2000\n";
-    let mut session = load(source);
-    session.elab.options.limits = Limits {
-        work: 100_000,
-        ..Limits::default()
-    };
-    let main = session.main().unwrap();
-    let mut out = Vec::new();
-    session.run_main(&main, &mut &b""[..], &mut out).unwrap();
-    assert_eq!(out.len(), 4000);
-    // `simulate` runs the whole program as one operation, and doesn't finish.
-    assert_eq!(session.simulate(&[]).unwrap_err().code, "E-RESOURCE");
+        let mut session = load(source);
+        session.elab.options.limits = Limits {
+            work: 100_000,
+            ..Limits::default()
+        };
+        let main = session.main().unwrap();
+        let mut out = Vec::new();
+        session.run_main(&main, &mut &b""[..], &mut out).unwrap();
+        assert_eq!(out.len(), 4000);
+        // `simulate` runs the whole program as one operation, and doesn't finish.
+        assert_eq!(session.simulate(&[]).unwrap_err().code, "E-RESOURCE");
+    });
 }
 
 // `main` itself
@@ -604,20 +653,24 @@ fn main_error(source: &str) -> &'static str {
 
 #[test]
 fn main_must_exist() {
-    assert_eq!(main_error("def notMain () : {IO} () := ()\n"), "E-NO-MAIN");
+    with_stack(STACK, || {
+        assert_eq!(main_error("def notMain () : {IO} () := ()\n"), "E-NO-MAIN");
+    });
 }
 
 #[test]
 fn main_must_have_the_right_type() {
-    for source in [
-        "def main : Nat := 3\n",
-        "def main () : {IO} Nat := 3\n",
-        "def main (n : Nat) : {IO} () := ()\n",
-        "def main () : Nat := 3\n",
-        "ability Abort where\n  \
+    with_stack(STACK, || {
+        for source in [
+            "def main : Nat := 3\n",
+            "def main () : {IO} Nat := 3\n",
+            "def main (n : Nat) : {IO} () := ()\n",
+            "def main () : Nat := 3\n",
+            "ability Abort where\n  \
          abort : () -> {Abort} ()\n\n\
          def main () : {IO, Abort} () := abort ()\n",
-    ] {
-        assert_eq!(main_error(source), "E-MAIN-TYPE", "{source}");
-    }
+        ] {
+            assert_eq!(main_error(source), "E-MAIN-TYPE", "{source}");
+        }
+    });
 }
