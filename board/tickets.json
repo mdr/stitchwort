@@ -31181,7 +31181,7 @@
     {
       "id": 2930,
       "title": "[DeepSeek] Goals panel: a cursor on the word rewrite shows only the goal; show the step (before, rule, after) there too, not only on the rule (book SW-2918)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "DeepSeek",
       "where": "",
       "labels": [],
