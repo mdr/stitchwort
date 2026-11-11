@@ -335,11 +335,23 @@ impl Elaborator {
                 }
             };
             let Some(i) = (0..k).find(|&i| implicit[i] && *ctor.fields[i].0 == *field.text) else {
-                return Err(error(
+                let mut e = error(
                     "E-UNKNOWN-NAME",
                     field.span,
                     format!("`{}` has no implicit field `{}`", ctor.name, field.text),
-                ));
+                );
+                // `[a := …]` names a type parameter in an expression, but a
+                // pattern matches only what the constructor holds.
+                let data = self.kernel.data(d);
+                if data.params().iter().any(|(p, _)| **p == *field.text) {
+                    e = e.with_note(format!(
+                        "`{}` is a parameter of `{}`, which the type of what is matched fixes: a \
+                         pattern can't match it",
+                        field.text,
+                        data.name()
+                    ));
+                }
+                return Err(e);
             };
             if out[i].replace(inner).is_some() {
                 return Err(error(

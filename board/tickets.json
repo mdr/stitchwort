@@ -30169,12 +30169,12 @@
     {
       "id": 2853,
       "title": "Constructors take their type's parameter names as named implicit arguments: Nil [a := Nat], Cons [a := Nat] 1 Nil, None [a := Text] (D3514, Matt, 11 Nov 2026: 'just like functions can'); Nil Nat stays an error; guide and syntax.md lines; then SF Poly's mumble-grumble answers can match the book (SW-2845)",
-      "status": "doing",
+      "status": "review",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-2853",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "Progress (Opus lane, 11 Nov 2026, 14:27-14:45): done in d5e70db8e on lane/SW-2853. A constructor's named-argument signature (check.rs `ctor_signature`) is now the data type's parameters (implicit, or `auto`) then its fields, so `Nil [a := Nat]`, `Cons [a := Nat] 1 Nil`, `None [a := Text]`, `MkPair [b := Bool] [a := Nat] 1 True`, `VCons [a := Nat] [n := 0] 1 VNil`, `(Nil [a := Int]).length` and partial application `Cons [a := Nat] (head := 0)` work. Errors match a function's: E-UNKNOWN-NAME listing `[a]` and the fields, E-DUPLICATE-ARGUMENT, E-NAMED-BRACKET; disagreeing with the expected type is E-TYPE-MISMATCH between whole types (`List Nat` vs `List Text`). `Nil Nat` stays E-NOT-A-FUNCTION, with a new note `Nil [a := …]` when the extra argument names a type. An implicit field of the same name hides the parameter. Patterns unchanged (a parameter can't be matched); naming one there gets a note. Data parameters always have names (`(_: Type)` is E-PARSE). Docs: syntax.md (Named arguments), guide ch. 4 (snippet functions.sw#named-constructors). Examples: accept/constructor-type-parameters-named.sw, reject/constructor-type-parameter-{unknown,positional}.sw. Tests: the examples (running, hash_stability), named_forms_have_the_positional_hash, 5 neighbouring reject snapshots: all pass. The guide test wasn't run (verifier).\n",
       "created": "2026-11-11",
       "updated": "2026-11-11",
       "commits": []

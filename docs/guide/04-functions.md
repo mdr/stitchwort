@@ -105,6 +105,17 @@ test "leaving some out" := [1, 50, 200].map (clamp (low := 5) (high := 100)) == 
 
 Implicit parameters are named with square brackets, `[b := Text]`, as above. The language server completes parameter names after `(` and `[`.
 
+A constructor's fields are named the same way, and so are its type's parameters, by the names in the type's header: they are implicit in the constructor, so they take square brackets. `Nil [a := Int]` is the empty list of integers, where nothing else says what its items are:
+
+<!-- snippet: functions.sw#named-constructors -->
+```stitchwort
+type Pair (a: Type) (b: Type) =
+  | MkPair (first: a) (second: b)
+
+test "an empty list of integers" := (Nil [a := Int]).length == 0
+test "the type's parameters by name" := MkPair [b := Text] [a := Int] 1 "one" == MkPair (1: Int) "one"
+```
+
 ## Default values
 
 An explicit parameter may have a default, written after `:=`, as a record field may ([chapter 3](03-data.md#default-values)). A call that leaves it out gets the default. Defaults are given by name, so a positional argument never lands on a defaulted parameter, and adding a default to a function never changes what existing calls mean:

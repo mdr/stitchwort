@@ -2704,29 +2704,52 @@ fn ctor_args<'a>(args: &[Arg<'a>]) -> Vec<CtorArg<'a>> {
         .collect()
 }
 
-/// The fields of constructor `c` of `d` as a signature, for named
-/// arguments.
+/// The data type's parameters, then the fields of constructor `c` of `d`,
+/// as a signature for named arguments: `Cons [a := Nat] 1 Nil` names
+/// `List`'s parameter `a` (D3514). A parameter is implicit in the
+/// constructor whatever its bracket in the type's header, and `auto` stays
+/// `auto`. One that an implicit field of the same name shadows, as in the
+/// declaration, can't be named, so `[n := …]` still means the field.
 fn ctor_signature(cx: &Ctx, d: DataId, c: usize) -> crate::named::Signature {
-    let ctor = &cx.g().data(d).ctors()[c];
-    crate::named::declared(ctor.fields.iter().enumerate().map(|(i, (name, _))| {
-        let implicit = ctor.implicit.get(i).copied().unwrap_or(false);
-        let icit = if implicit {
+    let g = cx.g();
+    let data = g.data(d);
+    let ctor = &data.ctors()[c];
+    let implicit = |i: usize| ctor.implicit.get(i).copied().unwrap_or(false);
+    let shadowed =
+        |name: &Name| (ctor.fields.iter().enumerate()).any(|(i, (f, _))| implicit(i) && f == name);
+    let params = data.params().iter().enumerate().map(|(j, (name, _))| {
+        let name = match shadowed(name) {
+            true => Name::from("%shadowed"),
+            false => name.clone(),
+        };
+        let icit = match data.auto_params().get(j).copied().unwrap_or(false) {
+            true => Icit::Auto,
+            false => Icit::Implicit,
+        };
+        (name, icit)
+    });
+    let fields = ctor.fields.iter().enumerate().map(|(i, (name, _))| {
+        let icit = if implicit(i) {
             Icit::Implicit
         } else {
             Icit::Explicit
         };
         (name.clone(), icit)
-    }))
+    });
+    crate::named::declared(params.chain(fields).collect::<Vec<_>>())
 }
 
-/// What `args` give each field of constructor `c` of `d` (§4.2 rule 1,
-/// D1096), or an error if they don't fit its fields.
-fn ctor_fill<'a>(
-    cx: &Ctx,
-    d: DataId,
-    c: usize,
-    args: &[CtorArg<'a>],
-) -> Result<Vec<Option<&'a Expr>>> {
+/// What a constructor's arguments give: the data type's parameters named,
+/// and each field.
+struct CtorGiven<'a> {
+    params: Vec<Option<&'a Expr>>,
+    fields: Vec<Option<&'a Expr>>,
+}
+
+/// What `args` give each field of constructor `c` of `d`, and each of the
+/// data type's parameters named (§4.2 rule 1, D1096, D3514), or an error if
+/// they don't fit its signature.
+fn ctor_fill<'a>(cx: &Ctx, d: DataId, c: usize, args: &[CtorArg<'a>]) -> Result<CtorGiven<'a>> {
     let ctor = &cx.g().data(d).ctors()[c];
     let as_args: Vec<Arg<'a>> = (args.iter())
         .map(|a| match a {
@@ -2740,7 +2763,12 @@ fn ctor_fill<'a>(
         // The constructor's own wording for a field it doesn't have.
         if e.code == "E-UNKNOWN-NAME" {
             let mut e = e;
-            e.message = format!("`{}` has no such field", ctor.name);
+            e.message = format!("`{}` has no such field or type parameter", ctor.name);
+            if let Some(label) = e.labels.first_mut() {
+                let data = cx.g().data(d).name().clone();
+                label.message =
+                    format!("not a field of `{}` or a parameter of `{data}`", ctor.name);
+            }
             e
         } else {
             e
@@ -2766,24 +2794,53 @@ fn ctor_fill<'a>(
         }) {
             error = error.with_note(note);
         }
+        // `Nil Nat`, as if the type's parameters were explicit: an extra
+        // argument that names a type.
+        let names_a_type = |arg: &Arg| {
+            let &Arg::Explicit(mut e) = arg else {
+                return false;
+            };
+            while let Expr::App(f, _) = e {
+                e = f;
+            }
+            matches!(e, Expr::Var(name)
+                if cx.lookup(&name.text).is_none()
+                    && matches!(cx.e.named(&name.text), Some((Global::Data(_), _))))
+        };
+        let data = cx.g().data(d);
+        if overflow.iter().any(names_a_type)
+            && let Some((param, _)) = (sig.params.iter().zip(data.params()))
+                .find(|(p, _)| p.icit != Icit::Explicit && !p.name.starts_with('%'))
+        {
+            error = error.with_note(format!(
+                "`{}`'s parameters are given by name, if at all: `{} [{} := …]`",
+                data.name(),
+                ctor.name,
+                param.name
+            ));
+        }
         return Err(match cx.e.hiding_note(&ctor.name) {
             Some(note) => error.with_note(note),
             None => error,
         });
     }
-    Ok(assigned
-        .into_iter()
+    let mut given: Vec<Option<&Expr>> = (assigned.into_iter())
         .map(|a| match a {
             Some(Arg::Explicit(e) | Arg::Named(_, e)) => Some(e),
             _ => None,
         })
-        .collect())
+        .collect();
+    let fields = given.split_off(cx.g().data(d).params().len());
+    Ok(CtorGiven {
+        params: given,
+        fields,
+    })
 }
 
 /// The explicit fields of constructor `c` of `d` that `args` leave out: the
 /// parameters of the function the application is.
 fn ctor_missing(cx: &Ctx, d: DataId, c: usize, args: &[CtorArg]) -> Result<Vec<Name>> {
-    let given = ctor_fill(cx, d, c, args)?;
+    let given = ctor_fill(cx, d, c, args)?.fields;
     let ctor = &cx.g().data(d).ctors()[c];
     Ok((ctor.fields.iter().enumerate())
         .filter(|(i, _)| !ctor.implicit.get(*i).copied().unwrap_or(false) && given[*i].is_none())
@@ -6804,8 +6861,12 @@ fn ctor_app(
     let implicit: Vec<bool> = (0..k)
         .map(|i| ctor.implicit.get(i).copied().unwrap_or(false))
         .collect();
-    // What each field is given, by position or by name (`named.rs`).
-    let given = ctor_fill(cx, d, c, args)?;
+    // What each field is given, by position or by name (`named.rs`), and
+    // the parameters named.
+    let CtorGiven {
+        params: named_params,
+        fields: given,
+    } = ctor_fill(cx, d, c, args)?;
     let missing: Vec<usize> = (0..k)
         .filter(|&i| !implicit[i] && given[i].is_none())
         .collect();
@@ -6860,8 +6921,13 @@ fn ctor_app(
         Some(t) => effects::unknown_bare_value(cx, t)?.or_else(|| Some(t.clone())),
         None => None,
     };
+    // The whole of the expected type, when the parameters come from it.
+    let mut expected_args: Option<Vec<Value>> = None;
     let params = match value_target.map(|t| force(&g, t)).transpose()? {
-        Some(Value::Data(d2, args)) if d2 == d && args.len() >= np => args[..np].to_vec(),
+        Some(Value::Data(d2, args)) if d2 == d && args.len() >= np => {
+            expected_args = Some(args.to_vec());
+            args[..np].to_vec()
+        }
         _ if !missing.is_empty() => fallback_params,
         _ => data
             .params()
@@ -6872,6 +6938,29 @@ fn ctor_app(
             })
             .collect::<Result<_>>()?,
     };
+    // A parameter given by name, `[a := Nat]`, is checked against its type
+    // and must agree with what `expected` says, if anything. A disagreement
+    // is reported as a function's is, between the whole types: `List Nat`
+    // expected, `List Text` given.
+    for (j, given) in named_params.iter().enumerate() {
+        let Some(e) = given else { continue };
+        let ty = eval(&g, &params[..j], &data.params()[j].1)?;
+        let term = check(cx, e, &ty)?;
+        let value = cx.eval(&term)?;
+        if !cx.unify(&params[j], &value)? {
+            let error = match &expected_args {
+                Some(args) => {
+                    let mut found = args.clone();
+                    found[j] = value;
+                    let expected = Value::Data(d, args.clone().into());
+                    cx.mismatch(&expected, &Value::Data(d, found.into()))
+                }
+                None => cx.mismatch(&params[j], &value),
+            };
+            cx.reset(mark);
+            return Err(error);
+        }
+    }
     // A missing field's type is known from `expected` (`List Hit` in
     // `xs.map (Cons { … })`): unify it first, so the parameters it fixes are
     // known when the given arguments are checked, whatever the field order.
