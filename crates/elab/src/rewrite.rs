@@ -1131,8 +1131,22 @@ fn replace_occurrences_as(
     folded: bool,
     remaining: &mut u64,
 ) -> Result<Replaced> {
+    // A decision's test, replaced where the decision is, takes the
+    // decision's proofs with it (`crate::carry`): only when the usual motive
+    // fails, so nothing that checks the usual way changes, and first only
+    // where the decision is known to need it, then everywhere. A motive that
+    // holds unknowns is checked only once they are solved ([`check_motive`]),
+    // so the usual one can't fail here: carrying where needed comes first.
+    let passes: &[Carrying] = if !has_decision(cx, equation, shape)? {
+        &[Carrying::No]
+    } else if has_unknowns(shape) {
+        &[Carrying::WhereOther, Carrying::Everywhere]
+    } else {
+        &[Carrying::No, Carrying::WhereOther, Carrying::Everywhere]
+    };
     let before = *remaining;
-    match replace_occurrences_carrying(
+    let (&first, rest) = passes.split_first().expect("at least one pass");
+    let e = match replace_occurrences_carrying(
         cx,
         rule,
         place,
@@ -1142,37 +1156,72 @@ fn replace_occurrences_as(
         recent,
         by_instances,
         folded,
-        false,
+        first,
         remaining,
     ) {
-        // A decision's test, replaced where the decision is, takes the
-        // decision's proofs with it: tried second, so nothing that checks
-        // the usual way changes.
-        Err(e) if e.code == "E-REWRITE-MOTIVE" && is_bool(cx, &equation.carrier)? => {
-            let mut again = before;
-            match replace_occurrences_carrying(
-                cx,
-                rule,
-                place,
-                equation,
-                goal,
-                shape,
-                recent,
-                by_instances,
-                folded,
-                true,
-                &mut again,
-            ) {
-                Ok(found) => {
-                    *remaining = again;
-                    Ok(found)
-                }
-                Err(again) if fatal(&again) => Err(again),
-                Err(_) => Err(e),
+        Err(e) if e.code == "E-REWRITE-MOTIVE" => e,
+        other => return other,
+    };
+    for &carrying in rest {
+        let mut again = before;
+        match replace_occurrences_carrying(
+            cx,
+            rule,
+            place,
+            equation,
+            goal,
+            shape,
+            recent,
+            by_instances,
+            folded,
+            carrying,
+            &mut again,
+        ) {
+            Ok(found) => {
+                *remaining = again;
+                return Ok(found);
             }
+            Err(again) if fatal(&again) => return Err(again),
+            Err(_) => {}
         }
-        other => other,
     }
+    Err(e)
+}
+
+/// Where [`replace_occurrences_carrying`] carries decisions' proofs along
+/// the motive's equation (`crate::carry`).
+#[derive(Clone, Copy, PartialEq)]
+enum Carrying {
+    No,
+    /// Where the decision is known to decide a proposition that isn't about
+    /// the left side ([`Search::decides_other`]).
+    WhereOther,
+    Everywhere,
+}
+
+/// Whether `equation` is about a `Bool` and the term `shape` searches holds
+/// a decision whose proofs could be carried along it.
+fn has_decision(cx: &Ctx, equation: &Equation, shape: Shape) -> Result<bool> {
+    if !is_bool(cx, &equation.carrier)? {
+        return Ok(false);
+    }
+    let carry = crate::carry::Carry::new(cx)?;
+    let searched = match shape {
+        Shape::Whole(term) => term,
+        Shape::Right { right, .. } => right,
+    };
+    Ok(searched.subterms().any(|(t, _)| carry.met(t).is_some()))
+}
+
+/// Whether the terms `shape` keeps in the motive hold an unknown.
+fn has_unknowns(shape: Shape) -> bool {
+    let terms = match shape {
+        Shape::Whole(term) => vec![term],
+        Shape::Right { ty, left, right } => vec![ty, left, right],
+    };
+    terms
+        .iter()
+        .any(|t| t.subterms().any(|(t, _)| matches!(t, Term::Meta(_))))
 }
 
 /// Whether `ty` is `Bool`.
@@ -1181,7 +1230,8 @@ fn is_bool(cx: &Ctx, ty: &Value) -> Result<bool> {
     Ok(matches!(force(&cx.g(), ty.clone())?, Value::Data(d, _) if d == bool_data))
 }
 
-/// [`replace_occurrences_as`], carrying decisions' proofs along if `carry`.
+/// [`replace_occurrences_as`], carrying decisions' proofs along as
+/// `carrying` says.
 #[allow(clippy::too_many_arguments)]
 fn replace_occurrences_carrying(
     cx: &mut Ctx,
@@ -1193,7 +1243,7 @@ fn replace_occurrences_carrying(
     recent: usize,
     by_instances: bool,
     folded: bool,
-    carry_everywhere: bool,
+    carrying: Carrying,
     remaining: &mut u64,
 ) -> Result<Replaced> {
     let g = cx.g();
@@ -1208,9 +1258,9 @@ fn replace_occurrences_carrying(
     };
     let open = equation.open(&lhs_term);
     let level = cx.level();
-    let carried = match is_bool(cx, &equation.carrier)? {
-        true => Some(carried_equation(cx, place, equation, &lhs_term)?),
-        false => None,
+    let carried = match carrying {
+        Carrying::No => None,
+        _ => Some(carried_equation(cx, place, equation, &lhs_term)?),
     };
     let mut search = Search::new(
         cx,
@@ -1224,7 +1274,7 @@ fn replace_occurrences_carrying(
         folded,
         *remaining,
     )?;
-    search.carry = carried.map(|(carry, equation)| (carry, level, equation, carry_everywhere));
+    search.carry = carried.map(|(carry, equation)| (carry, level, equation, carrying));
     // The goal with the occurrences replaced by `x`, under `x _ =>`.
     let moved = |l| Ok(Term::Var(level + 2 - 1 - l));
     let searched_term = match shape {
@@ -1399,10 +1449,8 @@ struct Search<'a, 'e> {
     first: RefCell<Option<Term>>,
     /// Set to carry decisions' proofs along the motive's equation
     /// (`crate::carry`): the carrier, the goal's level, and the equation
-    /// `lhs = x'` in the motive's context.
-    /// Whether everywhere the test is met, or only where the decision is
-    /// known to need it.
-    carry: Option<(crate::carry::Carry, usize, Term, bool)>,
+    /// `lhs = x'` in the motive's context, and where.
+    carry: Option<(crate::carry::Carry, usize, Term, Carrying)>,
     /// Whether a decision's proofs were carried along.
     carried: Cell<bool>,
 }
@@ -1516,13 +1564,15 @@ impl Search<'_, '_> {
     /// it is one of the forms that need it (`crate::carry`) and its test is
     /// an occurrence.
     fn carried(&self, t: &Term, under: usize) -> Option<Term> {
-        let (carry, level, equation, everywhere) = self.carry.as_ref()?;
+        let (carry, level, equation, carrying) = self.carry.as_ref()?;
         let (met, holds) = carry.met(t)?;
         if key(&holds, under).as_ref() != Some(&self.key) || mentions_bound(&holds, under) {
             return None;
         }
         let found = (|| -> Result<Option<Term>> {
-            if !everywhere && !self.decides_other(&met.sound(carry.decidable), under)? {
+            if *carrying == Carrying::WhereOther
+                && !self.decides_other(&met.sound(carry.decidable), under)?
+            {
                 return Ok(None);
             }
             if self.decide(&holds, under)?.is_none() {

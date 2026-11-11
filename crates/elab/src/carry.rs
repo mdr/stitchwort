@@ -16,9 +16,10 @@
 //! Proofs compare equal whatever they are, so in each arm, or once `X` is
 //! the other side, the record is the decision the `if` holds. Where `p`
 //! mentions `s` the usual generalisation is already well-formed, and
-//! carrying would make it ill-formed: so `matching.rs` carries only when
-//! the usual motive fails, and `rewrite.rs` only where `p` doesn't mention
-//! the left side, or when its usual motive fails.
+//! carrying would make it ill-formed: so `matching.rs` and `rewrite.rs`
+//! carry only when the usual motive fails (for `rewrite.rs`, or can't be
+//! checked yet), `rewrite.rs` first only where `p` doesn't mention the left
+//! side, then everywhere.
 
 use std::rc::Rc;
 
