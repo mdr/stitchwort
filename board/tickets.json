@@ -30319,12 +30319,12 @@
     {
       "id": 2864,
       "title": "DecEq.trueOfNe (same => …) can't infer same's type when the goal is (a + a != n) = True: the lambda is elaborated before the result type is unified (SW-2831)",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2864",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "Progress (Sonnet lane, 11 Nov 2026): the ordering was not the cause. The lambda is already held until the expected type is compared (apply_args_postponing / finish_application); that comparison failed: the call's result is `DecEq.decide ?d ?x ?y` (dictionary unsolved, its type unknown), while `!=` in the expected type already has the instance's method applied (`Nat.decEq (a + a) n`), so neither x, y nor the instance could be solved and omega ran without `same`'s type (the omega error hid the mismatch). Fix: interfaces::unify_guessing_instance, a last fallback in finish_application's comparison: if exactly one instance (or the found one, when the type is known) makes the types equal, it is chosen. New example lambda-after-expected-instance.sw (+ hash snapshot); 2020 Day09 Proofs/Window.sw back to `DecEq.trueOfNe (same => differ (omega))`. Checked: repro, 13 lambda/implicit examples, 12 postponement unit tests, Day09.",
       "created": "2026-11-11",
       "updated": "2026-11-11",
       "commits": []
