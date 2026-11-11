@@ -30907,13 +30907,13 @@
     },
     {
       "id": 2909,
-      "title": "[Sonnet] stitchwort test silently leaves out a test of a function that is still ?: report it as waiting (or skipped, with why) (book SW-2902)",
-      "status": "backlog",
+      "title": "[Sonnet] stitchwort test: a test that reaches an unfinished ? fails (naming the ? and where it is), instead of being left out silently (Matt, 11 Nov 2026)",
+      "status": "doing",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "diagnostics",
-      "body": "",
+      "body": "\nMatt, 11 Nov 2026, on the book's hint ('a test of a function that is still ? isn't run'): 'I think it should fail the test actually!'",
       "created": "2026-11-11",
       "updated": "2026-11-11",
       "commits": []
