@@ -1,5 +1,5 @@
 {
-  "next": 2831,
+  "next": 2834,
   "tickets": [
     {
       "id": 47,
@@ -29870,6 +29870,45 @@
       "title": "rewrite: when carrying a decision's proofs fails with an error the user can't act on (kernel E-CANNOT-INFER), report E-REWRITE-MOTIVE or an internal error, not 'add a type annotation' (SW-2828); decides_other can't tell when a lambda sound needs carrying (infer its body under h: s = True); drop the call-for-sound workaround comment in examples/accept/rewrite-decision-plain-first.sw",
       "status": "backlog",
       "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2831,
+      "title": "Rust emits d.sound, d.complete and Decidable.refute instead of the toBool* lemmas (omega.rs, equations.rs, induct.rs); then the toBool* family can go (except toBoolOfNot) and ~40 std/aoc call sites move to the fields (SW-2823)",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2832,
+      "title": "Unify Bool.uniqueEq with Decidable.uniqueEq: needs a deliberate Float.decEq native pin update (Float.bitsExt uses Bool.uniqueEq) after checking the Float natives (SW-2823)",
+      "status": "backlog",
+      "agent": "Opus",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2833,
+      "title": "Elaborator generalises a decision by eta when a match on d.holds meets a goal mentioning d.sound (E-MATCH-MOTIVE, decidable-record.md §4.3); would remove helpers like Fin.ofNatCheckDec (overlaps SW-2708)",
+      "status": "backlog",
+      "agent": "Opus",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
