@@ -1,5 +1,5 @@
 {
-  "next": 2926,
+  "next": 2927,
   "tickets": [
     {
       "id": 47,
@@ -30607,7 +30607,7 @@
     {
       "id": 2886,
       "title": "[Sonnet] Split from a ?: a _ column can't be split again (the action nests a match c instead of expanding the _ into the constructors) (SW-2885)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
@@ -31121,6 +31121,19 @@
       "where": "",
       "labels": [],
       "epic": "diagnostics",
+      "body": "",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2926,
+      "title": "[Sonnet] Split from a ? on a variable the enclosing arm already binds (a named pattern like theirs, or a _ column) nests a match; it should expand that arm in place, as splitting from the pattern does (Matt, 11 Nov 2026); covers SW-2886",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "editor-playground",
       "body": "",
       "created": "2026-11-11",
       "updated": "2026-11-11",
