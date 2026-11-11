@@ -1,5 +1,5 @@
 {
-  "next": 2938,
+  "next": 2939,
   "tickets": [
     {
       "id": 47,
@@ -31277,6 +31277,19 @@
       "where": "",
       "labels": [],
       "epic": "diagnostics",
+      "body": "",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2938,
+      "title": "[Fable] Paper: running tests (and checking) in the presence of errors and unfinished ?s, end to end: what runs, what fails with which reason, namespaces that import a broken one (D3524 open), cascade errors, what trust a passing test or theorem then carries, editor/playground/cache behaviour, compared with other languages (Matt, 11 Nov 2026)",
+      "status": "doing",
+      "agent": "Opus",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
       "body": "",
       "created": "2026-11-11",
       "updated": "2026-11-11",
