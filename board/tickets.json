@@ -31300,7 +31300,7 @@
     {
       "id": 2939,
       "title": "[DeepSeek] A test passing a ?-proved theorem as a proof prints plain '✓ … ran'; add '(assuming <name>)' to the result line (SW-2938 finding)",
-      "status": "review",
+      "status": "done",
       "agent": "DeepSeek",
       "where": "",
       "labels": [],
@@ -31365,7 +31365,7 @@
     {
       "id": 2944,
       "title": "[DeepSeek] E-USES-FAILED 'the error is here' label sits a few columns from the printed error position (76:37 vs 76:41) (SW-2940)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "DeepSeek",
       "where": "",
       "labels": [],
@@ -31378,7 +31378,7 @@
     {
       "id": 2945,
       "title": "[DeepSeek] A parse error that destroys an imported name gives E-UNKNOWN-NAME on the import instead of the note's '`A` has a syntax error, so `beats` can't be found' (SW-2940)",
-      "status": "review",
+      "status": "done",
       "agent": "DeepSeek",
       "where": "",
       "labels": [],
@@ -31430,7 +31430,7 @@
     {
       "id": 2949,
       "title": "[DeepSeek] task test:example selects test(/_examples/) only, so projects/ examples (rejected_projects_…, goal_projects_…) silently don't run; include the project sweeps (SW-2945)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "DeepSeek",
       "where": "",
       "labels": [],
