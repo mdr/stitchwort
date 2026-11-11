@@ -1,5 +1,5 @@
 {
-  "next": 2835,
+  "next": 2836,
   "tickets": [
     {
       "id": 47,
@@ -29925,6 +29925,19 @@
       "where": "",
       "labels": [],
       "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2835,
+      "title": "JS output: unused helpers still emitted (Decidable.elim and its %match1), Bool.not stays a call; unfolds_decision matches Std.Decidable.* by name (a rule on result type would be sturdier); fold Succ over a computed value (SW-2825)",
+      "status": "backlog",
+      "agent": "DeepSeek",
+      "where": "",
+      "labels": [],
+      "epic": "effects-native",
       "body": "",
       "created": "2026-11-11",
       "updated": "2026-11-11",
