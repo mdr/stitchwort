@@ -2025,3 +2025,28 @@ fn kept_calls_still_refuse_false_goals() {
     let body = lam("n", on_nat(&p, 0, Term::Refl, Term::Refl));
     assert_eq!(define_small(&mut p, "wrongBig", goal, body), Err("E-REFL"));
 }
+
+/// The erased placeholder reads back as the elision `…`, alone, applied and
+/// inside a constructor, not as a variable outside the context, whose index
+/// `level - 1 - l` would wrap (a debug assertion, a wrong variable in a
+/// release build). An error message's counterexample reads back values that
+/// hold it for a hypothesis's proof (SW-2757: `MkChar 98 h` with `h`
+/// erased). A real variable still reads back as itself.
+#[test]
+fn the_erased_placeholder_reads_back_as_the_elision() {
+    let p = Prelude::new();
+    let g = p.g.ev();
+    let env = [stitchwort_core::erase::erased()];
+    let read = |t: Term| format!("{:?}", quote(&g, 0, &eval(&g, &env, &t).unwrap()).unwrap());
+    let elided = || Term::Meta(stitchwort_core::value::ELIDED);
+    assert_eq!(read(v(0)), format!("{:?}", elided()));
+    assert_eq!(read(app(v(0), [p.num(1)])), format!("{:?}", elided()));
+    assert_eq!(
+        read(Term::ctor(p.nat, 1, vec![v(0)])),
+        format!("{:?}", Term::ctor(p.nat, 1, vec![elided()]))
+    );
+    assert_eq!(
+        format!("{:?}", quote(&g, 1, &Value::var(0)).unwrap()),
+        format!("{:?}", Term::Var(0))
+    );
+}

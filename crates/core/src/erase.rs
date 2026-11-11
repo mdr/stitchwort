@@ -61,7 +61,7 @@ use crate::term::DefId;
 use crate::value::{Apart, Head, Spine, Value};
 
 /// The level of the placeholder's variable: never a real one.
-const ERASED: usize = usize::MAX - 1;
+pub(crate) const ERASED: usize = usize::MAX - 1;
 
 /// What stands for an erased value: a variable no binder has.
 pub fn erased() -> Value {
