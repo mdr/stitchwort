@@ -1412,12 +1412,18 @@ ignores the motive's last argument.
   overlap hypothesis that a number or character `match` refines; one that
   calls itself with an argument that depends on a binder (a function given to
   `List.map`) or inside a lifted `match` or local definition that isn't in tail
-  position; one with a lifted `match` with a number literal for an
-  alternative, or a nested pattern on a type with several constructors or
-  indices; a mutual group. A lifted `match`'s catch-all alternative gets its
-  case, taking the facts that the earlier alternatives didn't match
-  (`compare x k ≠ Less`), as its equation does
-  (`examples/accept/function-induct-catchall.sw`). A definition that doesn't call itself has none
+  position; one with a lifted `match` with a number literal above 64, or a
+  nested pattern on an indexed type, or a catch-all whose earlier alternative
+  differs from it only inside a field of a type parameter's type, at a type
+  with variables (`Some None`, then `_`, on `Option (Option a)`); a mutual
+  group. A lifted `match`'s
+  catch-all alternative gets its case, taking the facts that the earlier
+  alternatives didn't match (`compare x k ≠ Less`), as its equation does
+  (`examples/accept/function-induct-catchall.sw`); so do number literals (`0`,
+  `1`, then `_` with `x % 3 ≠ 0 → x % 3 ≠ 1`), nested patterns on types with
+  several constructors (`Next after None` and `Next after (Some value)`), and
+  an alternative after one it overlaps (`Some n` after `Some 0`, with `n ≠ 0`)
+  (`examples/accept/function-induct-split.sw`). A definition that doesn't call itself has none
   (`E-UNKNOWN-NAME`, with a note). `theorem f.induct` beside `def f` is
   `E-DUPLICATE`.
 - **Where.** Made with the equations (a program's eagerly, std's on demand);
