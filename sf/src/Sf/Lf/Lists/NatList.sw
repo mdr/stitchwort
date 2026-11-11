@@ -591,10 +591,11 @@ theorem appLength (l1 l2: NatList): length (app l1 l2) = plus (length l1) (lengt
 --     stitchwort search 'plus ?x ?y = plus ?y ?x'              # the same `?x` and `?y` on both sides
 --
 -- `?x` is a variable of the pattern, standing for the same term wherever
--- it occurs, and `_` for any term. `--in` keeps to one namespace. Unlike
--- Rocq's `Search`, which lists `Admitted` theorems too, a theorem whose
--- proof is still `?` isn't listed: Induction's `addComm` turns up only
--- once you have proved it. (`stitchwort search --at FILE:LINE:COLUMN`,
+-- it occurs, and `_` for any term. `--in` keeps to one namespace. As with
+-- Rocq's `Search` and its `Admitted` theorems, a theorem whose proof is
+-- still `?` is listed, marked `(open goal)`, after the finished matches of
+-- equal fit: Induction's `addComm` turns up before you have proved it.
+-- (`stitchwort search --at FILE:LINE:COLUMN`,
 -- at a `?`, lists what might close that goal, though for an exercise
 -- that is cheating.)
 

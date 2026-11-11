@@ -603,6 +603,9 @@ pub struct Candidate {
     /// How many explicit parameters the rest of the type doesn't mention:
     /// the premises, as against the variables (Isabelle's second key).
     pub premises: usize,
+    /// A theorem whose proof is, or has, an open goal (`?`): usable as an
+    /// assumption (SW-2805), but not finished.
+    pub open: bool,
 }
 
 /// A candidate the pattern matched.
@@ -629,6 +632,8 @@ pub struct Hit {
     pub instantiated: usize,
     pub size: usize,
     pub premises: usize,
+    /// Its candidate was [`Candidate::open`].
+    pub open: bool,
     /// Which halves of the instance double search found it.
     pub via: Vec<Via>,
 }
@@ -644,6 +649,7 @@ pub type Key = (
     usize,
     usize,
     usize,
+    bool,
     String,
 );
 
@@ -654,7 +660,8 @@ impl Hit {
     /// a written theorem before a generated equation (`f.eqK`,
     /// docs/proposals/function-equations.md §3.4: a hand-written lemma is
     /// the one meant, and the equations stay found after it), specificity,
-    /// premises, size, then the name.
+    /// premises, size, a finished theorem before an open one (so an open
+    /// theorem follows the finished matches of equal fit), then the name.
     pub fn key(&self, g: &stitchwort_core::Ev) -> Key {
         let place = match self.place {
             Place::Right => Place::Left,
@@ -670,6 +677,7 @@ impl Hit {
             self.instantiated,
             self.premises,
             self.size,
+            self.open,
             match self.item.part() {
                 Some(part) => format!("{} {}", self.item.path(g), part.name()),
                 None => self.item.path(g),
@@ -1283,12 +1291,23 @@ impl Elaborator {
 
     /// The candidates: every declaration `keep` keeps (given its full
     /// name), definitions, theorems and constructors, but those not checked
-    /// in full (unfinished, or failed).
+    /// in full (unfinished, or failed). A theorem with an open goal of its
+    /// own is kept, marked [`Candidate::open`]: its statement is as good as
+    /// any, and what uses it is checked as if it were an assumption.
     pub fn search_candidates(&self, keep: &dyn Fn(Item, &str) -> bool) -> Vec<Candidate> {
         let g = &self.ev();
+        let open_owners: BTreeSet<String> = (g.env.defs().iter())
+            .filter_map(|d| Some(d.assumption()?.owner.to_string()))
+            .collect();
+        let is_open = |id: DefId| {
+            !open_owners.is_empty()
+                && g.def(id).assumption().is_none()
+                && g.def(id).theorem()
+                && open_owners.contains(&**g.def(id).path())
+        };
         let defs = (0..g.env.defs().len())
             .map(DefId)
-            .filter(|id| !self.is_unfinished(*id))
+            .filter(|id| !self.is_unfinished(*id) || is_open(*id))
             .map(Item::Def);
         let ctors = (0..g.env.datas().len()).flat_map(|d| {
             (0..g.data(DataId(d)).ctors().len()).map(move |c| Item::Ctor(DataId(d), c))
@@ -1296,9 +1315,10 @@ impl Elaborator {
         let and = (0..g.env.datas().len())
             .map(DataId)
             .find(|d| &**g.data(*d).path() == "Std.And");
-        let candidate = |item: Item, ty: Term| {
+        let candidate = |item: Item, ty: Term, open: bool| {
             let (size, premises) = shape(&ty);
             Candidate {
+                open,
                 item,
                 index: self.type_index(&ty),
                 ty,
@@ -1322,9 +1342,10 @@ impl Elaborator {
                 }
                 _ => Vec::new(),
             };
-            out.push(candidate(item, ty));
+            let open = matches!(item, Item::Def(id) if is_open(id));
+            out.push(candidate(item, ty, open));
             for (part, t) in parts {
-                out.push(candidate(part, t));
+                out.push(candidate(part, t, open));
             }
         }
         out
@@ -1688,6 +1709,7 @@ impl Elaborator {
                         instantiated,
                         size: candidate.size,
                         premises: candidate.premises,
+                        open: candidate.open,
                         via: Vec::new(),
                     });
                 }
