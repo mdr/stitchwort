@@ -30000,12 +30000,12 @@
     {
       "id": 2840,
       "title": "cases on eqbIdRefl (SF Lists) splits the Bool result before the variable under it and says it can't close 'eqbId x x = False', which reads as if the statement were false (SW-2836)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2840",
       "labels": [],
       "epic": "diagnostics",
-      "body": "\nD3513 (Matt, 11 Nov 2026): yes, the new wording ('cases couldn't close the case it reached by the splits …').",
+      "body": "\nD3513 (Matt, 11 Nov 2026): yes, the new wording ('cases couldn't close the case it reached by the splits …').\nModel result: Sonnet, worked, 50 min (est. 60).",
       "created": "2026-11-11",
       "updated": "2026-11-11",
       "commits": []
