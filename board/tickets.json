@@ -29435,27 +29435,14 @@
       "commits": []
     },
     {
-      "id": 2796,
-      "title": "Numerals for a user-defined nat: a literal hook (fromNat-style) so 3 can denote a type like SF's Nat; today the port writes ofNat 3 (SW-2763). Language design: note first",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
-      "labels": [],
-      "epic": "syntax-language",
-      "body": "",
-      "created": "2026-11-11",
-      "updated": "2026-11-11",
-      "commits": []
-    },
-    {
       "id": 2797,
-      "title": "A worked proof that uses an unfinished exercise (plusRearrange using addComm := ?) isn't checked until the exercise is solved; Rocq's Admitted still checks it. Option: under open-goals: warn, treat a ? lemma as assumed when checking its users (SW-2763). Design question for Matt",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "title": "Using unfinished declarations in larger proofs: check what uses a ? (as Rocq's Admitted/Lean's sorry), reporting clearly what depends on open goals; design note first",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-2797",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "\nD3502 (Matt, 11 Nov 2026): yes in direction: 'it's okay to have holes or sorrys mixed in, as long as it's clear that those issues exist when we're reporting to the user'. How is open: design note first. D3501 (Matt, 11 Nov 2026): no numerals for user-defined types (SW-2796 dropped).",
       "created": "2026-11-11",
       "updated": "2026-11-11",
       "commits": []
