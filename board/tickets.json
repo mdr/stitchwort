@@ -1,5 +1,5 @@
 {
-  "next": 2857,
+  "next": 2858,
   "tickets": [
     {
       "id": 47,
@@ -30156,9 +30156,9 @@
     {
       "id": 2852,
       "title": "repl and eval in a project: don't print a [GOAL] warning per open exercise on load (noisy in sf/); repl with no file in a project could offer the project's namespaces; now that repl loads projects (SW-2849), Poly's comments that point readers at doc instead of repl can say repl (SW-2849, SW-2845)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Sonnet",
-      "where": "",
+      "where": ".claude/worktrees/SW-2852",
       "labels": [],
       "epic": "docs-tutorials",
       "body": "",
@@ -30213,6 +30213,19 @@
       "where": "",
       "labels": [],
       "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2857,
+      "title": "Std check cache is per project folder: every new folder or worktree pays 12-14 s re-checking std on its first search/check that loads std; a user-level shared std cache (or std entries kept separately) would remove it; cache-policy decision (CLI writing outside the project) (SW-2839)",
+      "status": "backlog",
+      "agent": "Opus",
+      "where": "",
+      "labels": [],
+      "epic": "dev-loop-speed",
       "body": "",
       "created": "2026-11-11",
       "updated": "2026-11-11",
