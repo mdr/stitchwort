@@ -306,8 +306,8 @@ at every status table, and picks the kind of work to fit it:
   examples suite, a std-wide audit, a whole-project `aoc/` or
   `games/rogue` check (cached or not; checking the one AoC day or
   roguelike namespace it edited is fine, D3517), the benchmark, or a
-  workspace-wide build of test targets, and runs one test command at a time under `nice -n 15`. A lane
-  that thinks it needs one stops and asks. Briefs never ask for these
+  workspace-wide build of test targets, and runs one test command at a
+  time under `nice -n 15`. A lane that thinks it needs one stops and asks. Briefs never ask for these
   either: whole-project measurements go to the verifier or Overmind. (One
   lane ran 6-8 std audits and 8-10 aoc checks in 2.5 h and held Matt's
   machine at load 146.)
