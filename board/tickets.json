@@ -1,5 +1,5 @@
 {
-  "next": 2757,
+  "next": 2758,
   "tickets": [
     {
       "id": 47,
@@ -28918,6 +28918,19 @@
       "labels": [],
       "epic": "test-infra",
       "body": "",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2757,
+      "title": "text-split-join benchmark regressed after SW-2746: steps +68.9% (1,570,370 → 2,652,370), allocations +46.7%; find which decision now computes through the record (Text.split's ==, Char.decEq?) and restore the old counts",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-2757",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "Daily tier 11 Nov 01:50 at 39f149d67 (after SW-2746): stitchwort-bench::baseline counts_have_not_regressed fails only on text-split-join. Other rows within ±1.3%. Est. 45 min.",
       "created": "2026-11-11",
       "updated": "2026-11-11",
       "commits": []
