@@ -7,8 +7,11 @@
 -- says so. Names follow Stitchwort's style: the book's `next_working_day`
 -- is `nextWorkingDay`, `test_orb1` is `testOrb1`, and types start with a
 -- capital (`Day`, `Bin`). The book's modules (`Playground`,
--- `TuplePlayground`, `NatPlayground`, `NatPlayground2`, `LateDays`) are
--- namespaces in files next to this one.
+-- `TuplePlayground`, `LateDays`) are namespaces in files next to this one;
+-- `NatPlayground` and `NatPlayground2` are Nat.sw, the numbers these
+-- chapters use. Sf.Lf.Nat is the book's own `nat`, not the library's, so
+-- that the library's lemmas and automation don't solve the exercises; see
+-- README.md.
 --
 -- Exercises. The book leaves each exercise for the reader, ending it with
 -- `Admitted`, and asks that solutions not be posted. Here an exercise is
@@ -22,7 +25,8 @@
 -- theorem that rests on a `?`.
 
 namespace Sf.Lf.Basics
-import Std (Nat)
+import Sf.Lf.Nat (Nat, ofNat, plus, mult, minus)
+import Sf.Lf.Basics.Library (multNO, multNSm)
 
 -- # Introduction
 --
@@ -341,24 +345,28 @@ def foo: Bool := True
 
 -- ## Numbers
 --
--- The book's own natural numbers, `O` and `S`, and `pred` are in the
--- module `NatPlayground`: NatPlayground.sw. From here on the numbers are
--- the library's `Nat`, with constructors `Zero` and `Succ` and decimal
--- numerals. A `Succ` chain written out is printed in decimal when it is
--- closed: in the REPL, `Succ (Succ (Succ (Succ Zero)))` prints `4: Nat`.
+-- The book's own natural numbers, `O` and `S`, with `pred`, `plus`, `mult`
+-- and `minus`, are in Nat.sw (`Sf.Lf.Nat`, imported above): the book's
+-- `NatPlayground` and `NatPlayground2`. Unlike the book, which goes back to
+-- Rocq's `nat` from here, this port keeps using them in the rest of this
+-- chapter and in Induction.sw: the library's `Nat` has a stock of proved
+-- facts and decision procedures that would solve many exercises in one
+-- word, and these numbers have none (see "Which exercises the library
+-- solves" in README.md). Number literals stand for the library's `Nat`
+-- only, so `4` is written `ofNat 4`, and `0` and `1` are `O` and `S O`.
 
 def minustwo (n: Nat): Nat := match n with
-  | Zero => Zero
-  | Succ Zero => Zero
-  | Succ (Succ n') => n'
+  | O => O
+  | S O => O
+  | S (S n') => n'
 
-test "minustwo 4" := minustwo 4 == 2
+test "minustwo 4" := minustwo (ofNat 4) == ofNat 2
 
--- The constructor `Succ` has the type `Nat → Nat`, just as `Nat.pred` and
+-- The constructor `S` has the type `Nat → Nat`, just as `pred` and
 -- `minustwo` do: all three can be applied to a number to give a number.
--- But there is a fundamental difference. `Nat.pred` and `minustwo` are
--- defined by *computation rules* (`minustwo 4` computes to `2`), while
--- `Succ` has no behaviour attached: it is a way of writing numbers down,
+-- But there is a fundamental difference. `pred` and `minustwo` are
+-- defined by *computation rules* (`minustwo (ofNat 4)` computes to
+-- `ofNat 2`), while `S` has no behaviour attached: it is a way of writing numbers down,
 -- as the numeral `1` in `111` is a piece of data, not a computation.
 --
 -- For most interesting computations on numbers, pattern matching isn't
@@ -369,27 +377,26 @@ test "minustwo 4" := minustwo 4 == 2
 -- (here `n'`, a part of `n`).
 
 def even (n: Nat): Bool := match n with
-  | Zero => True
-  | Succ Zero => False
-  | Succ (Succ n') => even n'
+  | O => True
+  | S O => False
+  | S (S n') => even n'
 
 -- `odd` could be defined by a similar recursion, but here is a simpler
 -- way:
 
 def odd (n: Nat): Bool := negb (even n)
 
-theorem testOdd1: odd 1 = True := rfl
+theorem testOdd1: odd (S O) = True := rfl
 
-theorem testOdd2: odd 4 = False := rfl
+theorem testOdd2: odd (ofNat 4) = False := rfl
 
 -- Multi-argument functions can be defined by recursion too. The book's
--- `plus`, `mult` and `minus`, in the module `NatPlayground2`, are in
--- NatPlayground2.sw; the library's `+`, `*` and `-` are defined the same
--- way.
+-- `plus`, `mult` and `minus` (the book's module `NatPlayground2`) are in
+-- Nat.sw.
 
 def exp (base power: Nat): Nat := match power with
-  | Zero => Succ Zero
-  | Succ p => base * exp base p
+  | O => S O
+  | S p => mult base (exp base p)
 
 -- Exercise: 1 star, standard (factorial)
 --
@@ -403,13 +410,14 @@ def exp (base power: Nat): Nat := match power with
 --| Exercise (factorial): replace the `?` with the definition.
 def factorial (n: Nat): Nat := ?
 
-theorem testFactorial1: factorial 3 = 6 := ?
+theorem testFactorial1: factorial (ofNat 3) = ofNat 6 := ?
 
-theorem testFactorial2: factorial 5 = 10 * 12 := ?
+theorem testFactorial2: factorial (ofNat 5) = mult (ofNat 10) (ofNat 12) := ?
 
 -- The book now gives `plus`, `minus` and `mult` the infix notations `+`,
--- `-` and `*`, with precedence levels. Stitchwort's `+`, `-` and `*` on
--- `Nat` are already the library's, defined as the book's.
+-- `-` and `*`, with precedence levels. Stitchwort's operators belong to
+-- the library's numbers, so these functions are called by name here (a
+-- numeral `n + 1` in the book is `plus n (S O)`).
 --
 -- Even testing equality is a user-defined operation in Rocq. Here is a
 -- function `eqb` that tests natural numbers for `eq`uality, giving a
@@ -417,35 +425,33 @@ theorem testFactorial2: factorial 5 = 10 * 12 := ?
 -- `minus`, would do too.
 
 def eqb (n m: Nat): Bool := match n with
-  | Zero => match m with
-    | Zero => True
-    | Succ m' => False
-  | Succ n' => match m with
-    | Zero => False
-    | Succ m' => eqb n' m'
+  | O => match m with
+    | O => True
+    | S m' => False
+  | S n' => match m with
+    | O => False
+    | S m' => eqb n' m'
 
 -- Similarly, `leb` tests whether its first argument is less than or equal
 -- to its second, giving a boolean.
 
 def leb (n m: Nat): Bool := match n with
-  | Zero => True
-  | Succ n' => match m with
-    | Zero => False
-    | Succ m' => leb n' m'
+  | O => True
+  | S n' => match m with
+    | O => False
+    | S m' => leb n' m'
 
-theorem testLeb1: leb 2 2 = True := rfl
+theorem testLeb1: leb (ofNat 2) (ofNat 2) = True := rfl
 
-theorem testLeb2: leb 2 4 = True := rfl
+theorem testLeb2: leb (ofNat 2) (ofNat 4) = True := rfl
 
-theorem testLeb3: leb 4 2 = False := rfl
+theorem testLeb3: leb (ofNat 4) (ofNat 2) = False := rfl
 
--- The book gives these the notations `x =? y` and `x <=? y`. In
--- Stitchwort they are the library's tests `x == y` and `x <= y`, used as
--- `Bool`s; `Nat.equal` and `Nat.leq` (std/core) are defined as `eqb` and
--- `leb` are here.
-
-theorem testLeb3': (4 <= 2) = False := rfl
-
+-- The book gives these the notations `x =? y` and `x <=? y`. On the
+-- library's numbers Stitchwort writes the tests `x == y` and `x <= y`,
+-- which are defined as `eqb` and `leb` are here; on these numbers they
+-- are the two functions.
+--
 -- We now have two symbols that both look like equality: `=` and `==`.
 -- `x = y` is a logical *claim*, a proposition, that we can try to prove;
 -- `x == y` is a boolean *expression* whose value, `True` or `False`, we
@@ -470,11 +476,11 @@ theorem testLeb3': (4 <= 2) = False := rfl
 --| Exercise (ltb): replace the `?` with the definition.
 def ltb (n m: Nat): Bool := ?
 
-theorem testLtb1: ltb 2 2 = False := ?
+theorem testLtb1: ltb (ofNat 2) (ofNat 2) = False := ?
 
-theorem testLtb2: ltb 2 4 = True := ?
+theorem testLtb2: ltb (ofNat 2) (ofNat 4) = True := ?
 
-theorem testLtb3: ltb 4 2 = False := ?
+theorem testLtb3: ltb (ofNat 4) (ofNat 2) = False := ?
 
 -- # Proof by Simplification
 --
@@ -482,14 +488,14 @@ theorem testLtb3: ltb 4 2 = False := ?
 -- particular inputs, and each proof was the same: compute both sides and
 -- check that they're identical.
 
-theorem plus11: 1 + 1 = 2 := rfl
+theorem plus11: plus (S O) (S O) = ofNat 2 := rfl
 
 -- The same "proof by simplification" can establish more interesting
--- properties. That `0` is a neutral element for `+` on the left can be
--- proved just by observing that `0 + n` computes to `n` whatever `n` is,
--- which can be read off the definition of `+`.
+-- properties. That `O` is a neutral element for `plus` on the left can be
+-- proved just by observing that `plus O n` computes to `n` whatever `n`
+-- is, which can be read off the definition of `plus`.
 
-theorem plusON (n: Nat): 0 + n = n := rfl
+theorem plusON (n: Nat): plus O n = n := rfl
 
 -- Rocq writes this `forall n : nat, 0 + n = n`, and its proof starts with
 -- `intros n`, which moves `n` from the quantifier into the *context* of
@@ -499,12 +505,12 @@ theorem plusON (n: Nat): 0 + n = n := rfl
 -- statement with the quantifier is the same theorem, and its proof is a
 -- function of `n`, which is what `intros` builds:
 
-theorem plusON': ∀ (n: Nat) => 0 + n = n := n => rfl
+theorem plusON': ∀ (n: Nat) => plus O n = n := n => rfl
 
 -- Any other name would do in place of `n`, though it might confuse a
 -- human reader:
 
-theorem plusON'': ∀ (n: Nat) => 0 + n = n := m => rfl
+theorem plusON'': ∀ (n: Nat) => plus O n = n := m => rfl
 
 -- Rocq's `simpl` shows the goal after computing, before `reflexivity`
 -- finishes; `reflexivity` computes more (it unfolds definitions too).
@@ -516,9 +522,9 @@ theorem plusON'': ∀ (n: Nat) => 0 + n = n := m => rfl
 -- `Proof` and `Qed` that guide the checking of a claim. Stitchwort has
 -- none: a proof is a term. The theorems below are proved the same way.
 
-theorem plus1L (n: Nat): 1 + n = Succ n := rfl
+theorem plus1L (n: Nat): plus (S O) n = S n := rfl
 
-theorem mult0L (n: Nat): 0 * n = 0 := rfl
+theorem mult0L (n: Nat): mult O n = O := rfl
 
 -- The suffix `L` (the book's `_l`) is pronounced "on the left".
 
@@ -526,7 +532,7 @@ theorem mult0L (n: Nat): 0 * n = 0 := rfl
 --
 -- This theorem is a bit more interesting:
 
-theorem plusIdExample (n m: Nat) (h: n = m): n + n = m + m := rewrite h in rfl
+theorem plusIdExample (n m: Nat) (h: n = m): plus n n = plus m m := rewrite h in rfl
 
 -- It isn't a claim about all numbers `n` and `m`, but a more specialised
 -- property that only holds when `n = m`. Rocq writes the hypothesis with
@@ -537,14 +543,14 @@ theorem plusIdExample (n m: Nat) (h: n = m): n + n = m + m := rewrite h in rfl
 -- `n = m`, we can replace `n` by `m` in the goal and get an equation with
 -- the same expression on both sides. `rewrite h in rfl` does that: it
 -- replaces the left side of `h` by its right side in the goal, then
--- proves the result, `m + m = m + m`, by `rfl`. `rewrite <- h` would
+-- proves the result, `plus m m = plus m m`, by `rfl`. `rewrite <- h` would
 -- rewrite from right to left.
 
 -- Exercise: 1 star, standard (plus_id_exercise)
 --
 -- Prove this. (It has two hypotheses, `n = m` and `m = o`.)
 
-theorem plusIdExercise (n m o: Nat) (h1: n = m) (h2: m = o): n + m = m + o := ?
+theorem plusIdExercise (n m o: Nat) (h1: n = m) (h2: m = o): plus n m = plus m o := ?
 
 -- Rocq's `Admitted` accepts a theorem without proof. That is useful when
 -- developing a long proof: state the lemmas you expect to need, admit
@@ -558,27 +564,25 @@ theorem plusIdExercise (n m o: Nat) (h1: n = m) (h2: m = o): n + m = m + o := ?
 --
 -- Rocq's `Check` also shows the statements of theorems. The book looks at
 -- two from its standard library, `mult_n_O: forall n, 0 = n * 0` and
--- `mult_n_Sm: forall n m, n * m + n = n * S m`. Stitchwort's library has
--- `Nat.mulZero (n: Nat): n * 0 = 0` and `Nat.mulSucc (n m: Nat):
--- n * Succ m = n + n * m`: `stitchwort doc Nat.mulZero` prints a
--- theorem's statement, and `stitchwort search 'Nat.mul _ (Succ _) = _'`
--- finds theorems by their shape.
+-- `mult_n_Sm: forall n m, n * m + n = n * S m`. These numbers have no
+-- library, so the two are proved for you in Library.sw, as `multNO` and
+-- `multNSm`, with the same statements; the proofs are by induction, from
+-- the next chapter. (Stitchwort prints a library theorem's statement with
+-- `stitchwort doc <name>`, and `stitchwort search '<pattern>'` finds
+-- theorems by their shape.)
 --
 -- `rewrite` can use a theorem as well as a hypothesis. If the theorem has
 -- parameters, `rewrite` works out what they are by finding the theorem's
--- left side in the goal.
+-- left side in the goal. The book rewrites with `<- mult_n_O`, right to
+-- left, because the lemma is stated `0 = n * 0`; so does `<-` here.
 
-theorem multN0M0 (p q: Nat): p * 0 + q * 0 = 0 := rewrite Nat.mulZero p, Nat.mulZero q in rfl
-
--- (The book rewrites with `<- mult_n_O`, right to left, because Rocq's
--- lemma is stated `0 = n * 0`.)
+theorem multN0M0 (p q: Nat): plus (mult p O) (mult q O) = O := rewrite <- multNO p, <- multNO q in rfl
 
 -- Exercise: 1 star, standard (mult_n_1)
 --
--- Use `Nat.mulSucc` and `Nat.mulZero` to prove this. (Recall that `1` is
--- `Succ Zero`.)
+-- Use `multNSm` and `multNO` to prove this. (Recall that `1` is `S O`.)
 
-theorem multN1 (p: Nat): p * 1 = p := ?
+theorem multN1 (p: Nat): mult p (S O) = p := ?
 
 -- # Proof by Case Analysis
 --
@@ -592,31 +596,29 @@ theorem multN1 (p: Nat): p * 1 = p := ?
 -- because `+` and `eqb` both start by matching on their first argument,
 -- and `n` is unknown.
 --
--- In Stitchwort this one doesn't get stuck. The library's `+` is special
--- in one way: when its first argument is unknown and its second is a
--- `Succ` (as `1` is), it computes on the second, so `n + 1` computes to
--- `Succ n`, and then `eqb (Succ n) 0` computes to `False`
--- (docs/proposals/nat-add-recursion.md). `rfl` proves it:
-
-theorem plus1Neq0FirstTry (n: Nat): eqb (n + 1) 0 = False := rfl
-
--- The book's point stands for other functions. `eqb 0 n` is stuck on
--- `n`, as `plus_1_neq_0_firsttry` is in Rocq; the next exercise
--- (`zeroNbeqPlus1`) is one too, and so is anything about the book's own
--- `plus` (Induction.sw shows it). To make progress, we consider the
--- possible forms of `n` separately. If `n` is `Zero`, we can compute the
--- result. If `n` is `Succ n'` for some `n'`, then, though we don't know
--- which number it is, we know it starts with a `Succ`, and that is enough
+-- Here it is, with the book's `plus` (the library's `+` is cleverer, and
+-- computes this one, which is why the port doesn't use it):
+--
+--     theorem plus1Neq0FirstTry (n: Nat): eqb (plus n (S O)) O = False := rfl
+--
+--     [E-REFL] Error: `rfl` can't prove this
+--       ╰─── `eqb (plus n (S O)) O` and `False` aren't equal
+--
+-- `plus` and `eqb` both start by matching on their first argument, and
+-- `n` is unknown, so the call is stuck. To make progress, we consider the
+-- possible forms of `n` separately. If `n` is `O`, we can compute the
+-- result. If `n` is `S n'` for some `n'`, then, though we don't know
+-- which number it is, we know it starts with an `S`, and that is enough
 -- to compute the result. Rocq's tactic for this is `destruct`; in
 -- Stitchwort it is a `match`, the same as in a program:
 
-theorem plus1Neq0 (n: Nat): eqb (n + 1) 0 = False := match n with
-  | Zero => rfl
-  | Succ n' => rfl
+theorem plus1Neq0 (n: Nat): eqb (plus n (S O)) O = False := match n with
+  | O => rfl
+  | S n' => rfl
 
 -- The `match` makes two cases, and each must be proved. In each, the
--- goal has `n` replaced by that case's form: `eqb (0 + 1) 0 = False`,
--- then `eqb (Succ n' + 1) 0 = False`.
+-- goal has `n` replaced by that case's form: `eqb (plus O (S O)) O =
+-- False`, then `eqb (plus (S n') (S O)) O = False`.
 --
 -- The book's `destruct n as [| n'] eqn:E` names the variables of each
 -- case (`as [| n']`), and the equation `n = O` or `n = S n'` (`eqn:E`).
@@ -685,9 +687,9 @@ theorem andbTrueElim2 (b c: Bool) (h: andb b c = True): c = True := ?
 -- shorthand, `intros [|n]`, which loses the equation `eqn:E` would give.
 -- In Stitchwort the patterns of the `match` do both jobs already:
 
-theorem plus1Neq0' (n: Nat): eqb (n + 1) 0 = False := match n with
-  | Zero => rfl
-  | Succ n => rfl
+theorem plus1Neq0' (n: Nat): eqb (plus n (S O)) O = False := match n with
+  | O => rfl
+  | S n => rfl
 
 -- With nothing to name, Rocq writes `intros [] []`. A `match` on both
 -- variables at once:
@@ -700,7 +702,7 @@ theorem andbCommutative'' (b c: Bool): andb b c = andb c b := match b, c with
 
 -- Exercise: 1 star, standard (zero_nbeq_plus_1)
 
-theorem zeroNbeqPlus1 (n: Nat): eqb 0 (n + 1) = False := ?
+theorem zeroNbeqPlus1 (n: Nat): eqb O (plus n (S O)) = False := ?
 
 -- ## More on Notation (Optional)
 --
@@ -715,8 +717,8 @@ theorem zeroNbeqPlus1 (n: Nat): eqb 0 (n + 1) = False := ?
 -- A copy of the definition of addition:
 
 def plus' (n m: Nat): Nat := match n with
-  | Zero => m
-  | Succ n' => Succ (plus' n' m)
+  | O => m
+  | S n' => S (plus' n' m)
 
 -- Rocq notes that `plus'` is "decreasing on 1st argument": the recursive
 -- calls are only on strictly smaller values of `n`, so every call
@@ -771,13 +773,13 @@ theorem andbEqOrb (b c: Bool) (h: andb b c = orb b c): b = c := ?
 -- We can generalise the unary representation of natural numbers to the
 -- more efficient binary one, treating a binary number as a sequence of
 -- constructors `B0` and `B1` (for 0s and 1s), ended by a `Z`. In unary, a
--- number is a sequence of `Succ`s ended by a `Zero`. For example:
+-- number is a sequence of `S`s ended by an `O`. For example:
 --
 --     decimal               binary                 unary
---        0                       Z                  Zero
---        1                    B1 Z                  Succ Zero
---        2                B0 (B1 Z)                 Succ (Succ Zero)
---        3                B1 (B1 Z)                 Succ (Succ (Succ Zero))
+--        0                       Z                  O
+--        1                    B1 Z                  S O
+--        2                B0 (B1 Z)                 S (S O)
+--        3                B1 (B1 Z)                 S (S (S O))
 --        4            B0 (B0 (B1 Z))                …
 --        5            B1 (B0 (B1 Z))
 --        6            B0 (B1 (B1 Z))
@@ -812,13 +814,13 @@ theorem testBinIncr2: incr (B0 (B1 Z)) = B1 (B1 Z) := ?
 
 theorem testBinIncr3: incr (B1 (B1 Z)) = B0 (B0 (B1 Z)) := ?
 
-theorem testBinIncr4: binToNat (B0 (B1 Z)) = 2 := ?
+theorem testBinIncr4: binToNat (B0 (B1 Z)) = ofNat 2 := ?
 
-theorem testBinIncr5: binToNat (incr (B1 Z)) = 1 + binToNat (B1 Z) := ?
+theorem testBinIncr5: binToNat (incr (B1 Z)) = plus (S O) (binToNat (B1 Z)) := ?
 
-theorem testBinIncr6: binToNat (incr (incr (B1 Z))) = 2 + binToNat (B1 Z) := ?
+theorem testBinIncr6: binToNat (incr (incr (B1 Z))) = plus (ofNat 2) (binToNat (B1 Z)) := ?
 
-theorem testBinIncr7: binToNat (B0 (B0 (B0 (B1 Z)))) = 8 := ?
+theorem testBinIncr7: binToNat (B0 (B0 (B0 (B1 Z)))) = ofNat 8 := ?
 
 -- # Testing Your Solutions
 --

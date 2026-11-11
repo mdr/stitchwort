@@ -29004,12 +29004,12 @@
     {
       "id": 2763,
       "title": "SF port: the book's own nat and bool for the Basics and Induction exercises (Sf.Lf.Nat with plus, mult, eqb and no lemmas, as NatPlayground does); say in the port which exercises std's automation solves (D3495)",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2763",
       "labels": [],
       "epic": "docs-tutorials",
-      "body": "D3495 (Matt, 11 Nov 2026): yes. From docs/reviews/SW-2707-software-foundations-port.md §6 items 2-3. After SW-2762 (both edit sf/). Est. 1.5 h.",
+      "body": "D3495 (Matt, 11 Nov 2026): yes. From docs/reviews/SW-2707-software-foundations-port.md §6 items 2-3. After SW-2762 (both edit sf/). Est. 1.5 h.\n\nProgress (Sonnet, 11 Nov 2026, commit 8ed3fa331 on lane/SW-2763): sf/src/Sf/Lf/Nat.sw (`Sf.Lf.Nat`: `Nat` with O/S, pred, plus, mult, minus, `ofNat` for numerals; replaces NatPlayground and NatPlayground2) used by Basics and Induction; Basics/Library.sw proves `multNO`/`multNSm` (the book's mult_n_O/mult_n_Sm, from Rocq's library). Bool stays std's (book proofs are case analysis; port's andb/orb/negb are already its own). LateDays stays on std Nat. sf/README.md lists which exercises std's omega/ring/cases/rfl solve (measured on std-Nat copies). `check` exits 0, 77 goal warnings (unchanged); `test` 11 pass. The book's stuck examples are stuck again (plusN0FirstTry, plus1Neq0FirstTry; error text quoted).\n",
       "created": "2026-11-11",
       "updated": "2026-11-11",
       "commits": []
