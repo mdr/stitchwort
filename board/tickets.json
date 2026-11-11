@@ -30973,7 +30973,7 @@
     {
       "id": 2914,
       "title": "[Sonnet] Browser tier: 6 failures after SW-2892 (and SW-2890): content-hash test (version.json in the worker's requests), roguelike-is-a-second-project (deep-equal; likely the dropdown now lists sf/book), W-MODULE-NAME warning format, JavaScript tab, Run with scripted input, error underlined after a jump. Run at load ~33 (17 min). Find which are caused by SW-2892/SW-2890 (compare with a build at 9ebedf6de) and fix those; file the rest with reasons",
-      "status": "next",
+      "status": "doing",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
