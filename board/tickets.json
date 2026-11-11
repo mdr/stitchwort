@@ -1,5 +1,5 @@
 {
-  "next": 2917,
+  "next": 2918,
   "tickets": [
     {
       "id": 47,
@@ -31001,6 +31001,19 @@
       "title": "[DeepSeek] Browser tests: many do open(); pick(...) without waiting for the first check (the race that broke two tests in SW-2914); make pick wait for the page to be ready",
       "status": "backlog",
       "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "editor-playground",
+      "body": "",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2917,
+      "title": "[DeepSeek] Offer 'Search for a proof' only on a ? whose expected type is a proposition (a theorem-proving context), not on a ? in a program (expected type a data type such as Nat or List a) (Matt, 11 Nov 2026)",
+      "status": "doing",
+      "agent": "DeepSeek",
       "where": "",
       "labels": [],
       "epic": "editor-playground",
