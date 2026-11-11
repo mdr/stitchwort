@@ -90,6 +90,14 @@ pub struct Session {
     pub(crate) journal: super::journal::Journal<crate::rewind::LogPositions>,
     /// Where the open goals' assumptions start (`assume.rs`).
     pub(crate) assumed: crate::assume::Assumed,
+    /// For a declaration left unfinished because a computation it needs is
+    /// stuck on open goals' assumptions: those assumptions (`assume.rs`,
+    /// `Elaborator::blocked_on`). Read only for declarations the tables
+    /// mark unfinished, whose row is rewritten whenever they're marked, so
+    /// a rewind needn't cut it.
+    pub(crate) blocked: RefCell<
+        stitchwort_core::collections::HashMap<stitchwort_core::DefId, Rc<[stitchwort_core::DefId]>>,
+    >,
 }
 
 /// What a rewind mark keeps of a [`Session`]: the bookkeeping a later load
@@ -135,6 +143,7 @@ impl Session {
             stats: _,
             // Checked on use (`assume.rs`).
             assumed: _,
+            blocked: _,
         } = self;
         Mark {
             project_namespaces: project_namespaces.clone(),
@@ -174,6 +183,7 @@ impl Session {
             stats: _,
             // Checked on use (`assume.rs`).
             assumed: _,
+            blocked: _,
         } = self;
         *project_namespaces = mark.project_namespaces.clone();
         *project_prefixes = mark.project_prefixes.clone();

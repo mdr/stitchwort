@@ -25,6 +25,7 @@ use stitchwort_elab::counterexample::{Budget, STATEMENT_STEPS};
 use crate::axioms::AxiomWalk;
 use crate::counterexample::{TheoremSearch, Verdict};
 use crate::driver::Session;
+use crate::reliance::{GoalPlace, describe_goals};
 
 /// Every axiom there is. Today the core has one (docs/core.md, Axioms).
 pub const AXIOMS: &[&str] = &["Quot.sound"];
@@ -74,6 +75,11 @@ pub struct Finding {
 #[serde(rename_all = "lowercase")]
 pub enum Status {
     Checked,
+    /// Checked by the kernel assuming open goals hold: it has one, or
+    /// relies on one. Never passes.
+    Assuming,
+    /// Not checked: it waits for an open goal to be filled, or uses
+    /// something unfinished.
     Unfinished,
     Failed,
 }
@@ -88,6 +94,10 @@ pub struct TheoremAudit {
     /// extensionality lemma).
     pub generated: bool,
     pub status: Status,
+    /// The open goals it relies on (`assuming`) or waits for
+    /// (`unfinished`), in source order.
+    #[serde(rename = "openGoals")]
+    pub open_goals: Vec<GoalPlace>,
     /// The axioms it depends on, allowed or not (only if it checked).
     pub axioms: Vec<&'static str>,
     /// The counterexample search's verdict and line (only if it checked
@@ -133,7 +143,7 @@ pub struct Options {
 /// An update lemma's name can't be written, and its owner is a data type. A
 /// record gets `T.ext` unless it writes one, so a written `T.ext` is told
 /// apart by its span: the generated one is at its type's own.
-fn is_generated(g: &Ev, id: DefId) -> bool {
+pub(crate) fn is_generated(g: &Ev, id: DefId) -> bool {
     let def = g.def(id);
     if stitchwort_elab::is_generated_name(g, def.name()) {
         return true;
@@ -200,30 +210,55 @@ impl Session {
         walk: &mut AxiomWalk,
     ) -> TheoremAudit {
         let g = &self.elab.ev();
-        let status = match g.def(id).state() {
+        let (status, goals) = match g.def(id).state() {
             // Checked assuming an open goal holds, which never passes
             // (docs/core.md "Assumptions (open goals)").
-            State::Final if self.elab.relies_on_goal(id) => Status::Unfinished,
-            State::Final => Status::Checked,
-            _ if self.elab.marked_unfinished(HashKey::Def(id)) => Status::Unfinished,
-            _ => Status::Failed,
+            State::Final if self.elab.relies_on_goal(id) => {
+                let ids = self.elab.goals_relied_on(id);
+                (Status::Assuming, self.goal_places(&ids))
+            }
+            State::Final => (Status::Checked, Vec::new()),
+            _ if self.elab.marked_unfinished(HashKey::Def(id)) => {
+                let ids = self.elab.blocked_on(id).into_iter().collect();
+                (Status::Unfinished, self.goal_places(&ids))
+            }
+            _ => (Status::Failed, Vec::new()),
         };
+        let g = &self.elab.ev();
         let mut audit = TheoremAudit {
             name: name.to_string(),
             generated: is_generated(g, id),
             status,
+            open_goals: goals.clone(),
             axioms: Vec::new(),
             search: None,
             findings: Vec::new(),
         };
         match status {
-            Status::Unfinished => {
+            Status::Assuming => {
                 audit.findings.push(Finding {
                     check: Check::Unfinished,
                     severity: Severity::Fail,
-                    message: "unfinished: it, or something it uses, has an open goal (`?`), so \
-                              it isn't checked"
-                        .to_string(),
+                    message: assuming_message(g.def(id).path().as_ref(), &goals),
+                });
+                return audit;
+            }
+            Status::Unfinished => {
+                let message = if goals.is_empty() {
+                    "unfinished: it, or something it uses, has an open goal (`?`), so it isn't \
+                     checked"
+                        .to_string()
+                } else {
+                    format!(
+                        "can't be checked until {} {} filled",
+                        describe_goals(&goals, true),
+                        if goals.len() == 1 { "is" } else { "are" }
+                    )
+                };
+                audit.findings.push(Finding {
+                    check: Check::Unfinished,
+                    severity: Severity::Fail,
+                    message,
                 });
                 return audit;
             }
@@ -322,6 +357,33 @@ impl Session {
             note,
         }
     }
+}
+
+/// What audit says of a declaration checked assuming `goals` hold: that it
+/// has one of its own, and that it relies on the others.
+fn assuming_message(name: &str, goals: &[GoalPlace]) -> String {
+    let (own, others): (Vec<GoalPlace>, Vec<GoalPlace>) =
+        goals.iter().cloned().partition(|g| g.declaration == name);
+    let mut parts = Vec::new();
+    if !own.is_empty() {
+        let places: Vec<String> = own.iter().map(GoalPlace::place).collect();
+        parts.push(match places.as_slice() {
+            [one] => format!("has an open goal ({one})"),
+            many => format!("has {} open goals ({})", many.len(), many.join(", ")),
+        });
+    }
+    if !others.is_empty() {
+        let (a, it) = if others.len() == 1 {
+            ("an open goal".to_string(), "it holds")
+        } else {
+            (format!("{} open goals", others.len()), "they hold")
+        };
+        parts.push(format!(
+            "relies on {a}: {}; checked assuming {it}",
+            describe_goals(&others, false)
+        ));
+    }
+    parts.join("; ")
 }
 
 /// Whether theorem `id` concludes an empty type (`Void`, or a `Not`, which

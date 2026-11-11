@@ -586,6 +586,11 @@ impl<'g> Printer<'g> {
         self.short_name(names, &self.g.data(d).name, Declaration::Data(d))
     }
 
+    /// Whether `head` is an open goal's assumption.
+    fn is_assumed(&self, head: &Term) -> bool {
+        matches!(head, Term::Def(id) if self.g.def(*id).assumption.is_some())
+    }
+
     /// `unicode`, or `ascii` when printing for JavaScript.
     fn sym(&self, unicode: &'static str, ascii: &'static str) -> &'static str {
         if self.ascii.get() { ascii } else { unicode }
@@ -682,6 +687,7 @@ impl<'g> Printer<'g> {
             {
                 self.go(names, body)
             }
+            Term::Def(id) if self.g.def(*id).assumption.is_some() => ("?".into(), Prec::Atom),
             Term::Def(id) => (self.def_name(names, *id), Prec::Atom),
             Term::Sort(Sort::Prop) => ("Prop".into(), Prec::Atom),
             Term::Sort(Sort::Type(0)) => ("Type".into(), Prec::Atom),
@@ -1020,6 +1026,9 @@ impl<'g> Printer<'g> {
                 (format!("let {x} := {value}; {body}"), Prec::Arrow)
             }
             Term::Meta(crate::value::ELIDED) => ("…".into(), Prec::Atom),
+            // An open goal's assumption, with the variables it was closed
+            // over: the `?` the reader wrote.
+            Term::App(..) if self.is_assumed(full_spine(term).0) => ("?".into(), Prec::Atom),
             Term::Meta(_) | Term::App(..) if let Some(shown) = self.placeholder(names, term) => {
                 shown
             }
@@ -3256,8 +3265,11 @@ fn note_failed_mention(g: &Ev, level: usize, term: &Term) {
     let mut waits = false;
     if mentions_failed(g, term, &mut waits) {
         g.shown.note_failed_mentioned();
-    } else if waits && g.shown.wants_stuck_mention() && stuck_on_goal(g, level, term) {
-        g.shown.note_stuck_on_goal();
+    } else if waits && g.shown.wants_stuck_mention() {
+        let goals = stuck_on_goal(g, level, term);
+        if !goals.is_empty() {
+            g.shown.note_stuck_on_goal(&goals);
+        }
     }
 }
 
@@ -3275,17 +3287,17 @@ fn mentions_failed(g: &Ev, term: &Term, waits: &mut bool) -> bool {
     })
 }
 
-/// Whether `term`, under `level` variables, computed to its normal form,
-/// mentions an open goal's assumption. `false` if that is too large to read
-/// back or can't be computed: the message is then taken at its word.
-fn stuck_on_goal(g: &Ev, level: usize, term: &Term) -> bool {
+/// The open goals' assumptions `term`, under `level` variables, computed to
+/// its normal form, mentions. None if that is too large to read back or
+/// can't be computed: the message is then taken at its word.
+fn stuck_on_goal(g: &Ev, level: usize, term: &Term) -> Vec<DefId> {
     const CAP: u64 = 10_000;
     let in_scope = term.subterms().all(|(t, binders)| match t {
         Term::Var(i) | Term::Case(i, ..) | Term::NumCase(i, ..) => *i < binders + level,
         _ => true,
     });
     if !in_scope {
-        return false;
+        return Vec::new();
     }
     // On the side, within a small budget of its own: a message mustn't
     // compute deeply (`countDown 100000 []`), nor change how the check it
@@ -3299,14 +3311,21 @@ fn stuck_on_goal(g: &Ev, level: usize, term: &Term) -> bool {
     g.machine.budget.aside(limits, || {
         let env: Vec<Value> = (0..level).map(Value::var).collect();
         let Ok(value) = crate::value::eval(g, &env, term) else {
-            return false;
+            return Vec::new();
         };
         let Ok(Some(normal)) = crate::value::quote_unfolded_shown_at_most(g, level, &value, CAP)
         else {
-            return false;
+            return Vec::new();
         };
-        normal
-            .subterms()
-            .any(|(t, _)| matches!(t, Term::Def(d) if g.def(*d).assumption().is_some()))
+        let mut found: Vec<DefId> = Vec::new();
+        for (t, _) in normal.subterms() {
+            if let Term::Def(d) = t
+                && g.def(*d).assumption().is_some()
+                && !found.contains(d)
+            {
+                found.push(*d);
+            }
+        }
+        found
     })
 }

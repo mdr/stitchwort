@@ -561,7 +561,7 @@ pub(super) fn hash(args: &HashArgs) -> ExitCode {
         let failed = load_failed || goals > 0;
         if failed {
             super::report(&session.sources, &diagnostics);
-            super::report_goals(goals);
+            super::report_goals(&session, &diagnostics);
         }
         super::discard(session);
         if failed {

@@ -103,13 +103,14 @@ fn an_unfinished_theorem_fails_directly_or_through_what_it_uses() {
                   theorem fine (n: Nat): n = n := rfl\n";
     let (code, out) = audit_file("unfinished", source, &["--no-search"]);
     assert_eq!(code, 1, "{out}");
-    let unfinished = "    fail: unfinished: it, or something it uses, has an open goal (`?`), so \
-                      it isn't checked\n";
+    let place = "a.sw:1:33";
     assert_eq!(
         out,
         format!(
-            "✗ step\n{unfinished}✗ uses\n{unfinished}\
-             audited 3 theorems: 2 failed, 0 with warnings, 1 passed\n"
+            "✗ step\n    fail: has an open goal ({place})\n\
+             ✗ uses\n    fail: relies on an open goal: `step`'s ({place}); checked assuming it \
+             holds\n\
+             audited 3 theorems: 2 failed, 0 with warnings, 1 passed (2 rely on open goals)\n"
         )
     );
     // Named, the one that uses the lemma fails on its own.
@@ -168,7 +169,7 @@ fn json_gives_every_theorem_and_its_findings() {
     let (code, out) = audit_file("json", &source, &["--json", "--allowed-axioms", ""]);
     assert_eq!(code, 1, "{out}");
     let json: serde_json::Value = serde_json::from_str(&out).expect("one JSON object");
-    assert_eq!(json["version"], 1);
+    assert_eq!(json["version"], 2);
     assert_eq!(json["ok"], false);
     assert_eq!(json["allowed_axioms"], serde_json::json!([]));
     assert_eq!(
@@ -178,7 +179,9 @@ fn json_gives_every_theorem_and_its_findings() {
             "generated": 0,
             "failed": 1,
             "warned": 1,
-            "passed": 1
+            "passed": 1,
+            "assuming": 0,
+            "unfinished": 0
         })
     );
     let theorems = json["theorems"].as_array().unwrap();
@@ -197,6 +200,44 @@ fn json_gives_every_theorem_and_its_findings() {
     assert_eq!(theorems[2]["findings"][0]["check"], "axioms");
     assert_eq!(theorems[2]["findings"][0]["severity"], "fail");
     assert_eq!(theorems[2]["status"], "checked");
+    assert_eq!(theorems[2]["openGoals"], serde_json::json!([]));
+}
+
+/// A theorem that relies on an open goal is `assuming`, and names the goal;
+/// one that can't be checked until a goal is filled is `unfinished`, and
+/// names it too (D3505).
+#[test]
+fn json_names_the_goals_a_theorem_relies_on_or_waits_for() {
+    let source = "def two: Nat := ?\n\n\
+                  theorem step (n: Nat): n = n := ?\n\n\
+                  theorem uses (n: Nat): n = n := step n\n\n\
+                  theorem blocked: two = 3 := rfl\n";
+    let (code, out) = audit_file("json-goals", source, &["--json", "--no-search"]);
+    assert_eq!(code, 1, "{out}");
+    let json: serde_json::Value = serde_json::from_str(&out).expect("one JSON object");
+    let by_name = |name: &str| {
+        json["theorems"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|t| t["name"] == name)
+            .unwrap_or_else(|| panic!("{name} in {out}"))
+            .clone()
+    };
+    let uses = by_name("uses");
+    assert_eq!(uses["status"], "assuming");
+    assert_eq!(uses["findings"][0]["check"], "unfinished");
+    assert_eq!(uses["openGoals"][0]["declaration"], "Main.step");
+    assert_eq!(uses["openGoals"][0]["line"], 3);
+    let blocked = by_name("blocked");
+    assert_eq!(blocked["status"], "unfinished");
+    assert_eq!(blocked["openGoals"][0]["declaration"], "Main.two");
+    assert!(
+        (blocked["findings"][0]["message"].as_str().unwrap()).contains("can't be checked until"),
+        "{out}"
+    );
+    assert_eq!(json["summary"]["assuming"], 2);
+    assert_eq!(json["summary"]["unfinished"], 1);
 }
 
 /// Generated declarations are counted apart from the theorems written in

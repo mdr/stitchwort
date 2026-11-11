@@ -78,10 +78,25 @@ m + o := ?` is for you to prove, and `def nandb (b1: Bool) (b2: Bool): Bool
 := ?` is for you to write. The project's `stitchwort.yaml` says
 `check: open-goals: warn`, so `stitchwort check` reports each `?` as a
 warning with its goal and still passes; fill one in and its warning goes.
-`stitchwort audit` fails every theorem that still rests on a `?`, and
-`stitchwort test` fails while a test uses an unfinished function. The
-book's authors ask that solutions not be posted publicly, so please keep
-yours out of public repositories.
+The book's authors ask that solutions not be posted publicly, so please
+keep yours out of public repositories.
+
+**Reading the goal list.** The worked proofs in the book use exercises you
+haven't done yet (`plusRearrange` rewrites with `addComm`). Stitchwort checks
+them anyway, *assuming* each open goal holds, so a mistake in a worked proof
+shows now. `stitchwort check` ends with how many goals are open and how
+many declarations **rely on** them: those were checked, but only on the
+assumption that your exercise is done. A declaration that has to *compute*
+through an unfinished definition (`testNandb1`'s `rfl`, while `nandb` is
+`?`) **can't be checked until the goal is filled**: `check` lists it, with
+the goal it waits for, and that is not a pass. `stitchwort goal` lists
+every open goal with what relies on it or waits for it, which is your
+to-do list: fill one in, run `check` again, and what relied on it moves
+to "checked" once nothing else is open under it. A definition with a `?`
+also has equation lemmas (`nandb.eq1`) that count as unfinished until it
+is filled. `stitchwort audit` fails every theorem that relies on or waits
+for a goal, naming it, and `stitchwort test` skips a test that does, saying
+which goal it relies on.
 
 What was easy and hard to port, and what Stitchwort could change, is in
 [docs/reviews/SW-2707-software-foundations-port.md](../docs/reviews/SW-2707-software-foundations-port.md)

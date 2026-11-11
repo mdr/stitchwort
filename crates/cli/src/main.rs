@@ -392,15 +392,18 @@ enum Command {
         #[command(flatten)]
         cache: CacheArgs,
     },
-    /// The goal at a point of a proof, and the names in scope there: `⊢
-    /// goal` in a proof, `expected T` in program code (docs/syntax.md, "The
-    /// goal at a point"). Exits with status 0 with an answer, 2 with none
-    /// there or for a bad argument, 1 if the file doesn't parse
+    /// Without `--at`, every open goal (`?`) of the project and what relies
+    /// on it or can't be checked until it is filled (docs/syntax.md, "Goals").
+    /// With `--at`, the goal at a point of a proof, and the names in scope
+    /// there: `⊢ goal` in a proof, `expected T` in program code
+    /// (docs/syntax.md, "The goal at a point"). Exits with status 0 with an
+    /// answer, 2 with none there or for a bad argument, 1 if the file
+    /// doesn't parse
     Goal {
         /// FILE:LINE[:COL], 1-based; without COL, the line's first
         /// character that isn't a blank
         #[arg(long, value_name = "FILE:LINE[:COL]")]
-        at: String,
+        at: Option<String>,
         /// The answer as a JSON object (docs/syntax.md, "The goal at a
         /// point")
         #[arg(long)]
@@ -877,7 +880,10 @@ fn run(cli: Cli) -> ExitCode {
             json,
             project,
             cache,
-        } => goal_at(&at, project.as_deref(), json, &cache),
+        } => match at {
+            Some(at) => goal_at(&at, project.as_deref(), json, &cache),
+            None => goal_list(project.as_deref(), json, &cache),
+        },
         Command::Search {
             query,
             file,
@@ -1211,34 +1217,64 @@ fn read_project_config(project: &Project) -> Option<stitchwort_cli::project::Con
     }
 }
 
-/// With `check: open-goals: warn`, the goals were reported as warnings:
-/// says how many, and that they don't fail the check.
-fn report_allowed_goals(reported: &[Diagnostic]) {
-    let goals = reported
+/// The goal count line, then what relies on the goals and what can't be
+/// checked until they are filled (docs/proposals/using-unfinished-proofs.md
+/// §5.1), after the goals themselves. `warn` is `check: open-goals: warn`,
+/// which reports the goals as warnings that don't fail the check.
+fn report_goals(session: &Session, reported: &[Diagnostic]) {
+    use stitchwort_driver::reliance::{describe_goals, is_goal};
+    let goals = reported.iter().filter(|d| is_goal(d)).count();
+    if goals == 0 {
+        return;
+    }
+    let allowed = reported
         .iter()
-        .filter(|d| d.severity == Severity::Warning && d.code == "GOAL")
-        .count();
-    if goals > 0 {
-        let s = if goals == 1 { "" } else { "s" };
+        .any(|d| d.severity == Severity::Warning && d.code == "GOAL");
+    let s = if goals == 1 { "" } else { "s" };
+    if allowed {
         eprintln!(
-            "{goals} goal{s} open, allowed by `check: open-goals: warn`: the declarations with \
-             them, and what uses them, are checked assuming the goals hold, and `stitchwort \
-             audit` fails them"
+            "{goals} goal{s} open, allowed by `check: open-goals: warn`; `stitchwort audit` fails \
+             what relies on {}",
+            if goals == 1 { "it" } else { "them" }
+        );
+    } else {
+        eprintln!("{goals} goal{s} open");
+    }
+    let reliance = session.reliance(reported);
+    let relying = reliance.relying.len();
+    if relying > 0 {
+        let (s, rely) = if relying == 1 {
+            ("", "relies")
+        } else {
+            ("s", "rely")
+        };
+        eprintln!(
+            "{relying} declaration{s} {rely} on open goals, checked assuming they hold (`stitchwort \
+             goal` lists them)"
         );
     }
-}
-
-/// "2 goals open", after the goals themselves, if there are any
-/// (docs/proposals/lsp-goal-holes.md, D636): a declaration with one isn't
-/// finished, and nor is anything that uses it, though the kernel checks
-/// them assuming the goals hold (docs/proposals/using-unfinished-proofs.md).
-fn report_goals(goals: usize) {
-    if goals > 0 {
-        let s = if goals == 1 { "" } else { "s" };
+    let blocked = &reliance.blocked;
+    if !blocked.is_empty() {
+        let s = if blocked.len() == 1 { "" } else { "s" };
         eprintln!(
-            "{goals} goal{s} open: the declarations with them, and what uses them, aren't \
-             finished: they're checked assuming the goals hold"
+            "{} declaration{s} can't be checked until a goal is filled (not checked at all):",
+            blocked.len()
         );
+        let width = blocked.iter().map(|b| b.name.len()).max().unwrap_or(0);
+        const SHOWN: usize = 20;
+        for b in blocked.iter().take(SHOWN) {
+            eprintln!(
+                "  {:width$}  needs {}",
+                b.name,
+                describe_goals(&b.goals, true)
+            );
+        }
+        if blocked.len() > SHOWN {
+            eprintln!(
+                "  and {} more (`stitchwort goal` lists them)",
+                blocked.len() - SHOWN
+            );
+        }
     }
 }
 
@@ -1509,7 +1545,7 @@ fn check(
                 &mut reported,
             );
             let goals = goals_open(&reported);
-            report_goals(goals);
+            report_goals(&session, &reported);
             ok &= loaded && goals == 0;
             if loaded && goals == 0 {
                 eprintln!("checked {path}");
@@ -1559,8 +1595,7 @@ fn check(
         &mut reported,
     );
     let goals = goals_open(&reported);
-    report_goals(goals);
-    report_allowed_goals(&reported);
+    report_goals(&session, &reported);
     let mut ok = checked.is_some() && goals == 0;
     if let (true, Some((count, theorems))) = (ok, checked) {
         let plural = if count == 1 { "" } else { "s" };
@@ -1844,11 +1879,11 @@ fn test(
             } else {
                 ExitCode::FAILURE
             };
-            discard(session);
             // The tests of unfinished declarations aren't checked, so they
             // didn't run.
             let goals = goals_open(&reported);
-            report_goals(goals);
+            report_goals(&session, &reported);
+            discard(session);
             let none = output.only.is_some_and(|name| {
                 let none = results.is_empty();
                 if none {
@@ -1902,6 +1937,8 @@ fn test(
             } else {
                 ExitCode::FAILURE
             };
+            let goals = goals_open(&reported);
+            report_goals(&session, &reported);
             discard(session);
             // A target that matched no tests (a typo, a namespace without
             // any) must never look like a pass.
@@ -1916,9 +1953,6 @@ fn test(
                 }
                 _ => false,
             };
-            let goals = goals_open(&reported);
-            report_goals(goals);
-            report_allowed_goals(&reported);
             if goals > 0 || none {
                 ExitCode::FAILURE
             } else {
@@ -2001,7 +2035,7 @@ fn print_tests_json(session: &Session, results: &[TestResult], asked_for_some: b
                 Outcome::Skipped => (
                     "skipped",
                     Some(match &r.skipped {
-                        Some(uses) => format!("uses {uses}, which has an open goal"),
+                        Some(reason) => reason.clone(),
                         None => "uses a declaration with an open goal".to_string(),
                     }),
                 ),
@@ -2077,7 +2111,7 @@ fn print_tests(results: &[TestResult], grouped: bool) -> ExitCode {
                 "-",
                 "skipped",
                 match &result.skipped {
-                    Some(uses) => format!(": uses {uses}, which has an open goal"),
+                    Some(reason) => format!(": {reason}"),
                     None => ": uses a declaration with an open goal".to_string(),
                 },
             ),
@@ -2142,7 +2176,7 @@ fn load_main(
         }
         // What's finished can run; `main` can't if it isn't (`Session::main`).
         goals = goals_open(&reported);
-        report_goals(goals);
+        report_goals(&session, &reported);
         session.main()
     } else {
         let Some(project) = locate_project(project, "run", "run hello.sw") else {
@@ -2178,7 +2212,7 @@ fn load_main(
                 let reported = std::mem::take(&mut session.warnings);
                 report(&session.sources, &reported);
                 goals = goals_open(&reported);
-                report_goals(goals);
+                report_goals(&session, &reported);
             }
             Err(diagnostics) => {
                 report(&session.sources, &diagnostics);
@@ -2450,11 +2484,26 @@ fn axioms(target: &str, names: &[String], project: Option<&Path>, cache: &CacheA
             eprintln!("error: there's no definition `{key}`");
             return ExitCode::FAILURE;
         };
-        if session.elab.is_unfinished(id) {
-            eprintln!(
-                "error: `{key}` isn't finished: it, or something it uses, has an open goal \
-                 (`?`), so it isn't checked"
-            );
+        // Checked assuming open goals hold is reported below; what wasn't
+        // checked has no terms to walk.
+        if session.elab.is_unfinished(id)
+            && (!session.elab.relies_on_goal(id)
+                || session.elab.ev().def(id).state() != stitchwort_core::globals::State::Final)
+        {
+            let waits = session.elab.blocked_on(id).into_iter().collect();
+            let goals = session.goal_places(&waits);
+            if goals.is_empty() {
+                eprintln!(
+                    "error: `{key}` isn't finished: it, or something it uses, has an open goal \
+                     (`?`), so it isn't checked"
+                );
+            } else {
+                eprintln!(
+                    "error: `{key}` can't be checked until {} {} filled",
+                    stitchwort_driver::reliance::describe_goals(&goals, true),
+                    if goals.len() == 1 { "is" } else { "are" }
+                );
+            }
             return ExitCode::FAILURE;
         }
         ids.push(id);
@@ -2466,11 +2515,21 @@ fn axioms(target: &str, names: &[String], project: Option<&Path>, cache: &CacheA
         if several {
             println!("{key}:");
         }
-        if found.is_empty() {
+        let goals = session.elab.goals_relied_on(id);
+        if found.is_empty() && goals.is_empty() {
             println!("{indent}no axioms are used");
         }
         for axiom in found {
             println!("{indent}{axiom}");
+        }
+        for goal in goals {
+            let place = session.goal_place(goal);
+            println!(
+                "{indent}open goal in `{}` ({}): {}",
+                place.declaration,
+                place.place(),
+                session.goal_type_text(goal)
+            );
         }
     }
     discard(session);
@@ -2771,6 +2830,107 @@ fn goal_at(at: &str, project: Option<&Path>, json: bool, cache: &CacheArgs) -> E
         println!("{name}:{line}:{column}");
         print!("{}", context.render_text());
     }
+    ExitCode::SUCCESS
+}
+
+/// `goal` without `--at`: every open goal of the project, and the
+/// declarations that rely on it or wait for it
+/// (docs/proposals/using-unfinished-proofs.md §5.2). With `--json`:
+/// version 1; `goals`, each with `declaration`, `file`, `line`, `column`,
+/// `goal` (what must be shown), `reliedOnBy`, `blocking` and
+/// `equationLemmas` (unfinished lemmas made for a definition with a `?`).
+fn goal_list(project: Option<&Path>, json: bool, cache: &CacheArgs) -> ExitCode {
+    let Some(project) = locate_project(project, "list goals of", "goal --at hello.sw:3") else {
+        return ExitCode::FAILURE;
+    };
+    let mut session = new_session(false);
+    use_cache(&mut session, cache, &project.dir);
+    let loaded = session.load_project_for(
+        &project.files,
+        &project.name,
+        &Target::Everything,
+        Load::Diagnostics,
+    );
+    if let Err(diagnostics) = loaded {
+        report(&session.sources, &diagnostics);
+        return ExitCode::FAILURE;
+    }
+    let reported = std::mem::take(&mut session.warnings);
+    let reliance = session.reliance(&reported);
+    if json {
+        let goals: Vec<_> = reliance
+            .goals
+            .iter()
+            .map(|g| {
+                serde_json::json!({
+                    "declaration": g.place.declaration,
+                    "file": g.place.file,
+                    "line": g.place.line,
+                    "column": g.place.column,
+                    "goal": g.target,
+                    "reliedOnBy": g.relied_on_by,
+                    "blocking": g.blocking,
+                    "equationLemmas": g.equations,
+                })
+            })
+            .collect();
+        println!(
+            "{}",
+            serde_json::json!({"version": 1, "open": goals.len(), "goals": goals})
+        );
+        discard(session);
+        return ExitCode::SUCCESS;
+    }
+    let n = reliance.goals.len();
+    if n == 0 {
+        println!("no goals open");
+    } else {
+        println!("{n} goal{} open", if n == 1 { "" } else { "s" });
+    }
+    for g in &reliance.goals {
+        println!(
+            "\n`{}`  {}\n  ⊢ {}",
+            g.place.declaration,
+            g.place.place(),
+            g.target.replace('\n', "\n    ")
+        );
+        let list = |names: &[String]| {
+            const SHOWN: usize = 8;
+            let mut text = names
+                .iter()
+                .take(SHOWN)
+                .cloned()
+                .collect::<Vec<_>>()
+                .join(", ");
+            if names.len() > SHOWN {
+                text.push_str(&format!(
+                    " and {} more (--json lists them)",
+                    names.len() - SHOWN
+                ));
+            }
+            text
+        };
+        if !g.relied_on_by.is_empty() {
+            println!("  relied on by: {}", list(&g.relied_on_by));
+        }
+        if !g.blocking.is_empty() {
+            println!(
+                "  can't be checked until it is filled: {}",
+                list(&g.blocking)
+            );
+        }
+        if !g.equations.is_empty() {
+            println!(
+                "  its equation lemmas ({}) are unfinished too",
+                g.equations
+                    .iter()
+                    .map(|e| format!("`{e}`"))
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            );
+        }
+    }
+    discard(session);
     ExitCode::SUCCESS
 }
 
@@ -3394,9 +3554,17 @@ fn print_audit(
     let written: Vec<_> = audits.iter().filter(|a| !a.generated).collect();
     let generated = audits.len() - written.len();
     let total = written.len();
+    let assuming = audits
+        .iter()
+        .filter(|a| a.status == audit::Status::Assuming)
+        .count();
+    let unchecked = audits
+        .iter()
+        .filter(|a| a.status == audit::Status::Unfinished)
+        .count();
     if args.json {
         let json = serde_json::json!({
-            "version": 1,
+            "version": 2,
             "ok": ok,
             "strict": args.strict,
             "allowed_axioms": allowed,
@@ -3408,6 +3576,8 @@ fn print_audit(
                 "failed": failed,
                 "warned": warned,
                 "passed": audits.len() - failed - warned,
+                "assuming": assuming,
+                "unfinished": unchecked,
             },
         });
         println!("{json}");
@@ -3454,9 +3624,15 @@ fn print_audit(
     } else {
         ""
     };
+    let goals = match (assuming, unchecked) {
+        (0, 0) => String::new(),
+        (n, 0) => format!(" ({n} rely on open goals)"),
+        (0, m) => format!(" ({m} not checked)"),
+        (n, m) => format!(" ({n} rely on open goals, {m} not checked)"),
+    };
     println!(
         "audited {total} theorem{s}{separated}: {failed} failed, {warned} with \
-         warnings{strict}, {} passed",
+         warnings{strict}, {} passed{goals}",
         audits.len() - failed - warned
     );
     exit(ok)

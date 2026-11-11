@@ -181,16 +181,32 @@ impl Session {
         let def = &self.elab.kernel.env.defs()[index];
         let (span, ty) = (def.span(), self.elab.show(def.ty_value()));
         // It has no body to run (docs/proposals/lsp-goal-holes.md, D636).
-        if self.elab.is_unfinished(stitchwort_core::DefId(index)) {
+        let id = stitchwort_core::DefId(index);
+        if self.elab.is_unfinished(id) {
+            let (ids, waits) = if self.elab.relies_on_goal(id) {
+                (self.elab.goals_relied_on(id), false)
+            } else {
+                (self.elab.blocked_on(id).into_iter().collect(), true)
+            };
+            let goals = self.goal_places(&ids);
+            let named = crate::reliance::describe_goals(&goals, false);
+            let message = match (goals.is_empty(), waits) {
+                (true, _) => format!(
+                    "`{}` isn't finished: it, or something it uses, has an open goal (`?`)",
+                    def.name()
+                ),
+                (false, false) => format!(
+                    "`{}` relies on an open goal: {named}, so it isn't run",
+                    def.name()
+                ),
+                (false, true) => format!(
+                    "`{}` can't be checked until {} is filled, so it isn't run",
+                    def.name(),
+                    crate::reliance::describe_goals(&goals, true)
+                ),
+            };
             return Err(CallError::Other(
-                Diagnostic::error(
-                    "E-UNFINISHED",
-                    format!(
-                        "`{}` isn't finished: it, or something it uses, has an open goal (`?`)",
-                        def.name()
-                    ),
-                )
-                .with_label(
+                Diagnostic::error("E-UNFINISHED", message).with_label(
                     span,
                     "this can't run until every goal it needs is filled in",
                 ),

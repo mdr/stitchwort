@@ -104,10 +104,61 @@ impl Elaborator {
     }
 
     /// The declaration whose `?` assumption `id` stands for, by its full
-    /// name.
+    /// name as the reader wrote it: a `decreasing` definition's goals are
+    /// made under its step (`f.%step`) and a lifted `match` under its
+    /// helper, which the reader never wrote.
     pub fn assumption_owner(&self, id: DefId) -> Option<String> {
         let a = self.kernel.env.defs().get(id.0)?.assumption()?;
-        Some(a.owner.to_string())
+        let owner = a.owner.as_ref();
+        Some(
+            owner
+                .split_once(".%")
+                .map_or(owner, |(head, _)| head)
+                .to_string(),
+        )
+    }
+
+    /// Where assumption `id`'s `?` is written.
+    pub fn assumption_span(&self, id: DefId) -> stitchwort_syntax::Span {
+        self.kernel.def(id).span()
+    }
+
+    /// The assumptions of this session still in the kernel, oldest first.
+    pub fn assumptions(&self) -> Vec<DefId> {
+        let Some(floor) = self.floor() else {
+            return Vec::new();
+        };
+        let defs = self.kernel.env.defs();
+        (floor.first.0..defs.len())
+            .filter(|&i| defs[i].assumption().is_some())
+            .map(DefId)
+            .collect()
+    }
+
+    /// Every assumption declaration `d` relies on, read off its checked
+    /// terms.
+    pub fn goals_relied_on(&self, d: impl Into<Decl>) -> std::collections::BTreeSet<DefId> {
+        let Some(floor) = self.floor() else {
+            return Default::default();
+        };
+        assumption::relied_on_skipping(
+            &self.ev(),
+            &[d.into()],
+            &|d| matches!(d, Decl::Def(id) if id.0 < floor.floor),
+        )
+    }
+
+    /// The open goals' assumptions definition `id` waits on: it wasn't
+    /// checked, because something it computes with is stuck on them
+    /// (docs/proposals/using-unfinished-proofs.md §4, "Blocked users").
+    /// Empty for any other definition.
+    pub fn blocked_on(&self, id: DefId) -> Vec<DefId> {
+        if self.kernel.def(id).state() == stitchwort_core::globals::State::Final
+            || !self.tables.is_unfinished(HashKey::Def(id))
+        {
+            return Vec::new();
+        }
+        (self.session.blocked.borrow().get(&id)).map_or_else(Vec::new, |g| g.to_vec())
     }
 
     /// Makes each open goal of the declaration being elaborated an
@@ -117,7 +168,13 @@ impl Elaborator {
         let Some(key) = self.decl.owner.borrow().first().cloned() else {
             return;
         };
-        let owner = self.unit.path(&Name::from(key.as_str()));
+        // A test's key already starts with the namespace.
+        let owner =
+            if key.starts_with(self.root()) && key[self.root().len()..].starts_with("test \"") {
+                Name::from(key.as_str())
+            } else {
+                self.unit.path(&Name::from(key.as_str()))
+            };
         // Numbered in source order, so a goal's label doesn't depend on
         // the order the elaborator met them in.
         let mut order: Vec<usize> = (0..self.goals.borrow().pending.len()).collect();
