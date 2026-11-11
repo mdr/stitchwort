@@ -67,6 +67,7 @@ fn run_tests(session: &Session, program: &Program, what: &str, library: bool) ->
             Outcome::Passed => true,
             Outcome::Failed => false,
             Outcome::OutOfResources(_) => continue,
+            Outcome::Skipped => continue,
         };
         let Some(g) = program.globals.iter().position(|g| g.def == decl.def) else {
             panic!("{what}: test {:?} wasn't lowered", decl.name);

@@ -37,8 +37,11 @@ a `stitchwort.yaml` inside another project. `sources` must be a list:
 `audit:`, whose `allowed-axioms:` lists the axioms `stitchwort audit` allows
 (default `Quot.sound`), and `check:`, whose `open-goals:` is `warn` or `fail`
 (default): with `warn`, `stitchwort check` reports each open goal `?` as a
-warning and exits 0 if nothing else fails (`audit` still fails unfinished
-theorems). An unknown key, or a value other than those, is an error.
+warning and exits 0 if nothing else fails, and `stitchwort test` runs the tests
+that don't use an unfinished declaration and reports the others as skipped,
+naming the declaration with the open goal, exiting 0 if nothing else fails
+(`audit` still fails unfinished theorems). An unknown key, or a value other
+than those, is an error.
 
 A flat layout uses `sources: [.]`.
 

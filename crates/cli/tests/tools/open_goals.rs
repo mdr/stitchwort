@@ -1,6 +1,7 @@
 //! `check: open-goals:` in `stitchwort.yaml` (SW-2762, D3489, D3494), end to
-//! end: `check` reports open goals as warnings under `warn`, `audit` and
-//! `test` don't change, and a bad value is a project-file error.
+//! end: `check` reports open goals as warnings under `warn`, `audit` doesn't
+//! change, `test` skips tests that use an unfinished declaration (D3500), and
+//! a bad value is a project-file error.
 
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output, Stdio};
@@ -83,16 +84,50 @@ fn audit_still_fails_unfinished_theorems_under_warn() {
 }
 
 #[test]
-fn a_test_that_reaches_an_open_goal_still_fails_under_warn() {
-    let dir = project("test", "check:\n  open-goals: warn\n");
+fn a_test_that_reaches_an_open_goal_is_skipped_under_warn() {
+    let dir = project("test-warn", "check:\n  open-goals: warn\n");
     std::fs::write(
         dir.join("src/t.sw"),
-        "namespace Book\n\ntest \"two is two\" := two == 2\n",
+        "namespace Book\n\n\
+         test \"one is one\" := 1 == 1\n\n\
+         test \"two is two\" := two == 2\n",
     )
     .unwrap();
     let out = stitchwort(&dir, &["test"]);
     let _ = std::fs::remove_dir_all(&dir);
-    assert_ne!(out.status.code(), Some(0), "{}", text(&out.stderr));
+    let stderr = text(&out.stderr);
+    let stdout = text(&out.stdout);
+    assert_eq!(out.status.code(), Some(0), "{stdout}{stderr}");
+    assert!(stdout.contains("✓ one is one"), "{stdout}");
+    assert!(
+        stdout.contains("skipped: uses two, which has an open goal"),
+        "{stdout}"
+    );
+    assert!(stdout.contains("1 passed, 0 failed, 1 skipped"), "{stdout}");
+    assert!(
+        stderr.contains("2 goals open, allowed by `check: open-goals: warn`"),
+        "{stderr}"
+    );
+}
+
+#[test]
+fn without_the_setting_a_test_that_reaches_an_open_goal_still_fails() {
+    let dir = project("test-fail", "sources: [src]\n");
+    std::fs::write(
+        dir.join("src/t.sw"),
+        "namespace Book\n\n\
+         test \"one is one\" := 1 == 1\n\n\
+         test \"two is two\" := two == 2\n",
+    )
+    .unwrap();
+    let out = stitchwort(&dir, &["test"]);
+    let _ = std::fs::remove_dir_all(&dir);
+    let stderr = text(&out.stderr);
+    assert_eq!(out.status.code(), Some(1), "{stderr}");
+    assert!(
+        stderr.contains("2 goals open: the declarations"),
+        "{stderr}"
+    );
 }
 
 #[test]

@@ -252,6 +252,13 @@ impl Codec for TestDecl {
                 e.probe(probe);
             }
         }
+        match &self.unfinished {
+            None => e.w.bool(false),
+            Some(name) => {
+                e.w.bool(true);
+                e.str(name);
+            }
+        }
     }
     fn decode(b: &mut Body<'_>) -> Read<Self> {
         let name = b.string()?;
@@ -259,6 +266,7 @@ impl Codec for TestDecl {
         let def = b.def()?;
         let span = b.span()?;
         let probe = if b.r.bool()? { Some(b.probe(0)?) } else { None };
+        let unfinished = if b.r.bool()? { Some(b.string()?) } else { None };
         Ok(TestDecl {
             library: false,
             name,
@@ -266,6 +274,7 @@ impl Codec for TestDecl {
             def,
             span,
             probe,
+            unfinished,
         })
     }
 }

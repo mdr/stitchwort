@@ -250,6 +250,10 @@ pub struct TestDecl {
     /// What a failure can say about the test's expression (D601): its
     /// comparison, or the part of an `&&` that is false.
     pub probe: Option<Probe>,
+    /// For a test that uses a declaration with an open goal (`?`), the open
+    /// goal's declaration (D3500): `check: open-goals: warn` reports the
+    /// test as skipped instead of failing.
+    pub unfinished: Option<String>,
 }
 
 /// The shape of a test's expression, for showing why it failed: through
@@ -739,6 +743,38 @@ impl Elaborator {
     /// The tests declared so far, in the order they run.
     pub fn tests(&self) -> &[TestDecl] {
         &self.tables.tests
+    }
+
+    /// The first declaration with an open goal (`?`) that definition `id`
+    /// uses, directly or through what it uses: its name, for `test` to say
+    /// why it skipped the test. `None` if `id` doesn't use one (or isn't a
+    /// declaration of the module being elaborated).
+    pub fn unfinished_use(&self, id: DefId) -> Option<String> {
+        let item = *self.unit.module.def_items.get(&id)?;
+        self.unfinished_use_of(item, &mut stitchwort_core::collections::HashSet::default())
+    }
+
+    fn unfinished_use_of(
+        &self,
+        item: usize,
+        seen: &mut stitchwort_core::collections::HashSet<usize>,
+    ) -> Option<String> {
+        if !seen.insert(item) {
+            return None;
+        }
+        let info = self.unit.module.items.get(item)?;
+        // The open goal's own declaration is a leaf of the unfinished part
+        // of the dependency graph.
+        for dep in &info.deps {
+            let used = self.unit.module.items.get(dep.item)?;
+            if used.status != crate::module::Status::Unfinished {
+                continue;
+            }
+            return self
+                .unfinished_use_of(dep.item, seen)
+                .or_else(|| Some(used.name.clone()));
+        }
+        (info.status == crate::module::Status::Unfinished).then(|| info.name.clone())
     }
 
     /// How many declarations there are.
@@ -1441,15 +1477,50 @@ impl Elaborator {
             false,
             span,
         )?;
-        kernel::define_def(&mut self.kernel, &self.tables, id, &body)?;
-        self.tables.tests.push(TestDecl {
+        if let Some(item) = self.unit.module.item {
+            self.unit.module.def_items.insert(id, item);
+        }
+        let defined = kernel::define_def(&mut self.kernel, &self.tables, id, &body);
+        let unfinished = match &defined {
+            Err(d) if d.code == goals::UNFINISHED => self.unfinished_use(id).or_else(|| {
+                // A dependency from another namespace isn't one of this
+                // module's items; name the first unfinished declaration the
+                // test's body mentions.
+                body.subterms().find_map(|(term, _)| match term {
+                    Term::Def(other)
+                        if *other != id
+                            && self
+                                .tables
+                                .is_unfinished(stitchwort_core::globals::HashKey::Def(*other)) =>
+                    {
+                        Some(self.kernel.def(*other).name().to_string())
+                    }
+                    _ => None,
+                })
+            }),
+            _ => None,
+        };
+        let test = TestDecl {
             library: self.unit.loading_prelude,
             name: name.to_string(),
             namespace: self.unit.module.namespace.clone().unwrap_or_default(),
             def: id,
             span,
             probe,
-        });
+            unfinished,
+        };
+        match defined {
+            Ok(()) => self.tables.tests.push(test),
+            Err(d) => {
+                // A test that uses an unfinished declaration is still a
+                // test: `stitchwort test` reports it as skipped under
+                // `check: open-goals: warn` (D3500).
+                if d.code == goals::UNFINISHED {
+                    self.tables.tests.push(test);
+                }
+                return Err(d);
+            }
+        }
         Ok(())
     }
 
