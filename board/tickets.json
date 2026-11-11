@@ -1,5 +1,5 @@
 {
-  "next": 2811,
+  "next": 2812,
   "tickets": [
     {
       "id": 47,
@@ -29398,7 +29398,7 @@
     {
       "id": 2793,
       "title": "stitchwort test follows check: open-goals: warn: tests that don't use an unfinished declaration run as usual; tests that do are reported as skipped naming the open goal; exit 0 if nothing else fails (D3500)",
-      "status": "review",
+      "status": "done",
       "agent": "DeepSeek",
       "where": ".claude/worktrees/scratch-sw-2793",
       "labels": [],
@@ -29611,6 +29611,19 @@
       "where": "",
       "labels": [],
       "epic": "effects-native",
+      "body": "",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2811,
+      "title": "test:affected selects no test for changes to crates/cli/tests/tools/open_goals.rs or crates/driver/tests/elaboration/erasure.rs: a changed test file should select its own tests (dev/test-affected.toml)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
       "body": "",
       "created": "2026-11-11",
       "updated": "2026-11-11",
