@@ -1,5 +1,5 @@
 {
-  "next": 2801,
+  "next": 2803,
   "tickets": [
     {
       "id": 47,
@@ -29376,8 +29376,8 @@
       "agent": "",
       "where": "",
       "labels": [],
-      "epic": "editor-playground",
-      "body": "",
+      "epic": "goal-as-written",
+      "body": "\nSW-2780 settled it as 'the same as a ? there would print' (tested); as-written for both belongs with D639's goal-printing work. Native arithmetic folding also makes steps' before/after jump (0 + q * 0 shows q * 0).",
       "created": "2026-11-11",
       "updated": "2026-11-11",
       "commits": []
@@ -29481,6 +29481,32 @@
       "where": "",
       "labels": [],
       "epic": "test-infra",
+      "body": "",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2801,
+      "title": "Rewrite rule as used prints computed (List.rangeFrom n 0) beside folded goals (0 ..< n): print rules folded like goals (SW-2780)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "goal-as-written",
+      "body": "",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2802,
+      "title": "Goal printer adds unneeded brackets: p * 0 + (q * 0) = 0 (SW-2780)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "diagnostics",
       "body": "",
       "created": "2026-11-11",
       "updated": "2026-11-11",
