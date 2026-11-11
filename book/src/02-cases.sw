@@ -104,9 +104,9 @@ theorem otherSideTwice (outcome: Outcome): otherSide (otherSide outcome) = outco
 --
 --    The two arms not yet split get `_` in the new column. `_` matches
 --    any move, so those arms still cover every `theirs`.
--- 3. In the arm `| Paper, _ => ?`, change `_` to a name, `theirs`, put
---    the cursor on it, and press Cmd-.: "Split `theirs` into its cases"
---    turns the arm into three. Do the same for `Scissors`.
+-- 3. On the `?` of `| Paper, _ => ?`, Cmd-. and "Split on `theirs`" again.
+--    The arm turns into three, `| Paper, Rock`, `| Paper, Paper` and
+--    `| Paper, Scissors`. Do the same for `Scissors`.
 --
 -- Now there are nine arms, and in each the goal computes, so each is
 -- `rfl`, as here:

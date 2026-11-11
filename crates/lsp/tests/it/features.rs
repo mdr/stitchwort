@@ -1138,7 +1138,7 @@ fn a_goal_splits_a_nat_a_list_and_a_parameter_named_in_the_header() {
         );
         // The `?` is a whole arm of the match on `k`: `n` becomes a column of
         // it, and `k` isn't offered, being known in the arm. `m` is bound by
-        // the arm, so splitting it nests a match instead.
+        // the arm, so splitting it expands the arm.
         let (titles, applied) = split_at(&mut s, 7, text, hole(text, 2), "Split on `n`");
         assert_eq!(titles, ["Split on `n`", "Split on `m`"]);
         let applied = applied.unwrap();
@@ -1153,7 +1153,7 @@ fn a_goal_splits_a_nat_a_list_and_a_parameter_named_in_the_header() {
         let (_, applied) = split_at(&mut s, 9, text, hole(text, 2), "Split on `m`");
         let applied = applied.unwrap();
         assert!(
-            applied.ends_with("  | m => match m with\n    | Zero => ?\n    | Succ n1 => ?\n"),
+            applied.ends_with("  | 0 => 1\n  | Zero => ?\n  | Succ n1 => ?\n"),
             "{applied}"
         );
         s.change(10, &applied);
@@ -1184,7 +1184,7 @@ fn a_split_of_a_program_s_own_nat_uses_its_constructors_not_the_preludes() {
         let (_, applied) = split_at(&mut s, 4, text, hole(text, 1), "Split on `m`");
         let applied = applied.unwrap();
         assert!(
-            applied.ends_with("  | m => match m with\n    | O => ?\n    | S n1 => ?\n"),
+            applied.ends_with("  | O => ?\n  | S n1 => ?\n"),
             "{applied}"
         );
         s.change(5, &applied);
@@ -1193,6 +1193,44 @@ fn a_split_of_a_program_s_own_nat_uses_its_constructors_not_the_preludes() {
             "{:?}",
             s.diagnostics
         );
+    });
+}
+
+#[test]
+fn a_goal_splits_a_variable_the_arm_binds_in_place() {
+    big_stack(|| {
+        let text = "namespace Demo\n\ntype Move = | Rock | Paper | Scissors\n\ndef play (a b: Move): Move := a\n\ntheorem t (mine: Move) (theirs: Move): play mine theirs = play mine theirs := match mine, theirs with\n  | Rock, _ => ?\n  | Paper, theirs => ?\n  | Scissors, _ => ?\n";
+        let mut s = Session::open(text);
+        let (_, applied) = split_at(&mut s, 2, text, hole(text, 1), "Split on `theirs`");
+        let applied = applied.unwrap();
+        assert!(
+            applied.ends_with("  | Rock, _ => ?\n  | Paper, Rock => ?\n  | Paper, Paper => ?\n  | Paper, Scissors => ?\n  | Scissors, _ => ?\n"),
+            "{applied}"
+        );
+        let (_, applied) = split_at(&mut s, 3, text, hole(text, 2), "Split on `theirs`");
+        let applied = applied.unwrap();
+        assert!(
+            applied.ends_with("  | Paper, theirs => ?\n  | Scissors, Rock => ?\n  | Scissors, Paper => ?\n  | Scissors, Scissors => ?\n"),
+            "{applied}"
+        );
+        s.change(4, &applied);
+        assert!(errors(&s).is_empty(), "{:?}", s.diagnostics);
+    });
+}
+
+#[test]
+fn a_goal_splits_a_variable_inside_a_constructor_pattern_in_place() {
+    big_stack(|| {
+        let text = "namespace Demo\n\ntype Nat = | O | S (n: Nat)\n\ndef f (k: Nat): Nat := match k with\n  | O => O\n  | S n => ?\n";
+        let mut s = Session::open(text);
+        let (_, applied) = split_at(&mut s, 2, text, hole(text, 0), "Split on `n`");
+        let applied = applied.unwrap();
+        assert!(
+            applied.ends_with("  | O => O\n  | S O => ?\n  | S (S n) => ?\n"),
+            "{applied}"
+        );
+        s.change(3, &applied);
+        assert!(errors(&s).is_empty(), "{:?}", s.diagnostics);
     });
 }
 

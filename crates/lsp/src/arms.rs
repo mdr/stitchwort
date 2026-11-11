@@ -274,8 +274,10 @@ pub fn header_hole(text: &str, line: u32, character: u32) -> Option<(Position, S
 /// for a whole expression: after `:=` or `=>`, or alone on its line, with
 /// nothing but a comment after it.
 ///
-/// If the `?` is a whole arm of a `match` that doesn't match `name` yet,
-/// `name` becomes a new column of that `match`: the arm turns into one arm
+/// If the `?` is a whole arm that already has `name` in its patterns (a
+/// variable, or the `_` of a column the `match` scrutinises as `name`), the
+/// arm is split as [`split_arm`] does, in place. If it is a whole arm of a
+/// `match` that doesn't match `name` yet, `name` becomes a new column of that `match`: the arm turns into one arm
 /// per case, and the other arms get `_`. Otherwise the `?` is replaced
 /// with a `match` of its own, its arms indented under the line.
 pub fn split_hole(
@@ -308,6 +310,11 @@ pub fn split_hole(
         }
     };
     if comment.is_empty()
+        && let Some(edit) = expand_arm(&lines, hl, name, patterns)
+    {
+        return Some(vec![edit]);
+    }
+    if comment.is_empty()
         && let Some(edits) = extend_match(&lines, hl, name, &arms)
     {
         return Some(edits);
@@ -334,6 +341,72 @@ pub fn split_hole(
         Range::new(Position::new(hole.line, 0), Position::new(hole.line, end)),
         new_text,
     )])
+}
+
+/// The edit that splits `name` in the arm on line `hl` (`| patterns => ?`)
+/// in place, when `name` is a variable of its patterns, or the `_` in the
+/// column of a `match` scrutinee `name`.
+fn expand_arm(lines: &[&str], hl: usize, name: &str, patterns: &[String]) -> Option<TextEdit> {
+    let line = lines[hl];
+    let arrow = line.find("=>")?;
+    let bar = line.find("| ")?;
+    if !line.trim_start().starts_with("| ") || !line[arrow + 2..].trim().eq("?") {
+        return None;
+    }
+    let start = bar + 2;
+    let region = &line[start..arrow];
+    let bytes = region
+        .match_indices(name)
+        .map(|(i, _)| i)
+        .find(|&i| {
+            let before = region[..i].chars().next_back();
+            let after = region[i + name.len()..].chars().next();
+            !before.is_some_and(is_word) && !after.is_some_and(is_word)
+        })
+        .map(|i| (start + i, start + i + name.len()))
+        .or_else(|| {
+            let column = indent_of(line);
+            let header = (0..hl).rev().find(|&i| {
+                let t = lines[i].trim();
+                !t.is_empty() && !t.starts_with("--") && indent_of(lines[i]) < column
+            })?;
+            let head = lines[header];
+            let with = head.trim_end().strip_suffix(" with")?.len();
+            let scrutinees = &head[head[..with].rfind("match ")? + "match ".len()..with];
+            let index = scrutinees.split(',').position(|s| s.trim() == name)?;
+            let (mut depth, mut from) = (0i32, 0);
+            let mut pieces = Vec::new();
+            for (i, c) in region.char_indices() {
+                match c {
+                    '(' | '[' => depth += 1,
+                    ')' | ']' => depth -= 1,
+                    ',' if depth == 0 => {
+                        pieces.push((from, i));
+                        from = i + 1;
+                    }
+                    _ => {}
+                }
+            }
+            pieces.push((from, region.len()));
+            let (a, b) = *pieces.get(index)?;
+            let piece = &region[a..b];
+            (piece.trim() == "_").then(|| {
+                let lead = piece.len() - piece.trim_start().len();
+                (start + a + lead, start + a + lead + 1)
+            })
+        })?;
+    let columns = (
+        u32::try_from(line[..bytes.0].chars().count()).ok()?,
+        u32::try_from(line[..bytes.1].chars().count()).ok()?,
+    );
+    let split = Split {
+        name: name.to_string(),
+        line: u32::try_from(hl).ok()?,
+        columns,
+        body: (0, 0),
+    };
+    let text = lines.join("\n");
+    split_arm(&text, &split, patterns)
 }
 
 /// The edits that add `name` as a column of the `match` whose arm is on
