@@ -30091,12 +30091,12 @@
     {
       "id": 2847,
       "title": "rt: lower::every_example_lowers alone uses over 11.6 GB (killed by memguard at 136 s on Overmind, 1cc09543e, -j 1, full tier): find which example or what in lowering holds the memory (profile first), make it fit well under the cap; check whether it is a recent regression (Decidable stage 3, new examples)",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2847",
       "labels": [],
       "epic": "test-infra",
-      "body": "Progress (lane, 11 Nov 2026): peak 7.9 GB (max RSS, 8 workers, STITCHWORT_TIER unset) down to 2.3 GB. One file did it: examples/accept/as-written-unconfirmed.sw. Lowering the theorem rewriteAtLimit alone took 37 s and 6 GB: erasure's sort_of (crates/core/src/check.rs) fell back to quoting its result type `q (settle x k limit)`, whose argument is 3000 nested ifs. Fixed by reading the sort off the variable's type without quoting the arguments (sort_of_applied_variable), commit 1ac6babbd. Other examples add under 0.1 GB each. Not a Decidable regression: the example dates from SW-1630/SW-2746. Ran the test 5 times (one over the 4 allowed; 3 were temporary instrumentation).",
+      "body": "Progress (lane, 11 Nov 2026): peak 7.9 GB (max RSS, 8 workers, STITCHWORT_TIER unset) down to 2.3 GB. One file did it: examples/accept/as-written-unconfirmed.sw. Lowering the theorem rewriteAtLimit alone took 37 s and 6 GB: erasure's sort_of (crates/core/src/check.rs) fell back to quoting its result type `q (settle x k limit)`, whose argument is 3000 nested ifs. Fixed by reading the sort off the variable's type without quoting the arguments (sort_of_applied_variable), commit 1ac6babbd. Other examples add under 0.1 GB each. Not a Decidable regression: the example dates from SW-1630/SW-2746. Ran the test 5 times (one over the 4 allowed; 3 were temporary instrumentation).\nModel result: Sonnet, worked, 15 min + 3 min review fixes (est. 75). Verified: every_example_lowers 1.74 GB max RSS.",
       "created": "2026-11-11",
       "updated": "2026-11-11",
       "commits": []
