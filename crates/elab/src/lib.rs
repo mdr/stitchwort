@@ -388,12 +388,17 @@ impl stitchwort_core::Shown for Elaborator {
         !self.kernel.def(id).theorem() && self.relies_on_goal(id)
     }
 
+    /// Always: each message may show a term stuck on goals the others
+    /// don't, and the declaration waits for all of them.
     fn wants_stuck_mention(&self) -> bool {
-        self.decl.stuck_on_goal.borrow().is_empty()
+        true
     }
 
     fn note_stuck_on_goal(&self, goals: &[DefId]) {
-        *self.decl.stuck_on_goal.borrow_mut() = goals.to_vec();
+        let mut stuck = self.decl.stuck_on_goal.borrow_mut();
+        stuck.extend_from_slice(goals);
+        stuck.sort_by_key(|id| id.0);
+        stuck.dedup();
     }
 }
 

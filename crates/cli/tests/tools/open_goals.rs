@@ -413,3 +413,61 @@ fn a_use_of_what_waits_for_a_goal_waits_for_it_too() {
     assert_eq!(out.status.code(), Some(1), "{stderr}");
     assert!(stderr.contains("`1` and `2` aren't equal"), "{stderr}");
 }
+
+/// A declaration with two messages, each showing a term stuck on a
+/// different goal, waits for both (SW-2856).
+#[test]
+fn a_use_stuck_on_goals_in_several_messages_waits_for_all_of_them() {
+    let dir = project("several", "check:\n  open-goals: warn\n");
+    std::fs::write(
+        dir.join("src/s.sw"),
+        "namespace Book\n\n\
+         def a: Nat -> Nat\n  | Zero => 0\n  | Succ k => ?\n\n\
+         def b: Nat -> Nat\n  | Zero => 0\n  | Succ k => ?\n\n\
+         def pick: Nat -> Bool\n\
+         \x20 | Zero => (rfl: a 1 = 5) = rfl\n\
+         \x20 | Succ k => (rfl: b 1 = 5) = rfl\n",
+    )
+    .unwrap();
+    let out = stitchwort(&dir, &["check"]);
+    let _ = std::fs::remove_dir_all(&dir);
+    let stderr = text(&out.stderr);
+    assert_eq!(out.status.code(), Some(0), "{stderr}");
+    let line = stderr
+        .lines()
+        .find(|l| l.trim_start().starts_with("Book.pick "));
+    assert!(
+        line.is_some_and(|l| l.contains("`a`'s goal") && l.contains("`b`'s goal")),
+        "{stderr}"
+    );
+}
+
+/// What the compiler made for a written declaration isn't a theorem the
+/// reader wrote: not `gcd2.unfold`, nor a recursive type's `induct` (found
+/// by its span, which is its type's), SW-2856.
+#[test]
+fn what_the_compiler_made_is_not_counted_as_written() {
+    let dir = project("generated", "check:\n  open-goals: warn\n");
+    std::fs::write(
+        dir.join("src/g.sw"),
+        "namespace Book\n\n\
+         def half (n: Nat): Nat := ?\n\n\
+         def gcd2 (a b: Nat): Nat\n    decreasing b\n:=\n\
+         \x20 let r := a % b\n\
+         \x20 if r < b then (if b = 0 then half a else gcd2 b r) else a\n\n\
+         theorem viaUnfold (a b: Nat): gcd2 a b = gcd2 a b := rewrite gcd2.unfold a b in rfl\n\n\
+         type Rose = | Node (xs: List Rose) (n: Std.Vec Nat (half 2))\n",
+    )
+    .unwrap();
+    let goal = text(&stitchwort(&dir, &["goal"]).stdout);
+    let _ = std::fs::remove_dir_all(&dir);
+    let line = goal
+        .lines()
+        .find(|l| l.contains("relied on by:"))
+        .unwrap_or_else(|| panic!("{goal}"));
+    assert_eq!(
+        line.trim(),
+        "relied on by: Book.gcd2, Book.viaUnfold",
+        "{goal}"
+    );
+}

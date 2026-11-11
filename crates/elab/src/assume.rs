@@ -141,9 +141,15 @@ impl Elaborator {
         let Some(floor) = self.floor() else {
             return Default::default();
         };
+        let d = d.into();
+        // Most declarations rely on none, and that is remembered (see
+        // `goal_relied_on`); only one that does is walked for all of them.
+        if self.goal_relied_on(d).is_none() {
+            return Default::default();
+        }
         assumption::relied_on_skipping(
             &self.ev(),
-            &[d.into()],
+            &[d],
             &|d| matches!(d, Decl::Def(id) if id.0 < floor.floor),
         )
     }

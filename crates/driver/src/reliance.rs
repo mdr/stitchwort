@@ -14,7 +14,7 @@ use serde::Serialize;
 use stitchwort_core::DefId;
 use stitchwort_syntax::{Diagnostic, Severity};
 
-use crate::audit::is_generated;
+use crate::audit::Generated;
 use crate::driver::Session;
 
 /// One open goal's place: where its `?` is and which declaration it is in.
@@ -135,10 +135,10 @@ impl Session {
 
     /// Whether `id` is a declaration written in source, as opposed to one
     /// the compiler made (an equation lemma, a lifted `match`).
-    fn written(&self, id: DefId) -> bool {
+    fn written(&self, generated: &Generated, id: DefId) -> bool {
         let g = &self.elab.ev();
         let def = g.def(id);
-        def.assumption().is_none() && !def.path().contains('%') && !is_generated(g, id)
+        def.assumption().is_none() && !def.path().contains('%') && !generated.contains(g, id)
     }
 
     /// The goals `reported` lists, and what relies on or waits for them.
@@ -147,14 +147,15 @@ impl Session {
     pub fn reliance(&self, reported: &[Diagnostic]) -> Reliance {
         let assumptions = self.elab.assumptions();
         let defs = self.elab.ev().env.defs().len();
+        let made = Generated::new(&self.elab.ev());
         let mut relying: Vec<(DefId, BTreeSet<DefId>)> = Vec::new();
         let mut blocked: Vec<(DefId, BTreeSet<DefId>)> = Vec::new();
         let mut generated: Vec<(DefId, BTreeSet<DefId>)> = Vec::new();
         if let Some(first) = assumptions.first() {
             for i in first.0..defs {
                 let id = DefId(i);
-                if !self.written(id) {
-                    if self.elab.relies_on_goal(id) && is_generated(&self.elab.ev(), id) {
+                if !self.written(&made, id) {
+                    if self.elab.relies_on_goal(id) && made.contains(&self.elab.ev(), id) {
                         generated.push((id, self.elab.goals_relied_on(id)));
                     }
                     continue;
