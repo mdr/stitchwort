@@ -30399,9 +30399,9 @@
     {
       "id": 2870,
       "title": "Proof tests set session limits for a 2 MiB stack on 64/256 MiB threads: ~39 Session::new() calls in crates/driver/tests/proofs/*.rs can fail E-RESOURCE in debug like SW-2867; move them to Session::for_stack with a shared constant or a with_session helper; optionally make Budget::start's stack-check flag the mismatch as a setup error (SW-2867)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "DeepSeek",
-      "where": "",
+      "where": ".claude/worktrees/scratch-sw-2870",
       "labels": [],
       "epic": "test-infra",
       "body": "",
