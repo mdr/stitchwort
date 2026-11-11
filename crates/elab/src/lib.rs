@@ -372,6 +372,13 @@ impl stitchwort_core::Shown for Elaborator {
         Some(recorded.cols.as_slice().into())
     }
 
+    fn note_match_shown(&self, id: DefId, text: &str) {
+        let mut shown = self.decl.matches_shown.borrow_mut();
+        if !shown.iter().any(|(t, i)| *i == id && t == text) {
+            shown.push((text.to_string(), id));
+        }
+    }
+
     fn param_defaults(&self, id: DefId) -> Option<Rc<stitchwort_core::globals::ParamDefaults>> {
         self.tables.param_defaults.get(&id).cloned()
     }
@@ -996,6 +1003,7 @@ impl Elaborator {
     /// [`state::Decl`], and what it leaves there is dropped.
     pub(crate) fn glued<T>(&mut self, f: impl FnOnce(&mut Self) -> T) -> T {
         self.decl.reset();
+        self.decl.matches_shown.take();
         if self.options.clear_caches_per_declaration {
             self.caches.clear();
         } else {

@@ -23,9 +23,9 @@ expression: output
      │   │                                       
      │   ╰─────────────────────────────────────── this `match`
      │       
-     │       Note 1: they first differ at `Done …` against `Call (L (%next Parse.isDigit)) (y => Std.Effect.bind (Std.Effect.bind … …) (value1 => …))`, in `Std.Effect.bind (Std.Effect.bind ((match …) … y) (char => …)) (value1 => Done …)`
+     │       Note 1: they first differ at `Done …` against `Call (L (%next Parse.isDigit)) (y => Std.Effect.bind (Std.Effect.bind … …) (value1 => …))`, in `Std.Effect.bind (Std.Effect.bind (match y with …) (char => …)) (value1 => Done …)`
      │       
-     │       Note 2: `Parse.Reads (arg => Parse.exactly 36 Parse.digit) (read values => Parse.Each DigitWritten read values ∧ values.length = 36)` is `∀ (state: Parse.State) (value: List (Fin 10)) (after: Parse.Mark) => state.at.left = state.at.rest.length → (match …) (…, …) Parse.isDigit (y => …) state ….rest = Ok (value, after) → ∃ (read: List Char) => … = … ∧ … ∧ …`
+     │       Note 2: `Parse.Reads (arg => Parse.exactly 36 Parse.digit) (read values => Parse.Each DigitWritten read values ∧ values.length = 36)` is `∀ (state: Parse.State) (value: List (Fin 10)) (after: Parse.Mark) => state.at.left = state.at.rest.length → (match state.at.rest with …) = Ok (value, after) → ∃ (read: List Char) => ….rest = read ++ … ∧ … = … ∧ … ∧ …`
      │       
      │       Note 3: `(match …)` is a `match` written inside `Parse.runFrom` and `Parse.satisfy`, marked "this `match`" above; the compiler turned it into a function that source can't name. The same `match` written again is another such function, equal to it only if neither calls the definition it's written in. To state a lemma about it, make it a local `def` in its arm and refer to it as `owner.name`, where `owner` is the definition it is written in (docs/syntax.md, "Proving things about a definition with an inner `match`")
      │       

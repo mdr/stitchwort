@@ -1648,21 +1648,34 @@ impl Elaborator {
             }
         }
         // Longest first, so `f.%match1` isn't found inside `f.%match10`.
-        let mut lifted: Vec<(String, Span)> = self
+        let mut lifted: Vec<(String, Span, DefId)> = self
             .tables
             .lifted
             .iter()
-            .map(|&(id, span)| (self.kernel.def(id).name().to_string(), span))
+            .map(|&(id, span)| (self.kernel.def(id).name().to_string(), span, id))
             .collect();
-        lifted.sort_by_key(|(name, _)| std::cmp::Reverse(name.len()));
+        lifted.sort_by_key(|(name, _, _)| std::cmp::Reverse(name.len()));
+        let printed = self.printed_matches(&d);
         let mut owners: Vec<String> = Vec::new();
         // How many different generated helpers the message mentions inline:
         // each prints as `(match …)`, so two of them look like one.
         let mut inline_helpers = 0;
-        for (bare, span) in lifted {
+        for (bare, span, id) in lifted {
             let mentioned = d.message.contains(&bare)
                 || d.labels.iter().any(|l| l.message.contains(&bare))
                 || d.notes.iter().any(|n| n.contains(&bare));
+            if !mentioned && printed.contains(&id) {
+                // Shown by the printer as `(match s with …)`: nothing to
+                // reword.
+                inline_helpers += 1;
+                if let Some((owner, _)) = bare.rsplit_once(".%match")
+                    && !owners.iter().any(|o| o == owner)
+                {
+                    owners.push(owner.to_string());
+                }
+                d = d.with_label(span, "this `match`");
+                continue;
+            }
             if !mentioned {
                 continue;
             }
@@ -1725,6 +1738,36 @@ impl Elaborator {
             );
         }
         self.explain_tuple_match(d)
+    }
+
+    /// The lifted `match` helpers whose calls the printer showed as
+    /// `(match s with …)` ([`Shown::note_match_shown`]) in `d`'s text: a
+    /// text it made names its helper. Where one text stands for several
+    /// helpers, the latest ones, as many as the text occurs.
+    fn printed_matches(&self, d: &Diagnostic) -> Vec<DefId> {
+        let texts: Vec<&str> = std::iter::once(d.message.as_str())
+            .chain(d.labels.iter().map(|l| l.message.as_str()))
+            .chain(d.notes.iter().map(String::as_str))
+            .collect();
+        let shown = self.decl.matches_shown.borrow();
+        let mut found = Vec::new();
+        let mut done: Vec<&str> = Vec::new();
+        for (text, _) in shown.iter() {
+            if done.contains(&text.as_str()) {
+                continue;
+            }
+            done.push(text);
+            let occurrences: usize = texts.iter().map(|t| t.matches(text.as_str()).count()).sum();
+            found.extend(
+                shown
+                    .iter()
+                    .rev()
+                    .filter(|(t, _)| t == text)
+                    .take(occurrences)
+                    .map(|(_, id)| *id),
+            );
+        }
+        found
     }
 
     /// A termination error at a call inside `match (xs, n) with` (SW-941):

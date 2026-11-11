@@ -1036,9 +1036,6 @@ impl<'g> Printer<'g> {
             Term::Meta(m) => (format!("?{m}"), Prec::Atom),
             Term::App(..) if let Some(shown) = self.label(names, term) => shown,
             Term::App(..) if let Some(shown) = self.update(names, term) => (shown, Prec::Atom),
-            Term::App(..) if let Some(shown) = self.lifted_match(names, term) => {
-                (shown, Prec::Atom)
-            }
             Term::App(..)
                 if !self.show_hidden.get()
                     && let Some(shown) = self.call_with_defaults(names, term) =>
@@ -1274,6 +1271,11 @@ impl<'g> Printer<'g> {
                         }
                         Dot::No => {}
                     }
+                }
+                // Last, so the notations that print a library helper (`if`
+                // on a decision) are tried first.
+                if let Some(shown) = self.lifted_match(names, term) {
+                    return (shown, Prec::Atom);
                 }
                 let head = self.print(names, head, Prec::App);
                 self.applied(names, head, args.into_iter())
@@ -2316,6 +2318,12 @@ impl<'g> Printer<'g> {
         let Term::Def(id) = head else {
             return None;
         };
+        // Only a `match` written in source: a definition's own clauses
+        // (`Bool.ifThenElse`, `Nat.leq`) record columns too, and print as
+        // the call or notation they have.
+        if !self.g.def(*id).name().contains(".%match") {
+            return None;
+        }
         let cols = self.g.shown.match_columns(*id)?;
         if args.len() != self.g.def(*id).arity() || cols.iter().any(|&c| c >= args.len()) {
             return None;
@@ -2324,7 +2332,9 @@ impl<'g> Printer<'g> {
             .iter()
             .map(|&c| self.print(names, args[c], Prec::Arrow))
             .collect();
-        Some(format!("(match {} with …)", scrutinees.join(", ")))
+        let shown = format!("(match {} with …)", scrutinees.join(", "));
+        self.g.shown.note_match_shown(*id, &shown);
+        Some(shown)
     }
 
     /// A call of an update's helper (`Shown::update_shown`), as the update:

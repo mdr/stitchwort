@@ -13,7 +13,7 @@ expression: output
     │ 
  23 │         | None => Witness (Cons k rest) rfl
     │                                         ─┬─  
-    │                                          ╰─── `(match …) rest (step n)` and `None` aren't equal
+    │                                          ╰─── `(match step n with …)` and `None` aren't equal
     │     
     │     Note 1: `rfl` proves `a = b` only when both sides compute to the same value
     │     
@@ -32,7 +32,7 @@ expression: output
     │ 
  22 │         | Some m => Witness (Cons k rest) rfl
     │                                           ─┬─  
-    │                                            ╰─── `(match …) rest (step n)` and `run m rest` aren't equal
+    │                                            ╰─── `(match step n with …)` and `run m rest` aren't equal
     │     
     │     Note 1: the right side is stuck on `rest`: it can't compute further until `rest` is known; a `match` on `rest` (or `cases rest`) splits it
     │     

@@ -21,7 +21,7 @@ expression: output
      │     
      │     Note 1: `?1` is the implicit argument `p` of `Parse.readsWeaken`, which wasn't worked out from the other arguments or the expected type; give it with `[p := …]`
      │     
-     │     Note 2: they first differ at `Std.Effect.bind (Std.Effect.bind ((match …) …) (first => …)) (x => Done …)` against `?1 ()`, in `Std.Effect.bind (Std.Effect.bind (Std.Effect.bind … …) (x => …)) (x => Call … …)`
+     │     Note 2: they first differ at `Std.Effect.bind (Std.Effect.bind (match … with …) (first => …)) (x => Done …)` against `?1 ()`, in `Std.Effect.bind (Std.Effect.bind (Std.Effect.bind … …) (x => …)) (x => Call … …)`
      │     
      │     Note 3: `Parse.Reads ?1 (x x1 => ∃ (v: NonEmptyList Nat) => Parse.SepBy (read n => read ≠ [] ∧ read.all Parse.isDigit ∧ n = Parse.digitsValue read) (x x2 => x = [',']) x v ∧ x1 = ?7 v)` is `∀ (state: Parse.State) (value: Starting) (after: Parse.Mark) => state.at.left = state.at.rest.length → Std.Effect.runPure (Std.Effect.foldComp … … …) state = Ok (value, after) → ∃ (read: List Char) => … = … ∧ … ∧ …`
      │     

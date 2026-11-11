@@ -81,6 +81,11 @@ pub trait Shown {
         None
     }
 
+    /// Records that the printer showed a call of lifted `match` helper `id`
+    /// as `text`, so a message that contains `text` can say where that
+    /// `match` is (`Elaborator::explain_lifted`).
+    fn note_match_shown(&self, _id: DefId, _text: &str) {}
+
     /// The parameter defaults of definition `id`'s header.
     fn param_defaults(&self, _id: DefId) -> Option<Rc<ParamDefaults>> {
         None
