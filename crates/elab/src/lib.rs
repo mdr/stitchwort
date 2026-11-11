@@ -1344,6 +1344,11 @@ impl Elaborator {
                 let note = if self.attempt.proof_holes.borrow().contains(&m) {
                     // A proof left as `_` (D641).
                     "write `?` to see what's needed here"
+                } else if matches!(self.unit.module.phase, Phase::Signature | Phase::Header) {
+                    // A `_` in a declaration's type is checked before its
+                    // body, so no argument or body can fill it (SW-2850).
+                    "a `_` in a declaration's type must be worked out from the type alone, \
+                     since the header is checked before the body: write the type here"
                 } else {
                     "supply it explicitly with `f [x := …]`, or add a type annotation"
                 };
