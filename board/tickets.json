@@ -1,5 +1,5 @@
 {
-  "next": 2876,
+  "next": 2878,
   "tickets": [
     {
       "id": 47,
@@ -30469,6 +30469,32 @@
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2876,
+      "title": "Aoc.Year2021.Day16.readPackets.induct is refused by the kernel (E-NOT-A-FUNCTION) on main; would fail a_projects_inducts. Find the shape (small repro didn't reproduce) and fix or skip with a reason (SW-2868)",
+      "status": "next",
+      "agent": "Opus",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2877,
+      "title": "f.induct: transmissionBits (2021 Day16) and sumMagnitudes (Day18) get none and no recorded reason: the recursive call is only in a several-expression match's scrutinee, so the generator decides they aren't recursive; record a reason, and consider splitting several-expression lifted matches (SW-2868)",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
       "body": "",
       "created": "2026-11-11",
       "updated": "2026-11-11",
