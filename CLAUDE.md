@@ -61,7 +61,15 @@ does not do significant work itself:
   when you can"). Moderate merge-conflict risk is fine; only lanes known to
   clash heavily (two sweeps, two lanes rewriting the same files) run one
   after another. Slots that would sit idle get paper lanes (designs,
-  reviews, research: no builds or tests; D3343).
+  reviews, research: no builds or tests; D3343). In lanes mode, every time
+  a lane, verifier or review finishes, it refills the slots (three build
+  lanes, DeepSeek runs counting as one each, plus paper lanes) from the
+  board before replying, without waiting to be asked (Matt, 11 Nov 2026:
+  "I had to prompt you to keep filling up work").
+- It watches Overmind's long jobs: when it starts one, it notes the
+  expected end time, and once that passes without a report it asks
+  Overmind for a status check at the next turn (Matt, 11 Nov 2026: a full
+  tier hit its cap and stopped, and Matt had to prompt the check).
 - It creates each lane's worktree itself, from the main checkout:
   `nix develop -c task worktree:new -- SW-N` (`.claude/worktrees/SW-N`,
   branch `lane/SW-N`, from local `main`), and gives the agent the path.
