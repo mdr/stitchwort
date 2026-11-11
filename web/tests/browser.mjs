@@ -521,6 +521,10 @@ test("the compiler's files are asked for by content hash (pkg/version.json)", as
   const version = await page.ev(`fetch("pkg/version.json").then((r) => r.json())`);
   assert.match(version.compiler, /^[0-9a-f]{16}$/);
   assert.match(version.projects, /^[0-9a-f]{16}$/);
+  // The compiler's worker starts on the first request for it (the Tests tab,
+  // Run); the Check pane is the language server's.
+  await page.tab("tests");
+  await page.until(`document.getElementById("output").dataset.for === window.editor.value`, 30000, "the tests' results");
   const asked = await page.ev(`performance.getEntriesByType("resource").map((e) => new URL(e.name).pathname.split("/").pop() + new URL(e.name).search)`);
   assert.ok(asked.includes("version.json"), `version.json is fetched: ${asked}`);
   assert.ok(asked.includes(`stitchwort_web_bg.wasm?v=${version.compiler}`), `the WebAssembly: ${asked}`);
@@ -529,8 +533,8 @@ test("the compiler's files are asked for by content hash (pkg/version.json)", as
   await page.pick("aoc:0");
   await page.untilStatus(dayStatus(1), 60000);
   const manifest = await page.ev(`performance.getEntriesByType("resource").map((e) => new URL(e.name).pathname.split("/").pop() + new URL(e.name).search).filter((a) => a.startsWith("manifest.json"))`);
-  // aoc, rogue and sf, and book when book/ exists.
-  assert.ok(manifest.length >= 3 && manifest.every((a) => a === `manifest.json?v=${version.projects}`), `one manifest per bundled project: ${manifest}`);
+  // One per bundled project: aoc, rogue, sf and book.
+  assert.ok(manifest.length === 4 && manifest.every((a) => a === `manifest.json?v=${version.projects}`), `one manifest per bundled project: ${manifest}`);
 });
 
 test("every example checks, and passes its tests but the failing one", async (page) => {
@@ -662,7 +666,7 @@ test("warnings show apart from errors, without stopping anything", async (page) 
   let s = await shown();
   assert.equal(s.count, "1 warning");
   assert.match(s.output, /Every definition type-checks/);
-  assert.match(s.warnings, /^\[W-MODULE-NAME\] Warning:/);
+  assert.match(s.warnings, /^\[W-MODULE-NAME\] `a` in this type/);
   assert.equal(s.errors, null);
   // With an error as well: each in its own box, in its own colour.
   await page.setSource(WARNED + "\ndef bad : Nat := rfl\n");
@@ -942,6 +946,7 @@ test("the JavaScript tab", async (page) => {
 
 test("the JavaScript tab shows the declarations and the module in full, and scrolls", async (page) => {
   await page.open();
+  await page.untilChecked();
   await page.pick("ex-js");
   await page.untilChecked();
   await page.tab("js");
@@ -966,6 +971,7 @@ test("the JavaScript tab shows the declarations and the module in full, and scro
 
 test("Run, with scripted input", async (page) => {
   await page.open();
+  await page.untilChecked();
   await page.pick("ex-main");
   await page.untilChecked();
   const result = await page.run();
@@ -2024,7 +2030,7 @@ test("the roguelike is a second project: it checks with its proofs, plays on key
   await page.untilChecked();
   const groups = await page.until(`[...document.querySelectorAll("#example optgroup")].some((g) => g.label === "Roguelike") &&
     [...document.querySelectorAll("#example optgroup")].map((g) => [g.label, [...g.children].map((o) => o.value + "=" + o.textContent)])`, 10000, "every group");
-  assert.deepEqual(groups.at(-1), ["Roguelike", ["rogue:0=Play", "rogue:1=Play (scripted)"]]);
+  assert.deepEqual(groups.find(([label]) => label === "Roguelike"), ["Roguelike", ["rogue:0=Play", "rogue:1=Play (scripted)"]]);
   // The bundle is the sources alone.
   const manifest = await page.ev(`fetch("pkg/projects/rogue/manifest.json").then((r) => r.json())`);
   assert.ok(manifest.files.length > 15 && manifest.files.every((p) => /^src\/.*\.sw$/.test(p)), manifest.files.join());

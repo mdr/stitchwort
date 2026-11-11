@@ -704,12 +704,14 @@ enum SearchKind {
     },
     /// Splitting a variable at the `?` at `hole`: just `only` when set,
     /// else every variable ([`hole_splits`]), after the quick fixes
-    /// `fixes` already found.
+    /// `fixes` already found and before `last`, the "Search for a proof"
+    /// action, which closes the list.
     SplitHole {
         hole: Position,
         only: Option<String>,
         versioned: Option<i32>,
         fixes: serde_json::Value,
+        last: Option<serde_json::Value>,
     },
     /// What can follow the `.` at byte `dot`, after `wanted` bytes of a
     /// name typed ([`Main::member_completion`]).
@@ -765,6 +767,7 @@ impl Search {
                 only,
                 versioned,
                 fixes,
+                last,
             } => {
                 let text = target.text.clone();
                 let mut actions = fixes.as_array().cloned().unwrap_or_default();
@@ -779,6 +782,7 @@ impl Search {
                     versioned,
                     cancel,
                 ));
+                actions.extend(last);
                 if actions.is_empty() {
                     serde_json::Value::Null
                 } else {
@@ -1405,6 +1409,7 @@ impl Main {
                         only: Some(name),
                         versioned: document_changes.then_some(version),
                         fixes,
+                        last: None,
                     },
                 });
                 return;
@@ -1437,8 +1442,7 @@ impl Main {
         };
         // The search for a proof is offered, not run: everything else is
         // answered at once (D3519).
-        let mut fixes = fixes.as_array().cloned().unwrap_or_default();
-        fixes.push(serde_json::json!({
+        let search = serde_json::json!({
             "title": SEARCH_TITLE,
             "kind": "quickfix",
             "command": {
@@ -1446,7 +1450,7 @@ impl Main {
                 "command": SEARCH_PROOF,
                 "arguments": [{"uri": uri.as_str(), "range": range}],
             },
-        }));
+        });
         let document_changes = self.document_changes;
         self.queue_search(id, &uri.clone(), "codeAction", move |version| Search {
             uri,
@@ -1456,7 +1460,8 @@ impl Main {
                 hole: range.start,
                 only: None,
                 versioned: document_changes.then_some(version),
-                fixes: serde_json::Value::Array(fixes),
+                fixes,
+                last: Some(search),
             },
         });
     }

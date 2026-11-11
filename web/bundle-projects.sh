@@ -263,28 +263,18 @@ sf_entries() {
   done
 }
 
-# book/src/Book/ChNN…: a chapter is a file `ChNNName.sw`, or a folder
-# `ChNNName/` (opening at `ChNNName.sw` in it if there is one, else its first
-# file), in order of NN. The title is "Chapter N: Name" (the name split at
-# capitals), the slug is N.
+# book/src/NN-name.sw: a chapter is one file, in order of NN. The title is
+# "Chapter N: Title", from the file's `-- Chapter N. Title` header line (just
+# "Chapter N" if it has none), and the slug is N.
 book_entries() {
-  local chapter base number name title folder open
-  for chapter in $(find src/Book -mindepth 1 -maxdepth 1 -name 'Ch[0-9][0-9]*' | sort); do
-    base=$(basename "$chapter" .sw)
-    number=$((10#$(printf '%s' "$base" | sed 's/^Ch\([0-9][0-9]*\).*/\1/')))
-    name=$(printf '%s' "$base" | sed 's/^Ch[0-9]*//; s/\([a-z0-9]\)\([A-Z]\)/\1 \2/g')
+  local file base number heading title
+  for file in $(find src -mindepth 1 -maxdepth 1 -type f -name '[0-9][0-9]-*.sw' | sort); do
+    base=$(basename "$file")
+    number=$((10#${base%%-*}))
+    heading=$(sed -n 's/^-- Chapter [0-9][0-9]*\. *//p' "$file" | head -n 1)
     title="Chapter $number"
-    [ -n "$name" ] && title="$title: $name"
-    if [ -d "$chapter" ]; then
-      files=$(find "$chapter" -type f -name '*.sw' | sort)
-      open="$chapter/$base.sw"
-      [ -f "$open" ] || open=$(printf '%s\n' "$files" | head -n 1)
-    else
-      files=$chapter
-      open=$chapter
-    fi
-    # shellcheck disable=SC2086
-    chapter_entry "$title" "$number" "$open" $files
+    [ -n "$heading" ] && title="$title: $heading"
+    chapter_entry "$title" "$number" "$file" "$file"
     echo
   done
 }
