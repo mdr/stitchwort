@@ -1562,6 +1562,19 @@ variable (2024 days 7, 10, 21), 5 a recursive call inside a lifted `match` not i
 18) are among those made. (2021 day 18's `explode` as first written would be skipped too, its
 `eq3` cases having no equations, 1d's limit; AoC keeps the reshaped one.)
 
+**The skips above, checked again** (SW-2868, 11 Nov 2026, one `doc` per definition, not the
+sweeps, which a lane doesn't run; the counts of made ones aren't re-measured). std: of the 9,
+`List.unfold`, `Map.Tree.lookupList`, `Map.Spec.lastBelow`, `Map.lookupWithOnto` (SW-1073) and
+`Key.allWithin` are made; `Text.readDigits`, `Map.Tree.buildFuel`, `Parse.Each` and
+`Parse.Scattered` are still skipped (a call whose argument is a lambda's variable). AoC: 2021 day
+16's `badOperatorIn` no longer exists; 2024 day 17's `Machine.run` (SW-2868) and day 23's
+`Links.largestFrom` are made; 2024 day 24's `repair` is skipped for a `match` below an
+alternative that splits a variable bound further up (SW-1069's limit); 2021 day 16's
+`readPackets` is **refused by the kernel** (`E-NOT-A-FUNCTION`, on `main` too); 2021 day 16's
+`Spec.transmissionBits` and day 18's `sumMagnitudes` now have their equations (a `match` on
+several expressions, SW-1074) but get no `f.induct` and no reason: their recursive call is in the
+scrutinee, so no case has an `ih` and the definition is taken as not recursive.
+
 **A real theorem by it.** §6.1's `fillCorrect`, proved again by the generated
 `Garden.fill.induct` with its statement unchanged
 ([prototypes/day12-fill-induct.sw](function-equations/prototypes/day12-fill-induct.sw), run in a
@@ -1587,14 +1600,57 @@ program that names no library equation pays nothing for std's.
    uses the refutation), so neither is the case. A generator could split on the decision itself
    (`d = No r` makes the right side compute), but that is a case equation of its own.
 4. **Not covered in 2a**: an overlap hypothesis that a number or character arm makes; a lifted
-   `match` with a number literal (a catch-all gets its case since SW-1073: at each constructor
-   no other alternative takes, the hypotheses that the earlier alternatives didn't match are
-   proved from the split's equation `e = C fields`, by the `%apart` definitions below); a nested pattern whose inner type has several
-   constructors or indices, whose constructor has a later field whose type depends on the nested
-   one, or a nested `match` below a split of its own (a nested pattern over non-indexed
-   one-constructor types, `Some (MkPair v next)`, is split again by the inner type's `%splitN`
-   and the alternative's equation rebuilt by `J`, SW-1073); a `match` compiled into a helper's
-   tree below an alternative. Each is recorded.
+   `match` on an indexed type, with a number literal above 64, or whose nested pattern is on a
+   constructor with a later field whose type depends on the nested one; a catch-all whose
+   earlier alternative differs from it only inside a field of a type parameter's type, at a type
+   with variables (below); a `match` compiled into a helper's tree below an alternative. Each is
+   recorded. Catch-alls (SW-1073), number literals, nested patterns on any non-indexed type and
+   alternatives after ones they overlap (SW-2868) get their cases, by nested splitting.
+
+### Nested splitting (SW-2868)
+
+SW-1073 split a lifted `match` once, by the scrutinee's constructor, and a nested pattern again
+only on one-constructor types. 2024 day 17's `Machine.run` needs two alternatives on one
+constructor (`Next after None`, `Next after (Some value)`), and a literal is a chain of `Succ`s
+ending in `Zero` (`1` is `Succ Zero`, so `| 0 | 1 | _` needs a second split below `Succ`). Both
+are the same thing: splitting below the scrutinee for as long as some alternative's pattern
+needs it. As built (`induct.rs`, `alt_descend`, `alt_leaf`, `alt_refute`):
+
+- **The tree.** The scrutinee is split by its type's `%splitN` lemma. Below each constructor the
+  first alternative (in written order) whose pattern agrees with the splits so far is looked
+  at: if it has a constructor at a field that isn't split yet (the first such, by the order the
+  constructors were opened, then the field's), that field is split by its own type's lemma, and
+  so on below each of its constructors. A number literal `k ≤ 64` is read as `Succ` `k` times
+  around `Zero`. The first-agreeing rule is the `match`'s own semantics, so each place in the
+  tree is taken by the alternative that the program takes there. An alternative's proof is made
+  once and moved to every place it takes (a catch-all takes many).
+- **At a place**, the alternative's variables are the values the splits gave there (a field, or
+  the constructor split out of it, when another alternative made the split go deeper), its
+  equation `e = pattern` is built from the splits' equations by `J` (as SW-1073's one-constructor
+  nesting did), and each hypothesis that an earlier alternative `p` didn't match, `(vars) → v =
+  p → Void`, is proved where the value there and `p` differ in a constructor, with a `%apartN`
+  definition, bound by a `let`. For a catch-all `v` is the scrutinee, carried there along its
+  equation; for an alternative after one it overlaps (`Some n` after `Some 0`, whose equation
+  takes `n ≠ 0`) `v` is one of its variables, whose value there is a constructor already.
+- **A field declared at a parameter's type.** `%apartN` is stated over the root type's
+  parameters, which can't take a value apart inside `Some`'s field (its type is `a`). Such a
+  path is told apart at the instance instead (`Option (Option Nat)`), when the instance is
+  closed; at a type with variables (`Option (Option a)`) the definition is skipped with that
+  reason. The same check now guards the row-level refutation (`Tree::refute`), which the kernel
+  used to refuse there. Lifting it means a projection per step (`Option.getOr`-like) and a
+  discriminator on the field's own type; no target needs it yet.
+- **Unchanged terms.** For the shapes SW-1073 already made (one alternative per constructor,
+  nested one-constructor patterns, a catch-all) the generated proof is the same term: the hash
+  snapshots of `function-induct*.sw` and `match-induct.sw` didn't change.
+- **Cost.** One split per constructor in a pattern, so a literal `k` is `k + 1` splits on the
+  way to it; the limit of 64 keeps a table of large literals from blowing up the term. Each
+  hypothesis's proof is a `J` and an `%apartN` per place it is needed.
+
+Before and after, by definition: 2024 day 17's `Machine.run`, skipped ("a nested pattern on a
+type with several constructors"), now made (and `check --no-cache Aoc.Year2024.Day17` passes,
+2.0 s user). In `crates/driver/tests/proofs/function_induct.rs`, `nestedDeeper`, `nestedMulti`,
+`literal`, `overlap` and `closed` are made, `generic` skipped with the parameter's reason;
+`examples/accept/function-induct-split.sw` proves a theorem with each of the three new kinds.
 
 ## As built (stage 2b)
 

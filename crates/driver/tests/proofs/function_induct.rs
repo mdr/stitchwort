@@ -376,15 +376,17 @@ theorem unfoldNone (seed: s) (step: s → Option (Pair a s)) (measure: s → Nat
             ),
             "{before}"
         );
-        let why = skipped(s, "nestedDeeper.induct");
+        let deeper = generated(s, "nestedDeeper.induct");
         assert!(
-            why.contains("a nested pattern on a type with several constructors"),
-            "{why}"
+            deeper.contains("(c: Nat) → rest.head = Some (None, c) → motive")
+                && deeper.contains("(k: Nat) → (c: Nat) → rest.head = Some (Some k, c) → motive"),
+            "{deeper}"
         );
-        let why = skipped(s, "nestedMulti.induct");
+        let multi = generated(s, "nestedMulti.induct");
         assert!(
-            why.contains("a nested pattern on a type with several constructors"),
-            "{why}"
+            multi.contains("rest.head = Some None → motive")
+                && multi.contains("(k: Nat) → rest.head = Some (Some k) → motive"),
+            "{multi}"
         );
         let unfold = generated(s, "List.unfold.induct");
         let shrinks =
@@ -408,8 +410,8 @@ theorem unfoldNone (seed: s) (step: s → Option (Pair a s)) (measure: s → Nat
 
 /// A lifted `match` with a catch-all alternative (SW-1073): its case takes
 /// the hypotheses that the earlier alternatives didn't match, as the
-/// equation does, proved at each constructor the catch-all takes. One with a
-/// literal pattern isn't split, and says so.
+/// equation does, proved at each constructor the catch-all takes, number
+/// literals and nested patterns split as far as they go (SW-2868).
 #[test]
 fn a_catch_all_in_a_lifted_match() {
     let source = r#"
@@ -444,7 +446,33 @@ def literal: List Nat → Nat
   | Cons x rest =>
     match x % 3 with
       | 0 => Succ (literal rest)
+      | 2 => literal rest
       | _ => literal rest
+
+-- `Some n` after `Some 0` takes `n ≠ 0`, proved where `n` is `Succ`.
+def overlap: List Nat → Nat
+  | Nil => 0
+  | Cons x rest =>
+    match List.head rest with
+      | None => 0
+      | Some 0 => overlap rest
+      | Some n => n + overlap rest
+
+-- A catch-all after a nested pattern on a field of a parameter's type:
+-- told apart at the closed `Option (Option Nat)`, not at `Option (Option a)`.
+def closed: List (Option Nat) → Nat
+  | Nil => 0
+  | Cons x rest =>
+    match List.head rest with
+      | Some None => 1
+      | _ => closed rest
+
+def generic (d: a): List (Option a) → a
+  | Nil => d
+  | Cons x rest =>
+    match List.head rest with
+      | Some None => d
+      | _ => generic d rest
 "#
     .to_string();
     with_source(source, |session| {
@@ -460,7 +488,24 @@ def literal: List Nat → Nat
             "{skip_to}"
         );
         generated(session, "third.induct");
-        assert!(skipped(session, "literal.induct").contains("literal"));
+        let literal = generated(session, "literal.induct");
+        assert!(
+            literal.contains("→ x % 3 = 2 → motive")
+                && literal.contains("→ x % 3 ≠ 0 → x % 3 ≠ 2 → motive"),
+            "{literal}"
+        );
+        let overlap = generated(session, "overlap.induct");
+        assert!(
+            overlap.contains("(n: Nat) → rest.head = Some n → n ≠ 0 → motive"),
+            "{overlap}"
+        );
+        let closed = generated(session, "closed.induct");
+        assert!(
+            closed.contains("rest.head ≠ Some None → motive"),
+            "{closed}"
+        );
+        let why = skipped(session, "generic.induct");
+        assert!(why.contains("a type parameter's"), "{why}");
     });
 }
 
