@@ -1730,12 +1730,11 @@ fn verified(cache: &Cache) -> bool {
         return true;
     };
     for d in &v.disagreements {
-        let show = |o: Outcome| {
-            if o == Outcome::Passed {
-                "passed"
-            } else {
-                "failed"
-            }
+        let show = |o: Outcome| match o {
+            Outcome::Passed => "passed",
+            Outcome::Failed => "failed",
+            Outcome::OutOfResources(_) => "unfinished",
+            Outcome::Skipped => "skipped",
         };
         eprintln!(
             "error: cache disagrees with a fresh run: {}.{} (hash {}): cached {}, fresh {}",
@@ -1804,16 +1803,29 @@ fn test(
             cache
         }
     };
-    let run_tests = |session: &Session, cache: &Cache| {
+    let run_tests = |session: &Session, cache: &Cache, skip_unfinished: bool| {
         let keep = |test: &stitchwort_elab::TestDecl| output.only.is_none_or(|n| n == test.name);
         if reference {
-            return session.run_tests_where(cache, keep);
+            return if skip_unfinished {
+                session.run_tests_where_skipping_unfinished(cache, keep)
+            } else {
+                session.run_tests_where(cache, keep)
+            };
         }
         #[cfg(feature = "native")]
         if let Some(verbose) = native {
-            return session.run_tests_native_where(cache, keep, &NativeTestCompiler { verbose });
+            let native = NativeTestCompiler { verbose };
+            return if skip_unfinished {
+                session.run_tests_native_where_skipping_unfinished(cache, keep, &native)
+            } else {
+                session.run_tests_native_where(cache, keep, &native)
+            };
         }
-        session.run_tests_fast_where(cache, keep)
+        if skip_unfinished {
+            session.run_tests_fast_where_skipping_unfinished(cache, keep)
+        } else {
+            session.run_tests_fast_where(cache, keep)
+        }
     };
     match target {
         Some(file) if is_file_target(file) => {
@@ -1823,7 +1835,7 @@ fn test(
                 return ExitCode::FAILURE;
             }
             let cache = test_cache(cache, Path::new("."));
-            let results = run_tests(&session, &cache);
+            let results = run_tests(&session, &cache, false);
             let code = output.print(&session, &results, false, output.only.is_some());
             let code = if verified(&cache) {
                 code
@@ -1852,6 +1864,10 @@ fn test(
             let Some(project) = locate_project(project, "test", "test hello.sw") else {
                 return ExitCode::FAILURE;
             };
+            let Some(config) = read_project_config(&project) else {
+                return ExitCode::FAILURE;
+            };
+            let warn = config.open_goals == stitchwort_cli::project::OpenGoals::Warn;
             let target_name = target;
             let target = match target {
                 Some(name) => Target::Subtrees(vec![name.to_string()]),
@@ -1859,11 +1875,20 @@ fn test(
             };
             use_cache(&mut session, cache, &project.dir);
             let mut reported = Vec::new();
-            if !load_project_into(&mut session, &project, &target, &mut reported) {
+            if load_project_counting(
+                &mut session,
+                &project,
+                &target,
+                Load::Everything,
+                config.open_goals,
+                &mut reported,
+            )
+            .is_none()
+            {
                 return ExitCode::FAILURE;
             }
             let cache = test_cache(cache, &project.dir);
-            let results = run_tests(&session, &cache);
+            let results = run_tests(&session, &cache, warn);
             let code = output.print(
                 &session,
                 &results,
@@ -1891,6 +1916,7 @@ fn test(
             };
             let goals = goals_open(&reported);
             report_goals(goals);
+            report_allowed_goals(&reported);
             if goals > 0 || none {
                 ExitCode::FAILURE
             } else {
@@ -1970,6 +1996,13 @@ fn print_tests_json(session: &Session, results: &[TestResult], asked_for_some: b
                     ("failed", Some(message))
                 }
                 Outcome::OutOfResources(e) => ("unfinished", Some(format!("no result: {e}"))),
+                Outcome::Skipped => (
+                    "skipped",
+                    Some(match &r.skipped {
+                        Some(uses) => format!("uses {uses}, which has an open goal"),
+                        None => "uses a declaration with an open goal".to_string(),
+                    }),
+                ),
             };
             let at = session.test_location(&r.namespace, &r.name);
             let mut test = serde_json::json!({
@@ -2001,7 +2034,9 @@ fn print_tests_json(session: &Session, results: &[TestResult], asked_for_some: b
             test
         })
         .collect();
-    let ok = results.iter().all(|r| r.outcome == Outcome::Passed)
+    let ok = results
+        .iter()
+        .all(|r| matches!(r.outcome, Outcome::Passed | Outcome::Skipped))
         && !(asked_for_some && results.is_empty());
     println!("{}", serde_json::json!({"ok": ok, "tests": tests}));
     exit(ok)
@@ -2017,18 +2052,34 @@ fn print_tests(results: &[TestResult], grouped: bool) -> ExitCode {
             namespace = Some(result.namespace.as_str());
             println!("{}", result.namespace);
         }
-        let (mark, why) = match result.outcome {
-            Outcome::Passed => ("✓", String::new()),
+        let (mark, how, why) = match result.outcome {
+            Outcome::Passed => (
+                "✓",
+                if result.cached { "cached" } else { "ran" },
+                String::new(),
+            ),
             Outcome::Failed => (
                 "✗",
+                if result.cached { "cached" } else { "ran" },
                 match result.detail.as_ref().and_then(|d| d.comparison.as_ref()) {
                     Some(c) => format!("  (`{}` is False)", c.op),
                     None => "  (evaluated to False)".to_string(),
                 },
             ),
-            Outcome::OutOfResources(e) => ("!", format!("  (no result: {e})")),
+            Outcome::OutOfResources(e) => (
+                "!",
+                if result.cached { "cached" } else { "ran" },
+                format!("  (no result: {e})"),
+            ),
+            Outcome::Skipped => (
+                "-",
+                "skipped",
+                match &result.skipped {
+                    Some(uses) => format!(": uses {uses}, which has an open goal"),
+                    None => ": uses a declaration with an open goal".to_string(),
+                },
+            ),
         };
-        let how = if result.cached { "cached" } else { "ran" };
         println!("  {mark} {:width$}  {how}{why}", result.name);
         if let Some(detail) = &result.detail {
             if let Some(c) = &detail.comparison {
@@ -2051,18 +2102,25 @@ fn print_tests(results: &[TestResult], grouped: bool) -> ExitCode {
     let count = |f: fn(&Outcome) -> bool| results.iter().filter(|r| f(&r.outcome)).count();
     let passed = count(|o| *o == Outcome::Passed);
     let failed = count(|o| *o == Outcome::Failed);
+    let skipped = count(|o| matches!(o, Outcome::Skipped));
     let unfinished = count(|o| matches!(o, Outcome::OutOfResources(_)));
     let cached = results.iter().filter(|r| r.cached).count();
+    let skipped_note = if skipped > 0 {
+        format!(", {skipped} skipped")
+    } else {
+        String::new()
+    };
     let unfinished_note = if unfinished > 0 {
         format!(", {unfinished} ran out of resources")
     } else {
         String::new()
     };
     println!(
-        "{} test(s): {passed} passed, {failed} failed{unfinished_note} ({cached} from the cache)",
+        "{} test(s): {passed} passed, {failed} failed{skipped_note}{unfinished_note} \
+         ({cached} from the cache)",
         results.len(),
     );
-    exit(passed == results.len())
+    exit(passed + skipped == results.len())
 }
 
 /// Loads `target` (a file, or the full name of a function in the project)

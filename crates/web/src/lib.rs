@@ -234,6 +234,10 @@ fn test_answer(session: &Session, known: &str, with_namespace: bool) -> String {
                 Outcome::Passed => "passed".to_string(),
                 Outcome::Failed => "failed".to_string(),
                 Outcome::OutOfResources(e) => format!("no result: {e}"),
+                Outcome::Skipped => match &r.skipped {
+                    Some(uses) => format!("uses {uses}, which has an open goal"),
+                    None => "uses a declaration with an open goal".to_string(),
+                },
             };
             let namespace = if with_namespace {
                 format!(r#","namespace":{}"#, json_string(&r.namespace))
@@ -257,7 +261,7 @@ fn test_answer(session: &Session, known: &str, with_namespace: bool) -> String {
             let outcome = match outcome {
                 Outcome::Passed => "passed",
                 Outcome::Failed => "failed",
-                Outcome::OutOfResources(_) => return String::new(),
+                Outcome::OutOfResources(_) | Outcome::Skipped => return String::new(),
             };
             format!("{key} {outcome}\n")
         })

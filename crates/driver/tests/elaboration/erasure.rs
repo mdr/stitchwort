@@ -22,6 +22,7 @@ fn outcomes(session: &mut Session) -> Vec<(String, &'static str)> {
                 Outcome::Passed => "passed",
                 Outcome::Failed => "failed",
                 Outcome::OutOfResources(_) => "out of resources",
+                Outcome::Skipped => "skipped",
             };
             (r.name, o)
         })

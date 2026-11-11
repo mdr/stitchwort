@@ -228,7 +228,7 @@ impl Session {
     /// program's (docs/proposals/std-library.md §4.7): see
     /// [`Session::run_library_tests`].
     pub fn run_tests(&self, cache: &Cache) -> Vec<TestResult> {
-        self.run_selected(cache, &|test| !test.library, Runner::Reference)
+        self.run_selected(cache, &|test| !test.library, Runner::Reference, false)
     }
 
     /// [`Session::run_tests`], for only the tests `keep` keeps.
@@ -241,6 +241,23 @@ impl Session {
             cache,
             &|test| !test.library && keep(test),
             Runner::Reference,
+            false,
+        )
+    }
+
+    /// [`Session::run_tests_where`], reporting a test that uses a declaration
+    /// with an open goal (`?`) as skipped rather than leaving it out
+    /// (`check: open-goals: warn`, D3500).
+    pub fn run_tests_where_skipping_unfinished(
+        &self,
+        cache: &Cache,
+        keep: impl Fn(&stitchwort_elab::TestDecl) -> bool,
+    ) -> Vec<TestResult> {
+        self.run_selected(
+            cache,
+            &|test| !test.library && keep(test),
+            Runner::Reference,
+            true,
         )
     }
 
@@ -249,7 +266,7 @@ impl Session {
     /// or finish runs on the reference evaluator, which also still explains
     /// a failure (SW-412).
     pub fn run_tests_fast(&self, cache: &Cache) -> Vec<TestResult> {
-        self.run_selected(cache, &|test| !test.library, Runner::Machine)
+        self.run_selected(cache, &|test| !test.library, Runner::Machine, false)
     }
 
     /// [`Session::run_tests_fast`], for only the tests `keep` keeps.
@@ -258,7 +275,28 @@ impl Session {
         cache: &Cache,
         keep: impl Fn(&stitchwort_elab::TestDecl) -> bool,
     ) -> Vec<TestResult> {
-        self.run_selected(cache, &|test| !test.library && keep(test), Runner::Machine)
+        self.run_selected(
+            cache,
+            &|test| !test.library && keep(test),
+            Runner::Machine,
+            false,
+        )
+    }
+
+    /// [`Session::run_tests_fast_where`], reporting a test that uses a
+    /// declaration with an open goal (`?`) as skipped rather than leaving it
+    /// out (`check: open-goals: warn`, D3500).
+    pub fn run_tests_fast_where_skipping_unfinished(
+        &self,
+        cache: &Cache,
+        keep: impl Fn(&stitchwort_elab::TestDecl) -> bool,
+    ) -> Vec<TestResult> {
+        self.run_selected(
+            cache,
+            &|test| !test.library && keep(test),
+            Runner::Machine,
+            true,
+        )
     }
 
     /// [`Session::run_tests_fast_where`], as native code where it can
@@ -277,13 +315,31 @@ impl Session {
             cache,
             &|test| !test.library && keep(test),
             Runner::Native(native),
+            false,
+        )
+    }
+
+    /// [`Session::run_tests_native_where`], reporting a test that uses a
+    /// declaration with an open goal (`?`) as skipped rather than leaving it
+    /// out (`check: open-goals: warn`, D3500).
+    pub fn run_tests_native_where_skipping_unfinished(
+        &self,
+        cache: &Cache,
+        keep: impl Fn(&stitchwort_elab::TestDecl) -> bool,
+        native: &dyn NativeTests,
+    ) -> Vec<TestResult> {
+        self.run_selected(
+            cache,
+            &|test| !test.library && keep(test),
+            Runner::Native(native),
+            true,
         )
     }
 
     /// Runs the tests of the core and of the library files loaded (all of
     /// them, in [`Session::with_library_tests`]).
     pub fn run_library_tests(&self, cache: &Cache) -> Vec<TestResult> {
-        self.run_selected(cache, &|test| test.library, Runner::Reference)
+        self.run_selected(cache, &|test| test.library, Runner::Reference, false)
     }
 
     /// The tests `selected` that `cache` has no result for, lowered together
@@ -332,7 +388,13 @@ impl Session {
         Some((TestMachine { program }, wanted))
     }
 
-    fn run_selected(&self, cache: &Cache, selected: &Selection, runner: Runner) -> Vec<TestResult> {
+    fn run_selected(
+        &self,
+        cache: &Cache,
+        selected: &Selection,
+        runner: Runner,
+        skip_unfinished: bool,
+    ) -> Vec<TestResult> {
         let g = &self.elab.ev();
         // A result is kept per runner: the two are only differentially
         // tested to agree (docs/proposals/fast-runtime.md).
@@ -366,10 +428,26 @@ impl Session {
             .tests()
             .iter()
             .filter(|test| selected(test))
+            .filter(|test| skip_unfinished || !self.elab.is_unfinished(test.def))
             .map(|test| {
                 // Each test is one operation, with its own resource limits:
                 // hashing it, then running it unless its result is cached.
                 let _op = g.machine.budget.operation(self.elab.options.limits);
+                if skip_unfinished && self.elab.is_unfinished(test.def) {
+                    let uses = test
+                        .unfinished
+                        .clone()
+                        .unwrap_or_else(|| "a declaration".to_string());
+                    return TestResult {
+                        name: test.name.clone(),
+                        namespace: test.namespace.clone(),
+                        outcome: Outcome::Skipped,
+                        cached: false,
+                        hash: None,
+                        detail: None,
+                        skipped: Some(uses),
+                    };
+                }
                 let hash = match def_hash(g, test.def) {
                     Ok(hash) => hash.expect("tests are checked before they run"),
                     Err(e) => {
@@ -380,6 +458,7 @@ impl Session {
                             cached: false,
                             hash: None,
                             detail: None,
+                            skipped: None,
                         };
                     }
                 };
@@ -392,6 +471,7 @@ impl Session {
                         cached: true,
                         hash: Some(hash),
                         detail: self.failure(test, outcome),
+                        skipped: None,
                     };
                 }
                 // A test that runs partial code is a `Delay` (D1183).
@@ -448,6 +528,7 @@ impl Session {
                     cached: false,
                     hash: Some(hash),
                     detail: self.failure(test, outcome),
+                    skipped: None,
                 }
             })
             .collect();

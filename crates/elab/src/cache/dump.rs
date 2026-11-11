@@ -462,5 +462,8 @@ impl Dump for TestDecl {
             out.push_str(" probe ");
             dump_probe(out, probe);
         }
+        if let Some(name) = &self.unfinished {
+            let _ = write!(out, " unfinished {name}");
+        }
     }
 }
