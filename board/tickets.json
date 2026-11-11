@@ -29827,12 +29827,12 @@
     {
       "id": 2827,
       "title": "operators.rs golden-term tests still expect Bool.ifThenElse after Decidable stage 3 (SW-2761): golden_terms_on_nat_and_int and relation_deciders_come_from_the_same_dictionary fail on main; update to Decidable.elim and their comments",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2827",
       "labels": [],
       "epic": "proof-automation",
-      "body": "",
+      "body": "\n\nProgress: golden terms updated to Decidable.elim (leastNat, leastInt, before, below, beforeNat, textBefore, withOrd); operators:: 6/6 pass.\n",
       "created": "2026-11-11",
       "updated": "2026-11-11",
       "commits": []

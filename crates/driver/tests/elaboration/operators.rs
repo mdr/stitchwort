@@ -111,13 +111,12 @@ const NAMES: [&str; 19] = [
     "textBefore",
 ];
 
-/// The terms on `Nat` and `Int`, as they were before stage 5 (checked
-/// against the compiler of that time): `+` and `*` are the built-in
-/// operations, and an `auto` proof of `x < y` is what it was (`Refl` for
-/// numbers, the hypothesis or the `if`'s proof otherwise). `if x < y` whose
-/// branches don't use the proof is the `Bool` `if` on the comparison's
-/// `Bool` (`Nat.leq (Succ x) y`), since 28 Oct (9afc8973); `fromIf`, whose
-/// branch uses it, is still decided by `Int.decLessThan`.
+/// The terms on `Nat` and `Int`: `+` and `*` are the built-in operations,
+/// and an `auto` proof of `x < y` is `Refl` for numbers, the hypothesis or
+/// the `if`'s proof otherwise. Every `if` on a comparison is a
+/// `Decidable.elim` on the relation (`Nat.LessThan`, `Int.LessEq`) with the
+/// type's own decider (`Nat.decLessThan`, `Int.decLessEq`), whether or not a
+/// branch uses the proof (`fromIf` does).
 #[test]
 fn golden_terms_on_nat_and_int() {
     let session = load(SAMPLE, false);
@@ -132,13 +131,13 @@ fn golden_terms_on_nat_and_int() {
         ),
         (
             "leastNat",
-            "(fun (fun ((((Std.Bool.ifThenElse implicit (Std.Nat )) ((Std.Nat.leq (Succ #1)) \
-             #0)) (fun #2)) (fun #1))))",
+            "(fun (fun (((((Std.Decidable.elim implicit ((Std.Nat.LessThan #1) #0)) implicit \
+             (Std.Nat )) ((Std.Nat.decLessThan #1) #0)) (fun #2)) (fun #1))))",
         ),
         (
             "leastInt",
-            "(fun (fun ((((Std.Bool.ifThenElse implicit (Std.Int )) ((Std.Int.leq #1) #0)) (fun \
-             #2)) (fun #1))))",
+            "(fun (fun (((((Std.Decidable.elim implicit ((Std.Int.LessEq #1) #0)) implicit \
+             (Std.Int )) ((Std.Int.decLessEq #1) #0)) (fun #2)) (fun #1))))",
         ),
         ("leNat", "(fun (fun ((Std.Nat.leq #1) #0)))"),
         ("useNat", "(((Main.provedNat 1) 2) auto Refl)"),
@@ -246,58 +245,57 @@ fn primitive_and_uniform_lowering_agree_on_the_library_and_aoc() {
     }
 }
 
-/// §5.16's acceptance cases, by the terms: a generic `if x < y` is decided
-/// by `Ord.decLessThan` from the same dictionary, `ord` (step 2), its
-/// `Bool` taken by `Decidable.holds` since neither branch uses the proof; a
-/// predicate behind a definition is unfolded and decided the same way (step
-/// 5, then 2); `beforeNat`, given `Nat.descending` by name, decides with its
-/// dictionary's decider, not `Nat.decLessThan` (so it agrees with `before`:
-/// `examples/accept/operators.sw` runs both); and a concrete `Nat`
-/// conditional is today's term (`golden_terms_on_nat_and_int`'s
-/// `leastNat`).
+/// §5.16's acceptance cases, by the terms: a generic `if x < y` is a
+/// `Decidable.elim` on the relation, decided by `Ord.decLessThan` from the
+/// same dictionary, `ord` (step 2); a predicate behind a definition is
+/// unfolded and decided the same way (step 5, then 2); `beforeNat`, given
+/// `Nat.descending` by name, decides with its dictionary's decider, not
+/// `Nat.decLessThan` (so it agrees with `before`: `examples/accept/operators.sw`
+/// runs both); and a concrete `Nat` conditional is decided by
+/// `Nat.decLessThan` (`golden_terms_on_nat_and_int`'s `leastNat`).
 #[test]
 fn relation_deciders_come_from_the_same_dictionary() {
     let session = load(SAMPLE, false);
     let decided = |name: &str| body(&session, name);
     assert_eq!(
         decided("before"),
-        "(fun implicit (fun auto (fun (fun ((((Std.Bool.ifThenElse implicit (Std.Bool )) \
-         ((Std.Decidable.holds implicit ((((Std.Ord.lessThan implicit #3) auto #2) #1) #0)) \
-         ((((Std.Ord.decLessThan implicit #3) auto #2) #1) #0))) (fun (True ))) (fun (False \
+        "(fun implicit (fun auto (fun (fun (((((Std.Decidable.elim implicit \
+         ((((Std.Ord.lessThan implicit #3) auto #2) #1) #0)) implicit (Std.Bool )) \
+         ((((Std.Ord.decLessThan implicit #3) auto #2) #1) #0)) (fun (True ))) (fun (False \
          )))))))"
     );
     assert_eq!(
         decided("below"),
-        "(fun implicit (fun auto (fun (fun ((((Std.Bool.ifThenElse implicit (Std.Bool )) \
-         ((Std.Decidable.holds implicit ((((Main.Below implicit #3) auto #2) #1) #0)) \
-         ((((Std.Ord.decLessThan implicit #3) auto #2) #1) #0))) (fun (True ))) (fun (False \
+        "(fun implicit (fun auto (fun (fun (((((Std.Decidable.elim implicit \
+         ((((Main.Below implicit #3) auto #2) #1) #0)) implicit (Std.Bool )) \
+         ((((Std.Ord.decLessThan implicit #3) auto #2) #1) #0)) (fun (True ))) (fun (False \
          )))))))"
     );
     assert_eq!(
         decided("beforeNat"),
-        "(fun auto (fun (fun ((((Std.Bool.ifThenElse implicit (Std.Bool )) \
-         ((Std.Decidable.holds implicit ((((Std.Ord.lessThan implicit (Std.Nat )) auto #2) \
-         #1) #0)) ((((Std.Ord.decLessThan implicit (Std.Nat )) auto #2) #1) #0))) (fun (True \
-         ))) (fun (False ))))))"
+        "(fun auto (fun (fun (((((Std.Decidable.elim implicit \
+         ((((Std.Ord.lessThan implicit (Std.Nat )) auto #2) #1) #0)) implicit (Std.Bool )) \
+         ((((Std.Ord.decLessThan implicit (Std.Nat )) auto #2) #1) #0)) (fun (True ))) (fun \
+         (False ))))))"
     );
     assert_eq!(decided("least"), decided("leastNat"));
     // A global instance whose relation is a lambda isn't projected; its
     // decider comes from the same dictionary, by name, as written.
     assert_eq!(
         decided("textBefore"),
-        "(fun (fun ((((Std.Bool.ifThenElse implicit (Std.Bool )) ((Std.Decidable.holds \
-         implicit ((((Std.Ord.lessThan implicit (Std.Text )) auto Std.Text.instOrd) #1) #0)) \
-         ((((Std.Ord.decLessThan implicit (Std.Text )) auto Std.Text.instOrd) #1) #0))) (fun \
-         (True ))) (fun (False )))))"
+        "(fun (fun (((((Std.Decidable.elim implicit \
+         ((((Std.Ord.lessThan implicit (Std.Text )) auto Std.Text.instOrd) #1) #0)) implicit \
+         (Std.Bool )) ((((Std.Ord.decLessThan implicit (Std.Text )) auto Std.Text.instOrd) #1) \
+         #0)) (fun (True ))) (fun (False )))))"
     );
     // With a dictionary of `Ord Nat` in scope, `<` uses it; `+` and `*`
     // still find the library's `Add` and `Mul`, projected.
     assert_eq!(
         decided("withOrd"),
-        "(fun auto (fun (fun ((((Std.Bool.ifThenElse implicit (Std.Nat )) \
-         ((Std.Decidable.holds implicit ((((Std.Ord.lessThan implicit (Std.Nat )) auto #2) \
-         #1) #0)) ((((Std.Ord.decLessThan implicit (Std.Nat )) auto #2) #1) #0))) (fun \
-         ((Std.Nat.add #2) #1))) (fun ((Std.Nat.mul #2) #1))))))"
+        "(fun auto (fun (fun (((((Std.Decidable.elim implicit \
+         ((((Std.Ord.lessThan implicit (Std.Nat )) auto #2) #1) #0)) implicit (Std.Nat )) \
+         ((((Std.Ord.decLessThan implicit (Std.Nat )) auto #2) #1) #0)) (fun ((Std.Nat.add \
+         #2) #1))) (fun ((Std.Nat.mul #2) #1))))))"
     );
 }
 
