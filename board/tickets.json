@@ -30358,12 +30358,12 @@
     {
       "id": 2867,
       "title": "function_induct::a_nested_pattern_in_a_lifted_match fails on main's debug build: E-RESOURCE 'nested too deeply' checking List.sumByFilter (256 MB stack doesn't help; release CLI checks it fine); likely work_limit or the stack floor (SW-1073)",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2867",
       "labels": [],
       "epic": "test-infra",
-      "body": "",
+      "body": "Progress: cause was the test's own session, not the build profile. `Session::new()` has limits for a 2 MiB thread (about 1.5 MiB of measured stack), and the test thread had 64 MiB, so the session's stack floor, not the thread, decided. Debug frames are several times larger than release, so the library's deeper proofs (List.sumByFilter, loaded on demand) exceeded that budget only in debug; a bigger thread changed nothing. Fix: the file's sessions are made with `Session::for_stack(STACK)` for the thread's size (and the ignored eager ones likewise). All four function_induct tests pass in debug.",
       "created": "2026-11-11",
       "updated": "2026-11-11",
       "commits": []

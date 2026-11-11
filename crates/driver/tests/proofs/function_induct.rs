@@ -104,11 +104,17 @@ fn statement(g: &stitchwort_core::Ev, ty: &Term) -> String {
     out + &stitchwort_core::pretty::term(g, &names, t)
 }
 
+/// The tests' thread stack, and the session's limits are made for the same
+/// size: a session built with `Session::new()` assumes a 2 MiB thread, and
+/// in a debug build (whose frames are several times larger) the library's
+/// deeper proofs ran out of that budget however big the thread was.
+const STACK: usize = 64 << 20;
+
 fn with_source(source: String, f: impl FnOnce(&Session) + Send + 'static) {
     std::thread::Builder::new()
-        .stack_size(64 << 20)
+        .stack_size(STACK)
         .spawn(move || {
-            let mut session = Session::new();
+            let mut session = Session::for_stack(STACK);
             if let Err(errors) = session.load("induct.sw", &source) {
                 panic!("doesn't load: {errors:#?}");
             }
@@ -506,9 +512,9 @@ theorem Count.induct: Nat := 0
 "#
     );
     std::thread::Builder::new()
-        .stack_size(64 << 20)
+        .stack_size(STACK)
         .spawn(move || {
-            let mut session = Session::new();
+            let mut session = Session::for_stack(STACK);
             let errors = session.load("induct.sw", &wrong).expect_err("they fail");
             let mut codes: Vec<&str> = errors.iter().map(|d| d.code).collect();
             codes.sort_unstable();
@@ -542,7 +548,7 @@ fn the_librarys_inducts() {
     std::thread::Builder::new()
         .stack_size(256 << 20)
         .spawn(|| {
-            let mut session = Session::eager();
+            let mut session = Session::eager_for_stack(256 << 20);
             session.elab.generate_deferred_equations().unwrap();
             report(&session, |_| true);
         })
