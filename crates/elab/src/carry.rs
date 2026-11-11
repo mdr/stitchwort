@@ -108,8 +108,22 @@ impl Carry {
                 let sound = part(sound)?.shift(g, 1, 0)?;
                 let complete = part(complete)?.shift(g, 1, 0)?;
                 let (s1, c1) = (s.shift(g, 1, 0)?, c.shift(g, 1, 0)?);
-                let sound = Term::app(sound, self.forward(g, &s1, &c1, Term::Var(0))?);
-                let complete = self.backward(&c1, Term::app(complete, Term::Var(0)));
+                let e = self.forward(g, &s1, &c1, Term::Var(0))?;
+                // The kernel can't infer a lambda's type, so a redex `(h =>
+                // S) e` wouldn't check (`Nat.decEq`'s proofs are lambdas):
+                // `S` takes `e` through a `let`, and `complete`'s body takes
+                // its argument, a variable, by substitution.
+                let sound = match sound.strip_loc() {
+                    Term::Lam(h, Icit::Explicit, body) => {
+                        Term::let_(h.clone(), self.is_true(s1), e, (**body).clone())
+                    }
+                    _ => Term::app(sound, e),
+                };
+                let complete = match complete.strip_loc() {
+                    Term::Lam(_, Icit::Explicit, body) => body.instantiate_var(g, 0)?,
+                    _ => Term::app(complete, Term::Var(0)),
+                };
+                let complete = self.backward(&c1, complete);
                 let lam =
                     |x: &str, body| Rc::new(Term::Lam(x.into(), Icit::Explicit, Rc::new(body)));
                 Term::Ctor(
@@ -132,13 +146,7 @@ impl Carry {
     /// `s = True` from `e: X = True`: `J (y _ => y = True → s = True) (e =>
     /// e) c e`, by `J` on `c` so that it computes away where `c` is `rfl`.
     fn forward(&self, g: &Ev, s: &Term, c: &Term, e: Term) -> Result<Term> {
-        let is_true = |t: Term| {
-            Term::Eq(
-                Some(Rc::new(self.bool_ty.clone())),
-                Rc::new(t),
-                Rc::new(self.tru.clone()),
-            )
-        };
+        let is_true = |t| self.is_true(t);
         let body = Term::Pi(
             "_".into(),
             Icit::Explicit,
@@ -148,6 +156,15 @@ impl Carry {
         let id = Term::Lam("e".into(), Icit::Explicit, Rc::new(Term::Var(0)));
         let along = Term::J(Rc::new(motive(body)), Rc::new(id), Rc::new(c.clone()));
         Ok(Term::app(along, e))
+    }
+
+    /// `t = True`.
+    fn is_true(&self, t: Term) -> Term {
+        Term::Eq(
+            Some(Rc::new(self.bool_ty.clone())),
+            Rc::new(t),
+            Rc::new(self.tru.clone()),
+        )
     }
 
     /// `X = True` from `h: s = True`: `J (y _ => y = True) h c`.
