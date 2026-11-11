@@ -15,12 +15,15 @@
 //! programs and instances stage 3.
 
 use std::collections::BTreeSet;
+use std::rc::Rc;
 
 use serde::Serialize;
+use stitchwort_core::collections::HashMap;
 use stitchwort_core::globals::{HashKey, State};
 use stitchwort_core::value::force;
 use stitchwort_core::{DefId, Ev, Limits, Value};
 use stitchwort_elab::counterexample::{Budget, STATEMENT_STEPS};
+use stitchwort_syntax::Span;
 
 use crate::axioms::AxiomWalk;
 use crate::counterexample::{TheoremSearch, Verdict};
@@ -134,28 +137,50 @@ pub struct Options {
     pub search: Option<Budget>,
 }
 
-/// Whether `id` is a declaration the compiler made rather than one written
-/// in source: a definition's equation (`f.eq2`) or functional induction
-/// (`f.induct`), a shared field's update lemma (`T.f.update.g`), or a
-/// record's extensionality lemma (`T.ext`).
+/// Which declarations the compiler made rather than the reader wrote: a
+/// definition's equation (`f.eq2`) or functional induction (`f.induct`), a
+/// shared field's update lemma (`T.f.update.g`), and every declaration made
+/// for another one: `f.unfold` for a `decreasing` definition, `T.ext` and
+/// `T.size` for a type, whatever the name.
 ///
 /// The first two have reserved names ([`stitchwort_elab::is_generated_name`]).
-/// An update lemma's name can't be written, and its owner is a data type. A
-/// record gets `T.ext` unless it writes one, so a written `T.ext` is told
-/// apart by its span: the generated one is at its type's own.
-pub(crate) fn is_generated(g: &Ev, id: DefId) -> bool {
-    let def = g.def(id);
-    if stitchwort_elab::is_generated_name(g, def.name()) {
-        return true;
+/// An update lemma's name can't be written, and its owner is a data type.
+/// For the rest the elaborator gives what it makes for a declaration that
+/// declaration's own span, so a declaration whose name extends another's
+/// (`Book.gcd2.unfold` after `Book.gcd2`) and whose span is the same one was
+/// made for it. A written `T.ext` has a span of its own.
+pub(crate) struct Generated {
+    /// The full names of the declarations at each span.
+    at: HashMap<Span, Vec<Rc<str>>>,
+}
+
+impl Generated {
+    pub(crate) fn new(g: &Ev) -> Self {
+        let mut at: HashMap<Span, Vec<Rc<str>>> = HashMap::default();
+        for def in g.env.defs() {
+            at.entry(def.span()).or_default().push(def.path().clone());
+        }
+        for data in g.env.datas() {
+            at.entry(data.span()).or_default().push(data.path().clone());
+        }
+        Generated { at }
     }
-    let path = def.path().to_string();
-    if is_update_lemma(g, &path) {
-        return true;
+
+    /// Whether `id` is a declaration the compiler made.
+    pub(crate) fn contains(&self, g: &Ev, id: DefId) -> bool {
+        let def = g.def(id);
+        if stitchwort_elab::is_generated_name(g, def.name()) {
+            return true;
+        }
+        let path = def.path().to_string();
+        if is_update_lemma(g, &path) {
+            return true;
+        }
+        (self.at.get(&def.span()).into_iter().flatten()).any(|owner| {
+            path.strip_prefix(&**owner)
+                .is_some_and(|rest| rest.starts_with('.'))
+        })
     }
-    let Some(owner) = path.strip_suffix(".ext") else {
-        return false;
-    };
-    (g.env.datas().iter()).any(|d| &**d.path() == owner && d.record() && d.span() == def.span())
 }
 
 /// Whether `T.f.update.g` names a shared field's generated update lemma:
@@ -196,9 +221,10 @@ impl Session {
     /// Audits each of `theorems` (as [`theorems`] gives them).
     pub fn audit(&mut self, theorems: &[(DefId, String)], options: &Options) -> Vec<TheoremAudit> {
         let mut walk = AxiomWalk::new();
+        let generated = Generated::new(&self.elab.ev());
         theorems
             .iter()
-            .map(|(id, name)| self.audit_one(*id, name, options, &mut walk))
+            .map(|(id, name)| self.audit_one(*id, name, options, &mut walk, &generated))
             .collect()
     }
 
@@ -208,6 +234,7 @@ impl Session {
         name: &str,
         options: &Options,
         walk: &mut AxiomWalk,
+        generated: &Generated,
     ) -> TheoremAudit {
         let g = &self.elab.ev();
         let (status, goals) = match g.def(id).state() {
@@ -227,7 +254,7 @@ impl Session {
         let g = &self.elab.ev();
         let mut audit = TheoremAudit {
             name: name.to_string(),
-            generated: is_generated(g, id),
+            generated: generated.contains(g, id),
             status,
             open_goals: goals.clone(),
             axioms: Vec::new(),
