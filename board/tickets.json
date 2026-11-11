@@ -29541,9 +29541,9 @@
     {
       "id": 2805,
       "title": "Using unfinished proofs, stage 2: each ? becomes an assumption; users kernel-checked; the can't-be-checked-yet rule; count sf/ and aoc/ fallbacks (docs/proposals/using-unfinished-proofs.md; D3504-D3507)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Opus",
-      "where": "",
+      "where": ".claude/worktrees/SW-2805",
       "labels": [],
       "epic": "syntax-language",
       "body": "\nFrom stage 1 (SW-2804): code that treats a bodiless finished declaration as a primitive must handle assumptions: crates/js/src/run.rs:136, js/src/lib.rs:2708, rt/src/lower.rs:481 and :651, elab/src/cache/mod.rs:1474 and :1604, rt test filters in lower.rs and differential.rs. Check cache keeps skipping namespaces with or relying on goals until stage 5. A goal whose type mentions an unfinished declaration is E-MALFORMED in the kernel: fall back to today's behaviour before calling assume. Stage 3 reports reliance via core's assumption::relied_on.\nFable review F2 (high): State::Final no longer means finished, but driver audit.rs:204 maps it to Checked, axioms.rs ignores Def::assumption, nothing outside tests calls relied_on. Stage 2 must land with stage 3's gates, or keep marking reliers unfinished until then. (docs/reviews/SW-2804-assumptions-review.md)\nFrom SW-2822: assume now refuses a duplicate label, so rechecking a declaration in the same kernel (REPL, redefinition) needs the elaborator to rewind old assumptions or number holes per owner (docs/core.md rule 5); assume's duplicate scan is holes × definitions, add a rewound index if stage 2 makes many holes; the 'internal error: unreachable' panic wording belongs with F1.\nFable (SW-2822 review): the duplicate refusal reaches users as E-MALFORMED, so elaborator owner names must be distinct per kernel for every declaration that can hold a ?: lifted helpers, anonymous instances, declarations rechecked after a partial rewind.",
@@ -29803,9 +29803,9 @@
     {
       "id": 2825,
       "title": "JS extraction after Decidable stage 3: a decided if compiles to calls of Decidable.elim and its %match1 helper (and andThen with closures) instead of an inline ternary; inline elim, andThen and decLessThan as the JS backend did for Bool.ifThenElse (extraction snapshots, 11 Nov)",
-      "status": "next",
+      "status": "doing",
       "agent": "Sonnet",
-      "where": "",
+      "where": ".claude/worktrees/SW-2825",
       "labels": [],
       "epic": "effects-native",
       "body": "",
