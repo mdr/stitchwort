@@ -29883,9 +29883,9 @@
     {
       "id": 2831,
       "title": "Rust emits d.sound, d.complete and Decidable.refute instead of the toBool* lemmas (omega.rs, equations.rs, induct.rs); then the toBool* family can go (except toBoolOfNot) and ~40 std/aoc call sites move to the fields (SW-2823)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Sonnet",
-      "where": "",
+      "where": ".claude/worktrees/SW-2831",
       "labels": [],
       "epic": "proof-automation",
       "body": "",
