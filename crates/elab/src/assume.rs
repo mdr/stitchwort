@@ -27,7 +27,7 @@ use std::cell::Cell;
 
 use stitchwort_core::assumption::{self, Decl};
 use stitchwort_core::globals::{Assumption, HashKey};
-use stitchwort_core::value::{eval, quote_folded};
+use stitchwort_core::value::{eval, quote_as_written};
 use stitchwort_core::{DataId, DefId, Icit, Name, Term};
 
 use crate::Elaborator;
@@ -47,10 +47,10 @@ pub(crate) struct Floor {
 #[derive(Default)]
 pub(crate) struct Assumed(Cell<Option<Floor>>);
 
-/// The budget for stating a goal, or comparing it with an earlier one's:
-/// a goal that would take more (its statement computes deeply when its
-/// unknowns are filled in, `countDown 100000 [] = []`) falls back, without
-/// running out the declaration's own budget.
+/// The budget for stating a goal, or comparing it with an earlier one's
+/// (which may compute: the two statements are compared by conversion): a
+/// goal that would take more falls back, without running out the
+/// declaration's own budget.
 fn side_limits() -> stitchwort_core::Limits {
     stitchwort_core::Limits {
         work: 1_000_000,
@@ -240,14 +240,11 @@ impl Elaborator {
     fn goal_type(&self, p: &crate::goals::Pending) -> Option<(Term, Vec<usize>)> {
         let g = &self.ev();
         let level = p.level;
-        // Zonked keeping every unknown, then refused if one is left: zonking
-        // that must report an unknown reads its solution back unfolded,
-        // which computes (`countDown 100000 [] = []`).
+        // As written: read back folded, a call that steps at once would be
+        // computed (`countDown 100000 [] = []` as the whole list).
         let term = |v| {
-            let t = quote_folded(g, level, v).ok()?;
-            let t = self.zonk_keeping(&t, level, &|_| true).ok()?;
-            let unknown = t.subterms().any(|(t, _)| matches!(t, Term::Meta(_)));
-            (!unknown).then_some(t)
+            let t = quote_as_written(g, level, v).ok()?;
+            self.zonk(&t, level).ok()
         };
         let types: Vec<Term> = (p.applied.iter())
             .map(|(_, ty, _)| term(ty))
