@@ -16368,14 +16368,14 @@
     {
       "id": 1920,
       "title": "[DeepSeek] A source subfolder that can't be listed is skipped silently (check passes without its files); a source 'folder' that is a file is reported as missing",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "driver"
       ],
       "epic": "diagnostics",
-      "body": "From docs/reviews/code-review-driver.md (lane B). M2. 30 min.",
+      "body": "From docs/reviews/code-review-driver.md (lane B). M2. 30 min.\nModel result: DeepSeek, worked, ~15 min (est. 30). Verifier passed; lsp::a_newer_edit_cancels_the_check_running failed once at load ~58 (240 s) and passed alone in 6.5 s.",
       "created": "2026-11-07",
       "updated": "2026-11-11",
       "commits": []
