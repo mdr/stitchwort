@@ -13,9 +13,11 @@ expression: output
     │ 
     │ Note 2: atoms: `n`
     │ 
-    │ Note 3: an integer model of the arithmetic abstraction (it may not be a real counterexample): n = 0
+    │ Note 3: `x`'s type isn't known yet here, so omega couldn't use it
     │ 
-    │ Note 4: this statement is false; a counterexample:
+    │ Note 4: an integer model of the arithmetic abstraction (it may not be a real counterexample): n = 0
+    │ 
+    │ Note 5: this statement is false; a counterexample:
     │           n = 0
     │         `Some (n + 0 + 1) = Some (n + 2)` is false:
     │           left:  Some 1
