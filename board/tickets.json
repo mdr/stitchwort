@@ -30026,12 +30026,12 @@
     {
       "id": 2842,
       "title": "Variable index underflow at crates/elab/src/lift.rs:390 inside rewrite::tidy -> replace_with (debug panics with subtraction overflow; release wraps silently and could build a wrong term), reached by search_at::a_goal_that_takes_too_long_to_open_reports_running_out; before stage 2 the debug test aborted with SIGILL (SW-2837)",
-      "status": "doing",
+      "status": "review",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-2842",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "Progress (Opus, 11 Nov, 13:54-14:12, est. 75 min): commit b1d36b0f1. Cause: `check_motive` printed the motive's body (under the motive's `x'` and `_`, so at depth `cx.level() + 2`) with `written`, whose `tidy` walks it with `replace_with` at depth `cx.level()`; any mention of the goal's two outermost variables then has an index past the depth and `depth - 1 - ix` underflows (lift.rs:390, or :422 for an applied head). Also reached by examples/reject/rewrite-motive-auto.sw under a debug build (the examples run the release CLI, so it never showed). Fix: `tidy` takes how many binders of its own the term is under; new `written_under` names them after the context's. Release: no wrong term: tidy is the identity map, the two wraps cancel, and its output only feeds the text the `!=`-as-`≠` note inspects (only names in that text were off). SIGILL before stage 2: not confirmed (would need a cold build of the old commit); likely a different failure, the opening then computed and printed the 100000-element list recursively, which stage 2's non-recursive printing removed. Tests: new rewrite::a_motive_mentioning_the_outermost_variable_is_reported (driver proofs; panicked before the fix, passes, 3 s), new rewrite::tests::a_motive_body_is_written_with_its_binders_named (elab lib, passes), rewrite::the_budget_message_shows_both_terms_shortened (passes), search_at::a_goal_that_takes_too_long_to_open_reports_running_out debug (passes, 176 s) and release (passes, 1.7 s). fmt and clippy on elab clean.\n",
       "created": "2026-11-11",
       "updated": "2026-11-11",
       "commits": []

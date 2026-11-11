@@ -1939,7 +1939,7 @@ fn check_motive(
             "rewrite a larger term that contains it (such as `x % d`), or state the step with \
              `calc`",
         ))
-        .map_err(|d| ne_note(d, &written(cx, body), &shown(cx, lhs)))
+        .map_err(|d| ne_note(d, &written_under(cx, body, &["x'", "_"]), &shown(cx, lhs)))
         .map_err(
             |d| match crate::equation_notes::branch_note(cx.e, &[body]) {
                 Some(note) => d.with_note(note),
@@ -1998,25 +1998,34 @@ fn round_trip_awaiting_helpers(
 /// A term for a message. An unknown the rule left open is shown as `?3`,
 /// not applied to every variable in scope as it is made.
 fn written(cx: &Ctx, term: &Term) -> String {
+    written_under(cx, term, &[])
+}
+
+/// [`written`] for a term under `binders` of its own beyond `cx`'s context,
+/// named in order from the outermost.
+fn written_under(cx: &Ctx, term: &Term, binders: &[&str]) -> String {
+    let mut names = cx.shown_names(false);
+    names.extend(binders.iter().map(|&b| stitchwort_core::Name::from(b)));
     stitchwort_core::pretty::term_for_message_in(
         &cx.g(),
         cx.e,
-        &cx.shown_names(false),
-        &tidy(cx, term),
+        &names,
+        &tidy(cx, term, binders.len()),
     )
 }
 
 /// Whether [`written`] shortens `term` (to `…` inside).
 fn shortened(cx: &Ctx, term: &Term) -> bool {
-    let tidy = tidy(cx, term);
+    let tidy = tidy(cx, term, 0);
     let short =
         stitchwort_core::pretty::term_for_message_in(&cx.g(), cx.e, &cx.shown_names(false), &tidy);
     short != stitchwort_core::pretty::term_in(&cx.g(), cx.e, &cx.shown_names(false), &tidy)
 }
 
-/// `term` with each unknown the rule left open bare, as [`written`] shows it.
-fn tidy(cx: &Ctx, term: &Term) -> Term {
-    let level = cx.level();
+/// `term`, under `under` binders of its own beyond `cx`'s context, with
+/// each unknown the rule left open bare, as [`written`] shows it.
+fn tidy(cx: &Ctx, term: &Term, under: usize) -> Term {
+    let level = cx.level() + under;
     let bare = |t: &Term, _: usize| {
         let (head, args) = t.spine();
         match head {
@@ -2580,6 +2589,21 @@ mod tests {
             round_trip(&cx, &right, &lhs, &Value::Refl, &goal, false, &mut none).unwrap(),
             None
         );
+    }
+
+    #[test]
+    fn a_motive_body_is_written_with_its_binders_named() {
+        let e = Elaborator::new();
+        let mut cx = Ctx::new(&e, span());
+        cx.bind_hidden("a".into(), Value::Sort(Sort::Type(0)));
+        // `a = x'` under the motive's `x'` and `_`: `a`, the outermost
+        // variable, is past the context's own depth there.
+        let body = Term::Eq(
+            Some(Rc::new(ty(0))),
+            Rc::new(Term::Var(2)),
+            Rc::new(Term::Var(1)),
+        );
+        assert_eq!(written_under(&cx, &body, &["x'", "_"]), "a = x'");
     }
 
     #[test]
