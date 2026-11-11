@@ -31142,7 +31142,7 @@
     {
       "id": 2927,
       "title": "[Sonnet] Goals print as written with a dimmed 'computes to' line when the computed form differs, everywhere goals are shown (panel, hover, playground, check, goal, --json); 240-char cut, folded; no form switch (D3522; docs/proposals/goals-panel.md). After SW-1004",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
@@ -31220,7 +31220,7 @@
     {
       "id": 2933,
       "title": "[Sonnet] Book 2.5 beatsMeansWin: teach rewrite with a calc chain first (unfold play; rewrite h; compute the if), then rewrite h as the one-word shortcut, with the Goals panel's before/rule/after (Matt, 11 Nov 2026)",
-      "status": "next",
+      "status": "doing",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
