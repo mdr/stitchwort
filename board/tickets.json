@@ -31246,12 +31246,12 @@
     {
       "id": 2935,
       "title": "[DeepSeek] EXAMPLES=<name> with -E 'test(/_examples/)' also runs the tools guide:: tests (~10 min at nice 15); make the example filter select only the examples tests so a lane can run one example in seconds (SW-2154)",
-      "status": "doing",
+      "status": "review",
       "agent": "DeepSeek",
       "where": "",
       "labels": [],
       "epic": "test-infra",
-      "body": "",
+      "body": "\nModel result: DeepSeek, worked, ~10 min (est. 30). task test:example NAME=…: 4 tests, 0.4 s test time. Reviewed; waits for the next batch.",
       "created": "2026-11-11",
       "updated": "2026-11-11",
       "commits": []
