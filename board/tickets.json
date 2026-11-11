@@ -28357,15 +28357,15 @@
     },
     {
       "id": 2715,
-      "title": "LSP: show the goal at any point of a proof, not only at ?",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "title": "Goal at any point of a proof: editor (hover/Show Goals anywhere, not only at ?) and stitchwort goal --at file:line:col for agents; design note first, with a review of other systems' interactive proof understanding",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-2715",
       "labels": [],
       "epic": "editor-playground",
-      "body": "From SW-2707 (Software Foundations port, 10 Nov 2026); docs/reviews/SW-2707-software-foundations-port.md §11.",
+      "body": "From SW-2707 (Software Foundations port, 10 Nov 2026); docs/reviews/SW-2707-software-foundations-port.md §11.\nD3496 (Matt, 11 Nov 2026): yes, general (not only SF), with a CLI form for agents; start with an Opus design note that also reviews other languages' and the literature's ideas for interactive proof understanding. Paper lane. Est. 2.5 h.",
       "created": "2026-11-10",
-      "updated": "2026-11-10",
+      "updated": "2026-11-11",
       "commits": []
     },
     {
