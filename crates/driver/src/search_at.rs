@@ -649,7 +649,16 @@ impl Session {
         goal.deadline = Some(started + options.time);
         let g = &self.elab.ev();
         let prop = goal.prop;
-        let candidates = searchable(&self.elab, options, prop);
+        let mut candidates = searchable(&self.elab, options, prop);
+        // The theorem the goal is in is a candidate too once it is open
+        // (it has this `?`), but closing the goal with it is circular.
+        if let Some(owner) = snapshot.as_ref().and_then(|s| s.owner()) {
+            candidates.retain(|c| {
+                !matches!(c.item,
+                    stitchwort_elab::search::Item::Def(id)
+                    | stitchwort_elab::search::Item::Part(id, _) if id == owner)
+            });
+        }
         let keep = |_: &Candidate| true;
         debug_time("opened", started);
         let closing = self
