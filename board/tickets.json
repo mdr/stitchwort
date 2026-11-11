@@ -30713,12 +30713,12 @@
     {
       "id": 2894,
       "title": "[Sonnet] Book G3: goal at any point in the playground's goal panel, as VS Code has had since SW-2778/SW-2780 (proving-with-stitchwort-outline.md)",
-      "status": "backlog",
+      "status": "review",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "editor-playground",
-      "body": "",
+      "body": "Lane note (Sonnet, 19:55-20:10): playground panel now asks goalAt then contextAt (300 ms rest), same content as VS Code; syntax.md and outline notes updated. Browser tests 'goals panel' (2) pass.",
       "created": "2026-11-11",
       "updated": "2026-11-11",
       "commits": []
