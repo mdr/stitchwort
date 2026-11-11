@@ -857,7 +857,7 @@ impl Kernel {
     /// which [`Kernel::forget_since`] removed: content hashes (read by pin
     /// checks and cache keys, so one left for a removed id would be read
     /// again once the id is reused, and those without proofs) and erasure
-    /// (and proof positions). `None` if nothing.
+    /// (and proof positions), and reliance on open goals. `None` if nothing.
     pub fn derived_state_since(&self, mark: &KernelMark) -> Option<String> {
         let past = |k: &HashKey| match k {
             HashKey::Def(id) => id.0 >= mark.defs,
@@ -871,8 +871,21 @@ impl Kernel {
                 .count();
         let erasure = (self.caches.erasure_defs.borrow().len()).saturating_sub(mark.defs)
             + (self.caches.proof_positions.borrow().len()).saturating_sub(mark.defs);
-        (hashes + erasure > 0)
-            .then(|| format!("{hashes} content hashes and {erasure} erasure slots past the mark"))
+        let reliance = (self.caches.reliance.borrow().iter())
+            .filter(|(d, a)| {
+                let key = match **d {
+                    crate::assumption::Decl::Def(id) => HashKey::Def(id),
+                    crate::assumption::Decl::Data(d) => HashKey::Data(d),
+                };
+                past(&key) || a.is_some_and(|a| a.0 >= mark.defs)
+            })
+            .count();
+        (hashes + erasure + reliance > 0).then(|| {
+            format!(
+                "{hashes} content hashes, {erasure} erasure slots and {reliance} reliance \
+                 entries past the mark"
+            )
+        })
     }
 }
 

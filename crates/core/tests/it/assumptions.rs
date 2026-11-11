@@ -10,7 +10,7 @@
 use std::rc::Rc;
 
 use crate::common::*;
-use stitchwort_core::assumption::{Decl, relied_on, relied_on_skipping};
+use stitchwort_core::assumption::{Decl, relied_on, relied_on_skipping, relies_on};
 use stitchwort_core::check;
 use stitchwort_core::globals::{Assumption, State};
 use stitchwort_core::hash::{ContentHash, def_hash};
@@ -650,4 +650,41 @@ fn running_erases_a_proof_assumption_and_keeps_a_value_one_stuck() {
     );
     let value = eval(&ev, &[], &Term::Def(hole)).unwrap();
     assert!(matches!(value, Value::Neutral(Head::Def(id), _) if id == hole));
+}
+
+/// The memoised walk (`relies_on`) agrees with the full one, and a rewind
+/// forgets what it remembered of the declarations it removes: an id reused
+/// by a declaration that relies on nothing isn't reported as relying.
+#[test]
+fn remembered_reliance_agrees_and_is_forgotten_by_a_rewind() {
+    let mut p = Prelude::new();
+    let nat = p.nat_ty();
+    let (one, two) = (p.num(1), p.num(2));
+    let statement = eq(
+        Some(nat),
+        p.plus(one.clone(), two.clone()),
+        p.plus(two.clone(), one.clone()),
+    );
+    let by_rfl = theorem(&mut p.g, "byRfl", statement.clone(), Term::Refl).unwrap();
+    let mark = p.g.mark();
+    let goal = add_comm_goal(&mut p);
+    let direct = theorem(
+        &mut p.g,
+        "direct",
+        statement.clone(),
+        app(Term::Def(goal), [one, two]),
+    )
+    .unwrap();
+    let chained = theorem(&mut p.g, "chained", statement.clone(), Term::Def(direct)).unwrap();
+    let remembered = |g: &Kernel, d: DefId| relies_on(&g.ev(), d.into(), &|_| false);
+    for _ in 0..2 {
+        assert_eq!(remembered(&p.g, chained), Some(goal));
+        assert_eq!(remembered(&p.g, direct), Some(goal));
+        assert_eq!(remembered(&p.g, by_rfl), None);
+    }
+    p.g.forget_since(&mark);
+    assert_eq!(p.g.derived_state_since(&mark), None);
+    let again = theorem(&mut p.g, "again", statement, Term::Refl).unwrap();
+    assert_eq!(again, goal, "the id is reused");
+    assert_eq!(remembered(&p.g, again), None);
 }

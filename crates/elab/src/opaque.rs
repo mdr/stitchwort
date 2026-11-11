@@ -310,7 +310,7 @@ impl Elaborator {
         )?;
         if let Some(item) = self.unit.module.item {
             for id in [copy, unfold] {
-                self.unit.module.def_items.insert(id, item);
+                self.unit.module.note_def(id, item);
             }
         }
         let unfold_key = format!("{key}.unfold");

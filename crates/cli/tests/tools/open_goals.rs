@@ -204,3 +204,59 @@ fn users_of_an_open_goal_are_checked_and_stay_unfinished() {
         "{stderr}"
     );
 }
+
+/// `check --counterexamples` on a false statement left as `?`: it is
+/// checked only assuming its goal holds, so a counterexample says the goal
+/// is false, not that the checker is wrong (SW-2837).
+#[test]
+fn a_counterexample_to_an_assumed_goal_is_not_a_checked_theorem() {
+    let dir = project("counterexample", "check:\n  open-goals: warn\n");
+    std::fs::write(
+        dir.join("src/w.sw"),
+        "namespace Book\n\ntheorem wrong (n: Nat): n + 1 = n := ?\n",
+    )
+    .unwrap();
+    let out = stitchwort(&dir, &["check", "--counterexamples"]);
+    let _ = std::fs::remove_dir_all(&dir);
+    let stdout = text(&out.stdout);
+    assert!(stdout.contains("✗ Book.wrong"), "{stdout}");
+    assert!(!stdout.contains("this theorem checked"), "{stdout}");
+}
+
+/// A use of a definition whose only `?` is in a proof argument computes as
+/// usual, so a mistake in it is reported; one that is stuck on a goal can't
+/// be decided until the goal is filled, from this namespace or another
+/// (SW-2837).
+#[test]
+fn only_a_use_stuck_on_a_goal_waits_for_it() {
+    let dir = project("stuck", "check:\n  open-goals: warn\n");
+    let double = "namespace Book\n\n\
+                  def keep (n: Nat) (h: n = n): Nat := n\n\n\
+                  def double (n: Nat): Nat := keep (n + n) ?\n";
+    let check = |book: &str, other: &str| {
+        std::fs::write(dir.join("src/d.sw"), book).unwrap();
+        std::fs::write(
+            dir.join("src/o.sw"),
+            format!("namespace Other\n\n{other}\n"),
+        )
+        .unwrap();
+        let out = stitchwort(&dir, &["check"]);
+        (out.status.code(), text(&out.stderr))
+    };
+    let (code, stderr) = check(double, "theorem twoIsThree: Book.two = 3 := rfl");
+    assert_eq!(code, Some(0), "{stderr}");
+    let wrong = format!("{double}\ntheorem doubleWrong: double 2 = 5 := rfl\n");
+    let (code, stderr) = check(&wrong, "");
+    assert_eq!(code, Some(1), "{stderr}");
+    assert!(
+        stderr.contains("`double 2` and `5` aren't equal"),
+        "{stderr}"
+    );
+    let (code, stderr) = check(double, "theorem doubleWrong: Book.double 2 = 5 := rfl");
+    let _ = std::fs::remove_dir_all(&dir);
+    assert_eq!(code, Some(1), "{stderr}");
+    assert!(
+        stderr.contains("`Book.double 2` and `5` aren't equal"),
+        "{stderr}"
+    );
+}

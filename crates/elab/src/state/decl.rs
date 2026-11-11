@@ -2,7 +2,7 @@
 //! typed in) being elaborated. It starts empty and is emptied again when
 //! the declaration is done (`Elaborator::glued`), by `Decl::default()`, so
 //! nothing is listed by hand and nothing one declaration leaves reaches the
-//! next. It is empty at every rewind mark (but for the `failed_mentioned` flag), and a rewind empties it.
+//! next. It is empty at every rewind mark (but for the `failed_mentioned` and `stuck_on_goal` flags), and a rewind empties it.
 //!
 //! Unlike [`super::Attempt`], none of it is taken back when an attempt is
 //! undone: what's here is either set and put back around one call (a
@@ -31,6 +31,12 @@ pub(crate) struct Decl {
     /// blame is decided after it. So [`Decl::reset`] keeps it, the
     /// component's start clears it, and a rewind empties it.
     pub(crate) failed_mentioned: Cell<bool>,
+    /// Whether an error message has shown a term that, computed, is stuck
+    /// on an open goal's assumption since the component's check began: its
+    /// errors then can't be decided until the goal is filled
+    /// (`blame_failed_dependency`). Kept, cleared and emptied as
+    /// [`Self::failed_mentioned`] is.
+    pub(crate) stuck_on_goal: Cell<bool>,
     /// While a test is checked: the comparisons in it whose sides are
     /// shown when it fails (`probe.rs`).
     pub(crate) sides_capture: RefCell<SidesCapture>,
@@ -183,19 +189,23 @@ pub(crate) struct Conjunction {
 }
 
 impl Decl {
-    /// Empties everything but [`Self::failed_mentioned`].
+    /// Empties everything but [`Self::failed_mentioned`] and
+    /// [`Self::stuck_on_goal`].
     pub(crate) fn reset(&mut self) {
         let failed_mentioned = self.failed_mentioned.get();
+        let stuck_on_goal = self.stuck_on_goal.get();
         *self = Decl {
             failed_mentioned: Cell::new(failed_mentioned),
+            stuck_on_goal: Cell::new(stuck_on_goal),
             ..Decl::default()
         };
     }
 
-    /// Empties everything, the flag too: a rewind.
+    /// Empties everything, the flags too: a rewind.
     pub(crate) fn rewind(&mut self) {
         self.reset();
         self.failed_mentioned.set(false);
+        self.stuck_on_goal.set(false);
     }
 
     /// The first field that isn't empty, if any: none should be between
@@ -204,6 +214,7 @@ impl Decl {
         let Decl {
             // Kept between declarations on purpose (see its doc).
             failed_mentioned: _,
+            stuck_on_goal: _,
             sides_capture,
             arm_reach,
             no_propagation,

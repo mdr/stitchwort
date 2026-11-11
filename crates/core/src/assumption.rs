@@ -13,8 +13,9 @@
 
 use std::collections::BTreeSet;
 
-use crate::collections::HashSet;
+use crate::collections::{HashMap, HashSet};
 use crate::ev::Ev;
+use crate::globals::State;
 use crate::term::{DataId, DefId, Term};
 
 /// A declaration the walk starts from or reaches.
@@ -49,7 +50,6 @@ pub fn relied_on(g: &Ev, roots: &[Decl]) -> BTreeSet<DefId> {
 /// assumption was made, say). A skipped declaration that does rely on one
 /// hides it, so `skip` must be sure.
 pub fn relied_on_skipping(g: &Ev, roots: &[Decl], skip: &dyn Fn(Decl) -> bool) -> BTreeSet<DefId> {
-    let builtins = g.env.builtins();
     let mut found = BTreeSet::new();
     let mut seen: HashSet<Decl> = HashSet::default();
     let mut pending: Vec<Decl> = roots.to_vec();
@@ -57,53 +57,135 @@ pub fn relied_on_skipping(g: &Ev, roots: &[Decl], skip: &dyn Fn(Decl) -> bool) -
         if !seen.insert(node) || skip(node) {
             continue;
         }
-        let mut terms: Vec<&Term> = Vec::new();
-        match node {
-            Decl::Def(id) => {
-                let def = g.def(id);
-                if def.assumption.is_some() {
-                    found.insert(id);
-                }
-                terms.push(&def.ty);
-                terms.extend(def.body.as_deref());
-                terms.extend(def.run_body.as_deref());
-                terms.extend(def.validators.iter().map(|v| &v.decision));
-                pending.extend(def.unfolding.iter().map(|d| Decl::Def(*d)));
-            }
-            Decl::Data(id) => {
-                let data = g.data(id);
-                terms.extend(data.params().iter().map(|(_, t)| t));
-                terms.extend(data.indices().iter().map(|(_, t)| t));
-                for ctor in data.ctors() {
-                    terms.extend(ctor.fields.iter().map(|(_, t)| t));
-                    terms.extend(ctor.result.iter());
-                }
-                terms.extend(data.validators().iter().map(|v| &v.decision));
-            }
+        if let Decl::Def(id) = node
+            && g.def(id).assumption.is_some()
+        {
+            found.insert(id);
         }
-        for term in terms {
-            for (sub, _) in term.subterms() {
-                match sub {
-                    Term::Def(id) => pending.push(Decl::Def(*id)),
-                    Term::Data(id, _)
-                    | Term::Ctor(id, _, _)
-                    | Term::Case(_, id, _)
-                    | Term::Proj(id, ..) => pending.push(Decl::Data(*id)),
-                    // Literals refer to their data types implicitly, as the
-                    // hasher counts them (`Char`'s fields include its
-                    // validity proof).
-                    Term::Nat(_) | Term::NumCase(..) => {
-                        pending.extend(builtins.nat.map(Decl::Data))
-                    }
-                    Term::Chars(_) => {
-                        if let Some(text) = &builtins.text {
-                            pending.extend([Decl::Data(text.list), Decl::Data(text.char)]);
-                        }
-                    }
-                    _ => {}
+        mentions(g, node, &mut |d| pending.push(d));
+    }
+    found
+}
+
+/// One assumption `root` relies on, or `None` if it relies on none: the
+/// question [`relied_on_skipping`] answers, remembered for final
+/// declarations (in the kernel's caches, cut by a rewind), so that asking
+/// it of every declaration walks each final one once. Which assumption is
+/// found, when there are several, is unspecified.
+pub fn relies_on(g: &Ev, root: Decl, skip: &dyn Fn(Decl) -> bool) -> Option<DefId> {
+    let memo = &g.caches.reliance;
+    if let Some(known) = memo.borrow().get(&root) {
+        return *known;
+    }
+    let is_final = |d: Decl| match d {
+        Decl::Def(id) => g.def(id).state() == State::Final,
+        Decl::Data(id) => g.data(id).state() == State::Final,
+    };
+    // Each declaration reached, with the one that first mentioned it.
+    let mut reached: HashMap<Decl, Option<Decl>> = HashMap::default();
+    let mut pending: Vec<(Decl, Option<Decl>)> = vec![(root, None)];
+    let mut all_final = true;
+    let mut found: Option<(Decl, DefId)> = None;
+    while let Some((node, from)) = pending.pop() {
+        if reached.contains_key(&node) {
+            continue;
+        }
+        reached.insert(node, from);
+        if skip(node) {
+            continue;
+        }
+        let known = memo.borrow().get(&node).copied();
+        match known {
+            Some(Some(a)) => {
+                found = Some((node, a));
+                break;
+            }
+            Some(None) => continue,
+            None => {}
+        }
+        if let Decl::Def(id) = node
+            && g.def(id).assumption.is_some()
+        {
+            found = Some((node, id));
+            break;
+        }
+        all_final &= is_final(node);
+        mentions(g, node, &mut |d| pending.push((d, Some(node))));
+    }
+    let mut memo = memo.borrow_mut();
+    match found {
+        // Everything on the way from `root` to it relies on it.
+        Some((mut node, a)) => {
+            loop {
+                if is_final(node) {
+                    memo.insert(node, Some(a));
                 }
+                match reached[&node] {
+                    Some(from) => node = from,
+                    None => break,
+                }
+            }
+            Some(a)
+        }
+        // Everything reached was walked to the end: none relies on one.
+        // Unless something wasn't final, whose terms may not be all there.
+        None => {
+            if all_final {
+                memo.extend(reached.into_keys().map(|d| (d, None)));
+            }
+            None
+        }
+    }
+}
+
+/// Calls `each` on every declaration `node`'s checked terms mention: its
+/// type, body, run body, validators and `unfolding` list for a definition;
+/// parameters, indices, fields and validators for a data type.
+fn mentions(g: &Ev, node: Decl, each: &mut dyn FnMut(Decl)) {
+    let builtins = g.env.builtins();
+    let mut terms: Vec<&Term> = Vec::new();
+    match node {
+        Decl::Def(id) => {
+            let def = g.def(id);
+            terms.push(&def.ty);
+            terms.extend(def.body.as_deref());
+            terms.extend(def.run_body.as_deref());
+            terms.extend(def.validators.iter().map(|v| &v.decision));
+            def.unfolding.iter().for_each(|d| each(Decl::Def(*d)));
+        }
+        Decl::Data(id) => {
+            let data = g.data(id);
+            terms.extend(data.params().iter().map(|(_, t)| t));
+            terms.extend(data.indices().iter().map(|(_, t)| t));
+            for ctor in data.ctors() {
+                terms.extend(ctor.fields.iter().map(|(_, t)| t));
+                terms.extend(ctor.result.iter());
+            }
+            terms.extend(data.validators().iter().map(|v| &v.decision));
+        }
+    }
+    for term in terms {
+        for (sub, _) in term.subterms() {
+            match sub {
+                Term::Def(id) => each(Decl::Def(*id)),
+                Term::Data(id, _)
+                | Term::Ctor(id, _, _)
+                | Term::Case(_, id, _)
+                | Term::Proj(id, ..) => each(Decl::Data(*id)),
+                // Literals refer to their data types implicitly, as the
+                // hasher counts them (`Char`'s fields include its validity
+                // proof).
+                Term::Nat(_) | Term::NumCase(..) => {
+                    builtins.nat.into_iter().for_each(|d| each(Decl::Data(d)))
+                }
+                Term::Chars(_) => {
+                    if let Some(text) = &builtins.text {
+                        each(Decl::Data(text.list));
+                        each(Decl::Data(text.char));
+                    }
+                }
+                _ => {}
             }
         }
     }
-    found
 }

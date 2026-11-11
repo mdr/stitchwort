@@ -109,9 +109,15 @@ impl Elaborator {
             let Some(d) = self.unit.module.ord_after_dec_eq.remove(&data_item) else {
                 continue;
             };
-            if self.unit.module.items[instance].status != Status::Checked {
+            let status = self.unit.module.items[instance].status;
+            if status != Status::Checked {
+                let what = if status == Status::Unfinished {
+                    "isn't finished: it, or something it uses, has an open goal (`?`)"
+                } else {
+                    "didn't check"
+                };
                 let why = format!(
-                    "`Ord` needs `==`, and its module's own `DecEq` instance `{}` didn't check",
+                    "`Ord` needs `==`, and its module's own `DecEq` instance `{}` {what}",
                     self.unit.module.items[instance].name
                 );
                 self.tables.no_ord.insert(&self.session.owners, d, why);

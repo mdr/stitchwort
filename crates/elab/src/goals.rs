@@ -685,10 +685,7 @@ impl Elaborator {
         if self.unit.module.items.get(item)?.kind != crate::module::Kind::Def {
             return None;
         }
-        (self.unit.module.def_items.iter())
-            .filter(|(_, i)| **i == item)
-            .map(|(id, _)| *id)
-            .min_by_key(|id| id.0)
+        (self.unit.module.item_defs.get(&item)?.iter().copied()).min_by_key(|id| id.0)
     }
 
     /// Prints the goals noted, while the metavariables in them still have
@@ -703,6 +700,7 @@ impl Elaborator {
         // Printing a goal that mentions a failed declaration isn't an error
         // message showing it (`Decl::failed_mentioned`).
         let mentioned = self.decl.failed_mentioned.get();
+        let stuck = self.decl.stuck_on_goal.get();
         let printed: Vec<Found> = pending
             .iter()
             .map(|p| {
@@ -724,6 +722,7 @@ impl Elaborator {
             })
             .collect();
         self.decl.failed_mentioned.set(mentioned);
+        self.decl.stuck_on_goal.set(stuck);
         let mut goals = self.goals.borrow_mut();
         for found in printed {
             goals.found.retain(|f| f.span != found.span);

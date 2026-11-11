@@ -89,13 +89,24 @@ pub trait Shown {
     /// Records that a message showed a term that uses a failed definition.
     fn note_failed_mentioned(&self) {}
 
-    /// Whether a message showing a call of final definition `id` counts as
-    /// showing a failed one ([`Shown::note_failed_mentioned`]): one checked
-    /// assuming an open goal holds, which a computation can be stuck on
-    /// (docs/core.md "Assumptions (open goals)").
+    /// Whether a term that mentions final definition `id` may be stuck on
+    /// an open goal's assumption: `id` is checked assuming the goal holds
+    /// and computes (docs/core.md "Assumptions (open goals)"). The printer
+    /// then computes the shown term to see ([`Shown::note_stuck_on_goal`]).
     fn waits_on_goal(&self, _id: DefId) -> bool {
         false
     }
+
+    /// Whether a message's showing a term stuck on an open goal's
+    /// assumption is still worth recording ([`Shown::note_stuck_on_goal`]).
+    fn wants_stuck_mention(&self) -> bool {
+        false
+    }
+
+    /// Records that a message showed a term that, computed, is stuck on an
+    /// open goal's assumption: whatever went wrong can't be decided until
+    /// the goal is filled.
+    fn note_stuck_on_goal(&self) {}
 }
 
 /// No hints.

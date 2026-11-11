@@ -1143,7 +1143,7 @@ impl Elaborator {
         }
         if let Some(item) = self.unit.module.item {
             for id in made {
-                self.unit.module.def_items.insert(id, item);
+                self.unit.module.note_def(id, item);
             }
         }
         let used = self
@@ -1285,7 +1285,7 @@ impl Elaborator {
         self.decreasing_wrapper(&plan, go)?;
         if let Some(item) = self.unit.module.item {
             for id in made {
-                self.unit.module.def_items.insert(id, item);
+                self.unit.module.note_def(id, item);
             }
         }
         Ok(())

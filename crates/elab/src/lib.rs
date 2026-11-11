@@ -380,15 +380,20 @@ impl stitchwort_core::Shown for Elaborator {
         self.decl.failed_mentioned.set(true);
     }
 
-    /// A definition that relies on an open goal and computes: a comparison
-    /// that shows a call of it may be stuck on the goal's assumption, so
-    /// the error is "can't be checked until the goal is filled", not the
-    /// reader's mistake (docs/proposals/using-unfinished-proofs.md §4,
-    /// "Blocked users"). A theorem is a proof, which nothing computes with.
+    /// A definition that relies on an open goal and computes, so a term
+    /// that calls it may be stuck on the goal's assumption
+    /// (docs/proposals/using-unfinished-proofs.md §4, "Blocked users"). A
+    /// theorem is a proof, which nothing computes with.
     fn waits_on_goal(&self, id: DefId) -> bool {
-        self.tables
-            .is_unfinished(stitchwort_core::globals::HashKey::Def(id))
-            && !self.kernel.def(id).theorem()
+        !self.kernel.def(id).theorem() && self.relies_on_goal(id)
+    }
+
+    fn wants_stuck_mention(&self) -> bool {
+        !self.decl.stuck_on_goal.get()
+    }
+
+    fn note_stuck_on_goal(&self) {
+        self.decl.stuck_on_goal.set(true);
     }
 }
 
@@ -799,14 +804,15 @@ impl Elaborator {
     }
 
     /// Whether definition `id` isn't finished: not checked by the kernel,
-    /// or checked assuming an open goal (`?`) holds (`assume.rs`). In a
-    /// session that loaded without errors, it, or something it uses, has
-    /// an open goal.
+    /// or checked assuming an open goal (`?`) holds, as read off its terms
+    /// (`assume.rs`). In a session that loaded without errors, it, or
+    /// something it uses, has an open goal.
     pub fn is_unfinished(&self, id: DefId) -> bool {
         self.kernel.def(id).state() != stitchwort_core::globals::State::Final
             || self
                 .tables
                 .is_unfinished(stitchwort_core::globals::HashKey::Def(id))
+            || self.relies_on_goal(id)
     }
 
     /// Whether the elaborator gave up on declaration `key` for an open
@@ -1037,11 +1043,7 @@ impl Elaborator {
         }
         self.lift(&key, false)?;
         let term = self.finish(&term, 0)?;
-        let unfinished = term.subterms().any(|(t, _)| match t {
-            Term::Def(id) => self.is_unfinished(*id),
-            _ => false,
-        });
-        if unfinished {
+        if self.mentions_unfinished(&term) {
             return Err(goals::uses_unfinished(Some(expr.span())));
         }
         kernel::without_glue(&self.ev(), || {
@@ -1119,11 +1121,7 @@ impl Elaborator {
         }
         self.lift(&key, false)?;
         let term = self.finish(&term, 0)?;
-        let unfinished = term.subterms().any(|(t, _)| match t {
-            Term::Def(id) => self.is_unfinished(*id),
-            _ => false,
-        });
-        if unfinished {
+        if self.mentions_unfinished(&term) {
             return Err(goals::uses_unfinished(Some(body.span())));
         }
         kernel::without_glue(&self.ev(), || {
@@ -1159,11 +1157,7 @@ impl Elaborator {
         // A `?` typed in is never shown as a goal; and nothing unfinished
         // runs: it has no body.
         self.clear_goals();
-        let unfinished = term.subterms().any(|(t, _)| match t {
-            Term::Def(id) => self.is_unfinished(*id),
-            _ => false,
-        });
-        if unfinished {
+        if self.mentions_unfinished(&term) {
             return Err(goals::uses_unfinished(Some(expr.span())));
         }
         kernel::without_glue(&self.ev(), || {
@@ -1471,7 +1465,7 @@ impl Elaborator {
             span,
         )?;
         if let Some(item) = self.unit.module.item {
-            self.unit.module.def_items.insert(id, item);
+            self.unit.module.note_def(id, item);
         }
         let defined = kernel::define_def(&mut self.kernel, &self.tables, id, &body);
         let unfinished = match &defined {
@@ -1493,10 +1487,9 @@ impl Elaborator {
             }),
             // Checked assuming an open goal holds: named as before, or by
             // the declaration the goal is in.
-            Ok(()) => (self.relied_on([id], []).first()).and_then(|a| {
-                self.unfinished_use(id)
-                    .or_else(|| self.assumption_owner(*a))
-            }),
+            Ok(()) => self
+                .goal_relied_on(id)
+                .and_then(|a| self.unfinished_use(id).or_else(|| self.assumption_owner(a))),
             _ => None,
         };
         let test = TestDecl {
@@ -2920,7 +2913,7 @@ impl Elaborator {
         )
         .map_err(|d| notes.iter().fold(d, |d, n| d.with_note(n.clone())))?;
         if let Some(item) = self.unit.module.item {
-            self.unit.module.def_items.insert(id, item);
+            self.unit.module.note_def(id, item);
         }
         if attributes.tailrec.is_some() {
             kernel::mark_tailrec(&mut self.kernel, id);
