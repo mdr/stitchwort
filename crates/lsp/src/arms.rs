@@ -187,6 +187,228 @@ pub fn split_arm(text: &str, split: &Split, patterns: &[String]) -> Option<TextE
     Some(TextEdit::new(Range::new(start, stop), out.join("\n")))
 }
 
+/// The byte of `line` at UTF-16 column `character`.
+fn byte_at(line: &str, character: u32) -> Option<usize> {
+    let mut units = 0u32;
+    for (i, c) in line.char_indices() {
+        if units == character {
+            return Some(i);
+        }
+        units += u32::try_from(c.len_utf16()).ok()?;
+    }
+    (units == character).then_some(line.len())
+}
+
+/// The UTF-16 column of byte `at` of `line`.
+fn column_of(line: &str, at: usize) -> Option<u32> {
+    u32::try_from(line[..at].encode_utf16().count()).ok()
+}
+
+fn indent_of(line: &str) -> usize {
+    line.len() - line.trim_start().len()
+}
+
+/// The `?` that a cursor on a parameter's name in a declaration's header
+/// stands for, when the declaration's body is that one `?`, and the name.
+pub fn header_hole(text: &str, line: u32, character: u32) -> Option<(Position, String)> {
+    let lines: Vec<&str> = text.lines().collect();
+    let cursor = *lines.get(line as usize)?;
+    let at = byte_at(cursor, character)?;
+    let is_word_at = |i: usize| cursor[i..].chars().next().is_some_and(is_word);
+    let mut start = at;
+    while start > 0 && cursor[..start].chars().next_back().is_some_and(is_word) {
+        start -= cursor[..start].chars().next_back()?.len_utf8();
+    }
+    let mut end = at;
+    while end < cursor.len() && is_word_at(end) {
+        end += cursor[end..].chars().next()?.len_utf8();
+    }
+    if start == end {
+        return None;
+    }
+    let name = cursor[start..end].to_string();
+    // A binder: names, then a colon.
+    let after = &cursor[end..];
+    let binder = after
+        .trim_start_matches(|c: char| is_word(c) || c == ' ')
+        .starts_with(':')
+        && !after
+            .trim_start_matches(|c: char| is_word(c) || c == ' ')
+            .starts_with(":=");
+    if !binder || !name.starts_with(|c: char| c.is_lowercase()) {
+        return None;
+    }
+    let first = (0..=line as usize)
+        .rev()
+        .find(|&i| indent_of(lines[i]) == 0 && !lines[i].trim().is_empty())?;
+    let next = (first + 1..lines.len())
+        .find(|&i| {
+            indent_of(lines[i]) == 0 && !lines[i].trim().is_empty() && !lines[i].starts_with("--")
+        })
+        .unwrap_or(lines.len());
+    // The last line of code of the declaration must end in `:= ?`.
+    let last = (first..next).rev().find(|&i| {
+        let t = lines[i].trim();
+        !t.is_empty() && !t.starts_with("--")
+    })?;
+    let code = lines[last]
+        .split("--")
+        .next()
+        .unwrap_or(lines[last])
+        .trim_end();
+    let hole = code.strip_suffix('?')?.trim_end().strip_suffix(":=")?;
+    let hole_byte = hole.len() + code[hole.len()..].find('?')?;
+    let before_cursor = (line as usize, at) < (last, hole_byte);
+    before_cursor.then_some(())?;
+    Some((
+        Position::new(
+            u32::try_from(last).ok()?,
+            column_of(lines[last], hole_byte)?,
+        ),
+        name,
+    ))
+}
+
+/// The edits that split the variable `name` at the `?` at `hole`, with one
+/// case per entry of `patterns` ([`split_arm`]'s form). The `?` must stand
+/// for a whole expression: after `:=` or `=>`, or alone on its line, with
+/// nothing but a comment after it.
+///
+/// If the `?` is a whole arm of a `match` that doesn't match `name` yet,
+/// `name` becomes a new column of that `match`: the arm turns into one arm
+/// per case, and the other arms get `_`. Otherwise the `?` is replaced
+/// with a `match` of its own, its arms indented under the line.
+pub fn split_hole(
+    text: &str,
+    hole: Position,
+    name: &str,
+    patterns: &[String],
+) -> Option<Vec<TextEdit>> {
+    let lines: Vec<&str> = text.lines().collect();
+    let hl = hole.line as usize;
+    let line = *lines.get(hl)?;
+    let at = byte_at(line, hole.character)?;
+    let rest = line[at..].strip_prefix('?')?;
+    let before = line[..at].trim_end();
+    let comment = rest.trim();
+    if !(comment.is_empty() || comment.starts_with("--"))
+        || !(before.is_empty() || before.ends_with(":=") || before.ends_with("=>"))
+    {
+        return None;
+    }
+    let used = names_in_declaration(&lines, hl);
+    let arms = |prefix: &str, edits: &mut Vec<String>, indent: usize| {
+        for pattern in patterns {
+            let mut names = used.clone();
+            edits.push(format!(
+                "{}| {prefix}{} => ?",
+                " ".repeat(indent),
+                bind(pattern, &mut names)
+            ));
+        }
+    };
+    if comment.is_empty()
+        && let Some(edits) = extend_match(&lines, hl, name, &arms)
+    {
+        return Some(edits);
+    }
+    let indent = indent_of(line);
+    let mut out = Vec::new();
+    arms("", &mut out, indent + 2);
+    let mut head = if before.is_empty() {
+        " ".repeat(indent)
+    } else {
+        format!("{before} ")
+    };
+    head.push_str(&format!("match {name} with"));
+    if !comment.is_empty() {
+        head.push(' ');
+        head.push_str(comment);
+    }
+    let new_text = std::iter::once(head)
+        .chain(out)
+        .collect::<Vec<_>>()
+        .join("\n");
+    let end = column_of(line, line.len())?;
+    Some(vec![TextEdit::new(
+        Range::new(Position::new(hole.line, 0), Position::new(hole.line, end)),
+        new_text,
+    )])
+}
+
+/// The edits that add `name` as a column of the `match` whose arm is on
+/// line `hl` (`| patterns => ?`), `None` if it isn't a whole arm of a
+/// `match ... with` that doesn't have `name` as a scrutinee already, or
+/// some arm's patterns aren't all on its first line. `arms` writes the
+/// replacement arms given the patterns before the new column and their
+/// indent.
+fn extend_match(
+    lines: &[&str],
+    hl: usize,
+    name: &str,
+    arms: &dyn Fn(&str, &mut Vec<String>, usize),
+) -> Option<Vec<TextEdit>> {
+    let line = lines[hl];
+    let column = indent_of(line);
+    let arrow = line.find("=>")?;
+    if !line.trim_start().starts_with("| ") || !line[arrow + 2..].trim().eq("?") {
+        return None;
+    }
+    let header = (0..hl).rev().find(|&i| {
+        let t = lines[i].trim();
+        !t.is_empty() && !t.starts_with("--") && indent_of(lines[i]) < column
+    })?;
+    let head = lines[header];
+    let with = head.trim_end().strip_suffix(" with")?.len();
+    let scrutinees = &head[head[..with].rfind("match ")? + "match ".len()..with];
+    // A variable the arm binds isn't in scope for the scrutinee.
+    let bound = &line[..arrow];
+    if scrutinees.split(',').any(|s| s.trim() == name)
+        || bound.split(|c: char| !is_word(c)).any(|w| w == name)
+    {
+        return None;
+    }
+    let mut edits = Vec::new();
+    let mut i = header + 1;
+    while i < lines.len() {
+        let l = lines[i];
+        let t = l.trim();
+        if t.is_empty() || t.starts_with("--") {
+            i += 1;
+            continue;
+        }
+        let indent = indent_of(l);
+        if indent < column || (indent == column && !t.starts_with("| ")) {
+            break;
+        }
+        if indent == column {
+            let arrow = l.find("=>")?;
+            let patterns = l[..arrow].trim_end();
+            let here = u32::try_from(i).ok()?;
+            if i == hl {
+                let mut out = Vec::new();
+                arms(
+                    &format!("{}, ", patterns.trim_start().strip_prefix("| ")?),
+                    &mut out,
+                    column,
+                );
+                let end = column_of(l, l.len())?;
+                edits.push(TextEdit::new(
+                    Range::new(Position::new(here, 0), Position::new(here, end)),
+                    out.join("\n"),
+                ));
+            } else {
+                let at = Position::new(here, column_of(l, patterns.len())?);
+                edits.push(TextEdit::new(Range::new(at, at), ", _".to_string()));
+            }
+        }
+        i += 1;
+    }
+    let at = Position::new(u32::try_from(header).ok()?, column_of(head, with)?);
+    edits.push(TextEdit::new(Range::new(at, at), format!(", {name}")));
+    Some(edits)
+}
+
 /// Every identifier in the declaration that holds line `line`: from the
 /// last line at column 0 up to it, to the next one after it.
 fn names_in_declaration(lines: &[&str], line: usize) -> Vec<String> {

@@ -989,11 +989,44 @@ impl Session {
     /// constructor_patterns`]).
     pub fn split_patterns(&self, context: &Context, local: &str) -> Option<Vec<String>> {
         let ty = &context.locals.iter().rev().find(|l| l.name == local)?.ty;
+        // A type that is an application of one data type: an operator at
+        // the top (`Nat -> Nat`, `a = b`, `Nat × Nat`) is a function, a
+        // proposition or a pair, whatever its first word is.
+        let mut depth = 0usize;
+        for c in ty.chars() {
+            match c {
+                '(' | '[' | '{' => depth += 1,
+                ')' | ']' | '}' => depth = depth.saturating_sub(1),
+                c if depth == 0
+                    && !(c.is_alphanumeric() || c.is_whitespace() || "_'.".contains(c)) =>
+                {
+                    return None;
+                }
+                _ => {}
+            }
+        }
         let head = ty.split_whitespace().next()?;
         if !head.starts_with(|c: char| c.is_alphabetic()) {
             return None;
         }
         self.elab.constructor_patterns(head)
+    }
+
+    /// The variables of `context` that can be split, each with the
+    /// patterns of its type's constructors ([`Session::split_patterns`]),
+    /// in scope order. A name that a later variable shadows is not offered.
+    pub fn splittable(&self, context: &Context) -> Vec<(String, Vec<String>)> {
+        let mut out = Vec::new();
+        for (i, local) in context.locals.iter().enumerate() {
+            let shadowed = context.locals[i + 1..].iter().any(|l| l.name == local.name);
+            if shadowed || !local.name.starts_with(|c: char| c.is_lowercase()) {
+                continue;
+            }
+            if let Some(patterns) = self.split_patterns(context, &local.name) {
+                out.push((local.name.clone(), patterns));
+            }
+        }
+        out
     }
 }
 

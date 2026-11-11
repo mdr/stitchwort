@@ -888,6 +888,153 @@ fn a_variable_of_an_arm_splits_into_its_types_constructors() {
     });
 }
 
+/// The titles of the "Split" actions at `line`, `character` of `text`
+/// (opened in `s` as `version`), and the text with the one called `title`
+/// applied.
+fn split_at(
+    s: &mut Session,
+    version: i32,
+    text: &str,
+    (line, character): (u32, u32),
+    title: &str,
+) -> (Vec<String>, Option<String>) {
+    s.change(version, text);
+    let actions = s.request_searched(
+        "textDocument/codeAction",
+        json!({"textDocument": {"uri": URI},
+               "range": {"start": {"line": line, "character": character},
+                         "end": {"line": line, "character": character}},
+               "context": {"diagnostics": []}}),
+    );
+    let actions = actions.as_array().cloned().unwrap_or_default();
+    let titles = actions
+        .iter()
+        .filter_map(|a| a["title"].as_str())
+        .filter(|t| t.starts_with("Split"))
+        .map(str::to_string)
+        .collect();
+    let applied = actions.iter().find(|a| a["title"] == title).map(|a| {
+        let mut edits = a["edit"]["documentChanges"][0]["edits"]
+            .as_array()
+            .unwrap()
+            .clone();
+        let offset = |p: &Value| -> usize {
+            let line = p["line"].as_u64().unwrap() as usize;
+            let character = p["character"].as_u64().unwrap() as usize;
+            text.split_inclusive('\n')
+                .take(line)
+                .map(str::len)
+                .sum::<usize>()
+                + character
+        };
+        edits.sort_by_key(|e| std::cmp::Reverse(offset(&e["range"]["start"])));
+        let mut out = text.to_string();
+        for e in edits {
+            out.replace_range(
+                offset(&e["range"]["start"])..offset(&e["range"]["end"]),
+                e["newText"].as_str().unwrap(),
+            );
+        }
+        out
+    });
+    (titles, applied)
+}
+
+/// The position of the `n`th `?` of `text`.
+fn hole(text: &str, n: usize) -> (u32, u32) {
+    let at = text.match_indices('?').nth(n).unwrap().0;
+    let line = text[..at].matches('\n').count();
+    let start = text[..at].rfind('\n').map_or(0, |i| i + 1);
+    (line as u32, (at - start) as u32)
+}
+
+fn errors(s: &Session) -> Vec<&Value> {
+    s.diagnostics
+        .iter()
+        .filter(|d| d["severity"] == 1)
+        .collect()
+}
+
+#[test]
+fn a_goal_splits_on_a_variable_and_then_on_another_as_a_new_column() {
+    big_stack(|| {
+        let text = "namespace Demo\n\ndef andb (b1: Bool) (b2: Bool): Bool := match b1 with\n  | True => b2\n  | False => False\n\ntheorem andbTrueElim2 (b c: Bool) (h: andb b c = True): c = True := ?\n";
+        let mut s = Session::open(text);
+        let (titles, applied) = split_at(&mut s, 2, text, hole(text, 0), "Split on `b`");
+        assert_eq!(titles, ["Split on `b`", "Split on `c`"]);
+        let by_b = applied.unwrap();
+        assert_eq!(
+            by_b,
+            "namespace Demo\n\ndef andb (b1: Bool) (b2: Bool): Bool := match b1 with\n  | True => b2\n  | False => False\n\ntheorem andbTrueElim2 (b c: Bool) (h: andb b c = True): c = True := match b with\n  | False => ?\n  | True => ?\n"
+        );
+        // The cursor on the `?` of the `True` arm: `c` becomes a column.
+        let (titles, applied) = split_at(&mut s, 3, &by_b, hole(&by_b, 1), "Split on `c`");
+        assert_eq!(titles, ["Split on `c`"], "b is already a scrutinee");
+        let by_c = applied.unwrap();
+        s.change(4, &by_c);
+        assert_eq!(
+            by_c,
+            "namespace Demo\n\ndef andb (b1: Bool) (b2: Bool): Bool := match b1 with\n  | True => b2\n  | False => False\n\ntheorem andbTrueElim2 (b c: Bool) (h: andb b c = True): c = True := match b, c with\n  | False, _ => ?\n  | True, False => ?\n  | True, True => ?\n"
+        );
+        assert!(errors(&s).is_empty(), "{:?}", s.diagnostics);
+    });
+}
+
+#[test]
+fn a_goal_splits_a_nat_a_list_and_a_parameter_named_in_the_header() {
+    big_stack(|| {
+        let text = "namespace Demo\n\ndef f (n: Nat): Nat := ?\n\ndef g (xs: List Nat): Nat :=\n  ?\n\ndef h (n: Nat) (k: Nat): Nat := match k with\n  | 0 => 1\n  | m => ?\n";
+        let mut s = Session::open(text);
+        let (_, applied) = split_at(&mut s, 2, text, hole(text, 0), "Split on `n`");
+        let applied = applied.unwrap();
+        assert!(
+            applied
+                .contains("def f (n: Nat): Nat := match n with\n  | Zero => ?\n  | Succ n1 => ?\n"),
+            "{applied}"
+        );
+        s.change(3, &applied);
+        assert!(errors(&s).is_empty(), "{:?}", s.diagnostics);
+        let (_, applied) = split_at(&mut s, 4, text, hole(text, 1), "Split on `xs`");
+        let applied = applied.unwrap();
+        assert!(
+            applied.contains("  match xs with\n    | [] => ?\n    | [x, ..xs1] => ?\n"),
+            "{applied}"
+        );
+        s.change(5, &applied);
+        assert!(errors(&s).is_empty(), "{:?}", s.diagnostics);
+        // A cursor on the name in the header, where the body is a `?`.
+        let (titles, applied) = split_at(&mut s, 6, text, (2, 7), "Split on `n`");
+        assert_eq!(titles, ["Split on `n`"]);
+        assert!(
+            applied
+                .unwrap()
+                .contains("def f (n: Nat): Nat := match n with")
+        );
+        // The `?` is a whole arm of the match on `k`: `n` becomes a column of
+        // it, and `k` isn't offered, being known in the arm. `m` is bound by
+        // the arm, so splitting it nests a match instead.
+        let (titles, applied) = split_at(&mut s, 7, text, hole(text, 2), "Split on `n`");
+        assert_eq!(titles, ["Split on `n`", "Split on `m`"]);
+        let applied = applied.unwrap();
+        assert!(
+            applied.ends_with(
+                "def h (n: Nat) (k: Nat): Nat := match k, n with\n  | 0, _ => 1\n  | m, Zero => ?\n  | m, Succ n1 => ?\n"
+            ),
+            "{applied}"
+        );
+        s.change(8, &applied);
+        assert!(errors(&s).is_empty(), "{:?}", s.diagnostics);
+        let (_, applied) = split_at(&mut s, 9, text, hole(text, 2), "Split on `m`");
+        let applied = applied.unwrap();
+        assert!(
+            applied.ends_with("  | m => match m with\n    | Zero => ?\n    | Succ n1 => ?\n"),
+            "{applied}"
+        );
+        s.change(10, &applied);
+        assert!(errors(&s).is_empty(), "{:?}", s.diagnostics);
+    });
+}
+
 #[test]
 fn the_outline_asked_as_the_file_opens_is_not_empty() {
     big_stack(|| {
