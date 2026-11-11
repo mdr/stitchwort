@@ -1,5 +1,5 @@
 {
-  "next": 2860,
+  "next": 2863,
   "tickets": [
     {
       "id": 47,
@@ -30253,6 +30253,44 @@
       "title": "Waiting on goals, follow-ups (SW-2855): audit gives no entry to a declaration whose signature waits (no kernel definition; record whether it's a theorem in ItemInfo or waiting_names); the per-use goals list is thread-local (USED_UNFINISHED), so an undone attempt's entries can name an extra goal: thread an accumulator through kernel::define_group's callers; stale waiting_names entries when a namespace disappears in an editor session; effects.rs/reify.rs lookups still say 'has errors' for a waiting name; repl/eval of an unfinished name should name the goal like run's main_call (SW-2858)",
       "status": "backlog",
       "agent": "Opus",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2860,
+      "title": "Check a decidable proof goal where its erased proof is used at run time: a companion decide function per proof ? with a Decidable instance; runners insert if decide then erased else stop ('reached inRange's goal, which is false here: 5 < 3'); catches bounds, decreasing measures, value-equality casts; not type equalities (docs/reviews/SW-2809-running-with-goals-review.md option (e))|Opus|proof-automation",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "body": "",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2861,
+      "title": "Check a decidable proof goal where its erased proof is used at run time: a companion decide function per proof ? with a Decidable instance; runners insert if-decide-else-stop naming the goal; catches bounds, decreasing measures and value-equality casts, not type equalities (SW-2809 review option e)",
+      "status": "backlog",
+      "agent": "Opus",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2862,
+      "title": "Running with goals, smaller follow-ups (SW-2809 review): JS thunks for goal-dependent constants so modules load; test maps a stop straight to Stopped instead of rerunning on the evaluator; mark test passes that rely on a goal; one shared exit block per body for native impossible branches; eval elaborates twice; playground shows no running-with warning",
+      "status": "backlog",
+      "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
