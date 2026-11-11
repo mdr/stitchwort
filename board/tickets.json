@@ -31337,12 +31337,12 @@
     {
       "id": 2942,
       "title": "[DeepSeek] Goals panel on a middle calc line (_ = … := rewrite h in rfl) shows the chain's overall end as 'line ⊢ … = Win', not the step's own statement (… = (if True …)); first and last lines are right (SW-2933, book 02-cases.sw:191:7)",
-      "status": "doing",
+      "status": "review",
       "agent": "DeepSeek",
       "where": "",
       "labels": [],
       "epic": "editor-playground",
-      "body": "",
+      "body": "\nModel result: DeepSeek, worked, ~20 min (est. 40). Adds StepNote.after_written for calc lines. Reviewed; waits for the next batch (after SW-2940's verifier).",
       "created": "2026-11-11",
       "updated": "2026-11-11",
       "commits": []
