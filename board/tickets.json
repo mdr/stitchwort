@@ -30659,15 +30659,17 @@
     {
       "id": 2890,
       "title": "[Sonnet] Cmd+. answers at once: proof search leaves the code-action request; a 'Search for a proof' action runs it only when picked (D3519)",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "editor-playground",
-      "body": "D3519 (Matt, 11 Nov 2026): 'for simplicity and to make it clear what you're doing, offer a search for a proof option for the quick actions so that it's always quick. We can think about maybe doing some background stuff later on.' Background search (cursor ?, after a pause, cached by goal) is deferred. Expected: 75 min.",
+      "body": "D3519 (Matt, 11 Nov 2026): 'for simplicity and to make it clear what you're doing, offer a search for a proof option for the quick actions so that it's always quick. We can think about maybe doing some background stuff later on.' Background search (cursor ?, after a pause, cached by goal) is deferred. Expected: 75 min.\n\n\nLane notes: server SearchKind::Proofs + stitchwort.searchProof command; VS Code QuickPick via middleware; playground pick list. Tests run: 4 lsp/cli by name, client test fn by node. Browser test updated, not run. Model result: Sonnet, worked, ~75 min (est. 75).\n",
       "created": "2026-11-11",
       "updated": "2026-11-11",
-      "commits": []
+      "commits": [
+        "3a7450165"
+      ]
     }
   ]
 }
