@@ -2102,6 +2102,7 @@ fn print_tests_json(
                 "line": at.as_ref().map(|a| a.line),
                 "column": at.as_ref().map(|a| a.column),
                 "message": message,
+                "assuming": r.assuming,
             });
             if let Some(detail) = &r.detail {
                 let part = detail.part.as_ref().map(|p| {
@@ -2129,6 +2130,19 @@ fn print_tests_json(
     exit(ok)
 }
 
+/// `  (assuming `a`, `b`)`, the open-goal declarations a passing test relies
+/// on (SW-2939): the first three, then "and N more". Empty for none.
+fn assuming_note(names: &[String]) -> String {
+    if names.is_empty() {
+        return String::new();
+    }
+    let mut parts: Vec<String> = names.iter().take(3).map(|n| format!("`{n}`")).collect();
+    if names.len() > 3 {
+        parts.push(format!("and {} more", names.len() - 3));
+    }
+    format!("  (assuming {})", parts.join(", "))
+}
+
 /// Prints the results, with each namespace's name above its tests if
 /// `grouped`.
 fn print_tests(results: &[TestResult], grouped: bool) -> ExitCode {
@@ -2143,7 +2157,7 @@ fn print_tests(results: &[TestResult], grouped: bool) -> ExitCode {
             Outcome::Passed => (
                 "✓",
                 if result.cached { "cached" } else { "ran" },
-                String::new(),
+                assuming_note(&result.assuming),
             ),
             Outcome::Failed => (
                 "✗",
