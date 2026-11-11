@@ -115,10 +115,12 @@ pub fn stuck_value(
 
 /// `value` read by rule E (docs/core.md, "The equality rule"; SW-2251 F6),
 /// if it's a stuck `m + n` whose second argument, under its `Succ`s, is a
-/// call folded by name: R3 and R4 read the head of `n`, unfolding it with
-/// `unfold` (the evaluator's own, `None` when there's nothing to unfold),
-/// and this is what they make of the sum. `None` if `value` isn't such a
-/// sum, or nothing unfolds, or the sum stays stuck once `n` is unfolded.
+/// call folded by name, or another such sum: R3 and R4 read the head of
+/// `n`, unfolding a folded call with `unfold` (the evaluator's own, `None`
+/// when there's nothing to unfold) and reading a stuck sum by this rule in
+/// turn (`x + (y + two 0)` is `2 + (x + y)`, SW-2874), and this is what
+/// they make of the sum. `None` if `value` isn't such a sum, or nothing
+/// unfolds, or the sum stays stuck once `n` is read.
 ///
 /// Evaluation doesn't do this (it reads `n` with `force` only), so goals
 /// and read-back keep `x + two 0`, and `rewrite` and `match` find the sum
@@ -129,6 +131,17 @@ pub fn reread(
     force: Force,
     unfold: impl Fn(&Value) -> budget::Result<Option<Value>>,
 ) -> budget::Result<Option<Value>> {
+    reread_with(g, value, force, &unfold)
+}
+
+/// [`reread`], recursing into a stuck sum in the second argument. The
+/// recursion is on a proper part of `value` (the base of `n`), or on what
+/// `unfold` made of one, which is evaluation under the operation's budget;
+/// a recursion level is checked against the operation's stack.
+fn reread_with<F>(g: &Ev, value: &Value, force: Force, unfold: &F) -> budget::Result<Option<Value>>
+where
+    F: Fn(&Value) -> budget::Result<Option<Value>>,
+{
     let Value::Neutral(Head::Def(id), spine) = value else {
         return Ok(None);
     };
@@ -138,12 +151,27 @@ pub fn reread(
     if g.env.builtins().nat_add_rule != Some(*id) {
         return Ok(None);
     }
+    g.machine.budget.nesting("conversion")?;
     let mut n = n.clone();
     let mut unfolded = false;
     loop {
         let (k, base) = view_with(g, &n, force)?;
         let Some(base) = base else { break };
-        let Some(next) = unfold(&base)? else { break };
+        // `k * x` left folded unfolds to `x + (k - 1) * x`, and so on `k`
+        // levels down, all stuck on the variable `x`: R3 and R4 never find
+        // a `Zero` or a `Succ` in it, and `k` can be 2^53.
+        if let Value::Neutral(Head::Def(f), args) = &base
+            && crate::native::folds_mul(g, *f, args)
+        {
+            break;
+        }
+        let next = match unfold(&base)? {
+            Some(next) => next,
+            None => match reread_with(g, &base, force, unfold)? {
+                Some(next) => next,
+                None => break,
+            },
+        };
         n = crate::native::from_view(k, Some(next));
         unfolded = true;
     }

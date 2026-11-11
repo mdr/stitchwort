@@ -30451,12 +30451,12 @@
     {
       "id": 2874,
       "title": "Equality G2 nested sums: nat_add::reread doesn't reread a nested stuck sum, so x + (y + two 0) = x + y + 2 fails conversion (omega's E-OMEGA-INTERNAL with SW-2253; the Int analogue too). Make reread recurse when the base is a stuck Nat.add; proof_equivalence case; docs/core.md gaps-table line. Blocks SW-2253 (docs/reviews/SW-2253-omega-folded-review.md item 2)",
-      "status": "doing",
+      "status": "review",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-2874",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "Started 16:09, est. 75 min.\n\nProgress (16:26): done in 17 min. `nat_add::reread` now reads a stuck sum in `+`'s second argument by the same rule, recursively (`x + (y + two 0)` is `2 + (x + y)`), bounded by the operation's stack (`budget.nesting`) and, through unfolding, its work budget. A folded `k * x` there is skipped: without that, std's Float.Theory (`K * b + K * b`, K ~ 2^53) recursed k deep and ran out (E-RESOURCE); its head is the variable's, never `Zero`/`Succ`, so nothing is missed. Tests: wrapping matrix gains `n + (n + hole)` contexts (11 pairs fail in every mode without the fix, pass with it), probe `probe_g2_nested_sum_with_a_folded_number` (Nat, deeper, twice, `case`, Int via `.toInt`). docs/core.md: rule E text and G2 row. For the Fable review: a decreasing def unfolding to a long right-nested chain (`f (Succ m) y = y + f m y`) is now walked to the bottom where it used to stop after one unfold: E-RESOURCE at stack depth possible, and the walk repeats per comparison level (quadratic in chain depth).\n",
       "created": "2026-11-11",
       "updated": "2026-11-11",
       "commits": []
