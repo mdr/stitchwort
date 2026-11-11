@@ -123,7 +123,27 @@ pub struct Def {
     /// backend must make a loop of it. Set once, on a pending definition
     /// ([`crate::check::mark_tailrec`]); never hashed (it changes no term).
     pub(crate) tailrec: bool,
+    /// Set for an open goal's assumption ([`crate::check::assume`],
+    /// docs/core.md "Assumptions (open goals)"): a constant final at once,
+    /// with no body, run body or native, which never unfolds. Hashed.
+    pub(crate) assumption: Option<Rc<Assumption>>,
+    /// Where it was declared; for an assumption, where its `?` is.
     pub(crate) span: Span,
+}
+
+/// Which `?` an assumption stands for: the label that, with its type, is
+/// its identity in hashes (docs/core.md "Assumptions (open goals)"). Its
+/// location is the declaration's span, which isn't hashed, so editing
+/// above a `?` changes no hash.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Assumption {
+    /// The full logical name of the declaration the `?` is written in
+    /// (`Main.Demo.addComm`). That declaration is pending, or not yet
+    /// declared, when its assumptions are made, so it's named, not
+    /// referred to.
+    pub owner: Name,
+    /// The `?`'s number in its owner, in source order, from 1.
+    pub hole: u32,
 }
 
 /// How a call of an update's helper is shown ([`crate::ev::Shown::update_shown`]):
@@ -225,6 +245,11 @@ impl Def {
     /// Whether it is declared `@[tailrec]`.
     pub fn tailrec(&self) -> bool {
         self.tailrec
+    }
+
+    /// The `?` it stands for, if it's an open goal's assumption.
+    pub fn assumption(&self) -> Option<&Assumption> {
+        self.assumption.as_deref()
     }
 
     /// Where it was declared.

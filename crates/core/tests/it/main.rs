@@ -1,6 +1,7 @@
 //! The crate's integration tests in one binary (docs/proposals/fewer-test-binaries.md).
 
 mod admission;
+mod assumptions;
 mod common;
 mod data_groups;
 mod fuzz;

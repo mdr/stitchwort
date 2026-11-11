@@ -7,6 +7,7 @@
 #[cfg(test)]
 use stitchwort_test_alloc as _;
 
+pub mod assumption;
 pub mod backend;
 pub mod budget;
 pub mod caches;

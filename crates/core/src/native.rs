@@ -447,6 +447,10 @@ fn register_shaped(g: &mut Kernel, id: DefId, native: Native) -> Result<()> {
     let (State::Final, Some(nat)) = (def.state, g.env.builtins().nat) else {
         return Err(shape_error(span, native.name()));
     };
+    // An open goal's assumption never computes, by a native or otherwise.
+    if def.assumption().is_some() {
+        return Err(shape_error(span, native.name()));
+    }
     let nat_ty = || Term::Data(nat, Vec::new());
     let arrow =
         |dom: Term, cod: Term| Term::Pi("x".into(), Icit::Explicit, Rc::new(dom), Rc::new(cod));
