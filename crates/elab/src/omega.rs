@@ -3160,17 +3160,44 @@ fn read_context<'l>(cx: &mut Ctx, lib: &'l Lib, extra: &[Extra]) -> Result<Reade
     Ok(reader)
 }
 
-/// Whether `ty` is an unsolved unknown, or an equality whose type is one:
-/// `omega` can't read a hypothesis of that type yet.
+/// Whether `ty` is an unsolved unknown that could stand for a fact, or an
+/// equality whose type is such an unknown: `omega` can't read a hypothesis
+/// of that type yet. An unknown of `Type` (`?a` for a value, as a lambda
+/// parameter gets) is not a fact, so it's no reason to say the type isn't
+/// known. When the unknown's own type can't be told, it isn't either.
 fn unknown_type(cx: &Ctx, ty: &Value) -> Result<bool> {
     Ok(match force(&cx.g(), ty.clone())? {
-        Value::Neutral(Head::Meta(_), _) => true,
+        Value::Neutral(Head::Meta(m), spine) => meta_is_prop(cx, m, &spine)?,
         Value::Eq(inner, _, _) => matches!(
             force(&cx.g(), (*inner).clone())?,
             Value::Neutral(Head::Meta(_), _)
         ),
         _ => false,
     })
+}
+
+/// Whether the unknown `m`, applied to `spine`, is a proposition: its type
+/// is known and is `Prop` (`MetaStore::meta_type` gives it for the first
+/// `arity` arguments). Anything else, including a type not recorded, is not.
+fn meta_is_prop(cx: &Ctx, m: usize, spine: &[Elim]) -> Result<bool> {
+    use stitchwort_core::Sort;
+    let g = cx.g();
+    let Some((mut ty, arity)) = cx.metas().meta_type(m) else {
+        return Ok(false);
+    };
+    if spine.len() < arity {
+        return Ok(false);
+    }
+    for elim in &spine[arity..] {
+        let Elim::App(arg, _) = elim else {
+            return Ok(false);
+        };
+        let Value::Pi(_, _, _, cod) = force(&g, ty)? else {
+            return Ok(false);
+        };
+        ty = cod.apply(&g, arg.clone())?;
+    }
+    Ok(matches!(force(&g, ty)?, Value::Sort(Sort::Prop)))
 }
 
 /// A note for a local hypothesis called `name` whose type isn't known yet:
