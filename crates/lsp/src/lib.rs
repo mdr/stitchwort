@@ -701,6 +701,15 @@ enum SearchKind {
         versioned: Option<i32>,
         fixes: serde_json::Value,
     },
+    /// Splitting a variable at the `?` at `hole`: just `only` when set,
+    /// else every variable ([`hole_splits`]), after the quick fixes
+    /// `fixes` already found.
+    SplitHole {
+        hole: Position,
+        only: Option<String>,
+        versioned: Option<i32>,
+        fixes: serde_json::Value,
+    },
     /// What can follow the `.` at byte `dot`, after `wanted` bytes of a
     /// name typed ([`Main::member_completion`]).
     Members { dot: usize, wanted: usize },
@@ -732,15 +741,67 @@ impl Search {
             SearchKind::CodeAction { range, versioned } => {
                 let mut options = pos::action_options(server.search_wanted);
                 options.time = time_ms.map_or(server.search_time, Duration::from_millis);
-                let found = match target.project {
+                let found = match target.project.clone() {
                     Some((root, relative, open)) => project_closing_actions(
-                        server, source, &root, &relative, open, range, cancel, &options,
+                        server,
+                        source,
+                        &root,
+                        &relative,
+                        open,
+                        range,
+                        cancel.clone(),
+                        &options,
                     ),
                     None => {
                         closing_actions(server, source, &target.path, &target.text, range, &options)
                     }
                 };
-                code_actions(found, &uri, range, versioned)
+                let mut actions = match code_actions(found, &uri, range, versioned) {
+                    serde_json::Value::Array(a) => a,
+                    _ => Vec::new(),
+                };
+                let text = target.text.clone();
+                actions.extend(hole_splits(
+                    server,
+                    source,
+                    target,
+                    &text,
+                    range.start,
+                    None,
+                    &uri,
+                    versioned,
+                    cancel,
+                ));
+                if actions.is_empty() {
+                    serde_json::Value::Null
+                } else {
+                    serde_json::Value::Array(actions)
+                }
+            }
+            SearchKind::SplitHole {
+                hole,
+                only,
+                versioned,
+                fixes,
+            } => {
+                let text = target.text.clone();
+                let mut actions = fixes.as_array().cloned().unwrap_or_default();
+                actions.extend(hole_splits(
+                    server,
+                    source,
+                    target,
+                    &text,
+                    hole,
+                    only.as_deref(),
+                    &uri,
+                    versioned,
+                    cancel,
+                ));
+                if actions.is_empty() {
+                    serde_json::Value::Null
+                } else {
+                    serde_json::Value::Array(actions)
+                }
             }
             SearchKind::ContextAt { line, character } => {
                 context_at(server, source, target, line, character, cancel)
@@ -765,18 +826,10 @@ impl Search {
                     .filter(|p| p.len() > 1)
                     .and_then(|p| arms::split_arm(&text, &split, &p))
                 {
-                    let edits = [edit];
-                    let edit = match versioned {
-                        Some(version) => serde_json::json!({"documentChanges": [{
-                            "textDocument": {"uri": uri.as_str(), "version": version},
-                            "edits": edits,
-                        }]}),
-                        None => serde_json::json!({"changes": {uri.as_str(): edits}}),
-                    };
                     actions.push(serde_json::json!({
                         "title": format!("Split `{}` into its cases", split.name),
                         "kind": "refactor.rewrite",
-                        "edit": edit,
+                        "edit": workspace_edit(&uri, versioned, &[edit]),
                     }));
                 }
                 if actions.is_empty() {
@@ -1129,7 +1182,7 @@ fn searched(
 }
 
 /// The document a search is about ([`Main::search_target`]).
-#[derive(serde::Serialize, serde::Deserialize)]
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
 struct SearchTarget {
     text: String,
     path: PathBuf,
@@ -1349,6 +1402,29 @@ impl Main {
             self.search_target(&uri).filter(|_| searching),
         ) else {
             let fixes = self.import_fixes(&uri, &p.context.diagnostics);
+            let header = {
+                let texts = self.texts.borrow();
+                let at = p.range.start;
+                (texts.get(&uri)).and_then(|t| arms::header_hole(t, at.line, at.character))
+            };
+            if let (Some((hole, name)), Some(target), true) =
+                (header, self.search_target(&uri), searching)
+            {
+                let document_changes = self.document_changes;
+                let fixes = fixes.clone();
+                self.queue_search(id, &uri.clone(), "codeAction", move |version| Search {
+                    uri,
+                    target,
+                    time_ms: None,
+                    kind: SearchKind::SplitHole {
+                        hole,
+                        only: Some(name),
+                        versioned: document_changes.then_some(version),
+                        fixes,
+                    },
+                });
+                return;
+            }
             let split = {
                 let texts = self.texts.borrow();
                 let at = p.range.start;
@@ -4430,6 +4506,60 @@ fn members_key(target: &SearchTarget, dot: usize, wanted: usize) -> String {
         (root, relative, others)
     });
     format!("{:?}\n{others:?}\n{text}", target.path)
+}
+
+/// The edit that applies `edits` to the document, named by `versioned`
+/// when the client checks versions.
+fn workspace_edit(
+    uri: &Url,
+    versioned: Option<i32>,
+    edits: &[lsp_types::TextEdit],
+) -> serde_json::Value {
+    match versioned {
+        Some(version) => serde_json::json!({"documentChanges": [{
+            "textDocument": {"uri": uri.as_str(), "version": version},
+            "edits": edits,
+        }]}),
+        None => serde_json::json!({"changes": {uri.as_str(): edits}}),
+    }
+}
+
+/// The "Split `x`" actions for the `?` at `hole`: one for each variable in
+/// scope there that can be split (all of them, or just `only`).
+#[allow(clippy::too_many_arguments)]
+fn hole_splits(
+    server: &Options,
+    source: &dyn Source,
+    target: SearchTarget,
+    text: &str,
+    hole: Position,
+    only: Option<&str>,
+    uri: &Url,
+    versioned: Option<i32>,
+    cancel: Arc<AtomicBool>,
+) -> Vec<serde_json::Value> {
+    let variables = with_context(
+        server,
+        source,
+        target,
+        hole.line,
+        hole.character,
+        cancel,
+        |session, context| context.map(|c| session.splittable(&c)),
+    );
+    variables
+        .into_iter()
+        .flatten()
+        .filter(|(name, _)| only.is_none_or(|o| o == name))
+        .filter_map(|(name, patterns)| {
+            let edits = arms::split_hole(text, hole, &name, &patterns)?;
+            Some(serde_json::json!({
+                "title": format!("Split on `{name}`"),
+                "kind": "refactor.rewrite",
+                "edit": workspace_edit(uri, versioned, &edits),
+            }))
+        })
+        .collect()
 }
 
 /// What replaces the goal `?` at `range` of `text` (the file at `path`, on

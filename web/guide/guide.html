@@ -151,6 +151,11 @@
   <pre data-src="26-induct.sw"></pre>
 </section>
 
+<section data-slug="split-from-a-hole" data-title="Splitting from a ?">
+  <p>In the editor, a <code>?</code> is a place to start. With the cursor on it, the light bulb offers "Split on <code>b</code>" for each variable in scope whose type has constructors; picking one replaces the <code>?</code> with a <code>match</code> and one <code>?</code> for each case, each showing its own goal. Splitting another variable from the <code>?</code> of one arm adds a column to that <code>match</code> rather than nesting a new one.</p>
+  <pre data-src="37-split-from-a-hole.sw"></pre>
+</section>
+
 <section data-slug="guard-proofs" data-title="Proofs about cases with conditions">
   <p>For a proof, a case with a condition is an <code>if</code>. Its equation takes the condition as a hypothesis, the cases below it take that it failed, and <code>match induct</code> splits at each condition. A condition that can be decided is stated as a proposition: <code>n != 3</code> becomes <code>n ≠ 3</code>.</p>
   <pre data-src="27-guard-proofs.sw"></pre>
