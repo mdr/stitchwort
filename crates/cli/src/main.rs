@@ -1217,6 +1217,13 @@ fn read_project_config(project: &Project) -> Option<stitchwort_cli::project::Con
     }
 }
 
+/// "N goals open, allowed by `check: open-goals: warn`": the start of the
+/// line `check` and the REPL print for a project that allows open goals.
+fn open_goals_allowed(goals: usize) -> String {
+    let s = if goals == 1 { "" } else { "s" };
+    format!("{goals} goal{s} open, allowed by `check: open-goals: warn`")
+}
+
 /// The goal count line, then what relies on the goals and what can't be
 /// checked until they are filled (docs/proposals/using-unfinished-proofs.md
 /// §5.1), after the goals themselves. `warn` is `check: open-goals: warn`,
@@ -1233,8 +1240,8 @@ fn report_goals(session: &Session, reported: &[Diagnostic]) {
     let s = if goals == 1 { "" } else { "s" };
     if allowed {
         eprintln!(
-            "{goals} goal{s} open, allowed by `check: open-goals: warn`; `stitchwort audit` fails \
-             what relies on {}",
+            "{}; `stitchwort audit` fails what relies on {}",
+            open_goals_allowed(goals),
             if goals == 1 { "it" } else { "them" }
         );
     } else {
@@ -4154,8 +4161,10 @@ fn load_for_evaluation(session: &mut Session, path: &Path) -> bool {
                 // would otherwise print a box for each one on every start.
                 reported.retain(|d| d.severity != Severity::Goal);
                 report(&session.sources, &reported);
-                let s = if goals == 1 { "" } else { "s" };
-                eprintln!("{goals} goal{s} open in this project; `stitchwort goal` lists them");
+                eprintln!(
+                    "{}; `stitchwort goal` lists them",
+                    open_goals_allowed(goals)
+                );
             } else {
                 report(&session.sources, &reported);
             }
@@ -4177,7 +4186,7 @@ fn evaluate(session: &mut Session, expr: &str, type_only: bool) -> Result<String
     let expr = expr.trim();
     let parsed = session.parse_expression("<input>", expr)?;
     if type_only {
-        let (_, ty) = session.elab.infer_expr(&parsed)?;
+        let (_, ty) = session.elab.infer_expr_type_only(&parsed)?;
         return Ok(format!("{expr}: {}", session.elab.show(&ty)));
     }
     let (value, ty) = session.elab.eval_expr(&parsed)?;

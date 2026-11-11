@@ -103,6 +103,48 @@ fn open_goals_allowed_by_the_project_print_one_line() {
     assert_eq!(String::from_utf8_lossy(&evaluated.stdout).trim(), "1: Nat");
     assert_eq!(
         stderr.trim(),
-        "2 goals open in this project; `stitchwort goal` lists them"
+        "2 goals open, allowed by `check: open-goals: warn`; `stitchwort goal` lists them"
     );
+}
+
+/// `:t` on a declaration whose body is still `?` prints its type (the
+/// header is checked); evaluating it is refused.
+#[test]
+fn type_only_works_on_a_declaration_with_an_open_goal() {
+    let dir = std::env::temp_dir().join(format!("sw-repl-type-open-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(dir.join("src")).expect("make the project folder");
+    std::fs::write(
+        dir.join("stitchwort.yaml"),
+        "sources: [src]\ncheck:\n  open-goals: warn\n",
+    )
+    .expect("write the config");
+    std::fs::write(
+        dir.join("src/Ex.sw"),
+        "namespace Demo.Ex\n\ndef a (n: Nat): Nat := ?\n",
+    )
+    .expect("write Ex.sw");
+    let mut child = Command::new(env!("CARGO_BIN_EXE_stitchwort"))
+        .args(["repl", "src/Ex.sw"])
+        .current_dir(&dir)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .expect("start stitchwort repl");
+    child
+        .stdin
+        .take()
+        .expect("the REPL's input")
+        .write_all(b":t a\na 1\n")
+        .expect("write to the REPL");
+    let output = child.wait_with_output().expect("run stitchwort repl");
+    let _ = std::fs::remove_dir_all(&dir);
+    let printed = String::from_utf8_lossy(&output.stdout);
+    let errors = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        printed.lines().any(|l| l == "a: Nat → Nat"),
+        "expected `a: Nat → Nat` in:\n{printed}\n{errors}"
+    );
+    assert!(errors.contains("E-UNFINISHED"), "{errors}");
 }

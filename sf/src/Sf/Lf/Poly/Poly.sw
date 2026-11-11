@@ -359,9 +359,11 @@ theorem testNthError3: nthError (ofList [True]) (ofNat 2) = None := rfl
 def hdError (l: List a): Option a := ?
 
 -- The book shows `@hd_error`'s type here, `forall X : Type, list X ->
--- option X`. `stitchwort doc Sf.Lf.Poly.hdError` prints its header, `def
--- hdError (l: List a): Option a`, where `a` is bound automatically and
--- implicitly, so there is no `@` form to ask for.
+-- option X`. In the REPL, `:t hdError` prints `[a: Type] → Sf.Lf.Poly.List a →
+-- Option a`, even before you have filled in the `?`; `stitchwort doc
+-- Sf.Lf.Poly.hdError` prints the header, `def hdError (l: List a): Option
+-- a`. Either way `a` is bound automatically and implicitly, so there is no
+-- `@` form to ask for.
 
 theorem testHdError1: hdError (ofNats [1, 2]) = Some (S O) := ?
 
