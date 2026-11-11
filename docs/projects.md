@@ -266,9 +266,18 @@ name that resolves into `M`.
   which may span files, or move what both need into a third namespace.
 - **Cycles inside one namespace are fine.** Its files and declarations may
   refer to each other in any order.
-- **A broken namespace doesn't stop unrelated ones.** If `Aoc` has errors,
-  namespaces that depend on it aren't checked and get `E-NAMESPACE-FAILED`.
-  Namespaces that don't depend on it are checked normally.
+- **An error stops only what uses it** (D3524). If a declaration in `Aoc`
+  has an error, every namespace is still checked, declaration by
+  declaration, those that import `Aoc` included. A declaration that uses
+  the broken one, directly or through another, can't be checked until it's
+  fixed; it reports nothing itself. Instead each file with such
+  declarations gets one `E-USES-FAILED` per broken name, on its import of
+  the name (or on the first declaration that waits, if the file doesn't
+  import it by name), listing what waits. Everything else is checked as
+  usual, its goals are shown and its tests run. `check` still exits 1. In
+  the editor, while a namespace has a *syntax* error, the namespaces that
+  use it aren't checked (`E-NAMESPACE-FAILED`) and keep the answers they
+  had, so they don't change with every keystroke.
 
 ## `auto` across files
 
@@ -383,7 +392,8 @@ the working directory. `--cache-dir` overrides both.
 | `E-NAMESPACE-CLASH` | A dotted namespace name is also a type declared in its parent namespace. |
 | `E-FOREIGN-NAMESPACE` | A file adds something other than a function to another namespace's type, or names another namespace as a declaration's qualifier. |
 | `E-EXTENSION-CLASH` | A function added to another namespace's type has the name of one of the type's own. |
-| `E-NAMESPACE-FAILED` | A namespace wasn't checked because a namespace it depends on has errors. |
+| `E-USES-FAILED` | Declarations of this file use a declaration of another namespace that has an error, so they can't be checked until it's fixed: one per broken name per file, listing what waits. |
+| `E-NAMESPACE-FAILED` | In the editor only: a namespace wasn't checked because a namespace it depends on has a syntax error. |
 | `E-NAMESPACE-UNKNOWN` | A command named a namespace the project doesn't have. |
 | `E-UNKNOWN-THEOREM` | `check --only` named something that is not a theorem of the namespaces being checked. |
 | `E-IMPORT-WILDCARD` | `import N (..)` names the file's own namespace, `Std`, or a part of a namespace instead of a whole one. |

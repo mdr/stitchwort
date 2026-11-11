@@ -1,5 +1,5 @@
 {
-  "next": 2943,
+  "next": 2946,
   "tickets": [
     {
       "id": 47,
@@ -31142,12 +31142,12 @@
     {
       "id": 2927,
       "title": "[Sonnet] Goals print as written with a dimmed 'computes to' line when the computed form differs, everywhere goals are shown (panel, hover, playground, check, goal, --json); 240-char cut, folded; no form switch (D3522; docs/proposals/goals-panel.md). After SW-1004",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "editor-playground",
-      "body": "D3522 (Matt, 11 Nov 2026): 'that sounds like a good solution, showing both.' Then update book 2.1 back to the as-written goal plus the computes-to line, guide 10-proofs.md:127, syntax.md:1659/1734.",
+      "body": "D3522 (Matt, 11 Nov 2026): 'that sounds like a good solution, showing both.' Then update book 2.1 back to the as-written goal plus the computes-to line, guide 10-proofs.md:127, syntax.md:1659/1734.\n\nProgress (Sonnet lane, 11 Nov 2026): done in branch lane/SW-2927. Goals print as written (new `Readback::AsWrittenShown`: calls kept, sums still `x + k`), with `computes to` (cut at 240) when the computed form differs: Diagnostic label, `stitchwort goal` (--at, no --at, --json v2: `targetComputed`, `beforeComputed`, `afterComputed`, `goalComputed`), LSP goalAt/contextAt, VS Code panel and playground (dimmed). Not done: hypotheses stay as the checker has them (as written lost `(+ 1)` sections and unfolded record projections); a goal whose written form names a `%helper` stays computed-only; SW-2942's `StepNote.after_written` not folded (not on main yet).\n",
       "created": "2026-11-11",
       "updated": "2026-11-11",
       "commits": []
@@ -31246,12 +31246,12 @@
     {
       "id": 2935,
       "title": "[DeepSeek] EXAMPLES=<name> with -E 'test(/_examples/)' also runs the tools guide:: tests (~10 min at nice 15); make the example filter select only the examples tests so a lane can run one example in seconds (SW-2154)",
-      "status": "backlog",
+      "status": "review",
       "agent": "DeepSeek",
       "where": "",
       "labels": [],
       "epic": "test-infra",
-      "body": "",
+      "body": "\nModel result: DeepSeek, worked, ~10 min (est. 30). task test:example NAME=…: 4 tests, 0.4 s test time. Reviewed; waits for the next batch.",
       "created": "2026-11-11",
       "updated": "2026-11-11",
       "commits": []
@@ -31259,12 +31259,12 @@
     {
       "id": 2936,
       "title": "[Sonnet] kache served a stale stitchwort-elab to a fresh worktree's cli build (new methods missing until RUSTC_WRAPPER= and a clean): a compiler cache returning wrong artifacts; reproduce and fix the cache key or disable the case (SW-2932)",
-      "status": "next",
+      "status": "doing",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "dev-loop-speed",
-      "body": "",
+      "body": "\nD3526 (Matt, 11 Nov 2026): the one token-heavy lane tonight. Expected: 75 min.",
       "created": "2026-11-11",
       "updated": "2026-11-11",
       "commits": []
@@ -31272,12 +31272,12 @@
     {
       "id": 2937,
       "title": "[DeepSeek] stitchwort test labels a test that failed without running (unfinished ?, broken dependency) as 'ran'; label it 'not run' (SW-2909, SW-2932)",
-      "status": "backlog",
+      "status": "review",
       "agent": "DeepSeek",
       "where": "",
       "labels": [],
       "epic": "diagnostics",
-      "body": "",
+      "body": "\nModel result: DeepSeek, worked, ~15 min (est. 30). Reviewed; waits for the next batch.",
       "created": "2026-11-11",
       "updated": "2026-11-11",
       "commits": []
@@ -31311,12 +31311,12 @@
     {
       "id": 2940,
       "title": "[Opus] Tests with errors stage 1 (D3524): importers of a namespace with errors are checked per declaration; failed names cross imports as failed; E-USES-FAILED once per broken name per file on the import replaces E-NAMESPACE-FAILED; importers' tests, goals, hovers; live project; docs and book text (docs/proposals/tests-with-errors.md)",
-      "status": "doing",
+      "status": "review",
       "agent": "Opus",
       "where": "",
       "labels": [],
       "epic": "test-infra",
-      "body": "D3524 (Matt, 11 Nov 2026): 'Yes.' Design: docs/proposals/tests-with-errors.md (SW-2938) stage 1. Expected: 150 min.",
+      "body": "D3524 (Matt, 11 Nov 2026): 'Yes.' Design: docs/proposals/tests-with-errors.md (SW-2938) stage 1. Expected: 150 min.\n\nLane notes (Opus, 11 Nov 2026, ~45 min): commit ad5228865 on lane/SW-2940. Importers are checked per declaration; what uses another namespace's failed declaration waits (errors dropped), one E-USES-FAILED per root broken declaration per file, on the import (or first waiting declaration), noting what waits. Waiting chains name the root (Session::failed_sources), also for broken-test messages. Recognised: name lookup, kernel refusal, dot calls, computing through it in a proof (printer hook now passes the DefId). Not recognised: instance search (`Red < Green` with a broken `Ord` instance gives a fresh E-TYPE-MISMATCH; stage 2's note). Cache: no change needed (Merkle keys; errored namespaces never stored); tested both ways. Live project skips importers only while a used namespace has a syntax error (E-NAMESPACE-FAILED kept for that). Book with the slip: chapter 2 checked, 11 goals, 8 tests (6 pass, 2 fail); 3 of chapter 2's own proofs now go red (false under the slipped table), previously hidden. Tests run by name: 5 test_json, driver project a_failed_declaration_stops_only_what_uses_it, lsp memory failed-import, cli server aoc_navigation_matches_check_index (273 s, slow as before), web shared-file error, rejected_projects (failed, extension-in-owner). Not run: browser.mjs (edited expectation).\n\n\nVerifier fixes (Opus, 11 Nov 2026, ~25 min): commit 2f2490cf0. (1) Single-file snapshots gained E-USES-FAILED because the kernel's failed-def paths carry `Main.`, so a file's own failed declarations looked foreign; now noted by name (= scope key); within-file behaviour back to before, 11 snapshots unchanged. (2) build::a_project_folder_builds_its_main passes in the worktree with and without the fix; not reproduced. (3) Browser crash: corrupt web/pkg/std.bundle in main (4 MB, starts at Fail/Fail.sw) from two concurrent bundle-std.sh runs appending to one file; not from any merge. bundle-std.sh now writes a temp file and renames. task test:browser: 87 of 87 passed.\n",
       "created": "2026-11-11",
       "updated": "2026-11-11",
       "commits": []
@@ -31337,11 +31337,50 @@
     {
       "id": 2942,
       "title": "[DeepSeek] Goals panel on a middle calc line (_ = … := rewrite h in rfl) shows the chain's overall end as 'line ⊢ … = Win', not the step's own statement (… = (if True …)); first and last lines are right (SW-2933, book 02-cases.sw:191:7)",
-      "status": "doing",
+      "status": "review",
       "agent": "DeepSeek",
       "where": "",
       "labels": [],
       "epic": "editor-playground",
+      "body": "\nModel result: DeepSeek, worked, ~20 min (est. 40). Adds StepNote.after_written for calc lines. Reviewed; waits for the next batch (after SW-2940's verifier).",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2943,
+      "title": "[Opus] Tests with errors stage 2 (docs/proposals/tests-with-errors.md): reporting (check error summary, test with its own error is a failed result, test --json errors, audit verdicts with errors) and implicit uses of failed declarations across namespaces: instance search with a broken Ord instance gives a fresh E-TYPE-MISMATCH instead of waiting (SW-2940)",
+      "status": "backlog",
+      "agent": "Opus",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
+      "body": "",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2944,
+      "title": "[DeepSeek] E-USES-FAILED 'the error is here' label sits a few columns from the printed error position (76:37 vs 76:41) (SW-2940)",
+      "status": "backlog",
+      "agent": "DeepSeek",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
+      "body": "",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2945,
+      "title": "[DeepSeek] A parse error that destroys an imported name gives E-UNKNOWN-NAME on the import instead of the note's '`A` has a syntax error, so `beats` can't be found' (SW-2940)",
+      "status": "backlog",
+      "agent": "DeepSeek",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
       "body": "",
       "created": "2026-11-11",
       "updated": "2026-11-11",

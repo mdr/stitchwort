@@ -284,27 +284,20 @@ impl Session {
         skipped: &BTreeMap<String, Vec<Diagnostic>>,
     ) -> Option<Vec<Diagnostic>> {
         let mut diagnostics: Vec<Diagnostic> = Vec::new();
-        let mut outcomes: BTreeMap<&str, NamespaceOutcome> = BTreeMap::new();
         let mut left_out = false;
         for name in order {
             if let Some(warnings) = skipped.get(name) {
                 left_out = true;
-                outcomes.insert(name, NamespaceOutcome::Checked);
                 diagnostics.extend(warnings.iter().cloned());
                 continue;
             }
             let ns = analysis.namespace(name).expect("a namespace");
-            let (found, outcome) =
-                self.check_project_namespace(analysis, order, ns, &|m| outcomes.get(m).copied());
-            // (Not checked because a namespace it uses failed: that says
-            // only which.)
+            let (found, _) = self.check_project_namespace(analysis, ns);
             if left_out
-                && outcome != NamespaceOutcome::Skipped
                 && (found.iter()).any(|d| matches!(d.severity, Severity::Error | Severity::Goal))
             {
                 return None;
             }
-            outcomes.insert(name, outcome);
             diagnostics.extend(found);
         }
         Some(diagnostics)
@@ -317,7 +310,8 @@ impl Session {
     /// that is loaded needs it. Loaded: the misses; the namespaces with
     /// syntax errors or doc links, whose diagnostics aren't all in the
     /// entry; the namespaces that use a miss or one with syntax errors
-    /// (which may fail, and so block them); and everything those use.
+    /// (which may fail, and so make some of theirs wait); and everything
+    /// those use.
     fn plan_skips(
         &mut self,
         analysis: &Analysis,
@@ -355,41 +349,16 @@ impl Session {
     }
 
     /// Checks one namespace `ns` of a project, after the namespaces it uses
-    /// (`outcome` says how each of those went). If one of them failed or
-    /// wasn't checked, `ns` isn't either (`E-NAMESPACE-FAILED`, naming the
-    /// first such namespace in `order`, the project's canonical order).
-    /// `analysis` says what each namespace uses.
+    /// (`analysis` says which), whatever happened to them: a declaration
+    /// that uses one of theirs that failed waits for it, and each file
+    /// says so once per failed name (`E-USES-FAILED`), but the rest is
+    /// checked (D3524).
     pub fn check_project_namespace(
         &mut self,
         analysis: &Analysis,
-        order: &[String],
         ns: &Namespace,
-        outcome: &dyn Fn(&str) -> Option<NamespaceOutcome>,
     ) -> (Vec<Diagnostic>, NamespaceOutcome) {
         let name = &ns.name;
-        let blocked = |m: &str| {
-            matches!(
-                outcome(m),
-                Some(NamespaceOutcome::Failed | NamespaceOutcome::Skipped)
-            )
-        };
-        // The first dependency, in canonical order, that has errors or
-        // wasn't checked.
-        let blocker = order
-            .iter()
-            .filter(|m| blocked(m))
-            .find_map(|m| ns.edges.iter().find(|e| &e.target == m));
-        if let Some(edge) = blocker {
-            let m = &edge.target;
-            let why = if outcome(m) == Some(NamespaceOutcome::Failed) {
-                format!("namespace {m} has errors, so {name} isn't checked")
-            } else {
-                format!("namespace {m} isn't checked, so neither is {name}")
-            };
-            let d = Diagnostic::error("E-NAMESPACE-FAILED", why)
-                .with_label(edge.span, format!("`{name}` uses `{m}` here"));
-            return (vec![d], NamespaceOutcome::Skipped);
-        }
         let dependencies = dependencies(analysis, name);
         let names: Vec<String> = ns
             .files
@@ -515,17 +484,13 @@ impl Session {
         let mut outcomes: BTreeMap<String, NamespaceOutcome> = BTreeMap::new();
         for name in &order[..order.len() - 1] {
             let namespace = analysis.namespace(name).expect("a namespace");
-            let (found, outcome) =
-                self.check_project_namespace(analysis, &order, namespace, &|m| {
-                    outcomes.get(m).copied()
-                });
+            let (found, outcome) = self.check_project_namespace(analysis, namespace);
             outcomes.insert(name.clone(), outcome);
             before.extend(found);
         }
         let mark = self.mark();
         let namespace = analysis.namespace(ns).expect("a namespace");
-        let (diagnostics, _) = self
-            .check_project_namespace(analysis, &order, namespace, &|m| outcomes.get(m).copied());
+        let (diagnostics, _) = self.check_project_namespace(analysis, namespace);
         Ok(GoalLoad {
             diagnostics,
             before,
@@ -591,10 +556,7 @@ impl Session {
                     .with_label(edge.span, "used here"),
             ];
         }
-        let (diagnostics, _) =
-            self.check_project_namespace(analysis, &load.order, namespace, &|m| {
-                outcomes.get(m).copied()
-            });
+        let (diagnostics, _) = self.check_project_namespace(analysis, namespace);
         diagnostics
     }
 
@@ -654,7 +616,9 @@ pub enum NamespaceOutcome {
     Checked,
     /// It has errors.
     Failed,
-    /// It wasn't checked, because a namespace it uses failed or wasn't.
+    /// It wasn't checked: in the editor's live project, a namespace it
+    /// uses has syntax errors or wasn't checked itself, so it keeps the
+    /// answers it had (docs/proposals/tests-with-errors.md §6).
     Skipped,
 }
 

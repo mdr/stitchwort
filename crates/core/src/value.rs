@@ -2889,6 +2889,12 @@ pub fn quote_as_written(g: &Ev, level: usize, value: &Value) -> Result<Term> {
     Ok(quote_as(g, level, value, Readback::AsWritten, None, None)?.expect("no cap"))
 }
 
+/// [`quote_as_written`] for display: a sum stuck on an unknown is written
+/// `x + k` ([`native::nat_add_shown`], SW-895). For printing only.
+pub fn quote_as_written_shown(g: &Ev, level: usize, value: &Value) -> Result<Term> {
+    Ok(quote_as(g, level, value, Readback::AsWrittenShown, None, None)?.expect("no cap"))
+}
+
 /// Instrumentation (SW-1782): with `STITCHWORT_DEBUG_FORCE_UNGLUED` set,
 /// every folded read-back is preceded by an unfolded one with gluing off,
 /// which fills the cells of every call it reaches. Its result, steps and
@@ -2995,6 +3001,8 @@ enum Readback {
     AsWritten,
     /// As [`Readback::Unfolded`], for display ([`quote_unfolded_shown`]).
     UnfoldedShown,
+    /// As [`Readback::AsWritten`], for display ([`quote_as_written_shown`]).
+    AsWrittenShown,
 }
 
 impl Readback {
@@ -3006,7 +3014,16 @@ impl Readback {
     /// Whether the term is only printed, so a stuck sum `k + x` is written
     /// `x + k` ([`native::nat_add_shown`]).
     fn for_display(self) -> bool {
-        matches!(self, Readback::Shown | Readback::UnfoldedShown)
+        matches!(
+            self,
+            Readback::Shown | Readback::UnfoldedShown | Readback::AsWrittenShown
+        )
+    }
+
+    /// Whether every glued call is read back as the call, even one that
+    /// steps at once.
+    fn keeps_every_call(self) -> bool {
+        matches!(self, Readback::AsWritten | Readback::AsWrittenShown)
     }
 }
 
@@ -3197,7 +3214,7 @@ fn visit(
     let value = if !mode.unfolds() {
         match force_solved(g, value)? {
             Value::Call(id, spine, _)
-                if mode == Readback::AsWritten || !matches_at_once(g, id, &spine)? =>
+                if mode.keeps_every_call() || !matches_at_once(g, id, &spine)? =>
             {
                 let shapes = spine
                     .iter()

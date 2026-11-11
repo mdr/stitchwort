@@ -9,5 +9,6 @@ expression: output
    │                                                                                                   ┬  
    │                                                                                                   ╰── a: Nat
    │                                                                                                       b: Nat
-   │                                                                                                       ⊢ concatenate a b = concatenate a b
+   │                                                                                                       ⊢ (if True then concatenate a b else 0) = concatenate a b
+   │                                                                                                         computes to concatenate a b = concatenate a b
 ───╯

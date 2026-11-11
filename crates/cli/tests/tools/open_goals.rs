@@ -99,7 +99,7 @@ fn a_test_that_reaches_an_open_goal_fails_under_warn() {
     assert_eq!(out.status.code(), Some(1), "{stdout}{stderr}");
     assert!(stdout.contains("✓ one is one"), "{stdout}");
     assert!(
-        stdout.contains("✗ two is two  ran  (`two` isn't written yet: its body is `?` (")
+        stdout.contains("✗ two is two  not run  (`two` isn't written yet: its body is `?` (")
             && stdout.contains("src/a.sw:7:17))"),
         "{stdout}"
     );

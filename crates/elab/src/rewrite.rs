@@ -409,7 +409,7 @@ fn rule_step(
         index: Some(index),
         before,
         after: after.clone(),
-        after_written: None,
+        after_term: None,
         adds: Vec::new(),
         rule,
         parts: Vec::new(),

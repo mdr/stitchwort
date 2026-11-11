@@ -99,8 +99,16 @@ impl MissingCases {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct GoalData {
     pub hypotheses: Vec<Hypothesis>,
-    /// What must be shown, as after `⊢`.
+    /// What must be shown, as after `⊢`, computed as the checker sees it
+    /// (a call that matches at once is replaced by what it steps to). The
+    /// proof search and the lemma are made from this text; a reader is
+    /// shown [`GoalData::written`] first.
     pub target: String,
+    /// The target as written, with the values of the context put in and no
+    /// call computed (`beats Rock Rock = False` where `target` is
+    /// `False = False`); `None` when it prints the same as `target`
+    /// (D3522).
+    pub written: Option<String>,
     /// Whether the target is a proposition (a proof goal), if that was
     /// known when the hole was checked: `None` when its sort couldn't be
     /// told.
@@ -109,6 +117,32 @@ pub struct GoalData {
     /// the file (`theorem fGoal1 (n: Nat): n + 0 = n := ?`), when every
     /// name in it means there what it means at the goal.
     pub lemma: Option<String>,
+}
+
+impl GoalData {
+    /// What a reader sees first: the target as written, else the target.
+    pub fn shown(&self) -> &str {
+        self.written.as_deref().unwrap_or(&self.target)
+    }
+
+    /// The computed form to show under [`GoalData::shown`], if it differs.
+    pub fn computed(&self) -> Option<&str> {
+        self.written.as_ref().map(|_| self.target.as_str())
+    }
+}
+
+/// How many characters of a goal's `computes to` line are shown: the same
+/// as a message's notes (D3522).
+pub const COMPUTES_TO_LIMIT: usize = 240;
+
+/// `computed` cut to [`COMPUTES_TO_LIMIT`] characters, ending in `…`.
+pub fn cut_computed(computed: &str) -> String {
+    if computed.chars().count() <= COMPUTES_TO_LIMIT {
+        return computed.to_string();
+    }
+    let mut cut: String = computed.chars().take(COMPUTES_TO_LIMIT - 1).collect();
+    cut.push('…');
+    cut
 }
 
 /// One name in scope at a goal.

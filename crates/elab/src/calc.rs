@@ -142,7 +142,7 @@ fn elaborate(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value, Ends)> {
                     index: Some((index, steps.len())),
                     before: link.as_ref().map(|l| l.prop.clone()),
                     after: prop.clone(),
-                    after_written: Some(shown_prop),
+                    after_term: Some(shown_prop),
                     adds: Vec::new(),
                     rule: None,
                     parts: Vec::new(),

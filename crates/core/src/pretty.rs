@@ -15,7 +15,10 @@ use crate::collections::HashMap;
 use crate::globals::{CallDefaults, DefaultCall, PlaceholderText};
 use crate::registry::Builtin;
 use crate::term::{DataId, DefId, Icit, Name, Sort, Term};
-use crate::value::{Value, proof_field, proof_param, quote_shown, quote_unfolded_shown, same_term};
+use crate::value::{
+    Value, proof_field, proof_param, quote_as_written_shown, quote_shown, quote_unfolded_shown,
+    same_term,
+};
 
 /// A declaration a printed name stands for.
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
@@ -344,8 +347,31 @@ pub fn value_for_goal(
     )
 }
 
+/// [`value_for_goal`], but as it was written: every call stays a call, so
+/// that `beats Rock Rock = False` isn't printed as `False = False`
+/// (D3522). `None` if the value can't be read back.
+pub fn value_for_goal_as_written(
+    g: &Ev,
+    scope: &dyn NameScope,
+    names: &[Name],
+    predicates: &[bool],
+    value: &Value,
+) -> Option<String> {
+    let t = quote_as_written_shown(g, names.len(), value).ok()?;
+    Some(term_within(
+        g,
+        Some(scope),
+        names,
+        &t,
+        GOAL_LIMIT,
+        Prec::Arrow,
+        Some(predicates),
+    ))
+}
+
 /// [`value_for_goal`], for a term already read back: a step's statement as
-/// written, where the value's normal form has computed a side away.
+/// written, where the value's normal form has computed a side away and so
+/// can't give the written side back (SW-2942).
 pub fn term_for_goal_in(
     g: &Ev,
     scope: &dyn NameScope,
@@ -3316,8 +3342,8 @@ fn note_failed_mention(g: &Ev, level: usize, term: &Term) {
         return;
     }
     let mut waits = false;
-    if mentions_failed(g, term, &mut waits) {
-        g.shown.note_failed_mentioned();
+    if let Some(def) = mentions_failed(g, term, &mut waits) {
+        g.shown.note_failed_mentioned(def);
     } else if waits && g.shown.wants_stuck_mention() {
         let goals = stuck_on_goal(g, level, term);
         if !goals.is_empty() {
@@ -3326,17 +3352,17 @@ fn note_failed_mention(g: &Ev, level: usize, term: &Term) {
     }
 }
 
-/// Whether `term` uses a failed definition; `waits` is set if it uses one
-/// that may be stuck on an open goal (`Shown::waits_on_goal`).
-fn mentions_failed(g: &Ev, term: &Term, waits: &mut bool) -> bool {
+/// The first failed definition `term` uses, if any; `waits` is set if it
+/// uses one that may be stuck on an open goal (`Shown::waits_on_goal`).
+fn mentions_failed(g: &Ev, term: &Term, waits: &mut bool) -> Option<DefId> {
     // Iteratively: a shown term can be nested far deeper than the stack.
-    term.subterms().any(|(t, _)| match t {
-        Term::Def(d) if g.def(*d).state() == crate::globals::State::Failed => true,
+    term.subterms().find_map(|(t, _)| match t {
+        Term::Def(d) if g.def(*d).state() == crate::globals::State::Failed => Some(*d),
         Term::Def(d) => {
             *waits = *waits || g.shown.waits_on_goal(*d);
-            false
+            None
         }
-        _ => false,
+        _ => None,
     })
 }
 

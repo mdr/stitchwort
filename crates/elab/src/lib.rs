@@ -404,8 +404,13 @@ impl stitchwort_core::Shown for Elaborator {
         !self.decl.failed_mentioned.get()
     }
 
-    fn note_failed_mentioned(&self) {
+    fn note_failed_mentioned(&self, def: DefId) {
         self.decl.failed_mentioned.set(true);
+        // One of another namespace's: the declaration waits for it.
+        let path = self.kernel.def(def).name().to_string();
+        if !self.unit.module.names.contains(&path) {
+            crate::module::note_failed_used(&path);
+        }
     }
 
     /// A definition that relies on an open goal and computes, so a term
@@ -4710,7 +4715,7 @@ fn check_leaf(cx: &mut Ctx, tree: &Tree, goal: &Value, guarded: bool) -> Result<
                 index: None,
                 before: None,
                 after: goal.clone(),
-                after_written: None,
+                after_term: None,
                 adds: aliases.iter().map(|(_, level)| *level).collect(),
                 rule: None,
                 parts: Vec::new(),

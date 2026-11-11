@@ -1,7 +1,10 @@
 # Checking and running tests when a project has errors or open goals
 
 **Status:** proposed, 11 November 2026 (SW-2938), for Matt's decisions,
-listed [at the end](#10-decisions-for-matt). It answers D3524 (what
+listed [at the end](#10-decisions-for-matt). D-a (D3524) accepted; stage 1
+built (SW-2940): importers are checked, `E-USES-FAILED` replaces
+`E-NAMESPACE-FAILED` except in the editor's live project while a namespace
+used has a syntax error (§6). It answers D3524 (what
 happens to a namespace that imports a broken one) and puts today's
 one-at-a-time decisions under one model: SW-2805/2806 (each `?` is an
 assumption), SW-2855 (what waits on a goal), SW-2909 (a test that reaches

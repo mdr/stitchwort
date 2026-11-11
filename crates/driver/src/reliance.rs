@@ -76,8 +76,10 @@ pub struct Dependent {
 #[derive(Clone, Debug)]
 pub struct OpenGoal {
     pub place: GoalPlace,
-    /// What must be shown, as after `⊢`.
+    /// What must be shown, as after `⊢`, as written (D3522).
     pub target: String,
+    /// What it computes to, when that prints differently.
+    pub computed: Option<String>,
     /// The declarations written in source that rely on it, checked
     /// assuming it holds.
     pub relied_on_by: Vec<String>,
@@ -235,7 +237,8 @@ impl Session {
                             .is_some_and(|rest| rest.starts_with(".eq"))
                     })
                     .collect(),
-                target: data.target.clone(),
+                target: data.shown().to_string(),
+                computed: data.computed().map(str::to_string),
                 place,
             });
         }

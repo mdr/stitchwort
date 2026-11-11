@@ -195,10 +195,17 @@ pub(crate) struct ModuleState {
     /// wasn't checked, because something it computes with is stuck on
     /// them, or it uses what waits for them.
     pub waiting: HashMap<usize, Rc<[DefId]>>,
-    /// For each item that failed with errors: the item the errors come from
-    /// (itself, or what it uses) and where the first one is reported
+    /// For each item that failed with errors: the declaration the errors
+    /// come from (itself, or what it uses, maybe in another namespace), by
+    /// name, and where the first one is reported
     /// ([`Elaborator::note_error_source`]).
-    pub error_sources: HashMap<usize, (usize, Option<Span>)>,
+    pub error_sources: HashMap<usize, (String, Option<Span>)>,
+    /// The key each item declares under, by item.
+    pub item_keys: HashMap<usize, String>,
+    /// The items that weren't checked because they use a declaration of
+    /// another namespace that failed, directly or through an item that
+    /// waits for one: that declaration's key (`E-USES-FAILED`).
+    pub waits_elsewhere: HashMap<usize, String>,
     /// Data types (by item) whose `Ord` is derived once their module's own
     /// `DecEq` instance is checked.
     pub ord_after_dec_eq: HashMap<usize, DataId>,
@@ -443,6 +450,7 @@ impl Elaborator {
             self.decl.failed_mentioned.set(false);
             self.decl.stuck_on_goal.take();
             goals::take_used_unfinished();
+            take_failed_used();
             let timed = crate::timings::enabled();
             if timed {
                 crate::timings::decl_begin(&self.ev());
@@ -491,8 +499,21 @@ impl Elaborator {
                 rest.into_iter()
                     .filter(|(_, d)| d.code != goals::UNFINISHED),
             );
+            let used_failed = take_failed_used();
             if failed && !unfinished {
-                self.note_error_source(&items, &component, &diagnostics[before..]);
+                self.note_error_source(&items, &component, &diagnostics[before..], &used_failed);
+                // Waiting for another namespace's error, which is reported
+                // there, and once per file here (`E-USES-FAILED`).
+                if component
+                    .iter()
+                    .all(|i| self.unit.module.waits_elsewhere.contains_key(i))
+                {
+                    let rest = diagnostics.split_off(before);
+                    diagnostics.extend(
+                        rest.into_iter()
+                            .filter(|(_, d)| d.severity != Severity::Error),
+                    );
+                }
             }
             let position = items[component[0]].position;
             diagnostics.extend(goals.into_iter().map(|d| (position, d)));
@@ -586,6 +607,8 @@ impl Elaborator {
         }
         // Names that were never checked now just name failures.
         self.fail_unchecked_names();
+        self.note_failed_sources(files);
+        diagnostics.extend(self.uses_failed(files));
         // The names in the library's tests are references too, so that an
         // editor can navigate there; they are noted from the written names
         // alone (a dot call on a local needs its receiver's type, and
@@ -890,6 +913,32 @@ impl Elaborator {
             .map(|d| (d, self.unit.module.items[d.item].name.as_str()))
             .collect();
         let blamed = !failed.is_empty() && self.decl.failed_mentioned.get();
+        // Fallout of another namespace's failure: what's shown uses a
+        // declaration of its that failed, and nothing here did.
+        let elsewhere = (failed.is_empty() && self.decl.failed_mentioned.get())
+            .then(|| {
+                let used = FAILED_USED.with(|u| u.borrow().clone());
+                used.into_iter()
+                    .find(|k| !self.unit.module.names.contains(k))
+            })
+            .flatten();
+        if let Some(key) = elsewhere {
+            let text = key.rsplit('.').next().unwrap_or(&key).to_string();
+            for (_, d) in &mut diagnostics[before..] {
+                if d.severity == Severity::Error && d.code != "E-UNKNOWN-NAME" {
+                    *d = match d.primary_span() {
+                        Some(span) => failed_name(&ast::Name {
+                            text: text.clone(),
+                            span,
+                        }),
+                        None => {
+                            Diagnostic::error("E-FAILED-DEPENDENCY", format!("`{text}` has errors"))
+                        }
+                    };
+                }
+            }
+            return;
+        }
         if !blamed && self.decl.stuck_on_goal.borrow().is_empty() {
             return;
         }
@@ -921,14 +970,120 @@ impl Elaborator {
         }
     }
 
+    /// Notes where the errors of this module's failed declarations are, for
+    /// the namespaces that use them (`Session::failed_sources`).
+    fn note_failed_sources(&mut self, files: &[SourceUnit]) {
+        let parse_failed: Vec<(String, (String, Option<Span>))> = (files.iter())
+            .flat_map(|unit| &unit.module.failed)
+            .filter_map(|name| {
+                let key = self.declaration_key(name).ok()?;
+                Some((key, (name.text.clone(), Some(name.span))))
+            })
+            .collect();
+        let module = &self.unit.module;
+        let sources = &mut self.session.failed_sources;
+        sources.retain(|key, _| !module.names.contains(key));
+        for (key, source) in parse_failed {
+            if module.names.contains(&key) {
+                sources.insert(key, source);
+            }
+        }
+        for (item, source) in &module.error_sources {
+            if let Some(key) = module.item_keys.get(item) {
+                sources.insert(key.clone(), source.clone());
+            }
+        }
+    }
+
+    /// `E-USES-FAILED`: for each declaration of another namespace that
+    /// failed and each file whose declarations wait for it, one error,
+    /// on the file's import of it if it has one, listing what waits. The
+    /// waiting declarations report nothing themselves, so a broken name
+    /// costs a file one error however often it is used.
+    fn uses_failed(&self, files: &[SourceUnit]) -> Vec<(usize, Diagnostic)> {
+        let module = &self.unit.module;
+        let short = |key: &str| key.rsplit('.').next().unwrap_or(key).to_string();
+        // The declaration with the error, which may be behind the one used.
+        let source = |key: &str| {
+            (self.session.failed_sources.get(key).cloned()).unwrap_or_else(|| (short(key), None))
+        };
+        let mut waiting: Vec<(&str, usize, usize)> = (module.waits_elsewhere.iter())
+            .map(|(item, key)| (key.as_str(), module.items[*item].file, *item))
+            .collect();
+        waiting.sort_by_key(|(key, file, item)| (*file, module.items[*item].position, *key));
+        // By the declaration with the error and the file.
+        type Group<'k> = ((String, Option<Span>), usize, Vec<&'k str>, Vec<usize>);
+        let mut groups: Vec<Group> = Vec::new();
+        for (key, file, item) in waiting {
+            let root = source(key);
+            match (groups.iter_mut()).find(|(r, f, _, _)| *r == root && *f == file) {
+                Some((_, _, keys, items)) => {
+                    if !keys.contains(&key) {
+                        keys.push(key);
+                    }
+                    items.push(item);
+                }
+                None => groups.push((root, file, vec![key], vec![item])),
+            }
+        }
+        let mut out = Vec::new();
+        for ((broken, error_at), file, keys, items) in groups {
+            let shown = |i: &usize| {
+                let item = &module.items[*i];
+                match item.kind {
+                    // Its name is `test "…"` already.
+                    Kind::Test => item.name.clone(),
+                    _ => format!("`{}`", item.name),
+                }
+            };
+            let message = match items.as_slice() {
+                [one] => format!(
+                    "`{broken}` has an error, so {} can't be checked until it's fixed",
+                    shown(one)
+                ),
+                _ => format!(
+                    "`{broken}` has an error, so {} declarations here can't be checked until \
+                     it's fixed",
+                    items.len()
+                ),
+            };
+            // On the file's import of what it uses, if it names it.
+            let imported = (files.get(file)).and_then(|unit| {
+                (keys.iter()).find_map(|k| Some((*k, import_of(&unit.module.imports, k)?)))
+            });
+            let label = |key: &str| match short(key) {
+                used if used == broken => format!("`{broken}` has an error"),
+                used => format!("`{used}` depends on `{broken}`, which has an error"),
+            };
+            let (at, label) = match imported {
+                Some((key, at)) => (at, label(key)),
+                None => (module.items[items[0]].span, label(keys[0])),
+            };
+            let mut d = Diagnostic::error("E-USES-FAILED", message).with_label(at, label);
+            if let Some(error_at) = error_at {
+                d = d.with_label(error_at, "the error is here");
+            }
+            if items.len() > 1 {
+                let names: Vec<String> = items.iter().map(shown).collect();
+                d = d.with_note(format!("waiting for it: {}", names.join(", ")));
+            }
+            out.push((module.items[items[0]].position, d));
+        }
+        out
+    }
+
     /// Records where the errors of `component`, which failed with `found`,
     /// come from, and, if it is a test that only failed because of what it
-    /// uses, that it is a broken test (D3523).
+    /// uses, that it is a broken test (D3523). `used_failed` are the keys
+    /// of the failed declarations it was refused for using, as noted where
+    /// it was refused: if nothing else is wrong with it and one is another
+    /// namespace's, it waits for that one.
     fn note_error_source(
         &mut self,
         items: &[Item],
         component: &[usize],
         found: &[(usize, Diagnostic)],
+        used_failed: &[String],
     ) {
         let errors: Vec<&Diagnostic> = found
             .iter()
@@ -938,36 +1093,67 @@ impl Elaborator {
         let Some(first) = errors.first() else {
             return;
         };
-        let used = if errors.iter().all(|d| d.code == "E-FAILED-DEPENDENCY") {
+        let only_dependencies = errors.iter().all(|d| d.code == "E-FAILED-DEPENDENCY");
+        let module = &self.unit.module;
+        // What it uses that failed: (its name, the source of its error,
+        // and the key of the other namespace's declaration it waits for).
+        type Used = (String, (String, Option<Span>), Option<String>);
+        let used: Option<Used> = if !only_dependencies {
+            None
+        } else if let Some(key) = (used_failed.iter()).find(|k| !module.names.contains(*k)) {
+            let short = key.rsplit('.').next().unwrap_or(key).to_string();
+            let source = (self.session.failed_sources.get(key).cloned())
+                .unwrap_or_else(|| (short.clone(), None));
+            Some((short, source, Some(key.clone())))
+        } else {
+            // What it names, or else what the refusal found (a dot call is
+            // only a speculative dependency).
+            let noted = used_failed.iter().filter_map(|k| {
+                (module.item_keys.iter())
+                    .find(|(_, key)| *key == k)
+                    .map(|(i, _)| *i)
+            });
             (component.iter())
-                .flat_map(|i| &self.unit.module.items[*i].deps)
+                .flat_map(|i| &module.items[*i].deps)
                 .filter(|d| d.speculative.is_none() && !component.contains(&d.item))
                 .map(|d| d.item)
-                .find(|i| self.unit.module.items[*i].status == Status::Failed)
-                .filter(|i| self.unit.module.error_sources.contains_key(i))
-        } else {
-            None
+                .chain(noted)
+                .find(|i| {
+                    !component.contains(i)
+                        && module.items[*i].status == Status::Failed
+                        && module.error_sources.contains_key(i)
+                })
+                .and_then(|i| {
+                    let source = module.error_sources.get(&i)?.clone();
+                    let waits = module.waits_elsewhere.get(&i).cloned();
+                    Some((module.items[i].name.clone(), source, waits))
+                })
         };
-        let source = match used {
-            Some(item) => self.unit.module.error_sources[&item],
-            None => (component[0], first.primary_span()),
+        let source = match &used {
+            Some((_, source, _)) => source.clone(),
+            None => (
+                module.items[component[0]].name.clone(),
+                first.primary_span(),
+            ),
         };
         for &i in component {
-            self.unit.module.error_sources.insert(i, source);
+            self.unit.module.error_sources.insert(i, source.clone());
+            if let Some((_, _, Some(key))) = &used {
+                self.unit.module.waits_elsewhere.insert(i, key.clone());
+            }
         }
-        let (Some(used), [i]) = (used, component) else {
+        let (Some((uses, _, _)), [i]) = (used, component) else {
             return;
         };
         let Decl::Test { name, span, .. } = items[*i].decl else {
             return;
         };
-        let module = &self.unit.module;
         let broken = BrokenTest {
             name: name.to_string(),
-            namespace: module.namespace.clone().unwrap_or_default(),
+            namespace: self.unit.module.namespace.clone().unwrap_or_default(),
             span: *span,
-            uses: module.items[used].name.clone(),
-            broken: module.items[source.0].name.clone(),
+            uses,
+            broken: source.0,
             error_at: source.1,
         };
         self.session.broken_tests.push(broken);
@@ -1303,6 +1489,7 @@ impl Elaborator {
         self.scope
             .insert(&key, Global::Unchecked(index), main.span, false);
         self.unit.module.names.insert(key.clone());
+        self.unit.module.item_keys.insert(index, key.clone());
         let mut result = Ok(());
         for (k, (member, follower)) in members.iter().enumerate() {
             let within = members[..k].iter().find(|(o, _)| o.text == member.text);
@@ -2278,6 +2465,9 @@ impl Elaborator {
     pub(crate) fn failed_global(&self, name: &ast::Name) -> Diagnostic {
         let waits = match self.resolve(&name.text) {
             crate::scope::Resolved::Found { key, .. } => {
+                if !self.unit.module.names.contains(key) {
+                    note_failed_used(key);
+                }
                 self.session.waiting_names.borrow().get(key).cloned()
             }
             _ => None,
@@ -2490,6 +2680,76 @@ fn listed<'a>(names: impl Iterator<Item = &'a String>) -> String {
         Some((last, rest)) if !rest.is_empty() => format!("{} and {last}", rest.join(", ")),
         _ => names.join(""),
     }
+}
+
+thread_local! {
+    /// The keys of the failed declarations the component being checked was
+    /// refused for using, as found where the refusal is made: by name
+    /// lookup ([`Elaborator::failed_global`]), or by the kernel, whose
+    /// refusals are reworded where only the environment is at hand
+    /// ([`note_failed_in`]). The module empties it at the start of each
+    /// component and reads it at the end, keeping those another namespace
+    /// declares: the component waits for them (`E-USES-FAILED`).
+    static FAILED_USED: std::cell::RefCell<Vec<String>> =
+        const { std::cell::RefCell::new(Vec::new()) };
+}
+
+/// Notes that the declaration being checked was refused for using failed
+/// declaration `key` (`FAILED_USED`).
+pub(crate) fn note_failed_used(key: &str) {
+    FAILED_USED.with(|u| u.borrow_mut().push(key.to_string()));
+}
+
+/// The failed declarations noted since the last call, emptying the list.
+fn take_failed_used() -> Vec<String> {
+    FAILED_USED.with(|u| std::mem::take(&mut *u.borrow_mut()))
+}
+
+/// Notes the failed definitions and data types `terms` refer to, other
+/// than `own` (`FAILED_USED`): the kernel refused them for it. Each by its
+/// name from the root, which is its key in the scope (its path has the
+/// module's prefix, `Main.` for a single file, which no key has).
+pub(crate) fn note_failed_in(
+    g: &stitchwort_core::Ev,
+    terms: &[&stitchwort_core::Term],
+    own: &[stitchwort_core::globals::HashKey],
+) {
+    use stitchwort_core::Term;
+    use stitchwort_core::globals::HashKey;
+    for term in terms {
+        for (t, _) in term.subterms() {
+            let (key, state, path) = match t {
+                Term::Def(id) if id.0 < g.env.defs().len() => {
+                    let def = g.def(*id);
+                    (HashKey::Def(*id), def.state(), def.name().to_string())
+                }
+                Term::Data(d, _) | Term::Ctor(d, _, _) | Term::Case(_, d, _)
+                    if d.0 < g.env.datas().len() =>
+                {
+                    let data = g.data(*d);
+                    (HashKey::Data(*d), data.state(), data.name().to_string())
+                }
+                _ => continue,
+            };
+            if state == State::Failed && !own.contains(&key) {
+                note_failed_used(&path);
+            }
+        }
+    }
+}
+
+/// Where `imports` import the declaration `key` by name, if they do: the
+/// name in the import.
+fn import_of(imports: &[ast::Import], key: &str) -> Option<Span> {
+    imports.iter().find_map(|import| {
+        let path = import.path.text.as_str();
+        import.items.iter().find_map(|item| {
+            let ns = key
+                .strip_suffix(item.name.text.as_str())?
+                .strip_suffix('.')?;
+            (ns == path || ns.ends_with(&format!(".{path}"))).then_some(item.name.span)
+        })
+    })
 }
 
 /// The error for using a declaration that failed.

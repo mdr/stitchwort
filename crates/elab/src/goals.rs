@@ -22,7 +22,7 @@ use stitchwort_core::globals::State;
 use stitchwort_core::pretty::{Declaration, NameScope};
 use stitchwort_core::value::{Head, force, quote_shown};
 use stitchwort_core::{Ev, Icit, Name, Sort, Term, Value, pretty};
-use stitchwort_syntax::{Diagnostic, FileId, GoalData, Hypothesis, Span};
+use stitchwort_syntax::{Diagnostic, FileId, GoalData, Hypothesis, Span, cut_computed};
 
 use crate::Elaborator;
 use crate::check::Ctx;
@@ -199,10 +199,11 @@ pub(crate) struct StepNote {
     /// its `match`'s.
     pub before: Option<Value>,
     pub after: Value,
-    /// A `calc` line's statement as written: [`StepNote::after`] is
-    /// evaluated, so a right side like `if True then Win else …` has
-    /// computed away, while the line must still show it.
-    pub after_written: Option<Term>,
+    /// A `calc` line's statement as elaborated, for its as-written print:
+    /// [`StepNote::after`] is evaluated, so a right side like
+    /// `if True then Win else …` has computed away, while the line must
+    /// still show it (SW-2942).
+    pub after_term: Option<Term>,
     /// The levels the step binds.
     pub adds: Vec<usize>,
     /// A rewrite rule's equation, as used.
@@ -233,6 +234,10 @@ pub struct StepAt {
     pub index: Option<(usize, usize)>,
     pub before: Option<String>,
     pub after: String,
+    /// `before` and `after` as written, when that prints differently
+    /// (D3522); the two above are then what they compute to.
+    pub before_written: Option<String>,
+    pub after_written: Option<String>,
     /// Whether the goals are propositions.
     pub proof: bool,
     /// The names in scope after the step.
@@ -254,6 +259,9 @@ pub struct ContextAt {
     /// Its type: the one it was checked against (`checked`), else the one
     /// found for it.
     pub ty: String,
+    /// `ty` as written, when that prints differently (D3522); `ty` is then
+    /// what it computes to.
+    pub ty_written: Option<String>,
     pub checked: bool,
     /// Whether `ty` is a proposition (the expression is a proof): the
     /// editor shows `⊢ ty` for a proof and `expected ty` for a program.
@@ -271,6 +279,29 @@ pub struct ContextAt {
     pub step: Option<StepAt>,
     /// Every step of the declaration, in source order.
     pub steps: Vec<StepAt>,
+}
+
+/// `value` printed as written (no call computed), unless that is the same
+/// text as `shown`, its computed print (D3522).
+fn written_unless_same(
+    g: &Ev,
+    scope: &dyn NameScope,
+    names: &[Name],
+    predicates: &[bool],
+    value: &Value,
+    shown: &str,
+) -> Option<String> {
+    pretty::value_for_goal_as_written(g, scope, names, predicates, value)
+        .filter(|w| w != shown && !shows_helper(w))
+}
+
+/// Whether `text` names a compiler-made helper (`Fail.%elim`, `%match1`):
+/// written out, a goal is longer and no clearer than what it computes to,
+/// so it is only shown computed.
+fn shows_helper(text: &str) -> bool {
+    text.split('%')
+        .skip(1)
+        .any(|after| after.starts_with(|c: char| c.is_alphanumeric() || c == '_'))
 }
 
 /// The names in scope where a goal at `span` is printed: the file's, as for
@@ -611,7 +642,12 @@ pub(crate) fn unfinished_dependency<'t>(
     own: &[HashKey],
     error: Diagnostic,
 ) -> Diagnostic {
-    if error.code != "E-FAILED-DEPENDENCY" || tables.unfinished_count() == 0 {
+    if error.code != "E-FAILED-DEPENDENCY" {
+        return error;
+    }
+    let terms: Vec<&Term> = terms.into_iter().collect();
+    crate::module::note_failed_in(g, &terms, own);
+    if tables.unfinished_count() == 0 {
         return error;
     }
     let mut used = Vec::new();
@@ -924,6 +960,7 @@ impl Elaborator {
             (_, Some(step)) => ContextAt {
                 span: step.head,
                 ty: step.after.clone(),
+                ty_written: step.after_written.clone(),
                 checked: true,
                 proof: step.proof,
                 found: None,
@@ -1095,20 +1132,29 @@ impl Elaborator {
             };
             let predicates = self.predicate_flags(s.names.len(), &s.context, &[]);
             let show = |v: &Value| pretty::value_for_goal(g, &scope, &s.names, &predicates, v);
+            let written =
+                |v: &Value| written_unless_same(g, &scope, &s.names, &predicates, v, &show(v));
             let locals = self.print_hypotheses(&scope, &s.names, &s.context);
             let adds = (s.context.iter())
                 .filter(|e| s.note.adds.contains(&e.level))
                 .map(|e| e.name.clone())
                 .collect();
+            let after = show(&s.note.after);
+            let after_written = match &s.note.after_term {
+                Some(term) => {
+                    let line = pretty::term_for_goal_in(g, &scope, &s.names, &predicates, term);
+                    (line != after && !shows_helper(&line)).then_some(line)
+                }
+                None => written(&s.note.after),
+            };
             printed.push(StepAt {
                 form: s.note.form,
                 head: s.note.head,
                 index: s.note.index,
                 before: s.note.before.as_ref().map(show),
-                after: match &s.note.after_written {
-                    Some(term) => pretty::term_for_goal_in(g, &scope, &s.names, &predicates, term),
-                    None => show(&s.note.after),
-                },
+                before_written: s.note.before.as_ref().and_then(written),
+                after,
+                after_written,
                 proof: s.proof,
                 locals,
                 adds,
@@ -1127,10 +1173,12 @@ impl Elaborator {
             let predicates = self.predicate_flags(p.names.len(), &p.context, &[]);
             let show = |v: &Value| pretty::value_for_goal(g, &scope, &p.names, &predicates, v);
             let ty = show(&p.ty);
+            let ty_written = written_unless_same(g, &scope, &p.names, &predicates, &p.ty, &ty);
             let found = p.found.as_ref().map(show).filter(|f| *f != ty);
             ContextAt {
                 span: p.span,
                 ty,
+                ty_written,
                 checked: p.checked,
                 proof: p.proof,
                 found,
@@ -1178,7 +1226,15 @@ impl Elaborator {
         } else {
             "(the type here isn't known yet)".to_string()
         };
-        lines.push(format!("⊢ {target}"));
+        let written = if known {
+            written_unless_same(g, &scope, &p.names, &predicates, &p.expected, &target)
+        } else {
+            None
+        };
+        lines.push(format!("⊢ {}", written.as_deref().unwrap_or(&target)));
+        if written.is_some() {
+            lines.push(format!("  computes to {}", cut_computed(&target)));
+        }
         let lemma = if known {
             self.lemma_of(p, &hypotheses, &target).ok()
         } else {
@@ -1199,6 +1255,7 @@ impl Elaborator {
         diagnostic.detail_mut().goal = Some(GoalData {
             hypotheses,
             target,
+            written,
             prop: p.prop,
             lemma: None,
         });

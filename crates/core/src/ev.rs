@@ -98,8 +98,9 @@ pub trait Shown {
         false
     }
 
-    /// Records that a message showed a term that uses a failed definition.
-    fn note_failed_mentioned(&self) {}
+    /// Records that a message showed a term that uses failed definition
+    /// `def` (the first such, reading the term left to right).
+    fn note_failed_mentioned(&self, _def: DefId) {}
 
     /// Whether a term that mentions final definition `id` may be stuck on
     /// an open goal's assumption: `id` is checked assuming the goal holds

@@ -103,6 +103,13 @@ pub struct Session {
     /// are rewritten here whenever it is checked (`fail_unchecked_names`),
     /// so a rewind needn't cut it.
     pub(crate) waiting_names: RefCell<BTreeMap<String, Rc<[stitchwort_core::DefId]>>>,
+    /// For each declaration of a project namespace that has an error, or
+    /// can't be checked because something it uses has one, by key: the
+    /// declaration the error is in (its name, for messages) and where it
+    /// is reported. Read only for a key the scope says failed, by the
+    /// namespaces that use it (`E-USES-FAILED`); a namespace's keys are
+    /// rewritten whenever it is checked, so a rewind needn't cut it.
+    pub(crate) failed_sources: BTreeMap<String, (String, Option<stitchwort_syntax::Span>)>,
     /// The tests that couldn't be checked because they use a declaration
     /// with an error, in the order the namespaces were checked
     /// ([`crate::BrokenTest`]). A log for the host to read after a load,
@@ -155,6 +162,7 @@ impl Session {
             assumed: _,
             blocked: _,
             waiting_names: _,
+            failed_sources: _,
             broken_tests: _,
         } = self;
         Mark {
@@ -197,6 +205,7 @@ impl Session {
             assumed: _,
             blocked: _,
             waiting_names: _,
+            failed_sources: _,
             broken_tests: _,
         } = self;
         *project_namespaces = mark.project_namespaces.clone();

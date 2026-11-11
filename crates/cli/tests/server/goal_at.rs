@@ -81,7 +81,8 @@ fn goal_at() {
     let (code, out, _) = goal(&dir, &["--at", "t.sw:9", "--json"]);
     assert_eq!(code, 0);
     let answer: Value = serde_json::from_str(&out).unwrap();
-    assert_eq!(answer["version"], 1);
+    assert_eq!(answer["version"], 2);
+    assert_eq!(answer["context"]["targetComputed"], Value::Null);
     assert_eq!(
         answer["at"],
         serde_json::json!({"file": "t.sw", "line": 9, "column": 3})
@@ -102,6 +103,42 @@ fn goal_at() {
     let answer: Value = serde_json::from_str(&out).unwrap();
     assert_eq!(answer["context"]["kind"], "program");
     assert_eq!(answer["context"]["locals"][1]["value"], "n + 1");
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// A goal is printed as written, and under it what it computes to when that
+/// prints differently (D3522), in the text and as `targetComputed`.
+#[test]
+fn goal_at_prints_as_written_then_computes_to() {
+    let dir = folder("computes");
+    let file = "\
+import Std (Nat)
+
+def double: Nat → Nat
+  | 0 => 0
+  | Succ k => Succ (Succ (double k))
+
+theorem dbl (n: Nat): double (Succ n) = Succ (Succ (double n)) := ?
+";
+    std::fs::write(dir.join("c.sw"), file).unwrap();
+    let (code, out, err) = goal(&dir, &["--at", "c.sw:7:65"]);
+    assert_eq!(code, 0, "{out}{err}");
+    assert_eq!(
+        out,
+        "c.sw:7:65\nin `dbl`, the statement\n  n: Nat\n  ⊢ double (Succ n) = Succ (Succ (double n))\n  \
+         computes to Succ (Succ (double n)) = Succ (Succ (double n))\n"
+    );
+    let (_, out, _) = goal(&dir, &["--at", "c.sw:7:65", "--json"]);
+    let answer: Value = serde_json::from_str(&out).unwrap();
+    let context = &answer["context"];
+    assert_eq!(
+        context["target"],
+        "double (Succ n) = Succ (Succ (double n))"
+    );
+    assert_eq!(
+        context["targetComputed"],
+        "Succ (Succ (double n)) = Succ (Succ (double n))"
+    );
     let _ = std::fs::remove_dir_all(&dir);
 }
 
@@ -270,7 +307,7 @@ fn goal_at_calc_middle_line() {
     assert_eq!(
         step_at(&dir, "37:5"),
         "in `middle`, line 2 of 3 of `calc`, `_ = 1 + 1`\n  a: Nat\n  b: Nat\n  \
-         h1: a = b\n  h2: b = 2\n  so far a = b\n  line   ⊢ b = 1 + 1\n"
+         h1: a = b\n  h2: b = 2\n  so far a = b\n  line   ⊢ b = 1 + 1\n         computes to b = 2\n"
     );
     // The last line still computes the previous value: `1 + 1` is `2`.
     assert_eq!(
