@@ -615,7 +615,9 @@ fn check_let_value(
     Ok((x.clone(), Rc::new(ty), value, erased))
 }
 
-/// The universe that `ty` lives in.
+/// The universe that `ty` lives in. `ty` must be well typed in `cx`: the
+/// arms for equations, data types and applied variables answer without
+/// looking at its arguments.
 pub(crate) fn sort_of(cx: &mut Ctx, ty: &Value) -> Result<Sort> {
     match &*force_ref(&cx.g, ty)? {
         Value::Sort(s) => return universe_above(cx, *s),
@@ -627,10 +629,39 @@ pub(crate) fn sort_of(cx: &mut Ctx, ty: &Value) -> Result<Sort> {
         // are, so they aren't quoted: an argument can be a list whose
         // normal form is enormous.
         Value::Data(d, _) => return Ok(cx.g.data(*d).sort),
+        // A variable applied to arguments, `q (settle x k 3000)`: its sort
+        // is the one its type ends in, read off the type without quoting
+        // the arguments, which can be as large as the data type's.
+        Value::Neutral(Head::Var(level, _), spine) => {
+            if let Some(sort) = sort_of_applied_variable(cx, *level, spine)? {
+                return Ok(sort);
+            }
+        }
         _ => {}
     }
     let term = cx.quote_kept(ty)?;
     Ok(check_type(cx, &term)?.1)
+}
+
+/// The sort `s` such that the variable at `level`, applied to `spine`, has
+/// type `Sort s`: its type with the arguments substituted in turn. `None`
+/// when that isn't a plain run of applications ending in a sort.
+fn sort_of_applied_variable(cx: &Ctx, level: usize, spine: &Spine) -> Result<Option<Sort>> {
+    let Some(var_ty) = cx.types.get(level) else {
+        return Ok(None);
+    };
+    let mut ty = force(&cx.g, var_ty.clone())?;
+    for elim in spine.iter() {
+        let (Elim::App(arg, _), Value::Pi(_, _, _, cod)) = (elim, &ty) else {
+            return Ok(None);
+        };
+        let next = cod.apply(&cx.g, arg.clone())?;
+        ty = force(&cx.g, next)?;
+    }
+    Ok(match ty {
+        Value::Sort(s) => Some(s),
+        _ => None,
+    })
 }
 
 fn infer_j(cx: &mut Ctx, motive: &Term, base: &Term, proof: &Term) -> Result<(Term, Value)> {

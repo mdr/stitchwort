@@ -645,6 +645,94 @@ fn rejects_extracting_a_type_hidden_in_a_proof() {
     assert_eq!(define(&mut p.g, "reveal", ty, body), Err("E-PROP-ELIM"));
 }
 
+// The sort of a variable applied to arguments (`sort_of`, seen through
+// `telescope`'s erasure flags and errors)
+
+/// The erasure flags `telescope` gives the parameters of the closed type
+/// `ty`, or the code of its error.
+fn erased_params(p: &Prelude, ty: &Term) -> Result<Vec<bool>, &'static str> {
+    let value = eval(&p.g.ev(), &[], ty).expect("type evaluates");
+    stitchwort_core::check::telescope(&p.g.ev(), &value, span())
+        .map(|t| t.params.iter().map(|(_, _, erased)| *erased).collect())
+        .map_err(|d| d.code)
+}
+
+#[test]
+fn sort_of_an_applied_variable_follows_the_codomain_of_its_type() {
+    let p = Prelude::new();
+    // (q : (T : Type 1) -> T) -> q Prop -> q (Type 0) -> Nat: `q Prop` is
+    // a proposition (its proof is erased), `q (Type 0)` a type.
+    let ty = pi(
+        "q",
+        pi("T", ty_n(1), v(0)),
+        pi(
+            "x",
+            app(v(0), [prop()]),
+            pi("y", app(v(1), [ty()]), p.nat_ty()),
+        ),
+    );
+    assert_eq!(erased_params(&p, &ty), Ok(vec![false, true, false]));
+}
+
+#[test]
+fn sort_of_an_applied_variable_still_rejects_wrong_applications() {
+    let p = Prelude::new();
+    let zero = p.num(0);
+    // `q 0` with `q : Nat -> Nat -> Prop` is a function, not a type.
+    let partial = pi(
+        "q",
+        arrow(p.nat_ty(), arrow(p.nat_ty(), prop())),
+        pi("x", app(v(0), [zero.clone()]), p.nat_ty()),
+    );
+    assert_eq!(erased_params(&p, &partial), Err("E-NOT-A-TYPE"));
+    // `q 0 0` with `q : Nat -> Prop` applies a non-function.
+    let over = pi(
+        "q",
+        arrow(p.nat_ty(), prop()),
+        pi("x", app(v(0), [zero.clone(), zero]), p.nat_ty()),
+    );
+    assert_eq!(erased_params(&p, &over), Err("E-NOT-A-FUNCTION"));
+}
+
+#[test]
+fn rejects_matching_on_or_to_produce_a_type_valued_variable_applied_to_a_big_term() {
+    let mut s = props();
+    let or = s.or;
+    let big = s.p.plus(s.p.num(20), s.p.num(20));
+    // (r : Nat -> Type) (p q : Prop) (w : r big) -> Or p q -> r big
+    let ty = pi(
+        "r",
+        arrow(s.p.nat_ty(), ty()),
+        pi(
+            "p",
+            prop(),
+            pi(
+                "q",
+                prop(),
+                pi(
+                    "w",
+                    app(v(2), [big.clone()]),
+                    arrow(Term::data(or, vec![v(2), v(1)]), app(v(3), [big])),
+                ),
+            ),
+        ),
+    );
+    let body = lam(
+        "r",
+        lam(
+            "p",
+            lam(
+                "q",
+                lam(
+                    "w",
+                    lam("h", case(0, or, vec![(vec!["l"], v(2)), (vec!["r"], v(2))])),
+                ),
+            ),
+        ),
+    );
+    assert_eq!(define(&mut s.p.g, "elim", ty, body), Err("E-PROP-ELIM"));
+}
+
 // Equality
 
 #[test]
