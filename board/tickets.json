@@ -1,5 +1,5 @@
 {
-  "next": 2859,
+  "next": 2860,
   "tickets": [
     {
       "id": 47,
@@ -30080,9 +30080,9 @@
     {
       "id": 2846,
       "title": "Full-tier tests skip silently under nextest --profile full without STITCHWORT_TIER=full (only the Taskfile sets it, Taskfile.yml:330): make the full profile set it, or have full_tier() fail loudly when the profile is full but the variable isn't (Overmind rerun, 11 Nov 2026)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "DeepSeek",
-      "where": "",
+      "where": ".claude/worktrees/scratch-sw-2846",
       "labels": [],
       "epic": "test-infra",
       "body": "",
@@ -30243,6 +30243,19 @@
       "where": ".claude/worktrees/SW-2858",
       "labels": [],
       "epic": "docs-tutorials",
+      "body": "",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2859,
+      "title": "Waiting on goals, follow-ups (SW-2855): audit gives no entry to a declaration whose signature waits (no kernel definition; record whether it's a theorem in ItemInfo or waiting_names); the per-use goals list is thread-local (USED_UNFINISHED), so an undone attempt's entries can name an extra goal: thread an accumulator through kernel::define_group's callers; stale waiting_names entries when a namespace disappears in an editor session; effects.rs/reify.rs lookups still say 'has errors' for a waiting name; repl/eval of an unfinished name should name the goal like run's main_call (SW-2858)",
+      "status": "backlog",
+      "agent": "Opus",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
       "body": "",
       "created": "2026-11-11",
       "updated": "2026-11-11",
