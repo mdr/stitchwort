@@ -10,6 +10,7 @@
 -- rejects: applyDiscount 5 150
 -- run: perPerson 10 3
 -- rejects: perPerson 10 0
+-- rejects: perPerson 2 0
 
 export def applyDiscount (price: Nat) (percent: Nat): [auto ok: percent ≤ 100] → Nat := price - price * percent / 100
 
