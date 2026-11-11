@@ -29397,13 +29397,13 @@
     },
     {
       "id": 2793,
-      "title": "stitchwort test under check: open-goals: warn still exits 1 on any open goal ('77 goals open … aren't finished' in sf/): should test follow check's setting? Decision for Matt (SW-2762)",
-      "status": "backlog",
-      "agent": "",
+      "title": "stitchwort test follows check: open-goals: warn: tests that don't use an unfinished declaration run as usual; tests that do are reported as skipped naming the open goal; exit 0 if nothing else fails (D3500)",
+      "status": "next",
+      "agent": "DeepSeek",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "\nD3500 (Matt, 11 Nov 2026): yes, as above. Est. 45 min.",
       "created": "2026-11-11",
       "updated": "2026-11-11",
       "commits": []
