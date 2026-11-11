@@ -2871,6 +2871,15 @@ pub fn quote_folded(g: &Ev, level: usize, value: &Value) -> Result<Term> {
     Ok(quote_as(g, level, value, Readback::Folded, None, None)?.expect("no cap"))
 }
 
+/// [`quote_folded`], but every glued call is written as the call, one that
+/// steps at once too: nothing is computed but what applying a solution to
+/// its arguments takes. For substituting solutions into a term
+/// (`countDown 100000 []` stays that, where [`quote_folded`] computes the
+/// list) and stating a goal as written.
+pub fn quote_as_written(g: &Ev, level: usize, value: &Value) -> Result<Term> {
+    Ok(quote_as(g, level, value, Readback::AsWritten, None, None)?.expect("no cap"))
+}
+
 /// Instrumentation (SW-1782): with `STITCHWORT_DEBUG_FORCE_UNGLUED` set,
 /// every folded read-back is preceded by an unfolded one with gluing off,
 /// which fills the cells of every call it reaches. Its result, steps and
@@ -2973,6 +2982,8 @@ enum Readback {
     Folded,
     /// As calls, one that steps at once by that step ([`quote_shown`]).
     Shown,
+    /// As calls, every one ([`quote_as_written`]).
+    AsWritten,
     /// As [`Readback::Unfolded`], for display ([`quote_unfolded_shown`]).
     UnfoldedShown,
 }
@@ -3176,7 +3187,9 @@ fn visit(
     };
     let value = if !mode.unfolds() {
         match force_solved(g, value)? {
-            Value::Call(id, spine, _) if !matches_at_once(g, id, &spine)? => {
+            Value::Call(id, spine, _)
+                if mode == Readback::AsWritten || !matches_at_once(g, id, &spine)? =>
+            {
                 let shapes = spine
                     .iter()
                     .map(|elim| match elim {

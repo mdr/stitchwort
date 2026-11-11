@@ -8,9 +8,9 @@ use stitchwort_core::collections::{HashMap, HashSet};
 use stitchwort_core::value::{
     Closure, CompareAt, Elim, Head, Mode, Relation, ShapeKey, ShapeMemo, Spine, apply_icit, conv,
     eval, expand_step, force, force_solved, is_call_field, is_eta_type, is_folded, matches_at_once,
-    opens_by_tree, project, project_call, proof_field, proof_param, quote, quote_at_most,
-    quote_folded, same_closure_solved, same_stuck_trees, sealed, underapplied, unfold_folded,
-    unfold_once,
+    opens_by_tree, project, project_call, proof_field, proof_param, quote, quote_as_written,
+    quote_at_most, quote_folded, same_closure_solved, same_stuck_trees, sealed, underapplied,
+    unfold_folded, unfold_once,
 };
 use stitchwort_core::{BigUint, DefId, Ev, Icit, Term, Value};
 use stitchwort_core::{nat_add, native};
@@ -3037,27 +3037,28 @@ pub(crate) fn worth_folding(normal: &Term) -> bool {
 /// the context before the `let`, unless a case split has replaced a
 /// variable its value uses by a constructor whose fields are bound after
 /// the `let`: then it's a context that has those fields too. A `let` may
-/// appear twice, with its value read back folded and unfolded
-/// ([`both_forms`]), since a solution may hold either.
+/// appear more than once, with its value read back in each form
+/// ([`value_forms`]), since a solution may hold either.
 pub(crate) type Around = (usize, usize, Rc<Term>);
 
-/// `value` read back folded and, if that differs, unfolded: the forms of a
-/// `let`'s value that [`refold`] looks for. A solution is written folded
-/// (stage 3 of docs/proposals/folded-calls.md) but falls back to the
-/// unfolding where a call can't be written, and a decision's solution is
-/// found on the unfolded goal (D484).
-pub(crate) fn both_forms(g: &Ev, level: usize, value: &Value) -> Result<Vec<Term>> {
+/// `value` read back as written, folded and unfolded, each once: the forms
+/// of a `let`'s value that [`refold`] looks for. A solution is written as
+/// written ([`zonk_in`]) but falls back to the unfolding where a call can't
+/// be written; one solved from a value read back folded holds that form;
+/// and a decision's solution is found on the unfolded goal (D484).
+pub(crate) fn value_forms(g: &Ev, level: usize, value: &Value) -> Result<Vec<Term>> {
     let unfolded = quote(g, level, value)?;
     if !g.machine.glue.get() {
-        // No calls: the two are the same.
+        // No calls: the forms are the same.
         return Ok(vec![unfolded]);
     }
-    let folded = quote_folded(g, level, value)?;
-    Ok(if stitchwort_core::value::same_term(&folded, &unfolded) {
-        vec![folded]
-    } else {
-        vec![folded, unfolded]
-    })
+    let mut forms = vec![quote_as_written(g, level, value)?];
+    for form in [quote_folded(g, level, value)?, unfolded] {
+        if !(forms.iter()).any(|f| stitchwort_core::value::same_term(f, &form)) {
+            forms.push(form);
+        }
+    }
+    Ok(forms)
 }
 
 /// Replaces solved metavariables in `term` (with `level` variables in scope,
@@ -3081,6 +3082,17 @@ pub(crate) fn zonk_in(
     lets: &[Around],
 ) -> std::result::Result<Term, ZonkError> {
     Ok(zonk_changed(g, level, term, keep, lets)?.unwrap_or_else(|| term.clone()))
+}
+
+/// The budget for unfolding a solution to lose an unknown its calls'
+/// arguments mention ([`zonk_in`]).
+fn unfolding_limits() -> stitchwort_core::Limits {
+    stitchwort_core::Limits {
+        work: 100_000,
+        size: 20_000,
+        frames: 10_000,
+        ..stitchwort_core::Limits::default()
+    }
 }
 
 /// Whether `term` is a metavariable, or one applied to arguments.
@@ -3279,12 +3291,24 @@ fn zonk_changed(
                     _ => None,
                 })
             };
-            // Calls folded (docs/proposals/folded-calls.md, stage 3), unless
-            // a call's arguments mention an unsolved metavariable its
-            // unfolding may not: then unfolded, as without gluing.
-            let mut solved = quote_folded(g, level, &value)?;
+            // Read back as written: the solution substituted, its calls
+            // kept as calls, even one that steps at once, so zonking
+            // computes nothing a solution doesn't (docs/proposals/
+            // folded-calls.md, stage 3; SW-2843).
+            let mut solved = quote_as_written(g, level, &value)?;
+            // A call's argument may mention an unknown its unfolding drops
+            // (`const 0 []`, the list's element type unknown): then the
+            // unfolding, as without gluing, but only within a small budget,
+            // since a call that needs more to lose its unknown is better
+            // reported unsolved than computed.
             if g.machine.glue.get() && unsolved(&solved).is_some() {
-                solved = quote(g, level, &value)?;
+                let unfolded = g
+                    .machine
+                    .budget
+                    .aside(unfolding_limits(), || quote(g, level, &value));
+                if let Ok(unfolded) = unfolded {
+                    solved = unfolded;
+                }
             }
             if let Some(m) = unsolved(&solved) {
                 return Err(ZonkError::Unsolved(m));
@@ -3296,7 +3320,7 @@ fn zonk_changed(
             let v2 = go(v, level)?;
             let v_now = v2.clone().unwrap_or_else(|| v.clone());
             let env: Vec<Value> = (0..level).map(Value::var).collect();
-            let normals = cheaply(g, || both_forms(g, level, &eval(g, &env, &v_now)?));
+            let normals = cheaply(g, || value_forms(g, level, &eval(g, &env, &v_now)?));
             let normals: Vec<Term> = normals
                 .unwrap_or_default()
                 .into_iter()

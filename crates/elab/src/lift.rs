@@ -1097,7 +1097,7 @@ impl Elaborator {
                     // uses by a constructor whose fields are bound after the
                     // `let`: then the normal form is in a context that has
                     // them.
-                    let forms = crate::unify::both_forms(g, n, &draft.env[l])?;
+                    let forms = crate::unify::value_forms(g, n, &draft.env[l])?;
                     let mut free = BTreeSet::new();
                     for form in &forms {
                         uses(form, n, &|_| None, &mut free);
