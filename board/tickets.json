@@ -30568,7 +30568,7 @@
     {
       "id": 2883,
       "title": "omega: SW-2879 note fires for a data parameter whose type is unknown (noise); emit it only when the hypothesis could be a fact",
-      "status": "next",
+      "status": "doing",
       "agent": "DeepSeek",
       "where": "",
       "labels": [],
