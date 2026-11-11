@@ -30646,12 +30646,12 @@
     {
       "id": 2889,
       "title": "[Sonnet] Splits pick the wrong type when two share a name: constructor_patterns looks a type up by its bare name (missing.rs:217), so in SF (Sf.Lf.Nat.Nat with O | S) 'Split on n' writes std's Zero/Succ; affects split from a ? and the arm split. Resolve the local's actual type; write constructors as they're in scope (qualify if not)",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "editor-playground",
-      "body": "",
+      "body": "Progress: Hypothesis/Local carry 'splits' computed in elab from the forced type's DataId (goals.rs split_patterns_of); constructor_patterns takes a DataId; ctor_written writes short name if it resolves to the ctor, else Type.Ctor, else full key (also used by the missing-arms patterns). Test a_split_of_a_program_s_own_nat_uses_its_constructors_not_the_preludes added. Commit db7464484 on lane/SW-2889.",
       "created": "2026-11-11",
       "updated": "2026-11-11",
       "commits": []
