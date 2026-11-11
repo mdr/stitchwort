@@ -159,6 +159,13 @@ theorem List.headOrGetOr (xs: List a) (d: a): List.headOr xs d = List.getOr xs 0
     | [] => rfl
     | [x, ..xs] => rfl
 
+--| `headOr` is `head` with a fallback for `None`:
+--| `xs.headOr d = xs.head.getOrElse d`.
+theorem List.headOrHead (xs: List a) (d: a): List.headOr xs d = Option.getOrElse (List.head xs) d :=
+  match xs with
+    | [] => rfl
+    | [x, ..xs] => rfl
+
 theorem List.getOrZipWith3 (f: a → b → c → e) (d1: a) (d2: b) (d3: c) (d: e) (hd: f d1 d2 d3 = d):
     ∀ (xs: List a) (ys: List b) (zs: List c) => List.length ys = List.length xs → List.length zs = List.length xs → ∀ (i: Nat) =>
     List.getOr (List.zipWith3 xs ys zs f) i d = f (List.getOr xs i d1) (List.getOr ys i d2) (List.getOr zs i d3)
