@@ -2287,7 +2287,8 @@ fn branch(
         // the shape the other side of a comparison computes to
         // (`Bag.has ?b x` against `Bag.has b x` meet at `?b.items` and
         // `b.items`, which the unifier compares by their records). Not while
-        // a program runs (its values are closed).
+        // a program runs (its values are closed; an open goal's data-typed
+        // assumption is closed but neutral, and a `case` on it stays stuck).
         //
         // The fields are projections of the scrutinee as it was (§6.4): a
         // glued call stays a call in them ([`project_call`]), so a goal
@@ -2579,8 +2580,9 @@ pub fn hidden(g: &Ev, id: DefId) -> bool {
 }
 
 /// Whether a call of definition `id` can't unfold here but may elsewhere
-/// or later: it's [`hidden`], or it has no body yet (a member of the group
-/// being checked, or an axiom). Its arguments are compared in shortcut
+/// or later: it's [`hidden`], or it has no body (a member of the group
+/// being checked, an axiom, or an open goal's assumption, whose `?` may
+/// later be filled). Its arguments are compared in shortcut
 /// mode, so that the call's unfolding, wherever it happens, can only add
 /// equalities (docs/proposals/proof-irrelevance.md §7.10, K4).
 pub fn sealed(g: &Ev, id: DefId) -> bool {

@@ -7,15 +7,17 @@
 //! are part of every user's hash. Terms are built by hand: the elaborator
 //! makes `?` into assumptions in stage 2.
 
+use std::rc::Rc;
+
 use crate::common::*;
-use stitchwort_core::assumption::relied_on;
+use stitchwort_core::assumption::{Decl, relied_on};
 use stitchwort_core::check;
 use stitchwort_core::globals::{Assumption, State};
 use stitchwort_core::hash::{ContentHash, def_hash};
 use stitchwort_core::native::{self, Native};
 use stitchwort_core::term::Term;
 use stitchwort_core::value::{Head, Value, eval};
-use stitchwort_core::{DefId, Kernel, Limits, Sort};
+use stitchwort_core::{DefId, Icit, Kernel, Limits, Sort};
 
 fn label(owner: &str, hole: u32) -> Assumption {
     Assumption {
@@ -75,8 +77,8 @@ fn hash_of(g: &Kernel, id: DefId) -> ContentHash {
     def_hash(&g.ev(), id).unwrap().expect("final")
 }
 
-fn relies(g: &Kernel, id: DefId) -> Vec<DefId> {
-    relied_on(&g.ev(), &[id]).into_iter().collect()
+fn relies(g: &Kernel, root: impl Into<Decl>) -> Vec<DefId> {
+    relied_on(&g.ev(), &[root.into()]).into_iter().collect()
 }
 
 // The form
@@ -208,6 +210,29 @@ fn index_unification_is_stuck_on_one() {
 // What's refused
 
 #[test]
+fn a_label_is_used_once() {
+    // Two assumptions with one label would be two constants that
+    // conversion tells apart and the hasher doesn't.
+    let mut p = Prelude::new();
+    let nat = p.nat_ty();
+    assume_as(&mut p.g, "f.?1", nat.clone(), "Main.f", 1).unwrap();
+    let before = p.g.env.defs().len();
+    assert_eq!(
+        assume_as(&mut p.g, "again", nat, "Main.f", 1),
+        Err("E-MALFORMED")
+    );
+    // With another type too: the label alone names the `?`.
+    assert_eq!(
+        assume_as(&mut p.g, "again", prop(), "Main.f", 1),
+        Err("E-MALFORMED")
+    );
+    assert_eq!(p.g.env.defs().len(), before, "nothing is added");
+    // Paired: another hole, or the same hole of another owner.
+    assert!(assume_as(&mut p.g, "f.?2", prop(), "Main.f", 2).is_ok());
+    assert!(assume_as(&mut p.g, "g.?1", prop(), "Main.g", 1).is_ok());
+}
+
+#[test]
 fn its_type_must_be_a_type() {
     let mut p = Prelude::new();
     let before = p.g.env.defs().len();
@@ -270,6 +295,31 @@ fn nothing_gives_it_a_body_later() {
     );
     // Not as a native.
     assert!(native::register_native_unpinned(&mut p.g, hole, Native::Add).is_err());
+    let float = stitchwort_core::float::register_def(
+        &mut p.g,
+        hole,
+        stitchwort_core::registry::Builtin::FloatNeg,
+    )
+    .unwrap_err();
+    assert!(float.labels[0].message.contains("open goal"));
+    // Not a validator: `v.?1 : (n : Nat) -> [auto ok : n = n] -> Nat`. The
+    // validator is ill-formed anyway (`Nat` isn't a decision), so the
+    // refusal is told apart by its reason.
+    let validated = Term::Pi(
+        "n".into(),
+        Icit::Explicit,
+        Rc::new(nat.clone()),
+        Rc::new(Term::Pi(
+            "ok".into(),
+            Icit::Auto,
+            Rc::new(eq(None, v(0), v(0))),
+            Rc::new(nat.clone()),
+        )),
+    );
+    let validated = assume_as(&mut p.g, "v.?1", validated, "Main.v", 1).unwrap();
+    let refused = check::add_validator(&mut p.g, validated, 1, p.nat, &zero).unwrap_err();
+    assert_eq!(refused.code, "E-MALFORMED");
+    assert!(refused.labels[0].message.contains("open goal"));
     // Marks for pending definitions don't apply.
     check::mark_opaque(&mut p.g, hole);
     check::mark_folded(&mut p.g, hole);
@@ -325,7 +375,7 @@ fn reliance_is_read_off_the_checked_terms() {
     assert_eq!(relies(&p.g, chained), vec![goal]);
     assert_eq!(relies(&p.g, by_rfl), Vec::<DefId>::new());
     assert_eq!(
-        relied_on(&p.g.ev(), &[by_rfl, chained])
+        relied_on(&p.g.ev(), &[by_rfl.into(), chained.into()])
             .into_iter()
             .collect::<Vec<_>>(),
         vec![goal]
@@ -354,6 +404,117 @@ fn reliance_through_a_type() {
     let body = lam("x", p.num(0));
     let w = define(&mut p.g, "w", arrow(Term::data(witness, vec![]), nat), body).unwrap();
     assert_eq!(relies(&p.g, w), vec![k]);
+    // The data type itself, as a root.
+    assert_eq!(relies(&p.g, witness), vec![k]);
+}
+
+#[test]
+fn reliance_through_a_validator() {
+    let mut p = Prelude::new();
+    let bool_ = data(&mut p.g, "Bool", vec![], Sort::Type(0));
+    check::define_ctors(
+        &mut p.g,
+        bool_,
+        vec![ctor("False", vec![]), ctor("True", vec![])],
+    )
+    .unwrap();
+    native::register_bool(&mut p.g, bool_).unwrap();
+    let bool_ty = Term::data(bool_, vec![]);
+    let tru = Term::ctor(bool_, 1, vec![]);
+    // `type Decidable (p: Prop) = { holds: Bool, sound: holds = True → p }`.
+    let decidable = check::declare_data_group_as(
+        &mut p.g,
+        vec![("p".into(), prop())],
+        Sort::Type(0),
+        vec![("Decidable".into(), "Decidable".into(), span(), true)],
+    )
+    .unwrap()[0];
+    check::define_ctors(
+        &mut p.g,
+        decidable,
+        vec![ctor(
+            "MkDecidable",
+            vec![
+                ("holds", bool_ty.clone()),
+                ("sound", arrow(eq(Some(bool_ty), v(0), tru), v(1))),
+            ],
+        )],
+    )
+    .unwrap();
+    // f : (n : Nat) -> [auto ok : n = n] -> Nat, validated by an assumed
+    // `dec.?1 : (n : Nat) -> Decidable (n = n)`.
+    let ty = pi(
+        "n",
+        p.nat_ty(),
+        Term::Pi(
+            "ok".into(),
+            Icit::Auto,
+            Rc::new(eq(None, v(0), v(0))),
+            Rc::new(p.nat_ty()),
+        ),
+    );
+    let body = lam("n", Term::Lam("ok".into(), Icit::Auto, Rc::new(v(1))));
+    let f = define(&mut p.g, "f", ty, body).unwrap();
+    let dec_ty = pi(
+        "n",
+        p.nat_ty(),
+        Term::data(decidable, vec![eq(None, v(0), v(0))]),
+    );
+    let dec = assume_as(&mut p.g, "dec.?1", dec_ty, "Main.dec", 1).unwrap();
+    assert_eq!(relies(&p.g, f), Vec::<DefId>::new());
+    let decision = app(Term::Def(dec), [v(0)]);
+    check::add_validator(&mut p.g, f, 1, decidable, &decision).unwrap();
+    assert_eq!(relies(&p.g, f), vec![dec]);
+}
+
+#[test]
+fn reliance_through_a_run_body() {
+    let mut p = Prelude::new();
+    let nat = p.nat_ty();
+    let k = assume_as(&mut p.g, "k.?1", nat.clone(), "Main.k", 1).unwrap();
+    let zero = p.num(0);
+    let g = define(&mut p.g, "g", nat, zero).unwrap();
+    assert_eq!(relies(&p.g, g), Vec::<DefId>::new());
+    check::set_run_body(&mut p.g, g, &Term::Def(k)).unwrap();
+    assert_eq!(relies(&p.g, g), vec![k]);
+}
+
+#[test]
+fn reliance_through_an_unfolding_list() {
+    // `opaque def o: Nat := k.?1`, and opaque `t: 0 = 0 := rfl` with
+    // `unfolding o`: `t` mentions neither, but is checked with `o`'s body
+    // in view.
+    let mut p = Prelude::new();
+    let nat = p.nat_ty();
+    let k = assume_as(&mut p.g, "k.?1", nat.clone(), "Main.k", 1).unwrap();
+    let o = check::declare_def(
+        &mut p.g,
+        &"o".into(),
+        &"o".into(),
+        &nat,
+        false,
+        false,
+        span(),
+    )
+    .unwrap();
+    check::mark_opaque(&mut p.g, o);
+    check::define_def(&mut p.g, o, &Term::Def(k)).unwrap();
+    let zero = p.num(0);
+    let statement = eq(Some(nat), zero.clone(), zero);
+    let t = check::declare_def(
+        &mut p.g,
+        &"t".into(),
+        &"t".into(),
+        &statement,
+        true,
+        false,
+        span(),
+    )
+    .unwrap();
+    check::mark_opaque(&mut p.g, t);
+    check::set_unfolding(&mut p.g, t, &[o]);
+    check::define_def(&mut p.g, t, &Term::Refl).unwrap();
+    assert_eq!(relies(&p.g, t), vec![k]);
 }
 
 // Hashing
