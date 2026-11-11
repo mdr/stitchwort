@@ -1,5 +1,5 @@
 {
-  "next": 2880,
+  "next": 2881,
   "tickets": [
     {
       "id": 47,
@@ -30521,6 +30521,19 @@
       "where": "",
       "labels": [],
       "epic": "diagnostics",
+      "body": "",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2880,
+      "title": "Canonical-instance lookup in the unifier: when a method of an unsolved dictionary meets a call to a function exactly one instance uses for that method, pick that instance (Coq canonical structures); no trials, covers instances with parameters (List, Fin n, Set k); replaces SW-2864's unify_guessing_instance. docs/reviews/SW-2864-guessing-instance-review.md (5)",
+      "status": "backlog",
+      "agent": "Opus",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
       "body": "",
       "created": "2026-11-11",
       "updated": "2026-11-11",
