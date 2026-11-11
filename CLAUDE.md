@@ -288,6 +288,16 @@ at every status table, and picks the kind of work to fit it:
   run takes more than a minute or two. Don't run broader suites "to be
   safe"; the orchestrator's verifier checks each batch after merging. After a
   failure, rerun only the failing tests.
+- Minimal and tactical (Matt, 11 Nov 2026: "lanes are just very minimal in
+  what they run ... not enormous test packs or suites or big
+  compilations"): a lane never runs a whole test binary or package, the
+  examples suite, a std-wide audit, an `aoc/` or `games/rogue` check
+  (cached or not), the benchmark, or a workspace-wide build of test
+  targets, and runs one test command at a time under `nice -n 15`. A lane
+  that thinks it needs one stops and asks. Briefs never ask for these
+  either: whole-project measurements go to the verifier or Overmind. (One
+  lane ran 6-8 std audits and 8-10 aoc checks in 2.5 h and held Matt's
+  machine at load 146.)
 - Exceptions (a lane working on the test suites themselves, say) are agreed
   with Matt before the lane starts: the orchestrator asks, and the brief
   states the agreed strategy. A brief never allows a broader suite on the

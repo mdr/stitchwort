@@ -12,9 +12,15 @@ Before anything else, read `CLAUDE.md` at the repo root and follow it: the
 
 - Work only in the worktree path the brief gives you (`cd` there first) and
   its branch. Don't merge into `main` or push.
-- Tests: only targeted, fast checks on what your change directly affects, no
-  run over about two minutes, unless the brief states a different strategy
-  agreed with Matt.
+- Tests: minimal and tactical (Matt, 11 Nov 2026). Run a select few tests
+  by name: the ones you added and the ones your change could break, one
+  command at a time, each under about two minutes. Never run a whole test
+  binary or package, the examples suite, a std-wide audit, an `aoc/` or
+  `games/rogue` check (cached or not), the benchmark, or a workspace-wide
+  build of test targets: the verifier and the tiers do that after merging.
+  If you think you need one, stop and ask the orchestrator. Prefix builds
+  and tests with `nice -n 15`. A brief may allow more only with Matt's
+  agreement, stated in the brief.
 - Commit on your branch with messages in the repo's style, ending with
   `Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>`.
 - Add short progress notes to your ticket and move it to `review` when done
