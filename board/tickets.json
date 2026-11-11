@@ -30687,12 +30687,12 @@
     {
       "id": 2892,
       "title": "[Sonnet] Book G1: bundle book/ and sf/ in the playground (bundle-projects.sh accepts the check: key and more than sources: [src]; chapter entries; a link per chapter); covers SW-2723 (docs/proposals/proving-with-stitchwort-outline.md)",
-      "status": "backlog",
+      "status": "review",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "editor-playground",
-      "body": "",
+      "body": "Lane SW-2892 (Sonnet): commit 8960928ac on lane/SW-2892. bundle-projects.sh accepts check: open-goals: warn; bundles sf (Basics, Induction, Lists, Poly) and book (skipped if absent; ChNN entries, #book/N); links #sf/basics. The playground already shows ? as goals for every project, so no Rust change. Covers SW-2723 (flake bundle fileset, Taskfile web:pkg sources). Browser test 'sf/ is a project' passes.",
       "created": "2026-11-11",
       "updated": "2026-11-11",
       "commits": []
