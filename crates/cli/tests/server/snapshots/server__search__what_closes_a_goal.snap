@@ -1,6 +1,6 @@
 ---
 source: crates/cli/tests/server/search.rs
-assertion_line: 455
+assertion_line: 486
 expression: "serde_json::to_string_pretty(&report).unwrap()"
 ---
 {
@@ -69,7 +69,7 @@ expression: "serde_json::to_string_pretty(&report).unwrap()"
       ],
       "import": "import Std (Nat)",
       "kind": "theorem",
-      "line": 112,
+      "line": 118,
       "name": "Std.Nat.leOfEq",
       "proof": "Nat.leOfEq a c ?",
       "searchRank": 1,
