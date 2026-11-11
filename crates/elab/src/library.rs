@@ -1181,6 +1181,64 @@ impl Elaborator {
         self.load_libraries(&all)
     }
 
+    /// The library files a `check --std` target names, as indexes into the
+    /// index: a path under `std/` (`Nat/Arith.sw`), a folder (`Nat`, every
+    /// file below it), or a namespace spelled with dots
+    /// (`Std.Nat.Arith`, `Nat.Arith`), which names the same file or folder.
+    /// `Std` alone is every file. The core isn't one (it always loads).
+    pub fn library_files_named(&self, target: &str) -> Result<Vec<usize>, Diagnostic> {
+        let Some(lib) = &self.session.library else {
+            return Ok(Vec::new());
+        };
+        let rest = target
+            .strip_prefix("std/")
+            .or_else(|| target.strip_prefix("Std."))
+            .unwrap_or(target);
+        let prefix = match rest.strip_suffix(".sw") {
+            Some(file) => file.to_string(),
+            None if rest == "Std" => String::new(),
+            None => rest.replace('.', "/"),
+        };
+        let exact = format!("{prefix}.sw");
+        let below = format!("{prefix}/");
+        let found: Vec<usize> = (1..lib.index.files.len())
+            .filter(|&f| {
+                let path = &lib.index.files[f].path;
+                prefix.is_empty() || *path == exact || path.starts_with(&below)
+            })
+            .collect();
+        if found.is_empty() {
+            return Err(Diagnostic::error(
+                "E-STD-TARGET",
+                format!("there's no standard library file or folder `{target}`"),
+            )
+            .with_note("name one as `Nat/Arith.sw`, `Nat` or `Std.Nat.Arith`"));
+        }
+        Ok(found)
+    }
+
+    /// Checks the library files `targets` name ([`Self::library_files_named`])
+    /// and the files they need, bodies and all, in canonical order. The
+    /// check cache answers for a file whose text and dependencies are
+    /// unchanged. Returns the paths of the files named.
+    pub fn check_library_targets(
+        &mut self,
+        targets: &[String],
+    ) -> Result<Vec<String>, Vec<Diagnostic>> {
+        let mut files = BTreeSet::new();
+        for target in targets {
+            files.extend(self.library_files_named(target).map_err(|d| vec![d])?);
+        }
+        self.load_libraries(&files)?;
+        let Some(lib) = &self.session.library else {
+            return Ok(Vec::new());
+        };
+        Ok(files
+            .into_iter()
+            .map(|f| lib.index.files[f].path.clone())
+            .collect())
+    }
+
     /// Loads every library file but those in `skip` (paths under `std/`,
     /// `Float/Theory.sw`) and those that need one of them, in canonical
     /// order. The files left out load when something needs them, as in a
