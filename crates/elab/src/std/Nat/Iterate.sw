@@ -49,27 +49,19 @@ def Nat.iterateUntilStable [auto eq: DecEq a] (x: a) (step: a → a) (measure: a
   then x
   else Nat.iterateUntilStable (step x) step measure shrinks [decreasing := shrinks x h]
 
---| The decision `Nat.iterateUntilStable` makes, taken apart: the lemmas below
---| hand it to these.
-theorem Nat.untilStableDecYes (p: Prop) (x: a) (r: a) (h: p) (d: Decidable p): Decidable.elim d (y => x) (n => r) = x :=
-  Decidable.elimEq d (y => x) (n => r) x (y => rfl) (n => Void.exfalso (n h))
-
-theorem Nat.untilStableDecNo (p: Prop) (x: a) (r: a) (h: ¬p) (d: Decidable p): Decidable.elim d (y => x) (n => r) = r :=
-  Decidable.elimEq d (y => x) (n => r) r (y => Void.exfalso (h y)) (n => rfl)
-
 --| A value `step` leaves alone is already the answer.
 theorem Nat.iterateUntilStableStable [auto eq: DecEq a] (x: a) (step: a → a) (measure: a → Nat)
     (shrinks: ∀ (y: a) => step y ≠ y → measure (step y) < measure y) (h: step x = x):
     Nat.iterateUntilStable x step measure shrinks = x :=
   rewrite Nat.iterateUntilStable.unfold x step measure shrinks in
-  Nat.untilStableDecYes (step x = x) x (Nat.iterateUntilStable (step x) step measure shrinks) h (DecEq.decide (step x) x)
+  Decidable.elimEq (DecEq.decide (step x) x) (y => x) (n => Nat.iterateUntilStable (step x) step measure shrinks) x (y => rfl) (n => Void.exfalso (n h))
 
 --| A value `step` changes goes on from the changed value.
 theorem Nat.iterateUntilStableStep [auto eq: DecEq a] (x: a) (step: a → a) (measure: a → Nat)
     (shrinks: ∀ (y: a) => step y ≠ y → measure (step y) < measure y) (h: step x ≠ x):
     Nat.iterateUntilStable x step measure shrinks = Nat.iterateUntilStable (step x) step measure shrinks :=
   rewrite Nat.iterateUntilStable.unfold x step measure shrinks in
-  Nat.untilStableDecNo (step x = x) x (Nat.iterateUntilStable (step x) step measure shrinks) h (DecEq.decide (step x) x)
+  Decidable.elimEq (DecEq.decide (step x) x) (y => x) (n => Nat.iterateUntilStable (step x) step measure shrinks) (Nat.iterateUntilStable (step x) step measure shrinks) (y => Void.exfalso (h y)) (n => rfl)
 
 --| What it returns is a fixed point: `step` leaves it alone.
 theorem Nat.iterateUntilStableFixed [auto eq: DecEq a] (x: a) (step: a → a) (measure: a → Nat)

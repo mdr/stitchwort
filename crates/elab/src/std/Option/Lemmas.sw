@@ -128,10 +128,7 @@ theorem Option.getOrElseMap4 (f: a → b → c → e → r) (da: a) (db: b) (dc:
 
 --| `Option.decEq` on two `Some`s gives the values' answer, wrapped by
 --| `Option.decSome`, so `==` on them is `==` on the values.
-theorem Option.decSomeToBool (x: a) (y: a) (d: Decidable (x = y)): Decidable.holds (Option.decSome x y d) = Decidable.holds d := rfl
-
-theorem Option.someBeqSome [auto eq: DecEq a] (x: a) (y: a): (Some x == Some y) = (x == y) :=
-  Option.decSomeToBool x y (DecEq.decide x y)
+theorem Option.someBeqSome [auto eq: DecEq a] (x: a) (y: a): (Some x == Some y) = (x == y) := rfl
 
 theorem Option.someBeqSomeExample (x: Char): (Some x == Some 'A') = (x == 'A') := Option.someBeqSome x 'A'
 

@@ -221,10 +221,6 @@ builtins! {
     LeRefl = "Nat.leRefl": Def => "n",
     ElimDecCong = "Decidable.elimCong": Def => "[p] [a] d y1 y2 n1 n2 sameYes sameNo",
     IfCong = "Bool.ifThenElseCong": Def => "[a] c t1 t2 e1 e2 sameThen sameElse",
-    // and these for `f.unfold` showing a plain `if` whose condition a
-    // recursive call's proof used (docs/proposals/decreasing-with-hypothesis.md)
-    ElimDecIf = "Decidable.elimIf": Def => "[p] [a] d y n t e sameYes sameNo",
-    ElimDecTrueIf = "Bool.elimDecTrueIf": Def => "[a] c y n t e sameYes sameNo",
     // and these for a lexicographic measure, `decreasing (m1, m2)`
     ElimDecEq = "Decidable.elimEq": Def => "[p] [a] d y n z yesEq noEq",
     ElimDecProof = "Decidable.elimProof": Def => "[p] [a] d ifYes ifNo",

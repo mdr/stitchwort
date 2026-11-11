@@ -2,8 +2,6 @@
 -- These were in the core (docs/proposals/prelude-slim.md stage 3). `omega`'s
 -- proofs and guarded arms' generated equations name the `toBool` ones.
 
-theorem Bool.decTrueToBool (c: Bool): Decidable.holds (Bool.decTrue c) = c := rfl
-
 --| What `a == b` (a decision turned into a `Bool`) says about `a = b`, both ways.
 theorem Decidable.toBoolSound [p: Prop] (d: Decidable p) (e: Decidable.holds d = True): p := d.sound e
 
@@ -22,38 +20,6 @@ theorem Decidable.notNotOf [p: Prop] (d: Decidable p) (n: ¬¬p): p :=
   match e: d.holds with
     | True => d.sound e
     | False => Void.exfalso (n (Decidable.refute d e))
-
---| What `a && b` says about `p ∧ q`, where `a` and `b` are the decisions' `Bool`s
---| (`toBool dp = a`): the same four facts as `toBoolOf` and the others, for a
---| guard `p && q` stated as the conjunction.
-theorem Decidable.andBoolOf [p q: Prop] (dp: Decidable p) (dq: Decidable q) (a b: Bool) (ea: Decidable.holds dp = a) (eb: Decidable.holds dq = b) (h: p ∧ q): (a && b) = True :=
-  match a, b with
-    | True, True => rfl
-    | True, False => Void.exfalso (Bool.falseNotTrue (Eq.trans (Eq.sym eb) (Decidable.toBoolOf dq (And.right h))))
-    | False, b => Void.exfalso (Bool.falseNotTrue (Eq.trans (Eq.sym ea) (Decidable.toBoolOf dp (And.left h))))
-
-theorem Decidable.andBoolOfNot [p q: Prop] (dp: Decidable p) (dq: Decidable q) (a b: Bool) (ea: Decidable.holds dp = a) (eb: Decidable.holds dq = b) (n: ¬(p ∧ q)): (a && b) = False :=
-  match a, b with
-    | True, True => Void.exfalso (n (Both (Decidable.toBoolSound dp ea) (Decidable.toBoolSound dq eb)))
-    | True, False => rfl
-    | False, b => rfl
-
-theorem Decidable.andBoolSound [p q: Prop] (dp: Decidable p) (dq: Decidable q) (a b: Bool) (ea: Decidable.holds dp = a) (eb: Decidable.holds dq = b) (h: (a && b) = True): p ∧ q :=
-  match a, b with
-    | True, True => Both (Decidable.toBoolSound dp ea) (Decidable.toBoolSound dq eb)
-    | True, False => cases
-    | False, b => cases
-
-theorem Decidable.andBoolFalse: ∀ [p q: Prop] (dp: Decidable p) (dq: Decidable q) (a b: Bool) => Decidable.holds dp = a → Decidable.holds dq = b → (a && b) = False → ¬(p ∧ q)
-  | dp, dq, True, True, ea, eb, h, n => cases
-  | dp, dq, True, False, ea, eb, h, n => Decidable.toBoolFalse dq eb (And.right n)
-  | dp, dq, False, b, ea, eb, h, n => Decidable.toBoolFalse dp ea (And.left n)
-
---| A conjunction `p && q` decided by [`Decidable.and`] has the `Bool` `a && b`
---| of its sides' (`toBool dp = a`): what lets a guard `p && q && r` be stated
---| as `p ∧ q ∧ r`.
-theorem Decidable.andBoolDec [p q: Prop] (dp: Decidable p) (dq: Decidable q) (a b: Bool) (ea: Decidable.holds dp = a) (eb: Decidable.holds dq = b): Decidable.holds (Decidable.and dp dq) = (a && b) :=
-  J (a' e => Decidable.holds (Decidable.and dp dq) = (a' && b)) (J (b' e => Decidable.holds (Decidable.and dp dq) = (dp.holds && b')) rfl eb) ea
 
 --| `x == y` says `x = y`.
 theorem DecEq.sound [auto decEq: DecEq a] [x: a] [y: a] (h: (x == y) = True): x = y :=
