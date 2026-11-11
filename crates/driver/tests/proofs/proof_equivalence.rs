@@ -29,6 +29,7 @@
 use std::rc::Rc;
 
 use stitchwort_core::chars::Chars;
+use stitchwort_core::registry::Builtin;
 use stitchwort_core::term::Term;
 use stitchwort_core::value::{Head, Value, conv, eval, set_shortcuts_disabled};
 use stitchwort_core::{DataId, DefId, Ev, Icit, reference};
@@ -1387,20 +1388,75 @@ fn nested_sum_reads_a_long_unfolded_chain() {
     assert!(differ_steps < 1_000_000, "{differ_steps} steps");
 }
 
+/// `repEnd n x e`, `x + (x + … + e)` with `n` sums: a chain of sums with
+/// nothing folded in it.
+const REP_END: &str = "def repEnd (n: Nat) (x: Nat) (e: Nat): Nat :=\n  match n with\n    | Zero => e\n    | Succ k => x + repEnd k x e\n";
+
 /// A chain with nothing folded in it, 400 sums deep, is read once per
 /// comparison, not once per level: each sum it goes down to is a step, so
 /// walking it at every level would take about 320,000 more (SW-2875; about
-/// 75,000 when written). Deeper chains run out of stack in this test's
-/// thread, comparing the sums' arguments.
+/// 75,000 when written). Deeper chains run out of this test thread's stack
+/// elsewhere in the comparison, not in the walk.
 #[test]
 fn nested_sum_walks_a_plain_chain_once() {
-    let chain = "def repEnd (n: Nat) (x: Nat) (e: Nat): Nat :=\n  match n with\n    | Zero => e\n    | Succ k => x + repEnd k x e\n";
     let (result, steps) = load_nested(&format!(
-        "{chain}\ntheorem same (x y: Nat): repEnd 400 x y = repEnd 399 x (x + y) := rfl\n"
+        "{REP_END}\ntheorem same (x y: Nat): repEnd 400 x y = repEnd 399 x (x + y) := rfl\n"
     ));
     result.expect("same is accepted");
     eprintln!("steps: {steps}");
     assert!(steps < 200_000, "{steps} steps");
+}
+
+/// Two chains that differ only at the bottom are told apart with the
+/// record of sums with nothing to read in use: a type error, not
+/// acceptance and not E-RESOURCE.
+#[test]
+fn nested_sum_tells_plain_chains_apart() {
+    let (result, _) = load_nested(&format!(
+        "{REP_END}\ntheorem differ (x y: Nat): repEnd 400 x y = repEnd 400 x x := rfl\n"
+    ));
+    let err = result.expect_err("differ is rejected");
+    assert!(!err.contains("E-RESOURCE"), "{err}");
+    assert!(err.contains("E-REFL"), "{err}");
+}
+
+/// The same chains in every mode: the machine's comparison keeps a record
+/// of the sums with nothing to read, while the shortcuts-off, reference
+/// and plain ones walk each in full; all give the same answers (SW-2875).
+/// On a thread of its own: outside an operation nothing guards the stack,
+/// and the reference evaluator recurses once per sum.
+#[test]
+fn nested_sum_plain_chains_are_compared_alike() {
+    let run = || {
+        let mut session = Session::eager();
+        (session.load("chain.sw", &format!("import Std (Nat)\n\n{REP_END}"))).expect("loads");
+        let g = &session.elab.ev();
+        let sig = signature(g, &["Nat"], &["repEnd"]);
+        let add = Term::Def(g.env.registry().def(Builtin::Add).expect("Nat.add"));
+        let (x, y) = (var(P, 0), var(Q, 0));
+        let rep = |k: u32, bottom: Term| {
+            app(
+                sig.def("repEnd"),
+                vec![Term::Nat(Rc::new(k.into())), x.clone(), bottom],
+            )
+        };
+        let terms = vec![
+            ("repEnd 300 x y".to_string(), rep(300, y.clone())),
+            (
+                "repEnd 299 x (x + y)".to_string(),
+                rep(299, app(add, vec![x.clone(), y.clone()])),
+            ),
+            ("repEnd 300 x x".to_string(), rep(300, x.clone())),
+        ];
+        // Each against itself, and the first two against each other.
+        assert_eq!(compared_alike(g, &sig, &terms), 5);
+    };
+    std::thread::Builder::new()
+        .stack_size(256 << 20)
+        .spawn(run)
+        .expect("a thread")
+        .join()
+        .expect("the modes agree");
 }
 
 #[test]

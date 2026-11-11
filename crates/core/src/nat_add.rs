@@ -259,11 +259,18 @@ pub struct Unread {
 }
 
 impl Unread {
+    /// The key of `value`, a sum [`Sum::of`] accepted: its spine holds the
+    /// two arguments, so it has an address of its own.
+    fn key(value: &Value) -> usize {
+        let Value::Neutral(Head::Def(_), spine) = value else {
+            unreachable!("only sums are filed")
+        };
+        debug_assert_eq!(spine.len(), 2, "only sums are filed");
+        spine.addr()
+    }
+
     fn contains(&self, value: &Value) -> bool {
-        match value {
-            Value::Neutral(_, spine) => self.spines.contains(&spine.addr()),
-            _ => false,
-        }
+        self.spines.contains(&Self::key(value))
     }
 
     fn extend(&mut self, values: Vec<Value>) {
@@ -271,9 +278,7 @@ impl Unread {
             return;
         }
         for value in values {
-            if let Value::Neutral(_, spine) = &value
-                && self.spines.insert(spine.addr())
-            {
+            if self.spines.insert(Self::key(&value)) {
                 self.kept.push(value);
             }
         }
