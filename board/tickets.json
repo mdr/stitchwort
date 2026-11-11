@@ -1,5 +1,5 @@
 {
-  "next": 2878,
+  "next": 2879,
   "tickets": [
     {
       "id": 47,
@@ -30490,6 +30490,19 @@
     {
       "id": 2877,
       "title": "f.induct: transmissionBits (2021 Day16) and sumMagnitudes (Day18) get none and no recorded reason: the recursive call is only in a several-expression match's scrutinee, so the generator decides they aren't recursive; record a reason, and consider splitting several-expression lifted matches (SW-2868)",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "\nReview (SW-2868): worse than a missing message: a recursive call in a lifted match's scrutinee is a real recursive call, so the user is told the function doesn't call itself (false) and the induction principle lacks a hypothesis.",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2878,
+      "title": "f.induct nested splitting follow-ups (SW-2868 review): alt_refute tries only the last equation of a hypothesis (pair scrutinee | (0, 0) | (a, b) skipped); check a catch-all's hypothesis is about the scrutinee and skip guarded alternatives with their own reason; lift the type-parameter skip by stating the helper at the instance generalised over its free variables ({a} (y: Option (Option a))); test for rows overlapping through Some's field (closed generated, generic skipped). docs/reviews/SW-2868-induct-nested-splits-review.md",
       "status": "backlog",
       "agent": "Sonnet",
       "where": "",
