@@ -29546,7 +29546,7 @@
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "\nFrom stage 1 (SW-2804): code that treats a bodiless finished declaration as a primitive must handle assumptions: crates/js/src/run.rs:136, js/src/lib.rs:2708, rt/src/lower.rs:481 and :651, elab/src/cache/mod.rs:1474 and :1604, rt test filters in lower.rs and differential.rs. Check cache keeps skipping namespaces with or relying on goals until stage 5. A goal whose type mentions an unfinished declaration is E-MALFORMED in the kernel: fall back to today's behaviour before calling assume. Stage 3 reports reliance via core's assumption::relied_on.",
       "created": "2026-11-11",
       "updated": "2026-11-11",
       "commits": []
