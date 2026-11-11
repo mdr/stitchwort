@@ -1,5 +1,5 @@
 {
-  "next": 2800,
+  "next": 2801,
   "tickets": [
     {
       "id": 47,
@@ -29468,6 +29468,19 @@
       "where": "",
       "labels": [],
       "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2800,
+      "title": "dev/briefs/design.md forbids paper lanes running stitchwort or the board tool, but orchestrator briefs ask for both (read-only probes, moving their own ticket): make them agree (SW-2797, SW-2715)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
       "body": "",
       "created": "2026-11-11",
       "updated": "2026-11-11",
