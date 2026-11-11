@@ -336,6 +336,11 @@
   .goalpanel .row { white-space: pre-wrap; }
   .goalpanel .row b { font-weight: 600; }
   .goalpanel .row i { font-style: normal; color: var(--muted); }
+  .goalpanel .added { color: var(--leaf); }
+  .goalpanel .before { color: var(--muted); white-space: pre-wrap; }
+  .goalpanel .label { color: var(--muted); font-weight: 400; }
+  .goalpanel .before + .target { border-top: none; margin-top: 2px; padding-top: 0; }
+  .goalpanel .stale { opacity: 0.6; }
   .goalpanel .target { color: var(--goal); font-weight: 600; white-space: pre-wrap; border-top: 1px solid var(--line); margin-top: 6px; padding-top: 6px; }
   .rename-panel { border: 1px solid var(--line); border-left: 3px solid var(--leaf); border-radius: 8px; background: var(--petal); padding: 6px 10px; margin-bottom: 6px; font-size: 0.85rem; }
   .rename-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
@@ -2725,20 +2730,58 @@ export def area: Shape -> Nat
     noticeTimer = setTimeout(() => { linkNotice.hidden = true; }, 8000);
   }
 
-  // The goal at the caret (the server's `stitchwort/goalAt`, as VS Code's
-  // Goals panel asks it): shown under the editor, and only while the file has
-  // an open goal, so the editor doesn't change height as the caret moves.
+  // The goal or expected type at the caret, as VS Code's Goals panel shows it
+  // (editors/vscode/client.js `contextHtml`, `goalHtml`): the server's
+  // `stitchwort/goalAt` on a `?`, else `stitchwort/contextAt` anywhere in an
+  // expression. Where the server has nothing, the last answer stays, dimmed.
+  // The panel stays hidden until the first answer.
   const goalPanel = document.getElementById("goalpanel");
-  function showGoal(answer, any) {
-    goalPanel.hidden = !any;
-    if (!any) return;
-    if (!answer) { goalPanel.replaceChildren(el("span", { className: "none" }, "No goal at the cursor")); return; }
-    goalPanel.replaceChildren(
-      el("div", { className: "owner" }, `in ${answer.owner}`),
-      ...(answer.context ?? []).map((h) => el("div", { className: "row" },
-        el("b", {}, h.name), `: ${h.type}`, ...(h.value === undefined ? [] : [el("i", {}, ` := ${h.value}`)]))),
-      el("div", { className: "target" }, `⊢ ${answer.goal}`),
-    );
+  let lastGoal = null;
+  const hypothesis = (h, added) => el("div", { className: added ? "row added" : "row" },
+    added ? "+ " : "", el("b", {}, h.name), `: ${h.type}`, ...(h.value === undefined ? [] : [el("i", {}, ` := ${h.value}`)]));
+  const goalRows = (answer) => [
+    el("div", { className: "owner" }, `in ${answer.owner}`),
+    ...(answer.context ?? []).map((h) => hypothesis(h, false)),
+    el("div", { className: "target" }, `⊢ ${answer.goal}`),
+  ];
+  function contextRows(answer) {
+    const step = answer.step;
+    const where = [answer.declaration && `\`${answer.declaration}\``, step?.description].filter(Boolean).join(", ");
+    const added = new Set(step?.adds ?? []);
+    const rows = [
+      ...(where ? [el("div", { className: "owner" }, `in ${where}`)] : []),
+      ...(answer.locals ?? []).map((h) => hypothesis(h, added.has(h.name))),
+    ];
+    const line = (cls, label, text) => el("div", { className: cls }, el("span", { className: "label" }, label), text);
+    if (step) {
+      const sign = step.target ? `${step.target}: ` : step.kind === "proof" ? "⊢ " : "expected ";
+      if (step.form === "calcLine") {
+        if (step.before) rows.push(line("before", "so far ", step.before));
+        rows.push(line("target", `line ${sign}`, step.after));
+      } else if (step.form === "match" || step.form === "statement") {
+        rows.push(line("target", sign, step.after));
+      } else {
+        if (step.before) rows.push(line("before", `before ${sign}`, step.before));
+        if (step.rule) rows.push(line("before", "rule ", step.rule));
+        rows.push(line("target", `after ${sign}`, step.after));
+      }
+      return rows;
+    }
+    rows.push(line("target", !answer.checked ? "has type " : answer.kind === "proof" ? "⊢ " : "expected ", answer.type));
+    if (answer.checked && answer.hasType) rows.push(el("div", { className: "before" }, `has type ${answer.hasType}`));
+    return rows;
+  }
+  function showGoal(result, hide) {
+    if (hide) { lastGoal = null; goalPanel.hidden = true; return; }
+    if (result) {
+      // On a `?` its goal; else the expression's context; else the nearest `?` of the declaration.
+      const rows = result.here || !result.context ? goalRows(result.goal) : contextRows(result.context);
+      lastGoal = rows;
+      goalPanel.replaceChildren(...rows);
+      goalPanel.hidden = false;
+    } else if (lastGoal) {
+      goalPanel.replaceChildren(el("div", { className: "stale" }, el("div", { className: "none" }, "Nothing at the cursor; the last answer:"), ...lastGoal));
+    }
   }
 
   /** Shows a program on its own. */

@@ -744,19 +744,40 @@ test("the goals panel shows the goal at the cursor, and follows it", async (page
   const text = "def two : Nat := 2\n\ntheorem two_is_two : two = 2 := ?\n";
   await page.setSource(text);
   await page.untilStatus("1 goal open");
-  // Off the goal: the panel is there (the file has a goal) and says so.
+  // On another declaration, where the server has nothing: no panel yet.
   await caretAt("def two");
-  await page.until(`document.getElementById("goalpanel").innerText.includes("No goal at the cursor")`, 30000, "the panel to say there is no goal here");
+  await new Promise((r) => setTimeout(r, 1500));
+  assert.equal(await panel(), null, "nothing to show before any answer");
   // On the `?`.
   await caretAt("?");
   await page.until(`document.getElementById("goalpanel").innerText.includes("⊢ two = 2")`, 30000, "the goal at the ?");
   assert.match(await panel(), /two_is_two/);
+  // Moved to where there is nothing: the last answer stays, marked.
+  await caretAt("def two");
+  await page.until(`document.getElementById("goalpanel").innerText.includes("Nothing at the cursor")`, 30000, "the last answer to be marked");
+  assert.match(await panel(), /⊢ two = 2/);
   // The Check output keeps its Goals list.
   assert.match(await page.ev(`document.querySelector("#output pre.goals")?.textContent ?? ""`), /⊢ two = 2/);
   // Filled in: no goal, no panel.
   await page.setSource("def two : Nat := 2\n\ntheorem two_is_two : two = 2 := rfl\n");
   await page.untilChecked();
-  await page.until(`document.getElementById("goalpanel").hidden`, 30000, "the panel to go");
+  // Filled in, the panel follows the cursor anyway: it still shows the statement's goal at the proof.
+  await caretAt("rfl");
+  await page.until(`document.getElementById("goalpanel").innerText.includes("two = 2")`, 30000, "the expected type at rfl");
+});
+
+test("the goals panel shows the goal at a rewrite step in a proof with no ?", async (page) => {
+  const panel = () => page.ev(`document.getElementById("goalpanel").innerText`);
+  const caretAt = (needle) => page.ev(`(() => { const e = window.editor; e.focus(); const i = e.value.indexOf(${JSON.stringify(needle)}); e.setSelectionRange(i, i); return i; })()`);
+  await page.open();
+  await page.untilChecked();
+  await page.setSource("theorem swap_eq (a: Nat) (b: Nat) (h: a = b) : b = a :=\n  rewrite h in rfl\n");
+  await page.untilChecked();
+  assert.equal(await page.ev(`document.querySelector("#output pre.goals")`), null, "the proof has no goals");
+  await caretAt("h in rfl");
+  await page.until(`document.getElementById("goalpanel").innerText.includes("b = a")`, 60000, "the goal at the rewrite");
+  assert.match(await panel(), /a: Nat/);
+  assert.match(await panel(), /h: a = b/);
 });
 
 test("the settings menu switches the inlay hints off, keeps the choice, and Escape closes it", async (page) => {
