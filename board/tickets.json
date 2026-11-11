@@ -1,5 +1,5 @@
 {
-  "next": 2858,
+  "next": 2859,
   "tickets": [
     {
       "id": 47,
@@ -30230,6 +30230,19 @@
       "where": "",
       "labels": [],
       "epic": "dev-loop-speed",
+      "body": "",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2858,
+      "title": "repl :t on a declaration with an open body (an unfinished exercise) gives E-UNFINISHED; its header's type is known, so :t should print it (a learner asks for the type of an exercise they haven't done); repl with no file in a project could offer its namespaces; share check's and repl's goals-line wording (SW-2852)",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-2858",
+      "labels": [],
+      "epic": "docs-tutorials",
       "body": "",
       "created": "2026-11-11",
       "updated": "2026-11-11",
