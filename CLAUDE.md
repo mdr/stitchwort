@@ -311,7 +311,10 @@ at every status table, and picks the kind of work to fit it:
 
 - Use `nix develop -c …` for project tools. `git add` new files before
   anything that goes through the flake.
-- Push to GitHub only when Matt asks.
+- Push `main` a few times a day at most (when Matt wants to look, Overmind
+  needs a commit, or at the end of a working block), after one `task
+  test:merge`; board-only commits wait for the next push (Matt, 11 Nov
+  2026). Lanes never push.
 - A lane that adds or changes a user-visible language feature (syntax,
   sugar, a new error, a std function people will reach for) also updates
   the language guide (`docs/guide/`, its examples checked) and

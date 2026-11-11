@@ -175,7 +175,7 @@ work."). It runs in the main checkout: the selected tests (budget about
 90 s), `task audit:touched` for a proof lane's namespaces, and nothing else.
 The fixed merge tier (`task test:merge`) and the full `task audit` don't run
 per batch, even when `crates/core`, `crates/elab` or `crates/driver`
-changed; they run at the daily and full tiers and before a push, where a
+changed; they run at the daily and full tiers and before the occasional push (a few times a day at most), where a
 failure that the selections missed is recorded on SW-1098 and the merges
 since the last pass are the suspects. The inventory is refreshed only when
 a batch adds or renames many tests.
@@ -269,7 +269,14 @@ or `target/release/stitchwort fmt FILE` after a build. File arguments are
 relative to the folder you run it from, never to `--project`, so a "No such
 file" for a tour page means the command ran from the wrong folder (SW-2618).
 
-The orchestrator may push `main` whenever it needs to (Matt, 7 and 11 Nov 2026), after `task test:merge` passes on it. Lanes never push.
+The orchestrator pushes `main` only occasionally, a few times a day at most
+(Matt, 11 Nov 2026): when Matt wants to look at something, when Overmind
+needs a commit, or at the end of a working block. Before each such push it
+runs the merge tier once, `task test:merge` (about 110 s measured on a quiet
+10-core machine, plus the release test build, which after fresh merges can
+take minutes in the uncached main checkout). The merge tier is not run after
+every merge or for board-only commits; those go out with the next real push.
+Lanes never push.
 
 ## Stopping a lane's own test runs
 
@@ -488,7 +495,7 @@ merge checks. Its Claude Code session shows in `ListAgents` as `overmind`
 (Remote Control): `SendMessage` reaches it, and it answers with
 `SendMessage` to "Stitchwort Orchestrator". It runs Matt's default model
 (Opus as of 7 Nov 2026). Its checkout, `~/repos/mdr/stitchwort`, pulls from
-GitHub, so it sees only what has been pushed, and pushing needs Matt's OK.
+GitHub, so it sees only what has been pushed, and the orchestrator pushes a few times a day at most (see "The test tiers").
 
 First soak report (7 Nov 2026): whole-AoC `check --no-cache` 134 s against
 65 s on Speedwell (about 2x slower; std's cold check about 4x); an
