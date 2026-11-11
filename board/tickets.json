@@ -1,5 +1,5 @@
 {
-  "next": 2941,
+  "next": 2942,
   "tickets": [
     {
       "id": 47,
@@ -31317,6 +31317,19 @@
       "labels": [],
       "epic": "test-infra",
       "body": "D3524 (Matt, 11 Nov 2026): 'Yes.' Design: docs/proposals/tests-with-errors.md (SW-2938) stage 1. Expected: 150 min.",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2941,
+      "title": "[DeepSeek] examples/goals/test-hole.sw fails goal_examples_report_their_goals since SW-2909 (a test whose body is ? now fails); update the example's comment and its expected outcome (expect-error header or harness) so it documents the SW-2909 rule",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
+      "body": "",
       "created": "2026-11-11",
       "updated": "2026-11-11",
       "commits": []
