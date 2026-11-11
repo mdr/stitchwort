@@ -1,5 +1,5 @@
 {
-  "next": 2847,
+  "next": 2848,
   "tickets": [
     {
       "id": 47,
@@ -30080,6 +30080,19 @@
       "title": "Full-tier tests skip silently under nextest --profile full without STITCHWORT_TIER=full (only the Taskfile sets it, Taskfile.yml:330): make the full profile set it, or have full_tier() fail loudly when the profile is full but the variable isn't (Overmind rerun, 11 Nov 2026)",
       "status": "backlog",
       "agent": "DeepSeek",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
+      "body": "",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2847,
+      "title": "rt: lower::every_example_lowers alone uses over 11.6 GB (killed by memguard at 136 s on Overmind, 1cc09543e, -j 1, full tier): find which example or what in lowering holds the memory (profile first), make it fit well under the cap; check whether it is a recent regression (Decidable stage 3, new examples)",
+      "status": "next",
+      "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "test-infra",
