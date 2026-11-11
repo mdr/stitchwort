@@ -311,7 +311,7 @@ fn run(g: &Unifier<'_>, mut work: Vec<Task>, mode: Mode) -> Result<bool> {
             }
             // Identical functions unify without solving anything
             // (`same_closure_solved`: a solved unknown is its solution).
-            Task::Codomains(_, b1, b2) if same_closure_solved(g, &b1, &b2) => true,
+            Task::Codomains(_, b1, b2) if same_closure_solved(g, &b1, &b2)? => true,
             Task::Codomains(level, b1, b2) => {
                 let fresh = Value::var(level);
                 work.push(Task::Values(
@@ -1426,7 +1426,7 @@ fn unify_step(
             work.push(Task::Values(level, (**a1).clone(), (**a2).clone()));
             true
         }
-        (Value::Lam(_, _, b1), Value::Lam(_, _, b2)) if same_closure_solved(g, b1, b2) => true,
+        (Value::Lam(_, _, b1), Value::Lam(_, _, b2)) if same_closure_solved(g, b1, b2)? => true,
         (Value::Lam(_, _, b1), Value::Lam(_, _, b2)) => {
             work.push(Task::Values(
                 level + 1,
