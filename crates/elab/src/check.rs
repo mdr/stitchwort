@@ -2397,7 +2397,7 @@ fn infer_app_with(cx: &mut Ctx, head: &Expr, args: &[Arg], fill: bool) -> Result
         // are found (docs/proposals/interfaces.md §7.5).
         Some((Global::Data(d), _)) => crate::data_auto::data_app(cx, *d, args),
         Some((Global::Unchecked(item), _)) => Err(cx.e.unchecked(name, *item)),
-        Some((Global::Failed, _)) => Err(crate::module::failed_name(name)),
+        Some((Global::Failed, _)) => Err(cx.e.failed_global(name)),
         Some((Global::Pending(file, _), _)) => Err(cx.e.unloaded(name, *file)),
         Some((Global::Ability(_), _)) => Err(cx.error(
             "E-ABILITY",

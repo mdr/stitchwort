@@ -176,6 +176,19 @@ impl Session {
             }
         }
         let name = |id: &DefId| self.elab.ev().def(*id).path().to_string();
+        let named = |list: Vec<(DefId, BTreeSet<DefId>)>| -> Vec<(String, BTreeSet<DefId>)> {
+            list.into_iter()
+                .map(|(id, goals)| (name(&id), goals))
+                .collect()
+        };
+        let (relying, generated) = (named(relying), named(generated));
+        let mut blocked = named(blocked);
+        // A declaration whose signature waited has no definition.
+        blocked.extend(
+            (self.elab.waiting_without_definition().into_iter())
+                .map(|(name, goals)| (name, goals.into_iter().collect())),
+        );
+        blocked.sort_by(|a, b| a.0.cmp(&b.0));
         // Each reported goal, with the assumption made for it, if any.
         let mut goals: Vec<OpenGoal> = Vec::new();
         for d in reported.iter().filter(|d| is_goal(d)) {
@@ -199,11 +212,11 @@ impl Session {
                     }
                 }
             };
-            let names_for = |list: &[(DefId, BTreeSet<DefId>)]| -> Vec<String> {
+            let names_for = |list: &[(String, BTreeSet<DefId>)]| -> Vec<String> {
                 match assumption {
                     Some(a) => (list.iter())
                         .filter(|(_, goals)| goals.contains(&a))
-                        .map(|(id, _)| name(id))
+                        .map(|(name, _)| name.clone())
                         .filter(|n| *n != place.declaration)
                         .collect(),
                     None => Vec::new(),
@@ -224,10 +237,10 @@ impl Session {
             });
         }
         goals.sort_by(|a, b| a.place.cmp(&b.place));
-        let dependents = |list: Vec<(DefId, BTreeSet<DefId>)>| -> Vec<Dependent> {
+        let dependents = |list: Vec<(String, BTreeSet<DefId>)>| -> Vec<Dependent> {
             list.into_iter()
-                .map(|(id, goals)| Dependent {
-                    name: name(&id),
+                .map(|(name, goals)| Dependent {
+                    name,
                     goals: self.goal_places(&goals),
                 })
                 .collect()

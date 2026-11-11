@@ -591,7 +591,7 @@ pub(crate) fn uses_unfinished(span: Option<Span>) -> Diagnostic {
     }
 }
 
-/// The kernel refused a declaration because `terms` (its body, or type)
+/// The kernel refused a declaration because `terms` (its bodies and types)
 /// use a failed declaration: if every failed declaration they use is
 /// unfinished, the refusal becomes [`UNFINISHED`]. `own` are the
 /// declarations being admitted, failed by the refusal itself.
@@ -605,7 +605,7 @@ pub(crate) fn unfinished_dependency<'t>(
     if error.code != "E-FAILED-DEPENDENCY" || tables.unfinished_count() == 0 {
         return error;
     }
-    let mut any = false;
+    let mut used = Vec::new();
     for term in terms {
         for (t, _) in term.subterms() {
             let (key, state) = match t {
@@ -625,14 +625,44 @@ pub(crate) fn unfinished_dependency<'t>(
             if !tables.is_unfinished(key) {
                 return error;
             }
-            any = true;
+            used.push(key);
         }
     }
-    if any {
-        uses_unfinished(error.primary_span())
-    } else {
-        error
+    if used.is_empty() {
+        return error;
     }
+    for key in used {
+        if let HashKey::Def(id) = key {
+            note_used_unfinished(id);
+        }
+    }
+    uses_unfinished(error.primary_span())
+}
+
+thread_local! {
+    /// The unfinished definitions the declarations being checked use, as
+    /// found where a use of one became [`UNFINISHED`]: a declaration that
+    /// waits for an open goal makes its users wait for the same goals
+    /// (`Elaborator::blocked_on`). Here rather than on the elaborator
+    /// because the kernel's refusals are reworded where only the tables are
+    /// at hand ([`unfinished_dependency`]). The module empties it at the
+    /// start of each component and reads it at the end; an undone attempt's
+    /// entries can only name more goals for a component that is unfinished
+    /// anyway.
+    static USED_UNFINISHED: std::cell::RefCell<Vec<stitchwort_core::DefId>> =
+        const { std::cell::RefCell::new(Vec::new()) };
+}
+
+/// Notes that the declaration being checked uses unfinished definition
+/// `id` (`USED_UNFINISHED`).
+pub(crate) fn note_used_unfinished(id: stitchwort_core::DefId) {
+    USED_UNFINISHED.with(|u| u.borrow_mut().push(id));
+}
+
+/// The unfinished definitions noted since the last call, emptying the list
+/// (`USED_UNFINISHED`).
+pub(crate) fn take_used_unfinished() -> Vec<stitchwort_core::DefId> {
+    USED_UNFINISHED.with(|u| std::mem::take(&mut *u.borrow_mut()))
 }
 
 impl Elaborator {

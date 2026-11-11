@@ -79,10 +79,14 @@ pub fn define_group(g: &mut Kernel, tables: &Tables, members: &[(DefId, Term)]) 
     let (members, expanded) = crate::saturate::saturate(&g.ev(), members)?;
     timed(g, |g| k::define_group(g, &members)).map_err(|d| {
         let own: Vec<HashKey> = members.iter().map(|(id, _)| HashKey::Def(*id)).collect();
+        // A member's type was declared without its failed references being
+        // refused: the kernel finds them here, with the body's.
+        let ev = g.ev();
+        let types = members.iter().map(|(id, _)| ev.def(*id).ty());
         let d = crate::goals::unfinished_dependency(
-            &g.ev(),
+            &ev,
             tables,
-            members.iter().map(|(_, t)| t),
+            members.iter().map(|(_, t)| t).chain(types),
             &own,
             d,
         );

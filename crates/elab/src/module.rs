@@ -191,6 +191,10 @@ pub(crate) struct ModuleState {
     pub item_defs: HashMap<usize, Vec<DefId>>,
     /// The key of every name the module declares.
     pub names: HashSet<String>,
+    /// The open goals' assumptions each unfinished item waits for: it
+    /// wasn't checked, because something it computes with is stuck on
+    /// them, or it uses what waits for them.
+    pub waiting: HashMap<usize, Rc<[DefId]>>,
     /// Data types (by item) whose `Ord` is derived once their module's own
     /// `DecEq` instance is checked.
     pub ord_after_dec_eq: HashMap<usize, DataId>,
@@ -434,6 +438,7 @@ impl Elaborator {
             self.clear_goals();
             self.decl.failed_mentioned.set(false);
             self.decl.stuck_on_goal.take();
+            goals::take_used_unfinished();
             let timed = crate::timings::enabled();
             if timed {
                 crate::timings::decl_begin(&self.ev());
@@ -484,8 +489,27 @@ impl Elaborator {
             );
             let position = items[component[0]].position;
             diagnostics.extend(goals.into_iter().map(|d| (position, d)));
+            let used_unfinished = goals::take_used_unfinished();
             if unfinished {
-                let blocked: Rc<[DefId]> = self.decl.stuck_on_goal.borrow().as_slice().into();
+                // Stuck on a goal, or using what waits for one: waiting
+                // for the same goals, so a chain of uses names the goal at
+                // its end.
+                let mut blocked = self.decl.stuck_on_goal.borrow().clone();
+                for id in used_unfinished {
+                    if self.kernel.def(id).assumption().is_some() {
+                        blocked.push(id);
+                    } else {
+                        blocked.extend(self.blocked_on(id));
+                    }
+                }
+                blocked.sort_by_key(|id| id.0);
+                blocked.dedup();
+                let blocked: Rc<[DefId]> = blocked.into();
+                if !blocked.is_empty() {
+                    for &i in &component {
+                        self.unit.module.waiting.insert(i, blocked.clone());
+                    }
+                }
                 self.mark_unfinished(&component, defs_before, datas_before, &blocked);
             }
             // A component that failed leaves nothing behind for the next,
@@ -875,6 +899,9 @@ impl Elaborator {
                 continue;
             }
             let Some(errored) = errored else {
+                for (dep, _) in &failed {
+                    self.note_waits_for(dep.item);
+                }
                 *d = goals::uses_unfinished(d.primary_span());
                 continue;
             };
@@ -1687,12 +1714,25 @@ impl Elaborator {
     }
 
     /// Names that were declared but never checked now just name failures:
-    /// the module's own.
+    /// the module's own. Those waiting for open goals are noted as such
+    /// (`Session::waiting_names`).
     fn fail_unchecked_names(&mut self) {
-        for key in &self.unit.module.names {
-            if let Some((Global::Unchecked(_), _)) = self.scope.stored(key) {
+        let module = &self.unit.module;
+        let mut waiting = self.session.waiting_names.borrow_mut();
+        for key in &module.names {
+            if let Some((Global::Unchecked(item), _)) = self.scope.stored(key) {
+                match module.waiting.get(item) {
+                    Some(goals) if module.items[*item].status == Status::Unfinished => {
+                        waiting.insert(key.clone(), goals.clone());
+                    }
+                    _ => {
+                        waiting.remove(key);
+                    }
+                }
                 self.scope
                     .set_global(key, |global| *global = Global::Failed);
+            } else {
+                waiting.remove(key);
             }
         }
     }
@@ -2158,6 +2198,40 @@ impl Elaborator {
         )
     }
 
+    /// Notes that the declaration being checked uses `item` of this
+    /// module, so waits for the goals it waits for, if any.
+    fn note_waits_for(&self, item: usize) {
+        for id in self
+            .unit
+            .module
+            .waiting
+            .get(&item)
+            .into_iter()
+            .flat_map(|g| g.iter())
+        {
+            goals::note_used_unfinished(*id);
+        }
+    }
+
+    /// The error for using `name`, which names a failed declaration: one
+    /// that is waiting for open goals (`Session::waiting_names`) is
+    /// unfinished, and its user waits for the same goals.
+    pub(crate) fn failed_global(&self, name: &ast::Name) -> Diagnostic {
+        let waits = match self.resolve(&name.text) {
+            crate::scope::Resolved::Found { key, .. } => {
+                self.session.waiting_names.borrow().get(key).cloned()
+            }
+            _ => None,
+        };
+        let Some(waits) = waits else {
+            return failed_name(name);
+        };
+        for id in waits.iter() {
+            goals::note_used_unfinished(*id);
+        }
+        goals::uses_unfinished(Some(name.span))
+    }
+
     /// The error for using `name`, which declaration `item` of this module
     /// declares, before it's checked.
     pub(crate) fn unchecked(&self, name: &ast::Name, item: usize) -> Diagnostic {
@@ -2166,6 +2240,7 @@ impl Elaborator {
             return failed_name(name);
         }
         if info.status == Status::Unfinished {
+            self.note_waits_for(item);
             return goals::uses_unfinished(Some(name.span));
         }
         if self.unit.module.in_current(item) {

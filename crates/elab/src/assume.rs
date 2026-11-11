@@ -161,6 +161,16 @@ impl Elaborator {
         (self.session.blocked.borrow().get(&id)).map_or_else(Vec::new, |g| g.to_vec())
     }
 
+    /// The declarations that wait for open goals but have no definition (a
+    /// signature that waited), by full name, with the goals' assumptions:
+    /// [`Self::blocked_on`] for the rest.
+    pub fn waiting_without_definition(&self) -> Vec<(String, Vec<DefId>)> {
+        (self.session.waiting_names.borrow().iter())
+            .filter(|(key, _)| matches!(self.scope.stored(key), Some((crate::Global::Failed, _))))
+            .map(|(key, goals)| (key.clone(), goals.to_vec()))
+            .collect()
+    }
+
     /// Makes each open goal of the declaration being elaborated an
     /// assumption, where it can be, and solves its metavariable with it.
     /// The others are left as they are (see the module's documentation).

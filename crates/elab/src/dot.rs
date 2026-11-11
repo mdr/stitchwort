@@ -824,6 +824,11 @@ fn failed_receiver(cx: &Ctx, recv: &Expr) -> Option<Diagnostic> {
         } if rest.is_empty()
             && cx.g().def(id).state() == stitchwort_core::globals::State::Failed =>
         {
+            let key = stitchwort_core::globals::HashKey::Def(id);
+            if cx.e.tables.is_unfinished(key) {
+                crate::goals::note_used_unfinished(id);
+                return Some(crate::goals::uses_unfinished(Some(owner.span)));
+            }
             Some(crate::module::failed_name(owner))
         }
         _ => None,
@@ -932,7 +937,7 @@ fn find_in_view(cx: &Ctx, recv: &Expr, field: &AstName, mut ty: Ty) -> Result<Lo
                         ));
                     }
                     Some((Global::Failed, _)) => {
-                        return Err(crate::module::failed_name(&AstName {
+                        return Err(cx.e.failed_global(&AstName {
                             text: shown_key,
                             span: field.span,
                         }));
