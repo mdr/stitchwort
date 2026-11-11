@@ -30659,7 +30659,7 @@
     {
       "id": 2890,
       "title": "[Sonnet] Cmd+. answers at once: proof search leaves the code-action request; a 'Search for a proof' action runs it only when picked (D3519)",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
