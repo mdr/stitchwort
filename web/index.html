@@ -340,6 +340,8 @@
   .goalpanel .before { color: var(--muted); white-space: pre-wrap; }
   .goalpanel .label { color: var(--muted); font-weight: 400; }
   .goalpanel .before + .target { border-top: none; margin-top: 2px; padding-top: 0; }
+  .goalpanel .computed { color: var(--muted); opacity: 0.8; white-space: pre-wrap; }
+  .goalpanel .before + .target + .computed { margin-top: 0; }
   .goalpanel .stale { opacity: 0.6; }
   .goalpanel .target { color: var(--goal); font-weight: 600; white-space: pre-wrap; border-top: 1px solid var(--line); margin-top: 6px; padding-top: 6px; }
   .rename-panel { border: 1px solid var(--line); border-left: 3px solid var(--leaf); border-radius: 8px; background: var(--petal); padding: 6px 10px; margin-bottom: 6px; font-size: 0.85rem; }
@@ -2746,7 +2748,15 @@ export def area: Shape -> Nat
     el("div", { className: "owner" }, `in ${answer.owner}`),
     ...(answer.context ?? []).map((h) => hypothesis(h, false)),
     el("div", { className: "target" }, `⊢ ${answer.goal}`),
+    ...computesRow(answer.goalComputed),
   ];
+  // The `computes to` line under a goal shown as written (D3522), cut at 240 characters.
+  const computesRow = (computed) => {
+    if (!computed) return [];
+    const chars = [...computed];
+    const cut = chars.length > 240 ? `${chars.slice(0, 239).join("")}…` : computed;
+    return [el("div", { className: "computed" }, `computes to ${cut}`)];
+  };
   function contextRows(answer) {
     const step = answer.step;
     const where = [answer.declaration && `\`${answer.declaration}\``, step?.description].filter(Boolean).join(", ");
@@ -2759,18 +2769,18 @@ export def area: Shape -> Nat
     if (step) {
       const sign = step.target ? `${step.target}: ` : step.kind === "proof" ? "⊢ " : "expected ";
       if (step.form === "calcLine") {
-        if (step.before) rows.push(line("before", "so far ", step.before));
-        rows.push(line("target", `line ${sign}`, step.after));
+        if (step.before) rows.push(line("before", "so far ", step.before), ...computesRow(step.beforeComputed));
+        rows.push(line("target", `line ${sign}`, step.after), ...computesRow(step.afterComputed));
       } else if (step.form === "match" || step.form === "statement") {
-        rows.push(line("target", sign, step.after));
+        rows.push(line("target", sign, step.after), ...computesRow(step.afterComputed));
       } else {
-        if (step.before) rows.push(line("before", `before ${sign}`, step.before));
+        if (step.before) rows.push(line("before", `before ${sign}`, step.before), ...computesRow(step.beforeComputed));
         if (step.rule) rows.push(line("before", "rule ", step.rule));
-        rows.push(line("target", `after ${sign}`, step.after));
+        rows.push(line("target", `after ${sign}`, step.after), ...computesRow(step.afterComputed));
       }
       return rows;
     }
-    rows.push(line("target", !answer.checked ? "has type " : answer.kind === "proof" ? "⊢ " : "expected ", answer.type));
+    rows.push(line("target", !answer.checked ? "has type " : answer.kind === "proof" ? "⊢ " : "expected ", answer.type), ...computesRow(answer.typeComputed));
     if (answer.checked && answer.hasType) rows.push(el("div", { className: "before" }, `has type ${answer.hasType}`));
     return rows;
   }

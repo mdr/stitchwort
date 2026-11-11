@@ -124,7 +124,7 @@ A declaration with a `?` isn't an error, but it isn't finished either: it is che
 
 `stitchwort goal`, with no `--at`, lists every open goal with what relies on it, and `stitchwort audit` fails each of them and names the goal. A definition with a `?` has equation lemmas (`half.eq1`, `half.eq2`) too, and they are unfinished as well. You can state a lemma with `?` as its proof and use it in the main theorem first, then come back to it. In the editor, the goal shows on hover, and "Stitchwort: Show Goals" opens a panel that follows the cursor. It works anywhere in a file, not only on a `?`: put the cursor in a proof, on an arm's body or a step of a `calc`, and it shows the names in scope and `⊢` what that expression has to prove. In program code it shows `expected T` instead, or `has type T` where nothing was expected. Moving the cursor updates the panel after a short pause (about a third of a second, longer in a big file); until then the last answer stays, and where there is nothing to show (a comment, a pattern, a signature) it is kept, dimmed.
 
-The goal is shown computed, as the checker sees it, so it is often a step further along than what you wrote: `k * 1 + 1`, not `Succ k * 1`.
+The goal is shown as you wrote it, with the values of the case put in. When it computes to something that prints differently, a second line says so, dimmed in the editor: in the `Rock` arm of a proof that `beats m m = False`, the goal reads `⊢ beats Rock Rock = False`, then `computes to False = False`. The first line is the statement you are proving; the second is what `rfl` and the checker see. A computed line over 240 characters is cut. Hypotheses are shown as the checker has them.
 
 ## Proofs about lists
 
@@ -561,7 +561,8 @@ theorem clampToAtMost (limit: Nat) (n: Nat): clampTo limit n ≤ limit :=
    │               ╰── limit: Nat
    │                   n: Nat
    │                   fits: n ≤ limit
-   │                   ⊢ n ≤ limit
+   │                   ⊢ (if True = True then n else limit) ≤ limit
+   │                     computes to n ≤ limit
 ───╯
 [GOAL] Goal: in `clampToAtMost`
    ╭─[ errors/split-goals.sw:8:16 ]
@@ -571,12 +572,13 @@ theorem clampToAtMost (limit: Nat) (n: Nat): clampTo limit n ≤ limit :=
    │                ╰── limit: Nat
    │                    n: Nat
    │                    fits: (n <= limit) = False
-   │                    ⊢ limit ≤ limit
+   │                    ⊢ (if False = True then n else limit) ≤ limit
+   │                      computes to limit ≤ limit
 ───╯
 2 goals open
 ```
 
-On `Nat`, the statement `a <= b` computes to `Nat.leq a b = True`, and goals are shown computed: that is shown as `a ≤ b`, and the `Bool` `Nat.leq a b` alone as `a <= b`. In the `True` branch the goal is then exactly `fits`, and in the `False` branch it is `limit <= limit`, which `Nat.leRefl limit` proves.
+On `Nat`, the statement `a <= b` computes to `Nat.leq a b = True`, shown as `a ≤ b`, and the `Bool` `Nat.leq a b` alone as `a <= b`. Each goal is the statement with the branch's value put in (`if True = True then n else limit`), and the `computes to` line is what that computes to. In the `True` branch the computed goal is exactly `fits`, and in the `False` branch it is `limit ≤ limit`, which `Nat.leRefl limit` proves.
 
 The `match` looks for `e` in the goal as you wrote it first, so where it finds every occurrence there, the branches keep the goal's calls: matching on `flag` in `(if flag then double a else 0) = …` leaves `double a = …` in the `True` branch, not `a + a = …`. Here the condition is only inside `clampTo`, so it is found in what `clampTo limit n` computes to, and the branches show that.
 

@@ -129,6 +129,9 @@ fn goal_examples_in_the_index() {
                 })
                 .collect();
             lines.push(format!("⊢ {}", goal["target"].as_str().unwrap()));
+            if let Some(computed) = goal["targetComputed"].as_str() {
+                lines.push(format!("  computes to {computed}"));
+            }
             assert_eq!(
                 d["labels"][0]["message"].as_str().unwrap(),
                 lines.join("\n"),
@@ -176,12 +179,23 @@ fn lemmas_check_as_the_same_goal() {
                 "{name}: `{lemma}` gives no goal (or several):\n{again:#}"
             );
             assert!(is_goal(&found[0]), "{name}: `{lemma}`:\n{:#}", found[0]);
+            // The lemma states what the goal computes to, which it prints as
+            // written.
+            let computed = |goal: &'_ Value| {
+                match &goal["targetComputed"] {
+                    Value::Null => &goal["target"],
+                    computed => computed,
+                }
+                .clone()
+            };
             assert_eq!(
-                (&found[0]["goal"]["hypotheses"], &found[0]["goal"]["target"]),
-                (&goal["hypotheses"], &goal["target"]),
+                (&found[0]["goal"]["hypotheses"], computed(&found[0]["goal"])),
+                (&goal["hypotheses"], computed(goal)),
                 "{name}: `{lemma}` is another goal"
             );
-            assert_eq!(found[0]["labels"][0]["message"], d["labels"][0]["message"]);
+            if goal["targetComputed"].is_null() {
+                assert_eq!(found[0]["labels"][0]["message"], d["labels"][0]["message"]);
+            }
             // Its own lemma is itself, renamed.
             assert_eq!(
                 found[0]["goal"]["lemma"].as_str().map(|l| l.replacen(

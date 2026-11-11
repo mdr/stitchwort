@@ -9,7 +9,8 @@ expression: output
     │                 ┬  
     │                 ╰── next: Bool
     │                     all: next
-    │                     ⊢ next
+    │                     ⊢ allTrue [next]
+    │                       computes to next
 ────╯
 [GOAL] Goal: in `shown`
     ╭─[ goals/match-unnamed-fields.sw:16:16 ]
@@ -20,5 +21,6 @@ expression: output
     │                    head✝: Bool
     │                    tail✝: List Bool
     │                    all: (next✝ && allTrue [head✝, ..tail✝]) = True
-    │                    ⊢ (next✝ && allTrue [head✝, ..tail✝]) = True
+    │                    ⊢ allTrue [next✝, head✝, ..tail✝]
+    │                      computes to (next✝ && allTrue [head✝, ..tail✝]) = True
 ────╯

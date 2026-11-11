@@ -42,14 +42,16 @@ import Book.Computing (Move, beats, Outcome, play, otherSide)
 -- cursor from one `?` to the next and watch the Goals panel. In the first
 -- arm it shows
 --
---     ⊢ False = False
+--     ⊢ beats Rock Rock = False
+--       computes to False = False
 --
 -- Inside the arm for `Rock`, the checker knows that `m` is `Rock`, so
--- `beats m m` is `beats Rock Rock`, and that can compute: the first three
--- arms of `beats` don't fit, the last one does, and the answer is `False`.
--- The panel shows the goal after that computing, so it no longer says
--- `beats`. The other two arms show `False = False` as well. Each arm is now
--- a goal `rfl` proves, since both sides are the same. Replace each `?`
+-- the goal says `Rock` where it said `m`. The second line, dimmed in the
+-- editor, is what the goal computes to: `beats Rock Rock` is `False`,
+-- since the first three arms of `beats` don't fit and the last one does.
+-- Both sides are now the same, which is when `rfl` works. The other two
+-- arms show `beats Paper Paper = False` and `beats Scissors Scissors =
+-- False`, each computing to `False = False`. Replace each `?`
 -- with `rfl`, and you have the proof back:
 
 theorem noSelfWin (m: Move): beats m m = False :=

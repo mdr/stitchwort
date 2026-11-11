@@ -18,12 +18,13 @@ expression: json
         }
       ],
       "lemma": "theorem shownGoal1 (next: Bool) (all: next): next := ?",
-      "target": "next"
+      "target": "allTrue [next]",
+      "targetComputed": "next"
     },
     "labels": [
       {
         "file": 0,
-        "message": "next: Bool\nall: next\n⊢ next",
+        "message": "next: Bool\nall: next\n⊢ allTrue [next]\n  computes to next",
         "range": [
           14,
           16,
@@ -64,12 +65,13 @@ expression: json
           "type": "(next✝ && allTrue [head✝, ..tail✝]) = True"
         }
       ],
-      "target": "(next✝ && allTrue [head✝, ..tail✝]) = True"
+      "target": "allTrue [next✝, head✝, ..tail✝]",
+      "targetComputed": "(next✝ && allTrue [head✝, ..tail✝]) = True"
     },
     "labels": [
       {
         "file": 0,
-        "message": "next✝: Bool\nhead✝: Bool\ntail✝: List Bool\nall: (next✝ && allTrue [head✝, ..tail✝]) = True\n⊢ (next✝ && allTrue [head✝, ..tail✝]) = True",
+        "message": "next✝: Bool\nhead✝: Bool\ntail✝: List Bool\nall: (next✝ && allTrue [head✝, ..tail✝]) = True\n⊢ allTrue [next✝, head✝, ..tail✝]\n  computes to (next✝ && allTrue [head✝, ..tail✝]) = True",
         "range": [
           15,
           15,

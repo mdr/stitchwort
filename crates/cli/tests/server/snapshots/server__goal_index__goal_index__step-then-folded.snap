@@ -18,12 +18,13 @@ expression: json
         }
       ],
       "lemma": "theorem stepsAtOnceGoal1 (a: Nat) (b: Nat): concatenate a b = concatenate a b := ?",
-      "target": "concatenate a b = concatenate a b"
+      "target": "(if True then concatenate a b else 0) = concatenate a b",
+      "targetComputed": "concatenate a b = concatenate a b"
     },
     "labels": [
       {
         "file": 0,
-        "message": "a: Nat\nb: Nat\n⊢ concatenate a b = concatenate a b",
+        "message": "a: Nat\nb: Nat\n⊢ (if True then concatenate a b else 0) = concatenate a b\n  computes to concatenate a b = concatenate a b",
         "range": [
           8,
           98,

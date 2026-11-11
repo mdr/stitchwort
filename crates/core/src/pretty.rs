@@ -15,7 +15,10 @@ use crate::collections::HashMap;
 use crate::globals::{CallDefaults, DefaultCall, PlaceholderText};
 use crate::registry::Builtin;
 use crate::term::{DataId, DefId, Icit, Name, Sort, Term};
-use crate::value::{Value, proof_field, proof_param, quote_shown, quote_unfolded_shown, same_term};
+use crate::value::{
+    Value, proof_field, proof_param, quote_as_written_shown, quote_shown, quote_unfolded_shown,
+    same_term,
+};
 
 /// A declaration a printed name stands for.
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
@@ -342,6 +345,28 @@ pub fn value_for_goal(
         Prec::Arrow,
         Some(predicates),
     )
+}
+
+/// [`value_for_goal`], but as it was written: every call stays a call, so
+/// that `beats Rock Rock = False` isn't printed as `False = False`
+/// (D3522). `None` if the value can't be read back.
+pub fn value_for_goal_as_written(
+    g: &Ev,
+    scope: &dyn NameScope,
+    names: &[Name],
+    predicates: &[bool],
+    value: &Value,
+) -> Option<String> {
+    let t = quote_as_written_shown(g, names.len(), value).ok()?;
+    Some(term_within(
+        g,
+        Some(scope),
+        names,
+        &t,
+        GOAL_LIMIT,
+        Prec::Arrow,
+        Some(predicates),
+    ))
 }
 
 /// Whether the type `ty` (a value under `level` binders) is
