@@ -1043,9 +1043,13 @@ enum Task {
 
 /// The pairs of calls of one definition found different during one
 /// outermost comparison, filed by [`CallKey`] and found again by their
-/// shapes (`ShapeMemo`); see the note above.
+/// shapes (`ShapeMemo`); see the note above. Also the stuck sums found to
+/// have nothing for rule E to read ([`reread_sum`]).
 #[derive(Default)]
-pub(crate) struct CallMemo(ShapeMemo<CallKey>);
+pub(crate) struct CallMemo {
+    calls: ShapeMemo<CallKey>,
+    sums: (Effects, nat_add::Unread),
+}
 
 /// What a pair of calls in a [`CallMemo`] is filed under besides its
 /// shapes: mode, level, the definition called, and what had been solved
@@ -1063,6 +1067,26 @@ fn effects(g: &Unifier<'_>) -> Effects {
         g.store.meta_trail.borrow().len(),
         g.attempt.postponed.borrow().as_ref().map_or(0, Vec::len),
     )
+}
+
+/// `value` read by rule E (`nat_add::reread`), the sums found to have
+/// nothing to read kept in the outermost comparison's [`CallMemo`] while
+/// nothing is solved, taken back or put aside: a solution can give such a
+/// sum's bottom something to unfold.
+fn reread_sum(g: &Unifier<'_>, value: &Value) -> Result<Option<Value>> {
+    let now = effects(g);
+    // Taken out of the memo while the walk evaluates, and put back after.
+    let mut unread = match g.attempt.call_memo.borrow_mut().as_mut() {
+        Some(memo) if memo.sums.0 == now => std::mem::take(&mut memo.sums.1),
+        _ => nat_add::Unread::default(),
+    };
+    let read = nat_add::reread(g, value, force, |x| unfold_folded(g, x), &mut unread)?;
+    if let Some(memo) = g.attempt.call_memo.borrow_mut().as_mut()
+        && effects(g) == now
+    {
+        memo.sums = (now, unread);
+    }
+    Ok(read)
 }
 
 /// Where `a` against `b` is filed in the [`CallMemo`] now, if they are
@@ -1085,7 +1109,7 @@ fn call_key(
     let Some(memo) = memo.as_mut() else {
         return Ok(None);
     };
-    memo.0
+    memo.calls
         .file(&g.ev, (mode, level, *i1, effects(g)), a, b)
         .map(Some)
 }
@@ -1094,7 +1118,7 @@ fn call_key(
 /// ([`CallMemo`]).
 fn known_different(g: &Unifier<'_>, at: &ShapeKey<CallKey>, a: &Value, b: &Value) -> Result<bool> {
     match g.attempt.call_memo.borrow().as_ref() {
-        Some(memo) => memo.0.contains(&g.ev, at, a, b),
+        Some(memo) => memo.calls.contains(&g.ev, at, a, b),
         None => Ok(false),
     }
 }
@@ -1111,7 +1135,7 @@ fn record_different(g: &Unifier<'_>, work: &[Task]) {
         if let Task::Open(at, a, b) = task
             && at.0.3 == now
         {
-            memo.0.insert(*at, a, b);
+            memo.calls.insert(*at, a, b);
         }
     }
 }
@@ -1359,7 +1383,7 @@ fn unify_step(
     }
     // A sum stuck on its first argument, with a folded call in its second,
     // as what R3 and R4 make of it (G2), as in `conv`.
-    let reread = |v: &Value| nat_add::reread(g, v, force, |x| unfold_folded(g, x));
+    let reread = |v: &Value| reread_sum(g, v);
     if let Some(a2) = reread(&a)? {
         work.push(Task::Values(level, a2, b));
         return Ok(true);
@@ -3685,6 +3709,8 @@ pub(crate) mod proof_fixture {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::Elaborator;
+    use stitchwort_core::registry::Builtin;
     use stitchwort_core::value::Apart;
     use stitchwort_core::{Icit, Sort};
     use stitchwort_syntax::{SourceMap, Span};
@@ -4750,5 +4776,72 @@ mod tests {
         assert!(!unify(g, 0, &placeholder, &ty()).unwrap());
         drop(pending);
         assert_eq!(waiting.finish().map(|w| w.len()), Some(0));
+    }
+
+    /// The core loaded, and `two`, a `decreasing` definition whose call
+    /// stays folded: `test` runs on a thread with room for it.
+    fn with_core_and_two(test: impl FnOnce(&Elaborator, DefId) + Send + 'static) {
+        std::thread::Builder::new()
+            .stack_size(256 << 20)
+            .spawn(move || {
+                let mut sources = SourceMap::new();
+                let file = sources.add("<prelude>", crate::prelude());
+                let module = stitchwort_syntax::parse_module(file, crate::prelude())
+                    .expect("the core parses");
+                let mut e = Elaborator::new();
+                e.unit.loading_prelude = true;
+                let errors = |ds: Vec<stitchwort_syntax::Diagnostic>| {
+                    ds.into_iter()
+                        .filter(|d| d.severity == stitchwort_syntax::Severity::Error)
+                        .collect::<Vec<_>>()
+                };
+                assert!(
+                    errors(e.elaborate_module(&module)).is_empty(),
+                    "the core checks"
+                );
+                e.finish_core().expect("a complete core");
+                e.unit.loading_prelude = false;
+                let text = "import Std (Nat)\n\ndef two (x: Nat): Nat\n    decreasing x\n:=\n  match x with\n    \
+                    | Zero => 2\n    | Succ m => two m [decreasing := Nat.leRefl (Succ m)]\n";
+                let file = sources.add("two", text);
+                let module = stitchwort_syntax::parse_module(file, text).expect("parses");
+                let found = errors(e.elaborate_module(&module));
+                assert!(found.is_empty(), "{found:#?}");
+                let two = e.lookup_def("two").expect("two");
+                test(&e, two);
+            })
+            .expect("a thread")
+            .join()
+            .expect("the test passes");
+    }
+
+    /// Rule E's record of sums with nothing to read is dropped once an
+    /// unknown in one is solved, and again once that's undone (SW-2875).
+    #[test]
+    fn a_sum_is_read_again_once_its_unknown_is_solved() {
+        with_core_and_two(|e, two| {
+            let g = &e.unifier();
+            let add = g.env.registry().def(Builtin::Add).expect("Nat.add");
+            let (m, unknown) = meta(g, &[]);
+            let inner = nat_add::call(add, Value::var(1), unknown);
+            let sum = nat_add::call(add, Value::var(0), inner);
+            // One outermost comparison's record, as `run` keeps it.
+            let _memo = Scoped::set(&g.attempt.call_memo, Some(CallMemo::default()));
+            assert!(reread_sum(g, &sum).unwrap().is_none());
+            let trail = g.store.meta_trail.borrow().len();
+            let call = Term::app(Term::Def(two), Term::Nat(Rc::new(BigUint::from(0u32))));
+            let folded = stitchwort_core::value::eval(g, &[], &call).unwrap();
+            assert!(matches!(&folded, Value::Neutral(Head::Def(f), _) if *f == two));
+            g.store.solve_meta(m, folded);
+            let read = reread_sum(g, &sum)
+                .unwrap()
+                .expect("read once `?m` is solved");
+            let (k, base) = native::view(g, &read).unwrap();
+            assert_eq!(k, BigUint::from(2u32));
+            let expected = nat_add::call(add, Value::var(0), Value::var(1));
+            assert!(stitchwort_core::value::conv(g, 2, &base.expect("x + y"), &expected).unwrap());
+            undo_since(g, trail);
+            assert!(reread_sum(g, &sum).unwrap().is_none());
+        });
     }
 }

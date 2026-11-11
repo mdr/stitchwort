@@ -558,20 +558,29 @@ fn scrutinee(g: &Ev, value: Value) -> Result<Value> {
 /// `nat_add::reread` with this evaluator's unfolding: a stuck `m + n` with
 /// a folded call in `n`, as what R3 and R4 make of it.
 fn reread_sum(g: &Ev, value: &Value) -> Result<Option<Value>> {
-    crate::nat_add::reread(g, value, force, |x| {
-        if !is_folded(g, x) {
-            return Ok(None);
-        }
-        let x2 = unfold_folded(g, x.clone())?;
-        Ok(match (x, &x2) {
-            (Value::Neutral(Head::Def(i1), s1), Value::Neutral(Head::Def(i2), s2))
-                if i1 == i2 && s1.ptr_eq(s2) =>
-            {
-                None
+    // Without a record of the sums found to have nothing to read
+    // (`nat_add::Unread`): this evaluator rereads a chain at each level.
+    let unread = &mut crate::nat_add::Unread::default();
+    crate::nat_add::reread(
+        g,
+        value,
+        force,
+        |x| {
+            if !is_folded(g, x) {
+                return Ok(None);
             }
-            _ => Some(x2),
-        })
-    })
+            let x2 = unfold_folded(g, x.clone())?;
+            Ok(match (x, &x2) {
+                (Value::Neutral(Head::Def(i1), s1), Value::Neutral(Head::Def(i2), s2))
+                    if i1 == i2 && s1.ptr_eq(s2) =>
+                {
+                    None
+                }
+                _ => Some(x2),
+            })
+        },
+        unread,
+    )
 }
 
 /// The number `value` is, as `k` plus what's unknown, a folded definition

@@ -15,6 +15,7 @@ use num_bigint::BigUint;
 use crate::budget::{ResourceError, Result};
 use crate::chars::{self, Chars};
 use crate::erase::{self, erased};
+use crate::nat_add::Unread;
 use crate::native;
 use crate::term::{Branch, DataId, DefId, Icit, Name, QuotForm, Sort, Term};
 
@@ -539,6 +540,14 @@ impl Spine {
     pub fn shared_key(&self) -> Option<*const ()> {
         let elims = self.0.as_ref()?;
         (Rc::strong_count(elims) > 1).then(|| Rc::as_ptr(elims).cast())
+    }
+
+    /// The address of the eliminations (0 for none): an identity for as
+    /// long as the spine is held.
+    pub(crate) fn addr(&self) -> usize {
+        self.0
+            .as_ref()
+            .map_or(0, |elims| Rc::as_ptr(elims) as usize)
     }
 
     /// Whether `self` and `other` are the same shared list (so equal).
@@ -2244,7 +2253,7 @@ fn branch(
                 (k, Some(base)) => match arms.last() {
                     Some(last) if *last.value < k => default.clone(),
                     _ if apart_of(&base).excludes(g, &k, arms) => default.clone(),
-                    _ => match reread_sum(g, &base)? {
+                    _ => match reread_sum(g, &base, &mut Unread::default())? {
                         Some(base) => {
                             let value = native::from_view(k, Some(base));
                             return branch(g, tree, env, stuck, value);
@@ -2300,7 +2309,7 @@ fn branch(
             let k = g.data(*d).ctors[0].fields.len();
             (0, eta_fields(g, *d, k, scrutinee, n)?)
         }
-        other => match reread_sum(g, &other)? {
+        other => match reread_sum(g, &other, &mut Unread::default())? {
             Some(value) => return branch(g, tree, env, stuck, value),
             None => return stuck_tree(g, stuck),
         },
@@ -2322,8 +2331,8 @@ fn branch(
 /// make of it once that is unfolded ([`crate::nat_add::reread`]): for a
 /// comparison or a `case` that reads the sum (rule E, G2), never for
 /// evaluation itself.
-fn reread_sum(g: &Ev, value: &Value) -> Result<Option<Value>> {
-    crate::nat_add::reread(g, value, force, |x| unfold_folded(g, x))
+fn reread_sum(g: &Ev, value: &Value, unread: &mut Unread) -> Result<Option<Value>> {
+    crate::nat_add::reread(g, value, force, |x| unfold_folded(g, x), unread)
 }
 
 /// Field `i` of `value`, a forced value of data type `d`, which has eta
@@ -3506,9 +3515,13 @@ enum ConvTask {
 /// What one outermost [`conv`] has found about pairs of glued calls of the
 /// same definition, by mode, level and the addresses of their unfolding
 /// cells. The mode is part of the key: a pair different in shortcut mode
-/// can be equal in the normal one.
+/// can be equal in the normal one. Also the stuck sums found to have
+/// nothing for rule E to read ([`crate::nat_add::Unread`]).
 #[derive(Default)]
-struct CallMemo(HashMap<CallKey, (Differ, Value, Value)>);
+struct CallMemo {
+    calls: HashMap<CallKey, (Differ, Value, Value)>,
+    sums: crate::nat_add::Unread,
+}
 
 /// A pair of calls in a [`CallMemo`]: mode, level and the two unfolding
 /// cells' addresses.
@@ -3538,12 +3551,12 @@ impl CallMemo {
 
     fn get(&self, mode: Mode, level: usize, a: &Value, b: &Value) -> Option<Differ> {
         let key = Self::key(mode, level, a, b)?;
-        self.0.get(&key).map(|entry| entry.0)
+        self.calls.get(&key).map(|entry| entry.0)
     }
 
     fn record(&mut self, mode: Mode, level: usize, a: &Value, b: &Value, differ: Differ) {
         if let Some(key) = Self::key(mode, level, a, b) {
-            self.0.insert(key, (differ, a.clone(), b.clone()));
+            self.calls.insert(key, (differ, a.clone(), b.clone()));
         }
     }
 }
@@ -3631,7 +3644,7 @@ fn conv_step(
     }
     // A sum stuck on its first argument, with a folded call in its second:
     // compared as what R3 and R4 make of it once that is unfolded (G2).
-    let reread = |v: &Value| reread_sum(g, v);
+    let mut reread = |v: &Value| reread_sum(g, v, &mut memo.sums);
     if let Some(a2) = reread(&a)? {
         work.push(ConvTask::Values(level, a2, b));
         return Ok(true);
@@ -4887,7 +4900,7 @@ pub fn set_shortcuts_disabled(disabled: bool) {
 }
 
 #[inline]
-fn shortcuts_disabled() -> bool {
+pub(crate) fn shortcuts_disabled() -> bool {
     #[cfg(any(test, feature = "reference"))]
     {
         SHORTCUTS_OFF.with(|s| s.get())
