@@ -174,6 +174,13 @@ theorem List.lengthReplicate (x: a) (n: Nat): List.length (List.replicate n x) =
     | Zero => rfl
     | Succ n => Eq.cong Succ (List.lengthReplicate x n)
 
+--| `m + n` copies of `x` are `m` copies and then `n` copies:
+--| `replicate (m + n) x = replicate m x ++ replicate n x`.
+theorem List.replicateAdd (x: a) (m n: Nat): List.replicate (m + n) x = List.replicate m x ++ List.replicate n x :=
+  match m with
+    | Zero => rewrite (omega: 0 + n = n) in rfl
+    | Succ m => rewrite List.replicateAdd x m n in rfl
+
 --| Padding makes a list exactly n long, when it was no longer than that.
 theorem List.padRightLength (xs: List a) (n: Nat) (x: a) (h: List.length xs ≤ n):
     List.length (List.padRight xs n x) = n :=
@@ -399,6 +406,16 @@ theorem List.filterKeep (xs: List a) (p: a → Bool) (x: a) (h: p x = True): Lis
 
 theorem List.filterSkip (xs: List a) (p: a → Bool) (x: a) (h: p x = False): List.filter [x, ..xs] p = List.filter xs p :=
   J (c q => List.filterStep x (List.filter xs p) c = List.filter xs p) rfl (Eq.sym h)
+
+--| Filtering a joined list filters each part:
+--| `(xs ++ ys).filter p = xs.filter p ++ ys.filter p`.
+theorem List.filterAppend (xs ys: List a) (p: a → Bool): List.filter (xs ++ ys) p = List.filter xs p ++ List.filter ys p :=
+  match xs with
+    | [] => rfl
+    | [x, ..rest] =>
+      match t: p x with
+        | True => rewrite List.filterAppend rest ys p in rfl
+        | False => rewrite List.filterAppend rest ys p in rfl
 
 theorem List.foldLeftAppend (xs: List a) (z: b) (ys: List a) (f: b → a → b):
     List.foldLeft (List.append xs ys) z f = List.foldLeft ys (List.foldLeft xs z f) f :=
@@ -1002,6 +1019,10 @@ theorem List.reverseOntoTwice (xs acc: List a): List.reverseOnto (List.reverseOn
 
 --| Reversing twice gives the list back.
 theorem List.reverseReverse (xs: List a): List.reverse (List.reverse xs) = xs := List.reverseOntoTwice xs []
+
+--| Two lists with the same reverse are equal: reversing is injective.
+theorem List.reverseInjective (xs ys: List a) (h: List.reverse xs = List.reverse ys): xs = ys :=
+  Function.involutionInjective List.reverse List.reverseReverse xs ys h
 
 --| Reversing onto an accumulator keeps the elements of both.
 theorem List.memReverseOnto (x: a) (xs acc: List a): x ∈ List.reverseOnto xs acc ↔ (x ∈ xs ∨ x ∈ acc) :=
