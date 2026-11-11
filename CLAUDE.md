@@ -165,6 +165,10 @@ Use the cheapest model that can do the work well. Provisional (D2208, Matt,
   mechanical work (renames, sweeps, boilerplate, new tests). In SW-1084 its
   code matched Sonnet's at all three levels; its failures were in process.
   So every DeepSeek brief has these lines:
+  - Work only in this clone: every path you read, edit or search starts
+    with its own path or is relative to it, never `~/repos/mdr/stitchwort/`
+    itself (SW-2798, 11 Nov 2026: a run edited the main checkout by
+    absolute path).
   - Never run a command in the background: wait for each to finish.
   - Run every test you add and show it passing.
   - Finish with a report: what you changed, each command you ran and its
