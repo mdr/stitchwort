@@ -269,7 +269,7 @@ or `target/release/stitchwort fmt FILE` after a build. File arguments are
 relative to the folder you run it from, never to `--project`, so a "No such
 file" for a tour page means the command ran from the wrong folder (SW-2618).
 
-Pushing to GitHub happens only when Matt asks.
+The orchestrator may push `main` whenever it needs to (Matt, 7 and 11 Nov 2026), after `task test:merge` passes on it. Lanes never push.
 
 ## Stopping a lane's own test runs
 
