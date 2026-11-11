@@ -31,13 +31,13 @@ of clones), but it compares them in a *separate* `identical_within` call
 with its own `seen` (4985), which is dropped before the temporaries are. No
 temporary's address ever enters the outer walk's set. `force_solved` works
 on clones, so the borrowed inputs' `Rc`s are never unique and nothing is
-mutated in place (`Rc::make_mut` at 521, `into_unique` at 85 both need sole
+mutated in place (`Rc::make_mut` at 523, `into_unique` at 85 both need sole
 ownership).
 
 **Contents unchanged.** The only interior mutability reachable from a
 `Value` is `Unfolding::kept` (263), inside `Value::Call`'s third field. The
 walk never reads it: `same_layer` compares two calls' unfoldings by
-`Rc::ptr_eq` only (5133). Metavariable solutions are read (4910) but
+`Rc::ptr_eq` only (5136). Metavariable solutions are read (4910) but
 nothing in the walk solves one. A pair's answer depends only on the two
 parts (no level, environment or mode is threaded through the layer
 functions), so the same key has the same answer.
@@ -49,23 +49,23 @@ collide. Within one tag, both sides are the same Rust type, and neither
 of one type to one address are one object. `&Shared` and `&Rc<Term>`
 deref to the heap value (106, 5178), so "inline vs Rc'd" gives the
 address of the value itself either way. An `Elim` is never a pair: its
-`Value`s are pushed (5107, 5120-5121), each at its own address in the
+`Value`s are pushed (5110, 5123-5124), each at its own address in the
 spine's allocation. Keys are ordered, so `(p, q)` doesn't stand for
 `(q, p)`.
 
 **The truncation in the solved path.** This is the case the brief asked to
 look at hardest. For a pair P = `Values(a, b)` with `g` given
-(4994-5005): P is recorded, `same_layer` may push some of P's sub-pairs
+(4995-5006): P is recorded, `same_layer` may push some of P's sub-pairs
 and then answer false, `work.truncate(len)` removes them, and
 `same_when_solved` decides. `len` is taken after P was popped and before
 `same_layer` pushes, so the truncation removes only what this call pushed,
 never another pair's pending sub-pairs. Then there are three outcomes:
 
-- `Ok(false)`: `alike` is false and the walk returns `Ok(false)` (5009).
+- `Ok(false)`: `alike` is false and the walk returns `Ok(false)` (5010).
   Nothing is skipped later because there is no later.
 - `Err`: propagated by `?`.
 - `Ok(true)`: the inner walk returns true only when its own work list is
-  empty (5012), so P's forced forms were compared completely, sub-pairs
+  empty (5013), so P's forced forms were compared completely, sub-pairs
   included, before the outer walk goes on. A later P is skipped
   correctly: it was fully established, not assumed.
 
@@ -83,8 +83,8 @@ so there is no truncation at all).
 ## 2. Conjunction over all pairs: SOUND
 
 The walk returns `Ok(true)` in one place, after the loop, when `work` is
-empty (5012). Every early exit is `Ok(false)` (5009) or `Err` (4988,
-5000). A pair leaves `work` only by being popped (then compared, or
+empty (5013). Every early exit is `Ok(false)` (5010) or `Err` (4988,
+5001). A pair leaves `work` only by being popped (then compared, or
 skipped as a recorded pair) or by the truncation, which per section 1
 removes only sub-pairs of a pair whose comparison is being replaced by a
 complete inner one. A recorded pair's sub-pairs were pushed when it was
@@ -94,14 +94,14 @@ list and not recursion with assumed results, "recorded" never means
 needs every pushed pair popped, and values are acyclic.
 
 The layer functions that push sub-pairs and then return false (`i1 == i2`
-after pushes at 5073, 5077, 5081, 5087) lead straight to `Ok(false)`, so
+after pushes at 5075, 5079, 5083, 5089) lead straight to `Ok(false)`, so
 their leftovers are never read.
 
 ## 3. Charging: SOUND
 
 Charging adds only `Err`. In the kernel both call sites propagate with
 `?` inside the match guard (3432, 3693), and `shortcuts_disabled` gives
-`Ok(false)` as before (4884-4886). Every kernel caller of `conv`
+`Ok(false)` as before (4885-4887). Every kernel caller of `conv`
 propagates too: `check.rs:188`, `unify_index.rs:181` and `191`,
 `native.rs:503`, `float.rs:642`, `nat_add.rs:288`, `value.rs:3554`,
 `3788`, `3831`. I found no place in `crates/core` that turns a conversion
@@ -141,7 +141,7 @@ message and Rule C say so.
 ## Findings worth tickets
 
 **A. No test exercises a skip that matters.** `shared_parts_are_compared_once`
-(5650) finds its difference on the first path down, before any skip. A
+(5651) finds its difference on the first path down, before any skip. A
 small property test would pin the argument above: random DAG-shaped value
 pairs, the walk with the memo against the walk with
 `IDENTICAL_UNRECORDED = usize::MAX`, same answers; and one case for the
