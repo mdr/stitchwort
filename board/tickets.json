@@ -30986,12 +30986,12 @@
     {
       "id": 2915,
       "title": "[Sonnet] Browser test 'in a project, after a jump into another file and the whole project's check, an error in the day is underlined' fails on a quiet machine, also at 9ebedf6de: after the jump the whole-project check takes ~120 s and the Day02 error isn't published within 60 s; the published log fills with Year2021 files at count 0 (republishing every file after one edit?) (SW-2914)",
-      "status": "backlog",
+      "status": "review",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "editor-playground",
-      "body": "",
+      "body": "\n\n\nLane notes (Sonnet): cause found. The test's day is Year2025 Day02, and the \"Year2021 at count 0\" publishes were the whole-project check's final publish, before the edit, not republishing. After the edit, LiveProject::make_plan (crates/driver/src/live.rs) rewound the session to the edited namespace (a stack: every later step is dropped) and planned the dropped, unchanged steps first, the edited namespace last. With no project check cache in the playground that re-check took over 60 s (about 2 min) before anything was published. Fix ac2a4a743: edited namespaces, what uses them, and focus files first; settled steps after. Browser test: fails before (60 s timeout), passes after (underlined 794 ms after the edit); sibling test 904 ms. Driver test an_edit_checks_again_only_what_uses_it updated to the new order (C replayed on each edit). Not done: native-server repro without cache; the next edit now rewinds the settled steps again (cheap with a cache).\n",
       "created": "2026-11-11",
       "updated": "2026-11-11",
       "commits": []
