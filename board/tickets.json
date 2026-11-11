@@ -29632,12 +29632,12 @@
     {
       "id": 2812,
       "title": "rewrite after Decidable stage 3: no pass rewrites without carrying; decides_other judges from sound's folded type, so a rewrite that worked before could now fail with E-REWRITE-MOTIVE where the goal has the proposition unfolded: try the plain motive first, as matching.rs does (rewrite.rs:1089-1135, 1477, 1509) (docs/reviews/SW-2761-decidable-stage3-review.md)",
-      "status": "doing",
+      "status": "review",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-2812",
       "labels": [],
       "epic": "proof-automation",
-      "body": "",
+      "body": "Progress (Opus lane, 11 Nov 2026, d5b900547): reproducer `examples/accept/rewrite-decision-plain-first.sw`, a decision with an inferable `sound` (`decTrue`, `sound = trueSound b`) whose test `g f` is an occurrence of the left side `g (x => f x)` only by eta; hidden in `pickWith` so the as-written pass doesn't take it. On main it fails (E-TYPE-MISMATCH, not E-REWRITE-MOTIVE: `decides_other` said carry, and the bad carried motive surfaced later); with the fix it checks. Fix in `replace_occurrences_as`: the usual motive first, then carrying where needed, then everywhere; goals with no decision take the one usual pass. Plain-first alone broke std (`Parse/Runs.sw:1045`): a motive with unknowns isn't checked until they're solved, so the plain pass \"succeeds\" and fails later; for goals with unknowns the order stays stage 3's. Tests: the new example (accept + hash snapshot), and EXAMPLES='rewrite,decid,decision' over the accept/reject/goal/soundness example tests: all pass. Not run: std hash audit / prelude hash snapshot, aoc, rogue (verifier's).\n",
       "created": "2026-11-11",
       "updated": "2026-11-11",
       "commits": []
