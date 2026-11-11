@@ -29528,12 +29528,12 @@
     {
       "id": 2804,
       "title": "Using unfinished proofs, stage 1: kernel assumption form for open goals, and docs/core.md (D3210) (docs/proposals/using-unfinished-proofs.md; D3504-D3507)",
-      "status": "doing",
+      "status": "review",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-2804",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "Progress (Opus, 11 Nov): commit 604c398b9 on lane/SW-2804. `check::assume(name, path, ty, label, span)` adds a final, bodiless constant (`Def::assumption` = owner path + hole number); type checked as a signature, final references only (pending E-MALFORMED, failed E-FAILED-DEPENDENCY); no body, run body, native or builtin binding afterwards. Neutral and rigid in conversion, stuck in index unification; hashed as tag + label + type (name and span not hashed); `assumption::relied_on` walks checked terms for reliance; proof assumptions erased while running, data ones stay neutral. docs/core.md \"Assumptions (open goals)\" with the soundness argument. Tests: 13 new in crates/core/tests/it/assumptions.rs pass; pinned_hashes (release) 5/5 pass, no hash changed; clippy clean. Full `-p stitchwort-core` dropped at the orchestrator's request (machine load), for the verifier. Est. 90 min, took about 20 min.",
       "created": "2026-11-11",
       "updated": "2026-11-11",
       "commits": []
