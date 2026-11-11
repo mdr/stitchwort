@@ -4375,6 +4375,7 @@ pub(crate) fn note_binder_step(
             index,
             before: Some(before.clone()),
             after: after.clone(),
+            after_term: None,
             adds: vec![cx.level() - 1],
             rule: None,
             parts: Vec::new(),

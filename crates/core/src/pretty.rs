@@ -369,6 +369,27 @@ pub fn value_for_goal_as_written(
     ))
 }
 
+/// [`value_for_goal`], for a term already read back: a step's statement as
+/// written, where the value's normal form has computed a side away and so
+/// can't give the written side back (SW-2942).
+pub fn term_for_goal_in(
+    g: &Ev,
+    scope: &dyn NameScope,
+    names: &[Name],
+    predicates: &[bool],
+    term_: &Term,
+) -> String {
+    term_within(
+        g,
+        Some(scope),
+        names,
+        term_,
+        GOAL_LIMIT,
+        Prec::Arrow,
+        Some(predicates),
+    )
+}
+
 /// Whether the type `ty` (a value under `level` binders) is
 /// `Prop`, or a function type into it: the variable is a predicate, and
 /// applied to arguments it is a proposition.

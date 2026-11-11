@@ -199,6 +199,11 @@ pub(crate) struct StepNote {
     /// its `match`'s.
     pub before: Option<Value>,
     pub after: Value,
+    /// A `calc` line's statement as elaborated, for its as-written print:
+    /// [`StepNote::after`] is evaluated, so a right side like
+    /// `if True then Win else …` has computed away, while the line must
+    /// still show it (SW-2942).
+    pub after_term: Option<Term>,
     /// The levels the step binds.
     pub adds: Vec<usize>,
     /// A rewrite rule's equation, as used.
@@ -1134,14 +1139,22 @@ impl Elaborator {
                 .filter(|e| s.note.adds.contains(&e.level))
                 .map(|e| e.name.clone())
                 .collect();
+            let after = show(&s.note.after);
+            let after_written = match &s.note.after_term {
+                Some(term) => {
+                    let line = pretty::term_for_goal_in(g, &scope, &s.names, &predicates, term);
+                    (line != after && !shows_helper(&line)).then_some(line)
+                }
+                None => written(&s.note.after),
+            };
             printed.push(StepAt {
                 form: s.note.form,
                 head: s.note.head,
                 index: s.note.index,
                 before: s.note.before.as_ref().map(show),
                 before_written: s.note.before.as_ref().and_then(written),
-                after: show(&s.note.after),
-                after_written: written(&s.note.after),
+                after,
+                after_written,
                 proof: s.proof,
                 locals,
                 adds,

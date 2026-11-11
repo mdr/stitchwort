@@ -117,9 +117,15 @@ fn elaborate(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value, Ends)> {
             .map_or_else(|| start.clone(), |l| l.end.clone());
         let next = check(cx, &step.rhs, &ty)?;
         cx.e.resume_from(queued_from)?;
-        let prop_term = relation(cx, rel, &ty_term, end, next.clone())?;
+        let prop_term = relation(cx, rel, &ty_term, end.clone(), next.clone())?;
         let prop = cx.eval(&prop_term)?;
         let line = written(cx, &prop_term);
+        // A line's statement for the goals panel: the previous value as it
+        // computes (so the last line of the book's chain reads `Win = Win`),
+        // and this line's value as written (`if True then …` hasn't computed
+        // to `Win` yet). `prop` itself is evaluated, so both would have.
+        let shown_end = stitchwort_core::value::quote_shown(&cx.g(), cx.level(), &cx.eval(&end)?)?;
+        let shown_prop = relation(cx, rel, &ty_term, shown_end, next.clone())?;
         let head = Span {
             end: step
                 .proof
@@ -136,6 +142,7 @@ fn elaborate(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value, Ends)> {
                     index: Some((index, steps.len())),
                     before: link.as_ref().map(|l| l.prop.clone()),
                     after: prop.clone(),
+                    after_term: Some(shown_prop),
                     adds: Vec::new(),
                     rule: None,
                     parts: Vec::new(),

@@ -4715,6 +4715,7 @@ fn check_leaf(cx: &mut Ctx, tree: &Tree, goal: &Value, guarded: bool) -> Result<
                 index: None,
                 before: None,
                 after: goal.clone(),
+                after_term: None,
                 adds: aliases.iter().map(|(_, level)| *level).collect(),
                 rule: None,
                 parts: Vec::new(),
