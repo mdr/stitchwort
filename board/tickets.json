@@ -30345,12 +30345,12 @@
     {
       "id": 2866,
       "title": "search_at, doc and counterexample still use the name-only is_generated_name, so they treat .unfold and other span-detected generated lemmas (type induct/size/accessors/ext) as written; move them to SW-2856's Generated. Also document that types never appear in 'relied on by' or the rely counts (SW-2856)",
-      "status": "doing",
+      "status": "review",
       "agent": "DeepSeek",
       "where": ".claude/worktrees/scratch-sw-2866",
       "labels": [],
       "epic": "proof-automation",
-      "body": "",
+      "body": "\nModel result: DeepSeek, worked, ~30 min (est. 30). Counterexample search no longer searches T.ext (generated); new test a_decreasing_definitions_unfold_is_not_searched.",
       "created": "2026-11-11",
       "updated": "2026-11-11",
       "commits": []
