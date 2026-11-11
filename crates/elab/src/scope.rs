@@ -2175,6 +2175,91 @@ impl Elaborator {
         d
     }
 
+    /// Whether `key` names a data type (including one this module declares
+    /// and hasn't checked yet).
+    fn is_data_key(&self, key: &str) -> bool {
+        match self.scope.get(key) {
+            Some((Global::Data(..) | Global::Pending(_, crate::library::PendingKind::Data), _)) => {
+                true
+            }
+            Some((Global::Unchecked(i), _)) => {
+                self.unit
+                    .module
+                    .items
+                    .get(i)
+                    .is_some_and(|item| item.kind == crate::module::Kind::Data)
+                    && !self.scope.is_member(key)
+            }
+            _ => false,
+        }
+    }
+
+    /// Whether `key` names a constructor (including one this module declares
+    /// and hasn't checked yet).
+    fn is_ctor_key(&self, key: &str) -> bool {
+        match self.scope.get(key) {
+            Some((Global::Ctor(..), _)) => true,
+            Some((Global::Pending(_, crate::library::PendingKind::Ctor), _)) => true,
+            Some((Global::Unchecked(i), _)) => {
+                self.unit
+                    .module
+                    .items
+                    .get(i)
+                    .is_some_and(|item| item.kind == crate::module::Kind::Data)
+                    && self.scope.is_member(key)
+            }
+            _ => false,
+        }
+    }
+
+    /// The constructors of types declared directly in `namespace` whose short
+    /// name is `name`, sorted: what `import N (name)` imports when no
+    /// declaration of `namespace` has that name (D3503).
+    fn constructors_named(&self, namespace: &str, name: &str) -> Vec<String> {
+        let prefix = format!("{namespace}.");
+        let suffix = format!(".{name}");
+        let mut keys: Vec<String> = self
+            .scope
+            .keys()
+            .filter_map(|key| {
+                let owner = key.strip_prefix(&prefix)?.strip_suffix(&suffix)?;
+                (!owner.contains('.') && self.is_ctor_key(key)).then_some(key)
+            })
+            .cloned()
+            .collect();
+        keys.sort_unstable();
+        keys
+    }
+
+    /// `E-AMBIGUOUS`: `import N (x)` names a constructor `x` of more than one
+    /// type in `N`, so it names no one thing.
+    fn ambiguous_import_ctor(&self, item: &ast::Name, keys: &[String]) -> Diagnostic {
+        let shown: Vec<String> = keys.iter().map(|k| format!("`{}`", display(k))).collect();
+        let types: Vec<String> = keys
+            .iter()
+            .filter_map(|k| parent(k))
+            .map(short)
+            .map(|t| format!("`{t}`"))
+            .collect();
+        let namespace = keys
+            .first()
+            .and_then(|k| parent(k))
+            .and_then(parent)
+            .map(display)
+            .unwrap_or_default();
+        Diagnostic::error(
+            "E-AMBIGUOUS",
+            format!("`{}` could mean {}", item.text, or_list(&shown)),
+        )
+        .with_label(item.span, "it is a constructor of more than one type")
+        .with_note(format!(
+            "`{}` is a constructor of {}: import the type you mean, as in `import {namespace} ({})`",
+            item.text,
+            or_list(&types),
+            short(parent(&keys[0]).unwrap_or(&keys[0])),
+        ))
+    }
+
     /// Resolves the module's imports. An import of the library's is
     /// resolved before the module's qualified declarations are registered
     /// (`own: false`), and one of the module's own namespaces after them.
@@ -2256,16 +2341,48 @@ impl Elaborator {
                 self.add_wildcard(import, &namespace, diagnostics);
                 continue;
             }
+            // The types this import names: each brings its constructors, so
+            // naming one beside its type is accepted and adds nothing.
+            let types: Vec<String> = import
+                .items
+                .iter()
+                .filter_map(|whole| {
+                    let key = format!("{namespace}.{}", whole.name.text);
+                    self.is_data_key(&key).then_some(key)
+                })
+                .collect();
             for whole in &import.items {
                 let (name, item) = (&whole.name, whole.local());
-                let key = format!("{namespace}.{}", name.text);
+                let mut key = format!("{namespace}.{}", name.text);
                 // An item may be a namespace that declares no name of its
                 // own (`import Std (Eq)`).
-                if name.text.starts_with('%')
-                    || (self.scope.get(&key).is_none() && !self.scope.is_namespace(&key))
-                {
+                if name.text.starts_with('%') {
                     diagnostics.push(self.import_unknown(&namespace, name));
                     continue;
+                }
+                if self.scope.get(&key).is_none() && !self.scope.is_namespace(&key) {
+                    // A constructor by its short name, as a type brings its
+                    // constructors: `import N (S)` imports just `S` (D3503).
+                    match self.constructors_named(&namespace, &name.text).as_slice() {
+                        [] => {
+                            diagnostics.push(self.import_unknown(&namespace, name));
+                            continue;
+                        }
+                        [only] => {
+                            let owner = parent(only).unwrap_or("");
+                            if types.iter().any(|t| t == owner) {
+                                // The type, named in this import, already
+                                // brings it.
+                                self.note_import(name, only);
+                                continue;
+                            }
+                            key = only.clone();
+                        }
+                        many => {
+                            diagnostics.push(self.ambiguous_import_ctor(name, many));
+                            continue;
+                        }
+                    }
                 }
                 // A declaration of the module's own with this name would hide
                 // the import completely.
@@ -2666,29 +2783,7 @@ impl Elaborator {
             .filter(|m| edit_distance(m, &item.text) <= 2)
             .collect();
         near.sort_unstable();
-        // A constructor of a type in the namespace: it comes with its type.
-        let suffix = format!(".{}", item.text);
-        let mut types: Vec<&str> = self
-            .scope
-            .entries
-            .iter()
-            .filter(|(_, (g, _))| {
-                matches!(
-                    g,
-                    Global::Ctor(..) | Global::Pending(_, crate::library::PendingKind::Ctor)
-                )
-            })
-            .filter_map(|(k, _)| k.strip_prefix(&prefix)?.strip_suffix(&suffix))
-            .filter(|t| !t.contains('.'))
-            .collect();
-        types.sort_unstable();
-        if let Some(t) = types.first() {
-            d = d.with_note(format!(
-                "`{}` is a constructor of `{t}`, and constructors come with their type: import `{t}` instead, as in `import {} ({t})`",
-                item.text,
-                display(namespace)
-            ));
-        } else if let Some(m) = near.first() {
+        if let Some(m) = near.first() {
             d = d.with_note(format!("did you mean `{m}`?"));
         }
         d

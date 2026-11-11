@@ -1,0 +1,2 @@
+# Naming a constructor in an import list: beside its type it adds nothing,
+# alone it imports just that constructor.
