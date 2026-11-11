@@ -840,7 +840,7 @@ const $Main$dget = (v1, v2) => {
     throw new Error("unreachable");
   }
 };
-const $Main$dthird = (v0) => ($Std$dNat$ddecLessThan(2n, $Std$dList$dlength(v0)).tag === "True" ? $Main$dget(v0, 2n) : 0n);
+const $Main$dthird = (v0) => ($Std$dNat$dleq(3n, $Std$dList$dlength(v0)).tag === "True" ? $Main$dget(v0, 2n) : 0n);
 const $Main$disEven = (v0) => $Std$dNat$dleq($Std$dNat$dmod(v0, 2n), 0n);
 
 function $$average(arg0) {

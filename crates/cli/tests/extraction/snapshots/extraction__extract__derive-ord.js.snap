@@ -1447,7 +1447,7 @@ const $Main$dItem$d$gdecEq = (v0, v1) => {
   const v3 = v0.price;
   const v5 = v1.name;
   const v6 = v1.price;
-  return $Std$dDecidable$dandThen($Std$dText$ddecEq(v2, v5), ((v8) => $Std$dNat$dequal(v3, v6)));
+  return ($Std$dText$ddecEq(v2, v5).tag === "True" ? $Std$dNat$dequal(v3, v6) : { tag: "False" });
 };
 const $Main$dItem$d$ginstDecEq = ($Main$dItem$d$gdecEq$c ??= ($p0) => ($p1) => $Main$dItem$d$gdecEq($p0, $p1));
 const $Main$dItem$d$gshow = (v0) => {
@@ -1583,7 +1583,7 @@ const $Main$dShape$d$gdecEq = (v0, v1) => {
         case "Group": {
           const v4 = v1.first;
           const v5 = v1.rest;
-          return $Std$dDecidable$dandThen($Main$dShape$d$gdecEq(v2, v4), ((v6) => $Main$dShape$d$gdecEq(v3, v5)));
+          return ($Main$dShape$d$gdecEq(v2, v4).tag === "True" ? $Main$dShape$d$gdecEq(v3, v5) : { tag: "False" });
         }
       }
       throw new Error("unreachable");

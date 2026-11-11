@@ -813,7 +813,7 @@ const $Std$dList$dtailOf = (v1) => {
   }
   throw new Error("unreachable");
 };
-const $Std$dList$ddecCons = (v1, v2, v3, v4, v5, v6) => $Std$dDecidable$dand(v5, v6);
+const $Std$dList$ddecCons = (v1, v2, v3, v4, v5, v6) => (v5.tag === "True" ? v6 : { tag: "False" });
 const $Std$dList$ddecEq = (v1, v2, v3) => {
   let s1 = v1, s2 = v2, s3 = v3;
   for (;;) {
@@ -1254,7 +1254,7 @@ const $Main$dItem$d$gdecEq = (v0, v1) => {
   const v3 = v0.name;
   const v4 = v1.id;
   const v5 = v1.name;
-  return $Std$dDecidable$dandThen($Std$dNat$dequal(v2, v4), ((v6) => $Std$dText$ddecEq(v3, v5)));
+  return ($Std$dNat$dequal(v2, v4).tag === "True" ? $Std$dText$ddecEq(v3, v5) : { tag: "False" });
 };
 const $Main$ditems = (v0) => $Std$dList$dmap$e($Std$dList$drange(0n, v0), ((v1) => ({ id: v1, name: "x" })));
 const $Main$dsameNats = (v0) => $Std$dList$ddecEq(((v1) => ((v2) => $Std$dNat$dequal(v1, v2))), $Std$dList$drange(0n, v0), $Std$dList$drange(0n, v0));

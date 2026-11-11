@@ -870,7 +870,7 @@ const $Std$dList$dtailOf = (v1) => {
   }
   throw new Error("unreachable");
 };
-const $Std$dList$ddecCons = (v1, v2, v3, v4, v5, v6) => $Std$dDecidable$dand(v5, v6);
+const $Std$dList$ddecCons = (v1, v2, v3, v4, v5, v6) => (v5.tag === "True" ? v6 : { tag: "False" });
 const $Std$dList$ddecEq = (v1, v2, v3) => {
   let s1 = v1, s2 = v2, s3 = v3;
   for (;;) {
@@ -927,7 +927,7 @@ const $Std$dList$ddecEq = (v1, v2, v3) => {
     throw new Error("unreachable");
   }
 };
-const $Std$dPair$ddecMk = (v2, v3, v4, v5, v6, v7) => $Std$dDecidable$dand(v6, v7);
+const $Std$dPair$ddecMk = (v2, v3, v4, v5, v6, v7) => (v6.tag === "True" ? v7 : { tag: "False" });
 const $Std$dPair$ddecEq = (v2, v3, v4, v5) => {
   switch (v4.tag) {
     case "MkPair": {
