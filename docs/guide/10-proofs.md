@@ -329,7 +329,7 @@ theorem atMostTwo (a: Bool) (n: Nat) (h: (a ∧ n ≤ 3) = True): n ≤ 2 := cas
 
 <!-- output: check errors/cases.sw -->
 ```
-[E-CASES] Error: `cases` can't close the case a = True, (n <= 2) = False
+[E-CASES] Error: `cases` couldn't close the case it reached by the splits a = True, (n <= 2) = False
    ╭─[ errors/cases.sw:1:72 ]
    │
  1 │ theorem atMostTwo (a: Bool) (n: Nat) (h: (a ∧ n ≤ 3) = True): n ≤ 2 := cases

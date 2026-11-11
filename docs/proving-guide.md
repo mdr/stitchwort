@@ -384,7 +384,7 @@ Each was run on the example named; the output is quoted, shortened.
   statement is false:
 
   ```
-  [E-CASES] Error: `cases` can't close the case a = True, (n <= 2) = False
+  [E-CASES] Error: `cases` couldn't close the case it reached by the splits a = True, (n <= 2) = False
     Note 1: h: n ≤ 3
     Note 2: goal: False = True
     Note 5: this statement is false; a counterexample: a = True, n = 3

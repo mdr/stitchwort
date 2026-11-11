@@ -599,8 +599,11 @@ fn open_case(
         )
         .with_label(run.span, "this `cases`")
     } else {
-        Diagnostic::error("E-CASES", format!("`cases` can't close the case {case}"))
-            .with_label(run.span, "this `cases`")
+        Diagnostic::error(
+            "E-CASES",
+            format!("`cases` couldn't close the case it reached by the splits {case}"),
+        )
+        .with_label(run.span, "this `cases`")
     };
     for level in 0..cx.level() {
         if is_equation(cx, level) {
@@ -1515,6 +1518,20 @@ impl<'a, 'e> Finder<'a, 'e> {
                     };
                     if n >= 2 {
                         best = Some(atom);
+                    } else if best.as_ref().is_some_and(|b| b.side)
+                        && last_unsplittable.is_none()
+                        && self.under_stuck == 0
+                    {
+                        // The call's own result (`eqbId x x = True` on
+                        // `eqbId x x`) waits on a record (`x`): taking the
+                        // record apart first is one case, and reaches the
+                        // real obstacle, where splitting the result would
+                        // report a case (`eqbId x x = False`) that reads as
+                        // if the statement were false.
+                        best = Some(Atom {
+                            side: false,
+                            ..atom
+                        });
                     } else if self.single.is_none()
                         && last_unsplittable.is_none()
                         && self.under_stuck == 0

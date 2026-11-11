@@ -2,7 +2,7 @@
 source: crates/cli/tests/running/examples.rs
 expression: output
 ---
-[E-CASES] Error: `cases` can't close the case flag = False (fallback), key = Enter (fallback)
+[E-CASES] Error: `cases` couldn't close the case it reached by the splits flag = False (fallback), key = Enter (fallback)
     ╭─[ reject/cases-fallback-count.sw:26:86 ]
     │
  26 │ theorem keyFewest (flag: Bool) (key: NumericKey): Or (key ∈ digits) (flag = True) := cases
