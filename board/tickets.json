@@ -1,5 +1,5 @@
 {
-  "next": 2918,
+  "next": 2919,
   "tickets": [
     {
       "id": 47,
@@ -31017,6 +31017,19 @@
       "where": "",
       "labels": [],
       "epic": "editor-playground",
+      "body": "",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2918,
+      "title": "[Sonnet] Book chapters 0-2: check every quoted goal, message, hover and editor result against the real output; 2.1 says the Rock arm's goal is 'beats Rock Rock = False' but the Goals panel shows 'False = False' (Matt, 11 Nov 2026)",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "docs-tutorials",
       "body": "",
       "created": "2026-11-11",
       "updated": "2026-11-11",
