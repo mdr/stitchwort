@@ -160,7 +160,7 @@ A lane that needs more than its area runs `task test:one -- NAME` for the tests 
 
 ### Snapshots and generated text
 
-`task snap:examples NAME=…` and `task snap:hashes NAME=…` update the error-message and hash snapshots (every example when `NAME` is unset), then list the changed `.snap` files for review; a `NAME` part (or `EXAMPLES` part) that matches no example fails the test instead of updating nothing. `task snap:one -- FILTER` does the same for any tests. `task guide:update` regenerates the language guide's quoted blocks.
+`task snap:examples NAME=…` and `task snap:hashes NAME=…` update the error-message and hash snapshots (every example when `NAME` is unset), then list the changed `.snap` files for review; a `NAME` part (or `EXAMPLES` part) that matches no example fails the test instead of updating nothing. `task snap:one -- FILTER` does the same for any tests. `task guide:update` regenerates the language guide's quoted blocks. `task examples:scan` (`dev/examples-scan`) compares every example's `-- expect-error:` and `-- expect-warning:` header codes with the release CLI's output and fails, listing them, on any mismatch: a fast check of the headers without the snapshot tests (60 s per file).
 
 | Layer | Where | What it catches |
 |---|---|---|

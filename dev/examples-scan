@@ -1,0 +1,52 @@
+#!/usr/bin/env bash
+# Compare every example's declared error/warning codes with what the release
+# CLI reports. Each examples/{accept,reject,soundness,goals}/*.sw file names
+# the codes it expects in `-- expect-error:` and `-- expect-warning:` header
+# lines; this runs `stitchwort check` on it (60 s each) and reports the files
+# whose declared codes and reported codes differ. A fast check of the headers,
+# without the snapshot tests of the messages (docs/testing.md, "Snapshots and
+# generated text"). Exits non-zero if any example mismatches.
+set -euo pipefail
+
+root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+
+# The release CLI the Taskfile's SW variable names (target/<triple>/release on
+# Linux, where the devShell sets CARGO_BUILD_TARGET).
+sw="$root/target/${CARGO_BUILD_TARGET:+$CARGO_BUILD_TARGET/}release/stitchwort"
+if [ ! -x "$sw" ] && [ -x "$root/target/release/stitchwort" ]; then
+  sw="$root/target/release/stitchwort"
+fi
+if [ ! -x "$sw" ]; then
+  echo "examples-scan: release CLI not found at $sw" >&2
+  echo "build it first: nix develop -c cargo build --release -p stitchwort-cli" >&2
+  exit 2
+fi
+
+timeout_secs="${EXAMPLES_SCAN_TIMEOUT:-60}"
+shopt -s nullglob
+
+mismatches=0
+checked=0
+for f in "$root"/examples/accept/*.sw \
+         "$root"/examples/reject/*.sw \
+         "$root"/examples/soundness/*.sw \
+         "$root"/examples/goals/*.sw; do
+  checked=$((checked + 1))
+  want="$(grep -oE '^-- expect-(error|warning): [A-Z0-9-]+' -- "$f" \
+    | awk '{print $3}' | sort -u | tr '\n' ' ' || true)"
+  status=0
+  output="$(timeout "$timeout_secs" "$sw" check "$f" 2>&1)" || status=$?
+  got="$(printf '%s\n' "$output" | grep -oE '^\[[EW]-[A-Z0-9-]+\]' \
+    | tr -d '[]' | sort -u | tr '\n' ' ' || true)"
+  if [ "$want" != "$got" ]; then
+    mismatches=$((mismatches + 1))
+    printf '%s | want: %s| got: %s' "${f#"$root"/}" "$want" "$got"
+    if [ "$status" -eq 124 ]; then
+      printf ' (check timed out after %ss)' "$timeout_secs"
+    fi
+    printf '\n'
+  fi
+done
+
+printf 'examples-scan: %d mismatch(es) across %d example(s)\n' "$mismatches" "$checked"
+[ "$mismatches" -eq 0 ]

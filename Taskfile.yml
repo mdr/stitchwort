@@ -461,6 +461,19 @@ tasks:
 
   # ------------------------------------------- snapshots and generated text
 
+  examples:scan:
+    desc: Check examples' expected error and warning codes against the release CLI, without the snapshot tests
+    summary: |
+      Runs dev/examples-scan: for every examples/{accept,reject,soundness,goals}/*.sw
+      file, compares the error and warning codes in its `-- expect-error:` and
+      `-- expect-warning:` header lines with the codes `stitchwort check`
+      reports (60 s per file), prints each mismatch, and exits non-zero if
+      there are any. A fast check of the headers; the snapshot tests remain
+      the full check of the messages. Needs the release CLI (`task build`, or
+      `cargo build --release -p stitchwort-cli`).
+    cmds:
+      - '{{.ROOT_DIR}}/dev/examples-scan'
+
   snap:examples:
     desc: 'Update the examples'' error-message snapshots (NAME=part of a file name, or a comma-separated list; all if unset), then list them'
     env:
