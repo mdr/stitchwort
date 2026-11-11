@@ -133,7 +133,43 @@ fn a_test_that_mentions_an_unfinished_theorem_still_runs() {
     let _ = std::fs::remove_dir_all(&dir);
     let stdout = text(&out.stdout);
     assert_eq!(out.status.code(), Some(0), "{stdout}{}", text(&out.stderr));
-    assert!(stdout.contains("✓ uses a proof"), "{stdout}");
+    assert!(
+        stdout.contains("✓ uses a proof  ran  (assuming `exercise`)"),
+        "{stdout}"
+    );
+}
+
+/// A passing test that relies on several unfinished proofs names each it
+/// assumes, the first three and then how many more; `--json` lists them all
+/// (SW-2939).
+#[test]
+fn a_passing_test_lists_every_open_goal_it_assumes() {
+    let dir = project("test-assuming", "check:\n  open-goals: warn\n");
+    std::fs::write(
+        dir.join("src/t.sw"),
+        "namespace Book\n\n\
+         theorem g1 (n: Nat): n = n := ?\n\n\
+         theorem g2 (n: Nat): n = n := ?\n\n\
+         theorem g3 (n: Nat): n = n := ?\n\n\
+         theorem g4 (n: Nat): n = n := ?\n\n\
+         def pick (n: Nat) (h1: n = n) (h2: n = n) (h3: n = n) (h4: n = n): Nat := n\n\n\
+         test \"uses four\" := pick 0 (g1 0) (g2 0) (g3 0) (g4 0) == 0\n",
+    )
+    .unwrap();
+    let out = stitchwort(&dir, &["test"]);
+    let json = stitchwort(&dir, &["test", "--json"]);
+    let _ = std::fs::remove_dir_all(&dir);
+    let stdout = text(&out.stdout);
+    assert_eq!(out.status.code(), Some(0), "{stdout}{}", text(&out.stderr));
+    assert!(
+        stdout.contains("✓ uses four  ran  (assuming `g1`, `g2`, `g3`, and 1 more)"),
+        "{stdout}"
+    );
+    let json = text(&json.stdout);
+    assert!(
+        json.contains(r#""assuming":["g1","g2","g3","g4"]"#),
+        "{json}"
+    );
 }
 
 fn json_status(json: &str) -> Option<i32> {

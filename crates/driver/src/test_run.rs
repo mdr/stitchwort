@@ -279,6 +279,17 @@ impl Session {
             .flatten()
     }
 
+    /// The open-goal declarations `test` relies on, for a passing test's
+    /// `(assuming …)` (SW-2939): the proofs and types it mentions, which are
+    /// erased when it runs. Empty for a test that relies on no goal.
+    fn test_assuming(&self, test: &stitchwort_elab::TestDecl) -> Vec<String> {
+        let goals = self.elab.goals_relied_on(test.def);
+        self.goal_places(&goals)
+            .iter()
+            .map(|goal| goal.short().to_string())
+            .collect()
+    }
+
     /// Runs every test of the program loaded so far, using cached results
     /// where possible. The core's and the library's tests aren't the
     /// program's (docs/proposals/std-library.md §4.7): see
@@ -435,6 +446,7 @@ impl Session {
                         hash: None,
                         detail: None,
                         unfinished: Some(why),
+                        assuming: Vec::new(),
                     };
                 }
                 let hash = match def_hash(g, test.def) {
@@ -448,11 +460,17 @@ impl Session {
                             hash: None,
                             detail: None,
                             unfinished: None,
+                            assuming: Vec::new(),
                         };
                     }
                 };
                 let unit = Cache::unit(&test.namespace, &test.name);
                 if let Some(outcome) = cache.get(&unit, &hash, &modes) {
+                    let assuming = if outcome == Outcome::Passed {
+                        self.test_assuming(test)
+                    } else {
+                        Vec::new()
+                    };
                     return TestResult {
                         name: test.name.clone(),
                         namespace: test.namespace.clone(),
@@ -461,6 +479,7 @@ impl Session {
                         hash: Some(hash),
                         detail: self.failure(test, outcome),
                         unfinished: None,
+                        assuming,
                     };
                 }
                 // A test that runs partial code is a `Delay` (D1183).
@@ -510,6 +529,11 @@ impl Session {
                 });
                 cache.verify_result(test, &hash, &modes, outcome);
                 cache.put(&unit, &hash, &modes, outcome);
+                let assuming = if outcome == Outcome::Passed {
+                    self.test_assuming(test)
+                } else {
+                    Vec::new()
+                };
                 TestResult {
                     name: test.name.clone(),
                     namespace: test.namespace.clone(),
@@ -518,6 +542,7 @@ impl Session {
                     hash: Some(hash),
                     detail: self.failure(test, outcome),
                     unfinished: None,
+                    assuming,
                 }
             })
             .collect();
