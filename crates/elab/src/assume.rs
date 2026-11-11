@@ -47,6 +47,19 @@ pub(crate) struct Floor {
 #[derive(Default)]
 pub(crate) struct Assumed(Cell<Option<Floor>>);
 
+/// The budget for stating a goal, or comparing it with an earlier one's:
+/// a goal that would take more (its statement computes deeply when its
+/// unknowns are filled in, `countDown 100000 [] = []`) falls back, without
+/// running out the declaration's own budget.
+fn side_limits() -> stitchwort_core::Limits {
+    stitchwort_core::Limits {
+        work: 1_000_000,
+        size: 50_000,
+        frames: 10_000,
+        ..stitchwort_core::Limits::default()
+    }
+}
+
 impl Elaborator {
     /// The session's [`Floor`], if any assumption is still in the kernel.
     fn floor(&self) -> Option<Floor> {
@@ -122,7 +135,8 @@ impl Elaborator {
                 owner: owner.clone(),
                 hole,
             };
-            let Some((ty, order)) = self.goal_type(&p) else {
+            let stated = (self.kernel.machine.budget).aside(side_limits(), || self.goal_type(&p));
+            let Some((ty, order)) = stated else {
                 continue;
             };
             let Some(id) = self.assumption_for(&ty, label, p.span) else {
@@ -153,9 +167,14 @@ impl Elaborator {
     fn goal_type(&self, p: &crate::goals::Pending) -> Option<(Term, Vec<usize>)> {
         let g = &self.ev();
         let level = p.level;
+        // Zonked keeping every unknown, then refused if one is left: zonking
+        // that must report an unknown reads its solution back unfolded,
+        // which computes (`countDown 100000 [] = []`).
         let term = |v| {
             let t = quote_folded(g, level, v).ok()?;
-            self.zonk_keeping(&t, level, &|_| false).ok()
+            let t = self.zonk_keeping(&t, level, &|_| true).ok()?;
+            let unknown = t.subterms().any(|(t, _)| matches!(t, Term::Meta(_)));
+            (!unknown).then_some(t)
         };
         let types: Vec<Term> = (p.applied.iter())
             .map(|(_, ty, _)| term(ty))
@@ -251,8 +270,10 @@ impl Elaborator {
             .map(|(i, _)| DefId(i));
         if let Some(id) = existing {
             let g = &self.ev();
-            let new = eval(g, &[], ty).ok()?;
-            let same = stitchwort_core::value::conv(g, 0, g.def(id).ty_value(), &new).ok()?;
+            let same = g.machine.budget.aside(side_limits(), || {
+                let new = eval(g, &[], ty).ok()?;
+                stitchwort_core::value::conv(g, 0, g.def(id).ty_value(), &new).ok()
+            })?;
             return same.then_some(id);
         }
         // Before the assumption is made: a stale floor is taken back.
