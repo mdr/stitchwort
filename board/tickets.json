@@ -1,5 +1,5 @@
 {
-  "next": 2886,
+  "next": 2889,
   "tickets": [
     {
       "id": 47,
@@ -30594,12 +30594,51 @@
     {
       "id": 2885,
       "title": "[Sonnet] Split on a variable from a ?: a code action on a hole offers 'Split on `x`' for each splittable variable in scope; the ? becomes a match; a split from a ? that is a whole arm body of a match extends that match with a column (D3518)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "editor-playground",
-      "body": "D3518 (Matt, 11 Nov 2026): yes, now. Design: lightbulb on a ? offers one 'Split on x' per splittable variable in scope (parameters, pattern variables; data types without indices, as the existing split). Replaces ? by match x with one arm per constructor, fields named as Add the missing arms names them. When the ? is the whole right-hand side of an arm of a match, splitting another variable extends that match (new scrutinee column; the arm becomes one arm per constructor, other arms get _ in the new column) rather than nesting; otherwise nests. Also offered with the cursor on a parameter name in the header when the body is a single ?. Guide editor section + docs/syntax if needed + a feature-tour page. Expected: 90 min.",
+      "body": "D3518 (Matt, 11 Nov 2026): yes, now. Design: lightbulb on a ? offers one 'Split on x' per splittable variable in scope (parameters, pattern variables; data types without indices, as the existing split). Replaces ? by match x with one arm per constructor, fields named as Add the missing arms names them. When the ? is the whole right-hand side of an arm of a match, splitting another variable extends that match (new scrutinee column; the arm becomes one arm per constructor, other arms get _ in the new column) rather than nesting; otherwise nests. Also offered with the cursor on a parameter name in the header when the body is a single ?. Guide editor section + docs/syntax if needed + a feature-tour page. Expected: 90 min.\nModel result: Sonnet, worked (tour page example swapped so it doesn't solve an SF exercise), 15 + 15 min (est. 90). Affected tests passed; follow-ups SW-2886..2888.",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2886,
+      "title": "[Sonnet] Split from a ?: a _ column can't be split again (the action nests a match c instead of expanding the _ into the constructors) (SW-2885)",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "editor-playground",
+      "body": "",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2887,
+      "title": "[Sonnet] Split (arm split and split from a ?): pair-typed variables (p: Nat × Nat) aren't offered; split into the pair constructor; also check a local's type is not a Prop instead of only rejecting operator types (SW-2885)",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "editor-playground",
+      "body": "",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2888,
+      "title": "[Sonnet] Split from a ?: offered only on a ? that is a whole body (after := or =>, or alone on its line), not a ? inside an expression (SW-2885)",
+      "status": "backlog",
+      "agent": "Sonnet",
+      "where": "",
+      "labels": [],
+      "epic": "editor-playground",
+      "body": "",
       "created": "2026-11-11",
       "updated": "2026-11-11",
       "commits": []
