@@ -1,5 +1,5 @@
 {
-  "next": 2874,
+  "next": 2875,
   "tickets": [
     {
       "id": 47,
@@ -30441,6 +30441,19 @@
       "status": "backlog",
       "agent": "Opus",
       "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2874,
+      "title": "Equality G2 nested sums: nat_add::reread doesn't reread a nested stuck sum, so x + (y + two 0) = x + y + 2 fails conversion (omega's E-OMEGA-INTERNAL with SW-2253; the Int analogue too). Make reread recurse when the base is a stuck Nat.add; proof_equivalence case; docs/core.md gaps-table line. Blocks SW-2253 (docs/reviews/SW-2253-omega-folded-review.md item 2)",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-2874",
       "labels": [],
       "epic": "elaborator-kernel",
       "body": "",
