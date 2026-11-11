@@ -29437,12 +29437,12 @@
     {
       "id": 2797,
       "title": "Using unfinished declarations in larger proofs: check what uses a ? (as Rocq's Admitted/Lean's sorry), reporting clearly what depends on open goals; design note first",
-      "status": "doing",
+      "status": "review",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-2797",
       "labels": [],
       "epic": "syntax-language",
-      "body": "\nD3502 (Matt, 11 Nov 2026): yes in direction: 'it's okay to have holes or sorrys mixed in, as long as it's clear that those issues exist when we're reporting to the user'. How is open: design note first. D3501 (Matt, 11 Nov 2026): no numerals for user-defined types (SW-2796 dropped).",
+      "body": "D3502 (Matt, 11 Nov 2026): yes in direction: 'it's okay to have holes or sorrys mixed in, as long as it's clear that those issues exist when we're reporting to the user'. How is open: design note first. D3501 (Matt, 11 Nov 2026): no numerals for user-defined types (SW-2796 dropped).\n\nProgress (Opus, 11 Nov): docs/proposals/using-unfinished-proofs.md written (commit 986735954). Recommends option A: each ? becomes a per-hole kernel assumption, so the declaration and its users are kernel-checked assuming the goal and reported as relying on it; D-a to D-d open; 4 stages (+1 later). Est. 2 h, took about 1 h.\n",
       "created": "2026-11-11",
       "updated": "2026-11-11",
       "commits": []
