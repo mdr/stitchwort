@@ -29606,12 +29606,12 @@
     {
       "id": 2810,
       "title": "JS extraction disagrees with the reference evaluator: discount.sw perPerson(2n, 0n) gives \"rejected\" in JS (native_text, native_int) but 0n in the reference (extract::random_inputs_agree_with_the_reference_evaluator, extract.rs:373; Overmind full tier at a25e6f71f, 11 Nov). Check whether it reproduces on main first",
-      "status": "doing",
+      "status": "review",
       "agent": "DeepSeek",
       "where": ".claude/worktrees/scratch-sw-2810",
       "labels": [],
       "epic": "effects-native",
-      "body": "",
+      "body": "\nCause: the random test matched a Decidable record's constructor index (always 0), so every precondition counted as met; JS was right. Only the full tier samples discount.sw. Model result: DeepSeek, worked, ~45 min (est. 45).",
       "created": "2026-11-11",
       "updated": "2026-11-11",
       "commits": []
