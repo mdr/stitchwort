@@ -30117,12 +30117,12 @@
     {
       "id": 2849,
       "title": "repl and eval don't load the project: in sf/, stitchwort repl src/Sf/Lf/Poly/Poly.sw fails 'there's no namespace Sf.Lf.Nat'; find the project from the current folder as check, test and doc do; fix the sf/ README's repl line and the :t comments in Basics.sw and NatList.sw (SW-2845)",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2849",
       "labels": [],
       "epic": "docs-tutorials",
-      "body": "",
+      "body": "Progress: repl and eval now load a project source file as its namespace in the project (found from the file's folder, as check does) and import its names; other files load as before. Commit e9059ccb2 on lane/SW-2849. Tests: 2 repl tests pass. Findings: repl with no file in a project loads nothing.",
       "created": "2026-11-11",
       "updated": "2026-11-11",
       "commits": []
