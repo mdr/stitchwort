@@ -7,7 +7,9 @@ use std::collections::BTreeMap;
 use stitchwort_core::hash::{ContentHash, data_hash, def_hash};
 use stitchwort_core::{DataId, DefId};
 use stitchwort_driver::driver::{Cache, Outcome, Session};
-use stitchwort_driver::project::{Loaded, MemoryFiles, Target, parse_config, project_sources};
+use stitchwort_driver::project::{
+    Entry, Files, Loaded, MemoryFiles, Target, parse_config, project_sources,
+};
 use stitchwort_syntax::{Diagnostic, Severity};
 
 fn owned(files: &[(&str, &str)]) -> Vec<(String, String)> {
@@ -583,6 +585,77 @@ fn reading_a_project_reports_missing_and_nested_folders() {
     assert!(
         d[0].message
             .contains("`src/inner/` is a project inside the project proj/"),
+        "{}",
+        d[0].message
+    );
+}
+
+/// A source entry that is a file is not a folder that doesn't exist.
+#[test]
+fn reading_a_project_reports_a_source_file_as_a_file() {
+    let mut sources = stitchwort_syntax::SourceMap::new();
+    let files = memory(
+        &[
+            ("stitchwort.yaml", "sources: [main.sw]\n"),
+            ("main.sw", "namespace Main\n"),
+        ],
+        false,
+    );
+    let d = project_sources(&files, "proj", &mut sources).unwrap_err();
+    assert_eq!(d.len(), 1, "{d:#?}");
+    assert!(
+        d[0].message
+            .ends_with("`main.sw` is a file; `sources` lists folders"),
+        "{}",
+        d[0].message
+    );
+    assert!(!d[0].message.contains("doesn't exist"), "{}", d[0].message);
+}
+
+/// `MemoryFiles` whose `entries` fails for one folder, as an unreadable
+/// folder does.
+struct Unreadable {
+    inner: MemoryFiles,
+    unreadable: &'static str,
+}
+
+impl Files for Unreadable {
+    fn entries(&self, dir: &str) -> std::io::Result<Vec<Entry>> {
+        if dir == self.unreadable {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::PermissionDenied,
+                "permission denied",
+            ));
+        }
+        self.inner.entries(dir)
+    }
+
+    fn read(&self, path: &str) -> std::io::Result<String> {
+        self.inner.read(path)
+    }
+}
+
+/// A subfolder that exists but can't be listed is an error, not silence.
+#[test]
+fn reading_a_project_reports_an_unreadable_subfolder() {
+    let mut sources = stitchwort_syntax::SourceMap::new();
+    let files = Unreadable {
+        inner: memory(
+            &[
+                ("stitchwort.yaml", "sources: [.]\n"),
+                ("src/ok.sw", "namespace Ok\n"),
+                ("src/locked/a.sw", "namespace A\n"),
+            ],
+            false,
+        ),
+        unreadable: "src/locked",
+    };
+    let d = project_sources(&files, "proj", &mut sources).unwrap_err();
+    assert_eq!(d.len(), 1, "{d:#?}");
+    assert_eq!(d[0].code, "E-IO");
+    assert!(
+        d[0].message
+            .contains("can't read the folder `proj/src/locked`: permission denied"),
         "{}",
         d[0].message
     );
