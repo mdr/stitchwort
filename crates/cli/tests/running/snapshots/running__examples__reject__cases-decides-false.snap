@@ -2,7 +2,7 @@
 source: crates/cli/tests/examples.rs
 expression: output
 ---
-[E-CASES] Error: `cases` can't close the case b = True
+[E-CASES] Error: `cases` couldn't close the case it reached by the splits b = True
     ╭─[ reject/cases-decides-false.sw:14:48 ]
     │
  14 │ theorem pickIn (b: Bool): pick b ∈ [K0, K1] := cases

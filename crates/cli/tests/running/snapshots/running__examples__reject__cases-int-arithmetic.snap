@@ -2,7 +2,7 @@
 source: crates/cli/tests/examples.rs
 expression: output
 ---
-[E-CASES] Error: `cases` can't close the case command = Up units✝, depth = n✝.toInt (fallback)
+[E-CASES] Error: `cases` couldn't close the case it reached by the splits command = Up units✝, depth = n✝.toInt (fallback)
     ╭─[ reject/cases-int-arithmetic.sw:15:140 ]
     │
  15 │ theorem upAfter (depth: Int) (command: Command): depth + command.down = depth - (match command with | Forward u => 0 | Up u => u.toInt) := cases

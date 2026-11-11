@@ -2,7 +2,7 @@
 source: crates/cli/tests/examples.rs
 expression: output
 ---
-[E-CASES] Error: `cases` can't close the case a = True, b = False (fallback)
+[E-CASES] Error: `cases` couldn't close the case it reached by the splits a = True, b = False (fallback)
    ╭─[ reject/cases-binders-open.sw:7:58 ]
    │
  7 │ theorem badAfter: (a: Bool) → (b: Bool) → (a ∧ b) = a := cases
