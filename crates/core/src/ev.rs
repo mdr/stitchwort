@@ -105,8 +105,8 @@ pub trait Shown {
 
     /// Records that a message showed a term that, computed, is stuck on an
     /// open goal's assumption: whatever went wrong can't be decided until
-    /// the goal is filled.
-    fn note_stuck_on_goal(&self) {}
+    /// the goal is filled. `goals` are the assumptions it is stuck on.
+    fn note_stuck_on_goal(&self, _goals: &[DefId]) {}
 }
 
 /// No hints.

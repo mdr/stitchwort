@@ -223,6 +223,27 @@ impl TestMachine {
 }
 
 impl Session {
+    /// Why `test` isn't run: it relies on, or waits for, open goals, which
+    /// it names, or uses an unfinished declaration.
+    fn skip_reason(&self, test: &stitchwort_elab::TestDecl) -> String {
+        use crate::reliance::describe_goals;
+        let (ids, waits) = if self.elab.relies_on_goal(test.def) {
+            (self.elab.goals_relied_on(test.def), false)
+        } else {
+            (self.elab.blocked_on(test.def).into_iter().collect(), true)
+        };
+        let goals = self.goal_places(&ids);
+        let named = describe_goals(&goals, true);
+        match (goals.is_empty(), waits) {
+            (true, _) => match &test.unfinished {
+                Some(uses) => format!("uses {uses}, which has an open goal"),
+                None => "uses a declaration with an open goal".to_string(),
+            },
+            (false, false) => format!("relies on {named}"),
+            (false, true) => format!("can't be checked until {named} is filled"),
+        }
+    }
+
     /// Runs every test of the program loaded so far, using cached results
     /// where possible. The core's and the library's tests aren't the
     /// program's (docs/proposals/std-library.md §4.7): see
@@ -434,10 +455,7 @@ impl Session {
                 // hashing it, then running it unless its result is cached.
                 let _op = g.machine.budget.operation(self.elab.options.limits);
                 if skip_unfinished && self.elab.is_unfinished(test.def) {
-                    let uses = test
-                        .unfinished
-                        .clone()
-                        .unwrap_or_else(|| "a declaration".to_string());
+                    let uses = self.skip_reason(test);
                     return TestResult {
                         name: test.name.clone(),
                         namespace: test.namespace.clone(),

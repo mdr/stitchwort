@@ -235,7 +235,7 @@ fn test_answer(session: &Session, known: &str, with_namespace: bool) -> String {
                 Outcome::Failed => "failed".to_string(),
                 Outcome::OutOfResources(e) => format!("no result: {e}"),
                 Outcome::Skipped => match &r.skipped {
-                    Some(uses) => format!("uses {uses}, which has an open goal"),
+                    Some(reason) => reason.clone(),
                     None => "uses a declaration with an open goal".to_string(),
                 },
             };

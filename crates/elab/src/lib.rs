@@ -389,11 +389,11 @@ impl stitchwort_core::Shown for Elaborator {
     }
 
     fn wants_stuck_mention(&self) -> bool {
-        !self.decl.stuck_on_goal.get()
+        self.decl.stuck_on_goal.borrow().is_empty()
     }
 
-    fn note_stuck_on_goal(&self) {
-        self.decl.stuck_on_goal.set(true);
+    fn note_stuck_on_goal(&self, goals: &[DefId]) {
+        *self.decl.stuck_on_goal.borrow_mut() = goals.to_vec();
     }
 }
 

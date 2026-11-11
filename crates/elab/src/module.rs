@@ -41,6 +41,7 @@
 
 use std::cmp::Reverse;
 use std::collections::BinaryHeap;
+use std::rc::Rc;
 
 use crate::kernel;
 use stitchwort_core::collections::{HashMap, HashSet};
@@ -432,7 +433,7 @@ impl Elaborator {
             // component's.
             self.clear_goals();
             self.decl.failed_mentioned.set(false);
-            self.decl.stuck_on_goal.set(false);
+            self.decl.stuck_on_goal.take();
             let timed = crate::timings::enabled();
             if timed {
                 crate::timings::decl_begin(&self.ev());
@@ -484,7 +485,8 @@ impl Elaborator {
             let position = items[component[0]].position;
             diagnostics.extend(goals.into_iter().map(|d| (position, d)));
             if unfinished {
-                self.mark_unfinished(&component, defs_before, datas_before);
+                let blocked: Rc<[DefId]> = self.decl.stuck_on_goal.borrow().as_slice().into();
+                self.mark_unfinished(&component, defs_before, datas_before, &blocked);
             }
             // A component that failed leaves nothing behind for the next,
             // and anything it left declared is failed, so later uses fail
@@ -792,7 +794,16 @@ impl Elaborator {
     /// those its items declared, and the ones made while checking it (from
     /// definition `defs` and data type `datas` on) that aren't final: failed,
     /// or pending until the component is abandoned.
-    fn mark_unfinished(&mut self, component: &[usize], defs: usize, datas: usize) {
+    ///
+    /// `blocked` are the assumptions of the open goals it is stuck on, if
+    /// that is why (`Elaborator::blocked_on`).
+    fn mark_unfinished(
+        &mut self,
+        component: &[usize],
+        defs: usize,
+        datas: usize,
+        blocked: &Rc<[DefId]>,
+    ) {
         let g = &self.ev();
         let mut def_ids: Vec<DefId> = (component.iter())
             .flat_map(|i| self.unit.module.item_defs.get(i).into_iter().flatten())
@@ -811,6 +822,10 @@ impl Elaborator {
         let owners = &self.session.owners;
         for id in def_ids {
             self.tables.unfinished_defs.insert(owners, id, ());
+            self.session
+                .blocked
+                .borrow_mut()
+                .insert(id, blocked.clone());
         }
         for d in data_ids {
             self.tables.unfinished_datas.insert(owners, d, ());
@@ -844,7 +859,7 @@ impl Elaborator {
             .map(|d| (d, self.unit.module.items[d.item].name.as_str()))
             .collect();
         let blamed = !failed.is_empty() && self.decl.failed_mentioned.get();
-        if !blamed && !self.decl.stuck_on_goal.get() {
+        if !blamed && self.decl.stuck_on_goal.borrow().is_empty() {
             return;
         }
         // Blamed on a declaration with errors if there is one; if they're

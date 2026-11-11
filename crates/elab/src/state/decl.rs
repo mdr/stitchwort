@@ -31,12 +31,13 @@ pub(crate) struct Decl {
     /// blame is decided after it. So [`Decl::reset`] keeps it, the
     /// component's start clears it, and a rewind empties it.
     pub(crate) failed_mentioned: Cell<bool>,
-    /// Whether an error message has shown a term that, computed, is stuck
-    /// on an open goal's assumption since the component's check began: its
-    /// errors then can't be decided until the goal is filled
+    /// The open goals' assumptions an error message has shown a term stuck
+    /// on, once computed, since the component's check began (the first such
+    /// message's): its errors then can't be decided until the goals are
+    /// filled
     /// (`blame_failed_dependency`). Kept, cleared and emptied as
     /// [`Self::failed_mentioned`] is.
-    pub(crate) stuck_on_goal: Cell<bool>,
+    pub(crate) stuck_on_goal: RefCell<Vec<stitchwort_core::DefId>>,
     /// While a test is checked: the comparisons in it whose sides are
     /// shown when it fails (`probe.rs`).
     pub(crate) sides_capture: RefCell<SidesCapture>,
@@ -193,10 +194,10 @@ impl Decl {
     /// [`Self::stuck_on_goal`].
     pub(crate) fn reset(&mut self) {
         let failed_mentioned = self.failed_mentioned.get();
-        let stuck_on_goal = self.stuck_on_goal.get();
+        let stuck_on_goal = self.stuck_on_goal.take();
         *self = Decl {
             failed_mentioned: Cell::new(failed_mentioned),
-            stuck_on_goal: Cell::new(stuck_on_goal),
+            stuck_on_goal: RefCell::new(stuck_on_goal),
             ..Decl::default()
         };
     }
@@ -205,7 +206,7 @@ impl Decl {
     pub(crate) fn rewind(&mut self) {
         self.reset();
         self.failed_mentioned.set(false);
-        self.stuck_on_goal.set(false);
+        self.stuck_on_goal.take();
     }
 
     /// The first field that isn't empty, if any: none should be between

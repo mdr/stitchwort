@@ -20,6 +20,7 @@ pub mod live;
 pub mod marks;
 pub mod nav;
 pub mod project;
+pub mod reliance;
 pub mod rename;
 pub mod render;
 pub mod rewind;

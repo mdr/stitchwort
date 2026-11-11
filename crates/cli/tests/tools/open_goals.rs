@@ -67,10 +67,7 @@ fn without_the_setting_or_with_fail_open_goals_fail_the_check() {
         let stderr = text(&out.stderr);
         assert_eq!(out.status.code(), Some(1), "{name}: {stderr}");
         assert!(stderr.contains("[GOAL] Goal: in `exercise`"), "{stderr}");
-        assert!(
-            stderr.contains("2 goals open: the declarations"),
-            "{stderr}"
-        );
+        assert!(stderr.contains("2 goals open\n"), "{stderr}");
     }
 }
 
@@ -101,7 +98,7 @@ fn a_test_that_reaches_an_open_goal_is_skipped_under_warn() {
     assert_eq!(out.status.code(), Some(0), "{stdout}{stderr}");
     assert!(stdout.contains("✓ one is one"), "{stdout}");
     assert!(
-        stdout.contains("skipped: uses two, which has an open goal"),
+        stdout.contains("skipped: relies on `two`'s goal ("),
         "{stdout}"
     );
     assert!(stdout.contains("1 passed, 0 failed, 1 skipped"), "{stdout}");
@@ -125,10 +122,7 @@ fn without_the_setting_a_test_that_reaches_an_open_goal_still_fails() {
     let _ = std::fs::remove_dir_all(&dir);
     let stderr = text(&out.stderr);
     assert_eq!(out.status.code(), Some(1), "{stderr}");
-    assert!(
-        stderr.contains("2 goals open: the declarations"),
-        "{stderr}"
-    );
+    assert!(stderr.contains("2 goals open\n"), "{stderr}");
 }
 
 #[test]
@@ -183,12 +177,30 @@ fn users_of_an_open_goal_are_checked_and_stay_unfinished() {
     let audit = stitchwort(&dir, &["audit", "--no-search"]);
     let stdout = text(&audit.stdout);
     assert_eq!(audit.status.code(), Some(1), "{stdout}");
-    for name in ["Book.uses", "Book.twoIsTwo", "Book.twoIsThree"] {
+    for name in ["Book.uses", "Book.twoIsTwo"] {
         assert!(
-            stdout.contains(&format!("✗ {name}\n    fail: unfinished")),
+            stdout.contains(&format!("✗ {name}\n    fail: relies on an open goal: ")),
             "{stdout}"
         );
     }
+    assert!(
+        stdout.contains("✗ Book.twoIsThree\n    fail: can't be checked until `two`'s goal ("),
+        "{stdout}"
+    );
+    // `check` says which are checked assuming goals hold and which aren't
+    // checked at all.
+    assert!(
+        stderr.contains("declarations rely on open goals, checked assuming they hold"),
+        "{stderr}"
+    );
+    assert!(
+        stderr.contains("1 declaration can't be checked until a goal is filled"),
+        "{stderr}"
+    );
+    assert!(
+        stderr.contains("Book.twoIsThree  needs `two`'s goal ("),
+        "{stderr}"
+    );
     std::fs::write(
         dir.join("src/u.sw"),
         "namespace Book\n\n\
@@ -259,4 +271,81 @@ fn only_a_use_stuck_on_a_goal_waits_for_it() {
         stderr.contains("`Book.double 2` and `5` aren't equal"),
         "{stderr}"
     );
+}
+
+/// `goal` without `--at` lists every open goal, what relies on it and what
+/// waits for it (D3505), and `axioms` names the goals instead of refusing.
+#[test]
+fn goal_lists_every_open_goal_with_what_relies_on_it() {
+    let dir = project("goal-list", "check:\n  open-goals: warn\n");
+    std::fs::write(
+        dir.join("src/u.sw"),
+        "namespace Book\n\n\
+         theorem uses (n: Nat): 0 + n = n := exercise n\n\n\
+         theorem twoIsThree: two = 3 := rfl\n",
+    )
+    .unwrap();
+    let out = stitchwort(&dir, &["goal"]);
+    let stdout = text(&out.stdout);
+    assert_eq!(out.status.code(), Some(0), "{stdout}{}", text(&out.stderr));
+    assert!(stdout.starts_with("2 goals open\n"), "{stdout}");
+    assert!(stdout.contains("`Book.exercise`  "), "{stdout}");
+    assert!(
+        stdout.contains("  ⊢ n = n\n  relied on by: Book.uses\n"),
+        "{stdout}"
+    );
+    assert!(
+        stdout.contains("can't be checked until it is filled: Book.twoIsThree"),
+        "{stdout}"
+    );
+    let json = stitchwort(&dir, &["goal", "--json"]);
+    let json: serde_json::Value = serde_json::from_slice(&json.stdout).expect("one JSON object");
+    assert_eq!(json["open"], 2);
+    let goals = json["goals"].as_array().unwrap();
+    let exercise = goals
+        .iter()
+        .find(|g| g["declaration"] == "Book.exercise")
+        .unwrap();
+    assert_eq!(exercise["reliedOnBy"], serde_json::json!(["Book.uses"]));
+    assert_eq!(exercise["blocking"], serde_json::json!([]));
+    let axioms = stitchwort(&dir, &["axioms", "Book.uses"]);
+    let _ = std::fs::remove_dir_all(&dir);
+    let stdout = text(&axioms.stdout);
+    assert_eq!(axioms.status.code(), Some(0), "{stdout}");
+    assert!(
+        stdout.contains("open goal in `Book.exercise` ("),
+        "{stdout}"
+    );
+}
+
+/// A goal that mentions an earlier `?` shows it as `?`, not as the name of
+/// the assumption made for it (SW-2837, N3); a `decreasing` obligation and
+/// a test are named by the declaration the reader wrote (N4, N5).
+#[test]
+fn goals_show_earlier_holes_as_question_marks_and_owners_as_written() {
+    let dir = project("names", "check:\n  open-goals: warn\n");
+    std::fs::write(
+        dir.join("src/n.sw"),
+        "namespace Book\n\n\
+         def pick (n: Nat): Nat :=\n  let x: Nat := ?\n  let y: Nat := x + n\n  ?\n\n\
+         def gcd2 (a: Nat) (b: Nat): Nat\n    decreasing b\n:=\n  \
+         if h: b = 0 then a else gcd2 b (a % b) [decreasing := ?]\n\n\
+         test \"never\" := ?\n",
+    )
+    .unwrap();
+    let out = stitchwort(&dir, &["goal", "--json"]);
+    let shown = stitchwort(&dir, &["check"]);
+    let _ = std::fs::remove_dir_all(&dir);
+    let stderr = text(&shown.stderr);
+    assert!(stderr.contains("x: Nat := ?\n"), "{stderr}");
+    assert!(stderr.contains("y: Nat := ? + n"), "{stderr}");
+    let json: serde_json::Value = serde_json::from_slice(&out.stdout).expect("one JSON object");
+    let names: Vec<&str> = json["goals"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|g| g["declaration"].as_str().unwrap())
+        .collect();
+    assert!(names.contains(&"Book.gcd2"), "{names:?}");
+    assert!(names.contains(&"Book.test \"never\""), "{names:?}");
 }

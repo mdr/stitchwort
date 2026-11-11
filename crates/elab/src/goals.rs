@@ -700,7 +700,7 @@ impl Elaborator {
         // Printing a goal that mentions a failed declaration isn't an error
         // message showing it (`Decl::failed_mentioned`).
         let mentioned = self.decl.failed_mentioned.get();
-        let stuck = self.decl.stuck_on_goal.get();
+        let stuck = self.decl.stuck_on_goal.take();
         let printed: Vec<Found> = pending
             .iter()
             .map(|p| {
@@ -722,7 +722,7 @@ impl Elaborator {
             })
             .collect();
         self.decl.failed_mentioned.set(mentioned);
-        self.decl.stuck_on_goal.set(stuck);
+        *self.decl.stuck_on_goal.borrow_mut() = stuck;
         let mut goals = self.goals.borrow_mut();
         for found in printed {
             goals.found.retain(|f| f.span != found.span);
