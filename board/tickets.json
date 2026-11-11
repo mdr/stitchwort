@@ -1,5 +1,5 @@
 {
-  "next": 2950,
+  "next": 2951,
   "tickets": [
     {
       "id": 47,
@@ -31436,6 +31436,19 @@
       "labels": [],
       "epic": "test-infra",
       "body": "\nModel result: DeepSeek, worked, ~8 min (est. 15). test:example NAME=syntax-error-lost-name: 7/7 incl. rejected_projects.",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2950,
+      "title": "[Opus] Soundness fuzz 0x2c01 (4f63e10f5): a mutant of Rogue.Proofs.terrainColumns (src/Rogue/Proofs/Bounds.sw, statement+closer mutation) took over 90 s to check and was stopped by the cap; reproducer on Overmind at target/soundness-fuzz/2c01-2894-4-expensive.sw. Find why checking it is so slow (a hang risk for an editor user making the same edit)",
+      "status": "backlog",
+      "agent": "Opus",
+      "where": "",
+      "labels": [],
+      "epic": "audit-fuzzing",
+      "body": "",
       "created": "2026-11-11",
       "updated": "2026-11-11",
       "commits": []
