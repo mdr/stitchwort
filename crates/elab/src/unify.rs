@@ -4511,10 +4511,12 @@ mod tests {
         };
         let before = g.machine.budget.total_work();
         assert!(unify(g, 4, &lam(0), &lam(1)).unwrap());
+        // The shortcut charges a step per pair of parts it compares
+        // (`value::identical_within`), and runs neither body.
         assert_eq!(
             g.machine.budget.total_work() - before,
-            1,
-            "one step: the shortcut"
+            8,
+            "the shortcut's walk, nothing run"
         );
         assert!(g.meta_solution(m).is_none());
     }
