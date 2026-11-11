@@ -6,7 +6,7 @@
 //! has all its parameters *and* its case tree can take a step. This keeps
 //! comparison from unfolding recursive definitions forever. See `docs/core.md`.
 
-use crate::collections::{HashMap, QuickHasher};
+use crate::collections::{HashMap, HashSet, QuickHasher};
 use crate::ev::Ev;
 use std::rc::Rc;
 
@@ -3429,7 +3429,7 @@ fn conv_with(
             ConvTask::Values(level, a, b) => conv_step(g, level, a, b, &mut work, memo, mode)?,
             // Function types' codomains, compared once their domains are.
             // The same function gives the same codomain (see `same_closure`).
-            ConvTask::Codomains(_, b1, b2) if same_closure(&b1, &b2) => true,
+            ConvTask::Codomains(_, b1, b2) if same_closure(g, &b1, &b2)? => true,
             ConvTask::Codomains(level, b1, b2) => {
                 let fresh = Value::var(level);
                 work.push(ConvTask::Values(
@@ -3690,7 +3690,7 @@ fn conv_step(
         }
         // The same function, recognised without running it: comparing its
         // body applied to a fresh variable would find the same value twice.
-        (Value::Lam(_, _, b1), Value::Lam(_, _, b2)) if same_closure(b1, b2) => true,
+        (Value::Lam(_, _, b1), Value::Lam(_, _, b2)) if same_closure(g, b1, b2)? => true,
         (Value::Lam(_, _, b1), Value::Lam(_, _, b2)) => {
             work.push(ConvTask::Values(
                 level + 1,
@@ -4828,8 +4828,9 @@ fn shape_hash(g: &Ev, cache: &mut ShapeCache, value: &Value) -> Result<u64> {
 // whatever running the two bodies could observe, it would observe the same in
 // both. When the closures aren't identical, nothing is concluded and the
 // comparison runs as before; so this can only skip work that would have
-// answered "equal", never change an answer (apart from not running out of
-// resources where the long way would have).
+// answered "equal", never change an answer, only whether the comparison
+// runs out of resources: the walk costs a budget step per pair of parts it
+// compares, each pair of shared parts once (`identical_within`).
 //
 // The elaborator's unification (`crates/elab/src/unify.rs`) uses it too:
 // unifying identical values succeeds without solving any metavariable (a
@@ -4878,42 +4879,49 @@ fn shortcuts_disabled() -> bool {
 /// Whether closures `a` and `b` are identical: the same body term (ignoring
 /// names and source locations) and, for each variable it uses from its
 /// environment, identical values. Variables the body doesn't use can differ:
-/// they're never looked at.
-pub fn same_closure(a: &Closure, b: &Closure) -> bool {
-    !shortcuts_disabled() && identical(Same::Closures(a, b), None)
+/// they're never looked at. A budget step per pair of parts compared
+/// ([`identical_within`]); running out is an error, never "different".
+pub fn same_closure(g: &Ev, a: &Closure, b: &Closure) -> Result<bool> {
+    if shortcuts_disabled() {
+        return Ok(false);
+    }
+    identical_within(Same::Closures(a, b), None, Some(g))
 }
 
 /// [`same_closure`], with a solved metavariable alike to its solution: where
 /// a value headed by one differs from the value on the other side, it is
 /// compared again with the solution applied. For the elaborator.
-pub fn same_closure_solved(g: &Ev, a: &Closure, b: &Closure) -> bool {
-    !shortcuts_disabled() && identical(Same::Closures(a, b), Some(g))
+pub fn same_closure_solved(g: &Ev, a: &Closure, b: &Closure) -> Result<bool> {
+    if shortcuts_disabled() {
+        return Ok(false);
+    }
+    identical_within(Same::Closures(a, b), Some(g), Some(g))
 }
 
 /// Whether `a` and `b`, which differ as they are, are alike once a solved
-/// metavariable heading either is replaced by its solution ([`identical`]
-/// with `g`). `false` if neither is headed by one, or if applying a
-/// solution runs out of resources (the caller then takes the long way,
-/// which reports that).
+/// metavariable heading either is replaced by its solution
+/// ([`identical_within`] with `g`), charging `charge` as [`identical_within`] does. `false` if
+/// neither is headed by one, or if applying a solution runs out of
+/// resources (the caller then takes the long way, which reports that).
 #[cold]
 #[inline(never)]
-fn same_when_solved(g: &Ev, a: &Value, b: &Value) -> bool {
+fn same_when_solved(g: &Ev, a: &Value, b: &Value, charge: Option<&Ev>) -> Result<bool> {
     let solved =
         |v: &Value| matches!(v, Value::Neutral(Head::Meta(m), _) if g.meta_solution(*m).is_some());
     if !solved(a) && !solved(b) {
-        return false;
+        return Ok(false);
     }
     let (Ok(a), Ok(b)) = (force_solved(g, a.clone()), force_solved(g, b.clone())) else {
-        return false;
+        return Ok(false);
     };
-    identical(Same::Values(&a, &b), Some(g))
+    identical_within(Same::Values(&a, &b), Some(g), charge)
 }
 
 /// Whether two terms are alike apart from names and source locations, as
 /// [`same_closure`] compares bodies. The elaborator uses it to find the
 /// same recursive call written twice (`crates/elab/src/decreasing.rs`).
 pub fn same_term(a: &Term, b: &Term) -> bool {
-    identical(Same::Terms(a, b), None)
+    identical(Same::Terms(a, b))
 }
 
 /// A pair still to compare for [`identical`].
@@ -4923,13 +4931,30 @@ enum Same<'v> {
     Terms(&'v Term, &'v Term),
 }
 
+impl Same<'_> {
+    /// What the pair is and where its two sides are, for
+    /// [`identical_within`]'s record of pairs compared.
+    fn addresses(&self) -> (u8, usize, usize) {
+        fn at<T>(x: &T) -> usize {
+            std::ptr::from_ref(x) as usize
+        }
+        match self {
+            Same::Values(a, b) => (0, at(*a), at(*b)),
+            Same::Closures(a, b) => (1, at(*a), at(*b)),
+            Same::Terms(a, b) => (2, at(*a), at(*b)),
+        }
+    }
+}
+
+/// How many pairs [`identical_within`] compares before it starts recording
+/// them: most comparisons are smaller, and a record would only slow them.
+const IDENTICAL_UNRECORDED: usize = 64;
+
 /// Whether two values, closures or terms are exactly alike (see
-/// [`same_closure`]). A work list, not recursion, as values can nest deeply.
-/// No evaluation: the cost is at most the size of the smaller side. With
-/// `g`, a solved metavariable is alike to its solution
-/// ([`same_when_solved`]), which applies the solution.
-fn identical(first: Same, g: Option<&Ev>) -> bool {
-    identical_within(first, g, None).unwrap_or(false)
+/// [`same_closure`]), uncharged: for [`same_term`], whose callers have no
+/// budget. No evaluation; the cost is as for [`identical_within`].
+fn identical(first: Same) -> bool {
+    identical_within(first, None, None).unwrap_or(false)
 }
 
 /// [`identical`] at a budget step per pair of layers compared, for the
@@ -4941,20 +4966,42 @@ fn identical_charged(g: &Ev, first: Same) -> Result<bool> {
 
 /// [`identical`], charging a step per pair of layers to `charge`'s budget
 /// where given (and so failing only when that runs out).
+///
+/// Values, closures' environments and terms share parts, so walked as trees
+/// they can be exponentially larger than they are in memory: a value built
+/// by doubling `n` times is `n` cells but `2ⁿ` paths (SW-2730: one
+/// comparison walked millions of pairs). So once a walk is past
+/// [`IDENTICAL_UNRECORDED`] pairs, each pair of parts compared is recorded
+/// by the two addresses, and a pair met again is skipped: the answer is the
+/// conjunction over all pairs, and a pair at the same two addresses is the
+/// same two parts, borrowed and so unchanged for the whole walk, with the
+/// same answer. Skipping one can't turn "different" into "alike". The cost
+/// is then at most the number of distinct pairs of parts reached, which is
+/// at most the smaller side's size as a tree, and about its size in memory
+/// where both sides share alike.
 fn identical_within(first: Same, g: Option<&Ev>, charge: Option<&Ev>) -> Result<bool> {
     let mut work = vec![first];
+    let mut walked = 0usize;
+    let mut seen: HashSet<(u8, usize, usize)> = HashSet::default();
     while let Some(pair) = work.pop() {
         if let Some(charge) = charge {
             charge.machine.budget.step()?;
+        }
+        walked += 1;
+        if walked > IDENTICAL_UNRECORDED && !seen.insert(pair.addresses()) {
+            continue;
         }
         let alike = match pair {
             Same::Values(a, b) => {
                 let len = work.len();
                 same_layer(a, b, &mut work)
-                    || g.is_some_and(|g| {
-                        work.truncate(len);
-                        same_when_solved(g, a, b)
-                    })
+                    || match g {
+                        Some(g) => {
+                            work.truncate(len);
+                            same_when_solved(g, a, b, charge)?
+                        }
+                        None => false,
+                    }
             }
             Same::Closures(a, b) => same_closure_layer(a, b, &mut work),
             Same::Terms(a, b) => same_term_layer(a, b, &mut work),
@@ -5271,6 +5318,20 @@ mod tests {
         Value::Lam("x".into(), Icit::Explicit, c)
     }
 
+    /// [`same_closure`] with a kernel's default budget.
+    fn same(a: &Closure, b: &Closure) -> bool {
+        let g = crate::globals::Kernel::default();
+        same_closure(&g.ev(), a, b).unwrap()
+    }
+
+    /// A pair of `[x, x]` nested `depth` deep around `leaf`, each level's
+    /// two fields one value shared: `depth` cells, `2^depth` paths.
+    fn doubled(depth: usize, leaf: Value) -> Value {
+        (0..depth).fold(leaf, |x, _| {
+            Value::Ctor(DataId(0), 0, Values::from(vec![x.clone(), x]))
+        })
+    }
+
     /// `conv` with and without the shortcut, which must agree; and the steps
     /// each took.
     fn conv_both(g: &Ev, a: &Value, b: &Value) -> (bool, u64, u64) {
@@ -5471,7 +5532,7 @@ mod tests {
                 rc(call_last()),
             ),
         );
-        assert!(same_closure(&a, &b));
+        assert!(same(&a, &b));
         let g = crate::globals::Kernel::default();
         let (equal, with, without) = conv_both(&g.ev(), &lam(a), &lam(b));
         assert!(equal);
@@ -5495,7 +5556,7 @@ mod tests {
             )
         };
         let (x, y) = (wrap(a), wrap(b));
-        assert!(identical(Same::Values(&x, &y), None));
+        assert!(identical(Same::Values(&x, &y)));
         let mut shared = ShapeCache::default();
         let hash = shape_hash(&g.ev(), &mut shared, &x).unwrap();
         assert_eq!(hash, shape_hash(&g.ev(), &mut shared, &y).unwrap());
@@ -5506,7 +5567,7 @@ mod tests {
         // A used variable's value counts.
         let c = closure(vec![Value::var(7), Value::var(4)], call_last());
         let z = wrap(c);
-        assert!(!identical(Same::Values(&x, &z), None));
+        assert!(!identical(Same::Values(&x, &z)));
         assert_ne!(hash, shape_hash(&g.ev(), &mut shared, &z).unwrap());
     }
 
@@ -5514,7 +5575,7 @@ mod tests {
     fn a_different_value_for_a_used_variable_is_not_the_same_closure() {
         let a = closure(vec![Value::var(3)], call_last());
         let b = closure(vec![Value::var(4)], call_last());
-        assert!(!same_closure(&a, &b));
+        assert!(!same(&a, &b));
         let g = crate::globals::Kernel::default();
         assert!(!conv_both(&g.ev(), &lam(a), &lam(b)).0);
     }
@@ -5541,16 +5602,13 @@ mod tests {
         let unknown = Value::Neutral(Head::Meta(0), Spine::from(Vec::new()));
         let a = closure(vec![unknown], call_last());
         let b = closure(vec![Value::var(3)], call_last());
-        assert!(!same_closure_solved(&ev, &a, &b), "unsolved");
+        assert!(!same_closure_solved(&ev, &a, &b).unwrap(), "unsolved");
         *metas.0.borrow_mut() = Some(Value::var(3));
-        assert!(same_closure_solved(&ev, &a, &b));
-        assert!(
-            !same_closure(&a, &b),
-            "the kernel's form looks at no solution"
-        );
+        assert!(same_closure_solved(&ev, &a, &b).unwrap());
+        assert!(!same(&a, &b), "the kernel's form looks at no solution");
         *metas.0.borrow_mut() = Some(Value::var(4));
         assert!(
-            !same_closure_solved(&ev, &a, &b),
+            !same_closure_solved(&ev, &a, &b).unwrap(),
             "solved with another value"
         );
     }
@@ -5562,12 +5620,12 @@ mod tests {
             vec![Value::var(3)],
             Term::App(rc(Term::Var(1)), rc(Term::Var(1)), Icit::Explicit),
         );
-        assert!(!same_closure(&a, &b));
+        assert!(!same(&a, &b));
         let implicit = closure(
             vec![Value::var(3)],
             Term::App(rc(Term::Var(1)), rc(Term::Var(0)), Icit::Implicit),
         );
-        assert!(!same_closure(&a, &implicit));
+        assert!(!same(&a, &implicit));
         let g = crate::globals::Kernel::default();
         assert!(!conv_both(&g.ev(), &lam(a.clone()), &lam(b)).0);
         // (Conversion ignores how an argument is passed, so this pair is
@@ -5580,9 +5638,47 @@ mod tests {
         let inner = |n| lam(closure(vec![Value::var(n)], call_last()));
         let a = closure(vec![inner(3)], call_last());
         let b = closure(vec![inner(3)], call_last());
-        assert!(same_closure(&a, &b));
+        assert!(same(&a, &b));
         let c = closure(vec![inner(4)], call_last());
-        assert!(!same_closure(&a, &c));
+        assert!(!same(&a, &c));
+    }
+
+    /// SW-2730: two closures over separately built but alike values that
+    /// share their parts are compared once per pair of parts, not once per
+    /// path: as trees these are 2^60 pairs. Conversion takes the shortcut
+    /// too, and a difference at the bottom is still found.
+    #[test]
+    fn shared_parts_are_compared_once() {
+        let g = crate::globals::Kernel::default();
+        let a = closure(vec![doubled(60, Value::var(3))], call_last());
+        let b = closure(vec![doubled(60, Value::var(3))], call_last());
+        let before = g.ev().machine.budget.total_work();
+        assert!(same(&a, &b));
+        assert!(conv(&g.ev(), 0, &lam(a.clone()), &lam(b)).unwrap());
+        assert!(g.ev().machine.budget.total_work() - before < 2_000);
+        let c = closure(vec![doubled(60, Value::var(4))], call_last());
+        assert!(!same(&a, &c));
+    }
+
+    /// The shortcut's walk costs budget steps, so a large one runs out of
+    /// budget (`E-RESOURCE`) rather than running uncharged.
+    #[test]
+    fn the_same_closure_walk_is_charged() {
+        let g = crate::globals::Kernel::default();
+        let long = || {
+            (0..5_000).fold(Value::var(3), |x, n| {
+                Value::Ctor(DataId(0), 0, Values::from(vec![x, Value::var(n)]))
+            })
+        };
+        let a = closure(vec![long()], call_last());
+        let b = closure(vec![long()], call_last());
+        let limits = crate::budget::Limits {
+            work: 1_000,
+            ..crate::budget::Limits::for_stack(1 << 20)
+        };
+        let ev = g.ev();
+        let _operation = ev.machine.budget.operation(limits);
+        assert!(same_closure(&ev, &a, &b).is_err());
     }
 
     #[test]
@@ -5592,7 +5688,7 @@ mod tests {
         let eta = lam(closure(vec![f.clone()], call_last()));
         let a = closure(vec![f], call_last());
         let b = closure(vec![eta], call_last());
-        assert!(!same_closure(&a, &b));
+        assert!(!same(&a, &b));
         let g = crate::globals::Kernel::default();
         assert!(conv_both(&g.ev(), &lam(a), &lam(b)).0);
     }
