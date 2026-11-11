@@ -11,10 +11,18 @@ export LC_ALL=C
 root="$(cd "$1" && pwd)"
 mkdir -p "$2"
 out="$(cd "$2" && pwd)/std.bundle"
+# Written beside it and renamed into place, so two builds at once (a
+# verifier's and another job's) can't interleave their writes: they once
+# made a bundle that started part way through a file, which the compiler
+# refused ("bad length in the bundle header").
+part="$(mktemp "$out.XXXXXX")"
+trap 'rm -f "$part"' EXIT
 cd "$root/crates/elab/src/std"
-: >"$out"
 for path in $(find . -type f \( -name '*.sw' -o -path ./core/order.txt \) | sed 's|^\./||' | sort); do
-  printf '%s %s\n' "$path" "$(wc -c <"$path" | tr -d ' ')" >>"$out"
-  cat "$path" >>"$out"
+  printf '%s %s\n' "$path" "$(wc -c <"$path" | tr -d ' ')" >>"$part"
+  cat "$path" >>"$part"
 done
+chmod 644 "$part"
+mv "$part" "$out"
+trap - EXIT
 echo "bundled the standard library into $out"

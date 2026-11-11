@@ -407,7 +407,7 @@ impl stitchwort_core::Shown for Elaborator {
     fn note_failed_mentioned(&self, def: DefId) {
         self.decl.failed_mentioned.set(true);
         // One of another namespace's: the declaration waits for it.
-        let path = self.kernel.def(def).path().to_string();
+        let path = self.kernel.def(def).name().to_string();
         if !self.unit.module.names.contains(&path) {
             crate::module::note_failed_used(&path);
         }
