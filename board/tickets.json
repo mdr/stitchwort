@@ -30212,15 +30212,17 @@
     {
       "id": 2856,
       "title": "Stage 3 reporting follow-ups (SW-2806): is_generated doesn't know .unfold names (gcd2.unfold counted as written); written() name heuristic may count derived instances; goals_relied_on walks per declaration without a memo; a declaration stuck on several goals lists only the first message's goals",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2856",
       "labels": [],
       "epic": "proof-automation",
-      "body": "",
+      "body": "\n\nProgress: (1) is_generated now recognises gcd2.unfold, and any declaration made for another one (a type's induct, inductMem, size, ext, update lemmas), by span plus name prefix (Generated in audit.rs). (2) written() uses it; the old name heuristic is subsumed. (3) goals_relied_on returns early via the cached relies_on walk for a declaration that relies on none; no measurable time change on sf/ (goal 0.9 s either way). (4) note_stuck_on_goal merges every message's goals instead of the first only. Tests: two added in crates/cli/tests/tools/open_goals.rs. Left: a full memo of goal sets (not needed on sf/).\n",
       "created": "2026-11-11",
       "updated": "2026-11-11",
-      "commits": []
+      "commits": [
+        "05c231c31"
+      ]
     },
     {
       "id": 2857,
