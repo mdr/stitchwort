@@ -30687,7 +30687,7 @@
     {
       "id": 2892,
       "title": "[Sonnet] Book G1: bundle book/ and sf/ in the playground (bundle-projects.sh accepts the check: key and more than sources: [src]; chapter entries; a link per chapter); covers SW-2723 (docs/proposals/proving-with-stitchwort-outline.md)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
