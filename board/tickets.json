@@ -1,5 +1,5 @@
 {
-  "next": 2785,
+  "next": 2789,
   "tickets": [
     {
       "id": 47,
@@ -29282,6 +29282,58 @@
       "where": "",
       "labels": [],
       "epic": "editor-playground",
+      "body": "",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2785,
+      "title": "Debug-only failures: nesting::long_list_literals and long_list_literals_with_a_small_guard hit the evaluator's stack guard in debug (pass in release); give them a STACK session in debug or make them release-only (SW-2758)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2786,
+      "title": "check::results is quadratic: whole_test re-walks the remaining block at every check level even when expected isn't Prop (SW-2758)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2787,
+      "title": "Uncharged recursion down let chains with no stack check: tail_split (equations.rs) and probe::walk (probe.rs), unconfirmed (SW-2758)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-11",
+      "updated": "2026-11-11",
+      "commits": []
+    },
+    {
+      "id": 2788,
+      "title": "Debug std-loading tests now take 63-190 s each on STACK (SW-2758): measure the debug driver suite's total and decide whether to make them release-only",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
       "body": "",
       "created": "2026-11-11",
       "updated": "2026-11-11",
