@@ -1,5 +1,5 @@
 {
-  "next": 2970,
+  "next": 2972,
   "tickets": [
     {
       "id": 47,
@@ -31354,15 +31354,17 @@
     {
       "id": 2943,
       "title": "[Opus] Tests with errors stage 2 (docs/proposals/tests-with-errors.md): reporting (check error summary, test with its own error is a failed result, test --json errors, audit verdicts with errors) and implicit uses of failed declarations across namespaces: instance search with a broken Ord instance gives a fresh E-TYPE-MISMATCH instead of waiting (SW-2940)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2943",
       "labels": [],
       "epic": "test-infra",
-      "body": "\nStage 6 measurement (12 Nov 00:22, Speedwell, release at 2df61b262+, aoc/ copy, Direction.turnRight broken in Aoc.Common, imported by 189 files): healthy cold 63.3 s, healthy warm 0.8 s; broken with warm cache 26.7 s first run, 7.3 s on repeat (vs 0.8 s healthy); 14 errors, 12 of them E-USES-FAILED. So the cost of checking importers past a broken Common is ~7 s per run, not a cold check; caching waiting namespaces (stage 6) would win back ~6.5 s.",
+      "body": "\nStage 6 measurement (12 Nov 00:22, Speedwell, release at 2df61b262+, aoc/ copy, Direction.turnRight broken in Aoc.Common, imported by 189 files): healthy cold 63.3 s, healthy warm 0.8 s; broken with warm cache 26.7 s first run, 7.3 s on repeat (vs 0.8 s healthy); 14 errors, 12 of them E-USES-FAILED. So the cost of checking importers past a broken Common is ~7 s per run, not a cold check; caching waiting namespaces (stage 6) would win back ~6.5 s.\nBuilt: FailedDecl log; check summary error lines and waiting list; own-error tests are failed results; test --json errors; audit verdicts with errors, status waiting, summary.errors. Not done: implicit uses (failed instance) -> ticket; syntax-broken declarations have no kind -> ticket.\nModel result: Sonnet, worked, 17 min (est. 90)",
       "created": "2026-11-11",
       "updated": "2026-11-12",
-      "commits": []
+      "commits": [
+        "9243fc301"
+      ]
     },
     {
       "id": 2944,
@@ -31709,6 +31711,32 @@
       "where": "",
       "labels": [],
       "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-12",
+      "updated": "2026-11-12",
+      "commits": []
+    },
+    {
+      "id": 2970,
+      "title": "[Opus] Tests with errors: a failed instance in another namespace is never registered, so instance search reports 'no Ord instance' / a fresh E-TYPE-MISMATCH instead of waiting (instance colorOrd: Ord Color := True; a < b elsewhere): record failed instances by interface and head type in the session and wait through note_failed_used (SW-2943, design §4.2)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
+      "body": "",
+      "created": "2026-11-12",
+      "updated": "2026-11-12",
+      "commits": []
+    },
+    {
+      "id": 2971,
+      "title": "[Sonnet] Tests with errors: a declaration that fails to parse has no theorem/test kind, so a syntax-broken theorem gets no audit verdict and a syntax-broken test isn't a failed result: record the kind in FailedName or recover the header (SW-2943)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
       "body": "",
       "created": "2026-11-12",
       "updated": "2026-11-12",
