@@ -229,6 +229,12 @@
   .cm-editor .sem-enumMember { color: var(--hl-number); }
   .cm-editor .sem-decl { font-weight: 600; }
   .cm-inlay { color: var(--hl-comment); font-style: italic; pointer-events: none; }
+  /* The line a link opened: it fades out after the editor has scrolled to it. */
+  @keyframes link-line-fade { from { background: var(--leaf-soft); } to { background: transparent; } }
+  .cm-editor .cm-link-line { animation: link-line-fade 1.5s ease-out both; }
+  @media (prefers-reduced-motion: reduce) {
+    .cm-editor .cm-link-line { animation: none; background: var(--leaf-soft); }
+  }
 
   /* A project's files: a row of tabs that scrolls inside itself (so the page
      never scrolls sideways), and the controls for the open file. */
@@ -1989,7 +1995,9 @@ export def area: Shape -> Nat
   // as `-` (`#example/proofs-about-lists`), and `#aoc/YYYY/dayNN`
   // (`#aoc/2025/day02`). A chapter project's entries are `#sf/basics` (the
   // Software Foundations port) and `#book/3` (the book's chapter 3): the entry's
-  // `slug` in the manifest.
+  // `slug` in the manifest. A project entry may name a line (`#book/2:167`)
+  // or, with a line, another file of the project (`#book/2:src/Book/Chapter1.sw:30`);
+  // the path is one of the manifest's `files`, and lines are 1-based.
   const linkNotice = document.getElementById("link-notice");
   const slugOf = (title) => title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
   const dayNumber = (day) => String(day.open.match(/Day(\d+)\.sw$/)?.[1] ?? "").padStart(2, "0");
@@ -2009,10 +2017,31 @@ export def area: Shape -> Nat
     return ex ? `example/${slugOf(ex.dataset.title)}` : null;
   }
 
-  /** The dropdown value a fragment names, or null (also for anything but plain tokens). */
+  /** The line and file a fragment names, or null when it has no line part. The entry is before the first `:`; a path is before the last. */
+  function lineLinkOf(hash) {
+    const colon = hash.indexOf(":");
+    if (colon < 0) return null;
+    const m = /^(?:([A-Za-z0-9\/._-]+):)?(\d+)$/.exec(hash.slice(colon + 1));
+    return m ? { entry: hash.slice(0, colon), path: m[1] ?? null, line: Number(m[2]) } : null;
+  }
+
+  /** The fragment for a project entry's line: its own file, or `path` when that is another file. */
+  function lineHashFor(id, path, line) {
+    const base = hashFor(id);
+    const name = projectOfId(id);
+    if (!base || !name || project?.name !== name) return null;
+    const day = project.manifest.days[project.day];
+    return path === day.open ? `${base}:${line}` : `${base}:${path}:${line}`;
+  }
+
+  /** The dropdown value a fragment names, or null (also for anything but plain tokens, or a damaged line part). */
   async function idForHash(hash) {
-    if (!/^[A-Za-z0-9\/._-]+$/.test(hash)) return null;
-    const [kind, ...rest] = hash.split("/");
+    const colon = hash.indexOf(":");
+    // A `:` must introduce a line (or path and line); anything else is no link.
+    if (colon >= 0 && lineLinkOf(hash) === null) return null;
+    const entry = colon < 0 ? hash : hash.slice(0, colon);
+    if (!/^[A-Za-z0-9\/._-]+$/.test(entry)) return null;
+    const [kind, ...rest] = entry.split("/");
     const name = rest.join("/");
     if (kind === "example") return rest.length === 1 ? examples.find((ex) => slugOf(ex.dataset.title) === name)?.id ?? null : null;
     if (PROJECT_NAMES.includes(kind)) {
@@ -2029,6 +2058,75 @@ export def area: Shape -> Nat
     const hash = hashFor(id);
     if (hash === null || location.hash === `#${hash}`) return;
     try { history.replaceState(null, "", `#${hash}`); } catch {}
+  }
+
+  /**
+   * The full URL for a line of the open project's file, or null. Only project
+   * entries have line links: a program on its own has no entry to name.
+   */
+  function lineLinkUrl(uri, line) {
+    if (!project) return null;
+    const group = `file:///playground/${project.name}/`;
+    if (!uri.startsWith(group)) return null;
+    const path = uri.slice(group.length);
+    if (!project.manifest.files.includes(path)) return null;
+    const hash = lineHashFor(`${project.name}:${project.day}`, path, line);
+    return hash ? `${location.origin}${location.pathname}#${hash}` : null;
+  }
+
+  // The address bar follows the caret, without history entries. It waits a
+  // moment so that typing (which moves the caret on every key) is not slowed.
+  let caretLinkTimer = 0;
+  function followCaret(uri, head) {
+    const at = project;
+    if (!at) return;
+    const group = `file:///playground/${at.name}/`;
+    if (!uri.startsWith(group)) return;
+    const path = uri.slice(group.length);
+    if (path !== at.open) return;
+    clearTimeout(caretLinkTimer);
+    caretLinkTimer = setTimeout(() => {
+      const view = source.views.get(uri);
+      if (project !== at || at.open !== path || !view) return;
+      const line = view.state.doc.lineAt(Math.min(head, view.state.doc.length)).number;
+      const hash = lineHashFor(`${at.name}:${at.day}`, path, line);
+      if (hash && location.hash !== `#${hash}`) {
+        try { history.replaceState(null, "", `#${hash}`); } catch {}
+      }
+    }, 150);
+  }
+
+  /** Opens the file a line link names (or the entry's own), puts the caret at the line, and shows it briefly. */
+  function showLinkedLine(id, path, line) {
+    const day = project.manifest.days[project.day];
+    const entryOnly = () => {
+      const hash = hashFor(id);
+      if (hash && location.hash !== `#${hash}`) {
+        try { history.replaceState(null, "", `#${hash}`); } catch {}
+      }
+    };
+    let file = path ?? day.open;
+    if (path !== null && !project.manifest.files.includes(path)) {
+      notify(`No such file in this project: ${path}`);
+      if (project.open !== day.open) openFile(day.open);
+      entryOnly();
+      return;
+    }
+    if (project.open !== file) openFile(file);
+    const lines = project.texts.get(file).split("\n").length;
+    if (line < 1 || line > lines) {
+      notify(`No such line in ${tabLabel(file)}: ${line}`);
+      entryOnly();
+      return;
+    }
+    const from = source.offset(line - 1, 0);
+    source.focus();
+    source.reveal(from);
+    source.flashLine(from);
+    const hash = lineHashFor(id, file, line);
+    if (hash && location.hash !== `#${hash}`) {
+      try { history.replaceState(null, "", `#${hash}`); } catch {}
+    }
   }
 
   // Share by URL. A program on its own travels in the fragment, `#s/<text>`:
@@ -2145,6 +2243,8 @@ export def area: Shape -> Nat
       return;
     }
     await loadExample(id);
+    const link = lineLinkOf(hash);
+    if (link && projectOfId(id)) showLinkedLine(id, link.path, link.line);
   }
 
   /** Adds the project's days to the Example dropdown: one group per year
@@ -2689,6 +2789,10 @@ export def area: Shape -> Nat
     load: LOAD,
     onInput: () => { leaveShared(); refresh(); },
     onGoal: showGoal,
+    // The address bar follows the caret's line in a project's file.
+    onCaret: followCaret,
+    // The Cmd+. list's "Copy link to this line"; null where there is no such link.
+    lineLink: lineLinkUrl,
     // A jump to a file of the project, from go to definition or a reference.
     onFile: (path) => { if (!project?.texts.has(path)) return false; openFile(path); return true; },
     onStd: (path) => {
@@ -3034,7 +3138,12 @@ export def area: Shape -> Nat
     if (!hash) return;
     if (hash.startsWith("s/")) { openSharedHash(hash); return; }
     const id = await idForHash(hash);
-    if (id !== null && id === picker.value) return;
+    if (id !== null && id === picker.value) {
+      // The entry is open already; a line part still moves the caret to it.
+      const link = lineLinkOf(hash);
+      if (link && projectOfId(id)) showLinkedLine(id, link.path, link.line);
+      return;
+    }
     openFromHash(hash);
   });
   const savedView = stored("stitchwort.view");

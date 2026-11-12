@@ -48,6 +48,25 @@ function colouring(colour) {
 /** The semantic colours and inlay hints the server last gave a document (the client has neither). */
 const setMarks = StateEffect.define();
 
+/** The line a link opened, shown with `cm-link-line` until the page's CSS has faded it, or null to take it away. */
+const flashLineEffect = StateEffect.define();
+
+function linkLine() {
+  return StateField.define({
+    create: () => Decoration.none,
+    update(value, tr) {
+      value = value.map(tr.changes);
+      for (const e of tr.effects) {
+        if (!e.is(flashLineEffect)) continue;
+        value = e.value === null ? Decoration.none
+          : Decoration.set([Decoration.line({ class: "cm-link-line" }).range(e.value)]);
+      }
+      return value;
+    },
+    provide: (field) => EditorView.decorations.from(field),
+  });
+}
+
 class Hint extends WidgetType {
   constructor(label) { super(); this.label = label; }
   eq(other) { return other.label === this.label; }
@@ -85,6 +104,8 @@ export class Editor {
    *   worker                      URL of lsp-worker.js
    *   module, load                the compiled WebAssembly, and the query string for files it fetches
    *   onInput()                   the text changed (by typing, a format, a code action; not by `value =`)
+   *   onCaret(uri, offset)        the caret moved or the text changed (for the page's line link)
+   *   lineLink(uri, line)         the URL for a line of a project's file, or null
    *   onFile(path)                a jump to a file of the project: the page opens it (and calls `open`)
    *   onStd(path | null)          a library file is shown, or the user's text is back
    *   onGoal(answer, hide)        the goal or expected type at the caret ({goal, context, here}: the answers of `stitchwort/goalAt` and `stitchwort/contextAt`), or null when there is none; `hide` when there is no document to ask about
@@ -311,7 +332,10 @@ export class Editor {
     const { options } = this;
     const input = EditorView.updateListener.of((u) => {
       if (u.docChanged && !this.silent && !readOnly) options.onInput?.();
-      if ((u.selectionSet || u.docChanged) && !readOnly && u.view === this.user) this.scheduleGoal(uri);
+      if ((u.selectionSet || u.docChanged) && !readOnly && u.view === this.user) {
+        this.scheduleGoal(uri);
+        options.onCaret?.(uri, u.view.state.selection.main.head);
+      }
       // A jump within the file leaves a way back.
       if (u.transactions.some((tr) => tr.isUserEvent("select.definition"))) {
         if (this.skipBack) this.skipBack = false;
@@ -329,6 +353,7 @@ export class Editor {
         indentUnit.of("  "), EditorState.tabSize.of(2),
         this.colourField,
         serverMarks(),
+        linkLine(),
         client_plugin(this.client, uri),
         input,
         EditorState.readOnly.of(readOnly),
@@ -452,6 +477,16 @@ export class Editor {
   /** Scrolls `offset` into view without moving the caret. */
   scrollTo(offset) { this.view.dispatch({ effects: EditorView.scrollIntoView(offset, { y: "center" }) }); }
   scrollToCaret() { this.view.dispatch({ effects: EditorView.scrollIntoView(this.view.state.selection.main.head) }); }
+
+  /** Highlights the line at `offset` for a moment; the page's CSS fades it, or shows it plainly if motion is reduced. */
+  flashLine(offset) {
+    const at = this.view.state.doc.lineAt(Math.min(offset, this.view.state.doc.length)).from;
+    this.view.dispatch({ effects: flashLineEffect.of(at) });
+    clearTimeout(this.flashTimer);
+    this.flashTimer = setTimeout(() => {
+      this.view?.dispatch({ effects: flashLineEffect.of(null) });
+    }, 1600);
+  }
 
   /** Where the character at `offset` is drawn: the middle of its box in the viewport, or null if it isn't drawn. */
   coords(offset) {
@@ -741,7 +776,8 @@ export class Editor {
    * Code actions at the selection (the client has no UI for them). The
    * server answers at once, from the goals the last check published (splits
    * need no search); a single plain edit is applied, anything else
-   * (several actions, or "Search for a proof") is offered in a pick list.
+   * (several actions, or "Search for a proof") is offered in a pick list,
+   * with "Copy link to this line" where the page has a line link for it.
    * "Search for a proof" runs the search when it is picked (it takes
    * seconds, the page is told meanwhile) and offers the proofs found in
    * another pick list (D3519).
@@ -794,7 +830,25 @@ export class Editor {
       }
       actions = actions ?? [];
       this.lastCodeActions = actions.map((a) => a.title);
+      const lineLink = () => this.options.lineLink?.(plugin.uri, view.state.doc.lineAt(view.state.selection.main.head).number) ?? null;
+      const copy = lineLink() === null ? null : {
+        label: "Copy link to this line",
+        run: async () => {
+          const link = lineLink();
+          if (!link) return;
+          try {
+            await navigator.clipboard.writeText(link);
+            notice?.("Link copied");
+          } catch {
+            notice?.("The link is in the address bar");
+          }
+        },
+      };
       if (!actions.length) {
+        if (copy) {
+          this.pick(view, "Code actions", [copy]);
+          return true;
+        }
         notice?.("No code action here");
         return true;
       }
@@ -815,10 +869,12 @@ export class Editor {
         return true;
       }
       notice?.("");
-      this.pick(view, "Code actions", actions.map((a) => ({
+      const items = actions.map((a) => ({
         label: a.title,
         run: () => (editsOf(a) ? apply(editsOf(a), a.title, a.command) : a.command && this.searchProof(view, plugin, a.command)),
-      })));
+      }));
+      if (copy) items.unshift(copy);
+      this.pick(view, "Code actions", items);
       return true;
     } finally {
       this.codeActionWaiting.delete(plugin.uri);
