@@ -1735,7 +1735,7 @@ impl Main {
         kind: &'static str,
         make: impl FnOnce(i32) -> Search,
     ) {
-        self.supersede(uri, Some(kind));
+        self.supersede(uri, Some(kind), "A newer request replaced this code action");
         let Some(version) = lock(&self.searches.versions).get(uri).copied() else {
             self.answer_null(id);
             return;
@@ -1775,12 +1775,14 @@ impl Main {
             None => lock(&self.searches.versions).remove(uri),
         };
         lock(&self.searches.panicked).retain(|(u, ..)| u != uri);
-        self.supersede(uri, None);
+        self.supersede(uri, None, "The text changed while looking for code actions");
     }
 
-    /// Stops the searches for `uri` not answered yet, answering them with
-    /// no action (`null`).
-    fn supersede(&self, uri: &Url, kind: Option<&str>) {
+    /// Stops the searches for `uri` not answered yet. A code action is
+    /// answered with `ContentModified` (`reason`), not no action: the person
+    /// asked at a `?` that has a goal, and "No code action here" would be
+    /// false. Others are answered with no answer (`null`).
+    fn supersede(&self, uri: &Url, kind: Option<&str>, reason: &str) {
         let old: Vec<_> = lock(&self.searches.pending)
             .iter()
             .filter(|(_, p)| &p.uri == uri && kind.is_none_or(|k| p.kind == k))
@@ -1788,10 +1790,12 @@ impl Main {
             .collect();
         for (id, p) in old {
             p.cancel.store(true, Ordering::Relaxed);
-            p.answer(
-                &self.connection.sender,
-                Response::new_ok(id, serde_json::Value::Null),
-            );
+            let response = if p.kind == "codeAction" {
+                Response::new_err(id, ErrorCode::ContentModified as i32, reason.to_string())
+            } else {
+                Response::new_ok(id, serde_json::Value::Null)
+            };
+            p.answer(&self.connection.sender, response);
         }
     }
 
