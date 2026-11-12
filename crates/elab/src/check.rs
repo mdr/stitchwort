@@ -2097,7 +2097,7 @@ pub(crate) fn infer_value(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
         Expr::Hole(_) => {
             let ty = cx.fresh_meta();
             let ty = cx.eval(&ty)?;
-            Ok((cx.fresh_meta(), ty))
+            Ok((cx.fresh_meta_of(&ty), ty))
         }
         // A goal where nothing says its type: that's unknown too, and
         // printed as such if nothing works it out.
@@ -2506,7 +2506,11 @@ fn fresh_function_type_in(
 /// abilities, made outside its parameters, as a row doesn't depend on
 /// their values.
 fn inferred_row(cx: &Ctx) -> Result<(Term, Value)> {
-    let row = cx.fresh_meta();
+    let row = match cx.g().env.registry().data(Builtin::Row) {
+        Some(row) => cx.fresh_meta_of(&Value::Data(row, Vec::new().into())),
+        // Only a lambda that performs abilities needs `Row`.
+        None => cx.fresh_meta(),
+    };
     let value = cx.eval(&row)?;
     Ok((row, value))
 }
@@ -3061,7 +3065,7 @@ fn apply_args_postponing(
                 // nested lambdas costs 2^n (SW-2638).
                 let again = cx.e.decl.no_hole_propagation.get() > 0;
                 if again && cx.e.decl.in_place_trial.get() > 0 {
-                    let (placeholder, id) = hold_argument(cx, &mut term, &mut ty, &cod)?;
+                    let (placeholder, id) = hold_argument(cx, &mut term, &mut ty, &dom, &cod)?;
                     after_expected.push((*value, dom, placeholder, id));
                     continue;
                 }
@@ -3083,7 +3087,7 @@ fn apply_args_postponing(
                         first_error.get_or_insert(e);
                     }
                 }
-                let (placeholder, id) = hold_argument(cx, &mut term, &mut ty, &cod)?;
+                let (placeholder, id) = hold_argument(cx, &mut term, &mut ty, &dom, &cod)?;
                 after_expected.push((*value, dom, placeholder, id));
             }
             Arg::NamedExplicit(..) => {
@@ -3131,7 +3135,7 @@ fn apply_args_postponing(
                 // fail on the unknowns they fix, or solve them by a guess
                 // (`P.ext _ _ cases cases` making the second `_` the first).
                 if proof_search(cx, value) && only_lambdas_depend_on_it(&cod.body, &args[i + 1..]) {
-                    let (placeholder, id) = hold_argument(cx, &mut term, &mut ty, &cod)?;
+                    let (placeholder, id) = hold_argument(cx, &mut term, &mut ty, &dom, &cod)?;
                     searches.push((*value, dom, placeholder, id));
                     continue;
                 }
@@ -3148,7 +3152,7 @@ fn apply_args_postponing(
                     && numbers_in_list(value)
                     && crate::interfaces::unsolved_in(cx, &dom)?.is_some()
                 {
-                    let (placeholder, id) = hold_argument(cx, &mut term, &mut ty, &cod)?;
+                    let (placeholder, id) = hold_argument(cx, &mut term, &mut ty, &dom, &cod)?;
                     postponed.push((*value, dom, placeholder, id));
                     continue;
                 }
@@ -3182,7 +3186,7 @@ fn apply_args_postponing(
                             return Err(unit_call_hint(cx, &term, value, &dom, next_is_unit, e));
                         }
                         first_error.get_or_insert(e);
-                        let (placeholder, id) = hold_argument(cx, &mut term, &mut ty, &cod)?;
+                        let (placeholder, id) = hold_argument(cx, &mut term, &mut ty, &dom, &cod)?;
                         after_expected.push((*value, dom, placeholder, id));
                         continue;
                     }
@@ -3356,14 +3360,15 @@ fn proof_search(cx: &Ctx, value: &Expr) -> bool {
 
 /// An explicit argument held back: a placeholder in its place in `term`,
 /// and `ty` the rest of the application's type with the placeholder for
-/// it. The placeholder's value and its unknown.
+/// it, of type `dom`. The placeholder's value and its unknown.
 fn hold_argument(
     cx: &mut Ctx,
     term: &mut Term,
     ty: &mut Value,
+    dom: &Value,
     cod: &Closure,
 ) -> Result<(Value, usize)> {
-    let meta = cx.fresh_meta();
+    let meta = cx.fresh_meta_of(dom);
     let placeholder = cx.eval(&meta)?;
     *ty = cod.apply(&cx.g(), placeholder.clone())?;
     let id = match meta.spine().0 {
@@ -4871,8 +4876,9 @@ pub(crate) fn check_value(
             // compared with it, which waits for it (stage 6).
             if crate::queue::headed_by_pending(cx, &expected)? {
                 let ty = cx.fresh_meta();
-                let x = cx.fresh_meta();
-                let (ty, x) = (cx.eval(&ty)?, cx.eval(&x)?);
+                let ty = cx.eval(&ty)?;
+                let x = cx.fresh_meta_of(&ty);
+                let x = cx.eval(&x)?;
                 let eq = Value::Eq(
                     Rc::new(ty).into(),
                     Rc::new(x.clone()).into(),
@@ -6873,6 +6879,18 @@ pub(crate) enum CtorArg<'a> {
     NamedExplicit(&'a AstName, &'a Expr),
 }
 
+/// An unknown for each of `data`'s parameters, each of its type given the
+/// ones before it.
+fn fresh_params(cx: &Ctx, data: &stitchwort_core::globals::Data) -> Result<Vec<Value>> {
+    let mut params = Vec::new();
+    for (_, ty) in data.params() {
+        let ty = eval(&cx.g(), &params, ty)?;
+        let meta = cx.fresh_meta_of(&ty);
+        params.push(cx.eval(&meta)?);
+    }
+    Ok(params)
+}
+
 /// Elaborates constructor `c` of `d` applied to `args`. The data type's
 /// parameters come from `expected` if given, or are left to unification;
 /// implicit fields not given by name are left to unification too.
@@ -6913,13 +6931,7 @@ fn ctor_app(
     let fallback_params: Vec<Value> = if missing.is_empty() {
         Vec::new()
     } else {
-        data.params()
-            .iter()
-            .map(|_| {
-                let meta = cx.fresh_meta();
-                cx.eval(&meta)
-            })
-            .collect::<Result<_>>()?
+        fresh_params(cx, data)?
     };
     let mut target = expected.cloned();
     for &i in &missing {
@@ -6959,14 +6971,7 @@ fn ctor_app(
             args[..np].to_vec()
         }
         _ if !missing.is_empty() => fallback_params,
-        _ => data
-            .params()
-            .iter()
-            .map(|_| {
-                let meta = cx.fresh_meta();
-                cx.eval(&meta)
-            })
-            .collect::<Result<_>>()?,
+        _ => fresh_params(cx, data)?,
     };
     // A parameter given by name, `[a := Nat]`, is checked against its type
     // and must agree with what `expected` says, if anything. A disagreement
