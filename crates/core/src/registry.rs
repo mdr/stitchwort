@@ -344,6 +344,19 @@ builtins! {
     // `Fin.toNat` and `Fin.ofNatLt` are the identity in the fast runtimes,
     // where a `Fin` is a number (`stitchwort_rt::natives::FinNative`)
     FinToNat = "Fin.toNat": Def,
+    // A case that hypothesis `h: Less = Equal` rules out is filled in as
+    // `Ordering.lessNotEqual h`, the term its written arm would be, not
+    // with a helper of its own (crates/elab/src/cases.rs `contradiction`)
+    Ordering = "Ordering": Data,
+    OrderingLess = "Less": Ctor(Builtin::Ordering),
+    OrderingEqual = "Equal": Ctor(Builtin::Ordering),
+    OrderingGreater = "Greater": Ctor(Builtin::Ordering),
+    LessNotEqual = "Ordering.lessNotEqual": Def => "",
+    LessNotGreater = "Ordering.lessNotGreater": Def => "",
+    EqualNotLess = "Ordering.equalNotLess": Def => "",
+    EqualNotGreater = "Ordering.equalNotGreater": Def => "",
+    GreaterNotLess = "Ordering.greaterNotLess": Def => "",
+    GreaterNotEqual = "Ordering.greaterNotEqual": Def => "",
     // Booleans and decisions
     Bool = "Bool": Data,
     False = "False": Ctor(Builtin::Bool),
