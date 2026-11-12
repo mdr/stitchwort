@@ -22,7 +22,7 @@ use std::path::{Path, PathBuf};
 
 use crate::common;
 
-use stitchwort_cli::driver::{Cache, Outcome, Session, par_map, tier_sample};
+use stitchwort_cli::driver::{Cache, Outcome, Session, Tier, par_map, tier, tier_sample};
 use stitchwort_cli::project::{DiskFiles, Target};
 use stitchwort_cli::render::render;
 use stitchwort_syntax::{Diagnostic, Severity, SourceMap};
@@ -134,6 +134,24 @@ fn share<T>(items: Vec<T>) -> Vec<T> {
     }
 }
 
+/// Rejected examples that run a resource limit out (a value of 10 million
+/// nodes) and so peak at 1.3 to 2.4 GB each. A merge-tier sample that picks
+/// one or two, on different threads, passed the merge tier's 4 GB cap
+/// (SW-2996); they run in the daily and full tiers, and by name.
+const HEAVY: &[&str] = &[
+    "as-written-unconfirmed-copy.sw",
+    "as-written-unconfirmed-slow-check.sw",
+    "as-written-unconfirmed-wrong.sw",
+    "rewrite-solution-too-large.sw",
+    "rewrite-value-too-large.sw",
+];
+
+/// Whether this run leaves out the [`HEAVY`] examples: in the merge and lane
+/// tiers, unless `EXAMPLES` names some.
+fn skips_heavy() -> bool {
+    !filtering() && matches!(tier(), Tier::Merge | Tier::Lane)
+}
+
 fn examples(dir: &str) -> Vec<Example> {
     // A part that matched in another folder or a project still counts: only
     // one that matches nothing anywhere is a mistake.
@@ -149,6 +167,10 @@ fn examples(dir: &str) -> Vec<Example> {
         .map(|entry| entry.expect("readable directory entry").path())
         .filter(|path| path.extension().is_some_and(|ext| ext == "sw"))
         .filter(|path| wanted(&path.file_name().unwrap().to_string_lossy()))
+        .filter(|path| {
+            !(skips_heavy()
+                && HEAVY.contains(&path.file_name().unwrap().to_string_lossy().as_ref()))
+        })
         .collect();
     paths.sort();
 

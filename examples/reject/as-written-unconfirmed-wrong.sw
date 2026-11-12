@@ -14,7 +14,7 @@ def settle (x: Nat) (k: Nat): (rounds: Nat) → Option Nat
     let next := step x k
     if next == x then Some x else settle next k more
 
-def limit: Nat := 1000
+def limit: Nat := 3000
 
 theorem wrongValue (x: Nat) (k: Nat) (y: Nat) (settles: settle x k limit = Some y)
     (q: Option Nat → Prop) (h: q (Some 0)): q (settle x k limit) :=
