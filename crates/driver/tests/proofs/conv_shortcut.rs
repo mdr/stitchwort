@@ -25,8 +25,14 @@ const STACK: usize = 64 * 1024 * 1024;
 /// tests). `parser-count-differs-from-lemma-with-unknown.sw` is answered by
 /// the unifier's record of pairs of calls found different (SW-1521), which
 /// answers "different", not "equal": without it the comparison takes about
-/// 2³⁵ steps (SW-1702).
-const NEEDS_THE_SHORTCUT: &[&str] = &["reject/parser-count-differs-from-lemma-with-unknown.sw"];
+/// 2³⁵ steps (SW-1702). `as-written-unconfirmed-other-rounds.sw` compares
+/// closures holding large shared values: the same-closure shortcut compares
+/// each shared part once, and without it the walk runs out of steps first
+/// (SW-2730, SW-2995).
+const NEEDS_THE_SHORTCUT: &[&str] = &[
+    "reject/parser-count-differs-from-lemma-with-unknown.sw",
+    "reject/as-written-unconfirmed-other-rounds.sw",
+];
 
 fn examples() -> Vec<(String, String)> {
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples");
