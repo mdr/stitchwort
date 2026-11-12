@@ -32132,15 +32132,17 @@
     {
       "id": 2997,
       "title": "[Opus] Tests with errors §11: a namespace importing one with a body syntax error still gets E-NAMESPACE-FAILED in the editor; with SW-2980 the error leaves a real stand-in importers could be checked against (stage 1's failed-namespace rule may now be unnecessary); also the counterexample note for a theorem whose body doesn't parse is lost on the hidden E-UNPARSED-BODY",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-2997",
       "labels": [],
       "epic": "test-infra",
-      "body": "",
+      "body": "\nModel result: Opus, worked, 16 min (est. 120). Orchestrator's call: no separate Opus review: the rely/wait/cache code is unchanged; the lane only removed the editor's bypass and fixed a rewind leak (reviewed).",
       "created": "2026-11-12",
       "updated": "2026-11-12",
-      "commits": []
+      "commits": [
+        "0953fc8e1"
+      ]
     },
     {
       "id": 2998,
