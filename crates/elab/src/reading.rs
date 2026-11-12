@@ -115,7 +115,8 @@ fn folded<T>(g: &Ev, f: impl FnOnce() -> Result<T>) -> Result<T> {
 /// The type of a fact to read, from its type `ty` and its type as written,
 /// where known (a term with the values of its free variables): with gluing
 /// on, `ty` keeps its calls folded already; with it off, the written type
-/// evaluated with calls folded, where that is a test fact.
+/// evaluated with calls folded, where that is a test fact and the same type
+/// as `ty` (a written type picked from the wrong place reads nothing).
 pub(crate) fn as_written(
     cx: &Ctx,
     ty: &Value,
@@ -128,12 +129,25 @@ pub(crate) fn as_written(
     let Some((term, env)) = written else {
         return Ok(ty.clone());
     };
+    // A variable among the written type's values may have been refined
+    // since (a case branch's constructor), as `ty` is: read it from the
+    // context.
+    let env: Vec<Value> = env
+        .into_iter()
+        .map(|v| match &v {
+            Value::Neutral(Head::Var(l, _), spine) if spine.is_empty() && *l < cx.level() => {
+                cx.env[*l].clone()
+            }
+            _ => v,
+        })
+        .collect();
     let value = folded(&g, || Ok(stitchwort_core::value::eval(&g, &env, &term)?))?;
-    Ok(if test_fact_in(&g, &value)?.is_some() {
-        value
-    } else {
-        ty.clone()
-    })
+    if test_fact_in(&g, &value)?.is_none() {
+        return Ok(ty.clone());
+    }
+    // Running out of resources here stops the declaration, as anywhere.
+    let same = stitchwort_core::value::conv(&g, cx.level(), &value, ty)?;
+    Ok(if same { value } else { ty.clone() })
 }
 
 /// [`as_written`] for the variable at `level`.
@@ -185,13 +199,7 @@ fn expected_as_written(cx: &Ctx, expected: &Value) -> Result<Value> {
     if *n > cx.level() {
         return Ok(expected.clone());
     }
-    let written = as_written(cx, expected, Some((goal.clone(), cx.env[..*n].to_vec())))?;
-    let same = stitchwort_core::value::conv(&g, cx.level(), &written, expected);
-    Ok(if matches!(same, Ok(true)) {
-        written
-    } else {
-        expected.clone()
-    })
+    as_written(cx, expected, Some((goal.clone(), cx.env[..*n].to_vec())))
 }
 
 /// The test and polarity of a test fact type `e = True` or `e = False`.
@@ -496,11 +504,21 @@ pub(crate) struct Pending {
     failed: bool,
 }
 
-/// For a `@[reading]` theorem: its test's function, by its last name as
-/// written, and its polarity (`f x… ↔ P` true, `f x… = False ↔ P` false),
-/// if the statement has that shape. Read from the syntax, so it is known
-/// before the theorem is checked.
-pub(crate) fn written_reading(decl: &Decl) -> Option<(String, bool)> {
+/// How a `@[reading]` theorem's statement names its test's function.
+#[derive(Clone, Debug)]
+pub(crate) enum WrittenHead {
+    /// `f x…`, `Ns.f x…`: the name as written.
+    Name(String),
+    /// `x.f y…`: the function's last name; which namespace it is in
+    /// depends on `x`'s type.
+    Method(String),
+}
+
+/// For a `@[reading]` theorem: how its statement names its test's function,
+/// and the polarity (`f x… ↔ P` true, `f x… = False ↔ P` false), if the
+/// statement has that shape, written with `↔` or as `Iff (…) (…)`. Read
+/// from the syntax, so it is known before the theorem is checked.
+pub(crate) fn written_reading(decl: &Decl) -> Option<(WrittenHead, bool)> {
     let Decl::Signature {
         ty,
         theorem: true,
@@ -517,13 +535,14 @@ pub(crate) fn written_reading(decl: &Decl) -> Option<(String, bool)> {
         return None;
     }
     let mut ty = ty;
-    let (lhs, _) = loop {
+    let lhs = loop {
         match ty {
             Expr::Pi { cod, .. } => ty = cod,
             Expr::Bracketed(inner, _) => ty = inner,
-            Expr::App(f, rhs) => match &**f {
-                Expr::App(iff, lhs) if matches!(&**iff, Expr::Var(n) if n.text == "Std.Iff") => {
-                    break (&**lhs, rhs);
+            Expr::App(f, _) => match unbracket(f) {
+                Expr::App(iff, lhs) if matches!(unbracket(iff), Expr::Var(n) if last_name(&n.text) == "Iff") =>
+                {
+                    break &**lhs;
                 }
                 _ => return None,
             },
@@ -542,8 +561,23 @@ pub(crate) fn written_reading(decl: &Decl) -> Option<(String, bool)> {
         test = f;
     }
     match unbracket(test) {
-        Expr::Var(ast::Name { text, .. }) => Some((last_name(text).to_string(), polarity)),
+        Expr::Var(ast::Name { text, .. }) => Some((WrittenHead::Name(text.clone()), polarity)),
+        Expr::Field(_, ast::Name { text, .. }) => {
+            Some((WrittenHead::Method(text.clone()), polarity))
+        }
         _ => None,
+    }
+}
+
+/// Whether `head`, written in this module, names function `f`.
+fn names(e: &Elaborator, head: &WrittenHead, f: DefId) -> bool {
+    let name = e.kernel.def(f).name().to_string();
+    match head {
+        WrittenHead::Method(m) => last_name(&name) == m,
+        WrittenHead::Name(text) => match e.named(text) {
+            Some((crate::Global::Def(id), _)) => *id == f,
+            _ => name == *text || name.ends_with(&format!(".{text}")),
+        },
     }
 }
 
@@ -565,12 +599,10 @@ fn pending(e: &Elaborator, f: DefId, polarity: bool) -> Option<Pending> {
     if !module.def_items.contains_key(&f) {
         return None;
     }
-    let name = e.kernel.def(f).name().to_string();
-    let name = last_name(&name);
     let current = module.item.map(|i| module.items[i].position);
     module.items.iter().enumerate().find_map(|(item, info)| {
         let (head, p) = info.reading.as_ref()?;
-        if head != name || *p != polarity {
+        if *p != polarity || !names(e, head, f) {
             return None;
         }
         let failed = info.status.failed();

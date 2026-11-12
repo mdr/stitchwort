@@ -149,7 +149,7 @@ pub(crate) struct ItemInfo {
     /// For a `@[reading]` theorem: its test's function and polarity as
     /// written, so a use of the test checked before it can say the reading
     /// comes later, or failed ([`crate::reading::written_reading`]).
-    pub reading: Option<(String, bool)>,
+    pub reading: Option<(crate::reading::WrittenHead, bool)>,
 }
 
 /// One file of the module being elaborated.

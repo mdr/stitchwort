@@ -3324,7 +3324,8 @@ fn finish_application(
         // blamed against the goal as it now stands, not the in-place one.
         *first_error = None;
         for (value, dom, placeholder, id) in after_expected {
-            let checked = check_arg(cx, &term, value, &dom)?;
+            let head = head_before_placeholder(&term, id).unwrap_or_else(|| term.clone());
+            let checked = check_arg(cx, &head, value, &dom)?;
             let evaluated = cx.eval(&checked)?;
             if !cx.unify(&evaluated, &placeholder)? {
                 return Err(cx.mismatch(&placeholder, &evaluated));
@@ -3431,7 +3432,8 @@ fn check_searches_last(
     cx.e.resume_application(queued_from)?;
     for (value, dom, placeholder, id) in searches {
         let dom = cx.eval(&cx.quote_folded(&dom)?)?;
-        let checked = check_arg(cx, term, value, &dom)?;
+        let head = head_before_placeholder(term, id).unwrap_or_else(|| term.clone());
+        let checked = check_arg(cx, &head, value, &dom)?;
         let evaluated = cx.eval(&checked)?;
         if !cx.unify(&evaluated, &placeholder)? {
             return Err(cx.mismatch(&placeholder, &evaluated));
@@ -3459,6 +3461,21 @@ fn numbers_in_list(expr: &Expr) -> bool {
 /// `term`, an application, with its argument that is the metavariable `id`
 /// (applied to the variables in scope) replaced by `with`; `None` if it has
 /// no such argument.
+/// The application `term` up to the argument that is placeholder `id`
+/// ([`fill_placeholder`]): the head that argument is passed to.
+fn head_before_placeholder(term: &Term, id: usize) -> Option<Term> {
+    match term {
+        Term::Loc(_, t) => head_before_placeholder(t, id),
+        Term::App(f, a, _) => {
+            if matches!(a.strip_loc().spine().0, Term::Meta(m) if *m == id) {
+                return Some((**f).clone());
+            }
+            head_before_placeholder(f, id)
+        }
+        _ => None,
+    }
+}
+
 fn fill_placeholder(term: &Term, id: usize, with: &Term) -> Option<Term> {
     match term {
         Term::Loc(span, t) => fill_placeholder(t, id, with).map(|t| Term::Loc(*span, Rc::new(t))),
