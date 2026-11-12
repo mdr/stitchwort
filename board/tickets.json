@@ -31568,15 +31568,17 @@
     {
       "id": 2959,
       "title": "[Sonnet] Instant Cmd+. (D3529, Matt's direction on SW-2958): the code-action list (Split on x, Search for a proof) answers at once from the checked file without the search session; Split built without it; Search for a proof runs only when picked, with progress; and the playground's search worker keeps std loaded between searches (today 17 s per search, also behind the goal panel's contextAt). Playground and VS Code",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2959",
       "labels": [],
       "epic": "editor-playground",
-      "body": "",
+      "body": "\n\nLane notes (12 Nov 2026): list built from the published goal context (no search); split from the same; search progress via workDoneProgress and an elapsed-time notice; wasm search worker keeps its rewound session. Cmd+. to list 12 ms, split 5 ms; first search 21.4 s, second 1.0 s (was ~17.5 s each).\n",
       "created": "2026-11-12",
       "updated": "2026-11-12",
-      "commits": []
+      "commits": [
+        "91024ab19"
+      ]
     }
   ]
 }
