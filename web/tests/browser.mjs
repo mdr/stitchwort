@@ -805,6 +805,41 @@ test("a code action on the book's chapter 2 splits the theorem on b", async (pag
     /theorem noAndAnything \(b: Answer\): both No b = No := match b with\n  \| Yes => \?\n  \| No => \?\n  \| Unknown => \?/);
 }, { ms: 240000 });
 
+test("a second Cmd+. on the book's chapter 2 waits instead of saying no action", async (page) => {
+  await page.open();
+  await page.untilChecked();
+  await page.ev(`location.hash = "#book/2"`);
+  await page.until(`document.getElementById("example").value === "book:2" &&
+    window.editor.value.includes("theorem noAndAnything")`, 60000, "the book's chapter 2");
+  const text = await sourceText(page);
+  const line = "theorem noAndAnything (b: Answer): both No b = No := rfl";
+  assert.ok(text.includes(line), text.slice(0, 80));
+  await page.setSource(text.replace(line, line.slice(0, -"rfl".length) + "?"));
+  const hole = "both No b = No := ?";
+  await caretAt(page, hole, hole.length - 1);
+  await page.until(`document.getElementById("goalpanel").innerText.includes("⊢ both No b = No")`, 180000, "the goal at the ?");
+  // Keep every notice the person would have seen.
+  await page.ev(`(() => {
+    const notices = window.__notices = [];
+    const old = window.editor.options.onNotice;
+    window.editor.options.onNotice = (t) => { notices.push(t); old?.(t); };
+  })()`);
+  // Press before and after the ?, as the person did: the second press comes
+  // while the first search is still loading the library for it.
+  await caretAt(page, hole, hole.length - 1);
+  await page.key("Period", "Period", 190, { modifiers: CMD });
+  await caretAt(page, hole, hole.length);
+  await page.key("Period", "Period", 190, { modifiers: CMD });
+  assert.match(await page.ev(`document.getElementById("link-notice").textContent`),
+    /waiting for the one already running/, "the second press says what it is waiting for");
+  await page.until(`document.querySelector(".pick-panel") !== null`, 120000, "the code actions");
+  const titles = await page.ev(`window.editor.lastCodeActions`);
+  assert.ok(titles.includes("Split on `b`"), titles.join());
+  assert.ok(titles.includes("Search for a proof"), titles.join());
+  const notices = await page.ev(`window.__notices`);
+  assert.ok(!notices.includes("No code action here"), JSON.stringify(notices));
+}, { ms: 240000 });
+
 test("the goals panel shows the goal at a rewrite step in a proof with no ?", async (page) => {
   const panel = () => page.ev(`document.getElementById("goalpanel").innerText`);
   const caretAt = (needle) => page.ev(`(() => { const e = window.editor; e.focus(); const i = e.value.indexOf(${JSON.stringify(needle)}); e.setSelectionRange(i, i); return i; })()`);

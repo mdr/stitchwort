@@ -748,56 +748,73 @@ export class Editor {
   async codeAction(view = this.view) {
     const plugin = LSPPlugin.get(view);
     if (!plugin || this.std) return false;
-    this.closePick();
-    plugin.client.sync();
     const notice = this.options.onNotice;
-    notice?.("Looking for code actions…");
-    // The server offers actions from the goals it last published, and a
-    // project's check can take seconds: wait for the text as it is now, or a
-    // `?` just typed would have no goal yet.
-    if (!(await this.settled(plugin.uri))) {
-      notice?.("The language server has stopped");
+    // A second press while the first request runs would supersede it and
+    // start the search again from nothing (loading the library is most of
+    // it). The press at either side of the `?` gets the same actions, so
+    // wait for the one running.
+    if (this.codeActionWaiting?.has(plugin.uri)) {
+      notice?.("Looking for code actions… (waiting for the one already running)");
       return true;
     }
-    const { from, to } = view.state.selection.main;
-    let actions;
-    const start = plugin.toPosition(from);
-    const end = plugin.toPosition(to);
-    // The diagnostics at the cursor, which the server's quick fixes (an
-    // unknown name's import) are for.
-    const before = (a, b) => a.line < b.line || (a.line === b.line && a.character <= b.character);
-    const diagnostics = (this.published.get(plugin.uri) ?? []).filter((d) => before(d.range.start, end) && before(start, d.range.end));
+    (this.codeActionWaiting ??= new Set()).add(plugin.uri);
     try {
-      actions = await plugin.client.request("textDocument/codeAction", {
-        textDocument: { uri: plugin.uri },
-        range: { start, end },
-        context: { diagnostics },
-      });
-    } catch (e) {
-      notice?.(`Code actions failed: ${e.message ?? e}`);
+      this.closePick();
+      plugin.client.sync();
+      // The server offers actions from the goals it last published, and a
+      // project's check can take seconds: wait for the text as it is now, or
+      // a `?` just typed would have no goal yet.
+      notice?.("Looking for code actions… (waiting for the check)");
+      if (!(await this.settled(plugin.uri))) {
+        notice?.("The language server has stopped");
+        return true;
+      }
+      const { from, to } = view.state.selection.main;
+      let actions;
+      const start = plugin.toPosition(from);
+      const end = plugin.toPosition(to);
+      // The diagnostics at the cursor, which the server's quick fixes (an
+      // unknown name's import) are for.
+      const before = (a, b) => a.line < b.line || (a.line === b.line && a.character <= b.character);
+      const diagnostics = (this.published.get(plugin.uri) ?? []).filter((d) => before(d.range.start, end) && before(start, d.range.end));
+      notice?.("Looking for code actions… (running the search)");
+      try {
+        actions = await plugin.client.request("textDocument/codeAction", {
+          textDocument: { uri: plugin.uri },
+          range: { start, end },
+          context: { diagnostics },
+        });
+      } catch (e) {
+        // ContentModified: the text changed, or a newer request replaced
+        // this one. That isn't "no action here"; the server says which.
+        if (e.code === -32801) notice?.(e.message ?? "The text changed while looking for code actions");
+        else notice?.(`Code actions failed: ${e.message ?? e}`);
+        return true;
+      }
+      actions = actions ?? [];
+      this.lastCodeActions = actions.map((a) => a.title);
+      if (!actions.length) {
+        notice?.("No code action here");
+        return true;
+      }
+      const apply = (edits, title) => {
+        notice?.(title);
+        view.dispatch({ changes: edits.map((e) => ({ from: plugin.fromPosition(e.range.start), to: plugin.fromPosition(e.range.end), insert: e.newText })) });
+      };
+      const editsOf = (a) => a.edit?.changes?.[plugin.uri];
+      if (actions.length === 1 && editsOf(actions[0])) {
+        apply(editsOf(actions[0]), actions[0].title);
+        return true;
+      }
+      notice?.("");
+      this.pick(view, "Code actions", actions.map((a) => ({
+        label: a.title,
+        run: () => (a.command ? this.searchProof(view, plugin, a.command) : editsOf(a) && apply(editsOf(a), a.title)),
+      })));
       return true;
+    } finally {
+      this.codeActionWaiting.delete(plugin.uri);
     }
-    actions = actions ?? [];
-    this.lastCodeActions = actions.map((a) => a.title);
-    if (!actions.length) {
-      notice?.("No code action here");
-      return true;
-    }
-    const apply = (edits, title) => {
-      notice?.(title);
-      view.dispatch({ changes: edits.map((e) => ({ from: plugin.fromPosition(e.range.start), to: plugin.fromPosition(e.range.end), insert: e.newText })) });
-    };
-    const editsOf = (a) => a.edit?.changes?.[plugin.uri];
-    if (actions.length === 1 && editsOf(actions[0])) {
-      apply(editsOf(actions[0]), actions[0].title);
-      return true;
-    }
-    notice?.("");
-    this.pick(view, "Code actions", actions.map((a) => ({
-      label: a.title,
-      run: () => (a.command ? this.searchProof(view, plugin, a.command) : editsOf(a) && apply(editsOf(a), a.title)),
-    })));
-    return true;
   }
 
   /**
