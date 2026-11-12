@@ -242,6 +242,38 @@ fn its_type_must_be_a_type() {
     assert!(assume_as(&mut p.g, "x.?2", ty(), "Main.x", 2).is_ok());
 }
 
+/// A theorem's stand-in is a proof, so its type must be a proposition, as
+/// `declare_def` asks of a theorem: the kernel, not its caller, keeps every
+/// theorem's type a proposition.
+#[test]
+fn a_theorem_s_type_must_be_a_proposition() {
+    let mut p = Prelude::new();
+    let before = p.g.env.defs().len();
+    let assume_theorem = |g: &mut Kernel, name: &str, ty: Term, hole: u32| {
+        check::assume(
+            g,
+            &name.into(),
+            &name.into(),
+            &ty,
+            label("Main.t", hole),
+            true,
+            span(),
+        )
+        .map_err(|d| d.code)
+    };
+    let nat = p.nat_ty();
+    assert_eq!(
+        assume_theorem(&mut p.g, "t.?1", nat.clone(), 1),
+        Err("E-NOT-A-PROP")
+    );
+    assert_eq!(p.g.env.defs().len(), before, "nothing is added");
+    // Paired: a proposition as a theorem, and data as a definition.
+    let statement = comm(&p);
+    let proof = assume_theorem(&mut p.g, "t.?1", statement, 1).expect("a proposition");
+    assert!(p.g.def(proof).theorem());
+    assert!(assume_as(&mut p.g, "t.?2", nat, "Main.t", 2).is_ok());
+}
+
 #[test]
 fn its_type_may_mention_only_final_declarations() {
     let mut p = Prelude::new();
