@@ -1,5 +1,5 @@
 {
-  "next": 2974,
+  "next": 2977,
   "tickets": [
     {
       "id": 47,
@@ -31600,15 +31600,17 @@
     {
       "id": 2961,
       "title": "[Opus] Core panic: search_at_bench::stage_two_on_any_std_statement panics at crates/core/src/value.rs:2317:22 'index out of bounds: the len is 2 but the index is 2' (full tier, Overmind, 58c3bcac7, 224 s). Find the input, fix, regression test",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-2961",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "\nCause: auto::instantiate made untyped unknowns; first-order unification solved ?x: Int with Greater; verdict ran Int.decLessThan on it; branch indexed Greater's ctor (2) into Int's 2 branches. Fix: fresh_meta_of(dom); case on another type's ctor stays stuck (value.rs branch, walk_tree; reference.rs), panics only while a program runs. Repro: Std.Ordering.flipNotLessEq, Bool.andLeft cases.\nModel result: Opus, worked, 45 min (est. 90)",
       "created": "2026-11-12",
       "updated": "2026-11-12",
-      "commits": []
+      "commits": [
+        "8fb4fac9a"
+      ]
     },
     {
       "id": 2962,
@@ -31765,6 +31767,45 @@
       "where": "",
       "labels": [],
       "epic": "proof-search",
+      "body": "",
+      "created": "2026-11-12",
+      "updated": "2026-11-12",
+      "commits": []
+    },
+    {
+      "id": 2974,
+      "title": "[Sonnet] value::project panics on another type's constructor ('projecting field i of …'), the same weakness as SW-2961: stay stuck outside a running program",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-12",
+      "updated": "2026-11-12",
+      "commits": []
+    },
+    {
+      "id": 2975,
+      "title": "[Sonnet] cases on a goal that is an unknown applied to arguments (?1 Greater h, under Bool.andLeft cases) runs and prints it in its error: wait for the goal to be known or say it can't split an unknown goal (SW-2961)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-12",
+      "updated": "2026-11-12",
+      "commits": []
+    },
+    {
+      "id": 2976,
+      "title": "[DeepSeek] Sweep: ~50 cx.fresh_meta() sites in crates/elab make untyped unknowns, weakening unification's first-order type guard (SW-919, SW-2961); use fresh_meta_of where the type is known; tests by name",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
       "body": "",
       "created": "2026-11-12",
       "updated": "2026-11-12",
