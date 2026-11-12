@@ -1023,11 +1023,29 @@ pub(crate) fn merge_recovered(
     checked: Vec<Diagnostic>,
 ) -> Vec<Diagnostic> {
     let mut all = parse_errors;
-    all.extend(
-        checked
-            .into_iter()
-            .filter(|d| d.code != "E-FAILED-DEPENDENCY"),
-    );
+    let mut recovered = Vec::new();
+    for d in checked {
+        if d.code == "E-FAILED-DEPENDENCY" {
+            continue;
+        }
+        // A body that didn't parse fails with its own error, which isn't
+        // reported: the parser's error at the same place is. What the check
+        // found about its statement, a counterexample, belongs on that one.
+        if d.code == stitchwort_elab::UNPARSED_BODY {
+            if let Some(at) = d.primary_span()
+                && let Some(error) = all.iter_mut().find(|e| e.primary_span() == Some(at))
+            {
+                let counterexample = d.counterexample_data().cloned();
+                error.notes.extend(d.notes);
+                if let Some(counterexample) = counterexample {
+                    error.detail_mut().counterexample = Some(counterexample);
+                }
+            }
+            continue;
+        }
+        recovered.push(d);
+    }
+    all.extend(recovered);
     all.sort_by_key(|d| {
         d.labels.first().map_or((usize::MAX, u32::MAX), |l| {
             (l.span.file.index(), l.span.start)

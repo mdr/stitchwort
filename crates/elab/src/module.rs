@@ -695,8 +695,9 @@ impl Elaborator {
         if !diagnostics.iter().any(|d| d.severity == Severity::Error) {
             diagnostics.extend(self.doc_link_warnings(files));
         }
-        // The parser reported these.
-        diagnostics.retain(|d| d.code != UNPARSED_BODY);
+        // A body that didn't parse is reported by the parser, not here; it
+        // stays until the two are merged, so that a counterexample found for
+        // its statement reaches that error (`merge_recovered`).
         diagnostics
     }
 
@@ -2819,8 +2820,10 @@ thread_local! {
 /// The code of the error that fails a definition whose body didn't parse
 /// (`Decl::Signature`'s `body_error`): its own error, so it gets a stand-in
 /// and is the declaration its users' messages name, but never reported,
-/// since the parser reported the syntax error at the same place.
-pub(crate) const UNPARSED_BODY: &str = "E-UNPARSED-BODY";
+/// since the parser reported the syntax error at the same place. The caller
+/// that holds the parser's errors merges what was found about the statement
+/// into that one (`merge_recovered`).
+pub const UNPARSED_BODY: &str = "E-UNPARSED-BODY";
 
 /// The error failing a definition whose body has a syntax error at `at`
 /// (`UNPARSED_BODY`).

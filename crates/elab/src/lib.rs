@@ -94,6 +94,7 @@ pub use library::LibraryIndex;
 pub mod std_dir;
 pub use equations::{is_equation_name, is_function_induct, is_generated_name};
 pub use goals::{ContextAt, GoalSnapshot, StepAt, StepForm};
+pub use module::UNPARSED_BODY;
 pub use rewind::Mark;
 pub use scope::edit_distance;
 pub use state::JournalStats;
