@@ -32039,15 +32039,17 @@
     {
       "id": 2990,
       "title": "[Sonnet] Impossible cases: a missing default in a number column is reported eagerly by compile_numbers even when a hypothesis rules it out (SW-2984 review L3); impossible_case/may_be_impossible force every Eq hypothesis on the error path, which could make a quick E-NONEXHAUSTIVE slow (L4, suspicion)",
-      "status": "backlog",
+      "status": "review",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2990",
       "labels": [],
       "epic": "syntax-language",
-      "body": "\nOrchestrator: waits for SW-3008 (same impossible_case/may_be_impossible code).",
+      "body": "Orchestrator: waits for SW-3008 (same impossible_case/may_be_impossible code).\n\nLane notes (Sonnet, 12 Nov 2026, cb7fb1ef2): L3 done for what impossible_case can rule out (hypotheses that compute once n is apart from the arms' numbers; Void etc.), not omega facts such as n < 2. L4: forcing is one WHNF per Eq hypothesis on the error path, about 0.1 s per hypothesis for a 65k-step computation, less than the success path pays; no change.\n",
       "created": "2026-11-12",
       "updated": "2026-11-12",
-      "commits": []
+      "commits": [
+        "cb7fb1ef2"
+      ]
     },
     {
       "id": 2991,
