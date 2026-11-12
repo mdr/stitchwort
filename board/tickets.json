@@ -31959,15 +31959,17 @@
     {
       "id": 2987,
       "title": "[DeepSeek] The guide's quoted error outputs (docs/guide/errors/…, 18 blocks) lack the '1 error: in X' summary line SW-2943 added, so guide::the_guide_quotes_its_examples_and_the_compiler fails on main (12 Nov 2026): refresh them",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": ".claude/worktrees/scratch-sw-2987",
       "labels": [],
       "epic": "test-infra",
-      "body": "",
+      "body": "\nModel result: DeepSeek, worked, ~8 min (est. 20)",
       "created": "2026-11-12",
       "updated": "2026-11-12",
-      "commits": []
+      "commits": [
+        "9f0001413"
+      ]
     },
     {
       "id": 2988,
