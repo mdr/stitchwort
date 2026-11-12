@@ -4824,13 +4824,13 @@ fn check_flat(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
 }
 
 /// A proof of `goal` where no arm covers the case: the term an absurd arm
-/// `()` would give (`check_tree`'s `Tree::Absurd`), when a variable in scope has a type with no values once the
-/// splits above the case have refined it (D3534). Indexed families are
-/// tried on the case's `columns` only, and first, as the checker always
-/// has; then each column and each other variable in scope, from the
-/// outermost, is tried as an equation of two different constructors
-/// (`h: False = True` once `beats Rock Rock` computes) or a data type with
-/// no constructors.
+/// `()` would give (`check_tree`'s `Tree::Absurd`), when a variable in
+/// scope has a type with no values once the splits above the case have
+/// refined it (D3534). Indexed families are tried first, and on the case's
+/// `columns` only, so a case they rule out keeps its term; then each
+/// column and each other variable in scope, from the outermost, is tried
+/// as an equation of two different constructors (`h: False = True` once
+/// `beats Rock Rock` computes) or a data type with no constructors.
 fn impossible_case(cx: &mut Ctx, columns: &[usize], goal: &Value) -> Result<Option<Term>> {
     for &level in columns {
         if let Some(term) = families::empty_case(cx, level, None)? {
