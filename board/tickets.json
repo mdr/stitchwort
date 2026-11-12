@@ -1,5 +1,5 @@
 {
-  "next": 3017,
+  "next": 3018,
   "tickets": [
     {
       "id": 47,
@@ -32420,6 +32420,19 @@
       "where": "",
       "labels": [],
       "epic": "diagnostics",
+      "body": "",
+      "created": "2026-11-12",
+      "updated": "2026-11-12",
+      "commits": []
+    },
+    {
+      "id": 3017,
+      "title": "[Opus] Soundness fuzzer (Overmind, c3c3a3c49, seed 0x2c02, VOID=1500): void_attempts_are_rejected reports 413 findings, 'boom accepted' (non-positive, universe, prop-elim, proof-irrelevance, false-equation) and 2× 'anything proves an empty type'; the CLI rejects the saved files (attempt 99: theorem boom: Void := boom → E-TERMINATION). Harness check_attempt (crates/driver/tests/soundness_fuzz.rs ~1978, ~2002) finds boom Final and not unfinished after a load with errors: likely SW-2952 stand-ins (a failed theorem whose statement checks stands in as an assumption) not recognised by the harness; 0x2c01 at 9250b60c1 had 0. Confirm it's the harness, not a hole: a stand-in must never count as a proof (relies_on, Hasher::def_ref unfinished, audit, run)",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-3017",
+      "labels": [],
+      "epic": "audit-fuzzing",
       "body": "",
       "created": "2026-11-12",
       "updated": "2026-11-12",
