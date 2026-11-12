@@ -508,9 +508,11 @@ pub(crate) struct Pending {
 pub(crate) enum WrittenHead {
     /// `f x…`, `Ns.f x…`: the name as written.
     Name(String),
-    /// `x.f y…`: the function's last name; which namespace it is in
-    /// depends on `x`'s type.
-    Method(String),
+    /// `x.f y…`: the function's last name, and the head of `x`'s written
+    /// type where `x` is a parameter of the statement with one. Which
+    /// namespace the function is in depends on `x`'s type, so without it
+    /// every function with that last name is a candidate.
+    Method(String, Option<String>),
 }
 
 /// For a `@[reading]` theorem: how its statement names its test's function,
@@ -534,9 +536,15 @@ pub(crate) fn written_reading(decl: &Decl) -> Option<(WrittenHead, bool)> {
         return None;
     }
     let mut ty = ty;
+    let mut params: Vec<(&str, &Expr)> = Vec::new();
     let lhs = loop {
         match ty {
-            Expr::Pi { cod, .. } => ty = cod,
+            Expr::Pi {
+                names, dom, cod, ..
+            } => {
+                params.extend(names.iter().map(|n| (n.text.as_str(), &**dom)));
+                ty = cod;
+            }
             Expr::Bracketed(inner, _) => ty = inner,
             Expr::App(f, _) => match unbracket(f) {
                 Expr::App(iff, lhs) if matches!(unbracket(iff), Expr::Var(n) if last_name(&n.text) == "Iff") =>
@@ -561,8 +569,14 @@ pub(crate) fn written_reading(decl: &Decl) -> Option<(WrittenHead, bool)> {
     }
     match unbracket(test) {
         Expr::Var(ast::Name { text, .. }) => Some((WrittenHead::Name(text.clone()), polarity)),
-        Expr::Field(_, ast::Name { text, .. }) => {
-            Some((WrittenHead::Method(text.clone()), polarity))
+        Expr::Field(receiver, ast::Name { text, .. }) => {
+            let receiver_type = match unbracket(receiver) {
+                Expr::Var(x) => (params.iter().rev().find(|(n, _)| *n == x.text))
+                    .and_then(|(_, ty)| crate::module::type_head(ty))
+                    .map(|n| n.text.clone()),
+                _ => None,
+            };
+            Some((WrittenHead::Method(text.clone(), receiver_type), polarity))
         }
         _ => None,
     }
@@ -572,7 +586,7 @@ pub(crate) fn written_reading(decl: &Decl) -> Option<(WrittenHead, bool)> {
 fn names(e: &Elaborator, head: &WrittenHead, f: DefId) -> bool {
     let name = e.kernel.def(f).name().to_string();
     match head {
-        WrittenHead::Method(m) => last_name(&name) == m,
+        WrittenHead::Method(m, _) => last_name(&name) == m,
         WrittenHead::Name(text) => match e.named(text) {
             Some((crate::Global::Def(id), _)) => *id == f,
             _ => name == *text || name.ends_with(&format!(".{text}")),
