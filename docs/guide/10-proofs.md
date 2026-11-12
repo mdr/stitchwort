@@ -568,6 +568,19 @@ theorem eitherSide (a: Bool) (b: Bool) (h: (a || b) = True): b ∨ a :=
 
 The library gives `&&`, `||` and `not` their readings: `(a && b) = True` reads as `a ∧ b`, `(a || b) = True` as `a ∨ b`, `not a = True` as `a = False`, and each `= False` as what you'd expect (`(a && b) = False` as `a = False ∨ b = False`). Each pattern reads one layer: `Both _ rest` leaves `rest` the fact `(b || c) = True`, and a pattern under it reads that in turn. A test whose function has no reading is unfolded to one that has, so `def isDigit (n: Nat): Bool := within 48 n 57` reads as `Within 48 n 57`. A fact `e = False` with no reading reads as `¬e`. Where nothing reads (`h: a = True` with `a` a variable), the error `E-NO-READING` says what the test is. A test has one reading for `= True` and one for `= False`, declared in the namespace (or library file) of its function. It can go anywhere there: whatever mentions the test is checked after its reading, except what the reading's own proof uses.
 
+A decision's test needs no reading of its own. Where the decision is only known by its type, as `==` is on a type known only to have `DecEq`, a fact about its test reads as what it decides: `(a == b) = True` as `a = b`, and `(a == b) = False` as `a ≠ b`:
+
+<!-- snippet: proofs.sw#readings-decisions -->
+```stitchwort
+theorem sameKey [auto eq: DecEq k] (a b c: k) (h: (a == b && b == c) = True): a = c :=
+  match h with
+    | Both ab bc => rewrite ab.read, bc.read in rfl
+
+theorem differ [auto eq: DecEq k] (a b: k) (h: (a == b) = False): a ≠ b := h.read
+```
+
+Given a fact where what it reads as is wanted, the error's note says what it reads as and to add `.read`. And when you write a decision of a statement that some test reads as, write it with that test, `{ holds = isSmall n, … }`, so `if Small n` and `if isSmall n` are the same computation; a decision that tests with another function gets the warning `W-DECISION-TEST`.
+
 To use a condition in a proof, `match` on it. `match fits: e with` splits on the value of `e`, replaces `e` with that value in the goal, and names the equation `fits`:
 
 <!-- snippet: proofs.sw#match-equation -->

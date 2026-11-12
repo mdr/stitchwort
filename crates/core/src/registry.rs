@@ -368,6 +368,10 @@ builtins! {
     BoolNot = "Bool.not": Def,
     Decidable = "Decidable": Data,
     Holds = "Decidable.holds": Def => "[p] r",
+    // A test fact on a decision that doesn't compute reads as its
+    // proposition through these (crates/elab/src/reading.rs, step 2)
+    Refute = "Decidable.refute": Def => "[p] d e",
+    ToBoolOfNot = "Decidable.toBoolOfNot": Def => "[p] d n",
     // `match h: c < x` on a comparison its decision reduces to `Bool.decTrue b`
     // for matches on `b` itself (crates/elab/src/matching.rs)
     DecTrue = "Bool.decTrue": Def => "b",

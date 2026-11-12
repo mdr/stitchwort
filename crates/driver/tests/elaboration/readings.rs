@@ -268,3 +268,75 @@ theorem below (x: Nat) (h: inRange 1 x 9): x ≤ 9 := h.high
         }
     }
 }
+
+/// A test fact on a decision that doesn't compute (a hypothesis, `==` on
+/// an instance in scope) reads as the decision's proposition (§5.4, step
+/// 2), with gluing on and off.
+#[test]
+fn a_stuck_decision_reads_as_its_proposition() {
+    let program = "import Std (Bool, Nat, Iff, List)
+
+theorem positive [p: Prop] (d: Decidable p) (h: d.holds = True): p := h.read
+
+theorem negative [p: Prop] (d: Decidable p) (h: d.holds = False): ¬p := h.read
+
+theorem built [p q: Prop] (d: Decidable (p ∧ q)) (x: p) (y: q): d.holds = True := Both x y
+
+theorem taken [p q: Prop] (d: Decidable (p ∧ q)) (h: d.holds = True): q :=
+  match h with
+    | Both _ y => y
+
+theorem equal [auto eq: DecEq a] (x y: a) (h: (x == y) = True): x = y := h.read
+
+theorem apart [auto eq: DecEq a] (x y: a) (h: (x == y) = False): x ≠ y := h.read
+
+theorem both [auto eq: DecEq a] (x y z: a) (h: (x == y && y == z) = True): x = z :=
+  match h with
+    | Both xy yz => rewrite xy.read, yz.read in rfl
+";
+    for glue in [true, false] {
+        let mut session = Session::new();
+        session.elab.options.glue = glue;
+        if let Err(errors) = session.load("decisions.sw", program) {
+            panic!("glue {glue}: {errors:#?}");
+        }
+    }
+}
+
+/// A decision whose test isn't the one its proposition's reading reads is
+/// warned about, whichever is declared first (§13); a reading of a
+/// connective, which `Decidable.and` decides generically, isn't.
+#[test]
+fn a_decision_with_another_test_is_warned_about() {
+    let program = "import Std (Bool, Nat, Iff)
+
+def Small (n: Nat): Prop := n < 10
+
+def isSmall (n: Nat): Bool := Nat.leq (Succ n) 10
+
+def smallTest (n: Nat): Bool := Nat.leq (Succ n) 10
+
+READING
+
+instance decSmall (n: Nat): Decidable (Small n) := { holds = smallTest n, sound = h => h, complete = h => h }
+
+LATER
+
+def inRange (lo x hi: Nat): Bool := Nat.leq lo x && Nat.leq x hi
+
+@[reading]
+theorem inRangeReads (lo x hi: Nat): inRange lo x hi ↔ lo ≤ x ∧ x ≤ hi :=
+  { forward = h => h.read, backward = r => Both r.left r.right }
+";
+    let reading = "@[reading]
+theorem isSmallReads (n: Nat): isSmall n ↔ Small n := { forward = h => h, backward = h => h }";
+    for (before, after) in [(reading, ""), ("", reading)] {
+        let source = program.replace("READING", before).replace("LATER", after);
+        let mut session = Session::new();
+        if let Err(errors) = session.load("decisions.sw", &source) {
+            panic!("{errors:#?}");
+        }
+        let codes: Vec<&str> = session.warnings.iter().map(|w| w.code).collect();
+        assert_eq!(codes, ["W-DECISION-TEST"], "{:#?}", session.warnings);
+    }
+}

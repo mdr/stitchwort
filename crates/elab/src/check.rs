@@ -1166,6 +1166,10 @@ impl<'e> Ctx<'e> {
         } else {
             d
         };
+        let d = match crate::reading::read_note(self, expected, found) {
+            Ok(Some(note)) => d.with_note(note),
+            _ => d,
+        };
         let mut notes = Vec::new();
         self.alias_notes(expected, found, ALIAS_NOTE_DEPTH, &mut notes);
         let d = notes.into_iter().fold(d, |d, note| d.with_note(note));

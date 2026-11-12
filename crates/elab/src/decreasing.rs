@@ -986,6 +986,7 @@ impl Elaborator {
                 if let Err(d) = self.after_definition(signature, f) {
                     out.push((item, d));
                 }
+                out.extend(self.unit.warnings.drain(..).map(|w| (item, w)));
                 if !self.defers_equations()
                     && let Err(d) = self.decreasing_equations(f, signature, equations, None)
                 {

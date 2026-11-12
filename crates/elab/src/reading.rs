@@ -34,7 +34,7 @@
 use std::rc::Rc;
 
 use stitchwort_core::registry::Builtin;
-use stitchwort_core::value::{Elim, Head, apply, force, unfold_once};
+use stitchwort_core::value::{Elim, Head, Spine, apply, force, unfold_once};
 use stitchwort_core::{DataId, DefId, Ev, Icit, Sort, Term, Value};
 use stitchwort_syntax::ast::{self, BinOp, Decl, Expr};
 use stitchwort_syntax::{Diagnostic, Span};
@@ -107,13 +107,31 @@ pub(crate) struct Found {
 
 /// One reading applied to a test.
 struct Step {
-    theorem: DefId,
-    /// `r args`.
-    proof: Term,
-    /// The test fact, as the reading states it.
-    fact: Value,
+    via: Via,
     /// What it reads as.
     prop: Value,
+}
+
+/// What a step reads a test fact through.
+enum Via {
+    /// A `@[reading]` theorem.
+    Reading {
+        theorem: DefId,
+        /// `r args`.
+        proof: Term,
+        /// The test fact, as the reading states it.
+        fact: Value,
+    },
+    /// A decision `d: Decidable p` that doesn't compute, whose test fact
+    /// `d.holds = True` reads as `p` and `d.holds = False` as `¬p` (§5.4,
+    /// step 2).
+    Decision {
+        polarity: bool,
+        /// `p`.
+        prop: Term,
+        /// `d`.
+        decision: Term,
+    },
 }
 
 /// What the reader found for a test.
@@ -545,6 +563,8 @@ fn is_pure_row(g: &Ev, d: DataId, c: usize) -> bool {
 /// reading and the arguments its theorem is applied to.
 enum Lookup {
     Found(DefId, Rc<ReadingInfo>, Vec<Value>),
+    /// A decision that doesn't compute, `d: Decidable p`: `p` and `d`.
+    Decision(Value, Value),
     Pending(Pending),
     Leaf(Option<DefId>),
 }
@@ -743,11 +763,18 @@ fn lookup_folded(g: &Ev, e: &Elaborator, test: &Value, polarity: bool) -> Result
     let mut test = test.clone();
     let mut first_head = None;
     for _ in 0..=UNFOLD_LIMIT {
+        if let Some((prop, decision)) = stuck_decision(g, &test)? {
+            return Ok(Lookup::Decision(prop, decision));
+        }
         let Some((head, args)) = head_args(g, &test)? else {
             break;
         };
+        // The function a reading could be declared for: not a decision's
+        // field, nor a generated definition, which can't be named.
         if first_head.is_none()
             && let TestHead::Def(f) = head
+            && Some(f) != g.env.registry().def(Builtin::Holds)
+            && !g.def(f).name().contains('%')
         {
             first_head = Some(f);
         }
@@ -782,8 +809,88 @@ pub(crate) fn read(cx: &Ctx, test: &Value, polarity: bool) -> Result<Read> {
     let lookup = lookup(&cx.g(), cx.e, test, polarity)?;
     Ok(match lookup {
         Lookup::Found(theorem, info, args) => Read::Found(found(cx, theorem, &info, &args)?),
+        Lookup::Decision(prop, decision) => {
+            Read::Found(by_decision(cx, &prop, &decision, polarity)?)
+        }
         Lookup::Pending(p) => Read::Pending(p),
         Lookup::Leaf(head) => Read::Leaf(head),
+    })
+}
+
+/// A decision's test whose decision doesn't compute: `d.holds`, as the
+/// call `Decidable.holds d` or as the field of a call `(f x).holds`, for a
+/// `d: Decidable p` that is a variable or a call stuck on one (§5.4, step
+/// 2): `p` and `d`. A decision that computes to a record has its test as
+/// its `holds`, read by that test's own reading; an unknown one is a leaf
+/// (§5.6).
+fn stuck_decision(g: &Ev, test: &Value) -> Result<Option<(Value, Value)>> {
+    let reg = g.env.registry();
+    let (Some(holds), Some(decidable)) = (reg.def(Builtin::Holds), reg.data(Builtin::Decidable))
+    else {
+        return Ok(None);
+    };
+    let (prop, decision) = match test {
+        Value::Call(f, spine, _) | Value::Neutral(Head::Def(f), spine)
+            if *f == holds && spine.len() == 2 =>
+        {
+            let [Elim::App(prop, _), Elim::App(decision, _)] = &spine[..] else {
+                return Ok(None);
+            };
+            (prop.clone(), decision.clone())
+        }
+        Value::Call(f, spine, _) if matches!(spine.last(), Some(&Elim::Proj(d, 0)) if d == decidable) =>
+        {
+            let call: Spine = spine[..spine.len() - 1].iter().cloned().collect();
+            let mut ty = g.def(*f).ty_value().clone();
+            for e in call.iter() {
+                let (Elim::App(arg, _), Value::Pi(_, _, _, cod)) = (e, force(g, ty)?) else {
+                    return Ok(None);
+                };
+                ty = cod.apply(g, arg.clone())?;
+            }
+            let Value::Data(d, args) = force(g, ty)? else {
+                return Ok(None);
+            };
+            if d != decidable || args.len() != 1 {
+                return Ok(None);
+            }
+            (args[0].clone(), Value::Call(*f, call, Rc::default()))
+        }
+        _ => return Ok(None),
+    };
+    Ok(match force(g, decision.clone())? {
+        Value::Neutral(Head::Meta(..), _) => None,
+        Value::Neutral(..) => Some((prop, decision)),
+        _ => None,
+    })
+}
+
+/// What a decision's test fact reads as: `p`, or `¬p` when it is `False`.
+fn decision_reads(g: &Ev, prop: &Value, polarity: bool) -> Result<Value> {
+    if polarity {
+        return Ok(prop.clone());
+    }
+    let not = g.env.registry().def(Builtin::Not).expect("in the core");
+    Ok(stitchwort_core::value::eval(
+        g,
+        std::slice::from_ref(prop),
+        &Term::app(Term::Def(not), Term::Var(0)),
+    )?)
+}
+
+/// The reading of a test fact on decision `decision: Decidable prop`.
+fn by_decision(cx: &Ctx, prop: &Value, decision: &Value, polarity: bool) -> Result<Found> {
+    let reads = decision_reads(&cx.g(), prop, polarity)?;
+    Ok(Found {
+        steps: vec![Step {
+            via: Via::Decision {
+                polarity,
+                prop: cx.quote_folded(prop)?,
+                decision: cx.quote_folded(decision)?,
+            },
+            prop: reads.clone(),
+        }],
+        prop: reads,
     })
 }
 
@@ -797,11 +904,14 @@ pub(crate) fn read_type(g: &Ev, e: &Elaborator, ty: &Value) -> Result<Option<Val
         let Some((test, polarity)) = test_fact_in(g, &ty)? else {
             break;
         };
-        let Lookup::Found(theorem, info, args) = lookup(g, e, &test, polarity)? else {
-            break;
+        ty = match lookup(g, e, &test, polarity)? {
+            Lookup::Found(theorem, info, args) => {
+                let (_, sides) = statement(g, theorem, &info, &args, |_, _| Ok(()))?;
+                sides[1].clone()
+            }
+            Lookup::Decision(p, _) => decision_reads(g, &p, polarity)?,
+            _ => break,
         };
-        let (_, sides) = statement(g, theorem, &info, &args, |_, _| Ok(()))?;
-        ty = sides[1].clone();
         prop = Some(ty.clone());
     }
     Ok(prop)
@@ -844,9 +954,11 @@ fn found(cx: &Ctx, theorem: DefId, info: &ReadingInfo, args: &[Value]) -> Result
     })?;
     Ok(Found {
         steps: vec![Step {
-            theorem,
-            proof,
-            fact: sides[0].clone(),
+            via: Via::Reading {
+                theorem,
+                proof,
+                fact: sides[0].clone(),
+            },
             prop: sides[1].clone(),
         }],
         prop: sides[1].clone(),
@@ -875,32 +987,55 @@ pub(crate) fn read_through(cx: &Ctx, test: &Value, polarity: bool) -> Result<Rea
     Ok(Read::Found(found))
 }
 
-/// `Iff.forward` (`field` 0) or `Iff.backward` (1) of `found`, applied to
-/// `arg`.
-fn iff_field(cx: &Ctx, found: &Step, field: usize, arg: Term) -> Result<Term> {
-    let g = cx.g();
-    let iff = g
-        .env
-        .registry()
-        .data(Builtin::Iff)
-        .expect("a reading is an `↔`");
-    let projection =
-        cx.e.tables.records[&iff].projections[field].expect("`Iff`'s fields are proofs");
-    let mut term = Term::Def(projection);
-    let mut ty = g.def(projection).ty().clone();
-    let mut args = vec![
-        cx.quote_folded(&found.fact)?,
-        cx.quote_folded(&found.prop)?,
-        found.proof.clone(),
-        arg,
-    ]
-    .into_iter();
+/// Definition `f` applied to `args`, each passed as `f`'s type says.
+fn applied(cx: &Ctx, f: DefId, args: Vec<Term>) -> Term {
+    let mut term = Term::Def(f);
+    let mut ty = cx.g().def(f).ty().clone();
+    let mut args = args.into_iter();
     while let Term::Pi(_, icit, _, cod) = ty.strip_loc() {
         let Some(arg) = args.next() else { break };
         term = Term::app_icit(term, arg, *icit);
         ty = (**cod).clone();
     }
-    Ok(term)
+    term
+}
+
+/// One step's proof the way it reads (`forward`) or back, applied to
+/// `arg`: for a reading `Iff.forward (r args) arg` or `Iff.backward (r
+/// args) arg`; for a decision `d: Decidable p`, `Decidable.sound d arg` and
+/// `Decidable.complete d arg` at `True`, `Decidable.refute d arg` and
+/// `Decidable.toBoolOfNot d arg` at `False`.
+fn step_proof(cx: &Ctx, step: &Step, forward: bool, arg: Term) -> Result<Term> {
+    let g = cx.g();
+    let reg = g.env.registry();
+    Ok(match &step.via {
+        Via::Reading { proof, fact, .. } => {
+            let iff = reg.data(Builtin::Iff).expect("a reading is an `↔`");
+            let field = if forward { 0 } else { 1 };
+            let projection =
+                cx.e.tables.records[&iff].projections[field].expect("`Iff`'s fields are proofs");
+            let args = vec![
+                cx.quote_folded(fact)?,
+                cx.quote_folded(&step.prop)?,
+                proof.clone(),
+                arg,
+            ];
+            applied(cx, projection, args)
+        }
+        Via::Decision {
+            polarity,
+            prop,
+            decision,
+        } => {
+            let f = match (polarity, forward) {
+                (true, true) => crate::check::decidable_field(cx, 1)?,
+                (true, false) => crate::check::decidable_field(cx, 2)?,
+                (false, true) => crate::check::builtin_def(cx, Builtin::Refute)?,
+                (false, false) => crate::check::builtin_def(cx, Builtin::ToBoolOfNot)?,
+            };
+            applied(cx, f, vec![prop.clone(), decision.clone(), arg])
+        }
+    })
 }
 
 impl Found {
@@ -908,7 +1043,7 @@ impl Found {
     pub(crate) fn forward(&self, cx: &Ctx, h: Term) -> Result<Term> {
         self.steps
             .iter()
-            .try_fold(h, |h, step| iff_field(cx, step, 0, h))
+            .try_fold(h, |h, step| step_proof(cx, step, true, h))
     }
 
     /// The test fact from a proof `p` of the proposition.
@@ -916,12 +1051,16 @@ impl Found {
         self.steps
             .iter()
             .rev()
-            .try_fold(p, |p, step| iff_field(cx, step, 1, p))
+            .try_fold(p, |p, step| step_proof(cx, step, false, p))
     }
 
-    /// The reading that gave the proposition.
-    fn last(&self) -> DefId {
-        self.steps.last().expect("at least one reading").theorem
+    /// What gave the proposition, for messages: the reading's name, or
+    /// for a decision, what it is.
+    fn last(&self, cx: &Ctx) -> String {
+        match &self.steps.last().expect("at least one reading").via {
+            Via::Reading { theorem, .. } => format!("`{}`", cx.g().def(*theorem).name()),
+            Via::Decision { .. } => "by its decision".to_string(),
+        }
     }
 }
 
@@ -951,9 +1090,9 @@ pub(crate) fn no_reading(
                 .with_label(
                     span,
                     format!(
-                        "{fact} reads as `{}` (`{}`)",
+                        "{fact} reads as `{}` ({})",
                         cx.show(&found.prop),
-                        g.def(found.last()).name()
+                        found.last(cx)
                     ),
                 );
             if let Some((w, what)) = wanted {
@@ -1183,4 +1322,318 @@ fn refutes(cx: &Ctx, h: &Term, test: &Value) -> Result<(Term, Value)> {
     );
     let not = Term::app(def(Builtin::Not), eq_true);
     Ok((term, cx.eval(&not)?))
+}
+
+/// What a proposition is about, for pairing a reading with the decisions of
+/// what it reads as: the function or data type at its head.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum PropHead {
+    Def(DefId),
+    Data(DataId),
+}
+
+fn prop_head(prop: &Value) -> Option<PropHead> {
+    match prop {
+        Value::Call(f, ..) | Value::Neutral(Head::Def(f), _) => Some(PropHead::Def(*f)),
+        Value::Data(d, _) => Some(PropHead::Data(*d)),
+        _ => None,
+    }
+}
+
+/// A definition's parameters as variables, and its type under them,
+/// evaluated with calls folded.
+struct Opened {
+    env: Vec<Value>,
+    types: Vec<Value>,
+    names: Vec<stitchwort_core::Name>,
+    ty: Value,
+}
+
+fn opened(g: &Ev, id: DefId) -> Result<Opened> {
+    folded(g, || {
+        let mut opened = Opened {
+            env: Vec::new(),
+            types: Vec::new(),
+            names: Vec::new(),
+            ty: g.def(id).ty_value().clone(),
+        };
+        while let Value::Pi(x, _, dom, cod) = force(g, opened.ty.clone())? {
+            let var = Value::var(opened.env.len());
+            opened.env.push(var.clone());
+            opened.types.push((*dom).clone());
+            opened.names.push(x);
+            opened.ty = cod.apply(g, var)?;
+        }
+        Ok(opened)
+    })
+}
+
+/// What a positive reading's statement says, under its parameters: its
+/// test and what that reads as.
+fn reading_sides(g: &Ev, reading: DefId) -> Result<Option<(Opened, Value, Value)>> {
+    let opened = opened(g, reading)?;
+    let Value::Data(_, sides) = force(g, opened.ty.clone())? else {
+        return Ok(None);
+    };
+    let Some((test, true)) = test_fact_in(g, &sides[0])? else {
+        return Ok(None);
+    };
+    let prop = sides[1].clone();
+    Ok(own_proposition(g, &prop)?.then_some((opened, test, prop)))
+}
+
+/// Whether `prop` is its head applied to the reading's parameters, each at
+/// most once, as a reading's test is to its function's (§5.3): the
+/// proposition the test decides on its own (`List.Mem x xs`, `Small n`),
+/// whose decision should test with it, rather than a connective or
+/// relation decided generically (`lo ≤ x ∧ x ≤ hi`, `n ≤ 10`).
+fn own_proposition(g: &Ev, prop: &Value) -> Result<bool> {
+    let args: Vec<Value> = match prop {
+        Value::Data(_, args) => args.to_vec(),
+        Value::Call(_, spine, _) | Value::Neutral(Head::Def(_), spine) => {
+            let mut args = Vec::new();
+            for e in spine.iter() {
+                let Elim::App(v, _) = e else {
+                    return Ok(false);
+                };
+                args.push(v.clone());
+            }
+            args
+        }
+        _ => return Ok(false),
+    };
+    let mut seen = Vec::new();
+    for arg in args {
+        match force(g, arg)? {
+            Value::Neutral(Head::Var(l, _), s) if s.is_empty() && !seen.contains(&l) => {
+                seen.push(l)
+            }
+            _ => return Ok(false),
+        }
+    }
+    Ok(true)
+}
+
+/// What instance `id` decides, if it is a decision made by its own test:
+/// `p` for `Decidable p`. `None` for one that takes a decision (as
+/// `Decidable.and` does): its test is built from the decisions it is
+/// given, which it doesn't choose.
+fn decided(g: &Ev, id: DefId) -> Result<Option<Value>> {
+    let Some(decidable) = g.env.registry().data(Builtin::Decidable) else {
+        return Ok(None);
+    };
+    let opened = opened(g, id)?;
+    for ty in &opened.types {
+        if matches!(force(g, ty.clone())?, Value::Data(d, _) if d == decidable) {
+            return Ok(None);
+        }
+    }
+    Ok(match force(g, opened.ty)? {
+        Value::Data(d, args) if d == decidable && args.len() == 1 => Some(args[0].clone()),
+        _ => None,
+    })
+}
+
+/// Whether `id` is generated (a derived instance, `T.%instDecidable`):
+/// its author can't write it another way, so it isn't warned about.
+fn generated(g: &Ev, id: DefId) -> bool {
+    g.def(id).name().contains('%')
+}
+
+/// A decision's test and the test its proposition's reading reads, where
+/// they differ (§13).
+struct Mismatch {
+    /// What the reading reads as.
+    prop: String,
+    /// The decision's test.
+    holds: String,
+    /// The reading's test.
+    test: String,
+}
+
+impl Elaborator {
+    /// Whether `instance`, made a decision of what positive reading
+    /// `reading` reads as (`P`, under the reading's parameters), tests
+    /// something other than the reading's test: its `holds`, through the
+    /// decisions it is made from, isn't a call of the reading's test's
+    /// function. `None` too where `instance` isn't a decision of `P`.
+    fn decision_mismatch(&self, reading: DefId, instance: DefId) -> Result<Option<Mismatch>> {
+        let g = &self.ev();
+        let Some((opened, test, prop)) = reading_sides(g, reading)? else {
+            return Ok(None);
+        };
+        let level = opened.env.len();
+        self.clear_metas();
+        let mut cx = Ctx::from_parts(self, opened.env, opened.types, opened.names, Span::NOWHERE);
+        let found = crate::auto::instance_for(&mut cx, instance, &prop)
+            .and_then(|found| found.map(|t| self.zonk(&t, level)).transpose());
+        let result = (|| {
+            let Some(decision) = found? else {
+                return Ok(None);
+            };
+            let reg = g.env.registry();
+            let (Some(holds), Some(decidable)) =
+                (reg.def(Builtin::Holds), reg.data(Builtin::Decidable))
+            else {
+                return Ok(None);
+            };
+            let term = applied(&cx, holds, vec![cx.quote_folded(&prop)?, decision]);
+            let mut value = folded(g, || cx.eval(&term))?;
+            // Through the decisions it is made from to the test itself.
+            for _ in 0..UNFOLD_LIMIT {
+                match &value {
+                    Value::Call(f, spine, _)
+                        if *f == holds
+                            || matches!(spine.last(), Some(&Elim::Proj(d, 0)) if d == decidable) =>
+                    {
+                        value = folded(g, || Ok(unfold_once(g, *f, spine.clone())?))?;
+                    }
+                    _ => break,
+                }
+            }
+            // The function, not its arguments: those come from the
+            // decisions it is made from (`if a ∧ b` decides `a = True` by
+            // `Bool`'s `DecEq`), which the instance doesn't choose.
+            let same = folded(g, || -> Result<bool> {
+                Ok(matches!(
+                    (head_args(g, &value)?, head_args(g, &test)?),
+                    (Some((h1, _)), Some((h2, _))) if h1 == h2
+                ))
+            })?;
+            Ok((!same).then(|| Mismatch {
+                prop: cx.show(&prop),
+                holds: cx.show(&value),
+                test: cx.show(&test),
+            }))
+        })();
+        self.clear_metas();
+        result
+    }
+
+    fn decision_warning(
+        &self,
+        at: Span,
+        reading: DefId,
+        instance: DefId,
+        m: Mismatch,
+    ) -> Diagnostic {
+        let g = self.ev();
+        let (reading, instance) = (g.def(reading).name(), g.def(instance).name());
+        let Mismatch { prop, holds, test } = m;
+        Diagnostic::warning(
+            "W-DECISION-TEST",
+            format!("`{instance}` decides `{prop}` by a test other than the one that reads as it"),
+        )
+        .with_label(
+            at,
+            format!("`if {prop}` tests `{holds}`, but `{reading}` reads `{test}` as `{prop}`"),
+        )
+        .with_note(format!(
+            "write the decision with that test, `holds = {test}`, its proofs from `{reading}`: \
+             then `if {prop}` and `if {test}` are one test, and `rewrite` and `match h:` treat \
+             them alike"
+        ))
+    }
+
+    /// After reading `reading`, written `@[reading]` at `at`, is filed: a
+    /// warning for each decision instance already checked whose test isn't
+    /// the reading's, for what it reads as (§13). Every one, wherever it is
+    /// written: checking order isn't source order, and an instance checked
+    /// after the reading is warned about when it is.
+    pub(crate) fn check_reading_decisions(&mut self, reading: DefId, at: Span) {
+        let found = (|| -> Result<Vec<(DefId, Mismatch)>> {
+            let g = &self.ev();
+            let Some((_, _, prop)) = reading_sides(g, reading)? else {
+                return Ok(Vec::new());
+            };
+            let Some(head) = prop_head(&prop) else {
+                return Ok(Vec::new());
+            };
+            let instances: Vec<DefId> = (0..g.env.defs().len())
+                .map(DefId)
+                .filter(|&id| {
+                    g.def(id).instance()
+                        && g.def(id).body().is_some()
+                        && !generated(g, id)
+                        && crate::auto::visible(self, id)
+                })
+                .collect();
+            let mut out = Vec::new();
+            for instance in instances {
+                if decided(g, instance)?.as_ref().and_then(prop_head) == Some(head)
+                    && let Some(m) = self.decision_mismatch(reading, instance)?
+                {
+                    out.push((instance, m));
+                }
+            }
+            Ok(out)
+        })();
+        for (instance, m) in found.unwrap_or_default() {
+            let warning = self.decision_warning(at, reading, instance, m);
+            self.unit.warnings.push(warning);
+        }
+    }
+
+    /// After decision instance `instance`, declared at `at`, is admitted: a
+    /// warning for each positive reading filed for what it decides whose
+    /// test isn't the decision's (§13).
+    pub(crate) fn check_instance_readings(&mut self, instance: DefId, at: Span) {
+        let found = (|| -> Result<Vec<(DefId, Mismatch)>> {
+            let g = &self.ev();
+            if generated(g, instance) {
+                return Ok(Vec::new());
+            }
+            let Some(head) = decided(g, instance)?.as_ref().and_then(prop_head) else {
+                return Ok(Vec::new());
+            };
+            let readings: Vec<DefId> = (self.tables.readings.iter())
+                .filter(|(id, r)| r.polarity && crate::auto::visible(self, **id))
+                .map(|(id, _)| *id)
+                .collect();
+            let mut out = Vec::new();
+            for reading in readings {
+                let Some((_, _, prop)) = reading_sides(g, reading)? else {
+                    continue;
+                };
+                if prop_head(&prop) == Some(head)
+                    && let Some(m) = self.decision_mismatch(reading, instance)?
+                {
+                    out.push((reading, m));
+                }
+            }
+            Ok(out)
+        })();
+        for (reading, m) in found.unwrap_or_default() {
+            let warning = self.decision_warning(at, reading, instance, m);
+            self.unit.warnings.push(warning);
+        }
+    }
+}
+
+/// For a type mismatch where `found` is a test fact and `expected` is what
+/// it reads as (§6.7): the note saying so, and that `.read` gives it.
+pub(crate) fn read_note(cx: &Ctx, expected: &Value, found: &Value) -> Result<Option<String>> {
+    let g = &cx.g();
+    let Some((test, polarity)) = test_fact(cx, found)? else {
+        return Ok(None);
+    };
+    let prop = match lookup(g, cx.e, &test, polarity)? {
+        Lookup::Found(theorem, info, args) => {
+            statement(g, theorem, &info, &args, |_, _| Ok(()))?.1[1].clone()
+        }
+        Lookup::Decision(p, _) => decision_reads(g, &p, polarity)?,
+        Lookup::Leaf(_) if !polarity => {
+            let h = Term::Var(0);
+            refutes(cx, &h, &test)?.1
+        }
+        _ => return Ok(None),
+    };
+    if !stitchwort_core::value::conv(g, cx.level(), &prop, expected)? {
+        return Ok(None);
+    }
+    Ok(Some(format!(
+        "this is the test fact `{}`, which reads as `{}`: add `.read` to use it as that",
+        cx.show(found),
+        cx.show(&prop)
+    )))
 }

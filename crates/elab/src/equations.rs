@@ -4506,8 +4506,8 @@ impl Elaborator {
             to_bool_lemmas: (|| {
                 Some((
                     r.data(Builtin::Decidable)?,
-                    self.lookup_def("Std.Decidable.toBoolOfNot")?,
-                    self.lookup_def("Std.Decidable.refute")?,
+                    r.def(Builtin::ToBoolOfNot)?,
+                    r.def(Builtin::Refute)?,
                 ))
             })(),
             dec_true: r.def(Builtin::DecTrue),

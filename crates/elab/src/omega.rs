@@ -148,6 +148,7 @@ pub(crate) const LIBRARY: &[&str] = &[
     "Std.Or.elim",
     "Std.Decidable.refute",
     "Std.Decidable.toBoolOfNot",
+    "Std.Decidable.notNotOf",
     "Std.Nat.max",
     "Std.Nat.min",
     "Std.Nat.mulComm",
@@ -670,10 +671,20 @@ impl Lib {
                 .registry()
                 .data(Builtin::Decidable)
                 .ok_or_else(|| missing("Decidable"))?,
-            refute: def("Std.Decidable.refute")?,
+            refute: cx
+                .g()
+                .env
+                .registry()
+                .def(Builtin::Refute)
+                .ok_or_else(|| missing("Std.Decidable.refute"))?,
             decidable_not: def("Std.Decidable.not")?,
             not_not_of: def("Std.Decidable.notNotOf")?,
-            to_bool_of_not: def("Std.Decidable.toBoolOfNot")?,
+            to_bool_of_not: cx
+                .g()
+                .env
+                .registry()
+                .def(Builtin::ToBoolOfNot)
+                .ok_or_else(|| missing("Std.Decidable.toBoolOfNot"))?,
             and_fst: def("Std.And.left")?,
             and_snd: def("Std.And.right")?,
             mk_env: ctor("Std.Omega.Env.MkEnv")?,

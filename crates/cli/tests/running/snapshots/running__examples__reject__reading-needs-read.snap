@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-TYPE-MISMATCH] Error: type mismatch
+   ╭─[ reject/reading-needs-read.sw:7:74 ]
+   │
+ 7 │ theorem member (x: Nat) (xs: List Nat) (found: xs.contains x): x ∈ xs := found
+   │                                                                          ──┬──  
+   │                                                                            ╰──── expected `x ∈ xs`, but this has type `xs.contains x`
+   │ 
+   │ Note: this is the test fact `xs.contains x`, which reads as `x ∈ xs`: add `.read` to use it as that
+───╯

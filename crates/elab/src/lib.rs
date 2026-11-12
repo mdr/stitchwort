@@ -3017,6 +3017,7 @@ impl Elaborator {
             if let Err(d) = self.after_definition(signature, *id) {
                 out.push((item, d));
             }
+            out.extend(self.unit.warnings.drain(..).map(|w| (item, w)));
             if let Decl::Signature { name, .. } = signature
                 && let Err(d) = self.opaque_unfold(name, *id)
             {
@@ -3285,11 +3286,14 @@ impl Elaborator {
         };
         if *instance {
             self.validate_instance(id)?;
+            let at = self.kernel.def(id).span();
+            self.check_instance_readings(id, at);
         }
         // Filed once proved, so its own proof reads its test as it would
         // without it.
         if let Some(at) = self.definition_attributes(signature)?.reading {
             self.register_reading(id, at)?;
+            self.check_reading_decisions(id, at);
         }
         if self.kernel.def(id).tailrec() {
             self.check_tailrec(id)?;

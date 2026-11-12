@@ -31,6 +31,15 @@ type Decidable (p: Prop) = {
 theorem Decidable.refute [p: Prop] (d: Decidable p) (e: d.holds = False): ¬p :=
   h => Bool.falseNotTrue (Eq.trans (Eq.sym e) (d.complete h))
 
+--| A refutation of `p` gives `holds d = False`: the converse of
+--| [`Decidable.refute`], which has no field of its own.
+-- In the core: the reader writes it for a fact `d.holds = False` built from
+-- `¬p` (docs/proposals/bool-as-proposition.md §5.4, step 2).
+theorem Decidable.toBoolOfNot [p: Prop] (d: Decidable p) (n: ¬p): Decidable.holds d = False :=
+  match d with
+    | { holds = True, sound = s, complete = c } => Void.exfalso (n (s rfl))
+    | { holds = False, sound = s, complete = c } => rfl
+
 --| The decision that `p` holds, from a proof of it, for a decision whose
 --| answer is known.
 def Decidable.yes [p: Prop] (h: p): Decidable p :=

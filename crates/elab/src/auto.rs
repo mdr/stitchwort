@@ -965,6 +965,47 @@ fn decision_procedures(cx: &Ctx, decidable: DataId) -> Result<Vec<DefId>> {
     Ok(found)
 }
 
+/// Decision procedure `id` applied to make a decision of `prop`, with its
+/// own arguments found as `auto` finds them, if it fits.
+pub(crate) fn instance_for(cx: &mut Ctx, id: DefId, prop: &Value) -> Result<Option<Term>> {
+    let decidable = decidable(cx)?;
+    attempt(cx, |cx| instantiate(cx, id, decidable, prop, 0, false))
+}
+
+/// Whether definition `id` is one the current module can see, by the rule
+/// `auto` uses for its candidates ([`earlier_candidates`]): the module's
+/// own, those of the namespaces it depends on, the library files it needs,
+/// and the prelude. Never one only because the run happened to load it.
+pub(crate) fn visible(e: &Elaborator, id: DefId) -> bool {
+    let first_def = e.unit.module.first_def;
+    if id.0 >= first_def {
+        return true;
+    }
+    if id.0 < e.tables.prelude_defs {
+        return true;
+    }
+    let g = &e.ev();
+    let reachable = match (e.library_index(), &e.unit.module.library_reach) {
+        (Some(index), Some(reach)) => index
+            .owner_of_path(g.def(id).path())
+            .is_none_or(|f| f == 0 || reach.contains(&f)),
+        _ => true,
+    };
+    match &e.unit.module.closure {
+        None => reachable,
+        Some(closure) => {
+            let depended_on = closure
+                .iter()
+                .any(|n| (e.tables.namespace_defs.get(n)).is_some_and(|r| r.contains(&id.0)));
+            if depended_on {
+                return true;
+            }
+            let project = e.tables.namespace_defs.values().any(|r| r.contains(&id.0));
+            !project && reachable
+        }
+    }
+}
+
 /// What `decision_procedures` tries after the current module's own
 /// definitions, in its order, with what that was worked out from
 /// (`Elaborator::decision_order`).
