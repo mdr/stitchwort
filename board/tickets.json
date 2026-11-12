@@ -31944,12 +31944,12 @@
     {
       "id": 2986,
       "title": "[Sonnet] After today's merges, hash_stability::prelude and ::examples fail (Std.Float.ieeeLeTotal / ieeeLeOr and others changed hashes): find which merge (likely SW-2969's bool_clash in cases or SW-2961's fresh_meta in auto), confirm every changed hash is a proof term (theorem or its %match) with statements unchanged, and update the snapshots; plus counterexamples::a_statement_mentioning_a_failed_definition_is_not_remembered fails after SW-2952 (a stand-in gives t a statement hash): remembered searches must skip statements that mention a stand-in (keep SW-1937's rule), not change the test",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "test-infra",
-      "body": "",
+      "body": "\n\nLane notes: hash churn caused by SW-2969 (bool_clash); only theorems changed; snapshots updated. type_hash now treats a stand-in (error assumption) as unfinished. Commit 8423113d5.\n",
       "created": "2026-11-12",
       "updated": "2026-11-12",
       "commits": []
