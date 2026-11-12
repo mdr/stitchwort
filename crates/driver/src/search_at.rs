@@ -5,13 +5,13 @@
 //! premise filled from a hypothesis where one fits. Here each plan becomes
 //! proof text, and is checked: elaborated in the file's scope inside
 //! `(((h: A) => …): (h: A) → … → T)`, and, with no `?` left, checked by
-//! the kernel. A `?` the plan leaves is tried with `rfl`, `omega`, `cases` and
-//! `byDecision`; what still fails is a goal the suggestion leaves.
+//! the kernel. A `?` the plan leaves is tried with `rfl`, `omega`, `ring`,
+//! `cases` and `byDecision`; what still fails is a goal the suggestion leaves.
 //!
 //! Results come in four classes (review point 12): `exact` (the lemma
 //! applied to the goal's terms), `withHypotheses` (premises filled from
-//! hypotheses), `afterObligations` (premises closed by `rfl`, `omega`, `cases` or
-//! `byDecision`), each kernel-checked; and `applicable` (it applies,
+//! hypotheses), `afterObligations` (premises closed by `rfl`, `omega`, `ring`,
+//! `cases` or `byDecision`), each kernel-checked; and `applicable` (it applies,
 //! leaving goals, listed). Separately, `rewrites`: equations and `Iff`s
 //! whose side is a call in the target, as `rewrite L in ?` with the goal
 //! that leaves (`rw?`'s direction, S2c). Nothing is reported as closing
@@ -211,8 +211,8 @@ pub fn pick(goals: &[FoundGoal], at: GoalAt) -> Result<&FoundGoal, String> {
 pub struct AtReport {
     pub version: u32,
     pub goal: GoalJson,
-    /// The closers that close the goal on their own (`rfl`, `omega`,
-    /// `byDecision`), kernel-checked, written as the file writes them
+    /// The closers that close the goal on their own (`rfl`, `omega`, `ring`,
+    /// `cases`, `byDecision`), kernel-checked, written as the file writes them
     /// (`Std.byDecision` without `import Std (byDecision)`).
     pub tactics: Vec<String>,
     /// Set when the ladder answered ([`AtOptions::simplest_first`]): the
@@ -846,6 +846,7 @@ impl Session {
         let closers: Vec<(&'static str, String)> = [
             ("rfl", Some("rfl".to_string())),
             ("omega", Some("omega".to_string())),
+            ("ring", Some("ring".to_string())),
             ("cases", Some("cases".to_string())),
             ("byDecision", self.elab.write_name("Std.byDecision")),
         ]
