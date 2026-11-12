@@ -32820,9 +32820,9 @@
     {
       "id": 3045,
       "title": "[Opus] Elaborator invariant 6 broken in std: a debug build panics in std_library::the_standard_library_passes_its_own_tests at crates/elab/src/queue.rs:1866 kept_receiver ('a receiver kept as a term chose from an unknown'); release only counts it (kept_chose). Find the std declaration, why a kept receiver defaulted a number or chose a generic dictionary, and fix the cause (SW-3035 finding)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-3045",
       "labels": [],
       "epic": "elaborator-kernel",
       "body": "",
