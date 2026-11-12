@@ -2506,11 +2506,7 @@ fn fresh_function_type_in(
 /// abilities, made outside its parameters, as a row doesn't depend on
 /// their values.
 fn inferred_row(cx: &Ctx) -> Result<(Term, Value)> {
-    let row = match cx.g().env.registry().data(Builtin::Row) {
-        Some(row) => cx.fresh_meta_of(&Value::Data(row, Vec::new().into())),
-        // Only a lambda that performs abilities needs `Row`.
-        None => cx.fresh_meta(),
-    };
+    let row = crate::rows::fresh_row(cx);
     let value = cx.eval(&row)?;
     Ok((row, value))
 }
@@ -6881,7 +6877,7 @@ pub(crate) enum CtorArg<'a> {
 
 /// An unknown for each of `data`'s parameters, each of its type given the
 /// ones before it.
-fn fresh_params(cx: &Ctx, data: &stitchwort_core::globals::Data) -> Result<Vec<Value>> {
+pub(crate) fn fresh_params(cx: &Ctx, data: &stitchwort_core::globals::Data) -> Result<Vec<Value>> {
     let mut params = Vec::new();
     for (_, ty) in data.params() {
         let ty = eval(&cx.g(), &params, ty)?;

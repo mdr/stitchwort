@@ -1246,7 +1246,7 @@ fn align(cx: &mut Ctx, from: &Row, to: &Row) -> Result<(Row, Row)> {
     if from_open && to_open && !same_tail {
         // `{A | ?f}` into `{B | ?t}`: with a fresh `?r`, `?f` is `B∖A | ?r`
         // and `?t` is `A∖B | ?r`.
-        let fresh = cx.fresh_meta();
+        let fresh = crate::rows::fresh_row(cx);
         let fresh = cx.eval(&fresh)?;
         let (for_from, for_to) = (missing_in(&from, &to), missing_in(&to, &from));
         extend_with(cx, &from, for_from, fresh.clone())?;
@@ -1615,7 +1615,7 @@ fn extend(cx: &mut Ctx, row: &Row, extra: Vec<Label>) -> Result<Option<Row>> {
         Some(tail) if is_unknown(cx, tail)? => {}
         _ => return Ok(None),
     }
-    let fresh = cx.fresh_meta();
+    let fresh = crate::rows::fresh_row(cx);
     let fresh = cx.eval(&fresh)?;
     if !extend_with(cx, row, extra, fresh)? {
         return Ok(None);
@@ -4465,13 +4465,7 @@ fn op_call(
         Some(pos) => pos,
         None => {
             // An unknown tail of the row can take the ability.
-            let params = cx.g().data(info.op_data).params().len();
-            let args = (0..params)
-                .map(|_| {
-                    let m = cx.fresh_meta();
-                    cx.eval(&m)
-                })
-                .collect::<Result<_>>()?;
+            let args = crate::check::fresh_params(cx, cx.g().data(info.op_data))?;
             let label = Label { ability: a, args };
             match extend(cx, &row, vec![label.clone()])? {
                 Some(wider) => {
@@ -4580,13 +4574,7 @@ fn make_call(
 /// `(x : A) -> {Ability args} B`.
 pub fn op_value(cx: &mut Ctx, a: usize, i: usize) -> Result<(Term, Value)> {
     let op_data = cx.e.tables.abilities[a].op_data;
-    let params = cx.g().data(op_data).params().len();
-    let args: Vec<Value> = (0..params)
-        .map(|_| {
-            let m = cx.fresh_meta();
-            cx.eval(&m)
-        })
-        .collect::<Result<_>>()?;
+    let args = crate::check::fresh_params(cx, cx.g().data(op_data))?;
     let label = Label { ability: a, args };
     let row = Row {
         labels: vec![label.clone()],
@@ -4807,13 +4795,7 @@ fn handle(cx: &mut Ctx, body: &Expr, clauses: &[Clause], out: &Row, t: &Value) -
 
     // The handled computation's row: this ability first, then everything in
     // `out` except this ability.
-    let params = cx.g().data(op_data).params().len();
-    let args: Vec<Value> = (0..params)
-        .map(|_| {
-            let m = cx.fresh_meta();
-            cx.eval(&m)
-        })
-        .collect::<Result<_>>()?;
+    let args = crate::check::fresh_params(cx, cx.g().data(op_data))?;
     let handled = Label { ability: a, args };
     let rest = Row {
         labels: out
