@@ -828,7 +828,9 @@ export class Editor {
   /**
    * The "Search for a proof" command: the server runs the search now; the
    * proofs it found are offered, best first, and the one picked replaces
-   * the `?` if it is still there.
+   * the `?` if it is still there. A single proof is inserted at once
+   * (D3532), with the cursor after it: one transaction, so undo restores
+   * the `?` in one step.
    */
   async searchProof(view, plugin, command) {
     const notice = this.options.onNotice;
@@ -855,20 +857,28 @@ export class Editor {
       notice?.(`No proof found within ${Math.round(answer.timeLimitMs / 100) / 10} s`);
       return;
     }
+    const insert = (p, title) => {
+      const from = plugin.fromPosition(answer.range.start);
+      const to = plugin.fromPosition(answer.range.end);
+      if (view.state.sliceDoc(from, to) !== "?") {
+        notice?.("The ? has moved since the search; no proof was inserted");
+        return;
+      }
+      notice?.(title);
+      view.dispatch({ changes: { from, to, insert: p.newText }, selection: { anchor: from + p.newText.length }, scrollIntoView: true });
+      view.focus();
+    };
+    if (answer.proofs.length === 1) {
+      const [p] = answer.proofs;
+      const shown = p.newText.length > 60 ? `${p.newText.slice(0, 57).trimEnd()}…` : p.newText;
+      insert(p, `Proved by \`${shown}\``);
+      return;
+    }
     notice?.("");
     this.pick(view, "Replace ? with a proof", answer.proofs.map((p) => ({
       label: p.newText,
       detail: p.title.match(/\(([^()]*)\)$/)?.[1],
-      run: () => {
-        const from = plugin.fromPosition(answer.range.start);
-        const to = plugin.fromPosition(answer.range.end);
-        if (view.state.sliceDoc(from, to) !== "?") {
-          notice?.("The ? has moved since the search; no proof was inserted");
-          return;
-        }
-        notice?.(p.title);
-        view.dispatch({ changes: { from, to, insert: p.newText } });
-      },
+      run: () => insert(p, p.title),
     })));
   }
 

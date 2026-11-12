@@ -268,6 +268,8 @@ test('search for a proof: picks show the proof text, best first; the messages an
   );
   assert.strictEqual(picks[0].proof, answer.proofs[0]);
   assert.deepStrictEqual(cfg.proofPicks({ proofs: [] }), []);
+  assert.strictEqual(cfg.provedMessage('rfl'), 'Proved by `rfl`');
+  assert.ok(cfg.provedMessage('x'.repeat(100)).length < 80);
   assert.strictEqual(cfg.noProofMessage(5000), 'No proof found within 5 s');
   assert.strictEqual(cfg.noProofMessage(1500), 'No proof found within 1.5 s');
   assert.ok(cfg.proofStillApplies(answer, 3, 'x'), 'same version');

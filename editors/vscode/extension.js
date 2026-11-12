@@ -95,8 +95,9 @@ async function selectRange({ uri, range }) {
 
 // The search a "Search for a proof" action asks for: runs on the server while a
 // cancellable progress notification shows, then a pick of the proofs found
-// (the best first) whose choice replaces the `?`. A text that moved on is
-// applied to only while the `?` is still where the search started.
+// (the best first) whose choice replaces the `?`. A single proof is inserted
+// at once (D3532). A text that moved on is applied to only while the `?` is
+// still where the search started.
 async function searchForProof({ uri, range }) {
   const c = client;
   if (!c) return;
@@ -119,10 +120,13 @@ async function searchForProof({ uri, range }) {
     vscode.window.showInformationMessage(cfg.noProofMessage(answer.timeLimitMs));
     return;
   }
-  const picked = await vscode.window.showQuickPick(picks, {
-    title: 'Replace ? with a proof',
-    placeHolder: 'Proofs that close the goal, best first',
-  });
+  const picked =
+    picks.length === 1
+      ? picks[0]
+      : await vscode.window.showQuickPick(picks, {
+          title: 'Replace ? with a proof',
+          placeHolder: 'Proofs that close the goal, best first',
+        });
   if (!picked) return;
   const document = await vscode.workspace.openTextDocument(vscode.Uri.parse(uri));
   const where = c.protocol2CodeConverter.asRange(answer.range);
@@ -132,7 +136,13 @@ async function searchForProof({ uri, range }) {
   }
   const edit = new vscode.WorkspaceEdit();
   edit.replace(document.uri, where, picked.proof.newText);
-  await vscode.workspace.applyEdit(edit);
+  if (!(await vscode.workspace.applyEdit(edit))) return;
+  const editor = vscode.window.visibleTextEditors.find((e) => e.document.uri.toString() === document.uri.toString());
+  if (editor) {
+    const end = document.positionAt(document.offsetAt(where.start) + picked.proof.newText.length);
+    editor.selection = new vscode.Selection(end, end);
+  }
+  if (picks.length === 1) vscode.window.showInformationMessage(cfg.provedMessage(picked.proof.newText));
 }
 
 async function restartServer() {
