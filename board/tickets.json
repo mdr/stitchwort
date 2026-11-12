@@ -1,5 +1,5 @@
 {
-  "next": 3014,
+  "next": 3015,
   "tickets": [
     {
       "id": 47,
@@ -32211,15 +32211,17 @@
     {
       "id": 3002,
       "title": "[Opus] Each case the checker fills in becomes a %matchN helper declaration (38 new in std after SW-2993) where an explicit arm needed none: could the filled-in proof go inline? (SW-2993 finding)",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-3002",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "\nFable review: nothing High or Medium. Model result: Opus, worked, 20 min (est. 90)",
       "created": "2026-11-12",
       "updated": "2026-11-12",
-      "commits": []
+      "commits": [
+        "f362639c8"
+      ]
     },
     {
       "id": 3003,
@@ -32373,6 +32375,19 @@
       "where": "",
       "labels": [],
       "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-12",
+      "updated": "2026-11-12",
+      "commits": []
+    },
+    {
+      "id": 3014,
+      "title": "[DeepSeek] SW-3002 review lows: a test with one theorem per ordered pair of Ordering constructors (6) leaving the case out, so a wrong row in cases.rs ordering_distinct (~994) fails at std-edit time; registry.rs invariant 6 doc (~24-31): say shape \"\" means the lemma takes the hypothesis directly and its statement isn't checked; (idea, Sonnet) types with derived DecEq could refute constructor equations with T.%differ instead of a helper",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
       "body": "",
       "created": "2026-11-12",
       "updated": "2026-11-12",
