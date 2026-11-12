@@ -550,6 +550,54 @@ fn a_member_of_a_failed_group_without_an_error_is_not_blamed_for_the_others() {
     );
 }
 
+/// SW-3006: both bodies of `f` and `g` check, but the kernel refuses the
+/// group for `g`'s own call, which doesn't decrease. The error is in `g`:
+/// `f` is not blamed for it, and what uses `f` is told it needs `g`, at the
+/// call inside `g`.
+#[test]
+fn a_group_the_kernel_refuses_blames_the_member_the_error_is_in() {
+    let importer = "namespace B\n\n\
+        def f: (n: Nat) -> Nat\n  | 0 => 0\n  | Succ k => g k\n\n\
+        def g: (n: Nat) -> Nat\n  | 0 => 0\n  | Succ k => f k + g (Succ k)\n\n\
+        theorem usesF (h: f 1 = 1): 1 = 1 := rfl\n\ntest \"t\" := True\n";
+    let dir = source_project(
+        "refused-group",
+        "namespace A\n\ndef a: Nat := 1\n",
+        importer,
+    );
+    let (_, stderr, _) = project_tests(&dir, &["--no-cache"]);
+    let _ = std::fs::remove_dir_all(&dir);
+    assert!(stderr.contains("B.usesF"), "{stderr}");
+    assert!(stderr.contains("needs `g` ("), "{stderr}");
+    assert!(stderr.contains("b.sw:9:"), "{stderr}");
+    assert!(!stderr.contains("needs `f`"), "{stderr}");
+}
+
+/// SW-3006: a group refused for a cycle through both members is about the
+/// group, not the first member: each has the error, so `f` and `g` both
+/// have stand-ins and what uses `f` is told it needs `f`, once.
+#[test]
+fn a_group_refused_as_a_whole_is_every_members_error() {
+    let importer = "namespace B\n\n\
+        def f: (n: Nat) -> Nat\n  | 0 => 0\n  | Succ k => g k\n\n\
+        def g: (n: Nat) -> Nat\n  | 0 => 0\n  | Succ k => f (Succ (Succ k))\n\n\
+        theorem usesF (h: f 1 = 1): 1 = 1 := rfl\n\n\
+        theorem usesG (h: g 1 = 1): 1 = 1 := rfl\n\ntest \"t\" := True\n";
+    let dir = source_project("whole-group", "namespace A\n\ndef a: Nat := 1\n", importer);
+    let (_, stderr, _) = project_tests(&dir, &["--no-cache"]);
+    let _ = std::fs::remove_dir_all(&dir);
+    assert_eq!(stderr.matches("[E-TERMINATION]").count(), 1, "{stderr}");
+    assert!(
+        stderr.contains("3 declarations rely on a declaration with an error")
+            || stderr.contains("2 declarations rely on a declaration with an error"),
+        "{stderr}"
+    );
+    assert!(
+        !stderr.contains("can't be checked until an error is fixed"),
+        "{stderr}"
+    );
+}
+
 /// SW-2981 (L-d): in a group, `f`'s only error is a name `A`'s syntax error
 /// lost (said on the import) and `g` has a type error. What uses them is
 /// told it needs `g`, at `g`'s error, not `f` or the lost name.

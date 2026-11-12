@@ -2707,6 +2707,35 @@ impl Elaborator {
         }
     }
 
+    /// A refusal of the group as a whole, attributed to the member whose
+    /// source holds all its labels. One that is about no one member (no
+    /// label, labels in several members, or outside them all: a cycle of
+    /// calls that don't terminate, say) is every member's: one copy each,
+    /// which the caller reports once.
+    fn blame_group(members: &[(usize, &Decl, &[Decl])], d: Diagnostic) -> Vec<(usize, Diagnostic)> {
+        let holds = |signature: &Decl, equations: &[Decl], at: Span| {
+            let (start, end) = equations
+                .iter()
+                .map(Decl::span)
+                .chain([signature.span()])
+                .filter(|s| s.file == at.file)
+                .fold((u32::MAX, 0), |(a, b), s| (a.min(s.start), b.max(s.end)));
+            start <= at.start && at.end <= end
+        };
+        if members.len() > 1
+            && let Some(&(item, signature, equations)) = members
+                .iter()
+                .find(|(_, s, e)| d.primary_span().is_some_and(|at| holds(s, e, at)))
+            && d.labels.iter().all(|l| holds(signature, equations, l.span))
+        {
+            return vec![(item, d)];
+        }
+        if members.len() > 1 {
+            return members.iter().map(|m| (m.0, d.clone())).collect();
+        }
+        vec![(members[0].0, d)]
+    }
+
     /// A group of definitions that may call each other (or one definition),
     /// given as module items: every signature, then every body, then the
     /// kernel admits them together, or none of them
@@ -2876,7 +2905,7 @@ impl Elaborator {
             {
                 Ok(partial) => partial,
                 Err(d) => {
-                    out.push((members[0].0, d));
+                    out.extend(Self::blame_group(members, d));
                     return out;
                 }
             };
@@ -2885,7 +2914,8 @@ impl Elaborator {
                 return out;
             }
             if partial.iter().any(|p| *p) {
-                out.push((members[0].0, self.mixed_partial(members, &ids, &partial)));
+                let d = self.mixed_partial(members, &ids, &partial);
+                out.extend(Self::blame_group(members, d));
                 return out;
             }
         }
@@ -2971,12 +3001,12 @@ impl Elaborator {
         bodies.extend(helpers);
         if let Err(d) = kernel::define_group(&mut self.kernel, &self.tables, &bodies) {
             let d = self.explain_lifted(d);
-            out.push((members[0].0, d));
+            out.extend(Self::blame_group(members, d));
             return out;
         }
         let local_helpers = self.decl.local_helpers.clone();
         if let Err(d) = self.bind_local_helpers() {
-            out.push((members[0].0, d));
+            out.extend(Self::blame_group(members, d));
         }
         for (&(item, signature, _), id) in members.iter().zip(&ids) {
             self.unit.module.item = Some(item);
@@ -2993,7 +3023,7 @@ impl Elaborator {
         // and their local definitions'. The library's and the core's are
         // made on demand (their local definitions' still here).
         if let Err(d) = self.local_equations(&local_helpers, false) {
-            out.push((members[0].0, d));
+            out.extend(Self::blame_group(members, d));
         }
         if self.defers_equations() {
             return out;
