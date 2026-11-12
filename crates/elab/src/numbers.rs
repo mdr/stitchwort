@@ -36,6 +36,18 @@ pub(crate) struct Defaulted {
     literal: Option<BigUint>,
 }
 
+#[cfg(test)]
+impl Defaulted {
+    /// `meta` made `Nat` for a literal at `span`.
+    pub(crate) fn literal(meta: usize, span: Span, k: u32) -> Self {
+        Defaulted {
+            meta,
+            span,
+            literal: Some(k.into()),
+        }
+    }
+}
+
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 enum Kind {
     Nat,

@@ -1852,19 +1852,22 @@ fn count(counter: &AtomicUsize) {
 /// docs/proposals/postponement.md §5.5): the receiver, elaborated since
 /// `before`, made none of the choices of §5.10 from an unknown's shape that
 /// a type known later could make otherwise: no number literal made `Nat`
-/// at once (`numbers::Defaulted`), and no operator left with a generic
-/// dictionary. Counted (`kept`, and `kept chose` for one that did), and
-/// asserted in a debug build.
+/// at once (`numbers::Defaulted`). Counted (`kept`, and `kept chose` for one
+/// that did), and asserted in a debug build.
+///
+/// An operator left with a generic dictionary is not such a choice: its
+/// projection is made when the declaration is zonked
+/// ([`Elaborator::specialise_operators`]), so its term is the one a type
+/// known at once gives (`((x => x * x) 3).toInt`, whose `x * x` waits for
+/// the literal's default, is `Nat.mul x x`).
 pub(crate) fn kept_receiver(cx: &Ctx, before: &crate::undo::Snapshot) {
     count(&cx.e.session.stats.kept);
     let defaulted = cx.e.attempt.defaulted.borrow().len() > before.defaulted();
-    let generic =
-        (cx.e.attempt.operator_dictionaries.borrow().keys()).any(|&m| m >= before.metas());
-    if defaulted || generic {
+    if defaulted {
         count(&cx.e.session.stats.kept_chose);
     }
     debug_assert!(
-        !defaulted && !generic,
+        !defaulted,
         "a receiver kept as a term chose from an unknown (invariant 6)"
     );
 }
@@ -2795,9 +2798,9 @@ mod tests {
     }
 
     /// Invariant 6's assertion: a receiver kept as a term must have made no
-    /// choice of §5.10 from an unknown, such as leaving an operator with a
-    /// generic dictionary. Made by hand here: a debug build's assertion
-    /// says so; a release build counts it.
+    /// choice of §5.10 from an unknown, such as making a number literal
+    /// `Nat` at once. Made by hand here: a debug build's assertion says so;
+    /// a release build counts it.
     #[test]
     #[cfg_attr(debug_assertions, should_panic(expected = "invariant 6"))]
     fn a_kept_receiver_that_chose_from_an_unknown_is_caught() {
@@ -2805,7 +2808,8 @@ mod tests {
         let cx = Ctx::new(&e, span());
         let before = Snapshot::take(&cx);
         let (m, _) = unknown(&cx);
-        (e.attempt.operator_dictionaries.borrow_mut()).insert(m, (DefId(0), 0));
+        let defaulted = crate::numbers::Defaulted::literal(m, span(), 1);
+        e.attempt.defaulted.borrow_mut().push(defaulted);
         let chose = e.session.stats.kept_chose.load(Ordering::Relaxed);
         kept_receiver(&cx, &before);
         assert!(e.session.stats.kept_chose.load(Ordering::Relaxed) > chose);
