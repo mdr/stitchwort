@@ -813,6 +813,10 @@ test("a code action on the book's chapter 2 splits the theorem on b", async (pag
   assert.ok(Date.now() - picked < 3000, "the split waited for a search");
   assert.match(await sourceText(page),
     /theorem noAndAnything \(b: Answer\): both No b = No := match b with\n  \| Yes => \?\n  \| No => \?\n  \| Unknown => \?/);
+  // The caret is on the first new ?, and the panel shows that arm's goal (D3530).
+  const caret = await page.ev(`(() => { const e = window.editor; return e.value.slice(e.selectionStart - 7, e.selectionEnd) + "|" + (e.selectionEnd - e.selectionStart); })()`);
+  assert.equal(caret, "Yes => ?|1", "the selection is the first ?");
+  await page.until(`document.getElementById("goalpanel").innerText.includes("⊢ No = No")`, 60000, "the first arm's goal");
 }, { ms: 240000 });
 
 test("a second Cmd+. on the book's chapter 2 waits instead of saying no action", async (page) => {

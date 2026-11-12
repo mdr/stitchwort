@@ -104,6 +104,10 @@ function mentionsGoal(text) {
 // during the search; the client picks one and applies it.
 const SEARCH_PROOF = 'stitchwort.searchProof';
 
+// The command a split or "add the missing arms" action carries, run after
+// its edit: argument {uri, range}, the first new `?` in the edited text.
+const SELECT_RANGE = 'stitchwort.selectRange';
+
 // Seconds as the message words them: 5000 ms is "5", 1500 ms "1.5".
 const seconds = (ms) => String(Math.round(ms / 100) / 10);
 
@@ -238,6 +242,7 @@ function staleBody(last) {
 
 module.exports = {
   SEARCH_PROOF,
+  SELECT_RANGE,
   noProofMessage,
   proofPicks,
   proofStillApplies,

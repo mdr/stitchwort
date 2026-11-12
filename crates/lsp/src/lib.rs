@@ -381,7 +381,7 @@ pub fn capabilities() -> serde_json::Value {
         "documentRangeFormattingProvider": true,
         "codeActionProvider": { "codeActionKinds": ["quickfix"] },
         "renameProvider": { "prepareProvider": true },
-        "executeCommandProvider": { "commands": [rename::RENAME_ANYWAY, SEARCH_PROOF] }
+        "executeCommandProvider": { "commands": [rename::RENAME_ANYWAY, SEARCH_PROOF, SELECT_RANGE] }
     })
 }
 
@@ -818,11 +818,17 @@ impl Search {
                     .filter(|p| p.len() > 1)
                     .and_then(|p| arms::split_arm(&text, &split, &p))
                 {
-                    actions.push(serde_json::json!({
-                        "title": format!("Split `{}` into its cases", split.name),
-                        "kind": "refactor.rewrite",
-                        "edit": workspace_edit(&uri, versioned, &[edit]),
-                    }));
+                    let edits = [edit];
+                    actions.push(with_cursor(
+                        serde_json::json!({
+                            "title": format!("Split `{}` into its cases", split.name),
+                            "kind": "refactor.rewrite",
+                            "edit": workspace_edit(&uri, versioned, &edits),
+                        }),
+                        &uri,
+                        &text,
+                        &edits,
+                    ));
                 }
                 if actions.is_empty() {
                     serde_json::Value::Null
@@ -1343,6 +1349,10 @@ impl Main {
                 self.rename_request(request);
             } else if command == Some(SEARCH_PROOF) {
                 self.search_proof(request);
+            } else if command == Some(SELECT_RANGE) {
+                // The client moves the cursor itself; there is nothing to do here.
+                let _ = (self.connection.sender)
+                    .send(Response::new_ok(request.id, serde_json::Value::Null).into());
             } else {
                 let response = Response::new_err(
                     request.id,
@@ -1499,11 +1509,16 @@ impl Main {
                     let Some(edits) = arms::split_hole(text, range.start, &name, &patterns) else {
                         continue;
                     };
-                    actions.push(serde_json::json!({
-                        "title": format!("Split on `{name}`"),
-                        "kind": "refactor.rewrite",
-                        "edit": workspace_edit(&uri, versioned, &edits),
-                    }));
+                    actions.push(with_cursor(
+                        serde_json::json!({
+                            "title": format!("Split on `{name}`"),
+                            "kind": "refactor.rewrite",
+                            "edit": workspace_edit(&uri, versioned, &edits),
+                        }),
+                        &uri,
+                        text,
+                        &edits,
+                    ));
                 }
             }
         }
@@ -1627,13 +1642,23 @@ impl Main {
                     .filter_map(|a| a.as_str().map(str::to_string))
                     .collect();
                 if let Some(edit) = arms::add_arms(text, d.range, &fills) {
-                    actions.push(serde_json::json!({
+                    let cursor = with_cursor(
+                        serde_json::json!({}),
+                        uri,
+                        text,
+                        std::slice::from_ref(&edit),
+                    );
+                    let mut action = serde_json::json!({
                         "title": if fills.len() == 1 { "Add the missing arm" } else { "Add the missing arms" },
                         "kind": "quickfix",
                         "diagnostics": [d],
                         "edit": with_edit(edit),
                         "isPreferred": actions.is_empty(),
-                    }));
+                    });
+                    if let Some(command) = cursor.get("command") {
+                        action["command"] = command.clone();
+                    }
+                    actions.push(action);
                 }
                 continue;
             }
@@ -4708,11 +4733,16 @@ fn hole_splits(
         .filter(|(name, _)| only.is_none_or(|o| o == name))
         .filter_map(|(name, patterns)| {
             let edits = arms::split_hole(text, hole, &name, &patterns)?;
-            Some(serde_json::json!({
-                "title": format!("Split on `{name}`"),
-                "kind": "refactor.rewrite",
-                "edit": workspace_edit(uri, versioned, &edits),
-            }))
+            Some(with_cursor(
+                serde_json::json!({
+                    "title": format!("Split on `{name}`"),
+                    "kind": "refactor.rewrite",
+                    "edit": workspace_edit(uri, versioned, &edits),
+                }),
+                uri,
+                text,
+                &edits,
+            ))
         })
         .collect()
 }
@@ -4783,6 +4813,56 @@ fn project_closing_actions(
 /// A range as the driver has it.
 fn ranged(r: lsp_types::Range) -> [u32; 4] {
     [r.start.line, r.start.character, r.end.line, r.end.character]
+}
+
+/// The command a split or "add the missing arms" action carries: the client
+/// runs it after the edit, to put the cursor on the first new `?` (D3530).
+/// A `WorkspaceEdit` cannot move the cursor, so this is the one rule for
+/// every editor; its argument is `{uri, range}` of that `?` in the text as
+/// it is after the edit.
+pub const SELECT_RANGE: &str = "stitchwort.selectRange";
+
+/// `action` with the [`SELECT_RANGE`] command for the first `?` the `edits`
+/// (non-overlapping, in any order) insert into `text`; unchanged when they
+/// insert none.
+fn with_cursor(
+    mut action: serde_json::Value,
+    uri: &Url,
+    text: &str,
+    edits: &[lsp_types::TextEdit],
+) -> serde_json::Value {
+    let mut spans: Vec<(usize, usize, &str)> = edits
+        .iter()
+        .map(|e| {
+            (
+                offset_at(text, e.range.start),
+                offset_at(text, e.range.end),
+                e.new_text.as_str(),
+            )
+        })
+        .collect();
+    spans.sort_by_key(|s| s.0);
+    let mut after = String::new();
+    let mut copied = 0;
+    let mut first = None;
+    for (from, to, new_text) in spans {
+        after.push_str(text.get(copied..from).unwrap_or_default());
+        if first.is_none() {
+            first = new_text.find('?').map(|i| after.len() + i);
+        }
+        after.push_str(new_text);
+        copied = to;
+    }
+    after.push_str(text.get(copied..).unwrap_or_default());
+    if let Some(at) = first {
+        let range = lsp_types::Range::new(position_at(&after, at), position_at(&after, at + 1));
+        action["command"] = serde_json::json!({
+            "title": "Select the first new ?",
+            "command": SELECT_RANGE,
+            "arguments": [{"uri": uri.as_str(), "range": range}],
+        });
+    }
+    action
 }
 
 /// The command of the code action that searches for a proof of a `?`
