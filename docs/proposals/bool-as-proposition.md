@@ -727,10 +727,12 @@ parallel after 2.
   whether a statement is a test or a proposition then depends on its
   operands' types. **Decided: yes** (SW-2735, 10 November 2026):
   [bool-operators-in-propositions.md](bool-operators-in-propositions.md).
+- **Decided (D3487, Matt, 12 Nov 2026): yes, amended per docs/reviews/SW-2964-bool-reader-review.md: a reading is a marked `↔` theorem, one per test, declared with the test.**
 - **D3487: Are readings ordinary proved definitions marked `@[reading]`,
   which std and projects can add, and not a fixed list in the compiler?**
   **[rec: yes]** (§5.1 to §5.3). It adds one attribute to the language and
   an orphan rule like the one for instances. Nothing is trusted either way.
+- **Decided (D3488, Matt, 12 Nov 2026): no silent crossing for now; an explicit word (working name `.read`) in stage 2; revisit after a measured sweep (SW-2964 review).**
 - **D3488: Should a whole fact be converted silently where its reading is
   wanted, and back (`found: xs.contains x = True` accepted for `x ∈ xs`;
   `e = False` for `¬e`)?** **[rec: yes, as stage 4, one layer only]** (§7).
