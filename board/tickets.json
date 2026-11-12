@@ -31503,15 +31503,17 @@
     {
       "id": 2954,
       "title": "[DeepSeek] task test:verify-cache can pass while comparing nothing: it writes nothing to the cache, so on a fresh binary (as in the full tier after a build) every test 'had no cached result' and it reports 0 compared, exit 0 (Speedwell, 12 Nov, three runs). Fill the cache first (a plain stitchwort test) or fail when nothing was compared; check what the full tier's step has actually compared",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": ".claude/worktrees/scratch-sw-2954",
       "labels": [],
       "epic": "test-infra",
-      "body": "\nConfirmed 12 Nov 07:29: after a plain stitchwort test in aoc/ and games/rogue/ on the same binary, verify-cache compared 1695 + 100 results, 0 disagree. So the check works only after a normal test run with the same binary.",
+      "body": "\nConfirmed 12 Nov 07:29: after a plain stitchwort test in aoc/ and games/rogue/ on the same binary, verify-cache compared 1695 + 100 results, 0 disagree. So the check works only after a normal test run with the same binary.\nModel result: DeepSeek, worked, ~12 min (est. 30)",
       "created": "2026-11-12",
       "updated": "2026-11-12",
-      "commits": []
+      "commits": [
+        "24b542447"
+      ]
     },
     {
       "id": 2955,
