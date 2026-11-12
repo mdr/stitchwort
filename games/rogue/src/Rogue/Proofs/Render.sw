@@ -23,7 +23,6 @@ theorem lookupMonsterMark (position: Position) (found: Monster) (rest: List (Nat
     (monsters: List Monster) (located: monsterAt position monsters = Some found): (List.append (monsters.filterMap (monster => if monster.position.row == position.row then Some (monster.position.column, monster.kind.glyph) else None)) rest).lookup position.column
       = Some found.kind.glyph :=
   match monsters with
-    | [] => Void.exfalso (Option.noneNotSome found located)
     | [monster, ..others] =>
       match same: monster.position == position with
         | True =>

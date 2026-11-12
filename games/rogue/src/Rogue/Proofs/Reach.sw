@@ -83,13 +83,10 @@ type Inside (area: Area) (position: Position): Prop = {
 
 theorem insideOf (area: Area) (position: Position) (contained: area.contains position = True): Inside area position :=
   match top: Nat.leq area.corner.row position.row with
-    | False => cases
     | True =>
       match bottom: Nat.leq position.row (area.corner.row + area.down) with
-        | False => cases
         | True =>
           match left: Nat.leq area.corner.column position.column with
-            | False => cases
             | True => { top, bottom, left, right = contained }
 
 theorem walkCong (level: Level) (moves: List Direction) (origin: Position) (origin2: Position) (target: Position) (target2: Position)
@@ -255,7 +252,6 @@ theorem hubJoins (level: Level) (rooms: List Area) (extra: Nat) (wired: level.co
       joinedTrans level (middleOf rooms 0) (middleOf rooms 4) (middleOf rooms 3) (hubFour level rooms extra wired) (linkJoins level rooms extra wired 4 3 (Inr (Inr (Inr (Inr (Inl rfl))))))
     | Succ (Succ (Succ (Succ Zero))) => hubFour level rooms extra wired
     | Succ (Succ (Succ (Succ (Succ Zero)))) => hubFive level rooms extra wired
-    | Succ (Succ (Succ (Succ (Succ (Succ more))))) => cases
 
 --| The way on (the stairs, or the amulet) can be walked to from the start,
 --| on every level `layOut` makes from rooms numbered below 6, as

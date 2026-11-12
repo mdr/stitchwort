@@ -178,7 +178,12 @@ body with an error has no well-typed remainder.
 - **What doesn't get one:** a declaration whose statement didn't check; a
   `type`, `interface`, `ability` or instance with an error (later work
   could give an instance with a checked head one); a member of a failed
-  group whose signature mentions another member. Their users wait.
+  group whose signature mentions another member, nor a member of a failed
+  group with no error of its own (the group fails together, so its body
+  isn't trusted alone; its users wait for the member with the error, which
+  is the one named). Their users wait. A stand-in for a theorem is a
+  theorem to the kernel, so nothing takes a proof for something that
+  computes.
 - **Syntax errors.** A declaration whose body didn't parse but whose
   signature did (parse-recovery.md) gets a stand-in the same way. So
   typing inside `beats`' body no longer takes down everything that calls

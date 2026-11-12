@@ -19,7 +19,6 @@ theorem promiseOfDangerous (list: FoodList) (answer: Text) (found: list.dangerou
     ∃ (holder: Allergen → Ingredient) => Spec.Holding list holder :=
   match settled: list.holders with
     | Some holders => Witness (list.holderOf holders) (holdersHolding list holders settled)
-    | None => Void.exfalso (Option.noneNotSome answer found)
 
 theorem part1Correct (input: Text) (list: FoodList) (parsed: Fail.toResult (() => parseFoods input) = Ok list)
     (promise: ∃ (holder: Allergen → Ingredient) => Spec.Holding list holder):

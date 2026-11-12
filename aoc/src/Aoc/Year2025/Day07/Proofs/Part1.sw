@@ -90,7 +90,6 @@ theorem timelinesSome (r c: Nat) (ls: List (Vec Bool w)): 0 < List.length (timel
 theorem anyConsHit (x: Nat) (d: Nat) (h: Hit) (hit: (h.row == x ∧ h.column == d) = True)
     (ts: List (List Hit)) (some: 0 < ts.length): (ts.map (Cons h)).any (hitIn x d) = True :=
   match ts with
-    | [] => cases
     | [t, ..ts] => rewrite hit
 
 --| No timeline from row r reaches a splitter above it.
@@ -274,7 +273,6 @@ theorem fallKeeps (row: Vec Bool w) (rest: List (Vec Bool w)) (v: Vec Bool w) (k
           (sides => Bool.orElim sides
             (left =>
               match c with
-                | Zero => cases
                 | Succ b => (fallFromLeft row rest v k d hd b (Bool.andRight left) (Bool.andLeft left) on).right)
             (right => (fallFromRight row rest v k d c (Bool.andRight right) (Bool.andLeft right) on).right))))
     -- A particle in column c with a beam falls straight down, or at a
@@ -289,7 +287,6 @@ theorem fallKeeps (row: Vec Bool w) (rest: List (Vec Bool w)) (v: Vec Bool w) (k
             Bool.orElim on
               (left =>
                 match c with
-                  | Zero => cases
                   | Succ b => (fallFromRight row rest v k d b beam e left).left)
               (right => (fallFromLeft row rest v k d hd c beam e (rewrite <- Nat.addOne c in right)).left)))
 

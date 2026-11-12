@@ -40,13 +40,11 @@ theorem pathsCorrect (passages: List Passage) (promise: NoBigNeighbours passages
       rewrite <- same in
         Both
           (match rest with
-            | [] => Void.exfalso (Option.noneNotSome Cave.end last)
             | [z, ..more] => rewrite last in rfl)
           (Both along within)),
   backward = both =>
     let (Both ends (Both along within)) := both
     match path with
-      | { caves = [] } => cases
       | { caves = [first, ..rest] } =>
         let isStart: first = Cave.start := Option.someInjective (DecEq.sound (Bool.andLeft ends))
         let isLast := DecEq.sound (Bool.andRight ends)
@@ -84,7 +82,6 @@ theorem endsVisited (path: Path) (ends: path.startToEnd = True): 1 ≤ path.visi
   let isLast := DecEq.sound (Bool.andRight ends)
   Both
     (match path.caves with
-      | [] => cases
       | [first, ..rest] =>
         let isStart: first = Cave.start := Option.someInjective (DecEq.sound (Bool.andLeft ends))
         visitsMember Cave.start [first, ..rest] (Inl isStart))

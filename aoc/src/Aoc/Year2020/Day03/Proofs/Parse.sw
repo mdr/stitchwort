@@ -23,7 +23,6 @@ theorem symbolOfChar (char: Char) (allowed: isSquare char = True): symbol (Squar
     | False =>
       match open: char == '.' with
         | True => Eq.sym (DecEq.sound open)
-        | False => cases
 
 theorem readsSquare: Parse.Reads square (read square => read = [symbol square]) :=
   Parse.readsWeaken [p := square]

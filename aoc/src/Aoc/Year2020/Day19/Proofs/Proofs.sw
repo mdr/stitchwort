@@ -37,7 +37,6 @@ theorem rankBelow (rules: Rules) (number: Nat): rules.rank number < rules.rankBo
 
 theorem lookupMember (entries: List (Nat, Rule)) (number: Nat) (rule: Rule) (found: entries.lookup number = Some rule): (number, rule) ∈ entries :=
   match entries with
-    | [] => Option.noneNotSome rule found
     | [(entryNumber, value), ..rest] =>
       match same: entryNumber == number with
         | True => Inl (rewrite DecEq.sound same, Option.someInjective found in rfl)
@@ -50,7 +49,6 @@ theorem productiveRanked (rules: Rules) (rank: Nat → Nat) (bound: Nat) (below:
       (lookupMember rules.numbered number (Alternatives sequences) looked)
     let sequenceProductive := List.allMember _ sequences entryProductive sequence chosen
     match sequence with
-      | [] => cases
       | [single] => Both (List.consNotNil single []) (only same => rewrite <- List.consInjectiveHead single only [] [] same in omega [sequenceProductive])
       | [first, second, ..others] => Both (List.consNotNil first [second, ..others]) (only same => Void.exfalso (List.consNotNil second others (Eq.cong (.drop 1) same))))
 
@@ -59,8 +57,7 @@ theorem productiveRanked (rules: Rules) (rank: Nat → Nat) (bound: Nat) (below:
 theorem anyEmpty (lefts: List (List Char)) (any: lefts.any .isEmpty = True): [] ∈ lefts :=
   List.anyTrueElim lefts List.isEmpty _ any (left member empty =>
     match left with
-      | [] => member
-      | [letter, ..rest] => cases)
+      | [] => member)
 
 --| `matchesCompletely` reads the rules from a table, but the list gives its answer.
 theorem matchesCompletelyList (rules: Rules) (message: Message):

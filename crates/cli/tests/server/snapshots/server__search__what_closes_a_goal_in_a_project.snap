@@ -1,6 +1,6 @@
 ---
 source: crates/cli/tests/server/search.rs
-assertion_line: 556
+assertion_line: 603
 expression: "serde_json::to_string_pretty(&report).unwrap()"
 ---
 {
@@ -9,7 +9,7 @@ expression: "serde_json::to_string_pretty(&report).unwrap()"
     "checks": "(varies)",
     "exhausted": true,
     "inFile": {
-      "checked": 4,
+      "checked": 5,
       "rejected": 0
     },
     "internalErrors": 0,
@@ -99,6 +99,7 @@ expression: "serde_json::to_string_pretty(&report).unwrap()"
   ],
   "tactics": [
     "omega",
+    "ring",
     "cases"
   ],
   "total": {

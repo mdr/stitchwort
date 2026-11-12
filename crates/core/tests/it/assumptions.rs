@@ -37,6 +37,7 @@ fn assume_as(
         &name.into(),
         &ty,
         label(owner, hole),
+        false,
         span(),
     )
     .map_err(|d| d.code)
@@ -239,6 +240,38 @@ fn its_type_must_be_a_type() {
     // Paired: any universe will do, `Prop` and `Type` included.
     assert!(assume_as(&mut p.g, "x.?1", prop(), "Main.x", 1).is_ok());
     assert!(assume_as(&mut p.g, "x.?2", ty(), "Main.x", 2).is_ok());
+}
+
+/// A theorem's stand-in is a proof, so its type must be a proposition, as
+/// `declare_def` asks of a theorem: the kernel, not its caller, keeps every
+/// theorem's type a proposition.
+#[test]
+fn a_theorem_s_type_must_be_a_proposition() {
+    let mut p = Prelude::new();
+    let before = p.g.env.defs().len();
+    let assume_theorem = |g: &mut Kernel, name: &str, ty: Term, hole: u32| {
+        check::assume(
+            g,
+            &name.into(),
+            &name.into(),
+            &ty,
+            label("Main.t", hole),
+            true,
+            span(),
+        )
+        .map_err(|d| d.code)
+    };
+    let nat = p.nat_ty();
+    assert_eq!(
+        assume_theorem(&mut p.g, "t.?1", nat.clone(), 1),
+        Err("E-NOT-A-PROP")
+    );
+    assert_eq!(p.g.env.defs().len(), before, "nothing is added");
+    // Paired: a proposition as a theorem, and data as a definition.
+    let statement = comm(&p);
+    let proof = assume_theorem(&mut p.g, "t.?1", statement, 1).expect("a proposition");
+    assert!(p.g.def(proof).theorem());
+    assert!(assume_as(&mut p.g, "t.?2", nat, "Main.t", 2).is_ok());
 }
 
 #[test]
@@ -573,8 +606,16 @@ fn an_error_stand_in_hashes_apart_from_a_goal() {
     let user_of = |label: Assumption| {
         let mut p = Prelude::new();
         let ty = comm(&p);
-        let gap =
-            check::assume(&mut p.g, &"c".into(), &"c".into(), &ty, label, span()).expect("a type");
+        let gap = check::assume(
+            &mut p.g,
+            &"c".into(),
+            &"c".into(),
+            &ty,
+            label,
+            false,
+            span(),
+        )
+        .expect("a type");
         let proof = app(Term::Def(gap), [p.num(1), p.num(2)]);
         let (one, two) = (p.num(1), p.num(2));
         let ty = eq(
@@ -608,6 +649,7 @@ fn a_stand_in_s_label_is_used_once() {
         &"f".into(),
         &nat,
         Assumption::error(owner.clone()),
+        false,
         span(),
     );
     assert!(first.is_ok());
@@ -618,6 +660,7 @@ fn a_stand_in_s_label_is_used_once() {
         &"f".into(),
         &other,
         Assumption::error(owner.clone()),
+        false,
         span(),
     );
     assert_eq!(again.map_err(|d| d.code), Err("E-MALFORMED"));

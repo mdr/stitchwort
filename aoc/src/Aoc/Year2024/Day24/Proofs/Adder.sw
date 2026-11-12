@@ -79,22 +79,16 @@ theorem fullAdderCarries (device: Device) (bit: Nat) (carryWire: Wire) (next: Wi
     (xCarries: Carries device (X bit) x) (yCarries: Carries device (Y bit) y) (carryCarries: Carries device carryWire carry):
     Carries device (Z bit) ((x.xor y).xor carry) ∧ Carries device next (carryOut x y carry) :=
   match partialIs: outputOf device.gates Xor (X bit) (Y bit) with
-    | None => Void.exfalso (faultyNotPasses passes)
     | Some partial =>
       match generatedIs: outputOf device.gates And (X bit) (Y bit) with
-        | None => Void.exfalso (faultyNotPasses passes)
         | Some generated =>
           match sumIs: outputOf device.gates Xor partial carryWire with
-            | None => Void.exfalso (faultyNotPasses passes)
             | Some sum =>
               match passedIs: outputOf device.gates And partial carryWire with
-                | None => Void.exfalso (faultyNotPasses passes)
                 | Some passed =>
                   match onZ: sum == Z bit with
-                    | False => Void.exfalso (faultyNotPasses passes)
                     | True =>
                       match carryIs: outputOf device.gates Or generated passed with
-                        | None => Void.exfalso (faultyNotPasses passes)
                         | Some output =>
                           let partialCarries := outputCarries device Xor (X bit) (Y bit) partial partialIs x y xCarries yCarries
                           let generatedCarries := outputCarries device And (X bit) (Y bit) generated generatedIs x y xCarries yCarries
@@ -115,13 +109,10 @@ theorem halfAdderCarries (device: Device) (carryWire: Wire) (passes: checkHalfAd
     (xCarries: Carries device (X 0) x) (yCarries: Carries device (Y 0) y):
     Carries device (Z 0) (gateOutput Xor x y) ∧ Carries device carryWire (gateOutput And x y) :=
   match sumIs: outputOf device.gates Xor (X 0) (Y 0) with
-    | None => Void.exfalso (faultyNotPasses passes)
     | Some sum =>
       match carryIs: outputOf device.gates And (X 0) (Y 0) with
-        | None => Void.exfalso (faultyNotPasses passes)
         | Some carry =>
           match onZ: sum == Z 0 with
-            | False => Void.exfalso (faultyNotPasses passes)
             | True =>
               Both (rewrite <- DecEq.sound onZ in outputCarries device Xor (X 0) (Y 0) sum sumIs x y xCarries yCarries)
                 (rewrite <- passesInjective carry carryWire passes in outputCarries device And (X 0) (Y 0) carry carryIs x y xCarries yCarries)
@@ -142,14 +133,12 @@ theorem checkFromCarries (device: Device) (bits: Nat) (x: Nat) (y: Nat) (inputs:
     ZsCarry device x y top ∧ (final = Z top ∧ Carries device final (carryInto x y top))
   | Zero, bit, carryWire, final, passes, top, isTop, within, zs, carryCarries =>
     match onZ: carryWire == Z bit with
-      | False => Void.exfalso (faultyNotPasses passes)
       | True =>
         let atTop := (omega: top = bit)
         let finalIs := Eq.trans (Eq.sym (passesInjective carryWire final passes)) (DecEq.sound onZ)
         rewrite atTop in Both zs (Both finalIs (rewrite <- passesInjective carryWire final passes in carryCarries))
   | Succ fewer, bit, carryWire, final, passes, top, isTop, within, zs, carryCarries =>
     match fullIs: checkFullAdder device.gates bit carryWire with
-      | Faulty fixes suspects => Void.exfalso (faultyNotPasses passes)
       | Passes next =>
         let bitInputs := inputs bit (omega)
         let carried := fullAdderCarries device bit carryWire next fullIs _ _ _ bitInputs.left bitInputs.right carryCarries
@@ -167,10 +156,8 @@ theorem adderCarries (device: Device) (bits: Nat) (x: Nat) (y: Nat) (inputs: Inp
     (passes: checkAdder device.gates bits = Passes final):
     ZsCarry device x y bits ∧ (final = Z bits ∧ Carries device final (carryInto x y bits)) :=
   match bits with
-    | Zero => Void.exfalso (faultyNotPasses passes)
     | Succ higher =>
       match halfIs: checkHalfAdder device.gates with
-        | Faulty fixes suspects => Void.exfalso (faultyNotPasses passes)
         | Passes carryWire =>
           let lowInputs := inputs 0 (omega)
           let carried := halfAdderCarries device carryWire halfIs _ _ lowInputs.left lowInputs.right
@@ -191,7 +178,6 @@ theorem carriesMentioned (device: Device) (wire: Wire) (value: Bool): Carries de
 theorem zWithinBound (bits: Nat) (bit: Nat) (gates: List Gate) (within: zWithin gates bits = True)
     (member: Z bit ∈ gates.flatMap (gate => [gate.left, gate.right, gate.output])): bit ≤ bits :=
   match gates with
-    | [] => Void.exfalso member
     | [gate, ..rest] =>
       match List.memAppend (Z bit) [gate.left, gate.right, gate.output] _ member with
         | Inl here => List.allMember (wire => wire.zBit.all (found => found ≤ bits)) [gate.left, gate.right, gate.output] (Bool.andLeft within) (Z bit) here

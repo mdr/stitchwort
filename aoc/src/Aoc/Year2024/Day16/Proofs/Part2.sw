@@ -26,10 +26,8 @@ theorem beforeHolds (maze: Maze): ∀ (reindeer: Reindeer) => maze.holds reindee
       | Inr (Inr (Inr none)) => Void.exfalso none
       | Inl backward =>
         match stepped: position.step facing.toDirection.opposite with
-          | None => Void.exfalso backward
           | Some behind =>
             match open: maze.isOpen behind with
-              | False => Void.exfalso backward
               | True =>
                 match backward with
                   | Inl here => rewrite <- Eq.cong Pair.fst here in open
@@ -72,7 +70,6 @@ theorem movesWalkBack (maze: Maze): ∀ (reindeer: Reindeer) => maze.holds reind
   | reindeer, holds, [], last, ended => Witness [] (Both (Eq.sym (Option.someInjective ended)) rfl)
   | reindeer, holds, [way, ..rest], last, ended =>
     match moved: move maze reindeer way with
-      | None => Void.exfalso (Option.noneNotSome last ended)
       | Some next =>
         let nextHolds := moveHolds maze reindeer holds way next moved
         Exists.elim (movesWalkBack maze next nextHolds rest last ended) (path both =>
@@ -134,7 +131,6 @@ theorem tileScoring (fromStart: Map Reindeer Nat) (toEnd: Map Reindeer Nat) (bes
       | (reindeer, first) =>
         let got := (Map.memToList fromStart reindeer first).forward kept
         match after: toEnd.get reindeer with
-          | None => cases
           | Some second =>
             Witness reindeer (Witness first (Witness second (Both got (Both after (Both (DecEq.sound passed) (And.right both)))))))
 

@@ -11,4 +11,3 @@ theorem parseWritten (input: Text) (data: XmasData) (parsed: Fail.toResult (() =
   let ran := rewrite Fail.toResultThen (() => Parse.eachLine input Parse.nat) (numbers => ({ numbers }: XmasData)) at parsed in parsed
   match e: Fail.toResult (() => Parse.eachLine input Parse.nat) with
     | Ok numbers => rewrite <- Result.okInjective ran in Parse.eachLineReads input Parse.nat NumberWritten numbers e Parse.readsNat
-    | Err message => Void.exfalso (Result.errNotOk ran)

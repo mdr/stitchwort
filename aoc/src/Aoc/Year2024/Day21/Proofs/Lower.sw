@@ -42,10 +42,8 @@ theorem walksCost (keypad: Keypad k) (rows: List (List (Option k))) (costs: Cost
   | [], start, from, onFrom, route, aim, walked, pressed, operated => rewrite <- Option.someInjective operated in omega
   | [Activate, ..rest], start, from, onFrom, route, aim, walked, pressed, operated =>
     match found: keyAt rows aim with
-      | None => Void.exfalso (Option.noneNotSome pressed operated)
       | Some to =>
         match later: operate rows aim rest with
-          | None => Void.exfalso (Option.noneNotSome pressed operated)
           | Some laterKeys =>
             let bound := walksCost keypad rows costs cheapest rest aim to found [] aim rfl laterKeys later
             let routeBound := cheapest start from onFrom route aim walked to found
@@ -57,10 +55,8 @@ theorem walksCost (keypad: Keypad k) (rows: List (List (Option k))) (costs: Cost
               in omega [bound, routeBound]
   | [Arrow direction, ..rest], start, from, onFrom, route, aim, walked, pressed, operated =>
     match step: moved aim direction with
-      | None => Void.exfalso (Option.noneNotSome pressed operated)
       | Some next =>
         match found: keyAt rows next with
-          | None => Void.exfalso (Option.noneNotSome pressed operated)
           | Some key =>
             let walkedOn: walk rows start (List.append route [direction]) = Some next :=
               rewrite walkAppend rows start route [direction], walked, step, found in rfl
@@ -78,7 +74,6 @@ theorem throughRobotsCost
     | Succ level =>
       let via := rewrite throughRobotsLast level presses at through in through
       match before: throughRobots level presses with
-        | None => Void.exfalso (Option.noneNotSome keys via)
         | Some driving =>
           let operated: operate directionalRows directionalStart driving = Some keys := via
           let pressedBound :=
@@ -97,7 +92,6 @@ theorem optimalIfCheapestWalks (robots: Nat) (walks: ∀ (level: Nat) => level <
   code presses types =>
     let typedVia: (throughRobots robots presses |> .flatMap (operate numericRows numericStart)) = Some code := rewrite <- typedThrough robots presses in types
     match before: throughRobots robots presses with
-      | None => Void.exfalso (Option.noneNotSome code typedVia)
       | Some driving =>
         let pressedBound := walksCost Keypad.numeric numericRows (robotCosts robots) numericWalks driving numericStart Enter rfl [] numericStart rfl code typedVia
         let drivingBound := throughRobotsCost robots walks presses driving before

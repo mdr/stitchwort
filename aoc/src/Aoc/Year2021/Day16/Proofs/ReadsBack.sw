@@ -50,10 +50,8 @@ theorem runsDigits (chars: List Char) (bits: List Bool) (h: transmissionBits cha
     | [] => Witness [] (Both rfl (Both declinesHexDigitEnd (Option.someInjective h)))
     | [char, ..rest] =>
       match digit: hexDigitBits char with
-        | None => Void.exfalso (Option.noneNotSome bits h)
         | Some digitBits2 =>
           match later: transmissionBits rest with
-            | None => Void.exfalso (Option.noneNotSome bits h)
             | Some more =>
               match hexValueOf char digitBits2 digit with
                 | Witness value (Both found same) =>

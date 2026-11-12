@@ -20,7 +20,6 @@ theorem hitsWithinSound (target: Target) (steps: Nat) (probe: Probe) (h: hitsWit
         | True => Witness 0 (Both (omega) i)
         | False =>
           match q: past target probe with
-            | True => cases
             | False =>
               match hitsWithinSound target steps (step probe) h with
                 | Witness n (Both early inside) => Witness (Succ n) (Both (omega) inside)

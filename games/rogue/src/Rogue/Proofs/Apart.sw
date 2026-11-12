@@ -30,7 +30,6 @@ theorem vacantNotMem (position: Position): ∀ (monsters: List Monster) => monst
   | [], vacant, inside => inside
   | [monster, ..others], vacant, inside =>
     match same: monster.position == position with
-      | True => Option.noneNotSome monster (Eq.sym vacant)
       | False =>
         match inside with
           | Inl here => DecEq.soundFalse monster.position position same here
@@ -40,7 +39,6 @@ theorem vacantNotMem (position: Position): ∀ (monsters: List Monster) => monst
 theorem pickFreeVacant (level: Level) (player: Position) (others: List Monster)
     (choices: List Position) (destination: Position) (picked: pickFree level choices player others = Some destination): monsterAt destination others = None :=
   match choices with
-    | [] => Void.exfalso (Option.noneNotSome destination picked)
     | [choice, ..rest] =>
       match wall: isWall level choice with
         | True => pickFreeVacant level player others rest destination picked

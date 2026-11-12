@@ -31,10 +31,8 @@ theorem offsetExt (offset other: Offset) (sameRows: offset.rows = other.rows) (s
 theorem offsetSome (position: Position) (offset: Offset) (next: Position) (landed: position.offset offset = Some next):
     (next.row.toInt = position.row.toInt + offset.rows) ∧ (next.column.toInt = position.column.toInt + offset.columns) :=
   match rowAt: (position.row.toInt + offset.rows).toNatChecked with
-    | None => Void.exfalso (Option.noneNotSome next landed)
     | Some row =>
       match columnAt: (position.column.toInt + offset.columns).toNatChecked with
-        | None => Void.exfalso (Option.noneNotSome next landed)
         | Some column =>
           let same: ({ row, column }: Position) = next := Option.someInjective landed
           rewrite <- same in
@@ -55,7 +53,6 @@ theorem offsetNone (position: Position) (offset: Offset) (off: position.offset o
     | Some row =>
       match columnAt: (position.column.toInt + offset.columns).toNatChecked with
         | None => Inr (Int.toNatCheckedNone _ columnAt)
-        | Some column => Void.exfalso (Option.noneNotSome ({ row, column }: Position) (Eq.sym off))
 
 theorem offsetNoneOf (position: Position) (offset: Offset)
     (negative: (position.row.toInt + offset.rows < 0) ∨ (position.column.toInt + offset.columns < 0)): position.offset offset = None :=
@@ -133,13 +130,11 @@ theorem offsetStepOpposite (offset: Offset) (direction: Direction): (offset.step
 theorem gridOffsetSome (grid: Grid a) (position: Position) (offset: Offset) (next: Position) (landed: grid.offset position offset = Some next):
     (position.offset offset = Some next) ∧ (grid.contains next = True) :=
   match found: position.offset offset with
-    | None => Void.exfalso (Option.noneNotSome next landed)
     | Some here =>
       match inside: grid.contains here with
         | True =>
           let same: here = next := Option.someInjective landed
           rewrite <- same in Both rfl inside
-        | False => Void.exfalso (Option.noneNotSome next landed)
 
 theorem gridOffsetOf (grid: Grid a) (position: Position) (offset: Offset) (next: Position) (landed: position.offset offset = Some next)
     (inside: grid.contains next = True): grid.offset position offset = Some next :=

@@ -10,8 +10,6 @@ theorem containsTakeMono [auto eq: DecEq a] (wanted: a) (xs: List a) (fewer more
     (there: (xs.take fewer).contains wanted = True): (xs.take more).contains wanted = True :=
   match xs, fewer, more with
     | xs, Zero, more => cases
-    | [], Succ fewer, more => cases
-    | [x, ..rest], Succ fewer, Zero => cases
     | [x, ..rest], Succ fewer, Succ more =>
       rewrite containsCons x (rest.take more) wanted in
         rewrite containsCons x (rest.take fewer) wanted at there in

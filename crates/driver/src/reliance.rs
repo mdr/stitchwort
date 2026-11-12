@@ -72,6 +72,10 @@ impl GoalPlace {
 /// `name` without its namespace: the part after the last `.`, except that
 /// a test's name is written in quotes and may contain dots.
 pub fn short_name(name: &str) -> &str {
+    // A failed import, which waiting declarations name (`import A.B (..)`).
+    if name.starts_with("import ") {
+        return name;
+    }
     if let Some(i) = name.find("test \"") {
         return &name[i..];
     }

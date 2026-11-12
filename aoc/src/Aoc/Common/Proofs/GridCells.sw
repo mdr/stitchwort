@@ -13,7 +13,6 @@ import Std (Array, Bool, DecEq, Eq, Exists, Fin, Iff, List, Nat, Option, Void)
 theorem cellAtElim (rows: List (List a)) (position: Position) (x: a) (found: cellAt rows position = Some x):
     ∃ (cells: List a) => rows.get position.row = Some cells ∧ cells.get position.column = Some x :=
   match e: List.get rows position.row with
-    | None => Void.exfalso (Option.noneNotSome x found)
     | Some row => Witness row (Both rfl found)
 
 --| A cell of `cells` is the cell at its position...
@@ -176,12 +175,10 @@ theorem atOfWithin (grid: Grid a) (rectangle: grid.Rectangle) (position: Positio
     ∃ (x: a) => grid.at position = Some x :=
   let tall := (List.getInRange grid.rows position.row).forward (Bool.andLeft inside)
   match atRow: List.get grid.rows position.row with
-    | None => cases
     | Some line =>
       let wide: line.length = grid.width := rectangle line (List.memOfGet grid.rows position.row line atRow)
       let across := (List.getInRange line position.column).forward (rewrite wide in Bool.andRight inside)
       match atColumn: List.get line position.column with
-        | None => cases
         | Some x => Witness x rfl
 
 --| The fast lookup is `at`.
@@ -226,10 +223,8 @@ theorem mapRectangle (grid: Grid a) (rectangle: grid.Rectangle) (f: Position →
 theorem gridStepElim (grid: Grid a) (position: Position) (direction: Direction) (next: Position) (stepped: grid.step position direction = Some next):
     position.step direction = Some next ∧ grid.contains next = True :=
   match s: position.step direction with
-    | None => Void.exfalso (Option.noneNotSome next stepped)
     | Some other =>
       match inside: grid.contains other with
-        | False => Void.exfalso (Option.noneNotSome next stepped)
         | True =>
           let same: other = next := Option.someInjective stepped
           rewrite <- same in Both rfl inside
@@ -243,14 +238,12 @@ theorem keptCell (keep: a → Bool) (at: Position) (tile: a) (position: Position
     (kept: (match some | (here, tile) if keep tile => here) (at, tile) = Some position): at = position ∧ keep tile = True :=
   match c: keep tile with
     | True => Both (Option.someInjective kept) rfl
-    | False => Void.exfalso (Option.noneNotSome position kept)
 
 --| A cell whose tile passes is kept, at its position.
 theorem keepsCell (keep: a → Bool) (at: Position) (tile: a) (passes: keep tile = True):
     (match some | (here, tile) if keep tile => here) (at, tile) = Some at :=
   match c: keep tile with
     | True => rfl
-    | False => cases
 
 --| A position is among those of the cells whose tile passes `keep` exactly
 --| when one of those cells has a tile that does.

@@ -74,7 +74,6 @@ theorem divisorWeightsTop (w: Nat → Int) (j: Nat): divisorWeights w (Succ (Suc
 --| The key fact: the weights of the divisors of m from 2 on add up to 1.
 theorem weightsOne (m: Nat) (h: 1 ≤ m): divisorWeights copiesWeight m (m - 1) = (Bool.toNat (Nat.leq 2 m)).toInt :=
   match m with
-    | Zero => cases
     | Succ Zero => rfl
     | Succ (Succ j) =>
       calc divisorWeights copiesWeight (Succ (Succ j)) (Succ j)

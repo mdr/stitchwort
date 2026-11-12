@@ -88,7 +88,6 @@ theorem onwardCounts (device: Nat): ∀ (adapters: List Nat) => List.Sorted Nat.
 
 theorem part2Rules (bag: Bag) (answer: Nat) (found: bag.arrangements = Some answer): Part2 bag.adapters answer :=
   match d: bag.device with
-    | None => Void.exfalso (Option.noneNotSome answer found)
     | Some device =>
       let (Witness highest (Both high same)) := deviceHighest bag device d
       Witness highest (Both high (rewrite <- same in

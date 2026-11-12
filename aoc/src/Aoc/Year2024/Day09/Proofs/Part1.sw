@@ -25,10 +25,8 @@ theorem noLastFile (blocks: List Block) (none: lastFile blocks = None): blocks =
     | [] => rfl
     | [block, ..rest] =>
       match later: lastFile rest with
-        | Some id => Void.exfalso (Option.someNotNone id none)
         | None =>
           match block with
-            | FileBlock id => Void.exfalso (Option.someNotNone id none)
             | Free => Eq.cong (Cons Free) (noLastFile rest later)
 
 --| No last file: no file blocks.
@@ -37,10 +35,8 @@ theorem noFileBlocks (blocks: List Block) (none: lastFile blocks = None): fileBl
     | [] => rfl
     | [block, ..rest] =>
       match later: lastFile rest with
-        | Some id => Void.exfalso (Option.someNotNone id none)
         | None =>
           match block with
-            | FileBlock id => Void.exfalso (Option.someNotNone id none)
             | Free => noFileBlocks rest later
 
 --| The last file block is the last of the file blocks; freeing it leaves the
@@ -48,7 +44,6 @@ theorem noFileBlocks (blocks: List Block) (none: lastFile blocks = None): fileBl
 theorem fileBlocksFreeLast (blocks: List Block) (id: Nat) (found: lastFile blocks = Some id):
     fileBlocks blocks = (fileBlocks (freeLastFileBlock blocks)).append [id] :=
   match blocks with
-    | [] => Void.exfalso (Option.noneNotSome id found)
     | [block, ..rest] =>
       match later: lastFile rest with
         | Some laterId =>
@@ -59,7 +54,6 @@ theorem fileBlocksFreeLast (blocks: List Block) (id: Nat) (found: lastFile block
         | None =>
           match block with
             | FileBlock here => rewrite noFileBlocks rest later, Option.someInjective found in rfl
-            | Free => Void.exfalso (Option.noneNotSome id found)
 
 --| Some block is a file block exactly when there is a last file.
 theorem anyFileBlock (blocks: List Block): blocks.any (block => block.isFile) = (lastFile blocks).isSome :=
@@ -84,7 +78,6 @@ theorem fillFrontAppend (blocks: List Block) (moving extra: List Nat) (count: Na
     | blocks, moving, Zero => rfl
     | [], moving, Succ count => rfl
     | [FileBlock id, ..rest], moving, Succ count => Eq.cong (Cons (FileBlock id)) (fillFrontAppend rest moving extra count (omega))
-    | [Free, ..rest], [], Succ count => Void.exfalso (omega)
     | [Free, ..rest], [id, ..moving], Succ count =>
       Eq.cong (Cons (FileBlock id)) (fillFrontAppend rest moving extra count (omega))
 
@@ -94,7 +87,6 @@ theorem fillFrontFreeLast (blocks: List Block) (moving: List Nat) (count: Nat) (
     fillFront blocks moving count = fillFront (freeLastFileBlock blocks) moving count :=
   match blocks, count with
     | blocks, Zero => rewrite lengthFreeLast blocks in rfl
-    | [], Succ count => rfl
     | [block, ..rest], Succ count =>
       match later: lastFile rest with
         | Some id =>
@@ -149,7 +141,6 @@ theorem stepsFill (moves: Nat) (blocks: List Block) (enough: blocks.length ≤ m
         Eq.cong (Cons (FileBlock id)) (stepsFill moves rest (omega))
     | [Free, ..rest] =>
       match moves with
-        | Zero => Void.exfalso (omega)
         | Succ fewer =>
           match later: lastFile rest with
             | Some id =>

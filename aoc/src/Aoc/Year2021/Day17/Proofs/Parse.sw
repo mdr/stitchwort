@@ -13,7 +13,6 @@ import Std (Bool, Eq, Fail, Result, Void)
 theorem checkTargetOk (target: Target) (checked: Target) (h: Fail.toResult (() => checkTarget target) = Ok checked):
     0 < checked.left ∧ checked.top < 0 :=
   match e: placed target with
-    | False => Void.exfalso (Result.errNotOk h)
     | True => rewrite <- Result.okInjective h in omega
 
 --| Whatever reads the target, `checkTarget` passes on only placed ones.

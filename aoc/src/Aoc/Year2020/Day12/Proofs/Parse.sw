@@ -37,4 +37,3 @@ theorem parseWritten (input: Text) (route: Route) (parsed: Fail.toResult (() => 
   let ran := rewrite Fail.toResultThen (() => Parse.eachLine input instruction) (instructions => ({ instructions }: Route)) at parsed in parsed
   match e: Fail.toResult (() => Parse.eachLine input instruction) with
     | Ok instructions => rewrite <- Result.okInjective ran in Parse.eachLineReads input instruction InstructionWritten instructions e readsInstruction
-    | Err message => Void.exfalso (Result.errNotOk ran)

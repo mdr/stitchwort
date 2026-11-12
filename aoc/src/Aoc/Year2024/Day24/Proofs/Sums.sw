@@ -35,8 +35,6 @@ theorem halfBits (a b: Nat) (carry: Bool) (small: a < 2) (alsoSmall: b < 2): (a 
     | Succ Zero, Zero, True => rfl
     | Succ Zero, Succ Zero, False => rfl
     | Succ Zero, Succ Zero, True => rfl
-    | Succ (Succ a), b, carry => Void.exfalso (omega)
-    | a, Succ (Succ b), carry => Void.exfalso (omega)
 
 --| Halving a sum of two numbers and a carry: the halves, and the carry out
 --| of the lowest bits.

@@ -87,7 +87,6 @@ theorem gatherOk (warehouse: Warehouse) (direction: Direction) (fuel: Nat) (grou
     | Zero, [cell, ..rest], found => Void.exfalso (Option.noneNotSome result found)
     | Succ fuel, [cell, ..rest], gathered =>
       match wall: warehouse.walls.contains cell with
-        | True => Void.exfalso (Option.noneNotSome result gathered)
         | False =>
           let found := warehouse.boxesAt cell |> .filter (box => !group.contains box)
           let larger := found.foldLeft group Set.insert
@@ -338,29 +337,22 @@ theorem wholeOfSeparate (warehouse: Warehouse) (separate: WideSeparate warehouse
     {
       forward = isLeft =>
         match atRobot: position == warehouse.robot with
-          | True => cases
           | False =>
             match wall: warehouse.walls.contains position with
-              | True => cases
               | False =>
                 match boxed: warehouse.boxes.contains position with
                   | True => rightOfBox rfl
                   | False =>
                     match boxedLeft: warehouse.boxes.contains (position.step Left) with
-                      | True => cases
                       | False => cases,
       backward = isRight =>
         match rightAtRobot: right == warehouse.robot with
-          | True => cases
           | False =>
             match rightWall: warehouse.walls.contains right with
-              | True => cases
               | False =>
                 match rightBoxed: warehouse.boxes.contains right with
-                  | True => cases
                   | False =>
                     match boxedLeft: warehouse.boxes.contains (right.step Left) with
-                      | False => cases
                       | True =>
                         let boxed: warehouse.boxes.contains position = True := rewrite offsetStepOpposite position Right at boxedLeft
                         let notRobot: (position == warehouse.robot) = False :=

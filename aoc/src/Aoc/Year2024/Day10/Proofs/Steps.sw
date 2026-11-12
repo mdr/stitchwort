@@ -15,7 +15,6 @@ import Std (And, Bool, DecEq, Eq, Iff, List, Nat, Option, Void)
 --| Every position with a height is on the list.
 theorem positionsComplete (map: TopographicMap) (position: Position) (height: Nat) (has: map.heightAt position = Some height): position ∈ map.positions :=
   match found: cellAt map.grid.rows position with
-    | None => Void.exfalso (Option.noneNotSome height has)
     | Some tile => List.memMap (cells map.grid.rows) (position, tile) (memCellsOfCellAt map.grid.rows position tile found) Pair.fst
 
 --| Each position is on the list once.
@@ -25,7 +24,6 @@ theorem positionsDistinct (map: TopographicMap): List.Distinct map.positions := 
 theorem higherOnMap (map: TopographicMap) (from: Position) (to: Position) (higher: increasesByOne map from to = True): to ∈ map.positions :=
   match known: map.heightAt from with
     | Some height => positionsComplete map to (height + 1) (DecEq.sound higher)
-    | None => cases
 
 --| `uphill` is the spec's steps from `from`.
 theorem memUphill (map: TopographicMap) (from: Position) (to: Position): to ∈ map.uphill from ↔ (to ∈ map.positions) ∧ (isStep map from to = True) := {

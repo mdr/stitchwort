@@ -47,13 +47,11 @@ theorem finalDescribes (notes: Notes) (final: Alignment) (positive: IdsPositive 
 --| When the sieve finds a time, it is the spec's answer.
 theorem part2Rules (notes: Notes) (answer: Nat) (positive: IdsPositive notes) (found: notes.earliestLineUp = Some answer): Spec.Part2 notes answer :=
   match e: Alignment.start.addAll notes.buses with
-    | None => Void.exfalso (Option.noneNotSome answer found)
     | Some final =>
       rewrite <- Option.someInjective found in describesEarliest (finalDescribes notes final positive e)
 
 --| When it finds none, no time lines up.
 theorem part2Never (notes: Notes) (positive: IdsPositive notes) (none: notes.earliestLineUp = None) (t: Nat) (lined: Spec.LinedUp notes.schedule t): Void :=
   match e: Alignment.start.addAll notes.buses with
-    | Some final => Option.someNotNone _ none
     | None =>
       addAllNone notes.buses (positiveFrom 0 notes.schedule positive) Alignment.start startDescribes e t () (Iff.backward (busesLinedUp notes t) lined)

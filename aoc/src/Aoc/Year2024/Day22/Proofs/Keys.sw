@@ -29,7 +29,6 @@ theorem memOfEq (xs: List a) [x y: a] (same: x = y) (member: x ∈ xs): y ∈ xs
 
 theorem findMapAny (f: a → Option b) (found: b) (xs: List a) (some: xs.findMap f = Some found): List.Any (x => f x = Some found) xs :=
   match xs with
-    | [] => Void.exfalso (Option.noneNotSome found some)
     | [x, ..rest] =>
       match here: f x with
         | Some value => Inl some
@@ -52,12 +51,6 @@ theorem sellsAtIn (possible: List Changes)
           memOfEq possible (DecEq.sound same)
             (contains a b c d e (digits a (Inl rfl)) (digits b (Inr (Inl rfl))) (digits c (Inr (Inr (Inl rfl)))) (digits d (Inr (Inr (Inr (Inl rfl)))))
               (digits e (Inr (Inr (Inr (Inr (Inl rfl)))))))
-        | False => Void.exfalso (Option.noneNotSome price sells)
-    | [] => Void.exfalso (Option.noneNotSome price sells)
-    | [a] => Void.exfalso (Option.noneNotSome price sells)
-    | [a, b] => Void.exfalso (Option.noneNotSome price sells)
-    | [a, b, c] => Void.exfalso (Option.noneNotSome price sells)
-    | [a, b, c, d] => Void.exfalso (Option.noneNotSome price sells)
 
 theorem pricesDigits (count: Nat) (buyer: Nat) (price: Nat) (inPrices: price ∈ prices count buyer): price < 10 :=
   List.anyElim _ (price < 10) (secrets count buyer) (List.memMapAny (secrets count buyer) (% 10) price inPrices)
@@ -84,7 +77,6 @@ theorem mergeSides (holds: Prop) (value: Nat) (x y: Option Nat) (merged: x.merge
   match x, y with
     | Some t, y => fromX t rfl
     | None, Some s => fromY s rfl
-    | None, None => Void.exfalso (Option.noneNotSome value merged)
 
 theorem totalsIn (possible: List Changes) (contains: HoldsDigitChanges possible) (count: Nat): ∀ (buyers: List Nat) (totals: Map Changes Nat) =>
     (∀ (key: Changes) (value: Nat) => totals.get key = Some value → key ∈ possible) → ∀ (key: Changes) (value: Nat) =>

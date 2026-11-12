@@ -33,7 +33,6 @@ theorem gridOfCells (lines: List Text) (grid: Grid) (h: Grid.of lines = Some gri
   let f := (line: Text) => Vec.ofList width (parseLine line)
   let g := (rows: Vec (Vec Cell width) lines.length) => ({ height = lines.length, width, rows }: Grid)
   match e: Vec.traverseOption (Vec.fromList lines) f with
-    | None => Void.exfalso (Option.noneNotSome grid h)
     | Some rows =>
       let same: g rows = grid := Eq.cong (.getOrElse (g rows)) h
       rewrite <- same in parsedCell lines rows e r c

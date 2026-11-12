@@ -21,7 +21,6 @@ theorem readGroupsMore (reader: BitReader) (afterBit: BitReader) (after: BitRead
   rewrite readGroups.unfold reader, bit, number in
     match h: (after.length < reader.length: Bool) with
       | True => rewrite others in rfl
-      | False => omega [h, shorter]
 
 --| A literal's groups, each below 16, are read back from their bits.
 theorem readGroupsBitsFrom (rest: List Bool) (tail: List Nat) (group: Nat) (small: ({ head = group, tail }: NonEmptyList Nat).all (group => group < 16) = True):
@@ -51,10 +50,8 @@ theorem readGroupsSome (reader: BitReader) (groups: NonEmptyList Nat) (rest: Bit
 :=
   rewrite readGroups.unfold reader at read in
   match b: reader.readBit with
-    | None => cases
     | Some (more, afterMore) =>
       match n: afterMore.readNumber 4 with
-        | None => cases
         | Some (group, after) =>
           let bitRead := BitReader.readBitSome reader more afterMore b
           let numberRead := BitReader.readNumberSome afterMore 4 group after n
@@ -62,11 +59,9 @@ theorem readGroupsSome (reader: BitReader) (groups: NonEmptyList Nat) (rest: Bit
           match more with
             | True =>
               match d: (after.length < reader.length: Bool) with
-                | False => cases
                 | True =>
                   let shorter: after.length < reader.length := omega [d]
                   match g: readGroups after with
-                    | None => cases
                     | Some (gs, others) =>
                       let parts := somePairInjective read
                       match readGroupsSome after gs others g [decreasing := shorter] with

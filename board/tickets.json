@@ -1,5 +1,5 @@
 {
-  "next": 3004,
+  "next": 3012,
   "tickets": [
     {
       "id": 47,
@@ -27895,15 +27895,17 @@
     {
       "id": 2681,
       "title": "Per-declaration counters for the largest read-back and deepest frames (bounded read-back stage 0c); measure over the whole corpus before D3464's 1M limit",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "done",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-2681",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "From SW-2660 (10 Nov 2026), docs/proposals/term-sharing.md.",
+      "body": "From SW-2660 (10 Nov 2026), docs/proposals/term-sharing.md.\nModel result: Sonnet, worked, ~10 min (est. 60)",
       "created": "2026-11-10",
-      "updated": "2026-11-10",
-      "commits": []
+      "updated": "2026-11-12",
+      "commits": [
+        "395cf6ea0"
+      ]
     },
     {
       "id": 2682,
@@ -31902,15 +31904,17 @@
     {
       "id": 2981,
       "title": "[Sonnet] SW-2952 review low findings: L2 theorem stand-ins pushed with theorem=false so waits_on_goal may reclassify a user's own error; L3 an error-free member of a failed mutual group gets a stand-in labelled with the other's error; L6 a filtered E-UNKNOWN-NAME still counts as the user's own error (stand-in never shown); L7 navigation on a broken name goes to the error's place; L5 test --json assuming uses name while audit uses declaration (serialise GoalPlace) (docs/reviews/SW-2952-stand-ins-review.md)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "done",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-2981",
       "labels": [],
       "epic": "test-infra",
-      "body": "",
+      "body": "\nModel result: Sonnet, needed fixes (Fable review M1: audit exit 0 with a failed import; M2 docs; L-d own-error filter), ~35 min (est. 75)",
       "created": "2026-11-12",
       "updated": "2026-11-12",
-      "commits": []
+      "commits": [
+        "a824639e5"
+      ]
     },
     {
       "id": 2982,
@@ -32035,12 +32039,12 @@
     {
       "id": 2990,
       "title": "[Sonnet] Impossible cases: a missing default in a number column is reported eagerly by compile_numbers even when a hypothesis rules it out (SW-2984 review L3); impossible_case/may_be_impossible force every Eq hypothesis on the error path, which could make a quick E-NONEXHAUSTIVE slow (L4, suspicion)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-2990",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "\nOrchestrator: waits for SW-3008 (same impossible_case/may_be_impossible code).",
       "created": "2026-11-12",
       "updated": "2026-11-12",
       "commits": []
@@ -32063,12 +32067,12 @@
     {
       "id": 2992,
       "title": "[Opus] Readings with gluing off: at the use site the fact's type is an evaluated value, so unglued a user function's reading reads as its unfolding (And instead of InRange); build the reader on terms (written types, readings' statement terms) — SW-2977 review M2; also L1 (E-NO-READING should say the reading is declared later in the unit, and stay quiet when the reading failed) and L2 (readings on alias functions tiny := small: filed under tiny now; decide)",
-      "status": "review",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-2992",
       "labels": [],
       "epic": "syntax-language",
-      "body": "Lane notes (Opus, 12 Nov 2026, 17:08-17:35, est. 2 h):\n\n- **M2** (205b825bb): the reader evaluates with calls kept folded and, with gluing off, starts from the fact's type as written (variable's declared type, annotation, argument's parameter type, the definition's own type, match columns). Glued: unchanged (early return). Test: `elaboration readings::a_user_reading_is_found_{glued,unglued}`. Gap: an expected test fact with no written type to hand (e.g. a lambda body's expected type) still reads the unfolded value unglued.\n- **L1** (8e7030550): `ItemInfo.reading` holds each `@[reading]` theorem's test function and polarity from its syntax; a use above it stops at the function with E-NO-READING \"`inRange`'s reading, `inRangeReads`, is declared below\" + label at the reading. A reading whose proof fails is filed as its D3527 stand-in, so users rely on it (\"2 declarations rely on a declaration with an error\"); with no stand-in, E-FAILED-DEPENDENCY (dropped beside the reading's own error). Examples: reject/reading-declared-below.sw, reject/reading-failed.sw.\n- **L2** (5d9e12514), orchestrator-level call taken by the lane: refuse. A reading whose test passes the function more arguments than its definition takes (`def tiny: Nat → Bool := small`) is E-READING-SHAPE, since `tiny n` unfolds to `small n` before anything reads it and the reading was dead. Filing under `small` was rejected: it breaks E-READING-PLACE when `small` is elsewhere. Example: reject/reading-alias.sw.\n- Kernel terms: glued, unchanged (hash_stability passes). Unglued, the reader's proof terms now hold folded calls (`inRangeReads lo x hi`), as glued ones do.\n- Tests: readings:: (2 pass), test:example NAME=reading (7 pass), projects reading tests (6 pass), hash_stability (10 pass), running examples accepted|goal|rejected|soundness (7 pass).\n\n\nReview fixes (cfa9f87c7, 17:42-17:52):\n- M3/L1 unglued: `as_written` uses the written type only where it is convertible to the fact's type (resource errors propagate: L3), and reads refined variables from the context (`let h2 := h; match x with …`). Placeholder arguments (check.rs) pass the head up to the argument (`head_before_placeholder`), so `t x {..} {..}` checks each argument against its own parameter.\n- L2: pending readings matched by the name the statement resolves to (`Elaborator::named`), or a dot form's function name (`b.ok`); `Iff (…) (…)` recognised.\n- M1: `readings::a_helper_above_the_reading_that_it_uses_checks`, ignored (fails today with \"can't be built with `Both` yet\"), ready for the checking-order decision.\n- Tests: readings:: 4 pass + the ignored one fails as expected (--run-ignored all); test:example NAME=reading 7 pass; running examples accepted|goal|rejected|soundness 7 pass; clippy elab + elaboration test target clean.\n",
+      "body": "Lane notes (Opus, 12 Nov 2026, 17:08-17:35, est. 2 h):\n\n- **M2** (205b825bb): the reader evaluates with calls kept folded and, with gluing off, starts from the fact's type as written (variable's declared type, annotation, argument's parameter type, the definition's own type, match columns). Glued: unchanged (early return). Test: `elaboration readings::a_user_reading_is_found_{glued,unglued}`. Gap: an expected test fact with no written type to hand (e.g. a lambda body's expected type) still reads the unfolded value unglued.\n- **L1** (8e7030550): `ItemInfo.reading` holds each `@[reading]` theorem's test function and polarity from its syntax; a use above it stops at the function with E-NO-READING \"`inRange`'s reading, `inRangeReads`, is declared below\" + label at the reading. A reading whose proof fails is filed as its D3527 stand-in, so users rely on it (\"2 declarations rely on a declaration with an error\"); with no stand-in, E-FAILED-DEPENDENCY (dropped beside the reading's own error). Examples: reject/reading-declared-below.sw, reject/reading-failed.sw.\n- **L2** (5d9e12514), orchestrator-level call taken by the lane: refuse. A reading whose test passes the function more arguments than its definition takes (`def tiny: Nat → Bool := small`) is E-READING-SHAPE, since `tiny n` unfolds to `small n` before anything reads it and the reading was dead. Filing under `small` was rejected: it breaks E-READING-PLACE when `small` is elsewhere. Example: reject/reading-alias.sw.\n- Kernel terms: glued, unchanged (hash_stability passes). Unglued, the reader's proof terms now hold folded calls (`inRangeReads lo x hi`), as glued ones do.\n- Tests: readings:: (2 pass), test:example NAME=reading (7 pass), projects reading tests (6 pass), hash_stability (10 pass), running examples accepted|goal|rejected|soundness (7 pass).\n\n\nReview fixes (cfa9f87c7, 17:42-17:52):\n- M3/L1 unglued: `as_written` uses the written type only where it is convertible to the fact's type (resource errors propagate: L3), and reads refined variables from the context (`let h2 := h; match x with …`). Placeholder arguments (check.rs) pass the head up to the argument (`head_before_placeholder`), so `t x {..} {..}` checks each argument against its own parameter.\n- L2: pending readings matched by the name the statement resolves to (`Elaborator::named`), or a dot form's function name (`b.ok`); `Iff (…) (…)` recognised.\n- M1: `readings::a_helper_above_the_reading_that_it_uses_checks`, ignored (fails today with \"can't be built with `Both` yet\"), ready for the checking-order decision.\n- Tests: readings:: 4 pass + the ignored one fails as expected (--run-ignored all); test:example NAME=reading 7 pass; running examples accepted|goal|rejected|soundness 7 pass; clippy elab + elaboration test target clean.\n\n\nD3537 (Matt, 12 Nov 2026: 'Happy to go with your recommendations'): dependency order, not file position, decides which uses see a reading: uses wait for the reading via an ordering edge; the reading's own dependencies read by unfolding; no 'declared below'.",
       "created": "2026-11-12",
       "updated": "2026-11-12",
       "commits": []
@@ -32160,12 +32164,12 @@
     {
       "id": 2999,
       "title": "[Opus] Hitting Limits::size (10 M nodes) costs 1.3-2.2 GB of footprint (SW-2996): lower the limit or make quoted nodes smaller; design call. Also docs/testing.md 'Memory': tier_sample takes every 4th by name, so adding examples moves which run and a tier's peak",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "done",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-2999",
       "labels": [],
       "epic": "test-infra",
-      "body": "",
+      "body": "\nReview: docs/reviews/SW-2999-size-limit-memory.md. Next: SW-2681 (largest read-back counter), then D3536 (1 M limit) for Matt with the counter's corpus numbers.",
       "created": "2026-11-12",
       "updated": "2026-11-12",
       "commits": []
@@ -32173,22 +32177,142 @@
     {
       "id": 3000,
       "title": "[Sonnet] LSP test memory: features::semantic_tokens_colour_names_by_what_they_resolve_to (lsp it) peaks at 1.45 GB, 24 s, at 0a460bbbe; three such tests at once (signature_help, semantic_tokens, completion_offers_locals) took the merge tier over its 4 GB cap at 16:59. The 07:18 merge tier at 58c3bcac7 passed. Bisect today's merges by peak footprint; fix or report",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-3000",
       "labels": [],
       "epic": "test-infra",
+      "body": "\nCause: not a code regression; TestCacheTurn's marker held only the Rust fingerprint, so after SW-2967's std-only change three lsp tests each refilled the library at 1.34 GB. Fixed: marker = fingerprint + library hash. Model result: Sonnet, worked, 12 min (est. 60)",
+      "created": "2026-11-12",
+      "updated": "2026-11-12",
+      "commits": [
+        "e836a0ac9"
+      ]
+    },
+    {
+      "id": 3001,
+      "title": "[DeepSeek] W-UNREACHABLE label shows the hypothesis unreduced ('h is Nat.compare 0 0 = Less'): show the computed equation (Equal = Less) that can't hold (SW-2993 finding)",
+      "status": "done",
+      "agent": "DeepSeek",
+      "where": ".claude/worktrees/scratch-sw-3001",
+      "labels": [],
+      "epic": "diagnostics",
+      "body": "\nModel result: DeepSeek, worked, ~12 min (est. 25)",
+      "created": "2026-11-12",
+      "updated": "2026-11-12",
+      "commits": [
+        "577da2a50"
+      ]
+    },
+    {
+      "id": 3002,
+      "title": "[Opus] Each case the checker fills in becomes a %matchN helper declaration (38 new in std after SW-2993) where an explicit arm needed none: could the filled-in proof go inline? (SW-2993 finding)",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-3002",
+      "labels": [],
+      "epic": "elaborator-kernel",
       "body": "",
       "created": "2026-11-12",
       "updated": "2026-11-12",
       "commits": []
     },
     {
-      "id": 3001,
-      "title": "[DeepSeek] W-UNREACHABLE label shows the hypothesis unreduced ('h is Nat.compare 0 0 = Less'): show the computed equation (Equal = Less) that can't hold (SW-2993 finding)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "id": 3003,
+      "title": "[DeepSeek] A theorem whose body doesn't parse loses its counterexample note: it attaches to the hidden E-UNPARSED-BODY (module.rs note_counterexample, then retain at the end of elaborate_module); move it onto the parse error in merge_recovered (SW-2980/SW-2997 finding)",
+      "status": "done",
+      "agent": "DeepSeek",
+      "where": ".claude/worktrees/scratch-sw-3003",
+      "labels": [],
+      "epic": "diagnostics",
+      "body": "\nModel result: DeepSeek, worked, ~15 min (est. 30)",
+      "created": "2026-11-12",
+      "updated": "2026-11-12",
+      "commits": [
+        "e0993e922"
+      ]
+    },
+    {
+      "id": 3004,
+      "title": "[Sonnet] Sweep: about 480 W-UNREACHABLE warnings in aoc/ (e.g. aoc/src/Aoc/Common/GridGraph.sw:53), probably also games/rogue: delete the arms the warning says can be deleted, checking each day's namespace as it's edited; first sample a dozen to confirm each deletion checks (a false positive is a bug in the warning, SW-2993's five kinds fixed). Seen by Overmind's verify-cache at c3c3a3c49",
+      "status": "done",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-3004",
+      "labels": [],
+      "epic": "aoc-common",
+      "body": "\n451 of 496 deleted; 45 kept are W-UNREACHABLE false positives (impossibility only through an unfolded call; arms deletable alone but not together), filed. Model result: Sonnet, worked, ~10 min (est. 120)",
+      "created": "2026-11-12",
+      "updated": "2026-11-12",
+      "commits": [
+        "615332830"
+      ]
+    },
+    {
+      "id": 3005,
+      "title": "[Opus] Kernel guards from the SW-2981 review: check::assume should refuse theorem=true with a non-Prop type (E-MALFORMED; check.rs ~2483 discards the sort); nat_add::register should also require def.assumption.is_none() (nat_add.rs ~417); consider waits_on_goal asking erase::of_def(..).result instead of the flag; update docs/core.md",
+      "status": "done",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-3005",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "\nFable review: nothing High. Model result: Opus, worked, 13 min (est. 40)",
+      "created": "2026-11-12",
+      "updated": "2026-11-12",
+      "commits": [
+        "abd491565"
+      ]
+    },
+    {
+      "id": 3006,
+      "title": "[Sonnet] SW-2981 review L-c: a group-level refusal (kernel::define_group fails, e.g. g's call not decreasing) is attributed to members[0] (lib.rs group: out.push((members[0].0, d))), so f gets the stand-in and g's users are told they need f; attribute by the member whose span holds the primary label, or treat all members as having the error",
+      "status": "done",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-3006",
+      "labels": [],
+      "epic": "diagnostics",
+      "body": "\nModel result: Sonnet, worked, 20 min (est. 45)",
+      "created": "2026-11-12",
+      "updated": "2026-11-12",
+      "commits": [
+        "eccb337bb"
+      ]
+    },
+    {
+      "id": 3007,
+      "title": "[Sonnet] SW-2981 review L-e: under a failed (..) import every undotted E-UNKNOWN-NAME in the file counts as lost, so a real typo waits silently until the import is fixed; point the waiting entry at the import's span, not the use; and an error-free member of a failed group still has own: true in FailedDecl (module.rs ~1270) so it's counted in errors though docs say it waits (user-visible count: Matt's call if it changes)",
+      "status": "done",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-3007",
+      "labels": [],
+      "epic": "diagnostics",
+      "body": "\nAlso from SW-3006: in a group where only g has an error, the summary still says '2 errors: in B.f and B.g' (own flag per member in note_error_source).\nModel result: Sonnet, worked, 30 min (est. 45)",
+      "created": "2026-11-12",
+      "updated": "2026-11-12",
+      "commits": [
+        "f2668ecf9"
+      ]
+    },
+    {
+      "id": 3008,
+      "title": "[Opus] W-UNREACHABLE false positives (45 in aoc/rogue, list docs/reviews/SW-3004-unreachable-kept.txt): (1) the impossibility shows only through an unfolded call (match e: firstBent lines … | Some … => Void.exfalso (Result.errNotOk h) with h about checkShapes lines): deleting gives E-NONEXHAUSTIVE since the left-out-case rule looks only at hypotheses mentioning the scrutinee; (2) arms deletable one at a time but not together ([], [] and [], [slot, ..slots] leave [], _ which won't split); also the all-arms exception makes a warning depend on which arms were already removed (Day24 Sums.sw twin). Warn only where leaving the arm out checks (SW-3004 finding)",
+      "status": "done",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-3008",
+      "labels": [],
+      "epic": "diagnostics",
+      "body": "12 Nov (lane, Opus, lane/SW-3008, 17:47-18:05): done, commits fbc9b7252 (elab: warnings decided per match by recompiling without the flagged arms, coverage-only check; tests; syntax.md) and 640813a07 (aoc: 12 arms the new rule finds deletable, removed, namespaces checked). Of the 45 kept arms, none warns now except those deleted in 640813a07 (Day16 Sound 8, Day18 Lemmas 2, Day21 Direct 2), each verified deleting together. Tests: indexed_families 16/16 (3 new), redundant_arms 5/5, hash_stability 10/10, examples accepted/goal/rejected/soundness 7/7, no snapshot changes.\nModel result: Opus, worked, 20 min (est. 90). Open (not asked): accept left-out char cases and [], _ remainders instead; lane recommends leaving it.",
+      "created": "2026-11-12",
+      "updated": "2026-11-12",
+      "commits": [
+        "fbc9b7252"
+      ]
+    },
+    {
+      "id": 3009,
+      "title": "[DeepSeek] W-UNREACHABLE's arm span misses the body's closing bracket: for '| Succ a, b => Void.exfalso (Bool.falseNotTrue h)' it ends before the final ')' (SW-3008 finding; tests compare only patterns because of it)",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": ".claude/worktrees/scratch-sw-3009",
       "labels": [],
       "epic": "diagnostics",
       "body": "",
@@ -32197,8 +32321,8 @@
       "commits": []
     },
     {
-      "id": 3002,
-      "title": "[Opus] Each case the checker fills in becomes a %matchN helper declaration (38 new in std after SW-2993) where an explicit arm needed none: could the filled-in proof go inline? (SW-2993 finding)",
+      "id": 3010,
+      "title": "[Sonnet] D3536 (Matt, 12 Nov 2026): lower the read-back size limit (Limits::size) from 10 M to 2 M nodes everywhere (CLI, editor, playground); message 'a value was too large to write out (over 2,000,000 parts)' (replaces 'to show'); remove the HEAVY list in crates/cli/tests/running/examples.rs if the five heavy reject examples now peak well under 1 GB; re-snapshot; corpus max measured 390,996 (aoc 2024 Day06 keepsTrapsAt, SW-2681 counter, 12 Nov)",
       "status": "backlog",
       "agent": "",
       "where": "",
@@ -32210,13 +32334,13 @@
       "commits": []
     },
     {
-      "id": 3003,
-      "title": "[DeepSeek] A theorem whose body doesn't parse loses its counterexample note: it attaches to the hidden E-UNPARSED-BODY (module.rs note_counterexample, then retain at the end of elaborate_module); move it onto the parse error in merge_recovered (SW-2980/SW-2997 finding)",
+      "id": 3011,
+      "title": "[DeepSeek] SW-3005 review follow-ups: a core test for retype_def's new guard (retype a pending theorem to Nat → E-NOT-A-PROP, type unchanged; to another Prop → ok); docs/core.md:189 'changes nothing in conversion or evaluation'; docs/core.md:374 add rule: the two theorems must not be assumptions; nat_add.rs:366 doc says 'proved' but only direct assumptions are refused: reword to 'not themselves assumptions'; docs/core.md:15 stale 'every checked definition is still assumption-free'",
       "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [],
-      "epic": "diagnostics",
+      "epic": "elaborator-kernel",
       "body": "",
       "created": "2026-11-12",
       "updated": "2026-11-12",

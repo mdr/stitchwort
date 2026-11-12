@@ -3078,9 +3078,11 @@ fn quote_as(
                 }
                 size += 1;
                 if cap.is_some_and(|cap| size > cap) {
+                    g.machine.budget.note_readback(size);
                     return Ok(None);
                 }
                 if size > limit {
+                    g.machine.budget.note_readback(size);
                     g.machine.budget.set_too_large(root_def);
                     return Err(ResourceError::Size);
                 }
@@ -3145,6 +3147,7 @@ fn quote_as(
             }
         }
     }
+    g.machine.budget.note_readback(size);
     Ok(Some(done.pop().expect("one term")))
 }
 

@@ -487,6 +487,142 @@ fn an_import_of_a_name_lost_to_a_syntax_error_says_so_once() {
     assert_eq!(outcomes, [("B", "good works", "passed")]);
 }
 
+/// SW-2981 (L6): `use` only fails because `A`'s syntax error lost `beats`,
+/// which is said once on the import. It has no error of its own, so it
+/// isn't counted as one and gets no stand-in: it waits, and so does the
+/// theorem that mentions it.
+#[test]
+fn a_user_of_a_name_lost_to_a_syntax_error_waits_and_has_no_error_of_its_own() {
+    let importer = format!("{SYNTAX_IMPORTER}\ntheorem keeps (h: use 1 = 1): 1 = 1 := rfl\n");
+    let dir = source_project("syntax-waits", LIB_WITH_A_SYNTAX_ERROR, &importer);
+    let (_, stderr, _) = project_tests(&dir, &["--no-cache"]);
+    let _ = std::fs::remove_dir_all(&dir);
+    assert!(!stderr.contains("error: in `B.use`"), "{stderr}");
+    assert!(!stderr.contains("error: in"), "{stderr}");
+    assert!(
+        !stderr.contains("relies on a declaration with an error"),
+        "{stderr}"
+    );
+    assert!(
+        stderr.contains("2 declarations can't be checked until an error is fixed:"),
+        "{stderr}"
+    );
+    assert!(stderr.contains("B.use "), "{stderr}");
+    assert!(stderr.contains("B.keeps "), "{stderr}");
+}
+
+/// SW-2981 (L3): `isEven` is fine and `isOdd`, which it is mutually
+/// recursive with, has the error. The group fails together, so `isEven`
+/// isn't trusted alone: it gets no stand-in, and what uses it waits for
+/// `isOdd`, the member with the error, which is what is said.
+const MUTUAL: &str = r#"namespace A
+
+def isEven: (n: Nat) -> Bool
+  | 0 => True
+  | Succ k => isOdd k
+
+def isOdd: (n: Nat) -> Bool
+  | 0 => False
+  | Succ k => isEven "x"
+
+theorem usesEven (h: isEven 2 = True): 1 = 1 := rfl
+"#;
+
+#[test]
+fn a_member_of_a_failed_group_without_an_error_is_not_blamed_for_the_others() {
+    let dir = source_project(
+        "mutual",
+        MUTUAL,
+        "namespace B\n\ndef b: Nat := 1\n\ntest \"b\" := b == 1\n",
+    );
+    let (_, stderr, _) = project_tests(&dir, &["--no-cache"]);
+    let _ = std::fs::remove_dir_all(&dir);
+    // `isEven` isn't an error of its own either: it waits for `isOdd`, and
+    // so does what uses it.
+    assert!(stderr.contains("1 error: in `A.isOdd`"), "{stderr}");
+    assert!(
+        stderr.contains("2 declarations can't be checked until an error is fixed:"),
+        "{stderr}"
+    );
+    assert!(stderr.contains("A.usesEven"), "{stderr}");
+    assert!(stderr.contains("A.isEven"), "{stderr}");
+    assert!(stderr.contains("needs `isOdd` ("), "{stderr}");
+    assert!(!stderr.contains("needs `isEven`"), "{stderr}");
+    assert!(
+        !stderr.contains("relies on a declaration with an error"),
+        "{stderr}"
+    );
+}
+
+/// SW-3006: both bodies of `f` and `g` check, but the kernel refuses the
+/// group for `g`'s own call, which doesn't decrease. The error is in `g`:
+/// `f` is not blamed for it, and what uses `f` is told it needs `g`, at the
+/// call inside `g`.
+#[test]
+fn a_group_the_kernel_refuses_blames_the_member_the_error_is_in() {
+    let importer = "namespace B\n\n\
+        def f: (n: Nat) -> Nat\n  | 0 => 0\n  | Succ k => g k\n\n\
+        def g: (n: Nat) -> Nat\n  | 0 => 0\n  | Succ k => f k + g (Succ k)\n\n\
+        theorem usesF (h: f 1 = 1): 1 = 1 := rfl\n\ntest \"t\" := True\n";
+    let dir = source_project(
+        "refused-group",
+        "namespace A\n\ndef a: Nat := 1\n",
+        importer,
+    );
+    let (_, stderr, _) = project_tests(&dir, &["--no-cache"]);
+    let _ = std::fs::remove_dir_all(&dir);
+    assert!(stderr.contains("B.usesF"), "{stderr}");
+    assert!(stderr.contains("needs `g` ("), "{stderr}");
+    assert!(stderr.contains("b.sw:9:"), "{stderr}");
+    assert!(!stderr.contains("needs `f`"), "{stderr}");
+}
+
+/// SW-3006: a group refused for a cycle through both members is about the
+/// group, not the first member: each has the error, so `f` and `g` both
+/// have stand-ins and what uses `f` is told it needs `f`, once.
+#[test]
+fn a_group_refused_as_a_whole_is_every_members_error() {
+    let importer = "namespace B\n\n\
+        def f: (n: Nat) -> Nat\n  | 0 => 0\n  | Succ k => g k\n\n\
+        def g: (n: Nat) -> Nat\n  | 0 => 0\n  | Succ k => f (Succ (Succ k))\n\n\
+        theorem usesF (h: f 1 = 1): 1 = 1 := rfl\n\n\
+        theorem usesG (h: g 1 = 1): 1 = 1 := rfl\n\ntest \"t\" := True\n";
+    let dir = source_project("whole-group", "namespace A\n\ndef a: Nat := 1\n", importer);
+    let (_, stderr, _) = project_tests(&dir, &["--no-cache"]);
+    let _ = std::fs::remove_dir_all(&dir);
+    assert_eq!(stderr.matches("[E-TERMINATION]").count(), 1, "{stderr}");
+    assert!(
+        stderr.contains("3 declarations rely on a declaration with an error")
+            || stderr.contains("2 declarations rely on a declaration with an error"),
+        "{stderr}"
+    );
+    assert!(
+        !stderr.contains("can't be checked until an error is fixed"),
+        "{stderr}"
+    );
+}
+
+/// SW-2981 (L-d): in a group, `f`'s only error is a name `A`'s syntax error
+/// lost (said on the import) and `g` has a type error. What uses them is
+/// told it needs `g`, at `g`'s error, not `f` or the lost name.
+#[test]
+fn a_group_with_a_lost_name_in_one_member_and_an_error_in_another_blames_the_error() {
+    let importer = "namespace B\n\nimport A (beats)\n\n\
+        def f: (n: Nat) -> Nat\n  | 0 => beats 0\n  | Succ k => g k\n\n\
+        def g: (n: Nat) -> Nat\n  | 0 => 0\n  | Succ k => f \"x\"\n\n\
+        theorem usesF (h: f 1 = 1): 1 = 1 := rfl\n\ntest \"t\" := True\n";
+    let dir = source_project("lost-and-error", LIB_WITH_A_SYNTAX_ERROR, importer);
+    let (_, stderr, _) = project_tests(&dir, &["--no-cache"]);
+    let _ = std::fs::remove_dir_all(&dir);
+    assert!(stderr.contains("B.usesF"), "{stderr}");
+    assert!(stderr.contains("needs `g` ("), "{stderr}");
+    assert!(stderr.contains("b.sw:11:"), "{stderr}");
+    assert!(
+        !stderr.contains("needs `f`") && !stderr.contains("needs `beats`"),
+        "{stderr}"
+    );
+}
+
 /// SW-2944: the import's "the error is here" label is exactly where the
 /// failed declaration's first error is reported, not at the declaration's
 /// name. Covers a type error late in the body and a syntax error there.
@@ -731,7 +867,7 @@ fn a_test_that_only_cites_a_broken_theorem_runs() {
     assert_eq!(row(0), ("cites doubleTwo", "passed", ""));
     let assuming = tests[0]["assuming"].as_array().unwrap();
     assert_eq!(assuming.len(), 1, "{v}");
-    assert_eq!(assuming[0]["name"], "doubleTwo");
+    assert_eq!(assuming[0]["declaration"], "A.doubleTwo");
     assert_eq!(assuming[0]["kind"], "error");
     assert_eq!(assuming[0]["line"], 7);
     assert!(
@@ -983,7 +1119,7 @@ fn a_failed_test_says_what_it_assumed() {
     let _ = std::fs::remove_dir_all(&dir);
     let v: Value = serde_json::from_str(&stdout).unwrap();
     assert_eq!(v["tests"][0]["outcome"], "failed");
-    assert_eq!(v["tests"][0]["assuming"][0]["name"], "two");
+    assert_eq!(v["tests"][0]["assuming"][0]["declaration"], "Main.two");
     assert_eq!(v["tests"][0]["assuming"][0]["kind"], "error");
 }
 
@@ -1076,4 +1212,36 @@ fn a_body_that_does_not_parse_stands_in_for_its_statement() {
             );
         }
     }
+}
+
+/// SW-3007: only `g` has an error, so the summary counts and lists `g`;
+/// `f`, which is fine, waits for it, with what uses it.
+#[test]
+fn an_error_free_member_of_a_failed_group_is_not_counted_as_an_error() {
+    let importer = "namespace B\n\n\
+        def f: (n: Nat) -> Nat\n  | 0 => 0\n  | Succ k => g k\n\n\
+        def g: (n: Nat) -> Nat\n  | 0 => 0\n  | Succ k => f k + g (Succ k)\n\n\
+        theorem usesF (h: f 1 = 1): 1 = 1 := rfl\n\ntest \"t\" := True\n";
+    let dir = source_project("counted", "namespace A\n\ndef a: Nat := 1\n", importer);
+    let (_, stderr, _) = project_tests(&dir, &["--no-cache"]);
+    let _ = std::fs::remove_dir_all(&dir);
+    assert!(stderr.contains("1 error: in `B.g`"), "{stderr}");
+    assert!(!stderr.contains("2 errors"), "{stderr}");
+    assert!(stderr.contains("B.f "), "{stderr}");
+}
+
+/// SW-3007: under a failed `(..)` import, a real typo is put down to the
+/// import like a lost name, so what waits for it says so at the import,
+/// where the error is printed, not at a use of `fooo` that prints nothing.
+#[test]
+fn a_typo_under_a_failed_wildcard_import_waits_at_the_import() {
+    let importer = "namespace B\n\nimport Missing (..)\n\n\
+        def typo (n: Nat): Nat := fooo n\n\n\
+        theorem usesTypo (h: typo 1 = 1): 1 = 1 := rfl\n\ntest \"t\" := True\n";
+    let dir = source_project("typo", "namespace A\n\ndef a: Nat := 1\n", importer);
+    let (_, stderr, _) = project_tests(&dir, &["--no-cache"]);
+    let _ = std::fs::remove_dir_all(&dir);
+    assert!(stderr.contains("needs `import Missing (..)` ("), "{stderr}");
+    assert!(stderr.contains("b.sw:3:8"), "{stderr}");
+    assert!(!stderr.contains("needs `fooo`"), "{stderr}");
 }

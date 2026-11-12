@@ -36,8 +36,6 @@ def Stop (strengthOf: Operator → Nat) (strength: Nat) (rest: List Char): Prop 
 theorem symbolInjective (one other: Operator) (same: (Spec.symbol one == Spec.symbol other) = True): one = other :=
   match one, other with
     | Plus, Plus => rfl
-    | Plus, Times => cases
-    | Times, Plus => cases
     | Times, Times => rfl
 
 def second: List Char → Char
@@ -72,8 +70,6 @@ theorem bindsZero (strengthOf: Operator → Nat) (expression: Expression): Spec.
 
 theorem sizePositive (expression: Expression) (small: size expression ≤ 0): Void :=
   match expression with
-    | Number value => omega
-    | Operation operator left right => omega
     | Parenthesised inner => omega
 
 -- The parser's pieces
@@ -186,7 +182,6 @@ theorem runsOperatorFrom (target: Operator) (rest: List Char) (before: List Oper
     (operators: List Operator) (member: target ∈ operators):
     Parse.Runs (() => operator (before ++ operators)) target.spaced.toList rest target :=
   match operators with
-    | [] => Void.exfalso member
     | [first, ..more] =>
       match same: first == target with
         | True =>

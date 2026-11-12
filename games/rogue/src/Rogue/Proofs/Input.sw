@@ -80,4 +80,3 @@ theorem onlyCommandKeys (key: Key) (command: Command) (found: commandOf key = So
     | Left => Inl (Witness West rfl)
     | Right => Inl (Witness East rfl)
     | Printable char => Inr (Witness char (Both rfl (onlyListedKeys char command found)))
-    | _ => Void.exfalso (Option.noneNotSome command found)

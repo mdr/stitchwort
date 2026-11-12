@@ -116,8 +116,6 @@ theorem noRowsNoWidth (rows: List (List (Fin 10))) (zero: rows.length = 0): firs
 --| A level of the cave is a digit's.
 theorem levelBelow10 (cave: Cave) (position: Position) (level: Nat) (found: levelAt cave position = Some level): level < 10 :=
   match r: cave.grid.rows.get position.row with
-    | None => Void.exfalso (Option.noneNotSome level found)
     | Some cells =>
       match c: cells.get position.column with
-        | None => Void.exfalso (Option.noneNotSome level found)
         | Some digit => rewrite <- Option.someInjective found in Fin.toNatLt digit

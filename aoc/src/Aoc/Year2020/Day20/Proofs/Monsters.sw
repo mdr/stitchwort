@@ -17,13 +17,11 @@ theorem roughAtIff (image: Image) (at: List Nat):
               | Rough =>
                 let rowFound := (List.memWithIndex image.rows row pixels).forward inRows
                 let pixelFound := (List.memWithIndex pixels column Rough).forward inPixels
-                Witness row (Witness column (Both (Eq.sym (Option.someInjective kept)) (rewrite rowFound, pixelFound in rfl)))
-              | Calm => Void.exfalso (Option.noneNotSome at kept),
+                Witness row (Witness column (Both (Eq.sym (Option.someInjective kept)) (rewrite rowFound, pixelFound in rfl))),
   backward = found =>
     match found with
       | Witness row (Witness column (Both same rough)) =>
         match rowFound: image.rows.get row with
-          | None => Void.exfalso (Option.noneNotSome Rough rough)
           | Some pixels =>
             let pixelFound: pixels.get column = Some Rough := rough
             (List.memFlatMap _ at image.rows.withIndex).backward
@@ -194,8 +192,7 @@ theorem roughAtDistinct (image: Image): List.Distinct image.roughAt :=
           match (List.memFilterMap _ at pixels.withIndex).forward inRow with
             | Witness (column, pixel) (Both inPixels kept) =>
               match pixel with
-                | Rough => rewrite <- Option.someInjective kept, (List.memWithIndex image.rows row pixels).forward member in rfl
-                | Calm => Void.exfalso (Option.noneNotSome at kept))
+                | Rough => rewrite <- Option.someInjective kept, (List.memWithIndex image.rows row pixels).forward member in rfl)
 
 theorem roughCells (image: Image): Spec.RoughCells image image.roughAt := Both (roughAtDistinct image) (at => roughAtIff image at)
 

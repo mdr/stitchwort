@@ -40,10 +40,8 @@ theorem stepBack (position: Position) (direction: Direction) (next: Position) (s
 theorem moveCases (racetrack: Racetrack) (position: Position) (direction: Direction) (next: Position)
     (moved: moveTo racetrack position direction = Some next): (position.step direction = Some next) ∧ (onTrack racetrack next = True) :=
   match stepped: position.step direction with
-    | None => Void.exfalso (Option.noneNotSome next moved)
     | Some found =>
       match onIt: onTrack racetrack found with
-        | False => Void.exfalso (Option.noneNotSome next moved)
         | True => rewrite <- Option.someInjective moved in Both rfl onIt
 
 --| A step onto track is a move.
@@ -96,7 +94,6 @@ theorem raceAppend (racetrack: Racetrack) (more: List Direction) (position: Posi
     | [] => rewrite Option.someInjective ended in rfl
     | [direction, ..rest] =>
       match moved: moveTo racetrack position direction with
-        | None => Void.exfalso (Option.noneNotSome middle ended)
         | Some next => raceAppend racetrack more next rest middle ended
 
 --| Moves, then one more.

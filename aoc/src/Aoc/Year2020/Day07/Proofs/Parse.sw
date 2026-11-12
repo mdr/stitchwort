@@ -49,4 +49,3 @@ theorem parseWritten (input: Text) (rules: Rules) (parsed: Fail.toResult (() => 
   let ran := rewrite Fail.toResultThen (() => Parse.eachLine input rule) (all => ({ all }: Rules)) at parsed in parsed
   match e: Fail.toResult (() => Parse.eachLine input rule) with
     | Ok all => rewrite <- Result.okInjective ran in Parse.eachLineReads input rule RuleWritten all e readsRule
-    | Err message => Void.exfalso (Result.errNotOk ran)

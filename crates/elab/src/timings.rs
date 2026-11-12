@@ -13,8 +13,12 @@
 //! declarations is one row. Besides the times it shows the evaluation steps
 //! the declaration took (`Budget::total_work`) and the core term nodes it
 //! made. The 20 slowest by default; `STITCHWORT_TIMINGS=decls` lists every
-//! one. These are exclusive too: a library file that loads while a
-//! declaration is checked counts against the file.
+//! one. The table also has the largest single read-back (nodes, counted as
+//! `Limits::size` counts them) and the most frames pending at once; a third
+//! table lists the declarations with the largest read-backs, and the run's
+//! maximum of each, for choosing the size limit (SW-2681). These are
+//! exclusive too: a library file that loads while a declaration is checked
+//! counts against the file.
 //!
 //! The timing code lives here, around the elaborator's calls into the
 //! kernel, not in the kernel. When the variable is unset, every hook is one
@@ -24,6 +28,7 @@ use std::cell::RefCell;
 use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, Instant};
 
+use stitchwort_core::budget::Peaks;
 use stitchwort_core::{Ev, Term};
 
 /// Whether `STITCHWORT_TIMINGS` is set. Read once.
@@ -55,6 +60,8 @@ struct DeclRow {
     kernel: Duration,
     steps: u64,
     nodes: usize,
+    /// The largest read-back and the most frames pending at once.
+    peaks: Peaks,
 }
 
 /// A unit, or a declaration, being elaborated: what has been spent in it
@@ -71,6 +78,10 @@ struct Frame {
     datas_before: usize,
     /// For a unit: how many declarations were being checked when it began.
     decl_depth: usize,
+    /// For a declaration: the budget's peaks when it began, which it takes
+    /// back when it ends, so that a declaration's peaks don't include those
+    /// of a library file loaded inside it.
+    outer_peaks: Peaks,
 }
 
 impl Frame {
@@ -86,6 +97,7 @@ impl Frame {
             defs_before: g.env.defs().len(),
             datas_before: g.env.datas().len(),
             decl_depth: DECLS.with(|d| d.borrow().len()),
+            outer_peaks: Peaks::default(),
         }
     }
 }
@@ -181,7 +193,8 @@ pub(crate) fn end(g: &Ev, label: String) {
 
 /// Starts checking a declaration (a component of them).
 pub(crate) fn decl_begin(g: &Ev) {
-    let frame = Frame::new(g);
+    let mut frame = Frame::new(g);
+    frame.outer_peaks = g.machine.budget.take_peaks();
     DECLS.with(|d| d.borrow_mut().push(frame));
 }
 
@@ -192,6 +205,8 @@ pub(crate) fn decl_end(g: &Ev, label: String) {
         return;
     };
     let total = frame.start.elapsed();
+    let peaks = g.machine.budget.take_peaks();
+    g.machine.budget.restore_peaks(frame.outer_peaks);
     let (nodes, _) = made(g, &frame);
     let steps = g
         .machine
@@ -204,6 +219,7 @@ pub(crate) fn decl_end(g: &Ev, label: String) {
         kernel: frame.kernel,
         steps: steps.saturating_sub(frame.child_steps),
         nodes: nodes.saturating_sub(frame.child_nodes),
+        peaks,
     });
 }
 
@@ -347,17 +363,19 @@ fn report_decls() {
         .max(11);
     eprintln!();
     eprintln!(
-        "{:<width$}  {:>10}  {:>10}  {:>12}  {:>10}",
-        "declaration", "elab ms", "kernel ms", "steps", "nodes"
+        "{:<width$}  {:>10}  {:>10}  {:>12}  {:>10}  {:>10}  {:>10}",
+        "declaration", "elab ms", "kernel ms", "steps", "nodes", "read-back", "frames"
     );
     for r in &rows[..shown] {
         eprintln!(
-            "{:<width$}  {:>10}  {:>10}  {:>12}  {:>10}",
+            "{:<width$}  {:>10}  {:>10}  {:>12}  {:>10}  {:>10}  {:>10}",
             r.label,
             ms(r.elab),
             ms(r.kernel),
             r.steps,
-            r.nodes
+            r.nodes,
+            r.peaks.readback,
+            r.peaks.frames
         );
     }
     if shown < rows.len() {
@@ -366,4 +384,40 @@ fn report_decls() {
             rows.len() - shown
         );
     }
+    report_readbacks(&mut rows);
+}
+
+/// Prints the declarations with the largest single read-back, largest first:
+/// what a lower `Limits::size` would break first (SW-2681).
+fn report_readbacks(rows: &mut [DeclRow]) {
+    rows.sort_by(|a, b| {
+        (b.peaks.readback, b.peaks.frames)
+            .cmp(&(a.peaks.readback, a.peaks.frames))
+            .then_with(|| a.label.cmp(&b.label))
+    });
+    let shown = decls_shown().min(rows.len());
+    let width = rows[..shown]
+        .iter()
+        .map(|r| r.label.len())
+        .max()
+        .unwrap_or(0)
+        .max(11);
+    eprintln!();
+    eprintln!(
+        "{:<width$}  {:>12}  {:>12}",
+        "largest read-backs", "nodes", "max frames"
+    );
+    for r in &rows[..shown] {
+        eprintln!(
+            "{:<width$}  {:>12}  {:>12}",
+            r.label, r.peaks.readback, r.peaks.frames
+        );
+    }
+    let deepest = rows.iter().map(|r| r.peaks.frames).max().unwrap_or(0);
+    eprintln!(
+        "over {} declarations: largest read-back {} nodes, deepest {} frames",
+        rows.len(),
+        rows.first().map_or(0, |r| r.peaks.readback),
+        deepest
+    );
 }

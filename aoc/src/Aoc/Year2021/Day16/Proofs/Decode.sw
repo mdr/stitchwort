@@ -14,9 +14,6 @@ import Std (Bool, Eq, Exists, Fail, List, Option, Result, Text, Void)
 theorem readPacketSound (reader: BitReader) (packet: Packet) (rest: BitReader) (read: readPacket reader = Some (packet, rest)):
     reader.unread = encode packet ++ rest.unread ∧ wellFormed packet = True :=
   match e: readPackets (Packets 1) reader with
-    | None => cases
-    | Some ([], _) => cases
-    | Some ([_, _, .._], _) => cases
     | Some ([first], after) =>
       let parts := somePairInjective read
       let sound := readPacketsSound (Packets 1) reader [first] after e
@@ -49,10 +46,8 @@ theorem parsePacketReads (input: Text) (packet: Packet) (parsed: Fail.toResult (
   Result.flatMapEqOk (Fail.toResult (() => readBits input)) (bits => Fail.toResult (() => decodeTransmission bits)) packet split
     (bits got decoded =>
       match e: readPacket { unread = bits } with
-        | None => cases
         | Some (found, rest) =>
           match z: zeroBits rest.unread with
-            | False => cases
             | True =>
               let sound := readPacketSound { unread = bits } found rest e
               rewrite <- Result.okInjective decoded in

@@ -23,7 +23,6 @@ theorem walkAt (numbers: List Nat) (preamble: Nat) (start: Nat) (front: List Nat
 theorem walkSound (numbers: List Nat) (preamble: Nat) (answer: Nat) (front: List Nat) (start: Nat) (at: front = numbers.drop start)
     (valid: ValidBefore numbers preamble (start + preamble)) (found: firstInvalidFrom preamble front = Some answer): Part1 numbers preamble answer :=
   match d: front.drop preamble with
-    | [] => Void.exfalso (Option.noneNotSome answer found)
     | [number, ..later] =>
       let (Both atPosition window) := walkAt numbers preamble start front at number later d
       match c: ({ numbers = front.take preamble }: Window).sumsTo number with
@@ -35,7 +34,6 @@ theorem walkSound (numbers: List Nat) (preamble: Nat) (answer: Nat) (front: List
                 (earlier bounds => valid earlier (omega)))))
         | True =>
           match front with
-            | [] => Void.exfalso (Option.noneNotSome answer found)
             | [first, ..rest] =>
               let moved: rest = numbers.drop (start + 1) := rewrite List.dropAdd start 1 numbers, <- at in rfl
               walkSound numbers preamble answer rest (start + 1) moved

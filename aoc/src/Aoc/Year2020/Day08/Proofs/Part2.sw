@@ -30,7 +30,6 @@ theorem repairIs (program: Program) (index: Nat) (instruction: Instruction) (rep
   Both (List.lengthSet program.instructions index repaired)
     (Both (other differ => List.getSetOther program.instructions index repaired other differ)
       (match instruction with
-        | { operation = Acc, argument } => Void.exfalso (Option.noneNotSome repaired swapped)
         | { operation = Jmp, argument } =>
           Witness argument (Inl (Both listed (rewrite Option.someInjective swapped in placed)))
         | { operation = Nop, argument } =>
@@ -42,7 +41,6 @@ theorem repairTerminates (program: Program) (position: Nat) (instruction: Instru
     (listed: program.instructions.get position = Some instruction) (made: program.code.terminatesRepaired position instruction = Some answer):
     ∃ (repaired: Program) => Spec.Repair program position repaired ∧ Spec.Terminates repaired answer :=
   match r: instruction.repaired with
-    | None => Void.exfalso (Option.noneNotSome answer made)
     | Some repaired =>
       let fixed := program.replaceAt position repaired
       let holds := repairedHolds program position repaired (List.getSomeLt program.instructions position instruction listed)
@@ -54,14 +52,11 @@ theorem repairTerminates (program: Program) (position: Nat) (instruction: Instru
               let found: accumulator = answer := Option.someInjective made
               Witness fixed (Both (repairIs program position instruction repaired listed r)
                 (Witness positions (Witness last (Both runs (Both atEnd (rewrite <- found in same))))))
-            | Loops accumulator => Void.exfalso (Option.noneNotSome answer made)
-            | JumpsAway accumulator => Void.exfalso (Option.noneNotSome answer made)
 
 theorem part2Rules (program: Program) (answer: Int) (solved: Fail.toResult (() => solvePart2 program) = Ok answer): Spec.Part2 program answer :=
   let ran: Fail.toResult (() => (program.instructions.withIndex.findMap (((position, instruction)) => program.code.terminatesRepaired position instruction)).orFail "no repair of one jmp or nop makes the boot code terminate") = Ok answer :=
     solved
   match f: program.instructions.withIndex.findMap (((position, instruction)) => program.code.terminatesRepaired position instruction) with
-    | None => Void.exfalso (Result.errNotOk ran)
     | Some found =>
       match List.memOfFindMap (((position, instruction)) => program.code.terminatesRepaired position instruction) program.instructions.withIndex found f with
         | Witness (position, instruction) (Both member made) =>

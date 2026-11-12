@@ -200,7 +200,6 @@ theorem labelledJoinAll (n: Nat) (rest done: List (Nat, Nat)) (c: Circuits)
           rewrite <- List.appendAssoc done [(f, s)] rest in
             labelledJoinAll n rest (List.append done [(f, s)]) (c.join f s) ok
               (labelledJoin n done c f s (Bool.andLeft r) (Bool.andRight r) inv)
-        | False => cases
 
 -- The label theorem -----------------------------------------------------------
 

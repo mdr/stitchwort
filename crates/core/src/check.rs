@@ -2351,22 +2351,30 @@ pub fn declare_def(
         g.machine.glue.set(was);
         let (ty, sort) = checked?;
         if theorem && sort != Sort::Prop {
-            let ty_value = cx.eval(&ty)?;
-            return Err(Diagnostic::error(
-                "E-NOT-A-PROP",
-                format!("`{name}` is declared as a theorem, but its type isn't a proposition"),
-            )
-            .with_label(
-                span,
-                format!(
-                    "`{}` is a type of data, not a proposition",
-                    cx.show(&ty_value)
-                ),
-            )
-            .with_note("remove `theorem` to make it an ordinary definition"));
+            return Err(not_a_prop(&mut cx, name, &ty, span)?);
         }
         push_def(g, name, path, ty, theorem, export, span)
     })
+}
+
+/// `E-NOT-A-PROP`: `name` is a theorem whose checked type `ty` isn't a
+/// proposition. Every way a theorem enters the kernel ([`declare_def`],
+/// [`retype_def`], [`assume`]) refuses this, so a theorem's type is always
+/// a proposition.
+fn not_a_prop(cx: &mut Ctx, name: &Name, ty: &Term, span: Span) -> Result<Diagnostic> {
+    let ty_value = cx.eval(ty)?;
+    Ok(Diagnostic::error(
+        "E-NOT-A-PROP",
+        format!("`{name}` is declared as a theorem, but its type isn't a proposition"),
+    )
+    .with_label(
+        span,
+        format!(
+            "`{}` is a type of data, not a proposition",
+            cx.show(&ty_value)
+        ),
+    )
+    .with_note("remove `theorem` to make it an ordinary definition"))
 }
 
 /// Adds a pending definition with the checked type `ty`, for
@@ -2418,6 +2426,11 @@ fn push_def(
 /// didn't (its stand-in, docs/proposals/tests-with-errors.md §3.3). `span`
 /// is where the gap is.
 ///
+/// It is a theorem if `theorem` (the stand-in of a theorem: it is a proof,
+/// which nothing computes with, as any theorem), else a definition. A
+/// theorem's type must be a proposition, as [`declare_def`] asks:
+/// `E-NOT-A-PROP` otherwise.
+///
 /// `ty` is checked to be a type (in any universe) that refers only to final
 /// declarations: a pending one is `E-MALFORMED` (so the goal of a `?` that
 /// mentions its own group can't be assumed), and a failed one is
@@ -2437,6 +2450,7 @@ pub fn assume(
     path: &Name,
     ty: &Term,
     label: crate::globals::Assumption,
+    theorem: bool,
     span: Span,
 ) -> Result<DefId> {
     in_kernel_modes(g, |g| {
@@ -2476,8 +2490,11 @@ pub fn assume(
         let was = g.machine.glue.replace(true);
         let checked = check_type(&mut cx, ty);
         g.machine.glue.set(was);
-        let (ty, _) = checked?;
-        let id = push_def(g, name, path, ty, false, false, span)?;
+        let (ty, sort) = checked?;
+        if theorem && sort != Sort::Prop {
+            return Err(not_a_prop(&mut cx, name, &ty, span)?);
+        }
+        let id = push_def(g, name, path, ty, theorem, false, span)?;
         let def = &mut g.env.defs_mut()[id.0];
         def.assumption = Some(Rc::new(label));
         def.recursive = false;
@@ -2511,7 +2528,11 @@ pub fn retype_def(g: &mut Kernel, id: DefId, ty: &Term) -> Result<()> {
             ));
         }
         admissible(&cx, [ty], None)?;
-        let (ty, _) = check_type(&mut cx, ty)?;
+        let (ty, sort) = check_type(&mut cx, ty)?;
+        let def = &g.env.defs()[id.0];
+        if def.theorem && sort != Sort::Prop {
+            return Err(not_a_prop(&mut cx, &def.name, &ty, span)?);
+        }
         let ty_value = eval(&g.ev(), &[], &ty)?;
         let def = &mut g.env.defs_mut()[id.0];
         def.ty = ty;

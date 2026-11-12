@@ -70,7 +70,6 @@ theorem roundElim (cavern: Cavern) (flashed: Flashed) (onGrid: OnGrid cavern fla
   rewrite flashRoundIsSpec cavern flashed at flashes in
     let opened := Eq.trans (Eq.sym (hasFlash cavern (at level => 9 < flashed.energy at level) q)) flashes
     match e: cavern.grid.at q with
-      | None => cases
       | Some level =>
         Witness level
           (Both ((memCells cavern.grid.rows q level).backward e) (Eq.trans (Eq.sym (Eq.cong (Nat.leq 10) (energyAgrees cavern flashed onGrid q level))) opened))

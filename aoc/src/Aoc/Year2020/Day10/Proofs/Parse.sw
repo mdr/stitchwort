@@ -11,4 +11,3 @@ theorem parseWritten (input: Text) (bag: Bag) (parsed: Fail.toResult (() => pars
   let ran := rewrite Fail.toResultThen (() => Parse.eachLine input Parse.nat) (adapters => ({ adapters }: Bag)) at parsed in parsed
   match e: Fail.toResult (() => Parse.eachLine input Parse.nat) with
     | Ok adapters => rewrite <- Result.okInjective ran in Parse.eachLineReads input Parse.nat RatingWritten adapters e Parse.readsNat
-    | Err message => Void.exfalso (Result.errNotOk ran)

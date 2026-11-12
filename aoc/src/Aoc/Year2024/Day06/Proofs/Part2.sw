@@ -67,7 +67,6 @@ def settledIfAny (lab: Lab): Option Guard → Bool
 theorem stepSettled (lab: Lab) (guard: Guard) (settled: settledAt lab guard.position = True) (next: Guard) (stepped: lab.step guard = Some next):
     settledAt lab next.position = True :=
   match inFront: lab.ahead guard with
-    | None => Void.exfalso (Option.noneNotSome next stepped)
     | Some ahead =>
       match blocked: lab.obstructions.contains ahead with
         | True => rewrite <- Option.someInjective stepped in settled
@@ -78,8 +77,6 @@ theorem stepSettled (lab: Lab) (guard: Guard) (settled: settledAt lab guard.posi
 theorem routeSettled (lab: Lab) (position: Position) (steps: Nat) (guard: Option Guard) (settled: settledIfAny lab guard = True)
     (has: onRoute lab guard steps position = True): settledAt lab position = True :=
   match steps, guard with
-    | Zero, guard => cases
-    | Succ steps, None => cases
     | Succ steps, Some here =>
       Bool.orElim has
         (same => rewrite Map.Spec.sameKeySound position here.position same in settled)

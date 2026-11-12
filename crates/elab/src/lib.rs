@@ -94,6 +94,7 @@ pub use library::LibraryIndex;
 pub mod std_dir;
 pub use equations::{is_equation_name, is_function_induct, is_generated_name};
 pub use goals::{ContextAt, GoalSnapshot, StepAt, StepForm};
+pub use module::UNPARSED_BODY;
 pub use rewind::Mark;
 pub use scope::edit_distance;
 pub use state::JournalStats;
@@ -626,10 +627,11 @@ enum Tree<'a> {
         span: Span,
         /// The spans of the or-pattern alternatives that chose the arm.
         alternatives: Vec<Span>,
-        /// Whether rows after the arm's could match here too: without the
-        /// arm, one of them would take the case, so `W-UNREACHABLE` can't
-        /// promise the arm can be deleted.
-        later: bool,
+        /// The spans of the rows after the arm's that could match here too:
+        /// without the arm, one of them would take the case, so
+        /// `W-UNREACHABLE` can promise the arm can be deleted only along
+        /// with all of them.
+        later: Vec<Span>,
     },
     /// The first row matched whatever is left, under a condition: `leaf` if
     /// it holds, otherwise `otherwise`, the rows after it. Checked as the
@@ -2706,6 +2708,35 @@ impl Elaborator {
         }
     }
 
+    /// A refusal of the group as a whole, attributed to the member whose
+    /// source holds all its labels. One that is about no one member (no
+    /// label, labels in several members, or outside them all: a cycle of
+    /// calls that don't terminate, say) is every member's: one copy each,
+    /// which the caller reports once.
+    fn blame_group(members: &[(usize, &Decl, &[Decl])], d: Diagnostic) -> Vec<(usize, Diagnostic)> {
+        let holds = |signature: &Decl, equations: &[Decl], at: Span| {
+            let (start, end) = equations
+                .iter()
+                .map(Decl::span)
+                .chain([signature.span()])
+                .filter(|s| s.file == at.file)
+                .fold((u32::MAX, 0), |(a, b), s| (a.min(s.start), b.max(s.end)));
+            start <= at.start && at.end <= end
+        };
+        if members.len() > 1
+            && let Some(&(item, signature, equations)) = members
+                .iter()
+                .find(|(_, s, e)| d.primary_span().is_some_and(|at| holds(s, e, at)))
+            && d.labels.iter().all(|l| holds(signature, equations, l.span))
+        {
+            return vec![(item, d)];
+        }
+        if members.len() > 1 {
+            return members.iter().map(|m| (m.0, d.clone())).collect();
+        }
+        vec![(members[0].0, d)]
+    }
+
     /// A group of definitions that may call each other (or one definition),
     /// given as module items: every signature, then every body, then the
     /// kernel admits them together, or none of them
@@ -2875,7 +2906,7 @@ impl Elaborator {
             {
                 Ok(partial) => partial,
                 Err(d) => {
-                    out.push((members[0].0, d));
+                    out.extend(Self::blame_group(members, d));
                     return out;
                 }
             };
@@ -2884,7 +2915,8 @@ impl Elaborator {
                 return out;
             }
             if partial.iter().any(|p| *p) {
-                out.push((members[0].0, self.mixed_partial(members, &ids, &partial)));
+                let d = self.mixed_partial(members, &ids, &partial);
+                out.extend(Self::blame_group(members, d));
                 return out;
             }
         }
@@ -2970,12 +3002,12 @@ impl Elaborator {
         bodies.extend(helpers);
         if let Err(d) = kernel::define_group(&mut self.kernel, &self.tables, &bodies) {
             let d = self.explain_lifted(d);
-            out.push((members[0].0, d));
+            out.extend(Self::blame_group(members, d));
             return out;
         }
         let local_helpers = self.decl.local_helpers.clone();
         if let Err(d) = self.bind_local_helpers() {
-            out.push((members[0].0, d));
+            out.extend(Self::blame_group(members, d));
         }
         for (&(item, signature, _), id) in members.iter().zip(&ids) {
             self.unit.module.item = Some(item);
@@ -2992,7 +3024,7 @@ impl Elaborator {
         // and their local definitions'. The library's and the core's are
         // made on demand (their local definitions' still here).
         if let Err(d) = self.local_equations(&local_helpers, false) {
-            out.push((members[0].0, d));
+            out.extend(Self::blame_group(members, d));
         }
         if self.defers_equations() {
             return out;
@@ -3690,6 +3722,7 @@ impl Elaborator {
             ));
         }
 
+        let mut rows: Vec<Row> = Vec::new();
         let tree = if arity == 0 {
             if let Some(&(_, _, span)) = equations.get(1) {
                 return Err(error(
@@ -3704,10 +3737,10 @@ impl Elaborator {
                 rhs: first_rhs,
                 span: first_span,
                 alternatives: Vec::new(),
-                later: false,
+                later: Vec::new(),
             }
         } else {
-            let rows: Vec<Row> = equations
+            rows = equations
                 .iter()
                 .zip(&guards)
                 .map(|(&(patterns, rhs, span), &guard)| Row {
@@ -3732,10 +3765,18 @@ impl Elaborator {
             tree
         };
         let root = self.decl.leaf_log.borrow_mut().enter_root(def_name.span);
-        let term = families::warn_unreachable(cx, |cx| {
-            let start = columns.first().copied().unwrap_or(cx.level());
-            check_tree_from(cx, start, &tree, &ty)
-        });
+        let start = columns.first().copied().unwrap_or(cx.level());
+        let recheck = Recheck {
+            rows: &rows,
+            columns: &columns,
+            types: &column_types,
+            skip: header.unwrap_or(0),
+            span,
+            start,
+            goal: &ty,
+        };
+        let term =
+            families::warn_unreachable(cx, &recheck, |cx| check_tree_from(cx, start, &tree, &ty));
         self.decl.leaf_log.borrow_mut().leave_root(root);
         let mut term = term?;
         for (x, icit) in lams.into_iter().rev() {
@@ -3926,7 +3967,7 @@ impl Elaborator {
                 rhs: first.rhs,
                 span: first.span,
                 alternatives: first.alternatives.clone(),
-                later: rows.len() > 1,
+                later: rows[1..].iter().map(|row| row.span).collect(),
             };
             let Some(guard) = first.guard else {
                 return Ok(leaf);
@@ -4846,6 +4887,10 @@ fn check_leaf(cx: &mut Ctx, tree: &Tree, goal: &Value, guarded: bool) -> Result<
     else {
         unreachable!("a leaf")
     };
+    // Coverage alone is checked (`deletable`): the arms' bodies aren't.
+    if cx.e.decl.coverage_only.get() > 0 && rhs.is_some() {
+        return Ok(Term::Refl);
+    }
     families::reached(cx, *span);
     // An arm `cases` makes as it splits has its `cases` as the whole arm:
     // nothing written there can be deleted.
@@ -4854,17 +4899,12 @@ fn check_leaf(cx: &mut Ctx, tree: &Tree, goal: &Value, guarded: bool) -> Result<
         && body.span() != *span
         && !guarded
     {
-        let why = match later {
-            true => None,
-            false => {
-                let bound: Vec<usize> = aliases.iter().map(|&(_, level)| level).collect();
-                match impossible_reason(cx, &bound)? {
-                    Some(why) if fills_in(cx, goal)? => Some(why),
-                    _ => None,
-                }
-            }
+        let bound: Vec<usize> = aliases.iter().map(|&(_, level)| level).collect();
+        let why = match impossible_reason(cx, &bound)? {
+            Some(why) if fills_in(cx, goal)? => Some(why),
+            _ => None,
         };
-        families::note_arm_case(cx, *span, !alternatives.is_empty(), why);
+        families::note_arm_case(cx, *span, !alternatives.is_empty(), why, later);
     }
     cx.e.decl.leaf_log.borrow_mut().record(*span, alternatives);
     let Some(rhs) = rhs else {
@@ -5005,6 +5045,122 @@ fn fills_in(cx: &mut Ctx, goal: &Value) -> Result<bool> {
     }
 }
 
+/// What a compiled `match` was compiled from, so that [`deletable`] can
+/// compile it again without some of its arms: `compile_top`'s inputs, and
+/// the level and goal its tree is checked at.
+struct Recheck<'r, 'a> {
+    rows: &'r [Row<'a>],
+    columns: &'r [usize],
+    types: &'r [Option<Value>],
+    skip: usize,
+    span: Span,
+    start: usize,
+    goal: &'r Value,
+}
+
+/// Whether the `match` would still check with the arms or or-pattern
+/// alternatives at `deleted` taken out of its source, as far as its cases
+/// go: it's compiled again, as the source without them would be, and each
+/// case no arm covers must be one the checker fills in. The other arms'
+/// bodies aren't checked again: none of them takes a case it didn't have
+/// (`Tree::Leaf::later`). Nothing it does is kept; `W-UNREACHABLE`
+/// promises what it says (SW-3008).
+fn deletable(cx: &mut Ctx, recheck: &Recheck, deleted: &[Span]) -> Result<bool> {
+    let rows: Vec<Row> = (recheck.rows.iter())
+        .filter(|row| !deleted.contains(&row.span))
+        .filter_map(|row| {
+            let pats = (row.pats.iter())
+                .map(|p| without_alternatives(p, deleted).map(Cow::Owned))
+                .collect::<Option<Vec<_>>>()?;
+            Some(Row {
+                pats,
+                ..row.clone()
+            })
+        })
+        .collect();
+    if rows.is_empty() {
+        // A `match` needs an arm.
+        return Ok(false);
+    }
+    let snapshot = undo::Snapshot::take(cx);
+    let reach = cx.e.decl.arm_reach.take();
+    let decl = &cx.e.decl;
+    decl.coverage_only.set(decl.coverage_only.get() + 1);
+    decl.errors_only.set(decl.errors_only.get() + 1);
+    let result = (cx.e.compile_top(
+        cx,
+        &rows,
+        recheck.columns,
+        recheck.types,
+        recheck.skip,
+        recheck.span,
+    ))
+    .and_then(|tree| check_tree_from(cx, recheck.start, &tree, recheck.goal));
+    let decl = &cx.e.decl;
+    decl.coverage_only.set(decl.coverage_only.get() - 1);
+    decl.errors_only.set(decl.errors_only.get() - 1);
+    cx.e.decl.arm_reach.replace(reach);
+    snapshot.restore(cx);
+    match result {
+        Ok(_) => Ok(true),
+        Err(e) if undo::recoverable(cx, &e) => {
+            undo::recovered(cx);
+            Ok(false)
+        }
+        Err(e) if undo::fatal(&e) => Err(e),
+        Err(_) => Ok(false),
+    }
+}
+
+/// `pattern` without its or-pattern alternatives at `deleted`, at any
+/// depth: `None` if an or-pattern loses them all, so nothing matches.
+fn without_alternatives(pattern: &Pattern, deleted: &[Span]) -> Option<Pattern> {
+    let all = |ps: &[Pattern]| -> Option<Vec<Pattern>> {
+        ps.iter()
+            .map(|p| without_alternatives(p, deleted))
+            .collect()
+    };
+    let one = |p: &Pattern| without_alternatives(p, deleted).map(Box::new);
+    let fields = |fs: &[(ast::Name, Pattern)]| -> Option<Vec<(ast::Name, Pattern)>> {
+        (fs.iter())
+            .map(|(x, p)| Some((x.clone(), without_alternatives(p, deleted)?)))
+            .collect()
+    };
+    Some(match pattern {
+        Pattern::Or(alternatives, span) => {
+            let kept: Vec<Pattern> = (alternatives.iter())
+                .filter(|p| !deleted.contains(&p.span()))
+                .map(|p| without_alternatives(p, deleted))
+                .collect::<Option<_>>()?;
+            match kept.len() {
+                0 => return None,
+                _ => Pattern::Or(kept, *span),
+            }
+        }
+        Pattern::Ctor(c, args, span) => Pattern::Ctor(c.clone(), all(args)?, *span),
+        Pattern::Tuple(p, q, span) => Pattern::Tuple(one(p)?, one(q)?, *span),
+        Pattern::Cons(p, q, span) => Pattern::Cons(one(p)?, one(q)?, *span),
+        Pattern::Named(x, p, span) => Pattern::Named(x.clone(), one(p)?, *span),
+        Pattern::Record {
+            fields: fs,
+            rest,
+            span,
+        } => Pattern::Record {
+            fields: fields(fs)?,
+            rest: *rest,
+            span: *span,
+        },
+        Pattern::CtorFields {
+            ctor,
+            fields: fs,
+            rest,
+            span,
+            ..
+        } => Pattern::ctor_fields(ctor.clone(), fields(fs)?, *rest, *span),
+        other => other.clone(),
+    })
+}
+
 /// Why the case an arm's body is checked in can't happen, for its warning
 /// (`W-UNREACHABLE`): a variable in scope whose type is an equation of
 /// different constructors, an empty data type or an indexed family with no
@@ -5023,7 +5179,13 @@ fn impossible_reason(cx: &mut Ctx, bound: &[usize]) -> Result<Option<String>> {
         let shown = |cx: &mut Ctx| cx.show(&cx.types[level].clone());
         if cases::equates_different_ctors(cx, level)? {
             let shown = shown(cx);
-            return Ok(Some(format!("here {name} is `{shown}`, which can't hold")));
+            let computed = match cases::computed_equation(cx, level)? {
+                Some(eq) => format!(", that is `{eq}`"),
+                None => String::new(),
+            };
+            return Ok(Some(format!(
+                "here {name} is `{shown}`{computed}, which can't hold"
+            )));
         }
         match force(&g, ty)? {
             Value::Data(d, _) if g.data(d).ctors().is_empty() => {
@@ -5277,7 +5439,7 @@ fn shifted<'a>(tree: &Tree<'a>, from: usize) -> Tree<'a> {
             rhs: *rhs,
             span: *span,
             alternatives: alternatives.clone(),
-            later: *later,
+            later: later.clone(),
         },
         Tree::Guard {
             guard,

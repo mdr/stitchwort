@@ -88,10 +88,8 @@ def fitIn (length: Nat) (entry: (Nat, Set Nat)): Option Span :=
 theorem fitInSome (length: Nat) (key: Nat) (items: Set Nat) (span: Span) (found: fitIn length (key, items) = Some span):
     length ≤ key ∧ span.length = key ∧ items.min = Some span.start :=
   match fits: length <= key with
-    | False => Void.exfalso (Option.noneNotSome span found)
     | True =>
       match least: items.min with
-        | None => Void.exfalso (Option.noneNotSome span found)
         | Some start =>
           let same: { start, length = key } = span := Option.someInjective found
           rewrite <- same in Both (omega) (Both rfl rfl)
@@ -99,7 +97,6 @@ theorem fitInSome (length: Nat) (key: Nat) (items: Set Nat) (span: Span) (found:
 theorem fitInIntro (length: Nat) (key: Nat) (items: Set Nat) (start: Nat) (fits: length ≤ key) (least: items.min = Some start):
     fitIn length (key, items) = Some { start, length = key } :=
   match enough: length <= key with
-    | False => Void.exfalso (omega)
     | True => rewrite least in rfl
 
 --| A span the map holds, long enough, is not before the span `fitIn` makes of its entry.

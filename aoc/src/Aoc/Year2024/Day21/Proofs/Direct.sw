@@ -16,12 +16,10 @@ theorem movedNear (aim: Position) (to: Position) (direction: Direction) (next: P
   match direction with
     | Up =>
       match top: aim.row == 0 with
-        | True => Void.exfalso (Option.noneNotSome next step)
         | False => rewrite <- Option.someInjective step in omega [top]
     | Down => rewrite <- Option.someInjective step in omega
     | Left =>
       match edge: aim.column == 0 with
-        | True => Void.exfalso (Option.noneNotSome next step)
         | False => rewrite <- Option.someInjective step in omega [edge]
     | Right => rewrite <- Option.someInjective step in omega
 
@@ -32,10 +30,8 @@ theorem walkDistance (rows: List (List (Option k))) (start: Position) (route: Li
     | [] => rewrite <- Option.someInjective walked in omega
     | [direction, ..rest] =>
       match step: moved start direction with
-        | None => Void.exfalso (Option.noneNotSome end walked)
         | Some next =>
           match found: keyAt rows next with
-            | None => Void.exfalso (Option.noneNotSome end walked)
             | Some key => omega [movedNear start end direction next step, walkDistance rows next rest end walked]
 
 --| Pressing a route's keys yourself takes a press per move and one for A.
@@ -57,7 +53,6 @@ theorem numericPlaceOf (row column: Nat) (key: NumericKey) (found: keyAt numeric
     | 2, 0 => rewrite <- Option.someInjective found in rfl
     | 2, 1 => rewrite <- Option.someInjective found in rfl
     | 2, 2 => rewrite <- Option.someInjective found in rfl
-    | 3, 0 => Void.exfalso (Option.noneNotSome key found)
     | 3, 1 => rewrite <- Option.someInjective found in rfl
     | 3, 2 => rewrite <- Option.someInjective found in rfl
     | 0, Succ (Succ (Succ column)) => Void.exfalso (Option.noneNotSome key found)
@@ -69,7 +64,6 @@ theorem numericPlaceOf (row column: Nat) (key: NumericKey) (found: keyAt numeric
 theorem directionalPlaceOf (row column: Nat) (key: DirectionKey) (found: keyAt directionalRows { row, column } = Some key):
     ({ row, column }: Position) = Keypad.directional.place key :=
   match row, column with
-    | 0, 0 => Void.exfalso (Option.noneNotSome key found)
     | 0, 1 => rewrite <- Option.someInjective found in rfl
     | 0, 2 => rewrite <- Option.someInjective found in rfl
     | 1, 0 => rewrite <- Option.someInjective found in rfl
