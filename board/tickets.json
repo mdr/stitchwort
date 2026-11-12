@@ -30845,14 +30845,14 @@
     {
       "id": 2904,
       "title": "[DeepSeek] Playground: chapter entries (sf/, book/) have no main, so Run reports E-NO-MAIN; a manifest flag noRun disables the Run button (SW-2892)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "DeepSeek",
-      "where": "",
+      "where": ".claude/worktrees/scratch-sw-2904",
       "labels": [],
       "epic": "editor-playground",
       "body": "",
       "created": "2026-11-11",
-      "updated": "2026-11-11",
+      "updated": "2026-11-12",
       "commits": []
     },
     {
