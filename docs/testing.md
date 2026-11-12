@@ -65,12 +65,11 @@ Two things make a tier, and the tasks set both:
 
 Both are needed: a profile can only include or leave out a whole test, and the sweeps are single tests whose cost is the size of the corpus. The profiles keep the lists of what runs in one file that nextest checks; the environment variable keeps each sweep's sample next to the code that knows what is in its corpus. A sweep's assertion about how much it covered (say, "more than 1,000 arguments named") scales with the sample, and is exactly the old one in the full tier.
 
-What only the full tier runs: `task test:verify-cache` (`stitchwort test --verify-cache` on aoc and games/rogue, D2379), the AoC project in the std_library, rewind, check-cache and `fmt_hashes` comparisons, `a_check_cancelled_part_way_rewinds`, the bench `examples` benchmark (in `baseline`, and repeated in `repeat`), `search_bench`'s proof-use benchmark, the whole corpus in each sampled sweep (below), and `rt`'s AoC sweeps `aoc_agrees` and `every_aoc_main_lowers` (36 to 38 minutes each in the daily tier on 31 Oct 2026; SW-839 is to give the daily tier a fast check of AoC lowering instead).
+What only the full tier runs: `task test:verify-cache` (`stitchwort test --verify-cache` on aoc and games/rogue, D2379), the AoC project in the std_library, rewind and check-cache comparisons (and in `fmt_hashes`'s, when formatting changes one of its files: every tier formats the whole corpus and loads only the files and projects formatting changes, SW-2962), `a_check_cancelled_part_way_rewinds`, the bench `examples` benchmark (in `baseline`, and repeated in `repeat`), `search_bench`'s proof-use benchmark, the whole corpus in each sampled sweep (below), and `rt`'s AoC sweeps `aoc_agrees` and `every_aoc_main_lowers` (36 to 38 minutes each in the daily tier on 31 Oct 2026; SW-839 is to give the daily tier a fast check of AoC lowering instead).
 
 | Sweep | Daily share | Merge and lane share |
 |---|---|---|
 | `std_library` `lazy_loading_changes_nothing_*`, `driver` `check_cache` and `rewind` examples | every 8th file (and every 4th project) | every 32nd |
-| `fmt_hashes` `formatting_changes_no_declaration_hash` | every 8th file and project (the AoC project, 137 of its 160 s under load, in full only) | every 32nd |
 | `differential` `the_evaluators_agree_on_the_prelude_and_every_example`, `conv_shortcut` | every 4th | every 16th |
 | `resources` `running_out_at_any_point_only_ever_means_no_answer` (not a sweep, but sampled the same way) | every 4th of its 161 work limits | every 16th |
 | `hash_stability` `examples` and `projects` | all | every 4th |
