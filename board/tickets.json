@@ -1,5 +1,5 @@
 {
-  "next": 3018,
+  "next": 3019,
   "tickets": [
     {
       "id": 47,
@@ -32432,12 +32432,27 @@
     {
       "id": 3017,
       "title": "[Opus] Soundness fuzzer (Overmind, c3c3a3c49, seed 0x2c02, VOID=1500): void_attempts_are_rejected reports 413 findings, 'boom accepted' (non-positive, universe, prop-elim, proof-irrelevance, false-equation) and 2× 'anything proves an empty type'; the CLI rejects the saved files (attempt 99: theorem boom: Void := boom → E-TERMINATION). Harness check_attempt (crates/driver/tests/soundness_fuzz.rs ~1978, ~2002) finds boom Final and not unfinished after a load with errors: likely SW-2952 stand-ins (a failed theorem whose statement checks stands in as an assumption) not recognised by the harness; 0x2c01 at 9250b60c1 had 0. Confirm it's the harness, not a hole: a stand-in must never count as a proof (relies_on, Hasher::def_ref unfinished, audit, run)",
-      "status": "review",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-3017",
       "labels": [],
       "epic": "audit-fuzzing",
-      "body": "Expected: 90 min. Started 18:55, done 19:08 (12 Nov 2026).\n\nCause: harness only. A declaration with an error stands in as a final assumption under its own name (SW-2952, D3527); check_attempt read accepted as Final && !marked_unfinished, so every stand-in `boom` (and `anything` built on one) was a finding. Old harness at VOID=20 seed 0x2c02: 534/534 rejected by load, 400 findings, all \"boom was accepted\".\n\nCould a user rely on boom? No, on every path checked (file and two-namespace project with importer, each twice for the cache): check, audit, test, run, axioms all exit 1; audit fails boom (\"has an error\") and anything (\"relies on `boom`, which has an error; checked assuming its statement\"); test \"five\" not run (relies on boom); the check cache stores nothing for either.\n\nFix (lane/SW-3017, f86367df1): check_attempt skips Elaborator::is_unfinished(id) (final and relying on no assumption, as audit reads it).\n\nFuzz with the fix, seed 0x2c02: VOID=20 534 attempts 0 findings; VOID=1500 2014 attempts (29 accepted) 0 findings, 68 s.\nTests: proofs stand_ins:: (1 pass); tools test_json::|audit:: (49 pass).\n",
+      "body": "Expected: 90 min. Started 18:55, done 19:08 (12 Nov 2026).\n\nCause: harness only. A declaration with an error stands in as a final assumption under its own name (SW-2952, D3527); check_attempt read accepted as Final && !marked_unfinished, so every stand-in `boom` (and `anything` built on one) was a finding. Old harness at VOID=20 seed 0x2c02: 534/534 rejected by load, 400 findings, all \"boom was accepted\".\n\nCould a user rely on boom? No, on every path checked (file and two-namespace project with importer, each twice for the cache): check, audit, test, run, axioms all exit 1; audit fails boom (\"has an error\") and anything (\"relies on `boom`, which has an error; checked assuming its statement\"); test \"five\" not run (relies on boom); the check cache stores nothing for either.\n\nFix (lane/SW-3017, f86367df1): check_attempt skips Elaborator::is_unfinished(id) (final and relying on no assumption, as audit reads it).\n\nFuzz with the fix, seed 0x2c02: VOID=20 534 attempts 0 findings; VOID=1500 2014 attempts (29 accepted) 0 findings, 68 s.\nTests: proofs stand_ins:: (1 pass); tools test_json::|audit:: (49 pass).\nResult: harness bug, not a soundness hole; check/audit/test/run/axioms/cache all reject boom and its users (single file and project, cached and not). VOID=1500 seed 0x2c02: 0 findings, 68 s. Opus, 13 min (est. 90).",
+      "created": "2026-11-12",
+      "updated": "2026-11-12",
+      "commits": [
+        "f86367df1"
+      ]
+    },
+    {
+      "id": 3018,
+      "title": "[DeepSeek] Elaborator::marked_unfinished (crates/elab/src/lib.rs ~952) no longer means 'unfinished' since stand-ins: make it pub(crate) or doc it as 'gave up for an open goal; use is_unfinished for finished' (SW-3017 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
       "created": "2026-11-12",
       "updated": "2026-11-12",
       "commits": []
