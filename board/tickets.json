@@ -31753,15 +31753,17 @@
     {
       "id": 2972,
       "title": "[Sonnet] Playground and VS Code: when Search for a proof finds a proof that closes the goal (one offer), insert it at once without asking, with a notice ('Proved by rfl'; undo restores the ?), instead of a one-item pick list (D3532). After SW-2965 (same file)",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "editor-playground",
-      "body": "\nD3532 (Matt, 12 Nov 2026): 'if we've got a proof that closes the goal, we should just insert it without asking.'",
+      "body": "\nD3532 (Matt, 12 Nov 2026): 'if we've got a proof that closes the goal, we should just insert it without asking.'\n\nLane notes: single proof inserted at once in playground and VS Code, notice \"Proved by `..`\", cursor at end of inserted text; several keep the list. Tests: browser (3 by name) and vscode client test pass.\n",
       "created": "2026-11-12",
       "updated": "2026-11-12",
-      "commits": []
+      "commits": [
+        "1640e91f7"
+      ]
     },
     {
       "id": 2973,
