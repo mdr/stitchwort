@@ -28,7 +28,10 @@
 //!    the declaration has other binders ([`check_shape`]); and the standard
 //!    library must declare every library built-in
 //!    ([`check_library_declares_all`]). Entries without a shape are not
-//!    checked; adding one is how a call site gets protected.
+//!    checked; adding one is how a call site gets protected. The empty shape
+//!    `""` means the built-in takes its hypothesis directly (as
+//!    `Bool.falseNotTrue h`): it's only checked to have no leading binders,
+//!    not its statement, which the kernel checks at every use.
 //!
 //! Binding a built-in only says which declaration is meant. Whether a native
 //! implementation may replace it is decided separately, by the checks in

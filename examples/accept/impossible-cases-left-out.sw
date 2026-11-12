@@ -2,7 +2,7 @@
 -- scope, refined by the match, has a type with no values there. The
 -- compiler fills in the arm `()` would be (D3534).
 
-import Std (Bool, Nat, Option, Ordering, Void)
+import Std (Bool, Eq, Nat, Option, Ordering, Void)
 
 type Move = | Rock | Paper | Scissors
 
@@ -27,6 +27,41 @@ theorem rockBeatsOnlyScissorsArms: (theirs: Move) -> beats Rock theirs -> theirs
 theorem zeroOfCompareEqual (m: Nat) (h: Nat.compare m 0 = Equal): m = 0 :=
   match m with
     | Zero => rfl
+
+-- One theorem per pair of different `Ordering`s. Each keeps the case `h`
+-- allows and makes the third case explicit, leaving out the pair's case; the
+-- goal after `flip` isn't `h` itself, so the checker has to refute `h` with
+-- the lemma for that pair. A wrong row in its table fills the case in with
+-- another pair's lemma, which doesn't check.
+theorem lessNotEqualLeftOut (o: Ordering) (h: o = Equal): Ordering.flip o = Ordering.flip Equal :=
+  match o, h with
+    | Equal, _ => rfl
+    | Greater, q => Eq.cong Ordering.flip q
+
+theorem lessNotGreaterLeftOut (o: Ordering) (h: o = Greater): Ordering.flip o = Ordering.flip Greater :=
+  match o, h with
+    | Greater, _ => rfl
+    | Equal, q => Eq.cong Ordering.flip q
+
+theorem equalNotLessLeftOut (o: Ordering) (h: o = Less): Ordering.flip o = Ordering.flip Less :=
+  match o, h with
+    | Less, _ => rfl
+    | Greater, q => Eq.cong Ordering.flip q
+
+theorem equalNotGreaterLeftOut (o: Ordering) (h: o = Greater): Ordering.flip o = Ordering.flip Greater :=
+  match o, h with
+    | Greater, _ => rfl
+    | Less, q => Eq.cong Ordering.flip q
+
+theorem greaterNotLessLeftOut (o: Ordering) (h: o = Less): Ordering.flip o = Ordering.flip Less :=
+  match o, h with
+    | Less, _ => rfl
+    | Equal, q => Eq.cong Ordering.flip q
+
+theorem greaterNotEqualLeftOut (o: Ordering) (h: o = Equal): Ordering.flip o = Ordering.flip Equal :=
+  match o, h with
+    | Equal, _ => rfl
+    | Less, q => Eq.cong Ordering.flip q
 
 -- A program as well as a proof: a `None` can't be passed with `known`.
 def valueOf (o: Option a) (known: o.isSome): a :=
