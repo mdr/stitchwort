@@ -1,5 +1,5 @@
 {
-  "next": 2992,
+  "next": 2993,
   "tickets": [
     {
       "id": 47,
@@ -31829,15 +31829,17 @@
     {
       "id": 2977,
       "title": "[Opus] Bool as a proposition, stage 2: the reader (bool-as-proposition.md §5-§6, amended by docs/reviews/SW-2964-bool-reader-review.md): fold the review's amendments into the note first; @[reading] ↔ theorems, one per test, declared with the test (D3487); .read (D3531) instead of silent crossing (D3488); patterns and building with &&, ||, not; errors E-NO-READING etc.; check cache key; acceptance: no existing example's hash changes",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-2977",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "\nReview: docs/reviews/SW-2977-reader-review.md (merge after fixes); H1, M1, M3, L3, L4 fixed in 30f05e9f4; M2 half (registration from the term). Orchestrator's call on the rest of M2: glue is always on outside two internal tests and no tier runs unglued, so the use-site reader on terms is a backlog ticket, not a blocker.",
       "created": "2026-11-12",
       "updated": "2026-11-12",
-      "commits": []
+      "commits": [
+        "30f05e9f4"
+      ]
     },
     {
       "id": 2978,
@@ -32022,6 +32024,19 @@
       "where": "",
       "labels": [],
       "epic": "editor-playground",
+      "body": "",
+      "created": "2026-11-12",
+      "updated": "2026-11-12",
+      "commits": []
+    },
+    {
+      "id": 2992,
+      "title": "[Opus] Readings with gluing off: at the use site the fact's type is an evaluated value, so unglued a user function's reading reads as its unfolding (And instead of InRange); build the reader on terms (written types, readings' statement terms) — SW-2977 review M2; also L1 (E-NO-READING should say the reading is declared later in the unit, and stay quiet when the reading failed) and L2 (readings on alias functions tiny := small: filed under tiny now; decide)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
       "body": "",
       "created": "2026-11-12",
       "updated": "2026-11-12",
