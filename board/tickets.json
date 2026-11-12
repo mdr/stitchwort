@@ -32385,9 +32385,9 @@
     {
       "id": 3014,
       "title": "[DeepSeek] SW-3002 review lows: a test with one theorem per ordered pair of Ordering constructors (6) leaving the case out, so a wrong row in cases.rs ordering_distinct (~994) fails at std-edit time; registry.rs invariant 6 doc (~24-31): say shape \"\" means the lemma takes the hypothesis directly and its statement isn't checked; (idea, Sonnet) types with derived DecEq could refute constructor equations with T.%differ instead of a helper",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": ".claude/worktrees/scratch-sw-3014",
       "labels": [],
       "epic": "elaborator-kernel",
       "body": "",
