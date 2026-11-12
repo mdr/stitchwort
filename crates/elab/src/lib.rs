@@ -3748,10 +3748,22 @@ impl Elaborator {
                     .collect();
                 return self.compile(&rows, depth, columns, types, span);
             }
-            return Ok(Tree::Absurd {
-                level: columns[j],
-                span: first.pats[j].span(),
-            });
+            // The row's constructor patterns are matched first: in
+            // `| Rock, ()`, the `()` is about the type its column has once
+            // the first is `Rock`. The split below leaves `()` alone.
+            let mut splits_first = false;
+            for (k, p) in first.pats.iter().enumerate() {
+                if k != j && self.pattern_ctor(p, types[k].as_ref())?.is_some() {
+                    splits_first = true;
+                    break;
+                }
+            }
+            if !splits_first {
+                return Ok(Tree::Absurd {
+                    level: columns[j],
+                    span: first.pats[j].span(),
+                });
+            }
         }
         let mut split = None;
         // A guarded first row that has nothing left to match still waits for

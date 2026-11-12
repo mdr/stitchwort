@@ -255,6 +255,32 @@ theorem rockBeatsOnlyScissors (theirs: Move) (h: beats Rock theirs): theirs = Sc
 -- each to read its statement. They live in the library's `Bool` and `Void`
 -- namespaces, which is what the line `import Std (Bool, Void)` at the top
 -- of the file is for.
+--
+-- That is what happens in an impossible case, and there are two shorter
+-- ways to say it. Match on `h` too, and write `()` where its pattern goes,
+-- with no `=>` and no proof:
+
+theorem rockBeatsOnlyScissorsAbsurd (theirs: Move) (h: beats Rock theirs): theirs = Scissors :=
+  match theirs, h with
+    | Rock, ()
+    | Paper, ()
+    | Scissors, _ => rfl
+
+-- `()` is the pattern for a value that can't exist. The checker computes
+-- the type `h` has in that arm, `False = True`, sees that it has no
+-- proofs, and builds the `Void.exfalso` proof above itself. If the type
+-- could have a value, it says so instead (`E-NOT-EMPTY`).
+--
+-- Shorter still, leave the impossible arms out:
+
+theorem rockBeatsOnlyScissorsLeftOut (theirs: Move) (h: beats Rock theirs): theirs = Scissors :=
+  match theirs with
+    | Scissors => rfl
+
+-- A `match` must cover every case, but a case where some hypothesis can't
+-- hold, like `h` for `Rock` and `Paper`, doesn't need covering: the checker
+-- fills in the `()` arm for it. Leave out a case that can happen, and the
+-- error names the arm still to write.
 
 -- ## 2.6 `cases`: all of this in one word
 --
