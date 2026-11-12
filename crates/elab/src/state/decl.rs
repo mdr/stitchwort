@@ -196,6 +196,13 @@ pub(crate) struct Decl {
     /// whatever its case, so `W-UNREACHABLE` doesn't offer to delete them
     /// (`reify.rs`, `families.rs`).
     pub(crate) keep_arms: RefCell<Vec<Span>>,
+    /// The arms a `W-UNREACHABLE` ("this case can't happen") isn't offered
+    /// for, because some check of their `match` found the case possible or
+    /// couldn't delete the arm. A `match` in an arm that is split further
+    /// (`match z, xs` with an arm `z, [x, ..rest]`) is checked once for each
+    /// case of the split, and an arm ruled out in one may not be in the
+    /// next: offering each check's arms would delete them all.
+    pub(crate) kept_by_a_check: RefCell<Vec<Span>>,
 }
 
 /// [`Decl::conjunction`].
@@ -271,6 +278,7 @@ impl Decl {
             errors_only,
             coverage_only,
             keep_arms,
+            kept_by_a_check,
         } = self;
         let fields = [
             ("sides_capture", sides_capture.borrow().is_empty()),
@@ -307,6 +315,7 @@ impl Decl {
             ("errors_only", errors_only.get() == 0),
             ("coverage_only", coverage_only.get() == 0),
             ("keep_arms", keep_arms.borrow().is_empty()),
+            ("kept_by_a_check", kept_by_a_check.borrow().is_empty()),
         ];
         fields
             .into_iter()

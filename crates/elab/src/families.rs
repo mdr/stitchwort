@@ -442,6 +442,8 @@ pub(crate) fn note_arm_case(
     }
 }
 
+const CANT_HAPPEN: &str = "this case can't happen";
+
 /// Runs `f`, which checks a compiled pattern match, then warns
 /// (`W-UNREACHABLE`) about each arm a case dropped because its constructor
 /// can't be there, and that no other branch reached. An arm that's dropped
@@ -493,16 +495,37 @@ pub(crate) fn warn_unreachable_unless<T>(
                 );
             }
         }
-        let deleted = deletable_arms(cx, &here.reached, &here.possible, &here.impossible, recheck)?;
+        let deleted = deletable_arms(
+            cx,
+            &keep,
+            &here.reached,
+            &here.possible,
+            &here.impossible,
+            recheck,
+        )?;
+        // Each arm offered by every check of it, and no other.
+        let mut blocked = cx.e.decl.kept_by_a_check.borrow_mut();
+        let spans = (here.possible.iter().copied())
+            .chain(here.impossible.iter().map(|(s, ..)| *s))
+            .filter(|s| !deleted.contains(s) || here.possible.contains(s));
+        for span in spans.collect::<Vec<_>>() {
+            if !blocked.contains(&span) {
+                blocked.push(span);
+            }
+        }
         let mut warnings = cx.e.attempt.lambda_warnings.borrow_mut();
+        warnings.retain(|w| {
+            let held = w.labels.first().is_some_and(|l| blocked.contains(&l.span));
+            !(held && w.message == CANT_HAPPEN)
+        });
         for (span, why, alternative, _) in here.impossible {
             let warned =
                 (warnings.iter()).any(|w| w.labels.first().is_some_and(|l| l.span == span));
-            if !deleted.contains(&span) || warned || keep.contains(&span) {
+            if !deleted.contains(&span) || blocked.contains(&span) || warned {
                 continue;
             }
             warnings.push(
-                Diagnostic::warning("W-UNREACHABLE", "this case can't happen")
+                Diagnostic::warning("W-UNREACHABLE", CANT_HAPPEN)
                     .with_label(span, why)
                     .with_note(match alternative {
                         true => "this alternative of the pattern can be deleted",
@@ -526,13 +549,19 @@ pub(crate) fn warn_unreachable_unless<T>(
 /// time.
 fn deletable_arms(
     cx: &mut Ctx,
+    required: &[Span],
     reached: &[Span],
     possible: &[Span],
     impossible: &[(Span, String, bool, Vec<Span>)],
     recheck: &Recheck,
 ) -> Result<Vec<Span>> {
-    let ruled_out =
-        |span: &Span| !possible.contains(span) && impossible.iter().any(|(s, ..)| s == span);
+    // An arm the syntax requires (a `match reify` clause) can't be deleted
+    // however its case goes, so it never counts as ruled out.
+    let ruled_out = |span: &Span| {
+        !required.contains(span)
+            && !possible.contains(span)
+            && impossible.iter().any(|(s, ..)| s == span)
+    };
     // When every arm reached is ruled out, deleting them all would leave
     // a `match` with no arms, which can't be written: the last one stays.
     let kept = match reached.iter().all(ruled_out) {
