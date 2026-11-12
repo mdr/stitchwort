@@ -884,6 +884,15 @@ impl Elaborator {
         self.session.broken_tests.clear();
     }
 
+    /// Forgets the entries of [`Self::broken_tests`] and
+    /// [`Self::failed_decls`] of the namespaces `keep` doesn't keep: a host
+    /// that rewinds past some namespaces and checks them again does, so
+    /// the logs describe each namespace's latest check only.
+    pub fn retain_broken_tests(&mut self, keep: impl Fn(&str) -> bool) {
+        self.session.failed_decls.retain(|f| keep(&f.namespace));
+        self.session.broken_tests.retain(|t| keep(&t.namespace));
+    }
+
     /// The first declaration with an open goal (`?`) that definition `id`
     /// uses, directly or through what it uses: its name, for `test` to say
     /// why it skipped the test. `None` if `id` doesn't use one (or isn't a

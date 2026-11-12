@@ -615,7 +615,6 @@ mod tests {
             "{answer}"
         );
         // Day 2 doesn't use `broken`, so it's checked as usual (D3524).
-        assert!(!answer.contains("[E-NAMESPACE-FAILED]"), "{answer}");
         assert!(!answer.contains("[E-USES-FAILED]"), "{answer}");
         assert!(
             answer.contains(r#""file":"src/Aoc/Common/Range.sw","line":"#),

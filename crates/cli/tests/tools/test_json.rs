@@ -456,7 +456,6 @@ fn an_importer_of_a_namespace_with_an_error_is_checked_and_its_tests_run() {
     );
     assert!(stderr.contains("B.brokenOne  needs `broken` ("), "{stderr}");
     assert!(stderr.contains("b.sw:3:19"), "{stderr}");
-    assert!(!stderr.contains("E-NAMESPACE-FAILED"), "{stderr}");
     assert!(!stderr.contains("E-FAILED-DEPENDENCY"), "{stderr}");
 }
 

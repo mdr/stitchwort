@@ -2121,7 +2121,7 @@ test("an error in a shared file shows in the Check tab, marks its tab, and links
   assert.ok(shown.errors.length >= 1, shown.errors.join("\n"));
   assert.match(shown.errors[0], /E-TYPE-MISMATCH/);
   // Day 2 doesn't use `broken`, so it's checked as usual (D3524).
-  assert.ok(!shown.errors.some((e) => /E-NAMESPACE-FAILED|E-USES-FAILED/.test(e)), shown.errors.join("\n"));
+  assert.ok(!shown.errors.some((e) => /E-USES-FAILED/.test(e)), shown.errors.join("\n"));
   assert.ok(shown.marked.includes("Common/Range.sw"));
   const line = range.split("\n").length + 1;
   assert.match(shown.jumps[0], new RegExp(`^src/Aoc/Common/Range\\.sw:${line}:`));

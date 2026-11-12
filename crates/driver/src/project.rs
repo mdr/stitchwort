@@ -616,10 +616,6 @@ pub enum NamespaceOutcome {
     Checked,
     /// It has errors.
     Failed,
-    /// It wasn't checked: in the editor's live project, a namespace it
-    /// uses has syntax errors or wasn't checked itself, so it keeps the
-    /// answers it had (docs/proposals/tests-with-errors.md §6).
-    Skipped,
 }
 
 /// What a namespace's check cache key is made from.
