@@ -1,5 +1,5 @@
 {
-  "next": 3032,
+  "next": 3035,
   "tickets": [
     {
       "id": 47,
@@ -32561,15 +32561,17 @@
     {
       "id": 3026,
       "title": "[Sonnet] fmt_hashes compares almost nothing now the corpus is formatted (2 of 819 files): give it deliberately unformatted input (e.g. each example de-formatted: indentation, spacing, line breaks) so it still tests that formatting keeps hashes (SW-2962 follow-up 6)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-3026",
       "labels": [],
       "epic": "test-infra",
-      "body": "",
+      "body": "\nModel result: Sonnet, worked, ~25 min (est. 60).",
       "created": "2026-11-12",
       "updated": "2026-11-12",
-      "commits": []
+      "commits": [
+        "ae087a10b"
+      ]
     },
     {
       "id": 3027,
@@ -32633,6 +32635,45 @@
       "where": ".claude/worktrees/SW-3031",
       "labels": [],
       "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-12",
+      "updated": "2026-11-12",
+      "commits": []
+    },
+    {
+      "id": 3032,
+      "title": "[Sonnet] deletable_arms (crates/elab/src/families.rs) offers sets that don't check: (1) a required match reify clause (worked round by keep_arms in SW-3020); (2) both arms of match c: z in Set.foldAll's old body (SW-3020 repro). Fix so every offered set rechecks; then drop keep_arms if redundant",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "diagnostics",
+      "body": "",
+      "created": "2026-11-12",
+      "updated": "2026-11-12",
+      "commits": []
+    },
+    {
+      "id": 3033,
+      "title": "[Sonnet] Formatter keeps some indentation as written (SW-3026): a declaration after an attribute line, the line ending a \"\"\" text block, a := at line start, some record-field lines, long continuation lines (157 of 1692 de-formatted files don't format back). Decide per case whether intended; normalise the rest",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-12",
+      "updated": "2026-11-12",
+      "commits": []
+    },
+    {
+      "id": 3034,
+      "title": "[Sonnet] Regression on main: std_library::small_programs_load_only_the_library_files_they_can_use now also loads Logic/Logic.sw and Decidable/Decidable.sw (likely SW-3019/3029 readings in List/Toolkit.sw). Find which declaration pulls them in; keep small programs' load small, or update the list with the reason",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "std-library",
       "body": "",
       "created": "2026-11-12",
       "updated": "2026-11-12",
