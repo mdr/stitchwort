@@ -904,6 +904,65 @@ fn a_test_that_casts_along_a_gap_is_not_run() {
     }
 }
 
+/// A program whose `main` casts along a gap isn't run, by `run`, `eval` or
+/// `build --js`, instead of printing what a cast along a false proof makes
+/// of `7`: each says what `main` relies on.
+#[test]
+fn a_main_that_casts_along_a_gap_is_not_run() {
+    let source = "theorem natIsBool: Nat = Bool := ?\n\
+        def cast (h: Nat = Bool) (n: Nat): Bool := J (t p => t) n h\n\
+        def main(): {IO} () := if cast natIsBool 7 then IO.print \"a\" else IO.print \"b\"\n";
+    let dir = folder("main-cast");
+    std::fs::write(dir.join("t.sw"), source).unwrap();
+    let call = |args: &[&str]| {
+        let output = Command::new(env!("CARGO_BIN_EXE_stitchwort"))
+            .args(args)
+            .arg("--no-cache")
+            .current_dir(&dir)
+            .stdin(Stdio::null())
+            .output()
+            .expect("run stitchwort");
+        assert!(!output.status.success(), "{args:?}");
+        assert!(output.stdout.is_empty(), "{args:?}");
+        String::from_utf8(output.stderr).unwrap()
+    };
+    let ran = call(&["run", "t.sw"]);
+    let evaluated = call(&["eval", "t.sw", "if cast natIsBool 7 then 1 else 2"]);
+    let built = call(&["build", "--js", "t.sw"]);
+    let _ = std::fs::remove_dir_all(&dir);
+    assert!(
+        ran.contains("`main` relies on an open goal: `natIsBool`'s"),
+        "{ran}"
+    );
+    assert!(evaluated.contains("[E-UNFINISHED]"), "{evaluated}");
+    assert!(built.contains("1 goal open"), "{built}");
+}
+
+/// A test that matches on a gap whose statement is empty is stuck, and says
+/// what it relies on, rather than failing as if it compared unequal.
+#[test]
+fn a_test_that_matches_on_an_empty_gap_says_what_it_relies_on() {
+    let source = "theorem bad: Void := ?\n\
+        def boom (n: Nat): Nat := Std.Void.absurd bad\n\
+        test \"absurd\" := boom 1 == 2\n";
+    for runner in [None, Some("--reference")] {
+        let dir = folder(&format!("absurd-{}", runner.is_some()));
+        std::fs::write(dir.join("t.sw"), source).unwrap();
+        let mut args = vec!["--json", "--no-cache"];
+        args.extend(runner);
+        let (stdout, stderr, ok) = run(&dir, &args);
+        let _ = std::fs::remove_dir_all(&dir);
+        assert!(!ok, "{stdout}{stderr}");
+        let v: Value = serde_json::from_str(&stdout).expect(&stderr);
+        assert_eq!(v["tests"][0]["outcome"], "failed", "{v}");
+        let message = v["tests"][0]["message"].as_str().unwrap();
+        assert!(
+            message.starts_with("no result: it got stuck") && message.contains("`bad`'s goal"),
+            "{message}"
+        );
+    }
+}
+
 /// A test that fails says what it assumed, as one that passes does.
 #[test]
 fn a_failed_test_says_what_it_assumed() {
