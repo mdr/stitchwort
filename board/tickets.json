@@ -32001,15 +32001,17 @@
     {
       "id": 2988,
       "title": "[DeepSeek] E-NO-READING on a pattern points at the whole match, not the pattern that failed (SW-2977 finding)",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": ".claude/worktrees/scratch-sw-2988",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "\nModel result: DeepSeek, worked, ~12 min (est. 25)",
       "created": "2026-11-12",
       "updated": "2026-11-12",
-      "commits": []
+      "commits": [
+        "3e58f92cd"
+      ]
     },
     {
       "id": 2989,
