@@ -165,7 +165,6 @@ theorem countAboveOne (n: Nat) (done: List (Nat, Nat)) (c: Circuits) (inv: Label
           List.anyRangeIntro (b => c.labelOf b == b) (Succ m) 0 (c.labelOf 0) omega (counted.labelBelow 0 rfl)
             (rewrite counted.labelOwn 0 rfl in DecEq.refl (c.labelOf 0))
       match e: c.count with
-        | Zero => cases
         | Succ Zero => Void.exfalso (notOne (oneCircuitOfCount (Succ m) done c inv counted e))
         | Succ (Succ k) => rfl
 
@@ -190,7 +189,6 @@ theorem lastJoinFinds (points: List Point) (ps: List (Nat, Nat)) (k: Nat) (done:
     | [(f, s), ..ps], k =>
       let n := points.length
       match r: boxesBelow n (f, s) with
-        | False => cases
         | True =>
           let hf: f < n := Bool.andLeft r
           let hs: s < n := Bool.andRight r
@@ -200,7 +198,7 @@ theorem lastJoinFinds (points: List Point) (ps: List (Nat, Nat)) (k: Nat) (done:
             | Zero =>
               -- Connection 0 of `ps`: before it, more than one circuit; after it, one.
               let notYet: ¬(OneCircuit n done) := one => before (rewrite List.appendNil done in one)
-              let some: 0 < n := match n with | Zero => Void.exfalso (notYet (oneCircuitOfNone done)) | Succ m => rfl
+              let some: 0 < n := match n with | Succ m => rfl
               rewrite countAboveOne n done c inv counted notYet, countOneOf n (List.append done [(f, s)]) (c.join f s) inv2 counted2 some after
                 in rfl
             | Succ k =>
@@ -234,7 +232,6 @@ theorem part2NoBoxesToJoin (points: List Point) (h: points.length ≤ 1): solveP
   match points with
     | [] => rfl
     | [p] => rfl
-    | [p, q, ..qs] => cases
 
 -- Some connection is the last needed -----------------------------------------
 
@@ -277,7 +274,6 @@ theorem countedJoinAll (n: Nat) (rest done: List (Nat, Nat)) (c: Circuits)
           countedJoinAll n rest (List.append done [(f, s)]) (c.join f s) ok
             (labelledJoin n done c f s (Bool.andLeft r) (Bool.andRight r) inv)
             (countedJoin n done c f s (Bool.andLeft r) (Bool.andRight r) inv counted)
-        | False => cases
 
 --| After the first j connections, is there one circuit?
 def oneAfter (points: List Point) (j: Nat): Bool := (joinAll (Circuits.separate points.length) (firstConnections j points)).count == 1

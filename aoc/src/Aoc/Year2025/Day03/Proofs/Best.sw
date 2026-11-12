@@ -62,7 +62,6 @@ theorem pickLen (k: Nat) (w: Nat) (xs: Bank) (c: Battery) (after: Bank)
     (h1: k + w ≤ xs.length) (h2: k ≤ after.length): k ≤ List.length (Pair.snd (Bank.best.pick w xs c after)) :=
   match w, xs with
     | Zero, xs => h2
-    | Succ w, [] => h2
     | Succ w, [x, ..more] =>
       match e: c < x with
         | True => pickLen k w more x more omega omega
