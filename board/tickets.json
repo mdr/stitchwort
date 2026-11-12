@@ -31907,9 +31907,9 @@
     {
       "id": 2983,
       "title": "[Sonnet] Hover on a name whose statement is a ≠ (or ¬) also shows what it unfolds to: 'False ≠ True' then 'that is, False = True -> Void' (Matt, 12 Nov 2026, reading book chapter 2: not clear how falseNotTrue h is a Void); playground and VS Code",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": ".claude/worktrees/scratch-sw-2983",
       "labels": [],
       "epic": "editor-playground",
       "body": "",
