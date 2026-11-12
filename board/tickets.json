@@ -32805,12 +32805,12 @@
     {
       "id": 3044,
       "title": "[Sonnet] D3541 (a): deriving (DecEq) also generates readings T.%sameReads (T.%same x y ↔ x = y) and T.%sameReadsFalse (= False ↔ x ≠ y) from %sameSound/%sameComplete, filed with the derived instance so reading-order edges see them; records too (so a record's == reads as x = y, not a conjunction of fields). Examples on a sum type and a record; docs/syntax.md Readings; proposal §5.4 note. After SW-3031 merges",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "\n\n\nLane notes: derived readings T.%sameReads / T.%sameReadsFalse generated for T and each container member (derive.rs), E-READING-PLACE accepts generated tests, example readings-derived-eq, docs updated, snapshots only add the two names. Commit 974d768f3. hash_stability: 5 failures (E-RESOURCE in std/Float, also with readings off) look pre-existing.\n",
       "created": "2026-11-12",
       "updated": "2026-11-12",
       "commits": []
