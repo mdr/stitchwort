@@ -9,7 +9,7 @@ expression: output
     │   ───┬───  
     │      ╰───── `tinyReads` can't be a reading: its test passes `tiny` 1 argument, but `tiny` takes no parameters, so a call of it is unfolded to what it stands for before it can be read
     │ 
-    │ Note 1: a reading is a theorem `test = True ↔ P` or `test = False ↔ P`, whose test is a function applied to the theorem's parameters, each once: `@[reading] theorem List.anyReads (xs: List a) (f: a → Bool): xs.any f ↔ ∃ (x: a) => x ∈ xs ∧ f x`
+    │ Note 1: a reading is a theorem `test = True ↔ P` or `test = False ↔ P`, whose test is a function applied to the theorem's parameters, each once: `@[reading] theorem List.anyReads (xs: List a) (p: a → Bool): xs.any p ↔ ∃ (x: a) => x ∈ xs ∧ p x`
     │ 
     │ Note 2: declare the reading on the function `tiny` stands for, or give `tiny` its parameters: `def tiny (x: …): Bool := …`
 ────╯

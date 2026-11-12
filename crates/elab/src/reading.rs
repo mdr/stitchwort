@@ -65,6 +65,34 @@ pub(crate) struct ReadingInfo {
     /// For each of the theorem's parameters, in order, which of the test's
     /// arguments it is (for `&&` and `||`: 0 the left side, 1 the right).
     pub slots: Rc<[usize]>,
+    /// The test's arguments, in order, that are a bare row `{e}` fixed to
+    /// pure rather than a parameter: the empty row and its divergence,
+    /// `Total`. A test fact's test is a `Bool`, so a function whose result
+    /// is `{e} Bool` is only ever read there. A test with a row that isn't
+    /// pure doesn't fit.
+    pub pure_rows: Rc<[usize]>,
+}
+
+impl ReadingInfo {
+    /// How many arguments the reading's test passes its function.
+    fn arity(&self) -> usize {
+        self.slots.len() + self.pure_rows.len()
+    }
+
+    /// Whether a test of this reading's head with `args` fits it.
+    fn fits(&self, g: &Ev, args: &[Value]) -> Result<bool> {
+        if args.len() != self.arity() {
+            return Ok(false);
+        }
+        for &k in self.pure_rows.iter() {
+            let arg = force(g, args[k].clone())?;
+            if !matches!(arg, Value::Ctor(d, c, ref fields) if fields.is_empty() && is_pure_row(g, d, c))
+            {
+                return Ok(false);
+            }
+        }
+        Ok(true)
+    }
 }
 
 /// A reading found for a test, in the caller's context: one reading, or
@@ -331,7 +359,7 @@ impl Elaborator {
             .with_note(
                 "a reading is a theorem `test = True ↔ P` or `test = False ↔ P`, whose test is \
                  a function applied to the theorem's parameters, each once: `@[reading] theorem \
-                 List.anyReads (xs: List a) (f: a → Bool): xs.any f ↔ ∃ (x: a) => x ∈ xs ∧ f x`",
+                 List.anyReads (xs: List a) (p: a → Bool): xs.any p ↔ ∃ (x: a) => x ∈ xs ∧ p x`",
             )
         };
         let mut params = 0;
@@ -379,10 +407,27 @@ impl Elaborator {
                     .to_string(),
             ));
         };
-        // Each argument a different parameter, and every parameter one.
+        // Each argument a different parameter, and every parameter one,
+        // except that a row argument may be the empty row: a pure `p` given
+        // to a function over `{e}` (`xs.any p`) fixes its row there, and
+        // every test fact with that head is at the empty row anyway (a row
+        // `{e}` is passed as the row and its divergence, `Empty` and
+        // `Total` when pure).
         let mut slots = vec![usize::MAX; params];
-        let mut distinct = args.len() == params && names.len() == params;
+        let mut pure_rows = Vec::new();
+        for (k, (arg, _)) in args.iter().enumerate() {
+            if let Term::Ctor(d, c, fields) = arg
+                && fields.is_empty()
+                && is_pure_row(g, *d, *c)
+            {
+                pure_rows.push(k);
+            }
+        }
+        let mut distinct = args.len() == params + pure_rows.len() && names.len() == params;
         for (k, (arg, under)) in args.iter().enumerate() {
+            if pure_rows.contains(&k) {
+                continue;
+            }
             match arg {
                 Term::Var(i) if *i >= *under && i - under < params => {
                     let l = params - 1 - (i - under);
@@ -482,8 +527,18 @@ impl Elaborator {
             polarity,
             head,
             slots: slots.into(),
+            pure_rows: pure_rows.into(),
         })
     }
+}
+
+/// Whether constructor `c` of `d` is what a pure bare row `{e}` is passed
+/// as: the empty row, or the divergence `Total`.
+fn is_pure_row(g: &Ev, d: DataId, c: usize) -> bool {
+    let reg = g.env.registry();
+    [Builtin::RowEmpty, Builtin::DivTotal]
+        .into_iter()
+        .any(|b| reg.ctor(b) == Some((d, c)))
 }
 
 /// What the reader finds for a test before any term is built: the
@@ -697,9 +752,10 @@ fn lookup_folded(g: &Ev, e: &Elaborator, test: &Value, polarity: bool) -> Result
             first_head = Some(f);
         }
         // A test with more or fewer arguments than the reading's (a
-        // function returning a function) isn't the reading's test.
+        // function returning a function), or at a row the reading isn't
+        // stated at, isn't the reading's test.
         if let Some((theorem, info)) = e.reading_for(polarity, head)
-            && info.slots.len() == args.len()
+            && info.fits(g, &args)?
         {
             return Ok(Lookup::Found(theorem, info, args));
         }
@@ -917,9 +973,26 @@ pub(crate) fn no_reading(
             )
         }
         Read::Leaf(head) => {
+            // The head has a reading, which didn't fit: it fixes a row this
+            // test doesn't pass as pure.
+            let pure_only = head
+                .and_then(|f| cx.e.reading_for(polarity, TestHead::Def(f)))
+                .filter(|(_, info)| !info.pure_rows.is_empty());
+            let label = if pure_only.is_some() {
+                format!("{fact} doesn't fit its function's reading, so it has no parts")
+            } else {
+                format!("{fact} has no reading, so it has no parts")
+            };
             let mut d = Diagnostic::error("E-NO-READING", format!("this test fact can't be {how}"))
-                .with_label(span, format!("{fact} has no reading, so it has no parts"));
-            if let Some(f) = head {
+                .with_label(span, label);
+            if let (Some(f), Some((reading, _))) = (head, pure_only) {
+                d = d.with_note(format!(
+                    "`{}`'s reading, `{}`, is stated for pure functions, and this test passes \
+                     one that may perform abilities",
+                    g.def(*f).name(),
+                    g.def(reading).name()
+                ));
+            } else if let Some(f) = head {
                 d = d.with_note(format!(
                     "a reading says what a test means: a theorem `{} … = {} ↔ P` marked \
                      `@[reading]`, declared with `{}`",

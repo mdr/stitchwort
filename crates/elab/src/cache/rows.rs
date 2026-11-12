@@ -221,6 +221,10 @@ impl Codec for Rc<ReadingInfo> {
         for slot in self.slots.iter() {
             e.w.usize(*slot);
         }
+        e.w.usize(self.pure_rows.len());
+        for k in self.pure_rows.iter() {
+            e.w.usize(*k);
+        }
     }
     fn decode(b: &mut Body<'_>) -> Read<Self> {
         let polarity = b.r.bool()?;
@@ -232,10 +236,13 @@ impl Codec for Rc<ReadingInfo> {
         };
         let k = b.count()?;
         let slots = (0..k).map(|_| b.r.usize()).collect::<Read<Vec<_>>>()?;
+        let k = b.count()?;
+        let pure_rows = (0..k).map(|_| b.r.usize()).collect::<Read<Vec<_>>>()?;
         Ok(Rc::new(ReadingInfo {
             polarity,
             head,
             slots: slots.into(),
+            pure_rows: pure_rows.into(),
         }))
     }
 }

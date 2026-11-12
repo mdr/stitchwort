@@ -448,7 +448,11 @@ impl Dump for Rc<ReadingInfo> {
             TestHead::And => "and".to_string(),
             TestHead::Or => "or".to_string(),
         };
-        let _ = write!(out, "{} {head} {:?}", self.polarity, self.slots);
+        let _ = write!(
+            out,
+            "{} {head} {:?} pure {:?}",
+            self.polarity, self.slots, self.pure_rows
+        );
     }
 }
 

@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-NO-READING] Error: this test fact can't be read with `.read`
+    ╭─[ reject/reading-impure-row.sw:15:96 ]
+    │
+ 15 │ theorem performing [e: Effects] (p: Nat → {e} Bool) (b: Bool) (h: ignoring p b): b = True := h.read
+    │                                                                                                ──┬─  
+    │                                                                                                  ╰─── `ignoring p b` doesn't fit its function's reading, so it has no parts
+    │ 
+    │ Note 1: `ignoring`'s reading, `ignoringReads`, is stated for pure functions, and this test passes one that may perform abilities
+    │ 
+    │ Note 2: a test fact can always be matched by a name
+────╯

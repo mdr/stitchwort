@@ -324,18 +324,20 @@ theorem List.anyTrueElim: ∀ (xs: List a) (p: a → Bool) (goal: Prop) => List.
       | True => k z (Inl rfl) c
       | False => List.anyTrueElim zs p goal h (x inZs px => k x (Inr inZs) px)
 
--- These four are not `@[reading]`s yet: `List.any` and `List.all` take their
--- effect row as a parameter, which a reading's statement can't pass on (its
--- `p` is pure, so the test it names has the empty row instead of a
--- parameter, and `E-READING-SHAPE` refuses it).
+-- The four readings of `any` and `all` are stated with a pure `p`, as every
+-- test fact of theirs has one: with a `p` that performs, `xs.any p` isn't a
+-- `Bool`.
 
 --| `xs.any p` is true exactly when some element passes.
-theorem List.anyIffMem (xs: List a) (p: a → Bool): List.any xs p ↔ ∃ (x: a) => x ∈ xs ∧ p x = True := {
+@[reading]
+theorem List.anyReads (xs: List a) (p: a → Bool): xs.any p ↔ ∃ (x: a) => x ∈ xs ∧ p x := {
   forward = h => List.anyTrueElim xs p (∃ (x: a) => x ∈ xs ∧ p x = True) h (x m px => Witness x (Both m px)),
   backward = h => Exists.elim h (x found => List.anyOfMem xs p x (And.right found) (And.left found))
 }
 
-theorem List.anyFalseIffMem (xs: List a) (p: a → Bool): List.any xs p = False ↔ ∀ (x: a) => x ∈ xs → p x = False :=
+--| `xs.any p` is false exactly when no element passes.
+@[reading]
+theorem List.anyReadsFalse (xs: List a) (p: a → Bool): xs.any p = False ↔ ∀ (x: a) => x ∈ xs → p x = False :=
   match xs with
     | [] => { forward = h x m => Void.exfalso m, backward = h => rfl }
     | [y, ..ys] =>
@@ -348,12 +350,13 @@ theorem List.anyFalseIffMem (xs: List a) (p: a → Bool): List.any xs p = False 
           forward = h x m =>
             match m with
               | Inl e => J (z q => p z = False) c e
-              | Inr m => (List.anyFalseIffMem ys p).forward h x m,
-          backward = h => (List.anyFalseIffMem ys p).backward (x m => h x (Inr m))
+              | Inr m => (List.anyReadsFalse ys p).forward h x m,
+          backward = h => (List.anyReadsFalse ys p).backward (x m => h x (Inr m))
         }
 
 --| `xs.all p` is true exactly when every element passes.
-theorem List.allIffMem (xs: List a) (p: a → Bool): List.all xs p ↔ ∀ (x: a) => x ∈ xs → p x = True :=
+@[reading]
+theorem List.allReads (xs: List a) (p: a → Bool): xs.all p ↔ ∀ (x: a) => x ∈ xs → p x :=
   match xs with
     | [] => { forward = h x m => Void.exfalso m, backward = h => rfl }
     | [y, ..ys] =>
@@ -362,15 +365,17 @@ theorem List.allIffMem (xs: List a) (p: a → Bool): List.all xs p ↔ ∀ (x: a
           forward = h x m =>
             match m with
               | Inl e => J (z q => p z = True) c e
-              | Inr m => (List.allIffMem ys p).forward h x m,
-          backward = h => (List.allIffMem ys p).backward (x m => h x (Inr m))
+              | Inr m => (List.allReads ys p).forward h x m,
+          backward = h => (List.allReads ys p).backward (x m => h x (Inr m))
         }
         | False => {
           forward = h => Void.exfalso (Bool.falseNotTrue h),
           backward = h => Void.exfalso (Bool.falseNotTrue (Eq.trans (Eq.sym c) (h y (Inl rfl))))
         }
 
-theorem List.allFalseIffMem (xs: List a) (p: a → Bool): List.all xs p = False ↔ ∃ (x: a) => x ∈ xs ∧ p x = False :=
+--| `xs.all p` is false exactly when some element fails.
+@[reading]
+theorem List.allReadsFalse (xs: List a) (p: a → Bool): xs.all p = False ↔ ∃ (x: a) => x ∈ xs ∧ p x = False :=
   match xs with
     | [] => {
       forward = h => Void.exfalso (Bool.falseNotTrue (Eq.sym h)),
@@ -380,10 +385,10 @@ theorem List.allFalseIffMem (xs: List a) (p: a → Bool): List.all xs p = False 
       match c: p y with
         | True => {
           forward = h =>
-            Exists.elim ((List.allFalseIffMem ys p).forward h)
+            Exists.elim ((List.allReadsFalse ys p).forward h)
               (x found => Witness x (Both (Inr (And.left found)) (And.right found))),
           backward = h =>
-            (List.allFalseIffMem ys p).backward
+            (List.allReadsFalse ys p).backward
               (Exists.elim h (x found =>
                 match And.left found with
                   | Inl e => Void.exfalso (Bool.falseNotTrue (Eq.trans (Eq.sym (J (z q => p z = False) (And.right found) (Eq.sym e))) c))
