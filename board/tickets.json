@@ -32820,12 +32820,12 @@
     {
       "id": 3045,
       "title": "[Opus] Elaborator invariant 6 broken in std: a debug build panics in std_library::the_standard_library_passes_its_own_tests at crates/elab/src/queue.rs:1866 kept_receiver ('a receiver kept as a term chose from an unknown'); release only counts it (kept_chose). Find the std declaration, why a kept receiver defaulted a number or chose a generic dictionary, and fix the cause (SW-3035 finding)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "review",
+      "agent": "Opus",
+      "where": "lane/SW-3045",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "Expected: 90 min. Lane (Opus), 12 Nov 2026 21:11-21:35.\n\nDeclaration: std/Int/Sums.sw `test \"Int.toIntSumBy\"`: `(List.sumBy [1, 2, 3] (x => x * x)).toInt`. Minimal repro: `((x => x * x) 3).toInt`. `.toInt` waits for the literals' default (K2); the blocker is made inside the receiver, so the receiver is kept as a term, and its `x * x` has no dictionary yet (generic, noted in `operator_dictionaries`). No literal was defaulted.\n\nCause: the assertion's generic-dictionary clause predates nothing it protects: since SW-817 stage 1 (cded0c9b1, an hour before the assertion, ffcff48ea) a generic dictionary is decided at the end (`specialise_operators` at zonk), §5.10's \"decided at finish\" class that invariant 8 allows, so the kept term is the one a known type gives. Fix (cf990e5e6): `kept_receiver` asserts and counts (`kept chose`) only literals made `Nat` at once; doc says why. Test: `interfaces::a_kept_receiver_with_an_operator_waiting_for_its_dictionary` (kept form is `Nat.mul`, equal to the annotated form; panics in debug before the fix). The hand-made assertion test now uses a defaulted literal.\n\nTests: new test pass (fails before fix); std test in debug now stops only at SW-3046's E-RESOURCE (SortLemmas.sw:343); debug CLI `stitchwort test` on the std test's expression passes; queue::tests 35/38, the 3 `an_undone_attempt_restores_*` fail on unchanged code too (\"an item waits again only on an unknown head\", debug-only). hash_stability|builtins: 3 fail from SW-3035's stale snapshots (List.allReadsFalse, Main.notAllSmall), not this lane.\n",
       "created": "2026-11-12",
       "updated": "2026-11-12",
       "commits": []
