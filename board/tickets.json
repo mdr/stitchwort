@@ -31939,12 +31939,12 @@
     {
       "id": 2985,
       "title": "[Sonnet] SW-2952 follow-ups: (1) stitchwort run and the JS output lack the cast-along-a-gap guard: a main relying on a ? proof can still cast along a false one; (2) a case on an erased Void-like proof 'fails as unreachable' without naming the gap; (3) relying tests that also cast along a true proof aren't run (the transport note can't say which proof): tag erased proofs by origin if it matters; (4) clippy native_results warning crates/cli/src/main.rs:1982",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "test-infra",
-      "body": "",
+      "body": "\n\nLane notes (12 Nov): run, eval and build --js already refuse a main that relies on a `?` (E-UNFINISHED via main_call / mentions_unfinished), so the cast repro never runs; test added to pin it. Fixed: a relying test stuck on a case of an erased Void proof said \"`==` is False\"; now \"no result: it got stuck, … relies on <gap>\". Clippy native_results fixed. Tests: 3 by name pass.\n",
       "created": "2026-11-12",
       "updated": "2026-11-12",
       "commits": []
