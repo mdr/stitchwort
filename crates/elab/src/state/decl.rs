@@ -189,6 +189,9 @@ pub(crate) struct Decl {
     /// errors, its term thrown away (the chain's case is impossible): a
     /// case filled in at its end isn't lifted into a helper there.
     pub(crate) errors_only: Cell<usize>,
+    /// How deep the checker is in a `match` checked again for its cases
+    /// alone (`deletable`): an arm's body stands for itself unchecked.
+    pub(crate) coverage_only: Cell<usize>,
 }
 
 /// [`Decl::conjunction`].
@@ -262,6 +265,7 @@ impl Decl {
             char_patterns,
             guard_nodes,
             errors_only,
+            coverage_only,
         } = self;
         let fields = [
             ("sides_capture", sides_capture.borrow().is_empty()),
@@ -296,6 +300,7 @@ impl Decl {
             ("char_patterns", char_patterns.borrow().is_empty()),
             ("guard_nodes", guard_nodes.get() == 0),
             ("errors_only", errors_only.get() == 0),
+            ("coverage_only", coverage_only.get() == 0),
         ];
         fields
             .into_iter()

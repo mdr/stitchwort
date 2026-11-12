@@ -8,6 +8,7 @@ use std::rc::Rc;
 
 use num_bigint::BigUint;
 
+use crate::Recheck;
 use crate::kernel;
 use stitchwort_core::registry::Builtin;
 use stitchwort_core::term::Branch;
@@ -398,11 +399,12 @@ pub(crate) struct ArmReach {
     dropped: Vec<(Span, String)>,
     reached: Vec<Span>,
     /// The arms with a body whose case was impossible where one of their
-    /// leaves was checked (with why, and whether the span is an or-pattern's
-    /// alternative rather than the whole arm), and the arms with a leaf that
-    /// wasn't. An arm warns when it is in the first and not the second:
-    /// every case it covers is ruled out.
-    impossible: Vec<(Span, String, bool)>,
+    /// leaves was checked (with why, whether the span is an or-pattern's
+    /// alternative rather than the whole arm, and the later rows that would
+    /// take the case without it), and the arms with a leaf that wasn't. An
+    /// arm may warn when it is in the first and not the second: every case
+    /// it covers is ruled out.
+    impossible: Vec<(Span, String, bool, Vec<Span>)>,
     possible: Vec<Span>,
 }
 
@@ -422,11 +424,20 @@ pub(crate) fn reached(cx: &Ctx, span: Span) {
 
 /// Records whether the arm at `span` (an or-pattern's alternative if
 /// `alternative`), whose body is checked now, covers this case though a
-/// hypothesis rules it out (`why`).
-pub(crate) fn note_arm_case(cx: &Ctx, span: Span, alternative: bool, why: Option<String>) {
+/// hypothesis rules it out (`why`); `later` are the rows after it that
+/// would take the case without it.
+pub(crate) fn note_arm_case(
+    cx: &Ctx,
+    span: Span,
+    alternative: bool,
+    why: Option<String>,
+    later: &[Span],
+) {
     let mut reach = cx.e.decl.arm_reach.borrow_mut();
     match why {
-        Some(why) => reach.impossible.push((span, why, alternative)),
+        Some(why) => reach
+            .impossible
+            .push((span, why, alternative, later.to_vec())),
         None => reach.possible.push(span),
     }
 }
@@ -434,12 +445,15 @@ pub(crate) fn note_arm_case(cx: &Ctx, span: Span, alternative: bool, why: Option
 /// Runs `f`, which checks a compiled pattern match, then warns
 /// (`W-UNREACHABLE`) about each arm a case dropped because its constructor
 /// can't be there, and that no other branch reached. An arm that's dropped
-/// isn't checked, so it may not even be well typed.
+/// isn't checked, so it may not even be well typed. `recheck` is what the
+/// match was compiled from, to tell which arms a hypothesis rules out can
+/// be deleted.
 pub(crate) fn warn_unreachable<T>(
     cx: &mut Ctx,
+    recheck: &Recheck,
     f: impl FnOnce(&mut Ctx) -> Result<T>,
 ) -> Result<T> {
-    warn_unreachable_unless(cx, false, f)
+    warn_unreachable_unless(cx, false, recheck, f)
 }
 
 /// [`warn_unreachable`], but with no warning for an arm whose case a
@@ -450,6 +464,7 @@ pub(crate) fn warn_unreachable<T>(
 pub(crate) fn warn_unreachable_unless<T>(
     cx: &mut Ctx,
     as_written: bool,
+    recheck: &Recheck,
     f: impl FnOnce(&mut Ctx) -> Result<T>,
 ) -> Result<T> {
     let saved = cx.e.decl.arm_reach.take();
@@ -461,35 +476,26 @@ pub(crate) fn warn_unreachable_unless<T>(
         here.impossible.clear();
     }
     if result.is_ok() {
-        let mut warnings = cx.e.attempt.lambda_warnings.borrow_mut();
-        for (span, why) in here.dropped {
-            let warned =
-                (warnings.iter()).any(|w| w.labels.first().is_some_and(|l| l.span == span));
-            if here.reached.contains(&span) || warned {
-                continue;
+        {
+            let mut warnings = cx.e.attempt.lambda_warnings.borrow_mut();
+            for (span, why) in here.dropped {
+                let warned =
+                    (warnings.iter()).any(|w| w.labels.first().is_some_and(|l| l.span == span));
+                if here.reached.contains(&span) || warned {
+                    continue;
+                }
+                warnings.push(
+                    Diagnostic::warning("W-UNREACHABLE", "this arm can never match")
+                        .with_label(span, why),
+                );
             }
-            warnings.push(
-                Diagnostic::warning("W-UNREACHABLE", "this arm can never match")
-                    .with_label(span, why),
-            );
         }
-        // When every arm reached is ruled out, deleting them all would leave
-        // a `match` with no arms, which can't be written: the last one stays.
-        let ruled_out = |span: &Span| {
-            !here.possible.contains(span) && here.impossible.iter().any(|(s, ..)| s == span)
-        };
-        let kept = match here.reached.iter().all(ruled_out) {
-            true => here
-                .reached
-                .iter()
-                .max_by_key(|s| (s.start, s.end))
-                .copied(),
-            false => None,
-        };
-        for (span, why, alternative) in here.impossible {
+        let deleted = deletable_arms(cx, &here.reached, &here.possible, &here.impossible, recheck)?;
+        let mut warnings = cx.e.attempt.lambda_warnings.borrow_mut();
+        for (span, why, alternative, _) in here.impossible {
             let warned =
                 (warnings.iter()).any(|w| w.labels.first().is_some_and(|l| l.span == span));
-            if here.possible.contains(&span) || warned || kept == Some(span) {
+            if !deleted.contains(&span) || warned {
                 continue;
             }
             warnings.push(
@@ -503,6 +509,71 @@ pub(crate) fn warn_unreachable_unless<T>(
         }
     }
     result
+}
+
+/// The arms (or or-pattern alternatives) a hypothesis rules out that
+/// `W-UNREACHABLE` says can be deleted: every case each covers is ruled
+/// out, and the `match` without all of them still checks
+/// ([`crate::deletable`]), so deleting every one warned about leaves a
+/// `match` that checks. An arm whose case a later row would take without it
+/// goes only with that row. When they can't all go, the most that can are
+/// chosen from the last arm up, each kept only if those chosen with it can
+/// go too: two arms that leave a case the checker won't split when both
+/// are gone (`[], []` and `[], [x, ..xs]` leave `[], _`) warn one at a
+/// time.
+fn deletable_arms(
+    cx: &mut Ctx,
+    reached: &[Span],
+    possible: &[Span],
+    impossible: &[(Span, String, bool, Vec<Span>)],
+    recheck: &Recheck,
+) -> Result<Vec<Span>> {
+    let ruled_out =
+        |span: &Span| !possible.contains(span) && impossible.iter().any(|(s, ..)| s == span);
+    // When every arm reached is ruled out, deleting them all would leave
+    // a `match` with no arms, which can't be written: the last one stays.
+    let kept = match reached.iter().all(ruled_out) {
+        true => reached.iter().max_by_key(|s| (s.start, s.end)).copied(),
+        false => None,
+    };
+    let mut arms: Vec<(Span, Vec<Span>)> = Vec::new();
+    for (span, _, _, later) in impossible {
+        if !ruled_out(span) || kept == Some(*span) {
+            continue;
+        }
+        match arms.iter_mut().find(|(s, _)| s == span) {
+            Some((_, needs)) => needs.extend(later.iter().copied()),
+            None => arms.push((*span, later.clone())),
+        }
+    }
+    // An arm goes only with the rows that would take its cases.
+    loop {
+        let before = arms.len();
+        let chosen: Vec<Span> = arms.iter().map(|(s, _)| *s).collect();
+        arms.retain(|(_, needs)| needs.iter().all(|n| chosen.contains(n)));
+        if arms.len() == before {
+            break;
+        }
+    }
+    if arms.is_empty() {
+        return Ok(Vec::new());
+    }
+    let all: Vec<Span> = arms.iter().map(|(s, _)| *s).collect();
+    if crate::deletable(cx, recheck, &all)? {
+        return Ok(all);
+    }
+    arms.sort_by_key(|(s, _)| std::cmp::Reverse((s.start, s.end)));
+    let mut chosen = Vec::new();
+    for (span, needs) in arms {
+        if !needs.iter().all(|n| chosen.contains(n)) {
+            continue;
+        }
+        chosen.push(span);
+        if !crate::deletable(cx, recheck, &chosen)? {
+            chosen.pop();
+        }
+    }
+    Ok(chosen)
 }
 
 /// The spans of the arms a compiled match's leaves come from.

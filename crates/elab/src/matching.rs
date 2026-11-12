@@ -133,6 +133,35 @@ fn motive_error(span: stitchwort_syntax::Span, message: impl Into<String>) -> Di
         )
 }
 
+/// A `match` compiled ([`compile`]): its case tree, and the rows and
+/// column types it was compiled from, for `W-UNREACHABLE` to compile it
+/// again without some arms (`crate::deletable`).
+struct Compiled<'a> {
+    tree: crate::Tree<'a>,
+    rows: Vec<Row<'a>>,
+    types: Vec<Option<Value>>,
+}
+
+impl<'a> Compiled<'a> {
+    fn recheck<'r>(
+        &'r self,
+        columns: &'r [usize],
+        span: stitchwort_syntax::Span,
+        start: usize,
+        goal: &'r Value,
+    ) -> crate::Recheck<'r, 'a> {
+        crate::Recheck {
+            rows: &self.rows,
+            columns,
+            types: &self.types,
+            skip: 0,
+            span,
+            start,
+            goal,
+        }
+    }
+}
+
 /// Compiles the alternatives into a case tree on `columns`. `absurd` are
 /// rows with no right-hand side, whose `()` patterns say a type has no
 /// values (only the compiler writes them: `reify.rs`).
@@ -143,7 +172,7 @@ fn compile<'a>(
     columns: &[usize],
     span: stitchwort_syntax::Span,
     kind: MatchKind,
-) -> Result<crate::Tree<'a>> {
+) -> Result<Compiled<'a>> {
     let absurd_rows = absurd.iter().map(|pats| Row {
         pats: pats.iter().map(std::borrow::Cow::Borrowed).collect(),
         aliases: Vec::new(),
@@ -170,7 +199,7 @@ fn compile<'a>(
     let tree = (cx.e.compile_top(cx, &rows, columns, &types, 0, span))
         .map_err(|d| in_context(cx, d, kind, first_patterns(alts), columns))?;
     cx.e.warn_redundant(&rows[..alts.len()], &tree);
-    Ok(tree)
+    Ok(Compiled { tree, rows, types })
 }
 
 /// The first alternative's patterns: a refutable `let`'s or lambda's.
@@ -303,9 +332,12 @@ pub(crate) fn in_tree(cx: &mut Ctx, expr: &Expr, goal: &Value) -> Option<Result<
         columns.push(level);
     }
     Some(
-        compile(cx, alts, &[], &columns, span, kind).and_then(|tree| {
+        compile(cx, alts, &[], &columns, span, kind).and_then(|compiled| {
             in_alternatives(cx, kind, alts, &columns, |cx| {
-                crate::families::warn_unreachable(cx, |cx| check_tree_here(cx, &tree, goal))
+                let recheck = compiled.recheck(&columns, span, cx.level(), goal);
+                crate::families::warn_unreachable(cx, &recheck, |cx| {
+                    check_tree_here(cx, &compiled.tree, goal)
+                })
             })
         }),
     )
@@ -584,9 +616,12 @@ fn lifted(
                 _ => unreachable!(),
             })
             .collect();
-        let tree = compile(cx, alts, &[], &levels, span, kind)?;
+        let compiled = compile(cx, alts, &[], &levels, span, kind)?;
         let body = in_alternatives(cx, kind, alts, &levels, |cx| {
-            crate::families::warn_unreachable(cx, |cx| check_tree_here(cx, &tree, goal))
+            let recheck = compiled.recheck(&levels, span, cx.level(), goal);
+            crate::families::warn_unreachable(cx, &recheck, |cx| {
+                check_tree_here(cx, &compiled.tree, goal)
+            })
         })?;
         let eqs = vec![None; levels.len()];
         return lift::draft_with(
@@ -1294,7 +1329,7 @@ fn in_arms(
             Column::Expr(i) => base + i,
         })
         .collect();
-    let tree = compile(cx, alts, absurd, &levels, span, kind)?;
+    let compiled = compile(cx, alts, absurd, &levels, span, kind)?;
     // While the alternatives are checked, a mismatch that still contains a
     // scrutinee says why (`Ctx::mismatch`).
     let known = cx.scrutinees.len();
@@ -1311,8 +1346,9 @@ fn in_arms(
             }),
     );
     let body = in_alternatives(cx, kind, alts, &levels, |cx| {
-        let body = crate::families::warn_unreachable_unless(cx, as_written, |cx| {
-            check_tree_here(cx, &tree, &motive)
+        let recheck = compiled.recheck(&levels, span, cx.level(), &motive);
+        let body = crate::families::warn_unreachable_unless(cx, as_written, &recheck, |cx| {
+            check_tree_here(cx, &compiled.tree, &motive)
         });
         cx.scrutinees.truncate(known);
         body
