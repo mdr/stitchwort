@@ -31697,9 +31697,9 @@
     {
       "id": 2967,
       "title": "[DeepSeek] std: List.decMem, decDistinct, decSorted, decLeHead recurse on the list, so if x ∈ xs and if xs.contains x are different tests: write them test first (holds := the Bool test, then sound/complete) (SW-2964 finding 1)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-2967",
       "labels": [],
       "epic": "std-library",
       "body": "",
