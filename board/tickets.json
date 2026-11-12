@@ -1,5 +1,5 @@
 {
-  "next": 3019,
+  "next": 3020,
   "tickets": [
     {
       "id": 47,
@@ -32452,6 +32452,19 @@
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-12",
+      "updated": "2026-11-12",
+      "commits": []
+    },
+    {
+      "id": 3019,
+      "title": "[Sonnet] Bool as proposition stage 3a: std's readings for any, all, Nat.equal, isSubset, isSome, isEmpty and their negatives, each beside its function (bool-as-proposition.md §11 stage 3; contains/noRepeats/isLeHead/isSortedBy done in SW-2967). Stuck-decision step (§5.4 step 2) and the decision/reading mismatch warning (§13) are stage 3b, Opus",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-3019",
+      "labels": [],
+      "epic": "syntax-language",
       "body": "",
       "created": "2026-11-12",
       "updated": "2026-11-12",
