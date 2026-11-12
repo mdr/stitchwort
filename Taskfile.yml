@@ -380,16 +380,21 @@ tasks:
       - '{{.STEP}} verify-cache -- task test:verify-cache'
 
   test:verify-cache:
-    desc: "Run aoc's and the roguelike's tests afresh and compare with the cached results (D2379; about 3 min)"
+    desc: "Fill aoc's and the roguelike's test caches, then run their tests afresh and compare (D2379; about 6 min)"
     summary: |
-      `stitchwort test --verify-cache` on aoc/ and games/rogue/: every test
-      runs with the cache off, and any result that differs from what the
-      cache holds fails with the test's name and hash. A failure means the
-      test cache's key misses an input (docs/proposals/test-cache-key.md,
-      section 8). Part of the full tier; writes nothing to the caches.
+      In aoc/ and games/rogue/, `stitchwort test` first fills the test cache
+      with the results of a plain run. Then `stitchwort test --verify-cache`
+      runs every test with the cache off and compares each result with what
+      the cache holds, failing on any that differs with the test's name and
+      hash. A failure means the test cache's key misses an input
+      (docs/proposals/test-cache-key.md, section 8). A verify run that
+      compared nothing also fails, so a fresh binary can't pass without
+      filling the cache. Part of the full tier.
     deps: [build]
     cmds:
+      - 'cd aoc && {{.SW}} test'
       - 'cd aoc && {{.SW}} test --verify-cache'
+      - 'cd games/rogue && {{.SW}} test'
       - 'cd games/rogue && {{.SW}} test --verify-cache'
 
   test:gate:

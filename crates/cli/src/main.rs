@@ -1880,6 +1880,18 @@ fn verified(cache: &Cache) -> bool {
         v.missing,
         v.disagreements.len()
     );
+    // A cache that knows nothing about this build (a fresh binary's first
+    // run) verifies nothing, and saying so is not a pass.
+    if v.compared == 0 && v.missing > 0 {
+        let tests = if v.missing == 1 { "test" } else { "tests" };
+        eprintln!(
+            "error: the cache was empty for this binary: {} {tests} had no cached result, so \
+             there was nothing to compare; run `stitchwort test` first (or `task \
+             test:verify-cache`, which fills the cache)",
+            v.missing
+        );
+        return false;
+    }
     v.disagreements.is_empty()
 }
 
