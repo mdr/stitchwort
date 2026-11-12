@@ -1,5 +1,5 @@
 {
-  "next": 2958,
+  "next": 2959,
   "tickets": [
     {
       "id": 47,
@@ -31549,6 +31549,19 @@
       "commits": [
         "e7d33638e"
       ]
+    },
+    {
+      "id": 2958,
+      "title": "[DeepSeek] Playground, book chapter 2 opened directly at #book/2 (Matt's browser, after SW-2957): with ? on line 167 the goal panel shows the goal, but Cmd+. says 'No code action here' with the caret before or after the ?. SW-2957's browser test passes (page.open() then hash change, caret before ?). Find the difference and fix",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": ".claude/worktrees/scratch-sw-2958",
+      "labels": [],
+      "epic": "editor-playground",
+      "body": "",
+      "created": "2026-11-12",
+      "updated": "2026-11-12",
+      "commits": []
     }
   ]
 }
