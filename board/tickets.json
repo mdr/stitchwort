@@ -31918,15 +31918,19 @@
     {
       "id": 2984,
       "title": "[Opus] Impossible cases in match (D3534, Matt, 12 Nov 2026): (1) () as an absurd pattern inside a multi-scrutinee match arm, as in clause form (today 'match theirs, h with | Rock, ()' is E-PARSE and '| Rock, () => …' reads () as unit); (2) a match fills in a missing arm itself when a hypothesis in that arm is an equation of different constructors (False = True after computing), else the error still names the arm; (3) book §2.5 shows '| Rock, ()' as the short form after the long one. Repros in the ticket body; syntax.md and guide updated; examples with hash snapshots",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "Lane (Opus, 12 Nov 2026, 14:07-14:45, est. 2.5 h):\n- Absurd alternatives in `match` (`| Rock, ()`), single or multi-scrutinee, and in `match |` clause lambdas: `Alt.body` is `Option<Expr>`; parser `arm_body` and elaborator `row_patterns` are shared by equations and alternatives.\n- Missing arms filled in when impossible: `impossible_case` (lib.rs) tries indexed families on the columns (as before), then each column and every other variable in scope as an equation of different constructors (`cases::refute_equation`) or an empty data type. Coverage errors wait for the checker only when `may_be_impossible` (an equation in scope mentions a matched variable, or an empty type is in scope). Applies to clause form and `def`s alike.\n- Bug fixed on the way: a first row `| Rock, ()` checked the `()` before splitting `Rock` (E-NOT-EMPTY in clause form too).\n- Note on `()` with `=>` at a non-unit type.\n- Book §2.5 short forms; syntax.md \"Impossible cases\"; guide 03-data; feature tour page 38; examples absurd-match-arms, impossible-cases-left-out, reject impossible-cases-one-possible, absurd-arm-with-body.\n- Prelude hashes identical to the base compiler's (the committed prelude snapshot is stale on main, from before this lane: Float.ieeeLe*, Nat.partitionPoint*).\n- Generates kernel terms (the filled-in arms): needs an Opus review.\n",
       "created": "2026-11-12",
       "updated": "2026-11-12",
-      "commits": []
+      "commits": [
+        "d2fce15c8",
+        "2d46712be",
+        "285892064"
+      ]
     },
     {
       "id": 2985,
