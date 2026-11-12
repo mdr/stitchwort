@@ -32833,12 +32833,12 @@
     {
       "id": 3046,
       "title": "[Sonnet] Debug-build std tests are red: five std/List/SortLemmas.sw theorems hit E-RESOURCE ('nested too deeply') on the 16 MiB debug test stack: sumByFilter (~343), sumRangeFromOne (~383), occurrencesKeyDistinct (~988), distinctOfOccurrences (~1006), sumByDistinctNonzero (~1677). Find which merge made them deep (SW-3020/3032?), make them shallow (SW-3035 finding)",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "std-library",
-      "body": "",
+      "body": "Progress (lane, 12 Nov 2026): the depth is in the proof shapes, not the elaborator: with W-UNREACHABLE's recheck (deletable_arms) disabled the five still fail at a 2 MiB check stack (CLI STACK lowered temporarily), and SW-3020 did not touch four of the five. They need between 2 and 3 MiB before; after the rewrite SortLemmas.sw checks at 1.5 MiB (first remaining failure there is Nat.ltOfRunSub, not one of the five). Rewrites: calc for sumByFilter and sumRangeFromOne; small lemmas occurrencesKeyAbsent, memMapOfOccurrences, sumRangeFromOneApart, sumByDistinctNonzeroThere/Back; deep `rewrite` replaced by Eq.subst/Eq.trans. Statements unchanged. Snapshots regenerated; hash_stability and builtins:: pass (release). Debug the_standard_library_passes_its_own_tests now fails on a different panic (queue.rs:1866, invariant 6), filed as a finding. Commit on lane/SW-3046.\n",
       "created": "2026-11-12",
       "updated": "2026-11-12",
       "commits": []
