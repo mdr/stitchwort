@@ -31654,9 +31654,9 @@
     {
       "id": 2965,
       "title": "[Sonnet] After a split (Cmd+. Split on x, playground and VS Code), the cursor lands in an odd place (Matt, 12 Nov): put it where D3530 decides (rec: on the first new ?, so its goal shows at once); VS Code via a command after the edit; browser and LSP tests",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-2965",
       "labels": [],
       "epic": "editor-playground",
       "body": "\nD3530 (Matt, 12 Nov 2026: 'I agree with these recommendations'): after a split, the cursor goes to the first new ?.",
