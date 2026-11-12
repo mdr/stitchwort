@@ -32671,15 +32671,17 @@
     {
       "id": 3034,
       "title": "[Sonnet] Regression on main: std_library::small_programs_load_only_the_library_files_they_can_use now also loads Logic/Logic.sw and Decidable/Decidable.sw (likely SW-3019/3029 readings in List/Toolkit.sw). Find which declaration pulls them in; keep small programs' load small, or update the list with the reason",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-3034",
       "labels": [],
       "epic": "std-library",
-      "body": "",
+      "body": "\nModel result: Sonnet, worked, ~44 min (est. 40). Orchestrator checked the moved statements are unchanged. std_loaded_by runs on a 16 MB stack until SW-3035 lands.",
       "created": "2026-11-12",
       "updated": "2026-11-12",
-      "commits": []
+      "commits": [
+        "8696c5934"
+      ]
     },
     {
       "id": 3035,
