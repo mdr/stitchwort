@@ -32359,12 +32359,12 @@
     {
       "id": 3012,
       "title": "[Sonnet] SW-2990 review follow-ups: (M) nested number columns now report a different missing case (match a, b with | 0, 5 => … | 1, _ => …: was 'numbers other than 0 and 1', now 'other than 5'): in missing.rs definite's numbers() check the default first when it's a Missing with other_numbers; (L) Int literal matches (int_coverage, lib.rs ~4638) and Fin (families.rs ~755) still report a missing default eagerly though docs/syntax.md now says 'a number match': extend or narrow the sentence to Nat and characters; (idea) apart-aware refutation so h: n < 2 / n = 0 rules out the default (needs a short design note)",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-3012",
       "labels": [],
       "epic": "diagnostics",
-      "body": "",
+      "body": "Progress (lane, 12 Nov): (M) numbers() checks a Missing default first, test added; (L) Int/Fin not extended (the kernel's number case is Nat-only, Int/Fin split by constructor), doc narrowed to Nat and characters; Day16 arms SW-2990 made unreachable deleted. Branch lane/SW-3012.",
       "created": "2026-11-12",
       "updated": "2026-11-12",
       "commits": []
