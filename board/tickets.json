@@ -32376,15 +32376,17 @@
     {
       "id": 3013,
       "title": "[Sonnet] Readings follow-ups (SW-2992): a method-form reading (x.ok) is matched to every module function with that last name, adding harmless extra ordering edges: resolve by receiver type where known; std gets no reading edges and relies on being written in reading order: add a check (a std reading used before it's declared is a std test failure) or give std the edges too",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-3013",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "\nModel result: Sonnet, worked, ~11 min (est. 45). No negative test for library edges (needs a debug dump of reading edges).",
       "created": "2026-11-12",
       "updated": "2026-11-12",
-      "commits": []
+      "commits": [
+        "b75bc9f69"
+      ]
     },
     {
       "id": 3014,
