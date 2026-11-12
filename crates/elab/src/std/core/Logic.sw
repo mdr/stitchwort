@@ -1,4 +1,4 @@
---| `Void`, `Unit`, `Not`, `And`, `Or`, `Iff`, and `absurd`/`exfalso`.
+--| `Void`, `Unit`, `Not`, `And`, `Or`, `Iff`, `Exists`, and `absurd`/`exfalso`.
 -- Loaded with the core: every proof the core states is built from these, and
 -- `Decidable`, `deriving` and `auto` write them in full
 -- (docs/proposals/prelude-slim.md §2.1).
@@ -30,6 +30,33 @@ type Iff (p: Prop) (q: Prop): Prop = {
   forward: p → q,
   backward: q → p
 }
+
+theorem Iff.refl (p: Prop): p ↔ p := { forward = x => x, backward = x => x }
+
+theorem Iff.symm [p q: Prop] (h: p ↔ q): q ↔ p := { forward = h.backward, backward = h.forward }
+
+theorem Iff.trans [p q r: Prop] (h: p ↔ q) (k: q ↔ r): p ↔ r :=
+  { forward = x => k.forward (h.forward x), backward = x => h.backward (k.backward x) }
+
+--| Some value of `a` satisfies `p`: a witness, and a proof that it does.
+--| `Exists (n => n * n = 49)` says there is a number whose square is 49.
+type Exists (a: Type) (p: a → Prop): Prop =
+  | Witness (value: a) (proof: p value)
+
+--| To prove a proposition from `Exists a p`, take the witness apart: the goal
+--| must follow for every value and proof of `p` it might be.
+theorem Exists.elim [p: a → Prop] [goal: Prop] (h: Exists a p) (use: ∀ (x: a) => p x → goal): goal :=
+  match h with
+    | Witness x proof => use x proof
+
+--| If something satisfies `p`, it's not the case that nothing does.
+theorem Exists.notNone [p: a → Prop] (some: Exists a p) (none: ∀ (x: a) => ¬(p x)): Void :=
+  Exists.elim some none
+
+--| A witness for `q` wherever there was one for `p`.
+theorem Exists.map [p: a → Prop] [q: a → Prop] (f: ∀ (x: a) => p x → q x) (h: Exists a p): Exists a q :=
+  match h with
+    | Witness x proof => Witness x (f x proof)
 
 --| When neither proposition holds, `p || q` doesn't.
 theorem Or.neither: ∀ [p q: Prop] => ¬p → ¬q → ¬(p ∨ q)
