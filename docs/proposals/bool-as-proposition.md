@@ -823,7 +823,7 @@ longer a stuck decision: its test is `T.%same x y`. D3541 (a, SW-3044):
 and `T.%sameReadsFalse` (`T.%same x y = False ↔ x ≠ y`) from
 `%sameSound`/`%sameComplete` (and `refute`/`toBoolOfNot`), for `T` and each
 container member, filed with the instance. They are found by the test's
-head before anything unfolds, so a record's `==` reads as `x = y` too. The warning,
+head before anything unfolds, so a record's `==` reads as `x = y` too. A derived decision of a record of propositions (SW-3038) is written the same way: `T.%holds` (the fields' decisions' tests joined by `&&`), `T.%holdsSound`, `T.%holdsComplete`, and the readings `T.%holdsReads` and `T.%holdsReadsFalse`. The warning,
 `W-DECISION-TEST`, compares the function at the head of an instance's
 `holds` (through the decisions it is made from) with the function a
 positive reading of the same proposition is stated for, at whichever of
