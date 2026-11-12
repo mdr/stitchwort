@@ -261,6 +261,25 @@ pub fn test_std_cache_dir(stack: usize) -> std::path::PathBuf {
         .join(stack.to_string())
 }
 
+/// What a filled test std cache's marker holds: the build's fingerprint (the
+/// Rust sources) and the library's text. A change to a library file alone
+/// leaves the fingerprint as it was but makes the entries of every file
+/// after it miss, so a marker of the fingerprint alone called the cache full
+/// and let every process check those files from source at once (about
+/// 1.3 GB each, SW-3000).
+fn cache_stamp() -> &'static str {
+    static STAMP: std::sync::OnceLock<String> = std::sync::OnceLock::new();
+    STAMP.get_or_init(|| {
+        let mut hasher = blake3::Hasher::new();
+        hasher.update(stitchwort_elab::prelude().as_bytes());
+        for (path, text) in stitchwort_elab::library_files() {
+            hasher.update(path.as_bytes());
+            hasher.update(text.as_bytes());
+        }
+        format!("{FINGERPRINT}-{}", &hasher.finalize().to_hex()[..16])
+    })
+}
+
 /// Lets one process at a time load the library into an empty test std cache.
 ///
 /// After a compiler change every test process finds the cache empty and would
@@ -282,7 +301,7 @@ impl TestCacheTurn {
         let marker = cache_dir.with_extension("done");
         let none = |marker| TestCacheTurn { file: None, marker };
         let full = |marker: &std::path::Path| {
-            std::fs::read_to_string(marker).is_ok_and(|text| text == FINGERPRINT)
+            std::fs::read_to_string(marker).is_ok_and(|text| text == cache_stamp())
         };
         if full(&marker) {
             return none(marker);
@@ -324,7 +343,7 @@ impl TestCacheTurn {
     /// The library loaded through the cache: it is full.
     pub fn finish(&self) {
         if self.file.is_some() {
-            let _ = std::fs::write(&self.marker, FINGERPRINT);
+            let _ = std::fs::write(&self.marker, cache_stamp());
         }
     }
 }
