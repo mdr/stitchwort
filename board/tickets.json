@@ -32003,15 +32003,17 @@
     {
       "id": 2989,
       "title": "[Sonnet] Impossible cases follow-ups (SW-2984): equations.rs ~6140 gives an absurd clause arm a probe body when building probe matches, turning its () into the unit pattern — keep it absurd now that alternatives can be; consider W-UNREACHABLE for an arm whose case a hypothesis rules out (| Scissors => 0 where h refutes it); an indexed-family hypothesis that isn't a matched column isn't tried",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2989",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "\nW-UNREACHABLE written up as D3535 for Matt. Model result: Sonnet, worked, 6 min + 14 min test (est. 45)",
       "created": "2026-11-12",
       "updated": "2026-11-12",
-      "commits": []
+      "commits": [
+        "895b65b7f"
+      ]
     },
     {
       "id": 2990,
