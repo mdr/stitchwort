@@ -4961,12 +4961,15 @@ fn impossible_reason(cx: &mut Ctx, bound: &[usize]) -> Result<Option<String>> {
             n => format!("`{n}`"),
         };
         let ty = cx.types[level].clone();
-        let shown = cx.show(&ty);
+        // Shown only once a reason is found: this runs on every arm.
+        let shown = |cx: &mut Ctx| cx.show(&cx.types[level].clone());
         if cases::equates_different_ctors(cx, level)? {
+            let shown = shown(cx);
             return Ok(Some(format!("here {name} is `{shown}`, which can't hold")));
         }
         match force(&g, ty)? {
             Value::Data(d, _) if g.data(d).ctors().is_empty() => {
+                let shown = shown(cx);
                 return Ok(Some(format!(
                     "here {name} is a `{shown}`, which has no values"
                 )));
@@ -4975,6 +4978,7 @@ fn impossible_reason(cx: &mut Ctx, bound: &[usize]) -> Result<Option<String>> {
                 if !g.data(d).indices().is_empty()
                     && families::empty_case(cx, level, None)?.is_some() =>
             {
+                let shown = shown(cx);
                 return Ok(Some(format!(
                     "here {name} is a `{shown}`, which has no constructor that fits"
                 )));
