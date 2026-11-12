@@ -209,23 +209,36 @@ impl Elaborator {
         let g = &self.ev();
         // On a test fact, the record its test reads as
         // (docs/proposals/bool-as-proposition.md §6.1).
-        let ty = match ty {
+        let read = match ty {
             Some(t) => Some(crate::reading::read_type(g, self, t)?.unwrap_or_else(|| t.clone())),
             None => None,
         };
-        let d = match ty.map(|t| force(g, t)).transpose()? {
+        let d = match read.map(|t| force(g, t)).transpose()? {
             Some(Value::Data(d, _)) if g.data(d).record() => d,
             Some(Value::Data(d, _)) => {
-                return Err(error(
+                let e = error(
                     "E-NOT-A-RECORD",
                     span,
                     format!(
                         "this is a record pattern, but it matches a `{}`, which isn't a record",
                         g.data(d).name()
                     ),
-                ));
+                );
+                let waiting = match ty {
+                    Some(t) => crate::reading::waiting_note(g, self, t)?,
+                    None => None,
+                };
+                return Err(match waiting {
+                    Some(note) => e.with_note(note),
+                    None => e,
+                });
             }
             _ => {
+                if let Some(t) = ty
+                    && let Some(p) = crate::reading::pending_of_type(g, self, t)?
+                {
+                    return Err(crate::reading::pending_error(self, span, p));
+                }
                 return Err(error(
                     "E-CANNOT-INFER",
                     span,

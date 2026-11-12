@@ -2227,7 +2227,8 @@ pub(crate) fn infer_value(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
         Expr::Ann(e, ty, _) => {
             let (ty, _) = check_type(cx, ty)?;
             let ty_value = cx.eval(&ty)?;
-            let e = check(cx, e, &ty_value)?;
+            let expected = crate::reading::here_as_written(cx, &ty, &ty_value)?;
+            let e = check(cx, e, &expected)?;
             Ok((Term::Ann(Rc::new(e), Rc::new(ty)), ty_value))
         }
         Expr::Record {
@@ -3323,7 +3324,8 @@ fn finish_application(
         // blamed against the goal as it now stands, not the in-place one.
         *first_error = None;
         for (value, dom, placeholder, id) in after_expected {
-            let checked = check_arg(cx, &term, value, &dom)?;
+            let head = head_before_placeholder(&term, id).unwrap_or_else(|| term.clone());
+            let checked = check_arg(cx, &head, value, &dom)?;
             let evaluated = cx.eval(&checked)?;
             if !cx.unify(&evaluated, &placeholder)? {
                 return Err(cx.mismatch(&placeholder, &evaluated));
@@ -3430,7 +3432,8 @@ fn check_searches_last(
     cx.e.resume_application(queued_from)?;
     for (value, dom, placeholder, id) in searches {
         let dom = cx.eval(&cx.quote_folded(&dom)?)?;
-        let checked = check_arg(cx, term, value, &dom)?;
+        let head = head_before_placeholder(term, id).unwrap_or_else(|| term.clone());
+        let checked = check_arg(cx, &head, value, &dom)?;
         let evaluated = cx.eval(&checked)?;
         if !cx.unify(&evaluated, &placeholder)? {
             return Err(cx.mismatch(&placeholder, &evaluated));
@@ -3458,6 +3461,21 @@ fn numbers_in_list(expr: &Expr) -> bool {
 /// `term`, an application, with its argument that is the metavariable `id`
 /// (applied to the variables in scope) replaced by `with`; `None` if it has
 /// no such argument.
+/// The application `term` up to the argument that is placeholder `id`
+/// ([`fill_placeholder`]): the head that argument is passed to.
+fn head_before_placeholder(term: &Term, id: usize) -> Option<Term> {
+    match term {
+        Term::Loc(_, t) => head_before_placeholder(t, id),
+        Term::App(f, a, _) => {
+            if matches!(a.strip_loc().spine().0, Term::Meta(m) if *m == id) {
+                return Some((**f).clone());
+            }
+            head_before_placeholder(f, id)
+        }
+        _ => None,
+    }
+}
+
 fn fill_placeholder(term: &Term, id: usize, with: &Term) -> Option<Term> {
     match term {
         Term::Loc(span, t) => fill_placeholder(t, id, with).map(|t| Term::Loc(*span, Rc::new(t))),
@@ -3510,9 +3528,10 @@ pub(crate) fn found_dictionaries(cx: &mut Ctx, own: &[usize], ty: Value) -> Resu
 
 /// Checks an explicit argument of `head` against its parameter type `dom`.
 fn check_arg(cx: &mut Ctx, head: &Term, value: &Expr, dom: &Value) -> Result<Term> {
+    let expected = crate::reading::domain_as_written(cx, head, dom)?;
     crate::queue::framed(
         cx,
-        |cx| check(cx, value, dom),
+        |cx| check(cx, value, &expected),
         |_| ArgFrame {
             head: head.clone(),
             value: value.clone(),

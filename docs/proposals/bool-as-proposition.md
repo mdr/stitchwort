@@ -389,7 +389,10 @@ test)**. It is refused, with the error named, if:
   arguments aren't the theorem's parameters, each exactly once (as an
   instance's head is a type applied to distinct variables), so that
   matching a test against it only reads off its arguments; or `e` is an
-  `if` other than `&&` and `||`;
+  `if` other than `&&` and `||`; or the call passes the function more
+  arguments than its definition takes (`def tiny: Nat → Bool := small`
+  takes none, so `tiny n` unfolds to `small n` before it is read, and a
+  reading filed under `tiny` could never be found; SW-2992);
 - **`E-READING-OVERLAP`**: the same polarity of the same head already has
   a reading. The message names it. One reading per test (D3487): "what does
   `xs.contains x` read as?" then has one answer, which every error and a
@@ -440,7 +443,27 @@ part it touches. Nothing is searched: the pattern drives every step.
 `rewrite` or an unfolding has left the `any`, it reads as `∃`. The rule
 that makes this predictable: the reader goes by the test as the goal prints
 it (step 1). Both readings are equivalent to the test, so neither choice
-can prove anything false.
+can prove anything false. With gluing off (`STITCHWORT_GLUE=0`) a fact's
+type has its calls unfolded already, so the reader starts from the type as
+written (a variable's declared type, an annotation, a parameter's type,
+the definition's own type) and evaluates with calls folded, and finds the
+same reading as glued (SW-2992).
+
+**Checking order (D3537, Matt, 12 Nov 2026).** Dependencies, not source
+position, decide which uses see a reading. Each `@[reading]` theorem's
+test function is known from its syntax before anything is checked (`f x…`,
+`Ns.f x…`, `x.f y…`, with `↔` or `Iff (…) (…)`), and every declaration
+that mentions that function gets an ordering edge after the reading, as
+instances do, so a use above the reading, or in another file of the
+namespace, is checked after it. The reading's own dependencies (a lemma
+its proof uses) are left out, so no edge closes a cycle: they read the
+test as what it unfolds to, as the reading's proof does, and an error
+there says the reading isn't available because it depends on that
+declaration. The library is written in an order that works and gets no
+edges. A reading whose proof fails is filed as its stand-in (D3527), so
+its users rely on it like any use of a failed theorem; one with no
+stand-in fails them with `E-FAILED-DEPENDENCY`, which goes without saying
+(SW-2992).
 
 **Unfolding leaks implementations** **[review, §2.6]**. Step 4 lets `Both
 lo hi` take apart `h: c.isDigit` by unfolding `isDigit` to its two
