@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-TYPE-MISMATCH] Error: these patterns match a `Builtin.UnitType`, but the argument has type `False = True`
+    ╭─[ reject/absurd-arm-with-body.sw:16:3 ]
+    │
+ 16 │ ╭─▶   match theirs, h with
+    ┆ ┆   
+ 19 │ ├─▶     | Scissors, _ => rfl
+    │ │                              
+    │ ╰────────────────────────────── these patterns match a `Builtin.UnitType`, but the argument has type `False = True`
+    │     
+    │     Note: `()` in an arm with `=>` is the unit value; for a case that can't happen, write the arm with `()` and no `=>`
+────╯

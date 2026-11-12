@@ -167,10 +167,8 @@ fn compile<'a>(
         .chain(absurd_rows)
         .collect();
     let types: Vec<Option<Value>> = columns.iter().map(|l| Some(cx.types[*l].clone())).collect();
-    let tree = (cx
-        .e
-        .compile_top(cx, &rows, cx.level(), columns, &types, 0, span))
-    .map_err(|d| in_context(cx, d, kind, first_patterns(alts), columns))?;
+    let tree = (cx.e.compile_top(cx, &rows, columns, &types, 0, span))
+        .map_err(|d| in_context(cx, d, kind, first_patterns(alts), columns))?;
     cx.e.warn_redundant(&rows[..alts.len()], &tree);
     Ok(tree)
 }

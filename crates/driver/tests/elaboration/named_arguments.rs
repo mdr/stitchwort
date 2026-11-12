@@ -311,7 +311,9 @@ impl Walk {
                 }
                 for alt in alts {
                     alt.patterns.iter().for_each(|p| self.pattern(p));
-                    self.expr(&alt.body);
+                    if let Some(body) = &alt.body {
+                        self.expr(body);
+                    }
                 }
             }
             Expr::List(items, _) => items.iter().for_each(|i| self.expr(i)),

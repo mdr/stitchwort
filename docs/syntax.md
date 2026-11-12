@@ -222,6 +222,18 @@ def absurd: Void -> a
 
 An equation of two different constructors has no values either, so `()` matches it too: `theorem robotNotBox: Robot = BoxLeft -> Void` is `| ()`, as Lean's `nomatch h` and Agda's absurd pattern. Where the equation is a hypothesis already in scope (a lambda's parameter, or refined by a `match`), `cases` proves any goal from it in one word (see [`cases`](#cases), "Closing a case"). `Robot = Robot` has a value, so `()` there is `E-NOT-EMPTY` (`examples/accept/absurd-distinct-constructors.sw`, `examples/reject/absurd-same-constructor.sw`).
 
+The type is the one the argument has in that arm, after the arm's other patterns and computing: with `beats Rock Rock` computing to `False`, `h: beats Rock theirs` is `False = True` in an arm for `Rock`, so `| Rock, ()` needs no right-hand side. A row's constructor patterns are matched before its `()`, wherever it comes. A `match` alternative takes `()` with no `=>` the same way, with one scrutinee or several (D3534, `examples/accept/absurd-match-arms.sw`):
+
+```
+theorem rockBeatsOnlyScissors (theirs: Move) (h: beats Rock theirs): theirs = Scissors :=
+  match theirs, h with
+    | Rock, ()
+    | Paper, ()
+    | Scissors, _ => rfl
+```
+
+An arm for such a case can also be left out: see "Impossible cases" under [`match`](#match).
+
 Implicit and auto parameters are in scope by name in every arm, wherever they appear in the signature:
 
 ```
@@ -2167,7 +2179,7 @@ def zipLen (xs: List Nat) (ys: List Nat): Nat := 1 + match xs, ys with
 
 The alternatives start with `|`, lined up one under another and further right than the line the `match` starts on. A `match` may also be written on one line: `match n with | Zero => 0 | Succ k => k`. Several scrutinees are separated by commas, and each alternative has one pattern for each. Branches may be several lines, as in a `handle`. Alternatives are tried from top to bottom, and together they must cover every case (`E-NONEXHAUSTIVE`). A `match` that doesn't say what happens for some constructors is told every one it leaves out; see "Missing cases" below.
 
-Patterns are those of arms: variables, `_`, numbers, constructors, tuples, record patterns and `()`. A `match` can also be used in a signature (`def Pick (b: Bool): Type := match b with | True => Nat | False => Text`), and may be nested in a branch.
+Patterns are those of arms: variables, `_`, numbers, constructors, tuples, record patterns and `()`. As in arms, an alternative with a `()` pattern and no `=> body` is absurd (`| Rock, ()`: see [Declarations](#declarations)), and `()` with a body is the unit pattern (on another type, the `E-TYPE-MISMATCH` says to leave out the `=>`: `examples/reject/absurd-arm-with-body.sw`). Absurd alternatives sit on lines of their own: on one line, `| Paper, () | Scissors, ()` reads `() | Scissors` as an or-pattern. A `match` can also be used in a signature (`def Pick (b: Bool): Type := match b with | True => Nat | False => Text`), and may be nested in a branch.
 
 There are two translations. If the `match` is the whole right-hand side of a definition, and every scrutinee is an unnamed parameter that its patterns haven't already taken apart, the `match` becomes part of the definition's case tree, as if you had written more arms. Any other `match` becomes a generated definition, named after the definition it is in (shown as `owner.%match1`, though error messages say "this `match`"), which takes the values it needs from the surrounding code and is called where the `match` was. A scrutinee that is a variable is refined in the branches, and so is everything whose type mentions it. A scrutinee that is any other expression is generalised: wherever it appears in the expected type, it's replaced by the pattern of the branch.
 
@@ -2259,6 +2271,18 @@ When the alternatives of a `match`, or the arms of a definition, leave out some 
 ```
 
 A missing case is the whole row of patterns, one for each scrutinee or argument, separated by commas, so a `match` on `(Option a, Bool)` with two arms can be told `| (None, False) => ?` and `| (Some _, True) => ?`. A field the arm doesn't need is `_`, and implicit fields aren't written. A list is `[]`, `[_, .._]` (`Cons _ _`) and so on, as a list pattern is written, and a pair `(a, b)`. On an indexed family a constructor that can't be there (`VCons` in a `Vec a 0`) isn't listed, as it isn't an error. At most 20 cases are listed, then `and N more`; add those and check again to see the rest. Where what's missing is numbers or characters (`Nat`, `Int`, `Char`, `Fin`), the message says which (`numbers other than 0 and 1`), and the fix is an arm with a variable or `_`. In `check --index`, the diagnostic has a `missing` member with the same cases (docs/proposals/code-navigation.md).
+
+#### Impossible cases
+
+A case can be left out when it can't happen: when, in that case, some variable in scope has a type with no values. That is an equation of two different constructors once the case is known and the types compute (`h: beats Rock theirs` is `False = True` when `theirs` is `Rock` or `Paper`), or a data type with no constructors (`Void`), as well as the indexed families above. The checker fills in the arm `()` would be, the same term, so
+
+```
+theorem rockBeatsOnlyScissors (theirs: Move) (h: beats Rock theirs): theirs = Scissors :=
+  match theirs with
+    | Scissors => rfl
+```
+
+checks, and so does the same left out of arms (`| Scissors, _ => rfl` alone), in a theorem or a `def` alike (D3534). The variable needn't be a scrutinee: a hypothesis whose type mentions one is refined with it. A case that can happen is still `E-NONEXHAUSTIVE`, and the error lists only those (`examples/accept/impossible-cases-left-out.sw`, `examples/reject/impossible-cases-one-possible.sw`). The checker doesn't search: the equation must be there, in the context, and compute to different constructors; a fact it would have to prove (`n < 0` with `n` unknown) needs an arm.
 
 #### Clause lambdas: `match |`, `match some |` and `matches |`
 

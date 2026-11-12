@@ -3655,7 +3655,6 @@ impl Elaborator {
             let tree = self.compile_top(
                 cx,
                 &rows,
-                cx.level(),
                 &columns,
                 &column_types,
                 header.unwrap_or(0),
@@ -3680,19 +3679,18 @@ impl Elaborator {
     /// [`Self::compile`] for a whole match: the cases certainly missing are
     /// reported together, each as the arm that would cover it. The first
     /// `skip` columns are a header's parameters, which arms don't match.
-    #[allow(clippy::too_many_arguments)]
+    /// The variables in scope are `cx`'s.
     fn compile_top<'a>(
         &self,
         cx: &Ctx,
         rows: &[Row<'a>],
-        depth: usize,
         columns: &[usize],
         types: &[Option<Value>],
         skip: usize,
         span: Span,
     ) -> Result<Tree<'a>> {
         self.decl.guard_nodes.set(0);
-        let tree = self.compile(rows, depth, columns, types, span);
+        let tree = self.compile(rows, cx.level(), columns, types, span);
         self.decl.guard_nodes.set(0);
         let mut tree = tree?;
         self.annotate(&mut tree, &columns[skip..]);
@@ -5056,6 +5054,12 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
                     );
                     if let Some(note) = quot::match_note(&other) {
                         e = e.with_note(note);
+                    }
+                    if Some(*d) == g.env.registry().loaded_data(Builtin::UnitType) {
+                        e = e.with_note(
+                            "`()` in an arm with `=>` is the unit value; for a case that can't \
+                             happen, write the arm with `()` and no `=>`",
+                        );
                     }
                     return Err(e);
                 }
