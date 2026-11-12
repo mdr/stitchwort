@@ -31716,9 +31716,9 @@
     {
       "id": 2968,
       "title": "[Sonnet] deriving (DecEq) still answers by Decidable.yes/no under a match (crates/elab derive.rs:49-56): build the record test first; decidable-record.md stage 4 planned a test (SW-2964 finding 2)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-2968",
       "labels": [],
       "epic": "elaborator-kernel",
       "body": "",
