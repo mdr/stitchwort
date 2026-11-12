@@ -96,6 +96,16 @@ pub fn term_ascii(g: &Ev, names: &[Name], term: &Term) -> String {
     printer.print(&mut names, term, Prec::Arrow)
 }
 
+/// Prints `term` with its outermost `p → Void` function type written as
+/// that arrow rather than `¬p`: what a hover says a `Not p` unfolds to.
+/// Anything inside it keeps the notation.
+pub fn term_not_unfolded(g: &Ev, names: &[Name], term: &Term) -> String {
+    let mut names = names.to_vec();
+    let printer = Printer::new(g, None);
+    printer.unfold_not.set(true);
+    printer.print(&mut names, term, Prec::Arrow)
+}
+
 /// [`term_ascii`] for a value.
 pub fn value_ascii(g: &Ev, names: &[Name], value: &Value) -> String {
     match quote_unfolded_shown(g, names.len(), value) {
@@ -545,6 +555,9 @@ struct Printer<'g> {
     /// Write a decided equation as the `a == b` that elaborates to it
     /// ([`Printer::decided_equation`]): in a goal, which is pasted back.
     equations: Cell<bool>,
+    /// Write the next `p → Void` as an arrow instead of `¬p`
+    /// ([`term_not_unfolded`]).
+    unfold_not: Cell<bool>,
     /// The names in scope, to shorten declarations' names by; without it,
     /// names are written from the root.
     scope: Option<&'g dyn NameScope>,
@@ -566,6 +579,7 @@ impl<'g> Printer<'g> {
             ascii: Cell::new(false),
             calls: Cell::new(false),
             equations: Cell::new(false),
+            unfold_not: Cell::new(false),
             scope,
             predicates: RefCell::new(Vec::new()),
             meant: RefCell::new(HashMap::default()),
@@ -991,7 +1005,8 @@ impl<'g> Printer<'g> {
             }
             // `p -> Void` is how `Not p` computes; print it the way it's written.
             Term::Pi(_, Icit::Explicit, a, b)
-                if !b.mentions(0)
+                if !self.unfold_not.get()
+                    && !b.mentions(0)
                     && matches!(b.strip_loc(), Term::Data(d, _) if is(self.g, Builtin::Void, *d)) =>
             {
                 self.not(names, a)
@@ -1005,6 +1020,7 @@ impl<'g> Printer<'g> {
                 self.forall(names, term)
             }
             Term::Pi(x, icit, a, b) => {
+                self.unfold_not.set(false);
                 let uses = b.mentions(0);
                 let dom = if icit.is_implicit() || uses {
                     self.print(names, a, Prec::Arrow)

@@ -72,6 +72,9 @@ pub struct LiveRef {
     /// The declaration's kind (`def`, `ctor`, ...), or `local`.
     pub kind: &'static str,
     pub ty: Option<String>,
+    /// The type with an outermost `Not`, if it has one, written as
+    /// `p → Void` (`NavRef::unfolded`), for hover.
+    pub unfolded: Option<String>,
     /// For a function, its parameters with their names
     /// (`(low: Nat) -> [n: Nat] -> Nat`).
     pub signature: Option<String>,
@@ -142,8 +145,9 @@ pub struct FileAnswers {
     /// Sorted by position.
     pub refs: Vec<LiveRef>,
     /// The type of each expression, sorted by start, then longest first
-    /// (empty unless the session records them).
-    pub exprs: Vec<(Range, String)>,
+    /// (empty unless the session records them), and that type with an
+    /// outermost `Not` written as `p → Void`, when it has one.
+    pub exprs: Vec<(Range, String, Option<String>)>,
     pub outline: Vec<OutlineItem>,
     pub diagnostics: Vec<LiveDiagnostic>,
     /// The names the file can write unqualified, its own first (empty
@@ -167,12 +171,12 @@ impl FileAnswers {
     /// type. Of two expressions with the same range (an application and
     /// its last step) the outer one is found first and the type is the
     /// same anyway.
-    pub fn expr_covering(&self, range: Range) -> Option<(Range, &str)> {
+    pub fn expr_covering(&self, range: Range) -> Option<(Range, &str, Option<&str>)> {
         self.exprs
             .iter()
-            .filter(|(r, _)| contains(*r, range))
-            .min_by_key(|(r, _)| innermost_first(*r))
-            .map(|(r, ty)| (*r, ty.as_str()))
+            .filter(|(r, _, _)| contains(*r, range))
+            .min_by_key(|(r, _, _)| innermost_first(*r))
+            .map(|(r, ty, unfolded)| (*r, ty.as_str(), unfolded.as_deref()))
     }
 
     /// The ranges of the expressions containing `range`, smallest first,
@@ -181,7 +185,7 @@ impl FileAnswers {
         let mut chain: Vec<Range> = self
             .exprs
             .iter()
-            .map(|(r, _)| *r)
+            .map(|(r, _, _)| *r)
             .filter(|r| contains(*r, range))
             .collect();
         // Nested ranges: the later the start, then the earlier the end,
@@ -275,10 +279,13 @@ pub fn answers_from(index: &Index, wanted: &BTreeSet<String>, unplaced: &str) ->
         .chain(std::iter::once(&unplaced.to_string()))
         .map(|p| (Place::Program(p.clone()), FileAnswers::default()))
         .collect();
-    for (file, range, ty) in &index.exprs {
+    for (file, range, ty, unfolded) in &index.exprs {
         let at = place(*file);
         if keep(&at) {
-            out.entry(at).or_default().exprs.push((*range, ty.clone()));
+            out.entry(at)
+                .or_default()
+                .exprs
+                .push((*range, ty.clone(), unfolded.clone()));
         }
     }
     for r in &index.refs {
@@ -290,7 +297,7 @@ pub fn answers_from(index: &Index, wanted: &BTreeSet<String>, unplaced: &str) ->
         let mut header = None;
         let mut doc = None;
         let mut equations = None;
-        let (target, name, kind, ty) = match &r.target {
+        let (target, name, kind, ty, unfolded) = match &r.target {
             RefTarget::Symbol(s) => {
                 let s = &index.symbols[*s];
                 signature = s.signature.clone();
@@ -306,6 +313,7 @@ pub fn answers_from(index: &Index, wanted: &BTreeSet<String>, unplaced: &str) ->
                     s.name.clone(),
                     s.kind,
                     r.ty.clone().or(s.ty.clone()),
+                    r.unfolded.clone().or(s.unfolded.clone()),
                 )
             }
             RefTarget::Binder { name, file, range } => {
@@ -313,7 +321,13 @@ pub fn answers_from(index: &Index, wanted: &BTreeSet<String>, unplaced: &str) ->
                     place: place(*file),
                     range: *range,
                 };
-                (target, name.clone(), "local", r.ty.clone())
+                (
+                    target,
+                    name.clone(),
+                    "local",
+                    r.ty.clone(),
+                    r.unfolded.clone(),
+                )
             }
         };
         out.entry(at).or_default().refs.push(LiveRef {
@@ -322,6 +336,7 @@ pub fn answers_from(index: &Index, wanted: &BTreeSet<String>, unplaced: &str) ->
             name,
             kind,
             ty,
+            unfolded,
             signature,
             header,
             doc,

@@ -478,6 +478,14 @@ fn hover_unfolds_the_outermost_not_once() {
                     \n\
                     def usesNegation: ¬False := negation False\n\
                     \n\
+                    theorem andNot (a b: Prop): ¬a ∧ b := ?\n\
+                    \n\
+                    def usesAndNot: ¬False ∧ False := andNot False False\n\
+                    \n\
+                    theorem notAnd (a b: Prop): ¬(a ∧ b) := ?\n\
+                    \n\
+                    def usesNotAnd: ¬(False ∧ False) := notAnd False False\n\
+                    \n\
                     def n: Nat := ordinary 1 1 rfl\n";
         let mut s = Session::open(text);
         let shown = hover_at(&mut s, text, "falseNotTrue");
@@ -498,6 +506,17 @@ fn hover_unfolds_the_outermost_not_once() {
         let markdown = shown["contents"]["value"].as_str().unwrap_or_default();
         assert!(
             markdown.contains("that is, (p: Prop) → p → Void"),
+            "{shown}"
+        );
+        // `(¬a) ∧ b` is an And, not a Not after the parameters.
+        let shown = hover_at(&mut s, text, ":= andNot False");
+        let markdown = shown["contents"]["value"].as_str().unwrap_or_default();
+        assert!(markdown.contains("¬a ∧ b"), "{shown}");
+        assert!(!markdown.contains("that is,"), "{shown}");
+        let shown = hover_at(&mut s, text, ":= notAnd False");
+        let markdown = shown["contents"]["value"].as_str().unwrap_or_default();
+        assert!(
+            markdown.contains("that is, (a: Prop) → (b: Prop) → a ∧ b → Void"),
             "{shown}"
         );
     });

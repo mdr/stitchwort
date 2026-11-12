@@ -272,14 +272,6 @@ pub fn reference_at(
 /// defaults a call left out.
 pub fn hover_of(r: &LiveRef) -> Hover {
     let mut text = String::new();
-    // `¬p` and `a ≠ b` are `Not`, which is `p → Void`: saying so shows why
-    // applying the name gives a `Void`. A declaration's signature names its
-    // parameters; a local's type is all there is.
-    let unfolded = r
-        .signature
-        .as_deref()
-        .or(r.ty.as_deref())
-        .and_then(not_unfolded);
     // A function shows its declaration's header, with its parameters named,
     // in place of the type and the line saying what it is.
     match (&r.header, r.kind) {
@@ -288,14 +280,14 @@ pub fn hover_of(r: &LiveRef) -> Hover {
                 "```stitchwort\n{} {} {header}\n```",
                 r.kind, r.name
             ));
-            if let Some(unfolded) = &unfolded {
+            if let Some(unfolded) = &r.unfolded {
                 text.push_str(&format!("\nthat is, {unfolded}"));
             }
         }
         _ => {
             if let Some(ty) = &r.ty {
                 text.push_str(&format!("```stitchwort\n{ty}\n```\n"));
-                if let Some(unfolded) = &unfolded {
+                if let Some(unfolded) = &r.unfolded {
                     text.push_str(&format!("that is, {unfolded}\n"));
                 }
             }
@@ -315,77 +307,6 @@ pub fn hover_of(r: &LiveRef) -> Hover {
         range: r.range,
         markdown: text,
     }
-}
-
-/// The type with its outermost `Not` written as `p → Void`, if it has one
-/// after its parameters: `False ≠ True` gives `False = True → Void`, and
-/// `(n: Nat) -> n + 1 ≠ 0` gives `(n: Nat) → n + 1 = 0 → Void`. The
-/// printer writes `Not p` as `¬p`, or as `a ≠ b` for an equality, so this
-/// reads those back; it unfolds nothing else.
-fn not_unfolded(ty: &str) -> Option<String> {
-    // The signature joins its parameters with ASCII arrows; the types in
-    // them are printed with `→`.
-    let ty = ty.replace(" -> ", " → ");
-    let (params, result) = split_result(&ty).unwrap_or(("", ty.as_str()));
-    let result = result.trim();
-    let unfolded = match result.strip_prefix('¬') {
-        Some(prop) => format!("{prop} → Void"),
-        None => {
-            let (lhs, rhs) = split_not_equal(result)?;
-            format!("{lhs} = {rhs} → Void")
-        }
-    };
-    Some(format!("{params}{unfolded}"))
-}
-
-/// The parameters of a printed type, and its result: split after the last
-/// top-level arrow (the `→` of a function type, or the `=>` of a `∀`), with
-/// the arrow in the first part.
-fn split_result(ty: &str) -> Option<(&str, &str)> {
-    let mut depth = 0usize;
-    let mut arrow = None;
-    let mut i = 0;
-    while i < ty.len() {
-        let rest = &ty[i..];
-        let c = rest.chars().next()?;
-        match c {
-            '(' | '[' | '{' => depth += 1,
-            ')' | ']' | '}' => depth = depth.saturating_sub(1),
-            _ if depth == 0 => {
-                if let Some(token) = [" → ", " -> ", " => "]
-                    .into_iter()
-                    .find(|token| rest.starts_with(token))
-                {
-                    arrow = Some(i + token.len());
-                    i += token.len();
-                    continue;
-                }
-            }
-            _ => {}
-        }
-        i += c.len_utf8();
-    }
-    Some((&ty[..arrow?], &ty[arrow?..]))
-}
-
-/// A printed `a ≠ b` split at its top-level `≠`.
-fn split_not_equal(ty: &str) -> Option<(&str, &str)> {
-    let mut depth = 0usize;
-    let mut i = 0;
-    while i < ty.len() {
-        let rest = &ty[i..];
-        let c = rest.chars().next()?;
-        match c {
-            '(' | '[' | '{' => depth += 1,
-            ')' | ']' | '}' => depth = depth.saturating_sub(1),
-            _ if depth == 0 && rest.starts_with(" ≠ ") => {
-                return Some((&ty[..i], &ty[i + " ≠ ".len()..]));
-            }
-            _ => {}
-        }
-        i += c.len_utf8();
-    }
-    None
 }
 
 /// The hover at `(line, character)` of the file `place`. With a
@@ -441,13 +362,13 @@ fn selection_hover(
         if let Some(binder) = file.binder_exactly(place, selection) {
             return Some(hover_of(&binder));
         }
-        if file.exprs.iter().all(|(r, _)| *r != selection) {
+        if file.exprs.iter().all(|(r, _, _)| *r != selection) {
             return None;
         }
     }
-    let (range, ty) = file.expr_covering(selection)?;
+    let (range, ty, unfolded) = file.expr_covering(selection)?;
     let mut markdown = format!("```stitchwort\n{ty}\n```");
-    if let Some(unfolded) = not_unfolded(ty) {
+    if let Some(unfolded) = unfolded {
         markdown.push_str(&format!("\nthat is, {unfolded}"));
     }
     Some(Hover { range, markdown })

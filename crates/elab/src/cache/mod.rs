@@ -78,7 +78,7 @@ use stitchwort_syntax::{Diagnostic, Label, Severity};
 
 /// The version of the entry format, part of every key: a change to what an
 /// entry holds or how it is written bumps it, and old entries are misses.
-pub const FORMAT: u32 = 31;
+pub const FORMAT: u32 = 32;
 
 const MAGIC: &[u8; 8] = b"SWCHECK\0";
 
@@ -1802,6 +1802,18 @@ impl Elaborator {
                     e.span_after(*at, &mut prev);
                     e.str(ty);
                 }
+                let mut exprs: Vec<(&Span, &String)> = nav
+                    .expr_unfolded
+                    .iter()
+                    .filter(|(at, _)| own(&at.file))
+                    .collect();
+                exprs.sort_by_key(|(at, _)| (at.file.index(), at.start, at.end));
+                e.w.usize(exprs.len());
+                let mut prev = 0;
+                for (at, ty) in exprs {
+                    e.span_after(*at, &mut prev);
+                    e.str(ty);
+                }
                 let mut used: Vec<(&Span, &String)> = nav
                     .call_defaults
                     .iter()
@@ -1816,6 +1828,18 @@ impl Elaborator {
                 }
                 let mut types: Vec<(&(FileId, u32), &String)> = nav
                     .local_types
+                    .iter()
+                    .filter(|((file, _), _)| own(file))
+                    .collect();
+                types.sort_by_key(|((file, at), _)| (file.index(), *at));
+                e.w.usize(types.len());
+                let mut prev = 0;
+                for ((file, at), ty) in types {
+                    e.span_after(Span::new(*file, *at, *at), &mut prev);
+                    e.str(ty);
+                }
+                let mut types: Vec<(&(FileId, u32), &String)> = nav
+                    .local_unfolded
                     .iter()
                     .filter(|((file, _), _)| own(file))
                     .collect();
@@ -2136,8 +2160,10 @@ enum Target {
 struct NavEntry {
     refs: Vec<(Span, String, Target, GlobalEntry, Option<String>)>,
     exprs: Vec<(Span, String)>,
+    expr_unfolded: Vec<(Span, String)>,
     call_defaults: Vec<(Span, String)>,
     local_types: Vec<(Span, String)>,
+    local_unfolded: Vec<(Span, String)>,
     locals: Vec<(Span, String, Span)>,
     binders: Vec<(Span, String, Span)>,
     params: Vec<ParamBinder>,
@@ -3136,11 +3162,17 @@ impl Elaborator {
             for (at, ty) in entry.exprs {
                 nav.expr_types.insert(at, ty);
             }
+            for (at, ty) in entry.expr_unfolded {
+                nav.expr_unfolded.insert(at, ty);
+            }
             for (at, used) in entry.call_defaults {
                 nav.call_defaults.insert(at, used);
             }
             for (at, ty) in entry.local_types {
                 nav.local_types.insert((at.file, at.start), ty);
+            }
+            for (at, ty) in entry.local_unfolded {
+                nav.local_unfolded.insert((at.file, at.start), ty);
             }
             for (span, name, binder) in entry.locals {
                 nav.locals.push(LocalUse { span, name, binder });
@@ -3226,8 +3258,10 @@ fn read_tables(b: &mut Body, files: usize, early: usize) -> Read<Rest> {
         let mut nav = NavEntry {
             refs: Vec::new(),
             exprs: Vec::new(),
+            expr_unfolded: Vec::new(),
             call_defaults: Vec::new(),
             local_types: Vec::new(),
+            local_unfolded: Vec::new(),
             locals: Vec::new(),
             binders: Vec::new(),
             params: Vec::new(),
@@ -3256,6 +3290,12 @@ fn read_tables(b: &mut Body, files: usize, early: usize) -> Read<Rest> {
         let n = b.count()?;
         let mut prev = 0;
         for _ in 0..n {
+            nav.expr_unfolded
+                .push((b.span_after(&mut prev)?, b.string()?));
+        }
+        let n = b.count()?;
+        let mut prev = 0;
+        for _ in 0..n {
             nav.call_defaults
                 .push((b.span_after(&mut prev)?, b.string()?));
         }
@@ -3263,6 +3303,12 @@ fn read_tables(b: &mut Body, files: usize, early: usize) -> Read<Rest> {
         let mut prev = 0;
         for _ in 0..n {
             nav.local_types
+                .push((b.span_after(&mut prev)?, b.string()?));
+        }
+        let n = b.count()?;
+        let mut prev = 0;
+        for _ in 0..n {
+            nav.local_unfolded
                 .push((b.span_after(&mut prev)?, b.string()?));
         }
         for uses in [&mut nav.locals, &mut nav.binders] {
