@@ -32263,15 +32263,17 @@
     {
       "id": 3006,
       "title": "[Sonnet] SW-2981 review L-c: a group-level refusal (kernel::define_group fails, e.g. g's call not decreasing) is attributed to members[0] (lib.rs group: out.push((members[0].0, d))), so f gets the stand-in and g's users are told they need f; attribute by the member whose span holds the primary label, or treat all members as having the error",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-3006",
       "labels": [],
       "epic": "diagnostics",
-      "body": "",
+      "body": "\nModel result: Sonnet, worked, 20 min (est. 45)",
       "created": "2026-11-12",
       "updated": "2026-11-12",
-      "commits": []
+      "commits": [
+        "eccb337bb"
+      ]
     },
     {
       "id": 3007,
@@ -32281,7 +32283,7 @@
       "where": "",
       "labels": [],
       "epic": "diagnostics",
-      "body": "",
+      "body": "\nAlso from SW-3006: in a group where only g has an error, the summary still says '2 errors: in B.f and B.g' (own flag per member in note_error_source).",
       "created": "2026-11-12",
       "updated": "2026-11-12",
       "commits": []
