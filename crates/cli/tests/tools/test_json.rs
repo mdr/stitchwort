@@ -550,6 +550,27 @@ fn a_member_of_a_failed_group_without_an_error_is_not_blamed_for_the_others() {
     );
 }
 
+/// SW-2981 (L-d): in a group, `f`'s only error is a name `A`'s syntax error
+/// lost (said on the import) and `g` has a type error. What uses them is
+/// told it needs `g`, at `g`'s error, not `f` or the lost name.
+#[test]
+fn a_group_with_a_lost_name_in_one_member_and_an_error_in_another_blames_the_error() {
+    let importer = "namespace B\n\nimport A (beats)\n\n\
+        def f: (n: Nat) -> Nat\n  | 0 => beats 0\n  | Succ k => g k\n\n\
+        def g: (n: Nat) -> Nat\n  | 0 => 0\n  | Succ k => f \"x\"\n\n\
+        theorem usesF (h: f 1 = 1): 1 = 1 := rfl\n\ntest \"t\" := True\n";
+    let dir = source_project("lost-and-error", LIB_WITH_A_SYNTAX_ERROR, importer);
+    let (_, stderr, _) = project_tests(&dir, &["--no-cache"]);
+    let _ = std::fs::remove_dir_all(&dir);
+    assert!(stderr.contains("B.usesF"), "{stderr}");
+    assert!(stderr.contains("needs `g` ("), "{stderr}");
+    assert!(stderr.contains("b.sw:11:"), "{stderr}");
+    assert!(
+        !stderr.contains("needs `f`") && !stderr.contains("needs `beats`"),
+        "{stderr}"
+    );
+}
+
 /// SW-2944: the import's "the error is here" label is exactly where the
 /// failed declaration's first error is reported, not at the declaration's
 /// name. Covers a type error late in the body and a syntax error there.

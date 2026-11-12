@@ -675,6 +675,15 @@ impl Elaborator {
         diagnostics
     }
 
+    /// Whether `d` is an error of the declaration's own, not one that
+    /// reports something else's failure (what it uses, or a name a failed
+    /// import lost).
+    fn is_own_error(&self, d: &Diagnostic) -> bool {
+        d.severity == Severity::Error
+            && !matches!(d.code, "E-FAILED-DEPENDENCY" | "E-USES-FAILED")
+            && !self.lost_to_a_failed_import(d)
+    }
+
     /// Whether `d` is `E-UNKNOWN-NAME` for a name an import that failed
     /// (and was reported there) would have brought: a named item, or one
     /// of a failed `(..)` import written in a file that has one. What
@@ -721,15 +730,10 @@ impl Elaborator {
         component: &[usize],
         found: &[(usize, Diagnostic)],
     ) {
-        let errors = || found.iter().filter(|(_, d)| d.severity == Severity::Error);
+        let own: Vec<&(usize, Diagnostic)> =
+            found.iter().filter(|(_, d)| self.is_own_error(d)).collect();
         // The positions of the declarations with an error of their own.
-        let own_at: Vec<usize> = errors()
-            .filter(|(_, d)| {
-                !matches!(d.code, "E-FAILED-DEPENDENCY" | "E-USES-FAILED")
-                    && !self.lost_to_a_failed_import(d)
-            })
-            .map(|(p, _)| *p)
-            .collect();
+        let own_at: Vec<usize> = own.iter().map(|(p, _)| *p).collect();
         if own_at.is_empty() {
             return;
         }
@@ -760,8 +764,8 @@ impl Elaborator {
             let Some(&(Global::Def(failed), _)) = self.scope.stored(&key) else {
                 continue;
             };
-            let at = (errors().find(|(p, _)| *p == items[i].position))
-                .or_else(|| errors().next())
+            let at = (own.iter().find(|(p, _)| *p == items[i].position))
+                .or_else(|| own.first())
                 .and_then(|(_, d)| d.primary_span())
                 .unwrap_or(name.span);
             let saved = self.kernel.machine.budget.start(self.options.limits);
@@ -1259,16 +1263,16 @@ impl Elaborator {
             Some((name.to_string(), (name.to_string(), d.primary_span()), None))
         });
         // The member of a group whose error it is, not just the first.
-        let at = found
-            .iter()
-            .find(|(_, d)| d.severity == Severity::Error)
-            .map(|(position, _)| *position);
+        let own_first = found.iter().find(|(_, d)| self.is_own_error(d));
         let owner = (component.iter().copied())
-            .find(|i| Some(items[*i].position) == at)
+            .find(|i| own_first.is_some_and(|(position, _)| items[*i].position == *position))
             .unwrap_or(component[0]);
         let source = match &used {
             Some((_, source, _)) => source.clone(),
-            None => (module.items[owner].name.clone(), first.primary_span()),
+            None => (
+                module.items[owner].name.clone(),
+                own_first.map_or(*first, |(_, d)| d).primary_span(),
+            ),
         };
         let own = !only_dependencies || used.is_none();
         let namespace = self.unit.module.namespace.clone().unwrap_or_default();

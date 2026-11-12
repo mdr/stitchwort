@@ -533,3 +533,29 @@ fn audit_fails_for_an_error_elsewhere_even_if_every_theorem_passes() {
         "{stdout}"
     );
 }
+
+/// A failed import leaves declarations that wait, none with an error of
+/// their own to count; the audit still fails, for a file and a project.
+#[test]
+fn an_audit_with_a_failed_import_does_not_exit_0() {
+    let source = "namespace A\n\nimport Missing (..)\n\ndef f: Nat := helper 1\n\n\
+                  theorem clean (n: Nat): n + 0 = n := omega\n";
+    let (code, out) = audit_file("failed-import", source, &["--json"]);
+    assert_eq!(code, 1, "{out}");
+    assert!(
+        out.contains("\"ok\":false") || out.contains("\"ok\": false"),
+        "{out}"
+    );
+    let dir = folder("failed-import-project");
+    std::fs::create_dir_all(dir.join("src")).unwrap();
+    std::fs::write(dir.join("stitchwort.yaml"), "sources: [src]\n").unwrap();
+    std::fs::write(dir.join("src/a.sw"), source).unwrap();
+    let output = stitchwort(&dir, &["audit", "--json"]);
+    let _ = std::fs::remove_dir_all(&dir);
+    let out = String::from_utf8(output.stdout).unwrap();
+    assert_eq!(output.status.code(), Some(1), "{out}");
+    assert!(
+        out.contains("\"ok\":false") || out.contains("\"ok\": false"),
+        "{out}"
+    );
+}
