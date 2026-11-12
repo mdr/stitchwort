@@ -246,12 +246,15 @@ theorem rockBeatsOnlyScissors (theirs: Move) (h: beats Rock theirs): theirs = Sc
 --
 -- The goal is false, but so is `h`: in this arm, `h` says rock beats
 -- rock, which computes to `False = True`. This case can't happen, and the
--- proof says so in two steps. `Bool.falseNotTrue h` turns the impossible
--- `h` into a value of `Void`, the type with no values at all; and
--- `Void.exfalso` turns a `Void` into a proof of anything, since it can
--- never be called. Hover over each to read its statement. They live in
--- the library's `Bool` and `Void` namespaces, which is what the line
--- `import Std (Bool, Void)` at the top of the file is for.
+-- proof says so in two steps. `Bool.falseNotTrue` states `False ≠ True`,
+-- and `a ≠ b` is short for `a = b -> Void`: a function that takes a proof
+-- of `a = b` and gives back a value of `Void`, the type with no values at
+-- all. So `Bool.falseNotTrue h`, the function applied to `h`'s proof of
+-- `False = True`, is a `Void`. Then `Void.exfalso` turns a `Void` into a
+-- proof of anything, since there is never a `Void` to give it. Hover over
+-- each to read its statement. They live in the library's `Bool` and `Void`
+-- namespaces, which is what the line `import Std (Bool, Void)` at the top
+-- of the file is for.
 
 -- ## 2.6 `cases`: all of this in one word
 --

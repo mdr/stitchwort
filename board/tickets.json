@@ -1,5 +1,5 @@
 {
-  "next": 2983,
+  "next": 2984,
   "tickets": [
     {
       "id": 47,
@@ -31889,6 +31889,19 @@
     {
       "id": 2982,
       "title": "[DeepSeek] Playground: links to a line in a project's file (Matt, 12 Nov 2026): #<entry>:<line> opens the entry's file at that line (#book/2:167), #<entry>:<path>:<line> another file of the project (#book/2:src/Book/Chapter1.sw:30); the cursor goes to the line, which is scrolled into view and briefly highlighted; a 'Copy link to this line' action (editor context menu or gutter) and the address bar follow the cursor's line without new history entries; bad paths or lines open the entry with a notice. Format pending D3533",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "editor-playground",
+      "body": "",
+      "created": "2026-11-12",
+      "updated": "2026-11-12",
+      "commits": []
+    },
+    {
+      "id": 2983,
+      "title": "[Sonnet] Hover on a name whose statement is a ≠ (or ¬) also shows what it unfolds to: 'False ≠ True' then 'that is, False = True -> Void' (Matt, 12 Nov 2026, reading book chapter 2: not clear how falseNotTrue h is a Void); playground and VS Code",
       "status": "backlog",
       "agent": "",
       "where": "",
