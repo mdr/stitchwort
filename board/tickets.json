@@ -32374,15 +32374,17 @@
     {
       "id": 3013,
       "title": "[Sonnet] Readings follow-ups (SW-2992): a method-form reading (x.ok) is matched to every module function with that last name, adding harmless extra ordering edges: resolve by receiver type where known; std gets no reading edges and relies on being written in reading order: add a check (a std reading used before it's declared is a std test failure) or give std the edges too",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "\n\nLane notes: dot readings now resolve to T.m via the receiver's written parameter type (fallback: all functions with that last name, harmless); reading_edges now also runs for the library (hash_stability, builtins unchanged), which is the std guard. Commit b75bc9f69.\n",
       "created": "2026-11-12",
       "updated": "2026-11-12",
-      "commits": []
+      "commits": [
+        "b75bc9f69"
+      ]
     },
     {
       "id": 3014,
