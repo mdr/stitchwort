@@ -1,5 +1,5 @@
 {
-  "next": 3048,
+  "next": 3050,
   "tickets": [
     {
       "id": 47,
@@ -32846,6 +32846,32 @@
     {
       "id": 3047,
       "title": "[Sonnet] Guard small stacks: a test that checks std at a 2 MiB stack (the browser playground's budget, or the real playground limit) in the build the tests use, so a new deep std proof fails at once (SW-3035 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
+      "body": "",
+      "created": "2026-11-12",
+      "updated": "2026-11-12",
+      "commits": []
+    },
+    {
+      "id": 3048,
+      "title": "[Sonnet] Three debug-only failures in crates/elab/src/queue.rs unit tests: an_undone_attempt_restores_the_placeholder_syntax, …_unfilled_placeholders, …_waiting_literals hit the debug assertion 'an item waits again only on an unknown head' (queue.rs ~1398); pre-existing (SW-3045 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
+      "body": "",
+      "created": "2026-11-12",
+      "updated": "2026-11-12",
+      "commits": []
+    },
+    {
+      "id": 3049,
+      "title": "[Sonnet] No tier runs std's own tests (or any elaborator tests) in a debug build, so debug_assert invariants (invariant 6, queue.rs) go unnoticed: add a debug-build run of std_library and the elab unit tests to the daily tier (SW-3045 finding)",
       "status": "backlog",
       "agent": "",
       "where": "",
