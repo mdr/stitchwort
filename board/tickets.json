@@ -1,5 +1,5 @@
 {
-  "next": 3041,
+  "next": 3044,
   "tickets": [
     {
       "id": 47,
@@ -32751,6 +32751,45 @@
     {
       "id": 3040,
       "title": "[Sonnet] Check the check cache replays W-DECISION-TEST and other post-definition warnings for declarations loaded from the cache (SW-3031 finding 5)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "diagnostics",
+      "body": "",
+      "created": "2026-11-12",
+      "updated": "2026-11-12",
+      "commits": []
+    },
+    {
+      "id": 3041,
+      "title": "[Sonnet] Stuck decisions: a decision stuck on an unknown inside it (not at its head) is read as P, against §5.6's spirit; and d.holds with gluing off and no written type, or a field of an opaque decision's call, stay leaves (SW-3031 review L1, L2)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "diagnostics",
+      "body": "",
+      "created": "2026-11-12",
+      "updated": "2026-11-12",
+      "commits": []
+    },
+    {
+      "id": 3042,
+      "title": "[Sonnet] W-DECISION-TEST never checks equality propositions (the head helper returns nothing for =), missing §13's main == case (SW-3031 review L3)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "diagnostics",
+      "body": "",
+      "created": "2026-11-12",
+      "updated": "2026-11-12",
+      "commits": []
+    },
+    {
+      "id": 3043,
+      "title": "[Sonnet] W-DECREASING-UNFOLD (decreasing.rs ~1490) and warnings from generated definitions (lib.rs ~2594, ~2634) carry over to the next declaration's drain (SW-3031 review L4)",
       "status": "backlog",
       "agent": "",
       "where": "",
