@@ -603,6 +603,19 @@ impl Elaborator {
                 // A proof that is wholly `?`, checked assuming its goal.
                 self.note_counterexample(&items[component[0]], &mut diagnostics[before..]);
             }
+            // A refusal of a whole group is held by each member (so each
+            // is blamed for it), and reported once.
+            if component.len() > 1 {
+                let mut kept: Vec<(usize, Diagnostic)> = Vec::new();
+                for (p, d) in diagnostics.split_off(before) {
+                    let once = d.severity == Severity::Error
+                        && kept.iter().any(|(q, k)| *q != p && *k == d);
+                    if !once {
+                        kept.push((p, d));
+                    }
+                }
+                diagnostics.extend(kept);
+            }
             // A data type's `Ord`, waiting for its module's own `DecEq`
             // instance, once that instance is checked.
             if !self.unit.module.ord_after_dec_eq.is_empty() {
@@ -1278,6 +1291,17 @@ impl Elaborator {
         let own = !only_dependencies || used.is_none();
         let namespace = self.unit.module.namespace.clone().unwrap_or_default();
         for &i in component {
+            // In a group, a member with an error of its own is what its
+            // users wait for, at that error.
+            let own_here = found
+                .iter()
+                .find(|(position, d)| *position == items[i].position && self.is_own_error(d));
+            let source = match (&used, own_here) {
+                (None, Some((_, d))) if component.len() > 1 => {
+                    (self.unit.module.items[i].name.clone(), d.primary_span())
+                }
+                _ => source.clone(),
+            };
             self.unit.module.error_sources.insert(i, source.clone());
             if let Some((_, _, Some(key))) = &used {
                 self.unit.module.waits_elsewhere.insert(i, key.clone());
