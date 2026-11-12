@@ -32481,12 +32481,12 @@
     {
       "id": 3020,
       "title": "[Sonnet] std has deletable arms again (~80 W-UNREACHABLE at work 100000, e.g. Bool.andIntro's | False => cases; std's warnings are dropped so nobody sees them): delete them, and add a builtins-style test that std loads with no W-UNREACHABLE so it stays clean (SW-3016 finding)",
-      "status": "doing",
-      "agent": "DeepSeek",
+      "status": "review",
+      "agent": "Sonnet",
       "where": ".claude/worktrees/scratch-sw-3020",
       "labels": [],
       "epic": "std-library",
-      "body": "",
+      "body": "Progress (Sonnet lane, 12 Nov 2026): DeepSeek's commit finished. 304 unreachable arms deleted across std; the test-only bypass removed (std loads normally in the_library_has_no_unreachable_arms); Float.neg/abs/sub repinned (only dependencies' proofs lost unreachable arms); keep_arms for `match reify` confirmed right and pinned by examples/accept/reify-clause-not-deletable.sw; Set.foldAll is `rfl` (its inner matches never discriminated). Findings: deletable_arms offers required reify clauses, and offers both arms of a no-op `match` on Set.foldAll's shape; small_programs_load_only_the_library_files_they_can_use fails (Logic/Decidable now load, likely SW-3029's readings, not this lane).\n",
       "created": "2026-11-12",
       "updated": "2026-11-12",
       "commits": []
