@@ -35,11 +35,9 @@ theorem pairHeight (depth: Nat) (left: Number) (right: Number) (exploded: Explos
 
 theorem explodeHeight (depth: Nat) (number: Number) (exploded: Explosion) (some: explode depth number = Some exploded): height exploded.number ≤ height number :=
   match number with
-    | Regular _ => Void.exfalso (Option.noneNotSome exploded some)
     | Pair (Regular a) (Regular b) =>
       match deep: Nat.leq 4 depth with
         | True => rewrite <- Option.someInjective some in omega
-        | False => Void.exfalso (Option.noneNotSome exploded some)
     | Pair (Regular a) (Pair x y) =>
       pairHeight depth (Regular a) (Pair x y) exploded cases some
         (e found => explodeHeight (depth + 1) (Regular a) e found) (e found => explodeHeight (depth + 1) (Pair x y) e found)
@@ -52,11 +50,9 @@ theorem splitHeight (number split2: Number) (some: split number = Some split2): 
     | Regular value =>
       match Nat.leq 10 value with
         | True => rewrite <- Option.someInjective some in omega
-        | False => Void.exfalso (Option.noneNotSome split2 some)
     | Pair left right =>
       match el: split left with
         | Some left2 => rewrite <- Option.someInjective some in omega [splitHeight left left2 el]
         | None =>
           match er: split right with
             | Some right2 => rewrite <- Option.someInjective some in omega [splitHeight right right2 er]
-            | None => Void.exfalso (Option.noneNotSome split2 some)

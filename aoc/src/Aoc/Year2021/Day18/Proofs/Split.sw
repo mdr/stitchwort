@@ -23,10 +23,8 @@ theorem splitNoneLeaves (depth: Nat): ∀ (number: Number) => split number = Non
   | Regular value, none, rest => cases
   | Pair left right, none, rest =>
     match el: split left with
-      | Some _ => Void.exfalso (Option.someNotNone _ none)
       | None =>
         match er: split right with
-          | Some _ => Void.exfalso (Option.someNotNone _ none)
           | None =>
             rewrite List.appendAssoc (leaves (depth + 1) left) (leaves (depth + 1) right) rest, splitNoneLeaves (depth + 1) left el (leaves (depth + 1) right ++ rest),
               splitNoneLeaves (depth + 1) right er rest in
@@ -38,7 +36,6 @@ theorem splitSomeLeaves (depth: Nat): ∀ (number split2: Number) => split numbe
   | Regular value, split2, some, rest =>
     match Nat.leq 10 value with
       | True => rewrite <- Option.someInjective some in rfl
-      | False => Void.exfalso (Option.noneNotSome split2 some)
   | Pair left right, split2, some, rest =>
     match el: split left with
       | Some left2 =>
@@ -51,7 +48,6 @@ theorem splitSomeLeaves (depth: Nat): ∀ (number split2: Number) => split numbe
             rewrite <- Option.someInjective some in
               rewrite List.appendAssoc (leaves (depth + 1) left) (leaves (depth + 1) right) rest, splitNoneLeaves (depth + 1) left el (leaves (depth + 1) right ++ rest),
                 splitSomeLeaves (depth + 1) right right2 er rest, List.appendAssoc (leaves (depth + 1) left) (leaves (depth + 1) right2) rest in rfl
-          | None => Void.exfalso (Option.noneNotSome split2 some)
 
 --| At the top.
 theorem splitSome (number: Number) (split2: Number) (some: split number = Some split2): splitLeaves (leaves 0 number) = Some (leaves 0 split2) :=

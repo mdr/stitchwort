@@ -15,7 +15,6 @@ theorem differ (x: Cave) (y: Cave) (ne: x ≠ y): (x == y) = False :=
 --| Looking a cave up in a table built from a list of caves.
 theorem lookupBuilt (f: Cave → List Cave) (cave: Cave) (cs: List Cave) (member: cave ∈ cs): List.lookup (cs.map (c => (c, f c))) cave = Some (f cave) :=
   match cs with
-    | [] => Void.exfalso member
     | [c, ..rest] =>
       match e: c == cave with
         | True => rewrite DecEq.sound e in rfl
@@ -71,8 +70,7 @@ theorem neighboursOfMem (passages: List Passage) (cave: Cave) (y: Cave): y ∈ n
                 | True =>
                   match inEdge with
                     | Inl same => List.anyOfMem passages _ { from, to } (rewrite fc, tc, <- same, DecEq.refl from in rfl) member
-                    | Inr nothing => Void.exfalso nothing
-                | False => Void.exfalso inEdge),
+                    | Inr nothing => Void.exfalso nothing),
   backward = joined =>
     let leadsTo := passage => passage.leadsTo cave
     List.anyTrueElim passages (passage => passage.connects cave y) _ joined (edge member joins =>

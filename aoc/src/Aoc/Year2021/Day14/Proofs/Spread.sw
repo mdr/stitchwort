@@ -12,7 +12,6 @@ import Std (Bool, DecEq, Eq, Exists, Iff, List, Map, Nat, Option, Ord, Void)
 --| A sum with a positive term has a member that gives it.
 theorem sumByPositive (f: a → Nat) (xs: List a) (positive: 0 < xs.sumBy f): ∃ (x: a) => x ∈ xs ∧ 0 < f x :=
   match xs with
-    | [] => Void.exfalso omega
     | [x, ..rest] =>
       if h: 0 < f x then Witness x (Both (Inl rfl) h)
       else

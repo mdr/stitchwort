@@ -37,7 +37,6 @@ theorem part1Correct (depths: List Nat): solvePart1 depths = increases depths :=
 theorem windowsLong (m: Nat) (xs: List Nat) (h: m < xs.length):
     slidingWindows (Succ m) xs = [xs.take (Succ m), ..slidingWindows (Succ m) (xs.drop 1)] :=
   match xs with
-    | [] => cases
     | [x, ..rest] =>
       List.filterKeep _ _ _ (rewrite List.lengthTake rest m (omega [h]) in DecEq.refl (Succ m))
 

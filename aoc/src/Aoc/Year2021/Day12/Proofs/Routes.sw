@@ -20,7 +20,6 @@ def Follows (next: Cave → List Cave) (unvisited: List Cave) (spare: Bool) (cav
 theorem routesFollow (next: Cave → List Cave) (unvisited: List Cave) (spare: Bool) (cave: Cave)
     (steps: Nat) (rest: List Cave) (found: rest ∈ routesFrom next unvisited spare cave steps): Follows next unvisited spare cave rest :=
   match steps with
-    | Zero => Void.exfalso found
     | Succ more =>
       List.anyElim _ _ (next cave) (List.memConcatMapElim _ rest (next cave) found) (other member inOther =>
         Exists.elim (List.memMapElim (Cons other) rest _ inOther) (tail both =>
@@ -31,7 +30,6 @@ theorem routesFollow (next: Cave → List Cave) (unvisited: List Cave) (spare: B
                 match inTail with
                   | Inl empty => rewrite <- empty in Both member rfl
                   | Inr nothing => Void.exfalso nothing
-              | Blocked => Void.exfalso inTail
               | Continue left stillSpare => Both member (routesFollow next left stillSpare other more tail inTail)))
 
 --| ...and every route that follows them is listed, if the search goes deep
@@ -39,13 +37,11 @@ theorem routesFollow (next: Cave → List Cave) (unvisited: List Cave) (spare: B
 theorem followRoutes (next: Cave → List Cave) (unvisited: List Cave) (spare: Bool) (cave: Cave)
     (steps: Nat) (rest: List Cave) (enough: reach unvisited spare cave < steps) (follows: Follows next unvisited spare cave rest): rest ∈ routesFrom next unvisited spare cave steps :=
   match steps, rest, follows with
-    | Zero, rest, follows => Void.exfalso (omega)
     | Succ more, [], follows => Void.exfalso follows
     | Succ more, [other, ..tail], Both member after =>
       List.memConcatMapIntro _ other [other, ..tail] (next cave) member
         (match e: step unvisited spare cave other with
           | Finish => rewrite after in Inl rfl
-          | Blocked => Void.exfalso after
           | Continue left stillSpare =>
             List.memMap _ tail (followRoutes next left stillSpare other more tail (omega [stepDecreases unvisited spare cave other left stillSpare e]) after) (Cons other))
 

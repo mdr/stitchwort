@@ -67,13 +67,11 @@ theorem framesBalanced (base: List Token): ∀ (frames: List (Bracket, List Toke
   | [], ok, [Closer closer, ..rest], h => cases
   | [(bracket, piece)], Both inner ok, [Closer closer, ..rest], h =>
     match same: bracket == closer with
-      | False => cases
       | True =>
         let next := framesBalanced (base ++ [Opener bracket, ..piece ++ [Closer bracket]]) [] (Concat ok (Wrap bracket inner)) rest h
         rewrite <- DecEq.sound same, closeShape base (Opener bracket) piece (Closer bracket) rest in next
   | [(bracket, piece), (outer, outerPiece), ..frames], Both inner (Both outerOk ok), [Closer closer, ..rest], h =>
     match same: bracket == closer with
-      | False => cases
       | True =>
         let closed := [Opener bracket, ..piece ++ [Closer bracket]]
         let next := framesBalanced base [(outer, outerPiece ++ closed), ..frames] (Both (Concat outerOk (Wrap bracket inner)) ok) rest h

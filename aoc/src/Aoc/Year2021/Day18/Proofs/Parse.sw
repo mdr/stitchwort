@@ -27,13 +27,11 @@ theorem findUnreducedNone (i: Nat) (numbers: List Number) (none: List.findIndexF
     | [x, ..rest] =>
       match e: reduced 0 x with
         | True => Both (reducedLeaves 0 x omega e) (findUnreducedNone (Succ i) rest none)
-        | False => Void.exfalso (Option.someNotNone i none)
 
 --| `checkNumbers` passes its numbers on unchanged, and only if all are
 --| reduced.
 theorem checkNumbersOk (numbers: List Number) (checked: List Number) (h: Fail.toResult (() => checkNumbers numbers) = Ok checked): List.All IsReduced checked :=
   match e: firstUnreduced numbers with
-    | Some _ => Void.exfalso (Result.errNotOk h)
     | None => rewrite <- Result.okInjective h in findUnreducedNone 0 numbers e
 
 --| Whatever reads the numbers, `checkNumbers` passes on only reduced ones.

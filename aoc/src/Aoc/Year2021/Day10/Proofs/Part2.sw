@@ -26,11 +26,9 @@ theorem completesOfUnclosed [line: List Token] [stack: List Bracket] (h: scan []
 theorem closersExact (stack closers: List Bracket) (h: scan stack (closers.map Closer) = Unclosed []): closers = stack :=
   match stack, closers with
     | stack, [] => Eq.sym (unclosedInjective stack [] h)
-    | [], [closer, ..rest] => cases
     | [top, ..below], [closer, ..rest] =>
       match same: top == closer with
         | True => rewrite closersExact below rest h, DecEq.sound same in rfl
-        | False => cases
 
 --| Any completion of a line is what its scan leaves open.
 theorem completionIsOpen (line: List Token) (stack: List Bracket) (open: scan [] line = Unclosed stack) (closers: List Bracket) (completes: Completes line closers):
@@ -96,7 +94,6 @@ theorem filterMapNotNil (f: a → Option b) (x: a) (y: b) (kept: f x = Some y): 
   | [z, ..rest], Inr later, empty =>
     match f z with
       | None => filterMapNotNil f x y kept rest later empty
-      | Some w => cases
 
 --| Part 2 is the middle completion score, for every list of lines with at
 --| least one incomplete line.

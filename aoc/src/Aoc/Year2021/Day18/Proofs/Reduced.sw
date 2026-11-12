@@ -14,14 +14,11 @@ theorem leavesSmall (depth: Nat) (number: Number) (shallow: depth + height numbe
   match number with
     | Regular value =>
       match small: Nat.leq 10 value with
-        | True => Void.exfalso (Option.someNotNone _ none)
         | False => Both (Both shallow omega) Trivial
     | Pair left right =>
       match el: split left with
-        | Some _ => Void.exfalso (Option.someNotNone _ none)
         | None =>
           match er: split right with
-            | Some _ => Void.exfalso (Option.someNotNone _ none)
             | None =>
               List.allAppend _ (leaves (depth + 1) left) (leaves (depth + 1) right) (leavesSmall (depth + 1) left omega el) (leavesSmall (depth + 1) right omega er)
 
