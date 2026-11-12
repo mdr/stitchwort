@@ -208,6 +208,43 @@ fn a_failed_declaration_stops_only_what_uses_it() {
     assert_eq!(found.len(), 4, "{found:#?}");
 }
 
+/// SW-2943: the load says which declarations have an error and which wait
+/// for one, by full name, with what each needs.
+#[test]
+fn the_errors_of_a_load_name_what_has_one_and_what_waits() {
+    let lib =
+        "namespace Lib\n\ndef f: Nat := True\n\ndef k: Nat := 1\n\ntheorem wrong: k = 2 := rfl\n";
+    let day = "namespace Day\n\nimport Lib (f, k)\n\ndef g: Nat := f\n\ntheorem tg: g = 1 := rfl\n\ntest \"own\" := k == True\n\ntest \"uses g\" := g == 1\n\ntest \"fine\" := k == 1\n";
+    let (session, result) = load_target(&[("lib.sw", lib), ("day.sw", day)], &Target::Everything);
+    assert!(result.is_err());
+    let errors = session.errors();
+    let has: Vec<&str> = errors.has.iter().map(|e| e.declaration.as_str()).collect();
+    assert_eq!(has, ["Lib.f", "Lib.wrong", "Day.test \"own\""]);
+    assert_eq!(errors.has[0].place(), "proj/lib.sw:3:15");
+    let waiting: Vec<(&str, bool, bool, String)> = (errors.waiting.iter())
+        .map(|w| (w.name.as_str(), w.theorem, w.test, w.needs.describe()))
+        .collect();
+    assert_eq!(
+        waiting,
+        [
+            ("Day.g", false, false, "`f` (proj/lib.sw:3:15)".to_string()),
+            ("Day.tg", true, false, "`f` (proj/lib.sw:3:15)".to_string()),
+            (
+                "Day.test \"uses g\"",
+                false,
+                true,
+                "`f` (proj/lib.sw:3:15)".to_string()
+            ),
+        ]
+    );
+    // The tests that fail without running: the one with its own error, and
+    // the one that waits.
+    let own = (session.elab.broken_tests().iter())
+        .map(|t| (t.name.as_str(), t.own))
+        .collect::<Vec<_>>();
+    assert_eq!(own, [("own", true), ("uses g", false)]);
+}
+
 #[test]
 fn identical_types_in_two_namespaces_hash_differently() {
     let ty = |ns: &str| format!("namespace {ns}\n\ntype T: Type =\n  | MkT (n: Nat)\n");
