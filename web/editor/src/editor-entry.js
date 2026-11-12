@@ -750,9 +750,16 @@ export class Editor {
     if (!plugin || this.std) return false;
     this.closePick();
     plugin.client.sync();
-    const { from, to } = view.state.selection.main;
     const notice = this.options.onNotice;
     notice?.("Looking for code actions…");
+    // The server offers actions from the goals it last published, and a
+    // project's check can take seconds: wait for the text as it is now, or a
+    // `?` just typed would have no goal yet.
+    if (!(await this.settled(plugin.uri))) {
+      notice?.("The language server has stopped");
+      return true;
+    }
+    const { from, to } = view.state.selection.main;
     let actions;
     const start = plugin.toPosition(from);
     const end = plugin.toPosition(to);

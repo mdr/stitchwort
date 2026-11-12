@@ -766,6 +766,45 @@ test("the goals panel shows the goal at the cursor, and follows it", async (page
   await page.until(`document.getElementById("goalpanel").innerText.includes("two = 2")`, 30000, "the expected type at rfl");
 });
 
+test("the book's chapter 2 shows a ?'s goal in the panel", async (page) => {
+  await page.open({ hash: "#book/2" });
+  await page.until(`document.getElementById("example").value === "book:2" &&
+    window.editor.value.includes("theorem noAndAnything")`, 60000, "the book's chapter 2");
+  const text = await sourceText(page);
+  const line = "theorem noAndAnything (b: Answer): both No b = No := rfl";
+  assert.ok(text.includes(line), text.slice(0, 80));
+  await page.setSource(text.replace(line, line.slice(0, -"rfl".length) + "?"));
+  await caretAt(page, "both No b = No := ?", "both No b = No := ?".length - 1);
+  await page.until(`document.getElementById("goalpanel").innerText.includes("⊢ both No b = No")`, 180000, "the goal at the ?");
+  const panel = await page.ev(`document.getElementById("goalpanel").innerText`);
+  assert.match(panel, /b: Answer/);
+  assert.match(panel, /⊢ both No b = No/);
+  assert.match(panel, /computes to No = No/);
+}, { ms: 240000 });
+
+test("a code action on the book's chapter 2 splits the theorem on b", async (page) => {
+  await page.open();
+  await page.untilChecked();
+  await page.ev(`location.hash = "#book/2"`);
+  await page.until(`document.getElementById("example").value === "book:2" &&
+    window.editor.value.includes("theorem noAndAnything")`, 60000, "the book's chapter 2");
+  const text = await sourceText(page);
+  const line = "theorem noAndAnything (b: Answer): both No b = No := rfl";
+  assert.ok(text.includes(line), text.slice(0, 80));
+  await page.setSource(text.replace(line, line.slice(0, -"rfl".length) + "?"));
+  const hole = "both No b = No := ?";
+  await caretAt(page, hole, hole.length - 1);
+  await page.key(".", "Period", 190, { modifiers: CMD });
+  await page.until(`document.querySelector(".pick-panel") !== null`, 60000, "the code actions");
+  const titles = await page.ev(`window.editor.lastCodeActions`);
+  assert.ok(titles.includes("Split on `b`"), titles.join());
+  assert.ok(titles.includes("Search for a proof"), titles.join());
+  await page.ev(`[...document.querySelectorAll(".pick-item")].find((b) => b.textContent.includes("Split on \`b\`")).click()`);
+  await page.until(`window.editor.value.includes("match b with")`, 30000, "the split");
+  assert.match(await sourceText(page),
+    /theorem noAndAnything \(b: Answer\): both No b = No := match b with\n  \| Yes => \?\n  \| No => \?\n  \| Unknown => \?/);
+}, { ms: 240000 });
+
 test("the goals panel shows the goal at a rewrite step in a proof with no ?", async (page) => {
   const panel = () => page.ev(`document.getElementById("goalpanel").innerText`);
   const caretAt = (needle) => page.ev(`(() => { const e = window.editor; e.focus(); const i = e.value.indexOf(${JSON.stringify(needle)}); e.setSelectionRange(i, i); return i; })()`);
