@@ -44,6 +44,7 @@ theorem doubleFour: double 4 = 9 := rfl
    │           left:  8
    │           right: 9
 ───╯
+1 error: in `doubleFour`
 ```
 
 The last note comes from a **counterexample search**: when a proof fails, the checker also tries the statement itself on inputs, small ones first, then random ones. Here there are no inputs to try, and the statement computes to false, so no proof could work. A search that finds nothing says nothing.
@@ -83,6 +84,7 @@ theorem timesOne (n: Nat): n * 1 = n := match n with
    │               ─────┬────
    │                    ╰────── expected `k * 1 + 1 = Succ k`, but this has type `k * 1 = k`
 ───╯
+1 error: in `timesOne`
 ```
 
 ## Goals: `?`
@@ -227,6 +229,7 @@ theorem roomForOne (x: Nat) (y: Nat) (before: x ≤ y) (limit: y ≤ 10): x + 1 
    │         `y ≤ 10` holds
    │         `x + 1 ≤ 10` is false
 ───╯
+1 error: in `roomForOne`
 ```
 
 With `x = 10`, `x + 1 <= 10` is false: the hypothesis needs to be `x < y`. Note 3 is `omega`'s own model, which may not be real; Note 4 is from the counterexample search, which ran the statement on those values and found every hypothesis true and the conclusion false, so the theorem as written is false.
@@ -273,6 +276,7 @@ theorem squareOfSum (a: Int) (b: Int): (a + b) * (a + b) = a * a + b * b := ring
    │           left:  4
    │           right: 2
 ───╯
+1 error: in `squareOfSum`
 ```
 
 A hypothesis can have a coefficient, any `Nat` or `Int` expression, written in front of it: `ring [4 * h]` uses `h: l = r` as `4 * l = 4 * r`, and `ring [-h]` uses it turned round. `ring` then checks that the goal's left side minus its right side is exactly the sum of each coefficient times its hypothesis's `l - r`. A hypothesis written without a `-` is also tried the other way round, so the sign is only needed when you want to say it:
@@ -312,6 +316,7 @@ theorem scaledUp (a: Int) (b: Int) (half: a = 2 * b): 4 * a = 8 * b := ring [2 *
    │
    │ Note 5: left over: `2 * a - 4 * b`, the goal's left minus its right, minus each coefficient times its hypothesis's `l - r`; it has to be 0
 ───╯
+1 error: in `scaledUp`
 ```
 
 `(ring: a = b)` states the equation, so it can be given to `rewrite`: `rewrite (ring: i + (p + q) = i + p + q)`.
@@ -361,6 +366,7 @@ theorem atMostTwo (a: Bool) (n: Nat) (h: (a ∧ n ≤ 3) = True): n ≤ 2 := cas
    │         `(a && n <= 3) = True` holds
    │         `n ≤ 2` is false
 ───╯
+1 error: in `atMostTwo`
 ```
 
 Here the case `a = True` with `n ≤ 2` false is a real counterexample, `n = 3`: the hypothesis should say `n ≤ 2`. `cases` doesn't take apart lists or numbers, which is induction (written as recursion, above), and stops at 64 cases.
@@ -719,6 +725,7 @@ theorem checksumNil: checksum [] = 0 := rfl
    │
    │ Note 3: add `unfolding checksum` after this declaration's signature, or rewrite with `checksum.unfold`
 ───╯
+1 error: in `checksumNil`
 ```
 
 A declaration that needs the body says so with `unfolding` after its type, or rewrites with the equation `checksum.unfold`:
