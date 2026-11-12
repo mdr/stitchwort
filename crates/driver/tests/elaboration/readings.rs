@@ -157,6 +157,36 @@ theorem Box.okReads (b: Box): b.ok ↔ Ok b := {
     assert_eq!(errors(source), Vec::<String>::new());
 }
 
+/// A dot reading is matched to the function its receiver's written type
+/// names: `Other.ok`, another function with the same last name, keeps
+/// reading as what it unfolds to, and `Box.ok` reads through its reading.
+#[test]
+fn a_dot_reading_is_matched_by_its_receivers_type() {
+    let source = "import Std (Bool, Nat, Iff)
+
+type Box = { n: Nat }
+
+type Other = { m: Nat }
+
+type Ok (b: Box): Prop = { small: b.n ≤ 3 }
+
+def Box.ok (b: Box): Bool := b.n <= 3
+
+def Other.ok (o: Other): Bool := o.m <= 5
+
+theorem other (o: Other) (h: o.ok): o.m ≤ 5 := h
+
+theorem below (b: Box) (h: b.ok): b.n ≤ 3 := h.read.small
+
+@[reading]
+theorem Box.okReads (b: Box): b.ok ↔ Ok b := {
+  forward = h => { small = h },
+  backward = r => r.small
+}
+";
+    assert_eq!(errors(source), Vec::<String>::new());
+}
+
 /// A lemma the reading's proof uses, about the test, is checked before the
 /// reading and reads the test as what it unfolds to, as the reading's own
 /// proof does: no cycle.

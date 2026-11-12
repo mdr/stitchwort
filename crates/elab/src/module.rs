@@ -425,11 +425,13 @@ impl Elaborator {
         self.capture_after_needs();
         // After the loads: each library file loaded sets its own.
         self.unit.omega_for_auto = self.needs_reach_omega(&needs);
+        // Readings order the library too, so a library use of a test is
+        // checked after the test's reading wherever it is written.
+        self.reading_edges();
         // The core and the library are written in an order that works,
         // instances after what the rest of them uses: their uses of syntax
         // (`if`, `<=`) refer to declarations no name does.
         if !self.unit.loading_prelude {
-            self.reading_edges();
             self.instance_edges(&items);
         }
         let order = self.components();
@@ -2147,23 +2149,41 @@ impl Elaborator {
                 .collect()
         };
         match head {
-            crate::reading::WrittenHead::Method(m) => defs(self, &|name: &str| {
-                name.rsplit('.').next() == Some(m.as_str())
-            }),
-            crate::reading::WrittenHead::Name(text) => {
-                self.unit.module.file = Some(self.unit.module.items[r].file);
-                let found = match self.resolve(text) {
-                    crate::scope::Resolved::Found {
-                        global: Global::Unchecked(j),
-                        rest,
-                        ..
-                    } if rest.is_empty() => vec![j],
-                    _ => Vec::new(),
-                };
-                self.unit.module.file = None;
-                found
+            crate::reading::WrittenHead::Method(m, receiver_type) => {
+                // The receiver's written type names the function (`T.m`).
+                // Only a checked statement says it otherwise (a receiver
+                // that is not a parameter, a nickname's namespace), and
+                // that is after the order is fixed, so those keep every
+                // function with the last name: extra edges only order a
+                // few more declarations after the reading.
+                if let Some(t) = receiver_type {
+                    let found = self.reading_function(r, &format!("{t}.{m}"));
+                    if !found.is_empty() {
+                        return found;
+                    }
+                }
+                defs(self, &|name: &str| {
+                    name.rsplit('.').next() == Some(m.as_str())
+                })
             }
+            crate::reading::WrittenHead::Name(text) => self.reading_function(r, text),
         }
+    }
+
+    /// The module's function that `text`, written in reading `r`'s file,
+    /// names, if it is one.
+    fn reading_function(&mut self, r: usize, text: &str) -> Vec<usize> {
+        self.unit.module.file = Some(self.unit.module.items[r].file);
+        let found = match self.resolve(text) {
+            crate::scope::Resolved::Found {
+                global: Global::Unchecked(j),
+                rest,
+                ..
+            } if rest.is_empty() => vec![j],
+            _ => Vec::new(),
+        };
+        self.unit.module.file = None;
+        found
     }
 
     /// The items item `from` depends on, directly or not, itself included.
