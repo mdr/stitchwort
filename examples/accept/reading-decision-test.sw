@@ -27,3 +27,18 @@ theorem isBigReads (n: Nat): isBig n ↔ Big n := { forward = h => h, backward =
 
 instance decBig (n: Nat): Decidable (Big n) :=
   { holds = isBig n, sound = (isBigReads n).forward, complete = (isBigReads n).backward }
+
+-- A reading whose proposition is a connective, decided generically by
+-- `Decidable.and` from decisions of each side, isn't paired with that
+-- decision: `Decidable.and` doesn't choose its test. No warning.
+def inRange (lo x hi: Nat): Bool := Nat.leq lo x && Nat.leq x hi
+
+@[reading]
+theorem inRangeReads (lo x hi: Nat): inRange lo x hi ↔ lo ≤ x ∧ x ≤ hi :=
+  { forward = h => h.read, backward = r => Both r.left r.right }
+
+-- Nor one whose proposition is a relation std decides (`Nat.decLessEq`).
+def atMostTen (n: Nat): Bool := Nat.leq n 10
+
+@[reading]
+theorem atMostTenReads (n: Nat): atMostTen n ↔ n ≤ 10 := { forward = h => h, backward = h => h }

@@ -1379,15 +1379,55 @@ fn reading_sides(g: &Ev, reading: DefId) -> Result<Option<(Opened, Value, Value)
         return Ok(None);
     };
     let prop = sides[1].clone();
-    Ok(Some((opened, test, prop)))
+    Ok(own_proposition(g, &prop)?.then_some((opened, test, prop)))
 }
 
-/// What instance `id` decides, if it is a decision: `p` for `Decidable p`.
+/// Whether `prop` is its head applied to the reading's parameters, each at
+/// most once, as a reading's test is to its function's (§5.3): the
+/// proposition the test decides on its own (`List.Mem x xs`, `Small n`),
+/// whose decision should test with it, rather than a connective or
+/// relation decided generically (`lo ≤ x ∧ x ≤ hi`, `n ≤ 10`).
+fn own_proposition(g: &Ev, prop: &Value) -> Result<bool> {
+    let args: Vec<Value> = match prop {
+        Value::Data(_, args) => args.to_vec(),
+        Value::Call(_, spine, _) | Value::Neutral(Head::Def(_), spine) => {
+            let mut args = Vec::new();
+            for e in spine.iter() {
+                let Elim::App(v, _) = e else {
+                    return Ok(false);
+                };
+                args.push(v.clone());
+            }
+            args
+        }
+        _ => return Ok(false),
+    };
+    let mut seen = Vec::new();
+    for arg in args {
+        match force(g, arg)? {
+            Value::Neutral(Head::Var(l, _), s) if s.is_empty() && !seen.contains(&l) => {
+                seen.push(l)
+            }
+            _ => return Ok(false),
+        }
+    }
+    Ok(true)
+}
+
+/// What instance `id` decides, if it is a decision made by its own test:
+/// `p` for `Decidable p`. `None` for one that takes a decision (as
+/// `Decidable.and` does): its test is built from the decisions it is
+/// given, which it doesn't choose.
 fn decided(g: &Ev, id: DefId) -> Result<Option<Value>> {
     let Some(decidable) = g.env.registry().data(Builtin::Decidable) else {
         return Ok(None);
     };
     let opened = opened(g, id)?;
+    for ty in &opened.types {
+        if matches!(force(g, ty.clone())?, Value::Data(d, _) if d == decidable) {
+            return Ok(None);
+        }
+    }
     Ok(match force(g, opened.ty)? {
         Value::Data(d, args) if d == decidable && args.len() == 1 => Some(args[0].clone()),
         _ => None,
@@ -1512,7 +1552,10 @@ impl Elaborator {
             let instances: Vec<DefId> = (0..g.env.defs().len())
                 .map(DefId)
                 .filter(|&id| {
-                    g.def(id).instance() && g.def(id).body().is_some() && !generated(g, id)
+                    g.def(id).instance()
+                        && g.def(id).body().is_some()
+                        && !generated(g, id)
+                        && crate::auto::visible(self, id)
                 })
                 .collect();
             let mut out = Vec::new();
@@ -1544,7 +1587,7 @@ impl Elaborator {
                 return Ok(Vec::new());
             };
             let readings: Vec<DefId> = (self.tables.readings.iter())
-                .filter(|(_, r)| r.polarity)
+                .filter(|(id, r)| r.polarity && crate::auto::visible(self, **id))
                 .map(|(id, _)| *id)
                 .collect();
             let mut out = Vec::new();

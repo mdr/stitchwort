@@ -304,7 +304,8 @@ theorem both [auto eq: DecEq a] (x y z: a) (h: (x == y && y == z) = True): x = z
 }
 
 /// A decision whose test isn't the one its proposition's reading reads is
-/// warned about, whichever is declared first (§13).
+/// warned about, whichever is declared first (§13); a reading of a
+/// connective, which `Decidable.and` decides generically, isn't.
 #[test]
 fn a_decision_with_another_test_is_warned_about() {
     let program = "import Std (Bool, Nat, Iff)
@@ -320,6 +321,12 @@ READING
 instance decSmall (n: Nat): Decidable (Small n) := { holds = smallTest n, sound = h => h, complete = h => h }
 
 LATER
+
+def inRange (lo x hi: Nat): Bool := Nat.leq lo x && Nat.leq x hi
+
+@[reading]
+theorem inRangeReads (lo x hi: Nat): inRange lo x hi ↔ lo ≤ x ∧ x ≤ hi :=
+  { forward = h => h.read, backward = r => Both r.left r.right }
 ";
     let reading = "@[reading]
 theorem isSmallReads (n: Nat): isSmall n ↔ Small n := { forward = h => h, backward = h => h }";
