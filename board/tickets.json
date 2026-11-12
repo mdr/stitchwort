@@ -1,5 +1,5 @@
 {
-  "next": 2987,
+  "next": 2988,
   "tickets": [
     {
       "id": 47,
@@ -31955,6 +31955,19 @@
       "commits": [
         "8423113d5"
       ]
+    },
+    {
+      "id": 2987,
+      "title": "[DeepSeek] The guide's quoted error outputs (docs/guide/errors/…, 18 blocks) lack the '1 error: in X' summary line SW-2943 added, so guide::the_guide_quotes_its_examples_and_the_compiler fails on main (12 Nov 2026): refresh them",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": ".claude/worktrees/scratch-sw-2987",
+      "labels": [],
+      "epic": "test-infra",
+      "body": "",
+      "created": "2026-11-12",
+      "updated": "2026-11-12",
+      "commits": []
     }
   ]
 }
