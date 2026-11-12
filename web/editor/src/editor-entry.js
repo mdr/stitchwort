@@ -218,8 +218,9 @@ export class Editor {
     };
     // Cancellation (docs/proposals/playground-editor.md §5.2.2): in a
     // cross-origin isolated page, a counter in shared memory that is bumped
-    // for each edit, which the checker reads as it works and so stops a check
-    // the edit has made stale. Without isolation a check runs to its end.
+    // for each document opened, changed or closed, which the checker reads as
+    // it works and so stops a check the new document has made stale. Without
+    // isolation a check runs to its end.
     this.edits = globalThis.crossOriginIsolated ? new Int32Array(new SharedArrayBuffer(4)) : null;
     if (this.edits) worker.postMessage({ edits: this.edits });
     stats.isolated = !!this.edits;
@@ -257,7 +258,7 @@ export class Editor {
   }
 
   transport() {
-    const stale = new Set(["textDocument/didChange", "textDocument/didClose"]);
+    const stale = new Set(["textDocument/didOpen", "textDocument/didChange", "textDocument/didClose"]);
     return {
       send: (message) => {
         const m = JSON.parse(message);

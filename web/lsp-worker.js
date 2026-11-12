@@ -15,9 +15,11 @@
 // worker and starting another.
 //
 // The page may post {edits: Int32Array} first, a counter in shared memory
-// that it bumps for each didChange and didClose: the server then stops a
-// check as soon as the counter is ahead of the edits read (cancellation,
-// docs/proposals/playground-editor.md §5.2.1).
+// that it bumps for each didOpen, didChange and didClose: the server then
+// stops a check as soon as the counter is ahead of the edits read
+// (cancellation, docs/proposals/playground-editor.md §5.2.1). A didOpen of
+// another document stops the check too, so that the new document's check
+// isn't queued behind a long one already running.
 //
 // The page may post {project: {root, sources, paths, texts}}: that project
 // is then read from memory (`LanguageServer::add_project`), for documents
@@ -191,7 +193,7 @@ function loadProject(project) {
 // Edits the page has sent (in `edits`) against those read here.
 let editsSent = null;
 let editsRead = 0;
-const STALE = new Set(["textDocument/didChange", "textDocument/didClose"]);
+const STALE = new Set(["textDocument/didOpen", "textDocument/didChange", "textDocument/didClose"]);
 globalThis.stitchwortEditsWaiting = () => editsSent !== null && Atomics.load(editsSent, 0) !== editsRead;
 
 async function handle(data) {
