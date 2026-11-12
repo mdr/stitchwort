@@ -32235,15 +32235,17 @@
     {
       "id": 3004,
       "title": "[Sonnet] Sweep: about 480 W-UNREACHABLE warnings in aoc/ (e.g. aoc/src/Aoc/Common/GridGraph.sw:53), probably also games/rogue: delete the arms the warning says can be deleted, checking each day's namespace as it's edited; first sample a dozen to confirm each deletion checks (a false positive is a bug in the warning, SW-2993's five kinds fixed). Seen by Overmind's verify-cache at c3c3a3c49",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-3004",
       "labels": [],
       "epic": "aoc-common",
-      "body": "",
+      "body": "\n451 of 496 deleted; 45 kept are W-UNREACHABLE false positives (impossibility only through an unfolded call; arms deletable alone but not together), filed. Model result: Sonnet, worked, ~10 min (est. 120)",
       "created": "2026-11-12",
       "updated": "2026-11-12",
-      "commits": []
+      "commits": [
+        "615332830"
+      ]
     },
     {
       "id": 3005,
