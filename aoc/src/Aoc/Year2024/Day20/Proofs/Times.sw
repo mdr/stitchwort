@@ -69,7 +69,6 @@ theorem boundFrom (racetrack: Racetrack) (result: Map Position Nat)
     rewrite <- Option.someInjective ended in Graph.boundWeaken result time (time + List.length ([]: List Direction)) position bound (omega)
   | position, time, bound, [direction, ..rest], last, ended =>
     match moved: moveTo racetrack position direction with
-      | None => Void.exfalso (Option.noneNotSome last ended)
       | Some next =>
         Exists.elim bound (found both =>
           let stepped := closed position found (And.left both) next 1 (edgesComplete racetrack position direction next moved)
@@ -86,7 +85,6 @@ theorem boundTo (racetrack: Racetrack) (result: Map Position Nat) (endBound: Gra
   | position, onIt, [], ended => rewrite Option.someInjective ended in endBound
   | position, onIt, [direction, ..rest], ended =>
     match moved: moveTo racetrack position direction with
-      | None => Void.exfalso (Option.noneNotSome racetrack.end ended)
       | Some next =>
         let nextOnTrack := And.right (moveCases racetrack position direction next moved)
         Exists.elim (boundTo racetrack result endBound closed next nextOnTrack rest ended) (found both =>

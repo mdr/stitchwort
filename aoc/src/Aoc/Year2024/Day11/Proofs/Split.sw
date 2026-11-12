@@ -70,8 +70,6 @@ theorem changeAgrees (stone: Nat): changeStone stone = change stone :=
 theorem digitsOfLeading (xs: List Nat) (count: Nat) (h: Nat.Digits xs) (lead: 1 ≤ xs.headOr 0) (some: 1 ≤ count):
     (Nat.digits (Nat.fromDigits (xs.take count))).toList = xs.take count :=
   match xs, count, h with
-    | [], count, digits => cases
-    | [first, ..rest], Zero, digits => cases
     | [first, ..rest], Succ count, Both small digits =>
       rewrite Nat.fromDigitsCons first (rest.take count), Nat.digitsShift (rest.take count) first lead (Nat.digitsTake count rest digits)
         in Eq.cong (l => List.append l (rest.take count)) (Eq.trans (Nat.digitsToList first) (Nat.digitsAccSmall first [] small))

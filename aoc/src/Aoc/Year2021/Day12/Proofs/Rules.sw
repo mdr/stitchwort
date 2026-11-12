@@ -225,7 +225,6 @@ theorem completesCons (passages: List Passage) (twice: Bool) (sofar: Path) (cave
   let (Both last (Both follows within)) := completes
   Both
     (match more with
-      | [] => Void.exfalso (Option.noneNotSome Cave.end last)
       | [z, ..rest] => last)
     (Both (rewrite followsCons passages cave y more, joined, follows in rfl) (Eq.subst (p => Within twice p) (Eq.sym (appendStep sofar y more)) within))
 
@@ -300,13 +299,11 @@ theorem followsCompletes (passages: List Passage) (next: Cave → List Cave)
         | False =>
           let notEnd := DecEq.soundFalse y Cave.end isEnd
           match isStart: y == Cave.start with
-            | True => Void.exfalso after
             | False =>
               let notStart := DecEq.soundFalse y Cave.start isStart
               match big: y.isBig with
                 | True =>
                   match bigHere: cave.isBig with
-                    | True => Void.exfalso after
                     | False =>
                       completesCons passages twice sofar cave y more joined
                         (followsCompletes passages next adjacent twice more unvisited spare y (sofar.add y) (tracksBig passages twice unvisited spare sofar y big tracks) after)
@@ -322,7 +319,6 @@ theorem followsCompletes (passages: List Passage) (next: Cave → List Cave)
                           completesCons passages twice sofar cave y more joined
                             (followsCompletes passages next adjacent twice more unvisited False y (sofar.add y)
                               (tracksAgain passages twice unvisited sofar y big notStart notEnd named fresh tracks) after)
-                        | False => Void.exfalso after
 
 --| ...and each path by the rules is a route the steps allow, when no
 --| passage joins two big caves.

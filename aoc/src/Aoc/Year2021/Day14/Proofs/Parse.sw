@@ -14,7 +14,6 @@ theorem firstRepeatedNone (pairs: List ElementPair) (none: firstRepeated pairs =
     | [] => ()
     | [pair, ..rest] =>
       match c: List.contains rest pair with
-        | True => Void.exfalso (Option.someNotNone pair none)
         | False =>
           let fresh := (member: pair ∈ rest) =>
             Bool.trueNotFalse (Eq.trans (Eq.sym (List.anyOfMem rest (other => other == pair) pair (DecEq.refl pair) member)) c)
@@ -24,7 +23,6 @@ theorem firstRepeatedNone (pairs: List ElementPair) (none: firstRepeated pairs =
 theorem checkManualOk (manual: Manual) (result: Manual) (h: Fail.toResult (() => checkManual manual) = Ok result):
     result = manual ∧ firstRepeated (manual.rules.map Rule.pair) = None :=
   match e: firstRepeated (manual.rules.map Rule.pair) with
-    | Some pair => Void.exfalso (Result.errNotOk h)
     | None => Both (Eq.sym (Result.okInjective h)) rfl
 
 --| ...whatever reads it.

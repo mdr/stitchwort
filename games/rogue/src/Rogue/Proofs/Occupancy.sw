@@ -18,13 +18,11 @@ theorem someNotNone (monster: Monster) (found: Some monster = None): Void := Opt
 theorem clearHead (position: Position) (monster: Monster) (others: List Monster) (clear: Clear position [monster, ..others]):
     (monster.position == position) = False :=
   match same: monster.position == position with
-    | True => Void.exfalso (someNotNone monster clear)
     | False => rfl
 
 theorem clearTail (position: Position) (monster: Monster) (others: List Monster) (clear: Clear position [monster, ..others]):
     Clear position others :=
   match same: monster.position == position with
-    | True => Void.exfalso (someNotNone monster clear)
     | False => clear
 
 theorem clearSnoc (position: Position) (monster: Monster) (away: (monster.position == position) = False)
@@ -33,14 +31,12 @@ theorem clearSnoc (position: Position) (monster: Monster) (away: (monster.positi
     | [] => rewrite away
     | [first, ..rest] =>
       match same: first.position == position with
-        | True => Void.exfalso (someNotNone first clear)
         | False => clearSnoc position monster away rest clear
 
 --| A monster never chooses the player's cell.
 theorem pickFreeAway (level: Level) (player: Position) (others: List Monster)
     (choices: List Position) (destination: Position) (picked: pickFree level choices player others = Some destination): (destination == player) = False :=
   match choices with
-    | [] => Void.exfalso (Option.noneNotSome destination picked)
     | [choice, ..rest] =>
       match wall: isWall level choice with
         | True => pickFreeAway level player others rest destination picked

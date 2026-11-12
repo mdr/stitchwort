@@ -55,7 +55,6 @@ theorem memTrailEnds (map: TopographicMap) (steps: Nat) (from end: Position):
             backward = has =>
               match equal: Some from == Some end with
                 | True => Inl (Option.someInjective (DecEq.sound equal))
-                | False => cases
           }
         | False => {
           forward = member => Void.exfalso member,

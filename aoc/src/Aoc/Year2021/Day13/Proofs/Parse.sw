@@ -27,7 +27,6 @@ theorem unblockedPromise (folds: List Fold) (index: Nat) (dots: List Point) (mar
     | [] => Trivial
     | [fold, ..rest] =>
       match e: dots.find (dot => not (clears fold dot)) with
-        | Some dot => Void.exfalso (Option.someNotNone (index, dot) none)
         | None =>
           let clear := (dot: Point) (isMarked: marked dot) => clearOfFind fold dots e dot ((holds dot).backward isMarked)
           Both clear (unblockedPromise rest (index + 1) (foldOnce dots fold) (AfterFold fold marked) (foldOnceHolds dots marked fold holds clear) none)

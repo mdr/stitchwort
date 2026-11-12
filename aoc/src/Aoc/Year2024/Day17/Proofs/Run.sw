@@ -27,13 +27,11 @@ theorem finishedInjective (first: List Nat) (second: List Nat) (same: Finished f
 theorem runHalts (program: List Nat) (fuel: Nat) (machine: Machine) (printed output: List Nat)
     (finished: machine.run program printed fuel = Finished output): ∃ (rest: List Nat) => output = printed.reverse.append rest ∧ Halts program machine rest :=
   match fuel with
-    | Zero => Void.exfalso (outOfFuelNotFinished output finished)
     | Succ fuel =>
       let matches := stepMatches program machine
       match moved: machine.step program with
         | Halt =>
           Witness [] (Both (Eq.trans (Eq.sym (finishedInjective printed.reverse output finished)) (Eq.sym (List.appendNil printed.reverse))) (Stops machine matches))
-        | Fault => Void.exfalso (faultedNotFinished output finished)
         | Next after None =>
           match runHalts program fuel after printed output finished with
             | Witness rest (Both same halts) => Witness rest (Both same (Quiet machine after rest matches halts))
@@ -53,10 +51,8 @@ theorem outcomeHalts (registers: Registers) (program: List Nat) (output: List Na
 theorem runMoreFuel (program: List Nat) (extra: Nat) (fuel: Nat) (machine: Machine) (printed output: List Nat)
     (finished: machine.run program printed fuel = Finished output): machine.run program printed (fuel + extra) = Finished output :=
   match fuel with
-    | Zero => Void.exfalso (outOfFuelNotFinished output finished)
     | Succ fuel =>
       match moved: machine.step program with
         | Halt => finished
-        | Fault => finished
         | Next after None => runMoreFuel program extra fuel after printed output finished
         | Next after (Some value) => runMoreFuel program extra fuel after [value, ..printed] output finished

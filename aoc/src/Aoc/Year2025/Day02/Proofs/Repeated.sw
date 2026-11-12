@@ -291,7 +291,6 @@ theorem writtenRepOf (p: List Nat) (k: Nat) (hk: p.length = k) (n: Nat): written
 theorem repDigits (j: Nat) (b: Nat) (h1: Nat.pow 10 j ≤ b) (h2: b < Nat.pow 10 (Succ j)) (n: Nat) (hn: 1 ≤ n):
     writtenAs (Nat.digits (writeTimes (Succ j) b n)).toList (Succ j) n = True :=
   match n with
-    | Zero => cases
     | Succ n =>
       let same: (Nat.digits (writeTimes (Succ j) b (Succ n))).toList = List.concat (List.replicate (Succ n) (Nat.digits b).toList) :=
         Eq.trans (Eq.cong (m => (Nat.digits (writeTimes m b (Succ n))).toList) (Eq.sym (Nat.digitsLength j b h1 h2)))
@@ -302,7 +301,6 @@ theorem repDigits (j: Nat) (b: Nat) (h1: Nat.pow 10 j ≤ b) (h2: b < Nat.pow 10
 --| Different blocks written n >= 1 times make different ids.
 theorem repInjective (k: Nat) (b: Nat) (v: Nat) (n: Nat) (hn: 1 ≤ n) (e: writeTimes k b n = writeTimes k v n): b = v :=
   match n with
-    | Zero => cases
     | Succ m =>
       Nat.mulSuccCancel b v (Nat.pow 10 k * multiplier k m)
         (calc b * Succ (Nat.pow 10 k * multiplier k m)
@@ -318,7 +316,6 @@ theorem repInjective (k: Nat) (b: Nat) (v: Nat) (n: Nat) (hn: 1 ≤ n) (e: write
 theorem repBlockCount (x: Nat) (n: Nat) (hn: 2 ≤ n) (k: Nat) (h: 1 ≤ k): List.sumBy (List.rangeFrom (Nat.pow 10 k - Nat.pow 10 (k - 1)) (Nat.pow 10 (k - 1))) (b => x.keepIf (writeTimes k b n == x))
     = x.keepIf (writtenAs x.digits.toList k n) :=
   match k with
-    | Zero => cases
     | Succ j =>
       match hq: writtenAs (Nat.digits x).toList (Succ j) n with
         | True =>

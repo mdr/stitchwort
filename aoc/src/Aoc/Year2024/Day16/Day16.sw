@@ -100,10 +100,8 @@ theorem Maze.forwardHolds (maze: Maze) (reindeer next: Reindeer) (member: next �
   match reindeer with
     | { position, facing } =>
       match stepped: position.step facing.toDirection with
-        | None => Void.exfalso member
         | Some ahead =>
           match open: maze.isOpen ahead with
-            | False => Void.exfalso member
             | True =>
               match member with
                 | Inl here => rewrite <- here in open
@@ -114,10 +112,8 @@ theorem Maze.backwardHolds (maze: Maze) (reindeer next: Reindeer) (member: next 
   match reindeer with
     | { position, facing } =>
       match stepped: position.step facing.toDirection.opposite with
-        | None => Void.exfalso member
         | Some behind =>
           match open: maze.isOpen behind with
-            | False => Void.exfalso member
             | True =>
               match member with
                 | Inl here => rewrite <- here in open
@@ -145,7 +141,6 @@ def Maze.moves (maze: Maze) (backwards: Bool) (reindeer: Reindeer): List (Reinde
 theorem Maze.movesListed (maze: Maze) (backwards: Bool) (reindeer: Reindeer) (next: Reindeer) (weight: Nat)
     (edge: (next, weight) ∈ maze.moves backwards reindeer): next ∈ maze.reindeer :=
   match holds: maze.holds reindeer with
-    | False => Void.exfalso edge
     | True =>
       match backwards with
         | True =>

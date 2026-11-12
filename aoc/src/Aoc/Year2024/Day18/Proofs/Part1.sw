@@ -23,7 +23,6 @@ theorem part1Some (size: Nat) (bytes: List Position) (fallen: Nat) (fewest: Nat)
   let memory := MemorySpace.after size bytes fallen
   let found: memory.fromStart.get memory.exit = Some fewest := answer
   match startSafe: memory.isSafe topLeft with
-    | False => Void.exfalso (Option.noneNotSome fewest found)
     | True =>
       let shortest := Graph.breadthFirstShortest memory.graph [topLeft] (unitSteps memory)
       let startSpec: isSafe size (bytes.take fallen) topLeft = True := Eq.trans (Eq.sym (safeAgrees size bytes fallen topLeft)) startSafe
@@ -62,7 +61,6 @@ theorem reachableSound (size: Nat) (bytes: List Position) (fallen: Nat) (open: r
   let some: (solvePart1 size fallen bytes).isSome = True := open
   match answer: solvePart1 size fallen bytes with
     | Some fewest => Exists.elim (And.left (part1Some size bytes fallen fewest answer)) (steps both => Witness steps (And.left both))
-    | None => cases
 
 --| ...and a path means reachable.
 theorem reachableComplete (size: Nat) (bytes: List Position) (fallen: Nat) (has: HasPath size bytes fallen): reachable size bytes fallen = True :=

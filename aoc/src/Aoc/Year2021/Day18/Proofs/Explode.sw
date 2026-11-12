@@ -112,14 +112,12 @@ theorem pairFound (depth: Nat) (left: Number) (right: Number) (exploded: Explosi
 theorem explodeFound (depth: Nat) (number: Number) (exploded: Explosion) (some: explode depth number = Some exploded) (fits: depth + height number ≤ 5):
     Found depth number exploded :=
   match number with
-    | Regular _ => Void.exfalso (Option.noneNotSome exploded some)
     | Pair (Regular a) (Regular b) =>
       match deep: Nat.leq 4 depth with
         | True =>
           rewrite <- Option.someInjective some in
             Witness ({ before = [], left = { value = a, depth = depth + 1 }, right = { value = b, depth = depth + 1 }, after = [] })
               (Both (rest => cases) (before rest => rewrite List.appendNil before in rfl))
-        | False => Void.exfalso (Option.noneNotSome exploded some)
     | Pair (Regular a) (Pair x y) =>
       pairFound depth (Regular a) (Pair x y) exploded cases some omega omega
         (e found => explodeFound (depth + 1) (Regular a) e found omega) (e found => explodeFound (depth + 1) (Pair x y) e found omega)

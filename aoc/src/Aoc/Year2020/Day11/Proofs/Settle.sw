@@ -22,7 +22,6 @@ theorem settleSound (plan: Plan) (specRound: Layout → Layout) (keep: Layout �
     (keeps: ∀ (layout: Layout) => keep layout → keep (specRound layout)) (final: Layout)
     (rounds: Nat) (start: Layout) (kept: keep start) (stopped: start.settle plan rounds = Some final): SettlesWithin specRound start final rounds :=
   match rounds with
-    | Zero => Void.exfalso (Option.noneNotSome final stopped)
     | Succ more =>
       let same := agree start kept
       match e: start.round plan == start with

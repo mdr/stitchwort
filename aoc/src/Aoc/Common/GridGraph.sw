@@ -50,7 +50,6 @@ def boxGraph (height: Nat) (width: Nat) (cost: Position → Nat): Graph Position
 theorem boxEnterListed (height: Nat) (width: Nat) (cost: Position → Nat) (position: Position) (c: Nat)
     (found: boxEnter height width cost position = Some c): position ∈ positions height width :=
   match inside: position.within height width with
-    | False => Void.exfalso (Option.noneNotSome c found)
     | True => memPositionsOfWithin height width position inside
 
 --| A position within the box is one of its positions.
@@ -80,7 +79,6 @@ def cellsEnter (rows: List (List a)) (enter: Position → a → Option Nat) (pos
 theorem cellsEnterListed (rows: List (List a)) (enter: Position → a → Option Nat) (position: Position) (c: Nat)
     (found: cellsEnter rows enter position = Some c): position ∈ (cells rows).map Pair.fst :=
   match at: cellAt rows position with
-    | None => Void.exfalso (Option.noneNotSome c found)
     | Some x => List.memMap (cells rows) (position, x) (memCellsOfCellAt rows position x at) Pair.fst
 
 --| The cell at a position is one of the cells.
@@ -88,7 +86,6 @@ theorem memCellsOfCellAt (rows: List (List a)) (position: Position) (x: a) (foun
   match position with
     | { row, column } =>
       match r: rows.get row with
-        | None => Void.exfalso (Option.noneNotSome x found)
         | Some cells =>
           let inGrid := (List.memGridCells rows row column x).backward (Witness cells (Both r found))
           List.memMap rows.gridCells ((row, column), x) inGrid (arg => (({ row = arg.fst.fst, column = arg.fst.snd }: Position), arg.snd))
@@ -111,7 +108,6 @@ theorem boxIndexBelow (height: Nat) (width: Nat) (position: Position) (number: N
   match position with
     | { row, column } =>
       match inside: ({ row, column }: Position).within height width with
-        | False => Void.exfalso (Option.noneNotSome number numbered)
         | True =>
           let below: row < height := Bool.andLeft inside
           let before: column < width := Bool.andRight inside
@@ -126,7 +122,6 @@ theorem boxIndexRoundTrip (height: Nat) (width: Nat) (position: Position) (numbe
   match position with
     | { row, column } =>
       match inside: ({ row, column }: Position).within height width with
-        | False => Void.exfalso (Option.noneNotSome number numbered)
         | True =>
           let before: column < width := Bool.andRight inside
           rewrite <- Option.someInjective numbered in

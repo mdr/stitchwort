@@ -24,7 +24,6 @@ theorem repairDone (bits: Nat) (budget: Nat) (gates: List Gate) (swaps: List (Wi
     (found: (if isAdder gates bits then Some swaps else None) = Some result): Repaired bits budget gates swaps result :=
   match adder: isAdder gates bits with
     | True => Witness [] (Both (rewrite List.appendNil swaps in Eq.sym (Option.someInjective found)) (Both (omega) adder))
-    | False => Void.exfalso (Option.noneNotSome result found)
 
 theorem repairSound (bits: Nat) (budget: Nat) (gates: List Gate) (swaps result: List (Wire, Wire))
     (found: repair budget bits gates swaps = Some result): Repaired bits budget gates swaps result :=
@@ -32,7 +31,6 @@ theorem repairSound (bits: Nat) (budget: Nat) (gates: List Gate) (swaps result: 
     | Zero =>
       match checked: checkAdder gates bits with
         | Passes carry => repairDone bits 0 gates swaps result found
-        | Faulty fixes suspects => Void.exfalso (Option.noneNotSome result found)
     | Succ fewer =>
       match checked: checkAdder gates bits with
         | Passes carry => repairDone bits (Succ fewer) gates swaps result found
@@ -72,16 +70,10 @@ theorem yNamed (bits: Nat) (y: Nat) (wire: Wire) (member: wire ∈ ((List.range 
 
 theorem notXAndY (wire: Wire) (isX: wire.xBit.isSome = True) (isY: wire.yBit.isSome = True): Void :=
   match wire with
-    | X bit => Bool.falseNotTrue isY
-    | Y bit => Bool.falseNotTrue isX
-    | Z bit => Bool.falseNotTrue isX
     | Other name => Bool.falseNotTrue isX
 
 theorem notInputOutput (wire: Wire) (output: (wire.xBit.isNone ∧ wire.yBit.isNone) = True) (input: (wire.xBit.isSome ∨ wire.yBit.isSome) = True): Void :=
   match wire with
-    | X bit => Bool.falseNotTrue output
-    | Y bit => Bool.falseNotTrue output
-    | Z bit => Bool.falseNotTrue input
     | Other name => Bool.falseNotTrue input
 
 --| Well-wired gates, with the x and y wires of two numbers as the wires

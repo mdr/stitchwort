@@ -128,13 +128,11 @@ theorem allSomeEach (f: a → Option b): ∀ (xs: List a) (ys: List b) => List.a
   | [], ys, found, x, member => Void.exfalso member
   | [first, ..rest], ys, found, x, member =>
     match fFirst: f first with
-      | None => Void.exfalso (Option.noneNotSome ys found)
       | Some value =>
         match member with
           | Inl same => Witness value (rewrite <- same in fFirst)
           | Inr later =>
             match restFound: List.allSome (rest.map f) with
-              | None => Void.exfalso (Option.noneNotSome ys found)
               | Some values => allSomeEach f rest values restFound x later
 
 theorem allSomeOfEach (f: a → Option b) (xs: List a) (each: (∀ (x: a) => x ∈ xs → ∃ (value: b) => f x = Some value)):
@@ -148,15 +146,12 @@ theorem allSomeOfEach (f: a → Option b) (xs: List a) (each: (∀ (x: a) => x �
 
 theorem settledNotDeep (rules: List Rule) (depth: Nat) (colour: Colour) (total: Nat) (settled: Spec.bagsWithin rules depth colour = Some total) (deep: Deep rules depth colour): Void :=
   match depth, deep with
-    | 0, deep => Option.noneNotSome total settled
     | Succ depth, Witness inner (Both (Witness content (Both inContents isInner)) deeper) =>
       let step := (content: Content) => Spec.bagsWithin rules depth content.colour |> .map (inside => content.count * (1 + inside))
       match r: List.allSome ((Spec.contentsOf rules colour).map step) with
-        | None => Option.noneNotSome total settled
         | Some counts =>
           let (Witness value atContent) := allSomeEach step (Spec.contentsOf rules colour) counts r content inContents
           match e: Spec.bagsWithin rules depth content.colour with
-            | None => Option.noneNotSome value atContent
             | Some inside => settledNotDeep rules depth content.colour inside e (rewrite isInner in deeper)
 
 theorem contentSettled (rules: List Rule) (depth: Nat) (content: Content) (none: Deep rules depth content.colour → Void):

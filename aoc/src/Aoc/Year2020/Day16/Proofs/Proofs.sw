@@ -32,7 +32,6 @@ theorem part2Exactly (notes: Notes) (answer: Nat) (found: notes.departureProduct
         forward = (Witness fitting (Both fits same)) => rewrite same, fieldOrderOnly notes order ordered fitting fits, <- product in rfl,
         backward = same => rewrite same in valid
       }
-    | None => Void.exfalso (Option.noneNotSome answer found)
 
 theorem part2Correct (input: Text) (notes: Notes) (parsed: Fail.toResult (() => parseNotes input) = Ok notes) (answer: Nat)
     (found: notes.departureProduct = Some answer):

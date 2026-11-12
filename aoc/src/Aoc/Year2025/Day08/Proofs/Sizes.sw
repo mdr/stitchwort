@@ -60,7 +60,6 @@ theorem keyOfLabel (c: Circuits) (n: Nat) (label: Nat) (m: List.Mem label (List.
     List.Mem label (Map.keys (labelCounts c n)) :=
   let positive: 0 < Map.getOr (labelCounts c n) label 0 := rewrite getOrLabelCounts c n label in countOfMem c n label m
   match g: Map.get (labelCounts c n) label with
-    | None => cases
     | Some v => List.memMap (Map.toList (labelCounts c n)) (label, v) ((Map.memToList (labelCounts c n) label v).backward g) Pair.fst
 
 theorem labelOfKey (c: Circuits) (n: Nat) (label: Nat) (m: List.Mem label (Map.keys (labelCounts c n))):
@@ -110,7 +109,6 @@ theorem firstsDistinct (c: Circuits) (k s: Nat): List.Distinct (List.map (List.f
 theorem firstOf (c: Circuits) (n: Nat) (fuel b: Nat) (h: b < fuel) (hb: b < n):
     List.Mem (c.labelOf b) (List.map (List.filter (List.range 0 n) (firstBox c)) c.labelOf) :=
   match fuel with
-    | Zero => cases
     | Succ fuel =>
       match g: List.any (List.range 0 b) (other => c.labelOf other == c.labelOf b) with
         | False =>

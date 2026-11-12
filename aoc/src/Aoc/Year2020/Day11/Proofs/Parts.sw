@@ -66,7 +66,6 @@ theorem settledExactly (start: Layout) (plan: Plan) (specRound: Layout → Layou
     (limit: Nat) (answer: Nat): (start.settle plan limit |> .map (.occupied)) = Some answer ↔ AnswerWithin specRound start limit answer := {
   forward = solved =>
     match found: start.settle plan limit with
-      | None => Void.exfalso (Option.noneNotSome answer solved)
       | Some final =>
         Witness final (Both (settleSound plan specRound (Kept start) agree keeps final limit start (keptStart start) found) (Eq.sym (Option.someInjective solved))),
   backward = spec =>

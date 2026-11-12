@@ -60,11 +60,9 @@ theorem pathOpen (map: HeightMap) (start: Position) (steps: List Position) (fini
 theorem unitSteps (map: HeightMap) (state: Position) (next: Position) (weight: Nat) (edge: (next, weight) ∈ map.graph.edges state): weight = 1 :=
   let found := And.right (stepEdgeElim (cellsEnter map.grid.rows enterOpen) state next weight edge)
   match cellAt map.grid.rows next with
-    | None => Void.exfalso (Option.noneNotSome weight found)
     | Some digit =>
       match digit.toNat != 9 with
         | True => Eq.sym (Option.someInjective found)
-        | False => Void.exfalso (Option.noneNotSome weight found)
 
 --| What the search from a low point finds is in its basin...
 theorem foundInBasin (map: HeightMap) (low: Position) (open: map.isOpen low = True) (location: Position)
@@ -118,7 +116,6 @@ theorem closedNoBasin (map: HeightMap) (low: Position) (height: Nat) (member: (l
       let near := Bool.andLeft path
       let nextOpen := Bool.andLeft (Bool.andRight path)
       match h: map.heightAt next with
-        | None => Bool.falseNotTrue nextOpen
         | Some other =>
           let nextCell := memCellsOfHeight map next other h
           let lowInfo := List.memFilter map.cells _ member

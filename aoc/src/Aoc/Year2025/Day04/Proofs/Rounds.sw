@@ -14,7 +14,6 @@ theorem rollNotFloor (h: Floor = Roll): Void := Nat.zeroNotSucc 0 (Eq.cong Cell.
 theorem isRoll (x: Cell) (h: (x == Roll) = True): x = Roll :=
   match x with
     | Roll => rfl
-    | Floor => cases
 
 --| The same cells everywhere.
 def Same (s: Cells) (t: Cells): Prop := ∀ (r c: Nat) => s r c = t r c
@@ -109,7 +108,6 @@ theorem stableWhere (grid: Grid) (s: Cells) (ins: Inside grid s) (good: ∀ (r c
 theorem andTrueLeft (a b: Bool) (ha: a = True) (h: (a ∧ b) = False): b = False :=
   match a with
     | True => h
-    | False => cases
 
 theorem rollIsRoll (x: Cell) (h: x = Roll): (x == Roll) = True := rewrite h in rfl
 

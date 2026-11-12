@@ -25,7 +25,6 @@ theorem BitReader.readSome (reader: BitReader) (width: Nat) (field: Bits) (rest:
     | True =>
       let parts := somePairInjective unfolded
       rewrite <- parts.left, <- parts.right in Both (Eq.sym (List.appendTakeDrop reader.unread width)) (DecEq.sound e)
-    | False => cases
 
 --| A number that fits its width is read back from its bits.
 theorem BitReader.readNumberAppend (width: Nat) (n: Nat) (rest: List Bool) (small: n < Nat.pow 2 width):
@@ -46,7 +45,6 @@ theorem BitReader.readValue (reader: BitReader) (width: Nat) (field: Bits) (rest
 theorem BitReader.readNumberSome (reader: BitReader) (width: Nat) (n: Nat) (rest: BitReader) (read: reader.readNumber width = Some (n, rest)):
     reader.unread = Nat.toBits width n ++ rest.unread ∧ n < Nat.pow 2 width :=
   match e: reader.read width with
-    | None => cases
     | Some (field, after) =>
       let parts := somePairInjective read
       rewrite <- parts.left, <- parts.right in BitReader.readValue reader width field after e
@@ -54,7 +52,6 @@ theorem BitReader.readNumberSome (reader: BitReader) (width: Nat) (n: Nat) (rest
 --| The bit a read takes is the front of the unread bits.
 theorem BitReader.readBitSome (reader: BitReader) (bit: Bool) (rest: BitReader) (read: reader.readBit = Some (bit, rest)): reader.unread = [bit, ..rest.unread] :=
   match reader with
-    | { unread = [] } => cases
     | { unread = [first, ..others] } =>
       let parts := somePairInjective read
       rewrite <- parts.left, <- parts.right in rfl

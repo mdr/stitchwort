@@ -82,7 +82,6 @@ theorem syncFound (cavern: Cavern) (answer: Nat) (m k: Nat)
     (noneBefore: (∀ (earlier: Nat) => earlier < Succ k → ¬(AllFlashIn cavern earlier)))
     (found: (stepsFrom cavern k).firstSync (Succ k) m = Some answer): Part2Answer cavern answer :=
   match m with
-    | Zero => Void.exfalso (Option.noneNotSome answer found)
     | Succ m =>
       match e: (stepsFrom cavern k).step.allZero with
         | True =>
@@ -108,7 +107,6 @@ theorem syncNone (cavern: Cavern): ∀ (m k: Nat) => (stepsFrom cavern k).firstS
   | Zero, k, none, number, low, high, flashes => omega
   | Succ m, k, none, number, low, high, flashes =>
     match e: (stepsFrom cavern k).step.allZero with
-      | True => Option.noneNotSome (Succ k) (Eq.sym none)
       | False =>
         if first: number ≤ Succ k then
           let same: number = Succ k := omega

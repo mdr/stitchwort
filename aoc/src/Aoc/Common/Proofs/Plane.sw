@@ -207,10 +207,8 @@ theorem pointToCoordsToPoint (point: Point): point.toCoords.toPoint = Some point
 --| Coordinates that convert to a point are that point's.
 theorem toPointSome (coords: Coords YDown) (point: Point) (converts: coords.toPoint = Some point): point.toCoords = coords :=
   match xAt: coords.x.toNatChecked with
-    | None => Void.exfalso (Option.noneNotSome point converts)
     | Some x =>
       match yAt: coords.y.toNatChecked with
-        | None => Void.exfalso (Option.noneNotSome point converts)
         | Some y =>
           rewrite <- Option.someInjective converts in
             coordsExt _ _ (Eq.sym (Int.toNatCheckedSome coords.x x xAt)) (Eq.sym (Int.toNatCheckedSome coords.y y yAt))

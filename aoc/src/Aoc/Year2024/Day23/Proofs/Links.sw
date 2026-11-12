@@ -134,7 +134,6 @@ theorem hasLinksOfLinked (network: Network) (one: Computer) (other: Computer) (h
   rewrite Map.containsKeySet network.links one in
   match found: Map.get network.links one with
     | Some set => rfl
-    | None => cases
 
 --| The computers with links are the computers on the map.
 theorem hasLinksIff (network: Network) (computer: Computer):

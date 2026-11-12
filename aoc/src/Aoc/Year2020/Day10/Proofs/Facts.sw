@@ -13,7 +13,6 @@ theorem fitsConnects (bag: Bag) (device: Nat): (bag.chain device).fits = Connect
 
 theorem deviceHighest (bag: Bag) (device: Nat) (found: bag.device = Some device): ∃ (highest: Nat) => Highest bag.adapters highest ∧ device = highest + 3 :=
   match a: bag.adapters with
-    | [] => Void.exfalso (Option.noneNotSome device found)
     | [first, ..rest] =>
       let ordered: NonEmptyList Nat := [first, ..rest]
       Witness ordered.maximum

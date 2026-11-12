@@ -19,7 +19,6 @@ theorem runFromSound (numbers: List Nat) (target: Nat) (run: List Nat) (front: L
     match c: target < sum with
       | True =>
         match front with
-          | [] => Void.exfalso (Option.noneNotSome run found)
           | [first, ..later] =>
             match count with
               | Zero =>
@@ -38,7 +37,6 @@ theorem runFromSound (numbers: List Nat) (target: Nat) (run: List Nat) (front: L
                 (rewrite <- runIs in omega))
           | False =>
             match rest with
-              | [] => Void.exfalso (Option.noneNotSome run found)
               | [next, ..more] =>
                 let (Both taken below) := List.takeOfDropCons front count next more (Eq.sym after)
                 runFromSound numbers target run front (count + 1) (sum + next) more start at (omega)
@@ -48,10 +46,8 @@ theorem runFromSound (numbers: List Nat) (target: Nat) (run: List Nat) (front: L
 
 theorem weaknessRules (data: XmasData) (invalid: Nat) (answer: Nat) (found: data.weakness invalid = Some answer): Weakness data.numbers invalid answer :=
   match r: data.runSumming invalid with
-    | None => Void.exfalso (Option.noneNotSome answer found)
     | Some run =>
       match n: run.nonEmpty with
-        | None => Void.exfalso (Option.noneNotSome answer found)
         | Some ordered =>
           let same := List.toListOfNonEmpty run ordered n
           let (Both contiguous (Both long total)) :=

@@ -48,8 +48,6 @@ theorem runsInstruction (read: List Char) (item: Instruction) (written: Instruct
 theorem startsComplete (instructions: List Instruction) (starts: StartsWithMask instructions): startsWithMask instructions = True :=
   match instructions with
     | [SetMask mask, ..rest] => rfl
-    | [Write address value, ..rest] => Void.exfalso starts
-    | [] => Void.exfalso starts
 
 --| Input that is a program written out is read as that program.
 theorem parseComplete (input: Text) (program: Program) (written: ProgramWritten (input.lines.map Text.toList) program):

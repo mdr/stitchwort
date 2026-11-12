@@ -37,7 +37,6 @@ theorem topGe (z: Nat) (rs: List Range): z ≤ rs.foldLeft z (m r => Nat.max m r
 
 theorem coveredTop (z: Nat) (rs: List Range) (id: Nat) (h: covered rs id = True): id ≤ rs.foldLeft z (m r => Nat.max m r.to) :=
   match rs with
-    | [] => cases
     | [r, ..rs] =>
       match e: r.contains id with
         | True => omega [topGe (Nat.max z r.to) rs]

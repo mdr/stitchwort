@@ -30,5 +30,3 @@ theorem part1Rules (program: Program) (answer: Int) (solved: Fail.toResult (() =
         | Loops accumulator =>
           let (Both seen same) := ended
           Witness positions (Witness last (Both runs (Both distinct (Both seen (rewrite <- Result.okInjective solved in same)))))
-        | Terminates accumulator => Void.exfalso (Result.errNotOk solved)
-        | JumpsAway accumulator => Void.exfalso (Result.errNotOk solved)

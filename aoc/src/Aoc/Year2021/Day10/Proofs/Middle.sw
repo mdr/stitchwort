@@ -72,7 +72,6 @@ theorem middleNotBelow (scores: List Nat) (a: Nat) (b: Nat) (odd: scores.length 
   let split := countSplit a scores
   let moreBelowB := List.countLeMem scores (score => not (a < score)) (score => score < b)
     (score member atMost => match above: a < score with
-      | True => cases
       | False => omega)
   let halves := Nat.divModEq scores.length 2
   let aAbove := And.right (And.right first)

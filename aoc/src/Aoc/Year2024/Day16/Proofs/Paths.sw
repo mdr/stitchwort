@@ -31,7 +31,6 @@ theorem finalAppend (maze: Maze) (more: List Move) (reindeer: Reindeer) (moves: 
     | [] => rewrite Option.someInjective ended in rfl
     | [way, ..rest] =>
       match moved: move maze reindeer way with
-        | None => Void.exfalso (Option.noneNotSome middle ended)
         | Some next => finalAppend maze more next rest middle ended
 
 --| Moves from an open tile end on one.
@@ -40,13 +39,11 @@ theorem finalHolds (maze: Maze): ∀ (reindeer: Reindeer) => maze.holds reindeer
   | reindeer, holds, [], last, ended => rewrite <- Option.someInjective ended in holds
   | reindeer, holds, [way, ..rest], last, ended =>
     match moved: move maze reindeer way with
-      | None => Void.exfalso (Option.noneNotSome last ended)
       | Some next => finalHolds maze next (moveHolds maze reindeer holds way next moved) rest last ended
 
 --| The last of a list, with one more in front.
 theorem lastCons (first: a) (rest: List a) (last: a) (ended: rest.last = Some last): [first, ..rest].last = Some last :=
   match rest with
-    | [] => Void.exfalso (Option.noneNotSome last ended)
     | [second, ..more] => ended
 
 --| `follow` ends where `final` does.
@@ -56,10 +53,8 @@ theorem followFinal (maze: Maze) (reindeer: Reindeer) (moves: List Move) (standi
     | [] => rewrite <- Option.someInjective followed in Witness reindeer (Both rfl rfl)
     | [way, ..rest] =>
       match moved: move maze reindeer way with
-        | None => Void.exfalso (Option.noneNotSome standings followed)
         | Some next =>
           match after: follow maze next rest with
-            | None => Void.exfalso (Option.noneNotSome standings followed)
             | Some later =>
               rewrite <- Option.someInjective followed in
                 Exists.elim (followFinal maze next rest later after) (last both =>
@@ -72,7 +67,6 @@ theorem finalFollow (maze: Maze) (reindeer: Reindeer) (moves: List Move) (last: 
     | [] => rewrite <- Option.someInjective ended in Witness [reindeer] (Both rfl rfl)
     | [way, ..rest] =>
       match moved: move maze reindeer way with
-        | None => Void.exfalso (Option.noneNotSome last ended)
         | Some next =>
           Exists.elim (finalFollow maze next rest last ended) (later both =>
             Witness [reindeer, ..later] (Both (rewrite And.left both in rfl) (lastCons reindeer later last (And.right both))))
@@ -84,10 +78,8 @@ theorem followStarts (maze: Maze) (reindeer: Reindeer) (moves: List Move) (stand
     | [] => rewrite <- Option.someInjective followed in Inl rfl
     | [way, ..rest] =>
       match moved: move maze reindeer way with
-        | None => Void.exfalso (Option.noneNotSome standings followed)
         | Some next =>
           match after: follow maze next rest with
-            | None => Void.exfalso (Option.noneNotSome standings followed)
             | Some later => rewrite <- Option.someInjective followed in Inl rfl
 
 --| The reindeer stands wherever part of the path leaves it.
@@ -98,10 +90,8 @@ theorem followVisits (maze: Maze) (more: List Move): ∀ (reindeer: Reindeer) (m
     rewrite <- Option.someInjective ended in followStarts maze reindeer more standings followed
   | reindeer, [way, ..rest], middle, ended, standings, followed =>
     match moved: move maze reindeer way with
-      | None => Void.exfalso (Option.noneNotSome middle ended)
       | Some next =>
         match after: follow maze next (rest ++ more) with
-          | None => Void.exfalso (Option.noneNotSome standings followed)
           | Some later =>
             rewrite <- Option.someInjective followed in Inr (followVisits maze more next rest middle ended later after)
 
@@ -119,10 +109,8 @@ theorem followSplits (maze: Maze): ∀ (reindeer: Reindeer) (moves: List Move) (
         | Inr none => Void.exfalso none
   | reindeer, [way, ..rest], standings, followed, middle, member =>
     match moved: move maze reindeer way with
-      | None => Void.exfalso (Option.noneNotSome standings followed)
       | Some next =>
         match after: follow maze next rest with
-          | None => Void.exfalso (Option.noneNotSome standings followed)
           | Some later =>
             rewrite <- Option.someInjective followed at member in
               match member with

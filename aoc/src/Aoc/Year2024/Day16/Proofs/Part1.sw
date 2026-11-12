@@ -28,7 +28,6 @@ theorem edgeHolds (maze: Maze) (backwards: Bool) (state: Reindeer) (next: Reinde
     (edge: (next, weight) ∈ (maze.graph backwards).edges state):
     (maze.holds state = True) ∧ ((next, weight) ∈ (if backwards then maze.before state else maze.after state)) :=
   match holds: maze.holds state with
-    | False => Void.exfalso edge
     | True => Both rfl edge
 
 --| A move from an open tile is an edge of the maze's graph.
@@ -59,7 +58,6 @@ theorem movesWalk (maze: Maze): ∀ (reindeer: Reindeer) => maze.holds reindeer 
   | reindeer, holds, [], last, ended => Witness [] (Both (Option.someInjective ended) rfl)
   | reindeer, holds, [way, ..rest], last, ended =>
     match moved: move maze reindeer way with
-      | None => Void.exfalso (Option.noneNotSome last ended)
       | Some next =>
         Exists.elim (movesWalk maze next (moveHolds maze reindeer holds way next moved) rest last ended) (path both =>
           Witness [(next, way.points), ..path]

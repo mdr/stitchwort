@@ -36,10 +36,8 @@ theorem soundAll (rules: Rules) (fuel: Nat) (leaves: ∀ (number: Nat) => Leaves
 theorem sound (rules: Rules) (fuel number: Nat): LeavesAfter rules fuel number
     := message left found =>
   match fuel with
-    | Zero => Void.exfalso found
     | Succ more =>
       match looked: rules.rule number with
-        | None => Void.exfalso found
         | Some (Letter letter) =>
           match message with
             | [first, ..rest] =>
@@ -50,8 +48,6 @@ theorem sound (rules: Rules) (fuel number: Nat): LeavesAfter rules fuel number
                       Witness [letter]
                         (Both (rewrite DecEq.sound same, leftIsRest in rfl) (later restRead matched => MatchesLetter looked matched))
                     | Inr never => Void.exfalso never
-                | False => Void.exfalso found
-            | [] => Void.exfalso found
         | Some (Alternatives sequences) =>
           match (List.memFlatMap (sequence => rules.leftAfterAll more sequence message) left sequences).forward found with
             | Witness sequence (Both chosen inner) =>

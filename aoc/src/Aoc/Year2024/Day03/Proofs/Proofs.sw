@@ -87,7 +87,6 @@ theorem foldWithoutDont (instructions: List Instruction) (total: Nat) (noDont: i
         rfl
     | [Do, ..rest] =>
       rewrite foldWithoutDont rest total noDont, List.sumByCons rest Do Instruction.result in rfl
-    | [Dont, ..rest] => cases
 
 --| Without a `don't()`, part 2 is part 1.
 theorem part2WithoutDont (instructions: List Instruction) (noDont: instructions.any isDont = False):

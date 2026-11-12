@@ -14,15 +14,12 @@ theorem stepDecreases (unvisited: List Cave) (spare: Bool) (cave: Cave) (other: 
     (e: step unvisited spare cave other = Continue left stillSpare):
     reach left stillSpare other < reach unvisited spare cave :=
   match en: other.isEnd with
-    | True => Void.exfalso (Step.finishNotContinue left stillSpare e)
     | False =>
       match es: other.isStart with
-        | True => Void.exfalso (Step.blockedNotContinue left stillSpare e)
         | False =>
           match bo: other.isBig with
             | True =>
               match bc: cave.isBig with
-                | True => Void.exfalso (Step.blockedNotContinue left stillSpare e)
                 | False =>
                   rewrite Step.continueLeft unvisited spare left stillSpare e, Step.continueSpare unvisited spare left stillSpare e in
                     omega
@@ -36,7 +33,6 @@ theorem stepDecreases (unvisited: List Cave) (spare: Bool) (cave: Cave) (other: 
                     | True =>
                       rewrite Step.continueLeft unvisited False left stillSpare e, Step.continueSpare unvisited False left stillSpare e in
                         omega
-                    | False => Void.exfalso (Step.blockedNotContinue left stillSpare e)
 
 def Step.goesOn: Step → Bool
   | Continue _ _ => True

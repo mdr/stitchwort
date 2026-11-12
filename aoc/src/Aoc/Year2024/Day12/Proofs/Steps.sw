@@ -33,10 +33,8 @@ theorem orthogonalElim (from: Position) (to: Position) (step: isOrthogonalStep f
 theorem stepOrthogonal (from: Position) (side: Direction) (to: Position) (stepped: from.step side = Some to): Orthogonal from to :=
   match from, side with
     | { row = Succ above, column }, Up => rewrite <- Option.someInjective stepped in Inr (Both rfl (Inr (omega)))
-    | { row = Zero, column }, Up => Void.exfalso (Option.noneNotSome to stepped)
     | { row, column }, Down => rewrite <- Option.someInjective stepped in Inr (Both rfl (Inl (omega)))
     | { row, column = Succ before }, Left => rewrite <- Option.someInjective stepped in Inl (Both rfl (Inr (omega)))
-    | { row, column = Zero }, Left => Void.exfalso (Option.noneNotSome to stepped)
     | { row, column }, Right => rewrite <- Option.someInjective stepped in Inl (Both rfl (Inl (omega)))
 
 --| One orthogonal step is a step in some direction.
@@ -77,7 +75,6 @@ theorem growSameElim (garden: Garden) (plot: Position) (other: Position) (same: 
     Exists Char (plant => (garden.plantAt plot = Some plant) ∧ (garden.plantAt other = Some plant)) :=
   match grows: garden.plantAt plot with
     | Some plant => Witness plant (Both rfl (DecEq.sound same))
-    | None => cases
 
 theorem growSameIntro (garden: Garden) (plot: Position) (other: Position) (plant: Char) (here: garden.plantAt plot = Some plant)
     (there: garden.plantAt other = Some plant): growSame garden plot other = True :=

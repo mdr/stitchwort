@@ -36,7 +36,6 @@ theorem parseWritten (input: Text) (notes: Notes) (parsed: Fail.toResult (() => 
 
 theorem eachSlotPositive (read: List Char) (slots: List Slot) (each: Parse.Each (Parse.Then (read (u: ()) => read = [',']) (u => SlotWritten)) read slots) (id: Nat) (member: Listed id ∈ slots): id ≠ 0 :=
   match slots with
-    | [] => Void.exfalso member
     | [slot, ..rest] =>
       match each with
         | Witness first (Witness later (Both split (Both (Witness comma (Witness slotRead (Witness u (Both parts (Both isComma written))))) each))) =>

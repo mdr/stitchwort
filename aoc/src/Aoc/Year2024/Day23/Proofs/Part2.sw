@@ -75,7 +75,6 @@ theorem noneHeld (set: Set Computer) (found: set.popMin = None) (key: Computer) 
   let least := Set.popMinNone set found
   let listed := (Set.memToList set key).backward held
   match keys: set.toList with
-    | [] => listed
     | [first, ..rest] => Option.someNotNone first (Eq.trans (Eq.sym (rewrite Set.minToList set, keys in rfl)) least)
 
 theorem sizeNone (set: Set Computer) (found: set.popMin = None): set.size = 0 :=

@@ -79,7 +79,6 @@ theorem settleCovers (device: Device) (values: Values) (waiting: List Gate)
 --| A key among the pairs is found by `Map.lookupLast`.
 theorem lookupLastFound [auto ord: Ord k] (key: k) (value: v) (pairs: List (k, v)) (member: (key, value) ∈ pairs): ∃ (found: v) => Map.lookupLast key pairs = Some found :=
   match pairs with
-    | [] => Void.exfalso member
     | [(other, otherValue), ..rest] =>
       match later: Map.lookupLast key rest with
         | Some laterValue => Witness laterValue rfl

@@ -93,5 +93,4 @@ theorem weaknessComplete (data: XmasData) (invalid: Nat) (answer: Nat) (weak: We
     | Some found =>
       let (Both contiguous (Both twoOrMore foundSum)) := runFromSound data.numbers invalid found data.numbers 0 0 data.numbers 0 rfl (omega) rfl rfl r
       match found with
-        | [] => Void.exfalso (omega)
         | [x, ..xs] => none => Option.noneNotSome _ (Eq.sym none)

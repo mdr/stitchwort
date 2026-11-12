@@ -27,7 +27,6 @@ theorem fieldOrderValid (notes: Notes) (order: List Rule) (found: notes.fieldOrd
                     (ticket nearby valid =>
                       List.all2Compose (rule fields value member allows => allows rule member) order notes.candidates ticket.values members
                         (allow ticket (validTicketValid notes ticket nearby valid)))))
-    | False => Void.exfalso (Option.noneNotSome order found)
 
 theorem departureProductSpec (order: List Rule) (values: List Nat): ({ values }: Ticket).departureProduct order = Spec.departureProduct order values :=
   match order, values with
@@ -43,4 +42,3 @@ theorem departureProductSpec (order: List Rule) (values: List Nat): ({ values }:
 theorem departureProductValid (notes: Notes) (answer: Nat) (found: notes.departureProduct = Some answer): Spec.Part2 notes answer :=
   match ordered: notes.fieldOrder with
     | Some order => Witness order (Both (fieldOrderValid notes order ordered) (rewrite <- Option.someInjective found in departureProductSpec order notes.yours.values))
-    | None => Void.exfalso (Option.noneNotSome answer found)

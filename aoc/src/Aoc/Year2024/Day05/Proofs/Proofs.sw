@@ -18,7 +18,6 @@ theorem mustPrecedeCorrect (rules: List Rule) (x: Nat) (y: Nat): mustPrecede (ru
 theorem brokenHasBoth (x: Nat) (y: Nat) (pages: List Nat) (broken: printedBefore x y pages = False):
     (pages.any (== x) = True) ∧ (pages.any (== y) = True) :=
   match pages with
-    | [] => cases
     | [page, ..later] =>
       match laterBroken: printedBefore x y later with
         | False =>
@@ -27,8 +26,6 @@ theorem brokenHasBoth (x: Nat) (y: Nat) (pages: List Nat) (broken: printedBefore
         | True =>
           match isY: page == y, hasX: later.any (== x) with
             | True, True => Both (cases) rfl
-            | True, False => cases
-            | False, hasX => cases
 
 --| So the puzzle's "if both pages are in the update" adds nothing.
 theorem followsRuleIsPrintedBefore (pages: List Nat) (rule: Rule): followsRule pages rule = printedBefore rule.before rule.after pages :=

@@ -28,13 +28,11 @@ theorem addAllSound (total: Number) (numbers: List Number) (final: Number) (redu
         | Some sum =>
           let added := addSound total next sum reducedTotal reducedNext a
           AddNext (And.left added) (addAllSound sum rest final (And.right added) reducedRest done)
-        | None => Void.exfalso (Option.noneNotSome final done)
 
 --| Part 1: for reduced numbers, if the program's sums finish, its answer
 --| is the spec's.
 theorem part1Correct (numbers: List Number) (reduced: List.All IsReduced numbers) (answer: Nat) (solved: solvePart1 numbers = Some answer): Part1 numbers answer :=
   match numbers with
-    | [] => Void.exfalso (Option.noneNotSome answer solved)
     | [first, ..rest] =>
       match a: addAll first rest with
         | Some final =>
@@ -44,7 +42,6 @@ theorem part1Correct (numbers: List Number) (reduced: List.All IsReduced numbers
                 (Both rfl
                   (Both (addAllSound first rest final (And.left reduced) (And.right reduced) a)
                     (rewrite magnitudeSame final in Option.someInjective solved)))))
-        | None => Void.exfalso (Option.noneNotSome answer solved)
 
 --| Adding up is one number, so part 1's answer is one number.
 theorem addsUpToUnique (final2: Number) (total: Number) (numbers: List Number) (final1: Number) (h: AddsUpTo total numbers final1) (h1: AddsUpTo total numbers final2): final1 = final2 :=
@@ -77,7 +74,6 @@ theorem pairsMember (numbers: List Number) (x: Number) (y: Number) (member: (x, 
       match List.anyMember _ numbers.withIndex (List.memFilterMapElim _ (x, y) numbers.withIndex inner) with
         | Witness (j, b) (Both atJ made) =>
           match e: i != j with
-            | False => Void.exfalso (Option.noneNotSome _ made)
             | True =>
               let pairs := Option.someInjective made
               Witness i
@@ -94,10 +90,8 @@ theorem sumMagnitudesSound (pairs: List (Number, Number)) (magnitudes: List Nat)
     | [] => rewrite <- Option.someInjective done in Both (k member => Void.exfalso member) (x y member => Void.exfalso member)
     | [(x, y), ..rest] =>
       match a: add x y with
-        | None => Void.exfalso (Option.noneNotSome magnitudes done)
         | Some sum =>
           match m: sumMagnitudes rest with
-            | None => Void.exfalso (Option.noneNotSome magnitudes done)
             | Some others =>
               let later := sumMagnitudesSound rest others m
               rewrite <- Option.someInjective done in
@@ -119,7 +113,6 @@ theorem sumMagnitudesSound (pairs: List (Number, Number)) (magnitudes: List Nat)
 --| is the spec's.
 theorem part2Correct (numbers: List Number) (reduced: List.All IsReduced numbers) (answer: Nat) (solved: solvePart2 numbers = Some answer): Part2 numbers answer :=
   match s: sumMagnitudes (orderedPairs numbers) with
-    | None => Void.exfalso (Option.noneNotSome answer solved)
     | Some magnitudes =>
       let sound := sumMagnitudesSound (orderedPairs numbers) magnitudes s
       let most := List.maximumSome magnitudes answer solved

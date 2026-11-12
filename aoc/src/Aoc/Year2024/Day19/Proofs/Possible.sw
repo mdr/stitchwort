@@ -38,7 +38,6 @@ theorem inTowelLists (patterns: List Pattern) (count: Nat) (towels: List Pattern
   match count, towels, from with
     | Zero, [], from => Inl rfl
     | Succ count, [], from => Inl rfl
-    | Zero, [first, ..rest], from => Void.exfalso (omega [short])
     | Succ count, [first, ..rest], Both firstMember restFrom =>
       Inr (List.memFlatMapIntro (first => towelLists patterns count |> .map (Cons first)) first [first, ..rest] patterns firstMember
         (List.memMap (towelLists patterns count) rest (inTowelLists patterns count rest restFrom (omega [short])) (Cons first)))
@@ -56,12 +55,10 @@ def hasSome (lists: List (List Pattern)): Bool := !lists.isEmpty
 
 theorem someMember (lists: List (List Pattern)) (some: hasSome lists = True): Exists (List Pattern) (list => list ∈ lists) :=
   match lists with
-    | [] => cases
     | [first, ..rest] => Witness first (Inl rfl)
 
 theorem memberSome (lists: List (List Pattern)) (list: List Pattern) (member: list ∈ lists): hasSome lists = True :=
   match lists with
-    | [] => Void.exfalso member
     | [first, ..rest] => rfl
 
 --| "Not all designs will be possible": a design is possible exactly when

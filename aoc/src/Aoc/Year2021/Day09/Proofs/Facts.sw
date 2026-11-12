@@ -34,7 +34,6 @@ theorem heightBelow10 (map: HeightMap) (position: Position) (height: Nat) (membe
 theorem memCellsOfHeight (map: HeightMap) (position: Position) (height: Nat) (found: map.heightAt position = Some height):
     (position, height) ∈ map.cells :=
   match c: cellAt map.grid.rows position with
-    | None => Void.exfalso (Option.noneNotSome height found)
     | Some digit =>
       let same: digit.toNat = height := Option.someInjective found
       rewrite <- same in List.memMap (cells map.grid.rows) (position, digit) (memCellsOfCellAt map.grid.rows position digit c) (cell => (cell.fst, cell.snd.toNat))

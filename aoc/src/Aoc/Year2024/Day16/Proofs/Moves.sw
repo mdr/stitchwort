@@ -39,10 +39,8 @@ theorem afterSound (maze: Maze) (reindeer next: Reindeer) (weight: Nat) (edge: (
         | Inr (Inr (Inr none)) => Void.exfalso none
         | Inl forward =>
           match stepped: position.step facing.toDirection with
-            | None => Void.exfalso forward
             | Some ahead =>
               match open: maze.isOpen ahead with
-                | False => Void.exfalso forward
                 | True =>
                   match forward with
                     | Inl here =>
@@ -61,10 +59,8 @@ theorem afterComplete (maze: Maze) (reindeer: Reindeer) (way: Move) (next: Reind
       rewrite <- Option.someInjective moved in List.memAppendRight _ _ _ (Inr (Inl rfl))
     | { position, facing }, Forward =>
       match stepped: position.step facing.toDirection with
-        | None => Void.exfalso (Option.noneNotSome next moved)
         | Some ahead =>
           match open: maze.isOpen ahead with
-            | False => Void.exfalso (Option.noneNotSome next moved)
             | True =>
               rewrite <- Option.someInjective moved in Inl rfl
 
@@ -82,10 +78,8 @@ theorem beforeSound (maze: Maze): ∀ (reindeer: Reindeer) => maze.holds reindee
       | Inr (Inr (Inr none)) => Void.exfalso none
       | Inl backward =>
         match stepped: position.step facing.toDirection.opposite with
-          | None => Void.exfalso backward
           | Some behind =>
             match open: maze.isOpen behind with
-              | False => Void.exfalso backward
               | True =>
                 match backward with
                   | Inr none => Void.exfalso none
@@ -103,10 +97,8 @@ theorem beforeComplete (maze: Maze): ∀ (reindeer: Reindeer) => maze.holds rein
     rewrite <- Option.someInjective moved in List.memAppendRight _ _ _ (Inl (rewrite Aoc.Common.Proofs.headingTurnRightLeft facing in rfl))
   | { position, facing }, holds, Forward, next, moved =>
     match stepped: position.step facing.toDirection with
-      | None => Void.exfalso (Option.noneNotSome next moved)
       | Some ahead =>
         match open: maze.isOpen ahead with
-          | False => Void.exfalso (Option.noneNotSome next moved)
           | True =>
             rewrite <- Option.someInjective moved in
               let back := stepOpposite position facing.toDirection ahead stepped
@@ -119,8 +111,6 @@ theorem moveHolds (maze: Maze): ∀ (reindeer: Reindeer) => maze.holds reindeer 
   | { position, facing }, holds, Counterclockwise, next, moved => rewrite <- Option.someInjective moved in holds
   | { position, facing }, holds, Forward, next, moved =>
     match stepped: position.step facing.toDirection with
-      | None => Void.exfalso (Option.noneNotSome next moved)
       | Some ahead =>
         match open: maze.isOpen ahead with
-          | False => Void.exfalso (Option.noneNotSome next moved)
           | True => rewrite <- Option.someInjective moved in open

@@ -41,7 +41,6 @@ theorem loopsFromSound (lab: Lab) (sightlines: Sightlines) (simulates: Simulates
   | Succ budget, guard, seen, now, reached, enough, seenBy, says, anySteps, gone =>
     let onTheMap := afterOnMap lab inside now guard reached
     match turned: sightlines.nextTurn guard with
-      | None => cases
       | Some next =>
         Exists.elim (And.left (simulates guard onTheMap) next turned) (steps both =>
           let later: after lab (now + steps) = Some next := Eq.trans (afterAdd lab now guard reached steps) (And.right both)

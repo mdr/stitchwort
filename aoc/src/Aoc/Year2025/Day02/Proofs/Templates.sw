@@ -112,8 +112,7 @@ theorem templateFits (range: Range) (template: RepetitionTemplate)
                   rewrite <- same in
                   match (List.memRange blockLength 1 (size + 1)).forward lengthChosen, (List.memRange copyCount 2 (size + 1)).forward copyCountChosen with
                     | Both oneLe _, Both twoLe _ => Both oneLe (Both twoLe room)
-                | Inr none => Void.exfalso none
-            | False => Void.exfalso fromCopyCount))
+                | Inr none => Void.exfalso none))
 
 --| Two small facts about the product: a block is no longer than the block
 --| written `copies` times, and the number of copies is no more than the block
@@ -184,7 +183,6 @@ theorem keptIfFitsIsTemplate (size: Nat) (blockLength: Nat) (copies: Nat) (templ
       match kept with
         | Inl same => rewrite <- same in Both rfl rfl
         | Inr none => Void.exfalso none
-    | False => Void.exfalso kept
 
 --| No duplicates: the list holds each template once. Templates from
 --| different block lengths differ in `blockLength`, and within one block

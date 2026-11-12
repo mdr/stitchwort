@@ -10,7 +10,6 @@ theorem largestPruned (links: Links) (clique: Set Computer) (candidates: Set Com
   rewrite Links.largestFrom.unfold links clique candidates best in
   match fits: Nat.leq (clique.size + candidates.size) best.size with
     | True => rfl
-    | False => Void.exfalso (omega [pruned, fits])
 
 --| No candidates left, and the clique beats `best`.
 theorem largestDone (links: Links) (clique: Set Computer) (candidates: Set Computer) (best: Set Computer)
