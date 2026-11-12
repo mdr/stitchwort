@@ -215,7 +215,7 @@ fn lambda_body(thunk: &Expr) -> Option<&Expr> {
             if matches!(&s.expr, Expr::Var(x) if x.text == name.text)
                 && matches!(&alt.patterns[..], [Pattern::Absurd(_)]) =>
         {
-            Some(&alt.body)
+            alt.body.as_ref()
         }
         _ => None,
     }
@@ -263,7 +263,7 @@ fn alternatives(
                 alts.push(Alt {
                     guard: None,
                     patterns: vec![pattern],
-                    body: body.clone(),
+                    body: Some(body.clone()),
                     span: var.span.to(body.span()),
                 });
             }
@@ -339,7 +339,7 @@ fn alternatives(
                 alts.push(Alt {
                     guard: None,
                     patterns: vec![pattern],
-                    body: body.clone(),
+                    body: Some(body.clone()),
                     span: op.span.to(body.span()),
                 });
             }

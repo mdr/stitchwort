@@ -573,7 +573,9 @@ fn walk_at(
                     walk(e, &guard.cond, bound, false, uses)?;
                     bound.extend(guard.binder.iter().map(|h| h.text.clone()));
                 }
-                walk(e, &alt.body, bound, false, uses)?;
+                if let Some(body) = &alt.body {
+                    walk(e, body, bound, false, uses)?;
+                }
                 bound.truncate(before);
             }
         }

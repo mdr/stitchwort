@@ -557,10 +557,8 @@ fn case_branch(
         }
         Entered::Solved(goal) => match subtree {
             Tree::Missing { columns, span, arm } => {
-                for &level in columns {
-                    if let Some(term) = empty_case(cx, level, None)? {
-                        return Ok(Some(term));
-                    }
+                if let Some(term) = crate::impossible_case(cx, columns, &goal)? {
+                    return Ok(Some(term));
                 }
                 if let Some(missing) = number {
                     return Err(missing.diagnostic(*span));
@@ -579,7 +577,7 @@ fn case_branch(
             Tree::Guard { .. }
                 if let Some(Tree::Missing { columns, .. }) =
                     crate::guard_chain_missing(subtree)
-                    && let Some(term) = crate::empty_in_columns(cx, columns)? =>
+                    && let Some(term) = crate::impossible_case(cx, columns, &goal)? =>
             {
                 // The arms are still checked, for their own errors.
                 check_tree(cx, subtree, &goal)?;

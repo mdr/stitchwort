@@ -79,8 +79,9 @@ pub(crate) fn arms_call_itself(cx: &Ctx, alts: &[ast::Alt]) -> bool {
             crate::module::Ref::Dot(_, method, _) => method == last,
         })
     };
-    alts.iter()
-        .any(|alt| alt.guard.as_ref().is_some_and(|g| calls(&g.cond)) || calls(&alt.body))
+    alts.iter().any(|alt| {
+        alt.guard.as_ref().is_some_and(|g| calls(&g.cond)) || alt.body.as_ref().is_some_and(calls)
+    })
 }
 
 /// The name of the auto parameter a recursive call's proof is passed as:

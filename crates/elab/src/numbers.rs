@@ -2031,7 +2031,7 @@ pub(crate) fn has_number(expr: &Expr) -> bool {
             } => {
                 stack.extend(scrutinees.iter().map(|s| &s.expr));
                 stack.extend(alts.iter().flat_map(|a| a.guard.iter().map(|g| &g.cond)));
-                stack.extend(alts.iter().map(|a| &a.body));
+                stack.extend(alts.iter().filter_map(|a| a.body.as_ref()));
             }
             Expr::Induct { call, alts, .. } => {
                 stack.push(call);

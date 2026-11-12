@@ -7,7 +7,7 @@
 //! is: the expression parser's recursive functions must keep small stack
 //! frames, since the nesting limit is measured in stack.
 
-use super::{Parser, Result, describe, error, has_absurd};
+use super::{Parser, Result, describe, error};
 use crate::ast::{Attribute, BinOp, Clause, Decl, Expr, MatchKind, NAMELESS, Name, Pattern};
 use crate::lexer::Tok;
 use crate::{Diagnostic, Span};
@@ -327,7 +327,7 @@ impl Parser<'_> {
                                 name: name.clone(),
                                 patterns,
                                 guard: alt.guard,
-                                rhs: Some(alt.body),
+                                rhs: alt.body,
                                 arm: Some(header.len()),
                                 span: alt.span,
                             });
@@ -673,21 +673,11 @@ impl Parser<'_> {
             patterns.push(self.alt_pattern()?);
         }
         let guard = self.guard()?;
-        let absurd = patterns[header.len()..].iter().any(has_absurd);
-        let rhs = if absurd && self.peek() != Some(&Tok::FatArrow) {
-            if let Some(guard) = &guard {
-                return Err(error(
-                    guard.span,
-                    "an arm with `()` and no body can't have a condition",
-                )
-                .with_note("the condition would test nothing: the pattern can't match")
-                .into());
-            }
-            None
-        } else {
-            self.expect(Tok::FatArrow, "`=>` and the arm's body")?;
-            Some(self.expr()?)
-        };
+        let rhs = self.arm_body(
+            &patterns[header.len()..],
+            guard.as_ref(),
+            "`=>` and the arm's body",
+        )?;
         let end = rhs.as_ref().map_or(self.prev_span(), Expr::span);
         Ok(Decl::Equation {
             name: name.clone(),

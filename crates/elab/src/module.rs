@@ -3866,7 +3866,7 @@ fn names_and_proofs(work: Vec<Work<'_>>) -> Vec<Ref<'_>> {
                             vars.push(&h.text);
                         }
                     }
-                    steps.push(Work::Expr(&alt.body));
+                    steps.extend(alt.body.as_ref().map(Work::Expr));
                     steps.extend(vars.into_iter().map(Work::Unbind));
                 }
                 then(&mut stack, steps);

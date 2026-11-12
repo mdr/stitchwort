@@ -354,7 +354,7 @@ fn tail_split(e: &Expr) -> Option<(TailSplit<'_>, Vec<(String, &Expr)>)> {
             alts,
             kind: MatchKind::Let,
             ..
-        } if alts.len() == 1 => tail_split(&alts[0].body),
+        } if alts.len() == 1 => tail_split(alts[0].body.as_ref()?),
         Expr::If {
             binder,
             then,
@@ -374,12 +374,12 @@ fn tail_split(e: &Expr) -> Option<(TailSplit<'_>, Vec<(String, &Expr)>)> {
             alts,
             kind: MatchKind::Match,
             ..
-        } => Some((
+        } if alts.iter().all(|a| a.body.is_some()) => Some((
             TailSplit::Match { scrutinees, alts },
             alt_names(alts)
                 .into_iter()
                 .zip(alts)
-                .map(|(s, a)| (s, &a.body))
+                .filter_map(|(s, a)| Some((s, a.body.as_ref()?)))
                 .collect(),
         )),
         _ => None,
@@ -496,11 +496,11 @@ fn alternative_rows(parent: &Row, at: usize) -> std::result::Result<Vec<Row>, &'
             patterns: parent.patterns.clone(),
             alternatives: Vec::new(),
             span: alt.span,
-            has_rhs: true,
+            has_rhs: alt.body.is_some(),
             guarded: alt.guard.is_some(),
             guard: alt.guard.clone(),
             suffix: format!("{}.{seg}", parent.suffix),
-            rhs: Some(alt.body.clone()),
+            rhs: alt.body.clone(),
             parent: Some(at),
             alt: a + 1,
             chain,
@@ -554,7 +554,9 @@ fn probe_body(rhs: Option<&Expr>, span: Span, known: &[String]) -> Expr {
                 Alt {
                     guard: a.guard.clone(),
                     patterns: a.patterns.clone(),
-                    body: probe_body(Some(&a.body), a.span, &inner),
+                    // An absurd alternative stays one: given a body, its `()`
+                    // would be the unit pattern.
+                    body: (a.body.as_ref()).map(|b| probe_body(Some(b), a.span, &inner)),
                     span: a.span,
                 }
             })
@@ -772,7 +774,7 @@ fn source_arms(equations: &[Decl]) -> Option<SourceArms> {
         .map(|a: &Alt| SourceArm {
             patterns: a.patterns.clone(),
             guard: a.guard.clone(),
-            rhs: Some(a.body.clone()),
+            rhs: a.body.clone(),
             span: a.span,
         })
         .collect();
@@ -2713,7 +2715,7 @@ impl Elaborator {
                         Alt {
                             guard: None,
                             patterns: patterns.clone(),
-                            body,
+                            body: Some(body),
                             span: probe_span,
                         },
                         Alt {
@@ -2722,7 +2724,7 @@ impl Elaborator {
                                 .iter()
                                 .map(|_| Pattern::Wildcard(other_span))
                                 .collect(),
-                            body: var(PROBE, other_span),
+                            body: Some(var(PROBE, other_span)),
                             span: other_span,
                         },
                     ],
@@ -2743,7 +2745,7 @@ impl Elaborator {
                     Alt {
                         guard: None,
                         patterns: row.patterns.clone(),
-                        body,
+                        body: Some(body),
                         span: probe_span,
                     },
                     Alt {
@@ -2753,7 +2755,7 @@ impl Elaborator {
                             .iter()
                             .map(|_| Pattern::Wildcard(other_span))
                             .collect(),
-                        body: var(PROBE, other_span),
+                        body: Some(var(PROBE, other_span)),
                         span: other_span,
                     },
                 ],
@@ -4252,11 +4254,11 @@ impl Elaborator {
                 patterns: a.patterns.clone(),
                 alternatives: Vec::new(),
                 span: a.span,
-                has_rhs: true,
+                has_rhs: a.body.is_some(),
                 guarded: a.guard.is_some(),
                 guard: a.guard.clone(),
                 suffix: format!("alt{}", i + 1),
-                rhs: Some(a.body.clone()),
+                rhs: a.body.clone(),
                 parent: None,
                 alt: i + 1,
                 chain: Vec::new(),
@@ -4286,7 +4288,7 @@ impl Elaborator {
             .map(|a| SourceArm {
                 patterns: a.patterns.clone(),
                 guard: a.guard.clone(),
-                rhs: Some(a.body.clone()),
+                rhs: a.body.clone(),
                 span: a.span,
             })
             .collect();
@@ -6137,7 +6139,7 @@ impl Elaborator {
                         Alt {
                             guard: a.guard.clone(),
                             patterns: a.patterns.clone(),
-                            body: probe_body(a.rhs.as_ref(), a.span, &known),
+                            body: Some(probe_body(a.rhs.as_ref(), a.span, &known)),
                             span: a.span,
                         }
                     })

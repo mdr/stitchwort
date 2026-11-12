@@ -354,8 +354,10 @@ pub struct Alt {
     pub patterns: Vec<Pattern>,
     /// `if c` after the patterns: the alternative applies only when it holds.
     pub guard: Option<Guard>,
-    pub body: Expr,
-    /// From the `|` to the end of the body.
+    /// `None` for an absurd alternative, `| p, ()`: an alternative with an
+    /// absurd pattern `()` and no body, as an equation can have.
+    pub body: Option<Expr>,
+    /// From the `|` to the end of the body (or of the patterns, with none).
     pub span: Span,
 }
 
@@ -565,7 +567,10 @@ fn has_nested(expr: &Expr) -> bool {
         Expr::Induct { call, alts, .. } => nested(call) || alts.iter().any(|a| nested(&a.body)),
         Expr::Match {
             scrutinees, alts, ..
-        } => scrutinees.iter().any(|s| nested(&s.expr)) || alts.iter().any(|a| nested(&a.body)),
+        } => {
+            scrutinees.iter().any(|s| nested(&s.expr))
+                || alts.iter().any(|a| a.body.as_ref().is_some_and(nested))
+        }
         Expr::List(items, _) => !items.is_empty(),
         Expr::Spread(e, _) => nested(e),
         Expr::Record { base, fields, .. } => base.is_some() || !fields.is_empty(),
@@ -702,7 +707,7 @@ fn take_children(expr: &mut Expr, pending: &mut Vec<Expr>) {
             for e in scrutinees
                 .iter_mut()
                 .map(|s| &mut s.expr)
-                .chain(alts.iter_mut().map(|a| &mut a.body))
+                .chain(alts.iter_mut().filter_map(|a| a.body.as_mut()))
             {
                 if !is_leaf(e) {
                     pending.push(std::mem::replace(e, Expr::Prop(Span::NOWHERE)));

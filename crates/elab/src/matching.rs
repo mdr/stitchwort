@@ -29,7 +29,7 @@ use stitchwort_syntax::ast::{self, Alt, Expr, MatchKind, Pattern, Scrutinee};
 
 use crate::check::{Ctx, Result, infer, insert};
 use crate::lift::{self, Draft};
-use crate::{Row, UNIT_PATTERN, check_tree_here};
+use crate::{Row, check_tree_here};
 
 mod as_written;
 pub(crate) use as_written::{Outcome as AsWritten, report_transport, transport_target};
@@ -156,24 +156,10 @@ fn compile<'a>(
     let rows: Vec<Row> = alts
         .iter()
         .map(|alt| Row {
-            pats: alt
-                .patterns
-                .iter()
-                .map(|p| match p {
-                    Pattern::Absurd(span) => std::borrow::Cow::Owned(Pattern::Ctor(
-                        ast::Name {
-                            text: UNIT_PATTERN.into(),
-                            span: *span,
-                        },
-                        Vec::new(),
-                        *span,
-                    )),
-                    p => std::borrow::Cow::Borrowed(p),
-                })
-                .collect(),
+            pats: crate::row_patterns(&alt.patterns, alt.body.is_some()),
             aliases: Vec::new(),
             written: crate::written_names(&alt.patterns),
-            rhs: Some(&alt.body),
+            rhs: alt.body.as_ref(),
             span: alt.span,
             alternatives: Vec::new(),
             guard: alt.guard.as_ref(),
@@ -183,7 +169,7 @@ fn compile<'a>(
     let types: Vec<Option<Value>> = columns.iter().map(|l| Some(cx.types[*l].clone())).collect();
     let tree = (cx
         .e
-        .compile_top(&rows, cx.level(), columns, &types, 0, span))
+        .compile_top(cx, &rows, cx.level(), columns, &types, 0, span))
     .map_err(|d| in_context(cx, d, kind, first_patterns(alts), columns))?;
     cx.e.warn_redundant(&rows[..alts.len()], &tree);
     Ok(tree)
@@ -342,7 +328,7 @@ fn note_match_step(cx: &Ctx, alts: &[Alt], span: stitchwort_syntax::Span, goal: 
     }
     let parts = (alts.iter())
         .map(|a| stitchwort_syntax::Span {
-            end: a.body.span().start,
+            end: a.body.as_ref().map_or(a.span.end, |b| b.span().start),
             ..a.span
         })
         .collect();
@@ -478,7 +464,10 @@ fn unit_parameter<'e>(cx: &mut Ctx, expr: &'e Expr, goal: &Value) -> Result<Opti
         Vec::new().into(),
     );
     let ty = cx.types[level].clone();
-    Ok(crate::undo::unify(cx, &ty, &unit)?.then_some(&alt.body))
+    let Some(body) = &alt.body else {
+        return Ok(None);
+    };
+    Ok(crate::undo::unify(cx, &ty, &unit)?.then_some(body))
 }
 
 /// What a scrutinee is matched as.

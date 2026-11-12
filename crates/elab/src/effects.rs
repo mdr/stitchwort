@@ -2304,7 +2304,7 @@ pub fn may_perform_at(cx: &Ctx, expr: &Expr, expected: Option<&Value>) -> Result
         } => any(&mut scrutinees
             .iter()
             .map(|s| &s.expr)
-            .chain(alts.iter().map(|a| &a.body)))?,
+            .chain(alts.iter().filter_map(|a| a.body.as_ref())))?,
         Expr::Neg(a, _, _) => may_perform(cx, a)?,
         // A `let` performs what its value or the rest of the block does
         // (docs/proposals/let.md §5). The rest is judged here without the

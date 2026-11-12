@@ -2110,7 +2110,7 @@ impl Walk<'_> {
                                 vars.push(&h.text);
                             }
                         }
-                        steps.push(Work::Expr(&alt.body));
+                        steps.extend(alt.body.as_ref().map(Work::Expr));
                         steps.extend(vars.into_iter().map(Work::Unbind));
                     }
                     steps.extend(names.iter().map(|n| Work::Unbind(&n.text)));
