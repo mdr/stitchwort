@@ -31626,12 +31626,12 @@
     {
       "id": 2962,
       "title": "Full tier can't finish in 4 h: single tests take over an hour under STITCHWORT_TIER=full (rewind::rewinding_changes_nothing_for_the_examples 6081 s, check_cache::the_cache_changes_nothing_for_the_examples 3573 s, aocs_namespaces_load_on_their_own 2558 s, counts_repeat_within_a_process 2328 s, emptying_the_caches 2287 s, formatting_changes_no_declaration_hash 2213 s, counts_have_not_regressed 2211 s); 2059 of 2591 tests ran in 14,160 s. Measure and bound them (sample, or split across runs) so the tier completes",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-2962",
       "labels": [],
       "epic": "test-infra",
-      "body": "",
+      "body": "\nMatt, 12 Nov 2026: no full runs on Overmind for a while ('I don't think we're learning very much'); 'a single test taking over a minute is really slow. But an hour?' Also seen at 58c3bcac7: machine::aoc_agrees 5953 s, lower::every_aoc_main_lowers 5606 s, rewind aoc project 1109 s, search_bench 725 s.",
       "created": "2026-11-12",
       "updated": "2026-11-12",
       "commits": []
