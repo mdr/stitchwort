@@ -411,6 +411,27 @@ def annotated (rule: Rule) (page: Nat): Bool :=
     assert_eq!(body_of(source, "befores"), body_of(source, "annotated"));
 }
 
+/// A dot call whose receiver is kept as a term while an operator in it
+/// waits for its dictionary (SW-3045): `((x => x * x) 3).toInt` waits for
+/// the literal's default to know `.toInt`'s namespace, and keeps the
+/// application, whose `x * x` has no dictionary yet. That is no choice made
+/// from an unknown (invariant 6): the call is projected at the end, so the
+/// term is the one an annotation gives at once.
+#[test]
+fn a_kept_receiver_with_an_operator_waiting_for_its_dictionary() {
+    let source = "\
+import Std (Nat, Int)
+
+def kept: Int := ((x => x * x) 3).toInt
+
+def annotated: Int := (((x: Nat) => x * x) 3).toInt
+";
+    let (defs, _) = body_of(source, "kept");
+    assert!(defs.iter().any(|d| d == "Nat.mul"), "{defs:?}");
+    assert!(!defs.iter().any(|d| d == "Mul.mul"), "{defs:?}");
+    assert_eq!(body_of(source, "kept"), body_of(source, "annotated"));
+}
+
 /// A dictionary kept by name is still equal to what it unfolds to, and to
 /// another name for the same record: comparison unfolds it when the name
 /// alone doesn't settle it.
