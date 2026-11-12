@@ -47,8 +47,9 @@ pub struct Index {
     pub refs: Vec<Ref>,
     /// The type of each expression of the program's files, if the session
     /// recorded them (`Elaborator::enable_expression_types`): file (of
-    /// `files`), range, and the type as printed.
-    pub exprs: Vec<(usize, Range, String)>,
+    /// `files`), range, and the type as printed. The last is the type with
+    /// an outermost `Not` written as `p → Void`, when it has one.
+    pub exprs: Vec<(usize, Range, String, Option<String>)>,
     pub diagnostics: Vec<IndexDiagnostic>,
 }
 
@@ -82,6 +83,9 @@ pub struct Symbol {
     /// A function's header as its declaration writes it, after its name
     /// (`NavSymbol::header`).
     pub header: Option<String>,
+    /// Its type with an outermost `Not`, if it has one, written as
+    /// `p → Void` (`NavSymbol::unfolded`), for hover.
+    pub unfolded: Option<String>,
     /// Its doc, read from the comments above it (docs/proposals/documentation.md
     /// §4), with the first sentence of it and its marker (always `--|`).
     pub doc: Option<SymbolDoc>,
@@ -118,6 +122,9 @@ pub struct Ref {
     pub range: Range,
     pub target: RefTarget,
     pub ty: Option<String>,
+    /// The type with an outermost `Not`, if it has one, written as
+    /// `p → Void` (`NavRef::unfolded`), for hover.
+    pub unfolded: Option<String>,
     /// For the head of a call that left defaulted parameters out: the
     /// defaults it used.
     pub defaults: Option<String>,
@@ -381,7 +388,7 @@ pub fn index_json(
     // the parentheses already put back (see `index_data_of`).
     if !index.exprs.is_empty() {
         out.push_str(r#","exprs":["#);
-        for (i, (file, range, ty)) in index.exprs.iter().enumerate() {
+        for (i, (file, range, ty, _)) in index.exprs.iter().enumerate() {
             if i > 0 {
                 out.push(',');
             }
@@ -536,6 +543,7 @@ pub fn index_data_of(
             ty: symbol.ty.clone(),
             signature: symbol.signature.clone(),
             header: symbol.header.clone(),
+            unfolded: symbol.unfolded.clone(),
             doc,
             equations: equations_text(&symbol.name),
         });
@@ -575,6 +583,7 @@ pub fn index_data_of(
             range: at,
             target,
             ty: r.ty.clone(),
+            unfolded: r.unfolded.clone(),
             defaults: r.defaults.clone(),
             name_range,
             alias,
@@ -603,6 +612,7 @@ pub fn index_data_of(
             range: at,
             target: RefTarget::Symbol(s),
             ty: symbols[s].ty.clone(),
+            unfolded: symbols[s].unfolded.clone(),
             defaults: None,
             name_range,
             alias: last != tail,
@@ -614,7 +624,7 @@ pub fn index_data_of(
     }
 
     let mut exprs = Vec::new();
-    for (span, ty) in &index.exprs {
+    for (span, ty, unfolded) in &index.exprs {
         if user(span.file) {
             let file = file_of(*span, &mut files);
             let parens = parens
@@ -623,15 +633,25 @@ pub fn index_data_of(
             // The expression, and again with the parentheses around it.
             let inner = parens.around(*span, false);
             let outer = parens.around(*span, true);
-            exprs.push((file, range(&mut lines, sources, inner, None), ty.clone()));
+            exprs.push((
+                file,
+                range(&mut lines, sources, inner, None),
+                ty.clone(),
+                unfolded.clone(),
+            ));
             if outer != inner {
-                exprs.push((file, range(&mut lines, sources, outer, None), ty.clone()));
+                exprs.push((
+                    file,
+                    range(&mut lines, sources, outer, None),
+                    ty.clone(),
+                    unfolded.clone(),
+                ));
             }
         }
     }
     // Each `${…}`: the parser builds it from pieces that don't cover it.
     let mut with_text: Vec<FileId> = Vec::new();
-    for (span, _) in &index.exprs {
+    for (span, _, _) in &index.exprs {
         if user(span.file) && !with_text.contains(&span.file) {
             with_text.push(span.file);
         }
@@ -640,12 +660,12 @@ pub fn index_data_of(
         let in_file: Vec<(Span, &String)> = index
             .exprs
             .iter()
-            .filter(|(span, _)| span.file == f)
-            .map(|(span, ty)| (*span, ty))
+            .filter(|(span, _, _)| span.file == f)
+            .map(|(span, ty, _)| (*span, ty))
             .collect();
         for (span, ty) in parens[&f].interpolations(f, &in_file) {
             let file = file_of(span, &mut files);
-            exprs.push((file, range(&mut lines, sources, span, None), ty));
+            exprs.push((file, range(&mut lines, sources, span, None), ty, None));
         }
     }
 

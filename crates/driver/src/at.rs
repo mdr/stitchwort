@@ -280,10 +280,16 @@ pub fn hover_of(r: &LiveRef) -> Hover {
                 "```stitchwort\n{} {} {header}\n```",
                 r.kind, r.name
             ));
+            if let Some(unfolded) = &r.unfolded {
+                text.push_str(&format!("\nthat is, {unfolded}"));
+            }
         }
         _ => {
             if let Some(ty) = &r.ty {
                 text.push_str(&format!("```stitchwort\n{ty}\n```\n"));
+                if let Some(unfolded) = &r.unfolded {
+                    text.push_str(&format!("that is, {unfolded}\n"));
+                }
             }
             text.push_str(&format!("{} `{}`", r.kind, r.name));
         }
@@ -356,15 +362,16 @@ fn selection_hover(
         if let Some(binder) = file.binder_exactly(place, selection) {
             return Some(hover_of(&binder));
         }
-        if file.exprs.iter().all(|(r, _)| *r != selection) {
+        if file.exprs.iter().all(|(r, _, _)| *r != selection) {
             return None;
         }
     }
-    let (range, ty) = file.expr_covering(selection)?;
-    Some(Hover {
-        range,
-        markdown: format!("```stitchwort\n{ty}\n```"),
-    })
+    let (range, ty, unfolded) = file.expr_covering(selection)?;
+    let mut markdown = format!("```stitchwort\n{ty}\n```");
+    if let Some(unfolded) = unfolded {
+        markdown.push_str(&format!("\nthat is, {unfolded}"));
+    }
+    Some(Hover { range, markdown })
 }
 
 // ---- signature ----------------------------------------------------------

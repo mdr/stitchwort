@@ -15,7 +15,8 @@
 use std::cell::RefCell;
 
 use stitchwort_core::collections::HashMap;
-use stitchwort_core::{DefId, Icit, Name, Term, Value, pretty};
+use stitchwort_core::registry::Builtin;
+use stitchwort_core::{DefId, Ev, Icit, Name, Term, Value, pretty};
 use stitchwort_syntax::ast::{self, Clause, Decl, Expr, Module, Pattern};
 use stitchwort_syntax::{FileId, Span};
 
@@ -37,6 +38,8 @@ pub(crate) struct Recorder {
     pub(crate) pending: Vec<(Span, Value, Vec<Name>, bool)>,
     /// The printed types, by where the use starts.
     pub(crate) local_types: Logged<(FileId, u32), String>,
+    /// Those with an outermost `Not` written as `p → Void` (`not_unfolded`).
+    pub(crate) local_unfolded: Logged<(FileId, u32), String>,
     /// Local variables used, from the walk.
     pub(crate) locals: Vec<LocalUse>,
     /// Where local variables are bound (a binder refers to itself).
@@ -62,6 +65,8 @@ pub(crate) struct Recorder {
     /// The printed type of the expression written at a span (the last one
     /// elaborated there), for hovering over a selection.
     pub(crate) expr_types: Logged<Span, String>,
+    /// Those with an outermost `Not` written as `p → Void` (`not_unfolded`).
+    pub(crate) expr_unfolded: Logged<Span, String>,
     /// For hover on the head of a call that left defaulted parameters out,
     /// by the head's span: the defaults it used.
     pub(crate) call_defaults: Logged<Span, String>,
@@ -102,6 +107,11 @@ impl Recorder {
                 .iter()
                 .map(|((file, at), ty)| format!("nav type @{}:{at} {ty}", file.index())),
         );
+        lines.extend(
+            self.local_unfolded
+                .iter()
+                .map(|((file, at), ty)| format!("nav type-unfolded @{}:{at} {ty}", file.index())),
+        );
         for (what, uses) in [("local", &self.locals), ("binder", &self.binders)] {
             lines.extend(uses.iter().enumerate().map(|(i, u)| {
                 format!(
@@ -132,6 +142,11 @@ impl Recorder {
             self.expr_types
                 .iter()
                 .map(|(at, ty)| format!("nav expr {} {ty}", span(*at))),
+        );
+        lines.extend(
+            self.expr_unfolded
+                .iter()
+                .map(|(at, ty)| format!("nav expr-unfolded {} {ty}", span(*at))),
         );
         lines.extend(
             self.call_defaults
@@ -176,8 +191,10 @@ pub(crate) struct NavMark {
 pub(crate) struct Positions {
     refs: usize,
     local_types: usize,
+    local_unfolded: usize,
     field_spans: usize,
     expr_types: usize,
+    expr_unfolded: usize,
     call_defaults: usize,
 }
 
@@ -214,12 +231,14 @@ impl Recorder {
     }
 
     /// The logged maps, with what each does in [`Logs`]'s methods.
-    fn logged(&mut self) -> [&mut dyn Logs<Positions = usize>; 5] {
+    fn logged(&mut self) -> [&mut dyn Logs<Positions = usize>; 7] {
         let Recorder {
             refs,
             local_types,
+            local_unfolded,
             field_spans,
             expr_types,
+            expr_unfolded,
             call_defaults,
             // Lists, cut back by `rewind`, or put back from the mark.
             pending: _,
@@ -231,7 +250,15 @@ impl Recorder {
             exprs: _,
             generated: _,
         } = self;
-        [refs, local_types, field_spans, expr_types, call_defaults]
+        [
+            refs,
+            local_types,
+            local_unfolded,
+            field_spans,
+            expr_types,
+            expr_unfolded,
+            call_defaults,
+        ]
     }
 }
 
@@ -246,8 +273,10 @@ impl Logs for Recorder {
         Positions {
             refs: self.refs.position(),
             local_types: self.local_types.position(),
+            local_unfolded: self.local_unfolded.position(),
             field_spans: self.field_spans.position(),
             expr_types: self.expr_types.position(),
+            expr_unfolded: self.expr_unfolded.position(),
             call_defaults: self.call_defaults.position(),
         }
     }
@@ -256,16 +285,20 @@ impl Logs for Recorder {
         let Positions {
             refs,
             local_types,
+            local_unfolded,
             field_spans,
             expr_types,
+            expr_unfolded,
             call_defaults,
         } = at;
-        let [a, b, c, d, e] = self.logged();
+        let [a, b, c, d, e, f, g] = self.logged();
         a.undo_to(refs)
             + b.undo_to(local_types)
-            + c.undo_to(field_spans)
-            + d.undo_to(expr_types)
-            + e.undo_to(call_defaults)
+            + c.undo_to(local_unfolded)
+            + d.undo_to(field_spans)
+            + e.undo_to(expr_types)
+            + f.undo_to(expr_unfolded)
+            + g.undo_to(call_defaults)
     }
 
     fn set_generation(&mut self, g: Option<u32>) {
@@ -275,24 +308,30 @@ impl Logs for Recorder {
     fn entries(&self) -> usize {
         self.refs.entries()
             + self.local_types.entries()
+            + self.local_unfolded.entries()
             + self.field_spans.entries()
             + self.expr_types.entries()
+            + self.expr_unfolded.entries()
             + self.call_defaults.entries()
     }
 
     fn bytes(&self) -> usize {
         self.refs.bytes()
             + self.local_types.bytes()
+            + self.local_unfolded.bytes()
             + self.field_spans.bytes()
             + self.expr_types.bytes()
+            + self.expr_unfolded.bytes()
             + self.call_defaults.bytes()
     }
 
     fn distinct_keys(&self) -> usize {
         self.refs.distinct_keys()
             + self.local_types.distinct_keys()
+            + self.local_unfolded.distinct_keys()
             + self.field_spans.distinct_keys()
             + self.expr_types.distinct_keys()
+            + self.expr_unfolded.distinct_keys()
             + self.call_defaults.distinct_keys()
     }
 }
@@ -353,8 +392,10 @@ pub struct NavIndex {
     pub symbols: Vec<NavSymbol>,
     pub refs: Vec<NavRef>,
     /// The type of the expression written at each span, if recorded
-    /// ([`Elaborator::enable_expression_types`]), sorted by position.
-    pub exprs: Vec<(Span, String)>,
+    /// ([`Elaborator::enable_expression_types`]), sorted by position. The
+    /// third is the type with an outermost `Not` written as `p → Void`
+    /// (`not_unfolded`), when it has one.
+    pub exprs: Vec<(Span, String, Option<String>)>,
 }
 
 pub struct NavSymbol {
@@ -378,6 +419,9 @@ pub struct NavSymbol {
     /// `(low: Nat) [n: Nat]: Nat → Nat`; for a hover, which puts the kind and
     /// name before it.
     pub header: Option<String>,
+    /// Its type with an outermost `Not`, if it has one, written as
+    /// `p → Void` (`not_unfolded`), for hover.
+    pub unfolded: Option<String>,
 }
 
 /// A name a file can write unqualified ([`Elaborator::names_in_scope`]).
@@ -404,6 +448,9 @@ pub struct NavRef {
     pub dot: Option<String>,
     pub target: NavTarget,
     pub ty: Option<String>,
+    /// The type with an outermost `Not`, if it has one, written as
+    /// `p → Void` (`not_unfolded`), for hover.
+    pub unfolded: Option<String>,
     /// For the head of a call that left defaulted parameters out: the
     /// defaults it used, "`step` left out: its default `1`".
     pub defaults: Option<String>,
@@ -738,11 +785,18 @@ impl Elaborator {
             let budget = &self.kernel.machine.budget;
             let saved = budget.start_attempt(self.options.limits);
             let text = pretty::value_for_message(&self.ev(), &names, &ty);
+            let unfolded = value_not_unfolded(&self.ev(), &names, &ty);
             budget.restore(saved);
             if expr {
                 nav.expr_types.insert(span, text);
+                if let Some(unfolded) = unfolded {
+                    nav.expr_unfolded.insert(span, unfolded);
+                }
             } else {
                 nav.local_types.insert((span.file, span.start), text);
+                if let Some(unfolded) = unfolded {
+                    nav.local_unfolded.insert((span.file, span.start), unfolded);
+                }
             }
         }
     }
@@ -809,6 +863,10 @@ impl Elaborator {
                     .scope
                     .get(&key)
                     .and_then(|(global, _)| self.global_header(global)),
+                unfolded: self
+                    .scope
+                    .get(&key)
+                    .and_then(|(global, _)| self.global_not_unfolded(global)),
                 name: item.name.clone(),
                 kind: item.kind,
                 span: item.span,
@@ -914,6 +972,11 @@ impl Elaborator {
                     } else {
                         None
                     },
+                    unfolded: if field_span.is_none() {
+                        self.global_not_unfolded(global)
+                    } else {
+                        None
+                    },
                 });
                 symbols.len() - 1
             });
@@ -944,6 +1007,7 @@ impl Elaborator {
                 dot: noted.dot.clone(),
                 target: NavTarget::Symbol(index),
                 ty: symbols[index].ty.clone(),
+                unfolded: symbols[index].unfolded.clone(),
                 defaults: nav.call_defaults.get(at).cloned(),
                 pun: false,
             });
@@ -995,6 +1059,10 @@ impl Elaborator {
                     .local_types
                     .get(&(used.span.file, used.span.start))
                     .cloned(),
+                unfolded: nav
+                    .local_unfolded
+                    .get(&(used.span.file, used.span.start))
+                    .cloned(),
                 defaults: None,
                 pun: false,
             });
@@ -1017,6 +1085,10 @@ impl Elaborator {
                     .local_types
                     .get(&(local.span.file, local.span.start))
                     .cloned(),
+                unfolded: nav
+                    .local_unfolded
+                    .get(&(local.span.file, local.span.start))
+                    .cloned(),
                 defaults: nav.call_defaults.get(&local.span).cloned(),
                 pun: false,
             });
@@ -1034,6 +1106,7 @@ impl Elaborator {
                 dot: Some(last.to_string()),
                 target: NavTarget::Symbol(i),
                 ty: symbols[i].ty.clone(),
+                unfolded: symbols[i].unfolded.clone(),
                 defaults: None,
                 pun: false,
             });
@@ -1072,6 +1145,7 @@ impl Elaborator {
                     ty: self.global_type(global),
                     signature: self.global_signature(global),
                     header: self.global_header(global),
+                    unfolded: self.global_not_unfolded(global),
                 });
                 symbols.len() - 1
             });
@@ -1080,6 +1154,7 @@ impl Elaborator {
                 dot: None,
                 target: NavTarget::Symbol(index),
                 ty: symbols[index].ty.clone(),
+                unfolded: symbols[index].unfolded.clone(),
                 defaults: None,
                 pun: false,
             });
@@ -1105,6 +1180,7 @@ impl Elaborator {
                 dot: Some(last.to_string()),
                 target: NavTarget::Symbol(i),
                 ty: symbol.ty.clone(),
+                unfolded: symbol.unfolded.clone(),
                 defaults: None,
                 pun: false,
             });
@@ -1140,6 +1216,10 @@ impl Elaborator {
                     .local_types
                     .get(&(binder.span.file, binder.span.start))
                     .cloned(),
+                unfolded: nav
+                    .local_unfolded
+                    .get(&(binder.span.file, binder.span.start))
+                    .cloned(),
                 defaults: None,
                 pun: false,
             });
@@ -1169,12 +1249,12 @@ impl Elaborator {
             }
             start = end;
         }
-        let mut exprs: Vec<(Span, String)> = nav
+        let mut exprs: Vec<(Span, String, Option<String>)> = nav
             .expr_types
             .iter()
-            .map(|(at, ty)| (*at, ty.clone()))
+            .map(|(at, ty)| (*at, ty.clone(), nav.expr_unfolded.get(at).cloned()))
             .collect();
-        exprs.sort_by_key(|(at, _)| (at.file.index(), at.start, at.end));
+        exprs.sort_by_key(|(at, _, _)| (at.file.index(), at.start, at.end));
         NavIndex {
             symbols,
             refs,
@@ -1421,6 +1501,16 @@ impl Elaborator {
             parts.join(" "),
             pretty::term(g, &names, &ty)
         ))
+    }
+
+    /// A definition's type with an outermost `Not` written as `p → Void`
+    /// ([`not_unfolded`]), for hover.
+    fn global_not_unfolded(&self, global: Global) -> Option<String> {
+        let Global::Def(id) = global else {
+            return None;
+        };
+        let g = &self.ev();
+        not_unfolded(g, &[], g.def(id).ty())
     }
 
     fn global_type(&self, global: Global) -> Option<String> {
@@ -2274,6 +2364,53 @@ fn body_binders<'a>(ty: &'a Expr, equations: &[Decl]) -> Vec<&'a ast::Name> {
         }
     }
     names
+}
+
+/// A type with an outermost `Not` written as `p → Void` under its
+/// parameters: `(n: Nat) → n + 1 ≠ 0` gives
+/// `(n: Nat) → n + 1 = 0 → Void`. None unless the type after its parameters
+/// is `Not p`, which is why applying a proof of it gives a `Void`.
+fn not_unfolded(g: &Ev, names: &[Name], ty: &Term) -> Option<String> {
+    let mut names = names.to_vec();
+    let mut parts: Vec<String> = Vec::new();
+    let mut ty = ty.clone();
+    while let Term::Pi(name, icit, dom, cod) = ty.strip_loc() {
+        if !name.starts_with('%') {
+            let shown = pretty::term(g, &names, dom);
+            parts.push(match icit {
+                Icit::Explicit => format!("({name}: {shown})"),
+                Icit::Auto => format!("[auto {name}: {shown}]"),
+                _ => format!("[{name}: {shown}]"),
+            });
+        }
+        names.push(name.clone());
+        ty = (**cod).clone();
+    }
+    let (head, args) = ty.spine();
+    let Term::Def(not) = head.strip_loc() else {
+        return None;
+    };
+    if !g.env.registry().is_def(Builtin::Not, *not) {
+        return None;
+    }
+    let [prop] = args.as_slice() else {
+        return None;
+    };
+    let void = g.env.registry().data(Builtin::Void)?;
+    let unfolded = Term::Pi(
+        "_".into(),
+        Icit::Explicit,
+        (*prop).clone().into(),
+        Term::data(void, Vec::new()).into(),
+    );
+    parts.push(pretty::term_not_unfolded(g, &names, &unfolded));
+    Some(parts.join(" → "))
+}
+
+/// [`not_unfolded`] for a local's or expression's type, a value.
+fn value_not_unfolded(g: &Ev, names: &[Name], value: &Value) -> Option<String> {
+    let ty = stitchwort_core::value::quote_shown(g, names.len(), value).ok()?;
+    not_unfolded(g, names, &ty)
 }
 
 #[cfg(test)]
