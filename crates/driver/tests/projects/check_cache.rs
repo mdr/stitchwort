@@ -367,6 +367,19 @@ fn the_cache_replays_extensions() {
     assert_cache_changes_nothing(&project, true);
 }
 
+/// `P.Spec` adds a function to `P`'s type, but its `import P` brings the
+/// namespace whose own error says `P` can't see the addition. `P.Spec` is
+/// checked and not written (SW-2951); the differential test must not read
+/// that as an entry that can't be encoded.
+#[test]
+fn the_cache_changes_nothing_for_extension_in_owner() {
+    let project = Source::Project(
+        "extension-in-owner".into(),
+        examples_dir().join("projects/reject/extension-in-owner"),
+    );
+    assert_cache_changes_nothing(&project, true);
+}
+
 /// Parameter defaults are replayed from the cache: the defaulting table of
 /// each definition, and calls in a namespace checked afresh against a
 /// cached one that leave a defaulted parameter out; with navigation, the
@@ -762,7 +775,8 @@ fn removing_an_error_finds_its_importers_earlier_entries() {
     );
     let broken = fresh_and_cached(&dir, &cache);
     assert_eq!((broken.namespace_hits, broken.namespace_written), (1, 0));
-    assert_eq!(broken.namespace_uncacheable, 1);
+    assert_eq!(broken.namespace_uncacheable, 0);
+    assert_eq!(broken.namespace_waiting_on_error, 1);
     write_file(&dir, "src/A.sw", ABC[0].1);
     let fixed = fresh_and_cached(&dir, &cache);
     assert_eq!((fixed.namespace_hits, fixed.namespace_misses), (3, 0));

@@ -824,13 +824,18 @@ fn a_check_cancelled_at_each_use_of_the_cache_rewinds() {
 
 // ---- editing re-checks what an edit can affect ------------------------------
 
-/// A's text, with a number no run has used before: its cache entries are
-/// new, so that the cache's hits and misses are the run's own.
-fn order_a() -> String {
-    let nonce = std::time::SystemTime::now()
+/// A number no other run has used: the entries it keys are this run's, so
+/// the cache's hits and misses are the run's own.
+fn nonce() -> String {
+    std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap()
-        .as_nanos();
+        .as_nanos()
+        .to_string()
+}
+
+/// A's text, with `nonce` in it: its cache entries are new.
+fn order_a(nonce: &str) -> String {
     format!("namespace Order.A\n\ndef base: Nat := {nonce}\n")
 }
 const ORDER_B: &str = "namespace Order.B\n\nimport Order.A (base)\n\ndef next: Nat := base + 1\n";
@@ -844,9 +849,19 @@ fn order_files(a: &str) -> BTreeMap<String, String> {
     ])
 }
 
-fn order_project(files: BTreeMap<String, String>) -> LiveProject {
+/// The cache the whole test shares, so that `Order.C` can be replayed after
+/// an edit rewinds it. Its own directory, rather than the test std cache:
+/// [`Session::use_test_std_cache`] sets no cache at all in the full tier,
+/// where this test still needs one for the namespaces alone.
+fn order_cache(nonce: &str) -> PathBuf {
+    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join(format!("rewind-order-{nonce}"));
+    std::fs::create_dir_all(&dir).unwrap();
+    dir
+}
+
+fn order_project(files: BTreeMap<String, String>, cache: &Path) -> LiveProject {
     let mut session = Session::navigable_for_stack(STACK);
-    session.use_test_std_cache();
+    session.use_check_cache(cache);
     LiveProject::new(
         session,
         "order",
@@ -873,8 +888,10 @@ fn checked_log(live: &mut LiveProject) -> Vec<String> {
 #[test]
 fn an_edit_checks_again_only_what_uses_it() {
     with_stack(STACK, || {
-        let order_a = order_a();
-        let mut live = order_project(order_files(&order_a));
+        let nonce = nonce();
+        let order_a = order_a(&nonce);
+        let cache = order_cache(&nonce);
+        let mut live = order_project(order_files(&order_a), &cache);
         assert_eq!(checked_log(&mut live), ["Order.A", "Order.B", "Order.C"]);
         let stats = |live: &LiveProject| live.session.elab.check_cache_stats();
 
@@ -913,7 +930,7 @@ fn an_edit_checks_again_only_what_uses_it() {
             "A and B elaborated; C not"
         );
 
-        let mut fresh = order_project(order_files(&broken));
+        let mut fresh = order_project(order_files(&broken), &cache);
         checked_log(&mut fresh);
         let (now, then) = (live.answers(), fresh.answers());
         assert!(
@@ -925,12 +942,13 @@ fn an_edit_checks_again_only_what_uses_it() {
         // And back: the same answers as the first check's.
         live.set_text("src/a.sw", Some(order_a.clone()));
         assert_eq!(checked_log(&mut live), ["Order.A", "Order.B", "Order.C"]);
-        let mut first = order_project(order_files(&order_a));
+        let mut first = order_project(order_files(&order_a), &cache);
         checked_log(&mut first);
         let (mut now, mut then) = (live.answers(), first.answers());
         // The library's answers were given with the first call.
         now.retain(|place, _| matches!(place, Place::Program(_)));
         then.retain(|place, _| matches!(place, Place::Program(_)));
         assert_eq!(format!("{now:?}"), format!("{then:?}"));
+        let _ = std::fs::remove_dir_all(&cache);
     });
 }
