@@ -31920,15 +31920,17 @@
     {
       "id": 2984,
       "title": "[Opus] Impossible cases in match (D3534, Matt, 12 Nov 2026): (1) () as an absurd pattern inside a multi-scrutinee match arm, as in clause form (today 'match theirs, h with | Rock, ()' is E-PARSE and '| Rock, () => …' reads () as unit); (2) a match fills in a missing arm itself when a hypothesis in that arm is an equation of different constructors (False = True after computing), else the error still names the arm; (3) book §2.5 shows '| Rock, ()' as the short form after the long one. Repros in the ticket body; syntax.md and guide updated; examples with hash snapshots",
-      "status": "doing",
+      "status": "review",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-2984",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "\nReview fixes (Opus, 14:54-15:09): M1 a case filled in under a guard is lifted into a helper (not in a chain checked for errors only); M2 any variable whose type mentions a matched variable holds the error back (`h: IsSome o`); L1 a `()` already empty is refuted before splitting, as before; L2 note on one-line absurd alternatives. Merged main; all 10 hash_stability tests pass (only additions, for the new example).\n",
       "created": "2026-11-12",
       "updated": "2026-11-12",
-      "commits": []
+      "commits": [
+        "584064688"
+      ]
     },
     {
       "id": 2985,
