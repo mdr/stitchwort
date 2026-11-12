@@ -32729,12 +32729,12 @@
     {
       "id": 3038,
       "title": "[Sonnet] Derived Decidable instances of proposition records (T.%instDecidable, e.g. guide's Within) are nested ifs of Decidable.yes/no: build them test first, as SW-2968 did for DecEq (SW-3031 finding 3)",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "diagnostics",
-      "body": "",
+      "body": "Lane notes (Sonnet, 12 Nov 2026): done in ~25 min (est. 75). Branch lane/SW-3038, commit 74870b2bf. `T.%instDecidable` of a proposition record is now the record { holds = T.%holds p, sound = T.%holdsSound p, complete = T.%holdsComplete p }; T.%holds is the fields' decisions' `.holds` joined by `&&`; readings T.%holdsReads (= True) and T.%holdsReadsFalse (= False, as ¬T). Helpers T.%param%j (parameter types) and T.%field%k (each field's proposition without earlier proofs). Example derive-decidable-record extended; docs/syntax.md and the bool-as-proposition note updated; six hash snapshots accepted (added/renamed generated names, plus dependents of the instance).\n",
       "created": "2026-11-12",
       "updated": "2026-11-12",
       "commits": []
