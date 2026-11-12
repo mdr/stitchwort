@@ -87,7 +87,6 @@ theorem diagonalSame (garden: Garden) (start: Position) (plant: Char) (grows: ga
   let plotGrows := joinedPlant garden plant start plot grows ((isRegion plot).forward member)
   let faces := Eq.trans (Eq.sym (sameAcrossFaces garden start plant grows region isRegion plot member vertical)) same
   match stepped: plot.step vertical with
-    | None => cases
     | Some next =>
       let nextIn := (List.memContains region.plots next).forward faces
       let nextGrows := joinedPlant garden plant start next grows ((isRegion next).forward nextIn)

@@ -30,7 +30,6 @@ theorem canEnterSafe (size: Nat) (bytes: List Position) (fallen: Nat) (position:
 theorem enterUnit (memory: MemorySpace) (position: Position) (cost: Nat) (found: memory.enter position = Some cost): cost = 1 :=
   match safe: memory.isSafe position with
     | True => Eq.sym (Option.someInjective found)
-    | False => Void.exfalso (Option.noneNotSome cost found)
 
 --| ...so each edge of the graph costs one.
 theorem unitSteps (memory: MemorySpace) (state: Position) (next: Position) (weight: Nat) (edge: (next, weight) ∈ memory.graph.edges state): weight = 1 :=

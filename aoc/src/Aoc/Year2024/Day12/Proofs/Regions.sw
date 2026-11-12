@@ -14,7 +14,6 @@ theorem positionsGrow (garden: Garden) (position: Position) (member: position âˆ
   let contains := (Map.memKeys garden.plots position).forward member
   match grows: garden.plantAt position with
     | Some plant => Witness plant rfl
-    | None => cases
 
 --| After inserting a list of plots, `seen` has what it had and the plots.
 theorem containsInsertAll (seen: Set Position) (plots: List Position) (position: Position):

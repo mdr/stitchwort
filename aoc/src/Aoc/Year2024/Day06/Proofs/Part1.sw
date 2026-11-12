@@ -27,7 +27,6 @@ theorem routeAfterGone (lab: Lab): ∀ (steps: Nat) (guard: Option Guard) => wal
 theorem patrolFromRoute (lab: Lab) (budget: Nat) (guard: Guard) (visited: Set Position) (gone: walk lab (Some guard) budget = None):
     lab.patrolFrom guard visited budget = Some ((route lab (Some guard) budget).foldLeft visited (set key => set.insert key)) :=
   match budget with
-    | Zero => Void.exfalso (Option.someNotNone guard gone)
     | Succ budget =>
       match stepped: lab.step guard with
         | None => rewrite routeNone lab budget in rfl
@@ -37,7 +36,6 @@ theorem patrolFromRoute (lab: Lab) (budget: Nat) (guard: Guard) (visited: Set Po
 theorem patrolFromGone (lab: Lab) (budget: Nat) (guard: Guard) (visited found: Set Position)
     (collected: lab.patrolFrom guard visited budget = Some found): walk lab (Some guard) budget = None :=
   match budget with
-    | Zero => Void.exfalso (Option.noneNotSome found collected)
     | Succ budget =>
       match stepped: lab.step guard with
         | None => walkNone lab budget

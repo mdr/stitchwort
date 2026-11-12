@@ -17,7 +17,6 @@ theorem mayPrecedeTotal (precedes: Nat → Nat → Bool) (pages: List Nat)
     (x: Nat) (y: Nat) (inX: x ∈ pages) (inY: y ∈ pages) (no: mayPrecede precedes x y = False): mayPrecede precedes y x = True :=
   match yFirst: precedes y x with
     | True => rewrite asymmetric y x inY inX yFirst in rfl
-    | False => cases
 
 --| And transitive on the pages, when the order is total and transitive there.
 theorem mayPrecedeTransitive (precedes: Nat → Nat → Bool) (pages: List Nat)

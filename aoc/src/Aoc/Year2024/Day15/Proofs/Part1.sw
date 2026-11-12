@@ -14,7 +14,6 @@ import Std (And, Bool, DecEq, Decidable, Eq, Exists, Iff, Int, List, Map, Nat, N
 theorem firstFreeSome (boxes: Set Cell) (direction: Direction) (start: Cell) (fuel: Nat) (free: Cell)
     (found: firstFree boxes direction start fuel = Some free): (boxes.contains free = False) ∧ ((free = start) ∨ (boxes.contains start = True)) :=
   match fuel with
-    | Zero => Void.exfalso (Option.noneNotSome free found)
     | Succ fuel =>
       match c: boxes.contains start with
         | True => Both (And.left (firstFreeSome boxes direction (start.step direction) fuel free found)) (Inr rfl)
@@ -28,7 +27,6 @@ theorem firstFreeLine (boxes: Set Cell) (direction: Direction) (length: Nat) (st
     (line: (∀ (i: Nat) => i < length → boxes.contains (ahead start direction i) = True)) (free: boxes.contains (ahead start direction length) = False):
     firstFree boxes direction start fuel = Some (ahead start direction length) :=
   match length, fuel with
-    | length, Zero => Void.exfalso (omega)
     | Zero, Succ fuel => rewrite free in rfl
     | Succ length, Succ fuel =>
       rewrite line 0 (omega) in

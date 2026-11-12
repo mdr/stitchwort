@@ -17,15 +17,12 @@ theorem testBitAbove (n: Nat) (bits: Nat) (bit: Nat) (small: n < Nat.pow 2 bits)
 --| What `Map.lookupLast` finds is one of the pairs.
 theorem lookupLastMem [auto ord: Ord k] (key: k) (value: v) (pairs: List (k, v)) (found: Map.lookupLast key pairs = Some value): (key, value) ∈ pairs :=
   match pairs with
-    | [] => Void.exfalso (Option.noneNotSome value found)
     | [(other, otherValue), ..rest] =>
       match later: Map.lookupLast key rest with
         | Some laterValue => Inr (lookupLastMem key value rest (Eq.trans later found))
         | None =>
           match same: Ord.compare key other with
             | Equal => Inl (rewrite ord.equal key other same, Option.someInjective found in rfl)
-            | Less => Void.exfalso (Option.noneNotSome value found)
-            | Greater => Void.exfalso (Option.noneNotSome value found)
 
 --| The lowest bit of a number written lowest first, and the rest.
 theorem fromBitsLow (bit: Bool) (rest: List Bool): Nat.testBit ((Bits.fromLowFirst [bit, ..rest]).value) 0 = bit :=
@@ -57,7 +54,6 @@ theorem rangeBitsBeyond (f: Nat → Option Bool): ∀ (count start: Nat) (bits: 
     Option.flatMapEqSome (f start) (value => List.allSome ((List.rangeFrom count (Succ start)).map f) |> .map (Cons value)) bits all (value isValue rest =>
       Option.mapEqSome (List.allSome ((List.rangeFrom count (Succ start)).map f)) (Cons value) bits rest (restBits restIs isBits =>
         match k with
-          | Zero => Void.exfalso (omega)
           | Succ index => rewrite <- isBits, fromBitsHigh value restBits index in rangeBitsBeyond f count (Succ start) restBits restIs index (omega)))
 
 --| `bitCount` from any start.

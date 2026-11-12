@@ -71,8 +71,7 @@ theorem distinctCounted (racetrack: Racetrack) (fromStart: Map Position Nat) (to
       match got: fromStart.get start with
         | Some before =>
           Exists.elim (List.memMapElim _ cheat _ inStart)
-            (end both => rewrite <- And.right both in rfl)
-        | None => Void.exfalso inStart)
+            (end both => rewrite <- And.right both in rfl))
 
 --| A position listed by the track is on it, and the other way round.
 theorem listedOnTrack (racetrack: Racetrack) (position: Position): (position ∈ racetrack.track.toList) ↔ (onTrack racetrack position = True) :=
@@ -90,15 +89,12 @@ theorem countedSound (racetrack: Racetrack) (startOnTrack: onTrack racetrack rac
   List.anyElim _ _ starts (List.memFlatMapElim (countedFrom fromStart toEnd honest length threshold) cheat starts member)
     (start startMember inStart =>
       match got: fromStart.get start with
-        | None => Void.exfalso inStart
         | Some before =>
           let inList := inStart
           Exists.elim (List.memMapElim _ cheat _ inList) (end both =>
             let (Both endMember made) := both
             let (Both aroundMember saves) := List.memFilter (start.diamond length) (savesFrom toEnd honest threshold start before) endMember
             match gotAfter: toEnd.get end with
-              | None =>
-                cases
               | Some after =>
                 let fits: before + cheatTime ({ start, end }: Cheat) + after + threshold ≤ honest :=
                   saves

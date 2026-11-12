@@ -16,12 +16,10 @@ theorem movedNear (aim: Position) (to: Position) (direction: Direction) (next: P
   match direction with
     | Up =>
       match top: aim.row == 0 with
-        | True => Void.exfalso (Option.noneNotSome next step)
         | False => rewrite <- Option.someInjective step in omega [top]
     | Down => rewrite <- Option.someInjective step in omega
     | Left =>
       match edge: aim.column == 0 with
-        | True => Void.exfalso (Option.noneNotSome next step)
         | False => rewrite <- Option.someInjective step in omega [edge]
     | Right => rewrite <- Option.someInjective step in omega
 
@@ -32,10 +30,8 @@ theorem walkDistance (rows: List (List (Option k))) (start: Position) (route: Li
     | [] => rewrite <- Option.someInjective walked in omega
     | [direction, ..rest] =>
       match step: moved start direction with
-        | None => Void.exfalso (Option.noneNotSome end walked)
         | Some next =>
           match found: keyAt rows next with
-            | None => Void.exfalso (Option.noneNotSome end walked)
             | Some key => omega [movedNear start end direction next step, walkDistance rows next rest end walked]
 
 --| Pressing a route's keys yourself takes a press per move and one for A.

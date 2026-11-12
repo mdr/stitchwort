@@ -51,7 +51,6 @@ theorem lastFromAppendOne (from: k) (keys: List k) (key: k): lastFrom from (keys
 
 theorem flatMapSome (f: a → Option b) (x: Option a) (value: a) (same: x = Some value): x.flatMap f = f value :=
   match x with
-    | None => Void.exfalso (Option.noneNotSome value same)
     | Some found => rewrite Option.someInjective same in rfl
 
 theorem flatMapIntoSome (x: Option a): x.flatMap (value => Some value) = x :=
