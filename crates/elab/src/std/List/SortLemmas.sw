@@ -345,14 +345,20 @@ theorem List.sumByFilter [auto add: Add c] (xs: List a) (f: a → c) (p: a → B
     | [] => rfl
     | [x, ..xs] =>
       Bool.inspect (p x) (b => List.sumBy (List.filter [x, ..xs] p) f = List.sumBy [x, ..xs] (x => if p x then f x else Add.zero))
-        (h => Eq.trans (Eq.cong (.sumBy f) (List.filterKeep xs p x h))
-          (Eq.trans (List.sumByCons (List.filter xs p) x f)
-            (Eq.trans (Eq.cong (t => f x + t) (List.sumByFilter xs f p))
-              (Eq.sym (Eq.trans (List.sumByCons xs x (x => if p x then f x else Add.zero)) (Eq.cong (t => (if t then f x else Add.zero) + List.sumBy xs (x => if p x then f x else Add.zero)) h))))))
-        (h => Eq.trans (Eq.cong (.sumBy f) (List.filterSkip xs p x h))
-          (Eq.trans (List.sumByFilter xs f p)
-            (Eq.trans (Eq.sym (add.zeroAdd (List.sumBy xs (x => if p x then f x else Add.zero))))
-              (Eq.sym (Eq.trans (List.sumByCons xs x (x => if p x then f x else Add.zero)) (Eq.cong (t => (if t then f x else Add.zero) + List.sumBy xs (x => if p x then f x else Add.zero)) h))))))
+        (h =>
+          calc List.sumBy (List.filter [x, ..xs] p) f
+            _ = List.sumBy [x, ..List.filter xs p] f := Eq.cong (.sumBy f) (List.filterKeep xs p x h)
+            _ = f x + List.sumBy (List.filter xs p) f := List.sumByCons (List.filter xs p) x f
+            _ = f x + List.sumBy xs (x => if p x then f x else Add.zero) := Eq.cong (t => f x + t) (List.sumByFilter xs f p)
+            _ = (if p x then f x else Add.zero) + List.sumBy xs (x => if p x then f x else Add.zero) := rewrite h
+            _ = List.sumBy [x, ..xs] (x => if p x then f x else Add.zero) := Eq.sym (List.sumByCons xs x (x => if p x then f x else Add.zero)))
+        (h =>
+          calc List.sumBy (List.filter [x, ..xs] p) f
+            _ = List.sumBy (List.filter xs p) f := Eq.cong (.sumBy f) (List.filterSkip xs p x h)
+            _ = List.sumBy xs (x => if p x then f x else Add.zero) := List.sumByFilter xs f p
+            _ = Add.zero + List.sumBy xs (x => if p x then f x else Add.zero) := Eq.sym (add.zeroAdd (List.sumBy xs (x => if p x then f x else Add.zero)))
+            _ = (if p x then f x else Add.zero) + List.sumBy xs (x => if p x then f x else Add.zero) := rewrite h
+            _ = List.sumBy [x, ..xs] (x => if p x then f x else Add.zero) := Eq.sym (List.sumByCons xs x (x => if p x then f x else Add.zero)))
 
 theorem List.sumFilter (xs: List Nat) (p: Nat → Bool): List.sum (List.filter xs p) = List.sumBy xs (x => Nat.keepIf x (p x)) :=
   match xs with
@@ -380,25 +386,39 @@ theorem List.sumRangeFromNone (q: Nat → Bool) (g: Nat → Nat) (c s: Nat)
         (Eq.trans (Eq.cong (t => Nat.keepIf (g s) t + List.sumBy (List.rangeFrom c (Succ s)) (b => Nat.keepIf (g b) (q b))) (h s (Nat.leRefl s) (Nat.ltAddSuccSelf s c)))
           (List.sumRangeFromNone q g c (Succ s) (b hb1 hb2 => h b (Nat.leTrans s (Succ s) b (Nat.leSucc s) hb1) (Nat.ltAddSucc s c b hb2))))
 
+--| Past the one number `q` picks, `q` picks nothing.
+theorem List.sumRangeFromOneApart (q: Nat → Bool) (v: Nat) (uniq: ∀ (b: Nat) => q b = True → b = v) (s: Nat) (hs: q s = True)
+    (b: Nat) (hb: Succ s ≤ b): q b = False :=
+  Bool.inspect (q b) (u => u = False)
+    (t => Void.exfalso (Nat.lessIrrefl s (Nat.leCongRight (Succ s) b s (Eq.trans (uniq b t) (Eq.sym (uniq s hs))) hb)))
+    (f => rfl)
+
 theorem List.sumRangeFromOne (q: Nat → Bool) (g: Nat → Nat) (v: Nat) (hv: q v = True) (uniq: ∀ (b: Nat) => q b = True → b = v)
     (c s: Nat) (h1: s ≤ v) (h2: v < s + c): List.sumBy (List.rangeFrom c s) (b => Nat.keepIf (g b) (q b)) = g v :=
   match c with
     | Zero => Void.exfalso (Nat.lessIrrefl v (Nat.leTrans (Succ v) s v (Nat.ltCongRight v (s + 0) s ring h2) h1))
     | Succ c =>
       Bool.inspect (q s) (u => List.sumBy (List.rangeFrom (Succ c) s) (b => Nat.keepIf (g b) (q b)) = g v)
-        (hs => Eq.trans (List.sumByCons (List.rangeFrom c (Succ s)) s (b => Nat.keepIf (g b) (q b)))
-          (Eq.trans (Eq.cong (t => Nat.keepIf (g s) t + List.sumBy (List.rangeFrom c (Succ s)) (b => Nat.keepIf (g b) (q b))) hs)
-            (Eq.trans (Eq.cong (t => g s + t)
+        (hs =>
+          calc List.sumBy (List.rangeFrom (Succ c) s) (b => Nat.keepIf (g b) (q b))
+            _ = Nat.keepIf (g s) (q s) + List.sumBy (List.rangeFrom c (Succ s)) (b => Nat.keepIf (g b) (q b))
+              := List.sumByCons (List.rangeFrom c (Succ s)) s (b => Nat.keepIf (g b) (q b))
+            _ = g s + List.sumBy (List.rangeFrom c (Succ s)) (b => Nat.keepIf (g b) (q b)) := rewrite hs
+            _ = g s + 0
+              := Eq.cong (t => g s + t)
                 (List.sumRangeFromNone q g c (Succ s) (b hb1 hb2 =>
-                  Bool.inspect (q b) (u => u = False)
-                    (t => Void.exfalso (Nat.lessIrrefl s (Nat.leCongRight (Succ s) b s (Eq.trans (uniq b t) (Eq.sym (uniq s hs))) hb1)))
-                    (f => rfl))))
-              (Eq.trans (Nat.addZero (g s)) (Eq.cong g (uniq s hs))))))
-        (hs => Eq.trans (List.sumByCons (List.rangeFrom c (Succ s)) s (b => Nat.keepIf (g b) (q b)))
-          (Eq.trans (Eq.cong (t => Nat.keepIf (g s) t + List.sumBy (List.rangeFrom c (Succ s)) (b => Nat.keepIf (g b) (q b))) hs)
-            (List.sumRangeFromOne q g v hv uniq c (Succ s)
-              (Nat.leNeSucc s v h1 (e => Bool.trueNotFalse (Eq.trans (Eq.sym hv) (Eq.trans (Eq.cong q (Eq.sym e)) hs))))
-              (Nat.ltSuccAdd s c v h2))))
+                  List.sumRangeFromOneApart q v uniq s hs b hb1))
+            _ = g s := Nat.addZero (g s)
+            _ = g v := Eq.cong g (uniq s hs))
+        (hs =>
+          calc List.sumBy (List.rangeFrom (Succ c) s) (b => Nat.keepIf (g b) (q b))
+            _ = Nat.keepIf (g s) (q s) + List.sumBy (List.rangeFrom c (Succ s)) (b => Nat.keepIf (g b) (q b))
+              := List.sumByCons (List.rangeFrom c (Succ s)) s (b => Nat.keepIf (g b) (q b))
+            _ = List.sumBy (List.rangeFrom c (Succ s)) (b => Nat.keepIf (g b) (q b)) := rewrite hs
+            _ = g v
+              := List.sumRangeFromOne q g v hv uniq c (Succ s)
+                (Nat.leNeSucc s v h1 (e => Bool.trueNotFalse (Eq.trans (Eq.sym hv) (Eq.trans (Eq.cong q (Eq.sym e)) hs))))
+                (Nat.ltSuccAdd s c v h2))
 
 --| A sum over a run of numbers that is 0 has every term 0.
 theorem List.sumRangeFromZero (f: Nat → Nat): ∀ (c s: Nat) => List.sumBy (List.rangeFrom c s) f = 0 →
@@ -972,6 +992,19 @@ theorem Bool.toNatAddLeOne (b: Bool) (n: Nat) (h: Bool.toNat b + n ≤ 1): n ≤
     | False, n => h
     | True, Zero => rfl
 
+--| No element of the rest has the key of the head that has `kk`, if the head's key isn't among theirs.
+theorem List.occurrencesKeyAbsent [auto eq: DecEq k] (xs: List a) (key: a → k) (x: a) (kk: k)
+    (notMem: ¬(List.Mem (key x) (List.map xs key))) (t: (key x == kk) = True):
+    List.occurrences xs (y => key y == kk) = 0 :=
+  match n: List.occurrences xs (y => key y == kk) with
+    | Zero => rfl
+    | Succ m =>
+      Void.exfalso (List.anyTrueElim xs (y => key y == kk) Void (rewrite List.anyOccurrences xs (y => key y == kk), n in rfl)
+        (y inXs py =>
+          notMem (Eq.subst (z => List.Mem z (List.map xs key))
+            (Eq.trans ((DecEq.decide (key y) kk).sound py) (Eq.sym ((DecEq.decide (key x) kk).sound t)))
+            (List.memMap xs y inXs key))))
+
 --| Distinct keys: at most one element has any key.
 theorem List.occurrencesKeyDistinct [auto eq: DecEq k] (xs: List a) (key: a → k) (kk: k) (h: List.Distinct (List.map xs key)):
     List.occurrences xs (x => key x == kk) ≤ 1 :=
@@ -979,15 +1012,23 @@ theorem List.occurrencesKeyDistinct [auto eq: DecEq k] (xs: List a) (key: a → 
     | [], d => rfl
     | [x, ..xs], Both notMem d =>
       Bool.inspect (key x == kk) (c => Bool.toNat c + List.occurrences xs (y => key y == kk) ≤ 1)
-        (t =>
-          match n: List.occurrences xs (y => key y == kk) with
-            | Zero => rfl
-            | Succ m =>
-              Void.exfalso (List.anyTrueElim xs (y => key y == kk) Void (rewrite List.anyOccurrences xs (y => key y == kk), n in rfl)
-                (y inXs py =>
-                  notMem (rewrite Eq.trans ((DecEq.decide (key x) kk).sound t) (Eq.sym ((DecEq.decide (key y) kk).sound py))
-                    in List.memMap xs y inXs key))))
+        (t => rewrite List.occurrencesKeyAbsent xs key x kk notMem t in rfl)
         (f => List.occurrencesKeyDistinct xs key kk d)
+
+--| If the head's key is the only one of its kind, it isn't among the keys of the rest.
+theorem List.memMapOfOccurrences [auto eq: DecEq k] (xs: List a) (key: a → k) (x: a)
+    (h: List.occurrences [x, ..xs] (z => key z == key x) ≤ 1): ¬(List.Mem (key x) (List.map xs key)) :=
+  m =>
+    List.anyElim (y => key y = key x) Void xs (List.memMapAny xs key (key x) m) (y inXs e =>
+      match n: List.occurrences xs (z => key z == key x) with
+        | Zero =>
+          Bool.falseNotTrue (Eq.trans (Eq.sym (rewrite n at List.anyOccurrences xs (z => key z == key x)))
+            (List.anyOfMem xs (z => key z == key x) y ((DecEq.decide (key y) (key x)).complete e) inXs))
+        | Succ c =>
+          let one: Nat.leq (Succ (List.occurrences xs (z => key z == key x))) 1 = True :=
+            Eq.trans (Eq.sym (Eq.cong (t => Nat.leq t 1)
+              (List.occurrencesConsTrue xs (z => key z == key x) x ((DecEq.decide (key x) (key x)).complete rfl)))) h
+          Bool.falseNotTrue (Eq.trans (rfl: False = Nat.leq (Succ (Succ c)) 1) (Eq.subst (m => Nat.leq (Succ m) 1 = True) n one)))
 
 --| When at most one element has any key, the keys are distinct.
 theorem List.distinctOfOccurrences [auto eq: DecEq k] (xs: List a) (key: a → k) (h: (∀ (kk: k) => List.occurrences xs (x => key x == kk) ≤ 1)):
@@ -996,15 +1037,7 @@ theorem List.distinctOfOccurrences [auto eq: DecEq k] (xs: List a) (key: a → k
     | [] => Trivial
     | [x, ..xs] =>
       Both
-        (m =>
-          List.anyElim (y => key y = key x) Void xs (List.memMapAny xs key (key x) m) (y inXs e =>
-            match n: List.occurrences xs (z => key z == key x) with
-              | Zero =>
-                Bool.falseNotTrue (Eq.trans (Eq.sym (rewrite n at List.anyOccurrences xs (z => key z == key x)))
-                  (List.anyOfMem xs (z => key z == key x) y ((DecEq.decide (key y) (key x)).complete e) inXs))
-              | Succ c =>
-                Bool.falseNotTrue (rewrite n at Eq.trans (Eq.sym (Eq.cong (t => Nat.leq t 1)
-                  (List.occurrencesConsTrue xs (z => key z == key x) x ((DecEq.decide (key x) (key x)).complete rfl)))) (h (key x)))))
+        (List.memMapOfOccurrences xs key x (h (key x)))
         (List.distinctOfOccurrences xs key (kk => Bool.toNatAddLeOne (key x == kk) (List.occurrences xs (z => key z == kk)) (h kk)))
 
 --| Rearranging a list keeps its keys distinct.
@@ -1642,6 +1675,22 @@ theorem List.distinctRemoveFirst [auto eq: DecEq a] (ys: List a) (x: a) (h: ys.D
                     | Inl same => DecEq.soundFalse first x e same
                     | Inr later => absent later)
 
+--| The terms where `f` is not 0 that `ys` has are in `rest`, once `x` is taken from both.
+theorem List.sumByDistinctNonzeroThere [auto eq: DecEq a] (f: a → Nat) (x: a) (rest ys: List a) (fresh: ¬(x ∈ rest))
+    (there: (∀ (y: a) => f y ≠ 0 → y ∈ [x, ..rest] → y ∈ ys)):
+    (∀ (y: a) => f y ≠ 0 → y ∈ rest → y ∈ ys.removeFirst x) :=
+  y nonzero member =>
+    List.memRemoveFirst ys x y (same => fresh (Eq.subst (z => z ∈ rest) same member)) (there y nonzero (Inr member))
+
+--| The terms where `f` is not 0 that `rest` has are in `ys`, once `x` is taken from both.
+theorem List.sumByDistinctNonzeroBack [auto eq: DecEq a] (f: a → Nat) (x: a) (rest ys: List a) (absent: ¬(x ∈ ys.removeFirst x))
+    (back: (∀ (y: a) => f y ≠ 0 → y ∈ ys → y ∈ [x, ..rest])):
+    (∀ (y: a) => f y ≠ 0 → y ∈ ys.removeFirst x → y ∈ rest) :=
+  y nonzero member =>
+    match back y nonzero (List.memOfRemoveFirst ys x y member) with
+      | Inl same => Void.exfalso (absent (Eq.subst (z => z ∈ ys.removeFirst x) (Eq.sym same) member))
+      | Inr later => later
+
 --| Two lists without repeats that hold the same elements where `f` is not 0
 --| have the same `sumBy f`: elements where `f` is 0 add nothing, so the lists
 --| may differ in those.
@@ -1657,8 +1706,8 @@ theorem List.sumByDistinctNonzero [auto eq: DecEq a] (f: a → Nat) (xs ys: List
               | 0 => rfl
               | Succ more => Void.exfalso (back x (rewrite zero in Nat.succNotZero more) member)))
     | [x, ..rest], (Both fresh distinctRest) =>
-      rewrite List.sumByCons rest x f in
-        match zero: f x with
+      Eq.trans (List.sumByCons rest x f)
+        (match zero: f x with
           | 0 =>
             List.sumByDistinctNonzero f rest ys distinctRest distinctY (y nonzero member => there y nonzero (Inr member))
               (y nonzero member =>
@@ -1670,12 +1719,9 @@ theorem List.sumByDistinctNonzero [auto eq: DecEq a] (f: a → Nat) (xs ys: List
             let found := there x nonzero (Inl rfl)
             match List.distinctRemoveFirst ys x distinctY with
               | Both restDistinct absent =>
-                rewrite List.sumByRemoveFirst ys x found f, zero in
-                  Eq.cong (total => Succ more + total)
+                Eq.trans
+                  (Eq.cong (total => f x + total)
                     (List.sumByDistinctNonzero f rest (ys.removeFirst x) distinctRest restDistinct
-                      (y nonzero member =>
-                        List.memRemoveFirst ys x y (same => fresh (rewrite same at member in member)) (there y nonzero (Inr member)))
-                      (y nonzero member =>
-                        match back y nonzero (List.memOfRemoveFirst ys x y member) with
-                          | Inl same => Void.exfalso (absent (rewrite <- same at member in member))
-                          | Inr later => later))
+                      (List.sumByDistinctNonzeroThere f x rest ys fresh there)
+                      (List.sumByDistinctNonzeroBack f x rest ys absent back)))
+                  (Eq.sym (List.sumByRemoveFirst ys x found f)))
