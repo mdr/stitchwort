@@ -120,6 +120,12 @@ pub struct Stats {
     pub namespace_misses: usize,
     pub namespace_written: usize,
     pub namespace_uncacheable: usize,
+    /// Namespaces checked without an error but not written because one they
+    /// use failed (SW-2951). Their entry would be valid; writing it under
+    /// the broken dependency's key would evict the one a fixed source finds
+    /// again. Unlike `namespace_uncacheable`, this clears when that error
+    /// is fixed.
+    pub namespace_waiting_on_error: usize,
     /// Namespace entries found not to fit after their replay had begun
     /// (loading the library files they need): the namespace is then
     /// elaborated in what the replay left. Never expected; the differential
@@ -718,7 +724,7 @@ impl Elaborator {
             debug(&format!(
                 "{ns} can't be cached: it uses {dependency}, which has an error"
             ));
-            self.session.cache_stats.namespace_uncacheable += 1;
+            self.session.cache_stats.namespace_waiting_on_error += 1;
         } else if ok {
             let cached: Vec<Diagnostic> = (diagnostics.iter())
                 .filter(|d| d.code != crate::doc_links::CODE)

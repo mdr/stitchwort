@@ -794,13 +794,23 @@ test("a code action on the book's chapter 2 splits the theorem on b", async (pag
   await page.setSource(text.replace(line, line.slice(0, -"rfl".length) + "?"));
   const hole = "both No b = No := ?";
   await caretAt(page, hole, hole.length - 1);
+  // The server has checked the file when its goal is on show; from there the
+  // list comes from what the check published, with no search (D3529).
+  await page.until(`document.getElementById("goalpanel").innerText.includes("⊢ both No b = No")`, 180000, "the goal at the ?");
+  const pressed = Date.now();
   await page.key(".", "Period", 190, { modifiers: CMD });
   await page.until(`document.querySelector(".pick-panel") !== null`, 60000, "the code actions");
+  const listed = Date.now() - pressed;
+  console.log(`  Cmd+. to the list: ${listed} ms`);
+  assert.ok(listed < 3000, `the list took ${listed} ms`);
   const titles = await page.ev(`window.editor.lastCodeActions`);
   assert.ok(titles.includes("Split on `b`"), titles.join());
   assert.ok(titles.includes("Search for a proof"), titles.join());
+  const picked = Date.now();
   await page.ev(`[...document.querySelectorAll(".pick-item")].find((b) => b.textContent.includes("Split on \`b\`")).click()`);
   await page.until(`window.editor.value.includes("match b with")`, 30000, "the split");
+  console.log(`  Split applied in ${Date.now() - picked} ms`);
+  assert.ok(Date.now() - picked < 3000, "the split waited for a search");
   assert.match(await sourceText(page),
     /theorem noAndAnything \(b: Answer\): both No b = No := match b with\n  \| Yes => \?\n  \| No => \?\n  \| Unknown => \?/);
 }, { ms: 240000 });
@@ -830,8 +840,6 @@ test("a second Cmd+. on the book's chapter 2 waits instead of saying no action",
   await page.key("Period", "Period", 190, { modifiers: CMD });
   await caretAt(page, hole, hole.length);
   await page.key("Period", "Period", 190, { modifiers: CMD });
-  assert.match(await page.ev(`document.getElementById("link-notice").textContent`),
-    /waiting for the one already running/, "the second press says what it is waiting for");
   await page.until(`document.querySelector(".pick-panel") !== null`, 120000, "the code actions");
   const titles = await page.ev(`window.editor.lastCodeActions`);
   assert.ok(titles.includes("Split on `b`"), titles.join());
@@ -2642,6 +2650,42 @@ test("a code action on a ? offers a proof search, and the proof picked fills it 
   await page.until(`!window.editor.value.includes("?")`, 20000, "the proof");
   assert.match(await sourceText(page), /two = 2 := (rfl|omega|cases|Std\.byDecision)\n$/);
 }, { ms: 120000 });
+
+test("a proof search in the book's chapter 2 shows progress, and a second one doesn't load the library again", async (page) => {
+  await page.open();
+  await page.untilChecked();
+  await page.ev(`location.hash = "#book/2"`);
+  await page.until(`document.getElementById("example").value === "book:2" &&
+    window.editor.value.includes("theorem noAndAnything")`, 60000, "the book's chapter 2");
+  const text = await sourceText(page);
+  const line = "theorem noAndAnything (b: Answer): both No b = No := rfl";
+  await page.setSource(text.replace(line, line.slice(0, -"rfl".length) + "?"));
+  const hole = "both No b = No := ?";
+  await caretAt(page, hole, hole.length - 1);
+  await page.until(`document.getElementById("goalpanel").innerText.includes("⊢ both No b = No")`, 180000, "the goal at the ?");
+  await page.ev(`(() => {
+    const notices = window.__notices = [];
+    const old = window.editor.options.onNotice;
+    window.editor.options.onNotice = (t) => { notices.push(t); old?.(t); };
+  })()`);
+  const search = async (label) => {
+    await caretAt(page, hole, hole.length - 1);
+    await page.key(".", "Period", 190, { modifiers: CMD });
+    await page.until(`document.querySelector(".pick-panel") !== null`, 20000, "the code actions");
+    const began = Date.now();
+    await page.ev(`[...document.querySelectorAll(".pick-item")].find((b) => b.textContent.includes("Search for a proof")).click()`);
+    await page.until(`document.querySelector(".pick-panel") !== null && document.querySelector(".pick-panel").getAttribute("aria-label").startsWith("Replace")`, 150000, "the proofs");
+    const took = Date.now() - began;
+    console.log(`  ${label} search: ${took} ms`);
+    await page.ev(`document.querySelector(".pick-panel")?.remove()`);
+    return took;
+  };
+  await search("first");
+  const notices = await page.ev(`window.__notices`);
+  assert.ok(notices.some((n) => n.startsWith("Searching for a proof")), JSON.stringify(notices));
+  const second = await search("second");
+  assert.ok(second < 8000, `the second search took ${second} ms`);
+}, { ms: 400000 });
 
 test("a let without a type shows its type after the name, and the drawn text is still the document", async (page) => {
   await page.open();

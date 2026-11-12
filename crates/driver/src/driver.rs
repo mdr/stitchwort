@@ -1040,7 +1040,7 @@ pub struct TestResult {
     pub detail: Option<Failure>,
     /// For a test that wasn't run, why: its code reaches an open goal
     /// (`?`), naming the `?` and where it is, or it uses a declaration with
-    /// an error ([`Session::with_broken_tests`]). The test fails
+    /// an error, or has one of its own ([`Session::with_broken_tests`]). The test fails
     /// (`outcome` is [`Outcome::Failed`]). Never cached.
     pub unfinished: Option<String>,
     /// For a passing test, the gaps it relies on: open goals or
@@ -1565,7 +1565,11 @@ impl Session {
             } else {
                 format!(", which depends on `{}`", test.broken)
             };
-            let why = format!("it uses `{}`{how}, which has an error{at}", test.uses);
+            let why = if test.own {
+                format!("it has an error{at}")
+            } else {
+                format!("it uses `{}`{how}, which has an error{at}", test.uses)
+            };
             let result = TestResult {
                 name: test.name.clone(),
                 namespace: test.namespace.clone(),

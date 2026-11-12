@@ -28,7 +28,7 @@ use stitchwort_syntax::Span;
 use crate::axioms::AxiomWalk;
 use crate::counterexample::{TheoremSearch, Verdict};
 use crate::driver::Session;
-use crate::reliance::{GoalPlace, describe_goals};
+use crate::reliance::{ErrorPlace, Errors, GoalPlace, describe_goals};
 
 /// Every axiom there is. Today the core has one (docs/core.md, Axioms).
 pub const AXIOMS: &[&str] = &["Quot.sound"];
@@ -60,6 +60,8 @@ pub enum Check {
     Unfinished,
     /// It didn't check.
     Failed,
+    /// It can't be checked until an error elsewhere is fixed.
+    Waiting,
     /// The search found a counterexample to a theorem that checked.
     Counterexample,
     /// The search found no input that made its hypotheses true.
@@ -85,6 +87,8 @@ pub enum Status {
     /// Not checked: it waits for an open goal to be filled or an error to
     /// be fixed, or uses something unfinished.
     Unfinished,
+    /// Not checked: it uses a declaration with an error (SW-2943).
+    Waiting,
     Failed,
 }
 
@@ -103,6 +107,11 @@ pub struct TheoremAudit {
     /// with an error.
     #[serde(rename = "openGoals")]
     pub open_goals: Vec<GoalPlace>,
+    /// For a theorem that has an error (`failed`) or waits for one
+    /// (`waiting`): the declaration with the error and where it is
+    /// reported.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error: Option<ErrorPlace>,
     /// The axioms it depends on, allowed or not (only if it checked).
     pub axioms: Vec<&'static str>,
     /// The counterexample search's verdict and line (only if it checked
@@ -232,14 +241,70 @@ pub fn unknown_axioms<'a>(allowed: impl IntoIterator<Item = &'a String>) -> Vec<
 }
 
 impl Session {
+    /// The audits of the theorems that have an error or can't be checked
+    /// until one is fixed, which have no definition for [`Session::audit`]
+    /// to look at (`keep` as for [`theorems`], on their full names).
+    pub fn audit_failed(&self, keep: &dyn Fn(&str) -> bool) -> Vec<TheoremAudit> {
+        let errors = self.errors();
+        let mut audits = Vec::new();
+        for f in self.elab.failed_decls().iter().filter(|f| f.theorem) {
+            let name = f.full_name();
+            if !keep(&name) {
+                continue;
+            }
+            let Some((status, check, error, message)) = failure_of(&errors, &name) else {
+                continue;
+            };
+            audits.push(TheoremAudit {
+                name,
+                generated: false,
+                status,
+                open_goals: Vec::new(),
+                error,
+                axioms: Vec::new(),
+                search: None,
+                findings: vec![Finding {
+                    check,
+                    severity: Severity::Fail,
+                    message,
+                }],
+            });
+        }
+        audits
+    }
+
     /// Audits each of `theorems` (as [`theorems`] gives them).
     pub fn audit(&mut self, theorems: &[(DefId, String)], options: &Options) -> Vec<TheoremAudit> {
         let mut walk = AxiomWalk::new();
         let generated = Generated::new(&self.elab.ev());
-        theorems
+        let mut audits: Vec<TheoremAudit> = theorems
             .iter()
             .map(|(id, name)| self.audit_one(*id, name, options, &mut walk, &generated))
-            .collect()
+            .collect();
+        // A theorem that didn't check says why, from the errors found. One
+        // waiting only for declarations with an error that stand in for
+        // their statements (D3527) waits for an error, not a goal.
+        let for_error = |a: &TheoremAudit| {
+            a.status == Status::Failed
+                || (a.status == Status::Unfinished
+                    && !a.open_goals.is_empty()
+                    && a.open_goals.iter().all(GoalPlace::is_error))
+        };
+        if audits.iter().any(for_error) {
+            let errors = self.errors();
+            for a in audits.iter_mut().filter(|a| for_error(a)) {
+                if let Some((status, check, error, message)) = failure_of(&errors, &a.name) {
+                    a.status = status;
+                    a.error = error;
+                    a.findings = vec![Finding {
+                        check,
+                        severity: Severity::Fail,
+                        message,
+                    }];
+                }
+            }
+        }
+        audits
     }
 
     fn audit_one(
@@ -271,6 +336,7 @@ impl Session {
             generated: generated.contains(g, id),
             status,
             open_goals: goals.clone(),
+            error: None,
             axioms: Vec::new(),
             search: None,
             findings: Vec::new(),
@@ -299,6 +365,8 @@ impl Session {
                 });
                 return audit;
             }
+            // Only `audit_failed` makes these: they have no definition.
+            Status::Waiting => unreachable!("a definition that exists was checked"),
             Status::Failed => {
                 audit.findings.push(Finding {
                     check: Check::Failed,
@@ -394,6 +462,34 @@ impl Session {
             note,
         }
     }
+}
+
+/// How a declaration called `name` failed, if the load found an error in
+/// it or one it waits for: its status, the check, the error's place and
+/// what to say.
+fn failure_of(errors: &Errors, name: &str) -> Option<(Status, Check, Option<ErrorPlace>, String)> {
+    if let Some(own) = errors.has.iter().find(|e| e.declaration == name) {
+        let message = match own.place().as_str() {
+            "" => "has an error".to_string(),
+            place => format!("has an error ({place})"),
+        };
+        return Some((Status::Failed, Check::Failed, Some(own.clone()), message));
+    }
+    let waiting = errors.waiting.iter().find(|w| w.name == name)?;
+    let at = match waiting.needs.place().as_str() {
+        "" => String::new(),
+        place => format!(" ({place})"),
+    };
+    let message = format!(
+        "can't be checked until `{}` is fixed{at}",
+        waiting.needs.short()
+    );
+    Some((
+        Status::Waiting,
+        Check::Waiting,
+        Some(waiting.needs.clone()),
+        message,
+    ))
 }
 
 /// What audit says of a declaration checked assuming `goals` hold: that it

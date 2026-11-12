@@ -1056,8 +1056,20 @@ impl Elaborator {
         let module = &self.unit.module;
         let sources = &mut self.session.failed_sources;
         sources.retain(|key, _| !module.names.contains(key));
+        let namespace = module.namespace.clone().unwrap_or_default();
         for (key, source) in parse_failed {
             if module.names.contains(&key) {
+                let log = &mut self.session.failed_decls;
+                log.retain(|f| (&f.namespace, &f.name) != (&namespace, &source.0));
+                log.push(crate::FailedDecl {
+                    namespace: namespace.clone(),
+                    name: source.0.clone(),
+                    theorem: false,
+                    test: false,
+                    root: source.0.clone(),
+                    error_at: source.1,
+                    own: true,
+                });
                 sources.insert(key, source);
             }
         }
@@ -1209,25 +1221,45 @@ impl Elaborator {
                 first.primary_span(),
             ),
         };
+        let own = !only_dependencies || used.is_none();
+        let namespace = self.unit.module.namespace.clone().unwrap_or_default();
         for &i in component {
             self.unit.module.error_sources.insert(i, source.clone());
             if let Some((_, _, Some(key))) = &used {
                 self.unit.module.waits_elsewhere.insert(i, key.clone());
             }
+            let info = &self.unit.module.items[i];
+            let failed = crate::FailedDecl {
+                namespace: namespace.clone(),
+                name: info.name.clone(),
+                theorem: matches!(items[i].decl, Decl::Signature { theorem: true, .. }),
+                test: info.kind == Kind::Test,
+                root: source.0.clone(),
+                error_at: source.1,
+                own,
+            };
+            let log = &mut self.session.failed_decls;
+            log.retain(|f| (&f.namespace, &f.name) != (&failed.namespace, &failed.name));
+            log.push(failed);
         }
-        let (Some((uses, _, _)), [i]) = (used, component) else {
+        let [i] = component else {
             return;
         };
         let Decl::Test { name, span, .. } = items[*i].decl else {
             return;
         };
+        let uses = match used {
+            Some((uses, _, _)) => uses,
+            None => name.to_string(),
+        };
         let broken = BrokenTest {
             name: name.to_string(),
-            namespace: self.unit.module.namespace.clone().unwrap_or_default(),
+            namespace,
             span: *span,
             uses,
             broken: source.0,
             error_at: source.1,
+            own,
         };
         self.session.broken_tests.push(broken);
     }

@@ -131,11 +131,18 @@ impl Session {
     /// worker (a code action away from a `?`, `stitchwort/contextAt`): the
     /// search is run here, as the playground's second worker would.
     fn request_searched(&mut self, method: &str, params: Value) -> Value {
+        self.run_request(method, params, false)
+    }
+
+    fn run_request(&mut self, method: &str, params: Value, at_once: bool) -> Value {
         let id = self.next_id;
         self.next_id += 1;
         let message = json!({"jsonrpc": "2.0", "id": id, "method": method, "params": params});
         for m in self.server.receive(&message.to_string()) {
             let m: Value = serde_json::from_str(&m).unwrap();
+            if m["id"] == id && at_once {
+                return m["result"].clone();
+            }
             assert!(m["id"] != id, "answered without a search: {m}");
             self.note(m);
         }
@@ -152,6 +159,12 @@ impl Session {
             }
         }
         panic!("no answer to {method}");
+    }
+
+    /// [`Session::request_searched`] for a request the server may also
+    /// answer at once, from what the last check published.
+    fn request_any(&mut self, method: &str, params: Value) -> Value {
+        self.run_request(method, params, true)
     }
 
     /// The searches a request queues, as the strings a [`Searcher`] runs.
@@ -825,9 +838,10 @@ fn a_non_exhaustive_match_gets_its_missing_arms_added() {
     });
 }
 
-/// The code action at a proof goal runs no search (D3519): the jobs it
-/// queues are the splits, and it offers "Search for a proof", whose command
-/// then runs the search and answers the candidates.
+/// The code action at a proof goal runs no search (D3519) and queues none
+/// (SW-2959): the splits come from the published goal and the list answers
+/// at once, ending with "Search for a proof", whose command then runs the
+/// search and answers the candidates.
 #[test]
 fn a_code_action_on_a_goal_offers_a_search_that_runs_when_asked() {
     big_stack(|| {
@@ -838,13 +852,8 @@ fn a_code_action_on_a_goal_offers_a_search_that_runs_when_asked() {
                         "range": {"start": {"line": 2, "character": character},
                                   "end": {"line": 2, "character": character}},
                         "context": {"diagnostics": []}});
-        let jobs = s.queued_searches("textDocument/codeAction", at.clone());
-        assert_eq!(jobs.len(), 1, "{jobs:?}");
-        let job: Value = serde_json::from_str(&jobs[0]).unwrap();
-        assert!(job["kind"]["Proofs"].is_null(), "{job}");
-        assert!(job["kind"]["SplitHole"].is_object(), "{job}");
-
-        let actions = s.request_searched("textDocument/codeAction", at);
+        let actions = s.request_any("textDocument/codeAction", at);
+        assert!(s.server.take_searches().is_empty(), "queued a search");
         let actions = actions.as_array().unwrap_or_else(|| panic!("{actions}"));
         let titles: Vec<&str> = actions
             .iter()
@@ -876,11 +885,44 @@ fn a_code_action_on_a_goal_offers_a_search_that_runs_when_asked() {
                 .is_some_and(|t| t.starts_with("Replace ? with `rfl`"))),
             "{proofs:?}"
         );
+        // `rfl` closes it, so it is the only proof offered (SW-2966).
+        assert_eq!(proofs.len(), 1, "{proofs:?}");
         assert_eq!(
             answer["range"]["start"],
             json!({"line": 2, "character": character})
         );
         assert_eq!(answer["version"], 1);
+    });
+}
+
+/// A client that shows progress is shown the proof search running, from the
+/// command being picked to its answer.
+#[test]
+fn a_proof_search_reports_progress_to_a_client_that_shows_it() {
+    big_stack(|| {
+        let text = "namespace Demo\n\ntheorem f (o: Option Nat): o = o := ?\n";
+        let mut s = Session::open_with(
+            text,
+            json!({"window": {"workDoneProgress": true},
+                   "workspace": {"workspaceEdit": {"documentChanges": true}}}),
+        );
+        let character = text.lines().nth(2).unwrap().find('?').unwrap() as u32;
+        let range = json!({"start": {"line": 2, "character": character},
+                           "end": {"line": 2, "character": character + 1}});
+        let answer = s.request_searched(
+            "workspace/executeCommand",
+            json!({"command": "stitchwort.searchProof",
+                   "arguments": [{"uri": URI, "range": range}]}),
+        );
+        assert!(answer["proofs"].is_array(), "{answer}");
+        s.settle();
+        assert!(
+            s.asked
+                .iter()
+                .any(|m| m == "window/workDoneProgress/create"),
+            "{:?}",
+            s.asked
+        );
     });
 }
 
@@ -1025,7 +1067,7 @@ fn split_at(
     title: &str,
 ) -> (Vec<String>, Option<String>) {
     s.change(version, text);
-    let actions = s.request_searched(
+    let actions = s.request_any(
         "textDocument/codeAction",
         json!({"textDocument": {"uri": URI},
                "range": {"start": {"line": line, "character": character},

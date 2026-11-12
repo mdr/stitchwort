@@ -272,6 +272,39 @@ pub struct BrokenTest {
     pub broken: String,
     /// Where the error is reported, if it has a place.
     pub error_at: Option<Span>,
+    /// The error is in the test's own body, not in what it uses.
+    pub own: bool,
+}
+
+/// A declaration that has an error, or can't be checked until one is fixed
+/// (SW-2943): what `check`'s summary, `test` and `audit` report. Each
+/// declaration of a failed component is listed, whether the error is its
+/// own or its dependency's.
+#[derive(Clone, Debug)]
+pub struct FailedDecl {
+    /// The namespace of the module that declares it; empty if it has none.
+    pub namespace: String,
+    /// As written; a test's is `test "label"`.
+    pub name: String,
+    pub theorem: bool,
+    pub test: bool,
+    /// The declaration the error is in, by its own name: this one if `own`.
+    pub root: String,
+    /// Where that error is reported, if it has a place.
+    pub error_at: Option<Span>,
+    /// The error is in this declaration, not in what it uses.
+    pub own: bool,
+}
+
+impl FailedDecl {
+    /// `Namespace.name`, the name audit and the summary give it.
+    pub fn full_name(&self) -> String {
+        if self.namespace.is_empty() {
+            self.name.clone()
+        } else {
+            format!("{}.{}", self.namespace, self.name)
+        }
+    }
 }
 
 /// The shape of a test's expression, for showing why it failed: through
@@ -817,8 +850,16 @@ impl Elaborator {
         &self.session.broken_tests
     }
 
-    /// Forgets [`Self::broken_tests`]: a host does, before it loads a project.
+    /// The declarations the last load found errors in or couldn't check
+    /// because of one, in the order the namespaces were checked.
+    pub fn failed_decls(&self) -> &[FailedDecl] {
+        &self.session.failed_decls
+    }
+
+    /// Forgets [`Self::broken_tests`] and [`Self::failed_decls`]: a host
+    /// does, before it loads a project.
     pub fn clear_broken_tests(&mut self) {
+        self.session.failed_decls.clear();
         self.session.broken_tests.clear();
     }
 

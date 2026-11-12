@@ -514,12 +514,14 @@ pub struct Action {
     pub new_text: String,
 }
 
-/// Options for the quick fixes' search: the top three, within 5 s, and no
-/// more candidates once `wanted` have closed the goal.
+/// Options for the quick fixes' search: the simplest closer alone if one
+/// closes the goal (SW-2966); else the top three, within 5 s, and no more
+/// candidates once `wanted` have closed the goal.
 pub fn action_options(wanted: usize) -> AtOptions {
     AtOptions {
         limit: 3,
         stop_after_closing: Some(wanted),
+        simplest_first: true,
         time: Duration::from_secs(5),
         ..Default::default()
     }
@@ -1065,18 +1067,25 @@ impl Session {
     /// patterns of its type's constructors ([`Session::split_patterns`]),
     /// in scope order. A name that a later variable shadows is not offered.
     pub fn splittable(&self, context: &Context) -> Vec<(String, Vec<String>)> {
-        let mut out = Vec::new();
-        for (i, local) in context.locals.iter().enumerate() {
-            let shadowed = context.locals[i + 1..].iter().any(|l| l.name == local.name);
-            if shadowed || !local.name.starts_with(|c: char| c.is_lowercase()) {
-                continue;
-            }
-            if let Some(patterns) = self.split_patterns(context, &local.name) {
-                out.push((local.name.clone(), patterns));
-            }
-        }
-        out
+        splittable_locals(&context.locals)
     }
+}
+
+/// [`Session::splittable`] from the locals alone: a published goal's
+/// context carries each variable's constructor patterns, so the splits at
+/// a `?` need no session.
+pub fn splittable_locals(locals: &[Local]) -> Vec<(String, Vec<String>)> {
+    let mut out = Vec::new();
+    for (i, local) in locals.iter().enumerate() {
+        let shadowed = locals[i + 1..].iter().any(|l| l.name == local.name);
+        if shadowed || !local.name.starts_with(|c: char| c.is_lowercase()) {
+            continue;
+        }
+        if let Some(patterns) = &local.splits {
+            out.push((local.name.clone(), patterns.clone()));
+        }
+    }
+    out
 }
 
 /// The name completion writes after a `.` so that the text parses while

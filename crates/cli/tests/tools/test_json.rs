@@ -648,13 +648,67 @@ fn a_theorem_with_a_broken_proof_stands_in_for_its_statement() {
         ),
         "{stderr}"
     );
+    // `needsBody` must compute `broken`; `callsBadSig` and the test that
+    // calls it use a declaration whose statement is broken.
     assert!(
-        stderr.contains("1 declaration can't be checked until an error is fixed:"),
+        stderr.contains("3 declarations can't be checked until an error is fixed:"),
         "{stderr}"
     );
-    assert!(stderr.contains("A.needsBody  needs `broken` ("), "{stderr}");
+    assert!(
+        stderr.contains("  A.needsBody                 needs `broken` ("),
+        "{stderr}"
+    );
+    assert!(
+        stderr.contains("  A.callsBadSig               needs `badSig` ("),
+        "{stderr}"
+    );
     // Not counted as goals.
     assert!(!stderr.contains("goal"), "{stderr}");
+}
+
+/// `audit` with stand-ins: a theorem that cites a broken one is `assuming`,
+/// relying on it by kind `error`, never passing; one that must compute
+/// through a broken definition is `waiting` for it.
+#[test]
+fn audit_says_a_theorem_relies_on_a_declaration_with_an_error() {
+    let dir = std::env::temp_dir().join(format!(
+        "stitchwort-json-stand-ins-{}-audit",
+        std::process::id()
+    ));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(dir.join("src")).unwrap();
+    std::fs::write(dir.join("stitchwort.yaml"), "sources: [src]\n").unwrap();
+    std::fs::write(dir.join("src/a.sw"), STAND_INS).unwrap();
+    let output = Command::new(env!("CARGO_BIN_EXE_stitchwort"))
+        .args(["audit", "--no-search", "--json", "--no-cache"])
+        .current_dir(&dir)
+        .stdin(Stdio::null())
+        .output()
+        .expect("run stitchwort");
+    let _ = std::fs::remove_dir_all(&dir);
+    assert_eq!(output.status.code(), Some(1));
+    let v: Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(v["ok"], false);
+    let theorem = |name: &str| {
+        (v["theorems"].as_array().unwrap().iter())
+            .find(|t| t["name"] == name)
+            .unwrap_or_else(|| panic!("{name}: {v}"))
+            .clone()
+    };
+    let uses = theorem("A.usesTwo");
+    assert_eq!(uses["status"], "assuming");
+    assert_eq!(uses["openGoals"][0]["declaration"], "A.doubleTwo");
+    assert_eq!(uses["openGoals"][0]["kind"], "error");
+    let message = uses["findings"][0]["message"].as_str().unwrap();
+    assert!(
+        message.starts_with("relies on `doubleTwo`, which has an error (")
+            && message.ends_with("; checked assuming its statement"),
+        "{message}"
+    );
+    let waits = theorem("A.needsBody");
+    assert_eq!(waits["status"], "waiting");
+    assert_eq!(waits["error"]["declaration"], "broken");
+    assert_eq!(theorem("A.doubleTwo")["status"], "failed");
 }
 
 /// D3525: a test that only cites a broken theorem as a proof runs and says
@@ -697,5 +751,113 @@ fn a_test_that_only_cites_a_broken_theorem_runs() {
     assert!(
         message.starts_with("it uses `callsBadSig`, which depends on `badSig`, which has an error"),
         "{message}"
+    );
+}
+
+/// A test whose own body has an error, beside `broken` (its error) and
+/// `twice` (waiting for it), and a theorem that is false.
+const OWN_ERROR: &str = r#"namespace Demo
+
+def good (n: Nat): Nat := n + 1
+
+def broken (n: Nat): Nat := "oops"
+
+def twice (n: Nat): Nat := broken n + broken n
+
+theorem wrongSum: good 1 = 3 := rfl
+
+test "fine" := good 1 == 2
+test "own error" := good 1 == "two"
+test "uses twice" := twice 1 == 4
+"#;
+
+/// SW-2943 (docs/proposals/tests-with-errors.md §4.4): a test with an error
+/// of its own is a failed result in its place, so the count of tests
+/// doesn't change as errors come and go; `--json` counts the errors and
+/// `ok` is the exit status.
+#[test]
+fn a_test_with_an_error_of_its_own_is_a_failed_result() {
+    let dir = source_project("own-error", OWN_ERROR, "namespace B\n\ndef b: Nat := 1\n");
+    std::fs::write(dir.join("src/a.sw"), OWN_ERROR).unwrap();
+    let output = |args: &[&str]| {
+        Command::new(env!("CARGO_BIN_EXE_stitchwort"))
+            .args(args)
+            .arg("--no-cache")
+            .current_dir(&dir)
+            .stdin(Stdio::null())
+            .output()
+            .expect("run stitchwort")
+    };
+    let text = output(&["test"]);
+    let json = output(&["test", "--json"]);
+    let stdout = String::from_utf8(text.stdout).unwrap();
+    let stderr = String::from_utf8(text.stderr).unwrap();
+    let v: Value = serde_json::from_slice(&json.stdout).unwrap();
+    let _ = std::fs::remove_dir_all(&dir);
+    assert_eq!(text.status.code(), Some(1), "{stdout}{stderr}");
+    assert_eq!(json.status.code(), Some(1));
+    assert!(stdout.contains("✓ fine"), "{stdout}");
+    assert!(
+        stdout.contains("✗ own error   not run  (it has an error (")
+            && stdout.contains("src/a.sw:12:21))"),
+        "{stdout}"
+    );
+    assert!(stdout.contains("3 test(s): 1 passed, 2 failed"), "{stdout}");
+    // Three declarations have an error, one waits for `broken`.
+    assert!(
+        stderr
+            .contains("3 errors: in `Demo.broken`, `Demo.wrongSum` and `Demo.test \"own error\"`"),
+        "{stderr}"
+    );
+    assert_eq!(v["ok"], false);
+    assert_eq!(v["errors"], 3);
+    let names: Vec<_> = (v["tests"].as_array().unwrap().iter())
+        .map(|t| (t["name"].as_str().unwrap(), t["outcome"].as_str().unwrap()))
+        .collect();
+    assert_eq!(
+        names,
+        [
+            ("fine", "passed"),
+            ("own error", "failed"),
+            ("uses twice", "failed")
+        ]
+    );
+    let message = v["tests"][1]["message"].as_str().unwrap();
+    assert!(
+        message.starts_with("it has an error (") && message.ends_with("src/a.sw:12:21)"),
+        "{message}"
+    );
+}
+
+/// `check`'s summary lists the declarations with an error, then those that
+/// can't be checked until one is fixed and what each needs (§4.3), then how
+/// many rely on one, checked against its statement (D3527): here the two
+/// definitions and the test that only call `broken`.
+#[test]
+fn check_summarises_errors_and_what_waits_for_them() {
+    let dir = importer_project("summary", LIB_WITH_AN_ERROR);
+    let output = Command::new(env!("CARGO_BIN_EXE_stitchwort"))
+        .args(["check", "--no-cache"])
+        .current_dir(&dir)
+        .stdin(Stdio::null())
+        .output()
+        .expect("run stitchwort");
+    let _ = std::fs::remove_dir_all(&dir);
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    assert_eq!(output.status.code(), Some(1), "{stderr}");
+    let summary = stderr.lines().skip_while(|l| !l.starts_with("1 error:"));
+    let summary: Vec<_> = summary.collect();
+    assert_eq!(summary.len(), 4, "{stderr}");
+    assert_eq!(summary[0], "1 error: in `A.broken`");
+    assert_eq!(
+        summary[1],
+        "1 declaration can't be checked until an error is fixed:"
+    );
+    // The place starts with the project folder's name.
+    let needs = |l: &str| l.contains("needs `broken` (") && l.ends_with("src/a.sw:5:29)");
+    assert!(summary[2].starts_with("  B.brokenOne") && needs(summary[2]));
+    assert_eq!(
+        summary[3],
+        "3 declarations rely on a declaration with an error, checked assuming its statement"
     );
 }

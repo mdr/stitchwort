@@ -125,6 +125,10 @@ pub struct Session {
     /// ([`crate::BrokenTest`]). A log for the host to read after a load,
     /// which clears it first; a rewind leaves it.
     pub(crate) broken_tests: Vec<crate::BrokenTest>,
+    /// The declarations with errors, or waiting for one, in the same order
+    /// ([`crate::FailedDecl`]); a log for the host, cleared with
+    /// `broken_tests`.
+    pub(crate) failed_decls: Vec<crate::FailedDecl>,
 }
 
 /// What a rewind mark keeps of a [`Session`]: the bookkeeping a later load
@@ -177,6 +181,7 @@ impl Session {
             waiting_names: _,
             failed_sources: _,
             broken_tests: _,
+            failed_decls: _,
         } = self;
         Mark {
             project_namespaces: project_namespaces.clone(),
@@ -223,6 +228,7 @@ impl Session {
             waiting_names: _,
             failed_sources: _,
             broken_tests: _,
+            failed_decls: _,
         } = self;
         *project_namespaces = mark.project_namespaces.clone();
         *project_prefixes = mark.project_prefixes.clone();

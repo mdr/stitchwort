@@ -397,6 +397,12 @@ enum Command {
         /// With --at FILE: the file's N-th goal, in source order
         #[arg(long, value_name = "N")]
         goal: Option<usize>,
+        /// With --at: answer with the simplest closer alone if one closes
+        /// the goal (`rfl`, a hypothesis, `byDecision`, `omega`, `ring`,
+        /// `cases`, in that order), as the editor's "Search for a proof"
+        /// does, instead of searching
+        #[arg(long)]
+        simplest_first: bool,
         /// With --at: how many matching declarations to try
         #[arg(long, value_name = "N", default_value_t = 50)]
         candidates: usize,
@@ -920,6 +926,7 @@ fn run(cli: Cli) -> ExitCode {
             log,
             at,
             goal,
+            simplest_first,
             candidates,
             time,
             cache,
@@ -944,6 +951,7 @@ fn run(cli: Cli) -> ExitCode {
                     exclude: Vec::new(),
                     within,
                     stop_after_closing: None,
+                    simplest_first,
                 };
                 return search_at(
                     &at,
@@ -1245,14 +1253,52 @@ fn open_goals_allowed(goals: usize) -> String {
     format!("{goals} goal{s} open, allowed by `check: open-goals: warn`")
 }
 
+/// The error lines of the summary (docs/proposals/tests-with-errors.md
+/// §4.3): which declarations have an error, and which can't be checked
+/// until one is fixed. Nothing for a project without errors.
+fn report_errors(session: &Session) {
+    let errors = session.errors();
+    if !errors.has.is_empty() {
+        let names: Vec<String> = (errors.has.iter().take(3))
+            .map(|e| format!("`{}`", e.declaration))
+            .collect();
+        let shown = match (names.as_slice(), errors.has.len()) {
+            ([one], _) => one.clone(),
+            ([a, b], 2) => format!("{a} and {b}"),
+            ([a, b, c], 3) => format!("{a}, {b} and {c}"),
+            (names, n) => format!("{} and {} more", names.join(", "), n - names.len()),
+        };
+        let s = if errors.has.len() == 1 { "" } else { "s" };
+        eprintln!("{} error{s}: in {shown}", errors.has.len());
+    }
+    let waiting = &errors.waiting;
+    if !waiting.is_empty() {
+        let s = if waiting.len() == 1 { "" } else { "s" };
+        eprintln!(
+            "{} declaration{s} can't be checked until an error is fixed:",
+            waiting.len()
+        );
+        let width = waiting.iter().map(|w| w.name.len()).max().unwrap_or(0);
+        const SHOWN: usize = 20;
+        for w in waiting.iter().take(SHOWN) {
+            eprintln!("  {:width$}  needs {}", w.name, w.needs.describe());
+        }
+        if waiting.len() > SHOWN {
+            eprintln!("  and {} more", waiting.len() - SHOWN);
+        }
+    }
+}
+
 /// The goal count line, then what relies on the goals and what can't be
 /// checked until they are filled (docs/proposals/using-unfinished-proofs.md
 /// §5.1), after the goals themselves. `warn` is `check: open-goals: warn`,
-/// which reports the goals as warnings that don't fail the check. Then the
-/// same for declarations with an error that stand in for their statements
-/// (docs/proposals/tests-with-errors.md §4.3, D3527).
+/// which reports the goals as warnings that don't fail the check. Before
+/// them, the error lines, and what relies on a declaration with an error
+/// that stands in for its statement (docs/proposals/tests-with-errors.md
+/// §4.3, D3527).
 fn report_goals(session: &Session, reported: &[Diagnostic]) {
     use stitchwort_driver::reliance::{Dependent, GoalPlace, describe_goals, is_goal};
+    report_errors(session);
     let goals = reported.iter().filter(|d| is_goal(d)).count();
     let stand_ins = (session.elab.assumptions().iter()).any(|a| session.elab.is_error_stand_in(*a));
     if goals == 0 && !stand_ins {
@@ -1294,6 +1340,15 @@ fn report_goals(session: &Session, reported: &[Diagnostic]) {
             );
         }
     };
+    // What waits for an error is listed with the errors, above.
+    let relying = of_kind(&reliance.relying, true).len();
+    if relying > 0 {
+        let (s, rely) = rely(relying);
+        eprintln!(
+            "{relying} declaration{s} {rely} on a declaration with an error, checked assuming \
+             its statement"
+        );
+    }
     if goals > 0 {
         let allowed = reported
             .iter()
@@ -1325,29 +1380,6 @@ fn report_goals(session: &Session, reported: &[Diagnostic]) {
             );
             list_blocked(&blocked, &|gaps| describe_goals(gaps, true));
         }
-    }
-    let relying = of_kind(&reliance.relying, true).len();
-    if relying > 0 {
-        let (s, rely) = rely(relying);
-        eprintln!(
-            "{relying} declaration{s} {rely} on a declaration with an error, checked assuming \
-             its statement"
-        );
-    }
-    let blocked = of_kind(&reliance.blocked, true);
-    if !blocked.is_empty() {
-        let s = if blocked.len() == 1 { "" } else { "s" };
-        eprintln!(
-            "{} declaration{s} can't be checked until an error is fixed:",
-            blocked.len()
-        );
-        let needs = |gaps: &[GoalPlace]| {
-            let named: Vec<String> = (gaps.iter().take(3))
-                .map(|g| format!("`{}` ({})", g.short(), g.place()))
-                .collect();
-            named.join(", ")
-        };
-        list_blocked(&blocked, &needs);
     }
 }
 
@@ -1898,7 +1930,7 @@ impl TestOutput<'_> {
         results: &[TestResult],
         grouped: bool,
         asked_for_some: bool,
-        errors: bool,
+        errors: usize,
     ) -> ExitCode {
         if self.json {
             print_tests_json(session, results, asked_for_some, errors)
@@ -1962,7 +1994,8 @@ fn test(
             }
             let cache = test_cache(cache, Path::new("."));
             let results = run_tests(&session, &cache);
-            let code = output.print(&session, &results, false, output.only.is_some(), !loaded);
+            let errors = session.errors().has.len().max(usize::from(!loaded));
+            let code = output.print(&session, &results, false, output.only.is_some(), errors);
             let code = if verified(&cache) {
                 code
             } else {
@@ -2014,12 +2047,13 @@ fn test(
             }
             let cache = test_cache(cache, &project.dir);
             let results = run_tests(&session, &cache);
+            let errors = session.errors().has.len().max(usize::from(!loaded));
             let code = output.print(
                 &session,
                 &results,
                 true,
                 output.only.is_some() || target_name.is_some(),
-                !loaded,
+                errors,
             );
             let code = if verified(&cache) {
                 code
@@ -2117,7 +2151,7 @@ fn print_tests_json(
     session: &Session,
     results: &[TestResult],
     asked_for_some: bool,
-    errors: bool,
+    errors: usize,
 ) -> ExitCode {
     let tests: Vec<serde_json::Value> = results
         .iter()
@@ -2173,8 +2207,11 @@ fn print_tests_json(
         .collect();
     let ok = results.iter().all(|r| r.outcome == Outcome::Passed)
         && !(asked_for_some && results.is_empty())
-        && !errors;
-    println!("{}", serde_json::json!({"ok": ok, "tests": tests}));
+        && errors == 0;
+    println!(
+        "{}",
+        serde_json::json!({"ok": ok, "errors": errors, "tests": tests})
+    );
     exit(ok)
 }
 
@@ -3512,13 +3549,17 @@ fn audit(
             search,
         };
         let mut audits = Vec::new();
+        let mut errors = 0;
         // Each file gets its own session, as for `check`.
         for file in files {
             let mut session = new_session(false);
             use_cache(&mut session, cache, Path::new("."));
-            if !load_file(&mut session, Path::new(file.as_str()), Some("checked")) {
+            // A file with errors is still audited, theorem by theorem.
+            let loaded = load_file(&mut session, Path::new(file.as_str()), Some("checked"));
+            if !loaded && session.elab.failed_decls().is_empty() {
                 return ExitCode::FAILURE;
             }
+            errors += session.errors().has.len();
             session.elab.leave_namespace();
             match audit_loaded(&mut session, &[], &names, true, &options) {
                 Ok(found) => audits.extend(found),
@@ -3526,7 +3567,7 @@ fn audit(
             }
             discard(session);
         }
-        return print_audit(&audits, &options.allowed, args);
+        return print_audit(&audits, &options.allowed, errors, args);
     }
     let mut session = new_session(false);
     // Which theorems: those under the `roots`, and those `named`.
@@ -3599,7 +3640,11 @@ fn audit(
             }
             Err(diagnostics) => {
                 report(&session.sources, &diagnostics);
-                return ExitCode::FAILURE;
+                // Errors in declarations leave the rest checked, and
+                // audited; anything else (a bad project) leaves nothing.
+                if session.elab.failed_decls().is_empty() {
+                    return ExitCode::FAILURE;
+                }
             }
         }
         session.elab.leave_namespace();
@@ -3620,8 +3665,9 @@ fn audit(
         Ok(audits) => audits,
         Err(code) => return code,
     };
+    let errors = session.errors().has.len();
     discard(session);
-    print_audit(&audits, &options.allowed, args)
+    print_audit(&audits, &options.allowed, errors, args)
 }
 
 /// The allowlist given, or the default.
@@ -3668,13 +3714,22 @@ fn audit_loaded(
     } else {
         selected
     };
-    Ok(session.audit(&selected, options))
+    let mut audits = session.audit(&selected, options);
+    // Theorems with errors have no definition to audit; they get a verdict
+    // too, unless they were audited (a failed definition that exists).
+    for failed in session.audit_failed(&keep) {
+        if !audits.iter().any(|a| a.name == failed.name) {
+            audits.push(failed);
+        }
+    }
+    Ok(audits)
 }
 
 /// Prints `audit`'s findings, as text or JSON, and gives its exit status.
 fn print_audit(
     audits: &[stitchwort_driver::audit::TheoremAudit],
     allowed: &BTreeSet<String>,
+    errors: usize,
     args: &AuditArgs,
 ) -> ExitCode {
     use stitchwort_driver::audit;
@@ -3688,7 +3743,7 @@ fn print_audit(
         .iter()
         .filter(|a| a.worst() == Some(audit::Severity::Warn))
         .count();
-    let ok = failed == 0 && (!args.strict || warned == 0);
+    let ok = failed == 0 && errors == 0 && (!args.strict || warned == 0);
     let written: Vec<_> = audits.iter().filter(|a| !a.generated).collect();
     let generated = audits.len() - written.len();
     let total = written.len();
@@ -3716,6 +3771,7 @@ fn print_audit(
                 "passed": audits.len() - failed - warned,
                 "assuming": assuming,
                 "unfinished": unchecked,
+                "errors": errors,
             },
         });
         println!("{json}");
@@ -3762,15 +3818,34 @@ fn print_audit(
     } else {
         ""
     };
-    let goals = match (assuming, unchecked) {
-        (0, 0) => String::new(),
-        (n, 0) => format!(" ({n} rely on open goals)"),
-        (0, m) => format!(" ({m} not checked)"),
-        (n, m) => format!(" ({n} rely on open goals, {m} not checked)"),
+    // Relying on a declaration with an error (its stand-in, D3527) is said
+    // apart from relying on an open goal.
+    let on_errors = (audits.iter())
+        .filter(|a| a.status == audit::Status::Assuming)
+        .filter(|a| a.open_goals.iter().all(|g| g.is_error()))
+        .count();
+    let mut parts = Vec::new();
+    if assuming > on_errors {
+        parts.push(format!("{} rely on open goals", assuming - on_errors));
+    }
+    if on_errors > 0 {
+        parts.push(format!("{on_errors} rely on errors"));
+    }
+    if unchecked > 0 {
+        parts.push(format!("{unchecked} not checked"));
+    }
+    let goals = match parts.is_empty() {
+        true => String::new(),
+        false => format!(" ({})", parts.join(", ")),
+    };
+    let in_project = match errors {
+        0 => String::new(),
+        1 => " (1 error in the project)".to_string(),
+        n => format!(" ({n} errors in the project)"),
     };
     println!(
         "audited {total} theorem{s}{separated}: {failed} failed, {warned} with \
-         warnings{strict}, {} passed{goals}",
+         warnings{strict}, {} passed{goals}{in_project}",
         audits.len() - failed - warned
     );
     exit(ok)

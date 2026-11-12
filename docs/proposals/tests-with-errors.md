@@ -2,7 +2,7 @@
 
 **Status:** proposed, 11 November 2026 (SW-2938), for Matt's decisions,
 listed [at the end](#10-decisions-for-matt). D-a (D3524), D-b (D3527) and D-c (D3525) accepted; stage 1
-built (SW-2940): importers are checked, `E-USES-FAILED` replaces
+built (SW-2940), stage 2 built (SW-2943: reporting; the implicit-use note of §4.2 is not): importers are checked, `E-USES-FAILED` replaces
 `E-NAMESPACE-FAILED` except in the editor's live project while a namespace
 used has a syntax error (§6). It answers D3524 (what
 happens to a namespace that imports a broken one) and puts today's

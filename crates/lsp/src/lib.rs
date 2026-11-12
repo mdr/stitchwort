@@ -119,6 +119,9 @@ pub struct Options {
     /// (`workspace/semanticTokens/refresh`) after a check. Set by
     /// `initialize`.
     pub refresh_tokens: bool,
+    /// The client shows server-started progress
+    /// (`window/workDoneProgress/create`): the proof search reports it.
+    pub work_done_progress: bool,
     /// The same for inlay hints (`workspace/inlayHint/refresh`).
     pub refresh_hints: bool,
     /// The client can show a message with buttons
@@ -331,6 +334,7 @@ impl Options {
             library: Arc::default(),
             settings: Arc::default(),
             refresh_tokens: false,
+            work_done_progress: false,
             refresh_hints: false,
             offer_rename_anyway: false,
             members: Arc::default(),
@@ -400,6 +404,7 @@ fn initialize(params: &serde_json::Value, options: &mut Options) -> (serde_json:
             .unwrap_or(false)
     };
     options.refresh_tokens = supports("/capabilities/workspace/semanticTokens/refreshSupport");
+    options.work_done_progress = supports("/capabilities/window/workDoneProgress");
     options.refresh_hints = supports("/capabilities/workspace/inlayHint/refreshSupport");
     options.settings.refresh_lenses.store(
         supports("/capabilities/workspace/codeLens/refreshSupport"),
@@ -501,6 +506,7 @@ pub fn serve_from(
         settings: options.settings.clone(),
         refreshes: AtomicU64::new(0),
         refresh_tokens: AtomicBool::new(options.refresh_tokens),
+        work_done_progress: options.work_done_progress,
         refresh_hints: AtomicBool::new(options.refresh_hints),
     };
     let result = main.run();
@@ -872,14 +878,29 @@ struct PendingSearch {
     /// answers null.
     cancel: Arc<AtomicBool>,
     answered: AtomicBool,
+    /// The progress token the client was shown for this search; ended with
+    /// the answer, whoever sends it.
+    progress: Option<String>,
 }
 
 impl PendingSearch {
     fn answer(&self, sender: &Sender<Message>, response: Response) {
         if !self.answered.swap(true, Ordering::SeqCst) {
             let _ = sender.send(response.into());
+            if let Some(token) = &self.progress {
+                let _ = sender.send(progress_message(token, serde_json::json!({"kind": "end"})));
+            }
         }
     }
+}
+
+/// A `$/progress` notification for `token`.
+fn progress_message(token: &str, value: serde_json::Value) -> Message {
+    Notification::new(
+        "$/progress".to_string(),
+        serde_json::json!({"token": token, "value": value}),
+    )
+    .into()
 }
 
 /// What the main thread and the search workers share: the requests not
@@ -1195,6 +1216,8 @@ struct Main {
     /// The client asked for refreshes of tokens and hints after a check
     /// ([`Options::refresh_tokens`], [`Options::refresh_hints`]).
     refresh_tokens: AtomicBool,
+    /// The client shows server-started progress ([`Options::work_done_progress`]).
+    work_done_progress: bool,
     refresh_hints: AtomicBool,
 }
 
@@ -1390,7 +1413,7 @@ impl Main {
         });
         let searching = Settings::on(&self.settings.proof_search);
         let fixes = self.import_fixes(&uri, &p.context.diagnostics);
-        let (Some(goal), Some(target)) = (
+        let (Some(goal), Some(_)) = (
             goal.filter(|_| searching),
             self.search_target(&uri).filter(|_| searching),
         ) else {
@@ -1462,19 +1485,38 @@ impl Main {
                 },
             })
         });
-        let document_changes = self.document_changes;
-        self.queue_search(id, &uri.clone(), "codeAction", move |version| Search {
-            uri,
-            target,
-            time_ms: None,
-            kind: SearchKind::SplitHole {
-                hole: range.start,
-                only: None,
-                versioned: document_changes.then_some(version),
-                fixes,
-                last: search,
-            },
-        });
+        // The splits come from the goal the last check published: each
+        // variable's constructor patterns are already in its context, so
+        // the list needs no search session and answers at once. Only the
+        // search for a proof is slow, and it waits to be picked.
+        let version = lock(&self.searches.versions).get(&uri).copied();
+        let versioned = self.document_changes.then_some(version).flatten();
+        let mut actions = fixes.as_array().cloned().unwrap_or_default();
+        {
+            let texts = self.texts.borrow();
+            if let Some(text) = texts.get(&uri) {
+                for (name, patterns) in pos::splittable_locals(&goal.context) {
+                    let Some(edits) = arms::split_hole(text, range.start, &name, &patterns) else {
+                        continue;
+                    };
+                    actions.push(serde_json::json!({
+                        "title": format!("Split on `{name}`"),
+                        "kind": "refactor.rewrite",
+                        "edit": workspace_edit(&uri, versioned, &edits),
+                    }));
+                }
+            }
+        }
+        actions.extend(search);
+        let answer = if actions.is_empty() {
+            serde_json::Value::Null
+        } else {
+            serde_json::Value::Array(actions)
+        };
+        let _ = self
+            .connection
+            .sender
+            .send(Response::new_ok(id, answer).into());
     }
 
     /// `workspace/executeCommand` of [`SEARCH_PROOF`], with the document's
@@ -1740,11 +1782,34 @@ impl Main {
             self.answer_null(id);
             return;
         };
+        // The proof search is the slow one (seconds, more the first time in
+        // a browser): the client shows it as progress while it runs.
+        let progress = (kind == "searchProof" && self.work_done_progress).then(|| {
+            format!(
+                "stitchwort-search-{}",
+                self.refreshes.fetch_add(1, Ordering::Relaxed) + 1
+            )
+        });
+        if let Some(token) = &progress {
+            let create = Request::new(
+                lsp_server::RequestId::from(format!("{token}-create")),
+                "window/workDoneProgress/create".to_string(),
+                serde_json::json!({"token": token}),
+            );
+            let _ = self.connection.sender.send(create.into());
+            let begin = serde_json::json!({
+                "kind": "begin",
+                "title": "Searching for a proof",
+                "cancellable": false,
+            });
+            let _ = self.connection.sender.send(progress_message(token, begin));
+        }
         let pending = Arc::new(PendingSearch {
             uri: uri.clone(),
             kind,
             cancel: Arc::new(AtomicBool::new(false)),
             answered: AtomicBool::new(false),
+            progress,
         });
         let mut search = make(version);
         search.time_ms = self.settings.search_time();
@@ -4097,6 +4162,7 @@ impl Inline {
             settings: options.settings.clone(),
             refreshes: AtomicU64::new(0),
             refresh_tokens: AtomicBool::new(false),
+            work_done_progress: false,
             refresh_hints: AtomicBool::new(false),
         };
         Ok(Inline {
@@ -4155,6 +4221,7 @@ impl Inline {
                 request::Initialize::METHOD => {
                     let (reply, document_changes) = initialize(&request.params, &mut self.options);
                     self.main.document_changes = document_changes;
+                    self.main.work_done_progress = self.options.work_done_progress;
                     (self.main.refresh_tokens)
                         .store(self.options.refresh_tokens, Ordering::Relaxed);
                     (self.main.refresh_hints).store(self.options.refresh_hints, Ordering::Relaxed);
@@ -4448,7 +4515,6 @@ fn search_session(server: &Options) -> Session {
 /// searches of projects' files, rewound to just after the load: a rewound
 /// session gives what a fresh one does (`rewind.rs`), and loading the
 /// library again is most of a search of a small project.
-#[cfg(not(target_family = "wasm"))]
 struct Warm {
     /// What the session was made from; another stack or library bundle
     /// makes another session.
@@ -4457,7 +4523,6 @@ struct Warm {
     mark: stitchwort_driver::rewind::Mark,
 }
 
-#[cfg(not(target_family = "wasm"))]
 thread_local! {
     static WARM: std::cell::RefCell<Option<Warm>> = const { std::cell::RefCell::new(None) };
 }
@@ -4467,21 +4532,14 @@ thread_local! {
 /// from the project's check cache `cache` (the first time, or when the
 /// library bundle changes) or the bundle. The session is kept, rewound,
 /// for the next search on this thread: about 0.45 GB for as long as the
-/// thread lives. Not in the browser, where memory is dearer and a page
-/// has one search worker.
+/// thread lives. In the browser that thread is the page's one search
+/// worker, so only its first search loads the library (17 s there).
 fn with_project_session<T>(
     server: &Options,
     cache: Option<&Path>,
     cancel: Arc<AtomicBool>,
     f: impl FnOnce(&mut Session) -> T,
 ) -> T {
-    #[cfg(target_family = "wasm")]
-    {
-        let mut session = search_session(server);
-        session.share_cancel_flag(cancel);
-        f(&mut session)
-    }
-    #[cfg(not(target_family = "wasm"))]
     {
         let key = (
             server.stack,

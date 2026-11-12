@@ -1,5 +1,5 @@
 {
-  "next": 2963,
+  "next": 2974,
   "tickets": [
     {
       "id": 47,
@@ -31354,15 +31354,17 @@
     {
       "id": 2943,
       "title": "[Opus] Tests with errors stage 2 (docs/proposals/tests-with-errors.md): reporting (check error summary, test with its own error is a failed result, test --json errors, audit verdicts with errors) and implicit uses of failed declarations across namespaces: instance search with a broken Ord instance gives a fresh E-TYPE-MISMATCH instead of waiting (SW-2940)",
-      "status": "backlog",
-      "agent": "Opus",
-      "where": "",
+      "status": "done",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-2943",
       "labels": [],
       "epic": "test-infra",
-      "body": "\nStage 6 measurement (12 Nov 00:22, Speedwell, release at 2df61b262+, aoc/ copy, Direction.turnRight broken in Aoc.Common, imported by 189 files): healthy cold 63.3 s, healthy warm 0.8 s; broken with warm cache 26.7 s first run, 7.3 s on repeat (vs 0.8 s healthy); 14 errors, 12 of them E-USES-FAILED. So the cost of checking importers past a broken Common is ~7 s per run, not a cold check; caching waiting namespaces (stage 6) would win back ~6.5 s.",
+      "body": "\nStage 6 measurement (12 Nov 00:22, Speedwell, release at 2df61b262+, aoc/ copy, Direction.turnRight broken in Aoc.Common, imported by 189 files): healthy cold 63.3 s, healthy warm 0.8 s; broken with warm cache 26.7 s first run, 7.3 s on repeat (vs 0.8 s healthy); 14 errors, 12 of them E-USES-FAILED. So the cost of checking importers past a broken Common is ~7 s per run, not a cold check; caching waiting namespaces (stage 6) would win back ~6.5 s.\nBuilt: FailedDecl log; check summary error lines and waiting list; own-error tests are failed results; test --json errors; audit verdicts with errors, status waiting, summary.errors. Not done: implicit uses (failed instance) -> ticket; syntax-broken declarations have no kind -> ticket.\nModel result: Sonnet, worked, 17 min (est. 90)",
       "created": "2026-11-11",
       "updated": "2026-11-12",
-      "commits": []
+      "commits": [
+        "9243fc301"
+      ]
     },
     {
       "id": 2944,
@@ -31474,8 +31476,8 @@
       "id": 2952,
       "title": "[Opus] Tests with errors stage 3 (docs/proposals/tests-with-errors.md): stand-ins (D3527), a def/theorem with a checked statement and a broken body becomes an assumption of its statement; tests run what only cites a gap (? or error) with the assuming note (D3525); docs/core.md; then Opus review (D2364)",
       "status": "review",
-      "agent": "",
-      "where": "",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-2952",
       "labels": [],
       "epic": "test-infra",
       "body": "D3525 (Matt, 12 Nov 2026: 'D3525 - yes, approved'): one rule for tests. A test runs unless the code it runs needs a gap; a gap it only cites as a proof, whether ? or an error, doesn't stop it, and the result line says what it assumed (design note D-c).\nD3527 (Matt, 12 Nov 2026: 'D3527 yes'): a declaration whose statement checks but whose body has an error stands in as an assumption of its statement, like a ?; users are checked and reported as relying on it, never finished; a broken statement still makes users wait (design note D-b).\n\nLane (Opus, 12 Nov 2026, 12:48-13:30, est. 3 h): built on lane/SW-2952 (873790cb9). Stand-ins for def/theorem with a checked statement and a failed body (module.rs `stand_in_for_failed`, assume.rs `stand_in`); `AssumptionKind::{Goal, Error}` in the kernel label, hashed under `assume-error`; `GoalPlace.kind`; test/audit/run/axioms/check-summary wording per kind; `test --json` `assuming` now objects with `kind`; cross-namespace waits on a stand-in get E-USES-FAILED; `stuck_on_goal` skips elided message parts (a panic the stand-ins exposed). docs/core.md, projects.md, syntax.md, guide 09. Not done: stand-ins for bodies with syntax errors (parser keeps no signature), instances/opaque/decreasing/defaults. Needs the Opus kernel-term review (D2364). Reject-example snapshots beyond `failed` not run (verifier).\n",
@@ -31570,35 +31572,39 @@
     {
       "id": 2959,
       "title": "[Sonnet] Instant Cmd+. (D3529, Matt's direction on SW-2958): the code-action list (Split on x, Search for a proof) answers at once from the checked file without the search session; Split built without it; Search for a proof runs only when picked, with progress; and the playground's search worker keeps std loaded between searches (today 17 s per search, also behind the goal panel's contextAt). Playground and VS Code",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2959",
       "labels": [],
       "epic": "editor-playground",
-      "body": "",
+      "body": "\nResult: list 12 ms, split 5 ms (from the published goal's Local.splits; no search session); Search for a proof on pick, progress in the playground notice and LSP workDoneProgress; wasm worker keeps the rewound std session (~0.45 GB). First search 21 s, second 1.0 s. Not done: header/arm-variable splits still go through search; standalone files don't keep a session.\nModel result: Sonnet, worked, 19 min (est. 90)",
       "created": "2026-11-12",
       "updated": "2026-11-12",
-      "commits": []
+      "commits": [
+        "91024ab19"
+      ]
     },
     {
       "id": 2960,
       "title": "[DeepSeek] Full tier at 58c3bcac7 (Overmind, 12 Nov): check_cache::the_cache_changes_nothing_for_the_examples fails at crates/driver/tests/projects/check_cache.rs:201 'extension-in-owner: a namespace can't be cached' (namespace_uncacheable 1, expected 0), likely SW-2951 counting importers of a failed namespace as uncacheable; and rewind::an_edit_checks_again_only_what_uses_it fails at rewind.rs:888 'C replayed' left 0 right 1 under the full tier (passes by name at the default tier on Speedwell). Reproduce with STITCHWORT_TIER=full by name; fix the cause or the test with a reason",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": ".claude/worktrees/scratch-sw-2960",
       "labels": [],
       "epic": "test-infra",
-      "body": "",
+      "body": "\nCauses: (1) SW-2951 counted an importer waiting on a broken namespace as uncacheable; now Stats::namespace_waiting_on_error; focused test the_cache_changes_nothing_for_extension_in_owner. (2) use_test_std_cache sets no cache under STITCHWORT_TIER=full, so the rewind test had no cache; it now has its own.\nModel result: DeepSeek, worked, 34 min (est. 45)",
       "created": "2026-11-12",
       "updated": "2026-11-12",
-      "commits": []
+      "commits": [
+        "a0f95f659"
+      ]
     },
     {
       "id": 2961,
       "title": "[Opus] Core panic: search_at_bench::stage_two_on_any_std_statement panics at crates/core/src/value.rs:2317:22 'index out of bounds: the len is 2 but the index is 2' (full tier, Overmind, 58c3bcac7, 224 s). Find the input, fix, regression test",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-2961",
       "labels": [],
       "epic": "elaborator-kernel",
       "body": "",
@@ -31614,6 +31620,153 @@
       "where": "",
       "labels": [],
       "epic": "test-infra",
+      "body": "",
+      "created": "2026-11-12",
+      "updated": "2026-11-12",
+      "commits": []
+    },
+    {
+      "id": 2963,
+      "title": "[DeepSeek] Playground: start the search worker's library load when the page opens, so the first proof search and the goal panel's contextAt don't wait ~17 s (SW-2959 finding); measure the page's memory with the warm session (~0.45 GB native)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "editor-playground",
+      "body": "",
+      "created": "2026-11-12",
+      "updated": "2026-11-12",
+      "commits": []
+    },
+    {
+      "id": 2964,
+      "title": "[Fable] Paper: the Bool-as-proposition reader before stage 2 (bool-as-proposition.md §5-§7, D3487, D3488): readings as @[reading] proved definitions vs a fixed compiler list vs other designs; the orphan rule; what the reader does in patterns, building, both polarities, crossing; end state, prior art (Lean decide/simp lemmas and Bool coercions, SSReflect reflect views, Agda/Idris Dec, Isabelle), risks; recommendation for D3487 and D3488 (Matt, 12 Nov)",
+      "status": "done",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-2964",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "Fable paper lane, 12 Nov 2026, 12:53-13:10 (est. 2 h). Review: docs/reviews/SW-2964-bool-reader-review.md (branch lane/SW-2964, commit 76da7a9a2). No build, no tests, no probes.\n\n- D3487 [rec: yes, in an amended shape]: a reading is a `@[reading]` theorem `test ↔ proposition` (not a `Decidable` definition); one reading per test and polarity; declared where the test is (same file in std, same namespace in a project).\n- D3488 [rec: no for now]: a test fact is itself an equation, so silent crossing can't fire as a rewrite rule, in an untyped let or under Eq.sym. Of 510 named helper uses at most 270 sit where it could (script, rough). Build an explicit postfix word in stage 2 (working name `.read`), and revisit silent crossing after a measured sweep, only where the wanted type is not an equation.\n- New decision needing a number: the word (`.read`, `.fact`, `.meaning`).\n- Plan: stage 2 keeps its size, with the amended readings, `.read`, and \"no existing example hash changes\" as its acceptance check; the ∀ hooks dropped from stage 3; stage 4 becomes measure-then-decide; omega on the reader last and optional.\n- Findings for tickets: std's four recursive decisions (`List.decMem`, `decDistinct`, `decSorted`, `decLeHead`) aren't test first, so `if x ∈ xs` and `if xs.contains x` are different tests; `deriving (DecEq)` isn't test first (`derive.rs:49-56`); the `e = True` against `e = False` closer for cases/auto needs no reader; bool-as-proposition.md §8.4 counts two lemmas as crossings that aren't one-function readings.\nReview: docs/reviews/SW-2964-bool-reader-review.md. D3487 yes amended (a marked ↔ theorem; one reading per test; declared with the test). D3488 no for now: an explicit word (.read) in stage 2, silent crossing measured later. Plan: closer for e = True vs e = False now; stage 3 all Sonnet; stage 4 measure; omega on the reader last. 12 min (est. 2 h).",
+      "created": "2026-11-12",
+      "updated": "2026-11-12",
+      "commits": [
+        "76da7a9a2"
+      ]
+    },
+    {
+      "id": 2965,
+      "title": "[Sonnet] After a split (Cmd+. Split on x, playground and VS Code), the cursor lands in an odd place (Matt, 12 Nov): put it where D3530 decides (rec: on the first new ?, so its goal shows at once); VS Code via a command after the edit; browser and LSP tests",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-2965",
+      "labels": [],
+      "epic": "editor-playground",
+      "body": "\nD3530 (Matt, 12 Nov 2026: 'I agree with these recommendations'): after a split, the cursor goes to the first new ?.",
+      "created": "2026-11-12",
+      "updated": "2026-11-12",
+      "commits": []
+    },
+    {
+      "id": 2966,
+      "title": "[Sonnet] Proof search answers with the simplest proof first (Matt, 12 Nov: 'if we can close the proof with rfl, we should only offer that ... if we can close it with a very simple proof tactic, why would we offer lots of different ways ... get back to them quickly'): try a short ladder of cheap closers first (rfl, then exact hypothesis, decide on closed goals, omega, ring, cases on an impossible hypothesis), offer only the first that closes the goal, and run the full search only when none does; measure time to first answer on the book and sf exercises before/after",
+      "status": "done",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-2966",
+      "labels": [],
+      "epic": "proof-search",
+      "body": "\nBuilt: ladder in search_at.rs (LADDER, Rung::texts): rfl, hypothesis, byDecision, omega, ring, cases (only with an equation hypothesis); 0.5 s per rung, 2 s total; first closer is the only offer; editor and search --simplest-first. rfl goals: 8-14 offers -> 1, ~1 s faster (1-3 s floor is project load); no-closer goals ~1 s slower.\nModel result: Sonnet, worked, 17 min (est. 90)",
+      "created": "2026-11-12",
+      "updated": "2026-11-12",
+      "commits": [
+        "95f6af139"
+      ]
+    },
+    {
+      "id": 2967,
+      "title": "[DeepSeek] std: List.decMem, decDistinct, decSorted, decLeHead recurse on the list, so if x ∈ xs and if xs.contains x are different tests: write them test first (holds := the Bool test, then sound/complete) (SW-2964 finding 1)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "std-library",
+      "body": "",
+      "created": "2026-11-12",
+      "updated": "2026-11-12",
+      "commits": []
+    },
+    {
+      "id": 2968,
+      "title": "[Sonnet] deriving (DecEq) still answers by Decidable.yes/no under a match (crates/elab derive.rs:49-56): build the record test first; decidable-record.md stage 4 planned a test (SW-2964 finding 2)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-12",
+      "updated": "2026-11-12",
+      "commits": []
+    },
+    {
+      "id": 2969,
+      "title": "[Sonnet] cases and auto close a goal from e = True and e = False together (contradiction) without the reader (SW-2964 finding 3; bool-as-proposition plan, new small stage)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
+      "body": "",
+      "created": "2026-11-12",
+      "updated": "2026-11-12",
+      "commits": []
+    },
+    {
+      "id": 2970,
+      "title": "[Opus] Tests with errors: a failed instance in another namespace is never registered, so instance search reports 'no Ord instance' / a fresh E-TYPE-MISMATCH instead of waiting (instance colorOrd: Ord Color := True; a < b elsewhere): record failed instances by interface and head type in the session and wait through note_failed_used (SW-2943, design §4.2)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
+      "body": "",
+      "created": "2026-11-12",
+      "updated": "2026-11-12",
+      "commits": []
+    },
+    {
+      "id": 2971,
+      "title": "[Sonnet] Tests with errors: a declaration that fails to parse has no theorem/test kind, so a syntax-broken theorem gets no audit verdict and a syntax-broken test isn't a failed result: record the kind in FailedName or recover the header (SW-2943)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
+      "body": "",
+      "created": "2026-11-12",
+      "updated": "2026-11-12",
+      "commits": []
+    },
+    {
+      "id": 2972,
+      "title": "[Sonnet] Playground and VS Code: when Search for a proof finds a single proof (the ladder's answer), apply it at once with a notice ('Proved by rfl', undo restores the ?) instead of a one-item pick list (SW-2966 finding; needs D3532)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "editor-playground",
+      "body": "",
+      "created": "2026-11-12",
+      "updated": "2026-11-12",
+      "commits": []
+    },
+    {
+      "id": 2973,
+      "title": "[DeepSeek] ring is missing from the full search's closers list (rfl, omega, cases, byDecision), so tactics in the full report never lists it (SW-2966 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-search",
       "body": "",
       "created": "2026-11-12",
       "updated": "2026-11-12",

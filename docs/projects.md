@@ -282,7 +282,11 @@ name that resolves into `M`.
   first declaration that waits, if the file doesn't import it by name),
   listing what waits. Everything else is checked as usual, its goals are
   shown and its tests run: a test that only cites a broken theorem as a
-  proof runs, and says what it assumed. `check` still exits 1. A
+  proof runs, and says what it assumed. `check` still exits 1, and ends
+  with a summary of the errors: which declarations have one, how many rely
+  on one, and which can't be checked until one is fixed, and what each needs
+  (`stitchwort test` and `audit` print the same, and `audit` still gives
+  every theorem its verdict). A
   namespace with a *syntax* error may have lost a declaration altogether:
   an import of a name it no longer declares then says so once, on the
   import (`E-USES-FAILED`: "`A` has a syntax error, so `beats` can't be
