@@ -9,7 +9,6 @@
 --| The element at `x`'s position is `x`.
 theorem List.getOrIndexOf [auto eq: DecEq a] (xs: List a) (d x: a) (m: List.Mem x xs): List.getOr xs (List.indexOf xs x) d = x :=
   match xs with
-    | [] => Void.exfalso m
     | [y, ..ys] =>
       match e: y == x with
         | True => DecEq.sound e
@@ -21,7 +20,6 @@ theorem List.getOrIndexOf [auto eq: DecEq a] (xs: List a) (d x: a) (m: List.Mem 
 --| An element's position is inside the list.
 theorem List.indexOfLt [auto eq: DecEq a] (xs: List a) (x: a) (m: List.Mem x xs): List.indexOf xs x < List.length xs :=
   match xs with
-    | [] => Void.exfalso m
     | [y, ..ys] =>
       match e: y == x with
         | True => rfl
@@ -78,7 +76,6 @@ theorem List.getOrScanAdd (row: List Nat) (start c: Nat) (h: c ≤ List.length r
     List.getOr (List.scanLeft row start Nat.add) c 0 = start + List.sumBy (List.range 0 c) (i => List.getOr row i 0) :=
   match row, c with
     | [], Zero => Eq.sym (Nat.addZero start)
-    | [], Succ c => cases
     | [x, ..xs], Zero => Eq.sym (Nat.addZero start)
     | [x, ..xs], Succ c =>
       rewrite List.getOrScanAdd xs (Nat.add start x) c h, List.sumByRangeSucc (i => List.getOr [x, ..xs] i 0) c in omega

@@ -86,7 +86,6 @@ theorem Nat.modMulOfModZero (q: Nat) (z: Nat) (m: Nat) (h: z % m = 0): (q * z) %
 --| A number from 1 up is divided by nothing bigger than itself.
 theorem Nat.dividesSmall (d n: Nat) (h1: 1 ≤ n) (h2: n < d): Nat.divides d n = False :=
   match d with
-    | Zero => cases
     | Succ d =>
       Decidable.toBoolOfNot (Nat.decEq (n % Succ d) 0)
         (e => Bool.falseNotTrue (rewrite <- Nat.modSmall n (Succ d) h2, e at h1))
@@ -111,7 +110,6 @@ theorem Nat.divLtSucc (m: Nat) (k: Nat) (h: 1 < k): Succ m / k < Succ m :=
 
 theorem Nat.divLt (n: Nat) (k: Nat) (h0: 0 < n) (h1: 1 < k): n / k < n :=
   match n with
-    | Zero => cases
     | Succ m => Nat.divLtSucc m k h1
 
 --| A product is 0 only when a factor is (Lean's `Nat.mul_eq_zero`).

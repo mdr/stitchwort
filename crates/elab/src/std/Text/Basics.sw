@@ -231,7 +231,6 @@ def Text.words (text: Text): List Text := Text.wordsChars text.toList |> Text.wo
 theorem Text.dropSpacesHead (chars: List Char) (first: Char) (rest: List Char) (h: Text.dropSpaces chars = [first, ..rest]):
     Char.isWhitespace first = False :=
   match chars with
-    | [] => Void.exfalso (List.consNotNil first rest (Eq.sym h))
     | [char, ..chars] =>
       match space: Char.isWhitespace char with
         | True => Text.dropSpacesHead chars first rest h

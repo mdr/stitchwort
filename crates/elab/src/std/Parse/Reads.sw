@@ -927,7 +927,6 @@ theorem Parse.endOk (s: Parse.State) (x: a) (w: a) (h: Parse.runFrom s (() =>
     x) = Ok w): s.at.left = 0 ∧ x = w :=
   match e: s.at.left with
     | Zero => Both rfl (Result.okInjective h)
-    | Succ n => Void.exfalso (Result.errNotOk h)
 
 --| `whole chars p` succeeded: `p` read all of `chars`.
 theorem Parse.wholeReads (chars: List Char) (p: () → {Parse} a) (spec: List Char → a → Prop) (value: a) (reads: Parse.Reads p spec)
@@ -953,7 +952,6 @@ theorem Parse.eachLineOne (index: Nat) (line: Text) (parser: () → {Parse} a) (
       Ok value): Parse.whole line.toList parser = Ok value :=
   match e: Parse.whole line.toList parser with
     | Ok v => rewrite Result.okInjective h in rfl
-    | Err failure => Void.exfalso (Result.errNotOk h)
 
 --| `eachLine input p` succeeded: one value per line, each `spec` of all of
 --| its line.
@@ -1011,7 +1009,6 @@ theorem Parse.runnerOk (chars: List Char) (parser: () → {Parse} a) (message: P
       Ok value): Parse.whole chars parser = Ok value :=
   match e: Parse.whole chars parser with
     | Ok v => rewrite Result.okInjective h in rfl
-    | Err failure => Void.exfalso (Result.errNotOk h)
 
 --| `line text p` succeeded: `p` read all of `text` but a final line break.
 theorem Parse.lineReads (text: Text) (p: () → {Parse} a) (spec: List Char → a → Prop) (value: a)

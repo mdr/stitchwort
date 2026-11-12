@@ -384,6 +384,9 @@ pub struct Elaborator {
     /// What the editor and `search` read back: navigation, the goals
     /// shown, the counterexample logs (`state::Presentation`).
     pub present: state::Presentation,
+    /// Warnings the library's own files reported while loading, which
+    /// programs don't see: kept for tests that check the library itself.
+    pub library_warnings: Vec<Diagnostic>,
 }
 
 /// The elaborator's hints for the printer (globals-split.md §3.5): its

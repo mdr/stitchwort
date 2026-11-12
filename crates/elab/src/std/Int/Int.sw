@@ -26,7 +26,6 @@ theorem Int.toNatToInt (n: Nat): Int.toNat (Nat.toInt n) = n := rfl
 theorem Int.toIntToNat (z: Int) (nonneg: 0 ≤ z): Nat.toInt (Int.toNat z) = z :=
   match z with
     | OfNat k => rfl
-    | NegSucc k => cases
 
 theorem Int.natAbsToInt (n: Nat): Int.natAbs (Nat.toInt n) = n := rfl
 
@@ -422,18 +421,13 @@ theorem Int.mulCommExample: (-3) * 4 = 4 * (-3) := rfl
 theorem Int.addNonneg (a b: Int) (ha: 0 ≤ a) (hb: 0 ≤ b): 0 ≤ a + b :=
   match a, b with
     | OfNat m, OfNat n => rfl
-    | OfNat m, NegSucc n => cases
-    | NegSucc m, b => cases
 
 theorem Int.mulNonneg (a b: Int) (ha: 0 ≤ a) (hb: 0 ≤ b): 0 ≤ a * b :=
   match a, b with
     | OfNat m, OfNat n => rfl
-    | OfNat m, NegSucc n => cases
-    | NegSucc m, b => cases
 
 theorem Int.notNonnegOfIsNeg (c: Int) (n1: Int.isNeg c = True) (h: 0 ≤ c): Void :=
   match c with
-    | OfNat n => Bool.falseNotTrue n1
     | NegSucc n => Bool.falseNotTrue h
 
 theorem Int.zeroMul (a: Int): Int.mul (OfNat 0) a = OfNat 0 :=
@@ -461,7 +455,6 @@ theorem Int.subNonnegOfLe (m: Nat) (n: Nat) (h: m ≤ n): 0 ≤ Nat.toInt n - Na
 --| on a whole number.
 theorem Int.negOneSubNonneg (v: Int) (h: Int.leq (OfNat 0) v = False): 0 ≤ Int.add (NegSucc 0) (Int.neg v) :=
   match v with
-    | OfNat n => cases
     | NegSucc n =>
       J (y e => Int.leq (OfNat 0) y = True) rfl
         (Eq.sym (Eq.trans (Int.subNatNatSucc n 0) (Int.subNatNatZeroRight n)))

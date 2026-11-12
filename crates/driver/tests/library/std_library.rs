@@ -1250,3 +1250,31 @@ fn a_nested_library_load_keeps_the_outer_units_omega_for_auto() {
     let _ = session.parse_expression("<t>", "List.lengthAppend [1] [2]");
     assert!(session.elab.omega_for_auto());
 }
+
+/// An arm the checker proves can't happen says so (`W-UNREACHABLE`, and the
+/// arm can be deleted), and the library is kept free of them: programs
+/// never see its warnings, so nothing else would notice (SW-3020).
+#[test]
+fn the_library_has_no_unreachable_arms() {
+    with_stack(STACK, || {
+        let session = Session::eager_from_source_falling_back_for_stack(STACK);
+        let mut found: Vec<String> = Vec::new();
+        let warnings = session
+            .elab
+            .library_warnings()
+            .iter()
+            .chain(&session.warnings);
+        for d in warnings.filter(|d| d.code == "W-UNREACHABLE") {
+            let span = d.primary_span().expect("a warning about an arm");
+            let file = &session.sources.get(span.file);
+            let line = file.text[..span.start as usize].matches('\n').count() + 1;
+            found.push(format!("{}:{line}: {}", file.name, d.message));
+        }
+        assert!(
+            found.is_empty(),
+            "the library has {} arm(s) it proves can't happen:\n{}",
+            found.len(),
+            found.join("\n")
+        );
+    });
+}

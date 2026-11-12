@@ -54,8 +54,6 @@ theorem Omega.dotUnitInt (i: Nat) (vs: List Int): Omega.dot (Omega.unit i) vs = 
 theorem Omega.isZeroEq (x: Int) (h: Omega.isZero x = True): x = OfNat 0 :=
   match x with
     | OfNat Zero => rfl
-    | OfNat (Succ n) => cases
-    | NegSucc n => cases
 
 theorem Omega.dotAllZero (as vs: List Int) (h: Omega.allZero as = True): Omega.dot as vs = OfNat 0 :=
   match as, vs with
@@ -196,8 +194,6 @@ theorem Omega.intLeqOfEq [a b: Int] (e: a = b): Int.leq a b = True := J (y p => 
 theorem Omega.intLeAntisym (a b: Int) (h1: Int.leq a b = True) (h2: Int.leq b a = True): a = b :=
   match a, b with
     | OfNat m, OfNat n => Eq.cong OfNat (Nat.leAntisym m n h1 h2)
-    | OfNat m, NegSucc n => cases
-    | NegSucc m, OfNat n => cases
     | NegSucc m, NegSucc n => Eq.cong NegSucc (Nat.leAntisym m n h2 h1)
 
 --| `m < n` as `m + 1 <= n`.
@@ -207,10 +203,8 @@ theorem Omega.natLeqAddOne (m: Nat) (n: Nat) (h: m < n): m + 1 ≤ n := J (y p =
 theorem Omega.intLeqOfLess (a b: Int) (h: Int.less a b = True): Int.leq (Int.add a (OfNat 1)) b = True :=
   match a, b with
     | OfNat m, OfNat n => Omega.natLeqAddOne m n h
-    | OfNat m, NegSucc n => cases
     | NegSucc Zero, OfNat n => rfl
     | NegSucc (Succ m), OfNat n => rfl
-    | NegSucc Zero, NegSucc n => cases
     | NegSucc (Succ m), NegSucc n => h
 
 --| `Not (a <= b)` is `b + 1 <= a`.
@@ -219,8 +213,6 @@ theorem Omega.intLeqOfNotLeq (a b: Int) (h: Int.leq a b = False): Int.leq (Int.a
     | OfNat m, OfNat n => Omega.natLeqAddOne n m (Nat.leqFalse m n h)
     | OfNat m, NegSucc Zero => rfl
     | OfNat m, NegSucc (Succ n) => rfl
-    | NegSucc m, OfNat n => cases
-    | NegSucc m, NegSucc Zero => cases
     | NegSucc m, NegSucc (Succ n) => Nat.leqFalse (Succ n) m h
 
 --| `Not (a < b)` is `b <= a`.
@@ -228,14 +220,12 @@ theorem Omega.intLeqOfNotLess (a b: Int) (h: Int.less a b = False): Int.leq b a 
   match a, b with
     | OfNat m, OfNat n => Nat.leqFalse (Succ m) n h
     | OfNat m, NegSucc n => rfl
-    | NegSucc m, OfNat n => cases
     | NegSucc m, NegSucc n => Nat.leqFalse (Succ n) m h
 
 --| `a <= b` gives `0 <= b - a`.
 theorem Omega.intSubNonneg (a b: Int) (h: Int.leq a b = True): 0 ≤ Int.add b (Int.neg a) :=
   match a, b with
     | OfNat m, OfNat n => Int.subNonnegOfLe m n h
-    | OfNat m, NegSucc n => cases
     | NegSucc m, OfNat n => rfl
     | NegSucc m, NegSucc n =>
       Omega.nonnegEq (Eq.trans (Int.subNatNatSucc m n) (Eq.sym (Int.subOfNats m n))) (Int.subNonnegOfLe n m h)
@@ -362,20 +352,10 @@ theorem Omega.factRowsHold (env: Omega.Env) (f: Omega.Fact) (h: Omega.Fact.holds
 theorem Omega.factCases (env: Omega.Env) (f: Omega.Fact) (h: Omega.Fact.holds env f) (ok: Omega.Fact.splits f = True)
     (kl: (Omega.Facts.holds env (Omega.Fact.left f) → Void)) (kr: (Omega.Facts.holds env (Omega.Fact.right f) → Void)): Void :=
   match f with
-    | FLe a b => Bool.falseNotTrue ok
-    | FLt a b => Bool.falseNotTrue ok
-    | FEq a b => Bool.falseNotTrue ok
-    | FNotLe a b => Bool.falseNotTrue ok
-    | FNotLt a b => Bool.falseNotTrue ok
     | FSub t a b => Omega.subCases (Omega.NTerm.eval env t) (Omega.NTerm.eval env a) (Omega.NTerm.eval env b) h kl kr
     | FMax t a b => Omega.maxCases (Omega.NTerm.eval env t) (Omega.NTerm.eval env a) (Omega.NTerm.eval env b) h kl kr
     | FMin t a b => Omega.minCases (Omega.NTerm.eval env t) (Omega.NTerm.eval env a) (Omega.NTerm.eval env b) h kl kr
     | FNe a b => Omega.neCases (Omega.NTerm.eval env a) (Omega.NTerm.eval env b) h kl kr
-    | FILe a b => Bool.falseNotTrue ok
-    | FINotLe a b => Bool.falseNotTrue ok
-    | FILt a b => Bool.falseNotTrue ok
-    | FINotLt a b => Bool.falseNotTrue ok
-    | FIEq a b => Bool.falseNotTrue ok
     | FINe a b => Omega.ineCases (Omega.ITerm.eval env a) (Omega.ITerm.eval env b) h kl kr
 
 theorem Omega.factsRowsHold (env: Omega.Env) (fs: List Omega.Fact) (h1: Omega.Facts.holds env fs): Omega.RowsHold env (Omega.Facts.rows fs) :=
@@ -404,7 +384,6 @@ theorem Omega.combineHolds (env: Omega.Env) (ctx: List Omega.Row) (hc: Omega.Row
 theorem Omega.divideHolds (env: Omega.Env) (d: Nat) (r: Omega.Row) (ok: Omega.Row.divisible d r = True)
     (h: Omega.Row.Holds env r): Omega.Row.Holds env (Omega.Row.divide d r) :=
   match d, r with
-    | Zero, r => cases
     | Succ d, MkRow c ns is =>
       Int.divFloorNonneg d c
         (Omega.dot (Omega.divC d ns) (Omega.toInts (Omega.Env.nats env)) + Omega.dot (Omega.divC d is) (Omega.Env.ints env))

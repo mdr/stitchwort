@@ -40,7 +40,6 @@ def Vec.aroundFrom (pad: a) (f: a → a → a → b) (left: a): (xs: Vec a n) �
 theorem Vec.getOrShiftRight (v: Vec a n) (i: Nat) (d fill: a) (h: i < n):
     Vec.getOr (Vec.shiftRight v fill) i d = Vec.getOr (VCons fill v) i d :=
   match v, i with
-    | VNil, i => cases
     | VCons x xs, Zero => rfl
     | VCons x xs, Succ i => Vec.getOrShiftRight xs i d x h
 
@@ -57,7 +56,6 @@ theorem Vec.getOrShiftLeft (v: Vec a n) (fill: a) (i: Nat):
 theorem Vec.getOrShiftLeftLt (v: Vec a n) (i: Nat) (d fill: a) (h: i < n):
     Vec.getOr (Vec.shiftLeft v fill) i d = Vec.getOr v (Succ i) fill :=
   match v, i with
-    | VNil, i => cases
     | VCons x xs, Zero => Vec.headOrGetOr xs fill
     | VCons x xs, Succ i => Vec.getOrShiftLeftLt xs i d fill h
 

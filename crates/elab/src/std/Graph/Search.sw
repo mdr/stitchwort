@@ -217,7 +217,6 @@ theorem Graph.Costs.getOfHas (costs: Graph.Costs s t) [table: t] [state: s] (the
     ∃ (cost: Nat) => costs.get table state = Some cost :=
   match got: costs.get table state with
     | Some cost => Witness cost rfl
-    | None => cases
 
 --| A state just set is one the table has.
 theorem Graph.Costs.hasSetSame (costs: Graph.Costs s t) (table: t) (state: s) (cost: Nat): costs.has (costs.set table state cost) state = True :=
@@ -559,7 +558,6 @@ def Graph.improves (costs: Graph.Costs s t) (best: t) (state: s) (total: Nat): B
 theorem Graph.improvesFalse (costs: Graph.Costs s t) (best: t) (state: s) (total: Nat) (no: Graph.improves costs best state total = False):
     Exists Nat (known => (costs.get best state = Some known) ∧ (known ≤ total)) :=
   match got: costs.get best state with
-    | None => cases
     | Some known => Witness known (Both rfl omega)
 
 --| A cost that improves is less than any `best` has.
@@ -1163,7 +1161,6 @@ theorem Graph.visitAdded [auto ord: Ord s] (depth: Nat) (edges: List (s, Nat)) (
 --| After visiting edges, every edge's state is settled.
 theorem Graph.visitCovers [auto ord: Ord s] (depth: Nat) (edges: List (s, Nat)) (settled: Map s Nat) (next: List s) (state: s) (weight: Nat) (member: (state, weight) ∈ edges): (Graph.visitEdges depth edges settled next).fst.contains state = True :=
   match edges with
-    | [] => Void.exfalso member
     | [(target, targetWeight), ..rest] =>
       let settles: ∀ (more: Map s Nat) (added: List s) => more.contains state = True →
           (Graph.visitEdges depth rest more added).fst.contains state = True :=

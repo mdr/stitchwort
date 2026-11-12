@@ -188,7 +188,6 @@ instance Mod.instOrd [n: Nat]: Ord (Mod n) := Ord.byKey ((i: Mod n) => i.value) 
 --| A number below n is below `Mod.size n`.
 theorem Mod.ltSize (n x: Nat) (h: x < n): x < Mod.size n :=
   match n with
-    | Zero => cases
     | Succ n => h
 
 --| A position as a number modulo n (the same number).

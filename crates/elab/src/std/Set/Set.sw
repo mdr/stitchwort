@@ -143,8 +143,6 @@ theorem Set.unitEq (u w: ()): u = w :=
 theorem Set.unitEntries (xs ys: List (k, ())) (h: List.map xs Pair.fst = List.map ys Pair.fst): xs = ys :=
   match xs, ys with
     | [], [] => rfl
-    | [], [(b, w), ..ys2] => Void.exfalso (List.nilNotCons b (List.map ys2 Pair.fst) h)
-    | [(a, u), ..xs2], [] => Void.exfalso (List.consNotNil a (List.map xs2 Pair.fst) h)
     | [(a, u), ..xs2], [(b, w), ..ys2] =>
       rewrite Eq.cong (.headOr a) h, Set.unitEq u w, Set.unitEntries xs2 ys2 (Eq.cong List.tailOf h) in rfl
 

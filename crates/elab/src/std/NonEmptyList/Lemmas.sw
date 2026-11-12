@@ -48,7 +48,6 @@ theorem List.nonEmptyToNonEmpty (xs: List a) (h: xs ≠ []): List.nonEmpty xs = 
 --| other side.
 theorem List.toListOfNonEmpty (xs: List a) (ys: NonEmptyList a) (made: List.nonEmpty xs = Some ys): ys.toList = xs :=
   match xs, ys with
-    | [], ordered => Void.exfalso (Option.noneNotSome ordered made)
     | [x, ..rest], ordered => rewrite <- Option.someInjective made in rfl
 
 --| The `List` twins.
