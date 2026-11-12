@@ -172,7 +172,6 @@ theorem Fail.needEqOk [goal: Prop] [x: Option a] [msg: Text] [k: a → {Fail} b]
     (h: Fail.toResult (() => k (Fail.need x msg)) = Ok v)
     (use: ∀ (u: a) => x = Some u → Fail.toResult (() => k u) = Ok v → goal): goal :=
   match e: x with
-    | None => Void.exfalso (Result.errNotOk h)
     | Some u => use u rfl h
 
 --| A block starting with `ensure ok msg` gave `Ok v`: `ok` held.
@@ -180,7 +179,6 @@ theorem Fail.ensureEqOk [goal: Prop] [ok: Bool] [msg: Text] [k: () → {Fail} b]
     (h: Fail.toResult (() => k (Fail.ensure ok msg)) = Ok v)
     (use: ok = True → Fail.toResult (() => k ()) = Ok v → goal): goal :=
   match e: ok with
-    | False => Void.exfalso (Result.errNotOk h)
     | True => use rfl h
 
 --| A block starting with `r.orFail` gave `Ok v`: `r` was `Ok`.
@@ -188,7 +186,6 @@ theorem Fail.orFailEqOk [goal: Prop] [r: Result a Text] [k: a → {Fail} b] [v: 
     (h: Fail.toResult (() => k (Result.orFail r)) = Ok v)
     (use: ∀ (u: a) => r = Ok u → Fail.toResult (() => k u) = Ok v → goal): goal :=
   match e: r with
-    | Err m => Void.exfalso (Result.errNotOk h)
     | Ok u => use u rfl h
 
 --| A block starting with any computation `t` gave `Ok v`: so did `t`. `t` is

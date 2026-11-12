@@ -90,14 +90,11 @@ theorem Ring.greaterNotEqual (h: Greater = Equal): Void := Bool.falseNotTrue (Eq
 theorem Ring.cmpEq (vs ws: List Nat) (h: Ring.cmp vs ws = Equal): vs = ws :=
   match vs, ws with
     | [], [] => rfl
-    | [], [w, ..ws] => Void.exfalso (Ring.lessNotEqual h)
-    | [v, ..vs], [] => Void.exfalso (Ring.greaterNotEqual h)
     | [v, ..vs], [w, ..ws] =>
       match e: Nat.equal v w with
         | True => Eq.trans (Eq.cong (t => [t, ..vs]) (Nat.equalSound v w e)) (Eq.cong (Cons w) (Ring.cmpEq vs ws h))
         | False =>
           match f: Nat.leq v w with
-            | True => Void.exfalso (Ring.lessNotEqual h)
             | False => Void.exfalso (Ring.greaterNotEqual h)
 
 -- Polynomials

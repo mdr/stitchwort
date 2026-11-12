@@ -374,16 +374,12 @@ def Float.ieeeLe (x: Float) (y: Float): Bool :=
 theorem Float.keyLessLeq (i j: Int) (h: Int.less i j = True): Int.leq i j = True :=
   match i, j with
     | OfNat m, OfNat n => omega
-    | OfNat m, NegSucc n => cases
     | NegSucc m, OfNat n => rfl
     | NegSucc m, NegSucc n => omega
 
 theorem Float.ltLeBools (a b c: Bool) (i j: Int) (h: (a ∧ b ∧ ¬c ∧ Int.less i j) = True): (a ∧ b ∧ (c ∨ Int.leq i j)) = True :=
   match a, b, c with
     | True, True, False => Float.keyLessLeq i j h
-    | True, True, True => rfl
-    | True, False, c => cases
-    | False, b, c => cases
 
 --| JS's `a < b` implies `a <= b`.
 theorem Float.ieeeLtLe (x: Float) (y: Float) (h: Float.ieeeLt x y = True): Float.ieeeLe x y = True :=
@@ -411,7 +407,6 @@ theorem Float.ieeeRankExample: Float.ieeeRank (-Float.infinity) = 0 := rfl
 
 theorem Float.notTrueFalse (b: Bool) (h: (¬b) = True): b = False :=
   match b with
-    | True => cases
     | False => rfl
 
 --| The two zeros, `0.0` and `-0.0`, have the same rank.

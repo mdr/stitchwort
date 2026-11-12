@@ -588,7 +588,6 @@ theorem Map.Spec.lookupOfMem [auto ord: Ord k] (key: k) (value: v) (lo: Option k
 theorem Map.Spec.memOfLookup [auto ord: Ord k] (key: k) (value: v) (xs: List (k, v))
     (h: Map.Tree.lookupList key xs = Some value): List.Mem (key, value) xs :=
   match xs with
-    | [] => Void.exfalso (Option.noneNotSome value h)
     | [(kk, vv), ..rest] =>
       match d: Ord.compare key kk with
         | Equal => Inl (rewrite ord.equal key kk d, Eq.cong (.getOrElse vv) h in rfl)
@@ -606,13 +605,11 @@ theorem Map.Spec.lengthInsertAbsent [auto ord: Ord k] (key: k) (value: v) (xs: L
     | [(kk, vv), ..rest] =>
       match d: Ord.compare key kk with
         | Less => rfl
-        | Equal => Void.exfalso (Option.someNotNone vv h)
         | Greater => Eq.cong Succ (Map.Spec.lengthInsertAbsent key value rest h)
 
 theorem Map.Spec.lengthInsertPresent [auto ord: Ord k] (key: k) (value: v) (found: v) (lo: Option k) (xs: List (k, v))
     (asc: Map.Spec.Ascending ord lo xs) (h: Map.Tree.lookupList key xs = Some found): List.length (Map.Spec.insert key value xs) = List.length xs :=
   match xs, asc with
-    | [], asc => Void.exfalso (Option.noneNotSome found h)
     | [(kk, vv), ..rest], Both a arest =>
       match d: Ord.compare key kk with
         | Less =>
@@ -627,13 +624,11 @@ theorem Map.Spec.removeAbsent [auto ord: Ord k] (key: k) (xs: List (k, v)) (h: M
     | [(kk, vv), ..rest] =>
       match d: Ord.compare key kk with
         | Less => rfl
-        | Equal => Void.exfalso (Option.someNotNone vv h)
         | Greater => Eq.cong (ys => [(kk, vv), ..ys]) (Map.Spec.removeAbsent key rest h)
 
 theorem Map.Spec.lengthRemovePresent [auto ord: Ord k] (key: k) (found: v) (lo: Option k) (xs: List (k, v))
     (asc: Map.Spec.Ascending ord lo xs) (h: Map.Tree.lookupList key xs = Some found): Succ (List.length (Map.Spec.remove key xs)) = List.length xs :=
   match xs, asc with
-    | [], asc => Void.exfalso (Option.noneNotSome found h)
     | [(kk, vv), ..rest], Both a arest =>
       match d: Ord.compare key kk with
         | Less =>
@@ -848,8 +843,6 @@ theorem Map.Spec.notLessOfLess (ord: Ord k) (a: k) (b: k) (e: Ord.compare a b = 
 theorem Map.Spec.isLessSound [auto ord: Ord k] (a: k) (b: k) (h: Map.Spec.isLess a b = True): Ord.compare a b = Less :=
   match e: Ord.compare a b with
     | Less => rfl
-    | Equal => cases
-    | Greater => cases
 
 theorem Map.Spec.isLessOf [auto ord: Ord k] (a: k) (b: k) (h: Ord.compare a b = Less): Map.Spec.isLess a b = True :=
   rewrite h in rfl
@@ -976,9 +969,7 @@ def Map.Spec.sameKey [auto ord: Ord k] (a: k) (b: k): Bool := Ord.compare a b |>
 --| `sameKey` says equal, and is `==` (the `DecEq` in the `Ord`).
 theorem Map.Spec.sameKeySound [auto ord: Ord k] (a: k) (b: k) (h: Map.Spec.sameKey a b = True): a = b :=
   match e: Ord.compare a b with
-    | Less => cases
     | Equal => ord.equal a b e
-    | Greater => cases
 
 theorem Map.Spec.sameKeyDecide [auto ord: Ord k] (a: k) (b: k): Map.Spec.sameKey a b = (b == a) :=
   match e: Ord.compare a b with
@@ -1454,7 +1445,6 @@ theorem Map.Tree.buildRest (fuel n: Nat) (xs: List (k, v)) (h: n ≤ fuel):
     (Map.Tree.buildFuel fuel n xs).snd = List.drop xs n :=
   match fuel, n with
     | Zero, Zero => rfl
-    | Zero, Succ m => cases
     | Succ fuel, Zero => rfl
     | Succ fuel, Succ m =>
       Eq.trans
@@ -1523,8 +1513,6 @@ theorem Map.Spec.ascendingOfCheck [auto ord: Ord k] (lo: Option k) (xs: List (k,
     | Some lo, [(kk, vv), ..rest] =>
       match c: Ord.compare lo kk with
         | Less => Both rfl (Map.Spec.ascendingOfCheck (Some kk) rest h)
-        | Equal => cases
-        | Greater => cases
 
 --| On ascending keys the last entry for a key is the only one.
 theorem Map.Spec.lookupLastAscending [auto ord: Ord k] (key: k) (lo: Option k) (xs: List (k, v)) (asc: Map.Spec.Ascending ord lo xs):

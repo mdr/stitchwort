@@ -356,7 +356,6 @@ theorem Map.containsOfMemToList [auto ord: Ord k] (m: Map k v) (key: k) (e: (k, 
 theorem Map.memKeysOfContains [auto ord: Ord k] (m: Map k v) (key: k) (h: Map.contains m key = True): List.Mem key (Map.keys m) :=
   match c: Map.get m key with
     | Some value => List.memMap (Map.toList m) (key, value) ((Map.memToList m key value).backward c) Pair.fst
-    | None => cases
 
 theorem Map.memKeys [auto ord: Ord k] (m: Map k v) (key: k): List.Mem key (Map.keys m) ↔ Map.contains m key = True := {
   forward = inKeys =>
@@ -511,8 +510,6 @@ theorem Map.viewsAgree (x y: Option ((k, v), Map.Raw k v [ord := o]))
     Option.map x (view => (view.fst, Map.ofRaw view.snd)) = Option.map y (view => (view.fst, Map.ofRaw view.snd)) :=
   match x, y with
     | None, None => rfl
-    | None, Some view => Void.exfalso (Option.noneNotSome _ same)
-    | Some view, None => Void.exfalso (Option.someNotNone _ same)
     | Some (smallest, rest), Some (other, otherRest) =>
       let pairs := Option.someInjective same
       rewrite Eq.cong Pair.fst pairs in
@@ -529,8 +526,6 @@ theorem Map.popMinSpecRaw [auto ord: Ord k] (r: Map.Raw k v)
     Option.map x (view => (view.fst, Map.ofRaw view.snd)) = Option.map (List.head entries) (entry => (entry, Map.remove (Map.ofRaw r) entry.fst)) :=
   match x, entries with
     | None, [] => rfl
-    | None, [entry, ..more] => Void.exfalso (Option.noneNotSome _ viewed)
-    | Some view, [] => Void.exfalso (Option.someNotNone _ viewed)
     | Some ((key, value), rest), [entry, ..more] =>
       let pairs := Option.someInjective viewed
       let first: (key, value) = entry := Eq.cong Pair.fst pairs
@@ -733,7 +728,6 @@ theorem Map.sumValuesEqSumByKeys [auto ord: Ord k] (m: Map k Nat) (f: k → Nat)
 theorem Map.getOfContains [auto ord: Ord k] (m: Map k v) (key: k) (there: Map.contains m key = True): Exists v (value => Map.get m key = Some value) :=
   match found: Map.get m key with
     | Some value => Witness value rfl
-    | None => cases
 
 --| A key just inserted is there.
 theorem Map.containsInsertSame [auto ord: Ord k] (m: Map k v) (key: k) (value: v): Map.contains (Map.insert m key value) key = True :=

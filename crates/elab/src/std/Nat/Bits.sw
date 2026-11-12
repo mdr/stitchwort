@@ -95,8 +95,6 @@ theorem Nat.oddSumBits (m n: Nat) (small: m < 2) (alsoSmall: n < 2): ((m + n) % 
     | Zero, Succ Zero => rfl
     | Succ Zero, Zero => rfl
     | Succ Zero, Succ Zero => rfl
-    | Succ (Succ m), n => Void.exfalso (omega)
-    | m, Succ (Succ n) => Void.exfalso (omega)
 
 theorem Nat.oddSum (m: Nat) (n: Nat): ((m + n) % 2 == 1) = Bool.xor (m % 2 == 1) (n % 2 == 1) :=
   rewrite Eq.sym (Nat.addModMod m n 2), Eq.sym (Nat.modAddMod m (n % 2) 2) in
@@ -118,9 +116,6 @@ theorem Nat.bitsEqual (m n: Nat) (small: m < 2) (alsoSmall: n < 2) (same: (m == 
     | Zero, Zero => rfl
     | Succ Zero, Succ Zero => rfl
     | Zero, Succ Zero => cases
-    | Succ Zero, Zero => cases
-    | Succ (Succ m), n => Void.exfalso (omega)
-    | m, Succ (Succ n) => Void.exfalso (omega)
 
 --| Numbers with the same bits are equal.
 theorem Nat.eqOfTestBit (m: Nat) (n: Nat) (same: ∀ (i: Nat) => Nat.testBit m i = Nat.testBit n i): m = n
@@ -146,8 +141,6 @@ theorem Nat.oddProductBits (m n: Nat) (small: m < 2) (alsoSmall: n < 2): (m * n 
     | Zero, Succ Zero => rfl
     | Succ Zero, Zero => rfl
     | Succ Zero, Succ Zero => rfl
-    | Succ (Succ m), n => Void.exfalso (omega)
-    | m, Succ (Succ n) => Void.exfalso (omega)
 
 theorem Nat.oddEitherBits (m n: Nat) (small: m < 2) (alsoSmall: n < 2): ((m + n + m * n) % 2 == 1) = (m == 1 ∨ n == 1) :=
   match m, n with
@@ -155,8 +148,6 @@ theorem Nat.oddEitherBits (m n: Nat) (small: m < 2) (alsoSmall: n < 2): ((m + n 
     | Zero, Succ Zero => rfl
     | Succ Zero, Zero => rfl
     | Succ Zero, Succ Zero => rfl
-    | Succ (Succ m), n => Void.exfalso (omega)
-    | m, Succ (Succ n) => Void.exfalso (omega)
 
 theorem Nat.oddProduct (m: Nat) (n: Nat): (m * n % 2 == 1) = (m % 2 == 1 ∧ n % 2 == 1) :=
   rewrite Eq.sym (Nat.mulModMod m n 2), Eq.sym (Nat.modMulMod m (n % 2) 2) in

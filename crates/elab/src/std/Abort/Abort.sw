@@ -95,7 +95,6 @@ theorem Abort.needEqSome [goal: Prop] [x: Option a] [k: a → {Abort} b] [v: b]
     (h: Abort.toOption (() => k (Abort.need x)) = Some v)
     (use: ∀ (u: a) => x = Some u → Abort.toOption (() => k u) = Some v → goal): goal :=
   match e: x with
-    | None => Void.exfalso (Option.noneNotSome v h)
     | Some u => use u rfl h
 
 --| A block starting with `ensure ok` gave `Some v`: `ok` held.
@@ -103,7 +102,6 @@ theorem Abort.ensureEqSome [goal: Prop] [ok: Bool] [k: () → {Abort} b] [v: b]
     (h: Abort.toOption (() => k (Abort.ensure ok)) = Some v)
     (use: ok = True → Abort.toOption (() => k ()) = Some v → goal): goal :=
   match e: ok with
-    | False => Void.exfalso (Option.noneNotSome v h)
     | True => use rfl h
 
 --| A block starting with any computation `t` gave `Some v`: so did `t`. `t`

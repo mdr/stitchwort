@@ -155,13 +155,11 @@ theorem List.concatReplicateSnoc (p: List a) (n: Nat): List.concat (List.replica
 theorem List.lengthTake (xs: List a) (k: Nat) (h: k ≤ List.length xs): List.length (List.take xs k) = k :=
   match xs, k with
     | xs, Zero => rfl
-    | [], Succ k => cases
     | [x, ..xs], Succ k => Eq.cong Succ (List.lengthTake xs k h)
 
 theorem List.takeAll (xs: List a) (k: Nat) (h: List.length xs ≤ k): List.take xs k = xs :=
   match xs, k with
     | [], Zero => rfl
-    | [x, ..xs], Zero => cases
     | [], Succ k => rfl
     | [x, ..xs], Succ k => Eq.cong (Cons x) (List.takeAll xs k h)
 
@@ -169,7 +167,6 @@ theorem List.takeAll (xs: List a) (k: Nat) (h: List.length xs ≤ k): List.take 
 theorem List.dropPast (xs: List a) (k: Nat) (h: List.length xs ≤ k): List.drop xs k = [] :=
   match xs, k with
     | [], k => List.dropNil k
-    | [x, ..xs], Zero => cases
     | [x, ..xs], Succ k => List.dropPast xs k h
 
 -- Sliding windows (`List.windows`): how many there are, how long each is,
@@ -236,7 +233,6 @@ theorem List.windowsExample: List.windows [1, 2, 3, 4] 3 = [[1, 2, 3], [2, 3, 4]
 theorem List.lengthDrop (xs: List a) (n: Nat) (h: n ≤ List.length xs): n + List.length (List.drop xs n) = List.length xs :=
   match xs, n with
     | xs, Zero => rfl
-    | [], Succ n => cases
     | [x, ..xs], Succ n => Eq.cong Succ (List.lengthDrop xs n h)
 
 theorem List.lengthDropExample: List.length (List.drop [1, 2, 3, 4, 5] 2) = 3 := rfl
@@ -256,7 +252,6 @@ theorem List.dropAppendLength (xs: List a) (ys: List a) (k: Nat) (h: List.length
 
 theorem List.headTake (xs: List a) (d: a) (k: Nat) (h: 1 ≤ k): List.headOr (List.take xs k) d = List.headOr xs d :=
   match xs, k with
-    | xs, Zero => cases
     | [], Succ k => rfl
     | [x, ..xs], Succ k => rfl
 
@@ -644,8 +639,6 @@ theorem List.sortBySorted (cmp: a → a → Ordering)
 --| If `o` isn't `Less` or `Equal`, its opposite is.
 theorem Ordering.flipNotLessEq (o: Ordering) (h: Ordering.isLessEq o = False): Ordering.isLessEq (Ordering.flip o) = True :=
   match o with
-    | Less => cases
-    | Equal => cases
     | Greater => rfl
 
 --| An `Ord`'s comparison is total, by its `flip` law.
@@ -684,7 +677,6 @@ theorem Ord.isLessEqAntisymm [auto ord: Ord a] (x: a) (y: a)
   match e: Ord.compare x y with
     | Equal => ord.equal x y e
     | Less => Void.exfalso (Bool.falseNotTrue (rewrite ord.flip x y, e at h2))
-    | Greater => cases
 
 --| Sorted by one test is sorted by another that agrees with it.
 theorem List.leHeadCong (le1: a → a → Bool) (le2: a → a → Bool) (h: ∀ (x y: a) => le1 x y = le2 x y) (z: a)
@@ -979,7 +971,6 @@ theorem Bool.toNatAddLeOne (b: Bool) (n: Nat) (h: Bool.toNat b + n ≤ 1): n ≤
   match b, n with
     | False, n => h
     | True, Zero => rfl
-    | True, Succ n => cases
 
 --| Distinct keys: at most one element has any key.
 theorem List.occurrencesKeyDistinct [auto eq: DecEq k] (xs: List a) (key: a → k) (kk: k) (h: List.Distinct (List.map xs key)):
@@ -1545,7 +1536,6 @@ theorem List.sortOnMap [auto ord: Ord k] (xs: List a) (key: a → k):
 --| What `List.dedupAfter` keeps was in the list.
 theorem List.memDedupAfter [auto eq: DecEq a] (x: a) (previous: a) (xs: List a) (m: List.Mem x (List.dedupAfter previous xs)): List.Mem x xs :=
   match xs with
-    | [] => m
     | [y, ..ys] =>
       match e: y == previous with
         | True => Inr (List.memDedupAfter x previous ys m)
@@ -1558,7 +1548,6 @@ theorem List.memDedupAfter [auto eq: DecEq a] (x: a) (previous: a) (xs: List a) 
 theorem List.memDedupAfterIntro [auto eq: DecEq a] (x: a) (previous: a) (xs: List a) (m: List.Mem x xs):
     (previous = x) ∨ (List.Mem x (List.dedupAfter previous xs)) :=
   match xs with
-    | [] => Void.exfalso m
     | [y, ..ys] =>
       match e: y == previous with
         | True =>
@@ -1613,7 +1602,6 @@ theorem List.sumByRangeSucc (f: Nat → Nat) (n: Nat): List.sumBy (List.range 0 
 --| `ys.removeFirst x` was in `ys`.
 theorem List.memOfRemoveFirst [auto eq: DecEq a] (ys: List a) (x y: a) (member: y ∈ ys.removeFirst x): y ∈ ys :=
   match ys with
-    | [] => member
     | [first, ..ys] =>
       match e: first == x with
         | True => Inr member
@@ -1626,7 +1614,6 @@ theorem List.memOfRemoveFirst [auto eq: DecEq a] (ys: List a) (x y: a) (member: 
 --| the list is still there.
 theorem List.memRemoveFirst [auto eq: DecEq a] (ys: List a) (x y: a) (apart: y ≠ x) (member: y ∈ ys): y ∈ ys.removeFirst x :=
   match ys with
-    | [] => member
     | [first, ..ys] =>
       match e: first == x with
         | True =>

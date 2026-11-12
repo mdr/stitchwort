@@ -24,8 +24,6 @@ theorem Nat.zeroLe (n: Nat): 0 ≤ n := rfl
 theorem Nat.leAntisym (a b: Nat) (h1: a ≤ b) (h2: b ≤ a): a = b :=
   match a, b with
     | Zero, Zero => rfl
-    | Zero, Succ b => cases
-    | Succ a, Zero => cases
     | Succ a, Succ b => Eq.cong Succ (Nat.leAntisym a b h1 h2)
 
 theorem Nat.leAddRight (n m: Nat): n ≤ n + m :=
@@ -84,12 +82,10 @@ theorem Nat.ltAddCong (d a b: Nat) (h: a < b): d + a < d + b :=
 theorem Nat.leMulRight (a b c: Nat) (h: a ≤ b): a * c ≤ b * c :=
   match a, b with
     | Zero, b => rfl
-    | Succ a, Zero => cases
     | Succ a, Succ b => Nat.leAddCong c (a * c) (b * c) (Nat.leMulRight a b c h)
 
 theorem Nat.leMulPos (x: Nat) (y: Nat) (h: 0 < y): x ≤ x * y :=
   match y with
-    | Zero => cases
     | Succ y => Nat.leCongRight x (x + x * y) (x * Succ y) (Eq.sym (Nat.mulSucc x y)) (Nat.leAddRight x (x * y))
 
 theorem Nat.leAddCancel (d a b: Nat) (h: d + a ≤ d + b): a ≤ b :=
@@ -100,12 +96,10 @@ theorem Nat.leAddCancel (d a b: Nat) (h: d + a ≤ d + b): a ≤ b :=
 theorem Nat.addSubCancel (d n: Nat) (h: d ≤ n): d + (n - d) = n :=
   match d, n with
     | Zero, n => rfl
-    | Succ d, Zero => cases
     | Succ d, Succ n => Eq.cong Succ (Nat.addSubCancel d n h)
 
 theorem Nat.leqFalse (d n: Nat) (h: Nat.leq d n = False): n < d :=
   match d, n with
-    | Zero, n => cases
     | Succ d, Zero => rfl
     | Succ d, Succ n => Nat.leqFalse d n h
 
@@ -122,7 +116,6 @@ theorem Nat.ltOfNotLeExample: 2 < 3 := Nat.ltOfNotLe 3 2 Bool.falseNotTrue
 theorem Nat.subLtAdd (n x d: Nat) (hx: x ≤ n) (h: n < d + x): n - x < d :=
   match n, x with
     | n, Zero => Nat.ltCongRight n (d + 0) d (Nat.addZero d) h
-    | Zero, Succ x => cases
     | Succ n, Succ x => Nat.subLtAdd n x d hx (Nat.ltCongRight (Succ n) (d + Succ x) (Succ (d + x)) (Nat.addSucc d x) h)
 
 theorem Nat.divFuelLeStep (fuel: Nat) (n: Nat) (d: Nat) (b: Bool) (h: Nat.leq d n = b)
@@ -167,7 +160,6 @@ theorem Nat.nonzeroOfPos (d: Nat) (h: 1 ≤ d): d ≠ 0 := e => Bool.falseNotTru
 theorem Nat.divFuelBound (fuel n d: Nat) (ok: d ≠ 0) (hn: n ≤ fuel): n < Succ (Nat.divFuel fuel n d) * d :=
   match fuel, n with
     | Zero, Zero => Nat.ltCongRight 0 d (d + 0) (Eq.sym (Nat.addZero d)) (Nat.nonzeroPos d ok)
-    | Zero, Succ n => cases
     | Succ fuel, n => Nat.divFuelBoundStep fuel n d ok hn (Nat.leq d n) rfl (m hm => Nat.divFuelBound fuel m d ok hm)
 
 --| Dividing by 0 gives 0 (Lean's `Nat.div_zero`).
@@ -246,7 +238,6 @@ theorem Nat.zeroSub (n: Nat): 0 - n = 0 :=
 theorem Nat.subEqZero (n m: Nat) (h: n ≤ m): n - m = 0 :=
   match n, m with
     | Zero, m => Nat.zeroSub m
-    | Succ n, Zero => cases
     | Succ n, Succ m => Nat.subEqZero n m h
 
 theorem Nat.addOne (a: Nat): a + 1 = Succ a := Eq.trans (Nat.addSucc a 0) (Eq.cong Succ (Nat.addZero a))
@@ -267,7 +258,6 @@ theorem Nat.succAddSub (m r: Nat): Succ (m + r) - m = Succ r :=
 
 theorem Nat.subSuccRight (j t: Nat) (h: Succ j ≤ t): t - j = Succ (t - Succ j) :=
   match j, t with
-    | j, Zero => cases
     | Zero, Succ t => rfl
     | Succ j, Succ t => Nat.subSuccRight j t h
 
@@ -645,7 +635,6 @@ theorem Nat.eqIsEqual (m n: Nat): (m == n) = Nat.equal m n := rfl
 --| A number differs from every smaller one.
 theorem Nat.equalOfLess (b v: Nat) (h: b < v): Nat.equal v b = False :=
   match b, v with
-    | b, Zero => cases
     | Zero, Succ v => rfl
     | Succ b, Succ v => Nat.equalOfLess b v h
 

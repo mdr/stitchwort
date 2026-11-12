@@ -551,7 +551,6 @@ theorem Map.Tree.popMinRest (l: Map.Tree k v) (key: k) (value: v) (r: Map.Tree k
 theorem Map.Tree.popMinOrdered (ord: Ord k) (t: Map.Tree k v) (smallest: (k, v)) (rest: Map.Tree k v)
     (w: Map.Tree.Ordered ord t) (found: Map.Tree.popMin t = Some (smallest, rest)): Map.Tree.Ordered ord rest :=
   match t, w with
-    | Tip, w => Void.exfalso (Option.noneNotSome (smallest, rest) found)
     | Bin s l key value r, Both (Both ab be) (Both wl wr) =>
       rewrite Map.Tree.popMinRest l key value r s smallest rest found in
         Map.Tree.withinLow ord None (Map.Tree.minKey key l) None (Map.Tree.deleteMin l key value r) Trivial
@@ -561,7 +560,6 @@ theorem Map.Tree.popMinOrdered (ord: Ord k) (t: Map.Tree k v) (smallest: (k, v))
 theorem Map.Tree.popMinSized (t: Map.Tree k v) (smallest: (k, v)) (rest: Map.Tree k v)
     (st: Map.Tree.Sized t) (found: Map.Tree.popMin t = Some (smallest, rest)): Map.Tree.Sized rest :=
   match t, st with
-    | Tip, st => Void.exfalso (Option.noneNotSome (smallest, rest) found)
     | Bin s l key value r, Both e (Both sl sr) =>
       rewrite Map.Tree.popMinRest l key value r s smallest rest found in Map.Tree.deleteMinSized l key value r sl sr
 

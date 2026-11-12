@@ -196,12 +196,10 @@ test "Int.modAddMul" := (3 + -5 * 4) % -5 == 3 % -5 && (-2 + 7 * -3) % 7 == -2 %
 theorem Int.toNatCheckedSome (x: Int) (n: Nat) (checked: x.toNatChecked = Some n): x = n.toInt :=
   match x with
     | OfNat m => Eq.cong OfNat (Option.someInjective checked)
-    | NegSucc m => Void.exfalso (Option.noneNotSome n checked)
 
 --| A number that `toNatChecked` refuses is negative.
 theorem Int.toNatCheckedNone (x: Int) (checked: x.toNatChecked = None): x < 0 :=
   match x with
-    | OfNat m => Void.exfalso (Option.noneNotSome m (Eq.sym checked))
     | NegSucc m => omega
 
 --| `|x|` is `x` times its sign.
@@ -250,7 +248,6 @@ theorem Int.divExact (value: Int) (below times: Nat) (multiple: value.natAbs = t
 --| A number below `size` wraps to itself.
 theorem Int.modNatOfLt (size x: Nat) (inside: x < size): x.toInt.modNat size = x :=
   match size with
-    | Zero => cases
     | Succ n => Nat.modSmall x (Succ n) inside
 
 --| One step forward on a line of `size` is adding 1 and wrapping: the
@@ -258,7 +255,6 @@ theorem Int.modNatOfLt (size x: Nat) (inside: x < size): x.toInt.modNat size = x
 theorem Int.modNatSuccWrap (size x: Nat) (inside: x < size):
     (if x + 1 == size then 0 else x + 1) = Int.modNat (x.toInt + 1) size :=
   match size with
-    | Zero => cases
     | Succ n =>
       match e: x + 1 == Succ n with
         | True => rewrite (omega [DecEq.sound e]: x = n) in Eq.sym (Nat.modSelf (Succ n))
@@ -269,7 +265,6 @@ theorem Int.modNatSuccWrap (size x: Nat) (inside: x < size):
 theorem Int.modNatPredWrap (size x: Nat) (inside: x < size):
     (if x == 0 then size - 1 else x - 1) = Int.modNat (x.toInt - 1) size :=
   match size, x with
-    | Zero, x => cases
     | Succ n, Zero => rfl
     | Succ n, Succ x =>
       rewrite (omega: (Succ x).toInt - 1 = x.toInt) in Eq.sym (Nat.modSmall x (Succ n) omega)

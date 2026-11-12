@@ -32,12 +32,10 @@ theorem List.anyConsSelf [auto eq: DecEq a] (y: a) (s: List a): List.any [y, ..s
 
 theorem List.anyTailFalse (p: a → Bool) (y: a) (s: List a) (h: List.any [y, ..s] p = False): List.any s p = False :=
   match e: p y with
-    | True => cases
     | False => h
 
 theorem List.memUniqueFromElim [auto eq: DecEq a] (x: a) (seen xs: List a) (m: x ∈ List.uniqueFrom seen xs): x ∈ xs :=
   match xs with
-    | [] => m
     | [y, ..ys] =>
       match c: List.any seen (== y) with
         | True => Inr (List.memUniqueFromElim x seen ys m)
@@ -49,7 +47,6 @@ theorem List.memUniqueFromElim [auto eq: DecEq a] (x: a) (seen xs: List a) (m: x
 theorem List.memUniqueFromIntro [auto eq: DecEq a] (x: a) (seen xs: List a) (m: x ∈ xs):
     List.any seen (== x) = True ∨ x ∈ List.uniqueFrom seen xs :=
   match xs with
-    | [] => Void.exfalso m
     | [y, ..ys] =>
       match c: List.any seen (== y) with
         | True =>
@@ -69,7 +66,6 @@ theorem List.memUniqueFromIntro [auto eq: DecEq a] (x: a) (seen xs: List a) (m: 
 
 theorem List.uniqueFromFresh [auto eq: DecEq a] (z: a) (seen xs: List a) (m: z ∈ List.uniqueFrom seen xs): List.any seen (== z) = False :=
   match xs with
-    | [] => Void.exfalso m
     | [y, ..ys] =>
       match c: List.any seen (== y) with
         | True => List.uniqueFromFresh z seen ys m
@@ -248,7 +244,6 @@ theorem List.isDistinctSeenNotAhead [auto ord: Ord a] (seen: Set a) (x: a) (isSe
   | [], ok, member => member
   | [next, ..rest], ok, member =>
     match c: Set.contains seen next with
-      | True => Bool.falseNotTrue ok
       | False =>
         match member with
           | Inl same => Bool.falseNotTrue (Eq.trans (Eq.sym c) (rewrite same in isSeen))
@@ -260,7 +255,6 @@ theorem List.isDistinctFromSound [auto ord: Ord a] (seen: Set a) (xs: List a) (o
     | [] => Trivial
     | [next, ..rest] =>
       match c: Set.contains seen next with
-        | True => cases
         | False =>
           Both (List.isDistinctSeenNotAhead (Set.insert seen next) next (Set.containsInsert next seen) rest ok)
             (List.isDistinctFromSound (Set.insert seen next) rest ok)

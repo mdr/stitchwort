@@ -476,12 +476,15 @@ pub(crate) fn warn_unreachable_unless<T>(
         here.impossible.clear();
     }
     if result.is_ok() {
+        // A `match reify` clause is required however its case goes, so it
+        // is never warned about as deletable.
+        let keep = cx.e.decl.keep_arms.borrow().clone();
         {
             let mut warnings = cx.e.attempt.lambda_warnings.borrow_mut();
             for (span, why) in here.dropped {
                 let warned =
                     (warnings.iter()).any(|w| w.labels.first().is_some_and(|l| l.span == span));
-                if here.reached.contains(&span) || warned {
+                if here.reached.contains(&span) || warned || keep.contains(&span) {
                     continue;
                 }
                 warnings.push(
@@ -495,7 +498,7 @@ pub(crate) fn warn_unreachable_unless<T>(
         for (span, why, alternative, _) in here.impossible {
             let warned =
                 (warnings.iter()).any(|w| w.labels.first().is_some_and(|l| l.span == span));
-            if !deleted.contains(&span) || warned {
+            if !deleted.contains(&span) || warned || keep.contains(&span) {
                 continue;
             }
             warnings.push(

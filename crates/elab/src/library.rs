@@ -954,6 +954,12 @@ impl Elaborator {
         self.unit.omega_for_auto
     }
 
+    /// The warnings the library's own files reported as they loaded. They
+    /// aren't shown to programs: a test of the library itself reads them.
+    pub fn library_warnings(&self) -> &[Diagnostic] {
+        &self.library_warnings
+    }
+
     /// The paths of the library files loaded so far, in the order they
     /// loaded.
     pub fn loaded_library_files(&self) -> Vec<String> {
@@ -1393,6 +1399,14 @@ impl Elaborator {
             module: &file.module,
         };
         let diagnostics = self.elaborate_namespace(None, &[unit], None);
+        // Programs don't see the library's warnings, but a test of the
+        // library itself must (`library_warnings`).
+        self.library_warnings.extend(
+            diagnostics
+                .iter()
+                .filter(|d| d.severity == Severity::Warning)
+                .cloned(),
+        );
         self.scope.loading = None;
         self.leave_nested_unit(saved);
         let lib = self

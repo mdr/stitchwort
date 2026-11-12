@@ -168,7 +168,6 @@ theorem List.splitGroupsSeparators (ys: List a) (p: a → Bool) (h: List.all ys 
     | [y, ..ys] =>
       match e: p y with
         | True => rewrite List.splitGroupsCons ys y p, e, List.splitGroupsSeparators ys p h
-        | False => cases
 
 theorem List.splitGroupsAppendSeparators (ys: List a) (p: a → Bool) (h: List.all ys p = True) (xs: List a):
     List.splitGroups (List.append xs ys) p = List.splitGroups xs p :=
@@ -309,7 +308,7 @@ theorem List.isRunEnd (sep: Nat → Bool) (n: Nat) (lo: Nat) (hlo: lo < n) (end:
     | False =>
       Void.exfalso (Bool.trueNotFalse (Eq.trans (Eq.sym found)
         (calc sep (Nat.firstFrom sep (Succ (n - lo)) lo)
-          _ = ¬(¬(sep (Nat.firstFrom sep (Succ (n - lo)) lo))) := match sep (Nat.firstFrom sep (Succ (n - lo)) lo) with | True => rfl | False => rfl
+          _ = ¬(¬(sep (Nat.firstFrom sep (Succ (n - lo)) lo))) := match sep (Nat.firstFrom sep (Succ (n - lo)) lo) with | True => rfl
           _ = False := rewrite List.allRangeElim (c => ¬(sep c)) (hi - lo) lo none (Nat.firstFrom sep (Succ (n - lo)) lo)
             (Nat.firstFromAtLeast sep (Succ (n - lo)) lo)
             (rewrite Nat.addSubCancel lo hi (Nat.lessLe lo hi long) in Nat.leqFalse hi (Nat.firstFrom sep (Succ (n - lo)) lo) e))))

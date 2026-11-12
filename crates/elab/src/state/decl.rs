@@ -192,6 +192,10 @@ pub(crate) struct Decl {
     /// How deep the checker is in a `match` checked again for its cases
     /// alone (`deletable`): an arm's body stands for itself unchecked.
     pub(crate) coverage_only: Cell<usize>,
+    /// The clauses of a `match reify` being checked. Each one is required
+    /// whatever its case, so `W-UNREACHABLE` doesn't offer to delete them
+    /// (`reify.rs`, `families.rs`).
+    pub(crate) keep_arms: RefCell<Vec<Span>>,
 }
 
 /// [`Decl::conjunction`].
@@ -266,6 +270,7 @@ impl Decl {
             guard_nodes,
             errors_only,
             coverage_only,
+            keep_arms,
         } = self;
         let fields = [
             ("sides_capture", sides_capture.borrow().is_empty()),
@@ -301,6 +306,7 @@ impl Decl {
             ("guard_nodes", guard_nodes.get() == 0),
             ("errors_only", errors_only.get() == 0),
             ("coverage_only", coverage_only.get() == 0),
+            ("keep_arms", keep_arms.borrow().is_empty()),
         ];
         fields
             .into_iter()
