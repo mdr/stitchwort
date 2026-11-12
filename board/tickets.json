@@ -1,5 +1,5 @@
 {
-  "next": 3012,
+  "next": 3013,
   "tickets": [
     {
       "id": 47,
@@ -32039,15 +32039,17 @@
     {
       "id": 2990,
       "title": "[Sonnet] Impossible cases: a missing default in a number column is reported eagerly by compile_numbers even when a hypothesis rules it out (SW-2984 review L3); impossible_case/may_be_impossible force every Eq hypothesis on the error path, which could make a quick E-NONEXHAUSTIVE slow (L4, suspicion)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2990",
       "labels": [],
       "epic": "syntax-language",
-      "body": "\nOrchestrator: waits for SW-3008 (same impossible_case/may_be_impossible code).",
+      "body": "\nOrchestrator: waits for SW-3008 (same impossible_case/may_be_impossible code).\nOpus review: nothing High. Model result: Sonnet, worked, 17 min (est. 60)",
       "created": "2026-11-12",
       "updated": "2026-11-12",
-      "commits": []
+      "commits": [
+        "cb7fb1ef2"
+      ]
     },
     {
       "id": 2991,
@@ -32341,6 +32343,19 @@
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-12",
+      "updated": "2026-11-12",
+      "commits": []
+    },
+    {
+      "id": 3012,
+      "title": "[Sonnet] SW-2990 review follow-ups: (M) nested number columns now report a different missing case (match a, b with | 0, 5 => … | 1, _ => …: was 'numbers other than 0 and 1', now 'other than 5'): in missing.rs definite's numbers() check the default first when it's a Missing with other_numbers; (L) Int literal matches (int_coverage, lib.rs ~4638) and Fin (families.rs ~755) still report a missing default eagerly though docs/syntax.md now says 'a number match': extend or narrow the sentence to Nat and characters; (idea) apart-aware refutation so h: n < 2 / n = 0 rules out the default (needs a short design note)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "diagnostics",
       "body": "",
       "created": "2026-11-12",
       "updated": "2026-11-12",
