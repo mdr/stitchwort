@@ -363,10 +363,10 @@ pub fn add_hash(g: &Ev) -> Option<String> {
 /// `Nat.addSucc` (`add_succ`), which comes after `Nat.addZero`, if
 /// `Nat.add` has the pinned content hash (otherwise they stay off). Then the
 /// two theorems must have the types `(n: Nat) → n + 0 = n` and `(n: Nat) → (m: Nat) → n + Succ m =
-/// Succ (n + m)`, and be proved, not assumptions (a stand-in or a goal's,
-/// whatever binds them). The theorems are checked as a safety net against binding
-/// the rules to the wrong definition: what makes the rules sound is the
-/// argument in the module comment, not their proofs.
+/// Succ (n + m)`, and be theorems that aren't themselves assumptions (a
+/// stand-in or a goal's, whatever binds them). The theorems are checked as a
+/// safety net against binding the rules to the wrong definition: what makes
+/// the rules sound is the argument in the module comment, not their proofs.
 pub fn register(g: &mut Kernel, add_succ: DefId) -> Result<(), Diagnostic> {
     in_kernel_modes(g, |g| {
         let span = g.def(add_succ).span;

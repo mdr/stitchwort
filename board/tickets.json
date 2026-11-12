@@ -1,5 +1,5 @@
 {
-  "next": 3014,
+  "next": 3015,
   "tickets": [
     {
       "id": 47,
@@ -32211,15 +32211,17 @@
     {
       "id": 3002,
       "title": "[Opus] Each case the checker fills in becomes a %matchN helper declaration (38 new in std after SW-2993) where an explicit arm needed none: could the filled-in proof go inline? (SW-2993 finding)",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-3002",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "\nFable review: nothing High or Medium. Model result: Opus, worked, 20 min (est. 90)",
       "created": "2026-11-12",
       "updated": "2026-11-12",
-      "commits": []
+      "commits": [
+        "f362639c8"
+      ]
     },
     {
       "id": 3003,
@@ -32342,22 +32344,24 @@
     {
       "id": 3011,
       "title": "[DeepSeek] SW-3005 review follow-ups: a core test for retype_def's new guard (retype a pending theorem to Nat → E-NOT-A-PROP, type unchanged; to another Prop → ok); docs/core.md:189 'changes nothing in conversion or evaluation'; docs/core.md:374 add rule: the two theorems must not be assumptions; nat_add.rs:366 doc says 'proved' but only direct assumptions are refused: reword to 'not themselves assumptions'; docs/core.md:15 stale 'every checked definition is still assumption-free'",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": ".claude/worktrees/scratch-sw-3011",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "\nModel result: DeepSeek, worked, ~20 min (est. 20)",
       "created": "2026-11-12",
       "updated": "2026-11-12",
-      "commits": []
+      "commits": [
+        "01d1b4010"
+      ]
     },
     {
       "id": 3012,
       "title": "[Sonnet] SW-2990 review follow-ups: (M) nested number columns now report a different missing case (match a, b with | 0, 5 => … | 1, _ => …: was 'numbers other than 0 and 1', now 'other than 5'): in missing.rs definite's numbers() check the default first when it's a Missing with other_numbers; (L) Int literal matches (int_coverage, lib.rs ~4638) and Fin (families.rs ~755) still report a missing default eagerly though docs/syntax.md now says 'a number match': extend or narrow the sentence to Nat and characters; (idea) apart-aware refutation so h: n < 2 / n = 0 rules out the default (needs a short design note)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-3012",
       "labels": [],
       "epic": "diagnostics",
       "body": "",
@@ -32373,6 +32377,19 @@
       "where": "",
       "labels": [],
       "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-12",
+      "updated": "2026-11-12",
+      "commits": []
+    },
+    {
+      "id": 3014,
+      "title": "[DeepSeek] SW-3002 review lows: a test with one theorem per ordered pair of Ordering constructors (6) leaving the case out, so a wrong row in cases.rs ordering_distinct (~994) fails at std-edit time; registry.rs invariant 6 doc (~24-31): say shape \"\" means the lemma takes the hypothesis directly and its statement isn't checked; (idea, Sonnet) types with derived DecEq could refute constructor equations with T.%differ instead of a helper",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
       "body": "",
       "created": "2026-11-12",
       "updated": "2026-11-12",
