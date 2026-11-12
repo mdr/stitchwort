@@ -175,6 +175,15 @@ static CANCEL_HOOK: std::sync::OnceLock<fn() -> bool> = std::sync::OnceLock::new
 /// flag: a fraction of a millisecond.
 pub const POLL: u64 = 1 << 14;
 
+/// The largest read-back and deepest frames seen: [`Budget::take_peaks`].
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct Peaks {
+    /// Nodes in the largest single read-back, counted as the size limit is.
+    pub readback: u64,
+    /// The most frames of pending work the evaluator had at once.
+    pub frames: usize,
+}
+
 /// What one operation has used so far. Lives in [`crate::machine::Machine`]; an
 /// operation starts with [`Budget::operation`].
 #[derive(Debug)]
@@ -206,6 +215,13 @@ pub struct Budget {
     /// When a value was too large to read back ([`ResourceError::Size`]): the
     /// definition its outermost call was of, if it was one.
     too_large: Cell<Option<usize>>,
+    /// The most nodes any one read-back has counted, and the most frames
+    /// pending at once, since [`Budget::take_peaks`]. Kept across
+    /// operations: the timings report (`STITCHWORT_TIMINGS`) reads them per
+    /// declaration. Each is one comparison where the limit is already
+    /// checked.
+    peak_readback: Cell<u64>,
+    peak_frames: Cell<usize>,
     /// The definition whose case tree the reference evaluator last entered.
     entered: Cell<usize>,
     /// The definition last entered when the operation ran out of steps or
@@ -246,6 +262,8 @@ impl Default for Budget {
             out_of_stack: Cell::new(false),
             deepest: RefCell::new(Vec::new()),
             too_large: Cell::new(None),
+            peak_readback: Cell::new(0),
+            peak_frames: Cell::new(0),
             entered: Cell::new(usize::MAX),
             ran_out_in: Cell::new(None),
             cancel: RefCell::new(None),
@@ -755,9 +773,39 @@ impl Budget {
         self.too_large.take()
     }
 
+    /// A read-back ([`crate::value::quote`], the unifier's `rename`) counted
+    /// `nodes` nodes, whether it finished or ran over a limit.
+    #[inline]
+    pub fn note_readback(&self, nodes: u64) {
+        if nodes > self.peak_readback.get() {
+            self.peak_readback.set(nodes);
+        }
+    }
+
+    /// The largest read-back and the most frames pending since the last call
+    /// (or the start), and starts counting again from zero.
+    pub fn take_peaks(&self) -> Peaks {
+        Peaks {
+            readback: self.peak_readback.take(),
+            frames: self.peak_frames.take(),
+        }
+    }
+
+    /// Puts back peaks taken with [`Budget::take_peaks`], keeping any larger
+    /// ones seen since.
+    pub fn restore_peaks(&self, peaks: Peaks) {
+        self.note_readback(peaks.readback);
+        if peaks.frames > self.peak_frames.get() {
+            self.peak_frames.set(peaks.frames);
+        }
+    }
+
     /// The evaluator is about to have `frames` frames of pending work.
     #[inline]
     pub fn frames(&self, frames: usize) -> Result<()> {
+        if frames > self.peak_frames.get() {
+            self.peak_frames.set(frames);
+        }
         if frames > self.frame_limit.get() {
             self.note_ran_out();
             let e = self.exhausted.get().unwrap_or(ResourceError::Depth);

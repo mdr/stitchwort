@@ -2620,7 +2620,9 @@ fn rename(
             _ => None,
         },
     };
-    rename_in(g, &size, m, renaming, dom, cod, value, in_call)
+    let renamed = rename_in(g, &size, m, renaming, dom, cod, value, in_call);
+    g.machine.budget.note_readback(size.nodes.get());
+    renamed
 }
 
 /// How many nodes [`rename`] has written, of how many it may.
