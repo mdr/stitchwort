@@ -31598,12 +31598,12 @@
     {
       "id": 2961,
       "title": "[Opus] Core panic: search_at_bench::stage_two_on_any_std_statement panics at crates/core/src/value.rs:2317:22 'index out of bounds: the len is 2 but the index is 2' (full tier, Overmind, 58c3bcac7, 224 s). Find the input, fix, regression test",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "Progress (Opus lane, 12 Nov 2026, 12:50-13:35; est. 90 min):\n\n- Input: goal `Std.Ordering.flipNotLessEq`; the proof `search --at` checked was `Bool.andLeft cases`. Minimal repro: `import Std (Ordering, Bool)` / `theorem t (o: Ordering) (h: Ordering.isLessEq o = False): Ordering.isLessEq (Ordering.flip o) = True := Bool.andLeft cases`.\n- Cause: in the `o = Greater` case, `cases` meets the goal `?p Greater h` and tries deciding it. `auto::instantiate` made `Int.decLessThan ?x ?y` with untyped unknowns, so `unify::first_order` (whose SW-919 guard needs a recorded type) solved `?x: Int` with `Greater`. `verdict` ran the test; `branch` took `Greater`'s index 2 as a branch of `Int`'s two-branch case: out of bounds.\n- Fix: `auto::instantiate` uses `fresh_meta_of(dom)`; and `branch`, `walk_tree` and the reference evaluator leave a `case` stuck on another type's constructor (a program run still panics). Kernel acceptance of well-typed terms unchanged, so no docs/core.md change.\n- Tests: `case_other_type::a_case_on_another_types_constructor_is_stuck` (core; fails with the original panic without the guard), `decision_search::a_decision_procedures_arguments_keep_their_types` (driver; passes with either fix alone), and `stage_two_on_any_std_statement` at `STITCHWORT_TIER=full` passes (313 s locally, 297 goals).\n- The bench test now takes `SEARCH_AT_BENCH_ONLY=Std.A,Std.B` and `SEARCH_AT_BENCH_TRACE=1`.\n",
       "created": "2026-11-12",
       "updated": "2026-11-12",
       "commits": []
