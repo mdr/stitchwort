@@ -14,12 +14,14 @@ fn source_file(name: &str, source: &str) -> PathBuf {
 }
 
 /// A row of the declaration table: name, elaboration ms, kernel ms, steps,
-/// nodes.
+/// nodes, largest read-back, most frames.
 struct Row {
     name: String,
     ms: f64,
     steps: u64,
     nodes: u64,
+    readback: u64,
+    frames: u64,
 }
 
 /// Checks `path` with `STITCHWORT_TIMINGS=value`; the declaration table's
@@ -41,20 +43,22 @@ fn declaration_rows(path: &PathBuf, value: &str) -> (Vec<Row>, String) {
     let mut after = String::new();
     for line in lines.by_ref() {
         // The name may contain spaces (`Main.test "x"`, `Main.a, Main.b`):
-        // the four numbers are the last four columns.
+        // the six numbers are the last six columns.
         let words: Vec<&str> = line.split_whitespace().collect();
         let numbers: Option<Vec<f64>> = words
             .iter()
             .rev()
-            .take(4)
+            .take(6)
             .map(|w| w.parse::<f64>().ok())
             .collect();
         match numbers {
-            Some(n) if words.len() > 4 => rows.push(Row {
-                name: words[..words.len() - 4].join(" "),
-                ms: n[3] + n[2],
-                steps: n[1] as u64,
-                nodes: n[0] as u64,
+            Some(n) if words.len() > 6 => rows.push(Row {
+                name: words[..words.len() - 6].join(" "),
+                ms: n[5] + n[4],
+                steps: n[3] as u64,
+                nodes: n[2] as u64,
+                readback: n[1] as u64,
+                frames: n[0] as u64,
             }),
             _ => {
                 after = line.to_string();
@@ -128,4 +132,62 @@ fn declarations_are_listed_slowest_first_with_full_names() {
             all.len() - 20
         )
     );
+}
+
+/// A theorem that unfolds an opaque definition reads its body back whole
+/// (docs/proposals/term-sharing.md, stage 0c): `replicate k n` is `4k + 5`
+/// nodes by `Limits::size`'s count, and `k` frames deep to compute.
+#[test]
+fn the_largest_read_back_and_deepest_frames_are_reported() {
+    let source = |k: usize| {
+        format!(
+            "import Std (List, Nat, Eq)\n\n\
+             def replicate : Nat -> a -> List a\n  | Zero,   x => Nil\n  \
+             | Succ n, x => Cons x (replicate n x)\n\n\
+             opaque def big (n: Nat): List Nat := replicate {k} n\n\n\
+             theorem t (n: Nat): big n = big n unfolding big := \
+             rewrite (rfl: big n = big n) in rfl\n"
+        )
+    };
+    let theorem = |k: usize| {
+        let path = source_file(&format!("readback{k}.sw"), &source(k));
+        let (rows, _) = declaration_rows(&path, "decls");
+        let row = rows.into_iter().find(|r| r.name == "Main.t").expect("t");
+        (row.readback, row.frames)
+    };
+    let (small, small_frames) = theorem(50);
+    let (large, large_frames) = theorem(100);
+    assert_eq!(small, 4 * 50 + 5);
+    assert_eq!(large, 4 * 100 + 5);
+    assert!(small_frames > 0 && large_frames > 0);
+    // Frames follow how deeply a check recurses: checking a list literal
+    // holds one per element.
+    let list = |n: usize| {
+        let items: Vec<String> = (1..=n).map(|i| i.to_string()).collect();
+        let list = format!("[{}]", items.join(", "));
+        let path = source_file(
+            &format!("frames{n}.sw"),
+            &format!("import Std (List, Nat)\n\ntheorem l: {list} = {list} := rfl\n"),
+        );
+        let (rows, _) = declaration_rows(&path, "decls");
+        rows.into_iter()
+            .find(|r| r.name == "Main.l")
+            .expect("l")
+            .frames
+    };
+    assert_eq!((list(10), list(20)), (10, 20));
+    // Declarations that read nothing back say so.
+    let path = source_file("readback_none.sw", "def one: Nat := 1\n");
+    let (rows, _) = declaration_rows(&path, "decls");
+    let one = rows.iter().find(|r| r.name == "Main.one").expect("one");
+    assert_eq!(one.readback, 0);
+    // The summary table names the largest.
+    let out = Command::new(env!("CARGO_BIN_EXE_stitchwort"))
+        .args(["check", "--no-cache"])
+        .arg(source_file("readback_summary.sw", &source(50)))
+        .env("STITCHWORT_TIMINGS", "decls")
+        .output()
+        .expect("run stitchwort");
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert!(stderr.contains("largest read-back 205 nodes"), "{stderr}");
 }
