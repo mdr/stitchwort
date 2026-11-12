@@ -1,5 +1,5 @@
 {
-  "next": 3050,
+  "next": 3051,
   "tickets": [
     {
       "id": 47,
@@ -32822,15 +32822,17 @@
     {
       "id": 3045,
       "title": "[Opus] Elaborator invariant 6 broken in std: a debug build panics in std_library::the_standard_library_passes_its_own_tests at crates/elab/src/queue.rs:1866 kept_receiver ('a receiver kept as a term chose from an unknown'); release only counts it (kept_chose). Find the std declaration, why a kept receiver defaulted a number or chose a generic dictionary, and fix the cause (SW-3035 finding)",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-3045",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "\nOpus review (docs/reviews/SW-3045-invariant-6-review.md): argument holds, no counterexample; orchestrator's call: no D question (matches approved postponement design, invariant 8). Opus, 15 min (est. 90).",
       "created": "2026-11-12",
       "updated": "2026-11-12",
-      "commits": []
+      "commits": [
+        "cf990e5e6"
+      ]
     },
     {
       "id": 3046,
@@ -32879,6 +32881,19 @@
       "where": "",
       "labels": [],
       "epic": "test-infra",
+      "body": "",
+      "created": "2026-11-12",
+      "updated": "2026-11-12",
+      "commits": []
+    },
+    {
+      "id": 3050,
+      "title": "[Sonnet] postponement.md after SW-3045: §5.5 (~565-567, ~606-608) operators decided at finish; invariant 6 is about the final term; dated note at ~1593-1597 and deviation 4 (~1712); §5.10: an operator's result type must not depend on its dictionary (else it must wait); list -k and groups with - in §5.10's allowed class; reword kept_receiver's (queue.rs ~1852) and Defaulted's (numbers.rs ~29) docs (SW-3045 review)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "docs-tutorials",
       "body": "",
       "created": "2026-11-12",
       "updated": "2026-11-12",
