@@ -41,6 +41,15 @@ fn codes(
     }
 }
 
+/// The code of the first error among `diagnostics`. Warnings may come before
+/// it: the library's declarations that were checked before one ran out report
+/// theirs (the library's own are dropped when it loads as usual).
+fn first_error(diagnostics: &[stitchwort_syntax::Diagnostic]) -> &'static str {
+    (diagnostics.iter())
+        .find(|d| d.severity == stitchwort_syntax::Severity::Error)
+        .map_or("no error", |d| d.code)
+}
+
 /// The evaluator keeps its pending work on the heap, so recursion a million
 /// deep runs in a test thread's 2 MiB of stack.
 #[test]
@@ -251,7 +260,8 @@ fn running_out_at_any_point_only_ever_means_no_answer() {
         match session.load("program.sw", PROGRAM) {
             Err(diagnostics) => {
                 assert_eq!(
-                    diagnostics[0].code, "E-RESOURCE",
+                    first_error(&diagnostics),
+                    "E-RESOURCE",
                     "work {work}: {diagnostics:?}"
                 );
             }
@@ -758,7 +768,8 @@ fn running_out_of_stack_at_any_point_only_ever_means_no_answer() {
             let finished = match session.load("proof.sw", SPLIT_PROOF) {
                 Err(diagnostics) => {
                     assert_eq!(
-                        diagnostics[0].code, "E-RESOURCE",
+                        first_error(&diagnostics),
+                        "E-RESOURCE",
                         "stack {stack}: {diagnostics:?}"
                     );
                     false
