@@ -4873,11 +4873,12 @@ fn check_flat(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
 /// A proof of `goal` where no arm covers the case: the term an absurd arm
 /// `()` would give (`check_tree`'s `Tree::Absurd`), when a variable in
 /// scope has a type with no values once the splits above the case have
-/// refined it (D3534). Indexed families are tried first, and on the case's
-/// `columns` only, so a case they rule out keeps its term; then each
-/// column and each other variable in scope, from the outermost, is tried
-/// as an equation of two different constructors (`h: False = True` once
-/// `beats Rock Rock` computes) or a data type with no constructors.
+/// refined it (D3534). Indexed families are tried first on the case's
+/// `columns`, so a case they rule out keeps its term; then each column and
+/// each other variable in scope, from the outermost, is tried as an
+/// equation of two different constructors (`h: False = True` once
+/// `beats Rock Rock` computes) or a data type with no constructors; last,
+/// the other variables as indexed families (`i: Fin 0` once `n` is `0`).
 fn impossible_case(cx: &mut Ctx, columns: &[usize], goal: &Value) -> Result<Option<Term>> {
     for &level in columns {
         if let Some(term) = families::empty_case(cx, level, None)? {
@@ -4890,6 +4891,11 @@ fn impossible_case(cx: &mut Ctx, columns: &[usize], goal: &Value) -> Result<Opti
             return Ok(Some(term));
         }
         if let Some(term) = empty_data_case(cx, level)? {
+            return Ok(Some(term));
+        }
+    }
+    for level in (0..cx.level()).filter(|level| !columns.contains(level)) {
+        if let Some(term) = families::empty_case(cx, level, None)? {
             return Ok(Some(term));
         }
     }
@@ -4911,8 +4917,9 @@ fn empty_data_case(cx: &Ctx, level: usize) -> Result<Option<Term>> {
 /// Whether a case no arm covers may yet be impossible, so that coverage
 /// waits for the checker ([`impossible_case`]) rather than reporting it
 /// when the arms are compiled: some variable in scope has a type with no
-/// values already, or a type that mentions a matched variable, which a
-/// split may make empty (`h: IsSome o` is `Void` once `o` is `None`). Only
+/// values already, a type that mentions a matched variable, which a
+/// split may make empty (`h: IsSome o` is `Void` once `o` is `None`), or an
+/// indexed family, which may have no constructor that fits. Only
 /// asked when a case is missing.
 fn may_be_impossible(cx: &Ctx, columns: &[usize]) -> Result<bool> {
     let g = cx.g();
@@ -4922,6 +4929,11 @@ fn may_be_impossible(cx: &Ctx, columns: &[usize]) -> Result<bool> {
         }
         if let Value::Data(d, _) = force(&g, cx.types[level].clone())?
             && g.data(d).ctors().is_empty()
+        {
+            return Ok(true);
+        }
+        if let Value::Data(d, _) = force(&g, cx.types[level].clone())?
+            && !g.data(d).indices().is_empty()
         {
             return Ok(true);
         }
