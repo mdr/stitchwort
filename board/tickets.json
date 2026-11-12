@@ -27895,14 +27895,14 @@
     {
       "id": 2681,
       "title": "Per-declaration counters for the largest read-back and deepest frames (bounded read-back stage 0c); measure over the whole corpus before D3464's 1M limit",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-2681",
       "labels": [],
       "epic": "elaborator-kernel",
       "body": "From SW-2660 (10 Nov 2026), docs/proposals/term-sharing.md.",
       "created": "2026-11-10",
-      "updated": "2026-11-10",
+      "updated": "2026-11-12",
       "commits": []
     },
     {
@@ -32216,9 +32216,9 @@
     {
       "id": 3003,
       "title": "[DeepSeek] A theorem whose body doesn't parse loses its counterexample note: it attaches to the hidden E-UNPARSED-BODY (module.rs note_counterexample, then retain at the end of elaborate_module); move it onto the parse error in merge_recovered (SW-2980/SW-2997 finding)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": ".claude/worktrees/scratch-sw-3003",
       "labels": [],
       "epic": "diagnostics",
       "body": "",
