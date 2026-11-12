@@ -32188,15 +32188,17 @@
     {
       "id": 3001,
       "title": "[DeepSeek] W-UNREACHABLE label shows the hypothesis unreduced ('h is Nat.compare 0 0 = Less'): show the computed equation (Equal = Less) that can't hold (SW-2993 finding)",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": ".claude/worktrees/scratch-sw-3001",
       "labels": [],
       "epic": "diagnostics",
-      "body": "",
+      "body": "\nModel result: DeepSeek, worked, ~12 min (est. 25)",
       "created": "2026-11-12",
       "updated": "2026-11-12",
-      "commits": []
+      "commits": [
+        "577da2a50"
+      ]
     },
     {
       "id": 3002,
