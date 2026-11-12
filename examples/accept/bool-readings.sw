@@ -27,6 +27,16 @@ theorem negated (a b: Bool) (h: (Bool.not a && b) = True): a = False :=
   let Both na _ := h
   na.read
 
+-- A pattern reads again while what the test reads as is a test fact:
+-- `Bool.not (a && b) = True` reads as `(a && b) = False`, which reads as
+-- `a = False ∨ b = False`.
+theorem notAnd (a b: Bool) (h: Bool.not (a && b) = True): a = False ∨ b = False :=
+  match h with
+    | Inl na => Inl na
+    | Inr nb => Inr nb
+
+theorem buildNotAnd (a b: Bool) (nb: b = False): Bool.not (a && b) = True := Inr nb
+
 -- A name stops the reading: `rest` stays the test fact `(b || c) = True`.
 theorem stops (a b c: Bool) (h: (a && (b || c)) = True): (b || c) = True :=
   let Both _ rest := h

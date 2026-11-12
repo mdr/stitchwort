@@ -10,7 +10,7 @@ expression: output
    │ │                         
    │ ╰───────────────────────── `a || b` reads as `a ∨ b` (`Bool.orReads`)
    │     
-   │     Note 1: this pattern matches `And`, and `a ∨ b` isn't one
+   │     Note 1: this pattern matches an `And`, and `a ∨ b` isn't one
    │     
    │     Note 2: a test fact can always be matched by a name, and `.read` gives the proposition
    │     

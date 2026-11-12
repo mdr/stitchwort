@@ -4954,12 +4954,12 @@ fn read_case(
     let Some((test, polarity)) = reading::test_fact(cx, ty)? else {
         return Ok(None);
     };
-    let found = match reading::read(cx, &test, polarity)? {
+    let found = match reading::read_through(cx, &test, polarity)? {
         reading::Read::Found(found) if matches!(force(&cx.g(), found.prop.clone())?, Value::Data(d2, _) if d2 == d) => {
             found
         }
         read => {
-            let how = format!("taken apart with `{}`", reading::constructors_shown(cx, d));
+            let how = format!("taken apart with {}", reading::constructors_shown(cx, d));
             return Err(reading::no_reading(
                 cx,
                 span,
@@ -4967,7 +4967,7 @@ fn read_case(
                 polarity,
                 &how,
                 &read,
-                Some(d),
+                Some((d, "this pattern matches")),
             ));
         }
     };

@@ -59,16 +59,25 @@ pub(crate) struct ReadingInfo {
     pub slots: Rc<[usize]>,
 }
 
-/// A reading found for a test: the theorem applied to the test's
-/// arguments, and the two sides of its `↔`, in the caller's context.
+/// A reading found for a test, in the caller's context: one reading, or
+/// for a pattern or a constructor, the readings of what each reads as in
+/// turn while that is a test fact again (§6.4).
 pub(crate) struct Found {
-    pub theorem: DefId,
-    /// `r args`.
-    pub proof: Term,
-    /// The test fact, as the reading states it.
-    pub fact: Value,
-    /// What it reads as.
+    /// Each reading applied, outermost first.
+    steps: Vec<Step>,
+    /// What the last one reads as.
     pub prop: Value,
+}
+
+/// One reading applied to a test.
+struct Step {
+    theorem: DefId,
+    /// `r args`.
+    proof: Term,
+    /// The test fact, as the reading states it.
+    fact: Value,
+    /// What it reads as.
+    prop: Value,
 }
 
 /// What the reader found for a test.
@@ -138,6 +147,40 @@ fn head_args(g: &Ev, test: &Value) -> Result<Option<(TestHead, Vec<Value>)>> {
     Ok(Some((TestHead::Def(f), args)))
 }
 
+/// [`head_args`] for a test as written, a term: each argument with the
+/// number of binders it is under (a side of `&&` or `||` is under its
+/// branch's lambda).
+fn written_head_args(g: &Ev, test: &Term) -> Option<(TestHead, Vec<(Term, usize)>)> {
+    let mut args = Vec::new();
+    let mut f = test.strip_loc();
+    while let Term::App(fun, arg, _) = f {
+        args.push(arg.strip_loc().clone());
+        f = fun.strip_loc();
+    }
+    args.reverse();
+    let Term::Def(f) = f else { return None };
+    let reg = g.env.registry();
+    if Some(*f) == reg.def(Builtin::IfThenElse)
+        && let [_, cond, Term::Lam(_, _, then), Term::Lam(_, _, otherwise)] = &args[..]
+    {
+        let is = |t: &Term, b: Builtin| matches!(t, Term::Ctor(d, c, fs) if fs.is_empty() && Some((*d, *c)) == reg.ctor(b));
+        let (then, otherwise) = (then.strip_loc(), otherwise.strip_loc());
+        if is(otherwise, Builtin::False) {
+            return Some((TestHead::And, vec![(cond.clone(), 0), (then.clone(), 1)]));
+        }
+        if is(then, Builtin::True) {
+            return Some((
+                TestHead::Or,
+                vec![(cond.clone(), 0), (otherwise.clone(), 1)],
+            ));
+        }
+    }
+    Some((
+        TestHead::Def(*f),
+        args.into_iter().map(|a| (a, 0)).collect(),
+    ))
+}
+
 impl Elaborator {
     /// The reading filed under `polarity` and `head`, if any.
     fn reading_for(&self, polarity: bool, head: TestHead) -> Option<(DefId, Rc<ReadingInfo>)> {
@@ -183,6 +226,14 @@ impl Elaborator {
             ty = cod.apply(g, Value::var(params))?;
             params += 1;
         }
+        // The test as the statement writes it: evaluated, a call may already
+        // be unfolded (always, with gluing off), and its function lost.
+        let mut names = Vec::new();
+        let mut written = def.ty().strip_loc();
+        while let Term::Pi(n, _, _, cod) = written {
+            names.push(n.clone());
+            written = cod.strip_loc();
+        }
         let reg = g.env.registry();
         let Some(iff) = reg.data(Builtin::Iff) else {
             return Err(shape("`Iff` isn't loaded".to_string()));
@@ -193,15 +244,21 @@ impl Elaborator {
         if d != iff {
             return Err(shape("its statement isn't an `↔`".to_string()));
         }
-        let cx = crate::check::Ctx::new(self, at);
-        let Some((test, polarity)) = test_fact(&cx, &sides[0])? else {
+        let Some((_, polarity)) = test_fact_in(g, &sides[0])? else {
             return Err(shape(
                 "the left side of its `↔` isn't a test fact, `e = True` or `e = False` for a \
                  `Bool` `e`"
                     .to_string(),
             ));
         };
-        let Some((head, args)) = head_args(g, &test)? else {
+        let written_test = match written {
+            Term::Data(d, sides) if *d == iff && sides.len() == 2 => match sides[0].strip_loc() {
+                Term::Eq(_, test, _) => Some(test.strip_loc()),
+                _ => None,
+            },
+            _ => None,
+        };
+        let Some((head, args)) = written_test.and_then(|t| written_head_args(g, t)) else {
             return Err(shape(
                 "its test must be a function applied to the theorem's parameters, each exactly \
                  once"
@@ -210,20 +267,28 @@ impl Elaborator {
         };
         // Each argument a different parameter, and every parameter one.
         let mut slots = vec![usize::MAX; params];
-        let mut distinct = args.len() == params;
-        for (k, arg) in args.iter().enumerate() {
-            match force(g, arg.clone())? {
-                Value::Neutral(Head::Var(l, _), s) if s.is_empty() && slots[l] == usize::MAX => {
-                    slots[l] = k;
+        let mut distinct = args.len() == params && names.len() == params;
+        for (k, (arg, under)) in args.iter().enumerate() {
+            match arg {
+                Term::Var(i) if *i >= *under && i - under < params => {
+                    let l = params - 1 - (i - under);
+                    if slots[l] == usize::MAX {
+                        slots[l] = k;
+                    } else {
+                        distinct = false;
+                    }
                 }
                 _ => distinct = false,
             }
         }
         if !distinct || slots.contains(&usize::MAX) {
+            let shown = written_test.map_or_else(
+                || "…".to_string(),
+                |t| stitchwort_core::pretty::term_for_message_in(g, self, &names, t),
+            );
             return Err(shape(format!(
-                "its test `{}` must be a function applied to the theorem's parameters, each \
-                 exactly once, so that any test with that head fits it",
-                cx.show(&test)
+                "its test `{shown}` must be a function applied to the theorem's parameters, \
+                 each exactly once, so that any test with that head fits it"
             )));
         }
         let home = match head {
@@ -304,7 +369,11 @@ fn lookup(g: &Ev, e: &Elaborator, test: &Value, polarity: bool) -> Result<Lookup
         {
             first_head = Some(f);
         }
-        if let Some((theorem, info)) = e.reading_for(polarity, head) {
+        // A test with more or fewer arguments than the reading's (a
+        // function returning a function) isn't the reading's test.
+        if let Some((theorem, info)) = e.reading_for(polarity, head)
+            && info.slots.len() == args.len()
+        {
             return Ok(Lookup::Found(theorem, info, args));
         }
         // A folded call unfolds a step; a stuck one, or an `opaque` one,
@@ -329,17 +398,23 @@ pub(crate) fn read(cx: &Ctx, test: &Value, polarity: bool) -> Result<Read> {
 }
 
 /// What a test fact of type `ty` reads as, if it is one and has a
-/// reading: for compiling a pattern on it, which needs to know the type it
-/// matches (a record pattern does).
+/// reading, read through as [`read_through`] does: for compiling a pattern
+/// on it, which needs to know the type it matches (a record pattern does).
 pub(crate) fn read_type(g: &Ev, e: &Elaborator, ty: &Value) -> Result<Option<Value>> {
-    let Some((test, polarity)) = test_fact_in(g, ty)? else {
-        return Ok(None);
-    };
-    let Lookup::Found(theorem, info, args) = lookup(g, e, &test, polarity)? else {
-        return Ok(None);
-    };
-    let (_, sides) = statement(g, theorem, &info, &args, |_, _| Ok(()))?;
-    Ok(Some(sides[1].clone()))
+    let mut prop = None;
+    let mut ty = ty.clone();
+    for _ in 0..UNFOLD_LIMIT {
+        let Some((test, polarity)) = test_fact_in(g, &ty)? else {
+            break;
+        };
+        let Lookup::Found(theorem, info, args) = lookup(g, e, &test, polarity)? else {
+            break;
+        };
+        let (_, sides) = statement(g, theorem, &info, &args, |_, _| Ok(()))?;
+        ty = sides[1].clone();
+        prop = Some(ty.clone());
+    }
+    Ok(prop)
 }
 
 /// The statement of `theorem` applied to `args` as `info` says: `Iff`'s two
@@ -374,16 +449,41 @@ fn found(cx: &Ctx, theorem: DefId, info: &ReadingInfo, args: &[Value]) -> Result
         Ok(())
     })?;
     Ok(Found {
-        theorem,
-        proof,
-        fact: sides[0].clone(),
+        steps: vec![Step {
+            theorem,
+            proof,
+            fact: sides[0].clone(),
+            prop: sides[1].clone(),
+        }],
         prop: sides[1].clone(),
     })
 }
 
+/// [`read`], then the reading of what that reads as while it is a test
+/// fact, up to [`UNFOLD_LIMIT`] readings: for a pattern or a constructor,
+/// which need a proposition's data type (§6.4: `Bool.not (a && b) = True`
+/// reads as `(a && b) = False`, which reads as `a = False ∨ b = False`).
+pub(crate) fn read_through(cx: &Ctx, test: &Value, polarity: bool) -> Result<Read> {
+    let mut found = match read(cx, test, polarity)? {
+        Read::Found(found) => found,
+        leaf => return Ok(leaf),
+    };
+    for _ in 1..UNFOLD_LIMIT {
+        let Some((inner, polarity)) = test_fact(cx, &found.prop)? else {
+            break;
+        };
+        let Read::Found(next) = read(cx, &inner, polarity)? else {
+            break;
+        };
+        found.steps.extend(next.steps);
+        found.prop = next.prop;
+    }
+    Ok(Read::Found(found))
+}
+
 /// `Iff.forward` (`field` 0) or `Iff.backward` (1) of `found`, applied to
 /// `arg`.
-fn iff_field(cx: &Ctx, found: &Found, field: usize, arg: Term) -> Result<Term> {
+fn iff_field(cx: &Ctx, found: &Step, field: usize, arg: Term) -> Result<Term> {
     let g = cx.g();
     let iff = g
         .env
@@ -412,12 +512,22 @@ fn iff_field(cx: &Ctx, found: &Found, field: usize, arg: Term) -> Result<Term> {
 impl Found {
     /// The fact `h` (a term) as the proposition: `Iff.forward (r args) h`.
     pub(crate) fn forward(&self, cx: &Ctx, h: Term) -> Result<Term> {
-        iff_field(cx, self, 0, h)
+        self.steps
+            .iter()
+            .try_fold(h, |h, step| iff_field(cx, step, 0, h))
     }
 
     /// The test fact from a proof `p` of the proposition.
     pub(crate) fn backward(&self, cx: &Ctx, p: Term) -> Result<Term> {
-        iff_field(cx, self, 1, p)
+        self.steps
+            .iter()
+            .rev()
+            .try_fold(p, |p, step| iff_field(cx, step, 1, p))
+    }
+
+    /// The reading that gave the proposition.
+    fn last(&self) -> DefId {
+        self.steps.last().expect("at least one reading").theorem
     }
 }
 
@@ -431,7 +541,7 @@ pub(crate) fn no_reading(
     polarity: bool,
     how: &str,
     read: &Read,
-    wanted: Option<DataId>,
+    wanted: Option<(DataId, &str)>,
 ) -> Diagnostic {
     let g = cx.g();
     let fact = if polarity {
@@ -447,13 +557,18 @@ pub(crate) fn no_reading(
                     format!(
                         "{fact} reads as `{}` (`{}`)",
                         cx.show(&found.prop),
-                        g.def(found.theorem).name()
+                        g.def(found.last()).name()
                     ),
                 );
-            if let Some(w) = wanted {
+            if let Some((w, what)) = wanted {
+                let name = g.data(w).name();
+                let a = if name.starts_with(['A', 'E', 'I', 'O', 'U']) {
+                    "an"
+                } else {
+                    "a"
+                };
                 d = d.with_note(format!(
-                    "this pattern matches `{}`, and `{}` isn't one",
-                    g.data(w).name(),
+                    "{what} {a} `{name}`, and `{}` isn't one",
                     cx.show(&found.prop)
                 ));
             }
@@ -494,7 +609,7 @@ pub(crate) fn for_ctor(cx: &Ctx, d: DataId, expected: &Value, span: Span) -> Res
     let Some((test, polarity)) = test_fact(cx, expected)? else {
         return Ok(None);
     };
-    let read = read(cx, &test, polarity)?;
+    let read = read_through(cx, &test, polarity)?;
     match read {
         Read::Found(found) if matches!(force(&cx.g(), found.prop.clone())?, Value::Data(d2, _) if d2 == d) => {
             Ok(Some(found))
@@ -504,9 +619,9 @@ pub(crate) fn for_ctor(cx: &Ctx, d: DataId, expected: &Value, span: Span) -> Res
             span,
             &test,
             polarity,
-            &format!("built with `{}`", constructors_shown(cx, d)),
+            &format!("built with {}", constructors_shown(cx, d)),
             &read,
-            Some(d),
+            Some((d, "this builds")),
         )),
     }
 }
@@ -518,7 +633,7 @@ pub(crate) fn for_record(cx: &Ctx, expected: &Value, span: Span) -> Result<Optio
     let Some((test, polarity)) = test_fact(cx, expected)? else {
         return Ok(None);
     };
-    let read = read(cx, &test, polarity)?;
+    let read = read_through(cx, &test, polarity)?;
     match read {
         Read::Found(found)
             if matches!(force(&cx.g(), found.prop.clone())?,
@@ -542,7 +657,7 @@ pub(crate) fn constructors_shown(cx: &Ctx, d: DataId) -> String {
     let g = cx.g();
     let data = g.data(d);
     match data.ctors() {
-        [c] => c.name.to_string(),
+        [c] => format!("`{}`", c.name),
         _ => format!("a constructor of `{}`", data.name()),
     }
 }

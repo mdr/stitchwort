@@ -420,6 +420,20 @@ fn dot_on(
     rterm: Term,
     rty: Value,
 ) -> Result<std::result::Result<(Term, Value), (usize, Diagnostic)>> {
+    dot_on_reading(cx, recv, field, args, rterm, rty, true)
+}
+
+/// [`dot_on`], looking `field` up on what a test fact reads as when it has
+/// no such field itself, if `through_reading`.
+fn dot_on_reading(
+    cx: &mut Ctx,
+    recv: &Expr,
+    field: &AstName,
+    args: &[Arg],
+    rterm: Term,
+    rty: Value,
+    through_reading: bool,
+) -> Result<std::result::Result<(Term, Value), (usize, Diagnostic)>> {
     // `h.read`: a test fact as the proposition its test reads as
     // (docs/proposals/bool-as-proposition.md §6.8).
     if field.text == "read"
@@ -432,11 +446,18 @@ fn dot_on(
         Ok(Lookup::Found(owner, f, key)) => (owner, f, key),
         Ok(Lookup::Blocked(blocker, error)) => return Ok(Err((blocker, error))),
         // A field of a test fact is the field of what it reads as: `h.left`
-        // is `h.read.left` (§6.6).
-        Err(e) => match crate::reading::read_fact(cx, &rterm, &rty)? {
-            Some((term, ty)) => return dot_on(cx, recv, field, args, term, ty),
-            None => return Err(e),
-        },
+        // is `h.read.left` (§6.6), once. If the reading has no such field
+        // either, the error is the fact's own.
+        Err(e) if through_reading && e.code == "E-UNKNOWN-FIELD" => {
+            let Some((term, ty)) = crate::reading::read_fact(cx, &rterm, &rty)? else {
+                return Err(e);
+            };
+            return match dot_on_reading(cx, recv, field, args, term, ty, false) {
+                Err(again) if again.code == "E-UNKNOWN-FIELD" => Err(e),
+                result => result,
+            };
+        }
+        Err(e) => return Err(e),
     };
     cx.e.note_dot(field, f);
     note_left_out(cx, field, f, args)?;

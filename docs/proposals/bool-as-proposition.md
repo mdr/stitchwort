@@ -470,6 +470,10 @@ of its own or is `opaque`.
   `False = True`.
 - **A test that computes to `True` or `False`** is not read. `False = True`
   is matched by `()` as today.
+- **A folded call** (`small 3`) is looked up by its function first, as
+  written, before anything it computes to: `small 3` reads by `small`'s
+  reading even though it computes to `True`. A declaration's own test is
+  read from its statement as written, a term, never from its value.
 
 ### 5.7 Cost and the check cache
 
@@ -477,11 +481,15 @@ of its own or is `opaque`.
 - Finding: a lookup by head, reading off the arguments, and up to 8
   unfolding steps when the head has no reading. The bound should become one
   on work, not steps, if a large test is ever slow to reject.
-- The reader is called from three places only: a constructor pattern whose
-  type is a test fact (an error today), a constructor checked against a
-  test fact (an error today), and `.read`. So code that checks today calls
-  it only where it failed before, and never inside one of the elaborator's
-  try-one-reading-then-another paths (§13).
+- The reader is called from six places: a constructor or record pattern
+  whose type is a test fact (the split, and compiling the pattern, which
+  needs the record type), a constructor or a record literal checked against
+  a test fact, `.read`, and a field of a fact (`h.left`, tried once on the
+  reading when the fact has no such field). Each was an error before. So
+  code that checks today calls it only where it failed before, and never
+  inside one of the elaborator's try-one-reading-then-another paths (§13).
+  A pattern or a constructor reads again while the reading is a test fact
+  (§6.4), up to 8 readings; `.read` and a field read one.
 - **The check cache** keys a unit by its own text and the keys of the units
   it needs (`cache/mod.rs`, header). A reading lives in its test's file or
   namespace, which is always among those, so a changed reading changes the
