@@ -31365,14 +31365,14 @@
     {
       "id": 2944,
       "title": "[DeepSeek] E-USES-FAILED 'the error is here' label sits a few columns from the printed error position (76:37 vs 76:41) (SW-2940)",
-      "status": "review",
+      "status": "done",
       "agent": "DeepSeek",
       "where": "",
       "labels": [],
       "epic": "test-infra",
-      "body": "",
+      "body": "\nModel result: DeepSeek, worked, ~20 min (est. 30). 256/256 incl. syntax crate.",
       "created": "2026-11-11",
-      "updated": "2026-11-11",
+      "updated": "2026-11-12",
       "commits": []
     },
     {
