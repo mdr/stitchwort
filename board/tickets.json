@@ -31635,15 +31635,17 @@
     {
       "id": 2963,
       "title": "[DeepSeek] Playground: start the search worker's library load when the page opens, so the first proof search and the goal panel's contextAt don't wait ~17 s (SW-2959 finding); measure the page's memory with the warm session (~0.45 GB native)",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": ".claude/worktrees/scratch-sw-2963",
       "labels": [],
       "epic": "editor-playground",
-      "body": "",
+      "body": "\nMeasured: warm load ~19.6 s in the background after the first check; first search after it 567 ms (was ~21.7 s). Search worker wasm memory 187 MiB.\nModel result: DeepSeek, worked (but once ran most of the browser suite by a broad filter), ~50 min (est. 45)",
       "created": "2026-11-12",
       "updated": "2026-11-12",
-      "commits": []
+      "commits": [
+        "59a6ead81"
+      ]
     },
     {
       "id": 2964,
