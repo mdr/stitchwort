@@ -32475,9 +32475,9 @@
     {
       "id": 3020,
       "title": "[Sonnet] std has deletable arms again (~80 W-UNREACHABLE at work 100000, e.g. Bool.andIntro's | False => cases; std's warnings are dropped so nobody sees them): delete them, and add a builtins-style test that std loads with no W-UNREACHABLE so it stays clean (SW-3016 finding)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": ".claude/worktrees/scratch-sw-3020",
       "labels": [],
       "epic": "std-library",
       "body": "",
