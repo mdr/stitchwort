@@ -28775,15 +28775,17 @@
     {
       "id": 2746,
       "title": "Decidable record, stage 2: flip the type to { holds: Bool, sound, complete }; Nat.decEq native gone; Yes/No patterns gone (remaining dependent splits converted)",
-      "status": "review",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-2746",
       "labels": [],
       "epic": "syntax-language",
       "body": "D3480; D3483 (Matt, 10 Nov 2026): the field is `holds`; D3484: remove the Nat.decEq native (keep Nat.equalRefl/equalSound until stage 5 measures); D3485: drop Yes/No as patterns (Decidable.yes/.no stay as functions); D3491 (Matt, 10 Nov 2026): run tonight on Opus as a second exception to compute mode (pace 1.01).\n\nPlan: docs/proposals/decidable-record.md §8 stage 2, plus the ~230 dependent Yes/No splits stage 1 left (std ~105, aoc ~102, rogue ~11, examples ~10), since the flip removes the constructors. Stage-1 helper `Decidable.does` becomes the field `holds`. Also SW-2742 (check 2020 Day04 part2Correct and 2024 Day04 Part1:66 with --no-cache) and SW-2743 (Decidable.yes rfl keeps E-REFL) if cheap. Opus. Est. 7 h (5 h flip + 2 h splits).\n\n\nProgress (22:37, 10 Nov): type flipped and std checks (audit Std: 3135 passed), commit 3c2bc37bf. Decidable is the record; Nat.decEq is a literal over Nat.equal; DecEqNat/NatNeq/FloatBitsExt/FloatBitsNe natives and pins gone; Float.decEq/neg/abs/sub repinned (Decidable's hash cascades through their omega proofs). Unifier: two projections of the same field now unify their record type's parameters first (the implicit `p` that `Decidable.holds [p] d` carried and `Proj` drops). omega reads `Nat.equal x y` goals as `Nat.decEq`'s test. A few std proofs where `==` on pairs/lists now computes to `&&` of component tests give `DecEq.sound [x := …] [y := …]`.\n\nProgress (01:30, 11 Nov): done, in review. Branch lane/SW-2746, 10 commits to f5916c51a. Every Yes/No split converted (std, aoc, rogue, examples, sf); `cases` and `omega` read record tests (Int `==` included); auto writes `d.sound rfl` and leaves unknowns nothing depends on unsolved (fixed an exponential slowdown on long lists); SW-2743 done (`Decidable.yes rfl` gives E-REFL). Docs: core.md, syntax.md, guide 10-proofs, proving-guide. Pins: Float.neg/abs/sub (omega's proofs), runtimes' Int.decEq/Text.decEq/Text.split (hashes moved with Decidable). JS: a decision is its test, so holds/map are see-through and a one-method instance call is its method's: List.decEq is a loop again (SW-346), microtype decEq aliases its field's (SW-603). Goal printer: a decision's test prints as its `==`/`<=` again. Checks: aoc 291 namespaces and rogue (cached), 2020/2024 Day04 --no-cache, and every crate's test binaries except the tiers. Reproduced on main 724aa48d7, not this lane's: nesting::long_pattern_blocks overflows its stack; SW-2734 left 5 printing tests failing (function_equations x3, function_induct, rogue_goals_keep_the_dungeon_folded), updated here.\n",
       "created": "2026-11-10",
-      "updated": "2026-11-11",
-      "commits": []
+      "updated": "2026-11-12",
+      "commits": [
+        "39f149d67"
+      ]
     },
     {
       "id": 2747,
