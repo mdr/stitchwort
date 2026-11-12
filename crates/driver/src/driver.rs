@@ -419,28 +419,6 @@ impl Session {
         .unwrap_or_else(|report| panic!("{report}"))
     }
 
-    /// [`Session::eager_from_source_for_stack`], with a stale pin bound
-    /// without its native instead of refusing the library: for a test that
-    /// reads the library's own warnings after changing its sources, which
-    /// moves the pins of the declarations they prove (SW-3020).
-    #[doc(hidden)]
-    #[cfg(feature = "test-bypass")]
-    pub fn eager_from_source_falling_back_for_stack(stack: usize) -> Self {
-        let mut elab = Elaborator::new();
-        elab.options.stale_pins_fall_back = true;
-        Self::start_in(
-            elab,
-            prelude(),
-            Library::Standard,
-            true,
-            false,
-            false,
-            Limits::for_stack(stack),
-            StdCache::Source,
-        )
-        .unwrap_or_else(|report| panic!("{report}"))
-    }
-
     pub fn new() -> Self {
         Session::with_prelude(prelude())
     }

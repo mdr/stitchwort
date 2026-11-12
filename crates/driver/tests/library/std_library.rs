@@ -1257,7 +1257,7 @@ fn a_nested_library_load_keeps_the_outer_units_omega_for_auto() {
 #[test]
 fn the_library_has_no_unreachable_arms() {
     with_stack(STACK, || {
-        let session = Session::eager_from_source_falling_back_for_stack(STACK);
+        let session = Session::eager_from_source_for_stack(STACK);
         let mut found: Vec<String> = Vec::new();
         let warnings = session
             .elab
