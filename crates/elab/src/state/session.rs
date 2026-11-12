@@ -70,6 +70,11 @@ pub struct Session {
     /// part of it). The sources are set whole, and shared with the marks.
     pub(crate) namespace_sources: Arc<HashMap<String, cache::Key>>,
     pub(crate) namespace_keys: Logged<String, cache::Key>,
+    /// The project namespaces whose last check had an error. A namespace
+    /// that uses one is checked but not stored: its key would be keyed to
+    /// the broken source, and writing it would evict the healthy entry, so
+    /// restoring that source would find nothing to replay.
+    pub(crate) failed_namespaces: Logged<String, ()>,
     /// The names a failed replay declared (as failures) before it failed:
     /// the namespace's first pass claims them again rather than finding
     /// them taken (`cache`, `new_module_name`). One namespace's, emptied
@@ -156,6 +161,7 @@ impl Session {
             journal: _,
             include_locations: _,
             namespace_keys: _,
+            failed_namespaces: _,
             // Set around the core's load, so `None` here.
             core_link_names: _,
             // Counted, never reused or taken back.
@@ -203,6 +209,7 @@ impl Session {
             journal: _,
             include_locations: _,
             namespace_keys: _,
+            failed_namespaces: _,
             core_link_names: _,
             source_epoch: _,
             standalone_inputs: _,
@@ -235,6 +242,7 @@ impl Session {
 pub(crate) struct Positions {
     include_locations: usize,
     namespace_keys: usize,
+    failed_namespaces: usize,
 }
 
 /// The maps of a [`Session`] its journal puts back: split from it, as the
@@ -242,6 +250,7 @@ pub(crate) struct Positions {
 pub(crate) struct SessionLogs<'a> {
     include_locations: &'a mut Logged<FileId, String>,
     namespace_keys: &'a mut Logged<String, cache::Key>,
+    failed_namespaces: &'a mut Logged<String, ()>,
 }
 
 impl Session {
@@ -256,6 +265,7 @@ impl Session {
             journal,
             include_locations,
             namespace_keys,
+            failed_namespaces,
             ..
         } = self;
         (
@@ -263,6 +273,7 @@ impl Session {
             SessionLogs {
                 include_locations,
                 namespace_keys,
+                failed_namespaces,
             },
         )
     }
@@ -275,6 +286,7 @@ impl Logs for SessionLogs<'_> {
         Positions {
             include_locations: self.include_locations.position(),
             namespace_keys: self.namespace_keys.position(),
+            failed_namespaces: self.failed_namespaces.position(),
         }
     }
 
@@ -282,26 +294,35 @@ impl Logs for SessionLogs<'_> {
         let Positions {
             include_locations,
             namespace_keys,
+            failed_namespaces,
         } = at;
         self.include_locations.undo_to(include_locations)
             + self.namespace_keys.undo_to(namespace_keys)
+            + self.failed_namespaces.undo_to(failed_namespaces)
     }
 
     fn set_generation(&mut self, g: Option<u32>) {
         self.include_locations.set_generation(g);
         self.namespace_keys.set_generation(g);
+        self.failed_namespaces.set_generation(g);
     }
 
     fn entries(&self) -> usize {
-        self.include_locations.entries() + self.namespace_keys.entries()
+        self.include_locations.entries()
+            + self.namespace_keys.entries()
+            + self.failed_namespaces.entries()
     }
 
     fn bytes(&self) -> usize {
-        self.include_locations.bytes() + self.namespace_keys.bytes()
+        self.include_locations.bytes()
+            + self.namespace_keys.bytes()
+            + self.failed_namespaces.bytes()
     }
 
     fn distinct_keys(&self) -> usize {
-        self.include_locations.distinct_keys() + self.namespace_keys.distinct_keys()
+        self.include_locations.distinct_keys()
+            + self.namespace_keys.distinct_keys()
+            + self.failed_namespaces.distinct_keys()
     }
 }
 

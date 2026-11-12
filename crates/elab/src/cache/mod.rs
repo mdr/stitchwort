@@ -694,6 +694,9 @@ impl Elaborator {
             .take()
             .expect("the namespace's capture is there until it ends");
         self.unit.skip_navigation_walk = false;
+        if diagnostics.iter().any(|d| d.severity == Severity::Error) {
+            self.session.failed_namespaces.insert(ns.to_string(), ());
+        }
         // A namespace with open goals is unfinished, like one with errors:
         // checked again each time, so its goals are always fresh. So is one
         // with a declaration that uses an unfinished one (which reports
@@ -703,7 +706,20 @@ impl Elaborator {
             .any(|d| matches!(d.severity, Severity::Error | Severity::Goal))
             && self.tables.unfinished_count() == unfinished
             && !self.kernel.machine.budget.cancelled();
-        if ok {
+        // An importer of a namespace that failed is checked, but its entry
+        // would be keyed to the broken source: storing it would delete the
+        // healthy entry, which is the one the fixed source finds again.
+        let broken_dependency = closure.iter().find(|dependency| {
+            self.session
+                .failed_namespaces
+                .contains_key(dependency.as_str())
+        });
+        if ok && let Some(dependency) = broken_dependency {
+            debug(&format!(
+                "{ns} can't be cached: it uses {dependency}, which has an error"
+            ));
+            self.session.cache_stats.namespace_uncacheable += 1;
+        } else if ok {
             let cached: Vec<Diagnostic> = (diagnostics.iter())
                 .filter(|d| d.code != crate::doc_links::CODE)
                 .cloned()
