@@ -32419,12 +32419,12 @@
     {
       "id": 3016,
       "title": "[Sonnet] Regression on main (12 Nov 18:52): resources::running_out_at_any_point_only_ever_means_no_answer and running_out_of_stack_at_any_point_… fail: at work budget 1976 the first diagnostic is W-UNREACHABLE ('here ha is False = True') instead of E-RESOURCE: a warning is reported from a run that ran out (likely SW-2993/3008's fills_in/deletable or SW-2990's number defaults under exhaustion; SW-3010 changed ResourceError::Size). Find the merge, make warnings from a declaration that ran out be dropped (or the test's expectation right), fix",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "diagnostics",
-      "body": "",
+      "body": "Cause: not a W-UNREACHABLE bug. When a library (std) declaration runs out, the diagnostics carry the warnings of the std declarations checked before it (std's own are dropped when it loads normally). std has genuine deletable arms (e.g. Bool.andIntro's '| False => cases'; the same text as a user file warns at full budget). The tests asserted diagnostics[0]; now first error. Fixed in test only. Finding: std still has deletable arms.",
       "created": "2026-11-12",
       "updated": "2026-11-12",
       "commits": []
