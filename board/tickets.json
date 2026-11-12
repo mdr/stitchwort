@@ -31902,15 +31902,17 @@
     {
       "id": 2981,
       "title": "[Sonnet] SW-2952 review low findings: L2 theorem stand-ins pushed with theorem=false so waits_on_goal may reclassify a user's own error; L3 an error-free member of a failed mutual group gets a stand-in labelled with the other's error; L6 a filtered E-UNKNOWN-NAME still counts as the user's own error (stand-in never shown); L7 navigation on a broken name goes to the error's place; L5 test --json assuming uses name while audit uses declaration (serialise GoalPlace) (docs/reviews/SW-2952-stand-ins-review.md)",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "test-infra",
-      "body": "",
+      "body": "Lane (Sonnet, 12 Nov 2026, est. 75 min), a824639e5: L2 stand-ins for theorems are theorems (kernel assume takes the flag); L3 an error-free member of a failed group gets no stand-in and what waits names the member with the error; L5 test --json assuming serialises GoalPlace (declaration, full name, instead of name); L6 an E-UNKNOWN-NAME a failed import reports is no own error (no stand-in, the declaration waits); L7 already held, regression test added. L2's visible symptom could not be reproduced through messages (proofs print as ?), so its test checks the kernel flag.\n",
       "created": "2026-11-12",
       "updated": "2026-11-12",
-      "commits": []
+      "commits": [
+        "a824639e5"
+      ]
     },
     {
       "id": 2982,
