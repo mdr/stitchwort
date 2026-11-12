@@ -32327,12 +32327,12 @@
     {
       "id": 3010,
       "title": "[Sonnet] D3536 (Matt, 12 Nov 2026): lower the read-back size limit (Limits::size) from 10 M to 2 M nodes everywhere (CLI, editor, playground); message 'a value was too large to write out (over 2,000,000 parts)' (replaces 'to show'); remove the HEAVY list in crates/cli/tests/running/examples.rs if the five heavy reject examples now peak well under 1 GB; re-snapshot; corpus max measured 390,996 (aoc 2024 Day06 keepsTrapsAt, SW-2681 counter, 12 Nov)",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "\n\nLane notes (12 Nov 2026): done on lane/SW-3010 (38ad0982a). Limits::size 2,000,000; message \"a value was too large to write out (over 2,000,000 parts)\" (ResourceError::Size now carries the limit). Peaks of the five heavy examples, alone: 1.32-2.24 GB before, 0.34-0.53 GB after; HEAVY removed. Three snapshots changed (message only). Tests: core message unit test, driver resources (3), test:example for the five plus match-bounded-search, running examples sweep, hash_stability: all pass.\n",
       "created": "2026-11-12",
       "updated": "2026-11-12",
       "commits": []
