@@ -1,5 +1,5 @@
 {
-  "next": 3000,
+  "next": 3001,
   "tickets": [
     {
       "id": 47,
@@ -32159,6 +32159,19 @@
       "status": "backlog",
       "agent": "",
       "where": "",
+      "labels": [],
+      "epic": "test-infra",
+      "body": "",
+      "created": "2026-11-12",
+      "updated": "2026-11-12",
+      "commits": []
+    },
+    {
+      "id": 3000,
+      "title": "[Sonnet] LSP test memory: features::semantic_tokens_colour_names_by_what_they_resolve_to (lsp it) peaks at 1.45 GB, 24 s, at 0a460bbbe; three such tests at once (signature_help, semantic_tokens, completion_offers_locals) took the merge tier over its 4 GB cap at 16:59. The 07:18 merge tier at 58c3bcac7 passed. Bisect today's merges by peak footprint; fix or report",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-3000",
       "labels": [],
       "epic": "test-infra",
       "body": "",
