@@ -1,5 +1,5 @@
 {
-  "next": 2986,
+  "next": 2990,
   "tickets": [
     {
       "id": 47,
@@ -31891,23 +31891,25 @@
     },
     {
       "id": 2982,
-      "title": "[DeepSeek] Playground: links to a line in a project's file (Matt, 12 Nov 2026): #<entry>:<line> opens the entry's file at that line (#book/2:167), #<entry>:<path>:<line> another file of the project (#book/2:src/Book/Chapter1.sw:30); the cursor goes to the line, which is scrolled into view and briefly highlighted; a 'Copy link to this line' action (editor context menu or gutter) and the address bar follow the cursor's line without new history entries; bad paths or lines open the entry with a notice. Format pending D3533",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "title": "[DeepSeek] Playground: links to a line in a project's file (Matt, 12 Nov 2026): #<entry>:<line> opens the entry's file at that line (#book/2:167), #<entry>:<path>:<line> another file of the project (#book/2:src/Book/Chapter1.sw:30); the cursor goes to the line, which is scrolled into view and briefly highlighted; a 'Copy link to this line' action (editor context menu or gutter) and the address bar follow the cursor's line without new history entries; bad paths or lines open the entry with a notice. Format decided: D3533, Matt, 12 Nov 2026",
+      "status": "done",
+      "agent": "DeepSeek",
+      "where": ".claude/worktrees/scratch-sw-2982",
       "labels": [],
       "epic": "editor-playground",
-      "body": "",
+      "body": "\nModel result: DeepSeek, needed fixes (copy action put first in the Cmd+. list; orchestrator moved it last), ~25 min (est. 45)",
       "created": "2026-11-12",
       "updated": "2026-11-12",
-      "commits": []
+      "commits": [
+        "d8f655b14"
+      ]
     },
     {
       "id": 2983,
       "title": "[Sonnet] Hover on a name whose statement is a ≠ (or ¬) also shows what it unfolds to: 'False ≠ True' then 'that is, False = True -> Void' (Matt, 12 Nov 2026, reading book chapter 2: not clear how falseNotTrue h is a Void); playground and VS Code",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": ".claude/worktrees/scratch-sw-2983",
       "labels": [],
       "epic": "editor-playground",
       "body": "",
@@ -31918,19 +31920,15 @@
     {
       "id": 2984,
       "title": "[Opus] Impossible cases in match (D3534, Matt, 12 Nov 2026): (1) () as an absurd pattern inside a multi-scrutinee match arm, as in clause form (today 'match theirs, h with | Rock, ()' is E-PARSE and '| Rock, () => …' reads () as unit); (2) a match fills in a missing arm itself when a hypothesis in that arm is an equation of different constructors (False = True after computing), else the error still names the arm; (3) book §2.5 shows '| Rock, ()' as the short form after the long one. Repros in the ticket body; syntax.md and guide updated; examples with hash snapshots",
-      "status": "review",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-2984",
       "labels": [],
       "epic": "syntax-language",
-      "body": "Lane (Opus, 12 Nov 2026, 14:07-14:45, est. 2.5 h):\n- Absurd alternatives in `match` (`| Rock, ()`), single or multi-scrutinee, and in `match |` clause lambdas: `Alt.body` is `Option<Expr>`; parser `arm_body` and elaborator `row_patterns` are shared by equations and alternatives.\n- Missing arms filled in when impossible: `impossible_case` (lib.rs) tries indexed families on the columns (as before), then each column and every other variable in scope as an equation of different constructors (`cases::refute_equation`) or an empty data type. Coverage errors wait for the checker only when `may_be_impossible` (an equation in scope mentions a matched variable, or an empty type is in scope). Applies to clause form and `def`s alike.\n- Bug fixed on the way: a first row `| Rock, ()` checked the `()` before splitting `Rock` (E-NOT-EMPTY in clause form too).\n- Note on `()` with `=>` at a non-unit type.\n- Book §2.5 short forms; syntax.md \"Impossible cases\"; guide 03-data; feature tour page 38; examples absurd-match-arms, impossible-cases-left-out, reject impossible-cases-one-possible, absurd-arm-with-body.\n- Prelude hashes identical to the base compiler's (the committed prelude snapshot is stale on main, from before this lane: Float.ieeeLe*, Nat.partitionPoint*).\n- Generates kernel terms (the filled-in arms): needs an Opus review.\n",
+      "body": "",
       "created": "2026-11-12",
       "updated": "2026-11-12",
-      "commits": [
-        "d2fce15c8",
-        "2d46712be",
-        "285892064"
-      ]
+      "commits": []
     },
     {
       "id": 2985,
@@ -31940,6 +31938,62 @@
       "where": "",
       "labels": [],
       "epic": "test-infra",
+      "body": "",
+      "created": "2026-11-12",
+      "updated": "2026-11-12",
+      "commits": []
+    },
+    {
+      "id": 2986,
+      "title": "[Sonnet] After today's merges, hash_stability::prelude and ::examples fail (Std.Float.ieeeLeTotal / ieeeLeOr and others changed hashes): find which merge (likely SW-2969's bool_clash in cases or SW-2961's fresh_meta in auto), confirm every changed hash is a proof term (theorem or its %match) with statements unchanged, and update the snapshots; plus counterexamples::a_statement_mentioning_a_failed_definition_is_not_remembered fails after SW-2952 (a stand-in gives t a statement hash): remembered searches must skip statements that mention a stand-in (keep SW-1937's rule), not change the test",
+      "status": "done",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-2986",
+      "labels": [],
+      "epic": "test-infra",
+      "body": "\nCause: SW-2969 (bool_clash) closes Float/partitionPoint proofs earlier; theorems only. Model result: Sonnet, worked, 10 min (est. 45)",
+      "created": "2026-11-12",
+      "updated": "2026-11-12",
+      "commits": [
+        "8423113d5"
+      ]
+    },
+    {
+      "id": 2987,
+      "title": "[DeepSeek] The guide's quoted error outputs (docs/guide/errors/…, 18 blocks) lack the '1 error: in X' summary line SW-2943 added, so guide::the_guide_quotes_its_examples_and_the_compiler fails on main (12 Nov 2026): refresh them",
+      "status": "done",
+      "agent": "DeepSeek",
+      "where": ".claude/worktrees/scratch-sw-2987",
+      "labels": [],
+      "epic": "test-infra",
+      "body": "\nModel result: DeepSeek, worked, ~8 min (est. 20)",
+      "created": "2026-11-12",
+      "updated": "2026-11-12",
+      "commits": [
+        "9f0001413"
+      ]
+    },
+    {
+      "id": 2988,
+      "title": "[DeepSeek] E-NO-READING on a pattern points at the whole match, not the pattern that failed (SW-2977 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-12",
+      "updated": "2026-11-12",
+      "commits": []
+    },
+    {
+      "id": 2989,
+      "title": "[Sonnet] Impossible cases follow-ups (SW-2984): equations.rs ~6140 gives an absurd clause arm a probe body when building probe matches, turning its () into the unit pattern — keep it absurd now that alternatives can be; consider W-UNREACHABLE for an arm whose case a hypothesis rules out (| Scissors => 0 where h refutes it); an indexed-family hypothesis that isn't a matched column isn't tried",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
       "body": "",
       "created": "2026-11-12",
       "updated": "2026-11-12",

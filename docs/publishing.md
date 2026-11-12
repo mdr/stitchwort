@@ -193,15 +193,22 @@ under any path, such as `/stitchwort/`):
 | `#aoc/YYYY/dayNN` (`#aoc/2025/day01`, `#aoc/2024/day01` and so on) | The AoC project at that day's program, as the dropdown's "Day N" under "Advent of Code YYYY" does |
 | `#sf/<chapter>` (`#sf/basics`, `#sf/induction`, `#sf/lists`, `#sf/poly`) | The Software Foundations port (`sf/`) at that chapter's first file; open goals (`?`) show as goals, as `check: open-goals: warn` does for `stitchwort check` |
 | `#book/<N>` (`#book/3`) | The book *Proving with Stitchwort* (`book/`, bundled once the folder exists) at chapter N's first file |
+| `#<entry>:<line>` (`#book/2:167`, `#aoc/2025/day02:14`) | A project entry, with the caret at that line of its own file (lines are 1-based) |
+| `#<entry>:<path>:<line>` (`#book/2:src/Book/Chapter1.sw:30`) | A project entry at that line of another file of the project; `path` is one of the manifest's `files` |
 | `#guide/<section>` | The language guide, at that section |
 
 An example's slug is its dropdown name in lowercase, with each run of other
 characters as one `-`. Choosing an entry updates the address bar
 (`history.replaceState`, so no history entries are added); editing the
-fragment, or going back or forward, switches the entry. Saved edits apply as
-for the dropdown (the AoC files open with their saved edits). An unknown
-fragment opens the default example with a short notice beside the status. A
-fragment is plain tokens only (letters, digits, `/`, `-`, `.`, `_`); it never
+fragment, or going back or forward, switches the entry. As the caret moves in
+a project's file, the address bar follows its line in the same way; programs
+and examples on their own have no line links. The Cmd+. action list (or
+Ctrl+.) has "Copy link to this line", which copies the full URL. Saved edits
+apply as for the dropdown (the AoC files open with their saved edits). A line
+link whose file or line is not in the project still opens the entry, with a
+notice saying what was not found. An unknown fragment opens the default
+example with a short notice beside the status. A fragment is plain tokens only
+(letters, digits, `/`, `-`, `.`, `_`, and `:` for a line link); it never
 carries code.
 
 **Not verified**: whether GitHub Pages compresses `.wasm` (§10.2 of the

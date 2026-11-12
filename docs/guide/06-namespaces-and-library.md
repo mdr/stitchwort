@@ -24,6 +24,7 @@ def numbers (line: Text): List Nat := line.split ',' |> .filterMap Text.toNat
    │
    │ Note 2: the prelude's `Text` comes with its own constructors, fields and operations; the functions and theorems in its namespace need the import
 ───╯
+1 error: in `numbers`
 ```
 
 `import Std (List, Text)` at the top of a file makes `List.…` and `Text.…` usable. Some things need no import:

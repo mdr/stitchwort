@@ -346,6 +346,80 @@ test("direct links open the dropdown's entries, and follow it", async (page) => 
   assert.equal(await hash(), "#example/proofs-about-lists");
 });
 
+test("a direct link opens the book at line 167 and shows the line", async (page) => {
+  await page.open({ hash: "#book/2:167" });
+  await page.until(`document.getElementById("example").value === "book:2" &&
+    location.hash === "#book/2:167"`, 60000, "the book's chapter 2 at line 167");
+  assert.equal(await page.ev(`window.editor.view.state.doc.lineAt(window.editor.selectionStart).number`), 167);
+  assert.equal(await page.ev(`window.editor.view.state.doc.line(167).text`),
+    "theorem noAndAnything (b: Answer): both No b = No := rfl");
+  const visible = await page.ev(`(() => {
+    const v = window.editor.view, pos = v.state.selection.main.head;
+    const at = v.coordsAtPos(pos), box = v.scrollDOM.getBoundingClientRect();
+    return !!at && at.top >= box.top - 1 && at.bottom <= box.bottom + 1;
+  })()`);
+  assert.equal(visible, true, "line 167 is in view");
+  assert.equal(await page.ev(`!!document.querySelector("#editor .cm-link-line")`), true, "the line is highlighted");
+});
+
+test("a direct link opens another file of a project at its line", async (page) => {
+  const path = "src/Sf/Lf/Basics/LateDays.sw";
+  await page.open({ hash: `#sf/basics:${path}:22` });
+  await page.until(`document.getElementById("example").value === "sf:0" &&
+    window.editor.path === ${JSON.stringify(path)}`, 60000, "LateDays.sw");
+  assert.equal(await page.ev(`location.hash`), `#sf/basics:${path}:22`);
+  assert.equal(await page.ev(`window.editor.view.state.doc.lineAt(window.editor.selectionStart).number`), 22);
+  assert.match(await page.ev(`window.editor.view.state.doc.line(22).text`), /Then the modifiers/);
+  // The caret's line keeps the file's path in the link too.
+  await page.ev(`(() => { const e = window.editor; const pos = e.offset(23, 0); e.focus(); e.setSelectionRange(pos, pos); })()`);
+  await page.until(`location.hash === ${JSON.stringify(`#sf/basics:${path}:24`)}`, 5000, "the address bar to follow the caret");
+});
+
+test("moving the caret updates the address bar's line without a history entry", async (page) => {
+  await page.open({ hash: "#book/2:167" });
+  await page.until(`document.getElementById("example").value === "book:2" &&
+    location.hash === "#book/2:167"`, 60000, "the book's chapter 2 at line 167");
+  const before = await page.ev(`history.length`);
+  await page.ev(`(() => { const e = window.editor; const pos = e.offset(199, 0); e.focus(); e.setSelectionRange(pos, pos); })()`);
+  await page.until(`location.hash === "#book/2:200"`, 5000, "the address bar to follow the caret");
+  assert.equal(await page.ev(`history.length`), before, "no history entries are added");
+});
+
+test("a direct link past the end of a file opens the entry with a notice", async (page) => {
+  await page.open({ hash: "#book/2:9999" });
+  await page.until(`document.getElementById("example").value === "book:2" &&
+    !document.getElementById("link-notice").hidden`, 60000, "the notice");
+  assert.match(await page.ev(`document.getElementById("link-notice").textContent`), /No such line/);
+  assert.equal(await page.ev(`location.hash`), "#book/2");
+  assert.ok((await page.ev(`window.editor.value`)).includes("theorem noAndAnything"));
+  // A path that isn't one of the project's files says so, and opens the entry's own file.
+  await page.ev(`location.hash = "#book/2:src/Nope.sw:3"`);
+  await page.until(`/No such file/.test(document.getElementById("link-notice").textContent)`, 5000, "the file notice");
+  assert.equal(await page.ev(`document.getElementById("example").value`), "book:2");
+  assert.equal(await page.ev(`window.editor.path`), "src/02-cases.sw");
+});
+
+test("Copy link to this line copies the URL and says so", async (page) => {
+  await page.open({ hash: "#book/2:167" });
+  await page.until(`document.getElementById("example").value === "book:2" &&
+    location.hash === "#book/2:167"`, 60000, "the book's chapter 2 at line 167");
+  await page.until(`document.getElementById("status").textContent.endsWith("checked by the kernel") ||
+    / goals? open$/.test(document.getElementById("status").textContent)`, 180000, "the chapter to check");
+  await page.ev(`(() => {
+    window.__copied = null;
+    Object.defineProperty(navigator, "clipboard", { configurable: true,
+      value: { writeText: async (text) => { window.__copied = text; } } });
+  })()`);
+  await page.key("Period", "Period", 190, { modifiers: CMD });
+  await page.until(`document.querySelector(".pick-panel") !== null`, 30000, "the action list");
+  const item = await page.ev(`[...document.querySelectorAll(".pick-item")].find((b) => b.textContent.includes("Copy link to this line"))?.textContent ?? null`);
+  assert.ok(item, "the list offers Copy link to this line");
+  await page.ev(`[...document.querySelectorAll(".pick-item")].find((b) => b.textContent.includes("Copy link to this line")).click()`);
+  await page.until(`window.__copied !== null`, 5000, "the copied link");
+  assert.equal(await page.ev(`window.__copied`), `${await page.ev(`location.origin + location.pathname`)}#book/2:167`);
+  await page.until(`document.getElementById("link-notice").textContent === "Link copied"`, 5000, "the notice");
+}, { ms: 240000 });
+
 test("an unknown link at the start gives the default example and a notice", async (page) => {
   await page.open({ hash: "#aoc/2025/day99" });
   await page.untilChecked();
