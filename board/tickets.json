@@ -32889,15 +32889,17 @@
     {
       "id": 3050,
       "title": "[Sonnet] postponement.md after SW-3045: §5.5 (~565-567, ~606-608) operators decided at finish; invariant 6 is about the final term; dated note at ~1593-1597 and deviation 4 (~1712); §5.10: an operator's result type must not depend on its dictionary (else it must wait); list -k and groups with - in §5.10's allowed class; reword kept_receiver's (queue.rs ~1852) and Defaulted's (numbers.rs ~29) docs (SW-3045 review)",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "docs-tutorials",
-      "body": "",
+      "body": "\n\n12 Nov 2026 (Sonnet, paper): edits made in postponement.md (§5.5 x2, invariant 6, stage 2 record, deviation 4, §5.10 condition and allowed class) and doc comments on kept_receiver and Defaulted. Commit 6c135b388. No builds or tests.\n",
       "created": "2026-11-12",
       "updated": "2026-11-12",
-      "commits": []
+      "commits": [
+        "6c135b388"
+      ]
     }
   ]
 }
