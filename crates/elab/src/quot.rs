@@ -231,17 +231,15 @@ fn elaborate_own(
         }
         None => (cx.fresh_meta(), None),
     };
+    let relation_ty = pi(
+        "x",
+        carrier.clone(),
+        pi("y", shift(&carrier, 1)?, Term::Sort(Sort::Prop)),
+    );
+    let relation_ty = cx.eval(&relation_ty)?;
     let relation = match relation_expr {
-        Some(e) => {
-            let ty = pi(
-                "x",
-                carrier.clone(),
-                pi("y", shift(&carrier, 1)?, Term::Sort(Sort::Prop)),
-            );
-            let ty = cx.eval(&ty)?;
-            check(cx, e, &ty)?
-        }
-        None => cx.fresh_meta(),
+        Some(e) => check(cx, e, &relation_ty)?,
+        None => cx.fresh_meta_of(&relation_ty),
     };
     let quot_ty = Term::Quot(
         QuotForm::Type,
@@ -347,7 +345,7 @@ fn elaborate_own(
             let end = |cx: &mut Ctx, e: Option<&Expr>| -> Result<Term> {
                 match e {
                     Some(e) => check(cx, e, &carrier_value),
-                    None => Ok(cx.fresh_meta()),
+                    None => Ok(cx.fresh_meta_of(&carrier_value)),
                 }
             };
             let x = end(cx, named[2])?;

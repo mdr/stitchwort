@@ -577,7 +577,7 @@ fn elaborate_rule(cx: &mut Ctx, rule: &RewriteRule, place: Place) -> Result<Equa
         .collect();
     let written_ty = ty.clone();
     while let Value::Pi(name, Icit::Explicit, domain, rest) = force(&g, ty.clone())? {
-        let meta = cx.fresh_meta();
+        let meta = cx.fresh_meta_of(&domain);
         let value = cx.eval(&meta)?;
         premises.push(Premise {
             meta: meta.clone(),

@@ -226,9 +226,8 @@ fn destructure(
             let params = match ty {
                 Value::Data(d, params) if d == pair => params,
                 other => {
-                    let a_ty = cx.fresh_meta();
-                    let b_ty = cx.fresh_meta();
-                    let expected = Value::Data(pair, vec![cx.eval(&a_ty)?, cx.eval(&b_ty)?].into());
+                    let params = crate::check::fresh_telescope(cx, g.data(pair).params())?;
+                    let expected = Value::Data(pair, params.into());
                     if !cx.unify(&other, &expected)? {
                         let saved = std::mem::replace(&mut cx.span, *span);
                         let e = cx.mismatch(&other, &expected);
@@ -278,11 +277,7 @@ fn destructure(
             let params = match ty {
                 Value::Data(d, params) if d == data => params,
                 other => {
-                    let mut params = Vec::new();
-                    for _ in 0..g.data(data).params().len() {
-                        let meta = cx.fresh_meta();
-                        params.push(cx.eval(&meta)?);
-                    }
+                    let params = crate::check::fresh_telescope(cx, g.data(data).params())?;
                     let expected = Value::Data(data, params.clone().into());
                     if !cx.unify(&other, &expected)? {
                         let saved = std::mem::replace(&mut cx.span, *span);

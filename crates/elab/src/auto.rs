@@ -467,10 +467,10 @@ fn apply_fact_lemma(
     let mut term = Term::Def(lemma);
     let mut ty = g.def(lemma).ty_value().clone();
     for _ in 0..arguments {
-        let Value::Pi(_, icit, _, cod) = force(&g, ty)? else {
+        let Value::Pi(_, icit, dom, cod) = force(&g, ty)? else {
             return Ok(None);
         };
-        let meta = cx.fresh_meta();
+        let meta = cx.fresh_meta_of(&dom);
         let value = cx.eval(&meta)?;
         term = Term::app_icit(term, meta, icit);
         ty = cod.apply(&g, value)?;
@@ -612,7 +612,7 @@ fn size_from_member(cx: &mut Ctx, goal: &Value) -> Result<Option<Term>> {
                         term = Term::app_icit(term, proof.clone(), icit);
                         break;
                     }
-                    let meta = cx.fresh_meta();
+                    let meta = cx.fresh_meta_of(&dom);
                     let value = cx.eval(&meta)?;
                     metas.push(value.clone());
                     term = Term::app_icit(term, meta, icit);

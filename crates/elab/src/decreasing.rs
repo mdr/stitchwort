@@ -2886,7 +2886,10 @@ pub(crate) fn explain_obligation(cx: &mut Ctx, goal: &Value, error: Diagnostic) 
     };
     // Is the goal `_ < m x`?
     let matches = crate::undo::attempt(cx, |cx| {
-        let meta = cx.fresh_meta();
+        let meta = match cx.g().env.builtins().nat {
+            Some(nat) => cx.fresh_meta_of(&Value::Data(nat, Vec::new().into())),
+            None => cx.fresh_meta(),
+        };
         let new = cx.eval(&meta)?;
         let shape = stitchwort_core::value::apply(
             &cx.g(),
