@@ -484,9 +484,15 @@ pub(crate) fn definite(tree: &Tree, span: Span) -> Option<Diagnostic> {
             Tree::Guard { otherwise, .. } => numbers(otherwise),
             Tree::Missing { arm, .. } => arm.other_numbers.as_ref().map(|_| arm),
             Tree::Case { branches, .. } => branches.iter().find_map(|(_, t)| numbers(t)),
-            Tree::NumCase { arms, default, .. } => (arms.iter())
-                .find_map(|(_, t)| numbers(t))
-                .or_else(|| numbers(default)),
+            // A default that is itself missing names every number the arms
+            // leave out ("other than 0 and 1"); an arm's own nested gap
+            // ("other than 5") would hide that.
+            Tree::NumCase { arms, default, .. } => match &**default {
+                Tree::Missing { arm, .. } if arm.other_numbers.is_some() => Some(arm),
+                _ => (arms.iter())
+                    .find_map(|(_, t)| numbers(t))
+                    .or_else(|| numbers(default)),
+            },
         }
     }
     if let Some(arm) = numbers(tree) {
