@@ -28,7 +28,6 @@ theorem doneNone (wanted: Wanted) (reader: BitReader) (none: nextWanted wanted r
     | Packets 0, _ => rfl
     | Packets (Succ count), _ => cases
     | Filling, { unread = [] } => rfl
-    | Filling, { unread = [_, .._] } => cases
 
 --| A literal with a version below 8 and groups, each below 16.
 theorem literalWellFormed (version: Nat) (groups: NonEmptyList Nat) (small: version < 8) (each: groups.all (group => group < 16) = True):
@@ -54,13 +53,6 @@ theorem finishStep (wanted: Wanted) (later: Wanted) (reader: BitReader) (after: 
 theorem operatorTypeOfNone (n: Nat) (small: n < 8) (none: operatorTypeOf n = None): n = 4 :=
   match n with
     | 4 => rfl
-    | 0 => cases
-    | 1 => cases
-    | 2 => cases
-    | 3 => cases
-    | 5 => cases
-    | 6 => cases
-    | 7 => cases
     | Succ (Succ (Succ (Succ (Succ (Succ (Succ (Succ k))))))) => omega
 
 --| A literal's bits, field by field.

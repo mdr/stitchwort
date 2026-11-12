@@ -234,6 +234,78 @@ fn the_last_arm_of_a_match_ruled_out_whole_does_not_warn() {
     assert_eq!(found.len(), 2, "{found:#?}");
 }
 
+/// The patterns of the arms each `W-UNREACHABLE` of `text` points at.
+fn unreachable_arms(text: &str) -> Vec<String> {
+    (written_unreachable(text).iter())
+        .map(|w| {
+            let span = w.labels[0].span;
+            let arm = &text[span.start as usize..span.end as usize];
+            arm.split(" =>").next().unwrap_or(arm).to_string()
+        })
+        .collect()
+}
+
+#[test]
+fn an_arm_the_checker_would_not_fill_in_does_not_warn() {
+    // In the `_` arm, `found` computes to `None = Some n`; but left out, the
+    // characters other than 'a' are a missing case the checker doesn't fill
+    // in, so the arm can't be deleted (SW-3008).
+    let with_arm = "import Std (Char, Eq, Nat, Option, Void)\n\n\
+                    def command (key: Char): Option Nat :=\n  \
+                    match key with\n    | 'a' => Some 1\n    | _ => None\n\n\
+                    theorem onlyA (key: Char) (n: Nat) (found: command key = Some n): key = 'a' :=\n  \
+                    match key with\n    | 'a' => rfl\n    \
+                    | _ => Void.exfalso (Option.noneNotSome n found)\n";
+    assert!(unreachable_arms(with_arm).is_empty());
+    let without = with_arm.replace("    | _ => Void.exfalso (Option.noneNotSome n found)\n", "");
+    assert_eq!(error(&without).code, "E-NONEXHAUSTIVE");
+}
+
+const AGREES: &str = "import Std (Bool, Eq, List, Nat, Void)\n\n\
+                      def Agrees: List Nat -> List Nat -> Prop\n  \
+                      | [], [] => Void\n  | [], [y, ..ys] => Void\n  \
+                      | [x, ..xs], [] => Void\n  | [x, ..xs], [y, ..ys] => x = y\n\n\
+                      def isNil: List Nat -> Bool\n  | [] => True\n  | _ => False\n\n";
+
+#[test]
+fn arms_that_can_go_only_one_at_a_time_warn_one_at_a_time() {
+    // Either `[]` arm can be deleted, but not both: that leaves `[], _`,
+    // where `Agrees [] ys` doesn't compute. The last one warns.
+    let text = format!(
+        "{AGREES}theorem notNil (xs ys: List Nat) (h: Agrees xs ys): isNil xs = False :=\n  \
+         match xs, ys with\n    \
+         | [], [] => Void.exfalso h\n    \
+         | [], [y, ..ys] => Void.exfalso h\n    \
+         | [x, .._], _ => rfl\n"
+    );
+    assert_eq!(unreachable_arms(&text), vec!["| [], [y, ..ys]"]);
+    let without = text.replace("    | [], [y, ..ys] => Void.exfalso h\n", "");
+    assert!(unreachable_arms(&without).is_empty());
+}
+
+#[test]
+fn arms_that_take_each_others_cases_warn_together() {
+    // Without the `Succ a, b` arm, `a, Succ b` would take `Succ a, Succ b`:
+    // the two go together, and both can.
+    let text = "import Std (Bool, Eq, Nat, Void)\n\n\
+                def isZero: Nat -> Bool\n  | Zero => True\n  | Succ _ => False\n\n\
+                theorem bothZero (a b: Nat) (h: isZero a = True) (k: isZero b = True): a + b = 0 :=\n  \
+                match a, b with\n    \
+                | Zero, Zero => rfl\n    \
+                | Succ a, b => Void.exfalso (Bool.falseNotTrue h)\n    \
+                | a, Succ b => Void.exfalso (Bool.falseNotTrue k)\n";
+    let mut found = unreachable_arms(text);
+    found.sort();
+    assert_eq!(found, vec!["| Succ a, b", "| a, Succ b"]);
+    let (_, result) = load(
+        "import Std (Bool, Eq, Nat, Void)\n\n\
+         def isZero: Nat -> Bool\n  | Zero => True\n  | Succ _ => False\n\n\
+         theorem bothZero (a b: Nat) (h: isZero a = True) (k: isZero b = True): a + b = 0 :=\n  \
+         match a, b with\n    | Zero, Zero => rfl\n",
+    );
+    result.unwrap();
+}
+
 #[test]
 fn the_cases_of_cases_do_not_warn() {
     // `cases` splits `theirs` itself; the impossible cases it makes aren't
