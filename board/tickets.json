@@ -31857,15 +31857,17 @@
     {
       "id": 2979,
       "title": "[DeepSeek] Playground: switching from a book chapter to an AoC day waits for the chapter's check to finish before the day is checked (SW-2904's test had to wait for it): a newer open should cancel or jump ahead of a check of a file no longer shown",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": ".claude/worktrees/scratch-sw-2979",
       "labels": [],
       "epic": "editor-playground",
-      "body": "",
+      "body": "\nMeasured: day checked 5.9 s after switching from a chapter mid-check (was >60 s, 129 s instrumented; 5.4 s fresh). Cause: stitchwort/checked waited for every workspace's focus; plus didOpen cancels the running check (needs cross-origin isolation).\nModel result: DeepSeek, worked, ~55 min (est. 45)",
       "created": "2026-11-12",
       "updated": "2026-11-12",
-      "commits": []
+      "commits": [
+        "9ac4297c1"
+      ]
     },
     {
       "id": 2980,
