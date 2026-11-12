@@ -321,7 +321,7 @@ theorem Bool.andReads (a b: Bool): (a && b) = True ↔ a ∧ b
 theorem Bool.andReadsFalse (a b: Bool): (a && b) = False ↔ a = False ∨ b = False
 
 @[reading]
-theorem List.anyReads (xs: List a) (f: a → Bool): xs.any f ↔ ∃ (x: a) => x ∈ xs ∧ f x
+theorem List.anyReads (xs: List a) (p: a → Bool): xs.any p ↔ ∃ (x: a) => x ∈ xs ∧ p x
 
 @[reading]
 theorem List.containsReads [auto eq: DecEq a] (xs: List a) (x: a): xs.contains x ↔ x ∈ xs
@@ -388,7 +388,14 @@ test)**. It is refused, with the error named, if:
   variable, a constructor or a constant has no parts to read); the call's
   arguments aren't the theorem's parameters, each exactly once (as an
   instance's head is a type applied to distinct variables), so that
-  matching a test against it only reads off its arguments; or `e` is an
+  matching a test against it only reads off its arguments (one exception,
+  SW-3029: a function over a row `{e}`, such as `List.any`, is stated with
+  pure arguments, which pass the empty row and its divergence `Total`
+  instead of a parameter; a test fact's test is a `Bool`, which `{e} Bool`
+  is only at the empty row, so the reading of a function whose result is
+  `{e} Bool` still fits every test fact with its head; the reader checks
+  the row is empty before using it, so a rare function whose result is
+  `Bool` whatever its callback's row fits only at the empty row); or `e` is an
   `if` other than `&&` and `||`; or the call passes the function more
   arguments than its definition takes (`def tiny: Nat → Bool := small`
   takes none, so `tiny n` unfolds to `small n` before it is read, and a

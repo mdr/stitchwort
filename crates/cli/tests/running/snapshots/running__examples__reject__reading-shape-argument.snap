@@ -9,5 +9,5 @@ expression: output
    │   ───┬───  
    │      ╰───── `smallReads` can't be a reading: its test `small (n + 1)` must be a function applied to the theorem's parameters, each exactly once, so that any test with that head fits it
    │ 
-   │ Note: a reading is a theorem `test = True ↔ P` or `test = False ↔ P`, whose test is a function applied to the theorem's parameters, each once: `@[reading] theorem List.anyReads (xs: List a) (f: a → Bool): xs.any f ↔ ∃ (x: a) => x ∈ xs ∧ f x`
+   │ Note: a reading is a theorem `test = True ↔ P` or `test = False ↔ P`, whose test is a function applied to the theorem's parameters, each once: `@[reading] theorem List.anyReads (xs: List a) (p: a → Bool): xs.any p ↔ ∃ (x: a) => x ∈ xs ∧ p x`
 ───╯
