@@ -32001,15 +32001,17 @@
     {
       "id": 2989,
       "title": "[Sonnet] Impossible cases follow-ups (SW-2984): equations.rs ~6140 gives an absurd clause arm a probe body when building probe matches, turning its () into the unit pattern — keep it absurd now that alternatives can be; consider W-UNREACHABLE for an arm whose case a hypothesis rules out (| Scissors => 0 where h refutes it); an indexed-family hypothesis that isn't a matched column isn't tried",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "Lane notes: absurd arms stay absurd in recompute_leaves (early None return removed, so on-demand equations now work with ()); impossible_case tries indexed families on every other variable last; may_be_impossible true for any indexed-family hypothesis. Example impossible-case-indexed-hypothesis + snapshot. hash_stability 10/10 pass. W-UNREACHABLE not done: D3535 in report.",
       "created": "2026-11-12",
       "updated": "2026-11-12",
-      "commits": []
+      "commits": [
+        "895b65b7f"
+      ]
     },
     {
       "id": 2990,
