@@ -32063,12 +32063,12 @@
     {
       "id": 2992,
       "title": "[Opus] Readings with gluing off: at the use site the fact's type is an evaluated value, so unglued a user function's reading reads as its unfolding (And instead of InRange); build the reader on terms (written types, readings' statement terms) — SW-2977 review M2; also L1 (E-NO-READING should say the reading is declared later in the unit, and stay quiet when the reading failed) and L2 (readings on alias functions tiny := small: filed under tiny now; decide)",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "Lane notes (Opus, 12 Nov 2026, 17:08-17:35, est. 2 h):\n\n- **M2** (205b825bb): the reader evaluates with calls kept folded and, with gluing off, starts from the fact's type as written (variable's declared type, annotation, argument's parameter type, the definition's own type, match columns). Glued: unchanged (early return). Test: `elaboration readings::a_user_reading_is_found_{glued,unglued}`. Gap: an expected test fact with no written type to hand (e.g. a lambda body's expected type) still reads the unfolded value unglued.\n- **L1** (8e7030550): `ItemInfo.reading` holds each `@[reading]` theorem's test function and polarity from its syntax; a use above it stops at the function with E-NO-READING \"`inRange`'s reading, `inRangeReads`, is declared below\" + label at the reading. A reading whose proof fails is filed as its D3527 stand-in, so users rely on it (\"2 declarations rely on a declaration with an error\"); with no stand-in, E-FAILED-DEPENDENCY (dropped beside the reading's own error). Examples: reject/reading-declared-below.sw, reject/reading-failed.sw.\n- **L2** (5d9e12514), orchestrator-level call taken by the lane: refuse. A reading whose test passes the function more arguments than its definition takes (`def tiny: Nat → Bool := small`) is E-READING-SHAPE, since `tiny n` unfolds to `small n` before anything reads it and the reading was dead. Filing under `small` was rejected: it breaks E-READING-PLACE when `small` is elsewhere. Example: reject/reading-alias.sw.\n- Kernel terms: glued, unchanged (hash_stability passes). Unglued, the reader's proof terms now hold folded calls (`inRangeReads lo x hi`), as glued ones do.\n- Tests: readings:: (2 pass), test:example NAME=reading (7 pass), projects reading tests (6 pass), hash_stability (10 pass), running examples accepted|goal|rejected|soundness (7 pass).\n",
       "created": "2026-11-12",
       "updated": "2026-11-12",
       "commits": []
