@@ -189,3 +189,24 @@ fn a_decision_procedure_unmarked_after_a_rewind_is_not_used() {
         .expect_err("`decToken` isn't marked `instance` now");
     assert_eq!(codes(&errors), ["E-AUTO-NONE"]);
 }
+
+/// `cases` under `Bool.andLeft`, whose goal is an unknown applied to the
+/// split variable's constructor, `?p Greater h`: a decision procedure's
+/// arguments are typed, so `Int.decLessThan ?x ?y` doesn't fit it by
+/// solving `?x: Int` with `Greater`, whose test the search then ran into a
+/// panic (SW-2961, found by `search --at` on `Ordering.flipNotLessEq`).
+#[test]
+fn a_decision_procedures_arguments_keep_their_types() {
+    let mut session = Session::new();
+    let errors = session
+        .load(
+            "test.sw",
+            "import Std (Ordering, Bool)
+
+theorem t (o: Ordering) (h: Ordering.isLessEq o = False): Ordering.isLessEq (Ordering.flip o) = True :=
+  Bool.andLeft cases
+",
+        )
+        .expect_err("`cases` can't close it");
+    assert_eq!(codes(&errors), ["E-CASES"]);
+}

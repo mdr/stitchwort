@@ -1181,7 +1181,11 @@ fn instantiate(
     let mut args = Vec::new();
     let mut arg_terms = Vec::new();
     while let Value::Pi(_, icit, dom, cod) = force(g, ty.clone())? {
-        let meta = cx.fresh_meta();
+        // Typed, so unification's first-order rule won't pair it with a
+        // value of another type: `?p Greater h` against `?x < ?y` would
+        // solve `?x: Int` with `Greater`, and the test is run at once
+        // ([`verdict`]), long before the kernel would refuse it (SW-2961).
+        let meta = cx.fresh_meta_of(&dom);
         let value = cx.eval(&meta)?;
         args.push((value.clone(), icit, (*dom).clone()));
         arg_terms.push((meta, icit));

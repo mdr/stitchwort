@@ -108,6 +108,13 @@ fn goal_of(session: &Session, id: DefId) -> Option<FoundGoal> {
     })
 }
 
+/// Whether the run takes theorem `path`: with `SEARCH_AT_BENCH_ONLY` set
+/// to a comma-separated list of theorems, only those, for narrowing a
+/// failure down without the whole run (which takes minutes).
+fn wanted(path: &str) -> bool {
+    std::env::var("SEARCH_AT_BENCH_ONLY").map_or(true, |only| only.split(',').any(|p| p == path))
+}
+
 /// What a run found.
 struct Recall {
     goals: usize,
@@ -159,6 +166,13 @@ fn run(
             };
             let g = &session.elab.ev();
             let theorem_path = g.def(theorem).path().to_string();
+            if !wanted(&theorem_path) {
+                continue;
+            }
+            // Named before the search, so a panic in it says which goal.
+            if std::env::var_os("SEARCH_AT_BENCH_TRACE").is_some() {
+                eprintln!("goal: {theorem_path}");
+            }
             let lemma_path = lemma.map(|l| Item::Def(l).path(g));
             let options = AtOptions {
                 exclude: vec![theorem_path.clone()],
