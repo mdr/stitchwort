@@ -31818,15 +31818,24 @@
     {
       "id": 2976,
       "title": "[Opus] Sweep: ~50 cx.fresh_meta() sites in crates/elab make untyped unknowns, weakening unification's first-order type guard (SW-919, SW-2961); use fresh_meta_of where the type is known; tests by name",
-      "status": "doing",
+      "status": "review",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-2976",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "Lane (Opus, 12 Nov 2026, 16:01-16:20, est. 90 min), branch lane/SW-2976, 8 commits.\n\nOf the 52 `fresh_meta()` call sites, 27 are now typed (`fresh_meta_of`): Pi domains being instantiated (auto, named, rewrite, rewrite/under, held-back arguments), a `_`'s value by its type, `rfl`'s `?x`, row tails and inferred rows as `Effect.Effects` (new `rows::fresh_row`), data/ability parameters by the declared telescope (new `check::fresh_telescope`: constructor apps, list literals, patterns, records, effect labels, pattern-lambda match), queued checks' placeholders, Quot's relation and `Quot.sound`'s ends, decreasing's `?new < m` as Nat.\n\n25 left: 23 stand for types of unknown universe (a hole's/goal's/`if`'s/lambda's/section's/pipe's/computation's/number group's/record literal's/reify's type, function_parts' dom and cod, auto-bound and auto-field types, Quot's carrier and lift result, a queued dot call's type); one queued constraint's placeholder stands for no value (commented); one is a unit test's type unknown.\n\nTests: hash_stability (library) after each batch: all pass, no hash changes, ~30 s each as before (baseline 30.3 s, after 29.4-32.2 s). Examples (running: accepted|goal|rejected|soundness) 7/7; elab unif 39/39; elab queue/quot/rows/effects 46/46. clippy clean. No real bugs exposed; no site reverted.\n",
       "created": "2026-11-12",
       "updated": "2026-11-12",
-      "commits": []
+      "commits": [
+        "500e1bfb5",
+        "b7e8d79c0",
+        "2e4c33354",
+        "c6f2068ea",
+        "37e3c047f",
+        "6892d3d60",
+        "15877987a",
+        "5b9f88697"
+      ]
     },
     {
       "id": 2977,
