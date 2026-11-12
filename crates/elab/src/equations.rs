@@ -2313,10 +2313,7 @@ impl Elaborator {
                     d.leaves = leaves;
                     None
                 }
-                Ok(None) => Some(
-                    "an arm with `()` keeps a definition's equations from being made on demand"
-                        .to_string(),
-                ),
+                Ok(None) => Some("its arms couldn't be compiled again as a `match`".to_string()),
                 Err(Stop::Error(e)) if crate::undo::fatal(&e) => return Err(e),
                 Err(Stop::Error(e)) => Some(format!(
                     "its arms couldn't be compiled again: {}",
@@ -4295,7 +4292,7 @@ impl Elaborator {
         let root = alts.first().map_or(owner.rows[0].span, |a| a.span);
         hd.leaves = match self.recompute_leaves(&hd, &arms, root) {
             Ok(Some(leaves)) => leaves,
-            Ok(None) => return skip("its `match` has an alternative with `()`"),
+            Ok(None) => return skip("its `match`'s alternatives couldn't be compiled again"),
             Err(Stop::Error(e)) if !crate::undo::fatal(&e) => {
                 return skip(format!(
                     "its `match`'s alternatives couldn't be compiled again: {}",
@@ -6069,17 +6066,13 @@ impl Elaborator {
     /// The leaves of the definition's case tree, when none were recorded
     /// (its equations made on demand, after it): its arms compiled again,
     /// as its body was, with a probe for each body, under a root of their
-    /// own, and read off the log. `None` for an arm with `()`, which
-    /// compiles differently as an alternative of a `match`.
+    /// own, and read off the log.
     fn recompute_leaves(
         &mut self,
         d: &Def,
         arms: &[SourceArm],
         root: Span,
     ) -> R<Option<Vec<Leaf>>> {
-        if arms.iter().any(|a| a.rhs.is_none()) {
-            return Ok(None);
-        }
         let n = d.binders.len();
         let pred_ty = eval(&self.ev(), &[], &pis(&d.binders, Term::Sort(Sort::Prop)))?;
         let nav = self.present.nav.take();
@@ -6139,7 +6132,9 @@ impl Elaborator {
                         Alt {
                             guard: a.guard.clone(),
                             patterns: a.patterns.clone(),
-                            body: Some(probe_body(a.rhs.as_ref(), a.span, &known)),
+                            // An absurd arm stays absurd: given a probe body,
+                            // its `()` would be the unit pattern.
+                            body: (a.rhs.as_ref()).map(|rhs| probe_body(Some(rhs), a.span, &known)),
                             span: a.span,
                         }
                     })

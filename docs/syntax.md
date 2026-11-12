@@ -2310,7 +2310,7 @@ theorem rockBeatsOnlyScissors (theirs: Move) (h: beats Rock theirs): theirs = Sc
     | Scissors => rfl
 ```
 
-checks, and so does the same left out of arms (`| Scissors, _ => rfl` alone), in a theorem or a `def` alike (D3534). The variable needn't be a scrutinee: a hypothesis whose type mentions one is refined with it. A case that can happen is still `E-NONEXHAUSTIVE`, and the error lists only those (`examples/accept/impossible-cases-left-out.sw`, `examples/reject/impossible-cases-one-possible.sw`). The checker doesn't search: the equation must be there, in the context, and compute to different constructors; a fact it would have to prove (`n < 0` with `n` unknown) needs an arm.
+checks, and so does the same left out of arms (`| Scissors, _ => rfl` alone), in a theorem or a `def` alike (D3534). The variable needn't be a scrutinee: a hypothesis whose type mentions one is refined with it, and an indexed family's hypothesis is tried whatever it mentions (`i: Fin n` once a `Vec a n` is `VNil`, so `def first (v: Vec a n) (i: Fin n): a := match v with | VCons x _ => x` checks). A case that can happen is still `E-NONEXHAUSTIVE`, and the error lists only those (`examples/accept/impossible-cases-left-out.sw`, `examples/accept/impossible-case-indexed-hypothesis.sw`, `examples/reject/impossible-cases-one-possible.sw`). The checker doesn't search: the equation must be there, in the context, and compute to different constructors; a fact it would have to prove (`n < 0` with `n` unknown) needs an arm.
 
 #### Clause lambdas: `match |`, `match some |` and `matches |`
 
