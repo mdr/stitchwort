@@ -885,6 +885,8 @@ fn a_code_action_on_a_goal_offers_a_search_that_runs_when_asked() {
                 .is_some_and(|t| t.starts_with("Replace ? with `rfl`"))),
             "{proofs:?}"
         );
+        // `rfl` closes it, so it is the only proof offered (SW-2966).
+        assert_eq!(proofs.len(), 1, "{proofs:?}");
         assert_eq!(
             answer["range"]["start"],
             json!({"line": 2, "character": character})

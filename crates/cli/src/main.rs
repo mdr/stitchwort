@@ -397,6 +397,12 @@ enum Command {
         /// With --at FILE: the file's N-th goal, in source order
         #[arg(long, value_name = "N")]
         goal: Option<usize>,
+        /// With --at: answer with the simplest closer alone if one closes
+        /// the goal (`rfl`, a hypothesis, `byDecision`, `omega`, `ring`,
+        /// `cases`, in that order), as the editor's "Search for a proof"
+        /// does, instead of searching
+        #[arg(long)]
+        simplest_first: bool,
         /// With --at: how many matching declarations to try
         #[arg(long, value_name = "N", default_value_t = 50)]
         candidates: usize,
@@ -920,6 +926,7 @@ fn run(cli: Cli) -> ExitCode {
             log,
             at,
             goal,
+            simplest_first,
             candidates,
             time,
             cache,
@@ -944,6 +951,7 @@ fn run(cli: Cli) -> ExitCode {
                     exclude: Vec::new(),
                     within,
                     stop_after_closing: None,
+                    simplest_first,
                 };
                 return search_at(
                     &at,

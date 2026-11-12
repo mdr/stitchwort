@@ -28,6 +28,16 @@ theorem introducing: (n: Nat) → n + 0 = n := ?
 
 theorem falseOne (m: Nat) (n: Nat): m + n = n + m + 1 := ?
 
+theorem byComputing: List.length [1, 2, 3] = 3 := ?
+
+theorem fromHypothesis (a: Nat) (h: a = 3): a = 3 := ?
+
+theorem onlyOmega (a: Nat) (b: Nat) (h: a < b): a ≤ b := ?
+
+theorem onlyRing (x: Nat) (y: Nat): (x + y) * (x + y) = x * x + 2 * x * y + y * y := ?
+
+theorem ruledOut (a: Nat) (h: Some a = None): a = 5 := ?
+
 theorem byCases (x: Nat) (shared: Nat) (y: Nat): Bool.toNat (x + shared < shared + y) = Bool.toNat (x < y) := ?
 ";
 
@@ -589,4 +599,71 @@ def fib: Nat → Nat
         assert!(session.elab.check_proof(&quick).is_ok());
         assert!(!session.elab.kernel.machine.budget.take_timed_out());
     });
+}
+
+/// [`options`] answering with the simplest closer alone (SW-2966).
+fn simplest() -> AtOptions {
+    AtOptions {
+        simplest_first: true,
+        ..options()
+    }
+}
+
+/// The only thing offered is `proof`, found by the ladder's `rung`, and it
+/// pastes.
+fn only_offer(name: &str, rung: &str, proof: &str) {
+    let line = line_of(name);
+    let report = at_with(GOALS, line, &simplest());
+    assert_eq!(report.simplest, Some(rung), "{report:#?}");
+    let offered: Vec<&str> = (report.tactics.iter().map(String::as_str))
+        .chain(report.results.iter().map(|s| s.proof.as_str()))
+        .collect();
+    assert_eq!(offered, [proof], "{report:#?}");
+    assert!(report.rewrites.is_empty() && report.induction.is_empty());
+    assert_eq!(report.budget.candidates, 0, "nothing was searched");
+    pastes(GOALS, line, proof);
+}
+
+/// A goal `rfl` closes is answered with `rfl` alone, where the full search
+/// lists `omega`, `byDecision` and lemmas too.
+#[test]
+fn simplest_first_offers_only_rfl() {
+    only_offer("byComputing", "rfl", "rfl");
+    let full = at(GOALS, line_of("byComputing"));
+    assert!(full.tactics.len() > 1, "{full:#?}");
+}
+
+#[test]
+fn simplest_first_offers_a_hypothesis_that_is_the_goal() {
+    only_offer("fromHypothesis", "hypothesis", "h");
+}
+
+/// A goal only `omega` closes: not `ring`, not `cases`, not lemmas.
+#[test]
+fn simplest_first_offers_only_omega() {
+    only_offer("onlyOmega", "omega", "omega");
+}
+
+#[test]
+fn simplest_first_offers_ring_when_omega_cannot() {
+    only_offer("onlyRing", "ring", "ring");
+}
+
+#[test]
+fn simplest_first_offers_cases_for_an_impossible_hypothesis() {
+    only_offer("ruledOut", "cases", "cases");
+}
+
+/// A goal no rung closes gets the full search's offers: the same lemma
+/// first as without the ladder, and no `simplest`.
+#[test]
+fn simplest_first_leaves_the_full_search_when_no_rung_closes() {
+    let line = line_of("exactly");
+    let report = at_with(GOALS, line, &simplest());
+    assert_eq!(report.simplest, None);
+    assert_eq!(
+        report.results[0].proof, "List.lengthAppend xs ys",
+        "{report:#?}"
+    );
+    assert!(report.budget.candidates > 0);
 }
