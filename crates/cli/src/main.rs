@@ -1985,13 +1985,16 @@ fn test(
             session.run_tests_where(cache, keep)
         } else {
             #[cfg(feature = "native")]
-            let native_results = native.map(|verbose| {
-                let native = NativeTestCompiler { verbose };
-                session.run_tests_native_where(cache, keep, &native)
-            });
+            let results = match native {
+                Some(verbose) => {
+                    let native = NativeTestCompiler { verbose };
+                    session.run_tests_native_where(cache, keep, &native)
+                }
+                None => session.run_tests_fast_where(cache, keep),
+            };
             #[cfg(not(feature = "native"))]
-            let native_results = None;
-            native_results.unwrap_or_else(|| session.run_tests_fast_where(cache, keep))
+            let results = session.run_tests_fast_where(cache, keep);
+            results
         };
         session.with_broken_tests(results, |name| output.only.is_none_or(|n| n == name))
     };

@@ -587,17 +587,25 @@ impl Session {
         results
     }
 
-    /// The outcome of the test `def` on the reference evaluator.
-    fn run_on_reference(&self, def: stitchwort_core::DefId, partial: bool) -> Outcome {
+    /// The value of the test `def` on the reference evaluator.
+    fn reference_value(
+        &self,
+        def: stitchwort_core::DefId,
+        partial: bool,
+    ) -> Result<Value, ResourceError> {
         let g = &self.elab.ev();
-        let value = if partial {
+        if partial {
             self.run_partial(&Term::Def(def))
         } else {
             // Proofs and types aren't computed (`erase.rs`).
             let _erasing = g.machine.erasure.running();
             eval(g, &[], &Term::Def(def)).and_then(|v| force(g, v))
-        };
-        match value {
+        }
+    }
+
+    /// The outcome of the test `def` on the reference evaluator.
+    fn run_on_reference(&self, def: stitchwort_core::DefId, partial: bool) -> Outcome {
+        match self.reference_value(def, partial) {
             // `Bool` is `False | True`: constructor 1 is `True`.
             Ok(Value::Ctor(_, 1, _)) => Outcome::Passed,
             Ok(_) => Outcome::Failed,
@@ -611,7 +619,8 @@ impl Session {
     /// casting a value to the wrong type, and the run may compute nonsense
     /// or crash the evaluator. So it runs on the reference evaluator, which
     /// notes every transport on an erased proof, and a run with one gives no
-    /// result, as does a crash. The note can't say which proof it was, so a
+    /// result, as does a crash, or a result that isn't a `Bool` (stuck on a
+    /// `case` of an erased proof of an empty type). The note can't say which proof it was, so a
     /// test that also transports along a true proof isn't run either.
     fn run_relying(
         &self,
@@ -621,12 +630,22 @@ impl Session {
         let g = &self.elab.ev();
         g.machine.erasure.take_transported();
         let run = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            self.run_on_reference(test.def, partial)
+            self.reference_value(test.def, partial)
         }));
         let transported = g.machine.erasure.take_transported();
         let gaps = crate::reliance::describe_goals(&self.test_assuming(test), true);
         match run {
-            Ok(outcome) if !transported => Ok(outcome),
+            Ok(Ok(Value::Ctor(_, tag @ (0 | 1), _))) if !transported => Ok(if tag == 1 {
+                Outcome::Passed
+            } else {
+                Outcome::Failed
+            }),
+            Ok(Err(e)) if !transported => Ok(Outcome::OutOfResources(e)),
+            // Not a `Bool`: a `case` on an erased proof of an empty type
+            // has no branch to take, so the run is stuck there.
+            Ok(Ok(_)) if !transported => Err(format!(
+                "no result: it got stuck, as if on a proof that can't exist, and it relies on {gaps}"
+            )),
             _ if transported => Err(format!("it computes with a proof, and relies on {gaps}")),
             _ => Err(format!(
                 "no result: the evaluator stopped with an internal error, and it relies on {gaps}"
