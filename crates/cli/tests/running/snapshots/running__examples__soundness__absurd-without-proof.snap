@@ -1,7 +1,16 @@
 ---
-source: crates/cli/tests/examples.rs
+source: crates/cli/tests/running/examples.rs
 expression: output
 ---
+[W-UNREACHABLE] Warning: this case can't happen
+    ╭─[ soundness/absurd-without-proof.sw:10:3 ]
+    │
+ 10 │   | Nil,       i      => Void.absurd (Bool.falseNotTrue ok)
+    │   ────────────────────────────┬───────────────────────────  
+    │                               ╰───────────────────────────── here `ok` is `i < 0`, which can't hold
+    │ 
+    │ Note: the arm can be deleted
+────╯
 [E-AUTO-FALSE] Error: `False = True` is false
     ╭─[ soundness/absurd-without-proof.sw:12:21 ]
     │

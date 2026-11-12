@@ -1,7 +1,16 @@
 ---
-source: crates/cli/tests/examples.rs
+source: crates/cli/tests/running/examples.rs
 expression: output
 ---
+[W-UNREACHABLE] Warning: this case can't happen
+    ╭─[ reject/match-equation-unknown-motive-unnamed.sw:17:5 ]
+    │
+ 17 │     | Some n => Void.exfalso (Bool.falseNotTrue k)
+    │     ──────────────────────┬──────────────────────  
+    │                           ╰──────────────────────── here `k` is `False = True`, which can't hold
+    │ 
+    │ Note: the arm can be deleted
+────╯
 [E-TYPE-MISMATCH] Error: type mismatch
     ╭─[ reject/match-equation-unknown-motive-unnamed.sw:24:20 ]
     │
