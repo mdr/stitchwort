@@ -32076,15 +32076,17 @@
     {
       "id": 2993,
       "title": "[Sonnet] W-UNREACHABLE (D3535, Matt, 12 Nov 2026: 'A warning sounds pragmatically useful'): warn on a match/clause arm with a body whose case a hypothesis rules out (the same check impossible_case uses to fill in missing arms); not on () arms; message names the hypothesis and its type there and says the arm can be deleted; editors show it like an unused binding; book §2.5's long form points at the warning",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2993",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "\nModel result: Sonnet, needed fixes (std had 49 warnings; stopped and reported as briefed), 13 min (est. 75); then Opus std cleanup + 5 false-positive fixes in the rule, 35 min (est. 90). Orchestrator's calls: 154 std data defs changed hash only via proofs they refer to (D2303); hypothesis printed lazily (review fixup); hash snapshots regenerated over SW-2967's.",
       "created": "2026-11-12",
       "updated": "2026-11-12",
-      "commits": []
+      "commits": [
+        "07f459e13"
+      ]
     },
     {
       "id": 2994,
