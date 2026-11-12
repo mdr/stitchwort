@@ -14,7 +14,6 @@ def OnFloor (level: Level) (monsters: List Monster): Prop := List.All (monster =
 theorem pickFreeOnFloor (level: Level) (player: Position) (others: List Monster)
     (choices: List Position) (destination: Position) (picked: pickFree level choices player others = Some destination): isWall level destination = False :=
   match choices with
-    | [] => Void.exfalso (Option.noneNotSome destination picked)
     | [choice, ..rest] =>
       match wall: isWall level choice with
         | True => pickFreeOnFloor level player others rest destination picked
