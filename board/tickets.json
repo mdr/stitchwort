@@ -32559,9 +32559,9 @@
     {
       "id": 3026,
       "title": "[Sonnet] fmt_hashes compares almost nothing now the corpus is formatted (2 of 819 files): give it deliberately unformatted input (e.g. each example de-formatted: indentation, spacing, line breaks) so it still tests that formatting keeps hashes (SW-2962 follow-up 6)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-3026",
       "labels": [],
       "epic": "test-infra",
       "body": "",
