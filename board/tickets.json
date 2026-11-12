@@ -32278,15 +32278,17 @@
     {
       "id": 3007,
       "title": "[Sonnet] SW-2981 review L-e: under a failed (..) import every undotted E-UNKNOWN-NAME in the file counts as lost, so a real typo waits silently until the import is fixed; point the waiting entry at the import's span, not the use; and an error-free member of a failed group still has own: true in FailedDecl (module.rs ~1270) so it's counted in errors though docs say it waits (user-visible count: Matt's call if it changes)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-3007",
       "labels": [],
       "epic": "diagnostics",
-      "body": "\nAlso from SW-3006: in a group where only g has an error, the summary still says '2 errors: in B.f and B.g' (own flag per member in note_error_source).",
+      "body": "\nAlso from SW-3006: in a group where only g has an error, the summary still says '2 errors: in B.f and B.g' (own flag per member in note_error_source).\nModel result: Sonnet, worked, 30 min (est. 45)",
       "created": "2026-11-12",
       "updated": "2026-11-12",
-      "commits": []
+      "commits": [
+        "f2668ecf9"
+      ]
     },
     {
       "id": 3008,
