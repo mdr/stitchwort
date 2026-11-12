@@ -32559,12 +32559,12 @@
     {
       "id": 3026,
       "title": "[Sonnet] fmt_hashes compares almost nothing now the corpus is formatted (2 of 819 files): give it deliberately unformatted input (e.g. each example de-formatted: indentation, spacing, line breaks) so it still tests that formatting keeps hashes (SW-2962 follow-up 6)",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "test-infra",
-      "body": "",
+      "body": "Lane notes (Sonnet, branch lane/SW-3026, commit ae087a10b).\nAdded crates/driver/tests/library/deformat.rs (seeded de-formatter, 4 unit tests) and rewrote fmt_hashes.rs around it. Every file is de-formatted and formatted; the flat variant (spacing, blank lines, trailing spaces) must format back to exactly the formatted original (holds for all 1692 files); the indentation and line-break variants are hash-compared on a tier_sample (every 20th standalone file in daily, 4x sparser in merge/lane, all in full; projects every 4th, AoC full only). Default tier: about 24 s wall at load ~22 (about 160 s CPU).\nModel result: Sonnet, worked, ~25 min (est. 60 min).\n",
       "created": "2026-11-12",
       "updated": "2026-11-12",
       "commits": []
