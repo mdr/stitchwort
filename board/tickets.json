@@ -32263,15 +32263,17 @@
     {
       "id": 3006,
       "title": "[Sonnet] SW-2981 review L-c: a group-level refusal (kernel::define_group fails, e.g. g's call not decreasing) is attributed to members[0] (lib.rs group: out.push((members[0].0, d))), so f gets the stand-in and g's users are told they need f; attribute by the member whose span holds the primary label, or treat all members as having the error",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "diagnostics",
-      "body": "",
+      "body": "Lane note 12 Nov 2026: blame_group in crates/elab/src/lib.rs attributes a group-level refusal to the member holding all its labels, else to every member (reported once, module.rs); note_error_source names each member's users by its own error. Tests: a_group_the_kernel_refuses_blames_the_member_the_error_is_in, a_group_refused_as_a_whole_is_every_members_error. Model result: Sonnet, worked, 20 min (est. 45).",
       "created": "2026-11-12",
       "updated": "2026-11-12",
-      "commits": []
+      "commits": [
+        "eccb337bb"
+      ]
     },
     {
       "id": 3007,
