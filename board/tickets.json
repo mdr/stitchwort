@@ -1,5 +1,5 @@
 {
-  "next": 2998,
+  "next": 2999,
   "tickets": [
     {
       "id": 47,
@@ -31697,15 +31697,17 @@
     {
       "id": 2967,
       "title": "[DeepSeek] std: List.decMem, decDistinct, decSorted, decLeHead recurse on the list, so if x ∈ xs and if xs.contains x are different tests: write them test first (holds := the Bool test, then sound/complete) (SW-2964 finding 1)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2967",
       "labels": [],
       "epic": "std-library",
-      "body": "",
+      "body": "\nModel result: Sonnet, worked, 15 min (est. 60)",
       "created": "2026-11-12",
       "updated": "2026-11-12",
-      "commits": []
+      "commits": [
+        "7a9bb85fa"
+      ]
     },
     {
       "id": 2968,
@@ -32131,6 +32133,19 @@
       "where": "",
       "labels": [],
       "epic": "test-infra",
+      "body": "",
+      "created": "2026-11-12",
+      "updated": "2026-11-12",
+      "commits": []
+    },
+    {
+      "id": 2998,
+      "title": "[Sonnet] Membership and distinctness spellings in std: List.isDistinct (Ord) and List.noRepeats (DecEq) are two Bool tests for Distinct (add isDistinctIff, say which if uses); List.elem, List.contains and any/== are three spellings of membership: pick one, deprecate the rest (SW-2967 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "std-library",
       "body": "",
       "created": "2026-11-12",
       "updated": "2026-11-12",
