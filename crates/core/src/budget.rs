@@ -42,8 +42,9 @@ pub enum ResourceError {
     /// A term or expression nested too deeply for one of the passes that
     /// recurse over them (named here) to follow.
     Nesting(&'static str),
-    /// A value too large to turn back into a term or print.
-    Size,
+    /// A value too large to turn back into a term or print: the most nodes
+    /// a read-back may write ([`Limits::size`]).
+    Size(u64),
     /// The wall-clock deadline the host set ([`Budget::set_deadline`]) passed
     /// while the operation was running. Like running out of stack, an
     /// attempt inside the operation passes it on rather than taking it as
@@ -55,6 +56,29 @@ pub enum ResourceError {
     Cancelled,
 }
 
+/// The start of [`ResourceError::Size`]'s message, which callers that
+/// treat that error specially look for ([`ResourceError::is_size_message`]).
+const TOO_LARGE_TO_WRITE_OUT: &str = "a value was too large to write out";
+
+fn with_commas(n: u64) -> String {
+    let digits = n.to_string();
+    let mut out = String::new();
+    for (i, c) in digits.chars().enumerate() {
+        if i > 0 && (digits.len() - i).is_multiple_of(3) {
+            out.push(',');
+        }
+        out.push(c);
+    }
+    out
+}
+
+impl ResourceError {
+    /// Whether a diagnostic's message is that of [`ResourceError::Size`].
+    pub fn is_size_message(message: &str) -> bool {
+        message.contains(TOO_LARGE_TO_WRITE_OUT)
+    }
+}
+
 impl fmt::Display for ResourceError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(match self {
@@ -63,7 +87,13 @@ impl fmt::Display for ResourceError {
             ResourceError::Nesting(pass) => {
                 return write!(f, "the program is nested too deeply for the {pass}");
             }
-            ResourceError::Size => "a value was too large to show",
+            ResourceError::Size(limit) => {
+                return write!(
+                    f,
+                    "{TOO_LARGE_TO_WRITE_OUT} (over {} parts)",
+                    with_commas(*limit)
+                );
+            }
             ResourceError::Deadline => "it took longer than the time allowed",
             ResourceError::Cancelled => "the check was cancelled",
         })
@@ -89,7 +119,11 @@ pub struct Limits {
     /// started, and never below the floor of the operation it is started
     /// inside. Must be comfortably less than the thread's stack.
     pub stack: usize,
-    /// Nodes in a quoted term.
+    /// Nodes in a quoted term. Each node a read-back writes is a heap
+    /// allocation of 70 to 120 bytes, held until the error unwinds, so the
+    /// limit bounds the memory a runaway read-back takes (2 million: about
+    /// 0.3 GB). The largest read-back in the standard library, `aoc/` and
+    /// `games/rogue` is under 400,000 nodes (SW-2681).
     pub size: u64,
     /// Frames of pending work in the evaluator: how deeply a program may
     /// recurse. A frame keeps its environment alive, so in practice each
@@ -119,7 +153,7 @@ impl Limits {
         Limits {
             work: 10_000_000_000,
             stack: stack_size.saturating_sub(reserve),
-            size: 10_000_000,
+            size: 2_000_000,
             frames: 2_000_000,
             native_frames: NATIVE_FRAMES,
         }
@@ -846,6 +880,20 @@ impl Budget {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_size_message_names_the_limit() {
+        for (limit, shown) in [(2_000_000, "2,000,000"), (100, "100"), (1_000, "1,000")] {
+            let message = ResourceError::Size(limit).to_string();
+            assert_eq!(
+                message,
+                format!("a value was too large to write out (over {shown} parts)")
+            );
+            assert!(ResourceError::is_size_message(&message));
+        }
+        assert!(!ResourceError::Work.to_string().contains("write out"));
+        assert_eq!(Limits::for_stack(1 << 20).size, 2_000_000);
+    }
 
     fn steps(b: &Budget, n: u32) -> Result<()> {
         (0..n).try_for_each(|_| b.step())

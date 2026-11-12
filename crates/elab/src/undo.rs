@@ -44,7 +44,7 @@
 //! what makes it end. A site that retries without a bound needs its own
 //! argument that it ends.
 
-use stitchwort_core::Value;
+use stitchwort_core::{ResourceError, Value};
 use stitchwort_syntax::{Diagnostic, Span};
 
 use crate::Ctx;
@@ -130,7 +130,7 @@ pub(crate) fn recoverable(cx: &Ctx, e: &Diagnostic) -> bool {
     // By its message, as the module's report recognises it: a nesting error
     // is also not marked exhausted, but is not a value too large to show.
     fatal(e)
-        && e.message.ends_with("too large to show")
+        && ResourceError::is_size_message(&e.message)
         && cx.g().machine.budget.exhausted().is_none()
 }
 

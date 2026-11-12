@@ -123,7 +123,7 @@ fn printing_too_large_a_value_is_an_error() {
     assert_eq!(error.code, "E-RESOURCE");
 }
 
-/// "A value was too large to show" in a theorem that unfolds an opaque
+/// "A value was too large to write out" in a theorem that unfolds an opaque
 /// definition names the theorem and the definition it unfolds, so the
 /// reader knows where the large value came from
 /// (docs/proposals/opaque-definitions.md §6.10).
@@ -154,7 +154,7 @@ fn a_value_too_large_to_show_names_the_declaration_and_what_it_unfolds() {
         .find(|d| d.code == "E-RESOURCE")
         .unwrap_or_else(|| panic!("{diagnostics:?}"));
     assert!(
-        resource.message.ends_with("too large to show"),
+        stitchwort_core::budget::ResourceError::is_size_message(&resource.message),
         "{resource:?}"
     );
     let notes = resource.notes.join("\n");

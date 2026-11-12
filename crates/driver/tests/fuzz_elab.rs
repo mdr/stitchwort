@@ -73,9 +73,9 @@ const MAX_LEN: usize = 64 * 1024;
 const STACK: usize = 16 * 1024 * 1024;
 /// Evaluation steps a case may spend (the default, 10^10, takes minutes).
 const WORK: u64 = 300_000_000;
-/// Nodes a value may grow to when read back (the default, 10 million, is
-/// 1.3 to 2.2 GB of terms when a case reaches it; several of the runaway
-/// cases did, for a verdict, `E-RESOURCE`, that comes the same at a tenth).
+/// Nodes a value may grow to when read back (the default is 2 million;
+/// several of the runaway cases reached it, for a verdict, `E-RESOURCE`,
+/// that comes the same at half).
 const SIZE: u64 = 1_000_000;
 /// A case still running after this long is a hang.
 const WATCHDOG: Duration = Duration::from_secs(60);
