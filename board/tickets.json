@@ -30754,15 +30754,17 @@
     {
       "id": 2897,
       "title": "[DeepSeek] Book G6: stitchwort goal --summary: open goals per namespace; also in the playground's status line (proving-with-stitchwort-outline.md)",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": ".claude/worktrees/scratch-sw-2897",
       "labels": [],
       "epic": "docs-tutorials",
-      "body": "",
+      "body": "\nModel result: DeepSeek, worked (one unquoted browser filter ran the whole suite), ~40 min (est. 45)",
       "created": "2026-11-11",
       "updated": "2026-11-12",
-      "commits": []
+      "commits": [
+        "75e26be14"
+      ]
     },
     {
       "id": 2898,
