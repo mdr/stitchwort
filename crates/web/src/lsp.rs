@@ -152,6 +152,12 @@ impl SearchWorker {
     pub fn run(&self, job: &str) -> String {
         self.inner.run(job)
     }
+
+    /// Loads the library the searches replay, so the first doesn't wait for
+    /// it (`stitchwort_lsp::Searcher::warm`).
+    pub fn warm(&self) {
+        self.inner.warm();
+    }
 }
 
 impl Default for SearchWorker {

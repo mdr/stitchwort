@@ -61,15 +61,37 @@ const ready = (async () => {
 // ---- searches --------------------------------------------------------------
 
 let searcher = null;
+let searcherLoaded = false;
 let running = null; // { key, id, t }
 const queue = []; // [{ key, id, search }]
 const key = (id) => JSON.stringify(id);
+// Whether the server has checked a document: until then its first check
+// shouldn't compete with the search worker's library load.
+let checked = false;
+let warmed = false;
+
+/**
+ * Starts the search worker before a search needs it, once the first check is
+ * done and there is a project to search in: the rest of a project's check
+ * goes on while the library loads.
+ */
+function warmSearcher() {
+  if (warmed || !checked || projects.length === 0) return;
+  warmed = true;
+  if (!searcher) startSearcher();
+}
 
 function startSearcher() {
+  searcherLoaded = false;
   searcher = new Worker(new URL("./lsp-search-worker.js", import.meta.url), { type: "module" });
   searcher.postMessage({ module, bundle, projects, load });
   searcher.onmessage = ({ data }) => {
-    if (data.result !== undefined && running) {
+    if (data.ready !== undefined) {
+      searcherLoaded = true;
+      nextSearch();
+    } else if (data.warmed !== undefined) {
+      postMessage({ searchWorker: { ...data.warmed, at: performance.now() } });
+    } else if (data.result !== undefined && running) {
       const done = running;
       running = null;
       postMessage({ searched: performance.now() - done.t });
@@ -82,6 +104,7 @@ function startSearcher() {
       const done = running;
       searcher.terminate();
       searcher = null;
+      searcherLoaded = false;
       running = null;
       if (done) send(server.searched(done.key, "null"));
       nextSearch();
@@ -92,6 +115,10 @@ function startSearcher() {
 function nextSearch() {
   if (running || queue.length === 0) return;
   if (!searcher) startSearcher();
+  // Its init may not be done yet; the ready message starts the search. Its
+  // library load may still be running after that, and this worker's message
+  // chain makes the search wait for it rather than start a second load.
+  if (!searcherLoaded) return;
   const job = queue.shift();
   running = { key: job.key, id: job.id, t: performance.now() };
   searcher.postMessage({ job: JSON.stringify(job.search) });
@@ -109,6 +136,7 @@ function answered(k) {
   if (running?.key === k) {
     searcher.terminate();
     searcher = null;
+    searcherLoaded = false;
     running = null;
     postMessage({ searchStopped: k });
     nextSearch();
@@ -145,6 +173,10 @@ function tick() {
   send(JSON.stringify(answer.sent));
   takeSearches();
   postMessage({ tick: ms, published: answer.sent.length, startAbs: performance.timeOrigin + t, more: answer.more });
+  if (!checked && answer.sent.some((m) => m.method === "stitchwort/checked")) {
+    checked = true;
+    warmSearcher();
+  }
   if (answer.more) schedule();
 }
 
@@ -152,6 +184,7 @@ function loadProject(project) {
   projects.push(project);
   server.add_project(project.root, project.sources, project.paths, project.texts);
   searcher?.postMessage({ project });
+  warmSearcher();
   postMessage({ project: project.root, files: project.paths.length });
 }
 

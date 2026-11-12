@@ -867,6 +867,16 @@ impl Searcher {
         let cancel = Arc::new(AtomicBool::new(false));
         search.run(&self.options, &*self.source, cancel).to_string()
     }
+
+    /// Loads the library into the session [`Self::run`] keeps for a project's
+    /// searches, so that the first search doesn't wait for the load. A host
+    /// calls this when the search worker starts, while its page goes on
+    /// checking. No check cache: the browser's worker replays the library from
+    /// `Options::library`, which is where this load would look anyway.
+    pub fn warm(&self) {
+        let cancel = Arc::new(AtomicBool::new(false));
+        with_project_session(&self.options, None, cancel, |_| ());
+    }
 }
 
 /// A code action request not answered yet. Whoever swaps `answered` first
