@@ -2,6 +2,7 @@
 
 mod ability_errors;
 mod at;
+mod bool_clash;
 mod bool_props;
 mod chars;
 mod ctor_fields;

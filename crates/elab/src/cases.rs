@@ -13,7 +13,9 @@
 //!    same thing (`rfl`);
 //! 2. **contradiction**: a hypothesis is an equation between different
 //!    constructors (`False = True`), refuted by `J` along it into a family
-//!    that is `Unit` at one constructor and `Void` at the other;
+//!    that is `Unit` at one constructor and `Void` at the other; or `e =
+//!    True` beside `e = False` for the same Bool `e`, stuck or not
+//!    ([`bool_clash`]);
 //! 3. **taking an equation apart**: a hypothesis `C a = C b` adds `a = b`
 //!    (by `J` along it with a projection), and the node starts again;
 //! 4. **a hypothesis** of exactly the goal's type;
@@ -331,7 +333,7 @@ fn node(cx: &mut Ctx, run: &Rc<Run>, goal: &Value) -> Result<Term> {
         run.closed.borrow_mut().computation += 1;
         return Ok(term);
     }
-    if let Some(term) = by_contradiction(cx, goal)? {
+    if let Some(term) = by_contradiction(cx, goal, &visible(cx))? {
         run.closed.borrow_mut().contradiction += 1;
         return Ok(term);
     }
@@ -727,9 +729,9 @@ struct CtorEquation {
     right: (usize, Vec<Value>),
 }
 
-fn ctor_equations(cx: &Ctx) -> Result<Vec<CtorEquation>> {
+fn ctor_equations(cx: &Ctx, levels: &[usize]) -> Result<Vec<CtorEquation>> {
     let mut out = Vec::new();
-    for level in visible(cx) {
+    for &level in levels {
         out.extend(ctor_equation(cx, level)?);
     }
     Ok(out)
@@ -768,14 +770,118 @@ pub(crate) fn refute_equation(cx: &mut Ctx, level: usize, goal: &Value) -> Resul
     }
 }
 
-fn by_contradiction(cx: &mut Ctx, goal: &Value) -> Result<Option<Term>> {
-    let Some(eq) = ctor_equations(cx)?
+/// A proof of `goal` from hypotheses that can't both hold: an equation
+/// between different constructors, or `e = True` beside `e = False`. (`auto`
+/// uses it too, over every level: its context has no names.) `levels` are
+/// the hypotheses to look at.
+pub(crate) fn by_contradiction(
+    cx: &mut Ctx,
+    goal: &Value,
+    levels: &[usize],
+) -> Result<Option<Term>> {
+    if let Some(eq) = ctor_equations(cx, levels)?
         .into_iter()
         .find(|e| e.left.0 != e.right.0)
-    else {
+    {
+        return contradiction(cx, eq, goal).map(Some);
+    }
+    bool_clash(cx, goal, levels)
+}
+
+/// A hypothesis `e = C` or `C = e` (`C` a Bool constructor, `e` a Bool term
+/// that doesn't compute to one), as `(level, e, C is True, C on the left)`.
+fn bool_facts(cx: &Ctx, levels: &[usize]) -> Result<Vec<(usize, Value, bool, bool)>> {
+    let g = cx.g();
+    let bool_data = builtin_data(cx, Builtin::Bool)?;
+    let tru = builtin_ctor(cx, Builtin::True)?.1;
+    let mut out = Vec::new();
+    for &level in levels {
+        let Value::Eq(ty, l, r) = force(&g, cx.types[level].clone())? else {
+            continue;
+        };
+        if !matches!(force(&g, (*ty).clone())?, Value::Data(d, _) if d == bool_data) {
+            continue;
+        }
+        let (l, r) = (force(&g, (*l).clone())?, force(&g, (*r).clone())?);
+        let ctor = |v: &Value| match v {
+            Value::Ctor(d, c, _) if *d == bool_data => Some(*c == tru),
+            _ => None,
+        };
+        match (ctor(&l), ctor(&r)) {
+            (None, Some(is_true)) => out.push((level, l, is_true, false)),
+            (Some(is_true), None) => out.push((level, r, is_true, true)),
+            _ => {}
+        }
+    }
+    Ok(out)
+}
+
+/// Hypotheses `h1: e = True` and `h2: e = False` (either way round) for the
+/// same `e`, whatever `e` is: no reader or decision needed.
+///
+/// With both turned to the form `e = C` (a `J` along `C = e` into `y = C`,
+/// when the constructor is on the left), the proof of `False = True` is
+/// two `J`s: along `h2` into `y = e`, from `rfl`, gives `False = e`; along
+/// `h1` into `False = y`, from that, gives `False = True`. `Bool.falseNotTrue`
+/// refutes it.
+fn bool_clash(cx: &mut Ctx, goal: &Value, levels: &[usize]) -> Result<Option<Term>> {
+    let facts = bool_facts(cx, levels)?;
+    let g = cx.g();
+    let mut pair = None;
+    'search: for a in &facts {
+        if !a.2 {
+            continue;
+        }
+        for b in &facts {
+            if !b.2 && conv(&g, cx.level(), &a.1, &b.1)? {
+                pair = Some((a.clone(), b.clone()));
+                break 'search;
+            }
+        }
+    }
+    let Some(((t_level, e, _, t_left), (f_level, _, _, f_left))) = pair else {
         return Ok(None);
     };
-    contradiction(cx, eq, goal).map(Some)
+    let bool_data = builtin_data(cx, Builtin::Bool)?;
+    let bool_ty = || Some(Rc::new(Term::data(bool_data, Vec::new())));
+    let (tru, fls) = (
+        builtin_ctor(cx, Builtin::True)?,
+        builtin_ctor(cx, Builtin::False)?,
+    );
+    let ctor = |(d, c): (DataId, usize)| Term::ctor(d, c, Vec::new());
+    let motive = |body: Term| {
+        Term::Lam(
+            "y".into(),
+            Icit::Explicit,
+            Rc::new(Term::Lam("q".into(), Icit::Explicit, Rc::new(body))),
+        )
+    };
+    let var = |level: usize| Term::Var(cx.level() - 1 - level);
+    // `h: C = e` turned into `e = C`.
+    let turned = |h: Term, c: Term, flipped: bool| {
+        if !flipped {
+            return h;
+        }
+        let body = Term::Eq(bool_ty(), Rc::new(Term::Var(1)), Rc::new(c));
+        Term::J(Rc::new(motive(body)), Rc::new(Term::Refl), Rc::new(h))
+    };
+    let e_term = cx.quote(&e)?;
+    let h_true = turned(var(t_level), ctor(tru), t_left);
+    let h_false = turned(var(f_level), ctor(fls), f_left);
+    let e_under = e_term.shift(&g, 2, 0)?;
+    let back = Term::Eq(bool_ty(), Rc::new(Term::Var(1)), Rc::new(e_under));
+    let false_eq_e = Term::J(Rc::new(motive(back)), Rc::new(Term::Refl), Rc::new(h_false));
+    let forward = Term::Eq(bool_ty(), Rc::new(ctor(fls)), Rc::new(Term::Var(1)));
+    let false_eq_true = Term::J(
+        Rc::new(motive(forward)),
+        Rc::new(false_eq_e),
+        Rc::new(h_true),
+    );
+    let void_proof = Term::app(
+        Term::Def(builtin_def(cx, Builtin::FalseNotTrue)?),
+        false_eq_true,
+    );
+    absurd(cx, void_proof, goal).map(Some)
 }
 
 /// `Void.exfalso` (or `Void.absurd`, for a goal that isn't a proposition)
@@ -836,14 +942,20 @@ fn contradiction(cx: &mut Ctx, eq: CtorEquation, goal: &Value) -> Result<Term> {
             Rc::new(h),
         )
     };
+    absurd(cx, void_proof, goal)
+}
+
+/// `goal` from a proof of `Void`: `Void.exfalso` for a proposition,
+/// `Void.absurd` otherwise.
+fn absurd(cx: &mut Ctx, void_proof: Term, goal: &Value) -> Result<Term> {
     let goal_term = cx.quote_folded(goal)?;
-    let (via, implicit) = if is_proposition(cx, goal)? {
-        (builtin_def(cx, Builtin::VoidExfalso)?, goal_term)
+    let via = if is_proposition(cx, goal)? {
+        builtin_def(cx, Builtin::VoidExfalso)?
     } else {
-        (builtin_def(cx, Builtin::VoidAbsurd)?, goal_term)
+        builtin_def(cx, Builtin::VoidAbsurd)?
     };
     Ok(Term::app(
-        Term::app_icit(Term::Def(via), implicit, Icit::Implicit),
+        Term::app_icit(Term::Def(via), goal_term, Icit::Implicit),
         void_proof,
     ))
 }
@@ -904,7 +1016,7 @@ pub(crate) fn is_proposition(cx: &Ctx, goal: &Value) -> Result<bool> {
 fn take_apart(cx: &mut Ctx, run: &Rc<Run>, goal: &Value) -> Result<Option<Term>> {
     let g = cx.g();
     let mut facts: Vec<(usize, usize, Value, Value, Value)> = Vec::new();
-    for eq in ctor_equations(cx)? {
+    for eq in ctor_equations(cx, &visible(cx))? {
         if eq.left.0 != eq.right.0 {
             continue;
         }

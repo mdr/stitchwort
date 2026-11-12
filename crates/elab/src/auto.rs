@@ -35,7 +35,9 @@
 //! loads `omega`'s library, an arithmetic goal by `omega` within a small
 //! budget (`from_facts`). Last, the parts of a conjunction in scope are facts
 //! too, each as in 1 or as `Succ k ≤ d` (`from_conjuncts`): `h: b ≠ 0 ∧ c ≠ 0`,
-//! or the proof an `if b != 0 && c != 0` gives its branch.
+//! or the proof an `if b != 0 && c != 0` gives its branch. Failing that, a context
+//! that contradicts itself proves anything: `e = True` beside `e = False`, or
+//! an equation of different constructors (`cases`' closer, `by_contradiction`).
 //!
 //! An obligation whose type is an interface applied to a type is an instance
 //! to find instead (`interfaces.rs`, docs/proposals/interfaces.md §5.5).
@@ -308,6 +310,10 @@ pub fn prove(cx: &mut Ctx, goal: &Value, depth: usize) -> Result<Term> {
                 return Ok(proof);
             }
             if let Some(proof) = from_conjuncts(cx, &goal)? {
+                return Ok(proof);
+            }
+            let levels: Vec<usize> = (0..cx.level()).collect();
+            if let Some(proof) = crate::cases::by_contradiction(cx, &goal, &levels)? {
                 return Ok(proof);
             }
             let mut error = cx
