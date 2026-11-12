@@ -1,5 +1,5 @@
 {
-  "next": 3009,
+  "next": 3010,
   "tickets": [
     {
       "id": 47,
@@ -32291,9 +32291,24 @@
     {
       "id": 3008,
       "title": "[Opus] W-UNREACHABLE false positives (45 in aoc/rogue, list docs/reviews/SW-3004-unreachable-kept.txt): (1) the impossibility shows only through an unfolded call (match e: firstBent lines … | Some … => Void.exfalso (Result.errNotOk h) with h about checkShapes lines): deleting gives E-NONEXHAUSTIVE since the left-out-case rule looks only at hypotheses mentioning the scrutinee; (2) arms deletable one at a time but not together ([], [] and [], [slot, ..slots] leave [], _ which won't split); also the all-arms exception makes a warning depend on which arms were already removed (Day24 Sums.sw twin). Warn only where leaving the arm out checks (SW-3004 finding)",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-3008",
+      "labels": [],
+      "epic": "diagnostics",
+      "body": "12 Nov (lane, Opus, lane/SW-3008, 17:47-18:05): done, commits fbc9b7252 (elab: warnings decided per match by recompiling without the flagged arms, coverage-only check; tests; syntax.md) and 640813a07 (aoc: 12 arms the new rule finds deletable, removed, namespaces checked). Of the 45 kept arms, none warns now except those deleted in 640813a07 (Day16 Sound 8, Day18 Lemmas 2, Day21 Direct 2), each verified deleting together. Tests: indexed_families 16/16 (3 new), redundant_arms 5/5, hash_stability 10/10, examples accepted/goal/rejected/soundness 7/7, no snapshot changes.\nModel result: Opus, worked, 20 min (est. 90). Open (not asked): accept left-out char cases and [], _ remainders instead; lane recommends leaving it.",
+      "created": "2026-11-12",
+      "updated": "2026-11-12",
+      "commits": [
+        "fbc9b7252"
+      ]
+    },
+    {
+      "id": 3009,
+      "title": "[DeepSeek] W-UNREACHABLE's arm span misses the body's closing bracket: for '| Succ a, b => Void.exfalso (Bool.falseNotTrue h)' it ends before the final ')' (SW-3008 finding; tests compare only patterns because of it)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
       "labels": [],
       "epic": "diagnostics",
       "body": "",
