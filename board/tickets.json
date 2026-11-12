@@ -31456,15 +31456,17 @@
     {
       "id": 2951,
       "title": "[DeepSeek] Daily failure at 9250b60c1: check_cache::plain_check_skipping_unneeded_namespaces_is_the_same_after_edits panics at check_cache.rs:449 (left [], right [Other, Other.Tests]): after a namespace's error is fixed, Other is no longer skipped; likely SW-2940's 'a namespace with errors is never stored'. Decide: real cache regression (fix) or expected (update test with reason)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "diagnostics",
-      "body": "",
+      "body": "Cause: stage 1 (SW-2940) checks importers of a broken namespace; a clean importer was written under a key containing the broken source, and one-entry-per-namespace (D283) evicted its healthy entry, so restoring the source missed. Fix: importers whose dependency closure has a namespace with an error are checked but not stored (Session::failed_namespaces, journaled). Test removing_an_error_finds_its_importers_earlier_entries.\nModel result: DeepSeek, worked, 18 min (est. 30)",
       "created": "2026-11-12",
       "updated": "2026-11-12",
-      "commits": []
+      "commits": [
+        "06a6df848"
+      ]
     },
     {
       "id": 2952,
