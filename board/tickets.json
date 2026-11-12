@@ -32807,15 +32807,17 @@
     {
       "id": 3044,
       "title": "[Sonnet] D3541 (a): deriving (DecEq) also generates readings T.%sameReads (T.%same x y ↔ x = y) and T.%sameReadsFalse (= False ↔ x ≠ y) from %sameSound/%sameComplete, filed with the derived instance so reading-order edges see them; records too (so a record's == reads as x = y, not a conjunction of fields). Examples on a sum type and a record; docs/syntax.md Readings; proposal §5.4 note. After SW-3031 merges",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-3044",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "\nModel result: Sonnet, worked, ~26 min (est. 75). Lane's 5 E-RESOURCE hash failures didn't reproduce after merging main (22/22).",
       "created": "2026-11-12",
       "updated": "2026-11-12",
-      "commits": []
+      "commits": [
+        "974d768f3"
+      ]
     },
     {
       "id": 3045,
