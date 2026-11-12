@@ -1,5 +1,5 @@
 {
-  "next": 3036,
+  "next": 3041,
   "tickets": [
     {
       "id": 47,
@@ -32630,12 +32630,12 @@
     {
       "id": 3031,
       "title": "[Opus] Bool as proposition stage 3b: the stuck-decision step (bool-as-proposition.md §5.4 step 2) and the warning when a decision's holds isn't the test its proposition's reading reads (§13), with the mismatch note suggesting .read",
-      "status": "doing",
+      "status": "review",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-3031",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "\nBuilt on lane/SW-3031 (f848fc9ab, ddb690b5d, 5b6ee18e0), Opus 52 min (est. 3 h): stuck decisions read via Decidable.sound/complete/refute/toBoolOfNot (toBoolOfNot moved into core; Refute, ToBoolOfNot registry built-ins); W-DECISION-TEST; .read note on E-TYPE-MISMATCH; warnings credited to their own declaration. Open: D3541 (derived == reading: (a) generated %sameReads, (b) reader falls back to sound/complete) [rec a]. Opus review before merge.",
       "created": "2026-11-12",
       "updated": "2026-11-12",
       "commits": []
@@ -32689,6 +32689,71 @@
       "where": "",
       "labels": [],
       "epic": "std-library",
+      "body": "",
+      "created": "2026-11-12",
+      "updated": "2026-11-12",
+      "commits": []
+    },
+    {
+      "id": 3036,
+      "title": "[Sonnet] let patterns on test facts fail when the goal is a bare Prop variable (theorem a1 [p: Prop] (a b: Bool) (h: (a && b) = True) (f: b = True → p): p := let Both _ y := h; f y → E-TYPE-MISMATCH; patlet.rs projects since p isn't evidently a Prop; match works) (SW-3031 finding 1)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "diagnostics",
+      "body": "",
+      "created": "2026-11-12",
+      "updated": "2026-11-12",
+      "commits": []
+    },
+    {
+      "id": 3037,
+      "title": "[Sonnet] if a ∧ b on Bools decides a = True via Bool.decEq (a match), not Bool.decTrue, so its test is stuck on unknowns and isn't a && b (bool-as-proposition §13 in the core) (SW-3031 finding 2)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "diagnostics",
+      "body": "",
+      "created": "2026-11-12",
+      "updated": "2026-11-12",
+      "commits": []
+    },
+    {
+      "id": 3038,
+      "title": "[Sonnet] Derived Decidable instances of proposition records (T.%instDecidable, e.g. guide's Within) are nested ifs of Decidable.yes/no: build them test first, as SW-2968 did for DecEq (SW-3031 finding 3)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "diagnostics",
+      "body": "",
+      "created": "2026-11-12",
+      "updated": "2026-11-12",
+      "commits": []
+    },
+    {
+      "id": 3039,
+      "title": "[Sonnet] Accept examples don't check warnings unless the file declares expect-warning: a new warning anywhere passes unnoticed; make accept examples fail on unexpected warnings (SW-3031 finding 4)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "diagnostics",
+      "body": "",
+      "created": "2026-11-12",
+      "updated": "2026-11-12",
+      "commits": []
+    },
+    {
+      "id": 3040,
+      "title": "[Sonnet] Check the check cache replays W-DECISION-TEST and other post-definition warnings for declarations loaded from the cache (SW-3031 finding 5)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "diagnostics",
       "body": "",
       "created": "2026-11-12",
       "updated": "2026-11-12",
