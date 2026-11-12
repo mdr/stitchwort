@@ -398,10 +398,11 @@ pub(crate) struct ArmReach {
     dropped: Vec<(Span, String)>,
     reached: Vec<Span>,
     /// The arms with a body whose case was impossible where one of their
-    /// leaves was checked (with why), and the arms with a leaf that wasn't.
-    /// An arm warns when it is in the first and not the second: every case
-    /// it covers is ruled out.
-    impossible: Vec<(Span, String)>,
+    /// leaves was checked (with why, and whether the span is an or-pattern's
+    /// alternative rather than the whole arm), and the arms with a leaf that
+    /// wasn't. An arm warns when it is in the first and not the second:
+    /// every case it covers is ruled out.
+    impossible: Vec<(Span, String, bool)>,
     possible: Vec<Span>,
 }
 
@@ -419,12 +420,13 @@ pub(crate) fn reached(cx: &Ctx, span: Span) {
     cx.e.decl.arm_reach.borrow_mut().reached.push(span);
 }
 
-/// Records whether the arm at `span`, whose body is checked now, covers
-/// this case though a hypothesis rules it out (`why`).
-pub(crate) fn note_arm_case(cx: &Ctx, span: Span, why: Option<String>) {
+/// Records whether the arm at `span` (an or-pattern's alternative if
+/// `alternative`), whose body is checked now, covers this case though a
+/// hypothesis rules it out (`why`).
+pub(crate) fn note_arm_case(cx: &Ctx, span: Span, alternative: bool, why: Option<String>) {
     let mut reach = cx.e.decl.arm_reach.borrow_mut();
     match why {
-        Some(why) => reach.impossible.push((span, why)),
+        Some(why) => reach.impossible.push((span, why, alternative)),
         None => reach.possible.push(span),
     }
 }
@@ -455,16 +457,32 @@ pub(crate) fn warn_unreachable<T>(
                     .with_label(span, why),
             );
         }
-        for (span, why) in here.impossible {
+        // When every arm reached is ruled out, deleting them all would leave
+        // a `match` with no arms, which can't be written: the last one stays.
+        let ruled_out = |span: &Span| {
+            !here.possible.contains(span) && here.impossible.iter().any(|(s, ..)| s == span)
+        };
+        let kept = match here.reached.iter().all(ruled_out) {
+            true => here
+                .reached
+                .iter()
+                .max_by_key(|s| (s.start, s.end))
+                .copied(),
+            false => None,
+        };
+        for (span, why, alternative) in here.impossible {
             let warned =
                 (warnings.iter()).any(|w| w.labels.first().is_some_and(|l| l.span == span));
-            if here.possible.contains(&span) || warned {
+            if here.possible.contains(&span) || warned || kept == Some(span) {
                 continue;
             }
             warnings.push(
                 Diagnostic::warning("W-UNREACHABLE", "this case can't happen")
                     .with_label(span, why)
-                    .with_note("the arm can be deleted"),
+                    .with_note(match alternative {
+                        true => "this alternative of the pattern can be deleted",
+                        false => "the arm can be deleted",
+                    }),
             );
         }
     }

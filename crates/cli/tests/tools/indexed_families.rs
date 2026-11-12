@@ -112,19 +112,15 @@ fn declarations_need_their_parts() {
     result.unwrap();
 }
 
-/// The `W-UNREACHABLE` warnings of the program `text` itself: those of the
-/// library, which load first, are left out.
+/// The `W-UNREACHABLE` warnings of the program `text`: the library has
+/// none of its own.
 fn written_unreachable(text: &str) -> Vec<Diagnostic> {
-    let (library, _) = load("def one: Nat := 1\n");
     let (session, result) = load(text);
     result.unwrap();
-    (unreachable(&session).into_iter())
-        .skip(unreachable(&library).len())
-        .cloned()
-        .collect()
+    unreachable(&session).into_iter().cloned().collect()
 }
 
-const MOVES: &str = "import Std (Bool, Void)\n\ntype Move = | Rock | Paper | Scissors\n\n\
+const MOVES: &str = "import Std (Bool, Eq, Void)\n\ntype Move = | Rock | Paper | Scissors\n\n\
                      def beats: Move -> Move -> Bool\n  \
                      | Rock, Scissors => True\n  | Paper, Rock => True\n  \
                      | Scissors, Paper => True\n  | _, _ => False\n\n";
@@ -169,12 +165,58 @@ fn an_arm_that_uses_its_own_impossible_variable_does_not_warn() {
 
 #[test]
 fn an_arm_possible_in_one_branch_does_not_warn() {
-    // The wildcard arm covers `Scissors` too, where `h` holds.
+    // The `Paper | Scissors` arm covers `Scissors` too, where `h` holds: its
+    // `Paper` alternative warns, not the arm.
     let found = written_unreachable(&format!(
         "{MOVES}theorem only (theirs: Move) (h: beats Rock theirs): theirs = Scissors :=\n  \
          match theirs with\n    \
          | Rock => Void.exfalso (Bool.falseNotTrue h)\n    \
-         | _ => cases\n"
+         | Paper | Scissors => cases\n"
     ));
-    assert_eq!(found.len(), 1, "{found:#?}");
+    let notes: Vec<_> = found.iter().map(|w| w.notes[0].as_str()).collect();
+    assert_eq!(
+        notes,
+        vec![
+            "the arm can be deleted",
+            "this alternative of the pattern can be deleted"
+        ],
+        "{found:#?}"
+    );
+}
+
+#[test]
+fn an_arm_a_later_arm_would_cover_does_not_warn() {
+    // Without the `Rock` arm, `_` would take `Rock`, where `rfl` fails.
+    let found = written_unreachable(&format!(
+        "{MOVES}theorem only (theirs: Move) (h: beats Rock theirs): theirs = Scissors :=\n  \
+         match theirs with\n    \
+         | Rock => Void.exfalso (Bool.falseNotTrue h)\n    \
+         | Paper => Void.exfalso (Bool.falseNotTrue h)\n    \
+         | _ => rfl\n"
+    ));
+    assert!(found.is_empty(), "{found:#?}");
+}
+
+#[test]
+fn the_last_arm_of_a_match_ruled_out_whole_does_not_warn() {
+    // A `match` with no arms can't be written: the first two arms warn,
+    // the last stays.
+    let found = written_unreachable(&format!(
+        "{MOVES}theorem never (theirs: Move) (h: beats Rock theirs) (e: theirs = Rock): Void :=\n  \
+         match theirs with\n    \
+         | Rock => Void.exfalso (Bool.falseNotTrue h)\n    \
+         | Paper => Void.exfalso (Bool.falseNotTrue h)\n    \
+         | Scissors => Void.exfalso (Bool.trueNotFalse (Eq.cong (m => beats Rock m) e))\n"
+    ));
+    assert_eq!(found.len(), 2, "{found:#?}");
+}
+
+#[test]
+fn the_cases_of_cases_do_not_warn() {
+    // `cases` splits `theirs` itself; the impossible cases it makes aren't
+    // arms anyone wrote.
+    let found = written_unreachable(&format!(
+        "{MOVES}theorem only (theirs: Move) (h: beats Rock theirs): theirs = Scissors := cases\n"
+    ));
+    assert!(found.is_empty(), "{found:#?}");
 }

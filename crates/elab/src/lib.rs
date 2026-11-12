@@ -626,6 +626,10 @@ enum Tree<'a> {
         span: Span,
         /// The spans of the or-pattern alternatives that chose the arm.
         alternatives: Vec<Span>,
+        /// Whether rows after the arm's could match here too: without the
+        /// arm, one of them would take the case, so `W-UNREACHABLE` can't
+        /// promise the arm can be deleted.
+        later: bool,
     },
     /// The first row matched whatever is left, under a condition: `leaf` if
     /// it holds, otherwise `otherwise`, the rows after it. Checked as the
@@ -3643,6 +3647,7 @@ impl Elaborator {
                 rhs: first_rhs,
                 span: first_span,
                 alternatives: Vec::new(),
+                later: false,
             }
         } else {
             let rows: Vec<Row> = equations
@@ -3864,6 +3869,7 @@ impl Elaborator {
                 rhs: first.rhs,
                 span: first.span,
                 alternatives: first.alternatives.clone(),
+                later: rows.len() > 1,
             };
             let Some(guard) = first.guard else {
                 return Ok(leaf);
@@ -4777,15 +4783,27 @@ fn check_leaf(cx: &mut Ctx, tree: &Tree, goal: &Value, guarded: bool) -> Result<
         rhs,
         span,
         alternatives,
+        later,
     } = tree
     else {
         unreachable!("a leaf")
     };
     families::reached(cx, *span);
-    if *span != Span::NOWHERE && !guarded && rhs.is_some() {
-        let bound: Vec<usize> = aliases.iter().map(|&(_, level)| level).collect();
-        let why = impossible_reason(cx, &bound)?;
-        families::note_arm_case(cx, *span, why);
+    // An arm `cases` makes as it splits has its `cases` as the whole arm:
+    // nothing written there can be deleted.
+    if let Some(body) = rhs
+        && *span != Span::NOWHERE
+        && body.span() != *span
+        && !guarded
+    {
+        let why = match later {
+            true => None,
+            false => {
+                let bound: Vec<usize> = aliases.iter().map(|&(_, level)| level).collect();
+                impossible_reason(cx, &bound)?
+            }
+        };
+        families::note_arm_case(cx, *span, !alternatives.is_empty(), why);
     }
     cx.e.decl.leaf_log.borrow_mut().record(*span, alternatives);
     let Some(rhs) = rhs else {
@@ -5165,12 +5183,14 @@ fn shifted<'a>(tree: &Tree<'a>, from: usize) -> Tree<'a> {
             rhs,
             span,
             alternatives,
+            later,
         } => Tree::Leaf {
             aliases: aliases.iter().map(|&(x, l)| (x, up(l))).collect(),
             written: written.clone(),
             rhs: *rhs,
             span: *span,
             alternatives: alternatives.clone(),
+            later: *later,
         },
         Tree::Guard {
             guard,
