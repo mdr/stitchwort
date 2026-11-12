@@ -1,7 +1,7 @@
 # Checking and running tests when a project has errors or open goals
 
 **Status:** proposed, 11 November 2026 (SW-2938), for Matt's decisions,
-listed [at the end](#10-decisions-for-matt). D-a (D3524) and D-c (D3525) accepted; stage 1
+listed [at the end](#10-decisions-for-matt). D-a (D3524), D-b (D3527) and D-c (D3525) accepted; stage 1
 built (SW-2940): importers are checked, `E-USES-FAILED` replaces
 `E-NAMESPACE-FAILED` except in the editor's live project while a namespace
 used has a syntax error (§6). It answers D3524 (what
@@ -486,7 +486,7 @@ book with the slip; stage 3 core's assumption tests and
   open goal already does across namespaces, it adds no trust (the kernel
   still refuses anything built on a failed declaration), and it's the
   whole fix for the book.]
-- **D-b: an error is an assumption too.** A declaration with a checked
+- **D-b (D3527, accepted 12 Nov 2026): an error is an assumption too.** A declaration with a checked
   statement and a broken body is stood in for by an assumption of its
   statement, so what uses it is checked, and reported as relying on it,
   never as finished. [rec: yes, as stage 3, after D-a's stage. Same
