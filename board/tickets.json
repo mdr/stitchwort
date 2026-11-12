@@ -1,5 +1,5 @@
 {
-  "next": 2988,
+  "next": 2989,
   "tickets": [
     {
       "id": 47,
@@ -31964,6 +31964,19 @@
       "where": ".claude/worktrees/scratch-sw-2987",
       "labels": [],
       "epic": "test-infra",
+      "body": "",
+      "created": "2026-11-12",
+      "updated": "2026-11-12",
+      "commits": []
+    },
+    {
+      "id": 2988,
+      "title": "[DeepSeek] E-NO-READING on a pattern points at the whole match, not the pattern that failed (SW-2977 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
       "body": "",
       "created": "2026-11-12",
       "updated": "2026-11-12",
