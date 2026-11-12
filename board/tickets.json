@@ -32102,9 +32102,9 @@
     {
       "id": 2995,
       "title": "[Sonnet] Full tier at 58c3bcac7 (Overmind, 12 Nov): conv_shortcut::every_rejected_example_gets_the_same_verdict_without_the_shortcut fails on reject/as-written-unconfirmed-other-rounds.sw: with the shortcut E-TYPE-MISMATCH (Some y = Some answer vs None = Some answer, + W-MATCH-NOT-FOUND); without it E-RESOURCE while checking slowCheck (unfolding Bool.ifThenElse). Decide whether the example should be budget-independent (shrink slowCheck) or the test should allow E-RESOURCE differences; reproduce by name first (it took 1875 s under full)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-2995",
       "labels": [],
       "epic": "test-infra",
       "body": "",
