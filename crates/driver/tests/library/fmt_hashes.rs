@@ -5,6 +5,15 @@
 //! with the same tests. This goes through the elaborator, so it is
 //! independent of the formatter's own parser-level checks.
 //!
+//! Only what formatting changes is loaded: a file the formatter leaves as it
+//! is would be loaded twice from the same text, and a project none of whose
+//! files it changes likewise. The repository is kept formatted, so that is
+//! almost every file (on 12 Nov 2026, 2 of the 819 standalone files changed,
+//! and no project), and loading them twice was nearly all of this test's
+//! time (the full tier's 2,213 s with the AoC project, SW-2962). Formatting
+//! every file is cheap (the whole corpus in about 10 s), so every tier
+//! formats all of it and loads every file it changes.
+//!
 //! Scope is D1019: `examples/reject`, `examples/soundness` and
 //! `examples/projects/reject` are left out, and so is `crates/fmt/tests/it/golden`
 //! (kept as written). The core and library under `crates/elab/src/std` are
@@ -19,7 +28,7 @@ use std::path::{Path, PathBuf};
 
 use stitchwort_core::hash::{ContentHash, data_hash, def_hash};
 use stitchwort_core::{DataId, DefId};
-use stitchwort_driver::driver::{Session, full_tier, par_map, tier_sample};
+use stitchwort_driver::driver::{Session, full_tier, par_map};
 use stitchwort_driver::project::{DiskFiles, Entry, Files, Target};
 
 #[path = "../../../fmt/tests/it/support/repo_files.rs"]
@@ -160,6 +169,8 @@ enum Outcome {
     NotLoadable,
     /// The formatter refuses it.
     Refused,
+    /// Formatting leaves it as it is, so there is nothing to compare.
+    Unchanged,
     Failures(Vec<String>),
 }
 
@@ -168,6 +179,9 @@ fn file_outcome(root: &Path, path: &str) -> Outcome {
     let Ok(formatted) = stitchwort_fmt::format(&text) else {
         return Outcome::Refused;
     };
+    if formatted == text {
+        return Outcome::Unchanged;
+    }
     let load = |text: &str| {
         let (mut session, first) = start();
         let loaded = session.load(path, text).is_ok();
@@ -191,6 +205,15 @@ fn file_outcome(root: &Path, path: &str) -> Outcome {
     } else {
         Outcome::Failures(failures)
     }
+}
+
+/// Whether formatting changes any of the project's `.sw` files (`sources`,
+/// by path from the repository's `root`).
+fn formatting_changes_any(root: &Path, sources: &[&str]) -> bool {
+    sources.iter().any(|path| {
+        let text = std::fs::read_to_string(root.join(path)).unwrap();
+        stitchwort_fmt::format(&text).is_ok_and(|formatted| formatted != text)
+    })
 }
 
 fn project_failures(dir: &Path, name: &str) -> Vec<String> {
@@ -255,22 +278,26 @@ fn formatting_changes_no_declaration_hash() {
     );
 
     let only = std::env::var("FMT_HASHES").unwrap_or_default();
-    let standalone: Vec<&str> = standalone
+    let mut standalone: Vec<&str> = standalone
         .into_iter()
         .filter(|p| p.contains(&only))
         .collect();
     let projects: Vec<String> = projects.into_iter().filter(|p| p.contains(&only)).collect();
-    // The AoC project is checked whole twice: 137 s of the daily sample's
-    // 160 s on one thread (31 Oct 2026, under load), so the full tier's only.
-    let projects: Vec<String> = projects
+    // A project is loaded only if formatting changes one of its files; the
+    // AoC project, when it is, is checked whole twice (137 s on one thread
+    // under load, 31 Oct 2026), so in the full tier only.
+    let in_dir = |dir: &str| -> Vec<&str> {
+        sources
+            .iter()
+            .copied()
+            .filter(|p| p.starts_with(&format!("{dir}/")))
+            .collect()
+    };
+    let mut projects: Vec<String> = projects
         .into_iter()
+        .filter(|p| formatting_changes_any(&root, &in_dir(p)))
         .filter(|p| p != "aoc" || full_tier("formatting_changes_no_declaration_hash's AoC project"))
         .collect();
-    // A corpus sweep: a fixed sample below the full tier, and the count of
-    // files compared expected in proportion.
-    let all = standalone.len();
-    let mut standalone = tier_sample(standalone, 8);
-    let mut projects = tier_sample(projects, 8);
     // A slice of the standalone files, to measure or bisect; the projects
     // are left out.
     let env_count = |name: &str| {
@@ -288,12 +315,13 @@ fn formatting_changes_no_declaration_hash() {
     }
 
     let mut failures = Vec::new();
-    let (mut compared, mut not_loadable, mut refused) = (0, 0, 0);
+    let (mut compared, mut not_loadable, mut refused, mut unchanged) = (0, 0, 0, 0);
     for outcome in par_map(STACK, &standalone, |p| file_outcome(&root, p)) {
         match outcome {
             Outcome::Compared => compared += 1,
             Outcome::NotLoadable => not_loadable += 1,
             Outcome::Refused => refused += 1,
+            Outcome::Unchanged => unchanged += 1,
             Outcome::Failures(f) => failures.extend(f),
         }
     }
@@ -307,28 +335,23 @@ fn formatting_changes_no_declaration_hash() {
     }) {
         failures.extend(f);
     }
-    let project_files: usize = projects
-        .iter()
-        .map(|dir| {
-            sources
-                .iter()
-                .filter(|p| p.starts_with(&format!("{dir}/")))
-                .count()
-        })
-        .sum();
+    let project_files: usize = projects.iter().map(|dir| in_dir(dir).len()).sum();
     println!(
-        "hash oracle: {compared} files compared; skipped {not_loadable} that don't load on \
-         their own and {refused} the formatter refuses, and {embedded} embedded std files \
-         (compiled into the compiler); {} projects compared ({project_files} files)",
+        "hash oracle: {compared} files compared; skipped {unchanged} that formatting leaves \
+         as they are, {not_loadable} that don't load on their own, {refused} the formatter \
+         refuses, and {embedded} embedded std files (compiled into the compiler); {} \
+         projects compared ({project_files} files)",
         projects.len(),
     );
     assert!(failures.is_empty(), "{}", failures.join("\n"));
     let sliced = std::env::var_os("FMT_HASHES_SKIP").is_some()
         || std::env::var_os("FMT_HASHES_LIMIT").is_some();
     if only.is_empty() && !sliced {
+        // Every file was at least formatted: none went missing from the
+        // corpus.
         assert!(
-            compared > 100 * standalone.len() / all,
-            "only {compared} files compared"
+            compared + unchanged > 100,
+            "only {compared} files compared and {unchanged} unchanged"
         );
     }
 }

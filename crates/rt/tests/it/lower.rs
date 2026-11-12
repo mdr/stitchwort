@@ -26,8 +26,18 @@ fn well_formed(program: &Program, what: &str) {
     let _ = program.to_string();
 }
 
-/// Every definition with a body (or a primitive), lowered together.
+/// Every definition with a body (or a primitive), lowered together, and
+/// the program's tests run on the IR.
 fn lower_everything(session: &Session, what: &str) -> usize {
+    lower_everything_where(session, what, |_| true)
+}
+
+/// [`lower_everything`], running only the tests `keep` keeps.
+fn lower_everything_where(
+    session: &Session,
+    what: &str,
+    keep: impl Fn(&stitchwort_elab::TestDecl) -> bool + Copy,
+) -> usize {
     let g = &session.elab.ev();
     // Not what relies on an open goal: it may reach the goal's assumption,
     // which has nothing to run.
@@ -40,18 +50,24 @@ fn lower_everything(session: &Session, what: &str) -> usize {
         .unwrap_or_else(|e| panic!("{what}: lowering every definition: {e:?}"));
     // Well formed, and printable.
     well_formed(&program, what);
-    run_tests(session, &program, what, false)
+    run_tests(session, &program, what, false, keep)
 }
 
 /// Runs the program's own tests on the IR, with the reference interpreter
 /// in `interp/`, and compares each outcome with the reference evaluator's
 /// (`stitchwort test`). A test that uses partial computations, which the
 /// interpreter doesn't run, is skipped. How many tests ran.
-fn run_tests(session: &Session, program: &Program, what: &str, library: bool) -> usize {
+fn run_tests(
+    session: &Session,
+    program: &Program,
+    what: &str,
+    library: bool,
+    keep: impl Fn(&stitchwort_elab::TestDecl) -> bool + Copy,
+) -> usize {
     // The real-input tests are left out, as in `machine.rs`'s `aoc_agrees`:
     // on the reference evaluator they take minutes (SW-412), and the
     // machine checks the answers (`aoc_answers`).
-    let keep = |t: &stitchwort_elab::TestDecl| !t.name.starts_with("real input");
+    let keep = |t: &stitchwort_elab::TestDecl| !t.name.starts_with("real input") && keep(t);
     let results = if library {
         session.run_library_tests(&Cache::disabled())
     } else {
@@ -205,11 +221,40 @@ fn every_aoc_main_lowers() {
     if !stitchwort_driver::driver::full_tier("every_aoc_main_lowers") {
         return;
     }
-    with_stack(STACK, || {
-        let mains = lower_project(&root().join("aoc"));
-        eprintln!("lowered {mains} AoC mains");
-        assert!(mains >= 7, "{mains}");
+    // Each part of the project in a session of its own, side by side
+    // (`differential::aoc_parts`).
+    let parts = crate::differential::aoc_parts();
+    let lowered = par_map(STACK, &parts, |part| {
+        let mut session = crate::differential::aoc_part(part);
+        let tests =
+            lower_everything_where(&session, part, |t| crate::differential::in_part(t, part));
+        let within = format!("{part}.");
+        let mains: Vec<String> = session
+            .elab
+            .ev()
+            .env
+            .defs()
+            .iter()
+            .filter(|d| is_main(d.name()) && d.path().starts_with(&within))
+            .map(|d| d.name().to_string())
+            .collect();
+        for main_name in &mains {
+            let main = session
+                .main_named(main_name, "aoc")
+                .unwrap_or_else(|e| panic!("{main_name}: {e:?}"));
+            let g = &session.elab.ev();
+            let program = lower_main(g, session.elab.options.limits, main.term(), main.row)
+                .unwrap_or_else(|e| panic!("lowering {main_name}: {e:?}"));
+            well_formed(&program, main_name);
+        }
+        (tests, mains.len())
     });
+    let tests: usize = lowered.iter().map(|(t, _)| t).sum();
+    let mains: usize = lowered.iter().map(|(_, m)| m).sum();
+    eprintln!("lowered {mains} AoC mains; ran {tests} AoC tests on the IR");
+    if std::env::var_os("AOC_PARTS").is_none() {
+        assert!(mains >= 7, "{mains}");
+    }
 }
 
 /// The whole library lowers, and its own tests (many of them of the text
@@ -225,7 +270,7 @@ fn the_library_lowers_and_its_tests_agree() {
             .collect();
         let program = lower_definitions(g, session.elab.options.limits, &ids).expect("lowers");
         well_formed(&program, "the library");
-        let ran = run_tests(&session, &program, "the library", true);
+        let ran = run_tests(&session, &program, "the library", true, |_| true);
         eprintln!("ran {ran} library tests on the IR");
         assert!(ran >= 70, "{ran}");
     });
@@ -247,7 +292,7 @@ fn the_library_rebuilds_its_determined_fields() {
             .collect();
         let program = lower_definitions(g, session.elab.options.limits, &ids).expect("lowers");
         well_formed(&program, "the library");
-        let ran = run_tests(&session, &program, "the library", true);
+        let ran = run_tests(&session, &program, "the library", true, |_| true);
         assert!(ran >= 70, "{ran}");
     });
 }
