@@ -32947,12 +32947,12 @@
     {
       "id": 3054,
       "title": "[Opus] Regression from SW-2968 (derived DecEq built test first): proofs that match on a derived == no longer check. aoc: 20 errors (2020 Day07/17/21, 2021 Day10/12/14, 2024 Day12/15/22/23, …; 100 dependants), roguelike: 2 (Rogue.Proofs.lookupMonsterMark, renderEveryMonster at Render.sw:29 and :93: DecEq.sound same can't solve its decEq/x/y implicits under match same: a == b; also rewrite finding no c.name.toList on microtypes). Clean at f73ddbdf7 (just before), broken at 39a884269 (the merge). Repro: cd games/rogue && stitchwort check --no-cache (5 s); cd aoc && stitchwort check --no-cache (64 s). Found by the overnight queue 12 Nov. Fix the elaborator so these proofs check unchanged if the old shape is what they rely on, otherwise update the proofs to the new shape (the readings from SW-3044 may give shorter forms); keep std clean. Blocks the morning's merges' aoc confidence; first in lanes mode.",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "\nStarted 12 Nov ~23:20 on Opus at Matt's request (\"Fix sw 3054 tonight\"). Estimate: 60 min.",
       "created": "2026-11-12",
       "updated": "2026-11-12",
       "commits": []
