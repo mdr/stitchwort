@@ -1,5 +1,5 @@
 {
-  "next": 2963,
+  "next": 2964,
   "tickets": [
     {
       "id": 47,
@@ -31568,28 +31568,32 @@
     {
       "id": 2959,
       "title": "[Sonnet] Instant Cmd+. (D3529, Matt's direction on SW-2958): the code-action list (Split on x, Search for a proof) answers at once from the checked file without the search session; Split built without it; Search for a proof runs only when picked, with progress; and the playground's search worker keeps std loaded between searches (today 17 s per search, also behind the goal panel's contextAt). Playground and VS Code",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2959",
       "labels": [],
       "epic": "editor-playground",
-      "body": "",
+      "body": "\nResult: list 12 ms, split 5 ms (from the published goal's Local.splits; no search session); Search for a proof on pick, progress in the playground notice and LSP workDoneProgress; wasm worker keeps the rewound std session (~0.45 GB). First search 21 s, second 1.0 s. Not done: header/arm-variable splits still go through search; standalone files don't keep a session.\nModel result: Sonnet, worked, 19 min (est. 90)",
       "created": "2026-11-12",
       "updated": "2026-11-12",
-      "commits": []
+      "commits": [
+        "91024ab19"
+      ]
     },
     {
       "id": 2960,
       "title": "[DeepSeek] Full tier at 58c3bcac7 (Overmind, 12 Nov): check_cache::the_cache_changes_nothing_for_the_examples fails at crates/driver/tests/projects/check_cache.rs:201 'extension-in-owner: a namespace can't be cached' (namespace_uncacheable 1, expected 0), likely SW-2951 counting importers of a failed namespace as uncacheable; and rewind::an_edit_checks_again_only_what_uses_it fails at rewind.rs:888 'C replayed' left 0 right 1 under the full tier (passes by name at the default tier on Speedwell). Reproduce with STITCHWORT_TIER=full by name; fix the cause or the test with a reason",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": ".claude/worktrees/scratch-sw-2960",
       "labels": [],
       "epic": "test-infra",
-      "body": "",
+      "body": "\nCauses: (1) SW-2951 counted an importer waiting on a broken namespace as uncacheable; now Stats::namespace_waiting_on_error; focused test the_cache_changes_nothing_for_extension_in_owner. (2) use_test_std_cache sets no cache under STITCHWORT_TIER=full, so the rewind test had no cache; it now has its own.\nModel result: DeepSeek, worked, 34 min (est. 45)",
       "created": "2026-11-12",
       "updated": "2026-11-12",
-      "commits": []
+      "commits": [
+        "a0f95f659"
+      ]
     },
     {
       "id": 2961,
@@ -31612,6 +31616,19 @@
       "where": "",
       "labels": [],
       "epic": "test-infra",
+      "body": "",
+      "created": "2026-11-12",
+      "updated": "2026-11-12",
+      "commits": []
+    },
+    {
+      "id": 2963,
+      "title": "[DeepSeek] Playground: start the search worker's library load when the page opens, so the first proof search and the goal panel's contextAt don't wait ~17 s (SW-2959 finding); measure the page's memory with the warm session (~0.45 GB native)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "editor-playground",
       "body": "",
       "created": "2026-11-12",
       "updated": "2026-11-12",
