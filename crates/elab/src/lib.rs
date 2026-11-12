@@ -626,6 +626,10 @@ enum Tree<'a> {
         span: Span,
         /// The spans of the or-pattern alternatives that chose the arm.
         alternatives: Vec<Span>,
+        /// Whether rows after the arm's could match here too: without the
+        /// arm, one of them would take the case, so `W-UNREACHABLE` can't
+        /// promise the arm can be deleted.
+        later: bool,
     },
     /// The first row matched whatever is left, under a condition: `leaf` if
     /// it holds, otherwise `otherwise`, the rows after it. Checked as the
@@ -3684,6 +3688,7 @@ impl Elaborator {
                 rhs: first_rhs,
                 span: first_span,
                 alternatives: Vec::new(),
+                later: false,
             }
         } else {
             let rows: Vec<Row> = equations
@@ -3905,6 +3910,7 @@ impl Elaborator {
                 rhs: first.rhs,
                 span: first.span,
                 alternatives: first.alternatives.clone(),
+                later: rows.len() > 1,
             };
             let Some(guard) = first.guard else {
                 return Ok(leaf);
@@ -4819,11 +4825,31 @@ fn check_leaf(cx: &mut Ctx, tree: &Tree, goal: &Value, guarded: bool) -> Result<
         rhs,
         span,
         alternatives,
+        later,
     } = tree
     else {
         unreachable!("a leaf")
     };
     families::reached(cx, *span);
+    // An arm `cases` makes as it splits has its `cases` as the whole arm:
+    // nothing written there can be deleted.
+    if let Some(body) = rhs
+        && *span != Span::NOWHERE
+        && body.span() != *span
+        && !guarded
+    {
+        let why = match later {
+            true => None,
+            false => {
+                let bound: Vec<usize> = aliases.iter().map(|&(_, level)| level).collect();
+                match impossible_reason(cx, &bound)? {
+                    Some(why) if fills_in(cx, goal)? => Some(why),
+                    _ => None,
+                }
+            }
+        };
+        families::note_arm_case(cx, *span, !alternatives.is_empty(), why);
+    }
     cx.e.decl.leaf_log.borrow_mut().record(*span, alternatives);
     let Some(rhs) = rhs else {
         return Err(error(
@@ -4939,6 +4965,67 @@ fn impossible_case(cx: &mut Ctx, columns: &[usize], goal: &Value) -> Result<Opti
     for level in (0..cx.level()).filter(|level| !columns.contains(level)) {
         if let Some(term) = families::empty_case(cx, level, None)? {
             return Ok(Some(term));
+        }
+    }
+    Ok(None)
+}
+
+/// Whether the checker would fill in the case being checked if its arm
+/// were deleted ([`impossible_case`]), which `W-UNREACHABLE` promises:
+/// building that proof can still fail where the arm's own proof doesn't (a
+/// hypothesis too large to show). Nothing it does is kept.
+fn fills_in(cx: &mut Ctx, goal: &Value) -> Result<bool> {
+    let snapshot = undo::Snapshot::take(cx);
+    let result = impossible_case(cx, &[], goal);
+    snapshot.restore(cx);
+    match result {
+        Ok(term) => Ok(term.is_some()),
+        Err(e) if undo::recoverable(cx, &e) => {
+            undo::recovered(cx);
+            Ok(false)
+        }
+        Err(e) if undo::fatal(&e) => Err(e),
+        Err(_) => Ok(false),
+    }
+}
+
+/// Why the case an arm's body is checked in can't happen, for its warning
+/// (`W-UNREACHABLE`): a variable in scope whose type is an equation of
+/// different constructors, an empty data type or an indexed family with no
+/// constructor that fits, in the order [`impossible_case`] tries them. The
+/// arm's own pattern variables (`bound`) don't count: `| h => absurd h` is
+/// how an arm uses an impossible hypothesis, not a case a hypothesis rules out.
+fn impossible_reason(cx: &mut Ctx, bound: &[usize]) -> Result<Option<String>> {
+    let g = cx.g();
+    for level in (0..cx.level()).filter(|level| !bound.contains(level)) {
+        let name = match &*cx.names[level] {
+            n if n == "_" || n.starts_with('%') || n.ends_with('✝') => "an argument".to_string(),
+            n => format!("`{n}`"),
+        };
+        let ty = cx.types[level].clone();
+        // Shown only once a reason is found: this runs on every arm.
+        let shown = |cx: &mut Ctx| cx.show(&cx.types[level].clone());
+        if cases::equates_different_ctors(cx, level)? {
+            let shown = shown(cx);
+            return Ok(Some(format!("here {name} is `{shown}`, which can't hold")));
+        }
+        match force(&g, ty)? {
+            Value::Data(d, _) if g.data(d).ctors().is_empty() => {
+                let shown = shown(cx);
+                return Ok(Some(format!(
+                    "here {name} is a `{shown}`, which has no values"
+                )));
+            }
+            Value::Data(d, _)
+                if !g.data(d).indices().is_empty()
+                    && families::empty_case(cx, level, None)?.is_some() =>
+            {
+                let shown = shown(cx);
+                return Ok(Some(format!(
+                    "here {name} is a `{shown}`, which has no constructor that fits"
+                )));
+            }
+            _ => {}
         }
     }
     Ok(None)
@@ -5166,12 +5253,14 @@ fn shifted<'a>(tree: &Tree<'a>, from: usize) -> Tree<'a> {
             rhs,
             span,
             alternatives,
+            later,
         } => Tree::Leaf {
             aliases: aliases.iter().map(|&(x, l)| (x, up(l))).collect(),
             written: written.clone(),
             rhs: *rhs,
             span: *span,
             alternatives: alternatives.clone(),
+            later: *later,
         },
         Tree::Guard {
             guard,

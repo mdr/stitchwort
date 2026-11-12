@@ -1,7 +1,16 @@
 ---
-source: crates/cli/tests/examples.rs
+source: crates/cli/tests/running/examples.rs
 expression: warnings
 ---
+[W-UNREACHABLE] Warning: this case can't happen
+    ╭─[ accept/match-as-written.sw:51:5 ]
+    │
+ 51 │     | False => rfl
+    │     ───────┬──────  
+    │            ╰──────── here `big` is `isBig 20 = False`, which can't hold
+    │ 
+    │ Note: the arm can be deleted
+────╯
 [W-MATCH-NOT-FOUND] Warning: this `match` didn't find its expression in the goal, so every arm has the goal unchanged
     ╭─[ accept/match-as-written.sw:49:14 ]
     │

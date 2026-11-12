@@ -52,8 +52,6 @@ theorem Nat.leSucc (n: Nat): n ≤ Succ n :=
 theorem Nat.leTrans (a b c: Nat) (h1: a ≤ b) (h2: b ≤ c): a ≤ c :=
   match a, b, c with
     | Zero, b, c => rfl
-    | Succ a, Zero, c => cases
-    | Succ a, Succ b, Zero => cases
     | Succ a, Succ b, Succ c => Nat.leTrans a b c h1 h2
 
 theorem Nat.leRefl (n: Nat): n ≤ n :=
@@ -71,7 +69,6 @@ theorem Nat.lessTrans (m: Nat) (n: Nat) (p: Nat) (h1: m < n) (h2: n < p): m < p 
 theorem Nat.leAddOfLeLeft (a b c: Nat) (h: a ≤ b): a ≤ b + c :=
   match a, b with
     | Zero, b => rfl
-    | Succ a, Zero => cases
     | Succ a, Succ b => Nat.leAddOfLeLeft a b c h
 
 theorem Nat.leAddOfLeRight (a b c: Nat) (h: a ≤ c): a ≤ b + c :=

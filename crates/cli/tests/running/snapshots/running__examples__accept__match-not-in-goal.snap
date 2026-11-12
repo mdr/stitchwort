@@ -1,5 +1,5 @@
 ---
-source: crates/cli/tests/examples.rs
+source: crates/cli/tests/running/examples.rs
 expression: warnings
 ---
 [W-MATCH-NOT-FOUND] Warning: this `match` didn't find its expression in the goal, so every arm has the goal unchanged
@@ -12,4 +12,13 @@ expression: warnings
     │ Note 1: in the goal `double n = n + n`
     │ 
     │ Note 2: the search compares what terms compute to: write the expression as the goal shows it (or `rewrite` the goal to the form you want, or bind it with a `let` before the `match`)
+────╯
+[W-UNREACHABLE] Warning: this case can't happen
+    ╭─[ accept/match-not-in-goal.sw:23:5 ]
+    │
+ 23 │     | Zero => exfalso (Nat.succNotZero n h)
+    │     ───────────────────┬──────────────────  
+    │                        ╰──────────────────── here `h` is `Succ n = 0`, which can't hold
+    │ 
+    │ Note: the arm can be deleted
 ────╯

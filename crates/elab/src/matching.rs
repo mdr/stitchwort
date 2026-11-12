@@ -1154,6 +1154,7 @@ fn generalised_now(
         motive_later,
         &normals,
         not_found,
+        false,
     )
 }
 
@@ -1256,6 +1257,7 @@ fn unconfirmed_now(
         false,
         &normals,
         Vec::new(),
+        true,
     )
 }
 
@@ -1276,6 +1278,8 @@ fn in_arms(
     motive_later: bool,
     normals: &[Option<Term>],
     not_found: Vec<(usize, Diagnostic)>,
+    // Refined as written (`unconfirmed_now`).
+    as_written: bool,
 ) -> Result<Term> {
     let Bound {
         extra,
@@ -1307,7 +1311,9 @@ fn in_arms(
             }),
     );
     let body = in_alternatives(cx, kind, alts, &levels, |cx| {
-        let body = crate::families::warn_unreachable(cx, |cx| check_tree_here(cx, &tree, &motive));
+        let body = crate::families::warn_unreachable_unless(cx, as_written, |cx| {
+            check_tree_here(cx, &tree, &motive)
+        });
         cx.scrutinees.truncate(known);
         body
     });

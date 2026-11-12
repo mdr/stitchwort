@@ -2,6 +2,15 @@
 source: crates/cli/tests/running/examples.rs
 expression: output
 ---
+[W-UNREACHABLE] Warning: this case can't happen
+    ╭─[ goals/match-copied-hypothesis-goal.sw:10:5 ]
+    │
+ 10 │     | False => ?
+    │     ──────┬─────  
+    │           ╰─────── here `h` is `False = True`, which can't hold
+    │ 
+    │ Note: the arm can be deleted
+────╯
 [GOAL] Goal: in `copied`
    ╭─[ goals/match-copied-hypothesis-goal.sw:9:15 ]
    │

@@ -271,6 +271,12 @@ theorem rockBeatsOnlyScissorsAbsurd (theirs: Move) (h: beats Rock theirs): their
 -- proofs, and builds the `Void.exfalso` proof above itself. If the type
 -- could have a value, it says so instead (`E-NOT-EMPTY`).
 --
+-- Before the shorter forms, look at the long one again: the checker tells
+-- you the `Rock` and `Paper` arms can go. Each is underlined with
+-- `W-UNREACHABLE` ("this case can't happen: here `h` is `False = True`"),
+-- and the editor fades it. Hover the faded arm to read why. The proof is
+-- still checked, but no hypothesis could ever reach that arm.
+--
 -- Shorter still, leave the impossible arms out:
 
 theorem rockBeatsOnlyScissorsLeftOut (theirs: Move) (h: beats Rock theirs): theirs = Scissors :=
