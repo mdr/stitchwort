@@ -31538,15 +31538,17 @@
     {
       "id": 2957,
       "title": "[DeepSeek] Playground, book chapter (project with check: open-goals: warn): Cmd+. on a ? (theorem noAndAnything (b: Answer): both No b = No := ? in book/src/02-cases.sw) says 'No code action here', and the goal panel never appears; CLI goal --at answers. Fix, with browser tests on a book chapter (Matt, 12 Nov)",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": ".claude/worktrees/scratch-sw-2957",
       "labels": [],
       "epic": "editor-playground",
-      "body": "",
+      "body": "Cause: in a project the check takes seconds; codeAction asked the server before the edited text's goals were published, so 'No code action here'. Fix: codeAction awaits settled(uri). The goal panel re-asks on each publish, so it appears once the check finishes (no separate bug reproduced). Browser tests on book chapter 2: goal in the panel; Cmd+. offers Split on b and applies it. Not done: manifest openGoals (check: open-goals: warn) isn't passed to the wasm server; no effect here.\nModel result: DeepSeek, worked, 57 min (est. 45)",
       "created": "2026-11-12",
       "updated": "2026-11-12",
-      "commits": []
+      "commits": [
+        "e7d33638e"
+      ]
     }
   ]
 }
