@@ -32128,15 +32128,17 @@
     {
       "id": 2997,
       "title": "[Opus] Tests with errors §11: a namespace importing one with a body syntax error still gets E-NAMESPACE-FAILED in the editor; with SW-2980 the error leaves a real stand-in importers could be checked against (stage 1's failed-namespace rule may now be unnecessary); also the counterexample note for a theorem whose body doesn't parse is lost on the hidden E-UNPARSED-BODY",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "test-infra",
-      "body": "",
+      "body": "Lane (Opus, 12 Nov 2026, 16:50-17:10, est. 2 h): branch lane/SW-2997, commit 0953fc8e1.\n\n- `check` already checked importers against stand-ins in all three cases (body error, broken statement, header syntax error); only the live project (LSP, playground) still skipped importers of a namespace with a syntax error (`blocked_by_syntax`, `keep_last_good`). Both removed, with `NamespaceOutcome::Skipped`; E-NAMESPACE-FAILED retired.\n- Found and fixed: `failed_decls`/`broken_tests` logs weren't cut on a live rewind, so after fixing a broken statement audit/summary still said its importer's users wait. `LiveProject::rewind_to` now keeps only the kept steps' entries (`Elaborator::retain_broken_tests`).\n- Cache: unchanged. A namespace relying on a stand-in is kept out by `unfinished_count` (independent of SW-2951's `failed_namespaces` rule), now tested.\n- Tests: new `rewind::an_importer_is_checked_against_a_broken_declarations_stand_in`; LSP `a_namespace_whose_import_failed...` updated (body syntax error and header syntax error).\n- Not done: the counterexample note lost on the hidden E-UNPARSED-BODY (second half of the title).\n",
       "created": "2026-11-12",
       "updated": "2026-11-12",
-      "commits": []
+      "commits": [
+        "0953fc8e1"
+      ]
     },
     {
       "id": 2998,
