@@ -26,9 +26,11 @@ use crate::check::{
     Ctx, PASS, Result, builtin_ctor, builtin_data, builtin_def, check, infer, insert, nat,
 };
 
-/// A metavariable that became `Nat` because a literal was checked against it
-/// before anything else said what it was: remembered so that a later
-/// mismatch can say why (the "defaulted literal" note).
+/// A metavariable that became `Nat` because the ladder's `apply_default`
+/// found nothing else said what it was: remembered so that a later
+/// mismatch can say why (the "defaulted literal" note), and so that
+/// `queue::kept_receiver` can assert no default was applied inside a kept
+/// receiver.
 pub(crate) struct Defaulted {
     meta: usize,
     span: Span,

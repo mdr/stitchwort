@@ -444,7 +444,8 @@ unifier that can't wait (D2016).
    the resumption log to what they were when it was taken: an item queued since is gone, and an
    item resumed since is waiting again ([§5.3](#53-where-the-queue-lives-and-how-items-wait)).
 6. **Kept subterms are stable.** An item keeps an elaborated subterm only if that subterm's
-   elaboration can't change with what is learnt later; otherwise it keeps the syntax and its
+   final term can't change with what is learnt later (a choice that §5.10 decides at `finish`
+   is allowed, as for invariant 8); otherwise it keeps the syntax and its
    context and elaborates it again when resumed. For a queued `.field`, the receiver is kept as
    syntax unless the blocker was made inside it ([§5.5](#55-the-receiver-of-a-queued-field-r1)).
 7. **Defaults at quiescence only.** A default is applied only when resuming, obligations and row
@@ -563,8 +564,9 @@ elaborated"):
   checked against `T.f`'s receiver parameter. So Stitchwort already does what the review
   prefers: the receiver is kept as syntax and elaborated again once its type is known.
 - What the receiver's inference can decide from an unknown's shape is listed in §5.10: number
-  literals (`Nat` at once, `numbers.rs:290-312`), operator dictionaries (specialised only if
-  found at once, `interfaces.rs:1490-1521`, `:1705-1738`), the `if` condition's reading
+  literals (`Nat` at once, `numbers.rs:290-312`), operator dictionaries (decided at `finish`:
+  the projection is made when the declaration finishes, so an operator whose dictionary is
+  found later still gets the term a known type gives, `interfaces.rs:1490-1521`, `:1705-1738`), the `if` condition's reading
   (`logic.rs:98-118`), the container of `in` (`membership.rs:98`), and implicit arguments,
   inserted only where the type is already a function with leading implicit parameters
   (`insert`, `check.rs:2843-2882`). Effects decide from declared types and syntax:
@@ -605,8 +607,10 @@ that `insert` would now fill (all three counters 0) **[measured]**.
     choice not yet made, which its own item makes later under these same rules;
   - for an application (5 of 28), the choices its inference could make from an unknown's shape
     are §5.10's, and invariant 8 makes each of them wait or not depend on time; a debug
-    assertion checks that no such choice was made inside a receiver kept as a term (the
-    counters above are 0 today);
+    assertion checks that no number literal was defaulted inside a receiver kept as a term (the
+    counters above are 0 today). Operators are not checked: they are decided at `finish`
+    (§5.10), so a kept receiver's `x * x` is projected at the end to the same term as with the
+    type known at once;
   - at resume, everything after inference that reads the type is redone at the type now known:
     `insert`, `written_type`, `find_in_view` and `call`. (The prototype redid all but `insert`;
     the counter shows `insert` would have added nothing.)
@@ -889,6 +893,7 @@ in one of three ways, and a placeholder's type is an unknown like any other **[c
 | prefix form or dot form | `infer_call`, `prefix_form`, `dot.rs:1143-1238`, `:1613-1640` | an unknown receiver type: dot form | the choice is made at resume, from the syntax (§5.5) |
 | implicit arguments of an inferred term | `insert`, `check.rs:2843-2882` | none inserted | none inserted at the placeholder; the item's own term has its implicit arguments inserted before it fills (§5.5) |
 | `if c`: `Bool` or proposition | `condition`, `logic.rs:98-118` | the `Bool` reading, tried first, succeeds | the same: allowed, a wrong guess is a type error (below) |
+| `-k`, or a number group with a `-` | `check_literal`, `group_in` (step 4), `numbers.rs:326-332` | made `Int` at once, not noted in `defaulted` | the same: allowed, a wrong guess is a type error (`-k` is never a `Nat`, and a `Float` would mismatch) |
 | `x in c`: list or keys | `container_kind`, `membership.rs:72-98` | a list (`:98`) | the same: allowed, a wrong guess is a type error |
 | an unknown type of types | `check_type`, `check.rs:4864-4866` | `Type` | the same: allowed |
 | applying something of unknown type | `function_parts`, `check.rs:2701` | an explicit function type of two new unknowns | the same: a unification, not a choice among readings |
@@ -903,7 +908,14 @@ So the consumers fall into three classes:
   (switch off; 487 on, the extra one `Day05.noRuleBroken`), counting attempts undone and
   dictionaries that are local variables, which stay generic **[measured]**; how many become
   specialised is measured in stage 1, as a hash list;
-- **allowed** (the `if` reading, `in`'s container, `Type`, a function's shape): these are
+  what the class relies on is that an operator's result type does not depend on its dictionary
+  (`a → a → a`, `Prop`, `Bool`, all homogeneous), so the receiver of a dot call on an
+  operator's result has the same type whichever dictionary is found. That is why invariant 6's
+  assertion does not check operators (SW-3045). A future operator interface whose result type
+  depends on the dictionary (a heterogeneous or output-typed operator) would have to wait
+  instead, and the assertion would have to cover it;
+- **allowed** (the `if` reading, `in`'s container, `Type`, a function's shape, `-k` and a group
+  with `-` made `Int`): these are
   irreversible choices from an unknown's shape, so this is a deliberate weakening of the
   review's invariant 8. They are allowed because their alternatives have different types: a
   wrong guess fixes the placeholder's type to something its item's result must match at the
@@ -1594,7 +1606,13 @@ examples (`9c95bf57`); this section is the fifth. Line numbers are of `9c95bf57`
   `dot.rs:473`): a receiver kept as a term made no number literal `Nat` at once (the
   `defaulted` list) and left no operator with a generic dictionary, since the snapshot before
   it (`Snapshot::metas`, `::defaulted`, `undo.rs:92`, `:98`). A debug assertion; counted in
-  release.
+  release. *Note, 12 November 2026 (SW-3045): the generic-dictionary clause was dropped from
+  the assertion and from `kept chose`. Since stage 1's projection at `finish`, such a dictionary
+  is no choice from an unknown: it is found by the same search and projected by the same rule
+  as with the type known at once, and the clause fired in a debug build on std's
+  `Int.toIntSumBy` (receivers shaped like `((x => x * x) 3).toInt`). The assertion now checks
+  number literals defaulted only. Stage 2's "`kept chose` is 0 everywhere" predates that case.
+  Review: `docs/reviews/SW-3045-invariant-6-review.md`.*
 - **Invariant 8's assertions**, for the consumers of §5.10 that K1 and K2 meet: the field-name
   rule chooses a type only as W4's default (`Queue::settling`, `queue.rs:181`, set by
   `settle_queue`, `:517`; asserted in `Literal`'s default, `records.rs:824`); a resumed call
@@ -1711,7 +1729,9 @@ defaults are W4's only, and nothing in the corpus asks otherwise.
    receiver now made the new unknown; the item then keeps that receiver. 0 in the corpus.
 4. **Invariant 6's check** covers what §5.5 counted (number literals made `Nat` at once, generic
    dictionaries), not the number group's `Nat` default (`numbers.rs:944`), which leaves no
-   record; that moves to the ladder with K4.
+   record; that moves to the ladder with K4. *Note, 12 November 2026 (SW-3045): the
+   generic-dictionary clause was dropped later, because operators are decided at `finish`
+   (§5.10); see the stage 2 record above.*
 5. **`met unfilled`** counts failing pairs headed by an unfilled placeholder or a definition
    stuck on one, not every comparison that meets one deeper inside.
 6. **The membership must-hold test is written as a proposition** (`def has (b: Box): Prop`).

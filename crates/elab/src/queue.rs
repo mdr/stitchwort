@@ -1851,9 +1851,12 @@ fn count(counter: &AtomicUsize) {
 /// Invariant 6 for a `.field` whose receiver is kept as a term (K2,
 /// docs/proposals/postponement.md §5.5): the receiver, elaborated since
 /// `before`, made none of the choices of §5.10 from an unknown's shape that
-/// a type known later could make otherwise: no number literal made `Nat`
-/// at once (`numbers::Defaulted`). Counted (`kept`, and `kept chose` for one
-/// that did), and asserted in a debug build.
+/// a type known later could make otherwise: no default applied
+/// (`numbers::Defaulted`, pushed only by the ladder's `apply_default`, so
+/// only a closed pattern's defaults inside the receiver can trip this; the
+/// receiver's own literals wait, K4). The assertion stays as a tripwire
+/// should a literal ever be defaulted at once again. Counted (`kept`, and
+/// `kept chose` for one that did), and asserted in a debug build.
 ///
 /// An operator left with a generic dictionary is not such a choice: its
 /// projection is made when the declaration is zonked
