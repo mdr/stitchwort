@@ -1,5 +1,5 @@
 {
-  "next": 2990,
+  "next": 2991,
   "tickets": [
     {
       "id": 47,
@@ -31989,6 +31989,19 @@
     {
       "id": 2989,
       "title": "[Sonnet] Impossible cases follow-ups (SW-2984): equations.rs ~6140 gives an absurd clause arm a probe body when building probe matches, turning its () into the unit pattern — keep it absurd now that alternatives can be; consider W-UNREACHABLE for an arm whose case a hypothesis rules out (| Scissors => 0 where h refutes it); an indexed-family hypothesis that isn't a matched column isn't tried",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-12",
+      "updated": "2026-11-12",
+      "commits": []
+    },
+    {
+      "id": 2990,
+      "title": "[Sonnet] Impossible cases: a missing default in a number column is reported eagerly by compile_numbers even when a hypothesis rules it out (SW-2984 review L3); impossible_case/may_be_impossible force every Eq hypothesis on the error path, which could make a quick E-NONEXHAUSTIVE slow (L4, suspicion)",
       "status": "backlog",
       "agent": "",
       "where": "",
