@@ -1,5 +1,5 @@
 {
-  "next": 3008,
+  "next": 3009,
   "tickets": [
     {
       "id": 47,
@@ -32276,6 +32276,19 @@
     {
       "id": 3007,
       "title": "[Sonnet] SW-2981 review L-e: under a failed (..) import every undotted E-UNKNOWN-NAME in the file counts as lost, so a real typo waits silently until the import is fixed; point the waiting entry at the import's span, not the use; and an error-free member of a failed group still has own: true in FailedDecl (module.rs ~1270) so it's counted in errors though docs say it waits (user-visible count: Matt's call if it changes)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "diagnostics",
+      "body": "",
+      "created": "2026-11-12",
+      "updated": "2026-11-12",
+      "commits": []
+    },
+    {
+      "id": 3008,
+      "title": "[Opus] W-UNREACHABLE false positives (45 in aoc/rogue, list docs/reviews/SW-3004-unreachable-kept.txt): (1) the impossibility shows only through an unfolded call (match e: firstBent lines … | Some … => Void.exfalso (Result.errNotOk h) with h about checkShapes lines): deleting gives E-NONEXHAUSTIVE since the left-out-case rule looks only at hypotheses mentioning the scrutinee; (2) arms deletable one at a time but not together ([], [] and [], [slot, ..slots] leave [], _ which won't split); also the all-arms exception makes a warning depend on which arms were already removed (Day24 Sums.sw twin). Warn only where leaving the arm out checks (SW-3004 finding)",
       "status": "backlog",
       "agent": "",
       "where": "",
