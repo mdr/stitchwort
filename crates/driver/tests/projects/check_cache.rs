@@ -744,6 +744,32 @@ fn a_namespace_with_errors_is_not_written() {
     let _ = std::fs::remove_dir_all(&cache);
 }
 
+/// A namespace that uses one with an error is checked, but its entry isn't
+/// written: its key would be keyed to the broken source, and writing it
+/// would delete the entry the healthy source finds again (SW-2951).
+#[test]
+fn removing_an_error_finds_its_importers_earlier_entries() {
+    let dir = temp_project("errors-removed", ABC);
+    let cache = temp_dir("errors-removed-cache");
+    let cold = fresh_and_cached(&dir, &cache);
+    assert_eq!((cold.namespace_written, cold.namespace_uncacheable), (3, 0));
+    // `A` gets an error in `bad`, which `B` doesn't use: `B` still checks,
+    // with `A`'s new key, and is the one that must not be written.
+    write_file(
+        &dir,
+        "src/A.sw",
+        "namespace A\n\ndef one: Nat := 1\n\ndef bad: Nat := True\n\ntest \"one\" := one == 1\n",
+    );
+    let broken = fresh_and_cached(&dir, &cache);
+    assert_eq!((broken.namespace_hits, broken.namespace_written), (1, 0));
+    assert_eq!(broken.namespace_uncacheable, 1);
+    write_file(&dir, "src/A.sw", ABC[0].1);
+    let fixed = fresh_and_cached(&dir, &cache);
+    assert_eq!((fixed.namespace_hits, fixed.namespace_misses), (3, 0));
+    let _ = std::fs::remove_dir_all(&dir);
+    let _ = std::fs::remove_dir_all(&cache);
+}
+
 #[test]
 fn a_change_to_an_included_file_is_a_miss() {
     let dir = temp_project(
