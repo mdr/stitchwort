@@ -112,7 +112,6 @@ def Bool.decEq: (a: Bool) → (b: Bool) → Decidable (a = b)
 --| What [`Decidable.not`]'s test says when it is `True`.
 theorem Decidable.notSound [p: Prop] (d: Decidable p) (h: Bool.not d.holds = True): ¬p :=
   match d with
-    | { holds = True, sound = s, complete = c } => Void.exfalso (Bool.falseNotTrue h)
     | { holds = False, sound = s, complete = c } => x => Bool.falseNotTrue (c x)
 
 --| What [`Decidable.not`]'s test says when `¬p` holds.
@@ -129,7 +128,6 @@ instance Decidable.not [p: Prop] (d: Decidable p): Decidable (¬p) :=
 theorem Decidable.andSound [p q: Prop] (dp: Decidable p) (dq: Decidable q) (h: Bool.ifThenElse dp.holds (u => dq.holds) (u => False) = True): p ∧ q :=
   match dp with
     | { holds = True, sound = s, complete = c } => Both (s rfl) (dq.sound h)
-    | { holds = False, sound = s, complete = c } => Void.exfalso (Bool.falseNotTrue h)
 
 --| What [`Decidable.and`]'s test says when `p ∧ q` holds.
 theorem Decidable.andComplete [p q: Prop] (dp: Decidable p) (dq: Decidable q) (h: p ∧ q): Bool.ifThenElse dp.holds (u => dq.holds) (u => False) = True :=
@@ -150,7 +148,6 @@ instance Decidable.and [p q: Prop] (dp: Decidable p) (dq: Decidable q): Decidabl
 theorem Decidable.andThenSound [p q: Prop] (dp: Decidable p) (dq: Unit → Decidable q) (h: Bool.ifThenElse dp.holds (u => (dq Trivial).holds) (u => False) = True): p ∧ q :=
   match dp with
     | { holds = True, sound = s, complete = c } => Both (s rfl) ((dq Trivial).sound h)
-    | { holds = False, sound = s, complete = c } => Void.exfalso (Bool.falseNotTrue h)
 
 --| What [`Decidable.andThen`]'s test says when `p ∧ q` holds.
 theorem Decidable.andThenComplete [p q: Prop] (dp: Decidable p) (dq: Unit → Decidable q) (h: p ∧ q): Bool.ifThenElse dp.holds (u => (dq Trivial).holds) (u => False) = True :=

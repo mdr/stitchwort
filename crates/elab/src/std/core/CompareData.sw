@@ -17,8 +17,6 @@ theorem List.compareLexEqual (cmp: a → a → Ordering) (equal: ∀ (x y: a) =>
     (xs ys: List a) (h: List.compareLex cmp xs ys = Equal): xs = ys :=
   match xs, ys with
     | [], [] => rfl
-    | [], [y, ..ys] => Void.exfalso (Ordering.lessNotEqual h)
-    | [x, ..xs], [] => Void.exfalso (Ordering.greaterNotEqual h)
     | [x, ..xs], [y, ..ys] =>
       Eq.trans (Eq.cong (t => [t, ..xs]) (equal x y (And.left (Ordering.andThenEqual (cmp x y) (List.compareLex cmp xs ys) h))))
         (Eq.cong (Cons y) (List.compareLexEqual cmp equal xs ys (And.right (Ordering.andThenEqual (cmp x y) (List.compareLex cmp xs ys) h))))
@@ -38,11 +36,7 @@ theorem List.compareLexTrans (cmp: a → a → Ordering) (equal: ∀ (x y: a) =>
     (xs ys zs: List a)
     (h1: List.compareLex cmp xs ys = Less) (h2: List.compareLex cmp ys zs = Less): List.compareLex cmp xs zs = Less :=
   match xs, ys, zs with
-    | [], [], zs => Void.exfalso (Ordering.equalNotLess h1)
-    | [], [y, ..ys], [] => Void.exfalso (Ordering.greaterNotLess h2)
     | [], [y, ..ys], [z, ..zs] => rfl
-    | [x, ..xs], [], zs => Void.exfalso (Ordering.greaterNotLess h1)
-    | [x, ..xs], [y, ..ys], [] => Void.exfalso (Ordering.greaterNotLess h2)
     | [x, ..xs], [y, ..ys], [z, ..zs] =>
       Ordering.andThenTrans (cmp x y) (cmp y z) (cmp x z)
         (List.compareLex cmp xs ys) (List.compareLex cmp ys zs) (List.compareLex cmp xs zs)
@@ -97,8 +91,6 @@ theorem Option.compareWithEqual (cmp: a → a → Ordering) (equal: ∀ (x y: a)
     (m n: Option a) (h: Option.compareWith cmp m n = Equal): m = n :=
   match m, n with
     | None, None => rfl
-    | None, Some y => Void.exfalso (Ordering.lessNotEqual h)
-    | Some x, None => Void.exfalso (Ordering.greaterNotEqual h)
     | Some x, Some y => Eq.cong Some (equal x y h)
 
 theorem Option.compareWithFlip (cmp: a → a → Ordering) (flip: ∀ (x y: a) => cmp y x = Ordering.flip (cmp x y))
@@ -114,11 +106,7 @@ theorem Option.compareWithTrans (cmp: a → a → Ordering)
     (m n o: Option a)
     (h1: Option.compareWith cmp m n = Less) (h2: Option.compareWith cmp n o = Less): Option.compareWith cmp m o = Less :=
   match m, n, o with
-    | None, None, o => Void.exfalso (Ordering.equalNotLess h1)
-    | None, Some y, None => Void.exfalso (Ordering.greaterNotLess h2)
     | None, Some y, Some z => rfl
-    | Some x, None, o => Void.exfalso (Ordering.greaterNotLess h1)
-    | Some x, Some y, None => Void.exfalso (Ordering.greaterNotLess h2)
     | Some x, Some y, Some z => trans x y z h1 h2
 
 --| Characters, by scalar value.

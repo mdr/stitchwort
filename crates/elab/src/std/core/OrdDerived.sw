@@ -43,10 +43,6 @@ def Ordering.bothEqual: (x: Ordering) → (y: Ordering) → Bool := matches | Eq
 theorem Ordering.notBothEqual (c d: Ordering) (t: Ordering.bothEqual c d = False) (e1: c = Equal) (e2: d = Equal): Void :=
   match c, d with
     | Equal, Equal => Bool.trueNotFalse t
-    | Equal, Less => Ordering.lessNotEqual e2
-    | Equal, Greater => Ordering.greaterNotEqual e2
-    | Less, d => Ordering.lessNotEqual e1
-    | Greater, d => Ordering.greaterNotEqual e1
 
 --| As [`Ordering.andThenTrans`], where the rest need only be transitive when
 --| both first comparisons are `Equal`.
@@ -57,11 +53,8 @@ theorem Ordering.andThenTransWhen (c1 c2 c3 r1 r2 r3: Ordering)
   match c1, c2 with
     | Less, Less => rewrite t rfl rfl in rfl
     | Less, Equal => rewrite e2 rfl in rfl
-    | Less, Greater => Void.exfalso (Ordering.greaterNotLess h2)
     | Equal, Less => rewrite e1 rfl in rfl
     | Equal, Equal => rewrite e1 rfl in tr rfl rfl h1 h2
-    | Equal, Greater => Void.exfalso (Ordering.greaterNotLess h2)
-    | Greater, c2 => Void.exfalso (Ordering.greaterNotLess h1)
 
 --| Transitivity with the tags compared first. A derived `trans` uses it for
 --| values not all of one constructor, where `tr` is never needed: the tags
