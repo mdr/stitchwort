@@ -32312,15 +32312,17 @@
     {
       "id": 3009,
       "title": "[DeepSeek] W-UNREACHABLE's arm span misses the body's closing bracket: for '| Succ a, b => Void.exfalso (Bool.falseNotTrue h)' it ends before the final ')' (SW-3008 finding; tests compare only patterns because of it)",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": ".claude/worktrees/scratch-sw-3009",
       "labels": [],
       "epic": "diagnostics",
-      "body": "",
+      "body": "\nModel result: DeepSeek, worked, ~20 min (est. 25)",
       "created": "2026-11-12",
       "updated": "2026-11-12",
-      "commits": []
+      "commits": [
+        "856c52b0d"
+      ]
     },
     {
       "id": 3010,
