@@ -7267,7 +7267,11 @@ fn results(expr: &Expr, out: &mut Vec<usize>) {
                 then, otherwise, ..
             } => work.extend([(&**otherwise, true), (&**then, true)]),
             Expr::Let { body, .. } => work.push((body, true)),
-            Expr::Match { alts, .. } => work.extend(alts.iter().rev().map(|a| (&a.body, true))),
+            Expr::Match { alts, .. } => work.extend(
+                alts.iter()
+                    .rev()
+                    .filter_map(|a| Some((a.body.as_ref()?, true))),
+            ),
             _ => {}
         }
     }

@@ -481,6 +481,19 @@ struct CtorPattern<'a> {
 /// compiler (a wildcard for a field, or `n - 1` inside a number pattern `n`).
 type Pat<'a> = Cow<'a, Pattern>;
 
+/// An arm's or equation's patterns as a row's: a `()` on its own is the
+/// unit pattern when the arm has a right side (`| () => e`), and absurd
+/// when it has none (`| Rock, ()`). Equations and `match` alternatives
+/// both come through here, so the two forms mean the same.
+fn row_patterns(patterns: &[Pattern], has_rhs: bool) -> Vec<Pat<'_>> {
+    (patterns.iter())
+        .map(|p| match p {
+            Pattern::Absurd(span) if has_rhs => Cow::Owned(unit_pattern(*span)),
+            p => Cow::Borrowed(p),
+        })
+        .collect()
+}
+
 /// The variable a pattern binds, if it's a variable from the source.
 fn pattern_var<'a>(pattern: &Pat<'a>) -> Option<&'a ast::Name> {
     match pattern {
@@ -3636,22 +3649,7 @@ impl Elaborator {
                 .iter()
                 .zip(&guards)
                 .map(|(&(patterns, rhs, span), &guard)| Row {
-                    // `()` with a right-hand side is the unit pattern; without
-                    // one, it's absurd.
-                    pats: patterns
-                        .iter()
-                        .map(|p| match p {
-                            Pattern::Absurd(span) if rhs.is_some() => Cow::Owned(Pattern::Ctor(
-                                ast::Name {
-                                    text: UNIT_PATTERN.into(),
-                                    span: *span,
-                                },
-                                Vec::new(),
-                                *span,
-                            )),
-                            p => Cow::Borrowed(p),
-                        })
-                        .collect(),
+                    pats: row_patterns(patterns, rhs.is_some()),
                     aliases: Vec::new(),
                     written: written_names(patterns),
                     rhs,
@@ -3661,8 +3659,8 @@ impl Elaborator {
                 })
                 .collect();
             let tree = self.compile_top(
+                cx,
                 &rows,
-                cx.level(),
                 &columns,
                 &column_types,
                 header.unwrap_or(0),
@@ -3684,24 +3682,49 @@ impl Elaborator {
         Ok(term)
     }
 
+    /// Whether a `()` at type `ty` may be refuted without splitting
+    /// anything first: `ty` is a data type with no constructors, an indexed
+    /// family (which only the checker can tell), or an equation of two
+    /// different constructors.
+    fn empty_as_it_is(&self, ty: Option<&Value>) -> Result<bool> {
+        let Some(ty) = ty else {
+            return Ok(false);
+        };
+        let ev = self.ev();
+        Ok(match force(&ev, ty.clone())? {
+            Value::Data(d, _) => {
+                let data = self.kernel.data(d);
+                data.ctors().is_empty() || !data.indices().is_empty()
+            }
+            Value::Eq(_, l, r) => matches!(
+                (force(&ev, (*l).clone())?, force(&ev, (*r).clone())?),
+                (Value::Ctor(d1, c1, _), Value::Ctor(d2, c2, _)) if d1 == d2 && c1 != c2
+            ),
+            _ => false,
+        })
+    }
+
     /// [`Self::compile`] for a whole match: the cases certainly missing are
     /// reported together, each as the arm that would cover it. The first
     /// `skip` columns are a header's parameters, which arms don't match.
+    /// The variables in scope are `cx`'s.
     fn compile_top<'a>(
         &self,
+        cx: &Ctx,
         rows: &[Row<'a>],
-        depth: usize,
         columns: &[usize],
         types: &[Option<Value>],
         skip: usize,
         span: Span,
     ) -> Result<Tree<'a>> {
         self.decl.guard_nodes.set(0);
-        let tree = self.compile(rows, depth, columns, types, span);
+        let tree = self.compile(rows, cx.level(), columns, types, span);
         self.decl.guard_nodes.set(0);
         let mut tree = tree?;
         self.annotate(&mut tree, &columns[skip..]);
         match missing::definite(&tree, span) {
+            // The checker reports the cases that are possible after all.
+            Some(_) if may_be_impossible(cx, columns)? => Ok(tree),
             Some(d) => Err(d),
             None => Ok(tree),
         }
@@ -3751,10 +3774,27 @@ impl Elaborator {
                     .collect();
                 return self.compile(&rows, depth, columns, types, span);
             }
-            return Ok(Tree::Absurd {
-                level: columns[j],
-                span: first.pats[j].span(),
-            });
+            // The row's constructor patterns are matched first: in
+            // `| Rock, ()`, the `()` is about the type its column has once
+            // the first is `Rock`. The split below leaves `()` alone. A
+            // type that may be empty as it is (a data type with no
+            // constructors, an indexed family, an equation of different
+            // constructors) is refuted at once, without the splits.
+            let mut splits_first = false;
+            if !self.empty_as_it_is(types[j].as_ref())? {
+                for (k, p) in first.pats.iter().enumerate() {
+                    if k != j && self.pattern_ctor(p, types[k].as_ref())?.is_some() {
+                        splits_first = true;
+                        break;
+                    }
+                }
+            }
+            if !splits_first {
+                return Ok(Tree::Absurd {
+                    level: columns[j],
+                    span: first.pats[j].span(),
+                });
+            }
         }
         let mut split = None;
         // A guarded first row that has nothing left to match still waits for
@@ -4807,10 +4847,13 @@ fn check_flat(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
     match tree {
         Tree::Leaf { .. } => check_leaf(cx, tree, goal, true),
         Tree::Missing { columns, span, arm } => {
-            for &level in columns {
-                if let Some(term) = families::empty_case(cx, level, None)? {
-                    return Ok(term);
+            if let Some(term) = impossible_case(cx, columns, goal)? {
+                // A guard's `else` can't hold a `case`, which an empty
+                // type's proof is: it goes in a helper of its own.
+                if matches!(term, Term::Case(..)) && cx.e.decl.errors_only.get() == 0 {
+                    return lift::draft(cx, cx.level(), Vec::new(), term, goal, *span);
                 }
+                return Ok(term);
             }
             let mut d = missing::diagnostic(*span, vec![(arm.order.clone(), arm.pattern.clone())]);
             if let Some(guard) = arm.guard {
@@ -4827,13 +4870,77 @@ fn check_flat(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
     }
 }
 
-fn empty_in_columns(cx: &mut Ctx, columns: &[usize]) -> Result<Option<Term>> {
+/// A proof of `goal` where no arm covers the case: the term an absurd arm
+/// `()` would give (`check_tree`'s `Tree::Absurd`), when a variable in
+/// scope has a type with no values once the splits above the case have
+/// refined it (D3534). Indexed families are tried first, and on the case's
+/// `columns` only, so a case they rule out keeps its term; then each
+/// column and each other variable in scope, from the outermost, is tried
+/// as an equation of two different constructors (`h: False = True` once
+/// `beats Rock Rock` computes) or a data type with no constructors.
+fn impossible_case(cx: &mut Ctx, columns: &[usize], goal: &Value) -> Result<Option<Term>> {
     for &level in columns {
         if let Some(term) = families::empty_case(cx, level, None)? {
             return Ok(Some(term));
         }
     }
+    let others = (0..cx.level()).filter(|level| !columns.contains(level));
+    for level in columns.iter().copied().chain(others) {
+        if let Some(term) = cases::refute_equation(cx, level, goal)? {
+            return Ok(Some(term));
+        }
+        if let Some(term) = empty_data_case(cx, level)? {
+            return Ok(Some(term));
+        }
+    }
     Ok(None)
+}
+
+/// `case x of {}` for the variable `x` at `level`, when its type is a data
+/// type with no constructors.
+fn empty_data_case(cx: &Ctx, level: usize) -> Result<Option<Term>> {
+    let g = cx.g();
+    Ok(match force(&g, cx.types[level].clone())? {
+        Value::Data(d, _) if g.data(d).ctors().is_empty() => {
+            Some(Term::Case(cx.level() - 1 - level, d, Vec::new().into()))
+        }
+        _ => None,
+    })
+}
+
+/// Whether a case no arm covers may yet be impossible, so that coverage
+/// waits for the checker ([`impossible_case`]) rather than reporting it
+/// when the arms are compiled: some variable in scope has a type with no
+/// values already, or a type that mentions a matched variable, which a
+/// split may make empty (`h: IsSome o` is `Void` once `o` is `None`). Only
+/// asked when a case is missing.
+fn may_be_impossible(cx: &Ctx, columns: &[usize]) -> Result<bool> {
+    let g = cx.g();
+    for level in 0..cx.level() {
+        if cases::equates_different_ctors(cx, level)? {
+            return Ok(true);
+        }
+        if let Value::Data(d, _) = force(&g, cx.types[level].clone())?
+            && g.data(d).ctors().is_empty()
+        {
+            return Ok(true);
+        }
+        let ty = cx.quote(&cx.types[level])?;
+        if (columns.iter()).any(|&c| c < level && ty.mentions(cx.level() - 1 - c)) {
+            return Ok(true);
+        }
+    }
+    Ok(false)
+}
+
+/// Checks `tree` for its arms' errors only: its term is thrown away.
+fn check_for_errors(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
+    let errors_only = &cx.e.decl.errors_only;
+    errors_only.set(errors_only.get() + 1);
+    let result = check_tree(cx, tree, goal);
+    let errors_only = &cx.e.decl.errors_only;
+    errors_only.set(errors_only.get() - 1);
+    result
 }
 
 /// The missing case at the end of a chain of guards, if that is how the
@@ -5088,20 +5195,17 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
         {
             Ok(Term::Loc(*span, Rc::new(term)))
         }
-        Tree::Absurd { level, span } => match force(&cx.g(), cx.types[*level].clone())? {
-            Value::Data(d, _) if cx.g().data(d).ctors().is_empty() => Ok(Term::Loc(
-                *span,
-                Rc::new(Term::Case(cx.level() - 1 - level, d, Vec::new().into())),
-            )),
-            other => Err(error(
-                "E-NOT-EMPTY",
-                *span,
-                format!(
-                    "`{}` has values, so this argument can't be `()`",
-                    cx.show(&other)
-                ),
-            )),
-        },
+        Tree::Absurd { level, span } if let Some(term) = empty_data_case(cx, *level)? => {
+            Ok(Term::Loc(*span, Rc::new(term)))
+        }
+        Tree::Absurd { level, span } => Err(error(
+            "E-NOT-EMPTY",
+            *span,
+            format!(
+                "`{}` has values, so this argument can't be `()`",
+                cx.show(&force(&cx.g(), cx.types[*level].clone())?)
+            ),
+        )),
         Tree::Case {
             level: x,
             data: d,
@@ -5145,6 +5249,12 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
                     );
                     if let Some(note) = quot::match_note(&other) {
                         e = e.with_note(note);
+                    }
+                    if Some(*d) == g.env.registry().loaded_data(Builtin::UnitType) {
+                        e = e.with_note(
+                            "`()` in an arm with `=>` is the unit value; for a case that can't \
+                             happen, write the arm with `()` and no `=>`",
+                        );
                     }
                     return Err(e);
                 }
@@ -5195,10 +5305,8 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
                     // No arm covers this constructor: fine if it makes
                     // another column's type empty (`Fin n` with `n := Zero`).
                     Tree::Missing { columns, span, arm } => (|| {
-                        for &level in columns {
-                            if let Some(term) = families::empty_case(cx, level, None)? {
-                                return Ok(term);
-                            }
+                        if let Some(term) = impossible_case(cx, columns, &branch_goal)? {
+                            return Ok(term);
                         }
                         Err(missing::diagnostic(
                             *span,
@@ -5211,9 +5319,9 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
                     Tree::Guard { .. }
                         if let Some(Tree::Missing { columns, .. }) =
                             guard_chain_missing(subtree)
-                            && let Some(term) = empty_in_columns(cx, columns)? =>
+                            && let Some(term) = impossible_case(cx, columns, &branch_goal)? =>
                     {
-                        check_tree(cx, subtree, &branch_goal).map(|_| term)
+                        check_for_errors(cx, subtree, &branch_goal).map(|_| term)
                     }
                     _ => check_tree(cx, subtree, &branch_goal),
                 };
@@ -5428,7 +5536,7 @@ pub(crate) fn mentions_ability(expr: &ast::Expr, name: &str) -> bool {
             } => {
                 pending.extend(scrutinees.iter().map(|s| &s.expr));
                 pending.extend(alts.iter().flat_map(|a| a.guard.iter().map(|g| &g.cond)));
-                pending.extend(alts.iter().map(|a| &a.body));
+                pending.extend(alts.iter().filter_map(|a| a.body.as_ref()));
             }
             _ => {}
         }

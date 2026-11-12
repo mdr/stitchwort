@@ -151,6 +151,19 @@ def both (x: Option Nat) (y: Option Nat): Option Nat :=
     | _, _ => None
 -- end match
 
+-- begin impossible
+def Shape.hasArea: Shape → Bool
+  | Dot => False
+  | _ => True
+
+def Shape.width (shape: Shape) (h: shape.hasArea): Nat :=
+  match shape with
+    | Circle radius => 2 * radius
+    | Rect width _ => width
+
+test "width" := (Rect 3 4).width rfl == 3
+-- end impossible
+
 -- begin let-patterns
 def divide (n: Nat): Text :=
   let (quotient, remainder) := (n / 7, n % 7)

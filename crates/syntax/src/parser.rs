@@ -672,7 +672,7 @@ fn bind_let(stmt: Stmt, rest: Expr) -> Expr {
                 alts: vec![Alt {
                     guard: None,
                     patterns: vec![pattern],
-                    body: rest,
+                    body: Some(rest),
                     span: alt_span,
                 }],
                 span,
@@ -838,6 +838,32 @@ impl<'t> Parser<'t> {
             span: start.to(cond.span()),
             cond,
         }))
+    }
+
+    /// The right side of an arm or equation whose patterns `patterns` and
+    /// condition `guard` were just read: `=> body`, or nothing when a
+    /// pattern is the absurd `()` and no `=>` follows (`| Rock, ()`).
+    /// Equations and `match` alternatives share it, so the two forms mean
+    /// the same. `what` names the `=>` in the error when it is missing.
+    pub(super) fn arm_body(
+        &mut self,
+        patterns: &[Pattern],
+        guard: Option<&Guard>,
+        what: &str,
+    ) -> Result<Option<Expr>> {
+        if self.peek() != Some(&Tok::FatArrow) && patterns.iter().any(has_absurd) {
+            if let Some(guard) = guard {
+                return Err(error(
+                    guard.span,
+                    "an arm with `()` and no body can't have a condition",
+                )
+                .with_note("the condition would test nothing: the pattern can't match")
+                .into());
+            }
+            return Ok(None);
+        }
+        self.expect_fat_arrow(what)?;
+        Ok(Some(self.expr()?))
     }
 
     /// Whether the token at `i`, a `,` or a closing bracket, is inside an
@@ -2676,21 +2702,29 @@ impl<'t> Parser<'t> {
             }
             if patterns.len() != scrutinees.len() {
                 let (n, m) = (patterns.len(), scrutinees.len());
-                return Err(error(
+                let mut e = error(
                     bar.to(self.prev_span()),
                     format!(
                         "this alternative has {n} pattern{}, but the `match` has {m} scrutinee{}",
                         if n == 1 { "" } else { "s" },
                         if m == 1 { "" } else { "s" },
                     ),
-                )
-                .into());
+                );
+                // `| Rock, () | Paper, ()` on one line: the second `|` is
+                // read as an or-pattern's.
+                if patterns.iter().any(|p| {
+                    matches!(p, Pattern::Or(alternatives, _) if alternatives.iter().any(has_absurd))
+                }) {
+                    e = e.with_note(
+                        "an absurd alternative ends at its `()`: start the next `|` on a new line",
+                    );
+                }
+                return Err(e.into());
             }
             let guard = self.guard()?;
-            self.expect_fat_arrow("`=>`")?;
-            let body = self.expr()?;
+            let body = self.arm_body(&patterns, guard.as_ref(), "`=>`")?;
             alts.push(Alt {
-                span: bar.to(body.span()),
+                span: bar.to(body.as_ref().map_or(self.prev_span(), Expr::span)),
                 patterns,
                 guard,
                 body,
@@ -2773,16 +2807,21 @@ impl<'t> Parser<'t> {
             }
             let guard = self.guard()?;
             let body = if kind == MatchKind::ClauseMatches && self.peek() != Some(&Tok::FatArrow) {
-                library_var("Std.Bool.True", Span::point(bar.file, bar.start))
+                Some(library_var(
+                    "Std.Bool.True",
+                    Span::point(bar.file, bar.start),
+                ))
+            } else if kind == MatchKind::Clause {
+                self.arm_body(&patterns, guard.as_ref(), "`=>`")?
             } else {
                 self.expect_fat_arrow("`=>`")?;
                 let body = self.expr()?;
                 if kind == MatchKind::ClauseSome {
                     let some =
                         library_var("Std.Option.Some", Span::point(bar.file, body.span().start));
-                    Expr::App(Box::new(some), Box::new(body))
+                    Some(Expr::App(Box::new(some), Box::new(body)))
                 } else {
-                    body
+                    Some(body)
                 }
             };
             alts.push(Alt {
@@ -2806,7 +2845,7 @@ impl<'t> Parser<'t> {
             alts.push(Alt {
                 patterns: vec![Pattern::Wildcard(keyword); arity],
                 guard: None,
-                body: library_var(rest, Span::point(keyword.file, keyword.start)),
+                body: Some(library_var(rest, Span::point(keyword.file, keyword.start))),
                 span: Span::point(end.file, end.end),
             });
         }
@@ -3009,7 +3048,7 @@ impl<'t> Parser<'t> {
                 alts: vec![Alt {
                     guard: None,
                     patterns,
-                    body,
+                    body: Some(body),
                     span: alt_span,
                 }],
                 span,
@@ -6478,6 +6517,17 @@ mod tests {
         assert!(matches!(alts[1].patterns[0], Pattern::Record { .. }));
         assert!(matches!(alts[2].patterns[0], Pattern::Absurd(_)));
         assert!(matches!(alts[3].patterns[0], Pattern::Num(..)));
+        assert!(alts.iter().all(|a| a.body.is_some()));
+
+        // An absurd alternative: `()` and no body, as in an equation.
+        let e = rhs(
+            "def f (m : Move) (h : P m) : Nat :=\n  match m, h with\n    | Rock, _ => 0\n    | Paper, ()\n    | Scissors, () => 1\n",
+        );
+        let (_, alts) = match_parts(&e);
+        assert!(alts[0].body.is_some());
+        assert!(alts[1].body.is_none());
+        assert!(matches!(alts[1].patterns[1], Pattern::Absurd(_)));
+        assert!(alts[2].body.is_some());
 
         // As an operand.
         let e = rhs("def f (n : Nat) : Nat := 1 + match n with | Zero => 0 | Succ k => k\n");
@@ -6494,8 +6544,8 @@ mod tests {
         );
         let (_, outer) = match_parts(&e);
         assert_eq!(outer.len(), 2);
-        assert_eq!(match_parts(&outer[0].body).1.len(), 2);
-        assert!(is_num(&outer[1].body, 3));
+        assert_eq!(match_parts(outer[0].body.as_ref().unwrap()).1.len(), 2);
+        assert!(is_num(outer[1].body.as_ref().unwrap(), 3));
     }
 
     /// The alternatives of an or-pattern.
@@ -7486,7 +7536,11 @@ mod tests {
         };
         assert_eq!(scrutinees.len(), 1);
         assert_eq!(alts.len(), 1);
-        (&scrutinees[0].expr, &alts[0].patterns[0], &alts[0].body)
+        (
+            &scrutinees[0].expr,
+            &alts[0].patterns[0],
+            alts[0].body.as_ref().unwrap(),
+        )
     }
 
     #[test]
@@ -7852,7 +7906,10 @@ mod tests {
                 scrutinees, alts, ..
             } => {
                 let s: Vec<String> = scrutinees.iter().map(|s| pshape(&s.expr)).collect();
-                let a: Vec<String> = alts.iter().map(|a| pshape(&a.body)).collect();
+                let a: Vec<String> = alts
+                    .iter()
+                    .map(|a| pshape(a.body.as_ref().unwrap()))
+                    .collect();
                 format!("(match {} | {})", s.join(","), a.join(" | "))
             }
             other => panic!("unexpected {other:?}"),
@@ -8348,7 +8405,7 @@ mod tests {
             panic!("{body:?}")
         };
         assert_eq!(alts.len(), 2);
-        assert_eq!(local(&alts[0].body).0, ["g"]);
+        assert_eq!(local(alts[0].body.as_ref().unwrap()).0, ["g"]);
     }
 
     #[test]

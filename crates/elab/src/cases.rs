@@ -761,6 +761,12 @@ fn ctor_equation(cx: &Ctx, level: usize) -> Result<Option<CtorEquation>> {
     }))
 }
 
+/// Whether the variable at `level` has a type that equates two different
+/// constructors, which [`refute_equation`] refutes.
+pub(crate) fn equates_different_ctors(cx: &Ctx, level: usize) -> Result<bool> {
+    Ok(ctor_equation(cx, level)?.is_some_and(|eq| eq.left.0 != eq.right.0))
+}
+
 /// A proof of `goal` from the variable at `level`, when its type equates
 /// two different constructors (an argument matched by `()`).
 pub(crate) fn refute_equation(cx: &mut Ctx, level: usize, goal: &Value) -> Result<Option<Term>> {
@@ -2013,10 +2019,10 @@ fn split_on(cx: &mut Ctx, run: &Rc<Run>, atom: Atom, goal: &Value, fallback: boo
             Alt {
                 guard: None,
                 patterns: vec![crate::internal_ctor_pattern(atom.d, c, fields, run.span)],
-                body: Expr::Cases {
+                body: Some(Expr::Cases {
                     body: run.body.clone(),
                     span: run.span,
-                },
+                }),
                 span: run.span,
             }
         })

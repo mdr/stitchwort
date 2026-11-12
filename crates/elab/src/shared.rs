@@ -696,7 +696,7 @@ fn update_match(
             Alt {
                 guard: None,
                 patterns: vec![Pattern::Ctor(name(key), patterns, span)],
-                body,
+                body: Some(body),
                 span,
             }
         })

@@ -208,7 +208,10 @@ fn parsed_shape(e: &Expr) -> String {
         Expr::Match {
             scrutinees, alts, ..
         } => {
-            let cs: Vec<String> = alts.iter().map(|a| parsed_shape(&a.body)).collect();
+            let cs: Vec<String> = alts
+                .iter()
+                .map(|a| parsed_shape(a.body.as_ref().unwrap()))
+                .collect();
             format!(
                 "(match {} [{}])",
                 parsed_shape(&scrutinees[0].expr),

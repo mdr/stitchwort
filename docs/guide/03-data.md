@@ -76,6 +76,26 @@ def Shape.area: Shape → Nat
 
 This is what makes adding a constructor safe: the compiler lists every function that needs a new arm. A wildcard `_` matches anything, so a final `| _ => …` arm covers whatever is left, at the cost of that safety.
 
+### Cases that can't happen
+
+A case that can't happen needs no arm. Here `h` says the shape has an area, so it isn't a `Dot`:
+
+<!-- snippet: data.sw#impossible -->
+```stitchwort
+def Shape.hasArea: Shape → Bool
+  | Dot => False
+  | _ => True
+
+def Shape.width (shape: Shape) (h: shape.hasArea): Nat :=
+  match shape with
+    | Circle radius => 2 * radius
+    | Rect width _ => width
+
+test "width" := (Rect 3 4).width rfl == 3
+```
+
+For `Dot`, `h`'s type computes to `False = True`, an equation of two different constructors, which nothing can prove; so no one can call `width` with a `Dot`, and the compiler fills in that case itself. A caller passes the proof that its shape has an area: for `Rect 3 4` that is computing, `rfl`. The arm can also be written, with `()` in place of the pattern for the value that can't exist and no `=>`: `match shape, h with` and the alternative `| Dot, ()`. Leave out a case that can happen and it's still an error that names it. [Chapter 10](10-proofs.md) has more on statements like `h`, and [syntax.md](../syntax.md#impossible-cases) the details.
+
 ## Records
 
 A record has named fields. Two record types with the same fields are still different types.

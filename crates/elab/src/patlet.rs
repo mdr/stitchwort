@@ -69,7 +69,7 @@ fn parts(expr: &Expr) -> Option<(Vec<(&Pattern, &Expr)>, &Expr)> {
         }
         out.push((pattern, &s.expr));
     }
-    Some((out, &alt.body))
+    Some((out, alt.body.as_ref()?))
 }
 
 fn simple(p: &Pattern) -> bool {

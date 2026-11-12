@@ -131,6 +131,11 @@
   <pre data-src="23-proofs.sw"></pre>
 </section>
 
+<section data-slug="impossible-cases" data-title="Cases that can't happen">
+  <p>A hypothesis can rule a case out. When, in some case, a hypothesis computes to an equation of two different constructors, such as <code>False = True</code>, that case can't happen: leave its arm out and the compiler fills it in, or write the arm with <code>()</code>, the pattern for a value that can't exist, and no <code>=&gt;</code>.</p>
+  <pre data-src="38-impossible-cases.sw"></pre>
+</section>
+
 <section data-slug="forall" data-title="For all: ∀">
   <p>A statement about every value reads <code>∀ (n: Nat) =&gt; P</code>, or <code>forall (n: Nat) =&gt; P</code> in ASCII. It's the function type <code>(n: Nat) -&gt; P</code> written another way: a proof is a function, and using one is a call. Goals show such statements with <code>∀</code>.</p>
   <pre data-src="36-forall.sw"></pre>
