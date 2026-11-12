@@ -1,5 +1,5 @@
 {
-  "next": 3051,
+  "next": 3053,
   "tickets": [
     {
       "id": 47,
@@ -32729,15 +32729,17 @@
     {
       "id": 3038,
       "title": "[Sonnet] Derived Decidable instances of proposition records (T.%instDecidable, e.g. guide's Within) are nested ifs of Decidable.yes/no: build them test first, as SW-2968 did for DecEq (SW-3031 finding 3)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-3038",
       "labels": [],
       "epic": "diagnostics",
-      "body": "",
+      "body": "\nModel result: Sonnet, worked, 20 min (est. 75). Orchestrator's call: no Opus review (generated source, kernel-checked as user code), as SW-2968.",
       "created": "2026-11-12",
       "updated": "2026-11-12",
-      "commits": []
+      "commits": [
+        "74870b2bf"
+      ]
     },
     {
       "id": 3039,
@@ -32902,6 +32904,32 @@
       "commits": [
         "6c135b388"
       ]
+    },
+    {
+      "id": 3051,
+      "title": "[Sonnet] Reader: accept a proof of P where a test fact (decision).holds = True whose reading is P is expected, so derivers can build facts directly (SW-3038 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-12",
+      "updated": "2026-11-12",
+      "commits": []
+    },
+    {
+      "id": 3052,
+      "title": "[Sonnet] std: a way to name the auto-found decision of a proposition as a value (Decidable.find-style), so derivers needn't go through if %h: (SW-3038 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-12",
+      "updated": "2026-11-12",
+      "commits": []
     }
   ]
 }
