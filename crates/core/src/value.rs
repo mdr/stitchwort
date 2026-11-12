@@ -2267,7 +2267,21 @@ fn branch(
         _ => unreachable!("a case node"),
     };
     let (c, fields) = match value {
-        Value::Ctor(_, c, fields) => (c, fields.to_vec()),
+        Value::Ctor(d2, c, fields) if d2 == *d => (c, fields.to_vec()),
+        // A constructor of another type: only an ill-typed term gets here,
+        // which the kernel never runs, but the elaborator may, before the
+        // kernel sees it: unification's first-order rule can solve an
+        // unknown whose type it doesn't know with a value of another type
+        // (`unify::first_order`, SW-919, SW-2961). It doesn't compute, as a
+        // neutral wouldn't; taking the constructor's index as this type's
+        // would pick a wrong branch, or one past the end. A program run with
+        // one is a compiler bug, and fails loudly.
+        Value::Ctor(..) => {
+            if g.machine.erasure.program_running() {
+                panic!("internal error: a case on one type was given another type's constructor");
+            }
+            return stuck_tree(g, stuck);
+        }
         other @ (Value::Nat(_) | Value::NatAdd(..)) if Some(*d) == g.env.builtins().nat => {
             match native::split_value(&other) {
                 Some(split) => split,
@@ -4135,7 +4149,9 @@ fn walk_tree(g: &Ev, mut tree: Rc<Term>, mut env: Vec<Value>, held: bool) -> Res
                 let unforced = env[env.len() - 1 - ix].clone();
                 let scrutinee = tree_scrutinee(g, unforced.clone())?;
                 let split = match &scrutinee {
-                    Value::Ctor(_, c, fields) => Some((*c, fields.to_vec())),
+                    // Another type's constructor (ill-typed, as at `branch`)
+                    // selects nothing.
+                    Value::Ctor(d2, c, fields) if d2 == d => Some((*c, fields.to_vec())),
                     Value::Nat(_) | Value::NatAdd(..) if Some(*d) == g.env.builtins().nat => {
                         native::split_value(&scrutinee)
                     }

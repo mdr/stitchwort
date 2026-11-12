@@ -611,7 +611,9 @@ fn eval_tree(
     match term.strip_loc() {
         Term::Case(ix, d, branches) => {
             let (c, fields) = match scrutinee(g, env[env.len() - 1 - ix].clone())? {
-                Value::Ctor(_, c, fields) => (c, fields.to_vec()),
+                // Another type's constructor, from an ill-typed term the
+                // elaborator ran (SW-2961), stays stuck, as in `value.rs`.
+                Value::Ctor(d2, c, fields) if d2 == *d => (c, fields.to_vec()),
                 // Record eta, rule 2: the only branch, with the fields
                 // projected.
                 n @ Value::Neutral(..) if eta_case(g, *d) && !eta_held => {
@@ -1082,7 +1084,7 @@ fn same_trees(g: &Ev, level: usize, mut a: Tree, mut b: Tree, mode: Mode) -> Res
                     // and a number split, as `eval_tree` takes it (G1, G3).
                     let s = unfold_folded(g, force(g, e[e.len() - 1 - ix].clone())?)?;
                     let split = match &s {
-                        Value::Ctor(_, c, fields) => Some((*c, fields.to_vec())),
+                        Value::Ctor(d2, c, fields) if d2 == d => Some((*c, fields.to_vec())),
                         Value::Nat(_) | Value::NatAdd(..) if Some(*d) == g.env.builtins().nat => {
                             native::split_value(&s)
                         }

@@ -2,6 +2,7 @@
 
 mod admission;
 mod assumptions;
+mod case_other_type;
 mod common;
 mod data_groups;
 mod fuzz;
