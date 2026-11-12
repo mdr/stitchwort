@@ -409,42 +409,6 @@ pub fn answers_from(index: &Index, wanted: &BTreeSet<String>, unplaced: &str) ->
 
 // ---- projects -----------------------------------------------------------
 
-/// While a namespace that `ns` uses has syntax errors, or wasn't checked
-/// for that reason, `ns` isn't checked either, and keeps the answers it had
-/// ([`LiveProject::keep_last_good`]): its waiting marks would otherwise
-/// come and go with every keystroke in a half-typed body. The error for
-/// that, naming the first such namespace in `order`, the project's
-/// canonical order. A namespace with other errors doesn't stop it: what in
-/// `ns` uses its failed declarations waits for them, and the rest is
-/// checked, as `check` does (docs/proposals/tests-with-errors.md §6).
-fn blocked_by_syntax(
-    analysis: &Analysis,
-    order: &[String],
-    ns: &Namespace,
-    outcomes: &BTreeMap<&str, NamespaceOutcome>,
-) -> Option<Diagnostic> {
-    let skipped = |m: &str| outcomes.get(m) == Some(&NamespaceOutcome::Skipped);
-    let unparsed = |m: &str| {
-        outcomes.get(m) == Some(&NamespaceOutcome::Failed)
-            && analysis
-                .namespace(m)
-                .is_some_and(|n| !n.parse_errors.is_empty())
-    };
-    let edge = (order.iter())
-        .filter(|m| skipped(m) || unparsed(m))
-        .find_map(|m| ns.edges.iter().find(|e| &e.target == m))?;
-    let (m, name) = (&edge.target, &ns.name);
-    let why = if skipped(m) {
-        format!("namespace {m} isn't checked, so neither is {name}")
-    } else {
-        format!("namespace {m} has a syntax error, so {name} isn't checked until it's fixed")
-    };
-    Some(
-        Diagnostic::error("E-NAMESPACE-FAILED", why)
-            .with_label(edge.span, format!("`{name}` uses `{m}` here")),
-    )
-}
-
 /// A namespace checked, and the mark before it.
 struct Step {
     name: String,
@@ -506,12 +470,6 @@ pub struct LiveProject {
     /// `importable_from_project` filters for each file. Made from the
     /// syntax on the first answers after the files are read again.
     declared: Option<BTreeMap<String, Vec<Declared>>>,
-    /// For each file of a namespace last checked cleanly (not failed or
-    /// skipped): its text then and what was answered for it, plain data
-    /// that holds nothing of the session. A namespace skipped because an
-    /// import failed serves these in place of the answers it has no check
-    /// for, while its text is the same ([`LiveProject::answers`]).
-    last_good: BTreeMap<String, (String, FileAnswers)>,
     /// The names in scope in each file of the namespaces checked as the
     /// focus's, by path: what the session knows only while it is still in
     /// that namespace.
@@ -572,7 +530,6 @@ impl LiveProject {
             parsed: BTreeMap::new(),
             outlines_stale: true,
             declared: None,
-            last_good: BTreeMap::new(),
             names: BTreeMap::new(),
         }
     }
@@ -674,19 +631,10 @@ impl LiveProject {
         let files = self.namespace_files.get(&name).cloned().unwrap_or_default();
         let project = self.project.clone();
         let analysis = self.analysis.as_ref().expect("a plan has an analysis");
-        let canonical = &self.canonical;
         let first = self.env_sizes();
-        let outcomes: BTreeMap<&str, NamespaceOutcome> = self
-            .steps
-            .iter()
-            .map(|s| (s.name.as_str(), s.outcome))
-            .collect();
         let checked = self.session.cancellable_at(&mark, |s| {
             let ns = parse_namespace(s, &project, &name, &files);
-            let found = match blocked_by_syntax(analysis, canonical, &ns, &outcomes) {
-                Some(skipped) => (vec![skipped], NamespaceOutcome::Skipped),
-                None => s.check_project_namespace(analysis, &ns),
-            };
+            let found = s.check_project_namespace(analysis, &ns);
             let mut names: Vec<(String, Vec<ScopeName>)> = Vec::new();
             if focus {
                 for ((path, _), id) in files.iter().zip(&ns.files) {
@@ -751,7 +699,6 @@ impl LiveProject {
         let index = index_data_of(&self.session, &root, &diagnostics, library);
         self.library_answered = true;
         let mut answers = answers_from(&index, &wanted, "stitchwort.yaml");
-        self.keep_last_good(&mut answers);
         self.declared_names();
         for (place, file) in answers.iter_mut() {
             if let Place::Program(path) = place
@@ -770,62 +717,6 @@ impl LiveProject {
             answers.retain(|place, _| !matches!(place, Place::Library(_)));
         }
         answers
-    }
-
-    /// A namespace skipped because one it uses has syntax errors
-    /// ([`blocked_by_syntax`]) was not elaborated, so
-    /// it has no answers of its own; its files serve the ones they had when
-    /// last checked cleanly, as long as their text is unchanged (the
-    /// positions in them would be wrong otherwise: then they have none).
-    /// Diagnostics are always the fresh ones. A namespace that failed
-    /// itself, or one not in the project any more, keeps nothing.
-    fn keep_last_good(&mut self, answers: &mut Answers) {
-        if !self.fatal.is_empty() {
-            self.last_good.clear();
-            return;
-        }
-        let mut live: BTreeSet<&str> = BTreeSet::new();
-        for step in &self.steps {
-            for (path, text) in &step.files {
-                let place = Place::Program(path.clone());
-                match step.outcome {
-                    NamespaceOutcome::Checked => {
-                        live.insert(path);
-                        if let Some(now) = answers.get(&place) {
-                            let mut good = now.clone();
-                            good.diagnostics.clear();
-                            self.last_good.insert(path.clone(), (text.clone(), good));
-                        }
-                    }
-                    NamespaceOutcome::Skipped => {
-                        let Some((then, good)) = self.last_good.get(path) else {
-                            continue;
-                        };
-                        if then != text {
-                            self.last_good.remove(path);
-                            continue;
-                        }
-                        live.insert(path);
-                        if let Some(now) = answers.get_mut(&place) {
-                            now.refs = good.refs.clone();
-                            now.exprs = good.exprs.clone();
-                            now.outline = good.outline.clone();
-                        }
-                    }
-                    NamespaceOutcome::Failed => {}
-                }
-            }
-        }
-        // Namespaces rewound and not yet checked again keep their entries.
-        let unchecked: BTreeSet<&str> = self
-            .plan
-            .iter()
-            .filter_map(|n| self.namespace_files.get(n))
-            .flatten()
-            .map(|(p, _)| p.as_str())
-            .collect();
-        self.last_good
-            .retain(|p, _| live.contains(p.as_str()) || unchecked.contains(p.as_str()));
     }
 
     /// The declarations of the project's other namespaces that the file at
@@ -1132,6 +1023,10 @@ impl LiveProject {
         }
         self.steps.truncate(keep);
         self.plan.clear();
+        // The logs of failed declarations and broken tests aren't rewound
+        // with the session; those of the namespaces dropped go here.
+        let kept: BTreeSet<&str> = self.steps.iter().map(|s| s.name.as_str()).collect();
+        (self.session.elab).retain_broken_tests(|ns| kept.contains(ns));
     }
 
     /// The project can't be checked: reads it again into the session (so

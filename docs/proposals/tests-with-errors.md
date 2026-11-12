@@ -2,9 +2,9 @@
 
 **Status:** proposed, 11 November 2026 (SW-2938), for Matt's decisions,
 listed [at the end](#10-decisions-for-matt). D-a (D3524), D-b (D3527) and D-c (D3525) accepted; stage 1
-built (SW-2940), stage 2 built (SW-2943: reporting; the implicit-use note of §4.2 is not): importers are checked, `E-USES-FAILED` replaces
-`E-NAMESPACE-FAILED` except in the editor's live project while a namespace
-used has a syntax error (§6). It answers D3524 (what
+built (SW-2940), stage 2 built (SW-2943: reporting; the implicit-use note of §4.2 is not), stage 3 built (SW-2952, SW-2980 for bodies that don't parse): importers are checked, against stand-ins,
+and `E-USES-FAILED` replaces `E-NAMESPACE-FAILED` everywhere, the editor's
+live project included (SW-2997, §6). It answers D3524 (what
 happens to a namespace that imports a broken one) and puts today's
 one-at-a-time decisions under one model: SW-2805/2806 (each `?` is an
 assumption), SW-2855 (what waits on a goal), SW-2909 (a test that reaches
@@ -419,9 +419,14 @@ and the run exits 1 because the project has an error. See D-c.
   breaks `A` costs what an edit that keeps `A` clean costs. With
   stand-ins, a half-typed body leaves `A`'s statements, and so its
   importers' answers, unchanged; without them (stage 1) the importers'
-  waiting marks would flicker while typing, so stage 1 keeps "last
-  answers" for an importer while the namespace it uses has a *syntax*
-  error, and rechecks for a type error.
+  waiting marks would flicker while typing, so stage 1 kept "last
+  answers" for an importer while the namespace it uses had a *syntax*
+  error. Stage 3 removed that (SW-2997): an importer is always rechecked,
+  against the stand-ins, and only a syntax error in a header (whose
+  declaration has no statement) makes its users wait while it lasts, as
+  in its own file. The logs of failed declarations and broken tests
+  (`check`'s summary, `audit`) are cut back with each rewind, so they
+  describe each namespace's latest check.
 
 ## 7. Consistency: SW-2909's rule and SW-2932's
 
@@ -471,9 +476,9 @@ limits are what stages 1 and 3 remove.
 
 | Stage | Work | Model | Estimate |
 |---|---|---|---|
-| 1 | **Importers are checked (D3524, option B).** Drop the skip in `check_project_namespace`; a failed name crosses an import as a failed name; `E-USES-FAILED` once per broken name per file, and the syntax-error case of §4.2; importers' tests run under SW-2932's rule; goals, hovers and tests in importers; live project per §6; cache rule per §6; `docs/projects.md`, `docs/syntax.md`, guide 09, the book's text; `examples/projects/reject/failed` re-recorded | Opus (elaborator and project loading; a wrong guess spreads) | 2.5 h |
-| 2 | **Reporting.** `check`'s error summary lines; a test with its own error is a failed result; `test --json` `errors`; `audit` prints verdicts with errors and its JSON statuses; the implicit-use note of §4.2 | Sonnet | 90 min |
-| 3 | **Stand-ins (option C).** A `def` or `theorem` with a checked statement and a failed body (type or syntax error) becomes an assumption of its statement; label kind in `check::assume` and its hash; users elaborated and kernel-checked; the waiting rule for both kinds; `relied_on` reports the kind; `test` runs what only cites a broken theorem, with the "assuming" note for both kinds; `docs/core.md` (D3210); then an Opus review, since it generates kernel terms (D2364) | Opus | 3 h + review |
+| 1 (built) | **Importers are checked (D3524, option B).** Drop the skip in `check_project_namespace`; a failed name crosses an import as a failed name; `E-USES-FAILED` once per broken name per file, and the syntax-error case of §4.2; importers' tests run under SW-2932's rule; goals, hovers and tests in importers; live project per §6; cache rule per §6; `docs/projects.md`, `docs/syntax.md`, guide 09, the book's text; `examples/projects/reject/failed` re-recorded | Opus (elaborator and project loading; a wrong guess spreads) | 2.5 h |
+| 2 (built) | **Reporting.** `check`'s error summary lines; a test with its own error is a failed result; `test --json` `errors`; `audit` prints verdicts with errors and its JSON statuses; the implicit-use note of §4.2 | Sonnet | 90 min |
+| 3 (built) | **Stand-ins (option C).** A `def` or `theorem` with a checked statement and a failed body (type or syntax error) becomes an assumption of its statement; label kind in `check::assume` and its hash; users elaborated and kernel-checked; the waiting rule for both kinds; `relied_on` reports the kind; `test` runs what only cites a broken theorem, with the "assuming" note for both kinds; `docs/core.md` (D3210); then an Opus review, since it generates kernel terms (D2364) | Opus | 3 h + review |
 | 4 | **Editor and playground.** Hints and Information marks for both kinds; Testing panel and Tests tab messages; Check tab summary | Sonnet | 60 min |
 | 5 | **`run` and `eval` with errors** (if D-e is yes) | Sonnet | 45 min |
 | 6 | **Measure, then maybe cache.** Check `aoc/` with an error put into `Aoc.Common` (verifier or Overmind, not a lane); if it's slow, store namespaces with waiting declarations (§6) | Sonnet, after an Opus look at the cache's trust path | 90 min |
@@ -532,10 +537,11 @@ book with the slip; stage 3 core's assumption tests and
   stand-in.
 - No stand-in for types, interfaces, abilities or instances at first.
 - A test with its own error is a result, not only a diagnostic.
-- Stage 1 keeps last answers in the live project for importers of a
-  namespace with a syntax error; stage 3 makes that unnecessary.
-- `E-NAMESPACE-FAILED` is retired unless stage 1 finds a case (other than
-  a cycle, which has its own code) where a namespace truly can't be
+- Stage 1 kept last answers in the live project for importers of a
+  namespace with a syntax error; stage 3 made that unnecessary, and it is
+  gone (SW-2997).
+- `E-NAMESPACE-FAILED` is retired (SW-2997): no case was found, other
+  than a cycle, which has its own code, where a namespace truly can't be
   checked.
 
 ## 12. Not known yet

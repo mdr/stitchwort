@@ -25,6 +25,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 
 use stitchwort_core::hash::{data_hash, def_hash};
 use stitchwort_core::{DataId, DefId};
+use stitchwort_driver::audit;
 use stitchwort_driver::driver::{Session, full_tier, par_map, tier_sample, with_stack};
 use stitchwort_driver::live::{LiveProject, Place, Progress};
 use stitchwort_driver::nav::index_json;
@@ -949,6 +950,134 @@ fn an_edit_checks_again_only_what_uses_it() {
         now.retain(|place, _| matches!(place, Place::Program(_)));
         then.retain(|place, _| matches!(place, Place::Program(_)));
         assert_eq!(format!("{now:?}"), format!("{then:?}"));
+        let _ = std::fs::remove_dir_all(&cache);
+    });
+}
+
+// ---- an importer of a namespace with an error ------------------------------
+
+const GAP_A: &str = "namespace Gap.A\n\ndef one: Nat := 1\n\ndef two: Nat := 2\n";
+/// `twoIs` uses only `two`; `oneSame` cites `one` without computing it, so
+/// it can be checked against a stand-in for `one`; `oneIs` must compute
+/// `one`, so it waits for it.
+const GAP_B: &str = "namespace Gap.B\n\nimport Gap.A (one, two)\n\n\
+    theorem twoIs: two = 2 := rfl\n\n\
+    theorem oneSame: one = one := rfl\n\n\
+    theorem oneIs: one = 1 := rfl\n";
+
+fn gap_files(a: &str, nonce: &str) -> BTreeMap<String, String> {
+    BTreeMap::from([
+        (
+            "src/a.sw".to_string(),
+            format!("{a}\ndef tag: Nat := {nonce}\n"),
+        ),
+        ("src/b.sw".to_string(), GAP_B.to_string()),
+    ])
+}
+
+/// How `audit` sees each of `Gap.B`'s theorems.
+fn gap_statuses(live: &mut LiveProject) -> BTreeMap<String, audit::Status> {
+    let keep = |name: &str| name.starts_with("Gap.B.");
+    let theorems = audit::theorems(&live.session.elab.ev(), &keep);
+    let options = audit::Options {
+        allowed: audit::DEFAULT_ALLOWED
+            .iter()
+            .map(|a| a.to_string())
+            .collect(),
+        search: None,
+    };
+    let mut audits = live.session.audit(&theorems, &options);
+    audits.extend(live.session.audit_failed(&keep));
+    (audits.into_iter()).map(|a| (a.name, a.status)).collect()
+}
+
+/// The codes of the diagnostics answered for `path`.
+fn codes(answers: &stitchwort_driver::live::Answers, path: &str) -> Vec<&'static str> {
+    let file = &answers[&Place::Program(path.to_string())];
+    file.diagnostics.iter().map(|d| d.code).collect()
+}
+
+/// In the editor, a namespace that imports one with an error is checked
+/// like any user in that namespace's own file
+/// (docs/proposals/tests-with-errors.md §3, §6): with a body that doesn't
+/// parse or doesn't check, what only cites the broken declaration relies
+/// on its stand-in, what computes with it waits, and the rest is checked;
+/// with a broken statement or header, everything that uses it waits. A
+/// namespace relying on a stand-in is never stored in the check cache.
+/// Fixing the error gives back exactly a fresh check's answers.
+#[test]
+fn an_importer_is_checked_against_a_broken_declarations_stand_in() {
+    use audit::Status::{Assuming, Checked, Waiting};
+    with_stack(STACK, || {
+        let nonce = nonce();
+        let cache = order_cache(&format!("gap-{nonce}"));
+        let mut live = order_project(gap_files(GAP_A, &nonce), &cache);
+        assert_eq!(checked_log(&mut live), ["Gap.A", "Gap.B"]);
+        let first = live.answers();
+        assert_eq!(codes(&first, "src/b.sw"), Vec::<&str>::new());
+        let clean = BTreeMap::from([
+            ("Gap.B.oneIs".to_string(), Checked),
+            ("Gap.B.oneSame".to_string(), Checked),
+            ("Gap.B.twoIs".to_string(), Checked),
+        ]);
+        assert_eq!(gap_statuses(&mut live), clean);
+        let stats = |live: &LiveProject| live.session.elab.check_cache_stats();
+
+        let body_syntax = GAP_A.replace("def one: Nat := 1", "def one: Nat := (1");
+        let body_type = GAP_A.replace("def one: Nat := 1", "def one: Nat := \"one\"");
+        let statement = GAP_A.replace("def one: Nat := 1", "def one: Nat Nat := 1");
+        let header = GAP_A.replace("def one: Nat := 1", "def one: := 1");
+        let relying = BTreeMap::from([
+            ("Gap.B.oneIs".to_string(), Waiting),
+            ("Gap.B.oneSame".to_string(), Assuming),
+            ("Gap.B.twoIs".to_string(), Checked),
+        ]);
+        let waiting = BTreeMap::from([
+            ("Gap.B.oneIs".to_string(), Waiting),
+            ("Gap.B.oneSame".to_string(), Waiting),
+            ("Gap.B.twoIs".to_string(), Checked),
+        ]);
+        for (what, a, expected) in [
+            ("a body with a syntax error", &body_syntax, &relying),
+            ("a body with a type error", &body_type, &relying),
+            ("a statement with an error", &statement, &waiting),
+            ("a header with a syntax error", &header, &waiting),
+        ] {
+            let before = stats(&live);
+            live.set_text("src/a.sw", Some(gap_files(a, &nonce)["src/a.sw"].clone()));
+            assert_eq!(checked_log(&mut live), ["Gap.A", "Gap.B"], "{what}");
+            let answers = live.answers();
+            assert_eq!(codes(&answers, "src/b.sw"), ["E-USES-FAILED"], "{what}");
+            assert_eq!(&gap_statuses(&mut live), expected, "{what}");
+            // Neither namespace is stored: A has an error, and B relies on
+            // it or waits for it, which keeps it out whatever A is.
+            let after = stats(&live);
+            assert_eq!(after.namespace_written, before.namespace_written, "{what}");
+            assert_eq!(
+                after.namespace_waiting_on_error, before.namespace_waiting_on_error,
+                "{what}: B isn't held back only by A's error"
+            );
+            // The same as a fresh check of the broken text.
+            let mut fresh = order_project(gap_files(a, &nonce), &cache);
+            checked_log(&mut fresh);
+            let (mut now, mut then) = (answers, fresh.answers());
+            now.retain(|place, _| matches!(place, Place::Program(_)));
+            then.retain(|place, _| matches!(place, Place::Program(_)));
+            assert_eq!(format!("{now:?}"), format!("{then:?}"), "{what}");
+
+            // Fixed: B is back, with nothing left of the stand-in.
+            live.set_text(
+                "src/a.sw",
+                Some(gap_files(GAP_A, &nonce)["src/a.sw"].clone()),
+            );
+            assert_eq!(checked_log(&mut live), ["Gap.A", "Gap.B"], "{what}, fixed");
+            let mut now = live.answers();
+            let mut then = first.clone();
+            now.retain(|place, _| matches!(place, Place::Program(_)));
+            then.retain(|place, _| matches!(place, Place::Program(_)));
+            assert_eq!(format!("{now:?}"), format!("{then:?}"), "{what}, fixed");
+            assert_eq!(gap_statuses(&mut live), clean, "{what}, fixed");
+        }
         let _ = std::fs::remove_dir_all(&cache);
     });
 }

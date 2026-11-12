@@ -408,9 +408,10 @@ fn between_body() {
 
 #[test]
 fn a_namespace_whose_import_failed_gets_one_error_there_until_the_import_is_fixed() {
-    // A type error in `First`: `Second` is checked, and says once, on the
-    // import, what waits for the broken name (D3524). A syntax error:
-    // `Second` isn't checked, and keeps its last answers.
+    // A type error or a syntax error in `First`'s body: `Second` is
+    // checked, against `one`'s stand-in, and says once, on the import,
+    // what waits for the broken name (D3524, D3527). A syntax error in
+    // `one`'s header: what uses it waits, and the rest is checked.
     std::thread::Builder::new()
         .stack_size(STACK)
         .spawn(failed_import_body)
@@ -423,6 +424,7 @@ fn failed_import_body() {
     let good = "namespace First\n\ndef one: Nat := 1\n\ndef two: Nat := 2\n";
     let broken = "namespace First\n\ndef one: Nat := \"oops\"\n\ndef two: Nat := 2\n";
     let unparsed = "namespace First\n\ndef one: Nat := (1\n\ndef two: Nat := 2\n";
+    let headless = "namespace First\n\ndef one: := 1\n\ndef two: Nat := 2\n";
     // `three` and `four` only refer to `one`, so a type error in it leaves
     // them checked against its statement (D3527); `oneIs` must compute it,
     // so waits.
@@ -517,23 +519,26 @@ fn failed_import_body() {
     assert_eq!(ask(&mut server, "textDocument/hover"), hover);
     assert_eq!(ask(&mut server, "textDocument/definition"), definition);
 
-    // A syntax error instead: the dependent isn't checked, and keeps its
-    // last good hover and definition.
+    // A syntax error in a body instead: the same.
     change(&mut server, 4, good);
     let sent = settle(&mut server);
     assert_eq!(codes(&sent, "Second"), Some(vec![]));
     change(&mut server, 5, unparsed);
     let sent = settle(&mut server);
     assert_eq!(codes(&sent, "First"), Some(vec!["E-PARSE".into()]));
-    assert_eq!(
-        codes(&sent, "Second"),
-        Some(vec!["E-NAMESPACE-FAILED".into()])
-    );
+    assert_eq!(codes(&sent, "Second"), Some(vec!["E-USES-FAILED".into()]));
     assert_eq!(ask(&mut server, "textDocument/hover"), hover);
     assert_eq!(ask(&mut server, "textDocument/definition"), definition);
 
+    // And in a header, which loses `one`: its import says it can't be
+    // found, and `two` is still checked.
+    change(&mut server, 6, headless);
+    let sent = settle(&mut server);
+    assert_eq!(codes(&sent, "First"), Some(vec!["E-PARSE".into()]));
+    assert_eq!(codes(&sent, "Second"), Some(vec!["E-USES-FAILED".into()]));
+
     // Fixing the shared file checks the dependent again.
-    change(&mut server, 6, good);
+    change(&mut server, 7, good);
     let sent = settle(&mut server);
     assert_eq!(codes(&sent, "First"), Some(vec![]));
     assert_eq!(codes(&sent, "Second"), Some(vec![]));
