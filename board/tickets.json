@@ -31883,12 +31883,12 @@
     {
       "id": 2980,
       "title": "[Opus] Tests with errors: a declaration whose body has a syntax error gets no stand-in (the parser drops the declaration and keeps no signature), unlike tests-with-errors.md §3.3: keep the signature through parse recovery so it stands in (SW-2952 review M3); also the misleading 'N errors: in usesTwo, …' summary after a body parse error (also on main)",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "test-infra",
-      "body": "",
+      "body": "\n\nProgress (lane, Opus, 12 Nov 2026, 16:17-16:45; est. 2 h): done on lane/SW-2980, commit 4a0c3d524.\n- Parser keeps a def/theorem whose header parsed and body didn't (`Decl::Signature.body_error`, no equations); header errors and instances as before.\n- Elaborator checks the statement, fails it with an unreported `E-UNPARSED-BODY` at the syntax error, so stage 3's stand-in applies; users of a declaration that didn't parse at all now wait (summary counts only it).\n- Repro before: `3 errors: in usesTwo, test \"cites\" and doubleTwo`; after: `1 error: in doubleTwo` + `2 declarations rely on a declaration with an error`, test \"cites\" runs assuming doubleTwo.\n- Tests: parser recovery (3), CLI test_json (24), LSP a_body_being_typed_leaves_its_users_checked + import_failed, examples sweep (7 pass, no snapshot changes except the new reject example), hash_stability (10 pass).\n",
       "created": "2026-11-12",
       "updated": "2026-11-12",
       "commits": []
