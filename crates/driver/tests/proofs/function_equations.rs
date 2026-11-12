@@ -1199,3 +1199,57 @@ fn library_equations_come_out_the_same_whoever_asks() {
         .join()
         .unwrap();
 }
+
+/// A `()` arm has no equation of its own, and the arms around it keep
+/// theirs, numbered by their place among all the arms; theorems use them
+/// by applying them. A `match` below an arm with an absurd alternative
+/// gets the equations of its other alternatives too, and the absurd one
+/// is recorded as skipped.
+const ABSURD_ARMS: &str = r#"
+import Std (Nat)
+
+type Vec (a: Type): Nat → Type =
+  | VNil: Vec a 0
+  | VCons (x: a) (xs: Vec a n): Vec a (Succ n)
+
+type Fin: Nat → Type =
+  | FZero: Fin (Succ n)
+  | FSucc (i: Fin n): Fin (Succ n)
+
+def at: (v: Vec Nat n) → Fin n → Nat
+  | VCons x _, FZero => x
+  | VNil, ()
+  | VCons _ xs, FSucc j => at xs j
+
+def pick (d: Nat): (v: Vec Nat n) → Fin n → Nat
+  | VCons x xs, i =>
+    match i with
+      | FZero => x
+      | FSucc j => pick d xs j
+  | VNil, i =>
+    match i with
+      | ()
+
+theorem atZero (x: Nat) (xs: Vec Nat n): at (VCons x xs) FZero = x := at.eq1 n x xs
+
+theorem atSucc (x: Nat) (xs: Vec Nat n) (j: Fin n): at (VCons x xs) (FSucc j) = at xs j :=
+  at.eq3 n x xs j
+"#;
+
+#[test]
+fn an_absurd_arm_leaves_the_equations_around_it_numbered_by_their_place() {
+    with_source(ABSURD_ARMS.to_string(), |s| {
+        let eq1 = generated(s, "at.eq1");
+        assert!(eq1.contains("at (VCons n x xs) (FZero n) = x"), "{eq1}");
+        let eq3 = generated(s, "at.eq3");
+        assert!(
+            eq3.contains("at (VCons n x xs) (FSucc n j) = at xs j"),
+            "{eq3}"
+        );
+        let made = |name: &str| s.elab.ev().env.defs().iter().any(|d| &**d.name() == name);
+        assert!(!made("at.eq2"), "an absurd arm has no equation");
+        assert!(made("pick.eq1.fZero") && made("pick.eq1.fSucc"));
+        let why = skipped(s, "pick.eq2.alt1");
+        assert!(why.contains("no right side"), "{why}");
+    });
+}
