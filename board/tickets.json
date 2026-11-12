@@ -31712,15 +31712,17 @@
     {
       "id": 2969,
       "title": "[Sonnet] cases and auto close a goal from e = True and e = False together (contradiction) without the reader (SW-2964 finding 3; bool-as-proposition plan, new small stage)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2969",
       "labels": [],
       "epic": "proof-automation",
-      "body": "",
+      "body": "\nBuilt: cases.rs bool_clash via by_contradiction (two J steps to False = True, Bool.falseNotTrue, Void.exfalso/absurd); auto calls by_contradiction last. Term reviewed by the orchestrator (small, kernel-checked).\nModel result: Sonnet, worked, 7 min (est. 60)",
       "created": "2026-11-12",
       "updated": "2026-11-12",
-      "commits": []
+      "commits": [
+        "29e69432b"
+      ]
     },
     {
       "id": 2970,
