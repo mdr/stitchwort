@@ -22,7 +22,7 @@ theorem rockBeatsOnlyScissors (theirs: Move) (h: beats Rock theirs): theirs = Sc
 
 -- An arm that binds the impossible value itself is how a proof uses it, not
 -- a case ruled out beforehand: no warning.
-theorem falseIsTrue (p: False = True): 1 = 2 :=
+theorem rockBeatsRock (p: beats Rock Rock): 1 = 2 :=
   match p with
     | q => Void.exfalso (Bool.falseNotTrue q)
 
