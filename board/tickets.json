@@ -31710,9 +31710,9 @@
     {
       "id": 2969,
       "title": "[Sonnet] cases and auto close a goal from e = True and e = False together (contradiction) without the reader (SW-2964 finding 3; bool-as-proposition plan, new small stage)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-2969",
       "labels": [],
       "epic": "proof-automation",
       "body": "",
