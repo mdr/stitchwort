@@ -1,5 +1,5 @@
 {
-  "next": 3001,
+  "next": 3004,
   "tickets": [
     {
       "id": 47,
@@ -32176,6 +32176,45 @@
       "where": ".claude/worktrees/SW-3000",
       "labels": [],
       "epic": "test-infra",
+      "body": "",
+      "created": "2026-11-12",
+      "updated": "2026-11-12",
+      "commits": []
+    },
+    {
+      "id": 3001,
+      "title": "[DeepSeek] W-UNREACHABLE label shows the hypothesis unreduced ('h is Nat.compare 0 0 = Less'): show the computed equation (Equal = Less) that can't hold (SW-2993 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "diagnostics",
+      "body": "",
+      "created": "2026-11-12",
+      "updated": "2026-11-12",
+      "commits": []
+    },
+    {
+      "id": 3002,
+      "title": "[Opus] Each case the checker fills in becomes a %matchN helper declaration (38 new in std after SW-2993) where an explicit arm needed none: could the filled-in proof go inline? (SW-2993 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-12",
+      "updated": "2026-11-12",
+      "commits": []
+    },
+    {
+      "id": 3003,
+      "title": "[DeepSeek] A theorem whose body doesn't parse loses its counterexample note: it attaches to the hidden E-UNPARSED-BODY (module.rs note_counterexample, then retain at the end of elaborate_module); move it onto the parse error in merge_recovered (SW-2980/SW-2997 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "diagnostics",
       "body": "",
       "created": "2026-11-12",
       "updated": "2026-11-12",
