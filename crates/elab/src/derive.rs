@@ -296,6 +296,10 @@ impl Elaborator {
         let (signature, equations) = source.instance;
         self.clear_metas();
         result = result.and_then(|()| self.definition(&signature, &equations));
+        for (signature, equations) in source.readings {
+            self.clear_metas();
+            result = result.and_then(|()| self.definition(&signature, &equations));
+        }
         self.clear_metas();
         match result {
             Ok(()) => {}
@@ -1040,6 +1044,7 @@ impl Elaborator {
         let mut differs = Vec::new();
         let mut tests = Vec::new();
         let mut proofs = Vec::new();
+        let mut readings = Vec::new();
         for m in 0..=plan.nested.len() {
             let prefix = member_prefix(&ty_name, m);
             // The type matched on, how source names its constructors, and
@@ -1318,6 +1323,73 @@ impl Elaborator {
             tests.push((same_signature, same_equations));
             proofs.push((sound_signature, sound_equations));
             proofs.push((complete_signature, complete_equations));
+            // The test's two readings (§5.4), from its two proofs; the
+            // negative one by `Decidable.refute` and `toBoolOfNot` on the
+            // decision the instance is made of.
+            let as_reading = |name: &ast::Name, ty: Expr, body: Expr| {
+                let mut sig = signature(name, ty, false);
+                if let Decl::Signature { theorem, attrs, .. } = &mut sig {
+                    *theorem = true;
+                    attrs.push(ast::Attribute {
+                        name: n("reading"),
+                        arg: None,
+                        span,
+                    });
+                }
+                let equation = Decl::Equation {
+                    guard: None,
+                    name: name.clone(),
+                    patterns: Vec::new(),
+                    rhs: Some(lam(&["%r", "%s"], body)),
+                    arm: None,
+                    span,
+                };
+                (sig, vec![equation])
+            };
+            let iff = |a: Expr, b: Expr| apps(var("Std.Iff"), vec![a, b]);
+            let record = |fields: Vec<(&str, Expr)>| Expr::Record {
+                base: None,
+                fields: fields.into_iter().map(|(f, e)| (n(f), e)).collect(),
+                span,
+            };
+            let by_pair = |f: String| apps(var(&f), vec![var("%r"), var("%s")]);
+            let test = by_pair(same_name.text.clone());
+            let decision = Expr::Ann(
+                Box::new(record(vec![
+                    ("holds", by_pair(same_of(m))),
+                    ("sound", by_pair(sound_of(m))),
+                    ("complete", by_pair(complete_of(m))),
+                ])),
+                Box::new(apps(var("Std.Decidable"), vec![eq(var("%r"), var("%s"))])),
+                span,
+            );
+            readings.push(as_reading(
+                &n(&format!("{prefix}sameReads")),
+                pair(iff(
+                    eq(test.clone(), var("Std.Bool.True")),
+                    eq(var("%r"), var("%s")),
+                )),
+                record(vec![
+                    ("forward", by_pair(sound_of(m))),
+                    ("backward", by_pair(complete_of(m))),
+                ]),
+            ));
+            let refute = apps(
+                var("Std.Decidable.refute"),
+                vec![decision.clone(), var("%e")],
+            );
+            let to_bool = apps(var("Std.Decidable.toBoolOfNot"), vec![decision, var("%n")]);
+            readings.push(as_reading(
+                &n(&format!("{prefix}sameReadsFalse")),
+                pair(iff(
+                    eq(test, var("Std.Bool.False")),
+                    Expr::Binary(BinOp::Ne, Box::new(var("%r")), Box::new(var("%s"))),
+                )),
+                record(vec![
+                    ("forward", lam(&["%e"], refute)),
+                    ("backward", lam(&["%n"], to_bool)),
+                ]),
+            ));
         }
         // instance T.%instDecEq : … -> Std.DecEq (T %p0 …) :=
         //   { decide = %r %s => { holds = T.%same %r %s, sound = T.%sameSound %r %s, complete = … } }
@@ -1353,6 +1425,7 @@ impl Elaborator {
             tests,
             proofs,
             instance,
+            readings,
         }
     }
 }
@@ -1485,4 +1558,7 @@ struct Source {
     /// together after the tests, which their types mention.
     proofs: Vec<(Decl, Vec<Decl>)>,
     instance: (Decl, Vec<Decl>),
+    /// `T.%sameReads` and `T.%sameReadsFalse`, then each container's: the
+    /// readings of the tests, filed once the instance is.
+    readings: Vec<(Decl, Vec<Decl>)>,
 }
