@@ -147,8 +147,9 @@ pub(crate) struct ItemInfo {
     /// that did.
     pub ran_out: bool,
     /// For a `@[reading]` theorem: its test's function and polarity as
-    /// written, so a use of the test checked before it can say the reading
-    /// comes later, or failed ([`crate::reading::written_reading`]).
+    /// written ([`crate::reading::written_reading`]), known before anything
+    /// is checked: uses of the test are ordered after it
+    /// (`reading_edges`), and one that can't be says why.
     pub reading: Option<(crate::reading::WrittenHead, bool)>,
 }
 
@@ -428,6 +429,7 @@ impl Elaborator {
         // instances after what the rest of them uses: their uses of syntax
         // (`if`, `<=`) refer to declarations no name does.
         if !self.unit.loading_prelude {
+            self.reading_edges();
             self.instance_edges(&items);
         }
         let order = self.components();
@@ -2092,6 +2094,74 @@ impl Elaborator {
                     continue;
                 }
                 add(self, &reached, x, y);
+            }
+        }
+    }
+
+    /// Ordering edges for readings (D3537): every declaration that mentions
+    /// a test function with a `@[reading]` in this module is checked after
+    /// the reading, so which uses see a reading is decided by dependencies,
+    /// not by where things are written. Except the reading's own
+    /// dependencies (a lemma its proof uses), which can't wait for it: they
+    /// read the test as what it unfolds to, as the reading's own proof does.
+    /// An edge into the reading never closes a cycle, since what the reading
+    /// reaches is left out. The library is written in an order that works.
+    fn reading_edges(&mut self) {
+        let readings: Vec<(usize, crate::reading::WrittenHead)> = (self.unit.module.items.iter())
+            .enumerate()
+            .filter_map(|(r, info)| Some((r, info.reading.as_ref()?.0.clone())))
+            .collect();
+        for (r, head) in readings {
+            let tests = self.reading_tests(r, &head);
+            if tests.is_empty() {
+                continue;
+            }
+            let reached = self.reachable(r);
+            let span = self.unit.module.items[r].span;
+            for x in 0..self.unit.module.items.len() {
+                let item = &self.unit.module.items[x];
+                if reached.contains(&x)
+                    || !matches!(item.kind, Kind::Def | Kind::Test)
+                    || !item.deps.iter().any(|d| tests.contains(&d.item))
+                {
+                    continue;
+                }
+                self.unit.module.items[x].deps.push(Dep {
+                    item: r,
+                    span,
+                    in_header: false,
+                    speculative: Some("it may read a test through its reading".to_string()),
+                });
+            }
+        }
+    }
+
+    /// The module's functions the `@[reading]` item `r` may be the reading
+    /// of, from how its statement names its test.
+    fn reading_tests(&mut self, r: usize, head: &crate::reading::WrittenHead) -> Vec<usize> {
+        let defs = |this: &Self, keep: &dyn Fn(&str) -> bool| -> Vec<usize> {
+            (this.unit.module.items.iter())
+                .enumerate()
+                .filter(|(i, info)| *i != r && info.kind == Kind::Def && keep(&info.name))
+                .map(|(i, _)| i)
+                .collect()
+        };
+        match head {
+            crate::reading::WrittenHead::Method(m) => defs(self, &|name: &str| {
+                name.rsplit('.').next() == Some(m.as_str())
+            }),
+            crate::reading::WrittenHead::Name(text) => {
+                self.unit.module.file = Some(self.unit.module.items[r].file);
+                let found = match self.resolve(text) {
+                    crate::scope::Resolved::Found {
+                        global: Global::Unchecked(j),
+                        rest,
+                        ..
+                    } if rest.is_empty() => vec![j],
+                    _ => Vec::new(),
+                };
+                self.unit.module.file = None;
+                found
             }
         }
     }

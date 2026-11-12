@@ -91,8 +91,8 @@ struct Step {
 /// What the reader found for a test.
 pub(crate) enum Read {
     Found(Found),
-    /// The test's function has a reading in this module that isn't filed:
-    /// declared below the use (`failed` false), or failed to check.
+    /// The test's function has a reading in this module that failed to
+    /// check, with no stand-in to file.
     Pending(Pending),
     /// No reading, after unfolding what could be: the test's head when it
     /// is a function (for the note on `@[reading]`).
@@ -494,14 +494,13 @@ enum Lookup {
     Leaf(Option<DefId>),
 }
 
-/// A reading of this module's not yet filed when a test needs it.
+/// A reading of this module's that failed, with no stand-in filed.
 #[derive(Clone, Copy)]
 pub(crate) struct Pending {
     /// The test's function.
     test: DefId,
     /// The reading's item in the module.
     item: usize,
-    failed: bool,
 }
 
 /// How a `@[reading]` theorem's statement names its test's function.
@@ -592,27 +591,75 @@ fn last_name(name: &str) -> &str {
     name.rsplit('.').next().unwrap_or(name)
 }
 
-/// A reading of `f` at `polarity` declared in this module but not filed:
-/// below the declaration being checked, or failed.
-fn pending(e: &Elaborator, f: DefId, polarity: bool) -> Option<Pending> {
+/// The item of this module's reading of `f` at `polarity` whose status
+/// `keep` accepts.
+fn module_reading(
+    e: &Elaborator,
+    f: DefId,
+    polarity: bool,
+    keep: impl Fn(crate::module::Status) -> bool,
+) -> Option<usize> {
     let module = &e.unit.module;
     if !module.def_items.contains_key(&f) {
         return None;
     }
-    let current = module.item.map(|i| module.items[i].position);
-    module.items.iter().enumerate().find_map(|(item, info)| {
-        let (head, p) = info.reading.as_ref()?;
-        if *p != polarity || !names(e, head, f) {
-            return None;
+    module.items.iter().position(|info| {
+        info.reading
+            .as_ref()
+            .is_some_and(|(head, p)| *p == polarity && keep(info.status) && names(e, head, f))
+    })
+}
+
+/// A reading of `f` at `polarity` declared in this module that failed, so
+/// isn't filed: what reads through it fails with it, quietly.
+fn pending(e: &Elaborator, f: DefId, polarity: bool) -> Option<Pending> {
+    module_reading(e, f, polarity, crate::module::Status::failed)
+        .map(|item| Pending { test: f, item })
+}
+
+/// Why a fact of type `ty` isn't read by its test's own reading, where
+/// that is because the reading isn't checked yet: checking order puts every
+/// use of a test after its reading (D3537), except the reading's own
+/// dependencies, which read the test as what it unfolds to.
+pub(crate) fn waiting_note(g: &Ev, e: &Elaborator, ty: &Value) -> Result<Option<String>> {
+    let Some((test, polarity)) = test_fact_in(g, ty)? else {
+        return Ok(None);
+    };
+    waiting_note_for(g, e, &test, polarity)
+}
+
+fn waiting_note_for(
+    g: &Ev,
+    e: &Elaborator,
+    test: &Value,
+    polarity: bool,
+) -> Result<Option<String>> {
+    folded(g, || {
+        let mut test = test.clone();
+        for _ in 0..=UNFOLD_LIMIT {
+            let Some((TestHead::Def(f), _)) = head_args(g, &test)? else {
+                return Ok(None);
+            };
+            let waiting = |s| s == crate::module::Status::Waiting;
+            // In the reading's own proof it goes without saying.
+            if let Some(item) = module_reading(e, f, polarity, waiting)
+                && e.unit.module.item != Some(item)
+            {
+                let f = g.def(f).name();
+                let reading = &e.unit.module.items[item].name;
+                return Ok(Some(format!(
+                    "`{f}`'s reading, `{reading}`, isn't available here: `{reading}` depends on \
+                     this declaration, so here `{f}` reads as what it unfolds to"
+                )));
+            }
+            match &test {
+                Value::Call(f, spine, _) if !g.def(*f).opaque() => {
+                    test = unfold_once(g, *f, spine.clone())?;
+                }
+                _ => return Ok(None),
+            }
         }
-        let failed = info.status.failed();
-        let below = info.status == crate::module::Status::Waiting
-            && current.is_some_and(|c| info.position > c);
-        (failed || below).then_some(Pending {
-            test: f,
-            item,
-            failed,
-        })
+        Ok(None)
     })
 }
 
@@ -826,8 +873,9 @@ pub(crate) fn no_reading(
     } else {
         format!("`{} = False`", cx.show(test))
     };
-    match read {
-        Read::Pending(p) => pending_error(cx.e, span, *p, how),
+    let waiting = waiting_note_for(&g, cx.e, test, polarity).ok().flatten();
+    let d = match read {
+        Read::Pending(p) => return pending_error(cx.e, span, *p),
         Read::Found(found) => {
             let mut d = Diagnostic::error("E-NO-READING", format!("this test fact can't be {how}"))
                 .with_label(
@@ -868,32 +916,23 @@ pub(crate) fn no_reading(
             }
             d.with_note("a test fact can always be matched by a name")
         }
+    };
+    match waiting {
+        Some(note) => d.with_note(note),
+        None => d,
     }
 }
 
-/// The error for a test fact used as `how` where its test's reading is
-/// `p`, not filed: `E-NO-READING` saying it is declared below, or, where it
-/// failed, `E-FAILED-DEPENDENCY`, which goes without saying beside the
-/// reading's own error.
-pub(crate) fn pending_error(e: &Elaborator, span: Span, p: Pending, how: &str) -> Diagnostic {
-    let info = &e.unit.module.items[p.item];
+/// The error for a test fact used where its test's reading `p` failed:
+/// `E-FAILED-DEPENDENCY`, which goes without saying beside the reading's
+/// own error.
+pub(crate) fn pending_error(e: &Elaborator, span: Span, p: Pending) -> Diagnostic {
     let test = e.kernel.def(p.test).name().to_string();
-    let reading = &info.name;
-    if p.failed {
-        return Diagnostic::error("E-FAILED-DEPENDENCY", format!("`{reading}` has errors"))
-            .with_label(span, format!("`{test}`'s reading, `{reading}`, has errors"))
-            .with_note(format!(
-                "this can't be accepted until the errors in `{reading}` are fixed"
-            ));
-    }
-    Diagnostic::error("E-NO-READING", format!("this test fact can't be {how} yet"))
-        .with_label(
-            span,
-            format!("`{test}`'s reading, `{reading}`, is declared below"),
-        )
-        .with_label(info.span, "declared here")
+    let reading = &e.unit.module.items[p.item].name;
+    Diagnostic::error("E-FAILED-DEPENDENCY", format!("`{reading}` has errors"))
+        .with_label(span, format!("`{test}`'s reading, `{reading}`, has errors"))
         .with_note(format!(
-            "a reading is used from where it is declared on: move `{reading}` above this"
+            "this can't be accepted until the errors in `{reading}` are fixed"
         ))
 }
 
@@ -1018,7 +1057,7 @@ pub(crate) fn read_fact(cx: &Ctx, rterm: &Term, rty: &Value) -> Result<Option<(T
     };
     match read(cx, &test, polarity)? {
         Read::Found(found) => Ok(Some((found.forward(cx, rterm.clone())?, found.prop))),
-        Read::Pending(p) => Err(pending_error(cx.e, cx.span, p, "read")),
+        Read::Pending(p) => Err(pending_error(cx.e, cx.span, p)),
         Read::Leaf(_) => Ok(None),
     }
 }

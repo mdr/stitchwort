@@ -468,6 +468,11 @@ fn dot_on_reading(
         // is `h.read.left` (§6.6), once. If the reading has no such field
         // either, the error is the fact's own.
         Err(e) if through_reading && e.code == "E-UNKNOWN-FIELD" => {
+            let waiting = crate::reading::waiting_note(&cx.g(), cx.e, &rty)?;
+            let e = match waiting {
+                Some(note) => e.with_note(note),
+                None => e,
+            };
             let Some((term, ty)) = crate::reading::read_fact(cx, &rterm, &rty)? else {
                 return Err(e);
             };

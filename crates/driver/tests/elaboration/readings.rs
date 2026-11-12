@@ -97,10 +97,30 @@ type InRange (lo x hi: Nat): Prop = { low: lo ≤ x, high: x ≤ hi }
 def inRange (lo x hi: Nat): Bool := lo <= x && x <= hi
 ";
 
-/// A reading written as `Iff (…) (…)` is known to be one before it is
-/// checked, so a use above it says the reading is declared below.
+/// Which uses see a reading is decided by dependencies, not by where they
+/// are written (D3537): a use above the reading is checked after it.
 #[test]
-fn a_reading_written_with_iff_below_its_use_is_found() {
+fn a_use_above_the_reading_reads_through_it() {
+    let source = format!(
+        "{IN_RANGE}
+theorem below (x: Nat) (h: inRange 1 x 9): x ≤ 9 :=
+  match h with
+    | {{ low, high }} => high
+
+@[reading]
+theorem inRangeReads (lo x hi: Nat): inRange lo x hi ↔ InRange lo x hi := {{
+  forward = h => {{ low = h.left, high = h.right }},
+  backward = r => Both r.low r.high
+}}
+"
+    );
+    assert_eq!(errors(&source), Vec::<String>::new());
+}
+
+/// A reading written as `Iff (…) (…)` is known to be one before it is
+/// checked, so a use above it waits for it.
+#[test]
+fn a_reading_written_with_iff_is_found_from_above() {
     let source = format!(
         "{IN_RANGE}
 theorem below (x: Nat) (h: inRange 1 x 9): x ≤ 9 := h.read.high
@@ -112,41 +132,35 @@ theorem inRangeReads (lo x hi: Nat): Iff (inRange lo x hi) (InRange lo x hi) := 
 }}
 "
     );
-    let errors = errors(&source);
-    assert!(
-        errors.len() == 1 && errors[0].starts_with("E-NO-READING") && errors[0].ends_with("yet"),
-        "{errors:#?}"
-    );
+    assert_eq!(errors(&source), Vec::<String>::new());
 }
 
 /// So is one whose test is written with a dot, `b.ok`.
 #[test]
-fn a_reading_written_with_a_dot_below_its_use_is_found() {
+fn a_reading_written_with_a_dot_is_found_from_above() {
     let source = "import Std (Bool, Nat, Iff)
 
 type Box = { n: Nat }
 
+type Ok (b: Box): Prop = { small: b.n ≤ 3 }
+
 def Box.ok (b: Box): Bool := b.n <= 3
 
-theorem below (b: Box) (h: b.ok): b.n ≤ 3 := h.read
+theorem below (b: Box) (h: b.ok): b.n ≤ 3 := h.read.small
 
 @[reading]
-theorem Box.okReads (b: Box): b.ok ↔ b.n ≤ 3 := { forward = h => h, backward = h => h }
+theorem Box.okReads (b: Box): b.ok ↔ Ok b := {
+  forward = h => { small = h },
+  backward = r => r.small
+}
 ";
-    let errors = errors(source);
-    assert!(
-        errors.len() == 1 && errors[0].starts_with("E-NO-READING") && errors[0].ends_with("yet"),
-        "{errors:#?}"
-    );
+    assert_eq!(errors(source), Vec::<String>::new());
 }
 
-/// A lemma the reading's proof uses, about the test, declared above the
-/// reading, can't be checked through the reading, which isn't there yet;
-/// today it is refused as a use above the reading. Whether checking order
-/// should put such uses after the reading is Matt's call (SW-2992 review
-/// M1).
+/// A lemma the reading's proof uses, about the test, is checked before the
+/// reading and reads the test as what it unfolds to, as the reading's own
+/// proof does: no cycle.
 #[test]
-#[ignore = "SW-2992 review M1: waiting on the checking-order decision"]
 fn a_helper_above_the_reading_that_it_uses_checks() {
     let source = format!(
         "{IN_RANGE}
@@ -160,4 +174,67 @@ theorem inRangeReads (lo x hi: Nat): inRange lo x hi ↔ InRange lo x hi := {{
 "
     );
     assert_eq!(errors(&source), Vec::<String>::new());
+}
+
+/// Where a lemma the reading uses reaches for the reading's parts, the
+/// error says the reading isn't available there, and why.
+#[test]
+fn a_helper_the_reading_uses_says_why_it_has_no_reading() {
+    let source = format!(
+        "{IN_RANGE}
+theorem fwd (lo x hi: Nat) (h: inRange lo x hi): InRange lo x hi := {{ low = h.low, high = h.right }}
+
+@[reading]
+theorem inRangeReads (lo x hi: Nat): inRange lo x hi ↔ InRange lo x hi := {{
+  forward = fwd lo x hi,
+  backward = r => Both r.low r.high
+}}
+"
+    );
+    let mut session = Session::new();
+    let errors = session
+        .load("readings.sw", &source)
+        .expect_err("`h.low` has no reading");
+    let notes: Vec<&String> = errors.iter().flat_map(|d| &d.notes).collect();
+    assert!(
+        notes
+            .iter()
+            .any(|n| n.contains("`inRangeReads` depends on this declaration")),
+        "{errors:#?}"
+    );
+}
+
+/// In a namespace over two files, which file comes first by name doesn't
+/// change what reads through the reading.
+#[test]
+fn file_order_doesnt_decide_which_uses_see_a_reading() {
+    let reading = "namespace Ranges
+
+import Std (Bool, Nat, Iff)
+
+type InRange (lo x hi: Nat): Prop = { low: lo ≤ x, high: x ≤ hi }
+
+def inRange (lo x hi: Nat): Bool := lo <= x && x <= hi
+
+@[reading]
+theorem inRangeReads (lo x hi: Nat): inRange lo x hi ↔ InRange lo x hi := {
+  forward = h => { low = h.left, high = h.right },
+  backward = r => Both r.low r.high
+}
+";
+    let use_ = "namespace Ranges
+
+import Std (Nat)
+
+theorem below (x: Nat) (h: inRange 1 x 9): x ≤ 9 := h.high
+";
+    for files in [
+        [("a.sw", use_), ("b.sw", reading)],
+        [("a.sw", reading), ("b.sw", use_)],
+    ] {
+        let mut session = Session::new();
+        if let Err(errors) = session.load_namespace(&files) {
+            panic!("{:?}: {errors:#?}", files.map(|(n, _)| n));
+        }
+    }
 }

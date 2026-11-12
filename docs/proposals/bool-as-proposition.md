@@ -449,13 +449,21 @@ written (a variable's declared type, an annotation, a parameter's type,
 the definition's own type) and evaluates with calls folded, and finds the
 same reading as glued (SW-2992).
 
-**Declared below its use.** Readings are found from their syntax before
-they are checked, so a fact read above its test's reading stops at the
-test's function with `E-NO-READING` saying where the reading is, instead
-of reading what the function unfolds to. A reading whose proof fails is
-filed as its stand-in (D3527), so its users rely on it like any use of a
-failed theorem; one with no stand-in fails them with
-`E-FAILED-DEPENDENCY`, which goes without saying (SW-2992).
+**Checking order (D3537, Matt, 12 Nov 2026).** Dependencies, not source
+position, decide which uses see a reading. Each `@[reading]` theorem's
+test function is known from its syntax before anything is checked (`f x…`,
+`Ns.f x…`, `x.f y…`, with `↔` or `Iff (…) (…)`), and every declaration
+that mentions that function gets an ordering edge after the reading, as
+instances do, so a use above the reading, or in another file of the
+namespace, is checked after it. The reading's own dependencies (a lemma
+its proof uses) are left out, so no edge closes a cycle: they read the
+test as what it unfolds to, as the reading's proof does, and an error
+there says the reading isn't available because it depends on that
+declaration. The library is written in an order that works and gets no
+edges. A reading whose proof fails is filed as its stand-in (D3527), so
+its users rely on it like any use of a failed theorem; one with no
+stand-in fails them with `E-FAILED-DEPENDENCY`, which goes without saying
+(SW-2992).
 
 **Unfolding leaks implementations** **[review, §2.6]**. Step 4 lets `Both
 lo hi` take apart `h: c.isDigit` by unfolding `isDigit` to its two
