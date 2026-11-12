@@ -32643,15 +32643,17 @@
     {
       "id": 3032,
       "title": "[Sonnet] deletable_arms (crates/elab/src/families.rs) offers sets that don't check: (1) a required match reify clause (worked round by keep_arms in SW-3020); (2) both arms of match c: z in Set.foldAll's old body (SW-3020 repro). Fix so every offered set rechecks; then drop keep_arms if redundant",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-3032",
       "labels": [],
       "epic": "diagnostics",
-      "body": "",
+      "body": "\nModel result: Sonnet, worked, ~24 min (est. 60). Lane saw E-RESOURCE (recursion depth) checking List.allReadsFalse in its debug test binary; to check on main.",
       "created": "2026-11-12",
       "updated": "2026-11-12",
-      "commits": []
+      "commits": [
+        "2ebb07349"
+      ]
     },
     {
       "id": 3033,
