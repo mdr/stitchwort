@@ -32837,15 +32837,17 @@
     {
       "id": 3046,
       "title": "[Sonnet] Debug-build std tests are red: five std/List/SortLemmas.sw theorems hit E-RESOURCE ('nested too deeply') on the 16 MiB debug test stack: sumByFilter (~343), sumRangeFromOne (~383), occurrencesKeyDistinct (~988), distinctOfOccurrences (~1006), sumByDistinctNonzero (~1677). Find which merge made them deep (SW-3020/3032?), make them shallow (SW-3035 finding)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-3046",
       "labels": [],
       "epic": "std-library",
-      "body": "",
+      "body": "\nModel result: Sonnet, worked, ~18 min (est. 60). The invariant-6 panic it saw predates SW-3045's merge (lane branched before it). Next below 2 MiB: Nat.ltOfRunSub; rewrite over big terms is the usual cause (SW-3047 guard).",
       "created": "2026-11-12",
       "updated": "2026-11-12",
-      "commits": []
+      "commits": [
+        "de1de5eae"
+      ]
     },
     {
       "id": 3047,
