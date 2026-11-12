@@ -31816,12 +31816,12 @@
     {
       "id": 2977,
       "title": "[Opus] Bool as a proposition, stage 2: the reader (bool-as-proposition.md §5-§6, amended by docs/reviews/SW-2964-bool-reader-review.md): fold the review's amendments into the note first; @[reading] ↔ theorems, one per test, declared with the test (D3487); .read (D3531) instead of silent crossing (D3488); patterns and building with &&, ||, not; errors E-NO-READING etc.; check cache key; acceptance: no existing example's hash changes",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "Started 13:42 GMT 12 Nov 2026 (est. 6 h).\n\nProgress (lane, Opus):\n- 556b1e5f6: note draft 2 with the SW-2964 review's amendments, D3487, D3488, D3531.\n- e89050116: `@[reading]` (E-READING-SHAPE/-OVERLAP/-PLACE), the reader (by head, unfolding one definition at a time, up to 8, not through opaque), patterns, building (constructors and record literals), `.read` and `h.left` through it, the false leaf `¬e`, E-NO-READING; six core readings for &&, ||, not; Iff into the core (hash unchanged); readings in the check cache (FORMAT 32). Docs: syntax.md \"Readings\", guide ch. 10.\n- Hashes: prelude snapshot gains 8 lines (readings and their match helpers) only; hash_stability over 50 examples using &&/|| passes unchanged.\n- Tests run: new accept/reject examples and projects (test:example), check_cache reading tests, hash_stability, bound_to_the_prelude, pins:show all ok.\n- Not done: web/guide tour page (advanced proof feature); stuck-decision step (stage 3).\n- Finding: guide::the_guide_quotes_its_examples_and_the_compiler fails on 18 quoted error blocks missing the \"1 error: in `X`\" footer (from SW-2943), not this lane's.\nFinished 14:30.\n",
       "created": "2026-11-12",
       "updated": "2026-11-12",
       "commits": []
