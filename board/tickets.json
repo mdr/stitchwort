@@ -32128,9 +32128,9 @@
     {
       "id": 2997,
       "title": "[Opus] Tests with errors §11: a namespace importing one with a body syntax error still gets E-NAMESPACE-FAILED in the editor; with SW-2980 the error leaves a real stand-in importers could be checked against (stage 1's failed-namespace rule may now be unnecessary); also the counterexample note for a theorem whose body doesn't parse is lost on the hidden E-UNPARSED-BODY",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-2997",
       "labels": [],
       "epic": "test-infra",
       "body": "",
