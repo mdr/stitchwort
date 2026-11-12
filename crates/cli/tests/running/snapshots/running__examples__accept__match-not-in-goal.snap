@@ -17,8 +17,8 @@ expression: warnings
     ╭─[ accept/match-not-in-goal.sw:23:5 ]
     │
  23 │     | Zero => exfalso (Nat.succNotZero n h)
-    │     ───────────────────┬──────────────────  
-    │                        ╰──────────────────── here `h` is `Succ n = 0`, which can't hold
+    │     ───────────────────┬───────────────────  
+    │                        ╰───────────────────── here `h` is `Succ n = 0`, which can't hold
     │ 
     │ Note: the arm can be deleted
 ────╯

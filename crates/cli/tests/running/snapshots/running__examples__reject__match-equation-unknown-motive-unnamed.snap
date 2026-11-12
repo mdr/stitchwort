@@ -6,8 +6,8 @@ expression: output
     ╭─[ reject/match-equation-unknown-motive-unnamed.sw:17:5 ]
     │
  17 │     | Some n => Void.exfalso (Bool.falseNotTrue k)
-    │     ──────────────────────┬──────────────────────  
-    │                           ╰──────────────────────── here `k` is `False = True`, which can't hold
+    │     ───────────────────────┬──────────────────────  
+    │                            ╰──────────────────────── here `k` is `False = True`, which can't hold
     │ 
     │ Note: the arm can be deleted
 ────╯
