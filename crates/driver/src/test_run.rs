@@ -224,13 +224,15 @@ impl TestMachine {
 
 impl Session {
     /// Why `test` can't run, as the message of its failure, or `None` if
-    /// it can. It can't if it relies on, or waits for, open goals in code,
-    /// which the message names with where each `?` is, or uses an
-    /// unfinished declaration. An open goal that is a proof (or a type) is
-    /// erased when the test runs, so a test that only mentions a theorem
-    /// with a `?` still runs.
+    /// it can. It can't if it relies on, or waits for, gaps in code (open
+    /// goals, or declarations with an error standing in for their
+    /// statements), which the message names with where each is, or uses an
+    /// unfinished declaration. A gap that is a proof (or a type) is erased
+    /// when the test runs, so a test that only mentions a theorem with a
+    /// `?` or an error still runs (D3525).
     fn unfinished_message(&self, test: &stitchwort_elab::TestDecl) -> Option<String> {
-        let ids: std::collections::BTreeSet<_> = if self.elab.relies_on_goal(test.def) {
+        let relies = self.elab.relies_on_goal(test.def);
+        let ids: std::collections::BTreeSet<_> = if relies {
             let relied = self.elab.goals_relied_on(test.def);
             let g = &self.elab.ev();
             let code: std::collections::BTreeSet<_> = relied
@@ -253,15 +255,37 @@ impl Session {
                     .to_string(),
             });
         }
+        // The declaration the test names that leads to the gap, when it is
+        // the only one: "it uses `twice`, which depends on `broken`".
+        let through = (test.unfinished.as_deref())
+            .map(crate::reliance::short_name)
+            .filter(|_| goals.len() == 1);
         let named: Vec<String> = goals
             .iter()
             .take(3)
-            .map(|g| {
-                format!(
+            .map(|g| match (g.is_error(), relies) {
+                (false, _) => format!(
                     "`{}` isn't written yet: its body is `?` ({})",
                     g.short(),
                     g.place()
-                )
+                ),
+                (true, true) => match through.filter(|uses| *uses != g.short()) {
+                    Some(uses) => format!(
+                        "it uses `{uses}`, which depends on `{}`, which has an error ({})",
+                        g.short(),
+                        g.place()
+                    ),
+                    None => format!(
+                        "it uses `{}`, which has an error ({})",
+                        g.short(),
+                        g.place()
+                    ),
+                },
+                (true, false) => format!(
+                    "it can't be checked until `{}` is fixed ({})",
+                    g.short(),
+                    g.place()
+                ),
             })
             .collect();
         let more = match goals.len() {
@@ -279,15 +303,13 @@ impl Session {
             .flatten()
     }
 
-    /// The open-goal declarations `test` relies on, for a passing test's
-    /// `(assuming …)` (SW-2939): the proofs and types it mentions, which are
-    /// erased when it runs. Empty for a test that relies on no goal.
-    fn test_assuming(&self, test: &stitchwort_elab::TestDecl) -> Vec<String> {
+    /// The gaps `test` relies on, for a passing test's `(assuming …)`
+    /// (SW-2939, D3525): the proofs and types it mentions, open goals or
+    /// declarations with an error, which are erased when it runs. Empty for
+    /// a test that relies on none.
+    fn test_assuming(&self, test: &stitchwort_elab::TestDecl) -> Vec<crate::reliance::GoalPlace> {
         let goals = self.elab.goals_relied_on(test.def);
         self.goal_places(&goals)
-            .iter()
-            .map(|goal| goal.short().to_string())
-            .collect()
     }
 
     /// Runs every test of the program loaded so far, using cached results

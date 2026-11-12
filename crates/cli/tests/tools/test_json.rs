@@ -294,6 +294,8 @@ def again (n: Nat): Nat := broken n + broken n
 
 theorem quadOne: quad 1 = 4 := rfl
 
+theorem brokenOne: broken 1 = 1 := rfl
+
 test "quad works" := quad 1 == 4
 test "quad of broken" := quadBroken 1 == 4
 "#;
@@ -336,6 +338,8 @@ const ONE_IMPORTER: &str = r#"namespace B
 import A (bad)
 
 def use (n: Nat): Nat := bad n
+
+theorem useOne: bad 1 = 1 := rfl
 "#;
 
 /// A project whose namespace `B` imports a healthy and a broken name from
@@ -434,18 +438,23 @@ fn an_importer_of_a_namespace_with_an_error_is_checked_and_its_tests_run() {
             && message.ends_with("src/a.sw:5:29)"),
         "{message}"
     );
-    // `broken` is reported where it is, and once in `b.sw`, on the import,
-    // for the two declarations and the test that wait for it.
+    // `broken` is reported where it is. Its statement stands in for it
+    // (D3527), so the two declarations and the test that only call it are
+    // checked against that, and rely on it; the theorem that must compute
+    // `broken 1` waits, said once in `b.sw`, on the import.
     assert_eq!(stderr.matches("[E-TYPE-MISMATCH]").count(), 1, "{stderr}");
     assert_eq!(stderr.matches("[E-USES-FAILED]").count(), 1, "{stderr}");
     assert!(
-        stderr.contains("`broken` has an error, so 3 declarations here can't be checked"),
+        stderr.contains("`broken` has an error, so `brokenOne` can't be checked until it's fixed"),
         "{stderr}"
     );
     assert!(
-        stderr.contains("waiting for it: `quadBroken`, `again`, test \"quad of broken\""),
+        stderr.contains(
+            "3 declarations rely on a declaration with an error, checked assuming its statement"
+        ),
         "{stderr}"
     );
+    assert!(stderr.contains("B.brokenOne  needs `broken` ("), "{stderr}");
     assert!(stderr.contains("b.sw:3:19"), "{stderr}");
     assert!(!stderr.contains("E-NAMESPACE-FAILED"), "{stderr}");
     assert!(!stderr.contains("E-FAILED-DEPENDENCY"), "{stderr}");
@@ -549,4 +558,144 @@ fn an_importer_follows_its_dependency_through_the_cache() {
     assert!(!ok);
     assert_eq!(stderr.matches("[E-USES-FAILED]").count(), 1, "{stderr}");
     assert_eq!(without(broken), without(first));
+}
+
+/// Stand-ins (docs/proposals/tests-with-errors.md §3.3, D3527, D3525):
+/// `doubleTwo`'s statement checks but its proof doesn't, so it stands in for
+/// its statement; `badSig`'s statement doesn't check, so what uses it
+/// waits.
+const STAND_INS: &str = r#"namespace A
+
+def double (n: Nat): Nat := n + n
+
+def broken (n: Nat): Nat := "oops"
+
+theorem doubleTwo: double 2 = 5 := rfl
+
+theorem usesTwo: double 2 + 0 = 5 := doubleTwo
+
+theorem ownMistake: double 3 = 5 := doubleTwo
+
+theorem needsBody: broken 0 = 0 := rfl
+
+def badSig (n: Nat): Missing := n
+
+def callsBadSig (n: Nat): Nat := badSig n
+
+def check2 (h: double 2 = 5): Bool := double 1 == 2
+
+test "cites doubleTwo" := check2 doubleTwo
+test "calls broken" := broken 1 == 1
+test "calls callsBadSig" := callsBadSig 1 == 1
+"#;
+
+/// `stitchwort check` and `stitchwort test`, both `--no-cache`, on
+/// [`STAND_INS`] as a project: (check's stderr, check's success, test's
+/// JSON, test's text stdout, test's success).
+fn stand_ins(name: &str) -> (String, bool, Value, String, bool) {
+    let dir = std::env::temp_dir().join(format!(
+        "stitchwort-json-stand-ins-{}-{name}",
+        std::process::id()
+    ));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(dir.join("src")).unwrap();
+    std::fs::write(dir.join("stitchwort.yaml"), "sources: [src]\n").unwrap();
+    std::fs::write(dir.join("src/a.sw"), STAND_INS).unwrap();
+    let run = |args: &[&str]| {
+        Command::new(env!("CARGO_BIN_EXE_stitchwort"))
+            .args(args)
+            .current_dir(&dir)
+            .stdin(Stdio::null())
+            .output()
+            .expect("run stitchwort")
+    };
+    let check = run(&["check", "--no-cache"]);
+    let json = run(&["test", "--json", "--no-cache"]);
+    let text = run(&["test", "--no-cache"]);
+    let _ = std::fs::remove_dir_all(&dir);
+    let stdout = String::from_utf8(json.stdout).unwrap();
+    assert_eq!(json.status.success(), text.status.success());
+    (
+        String::from_utf8(check.stderr).unwrap(),
+        check.status.success(),
+        serde_json::from_str(&stdout).expect(&stdout),
+        String::from_utf8(text.stdout).unwrap(),
+        text.status.success(),
+    )
+}
+
+/// A theorem that cites one whose proof has an error is checked against its
+/// statement: its own mistakes are reported now, and it is counted as
+/// relying on the broken theorem, never as checked. One that must compute
+/// through a broken definition waits, and so does what uses a declaration
+/// whose statement is broken. `check` still fails.
+#[test]
+fn a_theorem_with_a_broken_proof_stands_in_for_its_statement() {
+    let (stderr, ok, _, _, _) = stand_ins("check");
+    assert!(!ok, "{stderr}");
+    // The three errors of their own, `ownMistake`'s found only because
+    // `doubleTwo` stands in for its statement.
+    assert_eq!(stderr.matches("[E-TYPE-MISMATCH]").count(), 2, "{stderr}");
+    assert_eq!(stderr.matches("[E-REFL]").count(), 1, "{stderr}");
+    assert!(stderr.contains("[E-UNKNOWN-NAME]"), "{stderr}");
+    assert!(stderr.contains("double 3 = 5"), "{stderr}");
+    assert!(!stderr.contains("E-FAILED-DEPENDENCY"), "{stderr}");
+    // `usesTwo` and the test that cites `doubleTwo` rely on it; the test
+    // that calls `broken` relies on `broken`.
+    assert!(
+        stderr.contains(
+            "3 declarations rely on a declaration with an error, checked assuming its statement"
+        ),
+        "{stderr}"
+    );
+    assert!(
+        stderr.contains("1 declaration can't be checked until an error is fixed:"),
+        "{stderr}"
+    );
+    assert!(stderr.contains("A.needsBody  needs `broken` ("), "{stderr}");
+    // Not counted as goals.
+    assert!(!stderr.contains("goal"), "{stderr}");
+}
+
+/// D3525: a test that only cites a broken theorem as a proof runs and says
+/// what it assumed; one whose code calls a broken definition fails without
+/// running; one that uses a declaration whose statement is broken fails
+/// without running. The run fails while any error stands.
+#[test]
+fn a_test_that_only_cites_a_broken_theorem_runs() {
+    let (_, _, v, stdout, ok) = stand_ins("test");
+    assert!(!ok, "{stdout}");
+    assert_eq!(v["ok"], false);
+    let tests = v["tests"].as_array().unwrap();
+    let row = |i: usize| {
+        (
+            tests[i]["name"].as_str().unwrap(),
+            tests[i]["outcome"].as_str().unwrap(),
+            tests[i]["message"].as_str().unwrap_or_default(),
+        )
+    };
+    assert_eq!(tests.len(), 3, "{v}");
+    assert_eq!(row(0), ("cites doubleTwo", "passed", ""));
+    let assuming = tests[0]["assuming"].as_array().unwrap();
+    assert_eq!(assuming.len(), 1, "{v}");
+    assert_eq!(assuming[0]["name"], "doubleTwo");
+    assert_eq!(assuming[0]["kind"], "error");
+    assert_eq!(assuming[0]["line"], 7);
+    assert!(
+        stdout.contains("✓ cites doubleTwo    ran  (assuming `doubleTwo`, which has an error ("),
+        "{stdout}"
+    );
+    let (name, outcome, message) = row(1);
+    assert_eq!((name, outcome), ("calls broken", "failed"));
+    assert!(
+        message.starts_with("it uses `broken`, which has an error (")
+            && message.ends_with("src/a.sw:5:29)"),
+        "{message}"
+    );
+    let (name, outcome, message) = row(2);
+    assert_eq!((name, outcome), ("calls callsBadSig", "failed"));
+    assert!(
+        message.starts_with("it uses `callsBadSig`, which depends on `badSig`, which has an error"),
+        "{message}"
+    );
 }

@@ -1248,54 +1248,44 @@ fn open_goals_allowed(goals: usize) -> String {
 /// The goal count line, then what relies on the goals and what can't be
 /// checked until they are filled (docs/proposals/using-unfinished-proofs.md
 /// §5.1), after the goals themselves. `warn` is `check: open-goals: warn`,
-/// which reports the goals as warnings that don't fail the check.
+/// which reports the goals as warnings that don't fail the check. Then the
+/// same for declarations with an error that stand in for their statements
+/// (docs/proposals/tests-with-errors.md §4.3, D3527).
 fn report_goals(session: &Session, reported: &[Diagnostic]) {
-    use stitchwort_driver::reliance::{describe_goals, is_goal};
+    use stitchwort_driver::reliance::{Dependent, GoalPlace, describe_goals, is_goal};
     let goals = reported.iter().filter(|d| is_goal(d)).count();
-    if goals == 0 {
+    let stand_ins = (session.elab.assumptions().iter()).any(|a| session.elab.is_error_stand_in(*a));
+    if goals == 0 && !stand_ins {
         return;
     }
-    let allowed = reported
-        .iter()
-        .any(|d| d.severity == Severity::Warning && d.code == "GOAL");
-    let s = if goals == 1 { "" } else { "s" };
-    if allowed {
-        eprintln!(
-            "{}; `stitchwort audit` fails what relies on {}",
-            open_goals_allowed(goals),
-            if goals == 1 { "it" } else { "them" }
-        );
-    } else {
-        eprintln!("{goals} goal{s} open");
-    }
     let reliance = session.reliance(reported);
-    let relying = reliance.relying.len();
-    if relying > 0 {
-        let (s, rely) = if relying == 1 {
+    // Each dependent with only the gaps of one kind, if it has any.
+    let of_kind = |list: &[Dependent], error: bool| -> Vec<Dependent> {
+        (list.iter())
+            .filter_map(|d| {
+                let gaps: Vec<GoalPlace> = (d.goals.iter())
+                    .filter(|g| g.is_error() == error)
+                    .cloned()
+                    .collect();
+                (!gaps.is_empty()).then(|| Dependent {
+                    name: d.name.clone(),
+                    goals: gaps,
+                })
+            })
+            .collect()
+    };
+    let rely = |n: usize| {
+        if n == 1 {
             ("", "relies")
         } else {
             ("s", "rely")
-        };
-        eprintln!(
-            "{relying} declaration{s} {rely} on open goals, checked assuming they hold (`stitchwort \
-             goal` lists them)"
-        );
-    }
-    let blocked = &reliance.blocked;
-    if !blocked.is_empty() {
-        let s = if blocked.len() == 1 { "" } else { "s" };
-        eprintln!(
-            "{} declaration{s} can't be checked until a goal is filled (not checked at all):",
-            blocked.len()
-        );
+        }
+    };
+    let list_blocked = |blocked: &[Dependent], needs: &dyn Fn(&[GoalPlace]) -> String| {
         let width = blocked.iter().map(|b| b.name.len()).max().unwrap_or(0);
         const SHOWN: usize = 20;
         for b in blocked.iter().take(SHOWN) {
-            eprintln!(
-                "  {:width$}  needs {}",
-                b.name,
-                describe_goals(&b.goals, true)
-            );
+            eprintln!("  {:width$}  needs {}", b.name, needs(&b.goals));
         }
         if blocked.len() > SHOWN {
             eprintln!(
@@ -1303,6 +1293,61 @@ fn report_goals(session: &Session, reported: &[Diagnostic]) {
                 blocked.len() - SHOWN
             );
         }
+    };
+    if goals > 0 {
+        let allowed = reported
+            .iter()
+            .any(|d| d.severity == Severity::Warning && d.code == "GOAL");
+        let s = if goals == 1 { "" } else { "s" };
+        if allowed {
+            eprintln!(
+                "{}; `stitchwort audit` fails what relies on {}",
+                open_goals_allowed(goals),
+                if goals == 1 { "it" } else { "them" }
+            );
+        } else {
+            eprintln!("{goals} goal{s} open");
+        }
+        let relying = of_kind(&reliance.relying, false).len();
+        if relying > 0 {
+            let (s, rely) = rely(relying);
+            eprintln!(
+                "{relying} declaration{s} {rely} on open goals, checked assuming they hold \
+                 (`stitchwort goal` lists them)"
+            );
+        }
+        let blocked = of_kind(&reliance.blocked, false);
+        if !blocked.is_empty() {
+            let s = if blocked.len() == 1 { "" } else { "s" };
+            eprintln!(
+                "{} declaration{s} can't be checked until a goal is filled (not checked at all):",
+                blocked.len()
+            );
+            list_blocked(&blocked, &|gaps| describe_goals(gaps, true));
+        }
+    }
+    let relying = of_kind(&reliance.relying, true).len();
+    if relying > 0 {
+        let (s, rely) = rely(relying);
+        eprintln!(
+            "{relying} declaration{s} {rely} on a declaration with an error, checked assuming \
+             its statement"
+        );
+    }
+    let blocked = of_kind(&reliance.blocked, true);
+    if !blocked.is_empty() {
+        let s = if blocked.len() == 1 { "" } else { "s" };
+        eprintln!(
+            "{} declaration{s} can't be checked until an error is fixed:",
+            blocked.len()
+        );
+        let needs = |gaps: &[GoalPlace]| {
+            let named: Vec<String> = (gaps.iter().take(3))
+                .map(|g| format!("`{}` ({})", g.short(), g.place()))
+                .collect();
+            named.join(", ")
+        };
+        list_blocked(&blocked, &needs);
     }
 }
 
@@ -2102,7 +2147,10 @@ fn print_tests_json(
                 "line": at.as_ref().map(|a| a.line),
                 "column": at.as_ref().map(|a| a.column),
                 "message": message,
-                "assuming": r.assuming,
+                "assuming": r.assuming.iter().map(|g| serde_json::json!({
+                    "name": g.short(), "kind": g.kind, "file": g.file, "line": g.line,
+                    "column": g.column,
+                })).collect::<Vec<_>>(),
             });
             if let Some(detail) = &r.detail {
                 let part = detail.part.as_ref().map(|p| {
@@ -2130,15 +2178,22 @@ fn print_tests_json(
     exit(ok)
 }
 
-/// `  (assuming `a`, `b`)`, the open-goal declarations a passing test relies
-/// on (SW-2939): the first three, then "and N more". Empty for none.
-fn assuming_note(names: &[String]) -> String {
-    if names.is_empty() {
+/// `  (assuming `a`, `b`)`, the gaps a passing test relies on (SW-2939,
+/// D3525): open goals by name, a declaration with an error as "`x`, which
+/// has an error (place)"; the first three, then "and N more". Empty for
+/// none.
+fn assuming_note(gaps: &[stitchwort_driver::reliance::GoalPlace]) -> String {
+    if gaps.is_empty() {
         return String::new();
     }
-    let mut parts: Vec<String> = names.iter().take(3).map(|n| format!("`{n}`")).collect();
-    if names.len() > 3 {
-        parts.push(format!("and {} more", names.len() - 3));
+    let mut parts: Vec<String> = (gaps.iter().take(3))
+        .map(|g| match g.is_error() {
+            true => g.describe(false),
+            false => format!("`{}`", g.short()),
+        })
+        .collect();
+    if gaps.len() > 3 {
+        parts.push(format!("and {} more", gaps.len() - 3));
     }
     format!("  (assuming {})", parts.join(", "))
 }
@@ -2562,9 +2617,8 @@ fn axioms(target: &str, names: &[String], project: Option<&Path>, cache: &CacheA
                 );
             } else {
                 eprintln!(
-                    "error: `{key}` can't be checked until {} {} filled",
-                    stitchwort_driver::reliance::describe_goals(&goals, true),
-                    if goals.len() == 1 { "is" } else { "are" }
+                    "error: `{key}` can't be checked until {}",
+                    stitchwort_driver::reliance::until(&goals)
                 );
             }
             return ExitCode::FAILURE;
@@ -2587,9 +2641,17 @@ fn axioms(target: &str, names: &[String], project: Option<&Path>, cache: &CacheA
         }
         for goal in goals {
             let place = session.goal_place(goal);
+            let what = if place.is_error() {
+                "has an error, assumed"
+            } else {
+                "open goal in"
+            };
+            let what = match place.is_error() {
+                true => format!("`{}` {what}", place.declaration),
+                false => format!("{what} `{}`", place.declaration),
+            };
             println!(
-                "{indent}open goal in `{}` ({}): {}",
-                place.declaration,
+                "{indent}{what} ({}): {}",
                 place.place(),
                 session.goal_type_text(goal)
             );

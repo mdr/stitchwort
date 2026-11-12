@@ -532,6 +532,19 @@ impl Elaborator {
                 }
                 blocked.sort_by_key(|id| id.0);
                 blocked.dedup();
+                // Waiting for another namespace's declaration with an error,
+                // reported there: said once per file here (`E-USES-FAILED`),
+                // as for one with no stand-in.
+                // (A stand-in made before this module is another
+                // namespace's, whose path is its key.)
+                let elsewhere = (blocked.iter())
+                    .find(|id| id.0 < self.unit.module.first_def && self.is_error_stand_in(**id))
+                    .map(|id| self.kernel.def(*id).path().to_string());
+                if let Some(key) = elsewhere {
+                    for &i in &component {
+                        self.unit.module.waits_elsewhere.insert(i, key.clone());
+                    }
+                }
                 let blocked: Rc<[DefId]> = blocked.into();
                 if !blocked.is_empty() {
                     for &i in &component {
@@ -579,6 +592,9 @@ impl Elaborator {
                 // search (SW-1730).
                 if component.len() == 1 && !ran_out {
                     self.note_counterexample(&items[component[0]], &mut diagnostics[before..]);
+                }
+                if !unfinished {
+                    self.stand_in_for_failed(&items, &component, &diagnostics[before..]);
                 }
             } else if relying && component.len() == 1 && !ran_out {
                 // A proof that is wholly `?`, checked assuming its goal.
@@ -677,6 +693,63 @@ impl Elaborator {
             diagnostics.extend(self.doc_link_warnings(files));
         }
         diagnostics
+    }
+
+    /// Stand-ins (docs/proposals/tests-with-errors.md §3.3, D3527) for the
+    /// definitions and theorems of `component`, which failed with `found`:
+    /// each whose statement the kernel declared is named by an assumption
+    /// of that statement from now on, so what uses it is checked against
+    /// the statement and relies on it. Not for a component whose only
+    /// errors are what it uses failing (it waits, and so do its users), nor
+    /// for a type, synonym, instance, opaque or `decreasing` definition, or
+    /// one with parameter defaults: those keep failing their users, which
+    /// would otherwise be refused for what a stand-in lacks (an instance's
+    /// registration, an `unfolding` body, a default's helper).
+    fn stand_in_for_failed(
+        &mut self,
+        items: &[Item],
+        component: &[usize],
+        found: &[(usize, Diagnostic)],
+    ) {
+        let errors = || found.iter().filter(|(_, d)| d.severity == Severity::Error);
+        let own = errors().any(|(_, d)| !matches!(d.code, "E-FAILED-DEPENDENCY" | "E-USES-FAILED"));
+        if !own {
+            return;
+        }
+        for &i in component {
+            let Decl::Signature {
+                name,
+                synonym: false,
+                instance: false,
+                opaque: false,
+                decreasing: None,
+                defaults,
+                ..
+            } = items[i].decl
+            else {
+                continue;
+            };
+            if defaults.iter().any(Option::is_some) {
+                continue;
+            }
+            let Ok(key) = self.declaration_key(name) else {
+                continue;
+            };
+            let Some(&(Global::Def(failed), _)) = self.scope.stored(&key) else {
+                continue;
+            };
+            let at = (errors().find(|(p, _)| *p == items[i].position))
+                .or_else(|| errors().next())
+                .and_then(|(_, d)| d.primary_span())
+                .unwrap_or(name.span);
+            let saved = self.kernel.machine.budget.start(self.options.limits);
+            let made = self.stand_in(failed, at);
+            self.kernel.machine.budget.restore(saved);
+            if let Some(id) = made {
+                self.scope
+                    .set_global(&key, |global| *global = Global::Def(id));
+            }
+        }
     }
 
     /// Whether `diagnostics` blame a declaration of `component`'s that

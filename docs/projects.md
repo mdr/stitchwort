@@ -266,15 +266,23 @@ name that resolves into `M`.
   which may span files, or move what both need into a third namespace.
 - **Cycles inside one namespace are fine.** Its files and declarations may
   refer to each other in any order.
-- **An error stops only what uses it** (D3524). If a declaration in `Aoc`
-  has an error, every namespace is still checked, declaration by
-  declaration, those that import `Aoc` included. A declaration that uses
-  the broken one, directly or through another, can't be checked until it's
-  fixed; it reports nothing itself. Instead each file with such
-  declarations gets one `E-USES-FAILED` per broken name, on its import of
-  the name (or on the first declaration that waits, if the file doesn't
-  import it by name), listing what waits. Everything else is checked as
-  usual, its goals are shown and its tests run. `check` still exits 1. A
+- **An error stops only what needs it** (D3524, D3527). If a declaration in
+  `Aoc` has an error, every namespace is still checked, declaration by
+  declaration, those that import `Aoc` included. A `def` or `theorem` whose
+  statement checked but whose body didn't stands in for its statement, as a
+  `?` does: what uses it is checked against the statement, its own mistakes
+  are reported, and it's counted as relying on the broken declaration
+  ("relies on a declaration with an error, checked assuming its
+  statement"), never as finished. A declaration that has to compute through
+  the broken one (`rfl` on `beats Rock Paper` while `beats` has an error),
+  or uses one whose statement is broken (or a type, interface, ability or
+  instance with an error), can't be checked until it's fixed; it reports
+  nothing itself. Instead each file with such declarations gets one
+  `E-USES-FAILED` per broken name, on its import of the name (or on the
+  first declaration that waits, if the file doesn't import it by name),
+  listing what waits. Everything else is checked as usual, its goals are
+  shown and its tests run: a test that only cites a broken theorem as a
+  proof runs, and says what it assumed. `check` still exits 1. A
   namespace with a *syntax* error may have lost a declaration altogether:
   an import of a name it no longer declares then says so once, on the
   import (`E-USES-FAILED`: "`A` has a syntax error, so `beats` can't be

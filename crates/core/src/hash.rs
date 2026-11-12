@@ -168,15 +168,23 @@ fn def_hash_in(g: &Ev, id: DefId, mode: Mode) -> Result<Option<ContentHash>> {
     if def.state == State::Final
         && let Some(label) = def.assumption()
     {
-        // An open goal's assumption has no body: it's its label and type,
-        // the same with or without proofs. The label is the one place a
-        // name is hashed, so two `?`s with the same goal stay distinct and
-        // filling one changes every user's hash (docs/core.md "Assumptions
-        // (open goals)").
+        // An assumption has no body: it's its label and type, the same
+        // with or without proofs. The label is the one place a name is
+        // hashed, so two `?`s with the same goal stay distinct, a stand-in
+        // never hashes as a goal, and filling the gap changes every user's
+        // hash (docs/core.md "Assumptions (open goals)").
         let mut h = Hasher::new(g, Itself::Def(id), mode);
-        h.tag("assume");
-        h.str(&label.owner);
-        h.usize(label.hole as usize);
+        match label.kind {
+            crate::globals::AssumptionKind::Goal(hole) => {
+                h.tag("assume");
+                h.str(&label.owner);
+                h.usize(hole as usize);
+            }
+            crate::globals::AssumptionKind::Error => {
+                h.tag("assume-error");
+                h.str(&label.owner);
+            }
+        }
         h.term(&def.ty)?;
         let hash = h.finish();
         mode.cache(g).borrow_mut().insert(HashKey::Def(id), hash);

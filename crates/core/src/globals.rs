@@ -123,27 +123,63 @@ pub struct Def {
     /// backend must make a loop of it. Set once, on a pending definition
     /// ([`crate::check::mark_tailrec`]); never hashed (it changes no term).
     pub(crate) tailrec: bool,
-    /// Set for an open goal's assumption ([`crate::check::assume`],
-    /// docs/core.md "Assumptions (open goals)"): a constant final at once,
-    /// with no body, run body or native, which never unfolds. Hashed.
+    /// Set for an assumption ([`crate::check::assume`], docs/core.md
+    /// "Assumptions (open goals)"), an open goal's or an error's stand-in:
+    /// a constant final at once, with no body, run body or native, which
+    /// never unfolds. Hashed.
     pub(crate) assumption: Option<Rc<Assumption>>,
-    /// Where it was declared; for an assumption, where its `?` is.
+    /// Where it was declared; for an assumption, where its `?` or error is.
     pub(crate) span: Span,
 }
 
-/// Which `?` an assumption stands for: the label that, with its type, is
-/// its identity in hashes (docs/core.md "Assumptions (open goals)"). Its
+/// What an assumption stands for: the label that, with its type, is its
+/// identity in hashes (docs/core.md "Assumptions (open goals)"). Its
 /// location is the declaration's span, which isn't hashed, so editing
 /// above a `?` changes no hash.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Assumption {
-    /// The full logical name of the declaration the `?` is written in
-    /// (`Main.Demo.addComm`). That declaration is pending, or not yet
-    /// declared, when its assumptions are made, so it's named, not
-    /// referred to.
+    /// The full logical name of the declaration the gap is in
+    /// (`Main.Demo.addComm`). For an open goal that declaration is pending,
+    /// or not yet declared, when its assumptions are made, so it's named,
+    /// not referred to; for an error's stand-in it has failed.
     pub owner: Name,
-    /// The `?`'s number in its owner, in source order, from 1.
-    pub hole: u32,
+    pub kind: AssumptionKind,
+}
+
+/// The two kinds of gap an assumption stands for. Part of the label, so
+/// hashed: a user of an error's stand-in never shares a hash with a user
+/// of a goal of the same type, or with one of the finished declaration.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum AssumptionKind {
+    /// An open goal `?`: its number in its owner, in source order, from 1.
+    Goal(u32),
+    /// A stand-in (docs/proposals/tests-with-errors.md §3.3): the owner's
+    /// statement checked but its body didn't, so the assumption is the
+    /// statement itself. At most one per owner.
+    Error,
+}
+
+impl Assumption {
+    /// The label of open goal `hole` of `owner`.
+    pub fn goal(owner: Name, hole: u32) -> Assumption {
+        Assumption {
+            owner,
+            kind: AssumptionKind::Goal(hole),
+        }
+    }
+
+    /// The label of the stand-in for `owner`, which has an error.
+    pub fn error(owner: Name) -> Assumption {
+        Assumption {
+            owner,
+            kind: AssumptionKind::Error,
+        }
+    }
+
+    /// Whether it stands for a declaration with an error.
+    pub fn is_error(&self) -> bool {
+        self.kind == AssumptionKind::Error
+    }
 }
 
 /// How a call of an update's helper is shown ([`crate::ev::Shown::update_shown`]):
@@ -247,7 +283,7 @@ impl Def {
         self.tailrec
     }
 
-    /// The `?` it stands for, if it's an open goal's assumption.
+    /// The gap it stands for, if it's an assumption.
     pub fn assumption(&self) -> Option<&Assumption> {
         self.assumption.as_deref()
     }

@@ -78,11 +78,12 @@ pub struct Finding {
 #[serde(rename_all = "lowercase")]
 pub enum Status {
     Checked,
-    /// Checked by the kernel assuming open goals hold: it has one, or
-    /// relies on one. Never passes.
+    /// Checked by the kernel assuming gaps hold: it has an open goal, or
+    /// relies on one or on a declaration with an error (its statement).
+    /// Never passes.
     Assuming,
-    /// Not checked: it waits for an open goal to be filled, or uses
-    /// something unfinished.
+    /// Not checked: it waits for an open goal to be filled or an error to
+    /// be fixed, or uses something unfinished.
     Unfinished,
     Failed,
 }
@@ -97,8 +98,9 @@ pub struct TheoremAudit {
     /// extensionality lemma).
     pub generated: bool,
     pub status: Status,
-    /// The open goals it relies on (`assuming`) or waits for
-    /// (`unfinished`), in source order.
+    /// The gaps it relies on (`assuming`) or waits for (`unfinished`), in
+    /// source order, each with its kind: an open goal or a declaration
+    /// with an error.
     #[serde(rename = "openGoals")]
     pub open_goals: Vec<GoalPlace>,
     /// The axioms it depends on, allowed or not (only if it checked).
@@ -288,11 +290,7 @@ impl Session {
                      checked"
                         .to_string()
                 } else {
-                    format!(
-                        "can't be checked until {} {} filled",
-                        describe_goals(&goals, true),
-                        if goals.len() == 1 { "is" } else { "are" }
-                    )
+                    format!("can't be checked until {}", crate::reliance::until(&goals))
                 };
                 audit.findings.push(Finding {
                     check: Check::Unfinished,
@@ -399,11 +397,26 @@ impl Session {
 }
 
 /// What audit says of a declaration checked assuming `goals` hold: that it
-/// has one of its own, and that it relies on the others.
+/// has one of its own, and that it relies on the others. A declaration
+/// with an error stands in for its statement (D3527), so relying on one is
+/// said as relying on that declaration.
 fn assuming_message(name: &str, goals: &[GoalPlace]) -> String {
+    let (errors, goals): (Vec<GoalPlace>, Vec<GoalPlace>) =
+        goals.iter().cloned().partition(GoalPlace::is_error);
     let (own, others): (Vec<GoalPlace>, Vec<GoalPlace>) =
-        goals.iter().cloned().partition(|g| g.declaration == name);
+        goals.into_iter().partition(|g| g.declaration == name);
     let mut parts = Vec::new();
+    if !errors.is_empty() {
+        let statement = if errors.len() == 1 {
+            "its statement"
+        } else {
+            "their statements"
+        };
+        parts.push(format!(
+            "relies on {}; checked assuming {statement}",
+            describe_goals(&errors, false)
+        ));
+    }
     if !own.is_empty() {
         let places: Vec<String> = own.iter().map(GoalPlace::place).collect();
         parts.push(match places.as_slice() {
@@ -443,4 +456,43 @@ pub fn concludes_empty(g: &Ev, id: DefId) -> bool {
         ty = next;
     }
     matches!(ty, Value::Data(d, _) if g.data(d).ctors().is_empty())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::assuming_message;
+    use crate::reliance::{GapKind, GoalPlace, until};
+
+    fn place(declaration: &str, line: usize, kind: GapKind) -> GoalPlace {
+        GoalPlace {
+            declaration: declaration.to_string(),
+            file: "src/a.sw".to_string(),
+            line,
+            column: 1,
+            kind,
+        }
+    }
+
+    /// What audit says names each gap by its kind: a declaration with an
+    /// error stands in for its statement (D3527), never as an open goal.
+    #[test]
+    fn audit_names_a_gap_by_its_kind() {
+        let error = place("A.doubleTwo", 9, GapKind::Error);
+        let goal = place("A.addComm", 3, GapKind::Goal);
+        assert_eq!(
+            assuming_message("A.usesTwo", std::slice::from_ref(&error)),
+            "relies on `doubleTwo`, which has an error (src/a.sw:9:1); checked assuming its \
+             statement"
+        );
+        assert_eq!(
+            assuming_message("A.both", &[error.clone(), goal.clone()]),
+            "relies on `doubleTwo`, which has an error (src/a.sw:9:1); checked assuming its \
+             statement; relies on an open goal: `addComm`'s (src/a.sw:3:1); checked assuming \
+             it holds"
+        );
+        assert_eq!(
+            until(&[goal, error]),
+            "`addComm`'s goal (src/a.sw:3:1) is filled and `doubleTwo` (src/a.sw:9:1) is fixed"
+        );
+    }
 }

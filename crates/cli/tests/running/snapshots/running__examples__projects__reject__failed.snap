@@ -9,10 +9,10 @@ expression: output
    │               ──┬─  
    │                 ╰─── expected `Nat`, but this has type `Bool`
 ───╯
-[E-USES-FAILED] Error: `f` has an error, so `g` can't be checked until it's fixed
-   ╭─[ failed/src/day.sw:5:13 ]
+[E-USES-FAILED] Error: `f` has an error, so `gIsZero` can't be checked until it's fixed
+   ╭─[ failed/src/day.sw:6:13 ]
    │
- 5 │ import Lib (f)
+ 6 │ import Lib (f)
    │             ┬  
    │             ╰── `f` has an error
    │

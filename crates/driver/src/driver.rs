@@ -1043,11 +1043,12 @@ pub struct TestResult {
     /// an error ([`Session::with_broken_tests`]). The test fails
     /// (`outcome` is [`Outcome::Failed`]). Never cached.
     pub unfinished: Option<String>,
-    /// For a passing test, the open-goal declarations it relies on: proofs
-    /// or types it passes around, which are erased when it runs, so it still
-    /// runs (SW-2939). Empty for a test that relies on none, and for a test
-    /// that didn't pass: a failure keeps its own reason.
-    pub assuming: Vec<String>,
+    /// For a passing test, the gaps it relies on: open goals or
+    /// declarations with an error that are proofs or types it passes
+    /// around, which are erased when it runs, so it still runs (SW-2939,
+    /// D3525). Empty for a test that relies on none, and for a test that
+    /// didn't pass: a failure keeps its own reason.
+    pub assuming: Vec<crate::reliance::GoalPlace>,
 }
 
 /// Why a test failed, as far as it can be told: the part of the test that is

@@ -2411,10 +2411,12 @@ fn push_def(
     Ok(DefId(g.env.defs().len() - 1))
 }
 
-/// Adds an open goal's **assumption** (docs/core.md "Assumptions (open
-/// goals)"; docs/proposals/using-unfinished-proofs.md, option A): a constant
-/// of type `ty` with no body, final at once, standing for the `?` that
-/// `label` names. `span` is where the `?` is.
+/// Adds an **assumption** (docs/core.md "Assumptions (open goals)";
+/// docs/proposals/using-unfinished-proofs.md, option A): a constant of type
+/// `ty` with no body, final at once, standing for the gap `label` names: an
+/// open goal `?`, or a declaration whose statement checked but whose body
+/// didn't (its stand-in, docs/proposals/tests-with-errors.md §3.3). `span`
+/// is where the gap is.
 ///
 /// `ty` is checked to be a type (in any universe) that refers only to final
 /// declarations: a pending one is `E-MALFORMED` (so the goal of a `?` that
@@ -2457,12 +2459,13 @@ pub fn assume(
             .iter()
             .any(|d| d.assumption.as_deref() == Some(&label))
         {
+            let what = match label.kind {
+                crate::globals::AssumptionKind::Goal(hole) => format!("open goal {hole}"),
+                crate::globals::AssumptionKind::Error => "the error".to_string(),
+            };
             return Err(malformed(
                 &cx,
-                format!(
-                    "a second assumption for open goal {} of `{}`",
-                    label.hole, label.owner
-                ),
+                format!("a second assumption for {what} of `{}`", label.owner),
             ));
         }
         if let Some(dep) = admissible(&cx, [ty], None)? {

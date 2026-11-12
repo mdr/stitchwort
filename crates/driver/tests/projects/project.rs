@@ -179,12 +179,14 @@ fn foreign_namespace() {
 #[test]
 fn a_failed_declaration_stops_only_what_uses_it() {
     let lib = "namespace Lib\n\ndef f: Nat := True\n\ndef k: Nat := 1\n";
-    let day = "namespace Day\n\nimport Lib (f, k)\n\ndef g: Nat := f\n\ndef h: Nat := g + f\n\ndef fine: Nat := k\n\ndef wrong: Nat := False\n";
+    let day = "namespace Day\n\nimport Lib (f, k)\n\ndef g: Nat := f\n\ntheorem gIs: g = 1 := rfl\n\ntheorem fIs: f + 1 = 2 := rfl\n\ndef fine: Nat := k\n\ndef wrong: Nat := False\n";
     let other = "namespace Other\n\ndef h: Nat := 1\n\ntest \"h\" := h == 1\n";
     let files = [("lib.sw", lib), ("day.sw", day), ("other.sw", other)];
     let found = errors(&files);
-    // `Day` is checked: its own error is found, and what uses `f` waits,
-    // said once, on the import (D3524).
+    // `Day` is checked: its own error is found. `g` only refers to `f`, so
+    // is checked against `f`'s statement, which stands in for it (D3527);
+    // the two theorems that must compute `f` wait, said once, on the
+    // import (D3524).
     assert_eq!(
         codes(&found),
         ["E-TYPE-MISMATCH", "E-USES-FAILED", "E-TYPE-MISMATCH"],
@@ -195,7 +197,7 @@ fn a_failed_declaration_stops_only_what_uses_it() {
         uses.message,
         "`f` has an error, so 2 declarations here can't be checked until it's fixed"
     );
-    assert_eq!(uses.notes, ["waiting for it: `g`, `h`"]);
+    assert_eq!(uses.notes, ["waiting for it: `gIs`, `fIs`"]);
     let day_file = uses.primary_span().unwrap().file;
     assert_eq!(found[2].primary_span().unwrap().file, day_file);
     // The independent namespace can be checked alone.
