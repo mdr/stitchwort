@@ -2427,10 +2427,6 @@ test("a chapter's Run is disabled and says chapters are checked, not run, until 
     (() => { const b = document.getElementById("run"); return b.disabled && b.title; })()`, 120000, "the chapter's Run button to be disabled");
   assert.match(title, /checked, not run/);
   assert.match(title, /Tests tab/);
-  // Let the chapter's check finish before switching: it is the server's, and a
-  // check still running would put the next project behind it.
-  await page.until(`(() => { const s = document.getElementById("status").textContent;
-    return s !== "Loading the compiler…" && s !== "(changed)"; })()`, 180000, "the chapter to check");
   // The chapters' manifests mark them so; the days' project has programs to run.
   const flags = await page.ev(`Promise.all(["book", "sf", "aoc"].map((name) =>
     fetch("pkg/projects/" + name + "/manifest.json").then((r) => r.json()).then((m) => !!m.noRun)))`);
@@ -2439,6 +2435,23 @@ test("a chapter's Run is disabled and says chapters are checked, not run, until 
   await openDay(page, 2);
   assert.equal(await page.ev(`document.getElementById("run").disabled`), false);
   assert.match(await page.ev(`document.getElementById("run").title`), /^Run Aoc\.Year2025\.Day02\.main /);
+}, { ms: 200000 });
+
+test("switching to a day while a chapter is still checking starts the day's check at once", async (page) => {
+  await page.open({ hash: "#book/2" });
+  // The chapter is on show, and its check is being made; wait for neither.
+  await page.until(`document.getElementById("example").value === "book:2" &&
+    window.editor.value.includes("theorem noAndAnything")`, 60000, "the book's chapter 2 to open");
+  assert.equal(await page.ev(`window.editor.stats.isolated`), true, "the page is cross-origin isolated, so the running check can be stopped");
+  const started = Date.now();
+  await page.ev(`location.hash = "#aoc/2025/day02"`);
+  await page.untilStatus(dayStatus(2), 20000);
+  const took = Date.now() - started;
+  console.log(`  the day checked ${took} ms after switching from the chapter`);
+  assert.ok(took < 10000, `the day took ${took} ms to check: it waited for the chapter's check`);
+  // The chapter's check was stopped part way, and can be made again.
+  await page.ev(`location.hash = "#book/2"`);
+  await page.until(`/(goals? open|checked by the kernel)$/.test(document.getElementById("status").textContent)`, 120000, "the chapter's check");
 }, { ms: 200000 });
 
 test("only the listed folders are bundled: sources, examples and puzzle inputs", async (page) => {

@@ -3582,14 +3582,17 @@ impl Checker {
     /// each open document that everything it is looking at has been checked
     /// and published for: once the files being edited and those it asked for
     /// (`stitchwort/focus`) are checked, though the rest of a project may not
-    /// be. Sent again when a version has changed, whether or not that
-    /// changed any diagnostic (a document opened with the text the server
-    /// has already).
+    /// be. A document waits only for its own workspace: another one may still
+    /// be checking in the background (the project edited before it), which
+    /// mustn't hold back a document of the one now edited. Sent again when a
+    /// version has changed, whether or not that changed any diagnostic (a
+    /// document opened with the text the server has already).
     fn announce(&mut self) {
-        if self.work.values().any(Work::focus_pending) {
-            return;
-        }
         let versions: BTreeMap<String, i32> = (self.versions.iter())
+            .filter(|(path, _)| {
+                let key = self.workspace_of(path);
+                self.work.get(&key).is_none_or(|work| !work.focus_pending())
+            })
             .filter_map(|(path, v)| Some((Url::from_file_path(path).ok()?.to_string(), *v)))
             .collect();
         if versions == self.announced {
@@ -4141,9 +4144,10 @@ impl Checker {
 /// from the client ([`Inline::receive`]) and, between messages, lets it do
 /// its background work a piece at a time ([`Inline::tick`]): the check of
 /// one namespace, or a queued search. An edit received between two ticks
-/// makes the next tick check the new text first; nothing is cancelled
-/// mid-namespace, as there is no other thread to set the flag. Waiting for
-/// typing to pause is the host's.
+/// makes the next tick check the new text first; a host that installs a
+/// cancel hook (`stitchwort_core::budget::Budget::set_cancel_hook`) can
+/// also stop a check part way through a namespace. Waiting for typing to
+/// pause is the host's.
 ///
 /// A search takes seconds, so a host with a second worker takes the
 /// searches as they are queued ([`Inline::take_searches`]), runs them there

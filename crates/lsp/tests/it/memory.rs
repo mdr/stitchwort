@@ -199,6 +199,89 @@ fn focus_body() {
 }
 
 #[test]
+fn a_document_is_announced_while_the_project_opened_before_it_is_unchecked() {
+    std::thread::Builder::new()
+        .stack_size(STACK)
+        .spawn(announce_other_body)
+        .unwrap()
+        .join()
+        .unwrap();
+}
+
+fn announce_other_body() {
+    let memory = common::cached_memory(STACK);
+    let projects = [
+        (
+            "/memory/one",
+            "One",
+            "namespace One\n\ndef value: Nat := 1\n",
+        ),
+        (
+            "/memory/two",
+            "Two",
+            "namespace Two\n\ndef value: Nat := 1\n",
+        ),
+    ];
+    for (root, _, text) in projects {
+        memory.add(MemoryProject {
+            root: root.into(),
+            sources: vec!["src".into()],
+            files: Arc::new(
+                std::iter::once(("src/Main.sw".to_string(), text.to_string())).collect(),
+            ),
+        });
+    }
+    let mut server = Inline::new(Options::new(STACK), memory).unwrap();
+    let send = |server: &mut Inline, message: Value| {
+        server
+            .receive(&message.to_string())
+            .into_iter()
+            .map(|m| serde_json::from_str::<Value>(&m).unwrap())
+            .collect::<Vec<_>>()
+    };
+    send(
+        &mut server,
+        json!({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"capabilities": {}}}),
+    );
+    send(
+        &mut server,
+        json!({"jsonrpc": "2.0", "method": "initialized", "params": {}}),
+    );
+    let uri = |root: &str| format!("file://{root}/src/Main.sw");
+    for (root, _, text) in projects {
+        send(
+            &mut server,
+            json!({"jsonrpc": "2.0", "method": "textDocument/didOpen", "params": {"textDocument": {
+                "uri": uri(root), "languageId": "stitchwort", "version": 1, "text": text,
+            }}}),
+        );
+    }
+    let mut sent = Vec::new();
+    loop {
+        let (out, more) = server.tick();
+        sent.extend(
+            out.iter()
+                .map(|m| serde_json::from_str::<Value>(m).unwrap()),
+        );
+        if !more || sent.iter().any(|m| m["method"] == "stitchwort/checked") {
+            break;
+        }
+    }
+    // The second document is checked and announced; the first project's
+    // focus isn't checked yet, since the second is edited last, and mustn't
+    // hold the second back (the page waits for its own document's version).
+    let announced = sent
+        .iter()
+        .find(|m| m["method"] == "stitchwort/checked")
+        .expect("the second project's document is announced");
+    assert_eq!(
+        announced["params"]["versions"],
+        json!({ uri("/memory/two"): 1 }),
+        "{announced}"
+    );
+}
+
+#[test]
 fn a_project_that_cannot_be_analysed_publishes_its_error_and_is_announced() {
     std::thread::Builder::new()
         .stack_size(STACK)

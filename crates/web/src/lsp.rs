@@ -80,8 +80,8 @@ impl LanguageServer {
     }
 
     /// Stops a check whenever `globalThis.stitchwortEditsWaiting()` says
-    /// that the page has sent an edit the worker hasn't read yet: the
-    /// worker's shared counter (lsp-worker.js). For the whole instance.
+    /// that the page has sent a document message the worker hasn't read yet:
+    /// the worker's shared counter (lsp-worker.js). For the whole instance.
     pub fn watch_edits(&self) {
         stitchwort_core::budget::Budget::set_cancel_hook(edits_waiting);
     }
