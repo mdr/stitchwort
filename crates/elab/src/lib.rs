@@ -4800,7 +4800,10 @@ fn check_leaf(cx: &mut Ctx, tree: &Tree, goal: &Value, guarded: bool) -> Result<
             true => None,
             false => {
                 let bound: Vec<usize> = aliases.iter().map(|&(_, level)| level).collect();
-                impossible_reason(cx, &bound)?
+                match impossible_reason(cx, &bound)? {
+                    Some(why) if fills_in(cx, goal)? => Some(why),
+                    _ => None,
+                }
             }
         };
         families::note_arm_case(cx, *span, !alternatives.is_empty(), why);
@@ -4923,6 +4926,25 @@ fn impossible_case(cx: &mut Ctx, columns: &[usize], goal: &Value) -> Result<Opti
         }
     }
     Ok(None)
+}
+
+/// Whether the checker would fill in the case being checked if its arm
+/// were deleted ([`impossible_case`]), which `W-UNREACHABLE` promises:
+/// building that proof can still fail where the arm's own proof doesn't (a
+/// hypothesis too large to show). Nothing it does is kept.
+fn fills_in(cx: &mut Ctx, goal: &Value) -> Result<bool> {
+    let snapshot = undo::Snapshot::take(cx);
+    let result = impossible_case(cx, &[], goal);
+    snapshot.restore(cx);
+    match result {
+        Ok(term) => Ok(term.is_some()),
+        Err(e) if undo::recoverable(cx, &e) => {
+            undo::recovered(cx);
+            Ok(false)
+        }
+        Err(e) if undo::fatal(&e) => Err(e),
+        Err(_) => Ok(false),
+    }
 }
 
 /// Why the case an arm's body is checked in can't happen, for its warning

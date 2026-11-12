@@ -439,11 +439,27 @@ pub(crate) fn warn_unreachable<T>(
     cx: &mut Ctx,
     f: impl FnOnce(&mut Ctx) -> Result<T>,
 ) -> Result<T> {
+    warn_unreachable_unless(cx, false, f)
+}
+
+/// [`warn_unreachable`], but with no warning for an arm whose case a
+/// hypothesis rules out when `as_written`: in a `match` refined as written
+/// (`W-MATCH-UNCONFIRMED`), a hypothesis too large to compute can make the
+/// proof the checker fills in for a missing case too large to check, where
+/// the arm's own proof isn't.
+pub(crate) fn warn_unreachable_unless<T>(
+    cx: &mut Ctx,
+    as_written: bool,
+    f: impl FnOnce(&mut Ctx) -> Result<T>,
+) -> Result<T> {
     let saved = cx.e.decl.arm_reach.take();
     let errors = cx.e.attempt.branch_errors.borrow().len();
     let result = f(cx);
     let result = crate::missing::merge(cx, errors, result);
-    let here = cx.e.decl.arm_reach.replace(saved);
+    let mut here = cx.e.decl.arm_reach.replace(saved);
+    if as_written {
+        here.impossible.clear();
+    }
     if result.is_ok() {
         let mut warnings = cx.e.attempt.lambda_warnings.borrow_mut();
         for (span, why) in here.dropped {
