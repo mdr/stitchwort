@@ -660,6 +660,9 @@ enum Tree<'a> {
         depth: usize,
         branches: Vec<(Vec<Name>, Tree<'a>)>,
         span: Span,
+        /// The pattern that split the variable: where a fact it can't take
+        /// apart is reported.
+        pattern: Span,
     },
     /// The variable at `level` is a `Nat`, compared with numbers in
     /// increasing order (docs/proposals/number-patterns.md).
@@ -1806,6 +1809,7 @@ impl Elaborator {
             unfolding: Vec::new(),
             defaults: Vec::new(),
             attrs: Vec::new(),
+            body_error: None,
             span: *span,
         };
         let res_eqs: Vec<Decl> = sigs
@@ -1909,6 +1913,7 @@ impl Elaborator {
             unfolding: Vec::new(),
             defaults: Vec::new(),
             attrs: Vec::new(),
+            body_error: None,
             span: *span,
         };
         let elim_eqs: Vec<Decl> = sigs
@@ -2711,6 +2716,30 @@ impl Elaborator {
         if let Some(done) = self.builtin_group(members) {
             return done;
         }
+        // A `decreasing` definition gets no stand-in, so one whose body
+        // didn't parse is failed without checking anything.
+        let unparsed = |s: &Decl| match s {
+            Decl::Signature {
+                body_error: Some(at),
+                ..
+            } => Some(*at),
+            _ => None,
+        };
+        let refused: Vec<(usize, Diagnostic)> = (members.iter())
+            .filter(|(_, s, _)| {
+                matches!(
+                    s,
+                    Decl::Signature {
+                        decreasing: Some(_),
+                        ..
+                    }
+                )
+            })
+            .filter_map(|(item, s, _)| Some((*item, module::unparsed_body(unparsed(s)?))))
+            .collect();
+        if !refused.is_empty() {
+            return refused;
+        }
         // Recursion on a measure (`decreasing.rs`).
         if members.iter().any(|(_, s, _)| {
             matches!(
@@ -2811,6 +2840,17 @@ impl Elaborator {
             self.unit.module.item = Some(item);
             if let Err(d) = self.param_defaults(signature, *id) {
                 out.push((item, d));
+                refused = true;
+            }
+        }
+        if refused {
+            return out;
+        }
+        // A body that didn't parse: the statement is checked, and that's
+        // all (a stand-in can be made for it).
+        for &(item, signature, _) in members {
+            if let Some(at) = unparsed(signature) {
+                out.push((item, module::unparsed_body(at)));
                 refused = true;
             }
         }
@@ -2986,6 +3026,7 @@ impl Elaborator {
             unfolding: _,
             defaults,
             attrs: _,
+            body_error: _,
             span,
         } = signature
         else {
@@ -3847,7 +3888,7 @@ impl Elaborator {
                     return self.compile_numbers(rows, depth, columns, types, j, span);
                 }
                 if let Some(ctor) = self.pattern_ctor(pattern, types[j].as_ref())? {
-                    split = Some((j, ctor.data));
+                    split = Some((j, ctor.data, ctor.span));
                     break 'rows;
                 }
             }
@@ -3855,7 +3896,7 @@ impl Elaborator {
                 break;
             }
         }
-        let Some((j, d)) = split else {
+        let Some((j, d, pattern)) = split else {
             // The first row matches whatever is left: it's the result.
             let mut aliases = first.aliases.clone();
             for (pattern, level) in first.pats.iter().zip(columns) {
@@ -4020,6 +4061,7 @@ impl Elaborator {
             depth,
             branches,
             span,
+            pattern,
         })
     }
 
@@ -5151,6 +5193,7 @@ fn read_case(
     depth: usize,
     branches: &[(Vec<Name>, Tree)],
     span: Span,
+    pattern: Span,
     ty: &Value,
     goal: &Value,
 ) -> Result<Option<Term>> {
@@ -5168,7 +5211,7 @@ fn read_case(
             let how = format!("taken apart with {}", reading::constructors_shown(cx, d));
             return Err(reading::no_reading(
                 cx,
-                span,
+                pattern,
                 &test,
                 polarity,
                 &how,
@@ -5189,6 +5232,7 @@ fn read_case(
             .map(|(names, t)| (names.clone(), shifted(t, depth)))
             .collect(),
         span,
+        pattern,
     };
     let mark = cx.mark();
     cx.bind_hidden("read".into(), found.prop.clone());
@@ -5242,6 +5286,7 @@ fn shifted<'a>(tree: &Tree<'a>, from: usize) -> Tree<'a> {
             depth,
             branches,
             span,
+            pattern,
         } => Tree::Case {
             level: up(*level),
             data: *data,
@@ -5251,6 +5296,7 @@ fn shifted<'a>(tree: &Tree<'a>, from: usize) -> Tree<'a> {
                 .map(|(names, t)| (names.clone(), shifted(t, from)))
                 .collect(),
             span: *span,
+            pattern: *pattern,
         },
         Tree::NumCase {
             level,
@@ -5312,6 +5358,7 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
             data: d,
             branches,
             span,
+            pattern,
             depth,
         } => {
             let g = cx.g();
@@ -5323,9 +5370,8 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
                 // the argument that fixes its type, as in `List.map ((a, b)
                 // => …) ps` (docs/proposals/syntax-conveniences.md §5.5). Its
                 // type is the constructor's, with parameters still unknown.
-                let params = (0..data.params().len() + data.indices().len())
-                    .map(|_| cx.eval(&cx.fresh_meta()))
-                    .collect::<Result<Vec<_>>>()?;
+                let params =
+                    crate::check::fresh_telescope(cx, data.params().iter().chain(data.indices()))?;
                 let known = Value::Data(*d, params.into());
                 if cx.unify(&ty, &known)? {
                     ty = known;
@@ -5335,7 +5381,7 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
                 Value::Data(d2, params) if d2 == *d => params,
                 other => {
                     if let Some(term) =
-                        read_case(cx, *x, *d, *depth, branches, *span, &other, goal)?
+                        read_case(cx, *x, *d, *depth, branches, *span, *pattern, &other, goal)?
                     {
                         return Ok(term);
                     }

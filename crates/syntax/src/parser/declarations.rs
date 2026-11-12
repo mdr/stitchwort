@@ -230,6 +230,8 @@ impl Parser<'_> {
         let column = self.tokens[self.pos - usize::from(export) - usize::from(opaque)].column;
         let theorem = keyword.tok == Tok::KwTheorem;
         let instance = keyword.tok == Tok::KwInstance;
+        // Taken here, before any local definition in the header can.
+        let keep = std::mem::take(&mut self.keep_header) && !instance;
         self.bump();
         let name = self.def_name()?;
         let mut params = Vec::new();
@@ -295,7 +297,7 @@ impl Parser<'_> {
         }
         let defaults = take_defaults(&mut params);
         let (ty, header) = lower_header(params, result);
-        let mut decls = vec![Decl::Signature {
+        let signature = Decl::Signature {
             name: name.clone(),
             ty,
             theorem,
@@ -307,8 +309,18 @@ impl Parser<'_> {
             unfolding,
             defaults,
             attrs: Vec::new(),
+            body_error: None,
             span,
-        }];
+        };
+        // While the body is parsed, a top-level definition's signature waits
+        // on the parser, for recovery to keep if the body doesn't parse.
+        let mut local = None;
+        if keep && matches!(self.peek(), Some(Tok::ColonEq | Tok::Pipe)) {
+            self.header = Some(signature);
+        } else {
+            local = Some(signature);
+        }
+        let mut decls = Vec::new();
         match self.peek() {
             Some(Tok::ColonEq) => {
                 self.bump();
@@ -379,7 +391,7 @@ impl Parser<'_> {
                     .into());
             }
         }
-        if instance && decls.len() == 1 {
+        if instance && decls.is_empty() {
             return Err(error(span, "an instance needs a body")
                 .with_note("write `:=` and the instance's value after its type")
                 .into());
@@ -396,6 +408,8 @@ impl Parser<'_> {
             )
             .into());
         }
+        let signature = local.or_else(|| self.header.take());
+        decls.insert(0, signature.expect("the signature is kept until here"));
         Ok(decls)
     }
 
@@ -468,6 +482,7 @@ impl Parser<'_> {
                 unfolding: Vec::new(),
                 defaults: Vec::new(),
                 attrs: Vec::new(),
+                body_error: None,
                 span: start.to(name.span),
             },
             Decl::Equation {

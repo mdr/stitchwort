@@ -258,6 +258,7 @@ impl Elaborator {
             unfolding: Vec::new(),
             defaults: Vec::new(),
             attrs: Vec::new(),
+            body_error: None,
             span,
         };
         // Constructors by their exact keys, so what their names mean where

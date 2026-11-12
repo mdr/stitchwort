@@ -306,6 +306,34 @@ def List.elem: (xs: List a) → (target: a) → (decEq: (x: a) → (y: a) → De
 --| membership).
 def List.contains [auto eq: DecEq a] (xs: List a) (x: a): Bool := List.any xs (member => member == x)
 
+--| An element that passes makes `List.any` true.
+theorem List.anyOfMem (xs: List a) (q: a → Bool) (y: a) (qy: q y = True) (h: List.Mem y xs): List.any xs q = True :=
+  match xs, h with
+    | [], m => Void.exfalso m
+    | [x, ..xs], Inl e => rewrite e, qy in rfl
+    | [x, ..xs], Inr m =>
+      match c: q x with
+        | True => rfl
+        | False => List.anyOfMem xs q y qy m
+
+--| When `List.any` is true, some element of the list passes.
+theorem List.anyTrueElim: ∀ (xs: List a) (p: a → Bool) (goal: Prop) => List.any xs p = True → ∀ (cont: ∀ (x: a) => List.Mem x xs → p x = True → goal) => goal
+  | [], p, goal, h, k => cases
+  | [z, ..zs], p, goal, h, k =>
+    match c: p z with
+      | True => k z (Inl rfl) c
+      | False => List.anyTrueElim zs p goal h (x inZs px => k x (Inr inZs) px)
+
+--| `List.contains xs x` is `True` exactly when `x` is in `xs`: the reading
+--| of `contains`, so a fact `xs.contains x = True` is taken apart as `x ∈ xs`
+--| and built from one.
+@[reading]
+theorem List.memContains [auto eq: DecEq a] (xs: List a) (x: a): (List.contains xs x = True) ↔ (List.Mem x xs) := {
+  forward = found =>
+    List.anyTrueElim xs (member => member == x) (List.Mem x xs) found (member isIn same => rewrite <- DecEq.sound same in isIn),
+  backward = isIn => List.anyOfMem xs (member => member == x) x (DecEq.refl x) isIn
+}
+
 --| Whether the list has no elements, in O(1): `List.length xs == 0` costs O(n).
 --| [`List.IsNil`] is the same as a `Prop` ([`List.isEmptyEqNil`]).
 def List.isEmpty: (xs: List a) → Bool
@@ -478,14 +506,13 @@ theorem List.foldLeftCong (xs: List a) (z: b) (f1 f2: b → a → b) (ef: (∀ (
 theorem List.sumByCong [auto add: Add b] (xs: List a) (f1: a → b) (f2: a → b) (ef: ∀ (x: a) => f1 x = f2 x): List.sumBy xs f1 = List.sumBy xs f2 :=
   List.foldLeftCong xs Add.zero (acc x => acc + f1 x) (acc x => acc + f2 x) (acc x => Eq.cong (t => acc + t) (ef x))
 
---| Decides `x ∈ xs` one element at a time from the front, so `x ∈ xs` is a
---| `Bool` where one is expected (`if x ∈ seen`) and `if h: x ∈ xs` names
---| the proof.
+--| Decides `x ∈ xs` by `xs.contains x`, so `x ∈ xs` is a `Bool` where one is
+--| expected (`if x ∈ seen`), the very test `contains` is, and `if h: x ∈ xs`
+--| names the proof.
 -- Its type spells out `List.Mem`: `∈` there would make the type mention the
 -- instance itself.
-instance List.decMem [auto eq: DecEq a] (x: a): (xs: List a) → Decidable (List.Mem x xs)
-  | [] => Decidable.no (none => none)
-  | [y, ..ys] => Decidable.or (eq.decide y x) (List.decMem x ys)
+instance List.decMem [auto eq: DecEq a] (x: a) (xs: List a): Decidable (List.Mem x xs) :=
+  { holds = List.contains xs x, sound = (List.memContains xs x).forward, complete = (List.memContains xs x).backward }
 
 test "List.decMem" := 2 ∈ [1, 2, 3] ∧ 4 ∉ [1, 2, 3] ∧ 'a' ∉ []
 
@@ -499,12 +526,36 @@ def List.Distinct: (xs: List a) → Prop
   | [] => Unit
   | [x, ..xs] => (x ∉ xs) ∧ (List.Distinct xs)
 
---| Decides `List.Distinct xs` by checking each element against those after
---| it (quadratic; `List.isDistinct` is the faster test, given an `Ord`).
+--| Whether no element appears twice, checking each against those after it
+--| (quadratic; `List.isDistinct` is the faster test, given an `Ord`).
+--| `List.Distinct` as a `Bool` ([`List.noRepeatsIff`]).
+def List.noRepeats [auto eq: DecEq a]: (xs: List a) → Bool
+  | [] => True
+  | [x, ..xs] => !xs.contains x && List.noRepeats xs
+
+--| `List.noRepeats xs` is `List.Distinct xs` as a `Bool`.
+@[reading]
+theorem List.noRepeatsIff [auto eq: DecEq a] (xs: List a): List.noRepeats xs = True ↔ List.Distinct xs :=
+  match xs with
+    | [] => { forward = h => Trivial, backward = h => rfl }
+    | [x, ..rest] => {
+      forward = h =>
+        match h with
+          | Both absent more =>
+            Both (m => Bool.falseNotTrue (Eq.trans (Eq.sym (Eq.cong Bool.not ((List.memContains rest x).backward m))) absent))
+              ((List.noRepeatsIff rest).forward more),
+      backward = h =>
+        match h with
+          | Both out more =>
+            Both (match c: List.contains rest x with
+              | True => Void.exfalso (out ((List.memContains rest x).forward c))
+              | False => rfl) ((List.noRepeatsIff rest).backward more)
+    }
+
+--| Decides `List.Distinct xs` by `List.noRepeats`.
 -- Its type spells out `List.Distinct`, as `List.decMem`'s does.
-instance List.decDistinct [auto eq: DecEq a]: (xs: List a) → Decidable (List.Distinct xs)
-  | [] => Decidable.yes Trivial
-  | [x, ..xs] => Decidable.and (Decidable.not (List.decMem x xs)) (List.decDistinct xs)
+instance List.decDistinct [auto eq: DecEq a] (xs: List a): Decidable (List.Distinct xs) :=
+  { holds = List.noRepeats xs, sound = (List.noRepeatsIff xs).forward, complete = (List.noRepeatsIff xs).backward }
 
 test "List.decDistinct" := List.Distinct [1, 2, 3] ∧ ¬(List.Distinct [1, 2, 1]) ∧ List.Distinct ([]: List Nat)
 

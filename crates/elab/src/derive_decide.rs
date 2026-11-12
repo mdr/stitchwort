@@ -201,6 +201,7 @@ impl Elaborator {
             unfolding: Vec::new(),
             defaults: Vec::new(),
             attrs: Vec::new(),
+            body_error: None,
             span,
         };
         // Decidable.yes (T.%mk %h0 …), under an `if %hk:` for each field.

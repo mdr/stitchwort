@@ -109,19 +109,51 @@ def List.Sorted (le: a → a → Bool): (xs: List a) → Prop
   | [] => Unit
   | [x, ..xs] => (List.LeHead le x xs) ∧ (List.Sorted le xs)
 
---| Decides `List.LeHead le bound xs` by computing `le bound` on the first
---| element.
--- Its type spells out `List.LeHead`, as `List.decDistinct`'s does for `List.Distinct`.
-instance List.decLeHead (le: a → a → Bool) (bound: a): (xs: List a) → Decidable (List.LeHead le bound xs)
-  | [] => Decidable.yes Trivial
-  | [y, ..ys] => Bool.decTrue (le bound y)
+--| Whether `bound` may come before the first element of `xs`, if any:
+--| `List.LeHead` as a `Bool` ([`List.isLeHeadIff`]).
+@[noReceiver]
+def List.isLeHead (le: a → a → Bool) (bound: a): (xs: List a) → Bool
+  | [] => True
+  | [y, ..ys] => le bound y
 
---| Decides `List.Sorted le xs` by checking each element against the next, so
+--| `List.isLeHead le bound xs` is `List.LeHead le bound xs` as a `Bool`.
+@[reading]
+theorem List.isLeHeadIff (le: a → a → Bool) (bound: a) (xs: List a): List.isLeHead le bound xs = True ↔ List.LeHead le bound xs :=
+  match xs with
+    | [] => { forward = h => Trivial, backward = h => rfl }
+    | [y, ..ys] => { forward = h => h, backward = h => h }
+
+--| Whether each element may come before the next: `List.Sorted` as a `Bool`
+--| ([`List.isSortedByIff`]).
+@[noReceiver]
+def List.isSortedBy (le: a → a → Bool): (xs: List a) → Bool
+  | [] => True
+  | [x, ..xs] => List.isLeHead le x xs && List.isSortedBy le xs
+
+--| `List.isSortedBy le xs` is `List.Sorted le xs` as a `Bool`.
+@[reading]
+theorem List.isSortedByIff (le: a → a → Bool) (xs: List a): List.isSortedBy le xs = True ↔ List.Sorted le xs :=
+  match xs with
+    | [] => { forward = h => Trivial, backward = h => rfl }
+    | [x, ..rest] => {
+      forward = h =>
+        match h with
+          | Both head more => Both ((List.isLeHeadIff le x rest).forward head) ((List.isSortedByIff le rest).forward more),
+      backward = h =>
+        match h with
+          | Both head more => Both ((List.isLeHeadIff le x rest).backward head) ((List.isSortedByIff le rest).backward more)
+    }
+
+--| Decides `List.LeHead le bound xs` by `List.isLeHead`.
+-- Its type spells out `List.LeHead`, as `List.decDistinct`'s does for `List.Distinct`.
+instance List.decLeHead (le: a → a → Bool) (bound: a) (xs: List a): Decidable (List.LeHead le bound xs) :=
+  { holds = List.isLeHead le bound xs, sound = (List.isLeHeadIff le bound xs).forward, complete = (List.isLeHeadIff le bound xs).backward }
+
+--| Decides `List.Sorted le xs` by `List.isSortedBy`, so
 --| `if List.Sorted Nat.leq xs` is a `Bool` where one is expected and
 --| `check --counterexamples` can test lemmas that assume a list is sorted.
-instance List.decSorted (le: a → a → Bool): (xs: List a) → Decidable (List.Sorted le xs)
-  | [] => Decidable.yes Trivial
-  | [x, ..xs] => Decidable.and (List.decLeHead le x xs) (List.decSorted le xs)
+instance List.decSorted (le: a → a → Bool) (xs: List a): Decidable (List.Sorted le xs) :=
+  { holds = List.isSortedBy le xs, sound = (List.isSortedByIff le xs).forward, complete = (List.isSortedByIff le xs).backward }
 
 test "List.decSorted" := List.Sorted Nat.leq [1, 2, 2, 5] ∧ ¬(List.Sorted Nat.leq [1, 3, 2]) ∧ List.Sorted Nat.leq ([]: List Nat)
 

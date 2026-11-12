@@ -1,5 +1,5 @@
 {
-  "next": 2993,
+  "next": 3001,
   "tickets": [
     {
       "id": 47,
@@ -30754,15 +30754,17 @@
     {
       "id": 2897,
       "title": "[DeepSeek] Book G6: stitchwort goal --summary: open goals per namespace; also in the playground's status line (proving-with-stitchwort-outline.md)",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": ".claude/worktrees/scratch-sw-2897",
       "labels": [],
       "epic": "docs-tutorials",
-      "body": "",
+      "body": "\nModel result: DeepSeek, worked (one unquoted browser filter ran the whole suite), ~40 min (est. 45)",
       "created": "2026-11-11",
       "updated": "2026-11-12",
-      "commits": []
+      "commits": [
+        "75e26be14"
+      ]
     },
     {
       "id": 2898,
@@ -31695,15 +31697,17 @@
     {
       "id": 2967,
       "title": "[DeepSeek] std: List.decMem, decDistinct, decSorted, decLeHead recurse on the list, so if x ∈ xs and if xs.contains x are different tests: write them test first (holds := the Bool test, then sound/complete) (SW-2964 finding 1)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "done",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-2967",
       "labels": [],
       "epic": "std-library",
-      "body": "",
+      "body": "\nModel result: Sonnet, worked, 15 min (est. 60)",
       "created": "2026-11-12",
       "updated": "2026-11-12",
-      "commits": []
+      "commits": [
+        "7a9bb85fa"
+      ]
     },
     {
       "id": 2968,
@@ -31818,15 +31822,24 @@
     {
       "id": 2976,
       "title": "[Opus] Sweep: ~50 cx.fresh_meta() sites in crates/elab make untyped unknowns, weakening unification's first-order type guard (SW-919, SW-2961); use fresh_meta_of where the type is known; tests by name",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-2976",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "Lane (Opus, 12 Nov 2026, 16:01-16:20, est. 90 min), branch lane/SW-2976, 8 commits.\n\nOf the 52 `fresh_meta()` call sites, 27 are now typed (`fresh_meta_of`): Pi domains being instantiated (auto, named, rewrite, rewrite/under, held-back arguments), a `_`'s value by its type, `rfl`'s `?x`, row tails and inferred rows as `Effect.Effects` (new `rows::fresh_row`), data/ability parameters by the declared telescope (new `check::fresh_telescope`: constructor apps, list literals, patterns, records, effect labels, pattern-lambda match), queued checks' placeholders, Quot's relation and `Quot.sound`'s ends, decreasing's `?new < m` as Nat.\n\n25 left: 23 stand for types of unknown universe (a hole's/goal's/`if`'s/lambda's/section's/pipe's/computation's/number group's/record literal's/reify's type, function_parts' dom and cod, auto-bound and auto-field types, Quot's carrier and lift result, a queued dot call's type); one queued constraint's placeholder stands for no value (commented); one is a unit test's type unknown.\n\nTests: hash_stability (library) after each batch: all pass, no hash changes, ~30 s each as before (baseline 30.3 s, after 29.4-32.2 s). Examples (running: accepted|goal|rejected|soundness) 7/7; elab unif 39/39; elab queue/quot/rows/effects 46/46. clippy clean. No real bugs exposed; no site reverted.\nModel result: Opus, worked, 15 min (est. 90). 27 typed, 25 left (23 type-of-a-type, no universe unknown exists).",
       "created": "2026-11-12",
       "updated": "2026-11-12",
-      "commits": []
+      "commits": [
+        "500e1bfb5",
+        "b7e8d79c0",
+        "2e4c33354",
+        "c6f2068ea",
+        "37e3c047f",
+        "6892d3d60",
+        "15877987a",
+        "5b9f88697"
+      ]
     },
     {
       "id": 2977,
@@ -31874,15 +31887,17 @@
     {
       "id": 2980,
       "title": "[Opus] Tests with errors: a declaration whose body has a syntax error gets no stand-in (the parser drops the declaration and keeps no signature), unlike tests-with-errors.md §3.3: keep the signature through parse recovery so it stands in (SW-2952 review M3); also the misleading 'N errors: in usesTwo, …' summary after a body parse error (also on main)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "done",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-2980",
       "labels": [],
       "epic": "test-infra",
-      "body": "",
+      "body": "\nModel result: Opus, worked, 28 min (est. 120)",
       "created": "2026-11-12",
       "updated": "2026-11-12",
-      "commits": []
+      "commits": [
+        "4a0c3d524"
+      ]
     },
     {
       "id": 2981,
@@ -31990,15 +32005,17 @@
     {
       "id": 2988,
       "title": "[DeepSeek] E-NO-READING on a pattern points at the whole match, not the pattern that failed (SW-2977 finding)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "done",
+      "agent": "DeepSeek",
+      "where": ".claude/worktrees/scratch-sw-2988",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "\nModel result: DeepSeek, worked, ~12 min (est. 25)",
       "created": "2026-11-12",
       "updated": "2026-11-12",
-      "commits": []
+      "commits": [
+        "3e58f92cd"
+      ]
     },
     {
       "id": 2989,
@@ -32051,6 +32068,112 @@
       "where": "",
       "labels": [],
       "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-12",
+      "updated": "2026-11-12",
+      "commits": []
+    },
+    {
+      "id": 2993,
+      "title": "[Sonnet] W-UNREACHABLE (D3535, Matt, 12 Nov 2026: 'A warning sounds pragmatically useful'): warn on a match/clause arm with a body whose case a hypothesis rules out (the same check impossible_case uses to fill in missing arms); not on () arms; message names the hypothesis and its type there and says the arm can be deleted; editors show it like an unused binding; book §2.5's long form points at the warning",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-2993",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-12",
+      "updated": "2026-11-12",
+      "commits": []
+    },
+    {
+      "id": 2994,
+      "title": "[Opus] Universe unknowns: 23 fresh_meta() sites stand for types whose universe isn't known (hole, goal, if, lambda params/result, …), so they stay untyped; a typed meta of type Sort ?u would let the guard check them too (SW-2976 finding; design question, not urgent)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-12",
+      "updated": "2026-11-12",
+      "commits": []
+    },
+    {
+      "id": 2995,
+      "title": "[Sonnet] Full tier at 58c3bcac7 (Overmind, 12 Nov): conv_shortcut::every_rejected_example_gets_the_same_verdict_without_the_shortcut fails on reject/as-written-unconfirmed-other-rounds.sw: with the shortcut E-TYPE-MISMATCH (Some y = Some answer vs None = Some answer, + W-MATCH-NOT-FOUND); without it E-RESOURCE while checking slowCheck (unfolding Bool.ifThenElse). Decide whether the example should be budget-independent (shrink slowCheck) or the test should allow E-RESOURCE differences; reproduce by name first (it took 1875 s under full)",
+      "status": "done",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-2995",
+      "labels": [],
+      "epic": "test-infra",
+      "body": "\nOrchestrator's fix: the example's own comment says it relies on the same-closure shortcut (SW-2730); added to NEEDS_THE_SHORTCUT. Runs in the full tier only (tier_sample).",
+      "created": "2026-11-12",
+      "updated": "2026-11-12",
+      "commits": []
+    },
+    {
+      "id": 2996,
+      "title": "[Sonnet] Memory regression: examples::rejected_examples_fail_for_the_expected_reason peaks at 3.65 GB (12 Nov 16:38, main 0925d65c7), so the merge tier's 4 GB memguard killed it; the 07:18 merge tier at 58c3bcac7 passed under the same cap. Find which of today's merges did it (measure the test's peak footprint with /usr/bin/time -l at merge commits), and fix or report",
+      "status": "done",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-2996",
+      "labels": [],
+      "epic": "test-infra",
+      "body": "\nCause: not a code regression. SW-2977's 8 new reading-* reject examples shifted tier_sample's every-4th pick onto heavy examples (Limits::size 10M nodes ≈ 1.3-2.4 GB each). Merge-tier peak 2.53 GB → 0.29 GB with the HEAVY list. Model result: Sonnet, worked, 17 min (est. 60)",
+      "created": "2026-11-12",
+      "updated": "2026-11-12",
+      "commits": [
+        "756199f72"
+      ]
+    },
+    {
+      "id": 2997,
+      "title": "[Opus] Tests with errors §11: a namespace importing one with a body syntax error still gets E-NAMESPACE-FAILED in the editor; with SW-2980 the error leaves a real stand-in importers could be checked against (stage 1's failed-namespace rule may now be unnecessary); also the counterexample note for a theorem whose body doesn't parse is lost on the hidden E-UNPARSED-BODY",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-2997",
+      "labels": [],
+      "epic": "test-infra",
+      "body": "",
+      "created": "2026-11-12",
+      "updated": "2026-11-12",
+      "commits": []
+    },
+    {
+      "id": 2998,
+      "title": "[Sonnet] Membership and distinctness spellings in std: List.isDistinct (Ord) and List.noRepeats (DecEq) are two Bool tests for Distinct (add isDistinctIff, say which if uses); List.elem, List.contains and any/== are three spellings of membership: pick one, deprecate the rest (SW-2967 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "std-library",
+      "body": "",
+      "created": "2026-11-12",
+      "updated": "2026-11-12",
+      "commits": []
+    },
+    {
+      "id": 2999,
+      "title": "[Opus] Hitting Limits::size (10 M nodes) costs 1.3-2.2 GB of footprint (SW-2996): lower the limit or make quoted nodes smaller; design call. Also docs/testing.md 'Memory': tier_sample takes every 4th by name, so adding examples moves which run and a tier's peak",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
+      "body": "",
+      "created": "2026-11-12",
+      "updated": "2026-11-12",
+      "commits": []
+    },
+    {
+      "id": 3000,
+      "title": "[Sonnet] LSP test memory: features::semantic_tokens_colour_names_by_what_they_resolve_to (lsp it) peaks at 1.45 GB, 24 s, at 0a460bbbe; three such tests at once (signature_help, semantic_tokens, completion_offers_locals) took the merge tier over its 4 GB cap at 16:59. The 07:18 merge tier at 58c3bcac7 passed. Bisect today's merges by peak footprint; fix or report",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-3000",
+      "labels": [],
+      "epic": "test-infra",
       "body": "",
       "created": "2026-11-12",
       "updated": "2026-11-12",

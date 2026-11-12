@@ -2322,6 +2322,19 @@ export def area: Shape -> Nat
     status.className = "status " + (kind || "");
   }
 
+  /**
+   * "N goals open", and in a project of several files, the open file's
+   * goals first: a checked chapter imports the ones before it, so the
+   * project's goals are more than this chapter's ("3 goals open in this
+   * chapter, 11 in all").
+   */
+  function goalsStatus(openGoals, diagnostics = []) {
+    const count = (n) => `${n} goal${n === 1 ? "" : "s"} open`;
+    if (!project || project.manifest.files.length < 2) return count(openGoals);
+    const inChapter = diagnostics.filter((d) => d.severity === "goal" && d.file === project.open).length;
+    return `${count(inChapter)} in this chapter, ${openGoals} in all`;
+  }
+
   /** How many errors a check's answer has; the rendered codes stand in for an answer without diagnostics. */
   function errorCountOf(answer) {
     const found = answer.diagnostics?.filter((d) => d.severity === "error").length ?? 0;
@@ -2489,7 +2502,7 @@ export def area: Shape -> Nat
     const openGoals = checked.goals?.length ?? 0;
     const errorCount = errorCountOf(checked);
     setStatus(checked.ok && openGoals
-      ? (openGoals === 1 ? "1 goal open" : `${openGoals} goals open`)
+      ? goalsStatus(openGoals, checked.diagnostics)
       : checked.ok
       ? (day ? `${dayName(day)}${day.namespaces.length > 1 ? " and its proofs" : ""} checked by the kernel` : "Checked by the kernel")
       : errorCount === 1 ? "1 error" : `${errorCount} errors`, checked.ok ? "" : "bad");

@@ -1674,3 +1674,51 @@ fn switching_features_off_with_a_configuration_change() {
         assert!(s.asked.is_empty(), "{:?}", s.asked);
     });
 }
+
+/// Typing an unfinished body (`:= (n + n`) leaves the rest of the file
+/// checked: `double`'s signature stands in for it, so what only calls it
+/// keeps its diagnostics and goals, and what must compute it waits, quietly
+/// (docs/proposals/tests-with-errors.md §3.3). Finishing the body removes
+/// the stand-in: what waited is checked again.
+#[test]
+fn a_body_being_typed_leaves_its_users_checked() {
+    big_stack(|| {
+        let fine = "namespace Demo\n\ndef double (n: Nat): Nat := n + n\n\ntheorem five: double 2 = 5 := rfl\n\ndef quad (n: Nat): Bool := double (double n)\n\ntheorem later: quad 3 = True := ?\n";
+        let typing = fine.replace(":= n + n\n", ":= (n + n\n");
+        let mut s = Session::open(fine);
+        let shown = |s: &Session| -> Vec<(String, u64)> {
+            (s.diagnostics.iter())
+                .map(|d| {
+                    let code = d["code"].as_str().unwrap().to_string();
+                    (code, d["range"]["start"]["line"].as_u64().unwrap())
+                })
+                .collect()
+        };
+        let before = shown(&s);
+        assert_eq!(
+            before,
+            [
+                ("E-REFL".to_string(), 4),
+                ("E-TYPE-MISMATCH".to_string(), 6),
+                ("GOAL".to_string(), 8),
+            ],
+            "{:#?}",
+            s.diagnostics
+        );
+        // `five` must compute `double 2`, so it waits; `quad`'s own
+        // mistake and `later`'s goal are as they were.
+        s.change(2, &typing);
+        assert_eq!(
+            shown(&s),
+            [
+                ("E-PARSE".to_string(), 2),
+                ("E-TYPE-MISMATCH".to_string(), 6),
+                ("GOAL".to_string(), 8),
+            ],
+            "{:#?}",
+            s.diagnostics
+        );
+        s.change(3, fine);
+        assert_eq!(shown(&s), before, "{:#?}", s.diagnostics);
+    });
+}

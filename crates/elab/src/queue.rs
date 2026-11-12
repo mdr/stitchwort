@@ -507,9 +507,11 @@ fn queue_item(
             (0..cx.level()).all(|i| !t.mentions(i))
         });
     let placeholder = if closed {
-        Term::Meta(cx.metas().new_meta(cx.span))
+        let m = cx.metas().new_meta(cx.span);
+        cx.metas().set_meta_type(m, ty.clone(), 0);
+        Term::Meta(m)
     } else {
-        cx.fresh_meta()
+        cx.fresh_meta_of(&ty)
     };
     let Term::Meta(meta) = *placeholder.spine().0 else {
         unreachable!("a fresh metavariable")
@@ -1175,6 +1177,7 @@ pub(crate) fn queue_constraint(
     blocker: usize,
     error: Diagnostic,
 ) -> Result<()> {
+    // Untyped: it stands for no value.
     let placeholder = cx.fresh_meta();
     let Term::Meta(meta) = *placeholder.spine().0 else {
         unreachable!("a fresh metavariable")
