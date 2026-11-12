@@ -388,11 +388,9 @@ theorem List.allReadsFalse (xs: List a) (p: a → Bool): xs.all p = False ↔ �
             Exists.elim ((List.allReadsFalse ys p).forward h)
               (x found => Witness x (Both (Inr (And.left found)) (And.right found))),
           backward = h =>
-            (List.allReadsFalse ys p).backward
-              (Exists.elim h (x found =>
-                match And.left found with
-                  | Inl e => Void.exfalso (Bool.falseNotTrue (Eq.trans (Eq.sym (J (z q => p z = False) (And.right found) (Eq.sym e))) c))
-                  | Inr m => Witness x (Both m (And.right found))))
+            match h with
+              | Witness x (Both (Inl e) px) => Void.exfalso (Bool.falseNotTrue (Eq.trans (Eq.sym (J (z q => p z = False) px (Eq.sym e))) c))
+              | Witness x (Both (Inr m) px) => (List.allReadsFalse ys p).backward (Witness x (Both m px))
         }
         | False => {
           forward = h => Witness y (Both (Inl rfl) c),
