@@ -3598,6 +3598,13 @@ impl Elaborator {
                 _ => break,
             }
         }
+        // A test fact's column keeps its test's function, so a pattern on it
+        // compiles against what the function reads as.
+        for (ty, &level) in column_types.iter_mut().zip(&columns) {
+            if let Some(t) = ty {
+                *t = reading::variable_as_written(cx, level, t)?;
+            }
+        }
         let rest_written = written.clone();
         cx.goal = written.map(|w| (cx.level(), w));
         if let Some(h) = header {
@@ -5209,7 +5216,8 @@ fn read_case(
     if !reading::readable_data(cx, d) || cx.level() != depth {
         return Ok(None);
     }
-    let Some((test, polarity)) = reading::test_fact(cx, ty)? else {
+    let ty = reading::variable_as_written(cx, x, ty)?;
+    let Some((test, polarity)) = reading::test_fact(cx, &ty)? else {
         return Ok(None);
     };
     let found = match reading::read_through(cx, &test, polarity)? {

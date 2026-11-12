@@ -2227,7 +2227,8 @@ pub(crate) fn infer_value(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
         Expr::Ann(e, ty, _) => {
             let (ty, _) = check_type(cx, ty)?;
             let ty_value = cx.eval(&ty)?;
-            let e = check(cx, e, &ty_value)?;
+            let expected = crate::reading::here_as_written(cx, &ty, &ty_value)?;
+            let e = check(cx, e, &expected)?;
             Ok((Term::Ann(Rc::new(e), Rc::new(ty)), ty_value))
         }
         Expr::Record {
@@ -3510,9 +3511,10 @@ pub(crate) fn found_dictionaries(cx: &mut Ctx, own: &[usize], ty: Value) -> Resu
 
 /// Checks an explicit argument of `head` against its parameter type `dom`.
 fn check_arg(cx: &mut Ctx, head: &Term, value: &Expr, dom: &Value) -> Result<Term> {
+    let expected = crate::reading::domain_as_written(cx, head, dom)?;
     crate::queue::framed(
         cx,
-        |cx| check(cx, value, dom),
+        |cx| check(cx, value, &expected),
         |_| ArgFrame {
             head: head.clone(),
             value: value.clone(),

@@ -20,6 +20,13 @@
 //! A test whose head has no reading is unfolded a step at a time (never
 //! through `opaque`, which doesn't unfold), up to [`UNFOLD_LIMIT`] steps.
 //!
+//! A test is read by its function as written, so the reader evaluates with
+//! calls kept folded ([`folded`]) and, with gluing off, where a fact's type
+//! value has its calls unfolded already, starts from the type as written
+//! ([`as_written`]): a variable's declared type, an annotation, a
+//! parameter's type, the definition's own type. The same reading is found
+//! either way.
+//!
 //! Nothing here is trusted: what the elaborator writes is
 //! `Iff.forward (r args) h` or `Iff.backward (r args) p`, which the kernel
 //! checks.
@@ -86,6 +93,101 @@ pub(crate) enum Read {
     /// No reading, after unfolding what could be: the test's head when it
     /// is a function (for the note on `@[reading]`).
     Leaf(Option<DefId>),
+}
+
+/// `f` with calls kept folded (glued evaluation,
+/// docs/proposals/folded-calls.md), whatever the session's switch says: a
+/// test's reading is picked by its function as written, which a call
+/// unfolded at once has lost (`inRange lo x hi` would be `lo <= x && x <=
+/// hi`, read as `∧`). Values made here may hold calls; an unglued reader
+/// unfolds them as it meets them.
+fn folded<T>(g: &Ev, f: impl FnOnce() -> Result<T>) -> Result<T> {
+    let was = g.machine.glue.replace(true);
+    let out = f();
+    g.machine.glue.set(was);
+    out
+}
+
+/// The type of a fact to read, from its type `ty` and its type as written,
+/// where known (a term with the values of its free variables): with gluing
+/// on, `ty` keeps its calls folded already; with it off, the written type
+/// evaluated with calls folded, where that is a test fact.
+pub(crate) fn as_written(
+    cx: &Ctx,
+    ty: &Value,
+    written: Option<(Rc<Term>, Vec<Value>)>,
+) -> Result<Value> {
+    let g = cx.g();
+    if g.machine.glue.get() {
+        return Ok(ty.clone());
+    }
+    let Some((term, env)) = written else {
+        return Ok(ty.clone());
+    };
+    let value = folded(&g, || Ok(stitchwort_core::value::eval(&g, &env, &term)?))?;
+    Ok(if test_fact_in(&g, &value)?.is_some() {
+        value
+    } else {
+        ty.clone()
+    })
+}
+
+/// [`as_written`] for the variable at `level`.
+pub(crate) fn variable_as_written(cx: &Ctx, level: usize, ty: &Value) -> Result<Value> {
+    as_written(cx, ty, crate::dot::written_at(cx, level))
+}
+
+/// [`as_written`] for a fact `term` of type `ty`: an annotation, a
+/// variable's declared type or a function's declared result.
+pub(crate) fn term_as_written(cx: &Ctx, term: &Term, ty: &Value) -> Result<Value> {
+    if cx.g().machine.glue.get() {
+        return Ok(ty.clone());
+    }
+    as_written(cx, ty, crate::dot::written_type_term(cx, term)?)
+}
+
+/// [`as_written`] for a type written here, `term`, whose value is `ty`.
+pub(crate) fn here_as_written(cx: &Ctx, term: &Term, ty: &Value) -> Result<Value> {
+    if cx.g().machine.glue.get() {
+        return Ok(ty.clone());
+    }
+    as_written(cx, ty, Some((Rc::new(term.clone()), cx.env.clone())))
+}
+
+/// [`as_written`] for the type `dom` of the next explicit argument of
+/// `head`: the parameter's type as `head`'s type writes it.
+pub(crate) fn domain_as_written(cx: &Ctx, head: &Term, dom: &Value) -> Result<Value> {
+    if cx.g().machine.glue.get() || !matches!(dom, Value::Eq(..)) {
+        return Ok(dom.clone());
+    }
+    let written =
+        crate::dot::written_type_term(cx, head)?.and_then(|(ty, env)| match ty.strip_loc() {
+            Term::Pi(_, Icit::Explicit, d, _) => Some((d.clone(), env)),
+            _ => None,
+        });
+    as_written(cx, dom, written)
+}
+
+/// [`as_written`] for an expected type: the definition's type as written,
+/// where `expected` is that ([`Ctx::goal`]).
+fn expected_as_written(cx: &Ctx, expected: &Value) -> Result<Value> {
+    let g = cx.g();
+    if g.machine.glue.get() {
+        return Ok(expected.clone());
+    }
+    let Some((n, goal)) = &cx.goal else {
+        return Ok(expected.clone());
+    };
+    if *n > cx.level() {
+        return Ok(expected.clone());
+    }
+    let written = as_written(cx, expected, Some((goal.clone(), cx.env[..*n].to_vec())))?;
+    let same = stitchwort_core::value::conv(&g, cx.level(), &written, expected);
+    Ok(if matches!(same, Ok(true)) {
+        written
+    } else {
+        expected.clone()
+    })
 }
 
 /// The test and polarity of a test fact type `e = True` or `e = False`.
@@ -358,6 +460,10 @@ enum Lookup {
 /// the reading of what it unfolds to, one definition at a time, up to
 /// [`UNFOLD_LIMIT`] steps.
 fn lookup(g: &Ev, e: &Elaborator, test: &Value, polarity: bool) -> Result<Lookup> {
+    folded(g, || lookup_folded(g, e, test, polarity))
+}
+
+fn lookup_folded(g: &Ev, e: &Elaborator, test: &Value, polarity: bool) -> Result<Lookup> {
     let mut test = test.clone();
     let mut first_head = None;
     for _ in 0..=UNFOLD_LIMIT {
@@ -426,19 +532,23 @@ fn statement(
     args: &[Value],
     mut each: impl FnMut(&Value, Icit) -> Result<()>,
 ) -> Result<(DataId, Vec<Value>)> {
-    let mut ty = g.def(theorem).ty_value().clone();
-    for &slot in info.slots.iter() {
-        let Value::Pi(_, icit, _, cod) = force(g, ty)? else {
+    // Folded, so that a test in what the test reads as is read by its own
+    // function in turn.
+    folded(g, || {
+        let mut ty = g.def(theorem).ty_value().clone();
+        for &slot in info.slots.iter() {
+            let Value::Pi(_, icit, _, cod) = force(g, ty)? else {
+                unreachable!("checked when the reading was declared")
+            };
+            let arg = &args[slot];
+            each(arg, icit)?;
+            ty = cod.apply(g, arg.clone())?;
+        }
+        let Value::Data(d, sides) = force(g, ty)? else {
             unreachable!("checked when the reading was declared")
         };
-        let arg = &args[slot];
-        each(arg, icit)?;
-        ty = cod.apply(g, arg.clone())?;
-    }
-    let Value::Data(d, sides) = force(g, ty)? else {
-        unreachable!("checked when the reading was declared")
-    };
-    Ok((d, sides.to_vec()))
+        Ok((d, sides.to_vec()))
+    })
 }
 
 /// Theorem `theorem` applied to the test's `args` as `info` says.
@@ -606,7 +716,7 @@ pub(crate) fn for_ctor(cx: &Ctx, d: DataId, expected: &Value, span: Span) -> Res
     if !readable_data(cx, d) {
         return Ok(None);
     }
-    let Some((test, polarity)) = test_fact(cx, expected)? else {
+    let Some((test, polarity)) = test_fact(cx, &expected_as_written(cx, expected)?)? else {
         return Ok(None);
     };
     let read = read_through(cx, &test, polarity)?;
@@ -630,7 +740,7 @@ pub(crate) fn for_ctor(cx: &Ctx, d: DataId, expected: &Value, span: Span) -> Res
 /// the reading it is checked against, or `None` where `expected` isn't a
 /// test fact.
 pub(crate) fn for_record(cx: &Ctx, expected: &Value, span: Span) -> Result<Option<Found>> {
-    let Some((test, polarity)) = test_fact(cx, expected)? else {
+    let Some((test, polarity)) = test_fact(cx, &expected_as_written(cx, expected)?)? else {
         return Ok(None);
     };
     let read = read_through(cx, &test, polarity)?;
@@ -672,7 +782,7 @@ pub(crate) fn dot_read(
     rty: &Value,
     span: Span,
 ) -> Result<Option<(Term, Value)>> {
-    let Some((test, polarity)) = test_fact(cx, rty)? else {
+    let Some((test, polarity)) = test_fact(cx, &term_as_written(cx, rterm, rty)?)? else {
         return Ok(None);
     };
     match read(cx, &test, polarity)? {
@@ -697,7 +807,7 @@ pub(crate) fn dot_read(
 /// reads as, where it is a test fact whose test has a reading: for a field
 /// of a fact (`h.left` is `h.read.left`, §6.6).
 pub(crate) fn read_fact(cx: &Ctx, rterm: &Term, rty: &Value) -> Result<Option<(Term, Value)>> {
-    let Some((test, polarity)) = test_fact(cx, rty)? else {
+    let Some((test, polarity)) = test_fact(cx, &term_as_written(cx, rterm, rty)?)? else {
         return Ok(None);
     };
     match read(cx, &test, polarity)? {

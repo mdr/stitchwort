@@ -27,6 +27,7 @@ mod operators;
 mod pipe_forms;
 mod postponement;
 mod prelude_errors;
+mod readings;
 mod records;
 mod signature_defaults;
 mod text_interpolation;
