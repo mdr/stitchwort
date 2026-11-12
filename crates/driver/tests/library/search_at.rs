@@ -281,6 +281,22 @@ fn cases_closes_a_goal_alone() {
     all_paste(&report, line);
 }
 
+/// `ring` is a closer of the full search too (SW-2973), not only a rung of
+/// the ladder: a goal it closes, and `omega` doesn't, lists it in `tactics`
+/// without `--simplest-first`.
+#[test]
+fn ring_closes_a_goal_alone_in_the_full_report() {
+    let line = line_of("onlyRing");
+    let report = at(GOALS, line);
+    assert!(report.tactics.iter().any(|t| t == "ring"), "{report:#?}");
+    assert!(
+        !report.tactics.iter().any(|t| t == "omega"),
+        "omega closes this goal too, so it doesn't show that ring did: {report:#?}"
+    );
+    pastes(GOALS, line, "ring");
+    all_paste(&report, line);
+}
+
 /// Goals whose printed form doesn't read back as the same statement, each a
 /// kind `search --at` refused before it searched the goal as the elaborator
 /// had it (SW-989; AoC 2021 days 12 to 18).
