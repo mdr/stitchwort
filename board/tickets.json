@@ -31828,7 +31828,7 @@
     },
     {
       "id": 2978,
-      "title": "[DeepSeek] VS Code client tests: runner.test.js 'per-group runs against a stub CLI report progressively' got groups in a different order once (SW-2965, under load): make it order-independent or fix the race",
+      "title": "[DeepSeek] VS Code client tests: runner.test.js 'per-group runs against a stub CLI report progressively and a stop kills the rest' fails on main, also before SW-2965 (9bc119666; twice on Speedwell 12 Nov, not only under load): find when it broke and fix",
       "status": "backlog",
       "agent": "",
       "where": "",
