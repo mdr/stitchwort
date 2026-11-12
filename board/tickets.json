@@ -1,5 +1,5 @@
 {
-  "next": 3044,
+  "next": 3045,
   "tickets": [
     {
       "id": 47,
@@ -32635,7 +32635,7 @@
       "where": ".claude/worktrees/SW-3031",
       "labels": [],
       "epic": "syntax-language",
-      "body": "\nBuilt on lane/SW-3031 (f848fc9ab, ddb690b5d, 5b6ee18e0), Opus 52 min (est. 3 h): stuck decisions read via Decidable.sound/complete/refute/toBoolOfNot (toBoolOfNot moved into core; Refute, ToBoolOfNot registry built-ins); W-DECISION-TEST; .read note on E-TYPE-MISMATCH; warnings credited to their own declaration. Open: D3541 (derived == reading: (a) generated %sameReads, (b) reader falls back to sound/complete) [rec a]. Opus review before merge.",
+      "body": "\nBuilt on lane/SW-3031 (f848fc9ab, ddb690b5d, 5b6ee18e0), Opus 52 min (est. 3 h): stuck decisions read via Decidable.sound/complete/refute/toBoolOfNot (toBoolOfNot moved into core; Refute, ToBoolOfNot registry built-ins); W-DECISION-TEST; .read note on E-TYPE-MISMATCH; warnings credited to their own declaration. Open: D3541 (derived == reading: (a) generated %sameReads, (b) reader falls back to sound/complete) [rec a]. Opus review before merge.\nD3541 (Matt, 12 Nov 2026): (a), generated readings in deriving (DecEq); implemented in SW-3044.",
       "created": "2026-11-12",
       "updated": "2026-11-12",
       "commits": []
@@ -32795,6 +32795,19 @@
       "where": "",
       "labels": [],
       "epic": "diagnostics",
+      "body": "",
+      "created": "2026-11-12",
+      "updated": "2026-11-12",
+      "commits": []
+    },
+    {
+      "id": 3044,
+      "title": "[Sonnet] D3541 (a): deriving (DecEq) also generates readings T.%sameReads (T.%same x y ↔ x = y) and T.%sameReadsFalse (= False ↔ x ≠ y) from %sameSound/%sameComplete, filed with the derived instance so reading-order edges see them; records too (so a record's == reads as x = y, not a conjunction of fields). Examples on a sum type and a record; docs/syntax.md Readings; proposal §5.4 note. After SW-3031 merges",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
       "body": "",
       "created": "2026-11-12",
       "updated": "2026-11-12",
