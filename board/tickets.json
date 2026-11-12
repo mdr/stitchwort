@@ -1,5 +1,5 @@
 {
-  "next": 3011,
+  "next": 3012,
   "tickets": [
     {
       "id": 47,
@@ -32250,15 +32250,17 @@
     {
       "id": 3005,
       "title": "[Opus] Kernel guards from the SW-2981 review: check::assume should refuse theorem=true with a non-Prop type (E-MALFORMED; check.rs ~2483 discards the sort); nat_add::register should also require def.assumption.is_none() (nat_add.rs ~417); consider waits_on_goal asking erase::of_def(..).result instead of the flag; update docs/core.md",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-3005",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "\nFable review: nothing High. Model result: Opus, worked, 13 min (est. 40)",
       "created": "2026-11-12",
       "updated": "2026-11-12",
-      "commits": []
+      "commits": [
+        "abd491565"
+      ]
     },
     {
       "id": 3006,
@@ -32321,6 +32323,19 @@
     {
       "id": 3010,
       "title": "[Sonnet] D3536 (Matt, 12 Nov 2026): lower the read-back size limit (Limits::size) from 10 M to 2 M nodes everywhere (CLI, editor, playground); message 'a value was too large to write out (over 2,000,000 parts)' (replaces 'to show'); remove the HEAVY list in crates/cli/tests/running/examples.rs if the five heavy reject examples now peak well under 1 GB; re-snapshot; corpus max measured 390,996 (aoc 2024 Day06 keepsTrapsAt, SW-2681 counter, 12 Nov)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-12",
+      "updated": "2026-11-12",
+      "commits": []
+    },
+    {
+      "id": 3011,
+      "title": "[DeepSeek] SW-3005 review follow-ups: a core test for retype_def's new guard (retype a pending theorem to Nat → E-NOT-A-PROP, type unchanged; to another Prop → ok); docs/core.md:189 'changes nothing in conversion or evaluation'; docs/core.md:374 add rule: the two theorems must not be assumptions; nat_add.rs:366 doc says 'proved' but only direct assumptions are refused: reword to 'not themselves assumptions'; docs/core.md:15 stale 'every checked definition is still assumption-free'",
       "status": "backlog",
       "agent": "",
       "where": "",
