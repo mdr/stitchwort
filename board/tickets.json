@@ -1,5 +1,5 @@
 {
-  "next": 3054,
+  "next": 3057,
   "tickets": [
     {
       "id": 47,
@@ -32872,7 +32872,7 @@
       "where": "",
       "labels": [],
       "epic": "test-infra",
-      "body": "",
+      "body": "\nSeen again on the overnight queue, 12 Nov at 528f45605: the same three tests fail the same assertion (queue.rs:1398).",
       "created": "2026-11-12",
       "updated": "2026-11-12",
       "commits": []
@@ -32939,6 +32939,45 @@
       "where": "",
       "labels": [],
       "epic": "effects-native",
+      "body": "",
+      "created": "2026-11-12",
+      "updated": "2026-11-12",
+      "commits": []
+    },
+    {
+      "id": 3054,
+      "title": "[Opus] Regression from SW-2968 (derived DecEq built test first): proofs that match on a derived == no longer check. aoc: 20 errors (2020 Day07/17/21, 2021 Day10/12/14, 2024 Day12/15/22/23, …; 100 dependants), roguelike: 2 (Rogue.Proofs.lookupMonsterMark, renderEveryMonster at Render.sw:29 and :93: DecEq.sound same can't solve its decEq/x/y implicits under match same: a == b; also rewrite finding no c.name.toList on microtypes). Clean at f73ddbdf7 (just before), broken at 39a884269 (the merge). Repro: cd games/rogue && stitchwort check --no-cache (5 s); cd aoc && stitchwort check --no-cache (64 s). Found by the overnight queue 12 Nov. Fix the elaborator so these proofs check unchanged if the old shape is what they rely on, otherwise update the proofs to the new shape (the readings from SW-3044 may give shorter forms); keep std clean. Blocks the morning's merges' aoc confidence; first in lanes mode.",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-12",
+      "updated": "2026-11-12",
+      "commits": []
+    },
+    {
+      "id": 3055,
+      "title": "[Sonnet] fuzz:elab oracle 6 (memory): a mutant of accept/match-decision-refines-if.sw holds over 2048 MB of heap on an uncached check (case 3237, seed 0x25b1, 12 Nov). Input kept at docs/reviews/repros/fuzz-elab-25b1-3237.sw (46 lines). Repro: stitchwort check on that file and watch its peak memory. Find what grows (STITCHWORT_TIMINGS gives the largest read-back) and bound it with an error instead",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-12",
+      "updated": "2026-11-12",
+      "commits": []
+    },
+    {
+      "id": 3056,
+      "title": "[Sonnet] Debug build: std's Float.ieeeLeTotal and Float.ieeeNotLtLe (std/Float/Float.sw:565, :572) run out of stack (E-RESOURCE 'nested too deeply') in std_library::the_standard_library_passes_its_own_tests under a debug build; release is fine. Both also warn W-MATCH-NOT-FOUND (match c: Nat.leq … looks for x.ieeeRank <= y.ieeeRank, goal has y.ieeeRank ≤ x.ieeeRank): fix the match so the proof is shallow, as SW-3035/SW-3046. Repro: cargo nextest run -p stitchwort-driver --test library -E 'test(/the_standard_library_passes_its_own_tests/)' (debug), 71 s. Overnight queue 12 Nov; feeds SW-3047/SW-3049",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
       "body": "",
       "created": "2026-11-12",
       "updated": "2026-11-12",
