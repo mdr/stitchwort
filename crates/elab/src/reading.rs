@@ -1394,6 +1394,12 @@ fn decided(g: &Ev, id: DefId) -> Result<Option<Value>> {
     })
 }
 
+/// Whether `id` is generated (a derived instance, `T.%instDecidable`):
+/// its author can't write it another way, so it isn't warned about.
+fn generated(g: &Ev, id: DefId) -> bool {
+    g.def(id).name().contains('%')
+}
+
 /// A decision's test and the test its proposition's reading reads, where
 /// they differ (§13).
 struct Mismatch {
@@ -1505,7 +1511,9 @@ impl Elaborator {
             };
             let instances: Vec<DefId> = (0..g.env.defs().len())
                 .map(DefId)
-                .filter(|&id| g.def(id).instance() && g.def(id).body().is_some())
+                .filter(|&id| {
+                    g.def(id).instance() && g.def(id).body().is_some() && !generated(g, id)
+                })
                 .collect();
             let mut out = Vec::new();
             for instance in instances {
@@ -1529,6 +1537,9 @@ impl Elaborator {
     pub(crate) fn check_instance_readings(&mut self, instance: DefId, at: Span) {
         let found = (|| -> Result<Vec<(DefId, Mismatch)>> {
             let g = &self.ev();
+            if generated(g, instance) {
+                return Ok(Vec::new());
+            }
             let Some(head) = decided(g, instance)?.as_ref().and_then(prop_head) else {
                 return Ok(Vec::new());
             };

@@ -148,6 +148,7 @@ pub(crate) const LIBRARY: &[&str] = &[
     "Std.Or.elim",
     "Std.Decidable.refute",
     "Std.Decidable.toBoolOfNot",
+    "Std.Decidable.notNotOf",
     "Std.Nat.max",
     "Std.Nat.min",
     "Std.Nat.mulComm",
