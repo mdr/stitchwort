@@ -397,17 +397,36 @@ impl Elaborator {
 pub(crate) struct ArmReach {
     dropped: Vec<(Span, String)>,
     reached: Vec<Span>,
+    /// The arms with a body whose case was impossible where one of their
+    /// leaves was checked (with why), and the arms with a leaf that wasn't.
+    /// An arm warns when it is in the first and not the second: every case
+    /// it covers is ruled out.
+    impossible: Vec<(Span, String)>,
+    possible: Vec<Span>,
 }
 
 impl ArmReach {
     pub(crate) fn is_empty(&self) -> bool {
-        self.dropped.is_empty() && self.reached.is_empty()
+        self.dropped.is_empty()
+            && self.reached.is_empty()
+            && self.impossible.is_empty()
+            && self.possible.is_empty()
     }
 }
 
 /// Records that the arm at `span` is reached.
 pub(crate) fn reached(cx: &Ctx, span: Span) {
     cx.e.decl.arm_reach.borrow_mut().reached.push(span);
+}
+
+/// Records whether the arm at `span`, whose body is checked now, covers
+/// this case though a hypothesis rules it out (`why`).
+pub(crate) fn note_arm_case(cx: &Ctx, span: Span, why: Option<String>) {
+    let mut reach = cx.e.decl.arm_reach.borrow_mut();
+    match why {
+        Some(why) => reach.impossible.push((span, why)),
+        None => reach.possible.push(span),
+    }
 }
 
 /// Runs `f`, which checks a compiled pattern match, then warns
@@ -434,6 +453,18 @@ pub(crate) fn warn_unreachable<T>(
             warnings.push(
                 Diagnostic::warning("W-UNREACHABLE", "this arm can never match")
                     .with_label(span, why),
+            );
+        }
+        for (span, why) in here.impossible {
+            let warned =
+                (warnings.iter()).any(|w| w.labels.first().is_some_and(|l| l.span == span));
+            if here.possible.contains(&span) || warned {
+                continue;
+            }
+            warnings.push(
+                Diagnostic::warning("W-UNREACHABLE", "this case can't happen")
+                    .with_label(span, why)
+                    .with_note("the arm can be deleted"),
             );
         }
     }

@@ -111,3 +111,70 @@ fn declarations_need_their_parts() {
     let (_, result) = load("type T (a: Type) =\n  | MkT (x: a): T a\n");
     result.unwrap();
 }
+
+/// The `W-UNREACHABLE` warnings of the program `text` itself: those of the
+/// library, which load first, are left out.
+fn written_unreachable(text: &str) -> Vec<Diagnostic> {
+    let (library, _) = load("def one: Nat := 1\n");
+    let (session, result) = load(text);
+    result.unwrap();
+    (unreachable(&session).into_iter())
+        .skip(unreachable(&library).len())
+        .cloned()
+        .collect()
+}
+
+const MOVES: &str = "import Std (Bool, Void)\n\ntype Move = | Rock | Paper | Scissors\n\n\
+                     def beats: Move -> Move -> Bool\n  \
+                     | Rock, Scissors => True\n  | Paper, Rock => True\n  \
+                     | Scissors, Paper => True\n  | _, _ => False\n\n";
+
+#[test]
+fn an_arm_whose_case_a_hypothesis_rules_out_warns() {
+    let found = written_unreachable(&format!(
+        "{MOVES}theorem only (theirs: Move) (h: beats Rock theirs): theirs = Scissors :=\n  \
+         match theirs with\n    \
+         | Rock => Void.exfalso (Bool.falseNotTrue h)\n    \
+         | Paper => Void.exfalso (Bool.falseNotTrue h)\n    \
+         | Scissors => rfl\n"
+    ));
+    let messages: Vec<_> = found
+        .iter()
+        .map(|w| (w.message.as_str(), w.labels[0].message.as_str()))
+        .collect();
+    assert_eq!(
+        messages,
+        vec![
+            (
+                "this case can't happen",
+                "here `h` is `False = True`, which can't hold"
+            ),
+            (
+                "this case can't happen",
+                "here `h` is `False = True`, which can't hold"
+            ),
+        ],
+        "{found:#?}"
+    );
+}
+
+#[test]
+fn an_arm_that_uses_its_own_impossible_variable_does_not_warn() {
+    // `p` is bound by the arm: no hypothesis rules the case out beforehand.
+    let found = written_unreachable(&format!(
+        "{MOVES}theorem noWin (h: beats Rock Rock): 1 = 2 :=\n  match h with\n    | q => Void.exfalso (Bool.falseNotTrue q)\n"
+    ));
+    assert!(found.is_empty(), "{found:#?}");
+}
+
+#[test]
+fn an_arm_possible_in_one_branch_does_not_warn() {
+    // The wildcard arm covers `Scissors` too, where `h` holds.
+    let found = written_unreachable(&format!(
+        "{MOVES}theorem only (theirs: Move) (h: beats Rock theirs): theirs = Scissors :=\n  \
+         match theirs with\n    \
+         | Rock => Void.exfalso (Bool.falseNotTrue h)\n    \
+         | _ => cases\n"
+    ));
+    assert_eq!(found.len(), 1, "{found:#?}");
+}

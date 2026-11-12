@@ -4429,7 +4429,8 @@ fn diagnostic(
         source: Some("stitchwort".to_string()),
         message,
         related_information: (!related.is_empty()).then_some(related),
-        tags: None,
+        // An arm that can't be chosen is shown faded, as unused code is.
+        tags: (d.code == "W-UNREACHABLE").then(|| vec![lsp_types::DiagnosticTag::UNNECESSARY]),
         data: match (&d.import, &d.missing) {
             (Some(i), _) => {
                 Some(serde_json::json!({ "import": { "path": i.path, "item": i.item } }))

@@ -4782,6 +4782,11 @@ fn check_leaf(cx: &mut Ctx, tree: &Tree, goal: &Value, guarded: bool) -> Result<
         unreachable!("a leaf")
     };
     families::reached(cx, *span);
+    if *span != Span::NOWHERE && !guarded && rhs.is_some() {
+        let bound: Vec<usize> = aliases.iter().map(|&(_, level)| level).collect();
+        let why = impossible_reason(cx, &bound)?;
+        families::note_arm_case(cx, *span, why);
+    }
     cx.e.decl.leaf_log.borrow_mut().record(*span, alternatives);
     let Some(rhs) = rhs else {
         return Err(error(
@@ -4897,6 +4902,44 @@ fn impossible_case(cx: &mut Ctx, columns: &[usize], goal: &Value) -> Result<Opti
     for level in (0..cx.level()).filter(|level| !columns.contains(level)) {
         if let Some(term) = families::empty_case(cx, level, None)? {
             return Ok(Some(term));
+        }
+    }
+    Ok(None)
+}
+
+/// Why the case an arm's body is checked in can't happen, for its warning
+/// (`W-UNREACHABLE`): a variable in scope whose type is an equation of
+/// different constructors, an empty data type or an indexed family with no
+/// constructor that fits, in the order [`impossible_case`] tries them. The
+/// arm's own pattern variables (`bound`) don't count: `| h => absurd h` is
+/// how an arm uses an impossible hypothesis, not a case a hypothesis rules out.
+fn impossible_reason(cx: &mut Ctx, bound: &[usize]) -> Result<Option<String>> {
+    let g = cx.g();
+    for level in (0..cx.level()).filter(|level| !bound.contains(level)) {
+        let name = match &*cx.names[level] {
+            n if n == "_" || n.starts_with('%') || n.ends_with('✝') => "an argument".to_string(),
+            n => format!("`{n}`"),
+        };
+        let ty = cx.types[level].clone();
+        let shown = cx.show(&ty);
+        if cases::equates_different_ctors(cx, level)? {
+            return Ok(Some(format!("here {name} is `{shown}`, which can't hold")));
+        }
+        match force(&g, ty)? {
+            Value::Data(d, _) if g.data(d).ctors().is_empty() => {
+                return Ok(Some(format!(
+                    "here {name} is a `{shown}`, which has no values"
+                )));
+            }
+            Value::Data(d, _)
+                if !g.data(d).indices().is_empty()
+                    && families::empty_case(cx, level, None)?.is_some() =>
+            {
+                return Ok(Some(format!(
+                    "here {name} is a `{shown}`, which has no constructor that fits"
+                )));
+            }
+            _ => {}
         }
     }
     Ok(None)

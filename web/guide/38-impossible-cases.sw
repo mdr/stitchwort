@@ -19,6 +19,10 @@ theorem rockBeatsOnlyScissors (theirs: Move) (h: beats Rock theirs): theirs = Sc
 -- Try changing `beats Rock` to `beats Paper` above: then `theirs` can be
 -- `Rock`, and the compiler asks for that arm.
 
+-- Writing those arms out with a proof (`| Rock => Void.exfalso …`) works,
+-- but the checker warns that the case can't happen and fades the arm: it
+-- can be deleted.
+--
 -- To say so in the code, match on `h` too and write `()`, the pattern for
 -- a value that can't exist, with no `=>`.
 theorem rockBeatsOnlyScissorsAgain (theirs: Move) (h: beats Rock theirs): theirs = Scissors :=
