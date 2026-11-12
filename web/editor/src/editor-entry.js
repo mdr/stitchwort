@@ -739,7 +739,8 @@ export class Editor {
 
   /**
    * Code actions at the selection (the client has no UI for them). The
-   * server answers at once; a single plain edit is applied, anything else
+   * server answers at once, from the goals the last check published (splits
+   * need no search); a single plain edit is applied, anything else
    * (several actions, or "Search for a proof") is offered in a pick list.
    * "Search for a proof" runs the search when it is picked (it takes
    * seconds, the page is told meanwhile) and offers the proofs found in
@@ -777,7 +778,7 @@ export class Editor {
       // unknown name's import) are for.
       const before = (a, b) => a.line < b.line || (a.line === b.line && a.character <= b.character);
       const diagnostics = (this.published.get(plugin.uri) ?? []).filter((d) => before(d.range.start, end) && before(start, d.range.end));
-      notice?.("Looking for code actions… (running the search)");
+      notice?.("Looking for code actions…");
       try {
         actions = await plugin.client.request("textDocument/codeAction", {
           textDocument: { uri: plugin.uri },
@@ -824,13 +825,20 @@ export class Editor {
    */
   async searchProof(view, plugin, command) {
     const notice = this.options.onNotice;
-    notice?.("Searching for a proof…");
+    // The search can take seconds (the first one in a page loads the
+    // library): say it is running, and for how long.
+    const began = performance.now();
+    const searching = () => notice?.(`Searching for a proof… ${Math.round((performance.now() - began) / 1000)} s`);
+    searching();
+    const ticker = setInterval(searching, 1000);
     let answer;
     try {
       answer = await plugin.client.request("workspace/executeCommand", { command: command.command, arguments: command.arguments });
     } catch (e) {
       notice?.(e.message ?? String(e));
       return;
+    } finally {
+      clearInterval(ticker);
     }
     if (!answer) {
       notice?.("The text changed during the search; try again");

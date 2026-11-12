@@ -1065,18 +1065,25 @@ impl Session {
     /// patterns of its type's constructors ([`Session::split_patterns`]),
     /// in scope order. A name that a later variable shadows is not offered.
     pub fn splittable(&self, context: &Context) -> Vec<(String, Vec<String>)> {
-        let mut out = Vec::new();
-        for (i, local) in context.locals.iter().enumerate() {
-            let shadowed = context.locals[i + 1..].iter().any(|l| l.name == local.name);
-            if shadowed || !local.name.starts_with(|c: char| c.is_lowercase()) {
-                continue;
-            }
-            if let Some(patterns) = self.split_patterns(context, &local.name) {
-                out.push((local.name.clone(), patterns));
-            }
-        }
-        out
+        splittable_locals(&context.locals)
     }
+}
+
+/// [`Session::splittable`] from the locals alone: a published goal's
+/// context carries each variable's constructor patterns, so the splits at
+/// a `?` need no session.
+pub fn splittable_locals(locals: &[Local]) -> Vec<(String, Vec<String>)> {
+    let mut out = Vec::new();
+    for (i, local) in locals.iter().enumerate() {
+        let shadowed = locals[i + 1..].iter().any(|l| l.name == local.name);
+        if shadowed || !local.name.starts_with(|c: char| c.is_lowercase()) {
+            continue;
+        }
+        if let Some(patterns) = &local.splits {
+            out.push((local.name.clone(), patterns.clone()));
+        }
+    }
+    out
 }
 
 /// The name completion writes after a `.` so that the text parses while
