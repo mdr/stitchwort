@@ -941,7 +941,6 @@ const $Std$dDecEq$d$gdecide = (v1) => {
   return v2;
 };
 const $Std$dDecEq$ddecide = (v1) => v1;
-const $Std$dBool$dinstDecEq = ($Std$dBool$ddecEq$c ??= ($p0) => ($p1) => $Std$dBool$ddecEq($p0, $p1));
 const $Std$dText$dinstDecEq = ($Std$dText$ddecEq$c ??= ($p0) => ($p1) => $Std$dText$ddecEq($p0, $p1));
 const $Std$dOrd$d$gcompare = (v1) => {
   const v2 = v1.eq;
@@ -1493,7 +1492,6 @@ const $Std$dText$dcontainsChars = (v0, v1) => {
     throw new Error("unreachable");
   }
 };
-const $Std$dText$dcontains = (t, needle) => ({ tag: t.includes(needle) ? "True" : "False" });
 const $Std$dMap$draw = (v2, v3) => {
   const v4 = v3;
   return v4;
@@ -1508,36 +1506,23 @@ const $Main$dUserId$dvalue = (v0) => {
   const v1 = v0;
   return v1;
 };
-const $Main$dUserId$d$g$gmk$g0 = (v0, v1) => {
-  const v2 = v1;
-  return v2;
-};
-const $Main$dUserId$d$gdecEq = $Std$dText$ddecEq;
-const $Main$dUserId$d$ginstDecEq = $Std$dText$dinstDecEq;
+const $Main$dUserId$d$gsame = $Std$dText$ddecEq;
+const $Main$dUserId$d$ginstDecEq = ((v0) => ((v1) => $Std$dText$ddecEq(v0, v1)));
 const $Main$dUserId$d$gcompare = $Std$dText$dcompare;
-const $Main$dUserId$d$ginstOrd = $Std$dText$dinstOrd;
-const $Main$dOrderId$d$g$gmk$g0 = (v0, v1) => {
-  const v2 = v1;
-  return v2;
-};
-const $Main$dOrderId$d$gdecEq = $Std$dText$ddecEq;
-const $Main$dOrderId$d$ginstDecEq = $Std$dText$dinstDecEq;
+const $Main$dUserId$d$ginstOrd = $Std$dOrd$dfromCompare($Main$dUserId$d$ginstDecEq, ($Std$dText$dcompare$c ??= ($p0) => ($p1) => $Std$dText$dcompare($p0, $p1)));
+const $Main$dOrderId$d$gsame = $Std$dText$ddecEq;
+const $Main$dOrderId$d$ginstDecEq = $Main$dUserId$d$ginstDecEq;
 const $Main$dOrderId$d$gcompare = $Std$dText$dcompare;
-const $Main$dOrderId$d$ginstOrd = $Std$dText$dinstOrd;
+const $Main$dOrderId$d$ginstOrd = $Main$dUserId$d$ginstOrd;
 const $Main$dUserId$dinstShow = $Std$dShow$dfromText(((v0) => v0));
-const $Main$dEmail$disValid = (v0) => $Std$dText$dcontains(v0, "@");
 const $Main$dEmail$dvalue = (v0) => {
   const v1 = v0;
   return v1;
 };
-const $Main$dEmail$d$g$gmk$g0 = (v0, v1) => {
-  const v2 = v1;
-  return v2;
-};
-const $Main$dEmail$d$gdecEq = $Std$dText$ddecEq;
-const $Main$dEmail$d$ginstDecEq = $Std$dText$dinstDecEq;
+const $Main$dEmail$d$gsame = $Std$dText$ddecEq;
+const $Main$dEmail$d$ginstDecEq = $Main$dUserId$d$ginstDecEq;
 const $Main$dEmail$d$gcompare = $Std$dText$dcompare;
-const $Main$dEmail$d$ginstOrd = $Std$dText$dinstOrd;
+const $Main$dEmail$d$ginstOrd = $Main$dUserId$d$ginstOrd;
 const $Main$dCount$dvalue = (v0) => {
   const v1 = v0;
   return v1;
@@ -1560,7 +1545,7 @@ const $Main$dOrder$dhelper = (v0) => {
 };
 const $Main$dwrap = (v0) => v0;
 const $Main$dunwrap = (v0) => v0;
-const $Main$dsame = $Std$dText$ddecEq;
+const $Main$dsame = (v0, v1) => $Main$dUserId$d$ginstDecEq(v0)(v1);
 const $Main$downers = (v0) => $Std$dList$dmap$e(v0, ((v1) => $Main$dOrder$downer(v1)));
 const $Main$dhelperOf = $Main$dOrder$dhelper;
 const $Main$dcreator = (v0) => {
@@ -1575,10 +1560,10 @@ const $Main$dcreator = (v0) => {
   }
   throw new Error("unreachable");
 };
-const $Main$downerOf = (v0, v1) => $Std$dMap$dget($Std$dText$dinstOrd, v0, v1);
-const $Main$dvisits = (v0, v1) => $Std$dMap$dinsertWith($Std$dText$dinstOrd, v0, v1, 1n, ($Std$dNat$dadd$c ??= ($p0) => ($p1) => $Std$dNat$dadd($p0, $p1)));
+const $Main$downerOf = (v0, v1) => $Std$dMap$dget($Main$dUserId$d$ginstOrd, v0, v1);
+const $Main$dvisits = (v0, v1) => $Std$dMap$dinsertWith($Main$dUserId$d$ginstOrd, v0, v1, 1n, ($Std$dNat$dadd$c ??= ($p0) => ($p1) => $Std$dNat$dadd($p0, $p1)));
 const $Main$ddomain = (v0) => v0;
-const $Main$dmailbox = (v0) => $Std$dMap$dkeys($Std$dText$dinstOrd, v0);
+const $Main$dmailbox = (v0) => $Std$dMap$dkeys($Main$dUserId$d$ginstOrd, v0);
 const $Main$dbump = (v0) => $Std$dNat$dadd(v0, 1n);
 const $Main$dtagged = $Std$dList$dlength;
 const $Main$dnamed = (v0) => $Std$dText$dappend("user ", $Std$dShow$d$gtoText($Main$dUserId$dinstShow)(v0));
@@ -1973,6 +1958,6 @@ function enc$23(v) {
 
 // Definitions used as values, taking their arguments one at a time, each
 // made at its first use.
-var $Std$dBool$ddecEq$c, $Std$dText$ddecEq$c, $Std$dText$dcompare$c, $Std$dNat$dadd$c;
+var $Std$dText$ddecEq$c, $Std$dText$dcompare$c, $Std$dNat$dadd$c;
 
 export { $$wrap as wrap, $$unwrap as unwrap, $$same as same, $$owners as owners, $$helperOf as helperOf, $$creator as creator, $$ownerOf as ownerOf, $$visits as visits, $$domain as domain, $$mailbox as mailbox, $$bump as bump, $$tagged as tagged, $$named as named };

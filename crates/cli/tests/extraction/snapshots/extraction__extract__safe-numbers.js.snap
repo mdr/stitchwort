@@ -859,26 +859,17 @@ const $Main$dCounter$ddelta = (v0) => {
   const v2 = v0.delta;
   return v2;
 };
-const $Main$dCounter$d$g$gmk$g0 = (v0, v1) => {
-  const v2 = v1.count;
-  const v3 = v1.delta;
-  return v2;
-};
-const $Main$dCounter$d$g$gmk$g1 = (v0, v1) => {
-  const v2 = v1.count;
-  const v3 = v1.delta;
-  return v3;
-};
-const $Main$dCounter$d$gdecEq = (v0, v1) => {
+const $Main$dCounter$d$gsame = (v0, v1) => {
   const v2 = v0.count;
   const v3 = v0.delta;
   const v4 = v1.count;
   const v5 = v1.delta;
   return ($Std$dSafeNat$dinstDecEq(v2)(v4).tag === "True" ? $Std$dSafeInt$dinstDecEq(v3)(v5) : { tag: "False" });
 };
+const $Main$dCounter$d$ginstDecEq = ((v0) => ((v1) => $Main$dCounter$d$gsame(v0, v1)));
 const $Main$dbump = (v0) => $Std$dSafeNat$dofNat($Std$dNat$dadd($Main$dCounter$dcount(v0), $Std$dInt$dtoNat($Main$dCounter$ddelta(v0))));
 const $Main$dsumAll = (v0) => $Std$dSafeNat$dofNat($Std$dList$dfoldLeft$e(v0, 0n, ((v1) => ((v2) => $Std$dNat$dadd(v1, v2)))));
-const $Main$dsameCounter = $Main$dCounter$d$gdecEq;
+const $Main$dsameCounter = (v0, v1) => $Main$dCounter$d$ginstDecEq(v0)(v1);
 const $Main$dstartCounter = { count: 41n, delta: -1n };
 const $Main$dlimits = { tag: "Cons", head: 9007199254740991n, tail: { tag: "Cons", head: -9007199254740991n, tail: { tag: "Cons", head: 0n, tail: { tag: "Nil" } } } };
 

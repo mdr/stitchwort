@@ -1311,7 +1311,7 @@ const $Main$dSuit$d$gtag = (v0) => {
   }
   throw new Error("unreachable");
 };
-const $Main$dSuit$d$gdecEq = (v0, v1) => {
+const $Main$dSuit$d$gsame = (v0, v1) => {
   switch (v0.tag) {
     case "Clubs": {
       switch (v1.tag) {
@@ -1384,7 +1384,7 @@ const $Main$dSuit$d$gdecEq = (v0, v1) => {
   }
   throw new Error("unreachable");
 };
-const $Main$dSuit$d$ginstDecEq = ($Main$dSuit$d$gdecEq$c ??= ($p0) => ($p1) => $Main$dSuit$d$gdecEq($p0, $p1));
+const $Main$dSuit$d$ginstDecEq = ((v0) => ((v1) => $Main$dSuit$d$gsame(v0, v1)));
 const $Main$dSuit$d$gshow = (v0) => {
   switch (v0.tag) {
     case "Clubs": {
@@ -1405,24 +1405,14 @@ const $Main$dSuit$d$gshow = (v0) => {
 const $Main$dSuit$d$ginstShow = { toText: $Main$dSuit$d$gshow, toSource: $Main$dSuit$d$gshow };
 const $Main$dSuit$d$gcompare = (v0, v1) => $Std$dNat$dcompare($Main$dSuit$d$gtag(v0), $Main$dSuit$d$gtag(v1));
 const $Main$dSuit$d$ginstOrd = $Std$dOrd$dfromCompare($Main$dSuit$d$ginstDecEq, ($Main$dSuit$d$gcompare$c ??= ($p0) => ($p1) => $Main$dSuit$d$gcompare($p0, $p1)));
-const $Main$dItem$d$g$gmk$g0 = (v0, v1) => {
-  const v2 = v1.name;
-  const v3 = v1.price;
-  return v2;
-};
-const $Main$dItem$d$g$gmk$g1 = (v0, v1) => {
-  const v2 = v1.name;
-  const v3 = v1.price;
-  return v3;
-};
-const $Main$dItem$d$gdecEq = (v0, v1) => {
+const $Main$dItem$d$gsame = (v0, v1) => {
   const v2 = v0.name;
   const v3 = v0.price;
   const v5 = v1.name;
   const v6 = v1.price;
   return ($Std$dText$ddecEq(v2, v5).tag === "True" ? $Std$dNat$dequal(v3, v6) : { tag: "False" });
 };
-const $Main$dItem$d$ginstDecEq = ($Main$dItem$d$gdecEq$c ??= ($p0) => ($p1) => $Main$dItem$d$gdecEq($p0, $p1));
+const $Main$dItem$d$ginstDecEq = ((v0) => ((v1) => $Main$dItem$d$gsame(v0, v1)));
 const $Main$dItem$d$gshow = (v0) => {
   const v1 = v0.name;
   const v2 = v0.price;
@@ -1454,117 +1444,76 @@ const $Main$dShape$d$gtag = (v0) => {
   }
   throw new Error("unreachable");
 };
-const $Main$dShape$d$gCircle$g0 = (v0, v1) => {
-  switch (v1.tag) {
-    case "Dot": {
-      return v0;
-    }
-    case "Circle": {
-      const v2 = v1.radius;
-      return v2;
-    }
-    case "Group": {
-      const v2 = v1.first;
-      const v3 = v1.rest;
-      return v0;
-    }
-  }
-  throw new Error("unreachable");
-};
-const $Main$dShape$d$gGroup$g0 = (v0, v1) => {
-  switch (v1.tag) {
-    case "Dot": {
-      return v0;
-    }
-    case "Circle": {
-      const v2 = v1.radius;
-      return v0;
-    }
-    case "Group": {
-      const v2 = v1.first;
-      const v3 = v1.rest;
-      return v2;
-    }
-  }
-  throw new Error("unreachable");
-};
-const $Main$dShape$d$gGroup$g1 = (v0, v1) => {
-  switch (v1.tag) {
-    case "Dot": {
-      return v0;
-    }
-    case "Circle": {
-      const v2 = v1.radius;
-      return v0;
-    }
-    case "Group": {
-      const v2 = v1.first;
-      const v3 = v1.rest;
-      return v3;
-    }
-  }
-  throw new Error("unreachable");
-};
-const $Main$dShape$d$gdecEq = (v0, v1) => {
-  switch (v0.tag) {
-    case "Dot": {
-      switch (v1.tag) {
-        case "Dot": {
-          return { tag: "True" };
+const $Main$dShape$d$gsame = (v0, v1) => {
+  let s0 = v0, s1 = v1;
+  for (;;) {
+    const v0 = s0, v1 = s1;
+    switch (v0.tag) {
+      case "Dot": {
+        switch (v1.tag) {
+          case "Dot": {
+            return { tag: "True" };
+          }
+          case "Circle": {
+            const v2 = v1.radius;
+            return { tag: "False" };
+          }
+          case "Group": {
+            const v2 = v1.first;
+            const v3 = v1.rest;
+            return { tag: "False" };
+          }
         }
-        case "Circle": {
-          const v2 = v1.radius;
-          return { tag: "False" };
-        }
-        case "Group": {
-          const v2 = v1.first;
-          const v3 = v1.rest;
-          return { tag: "False" };
-        }
+        throw new Error("unreachable");
       }
-      throw new Error("unreachable");
-    }
-    case "Circle": {
-      const v2 = v0.radius;
-      switch (v1.tag) {
-        case "Dot": {
-          return { tag: "False" };
+      case "Circle": {
+        const v2 = v0.radius;
+        switch (v1.tag) {
+          case "Dot": {
+            return { tag: "False" };
+          }
+          case "Circle": {
+            const v3 = v1.radius;
+            return $Std$dNat$dequal(v2, v3);
+          }
+          case "Group": {
+            const v3 = v1.first;
+            const v4 = v1.rest;
+            return { tag: "False" };
+          }
         }
-        case "Circle": {
-          const v3 = v1.radius;
-          return $Std$dNat$dequal(v2, v3);
-        }
-        case "Group": {
-          const v3 = v1.first;
-          const v4 = v1.rest;
-          return { tag: "False" };
-        }
+        throw new Error("unreachable");
       }
-      throw new Error("unreachable");
-    }
-    case "Group": {
-      const v2 = v0.first;
-      const v3 = v0.rest;
-      switch (v1.tag) {
-        case "Dot": {
-          return { tag: "False" };
+      case "Group": {
+        const v2 = v0.first;
+        const v3 = v0.rest;
+        switch (v1.tag) {
+          case "Dot": {
+            return { tag: "False" };
+          }
+          case "Circle": {
+            const v4 = v1.radius;
+            return { tag: "False" };
+          }
+          case "Group": {
+            const v4 = v1.first;
+            const v5 = v1.rest;
+            if ($Main$dShape$d$gsame(v2, v4).tag === "True") {
+              s0 = v3;
+              s1 = v5;
+              continue;
+            } else {
+              return { tag: "False" };
+            }
+          }
         }
-        case "Circle": {
-          const v4 = v1.radius;
-          return { tag: "False" };
-        }
-        case "Group": {
-          const v4 = v1.first;
-          const v5 = v1.rest;
-          return ($Main$dShape$d$gdecEq(v2, v4).tag === "True" ? $Main$dShape$d$gdecEq(v3, v5) : { tag: "False" });
-        }
+        throw new Error("unreachable");
       }
-      throw new Error("unreachable");
     }
+    throw new Error("unreachable");
   }
-  throw new Error("unreachable");
 };
-const $Main$dShape$d$ginstDecEq = ($Main$dShape$d$gdecEq$c ??= ($p0) => ($p1) => $Main$dShape$d$gdecEq($p0, $p1));
+const $Main$dShape$d$ginstDecEq = ((v0) => ((v1) => $Main$dShape$d$gsame(v0, v1)));
 const $Main$dShape$d$gshow = (v0) => {
   switch (v0.tag) {
     case "Dot": {
@@ -1687,6 +1636,6 @@ function enc$2(v) {
 
 // Definitions used as values, taking their arguments one at a time, each
 // made at its first use.
-var $Std$dNat$dequal$c, $Std$dText$ddecEq$c, $Std$dNat$dcompare$c, $Std$dNat$ddecLessThan$c, $Std$dNat$dleq$c, $Std$dText$dcompare$c, $Main$dSuit$d$gdecEq$c, $Main$dSuit$d$gcompare$c, $Main$dItem$d$gdecEq$c, $Main$dItem$d$gcompare$c, $Main$dShape$d$gdecEq$c, $Main$dShape$d$gcompare$c;
+var $Std$dNat$dequal$c, $Std$dText$ddecEq$c, $Std$dNat$dcompare$c, $Std$dNat$ddecLessThan$c, $Std$dNat$dleq$c, $Std$dText$dcompare$c, $Main$dSuit$d$gcompare$c, $Main$dItem$d$gcompare$c, $Main$dShape$d$gcompare$c;
 
 export { $$suits as suits, $$items as items, $$shapes as shapes };

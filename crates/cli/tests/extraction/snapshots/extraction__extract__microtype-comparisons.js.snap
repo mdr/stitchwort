@@ -929,7 +929,6 @@ const $Std$dDecEq$d$gdecide = (v1) => {
 };
 const $Std$dDecEq$ddecide = (v1) => v1;
 const $Std$dNat$dinstDecEq = ($Std$dNat$dequal$c ??= ($p0) => ($p1) => $Std$dNat$dequal($p0, $p1));
-const $Std$dBool$dinstDecEq = ($Std$dBool$ddecEq$c ??= ($p0) => ($p1) => $Std$dBool$ddecEq($p0, $p1));
 const $Std$dText$dinstDecEq = ($Std$dText$ddecEq$c ??= ($p0) => ($p1) => $Std$dText$ddecEq($p0, $p1));
 const $Std$dOrd$d$gcompare = (v1) => {
   const v2 = v1.eq;
@@ -1524,7 +1523,6 @@ const $Std$dText$dcontainsChars = (v0, v1) => {
     throw new Error("unreachable");
   }
 };
-const $Std$dText$dcontains = (t, needle) => ({ tag: t.includes(needle) ? "True" : "False" });
 const $Std$dMap$draw = (v2, v3) => {
   const v4 = v3;
   return v4;
@@ -1587,45 +1585,32 @@ const $Std$dList$duniqueLoop = (v1, v2, v3, v4) => {
   }
 };
 const $Std$dList$dunique = (v1, v2) => $Std$dList$duniqueLoop(v1, $Std$dMap$dempty(v1), { tag: "Nil" }, v2);
-const $Main$dCardId$d$g$gmk$g0 = (v0, v1) => {
-  const v2 = v1;
-  return v2;
-};
-const $Main$dCardId$d$gdecEq = $Std$dText$ddecEq;
-const $Main$dCardId$d$ginstDecEq = $Std$dText$dinstDecEq;
+const $Main$dCardId$d$gsame = $Std$dText$ddecEq;
+const $Main$dCardId$d$ginstDecEq = ((v0) => ((v1) => $Std$dText$ddecEq(v0, v1)));
 const $Main$dCardId$d$gcompare = $Std$dText$dcompare;
-const $Main$dCardId$d$ginstOrd = $Std$dText$dinstOrd;
+const $Main$dCardId$d$ginstOrd = $Std$dOrd$dfromCompare($Main$dCardId$d$ginstDecEq, ($Std$dText$dcompare$c ??= ($p0) => ($p1) => $Std$dText$dcompare($p0, $p1)));
 const $Main$dCard$did = (v0) => {
   const v1 = v0.id;
   const v2 = v0.n;
   return v1;
 };
-const $Main$dCount$d$g$gmk$g0 = (v0, v1) => {
-  const v2 = v1;
-  return v2;
-};
-const $Main$dCount$d$gdecEq = $Std$dNat$dequal;
-const $Main$dCount$d$ginstDecEq = $Std$dNat$dinstDecEq;
+const $Main$dCount$d$gsame = $Std$dNat$dequal;
+const $Main$dCount$d$ginstDecEq = ((v0) => ((v1) => $Std$dNat$dequal(v0, v1)));
 const $Main$dCount$d$gcompare = $Std$dNat$dcompare;
-const $Main$dCount$d$ginstOrd = $Std$dOrd$dfromCompare($Std$dNat$dinstDecEq, ($Std$dNat$dcompare$c ??= ($p0) => ($p1) => $Std$dNat$dcompare($p0, $p1)));
-const $Main$dEmail$disValid = (v0) => $Std$dText$dcontains(v0, "@");
-const $Main$dEmail$d$g$gmk$g0 = (v0, v1) => {
-  const v2 = v1;
-  return v2;
-};
-const $Main$dEmail$d$gdecEq = $Std$dText$ddecEq;
-const $Main$dEmail$d$ginstDecEq = $Std$dText$dinstDecEq;
+const $Main$dCount$d$ginstOrd = $Std$dOrd$dfromCompare($Main$dCount$d$ginstDecEq, ($Std$dNat$dcompare$c ??= ($p0) => ($p1) => $Std$dNat$dcompare($p0, $p1)));
+const $Main$dEmail$d$gsame = $Std$dText$ddecEq;
+const $Main$dEmail$d$ginstDecEq = $Main$dCardId$d$ginstDecEq;
 const $Main$dEmail$d$gcompare = $Std$dText$dcompare;
-const $Main$dEmail$d$ginstOrd = $Std$dText$dinstOrd;
-const $Main$dsame = $Std$dText$ddecEq;
+const $Main$dEmail$d$ginstOrd = $Main$dCardId$d$ginstOrd;
+const $Main$dsame = (v0, v1) => $Main$dCardId$d$ginstDecEq(v0)(v1);
 const $Main$dorder = $Std$dText$dcompare;
-const $Main$dunseen = (v0, v1) => $Std$dList$dfilter$e(v0, ((v2) => ({ tag: !(($Std$dList$dcontains($Std$dText$dinstDecEq, v1, $Main$dCard$did(v2))).tag === "True") ? "True" : "False" })));
-const $Main$dbyId = (v0) => $Std$dMap$dindexBy($Std$dText$dinstOrd, v0, ((v1) => $Main$dCard$did(v1)));
-const $Main$ddistinctIds = (v0) => $Std$dList$dunique($Std$dText$dinstOrd, v0);
-const $Main$dsameCount = $Std$dNat$dequal;
+const $Main$dunseen = (v0, v1) => $Std$dList$dfilter$e(v0, ((v2) => ({ tag: !(($Std$dList$dcontains($Main$dCardId$d$ginstDecEq, v1, $Main$dCard$did(v2))).tag === "True") ? "True" : "False" })));
+const $Main$dbyId = (v0) => $Std$dMap$dindexBy($Main$dCardId$d$ginstOrd, v0, ((v1) => $Main$dCard$did(v1)));
+const $Main$ddistinctIds = (v0) => $Std$dList$dunique($Main$dCardId$d$ginstOrd, v0);
+const $Main$dsameCount = (v0, v1) => $Main$dCount$d$ginstDecEq(v0)(v1);
 const $Main$dorderCount = $Std$dNat$dcompare;
 const $Main$ddistinctCounts = (v0) => $Std$dList$dunique($Main$dCount$d$ginstOrd, v0);
-const $Main$dsameEmail = $Std$dText$ddecEq;
+const $Main$dsameEmail = (v0, v1) => $Main$dCardId$d$ginstDecEq(v0)(v1);
 const $Main$dorderEmail = $Std$dText$dcompare;
 
 // A map that crosses is built and read by the library's own functions.
@@ -1908,6 +1893,6 @@ function dec$16(x) {
 
 // Definitions used as values, taking their arguments one at a time, each
 // made at its first use.
-var $Std$dNat$dequal$c, $Std$dBool$ddecEq$c, $Std$dText$ddecEq$c, $Std$dNat$dcompare$c, $Std$dNat$ddecLessThan$c, $Std$dNat$dleq$c, $Std$dText$dcompare$c;
+var $Std$dNat$dequal$c, $Std$dText$ddecEq$c, $Std$dNat$dcompare$c, $Std$dNat$ddecLessThan$c, $Std$dNat$dleq$c, $Std$dText$dcompare$c;
 
 export { $$same as same, $$order as order, $$unseen as unseen, $$byId as byId, $$distinctIds as distinctIds, $$sameCount as sameCount, $$orderCount as orderCount, $$distinctCounts as distinctCounts, $$sameEmail as sameEmail, $$orderEmail as orderEmail };

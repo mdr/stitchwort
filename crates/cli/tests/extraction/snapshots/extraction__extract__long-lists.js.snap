@@ -1223,17 +1223,7 @@ const $Main$dascending = (v0, v1) => {
   }
 };
 const $Main$dsortIsSorted = (v0) => $Main$dascending(0n, $Std$dList$dsort($Std$dNat$dinstOrd, $Main$dscrambled(v0)));
-const $Main$dItem$d$g$gmk$g0 = (v0, v1) => {
-  const v2 = v1.id;
-  const v3 = v1.name;
-  return v2;
-};
-const $Main$dItem$d$g$gmk$g1 = (v0, v1) => {
-  const v2 = v1.id;
-  const v3 = v1.name;
-  return v3;
-};
-const $Main$dItem$d$gdecEq = (v0, v1) => {
+const $Main$dItem$d$gsame = (v0, v1) => {
   const v2 = v0.id;
   const v3 = v0.name;
   const v4 = v1.id;
@@ -1242,7 +1232,7 @@ const $Main$dItem$d$gdecEq = (v0, v1) => {
 };
 const $Main$ditems = (v0) => $Std$dList$dmap$e($Std$dList$drange(0n, v0), ((v1) => ({ id: v1, name: "x" })));
 const $Main$dsameNats = (v0) => $Std$dList$ddecEq(((v1) => ((v2) => $Std$dNat$dequal(v1, v2))), $Std$dList$drange(0n, v0), $Std$dList$drange(0n, v0));
-const $Main$dsameItems = (v0) => $Std$dList$ddecEq(((v1) => ((v2) => $Main$dItem$d$gdecEq(v1, v2))), $Main$ditems(v0), $Main$ditems(v0));
+const $Main$dsameItems = (v0) => $Std$dList$ddecEq(((v1) => ((v2) => $Main$dItem$d$gsame(v1, v2))), $Main$ditems(v0), $Main$ditems(v0));
 const $Main$dlastDiffers = (v0) => $Std$dList$ddecEq(((v1) => ((v2) => $Std$dNat$dequal(v1, v2))), $Std$dList$drange(0n, v0), $Std$dList$dmap$e($Std$dList$drange(0n, v0), ((v1) => ($Std$dNat$dequal($Std$dNat$dadd(v1, 1n), v0).tag === "True" ? $Std$dNat$dadd(v0, 7n) : v1))));
 const $Main$dshorter = (v0) => $Std$dList$ddecEq(((v1) => ((v2) => $Std$dNat$dequal(v1, v2))), $Std$dList$drange(0n, v0), $Std$dList$drange(0n, $Std$dNat$dadd(v0, 1n)));
 

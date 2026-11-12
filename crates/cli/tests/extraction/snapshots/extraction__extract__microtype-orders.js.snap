@@ -1492,23 +1492,16 @@ const $Main$dUserId$dvalue = (v0) => {
   const v1 = v0;
   return v1;
 };
-const $Main$dUserId$d$g$gmk$g0 = (v0, v1) => {
-  const v2 = v1;
-  return v2;
-};
-const $Main$dUserId$d$gdecEq = $Std$dText$ddecEq;
+const $Main$dUserId$d$gsame = $Std$dText$ddecEq;
+const $Main$dUserId$d$ginstDecEq = ((v0) => ((v1) => $Std$dText$ddecEq(v0, v1)));
 const $Main$dOrderId$dvalue = (v0) => {
   const v1 = v0;
   return v1;
 };
-const $Main$dOrderId$d$g$gmk$g0 = (v0, v1) => {
-  const v2 = v1;
-  return v2;
-};
-const $Main$dOrderId$d$gdecEq = $Std$dText$ddecEq;
-const $Main$dOrderId$d$ginstDecEq = $Std$dText$dinstDecEq;
+const $Main$dOrderId$d$gsame = $Std$dText$ddecEq;
+const $Main$dOrderId$d$ginstDecEq = $Main$dUserId$d$ginstDecEq;
 const $Main$dOrderId$d$gcompare = $Std$dText$dcompare;
-const $Main$dOrderId$d$ginstOrd = $Std$dText$dinstOrd;
+const $Main$dOrderId$d$ginstOrd = $Std$dOrd$dfromCompare($Main$dUserId$d$ginstDecEq, ($Std$dText$dcompare$c ??= ($p0) => ($p1) => $Std$dText$dcompare($p0, $p1)));
 const $Main$dUserId$dinstShow = $Std$dShow$dfromText(((v0) => v0));
 const $Main$dOrderId$dinstShow = $Main$dUserId$dinstShow;
 const $Main$dEmail$disValid = (v0) => $Std$dText$dcontains(v0, "@");
@@ -1519,9 +1512,9 @@ const $Main$dEmail$dvalue = (v0) => {
 const $Main$dEmail$dparse = (v0) => ($Std$dBool$ddecEq($Main$dEmail$disValid(v0), { tag: "True" }).tag === "True" ? { tag: "Some", value: v0 } : { tag: "None" });
 const $Main$dparseEmail = $Main$dEmail$dparse;
 const $Main$demailText = (v0) => v0;
-const $Main$downerOf = (v0, v1) => $Std$dMap$dget($Std$dText$dinstOrd, v0, v1);
-const $Main$dassign = (v0, v1, v2) => $Std$dMap$dinsert($Std$dText$dinstOrd, v0, v1, v2);
-const $Main$dordersOf = (v0, v1) => $Std$dList$dfilterMap$e($Std$dMap$dRaw$dtoList($Std$dText$dinstOrd, v0), ((v2) => ($Std$dText$ddecEq($Std$dPair$dsnd(v2), v1).tag === "True" ? { tag: "Some", value: $Std$dPair$dfst(v2) } : { tag: "None" })));
+const $Main$downerOf = (v0, v1) => $Std$dMap$dget($Main$dOrderId$d$ginstOrd, v0, v1);
+const $Main$dassign = (v0, v1, v2) => $Std$dMap$dinsert($Main$dOrderId$d$ginstOrd, v0, v1, v2);
+const $Main$dordersOf = (v0, v1) => $Std$dList$dfilterMap$e($Std$dMap$dRaw$dtoList($Main$dOrderId$d$ginstOrd, v0), ((v2) => ($Main$dUserId$d$ginstDecEq($Std$dPair$dsnd(v2))(v1).tag === "True" ? { tag: "Some", value: $Std$dPair$dfst(v2) } : { tag: "None" })));
 const $Main$ddescribe = (v0, v1) => $Std$dText$dappend("order ", $Std$dText$dappend($Std$dShow$d$gtoText($Main$dUserId$dinstShow)(v0), $Std$dText$dappend(" belongs to ", $Std$dShow$d$gtoText($Main$dUserId$dinstShow)(v1))));
 
 // A map that crosses is built and read by the library's own functions.
