@@ -1,5 +1,5 @@
 {
-  "next": 3031,
+  "next": 3032,
   "tickets": [
     {
       "id": 47,
@@ -32618,6 +32618,19 @@
       "where": "",
       "labels": [],
       "epic": "diagnostics",
+      "body": "",
+      "created": "2026-11-12",
+      "updated": "2026-11-12",
+      "commits": []
+    },
+    {
+      "id": 3031,
+      "title": "[Opus] Bool as proposition stage 3b: the stuck-decision step (bool-as-proposition.md §5.4 step 2) and the warning when a decision's holds isn't the test its proposition's reading reads (§13), with the mismatch note suggesting .read",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-3031",
+      "labels": [],
+      "epic": "syntax-language",
       "body": "",
       "created": "2026-11-12",
       "updated": "2026-11-12",
