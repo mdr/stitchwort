@@ -873,7 +873,8 @@ export class Editor {
         label: a.title,
         run: () => (editsOf(a) ? apply(editsOf(a), a.title, a.command) : a.command && this.searchProof(view, plugin, a.command)),
       }));
-      if (copy) items.unshift(copy);
+      // Last, so Enter on the list still takes the split or search the caret is on.
+      if (copy) items.push(copy);
       this.pick(view, "Code actions", items);
       return true;
     } finally {
