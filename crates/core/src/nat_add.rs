@@ -363,7 +363,8 @@ pub fn add_hash(g: &Ev) -> Option<String> {
 /// `Nat.addSucc` (`add_succ`), which comes after `Nat.addZero`, if
 /// `Nat.add` has the pinned content hash (otherwise they stay off). Then the
 /// two theorems must have the types `(n: Nat) → n + 0 = n` and `(n: Nat) → (m: Nat) → n + Succ m =
-/// Succ (n + m)`. The theorems are checked as a safety net against binding
+/// Succ (n + m)`, and be proved, not assumptions (a stand-in or a goal's,
+/// whatever binds them). The theorems are checked as a safety net against binding
 /// the rules to the wrong definition: what makes the rules sound is the
 /// argument in the module comment, not their proofs.
 pub fn register(g: &mut Kernel, add_succ: DefId) -> Result<(), Diagnostic> {
@@ -417,6 +418,7 @@ pub fn register(g: &mut Kernel, add_succ: DefId) -> Result<(), Diagnostic> {
             let def = g.def(id);
             let fits = def.state == State::Final
                 && def.theorem
+                && def.assumption.is_none()
                 && conv(&g.ev(), 0, &eval(&g.ev(), &[], &expected)?, &def.ty_value)?;
             if !fits {
                 return Err(Diagnostic::error(
