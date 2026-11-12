@@ -45,7 +45,7 @@
 
 use crate::budget::Result;
 use crate::ev::Ev;
-use crate::globals::{Data, HashKey, State};
+use crate::globals::{Assumption, Data, HashKey, State};
 use crate::term::{DataId, DefId, Icit, QuotForm, Sort, Term};
 
 /// A 256-bit content hash.
@@ -636,6 +636,15 @@ impl<'g> Hasher<'g> {
             _ => {
                 let hash = def_hash_in(self.g, id, self.mode)?;
                 self.unfinished |= hash.is_none();
+                // A stand-in for a declaration with an error is identified
+                // by its statement alone, so editing the broken body
+                // wouldn't change a key built from it: not final, like the
+                // declaration it stands for.
+                self.unfinished |= self
+                    .g
+                    .def(id)
+                    .assumption()
+                    .is_some_and(Assumption::is_error);
                 let hash = hash.map_or([0; 32], |h| h.0);
                 self.tag("ref");
                 self.bytes(&hash);
