@@ -86,9 +86,6 @@ def Set.above [auto ord: Ord k] (set: Set k) (key: k): Option k := set.items.abo
 --| Whether every key satisfies `p`.
 def Set.all (set: Set k [ord := o]) (p: k → Bool): Bool := Set.foldLeft set True (acc key => acc ∧ p key)
 
---| Whether every key of `a` is in `b` ([`Set.isSubsetSpec`]).
-def Set.isSubset [auto ord: Ord k] (a: Set k) (b: Set k): Bool := Set.all a (key => Set.contains b key)
-
 --| Whether no key is in both.
 def Set.disjoint [auto ord: Ord k] (a: Set k) (b: Set k): Bool := ¬(a.any (key => b.contains key))
 
@@ -223,11 +220,8 @@ test "set: min, max, below, above" :=
 test "set: popMin" :=
   Set.popMin Set.example == Some (1, Set.fromList [2, 3]) ∧ Set.popMin (Set.empty: Set Nat) == None
     ∧ (Set.fromList (List.range 0 40) |> .popMin |> .map (view => view.snd.toList)) == Some (List.range 0 40 |> List.tailOf)
-test "set: isSubset, disjoint" :=
-  Set.isSubset (Set.fromList [1, 2]) Set.example ∧ ¬(Set.isSubset (Set.fromList [1, 4]) Set.example)
-    ∧ Set.disjoint Set.example (Set.fromList [4]) ∧ ¬(Set.disjoint Set.example (Set.fromList [2]))
-test "set: isSubset, edge cases" :=
-  Set.isSubset Set.empty Set.example ∧ Set.isSubset Set.example Set.example ∧ ¬(Set.isSubset Set.example Set.empty)
+test "set: disjoint" :=
+  Set.disjoint Set.example (Set.fromList [4]) ∧ ¬(Set.disjoint Set.example (Set.fromList [2]))
 test "set: partition, all, foldRight" :=
   Set.toList (Set.partition Set.example (> 1)).fst == [2, 3] ∧ Set.toList (Set.partition Set.example (> 1)).snd == [1]
     ∧ Set.all Set.example (> 0) ∧ ¬(Set.all Set.example (> 1)) ∧ Set.foldRight Set.example [] (n acc => [n, ..acc]) == [1, 2, 3]

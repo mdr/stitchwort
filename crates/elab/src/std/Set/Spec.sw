@@ -360,6 +360,9 @@ theorem Set.allEntriesIntro (q: k → Bool) (xs: List (k, ())) (h: (∀ (key: k)
       rewrite h kk (Inl (Eq.cong (w => (kk, w)) (Set.unitEq u ()))) in
       Set.allEntriesIntro q rest (key mem => h key (Inr mem))
 
+--| Whether every key of `a` is in `b` ([`Set.isSubsetReads`]). It is declared here, beside its reading, which needs the lemmas below.
+def Set.isSubset [auto ord: Ord k] (a: Set k) (b: Set k): Bool := Set.all a (key => Set.contains b key)
+
 theorem Set.isSubsetToList [auto ord: Ord k] (a: Set k) (b: Set k): Set.isSubset a b = List.all (Map.toList a.items) (e => Set.contains b e.fst) :=
   Eq.trans (Map.foldLeftToList (acc key unit => acc ∧ Set.contains b key) True a.items)
     (Set.foldAll (key => Set.contains b key) True (Map.toList a.items))
@@ -383,9 +386,15 @@ theorem Set.isSubsetIntro [auto ord: Ord k] [a: Set k] [b: Set k] (h: ∀ (key: 
   Eq.trans (Set.isSubsetToList a b)
     (Set.allEntriesIntro (key2 => Set.contains b key2) (Map.toList a.items) (key mem => h key ((Set.containsToList a key).backward mem)))
 
---| `isSubset a b` holds exactly when every key of `a` is in `b`.
-theorem Set.isSubsetSpec [auto ord: Ord k] (a: Set k) (b: Set k):
-    (Set.isSubset a b = True) ↔ (∀ (key: k) => Set.contains a key = True → Set.contains b key = True) :=
+test "set: isSubset" :=
+  Set.isSubset (Set.fromList [1, 2]) Set.example ∧ ¬(Set.isSubset (Set.fromList [1, 4]) Set.example)
+test "set: isSubset, edge cases" :=
+  Set.isSubset Set.empty Set.example ∧ Set.isSubset Set.example Set.example ∧ ¬(Set.isSubset Set.example Set.empty)
+
+--| `a.isSubset b` reads as "every key of `a` is in `b`".
+@[reading]
+theorem Set.isSubsetReads [auto ord: Ord k] (a: Set k) (b: Set k):
+    Set.isSubset a b ↔ ∀ (key: k) => key ∈ a → key ∈ b :=
   { forward = Set.isSubsetElim a b, backward = Set.isSubsetIntro }
 
 -- Folds and `map`
