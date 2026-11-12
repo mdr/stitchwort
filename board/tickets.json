@@ -31626,12 +31626,12 @@
     {
       "id": 2962,
       "title": "Full tier can't finish in 4 h: single tests take over an hour under STITCHWORT_TIER=full (rewind::rewinding_changes_nothing_for_the_examples 6081 s, check_cache::the_cache_changes_nothing_for_the_examples 3573 s, aocs_namespaces_load_on_their_own 2558 s, counts_repeat_within_a_process 2328 s, emptying_the_caches 2287 s, formatting_changes_no_declaration_hash 2213 s, counts_have_not_regressed 2211 s); 2059 of 2591 tests ran in 14,160 s. Measure and bound them (sample, or split across runs) so the tier completes",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "review",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-2962",
       "labels": [],
       "epic": "test-infra",
-      "body": "",
+      "body": "Lane (Opus), 12 Nov 18:50-19:20, est. 2 h. Analysis: docs/reviews/SW-2962-slow-tests.md.\n\nFinding: the Overmind figures are each test's own cost times ~5-12 for the machine (4 cores, ~2x slower per core) and oversubscription (4 tests + two 5-thread sweep pools); the serial bench tests show it (repeat ~190 s alone, 2,328 s there).\n\nDone: (1) fmt_hashes loads only files/projects formatting changes (2 of 819 files, no project): daily 54 s -> 9.9 s, full projected the same (was 2,213 s). (2) rt aoc_agrees and every_aoc_main_lowers check the AoC project a part at a time (Common + each day) on par_map, each part's own tests and main; AOC_PARTS to run a few; projected 4x faster on Speedwell, 2-3x on Overmind (estimated).\n\nOpen: D3538 (rewind sweeps: library from source + search on the daily sample's items only in full), D3539 (full-tier corpus sweeps: split into parts, or a rotating sample), D3540 (aoc_agrees: drop the reference evaluator's real-input runs). Follow-ups 1-8 in the note.\n",
       "created": "2026-11-12",
       "updated": "2026-11-12",
       "commits": []
