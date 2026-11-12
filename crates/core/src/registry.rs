@@ -141,7 +141,6 @@ const LIBRARY: &[Builtin] = &[
     Builtin::FinToNat,
     Builtin::Fail,
     Builtin::FailStop,
-    Builtin::Exists,
     Builtin::NonEmptyList,
     Builtin::NonEmptyListPrependList,
 ];
@@ -206,7 +205,7 @@ builtins! {
     And = "And": Data,
     Or = "Or": Data,
     // Printed as the notation that writes them, `p ↔ q`, `∃ (x: T) => P`
-    // and `x ∈ xs` (D1204): `Exists` is a library declaration
+    // and `x ∈ xs` (D1204)
     Iff = "Iff": Data,
     Exists = "Exists": Data,
     ListMem = "List.Mem": Def,

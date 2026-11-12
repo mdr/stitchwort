@@ -10,7 +10,7 @@ use stitchwort_core::hash::{data_hash, def_hash};
 use stitchwort_core::registry::{Builtin, Home, Kind};
 use stitchwort_core::{DataId, DefId};
 use stitchwort_driver::driver::{
-    Cache, Outcome, Session, full_tier, par_map_with, tier_sample, with_stack,
+    Cache, Outcome, Session, full_tier, par_map_with, tier_sample, with_session, with_stack,
 };
 use stitchwort_driver::project::{DiskFiles, Target};
 use stitchwort_driver::render::render;
@@ -616,11 +616,14 @@ fn dot_notation_loads_a_file_only_when_the_receivers_type_can_be_loaded() {
 
 /// The library files a program loads, with the standard library.
 fn std_loaded_by(program: &str) -> Vec<String> {
-    let mut session = Session::new();
-    session
-        .load("t.sw", program)
-        .unwrap_or_else(|e| panic!("{}", messages(&e)));
-    session.elab.loaded_library_files()
+    // The toolkit's proofs recurse deeper than a test thread's default stack
+    // allows, so the thread and the session's limits come from `STACK`.
+    with_session(STACK, Session::for_stack, |session| {
+        session
+            .load("t.sw", program)
+            .unwrap_or_else(|e| panic!("{}", messages(&e)));
+        session.elab.loaded_library_files()
+    })
 }
 
 #[test]
@@ -636,7 +639,11 @@ fn small_programs_load_only_the_library_files_they_can_use() {
     // `Result`, so nothing is lost.
     // The toolkit's lemmas are in `List/Lemmas.sw` and the `Option` helpers'
     // in `Option/Lemmas.sw`, so neither loads, nor what only they use
-    // (`Decidable/Decidable.sw`, `Logic/Logic.sw`). `Nat/Arith.sw` is for
+    // (`Decidable/Decidable.sw`, `Logic/Logic.sw`). `∃` and the `Iff` and
+    // `Exists` lemmas are in the core, and `List.memContains` uses the
+    // decision's own `sound` and `complete` rather than `DecEq.sound` (a dot
+    // call `.sound` or `.trans` loads every file with one in a core
+    // namespace). `Nat/Arith.sw` is for
     // the bounds facts that `List.chunksOf` and the congruence lemmas use.
     let toolkit = [
         "Bool/Bool.sw",

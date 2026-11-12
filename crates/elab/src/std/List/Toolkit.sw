@@ -405,8 +405,8 @@ theorem List.allReadsFalse (xs: List a) (p: a → Bool): xs.all p = False ↔ �
 @[reading]
 theorem List.memContains [auto eq: DecEq a] (xs: List a) (x: a): (List.contains xs x = True) ↔ (List.Mem x xs) := {
   forward = found =>
-    List.anyTrueElim xs (member => member == x) (List.Mem x xs) found (member isIn same => rewrite <- DecEq.sound same in isIn),
-  backward = isIn => List.anyOfMem xs (member => member == x) x (DecEq.refl x) isIn
+    List.anyTrueElim xs (member => member == x) (List.Mem x xs) found (member isIn same => rewrite <- Decidable.sound (DecEq.decide member x) same in isIn),
+  backward = isIn => List.anyOfMem xs (member => member == x) x (Decidable.complete (DecEq.decide x x) rfl) isIn
 }
 
 --| Whether the list has no elements, in O(1): `List.length xs == 0` costs O(n).
