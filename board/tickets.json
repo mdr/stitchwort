@@ -1,5 +1,5 @@
 {
-  "next": 3029,
+  "next": 3030,
   "tickets": [
     {
       "id": 47,
@@ -32464,15 +32464,17 @@
     {
       "id": 3019,
       "title": "[Sonnet] Bool as proposition stage 3a: std's readings for any, all, Nat.equal, isSubset, isSome, isEmpty and their negatives, each beside its function (bool-as-proposition.md §11 stage 3; contains/noRepeats/isLeHead/isSortedBy done in SW-2967). Stuck-decision step (§5.4 step 2) and the decision/reading mismatch warning (§13) are stage 3b, Opus",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-3019",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "\nModel result: Sonnet, worked (any/all blocked by E-READING-SHAPE on effect rows), 10 min (est. 2 h). Statements checked by the orchestrator.",
       "created": "2026-11-12",
       "updated": "2026-11-12",
-      "commits": []
+      "commits": [
+        "aedaea9dd"
+      ]
     },
     {
       "id": 3020,
@@ -32586,6 +32588,19 @@
       "where": "",
       "labels": [],
       "epic": "test-infra",
+      "body": "",
+      "created": "2026-11-12",
+      "updated": "2026-11-12",
+      "commits": []
+    },
+    {
+      "id": 3029,
+      "title": "[Opus] Readings for functions with an effect-row parameter: List.any/all (and Array/NonEmptyList/Text wrappers) can't be readings: a pure p instantiates {e} to empty, so E-READING-SHAPE; with {e} as a theorem parameter, p x = True is E-PARTIAL. Let a pure instantiation of a row parameter fit (crates/elab/src/reading.rs), then mark List.anyIffMem/anyFalseIffMem/allIffMem/allFalseIffMem @[reading] (SW-3019)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
       "body": "",
       "created": "2026-11-12",
       "updated": "2026-11-12",
