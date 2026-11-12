@@ -245,6 +245,16 @@ fn unreachable_arms(text: &str) -> Vec<String> {
         .collect()
 }
 
+/// The whole underlined arm text of each `W-UNREACHABLE` of `text`.
+fn unreachable_arm_text(text: &str) -> Vec<String> {
+    (written_unreachable(text).iter())
+        .map(|w| {
+            let span = w.labels[0].span;
+            text[span.start as usize..span.end as usize].to_string()
+        })
+        .collect()
+}
+
 #[test]
 fn a_character_arm_a_hypothesis_rules_out_warns() {
     // In the `_` arm, `found` computes to `None = Some n`; left out, the
@@ -295,9 +305,15 @@ fn arms_that_take_each_others_cases_warn_together() {
                 | Zero, Zero => rfl\n    \
                 | Succ a, b => Void.exfalso (Bool.falseNotTrue h)\n    \
                 | a, Succ b => Void.exfalso (Bool.falseNotTrue k)\n";
-    let mut found = unreachable_arms(text);
+    let mut found = unreachable_arm_text(text);
     found.sort();
-    assert_eq!(found, vec!["| Succ a, b", "| a, Succ b"]);
+    assert_eq!(
+        found,
+        vec![
+            "| Succ a, b => Void.exfalso (Bool.falseNotTrue h)",
+            "| a, Succ b => Void.exfalso (Bool.falseNotTrue k)",
+        ]
+    );
     let (_, result) = load(
         "import Std (Bool, Eq, Nat, Void)\n\n\
          def isZero: Nat -> Bool\n  | Zero => True\n  | Succ _ => False\n\n\

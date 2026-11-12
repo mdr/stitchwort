@@ -2670,7 +2670,7 @@ impl<'t> Parser<'t> {
             self.expect_fat_arrow("`=>`")?;
             let body = self.expr()?;
             alts.push(InductAlt {
-                span: bar.to(body.span()),
+                span: bar.to(self.prev_span()),
                 case,
                 binders,
                 body,
@@ -2775,7 +2775,7 @@ impl<'t> Parser<'t> {
             let guard = self.guard()?;
             let body = self.arm_body(&patterns, guard.as_ref(), "`=>`")?;
             alts.push(Alt {
-                span: bar.to(body.as_ref().map_or(self.prev_span(), Expr::span)),
+                span: bar.to(self.prev_span()),
                 patterns,
                 guard,
                 body,
@@ -3093,7 +3093,7 @@ impl<'t> Parser<'t> {
         let mut result = if patterns.is_empty() {
             body
         } else {
-            let alt_span = patterns[0].span().to(body.span());
+            let alt_span = patterns[0].span().to(self.prev_span());
             Expr::Match {
                 scrutinees,
                 alts: vec![Alt {

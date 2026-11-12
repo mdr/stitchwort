@@ -6,8 +6,8 @@ expression: warnings
     ╭─[ accept/unreachable-arm-hypothesis.sw:19:5 ]
     │
  19 │     | Rock => Void.exfalso (Bool.falseNotTrue h)
-    │     ─────────────────────┬─────────────────────  
-    │                          ╰─────────────────────── here `h` is `False = True`, which can't hold
+    │     ──────────────────────┬─────────────────────  
+    │                           ╰─────────────────────── here `h` is `False = True`, which can't hold
     │ 
     │ Note: the arm can be deleted
 ────╯
@@ -15,8 +15,8 @@ expression: warnings
     ╭─[ accept/unreachable-arm-hypothesis.sw:20:5 ]
     │
  20 │     | Paper => Void.exfalso (Bool.falseNotTrue h)
-    │     ──────────────────────┬─────────────────────  
-    │                           ╰─────────────────────── here `h` is `False = True`, which can't hold
+    │     ──────────────────────┬──────────────────────  
+    │                           ╰──────────────────────── here `h` is `False = True`, which can't hold
     │ 
     │ Note: the arm can be deleted
 ────╯

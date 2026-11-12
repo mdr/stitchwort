@@ -693,7 +693,7 @@ impl Parser<'_> {
             guard.as_ref(),
             "`=>` and the arm's body",
         )?;
-        let end = rhs.as_ref().map_or(self.prev_span(), Expr::span);
+        let end = self.prev_span();
         Ok(Decl::Equation {
             name: name.clone(),
             patterns,
