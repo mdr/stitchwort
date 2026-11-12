@@ -146,6 +146,10 @@ pub(crate) struct ItemInfo {
     /// It failed by running out of resources, or by using a declaration
     /// that did.
     pub ran_out: bool,
+    /// For a `@[reading]` theorem: its test's function and polarity as
+    /// written, so a use of the test checked before it can say the reading
+    /// comes later, or failed ([`crate::reading::written_reading`]).
+    pub reading: Option<(String, bool)>,
 }
 
 /// One file of the module being elaborated.
@@ -753,6 +757,14 @@ impl Elaborator {
             if let Some(id) = made {
                 self.scope
                     .set_global(&key, |global| *global = Global::Def(id));
+                // A reading with an error is filed as its stand-in, so a fact
+                // read through it relies on it, as any other use does,
+                // instead of reading its test as what it unfolds to.
+                if let Ok(attributes) = self.definition_attributes(items[i].decl)
+                    && let Some(at) = attributes.reading
+                {
+                    let _ = self.register_reading(id, at);
+                }
             }
         }
     }
@@ -1394,6 +1406,7 @@ impl Elaborator {
                     interface: None,
                     head: None,
                     ran_out: false,
+                    reading: crate::reading::written_reading(decl),
                 });
                 items.push(Item {
                     decl,

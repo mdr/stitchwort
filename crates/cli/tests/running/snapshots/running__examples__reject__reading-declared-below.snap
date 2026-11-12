@@ -1,0 +1,17 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-NO-READING] Error: this test fact can't be taken apart with a record pattern yet
+    ╭─[ reject/reading-declared-below.sw:13:7 ]
+    │
+ 13 │     | { low, high } => high
+    │       ──────┬──────  
+    │             ╰──────── `inRange`'s reading, `inRangeReads`, is declared below
+    │ 
+ 16 │ theorem inRangeReads (lo x hi: Nat): inRange lo x hi ↔ InRange lo x hi := {
+    │         ──────┬─────  
+    │               ╰─────── declared here
+    │ 
+    │ Note: a reading is used from where it is declared on: move `inRangeReads` above this
+────╯

@@ -36,6 +36,7 @@ use std::rc::Rc;
 use stitchwort_core::registry::Builtin;
 use stitchwort_core::value::{Elim, Head, apply, force, unfold_once};
 use stitchwort_core::{DataId, DefId, Ev, Icit, Sort, Term, Value};
+use stitchwort_syntax::ast::{self, BinOp, Decl, Expr};
 use stitchwort_syntax::{Diagnostic, Span};
 
 use crate::check::{Ctx, Result};
@@ -90,6 +91,9 @@ struct Step {
 /// What the reader found for a test.
 pub(crate) enum Read {
     Found(Found),
+    /// The test's function has a reading in this module that isn't filed:
+    /// declared below the use (`failed` false), or failed to check.
+    Pending(Pending),
     /// No reading, after unfolding what could be: the test's head when it
     /// is a function (for the note on `@[reading]`).
     Leaf(Option<DefId>),
@@ -453,7 +457,106 @@ impl Elaborator {
 /// reading and the arguments its theorem is applied to.
 enum Lookup {
     Found(DefId, Rc<ReadingInfo>, Vec<Value>),
+    Pending(Pending),
     Leaf(Option<DefId>),
+}
+
+/// A reading of this module's not yet filed when a test needs it.
+#[derive(Clone, Copy)]
+pub(crate) struct Pending {
+    /// The test's function.
+    test: DefId,
+    /// The reading's item in the module.
+    item: usize,
+    failed: bool,
+}
+
+/// For a `@[reading]` theorem: its test's function, by its last name as
+/// written, and its polarity (`f x… ↔ P` true, `f x… = False ↔ P` false),
+/// if the statement has that shape. Read from the syntax, so it is known
+/// before the theorem is checked.
+pub(crate) fn written_reading(decl: &Decl) -> Option<(String, bool)> {
+    let Decl::Signature {
+        ty,
+        theorem: true,
+        attrs,
+        ..
+    } = decl
+    else {
+        return None;
+    };
+    if !attrs
+        .iter()
+        .any(|a| a.name.text == crate::attributes::READING)
+    {
+        return None;
+    }
+    let mut ty = ty;
+    let (lhs, _) = loop {
+        match ty {
+            Expr::Pi { cod, .. } => ty = cod,
+            Expr::Bracketed(inner, _) => ty = inner,
+            Expr::App(f, rhs) => match &**f {
+                Expr::App(iff, lhs) if matches!(&**iff, Expr::Var(n) if n.text == "Std.Iff") => {
+                    break (&**lhs, rhs);
+                }
+                _ => return None,
+            },
+            _ => return None,
+        }
+    };
+    let (mut test, polarity) = match unbracket(lhs) {
+        Expr::Binary(BinOp::Eq, test, b) => match unbracket(b) {
+            Expr::Var(n) if n.text == "False" => (&**test, false),
+            Expr::Var(n) if n.text == "True" => (&**test, true),
+            _ => return None,
+        },
+        test => (test, true),
+    };
+    while let Expr::App(f, _) = unbracket(test) {
+        test = f;
+    }
+    match unbracket(test) {
+        Expr::Var(ast::Name { text, .. }) => Some((last_name(text).to_string(), polarity)),
+        _ => None,
+    }
+}
+
+fn unbracket(mut e: &Expr) -> &Expr {
+    while let Expr::Bracketed(inner, _) = e {
+        e = inner;
+    }
+    e
+}
+
+fn last_name(name: &str) -> &str {
+    name.rsplit('.').next().unwrap_or(name)
+}
+
+/// A reading of `f` at `polarity` declared in this module but not filed:
+/// below the declaration being checked, or failed.
+fn pending(e: &Elaborator, f: DefId, polarity: bool) -> Option<Pending> {
+    let module = &e.unit.module;
+    if !module.def_items.contains_key(&f) {
+        return None;
+    }
+    let name = e.kernel.def(f).name().to_string();
+    let name = last_name(&name);
+    let current = module.item.map(|i| module.items[i].position);
+    module.items.iter().enumerate().find_map(|(item, info)| {
+        let (head, p) = info.reading.as_ref()?;
+        if head != name || *p != polarity {
+            return None;
+        }
+        let failed = info.status.failed();
+        let below = info.status == crate::module::Status::Waiting
+            && current.is_some_and(|c| info.position > c);
+        (failed || below).then_some(Pending {
+            test: f,
+            item,
+            failed,
+        })
+    })
 }
 
 /// The reading of `test` at `polarity` (§5.4): its head's reading, or else
@@ -482,6 +585,12 @@ fn lookup_folded(g: &Ev, e: &Elaborator, test: &Value, polarity: bool) -> Result
         {
             return Ok(Lookup::Found(theorem, info, args));
         }
+        // Not what it unfolds to: that isn't the reading the program means.
+        if let TestHead::Def(f) = head
+            && let Some(p) = pending(e, f, polarity)
+        {
+            return Ok(Lookup::Pending(p));
+        }
         // A folded call unfolds a step; a stuck one, or an `opaque` one,
         // is as far as the reader goes.
         match &test {
@@ -499,6 +608,7 @@ pub(crate) fn read(cx: &Ctx, test: &Value, polarity: bool) -> Result<Read> {
     let lookup = lookup(&cx.g(), cx.e, test, polarity)?;
     Ok(match lookup {
         Lookup::Found(theorem, info, args) => Read::Found(found(cx, theorem, &info, &args)?),
+        Lookup::Pending(p) => Read::Pending(p),
         Lookup::Leaf(head) => Read::Leaf(head),
     })
 }
@@ -660,6 +770,7 @@ pub(crate) fn no_reading(
         format!("`{} = False`", cx.show(test))
     };
     match read {
+        Read::Pending(p) => pending_error(cx.e, span, *p, how),
         Read::Found(found) => {
             let mut d = Diagnostic::error("E-NO-READING", format!("this test fact can't be {how}"))
                 .with_label(
@@ -701,6 +812,44 @@ pub(crate) fn no_reading(
             d.with_note("a test fact can always be matched by a name")
         }
     }
+}
+
+/// The error for a test fact used as `how` where its test's reading is
+/// `p`, not filed: `E-NO-READING` saying it is declared below, or, where it
+/// failed, `E-FAILED-DEPENDENCY`, which goes without saying beside the
+/// reading's own error.
+pub(crate) fn pending_error(e: &Elaborator, span: Span, p: Pending, how: &str) -> Diagnostic {
+    let info = &e.unit.module.items[p.item];
+    let test = e.kernel.def(p.test).name().to_string();
+    let reading = &info.name;
+    if p.failed {
+        return Diagnostic::error("E-FAILED-DEPENDENCY", format!("`{reading}` has errors"))
+            .with_label(span, format!("`{test}`'s reading, `{reading}`, has errors"))
+            .with_note(format!(
+                "this can't be accepted until the errors in `{reading}` are fixed"
+            ));
+    }
+    Diagnostic::error("E-NO-READING", format!("this test fact can't be {how} yet"))
+        .with_label(
+            span,
+            format!("`{test}`'s reading, `{reading}`, is declared below"),
+        )
+        .with_label(info.span, "declared here")
+        .with_note(format!(
+            "a reading is used from where it is declared on: move `{reading}` above this"
+        ))
+}
+
+/// The reading of this module's that a test fact of type `ty` waits for,
+/// if its test's function has one not yet filed.
+pub(crate) fn pending_of_type(g: &Ev, e: &Elaborator, ty: &Value) -> Result<Option<Pending>> {
+    let Some((test, polarity)) = test_fact_in(g, ty)? else {
+        return Ok(None);
+    };
+    Ok(match lookup(g, e, &test, polarity)? {
+        Lookup::Pending(p) => Some(p),
+        _ => None,
+    })
 }
 
 /// Whether `d` is a proposition whose constructors a test fact can be read
@@ -812,6 +961,7 @@ pub(crate) fn read_fact(cx: &Ctx, rterm: &Term, rty: &Value) -> Result<Option<(T
     };
     match read(cx, &test, polarity)? {
         Read::Found(found) => Ok(Some((found.forward(cx, rterm.clone())?, found.prop))),
+        Read::Pending(p) => Err(pending_error(cx.e, cx.span, p, "read")),
         Read::Leaf(_) => Ok(None),
     }
 }
