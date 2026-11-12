@@ -29,9 +29,10 @@ The book doesn't open in the web playground yet; that is coming.
 To see which exercises are still open, from this folder:
 
 ```
-stitchwort goal     # every open `?`, and what relies on it
-stitchwort check    # checks the book; says "N goals open, allowed by ..."
-stitchwort test     # runs the chapters' tests
+stitchwort goal --summary  # how many are open in each chapter, and in all
+stitchwort goal            # every open `?`, and what relies on it
+stitchwort check           # checks the book; says "N goals open, allowed by ..."
+stitchwort test            # runs the chapters' tests
 ```
 
 ## Chapters
