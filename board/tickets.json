@@ -1,5 +1,5 @@
 {
-  "next": 2956,
+  "next": 2957,
   "tickets": [
     {
       "id": 47,
@@ -31517,6 +31517,19 @@
       "where": "",
       "labels": [],
       "epic": "test-infra",
+      "body": "",
+      "created": "2026-11-12",
+      "updated": "2026-11-12",
+      "commits": []
+    },
+    {
+      "id": 2956,
+      "title": "Elab fuzz 0x25a8 case 9743 (Overmind, 9250b60c1): check without cache holds >2 GB heap and is cancelled (oracle 6, memory) on succOuter: Succ (outerN 340282366920938463463374607431768211456) = 2 := rfl (a 2^128 argument to a decreasing function, from accept/succ-of-folded-call.sw, SW-2157's example). Reproducer on Overmind: target/fuzz-elab/25a8-9743.sw (705 B, sha256 ddea23568bc4…). Compare SW-2467 (2^128 Fin literal). Triage in lanes mode",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "audit-fuzzing",
       "body": "",
       "created": "2026-11-12",
       "updated": "2026-11-12",
