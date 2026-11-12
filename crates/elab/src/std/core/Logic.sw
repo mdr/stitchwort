@@ -1,4 +1,4 @@
---| `Void`, `Unit`, `Not`, `And`, `Or`, and `absurd`/`exfalso`.
+--| `Void`, `Unit`, `Not`, `And`, `Or`, `Iff`, and `absurd`/`exfalso`.
 -- Loaded with the core: every proof the core states is built from these, and
 -- `Decidable`, `deriving` and `auto` write them in full
 -- (docs/proposals/prelude-slim.md §2.1).
@@ -23,6 +23,13 @@ type And (p: Prop) (q: Prop): Prop =
 type Or (p: Prop) (q: Prop): Prop =
   | Inl (left: p)
   | Inr (right: q)
+
+--| Each of `p` and `q` follows from the other: `p ↔ q`. In the core because
+--| the readings of `&&`, `||` and `not` (`Equality.sw`) are stated with it.
+type Iff (p: Prop) (q: Prop): Prop = {
+  forward: p → q,
+  backward: q → p
+}
 
 --| When neither proposition holds, `p || q` doesn't.
 theorem Or.neither: ∀ [p q: Prop] => ¬p → ¬q → ¬(p ∨ q)

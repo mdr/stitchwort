@@ -1,0 +1,24 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-NO-READING] Error: this test fact can't be taken apart with `Both`
+   ╭─[ reject/reading-pattern-mismatch.sw:7:3 ]
+   │
+ 7 │ ╭─▶   match h with
+ 8 │ ├─▶     | Both x _ => x
+   │ │                         
+   │ ╰───────────────────────── `a || b` reads as `a ∨ b` (`Bool.orReads`)
+   │     
+   │     Note 1: this pattern matches an `And`, and `a ∨ b` isn't one
+   │     
+   │     Note 2: a test fact can always be matched by a name, and `.read` gives the proposition
+   │     
+   │     Note 3: this statement is false; a counterexample:
+   │               a = False
+   │               b = True
+   │             `(a || b) = True` holds
+   │             `a` is false:
+   │               left:  False
+   │               right: True
+───╯

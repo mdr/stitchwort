@@ -354,6 +354,18 @@ fn the_cache_replays_opaque_definitions() {
     assert_cache_changes_nothing(&project, true);
 }
 
+/// Readings (docs/proposals/bool-as-proposition.md §5) are replayed with
+/// the namespace that declares them, and read the same from another,
+/// whatever the sample.
+#[test]
+fn the_cache_replays_readings() {
+    let project = Source::Project(
+        "readings-across-namespaces".into(),
+        examples_dir().join("projects/accept/readings-across-namespaces"),
+    );
+    assert_cache_changes_nothing(&project, false);
+}
+
 /// Functions a namespace adds to another namespace's type are replayed with
 /// the keys they stand for (docs/proposals/extending-types.md), whatever
 /// the sample.
@@ -740,6 +752,67 @@ fn an_edit_re_elaborates_the_namespace_and_what_uses_it() {
     write_file(&dir, "src/B.sw", &format!("-- a comment\n{}", ABC[1].1));
     let edited = fresh_and_cached(&dir, &cache);
     assert_eq!((edited.namespace_hits, edited.namespace_misses), (2, 1));
+    let _ = std::fs::remove_dir_all(&dir);
+    let _ = std::fs::remove_dir_all(&cache);
+}
+
+/// `A` declares a test and its reading, `B` takes a fact apart through it,
+/// `C` uses neither.
+const READING: &[(&str, &str)] = &[
+    (
+        "src/A.sw",
+        "namespace A\n\ntype Small (n: Nat): Prop = { below: n < 10 }\n\n\
+         def small (n: Nat): Bool := n < 10\n\n\
+         @[reading]\ntheorem smallReads (n: Nat): small n ↔ Small n := \
+         { forward = h => { below = h }, backward = s => s.below }\n",
+    ),
+    (
+        "src/B.sw",
+        "namespace B\n\nimport A (small)\n\n\
+         theorem below (n: Nat) (h: small n): n < 10 :=\n  match h with\n    | { below } => below\n",
+    ),
+    ("src/C.sw", "namespace C\n\ndef three: Nat := 3\n"),
+];
+
+/// A reading is declared with its test, so a namespace that reads through
+/// it uses the namespace that declares it, whose key changes with it: an
+/// edited reading checks again what reads through it.
+#[test]
+fn an_edited_reading_re_checks_what_reads_through_it() {
+    let dir = temp_project("reading", READING);
+    let cache = temp_dir("reading-cache");
+    let cold = fresh_and_cached(&dir, &cache);
+    assert_eq!((cold.namespace_hits, cold.namespace_written), (0, 3));
+    let warm = fresh_and_cached(&dir, &cache);
+    assert_eq!((warm.namespace_hits, warm.namespace_misses), (3, 0));
+    // A comment in `B`: it is checked again, reading through `A`'s
+    // reading as replayed from the cache.
+    write_file(&dir, "src/B.sw", &format!("-- a comment\n{}", READING[1].1));
+    let edited = fresh_and_cached(&dir, &cache);
+    assert_eq!((edited.namespace_hits, edited.namespace_misses), (2, 1));
+    // The reading no longer gives a record, so `B`'s record pattern fails.
+    write_file(
+        &dir,
+        "src/A.sw",
+        "namespace A\n\ndef small (n: Nat): Bool := n < 10\n\n\
+         @[reading]\ntheorem smallReads (n: Nat): small n ↔ n < 10 := \
+         { forward = h => h, backward = h => h }\n",
+    );
+    let edited = fresh_and_cached(&dir, &cache);
+    assert_eq!((edited.namespace_hits, edited.namespace_misses), (1, 2));
+    let source = Source::Project("p".to_string(), dir.clone());
+    let again = run(&source, true, Some(&cache));
+    assert!(
+        again.dump.contains("accepted false") && again.dump.contains("B.sw"),
+        "`B` should fail through the edited reading:\n{}",
+        again
+            .dump
+            .lines()
+            .rev()
+            .take(20)
+            .collect::<Vec<_>>()
+            .join("\n")
+    );
     let _ = std::fs::remove_dir_all(&dir);
     let _ = std::fs::remove_dir_all(&cache);
 }

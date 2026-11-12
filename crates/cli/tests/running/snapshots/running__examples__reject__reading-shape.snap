@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-READING-SHAPE] Error: `smallFive` can't be a reading: its test `small 5` must be a function applied to the theorem's parameters, each exactly once, so that any test with that head fits it
+   ╭─[ reject/reading-shape.sw:8:3 ]
+   │
+ 8 │ @[reading]
+   │   ───┬───  
+   │      ╰───── `smallFive` can't be a reading: its test `small 5` must be a function applied to the theorem's parameters, each exactly once, so that any test with that head fits it
+   │ 
+   │ Note: a reading is a theorem `test = True ↔ P` or `test = False ↔ P`, whose test is a function applied to the theorem's parameters, each once: `@[reading] theorem List.anyReads (xs: List a) (f: a → Bool): xs.any f ↔ ∃ (x: a) => x ∈ xs ∧ f x`
+───╯

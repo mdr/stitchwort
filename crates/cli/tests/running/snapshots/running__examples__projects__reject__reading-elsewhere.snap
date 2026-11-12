@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-READING-PLACE] Error: `Readings.smallReads` must be declared with `Tests.small`
+   ╭─[ reading-elsewhere/src/Readings.sw:7:3 ]
+   │
+ 7 │ @[reading]
+   │   ───┬───  
+   │      ╰───── `Readings.smallReads` must be declared with `Tests.small`
+   │ 
+   │ Note 1: a reading is declared where its test's function is (the same namespace in a project, the same file in the library), so that it is there whenever the test is; `Tests.small` is declared elsewhere
+   │ 
+   │ Note 2: the theorem itself can still be used by name, without `@[reading]`
+───╯

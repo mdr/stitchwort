@@ -535,6 +535,39 @@ theorem smallSame (n: Nat) (h: isSmall n): isSmall n = True := h
 
 The two ways of writing it are the same statement, so `smallSame` is proved by `h` itself, and goals show `isSmall n = True` as `isSmall n`. The one place to write `= True` out is a fact about the `Bool` `a && b` itself, as a program's `if` hands it over: `(a && b) = True`, which goals show that way too, since `a && b` alone would mean `a ∧ b`. A side of `=` is never read as a statement, so `(a == b) = c` still compares `Bool`s.
 
+A fact about a test can also be used as the statement the test stands for. A **reading** says what that is: a theorem `test ↔ P` marked `@[reading]`, declared next to the test's function. Then a fact `within lo x hi` is taken apart with `P`'s patterns, built with `P`'s constructors or record, and `h.read` is the whole fact as `P` (a field such as `h.read.low` can be written `h.low` too):
+
+<!-- snippet: proofs.sw#readings -->
+```stitchwort
+type Within (lo: Nat) (x: Nat) (hi: Nat): Prop = {
+  low: lo ≤ x,
+  high: x ≤ hi
+}
+
+def within (lo: Nat) (x: Nat) (hi: Nat): Bool := lo <= x && x <= hi
+
+@[reading]
+theorem withinReads (lo: Nat) (x: Nat) (hi: Nat): within lo x hi ↔ Within lo x hi := {
+  forward = h => { low = h.left, high = h.right },
+  backward = r => Both r.low r.high
+}
+
+theorem withinHigh (lo: Nat) (x: Nat) (hi: Nat) (h: within lo x hi): x ≤ hi :=
+  match h with
+    | { low, high } => high
+
+theorem withinLow (lo: Nat) (x: Nat) (hi: Nat) (h: within lo x hi): lo ≤ x := h.read.low
+
+theorem withinSelf (x: Nat): within x x x := { low = Nat.leRefl x, high = Nat.leRefl x }
+
+theorem eitherSide (a: Bool) (b: Bool) (h: (a || b) = True): b ∨ a :=
+  match h with
+    | Inl ha => Inr ha
+    | Inr hb => Inl hb
+```
+
+The library gives `&&`, `||` and `not` their readings: `(a && b) = True` reads as `a ∧ b`, `(a || b) = True` as `a ∨ b`, `not a = True` as `a = False`, and each `= False` as what you'd expect (`(a && b) = False` as `a = False ∨ b = False`). Each pattern reads one layer: `Both _ rest` leaves `rest` the fact `(b || c) = True`, and a pattern under it reads that in turn. A test whose function has no reading is unfolded to one that has, so `def isDigit (n: Nat): Bool := within 48 n 57` reads as `Within 48 n 57`. A fact `e = False` with no reading reads as `¬e`. Where nothing reads (`h: a = True` with `a` a variable), the error `E-NO-READING` says what the test is. A test has one reading for `= True` and one for `= False`, declared in the namespace (or library file) of its function.
+
 To use a condition in a proof, `match` on it. `match fits: e with` splits on the value of `e`, replaces `e` with that value in the goal, and names the equation `fits`:
 
 <!-- snippet: proofs.sw#match-equation -->

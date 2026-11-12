@@ -1,0 +1,13 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-READING-OVERLAP] Error: `small` already has a reading for `= True`: `smallReads`
+    ╭─[ reject/reading-overlap.sw:11:3 ]
+    │
+ 11 │ @[reading]
+    │   ───┬───  
+    │      ╰───── `small` already has a reading for `= True`: `smallReads`
+    │ 
+    │ Note: each test reads as one proposition (and one more for `= False`), so a pattern, an error and a hover can always say which
+────╯

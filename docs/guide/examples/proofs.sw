@@ -193,6 +193,34 @@ theorem smallBoth (m: Nat) (n: Nat) (h: isSmall m ∧ isSmall n): isSmall n := h
 theorem smallSame (n: Nat) (h: isSmall n): isSmall n = True := h
 -- end bool-statement
 
+-- begin readings
+type Within (lo: Nat) (x: Nat) (hi: Nat): Prop = {
+  low: lo ≤ x,
+  high: x ≤ hi
+}
+
+def within (lo: Nat) (x: Nat) (hi: Nat): Bool := lo <= x && x <= hi
+
+@[reading]
+theorem withinReads (lo: Nat) (x: Nat) (hi: Nat): within lo x hi ↔ Within lo x hi := {
+  forward = h => { low = h.left, high = h.right },
+  backward = r => Both r.low r.high
+}
+
+theorem withinHigh (lo: Nat) (x: Nat) (hi: Nat) (h: within lo x hi): x ≤ hi :=
+  match h with
+    | { low, high } => high
+
+theorem withinLow (lo: Nat) (x: Nat) (hi: Nat) (h: within lo x hi): lo ≤ x := h.read.low
+
+theorem withinSelf (x: Nat): within x x x := { low = Nat.leRefl x, high = Nat.leRefl x }
+
+theorem eitherSide (a: Bool) (b: Bool) (h: (a || b) = True): b ∨ a :=
+  match h with
+    | Inl ha => Inr ha
+    | Inr hb => Inl hb
+-- end readings
+
 -- begin dependent
 def pick (v: Vec Nat 3): Nat := v.get 2
 

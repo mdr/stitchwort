@@ -1,109 +1,119 @@
 # Reading a `Bool` fact as a proposition (SW-2704)
 
-**Status:** draft 1, 10 November 2026. Design only; nothing built. Follows
-D3482 (Matt, 10 November 2026: yes, after a design note) and
-[bool-and-prop.md](bool-and-prop.md) §7.3 and §7.5. Open decisions: D3486 to
-D3488 ([§12](#12-decisions-for-matt)). Code was read at `f55b2381b`.
-Migration cost is not counted (D2303).
+**Status:** draft 2, 12 November 2026. Stage 1 (§4) is built (SW-2734);
+stage 2 (§5, §6, §6.8) is being built (SW-2977). Follows D3482 (Matt,
+10 November 2026: yes, after a design note) and
+[bool-and-prop.md](bool-and-prop.md) §7.3 and §7.5. Decided: D3486 (§4.3),
+D3487 (§5), D3488 (§7) and D3531 (§6.8), see [§12](#12-decisions-for-matt).
+Draft 2 folds in the review of draft 1,
+[SW-2964-bool-reader-review.md](../reviews/SW-2964-bool-reader-review.md),
+whose recommendations Matt accepted: a reading is a marked `↔` theorem, one
+per test, declared with the test; an explicit word, `.read`, instead of
+silent crossing; the revised plan. Draft 1 read the code at `f55b2381b`,
+the review at `cd8ac0d08`. Migration cost is not counted (D2303).
 
-It assumes D3480's `Decidable`, `{ does: Bool, sound, complete }`, whose own
-note ([decidable-record.md](decidable-record.md), SW-2703) is being written
-in parallel. [§10](#10-what-depends-on-the-decidable-note) lists what here
-depends on it.
+It builds on D3480's `Decidable`, the record `{ holds: Bool, sound,
+complete }` (D3483; [decidable-record.md](decidable-record.md), built).
 
 How claims are marked:
 
-- **[measured]**: run today with the release CLI on the probe files in
+- **[measured]**: run with the release CLI on the probe files in
   [bool-as-proposition/](bool-as-proposition/), or counted with `grep -w`
-  over `std`, `aoc/src` and `games` at that commit. Counts include each
-  helper's own definition.
+  over `std`, `aoc/src` and `games`. Counts include each helper's own
+  definition.
 - **[checked]**: read in the code or a note, at the place given.
-- **[cited]**: read today at the link given ([Sources](#sources)).
-- **[memory]**: prior art recalled, not re-read today.
-- **[inferred]**: my reasoning; not run and not cited.
+- **[cited]**: read at the link given ([Sources](#sources)).
+- **[memory]**: prior art recalled, not re-read.
+- **[inferred]**: reasoning; not run and not cited.
+- **[review]**: from the SW-2964 review, which marks its own claims.
 
 ## 0. Summary
 
 **The problem.** A fact that comes from a program is a test giving `True`:
 `(s.contains k && xs.any p) = True`. It has no constructors, so a proof takes
-it apart with helper lemmas, and the `= True` is noise in every statement.
+it apart with helper lemmas, and the `= True` was noise in every statement.
 Across std and AoC there are about 650 calls of the take-apart helpers
 (`Bool.andLeft`, `List.anyTrueElim` and their like) and about 615 calls that
-only carry a fact between a test and its proposition (`DecEq.sound`,
+carry a fact between a test and its proposition (`DecEq.sound`,
 `(List.memContains xs x).forward`) **[measured, §8.4]**.
 
 **The change**, in four parts:
 
 1. **A `Bool` where a proposition is expected means `b = True`**, and is
    printed as `b`. The logical operators stay logical: `a ∧ b` on two `Bool`s
-   is the proposition "`a` and `b`", not the test `a && b` (D3486).
+   is the proposition "`a` and `b`", not the test `a && b` (D3486). Built
+   (stage 1).
 2. **Readings.** A reading says what proposition a test decides: an ordinary
-   proved definition of type `Decidable P`, whose `does` is the test, marked
-   `@[reading]` (D3487). Std declares them for `&&`, `||`, `any`, `all`,
-   `contains`, `==`, `isSubset` and so on. Nothing is trusted: the elaborator
-   only writes `reading.sound h` or `reading.complete p`, which the kernel
-   checks.
+   proved theorem `test = True ↔ P` (or `test = False ↔ P`), marked
+   `@[reading]` (D3487). Each test has at most one reading of each polarity,
+   declared beside the test's function. Std declares them for `&&`, `||`,
+   `not`, then `any`, `all`, `contains`, `Nat.equal` and so on. Nothing is
+   trusted: the elaborator only writes `reading.forward h` or
+   `reading.backward p`, which the kernel checks.
 3. **Patterns and constructors go through readings.** `match h with | Both
    inSet (Witness x (Both xIn px))` on the fact above works: each
-   constructor pattern asks for one reading of the test under it. Writing
-   `Both l r` where `(a && b) = True` is wanted works too. A fact whose
-   reading is a `∀` can be applied, and built with a lambda.
-4. **Crossing** (D3488): a whole fact passed where its reading is wanted, or
-   the other way, is converted: `found: xs.contains x = True` is accepted
-   for `x ∈ xs`. So are `e = False` and `¬(e = True)`.
-
-`omega`, `auto` and `cases` use the same reader in place of `omega`'s private
-table.
+   constructor pattern reads the test under it, one layer at a time.
+   Writing `Both l r` where `(a && b) = True` is wanted works too.
+4. **`.read`** (D3488, D3531): `found.read`, for `found: xs.contains x`, is
+   the whole fact as its proposition, `x ∈ xs`. It works in every position,
+   including `rewrite` rules and untyped `let`s. A fact is never converted
+   silently (§7).
 
 **What it should do.** 2024 day 8's `part2IncludesPart1` goes from 17 lines
-and 12 helper calls to 7 lines and none **[inferred; its two inner steps
-measured in `readings.sw`]**. About 1,265 helper calls in std and AoC become
-removable **[measured counts; that each one goes is inferred]**. Code that
-checks today is unaffected: the reader runs only where there is a type error
-today **[inferred]**.
+and 12 helper calls to about 7 lines and none **[inferred; its two inner
+steps measured in `readings.sw`]**. About 650 helper calls become patterns
+and constructors, and most of the 615 crossings become one word, `.read`,
+instead of thirty lemma names **[measured counts; that each one goes is
+inferred]**. Code that checks today is unaffected: the reader runs only
+where there is a type error today and the elaborator isn't trying one
+reading before another; the acceptance check is that no example's hash
+changes (§13).
 
-Seven lanes, about 26 lane-hours **[estimated]**, in [§11](#11-staged-plan).
+Stage 1 is built; the rest is about 20 lane-hours **[estimated]**, in
+[§11](#11-staged-plan).
 
 ## 1. Words
 
 - **Test**: an expression of type `Bool`.
-- **Test fact**: a proof of `e = True` or `e = False` for a test `e`.
-- **Reading**: a definition `r: Decidable P` whose `does` computes to a
-  test. `P` is what the test "reads as".
-- **Reader**: the elaborator function that, given a test and the shape of
-  proposition wanted, finds a reading.
-- **Crossing**: turning a test fact into its reading (`r.sound h`), or back
-  (`r.complete p`).
+- **Test fact**: a proof of `e = True` or `e = False` for a test `e`. Its
+  **polarity** is which.
+- **Reading**: a theorem `e = True ↔ P` or `e = False ↔ P`, marked
+  `@[reading]`. `P` is what the test "reads as" at that polarity.
+- **Reader**: the elaborator function that, given a test and a polarity,
+  finds its reading.
+- **Crossing**: turning a test fact into its reading (`r.forward h`), or back
+  (`r.backward p`). Written `.read` (§6.8); never silent (§7).
 
 ## 2. Today
 
-All **[measured, `today.sw`]** unless marked:
+Stage 1 is built (SW-2734, `288c2d7fe`, D3482): `(h: b)` for `b: Bool`
+checks as `b = True`, goals print `b = True` as `b`, and the old
+`E-NOT-A-TYPE` notes for `Bool`s are gone (`docs/syntax.md`, "A `Bool` as a
+proposition"). What is still as draft 1 found it **[measured, `today.sw`;
+checked again by the review]**:
 
-- `(h: b)` for `b: Bool` is `E-NOT-A-TYPE`, "this has type `Bool`, so it
-  isn't a type". `¬a` and `a ∧ b` on `Bool`s in a proposition add the note
-  "`&&` here is on propositions; for a `Bool` `b`, the proposition that it's
-  true is `b = True`". `if h: b` adds a note suggesting `if h: c = True`
-  (`check.rs:5216`, checked).
 - `match h with | Both l r` on `h: (a && b) = True` is `E-TYPE-MISMATCH`,
-  "these patterns match a `And`, but the argument has type …"
-  (`lib.rs:4797`, checked).
+  "these patterns match a `And`, but the argument has type …" (`lib.rs`,
+  `check_tree`, checked).
 - `h: a = True` and `k: a = False` together don't close a goal: `cases`
   finds no contradiction.
-- Goals print `h: (a && b) = True`, `k: (c <= d) = False`, `m: xs.any (x =>
-  x <= c) = True`, `p: a.not = True`, but `a ≤ b` for `Nat.leq a b = True`
-  (`pretty.rs:1266`, checked). So the printer already hides one `= True`,
-  and already tells the test `&&` from the proposition `∧`.
 - `∧` and `&&` are one token (D1200). Where a proposition is expected it is
-  `And` and its operands must be propositions; elsewhere the `Bool` reading
-  is tried first (`logic.rs:1-19`, checked).
+  `And`; elsewhere the `Bool` reading is tried first (`logic.rs:1-19`,
+  checked).
 - `omega` reads `(p && q) = True`, `(p || q) = True`, `not p`, both
-  polarities, and `Decidable.toBool d`, through 25 bridge lemmas it names in
-  Rust (`omega.rs:124-148`, `bool_form` at `:860`, `read` at `:1474`,
-  checked). `auto` has its own smaller version for conjunctions
-  (`auto.rs:36-38`, checked).
+  polarities, and a decision's test through the decision (`d.holds = True`
+  by `d.sound`, `= False` by `Decidable.refute`), through bridge lemmas it
+  names in Rust (`omega.rs:123-163`, `bool_form`, checked). `auto` has its
+  own smaller version for conjunctions (`auto.rs:36-38`, checked).
 - `Decidable` instances are found from the proposition, one per head
   (`interfaces.rs:14-24`, checked). Nothing goes from a test to a
   proposition.
+- `deriving (DecEq)` still answers by `Decidable.yes`/`no` under a match
+  (`derive.rs:49-56`), so a derived `==` on unknowns is stuck on the
+  decision; and `List.decMem`, `decDistinct`, `decSorted` and `decLeHead`
+  recurse on the list, so their `holds` is not the test std's functions
+  use (`if x ∈ xs` and `if xs.contains x` are different tests) **[review,
+  §1]**.
 
 ## 3. Prior art
 
@@ -280,21 +290,19 @@ Goals, error labels and `rfl` notes all print through one printer
 
 - `Nat.leq a b` prints as `a ≤ b` in a `Bool` position too, with `≤`, not
   `<=`. With the coercion, the same text is right in both positions.
-- The form `(a <= b).decTrue.toBool` that a note can show today
-  (bool-and-prop.md §7.5) is gone once D3480's `does` computes to the test.
-  The printer's `comparison` reads a comparison through an `Ord` dictionary
-  as `Decidable.toBool (Ord.decLessEq d a b)` (`pretty.rs:1731-1750`,
-  checked); it changes to the `does` projection.
+- The form `(a <= b).decTrue.toBool` that a note could show (bool-and-prop.md
+  §7.5) went with `Decidable.toBool` (SW-2746, SW-2761): a decision's test
+  is its `holds` field, which computes to the test.
 
-### 4.6 Today's errors
+### 4.6 The errors stage 1 changed
 
 - `E-NOT-A-TYPE` stays for things that are neither types nor `Bool`s, and
   for the sides of an `=` (§4.1). Its `Bool` notes go (`logic.rs`,
   `check.rs:5216`), and two reject examples become accept examples
   (`and-bool-in-prop`, `if-proof-on-bool`, checked).
 - `if h: b` on a `Bool` gives `h: b = True` in the first branch. The second
-  should get `h: b = False`, the form `rewrite` wants; crossing (§7) turns
-  it into `¬b` where that is wanted. (SW-2703 owns `if h:`.)
+  should get `h: b = False`, the form `rewrite` wants; `h.read` turns it
+  into `¬b` where that is wanted (§6.8). (SW-2703 owns `if h:`.)
 - The note for `if h: a < b = True` ("the guard is already a proposition")
   stays.
 
@@ -302,168 +310,208 @@ Goals, error labels and `rfl` notes all print through one printer
 
 ### 5.1 What a reading is
 
-An ordinary definition, proved once, in std or in a project:
+An ordinary theorem, proved once, beside the test's function, marked
+`@[reading]` (D3487):
 
 ```
 @[reading]
-def Bool.andReading (a b: Bool): Decidable (a ∧ b) := {
-  does = a && b,
-  sound = h => Both (Bool.andLeft h) (Bool.andRight h),
-  complete = h => Bool.andIntro h.left h.right
-}
+theorem Bool.andReads (a b: Bool): (a && b) = True ↔ a ∧ b
 
 @[reading]
-def List.anyReading (xs: List a) (f: a → Bool): Decidable (∃ (x: a) => x ∈ xs ∧ f x) := {
-  does = xs.any f, sound = …, complete = …
-}
+theorem Bool.andReadsFalse (a b: Bool): (a && b) = False ↔ a = False ∨ b = False
+
+@[reading]
+theorem List.anyReads (xs: List a) (f: a → Bool): xs.any f ↔ ∃ (x: a) => x ∈ xs ∧ f x
+
+@[reading]
+theorem List.containsReads [auto eq: DecEq a] (xs: List a) (x: a): xs.contains x ↔ x ∈ xs
 ```
 
-**[measured, `readings.sw`: five readings written this way against a
-stand-in record check, and each one's `does` equals its test by `rfl` with
-everything unknown.]**
+A positive reading may leave out its `= True`, as any statement may since
+stage 1: `xs.any f ↔ …` is `xs.any f = True ↔ …`. The negative ones are
+written as they read; no `not` encoding is needed. Std already has 27
+lemmas of this shape, and AoC 33; they become readings by being marked (and
+moved beside their function, §5.3) **[review, §2.2]**.
 
 The starting set **[inferred]**, writing `∃ x ∈ xs, p` for `∃ (x: a) => x ∈
 xs ∧ p` and `∀ x ∈ xs, p` for `∀ (x: a) => x ∈ xs → p`:
 
-| Test | Reads as | Negative: `test = False` reads as |
+| Test | `= True` reads as | `= False` reads as | Stage |
+|---|---|---|---|
+| `a && b` | `a ∧ b` | `a = False ∨ b = False` | 2 |
+| `a \|\| b` | `a ∨ b` | `a = False ∧ b = False` | 2 |
+| `not a` | `a = False` | `a` | 2 |
+| `xs.any f` | `∃ x ∈ xs, f x` | `∀ x ∈ xs, f x = False` | 3 |
+| `xs.all f` | `∀ x ∈ xs, f x` | `∃ x ∈ xs, f x = False` | 3 |
+| `xs.contains x` | `x ∈ xs` | `x ∉ xs` | 3 |
+| `Nat.equal a b` (`a == b` on `Nat`) | `a = b` | `a ≠ b` | 3 |
+| `s.isSubset t` | `∀ k ∈ s, k ∈ t` | (none at first) | 3 |
+| `o.isSome`, `xs.isEmpty` | `∃ x, o = Some x`, `xs = []` | `o = None`, (none) | 3 |
+| `Nat.leq a b`, `s.contains k`, `c.isDigit` | themselves | `Nat.leq a b = False` reads as `b < a` | 3 |
+
+### 5.2 Why a marked `↔` theorem
+
+Draft 1 proposed a `Decidable` definition marked `@[reading]`. The review's
+comparison **[review, §2.3]**, in short:
+
+| | `Decidable` definition (draft 1) | `↔` theorem (decided) |
 |---|---|---|
-| `a && b` | `a ∧ b` | `a = False ∨ b = False` |
-| `a \|\| b` | `a ∨ b` | `a = False ∧ b = False` |
-| `not a` | `a = False` | `a` |
-| `xs.any f` | `∃ x ∈ xs, f x` | `∀ x ∈ xs, f x = False` |
-| `xs.all f` | `∀ x ∈ xs, f x` | `∃ x ∈ xs, f x = False` |
-| `xs.contains x` | `x ∈ xs` | `x ∉ xs` |
-| `a == b` | `a = b` | `a ≠ b` |
-| `s.isSubset t` | `∀ k ∈ s, k ∈ t` | (none at first) |
-| `o.isSome`, `xs.isEmpty` | `∃ x, o = Some x`, `xs = []` | `o = None`, (none) |
-| `Nat.leq a b`, `s.contains k`, `c.isDigit` | themselves | `Nat.leq a b = False` reads as `b < a` |
+| Where the test is | in the body, the `holds` field; found by evaluating it | in the statement: the left side |
+| What a reader of std sees | `Decidable (a ∧ b)`; two readings of different tests have the same type | `(a && b) = True ↔ a ∧ b` |
+| `= False` readings | encoded as `holds = not (a && b)` | written as they read |
+| What the compiler emits | `r.sound h`, `r.complete p` | `r.forward h`, `r.backward p`: what proofs write by hand today |
+| Existing lemmas | all rewritten as records | `List.memContains` and its like get the mark |
+| Kind | a `def` in `Type`, whose body matters to what depends on it | a theorem: folded, and dependants see only its statement |
+| A decision from it | is the reading | one line: `{ holds = test, sound = r.forward, complete = r.backward }` |
 
-A negative reading is the same kind of definition, with `does = not (a &&
-b)`: it has to be declared, because "not both" gives "one is false" only by
-looking at the `Bool`s **[measured: `notAndReading` in `readings.sw`]**.
+Not instance search, because instances are found from the proposition and
+the reader starts from the test; and the readings of `&&`, `||` and `not`
+and the negative ones are not instances of anything. Not a table in Rust
+(today's `omega`), because it can't grow with the library, and a project's
+own collection type couldn't have readings. Not named views (SSReflect's
+`case/andP`): the pattern already says which shape is wanted.
 
-### 5.2 Why a marked definition, and not instance search or a Rust table
-
-- **Not instance search.** Instances are found from the proposition, one
-  per head. The reader goes the other way, from the test, so it needs its
-  own index whatever feeds it. Some readings shouldn't be instances (the
-  negative ones; `∃ x ∈ xs, f x`, whose head is `∃`). Some instances are
-  pointless as readings (`Nat.decLessEq`, whose proposition is its test).
-- **Not a table in Rust** (today's `omega`). It can't grow with the library,
-  and a project's own collection type couldn't have readings.
-- **An attribute on a `Decidable`**, because D3480's record is exactly a
-  test with its two proofs, the mechanism for attributes exists (`@[tailrec]`,
-  `@[noReceiver]`, checked), and the reading stays an ordinary definition
-  that can be called by hand: `(List.anyReading xs f).sound h` is the escape
-  hatch, and is all the elaborator ever writes.
-
-An `instance` may also carry `@[reading]` (`List.decMem`, for `xs.contains
-x`), and `deriving (DecEq)` puts it on what it generates.
+`@[reading]` is the first attribute allowed on a theorem (`attributes.rs`,
+checked). An `instance` can't carry it: an instance is a `Decidable`, not
+an `↔`. Where an instance's test should read as its proposition, the
+reader's stuck-decision step (§5.4, step 2) does it with no declaration.
 
 ### 5.3 How a reading is declared
 
-When a `@[reading]` definition is checked, the elaborator computes its
-`does` with the parameters as unknowns and files it under **(polarity, head
-of the test, head of the proposition)**:
+When a `@[reading]` theorem is checked, the elaborator looks at its
+statement, `∀ params, lhs ↔ P`, and files it under **(polarity, head of the
+test)**. It is refused, with the error named, if:
 
-- polarity is negative when `does` is `not e`; the head is then `e`'s;
-- the head of the test is the function it is stuck on (`List.any`,
-  `Set.contains`), or "and"/"or" for the two `Bool.ifThenElse` shapes that
-  `&&` and `||` are (`omega.rs:886-898`, checked);
-- the head of the proposition is `∧`, `∨`, `∃`, `=`, `∀`/`→`, or a named
-  proposition (`List.Mem`).
+- **`E-READING-SHAPE`**: the statement isn't an `↔`; its left side isn't `e
+  = True` or `e = False` (or a bare `Bool` `e`, which is `e = True`); `e`
+  isn't a call of a function defined by the program or the library (a
+  variable, a constructor or a constant has no parts to read); the call's
+  arguments aren't the theorem's parameters, each exactly once (as an
+  instance's head is a type applied to distinct variables), so that
+  matching a test against it only reads off its arguments; or `e` is an
+  `if` other than `&&` and `||`;
+- **`E-READING-OVERLAP`**: the same polarity of the same head already has
+  a reading. The message names it. One reading per test (D3487): "what does
+  `xs.contains x` read as?" then has one answer, which every error and a
+  hover can print **[review, §2.4]**;
+- **`E-READING-PLACE`**: it isn't declared with its test (D3487): in the
+  library, in the same file as the test's function (the core counts as one
+  file, since it is always loaded); in a project, in the same namespace.
 
-It is refused if:
+The head is the function the call is of. `&&` and `||` are two `if`s
+(`Bool.ifThenElse a (_ => b) (_ => False)` and `Bool.ifThenElse a (_ =>
+True) (_ => b)`, `omega.rs`, `bool_form`, checked), so they count as two
+heads of their own, and their readings, like `not`'s, live in the core.
 
-- its type isn't `Decidable P` (`E-READING-SHAPE`);
-- `does` is a bare parameter, a constant, or leaves a parameter
-  undetermined (it would fit everything, or couldn't be filled in);
-- another reading has the same key and their tests overlap
-  (`E-READING-OVERLAP`, naming the other);
-- it is declared outside the module that owns the test's head function or
-  the proposition's head: the orphan rule instances have
-  (`interfaces.rs:17-19`, checked).
+**Why with the test** **[review, §2.5]**. The library loads its files on
+demand, by the names a program mentions, and a pattern `Both l r` mentions
+no reading. A reading in another file than its test's would work or fail
+by whether something else had loaded that file: the bug std had twice,
+for instances (SW-1362) and congruence lemmas (SW-1354). A test can only
+appear in a term if its file is loaded, so a reading in the same file is
+always there. The same rule makes the check cache right without a new
+input (§5.7), and means importing a namespace never changes how a test
+from elsewhere reads. What it costs: a project can't give a std test a
+reading std forgot; it can still use the lemma by hand, or wrap the test in
+a function of its own, which may have one.
 
 ### 5.4 How a reading is found
 
-`read(test, polarity, wanted)`, where `wanted` is the head of proposition
-the caller needs (from a pattern's constructor, an expected type, or
-"any"):
+`read(test, polarity)`:
 
-1. Compute the test to where it is stuck, keeping calls folded.
-2. **A stuck decision.** If the test is `d.does` for a `d: Decidable P`
-   that doesn't compute (a dictionary's `==`, a hypothesis), it reads as
-   `P`, through `d` itself. No table needed.
-3. Look up (polarity, head, wanted). Match the reading's `does` against the
-   test, which fills in the reading's parameters; `auto` parameters such as
-   `DecEq a` are found as usual.
-4. If nothing is filed under this head, unfold the head one step and go to
-   1. So a project's `def isAntinode city p := city.antennas.any (…)` reads
-   as `∃` with no declaration. At most 8 steps (an implementation call).
+1. Look at the test as it is, with calls folded: the form the goal prints.
+2. **A stuck decision** (stage 3). If the test is `d.holds` for a `d:
+   Decidable P` that doesn't compute (a derived `==`, a hypothesis), it
+   reads as `P` (or `¬P`), through `d.sound`, `d.complete` and
+   `Decidable.refute`. No declaration needed.
+3. Look up (polarity, head of the test). At most one theorem is there; its
+   parameters are the test's arguments.
+4. If none, and the head is a call that isn't `opaque`, unfold it one step
+   and go to 1. So a project's `def isAntinode city p := city.antennas.any
+   (…)` reads as `∃` with no declaration. At most 8 steps.
 5. Otherwise the test is a **leaf**: it reads only as itself.
 
-The reader works **one layer at a time**. `andReading`'s parts are `a =
-True` and `b = True`, test facts again. A nested pattern or a deeper
-expected type asks again for the part it touches. So nothing is searched:
-the pattern or type that is wanted drives every step.
+The reader works **one layer at a time**. `Bool.andReads`'s parts are `a =
+True` and `b = True`, test facts again. A nested pattern asks again for the
+part it touches. Nothing is searched: the pattern drives every step.
 
-### 5.5 When two fit, or none
+**Folded or unfolded** **[review, §2.4]**. `xs.contains x` is `List.any xs
+(member => member == x)` by definition. Folded it reads as `x ∈ xs`; if a
+`rewrite` or an unfolding has left the `any`, it reads as `∃`. The rule
+that makes this predictable: the reader goes by the test as the goal prints
+it (step 1). Both readings are equivalent to the test, so neither choice
+can prove anything false.
 
-- **Two with the same key** can't exist (§5.3).
-- **Two with different wanted shapes** is the useful case: `xs.any f` could
-  read as `∃ x ∈ xs, f x` and as `List.Any (x => f x) xs`. The caller's
-  wanted shape picks. When the caller wants "any" (`omega`), the first
-  declared wins; it only asks about `∧`, `∨` and `¬`, which have one each.
+**Unfolding leaks implementations** **[review, §2.6]**. Step 4 lets `Both
+lo hi` take apart `h: c.isDigit` by unfolding `isDigit` to its two
+comparisons, so the proof depends on how `isDigit` is written. That is true
+of any proof that unfolds a definition. `opaque` is the existing way to stop
+it, and the reader respects it; a test meant to be abstract gets a reading
+of its own or is `opaque`.
+
+### 5.5 When none fits
+
+- **Two readings for one key** can't exist (§5.3).
+- **None fits.** A pattern, a constructor or `.read` is `E-NO-READING`
+  (§6.7), which says what the test reads as, if anything.
 - **Ambiguity is never a soundness or provability question.** Every reading
-  of a test is equivalent to the test, so two readings are equivalent to
-  each other. The choice changes which constructors a pattern needs, and
-  the pattern is what made the choice.
-- **None fits.** In a pattern or a constructor this is `E-NO-READING` (§6.5).
-  In crossing it is the type mismatch reported today, with a note.
+  of a test is equivalent to the test.
 
 ### 5.6 Unknowns and stuck terms
 
-- **The test's head is an unknown** (`?f x`): the reader answers "blocked".
-  A crossing waits, as an instance obligation does (`interfaces.rs:21-24`,
-  checked). A pattern can't wait, and reports "the type of this isn't known
-  yet", as other patterns do.
-- **Unknowns inside the test** (`xs.any ?f`) don't block: matching fills the
-  reading's parameters with them. The reader never assigns an unknown of
-  the caller's.
+- **The test's head is an unknown** (`?f x`): it is a leaf for now, and a
+  pattern on it reports that it can't be taken apart, as other patterns do
+  on a type not known yet.
+- **Unknowns inside the test** (`xs.any ?f`) don't block: the reading's
+  parameters are the test's arguments, unknowns included. The reader never
+  solves an unknown.
 - **A variable or an unknown function's call** (`b`, `p x`): a leaf. Its
   fact can be matched only by a name, `_`, or `()` when it computes to
   `False = True`.
 - **A test that computes to `True` or `False`** is not read. `False = True`
   is matched by `()` as today.
+- **A folded call** (`small 3`) is looked up by its function first, as
+  written, before anything it computes to: `small 3` reads by `small`'s
+  reading even though it computes to `True`. A declaration's own test is
+  read from its statement as written, a term, never from its value.
 
-### 5.7 Cost
+### 5.7 Cost and the check cache
 
-- Declaring: one evaluation of `does` per reading; a few dozen readings.
-- Finding: a hash lookup by head, one first-order match against a small
-  pattern, and up to 8 unfolding steps when the head has no reading.
-- The reader is called from three places only: a constructor pattern whose
-  type doesn't match the fact (an error today), a constructor or lambda
-  checked against a test fact (an error today), and a type mismatch with a
-  test fact on one side (an error today). So code that checks today never
-  calls it. **[inferred; nothing measured, since nothing is built]**
-- `omega` calls it once per fact in scope, in place of `bool_form`, which
-  does the same work by hand.
-- The table is part of what a cached check depends on, as the instance
-  table is (interfaces.md §9.3, checked): the check cache's key must
-  include it.
+- Declaring: one look at the statement per reading.
+- Finding: a lookup by head, reading off the arguments, and up to 8
+  unfolding steps when the head has no reading. The bound should become one
+  on work, not steps, if a large test is ever slow to reject.
+- The reader is called from six places: a constructor or record pattern
+  whose type is a test fact (the split, and compiling the pattern, which
+  needs the record type), a constructor or a record literal checked against
+  a test fact, `.read`, and a field of a fact (`h.left`, tried once on the
+  reading when the fact has no such field). Each was an error before. So
+  code that checks today calls it only where it failed before, and never
+  inside one of the elaborator's try-one-reading-then-another paths (§13).
+  A pattern or a constructor reads again while the reading is a test fact
+  (§6.4), up to 8 readings; `.read` and a field read one.
+- **The check cache** keys a unit by its own text and the keys of the units
+  it needs (`cache/mod.rs`, header). A reading lives in its test's file or
+  namespace, which is always among those, so a changed reading changes the
+  key of everything that can use it. The readings themselves are one more
+  table in an entry, as the instances are, and are replayed with it.
 
 ## 6. Patterns
 
 ### 6.1 Taking a fact apart
 
 Where a constructor pattern meets a scrutinee of type `e = True` or `e =
-False`, and the constructor belongs to a proposition (`Both`, `Inl`, `Inr`,
-`Witness`), the elaborator asks the reader for `e` with that proposition as
-the wanted shape, and matches on `r.sound h` instead of `h`. The hook is
-the place that reports the mismatch today (`lib.rs:4797`, checked).
+False`, and the constructor's type isn't `=`, the elaborator reads `e` at
+that polarity, and matches on `r.forward h` instead of `h`. The hook is the
+place that reports the mismatch today (`lib.rs`, `check_tree`, checked).
 
 This is every place patterns are written: `match`, equation arms, `let Both
 l r := h`, and a lambda's parameter.
+
+**`Refl` never triggers a reading** **[review, §4]**: `match h with | Refl`
+on `h: b = True` substitutes `True` for `b`, as today, whatever `b` is. To
+match the reading of `(x == y) = True` as an equation, write `match
+same.read with | Refl`.
 
 ### 6.2 Nesting
 
@@ -489,45 +537,44 @@ a test fact, ready for `rewrite`.
 the test in the goal and gives `h: (a && b) = True` or `= False`. Reading
 `h` afterwards (`let Both ha hb := h`) gives facts and refines nothing. The
 two don't interfere: one splits the `Bool`, the other takes apart a fact
-about it. A one-step spelling (`if Both ha hb: a && b`) is possible later
-and not proposed.
+about it.
 
 ### 6.4 Negation
 
-- `h: e = False` is read through the negative readings (§5.1): `match h
-  with | Inl na | Inr nb` on `(a && b) = False` **[measured, `negative` in
+- `h: e = False` is read through the negative reading: `match h with | Inl
+  na | Inr nb` on `(a && b) = False` **[measured, `negative` in
   `readings.sw`]**.
-- `(not e) = True` is first turned into `e = False`, and `(not e) = False`
-  into `e = True`, by fixed lemmas (`Bool.notTrue`, as `omega` does today).
-- `e = False` and `¬(e = True)` are different terms that mean the same.
-  Each is accepted where the other is wanted (§7). With a reading `P` of
-  `e`, `e = False` is accepted for `¬P` too, through `complete`.
+- `(not e) = True` reads as `e = False` and `(not e) = False` as `e =
+  True`, by `not`'s two readings; the reader reads the result again when the
+  pattern asks.
+- `.read` on a fact `e = False` with no negative reading gives `¬e` (that
+  is, `¬(e = True)`) (§6.8).
 - A new closer for `cases` and `auto`: `h: e = True` and `k: e = False` in
-  scope close any goal. Today they don't **[measured, `clash` in
-  `today.sw`]**.
+  scope close any goal. It needs no reader, and is its own ticket.
 
 ### 6.5 Exhaustiveness
 
 After the reading, the scrutinee is an ordinary `P ∧ Q`, `P ∨ Q` or `∃`, so
-the ordinary coverage check applies: an `∨` needs both arms. A fact read as
-`∨` or `∃` can be matched only where the result is a proof, as for any
-`∨` (`E-PROP-ELIM`).
+the ordinary coverage check applies: an `∨` needs both arms. In a program
+(a `def` returning data), a fact read as `∨` or `∃` can't be matched
+(`E-PROP-ELIM`, as for any `∨`); there a program wants `match e: test with`.
 
-In one column, the constructor patterns must agree on the reading: `| Both
-l r` in one arm and `| Refl` in another is an error. Names and `_` mix with
-anything.
+In one column, the constructor patterns must agree on the type they match:
+`| Both l r` in one arm and `| Refl` in another is an error. Names and `_`
+mix with anything.
 
 ### 6.6 Building
 
 - A constructor (`Both x y`, `Inl x`, `Witness x p`) checked against `e =
-  True` asks the reader with that constructor's proposition, checks the
-  constructor against the reading, and wraps it in `r.complete` **[measured,
-  `build`]**.
-- A lambda checked against a test fact asks for a `∀` reading: `key has =>
-  …` proves `s.isSubset t`.
-- A test fact applied to arguments asks for a `∀` reading: `allSmall y
-  yIn` **[measured, `useAll`]**.
-- A field of a fact (`h.left`) asks as a pattern would.
+  True` or `e = False` reads `e` at that polarity, checks the constructor
+  against the reading, and wraps it in `r.backward` **[measured, `build`]**.
+- A field of a fact, `h.left`, is `h.read.left`.
+- **Not built** **[review, §4]**: a lambda checked against a test fact, and
+  a test fact applied to arguments (draft 1's `∀` hooks). They served few
+  uses (`List.allMember` 18, `Set.isSubsetIntro` and `Elim` 5) and were the
+  most surprising part: an equation's proof applied like a function.
+  `allSmall.read y yIn` applies the function the reading gives, and a std
+  function builds such a fact from a lambda.
 
 ### 6.7 Errors
 
@@ -536,44 +583,72 @@ anything.
   │ match h with
   │   | Both l r => …
   │     ───┬────
-  │        ╰── `h` is the test `xs.isSorted`, which has no reading as `∧`
-  │ Note 1: it reads as `List.Sorted xs` (`List.sortedReading`)
+  │        ╰── `h` is the test fact `xs.isSorted`, which reads as `List.Sorted xs`
+  │ Note 1: `Both` matches `And`; `List.Sorted xs` isn't one
   │ Note 2: a test fact can always be matched by a name
 ```
 
-- For a leaf: "`b` is a variable, so the fact `b` has no parts".
-- For crossing that fails: today's `E-TYPE-MISMATCH`, with "`found` is the
-  test `xs.contains x`, which reads as `x ∈ xs`".
-- Hovering a pattern that went through a reading names it (LSP; an
-  implementation call).
+- For a leaf: "`b` has no reading, so the fact `b` has no parts", with a
+  note on `@[reading]` when the head is a function of the program's own.
+- For `.read` on a leaf at `True`: the same.
+- The mismatch error where a test fact is given for its reading gets the
+  note "`found` is the test `xs.contains x`, which reads as `x ∈ xs`: write
+  `found.read`" (stage 3, once std's readings are in).
 
-## 7. Crossing (D3488)
+### 6.8 Reading a whole fact: `.read` (D3531)
 
-When a term's type and the expected type don't unify, both are known, and
-one of them is a test fact:
+`h.read`, for a test fact `h: e = True`, is the proposition `e` reads as,
+proved by `r.forward h`; for `h: e = False`, the negative reading, or if
+`e` has none, `¬e` (`¬(e = True)`).
 
-- **fact given, proposition wanted:** read the test with the expected
-  type's head as the wanted shape; if the reading unifies with the expected
-  type, the term becomes `r.sound h`;
-- **proposition given, fact wanted:** the same, with `r.complete p`;
-- `e = False` against `¬(e = True)`, and against `¬P`, as in §6.4.
+```
+rewrite same.read in …                    -- today: rewrite DecEq.sound same in …
+let equal := same.read
+Eq.sym same.read
+| True => omega [(within _ found.read).right]   -- 2024 day 12, Sides.sw:226
+let Both _ sameFrequency := same in … sameFrequency.read …
+```
 
-One layer only. `found: xs.contains x = True` is accepted for `x ∈ xs`, and
-`same: (a == b) = True` for `a = b`. A fact that needs two layers converted
-inside a `∧` is not; a pattern does that.
+- **It works in every position**, including the 201 measured where silent
+  crossing can't (rewrite rules, untyped `let`s, `Eq.sym`) **[review,
+  §3.3]**. It needs no expected type, because each test has one reading.
+- **It is one layer**, as a pattern is. `h.read.read` is two.
+- **It fails at the word.** `b.read` on a leaf's fact is `E-NO-READING`.
+- **It is the pattern hook's term** with no pattern round it.
 
-Why this is safe to do silently **[inferred]**:
+The way back, a proposition to its test fact, has two cases **[review,
+§3.4]**: where the wanted type is known, a constructor builds it (§6.6) and
+otherwise the reading's `backward` is written by hand; where it isn't,
+it is instance search: once each decision's `holds` is its test (§13), a
+std function `[auto d: Decidable p] (h: p): d.holds = True` gives the test
+fact. A word for it waits for stage 3's counts.
 
-- it happens only where there is a type error today;
-- it applies only between a test and a reading declared for it, which are
-  proved equivalent;
-- both sides are proofs, erased at run time, so no program's behaviour can
-  change;
-- the term written is `r.sound h`, checked by the kernel.
+## 7. Silent crossing, deferred (D3488)
 
-It is recommended, but as a later stage, because it is the part with the
-most room for confusing errors, and patterns and building are useful
-without it.
+Draft 1 proposed converting a whole fact silently where its reading is
+wanted, at a type mismatch. Decided: not now (D3488); `.read` instead,
+and revisit after a measured sweep. The review's reasons **[review,
+§3.2]**:
+
+- **A test fact is itself an equation.** Where an equation is wanted,
+  `(x == y) = True` fits as it stands, so there is no mismatch to hook in
+  the commonest places such facts are used: `rewrite same in` (which
+  silently rewrites `x == y` to `True`), `let equal := same`, `Eq.sym same`.
+- **Whether there is a mismatch can depend on elaboration order**: for `f
+  same` with `f: [x y: a] → x = y → …`, it depends on whether `a` is known
+  yet.
+- **The elaborator uses type errors to choose** between readings of `if
+  c`, `&&` with nothing expected, and comparison sections. A crossing that
+  turns such an error into a success sends a program that checks today
+  down the other path, to a different term, with no error anywhere.
+- **The win is smaller than draft 1 said**: of the 510 named uses, at most
+  270 sit where a mismatch could occur; about 300 to 350 calls in all,
+  not 615 **[review, §3.3]**.
+
+If silent crossing comes later, it is "insert `.read` where the types
+don't fit", only where the wanted type's head is known and is not `=`, and
+only outside the try-and-fall-back paths; `e = False` against `¬(e =
+True)` first. That is stage 4's measurement (§11).
 
 ## 8. The wins, on real code
 
@@ -585,23 +660,23 @@ times, `Bool.andRight` twice, `List.anyTrueElim` twice and `List.anyOfMem`
 twice. The four `any` calls each need their test's lambda written out in
 full, up to 150 characters.
 
-After **[inferred]**:
+After **[inferred; to be measured once stage 3 is in, review §5.6]**:
 
 ```
 theorem part2IncludesPart1 (city: City):
     (antinodeLocations city (isAntinode city)).isSubset (antinodeLocations city (isHarmonicAntinode city)) :=
-  key has =>
+  Set.isSubsetIntro (key has =>
     let Both onMap (Witness first (Both firstIn (Witness second (Both secondIn (Both same (Both inLine twice)))))) :=
       rewrite Set.containsFilter … at has in has
     rewrite Set.containsFilter … in
-    Both onMap (Witness first (Both firstIn (Witness second (Both secondIn (Both same inLine)))))
+    Both onMap (Witness first (Both firstIn (Witness second (Both secondIn (Both same inLine))))))
 ```
 
-Seven lines, no helpers. The lambdas go because the reader takes each test
-from the fact's own type. `isHarmonicAntinode city key` has no reading, so
-it is unfolded one step to its `any` (§5.4, step 4). The two rewrites stay:
-an equation between tests is the right tool for `filter` (bool-and-prop.md
-§6, point 4).
+About seven lines, no take-apart helpers. The lambdas go because the reader
+takes each test from the fact's own type. `isHarmonicAntinode city key` has
+no reading, so it is unfolded one step to its `any` (§5.4, step 4). The two
+rewrites stay: an equation between tests is the right tool for `filter`
+(bool-and-prop.md §6, point 4).
 
 ### 8.2 2024 day 12, `Sides.sw:226`
 
@@ -612,14 +687,12 @@ Today **[checked]**:
     ((List.memContains region.plots { row, column = Succ last }).forward found))])
 ```
 
-After, with crossing **[inferred]**: `| True => omega [(within _ found).right]`.
-`found: region.plots.contains … = True` is accepted for `… ∈ region.plots`.
-Without crossing this line doesn't change.
+After **[inferred]**: `| True => omega [(within _ found.read).right]`.
 
 ### 8.3 2024 day 8, `part2Correct` and `antennasAreAntinodes` (`:160`, `:177`)
 
-- `Decidable.toBoolSound _ (Bool.andRight same)` becomes a pattern on
-  `same`: `Both _ sameFrequency`, the second part crossing to the equation.
+- `Bool.andRight same` and the `DecEq.sound` round it become a pattern and
+  a word: `let Both _ sameFrequency := same in … sameFrequency.read`.
 - `antennasAreAntinodes` builds two nested `any` facts with `List.anyOfMem`
   and `Bool.andIntro`, lambdas in full; it becomes `Both (positionsOnMap …)
   (Witness first (Both firstIn (Witness second (Both secondIn (Both same
@@ -627,186 +700,175 @@ Without crossing this line doesn't change.
 
 ### 8.4 Counts
 
-Uses across `std`, `aoc/src` and `games` **[measured, `grep -w`; each
-includes the helper's definition]**:
+Uses across `std`, `aoc/src` and `games` **[measured, `grep -w`, at
+`f55b2381b`; the review found them unchanged to within a few at
+`cd8ac0d08`, except where marked]**:
 
 | Removed by | Helpers | Uses |
 |---|---|---|
 | Patterns and building (stages 2, 3) | `Bool.andLeft` 175, `andRight` 194, `andIntro` 82, `orElim` 36, `orLeft` 15, `orRight` 20 | 522 |
 | | `List.anyTrueElim` 41, `anyOfMem` 45, `allMember` 18 | 104 |
 | | `Bool.orFalseLeft`/`Right`, `andFalseElim`, `notTrue`, `Set.isSubsetIntro`/`Elim` | 24 |
-| Crossing (stage 4) | `DecEq.sound` 293, `DecEq.soundFalse` 70 | 363 |
-| | `.forward`/`.backward` on a test-to-proposition `↔` lemma (`List.memContains` 34, `Set.containsFromListIff` 16, `Set.memToList` 14, 28 more names) | at least 105 |
+| `.read` (stages 2, 3) | `DecEq.sound` 290, `DecEq.soundFalse` 73 | 363 |
+| | `.forward`/`.backward` on a one-function test-to-proposition `↔` lemma (`List.memContains` 34, 28 more names) | about 75 |
 | | `Nat.equalSound` 46, `Nat.leqFalse` 42, `Bool.falseOfNotTrue` 35, `List.allToAll` 15, `List.allOfAll` 9 | 147 |
-| D3480 alone (SW-2703) | `Decidable.toBoolSound`, `toBoolFalse`, `toBoolOf`, `toBoolOfNot` | 71 |
-| **Not** by this design | `Void.exfalso (Bool.falseNotTrue h)` 334, `… (Bool.trueNotFalse h)` 62 | 396 |
+| Not readings | `Set.containsFromListIff` 16 (two functions deep), `Set.memToList` 14 (its test reads as itself) | 30 |
+| Done before this design | D3480's `Decidable.toBool…` lemmas | deleted |
+| **Not** by this design | `Void.exfalso (Bool.falseNotTrue h)`, `… (Bool.trueNotFalse h)` | 157 and 70 mentions at `cd8ac0d08` (396 at `f55b2381b`: most of that sweep has happened) |
 
-So 650 for patterns and at least 615 for crossing. Two honest limits:
+So about 650 for patterns and building, and about 585 for `.read`. `.read`
+doesn't remove a crossing; it makes it one word instead of thirty lemma
+names. Of those 585, at most about half sit where silent crossing could
+ever have applied (§7). Two honest limits:
 
 - A removed helper isn't always a shorter proof. `f (Bool.andLeft r)
   (Bool.andRight r)` becomes a `let Both l r := r` and `f l r`.
-- **`Bool.falseNotTrue` is mostly not this design's win**, though
-  bool-and-prop.md §1 lists it. 334 of its 421 uses are an impossible arm,
-  `Void.exfalso (Bool.falseNotTrue h)` where `h` computes to `False =
-  True`, and `Bool.trueNotFalse` has 62 more. `cases` closes such an arm
-  today **[measured on one: `Succ n ≤ 0 ⊢ Void`; that it closes all of them
-  is inferred]**. That is a sweep with no language change (a finding,
-  §14).
+- `rewrite DecEq.sound same in` becomes `rewrite same.read in`: shorter
+  and needs no lemma name, but not gone.
 
-## 9. Tactics: one reader
+## 9. Tactics: one reader, later
 
-A new module, `reading.rs`, with the reader of §5.4 and one helper over it:
+A module, `reading.rs`, has the reader of §5.4. The end state is that the
+tactics use it too:
 
-- `read(test, polarity, wanted)`: a reading, a leaf, or blocked;
-- `facts_of(h)`: a hypothesis with everything its `∧` layers give, whether
-  the `∧` is the proposition or a test's reading.
-
-Then:
-
-- **`omega`** drops `bool_form`'s `And`, `Or`, `Not` and `ToBool` arms and
-  the bridge lemmas for them (`omega.rs:126-148`). It reads each fact by
-  `facts_of`, asks the reader for `∨` to find its case splits, and keeps
-  only what is arithmetic: `Nat.leq`, `Int.leq`, `Int.less`, `Nat.equal`.
-  The terms it emits are `r.sound h` in place of `Bool.andLeft h`.
-- **`auto`** replaces `from_conjuncts` (`auto.rs:36-38`) with `facts_of`,
-  so the proof an `if a && b` gives its branch is found the same way as a
-  `∧` hypothesis.
-- **`cases`** uses `facts_of` for its "a hypothesis" closer, and gets the
-  `e = True` against `e = False` closer (§6.4). Its splitting is unchanged:
-  it splits the stuck `Bool`, and facts about it compute.
+- **`auto`** replaces `from_conjuncts` (`auto.rs:36-38`) with "a hypothesis
+  with everything its `∧` layers give", so an `if a && b` whose fact is a
+  test fact is used like an `∧`. **`cases`** does the same for its
+  hypothesis closer. Small, visible, after stage 2.
+- **The `e = True` against `e = False` closer** for `cases` and `auto`
+  needs no reader: its own ticket, now.
+- **`omega`** already reads `&&`, `||`, `not`, both polarities and
+  decisions, after computing the fact. Moving it onto the reader changes the
+  terms it emits and no proof a user writes, so it goes last, and only if
+  the reader's interface fits `omega`'s needs (it reads goals as well as
+  facts, and splits) **[review, §4]**.
 
 `cases` and `auto` deciding a *goal* go the other way, from a proposition to
-its test, by instance search as now. With D3480 that test is `d.does`, and
-the proof is `d.sound rfl`.
+its test, by instance search as now: the proof is `d.sound rfl`.
 
-## 10. What depends on the `Decidable` note
+## 10. What depended on the `Decidable` note
 
-- **The type of a reading** is D3480's record. If its field names or shape
-  change in SW-2703, readings follow; nothing else here cares.
-- **§5.4 step 2** needs `does` to be a projection that is stuck on a stuck
-  decision.
-- **`==`** must compute to the type's own test (`Nat.equal a b`) for the
-  `a == b` reading to be found by head, and `deriving (DecEq)` must mark
-  what it generates.
-- **`if h: b`'s second branch** (§4.6) is SW-2703's to settle.
-- **A `&&` whose right side uses the left's proof** (`n != 0 && len % n ==
-  0`) has a different shape from the plain `&&`. It gets no reading at
-  first, so it is a leaf.
-- **Stage 1 (the coercion and printing) depends on none of this** and can
-  start now.
+Settled: `Decidable` is `{ holds, sound, complete }` (D3483); `==` on `Nat`
+computes to `Nat.equal`; a derived `==` is a stuck decision, read by §5.4's
+step 2 (stage 3). Still open, for stage 3: std's four recursive decisions
+and `deriving (DecEq)` written test first (§13), so that each decision's
+`holds` is the test its reading reads.
+
+A `&&` whose right side uses the left's proof (`n != 0 && len % n == 0`) is
+a `Decidable.elim`, not the plain `if`; it gets no reading at first, so it
+is a leaf.
 
 ## 11. Staged plan
 
-Estimates are lane-hours and are guesses **[estimated]**; no lane like
-these has been timed. Each stage leaves `main` green: 1 to 5 only accept
-more programs or change printing; 6 is sweeps. Stages 2 to 5 write kernel
-terms, so each gets an Opus review (D2364). Each language-visible stage
-updates `docs/syntax.md` and the guide in the same lane.
+Estimates are lane-hours and guesses **[estimated]**; stage 1 took 30 min
+against 3 h, so they are probably high. Each stage leaves `main` green.
+Stages that write kernel terms get an Opus review (D2364). Each
+language-visible stage updates `docs/syntax.md` and the guide in the same
+lane.
 
 | # | Lane | Needs | Model | Est. |
 |---|---|---|---|---|
-| 1 | **The coercion and printing** (§4): `Bool` in a proposition position; the printing rule with a print-then-read-back test over the examples; `≤` in `Bool` positions; `E-NOT-A-TYPE` notes | nothing | Opus | 3 h |
-| 2 | **The reader, with `&&`, `\|\|`, `not`** (§5, §6): `@[reading]`, the table, `read`; patterns, building, both polarities; `E-NO-READING`, `E-READING-SHAPE`, `E-READING-OVERLAP`; the check cache's key | SW-2703 built | Opus | 6 h |
-| 3 | **Std's readings**: `any`, `all`, `contains`, `==`, `isSubset`, `isSome`, `isEmpty`, the negatives; `∀` readings by application and lambda | 2 | Sonnet for the readings, Opus for the `∀` hooks | 4 h |
-| 4 | **Crossing** (§7), if D3488 is yes; the `e = True`/`e = False` closer | 2 | Opus | 4 h |
-| 5 | **`omega`, `auto`, `cases` on the reader** (§9); `omega`'s table deleted | 2 | Opus | 4 h |
-| 6 | **Sweeps**, by area: statements lose `= True`; helpers replaced by patterns; the `= True ↔` twins and the helpers left unused deleted | 3, 4 | Sonnet, three lanes (std, AoC 2020-21, AoC 2024) | 3 × 1.5 h |
-| 7 | **Guide and tour**: a guide chapter "Tests and propositions", a feature-tour page, the proving guide's "Writing statements" | 3 | Sonnet | 1.5 h |
+| 1 | **The coercion and printing** (§4) | nothing | Opus | done (SW-2734) |
+| now | The `e = True` against `e = False` closer for `cases` and `auto` | nothing | any | small |
+| now | Std's four recursive decisions written test first (`decMem`, `decDistinct`, `decSorted`, `decLeHead`), and `deriving (DecEq)` as decidable-record.md stage 4 planned | nothing | Sonnet | 2 h |
+| 2 | **The reader, with `&&`, `\|\|`, `not`** (§5, §6, §6.8): `@[reading]` theorems, one per test, declared with the test, and their checks (`E-READING-SHAPE`, `E-READING-OVERLAP`, `E-READING-PLACE`); the reader with unfolding; patterns, building, both polarities, `.read`, `h.left`; `E-NO-READING`; the readings in the check cache; `Iff` into the core, where the six connective readings live; **no example's hash changes** | 1 | Opus | 6 h |
+| 3 | **Std's readings**: `any`, `all`, `contains`, `Nat.equal`, `isSubset`, `isSome`, `isEmpty` and the negatives, each beside its function; the stuck-decision step (§5.4, step 2); the warning when a decision's `holds` isn't the test its proposition's reading reads (§13); the mismatch note suggesting `.read` | 2 | Sonnet; Opus for step 2 | 4 h |
+| 4 | **Measure, then decide**: after one AoC year is swept with `.read`, count the `.read`s that sit where restricted silent crossing (§7) would apply | 3, 6 | Sonnet | 1 h |
+| 5 | `auto` and `cases` on the reader (§9) | 2 | Opus | 2 h |
+| 6 | **Sweeps**, by area: helpers replaced by patterns and `.read`; the `= True ↔` lemmas marked or deleted | 3 | Sonnet, three lanes (std, AoC 2020-21, AoC 2024) | 3 × 1.5 h |
+| 7 | **Guide and tour**: a guide chapter "Tests and propositions", the proving guide's "Writing statements"; one sentence more: "to use the whole fact as its proposition, write `.read`" | 3 | Sonnet | 1.5 h |
+| last | `omega` on the reader's table | 5 | Opus | optional |
 
-Stage 1 can run beside SW-2703's build. Stages 3, 4 and 5 can run in
-parallel after 2.
+Stages 3 and 5 can run in parallel after 2.
 
 ## 12. Decisions for Matt
 
 - **D3486: In a proposition, does `a ∧ b` on two `Bool`s mean the
   proposition "`a` and `b`" (`a = True ∧ b = True`), with the test fact
-  written and printed in full as `(a && b) = True`?** **[rec: yes]** (§4.3,
-  §4.4). It is a small step back from D3482's "printed without `= True`":
-  every fact prints bare except a test whose top is `&&` or `||`. The
-  alternative: two `Bool` operands make the test, printed `a && b`, and
-  whether a statement is a test or a proposition then depends on its
-  operands' types. **Decided: yes** (SW-2735, 10 November 2026):
+  written and printed in full as `(a && b) = True`?** **Decided: yes**
+  (SW-2735, 10 November 2026):
   [bool-operators-in-propositions.md](bool-operators-in-propositions.md).
-- **Decided (D3487, Matt, 12 Nov 2026): yes, amended per docs/reviews/SW-2964-bool-reader-review.md: a reading is a marked `↔` theorem, one per test, declared with the test.**
-- **D3487: Are readings ordinary proved definitions marked `@[reading]`,
+- **D3487: Are readings ordinary proved declarations marked `@[reading]`,
   which std and projects can add, and not a fixed list in the compiler?**
-  **[rec: yes]** (§5.1 to §5.3). It adds one attribute to the language and
-  an orphan rule like the one for instances. Nothing is trusted either way.
-- **Decided (D3488, Matt, 12 Nov 2026): no silent crossing for now; an explicit word (working name `.read`) in stage 2; revisit after a measured sweep (SW-2964 review).**
-- **Decided (D3531, Matt, 12 Nov 2026): the word is `.read` (`found.read` turns `xs.contains x = True` into `x ∈ xs`).**
+  **Decided: yes, amended** (Matt, 12 November 2026, per the SW-2964
+  review): a reading is a marked `↔` theorem, one per test (and polarity),
+  declared with the test (§5).
 - **D3488: Should a whole fact be converted silently where its reading is
-  wanted, and back (`found: xs.contains x = True` accepted for `x ∈ xs`;
-  `e = False` for `¬e`)?** **[rec: yes, as stage 4, one layer only]** (§7).
-  It is about half the measured win (615 of 1,265 uses). The alternative is
-  patterns and building only, with crossings still written by hand.
+  wanted?** **Decided: not for now** (Matt, 12 November 2026): an explicit
+  word in stage 2; revisit after a measured sweep (§7, stage 4).
+- **D3531: What is the word?** **Decided: `.read`** (Matt, 12 November
+  2026): `found.read`, for `found: xs.contains x`, is `x ∈ xs`. The way back
+  waits for stage 3 (§6.8).
 
 Implementation calls, made here and open to change in the lanes:
 
 - `∧` operands coerce one by one; `f: a → Bool` is not accepted for `a →
   Prop` (§4.1).
 - `b = False` never prints as `¬b` (§4.4).
-- Readings are filed by (polarity, test head, proposition head); the same
-  key twice is an error at the declaration (§5.3).
-- A head with no reading is unfolded up to 8 steps (§5.4).
-- The reader works one layer at a time, driven by the pattern or the
-  expected type (§5.4).
-- A blocked crossing waits; a blocked pattern is an error (§5.6).
-- One column's constructor patterns must agree on the reading (§6.5).
+- A reading's test is its head applied to its parameters, each once; the
+  key is (polarity, head), with `&&` and `||` as heads of their own (§5.3).
+- A head with no reading is unfolded up to 8 steps, never through `opaque`
+  (§5.4).
+- The reader works one layer at a time, driven by the pattern (§5.4).
+- `Refl` never triggers a reading (§6.1).
 - Reading a fact refines nothing in the goal (§6.3).
-- An `instance` can also be a reading; `deriving (DecEq)` marks its own
-  (§5.2).
-- The names: `@[reading]`, `Bool.andReading`, `E-NO-READING`.
+- `Iff` moves into the core, so the six connective readings can be stated
+  there with `↔`.
+- The names: `@[reading]`, `Bool.andReads`, `.read`, `E-NO-READING`,
+  `E-READING-SHAPE`, `E-READING-OVERLAP`, `E-READING-PLACE`.
 
 ## 13. Risks
 
-- **Surprising coercions.**
-  - `(x: ready)` where `x: Bool` was meant now declares a proof of `ready`.
-    Lean has the same; the error comes at the first use.
-  - A `Bool` beside `=` could have become an equation between
-    propositions; §4.1 excludes the sides of an `=` for that reason.
-  - Two terms that print alike: avoided by the printing rule (§4.4), which
-    lane 1 tests by reading back what it prints.
-  - Crossing can hide which form a lemma wants. It is limited to one layer
-    and to declared readings, and the hover names it.
-- **Ambiguity.** One reading per key, by construction. Between shapes the
-  pattern chooses. No choice affects what is provable (§5.5).
-- **Performance.** No instance search happens in a pattern: a lookup and a
-  match per constructor (§5.7). The unfolding in step 4 is bounded. Not
-  measured.
-- **Learnability.**
-  - One sentence covers it: "a fact about a test can be taken apart, and
-    built, like the proposition it decides".
-  - What a newcomer can't see is *which* proposition. `E-NO-READING` lists
-    the readings; the hover names the one used; a `stitchwort readings`
-    listing would be cheap.
-  - Nothing is hidden for good: the elaborated term is a call of a std
-    definition one can write by hand.
-  - SSReflect's cost was naming views at every use; here there is nothing
-    to name.
+- **The reader changing programs that check today** **[review, §5.1]**.
+  The elaborator tries one reading of `if c`, `&&` and comparison sections
+  and falls back to another on a type error. If the reader turned such an
+  error into a success, a program that checks today would elaborate to a
+  different term with no error. The hooks are narrow (a constructor
+  against an equation, which those fallbacks don't rely on), and **the
+  check is that no existing example's hash changes**: stage 2's lane and
+  the verifier after it.
+- **Load order and the cache** **[review, §5.2]**: readings live with
+  their tests, checked at the declaration (`E-READING-PLACE`), so a proof
+  never passes or fails by what else is in the run.
+- **The test's folded form** **[review, §5.3]**: which reading applies goes
+  by whether the test is folded. Stage 2 tests a fact read both ways.
+- **Readings by unfolding leak implementations** **[review, §5.4]**: not a
+  soundness matter; `opaque` stops it.
+- **Std's decisions disagree with std's tests** **[review, §2.7, §5.5]**:
+  `x ∈ xs` and `xs.contains x` are two tests today. Readings paper over it
+  for patterns but not for `rewrite`. The rule that removes it: where a
+  test `t` reads as `P` and `P` has a decision, the decision's `holds` is
+  `t`. Checked by a warning in stage 3, satisfied by writing the four
+  recursive decisions test first.
+- **The counts are of calls, not of proofs that get shorter**
+  **[review, §5.6]**: measure 2024 day 8 and day 12 by hand once stage 3
+  is in.
+- **Surprising coercions** (stage 1): `(x: ready)` where `x: Bool` was
+  meant now declares a proof of `ready`; a `Bool` beside `=` is not
+  coerced (§4.1).
+- **Learnability.** One sentence covers it: "a fact about a test can be
+  taken apart, and built, like the proposition it decides; `.read` gives
+  the whole proposition". What a newcomer can't see is *which*
+  proposition; with one reading per test, `E-NO-READING` and a hover can
+  always say it. Nothing is hidden for good: the elaborated term is a call
+  of a std theorem one can write by hand.
 - **What it rules out or constrains later.**
   - `b` in a type position is taken, so `Bool` can't later coerce to a type
     some other way (Agda's `T`, Idris's `So`).
-  - D3486 fixes what `∧` on `Bool`s means in a statement; changing it later
-    changes those statements' terms.
-  - A general view feature for data (Wadler's) is not ruled out, but its
-    patterns would have to coexist with these: constructor patterns on a
-    test fact already have a meaning.
+  - One reading per test can be widened later (the key grows, nothing
+    written stops checking); silent crossing can be added later. Neither
+    can be taken back cheaply, which is the reason for the order.
   - A future `simp` fits: the readings are Lean's `Bool` simp lemmas as
-    pairs of implications instead of `propext` equations, and `simp` could
-    use the same table.
-  - `rewrite` with `↔` under connectives (bool-and-prop.md §7.4) is
-    independent.
-- **Readings that overreach.** A reading with a deep pattern
+    `↔` theorems, usable as they are.
+- **Readings that overreach.** A reading with a deep test
   (`(s.filter p).contains k` as `k ∈ s ∧ p k`) would be `simp` by another
-  name. The key is the head only, and std should keep to one function per
-  reading; `filter` stays a rewrite.
+  name. §5.3's shape rule (a head applied to parameters) refuses it;
+  `filter` stays a rewrite.
 
 ## 14. What this note did not do
 
-- No build and no test run; probes only, with the release CLI.
-- The reader, the hooks and crossing are designs, not prototypes. What was
-  run is the *output*: the readings and the terms that patterns would
-  stand for (`readings.sw`).
+- Draft 1 ran probes only, with the release CLI; draft 2 adds the review's
+  amendments and no new measurements.
 - The "after" proofs in §8 were not checked, apart from their inner steps.
 - Cost is argued, not measured.
 - How readings interact with effects in a test (`xs.any f` with an
@@ -815,15 +877,15 @@ Implementation calls, made here and open to change in the lanes:
   display is inferred from its coercion (§3.2). Wadler's and McBride and
   McKinna's papers were read in abstract only.
 
-Findings for tickets:
+Findings for tickets (draft 1's and the review's):
 
-1. 396 `Void.exfalso (Bool.falseNotTrue h)` and `… trueNotFalse h` arms
-   that `cases` should close today: a sweep with no language change
-   (§8.4).
-2. `cases` doesn't close a goal from `h: a = True` and `k: a = False`
-   (§2, measured).
-3. `(a <= b) = False` prints with ASCII `<=` where the positive form prints
-   `≤` (§2, measured).
+1. `cases` and `auto` don't close a goal from `h: e = True` and `k: e =
+   False` (§6.4, measured).
+2. `List.decMem`, `decDistinct`, `decSorted` and `decLeHead` recurse on the
+   list, so `if x ∈ xs` and `if xs.contains x` are different tests; and
+   `deriving (DecEq)` still answers by `Decidable.yes`/`no` (§2).
+3. `(a <= b) = False` printed with ASCII `<=` where the positive form
+   prints `≤` (draft 1, §2; stage 1 may have settled it).
 4. bool-and-prop.md §7.5 said Lean prints such a fact as `b`; Lean 4 shows
    `b = true` (§3.2). Corrected there (SW-2714).
 
@@ -832,7 +894,7 @@ Findings for tickets:
 - **[G1]** G. Gonthier, A. Mahboubi, "An introduction to small scale
   reflection in Coq", Journal of Formalized Reasoning 3(2), 2010.
   <https://jfr.unibo.it/article/view/1979> (as quoted in bool-and-prop.md;
-  not re-read today).
+  not re-read).
 - **[R1]** The Rocq reference manual, "The SSReflect proof language",
   "Views and reflection".
   <https://rocq-prover.org/doc/V9.0.0/refman/proof-engine/ssreflect-proof-language.html>
@@ -850,7 +912,11 @@ Findings for tickets:
 - **[V3]** C. McBride, J. McKinna, "The view from the left", Journal of
   Functional Programming 14(1), 2004, pp. 69-111.
   <https://doi.org/10.1017/S0956796803004829> (abstract read).
+- The review's own sources (Rocq's `Stdlib.Bool.Bool`, Isabelle's `[iff]`,
+  agda-stdlib's `Decidable.Core`) are listed in
+  [SW-2964-bool-reader-review.md](../reviews/SW-2964-bool-reader-review.md).
 
-Stitchwort notes this builds on: bool-and-prop.md, decidable-record.md
-(SW-2703, in progress), interfaces.md §5.5 and §5.12, attributes.md,
-omega.md, decide.md, `docs/syntax.md` ("Logic notation", "cases").
+Stitchwort notes this builds on: bool-and-prop.md, decidable-record.md,
+interfaces.md §5.5 and §5.12, attributes.md, omega.md, decide.md,
+check-cache.md, `docs/syntax.md` ("Logic notation", "A `Bool` as a
+proposition", "cases").
