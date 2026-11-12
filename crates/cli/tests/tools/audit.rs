@@ -435,3 +435,100 @@ fn a_statement_naming_a_huge_computation_skips_its_search() {
         "{out}"
     );
 }
+
+/// SW-2943 (docs/proposals/tests-with-errors.md §4.5): `A` has an error and
+/// a false theorem, and a theorem that waits for the error; `B` is fine.
+const ERRORS_IN_A: &str = r#"namespace A
+
+def double (n: Nat): Nat := n + n
+
+def broken (n: Nat): Nat := "oops"
+
+def twice (n: Nat): Nat := broken n + 1
+
+theorem doubleTwo: double 2 = 5 := rfl
+
+theorem twiceOne: twice 1 = 2 := rfl
+"#;
+
+const B_USES_A: &str = r#"namespace B
+
+import A (double)
+
+theorem quadOne: double 2 = 4 := rfl
+"#;
+
+fn project_with_errors(name: &str) -> PathBuf {
+    let dir = folder(name);
+    std::fs::create_dir_all(dir.join("src")).unwrap();
+    std::fs::write(dir.join("stitchwort.yaml"), "sources: [src]\n").unwrap();
+    std::fs::write(dir.join("src/a.sw"), ERRORS_IN_A).unwrap();
+    std::fs::write(dir.join("src/b.sw"), B_USES_A).unwrap();
+    dir
+}
+
+/// The verdicts are printed even though the project has errors, each
+/// theorem by what is wrong with it; the one that doesn't touch an error
+/// passes, and the run still fails (§4.8).
+#[test]
+fn audit_gives_a_verdict_per_theorem_in_a_project_with_errors() {
+    let dir = project_with_errors("errors");
+    let output = stitchwort(&dir, &["audit", "--no-search"]);
+    // Places start with the project folder's name.
+    let folder = format!("{}/", dir.file_name().unwrap().to_string_lossy());
+    let _ = std::fs::remove_dir_all(&dir);
+    let stdout = String::from_utf8(output.stdout)
+        .unwrap()
+        .replace(&folder, "");
+    assert_eq!(output.status.code(), Some(1), "{stdout}");
+    assert_eq!(
+        stdout,
+        "✗ A.doubleTwo\n    fail: has an error (src/a.sw:9:36)\n\
+         ✗ A.twiceOne\n    fail: can't be checked until `broken` is fixed (src/a.sw:5:29)\n\
+         audited 3 theorems: 2 failed, 0 with warnings, 1 passed (2 errors in the project)\n"
+    );
+}
+
+#[test]
+fn audit_json_has_a_status_for_a_theorem_with_an_error_or_waiting_for_one() {
+    let dir = project_with_errors("errors-json");
+    let output = stitchwort(&dir, &["audit", "--no-search", "--json"]);
+    let _ = std::fs::remove_dir_all(&dir);
+    assert_eq!(output.status.code(), Some(1));
+    let v: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(v["ok"], false);
+    assert_eq!(v["summary"]["errors"], 2);
+    let rows: Vec<_> = (v["theorems"].as_array().unwrap().iter())
+        .map(|t| {
+            (
+                t["name"].as_str().unwrap(),
+                t["status"].as_str().unwrap(),
+                t["error"]["declaration"].as_str(),
+                t["error"]["line"].as_u64(),
+            )
+        })
+        .collect();
+    assert_eq!(
+        rows,
+        [
+            ("A.doubleTwo", "failed", Some("A.doubleTwo"), Some(9)),
+            ("A.twiceOne", "waiting", Some("broken"), Some(5)),
+            ("B.quadOne", "checked", None, None),
+        ]
+    );
+    assert_eq!(v["theorems"][1]["findings"][0]["check"], "waiting");
+}
+
+/// A theorem that passes doesn't make a project with errors succeed.
+#[test]
+fn audit_fails_for_an_error_elsewhere_even_if_every_theorem_passes() {
+    let dir = project_with_errors("errors-elsewhere");
+    let output = stitchwort(&dir, &["audit", "--no-search", "B"]);
+    let _ = std::fs::remove_dir_all(&dir);
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert_eq!(output.status.code(), Some(1), "{stdout}");
+    assert!(
+        stdout.ends_with("1 passed (2 errors in the project)\n"),
+        "{stdout}"
+    );
+}

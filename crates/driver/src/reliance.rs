@@ -7,6 +7,10 @@
 //! elaborator's bookkeeping. A declaration that was not checked because a
 //! computation it needs is stuck on a goal is *blocked* on it
 //! (`Elaborator::blocked_on`).
+//!
+//! The same for errors, which are declarations' own (docs/proposals/
+//! tests-with-errors.md §4.3): [`Errors`] says which declarations have one
+//! and which can't be checked until one is fixed.
 
 use std::collections::BTreeSet;
 
@@ -101,6 +105,67 @@ pub struct Reliance {
     pub blocked: Vec<Dependent>,
 }
 
+/// Where an error is reported, and the declaration it is in.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+pub struct ErrorPlace {
+    /// The full name of the declaration with the error.
+    pub declaration: String,
+    /// Its place, if the error has one.
+    pub file: Option<String>,
+    pub line: Option<usize>,
+    pub column: Option<usize>,
+}
+
+impl ErrorPlace {
+    /// `file:line:column`, empty if the error has no place.
+    pub fn place(&self) -> String {
+        match (&self.file, self.line, self.column) {
+            (Some(file), Some(line), Some(column)) => format!("{file}:{line}:{column}"),
+            _ => String::new(),
+        }
+    }
+
+    /// The declaration's own name, without its namespace.
+    pub fn short(&self) -> &str {
+        short_name(&self.declaration)
+    }
+
+    /// "`broken` (src/a.sw:5:29)", or just the name if it has no place.
+    pub fn describe(&self) -> String {
+        match self.place().as_str() {
+            "" => format!("`{}`", self.short()),
+            place => format!("`{}` ({place})", self.short()),
+        }
+    }
+}
+
+/// A declaration that can't be checked until an error is fixed.
+#[derive(Clone, Debug)]
+pub struct WaitingForError {
+    /// Its full name.
+    pub name: String,
+    pub theorem: bool,
+    pub test: bool,
+    /// The declaration with the error it needs, and where the error is.
+    pub needs: ErrorPlace,
+}
+
+/// The errors of the last load: which declarations have one, and which
+/// can't be checked until one is fixed. Errors in declarations that don't
+/// parse are counted, with no place if the parser gave none.
+#[derive(Clone, Debug, Default)]
+pub struct Errors {
+    /// Declarations with an error of their own, in the order checked.
+    pub has: Vec<ErrorPlace>,
+    pub waiting: Vec<WaitingForError>,
+}
+
+impl Errors {
+    pub fn is_empty(&self) -> bool {
+        self.has.is_empty() && self.waiting.is_empty()
+    }
+}
+
 /// Whether `d` reports an open goal, as an error-level goal or, under
 /// `check: open-goals: warn`, a warning.
 pub fn is_goal(d: &Diagnostic) -> bool {
@@ -108,6 +173,43 @@ pub fn is_goal(d: &Diagnostic) -> bool {
 }
 
 impl Session {
+    /// The errors the last load found and what waits for them.
+    pub fn errors(&self) -> Errors {
+        let place = |declaration: String, span: Option<stitchwort_syntax::Span>| {
+            let at = span
+                .filter(|s| s.file.index() < self.sources.len())
+                .map(|span| {
+                    let file = self.sources.get(span.file);
+                    let before = &file.text[..(span.start as usize).min(file.text.len())];
+                    (
+                        file.name.clone(),
+                        before.matches('\n').count() + 1,
+                        before.rsplit('\n').next().unwrap_or("").chars().count() + 1,
+                    )
+                });
+            ErrorPlace {
+                declaration,
+                file: at.as_ref().map(|a| a.0.clone()),
+                line: at.as_ref().map(|a| a.1),
+                column: at.as_ref().map(|a| a.2),
+            }
+        };
+        let mut errors = Errors::default();
+        for f in self.elab.failed_decls() {
+            if f.own {
+                errors.has.push(place(f.full_name(), f.error_at));
+            } else {
+                errors.waiting.push(WaitingForError {
+                    name: f.full_name(),
+                    theorem: f.theorem,
+                    test: f.test,
+                    needs: place(f.root.clone(), f.error_at),
+                });
+            }
+        }
+        errors
+    }
+
     /// Where assumption `id`'s `?` is written.
     pub fn goal_place(&self, id: DefId) -> GoalPlace {
         let span = self.elab.assumption_span(id);

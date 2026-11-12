@@ -550,3 +550,107 @@ fn an_importer_follows_its_dependency_through_the_cache() {
     assert_eq!(stderr.matches("[E-USES-FAILED]").count(), 1, "{stderr}");
     assert_eq!(without(broken), without(first));
 }
+
+/// A test whose own body has an error, beside `broken` (its error) and
+/// `twice` (waiting for it), and a theorem that is false.
+const OWN_ERROR: &str = r#"namespace Demo
+
+def good (n: Nat): Nat := n + 1
+
+def broken (n: Nat): Nat := "oops"
+
+def twice (n: Nat): Nat := broken n + broken n
+
+theorem wrongSum: good 1 = 3 := rfl
+
+test "fine" := good 1 == 2
+test "own error" := good 1 == "two"
+test "uses twice" := twice 1 == 4
+"#;
+
+/// SW-2943 (docs/proposals/tests-with-errors.md §4.4): a test with an error
+/// of its own is a failed result in its place, so the count of tests
+/// doesn't change as errors come and go; `--json` counts the errors and
+/// `ok` is the exit status.
+#[test]
+fn a_test_with_an_error_of_its_own_is_a_failed_result() {
+    let dir = source_project("own-error", OWN_ERROR, "namespace B\n\ndef b: Nat := 1\n");
+    std::fs::write(dir.join("src/a.sw"), OWN_ERROR).unwrap();
+    let output = |args: &[&str]| {
+        Command::new(env!("CARGO_BIN_EXE_stitchwort"))
+            .args(args)
+            .arg("--no-cache")
+            .current_dir(&dir)
+            .stdin(Stdio::null())
+            .output()
+            .expect("run stitchwort")
+    };
+    let text = output(&["test"]);
+    let json = output(&["test", "--json"]);
+    let stdout = String::from_utf8(text.stdout).unwrap();
+    let stderr = String::from_utf8(text.stderr).unwrap();
+    let v: Value = serde_json::from_slice(&json.stdout).unwrap();
+    let _ = std::fs::remove_dir_all(&dir);
+    assert_eq!(text.status.code(), Some(1), "{stdout}{stderr}");
+    assert_eq!(json.status.code(), Some(1));
+    assert!(stdout.contains("✓ fine"), "{stdout}");
+    assert!(
+        stdout.contains("✗ own error   not run  (it has an error (")
+            && stdout.contains("src/a.sw:12:21))"),
+        "{stdout}"
+    );
+    assert!(stdout.contains("3 test(s): 1 passed, 2 failed"), "{stdout}");
+    // Three declarations have an error, one waits for `broken`.
+    assert!(
+        stderr
+            .contains("3 errors: in `Demo.broken`, `Demo.wrongSum` and `Demo.test \"own error\"`"),
+        "{stderr}"
+    );
+    assert_eq!(v["ok"], false);
+    assert_eq!(v["errors"], 3);
+    let names: Vec<_> = (v["tests"].as_array().unwrap().iter())
+        .map(|t| (t["name"].as_str().unwrap(), t["outcome"].as_str().unwrap()))
+        .collect();
+    assert_eq!(
+        names,
+        [
+            ("fine", "passed"),
+            ("own error", "failed"),
+            ("uses twice", "failed")
+        ]
+    );
+    let message = v["tests"][1]["message"].as_str().unwrap();
+    assert!(
+        message.starts_with("it has an error (") && message.ends_with("src/a.sw:12:21)"),
+        "{message}"
+    );
+}
+
+/// `check`'s summary lists the declarations with an error, then those that
+/// can't be checked until one is fixed and what each needs (§4.3).
+#[test]
+fn check_summarises_errors_and_what_waits_for_them() {
+    let dir = importer_project("summary", LIB_WITH_AN_ERROR);
+    let output = Command::new(env!("CARGO_BIN_EXE_stitchwort"))
+        .args(["check", "--no-cache"])
+        .current_dir(&dir)
+        .stdin(Stdio::null())
+        .output()
+        .expect("run stitchwort");
+    let _ = std::fs::remove_dir_all(&dir);
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    assert_eq!(output.status.code(), Some(1), "{stderr}");
+    let summary = stderr.lines().skip_while(|l| !l.starts_with("1 error:"));
+    let summary: Vec<_> = summary.collect();
+    assert_eq!(summary.len(), 5, "{stderr}");
+    assert_eq!(summary[0], "1 error: in `A.broken`");
+    assert_eq!(
+        summary[1],
+        "3 declarations can't be checked until an error is fixed:"
+    );
+    // The place starts with the project folder's name.
+    let needs = |l: &str| l.contains("needs `broken` (") && l.ends_with("src/a.sw:5:29)");
+    assert!(summary[2].starts_with("  B.quadBroken") && needs(summary[2]));
+    assert!(summary[3].starts_with("  B.again") && needs(summary[3]));
+    assert!(summary[4].starts_with("  B.test \"quad of broken\"") && needs(summary[4]));
+}
