@@ -514,12 +514,14 @@ pub struct Action {
     pub new_text: String,
 }
 
-/// Options for the quick fixes' search: the top three, within 5 s, and no
-/// more candidates once `wanted` have closed the goal.
+/// Options for the quick fixes' search: the simplest closer alone if one
+/// closes the goal (SW-2966); else the top three, within 5 s, and no more
+/// candidates once `wanted` have closed the goal.
 pub fn action_options(wanted: usize) -> AtOptions {
     AtOptions {
         limit: 3,
         stop_after_closing: Some(wanted),
+        simplest_first: true,
         time: Duration::from_secs(5),
         ..Default::default()
     }
