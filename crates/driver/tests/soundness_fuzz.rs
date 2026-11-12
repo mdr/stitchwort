@@ -1974,8 +1974,13 @@ struct VoidReport {
 
 /// Checks `text`, then looks for an accepted `boom`, an accepted closed
 /// proof of an empty type, and an accepted theorem the search refutes.
+///
+/// Accepted means finished, as `audit` reads it (`Elaborator::is_unfinished`):
+/// final and relying on no assumption. A declaration with an error stands
+/// in as an assumption of its statement under its own name (D3527), final
+/// and unmarked, so `boom: Void` with a bad body is one, and what uses it
+/// relies on it; neither is accepted.
 fn check_attempt(text: &str, cache: &Path) -> VoidReport {
-    use stitchwort_core::globals::{HashKey, State};
     let mut session = session();
     session.use_check_cache(cache);
     let first = session.elab.kernel.env.defs().len();
@@ -1996,11 +2001,7 @@ fn check_attempt(text: &str, cache: &Path) -> VoidReport {
     for id in (first..g.env.defs().len()).map(DefId) {
         let def = g.def(id);
         let path = def.path().to_string();
-        if path.starts_with("Std.")
-            || path.contains('%')
-            || def.state() != State::Final
-            || session.elab.marked_unfinished(HashKey::Def(id))
-        {
+        if path.starts_with("Std.") || path.contains('%') || session.elab.is_unfinished(id) {
             continue;
         }
         let name = def.name().to_string();
