@@ -3919,7 +3919,7 @@ fn callbacks_apply_no_function_where_it_is_made() {
             "a function applied where it's made: {line}"
         );
     }
-    // The membership test reads the field where it's used, and the `let`
+    // The membership test is `List.contains`, and the `let`
     // is a `const`, computed once, before the `filter`.
     assert!(
         line("notIn")
@@ -3929,7 +3929,7 @@ fn callbacks_apply_no_function_where_it_is_made() {
     );
     assert!(
         line("notIn")
-            .contains("$Std$dList$ddecMem($Std$dText$dinstDecEq, $Main$dCard$did(v3), v2)"),
+            .contains("$Std$dList$dcontains($Std$dText$dinstDecEq, v2, $Main$dCard$did(v3))"),
         "{}",
         line("notIn")
     );
