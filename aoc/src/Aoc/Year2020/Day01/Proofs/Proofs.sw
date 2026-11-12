@@ -40,7 +40,6 @@ theorem pairAheadBack (before: List Nat) (x: Nat) (rest: List Nat) (a: Nat) (b: 
 theorem findPairAfterSound (target: Nat) (seen: Set Nat) (before: List Nat) (passed: ∀ (y: Nat) => seen.contains y = True → y ∈ before) (rest: List Nat) (a b: Nat)
     (found: findPairAfter target seen rest = Some (a, b)): (PairAhead before rest a b) ∧ (a + b = target) :=
   match rest with
-    | [] => Void.exfalso (Option.noneNotSome (a, b) found)
     | [x, ..rest] =>
       match c: (x <= target && Set.contains seen (target - x)) with
         | True =>
@@ -64,7 +63,6 @@ theorem findPairAfterComplete (target: Nat): ∀ (seen: Set Nat) (before: List N
   | seen, before, remembered, [], a, b, Inr inPairs, sum, isNone => inPairs
   | seen, before, remembered, [x, ..rest], a, b, ahead, sum, isNone =>
     match c: (x <= target && Set.contains seen (target - x)) with
-      | True => Option.someNotNone _ isNone
       | False =>
         match pairAheadStep before x rest a b ahead with
           | Inl (Both aBefore bIs) =>
@@ -113,7 +111,6 @@ theorem product3 (a: Nat) (b: Nat) (c: Nat): [a, b, c].product = a * b * c := ri
 theorem findTripleSound (target: Nat) (entries: List Nat) (a b c: Nat)
     (found: findTriple target entries = Some (a, b, c)): ([a, b, c] ∈ entries.combinations 3) ∧ (a + b + c = target) :=
   match entries with
-    | [] => Void.exfalso (Option.noneNotSome _ found)
     | [x, ..rest] =>
       let later: findTriple target rest = Some (a, b, c) → ([a, b, c] ∈ [x, ..rest].combinations 3) ∧ (a + b + c = target) := laterFound =>
         let after := findTripleSound target rest a b c laterFound
@@ -160,7 +157,6 @@ theorem part1Sound (entries: List Nat) (answer: Nat) (found: solvePart1 entries 
       let sound := findPairSound 2020 entries a b pair
       rewrite <- Option.someInjective found in
         List.memMap _ (a, b) (List.memFilterIntro _ _ sound.left (rewrite sound.right in rfl)) (((a, b)) => a * b)
-    | None => Void.exfalso (Option.noneNotSome _ found)
 
 --| Part 1 has an answer whenever the puzzle has one.
 theorem part1Complete (entries: List Nat) (answer: Nat) (isAnswer: answer ∈ part1Answers entries): solvePart1 entries ≠ None :=
@@ -169,7 +165,6 @@ theorem part1Complete (entries: List Nat) (answer: Nat) (isAnswer: answer ∈ pa
       let kept := List.memFilter _ _ chosen
       none =>
         match pair: findPair 2020 entries with
-          | Some found => Option.someNotNone _ none
           | None => findPairComplete 2020 entries a b kept.left (DecEq.sound kept.right) pair
 
 --| So part 1 is the puzzle's answer, when there is exactly one.
@@ -185,7 +180,6 @@ theorem part2Sound (entries: List Nat) (answer: Nat) (found: solvePart2 entries 
       rewrite <- Option.someInjective found in
         rewrite <- product3 a b c in
           List.memMap _ [a, b, c] (List.memFilterIntro _ _ sound.left (rewrite sum3 a b c, sound.right in rfl)) (choice => choice.product)
-    | None => Void.exfalso (Option.noneNotSome _ found)
 
 --| Part 2 has an answer whenever the puzzle has one.
 theorem part2Complete (entries: List Nat) (answer: Nat) (isAnswer: answer ∈ part2Answers entries): solvePart2 entries ≠ None :=
@@ -197,7 +191,6 @@ theorem part2Complete (entries: List Nat) (answer: Nat) (isAnswer: answer ∈ pa
         | [a, b, c], threeLong =>
           none =>
             match triple: findTriple 2020 entries with
-              | Some found => Option.someNotNone _ none
               | None => findTripleComplete 2020 entries a b c kept.left (rewrite <- sum3 a b c in DecEq.sound kept.right) triple
         | [], tooShort => Void.exfalso (omega [tooShort])
         | [x], tooShort => Void.exfalso (omega [tooShort])

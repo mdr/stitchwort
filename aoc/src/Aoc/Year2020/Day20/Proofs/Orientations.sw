@@ -302,10 +302,8 @@ theorem allLengthOfAll (n: Nat) (rows: List (List Pixel)) (all: rows.all (row =>
 
 theorem rowsRectangle (rows: List (List Pixel)) (checked: Image.isRectangle { rows } = True): Rectangle { rows } :=
   match rows with
-    | [] => cases
     | [first, ..rest] =>
       match width: first.length with
-        | Zero => cases
         | Succ k => Witness k (Both (allLengthOfAll (Succ k) [first, ..rest] checked) (List.consNotNil first rest))
 
 theorem isRectangleSound (image: Image) (checked: image.isRectangle = True): Rectangle image :=

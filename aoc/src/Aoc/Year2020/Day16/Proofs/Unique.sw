@@ -17,10 +17,6 @@ theorem narrowAgrees (other: List Rule) (candidates: List (List Rule)) (values: 
     | [rule, ..other], [fields, ..candidates], [value, ..values] =>
       Both (List.memFilterIntro fields (field => field.allows value) (And.left members) (And.left allows))
         (narrowAgrees other candidates values (And.right members) (And.right allows))
-    | [], [], [value, ..values] => Void.exfalso allows
-    | [], [fields, ..candidates], values => Void.exfalso members
-    | [rule, ..other], [], values => Void.exfalso members
-    | [rule, ..other], [fields, ..candidates], [] => Void.exfalso allows
 
 theorem foldAgrees (other: List Rule) (tickets: List Ticket) (candidates: List (List Rule))
     (members: List.All2 (rule fields => rule ∈ fields) other candidates)
@@ -37,7 +33,6 @@ theorem replicateAgrees (rules: List Rule) (other: List Rule) (count: Nat) (same
   match other, count with
     | [], Zero => Trivial
     | [], Succ count => Void.exfalso (Nat.zeroNotSucc _ same)
-    | [rule, ..other], Zero => Void.exfalso (Nat.succNotZero _ same)
     | [rule, ..other], Succ count =>
       Both (members rule (Inl rfl)) (replicateAgrees rules other count (Nat.succInjective same) (later member => members later (Inr member)))
 
@@ -55,4 +50,3 @@ theorem fieldOrderOnly (notes: Notes) (order: List Rule) (found: notes.fieldOrde
                 let kept := List.memFilter notes.nearby notes.isValid member
                 tickets ticket (And.left kept) (And.right kept))
           assignOnly notes.candidates order found other inCandidates distinct
-    | False => Void.exfalso (Option.noneNotSome order found)

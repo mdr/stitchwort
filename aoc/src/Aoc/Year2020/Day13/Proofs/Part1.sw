@@ -48,10 +48,8 @@ theorem nextDepartureFirst (bus: Bus) [auto ok: bus.id ≠ 0] (from: Nat):
 --| When the program answers, the answer is the spec's.
 theorem part1Rules (notes: Notes) (answer: Nat) (positive: IdsPositive notes) (found: notes.earliestBus = Some answer): Spec.Part1 notes answer :=
   match m: notes.buses.minimumOf (bus => bus.nextDeparture notes.earliest) with
-    | None => Void.exfalso (Option.noneNotSome answer found)
     | Some first =>
       match f: notes.buses.find (bus => bus.nextDeparture notes.earliest == first) with
-        | None => Void.exfalso (Option.noneNotSome answer found)
         | Some bus =>
           match List.findSome notes.buses (bus => bus.nextDeparture notes.earliest == first) bus f with
             | Both isFirst busMember =>
@@ -87,4 +85,3 @@ theorem part1Answers (notes: Notes) (id: Nat) (listed: Listed id ∈ notes.sched
                 | None =>
                   List.findNoneNotMem notes.buses (bus => bus.nextDeparture notes.earliest == first) earliestBus
                     (rewrite leaves in DecEq.refl first) earliestMember f
-                | Some found => Option.someNotNone _ none

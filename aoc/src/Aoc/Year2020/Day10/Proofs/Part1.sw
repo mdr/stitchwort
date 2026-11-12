@@ -7,11 +7,9 @@ import Std (Bool, Eq, List, Option, Void)
 
 theorem part1Rules (bag: Bag) (answer: Nat) (found: bag.distribution = Some answer): Part1 bag.adapters answer :=
   match d: bag.device with
-    | None => Void.exfalso (Option.noneNotSome answer found)
     | Some device =>
       let (Witness highest (Both high same)) := deviceHighest bag device d
       match f: (bag.chain device).fits with
-        | False => Void.exfalso (Option.noneNotSome answer found)
         | True =>
           Witness highest (Both high (Witness bag.adapters.sort (Both (List.sortPerm bag.adapters) (Both
             (rewrite <- same, <- fitsConnects bag device in f)
@@ -24,7 +22,6 @@ theorem part1Complete (bag: Bag) (answer: Nat) (spec: Part1 bag.adapters answer)
   let fits: (bag.chain (highest + 3)).fits = True := rewrite fitsConnects, <- isSort in connects
   rewrite deviceOfHighest bag highest high in
     match f: (bag.chain (highest + 3)).fits with
-      | False => cases
       | True =>
         rewrite counted, isSort, <- differencesCount [0, ..bag.adapters.sort, highest + 3] 1 (omega),
           <- differencesCount [0, ..bag.adapters.sort, highest + 3] 3 (omega) in rfl

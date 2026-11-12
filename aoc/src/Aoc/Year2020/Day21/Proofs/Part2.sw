@@ -52,7 +52,6 @@ theorem dangerousValid (list: FoodList) (answer: Text) (found: list.dangerousLis
                   (Both (memAllergens list)
                     (Both (alphabeticalAllergens list)
                       (rewrite mapValueAt { name = "" } list.allergens holders lengths (distinctAllergens list) in Eq.sym (Option.someInjective found)))))))
-    | None => Void.exfalso (Option.noneNotSome answer found)
 
 --| In any way the allergens could be, a listed allergen's holder is one of
 --| the program's candidates for it.
@@ -92,4 +91,3 @@ theorem dangerousOnly (list: FoodList) (answer: Text) (found: list.dangerousList
               (List.distinctMapOn holder list.allergens (distinctAllergens list)
                 (first second inFirst inSecond => And.left holding first second ((memAllergens list first).forward inFirst) ((memAllergens list second).forward inSecond)))
           rewrite same, sameOrder, sameHolders in Option.someInjective found
-        | None => Void.exfalso (Option.noneNotSome answer found)

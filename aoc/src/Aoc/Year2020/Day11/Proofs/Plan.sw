@@ -40,7 +40,6 @@ theorem startSeat (start: Layout) (layout: Layout) (same: SamePlan start layout)
   let plan := same position
   rewrite found at plan in
   match e: cellAt start.grid.rows position with
-    | None => Void.exfalso (Option.noneNotSome here.isSeat (Eq.sym plan))
     | Some before => Witness before (Both rfl (rewrite <- Option.someInjective plan in seat))
 
 --| An occupied seat on the layout is a seat on the start.

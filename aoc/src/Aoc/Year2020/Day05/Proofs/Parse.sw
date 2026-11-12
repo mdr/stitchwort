@@ -16,7 +16,6 @@ theorem letterOf (lower: Char) (upper: Char) (char: Char) (allowed: (char == low
     | False =>
       match isLower: char == lower with
         | True => Eq.sym (DecEq.sound isLower)
-        | False => cases
 
 theorem readsHalf (lower: Char) (upper: Char): Parse.Reads (() => half lower upper) (read bit => read = [letter lower upper bit]) :=
   Parse.readsWeaken

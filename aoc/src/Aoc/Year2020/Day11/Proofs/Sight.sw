@@ -111,22 +111,18 @@ theorem firstSeatPlan (f: Position → Option Seat) (g: Position → Option Seat
             | None =>
               match g next with
                 | None => rfl
-                | Some seat => Void.exfalso (Option.noneNotSome seat.isSeat plan)
             | Some Floor =>
               match g next with
-                | None => Void.exfalso (Option.noneNotSome False (Eq.sym plan))
                 | Some Floor => firstSeatPlan f g same from direction (distance + 1) more
                 | Some Empty => cases
                 | Some Occupied => cases
             | Some Empty =>
               match g next with
-                | None => Void.exfalso (Option.noneNotSome True (Eq.sym plan))
                 | Some Floor => cases
                 | Some Empty => rfl
                 | Some Occupied => rfl
             | Some Occupied =>
               match g next with
-                | None => Void.exfalso (Option.noneNotSome True (Eq.sym plan))
                 | Some Floor => cases
                 | Some Empty => rfl
                 | Some Occupied => rfl

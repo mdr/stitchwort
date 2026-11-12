@@ -75,7 +75,6 @@ theorem decodeSound (mask: Mask) (address: Nat) (target: Nat) (member: target âˆ
           rewrite <- built in
             match small: Nat.fromBits bits < Nat.pow 2 width with
               | True => rewrite back, fit in rfl
-              | False => Void.exfalso (omega)
 
 theorem decodeComplete (mask: Mask) (address: Nat) (target: Nat) (decodes: Spec.Decodes mask address target = True): target âˆˆ mask.decode address :=
   let width := mask.bits.length

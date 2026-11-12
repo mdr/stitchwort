@@ -19,13 +19,11 @@ def Tracks (game: Game) (spoken: List Nat): Prop :=
 
 theorem turnsBackAtMost (number: Nat) (older: List Nat) (back: Nat) (found: Spec.turnsBack number older = Some back): back ≤ older.length :=
   match older with
-    | [] => Void.exfalso (Option.noneNotSome back found)
     | [spoken, ..older] =>
       match same: spoken == number with
         | True => rewrite <- Option.someInjective found in rfl
         | False =>
           match inner: Spec.turnsBack number older with
-            | None => Void.exfalso (Option.noneNotSome back found)
             | Some earlier =>
               let atMost := turnsBackAtMost number older earlier inner
               let isBack := Option.someInjective found
