@@ -32160,12 +32160,12 @@
     {
       "id": 2999,
       "title": "[Opus] Hitting Limits::size (10 M nodes) costs 1.3-2.2 GB of footprint (SW-2996): lower the limit or make quoted nodes smaller; design call. Also docs/testing.md 'Memory': tier_sample takes every 4th by name, so adding examples moves which run and a tier's peak",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "test-infra",
-      "body": "",
+      "body": "Started 12 Nov 17:25 (paper lane, Opus). Expected: 45 min.\n\n17:35 done: docs/reviews/SW-2999-size-limit-memory.md (babdbae34). A node is one value visited by one read-back (quote_as value.rs:3079, rename unify.rs:2648); each becomes a 64-byte Rc<Term> plus a child buffer, ~72 B of grow 30's measured 124 B/node (rest unmeasured: work stacks on deep values, repeated read-backs). Browser: ~half per node, wasm memory never shrinks, no max set (engine's 4 GiB); OOM crashes and restarts the worker, no E-RESOURCE. Rec: limit 1M nodes after SW-2681's counter run over the corpus (est. 0.13-0.24 GB, 0.1-0.2 s at the limit instead of 1.3-2.4 GB, 1-2 s); not smaller nodes (~30% for a 480-site sweep). D3536 (= term-sharing.md's unanswered D3464), rec yes. docs/testing.md \"Memory\": tier_sample/HEAVY paragraph.\n",
       "created": "2026-11-12",
       "updated": "2026-11-12",
       "commits": []
