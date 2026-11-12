@@ -1,7 +1,9 @@
 # Reading a `Bool` fact as a proposition (SW-2704)
 
-**Status:** draft 2, 12 November 2026. Stage 1 (§4) is built (SW-2734);
-stage 2 (§5, §6, §6.8) is being built (SW-2977). Follows D3482 (Matt,
+**Status:** draft 2, 12 November 2026. Stages 1 (§4, SW-2734), 2 (§5, §6,
+§6.8, SW-2977) and 3 (std's readings, the stuck-decision step, the
+`W-DECISION-TEST` warning and the `.read` note: SW-2967, SW-3019, SW-3029,
+SW-3031) are built; see §11 for what stage 3 settled. Follows D3482 (Matt,
 10 November 2026: yes, after a design note) and
 [bool-and-prop.md](bool-and-prop.md) §7.3 and §7.5. Decided: D3486 (§4.3),
 D3487 (§5), D3488 (§7) and D3531 (§6.8), see [§12](#12-decisions-for-matt).
@@ -810,6 +812,21 @@ lane.
 | last | `omega` on the reader's table | 5 | Opus | optional |
 
 Stages 3 and 5 can run in parallel after 2.
+
+**Stage 3 as built (SW-3031).** The stuck-decision step reads `d.holds`
+when `d` is `Decidable.holds d` or a call's field `(f x).holds` whose
+decision forces to a neutral (not an unknown); its terms are `d.sound h`,
+`d.complete q`, `Decidable.refute d h` and `Decidable.toBoolOfNot d n`
+(which moved into the core for it). Since SW-2968 a derived `==` is no
+longer a stuck decision: its test is `T.%same x y`, which has no reading,
+so `(x == y) = True` on a derived type is a leaf (D3541). The warning,
+`W-DECISION-TEST`, compares the function at the head of an instance's
+`holds` (through the decisions it is made from) with the function a
+positive reading of the same proposition is stated for, at whichever of
+the two is checked second; arguments aren't compared, since they come from
+sub-decisions the instance doesn't choose (`if a ∧ b` decides `a = True` by
+`Bool`'s `DecEq`). Std's four recursive decisions were already written
+test first (SW-2967), and std gives no warning.
 
 ## 12. Decisions for Matt
 

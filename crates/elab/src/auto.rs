@@ -965,6 +965,13 @@ fn decision_procedures(cx: &Ctx, decidable: DataId) -> Result<Vec<DefId>> {
     Ok(found)
 }
 
+/// Decision procedure `id` applied to make a decision of `prop`, with its
+/// own arguments found as `auto` finds them, if it fits.
+pub(crate) fn instance_for(cx: &mut Ctx, id: DefId, prop: &Value) -> Result<Option<Term>> {
+    let decidable = decidable(cx)?;
+    attempt(cx, |cx| instantiate(cx, id, decidable, prop, 0, false))
+}
+
 /// What `decision_procedures` tries after the current module's own
 /// definitions, in its order, with what that was worked out from
 /// (`Elaborator::decision_order`).

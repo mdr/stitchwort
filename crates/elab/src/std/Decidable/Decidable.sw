@@ -1,13 +1,5 @@
 --| What `Decidable.holds` says about the decision, and [`DecEq.sound`].
--- These were in the core (docs/proposals/prelude-slim.md stage 3). Guarded
--- arms' generated equations and `omega`'s proofs name `toBoolOfNot`.
-
---| A refutation of `p` gives `holds d = False`: the converse of
---| [`Decidable.refute`], which has no field of its own.
-theorem Decidable.toBoolOfNot [p: Prop] (d: Decidable p) (n: ¬p): Decidable.holds d = False :=
-  match d with
-    | { holds = True, sound = s, complete = c } => Void.exfalso (n (s rfl))
-    | { holds = False, sound = s, complete = c } => rfl
+-- These were in the core (docs/proposals/prelude-slim.md stage 3).
 
 --| Double negation of a decided proposition: what `¬(n ≠ 3)` says about `n = 3`.
 theorem Decidable.notNotOf [p: Prop] (d: Decidable p) (n: ¬¬p): p :=

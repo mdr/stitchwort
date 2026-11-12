@@ -221,6 +221,14 @@ theorem eitherSide (a: Bool) (b: Bool) (h: (a || b) = True): b ∨ a :=
     | Inr hb => Inl hb
 -- end readings
 
+-- begin readings-decisions
+theorem sameKey [auto eq: DecEq k] (a b c: k) (h: (a == b && b == c) = True): a = c :=
+  match h with
+    | Both ab bc => rewrite ab.read, bc.read in rfl
+
+theorem differ [auto eq: DecEq k] (a b: k) (h: (a == b) = False): a ≠ b := h.read
+-- end readings-decisions
+
 -- begin dependent
 def pick (v: Vec Nat 3): Nat := v.get 2
 
