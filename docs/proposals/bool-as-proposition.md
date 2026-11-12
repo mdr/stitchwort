@@ -733,6 +733,7 @@ parallel after 2.
   **[rec: yes]** (§5.1 to §5.3). It adds one attribute to the language and
   an orphan rule like the one for instances. Nothing is trusted either way.
 - **Decided (D3488, Matt, 12 Nov 2026): no silent crossing for now; an explicit word (working name `.read`) in stage 2; revisit after a measured sweep (SW-2964 review).**
+- **Decided (D3531, Matt, 12 Nov 2026): the word is `.read` (`found.read` turns `xs.contains x = True` into `x ∈ xs`).**
 - **D3488: Should a whole fact be converted silently where its reading is
   wanted, and back (`found: xs.contains x = True` accepted for `x ∈ xs`;
   `e = False` for `¬e`)?** **[rec: yes, as stage 4, one layer only]** (§7).

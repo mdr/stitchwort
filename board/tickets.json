@@ -1,5 +1,5 @@
 {
-  "next": 2977,
+  "next": 2978,
   "tickets": [
     {
       "id": 47,
@@ -31806,6 +31806,19 @@
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-12",
+      "updated": "2026-11-12",
+      "commits": []
+    },
+    {
+      "id": 2977,
+      "title": "[Opus] Bool as a proposition, stage 2: the reader (bool-as-proposition.md §5-§6, amended by docs/reviews/SW-2964-bool-reader-review.md): fold the review's amendments into the note first; @[reading] ↔ theorems, one per test, declared with the test (D3487); .read (D3531) instead of silent crossing (D3488); patterns and building with &&, ||, not; errors E-NO-READING etc.; check cache key; acceptance: no existing example's hash changes",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
       "body": "",
       "created": "2026-11-12",
       "updated": "2026-11-12",
