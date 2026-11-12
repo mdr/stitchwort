@@ -7,7 +7,7 @@ expression: warnings
     │
  51 │     | False => rfl
     │     ───────┬──────  
-    │            ╰──────── here `big` is `isBig 20 = False`, which can't hold
+    │            ╰──────── here `big` is `isBig 20 = False`, that is `True = False`, which can't hold
     │ 
     │ Note: the arm can be deleted
 ────╯

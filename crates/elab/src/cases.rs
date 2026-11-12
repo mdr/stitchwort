@@ -767,6 +767,21 @@ pub(crate) fn equates_different_ctors(cx: &Ctx, level: usize) -> Result<bool> {
     Ok(ctor_equation(cx, level)?.is_some_and(|eq| eq.left.0 != eq.right.0))
 }
 
+/// The variable at `level`'s equation with its sides computed, as it would
+/// read in a message (`Equal = Less`), when that differs from how it's
+/// written: what [`equates_different_ctors`] refutes, and why. Only asked
+/// once a reason is found.
+pub(crate) fn computed_equation(cx: &Ctx, level: usize) -> Result<Option<String>> {
+    let g = cx.g();
+    let Value::Eq(_, l, r) = force(&g, cx.types[level].clone())? else {
+        return Ok(None);
+    };
+    let (left, right) = (force(&g, (*l).clone())?, force(&g, (*r).clone())?);
+    let written = format!("{} = {}", cx.show_side(&l), cx.show_side(&r));
+    let computed = format!("{} = {}", cx.show_side(&left), cx.show_side(&right));
+    Ok((written != computed).then_some(computed))
+}
+
 /// A proof of `goal` from the variable at `level`, when its type equates
 /// two different constructors (an argument matched by `()`).
 pub(crate) fn refute_equation(cx: &mut Ctx, level: usize, goal: &Value) -> Result<Option<Term>> {

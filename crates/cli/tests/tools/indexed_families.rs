@@ -155,6 +155,29 @@ fn an_arm_whose_case_a_hypothesis_rules_out_warns() {
 }
 
 #[test]
+fn an_impossible_equation_says_what_its_sides_compute_to() {
+    // `Nat.compare 0 0` computes to `Equal`, so the hypothesis is
+    // `Equal = Less`: the label says that too, not only the call as written.
+    let found = written_unreachable(
+        "import Std (Bool, Eq, Nat, Ordering, Void)\n\n\
+         theorem computed (h: Nat.compare 0 0 = Less) (b: Bool): b = b :=\n  \
+         match b with\n    | True => rfl\n    | False => rfl\n",
+    );
+    let messages: Vec<_> = found
+        .iter()
+        .map(|w| (w.message.as_str(), w.labels[0].message.as_str()))
+        .collect();
+    assert_eq!(
+        messages,
+        vec![(
+            "this case can't happen",
+            "here `h` is `Nat.compare 0 0 = Less`, that is `Equal = Less`, which can't hold"
+        )],
+        "{found:#?}"
+    );
+}
+
+#[test]
 fn an_arm_that_uses_its_own_impossible_variable_does_not_warn() {
     // `p` is bound by the arm: no hypothesis rules the case out beforehand.
     let found = written_unreachable(&format!(
