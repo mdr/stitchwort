@@ -31918,9 +31918,9 @@
     {
       "id": 2984,
       "title": "[Opus] Impossible cases in match (D3534, Matt, 12 Nov 2026): (1) () as an absurd pattern inside a multi-scrutinee match arm, as in clause form (today 'match theirs, h with | Rock, ()' is E-PARSE and '| Rock, () => …' reads () as unit); (2) a match fills in a missing arm itself when a hypothesis in that arm is an equation of different constructors (False = True after computing), else the error still names the arm; (3) book §2.5 shows '| Rock, ()' as the short form after the long one. Repros in the ticket body; syntax.md and guide updated; examples with hash snapshots",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-2984",
       "labels": [],
       "epic": "syntax-language",
       "body": "",
