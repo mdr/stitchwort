@@ -713,7 +713,7 @@ test("errors show in the Check tab", async (page) => {
   await page.open();
   await page.untilChecked();
   await page.setSource("def x : Nat := rfl\n");
-  await page.untilStatus("Doesn’t check");
+  await page.untilStatus("1 error");
   assert.match(await page.ev(`document.querySelector("pre.errors").textContent`), /E-TYPE-MISMATCH/);
 });
 
@@ -744,7 +744,7 @@ test("warnings show apart from errors, without stopping anything", async (page) 
   assert.equal(s.errors, null);
   // With an error as well: each in its own box, in its own colour.
   await page.setSource(WARNED + "\ndef bad : Nat := rfl\n");
-  await page.untilStatus("Doesn’t check");
+  await page.untilStatus("1 error");
   s = await shown();
   assert.equal(s.count, "1 warning");
   assert.match(s.errors, /E-TYPE-MISMATCH/);
@@ -793,14 +793,18 @@ test("a ? program shows its open goals in a Goals section", async (page) => {
   await page.setSource("theorem plus_zero (n : Nat) : n + 0 = n := ?\n");
   await page.untilStatus("1 goal open");
   assert.match((await shown()).goals, /^in `plus_zero`\nn: Nat\n⊢ /);
-  // Beside an error: the goals come first, the errors in their own box.
+  // Beside an error: the errors come first, and the goals are collapsed.
   await page.setSource("def two : Nat := 2\n\ntheorem two_is_two : two = 2 := ?\n\ndef bad : Nat := rfl\n");
-  await page.untilStatus("Doesn’t check");
+  await page.untilStatus("1 error");
   s = await shown();
-  assert.deepEqual(s.headings, ["Goals (1 open)", "Errors"]);
+  assert.equal(s.headings.length, 1);
+  assert.match(s.headings[0], /^1 error, line \d+$/);
   assert.match(s.goals, /⊢ two = 2/);
   assert.match(s.errors, /E-TYPE-MISMATCH/);
   assert.doesNotMatch(s.errors, /GOAL/);
+  // The errors come first, and the goals are collapsed out of the way.
+  assert.equal(await page.ev(`document.querySelector("#output details").open`), false);
+  assert.equal(await page.ev(`document.querySelector("#output details summary").textContent`), "1 open goal");
   const colours = await page.ev(`["pre.errors", "pre.goals"].map((s) => getComputedStyle(document.querySelector(s)).color)`);
   assert.notEqual(colours[0], colours[1], "errors and goals look different");
   // Gone once filled in.
@@ -854,6 +858,41 @@ test("the book's chapter 2 shows a ?'s goal in the panel", async (page) => {
   assert.match(panel, /b: Answer/);
   assert.match(panel, /⊢ both No b = No/);
   assert.match(panel, /computes to No = No/);
+}, { ms: 240000 });
+
+test("a book chapter's error comes first, with its open goals collapsed", async (page) => {
+  await page.open({ hash: "#book/2" });
+  await page.until(`document.getElementById("example").value === "book:2" &&
+    window.editor.value.includes("theorem noAndAnything")`, 60000, "the book's chapter 2");
+  const text = await page.ev(`window.editor.value`);
+  const line = "theorem noAndAnything (b: Answer): both No b = No := rfl";
+  const at = text.split("\n").findIndex((l) => l === line) + 1;
+  assert.ok(at > 0, text.slice(0, 80));
+  await page.setSource(text.replace(line, line.slice(0, -"rfl".length) + "| x"));
+  await page.untilStatus("1 error", 180000);
+  const shown = await page.ev(`(() => {
+    const out = document.getElementById("output");
+    const details = out.querySelector("details.goal-details");
+    const h2 = [...out.querySelectorAll("h2")];
+    return { headings: h2.map((h) => h.textContent), headingColour: h2[0] && getComputedStyle(h2[0]).color,
+             summary: details?.querySelector("summary")?.textContent ?? null, open: details?.open ?? null,
+             goal: details?.querySelector("pre.goals")?.textContent ?? null,
+             files: [...(details?.querySelectorAll("h3") ?? [])].map((h) => h.textContent),
+             errors: [...out.querySelectorAll("pre.errors")].map((p) => p.textContent),
+             status: document.getElementById("status").textContent };
+  })()`);
+  assert.equal(shown.headings[0], `1 error in 02-cases.sw, line ${at}`);
+  assert.match(shown.errors[0], /E-/);
+  assert.equal(shown.open, false);
+  assert.match(shown.summary, /^\d+ open goals$/);
+  assert.match(shown.goal, /⊢/);
+  assert.notEqual(shown.headingColour, await page.ev(`getComputedStyle(document.querySelector("#output pre.goals")).color`));
+  // Expanded, the goals are grouped by file.
+  await page.ev(`document.querySelector("#output details.goal-details").open = true`);
+  const files = await page.ev(`[...document.querySelectorAll("#output details.goal-details h3")].map((h) => h.textContent)`);
+  assert.ok(files.length > 1, files.join());
+  assert.ok(files.every((f) => f.endsWith(".sw")), files.join());
+  assert.equal(shown.status, "1 error");
 }, { ms: 240000 });
 
 test("a code action on the book's chapter 2 splits the theorem on b", async (page) => {
@@ -1285,7 +1324,7 @@ test("a long run streams its output, and Stop cancels it", async (page) => {
   assert.match(await page.runResult(), /Running…/);
   // Checking goes on meanwhile, in its own worker.
   await page.setSource(SPIN + "\ndef bad : Nat := rfl\n");
-  await page.untilStatus("Doesn’t check");
+  await page.untilStatus("1 error");
   assert.match(await page.runResult(), /Running…/);
   const result = await page.run(5000, () => page.click(".runrow button:nth-child(2)"));
   assert.match(result, /Stopped after/);
@@ -2063,7 +2102,7 @@ test("an error in a shared file shows in the Check tab, marks its tab, and links
   await page.until(`document.querySelector('#filetabs [aria-selected="true"]').firstChild.textContent === "Common/Range.sw"`);
   const range = await sourceText(page);
   await edit(page, range + "\ndef broken: Nat := rfl\n");
-  await page.untilStatus("Doesn’t check", 60000);
+  await page.untilStatus("1 error", 60000);
   const shown = await page.ev(`({
     errors: [...document.querySelectorAll("#output pre.errors")].map((p) => p.textContent),
     marked: [...document.querySelectorAll("#filetabs button[data-errors]")].map((b) => b.firstChild.textContent),
