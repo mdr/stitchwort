@@ -76,7 +76,9 @@ pub fn parse_module_within(
 /// declaration boundaries: a declaration that doesn't parse is left out of
 /// the module, and its names (found by scanning its tokens) are in
 /// `Module::failed`, so the declarations after it that use them aren't
-/// reported as using unknown names. Returns the declarations that did
+/// reported as using unknown names. A `def` or `theorem` whose header
+/// parsed and whose body didn't is kept instead, as its signature with
+/// `body_error` set and no equations. Returns the declarations that did
 /// parse and every error, in file order. A lexical error, or a first
 /// declaration not at the start of a line, stops everything: the module is
 /// empty.
@@ -180,9 +182,33 @@ pub fn parse_module_recovering(
             }
             continue;
         }
-        let parsed = parser
-            .decl()
-            .and_then(|parsed| parser.finish().map(|()| parsed));
+        // A `def` or `theorem` whose header parses is kept if its body
+        // doesn't, so it can stand in for its statement
+        // (docs/proposals/tests-with-errors.md §3.3).
+        let keep = matches!(
+            parser.peek(),
+            Some(Tok::KwDef | Tok::KwTheorem | Tok::KwExport | Tok::KwOpaque)
+        );
+        parser.keep_header = keep;
+        let parsed = match parser.decl() {
+            Ok(parsed) => match parser.finish() {
+                Ok(()) => Ok(parsed),
+                // Something after the body: its signature is kept.
+                Err(diagnostic) => {
+                    let header = parsed.into_iter().next().filter(|decl| {
+                        keep && matches!(
+                            decl,
+                            Decl::Signature {
+                                instance: false,
+                                ..
+                            }
+                        )
+                    });
+                    Err((diagnostic, header))
+                }
+            },
+            Err(diagnostic) => Err((diagnostic, parser.header.take())),
+        };
         match parsed {
             Ok(mut parsed) => {
                 // A declaration with attributes is a data type or a
@@ -195,10 +221,25 @@ pub fn parse_module_recovering(
                 }
                 decls.extend(parsed)
             }
-            Err(diagnostic) => {
+            Err((diagnostic, header)) => {
                 let error_at = diagnostic.primary_span();
                 errors.push(*diagnostic);
-                failed.extend(failed_names_of(group, error_at));
+                match header {
+                    Some(mut signature) => {
+                        if let Decl::Signature {
+                            attrs: a,
+                            body_error,
+                            span,
+                            ..
+                        } = &mut signature
+                        {
+                            *a = attrs;
+                            *body_error = Some(error_at.unwrap_or(*span));
+                        }
+                        decls.push(signature);
+                    }
+                    None => failed.extend(failed_names_of(group, error_at)),
+                }
             }
         }
     }
@@ -554,6 +595,14 @@ struct Parser<'t> {
     matching: Vec<u32>,
     /// How deep the recursion may go.
     stack: StackLimit,
+    /// Set by recovery before a top-level `def` or `theorem`, which takes
+    /// it: that definition parks its signature in `header` while its body
+    /// is parsed.
+    keep_header: bool,
+    /// The signature of the top-level definition whose body is being
+    /// parsed, if `keep_header` asked for it: still here after an error,
+    /// for recovery to keep (docs/proposals/tests-with-errors.md §3.3).
+    header: Option<Decl>,
 }
 
 const NO_PARTNER: u32 = u32::MAX;
@@ -708,6 +757,8 @@ impl<'t> Parser<'t> {
             let_value: None,
             matching: match_brackets(tokens),
             stack,
+            keep_header: false,
+            header: None,
         }
     }
 
@@ -7261,7 +7312,10 @@ mod tests {
         let file = sources.add("test.sw", text);
         let (module, errors) = parse_module_recovering(file, text, DEFAULT_STACK);
         assert_eq!(errors.len(), 1, "{errors:?}");
-        assert!(module.failed.iter().any(|n| n.name.text == "b"));
+        assert!(module.decls.iter().any(|d| matches!(
+            d,
+            Decl::Signature { name, body_error: Some(_), .. } if name.text == "b"
+        )));
     }
 
     #[test]
@@ -8943,9 +8997,72 @@ mod tests {
                 _ => None,
             })
             .collect();
-        assert_eq!(kept, ["a", "d"]);
+        // `b` and `c` keep their headers (`recovery_keeps_the_header_of_a_body_that_does_not_parse`).
+        assert_eq!(kept, ["a", "b", "c", "d"]);
         let failed: Vec<&str> = module.failed.iter().map(|n| n.name.text.as_str()).collect();
-        assert_eq!(failed, ["b", "T", "MkT", "c"]);
+        assert_eq!(failed, ["T", "MkT"]);
+    }
+
+    /// A `def` or `theorem` whose header parses and whose body doesn't is
+    /// kept as its signature, with no equations and the place of the
+    /// body's error, so it can stand in for its statement
+    /// (docs/proposals/tests-with-errors.md §3.3). One whose header doesn't
+    /// parse, and an instance, are left out as before.
+    #[test]
+    fn recovery_keeps_the_header_of_a_body_that_does_not_parse() {
+        let text = "def double (n: Nat): Nat := n + n\n\n\
+                    @[simp] theorem doubleTwo: double 2 = 4 := (rfl\n\n\
+                    export def arms: Nat -> Nat\n  | 0 => 1\n  | n => (n\n\n\
+                    def trailing: Nat := 1 )\n\n\
+                    def local: Nat :=\n  def inner: Nat := 1\n  inner +\n\n\
+                    theorem header: double 2 = := rfl\n\n\
+                    instance inst: Inhabited Nat := (0\n\n\
+                    def last: Nat := 2\n";
+        let mut sources = SourceMap::new();
+        let file = sources.add("test.sw", text);
+        let (module, errors) = parse_module_recovering(file, text, DEFAULT_STACK);
+        assert_eq!(errors.len(), 6, "{errors:?}");
+        let kept: Vec<(&str, Option<Span>, usize)> = (module.decls.iter())
+            .filter_map(|d| match d {
+                Decl::Signature {
+                    name, body_error, ..
+                } => {
+                    let equations = (module.decls.iter())
+                        .filter(
+                            |e| matches!(e, Decl::Equation { name: n, .. } if n.text == name.text),
+                        )
+                        .count();
+                    Some((name.text.as_str(), *body_error, equations))
+                }
+                _ => None,
+            })
+            .collect();
+        let at = |i: usize| errors[i].primary_span();
+        assert_eq!(
+            kept,
+            [
+                ("double", None, 1),
+                ("doubleTwo", at(0), 0),
+                ("arms", at(1), 0),
+                ("trailing", at(2), 0),
+                ("local", at(3), 0),
+                ("last", None, 1),
+            ]
+        );
+        // The error is where the parser reported it: the end of `(rfl`.
+        let line = &text[..at(0).unwrap().start as usize];
+        assert!(line.ends_with("(rfl"), "{line:?}");
+        let Some(Decl::Signature { attrs, export, .. }) = module.decls.get(2) else {
+            panic!("{:?}", module.decls);
+        };
+        assert_eq!(attr_texts(attrs), ["simp"]);
+        assert!(!export);
+        assert!(matches!(
+            &module.decls[3],
+            Decl::Signature { export: true, .. }
+        ));
+        let failed: Vec<&str> = module.failed.iter().map(|n| n.name.text.as_str()).collect();
+        assert_eq!(failed, ["header", "inst"]);
     }
 
     fn parse_module_text(text: &str) -> std::result::Result<Module, Vec<Diagnostic>> {

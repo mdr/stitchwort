@@ -179,6 +179,7 @@ impl Elaborator {
             unfolding: Vec::new(),
             defaults: Vec::new(),
             attrs: Vec::new(),
+            body_error: None,
             span,
         };
         let a = |k: usize| format!("%a{k}");
