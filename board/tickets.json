@@ -1,5 +1,5 @@
 {
-  "next": 3015,
+  "next": 3016,
   "tickets": [
     {
       "id": 47,
@@ -32331,15 +32331,17 @@
     {
       "id": 3010,
       "title": "[Sonnet] D3536 (Matt, 12 Nov 2026): lower the read-back size limit (Limits::size) from 10 M to 2 M nodes everywhere (CLI, editor, playground); message 'a value was too large to write out (over 2,000,000 parts)' (replaces 'to show'); remove the HEAVY list in crates/cli/tests/running/examples.rs if the five heavy reject examples now peak well under 1 GB; re-snapshot; corpus max measured 390,996 (aoc 2024 Day06 keepsTrapsAt, SW-2681 counter, 12 Nov)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-3010",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "\nModel result: Sonnet, worked, 20 min (est. 60); one stray workspace-wide nextest build started and killed",
       "created": "2026-11-12",
       "updated": "2026-11-12",
-      "commits": []
+      "commits": [
+        "38ad0982a"
+      ]
     },
     {
       "id": 3011,
@@ -32390,6 +32392,19 @@
       "where": ".claude/worktrees/scratch-sw-3014",
       "labels": [],
       "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-12",
+      "updated": "2026-11-12",
+      "commits": []
+    },
+    {
+      "id": 3015,
+      "title": "[DeepSeek] Reword the size-limit note 'the value being shown was a call of …' (too_large_notes, crates/elab/src/module.rs) to 'written out', matching D3536's message (3 snapshots) (SW-3010 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "diagnostics",
       "body": "",
       "created": "2026-11-12",
       "updated": "2026-11-12",
