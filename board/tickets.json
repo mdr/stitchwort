@@ -1,5 +1,5 @@
 {
-  "next": 2972,
+  "next": 2974,
   "tickets": [
     {
       "id": 47,
@@ -31667,15 +31667,17 @@
     {
       "id": 2966,
       "title": "[Sonnet] Proof search answers with the simplest proof first (Matt, 12 Nov: 'if we can close the proof with rfl, we should only offer that ... if we can close it with a very simple proof tactic, why would we offer lots of different ways ... get back to them quickly'): try a short ladder of cheap closers first (rfl, then exact hypothesis, decide on closed goals, omega, ring, cases on an impossible hypothesis), offer only the first that closes the goal, and run the full search only when none does; measure time to first answer on the book and sf exercises before/after",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2966",
       "labels": [],
       "epic": "proof-search",
-      "body": "",
+      "body": "\nBuilt: ladder in search_at.rs (LADDER, Rung::texts): rfl, hypothesis, byDecision, omega, ring, cases (only with an equation hypothesis); 0.5 s per rung, 2 s total; first closer is the only offer; editor and search --simplest-first. rfl goals: 8-14 offers -> 1, ~1 s faster (1-3 s floor is project load); no-closer goals ~1 s slower.\nModel result: Sonnet, worked, 17 min (est. 90)",
       "created": "2026-11-12",
       "updated": "2026-11-12",
-      "commits": []
+      "commits": [
+        "95f6af139"
+      ]
     },
     {
       "id": 2967,
@@ -31737,6 +31739,32 @@
       "where": "",
       "labels": [],
       "epic": "test-infra",
+      "body": "",
+      "created": "2026-11-12",
+      "updated": "2026-11-12",
+      "commits": []
+    },
+    {
+      "id": 2972,
+      "title": "[Sonnet] Playground and VS Code: when Search for a proof finds a single proof (the ladder's answer), apply it at once with a notice ('Proved by rfl', undo restores the ?) instead of a one-item pick list (SW-2966 finding; needs D3532)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "editor-playground",
+      "body": "",
+      "created": "2026-11-12",
+      "updated": "2026-11-12",
+      "commits": []
+    },
+    {
+      "id": 2973,
+      "title": "[DeepSeek] ring is missing from the full search's closers list (rfl, omega, cases, byDecision), so tactics in the full report never lists it (SW-2966 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-search",
       "body": "",
       "created": "2026-11-12",
       "updated": "2026-11-12",
