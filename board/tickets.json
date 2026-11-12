@@ -32481,15 +32481,17 @@
     {
       "id": 3020,
       "title": "[Sonnet] std has deletable arms again (~80 W-UNREACHABLE at work 100000, e.g. Bool.andIntro's | False => cases; std's warnings are dropped so nobody sees them): delete them, and add a builtins-style test that std loads with no W-UNREACHABLE so it stays clean (SW-3016 finding)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-3020",
       "labels": [],
       "epic": "std-library",
-      "body": "",
+      "body": "\nModel result: DeepSeek, needed fixes (stopped at moved pins as briefed, added a test-only pin bypass), finished by Sonnet (bypass removed, pins checked and moved, keep_arms verified), ~45 min total (est. 40).",
       "created": "2026-11-12",
       "updated": "2026-11-12",
-      "commits": []
+      "commits": [
+        "6f7e47101"
+      ]
     },
     {
       "id": 3021,
