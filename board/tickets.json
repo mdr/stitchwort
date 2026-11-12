@@ -32596,9 +32596,9 @@
     {
       "id": 3029,
       "title": "[Opus] Readings for functions with an effect-row parameter: List.any/all (and Array/NonEmptyList/Text wrappers) can't be readings: a pure p instantiates {e} to empty, so E-READING-SHAPE; with {e} as a theorem parameter, p x = True is E-PARTIAL. Let a pure instantiation of a row parameter fit (crates/elab/src/reading.rs), then mark List.anyIffMem/anyFalseIffMem/allIffMem/allFalseIffMem @[reading] (SW-3019)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-3029",
       "labels": [],
       "epic": "syntax-language",
       "body": "",
