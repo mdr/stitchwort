@@ -1,5 +1,5 @@
 {
-  "next": 2999,
+  "next": 3000,
   "tickets": [
     {
       "id": 47,
@@ -32115,15 +32115,17 @@
     {
       "id": 2996,
       "title": "[Sonnet] Memory regression: examples::rejected_examples_fail_for_the_expected_reason peaks at 3.65 GB (12 Nov 16:38, main 0925d65c7), so the merge tier's 4 GB memguard killed it; the 07:18 merge tier at 58c3bcac7 passed under the same cap. Find which of today's merges did it (measure the test's peak footprint with /usr/bin/time -l at merge commits), and fix or report",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2996",
       "labels": [],
       "epic": "test-infra",
-      "body": "",
+      "body": "\nCause: not a code regression. SW-2977's 8 new reading-* reject examples shifted tier_sample's every-4th pick onto heavy examples (Limits::size 10M nodes ≈ 1.3-2.4 GB each). Merge-tier peak 2.53 GB → 0.29 GB with the HEAVY list. Model result: Sonnet, worked, 17 min (est. 60)",
       "created": "2026-11-12",
       "updated": "2026-11-12",
-      "commits": []
+      "commits": [
+        "756199f72"
+      ]
     },
     {
       "id": 2997,
@@ -32146,6 +32148,19 @@
       "where": "",
       "labels": [],
       "epic": "std-library",
+      "body": "",
+      "created": "2026-11-12",
+      "updated": "2026-11-12",
+      "commits": []
+    },
+    {
+      "id": 2999,
+      "title": "[Opus] Hitting Limits::size (10 M nodes) costs 1.3-2.2 GB of footprint (SW-2996): lower the limit or make quoted nodes smaller; design call. Also docs/testing.md 'Memory': tier_sample takes every 4th by name, so adding examples moves which run and a tier's peak",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
       "body": "",
       "created": "2026-11-12",
       "updated": "2026-11-12",
