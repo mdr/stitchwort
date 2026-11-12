@@ -31552,7 +31552,7 @@
     },
     {
       "id": 2958,
-      "title": "[DeepSeek] Playground, book chapter 2 opened directly at #book/2 (Matt's browser, after SW-2957): with ? on line 167 the goal panel shows the goal, but Cmd+. says 'No code action here' with the caret before or after the ?. SW-2957's browser test passes (page.open() then hash change, caret before ?). Find the difference and fix",
+      "title": "[DeepSeek] Playground, book chapter 2 at #book/2: Cmd+. on a ? takes many tens of seconds before the Code actions list (Split on b, Search for a proof) appears, and earlier presses said 'No code action here' (Matt, 12 Nov, after SW-2957). Measure where the time goes first (check, search session load of std + project, split), report; then fix the 'No code action here' answers",
       "status": "doing",
       "agent": "DeepSeek",
       "where": ".claude/worktrees/scratch-sw-2958",
