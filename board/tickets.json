@@ -1,5 +1,5 @@
 {
-  "next": 2964,
+  "next": 2965,
   "tickets": [
     {
       "id": 47,
@@ -31629,6 +31629,19 @@
       "where": "",
       "labels": [],
       "epic": "editor-playground",
+      "body": "",
+      "created": "2026-11-12",
+      "updated": "2026-11-12",
+      "commits": []
+    },
+    {
+      "id": 2964,
+      "title": "[Fable] Paper: the Bool-as-proposition reader before stage 2 (bool-as-proposition.md §5-§7, D3487, D3488): readings as @[reading] proved definitions vs a fixed compiler list vs other designs; the orphan rule; what the reader does in patterns, building, both polarities, crossing; end state, prior art (Lean decide/simp lemmas and Bool coercions, SSReflect reflect views, Agda/Idris Dec, Isabelle), risks; recommendation for D3487 and D3488 (Matt, 12 Nov)",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-2964",
+      "labels": [],
+      "epic": "syntax-language",
       "body": "",
       "created": "2026-11-12",
       "updated": "2026-11-12",
