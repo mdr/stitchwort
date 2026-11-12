@@ -1,5 +1,5 @@
 {
-  "next": 3005,
+  "next": 3008,
   "tickets": [
     {
       "id": 47,
@@ -32234,6 +32234,45 @@
       "where": ".claude/worktrees/SW-3004",
       "labels": [],
       "epic": "aoc-common",
+      "body": "",
+      "created": "2026-11-12",
+      "updated": "2026-11-12",
+      "commits": []
+    },
+    {
+      "id": 3005,
+      "title": "[Opus] Kernel guards from the SW-2981 review: check::assume should refuse theorem=true with a non-Prop type (E-MALFORMED; check.rs ~2483 discards the sort); nat_add::register should also require def.assumption.is_none() (nat_add.rs ~417); consider waits_on_goal asking erase::of_def(..).result instead of the flag; update docs/core.md",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-12",
+      "updated": "2026-11-12",
+      "commits": []
+    },
+    {
+      "id": 3006,
+      "title": "[Sonnet] SW-2981 review L-c: a group-level refusal (kernel::define_group fails, e.g. g's call not decreasing) is attributed to members[0] (lib.rs group: out.push((members[0].0, d))), so f gets the stand-in and g's users are told they need f; attribute by the member whose span holds the primary label, or treat all members as having the error",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "diagnostics",
+      "body": "",
+      "created": "2026-11-12",
+      "updated": "2026-11-12",
+      "commits": []
+    },
+    {
+      "id": 3007,
+      "title": "[Sonnet] SW-2981 review L-e: under a failed (..) import every undotted E-UNKNOWN-NAME in the file counts as lost, so a real typo waits silently until the import is fixed; point the waiting entry at the import's span, not the use; and an error-free member of a failed group still has own: true in FailedDecl (module.rs ~1270) so it's counted in errors though docs say it waits (user-visible count: Matt's call if it changes)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "diagnostics",
       "body": "",
       "created": "2026-11-12",
       "updated": "2026-11-12",
