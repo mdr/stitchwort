@@ -5016,7 +5016,13 @@ fn impossible_reason(cx: &mut Ctx, bound: &[usize]) -> Result<Option<String>> {
         let shown = |cx: &mut Ctx| cx.show(&cx.types[level].clone());
         if cases::equates_different_ctors(cx, level)? {
             let shown = shown(cx);
-            return Ok(Some(format!("here {name} is `{shown}`, which can't hold")));
+            let computed = match cases::computed_equation(cx, level)? {
+                Some(eq) => format!(", that is `{eq}`"),
+                None => String::new(),
+            };
+            return Ok(Some(format!(
+                "here {name} is `{shown}`{computed}, which can't hold"
+            )));
         }
         match force(&g, ty)? {
             Value::Data(d, _) if g.data(d).ctors().is_empty() => {
