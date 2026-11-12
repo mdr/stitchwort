@@ -71,6 +71,7 @@ def Shape.area: Shape → Nat
    │ │
    │ ╰───────────────────────────────────────────── missing case: no arm matches `Dot`
 ───╯
+1 error: in `Shape.area`
 ```
 
 This is what makes adding a constructor safe: the compiler lists every function that needs a new arm. A wildcard `_` matches anything, so a final `| _ => …` arm covers whatever is left, at the cost of that safety.
@@ -162,6 +163,7 @@ def everything: Query := { limit = 100 }
    │
    │ Note: `limit` and `caseSensitive` have default values, so they may be left out
 ───╯
+1 error: in `everything`
 ```
 
 Use an `Option` field when a value can really be missing.
@@ -236,6 +238,7 @@ def ada: Booking := Guest { name = "Ada", age = 36 }
    │
    │ Note 2: `Guest` is declared with its fields in braces, so braces after it name its own fields; to build the `Person` it holds, write `Guest ({ … })`
 ───╯
+1 error: in `ada`
 ```
 
 Naming a bracket-declared constructor's fields works with named arguments instead, `Rect (height := 4) (width := 3)`, which also fill the defaults of fields left out.
@@ -362,6 +365,7 @@ def grade: Nat → Text
    │
    │     Note: an arm with `if` covers no case for sure: add an arm without `if` for these values
 ───╯
+1 error: in `grade`
 ```
 
 End with an arm that has no condition, as `grade` does. Conditions can't perform abilities.

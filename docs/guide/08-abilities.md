@@ -23,6 +23,7 @@ def total (prices: List Nat): Nat :=
    │
    │     Note: add `IO` to the function's type (`-> {IO …} …`), or handle it
 ───╯
+1 error: in `total`
 ```
 
 Abilities are Stitchwort's version of algebraic effects, the design behind Unison's abilities and Koka's effects. The code that performs operations is plain, direct-style code: no monads, no `await`. What the operations *mean* is decided separately, by a **handler**. The same code can print its log in one place and collect it into a list in a test.

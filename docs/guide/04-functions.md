@@ -43,6 +43,7 @@ def headcount (people: List Person): Nat :=
    │
    │ Note: `.name` is looked up in the namespace of the value's type, so that type must be known where it's used: annotate it, as in `(p: Person) => p.name`, or write the function's full name
 ───╯
+1 error: in `headcount`
 ```
 
 Annotating it, `let nameOf := (person: Person) => person.name`, always works.
@@ -179,6 +180,7 @@ def check: Bool := BirthYear.valid "2002"
     │
     │ Note: `BirthYear` is a `Key`: write `Key.valid BirthYear` or `BirthYear |> .valid`
 ────╯
+1 error: in `check`
 ```
 
 A negative number as an argument needs no brackets when the `-` has a space before it and none after it: `f -4` is `f (-4)` and `f -x` is `f (-x)`. `n - 4`, `n-4` and `n- 4` are subtractions, so `n -4` for a number `n` is an error with a note saying so.

@@ -81,6 +81,7 @@ def halvings (n: Nat): Nat :=
    │
    │ Note 2: non-terminating definitions are rejected unless they're partial: `{Partial}` in the result type. A depth limit keeps it total and provable: an extra `fuel: Nat` argument that decreases on each call, failing (or returning a default) when it runs out
 ───╯
+1 error: in `halvings`
 ```
 
 `decreasing e` after the result type names a number `e`, made from the parameters, that gets smaller at every recursive call. Each call then needs a proof that it does. The compiler looks for one itself, from the facts in scope, and tries `omega` ([chapter 10](10-proofs.md)), which proves most arithmetic facts. Here the `else` branch knows `n` isn't below 10, which is enough for `n / 10 < n`:
@@ -116,6 +117,7 @@ def countDown (n: Nat) (step: Nat): Nat
    │
    │ Note: give a proof with `[decreasing := …]`, or test it with `if n - step < n then … else …`
 ───╯
+1 error: in `countDown`
 ```
 
 The message shows the fact as you wrote it. The note gives the usual fix: test the fact with an `if`. In a definition with `decreasing`, an `if` puts its condition in scope for the recursive calls under it, true in the `then` branch and false in the `else`, and the call finds it there. The test needs no name; `if h: … then … else …` still works when a proof needs `h` itself. Euclid's algorithm needs this, since `omega` doesn't reason about `%` by a variable: `a % b < b` holds whenever `b != 0`, and the test puts it in scope:

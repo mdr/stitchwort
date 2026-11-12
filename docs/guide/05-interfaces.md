@@ -54,6 +54,7 @@ def sameRule (a: Rule) (b: Rule): Bool := a == b
    │
    │ Note 2: an instance of `DecEq` for `Rule` can be declared in `Main`
 ───╯
+1 error: in `sameRule`
 ```
 
 ## Declaring an interface
