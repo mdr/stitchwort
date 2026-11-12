@@ -404,6 +404,31 @@ impl Elaborator {
                         "an `if` other than `&&` and `||` can't have a reading".to_string(),
                     ));
                 }
+                // A call of a function given fewer parameters than the test
+                // passes it (`def tiny: Nat → Bool := small`) unfolds to
+                // what it stands for before anything reads it, so a reading
+                // filed under it could never be found.
+                let def = g.def(f);
+                if !def.opaque() && def.arity() < args.len() {
+                    let f = def.name().to_string();
+                    let takes = match def.arity() {
+                        0 => "no parameters".to_string(),
+                        1 => "1 parameter".to_string(),
+                        k => format!("{k} parameters"),
+                    };
+                    let passes = match args.len() {
+                        1 => "1 argument".to_string(),
+                        k => format!("{k} arguments"),
+                    };
+                    return Err(shape(format!(
+                        "its test passes `{f}` {passes}, but `{f}` takes {takes}, so a call of \
+                         it is unfolded to what it stands for before it can be read"
+                    ))
+                    .with_note(format!(
+                        "declare the reading on the function `{f}` stands for, or give `{f}` its \
+                         parameters: `def {f} (x: …): Bool := …`"
+                    )));
+                }
                 f
             }
             TestHead::And | TestHead::Or => reg
