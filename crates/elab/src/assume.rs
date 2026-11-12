@@ -216,7 +216,7 @@ impl Elaborator {
             let Some((ty, order)) = stated else {
                 continue;
             };
-            let Some(id) = self.assumption_for(&name, &name, &ty, label, p.span) else {
+            let Some(id) = self.assumption_for(&name, &name, &ty, label, false, p.span) else {
                 continue;
             };
             // `λ x₁ … xₙ. a xᵢ …`, over the variables the metavariable is
@@ -256,8 +256,9 @@ impl Elaborator {
             return None;
         }
         let (name, path, ty) = (def.name().clone(), def.path().clone(), def.ty().clone());
+        let theorem = def.theorem();
         let label = Assumption::error(path.clone());
-        self.assumption_for(&name, &path, &ty, label, span)
+        self.assumption_for(&name, &path, &ty, label, theorem, span)
     }
 
     /// Whether assumption `id` is a stand-in for a declaration with an
@@ -371,6 +372,7 @@ impl Elaborator {
         path: &Name,
         ty: &Term,
         label: Assumption,
+        theorem: bool,
         span: stitchwort_syntax::Span,
     ) -> Option<DefId> {
         let existing = (self.kernel.env.defs().iter().enumerate())
@@ -386,7 +388,8 @@ impl Elaborator {
         }
         // Before the assumption is made: a stale floor is taken back.
         let floor = self.floor();
-        let id = crate::kernel::assume(&mut self.kernel, name, path, ty, label, span).ok()?;
+        let id =
+            crate::kernel::assume(&mut self.kernel, name, path, ty, label, theorem, span).ok()?;
         let at = self.unit.module.first_def.min(id.0);
         self.session.assumed.0.set(Some(match floor {
             Some(f) => Floor {

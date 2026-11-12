@@ -37,6 +37,7 @@ fn assume_as(
         &name.into(),
         &ty,
         label(owner, hole),
+        false,
         span(),
     )
     .map_err(|d| d.code)
@@ -573,8 +574,16 @@ fn an_error_stand_in_hashes_apart_from_a_goal() {
     let user_of = |label: Assumption| {
         let mut p = Prelude::new();
         let ty = comm(&p);
-        let gap =
-            check::assume(&mut p.g, &"c".into(), &"c".into(), &ty, label, span()).expect("a type");
+        let gap = check::assume(
+            &mut p.g,
+            &"c".into(),
+            &"c".into(),
+            &ty,
+            label,
+            false,
+            span(),
+        )
+        .expect("a type");
         let proof = app(Term::Def(gap), [p.num(1), p.num(2)]);
         let (one, two) = (p.num(1), p.num(2));
         let ty = eq(
@@ -608,6 +617,7 @@ fn a_stand_in_s_label_is_used_once() {
         &"f".into(),
         &nat,
         Assumption::error(owner.clone()),
+        false,
         span(),
     );
     assert!(first.is_ok());
@@ -618,6 +628,7 @@ fn a_stand_in_s_label_is_used_once() {
         &"f".into(),
         &other,
         Assumption::error(owner.clone()),
+        false,
         span(),
     );
     assert_eq!(again.map_err(|d| d.code), Err("E-MALFORMED"));

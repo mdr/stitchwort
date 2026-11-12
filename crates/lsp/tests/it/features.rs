@@ -1722,3 +1722,29 @@ fn a_body_being_typed_leaves_its_users_checked() {
         assert_eq!(shown(&s), before, "{:#?}", s.diagnostics);
     });
 }
+
+/// Cmd-click on a name whose declaration has an error goes to the
+/// declaration, as it does without the error, not to where the error is
+/// (a stand-in is made at the error's place): by name, and by a dot call.
+#[test]
+fn go_to_definition_on_a_declaration_with_an_error_goes_to_its_name() {
+    big_stack(|| {
+        let broken = "namespace Demo\n\ntype Box = { n: Nat }\n\ndef Box.twice (self: Box): Nat := \"oops\"\n\ndef byName (b: Box): Nat := Box.twice b\n\ndef byDot (b: Box): Nat := b.twice\n";
+        for text in [broken.replace("\"oops\"", "self.n"), broken.to_string()] {
+            let mut s = Session::open(&text);
+            for (line, prefix) in [
+                (6, "def byName (b: Box): Nat := Box.tw"),
+                (8, "def byDot (b: Box): Nat := b.tw"),
+            ] {
+                let at = json!({"line": line, "character": prefix.len()});
+                let found = s.request(
+                    "textDocument/definition",
+                    json!({"textDocument": {"uri": URI}, "position": at}),
+                );
+                let start = &found["range"]["start"];
+                assert_eq!(start["line"], 4, "{text}\n{prefix}: {found}");
+                assert_eq!(start["character"], "def Box.".len(), "{prefix}: {found}");
+            }
+        }
+    });
+}

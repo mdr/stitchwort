@@ -487,6 +487,90 @@ fn an_import_of_a_name_lost_to_a_syntax_error_says_so_once() {
     assert_eq!(outcomes, [("B", "good works", "passed")]);
 }
 
+/// SW-2981 (L6): `use` only fails because `A`'s syntax error lost `beats`,
+/// which is said once on the import. It has no error of its own, so it
+/// isn't counted as one and gets no stand-in: it waits, and so does the
+/// theorem that mentions it.
+#[test]
+fn a_user_of_a_name_lost_to_a_syntax_error_waits_and_has_no_error_of_its_own() {
+    let importer = format!("{SYNTAX_IMPORTER}\ntheorem keeps (h: use 1 = 1): 1 = 1 := rfl\n");
+    let dir = source_project("syntax-waits", LIB_WITH_A_SYNTAX_ERROR, &importer);
+    let (_, stderr, _) = project_tests(&dir, &["--no-cache"]);
+    let _ = std::fs::remove_dir_all(&dir);
+    assert!(!stderr.contains("error: in `B.use`"), "{stderr}");
+    assert!(!stderr.contains("error: in"), "{stderr}");
+    assert!(
+        !stderr.contains("relies on a declaration with an error"),
+        "{stderr}"
+    );
+    assert!(
+        stderr.contains("2 declarations can't be checked until an error is fixed:"),
+        "{stderr}"
+    );
+    assert!(stderr.contains("B.use "), "{stderr}");
+    assert!(stderr.contains("B.keeps "), "{stderr}");
+}
+
+/// SW-2981 (L3): `isEven` is fine and `isOdd`, which it is mutually
+/// recursive with, has the error. The group fails together, so `isEven`
+/// isn't trusted alone: it gets no stand-in, and what uses it waits for
+/// `isOdd`, the member with the error, which is what is said.
+const MUTUAL: &str = r#"namespace A
+
+def isEven: (n: Nat) -> Bool
+  | 0 => True
+  | Succ k => isOdd k
+
+def isOdd: (n: Nat) -> Bool
+  | 0 => False
+  | Succ k => isEven "x"
+
+theorem usesEven (h: isEven 2 = True): 1 = 1 := rfl
+"#;
+
+#[test]
+fn a_member_of_a_failed_group_without_an_error_is_not_blamed_for_the_others() {
+    let dir = source_project(
+        "mutual",
+        MUTUAL,
+        "namespace B\n\ndef b: Nat := 1\n\ntest \"b\" := b == 1\n",
+    );
+    let (_, stderr, _) = project_tests(&dir, &["--no-cache"]);
+    let _ = std::fs::remove_dir_all(&dir);
+    assert!(
+        stderr.contains("1 declaration can't be checked until an error is fixed:"),
+        "{stderr}"
+    );
+    assert!(stderr.contains("A.usesEven"), "{stderr}");
+    assert!(stderr.contains("needs `isOdd` ("), "{stderr}");
+    assert!(!stderr.contains("needs `isEven`"), "{stderr}");
+    assert!(
+        !stderr.contains("relies on a declaration with an error"),
+        "{stderr}"
+    );
+}
+
+/// SW-2981 (L-d): in a group, `f`'s only error is a name `A`'s syntax error
+/// lost (said on the import) and `g` has a type error. What uses them is
+/// told it needs `g`, at `g`'s error, not `f` or the lost name.
+#[test]
+fn a_group_with_a_lost_name_in_one_member_and_an_error_in_another_blames_the_error() {
+    let importer = "namespace B\n\nimport A (beats)\n\n\
+        def f: (n: Nat) -> Nat\n  | 0 => beats 0\n  | Succ k => g k\n\n\
+        def g: (n: Nat) -> Nat\n  | 0 => 0\n  | Succ k => f \"x\"\n\n\
+        theorem usesF (h: f 1 = 1): 1 = 1 := rfl\n\ntest \"t\" := True\n";
+    let dir = source_project("lost-and-error", LIB_WITH_A_SYNTAX_ERROR, importer);
+    let (_, stderr, _) = project_tests(&dir, &["--no-cache"]);
+    let _ = std::fs::remove_dir_all(&dir);
+    assert!(stderr.contains("B.usesF"), "{stderr}");
+    assert!(stderr.contains("needs `g` ("), "{stderr}");
+    assert!(stderr.contains("b.sw:11:"), "{stderr}");
+    assert!(
+        !stderr.contains("needs `f`") && !stderr.contains("needs `beats`"),
+        "{stderr}"
+    );
+}
+
 /// SW-2944: the import's "the error is here" label is exactly where the
 /// failed declaration's first error is reported, not at the declaration's
 /// name. Covers a type error late in the body and a syntax error there.
@@ -731,7 +815,7 @@ fn a_test_that_only_cites_a_broken_theorem_runs() {
     assert_eq!(row(0), ("cites doubleTwo", "passed", ""));
     let assuming = tests[0]["assuming"].as_array().unwrap();
     assert_eq!(assuming.len(), 1, "{v}");
-    assert_eq!(assuming[0]["name"], "doubleTwo");
+    assert_eq!(assuming[0]["declaration"], "A.doubleTwo");
     assert_eq!(assuming[0]["kind"], "error");
     assert_eq!(assuming[0]["line"], 7);
     assert!(
@@ -983,7 +1067,7 @@ fn a_failed_test_says_what_it_assumed() {
     let _ = std::fs::remove_dir_all(&dir);
     let v: Value = serde_json::from_str(&stdout).unwrap();
     assert_eq!(v["tests"][0]["outcome"], "failed");
-    assert_eq!(v["tests"][0]["assuming"][0]["name"], "two");
+    assert_eq!(v["tests"][0]["assuming"][0]["declaration"], "Main.two");
     assert_eq!(v["tests"][0]["assuming"][0]["kind"], "error");
 }
 

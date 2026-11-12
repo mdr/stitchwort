@@ -2206,10 +2206,7 @@ fn print_tests_json(
                 "line": at.as_ref().map(|a| a.line),
                 "column": at.as_ref().map(|a| a.column),
                 "message": message,
-                "assuming": r.assuming.iter().map(|g| serde_json::json!({
-                    "name": g.short(), "kind": g.kind, "file": g.file, "line": g.line,
-                    "column": g.column,
-                })).collect::<Vec<_>>(),
+                "assuming": r.assuming,
             });
             if let Some(detail) = &r.detail {
                 let part = detail.part.as_ref().map(|p| {
@@ -3657,7 +3654,9 @@ fn audit(
             if !loaded && session.elab.failed_decls().is_empty() {
                 return ExitCode::FAILURE;
             }
-            errors += session.errors().has.len();
+            // A failure with no declaration of its own to blame (a failed
+            // import) is still an error.
+            errors += session.errors().has.len().max(usize::from(!loaded));
             session.elab.leave_namespace();
             match audit_loaded(&mut session, &[], &names, true, &options) {
                 Ok(found) => audits.extend(found),
@@ -3671,6 +3670,7 @@ fn audit(
     // Which theorems: those under the `roots`, and those `named`.
     let mut roots: Vec<String> = Vec::new();
     let mut named: Vec<String> = Vec::new();
+    let mut loaded = true;
     if !targets.is_empty() && targets.iter().all(|t| is_std_target(t)) {
         // The standard library is loaded with every session.
         roots = targets.to_vec();
@@ -3737,6 +3737,7 @@ fn audit(
                 report(&session.sources, &reported);
             }
             Err(diagnostics) => {
+                loaded = false;
                 report(&session.sources, &diagnostics);
                 // Errors in declarations leave the rest checked, and
                 // audited; anything else (a bad project) leaves nothing.
@@ -3763,7 +3764,7 @@ fn audit(
         Ok(audits) => audits,
         Err(code) => return code,
     };
-    let errors = session.errors().has.len();
+    let errors = session.errors().has.len().max(usize::from(!loaded));
     discard(session);
     print_audit(&audits, &options.allowed, errors, args)
 }

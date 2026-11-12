@@ -220,14 +220,16 @@ fn is_update_lemma(g: &Ev, path: &str) -> bool {
 
 /// The theorems of `g` whose full name `keep` keeps, in the order they were
 /// declared, with their full names. Local definitions lifted out of a
-/// theorem (`%` names) aren't theorems of their own.
+/// theorem (`%` names) aren't theorems of their own, nor are the
+/// assumptions that stand for a gap in one.
 pub fn theorems(g: &Ev, keep: &dyn Fn(&str) -> bool) -> Vec<(DefId, String)> {
     (0..g.env.defs().len())
         .map(DefId)
         .filter_map(|id| {
             let def = g.def(id);
             let path = def.path().to_string();
-            (def.theorem() && !path.contains('%') && keep(&path)).then_some((id, path))
+            (def.theorem() && def.assumption().is_none() && !path.contains('%') && keep(&path))
+                .then_some((id, path))
         })
         .collect()
 }

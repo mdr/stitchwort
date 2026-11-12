@@ -20,6 +20,7 @@ mod partial_kernel;
 mod proof_equivalence;
 mod proof_masks;
 mod rewrite;
+mod stand_ins;
 mod update_lemmas;
 
 use stitchwort_test_alloc as _;
