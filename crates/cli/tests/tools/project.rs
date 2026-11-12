@@ -289,6 +289,46 @@ fn the_cache_is_in_the_project_folder() {
     assert!(!again.contains(" ran"), "{again}");
 }
 
+#[test]
+fn verify_cache_with_nothing_cached_fails_then_passes_after_a_test() {
+    let dir = project(
+        "verify_cache_empty",
+        &[
+            ("stitchwort.yaml", ""),
+            (
+                "src/main.sw",
+                "namespace App\n\ntest \"one\" := 1 + 1 == 2\n\ntest \"two\" := 2 + 2 == 4\n",
+            ),
+        ],
+    );
+    // A fresh binary's cache has no results: verifying nothing must not pass.
+    let empty = with_caches(&dir, &["test", "--verify-cache"]);
+    assert_eq!(empty.status.code(), Some(1), "{}", err(&empty));
+    assert!(
+        out(&empty).contains("verified the cache: 0 compared, 2 had no cached result, 0 disagree"),
+        "{}",
+        out(&empty)
+    );
+    let message = err(&empty);
+    assert!(
+        message.contains("the cache was empty for this binary"),
+        "{message}"
+    );
+    assert!(message.contains("run `stitchwort test` first"), "{message}");
+
+    // A plain run fills the cache; verifying then compares both results.
+    let filled = with_caches(&dir, &["test"]);
+    assert!(filled.status.success(), "{}", err(&filled));
+    let verified = with_caches(&dir, &["test", "--verify-cache"]);
+    assert!(verified.status.success(), "{}", err(&verified));
+    assert!(
+        out(&verified)
+            .contains("verified the cache: 2 compared, 0 had no cached result, 0 disagree"),
+        "{}",
+        out(&verified)
+    );
+}
+
 const EXPORTS_LIB: &str = "namespace Lib
 
 export def solve (n: Nat): Nat := n + 2
