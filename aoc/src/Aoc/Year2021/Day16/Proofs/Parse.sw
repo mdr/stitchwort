@@ -26,7 +26,6 @@ theorem hexAgree (char: Char) (value: Nat) (h: hexValue char = Some value): hexD
     | 'D' => rewrite <- Option.someInjective h in rfl
     | 'E' => rewrite <- Option.someInjective h in rfl
     | 'F' => rewrite <- Option.someInjective h in rfl
-    | _ => cases
 
 --| `hexDigit` reads one hexadecimal digit and gives its value.
 theorem readsHexDigit: Parse.Reads hexDigit (read value => ∃ (char: Char) => read = [char] ∧ hexValue char = Some value) :=

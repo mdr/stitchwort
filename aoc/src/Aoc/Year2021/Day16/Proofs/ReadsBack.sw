@@ -28,7 +28,6 @@ theorem hexValueOf (char: Char) (bits: List Bool) (h: hexDigitBits char = Some b
     | 'D' => Witness 13 (Both rfl (Eq.sym (Option.someInjective h)))
     | 'E' => Witness 14 (Both rfl (Eq.sym (Option.someInjective h)))
     | 'F' => Witness 15 (Both rfl (Eq.sym (Option.someInjective h)))
-    | _ => cases
 
 --| `hexDigit` on a digit, whatever follows.
 theorem runsHexDigit (char: Char) (value: Nat) (rest: List Char) (found: hexValue char = Some value): Parse.Runs hexDigit [char] rest value :=
