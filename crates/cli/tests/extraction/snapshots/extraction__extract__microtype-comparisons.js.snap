@@ -1010,27 +1010,22 @@ const $Std$dList$dfoldLeft$e = (v4, v5, v6) => {
     throw new Error("unreachable");
   }
 };
-const $Std$dList$ddecMem = (v1, v2, v3) => {
-  let s1 = v1, s2 = v2, s3 = v3;
+const $Std$dList$dany$e = (v3, v4) => {
+  let s3 = v3, s4 = v4;
   for (;;) {
-    const v1 = s1, v2 = s2, v3 = s3;
+    const v3 = s3, v4 = s4;
     switch (v3.tag) {
       case "Nil": {
         return { tag: "False" };
       }
       case "Cons": {
-        const v4 = v3.head;
-        const v5 = v3.tail;
-        const v8 = (v1)(v4)(v2);
-        const p1_1$ = v1;
-        const p2_2$ = v2;
-        const p3_3$ = v5;
-        if (v8.tag === "True") {
+        const v5 = v3.head;
+        const v6 = v3.tail;
+        if ((v4)(v5).tag === "True") {
           return { tag: "True" };
         } else {
-          s1 = p1_1$;
-          s2 = p2_2$;
-          s3 = p3_3$;
+          s3 = v6;
+          s4 = v4;
           continue;
         }
       }
@@ -1038,6 +1033,7 @@ const $Std$dList$ddecMem = (v1, v2, v3) => {
     throw new Error("unreachable");
   }
 };
+const $Std$dList$dcontains = (v1, v2, v3) => $Std$dList$dany$e(v2, ((v4) => (v1)(v4)(v3)));
 const $Std$dMap$dTree$dsize = (v2) => {
   switch (v2.tag) {
     case "Tip": {
@@ -1623,7 +1619,7 @@ const $Main$dEmail$d$gcompare = $Std$dText$dcompare;
 const $Main$dEmail$d$ginstOrd = $Std$dText$dinstOrd;
 const $Main$dsame = $Std$dText$ddecEq;
 const $Main$dorder = $Std$dText$dcompare;
-const $Main$dunseen = (v0, v1) => $Std$dList$dfilter$e(v0, ((v2) => ({ tag: !(($Std$dList$ddecMem($Std$dText$dinstDecEq, $Main$dCard$did(v2), v1)).tag === "True") ? "True" : "False" })));
+const $Main$dunseen = (v0, v1) => $Std$dList$dfilter$e(v0, ((v2) => ({ tag: !(($Std$dList$dcontains($Std$dText$dinstDecEq, v1, $Main$dCard$did(v2))).tag === "True") ? "True" : "False" })));
 const $Main$dbyId = (v0) => $Std$dMap$dindexBy($Std$dText$dinstOrd, v0, ((v1) => $Main$dCard$did(v1)));
 const $Main$ddistinctIds = (v0) => $Std$dList$dunique($Std$dText$dinstOrd, v0);
 const $Main$dsameCount = $Std$dNat$dequal;

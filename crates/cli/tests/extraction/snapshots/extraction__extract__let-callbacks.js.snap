@@ -943,6 +943,7 @@ const $Std$dDecEq$d$gdecide = (v1) => {
   const v2 = v1;
   return v2;
 };
+const $Std$dDecEq$ddecide = (v1) => v1;
 const $Std$dNat$dinstDecEq = ($Std$dNat$dequal$c ??= ($p0) => ($p1) => $Std$dNat$dequal($p0, $p1));
 const $Std$dText$dinstDecEq = ($Std$dText$ddecEq$c ??= ($p0) => ($p1) => $Std$dText$ddecEq($p0, $p1));
 const $Std$dList$dmap$e = (v4, v5) => {
@@ -1082,43 +1083,16 @@ const $Std$dList$dall$e = (v3, v4) => {
     throw new Error("unreachable");
   }
 };
-const $Std$dList$ddecMem = (v1, v2, v3) => {
-  let s1 = v1, s2 = v2, s3 = v3;
-  for (;;) {
-    const v1 = s1, v2 = s2, v3 = s3;
-    switch (v3.tag) {
-      case "Nil": {
-        return { tag: "False" };
-      }
-      case "Cons": {
-        const v4 = v3.head;
-        const v5 = v3.tail;
-        const v8 = (v1)(v4)(v2);
-        const p1_1$ = v1;
-        const p2_2$ = v2;
-        const p3_3$ = v5;
-        if (v8.tag === "True") {
-          return { tag: "True" };
-        } else {
-          s1 = p1_1$;
-          s2 = p2_2$;
-          s3 = p3_3$;
-          continue;
-        }
-      }
-    }
-    throw new Error("unreachable");
-  }
-};
+const $Std$dList$dcontains = (v1, v2, v3) => $Std$dList$dany$e(v2, ((v4) => (v1)(v4)(v3)));
 const $Main$dCard$did = (v0) => {
   const v1 = v0.id;
   const v2 = v0.n;
   return v1;
 };
-const $Main$dnotIn = (v0, v1) => { const v2 = $Std$dList$dmap$e(v1, ((v2) => $Std$dText$dappend(v2, ""))); return $Std$dList$dfilter$e(v0, ((v3) => ({ tag: !(($Std$dList$ddecMem($Std$dText$dinstDecEq, $Main$dCard$did(v3), v2)).tag === "True") ? "True" : "False" }))); };
+const $Main$dnotIn = (v0, v1) => { const v2 = $Std$dList$dmap$e(v1, ((v2) => $Std$dText$dappend(v2, ""))); return $Std$dList$dfilter$e(v0, ((v3) => ({ tag: !(($Std$dList$dcontains($Std$dText$dinstDecEq, v2, $Main$dCard$did(v3))).tag === "True") ? "True" : "False" }))); };
 const $Main$dcountEq = (v0, v1) => { const v2 = $Std$dText$dappend(v1, ""); return $Std$dList$dlength($Std$dList$dfilter$e(v0, ((v3) => $Std$dText$ddecEq($Main$dCard$did(v3), v2)))); };
 const $Main$dshifted = (v0, v1) => { const v2 = $Std$dNat$dadd(v1, 1n); const v3 = $Std$dNat$dmul(v2, 2n); return $Std$dList$dmap$e(v0, ((v4) => $Std$dNat$dadd($Std$dNat$dadd(v4, v2), v3))); };
-const $Main$danyAll = (v0, v1) => { const v2 = $Std$dList$dmap$e(v1, ((v2) => $Std$dNat$dmul(v2, 2n))); return ($Std$dList$dany$e(v0, ((v3) => $Std$dList$ddecMem($Std$dNat$dinstDecEq, $Std$dNat$dadd(v3, v3), v2))).tag === "True" ? $Std$dList$dall$e(v0, ((v4) => ({ tag: !(($Std$dList$ddecMem($Std$dNat$dinstDecEq, $Std$dNat$dadd(v4, 1n), v2)).tag === "True") ? "True" : "False" }))) : { tag: "False" }); };
+const $Main$danyAll = (v0, v1) => { const v2 = $Std$dList$dmap$e(v1, ((v2) => $Std$dNat$dmul(v2, 2n))); return ($Std$dList$dany$e(v0, ((v3) => $Std$dList$dcontains($Std$dNat$dinstDecEq, v2, $Std$dNat$dadd(v3, v3)))).tag === "True" ? $Std$dList$dall$e(v0, ((v4) => ({ tag: !(($Std$dList$dcontains($Std$dNat$dinstDecEq, v2, $Std$dNat$dadd(v4, 1n))).tag === "True") ? "True" : "False" }))) : { tag: "False" }); };
 const $Main$dweighted = (v0, v1) => { const v2 = $Std$dNat$dadd(v1, 3n); return $Std$dList$dfoldLeft$e(v0, 0n, ((v3) => ((v4) => $Std$dNat$dadd(v3, $Std$dNat$dmul(v4, v2))))); };
 const $Main$dusedTwice = (v0, v1) => $Std$dList$dmap$e(v0, ((v2) => { const v3 = $Std$dNat$dmul(v2, v1); return $Std$dNat$dadd(v3, v3); }));
 const $Main$ddirect = (v0) => { const v1 = $Std$dNat$dmul(v0, 3n); return $Std$dNat$dadd(v1, v1); };

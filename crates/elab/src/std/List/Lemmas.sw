@@ -2169,31 +2169,6 @@ theorem List.maximumSameMembers [auto ord: Ord a] (xs: List a) (ys: List a) (int
 
 test "List.maximum and List.minimum" := List.maximum [3, 9, 2] == Some 9 ∧ List.minimum [3, 9, 2] == Some 2 ∧ List.maximum ([]: List Nat) == None
 
---| An element that passes makes `List.any` true.
-theorem List.anyOfMem (xs: List a) (q: a → Bool) (y: a) (qy: q y = True) (h: y ∈ xs): List.any xs q = True :=
-  match xs, h with
-    | [], m => Void.exfalso m
-    | [x, ..xs], Inl e => rewrite e, qy in rfl
-    | [x, ..xs], Inr m =>
-      match c: q x with
-        | True => rfl
-        | False => List.anyOfMem xs q y qy m
-
---| When `List.any` is true, some element of the list passes.
-theorem List.anyTrueElim: ∀ (xs: List a) (p: a → Bool) (goal: Prop) => List.any xs p = True → ∀ (cont: ∀ (x: a) => x ∈ xs → p x = True → goal) => goal
-  | [], p, goal, h, k => cases
-  | [z, ..zs], p, goal, h, k =>
-    match c: p z with
-      | True => k z (Inl rfl) c
-      | False => List.anyTrueElim zs p goal h (x inZs px => k x (Inr inZs) px)
-
---| `List.contains xs x` is `True` exactly when `x` is in `xs`.
-theorem List.memContains [auto eq: DecEq a] (xs: List a) (x: a): (List.contains xs x = True) ↔ (x ∈ xs) := {
-  forward = found =>
-    List.anyTrueElim xs (member => member == x) (x ∈ xs) found (member isIn same => rewrite <- DecEq.sound same in isIn),
-  backward = isIn => List.anyOfMem xs (member => member == x) x (DecEq.refl x) isIn
-}
-
 --| In a list without repeats, a value matches at most one element, and exactly
 --| one when it is a member: `xs.count (== v)` is 1 if `xs.contains v` and 0 if
 --| not. With [`List.lengthFilter`] this turns "the filter keeps exactly one"
