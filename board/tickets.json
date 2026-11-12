@@ -1,5 +1,5 @@
 {
-  "next": 2991,
+  "next": 2992,
   "tickets": [
     {
       "id": 47,
@@ -32009,6 +32009,19 @@
       "where": "",
       "labels": [],
       "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-12",
+      "updated": "2026-11-12",
+      "commits": []
+    },
+    {
+      "id": 2991,
+      "title": "[DeepSeek] Playground Check panel with errors (Matt, 12 Nov 2026, screenshot: a parse error at the bottom under 12 open goals from two chapters): errors come first, under a red heading that says how many and where ('1 error in 02-cases.sw, line 239'); open goals then collapsed to one line ('12 open goals, show') while there are errors, and grouped by file with the open file's first; the Run tab's 'This doesn't check yet.' the same; the status line names the error count",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "editor-playground",
       "body": "",
       "created": "2026-11-12",
       "updated": "2026-11-12",
