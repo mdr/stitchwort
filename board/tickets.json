@@ -32207,15 +32207,17 @@
     {
       "id": 3002,
       "title": "[Opus] Each case the checker fills in becomes a %matchN helper declaration (38 new in std after SW-2993) where an explicit arm needed none: could the filled-in proof go inline? (SW-2993 finding)",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "Estimate: 90 min (lane on Opus, lane/SW-3002). Took about 20 min.\n\nCause: a filled-in case refuted by an equation of two different constructors (`cases::contradiction`) is `J` along a motive that computes by cases on the type; the kernel allows `case` only in a case tree, so the motive was lifted (`lift::draft` in `cases::family`) as a helper per filled-in case. Bool already avoided it with `Bool.falseNotTrue`. All 38 helpers SW-2993 added were on `Ordering`, with three distinct bodies.\n\nChange (f362639c8): `Ordering`, its constructors and its six distinctness lemmas (`Ordering.lessNotEqual` …) are built-ins; `contradiction` uses the lemma, giving `Void.exfalso (Ordering.lessNotEqual h)`, the deleted arm's term. Other types still get a helper. Example `impossible-cases-left-out.sw` gained an Ordering case (46 to 45 decls); docs/syntax.md \"Impossible cases\" says which equations need no helper.\n\nMeasured: std core 575 to 537 declarations; prelude snapshot `%match` 1223 to 1185 (exactly the 38 named); core load elab 62.4 to 61.8 ms median of 8, kernel 19.15 to 18.85 ms (noise level). No pins moved.\n\nTests: tools indexed_families/redundant_arms 21/21; library hash_stability (snapshots accepted: 238 changed, only hashes plus the 38 helpers removed and the new example theorem); library builtins/pinned_hashes 17/17; running examples accepted/goal/rejected/soundness 7/7.\n\nFollow-up: program types with derived DecEq have `T.%differ`, which could refute their constructor equations without a helper too.\n",
       "created": "2026-11-12",
       "updated": "2026-11-12",
-      "commits": []
+      "commits": [
+        "f362639c8"
+      ]
     },
     {
       "id": 3003,
