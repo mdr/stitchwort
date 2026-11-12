@@ -447,6 +447,62 @@ fn hover_works_in_a_library_file_the_library_was_replayed() {
     });
 }
 
+/// The hover at the first `needle` of `text`.
+fn hover_at(s: &mut Session, text: &str, needle: &str) -> Value {
+    let offset = text.find(needle).expect("in the text") + needle.len() / 2;
+    let before = &text[..offset];
+    let line = before.matches('\n').count();
+    let character = before.rsplit('\n').next().unwrap_or("").chars().count();
+    s.request(
+        "textDocument/hover",
+        json!({"textDocument": {"uri": URI},
+               "position": {"line": line, "character": character}}),
+    )
+}
+
+#[test]
+fn hover_unfolds_the_outermost_not_once() {
+    big_stack(|| {
+        let text = "namespace Demo\n\
+                    import Std (Bool, Void)\n\
+                    \n\
+                    theorem absurdOne (h: False = True): Void := Bool.falseNotTrue h\n\
+                    \n\
+                    theorem ordinary (a b: Nat) (h: a = b): a = b := h\n\
+                    \n\
+                    theorem positive (n: Nat): n + 1 ≠ 0 := ?\n\
+                    \n\
+                    def usesPositive: (n: Nat) → n + 1 ≠ 0 := positive\n\
+                    \n\
+                    theorem negation (p: Prop): ¬p := ?\n\
+                    \n\
+                    def usesNegation: ¬False := negation False\n\
+                    \n\
+                    def n: Nat := ordinary 1 1 rfl\n";
+        let mut s = Session::open(text);
+        let shown = hover_at(&mut s, text, "falseNotTrue");
+        let markdown = shown["contents"]["value"].as_str().unwrap_or_default();
+        assert!(markdown.contains("False ≠ True"), "{shown}");
+        assert!(markdown.contains("that is, False = True → Void"), "{shown}");
+        let shown = hover_at(&mut s, text, "ordinary 1");
+        let markdown = shown["contents"]["value"].as_str().unwrap_or_default();
+        assert!(markdown.contains("a = b"), "{shown}");
+        assert!(!markdown.contains("that is,"), "{shown}");
+        let shown = hover_at(&mut s, text, ":= positive");
+        let markdown = shown["contents"]["value"].as_str().unwrap_or_default();
+        assert!(
+            markdown.contains("that is, (n: Nat) → n + 1 = 0 → Void"),
+            "{shown}"
+        );
+        let shown = hover_at(&mut s, text, "negation False");
+        let markdown = shown["contents"]["value"].as_str().unwrap_or_default();
+        assert!(
+            markdown.contains("that is, (p: Prop) → p → Void"),
+            "{shown}"
+        );
+    });
+}
+
 impl Session {
     /// Replaces the document's text, as version `version`, and checks it.
     fn change(&mut self, version: i32, text: &str) {
