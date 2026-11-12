@@ -32630,15 +32630,17 @@
     {
       "id": 3031,
       "title": "[Opus] Bool as proposition stage 3b: the stuck-decision step (bool-as-proposition.md §5.4 step 2) and the warning when a decision's holds isn't the test its proposition's reading reads (§13), with the mismatch note suggesting .read",
-      "status": "review",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-3031",
       "labels": [],
       "epic": "syntax-language",
-      "body": "\nBuilt on lane/SW-3031 (f848fc9ab, ddb690b5d, 5b6ee18e0), Opus 52 min (est. 3 h): stuck decisions read via Decidable.sound/complete/refute/toBoolOfNot (toBoolOfNot moved into core; Refute, ToBoolOfNot registry built-ins); W-DECISION-TEST; .read note on E-TYPE-MISMATCH; warnings credited to their own declaration. Open: D3541 (derived == reading: (a) generated %sameReads, (b) reader falls back to sound/complete) [rec a]. Opus review before merge.\nD3541 (Matt, 12 Nov 2026): (a), generated readings in deriving (DecEq); implemented in SW-3044.",
+      "body": "\nBuilt on lane/SW-3031 (f848fc9ab, ddb690b5d, 5b6ee18e0), Opus 52 min (est. 3 h): stuck decisions read via Decidable.sound/complete/refute/toBoolOfNot (toBoolOfNot moved into core; Refute, ToBoolOfNot registry built-ins); W-DECISION-TEST; .read note on E-TYPE-MISMATCH; warnings credited to their own declaration. Open: D3541 (derived == reading: (a) generated %sameReads, (b) reader falls back to sound/complete) [rec a]. Opus review before merge.\nD3541 (Matt, 12 Nov 2026): (a), generated readings in deriving (DecEq); implemented in SW-3044.\nOpus review: nothing High; M1, M2, L5, L6 fixed (b40f6cf5e); L1-L4 filed (SW-3041..3043). Opus, 60 min total (est. 3 h).",
       "created": "2026-11-12",
       "updated": "2026-11-12",
-      "commits": []
+      "commits": [
+        "f848fc9ab"
+      ]
     },
     {
       "id": 3032,
