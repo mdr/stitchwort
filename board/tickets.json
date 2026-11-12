@@ -32173,15 +32173,17 @@
     {
       "id": 3000,
       "title": "[Sonnet] LSP test memory: features::semantic_tokens_colour_names_by_what_they_resolve_to (lsp it) peaks at 1.45 GB, 24 s, at 0a460bbbe; three such tests at once (signature_help, semantic_tokens, completion_offers_locals) took the merge tier over its 4 GB cap at 16:59. The 07:18 merge tier at 58c3bcac7 passed. Bisect today's merges by peak footprint; fix or report",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-3000",
       "labels": [],
       "epic": "test-infra",
-      "body": "",
+      "body": "\nCause: not a code regression; TestCacheTurn's marker held only the Rust fingerprint, so after SW-2967's std-only change three lsp tests each refilled the library at 1.34 GB. Fixed: marker = fingerprint + library hash. Model result: Sonnet, worked, 12 min (est. 60)",
       "created": "2026-11-12",
       "updated": "2026-11-12",
-      "commits": []
+      "commits": [
+        "e836a0ac9"
+      ]
     },
     {
       "id": 3001,
