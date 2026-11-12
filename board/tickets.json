@@ -32889,7 +32889,7 @@
     {
       "id": 3050,
       "title": "[Sonnet] postponement.md after SW-3045: §5.5 (~565-567, ~606-608) operators decided at finish; invariant 6 is about the final term; dated note at ~1593-1597 and deviation 4 (~1712); §5.10: an operator's result type must not depend on its dictionary (else it must wait); list -k and groups with - in §5.10's allowed class; reword kept_receiver's (queue.rs ~1852) and Defaulted's (numbers.rs ~29) docs (SW-3045 review)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-3050",
       "labels": [],
@@ -32897,7 +32897,9 @@
       "body": "",
       "created": "2026-11-12",
       "updated": "2026-11-12",
-      "commits": []
+      "commits": [
+        "6c135b388"
+      ]
     }
   ]
 }
