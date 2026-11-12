@@ -32039,12 +32039,12 @@
     {
       "id": 2990,
       "title": "[Sonnet] Impossible cases: a missing default in a number column is reported eagerly by compile_numbers even when a hypothesis rules it out (SW-2984 review L3); impossible_case/may_be_impossible force every Eq hypothesis on the error path, which could make a quick E-NONEXHAUSTIVE slow (L4, suspicion)",
-      "status": "doing",
+      "status": "backlog",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2990",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "\nOrchestrator: waits for SW-3008 (same impossible_case/may_be_impossible code).",
       "created": "2026-11-12",
       "updated": "2026-11-12",
       "commits": []
@@ -32278,9 +32278,9 @@
     {
       "id": 3007,
       "title": "[Sonnet] SW-2981 review L-e: under a failed (..) import every undotted E-UNKNOWN-NAME in the file counts as lost, so a real typo waits silently until the import is fixed; point the waiting entry at the import's span, not the use; and an error-free member of a failed group still has own: true in FailedDecl (module.rs ~1270) so it's counted in errors though docs say it waits (user-visible count: Matt's call if it changes)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-3007",
       "labels": [],
       "epic": "diagnostics",
       "body": "\nAlso from SW-3006: in a group where only g has an error, the summary still says '2 errors: in B.f and B.g' (own flag per member in note_error_source).",
