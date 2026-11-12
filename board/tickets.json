@@ -27895,15 +27895,17 @@
     {
       "id": 2681,
       "title": "Per-declaration counters for the largest read-back and deepest frames (bounded read-back stage 0c); measure over the whole corpus before D3464's 1M limit",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2681",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "From SW-2660 (10 Nov 2026), docs/proposals/term-sharing.md.",
+      "body": "From SW-2660 (10 Nov 2026), docs/proposals/term-sharing.md.\nModel result: Sonnet, worked, ~10 min (est. 60)",
       "created": "2026-11-10",
       "updated": "2026-11-12",
-      "commits": []
+      "commits": [
+        "395cf6ea0"
+      ]
     },
     {
       "id": 2682,
