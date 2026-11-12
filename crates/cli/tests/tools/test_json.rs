@@ -1014,3 +1014,67 @@ fn a_declaration_with_an_error_is_not_counted_as_relying() {
         "{stderr}"
     );
 }
+
+/// A body with a syntax error stands in for its statement as one with a
+/// type error does (docs/proposals/tests-with-errors.md §3.3): its users
+/// rely on it, and the summary counts only it. With a header that doesn't
+/// parse, its users wait, and still aren't counted as errors.
+#[test]
+fn a_body_that_does_not_parse_stands_in_for_its_statement() {
+    let source = "def double (n: Nat): Nat := n + n\n\
+        theorem doubleTwo: double 2 = 4 := (rfl\n\
+        theorem usesTwo: double 2 + 0 = 4 := doubleTwo\n\
+        def check2 (h: double 2 = 4): Bool := double 1 == 2\n\
+        test \"cites\" := check2 doubleTwo\n";
+    let header = source.replace("double 2 = 4 := (rfl", "double 2 = := rfl");
+    for (name, text) in [
+        ("unparsed-body", source.to_string()),
+        ("unparsed-header", header),
+    ] {
+        let dir = folder(name);
+        std::fs::write(dir.join("t.sw"), &text).unwrap();
+        let output = Command::new(env!("CARGO_BIN_EXE_stitchwort"))
+            .args(["check", "t.sw", "--no-cache"])
+            .current_dir(&dir)
+            .stdin(Stdio::null())
+            .output()
+            .expect("run stitchwort");
+        let (stdout, _, ok) = run(&dir, &["--no-cache"]);
+        let _ = std::fs::remove_dir_all(&dir);
+        let stderr = String::from_utf8(output.stderr).unwrap();
+        assert_eq!(output.status.code(), Some(1), "{stderr}");
+        assert!(!ok, "{stdout}");
+        assert_eq!(stderr.matches("Error:").count(), 1, "{stderr}");
+        assert!(stderr.contains("[E-PARSE]"), "{stderr}");
+        let summary: Vec<_> = (stderr.lines())
+            .skip_while(|l| !l.starts_with("1 error:"))
+            .collect();
+        assert_eq!(summary[0], "1 error: in `doubleTwo`", "{stderr}");
+        if name == "unparsed-body" {
+            assert_eq!(
+                summary[1..],
+                [
+                    "2 declarations rely on a declaration with an error, checked assuming its statement"
+                ],
+                "{stderr}"
+            );
+            assert!(
+                stdout.contains(
+                    "✓ cites  ran  (assuming `doubleTwo`, which has an error (t.sw:2:40))"
+                ),
+                "{stdout}"
+            );
+        } else {
+            assert_eq!(
+                summary[1], "2 declarations can't be checked until an error is fixed:",
+                "{stderr}"
+            );
+            assert!(
+                stdout.contains(
+                    "✗ cites  not run  (it uses `doubleTwo`, which has an error (t.sw:2:31))"
+                ),
+                "{stdout}"
+            );
+        }
+    }
+}

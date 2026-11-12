@@ -202,6 +202,9 @@ pub(crate) struct ModuleState {
     pub error_sources: HashMap<usize, (String, Option<Span>)>,
     /// The key each item declares under, by item.
     pub item_keys: HashMap<usize, String>,
+    /// The names of the module's declarations that didn't parse
+    /// (`Module::failed`), by key: the name, and where its syntax error is.
+    pub parse_failed: HashMap<String, (String, Option<Span>)>,
     /// The items that weren't checked because they use a declaration of
     /// another namespace that failed, directly or through an item that
     /// waits for one: that declaration's key (`E-USES-FAILED`).
@@ -692,6 +695,8 @@ impl Elaborator {
         if !diagnostics.iter().any(|d| d.severity == Severity::Error) {
             diagnostics.extend(self.doc_link_warnings(files));
         }
+        // The parser reported these.
+        diagnostics.retain(|d| d.code != UNPARSED_BODY);
         diagnostics
     }
 
@@ -1213,6 +1218,13 @@ impl Elaborator {
                     let waits = module.waits_elsewhere.get(&i).cloned();
                     Some((module.items[i].name.clone(), source, waits))
                 })
+                // A declaration of this module's that didn't parse.
+                .or_else(|| {
+                    let source = used_failed
+                        .iter()
+                        .find_map(|k| module.parse_failed.get(k))?;
+                    Some((source.0.clone(), source.clone(), None))
+                })
         };
         let source = match &used {
             Some((_, source, _)) => source.clone(),
@@ -1539,6 +1551,8 @@ impl Elaborator {
                 if let Some(target) = self.extension_target(name) {
                     self.scope.add_extension(&key, &target);
                 }
+                (self.unit.module.parse_failed)
+                    .insert(key.clone(), (name.text.clone(), failed.error_at));
                 self.unit.module.names.insert(key);
             }
         }
@@ -2571,7 +2585,9 @@ impl Elaborator {
     pub(crate) fn failed_global(&self, name: &ast::Name) -> Diagnostic {
         let waits = match self.resolve(&name.text) {
             crate::scope::Resolved::Found { key, .. } => {
-                if !self.unit.module.names.contains(key) {
+                if !self.unit.module.names.contains(key)
+                    || self.unit.module.parse_failed.contains_key(key)
+                {
                     note_failed_used(key);
                 }
                 self.session.waiting_names.borrow().get(key).cloned()
@@ -2798,6 +2814,19 @@ thread_local! {
     /// declares: the component waits for them (`E-USES-FAILED`).
     static FAILED_USED: std::cell::RefCell<Vec<String>> =
         const { std::cell::RefCell::new(Vec::new()) };
+}
+
+/// The code of the error that fails a definition whose body didn't parse
+/// (`Decl::Signature`'s `body_error`): its own error, so it gets a stand-in
+/// and is the declaration its users' messages name, but never reported,
+/// since the parser reported the syntax error at the same place.
+pub(crate) const UNPARSED_BODY: &str = "E-UNPARSED-BODY";
+
+/// The error failing a definition whose body has a syntax error at `at`
+/// (`UNPARSED_BODY`).
+pub(crate) fn unparsed_body(at: Span) -> Diagnostic {
+    Diagnostic::error(UNPARSED_BODY, "this body didn't parse")
+        .with_label(at, "the syntax error is here")
 }
 
 /// Notes that the declaration being checked was refused for using failed

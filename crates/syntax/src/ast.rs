@@ -1042,6 +1042,13 @@ pub enum Decl {
         /// The attributes written before the declaration (before `export`,
         /// if it's there).
         attrs: Vec<Attribute>,
+        /// Where its body's syntax error is, when its header parsed and its
+        /// body didn't (only `parse_module_recovering` keeps such a
+        /// definition): it has no equations, and the elaborator checks its
+        /// statement, then fails it without a message of its own, the parser
+        /// having reported the error (docs/proposals/tests-with-errors.md
+        /// §3.3).
+        body_error: Option<Span>,
         span: Span,
     },
     /// `test "name" = expr`: a `Bool` that `stitchwort test` checks is `True`.

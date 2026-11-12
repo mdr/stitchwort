@@ -269,8 +269,8 @@ name that resolves into `M`.
 - **An error stops only what needs it** (D3524, D3527). If a declaration in
   `Aoc` has an error, every namespace is still checked, declaration by
   declaration, those that import `Aoc` included. A `def` or `theorem` whose
-  statement checked but whose body didn't stands in for its statement, as a
-  `?` does: what uses it is checked against the statement, its own mistakes
+  statement checked but whose body didn't (a type error, or a syntax error
+  after its `:=`) stands in for its statement, as a `?` does: what uses it is checked against the statement, its own mistakes
   are reported, and it's counted as relying on the broken declaration
   ("relies on a declaration with an error, checked assuming its
   statement"), never as finished. A declaration that has to compute through

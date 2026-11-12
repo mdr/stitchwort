@@ -182,7 +182,15 @@ body with an error has no well-typed remainder.
 - **Syntax errors.** A declaration whose body didn't parse but whose
   signature did (parse-recovery.md) gets a stand-in the same way. So
   typing inside `beats`' body no longer takes down everything that calls
-  `beats`: callers stay checked against its signature.
+  `beats`: callers stay checked against its signature. Parse recovery
+  keeps a `def` or `theorem` whose header parsed and whose body (anything
+  after its `:=` or first `|`) didn't, as its signature with the place of
+  the syntax error and no equations; the elaborator checks the statement
+  and fails the declaration there without a second message, so it stands
+  in, or its users wait, by the rules above (SW-2980). A declaration whose
+  header didn't parse, and an instance, are left out as before: their
+  names are known only as failed, and their users wait, counted as
+  waiting, not as errors.
 
 This is what makes the two rules of §1 one rule: a broken theorem and an
 unfinished theorem are the same thing to their users, an assumption of the
@@ -517,6 +525,11 @@ book with the slip; stage 3 core's assumption tests and
   where the reference sits, as `unfinished_message` does now.
 - One stand-in per broken declaration, not per erroneous expression: an
   ill-typed body has no trustworthy remainder to keep.
+- A body with a syntax error fails its declaration with an internal error
+  that is never shown (`E-UNPARSED-BODY`), at the syntax error's place, so
+  the stand-in, the reporting and the summary are stage 3's, unchanged
+  (SW-2980). A `decreasing` one isn't checked at all, as it gets no
+  stand-in.
 - No stand-in for types, interfaces, abilities or instances at first.
 - A test with its own error is a result, not only a diagnostic.
 - Stage 1 keeps last answers in the live project for importers of a

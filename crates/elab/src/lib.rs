@@ -1805,6 +1805,7 @@ impl Elaborator {
             unfolding: Vec::new(),
             defaults: Vec::new(),
             attrs: Vec::new(),
+            body_error: None,
             span: *span,
         };
         let res_eqs: Vec<Decl> = sigs
@@ -1908,6 +1909,7 @@ impl Elaborator {
             unfolding: Vec::new(),
             defaults: Vec::new(),
             attrs: Vec::new(),
+            body_error: None,
             span: *span,
         };
         let elim_eqs: Vec<Decl> = sigs
@@ -2710,6 +2712,30 @@ impl Elaborator {
         if let Some(done) = self.builtin_group(members) {
             return done;
         }
+        // A `decreasing` definition gets no stand-in, so one whose body
+        // didn't parse is failed without checking anything.
+        let unparsed = |s: &Decl| match s {
+            Decl::Signature {
+                body_error: Some(at),
+                ..
+            } => Some(*at),
+            _ => None,
+        };
+        let refused: Vec<(usize, Diagnostic)> = (members.iter())
+            .filter(|(_, s, _)| {
+                matches!(
+                    s,
+                    Decl::Signature {
+                        decreasing: Some(_),
+                        ..
+                    }
+                )
+            })
+            .filter_map(|(item, s, _)| Some((*item, module::unparsed_body(unparsed(s)?))))
+            .collect();
+        if !refused.is_empty() {
+            return refused;
+        }
         // Recursion on a measure (`decreasing.rs`).
         if members.iter().any(|(_, s, _)| {
             matches!(
@@ -2810,6 +2836,17 @@ impl Elaborator {
             self.unit.module.item = Some(item);
             if let Err(d) = self.param_defaults(signature, *id) {
                 out.push((item, d));
+                refused = true;
+            }
+        }
+        if refused {
+            return out;
+        }
+        // A body that didn't parse: the statement is checked, and that's
+        // all (a stand-in can be made for it).
+        for &(item, signature, _) in members {
+            if let Some(at) = unparsed(signature) {
+                out.push((item, module::unparsed_body(at)));
                 refused = true;
             }
         }
@@ -2985,6 +3022,7 @@ impl Elaborator {
             unfolding: _,
             defaults,
             attrs: _,
+            body_error: _,
             span,
         } = signature
         else {
