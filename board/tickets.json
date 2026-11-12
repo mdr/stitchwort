@@ -1,5 +1,5 @@
 {
-  "next": 2994,
+  "next": 2995,
   "tickets": [
     {
       "id": 47,
@@ -31883,9 +31883,9 @@
     {
       "id": 2980,
       "title": "[Opus] Tests with errors: a declaration whose body has a syntax error gets no stand-in (the parser drops the declaration and keeps no signature), unlike tests-with-errors.md §3.3: keep the signature through parse recovery so it stands in (SW-2952 review M3); also the misleading 'N errors: in usesTwo, …' summary after a body parse error (also on main)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-2980",
       "labels": [],
       "epic": "test-infra",
       "body": "",
@@ -32073,6 +32073,19 @@
       "where": ".claude/worktrees/SW-2993",
       "labels": [],
       "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-12",
+      "updated": "2026-11-12",
+      "commits": []
+    },
+    {
+      "id": 2994,
+      "title": "[Opus] Universe unknowns: 23 fresh_meta() sites stand for types whose universe isn't known (hole, goal, if, lambda params/result, …), so they stay untyped; a typed meta of type Sort ?u would let the guard check them too (SW-2976 finding; design question, not urgent)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
       "body": "",
       "created": "2026-11-12",
       "updated": "2026-11-12",
