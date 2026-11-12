@@ -63,13 +63,17 @@
 //! T.%sameComplete (C2 a0 a1) (C2 b0 b1) e = Decidable.complete (… as above …) e
 //! T.%sameComplete r s e = Void.exfalso (T.%differ r s rfl e)
 //!
+//! T.%decide : … -> (r : T a) -> (s : T a) -> Decidable (r = s)
+//! T.%decide r s = { holds = T.%same r s, sound = T.%sameSound r s, complete = T.%sameComplete r s }
+//!
 //! instance T.%instDecEq : [a : _] -> [auto decEq: DecEq a] -> DecEq (T a) :=
-//!   { decide = r s => { holds = T.%same r s, sound = T.%sameSound r s, complete = T.%sameComplete r s } }
+//!   { decide = T.%decide }
 //! ```
 //!
 //! The test comes first, as in a hand-written instance (docs/proposals/
-//! decidable-record.md §5.3): `r == s` is `T.%same r s`, which on two
-//! constructors computes to their fields' tests joined by `&&`, the later
+//! decidable-record.md §5.3): `r == s` is `(T.%decide r s).holds`, so
+//! `T.%same r s`, which on two constructors computes to their fields'
+//! tests joined by `&&`, the later
 //! ones run only once the earlier ones hold: `({ x = a, y = c }: Point) ==
 //! { x = b, y = d }` is `a == b && c == d` by `rfl`. A field of type `T a`
 //! is tested by `T.%same` on it (structural recursion); any other data
@@ -293,6 +297,9 @@ impl Elaborator {
         result = result.and_then(|()| self.definitions(&source.tests));
         self.clear_metas();
         result = result.and_then(|()| self.definitions(&source.proofs));
+        let (signature, equations) = source.decide;
+        self.clear_metas();
+        result = result.and_then(|()| self.definition(&signature, &equations));
         let (signature, equations) = source.instance;
         self.clear_metas();
         result = result.and_then(|()| self.definition(&signature, &equations));
@@ -1391,8 +1398,15 @@ impl Elaborator {
                 ]),
             ));
         }
-        // instance T.%instDecEq : … -> Std.DecEq (T %p0 …) :=
-        //   { decide = %r %s => { holds = T.%same %r %s, sound = T.%sameSound %r %s, complete = … } }
+        // T.%decide : … -> (%r %s : T %p0 …) -> Std.Decidable (%r = %s) :=
+        //   { holds = T.%same %r %s, sound = T.%sameSound %r %s, complete = … }
+        // A definition of its own, as `Nat.decEq` is, rather than a lambda in
+        // the instance: `r == s` is then the call `(T.%decide r s).holds`, kept
+        // folded, so it prints as `r == s` and is compared with another `==`
+        // by its arguments. Inlined, `r == s` would compute to `T.%same r s`,
+        // which on a record unfolds to its fields' tests: a `match h: r == s`
+        // would give `h` that type, in which `DecEq.sound h` can't find `r`
+        // and `s`.
         let by = |f: String| apps(var(&f), vec![var("%r"), var("%s")]);
         let decision = Expr::Record {
             base: None,
@@ -1403,6 +1417,30 @@ impl Elaborator {
             ],
             span,
         };
+        let decide_name = n(&format!("{ty_name}.%decide"));
+        let decide_ty = with_params(
+            Expr::Pi {
+                names: vec![n("%r"), n("%s")],
+                implicit: false,
+                auto: false,
+                dom: Box::new(this.clone()),
+                cod: Box::new(apps(var("Std.Decidable"), vec![eq(var("%r"), var("%s"))])),
+                span,
+            },
+            true,
+        );
+        let decide = (
+            signature(&decide_name, decide_ty, false),
+            vec![Decl::Equation {
+                guard: None,
+                name: decide_name.clone(),
+                patterns: vec![Pattern::Var(n("%r")), Pattern::Var(n("%s"))],
+                rhs: Some(decision),
+                arm: None,
+                span,
+            }],
+        );
+        // instance T.%instDecEq : … -> Std.DecEq (T %p0 …) := { decide = T.%decide }
         let instance_name = n(&format!("{ty_name}.%instDecEq"));
         let instance_ty = with_params(apps(var("Std.DecEq"), vec![this.clone()]), true);
         let instance = (
@@ -1413,7 +1451,7 @@ impl Elaborator {
                 patterns: Vec::new(),
                 rhs: Some(Expr::Record {
                     base: None,
-                    fields: vec![(n("decide"), lam(&["%r", "%s"], decision))],
+                    fields: vec![(n("decide"), var(&decide_name.text))],
                     span,
                 }),
                 arm: None,
@@ -1424,6 +1462,7 @@ impl Elaborator {
             differs,
             tests,
             proofs,
+            decide,
             instance,
             readings,
         }
@@ -1557,6 +1596,8 @@ struct Source {
     /// `T.%sameSound` and `T.%sameComplete`, then each container's, defined
     /// together after the tests, which their types mention.
     proofs: Vec<(Decl, Vec<Decl>)>,
+    /// `T.%decide`, the decision made of `T.%same` and its proofs.
+    decide: (Decl, Vec<Decl>),
     instance: (Decl, Vec<Decl>),
     /// `T.%sameReads` and `T.%sameReadsFalse`, then each container's: the
     /// readings of the tests, filed once the instance is.
