@@ -8,11 +8,28 @@
 // result as JSON. A stale search is stopped by terminating this worker.
 import init, { load_std, SearchWorker } from "./pkg/stitchwort_web.js";
 
+const started = performance.now();
 let searcher = null;
+let wasm = null;
+let warmed = false;
+
+/**
+ * Loads the library a project's searches keep, once there is a project to
+ * search in. A check of a file on its own doesn't need it, so the worker
+ * doesn't hold its quick searches (the `.` member list) for it.
+ */
+function warm() {
+  if (warmed) return;
+  warmed = true;
+  const t = performance.now();
+  searcher.warm();
+  postMessage({ warmed: { warm: performance.now() - t, memory: wasm.memory.buffer.byteLength, at: performance.now() - started } });
+}
 
 function handle(data) {
   if (data.module !== undefined) {
-    return init({ module_or_path: data.module }).then(async () => {
+    return init({ module_or_path: data.module }).then(async (instance) => {
+      wasm = instance;
       load_std(data.bundle);
       searcher = new SearchWorker();
       const cache = await fetch(new URL(`./pkg/std.cache.gz${data.load}`, import.meta.url))
@@ -20,11 +37,17 @@ function handle(data) {
         .catch(() => null);
       if (cache) searcher.load_library_cache(new Uint8Array(cache));
       for (const p of data.projects) searcher.add_project(p.root, p.sources, p.paths, p.texts);
+      // The page starts this worker before the first search, so the library
+      // loads while it is still being read; any search posted meanwhile waits
+      // in this worker's message chain.
+      postMessage({ ready: performance.now() - started });
+      if (data.projects.length > 0) warm();
     });
   }
   if (data.project !== undefined) {
     const p = data.project;
     searcher.add_project(p.root, p.sources, p.paths, p.texts);
+    warm();
   } else if (data.setFile !== undefined) {
     searcher.set_project_file(data.setFile.root, data.setFile.path, data.setFile.text);
   } else if (data.job !== undefined) {

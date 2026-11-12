@@ -2788,6 +2788,56 @@ test("a proof search in the book's chapter 2 shows progress, and a second one do
   assert.ok(second < 8000, `the second search took ${second} ms`);
 }, { ms: 400000 });
 
+test("the search worker warms when the book opens, and a first proof search doesn't wait for the library", async (page) => {
+  await page.open({ hash: "#book/2" });
+  await page.until(`document.getElementById("example").value === "book:2" &&
+    window.editor.value.includes("theorem noAndAnything")`, 60000, "the book's chapter 2");
+  // The chapter has goals of its own, so its check finishes as "N goals open"
+  // (or "checked by the kernel" once they are all proved).
+  await page.until(`/(goals? open|checked by the kernel)$/.test(document.getElementById("status").textContent)`,
+    180000, "the book's check");
+  await page.until(`window.editor.stats.idle`, 180000, "the rest of the book's check");
+  // The search worker's library load starts at the first check; wait for it,
+  // then a few seconds more, so the first search has nothing left to load.
+  await page.until(`window.editor.stats.searchWorker`, 180000, "the search worker's library load");
+  const warm = await page.ev(`window.editor.stats.searchWorker`);
+  console.log(`  the search worker's library load: ${Math.round(warm.warm)} ms, done ${Math.round(warm.at)} ms after the page opened`);
+  await sleep(3000);
+  const memory = await page.ev(`(async () => {
+    const worker = window.editor.stats.searchWorker;
+    const fallback = worker && { kind: "search worker wasm", bytes: worker.memory, loadedAt: worker.at, warmMs: worker.warm };
+    if (typeof performance.measureUserAgentSpecificMemory !== "function") return fallback;
+    try {
+      const measured = await performance.measureUserAgentSpecificMemory();
+      return { kind: "page", bytes: measured.bytes, fallback };
+    } catch {
+      return fallback;
+    }
+  })()`);
+  console.log(`  memory after the warm load: ${JSON.stringify(memory)}`);
+  const text = await sourceText(page);
+  const line = "theorem noAndAnything (b: Answer): both No b = No := rfl";
+  await page.setSource(text.replace(line, line.slice(0, -"rfl".length) + "?"));
+  const hole = "both No b = No := ?";
+  await caretAt(page, hole, hole.length - 1);
+  await page.until(`document.getElementById("goalpanel").innerText.includes("⊢ both No b = No")`, 180000, "the goal at the ?");
+  await page.ev(`(() => {
+    const notices = window.__notices = [];
+    const old = window.editor.options.onNotice;
+    window.editor.options.onNotice = (t) => { notices.push(t); old?.(t); };
+  })()`);
+  await caretAt(page, hole, hole.length - 1);
+  await page.key("Period", "Period", 190, { modifiers: CMD });
+  await page.until(`document.querySelector(".pick-panel") !== null`, 20000, "the code actions");
+  const started = Date.now();
+  const proved = await page.ev(`window.__notices.filter((n) => n.startsWith("Proved by")).length`);
+  await page.ev(`[...document.querySelectorAll(".pick-item")].find((b) => b.textContent.includes("Search for a proof")).click()`);
+  await page.until(`window.__notices.filter((n) => n.startsWith("Proved by")).length > ${proved}`, 150000, "the proof");
+  const took = Date.now() - started;
+  console.log(`  first search after opening: ${took} ms`);
+  assert.ok(took < 5000, `the first search took ${took} ms`);
+}, { ms: 400000 });
+
 test("a single proof is inserted at once with a notice, and undo restores the ?", async (page) => {
   await page.open();
   await page.untilChecked();

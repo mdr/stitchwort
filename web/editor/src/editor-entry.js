@@ -205,6 +205,8 @@ export class Editor {
       } else if (data.libraryCache !== undefined) {
         stats.libraryCache = data.libraryCache;
         stats.libraryCacheMs = data.after;
+      } else if (data.searchWorker !== undefined) {
+        stats.searchWorker = data.searchWorker;
       } else if (data.stdSource !== undefined) {
         this.stdWaiting.get(data.stdSource)?.(data.text);
         this.stdWaiting.delete(data.stdSource);
