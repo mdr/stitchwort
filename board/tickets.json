@@ -31710,15 +31710,17 @@
     {
       "id": 2969,
       "title": "[Sonnet] cases and auto close a goal from e = True and e = False together (contradiction) without the reader (SW-2964 finding 3; bool-as-proposition plan, new small stage)",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "proof-automation",
-      "body": "",
+      "body": "Progress (lane, 12 Nov): closer is cases::bool_clash, reached through cases::by_contradiction; auto calls it as its last step before E-AUTO-STUCK. Tests: crates/driver/tests/elaboration/bool_clash.rs (6). Commit 29e69432b.",
       "created": "2026-11-12",
       "updated": "2026-11-12",
-      "commits": []
+      "commits": [
+        "29e69432b"
+      ]
     },
     {
       "id": 2970,
