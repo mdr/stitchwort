@@ -1104,8 +1104,24 @@ export def area: Shape -> Nat
   /** The editor's own text, even while a library file is shown. */
   const sourceText = () => source.value;
   const runHint = el("p", { className: "hint" });
+  /** Whether the open entry has a program to run; a chapter is checked, not run. */
+  const canRun = () => !project?.manifest.noRun;
+  /** Enables Run and the run panel's buttons, unless there is no program or a run is going. */
+  function setRunEnabled(on) {
+    const enabled = on && canRun() && stopButton.disabled;
+    runButton.disabled = runAgain.disabled = liveButton.disabled = !enabled;
+  }
   /** The run panel's explanation, for `main` of the program or of a project's day. */
   function setRunHint() {
+    if (!canRun()) {
+      runButton.title = "Chapters are checked, not run: the Tests tab checks the chapter's tests";
+      runHint.textContent =
+        "This chapter has no program to run. The Check tab shows what is proved and which goals (the ?s) are still open; " +
+        "the Tests tab checks the chapter's tests.";
+      runInput.hidden = false;
+      setRunEnabled(false);
+      return;
+    }
     const main = (project && project.manifest.days[project.day].main) || "main";
     runButton.title = `Run ${main} (Ctrl+Enter)`;
     // A live day has no input box: its keys come from the terminal pane.
@@ -1113,6 +1129,7 @@ export def area: Shape -> Nat
     runInput.hidden = live;
     if (live) {
       runHint.textContent = project.manifest.days[project.day].hint ?? `Run opens a terminal and calls ${main} () in it.`;
+      setRunEnabled(true);
       return;
     }
     runHint.textContent =
@@ -1120,6 +1137,7 @@ export def area: Shape -> Nat
       "IO.readAll () gets all that's left at once. " +
       `A run may print up to ${MAX_OUTPUT / 1024} KB and take up to ${RUN_SECONDS} s.` +
       (project ? (project.manifest.days[project.day].hint ? ` ${project.manifest.days[project.day].hint}` : " The input starts as the day's example.") : "");
+    setRunEnabled(true);
   }
   setRunHint();
 
@@ -1138,11 +1156,12 @@ export def area: Shape -> Nat
   ];
 
   async function runMain() {
+    if (!canRun()) return;
     // A project day that says `"live": true` in its manifest runs in the terminal.
     if (project?.manifest.days[project.day].live) return runLive();
     selectView("run");
     const src = stateKey();
-    runButton.disabled = runAgain.disabled = liveButton.disabled = true;
+    setRunEnabled(false);
     stopButton.disabled = false;
     // The output shows as it's printed: the worker sends each line, and the
     // lines that arrive between frames are added together.
@@ -1171,8 +1190,8 @@ export def area: Shape -> Nat
     if (fallBack(result)) result = await runner.call(request, RUN_SECONDS, onOutput);
     const took = performance.now() - started;
     ended = true;
-    runButton.disabled = runAgain.disabled = liveButton.disabled = false;
     stopButton.disabled = true;
+    setRunEnabled(true);
     ranSource = src;
     runStale.hidden = true;
 
@@ -1475,7 +1494,7 @@ export def area: Shape -> Nat
   async function runLive() {
     selectView("run");
     liveRun?.stop();
-    runButton.disabled = runAgain.disabled = liveButton.disabled = true;
+    setRunEnabled(false);
     stopButton.disabled = false;
     const grid = new TerminalGrid(24, 80);
     const screen = el("pre", { id: "live-screen", className: "program-output", tabIndex: 0 });
@@ -1569,8 +1588,8 @@ export def area: Shape -> Nat
       }
       screen.removeEventListener("keydown", onKey);
       screen.removeEventListener("blur", onBlur);
-      runButton.disabled = runAgain.disabled = liveButton.disabled = false;
       stopButton.disabled = true;
+      setRunEnabled(true);
       if (out.state === "failed") {
         set("failed", "The run failed.");
         runResult.append(...errorsView(out.errors));
