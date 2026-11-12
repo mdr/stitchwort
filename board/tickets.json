@@ -32039,7 +32039,7 @@
     {
       "id": 2990,
       "title": "[Sonnet] Impossible cases: a missing default in a number column is reported eagerly by compile_numbers even when a hypothesis rules it out (SW-2984 review L3); impossible_case/may_be_impossible force every Eq hypothesis on the error path, which could make a quick E-NONEXHAUSTIVE slow (L4, suspicion)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2990",
       "labels": [],
