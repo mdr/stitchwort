@@ -31558,7 +31558,7 @@
       "where": ".claude/worktrees/scratch-sw-2958",
       "labels": [],
       "epic": "editor-playground",
-      "body": "\nDirection (Matt, 12 Nov 2026): 'a bit like with VS Code, command full stop should return immediately with an option to case split or to search for a proof, and then searching for a proof should go off, and there should be a progress indicator, but the code action shortcut should be pretty much instant.' So: the list is offered at once from what's known; Split is computed without waiting on the search session; Search for a proof runs only when picked, with progress shown.",
+      "body": "\nDirection (Matt, 12 Nov 2026): 'a bit like with VS Code, command full stop should return immediately with an option to case split or to search for a proof, and then searching for a proof should go off, and there should be a progress indicator, but the code action shortcut should be pretty much instant.' So: the list is offered at once from what's known; Split is computed without waiting on the search session; Search for a proof runs only when picked, with progress shown.\nD3529 (Matt, 12 Nov 2026: 'D3529 yes'): the instant Cmd+. fix runs on Sonnet as an exception to compute mode, once DeepSeek's timing is in.",
       "created": "2026-11-12",
       "updated": "2026-11-12",
       "commits": []
