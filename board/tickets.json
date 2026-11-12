@@ -32216,15 +32216,17 @@
     {
       "id": 3003,
       "title": "[DeepSeek] A theorem whose body doesn't parse loses its counterexample note: it attaches to the hidden E-UNPARSED-BODY (module.rs note_counterexample, then retain at the end of elaborate_module); move it onto the parse error in merge_recovered (SW-2980/SW-2997 finding)",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": ".claude/worktrees/scratch-sw-3003",
       "labels": [],
       "epic": "diagnostics",
-      "body": "",
+      "body": "\nModel result: DeepSeek, worked, ~15 min (est. 30)",
       "created": "2026-11-12",
       "updated": "2026-11-12",
-      "commits": []
+      "commits": [
+        "e0993e922"
+      ]
     },
     {
       "id": 3004,
