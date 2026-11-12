@@ -31697,15 +31697,17 @@
     {
       "id": 2967,
       "title": "[DeepSeek] std: List.decMem, decDistinct, decSorted, decLeHead recurse on the list, so if x ∈ xs and if xs.contains x are different tests: write them test first (holds := the Bool test, then sound/complete) (SW-2964 finding 1)",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "std-library",
-      "body": "",
+      "body": "\n\nLane notes (Sonnet, 12 Nov): done on lane/SW-2967 (7a9bb85fa). decMem holds := xs.contains x; new Bool defs List.noRepeats, List.isLeHead, List.isSortedBy with @[reading] iff theorems beside them; memContains became the reading of contains (moved with anyOfMem, anyTrueElim into Toolkit.sw). Extraction snapshots (let-callbacks, microtype-comparisons) and hash snapshots updated; extract.rs assertion now expects List.contains. Tests: hash_stability, builtins::, trip-journal and reading/membership examples pass.\n",
       "created": "2026-11-12",
       "updated": "2026-11-12",
-      "commits": []
+      "commits": [
+        "7a9bb85fa"
+      ]
     },
     {
       "id": 2968,
