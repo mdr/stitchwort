@@ -31855,9 +31855,9 @@
     {
       "id": 2979,
       "title": "[DeepSeek] Playground: switching from a book chapter to an AoC day waits for the chapter's check to finish before the day is checked (SW-2904's test had to wait for it): a newer open should cancel or jump ahead of a check of a file no longer shown",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": ".claude/worktrees/scratch-sw-2979",
       "labels": [],
       "epic": "editor-playground",
       "body": "",
