@@ -1,5 +1,5 @@
 {
-  "next": 2967,
+  "next": 2970,
   "tickets": [
     {
       "id": 47,
@@ -31637,15 +31637,17 @@
     {
       "id": 2964,
       "title": "[Fable] Paper: the Bool-as-proposition reader before stage 2 (bool-as-proposition.md §5-§7, D3487, D3488): readings as @[reading] proved definitions vs a fixed compiler list vs other designs; the orphan rule; what the reader does in patterns, building, both polarities, crossing; end state, prior art (Lean decide/simp lemmas and Bool coercions, SSReflect reflect views, Agda/Idris Dec, Isabelle), risks; recommendation for D3487 and D3488 (Matt, 12 Nov)",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-2964",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "Fable paper lane, 12 Nov 2026, 12:53-13:10 (est. 2 h). Review: docs/reviews/SW-2964-bool-reader-review.md (branch lane/SW-2964, commit 76da7a9a2). No build, no tests, no probes.\n\n- D3487 [rec: yes, in an amended shape]: a reading is a `@[reading]` theorem `test ↔ proposition` (not a `Decidable` definition); one reading per test and polarity; declared where the test is (same file in std, same namespace in a project).\n- D3488 [rec: no for now]: a test fact is itself an equation, so silent crossing can't fire as a rewrite rule, in an untyped let or under Eq.sym. Of 510 named helper uses at most 270 sit where it could (script, rough). Build an explicit postfix word in stage 2 (working name `.read`), and revisit silent crossing after a measured sweep, only where the wanted type is not an equation.\n- New decision needing a number: the word (`.read`, `.fact`, `.meaning`).\n- Plan: stage 2 keeps its size, with the amended readings, `.read`, and \"no existing example hash changes\" as its acceptance check; the ∀ hooks dropped from stage 3; stage 4 becomes measure-then-decide; omega on the reader last and optional.\n- Findings for tickets: std's four recursive decisions (`List.decMem`, `decDistinct`, `decSorted`, `decLeHead`) aren't test first, so `if x ∈ xs` and `if xs.contains x` are different tests; `deriving (DecEq)` isn't test first (`derive.rs:49-56`); the `e = True` against `e = False` closer for cases/auto needs no reader; bool-as-proposition.md §8.4 counts two lemmas as crossings that aren't one-function readings.\nReview: docs/reviews/SW-2964-bool-reader-review.md. D3487 yes amended (a marked ↔ theorem; one reading per test; declared with the test). D3488 no for now: an explicit word (.read) in stage 2, silent crossing measured later. Plan: closer for e = True vs e = False now; stage 3 all Sonnet; stage 4 measure; omega on the reader last. 12 min (est. 2 h).",
       "created": "2026-11-12",
       "updated": "2026-11-12",
-      "commits": []
+      "commits": [
+        "76da7a9a2"
+      ]
     },
     {
       "id": 2965,
@@ -31668,6 +31670,45 @@
       "where": "",
       "labels": [],
       "epic": "proof-search",
+      "body": "",
+      "created": "2026-11-12",
+      "updated": "2026-11-12",
+      "commits": []
+    },
+    {
+      "id": 2967,
+      "title": "[DeepSeek] std: List.decMem, decDistinct, decSorted, decLeHead recurse on the list, so if x ∈ xs and if xs.contains x are different tests: write them test first (holds := the Bool test, then sound/complete) (SW-2964 finding 1)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "std-library",
+      "body": "",
+      "created": "2026-11-12",
+      "updated": "2026-11-12",
+      "commits": []
+    },
+    {
+      "id": 2968,
+      "title": "[Sonnet] deriving (DecEq) still answers by Decidable.yes/no under a match (crates/elab derive.rs:49-56): build the record test first; decidable-record.md stage 4 planned a test (SW-2964 finding 2)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-12",
+      "updated": "2026-11-12",
+      "commits": []
+    },
+    {
+      "id": 2969,
+      "title": "[Sonnet] cases and auto close a goal from e = True and e = False together (contradiction) without the reader (SW-2964 finding 3; bool-as-proposition plan, new small stage)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
       "body": "",
       "created": "2026-11-12",
       "updated": "2026-11-12",
