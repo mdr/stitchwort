@@ -1,5 +1,5 @@
 {
-  "next": 2996,
+  "next": 2997,
   "tickets": [
     {
       "id": 47,
@@ -32101,6 +32101,19 @@
       "status": "backlog",
       "agent": "",
       "where": "",
+      "labels": [],
+      "epic": "test-infra",
+      "body": "",
+      "created": "2026-11-12",
+      "updated": "2026-11-12",
+      "commits": []
+    },
+    {
+      "id": 2996,
+      "title": "[Sonnet] Memory regression: examples::rejected_examples_fail_for_the_expected_reason peaks at 3.65 GB (12 Nov 16:38, main 0925d65c7), so the merge tier's 4 GB memguard killed it; the 07:18 merge tier at 58c3bcac7 passed under the same cap. Find which of today's merges did it (measure the test's peak footprint with /usr/bin/time -l at merge commits), and fix or report",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-2996",
       "labels": [],
       "epic": "test-infra",
       "body": "",
