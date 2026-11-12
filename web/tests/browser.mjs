@@ -404,7 +404,7 @@ test("Copy link to this line copies the URL and says so", async (page) => {
   await page.until(`document.getElementById("example").value === "book:2" &&
     location.hash === "#book/2:167"`, 60000, "the book's chapter 2 at line 167");
   await page.until(`document.getElementById("status").textContent.endsWith("checked by the kernel") ||
-    / goals? open$/.test(document.getElementById("status").textContent)`, 180000, "the chapter to check");
+    /(goals? open|in all)$/.test(document.getElementById("status").textContent)`, 180000, "the chapter to check");
   await page.ev(`(() => {
     window.__copied = null;
     Object.defineProperty(navigator, "clipboard", { configurable: true,
@@ -893,6 +893,17 @@ test("a book chapter's error comes first, with its open goals collapsed", async 
   assert.ok(files.length > 1, files.join());
   assert.ok(files.every((f) => f.endsWith(".sw")), files.join());
   assert.equal(shown.status, "1 error");
+}, { ms: 240000 });
+
+// The book's chapter 2 imports chapter 1, so its check has both chapters'
+// goals: the status counts the open file's first, then the project's.
+test("a multi-file project's status puts the open file's goals first", async (page) => {
+  await page.open({ hash: "#book/2" });
+  const status = await page.until(`/^\\d+ goals? open in this chapter, \\d+ in all$/.test(document.getElementById("status").textContent) &&
+    document.getElementById("status").textContent`, 180000, "the chapter's and the project's goal counts");
+  const [, chapter, all] = status.match(/^(\d+) goals? open in this chapter, (\d+) in all$/);
+  assert.ok(Number(chapter) > 0, status);
+  assert.ok(Number(chapter) < Number(all), `${status}: chapter 2's goals are some of the project's`);
 }, { ms: 240000 });
 
 test("a code action on the book's chapter 2 splits the theorem on b", async (page) => {
@@ -2415,7 +2426,7 @@ test("sf/ is a project with a chapter per entry, opens by link, and shows open g
   assert.ok(manifest.files.every((p) => /^src\/.*\.sw$/.test(p)), manifest.files.join());
   assert.equal(await page.ev(`fetch("pkg/projects/sf/stitchwort.yaml").then((r) => r.status)`), 404);
   // The exercises are open goals, which are not errors.
-  await page.until(`/ goals? open$/.test(document.getElementById("status").textContent)`, 120000, "Induction's goals");
+  await page.until(`/(goals? open|in all)$/.test(document.getElementById("status").textContent)`, 120000, "Induction's goals");
   assert.equal(await page.ev(`document.getElementById("example").value`), "sf:1");
   assert.equal(await page.ev(`location.hash`), "#sf/induction");
   assert.ok((await fileTabs(page)).includes("Induction.sw"));
@@ -2844,9 +2855,10 @@ test("the search worker warms when the book opens, and a first proof search does
   await page.open({ hash: "#book/2" });
   await page.until(`document.getElementById("example").value === "book:2" &&
     window.editor.value.includes("theorem noAndAnything")`, 60000, "the book's chapter 2");
-  // The chapter has goals of its own, so its check finishes as "N goals open"
-  // (or "checked by the kernel" once they are all proved).
-  await page.until(`/(goals? open|checked by the kernel)$/.test(document.getElementById("status").textContent)`,
+  // The chapter has goals of its own, so its check finishes as "N goals open
+  // in this chapter, M in all" (or "checked by the kernel" once they are all
+  // proved).
+  await page.until(`/(goals? open|in all|checked by the kernel)$/.test(document.getElementById("status").textContent)`,
     180000, "the book's check");
   await page.until(`window.editor.stats.idle`, 180000, "the rest of the book's check");
   // The search worker's library load starts at the first check; wait for it,

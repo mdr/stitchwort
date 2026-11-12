@@ -424,6 +424,10 @@ enum Command {
         /// character that isn't a blank
         #[arg(long, value_name = "FILE:LINE[:COL]")]
         at: Option<String>,
+        /// Count the open goals per namespace, in the project's order, with
+        /// the total, instead of listing them: for a book's chapters
+        #[arg(long)]
+        summary: bool,
         /// The answer as a JSON object (docs/syntax.md, "The goal at a
         /// point")
         #[arg(long)]
@@ -904,12 +908,18 @@ fn run(cli: Cli) -> ExitCode {
         } => axioms(&target, &names, project.as_deref(), &cache),
         Command::Goal {
             at,
+            summary,
             json,
             project,
             cache,
-        } => match at {
-            Some(at) => goal_at(&at, project.as_deref(), json, &cache),
-            None => goal_list(project.as_deref(), json, &cache),
+        } => match (at, summary) {
+            (Some(_), true) => {
+                eprintln!("error: --summary counts each namespace's goals: it takes no --at");
+                ExitCode::from(2)
+            }
+            (Some(at), false) => goal_at(&at, project.as_deref(), json, &cache),
+            (None, true) => goal_summary(project.as_deref(), json, &cache),
+            (None, false) => goal_list(project.as_deref(), json, &cache),
         },
         Command::Search {
             query,
@@ -3022,23 +3032,9 @@ fn goal_at(at: &str, project: Option<&Path>, json: bool, cache: &CacheArgs) -> E
 /// `goal` (what must be shown), `reliedOnBy`, `blocking` and
 /// `equationLemmas` (unfinished lemmas made for a definition with a `?`).
 fn goal_list(project: Option<&Path>, json: bool, cache: &CacheArgs) -> ExitCode {
-    let Some(project) = locate_project(project, "list goals of", "goal --at hello.sw:3") else {
+    let Some((session, reliance, _)) = load_project_goals(project, cache) else {
         return ExitCode::FAILURE;
     };
-    let mut session = new_session(false);
-    use_cache(&mut session, cache, &project.dir);
-    let loaded = session.load_project_for(
-        &project.files,
-        &project.name,
-        &Target::Everything,
-        Load::Diagnostics,
-    );
-    if let Err(diagnostics) = loaded {
-        report(&session.sources, &diagnostics);
-        return ExitCode::FAILURE;
-    }
-    let reported = std::mem::take(&mut session.warnings);
-    let reliance = session.reliance(&reported);
     if json {
         let goals: Vec<_> = reliance
             .goals
@@ -3119,6 +3115,88 @@ fn goal_list(project: Option<&Path>, json: bool, cache: &CacheArgs) -> ExitCode 
             );
         }
     }
+    discard(session);
+    ExitCode::SUCCESS
+}
+
+/// The project's open goals and its namespaces in canonical order, for
+/// `goal`'s listings. `None` (reported) if the project can't be loaded.
+fn load_project_goals(
+    project: Option<&Path>,
+    cache: &CacheArgs,
+) -> Option<(Session, stitchwort_driver::reliance::Reliance, Vec<String>)> {
+    let project = locate_project(project, "list goals of", "goal --at hello.sw:3")?;
+    let mut session = new_session(false);
+    use_cache(&mut session, cache, &project.dir);
+    let loaded = session.load_project_for(
+        &project.files,
+        &project.name,
+        &Target::Everything,
+        Load::Diagnostics,
+    );
+    let order = match loaded {
+        Ok(loaded) => loaded.checked,
+        Err(diagnostics) => {
+            report(&session.sources, &diagnostics);
+            return None;
+        }
+    };
+    let reported = std::mem::take(&mut session.warnings);
+    let reliance = session.reliance(&reported);
+    Some((session, reliance, order))
+}
+
+/// `goal --summary`: how many open goals each namespace has, in the
+/// project's order, and the total, so a reader working through a book sees
+/// their progress chapter by chapter. With `--json`: `namespaces` (`name`,
+/// `open`) and `open`.
+fn goal_summary(project: Option<&Path>, json: bool, cache: &CacheArgs) -> ExitCode {
+    let Some((session, reliance, order)) = load_project_goals(project, cache) else {
+        return ExitCode::FAILURE;
+    };
+    let mut counts: Vec<(&str, usize)> = order.iter().map(|ns| (ns.as_str(), 0)).collect();
+    for goal in &reliance.goals {
+        // A goal is in the longest namespace that prefixes its declaration:
+        // both `A` and `A.B` may be namespaces.
+        let owner = order
+            .iter()
+            .filter(|ns| {
+                goal.place
+                    .declaration
+                    .strip_prefix(ns.as_str())
+                    .is_some_and(|rest| rest.is_empty() || rest.starts_with('.'))
+            })
+            .max_by_key(|ns| ns.len());
+        if let Some(owner) = owner
+            && let Some((_, open)) = counts.iter_mut().find(|(name, _)| *name == owner)
+        {
+            *open += 1;
+        }
+    }
+    let total = reliance.goals.len();
+    if json {
+        let each: Vec<_> = counts
+            .iter()
+            .map(|(name, open)| serde_json::json!({"name": name, "open": open}))
+            .collect();
+        println!("{}", serde_json::json!({"namespaces": each, "open": total}));
+        discard(session);
+        return ExitCode::SUCCESS;
+    }
+    for (name, open) in &counts {
+        if *open == 0 {
+            println!("{name}: done");
+        } else {
+            println!("{name}: {open} open");
+        }
+    }
+    let plural = |n: usize, word: &str| format!("{n} {word}{}", if n == 1 { "" } else { "s" });
+    println!(
+        "{} open in {} of {}",
+        plural(total, "goal"),
+        counts.iter().filter(|(_, open)| *open > 0).count(),
+        plural(counts.len(), "namespace"),
+    );
     discard(session);
     ExitCode::SUCCESS
 }
