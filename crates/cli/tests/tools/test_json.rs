@@ -537,11 +537,15 @@ fn a_member_of_a_failed_group_without_an_error_is_not_blamed_for_the_others() {
     );
     let (_, stderr, _) = project_tests(&dir, &["--no-cache"]);
     let _ = std::fs::remove_dir_all(&dir);
+    // `isEven` isn't an error of its own either: it waits for `isOdd`, and
+    // so does what uses it.
+    assert!(stderr.contains("1 error: in `A.isOdd`"), "{stderr}");
     assert!(
-        stderr.contains("1 declaration can't be checked until an error is fixed:"),
+        stderr.contains("2 declarations can't be checked until an error is fixed:"),
         "{stderr}"
     );
     assert!(stderr.contains("A.usesEven"), "{stderr}");
+    assert!(stderr.contains("A.isEven"), "{stderr}");
     assert!(stderr.contains("needs `isOdd` ("), "{stderr}");
     assert!(!stderr.contains("needs `isEven`"), "{stderr}");
     assert!(
@@ -1208,4 +1212,36 @@ fn a_body_that_does_not_parse_stands_in_for_its_statement() {
             );
         }
     }
+}
+
+/// SW-3007: only `g` has an error, so the summary counts and lists `g`;
+/// `f`, which is fine, waits for it, with what uses it.
+#[test]
+fn an_error_free_member_of_a_failed_group_is_not_counted_as_an_error() {
+    let importer = "namespace B\n\n\
+        def f: (n: Nat) -> Nat\n  | 0 => 0\n  | Succ k => g k\n\n\
+        def g: (n: Nat) -> Nat\n  | 0 => 0\n  | Succ k => f k + g (Succ k)\n\n\
+        theorem usesF (h: f 1 = 1): 1 = 1 := rfl\n\ntest \"t\" := True\n";
+    let dir = source_project("counted", "namespace A\n\ndef a: Nat := 1\n", importer);
+    let (_, stderr, _) = project_tests(&dir, &["--no-cache"]);
+    let _ = std::fs::remove_dir_all(&dir);
+    assert!(stderr.contains("1 error: in `B.g`"), "{stderr}");
+    assert!(!stderr.contains("2 errors"), "{stderr}");
+    assert!(stderr.contains("B.f "), "{stderr}");
+}
+
+/// SW-3007: under a failed `(..)` import, a real typo is put down to the
+/// import like a lost name, so what waits for it says so at the import,
+/// where the error is printed, not at a use of `fooo` that prints nothing.
+#[test]
+fn a_typo_under_a_failed_wildcard_import_waits_at_the_import() {
+    let importer = "namespace B\n\nimport Missing (..)\n\n\
+        def typo (n: Nat): Nat := fooo n\n\n\
+        theorem usesTypo (h: typo 1 = 1): 1 = 1 := rfl\n\ntest \"t\" := True\n";
+    let dir = source_project("typo", "namespace A\n\ndef a: Nat := 1\n", importer);
+    let (_, stderr, _) = project_tests(&dir, &["--no-cache"]);
+    let _ = std::fs::remove_dir_all(&dir);
+    assert!(stderr.contains("needs `import Missing (..)` ("), "{stderr}");
+    assert!(stderr.contains("b.sw:3:8"), "{stderr}");
+    assert!(!stderr.contains("needs `fooo`"), "{stderr}");
 }

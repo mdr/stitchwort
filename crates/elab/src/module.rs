@@ -708,24 +708,27 @@ impl Elaborator {
             return false;
         }
         let failed = &self.scope.import_failed;
-        if failed
+        failed
             .iter()
             .any(|n| d.message == format!("unknown name `{n}`"))
-        {
-            return true;
+            || self.lost_to_a_failed_wildcard(d).is_some()
+    }
+
+    /// The failed `(..)` import (the namespace it names, and where) that an
+    /// undotted `E-UNKNOWN-NAME` in a file that has one is put down to: it
+    /// may be a name that import would have brought, or a real typo; the
+    /// import is the error reported.
+    fn lost_to_a_failed_wildcard(&self, d: &Diagnostic) -> Option<(String, Span)> {
+        if d.code != "E-UNKNOWN-NAME" || d.message.contains('.') {
+            return None;
         }
-        if self.scope.wildcard_failed.is_empty() || d.message.contains('.') {
-            return false;
-        }
-        let files: Vec<Option<FileId>> = self
-            .scope
+        let at = d.labels.first()?.span.file;
+        self.scope
             .wildcard_failed
             .iter()
-            .filter_map(|i| self.unit.module.files.get(*i).map(|f| f.id))
-            .collect();
-        d.labels
-            .first()
-            .is_some_and(|l| files.iter().any(|f| f.is_none_or(|id| id == l.span.file)))
+            .filter_map(|(i, import)| Some((self.unit.module.files.get(*i)?.id, import)))
+            .find(|(file, _)| file.is_none_or(|id| id == at))
+            .map(|(_, import)| import.clone())
     }
 
     /// Stand-ins (docs/proposals/tests-with-errors.md §3.3, D3527) for the
@@ -1270,6 +1273,18 @@ impl Elaborator {
         // to name.
         let used = used.or_else(|| {
             let d = lost.filter(|_| only_dependencies)?;
+            // A name a failed `(..)` import may have brought is waiting for
+            // that import, which is where the error is printed.
+            if !self
+                .scope
+                .import_failed
+                .iter()
+                .any(|n| d.message == format!("unknown name `{n}`"))
+                && let Some((namespace, at)) = self.lost_to_a_failed_wildcard(d)
+            {
+                let import = format!("import {namespace} (..)");
+                return Some((import.clone(), (import, Some(at)), None));
+            }
             let name = d
                 .message
                 .strip_prefix("unknown name `")?
@@ -1314,7 +1329,9 @@ impl Elaborator {
                 test: info.kind == Kind::Test,
                 root: source.0.clone(),
                 error_at: source.1,
-                own,
+                // A member of a group with no error of its own isn't one:
+                // it waits for the member that has.
+                own: own && (component.len() == 1 || own_here.is_some() || own_first.is_none()),
             };
             let log = &mut self.session.failed_decls;
             log.retain(|f| (&f.namespace, &f.name) != (&failed.namespace, &failed.name));

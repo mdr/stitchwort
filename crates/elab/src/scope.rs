@@ -145,9 +145,10 @@ pub struct Scope {
     /// whose extensions it sees.
     extenders: Vec<BTreeSet<String>>,
     /// The files (of the current module) with a `(..)` import that failed
-    /// with an error of its own, so the uses of names in them aren't
+    /// with an error of its own, each with the namespace it names and where
+    /// that is written, so the uses of names in them aren't
     /// reported again as unknown.
-    pub(crate) wildcard_failed: BTreeSet<usize>,
+    pub(crate) wildcard_failed: BTreeMap<usize, (String, Span)>,
     /// The names of imports that failed with an error of their own, so the
     /// uses of them aren't reported again as unknown.
     pub(crate) import_failed: HashSet<String>,
@@ -216,7 +217,7 @@ pub(crate) struct SavedImports {
     renamed: Vec<HashMap<String, Vec<String>>>,
     wildcards: Vec<BTreeMap<String, Vec<(String, Span)>>>,
     extenders: Vec<BTreeSet<String>>,
-    wildcard_failed: BTreeSet<usize>,
+    wildcard_failed: BTreeMap<usize, (String, Span)>,
     import_failed: HashSet<String>,
 }
 
@@ -2575,7 +2576,8 @@ impl Elaborator {
     fn wildcard_failed(&mut self, import: &Import) {
         if import.everything.is_some() {
             let file = self.current_file();
-            self.scope.wildcard_failed.insert(file);
+            (self.scope.wildcard_failed.entry(file))
+                .or_insert_with(|| (import.path.text.clone(), import.path.span));
         }
     }
 
@@ -2635,7 +2637,8 @@ impl Elaborator {
             }
             Some(WildcardSource::Refused(refusal)) => {
                 diagnostics.push(self.refused_wildcard(&refusal, k, &import.path));
-                self.scope.wildcard_failed.insert(file);
+                (self.scope.wildcard_failed.entry(file))
+                    .or_insert_with(|| (import.path.text.clone(), import.path.span));
             }
             // The namespace didn't parse: it isn't checked either.
             Some(WildcardSource::Unknown) => {}
@@ -2648,7 +2651,8 @@ impl Elaborator {
                     )
                     .with_note("`import` takes a namespace, such as `List` or `Text`"),
                 );
-                self.scope.wildcard_failed.insert(file);
+                (self.scope.wildcard_failed.entry(file))
+                    .or_insert_with(|| (import.path.text.clone(), import.path.span));
             }
         }
     }
