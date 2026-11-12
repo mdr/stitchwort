@@ -31716,12 +31716,12 @@
     {
       "id": 2968,
       "title": "[Sonnet] deriving (DecEq) still answers by Decidable.yes/no under a match (crates/elab derive.rs:49-56): build the record test first; decidable-record.md stage 4 planned a test (SW-2964 finding 2)",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "\n\n\nLane notes: derive.rs now generates T.%same, T.%sameSound, T.%sameComplete (and T.%m1% members); instance is the record of the three; T.%decEq dropped. Commit 98e28ff81. Examples, hash_stability, builtins pass. Ready for review.\n",
       "created": "2026-11-12",
       "updated": "2026-11-12",
       "commits": []
