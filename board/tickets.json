@@ -31777,15 +31777,17 @@
     {
       "id": 2973,
       "title": "[DeepSeek] ring is missing from the full search's closers list (rfl, omega, cases, byDecision), so tactics in the full report never lists it (SW-2966 finding)",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": ".claude/worktrees/scratch-sw-2973",
       "labels": [],
       "epic": "proof-search",
-      "body": "",
+      "body": "\nModel result: DeepSeek, worked, ~12 min (est. 25). Left: try_rule's rewrite-closer list (rfl, omega, cases) still lacks ring.",
       "created": "2026-11-12",
       "updated": "2026-11-12",
-      "commits": []
+      "commits": [
+        "7dd93b881"
+      ]
     },
     {
       "id": 2974,
