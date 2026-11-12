@@ -31667,9 +31667,9 @@
     {
       "id": 2966,
       "title": "[Sonnet] Proof search answers with the simplest proof first (Matt, 12 Nov: 'if we can close the proof with rfl, we should only offer that ... if we can close it with a very simple proof tactic, why would we offer lots of different ways ... get back to them quickly'): try a short ladder of cheap closers first (rfl, then exact hypothesis, decide on closed goals, omega, ring, cases on an impossible hypothesis), offer only the first that closes the goal, and run the full search only when none does; measure time to first answer on the book and sf exercises before/after",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-2966",
       "labels": [],
       "epic": "proof-search",
       "body": "",
