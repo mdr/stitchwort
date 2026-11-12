@@ -2304,6 +2304,26 @@ test("sf/ is a project with a chapter per entry, opens by link, and shows open g
   assert.ok((await fileTabs(page)).includes("Induction.sw"));
 }, { ms: 200000 });
 
+test("a chapter's Run is disabled and says chapters are checked, not run, until an AoC day is picked", async (page) => {
+  await page.open({ hash: "#book/2" });
+  const title = await page.until(`document.getElementById("example").value === "book:2" &&
+    (() => { const b = document.getElementById("run"); return b.disabled && b.title; })()`, 120000, "the chapter's Run button to be disabled");
+  assert.match(title, /checked, not run/);
+  assert.match(title, /Tests tab/);
+  // Let the chapter's check finish before switching: it is the server's, and a
+  // check still running would put the next project behind it.
+  await page.until(`(() => { const s = document.getElementById("status").textContent;
+    return s !== "Loading the compiler…" && s !== "(changed)"; })()`, 180000, "the chapter to check");
+  // The chapters' manifests mark them so; the days' project has programs to run.
+  const flags = await page.ev(`Promise.all(["book", "sf", "aoc"].map((name) =>
+    fetch("pkg/projects/" + name + "/manifest.json").then((r) => r.json()).then((m) => !!m.noRun)))`);
+  assert.deepEqual(flags, [true, true, false]);
+  // An AoC day has a main, so Run comes back.
+  await openDay(page, 2);
+  assert.equal(await page.ev(`document.getElementById("run").disabled`), false);
+  assert.match(await page.ev(`document.getElementById("run").title`), /^Run Aoc\.Year2025\.Day02\.main /);
+}, { ms: 200000 });
+
 test("only the listed folders are bundled: sources, examples and puzzle inputs", async (page) => {
   await page.open();
   await page.untilChecked();

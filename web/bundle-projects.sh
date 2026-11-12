@@ -169,7 +169,9 @@ echo "bundled the roguelike into $rogue_dest"
 # ---- Chapter projects: sf/ (the Software Foundations port) and book/. ---------
 # Their entries are chapters, not days: each opens the chapter's first file and
 # checks its namespaces (every `namespace` its files declare) and what they use.
-# `slug` is the chapter's part of its link (`#sf/basics`, `#book/3`).
+# `slug` is the chapter's part of its link (`#sf/basics`, `#book/3`). A chapter
+# has no `main`, so `"noRun": true` tells the page not to offer Run: it would
+# only report E-NO-MAIN, while the tests and the open goals are the work.
 
 # json_string_list ITEM...: `"a", "b"`.
 json_list() {
@@ -229,7 +231,7 @@ bundle_chapters() {
     cp "$path" "$out/$path"
   done
   {
-    printf '{\n  "name": "%s",\n  "title": "%s",\n  "openGoals": "%s",\n  "files": [' "$name" "$title" "$open_goals"
+    printf '{\n  "name": "%s",\n  "title": "%s",\n  "noRun": true,\n  "openGoals": "%s",\n  "files": [' "$name" "$title" "$open_goals"
     local sep=""
     for path in $chapter_files; do
       printf '%s\n    "%s"' "$sep" "$path"
