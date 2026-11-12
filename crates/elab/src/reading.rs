@@ -511,7 +511,9 @@ impl Elaborator {
             TestHead::And => "`&&`".to_string(),
             TestHead::Or => "`||`".to_string(),
         };
-        if !self.unit.module.def_items.contains_key(&home) {
+        // A derived test (`T.%same`) is made with its type, so it is there
+        // whenever the type is, though it is no item of the module.
+        if !self.unit.module.def_items.contains_key(&home) && !g.def(home).name().contains('%') {
             return Err(error(
                 "E-READING-PLACE",
                 at,

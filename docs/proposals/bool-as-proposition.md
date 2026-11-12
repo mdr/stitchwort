@@ -818,8 +818,12 @@ when `d` is `Decidable.holds d` or a call's field `(f x).holds` whose
 decision forces to a neutral (not an unknown); its terms are `d.sound h`,
 `d.complete q`, `Decidable.refute d h` and `Decidable.toBoolOfNot d n`
 (which moved into the core for it). Since SW-2968 a derived `==` is no
-longer a stuck decision: its test is `T.%same x y`, which has no reading,
-so `(x == y) = True` on a derived type is a leaf (D3541). The warning,
+longer a stuck decision: its test is `T.%same x y`. D3541 (a, SW-3044):
+`deriving (DecEq)` also generates `T.%sameReads` (`T.%same x y ↔ x = y`)
+and `T.%sameReadsFalse` (`T.%same x y = False ↔ x ≠ y`) from
+`%sameSound`/`%sameComplete` (and `refute`/`toBoolOfNot`), for `T` and each
+container member, filed with the instance. They are found by the test's
+head before anything unfolds, so a record's `==` reads as `x = y` too. The warning,
 `W-DECISION-TEST`, compares the function at the head of an instance's
 `holds` (through the decisions it is made from) with the function a
 positive reading of the same proposition is stated for, at whichever of
