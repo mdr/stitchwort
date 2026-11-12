@@ -1,5 +1,5 @@
 {
-  "next": 3020,
+  "next": 3021,
   "tickets": [
     {
       "id": 47,
@@ -32419,15 +32419,17 @@
     {
       "id": 3016,
       "title": "[Sonnet] Regression on main (12 Nov 18:52): resources::running_out_at_any_point_only_ever_means_no_answer and running_out_of_stack_at_any_point_… fail: at work budget 1976 the first diagnostic is W-UNREACHABLE ('here ha is False = True') instead of E-RESOURCE: a warning is reported from a run that ran out (likely SW-2993/3008's fills_in/deletable or SW-2990's number defaults under exhaustion; SW-3010 changed ResourceError::Size). Find the merge, make warnings from a declaration that ran out be dropped (or the test's expectation right), fix",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-3016",
       "labels": [],
       "epic": "diagnostics",
-      "body": "",
+      "body": "\nModel result: Sonnet, worked, 5 min (est. 45). Cause: std has W-UNREACHABLE arms (Bool.andIntro …) whose warnings show only when std's load runs out.",
       "created": "2026-11-12",
       "updated": "2026-11-12",
-      "commits": []
+      "commits": [
+        "c2e5d9dc4"
+      ]
     },
     {
       "id": 3017,
@@ -32465,6 +32467,19 @@
       "where": ".claude/worktrees/SW-3019",
       "labels": [],
       "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-12",
+      "updated": "2026-11-12",
+      "commits": []
+    },
+    {
+      "id": 3020,
+      "title": "[Sonnet] std has deletable arms again (~80 W-UNREACHABLE at work 100000, e.g. Bool.andIntro's | False => cases; std's warnings are dropped so nobody sees them): delete them, and add a builtins-style test that std loads with no W-UNREACHABLE so it stays clean (SW-3016 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "std-library",
       "body": "",
       "created": "2026-11-12",
       "updated": "2026-11-12",
