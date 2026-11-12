@@ -1,5 +1,5 @@
 {
-  "next": 2993,
+  "next": 2994,
   "tickets": [
     {
       "id": 47,
@@ -32049,6 +32049,19 @@
       "status": "backlog",
       "agent": "",
       "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-12",
+      "updated": "2026-11-12",
+      "commits": []
+    },
+    {
+      "id": 2993,
+      "title": "[Sonnet] W-UNREACHABLE (D3535, Matt, 12 Nov 2026: 'A warning sounds pragmatically useful'): warn on a match/clause arm with a body whose case a hypothesis rules out (the same check impossible_case uses to fill in missing arms); not on () arms; message names the hypothesis and its type there and says the arm can be deleted; editors show it like an unused binding; book §2.5's long form points at the warning",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-2993",
       "labels": [],
       "epic": "syntax-language",
       "body": "",
