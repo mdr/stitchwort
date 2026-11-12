@@ -1918,7 +1918,10 @@ fn resume(g: &Ev, frame: Frame, value: Value, stack: &mut Vec<Frame>) -> Result<
             match value {
                 Value::Refl => Control::Eval(base.clone(), env),
                 // Every closed proof of an equation is `refl` (`erase.rs`).
-                v if erase::is_erased(&v) => Control::Eval(base.clone(), env),
+                v if erase::is_erased(&v) => {
+                    g.machine.erasure.note_transport();
+                    Control::Eval(base.clone(), env)
+                }
                 Value::Neutral(head, spine) => {
                     let motive = motive.clone();
                     push(

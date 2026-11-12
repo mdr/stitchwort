@@ -49,9 +49,11 @@
 //! argument above holds for it only if its goal is true: it is the one proof
 //! that isn't checked. Under a false goal the run can treat a value as the
 //! wrong type (`J` on `h : 2 = 3` takes its base), reach a branch that has
-//! no body, or not terminate (an assumed `decreasing` goal); what a run
-//! does about that is undecided (docs/core.md "Assumptions (open goals)",
-//! Running).
+//! no body, or not terminate (an assumed `decreasing` goal). So every `J`
+//! that takes its base on the placeholder is noted
+//! ([`Erasure::take_transported`]), and a test that relies on an
+//! assumption gives no result if its run noted one (docs/core.md
+//! "Assumptions (open goals)", Running).
 //!
 //! Like JS, a proof in a position that isn't erased (passed through
 //! a polymorphic function, say) is still the placeholder if it was made by
@@ -100,6 +102,11 @@ pub struct Erasure {
     program: Cell<bool>,
     /// Off only to compare runs with and without erasure, in tests.
     disabled: Cell<bool>,
+    /// Whether `J` has taken its base on the placeholder (rule 4) since
+    /// [`Erasure::take_transported`] last asked: the one step whose result
+    /// is right only if the erased proof is true, which a run that relies
+    /// on an assumption can't promise.
+    transported: Cell<bool>,
 }
 
 /// Erasure in effect until dropped.
@@ -153,6 +160,17 @@ impl Erasure {
     /// Whether the machine is erasing now.
     pub fn active(&self) -> bool {
         self.active.get()
+    }
+
+    /// Notes that `J` took its base on the placeholder.
+    pub(crate) fn note_transport(&self) {
+        self.transported.set(true);
+    }
+
+    /// Whether `J` has taken its base on the placeholder since this was
+    /// last asked, clearing it.
+    pub fn take_transported(&self) -> bool {
+        self.transported.replace(false)
     }
 
     /// Turns erasure off (or back on) for later runs: for tests comparing

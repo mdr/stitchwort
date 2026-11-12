@@ -340,7 +340,10 @@ fn failed_import_body() {
     let good = "namespace First\n\ndef one: Nat := 1\n\ndef two: Nat := 2\n";
     let broken = "namespace First\n\ndef one: Nat := \"oops\"\n\ndef two: Nat := 2\n";
     let unparsed = "namespace First\n\ndef one: Nat := (1\n\ndef two: Nat := 2\n";
-    let second = "namespace Second\nimport First (one, two)\n\ndef three: Nat := one + two\n\ndef four: Nat := three + one\n";
+    // `three` and `four` only refer to `one`, so a type error in it leaves
+    // them checked against its statement (D3527); `oneIs` must compute it,
+    // so waits.
+    let second = "namespace Second\nimport First (one, two)\n\ndef three: Nat := one + two\n\ndef four: Nat := three + one\n\ntheorem oneIs: one = 1 := rfl\n";
     let memory = common::cached_memory(STACK);
     memory.add(MemoryProject {
         root: "/memory/proj".into(),

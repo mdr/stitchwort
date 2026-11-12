@@ -179,12 +179,14 @@ fn foreign_namespace() {
 #[test]
 fn a_failed_declaration_stops_only_what_uses_it() {
     let lib = "namespace Lib\n\ndef f: Nat := True\n\ndef k: Nat := 1\n";
-    let day = "namespace Day\n\nimport Lib (f, k)\n\ndef g: Nat := f\n\ndef h: Nat := g + f\n\ndef fine: Nat := k\n\ndef wrong: Nat := False\n";
+    let day = "namespace Day\n\nimport Lib (f, k)\n\ndef g: Nat := f\n\ntheorem gIs: g = 1 := rfl\n\ntheorem fIs: f + 1 = 2 := rfl\n\ndef fine: Nat := k\n\ndef wrong: Nat := False\n";
     let other = "namespace Other\n\ndef h: Nat := 1\n\ntest \"h\" := h == 1\n";
     let files = [("lib.sw", lib), ("day.sw", day), ("other.sw", other)];
     let found = errors(&files);
-    // `Day` is checked: its own error is found, and what uses `f` waits,
-    // said once, on the import (D3524).
+    // `Day` is checked: its own error is found. `g` only refers to `f`, so
+    // is checked against `f`'s statement, which stands in for it (D3527);
+    // the two theorems that must compute `f` wait, said once, on the
+    // import (D3524).
     assert_eq!(
         codes(&found),
         ["E-TYPE-MISMATCH", "E-USES-FAILED", "E-TYPE-MISMATCH"],
@@ -195,7 +197,7 @@ fn a_failed_declaration_stops_only_what_uses_it() {
         uses.message,
         "`f` has an error, so 2 declarations here can't be checked until it's fixed"
     );
-    assert_eq!(uses.notes, ["waiting for it: `g`, `h`"]);
+    assert_eq!(uses.notes, ["waiting for it: `gIs`, `fIs`"]);
     let day_file = uses.primary_span().unwrap().file;
     assert_eq!(found[2].primary_span().unwrap().file, day_file);
     // The independent namespace can be checked alone.
@@ -224,25 +226,21 @@ fn the_errors_of_a_load_name_what_has_one_and_what_waits() {
     let waiting: Vec<(&str, bool, bool, String)> = (errors.waiting.iter())
         .map(|w| (w.name.as_str(), w.theorem, w.test, w.needs.describe()))
         .collect();
+    // `g` and the test that calls it only refer to `f`, so are checked
+    // against its statement, which stands in for it (D3527): they rely on
+    // it rather than wait. `tg` must compute `f`, so waits.
     assert_eq!(
         waiting,
-        [
-            ("Day.g", false, false, "`f` (proj/lib.sw:3:15)".to_string()),
-            ("Day.tg", true, false, "`f` (proj/lib.sw:3:15)".to_string()),
-            (
-                "Day.test \"uses g\"",
-                false,
-                true,
-                "`f` (proj/lib.sw:3:15)".to_string()
-            ),
-        ]
+        [("Day.tg", true, false, "`f` (proj/lib.sw:3:15)".to_string())]
     );
-    // The tests that fail without running: the one with its own error, and
-    // the one that waits.
+    // The test with an error of its own fails without being checked; the
+    // one that calls `g` is a test that relies on `f`.
     let own = (session.elab.broken_tests().iter())
         .map(|t| (t.name.as_str(), t.own))
         .collect::<Vec<_>>();
-    assert_eq!(own, [("own", true), ("uses g", false)]);
+    assert_eq!(own, [("own", true)]);
+    let uses_g = (session.elab.tests().iter()).find(|t| t.name == "uses g");
+    assert!(uses_g.is_some_and(|t| session.elab.relies_on_goal(t.def)));
 }
 
 #[test]

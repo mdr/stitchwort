@@ -224,13 +224,15 @@ impl TestMachine {
 
 impl Session {
     /// Why `test` can't run, as the message of its failure, or `None` if
-    /// it can. It can't if it relies on, or waits for, open goals in code,
-    /// which the message names with where each `?` is, or uses an
-    /// unfinished declaration. An open goal that is a proof (or a type) is
-    /// erased when the test runs, so a test that only mentions a theorem
-    /// with a `?` still runs.
+    /// it can. It can't if it relies on, or waits for, gaps in code (open
+    /// goals, or declarations with an error standing in for their
+    /// statements), which the message names with where each is, or uses an
+    /// unfinished declaration. A gap that is a proof (or a type) is erased
+    /// when the test runs, so a test that only mentions a theorem with a
+    /// `?` or an error still runs (D3525).
     fn unfinished_message(&self, test: &stitchwort_elab::TestDecl) -> Option<String> {
-        let ids: std::collections::BTreeSet<_> = if self.elab.relies_on_goal(test.def) {
+        let relies = self.elab.relies_on_goal(test.def);
+        let ids: std::collections::BTreeSet<_> = if relies {
             let relied = self.elab.goals_relied_on(test.def);
             let g = &self.elab.ev();
             let code: std::collections::BTreeSet<_> = relied
@@ -253,15 +255,37 @@ impl Session {
                     .to_string(),
             });
         }
+        // The declaration the test names that leads to the gap, when it is
+        // the only one: "it uses `twice`, which depends on `broken`".
+        let through = (test.unfinished.as_deref())
+            .map(crate::reliance::short_name)
+            .filter(|_| goals.len() == 1);
         let named: Vec<String> = goals
             .iter()
             .take(3)
-            .map(|g| {
-                format!(
+            .map(|g| match (g.is_error(), relies) {
+                (false, _) => format!(
                     "`{}` isn't written yet: its body is `?` ({})",
                     g.short(),
                     g.place()
-                )
+                ),
+                (true, true) => match through.filter(|uses| *uses != g.short()) {
+                    Some(uses) => format!(
+                        "it uses `{uses}`, which depends on `{}`, which has an error ({})",
+                        g.short(),
+                        g.place()
+                    ),
+                    None => format!(
+                        "it uses `{}`, which has an error ({})",
+                        g.short(),
+                        g.place()
+                    ),
+                },
+                (true, false) => format!(
+                    "it can't be checked until `{}` is fixed ({})",
+                    g.short(),
+                    g.place()
+                ),
             })
             .collect();
         let more = match goals.len() {
@@ -279,15 +303,13 @@ impl Session {
             .flatten()
     }
 
-    /// The open-goal declarations `test` relies on, for a passing test's
-    /// `(assuming …)` (SW-2939): the proofs and types it mentions, which are
-    /// erased when it runs. Empty for a test that relies on no goal.
-    fn test_assuming(&self, test: &stitchwort_elab::TestDecl) -> Vec<String> {
+    /// The gaps `test` relies on, for a passing test's `(assuming …)`
+    /// (SW-2939, D3525): the proofs and types it mentions, open goals or
+    /// declarations with an error, which are erased when it runs. Empty for
+    /// a test that relies on none.
+    fn test_assuming(&self, test: &stitchwort_elab::TestDecl) -> Vec<crate::reliance::GoalPlace> {
         let goals = self.elab.goals_relied_on(test.def);
         self.goal_places(&goals)
-            .iter()
-            .map(|goal| goal.short().to_string())
-            .collect()
     }
 
     /// Runs every test of the program loaded so far, using cached results
@@ -369,6 +391,9 @@ impl Session {
             .tests()
             .iter()
             .filter(|test| selected(test) && self.unfinished_message_if_unfinished(test).is_none())
+            // Run on the reference evaluator, which notes a transport on an
+            // erased proof ([`Session::run_relying`]).
+            .filter(|test| !self.elab.relies_on_goal(test.def))
             .filter(|test| {
                 let _op = g.machine.budget.operation(self.elab.options.limits);
                 match def_hash(g, test.def) {
@@ -466,11 +491,6 @@ impl Session {
                 };
                 let unit = Cache::unit(&test.namespace, &test.name);
                 if let Some(outcome) = cache.get(&unit, &hash, &modes) {
-                    let assuming = if outcome == Outcome::Passed {
-                        self.test_assuming(test)
-                    } else {
-                        Vec::new()
-                    };
                     return TestResult {
                         name: test.name.clone(),
                         namespace: test.namespace.clone(),
@@ -479,11 +499,40 @@ impl Session {
                         hash: Some(hash),
                         detail: self.failure(test, outcome),
                         unfinished: None,
-                        assuming,
+                        assuming: self.test_assuming(test),
                     };
                 }
                 // A test that runs partial code is a `Delay` (D1183).
                 let partial = self.elab.is_partial(test.def).unwrap_or(false);
+                if self.elab.relies_on_goal(test.def) {
+                    let outcome = match self.run_relying(test, partial) {
+                        Ok(outcome) => outcome,
+                        Err(why) => {
+                            return TestResult {
+                                name: test.name.clone(),
+                                namespace: test.namespace.clone(),
+                                outcome: Outcome::Failed,
+                                cached: false,
+                                hash: None,
+                                detail: None,
+                                unfinished: Some(why),
+                                assuming: Vec::new(),
+                            };
+                        }
+                    };
+                    cache.verify_result(test, &hash, &modes, outcome);
+                    cache.put(&unit, &hash, &modes, outcome);
+                    return TestResult {
+                        name: test.name.clone(),
+                        namespace: test.namespace.clone(),
+                        outcome,
+                        cached: false,
+                        hash: Some(hash),
+                        detail: self.failure(test, outcome),
+                        unfinished: None,
+                        assuming: self.test_assuming(test),
+                    };
+                }
                 let on_native = match (&lowered, &mut native) {
                     (Some(lowered), Some(native)) => {
                         match native.run(lowered, test.def, partial.then_some(limits)) {
@@ -512,28 +561,10 @@ impl Session {
                     });
                     lowered.run(machine, test.def, partial.then_some(limits))
                 });
-                let outcome = on_machine.unwrap_or_else(|| {
-                    let value = if partial {
-                        self.run_partial(&Term::Def(test.def))
-                    } else {
-                        // Proofs and types aren't computed (`erase.rs`).
-                        let _erasing = g.machine.erasure.running();
-                        eval(g, &[], &Term::Def(test.def)).and_then(|v| force(g, v))
-                    };
-                    match value {
-                        // `Bool` is `False | True`: constructor 1 is `True`.
-                        Ok(Value::Ctor(_, 1, _)) => Outcome::Passed,
-                        Ok(_) => Outcome::Failed,
-                        Err(e) => Outcome::OutOfResources(e),
-                    }
-                });
+                let outcome =
+                    on_machine.unwrap_or_else(|| self.run_on_reference(test.def, partial));
                 cache.verify_result(test, &hash, &modes, outcome);
                 cache.put(&unit, &hash, &modes, outcome);
-                let assuming = if outcome == Outcome::Passed {
-                    self.test_assuming(test)
-                } else {
-                    Vec::new()
-                };
                 TestResult {
                     name: test.name.clone(),
                     namespace: test.namespace.clone(),
@@ -542,7 +573,7 @@ impl Session {
                     hash: Some(hash),
                     detail: self.failure(test, outcome),
                     unfinished: None,
-                    assuming,
+                    assuming: Vec::new(),
                 }
             })
             .collect();
@@ -554,6 +585,53 @@ impl Session {
             ));
         }
         results
+    }
+
+    /// The outcome of the test `def` on the reference evaluator.
+    fn run_on_reference(&self, def: stitchwort_core::DefId, partial: bool) -> Outcome {
+        let g = &self.elab.ev();
+        let value = if partial {
+            self.run_partial(&Term::Def(def))
+        } else {
+            // Proofs and types aren't computed (`erase.rs`).
+            let _erasing = g.machine.erasure.running();
+            eval(g, &[], &Term::Def(def)).and_then(|v| force(g, v))
+        };
+        match value {
+            // `Bool` is `False | True`: constructor 1 is `True`.
+            Ok(Value::Ctor(_, 1, _)) => Outcome::Passed,
+            Ok(_) => Outcome::Failed,
+            Err(e) => Outcome::OutOfResources(e),
+        }
+    }
+
+    /// The outcome of `test`, which relies on gaps that are proofs, or why
+    /// it has none. Erasure is sound only for true proofs, and a gap's
+    /// statement may be false: then `J` on it takes its base as if it held,
+    /// casting a value to the wrong type, and the run may compute nonsense
+    /// or crash the evaluator. So it runs on the reference evaluator, which
+    /// notes every transport on an erased proof, and a run with one gives no
+    /// result, as does a crash. The note can't say which proof it was, so a
+    /// test that also transports along a true proof isn't run either.
+    fn run_relying(
+        &self,
+        test: &stitchwort_elab::TestDecl,
+        partial: bool,
+    ) -> Result<Outcome, String> {
+        let g = &self.elab.ev();
+        g.machine.erasure.take_transported();
+        let run = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            self.run_on_reference(test.def, partial)
+        }));
+        let transported = g.machine.erasure.take_transported();
+        let gaps = crate::reliance::describe_goals(&self.test_assuming(test), true);
+        match run {
+            Ok(outcome) if !transported => Ok(outcome),
+            _ if transported => Err(format!("it computes with a proof, and relies on {gaps}")),
+            _ => Err(format!(
+                "no result: the evaluator stopped with an internal error, and it relies on {gaps}"
+            )),
+        }
     }
 
     /// Steps `term`, a partial computation that performs nothing (a test

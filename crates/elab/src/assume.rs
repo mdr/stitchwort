@@ -15,6 +15,12 @@
 //! declaration's own group, the declaration itself, a `match` lifted from
 //! it), or mentions a variable the hole can't take.
 //!
+//! A `def` or `theorem` whose statement checked but whose body didn't is
+//! stood in for the same way (docs/proposals/tests-with-errors.md §3.3,
+//! D3527): [`Elaborator::stand_in`] makes an assumption of its declared
+//! type, labelled with its error, and the module binds its name to it, so
+//! its users are checked against the statement and rely on it.
+//!
 //! Nothing that relies on an assumption counts as finished.
 //! `Elaborator::is_unfinished` reads which declarations do off their
 //! checked terms (`assumption::relies_on`, remembered per final
@@ -118,7 +124,7 @@ impl Elaborator {
         )
     }
 
-    /// Where assumption `id`'s `?` is written.
+    /// Where assumption `id`'s `?` is written, or its stand-in's error.
     pub fn assumption_span(&self, id: DefId) -> stitchwort_syntax::Span {
         self.kernel.def(id).span()
     }
@@ -204,15 +210,13 @@ impl Elaborator {
                 continue;
             }
             let hole = u32::try_from(n + 1).expect("holes fit");
-            let label = Assumption {
-                owner: owner.clone(),
-                hole,
-            };
+            let name: Name = format!("{owner}.?{hole}").into();
+            let label = Assumption::goal(owner.clone(), hole);
             let stated = (self.kernel.machine.budget).aside(side_limits(), || self.goal_type(&p));
             let Some((ty, order)) = stated else {
                 continue;
             };
-            let Some(id) = self.assumption_for(&ty, label, p.span) else {
+            let Some(id) = self.assumption_for(&name, &name, &ty, label, p.span) else {
                 continue;
             };
             // `λ x₁ … xₙ. a xᵢ …`, over the variables the metavariable is
@@ -230,6 +234,38 @@ impl Elaborator {
             };
             self.metas().solve_meta(p.meta, value);
         }
+    }
+
+    /// The stand-in for definition `failed` (docs/proposals/tests-with-errors.md
+    /// §3.3, D3527): its statement checked but its body didn't, so it
+    /// becomes an assumption of that statement, labelled as its error, and
+    /// its users are checked against it and rely on it. `span` is where the
+    /// error is. `None`, so its users wait, if the kernel refuses the
+    /// statement: it mentions a declaration that isn't final (another
+    /// member of its failed group, say).
+    ///
+    /// It takes the failed definition's name and path, so a term that uses
+    /// it reads as the declaration the user wrote.
+    pub(crate) fn stand_in(
+        &mut self,
+        failed: DefId,
+        span: stitchwort_syntax::Span,
+    ) -> Option<DefId> {
+        let def = self.kernel.def(failed);
+        if def.state() != stitchwort_core::globals::State::Failed {
+            return None;
+        }
+        let (name, path, ty) = (def.name().clone(), def.path().clone(), def.ty().clone());
+        let label = Assumption::error(path.clone());
+        self.assumption_for(&name, &path, &ty, label, span)
+    }
+
+    /// Whether assumption `id` is a stand-in for a declaration with an
+    /// error, not an open goal's.
+    pub fn is_error_stand_in(&self, id: DefId) -> bool {
+        (self.kernel.env.defs().get(id.0))
+            .and_then(|d| d.assumption())
+            .is_some_and(Assumption::is_error)
     }
 
     /// The goal `p` as a closed type: a `Π` over the variables its
@@ -331,6 +367,8 @@ impl Elaborator {
     /// session with its goal changed).
     fn assumption_for(
         &mut self,
+        name: &Name,
+        path: &Name,
         ty: &Term,
         label: Assumption,
         span: stitchwort_syntax::Span,
@@ -348,8 +386,7 @@ impl Elaborator {
         }
         // Before the assumption is made: a stale floor is taken back.
         let floor = self.floor();
-        let name: Name = format!("{}.?{}", label.owner, label.hole).into();
-        let id = crate::kernel::assume(&mut self.kernel, &name, &name, ty, label, span).ok()?;
+        let id = crate::kernel::assume(&mut self.kernel, name, path, ty, label, span).ok()?;
         let at = self.unit.module.first_def.min(id.0);
         self.session.assumed.0.set(Some(match floor {
             Some(f) => Floor {

@@ -21,14 +21,25 @@ use stitchwort_syntax::{Diagnostic, Severity};
 use crate::audit::Generated;
 use crate::driver::Session;
 
-/// One open goal's place: where its `?` is and which declaration it is in.
+/// One gap's place: where its `?` or error is and which declaration it is
+/// in.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize)]
 pub struct GoalPlace {
-    /// The full name of the declaration the `?` is written in.
+    /// The full name of the declaration the gap is in.
     pub declaration: String,
     pub file: String,
     pub line: usize,
     pub column: usize,
+    pub kind: GapKind,
+}
+
+/// What an assumption stands for: an open goal, or a declaration with an
+/// error whose statement checked (its stand-in, D3527).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum GapKind {
+    Goal,
+    Error,
 }
 
 impl GoalPlace {
@@ -43,10 +54,18 @@ impl GoalPlace {
     }
 
     /// "`addComm`'s goal (src/Demo/Demo.sw:3:46)", or without "goal" if
-    /// `word` is false.
+    /// `word` is false; for an error, "`beats`, which has an error (…)".
     pub fn describe(&self, word: bool) -> String {
+        if self.is_error() {
+            return format!("`{}`, which has an error ({})", self.short(), self.place());
+        }
         let goal = if word { " goal" } else { "" };
         format!("`{}`'s{goal} ({})", self.short(), self.place())
+    }
+
+    /// Whether it is a declaration with an error, not an open goal.
+    pub fn is_error(&self) -> bool {
+        self.kind == GapKind::Error
     }
 }
 
@@ -66,6 +85,33 @@ pub fn describe_goals(goals: &[GoalPlace], word: bool) -> String {
         parts.push(format!("and {} more", goals.len() - 3));
     }
     parts.join(", ")
+}
+
+/// What must happen before a declaration waiting for `gaps` can be
+/// checked: "`half`'s goal (…) is filled", "`beats` (…) is fixed", or
+/// both, joined by "and".
+pub fn until(gaps: &[GoalPlace]) -> String {
+    let (errors, goals): (Vec<GoalPlace>, Vec<GoalPlace>) =
+        gaps.iter().cloned().partition(GoalPlace::is_error);
+    let verb = |n: usize| if n == 1 { "is" } else { "are" };
+    let mut parts = Vec::new();
+    if !goals.is_empty() {
+        parts.push(format!(
+            "{} {} filled",
+            describe_goals(&goals, true),
+            verb(goals.len())
+        ));
+    }
+    if !errors.is_empty() {
+        let mut named: Vec<String> = (errors.iter().take(3))
+            .map(|g| format!("`{}` ({})", g.short(), g.place()))
+            .collect();
+        if errors.len() > 3 {
+            named.push(format!("and {} more", errors.len() - 3));
+        }
+        parts.push(format!("{} {} fixed", named.join(", "), verb(errors.len())));
+    }
+    parts.join(" and ")
 }
 
 /// A declaration, written in source, and the goals it relies on or waits
@@ -207,10 +253,34 @@ impl Session {
                 });
             }
         }
+        // What waits for a declaration with an error that stands in for its
+        // statement (D3527): it was checked as far as computing through the
+        // stand-in, so it is blocked on it, not failed.
+        let g = &self.elab.ev();
+        for d in self.reliance(&[]).blocked {
+            let Some(gap) = d.goals.iter().find(|gap| gap.is_error()) else {
+                continue;
+            };
+            if errors.waiting.iter().any(|w| w.name == d.name) {
+                continue;
+            }
+            let theorem = (g.env.defs().iter()).any(|def| **def.path() == *d.name && def.theorem());
+            errors.waiting.push(WaitingForError {
+                test: short_name(&d.name).starts_with("test \""),
+                theorem,
+                needs: ErrorPlace {
+                    declaration: gap.short().to_string(),
+                    file: Some(gap.file.clone()),
+                    line: Some(gap.line),
+                    column: Some(gap.column),
+                },
+                name: d.name,
+            });
+        }
         errors
     }
 
-    /// Where assumption `id`'s `?` is written.
+    /// Where assumption `id`'s `?` or error is written.
     pub fn goal_place(&self, id: DefId) -> GoalPlace {
         let span = self.elab.assumption_span(id);
         let file = self.sources.get(span.file);
@@ -220,6 +290,11 @@ impl Session {
             file: file.name.clone(),
             line: before.matches('\n').count() + 1,
             column: before.rsplit('\n').next().unwrap_or("").chars().count() + 1,
+            kind: if self.elab.is_error_stand_in(id) {
+                GapKind::Error
+            } else {
+                GapKind::Goal
+            },
         }
     }
 
@@ -269,7 +344,11 @@ impl Session {
                 let waits: BTreeSet<DefId> = self.elab.blocked_on(id).into_iter().collect();
                 if !waits.is_empty() {
                     blocked.push((id, waits));
-                } else if self.elab.relies_on_goal(id) {
+                } else if self.elab.relies_on_goal(id)
+                    // One with an error of its own is reported as that,
+                    // not as relying on another's.
+                    && self.elab.ev().def(id).state() == stitchwort_core::globals::State::Final
+                {
                     let goals = self.elab.goals_relied_on(id);
                     // A declaration with a `?` relies on its own goal.
                     let own = |a: &DefId| {
@@ -316,6 +395,7 @@ impl Session {
                         file: file.name.clone(),
                         line: before.matches('\n').count() + 1,
                         column: before.rsplit('\n').next().unwrap_or("").chars().count() + 1,
+                        kind: GapKind::Goal,
                     }
                 }
             };

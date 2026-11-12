@@ -166,10 +166,22 @@ fn a_passing_test_lists_every_open_goal_it_assumes() {
         "{stdout}"
     );
     let json = text(&json.stdout);
-    assert!(
-        json.contains(r#""assuming":["g1","g2","g3","g4"]"#),
+    let v: serde_json::Value = serde_json::from_str(&json).expect(&json);
+    let assuming = v["tests"][0]["assuming"].as_array().expect(&json);
+    let named: Vec<(&str, &str)> = (assuming.iter())
+        .map(|a| (a["name"].as_str().unwrap(), a["kind"].as_str().unwrap()))
+        .collect();
+    assert_eq!(
+        named,
+        [
+            ("g1", "goal"),
+            ("g2", "goal"),
+            ("g3", "goal"),
+            ("g4", "goal")
+        ],
         "{json}"
     );
+    assert_eq!(assuming[0]["line"], 3, "{json}");
 }
 
 fn json_status(json: &str) -> Option<i32> {

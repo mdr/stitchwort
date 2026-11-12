@@ -181,7 +181,8 @@ fn json_gives_every_theorem_and_its_findings() {
             "warned": 1,
             "passed": 1,
             "assuming": 0,
-            "unfinished": 0
+            "unfinished": 0,
+            "errors": 0
         })
     );
     let theorems = json["theorems"].as_array().unwrap();

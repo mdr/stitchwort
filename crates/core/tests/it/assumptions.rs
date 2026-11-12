@@ -20,10 +20,7 @@ use stitchwort_core::value::{Head, Value, eval};
 use stitchwort_core::{DefId, Icit, Kernel, Limits, Sort};
 
 fn label(owner: &str, hole: u32) -> Assumption {
-    Assumption {
-        owner: owner.into(),
-        hole,
-    }
+    Assumption::goal(owner.into(), hole)
 }
 
 /// Assumes `name: ty` for hole `hole` of `owner`, or the error code.
@@ -565,6 +562,66 @@ fn its_hash_is_its_label_and_type() {
     assert_ne!(hash("f.?1", nat, "Main.g", 1), base);
     assert_ne!(hash("f.?1", nat, "Main.f", 2), base);
     assert_ne!(hash("f.?1", comm, "Main.f", 1), base);
+}
+
+/// An error's stand-in (docs/proposals/tests-with-errors.md §3.3) is told
+/// apart from every goal by its label: a user relying on it never shares a
+/// hash with one relying on a `?` of the same statement in the same
+/// declaration, so no result made under one is reused under the other.
+#[test]
+fn an_error_stand_in_hashes_apart_from_a_goal() {
+    let user_of = |label: Assumption| {
+        let mut p = Prelude::new();
+        let ty = comm(&p);
+        let gap =
+            check::assume(&mut p.g, &"c".into(), &"c".into(), &ty, label, span()).expect("a type");
+        let proof = app(Term::Def(gap), [p.num(1), p.num(2)]);
+        let (one, two) = (p.num(1), p.num(2));
+        let ty = eq(
+            Some(p.nat_ty()),
+            p.plus(one.clone(), two.clone()),
+            p.plus(two, one),
+        );
+        let user = theorem(&mut p.g, "rearrange", ty, proof).unwrap();
+        (hash_of(&p.g, gap), hash_of(&p.g, user))
+    };
+    let (goal, goal_user) = user_of(Assumption::goal("Main.addComm".into(), 1));
+    let (error, error_user) = user_of(Assumption::error("Main.addComm".into()));
+    assert_ne!(goal, error);
+    assert_ne!(goal_user, error_user);
+    // Its owner is part of it, as a goal's is.
+    let (other, _) = user_of(Assumption::error("Main.addSwap".into()));
+    assert_ne!(other, error);
+}
+
+/// One stand-in per declaration: a second with the owner's label is
+/// refused, whatever its type, while a goal of the same owner is another
+/// label.
+#[test]
+fn a_stand_in_s_label_is_used_once() {
+    let mut p = Prelude::new();
+    let nat = p.nat_ty();
+    let owner: stitchwort_core::Name = "Main.f".into();
+    let first = check::assume(
+        &mut p.g,
+        &"f".into(),
+        &"f".into(),
+        &nat,
+        Assumption::error(owner.clone()),
+        span(),
+    );
+    assert!(first.is_ok());
+    let other = comm(&p);
+    let again = check::assume(
+        &mut p.g,
+        &"f".into(),
+        &"f".into(),
+        &other,
+        Assumption::error(owner.clone()),
+        span(),
+    );
+    assert_eq!(again.map_err(|d| d.code), Err("E-MALFORMED"));
+    assert!(assume_as(&mut p.g, "f.?1", nat, "Main.f", 1).is_ok());
 }
 
 #[test]

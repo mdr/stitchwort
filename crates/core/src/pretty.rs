@@ -3371,8 +3371,11 @@ fn mentions_failed(g: &Ev, term: &Term, waits: &mut bool) -> Option<DefId> {
 /// can't be computed: the message is then taken at its word.
 fn stuck_on_goal(g: &Ev, level: usize, term: &Term) -> Vec<DefId> {
     const CAP: u64 = 10_000;
+    // A part a depth-limited readback left out (`ELIDED`) is no
+    // metavariable the session has, so can't be computed.
     let in_scope = term.subterms().all(|(t, binders)| match t {
         Term::Var(i) | Term::Case(i, ..) | Term::NumCase(i, ..) => *i < binders + level,
+        Term::Meta(m) => *m != crate::value::ELIDED,
         _ => true,
     });
     if !in_scope {

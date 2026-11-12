@@ -213,6 +213,22 @@ fn an_open_theorem_is_listed_marked_and_ranked_after_finished_ones() {
 }
 
 #[test]
+fn a_theorem_with_an_error_is_not_offered() {
+    let dir = project("error");
+    // Its statement checks, so it stands in for what uses it, but its proof
+    // is wrong, so search doesn't offer it as an open theorem would be.
+    let file = dir.join("src/shapes.sw");
+    let mut text = std::fs::read_to_string(&file).unwrap();
+    text.push_str("\ntheorem Shape.scaleAbc: (s: Shape) → Shape.scale 1 s = s := rfl\n");
+    std::fs::write(&file, text).unwrap();
+    let (_, report) = json(&dir, &["Shape.scale _ _ = _"]);
+    let found = names(&report);
+    assert!(found.contains(&"Shapes.Shape.scaleOne"), "{found:?}");
+    assert!(!found.contains(&"Shapes.Shape.scaleAbc"), "{found:?}");
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
 fn rewrite_mode_takes_iff_sides_and_conditional_equations() {
     let dir = folder("rewrite");
     let (code, report) = json(&dir, &["_ ∈ List.unique _", "--rewrite"]);

@@ -195,20 +195,23 @@ impl Session {
                     "`{}` isn't finished: it, or something it uses, has an open goal (`?`)",
                     def.name()
                 ),
+                (false, false) if goals.iter().all(|g| g.is_error()) => {
+                    format!("`{}` relies on {named}, so it isn't run", def.name())
+                }
                 (false, false) => format!(
                     "`{}` relies on an open goal: {named}, so it isn't run",
                     def.name()
                 ),
                 (false, true) => format!(
-                    "`{}` can't be checked until {} is filled, so it isn't run",
+                    "`{}` can't be checked until {}, so it isn't run",
                     def.name(),
-                    crate::reliance::describe_goals(&goals, true)
+                    crate::reliance::until(&goals)
                 ),
             };
             return Err(CallError::Other(
                 Diagnostic::error("E-UNFINISHED", message).with_label(
                     span,
-                    "this can't run until every goal it needs is filled in",
+                    "this can't run while something it needs has a `?` or an error",
                 ),
             ));
         }
