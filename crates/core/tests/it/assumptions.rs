@@ -17,7 +17,7 @@ use stitchwort_core::hash::{ContentHash, def_hash};
 use stitchwort_core::native::{self, Native};
 use stitchwort_core::term::Term;
 use stitchwort_core::value::{Head, Value, eval};
-use stitchwort_core::{DefId, Icit, Kernel, Limits, Sort};
+use stitchwort_core::{DefId, Icit, Kernel, Limits, Sort, pretty};
 
 fn label(owner: &str, hole: u32) -> Assumption {
     Assumption::goal(owner.into(), hole)
@@ -272,6 +272,38 @@ fn a_theorem_s_type_must_be_a_proposition() {
     let proof = assume_theorem(&mut p.g, "t.?1", statement, 1).expect("a proposition");
     assert!(p.g.def(proof).theorem());
     assert!(assume_as(&mut p.g, "t.?2", nat, "Main.t", 2).is_ok());
+}
+
+/// A theorem's new type is a proposition too: the kernel, not the
+/// elaborator, keeps every theorem's type a proposition.
+#[test]
+fn retyping_a_theorem_to_a_data_type_is_refused() {
+    let mut p = Prelude::new();
+    let nat = p.nat_ty();
+    let zero = p.num(0);
+    let statement = eq(None, zero.clone(), zero.clone());
+    let id = check::declare_def(
+        &mut p.g,
+        &"t".into(),
+        &"t".into(),
+        &statement,
+        true,
+        false,
+        span(),
+    )
+    .expect("a proposition");
+    let shown = |g: &Kernel| pretty::term(&g.ev(), &[], g.def(id).ty());
+    let before = shown(&p.g);
+    assert_eq!(
+        check::retype_def(&mut p.g, id, &nat).map_err(|d| d.code),
+        Err("E-NOT-A-PROP")
+    );
+    assert_eq!(shown(&p.g), before, "the type is unchanged");
+    // Paired: another proposition.
+    let other = eq(Some(nat), zero.clone(), zero);
+    let expected = pretty::term(&p.g.ev(), &[], &other);
+    assert!(check::retype_def(&mut p.g, id, &other).is_ok());
+    assert_eq!(shown(&p.g), expected);
 }
 
 #[test]
