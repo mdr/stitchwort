@@ -332,6 +332,11 @@
   pre.errors { color: var(--bad); }
   pre.warnings { color: var(--warn); }
   pre.goals { color: var(--goal); }
+  h2.errors { color: var(--bad); }
+  details.goal-details summary { cursor: pointer; font-size: 0.85rem; font-weight: 600; color: var(--goal); }
+  details.goal-details[open] summary { margin-bottom: 8px; }
+  .goalgroup { display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; }
+  h3.goalfile { margin: 0; font-size: 0.78rem; font-family: var(--mono); font-weight: 600; color: var(--muted); }
   .goalpanel {
     border: 1px solid var(--line); border-left: 3px solid var(--goal); border-radius: 8px;
     background: var(--petal); padding: 8px 12px; max-height: 12rem; overflow: auto;
@@ -1898,7 +1903,7 @@ export def area: Shape -> Nat
     }
   }
 
-  /** The errors of a project check, grouped by file, each with a link to its place in the file. */
+  /** The errors of a project check, first, then its open goals collapsed, and each error with a link to its place. */
   function projectErrorsView(answer) {
     const groups = new Map();
     for (const d of answer.diagnostics ?? []) {
@@ -1907,13 +1912,15 @@ export def area: Shape -> Nat
       if (!groups.has(key)) groups.set(key, []);
       groups.get(key).push(d);
     }
-    const goals = goalsView(answer.goals, answer.diagnostics);
-    if (groups.size === 0) return [...goals, ...errorsView(answer.errors, answer.warnings)];
-    const views = [...goals];
-    for (const [file, found] of groups) {
+    if (groups.size === 0) {
+      return [...goalsView(answer.goals, answer.diagnostics), ...errorsView(answer.errors, answer.warnings)];
+    }
+    const found = [...groups.values()].flat();
+    const views = [el("h2", { className: "errors" }, errorsHeading(found))];
+    for (const [file, errors] of groups) {
       const group = el("div", { className: "errorfile" });
       if (file) group.dataset.file = file;
-      for (const d of found) {
+      for (const d of errors) {
         if (file) {
           const jump = el("button", { type: "button", className: "jump" }, `${file}:${d.line}:${d.column}`);
           jump.addEventListener("click", () => goTo(file, d.line, d.column, d));
@@ -1921,8 +1928,9 @@ export def area: Shape -> Nat
         }
         group.append(el("pre", { className: "errors" }, d.text));
       }
-      views.push(el("h2", {}, "Errors" + (file ? ` in ${tabLabel(file)}` : "")), group);
+      views.push(group);
     }
+    views.push(...goalsView(answer.goals, answer.diagnostics, { collapsed: true }));
     return [...views, ...warningsView(answer.warnings)];
   }
 
@@ -2314,30 +2322,98 @@ export def area: Shape -> Nat
     status.className = "status " + (kind || "");
   }
 
+  /** How many errors a check's answer has; the rendered codes stand in for an answer without diagnostics. */
+  function errorCountOf(answer) {
+    const found = answer.diagnostics?.filter((d) => d.severity === "error").length ?? 0;
+    if (found) return found;
+    if (answer.ok) return 0;
+    return (answer.errors?.match(/^\[[A-Z0-9-]+\]/gm) ?? []).length || 1;
+  }
+
+  /** "line 239" or "lines 239 and 241". */
+  function linesText(lines) {
+    return lines.length === 1
+      ? `line ${lines[0]}`
+      : `lines ${lines.slice(0, -1).join(", ")} and ${lines[lines.length - 1]}`;
+  }
+
+  /** "a and b" or "a, b and c". */
+  function namesText(names) {
+    return names.length <= 1
+      ? names[0] ?? ""
+      : `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
+  }
+
+  /** How many errors, and where: "1 error in 02-cases.sw, line 239". */
+  function errorsHeading(diagnostics = []) {
+    const errors = diagnostics.filter((d) => d.severity === "error");
+    const count = errors.length === 1 ? "1 error" : `${errors.length} errors`;
+    const files = [...new Set(errors.map((d) => d.file).filter(Boolean))];
+    if (!files.length) {
+      const lines = [...new Set(errors.map((d) => d.line).filter(Boolean))];
+      return lines.length ? `${count}, ${linesText(lines)}` : count;
+    }
+    const names = files.map((file) => project ? tabLabel(file) : file);
+    if (files.length > 1) return `${count} in ${namesText(names)}`;
+    const lines = [...new Set(errors.filter((d) => d.file === files[0]).map((d) => d.line).filter(Boolean))];
+    return `${count} in ${names[0]}${lines.length ? `, ${linesText(lines)}` : ""}`;
+  }
+
   /** The errors, then the warnings, if any (from a check's answer). */
-  function errorsView(errors, warnings) {
-    return [el("h2", {}, "Errors"), el("pre", { className: "errors" }, errors), ...warningsView(warnings)];
+  function errorsView(errors, warnings, diagnostics = []) {
+    const heading = diagnostics.some((d) => d.severity === "error") ? errorsHeading(diagnostics) : "Errors";
+    return [el("h2", { className: "errors" }, heading), el("pre", { className: "errors" }, errors), ...warningsView(warnings)];
+  }
+
+  /** A goal's box, with a link to its place when `d` gives one. */
+  function goalBox(text, d) {
+    const box = el("div", { className: "goalbox" });
+    if (d) {
+      const jump = el("button", { type: "button", className: "jump" }, `${d.file}:${d.line}:${d.column}`);
+      jump.addEventListener("click", () => goTo(d.file, d.line, d.column));
+      box.append(jump);
+    }
+    box.append(el("pre", { className: "goals" }, text));
+    return box;
+  }
+
+  /**
+   * The goal boxes, each linked to its place when the diagnostics line up. With
+   * `byFile`, they are grouped under their file's name, the open file first.
+   */
+  function goalBoxes(goals, diagnostics, byFile) {
+    const places = diagnostics.filter((d) => d.severity === "goal" && d.file);
+    const entries = goals.map((text, i) => [text, project && places.length === goals.length ? places[i] : null]);
+    if (!byFile) return entries.map(([text, d]) => goalBox(text, d));
+    const groups = new Map();
+    for (const entry of entries) {
+      const key = entry[1]?.file ?? "";
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(entry);
+    }
+    const open = ([file]) => file === project?.open ? 0 : 1;
+    const ordered = [...groups].sort((a, b) => open(a) - open(b));
+    return ordered.map(([file, found]) => el("div", { className: "goalgroup" },
+      ...(file ? [el("h3", { className: "goalfile" }, project ? tabLabel(file) : file)] : []),
+      ...found.map(([text, d]) => goalBox(text, d))));
   }
 
   /**
    * The open goals (`?`), if any, each in full, under a "Goals" heading. In a
-   * project, a goal with a place has a button that jumps to it.
+   * project, a goal with a place has a button that jumps to it. While there are
+   * errors they are collapsed, grouped by file, so the errors stay in view.
    */
-  function goalsView(goals = [], diagnostics = []) {
+  function goalsView(goals = [], diagnostics = [], { collapsed = false } = {}) {
     if (!goals.length) return [];
-    const places = diagnostics.filter((d) => d.severity === "goal" && d.file);
-    const boxes = goals.map((text, i) => {
-      const box = el("div", { className: "goalbox" });
-      const d = project && places.length === goals.length ? places[i] : null;
-      if (d) {
-        const jump = el("button", { type: "button", className: "jump" }, `${d.file}:${d.line}:${d.column}`);
-        jump.addEventListener("click", () => goTo(d.file, d.line, d.column));
-        box.append(jump);
-      }
-      box.append(el("pre", { className: "goals" }, text));
-      return box;
-    });
-    return [el("h2", {}, goals.length === 1 ? "Goals (1 open)" : `Goals (${goals.length} open)`), ...boxes];
+    const count = goals.length === 1 ? "1 open goal" : `${goals.length} open goals`;
+    if (collapsed) {
+      return [el("details", { className: "goal-details" },
+        el("summary", {}, count), ...goalBoxes(goals, diagnostics, true))];
+    }
+    return [
+      el("h2", {}, goals.length === 1 ? "Goals (1 open)" : `Goals (${goals.length} open)`),
+      ...goalBoxes(goals, diagnostics, false),
+    ];
   }
 
   function warningsView(warnings = []) {
@@ -2411,13 +2487,21 @@ export def area: Shape -> Nat
     if (project) markErrors(checked.diagnostics);
     const day = project?.manifest.days[project.day];
     const openGoals = checked.goals?.length ?? 0;
+    const errorCount = errorCountOf(checked);
     setStatus(checked.ok && openGoals
       ? (openGoals === 1 ? "1 goal open" : `${openGoals} goals open`)
       : checked.ok
       ? (day ? `${dayName(day)}${day.namespaces.length > 1 ? " and its proofs" : ""} checked by the kernel` : "Checked by the kernel")
-      : "Doesn’t check", checked.ok ? "" : "bad");
-    /** The errors, with links to their files in a project. */
-    const errorsOf = (answer) => project ? projectErrorsView(answer) : [...goalsView(answer.goals), ...errorsView(answer.errors, answer.warnings)];
+      : errorCount === 1 ? "1 error" : `${errorCount} errors`, checked.ok ? "" : "bad");
+    /** The errors first, then the goals (collapsed while there are errors). */
+    const errorsOf = (answer) => {
+      if (project) return projectErrorsView(answer);
+      if (!answer.ok) {
+        return [...errorsView(answer.errors, answer.warnings, answer.diagnostics),
+                ...goalsView(answer.goals, answer.diagnostics, { collapsed: true })];
+      }
+      return [...goalsView(answer.goals, answer.diagnostics), ...errorsView(answer.errors, answer.warnings)];
+    };
 
     if (view === "run") {
       runChecked.replaceChildren(...(checked.ok ? [] :
