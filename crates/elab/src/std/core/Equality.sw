@@ -77,3 +77,61 @@ theorem Nat.equalSound (m n: Nat) (h: Nat.equal m n = True): m = n :=
 --| Numbers that [`Nat.equal`] says differ are different.
 theorem Nat.equalFalse (m: Nat) (n: Nat) (h: Nat.equal m n = False): m ≠ n
   | p => Bool.falseNotTrue (Eq.trans (Eq.sym h) (J (y q => Nat.equal m y = True) (Nat.equalRefl m) p))
+
+--| `&&`, `||` and `not` read as the connectives
+--| (docs/proposals/bool-as-proposition.md §5): a fact `(a && b) = True` is
+--| taken apart and built like `a ∧ b` (`match h with | Both l r`), and
+--| `h.read` is `a ∧ b`. Each `= False` has its own reading.
+@[reading]
+theorem Bool.andReads (a b: Bool): (a && b) = True ↔ a ∧ b :=
+  match a with
+    | True => { forward = h => Both rfl h, backward = h => h.right }
+    | False => { forward = h => Void.exfalso (Bool.falseNotTrue h), backward = h => h.left }
+
+@[reading]
+theorem Bool.andReadsFalse (a b: Bool): (a && b) = False ↔ a = False ∨ b = False :=
+  match a with
+    | True => {
+      forward = h => Inr h,
+      backward = h =>
+        match h with
+          | Inl t => Void.exfalso (Bool.falseNotTrue (Eq.sym t))
+          | Inr f => f
+    }
+    | False => { forward = h => Inl rfl, backward = h => rfl }
+
+@[reading]
+theorem Bool.orReads (a b: Bool): (a || b) = True ↔ a ∨ b :=
+  match a with
+    | True => { forward = h => Inl rfl, backward = h => rfl }
+    | False => {
+      forward = h => Inr h,
+      backward = h =>
+        match h with
+          | Inl f => Void.exfalso (Bool.falseNotTrue f)
+          | Inr t => t
+    }
+
+@[reading]
+theorem Bool.orReadsFalse (a b: Bool): (a || b) = False ↔ a = False ∧ b = False :=
+  match a with
+    | True => { forward = h => Void.exfalso (Bool.falseNotTrue (Eq.sym h)), backward = h => h.left }
+    | False => { forward = h => Both rfl h, backward = h => h.right }
+
+@[reading]
+theorem Bool.notReads (a: Bool): Bool.not a = True ↔ a = False :=
+  match a with
+    | True => {
+      forward = h => Void.exfalso (Bool.falseNotTrue h),
+      backward = h => Void.exfalso (Bool.falseNotTrue (Eq.sym h))
+    }
+    | False => { forward = h => rfl, backward = h => rfl }
+
+@[reading]
+theorem Bool.notReadsFalse (a: Bool): Bool.not a = False ↔ a = True :=
+  match a with
+    | True => { forward = h => rfl, backward = h => rfl }
+    | False => {
+      forward = h => Void.exfalso (Bool.falseNotTrue (Eq.sym h)),
+      backward = h => Void.exfalso (Bool.falseNotTrue h)
+    }

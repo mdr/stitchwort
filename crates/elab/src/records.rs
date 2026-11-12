@@ -207,7 +207,13 @@ impl Elaborator {
         ty: Option<&Value>,
     ) -> Result<CtorPattern<'a>> {
         let g = &self.ev();
-        let d = match ty.map(|t| force(g, t.clone())).transpose()? {
+        // On a test fact, the record its test reads as
+        // (docs/proposals/bool-as-proposition.md §6.1).
+        let ty = match ty {
+            Some(t) => Some(crate::reading::read_type(g, self, t)?.unwrap_or_else(|| t.clone())),
+            None => None,
+        };
+        let d = match ty.map(|t| force(g, t)).transpose()? {
             Some(Value::Data(d, _)) if g.data(d).record() => d,
             Some(Value::Data(d, _)) => {
                 return Err(error(

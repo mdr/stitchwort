@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-NO-READING] Error: this test fact can't be built with `Both`
+   ╭─[ reject/reading-build-mismatch.sw:5:62 ]
+   │
+ 5 │ theorem both (a b: Bool) (ha: a) (hb: b): (a || b) = True := Both ha hb
+   │                                                              ─────┬────  
+   │                                                                   ╰────── `a || b` reads as `a ∨ b` (`Bool.orReads`)
+   │ 
+   │ Note 1: this pattern matches `And`, and `a ∨ b` isn't one
+   │ 
+   │ Note 2: a test fact can always be matched by a name, and `.read` gives the proposition
+───╯

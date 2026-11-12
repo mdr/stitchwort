@@ -5011,6 +5011,16 @@ pub(crate) fn check_value(
             }
             Ok(rest.unwrap_or_else(|| Term::Ctor(list, nil, Vec::new())))
         }
+        // A constructor of a proposition where a test fact is expected
+        // builds what the test reads as (docs/proposals/bool-as-proposition.md
+        // §6.6): `Both x y` for `(a && b) = True`.
+        (Expr::Var(_) | Expr::App(..), Value::Eq(..))
+            if let Some((d, _, _)) = ctor_head(cx, expr)?
+                && let Some(found) = crate::reading::for_ctor(cx, d, &expected, expr.span())? =>
+        {
+            let term = check_inner(cx, expr, &found.prop)?;
+            found.backward(cx, term)
+        }
         (Expr::Var(_) | Expr::App(..), Value::Data(..) | Value::Pi(_, Icit::Explicit, _, _)) => {
             match ctor_head(cx, expr)? {
                 // A constructor where an effectful function is expected
@@ -5032,6 +5042,14 @@ pub(crate) fn check_value(
                 }
                 None => fallback_named(cx, expr, &expected, named),
             }
+        }
+        // A record literal where a test fact is expected builds the record
+        // its test reads as (§6.6).
+        (Expr::Record { base: None, .. }, Value::Eq(..))
+            if let Some(found) = crate::reading::for_record(cx, &expected, expr.span())? =>
+        {
+            let term = check_inner(cx, expr, &found.prop)?;
+            found.backward(cx, term)
         }
         (Expr::Record { base, fields, .. }, _) => {
             records::check_record(cx, base.as_deref(), fields, &expected)

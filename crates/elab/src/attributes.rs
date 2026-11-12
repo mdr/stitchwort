@@ -34,8 +34,10 @@ pub(crate) enum Target {
     Definition,
     /// An exported definition.
     Export,
-    /// A local `def` (a theorem can't have attributes).
+    /// A local `def` (a local theorem can't have attributes).
     Local,
+    /// A top-level theorem.
+    Theorem,
 }
 
 impl Target {
@@ -48,6 +50,7 @@ impl Target {
             Target::Definition => "a definition",
             Target::Export => "an exported definition",
             Target::Local => "a local definition",
+            Target::Theorem => "a theorem",
         }
     }
 }
@@ -60,6 +63,11 @@ pub(crate) const NO_RECEIVER: &str = "noReceiver";
 /// `@[tailrec]`: every recursive call of the definition must be a tail call
 /// (docs/proposals/tailrec.md), checked by `tailrec.rs`.
 pub(crate) const TAILREC: &str = "tailrec";
+
+/// `@[reading]`: the theorem, `test = True ↔ P` or `test = False ↔ P`,
+/// says what its test reads as (docs/proposals/bool-as-proposition.md §5),
+/// checked and filed by `reading.rs`.
+pub(crate) const READING: &str = "reading";
 
 /// One attribute the compiler knows.
 pub(crate) struct Spec {
@@ -91,6 +99,14 @@ pub(crate) const REGISTRY: &[Spec] = &[
         argument: "",
         doc: "every recursive call of the definition is a tail call, so it runs as a loop \
               (constant frames) on every backend; a call that isn't one is `E-TAILREC`",
+    },
+    Spec {
+        name: READING,
+        targets: &[Target::Theorem],
+        argument: "",
+        doc: "a theorem `test = True ↔ P` (or `= False`) that says what its test reads as, so \
+              a fact about the test can be taken apart and built like `P`, and `.read` gives \
+              `P`; one per test, declared with the test's function",
     },
     Spec {
         name: "js.tag",
@@ -138,6 +154,8 @@ pub(crate) struct DefinitionAttributes {
     pub(crate) no_receiver: bool,
     /// Where `@[tailrec]` is written, if it is.
     pub(crate) tailrec: Option<Span>,
+    /// Where `@[reading]` is written, if it is.
+    pub(crate) reading: Option<Span>,
 }
 
 /// Where a group of attributes is written, for checking and for messages.
@@ -301,9 +319,10 @@ type FieldSites<'a> = Vec<Vec<(Span, &'a [Attribute])>>;
 
 impl Elaborator {
     /// A definition (or theorem, instance, synonym, export) with attributes:
-    /// `noReceiver` applies to a plain definition and `tailrec` to a plain
-    /// or exported one (`js.name` on an export is stage 3 of
-    /// docs/proposals/attributes.md); any other is refused, or unknown.
+    /// `noReceiver` applies to a plain definition, `tailrec` to a plain or
+    /// exported one, and `reading` to a theorem (`js.name` on an export is
+    /// stage 3 of docs/proposals/attributes.md); any other is refused, or
+    /// unknown.
     pub(crate) fn definition_attributes(&self, signature: &Decl) -> Result<DefinitionAttributes> {
         let Decl::Signature {
             attrs,
@@ -326,7 +345,7 @@ impl Elaborator {
         } else if *export {
             Place::Target(Target::Export)
         } else if *theorem {
-            Place::Other("a theorem")
+            Place::Target(Target::Theorem)
         } else {
             Place::Target(Target::Definition)
         };
@@ -334,6 +353,7 @@ impl Elaborator {
         Ok(DefinitionAttributes {
             no_receiver: checked.get(NO_RECEIVER).is_some(),
             tailrec: checked.get(TAILREC).map(|(a, _)| a.span),
+            reading: checked.get(READING).map(|(a, _)| a.span),
         })
     }
 

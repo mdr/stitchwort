@@ -72,6 +72,7 @@ mod probe;
 pub mod project;
 mod queue;
 mod quot;
+mod reading;
 mod records;
 mod redundant;
 mod reify;
@@ -3183,6 +3184,11 @@ impl Elaborator {
         if *instance {
             self.validate_instance(id)?;
         }
+        // Filed once proved, so its own proof reads its test as it would
+        // without it.
+        if let Some(at) = self.definition_attributes(signature)?.reading {
+            self.register_reading(id, at)?;
+        }
         if self.kernel.def(id).tailrec() {
             self.check_tailrec(id)?;
         }
@@ -4147,7 +4153,16 @@ impl Elaborator {
     ) -> Result<Vec<Option<Value>>> {
         let g = &self.ev();
         let fields = &g.data(d).ctors()[c].fields;
-        let params = match ty.map(|t| force(g, t.clone())).transpose()? {
+        // A test fact split by a proposition's constructors is split by
+        // what its test reads as (`read_case`). That binds one variable
+        // more than the tree is compiled for, so a field type here that
+        // mentions an earlier field is a level short: these types only
+        // pick patterns' data types, never meet the context.
+        let ty = match ty {
+            Some(t) => Some(crate::reading::read_type(g, self, t)?.unwrap_or_else(|| t.clone())),
+            None => None,
+        };
+        let params = match ty.map(|t| force(g, t)).transpose()? {
             Some(Value::Data(d2, params)) if d2 == d => params,
             _ => return Ok(vec![None; fields.len()]),
         };
@@ -4915,6 +4930,137 @@ fn check_guard(
     result
 }
 
+/// A split on `x` by the constructors of proposition `d` where `x`'s type
+/// `ty` is a test fact: the split on what its test reads as
+/// (docs/proposals/bool-as-proposition.md §6.1), or `None` where `ty`
+/// isn't a test fact. The reading is bound to a new variable after the
+/// context, which the split then matches: a `case` is only on a variable,
+/// and only at the top of a definition, so the split is a helper of its
+/// own, lifted as a `match` is, called with `Iff.forward (r args) x`.
+#[allow(clippy::too_many_arguments)]
+fn read_case(
+    cx: &mut Ctx,
+    x: usize,
+    d: DataId,
+    depth: usize,
+    branches: &[(Vec<Name>, Tree)],
+    span: Span,
+    ty: &Value,
+    goal: &Value,
+) -> Result<Option<Term>> {
+    if !reading::readable_data(cx, d) || cx.level() != depth {
+        return Ok(None);
+    }
+    let Some((test, polarity)) = reading::test_fact(cx, ty)? else {
+        return Ok(None);
+    };
+    let found = match reading::read(cx, &test, polarity)? {
+        reading::Read::Found(found) if matches!(force(&cx.g(), found.prop.clone())?, Value::Data(d2, _) if d2 == d) => {
+            found
+        }
+        read => {
+            let how = format!("taken apart with `{}`", reading::constructors_shown(cx, d));
+            return Err(reading::no_reading(
+                cx,
+                span,
+                &test,
+                polarity,
+                &how,
+                &read,
+                Some(d),
+            ));
+        }
+    };
+    let read = found.forward(cx, Term::Var(depth - 1 - x))?;
+    // The fields the split binds come one variable later than the tree was
+    // compiled for.
+    let split = Tree::Case {
+        level: depth,
+        data: d,
+        depth: depth + 1,
+        branches: branches
+            .iter()
+            .map(|(names, t)| (names.clone(), shifted(t, depth)))
+            .collect(),
+        span,
+    };
+    let mark = cx.mark();
+    cx.bind_hidden("read".into(), found.prop.clone());
+    let body = check_tree(cx, &split, goal)
+        .and_then(|body| lift::draft(cx, depth, vec![read], body, goal, span));
+    cx.reset(mark);
+    Ok(Some(body?))
+}
+
+/// `tree` with every level from `from` on one higher: compiled for a
+/// context with one more variable at `from`.
+fn shifted<'a>(tree: &Tree<'a>, from: usize) -> Tree<'a> {
+    let up = |l: usize| if l >= from { l + 1 } else { l };
+    match tree {
+        Tree::Leaf {
+            aliases,
+            written,
+            rhs,
+            span,
+            alternatives,
+        } => Tree::Leaf {
+            aliases: aliases.iter().map(|&(x, l)| (x, up(l))).collect(),
+            written: written.clone(),
+            rhs: *rhs,
+            span: *span,
+            alternatives: alternatives.clone(),
+        },
+        Tree::Guard {
+            guard,
+            leaf,
+            otherwise,
+        } => Tree::Guard {
+            guard,
+            leaf: Box::new(shifted(leaf, from)),
+            otherwise: Box::new(shifted(otherwise, from)),
+        },
+        Tree::Absurd { level, span } => Tree::Absurd {
+            level: up(*level),
+            span: *span,
+        },
+        Tree::Missing { columns, span, arm } => Tree::Missing {
+            columns: columns.iter().map(|&l| up(l)).collect(),
+            span: *span,
+            arm: arm.clone(),
+        },
+        Tree::Case {
+            level,
+            data,
+            depth,
+            branches,
+            span,
+        } => Tree::Case {
+            level: up(*level),
+            data: *data,
+            depth: up(*depth),
+            branches: branches
+                .iter()
+                .map(|(names, t)| (names.clone(), shifted(t, from)))
+                .collect(),
+            span: *span,
+        },
+        Tree::NumCase {
+            level,
+            arms,
+            default,
+            span,
+        } => Tree::NumCase {
+            level: up(*level),
+            arms: arms
+                .iter()
+                .map(|(n, t)| (n.clone(), shifted(t, from)))
+                .collect(),
+            default: Box::new(shifted(default, from)),
+            span: *span,
+        },
+    }
+}
+
 fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
     cx.g().machine.budget.nesting(check::PASS)?;
     match tree {
@@ -4961,7 +5107,7 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
             data: d,
             branches,
             span,
-            ..
+            depth,
         } => {
             let g = cx.g();
             let data = g.data(*d);
@@ -4983,6 +5129,11 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
             let params = match ty {
                 Value::Data(d2, params) if d2 == *d => params,
                 other => {
+                    if let Some(term) =
+                        read_case(cx, *x, *d, *depth, branches, *span, &other, goal)?
+                    {
+                        return Ok(term);
+                    }
                     let mut e = error(
                         "E-TYPE-MISMATCH",
                         *span,

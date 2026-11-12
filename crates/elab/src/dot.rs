@@ -420,10 +420,23 @@ fn dot_on(
     rterm: Term,
     rty: Value,
 ) -> Result<std::result::Result<(Term, Value), (usize, Diagnostic)>> {
+    // `h.read`: a test fact as the proposition its test reads as
+    // (docs/proposals/bool-as-proposition.md §6.8).
+    if field.text == "read"
+        && let Some(head) = crate::reading::dot_read(cx, &rterm, &rty, field.span)?
+    {
+        return Ok(Ok(crate::check::apply_args(cx, head, args)?));
+    }
     let start = view_start(cx, &rterm, &rty)?;
-    let (owner, f, key) = match find_or_block(cx, recv, field, start)? {
-        Lookup::Found(owner, f, key) => (owner, f, key),
-        Lookup::Blocked(blocker, error) => return Ok(Err((blocker, error))),
+    let (owner, f, key) = match find_or_block(cx, recv, field, start) {
+        Ok(Lookup::Found(owner, f, key)) => (owner, f, key),
+        Ok(Lookup::Blocked(blocker, error)) => return Ok(Err((blocker, error))),
+        // A field of a test fact is the field of what it reads as: `h.left`
+        // is `h.read.left` (§6.6).
+        Err(e) => match crate::reading::read_fact(cx, &rterm, &rty)? {
+            Some((term, ty)) => return dot_on(cx, recv, field, args, term, ty),
+            None => return Err(e),
+        },
     };
     cx.e.note_dot(field, f);
     note_left_out(cx, field, f, args)?;

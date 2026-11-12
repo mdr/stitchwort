@@ -1,13 +1,8 @@
---| `Iff` ("if and only if") and `Exists` ("for some"): two more ways to build
---| a proposition, beside `And` and `Or` in the core.
+--| `Iff`'s lemmas ("if and only if"; `Iff` itself is in the core) and
+--| `Exists` ("for some"): another way to build a proposition, beside `And`
+--| and `Or` in the core.
 -- A file of its own, so that programs that never state these don't check
 -- them.
-
---| Each of `p` and `q` follows from the other.
-type Iff (p: Prop) (q: Prop): Prop = {
-  forward: p → q,
-  backward: q → p
-}
 
 theorem Iff.refl (p: Prop): p ↔ p := { forward = x => x, backward = x => x }
 

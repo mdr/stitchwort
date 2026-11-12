@@ -1,0 +1,15 @@
+---
+source: crates/cli/tests/running/examples.rs
+expression: output
+---
+[E-READING-PLACE] Error: `leqReads` must be declared with `Nat.leq`
+   ╭─[ reject/reading-place.sw:6:3 ]
+   │
+ 6 │ @[reading]
+   │   ───┬───  
+   │      ╰───── `leqReads` must be declared with `Nat.leq`
+   │ 
+   │ Note 1: a reading is declared where its test's function is (the same namespace in a project, the same file in the library), so that it is there whenever the test is; `Nat.leq` is declared elsewhere
+   │ 
+   │ Note 2: the theorem itself can still be used by name, without `@[reading]`
+───╯

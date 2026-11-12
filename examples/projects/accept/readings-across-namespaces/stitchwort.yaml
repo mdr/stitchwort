@@ -1,0 +1,2 @@
+# A test and its reading in one namespace, read in another: loaded from the
+# check cache, the reading reads the same.
