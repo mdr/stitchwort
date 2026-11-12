@@ -4225,7 +4225,10 @@ impl Elaborator {
                 _ => others.push(i),
             }
         }
-        if others.is_empty() {
+        // No arm for the other numbers: the case is missing, unless the
+        // checker finds it impossible (`impossible_case`), as for the
+        // constructors a split leaves out.
+        let default_missing = if others.is_empty() {
             let chars = self.decl.char_patterns.borrow();
             let as_chars: Option<Vec<String>> = by_key
                 .values()
@@ -4244,13 +4247,12 @@ impl Elaborator {
                     list_numbers(by_key.keys().map(|k| k.to_string()), by_key.len()),
                 ),
             };
-            return Err(error(
-                "E-NONEXHAUSTIVE",
-                span,
-                format!("missing case: no arm matches {what} other than {listed}"),
-            )
-            .with_note("add an arm with a variable or `_` in that position"));
-        }
+            Some(missing::Arm::other_numbers(format!(
+                "missing case: no arm matches {what} other than {listed}"
+            )))
+        } else {
+            None
+        };
         let mut arms = Vec::new();
         for (key, matching) in by_key {
             // In the order of the source.
@@ -4270,8 +4272,17 @@ impl Elaborator {
             let tree = self.compile(&arm_rows, depth, columns, types, span)?;
             arms.push((key.clone(), tree));
         }
-        let default_rows: Vec<Row> = others.iter().map(|&i| rows[i].clone()).collect();
-        let default = self.compile(&default_rows, depth, columns, types, span)?;
+        let default = match default_missing {
+            Some(arm) => Tree::Missing {
+                columns: columns.to_vec(),
+                span,
+                arm,
+            },
+            None => {
+                let default_rows: Vec<Row> = others.iter().map(|&i| rows[i].clone()).collect();
+                self.compile(&default_rows, depth, columns, types, span)?
+            }
+        };
         Ok(Tree::NumCase {
             level: columns[j],
             arms,
@@ -4972,7 +4983,7 @@ fn check_flat(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
                 }
                 return Ok(term);
             }
-            let mut d = missing::diagnostic(*span, vec![(arm.order.clone(), arm.pattern.clone())]);
+            let mut d = arm.diagnostic(*span);
             if let Some(guard) = arm.guard {
                 d = d
                     .with_label(guard, "this arm has a condition, so it covers nothing")
@@ -5495,11 +5506,10 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
             leaf,
             otherwise,
         } => check_guard(cx, guard, leaf, otherwise, goal),
-        Tree::Missing { columns, span, .. } => Err(error(
-            "E-NONEXHAUSTIVE",
-            *span,
-            format!("missing case ({} columns left)", columns.len()),
-        )),
+        Tree::Missing { columns, span, arm } => match impossible_case(cx, columns, goal)? {
+            Some(term) => Ok(term),
+            None => Err(arm.diagnostic(*span)),
+        },
         // An indexed family whose every constructor conflicts here is empty
         // too (docs/proposals/indexed-families.md §7.3).
         Tree::Absurd { level, span }
@@ -5626,10 +5636,7 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
                         if let Some(term) = impossible_case(cx, columns, &branch_goal)? {
                             return Ok(term);
                         }
-                        Err(missing::diagnostic(
-                            *span,
-                            vec![(arm.order.clone(), arm.pattern.clone())],
-                        ))
+                        Err(arm.diagnostic(*span))
                     })(),
                     // Where a column's type is empty, a guard chain is that
                     // empty case (a `case` can't sit in the `else`). The

@@ -30,9 +30,30 @@ pub(crate) struct Arm {
     /// The condition of a guarded arm this case is reached through when it
     /// fails, if any: that arm covers nothing.
     pub guard: Option<Span>,
+    /// For the numbers no arm of a number case matches: the message that
+    /// lists the ones that are matched, which says more than a pattern `_`.
+    pub other_numbers: Option<String>,
 }
 
 impl Arm {
+    /// The case of the numbers a number case has no arm for, which `message`
+    /// describes.
+    pub(crate) fn other_numbers(message: String) -> Arm {
+        Arm {
+            definite: true,
+            other_numbers: Some(message),
+            ..Arm::default()
+        }
+    }
+
+    /// The error for this case alone, at the `match` at `span`.
+    pub(crate) fn diagnostic(&self, span: Span) -> Diagnostic {
+        match &self.other_numbers {
+            Some(message) => number_diagnostic(span, message.clone()),
+            None => diagnostic(span, vec![(self.order.clone(), self.pattern.clone())]),
+        }
+    }
+
     /// The case left when the guarded arm whose condition is at `guard`
     /// fails and no row follows it.
     pub(crate) fn through_guard(guard: Span) -> Arm {
@@ -60,6 +81,12 @@ enum Shape {
         base: usize,
     },
     Num(BigUint),
+}
+
+fn number_diagnostic(span: Span, message: String) -> Diagnostic {
+    Diagnostic::error("E-NONEXHAUSTIVE", message.clone())
+        .with_label(span, message)
+        .with_note("add an arm with a variable or `_` in that position")
 }
 
 /// The error for the cases `cases` (each with its place in the tree): one
@@ -449,6 +476,22 @@ impl Elaborator {
 
 /// The error for the cases of `tree` that are certainly missing, if any.
 pub(crate) fn definite(tree: &Tree, span: Span) -> Option<Diagnostic> {
+    /// The first number case in the tree: it is reported alone, as it was
+    /// when coverage met it.
+    fn numbers<'t>(tree: &'t Tree<'_>) -> Option<&'t Arm> {
+        match tree {
+            Tree::Leaf { .. } | Tree::Absurd { .. } => None,
+            Tree::Guard { otherwise, .. } => numbers(otherwise),
+            Tree::Missing { arm, .. } => arm.other_numbers.as_ref().map(|_| arm),
+            Tree::Case { branches, .. } => branches.iter().find_map(|(_, t)| numbers(t)),
+            Tree::NumCase { arms, default, .. } => (arms.iter())
+                .find_map(|(_, t)| numbers(t))
+                .or_else(|| numbers(default)),
+        }
+    }
+    if let Some(arm) = numbers(tree) {
+        return Some(arm.diagnostic(span));
+    }
     fn collect(tree: &Tree, out: &mut Vec<(Vec<usize>, String)>, guards: &mut Vec<Span>) {
         match tree {
             Tree::Leaf { .. } | Tree::Absurd { .. } => {}

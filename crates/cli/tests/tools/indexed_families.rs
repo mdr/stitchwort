@@ -246,19 +246,20 @@ fn unreachable_arms(text: &str) -> Vec<String> {
 }
 
 #[test]
-fn an_arm_the_checker_would_not_fill_in_does_not_warn() {
-    // In the `_` arm, `found` computes to `None = Some n`; but left out, the
-    // characters other than 'a' are a missing case the checker doesn't fill
-    // in, so the arm can't be deleted (SW-3008).
+fn a_character_arm_a_hypothesis_rules_out_warns() {
+    // In the `_` arm, `found` computes to `None = Some n`; left out, the
+    // characters other than 'a' are a missing case the checker fills in the
+    // same way (SW-2990), so the arm can be deleted.
     let with_arm = "import Std (Char, Eq, Nat, Option, Void)\n\n\
                     def command (key: Char): Option Nat :=\n  \
                     match key with\n    | 'a' => Some 1\n    | _ => None\n\n\
                     theorem onlyA (key: Char) (n: Nat) (found: command key = Some n): key = 'a' :=\n  \
                     match key with\n    | 'a' => rfl\n    \
                     | _ => Void.exfalso (Option.noneNotSome n found)\n";
-    assert!(unreachable_arms(with_arm).is_empty());
+    assert_eq!(unreachable_arms(with_arm).len(), 1);
     let without = with_arm.replace("    | _ => Void.exfalso (Option.noneNotSome n found)\n", "");
-    assert_eq!(error(&without).code, "E-NONEXHAUSTIVE");
+    let (_, result) = load(&without);
+    result.unwrap_or_else(|e| panic!("{e:#?}"));
 }
 
 const AGREES: &str = "import Std (Bool, Eq, List, Nat, Void)\n\n\
@@ -314,4 +315,41 @@ fn the_cases_of_cases_do_not_warn() {
         "{MOVES}theorem only (theirs: Move) (h: beats Rock theirs): theirs = Scissors := cases\n"
     ));
     assert!(found.is_empty(), "{found:#?}");
+}
+
+#[test]
+fn a_number_case_left_out_is_impossible_when_a_hypothesis_computes_to_false() {
+    // In the default, `n` is known to be neither 0 nor 1, so `isSmall n`
+    // computes to `False`. What `n < 2` says isn't used: that needs a
+    // decision procedure the checker doesn't have.
+    let text = "import Std (Bool, Eq)\n\n\
+                def isSmall: Nat -> Bool\n  | 0 => True\n  | 1 => True\n  | _ => False\n\n\
+                def small (n: Nat) (h: isSmall n = True): Nat :=\n  \
+                match n with\n    | 0 => 10\n    | 1 => 11\n";
+    let (_, result) = load(text);
+    result.unwrap_or_else(|e| panic!("{e:#?}"));
+    let order = text.replace("(h: isSmall n = True)", "(h: n < 2)");
+    assert_eq!(error(&order).code, "E-NONEXHAUSTIVE");
+}
+
+#[test]
+fn a_number_case_left_out_is_impossible_when_a_variable_is_empty() {
+    let text = "import Std (Void)\n\n\
+                def small (n: Nat) (h: Void): Nat :=\n  \
+                match n with\n    | 0 => 10\n    | 1 => 11\n";
+    let (_, result) = load(text);
+    result.unwrap_or_else(|e| panic!("{e:#?}"));
+}
+
+#[test]
+fn a_number_case_that_can_happen_is_still_missing() {
+    let text = "def small (n: Nat) (h: n < 5): Nat :=\n  \
+                match n with\n    | 0 => 10\n    | 1 => 11\n";
+    let e = error(text);
+    assert_eq!(e.code, "E-NONEXHAUSTIVE");
+    assert!(
+        e.message.ends_with("matches numbers other than 0 and 1"),
+        "{}",
+        e.message
+    );
 }
