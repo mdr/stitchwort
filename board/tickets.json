@@ -31357,9 +31357,9 @@
       "where": "",
       "labels": [],
       "epic": "test-infra",
-      "body": "",
+      "body": "\nStage 6 measurement (12 Nov 00:22, Speedwell, release at 2df61b262+, aoc/ copy, Direction.turnRight broken in Aoc.Common, imported by 189 files): healthy cold 63.3 s, healthy warm 0.8 s; broken with warm cache 26.7 s first run, 7.3 s on repeat (vs 0.8 s healthy); 14 errors, 12 of them E-USES-FAILED. So the cost of checking importers past a broken Common is ~7 s per run, not a cold check; caching waiting namespaces (stage 6) would win back ~6.5 s.",
       "created": "2026-11-11",
-      "updated": "2026-11-11",
+      "updated": "2026-11-12",
       "commits": []
     },
     {
