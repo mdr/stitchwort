@@ -1297,7 +1297,11 @@ impl Elaborator {
     pub fn search_candidates(&self, keep: &dyn Fn(Item, &str) -> bool) -> Vec<Candidate> {
         let g = &self.ev();
         let open_owners: BTreeSet<String> = (g.env.defs().iter())
-            .filter_map(|d| Some(d.assumption()?.owner.to_string()))
+            .filter_map(|d| d.assumption())
+            // A declaration with an error isn't offered: its proof (or body)
+            // is wrong, unlike an open goal's, which is only missing.
+            .filter(|a| !a.is_error())
+            .map(|a| a.owner.to_string())
             .collect();
         let is_open = |id: DefId| {
             !open_owners.is_empty()

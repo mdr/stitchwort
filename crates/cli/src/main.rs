@@ -2264,17 +2264,22 @@ fn print_tests(results: &[TestResult], grouped: bool) -> ExitCode {
                 },
                 match (&result.unfinished, result.detail.as_ref()) {
                     (Some(why), _) => format!("  ({why})"),
-                    (None, Some(d)) => match d.comparison.as_ref() {
-                        Some(c) => format!("  (`{}` is False)", c.op),
-                        None => "  (evaluated to False)".to_string(),
-                    },
-                    (None, None) => "  (evaluated to False)".to_string(),
+                    (None, Some(d)) => {
+                        let shown = match d.comparison.as_ref() {
+                            Some(c) => format!("  (`{}` is False)", c.op),
+                            None => "  (evaluated to False)".to_string(),
+                        };
+                        shown + &assuming_note(&result.assuming)
+                    }
+                    (None, None) => {
+                        "  (evaluated to False)".to_string() + &assuming_note(&result.assuming)
+                    }
                 },
             ),
             Outcome::OutOfResources(e) => (
                 "!",
                 if result.cached { "cached" } else { "ran" },
-                format!("  (no result: {e})"),
+                format!("  (no result: {e})") + &assuming_note(&result.assuming),
             ),
         };
         println!("  {mark} {:width$}  {how}{why}", result.name);
@@ -3822,7 +3827,7 @@ fn print_audit(
     // apart from relying on an open goal.
     let on_errors = (audits.iter())
         .filter(|a| a.status == audit::Status::Assuming)
-        .filter(|a| a.open_goals.iter().all(|g| g.is_error()))
+        .filter(|a| !a.open_goals.is_empty() && a.open_goals.iter().all(|g| g.is_error()))
         .count();
     let mut parts = Vec::new();
     if assuming > on_errors {

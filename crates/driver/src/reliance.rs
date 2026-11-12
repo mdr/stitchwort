@@ -344,7 +344,11 @@ impl Session {
                 let waits: BTreeSet<DefId> = self.elab.blocked_on(id).into_iter().collect();
                 if !waits.is_empty() {
                     blocked.push((id, waits));
-                } else if self.elab.relies_on_goal(id) {
+                } else if self.elab.relies_on_goal(id)
+                    // One with an error of its own is reported as that,
+                    // not as relying on another's.
+                    && self.elab.ev().def(id).state() == stitchwort_core::globals::State::Final
+                {
                     let goals = self.elab.goals_relied_on(id);
                     // A declaration with a `?` relies on its own goal.
                     let own = |a: &DefId| {

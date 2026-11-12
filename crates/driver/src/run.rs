@@ -211,7 +211,7 @@ impl Session {
             return Err(CallError::Other(
                 Diagnostic::error("E-UNFINISHED", message).with_label(
                     span,
-                    "this can't run until every goal it needs is filled in",
+                    "this can't run while something it needs has a `?` or an error",
                 ),
             ));
         }

@@ -861,3 +861,97 @@ fn check_summarises_errors_and_what_waits_for_them() {
         "3 declarations rely on a declaration with an error, checked assuming its statement"
     );
 }
+
+/// A false statement cast along: `J` on an erased proof takes its base,
+/// which makes `7` a `Bool` here.
+const CAST: &str = r#"theorem natIsBool: Nat = Bool := PROOF
+def cast (h: Nat = Bool) (n: Nat): Bool := J (t p => t) n h
+test "fine" := 1 + 1 == 2
+test "boom" := (if cast natIsBool 7 then 1 else 2) == 1
+"#;
+
+/// A test that computes with a proof that is a gap (an error or a `?`) is
+/// not run, on either evaluator: its statement may be false, as here, and
+/// then the run computes nonsense or crashes. The other tests still run.
+#[test]
+fn a_test_that_casts_along_a_gap_is_not_run() {
+    for (proof, gap) in [("rfl", "which has an error"), ("?", "`natIsBool`'s goal")] {
+        for runner in [None, Some("--reference")] {
+            let dir = folder(&format!("cast-{}-{}", proof.len(), runner.is_some()));
+            std::fs::write(dir.join("t.sw"), CAST.replace("PROOF", proof)).unwrap();
+            let mut args = vec!["--json", "--no-cache"];
+            args.extend(runner);
+            let (stdout, stderr, ok) = run(&dir, &args);
+            let _ = std::fs::remove_dir_all(&dir);
+            assert!(!ok, "{stdout}{stderr}");
+            let v: Value = serde_json::from_str(&stdout).expect(&stderr);
+            let test = |name: &str| {
+                (v["tests"].as_array().unwrap().iter())
+                    .find(|t| t["name"] == name)
+                    .unwrap_or_else(|| panic!("{name}: {v}"))
+                    .clone()
+            };
+            assert_eq!(test("fine")["outcome"], "passed", "{v}");
+            let boom = test("boom");
+            assert_eq!(boom["outcome"], "failed", "{v}");
+            let message = boom["message"].as_str().unwrap();
+            assert!(
+                message.starts_with("it computes with a proof, and relies on ")
+                    && message.contains(gap),
+                "{message}"
+            );
+        }
+    }
+}
+
+/// A test that fails says what it assumed, as one that passes does.
+#[test]
+fn a_failed_test_says_what_it_assumed() {
+    let dir = folder("failed-assuming");
+    std::fs::write(
+        dir.join("t.sw"),
+        "theorem two: 1 + 1 = 3 := rfl\n\
+         def keep (h: 1 + 1 = 3) (n: Nat): Nat := n\n\
+         test \"cites\" := keep two 4 == 5\n",
+    )
+    .unwrap();
+    let (stdout, _, ok) = run(&dir, &["--no-cache"]);
+    assert!(!ok);
+    assert!(
+        stdout.contains("(`==` is False)  (assuming `two`, which has an error (t.sw:1:"),
+        "{stdout}"
+    );
+    let (stdout, _, _) = run(&dir, &["--json", "--no-cache"]);
+    let _ = std::fs::remove_dir_all(&dir);
+    let v: Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(v["tests"][0]["outcome"], "failed");
+    assert_eq!(v["tests"][0]["assuming"][0]["name"], "two");
+    assert_eq!(v["tests"][0]["assuming"][0]["kind"], "error");
+}
+
+/// A declaration with an error of its own isn't counted as relying on
+/// another's, even when its statement mentions it.
+#[test]
+fn a_declaration_with_an_error_is_not_counted_as_relying() {
+    let dir = folder("not-relying");
+    std::fs::write(
+        dir.join("t.sw"),
+        "def kind (n: Nat): Nat := \"x\"\n\
+         theorem k3: kind 3 = 1 := nothingHere\n",
+    )
+    .unwrap();
+    let output = Command::new(env!("CARGO_BIN_EXE_stitchwort"))
+        .args(["check", "t.sw", "--no-cache"])
+        .current_dir(&dir)
+        .stdin(Stdio::null())
+        .output()
+        .expect("run stitchwort");
+    let _ = std::fs::remove_dir_all(&dir);
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    assert!(!output.status.success());
+    assert!(stderr.contains("[E-UNKNOWN-NAME]"), "{stderr}");
+    assert!(
+        !stderr.contains("relies on") && !stderr.contains("rely on"),
+        "{stderr}"
+    );
+}
