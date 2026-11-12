@@ -31892,9 +31892,9 @@
     {
       "id": 2982,
       "title": "[DeepSeek] Playground: links to a line in a project's file (Matt, 12 Nov 2026): #<entry>:<line> opens the entry's file at that line (#book/2:167), #<entry>:<path>:<line> another file of the project (#book/2:src/Book/Chapter1.sw:30); the cursor goes to the line, which is scrolled into view and briefly highlighted; a 'Copy link to this line' action (editor context menu or gutter) and the address bar follow the cursor's line without new history entries; bad paths or lines open the entry with a notice. Format decided: D3533, Matt, 12 Nov 2026",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": ".claude/worktrees/scratch-sw-2982",
       "labels": [],
       "epic": "editor-playground",
       "body": "",
