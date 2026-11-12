@@ -32250,15 +32250,17 @@
     {
       "id": 3005,
       "title": "[Opus] Kernel guards from the SW-2981 review: check::assume should refuse theorem=true with a non-Prop type (E-MALFORMED; check.rs ~2483 discards the sort); nat_add::register should also require def.assumption.is_none() (nat_add.rs ~417); consider waits_on_goal asking erase::of_def(..).result instead of the flag; update docs/core.md",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "\n\nProgress (Opus lane, 12 Nov 2026, abd491565): assume and retype_def refuse a theorem whose type isn't a proposition (E-NOT-A-PROP, shared with declare_def); nat_add::register refuses an assumption (test `nat_add_rule::a_stand_in_never_switches_the_rules_on` fails without the guard); docs/core.md updated. waits_on_goal left on the theorem flag: erase::of_def's `result` is also true for type formers, which do compute in conversion, and a Prop-typed `def` unfolds (theorems fold), so a J on it can be stuck on a goal; the flag is the right test.\n",
       "created": "2026-11-12",
       "updated": "2026-11-12",
-      "commits": []
+      "commits": [
+        "abd491565"
+      ]
     },
     {
       "id": 3006,
