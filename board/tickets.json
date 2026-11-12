@@ -31939,9 +31939,9 @@
     {
       "id": 2985,
       "title": "[Sonnet] SW-2952 follow-ups: (1) stitchwort run and the JS output lack the cast-along-a-gap guard: a main relying on a ? proof can still cast along a false one; (2) a case on an erased Void-like proof 'fails as unreachable' without naming the gap; (3) relying tests that also cast along a true proof aren't run (the transport note can't say which proof): tag erased proofs by origin if it matters; (4) clippy native_results warning crates/cli/src/main.rs:1982",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-2985",
       "labels": [],
       "epic": "test-infra",
       "body": "",
