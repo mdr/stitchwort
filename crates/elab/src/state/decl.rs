@@ -185,6 +185,10 @@ pub(crate) struct Decl {
     /// The guarded rows' `else` trees made so far by the pattern match being
     /// compiled, which bound how much a guard may copy (`MAX_GUARD_NODES`).
     pub(crate) guard_nodes: Cell<usize>,
+    /// How deep the checker is in a guard chain checked only for its arms'
+    /// errors, its term thrown away (the chain's case is impossible): a
+    /// case filled in at its end isn't lifted into a helper there.
+    pub(crate) errors_only: Cell<usize>,
 }
 
 /// [`Decl::conjunction`].
@@ -257,6 +261,7 @@ impl Decl {
             tuple_matches,
             char_patterns,
             guard_nodes,
+            errors_only,
         } = self;
         let fields = [
             ("sides_capture", sides_capture.borrow().is_empty()),
@@ -290,6 +295,7 @@ impl Decl {
             ("tuple_matches", tuple_matches.borrow().is_empty()),
             ("char_patterns", char_patterns.borrow().is_empty()),
             ("guard_nodes", guard_nodes.get() == 0),
+            ("errors_only", errors_only.get() == 0),
         ];
         fields
             .into_iter()

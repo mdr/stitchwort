@@ -40,3 +40,19 @@ def margin: (mine: Move) -> (theirs: Move) -> beats mine theirs -> Nat
 def fromVoid (v: Void) (b: Bool): Nat :=
   match b with
     | True => 1
+
+-- Under a condition too: the case left when it fails can't happen either.
+def guardVoid (v: Void) (n: Nat): Nat :=
+  match n with
+    | k if k == 3 => 1
+
+-- A hypothesis that computes to an empty type: `IsSome None` is `Void`.
+def IsSome: Option Nat -> Prop
+  | None => Void
+  | Some _ => Unit
+
+def get (o: Option Nat) (h: IsSome o): Nat :=
+  match o with
+    | Some x => x
+
+test "get" := get (Some 4) () == 4

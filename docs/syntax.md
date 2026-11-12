@@ -222,7 +222,7 @@ def absurd: Void -> a
 
 An equation of two different constructors has no values either, so `()` matches it too: `theorem robotNotBox: Robot = BoxLeft -> Void` is `| ()`, as Lean's `nomatch h` and Agda's absurd pattern. Where the equation is a hypothesis already in scope (a lambda's parameter, or refined by a `match`), `cases` proves any goal from it in one word (see [`cases`](#cases), "Closing a case"). `Robot = Robot` has a value, so `()` there is `E-NOT-EMPTY` (`examples/accept/absurd-distinct-constructors.sw`, `examples/reject/absurd-same-constructor.sw`).
 
-The type is the one the argument has in that arm, after the arm's other patterns and computing: with `beats Rock Rock` computing to `False`, `h: beats Rock theirs` is `False = True` in an arm for `Rock`, so `| Rock, ()` needs no right-hand side. A row's constructor patterns are matched before its `()`, wherever it comes. A `match` alternative takes `()` with no `=>` the same way, with one scrutinee or several (D3534, `examples/accept/absurd-match-arms.sw`):
+The type is the one the argument has in that arm, after the arm's other patterns and computing: with `beats Rock Rock` computing to `False`, `h: beats Rock theirs` is `False = True` in an arm for `Rock`, so `| Rock, ()` needs no right-hand side. A row's constructor patterns are matched before its `()`, wherever it comes, unless the `()`'s type is empty as it stands (`Void`, an indexed family such as `Fin 0`, or an equation of different constructors), which is refuted at once. On one line, `| Rock, () | Paper, ()` reads `() | Paper` as an or-pattern, and the error says to start the next `|` on a new line. A `match` alternative takes `()` with no `=>` the same way, with one scrutinee or several (D3534, `examples/accept/absurd-match-arms.sw`):
 
 ```
 theorem rockBeatsOnlyScissors (theirs: Move) (h: beats Rock theirs): theirs = Scissors :=
@@ -2274,7 +2274,7 @@ A missing case is the whole row of patterns, one for each scrutinee or argument,
 
 #### Impossible cases
 
-A case can be left out when it can't happen: when, in that case, some variable in scope has a type with no values. That is an equation of two different constructors once the case is known and the types compute (`h: beats Rock theirs` is `False = True` when `theirs` is `Rock` or `Paper`), or a data type with no constructors (`Void`), as well as the indexed families above. The checker fills in the arm `()` would be, the same term, so
+A case can be left out when it can't happen: when, in that case, some variable in scope has a type with no values. That is an equation of two different constructors once the case is known and the types compute (`h: beats Rock theirs` is `False = True` when `theirs` is `Rock` or `Paper`), or a data type with no constructors (`Void`), including a type that computes to one (with `IsSome: Option Nat -> Prop` defined as `Void` at `None`, `h: IsSome o` once `o` is `None`), as well as the indexed families above. Under an arm with a condition, the case left when the condition fails is filled in the same way. The checker fills in the arm `()` would be, the same term, so
 
 ```
 theorem rockBeatsOnlyScissors (theirs: Move) (h: beats Rock theirs): theirs = Scissors :=

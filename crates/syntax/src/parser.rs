@@ -2702,15 +2702,24 @@ impl<'t> Parser<'t> {
             }
             if patterns.len() != scrutinees.len() {
                 let (n, m) = (patterns.len(), scrutinees.len());
-                return Err(error(
+                let mut e = error(
                     bar.to(self.prev_span()),
                     format!(
                         "this alternative has {n} pattern{}, but the `match` has {m} scrutinee{}",
                         if n == 1 { "" } else { "s" },
                         if m == 1 { "" } else { "s" },
                     ),
-                )
-                .into());
+                );
+                // `| Rock, () | Paper, ()` on one line: the second `|` is
+                // read as an or-pattern's.
+                if patterns.iter().any(|p| {
+                    matches!(p, Pattern::Or(alternatives, _) if alternatives.iter().any(has_absurd))
+                }) {
+                    e = e.with_note(
+                        "an absurd alternative ends at its `()`: start the next `|` on a new line",
+                    );
+                }
+                return Err(e.into());
             }
             let guard = self.guard()?;
             let body = self.arm_body(&patterns, guard.as_ref(), "`=>`")?;

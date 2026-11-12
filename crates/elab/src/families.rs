@@ -580,7 +580,7 @@ fn case_branch(
                     && let Some(term) = crate::impossible_case(cx, columns, &goal)? =>
             {
                 // The arms are still checked, for their own errors.
-                check_tree(cx, subtree, &goal)?;
+                crate::check_for_errors(cx, subtree, &goal)?;
                 Ok(Some(term))
             }
             tree => check_tree(cx, tree, &goal).map(Some),
