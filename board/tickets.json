@@ -32327,9 +32327,9 @@
     {
       "id": 3010,
       "title": "[Sonnet] D3536 (Matt, 12 Nov 2026): lower the read-back size limit (Limits::size) from 10 M to 2 M nodes everywhere (CLI, editor, playground); message 'a value was too large to write out (over 2,000,000 parts)' (replaces 'to show'); remove the HEAVY list in crates/cli/tests/running/examples.rs if the five heavy reject examples now peak well under 1 GB; re-snapshot; corpus max measured 390,996 (aoc 2024 Day06 keepsTrapsAt, SW-2681 counter, 12 Nov)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-3010",
       "labels": [],
       "epic": "elaborator-kernel",
       "body": "",
