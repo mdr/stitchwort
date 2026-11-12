@@ -32229,15 +32229,22 @@
     {
       "id": 3004,
       "title": "[Sonnet] Sweep: about 480 W-UNREACHABLE warnings in aoc/ (e.g. aoc/src/Aoc/Common/GridGraph.sw:53), probably also games/rogue: delete the arms the warning says can be deleted, checking each day's namespace as it's edited; first sample a dozen to confirm each deletion checks (a false positive is a bug in the warning, SW-2993's five kinds fixed). Seen by Overmind's verify-cache at c3c3a3c49",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "aoc-common",
-      "body": "",
+      "body": "Progress (lane, 12 Nov 2026): 451 of 496 flagged arms deleted (Common 58/64, 2020 98/100, 2021 107/127, 2024 147/162 plus one more that warned once its twin went, 2025 26/27, roguelike 15/16). 45 stay: the checker rejects the match once they're gone (arms whose `h` only computes through an unfolded call such as `Result.errNotOk h` for `checkX`, and pairs of arms that each can go but not both). Each touched namespace was checked, no errors. See the lane report.\n",
       "created": "2026-11-12",
       "updated": "2026-11-12",
-      "commits": []
+      "commits": [
+        "d25290489",
+        "3736d0385",
+        "ee0e65624",
+        "c1ba390c3",
+        "6febb6e94",
+        "615332830"
+      ]
     }
   ]
 }
