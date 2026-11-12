@@ -32669,15 +32669,17 @@
     {
       "id": 3034,
       "title": "[Sonnet] Regression on main: std_library::small_programs_load_only_the_library_files_they_can_use now also loads Logic/Logic.sw and Decidable/Decidable.sw (likely SW-3019/3029 readings in List/Toolkit.sw). Find which declaration pulls them in; keep small programs' load small, or update the list with the reason",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "std-library",
-      "body": "",
+      "body": "\n\n\nLane note (Sonnet): cause = SW-2967 memContains uses DecEq.sound/refl (Decidable.sw, by dot call .sound) and SW-3019/3029 readings use Exists (Logic.sw), plus Ord.sw ord.trans -> Iff.trans (Logic.sw). Fixed by moving Exists + Exists/Iff lemmas into core and using Decidable.sound/complete directly; test now loads on STACK. Commit 8696c5934.\n",
       "created": "2026-11-12",
       "updated": "2026-11-12",
-      "commits": []
+      "commits": [
+        "8696c5934"
+      ]
     }
   ]
 }
