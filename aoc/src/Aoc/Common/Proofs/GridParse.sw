@@ -24,7 +24,6 @@ theorem checkedGrid (read: () → {Fail} List (List a)) (grid: Grid a) (parsed: 
 theorem checkGridOk (rows: List (List a)) (grid: Grid a) (h: Fail.toResult (() => checkGrid rows) = Ok grid):
     grid.Rectangle ∧ 0 < grid.width ∧ 0 < grid.height :=
   match Nat.decEq (firstWidth rows) 0 with
-    | { holds = True, sound = _, complete = _ } => Void.exfalso (Result.errNotOk h)
     | { holds = False, sound = _, complete = c } =>
       let wide: firstWidth rows ≠ 0 := e => Bool.falseNotTrue (c e)
       match e: firstRagged rows with
@@ -40,7 +39,6 @@ theorem checkGridOk (rows: List (List a)) (grid: Grid a) (h: Fail.toResult (() =
 --| `checkGrid` passes its rows on unchanged.
 theorem checkGridRows (rows: List (List a)) (grid: Grid a) (h: Fail.toResult (() => checkGrid rows) = Ok grid): rows = grid.rows :=
   match Nat.decEq (firstWidth rows) 0 with
-    | { holds = True, sound = _, complete = _ } => Void.exfalso (Result.errNotOk h)
     | { holds = False, sound = _, complete = _ } =>
       match ragged: firstRagged rows with
         | Some (index, _) => Void.exfalso (Result.errNotOk h)
@@ -49,7 +47,6 @@ theorem checkGridRows (rows: List (List a)) (grid: Grid a) (h: Fail.toResult (()
 --| Rows whose first has a cell are at least one.
 theorem tallOfWide (rows: List (List a)) (wide: 0 < firstWidth rows): 0 < rows.length :=
   match rows with
-    | [] => wide
     | [first, ..rest] => omega
 
 --| The converse of `checkGridOk`: a grid that is a rectangle, with a cell, is

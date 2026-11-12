@@ -46,22 +46,18 @@ theorem downAdjacent (row: Nat) (column: Nat): adjacent { row, column } { row = 
 theorem stepAdjacent (position: Position) (direction: Direction) (next: Position) (stepped: position.step direction = Some next):
     adjacent position next = True :=
   match position, direction with
-    | { row = Zero, column }, Up => Void.exfalso (Option.noneNotSome next stepped)
     | { row = Succ row, column }, Up => rewrite <- Option.someInjective stepped in upAdjacent row column
     | { row, column }, Right => rewrite <- Option.someInjective stepped in rightAdjacent row column
     | { row, column }, Down => rewrite <- Option.someInjective stepped in downAdjacent row column
-    | { row, column = Zero }, Left => Void.exfalso (Option.noneNotSome next stepped)
     | { row, column = Succ column }, Left => rewrite <- Option.someInjective stepped in leftAdjacent row column
 
 --| A step back the opposite way returns to where it started.
 theorem stepOpposite (position: Position) (direction: Direction) (next: Position) (stepped: position.step direction = Some next):
     next.step direction.opposite = Some position :=
   match position, direction with
-    | { row = Zero, column }, Up => Void.exfalso (Option.noneNotSome next stepped)
     | { row = Succ row, column }, Up => rewrite <- Option.someInjective stepped in rfl
     | { row, column }, Right => rewrite <- Option.someInjective stepped in rfl
     | { row, column }, Down => rewrite <- Option.someInjective stepped in rfl
-    | { row, column = Zero }, Left => Void.exfalso (Option.noneNotSome next stepped)
     | { row, column = Succ column }, Left => rewrite <- Option.someInjective stepped in rfl
 
 --| ...and each adjacent position is a step away.
@@ -105,11 +101,9 @@ def directionTo (position: Position) (next: Position): Direction :=
 theorem directionOfStep (position: Position) (direction: Direction) (next: Position) (stepped: position.step direction = Some next):
     directionTo position next = direction :=
   match position, direction with
-    | { row = Zero, column }, Up => Void.exfalso (Option.noneNotSome next stepped)
     | { row = Succ row, column }, Up => rewrite <- Option.someInjective stepped in cases
     | { row, column }, Right => rewrite <- Option.someInjective stepped in cases
     | { row, column }, Down => rewrite <- Option.someInjective stepped in cases
-    | { row, column = Zero }, Left => Void.exfalso (Option.noneNotSome next stepped)
     | { row, column = Succ column }, Left => rewrite <- Option.someInjective stepped in cases
 
 --| No position is a neighbour twice...

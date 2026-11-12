@@ -71,4 +71,3 @@ theorem compareFrom (a b: Range) (h: Ordering.isLessEq (Ord.compare a b) = True)
       match e: Nat.compare f1 f2 with
         | Less => Nat.leOfCompare f1 f2 (g => Ordering.lessNotGreater (Eq.trans (Eq.sym e) g))
         | Equal => Nat.leOfCompare f1 f2 (g => Ordering.equalNotGreater (Eq.trans (Eq.sym e) g))
-        | Greater => cases

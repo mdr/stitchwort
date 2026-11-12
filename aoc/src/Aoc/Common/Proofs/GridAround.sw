@@ -16,7 +16,6 @@ theorem countAround (rows: List (List a)) (keep: a → Bool) (at: Position):
   let near := (q: Position) => touching at q && held q
   let onGrid := (q: Position) (passes: held q = True) =>
     match found: cellAt rows q with
-      | None => cases
       | Some x => List.memMap (cells rows) (q, x) (memCellsOfCellAt rows q x found) Pair.fst
   let same: List.Perm (at.around.filter held) (positions.filter near) :=
     List.permOfSameMembers (at.around.filter held) (positions.filter near) (List.distinctFilter at.around held (aroundDistinct at))

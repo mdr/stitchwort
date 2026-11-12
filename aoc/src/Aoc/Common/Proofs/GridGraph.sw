@@ -23,7 +23,6 @@ theorem stepEdgeElim (enter: Position → Option Nat) (from: Position) (next: Po
     (other both =>
       let (Both isNeighbour made) := both
       match found: enter other with
-        | None => Void.exfalso (Option.noneNotSome (next, weight) made)
         | Some cost =>
           let same: (other, cost) = (next, weight) := Option.someInjective made
           rewrite <- Eq.cong Pair.fst same, <- Eq.cong Pair.snd same in Both (neighbourAdjacent from other isNeighbour) found)
@@ -61,7 +60,6 @@ theorem pathWalk (enter: Position → Option Nat) (states: List Position)
       let near := Bool.andLeft path
       let rest2 := Bool.andRight path
       match found: enter next with
-        | None => cases
         | Some cost => Both (stepEdgeIntro enter start next cost near found) (pathWalk enter states complete next rest finish rest2)
 
 --| ...costing the sum of what entering its positions costs.
@@ -92,7 +90,6 @@ theorem unitPathCost (enter: Position → Option Nat) (unit: ∀ (position: Posi
 theorem unitEnterCost (enter: Position → Option Nat) (unit: ∀ (position: Position) (cost: Nat) => enter position = Some cost → cost = 1)
     (position: Position) (entered: canEnter enter position = True): enterCost enter position = 1 :=
   match found: enter position with
-    | None => cases
     | Some cost => unit position cost found
 
 -- Paths
