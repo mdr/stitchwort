@@ -1,5 +1,5 @@
 {
-  "next": 3030,
+  "next": 3031,
   "tickets": [
     {
       "id": 47,
@@ -31716,15 +31716,17 @@
     {
       "id": 2968,
       "title": "[Sonnet] deriving (DecEq) still answers by Decidable.yes/no under a match (crates/elab derive.rs:49-56): build the record test first; decidable-record.md stage 4 planned a test (SW-2964 finding 2)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2968",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "\nModel result: Sonnet, worked, 19 min (est. 90). Orchestrator's call: no Opus review, since it generates source that the elaborator and kernel check like user code, not kernel terms; %instDecEq count unchanged (436).",
       "created": "2026-11-12",
       "updated": "2026-11-12",
-      "commits": []
+      "commits": [
+        "98e28ff81"
+      ]
     },
     {
       "id": 2969,
@@ -32601,6 +32603,19 @@
       "where": ".claude/worktrees/SW-3029",
       "labels": [],
       "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-12",
+      "updated": "2026-11-12",
+      "commits": []
+    },
+    {
+      "id": 3030,
+      "title": "[Sonnet] deriving (DecEq) fails silently on a type with a proof field and two constructors (shared-field-update.sw Main.Labelled2 [h: n = 0]): no %same; and a failed derivation is only a note when == is used: report it at the type (SW-2968 findings)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "diagnostics",
       "body": "",
       "created": "2026-11-12",
       "updated": "2026-11-12",
