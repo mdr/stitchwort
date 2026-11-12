@@ -113,6 +113,11 @@ const seconds = (ms) => String(Math.round(ms / 100) / 10);
 
 const noProofMessage = (timeLimitMs) => `No proof found within ${seconds(timeLimitMs)} s`;
 
+// The notice for a proof inserted without asking (D3532); a long proof is
+// cut so the message stays a line.
+const provedMessage = (newText) =>
+  `Proved by \`${newText.length > 60 ? `${newText.slice(0, 57).trimEnd()}…` : newText}\``;
+
 // QuickPick items for the proofs of an answer, best first (the server's
 // order): the proof text, and how it was found.
 function proofPicks(answer) {
@@ -244,6 +249,7 @@ module.exports = {
   SEARCH_PROOF,
   SELECT_RANGE,
   noProofMessage,
+  provedMessage,
   proofPicks,
   proofStillApplies,
   serverSettings,

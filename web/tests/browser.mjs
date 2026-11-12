@@ -2649,9 +2649,9 @@ test("a code action on a ? offers a proof search, and the proof picked fills it 
   assert.ok((await page.ev(`window.editor.lastCodeActions`)).includes("Search for a proof"));
   assert.ok(!(await page.ev(`window.editor.lastCodeActions`)).some((t) => t.startsWith("Replace ? with")));
   await page.ev(`[...document.querySelectorAll(".pick-item")].find((b) => b.textContent.includes("Search for a proof")).click()`);
-  await page.until(`document.querySelector(".pick-panel [role=option]") !== null && document.querySelector(".pick-panel").getAttribute("aria-label").startsWith("Replace")`, 100000, "the proofs");
-  await page.ev(`document.querySelector(".pick-panel .pick-item").click()`);
-  await page.until(`!window.editor.value.includes("?")`, 20000, "the proof");
+  // One proof (the ladder's `rfl`) is inserted without a list.
+  await page.until(`!window.editor.value.includes("?")`, 100000, "the proof");
+  assert.equal(await page.ev(`document.querySelector(".pick-panel")`), null);
   assert.match(await sourceText(page), /two = 2 := (rfl|omega|cases|Std\.byDecision)\n$/);
 }, { ms: 120000 });
 
@@ -2677,11 +2677,14 @@ test("a proof search in the book's chapter 2 shows progress, and a second one do
     await page.key(".", "Period", 190, { modifiers: CMD });
     await page.until(`document.querySelector(".pick-panel") !== null`, 20000, "the code actions");
     const began = Date.now();
+    const proved = await page.ev(`window.__notices.filter((n) => n.startsWith("Proved by")).length`);
     await page.ev(`[...document.querySelectorAll(".pick-item")].find((b) => b.textContent.includes("Search for a proof")).click()`);
-    await page.until(`document.querySelector(".pick-panel") !== null && document.querySelector(".pick-panel").getAttribute("aria-label").startsWith("Replace")`, 150000, "the proofs");
+    await page.until(`window.__notices.filter((n) => n.startsWith("Proved by")).length > ${proved}`, 150000, "the proof");
     const took = Date.now() - began;
     console.log(`  ${label} search: ${took} ms`);
-    await page.ev(`document.querySelector(".pick-panel")?.remove()`);
+    // Undo restores the ? for the next search.
+    await page.key("z", "KeyZ", 90, { modifiers: CMD });
+    await page.until(`window.editor.value.includes("both No b = No := ?")`, 20000, "the ? back");
     return took;
   };
   await search("first");
@@ -2689,6 +2692,33 @@ test("a proof search in the book's chapter 2 shows progress, and a second one do
   assert.ok(notices.some((n) => n.startsWith("Searching for a proof")), JSON.stringify(notices));
   const second = await search("second");
   assert.ok(second < 8000, `the second search took ${second} ms`);
+}, { ms: 400000 });
+
+test("a single proof is inserted at once with a notice, and undo restores the ?", async (page) => {
+  await page.open();
+  await page.untilChecked();
+  await page.ev(`location.hash = "#book/2"`);
+  await page.until(`document.getElementById("example").value === "book:2" &&
+    window.editor.value.includes("theorem noAndAnything")`, 60000, "the book's chapter 2");
+  const text = await sourceText(page);
+  const line = "theorem noAndAnything (b: Answer): both No b = No := rfl";
+  await page.setSource(text.replace(line, line.slice(0, -"rfl".length) + "?"));
+  const hole = "both No b = No := ?";
+  await caretAt(page, hole, hole.length - 1);
+  await page.until(`document.getElementById("goalpanel").innerText.includes("⊢ both No b = No")`, 180000, "the goal at the ?");
+  await page.ev(`(() => {
+    const notices = window.__notices = [];
+    const old = window.editor.options.onNotice;
+    window.editor.options.onNotice = (t) => { notices.push(t); old?.(t); };
+  })()`);
+  await page.key(".", "Period", 190, { modifiers: CMD });
+  await page.until(`document.querySelector(".pick-panel") !== null`, 20000, "the code actions");
+  await page.ev(`[...document.querySelectorAll(".pick-item")].find((b) => b.textContent.includes("Search for a proof")).click()`);
+  await page.until(`window.editor.value.includes("both No b = No := rfl")`, 150000, "the proof");
+  assert.equal(await page.ev(`document.querySelector(".pick-panel")`), null, "no list");
+  assert.ok((await page.ev(`window.__notices`)).includes("Proved by `rfl`"), JSON.stringify(await page.ev(`window.__notices`)));
+  await page.key("z", "KeyZ", 90, { modifiers: CMD });
+  await page.until(`window.editor.value.includes("both No b = No := ?")`, 20000, "undo to restore the ?");
 }, { ms: 400000 });
 
 test("a let without a type shows its type after the name, and the drawn text is still the document", async (page) => {
