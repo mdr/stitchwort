@@ -32684,7 +32684,7 @@
     {
       "id": 3035,
       "title": "[Sonnet] List.allReadsFalse (std List/Toolkit.sw, SW-3029) fails E-RESOURCE 'recursed more deeply than allowed' in a debug test build (SW-3032's lane: 12 std_library/hash_stability tests failed with E-RESOURCE + E-USES-FAILED); passes in the release build on main. Find why its check recurses so deeply (proof shape?) and make it shallow, so debug builds and small stacks (playground) load std",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
