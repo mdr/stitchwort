@@ -1060,12 +1060,7 @@ impl crate::queue::Check for Literal {
         let [(d, _)] = with_field_names(cx, &self.fields)[..] else {
             return Ok(false);
         };
-        let params = (0..cx.g().data(d).params().len())
-            .map(|_| {
-                let meta = cx.fresh_meta();
-                cx.eval(&meta)
-            })
-            .collect::<Result<Vec<_>>>()?;
+        let params = crate::check::fresh_telescope(cx, cx.g().data(d).params())?;
         let chosen = cx.unify(&Value::Data(d, params.into()), &self.expected)?;
         if chosen {
             let name = cx.g().data(d).name().to_string();
@@ -1176,10 +1171,11 @@ pub(crate) fn infer_update(
         return Ok((term, ty));
     }
     let mut result = params;
-    for (param, u) in result.iter_mut().zip(&uses) {
+    for (i, u) in uses.iter().enumerate() {
         if matches!(u, ParamUse::Free) {
-            let meta = cx.fresh_meta();
-            *param = cx.eval(&meta)?;
+            let ty = eval(&cx.g(), &result[..i], &cx.g().data(d).params()[i].1)?;
+            let meta = cx.fresh_meta_of(&ty);
+            result[i] = cx.eval(&meta)?;
         }
     }
     let term = update(cx, base, &ty, Some(result.clone()), fields)?;

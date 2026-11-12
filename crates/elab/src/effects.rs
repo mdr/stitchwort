@@ -4465,7 +4465,7 @@ fn op_call(
         Some(pos) => pos,
         None => {
             // An unknown tail of the row can take the ability.
-            let args = crate::check::fresh_params(cx, cx.g().data(info.op_data))?;
+            let args = crate::check::fresh_telescope(cx, cx.g().data(info.op_data).params())?;
             let label = Label { ability: a, args };
             match extend(cx, &row, vec![label.clone()])? {
                 Some(wider) => {
@@ -4574,7 +4574,7 @@ fn make_call(
 /// `(x : A) -> {Ability args} B`.
 pub fn op_value(cx: &mut Ctx, a: usize, i: usize) -> Result<(Term, Value)> {
     let op_data = cx.e.tables.abilities[a].op_data;
-    let args = crate::check::fresh_params(cx, cx.g().data(op_data))?;
+    let args = crate::check::fresh_telescope(cx, cx.g().data(op_data).params())?;
     let label = Label { ability: a, args };
     let row = Row {
         labels: vec![label.clone()],
@@ -4795,7 +4795,7 @@ fn handle(cx: &mut Ctx, body: &Expr, clauses: &[Clause], out: &Row, t: &Value) -
 
     // The handled computation's row: this ability first, then everything in
     // `out` except this ability.
-    let args = crate::check::fresh_params(cx, cx.g().data(op_data))?;
+    let args = crate::check::fresh_telescope(cx, cx.g().data(op_data).params())?;
     let handled = Label { ability: a, args };
     let rest = Row {
         labels: out

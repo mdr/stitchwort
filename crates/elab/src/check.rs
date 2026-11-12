@@ -2263,8 +2263,7 @@ pub(crate) fn infer_value(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
         Expr::List(items, _) => {
             warn_range_in_brackets(cx, items);
             let list = builtin_data(cx, Builtin::List)?;
-            let elem = cx.fresh_meta();
-            let ty = Value::Data(list, vec![cx.eval(&elem)?].into());
+            let ty = Value::Data(list, fresh_telescope(cx, cx.g().data(list).params())?.into());
             let term = check(cx, expr, &ty)?;
             Ok((annotate(cx, term, &ty)?, ty))
         }
@@ -6875,11 +6874,14 @@ pub(crate) enum CtorArg<'a> {
     NamedExplicit(&'a AstName, &'a Expr),
 }
 
-/// An unknown for each of `data`'s parameters, each of its type given the
-/// ones before it.
-pub(crate) fn fresh_params(cx: &Ctx, data: &stitchwort_core::globals::Data) -> Result<Vec<Value>> {
+/// An unknown for each binder of `telescope` (a data type's parameters, say),
+/// each of its type given the ones before it.
+pub(crate) fn fresh_telescope<'t>(
+    cx: &Ctx,
+    telescope: impl IntoIterator<Item = &'t (Name, Term)>,
+) -> Result<Vec<Value>> {
     let mut params = Vec::new();
-    for (_, ty) in data.params() {
+    for (_, ty) in telescope {
         let ty = eval(&cx.g(), &params, ty)?;
         let meta = cx.fresh_meta_of(&ty);
         params.push(cx.eval(&meta)?);
@@ -6927,7 +6929,7 @@ fn ctor_app(
     let fallback_params: Vec<Value> = if missing.is_empty() {
         Vec::new()
     } else {
-        fresh_params(cx, data)?
+        fresh_telescope(cx, data.params())?
     };
     let mut target = expected.cloned();
     for &i in &missing {
@@ -6967,7 +6969,7 @@ fn ctor_app(
             args[..np].to_vec()
         }
         _ if !missing.is_empty() => fallback_params,
-        _ => fresh_params(cx, data)?,
+        _ => fresh_telescope(cx, data.params())?,
     };
     // A parameter given by name, `[a := Nat]`, is checked against its type
     // and must agree with what `expected` says, if anything. A disagreement

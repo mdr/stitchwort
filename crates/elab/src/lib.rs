@@ -5222,9 +5222,8 @@ fn check_tree(cx: &mut Ctx, tree: &Tree, goal: &Value) -> Result<Term> {
                 // the argument that fixes its type, as in `List.map ((a, b)
                 // => …) ps` (docs/proposals/syntax-conveniences.md §5.5). Its
                 // type is the constructor's, with parameters still unknown.
-                let params = (0..data.params().len() + data.indices().len())
-                    .map(|_| cx.eval(&cx.fresh_meta()))
-                    .collect::<Result<Vec<_>>>()?;
+                let params =
+                    crate::check::fresh_telescope(cx, data.params().iter().chain(data.indices()))?;
                 let known = Value::Data(*d, params.into());
                 if cx.unify(&ty, &known)? {
                     ty = known;
