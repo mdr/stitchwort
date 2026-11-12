@@ -32643,12 +32643,12 @@
     {
       "id": 3032,
       "title": "[Sonnet] deletable_arms (crates/elab/src/families.rs) offers sets that don't check: (1) a required match reify clause (worked round by keep_arms in SW-3020); (2) both arms of match c: z in Set.foldAll's old body (SW-3020 repro). Fix so every offered set rechecks; then drop keep_arms if redundant",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "diagnostics",
-      "body": "",
+      "body": "\n\nProgress (Sonnet lane, 12 Nov): cause of case 2 was that a match inside an arm an outer match splits further is checked once per split case, and each check offered its own ruled-out arms (union deleted both). Now an arm is offered only if every check of it offers it (decl.kept_by_a_check; earlier warnings retracted). Reify clauses: the requirement is syntactic (reify.rs alternatives), so keep_arms stays, but is now applied to the candidates before the set recheck (never \"ruled out\"). Test: redundant_arms::a_match_with_every_arm_ruled_out_keeps_one.\n",
       "created": "2026-11-12",
       "updated": "2026-11-12",
       "commits": []
