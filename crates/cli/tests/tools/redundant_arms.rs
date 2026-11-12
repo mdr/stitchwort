@@ -67,3 +67,27 @@ fn a_nested_or_pattern_alternative_warns() {
     assert!(w.message.starts_with("this alternative"), "{w:?}");
     assert_eq!(w.labels.len(), 2, "{w:?}");
 }
+
+/// The last arm splits `z`, so the inner `match c: z` is checked twice: `c`
+/// is `False = True` in one arm of the first and `True = False` in the other
+/// arm of the second. Each arm is ruled out in one check and needed in the
+/// other, so neither is offered for deletion (deleting both left a `match`
+/// with no arms).
+#[test]
+fn a_match_with_every_arm_ruled_out_keeps_one() {
+    let (session, result) = load(
+        "def foldAll (q: Nat -> Bool): (z: Bool) -> (xs: List Nat) -> Bool\n  \
+         | z, [] => z\n  | z, [x, ..rest] => foldAll q (z ∧ q x) rest\n\n\
+         theorem foldAllSpec (q: Nat -> Bool) (z: Bool) (xs: List Nat):\n    \
+         foldAll q z xs = (z ∧ foldAll q True xs) :=\n  \
+         match z, xs with\n    | True, [] => rfl\n    | False, [] => rfl\n    \
+         | z, [x, ..rest] =>\n      rewrite foldAllSpec q (z ∧ q x) rest in\n      \
+         match c: z with\n        | False => rfl\n        | True =>\n          \
+         match d: q x with\n            | True => rfl\n            | False => rfl\n",
+    );
+    result.unwrap();
+    let unreachable: Vec<_> = (session.warnings.iter())
+        .filter(|w| w.code == "W-UNREACHABLE")
+        .collect();
+    assert!(unreachable.is_empty(), "{unreachable:#?}");
+}
