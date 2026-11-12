@@ -1,5 +1,5 @@
 {
-  "next": 2953,
+  "next": 2954,
   "tickets": [
     {
       "id": 47,
@@ -31475,6 +31475,19 @@
       "labels": [],
       "epic": "test-infra",
       "body": "D3525 (Matt, 12 Nov 2026: 'D3525 - yes, approved'): one rule for tests. A test runs unless the code it runs needs a gap; a gap it only cites as a proof, whether ? or an error, doesn't stop it, and the result line says what it assumed (design note D-c).\nD3527 (Matt, 12 Nov 2026: 'D3527 yes'): a declaration whose statement checks but whose body has an error stands in as an assumption of its statement, like a ?; users are checked and reported as relying on it, never finished; a broken statement still makes users wait (design note D-b).",
+      "created": "2026-11-12",
+      "updated": "2026-11-12",
+      "commits": []
+    },
+    {
+      "id": 2953,
+      "title": "[Opus] Book chapter 3: Numbers and induction (proving-with-stitchwort-outline.md §3); deferred by D3528",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "docs-tutorials",
+      "body": "D3528 (Matt, 12 Nov 2026): 'Let's skip chapter 3 for now; we may come back to it later.' Not started; wait for Matt to raise it again.",
       "created": "2026-11-12",
       "updated": "2026-11-12",
       "commits": []
