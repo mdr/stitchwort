@@ -2,7 +2,7 @@
 -- scope, refined by the match, has a type with no values there. The
 -- compiler fills in the arm `()` would be (D3534).
 
-import Std (Bool, Nat, Option, Void)
+import Std (Bool, Nat, Option, Ordering, Void)
 
 type Move = | Rock | Paper | Scissors
 
@@ -21,6 +21,12 @@ theorem rockBeatsOnlyScissors (theirs: Move) (h: beats Rock theirs): theirs = Sc
 -- Equations too.
 theorem rockBeatsOnlyScissorsArms: (theirs: Move) -> beats Rock theirs -> theirs = Scissors
   | Scissors, _ => rfl
+
+-- An equation of two different `Ordering`s: for `Succ k`, `h` is
+-- `Greater = Equal`.
+theorem zeroOfCompareEqual (m: Nat) (h: Nat.compare m 0 = Equal): m = 0 :=
+  match m with
+    | Zero => rfl
 
 -- A program as well as a proof: a `None` can't be passed with `known`.
 def valueOf (o: Option a) (known: o.isSome): a :=

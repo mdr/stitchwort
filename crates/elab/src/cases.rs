@@ -907,10 +907,17 @@ fn bool_clash(cx: &mut Ctx, goal: &Value, levels: &[usize]) -> Result<Option<Ter
 
 /// `Void.exfalso` (or `Void.absurd`, for a goal that isn't a proposition)
 /// of `J (y q => D y) Trivial h`, where `D` is a helper that is `Unit` at
-/// `h`'s left constructor and `Void` at the others.
+/// `h`'s left constructor and `Void` at the others. Two kinds of equation
+/// need no helper: on `Bool`, `Bool.falseNotTrue`, and on `Ordering`, its
+/// six lemmas such as `Ordering.lessNotEqual`, once they're bound. The
+/// `compare` laws meet `Ordering`'s equations in most of their cases, and
+/// a helper for each would be a declaration of its own.
 fn contradiction(cx: &mut Ctx, eq: CtorEquation, goal: &Value) -> Result<Term> {
-    let g = cx.g();
     let h = Term::Var(cx.level() - 1 - eq.level);
+    if let Some(lemma) = ordering_distinct(cx, &eq) {
+        return absurd(cx, Term::app(Term::Def(lemma), h), goal);
+    }
+    let g = cx.g();
     let bool_data = builtin_data(cx, Builtin::Bool)?;
     let void_proof = if eq.d == bool_data {
         // `Bool.falseNotTrue h`, or for `h: True = False`, of `h` turned
@@ -964,6 +971,36 @@ fn contradiction(cx: &mut Ctx, eq: CtorEquation, goal: &Value) -> Result<Term> {
         )
     };
     absurd(cx, void_proof, goal)
+}
+
+/// The lemma refuting `eq` when it's an equation of two different
+/// `Ordering`s (`Ordering.lessNotEqual` for `Less = Equal`): `None` for
+/// another type, or while the prelude loads, before the lemma is admitted.
+fn ordering_distinct(cx: &Ctx, eq: &CtorEquation) -> Option<stitchwort_core::DefId> {
+    let g = cx.g();
+    let registry = g.env.registry();
+    if registry.data(Builtin::Ordering) != Some(eq.d) {
+        return None;
+    }
+    let which = |c: usize| {
+        [
+            Builtin::OrderingLess,
+            Builtin::OrderingEqual,
+            Builtin::OrderingGreater,
+        ]
+        .into_iter()
+        .find(|b| registry.ctor(*b) == Some((eq.d, c)))
+    };
+    let lemma = match (which(eq.left.0)?, which(eq.right.0)?) {
+        (Builtin::OrderingLess, Builtin::OrderingEqual) => Builtin::LessNotEqual,
+        (Builtin::OrderingLess, Builtin::OrderingGreater) => Builtin::LessNotGreater,
+        (Builtin::OrderingEqual, Builtin::OrderingLess) => Builtin::EqualNotLess,
+        (Builtin::OrderingEqual, Builtin::OrderingGreater) => Builtin::EqualNotGreater,
+        (Builtin::OrderingGreater, Builtin::OrderingLess) => Builtin::GreaterNotLess,
+        (Builtin::OrderingGreater, Builtin::OrderingEqual) => Builtin::GreaterNotEqual,
+        _ => return None,
+    };
+    registry.def(lemma)
 }
 
 /// `goal` from a proof of `Void`: `Void.exfalso` for a proposition,
