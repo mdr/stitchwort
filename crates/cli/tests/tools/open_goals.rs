@@ -169,7 +169,11 @@ fn a_passing_test_lists_every_open_goal_it_assumes() {
     let v: serde_json::Value = serde_json::from_str(&json).expect(&json);
     let assuming = v["tests"][0]["assuming"].as_array().expect(&json);
     let named: Vec<(&str, &str)> = (assuming.iter())
-        .map(|a| (a["name"].as_str().unwrap(), a["kind"].as_str().unwrap()))
+        .map(|a| {
+            let declaration = a["declaration"].as_str().expect(&json);
+            let short = declaration.rsplit('.').next().unwrap();
+            (short, a["kind"].as_str().unwrap())
+        })
         .collect();
     assert_eq!(
         named,

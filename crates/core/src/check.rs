@@ -2418,6 +2418,9 @@ fn push_def(
 /// didn't (its stand-in, docs/proposals/tests-with-errors.md §3.3). `span`
 /// is where the gap is.
 ///
+/// It is a theorem if `theorem` (the stand-in of a theorem: it is a proof,
+/// which nothing computes with, as any theorem), else a definition.
+///
 /// `ty` is checked to be a type (in any universe) that refers only to final
 /// declarations: a pending one is `E-MALFORMED` (so the goal of a `?` that
 /// mentions its own group can't be assumed), and a failed one is
@@ -2437,6 +2440,7 @@ pub fn assume(
     path: &Name,
     ty: &Term,
     label: crate::globals::Assumption,
+    theorem: bool,
     span: Span,
 ) -> Result<DefId> {
     in_kernel_modes(g, |g| {
@@ -2477,7 +2481,7 @@ pub fn assume(
         let checked = check_type(&mut cx, ty);
         g.machine.glue.set(was);
         let (ty, _) = checked?;
-        let id = push_def(g, name, path, ty, false, false, span)?;
+        let id = push_def(g, name, path, ty, theorem, false, span)?;
         let def = &mut g.env.defs_mut()[id.0];
         def.assumption = Some(Rc::new(label));
         def.recursive = false;

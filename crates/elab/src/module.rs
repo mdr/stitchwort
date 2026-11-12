@@ -655,32 +655,7 @@ impl Elaborator {
         let mut diagnostics: Vec<Diagnostic> = diagnostics.into_iter().map(|(_, d)| d).collect();
         // The names of an import that failed (and was reported) aren't
         // reported again where they're used.
-        if !self.scope.import_failed.is_empty() {
-            let failed = &self.scope.import_failed;
-            diagnostics.retain(|d| {
-                d.code != "E-UNKNOWN-NAME"
-                    || !failed
-                        .iter()
-                        .any(|n| d.message == format!("unknown name `{n}`"))
-            });
-        }
-        // The same for the names a failed `(..)` import would have brought.
-        if !self.scope.wildcard_failed.is_empty() {
-            let files: Vec<Option<FileId>> = self
-                .scope
-                .wildcard_failed
-                .iter()
-                .filter_map(|i| self.unit.module.files.get(*i).map(|f| f.id))
-                .collect();
-            diagnostics.retain(|d| {
-                d.code != "E-UNKNOWN-NAME"
-                    || d.message.contains('.')
-                    || !d
-                        .labels
-                        .first()
-                        .is_some_and(|l| files.iter().any(|f| f.is_none_or(|id| id == l.span.file)))
-            });
-        }
+        diagnostics.retain(|d| !self.lost_to_a_failed_import(d));
         // Failing because something used failed goes without saying when
         // that failure is reported too.
         if diagnostics
@@ -700,13 +675,43 @@ impl Elaborator {
         diagnostics
     }
 
+    /// Whether `d` is `E-UNKNOWN-NAME` for a name an import that failed
+    /// (and was reported there) would have brought: a named item, or one
+    /// of a failed `(..)` import written in a file that has one. What
+    /// reports it is the import, so the declaration that uses it has no
+    /// error of its own; it waits.
+    fn lost_to_a_failed_import(&self, d: &Diagnostic) -> bool {
+        if d.code != "E-UNKNOWN-NAME" {
+            return false;
+        }
+        let failed = &self.scope.import_failed;
+        if failed
+            .iter()
+            .any(|n| d.message == format!("unknown name `{n}`"))
+        {
+            return true;
+        }
+        if self.scope.wildcard_failed.is_empty() || d.message.contains('.') {
+            return false;
+        }
+        let files: Vec<Option<FileId>> = self
+            .scope
+            .wildcard_failed
+            .iter()
+            .filter_map(|i| self.unit.module.files.get(*i).map(|f| f.id))
+            .collect();
+        d.labels
+            .first()
+            .is_some_and(|l| files.iter().any(|f| f.is_none_or(|id| id == l.span.file)))
+    }
+
     /// Stand-ins (docs/proposals/tests-with-errors.md §3.3, D3527) for the
     /// definitions and theorems of `component`, which failed with `found`:
     /// each whose statement the kernel declared is named by an assumption
     /// of that statement from now on, so what uses it is checked against
     /// the statement and relies on it. Not for a component whose only
     /// errors are what it uses failing (it waits, and so do its users), nor
-    /// for a type, synonym, instance, opaque or `decreasing` definition, or
+    /// for a member of a group with no error of its own, nor for a type, synonym, instance, opaque or `decreasing` definition, or
     /// one with parameter defaults: those keep failing their users, which
     /// would otherwise be refused for what a stand-in lacks (an instance's
     /// registration, an `unfolding` body, a default's helper).
@@ -717,11 +722,23 @@ impl Elaborator {
         found: &[(usize, Diagnostic)],
     ) {
         let errors = || found.iter().filter(|(_, d)| d.severity == Severity::Error);
-        let own = errors().any(|(_, d)| !matches!(d.code, "E-FAILED-DEPENDENCY" | "E-USES-FAILED"));
-        if !own {
+        // The positions of the declarations with an error of their own.
+        let own_at: Vec<usize> = errors()
+            .filter(|(_, d)| {
+                !matches!(d.code, "E-FAILED-DEPENDENCY" | "E-USES-FAILED")
+                    && !self.lost_to_a_failed_import(d)
+            })
+            .map(|(p, _)| *p)
+            .collect();
+        if own_at.is_empty() {
             return;
         }
         for &i in component {
+            // A group fails together, and a member whose own body checked
+            // is not trusted alone: it waits for the member with the error.
+            if component.len() > 1 && !own_at.contains(&items[i].position) {
+                continue;
+            }
             let Decl::Signature {
                 name,
                 synonym: false,
@@ -1183,7 +1200,12 @@ impl Elaborator {
         let Some(first) = errors.first() else {
             return;
         };
-        let only_dependencies = errors.iter().all(|d| d.code == "E-FAILED-DEPENDENCY");
+        // Its only errors are what it uses failing, or a name a failed
+        // import lost, which is reported on the import.
+        let lost = (errors.iter()).find(|d| self.lost_to_a_failed_import(d));
+        let only_dependencies = errors
+            .iter()
+            .all(|d| d.code == "E-FAILED-DEPENDENCY" || self.lost_to_a_failed_import(d));
         let module = &self.unit.module;
         // What it uses that failed: (its name, the source of its error,
         // and the key of the other namespace's declaration it waits for).
@@ -1226,12 +1248,27 @@ impl Elaborator {
                     Some((source.0.clone(), source.clone(), None))
                 })
         };
+        // Waiting for a name lost to a failed import, which is all there is
+        // to name.
+        let used = used.or_else(|| {
+            let d = lost.filter(|_| only_dependencies)?;
+            let name = d
+                .message
+                .strip_prefix("unknown name `")?
+                .strip_suffix('`')?;
+            Some((name.to_string(), (name.to_string(), d.primary_span()), None))
+        });
+        // The member of a group whose error it is, not just the first.
+        let at = found
+            .iter()
+            .find(|(_, d)| d.severity == Severity::Error)
+            .map(|(position, _)| *position);
+        let owner = (component.iter().copied())
+            .find(|i| Some(items[*i].position) == at)
+            .unwrap_or(component[0]);
         let source = match &used {
             Some((_, source, _)) => source.clone(),
-            None => (
-                module.items[component[0]].name.clone(),
-                first.primary_span(),
-            ),
+            None => (module.items[owner].name.clone(), first.primary_span()),
         };
         let own = !only_dependencies || used.is_none();
         let namespace = self.unit.module.namespace.clone().unwrap_or_default();

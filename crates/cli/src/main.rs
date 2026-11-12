@@ -2206,10 +2206,7 @@ fn print_tests_json(
                 "line": at.as_ref().map(|a| a.line),
                 "column": at.as_ref().map(|a| a.column),
                 "message": message,
-                "assuming": r.assuming.iter().map(|g| serde_json::json!({
-                    "name": g.short(), "kind": g.kind, "file": g.file, "line": g.line,
-                    "column": g.column,
-                })).collect::<Vec<_>>(),
+                "assuming": r.assuming,
             });
             if let Some(detail) = &r.detail {
                 let part = detail.part.as_ref().map(|p| {

@@ -207,6 +207,7 @@ impl Session {
                 let path = def.path().to_string();
                 let state = def.state();
                 (def.theorem()
+                    && def.assumption().is_none()
                     && !path.contains('%')
                     && !path.starts_with("Std.")
                     && !generated.contains(g, id)
