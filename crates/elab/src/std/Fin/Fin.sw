@@ -29,7 +29,6 @@ def Fin.ofNat (i: Nat) [auto ok: i < n]: Fin n := Fin.ofNatLt n i ok
 
 theorem Fin.toNatOfNatLt (n i: Nat) (h: i < n): Fin.toNat (Fin.ofNatLt n i h) = i :=
   match n, i with
-    | Zero, i => cases
     | Succ n, Zero => rfl
     | Succ n, Succ i => Eq.cong Succ (Fin.toNatOfNatLt n i h)
 

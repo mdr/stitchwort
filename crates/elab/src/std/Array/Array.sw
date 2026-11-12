@@ -66,7 +66,6 @@ def Array.getOr (array: Array a) (index: Nat) (fallback: a): a := List.getOr arr
 --| The element at `index` of a list longer than `index`: no fallback is needed.
 @[tailrec]
 def List.getLt: (xs: List a) → (index: Nat) → [auto ok: index < List.length xs] → a
-  | [], index => Void.absurd (Bool.falseNotTrue ok)
   | [x, ..xs], Zero => x
   | [x, ..xs], Succ index => List.getLt xs index [ok := ok]
 
@@ -189,7 +188,6 @@ theorem Array.sizeToList (array: Array a): array.size = List.length array.toList
 --| `getLt` finds what `get` finds.
 theorem List.getLtGet (xs: List a) (i: Nat) (ok: i < List.length xs): List.get xs i = Some (List.getLt xs i [ok := ok]) :=
   match xs, i with
-    | [], i => cases
     | [x, ..xs], Zero => rfl
     | [x, ..xs], Succ i => List.getLtGet xs i ok
 

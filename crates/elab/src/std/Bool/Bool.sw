@@ -46,17 +46,14 @@ theorem Bool.andComm (a b: Bool): (a ∧ b) = (b ∧ a) :=
 theorem Bool.andIntro [a: Bool] [b: Bool] (ha: a = True) (hb: b = True): (a ∧ b) = True :=
   match e: a with
     | True => hb
-    | False => cases
 
 theorem Bool.andLeft [a: Bool] [b: Bool] (h: (a ∧ b) = True): a = True :=
   match e: a with
     | True => rfl
-    | False => cases
 
 theorem Bool.andRight [a: Bool] [b: Bool] (h: (a ∧ b) = True): b = True :=
   match e: a with
     | True => h
-    | False => cases
 
 theorem Bool.impIntro (a b: Bool) (h: (a = True → b = True)): (¬a ∨ b) = True :=
   match a with
@@ -66,7 +63,6 @@ theorem Bool.impIntro (a b: Bool) (h: (a = True → b = True)): (¬a ∨ b) = Tr
 theorem Bool.impElim (a b: Bool) (h: (¬a ∨ b) = True) (ha: a = True): b = True :=
   match a with
     | True => h
-    | False => cases
 
 theorem Bool.eqOf (a b: Bool) (f: (a = True → b = True)) (g: (b = True → a = True)): a = b :=
   match a, b with
@@ -105,17 +101,14 @@ theorem Or.elim [p q: Prop] [goal: Prop] (h: p ∨ q) (left: p → goal) (right:
 --| `||` is `False` exactly when both sides are.
 theorem Bool.orFalseLeft (a b: Bool) (h: (a ∨ b) = False): a = False :=
   match a with
-    | True => cases
     | False => rfl
 
 theorem Bool.orFalseRight (a b: Bool) (h: (a ∨ b) = False): b = False :=
   match a with
-    | True => cases
     | False => h
 
 theorem Bool.orFalseIntro (a b: Bool) (ha: a = False) (hb: b = False): (a ∨ b) = False :=
   match a with
-    | True => cases
     | False => hb
 
 --| `&&` is `False` exactly when one side is.
@@ -126,7 +119,6 @@ theorem Bool.andFalseElim (a b: Bool) (h: (a ∧ b) = False): (a = False) ∨ (b
 
 theorem Bool.andFalseLeft (a b: Bool) (h: a = False): (a ∧ b) = False :=
   match a with
-    | True => cases
     | False => rfl
 
 theorem Bool.andFalseRight (a b: Bool) (h: b = False): (a ∧ b) = False :=
@@ -137,23 +129,19 @@ theorem Bool.andFalseRight (a b: Bool) (h: b = False): (a ∧ b) = False :=
 --| `not a` is `True` exactly when `a` is `False`, and the other way round.
 theorem Bool.notTrue (a: Bool) (h: (¬a) = True): a = False :=
   match a with
-    | True => cases
     | False => rfl
 
 theorem Bool.notFalse (a: Bool) (h: (¬a) = False): a = True :=
   match a with
     | True => rfl
-    | False => cases
 
 theorem Bool.notOfFalse (a: Bool) (h: a = False): (¬a) = True :=
   match a with
-    | True => cases
     | False => rfl
 
 theorem Bool.notOfTrue (a: Bool) (h: a = True): (¬a) = False :=
   match a with
     | True => rfl
-    | False => cases
 
 --| `Bool.toNat` is 0 or 1, for `omega` (`omega [Bool.toNatLeOne b]`).
 theorem Bool.toNatLeOne (b: Bool): Bool.toNat b ≤ 1 :=

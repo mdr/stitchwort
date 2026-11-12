@@ -276,11 +276,9 @@ def Key.isNamed: (key: Key) → Bool
 
 theorem Key.nextBytes (rest: List Nat) (key: Key) (h: Key.isNamed key = True): Key.next (List.append (Key.bytes key) rest) = Got key rest :=
   match key with
-    | Printable char => cases
     | Enter => rfl
     | Tab => rfl
     | Backspace => rfl
-    | Escape => cases
     | Delete => rfl
     | Up => rfl
     | Down => rfl
@@ -290,7 +288,6 @@ theorem Key.nextBytes (rest: List Nat) (key: Key) (h: Key.isNamed key = True): K
     | End => rfl
     | PageUp => rfl
     | PageDown => rfl
-    | Ctrl letter => cases
     | Unknown => rfl
 
 --| `Escape` comes back when the next byte isn't `[` or `O`; a lone `ESC` at

@@ -157,18 +157,7 @@ theorem Text.linesFinalBreaksExample: "a\n\r\n".lines = ["a", ""] ∧ "a\n\r".li
 --| `Char.isLineFeedCode` holds of the code 10 only.
 theorem Char.lineFeedCodeIs (code: Nat) (h: Char.isLineFeedCode code = True): code = 10 :=
   match code with
-    | 0 => cases
-    | 1 => cases
-    | 2 => cases
-    | 3 => cases
-    | 4 => cases
-    | 5 => cases
-    | 6 => cases
-    | 7 => cases
-    | 8 => cases
-    | 9 => cases
     | 10 => rfl
-    | Succ (Succ (Succ (Succ (Succ (Succ (Succ (Succ (Succ (Succ (Succ m)))))))))) => cases
 
 --| A space or a tab is neither a line feed nor a carriage return.
 theorem Text.spaceTabPlain (char: Char) (h: (char == ' ' ∨ char == '\t') = True):
@@ -264,7 +253,6 @@ theorem Text.linesNoFeed (first: Char) (chars: List Char) (noFeed: List.All (c =
   let flowed := Text.linesFromNoFeed [first, ..chars] noFeed [] []
   let member: first ∈ List.reverseOnto [first, ..chars] [] := (List.memReverseOnto first [first, ..chars] []).backward (Inl (Inl rfl))
   match e: List.reverseOnto [first, ..chars] [] with
-    | [] => Void.exfalso member
     | [last, ..rest] =>
       Eq.trans flowed (Eq.cong (l => [MkText l]) (Eq.trans (Eq.cong (l => List.reverseOnto l []) (Eq.sym e)) (List.reverseOntoTwice chars [first])))
 
@@ -426,7 +414,6 @@ theorem Text.sameCharEq (c: Char) (d: Char): Text.sameChar c d = (c == d) :=
     | True => rfl
     | False =>
       match equal: c == d with
-        | True => cases
         | False => rfl
 
 --| The direction of [`Text.stripPrefixCharsSome`] that reads a result: when
@@ -435,13 +422,11 @@ theorem Text.stripPrefixCharsForward (p ys: List Char) [rest: List Char]
     (h: Text.stripPrefixChars p ys = Some rest): ys = List.append p rest :=
   match p, ys with
     | [], ys => Option.someInjective h
-    | [c, ..ps], [] => Void.exfalso (Option.someNotNone rest (Eq.sym h))
     | [c, ..ps], [y, ..ys] =>
       match same: Text.sameChar c y with
         | True =>
           rewrite Eq.sym (Char.ext c y (Nat.equalSound _ _ same)) in
             Eq.cong (Cons c) (Text.stripPrefixCharsForward ps ys h)
-        | False => Void.exfalso (Option.someNotNone rest (Eq.sym h))
 
 --| The characters after the prefix `p` are `rest` exactly when the list is
 --| `p` followed by `rest`: `Text.stripPrefixChars p ys = Some rest ↔ ys = p ++ rest`.
@@ -458,7 +443,6 @@ theorem Text.fromListEq [a: List Char] [b: List Char]: (Text.fromList a == Text.
     | True => rfl
     | False =>
       match equal: Text.fromList a == Text.fromList b with
-        | True => Void.exfalso (DecEq.soundFalse a b same (Eq.cong Text.toList (DecEq.sound equal)))
         | False => rfl
 
 --| `text` after `prefix` is `rest` exactly when `text` is `prefix` followed by
@@ -471,7 +455,6 @@ theorem Text.fromListEq [a: List Char] [b: List Char]: (Text.fromList a == Text.
 theorem Text.stripPrefixSome (text: Text) (prefix: Text) (rest: Text): Text.stripPrefix text prefix = Some rest ↔ text = Text.append prefix rest := {
   forward = h =>
     match found: Text.stripPrefixChars (Text.toList prefix) (Text.toList text) with
-      | None => Void.exfalso (Option.someNotNone rest (Eq.sym h))
       | Some chars =>
         Text.ext text (Text.append prefix rest)
           (rewrite Text.stripPrefixCharsForward _ _ found, Eq.sym (Option.someInjective h) in rfl),
@@ -486,7 +469,6 @@ theorem Text.stripPrefixSome (text: Text) (prefix: Text) (rest: Text): Text.stri
 theorem Text.stripSuffixSome (text: Text) (suffix: Text) (rest: Text): Text.stripSuffix text suffix = Some rest ↔ text = Text.append rest suffix := {
   forward = h =>
     match found: Text.stripPrefixChars (List.reverse (Text.toList suffix)) (List.reverse (Text.toList text)) with
-      | None => Void.exfalso (Option.someNotNone rest (Eq.sym h))
       | Some chars =>
         Text.ext text (Text.append rest suffix)
           (Eq.trans (Eq.sym (List.reverseReverse (Text.toList text)))

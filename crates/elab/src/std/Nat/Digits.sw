@@ -5,7 +5,6 @@
 --| `n / 10 < n` once `n` has two digits.
 theorem Nat.divTenLess (n: Nat) (h: Nat.leq n 9 = False): Succ (n / 10) ≤ n :=
   match n with
-    | Zero => cases
     | Succ n =>
       Nat.divLeOfLtMul (Succ n) n 10
         (Nat.leTrans n (n * 10) (8 + n * 10)
@@ -266,7 +265,6 @@ theorem Nat.digitsDrop (k: Nat) (xs: List Nat) (h: Nat.Digits xs): Nat.Digits (L
 
 theorem Nat.fromDigitsHeadBound (l: List Nat) (h: 1 ≤ List.headOr l 0): Nat.pow 10 (List.length l - 1) ≤ Nat.fromDigits l :=
   match l with
-    | [] => cases
     | [d, ..s] =>
       Nat.leCongRight (Nat.pow 10 (List.length s)) (d * Nat.pow 10 (List.length s) + Nat.fromDigits s) (Nat.fromDigits [d, ..s]) (Eq.sym (Nat.fromDigitsCons d s))
         (Nat.leTrans (Nat.pow 10 (List.length s)) (d * Nat.pow 10 (List.length s)) (d * Nat.pow 10 (List.length s) + Nat.fromDigits s)
@@ -291,7 +289,6 @@ theorem Nat.digitsLength (j: Nat) (b: Nat) (h1: Nat.pow 10 j ≤ b) (h2: b < Nat
 --| A number below 10^m (m >= 1) has at most m digits.
 theorem Nat.digitsLengthLe (x m: Nat) (hm: 1 ≤ m) (h: x < Nat.pow 10 m): Nat.digitCount x ≤ m :=
   match x, m with
-    | x, Zero => cases
     | Zero, Succ j => rfl
     | Succ y, Succ j =>
       Nat.predLeSucc (Nat.digitCount (Succ y)) j
@@ -354,7 +351,6 @@ theorem Char.digitValueChar (d: Nat) (h: Nat.leq d 9 = True): Char.digitValue (N
 theorem Char.digitsOntoValues (f n: Nat) (acc: List Char) (h: n < f):
     List.filterMap (Nat.digitsOnto f n acc) Char.digitValue = Nat.digitsAcc n (List.filterMap acc Char.digitValue) :=
   match f with
-    | Zero => cases
     | Succ f =>
       match e: Nat.leq n 9 with
         | True => rewrite Nat.digitsAccSmall n (List.filterMap acc Char.digitValue) e in rewrite Char.digitValueChar n e
@@ -374,7 +370,6 @@ theorem Char.toTextDigits (n: Nat): List.filterMap (Text.toList (Nat.toText n)) 
 theorem Char.digitsOntoMap (f n: Nat) (acc: List Nat) (h: n < f):
     Nat.digitsOnto f n (List.map acc Nat.digitChar) = List.map (Nat.digitsAcc n acc) Nat.digitChar :=
   match f with
-    | Zero => cases
     | Succ f =>
       match e: Nat.leq n 9 with
         | True => rewrite Nat.digitsAccSmall n acc e
@@ -404,7 +399,6 @@ theorem Text.readDigitsMap (acc: Nat) (ds: List Nat) (h: Nat.Digits ds):
 theorem Text.toNatMap (ds: List Nat) (hl: 1 ≤ List.length ds) (h: Nat.Digits ds):
     Text.toNat (MkText (List.map ds Nat.digitChar)) = Some (Nat.fromDigits ds) :=
   match ds with
-    | [] => cases
     | [d, ..ds] =>
       calc Text.toNat (MkText (List.map [d, ..ds] Nat.digitChar))
         _ = Text.readDigits 0 (List.map [d, ..ds] Nat.digitChar) := rfl

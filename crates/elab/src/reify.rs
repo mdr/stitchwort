@@ -58,8 +58,15 @@ pub(crate) fn check_reify(cx: &mut Ctx, expr: &Expr, goal: &Value) -> Result<Ter
     let (alts, absurd) = alternatives(cx, clauses, &row, &ty, *span)?;
     let display = return_display(cx, clauses, thunk, &term, goal);
     let saved = std::mem::replace(&mut cx.reify_display, display);
+    // A clause is required even when its case can't happen, so none may be
+    // warned about as deletable.
+    let saved_keep =
+        cx.e.decl
+            .keep_arms
+            .replace(alts.iter().map(|a| a.span).collect());
     let result =
         crate::matching::generalised_term(cx, term, ty, thunk.span(), &alts, &absurd, *span, goal);
+    cx.e.decl.keep_arms.replace(saved_keep);
     cx.reify_display = saved;
     result
 }

@@ -180,7 +180,6 @@ theorem Vec.toListFromList (xs: List a): Vec.toList (Vec.fromList xs) = xs := Ve
 theorem Vec.ofListCons (x: a) (y: a) (ys: Vec a k) (m: Option (Vec a k))
     (h: Option.map m (rest => VCons x rest) = Some (VCons y ys)): (x = y) ∧ (m = Some ys) :=
   match m with
-    | None => Void.exfalso (Option.noneNotSome (VCons y ys) h)
     | Some w =>
       let e := Eq.cong (.getOrElse (VCons x w)) h
       Both (Eq.cong Vec.head e) (Eq.cong Some (Eq.cong Vec.tail e))
@@ -189,7 +188,6 @@ theorem Vec.ofListDecToList (n: Nat) (xs: List a) (v: Vec a n) (d: Decidable (Li
   match d with
     | { holds = True, sound = s, complete = c } =>
       Eq.trans (Eq.cong Vec.toList (Eq.sym (Eq.cong (.getOrElse (Vec.fromListN n xs (s rfl))) h))) (Vec.toListFromListN n xs (s rfl))
-    | { holds = False, sound = s, complete = c } => Void.exfalso (Option.noneNotSome v h)
 
 --| What `ofList` accepts is the list it was given.
 theorem Vec.ofListToList (n: Nat) (xs: List a) (v: Vec a n) (h: Vec.ofList n xs = Some v): Vec.toList v = xs :=
@@ -393,7 +391,6 @@ theorem Vec.getOrZipWith3 (f: a → b → c → r) (d1: a) (d2: b) (d3: c) (d: r
 theorem Vec.getOrTabulate (d: a) (n: Nat) (f: Fin n → a) (i: Nat) (h: i < n):
     Vec.getOr (Vec.tabulate n f) i d = f (Fin.ofNatLt n i h) :=
   match n, i with
-    | Zero, i => cases
     | Succ k, Zero => rfl
     | Succ k, Succ i => Vec.getOrTabulate d k (j => f (FSucc j)) i h
 

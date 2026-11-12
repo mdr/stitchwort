@@ -125,6 +125,8 @@ impl Elaborator {
             caches,
             goals,
             present,
+            // The library's files stay loaded, and their warnings with them.
+            library_warnings: _,
         } = self;
         let (journal, session_logs) = session.logged();
         journal.rewind(
