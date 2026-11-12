@@ -12,6 +12,16 @@ def Text.isEmpty: (text: Text) → Bool
   | MkText [] => True
   | MkText [char, ..chars] => False
 
+--| `text.isEmpty` reads as `text.toList = []`.
+@[reading]
+theorem Text.isEmptyReads (text: Text): Text.isEmpty text ↔ text.toList = [] :=
+  match text with
+    | MkText [] => { forward = h => rfl, backward = h => rfl }
+    | MkText [char, ..chars] => {
+      forward = h => Void.exfalso (Bool.falseNotTrue h),
+      backward = h => Void.exfalso (List.consNotNil char chars h)
+    }
+
 --| The first character and the rest, unless the text is empty.
 def Text.uncons: (text: Text) → Option (Pair Char Text)
   | MkText [] => None

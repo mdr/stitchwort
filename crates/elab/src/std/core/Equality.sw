@@ -76,6 +76,23 @@ theorem Nat.equalSound (m n: Nat) (h: Nat.equal m n = True): m = n :=
 theorem Nat.equalFalse (m: Nat) (n: Nat) (h: Nat.equal m n = False): m ≠ n
   | p => Bool.falseNotTrue (Eq.trans (Eq.sym h) (J (y q => Nat.equal m y = True) (Nat.equalRefl m) p))
 
+--| `Nat.equal` (what `m == n` is on `Nat`) reads as `m = n`, and as `m ≠ n`
+--| when it is `False`.
+@[reading]
+theorem Nat.equalReads (m n: Nat): Nat.equal m n ↔ m = n := {
+  forward = Nat.equalSound m n,
+  backward = h => J (y q => Nat.equal m y = True) (Nat.equalRefl m) h
+}
+
+@[reading]
+theorem Nat.equalReadsFalse (m n: Nat): Nat.equal m n = False ↔ m ≠ n := {
+  forward = Nat.equalFalse m n,
+  backward = h =>
+    match c: Nat.equal m n with
+      | True => Void.exfalso (h (Nat.equalSound m n c))
+      | False => rfl
+}
+
 --| `&&`, `||` and `not` read as the connectives
 --| (docs/proposals/bool-as-proposition.md §5): a fact `(a && b) = True` is
 --| taken apart and built like `a ∧ b` (`match h with | Both l r`), and

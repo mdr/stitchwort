@@ -27,10 +27,48 @@ def Option.isSome: (option: Option a) → Bool
   | None => False
   | Some x => True
 
+--| `o.isSome` reads as "`o` is a `Some`", and `= False` as `o = None`.
+@[reading]
+theorem Option.isSomeReads (o: Option a): Option.isSome o ↔ ∃ (x: a) => o = Some x :=
+  match o with
+    | None => {
+      forward = h => Void.exfalso (Bool.falseNotTrue h),
+      backward = h => Exists.elim h (x found => Void.exfalso (Option.noneNotSome x found))
+    }
+    | Some y => { forward = h => Witness y rfl, backward = h => rfl }
+
+@[reading]
+theorem Option.isSomeReadsFalse (o: Option a): Option.isSome o = False ↔ o = None :=
+  match o with
+    | None => { forward = h => rfl, backward = h => rfl }
+    | Some y => {
+      forward = h => Void.exfalso (Bool.falseNotTrue (Eq.sym h)),
+      backward = h => Void.exfalso (Option.noneNotSome y (Eq.sym h))
+    }
+
 --| Whether there is none: `None.isNone` is `True`.
 def Option.isNone: (option: Option a) → Bool
   | None => True
   | Some x => False
+
+--| `o.isNone` reads as `o = None`, and `= False` as "`o` is a `Some`".
+@[reading]
+theorem Option.isNoneReads (o: Option a): Option.isNone o ↔ o = None :=
+  match o with
+    | None => { forward = h => rfl, backward = h => rfl }
+    | Some y => {
+      forward = h => Void.exfalso (Bool.falseNotTrue h),
+      backward = h => Void.exfalso (Option.noneNotSome y (Eq.sym h))
+    }
+
+@[reading]
+theorem Option.isNoneReadsFalse (o: Option a): Option.isNone o = False ↔ ∃ (x: a) => o = Some x :=
+  match o with
+    | None => {
+      forward = h => Void.exfalso (Bool.falseNotTrue (Eq.sym h)),
+      backward = h => Exists.elim h (x found => Void.exfalso (Option.noneNotSome x found))
+    }
+    | Some y => { forward = h => Witness y rfl, backward = h => rfl }
 
 --| The first option if it is a `Some`, else the second: `x.orElse y` ([`Option.orElseEqSome`]).
 def Option.orElse: (option: Option a) → (other: Option a) → Option a
