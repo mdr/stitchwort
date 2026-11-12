@@ -1,5 +1,5 @@
 {
-  "next": 2959,
+  "next": 2960,
   "tickets": [
     {
       "id": 47,
@@ -31553,12 +31553,27 @@
     {
       "id": 2958,
       "title": "[DeepSeek] Playground, book chapter 2 at #book/2: Cmd+. on a ? takes many tens of seconds before the Code actions list (Split on b, Search for a proof) appears, and earlier presses said 'No code action here' (Matt, 12 Nov, after SW-2957). Measure where the time goes first (check, search session load of std + project, split), report; then fix the 'No code action here' answers",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": ".claude/worktrees/scratch-sw-2958",
       "labels": [],
       "epic": "editor-playground",
-      "body": "\nDirection (Matt, 12 Nov 2026): 'a bit like with VS Code, command full stop should return immediately with an option to case split or to search for a proof, and then searching for a proof should go off, and there should be a progress indicator, but the code action shortcut should be pretty much instant.' So: the list is offered at once from what's known; Split is computed without waiting on the search session; Search for a proof runs only when picked, with progress shown.\nD3529 (Matt, 12 Nov 2026: 'D3529 yes'): the instant Cmd+. fix runs on Sonnet as an exception to compute mode, once DeepSeek's timing is in.",
+      "body": "\nDirection (Matt, 12 Nov 2026): 'a bit like with VS Code, command full stop should return immediately with an option to case split or to search for a proof, and then searching for a proof should go off, and there should be a progress indicator, but the code action shortcut should be pretty much instant.' So: the list is offered at once from what's known; Split is computed without waiting on the search session; Search for a proof runs only when picked, with progress shown.\nD3529 (Matt, 12 Nov 2026: 'D3529 yes'): the instant Cmd+. fix runs on Sonnet as an exception to compute mode, once DeepSeek's timing is in.\nMeasured (DeepSeek, wasm, book chapter 2): every search in the playground's search worker reloads std from its check cache: 17.2-17.5 s of a 17.4-17.9 s search; project namespaces 28 ms; split edits 0.7 ms. The goal panel's contextAt uses the same single worker, so Cmd+. after moving the caret waited for two searches (~35-37 s). 'No code action here' came from a superseded request answered null. Fixed: one code action per document at a time, ContentModified for superseded code actions, notices say what is awaited. Instant list and std kept loaded: SW-2959.\nModel result: DeepSeek, worked, 38 min (est. 60)",
+      "created": "2026-11-12",
+      "updated": "2026-11-12",
+      "commits": [
+        "8d0613b79"
+      ]
+    },
+    {
+      "id": 2959,
+      "title": "[Sonnet] Instant Cmd+. (D3529, Matt's direction on SW-2958): the code-action list (Split on x, Search for a proof) answers at once from the checked file without the search session; Split built without it; Search for a proof runs only when picked, with progress; and the playground's search worker keeps std loaded between searches (today 17 s per search, also behind the goal panel's contextAt). Playground and VS Code",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-2959",
+      "labels": [],
+      "epic": "editor-playground",
+      "body": "",
       "created": "2026-11-12",
       "updated": "2026-11-12",
       "commits": []
