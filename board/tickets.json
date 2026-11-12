@@ -31667,15 +31667,17 @@
     {
       "id": 2966,
       "title": "[Sonnet] Proof search answers with the simplest proof first (Matt, 12 Nov: 'if we can close the proof with rfl, we should only offer that ... if we can close it with a very simple proof tactic, why would we offer lots of different ways ... get back to them quickly'): try a short ladder of cheap closers first (rfl, then exact hypothesis, decide on closed goals, omega, ring, cases on an impossible hypothesis), offer only the first that closes the goal, and run the full search only when none does; measure time to first answer on the book and sf exercises before/after",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "proof-search",
-      "body": "",
+      "body": "\n\nLane notes (12 Nov): ladder in crates/driver/src/search_at.rs (`Rung`, `LADDER`, `climb`): rfl, hypothesis, byDecision, omega, ring, cases (only where a hypothesis is an equation); 0.5 s per rung, 2 s total; the full search skips rungs that failed. On in `action_options` (editor); `search --at --simplest-first` for the CLI. Tests: 6 new `simplest_first_*` in search_at.rs, lsp features test now expects one proof. Commit 95f6af139 on lane/SW-2966. In review.\n",
       "created": "2026-11-12",
       "updated": "2026-11-12",
-      "commits": []
+      "commits": [
+        "95f6af139"
+      ]
     },
     {
       "id": 2967,
