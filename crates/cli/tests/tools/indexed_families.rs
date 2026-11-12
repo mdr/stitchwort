@@ -369,3 +369,16 @@ fn a_number_case_that_can_happen_is_still_missing() {
         e.message
     );
 }
+
+#[test]
+fn a_nested_number_column_reports_the_numbers_the_outer_arms_leave_out() {
+    let text = "def f (a: Nat) (b: Nat): Nat :=\n  \
+                match a, b with\n    | 0, 5 => 1\n    | 1, _ => 2\n";
+    let e = error(text);
+    assert_eq!(e.code, "E-NONEXHAUSTIVE");
+    assert!(
+        e.message.ends_with("matches numbers other than 0 and 1"),
+        "{}",
+        e.message
+    );
+}

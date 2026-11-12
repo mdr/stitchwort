@@ -87,5 +87,3 @@ theorem operatorTypeOfSome (n: Nat) (operatorType: OperatorType) (read: operator
     | 5 => rewrite <- Option.someInjective read in rfl
     | 6 => rewrite <- Option.someInjective read in rfl
     | 7 => rewrite <- Option.someInjective read in rfl
-    | 4 => cases
-    | _ => cases
