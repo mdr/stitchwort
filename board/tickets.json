@@ -1,5 +1,5 @@
 {
-  "next": 2957,
+  "next": 2958,
   "tickets": [
     {
       "id": 47,
@@ -31531,6 +31531,19 @@
       "labels": [],
       "epic": "audit-fuzzing",
       "body": "\nSecond case, Speedwell, elab fuzz 0x2c91 case 5595 at 58c3bcac7 (12 Nov 09:43): examples/accept/decreasing-lambda.sw mutated to theorem weightTwelve: weight 340282366920938463463374607431768211456 = 0 := rfl (again 2^128 into a decreasing function). Oracle line not captured (my output filter); reproducer kept at Speedwell target/fuzz-keep/2c91-5595.sw. Same family: a decreasing function's fuel or measure on a huge literal.",
+      "created": "2026-11-12",
+      "updated": "2026-11-12",
+      "commits": []
+    },
+    {
+      "id": 2957,
+      "title": "[DeepSeek] Playground, book chapter (project with check: open-goals: warn): Cmd+. on a ? (theorem noAndAnything (b: Answer): both No b = No := ? in book/src/02-cases.sw) says 'No code action here', and the goal panel never appears; CLI goal --at answers. Fix, with browser tests on a book chapter (Matt, 12 Nov)",
+      "status": "doing",
+      "agent": "DeepSeek",
+      "where": ".claude/worktrees/scratch-sw-2957",
+      "labels": [],
+      "epic": "editor-playground",
+      "body": "",
       "created": "2026-11-12",
       "updated": "2026-11-12",
       "commits": []
