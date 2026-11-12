@@ -219,6 +219,25 @@ fn written_type(cx: &Ctx, term: &Term) -> Result<Option<Ty>> {
     Ok(Some(Ty::Term(ty, env)))
 }
 
+/// [`written_type`] as a term with the values of its free variables, for
+/// the Bool reader (`reading.rs`), which looks for a test's function in it.
+pub(crate) fn written_type_term(cx: &Ctx, term: &Term) -> Result<Option<(Rc<Term>, Vec<Value>)>> {
+    Ok(match written_type(cx, term)? {
+        Some(Ty::Term(t, env)) => Some((t, env)),
+        _ => None,
+    })
+}
+
+/// The type of the variable at `level` as written, with the values of its
+/// free variables, if known.
+pub(crate) fn written_at(cx: &Ctx, level: usize) -> Option<(Rc<Term>, Vec<Value>)> {
+    match &cx.written[level] {
+        Some(Written::Here(t)) => Some((t.clone(), cx.env[..level].to_vec())),
+        Some(Written::With(t, env)) => Some((t.clone(), env.clone())),
+        None => None,
+    }
+}
+
 /// The name noted for the unknown `ty` is, or was solved through
 /// (`Elaborator::meta_names`): `Counts` for a lambda parameter's type solved with
 /// `List Nat` where a `Counts` was expected (SW-858, D2092). Only while it
@@ -449,6 +468,11 @@ fn dot_on_reading(
         // is `h.read.left` (§6.6), once. If the reading has no such field
         // either, the error is the fact's own.
         Err(e) if through_reading && e.code == "E-UNKNOWN-FIELD" => {
+            let waiting = crate::reading::waiting_note(&cx.g(), cx.e, &rty)?;
+            let e = match waiting {
+                Some(note) => e.with_note(note),
+                None => e,
+            };
             let Some((term, ty)) = crate::reading::read_fact(cx, &rterm, &rty)? else {
                 return Err(e);
             };
