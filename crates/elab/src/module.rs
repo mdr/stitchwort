@@ -576,7 +576,7 @@ impl Elaborator {
                     if d.code == "E-RESOURCE" {
                         d.notes.push(self.while_checking_note(&component));
                     }
-                    if d.code == "E-RESOURCE" && d.message.ends_with("too large to show") {
+                    if d.code == "E-RESOURCE" && ResourceError::is_size_message(&d.message) {
                         for note in self.too_large_notes(&component, too_large) {
                             d.notes.push(note);
                         }

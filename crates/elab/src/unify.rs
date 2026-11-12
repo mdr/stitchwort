@@ -2649,7 +2649,7 @@ fn rename_in(
     size.nodes.set(nodes);
     if nodes > size.limit {
         g.machine.budget.set_too_large(size.root_def);
-        return Err(Fail::Out(ResourceError::Size));
+        return Err(Fail::Out(ResourceError::Size(size.limit)));
     }
     let go = |v: &Value| rename_in(g, size, m, renaming, dom, cod, v, in_call);
     let under = |closure: &Closure| -> Renamed<Term> {
@@ -3358,7 +3358,7 @@ fn zonk_changed(
                 }
                 match unfolded {
                     Ok(unfolded) => solved = unfolded,
-                    Err(ResourceError::Work | ResourceError::Size | ResourceError::Depth) => {}
+                    Err(ResourceError::Work | ResourceError::Size(_) | ResourceError::Depth) => {}
                     Err(e) => return Err(ZonkError::Resource(e)),
                 }
             }

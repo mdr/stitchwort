@@ -1,5 +1,7 @@
 # SW-2999: what hitting the size limit costs, and what to do about it
 
+**Status (12 Nov 2026):** done in SW-3010 as D3536 decided it: `Limits::size` is 2,000,000 (not 1,000,000), the message is "a value was too large to write out (over 2,000,000 parts)", and `HEAVY` is gone. Measured peaks of the five examples fell from 1.32-2.24 GB to 0.34-0.53 GB. The largest real read-back is 390,996 nodes (SW-2681).
+
 Paper lane, 12 Nov 2026, against `main` at `804b1882c`. Nothing was built or run: every
 figure here is either **cited** (from the ticket or note named), **inferred** (read from the
 code), or **estimated** (worked out from the type definitions, not measured).
