@@ -50,6 +50,7 @@ function startClient() {
       // "Search for a proof" runs the search now, with progress, and offers
       // what it finds (the server answers the code action without searching).
       executeCommand(command, args, next) {
+        if (command === cfg.SELECT_RANGE) return selectRange(args[0]);
         if (command !== cfg.SEARCH_PROOF) return next(command, args);
         return searchForProof(args[0]);
       },
@@ -78,6 +79,18 @@ function startClient() {
       );
     }
   });
+}
+
+// The cursor goes to the first `?` a split added (D3530): the server's code
+// action carries this command, which VS Code runs after applying the edit
+// (a WorkspaceEdit can't move the cursor).
+async function selectRange({ uri, range }) {
+  const c = client;
+  const editor = vscode.window.visibleTextEditors.find((e) => e.document.uri.toString() === uri);
+  if (!c || !editor) return;
+  const where = c.protocol2CodeConverter.asRange(range);
+  editor.selection = new vscode.Selection(where.start, where.end);
+  editor.revealRange(where);
 }
 
 // The search a "Search for a proof" action asks for: runs on the server while a

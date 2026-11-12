@@ -31654,12 +31654,12 @@
     {
       "id": 2965,
       "title": "[Sonnet] After a split (Cmd+. Split on x, playground and VS Code), the cursor lands in an odd place (Matt, 12 Nov): put it where D3530 decides (rec: on the first new ?, so its goal shows at once); VS Code via a command after the edit; browser and LSP tests",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "editor-playground",
-      "body": "\nD3530 (Matt, 12 Nov 2026: 'I agree with these recommendations'): after a split, the cursor goes to the first new ?.",
+      "body": "\nD3530 (Matt, 12 Nov 2026: 'I agree with these recommendations'): after a split, the cursor goes to the first new ?.\n\nProgress (Sonnet lane, 12 Nov 2026): the server's split and add-arms code actions now carry a `stitchwort.selectRange` command ({uri, range} of the first new `?` in the edited text, via `with_cursor` in crates/lsp/src/lib.rs). Playground applies it after the edit (editor-entry.js `apply`); VS Code handles it in the client's executeCommand middleware (extension.js `selectRange`). Tests: LSP split/add-arms tests assert the command; browser test checks the caret and goal panel.\n",
       "created": "2026-11-12",
       "updated": "2026-11-12",
       "commits": []

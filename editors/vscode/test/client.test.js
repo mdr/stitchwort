@@ -252,6 +252,7 @@ test('mentionsGoal: a ? in code, not in a comment or string', () => {
 
 test('search for a proof: picks show the proof text, best first; the messages and the staleness rule', () => {
   assert.strictEqual(cfg.SEARCH_PROOF, 'stitchwort.searchProof');
+  assert.strictEqual(cfg.SELECT_RANGE, 'stitchwort.selectRange');
   const answer = {
     version: 3,
     range: { start: { line: 1, character: 4 }, end: { line: 1, character: 5 } },

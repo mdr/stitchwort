@@ -780,6 +780,8 @@ fn filled(s: &mut Session, version: i32, text: &str) -> String {
         "{action}"
     );
     let edit = &action["edit"]["documentChanges"][0]["edits"][0];
+    let command = &action["command"];
+    assert_eq!(command["command"], "stitchwort.selectRange", "{action}");
     let (line, character) = (
         edit["range"]["start"]["line"].as_u64().unwrap() as usize,
         edit["range"]["start"]["character"].as_u64().unwrap() as usize,
@@ -1103,9 +1105,56 @@ fn split_at(
                 e["newText"].as_str().unwrap(),
             );
         }
+        assert_cursor_on_new_hole(a, &out);
         out
     });
     (titles, applied)
+}
+
+/// The line of the `?` the action called `title` asks the client to select.
+fn cursor_line(
+    s: &mut Session,
+    version: i32,
+    text: &str,
+    (line, character): (u32, u32),
+    title: &str,
+) -> usize {
+    s.change(version, text);
+    let actions = s.request_any(
+        "textDocument/codeAction",
+        json!({"textDocument": {"uri": URI},
+               "range": {"start": {"line": line, "character": character},
+                         "end": {"line": line, "character": character}},
+               "context": {"diagnostics": []}}),
+    );
+    let action = actions
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|a| a["title"] == title)
+        .unwrap();
+    action["command"]["arguments"][0]["range"]["start"]["line"]
+        .as_u64()
+        .unwrap() as usize
+}
+
+/// That `action` asks the client to select a `?` of `after` (the text with
+/// its edit applied), and returns the line it is on.
+fn assert_cursor_on_new_hole(action: &Value, after: &str) -> usize {
+    let command = &action["command"];
+    assert_eq!(command["command"], "stitchwort.selectRange", "{action}");
+    let range = &command["arguments"][0]["range"];
+    let line = range["start"]["line"].as_u64().unwrap() as usize;
+    let (from, to) = (
+        range["start"]["character"].as_u64().unwrap() as usize,
+        range["end"]["character"].as_u64().unwrap() as usize,
+    );
+    assert_eq!(
+        &after.lines().nth(line).unwrap()[from..to],
+        "?",
+        "{command}"
+    );
+    line
 }
 
 /// The position of the `n`th `?` of `text`.
@@ -1131,6 +1180,12 @@ fn a_goal_splits_on_a_variable_and_then_on_another_as_a_new_column() {
         let (titles, applied) = split_at(&mut s, 2, text, hole(text, 0), "Split on `b`");
         assert_eq!(titles, ["Split on `b`", "Split on `c`"]);
         let by_b = applied.unwrap();
+        let first_arm = by_b.lines().position(|l| l == "  | False => ?").unwrap();
+        assert_eq!(
+            cursor_line(&mut s, 2, text, hole(text, 0), "Split on `b`"),
+            first_arm,
+            "the cursor goes to the first new ?"
+        );
         assert_eq!(
             by_b,
             "namespace Demo\n\ndef andb (b1: Bool) (b2: Bool): Bool := match b1 with\n  | True => b2\n  | False => False\n\ntheorem andbTrueElim2 (b c: Bool) (h: andb b c = True): c = True := match b with\n  | False => ?\n  | True => ?\n"

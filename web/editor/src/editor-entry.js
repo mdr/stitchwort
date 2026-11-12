@@ -798,19 +798,26 @@ export class Editor {
         notice?.("No code action here");
         return true;
       }
-      const apply = (edits, title) => {
+      const apply = (edits, title, command) => {
         notice?.(title);
         view.dispatch({ changes: edits.map((e) => ({ from: plugin.fromPosition(e.range.start), to: plugin.fromPosition(e.range.end), insert: e.newText })) });
+        // The server asks for the cursor to go to the first new `?` (D3530),
+        // as a position in the text after the edit.
+        const target = command?.command === "stitchwort.selectRange" ? command.arguments?.[0] : null;
+        if (target) {
+          const at = plugin.fromPosition(target.range.start);
+          view.dispatch({ selection: { anchor: at, head: plugin.fromPosition(target.range.end) }, scrollIntoView: true });
+        }
       };
       const editsOf = (a) => a.edit?.changes?.[plugin.uri];
       if (actions.length === 1 && editsOf(actions[0])) {
-        apply(editsOf(actions[0]), actions[0].title);
+        apply(editsOf(actions[0]), actions[0].title, actions[0].command);
         return true;
       }
       notice?.("");
       this.pick(view, "Code actions", actions.map((a) => ({
         label: a.title,
-        run: () => (a.command ? this.searchProof(view, plugin, a.command) : editsOf(a) && apply(editsOf(a), a.title)),
+        run: () => (editsOf(a) ? apply(editsOf(a), a.title, a.command) : a.command && this.searchProof(view, plugin, a.command)),
       })));
       return true;
     } finally {
