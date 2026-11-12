@@ -1,5 +1,5 @@
 {
-  "next": 3053,
+  "next": 3054,
   "tickets": [
     {
       "id": 47,
@@ -32926,6 +32926,19 @@
       "where": "",
       "labels": [],
       "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-12",
+      "updated": "2026-11-12",
+      "commits": []
+    },
+    {
+      "id": 3053,
+      "title": "[Sonnet] Regression from SW-2968 (derived DecEq test first): a microtype's derived equality no longer aliases its field's in JS. extract::microtype_comparisons_are_their_fields fails on main: CardId.%instDecEq is now (v0) => (v1) => Text.decEq(v0, v1), not Text.instDecEq; same calls CardId.instDecEq(v0)(v1) instead of Text.decEq; distinctIds passes CardId.instOrd (Ord.fromCompare) instead of Text.instOrd. Restore the alias in the JS backend for the new instance shape { decide = r s => { holds = T.%same r s, … } } (and native if it has the same rule), then update the test's names (%decEq → %same)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "effects-native",
       "body": "",
       "created": "2026-11-12",
       "updated": "2026-11-12",
