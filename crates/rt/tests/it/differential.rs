@@ -240,13 +240,70 @@ def run (n: Nat): Text :=
     Nat.toText (fib 15)] ' '
 "#;
 
-pub fn aoc() -> Session {
-    let dir = root().join("aoc");
+/// The parts of the AoC project that the AoC sweeps check one at a time,
+/// side by side on [`par_map`]: `Aoc.Common`, and each day with the
+/// namespaces under it (`Aoc.Year2024.Day01` with its `Tests`, `Spec` and
+/// `Proofs`). Together they are the whole project. One session for the whole
+/// project ran its tests, and each day's `main`, on one thread: 5,953 s for
+/// `aoc_agrees` and 5,606 s for `every_aoc_main_lowers` in a loaded full
+/// tier (SW-2962), most of it in the reference evaluator.
+///
+/// `AOC_PARTS=<text>,<text>` keeps only the parts whose names contain one
+/// of them, to run a few days of a sweep:
+/// `STITCHWORT_TIER=full AOC_PARTS=Year2024.Day01 task test:one -- aoc_agrees`.
+pub fn aoc_parts() -> Vec<String> {
+    let dir = root().join("aoc/src/Aoc");
+    let names = |dir: &Path| -> Vec<String> {
+        let mut names: Vec<String> = std::fs::read_dir(dir)
+            .unwrap_or_else(|e| panic!("{}: {e}", dir.display()))
+            .map(|e| e.unwrap().file_name().to_string_lossy().into_owned())
+            .collect();
+        names.sort();
+        names
+    };
+    let mut parts = Vec::new();
+    for top in names(&dir) {
+        if top == "Common" {
+            parts.push("Aoc.Common".to_string());
+            continue;
+        }
+        // A file or folder elsewhere would be in no part.
+        assert!(top.starts_with("Year"), "aoc/src/Aoc/{top}: in no part");
+        for day in names(&dir.join(&top)) {
+            assert!(
+                day.starts_with("Day"),
+                "aoc/src/Aoc/{top}/{day}: in no part"
+            );
+            parts.push(format!("Aoc.{top}.{day}"));
+        }
+    }
+    assert!(parts.len() > 40, "{parts:?}");
+    if let Ok(only) = std::env::var("AOC_PARTS") {
+        parts.retain(|part| only.split(',').any(|o| part.contains(o)));
+    }
+    parts
+}
+
+/// A session with `part` of the AoC project ([`aoc_parts`]) checked, and
+/// what it uses.
+pub fn aoc_part(part: &str) -> Session {
     let mut session = Session::for_stack(STACK);
     session
-        .load_project(&DiskFiles { root: dir }, "aoc", &Target::Everything)
-        .unwrap_or_else(|e| panic!("aoc doesn't check: {e:?}"));
+        .load_project(
+            &DiskFiles {
+                root: root().join("aoc"),
+            },
+            "aoc",
+            &Target::Subtrees(vec![part.to_string()]),
+        )
+        .unwrap_or_else(|e| panic!("{part} doesn't check: {e:?}"));
     session
+}
+
+/// Whether `test` is declared in `part` or a namespace under it, rather than
+/// in a part it uses.
+pub fn in_part(test: &TestDecl, part: &str) -> bool {
+    test.namespace == part || test.namespace.starts_with(&format!("{part}."))
 }
 
 /// The answers each AoC day prints on its real input, as
@@ -791,7 +848,9 @@ def main(): {IO} () :=
 
 /// Every AoC day, on its real input, prints the known answers on the
 /// machine (`aoc_answers.rs`), and on its real and example inputs prints
-/// what `stitchwort run` prints. The AoC project's tests agree too.
+/// what the reference evaluator prints. The AoC project's tests agree too.
+/// Each part of the project ([`aoc_parts`]) in a session of its own, side
+/// by side.
 pub fn aoc_agrees() {
     // Full tier only: with its sample of days it took 38 minutes in the
     // daily tier (31 Oct 2026, docs/testing.md); SW-839's fast lowering
@@ -799,21 +858,31 @@ pub fn aoc_agrees() {
     if !stitchwort_driver::driver::full_tier("aoc_agrees") {
         return;
     }
-    with_stack(STACK, || {
-        let mut session = aoc();
-        let what = "aoc";
+    let parts = aoc_parts();
+    // A corpus sweep: every other day below the full tier.
+    let answers: Vec<_> = tier_sample(AOC_ANSWERS.iter().collect(), 2);
+    if std::env::var_os("AOC_PARTS").is_none() {
+        for (year, day, _, _) in &answers {
+            let part = format!("Aoc.Year{year}.Day{day}");
+            assert!(parts.contains(&part), "{part}: not a part of the project");
+        }
+    }
+    let ran = par_map(STACK, &parts, |part| {
+        let mut session = aoc_part(part);
+        let mut ran = 0;
         // The real-input tests are left out: on the reference evaluator they
         // take minutes (SW-412), and each day's `main` is compared on the
         // real input below.
         if !crate::backend::NATIVE {
-            let ran = run_tests_where(&session, &everything(&session, what), what, false, |t| {
-                !t.name.starts_with("real input")
+            ran = run_tests_where(&session, &everything(&session, part), part, false, |t| {
+                in_part(t, part) && !t.name.starts_with("real input")
             });
-            eprintln!("{ran} AoC tests agree");
         }
-        // A corpus sweep: every other day below the full tier.
-        for (year, day, part1, part2) in tier_sample(AOC_ANSWERS.iter().collect(), 2) {
-            let name = format!("Aoc.Year{year}.Day{day}.main");
+        let answered = answers
+            .iter()
+            .filter(|(year, day, _, _)| *part == format!("Aoc.Year{year}.Day{day}"));
+        for (year, day, part1, part2) in answered {
+            let name = format!("{part}.main");
             let main = session
                 .main_named(&name, "aoc")
                 .unwrap_or_else(|e| panic!("{name}: {e:?}"));
@@ -839,7 +908,11 @@ pub fn aoc_agrees() {
                 .expect("the example input");
             same_both_ways(&session, &main, &program, &example, &name);
         }
+        ran
     });
+    if !crate::backend::NATIVE {
+        eprintln!("{} AoC tests agree", ran.iter().sum::<usize>());
+    }
 }
 
 /// Lists the differential cases as tests, each with the attributes given
