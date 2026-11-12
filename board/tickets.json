@@ -1,5 +1,5 @@
 {
-  "next": 2960,
+  "next": 2963,
   "tickets": [
     {
       "id": 47,
@@ -31573,6 +31573,45 @@
       "where": ".claude/worktrees/SW-2959",
       "labels": [],
       "epic": "editor-playground",
+      "body": "",
+      "created": "2026-11-12",
+      "updated": "2026-11-12",
+      "commits": []
+    },
+    {
+      "id": 2960,
+      "title": "[DeepSeek] Full tier at 58c3bcac7 (Overmind, 12 Nov): check_cache::the_cache_changes_nothing_for_the_examples fails at crates/driver/tests/projects/check_cache.rs:201 'extension-in-owner: a namespace can't be cached' (namespace_uncacheable 1, expected 0), likely SW-2951 counting importers of a failed namespace as uncacheable; and rewind::an_edit_checks_again_only_what_uses_it fails at rewind.rs:888 'C replayed' left 0 right 1 under the full tier (passes by name at the default tier on Speedwell). Reproduce with STITCHWORT_TIER=full by name; fix the cause or the test with a reason",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
+      "body": "",
+      "created": "2026-11-12",
+      "updated": "2026-11-12",
+      "commits": []
+    },
+    {
+      "id": 2961,
+      "title": "[Opus] Core panic: search_at_bench::stage_two_on_any_std_statement panics at crates/core/src/value.rs:2317:22 'index out of bounds: the len is 2 but the index is 2' (full tier, Overmind, 58c3bcac7, 224 s). Find the input, fix, regression test",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-12",
+      "updated": "2026-11-12",
+      "commits": []
+    },
+    {
+      "id": 2962,
+      "title": "Full tier can't finish in 4 h: single tests take over an hour under STITCHWORT_TIER=full (rewind::rewinding_changes_nothing_for_the_examples 6081 s, check_cache::the_cache_changes_nothing_for_the_examples 3573 s, aocs_namespaces_load_on_their_own 2558 s, counts_repeat_within_a_process 2328 s, emptying_the_caches 2287 s, formatting_changes_no_declaration_hash 2213 s, counts_have_not_regressed 2211 s); 2059 of 2591 tests ran in 14,160 s. Measure and bound them (sample, or split across runs) so the tier completes",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
       "body": "",
       "created": "2026-11-12",
       "updated": "2026-11-12",
