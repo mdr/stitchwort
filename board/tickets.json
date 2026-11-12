@@ -27895,15 +27895,17 @@
     {
       "id": 2681,
       "title": "Per-declaration counters for the largest read-back and deepest frames (bounded read-back stage 0c); measure over the whole corpus before D3464's 1M limit",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "From SW-2660 (10 Nov 2026), docs/proposals/term-sharing.md.",
+      "body": "From SW-2660 (10 Nov 2026), docs/proposals/term-sharing.md.\n\nProgress (Sonnet lane, 12 Nov 2026): STITCHWORT_TIMINGS now adds read-back and frames columns to the per-declaration table plus a \"largest read-backs\" summary (top 20, or all with =decls) ending with the run maximum. Budget keeps peaks (one compare each in quote_as, rename, Budget::frames). Commit 395cf6ea0. Corpus run left to the orchestrator.\n",
       "created": "2026-11-10",
-      "updated": "2026-11-10",
-      "commits": []
+      "updated": "2026-11-12",
+      "commits": [
+        "395cf6ea0"
+      ]
     },
     {
       "id": 2682,
