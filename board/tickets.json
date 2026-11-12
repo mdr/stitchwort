@@ -31504,7 +31504,7 @@
       "where": "",
       "labels": [],
       "epic": "test-infra",
-      "body": "",
+      "body": "\nConfirmed 12 Nov 07:29: after a plain stitchwort test in aoc/ and games/rogue/ on the same binary, verify-cache compared 1695 + 100 results, 0 disagree. So the check works only after a normal test run with the same binary.",
       "created": "2026-11-12",
       "updated": "2026-11-12",
       "commits": []
