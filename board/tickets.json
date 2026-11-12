@@ -1,5 +1,5 @@
 {
-  "next": 2954,
+  "next": 2956,
   "tickets": [
     {
       "id": 47,
@@ -31490,6 +31490,32 @@
       "labels": [],
       "epic": "docs-tutorials",
       "body": "D3528 (Matt, 12 Nov 2026): 'Let's skip chapter 3 for now; we may come back to it later.' Not started; wait for Matt to raise it again.",
+      "created": "2026-11-12",
+      "updated": "2026-11-12",
+      "commits": []
+    },
+    {
+      "id": 2954,
+      "title": "[DeepSeek] task test:verify-cache can pass while comparing nothing: it writes nothing to the cache, so on a fresh binary (as in the full tier after a build) every test 'had no cached result' and it reports 0 compared, exit 0 (Speedwell, 12 Nov, three runs). Fill the cache first (a plain stitchwort test) or fail when nothing was compared; check what the full tier's step has actually compared",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
+      "body": "",
+      "created": "2026-11-12",
+      "updated": "2026-11-12",
+      "commits": []
+    },
+    {
+      "id": 2955,
+      "title": "[Sonnet] task audit's aoc step takes 68 s, the cost of a cold check (63 s), with a warm check cache: audit seems not to replay the check cache; its description says about 11 s warm (std 14.8 s, rogue 5.6 s; Speedwell 12 Nov at 2df8b8697)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
+      "body": "",
       "created": "2026-11-12",
       "updated": "2026-11-12",
       "commits": []
