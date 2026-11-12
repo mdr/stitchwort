@@ -1,5 +1,5 @@
 {
-  "next": 3045,
+  "next": 3048,
   "tickets": [
     {
       "id": 47,
@@ -32688,15 +32688,17 @@
     {
       "id": 3035,
       "title": "[Sonnet] List.allReadsFalse (std List/Toolkit.sw, SW-3029) fails E-RESOURCE 'recursed more deeply than allowed' in a debug test build (SW-3032's lane: 12 std_library/hash_stability tests failed with E-RESOURCE + E-USES-FAILED); passes in the release build on main. Find why its check recurses so deeply (proof shape?) and make it shallow, so debug builds and small stacks (playground) load std",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-3035",
       "labels": [],
       "epic": "std-library",
-      "body": "",
+      "body": "\nModel result: Sonnet, worked, ~28 min (est. 45). Debug std tests still red for other reasons (SW-3045..3047).",
       "created": "2026-11-12",
       "updated": "2026-11-12",
-      "commits": []
+      "commits": [
+        "b9c91bd42"
+      ]
     },
     {
       "id": 3036,
@@ -32810,6 +32812,45 @@
       "where": ".claude/worktrees/SW-3044",
       "labels": [],
       "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-12",
+      "updated": "2026-11-12",
+      "commits": []
+    },
+    {
+      "id": 3045,
+      "title": "[Opus] Elaborator invariant 6 broken in std: a debug build panics in std_library::the_standard_library_passes_its_own_tests at crates/elab/src/queue.rs:1866 kept_receiver ('a receiver kept as a term chose from an unknown'); release only counts it (kept_chose). Find the std declaration, why a kept receiver defaulted a number or chose a generic dictionary, and fix the cause (SW-3035 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-12",
+      "updated": "2026-11-12",
+      "commits": []
+    },
+    {
+      "id": 3046,
+      "title": "[Sonnet] Debug-build std tests are red: five std/List/SortLemmas.sw theorems hit E-RESOURCE ('nested too deeply') on the 16 MiB debug test stack: sumByFilter (~343), sumRangeFromOne (~383), occurrencesKeyDistinct (~988), distinctOfOccurrences (~1006), sumByDistinctNonzero (~1677). Find which merge made them deep (SW-3020/3032?), make them shallow (SW-3035 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "std-library",
+      "body": "",
+      "created": "2026-11-12",
+      "updated": "2026-11-12",
+      "commits": []
+    },
+    {
+      "id": 3047,
+      "title": "[Sonnet] Guard small stacks: a test that checks std at a 2 MiB stack (the browser playground's budget, or the real playground limit) in the build the tests use, so a new deep std proof fails at once (SW-3035 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
       "body": "",
       "created": "2026-11-12",
       "updated": "2026-11-12",
