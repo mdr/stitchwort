@@ -1,5 +1,5 @@
 {
-  "next": 2978,
+  "next": 2979,
   "tickets": [
     {
       "id": 47,
@@ -31656,15 +31656,17 @@
     {
       "id": 2965,
       "title": "[Sonnet] After a split (Cmd+. Split on x, playground and VS Code), the cursor lands in an odd place (Matt, 12 Nov): put it where D3530 decides (rec: on the first new ?, so its goal shows at once); VS Code via a command after the edit; browser and LSP tests",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-2965",
       "labels": [],
       "epic": "editor-playground",
-      "body": "\nD3530 (Matt, 12 Nov 2026: 'I agree with these recommendations'): after a split, the cursor goes to the first new ?.",
+      "body": "\nD3530 (Matt, 12 Nov 2026: 'I agree with these recommendations'): after a split, the cursor goes to the first new ?.\nBuilt: split actions carry stitchwort.selectRange {uri, range of the first new ?}; playground selects it after the edit; VS Code runs it via executeCommand middleware (not run in real VS Code: needs a manual check).\nModel result: Sonnet, worked, 34 min (est. 45)",
       "created": "2026-11-12",
       "updated": "2026-11-12",
-      "commits": []
+      "commits": [
+        "d8fdaa234"
+      ]
     },
     {
       "id": 2966,
@@ -31819,6 +31821,19 @@
       "where": "",
       "labels": [],
       "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-12",
+      "updated": "2026-11-12",
+      "commits": []
+    },
+    {
+      "id": 2978,
+      "title": "[DeepSeek] VS Code client tests: runner.test.js 'per-group runs against a stub CLI report progressively' got groups in a different order once (SW-2965, under load): make it order-independent or fix the race",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
       "body": "",
       "created": "2026-11-12",
       "updated": "2026-11-12",
