@@ -31746,13 +31746,13 @@
     },
     {
       "id": 2972,
-      "title": "[Sonnet] Playground and VS Code: when Search for a proof finds a single proof (the ladder's answer), apply it at once with a notice ('Proved by rfl', undo restores the ?) instead of a one-item pick list (SW-2966 finding; needs D3532)",
+      "title": "[Sonnet] Playground and VS Code: when Search for a proof finds a proof that closes the goal (one offer), insert it at once without asking, with a notice ('Proved by rfl'; undo restores the ?), instead of a one-item pick list (D3532). After SW-2965 (same file)",
       "status": "backlog",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "editor-playground",
-      "body": "",
+      "body": "\nD3532 (Matt, 12 Nov 2026): 'if we've got a proof that closes the goal, we should just insert it without asking.'",
       "created": "2026-11-12",
       "updated": "2026-11-12",
       "commits": []
