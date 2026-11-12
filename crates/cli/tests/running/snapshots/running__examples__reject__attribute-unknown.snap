@@ -1,5 +1,5 @@
 ---
-source: crates/cli/tests/examples.rs
+source: crates/cli/tests/running/examples.rs
 expression: output
 ---
 [E-ATTRIBUTE-UNKNOWN] Error: unknown attribute `js.rename`
@@ -11,5 +11,5 @@ expression: output
    │ 
    │ Note 1: did you mean `js.name`?
    │ 
-   │ Note 2: the attributes are `noReceiver`, `tailrec`, `js.tag`, `js.enum`, `js.name`, `js.optional` and `js.unboxed`
+   │ Note 2: the attributes are `noReceiver`, `tailrec`, `reading`, `js.tag`, `js.enum`, `js.name`, `js.optional` and `js.unboxed`
 ───╯
