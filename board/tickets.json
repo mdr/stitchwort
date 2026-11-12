@@ -1,5 +1,5 @@
 {
-  "next": 3021,
+  "next": 3029,
   "tickets": [
     {
       "id": 47,
@@ -31626,15 +31626,17 @@
     {
       "id": 2962,
       "title": "Full tier can't finish in 4 h: single tests take over an hour under STITCHWORT_TIER=full (rewind::rewinding_changes_nothing_for_the_examples 6081 s, check_cache::the_cache_changes_nothing_for_the_examples 3573 s, aocs_namespaces_load_on_their_own 2558 s, counts_repeat_within_a_process 2328 s, emptying_the_caches 2287 s, formatting_changes_no_declaration_hash 2213 s, counts_have_not_regressed 2211 s); 2059 of 2591 tests ran in 14,160 s. Measure and bound them (sample, or split across runs) so the tier completes",
-      "status": "doing",
+      "status": "done",
       "agent": "Opus",
       "where": ".claude/worktrees/SW-2962",
       "labels": [],
       "epic": "test-infra",
-      "body": "\nMatt, 12 Nov 2026: no full runs on Overmind for a while ('I don't think we're learning very much'); 'a single test taking over a minute is really slow. But an hour?' Also seen at 58c3bcac7: machine::aoc_agrees 5953 s, lower::every_aoc_main_lowers 5606 s, rewind aoc project 1109 s, search_bench 725 s.",
+      "body": "\nMatt, 12 Nov 2026: no full runs on Overmind for a while ('I don't think we're learning very much'); 'a single test taking over a minute is really slow. But an hour?' Also seen at 58c3bcac7: machine::aoc_agrees 5953 s, lower::every_aoc_main_lowers 5606 s, rewind aoc project 1109 s, search_bench 725 s.\nOpus, 30 min (est. 2 h). Open: D3538 (rewind sweeps: library-from-source and search on the daily sample only), D3539 (full-tier sweeps: fixed parts vs rotating sample), D3540 (aoc_agrees: drop reference runs on real input). Follow-ups 1-8 in the note, filed.",
       "created": "2026-11-12",
       "updated": "2026-11-12",
-      "commits": []
+      "commits": [
+        "92a7d2f2d"
+      ]
     },
     {
       "id": 2963,
@@ -32480,6 +32482,110 @@
       "where": ".claude/worktrees/scratch-sw-3020",
       "labels": [],
       "epic": "std-library",
+      "body": "",
+      "created": "2026-11-12",
+      "updated": "2026-11-12",
+      "commits": []
+    },
+    {
+      "id": 3021,
+      "title": "[Sonnet] rt AoC sweeps: one shared reference-evaluator run for aoc_agrees and every_aoc_main_lowers (~half their reference time) (SW-2962 follow-up 1)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
+      "body": "",
+      "created": "2026-11-12",
+      "updated": "2026-11-12",
+      "commits": []
+    },
+    {
+      "id": 3022,
+      "title": "[Sonnet] check_cache examples sweep: share the library checked from source between its runs, or split into parts (SW-2962 follow-up 2)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
+      "body": "",
+      "created": "2026-11-12",
+      "updated": "2026-11-12",
+      "commits": []
+    },
+    {
+      "id": 3023,
+      "title": "[Sonnet] aocs_namespaces_load_on_their_own: check each day's chain once, in order, not once per namespace (SW-2962 follow-up 3)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
+      "body": "",
+      "created": "2026-11-12",
+      "updated": "2026-11-12",
+      "commits": []
+    },
+    {
+      "id": 3024,
+      "title": "[Sonnet] bench full tier: baseline runs the whole-corpus benchmark twice and repeat drops it, one whole-corpus run fewer (SW-2962 follow-up 4)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
+      "body": "",
+      "created": "2026-11-12",
+      "updated": "2026-11-12",
+      "commits": []
+    },
+    {
+      "id": 3025,
+      "title": "[Sonnet] rewind example sweeps: share the fresh check between the two (~14% of their work) (SW-2962 follow-up 5)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
+      "body": "",
+      "created": "2026-11-12",
+      "updated": "2026-11-12",
+      "commits": []
+    },
+    {
+      "id": 3026,
+      "title": "[Sonnet] fmt_hashes compares almost nothing now the corpus is formatted (2 of 819 files): give it deliberately unformatted input (e.g. each example de-formatted: indentation, spacing, line breaks) so it still tests that formatting keeps hashes (SW-2962 follow-up 6)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
+      "body": "",
+      "created": "2026-11-12",
+      "updated": "2026-11-12",
+      "commits": []
+    },
+    {
+      "id": 3027,
+      "title": "[Sonnet] Overmind's full tier: lower STITCHWORT_TEST_THREADS to 2-3 alongside TIER_THREADS (4 cores ran ~14 busy threads) (SW-2962 follow-up 7)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
+      "body": "",
+      "created": "2026-11-12",
+      "updated": "2026-11-12",
+      "commits": []
+    },
+    {
+      "id": 3028,
+      "title": "[Sonnet] search_bench proof uses: run the 5,000 queries on a thread pool, or score a sample (SW-2962 follow-up 8)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
       "body": "",
       "created": "2026-11-12",
       "updated": "2026-11-12",
