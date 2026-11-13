@@ -22,7 +22,7 @@ def sumMap (g: Nat -> Nat): Nat -> Nat
   | Zero => 0
   | Succ n => g (Succ n) + sumMap g n
 
-theorem t (g: Nat -> Nat) (f: Nat -> Nat) (h: (n: Nat) -> f (sumMap g n) = 0) (q: Nat -> Prop) (k: q 0):
+theorem t (g: Nat -> Nat) (f: Nat -> Nat) (h: ∀ (n: Nat) => f (sumMap g n) = 0) (q: Nat -> Prop) (k: q 0):
     q (f (sumMap g 41)) :=
   rewrite h 40 in k
 ";
@@ -131,7 +131,7 @@ def sumMap (g: Nat -> Nat): Nat -> Nat
 
 def hide (f: Nat -> Nat) (g: Nat -> Nat): Nat := f (sumMap g 39)
 
-theorem t (g: Nat -> Nat) (f: Nat -> Nat) (h: (n: Nat) -> f (sumMap g n) = 0) (q: Nat -> Nat -> Prop)
+theorem t (g: Nat -> Nat) (f: Nat -> Nat) (h: ∀ (n: Nat) => f (sumMap g n) = 0) (q: Nat -> Nat -> Prop)
     (k: q 0 (hide f g)): q (f (sumMap g 40)) (hide f g) :=
   rewrite h 40 in k
 ";
