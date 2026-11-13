@@ -2,7 +2,7 @@
 
 **Status:** proposed, 11 November 2026 (SW-2938), for Matt's decisions,
 listed [at the end](#10-decisions-for-matt). D-a (D3524), D-b (D3527) and D-c (D3525) accepted; stage 1
-built (SW-2940), stage 2 built (SW-2943: reporting; the implicit-use note of §4.2 is not), stage 3 built (SW-2952, SW-2980 for bodies that don't parse): importers are checked, against stand-ins,
+built (SW-2940), stage 2 built (SW-2943: reporting; instance search's part of §4.2's implicit uses is SW-2970's), stage 3 built (SW-2952, SW-2980 for bodies that don't parse): importers are checked, against stand-ins,
 and `E-USES-FAILED` replaces `E-NAMESPACE-FAILED` everywhere, the editor's
 live project included (SW-2997, §6). It answers D3524 (what
 happens to a namespace that imports a broken one) and puts today's
@@ -248,6 +248,20 @@ An error is reported once, where it is. For what uses it:
   `dot.rs:939`, `reify.rs:276` [checked]). Where that can't be told, the
   error stands, with a note: "`A`, used here, has errors; this may be a
   result of them".
+
+  *As built (SW-2970):* instance search. An instance whose signature
+  checked keeps its row in the instance table when its body fails, marked
+  not valid, in its own namespace and in those that import it. A search
+  that reaches that row (directly, as a prerequisite of another instance,
+  or for an operator such as `<` on the instance's type) fails with
+  `E-FAILED-DEPENDENCY` and notes the instance as used, so its user waits
+  for it as for a named declaration with an error: nothing more in the
+  same namespace, one `E-USES-FAILED` per file in another, labelled at the
+  first waiting declaration (nothing imports an instance by name). A
+  search that another instance answers is unaffected. An instance whose
+  signature failed was never registered, so "no instance" stands there,
+  without the note; `auto`'s decision procedures and dot-method lookup
+  are as before.
 - **A namespace with syntax errors** may be missing declarations, so an
   imported name not found in it is "`A` has a syntax error (place), so
   `beats` can't be found", once, on the import, and its users wait: not
@@ -554,9 +568,9 @@ book with the slip; stage 3 core's assumption tests and
 - Whether cache replay of an importer assumes its dependencies were
   replayed (§6): read in stage 1.
 - The cost in `aoc/` (§6): stage 6 measures it.
-- How often an implicit use (instance search, `auto`) of a failed
-  declaration turns into a fresh error across namespaces: the within-one-
-  namespace handling exists, but I didn't test its coverage.
+- How often an implicit use (`auto`, dot methods) of a failed
+  declaration turns into a fresh error across namespaces: instance search
+  waits (SW-2970), the rest wasn't tested.
 - What exactly shipped from the SW-2809 review's must-fixes for false
   proofs at run time; D-c leans on them.
 - Lean's and JDT's rows in §8 are recalled, not re-verified today.

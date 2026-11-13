@@ -546,6 +546,94 @@ fn failed_import_body() {
 }
 
 #[test]
+fn what_needs_an_instance_with_an_error_waits_for_it_until_it_is_fixed() {
+    // SW-2970: an instance is found by type, so `heavy` names nothing in
+    // `First` that breaks; it still waits for `colorWeight` once it does.
+    std::thread::Builder::new()
+        .stack_size(STACK)
+        .spawn(failed_instance_body)
+        .unwrap()
+        .join()
+        .unwrap();
+}
+
+fn failed_instance_body() {
+    let first = |body: &str| {
+        format!(
+            "namespace First\n\ntype Color =\n  | Red\n  | Green\n\ninterface Weight (a: Type) = {{ weight: a → Nat }}\n\ninstance colorWeight: Weight Color := {body}\n"
+        )
+    };
+    let good = first("{ weight = (c: Color) => 1 }");
+    let broken = first("True");
+    let second = "namespace Second\nimport First (Color, Weight)\n\ndef heavy (c: Color): Nat := Weight.weight c\n";
+    let memory = common::cached_memory(STACK);
+    memory.add(MemoryProject {
+        root: "/memory/proj".into(),
+        sources: vec!["src".into()],
+        files: Arc::new(
+            [("src/First.sw", good.as_str()), ("src/Second.sw", second)]
+                .iter()
+                .map(|(p, t)| (p.to_string(), t.to_string()))
+                .collect(),
+        ),
+    });
+    let mut server = Inline::new(Options::new(STACK), memory).unwrap();
+    let uri = |name: &str| format!("file:///memory/proj/src/{name}.sw");
+    for message in [
+        json!({"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"capabilities": {}}}),
+        json!({"jsonrpc": "2.0", "method": "initialized", "params": {}}),
+        json!({"jsonrpc": "2.0", "method": "textDocument/didOpen", "params": {"textDocument": {
+            "uri": uri("Second"), "languageId": "stitchwort", "version": 1, "text": second,
+        }}}),
+    ] {
+        server.receive(&message.to_string());
+    }
+    let settle = |server: &mut Inline| {
+        let mut sent = Vec::new();
+        loop {
+            let (out, more) = server.tick();
+            sent.extend(
+                out.iter()
+                    .map(|m| serde_json::from_str::<Value>(m).unwrap()),
+            );
+            if !more {
+                return sent;
+            }
+        }
+    };
+    let codes = |sent: &[Value], name: &str| -> Option<Vec<String>> {
+        (sent.iter())
+            .rfind(|m| {
+                m["method"] == "textDocument/publishDiagnostics" && m["params"]["uri"] == uri(name)
+            })
+            .map(|m| {
+                (m["params"]["diagnostics"].as_array().unwrap().iter())
+                    .map(|d| d["code"].as_str().unwrap().to_string())
+                    .collect()
+            })
+    };
+    let change = |server: &mut Inline, version: u32, text: &str| {
+        server.receive(
+            &json!({"jsonrpc": "2.0", "method": "textDocument/didChange", "params": {
+                "textDocument": {"uri": uri("First"), "version": version},
+                "contentChanges": [{"text": text}],
+            }})
+            .to_string(),
+        );
+    };
+    let sent = settle(&mut server);
+    assert_eq!(codes(&sent, "Second"), Some(vec![]));
+    change(&mut server, 2, &broken);
+    let sent = settle(&mut server);
+    assert_eq!(codes(&sent, "First"), Some(vec!["E-TYPE-MISMATCH".into()]));
+    assert_eq!(codes(&sent, "Second"), Some(vec!["E-USES-FAILED".into()]));
+    change(&mut server, 3, &good);
+    let sent = settle(&mut server);
+    assert_eq!(codes(&sent, "First"), Some(vec![]));
+    assert_eq!(codes(&sent, "Second"), Some(vec![]));
+}
+
+#[test]
 fn a_closed_file_changed_on_disk_is_reloaded_when_the_client_reports_it() {
     std::thread::Builder::new()
         .stack_size(STACK)
