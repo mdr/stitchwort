@@ -34470,15 +34470,17 @@
     {
       "id": 3171,
       "title": "[Sonnet] Lexer spans in interpolated text are inconsistent: StrStart leaves out its ${, StrMid includes its own, neither StrMid nor StrEnd includes the } before it (the lossless tree works around it in token_text_range). Make ${ and } tokens of their own, checking diagnostics that point into strings (SW-3159 finding)",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-3171",
       "labels": [],
       "epic": "syntax-language",
-      "body": "\n\nLane notes: ${ and } are tokens (Tok::InterpOpen, InterpClose); token_text_range removed; Interpolation node added. dev tree --spans: 0 not read back, 0 marks dropped, 0 misses (994921 spans). Tests: lexer/tree/interp, fmt text, deformat, text_interpolation, examples (accepted, goals, 6 rejected with ${), hash_stability::prelude: all pass. Commit 3dd857482.\n",
+      "body": "\n\nLane notes: ${ and } are tokens (Tok::InterpOpen, InterpClose); token_text_range removed; Interpolation node added. dev tree --spans: 0 not read back, 0 marks dropped, 0 misses (994921 spans). Tests: lexer/tree/interp, fmt text, deformat, text_interpolation, examples (accepted, goals, 6 rejected with ${), hash_stability::prelude: all pass. Commit 3dd857482.\nModel result: Sonnet, worked, 17 min (est. 90)",
       "created": "2026-11-13",
       "updated": "2026-11-13",
-      "commits": []
+      "commits": [
+        "6e80c516951fac649f1cbc0e03372c3bd5f8b960"
+      ]
     },
     {
       "id": 3172,
