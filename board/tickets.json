@@ -1,5 +1,5 @@
 {
-  "next": 3105,
+  "next": 3106,
   "tickets": [
     {
       "id": 47,
@@ -33602,6 +33602,19 @@
       "where": "",
       "labels": [],
       "epic": "diagnostics",
+      "body": "",
+      "created": "2026-11-13",
+      "updated": "2026-11-13",
+      "commits": []
+    },
+    {
+      "id": 3105,
+      "title": "[Fable] D3549b analysis (paper): should the compiler insert .read silently where a test fact is used as its proposition (bool-as-proposition.md §7, deferred by D3488)? Matt likes implicit but wants the risks thought through: a concrete risk analysis of the elaborator's try-and-fall-back paths, elaboration order, and test facts used as equations, a design for the safest implicit form, and a recommendation",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
       "body": "",
       "created": "2026-11-13",
       "updated": "2026-11-13",
