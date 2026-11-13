@@ -2139,16 +2139,10 @@ fn the_erased_placeholder_reads_back_as_the_elision() {
     );
 }
 
-/// An application's spine is checked in one loop, not a level of the Rust
-/// stack per argument: `f n 0 0 … 0`, with `f : (n: Nat) → Args n` and
-/// `Args n` the type of a function of `n` numbers, applied to 20,000 of
-/// them (SW-3133).
-#[test]
-fn a_long_spine_is_inferred_in_a_loop() {
-    let mut p = Prelude::new();
-    stitchwort_core::native::register_nat(&mut p.g, p.nat).expect("Nat");
+/// `Args : Nat -> Type`, where `Args 0 = Nat` and `Args (m + 1) = Nat ->
+/// `Args m`: the type of a function of `n` numbers.
+fn args_family(p: &mut Prelude) -> stitchwort_core::DefId {
     let nat = p.nat_ty();
-    // Args 0 = Nat; Args (m + 1) = Nat → Args m
     let args_ty = declare(&mut p.g, "Args", arrow(nat.clone(), ty()));
     let body = lam(
         "n",
@@ -2165,6 +2159,19 @@ fn a_long_spine_is_inferred_in_a_loop() {
         ),
     );
     stitchwort_core::check::define_def(&mut p.g, args_ty, &body).expect("Args");
+    args_ty
+}
+
+/// An application's spine is checked in one loop, not a level of the Rust
+/// stack per argument: `f n 0 0 … 0`, with `f : (n: Nat) → Args n` and
+/// `Args n` the type of a function of `n` numbers, applied to 20,000 of
+/// them (SW-3133).
+#[test]
+fn a_long_spine_is_inferred_in_a_loop() {
+    let mut p = Prelude::new();
+    stitchwort_core::native::register_nat(&mut p.g, p.nat).expect("Nat");
+    let nat = p.nat_ty();
+    let args_ty = args_family(&mut p);
     let f = declare(
         &mut p.g,
         "f",
@@ -2178,4 +2185,146 @@ fn a_long_spine_is_inferred_in_a_loop() {
     let (checked, ty) = infer_closed(&p.g.ev(), &term, span()).expect("checks");
     assert_eq!(checked.spine().1.len(), n + 1);
     assert!(matches!(ty, Value::Data(d, _) if d == p.nat), "{ty:?}");
+}
+
+/// A loop that checked the arguments but kept the first argument's type for
+/// every position would accept this; the bad argument is half-way down the
+/// spine (SW-3133).
+#[test]
+fn a_bad_argument_in_the_middle_of_a_long_spine_is_rejected() {
+    let mut p = Prelude::new();
+    stitchwort_core::native::register_nat(&mut p.g, p.nat).expect("Nat");
+    let nat = p.nat_ty();
+    let args_ty = args_family(&mut p);
+    let f = declare(
+        &mut p.g,
+        "f",
+        pi("n", nat.clone(), app(Term::Def(args_ty), [v(0)])),
+    );
+    let (_, _, tru) = with_bool(&mut p);
+    let n: usize = 1_000;
+    let term = app(
+        Term::Def(f),
+        std::iter::once(Term::Nat(Rc::new(n.into())))
+            .chain((0..n).map(|i| if i == 500 { tru.clone() } else { p.num(0) })),
+    );
+    assert_eq!(infer_code(&p.g, &term), "E-TYPE-MISMATCH");
+}
+
+/// The same with the ill-typed argument last (SW-3133).
+#[test]
+fn a_bad_argument_at_the_end_of_a_long_spine_is_rejected() {
+    let mut p = Prelude::new();
+    stitchwort_core::native::register_nat(&mut p.g, p.nat).expect("Nat");
+    let nat = p.nat_ty();
+    let args_ty = args_family(&mut p);
+    let f = declare(
+        &mut p.g,
+        "f",
+        pi("n", nat.clone(), app(Term::Def(args_ty), [v(0)])),
+    );
+    let (_, _, tru) = with_bool(&mut p);
+    let n: usize = 1_000;
+    let term = app(
+        Term::Def(f),
+        std::iter::once(Term::Nat(Rc::new(n.into())))
+            .chain((0..n).map(|i| if i == n - 1 { tru.clone() } else { p.num(0) })),
+    );
+    assert_eq!(infer_code(&p.g, &term), "E-TYPE-MISMATCH");
+}
+
+/// A later argument's type is the codomain applied to the earlier argument:
+/// `g : (n: Nat) → Args n → Nat` accepts a function of three numbers where it
+/// expects `Args 3`, but not where it expects `Args 2` (SW-3133).
+#[test]
+fn a_later_domain_is_instantiated_with_the_earlier_argument() {
+    let mut p = Prelude::new();
+    let nat = p.nat_ty();
+    let args_ty = args_family(&mut p);
+    let g = declare(
+        &mut p.g,
+        "g",
+        pi(
+            "n",
+            nat.clone(),
+            arrow(app(Term::Def(args_ty), [v(0)]), nat.clone()),
+        ),
+    );
+    // `Args 3 = Nat → Nat → Nat → Nat`, so three lambdas have type `Args 3`.
+    let three = lam("a", lam("b", lam("c", p.num(0))));
+    let applied_to_three = app(Term::Def(g), [p.num(3), three.clone()]);
+    let (_, ty) = infer_closed(&p.g.ev(), &applied_to_three, span()).expect("checks");
+    assert!(matches!(ty, Value::Data(d, _) if d == p.nat), "{ty:?}");
+    let applied_to_two = app(Term::Def(g), [p.num(2), three]);
+    assert_eq!(infer_code(&p.g, &applied_to_two), "E-TYPE-MISMATCH");
+}
+
+/// Past the last domain the type is `Nat`, not `Args 0`, and the message says
+/// so (SW-3133).
+#[test]
+fn an_argument_too_many_is_not_a_function() {
+    let mut p = Prelude::new();
+    let nat = p.nat_ty();
+    let args_ty = args_family(&mut p);
+    let f = declare(
+        &mut p.g,
+        "f",
+        pi("n", nat.clone(), app(Term::Def(args_ty), [v(0)])),
+    );
+    let zero = p.num(0);
+    let term = app(
+        Term::Def(f),
+        [p.num(3), zero.clone(), zero.clone(), zero.clone(), zero],
+    );
+    let d = infer_closed(&p.g.ev(), &term, span()).expect_err("refused");
+    assert_eq!(d.code, "E-NOT-A-FUNCTION");
+    assert!(
+        d.labels[0].message.contains("its type is `Nat`"),
+        "{}",
+        d.labels[0].message
+    );
+    assert!(
+        !d.labels[0].message.contains("Args"),
+        "{}",
+        d.labels[0].message
+    );
+}
+
+/// `check` infers a long spine and compares its type with the expected one
+/// (`check_app`), not only `infer` (SW-3133).
+#[test]
+fn checking_a_long_spine_against_the_wrong_type_is_rejected() {
+    let mut p = Prelude::new();
+    stitchwort_core::native::register_nat(&mut p.g, p.nat).expect("Nat");
+    let nat = p.nat_ty();
+    let args_ty = args_family(&mut p);
+    let f = declare(
+        &mut p.g,
+        "f",
+        pi("n", nat.clone(), app(Term::Def(args_ty), [v(0)])),
+    );
+    // A function of `n` numbers, recursively: `f 0 = 0` and
+    // `f (m + 1) = λ_. f m` (so `f` is a definition the body may refer to).
+    let f_body = lam(
+        "n",
+        case(
+            0,
+            p.nat,
+            vec![
+                (vec![], p.num(0)),
+                (vec!["m"], lam("x", app(Term::Def(f), [v(1)]))),
+            ],
+        ),
+    );
+    stitchwort_core::check::define_def(&mut p.g, f, &f_body).expect("f");
+    let (_, bool_ty, _) = with_bool(&mut p);
+    let n: usize = 1_000;
+    let term = app(
+        Term::Def(f),
+        std::iter::once(Term::Nat(Rc::new(n.into()))).chain((0..n).map(|_| p.num(0))),
+    );
+    assert_eq!(
+        define(&mut p.g, "bad", bool_ty, term),
+        Err("E-TYPE-MISMATCH")
+    );
 }
