@@ -33285,12 +33285,12 @@
     {
       "id": 3080,
       "title": "[DeepSeek] D3547 (Matt, 13 Nov 2026): rename the test tiers by size: task test:merge → test:quick, test:daily → test:broad, test:full → test:all (Taskfile.yml tasks and STITCHWORT_TIER values if they share the names, dev/ scripts, CI/flake checks), and every mention in CLAUDE.md, docs/workflow.md, docs/testing.md, board/README.md and .claude/agents/*.md. Pure rename: which tests each tier runs doesn't change",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "test-infra",
-      "body": "\nAlso bring docs/workflow.md ('Checks after a merge', pushing) and docs/testing.md (tiers) in line with CLAUDE.md's 'Test budget' doctrine table (D3545, D3546: 90 s batched verifiers, push after each verified batch, Overmind's rolling broad check; main may be broken for a while).",
+      "body": "\nAlso bring docs/workflow.md ('Checks after a merge', pushing) and docs/testing.md (tiers) in line with CLAUDE.md's 'Test budget' doctrine table (D3545, D3546: 90 s batched verifiers, push after each verified batch, Overmind's rolling broad check; main may be broken for a while).\nStarted 13 Nov ~11:45 on DeepSeek (D3548 third slot). Estimate: 30 min.",
       "created": "2026-11-13",
       "updated": "2026-11-13",
       "commits": []
