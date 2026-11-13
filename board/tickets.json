@@ -1,5 +1,5 @@
 {
-  "next": 3193,
+  "next": 3194,
   "tickets": [
     {
       "id": 47,
@@ -34767,14 +34767,29 @@
     {
       "id": 3192,
       "title": "[Sonnet] New formatter fixes from the dry run (docs/reviews/formatter-dry-run.md 'Worth a look'): (1) the := match hug applies only when the whole 'match … with' line fits; otherwise the scrutinee was wrapping level with the arms (63 places); (2) def main() must stay def main(), not def main () (397 regions); (5) a long pattern's continuation line must not sit at the arm body's indent (~20), and a bracketed if's else must not sit level with its ( (2)",
-      "status": "review",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-3192",
       "labels": [
         "bug"
       ],
       "epic": "syntax-language",
-      "body": "Added: D3571 (Matt): a record, list or trailing-lambda call after := hugs only when the one-line form below doesn't fit (lambda directly after := keeps D3568's hug). Orchestrator's call within D3564: a variable after a premise doesn't get a line of its own; break before the first premise.\nAdded: D3572 (Matt): a list of only plain items that doesn't fit fills its lines at +2; lists with records/calls/nested lists stay one per line.\n\nLane notes (Sonnet): done in 2 commits on lane/SW-3192. W1 (match hug only if head fits, 62 places), W2 (def f() attached, 415 defs), W5 (pattern continuation +4, ~50 hunks; bracketed if's else under the if, 12), D3571 (Doc::OneLineBelow; ~351 hunks), single variable between premises shares the premise line, D3572 plain-list fill. Gate: 0 fail, 0 not idempotent, 0 left as written; lines over 120: 8090 -> 19 (unchanged). Not fixed: a leading variable wrapped alone by the fill (isPathAppend's middle) stays alone.\n",
+      "body": "Added: D3571 (Matt): a record, list or trailing-lambda call after := hugs only when the one-line form below doesn't fit (lambda directly after := keeps D3568's hug). Orchestrator's call within D3564: a variable after a premise doesn't get a line of its own; break before the first premise.\nAdded: D3572 (Matt): a list of only plain items that doesn't fit fills its lines at +2; lists with records/calls/nested lists stay one per line.\n\nLane notes (Sonnet): done in 2 commits on lane/SW-3192. W1 (match hug only if head fits, 62 places), W2 (def f() attached, 415 defs), W5 (pattern continuation +4, ~50 hunks; bracketed if's else under the if, 12), D3571 (Doc::OneLineBelow; ~351 hunks), single variable between premises shares the premise line, D3572 plain-list fill. Gate: 0 fail, 0 not idempotent, 0 left as written; lines over 120: 8090 -> 19 (unchanged). Not fixed: a leading variable wrapped alone by the fill (isPathAppend's middle) stays alone.\nModel result: Sonnet, worked, 13 min (est. 90)",
+      "created": "2026-11-13",
+      "updated": "2026-11-13",
+      "commits": [
+        "5775debd31f63ab03793dfc22763e4241e5f9126"
+      ]
+    },
+    {
+      "id": 3193,
+      "title": "[Sonnet] New formatter: a header's leading run of variables can leave its last variable alone on line 2 (isPathAppend in aoc/src/Aoc/Common/Proofs/GridGraph.sw:116: (middle: Position)); avoid the orphan, e.g. by wrapping the run so no line holds a single variable, keeping each premise on its own line (SW-3192 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
       "created": "2026-11-13",
       "updated": "2026-11-13",
       "commits": []
