@@ -34513,12 +34513,12 @@
     {
       "id": 3174,
       "title": "[Opus] Kernel conversion check recurses ~2.7 KiB per level and is now 2024 Day13's deepest point (286 KiB of the 320 KiB guard): loop over spines as SW-3133 did for check/infer; Fable review (SW-3133 finding)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "Lane (Opus, 13 Nov, est. 3 h, took about 1 h 10 min): commits on lane/SW-3174.\n- Conversion (value.rs): conv_step stops where a comparison would start a conv_with of its own and says which (Step::Recurse); recurse, called from conv_with's loop, does it; conv_step resumes from a Stage if that doesn't settle the pair. Same rules, same order, same memo reads/writes; the pair is compared in place in the popped task. TreeMemo boxed, tree comparison out of same_stuck_trees' frame. Nested stuck calls: 2.3 -> 1.3 KiB a level (140 -> 245 levels under the 320 KiB guard).\n- check_app (check.rs): an argument that is itself an application is checked in the same loop, spine set aside on a heap list (Waiting); same visits/forcing/drops order. No stack per level (was 1.3 KiB: 250 levels under the guard). Behaviour note for review: the kernel now checks f (f (... n)) of any depth (nesting::deep_terms_in_later_passes changed: 1M levels now check; a Loc around each argument keeps the type checker's E-RESOURCE covered).\n- Peaks natively (probe build, check --no-cache): Day13.Proofs 286 -> 245 KiB (deepest now `Or` nested 101 deep via check_form/infer/infer_data, ~2.4 KiB a level); 2021 Day06.Proofs 168 -> 168; 2024 Day22.Proofs 153 -> 153. Instructions within noise (<0.2%).\n- Tests: 2 new kernel tests (fail before, pass after); core conv/app/... filter 122 passed; elaboration nest|deep 17 passed; library hash_stability::prelude|pinned_hashes 6 passed.\n",
       "created": "2026-11-13",
       "updated": "2026-11-13",
       "commits": []
