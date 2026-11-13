@@ -34403,12 +34403,12 @@
     {
       "id": 3166,
       "title": "[Opus] Lossless tree lane B (SW-3159 plan): mark operators and application: App, Binary, Chain, Membership, Range, Prefix, Pipe, Arrow, Iff, FieldAccess, Section, NamedArg, Paren/Tuple/List/Spread, records, Annotation, Seq, LetExpr, Interpolated; the deep recursive path: watch stack frames, rerun the nesting tests",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "Expected: 6 h (brief). Started 18:04, done 18:36 (Opus).\n\nMarked: App (one node per application, `f()` too), Binary (one operator each, grouped as the operators group: `+ - * / % ++ && || = != == < <= > >=` incl. `&&`/`||` chains and the `||`-section's `&&`), Chain, Membership (`in`, `!in`), Range, Prefix (`-x`, `!b`, argument minus/bang, negative numerals), Pipe, Arrow, Iff, FieldAccess (`.f` of a section is a FieldAccess without receiver), Section (the whole function: `.f a`, or all of `.id == id` after widening), OperatorSection (new kind: `(+ 1)`, `(k +)`, `(&&)`), NamedArg, Paren, Tuple (flat), List, Spread, Record, RecordField (`x = e`; punned `x` is a token), CtorFields (name + Record, update too), Annotation, Seq, LetExpr (expression and block-line forms), Interpolated. New kinds Unit `()`, Universe `Type 1`, Include. Interpolation stays unused until SW-3171 gives `${`/`}` their own tokens.\n\nMechanism: operators find their left operand's start from the marks (`Parser::operand_start`: the last mark ending at the operator, else the one token before) and hold it on a small open stack (`open`/`close`) until the right operand is read, so the recursive functions keep no extra locals. node_at now binary-searches the token (was a linear scan).\n\nNumbers (std, `dev tree crates/elab/src/std`): 0 not read back, 0 dropped; unmarked 44,399 -> 25,825 (multi-token Unmarked 28,258 -> 8,271: patterns, lambdas, function types, if, rewrite, calc, omega: lanes C-E). aoc/src, games/rogue, examples/accept: 0 dropped each.\nMarks off: 14.05-14.06 G instructions for 20 parses of std, base and new alike (wall 58 ms both). Marks on: +5.8% instructions over part 1. Frames on the `((…))` path: 4,288 -> 4,208 bytes per level (cmp_expr -96, atom +16); nested_parentheses threshold 393 -> 401, others unchanged.\nCompiler tree: identical with marks on and off over 2,611 .sw files (ad hoc run of the existing test widened to std, aoc, rogue, examples; not committed).\n\nTests: tree:: (9, 4 new), 85 syntax tests named for the touched constructs, binary(elaboration) nest|deep (16), hash_stability::prelude: all pass.\n",
       "created": "2026-11-13",
       "updated": "2026-11-13",
       "commits": []

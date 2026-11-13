@@ -12,6 +12,7 @@ use super::{NO_PARTNER, Parser, Result, binary, prefix_op};
 use crate::Span;
 use crate::ast::{BinOp, Expr, Name, SECTION};
 use crate::lexer::Tok;
+use crate::tree::NodeKind;
 
 /// The hidden parameters of a bare operator, `(&&)`.
 const LEFT: &str = "%left";
@@ -185,15 +186,16 @@ pub(super) fn fill_receiver(e: &mut Expr, value: Expr) {
 /// An expression that started with a method section. If operators follow
 /// the section, it takes them all, and the whole expression is the function
 /// (D1192): `.id == id`, parsed as `(.id) == id`, becomes `x => x.id == id`.
-pub(super) fn widen(expr: &mut Expr) {
+/// Returns whether it did: not when `expr` is the section already.
+pub(super) fn widen(expr: &mut Expr) -> bool {
     if expr.section_name().is_some() {
-        return;
+        return false;
     }
     let mut cur: &mut Expr = expr;
     while cur.section_name().is_none() {
         match leftmost_child_mut(cur) {
             Some(child) => cur = child,
-            None => return,
+            None => return false,
         }
     }
     let Expr::Lam(names, body, span) = cur else {
@@ -205,6 +207,7 @@ pub(super) fn widen(expr: &mut Expr) {
     let whole = std::mem::replace(expr, Expr::Hole(Span::NOWHERE));
     let span = start.to(whole.span());
     *expr = Expr::Lam(vec![name], Box::new(whole), span);
+    true
 }
 
 impl Parser<'_> {
@@ -238,6 +241,12 @@ impl Parser<'_> {
     pub(super) fn operator_section(&mut self) -> Result<Expr> {
         let right = self.right_operator();
         let open = self.bump().span;
+        let section = self.operator_section_inner(right, open)?;
+        self.node_at(open, NodeKind::OperatorSection);
+        Ok(section)
+    }
+
+    fn operator_section_inner(&mut self, right: Option<usize>, open: Span) -> Result<Expr> {
         let first = self.peek().cloned().unwrap_or(Tok::RParen);
         // `(&&)`: the operator as a function of two arguments.
         if is_operator(&first) && self.peek_at(1) == Some(&Tok::RParen) {
@@ -306,9 +315,16 @@ impl Parser<'_> {
             Tok::Star | Tok::Slash | Tok::Percent => self.unary(),
             Tok::AndAnd => self.cmp_expr(),
             Tok::OrOr => {
+                // `a && b && c`, grouping to the right.
+                let mut starts = vec![self.mark()];
                 let mut conjuncts = vec![self.cmp_expr()?];
                 while self.eat(&Tok::AndAnd) {
+                    starts.push(self.mark());
                     conjuncts.push(self.cmp_expr()?);
+                }
+                starts.pop();
+                for start in starts {
+                    self.node(start, NodeKind::Binary);
                 }
                 Ok(conjuncts
                     .into_iter()
