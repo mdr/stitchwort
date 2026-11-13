@@ -34550,15 +34550,17 @@
     {
       "id": 3177,
       "title": "[DeepSeek] Readings/builds sweep: remove the 59 sites the deletion oracle found redundant over the whole corpus (docs/reviews/SW-3111-oracle-corpus.md): 25 .read and 34 build helpers (Bool.falseOfNotTrue 15, List.memContains.backward 10, DecEq.trueOfNe 3, others). Re-run 'stitchwort oracle … --json' on each touched file to get exact replacements; check each touched std file/AoC day; hashes: proofs-only changes",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "\nModel result: DeepSeek, needed fixes (it removed the helper from the lemma's own example and left redundant brackets; fixed in one --continue round), about 75 min (est. 90)",
       "created": "2026-11-13",
       "updated": "2026-11-13",
-      "commits": []
+      "commits": [
+        "c6b3c68726157cafca41fcf241242b30d6936edc"
+      ]
     },
     {
       "id": 3178,
