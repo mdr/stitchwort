@@ -34226,7 +34226,7 @@
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "\nFable note: docs/proposals/formatter-architecture.md. Rec B (fmt chooses line breaks from a lossless tree, a second output of the existing parser; Wadler engine; 45-70 lane hours, 6 stages). Questions D3558-D3561. Findings: 120 width unenforced (10% of code lines over 120); SW-3153; SW-3154; slow tree comparison (SW-3147).",
+      "body": "\nFable note: docs/proposals/formatter-architecture.md. Rec B (fmt chooses line breaks from a lossless tree, a second output of the existing parser; Wadler engine; 45-70 lane hours, 6 stages). Questions D3558-D3561. Findings: 120 width unenforced (10% of code lines over 120); SW-3153; SW-3154; slow tree comparison (SW-3147).\nD3558 (Matt, 13 Nov 2026): yes, as a general rule fmt chooses the line breaks.\nD3560b (Matt, 13 Nov 2026): no, pipelines are not forced one stage per line: a concise pipeline that fits stays on one line ('this is kind of a matter of judgment'); the style sheet's rule is fit-or-break. D3559 and D3560a open.",
       "created": "2026-11-13",
       "updated": "2026-11-13",
       "commits": []
