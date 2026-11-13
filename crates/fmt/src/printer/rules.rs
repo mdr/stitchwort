@@ -987,10 +987,8 @@ impl<'a> Rules<'a> {
                             let doc = self.el(el);
                             normal.pop();
                             hug.pop();
-                            let below = Doc::shared(Doc::nest(
-                                2,
-                                Doc::concat([Doc::HardLine, doc]),
-                            ));
+                            let below =
+                                Doc::shared(Doc::nest(2, Doc::concat([Doc::HardLine, doc])));
                             normal.push(below.clone());
                             hug.push(below);
                         }
@@ -1204,7 +1202,14 @@ impl<'a> Rules<'a> {
         else {
             return self.join(&children);
         };
+        // An `∃`'s binders never break, so a chain too long for its line
+        // goes below `=>` rather than inside a binder; a `∀`'s may.
         let head = self.join(&children[..=arrow]);
+        let head = Doc::shared(if node.kind() == NodeKind::Exists {
+            Doc::flat(head)
+        } else {
+            head
+        });
         let body = Doc::shared(self.el(children[arrow + 1]));
         let space = self.space_el(children[arrow], children[arrow + 1]);
         let below = Doc::concat([

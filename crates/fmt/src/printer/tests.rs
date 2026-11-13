@@ -242,7 +242,7 @@ fn text_blocks_and_interpolations_stay_as_written() {
     let gate = gate(text).unwrap();
     assert_eq!(gate.check, Ok(()));
     assert_eq!(gate.text, text);
-    assert_eq!(gate.stats.unruled.get(&NodeKind::Interpolated), Some(&1));
+    assert!(gate.stats.unruled.is_empty());
 }
 
 #[test]
@@ -279,10 +279,10 @@ fn a_one_arm_match_inside_an_arm_breaks() {
 }
 
 #[test]
-fn a_block_inside_brackets_starts_below() {
+fn a_block_inside_brackets_hugs() {
     check(
         "theorem t ∀ (n: Nat): n = n :=\n  ident (\n    let m := n\n    (rfl: m = m))\n",
-        "theorem t ∀ (n: Nat): n = n :=\n  ident\n    (\n      let m := n\n      (rfl: m = m))\n",
+        "theorem t ∀ (n: Nat): n = n := ident (\n  let m := n\n  (rfl: m = m))\n",
     );
 }
 
@@ -297,7 +297,7 @@ fn operators_after_a_match_stay_at_its_column() {
 #[test]
 fn a_lambda_after_the_assign_stays_on_its_line() {
     // D3568: the body goes below at 2, not the whole lambda.
-    let name = long(100);
+    let name = long(105);
     check(
         &format!("def f (n: Nat): Nat -> Nat :=\n  n =>\n    {name} n n\n"),
         &format!("def f (n: Nat): Nat -> Nat := n =>\n  {name} n n\n"),
@@ -305,5 +305,78 @@ fn a_lambda_after_the_assign_stays_on_its_line() {
     check(
         &format!("def f (n: Nat): Nat :=\n  let g :=\n    k =>\n      {name} k k\n  g n\n"),
         &format!("def f (n: Nat): Nat :=\n  let g := k =>\n    {name} k k\n  g n\n"),
+    );
+}
+
+#[test]
+fn a_let_expression_and_a_sequence_break_after_each_semicolon() {
+    // S18: the parts line up one column inside the bracket.
+    let (a, b) = (long(60), long(60));
+    check(
+        &format!("def f (n: Nat): Nat := (let x := {a} n; {b} x)\n"),
+        &format!("def f (n: Nat): Nat :=\n  (let x := {a} n;\n   {b} x)\n"),
+    );
+    check(
+        &format!("def f (n: Nat): Nat := ({a} n; {b} n)\n"),
+        &format!("def f (n: Nat): Nat :=\n  ({a} n;\n   {b} n)\n"),
+    );
+    check(
+        "def f (n: Nat): Nat := (let x := n; x)\n",
+        "def f (n: Nat): Nat := (let x := n; x)\n",
+    );
+}
+
+#[test]
+fn an_interpolation_is_never_broken() {
+    // S32: however long, and as the author spaced it.
+    let a = long(130);
+    let text = format!("def f (n: Nat): Text :=\n  \"a ${{ {a} n }} b ${{n}} c\"\n");
+    assert_eq!(fmt(&text), text);
+}
+
+#[test]
+fn a_long_pattern_breaks_like_a_call() {
+    // S22.
+    let (a, b) = (long(50), long(50));
+    check(
+        &format!("def f (p: Nat): Nat := match p with\n  | Pair {a} (Pair {b} (Pair k k)) => 1\n"),
+        &format!(
+            "def f (p: Nat): Nat := match p with\n  | Pair {a}\n    (Pair {b} (Pair k k)) => 1\n"
+        ),
+    );
+}
+
+#[test]
+fn a_long_exists_chain_continues_below() {
+    // S28.
+    let (a, b) = (long(60), long(60));
+    check(
+        &format!(
+            "theorem t ∀ (n: Nat): ∃ ({a}: Nat) => ∃ ({b}: Nat) => ∃ (c: Nat) => n = c\n  := same\n"
+        ),
+        &format!(
+            "theorem t ∀ (n: Nat):\n    ∃ ({a}: Nat) =>\n      ∃ ({b}: Nat) => ∃ (c: Nat) => n = c :=\n  same\n"
+        ),
+    );
+}
+
+#[test]
+fn a_comment_above_the_assign_of_a_calc_step_keeps_its_line() {
+    // S35, S40.
+    check(
+        "theorem t ∀ (a: Nat): a = a := calc a\n  _ = a\n    -- why\n    := rfl\n",
+        "theorem t ∀ (a: Nat): a = a := calc a\n  _ = a\n    -- why\n    := rfl\n",
+    );
+}
+
+#[test]
+fn plain_arguments_that_do_not_fit_fill_lines_at_four() {
+    // D3569.
+    let names: Vec<String> = (0..8).map(|k| format!("{}{k}", long(20))).collect();
+    let call = names.join(" ");
+    let (first, second) = (names[..5].join(" "), names[5..].join(" "));
+    check(
+        &format!("def f (n: Nat): Nat :=\n  g {call}\n"),
+        &format!("def f (n: Nat): Nat :=\n  g {first}\n      {second}\n"),
     );
 }
