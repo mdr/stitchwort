@@ -33376,7 +33376,7 @@
     {
       "id": 3087,
       "title": "[Sonnet] Building test facts from proofs: a ∀ lambda doesn't build an all fact (List.allOfAll stays), (a != b) = True can't be built from a ≠ b (DecEq.trueOfNe stays), an x ∈ xs proof can't stand for xs.contains x = True, and (not b) = True won't take b = False (bool-as-proposition §6.6) (SW-3079 findings 5-7, SW-3068)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -33714,7 +33714,7 @@
     {
       "id": 3113,
       "title": "[Sonnet] Playground re-check is 7x native in the browser (35.6 s vs 5.2 s; cold check only 1.3x): add per-phase timings in the browser worker (replay, LiveProject::answers, tick count and scheduling) read through window.editor.stats in the existing browser test, find where the extra 30 s goes, and fix it if small (docs/reviews/SW-3071-profile.md option 1)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
