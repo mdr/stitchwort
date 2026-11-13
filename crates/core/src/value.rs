@@ -4100,9 +4100,9 @@ pub fn opens_by_tree(g: &Ev, value: &Value) -> bool {
 /// The level of the variable that call `value` is stuck on, for a note:
 /// `value` forced is a definition applied to all its arguments whose case
 /// tree, walked as [`same_stuck_trees`] walks it, stops at a `case` on a
-/// neutral value headed by a variable. `None` for anything else (a value
-/// that computes, a call stuck on another call or an opaque one, a bare
-/// variable). Error path only; it runs in the machine's budget.
+/// neutral value headed by a variable, or on a call that is itself stuck on
+/// one (`if beats m m then …` is stuck on `m`). `None` for anything else (a
+/// value that computes, a call stuck on an opaque one, a bare variable). Error path only; it runs in the machine's budget.
 pub fn stuck_on_variable(g: &Ev, value: &Value) -> Option<usize> {
     let value = force(g, value.clone()).ok()?;
     let Value::Neutral(Head::Def(id), spine) = &value else {
@@ -4129,6 +4129,11 @@ pub fn stuck_on_variable(g: &Ev, value: &Value) -> Option<usize> {
     let tree = Term::peel_lams_rc(body, def.arity);
     match walk_tree(g, tree, args, eta_held(g, *id)).ok()? {
         TreeEnd::Stuck(_, _, Value::Neutral(Head::Var(level, _), _)) => Some(level),
+        // An `if` or a `match` on a call (`if beats m m then …`) waits for
+        // whatever that call waits for.
+        TreeEnd::Stuck(_, _, scrutinee @ Value::Neutral(Head::Def(_), _)) => {
+            stuck_on_variable(g, &scrutinee)
+        }
         _ => None,
     }
 }

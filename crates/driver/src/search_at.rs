@@ -609,6 +609,12 @@ impl Checker<'_> {
 /// that failed. To change the ladder, change [`LADDER`] and [`Rung::texts`].
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Rung {
+    /// A hypothesis that is `False = True` (or `True = False`) rules the
+    /// goal out: `Void.exfalso (Bool.falseNotTrue h)`, which says why,
+    /// where `omega` and `cases` only happen to find it. First, since a
+    /// proof from a contradiction closes any goal, so the rungs after it
+    /// would add nothing.
+    Absurd,
     /// The goal holds by computation.
     Rfl,
     /// A hypothesis is exactly the goal.
@@ -625,7 +631,8 @@ enum Rung {
 }
 
 /// The rungs, in the order they are tried.
-const LADDER: [Rung; 6] = [
+const LADDER: [Rung; 7] = [
+    Rung::Absurd,
     Rung::Rfl,
     Rung::Hypothesis,
     Rung::Decision,
@@ -645,8 +652,14 @@ const LADDER_TIME: Duration = Duration::from_secs(2);
 impl Rung {
     /// What the rung writes in place of the `?`, as the file writes it;
     /// nothing when it doesn't apply to this goal.
-    fn texts(self, hypotheses: &[Hypothesis], by_decision: Option<&str>) -> Vec<String> {
+    fn texts(
+        self,
+        hypotheses: &[Hypothesis],
+        by_decision: Option<&str>,
+        absurd: &[String],
+    ) -> Vec<String> {
         match self {
+            Rung::Absurd => absurd.to_vec(),
             Rung::Rfl => vec!["rfl".to_string()],
             Rung::Hypothesis => hypotheses
                 .iter()
@@ -667,6 +680,33 @@ impl Rung {
     }
 }
 
+/// The direct proofs from hypotheses that are an equation of the two
+/// `Bool`s: what ruling a case out by `h: False = True` reads as. The
+/// library's names are written as the file can write them, so none when it
+/// can't name them all.
+fn absurd_proofs(elab: &stitchwort_elab::Elaborator, hypotheses: &[Hypothesis]) -> Vec<String> {
+    let name = |path: &str| elab.write_name(path);
+    let (Some(exfalso), Some(false_not_true), Some(true_not_false)) = (
+        name("Std.Void.exfalso"),
+        name("Std.Bool.falseNotTrue"),
+        name("Std.Bool.trueNotFalse"),
+    ) else {
+        return Vec::new();
+    };
+    hypotheses
+        .iter()
+        .filter(|h| is_name(&h.name))
+        .filter_map(|h| {
+            let lemma = match h.ty.trim() {
+                "False = True" => &false_not_true,
+                "True = False" => &true_not_false,
+                _ => return None,
+            };
+            Some(format!("{exfalso} ({lemma} {})", h.name))
+        })
+        .collect()
+}
+
 /// Whether `name` can be written as a proof as it is.
 fn is_name(name: &str) -> bool {
     name.chars()
@@ -685,12 +725,17 @@ enum Climb {
 /// Tries the [`LADDER`] at the checker's goal, each rung under its own
 /// time, the whole under [`LADDER_TIME`]. Each proof is checked as the full
 /// search's are: elaborated, and kernel-checked.
-fn climb(checker: &mut Checker, hypotheses: &[Hypothesis], by_decision: Option<&str>) -> Climb {
+fn climb(
+    checker: &mut Checker,
+    hypotheses: &[Hypothesis],
+    by_decision: Option<&str>,
+    absurd: &[String],
+) -> Climb {
     let mut failed = Vec::new();
     checker.per_check = RUNG_TIME;
     checker.deadline = checker.deadline.min(Instant::now() + LADDER_TIME);
     for rung in LADDER {
-        for text in rung.texts(hypotheses, by_decision) {
+        for text in rung.texts(hypotheses, by_decision, absurd) {
             if checker.out_of_time() {
                 return Climb::Open(failed);
             }
@@ -764,6 +809,7 @@ impl Session {
         goal.deadline = Some(started + options.time);
         let mut failed: Vec<String> = Vec::new();
         let mut ladder_checks = 0;
+        let absurd = absurd_proofs(&self.elab, &data.hypotheses);
         if options.simplest_first {
             let by_decision = self.elab.write_name("Std.byDecision");
             let on_checker: &mut Session = match checker.as_deref_mut() {
@@ -782,7 +828,12 @@ impl Session {
                 gave_up: Vec::new(),
                 recursive: None,
             };
-            let climbed = climb(&mut ladder, &data.hypotheses, by_decision.as_deref());
+            let climbed = climb(
+                &mut ladder,
+                &data.hypotheses,
+                by_decision.as_deref(),
+                &absurd,
+            );
             ladder_checks = ladder.checks;
             drop(ladder);
             debug_time("ladder", started);
@@ -899,7 +950,7 @@ impl Session {
         // lemma.
         debug_time("rewrites planned", started);
         let mut tactics = Vec::new();
-        for (_, text) in &closers {
+        for text in absurd.iter().chain(closers.iter().map(|(_, text)| text)) {
             if failed.contains(text) {
                 continue;
             }
@@ -1299,6 +1350,7 @@ fn simplest_report(
     let mut tactics = Vec::new();
     let mut results = Vec::new();
     let name = match rung {
+        Rung::Absurd => "absurd",
         Rung::Rfl => "rfl",
         Rung::Hypothesis => "hypothesis",
         Rung::Decision => "byDecision",
