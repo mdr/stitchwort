@@ -34481,12 +34481,12 @@
     {
       "id": 3172,
       "title": "[Opus] The elaborator's application checking takes ~17 KiB of stack per nesting level natively (check, check_inner, check_value, fallback_named, apply_args_once/postponing, framed, propagate); 2021 Day06.Proofs reaches 300 KiB at 18 levels, nearest to the playground's 320 KiB guard. Shrink frames / loop over spines, results unchanged (SW-3133 finding)",
-      "status": "backlog",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "editor-playground",
-      "body": "",
+      "body": "\n\n**Progress (lane, 13 Nov 2026, Opus):** done, in review on `lane/SW-3172`.\n- The check chain for an application now takes 5.3 KiB of stack per nesting level, down from 12.6 KiB, and unification about 3.5 KiB, down from 5.0. Cold arms, the plan for propagating the expected type, and the per-kind argument steps were moved out of line, and the first error is boxed. Order of effects is unchanged.\n- Peak stack measured with the probe (natively):\n  - 2021 Day06.Proofs: 325,376 → 180,520 B.\n  - 2024 Day13.Proofs: 296,000 → 292,064 B. Its deepest frames are the kernel's check_app, which is out of scope.\n  - 2024 Day22.Proofs: 217,216 → 160,984 B.\n- Instructions for `check --no-cache`: Day06 −0.6%, Day13 +0.09%, Day22 +0.15%.\n- New test: `nesting::nested_applications_under_the_playground_guard`, 40 levels under 320 KiB. 80 levels still run out.\n- Tests: elaboration nest|deep (17), library hash_stability::prelude and pinned_hashes (6), resources (26), elab lib unify/queue/check (80), and the selected callback/postpone/ctor-fields examples (7). All pass.\n",
       "created": "2026-11-13",
       "updated": "2026-11-13",
       "commits": []
