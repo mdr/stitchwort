@@ -11,9 +11,10 @@ rules that are easy to forget.
 The main session in `~/repos/mdr/stitchwort` (on `main`) orchestrates. It
 does not do significant work itself:
 
-- It picks lanes from the board (up to two build lanes at once, D3542; paper
+- It picks lanes from the board (up to three build lanes at once, D3548,
+  tuned to load: below; paper
   lanes, which put no load on the machine, run beside them and don't count
-  towards the two), writes each lane's
+  towards the three), writes each lane's
   brief, and starts a background agent for it in its own git worktree and
   branch, using the model that fits the work (below). Lanes use the agent
   types `sonnet-lane` and `opus-lane` (`.claude/agents/`), not
@@ -62,7 +63,7 @@ does not do significant work itself:
   clash heavily (two sweeps, two lanes rewriting the same files) run one
   after another. Slots that would sit idle get paper lanes (designs,
   reviews, research: no builds or tests; D3343). In lanes mode, every time
-  a lane, verifier or review finishes, it refills the slots (two build
+  a lane, verifier or review finishes, it refills the slots (three build
   lanes, DeepSeek runs counting as one each, plus paper lanes) from the
   board before replying, without waiting to be asked (Matt, 11 Nov 2026:
   "I had to prompt you to keep filling up work").
@@ -328,7 +329,7 @@ Matt. Every `-E` filter names a `binary(...)` or `package(...)`.
   roguelike namespace it edited is fine, D3517), the benchmark, or a
   workspace-wide build of test targets, and runs one test command at a
   time, prefixed `STITCHWORT_TEST_THREADS=2 NEXTEST_TEST_THREADS=2 nice -n 19`,
-  and at most two build lanes run at once (D3542, Matt, 13 Nov 2026: "it's good
+  and at most three build lanes run at once (D3542; D3548 raised two to three, Matt, 13 Nov 2026: "tune in-flight work to be filling but not overloading the machine": the orchestrator reads `uptime` before starting a lane and holds new lanes while the 5-minute load is above 20 on Speedwell's 10 cores) (D3542, Matt, 13 Nov 2026: "it's good
   for the lanes to have lighter CPU load ... targeted, intelligent tests,
   selecting individual test cases that might have been impacted by the change.
   And then we catch bigger regressions through other mechanisms"). A lane that thinks it needs one stops and asks. Briefs never ask for these
