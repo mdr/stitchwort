@@ -33615,7 +33615,7 @@
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "\nReport: docs/reviews/SW-3105-silent-read.md. Rec: keep explicit + quick fix; if implicit, only 'repair after failure' (form R). Fable, 10 min (est. 90).",
+      "body": "\nReport: docs/reviews/SW-3105-silent-read.md. Rec: keep explicit + quick fix; if implicit, only 'repair after failure' (form R). Fable, 10 min (est. 90).\nD3550 (Matt, 13 Nov 2026): yes: .read stays explicit for now; add the editor quick fix (SW-3109) and better hints (SW-3104, SW-3110); revisit the repair-after-failure form once D3549a is built (as a repair, SW-3087) and the deletion oracle (SW-3111) is clean.",
       "created": "2026-11-13",
       "updated": "2026-11-13",
       "commits": []
