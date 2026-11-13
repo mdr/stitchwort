@@ -21,8 +21,8 @@ pub use diagnostic::{
 };
 /// The token stream, for tools that edit source text at token spans.
 pub use lexer::{
-    Comment, Lexed, Tok, Token, Trivia, UNICODE_ALIASES, keywords, lex, lex_with_bars,
-    lex_with_trivia,
+    Comment, Lexed, Tok, Token, Trivia, UNICODE_ALIASES, keywords, lex, lex_recovering,
+    lex_with_bars, lex_with_trivia,
 };
 pub use negation::{
     argument_bang, argument_minus, argument_prefix, closes_operand, negative_numeral, opens_atom,

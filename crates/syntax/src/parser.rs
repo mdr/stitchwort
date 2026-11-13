@@ -16,7 +16,7 @@ use crate::ast::{
     Import, ImportItem, InductAlt, LocalDef, MatchKind, Mode, Module, Name, NamespaceDecl, NegForm,
     Pattern, RewriteRule, Row, SECTION, Scrutinee,
 };
-use crate::lexer::{Tok, Token, lex, lex_with_bars, lex_with_trivia};
+use crate::lexer::{Tok, Token, lex, lex_recovering, lex_with_trivia};
 use crate::negation::{
     argument_bang, argument_minus, argument_prefix, negative_numeral, opens_atom,
 };
@@ -80,20 +80,58 @@ pub fn parse_module_within(
 /// reported as using unknown names. A `def` or `theorem` whose header
 /// parsed and whose body didn't is kept instead, as its signature with
 /// `body_error` set and no equations. Returns the declarations that did
-/// parse and every error, in file order. A lexical error, or a first
-/// declaration not at the start of a line, stops everything: the module is
-/// empty.
+/// parse and every error, in file order. A lexical error is recovered from
+/// the same way: the declaration holding it (see [`lex_recovering`]) is
+/// left out, its names are in `failed`, and the rest of the file parses. A
+/// first declaration not at the start of a line stops everything: the
+/// module is empty.
 pub fn parse_module_recovering(
     file: FileId,
     text: &str,
     stack: usize,
 ) -> (Module, Vec<Diagnostic>) {
-    let (tokens, bars) = match lex_with_bars(file, text) {
-        Ok(lexed) => lexed,
-        Err(d) => return (Module::default(), vec![d]),
-    };
-    let (module, errors, _) = parse_tokens(file, text, stack, &tokens, &bars, false);
+    let recovered = lex_recovering(file, text);
+    let (mut module, mut errors, _) =
+        parse_tokens(file, text, stack, &recovered.tokens, &recovered.bars, false);
+    for failure in recovered.failures {
+        let error_at = failure.error.primary_span();
+        module
+            .failed
+            .extend(failed_names_in(file, text, &failure.range, error_at));
+        errors.push(failure.error);
+    }
+    errors.sort_by_key(|error| error.primary_span().map(|span| span.start));
     (module, errors)
+}
+
+/// The names of the declaration in `text[range]`, which has a lexical error,
+/// read from the part that lexes: the lines before the error's, or else the
+/// text before the error itself.
+fn failed_names_in(
+    file: FileId,
+    text: &str,
+    range: &std::ops::Range<usize>,
+    error_at: Option<Span>,
+) -> Vec<FailedName> {
+    let error_start = error_at.map_or(range.start, |span| span.start as usize);
+    let error_line = text[..error_start].rfind('\n').map_or(0, |n| n + 1);
+    let before_error_line = error_line.max(range.start);
+    for end in [before_error_line, error_start] {
+        if end <= range.start {
+            continue;
+        }
+        let piece = &text[range.start..end];
+        // The tokens' positions are in the piece, which starts the same place
+        // as in the file only if it's padded.
+        let padded = format!("{}{piece}", " ".repeat(range.start));
+        if let Ok(tokens) = lex(file, &padded) {
+            let names = failed_names_of(&tokens, error_at);
+            if !names.is_empty() {
+                return names;
+            }
+        }
+    }
+    Vec::new()
 }
 
 /// The lossless tree of a file ([`crate::tree`]), from the same parse as

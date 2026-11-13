@@ -305,6 +305,122 @@ pub fn lex_with_trivia(file: FileId, text: &str) -> Result<Lexed, Diagnostic> {
     lex_keeping(file, text, true)
 }
 
+/// A declaration that didn't lex, from [`lex_recovering`].
+#[derive(Clone, Debug)]
+pub struct LexFailure {
+    /// The lexical error, as [`lex`] reports it.
+    pub error: Diagnostic,
+    /// The bytes of the declaration (its attributes through to just before
+    /// the next declaration), which the tokens leave out.
+    pub range: std::ops::Range<usize>,
+}
+
+/// What [`lex_recovering`] read.
+#[derive(Clone, Debug)]
+pub struct Recovered {
+    /// The tokens of the parts that lexed, at their positions in `text`.
+    pub tokens: Vec<Token>,
+    /// The `--|` comments' spans, as [`lex_with_bars`] gives them.
+    pub bars: Vec<Span>,
+    /// One per declaration that has a lexical error, in file order.
+    pub failures: Vec<LexFailure>,
+}
+
+/// Whether a line starting with `line` can begin a declaration (or its
+/// attributes): it starts in column 0 with something other than a comment, or
+/// a bracket or `:=` that continues the line before.
+fn starts_declaration(line: &[u8]) -> bool {
+    match line.first() {
+        None | Some(b' ' | b'\t' | b'\r' | b'\n' | b',' | b')' | b']' | b'}') => false,
+        Some(b'-') => line.get(1) != Some(&b'-'),
+        Some(b':') => line.get(1) != Some(&b'='),
+        Some(_) => true,
+    }
+}
+
+/// [`lex_with_bars`] that survives lexical errors. A declaration with one is
+/// left out of the tokens and reported in `failures`, so the declarations
+/// around it still lex and the parser can recover from it as it does from a
+/// parse error. The declaration is the lines from the nearest line above the
+/// error that starts in column 0 (and the `@[…]` lines before that) to the next
+/// such line below it, less the comments just before that one. A file that
+/// lexes gives the tokens of [`lex_with_bars`] and no failures.
+pub fn lex_recovering(file: FileId, text: &str) -> Recovered {
+    let bytes = text.as_bytes();
+    let line_of = |at: usize| text[..at].rfind('\n').map_or(0, |newline| newline + 1);
+    let next_line = |at: usize| text[at..].find('\n').map_or(text.len(), |n| at + n + 1);
+    // `text` with the failed declarations' bytes replaced by spaces, so every
+    // other token keeps its position.
+    let mut current = text.to_string();
+    let mut failures: Vec<LexFailure> = Vec::new();
+    loop {
+        let error = match lex_keeping(file, &current, false) {
+            Ok(lexed) => {
+                failures.sort_by_key(|failure| failure.range.start);
+                return Recovered {
+                    tokens: lexed.tokens,
+                    bars: lexed.bars,
+                    failures,
+                };
+            }
+            Err(error) => error,
+        };
+        let (start, end) = error.primary_span().map_or((0, 0), |span| {
+            let start = (span.start as usize).min(text.len());
+            (start, (span.end as usize).clamp(start, text.len()))
+        });
+        // Back to the declaration's first line, and over the attributes above it.
+        let mut from = line_of(start);
+        while from > 0 && !starts_declaration(&bytes[from..]) {
+            from = line_of(from - 1);
+        }
+        while from > 0 {
+            let above = line_of(from - 1);
+            if !bytes[above..].starts_with(b"@[") {
+                break;
+            }
+            from = above;
+        }
+        // Forward to the next declaration's first line, less its comments.
+        let mut to = next_line(line_of(end));
+        while to < text.len() && !starts_declaration(&bytes[to..]) {
+            to = next_line(to);
+        }
+        while to > from {
+            let above = line_of(to - 1);
+            if above <= from || !bytes[above..].starts_with(b"--") {
+                break;
+            }
+            to = above;
+        }
+        let mut blanked = std::mem::take(&mut current).into_bytes();
+        let mut changed = false;
+        for byte in &mut blanked[from..to] {
+            if !matches!(*byte, b' ' | b'\n') {
+                *byte = b' ';
+                changed = true;
+            }
+        }
+        current = String::from_utf8(blanked).expect("spaces replace whole characters");
+        if !changed {
+            // The error is in text that is already blank, which can't
+            // happen; give up on the file rather than loop.
+            return Recovered {
+                tokens: Vec::new(),
+                bars: Vec::new(),
+                failures: vec![LexFailure {
+                    error,
+                    range: 0..text.len(),
+                }],
+            };
+        }
+        failures.push(LexFailure {
+            error,
+            range: from..to,
+        });
+    }
+}
+
 /// Lexes `text`, recording the trivia only if `keep_trivia` (otherwise
 /// `trivia` and `eof` are empty). Only the formatter needs it, and it takes
 /// more memory than the tokens, so checking doesn't record it.
@@ -1388,6 +1504,57 @@ mod tests {
         lex(file, text)
             .map(|ts| ts.into_iter().map(|t| t.tok).collect())
             .map_err(|d| d.code)
+    }
+
+    /// The declared names left after recovering, the names marked failed, and
+    /// the error messages' first lines' spans' starts.
+    fn recover(text: &str) -> (Vec<String>, Vec<String>, Vec<u32>) {
+        let mut sources = SourceMap::new();
+        let file = sources.add("test.sw", text);
+        let (module, errors) = crate::parse_module_recovering(file, text, crate::DEFAULT_STACK);
+        let kept = module
+            .decls
+            .iter()
+            .filter_map(|decl| match decl {
+                crate::ast::Decl::Signature { name, .. } => Some(name.text.clone()),
+                _ => None,
+            })
+            .collect();
+        let failed = module.failed.iter().map(|f| f.name.text.clone()).collect();
+        let at = errors
+            .iter()
+            .map(|e| e.primary_span().expect("a span").start)
+            .collect();
+        (kept, failed, at)
+    }
+
+    #[test]
+    fn recovers_from_an_unclosed_string_at_the_next_declaration() {
+        let text =
+            "def a : Nat := 1\n\ndef b : Str := \"oops\n  + 1\n\n-- about c\ndef c : Nat := 3\n";
+        let (kept, failed, at) = recover(text);
+        assert_eq!(kept, ["a", "c"]);
+        assert_eq!(failed, ["b"]);
+        assert_eq!(at, [text.find('"').unwrap() as u32]);
+    }
+
+    #[test]
+    fn recovers_from_each_lexical_error_and_keeps_attributes_with_their_declaration() {
+        let text = "def a : Nat := 1 # 2\n@[inline]\ndef b : Nat := 2\n@[inline]\ndef c : Nat := \t3\ndef d : Nat := 4\n";
+        let (kept, failed, at) = recover(text);
+        assert_eq!(kept, ["b", "d"]);
+        assert_eq!(failed, ["a", "c"]);
+        assert_eq!(at.len(), 2);
+    }
+
+    #[test]
+    fn a_file_that_lexes_has_no_failures() {
+        let mut sources = SourceMap::new();
+        let text = "def a : Nat := 1\n";
+        let file = sources.add("test.sw", text);
+        let recovered = lex_recovering(file, text);
+        assert!(recovered.failures.is_empty());
+        assert_eq!(recovered.tokens.len(), lex(file, text).unwrap().len());
     }
 
     #[test]
