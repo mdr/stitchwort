@@ -1,5 +1,5 @@
 {
-  "next": 3143,
+  "next": 3145,
   "tickets": [
     {
       "id": 47,
@@ -33973,7 +33973,7 @@
     },
     {
       "id": 3133,
-      "title": "[Opus] Printer and type checker frames: go_node (~700 lines, inline(always) into the recursive go) gives the printer the worst V8-to-guard ratio; 2024 Day13.Proofs needs ~500 KiB. Split go_node out of line and shrink checker frames, then re-measure the safe guard with the stack probe (STITCHWORT_STACK_PROBE) (SW-3128 finding 2)",
+      "title": "[Opus] 2024 Day13.Proofs needs ~770 KiB natively in the elaborator's lift::go_replace and unify::rename_in (SW-3132 finding 1), plus the printer's go_node (~700 lines inline(always) into the recursive go, worst V8-to-guard ratio, SW-3128 finding 2); make those recursions loop or shrink their frames so Day13 fits the playground's 320 KiB guard; measure with the stack probe (STITCHWORT_STACK_PROBE)",
       "status": "backlog",
       "agent": "",
       "where": "",
@@ -34096,6 +34096,32 @@
       "where": "",
       "labels": [],
       "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-13",
+      "updated": "2026-11-13",
+      "commits": []
+    },
+    {
+      "id": 3143,
+      "title": "[Opus] Stack guard coverage on recursion through force: the old SW-3132 path crashed a 2 MiB test thread with a real stack overflow instead of E-RESOURCE; audit other recursion routes through value::force (and natives) for guard checks (SW-3132 finding 2)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-13",
+      "updated": "2026-11-13",
+      "commits": []
+    },
+    {
+      "id": 3144,
+      "title": "[Opus] interfaces::scanned fully normalises an argument's type just to look for unknowns (unsolved_in, find_ready_dictionaries): Nat.iterate 2000 … costs ~1.6 s in 2024 Day22 part1Correct natively and likely much of its playground re-check; look without computing where the answer is provably the same (SW-3132 finding 3; profile first)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
       "body": "",
       "created": "2026-11-13",
       "updated": "2026-11-13",
