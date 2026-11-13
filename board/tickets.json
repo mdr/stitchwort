@@ -33181,7 +33181,7 @@
     {
       "id": 3072,
       "title": "[DeepSeek] Playground: reloading a project (add_project) makes a fresh LayeredStore, losing its entries; key the store by project root so a reload keeps them (SW-2919 finding 5)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
