@@ -682,10 +682,11 @@ theorem Graph.relaxCovers [auto ord: Ord s] (costs: Graph.Costs s t) (cost: Nat)
             Witness found (Both final lower)
 
 --| `Less` then anything is never a first comparison of `Greater`.
-theorem Graph.notGreaterOfThen: ∀ (first second: Ordering) => Ordering.andThen first second = Less → first ≠ Greater
-  | Less, second, less, same => Ordering.lessNotGreater same
-  | Equal, second, less, same => Ordering.equalNotGreater same
-  | Greater, second, less, same => Ordering.greaterNotLess less
+theorem Graph.notGreaterOfThen (first second: Ordering) (less: Ordering.andThen first second = Less): first ≠ Greater :=
+  match first with
+    | Less => same => Ordering.lessNotGreater same
+    | Equal => same => Ordering.equalNotGreater same
+    | Greater => same => Ordering.greaterNotLess less
 
 --| The least pair of a queue costs no more than any pair in it.
 theorem Graph.minLeast [auto ord: Ord s] (queue: Set (Nat, s)) (cost: Nat) (state: s) (found: queue.min = Some (cost, state)) (other: Nat)

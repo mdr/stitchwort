@@ -412,13 +412,13 @@ theorem List.appendNil (xs: List a): List.append xs [] = xs := match xs with
 
 --| Appending to a list that isn't empty, or appending one that isn't, gives
 --| a list that isn't empty.
-theorem List.appendNotNilLeft: ∀ (xs ys: List a) => xs ≠ [] → List.append xs ys ≠ []
-  | [], ys, some, empty => some rfl
-  | [x, ..rest], ys, some, empty => List.consNotNil x (List.append rest ys) empty
+theorem List.appendNotNilLeft (xs ys: List a) (some: xs ≠ []): List.append xs ys ≠ [] := match xs with
+  | [] => empty => some rfl
+  | [x, ..rest] => empty => List.consNotNil x (List.append rest ys) empty
 
-theorem List.appendNotNilRight: ∀ (xs ys: List a) => ys ≠ [] → List.append xs ys ≠ []
-  | [], ys, some, empty => some empty
-  | [x, ..rest], ys, some, empty => List.consNotNil x (List.append rest ys) empty
+theorem List.appendNotNilRight (xs ys: List a) (some: ys ≠ []): List.append xs ys ≠ [] := match xs with
+  | [] => empty => some empty
+  | [x, ..rest] => empty => List.consNotNil x (List.append rest ys) empty
 
 --| Appending is associative: `(xs ++ ys) ++ zs = xs ++ (ys ++ zs)`.
 theorem List.appendAssoc (xs ys zs: List a): List.append (List.append xs ys) zs = List.append xs (List.append ys zs) :=
@@ -1365,10 +1365,12 @@ theorem List.beqConsNil [auto eq: DecEq a] (x: a) (xs: List a): ([x, ..xs] == ([
 
 --| A list starting with x isn't among lists that all start with y, a
 --| different element.
-theorem List.notMemMapCons (x: a) (y: a) (ne: x ≠ y) (xs: List a): ∀ (ys: List (List a)) => [x, ..xs] ∉ List.map ys (Cons y)
-  | [], m => m
-  | [z, ..zs], Inl p => ne (Eq.sym (Eq.cong (.headOr x) p))
-  | [z, ..zs], Inr q => List.notMemMapCons x y ne xs zs q
+theorem List.notMemMapCons (x: a) (y: a) (ne: x ≠ y) (xs: List a) (ys: List (List a)): [x, ..xs] ∉ List.map ys (Cons y) :=
+  match ys with
+    | [] => m => m
+    | [z, ..zs] => match
+      | Inl p => ne (Eq.sym (Eq.cong (.headOr x) p))
+      | Inr q => List.notMemMapCons x y ne xs zs q
 
 --| Lists that all start with x and lists that all start with a different y
 --| have none in common.

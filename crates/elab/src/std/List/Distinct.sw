@@ -233,15 +233,15 @@ def List.isDistinctFrom [auto ord: Ord a] (seen: Set a): (xs: List a) → Bool
 def List.isDistinct [auto ord: Ord a] (xs: List a): Bool := List.isDistinctFrom Set.empty xs
 
 --| What has been seen is not ahead in a list that passes.
-theorem List.isDistinctSeenNotAhead [auto ord: Ord a] (seen: Set a) (x: a) (isSeen: Set.contains seen x = True):
-    ∀ (xs: List a) => List.isDistinctFrom seen xs = True → ¬(List.Mem x xs)
-  | [], ok, member => member
-  | [next, ..rest], ok, member =>
-    match c: Set.contains seen next with
-      | False =>
-        match member with
-          | Inl same => Bool.falseNotTrue (Eq.trans (Eq.sym c) (rewrite same in isSeen))
-          | Inr later => List.isDistinctSeenNotAhead (Set.insert seen next) x (Set.containsInsertMono seen next x isSeen) rest ok later
+theorem List.isDistinctSeenNotAhead [auto ord: Ord a] (seen: Set a) (x: a) (isSeen: Set.contains seen x = True)
+    (xs: List a) (ok: List.isDistinctFrom seen xs = True): ¬(List.Mem x xs) := match xs with
+      | [] => member => member
+      | [next, ..rest] => member =>
+        match c: Set.contains seen next with
+          | False =>
+            match member with
+              | Inl same => Bool.falseNotTrue (Eq.trans (Eq.sym c) (rewrite same in isSeen))
+              | Inr later => List.isDistinctSeenNotAhead (Set.insert seen next) x (Set.containsInsertMono seen next x isSeen) rest ok later
 
 --| Passing means no repeats.
 theorem List.isDistinctFromSound [auto ord: Ord a] (seen: Set a) (xs: List a) (ok: List.isDistinctFrom seen xs = True): List.Distinct xs :=

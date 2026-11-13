@@ -225,11 +225,10 @@ theorem Effect.foldCompDone [op: Type] [res: op → Type] [a r: Type]
     foldComp done call (Done x: Comp op res a) = done x := rfl
 
 --| Running a sequence that performs nothing runs its first part, then the rest.
-theorem Effect.runPureBind [a b: Type]:
-    ∀ (computation: Comp NoOp NoRes a) (next: a → Comp NoOp NoRes b) =>
-    runPure (bind computation next) = runPure (next (runPure computation))
-  | Done x, next => rfl
-  | Call () rest, next
+theorem Effect.runPureBind [a b: Type] (computation: Comp NoOp NoRes a) (next: a → Comp NoOp NoRes b):
+    runPure (bind computation next) = runPure (next (runPure computation)) := match computation with
+      | Done x => rfl
+      | Call () rest
 
 -- Partial computations (docs/proposals/partial.md)
 

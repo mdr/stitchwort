@@ -58,9 +58,9 @@ theorem Exists.map [p: a → Prop] [q: a → Prop] (f: ∀ (x: a) => p x → q x
     | Witness x proof => Witness x (f x proof)
 
 --| When neither proposition holds, `p || q` doesn't.
-theorem Or.neither: ∀ [p q: Prop] => ¬p → ¬q → ¬(p ∨ q)
-  | r, s, Inl a => r a
-  | r, s, Inr b => s b
+theorem Or.neither [p: Prop] [q: Prop] (r: ¬p) (s: ¬q): ¬(p ∨ q) := match
+  | Inl a => r a
+  | Inr b => s b
 
 --| From a proof of `Void`, anything follows. `()` means "there's no value to
 --| match here", so no right-hand side is needed.

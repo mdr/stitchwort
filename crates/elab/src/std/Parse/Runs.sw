@@ -626,17 +626,18 @@ def Parse.WordsAbsent (input: List Char): (choices: List (Text, a)) → Prop
 
 --| The search `pick` makes, past the words of `before` that don't start the input,
 --| finds `found`, whose word does.
-theorem Parse.runsFindWord (found: (Text, a)) (later: List (Text, a)) (rest: List Char): ∀ (before: List (Text, a)) =>
-    Parse.WordsAbsent (found.fst.toList ++ rest) before →
-    Parse.Runs (() => (before ++ [found, ..later]).find (choice => Parse.literal choice.fst.toList)) found.fst.toList rest (Some found)
-  | [], absent, state, starts, honest =>
-    Parse.runsBind (() => Parse.literal found.fst.toList)
-      (hit => if hit then Some found else later.find (choice => Parse.literal choice.fst.toList))
-      found.fst.toList [] found.fst.toList rest True (Some found) (Eq.sym (List.appendNil found.fst.toList))
-      (Parse.runsLiteral found.fst.toList rest) (Parse.runsPure (Some found) rest) state starts honest
-  | [choice, ..more], Both gone absent, state, starts, honest =>
-    match Parse.runsFindWord found later rest more absent state starts honest with
-      | Witness m (Both ran others) => Witness m (Both (Eq.trans (rewrite starts, gone in rfl) ran) others)
+theorem Parse.runsFindWord (found: (Text, a)) (later: List (Text, a)) (rest: List Char) (before: List (Text, a))
+    (absent: Parse.WordsAbsent (found.fst.toList ++ rest) before):
+    Parse.Runs (() => (before ++ [found, ..later]).find (choice => Parse.literal choice.fst.toList)) found.fst.toList rest (Some found) :=
+  match before, absent with
+    | [], absent => state starts honest =>
+      Parse.runsBind (() => Parse.literal found.fst.toList)
+        (hit => if hit then Some found else later.find (choice => Parse.literal choice.fst.toList))
+        found.fst.toList [] found.fst.toList rest True (Some found) (Eq.sym (List.appendNil found.fst.toList))
+        (Parse.runsLiteral found.fst.toList rest) (Parse.runsPure (Some found) rest) state starts honest
+    | [choice, ..more], Both gone absent => state starts honest =>
+      match Parse.runsFindWord found later rest more absent state starts honest with
+        | Witness m (Both ran others) => Witness m (Both (Eq.trans (rewrite starts, gone in rfl) ran) others)
 
 --| `pick` where `word` is the first of the choices to come next: `before` are the
 --| choices tried first, none of which starts the input (words are tried in
@@ -750,22 +751,24 @@ theorem Parse.runsNote (problem: Parse.Problem) (rest: List Char): Parse.Runs ((
         (rewrite Parse.noteAt state problem in rfl))))
 
 --| `noteWords` reads nothing.
-theorem Parse.runsNoteWords (rest: List Char): ∀ (words: List (Text, a)) => Parse.Runs (() => Parse.noteWords words) [] rest ()
-  | [], state, starts, honest => Parse.runsPure () rest state starts honest
-  | [choice, ..more], state, starts, honest =>
-    Parse.runsNote (Literals ([choice, ..more].map (choice => choice.fst))) rest state starts honest
+theorem Parse.runsNoteWords (rest: List Char) (words: List (Text, a)): Parse.Runs (() => Parse.noteWords words) [] rest () :=
+  match words with
+    | [] => state starts honest => Parse.runsPure () rest state starts honest
+    | [choice, ..more] => state starts honest =>
+      Parse.runsNote (Literals ([choice, ..more].map (choice => choice.fst))) rest state starts honest
 
 --| `stop` declines.
 theorem Parse.declinesStop (input: List Char): Parse.Declines (() => (Empty.absurd Parse.stop(): a)) input :=
   state starts honest => rfl
 
 --| The search `pick` makes, when none of the words comes next, finds none.
-theorem Parse.runsFindNone (rest: List Char): ∀ (choices: List (Text, a)) => Parse.WordsAbsent rest choices →
-    Parse.Runs (() => choices.find (choice => Parse.literal choice.fst.toList)) [] rest None
-  | [], absent, state, starts, honest => Parse.runsPure None rest state starts honest
-  | [choice, ..more], Both gone absent, state, starts, honest =>
-    match Parse.runsFindNone rest more absent state starts honest with
-      | Witness m (Both ran others) => Witness m (Both (Eq.trans (rewrite starts, gone in rfl) ran) others)
+theorem Parse.runsFindNone (rest: List Char) (choices: List (Text, a)) (absent: Parse.WordsAbsent rest choices):
+    Parse.Runs (() => choices.find (choice => Parse.literal choice.fst.toList)) [] rest None :=
+  match choices, absent with
+    | [], absent => state starts honest => Parse.runsPure None rest state starts honest
+    | [choice, ..more], Both gone absent => state starts honest =>
+      match Parse.runsFindNone rest more absent state starts honest with
+        | Witness m (Both ran others) => Witness m (Both (Eq.trans (rewrite starts, gone in rfl) ran) others)
 
 --| `pick` declines where none of its words comes next.
 theorem Parse.declinesPick (choices: List (Text, a)) (input: List Char) (absent: Parse.WordsAbsent input choices):
@@ -786,15 +789,15 @@ theorem Parse.runsRecursiveFuel (body: (() → {Parse} a) → {Parse} a) (good: 
     (step: ∀ (self: () → {Parse} a) (read rest: List Char) (v: a) => good read rest v →
       (∀ (nestedRead nestedRest: List Char) (w: a) => good nestedRead nestedRest w → nestedRead.length < read.length →
         Parse.Runs self nestedRead nestedRest w) →
-      Parse.Runs (() => body self) read rest v):
-    ∀ (fuel: Nat) (read rest: List Char) (v: a) => good read rest v → read.length < fuel →
-    Parse.Runs (() => Parse.recursiveFuel fuel body) read rest v
-  | Zero, read, rest, v, holds, small, state, starts, honest => Void.exfalso (omega [small])
-  | Succ more, read, rest, v, holds, small, state, starts, honest =>
-    step (() => Parse.recursiveFuel more body) read rest v holds
-      (nestedRead nestedRest w nestedHolds shorter =>
-        Parse.runsRecursiveFuel body good step more nestedRead nestedRest w nestedHolds (omega [small, shorter]))
-      state starts honest
+      Parse.Runs (() => body self) read rest v)
+    (fuel: Nat) (read rest: List Char) (v: a) (holds: good read rest v) (small: read.length < fuel):
+    Parse.Runs (() => Parse.recursiveFuel fuel body) read rest v := match fuel with
+      | Zero => state starts honest => Void.exfalso (omega [small])
+      | Succ more => state starts honest =>
+        step (() => Parse.recursiveFuel more body) read rest v holds
+          (nestedRead nestedRest w nestedHolds shorter =>
+            Parse.runsRecursiveFuel body good step more nestedRead nestedRest w nestedHolds (omega [small, shorter]))
+          state starts honest
 
 --| `recursive body`, where `good` says which reads of `body`'s nested parser are
 --| expected: if `body self` reads whatever is `good`, provided `self` reads
@@ -1114,47 +1117,49 @@ def Parse.RepeatRuns (p: () → {Parse} a): (extra: Nat) → (steps: List (List 
 
 --| `repeatOptional extra p found`, after `found` (newest first): it reads the
 --| rounds and gives them after `found`.
-theorem Parse.runsRepeatOptional (p: () → {Parse} a) (rest: List Char): ∀ (extra: Nat) (steps: List (List Char, a)) (found: List a) =>
-    Parse.RepeatRuns p extra steps rest →
-    Parse.Runs (() => Parse.repeatOptional extra p found) (Parse.joinReads steps) rest (found.reverse ++ Parse.stepValues steps)
-  | Zero, [], found, runs, state, starts, honest =>
-    rewrite List.appendNil found.reverse in (Parse.runsPure found.reverse rest) state starts honest
-  | Zero, [step, ..steps], found, runs, state, starts, honest => cases
-  | Succ more, [], found, declines, state, starts, honest =>
-    rewrite List.appendNil found.reverse in
-      (Parse.runsBind (() => Parse.optional p)
-        (found2 => Parse.onFound found2 (value => Parse.repeatOptional more p [value, ..found]) (() => found.reverse))
-        [] [] [] rest None found.reverse rfl (Parse.declinesRuns p rest declines) (Parse.runsPure found.reverse rest)) state starts honest
-  | Succ more, [(read, v), ..steps], found, Both runsP later, state, starts, honest =>
-    let value: found.reverse ++ [v, ..Parse.stepValues steps] = [v, ..found].reverse ++ Parse.stepValues steps :=
-      rewrite List.reverseCons v found, List.appendAssoc found.reverse [v] (Parse.stepValues steps) in rfl
-    rewrite value in
-      (Parse.runsBind (() => Parse.optional p)
-        (found2 => Parse.onFound found2 (value2 => Parse.repeatOptional more p [value2, ..found]) (() => found.reverse))
-        read (Parse.joinReads steps) (read ++ Parse.joinReads steps) rest (Some v) ([v, ..found].reverse ++ Parse.stepValues steps) rfl
-        (Parse.runsOptional p read (Parse.joinReads steps ++ rest) v runsP)
-        (Parse.runsRepeatOptional p rest more steps [v, ..found] later)) state starts honest
+theorem Parse.runsRepeatOptional (p: () → {Parse} a) (rest: List Char) (extra: Nat) (steps: List (List Char, a)) (found: List a)
+    (runs: Parse.RepeatRuns p extra steps rest):
+    Parse.Runs (() => Parse.repeatOptional extra p found) (Parse.joinReads steps) rest (found.reverse ++ Parse.stepValues steps) :=
+  match extra, steps, runs with
+    | Zero, [], runs => state starts honest =>
+      rewrite List.appendNil found.reverse in (Parse.runsPure found.reverse rest) state starts honest
+    | Zero, [step, ..steps], runs => state starts honest => cases
+    | Succ more, [], declines => state starts honest =>
+      rewrite List.appendNil found.reverse in
+        (Parse.runsBind (() => Parse.optional p)
+          (found2 => Parse.onFound found2 (value => Parse.repeatOptional more p [value, ..found]) (() => found.reverse))
+          [] [] [] rest None found.reverse rfl (Parse.declinesRuns p rest declines) (Parse.runsPure found.reverse rest)) state starts honest
+    | Succ more, [(read, v), ..steps], Both runsP later => state starts honest =>
+      let value: found.reverse ++ [v, ..Parse.stepValues steps] = [v, ..found].reverse ++ Parse.stepValues steps :=
+        rewrite List.reverseCons v found, List.appendAssoc found.reverse [v] (Parse.stepValues steps) in rfl
+      rewrite value in
+        (Parse.runsBind (() => Parse.optional p)
+          (found2 => Parse.onFound found2 (value2 => Parse.repeatOptional more p [value2, ..found]) (() => found.reverse))
+          read (Parse.joinReads steps) (read ++ Parse.joinReads steps) rest (Some v) ([v, ..found].reverse ++ Parse.stepValues steps) rfl
+          (Parse.runsOptional p read (Parse.joinReads steps ++ rest) v runsP)
+          (Parse.runsRepeatOptional p rest more steps [v, ..found] later)) state starts honest
 
 --| `repeatFrom count extra p found` on `count` required rounds and then the
 --| optional ones of [`Parse.RepeatRuns`].
-theorem Parse.runsRepeatFrom (p: () → {Parse} a) (extra: Nat) (rest: List Char) (optional: List (List Char, a)) (optionalRuns: Parse.RepeatRuns p extra optional rest):
-    ∀ (count: Nat) (required: List (List Char, a)) (found: List a) => required.length = count →
-    Parse.StepsRun p required (Parse.joinReads optional ++ rest) →
+theorem Parse.runsRepeatFrom (p: () → {Parse} a) (extra: Nat) (rest: List Char) (optional: List (List Char, a)) (optionalRuns: Parse.RepeatRuns p extra optional rest)
+    (count: Nat) (required: List (List Char, a)) (found: List a) (counted: required.length = count)
+    (runs: Parse.StepsRun p required (Parse.joinReads optional ++ rest)):
     Parse.Runs (() => Parse.repeatFrom count extra p found) (Parse.joinReads required ++ Parse.joinReads optional) rest
-      (found.reverse ++ (Parse.stepValues required ++ Parse.stepValues optional))
-  | Zero, [], found, counted, runs, state, starts, honest =>
-    Parse.runsRepeatOptional p rest extra optional found optionalRuns state starts honest
-  | Zero, [step, ..steps], found, counted, runs, state, starts, honest => Void.exfalso (omega [counted])
-  | Succ more, [], found, counted, runs, state, starts, honest => Void.exfalso (omega [counted])
-  | Succ more, [(read, v), ..steps], found, counted, Both runsP later, state, starts, honest =>
-    let value: found.reverse ++ [v, ..(Parse.stepValues steps ++ Parse.stepValues optional)] = [v, ..found].reverse ++ (Parse.stepValues steps ++ Parse.stepValues optional) :=
-      rewrite List.reverseCons v found, List.appendAssoc found.reverse [v] (Parse.stepValues steps ++ Parse.stepValues optional) in rfl
-    rewrite value in
-      (Parse.runsBind p (value2 => Parse.repeatFrom more extra p [value2, ..found])
-        read (Parse.joinReads steps ++ Parse.joinReads optional) ((read ++ Parse.joinReads steps) ++ Parse.joinReads optional) rest v
-        ([v, ..found].reverse ++ (Parse.stepValues steps ++ Parse.stepValues optional)) (List.appendAssoc read (Parse.joinReads steps) (Parse.joinReads optional))
-        (rewrite List.appendAssoc (Parse.joinReads steps) (Parse.joinReads optional) rest in runsP)
-        (Parse.runsRepeatFrom p extra rest optional optionalRuns more steps [v, ..found] (omega [counted]) later)) state starts honest
+      (found.reverse ++ (Parse.stepValues required ++ Parse.stepValues optional)) :=
+  match count, required, runs with
+    | Zero, [], runs => state starts honest =>
+      Parse.runsRepeatOptional p rest extra optional found optionalRuns state starts honest
+    | Zero, [step, ..steps], runs => state starts honest => Void.exfalso (omega [counted])
+    | Succ more, [], runs => state starts honest => Void.exfalso (omega [counted])
+    | Succ more, [(read, v), ..steps], Both runsP later => state starts honest =>
+      let value: found.reverse ++ [v, ..(Parse.stepValues steps ++ Parse.stepValues optional)] = [v, ..found].reverse ++ (Parse.stepValues steps ++ Parse.stepValues optional) :=
+        rewrite List.reverseCons v found, List.appendAssoc found.reverse [v] (Parse.stepValues steps ++ Parse.stepValues optional) in rfl
+      rewrite value in
+        (Parse.runsBind p (value2 => Parse.repeatFrom more extra p [value2, ..found])
+          read (Parse.joinReads steps ++ Parse.joinReads optional) ((read ++ Parse.joinReads steps) ++ Parse.joinReads optional) rest v
+          ([v, ..found].reverse ++ (Parse.stepValues steps ++ Parse.stepValues optional)) (List.appendAssoc read (Parse.joinReads steps) (Parse.joinReads optional))
+          (rewrite List.appendAssoc (Parse.joinReads steps) (Parse.joinReads optional) rest in runsP)
+          (Parse.runsRepeatFrom p extra rest optional optionalRuns more steps [v, ..found] (omega [counted]) later)) state starts honest
 
 --| `repeat atLeast atMost p` on `atLeast` rounds that succeed ([`Parse.StepsRun`])
 --| and then up to `atMost - atLeast` more ([`Parse.RepeatRuns`]): it reads them
@@ -1946,14 +1951,14 @@ def Parse.CannotStart (canStart: Char → Bool) (input: List Char): Prop :=
 
 --| Only line breaks (`\n`, `\r`) can't start what `canStart` allows, if it
 --| allows neither.
-theorem Parse.cannotStartAtBreaks (canStart: Char → Bool) (lf: canStart '\n' = False) (cr: canStart '\r' = False):
-    ∀ (input: List Char) => Parse.OnlyBreaks input → Parse.CannotStart canStart input
-  | [], only, char, more, found => Void.exfalso (List.consNotNil char more (Eq.sym found))
-  | [first, ..others], only, char, more, found =>
-    rewrite <- List.consInjectiveHead _ _ _ _ found in
-      match Parse.lineBreakChar first (Bool.andLeft only) with
-        | Inl same => rewrite same in lf
-        | Inr same => rewrite same in cr
+theorem Parse.cannotStartAtBreaks (canStart: Char → Bool) (lf: canStart '\n' = False) (cr: canStart '\r' = False)
+    (input: List Char) (only: Parse.OnlyBreaks input): Parse.CannotStart canStart input := match input, only with
+      | [], only => char more found => Void.exfalso (List.consNotNil char more (Eq.sym found))
+      | [first, ..others], only => char more found =>
+        rewrite <- List.consInjectiveHead _ _ _ _ found in
+          match Parse.lineBreakChar first (Bool.andLeft only) with
+            | Inl same => rewrite same in lf
+            | Inr same => rewrite same in cr
 
 --| A line break, "\n" or "\r\n", is followed by nothing that starts with it.
 theorem Parse.cannotStartAfterBreak (canStart: Char → Bool) (lf: canStart '\n' = False) (cr: canStart '\r' = False)

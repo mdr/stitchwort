@@ -109,14 +109,14 @@ theorem Ord.leAntisymm [auto ord: Ord a] (x: a) (y: a) (h1: x <= y) (h2: y <= x)
 --| `c3` isn't `Greater` when `c1` and `c2` aren't, given what `Ord`'s laws
 --| say of three comparisons `x y`, `y z` and `x z`: `Less` is transitive,
 --| and an `Equal` makes two of them the same.
-theorem Ordering.notGreaterTrans: ∀ (c1 c2 c3: Ordering) =>
-    (c1 = Less → c2 = Less → c3 = Less) → (c1 = Equal → c3 = c2) → (c2 = Equal → c3 = c1) →
-    c1 ≠ Greater → c2 ≠ Greater → c3 ≠ Greater
-  | Less, Less, c3, t, e1, e2, n1, n2, g => Ordering.lessNotGreater (Eq.trans (Eq.sym (t rfl rfl)) g)
-  | Less, Equal, c3, t, e1, e2, n1, n2, g => Ordering.lessNotGreater (Eq.trans (Eq.sym (e2 rfl)) g)
-  | Less, Greater, c3, t, e1, e2, n1, n2, g => n2 rfl
-  | Equal, c2, c3, t, e1, e2, n1, n2, g => n2 (Eq.trans (Eq.sym (e1 rfl)) g)
-  | Greater, c2, c3, t, e1, e2, n1, n2, g => n1 rfl
+theorem Ordering.notGreaterTrans (c1 c2 c3: Ordering) (t: c1 = Less → c2 = Less → c3 = Less)
+    (e1: c1 = Equal → c3 = c2) (e2: c2 = Equal → c3 = c1) (n1: c1 ≠ Greater) (n2: c2 ≠ Greater): c3 ≠ Greater :=
+  match c1, c2 with
+    | Less, Less => g => Ordering.lessNotGreater (Eq.trans (Eq.sym (t rfl rfl)) g)
+    | Less, Equal => g => Ordering.lessNotGreater (Eq.trans (Eq.sym (e2 rfl)) g)
+    | Less, Greater => g => n2 rfl
+    | Equal, c2 => g => n2 (Eq.trans (Eq.sym (e1 rfl)) g)
+    | Greater, c2 => g => n1 rfl
 
 --| `<=` and `<` are transitive, and `<` is `<=`, for any `Ord`.
 theorem Ord.leTrans [auto ord: Ord a] (x: a) (y: a) (z: a) (h1: x <= y) (h2: y <= z): x <= z :=

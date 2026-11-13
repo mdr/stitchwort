@@ -63,7 +63,8 @@ theorem Effect.foldCompBind [op: Type] [res: op → Type] [a b r: Type]
 -- continuation this way, where the handler's own definition has `runPure`
 -- (SW-1002, `Parse.labelWholeFrom`). Needs no extensionality: there are no
 -- operations to map.
-theorem Effect.translateNoOp [op: Type] [res: op → Type] [a: Type]:
-    ∀ (computation: Comp NoOp NoRes a) => translate (MkSigMap noInject noReply: SigMap NoOp NoRes op res) computation = Done (runPure computation)
-  | Done x => rfl
-  | Call () rest
+theorem Effect.translateNoOp [op: Type] [res: op → Type] [a: Type] (computation: Comp NoOp NoRes a):
+    translate (MkSigMap noInject noReply: SigMap NoOp NoRes op res) computation = Done (runPure computation) :=
+  match computation with
+    | Done x => rfl
+    | Call () rest
