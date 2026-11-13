@@ -1,5 +1,5 @@
 {
-  "next": 3126,
+  "next": 3128,
   "tickets": [
     {
       "id": 47,
@@ -27996,12 +27996,12 @@
     {
       "id": 2688,
       "title": "Theorem binders hand work after the sweep: 44 conclusion-column theorems (¬/≠), 2 absurd arms, 4 std name clashes, 108 ∀-after-premise left by design (review)",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "From SW-2655 (10 Nov 2026). After SW-2656.\nD3551 (Matt, 13 Nov 2026): yes, resume theorem binders alongside Bool as proposition: SW-2691 + SW-2689 (DeepSeek), SW-2688 (Sonnet), SW-2657 (Sonnet, ~1 day), SW-2658 last.\nLane notes (13 Nov 2026, lane/SW-2688): rerun of `sweep theorem-binders --plan` converted nothing new. By hand: std 25 theorems (conclusion columns, 4 name clashes via renamed premises, 2 absurd arms, 5 mkExt via `let ext := J ...; ext q`), AoC 23, rogue 1: statements held (trial-edits proofs-only clean). Left: the ∀-after-premise ones (55 std, 54 aoc, 1 rogue). Repinned Float.decEq, Text.decEq, Text.split; prelude snapshot regenerated.\n",
+      "body": "From SW-2655 (10 Nov 2026). After SW-2656.\nD3551 (Matt, 13 Nov 2026): yes, resume theorem binders alongside Bool as proposition: SW-2691 + SW-2689 (DeepSeek), SW-2688 (Sonnet), SW-2657 (Sonnet, ~1 day), SW-2658 last.\nLane notes (13 Nov 2026, lane/SW-2688): rerun of `sweep theorem-binders --plan` converted nothing new. By hand: std 25 theorems (conclusion columns, 4 name clashes via renamed premises, 2 absurd arms, 5 mkExt via `let ext := J ...; ext q`), AoC 23, rogue 1: statements held (trial-edits proofs-only clean). Left: the ∀-after-premise ones (55 std, 54 aoc, 1 rogue). Repinned Float.decEq, Text.decEq, Text.split; prelude snapshot regenerated.\nModel result: Sonnet, worked (one merge conflict with SW-3121 in Parse/Runs.sw, resolved by the lane), 35 min + 5 (est. 90). Statements: trial-edits --proofs-only (std 414, AoC) plus mkExt checked by the orchestrator. Left by design: ∀ after a premise (55 std, 54 AoC, 1 rogue).",
       "created": "2026-11-10",
       "updated": "2026-11-13",
       "commits": []
@@ -33875,6 +33875,32 @@
       "where": "",
       "labels": [],
       "epic": "diagnostics",
+      "body": "",
+      "created": "2026-11-13",
+      "updated": "2026-11-13",
+      "commits": []
+    },
+    {
+      "id": 3126,
+      "title": "[Sonnet] trial-edits for lanes: a per-file/namespace mode (it always checks the whole project: 85 s cached on AoC), --std-before as the documented way to compare std edits (--std-dir compares against the embedded library, vacuous after a rebuild), and taking pins with the baseline so a Float/Text edit doesn't stop the original library loading (SW-2688 findings 2-4)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
+      "body": "",
+      "created": "2026-11-13",
+      "updated": "2026-11-13",
+      "commits": []
+    },
+    {
+      "id": 3127,
+      "title": "[Sonnet] Sweep tool theorem-binders: handle the shapes SW-2688 did by hand: conclusion columns (arm lambda), a premise named like a type variable (rename), body-less () arms inside a match, mkExt (let then apply) (SW-2688 finding 1)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-automation",
       "body": "",
       "created": "2026-11-13",
       "updated": "2026-11-13",
