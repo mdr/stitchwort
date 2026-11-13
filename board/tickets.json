@@ -34143,12 +34143,12 @@
     {
       "id": 3146,
       "title": "[DeepSeek] SW-3132 review tests (docs/reviews/SW-3132-review.md L2, L3): evaluator test for the native pre-forcing stopping rule and other argument positions (mul, leq, divFuel; call in argument 1; a stuck first argument stops it), asserting one machine; a zonk test for empty_row_done past depth 32",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "",
+      "body": "\nReviewed line by line (cell emptiness and epoch checked through Debug, as the cells' accessors are private). Model result: DeepSeek, worked, 15 min (est. 60).",
       "created": "2026-11-13",
       "updated": "2026-11-13",
       "commits": []
