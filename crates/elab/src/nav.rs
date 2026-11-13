@@ -68,7 +68,8 @@ pub(crate) struct Recorder {
     /// Those with an outermost `Not` written as `p → Void` (`not_unfolded`).
     pub(crate) expr_unfolded: Logged<Span, String>,
     /// For hover on the head of a call that left defaulted parameters out,
-    /// by the head's span: the defaults it used.
+    /// by the head's span: the defaults it used; and on a term a test fact
+    /// was built from, what it built (`build.rs`).
     pub(crate) call_defaults: Logged<Span, String>,
 }
 
@@ -563,6 +564,22 @@ impl Elaborator {
             nav.borrow_mut().generated -= 1;
         }
         out
+    }
+
+    /// What the term written at `at` builds (`build.rs`), for hover: kept
+    /// with the defaults a call there used.
+    pub(crate) fn note_build(&self, at: Span, what: String) {
+        if let Some(nav) = &self.present.nav {
+            let mut nav = nav.borrow_mut();
+            if nav.generated == 0 {
+                let text = match nav.call_defaults.get(&at) {
+                    Some(defaults) if !defaults.contains(&what) => format!("{defaults}\n\n{what}"),
+                    Some(defaults) => defaults.clone(),
+                    None => what,
+                };
+                nav.call_defaults.insert(at, text);
+            }
+        }
     }
 
     /// The defaults a call whose head is written at `at` used, for hover.

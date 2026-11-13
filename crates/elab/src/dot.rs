@@ -458,6 +458,7 @@ fn dot_on_reading(
     if field.text == "read"
         && let Some(head) = crate::reading::dot_read(cx, &rterm, &rty, field.span)?
     {
+        crate::build::note_read(cx, field.span);
         return Ok(Ok(crate::check::apply_args(cx, head, args)?));
     }
     let start = view_start(cx, &rterm, &rty)?;

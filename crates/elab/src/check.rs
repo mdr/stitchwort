@@ -4869,7 +4869,15 @@ pub(crate) fn check_value(
             } else {
                 error
             };
-            Err(shadow_note(error, shadowed.as_ref()))
+            let error = shadow_note(error, shadowed.as_ref());
+            if expr.section_name().is_some() {
+                return Err(error);
+            }
+            // A test fact whose reading is a function type, built from the
+            // lambda (`build.rs`).
+            crate::build::lambda(cx, *span, &expected, error, |cx, reading| {
+                check_inner(cx, expr, reading)
+            })
         }
         (Expr::Var(name), Value::Eq(_, a, b))
             if name.text == "rfl" && cx.lookup("rfl").is_none() =>
@@ -6102,18 +6110,24 @@ pub(crate) fn compare(cx: &mut Ctx, term: Term, found: &Value, expected: &Value)
     if let Some(term) = cx.along_match_equation(&term, found, expected)? {
         return Ok(term);
     }
+    // A test fact from a proof of its reading, where an earlier attempt at
+    // the body failed here (`build.rs`).
+    if let Some(term) = crate::build::build(cx, &term, found, expected)? {
+        return Ok(term);
+    }
+    let site = crate::build::site(cx, &term, found, expected)?;
     // The message shows the types as the failed comparison left them, as it
     // always has: repeat it, keeping what it solved before failing.
     cx.unify(found, expected)?;
     if let Some(d) = effects::partial_mismatch(cx, found, expected)? {
-        Err(d)
-    } else {
-        Err(crate::numbers::explain_default(
-            cx,
-            cx.mismatch(expected, found),
-            &[found],
-        ))
+        return Err(d);
     }
+    let d = crate::numbers::explain_default(cx, cx.mismatch(expected, found), &[found]);
+    Err(match site {
+        crate::build::Site::At(at) => d.with_build(at),
+        crate::build::Site::Note(note) => d.with_note(note),
+        crate::build::Site::Nothing => d,
+    })
 }
 
 /// Whether `found` and `expected` unify, once the dictionaries they need

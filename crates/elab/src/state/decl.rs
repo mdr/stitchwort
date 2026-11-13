@@ -203,6 +203,11 @@ pub(crate) struct Decl {
     /// case of the split, and an arm ruled out in one may not be in the
     /// next: offering each check's arms would delete them all.
     pub(crate) kept_by_a_check: RefCell<Vec<Span>>,
+    /// Where the body being checked may build a test fact from a proof of
+    /// its reading, what it built, and where it wrote `.read`
+    /// (`build.rs`). Kept across the attempts at one body on purpose: a
+    /// failed attempt is what adds a place.
+    pub(crate) builds: RefCell<crate::build::Builds>,
 }
 
 /// [`Decl::conjunction`].
@@ -279,6 +284,7 @@ impl Decl {
             coverage_only,
             keep_arms,
             kept_by_a_check,
+            builds,
         } = self;
         let fields = [
             ("sides_capture", sides_capture.borrow().is_empty()),
@@ -316,6 +322,7 @@ impl Decl {
             ("coverage_only", coverage_only.get() == 0),
             ("keep_arms", keep_arms.borrow().is_empty()),
             ("kept_by_a_check", kept_by_a_check.borrow().is_empty()),
+            ("builds", builds.borrow().is_empty()),
         ];
         fields
             .into_iter()

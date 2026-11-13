@@ -98,6 +98,7 @@ impl ReadingInfo {
 /// A reading found for a test, in the caller's context: one reading, or
 /// for a pattern or a constructor, the readings of what each reads as in
 /// turn while that is a test fact again (§6.4).
+#[derive(Clone)]
 pub(crate) struct Found {
     /// Each reading applied, outermost first.
     steps: Vec<Step>,
@@ -106,6 +107,7 @@ pub(crate) struct Found {
 }
 
 /// One reading applied to a test.
+#[derive(Clone)]
 struct Step {
     via: Via,
     /// What it reads as.
@@ -113,6 +115,7 @@ struct Step {
 }
 
 /// What a step reads a test fact through.
+#[derive(Clone)]
 enum Via {
     /// A `@[reading]` theorem.
     Reading {
@@ -1157,12 +1160,89 @@ impl Found {
 
     /// What gave the proposition, for messages: the reading's name, or
     /// for a decision, what it is.
-    fn last(&self, cx: &Ctx) -> String {
+    pub(crate) fn last(&self, cx: &Ctx) -> String {
         match &self.steps.last().expect("at least one reading").via {
             Via::Reading { theorem, .. } => format!("`{}`", cx.g().def(*theorem).name()),
             Via::Decision { .. } => "by its decision".to_string(),
         }
     }
+}
+
+/// What a test fact expected somewhere can be built from (D3549a,
+/// docs/proposals/bool-as-proposition-building.md §1): the fact's
+/// readings one layer at a time, while each reads as a test fact again,
+/// and for `e = False`, last, the plain `¬(e = True)`. Each is the
+/// proposition with the way back from a proof of it to the fact.
+pub(crate) struct Candidates {
+    /// The expected fact, as written, for messages.
+    pub fact: Value,
+    pub list: Vec<Found>,
+    /// Whether the last of `list` is the plain `¬(e = True)`.
+    pub plain: bool,
+}
+
+/// The [`Candidates`] for `expected`, where it is a test fact whose test's
+/// head isn't an unknown; `None` otherwise, or where nothing can be built.
+pub(crate) fn candidates(cx: &Ctx, expected: &Value) -> Result<Option<Candidates>> {
+    let fact = expected_as_written(cx, expected)?;
+    let Some((test, polarity)) = test_fact(cx, &fact)? else {
+        return Ok(None);
+    };
+    if matches!(
+        force(&cx.g(), test.clone())?,
+        Value::Neutral(Head::Meta(_), _)
+    ) {
+        return Ok(None);
+    }
+    let mut list: Vec<Found> = Vec::new();
+    let (mut inner, mut inner_polarity) = (test.clone(), polarity);
+    for _ in 0..UNFOLD_LIMIT {
+        let Read::Found(next) = read(cx, &inner, inner_polarity)? else {
+            break;
+        };
+        let layer = match list.last() {
+            Some(outer) => {
+                let mut layer = outer.clone();
+                layer.steps.extend(next.steps);
+                layer.prop = next.prop;
+                layer
+            }
+            None => next,
+        };
+        let again = test_fact(cx, &layer.prop)?;
+        list.push(layer);
+        match again {
+            Some((t, p)) => (inner, inner_polarity) = (t, p),
+            None => break,
+        }
+    }
+    let plain = !polarity;
+    if plain {
+        // `Decidable.toBoolOfNot (Bool.decTrue e) p : (Bool.decTrue
+        // e).holds = False`, which is `e = False`.
+        let reg = cx.g().env.registry();
+        let (bool_data, true_ctor) = reg.ctor(Builtin::True).expect("in the core");
+        let e = cx.quote_folded(&test)?;
+        let is_true = Term::Eq(
+            Some(Rc::new(Term::Data(bool_data, Vec::new()))),
+            Rc::new(e.clone()),
+            Rc::new(Term::Ctor(bool_data, true_ctor, Vec::new())),
+        );
+        let decision = Term::app(
+            Term::Def(crate::check::builtin_def(cx, Builtin::DecTrue)?),
+            e,
+        );
+        list.push(by_decision(
+            cx,
+            &cx.eval(&is_true)?,
+            &cx.eval(&decision)?,
+            false,
+        )?);
+    }
+    if list.is_empty() {
+        return Ok(None);
+    }
+    Ok(Some(Candidates { fact, list, plain }))
 }
 
 /// `E-NO-READING`, for `what` (the fact, as written or shown) used as `how`

@@ -14,6 +14,7 @@ mod attributes;
 mod auto;
 mod autobind;
 mod bind;
+mod build;
 mod builtin_docs;
 pub use builtin_docs::is_builtin;
 pub mod cache;
@@ -2690,15 +2691,35 @@ impl Elaborator {
         owner: &ast::Name,
         mut attempt: impl FnMut(&mut Self) -> Result<T>,
     ) -> Result<T> {
+        let outer = std::mem::take(&mut *self.decl.builds.borrow_mut());
+        let result = self.local_retries(key, owner, &mut attempt);
+        *self.decl.builds.borrow_mut() = outer;
+        result
+    }
+
+    /// [`Self::with_local_retries`]'s loop. A body that fails where a
+    /// test fact is expected and a proof of its reading is given is also
+    /// tried again, with the fact built there (`build.rs`).
+    fn local_retries<T>(
+        &mut self,
+        key: &str,
+        owner: &ast::Name,
+        attempt: &mut impl FnMut(&mut Self) -> Result<T>,
+    ) -> Result<T> {
         loop {
             self.clear_metas();
             *self.decl.owner.borrow_mut() = vec![key.to_string()];
             self.attempt.local_keys.borrow_mut().clear();
+            build::start_attempt(self);
             let result = attempt(self);
             self.decl.owner.borrow_mut().clear();
             let d = match result {
                 Ok(found) => return Ok(found),
                 Err(d) if undo::fatal(&d) => return Err(d),
+                Err(d) => d,
+            };
+            let d = match build::again(self, d) {
+                Ok(()) => continue,
                 Err(d) => d,
             };
             let before = self.decl.preadmitted.borrow().len();

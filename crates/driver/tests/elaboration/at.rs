@@ -89,6 +89,26 @@ fn hover_shows_the_type_and_what_a_name_is() {
     assert!(hover.markdown.contains("Nat"), "{}", hover.markdown);
 }
 
+/// A proof a test fact was built from (D3549a) says so on hover.
+#[test]
+fn hover_on_a_term_a_test_fact_was_built_from() {
+    let source = "import Std (List, Nat)
+
+theorem fromMember (x: Nat) (xs: List Nat) (m: x ∈ xs): xs.contains x := m
+";
+    let file = answers(source);
+    let place = Place::Program("demo.sw".into());
+    let (line, col) = at_text(source, ":= m", 3);
+    let hover = at::hover_at(&file, &place, Some(source), line, col, None).expect("a hover");
+    assert!(
+        hover.markdown.contains(
+            "builds the test fact `xs.contains x` from a proof of `x ∈ xs` (by `List.memContains`)"
+        ),
+        "{}",
+        hover.markdown
+    );
+}
+
 #[test]
 fn the_parameters_of_a_call_being_typed() {
     let file = answers(SOURCE);
