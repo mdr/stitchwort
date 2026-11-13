@@ -39,7 +39,7 @@ theorem lookupMember (entries: List (Nat, Rule)) (number: Nat) (rule: Rule) (fou
   match entries with
     | [(entryNumber, value), ..rest] =>
       match same: entryNumber == number with
-        | True => Inl (rewrite DecEq.sound same, Option.someInjective found in rfl)
+        | True => Inl (rewrite same.read, Option.someInjective found in rfl)
         | False => Inr (lookupMember rest number rule found)
 
 theorem productiveRanked (rules: Rules) (rank: Nat → Nat) (bound: Nat) (below: ∀ (number: Nat) => rank number < bound)

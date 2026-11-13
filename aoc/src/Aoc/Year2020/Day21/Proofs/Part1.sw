@@ -25,7 +25,7 @@ theorem moveHolding (list: FoodList) (holder: Allergen → Ingredient) (holding:
       match firstMoved: first == allergen with
         | True =>
           match secondMoved: second == allergen with
-            | True => Eq.trans (DecEq.sound firstMoved) (Eq.sym (DecEq.sound secondMoved))
+            | True => Eq.trans firstMoved.read (Eq.sym secondMoved.read)
             | False => Void.exfalso (unheld second secondListed (Eq.sym same))
         | False =>
           match secondMoved: second == allergen with
@@ -33,7 +33,7 @@ theorem moveHolding (list: FoodList) (holder: Allergen → Ingredient) (holding:
             | False => And.left holding first second firstListed secondListed same)
     (food inFoods other listed =>
       match moved: other == allergen with
-        | True => every food inFoods (rewrite <- DecEq.sound moved in listed)
+        | True => every food inFoods (rewrite <- moved.read in listed)
         | False => And.right holding food inFoods other listed)
 
 theorem safeIff (list: FoodList) (promise: ∃ (holder: Allergen → Ingredient) => Spec.Holding list holder) (ingredient: Ingredient):
@@ -57,7 +57,7 @@ theorem safeIff (list: FoodList) (promise: ∃ (holder: Allergen → Ingredient)
                 match taken: list.allergens.any (other => holder other == ingredient) with
                   | True =>
                     List.anyTrueElim list.allergens (other => holder other == ingredient) _ taken (other inAllergens holds =>
-                      Void.exfalso (cannot (Witness holder (Both holding (Witness other (Both ((memAllergens list other).forward inAllergens) (DecEq.sound holds)))))))
+                      Void.exfalso (cannot (Witness holder (Both holding (Witness other (Both ((memAllergens list other).forward inAllergens) holds.read))))))
                   | False =>
                     let unheld: ∀ (other: Allergen) => Spec.Listed list other → holder other ≠ ingredient :=
                       other otherListed holds =>

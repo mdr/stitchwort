@@ -40,7 +40,7 @@ theorem runsSlot (read: List Char) (slot2: Slot) (written: SlotWritten read slot
             (Parse.runsBind Parse.nat _ read [] read after (Parse.digitsValue read) (Listed id) (Eq.sym (List.appendNil read))
               (Parse.runsNatBefore read ([] ++ after) nonEmpty allDigits stops)
               (Parse.runsIf (Parse.digitsValue read == 0) _ _ [] after (Listed id)
-                (zero => Void.exfalso (notZero (Eq.trans decimal (DecEq.sound zero))))
+                (zero => Void.exfalso (notZero (Eq.trans decimal zero.read)))
                 (nonZero => runsAsValue (() => Listed (Parse.digitsValue read)) [] after _ _ (rewrite decimal in rfl) (Parse.runsPure (Listed (Parse.digitsValue read)) after))))
 
 theorem notesEta (notes2: Notes): { earliest = notes2.earliest, schedule = notes2.schedule } = notes2 :=

@@ -27,7 +27,7 @@ theorem settleSound (plan: Plan) (specRound: Layout → Layout) (keep: Layout �
       match e: start.round plan == start with
         | True =>
           let here: start = final := Option.someInjective stopped
-          Witness 0 (Both (omega) (Both here (rewrite <- here, <- same in DecEq.sound e)))
+          Witness 0 (Both (omega) (Both here (rewrite <- here, <- same in e.read)))
         | False =>
           let later := settleSound plan specRound keep agree keeps final more (specRound start) (keeps start kept) (rewrite <- same in stopped)
           Exists.elim later (reached both => Witness (Succ reached) (Both (omega [And.left both]) (And.right both)))
@@ -61,7 +61,7 @@ theorem settleComplete (plan: Plan) (specRound: Layout → Layout) (keep: Layout
     let same := agree start kept
     match e: start.round plan == start with
       | True =>
-        let still: specRound start = start := rewrite <- same in DecEq.sound e
+        let still: specRound start = start := rewrite <- same in e.read
         rewrite <- Nat.iterateFixed specRound start still reached, there in rfl
       | False =>
         match reached with

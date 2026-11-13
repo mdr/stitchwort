@@ -9,7 +9,7 @@ import Std (Bool, DecEq, Eq, Exists, Iff, List, Option, Void)
 --| `==` is false between different things.
 theorem differ (x: Cave) (y: Cave) (ne: x ≠ y): (x == y) = False :=
   match e: x == y with
-    | True => Void.exfalso (ne (DecEq.sound e))
+    | True => Void.exfalso (ne e.read)
     | False => rfl
 
 --| Looking a cave up in a table built from a list of caves.
@@ -17,7 +17,7 @@ theorem lookupBuilt (f: Cave → List Cave) (cave: Cave) (cs: List Cave) (member
   match cs with
     | [c, ..rest] =>
       match e: c == cave with
-        | True => rewrite DecEq.sound e in rfl
+        | True => rewrite e.read in rfl
         | False =>
           match member with
             | Inl same => Void.exfalso (Bool.trueNotFalse (rewrite same, DecEq.refl cave at e))
@@ -28,7 +28,7 @@ theorem lookupMissing (f: Cave → List Cave) (cave: Cave) (cs: List Cave) (miss
     | [] => rfl
     | [c, ..rest] =>
       match e: c == cave with
-        | True => Void.exfalso (missing (Inl (DecEq.sound e)))
+        | True => Void.exfalso (missing (Inl e.read))
         | False => lookupMissing f cave rest (later => missing (Inr later))
 
 --| Both caves of a passage are named in one.
@@ -83,7 +83,7 @@ theorem neighboursOfMem (passages: List Passage) (cave: Cave) (y: Cave): y ∈ n
                 let fy := DecEq.sound (Bool.andLeft backward)
                 let tc := Bool.andRight backward
                 match fc: from == cave with
-                  | True => Inl (Eq.trans (DecEq.sound tc) (Eq.trans (Eq.sym (DecEq.sound fc)) fy))
+                  | True => Inl (Eq.trans tc.read (Eq.trans (Eq.sym fc.read) fy))
                   | False => rewrite tc in Inl fy)
           (List.memUnique y _).backward (List.memFlatMapIntro leadsTo { from, to } y passages member inEdge))
 }

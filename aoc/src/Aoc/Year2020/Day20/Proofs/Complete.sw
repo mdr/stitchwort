@@ -20,7 +20,9 @@ def pixelSymbol: Pixel → Char
   | Calm => '.'
 
 theorem spaceNotPixel (char: Char) (isSpace: Parse.isSpace char = True): pixelChar char = False :=
-  Bool.orElim isSpace (space => rewrite DecEq.sound space in rfl) (tab => rewrite DecEq.sound tab in rfl)
+  match isSpace with
+    | Inl space => rewrite space.read in rfl
+    | Inr tab => rewrite tab.read in rfl
 
 --| A word that starts with a different character is not a start of the input.
 theorem stripDifferent (first: Char) (others: List Char) (char: Char) (more: List Char) (different: (char == first) = False):

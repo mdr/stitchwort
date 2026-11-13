@@ -39,12 +39,12 @@ theorem neighbourFound (jigsaw: Jigsaw) (tile: Tile) (edge: Edge) (placed: Tile 
 theorem rightOfFits (jigsaw: Jigsaw) (tile: Tile) (next: Tile) (found: jigsaw.rightOf tile = Some next):
     next.image.left = tile.image.right ∧ TurnedOther jigsaw tile next :=
   match neighbourFound jigsaw tile tile.image.right (next => next.image.left == tile.image.right) next found with
-    | Both fits turned => Both (DecEq.sound fits) turned
+    | Both fits turned => Both fits.read turned
 
 theorem belowFits (jigsaw: Jigsaw) (tile: Tile) (next: Tile) (found: jigsaw.below tile = Some next):
     next.image.top = tile.image.bottom ∧ TurnedOther jigsaw tile next :=
   match neighbourFound jigsaw tile tile.image.bottom (next => next.image.top == tile.image.bottom) next found with
-    | Both fits turned => Both (DecEq.sound fits) turned
+    | Both fits turned => Both fits.read turned
 
 theorem rowAfterFits (jigsaw: Jigsaw) (tile: Tile) (fuel: Nat): RowFits [tile, ..jigsaw.rowAfter tile fuel] :=
   match fuel with

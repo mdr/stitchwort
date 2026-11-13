@@ -36,7 +36,7 @@ theorem pairCounted (counts: PairCounts) (polymer: List Char) (represents: Repre
   match sumByPositive ((entry: (ElementPair, Nat)) => entry.snd * Bool.toNat (entry.fst == pair)) (Map.toList counts) (omega [counted, asSum, weighted]) with
     | Witness entry (Both inCounts gives) =>
       match t: entry.fst == pair with
-        | True => rewrite <- DecEq.sound t in List.memMap (Map.toList counts) entry inCounts Pair.fst
+        | True => rewrite <- t.read in List.memMap (Map.toList counts) entry inCounts Pair.fst
         | False => Void.exfalso omega
 
 -- The two lists of element counts.

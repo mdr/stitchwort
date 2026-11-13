@@ -165,7 +165,7 @@ theorem part1Complete (entries: List Nat) (answer: Nat) (isAnswer: answer ∈ pa
       let kept := List.memFilter _ _ chosen
       none =>
         match pair: findPair 2020 entries with
-          | None => findPairComplete 2020 entries a b kept.left (DecEq.sound kept.right) pair
+          | None => findPairComplete 2020 entries a b kept.left (kept.right.read) pair
 
 --| So part 1 is the puzzle's answer, when there is exactly one.
 theorem part1Correct (entries: List Nat) (answer: Nat) (isAnswer: answer ∈ part1Answers entries)
@@ -191,7 +191,7 @@ theorem part2Complete (entries: List Nat) (answer: Nat) (isAnswer: answer ∈ pa
         | [a, b, c], threeLong =>
           none =>
             match triple: findTriple 2020 entries with
-              | None => findTripleComplete 2020 entries a b c kept.left (rewrite <- sum3 a b c in DecEq.sound kept.right) triple
+              | None => findTripleComplete 2020 entries a b c kept.left (rewrite <- sum3 a b c in kept.right.read) triple
         | [], tooShort => Void.exfalso (omega [tooShort])
         | [x], tooShort => Void.exfalso (omega [tooShort])
         | [x, y], tooShort => Void.exfalso (omega [tooShort])

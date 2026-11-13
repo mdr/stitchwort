@@ -68,7 +68,7 @@ theorem part1Rules (notes: Notes) (answer: Nat) (positive: IdsPositive notes) (f
                               let otherFirst := And.right (And.right (nextDepartureFirst otherBus notes.earliest))
                                 time (rewrite same in otherDeparts) otherAfter
                               let atMost := least (otherBus.nextDeparture notes.earliest) (List.memMap notes.buses otherBus otherMember (bus => bus.nextDeparture notes.earliest))
-                              omega [DecEq.sound isFirst])
+                              omega [isFirst.read])
                         (Eq.sym (Option.someInjective found)))))))
 
 --| The program answers whenever a bus is in service.

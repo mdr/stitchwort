@@ -185,7 +185,7 @@ theorem runsOperatorFrom (target: Operator) (rest: List Char) (before: List Oper
     | [first, ..more] =>
       match same: first == target with
         | True =>
-          let equal: first = target := DecEq.sound same
+          let equal: first = target := same.read
           rewrite <- equal in
             rewrite List.mapAppend before [first, ..more] (other => (other.spaced, other)) in
               Parse.runsPick (before.map (other => (other.spaced, other))) first.spaced first (more.map (other => (other.spaced, other))) rest
@@ -454,7 +454,7 @@ theorem samePrecedenceExact: Exact Spec.part1Strength 0 samePrecedence.levels :=
     (operator => omega)
 
 theorem differentOperators (one: Operator) (other: Operator) (different: (one == other) = False) (same: one = other): Void :=
-  DecEq.soundFalse one other different same
+  different.read same
 
 theorem additionFirstExact: Exact Spec.part2Strength 0 additionFirst.levels :=
   Both

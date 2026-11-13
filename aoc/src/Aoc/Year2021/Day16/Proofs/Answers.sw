@@ -68,8 +68,8 @@ theorem comparisonCompares (comparison: Comparison) (first: Nat) (second: Nat): 
         | False => NotLess first second (omega [h])
     | EqualTo =>
       match h: first == second with
-        | True => rewrite DecEq.sound h in Equal second
-        | False => NotEqual first second (DecEq.soundFalse first second h)
+        | True => rewrite h.read in Equal second
+        | False => NotEqual first second h.read
 
 --| Part 2: a well-formed packet has the value the program computes.
 theorem evaluateCorrect (packet: Packet) (formed: wellFormed packet = True): HasValue packet (evaluate packet) :=

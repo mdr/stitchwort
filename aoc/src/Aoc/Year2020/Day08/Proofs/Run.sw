@@ -38,12 +38,12 @@ theorem unvisitedRemove (length: Nat) (done: List Int) (unvisited: Set Nat) (lef
   other =>
     match d: other == position with
       | True =>
-        rewrite DecEq.sound d, Set.containsRemove unvisited position in {
+        rewrite d.read, Set.containsRemove unvisited position in {
           forward = never => cases,
           backward = (Both below out) => Void.exfalso (out (List.memAppendRight position.toInt done [position.toInt] (Inl rfl)))
         }
       | False =>
-        let differ: other ≠ position := same => DecEq.soundFalse other position d same
+        let differ: other ≠ position := same => d.read same
         rewrite Set.containsRemoveOther unvisited position other differ in {
           forward = held =>
             let (Both below out) := (left other).forward held
@@ -71,7 +71,7 @@ theorem runFromRuns (program: Program) (code: Code) (holds: Holds code program) 
           | None =>
             match t: position == code.length with
               | True =>
-                Witness [] (Witness state (Both rfl (Both stopped (Both (rewrite here, DecEq.sound t, And.left holds in rfl) rfl))))
+                Witness [] (Witness state (Both rfl (Both stopped (Both (rewrite here, t.read, And.left holds in rfl) rfl))))
               | False => Witness [] (Witness state (Both rfl (Both stopped ())))
           | Some instruction =>
             let listed: program.instructions.get position = Some instruction := rewrite <- And.right holds position in g

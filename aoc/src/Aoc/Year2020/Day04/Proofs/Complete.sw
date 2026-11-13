@@ -44,7 +44,9 @@ theorem runsField (read: List Char) (f: Field) (written: FieldWritten read f) (r
       rewrite split in runsAsValue field _ rest _ f sameField (runsFieldPieces f.key f.value nonEmpty values rest (Parse.takeWhileOfCannotStart isValueChar rest stops))
 
 theorem spaceNotValue (char: Char) (isSpace: Parse.isSpace char = True): isValueChar char = False :=
-  Bool.orElim isSpace (space => rewrite DecEq.sound space in rfl) (tab => rewrite DecEq.sound tab in rfl)
+  match isSpace with
+    | Inl space => rewrite space.read in rfl
+    | Inr tab => rewrite tab.read in rfl
 
 --| A key's first letter is a value character, so a word starting with it is absent where a space or line break is.
 theorem wordAbsent (first: Char) (others: List Char) (char: Char) (more: List Char) (letter: isValueChar first = True) (stops: isValueChar char = False):

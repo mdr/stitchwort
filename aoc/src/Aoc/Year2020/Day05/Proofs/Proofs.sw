@@ -34,7 +34,7 @@ theorem gapSound: ∀ (ids: List Nat) => List.Sorted Nat.leq ids → ∀ (seat: 
   | [low, high, ..rest], Both ordered sortedRest, seat, found =>
     match apart: high == low + 2 with
       | True =>
-        let two := DecEq.sound apart
+        let two := apart.read
         let made := Option.someInjective found
         Both
           (member =>

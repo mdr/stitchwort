@@ -111,7 +111,7 @@ theorem notNineOfOpen (height: Nat) (open: (height != 9) = True): height ≠ 9 :
 theorem closedNoBasin (map: HeightMap) (low: Position) (height: Nat) (member: (low, height) ∈ lowPoints map) (closed: map.isOpen low = False)
     (location: Position) (steps: List Position) (locationOpen: inSomeBasin map location = True) (path: isPath map low steps location = True): Void :=
   match steps with
-    | [] => Bool.falseNotTrue (Eq.trans (Eq.sym closed) (rewrite DecEq.sound path in locationOpen))
+    | [] => Bool.falseNotTrue (Eq.trans (Eq.sym closed) (rewrite path.read in locationOpen))
     | [next, ..rest] =>
       let near := Bool.andLeft path
       let nextOpen := Bool.andLeft (Bool.andRight path)

@@ -11,7 +11,7 @@ theorem tableGet (entries: List (Nat, Rule)) (number: Nat): (ruleTable entries).
     | [] => rfl
     | [(entryNumber, rule), ..later] =>
       match same: entryNumber == number with
-        | True => rewrite DecEq.sound same in Map.getInsert number rule (ruleTable later)
+        | True => rewrite same.read in Map.getInsert number rule (ruleTable later)
         | False =>
           Eq.trans
             (Map.getInsertOther entryNumber rule number (equal => DecEq.soundFalse entryNumber number same (Eq.sym equal)) (ruleTable later))

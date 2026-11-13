@@ -28,7 +28,7 @@ theorem closersExact (stack closers: List Bracket) (h: scan stack (closers.map C
     | stack, [] => Eq.sym (unclosedInjective stack [] h)
     | [top, ..below], [closer, ..rest] =>
       match same: top == closer with
-        | True => rewrite closersExact below rest h, DecEq.sound same in rfl
+        | True => rewrite closersExact below rest h, same.read in rfl
 
 --| Any completion of a line is what its scan leaves open.
 theorem completionIsOpen (line: List Token) (stack: List Bracket) (open: scan [] line = Unclosed stack) (closers: List Bracket) (completes: Completes line closers):
