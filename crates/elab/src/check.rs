@@ -5215,7 +5215,7 @@ fn implicit_lambda(
 fn explicit_lambda(
     cx: &mut Ctx,
     expr: &Expr,
-    (names, body, span): (&[AstName], &Box<Expr>, Span),
+    (names, body, span): (&[AstName], &Expr, Span),
     dom: &Value,
     cod: &Closure,
     expected: &Value,
@@ -5240,7 +5240,11 @@ fn explicit_lambda(
         let result = if rest.is_empty() {
             settle_section_comparison(cx, first, body, &cod).and_then(|()| check(cx, body, &cod))
         } else {
-            check(cx, &Expr::Lam(rest.to_vec(), body.clone(), span), &cod)
+            check(
+                cx,
+                &Expr::Lam(rest.to_vec(), Box::new(body.clone()), span),
+                &cod,
+            )
         };
         cx.reset(mark);
         result

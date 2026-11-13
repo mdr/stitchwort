@@ -3728,7 +3728,7 @@ fn zonk_solved(
     if let Some(m) = unsolved(&solved) {
         return Err(ZonkError::Unsolved(m));
     }
-    Ok(refold(g, solved, level, lets)?)
+    refold(g, solved, level, lets)
 }
 
 /// [`zonk_changed`] for a `let`.
