@@ -31046,12 +31046,12 @@
     {
       "id": 2919,
       "title": "[Sonnet] Playground project checks keep no check cache: the first whole-project check (~129 s for AoC) and the background re-check after each edit (SW-2915 now rewinds settled steps on each edit) redo everything; keep an in-memory check cache for project namespaces in the wasm server, or find why it isn't hit (SW-2915)",
-      "status": "backlog",
+      "status": "review",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "editor-playground",
-      "body": "\nPlan (paper lane, 13 Nov): docs/reviews/SW-2919-plan.md. Cause: the browser's Memory::project_cache is None (crates/lsp/src/source.rs:274), so load_project uses the read-only std BundleStore. Orchestrator's call: option A (in-memory writable store over the bundle, project entries only, newest two per unit, ~192 MB cap); estimated re-check after a leaf edit ~120 s → 6-12 s, first check unchanged. Build lane next (Sonnet, est. 60 min).",
+      "body": "\nPlan (paper lane, 13 Nov): docs/reviews/SW-2919-plan.md. Cause: the browser's Memory::project_cache is None (crates/lsp/src/source.rs:274), so load_project uses the read-only std BundleStore. Orchestrator's call: option A (in-memory writable store over the bundle, project entries only, newest two per unit, ~192 MB cap); estimated re-check after a leaf edit ~120 s → 6-12 s, first check unchanged. Build lane next (Sonnet, est. 60 min).\n\nBuild lane (Sonnet, 13 Nov): option A done on lane/SW-2919. LayeredStore (check_cache.rs) in load_project's bundle branch; unit tests and an LSP memory test (soundness vs a fresh server, dependents miss, undo hits) pass. Browser test (SW-2914/2915's): whole project 112.1 s after the jump (no hits, as before), re-check after an edit of the day 35 s (was a full re-elaboration, about the whole-project time).\n",
       "created": "2026-11-11",
       "updated": "2026-11-13",
       "commits": []
