@@ -73,7 +73,7 @@ theorem sequencesStart (read: List Char) (head: List Nat) (tail: List (List Nat)
             | [], notEmpty, digits => Void.exfalso (notEmpty rfl)
             | [digit, ..more], notEmpty, digits =>
               Witness digit (Witness (more ++ afterNumber ++ afterFirst)
-                (Both (rewrite split, split2, List.appendAssoc more afterNumber afterFirst in rfl) (Bool.andLeft digits)))
+                (Both (rewrite split, split2, List.appendAssoc more afterNumber afterFirst in rfl) digits.left))
 
 theorem notSpace (char: Char) (stops: seqChar char = False): Text.sameChar ' ' char = False :=
   match e: Text.sameChar ' ' char with

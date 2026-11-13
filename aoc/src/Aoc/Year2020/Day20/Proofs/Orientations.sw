@@ -288,7 +288,7 @@ theorem matchedOriented (jigsaw: Jigsaw) (rectangles: âˆ€ (tile: Tile) => tile â
 theorem allLengthOfAll (n: Nat) (rows: List (List Pixel)) (all: rows.all (row => row.length == n) = True): List.AllLength n rows :=
   match rows with
     | [] => Trivial
-    | [row, ..rest] => Both (DecEq.sound (Bool.andLeft all)) (allLengthOfAll n rest (Bool.andRight all))
+    | [row, ..rest] => Both (DecEq.sound all.left) (allLengthOfAll n rest all.right)
 
 theorem rowsRectangle (rows: List (List Pixel)) (checked: Image.isRectangle { rows } = True): Rectangle { rows } :=
   match rows with

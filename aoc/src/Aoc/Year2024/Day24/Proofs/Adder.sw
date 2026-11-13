@@ -176,8 +176,8 @@ theorem zWithinBound (bits: Nat) (bit: Nat) (gates: List Gate) (within: zWithin 
     (member: Z bit ∈ gates.flatMap (gate => [gate.left, gate.right, gate.output])): bit ≤ bits := match gates with
       | [gate, ..rest] =>
         match List.memAppend (Z bit) [gate.left, gate.right, gate.output] _ member with
-          | Inl here => List.allMember (wire => wire.zBit.all (found => found ≤ bits)) [gate.left, gate.right, gate.output] (Bool.andLeft within) (Z bit) here
-          | Inr there => zWithinBound bits bit rest (Bool.andRight within) there
+          | Inl here => List.allMember (wire => wire.zBit.all (found => found ≤ bits)) [gate.left, gate.right, gate.output] within.left (Z bit) here
+          | Inr there => zWithinBound bits bit rest within.right there
 
 --| The wires that start with values for an adder are x and y wires.
 theorem inputsNotZ (bits: Nat) (x: Nat) (y: Nat) (bit: Nat) (member: Z bit ∈ (inputsFor bits x y).map .fst): Void :=

@@ -731,6 +731,8 @@ def firstBelow (xs: List Nat) (y: Nat) (m: y ∈ xs) (h: xs.all (x => x < 5)): N
   below y
 ```
 
+Once the list is a `[x, ..xs]`, as a `match` on it leaves it, `all` and `any` are the one step they take, so they read as `∧` and `∨`: `only: [d, ..more].all p` has `only.left : p d` and `only.right : more.all p`, and `[d, ..more].any p` is taken apart with `Inl` and `Inr` (or built with them). A list the program names by a call, such as `image.edges`, is read as the quantifier above.
+
 ### Your own readings
 
 A test of your own gets a reading when the statement it stands for has a shape of its own. You declare it next to the test, as a theorem marked `@[reading]` that says the test is the statement. This is the test `within` and its record `Within`:

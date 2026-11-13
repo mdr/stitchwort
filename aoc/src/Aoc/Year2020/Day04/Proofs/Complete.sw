@@ -87,8 +87,8 @@ theorem declinesStepAtBreaks (input: List Char) (only: Parse.OnlyBreaks input): 
   match input with
     | [] => declinesFieldBreak [] (Parse.declinesCharEnd ' ') (Parse.declinesNewline [] rfl rfl)
     | [char, ..more] =>
-      let only1: Parse.OnlyBreaks more := Bool.andRight only
-      match Parse.lineBreakChar char (Bool.andLeft only) with
+      let only1: Parse.OnlyBreaks more := only.right
+      match Parse.lineBreakChar char only.left with
         | Inl same =>
           rewrite same in declinesStepAfterBreak ['\n'] more (Inl rfl) (Parse.cannotStartAtBreaks isValueChar rfl rfl more only1)
         | Inr same =>
@@ -96,8 +96,8 @@ theorem declinesStepAtBreaks (input: List Char) (only: Parse.OnlyBreaks input): 
             match more with
               | [] => declinesFieldBreak ['\r'] (Parse.declinesChar ' ' '\r' [] rfl) (Parse.declinesNewline ['\r'] rfl rfl)
               | [next, ..later] =>
-                let only2: Parse.OnlyBreaks later := Bool.andRight only1
-                match Parse.lineBreakChar next (Bool.andLeft only1) with
+                let only2: Parse.OnlyBreaks later := only1.right
+                match Parse.lineBreakChar next only1.left with
                   | Inl same2 =>
                     rewrite same2 in declinesStepAfterBreak ['\r', '\n'] later (Inr rfl) (Parse.cannotStartAtBreaks isValueChar rfl rfl later only2)
                   | Inr same2 =>
@@ -112,7 +112,7 @@ theorem declinesStepAtBlank (blank: List Char) (more: List Char) (isBlank: Parse
         let afterCannot: Parse.CannotStart isValueChar after :=
           match middle with
             | [] => Parse.cannotStartAfterBreak isValueChar rfl rfl last more lastBreak
-            | [blank1, ..others] => char rest found => rewrite <- List.consInjectiveHead _ _ _ _ found in spaceNotValue blank1 (Bool.andLeft spaced)
+            | [blank1, ..others] => char rest found => rewrite <- List.consInjectiveHead _ _ _ _ found in spaceNotValue blank1 spaced.left
         rewrite split, List.appendAssoc first (middle ++ last) more, List.appendAssoc middle last more in declinesStepAfterBreak first after firstBreak afterCannot
 
 theorem declinesStepAtLinesEnd (input: List Char) (end: Parse.LinesEnd input): Parse.Declines (() => Parse.sepStep field fieldBreak) input :=

@@ -758,6 +758,29 @@ fn waiting_note_for(
     })
 }
 
+/// Whether `f args` is `List.any` or `List.all` of a list that is a cons
+/// (`[x, ..xs]`, written or from a case tree's unfolding), whose unfolding
+/// is one conjunction or disjunction.
+fn unfolds_on_cons(g: &Ev, f: DefId, args: &[Value]) -> Result<bool> {
+    if !matches!(&*g.def(f).name().to_string(), "List.any" | "List.all") {
+        return Ok(false);
+    }
+    let reg = g.env.registry();
+    let Some((list, cons)) = reg.ctor(Builtin::Cons) else {
+        return Ok(false);
+    };
+    for arg in args {
+        // Not forced: a call that computes to a cons (`image.edges`) is a
+        // list the program names, and reads as one.
+        if let Value::Ctor(d, c, _) = arg
+            && (*d, *c) == (list, cons)
+        {
+            return Ok(true);
+        }
+    }
+    Ok(false)
+}
+
 /// The reading of `test` at `polarity` (§5.4): its head's reading, or else
 /// the reading of what it unfolds to, one definition at a time, up to
 /// [`UNFOLD_LIMIT`] steps.
@@ -787,10 +810,18 @@ fn lookup_folded(g: &Ev, e: &Elaborator, test: &Value, polarity: bool) -> Result
         {
             first_head = Some(f);
         }
+        // `all` and `any` of a cons are one step of their recursion, `p x &&
+        // xs.all p` and `p x || xs.any p`, not the quantifier over the whole
+        // list: unfolded, they read as `∧` and `∨` (§5.4, step 2c).
+        let cons_step = match head {
+            TestHead::Def(f) => unfolds_on_cons(g, f, &args)?,
+            _ => false,
+        };
         // A test with more or fewer arguments than the reading's (a
         // function returning a function), or at a row the reading isn't
         // stated at, isn't the reading's test.
-        if let Some((theorem, info)) = e.reading_for(polarity, head)
+        if !cons_step
+            && let Some((theorem, info)) = e.reading_for(polarity, head)
             && info.fits(g, &args)?
         {
             return Ok(Lookup::Found(theorem, info, args));
