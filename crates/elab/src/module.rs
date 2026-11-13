@@ -2765,6 +2765,20 @@ impl Elaborator {
         }
     }
 
+    /// The key of instance `id`, which is found by type rather than named,
+    /// for noting that what searched for it waits for it
+    /// (`note_failed_used`). Another namespace's path is its key; this
+    /// module's paths have the module's prefix (`Main.` for a single file),
+    /// so its own are looked up by item.
+    pub(crate) fn instance_key(&self, id: DefId) -> Option<String> {
+        let module = &self.unit.module;
+        if id.0 < module.first_def {
+            return Some(self.kernel.def(id).path().to_string());
+        }
+        let item = module.def_items.get(&id)?;
+        module.item_keys.get(item).cloned()
+    }
+
     /// The error for using `name`, which names a failed declaration: one
     /// that is waiting for open goals (`Session::waiting_names`) is
     /// unfinished, and its user waits for the same goals.

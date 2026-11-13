@@ -243,6 +243,50 @@ fn the_errors_of_a_load_name_what_has_one_and_what_waits() {
     assert!(uses_g.is_some_and(|t| session.elab.relies_on_goal(t.def)));
 }
 
+/// SW-2970: an instance with an error is found by type, not named, so
+/// what needs it waits for it like any declaration with an error (§4.2):
+/// one error at the instance, and in another namespace one
+/// `E-USES-FAILED`, not "no instance" at each use. What another instance
+/// serves is checked as usual.
+#[test]
+fn what_needs_a_failed_instance_waits_for_it() {
+    let colors = "namespace Colors\n\ntype Color =\n  | Red\n  | Green\n\ninstance colorOrd: Ord Color := True\n";
+    let uses = "def before (a: Color) (b: Color): Bool := a < b\n\ndef lists (a: List Color) (b: List Color): Bool := a < b\n\ndef same (a: Color) (b: Color): Bool := a == b\n\ntest \"same\" := same Red Red\n";
+    let day = format!("namespace Day\n\nimport Colors (Color, Red, Green)\n\n{uses}");
+    let (session, result) = load_target(
+        &[("colors.sw", colors), ("day.sw", &day)],
+        &Target::Everything,
+    );
+    let found: Vec<Diagnostic> = (result.err().expect("has errors").into_iter())
+        .filter(|d| d.severity == Severity::Error)
+        .collect();
+    assert_eq!(
+        codes(&found),
+        ["E-TYPE-MISMATCH", "E-USES-FAILED"],
+        "{found:#?}"
+    );
+    assert_eq!(
+        found[1].message,
+        "`colorOrd` has an error, so 2 declarations here can't be checked until it's fixed"
+    );
+    let errors = session.errors();
+    let has: Vec<&str> = errors.has.iter().map(|e| e.declaration.as_str()).collect();
+    assert_eq!(has, ["Colors.colorOrd"]);
+    let waiting: Vec<&str> = errors.waiting.iter().map(|w| w.name.as_str()).collect();
+    assert_eq!(waiting, ["Day.before", "Day.lists"]);
+    passes(&session);
+    // In its own namespace, the same: only the instance's error.
+    let one = format!("{}\n{uses}", colors.trim_end());
+    let (session, result) = load_target(&[("colors.sw", &one)], &Target::Everything);
+    let found: Vec<Diagnostic> = (result.err().expect("has errors").into_iter())
+        .filter(|d| d.severity == Severity::Error)
+        .collect();
+    assert_eq!(codes(&found), ["E-TYPE-MISMATCH"], "{found:#?}");
+    let errors = session.errors();
+    let waiting: Vec<&str> = errors.waiting.iter().map(|w| w.name.as_str()).collect();
+    assert_eq!(waiting, ["Colors.before", "Colors.lists"]);
+}
+
 #[test]
 fn identical_types_in_two_namespaces_hash_differently() {
     let ty = |ns: &str| format!("namespace {ns}\n\ntype T: Type =\n  | MkT (n: Nat)\n");

@@ -795,10 +795,15 @@ impl<'a> Group<'a> {
             else {
                 continue;
             };
-            if used
-                && crate::interfaces::findable(cx, &Value::Data(interface, vec![t.clone()].into()))?
-                    .is_some()
-            {
+            if !used {
+                continue;
+            }
+            let goal = Value::Data(interface, vec![t.clone()].into());
+            if let Some(why) = crate::interfaces::findable(cx, &goal)? {
+                // Its instance failed: the operator waits for it.
+                if why.code == "E-FAILED-DEPENDENCY" {
+                    return Err(why);
+                }
                 return Ok(Some(format!(
                     "on other types `{op}` is `{name}.{field}`, and there's no `{name}` instance for `{}` here",
                     cx.show(t)

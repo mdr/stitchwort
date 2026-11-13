@@ -1004,6 +1004,15 @@ pub(crate) fn attempt(
     if !info.valid {
         let name = info.name.clone();
         let failed = g.def(info.def).state() == stitchwort_core::globals::State::Failed;
+        // It has an error: what needs it waits for it, as for any
+        // declaration with one, reported there (tests-with-errors.md §4.2).
+        if failed && let Some(key) = cx.e.instance_key(info.def) {
+            crate::module::note_failed_used(&key);
+            return Err(crate::module::failed_name(&ast::Name {
+                text: name,
+                span: cx.span,
+            }));
+        }
         let reason = if failed || cx.e.kernel.def(info.def).body().is_some() {
             format!("`{name}` has errors")
         } else {
