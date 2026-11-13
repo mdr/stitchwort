@@ -34403,7 +34403,7 @@
     {
       "id": 3166,
       "title": "[Opus] Lossless tree lane B (SW-3159 plan): mark operators and application: App, Binary, Chain, Membership, Range, Prefix, Pipe, Arrow, Iff, FieldAccess, Section, NamedArg, Paren/Tuple/List/Spread, records, Annotation, Seq, LetExpr, Interpolated; the deep recursive path: watch stack frames, rerun the nesting tests",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
