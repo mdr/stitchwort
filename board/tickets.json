@@ -27567,7 +27567,7 @@
     {
       "id": 2658,
       "title": "[Sonnet] Warning and quick fix for a theorem whose statement starts with ∀ (D3470): W- code in check, quick fix 'Move ∀ variables before the colon' that runs the trial check before it is offered; together with D3462's warning for -> where ∀ is meant",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [
@@ -33961,7 +33961,7 @@
     {
       "id": 3132,
       "title": "[Opus] Evaluator: forcing a long chain of thunks recurses (force → run → unfold → native::run, ~8.5 KiB guarded and ~6 KB V8 stack per level): 2024 Day22.Proofs needs ~2.3 MiB and fails in the playground (SW-3128 finding 1). Force chains iteratively, or evaluate stricter there. Core: kernel-adjacent, Fable/Opus review",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
