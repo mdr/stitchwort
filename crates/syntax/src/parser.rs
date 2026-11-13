@@ -1040,14 +1040,6 @@ impl<'t> Parser<'t> {
         Ok(expr)
     }
 
-    /// [`Self::alt_pattern`], in an `Unmarked` node.
-    fn unmarked_alt_pattern(&mut self) -> Result<Pattern> {
-        let start = self.mark();
-        let pattern = self.alt_pattern()?;
-        self.node(start, NodeKind::Unmarked);
-        Ok(pattern)
-    }
-
     /// `=>` after a lambda's parameters or an alternative's patterns, with a
     /// hint if it's the old syntax's `->`.
     fn expect_fat_arrow(&mut self, what: &str) -> Result<&'t Token> {
@@ -1480,6 +1472,7 @@ impl<'t> Parser<'t> {
             items.push(self.tuple_item()?);
         }
         let end = self.expect(Tok::RParen, "`)`")?.span;
+        self.node_at(span, NodeKind::PatternTuple);
         let mut last = items.pop().expect("two components");
         while let Some(first) = items.pop() {
             let s = if items.is_empty() {
@@ -1538,6 +1531,7 @@ impl<'t> Parser<'t> {
         };
         let n = n.clone();
         let end = self.bump().span;
+        self.node_at(start, NodeKind::PatternNegative);
         Ok(Pattern::NegNum(n, start.to(end)))
     }
 
@@ -1857,6 +1851,7 @@ impl<'t> Parser<'t> {
             Some(Tok::LParen) if self.peek_at(1) == Some(&Tok::RParen) => {
                 self.bump();
                 let end = self.bump().span;
+                self.node_at(span, NodeKind::PatternAbsurd);
                 Ok(Pattern::Absurd(span.to(end)))
             }
             Some(Tok::LBrace) => self.record_pattern(),
@@ -1870,6 +1865,7 @@ impl<'t> Parser<'t> {
                 self.bump();
                 let inner = self.pattern()?;
                 let end = self.expect(Tok::RBracket, "`]`")?.span;
+                self.node_at(span, NodeKind::PatternNamed);
                 Ok(Pattern::Named(field, Box::new(inner), span.to(end)))
             }
             Some(Tok::LBracket) => {
@@ -1916,6 +1912,7 @@ impl<'t> Parser<'t> {
                     .span;
                 // `[]` on its own spans both brackets; the `[]` ending
                 // `[x, y]` is its `]`.
+                self.node_at(span, NodeKind::PatternList);
                 let nil = if items.is_empty() { span.to(end) } else { end };
                 let mut list = tail.unwrap_or(Pattern::Nil(nil));
                 while let Some(item) = items.pop() {
@@ -1937,6 +1934,7 @@ impl<'t> Parser<'t> {
                     return self.tuple_pattern(inner, span);
                 }
                 let end = self.expect(Tok::RParen, "`)`")?.span;
+                self.node_at(span, NodeKind::PatternParen);
                 Ok(match inner {
                     Pattern::NegNum(n, _) => Pattern::NegNum(n, span.to(end)),
                     other => other,
@@ -1955,6 +1953,7 @@ impl<'t> Parser<'t> {
                         return self.tuple_pattern(first, span);
                     }
                     let end = self.expect(Tok::RParen, "`)`")?.span;
+                    self.node_at(span, NodeKind::PatternParen);
                     with_span(first, span.to(end))
                 } else {
                     let inner = self.pattern()?;
@@ -1963,6 +1962,7 @@ impl<'t> Parser<'t> {
                         return self.tuple_pattern(inner, span);
                     }
                     self.expect(Tok::RParen, "`)`")?;
+                    self.node_at(span, NodeKind::PatternParen);
                     inner
                 };
                 Ok(pattern)
@@ -1985,7 +1985,7 @@ impl<'t> Parser<'t> {
         stop: fn(Option<&Tok>) -> bool,
     ) -> Result<Pattern> {
         if self.peek() == Some(&Tok::LBrace) {
-            let Pattern::Record { fields, rest, .. } = self.record_pattern()? else {
+            let Pattern::Record { fields, rest, .. } = self.record_pattern_braces()? else {
                 unreachable!("a record pattern");
             };
             let span = start.to(self.prev_span());
@@ -2004,6 +2004,7 @@ impl<'t> Parser<'t> {
                 ))
                 .into());
             }
+            self.node_at(name.span, NodeKind::PatternCtorFields);
             return Ok(Pattern::ctor_fields(name, fields, rest, span));
         }
         let mut args = Vec::new();
@@ -2034,10 +2035,14 @@ impl<'t> Parser<'t> {
                 };
                 let n = n.clone();
                 let end = self.bump().span;
+                self.node_at(start, NodeKind::PatternNegative);
                 args.push(Pattern::NegNum(n, start.to(end)));
                 continue;
             }
             args.push(self.pattern()?);
+        }
+        if !args.is_empty() {
+            self.node_at(name.span, NodeKind::PatternCtor);
         }
         Ok(Pattern::Ctor(name, args, start.to(self.prev_span())))
     }
@@ -2045,6 +2050,15 @@ impl<'t> Parser<'t> {
     /// `{ name = p, age, .. }`: fields in any order, each a pattern or punned
     /// (a variable of the field's name), optionally ending with `..`.
     fn record_pattern(&mut self) -> Result<Pattern> {
+        let start = self.here();
+        let record = self.record_pattern_braces()?;
+        self.node_at(start, NodeKind::PatternRecord);
+        Ok(record)
+    }
+
+    /// [`Self::record_pattern`] without its mark: a constructor's braces,
+    /// `C { f = p }`, are part of the constructor's own node.
+    fn record_pattern_braces(&mut self) -> Result<Pattern> {
         let start = self.expect(Tok::LBrace, "`{`")?.span;
         let mut fields = Vec::new();
         let mut rest = false;
@@ -2782,9 +2796,7 @@ impl<'t> Parser<'t> {
     fn let_statement(&mut self) -> Result<Stmt> {
         let start_index = self.pos;
         let start = self.bump().span;
-        let pattern_start = self.mark();
         let pattern = self.let_pattern()?;
-        self.node(pattern_start, NodeKind::Unmarked);
         let ty = if self.eat(&Tok::Colon) {
             let ty_start = self.mark();
             let ty = self.expr_inline()?;
@@ -3102,9 +3114,9 @@ impl<'t> Parser<'t> {
             }
             let arm = self.mark();
             let bar = self.bump().span;
-            let mut patterns = vec![self.unmarked_alt_pattern()?];
+            let mut patterns = vec![self.alt_pattern()?];
             while self.eat(&Tok::Comma) {
-                patterns.push(self.unmarked_alt_pattern()?);
+                patterns.push(self.alt_pattern()?);
             }
             if patterns.len() != scrutinees.len() {
                 let (n, m) = (patterns.len(), scrutinees.len());
@@ -3190,9 +3202,9 @@ impl<'t> Parser<'t> {
             }
             let arm = self.mark();
             let bar = self.bump().span;
-            let mut patterns = vec![self.unmarked_alt_pattern()?];
+            let mut patterns = vec![self.alt_pattern()?];
             while self.eat(&Tok::Comma) {
-                patterns.push(self.unmarked_alt_pattern()?);
+                patterns.push(self.alt_pattern()?);
             }
             if let Some(first) = alts.first()
                 && first.patterns.len() != patterns.len()
@@ -3331,11 +3343,13 @@ impl<'t> Parser<'t> {
         if !self.or_bar_ahead() {
             return Ok(first);
         }
+        self.open(NodeKind::PatternOr);
         let mut alternatives = vec![first];
         while self.or_bar_ahead() {
             self.bump();
             alternatives.push(next(self)?);
         }
+        self.close();
         if let Some(name) = alternatives.iter().find_map(first_bound) {
             return Err(Diagnostic::error(
                 "E-OR-PATTERN-BINDS",
@@ -3412,6 +3426,7 @@ impl<'t> Parser<'t> {
                     self.expect(Tok::Colon, "`:`")?;
                     let ty = self.binder_type()?;
                     self.expect(Tok::RParen, "`)`")?;
+                    self.node(first, NodeKind::PatternTyped);
                     let name = Name {
                         text: format!("%arg{}", params.len()),
                         span: pattern.span(),
