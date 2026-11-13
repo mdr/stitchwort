@@ -20,6 +20,7 @@
 
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 use std::rc::Rc;
+use stitchwort_core::budget::Instant;
 
 pub use stitchwort_elab::ScopeName;
 use stitchwort_elab::project::{IncludeFiles, NamespaceSyntax, SourceUnit};
@@ -611,6 +612,52 @@ impl LiveProject {
     /// the session is as before the step, and the namespace is checked again
     /// by the next.
     pub fn step(&mut self) -> Result<Progress, Cancelled> {
+        let began = Instant::now();
+        let before = self.session.elab.check_cache_stats();
+        stitchwort_syntax::stack::probe::take();
+        let result = self.step_inner();
+        let (stack, _) = stitchwort_syntax::stack::probe::take();
+        if let Ok(Progress::Checked { .. }) = &result {
+            let after = self.session.elab.check_cache_stats();
+            let how = if after.namespace_hits > before.namespace_hits {
+                "replayed"
+            } else if after.late_misses > before.late_misses {
+                "late miss"
+            } else if after.namespace_uncacheable > before.namespace_uncacheable {
+                "uncacheable"
+            } else if after.namespace_waiting_on_error > before.namespace_waiting_on_error {
+                "waiting on error"
+            } else if after.namespace_written > before.namespace_written {
+                "elaborated, written"
+            } else {
+                "elaborated, not cached"
+            };
+            let why = self
+                .steps
+                .last()
+                .map(|s| {
+                    let bad: Vec<_> = (s.diagnostics.iter())
+                        .filter(|d| !matches!(d.severity, stitchwort_syntax::Severity::Warning))
+                        .collect();
+                    match bad.first() {
+                        Some(d) => format!(
+                            " [{} non-warnings, first {:?}: {}]",
+                            bad.len(),
+                            d.severity,
+                            d.message.chars().take(100).collect::<String>()
+                        ),
+                        None => String::new(),
+                    }
+                })
+                .unwrap_or_default();
+            let name = format!("{} ({how}){why}", self.last_checked().unwrap_or_default());
+            phases::step(&name, !why.is_empty(), stack, began.elapsed());
+            phases::add(how, began.elapsed());
+        }
+        result
+    }
+
+    fn step_inner(&mut self) -> Result<Progress, Cancelled> {
         let planned = self.dirty;
         if planned {
             self.make_plan();
@@ -626,6 +673,7 @@ impl LiveProject {
             }
             return Ok(Progress::Done);
         };
+        phases::begin(&name);
         let focus = self.focus_namespaces().contains(&name);
         let mark = self.session.mark();
         let files = self.namespace_files.get(&name).cloned().unwrap_or_default();
@@ -633,8 +681,12 @@ impl LiveProject {
         let analysis = self.analysis.as_ref().expect("a plan has an analysis");
         let first = self.env_sizes();
         let checked = self.session.cancellable_at(&mark, |s| {
+            let began = Instant::now();
             let ns = parse_namespace(s, &project, &name, &files);
+            phases::add("parse", began.elapsed());
+            let began = Instant::now();
             let found = s.check_project_namespace(analysis, &ns);
+            phases::add("check", began.elapsed());
             let mut names: Vec<(String, Vec<ScopeName>)> = Vec::new();
             if focus {
                 for ((path, _), id) in files.iter().zip(&ns.files) {
@@ -682,6 +734,13 @@ impl LiveProject {
     /// add to an earlier one's answers (a use of a generated declaration
     /// such as a record's `ext` makes it a symbol, at its declaration).
     pub fn answers(&mut self) -> Answers {
+        let began = Instant::now();
+        let answers = self.answers_inner();
+        phases::add("answers", began.elapsed());
+        answers
+    }
+
+    fn answers_inner(&mut self) -> Answers {
         let (diagnostics, wanted): (Vec<Diagnostic>, BTreeSet<String>) = if self.fatal.is_empty() {
             let fresh = &self.steps;
             (
@@ -1423,4 +1482,120 @@ fn syntactic_outline(file: &ParsedFile, implicit_namespace: Option<&str>) -> Vec
         }
     }
     out
+}
+
+/// Wall-clock totals per phase of a project check (SW-3113), read by the
+/// playground's stats (`phases::take`). Bounded: the native language server
+/// never calls `take`, so only the slowest steps and the first failing ones
+/// are kept between calls.
+pub mod phases {
+    use std::collections::BTreeMap;
+    use std::sync::Mutex;
+    use std::time::Duration;
+
+    /// How many of the slowest steps are kept, and of the failing ones.
+    const KEEP: usize = 12;
+    const KEEP_FAILED: usize = 40;
+
+    struct State {
+        totals: BTreeMap<&'static str, (u64, f64)>,
+        count: u64,
+        ms: f64,
+        /// The namespace being checked, for a crash's report.
+        current: String,
+        slowest: Vec<(String, f64)>,
+        deepest: Vec<(String, usize)>,
+        failed: Vec<String>,
+    }
+    static STATE: Mutex<State> = Mutex::new(State {
+        totals: BTreeMap::new(),
+        count: 0,
+        ms: 0.0,
+        current: String::new(),
+        slowest: Vec::new(),
+        deepest: Vec::new(),
+        failed: Vec::new(),
+    });
+
+    /// The namespace a step is about to check.
+    pub fn begin(name: &str) {
+        let mut s = STATE.lock().unwrap_or_else(|e| e.into_inner());
+        s.current.clear();
+        s.current.push_str(name);
+    }
+
+    /// The namespace the last step began on.
+    pub fn current() -> String {
+        STATE
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .current
+            .clone()
+    }
+
+    pub fn add(phase: &'static str, d: Duration) {
+        let mut s = STATE.lock().unwrap_or_else(|e| e.into_inner());
+        let e = s.totals.entry(phase).or_default();
+        e.0 += 1;
+        e.1 += d.as_secs_f64() * 1000.0;
+    }
+
+    /// A step that took `d` and reached `stack` bytes of stack (0 unless
+    /// built with `STITCHWORT_STACK_PROBE`); `failed` if it reported an error.
+    pub fn step(name: &str, failed: bool, stack: usize, d: Duration) {
+        let mut s = STATE.lock().unwrap_or_else(|e| e.into_inner());
+        let ms = d.as_secs_f64() * 1000.0;
+        s.count += 1;
+        s.ms += ms;
+        if failed && s.failed.len() < KEEP_FAILED {
+            s.failed.push(name.to_string());
+        }
+        if s.slowest.len() < KEEP || s.slowest.last().is_some_and(|l| l.1 < ms) {
+            s.slowest.push((name.to_string(), ms));
+            s.slowest.sort_by(|a, b| b.1.total_cmp(&a.1));
+            s.slowest.truncate(KEEP);
+        }
+        if stack > 0 && (s.deepest.len() < KEEP || s.deepest.last().is_some_and(|l| l.1 < stack)) {
+            s.deepest.push((name.to_string(), stack));
+            s.deepest.sort_by_key(|d| std::cmp::Reverse(d.1));
+            s.deepest.truncate(KEEP);
+        }
+    }
+
+    /// The totals since the last call, as JSON: `{"steps": n, "stepsMs",
+    /// "totals": {phase: [count, ms]}, "top": [[name, ms]], "failed": [name]}`
+    /// (the slowest steps first).
+    pub fn take() -> String {
+        let mut s = STATE.lock().unwrap_or_else(|e| e.into_inner());
+        let totals = std::mem::take(&mut s.totals);
+        let slowest = std::mem::take(&mut s.slowest);
+        let failed = std::mem::take(&mut s.failed);
+        let deepest = std::mem::take(&mut s.deepest);
+        let (n, all) = (std::mem::take(&mut s.count), std::mem::take(&mut s.ms));
+        let quote = |k: &str| {
+            k.replace('\\', "\\\\")
+                .replace('"', "\\\"")
+                .replace('\n', " ")
+        };
+        let totals: Vec<String> = totals
+            .iter()
+            .map(|(k, (c, ms))| format!("\"{k}\":[{c},{ms:.1}]"))
+            .collect();
+        let top: Vec<String> = slowest
+            .iter()
+            .map(|(k, ms)| format!("[\"{}\",{ms:.1}]", quote(k)))
+            .collect();
+        let failed: Vec<String> = failed.iter().map(|k| format!("\"{}\"", quote(k))).collect();
+        let deepest: Vec<String> = deepest
+            .iter()
+            .map(|(k, b)| format!("[\"{}\",{}]", quote(k), b / 1024))
+            .collect();
+        format!(
+            "{{\"steps\":{n},\"stepsMs\":{all:.1},\"totals\":{{{}}},\"top\":[{}],\"failed\":[{}],\"deepestKiB\":[{}]}}",
+            totals.join(","),
+            top.join(","),
+            failed.join(","),
+            deepest.join(",")
+        )
+    }
 }

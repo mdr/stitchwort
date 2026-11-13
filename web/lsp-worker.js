@@ -25,7 +25,7 @@
 // is then read from memory (`LanguageServer::add_project`), for documents
 // opened under its root, as file:///playground/aoc/src/…. {setFile: {root,
 // path, text}} gives one of its files other text (`set_project_file`).
-import init, { load_std, std_source, LanguageServer } from "./pkg/stitchwort_web.js";
+import init, { checking_namespace, load_std, stack_reached, std_source, LanguageServer } from "./pkg/stitchwort_web.js";
 
 let server = null;
 let module = null;
@@ -154,6 +154,17 @@ function send(array) {
   }
 }
 
+// For a crash's report: the namespace being checked, and how deep the
+// WebAssembly stack got (in a build with STITCHWORT_STACK_PROBE). Never
+// throws, so the crash itself is always reported.
+function crashInfo() {
+  try {
+    return { stack: Array.from(stack_reached()), checking: checking_namespace() };
+  } catch {
+    return {};
+  }
+}
+
 let scheduled = false;
 function schedule() {
   if (scheduled) return;
@@ -161,25 +172,33 @@ function schedule() {
   setTimeout(tick, 0);
 }
 
+// Where a re-check's time goes (SW-3113): the page sums these in `stats.phases`.
+let lastTickEnd = null;
 function tick() {
   scheduled = false;
   const t = performance.now();
+  const gap = lastTickEnd === null ? 0 : t - lastTickEnd;
   let answer;
   try {
     answer = JSON.parse(server.tick());
   } catch (e) {
-    postMessage({ crashed: String(e) + "\n" + (e?.stack ?? "").split("\n").slice(0, 12).join("\n") });
+    postMessage({ crashed: String(e) + "\n" + (e?.stack ?? "").split("\n").slice(0, 12).join("\n"), ...crashInfo() });
     return;
   }
   const ms = performance.now() - t;
+  const t1 = performance.now();
   send(JSON.stringify(answer.sent));
   takeSearches();
-  postMessage({ tick: ms, published: answer.sent.length, startAbs: performance.timeOrigin + t, more: answer.more });
+  const sendMs = performance.now() - t1;
+  postMessage({ tick: ms, sendMs, gap, published: answer.sent.length, startAbs: performance.timeOrigin + t, more: answer.more });
+  lastTickEnd = performance.now();
   if (!checked && answer.sent.some((m) => m.method === "stitchwort/checked")) {
     checked = true;
     warmSearcher();
   }
   if (answer.more) schedule();
+  // `stack`: the WebAssembly stack the work reached, in a build with STITCHWORT_STACK_PROBE.
+  else postMessage({ phases: { ...JSON.parse(server.phases()), stack: Array.from(stack_reached()) } });
 }
 
 function loadProject(project) {
@@ -229,10 +248,11 @@ async function handle(data) {
     send(server.receive(data));
     takeSearches();
   } catch (e) {
-    postMessage({ crashed: String(e) + "\n" + (e?.stack ?? "").split("\n").slice(0, 12).join("\n") });
+    postMessage({ crashed: String(e) + "\n" + (e?.stack ?? "").split("\n").slice(0, 12).join("\n"), ...crashInfo() });
     return;
   }
   postMessage({ received: performance.now() - t, method });
+  lastTickEnd = null;
   schedule();
 }
 

@@ -7,20 +7,32 @@
 const WASM_STACK: usize = 8 * 1024 * 1024;
 /// How much of that stack an operation may use before it's stopped with a
 /// resource error. Far less than the stack itself: each WebAssembly call also
-/// uses the engine's own call stack (about 1 MiB in V8), which overflows
-/// first, as a `RangeError` the compiler can't recover from. Only variables
-/// whose address is taken live on the stack in linear memory, so it grows
-/// much more slowly. Measured in Node 22 (V8) once every recursive pass was
-/// guarded: with a guard of up to 512 KiB, every deep case stopped cleanly;
-/// from 640 KiB, elaborating a long sum (`1 + 1 + …`) overflowed V8's stack.
-/// 256 KiB (128 KiB until games/rogue, whose 11-field `State` record needs
-/// more, was bundled) leaves a margin of 2 for engines with smaller stacks, but allows
-/// little: nesting about 25 deep, list literals of about 200 elements. Check
-/// with web/stress.html; set `STITCHWORT_GUARD` (bytes) to experiment.
+/// uses the engine's own call stack, which overflows first, as a `RangeError`
+/// the compiler can't recover from (the playground's worker is restarted).
+/// Only variables whose address is taken live on the stack in linear memory,
+/// so how much of it a recursion uses before the engine's stack runs out
+/// depends on the recursion.
+///
+/// Measured in headless Chrome 157's dedicated workers, whose V8 stack is
+/// about 500 KB (SW-3128; build with `STITCHWORT_STACK_PROBE` and
+/// `web/stress.html` shows how deep each case got): with the guard lifted,
+/// V8 overflowed at about 500-550 KiB of this stack in the term printer, at
+/// 620-680 KiB in the evaluator (forcing the thunks of
+/// `Aoc.Year2024.Day22`'s proofs, measured in Node set up to match) and at
+/// 790-1050 KiB in the parser and elaborator. 320 KiB leaves a margin of
+/// about 1.6 below the printer's figure and 2 below the evaluator's. Safari's
+/// workers on macOS get the system's 512 KiB thread stack (WebKit's
+/// `Thread::create` sets none), so probably about Chrome's room or a little
+/// less (not measured); Firefox's have 2 MiB. 320 KiB checks the proofs of
+/// all but two AoC days (256 KiB also failed 2021 days 6 and 11, and 2024
+/// day 16; 384 KiB passes no more). The two left need more than a safe
+/// guard allows: 2024 day 13 about 500 KiB (it would fit V8's stack, but
+/// with no margin), and day 22 about 2.3 MiB, far past it.
+/// Set `STITCHWORT_GUARD` (bytes) to experiment.
 /// The same bytes natively are less depth (larger frames): a native release
 /// build needs about 1.5 times this to check `Float.Theory`
 /// (docs/proposals/playground-editor.md, SW-1456).
-const WASM_GUARD: usize = 256 * 1024;
+const WASM_GUARD: usize = 320 * 1024;
 /// Native builds of this crate only run as tests, on 2 MiB test threads.
 const NATIVE_STACK: usize = 2 * 1024 * 1024;
 

@@ -33909,12 +33909,12 @@
     {
       "id": 3128,
       "title": "[Opus] Playground: deep proofs fail under the 512 KiB stack budget (STITCHWORT_GUARD in crates/web/build.rs, SW-1430) with false 'ran out of resources' errors and are re-elaborated on every edit (SW-3113: ~20 s of the 27 s re-check; docs/reviews/SW-3113-browser-recheck.md). (1) confirm in the browser which AoC namespaces show the error; (2) measure the real V8 stack headroom in the LSP worker with web/stress.html and raise the guard as far as is safe; (3) if that's not enough, find the deepest-recursing frames (elaborator, closing, conversion) with the native repro SW3113_STACK=524288 profile::sw3113_profile (on lane/SW-3113) and shrink stack per level. Re-measure the re-check.",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "review",
+      "agent": "Opus",
+      "where": "lane/SW-3128",
       "labels": [],
       "epic": "editor-playground",
-      "body": "",
+      "body": "Started on Opus, expected: 2.5 h (14:32).\n\nLane (Opus, ~70 min): browser (Chrome 157) at 256 KiB failed 2021 Day06/Day11.Proofs and 2024 Day13/16/22.Proofs (Day13 \"nested too deeply for the type checker\", the rest \"recursed more deeply\"). Headroom measured with a stack probe (STITCHWORT_STACK_PROBE: deepest WebAssembly stack, readable after V8 overflows) in Chrome's dedicated workers (V8 ~500 KB): guard lifted, V8 overflowed at ~500-550 KiB in the term printer, 620-680 KiB in the evaluator (Day22's thunk forcing), 790-1050 KiB parser/elaborator, and only 305 KiB in effects::may_perform_at (a long sum): the old 256 KiB had a margin of 1.19 there. may_perform_at now loops along let/else-if/operator chains (871 KiB). Guard 256 -> 320 KiB (margin ~1.6 printer, ~2 evaluator); clears Day06/11/16 (384 clears no more). Day13 needs ~500 KiB, Day22 ~2.3 MiB: left. Browser re-check 28.0 s -> 23.3 s. stress.html fixed (stale helpers, no std import or library cache) and all 13 cases as expected. Instrumentation from SW-3113 kept, step log bounded.\n",
       "created": "2026-11-13",
       "updated": "2026-11-13",
       "commits": []
