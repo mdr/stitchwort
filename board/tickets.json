@@ -34299,7 +34299,7 @@
     {
       "id": 3158,
       "title": "[Opus, paper] Formatter stage 0 (docs/proposals/formatter-architecture.md §6): the style sheet: the rule for every construct, each with a real before/after from the repo, and the comment rules, under D3558 (fmt chooses breaks), D3560a (no author hints; blank lines only), D3560b (fit-or-break: a pipeline that fits stays on one line). Include theorem headers (variables then premises, Matt's discussion 13 Nov). Stops for Matt's sign-off",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
