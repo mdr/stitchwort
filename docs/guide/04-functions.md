@@ -161,10 +161,9 @@ type Key =
   | BirthYear
   | IssueYear
 
-def Key.valid (key: Key) (text: Text): Bool :=
-  match key with
-    | BirthYear => text.length == 4
-    | IssueYear => text.length == 4
+def Key.valid (key: Key) (text: Text): Bool := match key with
+  | BirthYear => text.length == 4
+  | IssueYear => text.length == 4
 
 def check: Bool := BirthYear.valid "2002"
 ```
@@ -172,14 +171,14 @@ def check: Bool := BirthYear.valid "2002"
 <!-- output: check errors/constructor-dot.sw -->
 ```text
 [E-UNKNOWN-NAME] Error: unknown name `BirthYear.valid`
-    ╭─[ errors/constructor-dot.sw:10:20 ]
-    │
- 10 │ def check: Bool := BirthYear.valid "2002"
-    │                    ───────┬───────
-    │                           ╰───────── not in scope
-    │
-    │ Note: `BirthYear` is a `Key`: write `Key.valid BirthYear` or `BirthYear |> .valid`
-────╯
+   ╭─[ errors/constructor-dot.sw:9:20 ]
+   │
+ 9 │ def check: Bool := BirthYear.valid "2002"
+   │                    ───────┬───────
+   │                           ╰───────── not in scope
+   │
+   │ Note: `BirthYear` is a `Key`: write `Key.valid BirthYear` or `BirthYear |> .valid`
+───╯
 1 error: in `check`
 ```
 

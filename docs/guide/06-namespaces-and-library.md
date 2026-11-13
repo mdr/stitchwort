@@ -85,10 +85,9 @@ import Std (Fail, List, Text)
 import Std.Fail (fail, need)
 
 -- "tea 3" is three teas.
-def Order.read (line: Text): {Fail} Order :=
-  match line.words with
-    | [product, quantity] => { product, quantity = need quantity.toNat "expected a quantity, got '${quantity}'" }
-    | _ => fail "expected a product and a quantity, got '${line}'"
+def Order.read (line: Text): {Fail} Order := match line.words with
+  | [product, quantity] => { product, quantity = need quantity.toNat "expected a quantity, got '${quantity}'" }
+  | _ => fail "expected a product and a quantity, got '${line}'"
 ```
 
 The program is a namespace of its own, `Shop.Report`. A dotted namespace doesn't see its parent's names: it imports what it uses.
@@ -231,10 +230,9 @@ test "filterMap" := ["1", "x", "3"].filterMap Text.toNat == [1, 3]
 
 <!-- snippet: library.sw#result -->
 ```stitchwort
-def parseAge (text: Text): Result Nat Text :=
-  match text.toNat with
-    | Some age => Ok age
-    | None => Err "not a number: '${text}'"
+def parseAge (text: Text): Result Nat Text := match text.toNat with
+  | Some age => Ok age
+  | None => Err "not a number: '${text}'"
 
 test "ok" := parseAge "36" == Ok 36
 test "err" := parseAge "old" == Err "not a number: 'old'"

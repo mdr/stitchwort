@@ -86,10 +86,9 @@ def Shape.hasArea: Shape → Bool
   | Dot => False
   | _ => True
 
-def Shape.width (shape: Shape) (h: shape.hasArea): Nat :=
-  match shape with
-    | Circle radius => 2 * radius
-    | Rect width _ => width
+def Shape.width (shape: Shape) (h: shape.hasArea): Nat := match shape with
+  | Circle radius => 2 * radius
+  | Rect width _ => width
 
 test "width" := (Rect 3 4).width rfl == 3
 ```
@@ -295,11 +294,10 @@ def Colour.isWarm: Colour → Bool
   | Red | Yellow => True
   | Green | Blue => False
 
-def keyMove (key: Char): Option Text :=
-  match key with
-    | 'k' | 'w' => Some "north"
-    | 'j' | 's' => Some "south"
-    | _ => None
+def keyMove (key: Char): Option Text := match key with
+  | 'k' | 'w' => Some "north"
+  | 'j' | 's' => Some "south"
+  | _ => None
 
 test "or-patterns" := Colour.isWarm Yellow ∧ ¬Colour.isWarm Blue ∧ keyMove 'w' == Some "north" ∧ keyMove 'x' == None
 ```
@@ -308,16 +306,14 @@ test "or-patterns" := Colour.isWarm Yellow ∧ ¬Colour.isWarm Blue ∧ keyMove 
 
 <!-- snippet: data.sw#match -->
 ```stitchwort
-def compareAges (a: Person) (b: Person): Text :=
-  match Ord.compare a.age b.age with
-    | Less => "${a.name} is younger"
-    | Equal => "the same age"
-    | Greater => "${a.name} is older"
+def compareAges (a: Person) (b: Person): Text := match Ord.compare a.age b.age with
+  | Less => "${a.name} is younger"
+  | Equal => "the same age"
+  | Greater => "${a.name} is older"
 
-def both (x: Option Nat) (y: Option Nat): Option Nat :=
-  match x, y with
-    | Some a, Some b => Some (a + b)
-    | _, _ => None
+def both (x: Option Nat) (y: Option Nat): Option Nat := match x, y with
+  | Some a, Some b => Some (a + b)
+  | _, _ => None
 ```
 
 `Ord.compare` gives `Less`, `Equal` or `Greater`, a variant type of the library.
@@ -351,10 +347,9 @@ def grade: Nat → Text
 
 test "conditions on cases" := grade 95 == "distinction" ∧ grade 60 == "pass" ∧ grade 10 == "fail"
 
-def share (total: Nat) (parts: Nat): Nat :=
-  match total, parts with
-    | amount, count if count != 0 => amount / count
-    | amount, _ => amount
+def share (total: Nat) (parts: Nat): Nat := match total, parts with
+  | amount, count if count != 0 => amount / count
+  | amount, _ => amount
 
 test "a condition picks the arm" := share 12 4 == 3 ∧ share 12 0 == 12
 ```
@@ -398,10 +393,9 @@ A value that may be missing has the type `Option a`, which is `Some value` or `N
 ```stitchwort
 def findAdult (people: List Person): Option Person := people.find isAdult
 
-def adultName (people: List Person): Text :=
-  match findAdult people with
-    | Some person => person.name
-    | None => "nobody"
+def adultName (people: List Person): Text := match findAdult people with
+  | Some person => person.name
+  | None => "nobody"
 
 test "found" := adultName [newborn "Bo", ada] == "Ada"
 test "with helpers" := (findAdult []).map .name |> .getOrElse "nobody" == "nobody"
