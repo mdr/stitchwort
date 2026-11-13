@@ -180,8 +180,7 @@ impl Files for Reformatted {
     fn read(&self, path: &str) -> std::io::Result<String> {
         let text = self.0.read(path)?;
         if path.ends_with(".sw") {
-            let reformatted =
-                deformat(path, &text).and_then(|d| format(&d.broken).ok());
+            let reformatted = deformat(path, &text).and_then(|d| format(&d.broken).ok());
             Ok(reformatted.unwrap_or(text))
         } else {
             Ok(text)
