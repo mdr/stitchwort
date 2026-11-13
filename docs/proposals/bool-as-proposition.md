@@ -808,7 +808,7 @@ lane.
 | 4 | **Measure, then decide**: after one AoC year is swept with `.read`, count the `.read`s that sit where restricted silent crossing (§7) would apply | 3, 6 | Sonnet | 1 h |
 | 5 | `auto` and `cases` on the reader (§9) | 2 | Opus | done (SW-3059) |
 | 6 | **Sweeps**, by area: helpers replaced by patterns and `.read`; the `= True ↔` lemmas marked or deleted | 3 | Sonnet, three lanes (std, AoC 2020-21, AoC 2024) | 3 × 1.5 h |
-| 7 | **Guide and tour**: a guide chapter "Tests and propositions", the proving guide's "Writing statements"; one sentence more: "to use the whole fact as its proposition, write `.read`" | 3 | Sonnet | 1.5 h |
+| 7 | **Guide and tour**: a guide chapter "Tests and propositions", the proving guide's "Writing statements"; one sentence more: "to use the whole fact as its proposition, write `.read`" | 3 | Sonnet | done (SW-3098: a section "Tests and propositions" in guide chapter 10) |
 | last | `omega` on the reader's table | 5 | Opus | optional |
 
 Stages 3 and 5 can run in parallel after 2.

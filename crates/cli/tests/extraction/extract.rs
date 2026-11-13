@@ -157,8 +157,8 @@ fn per_person_two_by_zero_fails_the_reference_precondition() {
 }
 
 /// A session whose library files replay from the test std cache outside the
-/// full tier (docs/testing.md, "The test std cache"): these tests are of the
-/// extracted code, and the full tier still checks the library from source in
+/// all tier (docs/testing.md, "The test std cache"): these tests are of the
+/// extracted code, and the all tier still checks the library from source in
 /// each.
 fn new_session() -> Session {
     let mut session = Session::new();
@@ -225,8 +225,8 @@ fn unfolded_helpers_are_not_emitted() {
 }
 
 /// The generated declarations type-check. The `tsc` runs, one per example,
-/// take about 10 s, so this is in the daily tier and `generated_code_is_stable`
-/// in the merge tier.
+/// take about 10 s, so this is in the broad tier and `generated_code_is_stable`
+/// in the quick tier.
 #[test]
 fn the_declarations_type_check() {
     // Checking an example and its `tsc` run are both slow and independent of
@@ -317,8 +317,8 @@ fn read_and_load(session: &mut Session, path: &Path) -> (String, String) {
 
 impl Examples {
     /// A corpus sweep's share of the examples in this tier (`tier_sample`).
-    fn sampled(self, daily_stride: usize) -> Examples {
-        Examples(tier_sample(self.0, daily_stride))
+    fn sampled(self, broad_stride: usize) -> Examples {
+        Examples(tier_sample(self.0, broad_stride))
     }
 
     /// The examples' paths, none of them checked.

@@ -22,7 +22,7 @@
 #[cfg(test)]
 use stitchwort_test_alloc as _;
 
-use std::cell::Cell;
+use std::cell::{Cell, RefCell};
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
@@ -43,7 +43,8 @@ use lsp_types::{
 use stitchwort_core::collections::{HashMap, HashSet};
 use stitchwort_driver::at as pos;
 use stitchwort_driver::check_cache::{
-    BundleRecorder, BundleStore, CheckCache, LayeredStore, LibraryBundle,
+    BundleRecorder, BundleStore, CheckCache, LAYER_CAP_BYTES, LayerBudget, LayeredStore,
+    LibraryBundle,
 };
 use stitchwort_driver::driver::Session;
 use stitchwort_driver::live::{
@@ -2983,6 +2984,62 @@ impl ProjectWork {
     }
 }
 
+/// The in-memory check caches of the projects loaded so far, by project
+/// folder, kept for the life of the checker so that loading the same project
+/// again (the page re-opening it, SW-3072) replays what the first check
+/// wrote instead of elaborating it again. Entries are keyed by content, so a
+/// store from an earlier load is sound for a later one: a changed file, a
+/// changed dependency or another compiler build is a miss, not a stale hit.
+///
+/// All the stores share one [`LayerBudget`], so their entries together stay
+/// under the 192 MB cap (`LAYER_CAP_BYTES`) rather than each having its own.
+/// A newly loaded project makes room for itself by clearing the least
+/// recently loaded projects' entries while the others hold more than half
+/// the budget. The stores are kept (emptied) rather than dropped, since the
+/// loaded project's session holds the same store and would keep it alive.
+#[derive(Default)]
+struct ProjectCaches {
+    budget: LayerBudget,
+    /// The number of the most recent load: each store's age.
+    loaded: Cell<u64>,
+    stores: RefCell<BTreeMap<PathBuf, (u64, Rc<LayeredStore>)>>,
+}
+
+impl ProjectCaches {
+    /// The store for the project at `root`: the one an earlier load made, or
+    /// a new one sharing the budget.
+    fn store(
+        &self,
+        root: &Path,
+        bundle: &Arc<LibraryBundle>,
+        log: Option<&stitchwort_driver::check_cache::StoreLog>,
+    ) -> Rc<LayeredStore> {
+        let mut stores = self.stores.borrow_mut();
+        let loaded = self.loaded.get() + 1;
+        self.loaded.set(loaded);
+        if let Some((age, store)) = stores.get_mut(root) {
+            *age = loaded;
+            return store.clone();
+        }
+        while self.budget.used() > LAYER_CAP_BYTES / 2 {
+            let oldest = (stores.iter())
+                .min_by_key(|(_, (age, _))| *age)
+                .map(|(root, _)| root.clone());
+            let Some(oldest) = oldest else { break };
+            if let Some((_, store)) = stores.remove(&oldest) {
+                store.clear();
+            }
+        }
+        let mut store = LayeredStore::with_budget(bundle.clone(), self.budget.clone());
+        if let Some(log) = log {
+            store = store.logging(log.clone());
+        }
+        let store = Rc::new(store);
+        stores.insert(root.to_path_buf(), (loaded, store.clone()));
+        store
+    }
+}
+
 enum Work {
     Project(Box<ProjectWork>),
     File(Box<LiveFile>),
@@ -3061,6 +3118,8 @@ struct Checker {
     anyway: Option<rename::Anyway>,
     /// Warnings kept on the declarations a rename changed the meaning of.
     warnings: rename::Warnings,
+    /// The projects' in-memory check caches, kept across loads (SW-3072).
+    caches: ProjectCaches,
 }
 
 /// A panic in the checker: the workspace it was working on, if known.
@@ -3278,6 +3337,7 @@ impl Checker {
             notices: None,
             anyway: None,
             warnings: BTreeMap::new(),
+            caches: ProjectCaches::default(),
         }
     }
 
@@ -4100,6 +4160,14 @@ impl Checker {
             .insert(path.to_path_buf(), Work::File(Box::new(live)));
     }
 
+    /// Forgets the project at `root`, as a host that closed it would: the
+    /// next document opened or edited under it loads the project again. Its
+    /// in-memory check cache is kept ([`ProjectCaches`]), so the reload
+    /// replays what the first load checked (SW-3072).
+    fn forget_project(&mut self, root: &Path) {
+        self.work.remove(root);
+    }
+
     /// Reads the project in folder `dir`.
     fn load_project(&self, dir: &Path) -> Option<ProjectWork> {
         if self.options.faults.load_panics_now(dir) {
@@ -4122,11 +4190,13 @@ impl Checker {
                 writable: writable.clone(),
             }));
         } else if let Some(bundle) = self.options.library.get() {
-            let mut store = LayeredStore::new(bundle.clone());
-            if let Some(log) = &self.options.namespace_log {
-                store = store.logging(log.clone());
-            }
-            session.elab.set_check_cache(Rc::new(store));
+            // The same project loaded again (the page re-opened it) gets the
+            // store the first load filled (SW-3072): its entries are keyed by
+            // content, so they are found again unless something changed.
+            let store = self
+                .caches
+                .store(dir, bundle, self.options.namespace_log.as_ref());
+            session.elab.set_check_cache(store);
             skip = bundle.left_out.clone();
         }
         if let Some(include) = self.source.files(dir).include_files() {
@@ -4222,6 +4292,14 @@ impl Inline {
             handed: HashMap::default(),
             options,
         })
+    }
+
+    /// For tests: forgets the project at `root` as if the page had closed it,
+    /// so that the next edit or open under it loads the project again; the
+    /// in-memory check cache kept by [`ProjectCaches`] is reused (SW-3072).
+    #[doc(hidden)]
+    pub fn forget_project(&mut self, root: &Path) {
+        self.checker.forget_project(root);
     }
 
     /// The searches queued since the last call, for the host to run:

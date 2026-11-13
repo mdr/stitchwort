@@ -869,3 +869,67 @@ fn replay_body() {
             .any(|(u, e)| u.starts_with("ns.D+") && *e == Found)
     );
 }
+
+/// SW-3072: reloading a project (the page closing and opening it again) keeps
+/// its in-memory check cache: the second load finds every namespace the first
+/// check wrote, elaborates nothing, and publishes what a fresh server does.
+#[test]
+fn a_reloaded_playground_project_finds_its_namespaces_in_the_store() {
+    std::thread::Builder::new()
+        .stack_size(STACK)
+        .spawn(reload_body)
+        .unwrap()
+        .join()
+        .unwrap();
+}
+
+fn reload_body() {
+    use stitchwort_driver::check_cache::StoreEvent::{Found, Missing, Wrote};
+    let files = [
+        ("src/A.sw", "namespace A\n\ndef a: Nat := 1\n"),
+        (
+            "src/B.sw",
+            "namespace B\nimport A (a)\n\ndef b: Nat := a + 1\n",
+        ),
+        ("src/C.sw", "namespace C\n\ndef c: Nat := 3\n"),
+        (
+            "src/D.sw",
+            "namespace D\nimport B (b)\n\ndef d: Nat := b + 1\n",
+        ),
+    ];
+    let bundle = common::cached_bundle(&Options::new(STACK), STACK);
+    let log: stitchwort_driver::check_cache::StoreLog = Default::default();
+    let mut p = Playground::open(&files, &bundle, Some(log.clone()));
+    let first = std::mem::take(&mut *log.lock().unwrap());
+    for name in ["A", "B", "C", "D"] {
+        assert!(
+            first
+                .iter()
+                .any(|(u, e)| u.starts_with(&format!("ns.{name}+")) && *e == Wrote),
+            "{name}: {first:?}"
+        );
+    }
+
+    // The page closes the project and opens it again: the project is loaded
+    // again and checks every namespace, all of which are in the store.
+    p.server
+        .forget_project(std::path::Path::new("/memory/proj"));
+    p.edit_b(2, files[1].1);
+    let second = std::mem::take(&mut *log.lock().unwrap());
+    for name in ["A", "B", "C", "D"] {
+        let events: Vec<_> = (second.iter())
+            .filter(|(u, _)| u.starts_with(&format!("ns.{name}+")))
+            .map(|(_, e)| *e)
+            .collect();
+        assert!(!events.is_empty(), "{name}: {second:?}");
+        assert!(events.iter().all(|e| *e == Found), "{name}: {second:?}");
+    }
+    assert!(
+        !second.iter().any(|(_, e)| *e == Missing || *e == Wrote),
+        "{second:?}"
+    );
+
+    // What the reload publishes is a fresh server's.
+    let fresh = Playground::open(&files, &bundle, None);
+    assert_eq!(p.published, fresh.published);
+}

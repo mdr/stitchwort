@@ -127,7 +127,7 @@ theorem part1Complete (device: Device) (wellFormed: WellFormed device) (number: 
   let each: ∀ (bit: Nat) => bit ∈ List.range 0 count → zValue bit = Some (Nat.testBit number bit) := (bit member =>
     match there: device.wires.contains (Z bit) with
       | True =>
-        settledComplete device wellFormed (Z bit) _ (outputs.left bit ((List.memContains device.wires (Z bit)).forward there))
+        settledComplete device wellFormed (Z bit) _ (outputs.left bit there.read)
       | False =>
         rewrite outputs.right bit (isIn => Bool.trueNotFalse (Eq.trans (Eq.sym ((List.memContains device.wires (Z bit)).backward isIn)) there)) in rfl)
   let bitsAre: device.zBits device.settled = Some ((List.range 0 count).map (Nat.testBit number)) := allSomeMap zValue (Nat.testBit number) (List.range 0 count) each

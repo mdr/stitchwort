@@ -24,12 +24,12 @@ theorem lineAfterAdd (lines: Map Nat (Set Nat)) (line: Nat) (item: Nat) (key: Na
       = ((key == line && other == item) || (lines.getOr key Set.empty).contains other) :=
   match onLine: key == line with
     | True =>
-      rewrite DecEq.sound onLine, Map.getInsert line (lines.getOr line Set.empty |> .insert item) lines in
+      rewrite onLine.read, Map.getInsert line (lines.getOr line Set.empty |> .insert item) lines in
       match isItem: other == item with
-        | True => rewrite DecEq.sound isItem, Set.containsInsert item (lines.getOr line Set.empty) in rfl
+        | True => rewrite isItem.read, Set.containsInsert item (lines.getOr line Set.empty) in rfl
         | False =>
-          rewrite Set.containsInsertOther (lines.getOr line Set.empty) item other (DecEq.soundFalse other item isItem) in rfl
-    | False => rewrite Map.getInsertOther line (lines.getOr line Set.empty |> .insert item) key (DecEq.soundFalse key line onLine) lines in rfl
+          rewrite Set.containsInsertOther (lines.getOr line Set.empty) item other isItem.read in rfl
+    | False => rewrite Map.getInsertOther line (lines.getOr line Set.empty |> .insert item) key onLine.read lines in rfl
 
 --| Adding an obstruction adds it to its row and column.
 theorem addRepresents (sightlines: Sightlines) (has: Position → Bool) (represents: Represents sightlines has):
@@ -65,25 +65,24 @@ theorem isAtSelf (position: Position): isAt position.row position.column positio
   rewrite DecEq.refl position.row, DecEq.refl position.column in rfl
 
 theorem isAtSound (key: Position) (position: Position) (here: isAt key.row key.column position = True): position = key :=
-  positionExt position key (DecEq.sound (Bool.andLeft here)) (DecEq.sound (Bool.andRight here))
+  let Both sameRow sameColumn := here
+  positionExt position key sameRow.read sameColumn.read
 
 --| A set has a position when one of its entries is at it.
 theorem containsEntries (obstructions: Set Position) (position: Position):
     (False || obstructions.items.toList.any (entry => isAt entry.fst.row entry.fst.column position)) = obstructions.contains position :=
   match has: obstructions.contains position with
     | True =>
-      List.anyOfMem (Map.toList obstructions.items) (entry => isAt entry.fst.row entry.fst.column position) (position, ()) (isAtSelf position)
-        ((Set.containsToList obstructions position).forward has)
+      Witness (position, ()) (Both ((Set.containsToList obstructions position).forward has) (isAtSelf position))
     | False =>
       match found: (Map.toList obstructions.items).any (entry => isAt entry.fst.row entry.fst.column position) with
         | False => rfl
         | True =>
-          List.anyTrueElim (Map.toList obstructions.items) (entry => isAt entry.fst.row entry.fst.column position) (True = False) found
-            (entry inList hit =>
-              match entry with
-                | (key, unit) =>
-                  let entryIs: (key, unit) = (position, ()) := rewrite isAtSound key position hit, Set.unitEq unit () in rfl
-                  Eq.sym (Eq.trans (Eq.sym has) ((Set.containsToList obstructions position).backward (rewrite <- entryIs in inList))))
+          let Witness entry (Both inList hit) := found
+          match entry with
+            | (key, unit) =>
+              let entryIs: (key, unit) = (position, ()) := rewrite isAtSound key position hit, Set.unitEq unit () in rfl
+              Eq.sym (Eq.trans (Eq.sym has) ((Set.containsToList obstructions position).backward (rewrite <- entryIs in inList)))
 
 theorem emptyRepresents: Represents ({ byRow = Map.empty, byColumn = Map.empty }: Sightlines) (position => False) := row column => Both rfl rfl
 

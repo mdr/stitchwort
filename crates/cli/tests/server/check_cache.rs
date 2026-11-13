@@ -10,7 +10,7 @@
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output, Stdio};
 
-use stitchwort_cli::driver::{full_tier, par_map, tier_sample};
+use stitchwort_cli::driver::{all_tier, par_map, tier_sample};
 
 /// A new, empty directory.
 fn temp_dir(name: &str) -> PathBuf {
@@ -151,7 +151,7 @@ fn the_index_is_the_same_from_the_cache_for_the_example_projects() {
 /// namespace on each save (`editors/vscode/extension.js`).
 #[test]
 fn the_index_is_the_same_from_the_cache_for_aoc() {
-    if !full_tier("the_index_is_the_same_from_the_cache_for_aoc") {
+    if !all_tier("the_index_is_the_same_from_the_cache_for_aoc") {
         return;
     }
     let aoc = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../aoc");

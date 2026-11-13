@@ -535,62 +535,7 @@ theorem smallSame (n: Nat) (h: isSmall n): isSmall n = True := h
 
 The two ways of writing it are the same statement, so `smallSame` is proved by `h` itself, and goals show `isSmall n = True` as `isSmall n`. The one place to write `= True` out is a fact about the `Bool` `a && b` itself, as a program's `if` hands it over: `(a && b) = True`, which goals show that way too, since `a && b` alone would mean `a ∧ b`. A side of `=` is never read as a statement, so `(a == b) = c` still compares `Bool`s.
 
-A fact about a test can also be used as the statement the test stands for. A **reading** says what that is: a theorem `test ↔ P` marked `@[reading]`, declared next to the test's function. Then a fact `within lo x hi` is taken apart with `P`'s patterns, built with `P`'s constructors or record, and `h.read` is the whole fact as `P` (a field such as `h.read.low` can be written `h.low` too):
-
-<!-- snippet: proofs.sw#readings -->
-```stitchwort
-type Within (lo: Nat) (x: Nat) (hi: Nat): Prop = {
-  low: lo ≤ x,
-  high: x ≤ hi
-}
-
-def within (lo: Nat) (x: Nat) (hi: Nat): Bool := lo <= x && x <= hi
-
-@[reading]
-theorem withinReads (lo: Nat) (x: Nat) (hi: Nat): within lo x hi ↔ Within lo x hi := {
-  forward = h => { low = h.left, high = h.right },
-  backward = r => Both r.low r.high
-}
-
-theorem withinHigh (lo: Nat) (x: Nat) (hi: Nat) (h: within lo x hi): x ≤ hi :=
-  match h with
-    | { low, high } => high
-
-theorem withinLow (lo: Nat) (x: Nat) (hi: Nat) (h: within lo x hi): lo ≤ x := h.read.low
-
-theorem withinSelf (x: Nat): within x x x := { low = Nat.leRefl x, high = Nat.leRefl x }
-
-theorem eitherSide (a: Bool) (b: Bool) (h: (a || b) = True): b ∨ a :=
-  match h with
-    | Inl ha => Inr ha
-    | Inr hb => Inl hb
-```
-
-The library gives `&&`, `||` and `not` their readings: `(a && b) = True` reads as `a ∧ b`, `(a || b) = True` as `a ∨ b`, `not a = True` as `a = False`, and each `= False` as what you'd expect (`(a && b) = False` as `a = False ∨ b = False`). Each pattern reads one layer: `Both _ rest` leaves `rest` the fact `(b || c) = True`, and a pattern under it reads that in turn. A test whose function has no reading is unfolded to one that has, so `def isDigit (n: Nat): Bool := within 48 n 57` reads as `Within 48 n 57`. A fact `e = False` with no reading reads as `¬e`. Where nothing reads (`h: a = True` with `a` a variable), the error `E-NO-READING` says what the test is. A test has one reading for `= True` and one for `= False`, declared in the namespace (or library file) of its function. It can go anywhere there: whatever mentions the test is checked after its reading, except what the reading's own proof uses.
-
-A decision's test needs no reading of its own. Where the decision is only known by its type, as `==` is on a type known only to have `DecEq`, a fact about its test reads as what it decides: `(a == b) = True` as `a = b`, and `(a == b) = False` as `a ≠ b`:
-
-<!-- snippet: proofs.sw#readings-decisions -->
-```stitchwort
-theorem sameKey [auto eq: DecEq k] (a b c: k) (h: (a == b && b == c) = True): a = c :=
-  match h with
-    | Both ab bc => rewrite ab.read, bc.read in rfl
-
-theorem differ [auto eq: DecEq k] (a b: k) (h: (a == b) = False): a ≠ b := h.read
-```
-
-`auto` and `cases` read the facts in scope the same way, so a fact about a test is used as what it reads as without a `.read`. A fact `xs.all p = True` reads as "every member of `xs` passes `p`", and `auto` applies that to a member it can see:
-
-<!-- snippet: proofs.sw#readings-auto -->
-```stitchwort
-def small (x: Nat) [auto ok: x < 5]: Nat := x
-
-def member (xs: List Nat) (y: Nat) (m: y ∈ xs) (h: xs.all (x => x < 5) = True): Nat := small y
-
-theorem inRight (x: Nat) (xs: List Nat) (b: Bool) (h: (b && xs.contains x) = True): x ∈ xs := cases
-```
-
-Given a fact where what it reads as is wanted, the error's note says what it reads as and to add `.read`. And when you write a decision of a statement that some test reads as, write it with that test, `{ holds = isSmall n, … }`, so `if Small n` and `if isSmall n` are the same computation; a decision that tests with another function gets the warning `W-DECISION-TEST`.
+A fact about a test can also be used as the statement the test stands for, which [Tests and propositions](#tests-and-propositions) below explains.
 
 To use a condition in a proof, `match` on it. `match fits: e with` splits on the value of `e`, replaces `e` with that value in the goal, and names the equation `fits`:
 
@@ -658,6 +603,220 @@ theorem clampToFits (limit: Nat) (n: Nat): clampTo limit n ≤ limit ∧ clampTo
 The lemma's type is searched for `e` as the goal is, so it fits even where it writes `e` differently, up to computation (`xs.map (y => f a y)` for `xs.map (f a)`). That needs the equation's name: in a `match` without one, the error says to add it. If the expression isn't in the goal at all, every arm gets the goal unchanged, and when an arm then fails the compiler warns (`W-MATCH-NOT-FOUND`), showing the goal as written: write the expression as the goal shows it, or bind it with a `let` first. The same goes the other way: a lemma's premise `Nat.leq n limit = True`, written in the `True` branch, is proved by `fits`, which says exactly that, and `rfl` can't prove it.
 
 To split on an `if`, match on its condition. Matching on the comparison's decision (`match Nat.decLessThan n limit with | { holds = True, sound = s, complete = _ } => … | { holds = False, … } => …`) refines the `if` as well, and also gives you evidence: `s rfl` proves `n < limit` in the first arm (`examples/accept/match-decision-refines-if.sw`).
+
+## Tests and propositions
+
+A program asks yes-or-no questions with a `Bool`: `booking.seats <= capacity`, `xs.all p`, `a == b`. A proof says the same things as statements: `booking.seats ≤ capacity`, `∀ x ∈ xs, p x`, `a = b`. This section is about moving between the two. Here is a record with a test on it:
+
+<!-- snippet: tests-and-propositions.sw#booking -->
+```stitchwort
+type Booking = { name: Text, seats: Nat, wheelchair: Bool }
+
+def Booking.fits (booking: Booking) (capacity: Nat): Bool :=
+  0 < booking.seats && booking.seats <= capacity
+
+def ada: Booking := { name = "Ada", seats = 2, wheelchair = False }
+def bo: Booking := { name = "Bo", seats = 5, wheelchair = False }
+
+test "a booking that fits" := ada.fits 4
+test "one that doesn't" := !bo.fits 4
+```
+
+Write a `Bool` when the program has to run the question: in an `if`, a `filter`, a `test`. Write a statement when you want to prove something: a theorem's type, or the `∧`, `∨` and `¬` of a hypothesis. They share their symbols (`<=` and `≤`, `&&` and `∧`, `==` and `=`), and where a statement is expected a `Bool` is read as "it computes to `True`", as the previous section showed. So a theorem can take `booking.fits capacity` as a hypothesis: it says that the test came out `True`, and the rest of this section is about getting at what that tells you.
+
+### Taking a fact apart
+
+`booking.fits capacity` is true only if both of its parts are. A pattern takes the fact apart as it would a statement `0 < booking.seats ∧ booking.seats ≤ capacity`, using `Both`, and a part can be picked out with `.left` and `.right`:
+
+<!-- snippet: tests-and-propositions.sw#pieces -->
+```stitchwort
+theorem fitsSeats (booking: Booking) (capacity: Nat) (h: booking.fits capacity):
+    booking.seats <= capacity :=
+  match h with
+    | Both _ small => small
+
+theorem fitsPositive (booking: Booking) (capacity: Nat) (h: booking.fits capacity):
+    0 < booking.seats := h.left
+```
+
+Each pattern takes one layer. If the test were `a && b && c`, `Both _ rest` would leave `rest` as the fact `(b && c) = True`, and a pattern on `rest` takes that apart in turn. A test that failed is taken apart too, and what it says is what you would expect: `a && b` being `False` means one of them is, so the patterns are `Inl` and `Inr`:
+
+<!-- snippet: tests-and-propositions.sw#negative -->
+```stitchwort
+theorem emptyOrTooBig (booking: Booking) (capacity: Nat) (h: booking.fits capacity = False):
+    booking.seats = 0 ∨ capacity < booking.seats :=
+  match h with
+    | Inl zero => Inl omega
+    | Inr big => Inr big.read
+```
+
+The compiler can do this because every test has a **reading**: the statement it stands for. `&&`, `||` and `not` have theirs, and so do the library's tests (`xs.contains x` reads as `x ∈ xs`, `xs.all p` as "every member passes `p`", `xs.isEmpty` as `xs = []`, and `<=` as `≤`). `Booking.fits` has none of its own: the compiler looks at what it is defined as, `0 < booking.seats && booking.seats <= capacity`, and reads that. It follows definitions like this a few steps, and stops at an `opaque` one.
+
+### `.read`
+
+To use the whole fact as its proposition, write `.read`:
+
+<!-- snippet: tests-and-propositions.sw#read -->
+```stitchwort
+theorem fitsBoth (booking: Booking) (capacity: Nat) (h: booking.fits capacity):
+    0 < booking.seats ∧ booking.seats ≤ capacity := h.read
+```
+
+Nothing converts a fact into its proposition silently, so where one is wanted and a test fact is given, the compiler says what it reads as and to add `.read`:
+
+<!-- snippet: errors/fact-as-statement.sw -->
+```stitchwort
+import Std (Bool, Nat)
+
+def isSmall (n: Nat): Bool := n <= 3
+
+theorem bigWhenNot (n: Nat) (h: isSmall n = False): 3 < n := h
+```
+
+<!-- output: check errors/fact-as-statement.sw -->
+```text
+[E-TYPE-MISMATCH] Error: type mismatch
+   ╭─[ errors/fact-as-statement.sw:5:62 ]
+   │
+ 5 │ theorem bigWhenNot (n: Nat) (h: isSmall n = False): 3 < n := h
+   │                                                              ┬  
+   │                                                              ╰── expected `4 ≤ n`, but this has type `isSmall n = False`
+   │ 
+   │ Note: this is the test fact `isSmall n = False`, which reads as `3 < n`: add `.read` to use it as that
+───╯
+1 error: in `bigWhenNot`
+```
+
+Here `h.read` is the answer. Equality works the same way. For a record with `==`, a fact `(a == b) = True` reads as `a = b`, the equation of the two records, not a list of what each field says, so it can be handed to `rewrite`:
+
+<!-- snippet: tests-and-propositions.sw#same -->
+```stitchwort
+theorem sameName (a: Booking) (b: Booking) (h: a == b): a.name = b.name :=
+  rewrite h.read in rfl
+```
+
+### Building a fact
+
+A fact can be built the way its statement is, from `Both`, `Inl`, `Inr`, `Witness` or a record:
+
+<!-- snippet: tests-and-propositions.sw#build -->
+```stitchwort
+theorem fitsFrom (booking: Booking) (capacity: Nat) (positive: 0 < booking.seats)
+    (small: booking.seats ≤ capacity): booking.fits capacity :=
+  Both positive small
+
+theorem fitsOrBigger (booking: Booking) (capacity: Nat) (h: booking.fits capacity):
+    booking.fits (capacity + 1) :=
+  Both h.left omega
+```
+
+So a lemma can be stated about the test, which is what programs hand you, and proved from the statements you already have.
+
+### `auto` and `cases`
+
+`auto` and `cases` look at the facts in scope as what they read as, taken apart in turn. A function that asks for a proof, with `[auto ok: …]`, finds it in `fits`:
+
+<!-- snippet: tests-and-propositions.sw#auto -->
+```stitchwort
+def Booking.spare (booking: Booking) (capacity: Nat) [auto ok: booking.seats ≤ capacity]: Nat :=
+  capacity - booking.seats
+
+def spareFor (booking: Booking) (capacity: Nat) (h: booking.fits capacity): Nat :=
+  booking.spare capacity
+
+theorem allSmall (bookings: List Booking) (capacity: Nat)
+    (h: bookings.all (b => b.fits capacity)) (b: Booking) (m: b ∈ bookings):
+    b.seats ≤ capacity := (h.read b m).right
+```
+
+`bookings.all p` reads as "for every `b` in `bookings`, `p b`", so `h.read` is a function from a member and its proof of membership to the fact about it. `auto` applies one like that once, to a member it can see:
+
+<!-- snippet: tests-and-propositions.sw#auto-all -->
+```stitchwort
+def below (x: Nat) [auto ok: x < 5]: Nat := x
+
+def firstBelow (xs: List Nat) (y: Nat) (m: y ∈ xs) (h: xs.all (x => x < 5)): Nat :=
+  below y
+```
+
+### Your own readings
+
+A test of your own gets a reading when the statement it stands for has a shape of its own. You declare it next to the test, as a theorem marked `@[reading]` that says the test is the statement. This is the test `within` and its record `Within`:
+
+<!-- snippet: proofs.sw#readings -->
+```stitchwort
+type Within (lo: Nat) (x: Nat) (hi: Nat): Prop = {
+  low: lo ≤ x,
+  high: x ≤ hi
+}
+
+def within (lo: Nat) (x: Nat) (hi: Nat): Bool := lo <= x && x <= hi
+
+@[reading]
+theorem withinReads (lo: Nat) (x: Nat) (hi: Nat): within lo x hi ↔ Within lo x hi := {
+  forward = h => { low = h.left, high = h.right },
+  backward = r => Both r.low r.high
+}
+
+theorem withinHigh (lo: Nat) (x: Nat) (hi: Nat) (h: within lo x hi): x ≤ hi :=
+  match h with
+    | { low, high } => high
+
+theorem withinLow (lo: Nat) (x: Nat) (hi: Nat) (h: within lo x hi): lo ≤ x := h.read.low
+
+theorem withinSelf (x: Nat): within x x x := { low = Nat.leRefl x, high = Nat.leRefl x }
+
+theorem eitherSide (a: Bool) (b: Bool) (h: (a || b) = True): b ∨ a :=
+  match h with
+    | Inl ha => Inr ha
+    | Inr hb => Inl hb
+```
+
+With it, a pattern, a record or `.read` on a fact about `within lo x hi` works as on `Within lo x hi`. A test has one reading for `= True` and one for `= False`, declared next to its function. A fact `e = False` for a test with no reading of its own reads as `¬e`, and where nothing reads (`h: flag = True` with `flag` a variable), `E-NO-READING` says what the test is and, for a pattern, what it reads as instead:
+
+<!-- snippet: errors/no-reading.sw -->
+```stitchwort
+import Std (Bool, Nat)
+
+theorem flagged (flag: Bool) (n: Nat) (h: flag = True): n = n :=
+  match h with
+    | Both a b => rfl
+```
+
+<!-- output: check errors/no-reading.sw -->
+```text
+[E-NO-READING] Error: this test fact can't be taken apart with `Both`
+   ╭─[ errors/no-reading.sw:5:7 ]
+   │
+ 5 │     | Both a b => rfl
+   │       ────┬───  
+   │           ╰───── `flag` has no reading, so it has no parts
+   │ 
+   │ Note: a test fact can always be matched by a name
+───╯
+1 error: in `flagged`
+```
+
+For a test that is `==` on a type known only to have `DecEq`, no reading is needed: the fact reads as what the decision decides, `(a == b) = True` as `a = b` and `(a == b) = False` as `a ≠ b`.
+
+<!-- snippet: proofs.sw#readings-decisions -->
+```stitchwort
+theorem sameKey [auto eq: DecEq k] (a b c: k) (h: (a == b && b == c) = True): a = c :=
+  match h with
+    | Both ab bc => rewrite ab.read, bc.read in rfl
+
+theorem differ [auto eq: DecEq k] (a b: k) (h: (a == b) = False): a ≠ b := h.read
+```
+
+When you write a decision of a statement that some test reads as, write it with that test, `{ holds = isSmall n, … }`, so that `if Small n` and `if isSmall n` are the same computation; a decision that tests with another function gets the warning `W-DECISION-TEST`.
+
+### What isn't read yet
+
+- **Goals.** `auto` and `cases` read the facts you hold, not the goal. A goal is proved as its own statement, by building it as above or by deciding it when its values are known.
+- **A `&&` whose right side uses the left's proof**, as in `i < xs.length && xs.getLt i == x`, isn't a plain conjunction and has no reading.
+- **Deep tests.** A test of a test, such as `(xs.filter p).contains k`, isn't taken as `k ∈ xs ∧ p k`: that is a rewrite, not a reading.
+- **Tests that may perform effects.** A test that takes a callback with an effect, or whose result may perform one, has no reading; a reading is stated for pure tests.
+- **A rule's conclusion.** When `auto` applies a "for all" it doesn't read the conclusion as well: with `xs.all (x => x != 0)` in scope and the goal `y ≠ 0`, write `h.read y m`, or state the hypothesis as `∀ (x: Nat) => x ∈ xs → x ≠ 0`.
 
 ## Membership, "if and only if", "there exists", "for all"
 

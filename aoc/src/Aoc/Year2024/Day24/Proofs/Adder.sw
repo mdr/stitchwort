@@ -37,14 +37,14 @@ theorem outputCarries (device: Device) (operation: Operation) (a: Wire) (b: Wire
     (aCarries: Carries device a aValue) (bCarries: Carries device b bValue): Carries device output (gateOutput operation aValue bValue) :=
   match outputOfFound device.gates operation a b output found with
     | Witness gate (Both member (Both onto does)) =>
-      let operationIs := DecEq.sound (Bool.andLeft does)
-      Bool.orElim (Bool.andRight does)
-        (straight =>
-          Fires gate member onto aValue bValue (rewrite DecEq.sound (Bool.andLeft straight) in aCarries)
-            (rewrite DecEq.sound (Bool.andRight straight) in bCarries) (rewrite operationIs in rfl))
-        (crossed =>
-          Fires gate member onto bValue aValue (rewrite DecEq.sound (Bool.andLeft crossed) in bCarries)
-            (rewrite DecEq.sound (Bool.andRight crossed) in aCarries) (rewrite operationIs in gateOutputComm operation aValue bValue))
+      let Both sameOperation wired := does
+      let operationIs := sameOperation.read
+      match wired with
+        | Inl (Both leftIsA rightIsB) =>
+          Fires gate member onto aValue bValue (rewrite leftIsA.read in aCarries) (rewrite rightIsB.read in bCarries) (rewrite operationIs in rfl)
+        | Inr (Both leftIsB rightIsA) =>
+          Fires gate member onto bValue aValue (rewrite leftIsB.read in bCarries) (rewrite rightIsA.read in aCarries)
+            (rewrite operationIs in gateOutputComm operation aValue bValue)
 
 --| Whether a check passed.
 def checkPassed (check: BitCheck): Bool :=
@@ -95,7 +95,7 @@ theorem fullAdderCarries (device: Device) (bit: Nat) (carryWire: Wire) (next: Wi
                           let sumCarries := outputCarries device Xor partial carryWire sum sumIs _ carry partialCarries carryCarries
                           let passedCarries := outputCarries device And partial carryWire passed passedIs _ carry partialCarries carryCarries
                           let carryOutCarries := outputCarries device Or generated passed output carryIs _ _ generatedCarries passedCarries
-                          Both (rewrite <- DecEq.sound onZ, <- sumGates x y carry in sumCarries)
+                          Both (rewrite <- onZ.read, <- sumGates x y carry in sumCarries)
                             (rewrite <- passesInjective output next passes, <- carryGates x y carry in carryOutCarries)
 
 --| A half adder's gates: a full adder's with no carry in.
@@ -114,7 +114,7 @@ theorem halfAdderCarries (device: Device) (carryWire: Wire) (passes: checkHalfAd
         | Some carry =>
           match onZ: sum == Z 0 with
             | True =>
-              Both (rewrite <- DecEq.sound onZ in outputCarries device Xor (X 0) (Y 0) sum sumIs x y xCarries yCarries)
+              Both (rewrite <- onZ.read in outputCarries device Xor (X 0) (Y 0) sum sumIs x y xCarries yCarries)
                 (rewrite <- passesInjective carry carryWire passes in outputCarries device And (X 0) (Y 0) carry carryIs x y xCarries yCarries)
 
 --| The x and y wires below `bits` carry the bits of `x` and `y`.
@@ -135,7 +135,7 @@ theorem checkFromCarries (device: Device) (bits: Nat) (x: Nat) (y: Nat) (inputs:
     match onZ: carryWire == Z bit with
       | True =>
         let atTop := (omega: top = bit)
-        let finalIs := Eq.trans (Eq.sym (passesInjective carryWire final passes)) (DecEq.sound onZ)
+        let finalIs := Eq.trans (Eq.sym (passesInjective carryWire final passes)) onZ.read
         rewrite atTop in Both zs (Both finalIs (rewrite <- passesInjective carryWire final passes in carryCarries))
   | Succ fewer, bit, carryWire, final, passes, top, isTop, within, zs, carryCarries =>
     match fullIs: checkFullAdder device.gates bit carryWire with

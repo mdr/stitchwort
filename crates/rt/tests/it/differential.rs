@@ -250,7 +250,7 @@ def run (n: Nat): Text :=
 ///
 /// `AOC_PARTS=<text>,<text>` keeps only the parts whose names contain one
 /// of them, to run a few days of a sweep:
-/// `STITCHWORT_TIER=full AOC_PARTS=Year2024.Day01 task test:one -- aoc_agrees`.
+/// `STITCHWORT_TIER=all AOC_PARTS=Year2024.Day01 task test:one -- aoc_agrees`.
 pub fn aoc_parts() -> Vec<String> {
     let dir = root().join("aoc/src/Aoc");
     let names = |dir: &Path| -> Vec<String> {
@@ -855,14 +855,14 @@ def main(): {IO} () :=
 /// minutes there on the heavy days (2021 day 5: over 120 s against 8.7 s on
 /// the machine), and the known answers check that run (D3540).
 pub fn aoc_agrees() {
-    // Full tier only: with its sample of days it took 38 minutes in the
-    // daily tier (31 Oct 2026, docs/testing.md); SW-839's fast lowering
+    // All tier only: with its sample of days it took 38 minutes in the
+    // broad tier (31 Oct 2026, docs/testing.md); SW-839's fast lowering
     // check is to take its place there.
-    if !stitchwort_driver::driver::full_tier("aoc_agrees") {
+    if !stitchwort_driver::driver::all_tier("aoc_agrees") {
         return;
     }
     let parts = aoc_parts();
-    // A corpus sweep: every other day below the full tier.
+    // A corpus sweep: every other day below the all tier.
     let answers: Vec<_> = tier_sample(AOC_ANSWERS.iter().collect(), 2);
     if std::env::var_os("AOC_PARTS").is_none() {
         for (year, day, _, _) in &answers {

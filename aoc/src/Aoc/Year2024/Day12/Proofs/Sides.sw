@@ -88,7 +88,7 @@ theorem diagonalSame (garden: Garden) (start: Position) (plant: Char) (grows: ga
   let faces := Eq.trans (Eq.sym (sameAcrossFaces garden start plant grows region isRegion plot member vertical)) same
   match stepped: plot.step vertical with
     | Some next =>
-      let nextIn := (List.memContains region.plots next).forward faces
+      let nextIn := faces.read
       let nextGrows := joinedPlant garden plant start next grows ((isRegion next).forward nextIn)
       rewrite notEqualNot, plotGrows, <- sameAcrossFaces garden start plant grows region isRegion next nextIn horizontal, nextGrows in rfl
 
@@ -182,7 +182,7 @@ theorem sumOverGrid (region: Region) (distinct: List.Distinct region.plots) (las
   let kept := (square last).filter isIn
   let same: List.Perm kept region.plots :=
     List.permOfSameMembers kept region.plots (List.distinctFilter (square last) isIn (squareDistinct last)) distinct
-      (plot member => (List.memContains region.plots plot).forward (And.right (List.memFilter (square last) isIn member)))
+      (plot member => (And.right (List.memFilter (square last) isIn member)).read)
       (plot member =>
         List.memFilterIntro (square last) isIn
           (match plot with
@@ -219,11 +219,11 @@ theorem sidesCorrect (garden: Garden) (start: Position) (plant: Char) (grows: ga
   let right: ∀ (row: Nat) => inside row (Succ last) = False := row =>
     match found: inside row (Succ last) with
       | False => rfl
-      | True => Void.exfalso (omega [And.right (within { row, column = Succ last } ((List.memContains region.plots { row, column = Succ last }).forward found))])
+      | True => Void.exfalso (omega [And.right (within { row, column = Succ last } found.read)])
   let bottom: ∀ (column: Nat) => inside (Succ last) column = False := column =>
     match found: inside (Succ last) column with
       | False => rfl
-      | True => Void.exfalso (omega [And.left (within { row = Succ last, column } ((List.memContains region.plots { row = Succ last, column }).forward found))])
+      | True => Void.exfalso (omega [And.left (within { row = Succ last, column } found.read)])
   let programSide :=
     Eq.trans
       (List.sumByCongMem region.plots garden.cornerCount (plot => corners inside plot.row plot.column)

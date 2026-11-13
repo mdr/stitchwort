@@ -969,6 +969,15 @@ an edited dependency still misses its dependents; there is no disk gate,
 since nothing outlives the tab. The layer starts empty, so the first whole
 check is no faster; entries shipped in the bundle are a possible follow-up.
 
+The server keeps one layer per project folder for the life of the checker
+(SW-3072), so loading the same project again (the page re-opening it) finds
+what its first check wrote instead of elaborating it again; a different
+project gets its own layer. The layers share one 192 MB budget, so keeping
+several projects doesn't multiply the cap: a newly loaded project clears the
+least recently loaded projects' entries while the others hold more than half
+of it, and a layer that writes when the budget is full drops its own oldest
+entries, keeping its newest.
+
 ## A plain `check` loads only what it needs (SW-1193)
 
 4 November 2026 (D2300, D2301; the measurements are in

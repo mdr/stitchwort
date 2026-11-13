@@ -29,8 +29,8 @@ def SeenBy (lab: Lab) (seen: Set Guard) (now: Nat): Prop :=
 theorem containsInsertEither (seen: Set Guard) (key: Guard) (guard: Guard) (has: (seen.insert key).contains guard = True):
     (guard = key) ∨ (seen.contains guard = True) :=
   match same: guard == key with
-    | True => Inl (DecEq.sound same)
-    | False => Inr (rewrite Set.containsInsertOther seen key guard (DecEq.soundFalse guard key same) at has)
+    | True => Inl same.read
+    | False => Inr (rewrite Set.containsInsertOther seen key guard same.read at has)
 
 --| A `True` from the loop test means she loops.
 theorem loopsFromSound (lab: Lab) (sightlines: Sightlines) (simulates: Simulates sightlines lab) (inside: onMap lab lab.start = True):
@@ -44,12 +44,12 @@ theorem loopsFromSound (lab: Lab) (sightlines: Sightlines) (simulates: Simulates
       | Some next =>
         Exists.elim (And.left (simulates guard onTheMap) next turned) (steps both =>
           let later: after lab (now + steps) = Some next := Eq.trans (afterAdd lab now guard reached steps) (And.right both)
-          (Bool.orElim says
-            (repeated =>
+          (match says with
+            | Inl repeated =>
               Exists.elim (seenBy next repeated) (earlier when =>
                 repeatLoops lab earlier (now + steps) (omega [And.left when, And.left both]) (Eq.trans (And.right when) (Eq.sym later))
-                  (rewrite later in Option.someNotNone next)))
-            (rest =>
+                  (rewrite later in Option.someNotNone next))
+            | Inr rest =>
               let seenByNext: SeenBy lab (seen.insert next) (now + steps) :=
                 guard has =>
                   match containsInsertEither seen next guard has with
@@ -57,7 +57,7 @@ theorem loopsFromSound (lab: Lab) (sightlines: Sightlines) (simulates: Simulates
                     | Inr wasSeen =>
                       Exists.elim (seenBy guard wasSeen) (earlier when => Witness earlier (Both (omega [And.left when]) (And.right when)))
               loopsFromSound lab sightlines simulates inside budget next (seen.insert next) (now + steps) later
-                (omega [And.left both, enough]) seenByNext rest)) anySteps gone)
+                (omega [And.left both, enough]) seenByNext rest) anySteps gone)
 
 --| And when she loops, the test says so.
 theorem loopsFromComplete (lab: Lab) (sightlines: Sightlines) (simulates: Simulates sightlines lab) (inside: onMap lab lab.start = True)
@@ -73,7 +73,7 @@ theorem loopsFromComplete (lab: Lab) (sightlines: Sightlines) (simulates: Simula
             Void.exfalso (loops (now + steps) (Eq.trans (afterAdd lab now guard reached steps) gone)))
         | Some next =>
           Exists.elim (And.left (simulates guard onTheMap) next turned) (steps both =>
-            Bool.orRight (loopsFromComplete lab sightlines simulates inside loops budget next (seen.insert next) (now + steps)
+            Inr (loopsFromComplete lab sightlines simulates inside loops budget next (seen.insert next) (now + steps)
               (Eq.trans (afterAdd lab now guard reached steps) (And.right both))))
 
 theorem seenStart (lab: Lab): SeenBy lab (Set.singleton lab.startGuard) 0 :=

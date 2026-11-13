@@ -80,7 +80,7 @@ theorem roundCount (grid: Grid) (s: Cells): grid.rollCount (grid.removeAccessibl
   let gone := (r: Nat) => (c: Nat) => Bool.toNat (grid.removeAccessible s r c == Roll)
   let acc := (r: Nat) => (c: Nat) => Bool.toNat (grid.accessible s r c)
   let term: ∀ (x y: Nat) => gone x y + acc x y = Bool.toNat (s x y == Roll) :=
-    x y => roundTerm (grid.accessible s x y) (s x y) (h => isRoll (s x y) (Bool.andLeft h))
+    x y => roundTerm (grid.accessible s x y) (s x y) ((Both roll _) => isRoll (s x y) roll)
   calc grid.rollCount (grid.removeAccessible s) + accCount grid s
     _ = List.sumBy (List.range 0 grid.height) (x => List.sumBy (List.range 0 grid.width) (y => gone x y))
         + List.sumBy (List.range 0 grid.height) (x => List.sumBy (List.range 0 grid.width) (y => acc x y))

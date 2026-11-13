@@ -3,28 +3,28 @@
 # Each tier is a profile here, which says which tests run (its
 # `default-filter`), and the environment variable STITCHWORT_TIER, which says
 # how much of a corpus each sweep covers (`stitchwort_driver::driver::
-# tier_sample`) and whether full-only tests run (`full_tier`). The tasks in
+# tier_sample`) and whether all-only tests run (`all_tier`). The tasks in
 # Taskfile.yml set both; by hand:
 #
-#   cargo nextest run --release --workspace --profile merge
+#   cargo nextest run --release --workspace --profile quick
 #
 # Nextest puts the profile in each test's environment as NEXTEST_PROFILE, and
 # `tier()` falls back to it when STITCHWORT_TIER is unset: the profile names
-# match the tiers (`full`, `merge`, `daily`, and `lane-AREA` for `lane`), and
-# `default` means `daily`. So a profile alone says which tier it is, and
-# `--profile full` runs the full-tier tests without the variable; a set
+# match the tiers (`all`, `quick`, `broad`, and `lane-AREA` for `lane`), and
+# `default` means `broad`. So a profile alone says which tier it is, and
+# `--profile all` runs the all-tier tests without the variable; a set
 # STITCHWORT_TIER still wins when both are given.
 #
 #   lane-AREA  under 10 s: a handful of fast tests for one area, while working
-#   merge      under 90 s on a 10-core M1 Pro: a broad smoke test, after every
-#              merge
-#   daily      under 5 minutes: every test, sweeps on a fixed sample; what
+#   quick      under 90 s on a 10-core M1 Pro: a wide smoke test, the
+#              verifier's budget and Overmind's rolling check
+#   broad      long: the quick tier plus sweeps on a fixed sample; what
 #              `nix flake check` runs
-#   full       every test, every sweep over the whole corpus; only when Matt
+#   all        every test, every sweep over the whole corpus; only when Matt
 #              asks
 #
 # A filter given on the command line is intersected with the profile's
-# (`task test:merge -- -E 'package(stitchwort-core)'`); `--ignore-default-filter`
+# (`task test:quick -- -E 'package(stitchwort-core)'`); `--ignore-default-filter`
 # drops it.
 #
 # Nextest runs every test in its own process. Per-process state (statics,
@@ -39,7 +39,7 @@ test-threads = "num-cpus"
 fail-fast = false
 slow-timeout = { period = "60s" }
 
-[profile.daily]
+[profile.broad]
 # Memory, more than cores, is the limit. The corpus sweeps, which run pools of
 # their own (`par_map`), go one at a time (the `corpus-sweeps` group below);
 # 8 bounds the rest, some of which hold a whole session each. The tasks run
@@ -50,33 +50,33 @@ slow-timeout = { period = "60s" }
 default-filter = "all()"
 
 # Every test's time, for cutting the tier when it grows past its budget:
-# target/nextest/daily/junit.xml.
-[profile.daily.junit]
+# target/nextest/broad/junit.xml.
+[profile.broad.junit]
 path = "junit.xml"
 
-[profile.full]
+[profile.all]
 test-threads = 6
 fail-fast = false
 slow-timeout = { period = "120s" }
 default-filter = "all()"
 
-[profile.full.junit]
+[profile.all.junit]
 path = "junit.xml"
 
-# The merge tier: the lane areas together but for `lane-goals`, plus every
-# accepted, rejected and soundness example on the merge sample (a quarter), a
+# The quick tier: the lane areas together but for `lane-goals`, plus every
+# accepted, rejected and soundness example on the quick sample (a quarter), a
 # quarter of the examples' and projects' hash snapshots, 14 of the AoC days'
 # answers (spread across the years, and every day in `lane-aoc`), and every
 # extraction example's generated JS and `.d.ts` against their snapshots
-# (`generated_code_is_stable`, about 4 s; `tsc` on them is daily), and the
+# (`generated_code_is_stable`, about 4 s; `tsc` on them is in the broad tier), and the
 # driver navigation snapshot that prints the prelude's line numbers. The
-# `goal_index` tests are in `lane-goals` and the daily tier, not here (nor the
+# `goal_index` tests are in `lane-goals` and the broad tier, not here (nor the
 # web crate's).
 #
 # The default-filter below is generated from the lane profiles: edit them (or
-# `EXTRAS` and `NOT_IN_MERGE` in `dev/nextest-merge`), then run
-# `dev/nextest-merge`. `python3 dev/test-affected_test.py` fails when it is stale.
-[profile.merge]
+# `EXTRAS` and `NOT_IN_QUICK` in `dev/nextest-quick`), then run
+# `dev/nextest-quick`. `python3 dev/test-affected_test.py` fails when it is stale.
+[profile.quick]
 test-threads = "num-cpus"
 fail-fast = false
 slow-timeout = { period = "30s" }
@@ -106,15 +106,15 @@ default-filter = """
 """
 
 # Every test's time, for cutting the tier when it grows past its budget:
-# target/nextest/merge/junit.xml.
-[profile.merge.junit]
+# target/nextest/quick/junit.xml.
+[profile.quick.junit]
 path = "junit.xml"
 
 # ------------------------------------------------------------- lane areas
 #
 # `task test:lane AREA=…`: one area's handful of fast tests, under 10 s with
 # the release test binaries built. Keep each to tests that take about a
-# second; the merge tier above is the union of them but for `lane-goals`, plus
+# second; the quick tier above is the union of them but for `lane-goals`, plus
 # a sample of the examples' hash snapshots, 14 AoC answers and the
 # extraction snapshots.
 
@@ -208,8 +208,8 @@ lsp-aoc-copy = { max-threads = 1 }
 # tier's sample of them) on a pool of their own (`par_map`, up to
 # STITCHWORT_TEST_THREADS threads, each with a large stack and a session of its
 # own). Two at a time: one sweep alone leaves cores idle while its last items
-# run (the last 400 s of the daily tier ran on one to three cores). The daily
-# and full tiers run pools of 5 threads (STITCHWORT_TEST_THREADS, set by their
+# run (the last 400 s of the broad tier ran on one to three cores). The broad
+# and all tiers run pools of 5 threads (STITCHWORT_TEST_THREADS, set by their
 # tasks and the flake), so two fit the 10 cores. Two sweeps held 3 GB at their
 # peak (SW-1104; docs/testing.md, "Memory"). Any number of other tests run
 # beside them.
@@ -219,7 +219,7 @@ corpus-sweeps = { max-threads = 2 }
 # `memory`): each opens a Session on the library, 0.4 GB when the check cache is
 # warm and up to 1.9 GB while it is cold, in the one process that fills the cache
 # (the others wait for it; both binaries share it, SW-1769). Ten at once on a cold cache passed the
-# merge tier's 4 GB cap (SW-1760). Three at a time peaked at 3.1 GB cold, and
+# quick tier's 4 GB cap (SW-1760). Three at a time peaked at 3.1 GB cold, and
 # the whole set takes about the same warm (28 s).
 lsp-sessions = { max-threads = 3 }
 
@@ -239,7 +239,7 @@ test-group = "lsp-aoc-copy"
 #
 # A new test with its own `par_map` over a corpus belongs here too, unless its
 # pool is small: crates/cli/tests/extract.rs's `generated_code_is_stable`
-# peaks at about 320 MB, and in the group it would lengthen the merge tier,
+# peaks at about 320 MB, and in the group it would lengthen the quick tier,
 # whose last tests are this group's, by its own 4 to 7 s.
 [[profile.default.overrides]]
 filter = """
@@ -271,7 +271,7 @@ test-group = "corpus-sweeps"
 #
 # Priority decides which ready test starts next (-100 to 100, higher first,
 # default 0), within a test group too: the longest tests start first, so that
-# they are not what is left running alone at the end. Times are from the daily
+# they are not what is left running alone at the end. Times are from the broad
 # run of 2 Nov 2026 (SW-1104). Overrides in the default profile apply to every
 # profile.
 [[profile.default.overrides]]
@@ -283,7 +283,7 @@ filter = """
 """
 priority = 100
 
-# The other tests of 40 s or more (daily run, loaded machine), the sweeps among
+# The other tests of 40 s or more (broad run, loaded machine), the sweeps among
 # them.
 [[profile.default.overrides]]
 filter = """
@@ -308,7 +308,7 @@ priority = 50
 # time with its 40 siblings). One of them goes first, at the top priority, and
 # the rest go after every test of the default priority has started, so that
 # the cache is full by then (SW-1751: this halved the CPU time of the search
-# lane, from 239 s to 125 s, and about 300 s of the merge tier's test time).
+# lane, from 239 s to 125 s, and about 300 s of the quick tier's test time).
 # Order only, not a dependency: a test that does start early fills the cache
 # itself, as before.
 [[profile.default.overrides]]

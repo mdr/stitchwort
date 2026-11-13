@@ -11,8 +11,8 @@ import Std (Bool, DecEq, Eq, Exists, List, Nat, Option, Text, Void)
 --| Gates that pass `isAdder` add, and each wire is the output of at most
 --| one of them.
 theorem adderAdds (gates: List Gate) (bits: Nat) (adder: isAdder gates bits = True): Adds bits gates ∧ wellWired gates = True :=
-  let rest := Bool.andRight adder
-  Both (shapeAdds gates bits (DecEq.sound (Bool.andRight rest)) (Bool.andLeft rest)) (Bool.andLeft adder)
+  let Both wired (Both shape sized) := adder
+  Both (shapeAdds gates bits sized.read shape) wired
 
 --| What `repair` returns: the swaps it was given, then at most `budget`
 --| more, which make the gates an adder.
@@ -90,10 +90,11 @@ theorem wellFormedInputs (bits: Nat) (x: Nat) (y: Nat) (gates: List Gate) (wired
       List.distinctMap (List.range 0 bits) (List.distinctRangeFrom bits 0) _ (i j same => Option.someInjective (Eq.cong Wire.yBit same))
   let disjoint: List.Disjoint (xPairs.map .fst) (yPairs.map .fst) :=
     List.allOfMem _ _ (wire inX inY => notXAndY wire (xNamed bits x wire inX) (yNamed bits y wire inY))
-  Both ((List.isDistinctIff (gates.map .output)).forward (Bool.andLeft wired))
+  let Both distinct notInputs := wired
+  Both distinct.read
     (Both (List.distinctMapAppend .fst xPairs yPairs xDistinct yDistinct disjoint)
       (gate member named =>
-        let notInput := List.allMember (gate => gate.output.xBit.isNone ∧ gate.output.yBit.isNone) gates (Bool.andRight wired) gate member
+        let notInput := notInputs.read gate member
         let input: (gate.output.xBit.isSome ∨ gate.output.yBit.isSome) = True :=
           match List.memAppend gate.output (xPairs.map .fst) (yPairs.map .fst) (rewrite <- List.mapAppend xPairs yPairs .fst in named) with
             | Inl inX => rewrite xNamed bits x gate.output inX in rfl

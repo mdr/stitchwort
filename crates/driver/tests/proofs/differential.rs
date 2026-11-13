@@ -63,7 +63,7 @@ fn param_icits(g: &stitchwort_core::Ev, id: DefId) -> Vec<Icit> {
 /// let-chain-match.sw's 40 `let`s each used twice, are the same. Read back,
 /// they took gigabytes (SW-1052, SW-1181, SW-2583); over the budget they
 /// are reported as too big to compare and skipped. The most any definition
-/// in the daily sample needs is 1.9 million steps (std's
+/// in the broad sample needs is 1.9 million steps (std's
 /// `Float.Model.addBits` on two variables, SW-2613); a step keeps about
 /// 150 bytes, so a comparison that runs out has taken under a gigabyte.
 /// `STITCHWORT_DIFFERENTIAL_STEPS` overrides it, to measure.
@@ -74,11 +74,11 @@ const REFERENCE_STEPS: u64 = 5_000_000;
 /// and fails above [`MAX_SKIPPED`].
 static SKIPPED: AtomicUsize = AtomicUsize::new(0);
 
-/// The most skips the sweep tolerates. The whole corpus (the full tier)
+/// The most skips the sweep tolerates. The whole corpus (the all tier)
 /// skips 48, nearly all in a few examples (float-playlist.sw, random-seed.sw,
 /// kernel-same-call-arguments.sw, as-written-unconfirmed.sw,
 /// match-bounded-search.sw, ...); a sample can land on more or fewer of
-/// them (the daily sample, 0 on 10 Nov 2026), so one limit serves every tier,
+/// them (the broad sample, 0 on 10 Nov 2026), so one limit serves every tier,
 /// with some room. A new skip is an oracle that compares less than before:
 /// look at which (`--no-capture` lists them) before raising this. Slices
 /// (`STITCHWORT_DIFFERENTIAL_SKIP` or `_LIMIT`) and another step budget skip
@@ -263,7 +263,7 @@ fn the_evaluators_agree_on_the_prelude_and_every_example() {
             "only {conversions} conversions in the prelude"
         );
         // Each example in its own session, on the thread pool. A corpus sweep:
-        // a fixed sample below the full tier.
+        // a fixed sample below the all tier.
         // `STITCHWORT_DIFFERENTIAL_SKIP` and `_LIMIT` narrow the sweep to a
         // slice of the sample, to measure or bisect (docs/testing.md).
         let mut sample = tier_sample(examples(), 4);

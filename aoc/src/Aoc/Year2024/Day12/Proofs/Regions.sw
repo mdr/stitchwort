@@ -72,7 +72,7 @@ theorem atMostOnce (garden: Garden) (position: Position) (starts: List Position)
             rewrite List.countCons (garden.regionsFrom rest after) region (region => region.contains position) in
               match here: region.contains position with
                 | True =>
-                  let isIn := (List.memContains region.plots position).forward here
+                  let isIn := here.read
                   Both (omega [And.right later ((containsInsertAll seen region.plots position).backward (Inr isIn))])
                     (has =>
                       Void.exfalso

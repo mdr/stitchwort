@@ -38,13 +38,14 @@ theorem candidatesComplete (output: Nat → List Nat) (shape: LoopShape output) 
 --| What the search returns is positive and outputs the target.
 theorem lowestSound (output: Nat → List Nat) (target: List Nat) (a: Nat) (found: lowestOutputting output target = Some a): (0 < a) ∧ (output a = target) :=
   let kept := And.right (List.memFilter _ _ (And.left (List.minimumSome _ a found)))
-  Both (Bool.andLeft kept) (DecEq.sound (Bool.andRight kept))
+  let Both positive outputs := kept
+  Both positive outputs.read
 
 --| Every positive value that outputs the target is a final candidate.
 theorem finalCandidate (output: Nat → List Nat) (shape: LoopShape output) (target: List Nat) (other: Nat) (positive: 0 < other) (outputs: output other = target):
     other ∈ List.filter (candidates output target) (a => 0 < a ∧ output a == target) :=
   List.memFilterIntro _ (a => 0 < a ∧ output a == target) (candidatesComplete output shape target other outputs)
-    (Bool.andIntro positive (rewrite outputs in DecEq.refl target))
+    (Both positive (rewrite outputs in DecEq.refl target))
 
 --| For an output of the loop shape, the search returns at most any positive
 --| value that outputs the target.

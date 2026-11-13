@@ -364,6 +364,22 @@ theorem Map.memKeys [auto ord: Ord k] (m: Map k v) (key: k): List.Mem key (Map.k
   backward = Map.memKeysOfContains m key
 }
 
+--| `m.contains key` reads as `key` being one of the map's keys, so a fact
+--| `m.contains key = True` is taken apart as `key ∈ m.keys` and built from one.
+@[reading]
+theorem Map.containsReads [auto ord: Ord k] (m: Map k v) (key: k): (Map.contains m key = True) ↔ (key ∈ Map.keys m) :=
+  { forward = (Map.memKeys m key).backward, backward = (Map.memKeys m key).forward }
+
+--| `m.contains key = False` reads as `key` not being one of the map's keys.
+@[reading]
+theorem Map.containsReadsFalse [auto ord: Ord k] (m: Map k v) (key: k): (Map.contains m key = False) ↔ key ∉ Map.keys m := {
+  forward = h m2 => Bool.falseNotTrue (Eq.trans (Eq.sym h) ((Map.memKeys m key).forward m2)),
+  backward = no =>
+    match c: Map.contains m key with
+      | True => Void.exfalso (no ((Map.memKeys m key).backward c))
+      | False => rfl
+}
+
 --| Maps that agree on every key are equal, whatever their values' type.
 theorem Map.ext (m: Map k v [ord := o]) (n: Map k v [ord := o]) (h: ∀ (key: k) => Map.get m key = Map.get n key): m = n :=
   Map.toListInjective m n

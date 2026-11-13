@@ -6,8 +6,8 @@
 //! order. For examples only the declarations the file added are listed.
 //!
 //! Files that fail to load in a fresh session are skipped (computed, not
-//! hard-coded). The daily and full tiers check every file and project; the
-//! merge tier and the lanes check a fixed quarter of them (`tier_sample`),
+//! hard-coded). The broad and all tiers check every file and project; the
+//! quick tier and the lanes check a fixed quarter of them (`tier_sample`),
 //! and `EXAMPLES` keeps exactly the names matching its comma-separated
 //! substrings. A part that matches no example or project is an error, so a
 //! typo can't pass by sweeping nothing.
@@ -87,12 +87,12 @@ fn a_filter_part_that_matches_nothing_is_an_error() {
 
 /// How many workers a sweep uses. Each has a whole library loaded, which
 /// costs seconds of CPU where it's checked from source, for a few
-/// milliseconds of examples, so in the merge tier and the lanes, with their
+/// milliseconds of examples, so in the quick tier and the lanes, with their
 /// quarter sample and every core already busy, two repeat the load least; the
-/// daily and full tiers check everything and use them all.
+/// broad and all tiers check everything and use them all.
 fn workers() -> usize {
     match tier() {
-        Tier::Merge | Tier::Lane => 2,
+        Tier::Quick | Tier::Lane => 2,
         _ => usize::MAX,
     }
 }
@@ -102,14 +102,14 @@ fn workers() -> usize {
 /// without loading the library again for every example. The rewind tests
 /// check that rewinding gives exactly what a fresh session does.
 ///
-/// Except in the full tier the library is replayed from the test std cache:
+/// Except in the all tier the library is replayed from the test std cache:
 /// `prelude` checks it from source in the same run and holds every hash of it
 /// to its snapshot, and an example's hashes come out the same only if the
-/// library it uses does. The full tier checks it from source in every worker,
+/// library it uses does. The all tier checks it from source in every worker,
 /// as a second guard.
 fn eager_worker() -> (Session, Mark) {
     let mut session = match tier() {
-        Tier::Full => Session::eager_from_source_for_stack(STACK),
+        Tier::All => Session::eager_from_source_for_stack(STACK),
         _ => Session::eager_for_stack(STACK),
     };
     let mark = session.mark();
@@ -268,7 +268,7 @@ fn quoted(names: &[&str]) -> String {
 
 /// A sweep's share of the examples or projects in this tier: all of them when
 /// `EXAMPLES` picks some by name, otherwise `tier_sample`'s fixed sample
-/// (every one in the daily and full tiers, every fourth in merge and lane).
+/// (every one in the broad and all tiers, every fourth in quick and lane).
 fn share<T>(items: Vec<T>) -> Vec<T> {
     if filtering() {
         items

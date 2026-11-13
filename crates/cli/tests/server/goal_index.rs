@@ -66,7 +66,7 @@ fn is_goal(d: &Value) -> bool {
 
 /// How many examples are checked at once. Each check is a process of about
 /// 80 MB; one per example, the tests together came to 3.5 GB and went over
-/// the merge tier's memory cap (docs/testing.md, "Memory").
+/// the quick tier's memory cap (docs/testing.md, "Memory").
 const AT_ONCE: usize = 4;
 
 /// Runs `f` on each example, [`AT_ONCE`] at a time, in the examples' order.

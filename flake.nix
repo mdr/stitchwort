@@ -174,11 +174,11 @@
             inherit cargoArtifacts;
             INSTA_UPDATE = "no"; # fail on snapshot changes instead of writing .snap.new files
             doInstallCargoArtifacts = false; # nothing builds on these
-            # The daily tier (docs/testing.md, "Tiers"): the `daily` profile
+            # The broad tier (docs/testing.md, "Tiers"): the `broad` profile
             # of `.config/nextest.toml`, and STITCHWORT_TIER for the corpus
             # sweeps. Every test runs, so one failure doesn't hide the others.
-            cargoNextestExtraArgs = "--no-fail-fast --profile daily --features stitchwort-cli/dev";
-            STITCHWORT_TIER = "daily";
+            cargoNextestExtraArgs = "--no-fail-fast --profile broad --features stitchwort-cli/dev";
+            STITCHWORT_TIER = "broad";
             # The corpus sweeps go two at a time (`corpus-sweeps` in
             # `.config/nextest.toml`), each on a pool of 5 threads.
             STITCHWORT_TEST_THREADS = "5";
@@ -196,16 +196,16 @@
         rec {
           # The tests, run by cargo-nextest (every test in its own process, test
           # binaries side by side; `.config/nextest.toml`), then the doctests.
-          # `stitchwort` is the daily tier (what `nix flake check` runs);
-          # `stitchwort-full` is the full tier, built only on request (`task
-          # test:full:nix`).
+          # `stitchwort` is the broad tier (what `nix flake check` runs);
+          # `stitchwort-all` is the all tier, built only on request (`task
+          # test:all:nix`).
           stitchwort = craneLib.cargoNextest (nextestArgs // { pname = "stitchwort"; });
-          stitchwort-full = craneLib.cargoNextest (
+          stitchwort-all = craneLib.cargoNextest (
             nextestArgs
             // {
-              pname = "stitchwort-full";
-              cargoNextestExtraArgs = "--no-fail-fast --profile full --features stitchwort-cli/dev";
-              STITCHWORT_TIER = "full"; # every corpus sweep over the whole corpus
+              pname = "stitchwort-all";
+              cargoNextestExtraArgs = "--no-fail-fast --profile all --features stitchwort-cli/dev";
+              STITCHWORT_TIER = "all"; # every corpus sweep over the whole corpus
             }
           );
           # The CLI binary alone, without running the test suite: what `nix run`
@@ -215,7 +215,7 @@
           # It builds `-p` the crates it ships. A root `cargo build` would also
           # build stitchwort-bench, which depends on stitchwort-dev-features,
           # and Cargo would give the shipped binary the dev feature set
-          # (`test-bypass` and the rest). `dev/features-check` (the merge tier)
+          # (`test-bypass` and the rest). `dev/features-check` (the quick tier)
           # fails if these arguments' feature set has any of them.
           stitchwort-bin = craneLib.buildPackage (
             commonArgs
@@ -338,14 +338,14 @@
         inherit (buildsFor pkgs)
           stitchwort-bin
           stitchwort-native-bin
-          stitchwort-full
+          stitchwort-all
           playground
           editor
           ;
         default = stitchwort-bin;
       });
 
-      # `nix flake check`: the daily tier (build + tests, clippy, rustfmt)
+      # `nix flake check`: the broad tier (build + tests, clippy, rustfmt)
       checks = forAllSystems (
         pkgs:
         let

@@ -74,6 +74,18 @@ mean to `rewrite` with, since that is the term an `if a && b` or a
 `match h: a && b` gives (D3486). Keep `= True` on a side of `=`, and write
 `b = False` as it is.
 
+Tests and statements (docs/guide/10-proofs.md, "Tests and
+propositions"): take a fact about a test apart with the patterns of the
+statement it reads as (`| Both a b`, `| Inl a`, `| { low, high }` for a
+record reading), take a part with `h.left`, and write `.read` where the
+whole fact is wanted as its statement (`h.read`, `(h.read x m).right`).
+Build a fact with the statement's constructors (`Both a b`, `Inr hb`, a
+record literal). Don't write a helper that converts a test to its
+statement, or a `= True ↔` lemma, where a pattern or `.read` does it; `auto`
+and `cases` already use the test facts in scope as what they read as, and
+apply a `∀` once. A new test with a statement of its own gets a
+`@[reading]` theorem beside it.
+
 A theorem puts every variable before the colon, as a parameter
 (`theorem plusZero (n: Nat): n + 0 = n`), and a proof by cases is a `match`
 on them: `theorem timesOne (n: Nat): n * 1 = n := match n with | Zero => …

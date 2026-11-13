@@ -29,15 +29,16 @@ def floorCells (tiles: List Point): List (List Nat) :=
 -- 1. Only lines that touch a tile's row matter ---------------------------------
 
 theorem halfOpenBetween (one: Nat) (other: Nat) (value: Nat) (h: isBetweenHalfOpen one other value = True): isBetween one other value = True :=
-  Bool.orElim h
-    (l => Bool.orLeft (omega))
-    (r => Bool.orRight (omega))
+  match h with
+    | Inl l => Inl (omega)
+    | Inr r => Inr (omega)
 
 theorem onLineTouches (tile: Point) (line: Line) (h: tile.isOnLine line = True): touchesRow tile.y line = True :=
   Bool.andRight h
 
 theorem crossesTouches (tile: Point) (line: Line) (h: crossesRightOf tile line = True): touchesRow tile.y line = True :=
-  halfOpenBetween line.from.y line.to.y tile.y (Bool.andRight (Bool.andRight h))
+  let Both _ (Both _ half) := h
+  halfOpenBetween line.from.y line.to.y tile.y half
 
 theorem isRedOrGreenNear (tiles: List Point) (tile: Point):
     isRedOrGreen (List.filter (loopLines tiles) (touchesRow tile.y)) tile = redOrGreen tiles tile :=
@@ -107,7 +108,7 @@ theorem allRedOrGreenKeys (tiles: List Point) (first: Corner) (second: Corner) (
       let rowSum: Nat → Nat := r => List.sumBy (List.range left (lastColumn + 1)) (c => PrefixSums.cell cells r c)
       Bool.eqOf (Floor.allRedOrGreen floor { corner = first, opposite = second }) (allKeys tiles first second)
         (h =>
-          let zero: PrefixSums.blockSpec cells top bottom left right = 0 := rewrite <- blockIs in DecEq.sound h
+          let zero: PrefixSums.blockSpec cells top bottom left right = 0 := rewrite <- blockIs in h.read
           List.allBetweenIntro (r rlo rhi =>
             let rowZero: rowSum r = 0 :=
               List.sumByZeroElim (List.range top (lastRow + 1)) rowSum zero r (((List.memRange r top (lastRow + 1)).backward (Both rlo (Nat.leLessSucc r lastRow rhi))))

@@ -23,14 +23,14 @@ theorem sameAcrossFaces (garden: Garden) (start: Position) (plant: Char) (grows:
         match otherGrows: garden.plantAt other == Some plant with
           | True =>
             let touching: touches garden plot other = True :=
-              Bool.andIntro (orthogonalIntro plot other (stepOrthogonal plot side other stepped))
-                (growSameIntro garden plot other plant plotGrows (DecEq.sound otherGrows))
+              Both (orthogonalIntro plot other (stepOrthogonal plot side other stepped))
+                (growSameIntro garden plot other plant plotGrows otherGrows.read)
             Eq.sym ((List.memContains region.plots other).backward ((isRegion other).backward (joinedStep garden start plot other joined touching)))
           | False =>
             match found: region.contains other with
               | False => rfl
               | True =>
-                let otherIn := (List.memContains region.plots other).forward found
+                let otherIn := found.read
                 let sameGrows := joinedPlant garden plant start other grows ((isRegion other).forward otherIn)
                 Void.exfalso (Bool.falseNotTrue (Eq.trans (Eq.sym otherGrows) (rewrite sameGrows in DecEq.refl (Some plant))))
 
