@@ -1,5 +1,5 @@
 {
-  "next": 3080,
+  "next": 3081,
   "tickets": [
     {
       "id": 47,
@@ -33278,6 +33278,19 @@
       "labels": [],
       "epic": "aoc-older",
       "body": "Started 13 Nov ~11:45. Estimate: 90 min. Kept-lemma list with users: SW-3060's lane report (in SW-3060's ticket context); known gaps: SW-3064 (cons-unfolded all/any), SW-3065, SW-3066, SW-3067, SW-3069, SW-3073.",
+      "created": "2026-11-13",
+      "updated": "2026-11-13",
+      "commits": []
+    },
+    {
+      "id": 3080,
+      "title": "[DeepSeek] D3547 (Matt, 13 Nov 2026): rename the test tiers by size: task test:merge → test:quick, test:daily → test:broad, test:full → test:all (Taskfile.yml tasks and STITCHWORT_TIER values if they share the names, dev/ scripts, CI/flake checks), and every mention in CLAUDE.md, docs/workflow.md, docs/testing.md, board/README.md and .claude/agents/*.md. Pure rename: which tests each tier runs doesn't change",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
+      "body": "",
       "created": "2026-11-13",
       "updated": "2026-11-13",
       "commits": []
