@@ -1,5 +1,5 @@
 {
-  "next": 3187,
+  "next": 3188,
   "tickets": [
     {
       "id": 47,
@@ -34679,12 +34679,27 @@
     {
       "id": 3186,
       "title": "[Sonnet] Formatter stage 3, part 1 (formatter-architecture §6): rules for the constructs SW-3183 left as written (LetExpr, Seq, interpolated text and Interpolation nodes), long patterns (S22), ∃ chains, the bracketed-block hug as a last argument, a comment before := in a calc step; cut the 98 lines over 120",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-3186",
       "labels": [],
       "epic": "syntax-language",
-      "body": "\nD3568 (Matt, 13 Nov 2026): yes, a lambda after := hugs the := line (formatter-style.md §4).\nD3569 (Matt, 13 Nov 2026): yes, an all-plain call that overflows fills its arguments onto continuation lines at +4 (formatter-style.md §4).",
+      "body": "\nD3568 (Matt, 13 Nov 2026): yes, a lambda after := hugs the := line (formatter-style.md §4).\nD3569 (Matt, 13 Nov 2026): yes, an all-plain call that overflows fills its arguments onto continuation lines at +4 (formatter-style.md §4).\nOrchestrator's calls (13 Nov 2026, shown to Matt in the stage 4 dry run): ${ x } spacing kept as written; a broken pattern nests its arguments at +2 from the arm's |; ∃ binders never break, ∀ binders may.\nModel result: Sonnet, worked, 45 min (est. 180)",
+      "created": "2026-11-13",
+      "updated": "2026-11-13",
+      "commits": [
+        "796bdcbe6941731dc54b0f388a320d8a1d789287"
+      ]
+    },
+    {
+      "id": 3187,
+      "title": "[Sonnet] New formatter: the last long code lines: a call with a bracketed argument whose leading plain arguments already pass 120 (Day19 Parse.declinesLinesAtBlank, 2021 Day16 operatorOfWellFormed) should fill that prefix as D3569 does; lambda parameter lists can't break (one 292-character line in games/rogue's property proof) (SW-3186 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
       "created": "2026-11-13",
       "updated": "2026-11-13",
       "commits": []
