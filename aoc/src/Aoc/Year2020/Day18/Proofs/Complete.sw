@@ -353,41 +353,37 @@ theorem runsSteps (strengthOf: Operator → Nat) (strength: Nat) (operators: Lis
 --| Completeness one size up, given it for smaller expressions: by the
 --| levels, and at the last level by the operand.
 theorem levelInner (strengthOf: Operator → Nat) (self: () → {Parse} Expression) (limit: Nat) (selfRuns: SelfRuns strengthOf self limit) (bound: Nat)
-    (smaller: ∀ (levels: List (List Operator)) (strength: Nat) (expression: Expression) => size expression ≤ bound → Complete strengthOf self limit levels strength expression):
-    ∀ (levels: List (List Operator)) (strength: Nat) (expression: Expression) => size expression ≤ bound + 1 → Complete strengthOf self limit levels strength expression
-    := levels =>
-  match levels with
-    | [] => strength expression small =>
-      match expression with
-        | Number value => read rest short written follows binds exact stop => runsOperandNumber self read rest value written (And.left stop)
-        | Operation operator left right => read rest short written follows binds exact stop => Void.exfalso (omega [binds, exact operator])
-        | Parenthesised inner => read rest short written follows binds exact stop =>
-          match written with
-            | Witness innerRead (Both split innerWritten) =>
-              let lengths: read.length = innerRead.length + 2 :=
-                rewrite split, List.lengthAppend (['('] ++ innerRead) [')'] in rfl
-              rewrite split in
-                runsOperandParen strengthOf self limit selfRuns innerRead rest inner innerWritten follows (omega [short, lengths])
-    | [operators, ..tighter] => strength expression small => read rest short written follows binds exact stop =>
-      match chainOf strengthOf strength expression read written follows binds with
-        | Witness start (Witness startRead (Witness steps (Both made (Both split (Both startWritten (Both startFollows (Both startBinds (Both startSmaller good)))))))) =>
-          let lengths: read.length = startRead.length + (Parse.joinReads steps).length := rewrite split in List.lengthAppend startRead (Parse.joinReads steps)
-          let afterStops := afterSteps strengthOf strength (size expression) rest stop steps good
-          let runsFirst := levelInner strengthOf self limit selfRuns bound smaller tighter (strength + 1) start (omega [startSmaller, small])
-            startRead (Parse.joinReads steps ++ rest) (omega [short, lengths]) startWritten startFollows startBinds (And.right exact) afterStops
-          let manyRuns := runsSteps strengthOf strength operators (() => level self tighter) limit (size expression) (And.left exact)
-            (right rightSmall rightRead rest2 rightShort rightWritten rightFollows rightBinds rightStop =>
-              smaller tighter (strength + 1) right (omega [rightSmall, small]) rightRead rest2 rightShort rightWritten rightFollows rightBinds (And.right exact) rightStop)
-            steps rest good (omega [short, lengths]) stop
-          rewrite split, made in
-            Parse.runsChainLeft (() => level self tighter) (() => Operator.node (operator operators)) startRead start steps rest runsFirst manyRuns
+    (smaller: ∀ (levels: List (List Operator)) (strength: Nat) (expression: Expression) => size expression ≤ bound → Complete strengthOf self limit levels strength expression)
+    (levels: List (List Operator)) (strength: Nat) (expression: Expression) (small: size expression ≤ bound + 1):
+    Complete strengthOf self limit levels strength expression := match levels, expression with
+      | [], Number value => read rest short written follows binds exact stop => runsOperandNumber self read rest value written (And.left stop)
+      | [], Operation operator left right => read rest short written follows binds exact stop => Void.exfalso (omega [binds, exact operator])
+      | [], Parenthesised inner => read rest short written follows binds exact stop =>
+        match written with
+          | Witness innerRead (Both split innerWritten) =>
+            let lengths: read.length = innerRead.length + 2 :=
+              rewrite split, List.lengthAppend (['('] ++ innerRead) [')'] in rfl
+            rewrite split in
+              runsOperandParen strengthOf self limit selfRuns innerRead rest inner innerWritten follows (omega [short, lengths])
+      | [operators, ..tighter], expression => read rest short written follows binds exact stop =>
+        match chainOf strengthOf strength expression read written follows binds with
+          | Witness start (Witness startRead (Witness steps (Both made (Both split (Both startWritten (Both startFollows (Both startBinds (Both startSmaller good)))))))) =>
+            let lengths: read.length = startRead.length + (Parse.joinReads steps).length := rewrite split in List.lengthAppend startRead (Parse.joinReads steps)
+            let afterStops := afterSteps strengthOf strength (size expression) rest stop steps good
+            let runsFirst := levelInner strengthOf self limit selfRuns bound smaller tighter (strength + 1) start (omega [startSmaller, small])
+              startRead (Parse.joinReads steps ++ rest) (omega [short, lengths]) startWritten startFollows startBinds (And.right exact) afterStops
+            let manyRuns := runsSteps strengthOf strength operators (() => level self tighter) limit (size expression) (And.left exact)
+              (right rightSmall rightRead rest2 rightShort rightWritten rightFollows rightBinds rightStop =>
+                smaller tighter (strength + 1) right (omega [rightSmall, small]) rightRead rest2 rightShort rightWritten rightFollows rightBinds (And.right exact) rightStop)
+              steps rest good (omega [short, lengths]) stop
+            rewrite split, made in
+              Parse.runsChainLeft (() => level self tighter) (() => Operator.node (operator operators)) startRead start steps rest runsFirst manyRuns
 
-theorem levelComplete (strengthOf: Operator → Nat) (self: () → {Parse} Expression) (limit: Nat) (selfRuns: SelfRuns strengthOf self limit):
-    ∀ (bound: Nat) (levels: List (List Operator)) (strength: Nat) (expression: Expression) => size expression ≤ bound → Complete strengthOf self limit levels strength expression
-    := bound =>
-  match bound with
-    | Zero => levels strength expression small => Void.exfalso (sizePositive expression small)
-    | Succ less => levelInner strengthOf self limit selfRuns less (levelComplete strengthOf self limit selfRuns less)
+theorem levelComplete (strengthOf: Operator → Nat) (self: () → {Parse} Expression) (limit: Nat) (selfRuns: SelfRuns strengthOf self limit)
+    (bound: Nat) (levels: List (List Operator)) (strength: Nat) (expression: Expression) (small: size expression ≤ bound):
+    Complete strengthOf self limit levels strength expression := match bound with
+      | Zero => Void.exfalso (sizePositive expression small)
+      | Succ less => levelInner strengthOf self limit selfRuns less (levelComplete strengthOf self limit selfRuns less) levels strength expression small
 
 --| The program's parser reads any expression its levels allow, written out.
 theorem runsExpression (all: List (List Operator)) (strengthOf: Operator → Nat) (exactAll: Exact strengthOf 0 all) (read: List Char) (rest: List Char)

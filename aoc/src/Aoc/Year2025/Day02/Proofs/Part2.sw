@@ -128,9 +128,10 @@ theorem periodSub (g: Nat → Nat) (len: Nat) (hl: len ≠ 0) (p: Nat) (q: Nat) 
         := rewrite (omega: i + (p - q) + q = i + p)
       _ = g i := hp i hi
 
-theorem periodMul (g: Nat → Nat) (len: Nat) (hl: len ≠ 0) (p: Nat) (hp: Period g len hl p): ∀ (t: Nat) => Period g len hl (t * p)
-  | Zero, i, hi => periodZero g len hl i hi
-  | Succ t, i, hi => periodAdd g len hl p (t * p) hp (periodMul g len hl p hp t) i hi
+theorem periodMul (g: Nat → Nat) (len: Nat) (hl: len ≠ 0) (p: Nat) (hp: Period g len hl p) (t: Nat): Period g len hl (t * p) :=
+  match t with
+    | Zero => i hi => periodZero g len hl i hi
+    | Succ t => i hi => periodAdd g len hl p (t * p) hp (periodMul g len hl p hp t) i hi
 
 --| The same as a test, which a search can run.
 def isPeriod (g: Nat → Nat) (len: Nat) (hl: len ≠ 0) (p: Nat): Bool := List.range 0 len |> .all (i => g ((i + p) % len) == g i)

@@ -93,11 +93,13 @@ theorem peelRowCells (cells: Cells) (r: Nat) (c: Nat) (a: Vec Cell w) (x: Vec Ce
 --| first and past the last.
 def rowB (rows: Vec (Vec Cell w) h) (r: Nat): Vec Cell w := Vec.getOr (VCons (Vec.replicate w Floor) rows) r (Vec.replicate w Floor)
 
-theorem rowBIs (rows: Vec (Vec Cell w) h): ∀ (r: Nat) => RowIs (rowsCells rows) r (rowB rows r)
-  | Zero, Zero => rfl
-  | Zero, Succ j => Vec.getOrReplicate Floor w j
-  | Succ r, Zero => rfl
-  | Succ r, Succ j => rfl
+theorem rowBIs (rows: Vec (Vec Cell w) h) (r: Nat): RowIs (rowsCells rows) r (rowB rows r) := match r with
+  | Zero => j => match j with
+    | Zero => rfl
+    | Succ j => Vec.getOrReplicate Floor w j
+  | Succ r => j => match j with
+    | Zero => rfl
+    | Succ j => rfl
 
 --| Past the last row or column, everything is floor.
 theorem rowsCellsBelow (rows: Vec (Vec Cell w) h) (r: Nat) (c: Nat) (hr: h ≤ r): rowsCells rows r c = Floor :=

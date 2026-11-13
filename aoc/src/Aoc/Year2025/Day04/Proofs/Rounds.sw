@@ -52,9 +52,10 @@ theorem accessibleSame (grid: Grid) (s: Cells) (t: Cells) (h: Same s t) (r: Nat)
 theorem removeSame (grid: Grid) (s: Cells) (t: Cells) (h: Same s t): Same (grid.removeAccessible s) (grid.removeAccessible t) :=
   r c => rewrite accessibleSame grid s t h r c, h r c
 
-theorem roundsSame (grid: Grid): ∀ (n: Nat) (s t: Cells) => Same s t → Same (grid.rounds n s) (grid.rounds n t)
-  | Zero, s, t, h, r, c => h r c
-  | Succ n, s, t, h, r, c => roundsSame grid n (grid.removeAccessible s) (grid.removeAccessible t) (removeSame grid s t h) r c
+theorem roundsSame (grid: Grid) (n: Nat) (s t: Cells) (h: Same s t): Same (grid.rounds n s) (grid.rounds n t) :=
+  match n with
+    | Zero => r c => h r c
+    | Succ n => r c => roundsSame grid n (grid.removeAccessible s) (grid.removeAccessible t) (removeSame grid s t h) r c
 
 theorem ifFloorKeep (b: Bool) (x: Cell) (h: x = Floor): (if b then Floor else x) = Floor := match b with
   | True => rfl
@@ -122,25 +123,26 @@ theorem stableNotAccessible (grid: Grid) (s: Cells) (stable: Stable grid s) (r: 
     | Roll => omega [stable r c e]
 
 --| Once stable, rounds change nothing.
-theorem roundsFixed (grid: Grid): ∀ (n: Nat) (s: Cells) => Stable grid s → Same (grid.rounds n s) s
-  | Zero, s, stable, r, c => rfl
-  | Succ n, s, stable, r, c =>
+theorem roundsFixed (grid: Grid) (n: Nat) (s: Cells) (stable: Stable grid s): Same (grid.rounds n s) s := match n with
+  | Zero => r c => rfl
+  | Succ n => r c =>
     let same: Same (grid.removeAccessible s) s := x y => rewrite stableNotAccessible grid s stable x y in rfl
     Eq.trans (roundsSame grid n (grid.removeAccessible s) s same r c) (roundsFixed grid n s stable r c)
 
 --| As many rounds as there are rolls leave no accessible roll.
-theorem roundsStable (grid: Grid): ∀ (fuel: Nat) (s: Cells) => Inside grid s → grid.rollCount s ≤ fuel → Stable grid (grid.rounds fuel s)
-  | Zero, s, ins, h, r, c, hs =>
-    stableWhere grid s ins (x y hx hy hxy =>
-      Void.exfalso (Bool.trueNotFalse
-        (Eq.trans (Eq.sym (rollIsRoll (s x y) hxy))
-          (countNone grid (x y => s x y == Roll) omega x y hx hy)))) r c hs
-  | Succ n, s, ins, h, r, c, hs =>
-    match e: accCount grid s with
-      | Zero =>
-        let stable := noneStable grid s ins e
-        stableSame grid s (grid.rounds (Succ n) s) (x y => Eq.sym (roundsFixed grid (Succ n) s stable x y)) stable r c hs
-      | Succ b =>
-        let total: grid.rollCount (grid.removeAccessible s) + Succ b ≤ Succ n := omega [roundCount grid s]
-        roundsStable grid n (grid.removeAccessible s) (removeInside grid s ins)
-          omega r c hs
+theorem roundsStable (grid: Grid) (fuel: Nat) (s: Cells) (ins: Inside grid s) (h: grid.rollCount s ≤ fuel): Stable grid (grid.rounds fuel s) :=
+  match fuel with
+    | Zero => r c hs =>
+      stableWhere grid s ins (x y hx hy hxy =>
+        Void.exfalso (Bool.trueNotFalse
+          (Eq.trans (Eq.sym (rollIsRoll (s x y) hxy))
+            (countNone grid (x y => s x y == Roll) omega x y hx hy)))) r c hs
+    | Succ n => r c hs =>
+      match e: accCount grid s with
+        | Zero =>
+          let stable := noneStable grid s ins e
+          stableSame grid s (grid.rounds (Succ n) s) (x y => Eq.sym (roundsFixed grid (Succ n) s stable x y)) stable r c hs
+        | Succ b =>
+          let total: grid.rollCount (grid.removeAccessible s) + Succ b ≤ Succ n := omega [roundCount grid s]
+          roundsStable grid n (grid.removeAccessible s) (removeInside grid s ins)
+            omega r c hs

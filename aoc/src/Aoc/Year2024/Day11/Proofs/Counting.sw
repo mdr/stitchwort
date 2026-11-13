@@ -67,11 +67,11 @@ theorem representsBlink (counts: Map Nat Nat) (stones: List Nat) (represents: Re
     represents (stone => (change stone).sumBy weight), List.sumByFlatMap stones weight change
     in rfl
 
-theorem representsAfter: ∀ (blinks: Nat) (counts: Map Nat Nat) (stones: List Nat) => Represents counts stones →
-    Represents (blinks.iterate blinkCounts counts) (blinkTimes blinks stones)
-  | Zero, counts, stones, represents, weight => represents weight
-  | Succ blinks, counts, stones, represents, weight =>
-    representsAfter blinks (blinkCounts counts) (blink stones) (representsBlink counts stones represents) weight
+theorem representsAfter (blinks: Nat) (counts: Map Nat Nat) (stones: List Nat) (represents: Represents counts stones):
+    Represents (blinks.iterate blinkCounts counts) (blinkTimes blinks stones) := match blinks with
+      | Zero => weight => represents weight
+      | Succ blinks => weight =>
+        representsAfter blinks (blinkCounts counts) (blink stones) (representsBlink counts stones represents) weight
 
 --| The counts add up to their entries' weight when every stone weighs 1.
 theorem sumCounts (entries: List (Nat, Nat)): (entries.map Pair.snd).sum = weigh (stone => 1) entries :=

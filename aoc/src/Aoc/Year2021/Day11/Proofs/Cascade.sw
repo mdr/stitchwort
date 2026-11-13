@@ -20,9 +20,9 @@ def flashedAfter (cavern: Cavern): Nat → Flashed
   | Succ k => cavern.flashRound (flashedAfter cavern k)
 
 --| Only octopuses on the grid flash in any round.
-theorem onGridAfter (cavern: Cavern): ∀ (k: Nat) => OnGrid cavern ((flashedAfter cavern k).has)
-  | Zero, q, flashes => onGridFlash cavern (_ _ => False) q flashes
-  | Succ k, q, flashes => onGridFlash cavern (at level => 9 < energyWith (flashedAfter cavern k).lookup at level) q flashes
+theorem onGridAfter (cavern: Cavern) (k: Nat): OnGrid cavern ((flashedAfter cavern k).has) := match k with
+  | Zero => q flashes => onGridFlash cavern (_ _ => False) q flashes
+  | Succ k => q flashes => onGridFlash cavern (at level => 9 < energyWith (flashedAfter cavern k).lookup at level) q flashes
 
 --| Before the first round nobody has flashed.
 theorem noneAtStart (cavern: Cavern) (q: Position): (flashedAfter cavern 0).has q = False :=
@@ -108,11 +108,12 @@ theorem stableAtSize (cavern: Cavern): Stable cavern (positions cavern).length :
       Void.exfalso (omega)
 
 --| ...nor any later one.
-theorem stableAbove (cavern: Cavern) (n: Nat) (stable: Stable cavern n): ∀ (k: Nat) => n ≤ k → Stable cavern k
-  | Zero, below, q, flashes => (rewrite (omega: n = 0) at stable in stable) q flashes
-  | Succ k, below, q, flashes =>
-    if late: n ≤ k then staysStable cavern k (stableAbove cavern n stable k late) q flashes
-    else (rewrite (omega: n = Succ k) at stable in stable) q flashes
+theorem stableAbove (cavern: Cavern) (n: Nat) (stable: Stable cavern n) (k: Nat) (below: n ≤ k): Stable cavern k :=
+  match k with
+    | Zero => q flashes => (rewrite (omega: n = 0) at stable in stable) q flashes
+    | Succ k => q flashes =>
+      if late: n ≤ k then staysStable cavern k (stableAbove cavern n stable k late) q flashes
+      else (rewrite (omega: n = Succ k) at stable in stable) q flashes
 
 --| One step of `cascade`.
 theorem cascadeStep (cavern: Cavern) (flashed: Flashed) (m: Nat):

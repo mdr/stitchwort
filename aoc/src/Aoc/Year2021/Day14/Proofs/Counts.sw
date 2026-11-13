@@ -50,8 +50,9 @@ theorem stepRepresents (rules: List Rule) (one: OneRulePerPair rules) (counts: P
       _ = List.sumBy (pairsOf (step rules polymer)) f := rewrite pairsStep rules polymer in rfl
 
 --| After any number of steps, the program's counts stand for the polymer.
-theorem iterateRepresents (manual: Manual) (one: OneRulePerPair manual.rules): ∀ (steps: Nat) (counts: PairCounts) (polymer: List Char) => Represents counts polymer →
-    Represents (Nat.iterate steps (stepCounts (ruleTable manual.rules)) counts) (Nat.iterate steps (step manual.rules) polymer)
-  | Zero, counts, polymer, represents, f => represents f
-  | Succ steps, counts, polymer, represents, f =>
-    iterateRepresents manual one steps (stepCounts (ruleTable manual.rules) counts) (step manual.rules polymer) (stepRepresents manual.rules one counts polymer represents) f
+theorem iterateRepresents (manual: Manual) (one: OneRulePerPair manual.rules) (steps: Nat) (counts: PairCounts) (polymer: List Char) (represents: Represents counts polymer):
+    Represents (Nat.iterate steps (stepCounts (ruleTable manual.rules)) counts) (Nat.iterate steps (step manual.rules) polymer) :=
+  match steps with
+    | Zero => f => represents f
+    | Succ steps => f =>
+      iterateRepresents manual one steps (stepCounts (ruleTable manual.rules) counts) (step manual.rules polymer) (stepRepresents manual.rules one counts polymer represents) f

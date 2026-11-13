@@ -32,31 +32,31 @@ theorem containsInsertEither (seen: Set Guard) (key: Guard) (guard: Guard) (has:
       | False => Inr (rewrite Set.containsInsertOther seen key guard same.read at has)
 
 --| A `True` from the loop test means she loops.
-theorem loopsFromSound (lab: Lab) (sightlines: Sightlines) (simulates: Simulates sightlines lab) (inside: onMap lab lab.start = True):
-    ∀ (budget: Nat) (guard: Guard) (seen: Set Guard) (now: Nat) => after lab now = Some guard → lab.stateCount ≤ now + budget →
-      SeenBy lab seen now → sightlines.loopsFrom guard seen budget = True → Loops lab
-  | Zero, guard, seen, now, reached, enough, seenBy, says, steps, gone =>
-    budgetEnough lab inside (walkEarlier lab (Some lab.startGuard) lab.stateCount now (rewrite reached in Option.someNotNone guard) (omega [enough])) steps gone
-  | Succ budget, guard, seen, now, reached, enough, seenBy, says, anySteps, gone =>
-    let onTheMap := afterOnMap lab inside now guard reached
-    match turned: sightlines.nextTurn guard with
-      | Some next =>
-        Exists.elim (And.left (simulates guard onTheMap) next turned) (steps both =>
-          let later: after lab (now + steps) = Some next := Eq.trans (afterAdd lab now guard reached steps) (And.right both)
-          (match says with
-            | Inl repeated =>
-              Exists.elim (seenBy next repeated) (earlier when =>
-                repeatLoops lab earlier (now + steps) (omega [And.left when, And.left both]) (Eq.trans (And.right when) (Eq.sym later))
-                  (rewrite later in Option.someNotNone next))
-            | Inr rest =>
-              let seenByNext: SeenBy lab (seen.insert next) (now + steps) :=
-                guard has =>
-                  match containsInsertEither seen next guard has with
-                    | Inl isNext => Witness (now + steps) (Both (Nat.leRefl (now + steps)) (rewrite isNext in later))
-                    | Inr wasSeen =>
-                      Exists.elim (seenBy guard wasSeen) (earlier when => Witness earlier (Both (omega [And.left when]) (And.right when)))
-              loopsFromSound lab sightlines simulates inside budget next (seen.insert next) (now + steps) later
-                (omega [And.left both, enough]) seenByNext rest) anySteps gone)
+theorem loopsFromSound (lab: Lab) (sightlines: Sightlines) (simulates: Simulates sightlines lab) (inside: onMap lab lab.start = True)
+    (budget: Nat) (guard: Guard) (seen: Set Guard) (now: Nat) (reached: after lab now = Some guard) (enough: lab.stateCount ≤ now + budget)
+    (seenBy: SeenBy lab seen now) (says: sightlines.loopsFrom guard seen budget = True): Loops lab := match budget with
+      | Zero => steps gone =>
+        budgetEnough lab inside (walkEarlier lab (Some lab.startGuard) lab.stateCount now (rewrite reached in Option.someNotNone guard) (omega [enough])) steps gone
+      | Succ budget => anySteps gone =>
+        let onTheMap := afterOnMap lab inside now guard reached
+        match turned: sightlines.nextTurn guard with
+          | Some next =>
+            Exists.elim (And.left (simulates guard onTheMap) next turned) (steps both =>
+              let later: after lab (now + steps) = Some next := Eq.trans (afterAdd lab now guard reached steps) (And.right both)
+              (match says with
+                | Inl repeated =>
+                  Exists.elim (seenBy next repeated) (earlier when =>
+                    repeatLoops lab earlier (now + steps) (omega [And.left when, And.left both]) (Eq.trans (And.right when) (Eq.sym later))
+                      (rewrite later in Option.someNotNone next))
+                | Inr rest =>
+                  let seenByNext: SeenBy lab (seen.insert next) (now + steps) :=
+                    guard has =>
+                      match containsInsertEither seen next guard has with
+                        | Inl isNext => Witness (now + steps) (Both (Nat.leRefl (now + steps)) (rewrite isNext in later))
+                        | Inr wasSeen =>
+                          Exists.elim (seenBy guard wasSeen) (earlier when => Witness earlier (Both (omega [And.left when]) (And.right when)))
+                  loopsFromSound lab sightlines simulates inside budget next (seen.insert next) (now + steps) later
+                    (omega [And.left both, enough]) seenByNext rest) anySteps gone)
 
 --| And when she loops, the test says so.
 theorem loopsFromComplete (lab: Lab) (sightlines: Sightlines) (simulates: Simulates sightlines lab) (inside: onMap lab lab.start = True)

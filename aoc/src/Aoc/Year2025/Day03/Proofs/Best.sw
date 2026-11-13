@@ -178,23 +178,25 @@ theorem pickBestStep (k: Nat) (w: Nat) (x: Battery) (more: Bank) (c: Battery) (a
     | False, Inr (Both (Inl (Both eyx hs)) hlen) =>
       pickTie k w x more c after rec h1 h2 hsa y s hk omega eyx hs
 
-theorem pickBest (k: Nat) (ih: BestBelow k): ∀ (w: Nat) (xs: Bank) (c: Battery) (after: Bank) => PickBeats k w xs c after
-  | Zero, xs, c, after, h1, h2, hsa, y, s, hk, Inl (Both e hs) => pickBase k ih c after h2 y s hk e hs
-  | Zero, xs, c, after, h1, h2, hsa, y, s, hk, Inr (Both g hlen) =>
-    omega [List.subsequenceLength [y, ..s] xs g]
-  | Succ w, [], c, after, h1, h2, hsa, y, s, hk, Inl (Both e hs) => pickBase k ih c after h2 y s hk e hs
-  | Succ w, [], c, after, h1, h2, hsa, y, s, hk, Inr (Both g hlen) => Void.exfalso g
-  | Succ w, [x, ..more], c, after, h1, h2, hsa, y, s, hk, cand =>
-    pickBestStep k w x more c after (pickBest k ih w more) omega h2 hsa y s hk cand
+theorem pickBest (k: Nat) (ih: BestBelow k) (w: Nat) (xs: Bank) (c: Battery) (after: Bank): PickBeats k w xs c after :=
+  match w, xs with
+    | Zero, xs => h1 h2 hsa y s hk => match
+      | Inl (Both e hs) => pickBase k ih c after h2 y s hk e hs
+      | Inr (Both g hlen) => omega [List.subsequenceLength [y, ..s] xs g]
+    | Succ w, [] => h1 h2 hsa y s hk => match
+      | Inl (Both e hs) => pickBase k ih c after h2 y s hk e hs
+    | Succ w, [x, ..more] => h1 h2 hsa y s hk cand =>
+      pickBestStep k w x more c after (pickBest k ih w more) omega h2 hsa y s hk cand
 
-theorem bestOptimal: ∀ (k: Nat) => BestBelow k
-  | Zero, bank, [], h, hk => rfl
-  | Zero, bank, [y, ..s], h, hk => omega
-  | Succ k, [], [], h, hk => omega
-  | Succ k, [], [y, ..s], h, hk => Void.exfalso h
-  | Succ k, [d, ..rest], [], h, hk => omega
-  | Succ k, [d, ..rest], [y, ..s], h, hk =>
-    bestOptimalStep k d rest y s (bestOptimal k) h omega
+theorem bestOptimal (k: Nat): BestBelow k := match k with
+  | Zero => bank s h hk => match s with
+    | [] => rfl
+    | [y, ..s] => omega
+  | Succ k => bank s h hk => match bank, s with
+    | [], [] => omega
+    | [d, ..rest], [] => omega
+    | [d, ..rest], [y, ..s] =>
+      bestOptimalStep k d rest y s (bestOptimal k) h omega
 
 theorem bestOptimalStep (k: Nat) (d: Battery) (rest: Bank) (y: Battery) (s: Bank) (ih: BestBelow k)
     (h: List.Subsequence [y, ..s] [d, ..rest]) (hk: s.length = k):
