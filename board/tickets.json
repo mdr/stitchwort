@@ -1,5 +1,5 @@
 {
-  "next": 3183,
+  "next": 3184,
   "tickets": [
     {
       "id": 47,
@@ -34470,9 +34470,9 @@
     {
       "id": 3171,
       "title": "[Sonnet] Lexer spans in interpolated text are inconsistent: StrStart leaves out its ${, StrMid includes its own, neither StrMid nor StrEnd includes the } before it (the lossless tree works around it in token_text_range). Make ${ and } tokens of their own, checking diagnostics that point into strings (SW-3159 finding)",
-      "status": "backlog",
-      "agent": "",
-      "where": "",
+      "status": "doing",
+      "agent": "Sonnet",
+      "where": ".claude/worktrees/SW-3171",
       "labels": [],
       "epic": "syntax-language",
       "body": "",
@@ -34618,6 +34618,19 @@
       "status": "backlog",
       "agent": "",
       "where": "",
+      "labels": [],
+      "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-13",
+      "updated": "2026-11-13",
+      "commits": []
+    },
+    {
+      "id": 3183,
+      "title": "[Opus] Formatter stage 2 (formatter-architecture §6): printer core over the lossless tree: the engine (fit-or-break at 120), declarations, headers (D3564, D3565), bodies, blocks, arms (D3566), brackets, application breaking (D3567), comments; constructs without a rule printed as written, re-indented and counted; behind a flag until stage 5",
+      "status": "doing",
+      "agent": "Opus",
+      "where": ".claude/worktrees/SW-3183",
       "labels": [],
       "epic": "syntax-language",
       "body": "",
