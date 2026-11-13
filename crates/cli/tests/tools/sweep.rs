@@ -42,7 +42,8 @@ fn names(file: &Value, key: &str) -> Vec<String> {
         .collect()
 }
 
-/// `leAntisym` keeps its hash; `addZ` gains an argument, a new proof term,
+/// `leAntisym` keeps its hash: both its arms stay possible once the
+/// premises are in the header; `addZ` gains an argument, a new proof term,
 /// which `limit` depends on, so it is refused; `memOf` has a `∀` after a
 /// premise and is skipped.
 const BEFORE: &str = "\
@@ -52,8 +53,6 @@ import Std (Nat, Void, Bool, Eq)
 
 theorem leAntisym: ∀ (a b: Nat) => a ≤ b → b ≤ a → a = b
   | Zero, Zero, h1, h2 => rfl
-  | Zero, Succ b, h1, h2 => Void.exfalso (Bool.falseNotTrue h2)
-  | Succ a, Zero, h1, h2 => Void.exfalso (Bool.falseNotTrue h1)
   | Succ a, Succ b, h1, h2 => Eq.cong Succ (leAntisym a b h1 h2)
 
 theorem addZ: ∀ (n: Nat) => n + 0 = n := Nat.addZero
@@ -70,12 +69,9 @@ namespace Laws
 
 import Std (Nat, Void, Bool, Eq)
 
-theorem leAntisym (a b: Nat) (h1: a ≤ b) (h2: b ≤ a): a = b :=
-  match a, b with
-    | Zero, Zero => rfl
-    | Zero, Succ b => Void.exfalso (Bool.falseNotTrue h2)
-    | Succ a, Zero => Void.exfalso (Bool.falseNotTrue h1)
-    | Succ a, Succ b => Eq.cong Succ (leAntisym a b h1 h2)
+theorem leAntisym (a b: Nat) (h1: a ≤ b) (h2: b ≤ a): a = b := match a, b with
+  | Zero, Zero => rfl
+  | Succ a, Succ b => Eq.cong Succ (leAntisym a b h1 h2)
 
 theorem addZ: ∀ (n: Nat) => n + 0 = n := Nat.addZero
 ";
