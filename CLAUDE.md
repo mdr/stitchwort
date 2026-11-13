@@ -334,7 +334,7 @@ Matt. Every `-E` filter names a `binary(...)` or `package(...)`.
   roguelike namespace it edited is fine, D3517), the benchmark, or a
   workspace-wide build of test targets, and runs one test command at a
   time, prefixed `STITCHWORT_TEST_THREADS=2 NEXTEST_TEST_THREADS=2 nice -n 19`,
-  and at most three build lanes run at once (D3542; D3548 raised two to three, Matt, 13 Nov 2026: "tune in-flight work to be filling but not overloading the machine": the orchestrator reads `uptime` before starting a lane and holds new lanes while the 5-minute load is above 20 on Speedwell's 10 cores) (D3542, Matt, 13 Nov 2026: "it's good
+  and at most three build lanes run at once (D3542; D3548 raised two to three, Matt, 13 Nov 2026: "tune in-flight work to be filling but not overloading the machine": the orchestrator reads `uptime` before starting a lane and holds new lanes while the 5-minute load, the middle of `uptime`'s three numbers, is above 12 on Speedwell's 10 cores, about one job per core; lane builds run 4 compiler jobs each, from `.claude/worktrees/.cargo/config.toml`, D3554, Matt, 13 Nov 2026: "2x the number of cores feels like we are maybe over parallelizing") (D3542, Matt, 13 Nov 2026: "it's good
   for the lanes to have lighter CPU load ... targeted, intelligent tests,
   selecting individual test cases that might have been impacted by the change.
   And then we catch bigger regressions through other mechanisms"). A lane that thinks it needs one stops and asks. Briefs never ask for these
