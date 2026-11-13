@@ -27996,12 +27996,12 @@
     {
       "id": 2688,
       "title": "Theorem binders hand work after the sweep: 44 conclusion-column theorems (¬/≠), 2 absurd arms, 4 std name clashes, 108 ∀-after-premise left by design (review)",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "From SW-2655 (10 Nov 2026). After SW-2656.\nD3551 (Matt, 13 Nov 2026): yes, resume theorem binders alongside Bool as proposition: SW-2691 + SW-2689 (DeepSeek), SW-2688 (Sonnet), SW-2657 (Sonnet, ~1 day), SW-2658 last.",
+      "body": "From SW-2655 (10 Nov 2026). After SW-2656.\nD3551 (Matt, 13 Nov 2026): yes, resume theorem binders alongside Bool as proposition: SW-2691 + SW-2689 (DeepSeek), SW-2688 (Sonnet), SW-2657 (Sonnet, ~1 day), SW-2658 last.\nLane notes (13 Nov 2026, lane/SW-2688): rerun of `sweep theorem-binders --plan` converted nothing new. By hand: std 25 theorems (conclusion columns, 4 name clashes via renamed premises, 2 absurd arms, 5 mkExt via `let ext := J ...; ext q`), AoC 23, rogue 1: statements held (trial-edits proofs-only clean). Left: the ∀-after-premise ones (55 std, 54 aoc, 1 rogue). Repinned Float.decEq, Text.decEq, Text.split; prelude snapshot regenerated.\n",
       "created": "2026-11-10",
       "updated": "2026-11-13",
       "commits": []

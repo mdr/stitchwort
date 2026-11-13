@@ -21,12 +21,13 @@ def Mod.size (n: Nat): Nat := Succ (n - 1)
 theorem Mod.sizeNeZero (n: Nat): Mod.size n ≠ 0 := Nat.equalFalse (Mod.size n) 0 rfl
 
 --| Two numbers with the same value are equal: their proofs are too.
-theorem Mod.mkExt (n: Nat) (a: Nat) (b: Nat) (p: a < Mod.size n) (e: a = b):
-    ∀ (q: b < Mod.size n) => ({ value = a, isLt = p }: Mod n) = { value = b, isLt = q } :=
-  J (b' e' => ∀ (q': b' < Mod.size n) => ({ value = a, isLt = p }: Mod n) = { value = b', isLt = q' })
+theorem Mod.mkExt (n: Nat) (a: Nat) (b: Nat) (p: a < Mod.size n) (e: a = b)
+    (q: b < Mod.size n): ({ value = a, isLt = p }: Mod n) = { value = b, isLt = q } :=
+  let ext := J (b' e' => ∀ (q': b' < Mod.size n) => ({ value = a, isLt = p }: Mod n) = { value = b', isLt = q' })
     (q' => J (r e'' => ({ value = a, isLt = p }: Mod n) = { value = a, isLt = r }) rfl
       (Bool.uniqueEq (Nat.leq (Succ a) (Mod.size n)) True p q'))
     e
+  ext q
 
 theorem Mod.ext (i: Mod n) (j: Mod n) (e: i.value = j.value): i = j := match i, j with
   | { value = a, isLt = p }, { value = b, isLt = q } => Mod.mkExt n a b p e q

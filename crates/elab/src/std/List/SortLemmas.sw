@@ -769,11 +769,11 @@ def List.RunsAll (p: a → Prop): (runs: List (Option (List a))) → Prop
   | [None, ..rest] => List.RunsAll p rest
   | [Some r, ..rest] => (List.All p r) ∧ (List.RunsAll p rest)
 
-theorem List.pushRunAll (le: a → a → Bool) (p: a → Prop) (run: List a): ∀ (c: List (Option (List a))) =>
-    List.All p run → List.RunsAll p c → List.RunsAll p (List.pushRun le run c)
-  | [], a, h => Both a Trivial
-  | [None, ..rest], a, h => Both a h
-  | [Some r, ..rest], a, Both ar h => List.pushRunAll le p (List.merge le r run) rest (List.mergeAll le p r run ar a) h
+theorem List.pushRunAll (le: a → a → Bool) (p: a → Prop) (run: List a) (c: List (Option (List a)))
+    (allRun: List.All p run) (h: List.RunsAll p c): List.RunsAll p (List.pushRun le run c) := match c, h with
+      | [], h => Both allRun Trivial
+      | [None, ..rest], h => Both allRun h
+      | [Some r, ..rest], Both ar h => List.pushRunAll le p (List.merge le r run) rest (List.mergeAll le p r run ar allRun) h
 
 theorem List.buildRunsAll (le: a → a → Bool) (p: a → Prop) (c: List (Option (List a))) (xs: List a)
     (h1: List.All p xs) (h: List.RunsAll p c): List.RunsAll p (List.buildRuns le c xs) := match xs, h1 with
@@ -781,23 +781,23 @@ theorem List.buildRunsAll (le: a → a → Bool) (p: a → Prop) (c: List (Optio
       | [x, ..xs], Both px a =>
         List.buildRunsAll le p (List.pushRun le [x] c) xs a (List.pushRunAll le p [x] c (Both px Trivial) h)
 
-theorem List.mergeRunsAll (le: a → a → Bool) (p: a → Prop) (acc: List a): ∀ (c: List (Option (List a))) =>
-    List.All p acc → List.RunsAll p c → List.All p (List.mergeRuns le acc c)
-  | [], a, h => a
-  | [None, ..rest], a, h => List.mergeRunsAll le p acc rest a h
-  | [Some r, ..rest], a, Both ar h => List.mergeRunsAll le p (List.merge le r acc) rest (List.mergeAll le p r acc ar a) h
+theorem List.mergeRunsAll (le: a → a → Bool) (p: a → Prop) (acc: List a) (c: List (Option (List a)))
+    (allAcc: List.All p acc) (h: List.RunsAll p c): List.All p (List.mergeRuns le acc c) := match c, h with
+      | [], h => allAcc
+      | [None, ..rest], h => List.mergeRunsAll le p acc rest allAcc h
+      | [Some r, ..rest], Both ar h => List.mergeRunsAll le p (List.merge le r acc) rest (List.mergeAll le p r acc ar allAcc) h
 
 --| What every element passes, every element of the sorted list passes.
 theorem List.allSortWith (le: a → a → Bool) (p: a → Prop) (xs: List a) (a: List.All p xs): List.All p (List.sortWith xs le) :=
   List.mergeRunsAll le p [] (List.buildRuns le [] xs) Trivial (List.buildRunsAll le p [] xs a Trivial)
 
 theorem List.pushRunSortedOn (le: a → a → Bool) (p: a → Prop) (tot: ∀ (x y: a) => p x → p y → le x y = False → le y x = True)
-    (run: List a): ∀ (c: List (Option (List a))) => List.All p run → List.RunsAll p c → List.Sorted le run → List.RunsSorted le c →
-    List.RunsSorted le (List.pushRun le run c)
-  | [], a, ha, s, h => Both s Trivial
-  | [None, ..rest], a, ha, s, h => Both s h
-  | [Some r, ..rest], a, Both ar ha, s, Both sr h =>
-    List.pushRunSortedOn le p tot (List.merge le r run) rest (List.mergeAll le p r run ar a) ha (List.mergeSortedOn le p tot r run ar a sr s) h
+    (run: List a) (c: List (Option (List a))) (allRun: List.All p run) (ha: List.RunsAll p c) (s: List.Sorted le run)
+    (h: List.RunsSorted le c): List.RunsSorted le (List.pushRun le run c) := match c, ha, h with
+      | [], ha, h => Both s Trivial
+      | [None, ..rest], ha, h => Both s h
+      | [Some r, ..rest], Both ar ha, Both sr h =>
+        List.pushRunSortedOn le p tot (List.merge le r run) rest (List.mergeAll le p r run ar allRun) ha (List.mergeSortedOn le p tot r run ar allRun sr s) h
 
 theorem List.buildRunsSortedOn (le: a → a → Bool) (p: a → Prop) (tot: ∀ (x y: a) => p x → p y → le x y = False → le y x = True)
     (c: List (Option (List a))) (xs: List a) (h1: List.All p xs) (ha: List.RunsAll p c) (h: List.RunsSorted le c): List.RunsSorted le (List.buildRuns le c xs) :=
@@ -809,12 +809,12 @@ theorem List.buildRunsSortedOn (le: a → a → Bool) (p: a → Prop) (tot: ∀ 
         (List.pushRunSortedOn le p tot [x] c (Both px Trivial) ha (Both Trivial Trivial) h)
 
 theorem List.mergeRunsSortedOn (le: a → a → Bool) (p: a → Prop) (tot: ∀ (x y: a) => p x → p y → le x y = False → le y x = True)
-    (acc: List a): ∀ (c: List (Option (List a))) => List.All p acc → List.RunsAll p c → List.Sorted le acc → List.RunsSorted le c →
-    List.Sorted le (List.mergeRuns le acc c)
-  | [], a, ha, s, h => s
-  | [None, ..rest], a, ha, s, h => List.mergeRunsSortedOn le p tot acc rest a ha s h
-  | [Some r, ..rest], a, Both ar ha, s, Both sr h =>
-    List.mergeRunsSortedOn le p tot (List.merge le r acc) rest (List.mergeAll le p r acc ar a) ha (List.mergeSortedOn le p tot r acc ar a sr s) h
+    (acc: List a) (c: List (Option (List a))) (allAcc: List.All p acc) (ha: List.RunsAll p c) (s: List.Sorted le acc)
+    (h: List.RunsSorted le c): List.Sorted le (List.mergeRuns le acc c) := match c, ha, h with
+      | [], ha, h => s
+      | [None, ..rest], ha, h => List.mergeRunsSortedOn le p tot acc rest allAcc ha s h
+      | [Some r, ..rest], Both ar ha, Both sr h =>
+        List.mergeRunsSortedOn le p tot (List.merge le r acc) rest (List.mergeAll le p r acc ar allAcc) ha (List.mergeSortedOn le p tot r acc ar allAcc sr s) h
 
 --| [`List.sortWithSorted`] for a `le` total only on the values passing `p`.
 theorem List.sortWithSortedOn (le: a → a → Bool) (p: a → Prop) (tot: ∀ (x y: a) => p x → p y → le x y = False → le y x = True)
@@ -1056,28 +1056,29 @@ theorem List.occurrencesOnce [auto eq: DecEq a] (xs: List a) (x: a) (p: a → Bo
 
 --| Two lists without repeats and with the same members are the same elements
 --| in another order.
-theorem List.permOfSameMembers [auto eq: DecEq a]: ∀ (xs ys: List a) => List.Distinct xs → List.Distinct ys →
-    (∀ (x: a) => List.Mem x xs → List.Mem x ys) → (∀ (y: a) => List.Mem y ys → List.Mem y xs) → List.Perm xs ys
-  | [], [], dx, dy, there, back, p => rfl
-  | [], [y, ..ys], dx, dy, there, back, p => Void.exfalso (back y (Inl rfl))
-  | [x, ..xs], ys, Both notMem dx, dy, there, back, p =>
-    let others := List.filter ys (z => ¬(z == x))
-    let rest: List.occurrences xs p = List.occurrences others p :=
-      List.permOfSameMembers xs others dx (List.distinctFilter ys (z => ¬(z == x)) dy)
-        (z m =>
-          List.memFilterIntro ys (z => ¬(z == x)) (there z (Inr m))
-            (match e: z == x with
-              | True => Void.exfalso (notMem (rewrite <- e.read in m))
-              | False => rfl))
-        (z m =>
-          match List.memFilter ys (z => ¬(z == x)) m with
-            | Both inYs notX =>
-              match back z inYs with
-                | Inl e => Void.exfalso (Bool.falseNotTrue (rewrite e, DecEq.refl z at notX))
-                | Inr inXs => inXs)
-        p
-    rewrite List.occurrencesSplit ys x p, List.occurrencesOnce ys x p dy (there x (Inl rfl)), <- List.occurrencesFilter ys (z => ¬(z == x)) p, <- rest
-      in Nat.addComm (Bool.toNat (p x)) (List.occurrences xs p)
+theorem List.permOfSameMembers [auto eq: DecEq a] (xs ys: List a) (dx: List.Distinct xs) (dy: List.Distinct ys)
+    (there: ∀ (x: a) => List.Mem x xs → List.Mem x ys) (back: ∀ (y: a) => List.Mem y ys → List.Mem y xs): List.Perm xs ys :=
+  match xs, ys, dx with
+    | [], [], dx => p => rfl
+    | [], [y, ..ys], dx => p => Void.exfalso (back y (Inl rfl))
+    | [x, ..xs], ys, Both notMem dx => p =>
+      let others := List.filter ys (z => ¬(z == x))
+      let rest: List.occurrences xs p = List.occurrences others p :=
+        List.permOfSameMembers xs others dx (List.distinctFilter ys (z => ¬(z == x)) dy)
+          (z m =>
+            List.memFilterIntro ys (z => ¬(z == x)) (there z (Inr m))
+              (match e: z == x with
+                | True => Void.exfalso (notMem (rewrite <- e.read in m))
+                | False => rfl))
+          (z m =>
+            match List.memFilter ys (z => ¬(z == x)) m with
+              | Both inYs notX =>
+                match back z inYs with
+                  | Inl e => Void.exfalso (Bool.falseNotTrue (rewrite e, DecEq.refl z at notX))
+                  | Inr inXs => inXs)
+          p
+      rewrite List.occurrencesSplit ys x p, List.occurrencesOnce ys x p dy (there x (Inl rfl)), <- List.occurrencesFilter ys (z => ¬(z == x)) p, <- rest
+        in Nat.addComm (Bool.toNat (p x)) (List.occurrences xs p)
 
 --| `n` is the number of values `x` with `p x`: some list without repeats has
 --| exactly those values, and `n` elements. For a `p` true of finitely many

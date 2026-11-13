@@ -13,9 +13,9 @@ def height: Number → Nat
   | Pair left right => Nat.max (height left) (height right) + 1
 
 --| A number has at least one leaf.
-theorem leavesNotNil (depth: Nat): ∀ (number: Number) => leaves depth number ≠ []
-  | Regular _, empty => cases
-  | Pair left right, empty => List.appendNotNilLeft (leaves (depth + 1) left) (leaves (depth + 1) right) (leavesNotNil (depth + 1) left) empty
+theorem leavesNotNil (depth: Nat) (number: Number): leaves depth number ≠ [] := match number with
+  | Regular _ => empty => cases
+  | Pair left right => empty => List.appendNotNilLeft (leaves (depth + 1) left) (leaves (depth + 1) right) (leavesNotNil (depth + 1) left) empty
 
 theorem addToFirstAppend (amount: Nat) (ys: List Leaf) (xs: List Leaf) (some: xs ≠ []): addToFirst amount (xs ++ ys) = addToFirst amount xs ++ ys :=
   match xs with

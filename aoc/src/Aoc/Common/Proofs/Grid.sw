@@ -113,12 +113,13 @@ def directionIndex: Direction → Nat
   | Left => 3
 
 --| A direction whose index none of `others` has isn't one of them.
-theorem notMemDirections (direction: Direction): ∀ (others: List Direction) =>
-    others.all (other => directionIndex other != directionIndex direction) = True → direction ∉ others
-  | [], differ, member => member
-  | [other, ..rest], differ, Inl same =>
-    DecEq.neTrue differ.left (rewrite same in rfl)
-  | [other, ..rest], differ, Inr later => notMemDirections direction rest differ.right later
+theorem notMemDirections (direction: Direction) (others: List Direction)
+    (differ: others.all (other => directionIndex other != directionIndex direction) = True): direction ∉ others :=
+  match others with
+    | [] => member => member
+    | [other, ..rest] => match
+      | Inl same => DecEq.neTrue differ.left (rewrite same in rfl)
+      | Inr later => notMemDirections direction rest differ.right later
 
 --| ...and there are at most four.
 theorem neighboursAtMost4 (position: Position): position.neighbours.length ≤ 4 := List.lengthFilterMapLe position.step directions

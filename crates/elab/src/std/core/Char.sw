@@ -23,9 +23,10 @@ def Char.toNat: (char: Char) → Nat
 def Char.fromNat (n: Nat): Option Char := if h: Char.isScalar n = True then Some (MkChar n h) else None
 
 --| Characters with the same code are equal; the proof of `valid` doesn't matter.
-theorem Char.mkExt (a: Nat) (b: Nat) (p: Char.isScalar a = True) (e: a = b):
-    ∀ (q: Char.isScalar b = True) => MkChar a p = MkChar b q :=
-  J (b' e' => ∀ (q': Char.isScalar b' = True) => MkChar a p = MkChar b' q') (q' => rfl) e
+theorem Char.mkExt (a: Nat) (b: Nat) (p: Char.isScalar a = True) (e: a = b)
+    (q: Char.isScalar b = True): MkChar a p = MkChar b q :=
+  let ext := J (b' e' => ∀ (q': Char.isScalar b' = True) => MkChar a p = MkChar b' q') (q' => rfl) e
+  ext q
 
 theorem Char.ext (x y: Char) (e: Char.toNat x = Char.toNat y): x = y := match x, y with
   | MkChar a p, MkChar b q => Char.mkExt a b p e q

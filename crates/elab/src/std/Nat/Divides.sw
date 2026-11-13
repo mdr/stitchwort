@@ -189,10 +189,10 @@ theorem Nat.mulAddDivMatch (d: Nat) (r: Nat) (small: r < d) (v: Nat) (target: Na
 
 --| A product of two nonzero numbers is nonzero. (`omega` doesn't multiply
 --| two variables, so it needs this as a hint: `omega [Nat.mulNeZero a b ha hb]`.)
-theorem Nat.mulNeZero: ∀ (a b: Nat) => a ≠ 0 → b ≠ 0 → a * b ≠ 0
-  | Zero, b, aPositive, bPositive, zero => aPositive rfl
-  | a, Zero, aPositive, bPositive, zero => bPositive rfl
-  | Succ a, Succ b, aPositive, bPositive, zero => omega
+theorem Nat.mulNeZero (a b: Nat) (aPositive: a ≠ 0) (bPositive: b ≠ 0): a * b ≠ 0 := match a, b with
+  | Zero, b => zero => aPositive rfl
+  | a, Zero => zero => bPositive rfl
+  | Succ a, Succ b => zero => omega
 
 --| Taking one `w` off a number at least `w` leaves its remainder by `w`.
 theorem Nat.subModSelf (column: Nat) (width: Nat) (past: width ≤ column): (column - width) % width = column % width :=

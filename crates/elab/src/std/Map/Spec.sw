@@ -824,14 +824,14 @@ theorem Map.Spec.isLessOf [auto ord: Ord k] (a: k) (b: k) (h: Ord.compare a b = 
   rewrite h in rfl
 
 --| Started with an entry, `lastBelow` finds one.
-theorem Map.Spec.lastBelowSomeNotNone [auto ord: Ord k] (key: k): ∀ (entry: (k, v)) (xs: List (k, v)) =>
-    Map.Spec.lastBelow key (Some entry) xs ≠ None
-  | entry, [], h => Option.someNotNone entry h
-  | entry, [(kk, vv), ..rest], h =>
-    match d: Ord.compare kk key with
-      | Less => Map.Spec.lastBelowSomeNotNone key (kk, vv) rest h
-      | Equal => Map.Spec.lastBelowSomeNotNone key entry rest h
-      | Greater => Map.Spec.lastBelowSomeNotNone key entry rest h
+theorem Map.Spec.lastBelowSomeNotNone [auto ord: Ord k] (key: k) (entry: (k, v)) (xs: List (k, v)):
+    Map.Spec.lastBelow key (Some entry) xs ≠ None := match xs with
+      | [] => h => Option.someNotNone entry h
+      | [(kk, vv), ..rest] => h =>
+        match d: Ord.compare kk key with
+          | Less => Map.Spec.lastBelowSomeNotNone key (kk, vv) rest h
+          | Equal => Map.Spec.lastBelowSomeNotNone key entry rest h
+          | Greater => Map.Spec.lastBelowSomeNotNone key entry rest h
 
 --| `lastBelow` finds what it started with, or an entry of the list below `key`.
 theorem Map.Spec.lastBelowFrom [auto ord: Ord k] (key: k) (found: Option (k, v)) (xs: List (k, v)) (entry: (k, v))

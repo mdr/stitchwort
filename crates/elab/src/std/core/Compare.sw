@@ -96,17 +96,15 @@ theorem Nat.leOfCompare (m n: Nat) (h: Nat.compare m n ≠ Greater): m ≤ n := 
   | Succ m, Zero => Void.exfalso (h rfl)
   | Succ m, Succ n => Nat.leOfCompare m n h
 
-theorem Nat.compareOfLe: ∀ (m n: Nat) => m ≤ n → Nat.compare m n ≠ Greater
-  | Zero, Zero, h, e => Ordering.equalNotGreater e
-  | Zero, Succ n, h, e => Ordering.lessNotGreater e
-  | Succ m, Zero, h, e => Bool.falseNotTrue h
-  | Succ m, Succ n, h, e => Nat.compareOfLe m n h e
+theorem Nat.compareOfLe (m n: Nat) (h: m ≤ n): Nat.compare m n ≠ Greater := match m, n with
+  | Zero, Zero => e => Ordering.equalNotGreater e
+  | Zero, Succ n => e => Ordering.lessNotGreater e
+  | Succ m, Succ n => e => Nat.compareOfLe m n h e
 
 --| A number at least `Succ k` isn't 0: how `auto` proves `d ≠ 0` from a fact
 --| `0 < d` in scope.
-theorem Nat.nonzeroOfSuccLe: ∀ (k d: Nat) => Succ k ≤ d → d ≠ 0
-  | k, Zero, h, e => Bool.falseNotTrue h
-  | k, Succ d, h, e => Nat.succNotZero d e
+theorem Nat.nonzeroOfSuccLe (k d: Nat) (h: Succ k ≤ d): d ≠ 0 := match d with
+  | Succ d => e => Nat.succNotZero d e
 
 theorem Int.compareEqual (a b: Int) (h: Int.compare a b = Equal): a = b := match a, b with
   | OfNat m, OfNat n => Eq.cong OfNat (Nat.compareEqual m n h)
@@ -141,8 +139,7 @@ theorem Int.leOfCompare (a b: Int) (h: Int.compare a b ≠ Greater): Int.LessEq 
   | NegSucc m, OfNat n => rfl
   | NegSucc m, NegSucc n => Nat.leOfCompare n m h
 
-theorem Int.compareOfLe: ∀ (a b: Int) => Int.LessEq a b → Int.compare a b ≠ Greater
-  | OfNat m, OfNat n, h, e => Nat.compareOfLe m n h e
-  | OfNat m, NegSucc n, h, e => Bool.falseNotTrue h
-  | NegSucc m, OfNat n, h, e => Ordering.lessNotGreater e
-  | NegSucc m, NegSucc n, h, e => Nat.compareOfLe n m h e
+theorem Int.compareOfLe (a b: Int) (h: Int.LessEq a b): Int.compare a b ≠ Greater := match a, b with
+  | OfNat m, OfNat n => e => Nat.compareOfLe m n h e
+  | NegSucc m, OfNat n => e => Ordering.lessNotGreater e
+  | NegSucc m, NegSucc n => e => Nat.compareOfLe n m h e

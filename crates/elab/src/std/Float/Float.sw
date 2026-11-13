@@ -65,12 +65,13 @@ def Float.isNaN (x: Float): Bool := Nat.equal x.bits 9221120237041090560
 
 --| Bit extensionality: two `Float`s with the same bits are equal, whatever
 --| their `valid` proofs (proofs of a `Bool` equation are unique).
-theorem Float.mkExt (a: Nat) (b: Nat) (p: Float.isValid a = True) (e: a = b):
-    ∀ (q: Float.isValid b = True) => ({ bits = a, valid = p }: Float) = { bits = b, valid = q } :=
-  J (b' e' => ∀ (q': Float.isValid b' = True) => ({ bits = a, valid = p }: Float) = { bits = b', valid = q' })
+theorem Float.mkExt (a: Nat) (b: Nat) (p: Float.isValid a = True) (e: a = b)
+    (q: Float.isValid b = True): ({ bits = a, valid = p }: Float) = { bits = b, valid = q } :=
+  let ext := J (b' e' => ∀ (q': Float.isValid b' = True) => ({ bits = a, valid = p }: Float) = { bits = b', valid = q' })
     (q' => J (r e'' => ({ bits = a, valid = p }: Float) = { bits = a, valid = r }) rfl
       (Bool.uniqueEq (Float.isValid a) True p q'))
     e
+  ext q
 
 theorem Float.bitsExt (x: Float) (y: Float) (e: x.bits = y.bits): x = y := match x, y with
   | { bits = a, valid = p }, { bits = b, valid = q } => Float.mkExt a b p e q

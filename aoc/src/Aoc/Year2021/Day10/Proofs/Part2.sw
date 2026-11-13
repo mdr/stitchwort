@@ -87,13 +87,14 @@ theorem scoredOfIncomplete (line: List Token) (incomplete: Incomplete line): exi
     | Unclosed [top, ..below] => Witness (completionScore [top, ..below]) rfl
 
 --| A list with an element `f` keeps has a nonempty `filterMap`.
-theorem filterMapNotNil (f: a → Option b) (x: a) (y: b) (kept: f x = Some y): ∀ (xs: List a) => x ∈ xs → xs.filterMap f ≠ []
-  | [], member, empty => Void.exfalso member
-  | [z, ..rest], Inl same, empty =>
-    rewrite same, kept at empty in cases
-  | [z, ..rest], Inr later, empty =>
-    match f z with
-      | None => filterMapNotNil f x y kept rest later empty
+theorem filterMapNotNil (f: a → Option b) (x: a) (y: b) (kept: f x = Some y) (xs: List a) (member: x ∈ xs): xs.filterMap f ≠ [] :=
+  match xs, member with
+    | [], member => empty => Void.exfalso member
+    | [z, ..rest], Inl same => empty =>
+      rewrite same, kept at empty in cases
+    | [z, ..rest], Inr later => empty =>
+      match f z with
+        | None => filterMapNotNil f x y kept rest later empty
 
 --| Part 2 is the middle completion score, for every list of lines with at
 --| least one incomplete line.
