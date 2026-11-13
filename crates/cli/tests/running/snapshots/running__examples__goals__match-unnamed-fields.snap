@@ -3,24 +3,24 @@ source: crates/cli/tests/running/examples.rs
 expression: output
 ---
 [GOAL] Goal: in `shown`
-    ╭─[ goals/match-unnamed-fields.sw:15:17 ]
+    ╭─[ goals/match-unnamed-fields.sw:14:15 ]
     │
- 15 │     | [next] => ?
-    │                 ┬  
-    │                 ╰── next: Bool
-    │                     all: next
-    │                     ⊢ allTrue [next]
-    │                       computes to next
+ 14 │   | [next] => ?
+    │               ┬  
+    │               ╰── next: Bool
+    │                   all: next
+    │                   ⊢ allTrue [next]
+    │                     computes to next
 ────╯
 [GOAL] Goal: in `shown`
-    ╭─[ goals/match-unnamed-fields.sw:16:16 ]
+    ╭─[ goals/match-unnamed-fields.sw:15:14 ]
     │
- 16 │     | other => ?
-    │                ┬  
-    │                ╰── next✝: Bool
-    │                    head✝: Bool
-    │                    tail✝: List Bool
-    │                    all: (next✝ && allTrue [head✝, ..tail✝]) = True
-    │                    ⊢ allTrue [next✝, head✝, ..tail✝]
-    │                      computes to (next✝ && allTrue [head✝, ..tail✝]) = True
+ 15 │   | other => ?
+    │              ┬  
+    │              ╰── next✝: Bool
+    │                  head✝: Bool
+    │                  tail✝: List Bool
+    │                  all: (next✝ && allTrue [head✝, ..tail✝]) = True
+    │                  ⊢ allTrue [next✝, head✝, ..tail✝]
+    │                    computes to (next✝ && allTrue [head✝, ..tail✝]) = True
 ────╯

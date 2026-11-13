@@ -3,20 +3,20 @@ source: crates/cli/tests/running/examples.rs
 expression: output
 ---
 [GOAL] Goal: in `fits`
-    ╭─[ goals/match-call-field-folded.sw:18:15 ]
+    ╭─[ goals/match-call-field-folded.sw:17:13 ]
     │
- 18 │     | True => ?
-    │               ┬  
-    │               ╰── n: Nat
-    │                   small: n ≤ 1
-    │                   ⊢ (pick n empty).items.length ≤ 100
+ 17 │   | True => ?
+    │             ┬  
+    │             ╰── n: Nat
+    │                 small: n ≤ 1
+    │                 ⊢ (pick n empty).items.length ≤ 100
 ────╯
 [GOAL] Goal: in `fits`
-    ╭─[ goals/match-call-field-folded.sw:19:16 ]
+    ╭─[ goals/match-call-field-folded.sw:18:14 ]
     │
- 19 │     | False => ?
-    │                ┬  
-    │                ╰── n: Nat
-    │                    small: (n <= 1) = False
-    │                    ⊢ (pick n empty).items.length ≤ 100
+ 18 │   | False => ?
+    │              ┬  
+    │              ╰── n: Nat
+    │                  small: (n <= 1) = False
+    │                  ⊢ (pick n empty).items.length ≤ 100
 ────╯

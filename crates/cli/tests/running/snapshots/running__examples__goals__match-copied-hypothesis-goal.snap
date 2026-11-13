@@ -3,33 +3,33 @@ source: crates/cli/tests/running/examples.rs
 expression: output
 ---
 [W-UNREACHABLE] Warning: this case can't happen
-    ╭─[ goals/match-copied-hypothesis-goal.sw:10:5 ]
-    │
- 10 │     | False => ?
-    │     ──────┬─────  
-    │           ╰─────── here `h` is `False = True`, which can't hold
-    │ 
-    │ Note: the arm can be deleted
-────╯
-[GOAL] Goal: in `copied`
-   ╭─[ goals/match-copied-hypothesis-goal.sw:9:15 ]
+   ╭─[ goals/match-copied-hypothesis-goal.sw:9:3 ]
    │
- 9 │     | True => ?
-   │               ┬  
-   │               ╰── n: Nat
-   │                   h: True = True
-   │                   ⊢ h = h
+ 9 │   | False => ?
+   │   ──────┬─────  
+   │         ╰─────── here `h` is `False = True`, which can't hold
+   │ 
+   │ Note: the arm can be deleted
+───╯
+[GOAL] Goal: in `copied`
+   ╭─[ goals/match-copied-hypothesis-goal.sw:8:13 ]
+   │
+ 8 │   | True => ?
+   │             ┬  
+   │             ╰── n: Nat
+   │                 h: True = True
+   │                 ⊢ h = h
    │ 
    │ Note: 1 earlier hypothesis hidden by a later one of the same name (as a `match` or `rewrite … at` binds) isn't listed, as nothing shown mentions it
 ───╯
 [GOAL] Goal: in `copied`
-    ╭─[ goals/match-copied-hypothesis-goal.sw:10:16 ]
-    │
- 10 │     | False => ?
-    │                ┬  
-    │                ╰── n: Nat
-    │                    h: False = True
-    │                    ⊢ h = h
-    │ 
-    │ Note: 1 earlier hypothesis hidden by a later one of the same name (as a `match` or `rewrite … at` binds) isn't listed, as nothing shown mentions it
-────╯
+   ╭─[ goals/match-copied-hypothesis-goal.sw:9:14 ]
+   │
+ 9 │   | False => ?
+   │              ┬  
+   │              ╰── n: Nat
+   │                  h: False = True
+   │                  ⊢ h = h
+   │ 
+   │ Note: 1 earlier hypothesis hidden by a later one of the same name (as a `match` or `rewrite … at` binds) isn't listed, as nothing shown mentions it
+───╯
