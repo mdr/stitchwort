@@ -971,6 +971,35 @@ impl<'t> Parser<'t> {
         }
     }
 
+    /// Marks the parameter just read, from token `first`, as a
+    /// `LambdaParam` unless it is a single name, which is its own token.
+    #[inline(always)]
+    fn mark_param(&mut self, first: u32) {
+        if self.marks.is_some() {
+            self.record_param(first);
+        }
+    }
+
+    #[inline(never)]
+    fn record_param(&mut self, first: u32) {
+        if self.pos as u32 - first > 1 {
+            self.record(first, NodeKind::LambdaParam);
+        }
+    }
+
+    /// Makes the construct marked last into a `kind` that starts at the
+    /// keyword with span `keyword`, before it: `exists` reads its
+    /// parameters and body as a lambda, and the lambda's mark is the
+    /// `Exists`.
+    #[inline(never)]
+    fn retag_last(&mut self, keyword: Span, kind: NodeKind) {
+        let first = self.tokens[..self.pos].partition_point(|t| t.span.start < keyword.start);
+        if let Some(mark) = self.marks.as_mut().and_then(|marks| marks.last_mut()) {
+            mark.kind = kind;
+            mark.start = first as u32;
+        }
+    }
+
     /// `sections::widen` on an expression that starts with a method
     /// section, which then becomes the section's body: the `Section` node
     /// moves out from the section's head to the whole expression.
@@ -2869,6 +2898,7 @@ impl<'t> Parser<'t> {
         let body = self.expr_inline()?;
         self.expect(Tok::KwWith, "`with`")?;
         let clauses = self.handler_clauses()?;
+        self.node_at(start, NodeKind::Handle);
         Ok(Expr::Handle {
             span: start.to(self.prev_span()),
             body: Box::new(body),
@@ -2891,8 +2921,10 @@ impl<'t> Parser<'t> {
                     Some(_) => {}
                 }
             }
+            let clause = self.mark();
             self.bump();
             clauses.push(self.handler_clause()?);
+            self.node(clause, NodeKind::HandlerClause);
         }
         if clauses.is_empty() {
             return Err(self.unexpected("`|` and a handler clause").into());
@@ -2924,6 +2956,7 @@ impl<'t> Parser<'t> {
         }
         self.expect(Tok::KwWith, "`with`")?;
         let clauses = self.handler_clauses()?;
+        self.node_at(start, NodeKind::Reify);
         Ok(Expr::Reify {
             span: start.to(self.prev_span()),
             thunk: Box::new(thunk),
@@ -2965,6 +2998,7 @@ impl<'t> Parser<'t> {
                     Some(_) => {}
                 }
             }
+            let arm = self.mark();
             let bar = self.bump().span;
             let case = self.lower("the name of a case of `f.induct`")?;
             let mut binders = Vec::new();
@@ -2983,6 +3017,7 @@ impl<'t> Parser<'t> {
             }
             self.expect_fat_arrow("`=>`")?;
             let body = self.expr()?;
+            self.node(arm, NodeKind::InductArm);
             alts.push(InductAlt {
                 span: bar.to(self.prev_span()),
                 case,
@@ -2995,6 +3030,7 @@ impl<'t> Parser<'t> {
                 .unexpected("`|` and an alternative named after a case")
                 .into());
         }
+        self.node_at(start, NodeKind::Induct);
         Ok(Expr::Induct {
             span: start.to(self.prev_span()),
             call: Box::new(call),
@@ -3326,6 +3362,7 @@ impl<'t> Parser<'t> {
         // was written as one.
         let mut params: Vec<LamParam> = Vec::new();
         loop {
+            let first = self.mark();
             match self.peek() {
                 Some(Tok::Lower(_)) => params.push(LamParam::Plain(self.lower("a name")?, None)),
                 Some(Tok::Underscore) => {
@@ -3394,12 +3431,14 @@ impl<'t> Parser<'t> {
                 },
                 _ => break,
             }
+            self.mark_param(first);
         }
         if params.is_empty() {
             return Err(self.unexpected("a parameter name").into());
         }
         self.expect_fat_arrow("`=>`")?;
         let body = self.expr()?;
+        self.node_at(start, NodeKind::Lambda);
         let span = start.to(body.span());
         let mut scrutinees = Vec::new();
         let mut patterns = Vec::new();
@@ -3526,6 +3565,7 @@ impl<'t> Parser<'t> {
         let then = self.expr()?;
         self.expect_keyword(Tok::KwElse, "`else`", indent)?;
         let otherwise = self.expr()?;
+        self.node_at(start, NodeKind::If);
         let span = start.to(otherwise.span());
         Ok(Expr::If {
             binder,
@@ -3829,6 +3869,7 @@ impl<'t> Parser<'t> {
         }
         self.expect(Tok::Arrow, "`->`")?;
         let cod = self.result_type()?;
+        self.node_at(start, NodeKind::FunctionType);
         let span = start.to(cod.span());
         Ok(Expr::Pi {
             names: binder.names,
@@ -4010,6 +4051,7 @@ impl<'t> Parser<'t> {
         }
         let start = self.here();
         let lambda = self.lambda(start)?;
+        self.retag_last(keyword, NodeKind::Exists);
         let outer = lambda.span();
         Ok(exists_chain(keyword, lambda, outer))
     }
@@ -4043,6 +4085,7 @@ impl<'t> Parser<'t> {
         // and its type.
         let mut groups: Vec<(Vec<Name>, bool, bool, Expr)> = Vec::new();
         loop {
+            let first = self.mark();
             match self.peek() {
                 Some(Tok::Lower(w)) if !w.contains('.') => {
                     let name = self.lower("a name")?;
@@ -4089,6 +4132,7 @@ impl<'t> Parser<'t> {
                 }
                 _ => break,
             }
+            self.mark_param(first);
         }
         if groups.is_empty() || self.peek() != Some(&Tok::FatArrow) {
             let expected = if groups.is_empty() {
@@ -4107,6 +4151,7 @@ impl<'t> Parser<'t> {
         }
         self.bump();
         let mut body = self.expr()?;
+        self.node_at(keyword, NodeKind::Forall);
         let span = keyword.to(body.span());
         for (names, implicit, auto, dom) in groups.into_iter().rev() {
             body = Expr::Pi {

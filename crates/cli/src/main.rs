@@ -4910,6 +4910,7 @@ fn tree_command(paths: &[PathBuf], print: bool, time: Option<u32>) -> ExitCode {
                 total.errors += stats.errors;
                 total.nodes += stats.nodes;
                 total.unmarked += stats.unmarked;
+                total.unmarked_wide += stats.unmarked_wide;
                 total.dropped += stats.dropped;
             }
             Err(problem) => {
@@ -4920,12 +4921,13 @@ fn tree_command(paths: &[PathBuf], print: bool, time: Option<u32>) -> ExitCode {
     }
     println!(
         "{} files ({failed} not read back, {unlexed} not lexed): {} declarations ({} not parsed), \
-         {} nodes, {} unmarked, {} marks dropped",
+         {} nodes, {} unmarked ({} of more than one token), {} marks dropped",
         files.len(),
         total.decls,
         total.errors,
         total.nodes,
         total.unmarked,
+        total.unmarked_wide,
         total.dropped
     );
     if let Some(rounds) = time {
