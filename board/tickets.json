@@ -1,5 +1,5 @@
 {
-  "next": 3081,
+  "next": 3083,
   "tickets": [
     {
       "id": 47,
@@ -30929,7 +30929,7 @@
     {
       "id": 2910,
       "title": "[Sonnet] rfl's 'the left side is stuck on m' note is missing when the stuck part is inside an if (play m m = Draw shows the unfolded if instead) (book SW-2902)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
@@ -30955,12 +30955,12 @@
     {
       "id": 2912,
       "title": "[Sonnet] Proof search on a case ruled out by h: False = True offers omega and cases but not Void.exfalso (Bool.falseNotTrue h); offer the direct proof (book SW-2902, G10)",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": "",
       "labels": [],
       "epic": "proof-search",
-      "body": "",
+      "body": "\nModel result: Sonnet, worked, 25 min for SW-2912/2913/2910 (est. 75). Orchestrator's call: no Opus review for the cases.rs bootstrap change (lemma used only once the prelude defines it; kernel-checked).",
       "created": "2026-11-11",
       "updated": "2026-11-13",
       "commits": []
@@ -30968,7 +30968,7 @@
     {
       "id": 2913,
       "title": "[DeepSeek] Bool.falseNotTrue is proved with J, unreadable on F12; prove it readably (match on the equation / discriminate) and give it a doc comment (book SW-2902)",
-      "status": "doing",
+      "status": "done",
       "agent": "DeepSeek",
       "where": "",
       "labels": [],
@@ -31746,12 +31746,12 @@
     {
       "id": 2970,
       "title": "[Opus] Tests with errors: a failed instance in another namespace is never registered, so instance search reports 'no Ord instance' / a fresh E-TYPE-MISMATCH instead of waiting (instance colorOrd: Ord Color := True; a < b elsewhere): record failed instances by interface and head type in the session and wait through note_failed_used (SW-2943, design §4.2)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "test-infra",
-      "body": "",
+      "body": "\nModel result: Opus, worked, 18 min (est. 75).",
       "created": "2026-11-12",
       "updated": "2026-11-13",
       "commits": []
@@ -33290,6 +33290,32 @@
       "where": "",
       "labels": [],
       "epic": "test-infra",
+      "body": "",
+      "created": "2026-11-13",
+      "updated": "2026-11-13",
+      "commits": []
+    },
+    {
+      "id": 3081,
+      "title": "[Sonnet] Proof search: a direct proof for any h: C1 … = C2 … with different constructors (Some a = None, Cons = Nil), not only Bool's False = True (SW-2912 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-search",
+      "body": "",
+      "created": "2026-11-13",
+      "updated": "2026-11-13",
+      "commits": []
+    },
+    {
+      "id": 3082,
+      "title": "[DeepSeek] The proof-search closer list is written four times (closers in search_at.rs, CLOSERS in soundness_fuzz.rs and search_at_aoc.rs, LADDER); share one definition (SW-2912 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "proof-search",
       "body": "",
       "created": "2026-11-13",
       "updated": "2026-11-13",
