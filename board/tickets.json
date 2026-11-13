@@ -1,5 +1,5 @@
 {
-  "next": 3101,
+  "next": 3102,
   "tickets": [
     {
       "id": 47,
@@ -33168,7 +33168,7 @@
     {
       "id": 3071,
       "title": "[Sonnet] Playground re-check after an edit still takes 35 s on AoC with SW-2919's in-memory cache (plan estimated 6-12 s): profile where it goes (replay cost, Store::read cloning entries (SW-3062), the rewind/journal), then fix the measured hotspot",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -33550,6 +33550,19 @@
       "where": "",
       "labels": [],
       "epic": "diagnostics",
+      "body": "",
+      "created": "2026-11-13",
+      "updated": "2026-11-13",
+      "commits": []
+    },
+    {
+      "id": 3101,
+      "title": "[Sonnet] Bool as proposition stage 4: measure, for D3549 (silent crossing): after the std and AoC sweeps, count the .read uses and the conversion helpers still used (DecEq.sound, Bool.andLeft…, memContains.backward, allOfAll, trueOfNe, falseOfNotTrue…) across std, aoc, games/rogue and examples, and classify each site: would §7's restricted silent crossing (insert .read only where the wanted type's head is known and not =, outside try-and-fall-back paths; e = False against ¬(e = True) first) apply, and would building a fact from a proof of its reading apply. Paper lane: report with counts, examples and a recommendation",
+      "status": "doing",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
       "body": "",
       "created": "2026-11-13",
       "updated": "2026-11-13",
