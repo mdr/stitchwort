@@ -34,7 +34,7 @@
 use std::rc::Rc;
 
 use stitchwort_core::registry::Builtin;
-use stitchwort_core::value::{Elim, Head, Spine, apply, force, force_solved, unfold_once};
+use stitchwort_core::value::{Elim, Head, Spine, apply, conv, force, force_solved, unfold_once};
 use stitchwort_core::{DataId, DefId, Ev, Icit, Sort, Term, Value};
 use stitchwort_syntax::ast::{self, BinOp, Decl, Expr};
 use stitchwort_syntax::{Diagnostic, Span};
@@ -772,6 +772,9 @@ fn lookup_folded(g: &Ev, e: &Elaborator, test: &Value, polarity: bool) -> Result
         if let Some((prop, decision)) = stuck_decision(g, &test)? {
             return Ok(Lookup::Decision(prop, decision));
         }
+        if let Some((prop, decision)) = equation_decision(g, e, &test, polarity)? {
+            return Ok(Lookup::Decision(prop, decision));
+        }
         let Some((head, args)) = head_args(g, &test)? else {
             break;
         };
@@ -830,12 +833,27 @@ pub(crate) fn read(cx: &Ctx, test: &Value, polarity: bool) -> Result<Read> {
 /// its `holds`, read by that test's own reading; an unknown one is a leaf
 /// (§5.6).
 fn stuck_decision(g: &Ev, test: &Value) -> Result<Option<(Value, Value)>> {
+    let Some((prop, decision)) = decision_test(g, test)? else {
+        return Ok(None);
+    };
+    Ok(match force(g, decision.clone())? {
+        Value::Neutral(Head::Meta(..), _) => None,
+        Value::Neutral(..) => Some((prop, decision)),
+        _ => None,
+    })
+}
+
+/// `p` and `d` for a test that is the `holds` of a decision `d: Decidable
+/// p`, whatever `d` is: `d.holds` as the call `Decidable.holds p d` or as
+/// the field of a call `(f x).holds` (or, with calls unfolded, a definition
+/// stuck on its arguments).
+fn decision_test(g: &Ev, test: &Value) -> Result<Option<(Value, Value)>> {
     let reg = g.env.registry();
     let (Some(holds), Some(decidable)) = (reg.def(Builtin::Holds), reg.data(Builtin::Decidable))
     else {
         return Ok(None);
     };
-    let (prop, decision) = match test {
+    Ok(Some(match test {
         Value::Call(f, spine, _) | Value::Neutral(Head::Def(f), spine)
             if *f == holds && spine.len() == 2 =>
         {
@@ -844,7 +862,7 @@ fn stuck_decision(g: &Ev, test: &Value) -> Result<Option<(Value, Value)>> {
             };
             (prop.clone(), decision.clone())
         }
-        Value::Call(f, spine, _) if matches!(spine.last(), Some(&Elim::Proj(d, 0)) if d == decidable) =>
+        Value::Call(f, spine, _) | Value::Neutral(Head::Def(f), spine) if matches!(spine.last(), Some(&Elim::Proj(d, 0)) if d == decidable) =>
         {
             let call: Spine = spine[..spine.len() - 1].iter().cloned().collect();
             let mut ty = g.def(*f).ty_value().clone();
@@ -860,15 +878,59 @@ fn stuck_decision(g: &Ev, test: &Value) -> Result<Option<(Value, Value)>> {
             if d != decidable || args.len() != 1 {
                 return Ok(None);
             }
-            (args[0].clone(), Value::Call(*f, call, Rc::default()))
+            let decision = match test {
+                Value::Call(..) => Value::Call(*f, call, Rc::default()),
+                _ => Value::Neutral(Head::Def(*f), call),
+            };
+            (args[0].clone(), decision)
         }
         _ => return Ok(None),
+    }))
+}
+
+/// A level above any variable in scope, for comparing values that have
+/// none of their own.
+const FRESH: usize = 1 << 24;
+
+/// A decision of an equation that computes (`[x, ..xs] == [y, ..ys]`, a
+/// `Text` or a tuple), whose test, one step in, is no test of a function
+/// with a reading of its own (`Nat.equal`, a derived type's `T.%same`): the
+/// test reads as the equation the decision decides, as a stuck decision
+/// does. Unfolding it further would read the layer the computation happens
+/// to leave (a `&&` of the heads and the tails, or the equation of the
+/// `Text`'s characters).
+fn equation_decision(
+    g: &Ev,
+    e: &Elaborator,
+    test: &Value,
+    polarity: bool,
+) -> Result<Option<(Value, Value)>> {
+    let Some((prop, decision)) = decision_test(g, test)? else {
+        return Ok(None);
     };
-    Ok(match force(g, decision.clone())? {
-        Value::Neutral(Head::Meta(..), _) => None,
-        Value::Neutral(..) => Some((prop, decision)),
-        _ => None,
-    })
+    if !matches!(force(g, prop.clone())?, Value::Eq(..)) {
+        return Ok(None);
+    }
+    let unfolded = match test {
+        Value::Call(f, spine, _) => unfold_once(g, *f, spine.clone())?,
+        _ => return Ok(None),
+    };
+    if let Value::Ctor(..) = force_solved(g, unfolded.clone())? {
+        return Ok(None);
+    }
+    if let Some((head, args)) = head_args(g, &unfolded)?
+        && let TestHead::Def(_) = head
+        && let Some((theorem, info)) = e.reading_for(polarity, head)
+        && info.fits(g, &args)?
+    {
+        // Its reading decides the same equation (a derived `==`), not a
+        // part of it (`Some a == Some b` computes to `a == b`).
+        let (_, sides) = statement(g, theorem, &info, &args, |_, _| Ok(()))?;
+        if conv(g, FRESH, &decision_reads(g, &prop, polarity)?, &sides[1])? {
+            return Ok(None);
+        }
+    }
+    Ok(Some((prop, decision)))
 }
 
 /// What a decision's test fact reads as: `p`, or `¬p` when it is `False`.
