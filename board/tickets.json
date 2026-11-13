@@ -33025,12 +33025,12 @@
     {
       "id": 3060,
       "title": "[Sonnet] Bool as proposition stage 6, std sweep: helpers replaced by patterns and .read; the = True ↔ lemmas that readings now replace marked or deleted (bool-as-proposition.md §11 stage 6, §8; SW-2737's note)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "Started 13 Nov ~10:50 (D3543). Estimate: 90 min.",
+      "body": "Started 13 Nov ~10:50 (D3543). Estimate: 90 min.\nModel result: Sonnet, worked, 20 min (est. 90). Orchestrator checked statements mechanically: none changed (6 flagged were proof bodies). Kept lemmas with users listed in the lane report (for the AoC sweeps).",
       "created": "2026-11-13",
       "updated": "2026-11-13",
       "commits": []
