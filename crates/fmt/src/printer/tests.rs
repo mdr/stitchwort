@@ -244,3 +244,52 @@ fn text_blocks_and_interpolations_stay_as_written() {
     assert_eq!(gate.text, text);
     assert_eq!(gate.stats.unruled.get(&NodeKind::Interpolated), Some(&1));
 }
+
+#[test]
+fn an_arm_opens_a_comma_bracket_on_its_line() {
+    // S21 with S31: the opener ends the arm's line.
+    let a = long(40);
+    check(
+        &format!(
+            "def f (n: Nat): R := match n with\n  | 0 => {{ x = {a}, y = {a}, z = {a} }}\n  | _ => r\n"
+        ),
+        &format!(
+            "def f (n: Nat): R := match n with\n  | 0 => {{\n    x = {a},\n    y = {a},\n    z = {a}\n  }}\n  | _ => r\n"
+        ),
+    );
+}
+
+#[test]
+fn some_arguments_never_start_a_line() {
+    // `_` would read as a `calc` step, `.f` as a field of the line before.
+    let a = long(50);
+    check(
+        &format!("def x: Nat := f ({a} 1) ({a} 2) _ .size\n"),
+        &format!("def x: Nat :=\n  f\n    ({a} 1)\n    ({a} 2) _ .size\n"),
+    );
+}
+
+#[test]
+fn a_one_arm_match_inside_an_arm_breaks() {
+    // On one line, the outer arms after it would read as its own.
+    check(
+        "def f (n: Nat) (m: Nat): Nat :=\n  match n with\n    | 0 =>\n      match m with\n        | k => k\n    | _ => 1\n",
+        "def f (n m: Nat): Nat := match n with\n  | 0 =>\n    match m with\n      | k => k\n  | _ => 1\n",
+    );
+}
+
+#[test]
+fn a_block_inside_brackets_starts_below() {
+    check(
+        "theorem t ∀ (n: Nat): n = n :=\n  ident (\n    let m := n\n    (rfl: m = m))\n",
+        "theorem t ∀ (n: Nat): n = n :=\n  ident\n    (\n      let m := n\n      (rfl: m = m))\n",
+    );
+}
+
+#[test]
+fn operators_after_a_match_stay_at_its_column() {
+    check(
+        "def d (n: Nat): Nat :=\n  match n with\n    | 0 => 1\n    | _ => n\n  |> k => k + 10\n",
+        "def d (n: Nat): Nat :=\n  match n with\n    | 0 => 1\n    | _ => n\n  |> k => k + 10\n",
+    );
+}

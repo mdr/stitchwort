@@ -1136,7 +1136,19 @@ impl<'a> Rules<'a> {
             }
             k += 2;
         }
-        Doc::group(Doc::concat([head, Doc::nest(2, Doc::concat(tail))]))
+        // After alternatives, whose arms are at 2, the operators stay at the
+        // chain's column, where they can't read as part of the last arm.
+        let indent = match Self::kind(first) {
+            Some(
+                NodeKind::Match
+                | NodeKind::Induct
+                | NodeKind::Reify
+                | NodeKind::Handle
+                | NodeKind::ClauseLambda,
+            ) => 0,
+            _ => 2,
+        };
+        Doc::group(Doc::concat([head, Doc::nest(indent, Doc::concat(tail))]))
     }
 
     /// `∀ binders => body` (S28): the binders stay on the line, and the
@@ -1263,7 +1275,8 @@ impl<'a> Rules<'a> {
     }
 
     /// `| patterns => body` (S21): the body after `=>` if it fits, else
-    /// below at 2; a body that is a `match` always below.
+    /// below at 2; a body that is a `match` always below, and one that opens
+    /// downwards (a comma bracket, a hug) on the arm's line.
     fn arm(&mut self, node: Node<'_>) -> Doc {
         let children: Vec<Element> = node.children().collect();
         let Some(arrow) = children
@@ -1274,20 +1287,27 @@ impl<'a> Rules<'a> {
         };
         let head = self.join(&children[..=arrow]);
         let value = &children[arrow + 1..];
+        // Alternatives and `calc` steps need a column of their own.
         let below = value.len() == 1
             && matches!(
                 Self::kind(value[0]),
-                Some(NodeKind::Match | NodeKind::Induct | NodeKind::Reify | NodeKind::Handle)
+                Some(
+                    NodeKind::Match
+                        | NodeKind::Induct
+                        | NodeKind::Reify
+                        | NodeKind::Handle
+                        | NodeKind::ClauseLambda
+                        | NodeKind::Calc
+                )
             );
-        let body = self.join(value);
         if below {
-            Doc::concat([head, Doc::nest(2, Doc::concat([Doc::HardLine, body]))])
-        } else {
-            Doc::group(Doc::concat([
-                head,
-                Doc::nest(2, Doc::concat([Doc::Line, body])),
-            ]))
+            let body = self.join(value);
+            return Doc::concat([head, Doc::nest(2, Doc::concat([Doc::HardLine, body]))]);
         }
+        // Otherwise as a body after `:=`: a comma bracket's opener ends the
+        // arm's line (S31), as does a hug's (S23).
+        let (_, body) = self.body_after(value);
+        Doc::concat([head, body])
     }
 
     /// `calc e0` and its steps, one a line at 2 (S35).
