@@ -32965,7 +32965,7 @@
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "\nA second case at 7c8af10df (13 Nov, after SW-3054): case 20155, seed 0x25bb, from accept/succ-of-folded-call-solves.sw, also over 2048 MB on an uncached check; input at docs/reviews/repros/fuzz-elab-25bb-20155.sw. Check whether both share a cause.\nA third case (Overmind, 13 Nov, seed 0x25c3 case 22779, from accept/match-bool-if-division.sw, over 2048 MB uncached); input to be saved at docs/reviews/repros/fuzz-elab-25c3-22779.sw.",
+      "body": "\nA second case at 7c8af10df (13 Nov, after SW-3054): case 20155, seed 0x25bb, from accept/succ-of-folded-call-solves.sw, also over 2048 MB on an uncached check; input at docs/reviews/repros/fuzz-elab-25bb-20155.sw. Check whether both share a cause.\nA third case (Overmind, 13 Nov, seed 0x25c3 case 22779, from accept/match-bool-if-division.sw, over 2048 MB uncached); input saved at docs/reviews/repros/fuzz-elab-25c3-22779.sw.",
       "created": "2026-11-12",
       "updated": "2026-11-13",
       "commits": []
@@ -33739,7 +33739,7 @@
     },
     {
       "id": 3115,
-      "title": "[Opus] fuzz:elab oracle 3: the kernel rejects an elaborated term (E-REFL: rfl can't prove this) on a mutant of reject/local-lemma-owner-cycle.sw (case 11414, seed 0x25c3, rng 0xd180cc0c7afa066d, at 7c8af10df, Overmind). Elaborator emitted an ill-typed term; find why and fix. Input to be saved at docs/reviews/repros/fuzz-elab-25c3-11414.sw",
+      "title": "[Sonnet] fuzz:elab oracle 3: rfl in a local theorem of a local function (theorem fz: f 0 = 35 := rfl inside a def, f final) isn't checked by the elaborator: the false lemma reaches the kernel, which rejects it with E-REFL. The user sees the right error, so it's not a soundness or UX bug, but the elaborator should check local lemmas' rfl itself (and the oracle flags it). Repro: docs/reviews/repros/fuzz-elab-25c3-11414.sw (a mutant of examples/reject/local-lemma-owner-cycle.sw); find why the local lemma's rfl skips the elaborator's check and fix; add it as a reject example",
       "status": "backlog",
       "agent": "",
       "where": "",
