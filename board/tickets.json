@@ -33116,12 +33116,12 @@
     {
       "id": 3067,
       "title": "[Sonnet] Std readings still missing: Nat.leq / < (= False too; Nat.leqFalse 39 std uses, Bool.falseOfNotTrue), Nat.divides, List.isDistinct, List.inRange, NonEmptyList.contains; add them beside their tests so their = True ↔ lemmas can be marked @[reading] or go (SW-3060 finding 6)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "std-library",
-      "body": "",
+      "body": "\nModel result: Sonnet, worked, 17 min (est. 75). Orchestrator checked each new reading's statement against its name: all correct.",
       "created": "2026-11-13",
       "updated": "2026-11-13",
       "commits": []
@@ -33272,12 +33272,12 @@
     {
       "id": 3079,
       "title": "[Sonnet] Bool as proposition stage 6, AoC 2020 and 2021 sweep: test-fact conversions (Bool.andLeft/andRight/andIntro, List.anyTrueElim/anyOfMem, List.memContains, List.allMember, DecEq.sound/soundFalse, Nat.equalSound …) replaced by patterns, .read and auto (stage 5) where shorter or clearer; helpers whose only job was the conversion deleted when unused",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "aoc-older",
-      "body": "Started 13 Nov ~11:45. Estimate: 90 min. Kept-lemma list with users: SW-3060's lane report (in SW-3060's ticket context); known gaps: SW-3064 (cons-unfolded all/any), SW-3065, SW-3066, SW-3067, SW-3069, SW-3073.",
+      "body": "Started 13 Nov ~11:45. Estimate: 90 min. Kept-lemma list with users: SW-3060's lane report (in SW-3060's ticket context); known gaps: SW-3064 (cons-unfolded all/any), SW-3065, SW-3066, SW-3067, SW-3069, SW-3073.\nModel result: Sonnet, worked, 17 min (est. 90). 55 files, +243/-234; checked days time the same or faster.",
       "created": "2026-11-13",
       "updated": "2026-11-13",
       "commits": []
