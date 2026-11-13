@@ -134,8 +134,7 @@ pub(crate) struct Layout<'a> {
 }
 
 /// The role of each token (see [`Role`]).
-fn roles(lexed: &Lexed) -> Vec<Role> {
-    let tokens = &lexed.tokens;
+pub(crate) fn roles(tokens: &[Token]) -> Vec<Role> {
     let mut roles = vec![Role::Plain; tokens.len()];
     let mut braces: Vec<bool> = Vec::new();
     // The column of the first token of the line before the current one.
@@ -200,7 +199,7 @@ impl<'a> Layout<'a> {
         Layout {
             text,
             lexed,
-            roles: roles(lexed),
+            roles: roles(&lexed.tokens),
             stats: Stats::default(),
         }
     }

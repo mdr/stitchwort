@@ -444,6 +444,12 @@ impl SyntaxFile {
         &self.tokens
     }
 
+    /// Each token's comments and blank lines: `trivia()[i]` is
+    /// `tokens()[i]`'s.
+    pub fn trivia(&self) -> &[Trivia] {
+        &self.trivia
+    }
+
     /// The comments and blank lines after the last token.
     pub fn eof(&self) -> &Trivia {
         &self.eof
