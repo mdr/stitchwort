@@ -33480,12 +33480,12 @@
     {
       "id": 3095,
       "title": "[Sonnet] Nat/Int == inside expressions reads as (x.decEq y).holds, not x = y (2024 D08 antinodesOfCorrect, D13 winsEquations, D23 sizeThree in a filter lambda), and Option/derived-record == reads per field ((from.row.decEq end.row).holds ∧ …) not Some from = Some end (2024 D10 memTrailEnds, scoreCorrect, D15, D24); extends SW-3084; the sweep's biggest blocker (SW-3092 findings 2-3)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "\nFixed by SW-3093's decision-of-an-equation step (13 Nov): probe (x == y), (xs.length == 3), ((a - b) % 3 == 0) on Int, and = False → ≠ all .read as the equation on main bf612c23a. Orchestrator's check.",
       "created": "2026-11-13",
       "updated": "2026-11-13",
       "commits": []
