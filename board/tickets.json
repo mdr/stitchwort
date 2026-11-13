@@ -1,5 +1,5 @@
 {
-  "next": 3177,
+  "next": 3178,
   "tickets": [
     {
       "id": 47,
@@ -33693,7 +33693,7 @@
       "where": "",
       "labels": [],
       "epic": "test-infra",
-      "body": "\nOrchestrator review: hidden from --help (fixup). Samples: no 'changed'; few removable helpers. Whole-corpus run to Overmind. Model result: Sonnet, worked (one review fixup: hide command), 70 min (est. 150).",
+      "body": "\nOrchestrator review: hidden from --help (fixup). Samples: no 'changed'; few removable helpers. Whole-corpus run to Overmind. Model result: Sonnet, worked (one review fixup: hide command), 70 min (est. 150).\nWhole-corpus run (Overmind, 2 h 20 min): 0 changed meaning, 0 unparseable; 59 sites can go (25 .read, 34 helpers); docs/reviews/SW-3111-oracle-corpus.md. Sweep: SW-3177. D3555 after the sweep.",
       "created": "2026-11-13",
       "updated": "2026-11-13",
       "commits": []
@@ -34538,6 +34538,19 @@
       "where": "",
       "labels": [],
       "epic": "editor-playground",
+      "body": "",
+      "created": "2026-11-13",
+      "updated": "2026-11-13",
+      "commits": []
+    },
+    {
+      "id": 3177,
+      "title": "[DeepSeek] Readings/builds sweep: remove the 59 sites the deletion oracle found redundant over the whole corpus (docs/reviews/SW-3111-oracle-corpus.md): 25 .read and 34 build helpers (Bool.falseOfNotTrue 15, List.memContains.backward 10, DecEq.trueOfNe 3, others). Re-run 'stitchwort oracle … --json' on each touched file to get exact replacements; check each touched std file/AoC day; hashes: proofs-only changes",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "syntax-language",
       "body": "",
       "created": "2026-11-13",
       "updated": "2026-11-13",
