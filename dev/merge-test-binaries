@@ -26,7 +26,7 @@ binaries, so the selection stays the same:
   test(/^(a|b)$/)           ->  test(/^foo::(a|b)$/)        (beside binary(foo))
 
 in `.config/nextest.toml` (every `filter` and `default-filter`), in `EXTRAS`
-of `dev/nextest-merge`, and for `binary = "foo"` in the inline tables of
+of `dev/nextest-quick`, and for `binary = "foo"` in the inline tables of
 `dev/test-affected.toml`. It stops (and changes nothing) at a shape it cannot
 translate safely: a bare `binary(foo)` that other crates have too, a merged
 binary under an `|` or `!` beside a `test()`, a test pattern with a top-level
@@ -50,7 +50,7 @@ A key already present under the new name is kept. Idempotent.
 and fails unless every old test of the crate has exactly one new name,
 `foo::x` in a new binary, and no other test appears or goes.
 
-Run `dev/nextest-merge` afterwards (the merge profile is generated).
+Run `dev/nextest-quick` afterwards (the quick profile is generated).
 """
 import argparse
 import json
@@ -436,7 +436,7 @@ def main():
             elsewhere |= {f for f in os.listdir(t) if os.path.exists(os.path.join(t, f, "main.rs"))}
     rw = Rewriter(crate, binary_of, elsewhere)
     cfg = os.path.join(ROOT, ".config", "nextest.toml")
-    nm = os.path.join(ROOT, "dev", "nextest-merge")
+    nm = os.path.join(ROOT, "dev", "nextest-quick")
     ta = os.path.join(ROOT, "dev", "test-affected.toml")
     new = {
         cfg: rewrite_nextest(open(cfg).read(), rw),

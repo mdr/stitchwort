@@ -6,8 +6,8 @@
 //! lemma itself among the closers for many. The theorem itself is left out
 //! of the candidates.
 //!
-//! Every theorem in the full tier (minutes); every 25th in daily; none in
-//! the merge and lane tiers, which run `search_at` instead.
+//! Every theorem in the all tier (minutes); every 25th in broad; none in
+//! the quick and lane tiers, which run `search_at` instead.
 
 use stitchwort_core::{DefId, Name, Term};
 use stitchwort_driver::driver::{Session, Tier, tier, with_session};
@@ -230,12 +230,12 @@ fn run(
 #[test]
 fn stage_two_closes_std_goals_with_their_lemma() {
     let stride = match tier() {
-        Tier::Lane | Tier::Merge => {
-            eprintln!("skipped: daily and full tiers only");
+        Tier::Lane | Tier::Quick => {
+            eprintln!("skipped: broad and all tiers only");
             return;
         }
-        Tier::Daily => 4,
-        Tier::Full => 1,
+        Tier::Broad => 4,
+        Tier::All => 1,
     };
     let r = run("std theorems proved by one lemma", stride, &|s, id| {
         applied_lemma(s, id).map(Some)
@@ -247,13 +247,13 @@ fn stage_two_closes_std_goals_with_their_lemma() {
     );
 }
 
-/// Every std theorem's statement as a goal (full tier, a sample): how often
+/// Every std theorem's statement as a goal (all tier, a sample): how often
 /// something other than the theorem itself closes it. Reported, not
 /// asserted beyond a floor: most theorems are new facts.
 #[test]
 fn stage_two_on_any_std_statement() {
-    if tier() != Tier::Full {
-        eprintln!("skipped: full tier only");
+    if tier() != Tier::All {
+        eprintln!("skipped: all tier only");
         return;
     }
     let r = run("std statements (every 10th)", 10, &|_, _| Some(None));

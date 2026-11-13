@@ -65,8 +65,8 @@ use stitchwort_syntax::{SourceMap, parse_module_recovering};
 #[path = "support/heap_cap.rs"]
 mod heap_cap;
 
-/// The default number of cases, about 20 s in the daily tier (four times as
-/// many in the full tier); `FUZZ_CASES` sets another count.
+/// The default number of cases, about 20 s in the broad tier (four times as
+/// many in the all tier); `FUZZ_CASES` sets another count.
 const CASES: usize = 400;
 const SEED: u64 = 0x5eed_e1ab_0000_0685;
 const MAX_LEN: usize = 64 * 1024;
@@ -815,8 +815,8 @@ fn env_number(name: &str) -> Option<u64> {
 
 #[test]
 fn mutated_examples_check_without_internal_errors() {
-    // The full tier runs four times as many.
-    let default = if tier() == Tier::Full {
+    // The all tier runs four times as many.
+    let default = if tier() == Tier::All {
         4 * CASES
     } else {
         CASES

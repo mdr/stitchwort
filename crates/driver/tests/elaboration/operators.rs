@@ -189,7 +189,7 @@ fn sorted_dirs(dir: &std::path::Path) -> Vec<String> {
 
 /// The same on a larger sample: the library files the AoC project uses,
 /// and the project, loaded both ways, give every definition the same hash.
-/// The whole project in the full tier; in the others a fixed sample of its
+/// The whole project in the all tier; in the others a fixed sample of its
 /// days ([`tier_sample`]), with what they use (`Aoc.Common`, the library).
 /// On a 16 MiB stack, as the CLI and the other tests that load the project
 /// check it: day 22's `part1Correct` recurses more deeply than a default

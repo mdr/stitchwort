@@ -15,7 +15,7 @@ Times live in a timings store, target/test-timings.json: for each test and
 tier, the latest time seen (by the JUnit file's own timestamp) and when. Each
 run folds in the JUnit files named with --junit plus any
 target/nextest/*/junit.xml here; the tier of a file is its parent folder's
-name when that is a profile (merge, daily, full), else --tier (default merge).
+name when that is a profile (quick, broad, all), else --tier (default quick).
 PATH@SCALE multiplies a file's times, e.g. @0.55 for a run made with another
 run alongside. Run `task test:inventory -- ...` inside `nix develop`.
 Test this script with: python3 dev/test-inventory_test.py
@@ -33,7 +33,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TARGET = os.path.join(ROOT, "target")
 NEXTEST = ["cargo", "nextest"]
 BUILD = ["--release", "--workspace"]
-TIERS = ("merge", "daily", "full")
+TIERS = ("quick", "broad", "all")
 
 
 def run(args):
@@ -82,7 +82,7 @@ RECENT_RUNS = 5
 
 def fold(store, tier, stamp, times, scale=1.0):
     """Keep each test's last RECENT_RUNS observations per tier (one per
-    JUnit timestamp). Its time is the fastest of them: the daily runs that
+    JUnit timestamp). Its time is the fastest of them: the broad runs that
     supply most observations run on a loaded machine, and a test costs about
     its best time in a lane. A test that really got slower shows once the
     faster runs age out."""
@@ -99,12 +99,12 @@ def fold(store, tier, stamp, times, scale=1.0):
 
 
 def best_time(slot):
-    """The merge tier's time if known (sweeps sample by tier), else the
+    """The quick tier's time if known (sweeps sample by tier), else the
     latest of the others; (seconds or None, tier it came from)."""
     if not slot:
         return None, None
-    if "merge" in slot:
-        return slot["merge"]["time"], "merge"
+    if "quick" in slot:
+        return slot["quick"]["time"], "quick"
     tier = max(slot, key=lambda k: slot[k]["at"])
     return slot[tier]["time"], tier
 
@@ -175,7 +175,7 @@ def show_estimate(a):
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--junit", action="append", default=[])
-    ap.add_argument("--tier", default="merge")
+    ap.add_argument("--tier", default="quick")
     ap.add_argument("--timings", default=os.path.join(TARGET, "test-timings.json"))
     ap.add_argument("--out", default=os.path.join(TARGET, "test-inventory.json"))
     ap.add_argument("--estimate", metavar="FILTER", help="estimate a filterset's time from the built inventory")

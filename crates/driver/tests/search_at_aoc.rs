@@ -6,13 +6,13 @@
 //! how often the original lemma is among the closers, its rank, and the
 //! time a goal takes; and the misses, with what the search found instead.
 //!
-//! The full tier runs every such theorem of the AoC project; the daily tier
+//! The all tier runs every such theorem of the AoC project; the broad tier
 //! a sample, in a part of the project (`Aoc.Common` and the 2021 days) so
 //! that a cold check cache costs seconds, not the minute the whole project
-//! takes to check. The merge and lane tiers skip it.
+//! takes to check. The quick and lane tiers skip it.
 //!
 //! `STITCHWORT_AT_BENCH_ONLY=Year2024/Day06` limits it to the goals whose
-//! file path contains that text (any tier but merge and lane).
+//! file path contains that text (any tier but quick and lane).
 //! `STITCHWORT_AT_BENCH_SKIP=<n>` and `STITCHWORT_AT_BENCH_LIMIT=<n>` take a
 //! slice of those goals, to measure or bisect (the rate assertions then need
 //! not hold).
@@ -383,19 +383,19 @@ fn report(label: &str, outcomes: &[Outcome]) {
 /// Goals searched at once in [`search_at_on_aoc_goals`].
 const MAX_GOAL_WORKERS: usize = 3;
 
-/// Every one-lemma proof of the AoC project (a sample in daily), as a goal.
+/// Every one-lemma proof of the AoC project (a sample in broad), as a goal.
 #[test]
 fn search_at_on_aoc_goals() {
     let keep: Option<Vec<String>> = match tier() {
-        Tier::Lane | Tier::Merge => {
-            eprintln!("skipped: daily and full tiers only");
+        Tier::Lane | Tier::Quick => {
+            eprintln!("skipped: broad and all tiers only");
             return;
         }
-        Tier::Daily => Some(vec![
+        Tier::Broad => Some(vec![
             "src/Aoc/Common".to_string(),
             "src/Aoc/Year2021".to_string(),
         ]),
-        Tier::Full => None,
+        Tier::All => None,
     };
     let cache = Path::new(env!("CARGO_TARGET_TMPDIR")).join("search-at-aoc-cache");
     let files: Box<dyn Files + Sync> = match &keep {
@@ -635,13 +635,13 @@ fn run_real(real: &Real, files: &dyn Files, cache: &Path) -> RealOutcome {
 
 /// The benchmark of real goals (SW-989): AoC 2021 days 9 to 18, in the
 /// project (`Aoc.Common`, the 2021 days, and 2024 day 24, which day 12
-/// imports). Daily and full tiers; `STITCHWORT_AT_BENCH_ONLY` as above.
+/// imports). Broad and all tiers; `STITCHWORT_AT_BENCH_ONLY` as above.
 /// Reported: how many are refused, read and closed, and how many are closed
 /// (or offered a step) by what their proof used; the time of each.
 #[test]
 fn search_at_on_real_2021_goals() {
-    if matches!(tier(), Tier::Lane | Tier::Merge) {
-        eprintln!("skipped: daily and full tiers only");
+    if matches!(tier(), Tier::Lane | Tier::Quick) {
+        eprintln!("skipped: broad and all tiers only");
         return;
     }
     let cache = Path::new(env!("CARGO_TARGET_TMPDIR")).join("search-at-aoc-cache");

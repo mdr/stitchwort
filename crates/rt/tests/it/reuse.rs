@@ -273,7 +273,7 @@ def main(): {IO} () :=
 }
 
 /// The copies made for AoC days' `main`s (a sample, always with 2021 day
-/// 15, the dijkstra benchmark; every day in the full tier) stay within the
+/// 15, the dijkstra benchmark; every day in the all tier) stay within the
 /// caps: at most `MAX_COPIES`, adding at most `MAX_GROWTH`% of the IR's
 /// nodes (or `MIN_GROWTH`). The counts are printed for the report.
 #[test]

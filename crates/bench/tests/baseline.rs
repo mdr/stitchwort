@@ -20,8 +20,8 @@ fn counts_have_not_regressed() {
     let mut records: Vec<(&str, Record)> = Vec::new();
     let mut failures = Vec::new();
     // The `examples` benchmark checks the whole example corpus: most of this
-    // test's time, so only the full tier compares its counts.
-    let whole_corpus = stitchwort_driver::driver::full_tier("the `examples` benchmark");
+    // test's time, so only the all tier compares its counts.
+    let whole_corpus = stitchwort_driver::driver::all_tier("the `examples` benchmark");
     for b in programs::ALL
         .iter()
         .filter(|b| whole_corpus || b.name != "examples")

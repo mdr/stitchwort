@@ -124,8 +124,8 @@ fn filtering() -> bool {
 
 /// A sweep's share of the examples or projects of one folder: all of them
 /// when `EXAMPLES` picks some by name, otherwise this tier's sample
-/// (`tier_sample`: every one in the daily and full tiers, every fourth in
-/// the merge and lane tiers).
+/// (`tier_sample`: every one in the broad and all tiers, every fourth in
+/// the quick and lane tiers).
 fn share<T>(items: Vec<T>) -> Vec<T> {
     if filtering() {
         items

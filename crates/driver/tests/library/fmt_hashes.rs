@@ -19,7 +19,7 @@
 //! projects. Only a fixed sample of the standalone files is loaded (the
 //! original and the formatted texts, in fresh sessions, as the elaborator
 //! sees them), and so is a sample of the projects, with the AoC project in
-//! the full tier only: loading is nearly all the cost (the full tier's
+//! the all tier only: loading is nearly all the cost (the all tier's
 //! 2,213 s with the AoC project before this was cut down, SW-2962).
 //!
 //! Scope is D1019: `examples/reject`, `examples/soundness` and
@@ -37,7 +37,7 @@ use std::path::{Path, PathBuf};
 
 use stitchwort_core::hash::{ContentHash, data_hash, def_hash};
 use stitchwort_core::{DataId, DefId};
-use stitchwort_driver::driver::{Session, full_tier, par_map, tier_sample};
+use stitchwort_driver::driver::{Session, all_tier, par_map, tier_sample};
 use stitchwort_driver::project::{DiskFiles, Entry, Files, Target};
 
 #[path = "../../../fmt/tests/it/support/repo_files.rs"]
@@ -56,7 +56,7 @@ const EXCLUDED: [&str; 4] = [
 
 /// Inputs left out because loading them is a resource runaway, not a
 /// formatting question: each is a fuzz finding whose size is the point, and
-/// together they held 4.5 GB and 1.7 GB at once (the full tier's 7.7 GB,
+/// together they held 4.5 GB and 1.7 GB at once (the all tier's 7.7 GB,
 /// SW-2614). Their parse and formatting are still checked by the formatter's
 /// own tests.
 const TOO_LARGE_TO_LOAD: [&str; 2] = [
@@ -290,8 +290,8 @@ fn project_failures(dir: &Path, name: &str) -> Vec<String> {
     compare(&format!("project {name}"), &before, &after)
 }
 
-/// Every `STRIDE`th standalone file is loaded in the daily tier, a quarter
-/// of those in merge and lane, all in full; likewise the projects.
+/// Every `STRIDE`th standalone file is loaded in the broad tier, a quarter
+/// of those in quick and lane, all of them in the all tier; likewise the projects.
 const FILE_STRIDE: usize = 20;
 const PROJECT_STRIDE: usize = 4;
 
@@ -365,7 +365,7 @@ fn formatting_changes_no_declaration_hash() {
             .copied()
             .filter(|p| p.contains(&only))
             .collect();
-        // The AoC project, loaded twice, is checked whole in the full tier
+        // The AoC project, loaded twice, is checked whole in the all tier
         // only (137 s on one thread under load, 31 Oct 2026).
         let (aoc, others): (Vec<String>, Vec<String>) =
             projects.into_iter().partition(|p| p == "aoc");
@@ -374,7 +374,7 @@ fn formatting_changes_no_declaration_hash() {
         } else {
             others
         };
-        if !aoc.is_empty() && full_tier("formatting_changes_no_declaration_hash's AoC project") {
+        if !aoc.is_empty() && all_tier("formatting_changes_no_declaration_hash's AoC project") {
             projects.extend(aoc);
         }
         let loaded = if only.is_empty() {

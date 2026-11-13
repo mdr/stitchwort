@@ -240,8 +240,8 @@ test "count"    := Pair.fst (counted (u => ticks 3)) == 3
 /// The limits are every one while they're small, then in growing steps: 161
 /// up to enough for everything, about 107 s, most of it the counterexample
 /// searches on the library's theorems that fail at limits from about 2,000
-/// to 8,000. Outside the full tier the test takes a corpus sweep's sample of
-/// them, every 4th in the daily tier (docs/testing.md).
+/// to 8,000. Outside the all tier the test takes a corpus sweep's sample of
+/// them, every 4th in the broad tier (docs/testing.md).
 #[test]
 fn running_out_at_any_point_only_ever_means_no_answer() {
     let mut limits = Vec::new();

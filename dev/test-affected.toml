@@ -456,7 +456,7 @@ id = "reference-evaluator"
 extra = true
 rank = 2
 paths = ["crates/core/src/reference.rs", "crates/rt/**"]
-why = "the fast runtime against the reference evaluator, through the command (the whole-corpus runs are daily)"
+why = "the fast runtime against the reference evaluator, through the command (the whole-corpus runs are in the broad tier)"
 cheap_only = 10.0
 select = [
   { package = "cli", binary = "running", test = "^run_reference::" },
@@ -608,9 +608,9 @@ select = [
 id = "build-config"
 rank = 2
 paths = ["Cargo.toml", "Cargo.lock", "crates/*/Cargo.toml", "rust-toolchain*", ".cargo/**", "flake.nix", "flake.lock", "nix/**"]
-why = "build inputs change everything: the merge tier is the selection"
+why = "build inputs change everything: the quick tier is the selection"
 select = [
-  { profile = "merge" },
+  { profile = "quick" },
 ]
 
 [[rule]]

@@ -71,7 +71,7 @@ fn every_rejected_example_gets_the_same_verdict_without_the_shortcut() {
     with_stack(STACK, || {
         let examples = examples();
         assert!(examples.len() > 250, "only {} examples", examples.len());
-        // A corpus sweep: a fixed sample below the full tier, and the count of
+        // A corpus sweep: a fixed sample below the all tier, and the count of
         // rejections expected in proportion.
         let all = examples.len();
         let examples = tier_sample(examples, 4);
