@@ -105,6 +105,26 @@ fn nested_applications() {
     });
 }
 
+/// Nested applications checked against a known type (`f (f (… 0))` where a
+/// `Nat` is expected) take about 5 KiB of stack a level natively (SW-3172;
+/// they took 12): 40 of them check under the playground's guard of 320 KiB
+/// (`crates/web/build.rs`), where about 25 did before.
+#[test]
+fn nested_applications_under_the_playground_guard() {
+    isolated("nested_applications_under_the_playground_guard", || {
+        let mut session = Session::new();
+        session.elab.options.limits = Limits {
+            stack: 320 * 1024,
+            ..Limits::default()
+        };
+        let program = format!(
+            "def f (n : Nat) : Nat := n\n\ndef x : Nat := {}\n",
+            nested(40, "f (", "0")
+        );
+        assert_eq!(first_error(&mut session, "x.sw", &program), None);
+    });
+}
+
 #[test]
 fn nested_parentheses() {
     isolated("nested_parentheses", || {

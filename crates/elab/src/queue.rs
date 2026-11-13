@@ -679,39 +679,74 @@ pub(crate) fn framed<T, F: ErrorFrame + 'static>(
     body: impl FnOnce(&mut Ctx) -> Result<T>,
     frame: impl FnOnce(&mut Ctx) -> F,
 ) -> Result<T> {
+    let (id, from) = enter_frame(cx);
+    let result = body(cx);
+    leave_frame(cx, id);
+    // `body` is often a check that recurses into `framed` again, so what
+    // happens after it is out of line, and this frame stays small: only an
+    // error or a waiting item needs `frame`.
+    match result {
+        Err(e) if !crate::undo::fatal(&e) => Err(map_in_frame(cx, frame, e)),
+        Err(e) => Err(e),
+        Ok(t) => {
+            give_frame(cx, id, from, frame);
+            Ok(t)
+        }
+    }
+}
+
+/// The start of [`framed`]: the construct's id, and how long the queue was.
+#[inline(never)]
+fn enter_frame(cx: &Ctx) -> (u64, usize) {
     let frames = &cx.e.attempt.queue.frames;
     let id = frames.next.get();
     frames.next.set(id + 1);
     let from = cx.e.attempt.queue.len();
     frames.active.borrow_mut().push(id);
-    let result = body(cx);
-    let frames = &cx.e.attempt.queue.frames;
-    {
-        let mut active = frames.active.borrow_mut();
-        debug_assert_eq!(active.last(), Some(&id), "frames nest");
-        active.pop();
-    }
-    match result {
-        Err(e) if !crate::undo::fatal(&e) => Err(frame(cx).map(cx, e)),
-        Err(e) => Err(e),
-        Ok(t) => {
-            let q = &cx.e.attempt.queue;
-            let waiting: Vec<usize> = (from.min(q.len())..q.len())
-                .filter(|&i| !matches!(q.state(i), State::Done))
-                .collect();
-            if !waiting.is_empty() {
-                let map = Box::new(frame(cx));
-                let q = &cx.e.attempt.queue;
-                let frame = Rc::new(Frame {
-                    id,
-                    saved: cx.save(),
-                    map,
-                });
-                for i in waiting {
-                    q.item(i).frames.borrow_mut().push(frame.clone());
-                }
-            }
-            Ok(t)
+    (id, from)
+}
+
+/// The end of [`framed`]'s body: construct `id` is no longer running.
+#[inline(never)]
+fn leave_frame(cx: &Ctx, id: u64) {
+    let mut active = cx.e.attempt.queue.frames.active.borrow_mut();
+    debug_assert_eq!(active.last(), Some(&id), "frames nest");
+    active.pop();
+}
+
+/// An error of [`framed`]'s body, mapped by its frame.
+#[inline(never)]
+fn map_in_frame<F: ErrorFrame>(
+    cx: &mut Ctx,
+    frame: impl FnOnce(&mut Ctx) -> F,
+    e: Diagnostic,
+) -> Diagnostic {
+    frame(cx).map(cx, e)
+}
+
+/// The frame of construct `id`, given to the items queued since the queue
+/// was `from` long that still wait, if any, after [`framed`]'s body.
+#[inline(never)]
+fn give_frame<F: ErrorFrame + 'static>(
+    cx: &mut Ctx,
+    id: u64,
+    from: usize,
+    frame: impl FnOnce(&mut Ctx) -> F,
+) {
+    let q = &cx.e.attempt.queue;
+    let waiting: Vec<usize> = (from.min(q.len())..q.len())
+        .filter(|&i| !matches!(q.state(i), State::Done))
+        .collect();
+    if !waiting.is_empty() {
+        let map = Box::new(frame(cx));
+        let q = &cx.e.attempt.queue;
+        let frame = Rc::new(Frame {
+            id,
+            saved: cx.save(),
+            map,
+        });
+        for i in waiting {
+            q.item(i).frames.borrow_mut().push(frame.clone());
         }
     }
 }

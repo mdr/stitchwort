@@ -513,7 +513,9 @@ impl Elaborator {
         }
     }
 
-    /// The expression written at `span` has type `ty` in `cx`.
+    /// The expression written at `span` has type `ty` in `cx`. Out of line,
+    /// as every check calls it.
+    #[inline(never)]
     pub(crate) fn note_expr(&self, cx: &Ctx, span: Span, ty: &Value, checked: bool) {
         self.note_probe(cx, span, ty, checked);
         if span.start == span.end {
