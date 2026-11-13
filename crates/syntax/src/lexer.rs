@@ -17,12 +17,20 @@ pub enum Tok {
     Float(String),
     /// A string literal, used for test names: `"reverse twice"`.
     Str(String),
-    /// The text before `${` in an interpolated string: `"a${x}"`.
+    /// The opening quote (`"` or `"""` and its line break) and the text
+    /// before the first `${` of an interpolated string: `"a` in `"a${x}"`.
+    /// Every text token's span is exactly the source it was read from.
     StrStart(String),
     /// The text between a `}` and the next `${` in an interpolated string.
+    /// Left out when there is none (`"${x}${y}"`).
     StrMid(String),
-    /// The text after the last `}` in an interpolated string.
+    /// The text after the last `}` of an interpolated string, with the
+    /// closing quote: `b"` in `"${x}b"`.
     StrEnd(String),
+    /// The `${` that opens an interpolation inside a text literal.
+    InterpOpen,
+    /// The `}` that closes an interpolation inside a text literal.
+    InterpClose,
     /// A character literal: `'a'`.
     Char(char),
     /// `type`, which starts a data type declaration.
@@ -565,6 +573,15 @@ fn lex_from(
                     column,
                     line_start: fresh_line,
                 });
+                if let Some(newline) = text[start..stop].rfind('\n') {
+                    line_start = start + newline + 1;
+                }
+                tokens.push(Token {
+                    tok: Tok::InterpOpen,
+                    span: Span::new(file, stop as u32, (stop + 2) as u32),
+                    column: (stop - line_start) as u32,
+                    line_start: false,
+                });
                 interps.push(Interp {
                     depth: 0,
                     start,
@@ -658,6 +675,12 @@ fn lex_from(
                     closed_at = Some(start);
                     break;
                 }
+                tokens.push(Token {
+                    tok: Tok::InterpClose,
+                    span: Span::new(file, start as u32, i as u32),
+                    column,
+                    line_start: fresh_line,
+                });
                 let text_start = i;
                 let (chars, stop, interpolation) = match &mut interp.block {
                     Some(pieces) => {
@@ -681,21 +704,38 @@ fn lex_from(
                     None => scan_string(file, text, i, interp.start)?,
                 };
                 let close_len = if interp.block.is_some() { 3 } else { 1 };
-                let tok = if interpolation {
-                    i = stop + 2;
-                    Tok::StrMid(chars)
+                // The text up to the next `${` (or through the closing
+                // quote), then that `${`. A `}${` has no text between.
+                let text_end = if interpolation {
+                    stop
                 } else {
-                    i = stop + close_len;
-                    Tok::StrEnd(chars)
+                    stop + close_len
                 };
-                tokens.push(Token {
-                    tok,
-                    span: Span::new(file, text_start as u32, i as u32),
-                    column,
-                    line_start: fresh_line,
-                });
+                if !interpolation || text_end > text_start {
+                    tokens.push(Token {
+                        tok: if interpolation {
+                            Tok::StrMid(chars)
+                        } else {
+                            Tok::StrEnd(chars)
+                        },
+                        span: Span::new(file, text_start as u32, text_end as u32),
+                        column: (text_start - line_start) as u32,
+                        line_start: false,
+                    });
+                }
                 if let Some(newline) = text[text_start..stop].rfind('\n') {
                     line_start = text_start + newline + 1;
+                }
+                if interpolation {
+                    tokens.push(Token {
+                        tok: Tok::InterpOpen,
+                        span: Span::new(file, stop as u32, (stop + 2) as u32),
+                        column: (stop - line_start) as u32,
+                        line_start: false,
+                    });
+                    i = stop + 2;
+                } else {
+                    i = text_end;
                 }
                 if interpolation {
                     interps.push(interp);
@@ -1682,7 +1722,9 @@ mod tests {
             tokens("\"a${x}b\""),
             Ok(vec![
                 Tok::StrStart("a".into()),
+                Tok::InterpOpen,
                 Tok::Lower("x".into()),
+                Tok::InterpClose,
                 Tok::StrEnd("b".into()),
             ])
         );
@@ -1690,9 +1732,13 @@ mod tests {
             tokens("\"a${x}b${y}c\""),
             Ok(vec![
                 Tok::StrStart("a".into()),
+                Tok::InterpOpen,
                 Tok::Lower("x".into()),
+                Tok::InterpClose,
                 Tok::StrMid("b".into()),
+                Tok::InterpOpen,
                 Tok::Lower("y".into()),
+                Tok::InterpClose,
                 Tok::StrEnd("c".into()),
             ])
         );
@@ -1700,11 +1746,13 @@ mod tests {
             tokens("\"${ {value = 1} }\""),
             Ok(vec![
                 Tok::StrStart(String::new()),
+                Tok::InterpOpen,
                 Tok::LBrace,
                 Tok::Lower("value".into()),
                 Tok::Equals,
                 Tok::Num(1u32.into()),
                 Tok::RBrace,
+                Tok::InterpClose,
                 Tok::StrEnd(String::new()),
             ])
         );
@@ -1712,14 +1760,95 @@ mod tests {
             tokens("\"${f \"x\"}\""),
             Ok(vec![
                 Tok::StrStart(String::new()),
+                Tok::InterpOpen,
                 Tok::Lower("f".into()),
                 Tok::Str("x".into()),
+                Tok::InterpClose,
                 Tok::StrEnd(String::new()),
             ])
         );
         assert_eq!(tokens("\"\\${x}\""), Ok(vec![Tok::Str("${x}".into())]));
         assert_eq!(tokens("\"${x\""), Err("E-PARSE"));
         assert_eq!(tokens("\"${x\ny}\""), Err("E-PARSE"));
+    }
+
+    /// Each token's source text, so a test can see which bytes it covers.
+    fn pieces(text: &str) -> Vec<(Tok, &str)> {
+        let mut sources = SourceMap::new();
+        let file = sources.add("test.sw", text);
+        lex(file, text)
+            .expect("lexes")
+            .into_iter()
+            .map(|t| (t.tok, &text[t.span.start as usize..t.span.end as usize]))
+            .collect()
+    }
+
+    #[test]
+    fn interpolation_delimiters_are_tokens_and_spans_are_their_text() {
+        assert_eq!(
+            pieces("\"a${x}b${y}c\""),
+            vec![
+                (Tok::StrStart("a".into()), "\"a"),
+                (Tok::InterpOpen, "${"),
+                (Tok::Lower("x".into()), "x"),
+                (Tok::InterpClose, "}"),
+                (Tok::StrMid("b".into()), "b"),
+                (Tok::InterpOpen, "${"),
+                (Tok::Lower("y".into()), "y"),
+                (Tok::InterpClose, "}"),
+                (Tok::StrEnd("c".into()), "c\""),
+            ]
+        );
+    }
+
+    #[test]
+    fn interpolation_with_braces_inside() {
+        assert_eq!(
+            pieces("\"${ {a := 1}.a }\""),
+            vec![
+                (Tok::StrStart(String::new()), "\""),
+                (Tok::InterpOpen, "${"),
+                (Tok::LBrace, "{"),
+                (Tok::Lower("a".into()), "a"),
+                (Tok::ColonEq, ":="),
+                (Tok::Num(1u32.into()), "1"),
+                (Tok::RBrace, "}"),
+                (Tok::Dot, "."),
+                (Tok::Lower("a".into()), "a"),
+                (Tok::InterpClose, "}"),
+                (Tok::StrEnd(String::new()), "\""),
+            ]
+        );
+    }
+
+    #[test]
+    fn back_to_back_interpolations_have_no_middle_text() {
+        assert_eq!(
+            tokens("\"${x}${y}\""),
+            Ok(vec![
+                Tok::StrStart(String::new()),
+                Tok::InterpOpen,
+                Tok::Lower("x".into()),
+                Tok::InterpClose,
+                Tok::InterpOpen,
+                Tok::Lower("y".into()),
+                Tok::InterpClose,
+                Tok::StrEnd(String::new()),
+            ])
+        );
+        assert_eq!(
+            tokens("\"\"\"\n  ${x}${y}\n  \"\"\""),
+            Ok(vec![
+                Tok::StrStart(String::new()),
+                Tok::InterpOpen,
+                Tok::Lower("x".into()),
+                Tok::InterpClose,
+                Tok::InterpOpen,
+                Tok::Lower("y".into()),
+                Tok::InterpClose,
+                Tok::StrEnd("\n".into()),
+            ])
+        );
     }
 
     #[test]
@@ -1812,13 +1941,17 @@ mod tests {
             tokens("\"\"\"\n  a ${x} b\n    c ${f \"}\" '}' {}}\n  \"\"\""),
             Ok(vec![
                 Tok::StrStart("a ".into()),
+                Tok::InterpOpen,
                 Tok::Lower("x".into()),
+                Tok::InterpClose,
                 Tok::StrMid(" b\n  c ".into()),
+                Tok::InterpOpen,
                 Tok::Lower("f".into()),
                 Tok::Str("}".into()),
                 Tok::Char('}'),
                 Tok::LBrace,
                 Tok::RBrace,
+                Tok::InterpClose,
                 Tok::StrEnd("\n".into()),
             ])
         );
@@ -1861,12 +1994,16 @@ mod tests {
                 Tok::Upper("Text".into()),
                 Tok::ColonEq,
                 Tok::StrStart("".into()),
+                Tok::InterpOpen,
                 Tok::Num(1u32.into()),
                 Tok::Char('}'),
                 Tok::PlusPlus,
                 Tok::StrStart("".into()),
+                Tok::InterpOpen,
                 Tok::Lower("x".into()),
+                Tok::InterpClose,
                 Tok::StrEnd("".into()),
+                Tok::InterpClose,
                 Tok::StrEnd("\n".into()),
             ])
         );
@@ -1875,11 +2012,17 @@ mod tests {
             tokens("\"\"\"\n  ${\"${\"}\"}\"} ${y}\n  \"\"\""),
             Ok(vec![
                 Tok::StrStart("".into()),
+                Tok::InterpOpen,
                 Tok::StrStart("".into()),
+                Tok::InterpOpen,
                 Tok::Str("}".into()),
+                Tok::InterpClose,
                 Tok::StrEnd("".into()),
+                Tok::InterpClose,
                 Tok::StrMid(" ".into()),
+                Tok::InterpOpen,
                 Tok::Lower("y".into()),
+                Tok::InterpClose,
                 Tok::StrEnd("\n".into()),
             ])
         );
@@ -1888,9 +2031,13 @@ mod tests {
             tokens("\"\"\"\n  ${x'} ${y}\n  \"\"\""),
             Ok(vec![
                 Tok::StrStart("".into()),
+                Tok::InterpOpen,
                 Tok::Lower("x'".into()),
+                Tok::InterpClose,
                 Tok::StrMid(" ".into()),
+                Tok::InterpOpen,
                 Tok::Lower("y".into()),
+                Tok::InterpClose,
                 Tok::StrEnd("\n".into()),
             ])
         );

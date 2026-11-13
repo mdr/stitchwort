@@ -16,7 +16,7 @@
 //! still looked for, and only if it isn't found is it counted under its
 //! reason instead of as a miss. Every other span must be found.
 
-use super::{NodeKind, SyntaxFile, token_text_range};
+use super::{NodeKind, SyntaxFile};
 use crate::Span;
 use crate::ast::{
     Alt, Attribute, BinOp, Binder, CHAIN, Clause, Decl, Expr, Guard, MatchKind, Module, Name,
@@ -92,7 +92,8 @@ pub enum Synthetic {
     Chain,
     /// A method section `.f a` is the lambda `%section => %section.f a`.
     Section,
-    /// `"a${x}b"` is `"a" ++ x ++ "b"`.
+    /// `"a${x}b"` is `"a" ++ x ++ "b"`: the joins span from one piece to the
+    /// end of the text, which is no node.
     Interpolation,
     /// `let p := e` with a pattern, and a lambda's pattern parameters, are
     /// a one-arm `match` on the value.
@@ -255,11 +256,6 @@ impl<'a> Walk<'a> {
                 match &**a {
                     Expr::App(..) if operator => self.inner(a, Synthetic::OperatorHead),
                     Expr::App(..) => self.inner(a, Synthetic::PartialApp),
-                    // `${x}` is `Std.Show.toText x`, the function spanning
-                    // the `${` and `}`.
-                    Expr::Var(_) if why == Some(Synthetic::Interpolation) => {
-                        self.inner(a, Synthetic::Interpolation)
-                    }
                     _ => self.expr(a),
                 }
             }
@@ -956,19 +952,12 @@ impl SyntaxFile {
     /// single token, except the spans of constructs
     /// the parser made up ([`Synthetic`]).
     pub fn check_spans(&self, module: &Module) -> SpanCheck {
-        // Token indices by the byte they start or end at; a piece of an
-        // interpolated text is found by its span or by its text with the
-        // `${` and `}`.
+        // Token indices by the byte they start or end at.
         let mut starts = BTreeMap::new();
         let mut ends = BTreeMap::new();
         for (i, token) in self.tokens.iter().enumerate() {
-            let text = token_text_range(token);
-            for start in [token.span.start, text.start as u32] {
-                starts.insert(start, i);
-            }
-            for end in [token.span.end, text.end as u32] {
-                ends.insert(end, i + 1);
-            }
+            starts.insert(token.span.start, i);
+            ends.insert(token.span.end, i + 1);
         }
         let ranges: BTreeSet<(usize, usize)> = self
             .decls

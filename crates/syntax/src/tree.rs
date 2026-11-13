@@ -97,24 +97,11 @@
 //! but for the `Error` nodes, wherever in it they fall; the lowering turns
 //! each into a hole. Nothing here assumes an `Error` node is a root.
 
-use crate::lexer::{Comment, Tok, Token, Trivia};
+use crate::lexer::{Comment, Token, Trivia};
 use std::ops::Range;
 
 mod spans;
 pub use spans::{SpanCheck, SpanMiss, Synthetic};
-
-/// The bytes a token stands for in the source: its span, and for the pieces
-/// of an interpolated text, the `${` and `}` around each interpolation,
-/// which the lexer's spans leave out (`"a${` is `StrStart`'s, `}b${`
-/// `StrMid`'s and `}c"` `StrEnd`'s).
-pub fn token_text_range(token: &Token) -> Range<usize> {
-    let (start, end) = (token.span.start as usize, token.span.end as usize);
-    match token.tok {
-        Tok::StrStart(_) => start..end + 2,
-        Tok::StrMid(_) | Tok::StrEnd(_) => start - 1..end,
-        _ => start..end,
-    }
-}
 
 /// What a node of the lossless tree is. Single tokens (names, literals,
 /// `_`) are leaves, not nodes.
@@ -276,12 +263,10 @@ pub enum NodeKind {
     Seq,
     /// `(let x := e; body)`
     LetExpr,
-    /// `"a${x}b"`, `"""…${x}…"""`: the pieces of text, which are tokens
-    /// holding the `${` and `}` around each interpolated expression, and the
-    /// expressions.
+    /// `"a${x}b"`, `"""…${x}…"""`: the pieces of text, which are tokens,
+    /// and the [`Interpolation`](NodeKind::Interpolation)s between them.
     Interpolated,
-    /// `${x}` in a text. Not used yet: the `${` and `}` are inside the text
-    /// pieces' tokens (SW-3171).
+    /// `${x}` in a text: the `${`, the expression and the `}`.
     Interpolation,
     /// `handle e with | op x, k => …`
     Handle,
@@ -516,7 +501,7 @@ impl SyntaxFile {
                 .checked_sub(1)
                 .and_then(|p| self.trivia[p].trailing.as_ref());
             let comments = before.into_iter().chain(&self.trivia[i].leading);
-            let range = token_text_range(token);
+            let range = token.span.start as usize..token.span.end as usize;
             check_gap(source, at, range.start, comments)
                 .map_err(|e| format!("before token {i}: {e}"))?;
             at = range.end;
@@ -751,9 +736,10 @@ impl<'f> Leaf<'f> {
         &self.file.trivia[self.index as usize]
     }
 
-    /// Its bytes in the source ([`token_text_range`]).
+    /// Its bytes in the source.
     pub fn text_range(&self) -> Range<usize> {
-        token_text_range(self.token())
+        let span = self.token().span;
+        span.start as usize..span.end as usize
     }
 }
 
@@ -889,7 +875,6 @@ theorem t ∀ (n: Nat): ∃ (m k: Nat) => m = n + k := xs |> .map h
                 Exists,
                 Chain,
                 Section,
-                Interpolation,
                 PatternMatch,
                 Header,
             ]
@@ -1187,7 +1172,7 @@ def f (n: Nat): Nat :=
             ("[1, ..xs]", "List[[ 1 , Spread[.. xs] ]]"),
             (
                 "\"a${x + 1}b${y}\"",
-                "Interpolated[\"a${ Binary[x + 1] }b${ y }\"]",
+                "Interpolated[\"a Interpolation[${ Binary[x + 1] }] b Interpolation[${ y }] \"]",
             ),
             ("include \"x\"", "Include[include \"x\"]"),
             ("Type 1", "Universe[Type 1]"),
