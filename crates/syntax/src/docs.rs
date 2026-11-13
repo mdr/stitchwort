@@ -8,7 +8,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use crate::ast::{Decl, Import, Module};
-use crate::lexer::{Comment, Tok, Trivia, lex_with_trivia};
+use crate::lexer::{Comment, Tok, Trivia, lex_recovering_with_trivia};
 use crate::parser::{DEFAULT_STACK, decl_ranges, parse_module_recovering, parse_namespace_line};
 use crate::{FileId, Span};
 
@@ -169,13 +169,11 @@ pub fn file_imports(file: FileId, text: &str) -> Vec<Import> {
 /// The docs of a file's declarations, by the byte offset of the declaration's
 /// name (of the `test` keyword for a test, which has none): top-level
 /// declarations, and the constructors, fields and operations that have a line
-/// to themselves. A file that doesn't lex has none, and a declaration that
-/// doesn't parse is left out.
+/// to themselves. A declaration that doesn't lex or doesn't parse is left
+/// out; the rest of the file is still read.
 pub fn docs(file: FileId, text: &str) -> BTreeMap<u32, Doc> {
     let mut found = BTreeMap::new();
-    let Ok(lexed) = lex_with_trivia(file, text) else {
-        return found;
-    };
+    let (lexed, _) = lex_recovering_with_trivia(file, text);
     let Ok(groups) = decl_ranges(&lexed.tokens) else {
         return found;
     };
@@ -235,7 +233,7 @@ pub fn docs(file: FileId, text: &str) -> BTreeMap<u32, Doc> {
 /// paragraphs. A `namespace` or `import` line is not a declaration here, so
 /// every run above one is the file's. Only `--|` lines count.
 pub fn file_doc(file: FileId, text: &str) -> Option<Doc> {
-    let lexed = lex_with_trivia(file, text).ok()?;
+    let (lexed, _) = lex_recovering_with_trivia(file, text);
     let groups = decl_ranges(&lexed.tokens).ok()?;
     let (comments, own) = match groups.first() {
         Some(group) => {

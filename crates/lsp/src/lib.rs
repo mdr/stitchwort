@@ -2599,9 +2599,7 @@ fn lookup<'n>(
 /// quotes included.
 fn includes(text: &str) -> Vec<(String, stitchwort_syntax::Span)> {
     let file = SourceMap::new().add("include.sw", text);
-    let Ok(tokens) = stitchwort_syntax::lex(file, text) else {
-        return Vec::new();
-    };
+    let tokens = stitchwort_syntax::lex_recovering(file, text).tokens;
     tokens
         .windows(2)
         .filter(|pair| pair[0].tok == stitchwort_syntax::Tok::KwInclude)

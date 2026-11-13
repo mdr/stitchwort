@@ -495,6 +495,42 @@ fn hover_at(s: &mut Session, text: &str, needle: &str) -> Value {
 }
 
 #[test]
+fn hover_and_semantic_tokens_work_outside_a_declaration_with_an_unclosed_string() {
+    big_stack(|| {
+        let text = "namespace Demo\n\n\
+                    --| Doubles a number.\n\
+                    def twice (n: Nat): Nat := n + n\n\
+                    \n\
+                    def broken: Text := \"never closed\n\
+                    \n\
+                    def useTwice: Nat := twice 2\n";
+        let mut s = Session::open(text);
+        assert!(
+            s.diagnostics.iter().any(|d| d["code"] == "E-PARSE"),
+            "{:?}",
+            s.diagnostics
+        );
+        let hover = hover_at(&mut s, text, "twice 2");
+        let shown = hover["contents"]["value"].as_str().unwrap_or_default();
+        assert!(shown.contains("twice"), "{hover}");
+        assert!(shown.contains("Doubles a number."), "{hover}");
+        let symbols = s.request(
+            "textDocument/documentSymbol",
+            json!({"textDocument": {"uri": URI}}),
+        );
+        assert!(symbols.to_string().contains("twice"), "{symbols}");
+        let tokens = s.request(
+            "textDocument/semanticTokens/full",
+            json!({"textDocument": {"uri": URI}}),
+        );
+        assert!(
+            !tokens["data"].as_array().unwrap().is_empty(),
+            "no semantic tokens: {tokens}"
+        );
+    });
+}
+
+#[test]
 fn hover_unfolds_the_outermost_not_once() {
     big_stack(|| {
         let text = "namespace Demo\n\

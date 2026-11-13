@@ -23,7 +23,8 @@ use stitchwort_syntax::docs::{
     link_ranges,
 };
 use stitchwort_syntax::{
-    DEFAULT_STACK, FileId, SourceMap, Tok, Token, decl_ranges, lex, parse_module_recovering,
+    DEFAULT_STACK, FileId, SourceMap, Tok, Token, decl_ranges, lex_recovering,
+    parse_module_recovering,
 };
 
 use crate::driver::Session;
@@ -223,9 +224,7 @@ impl Decls {
             lines,
         });
         let (module, _) = parse_module_recovering(id, text, DEFAULT_STACK);
-        let Ok(tokens) = lex(id, text) else {
-            return;
-        };
+        let tokens = lex_recovering(id, text).tokens;
         let groups = decl_ranges(&tokens).unwrap_or_default();
         // A file with no `namespace` line is in `Main`, as in file mode.
         let prefix = match (&std, &module.namespace, &ns) {
@@ -701,9 +700,7 @@ impl Decls {
         let e = &self.entries[i];
         let file = &self.files[e.file];
         let text = &self.sources.get(file.id).text;
-        let Ok(tokens) = lex(file.id, text) else {
-            return e.header.clone();
-        };
+        let tokens = lex_recovering(file.id, text).tokens;
         let groups = decl_ranges(&tokens).unwrap_or_default();
         match group_of(&tokens, &groups, e.start) {
             Some(group) => text[e.start as usize..group_end(&tokens, &group)].to_string(),

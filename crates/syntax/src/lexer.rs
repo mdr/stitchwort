@@ -433,6 +433,36 @@ pub fn lex_recovering(file: FileId, text: &str) -> Recovered {
     }
 }
 
+/// [`lex_with_trivia`] that survives lexical errors, as [`lex_recovering`]
+/// does: the declarations that don't lex are blanked out (their trivia goes
+/// with them) and listed, and the rest keep their positions.
+pub fn lex_recovering_with_trivia(file: FileId, text: &str) -> (Lexed, Vec<LexFailure>) {
+    let recovered = lex_recovering(file, text);
+    if recovered.failures.is_empty()
+        && let Ok(lexed) = lex_keeping(file, text, true)
+    {
+        return (lexed, recovered.failures);
+    }
+    let mut blanked = text.as_bytes().to_vec();
+    for failure in &recovered.failures {
+        for byte in &mut blanked[failure.range.clone()] {
+            if !matches!(*byte, b' ' | b'\n') {
+                *byte = b' ';
+            }
+        }
+    }
+    let blanked = String::from_utf8(blanked).expect("spaces replace whole characters");
+    // The same blanking lexes in `lex_recovering`; if it somehow doesn't,
+    // there is nothing to read.
+    let lexed = lex_keeping(file, &blanked, true).unwrap_or(Lexed {
+        tokens: Vec::new(),
+        trivia: Vec::new(),
+        eof: Trivia::default(),
+        bars: Vec::new(),
+    });
+    (lexed, recovered.failures)
+}
+
 /// Lexes `text`, recording the trivia only if `keep_trivia` (otherwise
 /// `trivia` and `eof` are empty). Only the formatter needs it, and it takes
 /// more memory than the tokens, so checking doesn't record it.
