@@ -34455,7 +34455,7 @@
     {
       "id": 3170,
       "title": "[Opus] Lossless tree lane F (closing): span-containment test (every compiler-tree span is a node's range); remove the Unmarked wrappers; whole-repo gate of 0 unmarked and 0 dropped (Overmind); decide on ${ and } as tokens",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -34463,7 +34463,9 @@
       "body": "\nAlso (SW-3167 findings): a lambda's/forall's (x: A) is LambdaParam[Param[...]], a redundant double wrap: drop one; 'dev tree --time' can't isolate marks-off instructions: add a mode that skips the tree rounds.",
       "created": "2026-11-13",
       "updated": "2026-11-13",
-      "commits": []
+      "commits": [
+        "01fde11c8276f0561ab02d3d8545a4bba7e16bb8"
+      ]
     },
     {
       "id": 3171,
