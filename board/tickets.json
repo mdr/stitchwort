@@ -1,5 +1,5 @@
 {
-  "next": 3147,
+  "next": 3151,
   "tickets": [
     {
       "id": 47,
@@ -34130,12 +34130,12 @@
     {
       "id": 3145,
       "title": "[Fable] Plan: a Stitchwort formatter written in Stitchwort (parser + pretty printer), byte-identical to stitchwort fmt on every file it formats; total if possible; speed within ~10-30x of the Rust formatter (Python-like); a new project in the repo built and run with the native compiler; proofs (idempotence, tokens preserved up to fmt's deliberate rewrites) scoped as an optional follow-on stage. Paper lane: docs/proposals/self-hosted-fmt.md. Matt, 13 Nov 2026",
-      "status": "doing",
+      "status": "review",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "\nPlan written (Fable, 10 min): docs/proposals/self-hosted-fmt.md. Port the Rust formatter's token-and-line design into tools/fmt/, total; stages 0-5 26-39 lane hours; ~20 s for the tree estimated (target < 30 s); proofs optional stage 6. Findings: SW-3147 SW-3148 SW-3149 SW-3150. Awaiting Matt's D3556/D3557.",
       "created": "2026-11-13",
       "updated": "2026-11-13",
       "commits": []
@@ -34148,6 +34148,58 @@
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-13",
+      "updated": "2026-11-13",
+      "commits": []
+    },
+    {
+      "id": 3147,
+      "title": "[Opus] stitchwort fmt spends ~85% of its time in equivalence::shape comparing trees by pretty-printing them with {:#?} (sample over the 1,695-file corpus: 7.9 s total, real work ~1 s; SW-3145 finding). Compare trees structurally. Parked with speed work (D3465) unless Matt wants it.",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "performance",
+      "body": "",
+      "created": "2026-11-13",
+      "updated": "2026-11-13",
+      "commits": []
+    },
+    {
+      "id": 3148,
+      "title": "[Opus] Large heaps slow down more than linearly in native code: an array probe took 0.26 s on 1 MB and 6.1 s on 6.8 MB (23x time for 6.8x input; ~300 bytes allocated per character lexed). Profile (GC/allocator) (SW-3145 finding; probes in docs/proposals/self-hosted-fmt.md)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "performance",
+      "body": "",
+      "created": "2026-11-13",
+      "updated": "2026-11-13",
+      "commits": []
+    },
+    {
+      "id": 3149,
+      "title": "[Sonnet] build --native executables fail to start from the main checkout: 'its tables can't be read: written by a different build of the runtime' (libstitchwort_standalone.a dated 12 Nov, CLI 13 Nov). Make the build rebuild/check the runtime library with the CLI, or give a clear message naming task build (SW-3145 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "effects-native",
+      "body": "",
+      "created": "2026-11-13",
+      "updated": "2026-11-13",
+      "commits": []
+    },
+    {
+      "id": 3150,
+      "title": "[Opus] Design: IO has no file read, write or folder listing, and Text has no O(1) slice, indexed read or builder (Text.get goes through toList) (SW-3145 findings; needed for real tools such as the self-hosted formatter)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "std-library",
       "body": "",
       "created": "2026-11-13",
       "updated": "2026-11-13",
