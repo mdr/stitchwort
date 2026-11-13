@@ -5314,48 +5314,49 @@ impl<'t> Parser<'t> {
             _ => unreachable!("called at a StrStart"),
         };
         let mut items = Vec::new();
-        let mut first = true;
         let close;
         loop {
             if !text.is_empty() {
                 items.push(Expr::Str(text, text_span));
             }
-            // The `${` starts at the end of the first piece, and ends the
-            // later ones.
-            let dollar = if first {
-                text_span.end
-            } else {
-                text_span.end - 2
+            // The lexer ends every text piece but the last with a `${`.
+            let interpolation = self.mark();
+            let dollar = match self.peek() {
+                Some(Tok::InterpOpen) => self.bump().span,
+                _ => return Err(self.unexpected("`${`").into()),
             };
-            first = false;
             let value = self.expr()?;
-            let next = self
-                .tokens
-                .get(self.pos)
-                .cloned()
-                .ok_or_else(|| self.unexpected("`}`"))?;
-            let span = Span::new(self.file, dollar, next.span.start);
+            let brace = match self.peek() {
+                Some(Tok::InterpClose) => self.bump().span,
+                _ => return Err(self.unexpected("`}`").into()),
+            };
+            self.node(interpolation, NodeKind::Interpolation);
             items.push(Expr::App(
                 Box::new(Expr::Var(Name {
                     text: "Std.Show.toText".into(),
-                    span,
+                    span: dollar.to(brace),
                 })),
                 Box::new(value),
             ));
-            let (end, piece) = match &next.tok {
-                Tok::StrMid(piece) => (false, piece.clone()),
-                Tok::StrEnd(piece) => (true, piece.clone()),
-                _ => return Err(self.unexpected("`}`").into()),
-            };
-            text_span = next.span;
-            text = piece;
-            self.bump();
-            if end {
-                close = next.span;
-                if !text.is_empty() {
-                    items.push(Expr::Str(text, text_span));
+            // The text after the `}` is left out when there is none.
+            (text, text_span) = match self.peek() {
+                Some(Tok::StrMid(piece)) => {
+                    let piece = piece.clone();
+                    (piece, self.bump().span)
                 }
-                break;
+                _ => (String::new(), brace),
+            };
+            match self.peek() {
+                Some(Tok::StrEnd(piece)) => {
+                    let piece = piece.clone();
+                    close = self.bump().span;
+                    if !piece.is_empty() {
+                        items.push(Expr::Str(piece, close));
+                    }
+                    break;
+                }
+                Some(Tok::InterpOpen) => {}
+                _ => return Err(self.unexpected("`${` or the end of the text").into()),
             }
         }
         self.node_at(open, NodeKind::Interpolated);
@@ -5845,6 +5846,8 @@ fn describe(tok: &Tok) -> String {
         Tok::Float(text) => format!("`{text}`"),
         Tok::Str(s) => format!("`\"{s}\"`"),
         Tok::StrStart(_) | Tok::StrMid(_) | Tok::StrEnd(_) => "a text literal".into(),
+        Tok::InterpOpen => "`${`".into(),
+        Tok::InterpClose => "`}` closing a `${…}`".into(),
         Tok::Char(c) => format!("`'{c}'`"),
         Tok::KwTest => "`test`".into(),
         Tok::KwInterface => "`interface`".into(),

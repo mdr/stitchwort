@@ -38,8 +38,8 @@ pub(crate) enum Gap {
     /// A space or not, copied from the source because no rule covers the
     /// pair: the copy path, counted in the stats.
     Copied(bool),
-    /// The source text between them, exactly: the `${` and `}` of an
-    /// interpolation, which belong to no token.
+    /// The source text between them, exactly: inside an interpolated text,
+    /// where the gaps are text or the writer's own spacing in `${ x }`.
     Source,
 }
 
@@ -59,7 +59,9 @@ pub(crate) struct Pair<'a> {
 pub(crate) fn gap(pair: &Pair) -> Gap {
     use Tok::*;
     let (left, right, spaced) = (pair.left, pair.right, pair.spaced);
-    if matches!(left, StrStart(_) | StrMid(_)) || matches!(right, StrMid(_) | StrEnd(_)) {
+    if matches!(left, StrStart(_) | StrMid(_) | InterpOpen | InterpClose)
+        || matches!(right, StrMid(_) | StrEnd(_) | InterpOpen | InterpClose)
+    {
         return Gap::Source;
     }
     // Spacing that changes meaning: `p.name` against `f .name` (a section),

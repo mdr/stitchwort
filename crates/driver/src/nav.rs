@@ -749,9 +749,8 @@ impl Parens {
         let mut partner = HashMap::default();
         let mut open = Vec::new();
         let mut interpolations = Vec::new();
-        // For each literal being lexed (they nest in `${…}`), where its
-        // latest `${` starts.
-        let mut texts: Vec<u32> = Vec::new();
+        // The `${`s not yet closed (texts nest in `${…}`).
+        let mut dollars: Vec<u32> = Vec::new();
         for (i, token) in stitchwort_syntax::lex(file, text)
             .unwrap_or_default()
             .iter()
@@ -766,16 +765,10 @@ impl Parens {
                         partner.insert(i, o);
                     }
                 }
-                Tok::StrStart(_) => texts.push(token.span.end),
-                // These start after the `}` before them, and `StrMid` ends
-                // after the `${` after them.
-                Tok::StrMid(_) | Tok::StrEnd(_) => {
-                    if let Some(dollar) = texts.last_mut() {
-                        interpolations.push((*dollar, token.span.start));
-                        *dollar = token.span.end.saturating_sub(2);
-                        if matches!(token.tok, Tok::StrEnd(_)) {
-                            texts.pop();
-                        }
+                Tok::InterpOpen => dollars.push(token.span.start),
+                Tok::InterpClose => {
+                    if let Some(dollar) = dollars.pop() {
+                        interpolations.push((dollar, token.span.end));
                     }
                 }
                 _ => {}

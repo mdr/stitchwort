@@ -347,9 +347,13 @@ impl<'a> Source<'a> {
     /// side aren't joined by an interpolation's `${` or `}`.
     fn plain_gap(&self, i: usize) -> Option<Range<usize>> {
         let (left, right) = (&self.tokens[i].tok, &self.tokens.get(i + 1)?.tok);
-        if matches!(left, Tok::StrStart(_) | Tok::StrMid(_))
-            || matches!(right, Tok::StrMid(_) | Tok::StrEnd(_))
-        {
+        if matches!(
+            left,
+            Tok::StrStart(_) | Tok::StrMid(_) | Tok::InterpOpen | Tok::InterpClose
+        ) || matches!(
+            right,
+            Tok::StrMid(_) | Tok::StrEnd(_) | Tok::InterpOpen | Tok::InterpClose
+        ) {
             return None;
         }
         let gap = self.end(i)..self.start(i + 1);
