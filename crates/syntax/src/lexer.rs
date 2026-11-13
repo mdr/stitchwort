@@ -437,12 +437,10 @@ pub fn lex_recovering(file: FileId, text: &str) -> Recovered {
 /// does: the declarations that don't lex are blanked out (their trivia goes
 /// with them) and listed, and the rest keep their positions.
 pub fn lex_recovering_with_trivia(file: FileId, text: &str) -> (Lexed, Vec<LexFailure>) {
-    let recovered = lex_recovering(file, text);
-    if recovered.failures.is_empty()
-        && let Ok(lexed) = lex_keeping(file, text, true)
-    {
-        return (lexed, recovered.failures);
+    if let Ok(lexed) = lex_keeping(file, text, true) {
+        return (lexed, Vec::new());
     }
+    let recovered = lex_recovering(file, text);
     let mut blanked = text.as_bytes().to_vec();
     for failure in &recovered.failures {
         for byte in &mut blanked[failure.range.clone()] {
