@@ -314,10 +314,36 @@ fn deep_terms_in_later_passes() {
         let g = &session.elab.ev();
         let body = g.def(id).body().unwrap();
         {
+            // An argument that is itself an application is checked in a
+            // loop, not a level of the stack (SW-3174), so the kernel
+            // takes this depth.
             let _op = g.machine.budget.operation(Limits::default());
             let def = g.def(id);
             let mut cx = kernel::Ctx::new(g, def.span());
-            let e = kernel::check(&mut cx, body, def.ty_value()).unwrap_err();
+            assert!(kernel::check(&mut cx, body, def.ty_value()).is_ok());
+        }
+        {
+            // With a location around each argument, each level is a call of
+            // `check` again: the kernel runs out rather than crashing.
+            let _op = g.machine.budget.operation(Limits::default());
+            let def = g.def(id);
+            let Term::Lam(_, _, inner) = &**body else {
+                panic!("a function")
+            };
+            let Term::App(f, _, _) = &**inner else {
+                panic!("an application")
+            };
+            let mut located = Term::Var(0);
+            for _ in 0..1_000_000 {
+                located = Term::app((**f).clone(), Term::Loc(def.span(), Rc::new(located)));
+            }
+            let located = Term::Lam(
+                "n".into(),
+                stitchwort_core::Icit::Explicit,
+                Rc::new(located),
+            );
+            let mut cx = kernel::Ctx::new(g, def.span());
+            let e = kernel::check(&mut cx, &located, def.ty_value()).unwrap_err();
             assert_eq!(e.code, "E-RESOURCE");
             assert!(e.message.contains("type checker"), "{}", e.message);
         }

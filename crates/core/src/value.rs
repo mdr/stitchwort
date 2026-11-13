@@ -3623,6 +3623,12 @@ pub enum Mode {
 
 /// [`conv`] in `mode`, inside an outermost one whose record of glued calls
 /// compared so far is `memo`.
+///
+/// This is the frame that recurs once per level of nesting where `conv`
+/// recurses (in [`recurse`]), so it holds only the work list and the pair
+/// in hand: comparing a pair's outer layer ([`conv_step`]) and comparing
+/// codomains have frames of their own, which are gone before the recursion
+/// starts.
 fn conv_with(
     g: &Ev,
     level: usize,
@@ -3632,27 +3638,55 @@ fn conv_with(
     mode: Mode,
 ) -> Result<bool> {
     let mut work = vec![ConvTask::Values(level, a.clone(), b.clone())];
-    while let Some(task) = work.pop() {
+    while let Some(mut task) = work.pop() {
         g.machine.budget.step()?;
         let same = match task {
-            ConvTask::Values(level, a, b) => conv_step(g, level, a, b, &mut work, memo, mode)?,
-            // Function types' codomains, compared once their domains are.
-            // The same function gives the same codomain (see `same_closure`).
-            ConvTask::Codomains(_, b1, b2) if same_closure(g, &b1, &b2)? => true,
-            ConvTask::Codomains(level, b1, b2) => {
-                let fresh = Value::var(level);
-                work.push(ConvTask::Values(
-                    level + 1,
-                    b1.apply(g, fresh.clone())?,
-                    b2.apply(g, fresh)?,
-                ));
-                true
+            // The pair is compared where it lies in `task`, not moved out.
+            ConvTask::Values(level, ref mut a, ref mut b) => {
+                // `conv_step` stops where the comparison recurses, and is
+                // called again, from where it stopped, if the recursion
+                // doesn't settle it.
+                let mut from = Stage::Calls;
+                loop {
+                    let kind = match conv_step(g, level, a, b, from, &mut work, memo, mode)? {
+                        Step::Answer(same) => break same,
+                        Step::Recurse(kind) => kind,
+                    };
+                    match recurse(g, level, a, b, kind, &mut work, memo, mode)? {
+                        Resume::Answer(same) => break same,
+                        Resume::From(stage) => from = stage,
+                    }
+                }
             }
+            ConvTask::Codomains(level, b1, b2) => codomains(g, level, b1, b2, &mut work)?,
         };
         if !same {
             return Ok(false);
         }
     }
+    Ok(true)
+}
+
+/// Function types' codomains, compared once their domains are: pushes the
+/// two applied to a fresh variable, unless they are the same function,
+/// which gives the same codomain (see `same_closure`).
+#[inline(never)]
+fn codomains(
+    g: &Ev,
+    level: usize,
+    b1: Closure,
+    b2: Closure,
+    work: &mut Vec<ConvTask>,
+) -> Result<bool> {
+    if same_closure(g, &b1, &b2)? {
+        return Ok(true);
+    }
+    let fresh = Value::var(level);
+    work.push(ConvTask::Values(
+        level + 1,
+        b1.apply(g, fresh.clone())?,
+        b2.apply(g, fresh)?,
+    ));
     Ok(true)
 }
 
@@ -3772,32 +3806,86 @@ fn same_spines(
     Ok(true)
 }
 
-/// Compares the outermost layer of `a` and `b`: `false` if they differ
-/// there; otherwise pushes the pairs of parts still to compare.
+/// Where [`conv_step`] starts comparing a pair, or takes it up again after
+/// [`recurse`] has compared parts of it without settling it.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Stage {
+    /// From the start: two glued calls of one definition.
+    Calls,
+    /// Dictionaries left folded by name, compared by their arguments.
+    Folded,
+    /// The same, unfolded: the arguments differ, or the heads do.
+    Unfold,
+}
+
+/// Where [`conv_step`] stopped: the answer for the pair, or the point where
+/// comparing it recurses.
+enum Step {
+    Answer(bool),
+    Recurse(Recursion),
+}
+
+/// Moves a value out of a pair [`conv_step`] is comparing, which isn't
+/// looked at again.
+fn take(value: &mut Value) -> Value {
+    std::mem::replace(value, Value::Refl)
+}
+
+/// The comparisons of a pair that call [`conv_with`] for parts of it, each
+/// done by [`recurse`] once [`conv_step`] has found it applies.
+#[derive(Clone, Copy)]
+enum Recursion {
+    /// Two glued calls of one definition, by their arguments.
+    Calls,
+    /// Two folded dictionaries of one definition, by their arguments.
+    Folded,
+    /// Two hidden opaque calls of one definition, by their arguments.
+    Sealed,
+    /// Two calls of one definition stuck on a `case`.
+    StuckSame,
+    /// Two partially applied calls of one definition: arguments, or eta.
+    Underapplied,
+    /// Calls of two different definitions, each stuck on a `case`.
+    StuckDifferent,
+}
+
+/// What [`recurse`] found: the answer for the pair, or the stage of
+/// [`conv_step`] to go on from.
+enum Resume {
+    Answer(bool),
+    From(Stage),
+}
+
+/// Compares the outermost layer of `a` and `b`, starting at stage `from`:
+/// `false` if they differ there; otherwise pushes the pairs of parts still
+/// to compare. Where comparing them would call [`conv_with`] for parts of
+/// them, it stops instead and hands the pair back, for [`recurse`] to do
+/// that from a smaller frame: the stack a level of nesting takes is then
+/// `conv_with`'s and `recurse`'s, not this function's, which has room for
+/// every rule. The rules are tried in the same order either way.
+#[allow(clippy::too_many_arguments)]
+#[inline(never)]
 fn conv_step(
     g: &Ev,
     level: usize,
-    a: Value,
-    b: Value,
+    a: &mut Value,
+    b: &mut Value,
+    mut from: Stage,
     work: &mut Vec<ConvTask>,
     memo: &mut CallMemo,
     mode: Mode,
-) -> Result<bool> {
+) -> Result<Step> {
     // Two glued calls of the same definition: their arguments first, then
     // (below) their unfoldings. See `CallMemo`.
-    if let (Value::Call(i1, s1, _), Value::Call(i2, s2, _)) = (&a, &b)
+    if from == Stage::Calls
+        && let (Value::Call(i1, ..), Value::Call(i2, ..)) = (&*a, &*b)
         && i1 == i2
         && !shortcuts_disabled()
     {
-        match memo.get(mode, level, &a, &b) {
-            Some(Differ::Values) => return Ok(false),
+        match memo.get(mode, level, a, b) {
+            Some(Differ::Values) => return Ok(Step::Answer(false)),
             Some(Differ::Arguments) => {}
-            None => {
-                if same_spines(g, level, *i1, s1, s2, memo)? {
-                    return Ok(true);
-                }
-                memo.record(mode, level, &a, &b, Differ::Arguments);
-            }
+            None => return Ok(Step::Recurse(Recursion::Calls)),
         }
     }
     // Dictionaries left folded by name: the same one applied to equal
@@ -3806,30 +3894,36 @@ fn conv_step(
     // nested dictionaries, which is bounded by the program.) Before numbers
     // and text: a folded definition with `decreasing` can be a number
     // (`f n` against `1 + …`), and is compared as one once unfolded.
-    if is_folded(g, &a) || is_folded(g, &b) {
-        if let (Value::Neutral(Head::Def(i1), s1), Value::Neutral(Head::Def(i2), s2)) = (&a, &b)
+    if from != Stage::Unfold && (is_folded(g, a) || is_folded(g, b)) {
+        if let (Value::Neutral(Head::Def(i1), _), Value::Neutral(Head::Def(i2), _)) = (&*a, &*b)
             && i1 == i2
-            && same_spines(g, level, *i1, s1, s2, memo)?
         {
-            return Ok(true);
+            return Ok(Step::Recurse(Recursion::Folded));
         }
-        let a2 = unfold_folded(g, &a)?;
-        let b2 = unfold_folded(g, &b)?;
+        from = Stage::Unfold;
+    }
+    if from == Stage::Unfold {
+        let a2 = unfold_folded(g, a)?;
+        let b2 = unfold_folded(g, b)?;
         if a2.is_some() || b2.is_some() {
-            work.push(ConvTask::Values(level, a2.unwrap_or(a), b2.unwrap_or(b)));
-            return Ok(true);
+            work.push(ConvTask::Values(
+                level,
+                a2.unwrap_or(take(a)),
+                b2.unwrap_or(take(b)),
+            ));
+            return Ok(Step::Answer(true));
         }
     }
     // A sum stuck on its first argument, with a folded call in its second:
     // compared as what R3 and R4 make of it once that is unfolded (G2).
     let mut reread = |v: &Value| reread_sum(g, v, &mut memo.sums);
-    if let Some(a2) = reread(&a)? {
-        work.push(ConvTask::Values(level, a2, b));
-        return Ok(true);
+    if let Some(a2) = reread(a)? {
+        work.push(ConvTask::Values(level, a2, take(b)));
+        return Ok(Step::Answer(true));
     }
-    if let Some(b2) = reread(&b)? {
-        work.push(ConvTask::Values(level, a, b2));
-        return Ok(true);
+    if let Some(b2) = reread(b)? {
+        work.push(ConvTask::Values(level, take(a), b2));
+        return Ok(Step::Answer(true));
     }
     // Numbers, `k + x`, `Zero` and `Succ` all compare by their `k + x` forms:
     // `3` and `Succ x` are equal when `x` is `2`. Glued calls in them are
@@ -3838,7 +3932,7 @@ fn conv_step(
     // a folded call, which is unfolded and compared again (`Succ (f 0)`
     // against `2`, SW-2157), as the rule above does at the top, or a sum
     // that R3 and R4 read further (G2).
-    if native::nat_like(g, &a) || native::nat_like(g, &b) {
+    if native::nat_like(g, a) || native::nat_like(g, b) {
         let mut unfolded = None;
         let same = |x: &Value, y: &Value| {
             work.push(ConvTask::Values(level, x.clone(), y.clone()));
@@ -3858,29 +3952,31 @@ fn conv_step(
             })
         };
         let equal = if shortcuts_disabled() {
-            native::compare(g, &a, &b, same, assign)
+            native::compare(g, a, b, same, assign)
         } else {
-            native::compare_lazily(g, &a, &b, same, assign)
+            native::compare_lazily(g, a, b, same, assign)
         }?;
         if let Some((x, rest)) = unfolded {
             work.push(ConvTask::Values(level, x, rest));
         }
-        return Ok(equal);
+        return Ok(Step::Answer(equal));
     }
     // Compact lists: two ranges are equal when their characters are (their
     // expansions are then the same), and a range against anything else is
     // expanded one cell, which is then compared as a constructor. So a
     // compact `"a"` and `Cons (MkChar 97 h) Nil` are equal: `h` and `rfl`
     // are in `MkChar`'s proof field.
-    match (&a, &b) {
-        (Value::Chars(x), Value::Chars(y)) => return Ok(x.as_slice() == y.as_slice()),
+    match (&*a, &*b) {
+        (Value::Chars(x), Value::Chars(y)) => {
+            return Ok(Step::Answer(x.as_slice() == y.as_slice()));
+        }
         (Value::Chars(_), _) => {
-            work.push(ConvTask::Values(level, expand_step(g, a), b));
-            return Ok(true);
+            work.push(ConvTask::Values(level, expand_step(g, take(a)), take(b)));
+            return Ok(Step::Answer(true));
         }
         (_, Value::Chars(_)) => {
-            work.push(ConvTask::Values(level, a, expand_step(g, b)));
-            return Ok(true);
+            work.push(ConvTask::Values(level, take(a), expand_step(g, take(b))));
+            return Ok(Step::Answer(true));
         }
         _ => {}
     }
@@ -3891,11 +3987,11 @@ fn conv_step(
             work.push(ConvTask::Values(level, x.clone(), y.clone()));
         }
     };
-    Ok(match (&a, &b) {
+    let same = match (&*a, &*b) {
         (Value::Sort(s), Value::Sort(t)) => s == t,
         (Value::Pi(_, i1, a1, b1), Value::Pi(_, i2, a2, b2)) => {
             if i1 != i2 {
-                return Ok(false);
+                return Ok(Step::Answer(false));
             }
             work.push(ConvTask::Codomains(level, b1.clone(), b2.clone()));
             work.push(ConvTask::Values(level, (**a1).clone(), (**a2).clone()));
@@ -3928,7 +4024,7 @@ fn conv_step(
         // the skipped parts prove the same proposition.
         (Value::Data(d1, a1), Value::Data(d2, a2)) => {
             if d1 != d2 || a1.len() != a2.len() {
-                return Ok(false);
+                return Ok(Step::Answer(false));
             }
             for (k, (x, y)) in a1.iter().zip(a2.iter()).enumerate().rev() {
                 if !proof_param(g, *d1, k) {
@@ -3939,7 +4035,7 @@ fn conv_step(
         }
         (Value::Ctor(d1, c1, a1), Value::Ctor(d2, c2, a2)) => {
             if d1 != d2 || c1 != c2 || a1.len() != a2.len() {
-                return Ok(false);
+                return Ok(Step::Answer(false));
             }
             for (k, (x, y)) in a1.iter().zip(a2.iter()).enumerate().rev() {
                 if mode == Mode::Shortcut || !proof_field(g, *d1, *c1, k) {
@@ -3958,91 +4054,42 @@ fn conv_step(
         }
         (Value::Refl, Value::Refl) => true,
         (Value::Neutral(h1, s1), Value::Neutral(h2, s2)) if h1 == h2 && s1.len() == s2.len() => {
-            if let Some(f) = def_head(h1)
-                && sealed(g, f)
-            {
+            let kind = if def_head(h1).is_some_and(|f| sealed(g, f)) {
                 // A hidden opaque call never unfolds here, but does where
                 // `f` is transparent, and a pending group member's does once
                 // the group is admitted: compared in shortcut mode, so that
                 // the body being seen only ever adds equalities.
-                same_spines(g, level, f, s1, s2, memo)?
-            } else if opens_by_tree(g, &a) && opens_by_tree(g, &b) {
-                // Two calls of one definition stuck on a `case`: equal
-                // arguments make them equal, but different ones don't make
-                // them different (`ignoresFirst 1 x` against `ignoresFirst 2
-                // x`), so then they're compared by their case trees, as two
-                // different definitions are below; otherwise conversion
-                // isn't transitive (G6, docs/core.md). The arguments are
-                // compared here, each by a `conv` of its own, which recurses
-                // as the tree comparison does.
-                let arguments = |same: CompareAt<'_>| -> Result<bool> {
-                    let Some(pairs) = spine_pairs(g, level, def_head(h1), s1, s2) else {
-                        return Ok(false);
-                    };
-                    for pair in pairs {
-                        let ConvTask::Values(l, x, y) = pair else {
-                            unreachable!()
-                        };
-                        if !same(l, &x, &y)? {
-                            return Ok(false);
-                        }
-                    }
-                    Ok(true)
-                };
-                same_stuck_trees(
-                    g,
-                    level,
-                    &a,
-                    &b,
-                    Relation::Conv,
-                    mode,
-                    true,
-                    arguments,
-                    &mut |l, x, y| conv_with(g, l, x, y, memo, mode),
-                )?
-            } else if underapplied(g, &a).is_none() && underapplied(g, &b).is_none() {
+                Recursion::Sealed
+            } else if opens_by_tree(g, a) && opens_by_tree(g, b) {
+                // Two calls of one definition stuck on a `case`: see
+                // `recurse`.
+                Recursion::StuckSame
+            } else if underapplied(g, a).is_none() && underapplied(g, b).is_none() {
                 // Eta for definitions doesn't apply, so the spines must match.
-                match spine_pairs(g, level, def_head(h1), s1, s2) {
-                    Some(pairs) => {
-                        work.extend(pairs.into_iter().rev());
-                        true
-                    }
-                    None => false,
-                }
+                return Ok(Step::Answer(
+                    match spine_pairs(g, level, def_head(h1), s1, s2) {
+                        Some(pairs) => {
+                            work.extend(pairs.into_iter().rev());
+                            true
+                        }
+                        None => false,
+                    },
+                ));
+            } else if def_head(h1).is_some() {
+                // A function: equal if the spines match, or else by eta.
+                Recursion::Underapplied
             } else {
-                // A function: equal if the spines match, or else by eta. This
-                // recurses once per level of nested partially applied
-                // definitions, which is bounded by the program, not by the
-                // size of the data.
-                let same = match def_head(h1) {
-                    Some(f) => same_spines(g, level, f, s1, s2, memo)?,
-                    None => false,
-                };
-                same || push_eta(g, level, &a, &b, work)?
-            }
+                return Ok(Step::Answer(push_eta(g, level, a, b, work)?));
+            };
+            return Ok(Step::Recurse(kind));
         }
         // Two different definitions, each stuck on a `case`: compared by
-        // their case trees (`same_stuck_trees`), as are two calls of one
-        // definition whose arguments differ (above). Like a partially applied
-        // definition above, this recurses: once per level of nested calls of
-        // such definitions, in their leaves (bounded by the program, as they
-        // aren't recursive) and in the scrutinees and arguments compared
-        // (bounded by how deeply the data nests stuck calls). Deep nesting
-        // ends in the stack guard (`budget.rs`, E-RESOURCE), not a crash.
+        // their case trees (`same_stuck_trees`, in `recurse`), as are two
+        // calls of one definition whose arguments differ (above).
         (Value::Neutral(Head::Def(i1), _), Value::Neutral(Head::Def(i2), _))
-            if i1 != i2 && opens_by_tree(g, &a) && opens_by_tree(g, &b) =>
+            if i1 != i2 && opens_by_tree(g, a) && opens_by_tree(g, b) =>
         {
-            same_stuck_trees(
-                g,
-                level,
-                &a,
-                &b,
-                Relation::Conv,
-                mode,
-                true,
-                |_| Ok(false),
-                &mut |l, x, y| conv_with(g, l, x, y, memo, mode),
-            )?
+            return Ok(Step::Recurse(Recursion::StuckDifferent));
         }
         // Calls are compared by their unfoldings: two calls of the same
         // definition whose arguments differ (tried at the top), or a call
@@ -4050,7 +4097,11 @@ fn conv_step(
         // (numbers, compact lists, dictionaries, eta) look inside it
         // themselves.
         (Value::Call(..), _) | (_, Value::Call(..)) => {
-            work.push(ConvTask::Values(level, force(g, a)?, force(g, b)?));
+            work.push(ConvTask::Values(
+                level,
+                force(g, take(a))?,
+                force(g, take(b))?,
+            ));
             true
         }
         // Record eta, rule 1 (docs/proposals/record-eta.md §6.3): a
@@ -4082,8 +4133,145 @@ fn conv_step(
             }
             true
         }
-        _ => push_eta(g, level, &a, &b, work)?,
-    })
+        _ => push_eta(g, level, a, b, work)?,
+    };
+    Ok(Step::Answer(same))
+}
+
+/// The comparisons [`conv_step`] stops at, which call [`conv_with`] for
+/// parts of `a` and `b`: this is where `conv` recurses on the Rust stack, so
+/// it is kept out of `conv_step`'s frame, and the rarer kinds are in frames
+/// of their own.
+#[allow(clippy::too_many_arguments)]
+#[inline(never)]
+fn recurse(
+    g: &Ev,
+    level: usize,
+    a: &Value,
+    b: &Value,
+    kind: Recursion,
+    work: &mut Vec<ConvTask>,
+    memo: &mut CallMemo,
+    mode: Mode,
+) -> Result<Resume> {
+    match kind {
+        Recursion::Calls => {
+            let (Value::Call(f, s1, _), Value::Call(_, s2, _)) = (a, b) else {
+                unreachable!("two calls, from conv_step")
+            };
+            if same_spines(g, level, *f, s1, s2, memo)? {
+                return Ok(Resume::Answer(true));
+            }
+            memo.record(mode, level, a, b, Differ::Arguments);
+            Ok(Resume::From(Stage::Folded))
+        }
+        Recursion::Folded => {
+            let (f, s1, s2) = def_spines(a, b);
+            Ok(if same_spines(g, level, f, s1, s2, memo)? {
+                Resume::Answer(true)
+            } else {
+                Resume::From(Stage::Unfold)
+            })
+        }
+        Recursion::Sealed => {
+            let (f, s1, s2) = def_spines(a, b);
+            Ok(Resume::Answer(same_spines(g, level, f, s1, s2, memo)?))
+        }
+        Recursion::Underapplied => {
+            // This recurses once per level of nested partially applied
+            // definitions, which is bounded by the program, not by the size
+            // of the data.
+            let (f, s1, s2) = def_spines(a, b);
+            let same = same_spines(g, level, f, s1, s2, memo)?;
+            Ok(Resume::Answer(same || push_eta(g, level, a, b, work)?))
+        }
+        Recursion::StuckSame => stuck_same(g, level, a, b, memo, mode).map(Resume::Answer),
+        Recursion::StuckDifferent => {
+            stuck_different(g, level, a, b, memo, mode).map(Resume::Answer)
+        }
+    }
+}
+
+/// The definition at the head of two neutral values, and their spines.
+fn def_spines<'v>(a: &'v Value, b: &'v Value) -> (DefId, &'v [Elim], &'v [Elim]) {
+    match (a, b) {
+        (Value::Neutral(Head::Def(f), s1), Value::Neutral(_, s2)) => (*f, s1, s2),
+        _ => unreachable!("two calls of a definition, from conv_step"),
+    }
+}
+
+/// Two calls of one definition stuck on a `case`: equal arguments make them
+/// equal, but different ones don't make them different (`ignoresFirst 1 x`
+/// against `ignoresFirst 2 x`), so then they're compared by their case
+/// trees, as two different definitions are ([`stuck_different`]);
+/// otherwise conversion isn't transitive (G6, docs/core.md). The arguments
+/// are compared here, each by a `conv` of its own, which recurses as the
+/// tree comparison does.
+#[inline(never)]
+fn stuck_same(
+    g: &Ev,
+    level: usize,
+    a: &Value,
+    b: &Value,
+    memo: &mut CallMemo,
+    mode: Mode,
+) -> Result<bool> {
+    let (f, s1, s2) = def_spines(a, b);
+    let arguments = |same: CompareAt<'_>| -> Result<bool> {
+        let Some(pairs) = spine_pairs(g, level, Some(f), s1, s2) else {
+            return Ok(false);
+        };
+        for pair in pairs {
+            let ConvTask::Values(l, x, y) = pair else {
+                unreachable!()
+            };
+            if !same(l, &x, &y)? {
+                return Ok(false);
+            }
+        }
+        Ok(true)
+    };
+    same_stuck_trees(
+        g,
+        level,
+        a,
+        b,
+        Relation::Conv,
+        mode,
+        true,
+        arguments,
+        &mut |l, x, y| conv_with(g, l, x, y, memo, mode),
+    )
+}
+
+/// Two different definitions, each stuck on a `case`: compared by their
+/// case trees (`same_stuck_trees`), as are two calls of one definition
+/// whose arguments differ ([`stuck_same`]). Like a partially applied
+/// definition, this recurses: once per level of nested calls of such
+/// definitions, in their leaves (bounded by the program, as they aren't
+/// recursive) and in the scrutinees and arguments compared (bounded by how
+/// deeply the data nests stuck calls). Deep nesting ends in the stack guard
+/// (`budget.rs`, E-RESOURCE), not a crash.
+#[inline(never)]
+fn stuck_different(
+    g: &Ev,
+    level: usize,
+    a: &Value,
+    b: &Value,
+    memo: &mut CallMemo,
+    mode: Mode,
+) -> Result<bool> {
+    same_stuck_trees(
+        g,
+        level,
+        a,
+        b,
+        Relation::Conv,
+        mode,
+        true,
+        |_| Ok(false),
+        &mut |l, x, y| conv_with(g, l, x, y, memo, mode),
+    )
 }
 
 /// The pairs of values in two spines of the same length, or `None` if their
@@ -4092,6 +4280,7 @@ fn conv_step(
 /// only the leading applications are its arguments, so none after a `J`,
 /// which eliminates its result; and the marks stop at its arity, so none of
 /// the arguments its result is applied to.
+#[inline(never)]
 fn spine_pairs(
     g: &Ev,
     level: usize,
@@ -4385,6 +4574,34 @@ pub fn same_stuck_trees(
     arguments: impl FnOnce(CompareAt<'_>) -> Result<bool>,
     same: CompareAt<'_>,
 ) -> Result<bool> {
+    let memo = TreeMemo::enter(g, level, a, b, relation, mode, settled)?;
+    if let Some(answer) = memo.known(g)? {
+        return Ok(answer);
+    }
+    // A pair equal by its arguments isn't recorded: a lookup (`known`) walks
+    // each recorded pair under its key, so recording every such pair made
+    // lookups slow enough to exhaust a small budget where none was needed
+    // (SW-2285). Only "different" needs remembering to keep nested calls
+    // linear (SW-2269).
+    if arguments(same)? {
+        return Ok(true);
+    }
+    let same = same_trees_of_calls(g, level, a, b, same)?;
+    memo.record(same);
+    Ok(same)
+}
+
+/// [`same_trees_of`] for two calls that [`opens_by_tree`]: out of
+/// [`same_stuck_trees`]'s frame, which a level of nested calls compared by
+/// their arguments goes through.
+#[inline(never)]
+fn same_trees_of_calls(
+    g: &Ev,
+    level: usize,
+    a: &Value,
+    b: &Value,
+    same: CompareAt<'_>,
+) -> Result<bool> {
     let tree = |value: &Value| -> (Rc<Term>, Vec<Value>, bool) {
         let Value::Neutral(Head::Def(id), spine) = value else {
             unreachable!("checked by opens_by_tree")
@@ -4400,21 +4617,7 @@ pub fn same_stuck_trees(
             .collect();
         (Term::peel_lams_rc(body, def.arity), args, eta_held(g, *id))
     };
-    let memo = TreeMemo::enter(g, level, a, b, relation, mode, settled)?;
-    if let Some(answer) = memo.known(g)? {
-        return Ok(answer);
-    }
-    // A pair equal by its arguments isn't recorded: a lookup (`known`) walks
-    // each recorded pair under its key, so recording every such pair made
-    // lookups slow enough to exhaust a small budget where none was needed
-    // (SW-2285). Only "different" needs remembering to keep nested calls
-    // linear (SW-2269).
-    if arguments(same)? {
-        return Ok(true);
-    }
-    let same = same_trees_of(g, level, tree(a), tree(b), same)?;
-    memo.record(same);
-    Ok(same)
+    same_trees_of(g, level, tree(a), tree(b), same)
 }
 
 /// How [`same_stuck_trees`] compares two values at a level.
@@ -4585,7 +4788,11 @@ struct TreeMemo {
     settled: bool,
 }
 
+// `enter`, `known`, `record` and `drop` are out of line: they run in
+// `same_stuck_trees`, whose frame is one of those a level of nested calls
+// compared by their arguments takes.
 impl TreeMemo {
+    #[inline(never)]
     fn enter(
         g: &Ev,
         level: usize,
@@ -4594,7 +4801,7 @@ impl TreeMemo {
         relation: Relation,
         mode: Mode,
         settled: bool,
-    ) -> Result<TreeMemo> {
+    ) -> Result<Box<TreeMemo>> {
         let def = |v: &Value| match v {
             Value::Neutral(Head::Def(id), _) => *id,
             _ => unreachable!("checked by opens_by_tree"),
@@ -4609,12 +4816,14 @@ impl TreeMemo {
                 settled && m.unifying == 0
             }
         });
-        let mut memo = TreeMemo {
+        // Boxed, so that the frame of `same_stuck_trees`, which holds it
+        // while the arguments are compared, stays small.
+        let mut memo = Box::new(TreeMemo {
             key: (relation, mode, level, g.metas.epoch(), def(a), def(b), 0, 0),
             a: a.clone(),
             b: b.clone(),
             settled,
-        };
+        });
         if !shortcuts_disabled() {
             let (ha, hb) = TREE_MEMO.with(|m| -> Result<(u64, u64)> {
                 let shapes = &mut m.borrow_mut().shapes;
@@ -4630,6 +4839,7 @@ impl TreeMemo {
     /// different (`Some(false)`). Telling the pairs filed under the key
     /// apart costs a budget step per layer compared ([`identical_charged`]):
     /// a key can collect many pairs, each walked on every lookup.
+    #[inline(never)]
     fn known(&self, g: &Ev) -> Result<Option<bool>> {
         if shortcuts_disabled() {
             return Ok(None);
@@ -4658,6 +4868,7 @@ impl TreeMemo {
 
     /// Remembers that this pair is equal, or different where that can't
     /// change.
+    #[inline(never)]
     fn record(&self, equal: bool) {
         if shortcuts_disabled() || !(equal || self.settled) {
             return;
@@ -4678,6 +4889,7 @@ impl TreeMemo {
 }
 
 impl Drop for TreeMemo {
+    #[inline(never)]
     fn drop(&mut self) {
         TREE_MEMO.with(|m| {
             let mut m = m.borrow_mut();

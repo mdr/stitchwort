@@ -7,7 +7,7 @@ use std::rc::Rc;
 use crate::common::*;
 use stitchwort_core::check::infer_closed;
 use stitchwort_core::value::{conv, eval, quote};
-use stitchwort_core::{Icit, Kernel, Sort, Term, Value};
+use stitchwort_core::{Icit, Kernel, Limits, Sort, Term, Value};
 
 fn nat_value(term: &Term) -> Option<usize> {
     match term.strip_loc() {
@@ -2185,6 +2185,79 @@ fn a_long_spine_is_inferred_in_a_loop() {
     let (checked, ty) = infer_closed(&p.g.ev(), &term, span()).expect("checks");
     assert_eq!(checked.spine().1.len(), n + 1);
     assert!(matches!(ty, Value::Data(d, _) if d == p.nat), "{ty:?}");
+}
+
+/// The stack the playground lets the checker use (`crates/web/build.rs`).
+const PLAYGROUND_STACK: usize = 320 * 1024;
+
+/// `f (f (… (f 0)))`, `f : Nat → Nat`, checked against `Nat`: an argument
+/// that is itself an application is checked in `check_app`'s loop, not by
+/// a level of the Rust stack (SW-3174). Each level took about 1.3 KiB
+/// natively, so about 250 fitted the playground's guard; 10,000 check
+/// under it now.
+#[test]
+fn nested_applications_are_checked_in_a_loop() {
+    let p = Prelude::new();
+    let nat = p.nat_ty();
+    let mut g = p.g;
+    let f = declare(&mut g, "f", arrow(nat.clone(), nat.clone()));
+    let mut term = Term::ctor(p.nat, 0, vec![]);
+    for _ in 0..10_000 {
+        term = app(Term::Def(f), [term]);
+    }
+    let _op = g.machine.budget.operation(Limits {
+        stack: PLAYGROUND_STACK,
+        ..Limits::default()
+    });
+    let (_, ty) =
+        infer_closed(&g.ev(), &Term::Ann(Rc::new(term), Rc::new(nat)), span()).expect("checks");
+    assert!(matches!(ty, Value::Data(d, _) if d == p.nat), "{ty:?}");
+}
+
+/// `not (not (… (not x)))` against itself, `not` defined by a `case`: two
+/// calls stuck on a variable are compared by their arguments, which are
+/// two such calls, so the comparison recurses once per level. That took
+/// about 2.3 KiB of stack a level natively, so about 140 levels fitted the
+/// playground's guard; now it takes about 1.3 KiB (SW-3174), and 180 levels
+/// compare under it.
+#[test]
+fn nested_stuck_calls_compare_under_the_playground_guard() {
+    let mut g = Kernel::default();
+    let b = data(&mut g, "B", vec![], Sort::Type(0));
+    stitchwort_core::check::define_ctors(&mut g, b, vec![ctor("T", vec![]), ctor("F", vec![])])
+        .expect("B");
+    let b_ty = Term::Data(b, vec![]);
+    let not = define(
+        &mut g,
+        "not",
+        arrow(b_ty.clone(), b_ty),
+        lam(
+            "x",
+            case(
+                0,
+                b,
+                vec![
+                    (vec![], Term::ctor(b, 1, vec![])),
+                    (vec![], Term::ctor(b, 0, vec![])),
+                ],
+            ),
+        ),
+    )
+    .expect("not");
+    let mut term = v(0);
+    for _ in 0..180 {
+        term = app(Term::Def(not), [term]);
+    }
+    let env = [Value::var(0)];
+    let (x, y) = (
+        eval(&g.ev(), &env, &term).unwrap(),
+        eval(&g.ev(), &env, &term).unwrap(),
+    );
+    let _op = g.machine.budget.operation(Limits {
+        stack: PLAYGROUND_STACK,
+        ..Limits::default()
+    });
+    assert_eq!(conv(&g.ev(), 1, &x, &y), Ok(true));
 }
 
 /// A loop that checked the arguments but kept the first argument's type for

@@ -275,25 +275,42 @@ fn infer_app(cx: &mut Ctx, term: &Term) -> Result<(Term, Value)> {
 /// counts the terms it is given.
 #[inline(always)]
 fn infer_spine(cx: &mut Ctx, term: &Term) -> Result<(Term, Value)> {
-    let g = cx.g;
-    // The arguments, last first.
-    let mut args: smallvec::SmallVec<[(&Rc<Term>, Icit); 8]> = smallvec::SmallVec::new();
-    let mut head = term;
-    while let Term::App(f, a, icit) = head {
-        if !args.is_empty() {
-            g.machine.budget.nesting(PASS)?;
-        }
-        args.push((a, *icit));
-        head = f;
-    }
+    let mut apps = Apps::new();
+    let head = push_apps(cx, term, &mut apps)?;
     let (mut f, mut f_ty) = infer(cx, head)?;
-    for &(a, icit) in args.iter().rev() {
+    for app in apps.iter().rev() {
+        let Term::App(_, a, icit) = app else {
+            unreachable!("an application, pushed above")
+        };
+        let icit = *icit;
         let (dom, cod) = function_type(cx, f_ty, icit)?;
         let a = check(cx, a, &dom)?;
         f_ty = result_type(cx, &cod, &a)?;
         f = Term::app_icit(f, a, icit);
     }
     Ok((f, f_ty))
+}
+
+/// The applications of a spine, outermost first, each the `App` term
+/// itself (the argument and its implicitness are in it): one pointer each,
+/// so that the frame that holds them stays small.
+type Apps<'t> = smallvec::SmallVec<[&'t Term; 8]>;
+
+/// Pushes the applications of `term`'s spine onto `apps`, outermost first,
+/// and returns its head. `term` is already visited; each application inside
+/// it counts as a visit, as [`infer`] counts the terms it is given.
+fn push_apps<'t>(cx: &Ctx, term: &'t Term, apps: &mut Apps<'t>) -> Result<&'t Term> {
+    let mut head = term;
+    let mut first = true;
+    while let Term::App(f, _, _) = head {
+        if !first {
+            cx.g.machine.budget.nesting(PASS)?;
+        }
+        first = false;
+        apps.push(head);
+        head = f;
+    }
+    Ok(head)
 }
 
 /// The domain and codomain of `ty`, the type of a function applied to an
@@ -514,17 +531,125 @@ pub fn check(cx: &mut Ctx, term: &Term, expected: &Value) -> Result<Term> {
 }
 
 /// [`check`] of an application: inferred, then compared.
+///
+/// An argument that is itself an application (`f (g (h x))`, the shape a
+/// deep term nests through most) is checked in the same loop rather than by
+/// a call of [`check`]: the spine waiting for it is set aside on a list on
+/// the heap, and taken up again once the argument is checked. So a level of
+/// such nesting takes no Rust stack. The steps are those [`check`] and a
+/// call of this function would take, in the same order: the visit `check`
+/// counts, the expected type forced, the visit [`infer`] would count, the
+/// head inferred, each argument checked against its domain, and the type
+/// found compared with the one expected.
 #[inline(never)]
 fn check_app(cx: &mut Ctx, term: &Term, expected: &Value) -> Result<Term> {
     let g = cx.g;
-    let expected = &*force_ref(&g, expected)?;
-    // Visited as `infer` would.
+    let mut apps = Apps::new();
+    // The spines set aside for an argument, innermost last.
+    let mut waiting: Vec<Waiting> = Vec::new();
+    // The spine in hand: its applications are `apps[base..]`, `f` is its
+    // head applied to the arguments checked so far, of type `f_ty`, and
+    // `forced` the type it is checked against, if forcing that made a new
+    // value (otherwise the type is `expected`, or the domain of the spine
+    // waiting for it).
+    let forced = force_type(&g, expected)?;
     g.machine.budget.nesting(PASS)?;
-    let (term, found) = infer_spine(cx, term)?;
-    if cx.conv(&found, expected)? {
+    let (mut base, mut forced, (mut f, mut f_ty)) = (0, forced, start_spine(cx, term, &mut apps)?);
+    loop {
+        if apps.len() > base {
+            let Some(Term::App(_, a, icit)) = apps.pop() else {
+                unreachable!("an application, pushed by push_apps")
+            };
+            let icit = *icit;
+            let (dom, cod) = function_type(cx, f_ty, icit)?;
+            if let Term::App(..) = &**a {
+                // `check(cx, a, &dom)`, as `check` and `check_app` take it.
+                g.machine.budget.nesting(PASS)?;
+                let inner_forced = force_type(&g, &dom)?;
+                g.machine.budget.nesting(PASS)?;
+                let inner_base = apps.len();
+                let (inner_f, inner_ty) = start_spine(cx, a, &mut apps)?;
+                waiting.push(Waiting {
+                    f,
+                    forced,
+                    base,
+                    dom,
+                    cod,
+                    icit,
+                });
+                (base, forced, f, f_ty) = (inner_base, inner_forced, inner_f, inner_ty);
+                continue;
+            }
+            let a = check(cx, a, &dom)?;
+            f_ty = result_type(cx, &cod, &a)?;
+            f = Term::app_icit(f, a, icit);
+        } else {
+            let expected = match (&forced, waiting.last()) {
+                (Some(forced), _) => forced,
+                (None, Some(outer)) => &*outer.dom,
+                (None, None) => expected,
+            };
+            let checked = found_as_expected(cx, f, &f_ty, expected)?;
+            drop(f_ty);
+            drop(forced);
+            let Some(outer) = waiting.pop() else {
+                return Ok(checked);
+            };
+            let Waiting {
+                f: outer_f,
+                forced: outer_forced,
+                base: outer_base,
+                dom,
+                cod,
+                icit,
+            } = outer;
+            (base, forced) = (outer_base, outer_forced);
+            f_ty = result_type(cx, &cod, &checked)?;
+            f = Term::app_icit(outer_f, checked, icit);
+            // As when the argument's check returns: the codomain, then the
+            // domain.
+            drop(cod);
+            drop(dom);
+        }
+    }
+}
+
+/// A spine [`check_app`] has set aside while it checks an argument that is
+/// an application: what it held in hand then, and the argument's domain
+/// (`dom`, the type the argument is checked against) and codomain.
+struct Waiting {
+    f: Term,
+    forced: Option<Value>,
+    base: usize,
+    dom: Shared,
+    cod: Closure,
+    icit: Icit,
+}
+
+/// `ty` forced, as [`force_ref`] forces it, if that makes a new value.
+#[inline(never)]
+fn force_type(g: &Ev, ty: &Value) -> Result<Option<Value>> {
+    Ok(match force_ref(g, ty)? {
+        std::borrow::Cow::Owned(forced) => Some(forced),
+        std::borrow::Cow::Borrowed(_) => None,
+    })
+}
+
+/// The applications of `term`, an application already visited, pushed onto
+/// `apps`, and its head inferred.
+#[inline(never)]
+fn start_spine<'t>(cx: &mut Ctx, term: &'t Term, apps: &mut Apps<'t>) -> Result<(Term, Value)> {
+    let head = push_apps(cx, term, apps)?;
+    infer(cx, head)
+}
+
+/// `term`, whose type is `found`, if that is `expected`.
+#[inline(never)]
+fn found_as_expected(cx: &Ctx, term: Term, found: &Value, expected: &Value) -> Result<Term> {
+    if cx.conv(found, expected)? {
         Ok(term)
     } else {
-        Err(cx.mismatch(expected, &found))
+        Err(cx.mismatch(expected, found))
     }
 }
 
