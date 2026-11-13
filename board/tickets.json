@@ -33181,12 +33181,12 @@
     {
       "id": 3072,
       "title": "[DeepSeek] Playground: reloading a project (add_project) makes a fresh LayeredStore, losing its entries; key the store by project root so a reload keeps them (SW-2919 finding 5)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "editor-playground",
-      "body": "",
+      "body": "\nModel result: DeepSeek, worked, 15 min (est. 30).",
       "created": "2026-11-13",
       "updated": "2026-11-13",
       "commits": []
