@@ -34143,7 +34143,7 @@
     {
       "id": 3146,
       "title": "[DeepSeek] SW-3132 review tests (docs/reviews/SW-3132-review.md L2, L3): evaluator test for the native pre-forcing stopping rule and other argument positions (mul, leq, divFuel; call in argument 1; a stuck first argument stops it), asserting one machine; a zonk test for empty_row_done past depth 32",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
@@ -34429,7 +34429,7 @@
     {
       "id": 3168,
       "title": "[Sonnet] Lossless tree lane D: every Pattern kind, incl. let patterns and or-patterns",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
