@@ -121,13 +121,13 @@ theorem floorOnScreen (level: Level) (entranceFits: OnMap level.entrance) (exitF
         | False =>
           match inRoom: level.rooms.any (.contains position) with
             | True =>
-              List.anyTrueElim level.rooms (.contains position) (OnScreen position) inRoom
-                (area listed contained => containedOnScreen area (roomsFit area listed) position contained)
+              match inRoom with
+                | Witness area (Both listed contained) => containedOnScreen area (roomsFit area listed) position contained
             | False =>
               match inCorridor: level.corridors.any (.contains position) with
                 | True =>
-                  List.anyTrueElim level.corridors (.contains position) (OnScreen position) inCorridor
-                    (area listed contained => containedOnScreen area (corridorsFit area listed) position contained)
+                  match inCorridor with
+                    | Witness area (Both listed contained) => containedOnScreen area (corridorsFit area listed) position contained
 
 --| The terrain is drawn 20 rows by 66 columns, whatever the level.
 theorem terrainRows (level: Level): (drawTerrain level).length = levelRows :=

@@ -7,7 +7,7 @@ import Std (DecEq, Eq, Nat, Void)
 
 theorem natEqSelf (n: Nat): (n == n) = True := rewrite Nat.eqIsEqual n n, Nat.equalRefl n in rfl
 
-theorem natSound (m: Nat) (n: Nat) (same: (m == n) = True): m = n := Nat.equalSound m n (rewrite <- Nat.eqIsEqual m n in same)
+theorem natSound (m: Nat) (n: Nat) (same: (m == n) = True): m = n := same.read
 
 theorem zeroPlus (n: Nat): 0 + n = n := omega
 
@@ -21,7 +21,7 @@ theorem positionExt (p: Position) (q: Position) (sameRow: p.row = q.row) (sameCo
 
 --| Two cells on the same row that aren't the same cell are in different columns.
 theorem columnDiffers (p: Position) (q: Position) (differ: (p == q) = False) (sameRow: (p.row == q.row) = True): (p.column == q.column) = False :=
-  let notSame := DecEq.soundFalse p q differ
+  let notSame := differ.read
   match sameColumn: p.column == q.column with
     | True => Void.exfalso (notSame (positionExt p q (natSound p.row q.row sameRow) (natSound p.column q.column sameColumn)))
     | False => rfl
