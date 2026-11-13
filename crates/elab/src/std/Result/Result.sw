@@ -43,12 +43,12 @@ def Result.traverseLoop (f: a → Result b e) (done: List b): (xs: List a) → R
       | Err m => Err m
 
 --| Two maps are one map of the composite.
-theorem Result.mapMap (f: a → b) (g: b → c) (r: Result a e): Result.map (Result.map r f) g = Result.map r (x => g (f x)) :=
+theorem Result.mapMap ∀ (f: a → b) (g: b → c) (r: Result a e): Result.map (Result.map r f) g = Result.map r (x => g (f x)) :=
   match r with
     | Ok x => rfl
     | Err m => rfl
 
-theorem Result.okInjective [x: a] [y: a] (h: (Ok x: Result a e) = Ok y): x = y := Eq.cong (.getOrElse x) h
+theorem Result.okInjective ∀ [x: a] [y: a] (h: (Ok x: Result a e) = Ok y): x = y := Eq.cong (.getOrElse x) h
 
 --| If `flatMap f r` is `Ok v`, then `r` held some `u` with `f u = Ok v`.
 theorem Result.flatMapEqOk [goal: Prop]: ∀ (r: Result a e) (f: a → Result b e) (v: b) => Result.flatMap r f = Ok v → ∀ (cont: ∀ (u: a) => r = Ok u → f u = Ok v → goal) => goal
@@ -56,7 +56,7 @@ theorem Result.flatMapEqOk [goal: Prop]: ∀ (r: Result a e) (f: a → Result b 
   | Err m, f, v, h, use => Void.exfalso (Result.errNotOk h)
 
 --| The values done so far go in front of what the rest gives.
-theorem Result.traverseLoopDone (f: a → Result b e) (xs: List a) (done: List b):
+theorem Result.traverseLoopDone ∀ (f: a → Result b e) (xs: List a) (done: List b):
     Result.traverseLoop f done xs = Result.map (Result.traverseLoop f [] xs) (ys => List.reverseOnto done ys) :=
   match xs with
     | [] => rfl
@@ -68,7 +68,7 @@ theorem Result.traverseLoopDone (f: a → Result b e) (xs: List a) (done: List b
         | Err m => rfl
 
 --| The step of `Result.traverse`, which the loop form hides.
-theorem Result.traverseCons (f: a → Result b e) (x: a) (xs: List a):
+theorem Result.traverseCons ∀ (f: a → Result b e) (x: a) (xs: List a):
     Result.traverse [x, ..xs] f = Result.flatMap (f x) (y => Result.map (Result.traverse xs f) (Cons y)) :=
   match e: f x with
     | Ok y => rewrite Result.traverseLoopDone f xs [y] in rfl
@@ -76,7 +76,7 @@ theorem Result.traverseCons (f: a → Result b e) (x: a) (xs: List a):
 
 --| A `traverse` that gave `Ok ys`: each value is what `f` gave for its input,
 --| so whatever `r` each `Ok` of `f` satisfies holds pairwise.
-theorem Result.traverseAll2 (f: a → Result b e) (r: a → b → Prop) (each: ∀ (x: a) (y: b) => f x = Ok y → r x y)
+theorem Result.traverseAll2 ∀ (f: a → Result b e) (r: a → b → Prop) (each: ∀ (x: a) (y: b) => f x = Ok y → r x y)
     (xs: List a) (ys: List b) (done: Result.traverse xs f = Ok ys): List.All2 r xs ys := match xs with
       | [] => rewrite <- Result.okInjective done in Trivial
       | [x, ..rest] =>
@@ -88,7 +88,7 @@ theorem Result.traverseAll2 (f: a → Result b e) (r: a → b → Prop) (each: �
 --| The converse of [`Result.traverseAll2`]: if `f` gives `Ok y` for every
 --| pair that `r` relates, then `traverse` over lists `r` relates pairwise
 --| gives `Ok` of the second list.
-theorem Result.traverseOfAll2 (f: a → Result b e) (r: a → b → Prop) (each: ∀ (x: a) (y: b) => r x y → f x = Ok y)
+theorem Result.traverseOfAll2 ∀ (f: a → Result b e) (r: a → b → Prop) (each: ∀ (x: a) (y: b) => r x y → f x = Ok y)
     (xs: List a) (ys: List b) (all: List.All2 r xs ys): Result.traverse xs f = Ok ys := match xs, ys with
       | [], [] => rfl
       | [x, ..rest], [y, ..more] =>
@@ -99,7 +99,7 @@ def Option.toResult: (option: Option a) → (err: e) → Result a e
   | None, err => Err err
   | Some x, err => Ok x
 
-theorem Result.toOptionToResult (err: e) (o: Option a): Result.toOption (Option.toResult o err) = o := match o with
+theorem Result.toOptionToResult ∀ (err: e) (o: Option a): Result.toOption (Option.toResult o err) = o := match o with
   | None => rfl
   | Some x => rfl
 

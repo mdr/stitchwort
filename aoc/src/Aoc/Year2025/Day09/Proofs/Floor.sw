@@ -28,19 +28,19 @@ def floorCells (tiles: List Point): List (List Nat) :=
 
 -- 1. Only lines that touch a tile's row matter ---------------------------------
 
-theorem halfOpenBetween (one: Nat) (other: Nat) (value: Nat) (h: isBetweenHalfOpen one other value = True): isBetween one other value = True :=
+theorem halfOpenBetween ∀ (one: Nat) (other: Nat) (value: Nat) (h: isBetweenHalfOpen one other value = True): isBetween one other value = True :=
   match h with
     | Inl l => Inl (omega)
     | Inr r => Inr (omega)
 
-theorem onLineTouches (tile: Point) (line: Line) (h: tile.isOnLine line = True): touchesRow tile.y line = True :=
+theorem onLineTouches ∀ (tile: Point) (line: Line) (h: tile.isOnLine line = True): touchesRow tile.y line = True :=
   h.right
 
-theorem crossesTouches (tile: Point) (line: Line) (h: crossesRightOf tile line = True): touchesRow tile.y line = True :=
+theorem crossesTouches ∀ (tile: Point) (line: Line) (h: crossesRightOf tile line = True): touchesRow tile.y line = True :=
   let Both _ (Both _ half) := h
   halfOpenBetween line.from.y line.to.y tile.y half
 
-theorem isRedOrGreenNear (tiles: List Point) (tile: Point):
+theorem isRedOrGreenNear ∀ (tiles: List Point) (tile: Point):
     isRedOrGreen (List.filter (loopLines tiles) (touchesRow tile.y)) tile = redOrGreen tiles tile :=
   rewrite List.anyFilter (loopLines tiles) tile.isOnLine (touchesRow tile.y) (onLineTouches tile),
     List.countFilter (loopLines tiles) (crossesRightOf tile) (touchesRow tile.y) (crossesTouches tile)
@@ -51,7 +51,7 @@ theorem isRedOrGreenNear (tiles: List Point) (tile: Point):
 --| 1 outside the loop, 0 for a red or green tile.
 def outsideFlag (redOrGreen: Bool): Nat := if redOrGreen then 0 else 1
 
-theorem cellAt (tiles: List Point) (r: Nat) (c: Nat) (hr: r < List.length (Floor.of tiles).rows) (hc: c < List.length (Floor.of tiles).columns):
+theorem cellAt ∀ (tiles: List Point) (r: Nat) (c: Nat) (hr: r < List.length (Floor.of tiles).rows) (hc: c < List.length (Floor.of tiles).columns):
     PrefixSums.cell (floorCells tiles) r c = outsideFlag (redOrGreen tiles (keyTile (Floor.of tiles) c r)) :=
   let floor := Floor.of tiles
   let lines := loopLines tiles
@@ -62,12 +62,12 @@ theorem cellAt (tiles: List Point) (r: Nat) (c: Nat) (hr: r < List.length (Floor
     in rfl
 
 --| A cell is 0 exactly when its tile is red or green.
-theorem outsideFlagZero (b: Bool) (h: outsideFlag b = 0): b = True := match b with
+theorem outsideFlagZero ∀ (b: Bool) (h: outsideFlag b = 0): b = True := match b with
   | True => rfl
   | False => Void.exfalso (Nat.succNotZero 0 h)
 
 --| Every row of the floor is as long as the key columns.
-theorem lengthCellRow (tiles: List Point) (r: Nat) (hr: r < List.length (Floor.of tiles).rows):
+theorem lengthCellRow ∀ (tiles: List Point) (r: Nat) (hr: r < List.length (Floor.of tiles).rows):
     List.length (List.getOr (floorCells tiles) r []) = List.length (Floor.of tiles).columns :=
   let floor := Floor.of tiles
   let lines := loopLines tiles
@@ -86,7 +86,7 @@ def allKeys (tiles: List Point) (first: Corner) (second: Corner): Bool :=
     (List.range (Nat.min first.row second.row) (Nat.max first.row second.row + 1))
     (r => List.all (List.range (Nat.min first.column second.column) (Nat.max first.column second.column + 1)) (c => redOrGreen tiles (keyTile (Floor.of tiles) c r)))
 
-theorem allRedOrGreenKeys (tiles: List Point) (first: Corner) (second: Corner) (inside: Inside (Floor.of tiles) first second):
+theorem allRedOrGreenKeys ∀ (tiles: List Point) (first: Corner) (second: Corner) (inside: Inside (Floor.of tiles) first second):
     Floor.allRedOrGreen (Floor.of tiles) { corner = first, opposite = second } = allKeys tiles first second :=
   let floor := Floor.of tiles
   let cells := floorCells tiles

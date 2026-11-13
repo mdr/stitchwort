@@ -8,7 +8,7 @@ import Aoc.Year2021.Day10.Spec (..)
 import Std (Bool, Eq, List, Nat, Void)
 
 --| `y < x` is false when `x ≤ y`.
-theorem notBelow (x: Nat) (y: Nat) (h: x ≤ y): (y < x) = False := omega
+theorem notBelow ∀ (x: Nat) (y: Nat) (h: x ≤ y): (y < x) = False := omega
 
 --| In a sorted list, at most k elements are below the one at index k.
 theorem countBelowSorted: ∀ (sorted: List Nat) => List.Sorted Nat.leq sorted → ∀ (k: Nat) => k < sorted.length →
@@ -35,7 +35,7 @@ theorem countAboveSorted: ∀ (sorted: List Nat) => List.Sorted Nat.leq sorted �
     rewrite List.countCons rest x (score => rest.getOr k 0 < score), notBelow x (rest.getOr k 0) atMost in omega
 
 --| The program's middle is a middle score of any nonempty list.
-theorem middleIsMiddle (scores: List Nat) (some: scores ≠ []): Middle scores (middle scores) :=
+theorem middleIsMiddle ∀ (scores: List Nat) (some: scores ≠ []): Middle scores (middle scores) :=
   let sorted := scores.sort
   let n := scores.length
   let k := n / 2
@@ -57,7 +57,7 @@ theorem middleIsMiddle (scores: List Nat) (some: scores ≠ []): Middle scores (
   Both member (Both (omega) (omega))
 
 --| The scores that aren't above `a` and those that are make up the list.
-theorem countSplit (a: Nat) (xs: List Nat): xs.count (score => not (a < score)) + xs.count (score => a < score) = xs.length :=
+theorem countSplit ∀ (a: Nat) (xs: List Nat): xs.count (score => not (a < score)) + xs.count (score => a < score) = xs.length :=
   match xs with
     | [] => rfl
     | [x, ..rest] =>
@@ -68,7 +68,7 @@ theorem countSplit (a: Nat) (xs: List Nat): xs.count (score => not (a < score)) 
           | False => omega
 
 --| With an odd number of scores, a middle score can't be below another.
-theorem middleNotBelow (scores: List Nat) (a: Nat) (b: Nat) (odd: scores.length % 2 = 1) (first: Middle scores a) (second: Middle scores b) (less: a < b): Void :=
+theorem middleNotBelow ∀ (scores: List Nat) (a: Nat) (b: Nat) (odd: scores.length % 2 = 1) (first: Middle scores a) (second: Middle scores b) (less: a < b): Void :=
   let split := countSplit a scores
   let moreBelowB := List.countLeMem scores (score => not (a < score)) (score => score < b)
     (score member atMost => match above: a < score with
@@ -79,7 +79,7 @@ theorem middleNotBelow (scores: List Nat) (a: Nat) (b: Nat) (odd: scores.length 
   omega
 
 --| With an odd number of scores, the middle score is unique.
-theorem middleUnique (scores: List Nat) (a: Nat) (b: Nat) (odd: scores.length % 2 = 1) (first: Middle scores a) (second: Middle scores b): a = b :=
+theorem middleUnique ∀ (scores: List Nat) (a: Nat) (b: Nat) (odd: scores.length % 2 = 1) (first: Middle scores a) (second: Middle scores b): a = b :=
   match less: a < b with
     | True => Void.exfalso (middleNotBelow scores a b odd first second less)
     | False =>

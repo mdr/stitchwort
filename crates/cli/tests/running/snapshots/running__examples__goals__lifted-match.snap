@@ -3,30 +3,30 @@ source: crates/cli/tests/running/examples.rs
 expression: output
 ---
 [GOAL] Goal: in `followsCons`
-    ╭─[ goals/lifted-match.sw:12:89 ]
+    ╭─[ goals/lifted-match.sw:12:91 ]
     │
- 12 │ theorem followsCons (x: Nat) (rest: List Nat) (flag: Bool): Follows [x, ..rest] flag := ?
-    │                                                                                         ┬  
-    │                                                                                         ╰── x: Nat
-    │                                                                                             rest: List Nat
-    │                                                                                             flag: Bool
-    │                                                                                             ⊢ x ≤ 3 ∧ (match flag with …)
+ 12 │ theorem followsCons ∀ (x: Nat) (rest: List Nat) (flag: Bool): Follows [x, ..rest] flag := ?
+    │                                                                                           ┬  
+    │                                                                                           ╰── x: Nat
+    │                                                                                               rest: List Nat
+    │                                                                                               flag: Bool
+    │                                                                                               ⊢ x ≤ 3 ∧ (match flag with …)
 ────╯
 [GOAL] Goal: in `statementMatch`
-    ╭─[ goals/lifted-match.sw:15:97 ]
+    ╭─[ goals/lifted-match.sw:15:99 ]
     │
- 15 │ theorem statementMatch (flag: Bool) (n: Nat): (match flag with | True => n | False => 0) ≤ n := ?
-    │                                                                                                 ┬  
-    │                                                                                                 ╰── flag: Bool
-    │                                                                                                     n: Nat
-    │                                                                                                     ⊢ (match flag with …) ≤ n
+ 15 │ theorem statementMatch ∀ (flag: Bool) (n: Nat): (match flag with | True => n | False => 0) ≤ n := ?
+    │                                                                                                   ┬  
+    │                                                                                                   ╰── flag: Bool
+    │                                                                                                       n: Nat
+    │                                                                                                       ⊢ (match flag with …) ≤ n
 ────╯
 [GOAL] Goal: in `pairMatch`
-    ╭─[ goals/lifted-match.sw:18:105 ]
+    ╭─[ goals/lifted-match.sw:18:107 ]
     │
- 18 │ theorem pairMatch (a: Nat) (b: Nat): (match a, b with | Zero, _ => 0 | _, Zero => 1 | _, _ => 2) ≤ 2 := ?
-    │                                                                                                         ┬  
-    │                                                                                                         ╰── a: Nat
-    │                                                                                                             b: Nat
-    │                                                                                                             ⊢ (match a, b with …) ≤ 2
+ 18 │ theorem pairMatch ∀ (a: Nat) (b: Nat): (match a, b with | Zero, _ => 0 | _, Zero => 1 | _, _ => 2) ≤ 2 := ?
+    │                                                                                                           ┬  
+    │                                                                                                           ╰── a: Nat
+    │                                                                                                               b: Nat
+    │                                                                                                               ⊢ (match a, b with …) ≤ 2
 ────╯

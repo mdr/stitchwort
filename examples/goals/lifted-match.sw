@@ -9,10 +9,10 @@ def Follows (xs: List Nat) (flag: Bool): Prop := match xs with
     | False => x = 1
 
 -- The call matched at once; the inner `match` is what the goal is stuck on.
-theorem followsCons (x: Nat) (rest: List Nat) (flag: Bool): Follows [x, ..rest] flag := ?
+theorem followsCons ∀ (x: Nat) (rest: List Nat) (flag: Bool): Follows [x, ..rest] flag := ?
 
 -- The statement's own `match`.
-theorem statementMatch (flag: Bool) (n: Nat): (match flag with | True => n | False => 0) ≤ n := ?
+theorem statementMatch ∀ (flag: Bool) (n: Nat): (match flag with | True => n | False => 0) ≤ n := ?
 
 -- Two scrutinees, shown in the order written.
-theorem pairMatch (a: Nat) (b: Nat): (match a, b with | Zero, _ => 0 | _, Zero => 1 | _, _ => 2) ≤ 2 := ?
+theorem pairMatch ∀ (a: Nat) (b: Nat): (match a, b with | Zero, _ => 0 | _, Zero => 1 | _, _ => 2) ≤ 2 := ?

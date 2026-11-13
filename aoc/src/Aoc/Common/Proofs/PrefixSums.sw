@@ -9,7 +9,7 @@ import Std (Bool, Eq, List, Map, Nat, Void)
 
 --| Row r of the table, entry c: the entry of `above`, plus entry c of each of
 --| the first r rows of sums.
-theorem PrefixSums.tableAt (c: Nat): ∀ (above: List Nat) (sums: List (List Nat)) => c < List.length above →
+theorem PrefixSums.tableAt ∀ (c: Nat): ∀ (above: List Nat) (sums: List (List Nat)) => c < List.length above →
     (∀ (i: Nat) => i < List.length sums → c < List.length (List.getOr sums i [])) → ∀ (r: Nat) => r ≤ List.length sums →
     List.getOr (List.getOr (PrefixSums.table above sums) r []) c 0 = List.getOr above c 0 + List.sumBy (List.range 0 r) (i => List.getOr (List.getOr sums i []) c 0)
   | above, [], ha, hs, Zero, hr => Eq.sym (Nat.addZero (List.getOr above c 0))
@@ -26,7 +26,7 @@ theorem PrefixSums.tableAt (c: Nat): ∀ (above: List Nat) (sums: List (List Nat
 
 --| Entry (r, c) of the table is the sum of the cells above row r and left of
 --| column c.
-theorem PrefixSums.atOf (rows: List (List Nat)) (r: Nat) (c: Nat) (hr: r ≤ List.length rows) (hc: c ≤ List.maxLength rows):
+theorem PrefixSums.atOf ∀ (rows: List (List Nat)) (r: Nat) (c: Nat) (hr: r ≤ List.length rows) (hc: c ≤ List.maxLength rows):
     PrefixSums.at (PrefixSums.of rows) r c = PrefixSums.blockSpec rows 0 r 0 c :=
   let width := List.maxLength rows
   let sums := List.map rows (row => PrefixSums.runningSums (List.padRight row width 0))
@@ -60,7 +60,7 @@ theorem PrefixSums.atOf (rows: List (List Nat)) (r: Nat) (c: Nat) (hr: r ≤ Lis
       List.sumByCongRange (i => List.getOr (List.getOr sums i []) c 0) (i => List.sumBy (List.rangeFrom (c - 0) 0) (j => PrefixSums.cell rows i j)) 0 r rowSum
 
 --| The block from four entries of the table is the sum of its cells.
-theorem PrefixSums.blockSum (rows: List (List Nat)) (top: Nat) (bottom: Nat) (left: Nat) (right: Nat)
+theorem PrefixSums.blockSum ∀ (rows: List (List Nat)) (top: Nat) (bottom: Nat) (left: Nat) (right: Nat)
     (tb: top ≤ bottom) (bh: bottom ≤ List.length rows) (lr: left ≤ right) (rw: right ≤ List.maxLength rows):
     PrefixSums.block (PrefixSums.of rows) top bottom left right = PrefixSums.blockSpec rows top bottom left right :=
   let cell := PrefixSums.cell rows

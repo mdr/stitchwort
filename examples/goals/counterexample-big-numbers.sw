@@ -12,7 +12,7 @@ def doubleTimes: (n: Nat) → (count: Nat) → Nat
   | n, Zero => n
   | n, Succ count => doubleTimes (n * 2) count
 
-theorem doubleTimesHalved (n: Nat) (count: Nat): Nat.shiftRight (doubleTimes n count) count = n := ?
+theorem doubleTimesHalved ∀ (n: Nat) (count: Nat): Nat.shiftRight (doubleTimes n count) count = n := ?
 
 -- 2^k by squaring, with `fuel` halvings of `k` before it counts up.
 def powTwo: (fuel: Nat) → (k: Nat) → Nat
@@ -23,4 +23,4 @@ def powTwo: (fuel: Nat) → (k: Nat) → Nat
       let half: Nat := powTwo fuel (k / 2)
       if k % 2 == 0 then half * half else half * half * 2
 
-theorem powTwoIsPow (fuel: Nat) (k: Nat): powTwo fuel k = Nat.pow 2 k := ?
+theorem powTwoIsPow ∀ (fuel: Nat) (k: Nat): powTwo fuel k = Nat.pow 2 k := ?

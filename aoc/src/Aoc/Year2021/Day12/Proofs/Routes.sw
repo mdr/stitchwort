@@ -17,7 +17,7 @@ def Follows (next: Cave → List Cave) (unvisited: List Cave) (spare: Bool) (cav
         | Continue left stillSpare => Follows next left stillSpare other rest)
 
 --| Every route listed follows the steps...
-theorem routesFollow (next: Cave → List Cave) (unvisited: List Cave) (spare: Bool) (cave: Cave)
+theorem routesFollow ∀ (next: Cave → List Cave) (unvisited: List Cave) (spare: Bool) (cave: Cave)
     (steps: Nat) (rest: List Cave) (found: rest ∈ routesFrom next unvisited spare cave steps): Follows next unvisited spare cave rest :=
   match steps with
     | Succ more =>
@@ -34,7 +34,7 @@ theorem routesFollow (next: Cave → List Cave) (unvisited: List Cave) (spare: B
 
 --| ...and every route that follows them is listed, if the search goes deep
 --| enough.
-theorem followRoutes (next: Cave → List Cave) (unvisited: List Cave) (spare: Bool) (cave: Cave)
+theorem followRoutes ∀ (next: Cave → List Cave) (unvisited: List Cave) (spare: Bool) (cave: Cave)
     (steps: Nat) (rest: List Cave) (enough: reach unvisited spare cave < steps) (follows: Follows next unvisited spare cave rest): rest ∈ routesFrom next unvisited spare cave steps :=
   match steps, rest, follows with
     | Succ more, [], follows => Void.exfalso follows
@@ -46,16 +46,16 @@ theorem followRoutes (next: Cave → List Cave) (unvisited: List Cave) (spare: B
             List.memMap _ tail (followRoutes next left stillSpare other more tail (omega [stepDecreases unvisited spare cave other left stillSpare e]) after) (Cons other))
 
 --| Routes on from `other` start with it...
-theorem viaFirst (other: Cave) (after: List (List Cave)) (route: List Cave) (found: route ∈ routesVia other after): route.headOr Cave.start = other :=
+theorem viaFirst ∀ (other: Cave) (after: List (List Cave)) (route: List Cave) (found: route ∈ routesVia other after): route.headOr Cave.start = other :=
   Exists.elim (List.memMapElim (Cons other) route after found) (tail both => rewrite <- And.right both in rfl)
 
 --| ...and are as many as the routes they continue.
-theorem viaDistinct (other: Cave) (after: List (List Cave)) (distinct: List.Distinct after): List.Distinct (routesVia other after) :=
+theorem viaDistinct ∀ (other: Cave) (after: List (List Cave)) (distinct: List.Distinct after): List.Distinct (routesVia other after) :=
   List.distinctMap after distinct (Cons other) (a b same => Eq.cong (route => route.drop 1) same)
 
 --| The search lists each route once, if each cave's neighbours are listed
 --| once.
-theorem routesDistinct (next: Cave → List Cave) (distinctNext: ∀ (cave: Cave) => List.Distinct (next cave)) (unvisited: List Cave) (spare: Bool) (cave: Cave)
+theorem routesDistinct ∀ (next: Cave → List Cave) (distinctNext: ∀ (cave: Cave) => List.Distinct (next cave)) (unvisited: List Cave) (spare: Bool) (cave: Cave)
     (steps: Nat): List.Distinct (routesFrom next unvisited spare cave steps) := match steps with
       | Zero => Trivial
       | Succ more =>

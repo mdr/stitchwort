@@ -11,14 +11,14 @@ import Aoc.Year2024.Day24.Spec (..)
 import Std (Bool, Eq, Exists, List, Map, Nat, Option, Ord, Void)
 
 --| Firing gates keeps every wire that had a value.
-theorem fireOntoKeeps (values: Values) (wire: Wire) (ready: List Gate) (settled: Values) (there: settled.contains wire = True):
+theorem fireOntoKeeps ∀ (values: Values) (wire: Wire) (ready: List Gate) (settled: Values) (there: settled.contains wire = True):
     (fireOnto values settled ready).contains wire = True := match ready with
       | [] => there
       | [gate, ..rest] =>
         fireOntoKeeps values wire rest _ (Map.containsInsertKeeps settled gate.output ((gate.fire values).getOrElse False) wire there)
 
 --| Every gate fired puts a value on its output.
-theorem fireOntoAdds (values: Values) (gate: Gate) (ready: List Gate) (settled: Values) (member: gate ∈ ready):
+theorem fireOntoAdds ∀ (values: Values) (gate: Gate) (ready: List Gate) (settled: Values) (member: gate ∈ ready):
     (fireOnto values settled ready).contains gate.output = True := match ready, member with
       | [], member => Void.exfalso member
       | [first, ..rest], Inl same =>
@@ -26,7 +26,7 @@ theorem fireOntoAdds (values: Values) (gate: Gate) (ready: List Gate) (settled: 
       | [first, ..rest], Inr later => fireOntoAdds values gate rest _ later
 
 --| A filter that drops nothing keeps every element.
-theorem filterFull (keep: a → Bool): ∀ (xs: List a) => Nat.leq (Succ (xs.filter keep).length) xs.length = False → ∀ (x: a) => x ∈ xs → keep x = True
+theorem filterFull ∀ (keep: a → Bool): ∀ (xs: List a) => Nat.leq (Succ (xs.filter keep).length) xs.length = False → ∀ (x: a) => x ∈ xs → keep x = True
   | [], full, x, member => Void.exfalso member
   | [first, ..rest], full, x, member =>
     match kept: keep first with
@@ -37,7 +37,7 @@ theorem filterFull (keep: a → Bool): ∀ (xs: List a) => Nat.leq (Succ (xs.fil
           | Inr later => filterFull keep rest full x later
 
 --| Settling keeps every wire that had a value.
-theorem settleKeeps (wire: Wire) (values: Values) (waiting: List Gate) (there: values.contains wire = True): (settle values waiting).contains wire = True
+theorem settleKeeps ∀ (wire: Wire) (values: Values) (waiting: List Gate) (there: values.contains wire = True): (settle values waiting).contains wire = True
     decreasing waiting.length
 := match fewer: (waiting.filter (gate => ¬(gate.ready values))).length < waiting.length with
   | False => rewrite settleDone values waiting fewer in there
@@ -49,7 +49,7 @@ theorem settleKeeps (wire: Wire) (values: Values) (waiting: List Gate) (there: v
 
 --| When the gates have settled, each gate either has put a value on its
 --| output or isn't ready: one of its inputs has no value.
-theorem settleCovers (device: Device) (values: Values) (waiting: List Gate)
+theorem settleCovers ∀ (device: Device) (values: Values) (waiting: List Gate)
     (covered: ∀ (gate: Gate) => gate ∈ device.gates → gate ∈ waiting ∨ values.contains gate.output = True) (gate: Gate) (wired: gate ∈ device.gates):
     (settle values waiting).contains gate.output = True ∨ gate.ready (settle values waiting) = False
     decreasing waiting.length
@@ -73,7 +73,7 @@ theorem settleCovers (device: Device) (values: Values) (waiting: List Gate)
       settleCovers device next (waiting.filter (gate => ¬(gate.ready values))) nextCovered gate wired [decreasing := fewer]
 
 --| A key among the pairs is found by `Map.lookupLast`.
-theorem lookupLastFound [auto ord: Ord k] (key: k) (value: v) (pairs: List (k, v)) (member: (key, value) ∈ pairs): ∃ (found: v) => Map.lookupLast key pairs = Some found :=
+theorem lookupLastFound ∀ [auto ord: Ord k] (key: k) (value: v) (pairs: List (k, v)) (member: (key, value) ∈ pairs): ∃ (found: v) => Map.lookupLast key pairs = Some found :=
   match pairs with
     | [(other, otherValue), ..rest] =>
       match later: Map.lookupLast key rest with
@@ -86,7 +86,7 @@ theorem lookupLastFound [auto ord: Ord k] (key: k) (value: v) (pairs: List (k, v
                 | Witness found isFound => Void.exfalso (Option.noneNotSome found (Eq.trans (Eq.sym later) isFound))
 
 --| Every wire that carries a value has one once the gates settle.
-theorem containsComplete (device: Device) (wire: Wire) (value: Bool): Carries device wire value → device.settled.contains wire = True
+theorem containsComplete ∀ (device: Device) (wire: Wire) (value: Bool): Carries device wire value → device.settled.contains wire = True
   | Starts given =>
     match lookupLastFound wire value device.initial given with
       | Witness found isFound =>
@@ -104,20 +104,20 @@ theorem containsComplete (device: Device) (wire: Wire) (value: Bool): Carries de
 
 --| In a well-formed device, every value a wire carries is the value the
 --| gates settle to.
-theorem settledComplete (device: Device) (wellFormed: WellFormed device) (wire: Wire) (value: Bool) (carries: Carries device wire value):
+theorem settledComplete ∀ (device: Device) (wellFormed: WellFormed device) (wire: Wire) (value: Bool) (carries: Carries device wire value):
     device.settled.get wire = Some value :=
   match Map.getOfContains device.settled wire (containsComplete device wire value carries) with
     | Witness found isFound => rewrite isFound, carriesUnique device wellFormed wire found value (settledSound device wire found isFound) carries in rfl
 
 --| `allSome` of options that each have a value.
-theorem allSomeMap (f: a → Option b) (g: a → b) (xs: List a) (each: ∀ (x: a) => x ∈ xs → f x = Some (g x)): List.allSome (xs.map f) = Some (xs.map g) :=
+theorem allSomeMap ∀ (f: a → Option b) (g: a → b) (xs: List a) (each: ∀ (x: a) => x ∈ xs → f x = Some (g x)): List.allSome (xs.map f) = Some (xs.map g) :=
   match xs with
     | [] => rfl
     | [x, ..rest] => rewrite each x (Inl rfl), allSomeMap f g rest (other member => each other (Inr member)) in rfl
 
 --| Part 1, complete for well-formed devices: a number the device outputs is
 --| the program's answer.
-theorem part1Complete (device: Device) (wellFormed: WellFormed device) (number: Nat) (outputs: Outputs device number): solvePart1 device = Some number :=
+theorem part1Complete ∀ (device: Device) (wellFormed: WellFormed device) (number: Nat) (outputs: Outputs device number): solvePart1 device = Some number :=
   let count := bitCount Wire.zBit device.wires
   let zValue := (bit: Nat) => if device.wires.contains (Z bit) then device.settled.get (Z bit) else Some False
   let each: ∀ (bit: Nat) => bit ∈ List.range 0 count → zValue bit = Some (Nat.testBit number bit) := (bit member =>

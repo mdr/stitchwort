@@ -16,31 +16,31 @@ def Done: Wanted → List Packet → BitReader → Prop
 
 --| After the next packet, what is still wanted, if read, completes what
 --| was wanted.
-theorem doneNext (wanted: Wanted) (later: Wanted) (reader: BitReader) (packet: Packet) (more: List Packet) (left: BitReader)
+theorem doneNext ∀ (wanted: Wanted) (later: Wanted) (reader: BitReader) (packet: Packet) (more: List Packet) (left: BitReader)
     (next: nextWanted wanted reader = Some later) (done: Done later more left): Done wanted [packet, ..more] left :=
   match wanted, reader with
     | Packets (Succ count), _ => rewrite <- Option.someInjective next at done in rewrite done in rfl
     | Filling, { unread = [_, .._] } => rewrite <- Option.someInjective next at done in done
 
 --| Nothing more wanted: none was what was wanted.
-theorem doneNone (wanted: Wanted) (reader: BitReader) (none: nextWanted wanted reader = None): Done wanted [] reader :=
+theorem doneNone ∀ (wanted: Wanted) (reader: BitReader) (none: nextWanted wanted reader = None): Done wanted [] reader :=
   match wanted, reader with
     | Packets 0, _ => rfl
     | Packets (Succ count), _ => cases
     | Filling, { unread = [] } => rfl
 
 --| A literal with a version below 8 and groups, each below 16.
-theorem literalWellFormed (version: Nat) (groups: NonEmptyList Nat) (small: version < 8) (each: groups.all (group => group < 16) = True):
+theorem literalWellFormed ∀ (version: Nat) (groups: NonEmptyList Nat) (small: version < 8) (each: groups.all (group => group < 16) = True):
     wellFormed (Literal version groups) = True :=
   Both (omega [small]) each
 
 --| The bits of a packet, then of the packets after it.
-theorem soundStep (unread: List Bool) (after: List Bool) (left: List Bool) (packet: Packet) (more: List Packet)
+theorem soundStep ∀ (unread: List Bool) (after: List Bool) (left: List Bool) (packet: Packet) (more: List Packet)
     (here: unread = encode packet ++ after) (later: after = encodeAll more ++ left): unread = encodeAll [packet, ..more] ++ left :=
   rewrite here, later in Eq.sym (List.appendAssoc (encode packet) (encodeAll more) left)
 
 --| One packet read, then what was still wanted.
-theorem finishStep (wanted: Wanted) (later: Wanted) (reader: BitReader) (after: BitReader) (left: BitReader) (rest: BitReader) (packet: Packet)
+theorem finishStep ∀ (wanted: Wanted) (later: Wanted) (reader: BitReader) (after: BitReader) (left: BitReader) (rest: BitReader) (packet: Packet)
     (more: List Packet) (packets: List Packet) (parts: [packet, ..more] = packets ∧ left = rest) (next: nextWanted wanted reader = Some later)
     (here: reader.unread = encode packet ++ after.unread) (formed: wellFormed packet = True)
     (laterRead: after.unread = encodeAll more ++ left.unread ∧ allWellFormed more = True ∧ Done later more left):
@@ -50,18 +50,18 @@ theorem finishStep (wanted: Wanted) (later: Wanted) (reader: BitReader) (after: 
       (Both (Both formed laterRead.right.left) (doneNext wanted later reader packet more left next laterRead.right.right))
 
 --| A type id below 8 that is no operator type's is 4.
-theorem operatorTypeOfNone (n: Nat) (small: n < 8) (none: operatorTypeOf n = None): n = 4 := match n with
+theorem operatorTypeOfNone ∀ (n: Nat) (small: n < 8) (none: operatorTypeOf n = None): n = 4 := match n with
   | 4 => rfl
   | Succ (Succ (Succ (Succ (Succ (Succ (Succ (Succ k))))))) => omega
 
 --| A literal's bits, field by field.
-theorem literalHere (version: Nat) (groups: NonEmptyList Nat) (unread: List Bool) (afterVersion: List Bool) (afterType: List Bool) (after: List Bool)
+theorem literalHere ∀ (version: Nat) (groups: NonEmptyList Nat) (unread: List Bool) (afterVersion: List Bool) (afterType: List Bool) (after: List Bool)
     (versionField: unread = Nat.toBits 3 version ++ afterVersion) (typeField: afterVersion = Nat.toBits 3 4 ++ afterType)
     (groupsField: afterType = groupBits groups ++ after): unread = encode (Literal version groups) ++ after :=
   Eq.trans versionField (Eq.cong (rest => Nat.toBits 3 version ++ rest) (Eq.trans typeField (Eq.cong (rest => Nat.toBits 3 4 ++ rest) groupsField)))
 
 --| An operator's bits with a total length, field by field.
-theorem totalHere (version: Nat) (code: Nat) (count: Nat) (subBits: List Bool) (unread: List Bool) (afterVersion: List Bool) (afterType: List Bool)
+theorem totalHere ∀ (version: Nat) (code: Nat) (count: Nat) (subBits: List Bool) (unread: List Bool) (afterVersion: List Bool) (afterType: List Bool)
     (afterBit: List Bool) (afterLength: List Bool) (following: List Bool) (versionField: unread = Nat.toBits 3 version ++ afterVersion)
     (typeField: afterVersion = Nat.toBits 3 code ++ afterType) (lengthType: afterType = [False, ..afterBit])
     (lengthField: afterBit = Nat.toBits 15 subBits.length ++ afterLength) (insideField: afterLength = subBits ++ following):
@@ -70,7 +70,7 @@ theorem totalHere (version: Nat) (code: Nat) (count: Nat) (subBits: List Bool) (
     (Eq.trans lengthType (Eq.cong (rest => [False, ..rest]) (Eq.trans lengthField (Eq.cong (rest => Nat.toBits 15 subBits.length ++ rest) insideField)))))))
 
 --| An operator's bits with a number of sub-packets, field by field.
-theorem countHere (version: Nat) (code: Nat) (count: Nat) (subBits: List Bool) (unread: List Bool) (afterVersion: List Bool) (afterType: List Bool)
+theorem countHere ∀ (version: Nat) (code: Nat) (count: Nat) (subBits: List Bool) (unread: List Bool) (afterVersion: List Bool) (afterType: List Bool)
     (afterBit: List Bool) (following: List Bool) (versionField: unread = Nat.toBits 3 version ++ afterVersion)
     (typeField: afterVersion = Nat.toBits 3 code ++ afterType) (lengthType: afterType = [True, ..afterBit])
     (countField: afterBit = Nat.toBits 11 count ++ (subBits ++ following)):
@@ -80,7 +80,7 @@ theorem countHere (version: Nat) (code: Nat) (count: Nat) (subBits: List Bool) (
 
 --| The operator made of sub-packets has the bits of an operator with their
 --| number and bits.
-theorem operatorOfBits (version: Nat) (operatorType: OperatorType) (lengthType: LengthType) (subPackets: List Packet) (packet: Packet)
+theorem operatorOfBits ∀ (version: Nat) (operatorType: OperatorType) (lengthType: LengthType) (subPackets: List Packet) (packet: Packet)
     (made: operatorOf version operatorType lengthType subPackets = Some packet):
     encode packet = operatorBits version (typeId operatorType) lengthType subPackets.length (encodeAll subPackets) :=
   match operatorType, subPackets with
@@ -89,7 +89,7 @@ theorem operatorOfBits (version: Nat) (operatorType: OperatorType) (lengthType: 
 
 --| The operator made of well-formed sub-packets whose bits fit is well
 --| formed.
-theorem operatorOfWellFormed (version: Nat) (operatorType: OperatorType) (lengthType: LengthType) (subPackets: List Packet) (packet: Packet)
+theorem operatorOfWellFormed ∀ (version: Nat) (operatorType: OperatorType) (lengthType: LengthType) (subPackets: List Packet) (packet: Packet)
     (made: operatorOf version operatorType lengthType subPackets = Some packet) (small: version < 8)
     (fits: fitsLength lengthType subPackets.length (encodeAll subPackets) = True) (each: allWellFormed subPackets = True): wellFormed packet = True :=
   match operatorType, subPackets with
@@ -100,7 +100,7 @@ theorem operatorOfWellFormed (version: Nat) (operatorType: OperatorType) (length
         let Both firstOk (Both secondOk _) := each
         Both (omega [small]) (Both (rewrite List.appendNil (encode second) at fits in fits) (Both firstOk secondOk))
 
-theorem readPacketsSound (wanted: Wanted) (reader: BitReader) (packets: List Packet) (rest: BitReader) (read: readPackets wanted reader = Some (packets, rest)):
+theorem readPacketsSound ∀ (wanted: Wanted) (reader: BitReader) (packets: List Packet) (rest: BitReader) (read: readPackets wanted reader = Some (packets, rest)):
     reader.unread = encodeAll packets ++ rest.unread ∧ allWellFormed packets = True ∧ Done wanted packets rest
     decreasing reader.length
 :=

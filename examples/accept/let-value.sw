@@ -6,12 +6,12 @@
 import Std (List, Nat)
 
 -- §1, example 1: `p` is `n`.
-theorem one (n: Nat): n ≤ n + 1 :=
+theorem one ∀ (n: Nat): n ≤ n + 1 :=
   let p := n
   Nat.leAddRight p 1
 
 -- A proof `let`, used twice.
-theorem twiceUsed (n: Nat): n ≤ Succ (Succ (Succ n)) :=
+theorem twiceUsed ∀ (n: Nat): n ≤ Succ (Succ (Succ n)) :=
   let h := Nat.leSucc n
   let h2 := Nat.leTrans n (Succ n) (Succ (Succ n)) h (Nat.leSucc (Succ n))
   let h3 := Nat.leTrans n (Succ n) (Succ (Succ n)) h (Nat.leSucc (Succ n))
@@ -37,7 +37,7 @@ theorem threeIs: three = 3 := rfl
 
 -- A `match` after a `let` is lifted into a helper, which re-creates the
 -- `let`, so the alternatives still know `ys` is `xs`.
-theorem helperKnows (xs: List Nat) (b: Bool): xs.length = xs.length :=
+theorem helperKnows ∀ (xs: List Nat) (b: Bool): xs.length = xs.length :=
   let ys := xs
   match b with
     | True => (rfl: ys.length = xs.length)
@@ -45,7 +45,7 @@ theorem helperKnows (xs: List Nat) (b: Bool): xs.length = xs.length :=
 
 -- Matching a `let`'s name: the goal's `xs` is generalised, and in each
 -- alternative `ys` is the matched value.
-theorem matchAlias (xs: List Nat): xs.length + 0 = xs.length :=
+theorem matchAlias ∀ (xs: List Nat): xs.length + 0 = xs.length :=
   let ys := xs
   match ys with
     | [] => rfl
@@ -61,7 +61,7 @@ def afterLet (n: Nat): Nat :=
 
 test "afterLet" := afterLet 5 == 13
 
-theorem afterLetIs (n: Nat): afterLet n = n * 2 + 1 + 1 + 1 := rfl
+theorem afterLetIs ∀ (n: Nat): afterLet n = n * 2 + 1 + 1 + 1 := rfl
 
 -- Nested `let`s under binders.
 def nested (a: Nat): Nat → Nat :=
@@ -70,7 +70,7 @@ def nested (a: Nat): Nat → Nat :=
     let y := x + b
     y + x
 
-theorem nestedIs (a b: Nat): nested a b = (a + 1 + b) + (a + 1) := rfl
+theorem nestedIs ∀ (a b: Nat): nested a b = (a + 1 + b) + (a + 1) := rfl
 
 -- A pure `let` in an effectful block is transparent too.
 ability Ask where
@@ -88,14 +88,14 @@ def inBlock (n: Nat): {Ask} Nat :=
 -- is out of scope where the solution is used.
 def ident [p: Prop] (x: p): p := x
 
-theorem metaOutside (n: Nat): n + 1 = n + 1 :=
+theorem metaOutside ∀ (n: Nat): n + 1 = n + 1 :=
   ident (
     let m := n + 1
     (rfl: m = m))
 
 -- An unknown made inside a `let` (`ident`'s type there), whose solution is
 -- the block's type, used after it.
-theorem metaInside (n: Nat): n + 1 = n + 1 :=
+theorem metaInside ∀ (n: Nat): n + 1 = n + 1 :=
   let p :=
     let m := n + 1
     ident (rfl: m = m)

@@ -23,7 +23,7 @@ import Std (And, Bool, Eq, List, Nat, Ord, Ordering, Pair, Void)
 
 --| The program's pairs, closest first, are the spec's connections in order,
 --| each with its key: sorting the keys is sorting the pairs by their keys.
-theorem closestFirstIsOrder (points: List Point): closestFirst points = List.map (connectionOrder points) (connectionKey points) :=
+theorem closestFirstIsOrder ∀ (points: List Point): closestFirst points = List.map (connectionOrder points) (connectionKey points) :=
   calc closestFirst points
     _ = List.sort (List.map (allPairs points.length) (connectionKey points)) :=
       rewrite List.withIndexRange points Point.origin, List.pairsMap (List.range 0 points.length) (i => (i, List.getOr points i Point.origin)),
@@ -32,7 +32,7 @@ theorem closestFirstIsOrder (points: List Point): closestFirst points = List.map
     _ = List.map (connectionOrder points) (connectionKey points) := Eq.sym (List.sortOnMap (allPairs points.length) (connectionKey points))
 
 --| The program's fold joins the first k connections.
-theorem joinedIsJoinAll (k: Nat) (points: List Point):
+theorem joinedIsJoinAll ∀ (k: Nat) (points: List Point):
     List.foldLeft (List.take (closestFirst points) k) (Circuits.separate points.length) Circuits.connect
       = joinAll (Circuits.separate points.length) (firstConnections k points) :=
   rewrite closestFirstIsOrder points, List.takeMap (connectionOrder points) k (connectionKey points),
@@ -41,36 +41,37 @@ theorem joinedIsJoinAll (k: Nat) (points: List Point):
 
 -- Every connection is between two of the boxes ------------------------------
 
-theorem allAppend (p: a → Bool) (xs ys: List a) (hx: xs.all p = True) (hy: ys.all p = True): (xs.append ys).all p = True :=
+theorem allAppend ∀ (p: a → Bool) (xs ys: List a) (hx: xs.all p = True) (hy: ys.all p = True): (xs.append ys).all p = True :=
   match xs with
     | [] => hy
     | [x, ..xs] =>
       match e: p x with
         | True => allAppend p xs ys hx hy
 
-theorem allTake (p: a → Bool) (k: Nat) (xs: List a) (h: xs.all p = True): (xs.take k).all p = True := match k, xs with
-  | Zero, xs => rfl
-  | Succ k, [] => rfl
-  | Succ k, [x, ..xs] =>
-    match e: p x with
-      | True => allTake p k xs h
+theorem allTake ∀ (p: a → Bool) (k: Nat) (xs: List a) (h: xs.all p = True): (xs.take k).all p = True :=
+  match k, xs with
+    | Zero, xs => rfl
+    | Succ k, [] => rfl
+    | Succ k, [x, ..xs] =>
+      match e: p x with
+        | True => allTake p k xs h
 
 --| If every element passes q, so do both ends of every pair.
-theorem allPairsBoth (q: Nat → Bool) (xs: List Nat) (h: xs.all q = True): xs.pairs.all (pair => q pair.fst ∧ q pair.snd) = True :=
+theorem allPairsBoth ∀ (q: Nat → Bool) (xs: List Nat) (h: xs.all q = True): xs.pairs.all (pair => q pair.fst ∧ q pair.snd) = True :=
   match xs with
     | [] => rfl
     | [x, ..xs] =>
       match e: q x with
         | True => allAppend _ (List.map xs (y => (x, y))) (List.pairs xs) (allMapPairWith q x e xs h) (allPairsBoth q xs h)
 
-theorem allMapPairWith (q: Nat → Bool) (x: Nat) (hx: q x = True) (xs: List Nat) (h: xs.all q = True):
+theorem allMapPairWith ∀ (q: Nat → Bool) (x: Nat) (hx: q x = True) (xs: List Nat) (h: xs.all q = True):
     (xs.map (y => (x, y))).all (pair => q pair.fst ∧ q pair.snd) = True := match xs with
       | [] => rfl
       | [y, ..ys] =>
         match e: q y with
           | True => rewrite hx in allMapPairWith q x hx ys h
 
-theorem connectionsInRange (k: Nat) (points: List Point): List.all (firstConnections k points) (boxesBelow points.length) = True :=
+theorem connectionsInRange ∀ (k: Nat) (points: List Point): List.all (firstConnections k points) (boxesBelow points.length) = True :=
   let n := points.length
   let below: List.all (List.range 0 n) (i => Nat.leq (Succ i) n) = True :=
     List.allRangeIntro (i => Nat.leq (Succ i) n) n 0 (i lo hi => hi)
@@ -82,13 +83,13 @@ theorem connectionsInRange (k: Nat) (points: List Point): List.all (firstConnect
 -- The program's sizes are the spec's ----------------------------------------
 
 --| Two tests that agree on the boxes give the same sizes.
-theorem circuitSizesCongRange (n: Nat) (same1: Nat → Nat → Bool) (same2: Nat → Nat → Bool)
+theorem circuitSizesCongRange ∀ (n: Nat) (same1: Nat → Nat → Bool) (same2: Nat → Nat → Bool)
     (agree: ∀ (a b: Nat) => a < n → b < n → same1 a b = same2 a b): circuitSizes n same1 = circuitSizes n same2 :=
   let below: ∀ (x: Nat) => List.Mem x (List.range 0 n) → x < n := x m => And.right (List.memRangeFrom x n 0 m)
   rewrite agree, agree _ _ _ (below _ (And.left (List.memFilter (List.range 0 n) _ _)))
 
 --| Two tests that tell agree.
-theorem tellersAgree (n: Nat) (connections: List (Nat, Nat)) (same1: Nat → Nat → Bool) (same2: Nat → Nat → Bool)
+theorem tellersAgree ∀ (n: Nat) (connections: List (Nat, Nat)) (same1: Nat → Nat → Bool) (same2: Nat → Nat → Bool)
     (t1: Tells n connections same1) (t2: Tells n connections same2) (a: Nat) (b: Nat) (ha: a < n) (hb: b < n): same1 a b = same2 a b :=
   Bool.eqOf (same1 a b) (same2 a b)
     (s => (t2 a b ha hb).backward ((t1 a b ha hb).forward s))
@@ -97,7 +98,7 @@ theorem tellersAgree (n: Nat) (connections: List (Nat, Nat)) (same1: Nat → Nat
 --| Part 1 is right: for every list of boxes and every k, the program's
 --| answer is the product of the three largest circuits after the first k
 --| connections, whatever test is used to tell the circuits.
-theorem part1Correct (k: Nat) (points: List Point) (sameCircuit: Nat → Nat → Bool)
+theorem part1Correct ∀ (k: Nat) (points: List Point) (sameCircuit: Nat → Nat → Bool)
     (tells: Tells points.length (firstConnections k points) sameCircuit):
     solvePart1 k (Boxes.of points) = threeLargestProduct (circuitSizes points.length sameCircuit) :=
   let n := points.length

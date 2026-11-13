@@ -9,7 +9,7 @@ import Aoc.Year2024.Day19 (..)
 import Aoc.Year2024.Day19.Spec (..)
 import Std (Bool, Eq, List, Nat, Void)
 
-theorem tableCorrect (patterns: List Pattern): ∀ (stripes: List Stripe) (index: Nat) => index ≤ stripes.length →
+theorem tableCorrect ∀ (patterns: List Pattern): ∀ (stripes: List Stripe) (index: Nat) => index ≤ stripes.length →
     ∀ (count: Nat) => stripes.length - index ≤ count → (waysForSuffixes patterns stripes).getOr index 0 = matching patterns count (stripes.drop index)
   | [], Zero, inside, count, enough => Eq.sym (matchingEmpty patterns count)
   | [], Succ index, inside, count, enough => Void.exfalso (omega [inside])
@@ -28,12 +28,12 @@ theorem tableCorrect (patterns: List Pattern): ∀ (stripes: List Stripe) (index
             | False => rfl)
 
 --| The table's first entry is its entry 0.
-theorem firstEntry (patterns: List Pattern) (stripes: List Stripe):
+theorem firstEntry ∀ (patterns: List Pattern) (stripes: List Stripe):
     (waysForSuffixes patterns stripes).headOr 0 = (waysForSuffixes patterns stripes).getOr 0 0 := match stripes with
       | [] => rfl
       | [first, ..rest] => rfl
 
 --| The program counts the puzzle's ways to make any design.
-theorem waysCorrect (patterns: List Pattern) (design: Design): waysToMake patterns design = ways patterns design :=
+theorem waysCorrect ∀ (patterns: List Pattern) (design: Design): waysToMake patterns design = ways patterns design :=
   rewrite List.lengthFilter (towelLists patterns design.stripes.length) (towels => laid towels == design.stripes), firstEntry patterns design.stripes in
     tableCorrect patterns design.stripes 0 (omega) design.stripes.length (omega)

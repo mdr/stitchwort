@@ -176,6 +176,7 @@ export class Editor {
     worker.postMessage({ init: { module: options.module, load: options.load } });
     worker.onmessage = ({ data }) => {
       const now = performance.now() - this.t0;
+      const handling = performance.now();
       if (data.lsp !== undefined) {
         const m = JSON.parse(data.lsp);
         this.log("in", m, data.lsp.length);
@@ -197,7 +198,15 @@ export class Editor {
         // `idle`: the server's background work (checking the rest of a project) is done, until the next message.
         stats.ticks++;
         stats.longestTick = Math.max(stats.longestTick ?? 0, data.tick);
+        // Per-phase sums since `resetPhases()`: server ticks, sending their output, the wait between ticks, and the page's own handling.
+        const p = (stats.phases ??= { ticks: 0, tickMs: 0, sendMs: 0, gapMs: 0, pageMs: 0, messages: 0 });
+        p.ticks++;
+        p.tickMs += data.tick;
+        p.sendMs += data.sendMs ?? 0;
+        p.gapMs += data.gap ?? 0;
         stats.idle = !data.more;
+      } else if (data.phases !== undefined) {
+        (stats.phaseLog ??= []).push(data.phases);
       } else if (data.received !== undefined) {
         stats.idle = false;
       } else if (data.ready !== undefined) {
@@ -211,10 +220,12 @@ export class Editor {
         this.stdWaiting.get(data.stdSource)?.(data.text);
         this.stdWaiting.delete(data.stdSource);
       } else if (data.crashed !== undefined) {
+        stats.crashedAtStack = [data.stack, data.checking];
         this.restart(data.crashed);
       } else if (data.searchCrashed !== undefined) {
         console.error("A proof search crashed:", data.searchCrashed);
       }
+      if (stats.phases) { stats.phases.pageMs += performance.now() - handling; stats.phases.messages++; }
     };
     // Cancellation (docs/proposals/playground-editor.md §5.2.2): in a
     // cross-origin isolated page, a counter in shared memory that is bumped
@@ -248,6 +259,11 @@ export class Editor {
     this.client.connect(this.transport());
     if (this.focused.length) this.checkFirst(this.focused);
     options.onNotice?.("The language server crashed and was restarted");
+  }
+
+  /** Zeroes `stats.phases` (SW-3113), so a test can measure from an edit. */
+  resetPhases() {
+    this.stats.phases = { ticks: 0, tickMs: 0, sendMs: 0, gapMs: 0, pageMs: 0, messages: 0 };
   }
 
   /** Keeps the last few hundred messages with their times (for tests and for finding out why the server was slow). */

@@ -46,5 +46,5 @@ instance Result.instDecEq [auto decEqA: DecEq a] [auto decEqE: DecEq e]: DecEq (
 
 --| Proofs of an equation in a type with decidable equality are unique
 --| ([`Decidable.uniqueEq`], Hedberg's argument).
-theorem DecEq.uniqueEq [auto decEq: DecEq a] [x y: a] (p: x = y) (q: x = y): p = q :=
+theorem DecEq.uniqueEq ∀ [auto decEq: DecEq a] [x y: a] (p: x = y) (q: x = y): p = q :=
   Decidable.uniqueEq (DecEq.decide [decEq := decEq]) x y p q

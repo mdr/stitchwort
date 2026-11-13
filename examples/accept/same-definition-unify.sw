@@ -10,7 +10,7 @@ def ignoresFirst (a: Nat) (x: Nat): Nat := match x with
 def needSame [a: Nat] (x: Nat) (h: ignoresFirst a x = ignoresFirst 2 x): Nat := a
 
 -- `rfl` is checked against `ignoresFirst 1 x = ignoresFirst 2 x`.
-theorem sameAnswer (x: Nat): ignoresFirst 1 x = ignoresFirst 2 x := rfl
+theorem sameAnswer ∀ (x: Nat): ignoresFirst 1 x = ignoresFirst 2 x := rfl
 
 -- `a` is given, so the unifier compares the two calls.
 def givenA (x: Nat): Nat := needSame [a := 1] x rfl

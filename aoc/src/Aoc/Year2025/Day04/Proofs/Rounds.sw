@@ -9,9 +9,9 @@ import Aoc.Year2025.Day04 (..)
 import Aoc.Year2025.Day04.Spec (..)
 import Std (And, Bool, Eq, List, Nat, Vec, Void)
 
-theorem rollNotFloor (h: Floor = Roll): Void := Nat.zeroNotSucc 0 (Eq.cong Cell.count h)
+theorem rollNotFloor ∀ (h: Floor = Roll): Void := Nat.zeroNotSucc 0 (Eq.cong Cell.count h)
 
-theorem isRoll (x: Cell) (h: (x == Roll) = True): x = Roll := match x with
+theorem isRoll ∀ (x: Cell) (h: (x == Roll) = True): x = Roll := match x with
   | Roll => rfl
 
 --| The same cells everywhere.
@@ -21,47 +21,47 @@ def Same (s: Cells) (t: Cells): Prop := ∀ (r c: Nat) => s r c = t r c
 def Inside (grid: Grid) (s: Cells): Prop :=
   (∀ (r c: Nat) => grid.height ≤ r → s r c = Floor) ∧ (∀ (r c: Nat) => grid.width ≤ c → s r c = Floor)
 
-theorem insideRows (grid: Grid) (rows: Vec (Vec Cell grid.width) grid.height): Inside grid (rowsCells rows) :=
+theorem insideRows ∀ (grid: Grid) (rows: Vec (Vec Cell grid.width) grid.height): Inside grid (rowsCells rows) :=
   Both (r c h => rowsCellsBelow rows r c h) (r c h => rowsCellsRight rows r c h)
 
 --| Every roll of `k` has at least 4 neighbours in `k`.
 def Stable (grid: Grid) (k: Cells): Prop := ∀ (r c: Nat) => k r c = Roll → 4 ≤ grid.neighbours k r c
 
 --| Counts over positions agree for conditions that agree.
-theorem countPositionsCong (grid: Grid) (p: Nat → Nat → Bool) (q: Nat → Nat → Bool) (h: ∀ (r c: Nat) => p r c = q r c):
+theorem countPositionsCong ∀ (grid: Grid) (p: Nat → Nat → Bool) (q: Nat → Nat → Bool) (h: ∀ (r c: Nat) => p r c = q r c):
     grid.countPositions p = grid.countPositions q :=
   rewrite h
 
-theorem rollCountSame (grid: Grid) (s: Cells) (t: Cells) (h: Same s t): grid.rollCount s = grid.rollCount t :=
+theorem rollCountSame ∀ (grid: Grid) (s: Cells) (t: Cells) (h: Same s t): grid.rollCount s = grid.rollCount t :=
   rewrite h _ _
 
 --| Stability is about the cells only.
-theorem neighboursSame (grid: Grid) (s: Cells) (t: Cells) (h: Same s t) (r: Nat) (c: Nat): grid.neighbours s r c = grid.neighbours t r c :=
+theorem neighboursSame ∀ (grid: Grid) (s: Cells) (t: Cells) (h: Same s t) (r: Nat) (c: Nat): grid.neighbours s r c = grid.neighbours t r c :=
   rewrite h _ _
 
-theorem stableSame (grid: Grid) (s: Cells) (t: Cells) (h: Same s t) (stable: Stable grid s): Stable grid t :=
+theorem stableSame ∀ (grid: Grid) (s: Cells) (t: Cells) (h: Same s t) (stable: Stable grid s): Stable grid t :=
   r c ht => rewrite <- neighboursSame grid s t h r c in stable r c (Eq.trans (h r c) ht)
 
 -- The rounds.
 
-theorem accessibleSame (grid: Grid) (s: Cells) (t: Cells) (h: Same s t) (r: Nat) (c: Nat): grid.accessible s r c = grid.accessible t r c :=
+theorem accessibleSame ∀ (grid: Grid) (s: Cells) (t: Cells) (h: Same s t) (r: Nat) (c: Nat): grid.accessible s r c = grid.accessible t r c :=
   calc grid.accessible s r c
     _ = (t r c == Roll ∧ grid.neighbours s r c < 4) := rewrite h r c
     _ = grid.accessible t r c := rewrite neighboursSame grid s t h r c
 
-theorem removeSame (grid: Grid) (s: Cells) (t: Cells) (h: Same s t): Same (grid.removeAccessible s) (grid.removeAccessible t) :=
+theorem removeSame ∀ (grid: Grid) (s: Cells) (t: Cells) (h: Same s t): Same (grid.removeAccessible s) (grid.removeAccessible t) :=
   r c => rewrite accessibleSame grid s t h r c, h r c
 
-theorem roundsSame (grid: Grid) (n: Nat) (s t: Cells) (h: Same s t): Same (grid.rounds n s) (grid.rounds n t) :=
+theorem roundsSame ∀ (grid: Grid) (n: Nat) (s t: Cells) (h: Same s t): Same (grid.rounds n s) (grid.rounds n t) :=
   match n with
     | Zero => r c => h r c
     | Succ n => r c => roundsSame grid n (grid.removeAccessible s) (grid.removeAccessible t) (removeSame grid s t h) r c
 
-theorem ifFloorKeep (b: Bool) (x: Cell) (h: x = Floor): (if b then Floor else x) = Floor := match b with
+theorem ifFloorKeep ∀ (b: Bool) (x: Cell) (h: x = Floor): (if b then Floor else x) = Floor := match b with
   | True => rfl
   | False => h
 
-theorem removeInside (grid: Grid) (s: Cells) (ins: Inside grid s): Inside grid (grid.removeAccessible s) :=
+theorem removeInside ∀ (grid: Grid) (s: Cells) (ins: Inside grid s): Inside grid (grid.removeAccessible s) :=
   Both (r c h => ifFloorKeep (grid.accessible s r c) (s r c) (And.left ins r c h))
     (r c h => ifFloorKeep (grid.accessible s r c) (s r c) (And.right ins r c h))
 
@@ -69,12 +69,12 @@ theorem removeInside (grid: Grid) (s: Cells) (ins: Inside grid s): Inside grid (
 
 def accCount (grid: Grid) (s: Cells): Nat := grid.countPositions (r c => grid.accessible s r c)
 
-theorem roundTerm (b: Bool) (x: Cell) (hb: b = True → x = Roll):
+theorem roundTerm ∀ (b: Bool) (x: Cell) (hb: b = True → x = Roll):
     Bool.toNat ((if b then Floor else x) == Roll) + Bool.toNat b = Bool.toNat (x == Roll) := match b with
       | True => rewrite hb rfl
       | False => omega
 
-theorem roundCount (grid: Grid) (s: Cells): grid.rollCount (grid.removeAccessible s) + accCount grid s = grid.rollCount s :=
+theorem roundCount ∀ (grid: Grid) (s: Cells): grid.rollCount (grid.removeAccessible s) + accCount grid s = grid.rollCount s :=
   let gone := (r: Nat) => (c: Nat) => Bool.toNat (grid.removeAccessible s r c == Roll)
   let acc := (r: Nat) => (c: Nat) => Bool.toNat (grid.accessible s r c)
   let term: ∀ (x y: Nat) => gone x y + acc x y = Bool.toNat (s x y == Roll) :=
@@ -88,13 +88,13 @@ theorem roundCount (grid: Grid) (s: Cells): grid.rollCount (grid.removeAccessibl
     _ = grid.rollCount s := Eq.sym (countPositionsSum grid (r c => s r c == Roll))
 
 --| A count over positions that is 0 holds nowhere on the grid.
-theorem countNone (grid: Grid) (p: Nat → Nat → Bool) (h: grid.countPositions p = 0) (r: Nat) (c: Nat) (hr: r < grid.height) (hc: c < grid.width): p r c = False :=
+theorem countNone ∀ (grid: Grid) (p: Nat → Nat → Bool) (h: grid.countPositions p = 0) (r: Nat) (c: Nat) (hr: r < grid.height) (hc: c < grid.width): p r c = False :=
   let sums := Eq.trans (Eq.sym (countPositionsSum grid p)) h
   let row := List.sumRangeFromZero (x => List.sumBy (List.range 0 grid.width) (y => Bool.toNat (p x y))) grid.height 0 sums r omega hr
   Bool.toNatEqZero (p r c) (List.sumRangeFromZero (y => Bool.toNat (p r y)) grid.width 0 row c omega hc)
 
 --| Off the grid or not a roll: nothing to check.
-theorem stableWhere (grid: Grid) (s: Cells) (ins: Inside grid s) (good: ∀ (r c: Nat) => r < grid.height → c < grid.width → s r c = Roll → 4 ≤ grid.neighbours s r c):
+theorem stableWhere ∀ (grid: Grid) (s: Cells) (ins: Inside grid s) (good: ∀ (r c: Nat) => r < grid.height → c < grid.width → s r c = Roll → 4 ≤ grid.neighbours s r c):
     Stable grid s :=
   r c hs =>
     match e1: Nat.leq (Succ r) grid.height, e2: Nat.leq (Succ c) grid.width with
@@ -103,34 +103,35 @@ theorem stableWhere (grid: Grid) (s: Cells) (ins: Inside grid s) (good: ∀ (r c
       | True, False => Void.exfalso (rollNotFloor (Eq.trans (Eq.sym (And.right ins r c omega)) hs))
 
 --| A roll that isn't accessible has at least 4 neighbours.
-theorem andTrueLeft (a b: Bool) (ha: a = True) (h: (a ∧ b) = False): b = False := match a with
+theorem andTrueLeft ∀ (a b: Bool) (ha: a = True) (h: (a ∧ b) = False): b = False := match a with
   | True => h
 
-theorem rollIsRoll (x: Cell) (h: x = Roll): (x == Roll) = True := rewrite h in rfl
+theorem rollIsRoll ∀ (x: Cell) (h: x = Roll): (x == Roll) = True := rewrite h in rfl
 
-theorem notAccessible (grid: Grid) (s: Cells) (r: Nat) (c: Nat) (h: grid.accessible s r c = False) (hs: s r c = Roll): 4 ≤ grid.neighbours s r c :=
+theorem notAccessible ∀ (grid: Grid) (s: Cells) (r: Nat) (c: Nat) (h: grid.accessible s r c = False) (hs: s r c = Roll): 4 ≤ grid.neighbours s r c :=
   let few: Nat.leq (Succ (grid.neighbours s r c)) 4 = False :=
     andTrueLeft (s r c == Roll) (grid.neighbours s r c < 4) (rollIsRoll (s r c) hs) h
   omega
 
 --| No accessible roll: stable.
-theorem noneStable (grid: Grid) (s: Cells) (ins: Inside grid s) (h: accCount grid s = 0): Stable grid s :=
+theorem noneStable ∀ (grid: Grid) (s: Cells) (ins: Inside grid s) (h: accCount grid s = 0): Stable grid s :=
   stableWhere grid s ins (r c hr hc hs => notAccessible grid s r c (countNone grid (r c => grid.accessible s r c) h r c hr hc) hs)
 
-theorem stableNotAccessible (grid: Grid) (s: Cells) (stable: Stable grid s) (r: Nat) (c: Nat): grid.accessible s r c = False :=
+theorem stableNotAccessible ∀ (grid: Grid) (s: Cells) (stable: Stable grid s) (r: Nat) (c: Nat): grid.accessible s r c = False :=
   match e: s r c with
     | Floor => rfl
     | Roll => omega [stable r c e]
 
 --| Once stable, rounds change nothing.
-theorem roundsFixed (grid: Grid) (n: Nat) (s: Cells) (stable: Stable grid s): Same (grid.rounds n s) s := match n with
-  | Zero => r c => rfl
-  | Succ n => r c =>
-    let same: Same (grid.removeAccessible s) s := x y => rewrite stableNotAccessible grid s stable x y in rfl
-    Eq.trans (roundsSame grid n (grid.removeAccessible s) s same r c) (roundsFixed grid n s stable r c)
+theorem roundsFixed ∀ (grid: Grid) (n: Nat) (s: Cells) (stable: Stable grid s): Same (grid.rounds n s) s :=
+  match n with
+    | Zero => r c => rfl
+    | Succ n => r c =>
+      let same: Same (grid.removeAccessible s) s := x y => rewrite stableNotAccessible grid s stable x y in rfl
+      Eq.trans (roundsSame grid n (grid.removeAccessible s) s same r c) (roundsFixed grid n s stable r c)
 
 --| As many rounds as there are rolls leave no accessible roll.
-theorem roundsStable (grid: Grid) (fuel: Nat) (s: Cells) (ins: Inside grid s) (h: grid.rollCount s ≤ fuel): Stable grid (grid.rounds fuel s) :=
+theorem roundsStable ∀ (grid: Grid) (fuel: Nat) (s: Cells) (ins: Inside grid s) (h: grid.rollCount s ≤ fuel): Stable grid (grid.rounds fuel s) :=
   match fuel with
     | Zero => r c hs =>
       stableWhere grid s ins (x y hx hy hxy =>

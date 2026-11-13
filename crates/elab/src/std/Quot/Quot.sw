@@ -32,7 +32,7 @@ def Quot.rebuild (a: Type) (b: a → Type) (q: Quot.Functions a b): (x: a) → b
 -- (§8.7)
 -- `Quot.sound` says the classes of `f` and `g` are equal, and rebuilding a
 -- function from each class gives back `f` and `g`.
-theorem Quot.funext (a: Type) (b: a → Type) (f: (x: a) → b x) (g: (x: a) → b x)
+theorem Quot.funext ∀ (a: Type) (b: a → Type) (f: (x: a) → b x) (g: (x: a) → b x)
     (h: ∀ (x: a) => f x = g x): f = g :=
   Eq.cong (Quot.rebuild a b) (Quot.sound [x := f] [y := g] h)
 
@@ -47,7 +47,7 @@ type ProofBox (p: Prop) = { proof: p }
 -- (§8.7)
 -- Box each result, use `Quot.funext` on the boxed functions, then take the
 -- proofs back out of the boxes.
-theorem Quot.funextProp (a: Type) (p: a → Prop) (f: ∀ (x: a) => p x) (g: ∀ (x: a) => p x)
+theorem Quot.funextProp ∀ (a: Type) (p: a → Prop) (f: ∀ (x: a) => p x) (g: ∀ (x: a) => p x)
     (h: ∀ (x: a) => f x = g x): f = g :=
   let boxF: (x: a) → ProofBox (p x) := x => { proof = f x }
   let boxG: (x: a) → ProofBox (p x) := x => { proof = g x }
@@ -57,7 +57,7 @@ theorem Quot.funextProp (a: Type) (p: a → Prop) (f: ∀ (x: a) => p x) (g: ∀
   J (k e => f = (x => (k x).proof)) rfl boxes
 
 --| Booleans that are `True` together are equal.
-theorem Quot.boolEq (b c: Bool) (toC: b = True → c = True) (toB: c = True → b = True): b = c := match b, c with
+theorem Quot.boolEq ∀ (b c: Bool) (toC: b = True → c = True) (toB: c = True → b = True): b = c := match b, c with
   | False, False => rfl
   | False, True => toB rfl
   | True, False => Eq.sym (toC rfl)
@@ -70,7 +70,7 @@ theorem Quot.boolEq (b c: Bool) (toC: b = True → c = True) (toB: c = True → 
 -- to the quotient; applied to both sides of the equation it gives `r x x = r x
 -- y`, and `r x x` is `True`. It proves an equation between `Bool`s, never
 -- between propositions, so it needs no more than the quotient rules.
-theorem Quot.exactDec (a: Type) (rel: a → a → Prop) (r: a → a → Bool)
+theorem Quot.exactDec ∀ (a: Type) (rel: a → a → Prop) (r: a → a → Bool)
     (decides: ∀ (x y: a) => (r x y = True) ↔ (rel x y))
     (refl: ∀ (x: a) => rel x x)
     (symm: ∀ (x y: a) => rel x y → rel y x)

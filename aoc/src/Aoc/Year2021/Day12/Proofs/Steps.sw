@@ -6,11 +6,11 @@ import Aoc.Year2021.Day12 (..)
 import Std (Bool, DecEq, Eq, List, Nat, Void)
 
 --| Leaving out a cave that is there makes the list shorter.
-theorem withoutShorter (caves: List Cave) (cave: Cave) (member: cave ∈ caves): (without caves cave).length < caves.length :=
+theorem withoutShorter ∀ (caves: List Cave) (cave: Cave) (member: cave ∈ caves): (without caves cave).length < caves.length :=
   List.lengthFilterLt (c => not (c == cave)) cave (rewrite DecEq.refl cave in rfl) caves member
 
 --| A step that goes on makes the search's reach smaller.
-theorem stepDecreases (unvisited: List Cave) (spare: Bool) (cave: Cave) (other: Cave) (left: List Cave) (stillSpare: Bool)
+theorem stepDecreases ∀ (unvisited: List Cave) (spare: Bool) (cave: Cave) (other: Cave) (left: List Cave) (stillSpare: Bool)
     (e: step unvisited spare cave other = Continue left stillSpare):
     reach left stillSpare other < reach unvisited spare cave := match en: other.isEnd with
       | False =>
@@ -46,10 +46,10 @@ def Step.spareOr: Step → Bool
   | Continue _ stillSpare => stillSpare
   | _ => False
 
-theorem Step.finishNotContinue (left: List Cave) (stillSpare: Bool) (e: Finish = Continue left stillSpare): Void := Bool.falseNotTrue (Eq.cong Step.goesOn e)
+theorem Step.finishNotContinue ∀ (left: List Cave) (stillSpare: Bool) (e: Finish = Continue left stillSpare): Void := Bool.falseNotTrue (Eq.cong Step.goesOn e)
 
-theorem Step.blockedNotContinue (left: List Cave) (stillSpare: Bool) (e: Blocked = Continue left stillSpare): Void := Bool.falseNotTrue (Eq.cong Step.goesOn e)
+theorem Step.blockedNotContinue ∀ (left: List Cave) (stillSpare: Bool) (e: Blocked = Continue left stillSpare): Void := Bool.falseNotTrue (Eq.cong Step.goesOn e)
 
-theorem Step.continueLeft (a: List Cave) (s: Bool) (b: List Cave) (t: Bool) (e: Continue a s = Continue b t): b = a := Eq.sym (Eq.cong (Step.leftOr a) e)
+theorem Step.continueLeft ∀ (a: List Cave) (s: Bool) (b: List Cave) (t: Bool) (e: Continue a s = Continue b t): b = a := Eq.sym (Eq.cong (Step.leftOr a) e)
 
-theorem Step.continueSpare (a: List Cave) (s: Bool) (b: List Cave) (t: Bool) (e: Continue a s = Continue b t): t = s := Eq.sym (Eq.cong Step.spareOr e)
+theorem Step.continueSpare ∀ (a: List Cave) (s: Bool) (b: List Cave) (t: Bool) (e: Continue a s = Continue b t): t = s := Eq.sym (Eq.cong Step.spareOr e)

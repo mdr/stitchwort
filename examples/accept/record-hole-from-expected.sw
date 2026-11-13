@@ -13,10 +13,11 @@ def count (tally: Tally): List Nat → Tally
 
 def Positive (n: Nat): Prop := n > 0
 
-theorem countPositive: ∀ (tally: Tally) (waiting: List Nat) =>
-    List.All Positive tally.seen → List.All Positive waiting → List.All Positive (count tally waiting).seen
-  | tally, [], seen, rest => seen
-  | tally, [n, ..waiting], seen, Both positive rest =>
-    countPositive _ waiting (List.allAppend Positive tally.seen [n] seen (Both positive Trivial)) rest
+theorem countPositive ∀ (tally: Tally) (waiting: List Nat)
+    (seen: List.All Positive tally.seen) (h: List.All Positive waiting): List.All Positive (count tally waiting).seen :=
+  match waiting, h with
+    | [], rest => seen
+    | [n, ..waiting], Both positive rest =>
+      countPositive _ waiting (List.allAppend Positive tally.seen [n] seen (Both positive Trivial)) rest
 
 test "count" := (count { seen = [], total = 0 } [1, 2, 3]).total == 6

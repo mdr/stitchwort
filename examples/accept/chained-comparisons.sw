@@ -12,22 +12,22 @@ test "below" := !inRange 3 2 3
 test "above" := !inRange 1 4 3
 
 -- A name or a literal in the middle gives the very conjunction written out.
-theorem inRangeIsConjunction (lo x hi: Nat): (lo <= x <= hi) = (lo <= x ∧ x <= hi) := rfl
+theorem inRangeIsConjunction ∀ (lo x hi: Nat): (lo <= x <= hi) = (lo <= x ∧ x <= hi) := rfl
 
 -- Any length, and downwards.
-theorem ascending (a b c d: Nat) (h: a < b <= c < d): a < d := omega
+theorem ascending ∀ (a b c d: Nat) (h: a < b <= c < d): a < d := omega
 
-theorem descending (a b c: Nat) (h: c >= b > a): a < c := omega
+theorem descending ∀ (a b c: Nat) (h: c >= b > a): a < c := omega
 
 -- A chain is one conjunct of a longer `∧`.
-theorem oneConjunct (a b c: Nat) (h: a <= b <= c ∧ b != 0): a <= b := h.left.left
+theorem oneConjunct ∀ (a b c: Nat) (h: a <= b <= c ∧ b != 0): a <= b := h.left.left
 
 def twice (n: Nat): Nat := n + n
 
 -- The middle is a call: the statement reads as written out.
-theorem rangeOfTwice (n: Nat) (h: 3 <= twice n <= 9): n < 5 := omega
+theorem rangeOfTwice ∀ (n: Nat) (h: 3 <= twice n <= 9): n < 5 := omega
 
-theorem rangeOfTwiceParts (n: Nat) (h: 3 <= twice n <= 9): 3 <= twice n := h.left
+theorem rangeOfTwiceParts ∀ (n: Nat) (h: 3 <= twice n <= 9): 3 <= twice n := h.left
 
 -- An `if` learns the whole chain; `auto` uses its parts.
 def pred (n: Nat): Nat := if 3 <= twice n <= 9 then n - 1 else 0

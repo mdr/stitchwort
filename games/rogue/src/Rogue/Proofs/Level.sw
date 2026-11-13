@@ -11,23 +11,23 @@ namespace Rogue.Proofs
 import Rogue (..)
 import Std (Bool, Decidable, Eq, List, Nat, Option, Void)
 
-theorem halfAtMost (n: Nat): n / 2 ≤ n := omega
+theorem halfAtMost ∀ (n: Nat): n / 2 ≤ n := omega
 
 --| The middle of an area is in it.
-theorem middleInside (area: Area): area.contains area.middle = True :=
+theorem middleInside ∀ (area: Area): area.contains area.middle = True :=
   rewrite Nat.leAddRight area.corner.row (area.down / 2), Nat.leAddCong area.corner.row (area.down / 2) area.down (halfAtMost area.down),
     Nat.leAddRight area.corner.column (area.across / 2), Nat.leAddCong area.corner.column (area.across / 2) area.across (halfAtMost area.across)
 
 --| The start of every level is floor: it's the middle of the entrance.
-theorem startOnFloor (level: Level): isWall level level.start = False :=
+theorem startOnFloor ∀ (level: Level): isWall level level.start = False :=
   rewrite middleInside level.entrance
 
 --| So is the goal: the middle of the exit.
-theorem goalOnFloor (level: Level): isWall level level.goal = False :=
+theorem goalOnFloor ∀ (level: Level): isWall level level.goal = False :=
   rewrite middleInside level.exit, Bool.orTrue (level.entrance.contains level.exit.middle) in rfl
 
 --| No placed monster stands on the start...
-theorem placeMonstersClear (level: Level) (start: Position)
+theorem placeMonstersClear ∀ (level: Level) (start: Position)
     (placed planned: List Monster) (clear: Clear start placed): Clear start (placeMonsters level start placed planned) :=
   match planned with
     | [] => clear
@@ -39,7 +39,7 @@ theorem placeMonstersClear (level: Level) (start: Position)
         | None => placeMonstersClear level start placed rest clear
 
 --| ...or in a wall.
-theorem placeMonstersOnFloor (level: Level) (start: Position)
+theorem placeMonstersOnFloor ∀ (level: Level) (start: Position)
     (placed planned: List Monster) (onFloor: OnFloor level placed): OnFloor level (placeMonsters level start placed planned) :=
   match planned with
     | [] => onFloor
@@ -53,7 +53,7 @@ theorem placeMonstersOnFloor (level: Level) (start: Position)
 --| An item lies on floor, and not on the player's start.
 def Fits (level: Level) (start: Position) (item: Item): Prop := isWall level item.position = False ∧ (item.position == start) = False
 
-theorem placeItemsFit (level: Level) (start: Position)
+theorem placeItemsFit ∀ (level: Level) (start: Position)
     (placed planned: List Item) (fit: List.All (Fits level start) placed): List.All (Fits level start) (placeItems level start placed planned) :=
   match planned with
     | [] => fit
@@ -72,5 +72,5 @@ theorem placeItemsFit (level: Level) (start: Position)
                     | False => placeItemsFit level start (placed ++ [item]) rest (List.allAppend (Fits level start) placed [item] fit (Both (Both wall same) Trivial))
 
 --| Whatever the generator planned, the items of a level entered fit.
-theorem arriveItemsFit (state: State) (plan: Plan): List.All (Fits plan.level plan.level.start) (arrive state plan).items :=
+theorem arriveItemsFit ∀ (state: State) (plan: Plan): List.All (Fits plan.level plan.level.start) (arrive state plan).items :=
   placeItemsFit plan.level plan.level.start [] plan.items Trivial

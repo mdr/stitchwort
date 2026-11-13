@@ -8,12 +8,12 @@ import Aoc.Year2020.Day15 (..)
 import Aoc.Year2020.Day15.Spec (NumberWritten, StartingWritten)
 import Std (Bool, Char, Eq, Exists, Fail, List, NonEmptyList, Parse, Result, Text, Void)
 
-theorem runsNumber (read: List Char) (number: Nat) (after: List Char) (written: NumberWritten read number) (stops: Parse.CannotStart Parse.isDigit after):
+theorem runsNumber ∀ (read: List Char) (number: Nat) (after: List Char) (written: NumberWritten read number) (stops: Parse.CannotStart Parse.isDigit after):
     Parse.Runs Parse.nat read after number := match written with
       | Both nonEmpty (Both allDigits decimal) =>
         rewrite decimal in Parse.runsNatBefore read after nonEmpty allDigits stops
 
-theorem runsStarting (read: List Char) (starting2: Starting) (written: StartingWritten read starting2) (ending: List Char) (breaks: Parse.OnlyBreaks ending):
+theorem runsStarting ∀ (read: List Char) (starting2: Starting) (written: StartingWritten read starting2) (ending: List Char) (breaks: Parse.OnlyBreaks ending):
     Parse.Runs starting read ending starting2 := match starting2, written with
       | { numbers }, written2 =>
         match numbers, written2 with
@@ -35,11 +35,11 @@ def InputWritten (input: Text) (starting2: Starting): Prop :=
     input.toList = read ++ ending ∧ StartingWritten read starting2 ∧ ending.all (char => char == '\n' ∨ char == '\r') = True
 
 --| Input that is starting numbers written out is read as those numbers.
-theorem parseComplete (input: Text) (starting2: Starting) (written: InputWritten input starting2): Fail.toResult (() => parseStarting input) = Ok starting2 :=
+theorem parseComplete ∀ (input: Text) (starting2: Starting) (written: InputWritten input starting2): Fail.toResult (() => parseStarting input) = Ok starting2 :=
   match written with
     | Witness read (Witness ending (Both split (Both startingWritten breaks))) =>
       Parse.runsAll input starting read ending starting2 split breaks (runsStarting read starting2 startingWritten ending breaks)
 
 --| Soundness (`parseWritten`) is the converse: the input is written as at most one starting list.
-theorem writtenUnique (input: Text) (a: Starting) (b: Starting) (writtenA: InputWritten input a) (writtenB: InputWritten input b): a = b :=
+theorem writtenUnique ∀ (input: Text) (a: Starting) (b: Starting) (writtenA: InputWritten input a) (writtenB: InputWritten input b): a = b :=
   Result.okInjective (Eq.trans (Eq.sym (parseComplete input a writtenA)) (parseComplete input b writtenB))

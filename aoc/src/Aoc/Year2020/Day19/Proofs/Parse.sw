@@ -46,7 +46,7 @@ theorem readsReceived: Parse.Reads received ReceivedWritten :=
             (Both (rewrite List.appendNil messagesRead in rfl)
               (Both (Witness rules (Both rulesWritten rfl)) (Both blankWritten (Witness messages (Both messagesWritten rfl)))))))))))
 
-theorem parseWritten (input: Text) (received: Received) (parsed: Fail.toResult (() => parseReceived input) = Ok received):
+theorem parseWritten ∀ (input: Text) (received: Received) (parsed: Fail.toResult (() => parseReceived input) = Ok received):
     ∃ (read: List Char) => ∃ (ending: List Char) =>
       input.toList = read ++ ending ∧ ReceivedWritten read received ∧ ending.all (char => char == '\n' ∨ char == '\r') = True :=
   Parse.allReads input Aoc.Year2020.Day19.received ReceivedWritten received parsed readsReceived

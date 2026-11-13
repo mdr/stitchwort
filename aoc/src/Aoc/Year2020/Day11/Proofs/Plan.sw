@@ -17,15 +17,15 @@ import Std (Bool, Eq, Exists, List, Option, Void)
 def SamePlan (start: Layout) (layout: Layout): Prop :=
   ∀ (position: Position) => (cellAt layout.grid.rows position).map Seat.isSeat = (cellAt start.grid.rows position).map Seat.isSeat
 
-theorem becomesIsSeat (seat: Seat) (occupiedNear: Nat) (crowded: Nat): (Spec.becomes seat occupiedNear crowded).isSeat = seat.isSeat := cases
+theorem becomesIsSeat ∀ (seat: Seat) (occupiedNear: Nat) (crowded: Nat): (Spec.becomes seat occupiedNear crowded).isSeat = seat.isSeat := cases
 
-theorem mapKeepsSeat (found: Option Seat) (f: Seat → Seat) (keeps: ∀ (seat: Seat) => (f seat).isSeat = seat.isSeat):
+theorem mapKeepsSeat ∀ (found: Option Seat) (f: Seat → Seat) (keeps: ∀ (seat: Seat) => (f seat).isSeat = seat.isSeat):
     (found.map f).map Seat.isSeat = found.map Seat.isSeat := match found with
       | None => rfl
       | Some seat => rewrite keeps seat in rfl
 
 --| A spec round keeps the floor plan.
-theorem roundPlan (start: Layout) (layout: Layout) (considered: Position → Nat) (crowded: Nat) (same: SamePlan start layout):
+theorem roundPlan ∀ (start: Layout) (layout: Layout) (considered: Position → Nat) (crowded: Nat) (same: SamePlan start layout):
     SamePlan start (Spec.round layout considered crowded) :=
   position =>
     rewrite cellAtMapCells layout.grid.rows (at seat => Spec.becomes seat (considered at) crowded) position in
@@ -33,7 +33,7 @@ theorem roundPlan (start: Layout) (layout: Layout) (considered: Position → Nat
       (same position)
 
 --| Where the layout has a seat, so has the start.
-theorem startSeat (start: Layout) (layout: Layout) (same: SamePlan start layout) (position: Position) (here: Seat)
+theorem startSeat ∀ (start: Layout) (layout: Layout) (same: SamePlan start layout) (position: Position) (here: Seat)
     (found: cellAt layout.grid.rows position = Some here) (seat: here.isSeat = True):
     ∃ (before: Seat) => cellAt start.grid.rows position = Some before ∧ before.isSeat = True :=
   let plan := same position
@@ -42,7 +42,7 @@ theorem startSeat (start: Layout) (layout: Layout) (same: SamePlan start layout)
     | Some before => Witness before (Both rfl (rewrite <- Option.someInjective plan in seat))
 
 --| An occupied seat on the layout is a seat on the start.
-theorem occupiedSeat (start: Layout) (layout: Layout) (same: SamePlan start layout) (near: Position)
+theorem occupiedSeat ∀ (start: Layout) (layout: Layout) (same: SamePlan start layout) (near: Position)
     (occupied: (layout.grid.lookup near == Some Occupied) = True): (start.grid.lookup near).any (.isSeat) = True :=
   rewrite lookupAt start.grid near in
   match e: cellAt layout.grid.rows near with
@@ -57,7 +57,7 @@ theorem occupiedSeat (start: Layout) (layout: Layout) (same: SamePlan start layo
 
 --| A seat's planned view is what the rule looks at on the start, seats
 --| only.
-theorem planInView (rule: Rule) (start: Layout) (layout: Layout) (same: SamePlan start layout) (position: Position) (here: Seat)
+theorem planInView ∀ (rule: Rule) (start: Layout) (layout: Layout) (same: SamePlan start layout) (position: Position) (here: Seat)
     (found: cellAt layout.grid.rows position = Some here) (seat: here.isSeat = True):
     (rule.planFor start).inView position = (rule.inView start.grid.lookup position).filter (near => (start.grid.lookup near).any (.isSeat)) :=
   Exists.elim (startSeat start layout same position here found seat) (before both =>
@@ -68,7 +68,7 @@ theorem planInView (rule: Rule) (start: Layout) (layout: Layout) (same: SamePlan
 --| On a layout with the start's floor plan, a seat's planned view counts
 --| the occupied seats the rule sees on the layout, when the rule looks at
 --| the same positions on both.
-theorem planCount (rule: Rule) (start: Layout) (layout: Layout) (same: SamePlan start layout) (position: Position) (here: Seat)
+theorem planCount ∀ (rule: Rule) (start: Layout) (layout: Layout) (same: SamePlan start layout) (position: Position) (here: Seat)
     (found: cellAt layout.grid.rows position = Some here) (seat: here.isSeat = True)
     (sameView: rule.inView start.grid.lookup position = rule.inView layout.grid.lookup position):
     ((rule.planFor start).inView position).count (near => layout.grid.lookup near == Some Occupied)

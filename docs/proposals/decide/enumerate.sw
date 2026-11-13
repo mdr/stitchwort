@@ -11,14 +11,14 @@ type Finite (a: Type) = {
 }
 
 -- `List.all` true of a list is true of each member (day 21's `allMember`).
-theorem allMember (passes: a → Bool): (xs: List a) → List.all xs passes = True → (x: a) → x ∈ xs → passes x = True
+theorem allMember ∀ (passes: a → Bool): (xs: List a) → List.all xs passes = True → (x: a) → x ∈ xs → passes x = True
   | Nil, all, x, member => Void.exfalso member
   | Cons first rest, all, x, Inl same => rewrite <- same in Bool.andLeft _ _ all
   | Cons first rest, all, x, Inr later => allMember passes rest (Bool.andRight _ _ all) x later
 
 -- The generic soundness lemma `decide` would use: check every value, get
 -- the statement.
-theorem Finite.check (fin: Finite a) (passes: a → Bool) (checked: List.all fin.all passes = True) (x: a): passes x = True :=
+theorem Finite.check ∀ (fin: Finite a) (passes: a → Bool) (checked: List.all fin.all passes = True) (x: a): passes x = True :=
   allMember passes fin.all checked x (fin.complete x)
 
 -- What deriving would give for `Bool` (SW-807): the constructors in order,
@@ -45,7 +45,7 @@ theorem rowEndsChecked:
         List.all boolFinite.all (side =>
           List.all boolFinite.all (sideOut => rowEndsHolds plot out side sideOut)))) = True := rfl
 
-theorem rowEndsHoldsAll (plot: Bool) (out: Bool) (side: Bool) (sideOut: Bool): rowEndsHolds plot out side sideOut = True :=
+theorem rowEndsHoldsAll ∀ (plot: Bool) (out: Bool) (side: Bool) (sideOut: Bool): rowEndsHolds plot out side sideOut = True :=
   let p1 := Finite.check boolFinite (plot =>
     List.all boolFinite.all (out =>
       List.all boolFinite.all (side =>

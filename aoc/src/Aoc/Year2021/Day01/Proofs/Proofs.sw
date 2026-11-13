@@ -14,31 +14,31 @@ theorem increasesCons [a: Nat] [b: Nat] [rest: List Nat]:
     increases [a, b, ..rest] = Bool.toNat (a < b) + increases [b, ..rest] :=
   List.countCons (List.zipWithNext [b, ..rest]) (MkPair a b) (pair => pair.fst < pair.snd)
 
-theorem increasesOverCons (x: Nat) (rest: List Nat) (y: Nat) (ys: List Nat):
+theorem increasesOverCons ∀ (x: Nat) (rest: List Nat) (y: Nat) (ys: List Nat):
     List.count (List.zip [x, ..rest] [y, ..ys]) (pair => pair.fst < pair.snd)
       = Bool.toNat (x < y) + (rest.zip ys).count (pair => pair.fst < pair.snd) :=
   List.countCons (List.zip rest ys) (MkPair x y) (pair => pair.fst < pair.snd)
 
 --| A list zipped with itself one place on is each element paired with the
 --| next.
-theorem zipNext (x: Nat) (xs: List Nat): List.zip [x, ..xs] xs = List.zipWithNext [x, ..xs] := match xs with
+theorem zipNext ∀ (x: Nat) (xs: List Nat): List.zip [x, ..xs] xs = List.zipWithNext [x, ..xs] := match xs with
   | [] => rfl
   | [y, ..rest] => Eq.cong (Cons (MkPair x y)) (zipNext y rest)
 
 --| Part 1 is the puzzle's count, for every list of depths.
-theorem part1Correct (depths: List Nat): solvePart1 depths = increases depths := match depths with
+theorem part1Correct ∀ (depths: List Nat): solvePart1 depths = increases depths := match depths with
   | [] => rfl
   | [x, ..xs] => rewrite zipNext x xs in rfl
 
 --| A list with a whole window at its start: the first window, then the
 --| windows of the rest.
-theorem windowsLong (m: Nat) (xs: List Nat) (h: m < xs.length):
+theorem windowsLong ∀ (m: Nat) (xs: List Nat) (h: m < xs.length):
     slidingWindows (Succ m) xs = [xs.take (Succ m), ..slidingWindows (Succ m) (xs.drop 1)] := match xs with
       | [x, ..rest] =>
         List.filterKeep _ _ _ (rewrite List.lengthTake rest m (omega [h]) in DecEq.refl (Succ m))
 
 --| A list shorter than a window has none.
-theorem windowsShort (m: Nat) (xs: List Nat) (h: xs.length ≤ m): slidingWindows (Succ m) xs = [] := match xs with
+theorem windowsShort ∀ (m: Nat) (xs: List Nat) (h: xs.length ≤ m): slidingWindows (Succ m) xs = [] := match xs with
   | [] => rfl
   | [x, ..rest] =>
     Eq.trans
@@ -48,13 +48,13 @@ theorem windowsShort (m: Nat) (xs: List Nat) (h: xs.length ≤ m): slidingWindow
 --| Two windows next to each other share all but their ends, so the later sum
 --| is larger exactly when the element it gains is larger than the one it
 --| loses.
-theorem slideCompare (x: Nat) (shared: Nat) (y: Nat):
+theorem slideCompare ∀ (x: Nat) (shared: Nat) (y: Nat):
     Bool.toNat (x + shared < shared + y) = Bool.toNat (x < y) :=
   cases
 
 --| Part 2, for windows of any size `Succ m`: comparing each measurement with
 --| the one `Succ m` places earlier counts the window sums that increase.
-theorem windowsCorrect (m: Nat) (depths: List Nat): increasesOver (Succ m) depths = windowIncreases (Succ m) depths :=
+theorem windowsCorrect ∀ (m: Nat) (depths: List Nat): increasesOver (Succ m) depths = windowIncreases (Succ m) depths :=
   match depths with
     | [] => rfl
     | [x, ..rest] =>
@@ -84,7 +84,7 @@ theorem windowsCorrect (m: Nat) (depths: List Nat): increasesOver (Succ m) depth
           _ = windowIncreases (Succ m) [x, ..rest] := atMostOneWindow m x rest (omega [h])
 
 --| A list with at most one window has no increases between windows.
-theorem atMostOneWindow (m: Nat) (x: Nat) (rest: List Nat) (short: rest.length ≤ m): 0 = windowIncreases (Succ m) [x, ..rest] :=
+theorem atMostOneWindow ∀ (m: Nat) (x: Nat) (rest: List Nat) (short: rest.length ≤ m): 0 = windowIncreases (Succ m) [x, ..rest] :=
   if one: m < List.length [x, ..rest] then
     -- exactly one window
     Eq.sym (calc windowIncreases (Succ m) [x, ..rest]
@@ -97,4 +97,4 @@ theorem atMostOneWindow (m: Nat) (x: Nat) (rest: List Nat) (short: rest.length �
     Eq.sym (Eq.cong (ws => increases (List.map ws List.sum)) (windowsShort m [x, ..rest] (omega [one])))
 
 --| Part 2 is the puzzle's count, for every list of depths.
-theorem part2Correct (depths: List Nat): solvePart2 depths = windowIncreases 3 depths := windowsCorrect 2 depths
+theorem part2Correct ∀ (depths: List Nat): solvePart2 depths = windowIncreases 3 depths := windowsCorrect 2 depths

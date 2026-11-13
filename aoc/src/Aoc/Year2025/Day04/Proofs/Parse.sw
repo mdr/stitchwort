@@ -8,7 +8,7 @@ import Aoc.Year2025.Day04.Spec (..)
 import Std (Bool, Eq, Fin, List, Nat, Option, Result, Text, Vec, Void)
 
 --| Rows that `traverseOption` accepted, cell by cell.
-theorem parsedCell (lines: List Text) (rows: Vec (Vec Cell (Text.length (lines.headOr ""))) lines.length)
+theorem parsedCell ∀ (lines: List Text) (rows: Vec (Vec Cell (Text.length (lines.headOr ""))) lines.length)
     (ok: Vec.traverseOption (Vec.fromList lines) (line => Vec.ofList (Text.length (lines.headOr "")) (parseLine line)) = Some rows) (r: Nat) (c: Nat):
     rowsCells rows r c = (parseLine (lines.getOr r "")).getOr c Floor :=
   let width := Text.length (List.headOr lines "")
@@ -27,7 +27,7 @@ theorem parsedCell (lines: List Text) (rows: Vec (Vec Cell (Text.length (lines.h
       let past: lines.length ≤ r := omega
       rewrite rowsCellsBelow rows r c past, List.getOrPast lines r "" past
 
-theorem gridOfCells (lines: List Text) (grid: Grid) (h: Grid.of lines = Some grid) (r: Nat) (c: Nat):
+theorem gridOfCells ∀ (lines: List Text) (grid: Grid) (h: Grid.of lines = Some grid) (r: Nat) (c: Nat):
     grid.cells r c = (parseLine (lines.getOr r "")).getOr c Floor :=
   let width := Text.length (List.headOr lines "")
   let f := (line: Text) => Vec.ofList width (parseLine line)
@@ -37,7 +37,7 @@ theorem gridOfCells (lines: List Text) (grid: Grid) (h: Grid.of lines = Some gri
       let same: g rows = grid := Eq.cong (.getOrElse (g rows)) h
       rewrite <- same in parsedCell lines rows e r c
 
-theorem parseGridCells (lines: List Text) (grid: Grid) (h: parseGrid lines = Ok grid) (r: Nat) (c: Nat):
+theorem parseGridCells ∀ (lines: List Text) (grid: Grid) (h: parseGrid lines = Ok grid) (r: Nat) (c: Nat):
     grid.cells r c = (parseLine (lines.getOr r "")).getOr c Floor := match e: findStray lines with
       | Some (row, column, ch) => cases
       | None => gridOfCells lines grid (Eq.trans (Eq.sym (Result.toOptionToResult _ (Grid.of lines))) (Eq.cong Result.toOption h)) r c

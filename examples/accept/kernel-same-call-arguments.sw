@@ -21,6 +21,6 @@ def generate (seed: Nat): Level := { cells = mix 16 seed, start = 0 }
 
 def descend (seed: Nat) (state: State): State := { level = generate seed, turn = state.turn + 1 }
 
-theorem descendMakes (seed: Nat) (state: State): (descend seed state).level = generate seed := rfl
+theorem descendMakes ∀ (seed: Nat) (state: State): (descend seed state).level = generate seed := rfl
 
-theorem descendCells (seed: Nat) (state: State): (descend seed state).level.cells = (generate seed).cells := rfl
+theorem descendCells ∀ (seed: Nat) (state: State): (descend seed state).level.cells = (generate seed).cells := rfl

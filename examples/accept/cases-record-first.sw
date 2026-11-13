@@ -10,4 +10,4 @@ type Tag =
 def same (a b: Tag): Bool := match a, b with
   | MkTag n, MkTag m => n == m
 
-theorem sameRefl (x: Tag): same x x = True := cases
+theorem sameRefl ∀ (x: Tag): same x x = True := cases

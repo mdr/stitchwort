@@ -6,8 +6,8 @@ import Std (Eq, List, Ord, Pair)
 
 type Item = { name: Text, price: Nat }
 
-theorem Item.byPriceInjective: ∀ (x y: Item) => (x.price, x.name) = (y.price, y.name) → x = y
-  | { name = n1, price = p1 }, { name = n2, price = p2 }, h =>
+theorem Item.byPriceInjective ∀ (x y: Item) (h: (x.price, x.name) = (y.price, y.name)): x = y := match x, y with
+  | { name = n1, price = p1 }, { name = n2, price = p2 } =>
     rewrite Eq.cong Pair.fst h, Eq.cong Pair.snd h in rfl
 
 instance Item.instOrd: Ord Item := Ord.byKey ((i: Item) => (i.price, i.name)) Item.byPriceInjective

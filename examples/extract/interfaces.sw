@@ -25,7 +25,7 @@ interface Ordered (a: Type) = {
   irreflexive: ∀ (x: a) => less x x = False
 }
 
-theorem lessIrreflexive: ∀ (x: Nat) => Nat.leq (x + 1) x = False
+theorem lessIrreflexive ∀ (x: Nat): Nat.leq (x + 1) x = False := match x with
   | Zero => rfl
   | Succ k => lessIrreflexive k
 

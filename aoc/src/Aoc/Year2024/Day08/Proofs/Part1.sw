@@ -15,7 +15,7 @@ import Std (And, Bool, DecEq, Eq, Int, Iff, List, Nat, Option, Or, Set, Void)
 --
 -- By Lagrange's identity `(u·v)² + (u×v)² = |u|²|v|²`, `u·v` is `±2|v|²`,
 -- and then `|u ∓ 2v|²` is 0.
-theorem twiceAsFarCases (ur: Int) (uc: Int) (vr: Int) (vc: Int) (cross: ur * vc - uc * vr = 0)
+theorem twiceAsFarCases ∀ (ur: Int) (uc: Int) (vr: Int) (vc: Int) (cross: ur * vc - uc * vr = 0)
     (distance: ur * ur + uc * uc = 4 * (vr * vr + vc * vc)):
     ((ur = 2 * vr) ∧ (uc = 2 * vc)) ∨ ((ur = 0 - 2 * vr) ∧ (uc = 0 - 2 * vc)) :=
   let lagrange: (ur * vr + uc * vc) * (ur * vr + uc * vc) = (2 * (vr * vr + vc * vc)) * (2 * (vr * vr + vc * vc)) :=
@@ -29,7 +29,7 @@ theorem twiceAsFarCases (ur: Int) (uc: Int) (vr: Int) (vc: Int) (cross: ur * vc 
       Inr (Both (ring [And.left zero]) (ring [And.right zero]))
 
 --| And back: `u = ±2v` is in line, and twice as far.
-theorem twiceAsFarOfCases (ur: Int) (uc: Int) (vr: Int) (vc: Int)
+theorem twiceAsFarOfCases ∀ (ur: Int) (uc: Int) (vr: Int) (vc: Int)
     (choice: ((ur = 2 * vr) ∧ (uc = 2 * vc)) ∨ ((ur = 0 - 2 * vr) ∧ (uc = 0 - 2 * vc))):
     (ur * vc - uc * vr = 0) ∧ (ur * ur + uc * uc = 4 * (vr * vr + vc * vc)) := match choice with
       | Inl (Both row column) => rewrite row, column in Both (ring) (ring)
@@ -41,7 +41,7 @@ def pastStep (far: Position) (near: Position): Offset := near.minus far
 def thirdStep (far: Position) (near: Position): Offset := (divideBy (near.minus far) 3).negate
 
 --| `antinodesOf`, written out.
-theorem antinodesOfUnfold (far: Position) (near: Position):
+theorem antinodesOfUnfold ∀ (far: Position) (near: Position):
     antinodesOf far near =
       ((if (near.minus far).rows % 3 == 0 && (near.minus far).columns % 3 == 0 then [pastStep far near, thirdStep far near]
       else [pastStep far near]).filterMap near.offset) :=
@@ -50,19 +50,19 @@ theorem antinodesOfUnfold (far: Position) (near: Position):
 --| One coordinate at a time, with `far`, `near` and the point at `f`, `n`
 --| and `p`. Past `near` is where `far` is twice as far in the same
 --| direction...
-theorem pastIff (f: Int) (n: Int) (p: Int): (p = n + (n - f)) ↔ (f - p = 2 * (n - p)) := {
+theorem pastIff ∀ (f: Int) (n: Int) (p: Int): (p = n + (n - f)) ↔ (f - p = 2 * (n - p)) := {
   forward = e => ring [e],
   backward = h => ring [h]
 }
 
 --| ...and a third of the way from `near` to `far` (when that is a whole
 --| number) is where it is twice as far in the other direction.
-theorem thirdOf (f: Int) (n: Int) (p: Int) (h: f - p = 0 - 2 * (n - p)): ((n - f) % 3 = 0) ∧ (p = n + (0 - (n - f) / 3)) := omega
+theorem thirdOf ∀ (f: Int) (n: Int) (p: Int) (h: f - p = 0 - 2 * (n - p)): ((n - f) % 3 = 0) ∧ (p = n + (0 - (n - f) / 3)) := omega
 
-theorem thirdBack (f: Int) (n: Int) (p: Int) (multiple: (n - f) % 3 = 0) (e: p = n + (0 - (n - f) / 3)): f - p = 0 - 2 * (n - p) := omega
+theorem thirdBack ∀ (f: Int) (n: Int) (p: Int) (multiple: (n - f) % 3 = 0) (e: p = n + (0 - (n - f) / 3)): f - p = 0 - 2 * (n - p) := omega
 
 --| The spec's test, as equations: `u = ±2v`.
-theorem specCases (far: Position) (near: Position) (point: Position):
+theorem specCases ∀ (far: Position) (near: Position) (point: Position):
     ((inLine point far near && twiceAsFar point far near) = True) ↔ (((far.row.toInt - point.row.toInt = 2 * (near.row.toInt - point.row.toInt)) ∧ (far.column.toInt - point.column.toInt = 2 * (near.column.toInt - point.column.toInt))) ∨ ((far.row.toInt - point.row.toInt = 0 - 2 * (near.row.toInt - point.row.toInt)) ∧ (far.column.toInt - point.column.toInt = 0 - 2 * (near.column.toInt - point.column.toInt)))) :=
   let ur := far.row.toInt - point.row.toInt
   let uc := far.column.toInt - point.column.toInt
@@ -79,7 +79,7 @@ theorem specCases (far: Position) (near: Position) (point: Position):
 
 --| The step past `near` reaches the points where `far` is twice as far in
 --| the same direction...
-theorem pastAt (far: Position) (near: Position) (point: Position):
+theorem pastAt ∀ (far: Position) (near: Position) (point: Position):
     (near.offset (pastStep far near) = Some point) ↔ ((far.row.toInt - point.row.toInt = 2 * (near.row.toInt - point.row.toInt)) ∧ (far.column.toInt - point.column.toInt = 2 * (near.column.toInt - point.column.toInt))) := {
   forward = landed =>
     let both := offsetSome near (pastStep far near) point landed
@@ -92,7 +92,7 @@ theorem pastAt (far: Position) (near: Position) (point: Position):
 
 --| ...and the step a third of the way back, those where it is twice as far
 --| in the other direction, when the third is whole.
-theorem thirdAt (far: Position) (near: Position) (point: Position)
+theorem thirdAt ∀ (far: Position) (near: Position) (point: Position)
     (multiples: ((near.row.toInt - far.row.toInt) % 3 = 0) ∧ ((near.column.toInt - far.column.toInt) % 3 = 0)):
     (near.offset (thirdStep far near) = Some point) ↔ ((far.row.toInt - point.row.toInt = 0 - 2 * (near.row.toInt - point.row.toInt)) ∧ (far.column.toInt - point.column.toInt = 0 - 2 * (near.column.toInt - point.column.toInt))) := {
   forward = landed =>
@@ -105,7 +105,7 @@ theorem thirdAt (far: Position) (near: Position) (point: Position)
 }
 
 --| Twice as far in the other direction makes the third whole.
-theorem thirdWhole (far: Position) (near: Position) (point: Position)
+theorem thirdWhole ∀ (far: Position) (near: Position) (point: Position)
     (h:
       (far.row.toInt - point.row.toInt = 0 - 2 * (near.row.toInt - point.row.toInt)) ∧ (far.column.toInt - point.column.toInt = 0 - 2 * (near.column.toInt - point.column.toInt))):
     ((near.row.toInt - far.row.toInt) % 3 = 0) ∧ ((near.column.toInt - far.column.toInt) % 3 = 0) :=
@@ -113,7 +113,7 @@ theorem thirdWhole (far: Position) (near: Position) (point: Position)
     (And.left (thirdOf far.column.toInt near.column.toInt point.column.toInt (And.right h)))
 
 --| The program's two cases, with its test as a variable.
-theorem antinodesIff (far: Position) (near: Position) (point: Position) (condition: Bool)
+theorem antinodesIff ∀ (far: Position) (near: Position) (point: Position) (condition: Bool)
     (multiples:
       (condition = True) ↔ (((near.row.toInt - far.row.toInt) % 3 = 0) ∧ ((near.column.toInt - far.column.toInt) % 3 = 0))):
     (point ∈ (if condition then [pastStep far near, thirdStep far near] else [pastStep far near]).filterMap near.offset) ↔ ((inLine point far near && twiceAsFar point far near) = True) :=
@@ -145,7 +145,7 @@ theorem antinodesIff (far: Position) (near: Position) (point: Position) (conditi
           | Inr both => Void.exfalso (Bool.falseNotTrue (multiples.backward (thirdWhole far near point both)))
     }
 
-theorem antinodesOfCorrect (far: Position) (near: Position) (point: Position):
+theorem antinodesOfCorrect ∀ (far: Position) (near: Position) (point: Position):
     (point ∈ antinodesOf far near) ↔ ((inLine point far near && twiceAsFar point far near) = True) :=
   rewrite antinodesOfUnfold far near in
   antinodesIff far near point _ {
@@ -154,7 +154,7 @@ theorem antinodesOfCorrect (far: Position) (near: Position) (point: Position):
   }
 
 --| Part 1 counts the puzzle's antinodes, for every city.
-theorem part1Correct (city: City): solvePart1 city = part1 city :=
+theorem part1Correct ∀ (city: City): solvePart1 city = part1 city :=
   Eq.cong Set.size
     (locationsCorrect city (((far, near)) => antinodesOf far near) (point far near => inLine point far near && twiceAsFar point far near)
       (first second firstIn secondIn same point inside => antinodesOfCorrect first.position second.position point))

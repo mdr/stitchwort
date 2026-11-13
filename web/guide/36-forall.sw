@@ -7,7 +7,7 @@ import Std.Exists (Witness)
 theorem zeroPlus: ∀ (n: Nat) => 0 + n = n := n => rfl
 
 -- A hypothesis about every value: `all 1` is a proof of `p 1`.
-theorem atOneAndTwo (p: Nat -> Prop) (all: ∀ (n: Nat) => p n): p 1 ∧ p 2 :=
+theorem atOneAndTwo ∀ (p: Nat -> Prop) (all: ∀ (n: Nat) => p n): p 1 ∧ p 2 :=
   Both (all 1) (all 2)
 
 -- Several parameters go together.

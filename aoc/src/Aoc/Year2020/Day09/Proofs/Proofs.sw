@@ -12,24 +12,24 @@ import Aoc.Year2020.Day09 (..)
 import Aoc.Year2020.Day09 (Spec)
 import Std (Fail, Iff, List, Option, Result, Text)
 
-theorem part1Correct (input: Text) (data: XmasData) (parsed: Fail.toResult (() => parseData input) = Ok data) (preamble: Nat) (answer: Nat)
+theorem part1Correct ∀ (input: Text) (data: XmasData) (parsed: Fail.toResult (() => parseData input) = Ok data) (preamble: Nat) (answer: Nat)
     (solved: data.firstInvalid preamble = Some answer):
     List.All2 Spec.NumberWritten (input.lines.map Text.toList) data.numbers ∧ Spec.Part1 data.numbers preamble answer :=
   Both (parseWritten input data parsed) (part1Rules data preamble answer solved)
 
-theorem part2Correct (input: Text) (data: XmasData) (parsed: Fail.toResult (() => parseData input) = Ok data) (preamble: Nat) (invalid: Nat)
+theorem part2Correct ∀ (input: Text) (data: XmasData) (parsed: Fail.toResult (() => parseData input) = Ok data) (preamble: Nat) (invalid: Nat)
     (answer: Nat) (first: data.firstInvalid preamble = Some invalid) (solved: data.weakness invalid = Some answer):
     List.All2 Spec.NumberWritten (input.lines.map Text.toList) data.numbers ∧ Spec.Part2 data.numbers preamble answer :=
   Both (parseWritten input data parsed) (Witness invalid (Both (part1Rules data preamble invalid first) (weaknessRules data invalid answer solved)))
 
 --| Part 1 answers exactly when the puzzle has a first invalid number, and
 --| then with it.
-theorem part1Exactly (data: XmasData) (preamble: Nat) (answer: Nat): data.firstInvalid preamble = Some answer ↔ Spec.Part1 data.numbers preamble answer :=
+theorem part1Exactly ∀ (data: XmasData) (preamble: Nat) (answer: Nat): data.firstInvalid preamble = Some answer ↔ Spec.Part1 data.numbers preamble answer :=
   { forward = found => part1Rules data preamble answer found, backward = first => part1Complete data preamble answer first }
 
 --| Part 2 answers whenever the puzzle has an answer. Two runs could have
 --| different weaknesses; the puzzle expects one.
-theorem part2Complete (data: XmasData) (preamble: Nat) (answer: Nat) (has: Spec.Part2 data.numbers preamble answer):
+theorem part2Complete ∀ (data: XmasData) (preamble: Nat) (answer: Nat) (has: Spec.Part2 data.numbers preamble answer):
     (data.firstInvalid preamble).flatMap data.weakness ≠ None :=
   let (Witness invalid (Both first weak)) := has
   rewrite part1Complete data preamble invalid first in weaknessComplete data invalid answer weak

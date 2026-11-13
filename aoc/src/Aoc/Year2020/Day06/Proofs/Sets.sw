@@ -24,7 +24,7 @@ theorem allAnswers: ∀ (lines: List (List Char)) (people: List Person) => List.
   | [_, .._], [], impossible, question => Void.exfalso impossible
 
 --| The intersection of everyone's answers holds what every line has.
-theorem intersectContains (lines: List (List Char)) (people: NonEmptyList Person) (written: List.All2 PersonWritten lines people.toList) (question: Char):
+theorem intersectContains ∀ (lines: List (List Char)) (people: NonEmptyList Person) (written: List.All2 PersonWritten lines people.toList) (question: Char):
     (people.map .answers).intersectAll.contains question = lines.all (line => line.contains question) :=
   Eq.trans (NonEmptyList.containsIntersectAll (people.map .answers) question) (allAnswers lines people.toList written question)
 

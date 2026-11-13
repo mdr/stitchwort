@@ -10,7 +10,7 @@ import Std (Bool, DecEq, Eq, Exists, List, Nat, Option, Text, Void)
 
 --| Gates that pass `isAdder` add, and each wire is the output of at most
 --| one of them.
-theorem adderAdds (gates: List Gate) (bits: Nat) (adder: isAdder gates bits = True): Adds bits gates ∧ wellWired gates = True :=
+theorem adderAdds ∀ (gates: List Gate) (bits: Nat) (adder: isAdder gates bits = True): Adds bits gates ∧ wellWired gates = True :=
   let Both wired (Both shape sized) := adder
   Both (shapeAdds gates bits sized.read shape) wired
 
@@ -20,12 +20,12 @@ def Repaired (bits: Nat) (budget: Nat) (gates: List Gate) (swaps: List (Wire, Wi
   ∃ (more: List (Wire, Wire)) => result = List.append swaps more ∧ (more.length ≤ budget ∧ isAdder (applySwaps gates more) bits = True)
 
 --| `repair` on gates that already pass.
-theorem repairDone (bits: Nat) (budget: Nat) (gates: List Gate) (swaps: List (Wire, Wire)) (result: List (Wire, Wire))
+theorem repairDone ∀ (bits: Nat) (budget: Nat) (gates: List Gate) (swaps: List (Wire, Wire)) (result: List (Wire, Wire))
     (found: (if isAdder gates bits then Some swaps else None) = Some result): Repaired bits budget gates swaps result :=
   match adder: isAdder gates bits with
     | True => Witness [] (Both (rewrite List.appendNil swaps in Eq.sym (Option.someInjective found)) (Both (omega) adder))
 
-theorem repairSound (bits: Nat) (budget: Nat) (gates: List Gate) (swaps result: List (Wire, Wire))
+theorem repairSound ∀ (bits: Nat) (budget: Nat) (gates: List Gate) (swaps result: List (Wire, Wire))
     (found: repair budget bits gates swaps = Some result): Repaired bits budget gates swaps result := match budget with
       | Zero =>
         match checked: checkAdder gates bits with
@@ -43,7 +43,7 @@ theorem repairSound (bits: Nat) (budget: Nat) (gates: List Gate) (swaps result: 
 --| Part 2, sound for every device: the answer names at most four swaps,
 --| which make the device's gates add any two numbers as wide as its x
 --| wires, each wire the output of at most one gate.
-theorem part2Sound (device: Device) (answer: Text) (solved: solvePart2 device = Some answer):
+theorem part2Sound ∀ (device: Device) (answer: Text) (solved: solvePart2 device = Some answer):
     ∃ (swaps: List (Wire, Wire)) =>
       answer = swapNames swaps
         ∧ (swaps.length ≤ 4 ∧ (Adds device.inputBits (applySwaps device.gates swaps) ∧ wellWired (applySwaps device.gates swaps) = True)) :=
@@ -53,28 +53,28 @@ theorem part2Sound (device: Device) (answer: Text) (solved: solvePart2 device = 
         Witness more (Both (Eq.trans (Eq.sym named) (Eq.cong swapNames isSwaps)) (Both short (adderAdds (applySwaps device.gates more) device.inputBits adder))))
 
 --| The names of the x pairs are x wires, and of the y pairs y wires.
-theorem xNamed (bits: Nat) (x: Nat) (wire: Wire) (member: wire ∈ ((List.range 0 bits).map (k => (X k, x.testBit k))).map .fst):
+theorem xNamed ∀ (bits: Nat) (x: Nat) (wire: Wire) (member: wire ∈ ((List.range 0 bits).map (k => (X k, x.testBit k))).map .fst):
     wire.xBit.isSome = True := match List.memMapElim .fst wire _ member with
       | Witness pair (Both inPairs isWire) =>
         match List.memMapElim (k => (X k, Nat.testBit x k)) pair _ inPairs with
           | Witness k (Both inRange isPair) => rewrite <- isWire, <- isPair in rfl
 
-theorem yNamed (bits: Nat) (y: Nat) (wire: Wire) (member: wire ∈ ((List.range 0 bits).map (k => (Y k, y.testBit k))).map .fst):
+theorem yNamed ∀ (bits: Nat) (y: Nat) (wire: Wire) (member: wire ∈ ((List.range 0 bits).map (k => (Y k, y.testBit k))).map .fst):
     wire.yBit.isSome = True := match List.memMapElim .fst wire _ member with
       | Witness pair (Both inPairs isWire) =>
         match List.memMapElim (k => (Y k, Nat.testBit y k)) pair _ inPairs with
           | Witness k (Both inRange isPair) => rewrite <- isWire, <- isPair in rfl
 
-theorem notXAndY (wire: Wire) (isX: wire.xBit.isSome = True) (isY: wire.yBit.isSome = True): Void := match wire with
+theorem notXAndY ∀ (wire: Wire) (isX: wire.xBit.isSome = True) (isY: wire.yBit.isSome = True): Void := match wire with
   | Other name => Bool.falseNotTrue isX
 
-theorem notInputOutput (wire: Wire) (output: (wire.xBit.isNone ∧ wire.yBit.isNone) = True) (input: (wire.xBit.isSome ∨ wire.yBit.isSome) = True): Void :=
+theorem notInputOutput ∀ (wire: Wire) (output: (wire.xBit.isNone ∧ wire.yBit.isNone) = True) (input: (wire.xBit.isSome ∨ wire.yBit.isSome) = True): Void :=
   match wire with
     | Other name => Bool.falseNotTrue input
 
 --| Well-wired gates, with the x and y wires of two numbers as the wires
 --| that start with values, make a well-formed device.
-theorem wellFormedInputs (bits: Nat) (x: Nat) (y: Nat) (gates: List Gate) (wired: wellWired gates = True):
+theorem wellFormedInputs ∀ (bits: Nat) (x: Nat) (y: Nat) (gates: List Gate) (wired: wellWired gates = True):
     WellFormed { initial = inputsFor bits x y, gates } :=
   let xPairs := (List.range 0 bits).map (k => (X k, Nat.testBit x k))
   let yPairs := (List.range 0 bits).map (k => (Y k, Nat.testBit y k))
@@ -100,7 +100,7 @@ theorem wellFormedInputs (bits: Nat) (x: Nat) (y: Nat) (gates: List Gate) (wired
 --| Part 2, end to end: the device with the swaps the answer names, given
 --| any two numbers as wide as its x wires, settles to their sum on its z
 --| wires.
-theorem part2Correct (device: Device) (answer: Text) (solved: solvePart2 device = Some answer):
+theorem part2Correct ∀ (device: Device) (answer: Text) (solved: solvePart2 device = Some answer):
     ∃ (swaps: List (Wire, Wire)) =>
       answer = swapNames swaps
         ∧ (swaps.length ≤ 4

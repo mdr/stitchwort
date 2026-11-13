@@ -8,7 +8,7 @@ def everyPair (check: Nat → Nat → Bool): (levels: List Nat) → Bool
   | [x, y] => check x y
   | [x, y, z, ..more] => check x y && everyPair check [y, z, ..more]
 
-theorem everyPairTrue: ∀ (levels: List Nat) => everyPair (x y => True) levels = True
+theorem everyPairTrue ∀ (levels: List Nat): everyPair (x y => True) levels = True := match levels with
   | [] => rfl
   | [x] => rfl
   | [x, y] => rfl
@@ -26,7 +26,7 @@ def risingPrefix: (levels: List Nat) → Nat
       | True => 1 + later
       | False => 0
 
-theorem everyPairTrueLifted: ∀ (levels: List Nat) => everyPair (x y => True) levels = True
+theorem everyPairTrueLifted ∀ (levels: List Nat): everyPair (x y => True) levels = True := match levels with
   | [] => rfl
   | [x] => rfl
   | [x, y] => rfl

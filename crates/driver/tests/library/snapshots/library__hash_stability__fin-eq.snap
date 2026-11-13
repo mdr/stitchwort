@@ -3,5 +3,5 @@ source: crates/driver/tests/library/hash_stability.rs
 expression: "lines(session, d, f)"
 ---
 Main.isFirst 6efac865e3ffdc137833b6d07a99185d7f97a4d14b732e8e0c60f36c9d4b0732
-Main.finComparisons c1140a2fd5f4a60825950a91ed21bc00efb78e02a439358bef61f060ca7046c2
-Main.test "Fin comparisons" 9684113fe40986e9489479b05e6cfb0210165500714255298b55aa3fa114dfde
+Main.finComparisons 65db5ab5ae700eeb6f09d5141311b875174ab4dfd65bbb4aae69f84bec95b535
+Main.test "Fin comparisons" 8ca539a05f5a5b6cdc575e57d7cbd6a7b8afa4a3f5b148beee3d1bee46cfdcf0

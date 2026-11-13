@@ -7,13 +7,13 @@ def mask (value: Nat) (bits: Nat): Nat := Nat.and value (Nat.shiftLeft 1 bits - 
 
 def setBit (value: Nat) (bit: Nat): Nat := Nat.or value (Nat.shiftLeft 1 bit)
 
-theorem maskBit (value: Nat) (other: Nat) (i: Nat): Nat.testBit (Nat.and value other) i = (Nat.testBit value i ∧ Nat.testBit other i) :=
+theorem maskBit ∀ (value: Nat) (other: Nat) (i: Nat): Nat.testBit (Nat.and value other) i = (Nat.testBit value i ∧ Nat.testBit other i) :=
   Nat.testBitAnd i value other
 
-theorem setKeeps (value: Nat) (bit: Nat) (i: Nat) (set: Nat.testBit value i = True): Nat.testBit (setBit value bit) i = True :=
+theorem setKeeps ∀ (value: Nat) (bit: Nat) (i: Nat) (set: Nat.testBit value i = True): Nat.testBit (setBit value bit) i = True :=
   rewrite Nat.testBitOr i value (Nat.shiftLeft 1 bit), set in rfl
 
-theorem shiftBack (value: Nat) (count: Nat): Nat.shiftRight (Nat.shiftLeft value count) count = value := Nat.shiftRightShiftLeft value count
+theorem shiftBack ∀ (value: Nat) (count: Nat): Nat.shiftRight (Nat.shiftLeft value count) count = value := Nat.shiftRightShiftLeft value count
 
 test "mask" := mask 182 4 == 6
 

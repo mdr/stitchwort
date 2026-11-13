@@ -42,7 +42,8 @@ fn names(file: &Value, key: &str) -> Vec<String> {
         .collect()
 }
 
-/// `leAntisym` keeps its hash; `addZ` gains an argument, a new proof term,
+/// `leAntisym` keeps its hash: both its arms stay possible once the
+/// premises are in the header; `addZ` gains an argument, a new proof term,
 /// which `limit` depends on, so it is refused; `memOf` has a `∀` after a
 /// premise and is skipped.
 const BEFORE: &str = "\
@@ -52,8 +53,6 @@ import Std (Nat, Void, Bool, Eq)
 
 theorem leAntisym: ∀ (a b: Nat) => a ≤ b → b ≤ a → a = b
   | Zero, Zero, h1, h2 => rfl
-  | Zero, Succ b, h1, h2 => Void.exfalso (Bool.falseNotTrue h2)
-  | Succ a, Zero, h1, h2 => Void.exfalso (Bool.falseNotTrue h1)
   | Succ a, Succ b, h1, h2 => Eq.cong Succ (leAntisym a b h1 h2)
 
 theorem addZ: ∀ (n: Nat) => n + 0 = n := Nat.addZero
@@ -70,12 +69,9 @@ namespace Laws
 
 import Std (Nat, Void, Bool, Eq)
 
-theorem leAntisym (a b: Nat) (h1: a ≤ b) (h2: b ≤ a): a = b :=
-  match a, b with
-    | Zero, Zero => rfl
-    | Zero, Succ b => Void.exfalso (Bool.falseNotTrue h2)
-    | Succ a, Zero => Void.exfalso (Bool.falseNotTrue h1)
-    | Succ a, Succ b => Eq.cong Succ (leAntisym a b h1 h2)
+theorem leAntisym ∀ (a b: Nat) (h1: a ≤ b) (h2: b ≤ a): a = b := match a, b with
+  | Zero, Zero => rfl
+  | Succ a, Succ b => Eq.cong Succ (leAntisym a b h1 h2)
 
 theorem addZ: ∀ (n: Nat) => n + 0 = n := Nat.addZero
 ";
@@ -122,5 +118,69 @@ fn sweep_theorem_binders_writes_only_what_keeps_its_statement() {
     assert_eq!(output.status.code(), Some(0));
     let text = std::fs::read_to_string(dir.join("src/laws.sw")).unwrap();
     assert!(text.starts_with(AFTER), "{text}");
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// `--files`: a single file outside any project is checked on its own.
+#[test]
+fn sweep_theorem_binders_files_checks_a_single_file_on_its_own() {
+    const SINGLE_BEFORE: &str = "\
+namespace Laws
+
+import Std (Nat, Void, Bool, Eq)
+
+theorem ident: ∀ (n: Nat) => n = n := n => rfl
+
+theorem both ∀ (a: Nat): ∀ (b: Nat) => b = b := b => rfl
+
+theorem addZ: ∀ (n: Nat) => n + 0 = n := Nat.addZero
+
+def checked (n: Nat) (same: n + 0 = n): Nat := n
+
+def limit: Nat := checked 100 (addZ 100)
+
+theorem memOf: ∀ (n: Nat) => 0 < n → ∀ (k: Nat) => k ≤ k + n := n h k => Nat.leAddRight k n
+";
+    const SINGLE_AFTER: &str = "theorem ident ∀ (n: Nat): n = n := rfl";
+    // A header that already says `∀` keeps it as the statement's `∀` moves in.
+    const BOTH_AFTER: &str = "theorem both ∀ (a: Nat) (b: Nat): b = b := rfl";
+    let dir = scratch("files");
+    std::fs::write(dir.join("laws.sw"), SINGLE_BEFORE).unwrap();
+
+    let args = [
+        "sweep",
+        "theorem-binders",
+        "--files",
+        "laws.sw",
+        "--dry-run",
+        "--json",
+    ];
+    let output = stitchwort(&dir, &args);
+    assert_eq!(
+        output.status.code(),
+        Some(0),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let result = json(&output);
+    assert_eq!(result["mode"], "file");
+    assert_eq!(result["status"], "clean");
+    assert_eq!(result["written"], false);
+    let file = &result["files"][0];
+    assert_eq!(file["file"], "laws.sw");
+    assert_eq!(names(file, "converted"), ["ident", "both"]);
+    assert_eq!(names(file, "refused"), ["addZ"]);
+    assert_eq!(names(file, "skipped"), ["memOf"]);
+    assert_eq!(
+        std::fs::read_to_string(dir.join("laws.sw")).unwrap(),
+        SINGLE_BEFORE
+    );
+
+    // Written, and formatted.
+    let output = stitchwort(&dir, &["sweep", "theorem-binders", "--files", "laws.sw"]);
+    assert_eq!(output.status.code(), Some(0));
+    let text = std::fs::read_to_string(dir.join("laws.sw")).unwrap();
+    assert!(text.contains(SINGLE_AFTER), "{text}");
+    assert!(text.contains(BOTH_AFTER), "{text}");
     let _ = std::fs::remove_dir_all(&dir);
 }

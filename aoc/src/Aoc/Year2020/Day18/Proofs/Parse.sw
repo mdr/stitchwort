@@ -19,24 +19,24 @@ def Ranked (strengthOf: Operator → Nat): (strength: Nat) → (levels: List (Li
 def Level (strengthOf: Operator → Nat) (strength: Nat) (read: List Char) (expression: Expression): Prop :=
   Spec.Written expression read ∧ Spec.Follows strengthOf expression ∧ Spec.BindsAtLeast strengthOf strength expression
 
-theorem bindsWeaken (strengthOf: Operator → Nat) (strength: Nat) (expression: Expression)
+theorem bindsWeaken ∀ (strengthOf: Operator → Nat) (strength: Nat) (expression: Expression)
     (binds: Spec.BindsAtLeast strengthOf (strength + 1) expression): Spec.BindsAtLeast strengthOf strength expression :=
   match expression with
     | Number value => Trivial
     | Operation operator left right => omega
     | Parenthesised inner => Trivial
 
-theorem spacedWritten (operator: Operator): (operator.spaced).toList = [' ', Spec.symbol operator, ' '] :=
+theorem spacedWritten ∀ (operator: Operator): (operator.spaced).toList = [' ', Spec.symbol operator, ' '] :=
   match operator with
     | Plus => rfl
     | Times => rfl
 
-theorem readsOperator (operators: List Operator):
+theorem readsOperator ∀ (operators: List Operator):
     Parse.Reads (() => operator operators) (read found => found ∈ operators ∧ read = [' ', Spec.symbol found, ' ']) :=
   Parse.readsWeaken (Parse.readsPickBy operators Operator.spaced)
     (read found (Both member same) => Both member (rewrite same in spacedWritten found))
 
-theorem readsOperand (strengthOf: Operator → Nat) (strength: Nat) (expression: () → {Parse} Expression)
+theorem readsOperand ∀ (strengthOf: Operator → Nat) (strength: Nat) (expression: () → {Parse} Expression)
     (readsExpression: Parse.Reads expression (Level strengthOf 0)): Parse.Reads (() => operand expression) (Level strengthOf strength) :=
   Parse.readsOneOf _ _
     (Both
@@ -51,7 +51,7 @@ theorem readsOperand (strengthOf: Operator → Nat) (strength: Nat) (expression:
                   (Both follows Trivial))))))
         Trivial))
 
-theorem readsChain (strengthOf: Operator → Nat) (strength: Nat) (operators: List Operator) (term: () → {Parse} Expression)
+theorem readsChain ∀ (strengthOf: Operator → Nat) (strength: Nat) (operators: List Operator) (term: () → {Parse} Expression)
     (ranked: List.All (operator => strengthOf operator = strength) operators)
     (readsTerm: Parse.Reads term (Level strengthOf (strength + 1))): Parse.Reads (() => chain operators term) (Level strengthOf strength) :=
   Parse.readsChainLeft term (() => Operator.node (operator operators)) (Level strengthOf (strength + 1))
@@ -66,7 +66,7 @@ theorem readsChain (strengthOf: Operator → Nat) (strength: Nat) (operators: Li
         Both (Witness leftRead (Witness rightRead (Both rfl (Both written rightWritten))))
           (Both (Both (rewrite sameStrength in binds) (Both (rewrite sameStrength in rightBinds) (Both follows rightFollows))) (omega [sameStrength])))
 
-theorem readsLevel (strengthOf: Operator → Nat) (expression: () → {Parse} Expression) (readsExpression: Parse.Reads expression (Level strengthOf 0))
+theorem readsLevel ∀ (strengthOf: Operator → Nat) (expression: () → {Parse} Expression) (readsExpression: Parse.Reads expression (Level strengthOf 0))
     (levels: List (List Operator)) (strength: Nat) (ranked: Ranked strengthOf strength levels):
     Parse.Reads (() => level expression levels) (Level strengthOf strength) := match levels with
       | [] => readsOperand strengthOf strength expression readsExpression
@@ -76,7 +76,7 @@ theorem readsLevel (strengthOf: Operator → Nat) (expression: () → {Parse} Ex
 
 --| A whole expression, under ranked levels, is one written out that
 --| follows the strengths.
-theorem readsExpression (strengthOf: Operator → Nat) (precedence: Precedence) (ranked: Ranked strengthOf 0 precedence.levels):
+theorem readsExpression ∀ (strengthOf: Operator → Nat) (precedence: Precedence) (ranked: Ranked strengthOf 0 precedence.levels):
     Parse.Reads (() => precedence.expression) (Spec.Means strengthOf) :=
   Parse.readsWeaken
     (Parse.readsRecursive (self => level self precedence.levels) (Level strengthOf 0)

@@ -8,15 +8,15 @@ import Std.Void (exfalso)
 
 def double (n: Nat): Nat := n + n
 
-theorem notFound (n: Nat): double n = n + n := match h: n * 2 with
+theorem notFound ∀ (n: Nat): double n = n + n := match h: n * 2 with
   | Zero => rfl
   | Succ k => rfl
 
-theorem found (n: Nat): double n = n + n := match h: n + n with
+theorem found ∀ (n: Nat): double n = n + n := match h: n + n with
   | Zero => rfl
   | Succ k => rfl
 
-theorem equationUsed (n: Nat): n = n := match h: Succ n with
+theorem equationUsed ∀ (n: Nat): n = n := match h: Succ n with
   | Zero => exfalso (Nat.succNotZero n h)
   | Succ k => rfl
 
@@ -27,6 +27,6 @@ type Top: Prop = | Intro
 
 def same (b: Bool): Bool := b
 
-theorem variableNormal (b: Bool): Top := match h: same b with
+theorem variableNormal ∀ (b: Bool): Top := match h: same b with
   | True => Intro
   | False => Intro

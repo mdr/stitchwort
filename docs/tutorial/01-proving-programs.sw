@@ -85,11 +85,10 @@ type Coupon =
 
 --| What is left to pay of `total` pence. `-` on `Nat` stops at 0, so a
 --| coupon worth more than the basket makes it free.
-def Coupon.apply (coupon: Coupon) (total: Nat): Nat :=
-  match coupon with
-    | NoCoupon => total
-    | PenceOff pence => total - pence
-    | PercentOff percent => total - total * percent / 100
+def Coupon.apply (coupon: Coupon) (total: Nat): Nat := match coupon with
+  | NoCoupon => total
+  | PenceOff pence => total - pence
+  | PercentOff percent => total - total * percent / 100
 
 def tea: Item := { name = "tea", pence = 250, count = 2 }
 def milk: Item := { name = "milk", pence = 90, count = 1 }
@@ -123,7 +122,7 @@ theorem shoppingTotal: shopping.total = 590 := rfl
 -- front of the list, and `totalOf` has an arm for exactly that shape, so
 -- this holds by computing, for every basket and every item:
 
-theorem addCost (basket: Basket) (item: Item): (basket.add item).total = item.cost + basket.total := rfl
+theorem addCost ∀ (basket: Basket) (item: Item): (basket.add item).total = item.cost + basket.total := rfl
 
 theorem emptyTotal: Basket.empty.total = 0 := rfl
 
@@ -179,11 +178,10 @@ theorem emptyTotal: Basket.empty.total = 0 := rfl
 --    `omega` yourself, in each arm. (Cmd-. on the single `?` of step 1
 --    offers `cases`, which is the next paragraph.)
 
-theorem couponNeverAdds (coupon: Coupon) (total: Nat): coupon.apply total ≤ total :=
-  match coupon with
-    | NoCoupon => omega
-    | PenceOff pence => omega
-    | PercentOff percent => omega
+theorem couponNeverAdds ∀ (coupon: Coupon) (total: Nat): coupon.apply total ≤ total := match coupon with
+  | NoCoupon => omega
+  | PenceOff pence => omega
+  | PercentOff percent => omega
 
 -- `cases` does steps 2 to 4 in one go: it splits on whatever the goal is
 -- stuck on, as `match` would, and closes each case by computing, by a
@@ -232,13 +230,13 @@ theorem couponNeverAdds (coupon: Coupon) (total: Nat): coupon.apply total ≤ to
 --    `omega [totalAppend others rest]` proves it too: `omega` with an
 --    extra fact. Try it.
 
-theorem totalAppend (others: List Item): ∀ (items: List Item) => totalOf (items ++ others) = totalOf items + totalOf others
+theorem totalAppend ∀ (others: List Item): ∀ (items: List Item) => totalOf (items ++ others) = totalOf items + totalOf others
   | [] => rfl
   | [item, ..rest] => rewrite totalAppend others rest, Nat.addAssoc
 
 -- With the lemma proved, the fact about baskets needs no work of its own.
 
-theorem mergeTotal (basket: Basket) (other: Basket): (basket.merge other).total = basket.total + other.total :=
+theorem mergeTotal ∀ (basket: Basket) (other: Basket): (basket.merge other).total = basket.total + other.total :=
   totalAppend other.items basket.items
 
 -- `Basket.total` and `Basket.merge` compute straight to `totalOf` and
@@ -263,7 +261,7 @@ test "shared three ways" := shopping.share (people := 3) == 196
 -- or run `stitchwort search --at 01-proving-programs.sw:LINE` in a
 -- terminal, with the line of the `?`.
 
-theorem shareAtMost (basket: Basket) (people: Nat) (someone: people ≠ 0): basket.share people ≤ basket.total :=
+theorem shareAtMost ∀ (basket: Basket) (people: Nat) (someone: people ≠ 0): basket.share people ≤ basket.total :=
   Nat.divLe basket.total people
 
 -- ## Step 7. Mistakes on purpose

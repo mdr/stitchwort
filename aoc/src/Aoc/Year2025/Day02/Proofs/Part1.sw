@@ -24,7 +24,7 @@ def part1Blocks (ranges: List Range): Nat :=
 
 --| One range: the ids written exactly twice are the sum over block lengths
 --| of the blocks written twice.
-theorem rangeDoubled (r: Range): sumOfIdsWrittenTwice r = List.sumBy (List.rangeFrom r.to.digitCount 1) (k => repeatedSpec r k 2) :=
+theorem rangeDoubled ∀ (r: Range): sumOfIdsWrittenTwice r = List.sumBy (List.rangeFrom r.to.digitCount 1) (k => repeatedSpec r k 2) :=
   let size := Nat.digitCount r.to
   calc sumOfIdsWrittenTwice r
     -- (`List.range 1 (size + 1)` is `List.rangeFrom (size + 1 - 1) 1`)
@@ -34,7 +34,7 @@ theorem rangeDoubled (r: Range): sumOfIdsWrittenTwice r = List.sumBy (List.range
       := rewrite repeatedCorrect r _ 2
 
 --| (b) Part 1 is the brute-force sum over blocks.
-theorem part1BlocksCorrect (ranges: List Range): solvePart1 ranges = part1Blocks ranges :=
+theorem part1BlocksCorrect ∀ (ranges: List Range): solvePart1 ranges = part1Blocks ranges :=
   rewrite rangeDoubled _
 
 -- Why part 1 is right (c): `part1Correct` says the printed part 1 is
@@ -48,7 +48,7 @@ theorem part1BlocksCorrect (ranges: List Range): solvePart1 ranges = part1Blocks
 -- once (`collapse`; `doubled x` is `copies x 2`).
 
 --| One range: the block walk is the id walk.
-theorem rangeBlocksIds (r: Range):
+theorem rangeBlocksIds ∀ (r: Range):
     List.sumBy (List.rangeFrom r.to.digitCount 1) (k => repeatedSpec r k 2) = (r.ids.filter doubled).sum :=
   calc List.sumBy (List.rangeFrom r.to.digitCount 1) (k => repeatedSpec r k 2)
     -- block length by block length, the ids whose digits are that block written twice...
@@ -63,10 +63,10 @@ theorem rangeBlocksIds (r: Range):
     _ = List.sum (List.filter r.ids doubled) := Eq.sym (List.sumFilter r.ids doubled)
 
 --| The block walk and the id walk agree on every input.
-theorem blocksAreIds (ranges: List Range): part1Blocks ranges = part1Spec ranges :=
+theorem blocksAreIds ∀ (ranges: List Range): part1Blocks ranges = part1Spec ranges :=
   rewrite rangeBlocksIds _
 
 --| (c) Part 1 is the sum of the ids, in all the ranges, whose digits are some
 --| block written twice.
-theorem part1Correct (ranges: List Range): solvePart1 ranges = part1Spec ranges :=
+theorem part1Correct ∀ (ranges: List Range): solvePart1 ranges = part1Spec ranges :=
   Eq.trans (part1BlocksCorrect ranges) (blocksAreIds ranges)

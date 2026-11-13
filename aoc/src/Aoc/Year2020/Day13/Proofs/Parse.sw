@@ -29,12 +29,12 @@ theorem readsNotes: Parse.Reads notes NotesWritten :=
             (Both (rewrite List.appendNil entries in rfl)
               (Both nonEmpty (Both allDigits (Both decimal (Both breaks (Both listed rfl)))))))))))))
 
-theorem parseWritten (input: Text) (notes: Notes) (parsed: Fail.toResult (() => parseNotes input) = Ok notes):
+theorem parseWritten ∀ (input: Text) (notes: Notes) (parsed: Fail.toResult (() => parseNotes input) = Ok notes):
     ∃ (read: List Char) => ∃ (ending: List Char) =>
       input.toList = read ++ ending ∧ NotesWritten read notes ∧ ending.all (char => char == '\n' ∨ char == '\r') = True :=
   Parse.allReads input Aoc.Year2020.Day13.notes NotesWritten notes parsed readsNotes
 
-theorem eachSlotPositive (read: List Char) (slots: List Slot) (each: Parse.Each (Parse.Then (read (u: ()) => read = [',']) (u => SlotWritten)) read slots) (id: Nat) (member: Listed id ∈ slots): id ≠ 0 :=
+theorem eachSlotPositive ∀ (read: List Char) (slots: List Slot) (each: Parse.Each (Parse.Then (read (u: ()) => read = [',']) (u => SlotWritten)) read slots) (id: Nat) (member: Listed id ∈ slots): id ≠ 0 :=
   match slots with
     | [slot, ..rest] =>
       match each with
@@ -43,7 +43,7 @@ theorem eachSlotPositive (read: List Char) (slots: List Slot) (each: Parse.Each 
             | Inl same => rewrite same at written in And.right (And.right (And.right written))
             | Inr inRest => eachSlotPositive later rest each id inRest
 
-theorem writtenPositive (read: List Char) (notes: Notes) (written: NotesWritten read notes): IdsPositive notes :=
+theorem writtenPositive ∀ (read: List Char) (notes: Notes) (written: NotesWritten read notes): IdsPositive notes :=
   match written with
     | Witness digits (Witness lineBreak (Witness entries (Witness slots (Both split (Both nonEmpty (Both allDigits (Both decimal (Both breaks (Both listed same))))))))) =>
       match listed with

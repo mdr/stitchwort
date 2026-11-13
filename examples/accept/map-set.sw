@@ -39,7 +39,7 @@ test "alter" := (wordCounts ["a"] |> Map.alter "a" (n => Some (Option.getOrElse 
 test "show" := "${wordCounts ["x", "x"]}" == "Map.fromList [(\"x\", 2)]" ∧ "${Set.fromList [2, 1]}" == "Set.fromList [1, 2]"
 
 -- What `get` says after `insert`, from the library's theorems, for any map.
-theorem afterTwo (m: Map Nat Text): (m |> Map.insert 1 "a" |> Map.insert 2 "b" |> Map.get 1) = Some "a" :=
+theorem afterTwo ∀ (m: Map Nat Text): (m |> Map.insert 1 "a" |> Map.insert 2 "b" |> Map.get 1) = Some "a" :=
   Eq.trans (Map.getInsertOther 2 "b" 1 (Nat.equalFalse 1 2 rfl) (Map.insert m 1 "a")) (Map.getInsert 1 "a" m)
 
 -- The ordering is part of the type (§7.5).
@@ -108,9 +108,9 @@ test "keySet" := (wordCounts ["b", "a"]).keySet == ["a", "b"].toSet
 test "isSubset" := Set.isSubset (visited "R") (visited "RD") ∧ not (Set.isSubset (visited "RD") (visited "R"))
 
 -- What an intersection holds and how large it is, from the library's theorems.
-theorem commonKeyHeld (a: Set Nat) (b: Set Nat) (n: Nat) (inA: Set.contains a n = True) (inB: Set.contains b n = True):
+theorem commonKeyHeld ∀ (a: Set Nat) (b: Set Nat) (n: Nat) (inA: Set.contains a n = True) (inB: Set.contains b n = True):
     Set.contains (Set.intersect a b) n = True :=
   rewrite Set.containsIntersect a n b, inA, inB in rfl
 
-theorem commonAtMostEither (a: Set Nat) (b: Set Nat): Set.size (Set.intersect a b) ≤ Set.size a ∧ Set.size (Set.intersect a b) ≤ Set.size b :=
+theorem commonAtMostEither ∀ (a: Set Nat) (b: Set Nat): Set.size (Set.intersect a b) ≤ Set.size a ∧ Set.size (Set.intersect a b) ≤ Set.size b :=
   Both (Set.sizeIntersectLeft a b) (Set.sizeIntersectRight a b)

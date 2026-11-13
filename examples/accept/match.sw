@@ -26,7 +26,7 @@ def f (n: Nat) (xs: List Nat): Nat := 1 + match xs with
   | [x, .._] => x + n
 
 -- A proof by `match`, in the tree.
-theorem appendNil (xs: List a): xs.append [] = xs := match xs with
+theorem appendNil ∀ (xs: List a): xs.append [] = xs := match xs with
   | [] => rfl
   | [y, ..ys] => Eq.cong (Cons y) (appendNil ys)
 
@@ -56,7 +56,7 @@ def usesH (xs: List Nat): Bool := match h: xs.length with
   | Succ k => keep (xs.length = Succ k) h
 
 -- Expression scrutinee generalised in the goal.
-theorem same (n: Nat): (n + 0) = (n + 0) := match n + 0 with
+theorem same ∀ (n: Nat): (n + 0) = (n + 0) := match n + 0 with
   | Zero => rfl
   | Succ m => rfl
 

@@ -26,7 +26,7 @@ def ColumnFits: (rows: List (List Tile)) → Prop
 def TurnedOther (jigsaw: Jigsaw) (tile: Tile) (placed: Tile): Prop :=
   ∃ (original: Tile) => original ∈ jigsaw.tiles ∧ original.id ≠ tile.id ∧ placed ∈ original.orientations
 
-theorem neighbourFound (jigsaw: Jigsaw) (tile: Tile) (edge: Edge) (placed: Tile → Bool) (next: Tile) (found: jigsaw.neighbour tile edge placed = Some next):
+theorem neighbourFound ∀ (jigsaw: Jigsaw) (tile: Tile) (edge: Edge) (placed: Tile → Bool) (next: Tile) (found: jigsaw.neighbour tile edge placed = Some next):
     placed next = True ∧ TurnedOther jigsaw tile next :=
   let candidates := jigsaw.tiles.filter (other => other.id != tile.id && other.image.edges.any edge.fits)
   match List.findSome (candidates.flatMap (.orientations)) placed next found with
@@ -38,17 +38,17 @@ theorem neighbourFound (jigsaw: Jigsaw) (tile: Tile) (edge: Edge) (placed: Tile 
               let Both different _ := kept
               Both fits (Witness original (Both inTiles (Both different.read.read turned)))
 
-theorem rightOfFits (jigsaw: Jigsaw) (tile: Tile) (next: Tile) (found: jigsaw.rightOf tile = Some next):
+theorem rightOfFits ∀ (jigsaw: Jigsaw) (tile: Tile) (next: Tile) (found: jigsaw.rightOf tile = Some next):
     next.image.left = tile.image.right ∧ TurnedOther jigsaw tile next :=
   match neighbourFound jigsaw tile tile.image.right (next => next.image.left == tile.image.right) next found with
     | Both fits turned => Both fits.read turned
 
-theorem belowFits (jigsaw: Jigsaw) (tile: Tile) (next: Tile) (found: jigsaw.below tile = Some next):
+theorem belowFits ∀ (jigsaw: Jigsaw) (tile: Tile) (next: Tile) (found: jigsaw.below tile = Some next):
     next.image.top = tile.image.bottom ∧ TurnedOther jigsaw tile next :=
   match neighbourFound jigsaw tile tile.image.bottom (next => next.image.top == tile.image.bottom) next found with
     | Both fits turned => Both fits.read turned
 
-theorem rowAfterFits (jigsaw: Jigsaw) (tile: Tile) (fuel: Nat): RowFits [tile, ..jigsaw.rowAfter tile fuel] :=
+theorem rowAfterFits ∀ (jigsaw: Jigsaw) (tile: Tile) (fuel: Nat): RowFits [tile, ..jigsaw.rowAfter tile fuel] :=
   match fuel with
     | Zero => Trivial
     | Succ fuel =>
@@ -58,7 +58,7 @@ theorem rowAfterFits (jigsaw: Jigsaw) (tile: Tile) (fuel: Nat): RowFits [tile, .
 
 --| From any first tile (`arrange` starts from `topLeft`), every row fits
 --| edge to edge, and so does the first column.
-theorem rowsFromFits (jigsaw: Jigsaw) (first: Tile) (fuel: Nat): (∀ (row: List Tile) => row ∈ jigsaw.rowsFrom first fuel → RowFits row) ∧ ColumnFits (jigsaw.rowsFrom first fuel) :=
+theorem rowsFromFits ∀ (jigsaw: Jigsaw) (first: Tile) (fuel: Nat): (∀ (row: List Tile) => row ∈ jigsaw.rowsFrom first fuel → RowFits row) ∧ ColumnFits (jigsaw.rowsFrom first fuel) :=
   match fuel with
     | Zero => Both (row member => Void.exfalso member) Trivial
     | Succ fuel =>

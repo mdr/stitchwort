@@ -96,13 +96,12 @@ def optional (p: Parser c a): Parser False (Option a) := { run = input =>
 -- `many` needs a parser that consumes: its proof is the measure.
 def manyFrom (p: Parser True a) (input: List Char): Reply False input (List a)
     decreasing input.length
-:=
-  match p.run input with
-    | Missed what => Got [] input (Nat.leRefl input.length)
-    | Got x rest shorter =>
-      match manyFrom p rest with
-        | Got xs after noLonger => Got (Cons x xs) after (Nat.leTrans after.length rest.length input.length noLonger (Nat.lessLe rest.length input.length shorter))
-        | Missed what => Missed what
+:= match p.run input with
+  | Missed what => Got [] input (Nat.leRefl input.length)
+  | Got x rest shorter =>
+    match manyFrom p rest with
+      | Got xs after noLonger => Got (Cons x xs) after (Nat.leTrans after.length rest.length input.length noLonger (Nat.lessLe rest.length input.length shorter))
+      | Missed what => Missed what
 
 def many (p: Parser True a): Parser False (List a) := { run = input => manyFrom p input }
 
@@ -112,10 +111,9 @@ def digit: Parser True Nat := map (satisfy "a digit" (c => c.digitValue.isSome))
 
 def nat: Parser True Nat := map (many1 digit) Nat.fromDigits
 
-def parse (p: Parser c a) (text: Text): Option a :=
-  match p.run text.toList with
-    | Got x rest h => if rest == [] then Some x else None
-    | Missed what => None
+def parse (p: Parser c a) (text: Text): Option a := match p.run text.toList with
+  | Got x rest h => if rest == [] then Some x else None
+  | Missed what => None
 
 test "many" := parse (many (char 'a')) "aaa" == Some ['a', 'a', 'a']
 
@@ -190,13 +188,12 @@ def bmap (p: Bounded s n c a) (f: a → b): Bounded s n c b := { run = input => 
 
 def bmanyFrom (p: Bounded s n True a) (input: List Char) (ok: Within s input.length n): Reply False input (List a)
     decreasing input.length
-:=
-  match p.run input ok with
-    | Missed what => Got [] input (Nat.leRefl input.length)
-    | Got x rest shorter =>
-      match bmanyFrom p rest (Within.shrink s rest.length input.length n (Nat.lessLe rest.length input.length shorter) ok) with
-        | Got xs after noLonger => Got (Cons x xs) after (Nat.leTrans after.length rest.length input.length noLonger (Nat.lessLe rest.length input.length shorter))
-        | Missed what => Missed what
+:= match p.run input ok with
+  | Missed what => Got [] input (Nat.leRefl input.length)
+  | Got x rest shorter =>
+    match bmanyFrom p rest (Within.shrink s rest.length input.length n (Nat.lessLe rest.length input.length shorter) ok) with
+      | Got xs after noLonger => Got (Cons x xs) after (Nat.leTrans after.length rest.length input.length noLonger (Nat.lessLe rest.length input.length shorter))
+      | Missed what => Missed what
 
 def bmany (p: Bounded s n True a): Bounded s n False (List a) := { run = input => ok => bmanyFrom p input ok }
 
@@ -244,10 +241,9 @@ test "arithmetic" := parse arithmetic "2*(3+4)+1" == Some 15
 
 -- These characters, in order. It consumes whatever the text: an empty
 -- text never matches, which a parser that consumes is allowed to do.
-def text (expected: Text): Parser True () :=
-  match expected.toList with
-    | Nil => failWith "a literal"
-    | Cons first more => seq (char first) (c => textRest more)
+def text (expected: Text): Parser True () := match expected.toList with
+  | Nil => failWith "a literal"
+  | Cons first more => seq (char first) (c => textRest more)
 
 def textRest: List Char → Parser False ()
   | Nil => pure ()
@@ -264,13 +260,12 @@ def mayNotConsume (p: Parser c a): Parser False a := { run = input =>
 -- character. The measure is the input, so `p` must consume.
 def findAllFrom (p: Parser True a) (input: List Char): List a
     decreasing input.length
-:=
-  match p.run input with
-    | Got x rest shorter => Cons x (findAllFrom p rest)
-    | Missed what =>
-      match input with
-        | Nil => []
-        | Cons skipped rest => findAllFrom p rest
+:= match p.run input with
+  | Got x rest shorter => Cons x (findAllFrom p rest)
+  | Missed what =>
+    match input with
+      | Nil => []
+      | Cons skipped rest => findAllFrom p rest
 
 type Instruction =
   | Mul (left: Nat) (right: Nat)
@@ -307,23 +302,21 @@ def optionalResult (input: List Char): Option (a, List Char) → Option (Option 
   | Some (x, rest) => Some (Some x, rest)
   | None => Some (None, input)
 
-theorem optionalResultLemma (p: Parser c a) (input: List Char):
-    ((optional p).run input).result = optionalResult input (p.run input).result :=
-  match p.run input with
-    | Got y after h => rfl
-    | Missed what => rfl
+theorem optionalResultLemma ∀ (p: Parser c a) (input: List Char):
+    ((optional p).run input).result = optionalResult input (p.run input).result := match p.run input with
+      | Got y after h => rfl
+      | Missed what => rfl
 
 def altResult (second: Option (a, List Char)): Option (a, List Char) → Option (a, List Char)
   | Some found => Some found
   | None => second
 
-theorem altResultLemma [c1 c2: Bool] (p: Parser c1 a) (q: Parser c2 a) (input: List Char):
-    ((alt p q).run input).result = altResult (q.run input).result (p.run input).result :=
-  match p.run input with
-    | Got x rest h => rfl
-    | Missed first =>
-      match q.run input with
-        | Got y rest h => rfl
-        | Missed second => rfl
+theorem altResultLemma ∀ [c1 c2: Bool] (p: Parser c1 a) (q: Parser c2 a) (input: List Char):
+    ((alt p q).run input).result = altResult (q.run input).result (p.run input).result := match p.run input with
+      | Got x rest h => rfl
+      | Missed first =>
+        match q.run input with
+          | Got y rest h => rfl
+          | Missed second => rfl
 
 theorem day3Example: instructions "mul(2,4)do()" = [Mul 2 4, Do] := rfl

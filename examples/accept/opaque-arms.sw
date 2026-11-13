@@ -21,10 +21,10 @@ opaque def size: List Nat -> Nat
 theorem sizeNil: size [] = 0 := rewrite size.unfold in rfl
 
 -- Without `unfolding`, `size rest` is stuck: what's known is its type.
-theorem sizeCons (x: Nat) (rest: List Nat): size [x, ..rest] = 1 + size rest :=
+theorem sizeCons ∀ (x: Nat) (rest: List Nat): size [x, ..rest] = 1 + size rest :=
   rewrite size.unfold in rfl
 
-theorem sizeTwo (x: Nat) (y: Nat): size [x, y] = 2 unfolding size := rfl
+theorem sizeTwo ∀ (x: Nat) (y: Nat): size [x, y] = 2 unfolding size := rfl
 
 opaque def isEven: Nat -> Bool
   | Zero => True

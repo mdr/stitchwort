@@ -29,7 +29,7 @@ def keptIfFits (size: Nat) (blockLength: Nat) (copies: Nat): List RepetitionTemp
 --| keeping the templates that fit: as lists, a `flatMap` of a `flatMap` of
 --| "this template if it fits, else nothing". `templatesSum` below sums over
 --| it.
-theorem templatesAsGrid (range: Range):
+theorem templatesAsGrid ∀ (range: Range):
     allTemplatesForRange range
       = List.flatMap (List.range 1 (range.to.digitCount + 1)) (blockLength =>
         List.flatMap (List.range 2 (range.to.digitCount + 1)) (copies =>
@@ -56,20 +56,20 @@ theorem templatesAsGrid (range: Range):
 --| The same for sums: summing over the templates is summing over every block
 --| length up to the digits and every number of copies from 2, the templates that
 --| don't fit counting nothing. (Part2.sw sums the weighted terms this way.)
-theorem betweenOne (n: Nat): List.range 1 (n + 1) = List.rangeFrom n 1 := rewrite (omega: n + 1 - 1 = n)
+theorem betweenOne ∀ (n: Nat): List.range 1 (n + 1) = List.rangeFrom n 1 := rewrite (omega: n + 1 - 1 = n)
 
-theorem betweenTwo (n: Nat): List.range 2 (n + 1) = List.rangeFrom (n - 1) 2 := match n with
+theorem betweenTwo ∀ (n: Nat): List.range 2 (n + 1) = List.rangeFrom (n - 1) 2 := match n with
   | Zero => rfl
   | Succ n => rewrite (omega: n + 1 - 1 = n)
 
 --| One template, kept if it fits: its sum is `f` of it, or nothing.
-theorem keptSum [auto add: Add c] (f: RepetitionTemplate → c) (size: Nat) (k: Nat) (n: Nat):
+theorem keptSum ∀ [auto add: Add c] (f: RepetitionTemplate → c) (size: Nat) (k: Nat) (n: Nat):
     List.sumBy (keptIfFits size k n) f = (if Nat.leq (k * n) size then f { blockLength = k, copies = n } else Add.zero) :=
   match Nat.leq (k * n) size with
     | True => add.zeroAdd (f { blockLength = k, copies = n })
     | False => rfl
 
-theorem templatesSum [auto add: Add c] (r: Range) (f: RepetitionTemplate → c):
+theorem templatesSum ∀ [auto add: Add c] (r: Range) (f: RepetitionTemplate → c):
     List.sumBy (allTemplatesForRange r) f
       = List.sumBy (List.rangeFrom r.to.digitCount 1) (k => List.sumBy (List.rangeFrom (r.to.digitCount - 1) 2)
         (n => if Nat.leq (k * n) r.to.digitCount then f { blockLength = k, copies = n } else Add.zero)) :=
@@ -86,7 +86,7 @@ theorem templatesSum [auto add: Add c] (r: Range) (f: RepetitionTemplate → c):
       := rewrite betweenOne size, betweenTwo size
 
 --| Membership (1): a listed template fits.
-theorem templateFits (range: Range) (template: RepetitionTemplate)
+theorem templateFits ∀ (range: Range) (template: RepetitionTemplate)
     (listed: List.Mem template (allTemplatesForRange range)): Fits range template :=
   let size := range.to.digitCount
   -- It came from some block length in `1..size`,
@@ -116,20 +116,20 @@ theorem templateFits (range: Range) (template: RepetitionTemplate)
 --| Two small facts about the product: a block is no longer than the block
 --| written `copies` times, and the number of copies is no more than the block
 --| length times itself.
-theorem blockLengthLeProduct (blockLength: Nat) (copies: Nat) (atLeastOne: 1 ≤ copies): blockLength ≤ blockLength * copies :=
+theorem blockLengthLeProduct ∀ (blockLength: Nat) (copies: Nat) (atLeastOne: 1 ≤ copies): blockLength ≤ blockLength * copies :=
   Nat.leMulPos blockLength copies atLeastOne
 
-theorem copiesLeProduct (blockLength: Nat) (copies: Nat) (atLeastOne: 1 ≤ blockLength): copies ≤ blockLength * copies :=
+theorem copiesLeProduct ∀ (blockLength: Nat) (copies: Nat) (atLeastOne: 1 ≤ blockLength): copies ≤ blockLength * copies :=
   omega [Nat.leMulPos copies blockLength atLeastOne]
 
 --| A template is its block length and its number of copies.
-theorem templateEta (template: RepetitionTemplate):
+theorem templateEta ∀ (template: RepetitionTemplate):
     ({ blockLength = template.blockLength, copies = template.copies }: RepetitionTemplate) = template :=
   match template with
     | { blockLength, copies } => rfl
 
 --| Membership (2): a template that fits is listed.
-theorem fittingTemplateListed (range: Range) (template: RepetitionTemplate)
+theorem fittingTemplateListed ∀ (range: Range) (template: RepetitionTemplate)
     (fits: Fits range template): List.Mem template (allTemplatesForRange range) :=
   let size := range.to.digitCount
   match fits with
@@ -149,7 +149,7 @@ theorem fittingTemplateListed (range: Range) (template: RepetitionTemplate)
 --| in the range and its digits are a block of `blockLength` digits written
 --| `copies` (two or more) times, the template of that block length and that
 --| many copies is in `allTemplatesForRange`.
-theorem writtenIdTemplateListed (range: Range) (x: Nat) (inRange: List.Mem x range.ids)
+theorem writtenIdTemplateListed ∀ (range: Range) (x: Nat) (inRange: List.Mem x range.ids)
     (blockLength: Nat) (copies: Nat) (written: writtenAs x.digits.toList blockLength copies = True) (atLeastTwo: 2 ≤ copies):
     List.Mem ({ blockLength, copies }: RepetitionTemplate) (allTemplatesForRange range) :=
   -- An x in the range is at most the range's end,
@@ -170,12 +170,12 @@ theorem writtenIdTemplateListed (range: Range) (x: Nat) (inRange: List.Mem x ran
     (Both blockNotEmpty (Both atLeastTwo omega))
 
 --| What `keptIfFits` gives is at most one template, and it is that of its arguments.
-theorem keptIfFitsDistinct (size: Nat) (blockLength: Nat) (copies: Nat): List.Distinct (keptIfFits size blockLength copies) :=
+theorem keptIfFitsDistinct ∀ (size: Nat) (blockLength: Nat) (copies: Nat): List.Distinct (keptIfFits size blockLength copies) :=
   match Nat.leq (blockLength * copies) size with
     | True => Both (listed => listed) Trivial
     | False => Trivial
 
-theorem keptIfFitsIsTemplate (size: Nat) (blockLength: Nat) (copies: Nat) (template: RepetitionTemplate)
+theorem keptIfFitsIsTemplate ∀ (size: Nat) (blockLength: Nat) (copies: Nat) (template: RepetitionTemplate)
     (kept: List.Mem template (keptIfFits size blockLength copies)): (template.blockLength = blockLength) ∧ (template.copies = copies) :=
   match Nat.leq (blockLength * copies) size with
     | True =>
@@ -186,7 +186,7 @@ theorem keptIfFitsIsTemplate (size: Nat) (blockLength: Nat) (copies: Nat) (templ
 --| No duplicates: the list holds each template once. Templates from
 --| different block lengths differ in `blockLength`, and within one block
 --| length, in `copies`.
-theorem templatesDistinct (range: Range): List.Distinct (allTemplatesForRange range) :=
+theorem templatesDistinct ∀ (range: Range): List.Distinct (allTemplatesForRange range) :=
   let size := range.to.digitCount
   rewrite templatesAsGrid range in
   List.distinctFlatMap (blockLength => List.flatMap (List.range 2 (size + 1)) (copyCount => keptIfFits size blockLength copyCount))

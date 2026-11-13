@@ -9,13 +9,13 @@ expression: output
      │                                                                                                                                                     ─┬─  
      │                                                                                                                                                      ╰─── `choose b (arg => Parse.exactly 340282366920938463463374607431768211456 Parse.digit)` and `arg => Parse.exactly 35 Parse.digit` aren't equal
      │
-     ├─[ std/Parse/Parse.sw:220:33 ]
+     ├─[ std/Parse/Parse.sw:219:31 ]
      │
- 221 │ ╭─▶   match Parse.next passes with
+ 219 │ ╭─▶ def Parse.satisfy (what: Text) (passes: Char → Bool): {Parse} Char := match Parse.next passes with
      ┆ ┆   
- 223 │ ├─▶     | None => Parse.expected what
-     │ │                                       
-     │ ╰─────────────────────────────────────── this `match`
+ 221 │ ├─▶   | None => Parse.expected what
+     │ │                                     
+     │ ╰───────────────────────────────────── this `match`
      │     
      │     Note 1: computing both sides gives `choose b (arg => Call (L (%next Parse.isDigit)) (y => Std.Effect.bind (Std.Effect.bind (match y with …) (char => Parse.need (Std.Option.flatMap … …) "expected a digit")) (value => Call (L (%next Parse.isDigit)) (y => Std.Effect.bind … …))))` and `arg => Call (L (%next Parse.isDigit)) (y => Std.Effect.bind (Std.Effect.bind (match y with …) (char => Parse.need (Std.Option.flatMap … …) "expected a digit")) (value => Call (L (%next Parse.isDigit)) (y => Std.Effect.bind … …)))`
      │     

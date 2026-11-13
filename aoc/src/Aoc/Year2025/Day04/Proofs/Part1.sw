@@ -14,7 +14,7 @@ import Aoc.Year2025.Day04.Spec (..)
 import Std (Bool, Eq, List, Nat, Vec)
 
 --| The rolls of all the rows, cell by cell.
-theorem rollsCells (rows: Vec (Vec Cell w) h): countRolls rows = List.sumBy (List.range 0 h) (r => List.sumBy (List.range 0 w) (c => (rowsCells rows r c).count)) :=
+theorem rollsCells ∀ (rows: Vec (Vec Cell w) h): countRolls rows = List.sumBy (List.range 0 h) (r => List.sumBy (List.range 0 w) (c => (rowsCells rows r c).count)) :=
   let gap := Vec.replicate w Floor
   calc countRolls rows
     _ = List.sumBy (List.range 0 h) (r => Vec.sumBy (Vec.getOr rows r gap) Cell.count) := Vec.sumByGetOr rows gap (row => Vec.sumBy row Cell.count)
@@ -22,7 +22,7 @@ theorem rollsCells (rows: Vec (Vec Cell w) h): countRolls rows = List.sumBy (Lis
       := rewrite Vec.sumByGetOr _ Floor Cell.count
 
 --| What a round takes from one cell: 1 when it holds an accessible roll.
-theorem taken (a: Cell) (n: Nat): Cell.count a - Cell.count (keep a (n + Cell.count a)) = Bool.toNat (a == Roll ∧ n < 4) :=
+theorem taken ∀ (a: Cell) (n: Nat): Cell.count a - Cell.count (keep a (n + Cell.count a)) = Bool.toNat (a == Roll ∧ n < 4) :=
   match a with
     | Floor => rfl
     | Roll =>
@@ -33,7 +33,7 @@ theorem taken (a: Cell) (n: Nat): Cell.count a - Cell.count (keep a (n + Cell.co
 
 --| Part 1 is right for every grid: the printed answer is the number of rolls
 --| with fewer than four rolls around them.
-theorem part1Correct (grid: Grid): solvePart1 grid = part1Spec grid :=
+theorem part1Correct ∀ (grid: Grid): solvePart1 grid = part1Spec grid :=
   let cells := grid.cells
   let below := (r: Nat) => (c: Nat) => (h: grid.height ≤ r) => rowsCellsBelow grid.rows r c h
   let right := (r: Nat) => (c: Nat) => (h: grid.width ≤ c) => rowsCellsRight grid.rows r c h

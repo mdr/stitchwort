@@ -14,7 +14,7 @@ def acceptedOr (fallback: Option Manifold): Result Manifold Text → Option Mani
   | Ok manifold => Some manifold
   | Err message => fallback
 
-theorem acceptedOrCheck (lines: List Text): acceptedOr (parseManifoldOption lines) (checkManifold lines) = parseManifoldOption lines :=
+theorem acceptedOrCheck ∀ (lines: List Text): acceptedOr (parseManifoldOption lines) (checkManifold lines) = parseManifoldOption lines :=
   match manifoldError lines with
     | Some message => rfl
     | None =>
@@ -23,6 +23,6 @@ theorem acceptedOrCheck (lines: List Text): acceptedOr (parseManifoldOption line
         | None => rfl
 
 --| Whenever `checkManifold` accepts, `parseManifoldOption lines` is `Some` of what it gives.
-theorem checkManifoldParses (lines: List Text) (manifold: Manifold) (accepted: checkManifold lines = Ok manifold):
+theorem checkManifoldParses ∀ (lines: List Text) (manifold: Manifold) (accepted: checkManifold lines = Ok manifold):
     parseManifoldOption lines = Some manifold :=
   Eq.trans (Eq.sym (acceptedOrCheck lines)) (Eq.cong (acceptedOr (parseManifoldOption lines)) accepted)

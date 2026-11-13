@@ -28,9 +28,9 @@ test "pairs" := pairsSummingTo 6 == [(1, 5), (2, 4), (3, 3)]
 test "spread" := [0, ..2 ..< 5, 9] == [0, 2, 3, 4, 9]
 
 -- In a proof, omega reads membership as the two bounds, and `a ..= b` is `a ..< b + 1`.
-theorem inRange (x n: Nat) (h: x < n): x ∈ 0 ..< n := omega
+theorem inRange ∀ (x n: Nat) (h: x < n): x ∈ 0 ..< n := omega
 
-theorem throughIsUpTo (a b: Nat): a ..= b = a ..< b + 1 := rfl
+theorem throughIsUpTo ∀ (a b: Nat): a ..= b = a ..< b + 1 := rfl
 
 -- A range of bare dots is an error that says what to write:
 -- def bad (n: Nat): List Nat := 1 .. n

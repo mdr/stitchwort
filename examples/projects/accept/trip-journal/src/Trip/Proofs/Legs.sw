@@ -33,7 +33,7 @@ theorem legBounds: ∀ (s0: Float) (legs: List Leg) => ContiguousFrom s0 legs �
           | Both pts (Both nonNeg fin) => Both (floatLeTrans s0 (s0 + first.duration) leg.start (Float.addMonotoneRight s0 first.duration nonNeg) low) high
 
 -- The end of the trip is not before 0.
-theorem zeroLeLastEnd (legs: List Leg) (c: ContiguousFrom 0.0 legs) (oks: List.All LegOk legs): Float.leq 0.0 (lastEnd legs) = True :=
+theorem zeroLeLastEnd ∀ (legs: List Leg) (c: ContiguousFrom 0.0 legs) (oks: List.All LegOk legs): Float.leq 0.0 (lastEnd legs) = True :=
   match legs with
     | [] => floatLeRefl 0.0
     | [leg, ..rest] => atLeLastEnd 0.0 leg rest c oks
@@ -48,13 +48,13 @@ theorem layoutIds: ∀ (s0: Float) (legs: List Leg) => List.map (layout s0 legs)
   | s0, [] => rfl
   | s0, [leg, ..rest] => Eq.cong (ids => [leg.id, ..ids]) (layoutIds (s0 + leg.duration) rest)
 
-theorem shiftPointsIds (from: Float) (to: Float) (points: List Point):
+theorem shiftPointsIds ∀ (from: Float) (to: Float) (points: List Point):
     List.map (shiftPoints from to points) (point => point.id) = List.map points (point => point.id) :=
   match c: from == to with
     | True => rfl
     | False => List.mapMap points (point => point.id) (point => { point | time = to + (point.time - from) })
 
-theorem moveLegOk (s0: Float) (leg: Leg) (ok: LegOk leg): LegOk (moveLeg s0 leg) := match ok with
+theorem moveLegOk ∀ (s0: Float) (leg: Leg) (ok: LegOk leg): LegOk (moveLeg s0 leg) := match ok with
   | Both pts good => Both (rewrite shiftPointsIds leg.start s0 leg.points in pts) good
 
 theorem layoutOk: ∀ (s0: Float) (legs: List Leg) => List.All LegOk legs → List.All LegOk (layout s0 legs)
@@ -76,17 +76,17 @@ theorem layoutSame: ∀ (s0: Float) (legs: List Leg) => ContiguousFrom s0 legs �
 
 -- Resolving a leg in both copies
 
-theorem resolveAgainstId (local: List Leg) (remote: Leg): (resolveAgainst local remote).id = remote.id :=
+theorem resolveAgainstId ∀ (local: List Leg) (remote: Leg): (resolveAgainst local remote).id = remote.id :=
   match c: findLeg local remote.id with
     | Some leg => rfl
     | None => rfl
 
-theorem resolveOk (local: Leg) (remote: Leg) (a: LegOk local) (b: LegOk remote): LegOk (resolveLeg local remote) :=
+theorem resolveOk ∀ (local: Leg) (remote: Leg) (a: LegOk local) (b: LegOk remote): LegOk (resolveLeg local remote) :=
   match c: Nat.leq (remote.points.length + 1) local.points.length with
     | True => a
     | False => b
 
-theorem resolveAgainstOk (local: List Leg) (remote: Leg) (oks: List.All LegOk local) (ok: LegOk remote):
+theorem resolveAgainstOk ∀ (local: List Leg) (remote: Leg) (oks: List.All LegOk local) (ok: LegOk remote):
     LegOk (resolveAgainst local remote) := match c: findLeg local remote.id with
       | Some leg =>
         resolveOk leg remote (List.memOfAll LegOk local oks leg (And.right (List.findSome local (l => l.id == remote.id) leg c))) ok
@@ -96,20 +96,20 @@ theorem resolveAgainstOk (local: List Leg) (remote: Leg) (oks: List.All LegOk lo
 
 def resolvedLegs (local: List Leg) (remote: List Leg): List Leg := remote.map (leg => resolveAgainst local leg)
 
-theorem resolvedIds (local: List Leg) (remote: List Leg):
+theorem resolvedIds ∀ (local: List Leg) (remote: List Leg):
     List.map (resolvedLegs local remote) (leg => leg.id) = List.map remote (leg => leg.id) :=
   Eq.trans (List.mapMap remote (leg => leg.id) (leg => resolveAgainst local leg))
     (List.mapCong remote (leg => (resolveAgainst local leg).id) (leg => leg.id) (leg => resolveAgainstId local leg))
 
-theorem mergeLegsContiguous (local: List Leg) (remote: List Leg): ContiguousFrom 0.0 (mergeLegs local remote) :=
+theorem mergeLegsContiguous ∀ (local: List Leg) (remote: List Leg): ContiguousFrom 0.0 (mergeLegs local remote) :=
   layoutContiguous 0.0 (List.appendNewBy (resolvedLegs local remote) local (leg => leg.id))
 
-theorem mergeLegsIds (local: List Leg) (remote: List Leg) (dl: List.Distinct (List.map local (leg => leg.id)))
+theorem mergeLegsIds ∀ (local: List Leg) (remote: List Leg) (dl: List.Distinct (List.map local (leg => leg.id)))
     (dr: List.Distinct (List.map remote (leg => leg.id))): List.Distinct (List.map (mergeLegs local remote) (leg => leg.id)) :=
   rewrite layoutIds 0.0 (List.appendNewBy (resolvedLegs local remote) local (leg => leg.id)) in
   List.distinctKeysAppendNewBy (resolvedLegs local remote) local (leg => leg.id) (rewrite resolvedIds local remote in dr) dl
 
-theorem mergeLegsOk (local: List Leg) (remote: List Leg) (okl: List.All LegOk local) (okr: List.All LegOk remote):
+theorem mergeLegsOk ∀ (local: List Leg) (remote: List Leg) (okl: List.All LegOk local) (okr: List.All LegOk remote):
     List.All LegOk (mergeLegs local remote) :=
   layoutOk 0.0 (List.appendNewBy (resolvedLegs local remote) local (leg => leg.id))
     (List.allOfMem LegOk (List.appendNewBy (resolvedLegs local remote) local (leg => leg.id)) (leg m =>
@@ -120,7 +120,7 @@ theorem mergeLegsOk (local: List Leg) (remote: List Leg) (okl: List.All LegOk lo
         | Inr (Both inLocal fresh) => List.memOfAll LegOk local okl leg inLocal))
 
 -- Every remote leg's id is in the merge.
-theorem remoteLegKept (local: List Leg) (remote: List Leg) (leg: Leg) (m: leg ∈ remote):
+theorem remoteLegKept ∀ (local: List Leg) (remote: List Leg) (leg: Leg) (m: leg ∈ remote):
     leg.id ∈ List.map (mergeLegs local remote) (l => l.id) :=
   rewrite layoutIds 0.0 (List.appendNewBy (resolvedLegs local remote) local (l => l.id)) in
   rewrite <- resolveAgainstId local leg in

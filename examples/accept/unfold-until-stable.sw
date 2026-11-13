@@ -20,7 +20,7 @@ def countdown: Nat → Option (Pair Nat Nat)
 
 -- `shrinks` for it: whatever step `countdown` takes from `x`, the new seed
 -- is smaller. A step is `Some (MkPair v y)`, so `y` is the `k` it made.
-theorem countdownShrinks (x: Nat) (y: Nat) (v: Nat) (h: countdown x = Some (MkPair v y)): y < x := match x with
+theorem countdownShrinks ∀ (x: Nat) (y: Nat) (v: Nat) (h: countdown x = Some (MkPair v y)): y < x := match x with
   | Zero => Void.exfalso (Option.noneNotSome (MkPair v y) h)
   | Succ k =>
     let e := Pair.mkInjectiveSnd (Option.someInjective h)
@@ -34,16 +34,16 @@ test "unfold, nothing to do" := countdownFrom 0 == []
 -- A tank that loses one unit at a time, until it is empty.
 def drain (water: Nat): Nat := water - 1
 
-theorem drainShrinks: ∀ (water: Nat) => drain water ≠ water → drain water < water
-  | Zero, empty => Void.exfalso (empty rfl)
-  | Succ left, empty => Nat.leRefl (Succ left)
+theorem drainShrinks ∀ (water: Nat) (empty: drain water ≠ water): drain water < water := match water with
+  | Zero => Void.exfalso (empty rfl)
+  | Succ left => Nat.leRefl (Succ left)
 
 def settle (water: Nat): Nat := Nat.iterateUntilStable water drain (w => w) drainShrinks
 
 test "until stable" := settle 7 == 0 ∧ settle 0 == 0
 
 -- What it returns is a fixed point, for every starting value.
-theorem settleIsStable (water: Nat): drain (settle water) = settle water :=
+theorem settleIsStable ∀ (water: Nat): drain (settle water) = settle water :=
   Nat.iterateUntilStableFixed water drain (w => w) drainShrinks
 
 -- A value that is already stable is the answer.

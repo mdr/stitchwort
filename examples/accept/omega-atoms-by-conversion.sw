@@ -13,7 +13,7 @@ theorem sumTakeLe: ∀ (xs: List Nat) (a b: Nat) => a ≤ b → (xs.take a).sum 
   | [x, ..xs], Succ a, Succ b, le =>
     omega [List.sumCons x (xs.take a), List.sumCons x (xs.take b), sumTakeLe xs a b (omega)]
 
-theorem shrinksInside (numbers: List Nat) (target: Nat) (start: Nat) (length: Nat) (sums: ((numbers.drop start).take length).sum = target)
+theorem shrinksInside ∀ (numbers: List Nat) (target: Nat) (start: Nat) (length: Nat) (sums: ((numbers.drop start).take length).sum = target)
     (front: List Nat) (count: Nat) (sum: Nat) (from: Nat) (at: front = numbers.drop from) (total: sum = (front.take count).sum)
     (notBeyond: from + count ≤ start + length) (over: target < sum): from ≠ start :=
   same =>

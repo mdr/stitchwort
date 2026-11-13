@@ -7,17 +7,17 @@ import Std (Bool, List, Float)
 
 def NotNaN (x: Float): Prop := Float.isNaN x = False
 
-theorem sortedByIeeeLe (xs: List Float) (clean: List.All NotNaN xs): List.Sorted Float.ieeeLe (List.sortWith xs Float.ieeeLe) :=
+theorem sortedByIeeeLe ∀ (xs: List Float) (clean: List.All NotNaN xs): List.Sorted Float.ieeeLe (List.sortWith xs Float.ieeeLe) :=
   List.sortWithSortedOn Float.ieeeLe NotNaN (x y nx ny h => Float.ieeeLeTotal x y nx ny h) xs clean
 
 -- With transitivity, each element is at most every later one.
-theorem pairwiseByIeeeLe (xs: List Float) (clean: List.All NotNaN xs):
+theorem pairwiseByIeeeLe ∀ (xs: List Float) (clean: List.All NotNaN xs):
     List.Pairwise (x y => Float.ieeeLe x y = True) (List.sortWith xs Float.ieeeLe) :=
   List.pairwiseOfSortedOn Float.ieeeLe NotNaN (x y z px py pz h1 h2 => Float.ieeeLeTrans x y z h1 h2) (List.sortWith xs Float.ieeeLe)
     (List.allSortWith Float.ieeeLe NotNaN xs clean) (sortedByIeeeLe xs clean)
 
 -- The NaN is why the hypothesis is needed: `<=` is false on it both ways.
-theorem nanNotLe (x: Float) (h: Float.ieeeLe Float.nan x = True): Void :=
+theorem nanNotLe ∀ (x: Float) (h: Float.ieeeLe Float.nan x = True): Void :=
   Bool.trueNotFalse (And.left (Float.ieeeLeNotNaN Float.nan x h))
 
 -- Stable: `0.0` and `-0.0` are equal under `<=`, so they keep their order.

@@ -30,4 +30,4 @@ test "multi-line" :=
     |> List.map (* 10)
     |> List.sum == 60
 
-theorem lengthOfPipe (xs: List Nat): xs |> List.length = xs.length := rfl
+theorem lengthOfPipe ∀ (xs: List Nat): xs |> List.length = xs.length := rfl

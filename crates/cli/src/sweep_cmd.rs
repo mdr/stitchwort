@@ -25,11 +25,13 @@ use std::process::{Command, ExitCode};
 use std::time::Instant;
 
 use serde_json::{Value, json};
+use stitchwort_cli::project::DiskFiles;
 use stitchwort_driver::binder_sweep::{self, Converted, Skipped};
 use stitchwort_driver::declhash::{self, DeclHash, owner};
+use stitchwort_driver::driver::Session;
 use stitchwort_driver::live::{Edit, Place, Promise, TrialOutcome};
 use stitchwort_syntax::ast::Decl;
-use stitchwort_syntax::{DEFAULT_STACK, SourceMap, parse_module_within};
+use stitchwort_syntax::{DEFAULT_STACK, Diagnostic, Severity, SourceMap, parse_module_within};
 
 use super::CacheArgs;
 
@@ -43,6 +45,8 @@ const MAX_ROUNDS: usize = 12;
 pub(super) struct Args<'a> {
     pub paths: &'a [PathBuf],
     pub std: bool,
+    /// The paths are single files, each checked on its own.
+    pub files: bool,
     pub std_root: Option<&'a Path>,
     pub dry_run: bool,
     pub plan: bool,
@@ -75,6 +79,8 @@ struct FileSweep {
     /// The latest sweep and formatted text.
     converted: Vec<Converted>,
     skipped: Vec<Skipped>,
+    /// Why the file can't be swept at all (it doesn't lex or parse).
+    error: Option<String>,
     text: String,
     seconds: f64,
 }
@@ -142,6 +148,16 @@ impl FileSweep {
             });
         }
     }
+}
+
+/// The line (from 1) of a byte offset.
+fn line_of(text: &str, offset: u32) -> u32 {
+    let end = (offset as usize).min(text.len());
+    text.as_bytes()[..end]
+        .iter()
+        .filter(|&&b| b == b'\n')
+        .count() as u32
+        + 1
 }
 
 /// Each theorem's first and last line (from 1), by its name as written.
@@ -228,6 +244,8 @@ pub(super) fn theorem_binders(args: &Args) -> ExitCode {
     }
     if args.std {
         std_sweep(args, &files)
+    } else if args.files {
+        file_sweep(args, &files)
     } else {
         project_sweep(args, &files)
     }
@@ -256,6 +274,234 @@ fn plan_only(args: &Args, sweeps: &mut [FileSweep]) -> ExitCode {
     }
     report(args, "plan", sweeps, false, true, &Trail::default());
     ExitCode::from(CLEAN)
+}
+
+/// One file's declarations, and the errors it didn't check with: the file
+/// is loaded on its own, as `check FILE` does, and only the declarations it
+/// writes are kept.
+fn file_hashes(path: &str, text: &str) -> (Vec<DeclHash>, Vec<Diagnostic>) {
+    let mut session = Session::for_stack(DEFAULT_STACK);
+    let file = Path::new(path);
+    let folder = file
+        .parent()
+        .filter(|p| !p.as_os_str().is_empty())
+        .unwrap_or(Path::new("."));
+    if let Some(name) = file.file_name().and_then(|n| n.to_str()) {
+        session.include_in_folder(
+            std::rc::Rc::new(DiskFiles {
+                root: folder.to_path_buf(),
+            }),
+            name,
+        );
+    }
+    let loaded = session.load_file(path, text, None);
+    let mut diagnostics = match loaded {
+        Ok(_) => Vec::new(),
+        Err(diagnostics) => diagnostics,
+    };
+    diagnostics.extend(session.warnings.iter().cloned());
+    let declared = declared_names(text);
+    let all = declhash::session_hashes(&session, (0, 0));
+    let hashes = all
+        .into_iter()
+        .filter(|d| {
+            declared.contains(&d.name)
+                || declared.iter().any(|n| {
+                    d.name.len() > n.len()
+                        && d.name.starts_with(n.as_str())
+                        && d.name.as_bytes()[n.len()] == b'.'
+                })
+        })
+        .collect();
+    (hashes, diagnostics)
+}
+
+/// The full names a file's declarations write, and the generated ones under
+/// them (`f.eq1`, `f.%match1`).
+fn declared_names(text: &str) -> BTreeSet<String> {
+    let file = SourceMap::new().add("names.sw", text);
+    let Ok(module) = parse_module_within(file, text, DEFAULT_STACK) else {
+        return BTreeSet::new();
+    };
+    let prefix = module
+        .namespace
+        .as_ref()
+        .map_or_else(|| "Main".to_string(), |n| n.path.text.clone());
+    let qualify = |name: &str| format!("{prefix}.{name}");
+    let mut out = BTreeSet::new();
+    for decl in &module.decls {
+        match decl {
+            Decl::Data { name, .. }
+            | Decl::Signature { name, .. }
+            | Decl::Ability { name, .. }
+            | Decl::Equation { name, .. } => {
+                out.insert(qualify(&name.text));
+            }
+            Decl::Test { .. } => {}
+        }
+    }
+    for failed in &module.failed {
+        out.insert(qualify(&failed.name.text));
+    }
+    out
+}
+
+/// The hash of the declaration `name` (as written) in `hashes`.
+fn named_hash<'a>(hashes: &'a [DeclHash], name: &str) -> Option<&'a DeclHash> {
+    hashes
+        .iter()
+        .find(|d| d.name == name || d.name.ends_with(&format!(".{name}")))
+}
+
+fn file_sweep(args: &Args, files: &[PathBuf]) -> ExitCode {
+    let mut sweeps = Vec::new();
+    for f in files {
+        let text = match std::fs::read_to_string(f) {
+            Ok(text) => text,
+            Err(e) => return refused(args.json, format!("can't read {}: {e}", f.display())),
+        };
+        sweeps.push(FileSweep::new(f.display().to_string(), text));
+    }
+    if let Err(e) = hold_back(&mut sweeps, args.keep) {
+        return refused(args.json, e);
+    }
+    // A file that doesn't lex or parse is left as it is, and named; the
+    // others are still swept.
+    let sweep_all = |sweeps: &mut [FileSweep]| {
+        for s in sweeps {
+            if let Err(e) = s.run() {
+                s.error = Some(e);
+            }
+        }
+    };
+    if args.plan {
+        sweep_all(&mut sweeps);
+        report(args, "plan", &sweeps, false, true, &Trail::default());
+        return ExitCode::from(CLEAN);
+    }
+    let promise = promise(args);
+    let mut before: BTreeMap<String, (Vec<DeclHash>, Vec<Diagnostic>)> = BTreeMap::new();
+    let mut clean = false;
+    let mut leftover = Vec::new();
+    let mut proofs_changed: Vec<String> = Vec::new();
+    let mut proofs_only: Vec<String> = Vec::new();
+    let mut rounds: Vec<Value> = Vec::new();
+    for _ in 0..MAX_ROUNDS {
+        sweep_all(&mut sweeps);
+        if !sweeps.iter().any(FileSweep::changed) {
+            clean = true;
+            break;
+        }
+        let mut found = 0;
+        leftover.clear();
+        proofs_changed.clear();
+        proofs_only.clear();
+        let changed: Vec<String> = sweeps
+            .iter()
+            .filter(|s| s.changed())
+            .map(|s| s.path.clone())
+            .collect();
+        let mut results = Vec::new();
+        for path in &changed {
+            let s = sweeps
+                .iter()
+                .find(|s| &s.path == path)
+                .expect("a swept file");
+            let (after, diagnostics) = file_hashes(&s.path, &s.text);
+            let (was, was_diagnostics) = before
+                .entry(path.clone())
+                .or_insert_with(|| file_hashes(&s.path, &s.original));
+            // A theorem that didn't check before, or doesn't now, has no
+            // hash on that side, and no hash compares: refuse it.
+            let mut refused_here: Vec<(String, String)> = s
+                .converted
+                .iter()
+                .filter(|c| {
+                    named_hash(was, &c.name).and_then(|d| d.hash).is_none()
+                        || named_hash(&after, &c.name).and_then(|d| d.hash).is_none()
+                })
+                .map(|c| {
+                    let why = diagnostics
+                        .iter()
+                        .find(|d| d.severity == Severity::Error)
+                        .map_or_else(
+                            || "no hash for it".to_string(),
+                            |d| format!("{}: {}", d.code, d.message),
+                        );
+                    (
+                        c.name.clone(),
+                        format!("it doesn't check, so can't be checked: {why}"),
+                    )
+                })
+                .collect();
+            // A diagnostic the rewrite adds is a reason to refuse the
+            // theorem it lands in; one already there (the file's expected
+            // error) is not.
+            for d in &diagnostics {
+                let already = was_diagnostics
+                    .iter()
+                    .any(|w| w.code == d.code && w.message == d.message);
+                if already {
+                    continue;
+                }
+                let reason = format!("{}: {}", d.code, d.message);
+                let line = d.labels.first().map(|l| line_of(&s.text, l.span.start));
+                match line.and_then(|line| s.converted_at(line)) {
+                    Some(c) => refused_here.push((c.name.clone(), reason)),
+                    None => leftover.push(format!("{}: {reason}", s.path)),
+                }
+            }
+            let diff = declhash::compare(was, &after, &promise);
+            results.push((path.clone(), refused_here, diff));
+        }
+        let mut all_moved = Vec::new();
+        let mut any_bad = false;
+        for (path, unhashed, diff) in results {
+            let s = sweeps
+                .iter_mut()
+                .find(|s| &s.path == &path)
+                .expect("a swept file");
+            for (name, reason) in unhashed {
+                s.refuse(&name, reason);
+                found += 1;
+            }
+            any_bad |= !diff.is_empty();
+            proofs_changed.extend(diff.proofs_changed.iter().cloned());
+            proofs_only.extend(diff.proofs_only.iter().cloned());
+            let moved: Vec<Moved> = diff
+                .changed
+                .iter()
+                .map(|c| Moved {
+                    name: c.name.clone(),
+                    uses: c.uses.clone(),
+                    reproved: c.reproved.clone(),
+                })
+                .collect();
+            all_moved.extend(moved);
+            for n in diff.added.iter().chain(&diff.removed) {
+                leftover.push(format!("`{n}` added or removed"));
+            }
+        }
+        found += refuse_moved(&mut sweeps, &all_moved, &mut leftover);
+        if found == 0 && any_bad {
+            found += refuse_changed_proofs(&mut sweeps, &proofs_changed, &leftover);
+        }
+        rounds.push(round_log(found, &leftover));
+        if found == 0 {
+            clean = leftover.is_empty();
+            break;
+        }
+    }
+    let trail = Trail {
+        leftover,
+        proofs_changed,
+        proofs_only,
+        rounds,
+        promise: super::trial_cmd::promise_name(&promise),
+    };
+    finish(args, "file", &mut sweeps, clean, &trail, |s| {
+        Some(PathBuf::from(&s.path))
+    })
 }
 
 fn project_sweep(args: &Args, files: &[PathBuf]) -> ExitCode {
@@ -807,6 +1053,7 @@ fn report(
                 json!({
                     "file": s.path,
                     "seconds": s.seconds,
+                    "error": s.error,
                     "converted": s.converted.iter().map(|c| json!({
                         "name": c.name,
                         "line": c.line,
@@ -854,6 +1101,9 @@ fn report(
             s.refused.len(),
             s.seconds
         );
+        if let Some(error) = &s.error {
+            println!("  can't sweep it: {error}");
+        }
         for k in &s.skipped {
             println!(
                 "  skipped {} (line {}): {}",

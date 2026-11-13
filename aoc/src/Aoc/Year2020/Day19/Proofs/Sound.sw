@@ -6,7 +6,7 @@ import Aoc.Year2020.Day19 (..)
 import Aoc.Year2020.Day19.Spec (..)
 import Std (Char, DecEq, Eq, Exists, List, Option, Void)
 
-theorem ruleSpec (rules: Rules) (number: Nat): rules.rule number = ruleNumbered rules number := rfl
+theorem ruleSpec ∀ (rules: Rules) (number: Nat): rules.rule number = ruleNumbered rules number := rfl
 
 --| `read` can start a match of `number` followed by any sequence.
 def Leads (rules: Rules) (number: Nat) (read: List Char): Prop :=
@@ -17,7 +17,7 @@ def LeavesAfter (rules: Rules) (fuel: Nat) (number: Nat): Prop :=
   ∀ (message left: List Char) => left ∈ rules.leftAfter fuel number message →
     ∃ (read: List Char) => message = read ++ left ∧ Leads rules number read
 
-theorem soundAll (rules: Rules) (fuel: Nat) (leaves: ∀ (number: Nat) => LeavesAfter rules fuel number)
+theorem soundAll ∀ (rules: Rules) (fuel: Nat) (leaves: ∀ (number: Nat) => LeavesAfter rules fuel number)
     (sequence: List Nat) (message left: List Char) (found: left ∈ rules.leftAfterAll fuel sequence message):
     ∃ (read: List Char) => message = read ++ left ∧ Matches rules sequence read := match sequence, found with
       | [], Inl same => Witness [] (Both same MatchesNothing)
@@ -32,7 +32,7 @@ theorem soundAll (rules: Rules) (fuel: Nat) (leaves: ∀ (number: Nat) => Leaves
                     Witness (firstRead ++ restRead)
                       (Both (rewrite split, restSplit in Eq.sym (List.appendAssoc firstRead restRead left)) (leads later restRead matched))
 
-theorem sound (rules: Rules) (fuel number: Nat): LeavesAfter rules fuel number
+theorem sound ∀ (rules: Rules) (fuel number: Nat): LeavesAfter rules fuel number
     := message left found =>
   match fuel with
     | Succ more =>

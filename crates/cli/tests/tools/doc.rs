@@ -591,7 +591,7 @@ fn every_kind_of_declaration() {
     let (_, report) = json(&["Nat.addComm"]);
     assert_eq!(
         report["header"],
-        "theorem Nat.addComm (m n: Nat): m + n = n + m"
+        "theorem Nat.addComm ∀ (m n: Nat): m + n = n + m"
     );
     assert!(report["theorems"].is_null());
     assert!(report["type"].as_str().unwrap().contains("m + n = n + m"));

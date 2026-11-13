@@ -1,5 +1,6 @@
 ---
-source: crates/cli/tests/examples.rs
+source: crates/cli/tests/running/examples.rs
+assertion_line: 352
 expression: output
 ---
 [GOAL] Goal: in `toResultThen`
@@ -29,16 +30,16 @@ expression: output
     │                               ⊢ Err msg = Err msg
 ────╯
 [GOAL] Goal: in `toResultMap`
-    ╭─[ goals/reify-return.sw:22:21 ]
+    ╭─[ goals/reify-return.sw:22:25 ]
     │
- 22 │       | return y => ?
-    │                     ┬  
-    │                     ╰── a: Type
-    │                         b: Type
-    │                         f: a → {Fail} b
-    │                         x: a
-    │                         xs: List a
-    │                         y: b
-    │                         ⊢ Fail.toResult (arg => Std.Effect.bind (Done y) (x1 => Std.Effect.bind (xs.map f) (x2 => Done [x1, ..x2]))) = (Fail.toResult (() => Done y)).flatMap (y => (Result.traverse xs (z => Fail.toResult (arg => f z))).map (tail => [y, ..tail]))
-    │                           computes to Fail.toResult (arg => Std.Effect.bind (xs.map f) (x1 => Done [y, ..x1])) = (Fail.toResult (() => Done y)).flatMap (y => (Result.traverse xs (z => Fail.toResult (arg => f z))).map (tail => [y, ..tail]))
+ 22 │           | return y => ?
+    │                         ┬  
+    │                         ╰── a: Type
+    │                             b: Type
+    │                             f: a → {Fail} b
+    │                             x: a
+    │                             xs: List a
+    │                             y: b
+    │                             ⊢ Fail.toResult (arg => Std.Effect.bind (Done y) (x1 => Std.Effect.bind (xs.map f) (x2 => Done [x1, ..x2]))) = (Fail.toResult (() => Done y)).flatMap (y => (Result.traverse xs (z => Fail.toResult (arg => f z))).map (tail => [y, ..tail]))
+    │                               computes to Fail.toResult (arg => Std.Effect.bind (xs.map f) (x1 => Done [y, ..x1])) = (Fail.toResult (() => Done y)).flatMap (y => (Result.traverse xs (z => Fail.toResult (arg => f z))).map (tail => [y, ..tail]))
 ────╯

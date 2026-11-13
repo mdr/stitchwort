@@ -4,30 +4,30 @@
 -- a cons they read as the quantifier.
 import Std (Bool, Eq, List, Nat, Void)
 
-theorem allHead (d: Nat) (more: List Nat) (only: [d, ..more].all (x => x < 5)): d < 5 := only.left
+theorem allHead ∀ (d: Nat) (more: List Nat) (only: [d, ..more].all (x => x < 5)): d < 5 := only.left
 
-theorem allTail (d: Nat) (more: List Nat) (only: [d, ..more].all (x => x < 5)): more.all (x => x < 5) := only.right
+theorem allTail ∀ (d: Nat) (more: List Nat) (only: [d, ..more].all (x => x < 5)): more.all (x => x < 5) := only.right
 
-theorem allBuilt (d: Nat) (more: List Nat) (hd: d < 5) (tl: more.all (x => x < 5)): [d, ..more].all (x => x < 5) := Both hd tl
+theorem allBuilt ∀ (d: Nat) (more: List Nat) (hd: d < 5) (tl: more.all (x => x < 5)): [d, ..more].all (x => x < 5) := Both hd tl
 
-theorem allCases (xs: List Nat) (only: xs.all (x => x < 5)): ∀ (x: Nat) => x ∈ xs → x < 5 := match xs with
+theorem allCases ∀ (xs: List Nat) (only: xs.all (x => x < 5)): ∀ (x: Nat) => x ∈ xs → x < 5 := match xs with
   | [] => x m => Void.exfalso m
   | [d, ..more] => x m => match m with
     | Inl e => rewrite <- e in only.left
     | Inr inMore => only.right.read x inMore
 
 -- Not a cons: still the quantifier.
-theorem allVar (xs: List Nat) (h: xs.all (x => x < 5)) (x: Nat) (m: x ∈ xs): x < 5 := h.read x m
+theorem allVar ∀ (xs: List Nat) (h: xs.all (x => x < 5)) (x: Nat) (m: x ∈ xs): x < 5 := h.read x m
 
-theorem anyCons (d: Nat) (more: List Nat) (h: [d, ..more].any (x => x > 2)): d > 2 ∨ more.any (x => x > 2) :=
+theorem anyCons ∀ (d: Nat) (more: List Nat) (h: [d, ..more].any (x => x > 2)): d > 2 ∨ more.any (x => x > 2) :=
   match h with
     | Inl first => Inl first
     | Inr rest => Inr rest
 
-theorem anyBuilt (d: Nat) (more: List Nat) (hd: d > 2): [d, ..more].any (x => x > 2) := Inl hd
+theorem anyBuilt ∀ (d: Nat) (more: List Nat) (hd: d > 2): [d, ..more].any (x => x > 2) := Inl hd
 
-theorem anyBuiltTail (d: Nat) (more: List Nat) (tl: more.any (x => x > 2)): [d, ..more].any (x => x > 2) := Inr tl
+theorem anyBuiltTail ∀ (d: Nat) (more: List Nat) (tl: more.any (x => x > 2)): [d, ..more].any (x => x > 2) := Inr tl
 
 def Heads (d: Nat) (more: List Nat): Prop := [d, ..more].all (x => x < 5) = True
 
-theorem headsLeft (d: Nat) (more: List Nat) (h: Heads d more): d < 5 := h.left
+theorem headsLeft ∀ (d: Nat) (more: List Nat) (h: Heads d more): d < 5 := h.left

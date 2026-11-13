@@ -8,13 +8,13 @@ import Aoc.Year2021.Day13.Spec (..)
 import Std (Eq, Exists, List, Nat)
 
 --| A dot clear of the fold lands where `foldDot` puts it...
-theorem landsFoldDot (fold: Fold) (dot: Point) (clear: Clear fold dot): Lands fold dot (foldDot fold dot) :=
+theorem landsFoldDot ∀ (fold: Fold) (dot: Point) (clear: Clear fold dot): Lands fold dot (foldDot fold dot) :=
   match fold with
     | AlongY line => cases
     | AlongX line => cases
 
 --| ...and nowhere else.
-theorem landsOnly (fold: Fold) (dot: Point) (spot: Point) (lands: Lands fold dot spot): spot = foldDot fold dot :=
+theorem landsOnly ∀ (fold: Fold) (dot: Point) (spot: Point) (lands: Lands fold dot spot): spot = foldDot fold dot :=
   match fold with
     | AlongY line =>
       match lands with
@@ -30,7 +30,7 @@ def Holds (dots: List Point) (marked: Point → Prop): Prop := ∀ (spot: Point)
 
 --| If a list holds the dots before a fold, and every one of them is clear
 --| of it, `foldOnce` holds the dots after it.
-theorem foldOnceHolds (dots: List Point) (marked: Point → Prop) (fold: Fold) (holds: Holds dots marked) (clear: ∀ (dot: Point) => marked dot → Clear fold dot):
+theorem foldOnceHolds ∀ (dots: List Point) (marked: Point → Prop) (fold: Fold) (holds: Holds dots marked) (clear: ∀ (dot: Point) => marked dot → Clear fold dot):
     Holds (foldOnce dots fold) (AfterFold fold marked) :=
   spot => {
     forward = member =>

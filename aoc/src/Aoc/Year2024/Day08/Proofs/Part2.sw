@@ -14,7 +14,7 @@ import Std (And, Bool, DecEq, Decidable, Eq, Exists, Int, Iff, List, Nat, Or, Se
 
 --| `divideBy` the gcd, with the gcd as a variable: the difference is a
 --| nonzero multiple of the result, whose parts are coprime.
-theorem divideByFacts (difference: Offset) (goal: Prop) (rowTimes: Nat) (columnTimes: Nat) (s: Int) (t: Int)
+theorem divideByFacts ∀ (difference: Offset) (goal: Prop) (rowTimes: Nat) (columnTimes: Nat) (s: Int) (t: Int)
     (nonzero: (difference.rows = 0) ∧ (difference.columns = 0) → Void)
     (divisor: Nat) (rows: difference.rows.natAbs = rowTimes * divisor) (columns: difference.columns.natAbs = columnTimes * divisor)
     (bezout: s * difference.rows.natAbs.toInt + t * difference.columns.natAbs.toInt = divisor.toInt)
@@ -38,7 +38,7 @@ theorem divideByFacts (difference: Offset) (goal: Prop) (rowTimes: Nat) (columnT
 --| The step to grid points from `start` towards `end`: the offset between
 --| them is a nonzero multiple of it, and its parts are coprime (some whole
 --| combination of them is 1).
-theorem stepFacts (start: Position) (end: Position) (distinct: start ≠ end) (goal: Prop)
+theorem stepFacts ∀ (start: Position) (end: Position) (distinct: start ≠ end) (goal: Prop)
     (use: ∀ (scale: Int) => scale ≠ 0 → end.row.toInt - start.row.toInt = scale * (start.stepToward end).rows →
       end.column.toInt - start.column.toInt = scale * (start.stepToward end).columns → ∀ (s t: Int) =>
       s * (start.stepToward end).rows + t * (start.stepToward end).columns = 1 → goal):
@@ -54,7 +54,7 @@ theorem stepFacts (start: Position) (end: Position) (distinct: start ≠ end) (g
         | Witness s (Witness t bezout) => divideByFacts difference goal rowTimes columnTimes s t nonzero (Nat.gcd rowSize columnSize) rows columns bezout use
 
 --| Points `k` steps from `first` are in line with it and `second`.
-theorem crossOnLine (fr: Int) (fc: Int) (er: Int) (ec: Int) (scale: Int) (k: Int) (pr: Int) (pc: Int) (sr: Int) (sc: Int)
+theorem crossOnLine ∀ (fr: Int) (fc: Int) (er: Int) (ec: Int) (scale: Int) (k: Int) (pr: Int) (pc: Int) (sr: Int) (sc: Int)
     (secondRow: sr = fr + scale * er) (secondColumn: sc = fc + scale * ec) (rowAt: pr = fr + er * k) (columnAt: pc = fc + ec * k):
     (fr - pr) * (sc - pc) - (fc - pc) * (sr - pr) = 0 :=
   rewrite secondRow, secondColumn, rowAt, columnAt in ring
@@ -63,7 +63,7 @@ theorem crossOnLine (fr: Int) (fc: Int) (er: Int) (ec: Int) (scale: Int) (k: Int
 --| cross product makes the offset parallel to the step, and with the step's
 --| parts coprime (`s * er + t * ec = 1`) the number of steps is
 --| `s * (pr - fr) + t * (pc - fc)`.
-theorem onLineOfCross (fr: Int) (fc: Int) (er: Int) (ec: Int) (scale: Int) (s: Int) (t: Int) (pr: Int) (pc: Int) (sr: Int) (sc: Int)
+theorem onLineOfCross ∀ (fr: Int) (fc: Int) (er: Int) (ec: Int) (scale: Int) (s: Int) (t: Int) (pr: Int) (pc: Int) (sr: Int) (sc: Int)
     (secondRow: sr = fr + scale * er) (secondColumn: sc = fc + scale * ec) (nonzero: scale ≠ 0) (bezout: s * er + t * ec = 1)
     (cross: (fr - pr) * (sc - pc) - (fc - pc) * (sr - pr) = 0):
     (pr = fr + er * (s * (pr - fr) + t * (pc - fc))) ∧ (pc = fc + ec * (s * (pr - fr) + t * (pc - fc))) :=
@@ -73,7 +73,7 @@ theorem onLineOfCross (fr: Int) (fc: Int) (er: Int) (ec: Int) (scale: Int) (s: I
 
 --| Between two locations on a map `n` high, fewer than `n` steps of a
 --| nonzero size.
-theorem stepsBound (a: Nat) (p: Nat) (er: Int) (k: Int) (n: Nat) (aBelow: a < n) (pBelow: p < n) (on: p.toInt = a.toInt + er * k)
+theorem stepsBound ∀ (a: Nat) (p: Nat) (er: Int) (k: Int) (n: Nat) (aBelow: a < n) (pBelow: p < n) (on: p.toInt = a.toInt + er * k)
     (nonzero: er ≠ 0):
     k.natAbs < n :=
   let gap: Int.natAbs (er * k) < n := rewrite (ring [on]: er * k = p.toInt - a.toInt) in omega
@@ -85,7 +85,7 @@ def stepsFrom (start: Position) (step: Offset) (count: Nat): List Position := [s
 
 --| A point a whole number of steps from `start`, within the map's reach, is
 --| among the harmonics.
-theorem harmonicsOfSteps (city: City) (start: Position) (end: Position) (point: Position) (k: Int)
+theorem harmonicsOfSteps ∀ (city: City) (start: Position) (end: Position) (point: Position) (k: Int)
     (rowAt: point.row.toInt = start.row.toInt + (start.stepToward end).rows * k) (columnAt: point.column.toInt = start.column.toInt + (start.stepToward end).columns * k)
     (bound: k.natAbs < Nat.max city.height city.width): point ∈ city.harmonics start end := match k with
       | OfNat count =>
@@ -102,7 +102,7 @@ theorem harmonicsOfSteps (city: City) (start: Position) (end: Position) (point: 
             [step.times (Succ count).toInt, (step.times (Succ count).toInt).negate] (Inr (Inl rfl))
             (offsetOf start (step.times (Succ count).toInt).negate point (ring [rowAt]) (ring [columnAt])))
 
-theorem harmonicsCorrect (city: City) (first: Position) (second: Position) (firstOn: city.contains first = True) (distinct: first ≠ second)
+theorem harmonicsCorrect ∀ (city: City) (first: Position) (second: Position) (firstOn: city.contains first = True) (distinct: first ≠ second)
     (point: Position) (inside: city.contains point = True):
     (point ∈ city.harmonics first second) ↔ (inLine point first second = True) :=
   stepFacts first second distinct _ (scale scaleNonzero rows columns s t bezout =>
@@ -157,7 +157,7 @@ theorem harmonicsCorrect (city: City) (first: Position) (second: Position) (firs
 
 --| Part 2 counts the puzzle's antinodes, for every city whose antennas are
 --| on the map.
-theorem part2Correct (city: City) (onMap: ∀ (antenna: Antenna) => antenna ∈ city.antennas → city.contains antenna.position = True):
+theorem part2Correct ∀ (city: City) (onMap: ∀ (antenna: Antenna) => antenna ∈ city.antennas → city.contains antenna.position = True):
     solvePart2 city = part2 city :=
   Eq.cong Set.size
     (locationsCorrect city (((start, end)) => city.harmonics start end) (point first second => inLine point first second)
@@ -166,7 +166,7 @@ theorem part2Correct (city: City) (onMap: ∀ (antenna: Antenna) => antenna ∈ 
           inside))
 
 --| A point is in line with itself and any other.
-theorem inLineSelf (point: Position) (other: Position): inLine point point other = True :=
+theorem inLineSelf ∀ (point: Position) (other: Position): inLine point point other = True :=
   rewrite (ring:
     (point.row.toInt - point.row.toInt) * (other.column.toInt - point.column.toInt)
       - (point.column.toInt - point.column.toInt) * (other.row.toInt - point.row.toInt) = 0) in rfl
@@ -174,7 +174,7 @@ theorem inLineSelf (point: Position) (other: Position): inLine point point other
 --| "Some of the new antinodes will occur at the position of each antenna
 --| (unless that antenna is the only one of its frequency)": an antenna with
 --| another of its frequency is a part 2 antinode.
-theorem antennasAreAntinodes (city: City) (onMap: ∀ (antenna: Antenna) => antenna ∈ city.antennas → city.contains antenna.position = True)
+theorem antennasAreAntinodes ∀ (city: City) (onMap: ∀ (antenna: Antenna) => antenna ∈ city.antennas → city.contains antenna.position = True)
     (first: Antenna) (second: Antenna) (firstIn: first ∈ city.antennas) (secondIn: second ∈ city.antennas) (same: sameFrequency first second = True):
     (antinodeLocations city (isHarmonicAntinode city)).contains first.position = True :=
   let inner: city.antennas.any (other => sameFrequency first other && inLine first.position first.position other.position) = True :=
@@ -185,7 +185,7 @@ theorem antennasAreAntinodes (city: City) (onMap: ∀ (antenna: Antenna) => ante
 
 --| Part 2's antinodes include part 1's: in line with two antennas, one twice
 --| as far as the other, is in line with two antennas.
-theorem part2IncludesPart1 (city: City):
+theorem part2IncludesPart1 ∀ (city: City):
     (antinodeLocations city (isAntinode city)).isSubset (antinodeLocations city (isHarmonicAntinode city)) = True :=
   Set.isSubsetIntro (key has =>
     let both := rewrite Set.containsFilter (Set.fromList (positions city.height city.width)) key (isAntinode city) at has in has

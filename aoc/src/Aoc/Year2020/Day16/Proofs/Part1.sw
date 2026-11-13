@@ -5,13 +5,13 @@ import Aoc.Year2020.Day16 (..)
 import Aoc.Year2020.Day16 (Spec)
 import Std (Bool, Eq, List)
 
-theorem errorTerm (notes: Notes) (value: Nat):
+theorem errorTerm ∀ (notes: Notes) (value: Nat):
     (if not (notes.fitsSomeField value) then value else 0) = (if Spec.validForSomeField notes.rules value then 0 else value) :=
   match fits: Spec.validForSomeField notes.rules value with
     | True => rfl
     | False => rfl
 
-theorem errorRateSpec (notes: Notes): Spec.Part1 notes notes.errorRate :=
+theorem errorRateSpec ∀ (notes: Notes): Spec.Part1 notes notes.errorRate :=
   calc notes.errorRate
     _ = (notes.nearby.flatMap .values).sumBy (value => if not (notes.fitsSomeField value) then value else 0) :=
       rewrite List.sumIsSumBy, List.sumByFilter in rfl

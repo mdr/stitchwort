@@ -10,7 +10,7 @@ import Std (Bool, Eq, Exists, Fail, List, Nat, Option, Parse, Result, Text, Void
 
 --| A character with bits in the puzzle's table is one the program reads, and
 --| its bits are the program's.
-theorem hexValueOf (char: Char) (bits: List Bool) (h: hexDigitBits char = Some bits): ∃ (value: Nat) => hexValue char = Some value ∧ bits = digitBits value :=
+theorem hexValueOf ∀ (char: Char) (bits: List Bool) (h: hexDigitBits char = Some bits): ∃ (value: Nat) => hexValue char = Some value ∧ bits = digitBits value :=
   match char with
     | '0' => Witness 0 (Both rfl (Eq.sym (Option.someInjective h)))
     | '1' => Witness 1 (Both rfl (Eq.sym (Option.someInjective h)))
@@ -30,7 +30,7 @@ theorem hexValueOf (char: Char) (bits: List Bool) (h: hexDigitBits char = Some b
     | 'F' => Witness 15 (Both rfl (Eq.sym (Option.someInjective h)))
 
 --| `hexDigit` on a digit, whatever follows.
-theorem runsHexDigit (char: Char) (value: Nat) (rest: List Char) (found: hexValue char = Some value): Parse.Runs hexDigit [char] rest value :=
+theorem runsHexDigit ∀ (char: Char) (value: Nat) (rest: List Char) (found: hexValue char = Some value): Parse.Runs hexDigit [char] rest value :=
   Parse.runsBind (() => Parse.satisfy "a hexadecimal digit" (char => (hexValue char).isSome))
     (char => Parse.need (hexValue char) "expected a hexadecimal digit") [char] [] [char] rest char value (Eq.sym (List.appendNil [char]))
     (Parse.runsSatisfy _ _ char rest (rewrite found in rfl))
@@ -43,7 +43,7 @@ theorem declinesHexDigitEnd: Parse.Declines hexDigit [] :=
 
 --| The digits of a transmission with bits are read one by one, and give those
 --| bits.
-theorem runsDigits (chars: List Char) (bits: List Bool) (h: transmissionBits chars = Some bits):
+theorem runsDigits ∀ (chars: List Char) (bits: List Bool) (h: transmissionBits chars = Some bits):
     ∃ (steps: List (List Char, Nat)) => Parse.joinReads steps = chars ∧ Parse.ManyRuns hexDigit steps [] ∧ bitsOfDigits (Parse.stepValues steps) = bits :=
   match chars with
     | [] => Witness [] (Both rfl (Both declinesHexDigitEnd (Option.someInjective h)))
@@ -63,7 +63,7 @@ theorem runsDigits (chars: List Char) (bits: List Bool) (h: transmissionBits cha
 
 --| A transmission, trimmed, that the puzzle's table gives bits is read as
 --| exactly those bits.
-theorem parseComplete (input: Text) (bits: List Bool) (written: transmissionBits input.trim.toList = Some bits):
+theorem parseComplete ∀ (input: Text) (bits: List Bool) (written: transmissionBits input.trim.toList = Some bits):
     Fail.toResult (() => readBits input) = Ok bits := match runsDigits input.trim.toList bits written with
       | Witness steps (Both joined (Both manyRuns bitsSame)) =>
         let runs := Parse.runsMany hexDigit steps [] manyRuns
@@ -73,6 +73,6 @@ theorem parseComplete (input: Text) (bits: List Bool) (written: transmissionBits
 
 --| A transmission is read as at most one list of bits: the table gives each
 --| character bits, and the parser reads them back.
-theorem writtenUnique (input: Text) (a: List Bool) (b: List Bool) (writtenA: transmissionBits input.trim.toList = Some a)
+theorem writtenUnique ∀ (input: Text) (a: List Bool) (b: List Bool) (writtenA: transmissionBits input.trim.toList = Some a)
     (writtenB: transmissionBits input.trim.toList = Some b): a = b :=
   Result.okInjective (Eq.trans (Eq.sym (parseComplete input a writtenA)) (parseComplete input b writtenB))

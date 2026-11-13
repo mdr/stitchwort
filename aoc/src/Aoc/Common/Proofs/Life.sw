@@ -11,7 +11,7 @@ import Std (Bool, Eq, List, Map, Nat, Option, Ord, Set)
 --| The count kept for `cell` is the number of live cells that neighbour it,
 --| given that `adjacent a b` is how many times `b` is among `a`'s
 --| neighbours (once or not at all).
-theorem countsActive [auto ord: Ord c] (neighbours: c → List c) (adjacent: c → c → Bool)
+theorem countsActive ∀ [auto ord: Ord c] (neighbours: c → List c) (adjacent: c → c → Bool)
     (once: ∀ (a b: c) => (neighbours a).count (== b) = Bool.toNat (adjacent a b)) (alive: Set c) (cell: c):
     (lifeCounts neighbours alive).getOr cell 0 = alive.count (other => adjacent other cell) :=
   calc (lifeCounts neighbours alive).getOr cell 0
@@ -21,11 +21,11 @@ theorem countsActive [auto ord: Ord c] (neighbours: c → List c) (adjacent: c �
     _ = alive.toList.count (other => adjacent other cell) := Eq.sym (List.countSumBy alive.toList _)
     _ = alive.count (other => adjacent other cell) := Eq.sym (Set.countToList alive _)
 
-theorem ruleOfCount (rule: Bool → Nat → Bool) (alive: Bool) (count: Nat) (near: Nat) (same: count = near):
+theorem ruleOfCount ∀ (rule: Bool → Nat → Bool) (alive: Bool) (count: Nat) (near: Nat) (same: count = near):
     rule alive count = rule alive near :=
   rewrite same in rfl
 
-theorem ruleOfNone (rule: Bool → Nat → Bool) (alive: Bool) (near: Nat) (none: 0 = near) (dies: ∀ (alive: Bool) => rule alive 0 = False):
+theorem ruleOfNone ∀ (rule: Bool → Nat → Bool) (alive: Bool) (near: Nat) (none: 0 = near) (dies: ∀ (alive: Bool) => rule alive 0 = False):
     False = rule alive near :=
   rewrite <- none in Eq.sym (dies alive)
 
@@ -33,7 +33,7 @@ theorem ruleOfNone (rule: Bool → Nat → Bool) (alive: Bool) (near: Nat) (none
 --| liveness and its number of live neighbours. `dies` is the rule on a cell
 --| with no live neighbours, dead or alive: such a cell has no count, so the
 --| step leaves it dead.
-theorem stepActive [auto ord: Ord c] (neighbours: c → List c) (adjacent: c → c → Bool)
+theorem stepActive ∀ [auto ord: Ord c] (neighbours: c → List c) (adjacent: c → c → Bool)
     (once: ∀ (a b: c) => (neighbours a).count (== b) = Bool.toNat (adjacent a b))
     (rule: Bool → Nat → Bool) (dies: ∀ (alive: Bool) => rule alive 0 = False) (alive: Set c) (cell: c):
     (lifeStep neighbours rule alive).contains cell = rule (alive.contains cell) (alive.count (other => adjacent other cell)) :=

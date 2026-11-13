@@ -66,7 +66,7 @@ def Racetrack.edges (racetrack: Racetrack) (position: Position): List (Position,
   directions.filterMap (direction => racetrack.move position direction |> .map (next => (next, 1)))
 
 --| Edges lead onto track.
-theorem Racetrack.edgeOnTrack (racetrack: Racetrack) (position: Position) (next: Position) (weight: Nat)
+theorem Racetrack.edgeOnTrack ∀ (racetrack: Racetrack) (position: Position) (next: Position) (weight: Nat)
     (edge: (next, weight) ∈ racetrack.edges position): racetrack.isTrack next = True :=
   let found := List.memFilterMapElim (direction => racetrack.move position direction |> .map (other => (other, 1))) (next, weight) directions edge
   Exists.elim (List.anyMember (direction => (racetrack.move position direction |> .map (other => (other, 1))) = Some (next, weight)) directions found)

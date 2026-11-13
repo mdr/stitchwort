@@ -36,32 +36,32 @@ def Vec.aroundFrom (pad: a) (f: a → a → a → b) (left: a): (xs: Vec a n) �
 -- at `Succ c` it computes to `Vec.getOr row c pad`, and at 0 to `pad`.
 
 --| Index i after `shiftRight` is index i of the row with `fill` in front.
-theorem Vec.getOrShiftRight (v: Vec a n) (i: Nat) (d fill: a) (h: i < n):
+theorem Vec.getOrShiftRight ∀ (v: Vec a n) (i: Nat) (d fill: a) (h: i < n):
     Vec.getOr (Vec.shiftRight v fill) i d = Vec.getOr (VCons fill v) i d := match v, i with
       | VCons x xs, Zero => rfl
       | VCons x xs, Succ i => Vec.getOrShiftRight xs i d x h
 
 --| Index i after `shiftLeft` is index i + 1 before, at every index when the
 --| default is the fill.
-theorem Vec.getOrShiftLeft (v: Vec a n) (fill: a) (i: Nat):
+theorem Vec.getOrShiftLeft ∀ (v: Vec a n) (fill: a) (i: Nat):
     Vec.getOr (Vec.shiftLeft v fill) i fill = Vec.getOr v (Succ i) fill := match v, i with
       | VNil, i => rfl
       | VCons x xs, Zero => Vec.headOrGetOr xs fill
       | VCons x xs, Succ i => Vec.getOrShiftLeft xs fill i
 
 --| Index i after `shiftLeft` is index i + 1 before, with any default, inside the row.
-theorem Vec.getOrShiftLeftLt (v: Vec a n) (i: Nat) (d fill: a) (h: i < n):
+theorem Vec.getOrShiftLeftLt ∀ (v: Vec a n) (i: Nat) (d fill: a) (h: i < n):
     Vec.getOr (Vec.shiftLeft v fill) i d = Vec.getOr v (Succ i) fill := match v, i with
       | VCons x xs, Zero => Vec.headOrGetOr xs fill
       | VCons x xs, Succ i => Vec.getOrShiftLeftLt xs i d fill h
 
-theorem Vec.aroundFromShifts (v: Vec a n) (pad left: a) (f: a → a → a → b):
+theorem Vec.aroundFromShifts ∀ (v: Vec a n) (pad left: a) (f: a → a → a → b):
     Vec.aroundFrom pad f left v = Vec.zipWith3 (Vec.shiftRight v left) v (Vec.shiftLeft v pad) f := match v with
       | VNil => rfl
       | VCons x rest => Eq.cong (VCons (f left x (Vec.headOr rest pad))) (Vec.aroundFromShifts rest pad x f)
 
 --| `around` is the two shifts zipped with the row.
-theorem Vec.aroundShifts (v: Vec a n) (pad: a) (f: a → a → a → b):
+theorem Vec.aroundShifts ∀ (v: Vec a n) (pad: a) (f: a → a → a → b):
     Vec.around v pad f = Vec.zipWith3 (Vec.shiftRight v pad) v (Vec.shiftLeft v pad) f :=
   Vec.aroundFromShifts v pad pad f
 
@@ -73,7 +73,7 @@ theorem Vec.getOrAroundFrom: ∀ (v: Vec a n) (i: Nat) (d: b) (pad left: a) => i
 
 --| Index i of `around` is `f` of indices i - 1, i and i + 1 of the row, with
 --| `pad` past either end.
-theorem Vec.getOrAround (v: Vec a n) (i: Nat) (d: b) (pad: a) (h: i < n) (f: a → a → a → b):
+theorem Vec.getOrAround ∀ (v: Vec a n) (i: Nat) (d: b) (pad: a) (h: i < n) (f: a → a → a → b):
     Vec.getOr (Vec.around v pad f) i d = f (Vec.getOr (VCons pad v) i pad) (Vec.getOr v i pad) (Vec.getOr v (Succ i) pad) :=
   Vec.getOrAroundFrom v i d pad pad h f
 

@@ -24,7 +24,7 @@ def sumTreeLifted (t: Tree): Nat :=
 
 -- In a `calc`, the first term's literal is resumed once a step has said
 -- the chain's type, before the step is decided by computation.
-theorem zeroLe (n: Nat) (m: Nat) (h: n ≤ m): 0 ≤ m :=
+theorem zeroLe ∀ (n: Nat) (m: Nat) (h: n ≤ m): 0 ≤ m :=
   calc 0
     _ ≤ n
     _ ≤ m := h

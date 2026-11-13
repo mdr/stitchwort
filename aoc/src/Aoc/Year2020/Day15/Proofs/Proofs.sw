@@ -12,7 +12,7 @@ import Aoc.Year2020.Day15 (..)
 import Aoc.Year2020.Day15 (Spec)
 import Std (Fail, List, Result, Text)
 
-theorem correct (input: Text) (starting: Starting) (parsed: Fail.toResult (() => parseStarting input) = Ok starting) (turn: Nat):
+theorem correct ∀ (input: Text) (starting: Starting) (parsed: Fail.toResult (() => parseStarting input) = Ok starting) (turn: Nat):
     (∃ (read: List Char) => ∃ (ending: List Char) =>
       input.toList = read ++ ending ∧ Spec.StartingWritten read starting ∧ ending.all (char => char == '\n' ∨ char == '\r') = True)
       ∧ Spec.Answer starting turn (starting.numberSpoken turn) :=

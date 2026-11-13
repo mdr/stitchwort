@@ -14,7 +14,51 @@
 #[inline(always)]
 pub fn position() -> usize {
     let marker = 0u8;
-    std::hint::black_box(&marker) as *const u8 as usize
+    let here = std::hint::black_box(&marker) as *const u8 as usize;
+    if PROBE {
+        probe::note(here);
+    }
+    here
+}
+
+/// Whether this build keeps [`probe`]'s record: set `STITCHWORT_STACK_PROBE` when
+/// building to measure how deep the stack gets (SW-3128). Off, the probe
+/// compiles away.
+const PROBE: bool = option_env!("STITCHWORT_STACK_PROBE").is_some();
+
+/// How deep the stack has been, for measuring how much a run reaches
+/// (`web/stress.html`): in WebAssembly the numbers survive the engine's own
+/// stack overflowing, since they live in linear memory.
+pub mod probe {
+    use std::sync::atomic::{AtomicUsize, Ordering::Relaxed};
+
+    /// The highest position seen, never reset: about the base of the stack.
+    static HIGHEST: AtomicUsize = AtomicUsize::new(0);
+    static LOWEST: AtomicUsize = AtomicUsize::new(usize::MAX);
+    static LAST: AtomicUsize = AtomicUsize::new(usize::MAX);
+
+    #[inline(always)]
+    pub(super) fn note(here: usize) {
+        LAST.store(here, Relaxed);
+        if here < LOWEST.load(Relaxed) {
+            LOWEST.store(here, Relaxed);
+        }
+        if here > HIGHEST.load(Relaxed) {
+            HIGHEST.store(here, Relaxed);
+        }
+    }
+
+    /// The deepest the stack has been since the last call, and how deep it
+    /// was at the last position taken, in bytes below its base (0 if the
+    /// probe is off); starts again. After a crash, a last depth well short of
+    /// the deepest means the crash came from a recursion that doesn't measure
+    /// the stack.
+    pub fn take() -> (usize, usize) {
+        let highest = HIGHEST.load(Relaxed);
+        let deepest = highest.saturating_sub(LOWEST.swap(usize::MAX, Relaxed));
+        let last = highest.saturating_sub(LAST.swap(usize::MAX, Relaxed));
+        (deepest, last)
+    }
 }
 
 /// The lowest stack address a pass may reach.

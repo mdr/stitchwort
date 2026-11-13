@@ -12,7 +12,7 @@ import Aoc.Common (Direction, Position, directions)
 import Aoc.Year2024.Day12.Spec (..)
 import Std (And, Bool, DecEq, Decidable, Eq, Exists, Iff, List, Nat, Option, Or, Set, Void)
 
-theorem fillCorrectByInduct (garden: Garden) (plant: Char) (start: Position) (stack: List Position) (visited: Set Position) (members: List Position)
+theorem fillCorrectByInduct ∀ (garden: Garden) (plant: Char) (start: Position) (stack: List Position) (visited: Set Position) (members: List Position)
     (state: FillState garden plant start stack visited members): FillResult garden plant start stack members (Garden.fill garden plant stack visited members) :=
   Garden.fill.induct garden plant
     (stack visited members result => FillState garden plant start stack visited members → FillResult garden plant start stack members result)

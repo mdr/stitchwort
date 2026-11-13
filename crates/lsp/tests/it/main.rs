@@ -4,6 +4,7 @@ mod common;
 mod faults;
 mod features;
 mod memory;
+mod profile;
 mod rename;
 
 use stitchwort_test_alloc as _;

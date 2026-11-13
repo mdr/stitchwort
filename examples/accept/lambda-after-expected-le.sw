@@ -4,7 +4,7 @@
 -- has been compared with the expected type, which fixes both.
 import Std (Bool, Eq, List, Nat)
 
-theorem keepMore (keep1: Nat → Bool) (keep2: Nat → Bool) (xs: List Nat)
+theorem keepMore ∀ (keep1: Nat → Bool) (keep2: Nat → Bool) (xs: List Nat)
     (included: ∀ (x: Nat) => keep1 x = True → keep2 x = True):
     List.sumBy xs (x => if keep1 x then x else 0) ≤ List.sumBy xs (x => if keep2 x then x else 0) :=
   List.sumByLe xs _ _ (x => match kept: keep1 x with
@@ -12,5 +12,5 @@ theorem keepMore (keep1: Nat → Bool) (keep2: Nat → Bool) (xs: List Nat)
     | False => Nat.zeroLe (if keep2 x then x else 0))
 
 -- A proof that isn't a lambda's body but `omega`.
-theorem plusOne (xs: List Nat): List.sumBy xs (x => x) ≤ List.sumBy xs (x => x + 1) :=
+theorem plusOne ∀ (xs: List Nat): List.sumBy xs (x => x) ≤ List.sumBy xs (x => x + 1) :=
   List.sumByLe xs _ _ (x => omega)

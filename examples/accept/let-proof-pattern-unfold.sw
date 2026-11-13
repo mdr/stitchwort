@@ -9,7 +9,7 @@ def half: Nat → Nat
   | Succ Zero => 0
   | Succ (Succ n) => Succ (half n)
 
-theorem halfBounds: ∀ (n: Nat) => (half n + half n ≤ n) ∧ (n ≤ half n + half n + 1)
+theorem halfBounds ∀ (n: Nat): (half n + half n ≤ n) ∧ (n ≤ half n + half n + 1) := match n with
   | Zero => Both rfl rfl
   | Succ Zero => Both rfl rfl
   | Succ (Succ n) =>
@@ -25,7 +25,7 @@ def firstBlocked (blocked: Nat → Bool) (low: Nat) (high: Nat): Nat
     else firstBlocked blocked middle high [decreasing := omega [below, above, apart]]
   else high
 
-theorem firstBlockedSplit (blocked: Nat → Bool) (low: Nat) (high: Nat) (apart: Nat.leq (Succ (Succ low)) high = True):
+theorem firstBlockedSplit ∀ (blocked: Nat → Bool) (low: Nat) (high: Nat) (apart: Nat.leq (Succ (Succ low)) high = True):
     firstBlocked blocked low high
       = (if blocked (low + half (high - low)) then firstBlocked blocked low (low + half (high - low))
         else firstBlocked blocked (low + half (high - low)) high) :=
@@ -40,6 +40,6 @@ def lowerHalf (n: Nat) (bounds: (half n + half n ≤ n) ∧ (n ≤ half n + half
 def withBounds: (n: Nat) → (half n + half n ≤ n) ∧ (n ≤ half n + half n + 1) → Nat :=
   n => (Both below _) => half n
 
-theorem lowerHalfIsHalf (n: Nat) (bounds: (half n + half n ≤ n) ∧ (n ≤ half n + half n + 1)): lowerHalf n bounds = half n := rfl
+theorem lowerHalfIsHalf ∀ (n: Nat) (bounds: (half n + half n ≤ n) ∧ (n ≤ half n + half n + 1)): lowerHalf n bounds = half n := rfl
 
-theorem withBoundsIsHalf (n: Nat) (bounds: (half n + half n ≤ n) ∧ (n ≤ half n + half n + 1)): withBounds n bounds = half n := rfl
+theorem withBoundsIsHalf ∀ (n: Nat) (bounds: (half n + half n ≤ n) ∧ (n ≤ half n + half n + 1)): withBounds n bounds = half n := rfl

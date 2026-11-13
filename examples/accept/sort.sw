@@ -30,14 +30,14 @@ test "sorts many numbers" :=
 -- Using the theorems.
 
 -- In a sorted list, the first element is at most the second.
-theorem firstLeSecond (x: Nat) (y: Nat) (rest: List Nat):
+theorem firstLeSecond ∀ (x: Nat) (y: Nat) (rest: List Nat):
     List.Sorted Nat.leq [x, y, ..rest] → x ≤ y
   | Both h s => h
 
 -- Sorting keeps every element, so it keeps the number of 3s, and the length.
-theorem keepsThrees (xs: List Nat): (xs.sort).occurrences (Nat.equal 3) = xs.occurrences (Nat.equal 3) := List.sortPerm xs (Nat.equal 3)
+theorem keepsThrees ∀ (xs: List Nat): (xs.sort).occurrences (Nat.equal 3) = xs.occurrences (Nat.equal 3) := List.sortPerm xs (Nat.equal 3)
 
-theorem keepsLength (xs: List Nat): (xs.sort).length = xs.length := (xs.sort).permLength xs (xs.sortPerm)
+theorem keepsLength ∀ (xs: List Nat): (xs.sort).length = xs.length := (xs.sort).permLength xs (xs.sortPerm)
 
 -- `List.sortBy` is sorted given a total comparison; `Nat.compare` on keys is.
-theorem byKeySorted (ps: List (Pair Nat Text)): List.Sorted (p q => Ordering.isLessEq (byKey p q)) (ps.sortBy byKey) := List.sortBySorted byKey (p q => Nat.compareTotal p.fst q.fst) ps
+theorem byKeySorted ∀ (ps: List (Pair Nat Text)): List.Sorted (p q => Ordering.isLessEq (byKey p q)) (ps.sortBy byKey) := List.sortBySorted byKey (p q => Nat.compareTotal p.fst q.fst) ps

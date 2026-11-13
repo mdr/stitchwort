@@ -48,11 +48,10 @@ type Coupon =
   | PercentOff (percent: Nat)
 
 --| What is left to pay of `total` pence. `-` on `Nat` stops at 0.
-def Coupon.apply (coupon: Coupon) (total: Nat): Nat :=
-  match coupon with
-    | NoCoupon => total
-    | PenceOff pence => total - pence
-    | PercentOff percent => total - total * percent / 100
+def Coupon.apply (coupon: Coupon) (total: Nat): Nat := match coupon with
+  | NoCoupon => total
+  | PenceOff pence => total - pence
+  | PercentOff percent => total - total * percent / 100
 
 -- What's new is the till. It works the way a real till does: it scans the
 -- items one at a time and keeps a running total, so it never needs to look
@@ -219,7 +218,7 @@ theorem scanAdds: ∀ (running: Nat) (items: List Item) => scan running items = 
 --
 -- The theorem you wanted is now one case of `scanAdds`, from `0`:
 
-theorem checkoutCorrect (basket: Basket) (coupon: Coupon): basket.checkout coupon = basket.shouldCharge coupon :=
+theorem checkoutCorrect ∀ (basket: Basket) (coupon: Coupon): basket.checkout coupon = basket.shouldCharge coupon :=
   rewrite scanAdds 0 basket.items
 
 -- `rewrite` replaces `scan 0 basket.items` with `0 + totalOf basket.items`,
@@ -259,12 +258,12 @@ theorem checkoutCorrect (basket: Basket) (coupon: Coupon): basket.checkout coupo
 -- **Pence coupons do add up.** Two pence coupons are one coupon for both
 -- amounts. `omega` proves it: once `apply` computes, it's subtraction.
 
-theorem penceOffTwice (first: Nat) (second: Nat) (total: Nat): (PenceOff second).apply ((PenceOff first).apply total) = (PenceOff (first + second)).apply total := omega
+theorem penceOffTwice ∀ (first: Nat) (second: Nat) (total: Nat): (PenceOff second).apply ((PenceOff first).apply total) = (PenceOff (first + second)).apply total := omega
 
 -- **Two facts at once: `∧`.** `p ∧ q` ("and") says both. A pence coupon
 -- never adds to the total, and never takes off more than it says:
 
-theorem penceOffFair (pence: Nat) (total: Nat): (PenceOff pence).apply total ≤ total ∧ total ≤ (PenceOff pence).apply total + pence := omega
+theorem penceOffFair ∀ (pence: Nat) (total: Nat): (PenceOff pence).apply total ≤ total ∧ total ≤ (PenceOff pence).apply total + pence := omega
 
 -- `omega` proves both halves together. A proof of `p ∧ q` is also a pair,
 -- `Both p q`: replace `omega` with `Both ? ?`, and the two `?`s have the
@@ -277,7 +276,7 @@ theorem penceOffFair (pence: Nat) (total: Nat): (PenceOff pence).apply total ≤
 -- of `∃ (x: T) => P` is `Witness x p`, the value `x` and a proof `p` that
 -- it works.
 
-theorem priceMatch (total: Nat) (target: Nat) (cheaper: target ≤ total): ∃ (coupon: Coupon) => coupon.apply total = target :=
+theorem priceMatch ∀ (total: Nat) (target: Nat) (cheaper: target ≤ total): ∃ (coupon: Coupon) => coupon.apply total = target :=
   Witness (PenceOff (total - target)) omega
 
 -- Replace the `omega` with `?`: the goal is

@@ -12,18 +12,18 @@ import Std (Decidable, Eq, List, Option, Void, Bool)
 --| No monster stands on `position`.
 def Clear (position: Position) (monsters: List Monster): Prop := monsterAt position monsters = None
 
-theorem someNotNone (monster: Monster) (found: Some monster = None): Void := Option.noneNotSome monster (Eq.sym found)
+theorem someNotNone ∀ (monster: Monster) (found: Some monster = None): Void := Option.noneNotSome monster (Eq.sym found)
 
 --| The first monster of a clear list isn't on the cell, and the rest are clear.
-theorem clearHead (position: Position) (monster: Monster) (others: List Monster) (clear: Clear position [monster, ..others]):
+theorem clearHead ∀ (position: Position) (monster: Monster) (others: List Monster) (clear: Clear position [monster, ..others]):
     (monster.position == position) = False := match same: monster.position == position with
       | False => rfl
 
-theorem clearTail (position: Position) (monster: Monster) (others: List Monster) (clear: Clear position [monster, ..others]):
+theorem clearTail ∀ (position: Position) (monster: Monster) (others: List Monster) (clear: Clear position [monster, ..others]):
     Clear position others := match same: monster.position == position with
       | False => clear
 
-theorem clearSnoc (position: Position) (monster: Monster) (away: (monster.position == position) = False)
+theorem clearSnoc ∀ (position: Position) (monster: Monster) (away: (monster.position == position) = False)
     (monsters: List Monster) (clear: Clear position monsters): Clear position (monsters ++ [monster]) :=
   match monsters with
     | [] => rewrite away
@@ -32,7 +32,7 @@ theorem clearSnoc (position: Position) (monster: Monster) (away: (monster.positi
         | False => clearSnoc position monster away rest clear
 
 --| A monster never chooses the player's cell.
-theorem pickFreeAway (level: Level) (player: Position) (others: List Monster)
+theorem pickFreeAway ∀ (level: Level) (player: Position) (others: List Monster)
     (choices: List Position) (destination: Position) (picked: pickFree level choices player others = Some destination): (destination == player) = False :=
   match choices with
     | [choice, ..rest] =>
@@ -47,7 +47,7 @@ theorem pickFreeAway (level: Level) (player: Position) (others: List Monster)
                 | False => rewrite <- Option.someInjective picked in same
 
 --| Changing monsters without moving them keeps them off the cell.
-theorem clearMap (position: Position) (change: Monster → Monster) (stays: ∀ (monster: Monster) => (change monster).position = monster.position)
+theorem clearMap ∀ (position: Position) (change: Monster → Monster) (stays: ∀ (monster: Monster) => (change monster).position = monster.position)
     (monsters: List Monster) (clear: Clear position monsters): Clear position (monsters.map change) :=
   match monsters with
     | [] => rfl
@@ -55,7 +55,7 @@ theorem clearMap (position: Position) (change: Monster → Monster) (stays: ∀ 
       rewrite stays first, clearHead position first rest clear in clearMap position change stays rest (clearTail position first rest clear)
 
 --| Dropping monsters keeps the rest off the cell.
-theorem clearFilter (position: Position) (keep: Monster → Bool)
+theorem clearFilter ∀ (position: Position) (keep: Monster → Bool)
     (monsters: List Monster) (clear: Clear position monsters): Clear position (monsters.filter keep) :=
   match monsters with
     | [] => rfl
@@ -64,14 +64,14 @@ theorem clearFilter (position: Position) (keep: Monster → Bool)
         | True => rewrite clearHead position first rest clear in clearFilter position keep rest (clearTail position first rest clear)
         | False => clearFilter position keep rest (clearTail position first rest clear)
 
-theorem woundStays (target: Position) (damage: Nat) (monster: Monster): (wound target damage monster).position = monster.position :=
+theorem woundStays ∀ (target: Position) (damage: Nat) (monster: Monster): (wound target damage monster).position = monster.position :=
   match hit: monster.position == target with
     | True => rfl
     | False => rfl
 
 --| The monsters' turn keeps them off the player's cell: those that attack
 --| stay where they are, and those that move pick a free cell, or stay.
-theorem actAllClear (dice: Dice) (level: Level) (player: Position)
+theorem actAllClear ∀ (dice: Dice) (level: Level) (player: Position)
     (index: Nat) (outcome: Outcome) (waiting: List Monster)
     (moved: Clear player outcome.moved) (h: Clear player waiting): Clear player (actAll dice level player index outcome waiting).moved :=
   match waiting, h with
@@ -88,7 +88,7 @@ theorem actAllClear (dice: Dice) (level: Level) (player: Position)
               actAllClear dice level player (index + 1) _ waiting (clearSnoc player { monster | position = destination } fresh outcome.moved moved) rest
             | None => actAllClear dice level player (index + 1) _ waiting (clearSnoc player { monster | position = monster.position } away outcome.moved moved) rest
 
-theorem monstersTurnClear (dice: Dice) (state: State) (clear: Clear state.player state.monsters):
+theorem monstersTurnClear ∀ (dice: Dice) (state: State) (clear: Clear state.player state.monsters):
     let after := monstersTurn dice state
     Clear after.player after.monsters :=
   match phase: state.phase with
@@ -97,7 +97,7 @@ theorem monstersTurnClear (dice: Dice) (state: State) (clear: Clear state.player
     | Died => clear
     | GaveUp => clear
 
-theorem playerMovesClear (dice: Dice) (state: State) (direction: Direction) (clear: Clear state.player state.monsters):
+theorem playerMovesClear ∀ (dice: Dice) (state: State) (direction: Direction) (clear: Clear state.player state.monsters):
     let after := playerMoves dice state direction
     Clear after.player after.monsters :=
   match found: monsterAt (state.player.toward direction) state.monsters with
@@ -113,13 +113,13 @@ theorem playerMovesClear (dice: Dice) (state: State) (direction: Direction) (cle
           let target := state.player.toward direction
           rewrite enterPlayer state target, enterMonsters state target in found
 
-theorem descendClear (dice: Dice) (state: State) (clear: Clear state.player state.monsters):
+theorem descendClear ∀ (dice: Dice) (state: State) (clear: Clear state.player state.monsters):
     let after := descend dice state
     Clear after.player after.monsters :=
   let plan := Random.withSeed dice.seed (() => generateLevel (state.level.depth + 1))
   placeMonstersClear plan.level plan.level.start [] plan.monsters rfl
 
-theorem resolveClear (dice: Dice) (state: State) (command: Command) (clear: Clear state.player state.monsters):
+theorem resolveClear ∀ (dice: Dice) (state: State) (command: Command) (clear: Clear state.player state.monsters):
     let after := resolve dice state command
     Clear after.player after.monsters :=
   match phase: state.phase with
@@ -141,7 +141,7 @@ theorem resolveClear (dice: Dice) (state: State) (command: Command) (clear: Clea
     | GaveUp => clear
 
 --| No monster stands on the player's cell after a turn, whatever the seed.
-theorem stepClear (seed: Nat) (state: State) (command: Command) (clear: Clear state.player state.monsters):
+theorem stepClear ∀ (seed: Nat) (state: State) (command: Command) (clear: Clear state.player state.monsters):
     let after := Random.withSeed seed (() => step state command)
     Clear after.player after.monsters :=
   resolveClear { seed = lcg seed / 65536 } state command clear

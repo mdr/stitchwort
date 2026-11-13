@@ -49,4 +49,4 @@ def chain (f: Nat → Nat → Nat) (x: Nat) (b: Bool): Nat :=
     | True => t40
     | False => 0
 
-theorem chainFalse (f: Nat → Nat → Nat) (x: Nat): chain f x False = 0 := rfl
+theorem chainFalse ∀ (f: Nat → Nat → Nat) (x: Nat): chain f x False = 0 := rfl

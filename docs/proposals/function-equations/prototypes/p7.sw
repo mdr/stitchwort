@@ -33,7 +33,7 @@ def explode (depth: Nat): Number → Option Explosion
 -- generator states it with `explode.%match1`.)
 
 -- `explode.eq3.some`
-theorem explodeEq3Some (depth: Nat) (left: Number) (right: Number) (inLeft: Explosion)
+theorem explodeEq3Some ∀ (depth: Nat) (left: Number) (right: Number) (inLeft: Explosion)
     (notArm2: (a: Nat) → (b: Nat) → left = Regular a → right = Regular b → Void)
     (found: explode (depth + 1) left = Some inLeft):
     explode depth (Pair left right) = Some ({ toLeft = inLeft.toLeft, number = Pair inLeft.number (addLeftmost inLeft.toRight right), toRight = 0 }) :=
@@ -43,7 +43,7 @@ theorem explodeEq3Some (depth: Nat) (left: Number) (right: Number) (inLeft: Expl
     | Pair x y, r => rewrite found in rfl
 
 -- `explode.eq3.none.some`
-theorem explodeEq3NoneSome (depth: Nat) (left: Number) (right: Number) (inRight: Explosion)
+theorem explodeEq3NoneSome ∀ (depth: Nat) (left: Number) (right: Number) (inRight: Explosion)
     (notArm2: (a: Nat) → (b: Nat) → left = Regular a → right = Regular b → Void)
     (none: explode (depth + 1) left = None) (found: explode (depth + 1) right = Some inRight):
     explode depth (Pair left right) = Some ({ toLeft = 0, number = Pair (addRightmost inRight.toLeft left) inRight.number, toRight = inRight.toRight }) :=
@@ -53,17 +53,16 @@ theorem explodeEq3NoneSome (depth: Nat) (left: Number) (right: Number) (inRight:
     | Pair x y, r => rewrite none, found in rfl
 
 -- `explode.eq3.none.none`
-theorem explodeEq3NoneNone (depth: Nat) (left: Number) (right: Number)
+theorem explodeEq3NoneNone ∀ (depth: Nat) (left: Number) (right: Number)
     (notArm2: (a: Nat) → (b: Nat) → left = Regular a → right = Regular b → Void)
     (none: explode (depth + 1) left = None) (noneRight: explode (depth + 1) right = None):
-    explode depth (Pair left right) = None :=
-  match left, right with
-    | Regular a, Regular b => Void.exfalso (notArm2 a b rfl rfl)
-    | Regular a, Pair x y => rewrite none, noneRight in rfl
-    | Pair x y, r => rewrite none, noneRight in rfl
+    explode depth (Pair left right) = None := match left, right with
+      | Regular a, Regular b => Void.exfalso (notArm2 a b rfl rfl)
+      | Regular a, Pair x y => rewrite none, noneRight in rfl
+      | Pair x y, r => rewrite none, noneRight in rfl
 
 -- A use: the left part a pair, so `cases` gives the overlap hypothesis.
-theorem leftFound (depth: Nat) (x: Number) (y: Number) (right: Number) (inLeft: Explosion)
+theorem leftFound ∀ (depth: Nat) (x: Number) (y: Number) (right: Number) (inLeft: Explosion)
     (found: explode (depth + 1) (Pair x y) = Some inLeft):
     explode depth (Pair (Pair x y) right) = Some ({ toLeft = inLeft.toLeft, number = Pair inLeft.number (addLeftmost inLeft.toRight right), toRight = 0 }) :=
   explodeEq3Some depth (Pair x y) right inLeft cases found

@@ -6,11 +6,11 @@ import Std (Float, List, Option, Eq, Void, Bool, Decidable, DecEq, Exists)
 import Trip.Model (..)
 import Trip.Merge (..)
 
-theorem holdsMem (album: Album) (id: Nat) (h: holds album id = True): id ∈ album.photos.map Photo.id :=
+theorem holdsMem ∀ (album: Album) (id: Nat) (h: holds album id = True): id ∈ album.photos.map Photo.id :=
   (List.decMem id (album.photos.map Photo.id)).sound h
 
 -- Where `stillHolds` says yes, an album with that id holds the photo.
-theorem stillHoldsGives (albums: List Album) (id: Nat):
+theorem stillHoldsGives ∀ (albums: List Album) (id: Nat):
     ∀ (o: Option Nat) => stillHolds albums id o = True → List.Any (album => (o = Some album.id) ∧ (holds album id = True)) albums
   | Some albumId, h =>
     match e: albums.find (album => album.id == albumId) with
@@ -23,7 +23,7 @@ theorem stillHoldsGives (albums: List Album) (id: Nat):
   | None, h => cases
 
 -- Every photo of the merged albums has an owner among them that holds it.
-theorem ownerGives (local: List Album) (remote: List Album) (merged: List Album) (id: Nat) (m: id ∈ photoIds merged):
+theorem ownerGives ∀ (local: List Album) (remote: List Album) (merged: List Album) (id: Nat) (m: id ∈ photoIds merged):
     List.Any (album => (owner local remote merged id = Some album.id) ∧ (holds album id = True)) merged :=
   match c: stillHolds merged id (holder local id) with
     | True => stillHoldsGives merged id (holder local id) c
@@ -43,7 +43,7 @@ theorem ownerGives (local: List Album) (remote: List Album) (merged: List Album)
                     ((List.decMem id (a.photos.map Photo.id)).complete inA) inMerged f))
 
 -- A photo of an album that owns it is kept there.
-theorem keptWhereOwned (own: Nat → Option Nat) (album: Album) (id: Nat) (o: own id = Some album.id) (h: holds album id = True):
+theorem keptWhereOwned ∀ (own: Nat → Option Nat) (album: Album) (id: Nat) (o: own id = Some album.id) (h: holds album id = True):
     id ∈ (keepOwned own album).photos.map Photo.id :=
   Exists.elim (List.memMapElim Photo.id id album.photos (holdsMem album id h)) (photo both =>
     match both with
@@ -54,11 +54,11 @@ theorem keptWhereOwned (own: Nat → Option Nat) (album: Album) (id: Nat) (o: ow
             (rewrite e, o in DecEq.refl (Some album.id)))
           Photo.id)
 
-theorem combinedIs (local: Trip) (remote: Trip): ownerIn local remote = owner local.albums remote.albums ((albumEntries local remote).map (entry => entry.fst)) :=
+theorem combinedIs ∀ (local: Trip) (remote: Trip): ownerIn local remote = owner local.albums remote.albums ((albumEntries local remote).map (entry => entry.fst)) :=
   rfl
 
 -- A photo of the albums before ownership is decided is in a merged album.
-theorem keptFromCombined (local: Trip) (remote: Trip) (legs: List Leg) (id: Nat)
+theorem keptFromCombined ∀ (local: Trip) (remote: Trip) (legs: List Leg) (id: Nat)
     (m: id ∈ photoIds ((albumEntries local remote).map (entry => entry.fst))): id ∈ photoIds (mergeAlbums local remote legs) :=
   let combined := (albumEntries local remote).map (entry => entry.fst)
   let own := ownerIn local remote
@@ -75,7 +75,7 @@ theorem keptFromCombined (local: Trip) (remote: Trip) (legs: List Leg) (id: Nat)
                 (List.memMap (albumEntries local remote) entry inEntries (x => keepOwned own (x.fst.startAt (settle legs x.snd))))
                 (rewrite e in keptWhereOwned own album id o h)))
 
-theorem withPhotosOfKeeps (remote: List Album) (album: Album) (id: Nat) (m: id ∈ album.photos.map Photo.id):
+theorem withPhotosOfKeeps ∀ (remote: List Album) (album: Album) (id: Nat) (m: id ∈ album.photos.map Photo.id):
     id ∈ (withPhotosOf remote album).photos.map Photo.id := match e: remote.find (other => other.id == album.id) with
       | Some other =>
         Exists.elim (List.memMapElim Photo.id id album.photos m) (photo both =>
@@ -85,7 +85,7 @@ theorem withPhotosOfKeeps (remote: List Album) (album: Album) (id: Nat) (m: id �
 
 -- Every photo id of either copy is in the albums before ownership is
 -- decided (with the remote album ids distinct, as in a well-formed copy).
-theorem inCombined (local: Trip) (remote: Trip) (dr: List.Distinct (List.map remote.albums (album => album.id))) (id: Nat)
+theorem inCombined ∀ (local: Trip) (remote: Trip) (dr: List.Distinct (List.map remote.albums (album => album.id))) (id: Nat)
     (m: (id ∈ photoIds local.albums) ∨ (id ∈ photoIds remote.albums)): id ∈ photoIds ((albumEntries local remote).map (entry => entry.fst)) :=
   let fromLocal := local.albums.map (album => (withPhotosOf remote.albums album, locate local.legs album.start))
   let fromRemote := remote.albums.map (album => (album, locate remote.legs album.start))
@@ -137,6 +137,6 @@ theorem inCombined (local: Trip) (remote: Trip) (dr: List.Distinct (List.map rem
 
 -- Every photo of either copy is in some merged album (and, by
 -- `mergeWellFormed`, in only one).
-theorem photoIdsKept (local: Trip) (remote: Trip) (wr: WellFormed remote) (id: Nat)
+theorem photoIdsKept ∀ (local: Trip) (remote: Trip) (wr: WellFormed remote) (id: Nat)
     (m: (id ∈ photoIds local.albums) ∨ (id ∈ photoIds remote.albums)): id ∈ photoIds (merge local remote).albums :=
   keptFromCombined local remote (mergeLegs local.legs remote.legs) id (inCombined local remote wr.albumIds id m)

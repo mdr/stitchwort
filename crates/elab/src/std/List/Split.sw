@@ -61,23 +61,23 @@ test "List.splitBy with separators on the end" :=
     ([0, 0].splitBy (== 0)).map NonEmptyList.toList == []
 
 --| The step of `List.splitGroups`, which the loop form hides.
-theorem List.splitGroupsCons (xs: List a) (x: a) (p: a → Bool):
+theorem List.splitGroupsCons ∀ (xs: List a) (x: a) (p: a → Bool):
     List.splitGroups [x, ..xs] p = List.splitStep x (p x) (List.splitGroups xs p) :=
   List.foldRightCons xs x (MkPair [] []) (y st => List.splitStep y (p y) st)
 
-theorem List.closeGroupSum (cur: List a) (done: List (NonEmptyList a)):
+theorem List.closeGroupSum ∀ (cur: List a) (done: List (NonEmptyList a)):
     List.sumBy (List.closeGroup cur done) NonEmptyList.length = List.length cur + List.sumBy done NonEmptyList.length :=
   match cur with
     | [] => rfl
     | [y, ..ys] => List.sumByCons done [y, ..ys] NonEmptyList.length
 
-theorem List.splitStepTotal (x: a) (b: Bool) (st: Pair (List a) (List (NonEmptyList a))):
+theorem List.splitStepTotal ∀ (x: a) (b: Bool) (st: Pair (List a) (List (NonEmptyList a))):
     List.splitTotal (List.splitStep x b st) + Bool.toNat b = Succ (List.splitTotal st) := match b, st with
       | True, MkPair cur done =>
         Eq.trans (Nat.addOne (List.sumBy (List.closeGroup cur done) NonEmptyList.length)) (Eq.cong Succ (List.closeGroupSum cur done))
       | False, MkPair cur done => Nat.addZero (Succ (List.length cur + List.sumBy done NonEmptyList.length))
 
-theorem List.splitGroupsTotal (xs: List a) (p: a → Bool):
+theorem List.splitGroupsTotal ∀ (xs: List a) (p: a → Bool):
     List.splitTotal (List.splitGroups xs p) + List.occurrences xs p = List.length xs := match xs with
       | [] => rfl
       | [x, ..xs] =>
@@ -86,7 +86,7 @@ theorem List.splitGroupsTotal (xs: List a) (p: a → Bool):
             (Eq.trans (Eq.cong (t => t + List.occurrences xs p) (List.splitStepTotal x (p x) (List.splitGroups xs p)))
               (Eq.cong Succ (List.splitGroupsTotal xs p)))
 
-theorem List.finishGroupsSum (st: Pair (List a) (List (NonEmptyList a))):
+theorem List.finishGroupsSum ∀ (st: Pair (List a) (List (NonEmptyList a))):
     List.sumBy (List.finishGroups st) NonEmptyList.length = List.splitTotal st := match st with
       | MkPair cur done => List.closeGroupSum cur done
 
@@ -96,43 +96,43 @@ theorem List.splitByExample: List.splitBy [1, 2, 0, 0, 3] (x => x == 0) = [[1, 2
 theorem List.splitByEdges: List.splitBy [0, 4, 0] (x => x == 0) = [[4]] := rfl
 
 --| Splitting loses only the separators: the groups' lengths plus the number of separators is the length.
-theorem List.splitByLength (xs: List a) (p: a → Bool):
+theorem List.splitByLength ∀ (xs: List a) (p: a → Bool):
     List.sumBy (List.splitBy xs p) NonEmptyList.length + List.occurrences xs p = List.length xs :=
   Eq.trans (Eq.cong (t => t + List.occurrences xs p) (List.finishGroupsSum (List.splitGroups xs p))) (List.splitGroupsTotal xs p)
 
-theorem List.closeGroupGroups (p: a → Bool) (cur: List a) (done: List (NonEmptyList a)) (hc: List.NonSep p cur) (hd: List.Groups p done):
+theorem List.closeGroupGroups ∀ (p: a → Bool) (cur: List a) (done: List (NonEmptyList a)) (hc: List.NonSep p cur) (hd: List.Groups p done):
     List.Groups p (List.closeGroup cur done) := match cur with
       | [] => hd
       | [y, ..ys] => Both hc hd
 
-theorem List.nonSepCons (p: a → Bool) (x: a) (cur: List a) (h: p x = False) (hc: List.NonSep p cur): List.NonSep p [x, ..cur] :=
+theorem List.nonSepCons ∀ (p: a → Bool) (x: a) (cur: List a) (h: p x = False) (hc: List.NonSep p cur): List.NonSep p [x, ..cur] :=
   rewrite h in hc
 
-theorem List.splitStepOk (p: a → Bool) (x: a): ∀ (b: Bool) => p x = b → ∀ (st: Pair (List a) (List (NonEmptyList a))) => List.SplitOk p st →
+theorem List.splitStepOk ∀ (p: a → Bool) (x: a): ∀ (b: Bool) => p x = b → ∀ (st: Pair (List a) (List (NonEmptyList a))) => List.SplitOk p st →
     List.SplitOk p (List.splitStep x b st)
   | True, e, MkPair cur done, Both hc hd => Both rfl (List.closeGroupGroups p cur done hc hd)
   | False, e, MkPair cur done, Both hc hd => Both (List.nonSepCons p x cur e hc) hd
 
-theorem List.splitGroupsOk (xs: List a) (p: a → Bool): List.SplitOk p (List.splitGroups xs p) := match xs with
+theorem List.splitGroupsOk ∀ (xs: List a) (p: a → Bool): List.SplitOk p (List.splitGroups xs p) := match xs with
   | [] => Both rfl Trivial
   | [x, ..xs] =>
     rewrite List.splitGroupsCons xs x p in List.splitStepOk p x (p x) rfl (List.splitGroups xs p) (List.splitGroupsOk xs p)
 
-theorem List.finishGroupsOk (p: a → Bool) (st: Pair (List a) (List (NonEmptyList a))) (h: List.SplitOk p st): List.Groups p (List.finishGroups st) :=
+theorem List.finishGroupsOk ∀ (p: a → Bool) (st: Pair (List a) (List (NonEmptyList a))) (h: List.SplitOk p st): List.Groups p (List.finishGroups st) :=
   match st, h with
     | MkPair cur done, Both hc hd => List.closeGroupGroups p cur done hc hd
 
 --| No group has a separator in it.
-theorem List.splitByGroups (xs: List a) (p: a → Bool): List.Groups p (List.splitBy xs p) :=
+theorem List.splitByGroups ∀ (xs: List a) (p: a → Bool): List.Groups p (List.splitBy xs p) :=
   List.finishGroupsOk p (List.splitGroups xs p) (List.splitGroupsOk xs p)
 
-theorem List.closeGroupConcat (cur: List a) (done: List (NonEmptyList a)):
+theorem List.closeGroupConcat ∀ (cur: List a) (done: List (NonEmptyList a)):
     List.flatMap (List.closeGroup cur done) NonEmptyList.toList = List.append cur (List.flatMap done NonEmptyList.toList) :=
   match cur with
     | [] => rfl
     | [y, ..ys] => rfl
 
-theorem List.splitStepKeeps (p: a → Bool) (x: a) (xs: List a): ∀ (b: Bool) => p x = b → ∀ (st: Pair (List a) (List (NonEmptyList a))) =>
+theorem List.splitStepKeeps ∀ (p: a → Bool) (x: a) (xs: List a): ∀ (b: Bool) => p x = b → ∀ (st: Pair (List a) (List (NonEmptyList a))) =>
     List.SplitKeeps p xs st → List.SplitKeeps p [x, ..xs] (List.splitStep x b st)
   | True, e, MkPair cur done, h =>
     Eq.trans (List.closeGroupConcat cur done)
@@ -140,61 +140,61 @@ theorem List.splitStepKeeps (p: a → Bool) (x: a) (xs: List a): ∀ (b: Bool) =
   | False, e, MkPair cur done, h =>
     Eq.trans (Eq.cong (Cons x) h) (Eq.sym (List.filterKeep xs (z => ¬(p z)) x (Eq.cong Bool.not e)))
 
-theorem List.splitGroupsKeeps (xs: List a) (p: a → Bool): List.SplitKeeps p xs (List.splitGroups xs p) :=
+theorem List.splitGroupsKeeps ∀ (xs: List a) (p: a → Bool): List.SplitKeeps p xs (List.splitGroups xs p) :=
   match xs with
     | [] => rfl
     | [x, ..xs] =>
       rewrite List.splitGroupsCons xs x p in List.splitStepKeeps p x xs (p x) rfl (List.splitGroups xs p) (List.splitGroupsKeeps xs p)
 
-theorem List.finishGroupsConcat (st: Pair (List a) (List (NonEmptyList a))):
+theorem List.finishGroupsConcat ∀ (st: Pair (List a) (List (NonEmptyList a))):
     List.flatMap (List.finishGroups st) NonEmptyList.toList = List.append (Pair.fst st) (List.flatMap (Pair.snd st) NonEmptyList.toList) :=
   match st with
     | MkPair cur done => List.closeGroupConcat cur done
 
 --| Joining the groups gives back the elements that aren't separators, in order.
-theorem List.splitByConcat (xs: List a) (p: a → Bool):
+theorem List.splitByConcat ∀ (xs: List a) (p: a → Bool):
     List.flatMap (List.splitBy xs p) NonEmptyList.toList = List.filter xs (x => ¬(p x)) :=
   Eq.trans (List.finishGroupsConcat (List.splitGroups xs p)) (List.splitGroupsKeeps xs p)
 
 --| Only separators: no group, open or finished.
-theorem List.splitGroupsSeparators (ys: List a) (p: a → Bool) (h: List.all ys p = True): List.splitGroups ys p = MkPair [] [] :=
+theorem List.splitGroupsSeparators ∀ (ys: List a) (p: a → Bool) (h: List.all ys p = True): List.splitGroups ys p = MkPair [] [] :=
   match ys with
     | [] => rfl
     | [y, ..ys] =>
       match e: p y with
         | True => rewrite List.splitGroupsCons ys y p, e, List.splitGroupsSeparators ys p h
 
-theorem List.splitGroupsAppendSeparators (ys: List a) (p: a → Bool) (h: List.all ys p = True) (xs: List a):
+theorem List.splitGroupsAppendSeparators ∀ (ys: List a) (p: a → Bool) (h: List.all ys p = True) (xs: List a):
     List.splitGroups (List.append xs ys) p = List.splitGroups xs p := match xs with
       | [] => List.splitGroupsSeparators ys p h
       | [x, ..xs] => rewrite List.splitGroupsCons (List.append xs ys) x p, List.splitGroupsCons xs x p, List.splitGroupsAppendSeparators ys p h xs
 
 --| Separators on the end change no group: `[1, 0, 0]` splits as `[1]` does.
-theorem List.splitByAppendSeparators (xs: List a) (p: a → Bool) (ys: List a) (h: List.all ys p = True):
+theorem List.splitByAppendSeparators ∀ (xs: List a) (p: a → Bool) (ys: List a) (h: List.all ys p = True):
     List.splitBy (List.append xs ys) p = List.splitBy xs p :=
   Eq.cong List.finishGroups (List.splitGroupsAppendSeparators ys p h xs)
 
 -- Splitting a run of positions at the separators.
 
-theorem List.splitStepSep (x: a) (st: Pair (List a) (List (NonEmptyList a))): List.splitStep x True st = MkPair [] (List.closeGroup (Pair.fst st) (Pair.snd st)) :=
+theorem List.splitStepSep ∀ (x: a) (st: Pair (List a) (List (NonEmptyList a))): List.splitStep x True st = MkPair [] (List.closeGroup (Pair.fst st) (Pair.snd st)) :=
   match st with
     | MkPair cur done => rfl
 
-theorem List.splitStepJoin (x: a) (st: Pair (List a) (List (NonEmptyList a))): List.splitStep x False st = MkPair [x, ..Pair.fst st] (Pair.snd st) :=
+theorem List.splitStepJoin ∀ (x: a) (st: Pair (List a) (List (NonEmptyList a))): List.splitStep x False st = MkPair [x, ..Pair.fst st] (Pair.snd st) :=
   match st with
     | MkPair cur done => rfl
 
-theorem List.finishGroupsClose (st: Pair (List a) (List (NonEmptyList a))): List.finishGroups st = List.closeGroup (Pair.fst st) (Pair.snd st) :=
+theorem List.finishGroupsClose ∀ (st: Pair (List a) (List (NonEmptyList a))): List.finishGroups st = List.closeGroup (Pair.fst st) (Pair.snd st) :=
   match st with
     | MkPair cur done => rfl
 
 --| The run from `s` up to the first separator (looking as far as `s + m`).
-theorem List.runStop (sep: Nat → Bool) (m: Nat) (s: Nat) (h: sep s = True): Nat.firstFrom sep (Succ m) s - s = 0 :=
+theorem List.runStop ∀ (sep: Nat → Bool) (m: Nat) (s: Nat) (h: sep s = True): Nat.firstFrom sep (Succ m) s - s = 0 :=
   rewrite Nat.firstFromStop sep m s h, Nat.subSelf s
 
 --| The group still open after reading positions s .. s + m - 1 (from the
 --| right) is the run from s to the first separator; s + m is a separator.
-theorem List.splitGroupsOpen (p: a → Bool) (f: Nat → a) (sep: Nat → Bool) (hsep: ∀ (c: Nat) => p (f c) = sep c)
+theorem List.splitGroupsOpen ∀ (p: a → Bool) (f: Nat → a) (sep: Nat → Bool) (hsep: ∀ (c: Nat) => p (f c) = sep c)
     (m s: Nat) (e: sep (s + m) = True):
     Pair.fst (List.splitGroups (List.map (List.rangeFrom m s) f) p) = List.map (List.rangeFrom (Nat.firstFrom sep (Succ m) s - s) s) f :=
   match m with
@@ -217,7 +217,7 @@ def List.runAt (f: Nat → a) (sep: Nat → Bool) (n: Nat) (lo: Nat): List a :=
   List.map (List.rangeFrom (Nat.firstFrom sep (Succ (n - lo)) lo - lo) lo) f
 
 --| Closing the open group adds its term, unless it is empty.
-theorem List.closeRunSum (g: List a → Nat) (done: List (NonEmptyList a)) (m: Nat) (s: Nat) (f: Nat → a) (sep: Nat → Bool):
+theorem List.closeRunSum ∀ (g: List a → Nat) (done: List (NonEmptyList a)) (m: Nat) (s: Nat) (f: Nat → a) (sep: Nat → Bool):
     List.sumBy (List.closeGroup (List.map (List.rangeFrom (Nat.firstFrom sep (Succ m) s - s) s) f) done) (group => g group.toList)
       = Nat.keepIf (g (List.map (List.rangeFrom (Nat.firstFrom sep (Succ m) s - s) s) f)) (¬(sep s)) + List.sumBy done (group => g group.toList) :=
   match h: sep s with
@@ -228,7 +228,7 @@ theorem List.closeRunSum (g: List a → Nat) (done: List (NonEmptyList a)) (m: N
 
 --| The groups closed after reading positions s .. s + m - 1: one for every
 --| separator c followed by a position c + 1 that isn't one.
-theorem List.splitGroupsDone (p: a → Bool) (f: Nat → a) (sep: Nat → Bool) (hsep: ∀ (c: Nat) => p (f c) = sep c) (g: List a → Nat)
+theorem List.splitGroupsDone ∀ (p: a → Bool) (f: Nat → a) (sep: Nat → Bool) (hsep: ∀ (c: Nat) => p (f c) = sep c) (g: List a → Nat)
     (m s: Nat) (e: sep (s + m) = True): List.sumBy (Pair.snd (List.splitGroups (List.map (List.rangeFrom m s) f) p)) (group => g group.toList)
       = List.sumBy (List.rangeFrom m s) (c => Nat.keepIf (g (List.runAt f sep (s + m) (Succ c))) (¬(sep (Succ c)) ∧ sep c)) :=
   match m with
@@ -256,7 +256,7 @@ theorem List.splitGroupsDone (p: a → Bool) (f: Nat → a) (sep: Nat → Bool) 
 
 --| All the groups: the run from 0, then one for every separator followed by
 --| a position that isn't one.
-theorem List.splitByStarts (p: a → Bool) (f: Nat → a) (sep: Nat → Bool) (hsep: ∀ (c: Nat) => p (f c) = sep c) (g: List a → Nat) (n: Nat) (end: sep n = True):
+theorem List.splitByStarts ∀ (p: a → Bool) (f: Nat → a) (sep: Nat → Bool) (hsep: ∀ (c: Nat) => p (f c) = sep c) (g: List a → Nat) (n: Nat) (end: sep n = True):
     List.sumBy (List.splitBy (List.map (List.range 0 n) f) p) (group => g group.toList)
       = Nat.keepIf (g (List.runAt f sep n 0)) (¬(sep 0))
         + List.sumBy (List.range 0 n) (c => Nat.keepIf (g (List.runAt f sep n (Succ c))) (¬(sep (Succ c)) ∧ sep c)) :=
@@ -272,12 +272,12 @@ theorem List.splitByStarts (p: a → Bool) (f: Nat → a) (sep: Nat → Bool) (h
 def Nat.isRun (sep: Nat → Bool) (lo: Nat) (hi: Nat): Bool :=
   (lo == 0 ∨ sep (lo - 1)) ∧ (lo < hi ∧ (List.all (List.rangeFrom (hi - lo) lo) (i => ¬(sep i)) ∧ sep hi))
 
-theorem List.isRunNoEdge (sep: Nat → Bool) (lo: Nat) (hi: Nat) (h: (lo == 0 ∨ sep (lo - 1)) = False): Nat.isRun sep lo hi = False :=
+theorem List.isRunNoEdge ∀ (sep: Nat → Bool) (lo: Nat) (hi: Nat) (h: (lo == 0 ∨ sep (lo - 1)) = False): Nat.isRun sep lo hi = False :=
   calc Nat.isRun sep lo hi
     _ = ((lo == 0 ∨ sep (lo - 1)) ∧ (lo < hi ∧ (List.all (List.rangeFrom (hi - lo) lo) (c => ¬(sep c)) ∧ sep hi)))
     _ = False := rewrite h
 
-theorem List.isRunSepStart (sep: Nat → Bool) (lo: Nat) (hi: Nat) (h: sep lo = True): Nat.isRun sep lo hi = False :=
+theorem List.isRunSepStart ∀ (sep: Nat → Bool) (lo: Nat) (hi: Nat) (h: sep lo = True): Nat.isRun sep lo hi = False :=
   calc Nat.isRun sep lo hi
     _ = ((lo == 0 ∨ sep (lo - 1)) ∧ (lo < hi ∧ (List.all (List.rangeFrom (hi - lo) lo) (c => ¬(sep c)) ∧ sep hi)))
     _ = ((lo == 0 ∨ sep (lo - 1)) ∧ False) :=
@@ -287,7 +287,7 @@ theorem List.isRunSepStart (sep: Nat → Bool) (lo: Nat) (hi: Nat) (h: sep lo = 
     _ = False := Bool.andFalse (lo == 0 ∨ sep (lo - 1))
 
 --| A run that starts at lo ends at the first separator after it.
-theorem List.isRunEnd (sep: Nat → Bool) (n: Nat) (lo: Nat) (hlo: lo < n) (end: sep n = True) (hi: Nat) (h: Nat.isRun sep lo hi = True):
+theorem List.isRunEnd ∀ (sep: Nat → Bool) (n: Nat) (lo: Nat) (hlo: lo < n) (end: sep n = True) (hi: Nat) (h: Nat.isRun sep lo hi = True):
     hi = Nat.firstFrom sep (Succ (n - lo)) lo :=
   let Both _ (Both long (Both none stop)) := h
   let found := Nat.firstFromFound sep (Succ (n - lo)) lo n (Nat.lessLe lo n hlo)
@@ -303,7 +303,7 @@ theorem List.isRunEnd (sep: Nat → Bool) (n: Nat) (lo: Nat) (hlo: lo < n) (end:
             (rewrite Nat.addSubCancel lo hi (Nat.lessLe lo hi long) in e.read))))
 
 --| The run that starts at lo (it does start there) is a maximal run.
-theorem List.isRunRun (sep: Nat → Bool) (n: Nat) (lo: Nat) (hlo: lo < n) (end: sep n = True)
+theorem List.isRunRun ∀ (sep: Nat → Bool) (n: Nat) (lo: Nat) (hlo: lo < n) (end: sep n = True)
     (h1: sep lo = False) (h2: (lo == 0 ∨ sep (lo - 1)) = True): Nat.isRun sep lo (Nat.firstFrom sep (Succ (n - lo)) lo) = True :=
   let v := Nat.firstFrom sep (Succ (n - lo)) lo
   let found: sep v = True := Nat.firstFromFound sep (Succ (n - lo)) lo n (Nat.lessLe lo n hlo)
@@ -316,7 +316,7 @@ theorem List.isRunRun (sep: Nat → Bool) (n: Nat) (lo: Nat) (hlo: lo < n) (end:
           rewrite Nat.firstFromBefore sep (Succ (n - lo)) lo k k1 (rewrite <- Nat.addSubCancel lo v atLeast in k2)))
         found))
 
-theorem List.runsFromEdge (sep: Nat → Bool) (f: Nat → a) (g: List a → Nat) (n: Nat) (end: sep n = True) (lo: Nat) (hlo: lo < n) (h1: sep lo = False)
+theorem List.runsFromEdge ∀ (sep: Nat → Bool) (f: Nat → a) (g: List a → Nat) (n: Nat) (end: sep n = True) (lo: Nat) (hlo: lo < n) (h1: sep lo = False)
     (b: Bool) (h2: (lo == 0 ∨ sep (lo - 1)) = b): List.sumBy (List.range 0 (Succ n)) (hi => Nat.keepIf (g (List.map (List.rangeFrom (hi - lo) lo) f)) (Nat.isRun sep lo hi))
     = Nat.keepIf (g (List.runAt f sep n lo)) b := match b with
       | False => List.sumRangeFromNone (hi => Nat.isRun sep lo hi) (hi => g (List.map (List.rangeFrom (hi - lo) lo) f)) (Succ n) 0
@@ -328,25 +328,25 @@ theorem List.runsFromEdge (sep: Nat → Bool) (f: Nat → a) (g: List a → Nat)
           (Nat.firstFromLe sep (Succ (n - lo)) lo n (Nat.lessLe lo n hlo) end)
 
 --| For each lo, the maximal runs starting there: one if a run starts at lo, none otherwise.
-theorem List.runsFrom (sep: Nat → Bool) (f: Nat → a) (g: List a → Nat) (n: Nat) (end: sep n = True) (lo: Nat) (hlo: lo < n):
+theorem List.runsFrom ∀ (sep: Nat → Bool) (f: Nat → a) (g: List a → Nat) (n: Nat) (end: sep n = True) (lo: Nat) (hlo: lo < n):
     List.sumBy (List.range 0 (Succ n)) (hi => Nat.keepIf (g (List.map (List.rangeFrom (hi - lo) lo) f)) (Nat.isRun sep lo hi))
       = Nat.keepIf (g (List.runAt f sep n lo)) (¬(sep lo) ∧ (lo == 0 ∨ sep (lo - 1))) :=
   List.runsFromStart sep f g n end lo hlo (sep lo) rfl
 
-theorem List.runsFromStart (sep: Nat → Bool) (f: Nat → a) (g: List a → Nat) (n: Nat) (end: sep n = True) (lo: Nat) (hlo: lo < n)
+theorem List.runsFromStart ∀ (sep: Nat → Bool) (f: Nat → a) (g: List a → Nat) (n: Nat) (end: sep n = True) (lo: Nat) (hlo: lo < n)
     (b: Bool) (h1: sep lo = b): List.sumBy (List.range 0 (Succ n)) (hi => Nat.keepIf (g (List.map (List.rangeFrom (hi - lo) lo) f)) (Nat.isRun sep lo hi))
     = Nat.keepIf (g (List.runAt f sep n lo)) (¬b ∧ (lo == 0 ∨ sep (lo - 1))) := match b with
       | True => List.sumRangeFromNone (hi => Nat.isRun sep lo hi) (hi => g (List.map (List.rangeFrom (hi - lo) lo) f)) (Succ n) 0
         (b b1 b2 => List.isRunSepStart sep lo b h1)
       | False => List.runsFromEdge sep f g n end lo hlo h1 (lo == 0 ∨ sep (lo - 1)) rfl
 
-theorem List.sumRangeLast (f: Nat → Nat) (n: Nat): List.sumBy (List.range 0 (Succ n)) f = List.sumBy (List.range 0 n) f + f n :=
+theorem List.sumRangeLast ∀ (f: Nat → Nat) (n: Nat): List.sumBy (List.range 0 (Succ n)) f = List.sumBy (List.range 0 n) f + f n :=
   calc List.sumBy (List.rangeFrom (Succ n) 0) f
     _ = List.sumBy (List.append (List.rangeFrom n 0) (List.rangeFrom 1 (0 + n))) f := rewrite <- List.rangeFromAppend n 1 0 in rfl
     _ = List.sumBy (List.range 0 n) f + f n := List.sumByAppend (List.rangeFrom n 0) (List.rangeFrom 1 n) f
 
 --| The runs by where they start: at 0, or just after a separator.
-theorem List.runStarts (sep: Nat → Bool) (r: Nat → Nat) (n: Nat) (end: sep n = True): List.sumBy (List.range 0 n) (lo => Nat.keepIf (r lo) (¬(sep lo) ∧ (lo == 0 ∨ sep (lo - 1))))
+theorem List.runStarts ∀ (sep: Nat → Bool) (r: Nat → Nat) (n: Nat) (end: sep n = True): List.sumBy (List.range 0 n) (lo => Nat.keepIf (r lo) (¬(sep lo) ∧ (lo == 0 ∨ sep (lo - 1))))
     = Nat.keepIf (r 0) (¬(sep 0)) + List.sumBy (List.range 0 n) (c => Nat.keepIf (r (Succ c)) (¬(sep (Succ c)) ∧ sep c)) :=
   match n with
     | Zero => rewrite end
@@ -364,7 +364,7 @@ theorem List.runStarts (sep: Nat → Bool) (r: Nat → Nat) (n: Nat) (end: sep n
 
 --| Splitting the positions 0 .. n - 1 at the separators gives exactly the
 --| maximal runs `lo .. hi - 1` (`Nat.isRun`), when position n is a separator.
-theorem List.splitByRuns (p: a → Bool) (f: Nat → a) (sep: Nat → Bool) (hsep: ∀ (c: Nat) => p (f c) = sep c) (g: List a → Nat) (n: Nat) (end: sep n = True):
+theorem List.splitByRuns ∀ (p: a → Bool) (f: Nat → a) (sep: Nat → Bool) (hsep: ∀ (c: Nat) => p (f c) = sep c) (g: List a → Nat) (n: Nat) (end: sep n = True):
     List.sumBy (List.splitBy (List.map (List.range 0 n) f) p) (group => g group.toList)
       = List.sumBy (List.range 0 n) (lo => List.sumBy (List.range 0 (Succ n)) (hi => Nat.keepIf (g (List.map (List.rangeFrom (hi - lo) lo) f)) (Nat.isRun sep lo hi))) :=
   calc List.sumBy (List.splitBy (List.map (List.range 0 n) f) p) (group => g group.toList)

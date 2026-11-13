@@ -17,7 +17,7 @@ theorem readsCubeState: Parse.Reads cubeState (read state => read = [symbol stat
         | Inactive => same)
 
 --| Every line a grid of cubes is read from is its row written out.
-theorem gridWritten (input: Text) (grid: Grid CubeState) (parsed: Fail.toResult (() => parseGrid input cubeState) = Ok grid):
+theorem gridWritten ∀ (input: Text) (grid: Grid CubeState) (parsed: Fail.toResult (() => parseGrid input cubeState) = Ok grid):
     List.All2 RowWritten (input.lines.map Text.toList) grid.rows :=
   let split := rewrite Fail.toResultThen (() => Parse.eachLine input (() => Parse.many1 cubeState |> .toList)) checkGrid at parsed
   Result.flatMapEqOk _ (rows => Fail.toResult (() => checkGrid rows)) grid split (rows read checked =>
@@ -31,7 +31,7 @@ theorem gridWritten (input: Text) (grid: Grid CubeState) (parsed: Fail.toResult 
 
 --| Every line of the input is its row of the slice written out, and the
 --| slice is a rectangle.
-theorem parseWritten (input: Text) (slice: Slice) (parsed: Fail.toResult (() => parseSlice input) = Ok slice):
+theorem parseWritten ∀ (input: Text) (slice: Slice) (parsed: Fail.toResult (() => parseSlice input) = Ok slice):
     List.All2 RowWritten (input.lines.map Text.toList) slice.grid.rows ∧ slice.grid.Rectangle :=
   let split := rewrite Fail.toResultThen (() => parseGrid input cubeState) (grid => ({ grid }: Slice)) at parsed
   Result.flatMapEqOk (Fail.toResult (() => parseGrid input cubeState)) (grid => Fail.toResult (() => ({ grid }: Slice))) slice split

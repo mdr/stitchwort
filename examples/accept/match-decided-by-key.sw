@@ -6,23 +6,23 @@ import Std (Nat, Fin, Bool, Void)
 
 def larger (c: Fin 10) (x: Fin 10): Fin 10 := if c < x then x else c
 
-theorem largerGe (c: Fin 10) (x: Fin 10): Fin.toNat c ≤ Fin.toNat (larger c x) := match e: c < x with
+theorem largerGe ∀ (c: Fin 10) (x: Fin 10): Fin.toNat c ≤ Fin.toNat (larger c x) := match e: c < x with
   | True => omega
   | False => omega
 
-theorem largerGeRight (c: Fin 10) (x: Fin 10): Fin.toNat x ≤ Fin.toNat (larger c x) := match e: c < x with
+theorem largerGeRight ∀ (c: Fin 10) (x: Fin 10): Fin.toNat x ≤ Fin.toNat (larger c x) := match e: c < x with
   | True => omega
   | False => omega
 
 -- A `Bool` comparison in the goal is decided by the same `match`.
 def below (c: Fin 10) (x: Fin 10): Bool := c < x
 
-theorem belowLess (c: Fin 10) (x: Fin 10) (h: below c x = True): Fin.toNat c < Fin.toNat x := match e: c < x with
+theorem belowLess ∀ (c: Fin 10) (x: Fin 10) (h: below c x = True): Fin.toNat c < Fin.toNat x := match e: c < x with
   | True => omega
   | False => cases
 
 def largerNat (c: Nat) (x: Nat): Nat := if c < x then x else c
 
-theorem largerNatGe (c: Nat) (x: Nat): c ≤ largerNat c x := match e: c < x with
+theorem largerNatGe ∀ (c: Nat) (x: Nat): c ≤ largerNat c x := match e: c < x with
   | True => omega
   | False => omega

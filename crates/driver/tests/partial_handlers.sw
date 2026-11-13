@@ -31,12 +31,11 @@ def fromLines (lines: List Text) (prog: () → {Input, Partial | e} a): {Partial
           | Cons line more => resume (Some line) more
   run lines
 
-def play (turn: Nat): {Input, IO, Partial} Nat :=
-  match next () with
-    | None => turn
-    | Some command =>
-      IO.print ("turn " ++ Nat.toText turn ++ ": " ++ command)
-      play (turn + 1)
+def play (turn: Nat): {Input, IO, Partial} Nat := match next () with
+  | None => turn
+  | Some command =>
+    IO.print ("turn " ++ Nat.toText turn ++ ": " ++ command)
+    play (turn + 1)
 
 ability Choice where
   fork: () → {Choice} Bool

@@ -24,7 +24,7 @@ def Result.IsOk: (result: Result a e) → Prop
   | Ok x => Unit
   | Err m => Void
 
-theorem Result.okNotErr (x: a) (m: e): Ok x ≠ Err m
+theorem Result.okNotErr ∀ (x: a) (m: e): Ok x ≠ Err m
   | p => J (y q => Result.IsOk y) Trivial p
 
 theorem Result.errNotOk [m: e] [x: a]: Err m ≠ Ok x

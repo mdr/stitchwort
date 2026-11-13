@@ -21,4 +21,4 @@ theorem notThree: Digit1 ≠ Digit2 := byDecision
 theorem either: (Digit2 ∈ keys) ∨ (3 = 4) := byDecision
 
 -- Every key, closed by deciding each case once `cases` has split it.
-theorem everyKey (key: Key): key ∈ keys := cases
+theorem everyKey ∀ (key: Key): key ∈ keys := cases

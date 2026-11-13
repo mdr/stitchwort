@@ -34,7 +34,7 @@ theorem readsFoodList: Parse.Reads foodList FoodListWritten :=
   Parse.readsThen (Parse.readsLines food FoodWritten readsFood) (foodsRead foods written =>
     Parse.readsDone { foods = foods.toList } _ (Witness foods (Both (rewrite List.appendNil foodsRead in written) rfl)))
 
-theorem parseWritten (input: Text) (list: FoodList) (parsed: Fail.toResult (() => parseFoods input) = Ok list):
+theorem parseWritten ∀ (input: Text) (list: FoodList) (parsed: Fail.toResult (() => parseFoods input) = Ok list):
     ∃ (read: List Char) => ∃ (ending: List Char) =>
       input.toList = read ++ ending ∧ FoodListWritten read list ∧ ending.all (char => char == '\n' ∨ char == '\r') = True :=
   Parse.allReads input Aoc.Year2020.Day21.foodList FoodListWritten list parsed readsFoodList

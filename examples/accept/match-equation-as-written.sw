@@ -16,16 +16,16 @@ def known (o: Option Nat): Bool := match o with
 
 -- The `match` refines the goal as usual; the lemma has the scrutinee up to
 -- eta, which only computation finds (SW-1562).
-theorem etaFact (a: Nat) (xs: List Nat): known (xs.map (y => f a y) |> .maximum) = known (xs.map (y => f a y) |> .maximum) := rfl
+theorem etaFact ∀ (a: Nat) (xs: List Nat): known (xs.map (y => f a y) |> .maximum) = known (xs.map (y => f a y) |> .maximum) := rfl
 
-theorem plainGoal (a: Nat) (xs: List Nat): known (xs.map (f a) |> .maximum) = known (xs.map (f a) |> .maximum) :=
+theorem plainGoal ∀ (a: Nat) (xs: List Nat): known (xs.map (f a) |> .maximum) = known (xs.map (f a) |> .maximum) :=
   match found: xs.map (f a) |> .maximum with
     | None => etaFact a xs
     | Some most => etaFact a xs
 
 -- The goal has it up to eta too, so the `match` refines it as written, and
 -- the lemma, stated as the goal is, is rewritten back to it.
-theorem etaGoal (a: Nat) (xs: List Nat): known (xs.map (y => f a y) |> .maximum) = known (xs.map (y => f a y) |> .maximum) :=
+theorem etaGoal ∀ (a: Nat) (xs: List Nat): known (xs.map (y => f a y) |> .maximum) = known (xs.map (y => f a y) |> .maximum) :=
   match found: xs.map (f a) |> .maximum with
     | None => etaFact a xs
     | Some most => etaFact a xs
@@ -37,9 +37,9 @@ def best (a: Nat) (xs: List Nat): Option Nat := xs.map (f a) |> .maximum
 
 def both (o: Option Nat) (p: Option Nat): Bool := known o && known p
 
-theorem bothFact (a: Nat) (xs: List Nat): both (xs.map (f a) |> .maximum) (best a xs) = both (xs.map (f a) |> .maximum) (best a xs) := rfl
+theorem bothFact ∀ (a: Nat) (xs: List Nat): both (xs.map (f a) |> .maximum) (best a xs) = both (xs.map (f a) |> .maximum) (best a xs) := rfl
 
-theorem hidden (a: Nat) (xs: List Nat): both (xs.map (f a) |> .maximum) (best a xs) = both (xs.map (f a) |> .maximum) (best a xs) :=
+theorem hidden ∀ (a: Nat) (xs: List Nat): both (xs.map (f a) |> .maximum) (best a xs) = both (xs.map (f a) |> .maximum) (best a xs) :=
   match found: xs.map (f a) |> .maximum with
     | None => bothFact a xs
     | Some most => bothFact a xs

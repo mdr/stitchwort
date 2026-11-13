@@ -13,13 +13,13 @@ def Point.add (p: Point) (q: Point): Point := { x = p.x + q.x, y = p.y + q.y }
 
 def Point.origin: Point := { x = 0, y = 0 }
 
-theorem Point.zeroAdd: ∀ (p: Point) => Point.add Point.origin p = p
+theorem Point.zeroAdd ∀ (p: Point): Point.add Point.origin p = p := match p with
   | { x, y } => rewrite Int.zeroAdd x, Int.zeroAdd y in rfl
 
-theorem Point.assoc (p: Point) (q: Point) (r: Point): Point.add (Point.add p q) r = Point.add p (Point.add q r) :=
+theorem Point.assoc ∀ (p: Point) (q: Point) (r: Point): Point.add (Point.add p q) r = Point.add p (Point.add q r) :=
   rewrite Int.addAssoc p.x q.x r.x, Int.addAssoc p.y q.y r.y in rfl
 
-theorem Point.comm (p: Point) (q: Point): Point.add p q = Point.add q p :=
+theorem Point.comm ∀ (p: Point) (q: Point): Point.add p q = Point.add q p :=
   rewrite Int.addComm p.x q.x, Int.addComm p.y q.y in rfl
 
 instance Point.instAdd: Add Point :=
@@ -48,7 +48,7 @@ test "sums" := [p, q, p].sum.x == 12 ∧ [1, 2, 3].sum == 6 ∧ [(3: Int), -5, 1
 test "products" := [2, 3, 4].product == 24 ∧ [(-2: Int), 3].product == -6
 
 -- A law from the dictionary: the sum of two lists of points.
-theorem pointsAppend (xs: List Point) (ys: List Point): (List.append xs ys).sum = xs.sum + ys.sum :=
+theorem pointsAppend ∀ (xs: List Point) (ys: List Point): (List.append xs ys).sum = xs.sum + ys.sum :=
   List.sumAppend xs ys
 
 -- Comparisons on any type with `Ord`; `if` decides them with the decider

@@ -32,13 +32,12 @@ def directionKeys: List DirectionKey := [Arrow Up, Arrow Down, Arrow Left, Arrow
 
 def numericKeys: List NumericKey := [Digit0, Digit1, Digit2, Digit3, Digit4, Digit5, Digit6, Digit7, Digit8, Digit9, Enter]
 
-def DirectionKey.index (key: DirectionKey): Nat :=
-  match key with
-    | Arrow Up => 0
-    | Arrow Down => 1
-    | Arrow Left => 2
-    | Arrow Right => 3
-    | Activate => 4
+def DirectionKey.index (key: DirectionKey): Nat := match key with
+  | Arrow Up => 0
+  | Arrow Down => 1
+  | Arrow Left => 2
+  | Arrow Right => 3
+  | Activate => 4
 
 def Costs.tabulate (costs: Costs): Costs :=
   let table := directionKeys.map (from => directionKeys.map (to => costs from to))
@@ -46,14 +45,14 @@ def Costs.tabulate (costs: Costs): Costs :=
 
 -- Presses.sw's `tabulateSame` is 25 arms of `rfl`; `costs` is a variable,
 -- so each case is closed by computing with it unknown.
-theorem tabulateSame (costs: Costs) (from: DirectionKey) (to: DirectionKey): costs.tabulate from to = costs from to :=
+theorem tabulateSame ∀ (costs: Costs) (from: DirectionKey) (to: DirectionKey): costs.tabulate from to = costs from to :=
   cases
 
 -- Typing.sw's `everyNumericKey` is eleven arms of `Inr (… (Inl rfl))`.
 -- `cases` can't split `key` in `key ∈ numericKeys` (a disjunction of
 -- propositions, not stuck on `key`), but it can in the `Bool` form, and
 -- `List.memContains` turns that into membership.
-theorem containsNumericKey (key: NumericKey): numericKeys.contains key = True := cases
+theorem containsNumericKey ∀ (key: NumericKey): numericKeys.contains key = True := cases
 
-theorem everyNumericKey (key: NumericKey): key ∈ numericKeys :=
+theorem everyNumericKey ∀ (key: NumericKey): key ∈ numericKeys :=
   (List.memContains numericKeys key).forward (containsNumericKey key)

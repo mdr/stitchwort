@@ -18,7 +18,7 @@ def observe (q: QE): Nat := Quot.lift toNat toNatRespects q
 
 theorem observeTrue: observe (Quot.mk True) = 1 := rfl
 
-theorem observeIsItsBody (q: QE): observe q = Quot.lift toNat toNatRespects q := rfl
+theorem observeIsItsBody ∀ (q: QE): observe q = Quot.lift toNat toNatRespects q := rfl
 
 -- Function extensionality from `Quot.sound`, with the evaluation and the
 -- rebuilding steps as named definitions (A8; `Quot.funext` itself is for the
@@ -34,6 +34,6 @@ def evalAt (a: Type) (b: a → Type) (q: FunQ a b) (x: a): b x :=
 
 def rebuild (a: Type) (b: a → Type) (q: FunQ a b): (x: a) → b x := x => evalAt a b q x
 
-theorem funext (a: Type) (b: a → Type) (f: (x: a) → b x) (g: (x: a) → b x)
+theorem funext ∀ (a: Type) (b: a → Type) (f: (x: a) → b x) (g: (x: a) → b x)
     (h: ∀ (x: a) => f x = g x): f = g :=
   Eq.cong (rebuild a b) (Quot.sound [x := f] [y := g] h)

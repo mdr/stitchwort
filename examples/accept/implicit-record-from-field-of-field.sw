@@ -16,4 +16,4 @@ def Closed (cavern: Cavern) (n: Nat): Prop := n ∈ cavern.grid.cells → n = 0
 type Run: Cavern → Prop =
   | Step [cavern: Cavern] (n: Nat) (closed: Closed cavern n): Run cavern
 
-theorem runOf (cavern: Cavern) (n: Nat) (closed: Closed cavern n): Run cavern := Step n closed
+theorem runOf ∀ (cavern: Cavern) (n: Nat) (closed: Closed cavern n): Run cavern := Step n closed

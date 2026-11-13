@@ -12,14 +12,14 @@
 -- The length of two appended lists is the sum of their lengths.
 import Std (Eq, List)
 
-theorem appendLength: ∀ (xs ys: List a) =>
-    List.length (List.append xs ys) = List.length xs + List.length ys
-  | Nil, ys => rfl
-  | Cons x xs, ys => Eq.cong Succ (appendLength xs ys)
+theorem appendLength ∀ (xs ys: List a):
+    List.length (List.append xs ys) = List.length xs + List.length ys := match xs with
+      | Nil => rfl
+      | Cons x xs => Eq.cong Succ (appendLength xs ys)
 
 export def appendNats (xs: List Nat) (ys: List Nat): List Nat := List.append xs ys
 
-theorem appendNatsLength (xs: List Nat) (ys: List Nat):
+theorem appendNatsLength ∀ (xs: List Nat) (ys: List Nat):
     List.length (appendNats xs ys) = List.length xs + List.length ys := appendLength xs ys
 
 export def total: List Nat → Nat

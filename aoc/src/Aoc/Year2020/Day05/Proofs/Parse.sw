@@ -10,14 +10,14 @@ import Std (Bool, Char, DecEq, Eq, Exists, Fail, List, Nat, Parse, Result, Text)
 def PassWritten (read: List Char) (pass: Pass): Prop := pass.row.length = 7 ∧ pass.column.length = 3 ∧ read = written pass
 
 --| A letter the parser accepts is the letter of the bit it gives.
-theorem letterOf (lower: Char) (upper: Char) (char: Char) (allowed: (char == lower || char == upper) = True): letter lower upper (char == upper) = char :=
+theorem letterOf ∀ (lower: Char) (upper: Char) (char: Char) (allowed: (char == lower || char == upper) = True): letter lower upper (char == upper) = char :=
   match isUpper: char == upper with
     | True => Eq.sym isUpper.read
     | False =>
       match isLower: char == lower with
         | True => Eq.sym isLower.read
 
-theorem readsHalf (lower: Char) (upper: Char): Parse.Reads (() => half lower upper) (read bit => read = [letter lower upper bit]) :=
+theorem readsHalf ∀ (lower: Char) (upper: Char): Parse.Reads (() => half lower upper) (read bit => read = [letter lower upper bit]) :=
   Parse.readsWeaken
     (Parse.readsMap (() => Parse.satisfy "'${lower}' or '${upper}'" (letter => letter == lower || letter == upper)) (char => char == upper) _ (Parse.readsSatisfy))
     (read bit h =>
@@ -34,6 +34,6 @@ theorem readsPass: Parse.Reads pass PassWritten :=
             Parse.eachChars (letter 'L' 'R') columnRead column columnEach in rfl)))))
 
 --| Every line of the input is its pass written out.
-theorem parseWritten (input: Text) (passes: List Pass) (parsed: Fail.toResult (() => parsePasses input) = Ok passes):
+theorem parseWritten ∀ (input: Text) (passes: List Pass) (parsed: Fail.toResult (() => parsePasses input) = Ok passes):
     List.All2 PassWritten (input.lines.map Text.toList) passes :=
   Parse.eachLineReads input pass PassWritten passes parsed readsPass

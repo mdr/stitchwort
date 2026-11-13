@@ -7,15 +7,15 @@ namespace Aoc.Year2020.Day06.Proofs
 import Aoc.Year2020.Day06 (..)
 import Std (Bool, Char, DecEq, Eq, Exists, Fail, List, NonEmptyList, Parse, Result, Set, Text, Void)
 
-theorem runsAsValue (p: () → {Parse} a) (read: List Char) (rest: List Char) (v: a) (w: a) (same: v = w) (runs: Parse.Runs p read rest v): Parse.Runs p read rest w :=
+theorem runsAsValue ∀ (p: () → {Parse} a) (read: List Char) (rest: List Char) (v: a) (w: a) (same: v = w) (runs: Parse.Runs p read rest v): Parse.Runs p read rest w :=
   rewrite same at runs in runs
 
-theorem declinesLetter (rest: List Char) (stops: Parse.CannotStart isQuestion rest): Parse.Declines (() => Parse.satisfy "a question, 'a' to 'z'" isQuestion) rest :=
+theorem declinesLetter ∀ (rest: List Char) (stops: Parse.CannotStart isQuestion rest): Parse.Declines (() => Parse.satisfy "a question, 'a' to 'z'" isQuestion) rest :=
   match rest with
     | [] => Parse.declinesSatisfyEnd _ _
     | [char, ..more] => Parse.declinesSatisfy _ _ char more (stops char more rfl)
 
-theorem runsPerson (read: List Char) (who: Person) (written: PersonWritten read who) (rest: List Char) (stops: Parse.CannotStart isQuestion rest):
+theorem runsPerson ∀ (read: List Char) (who: Person) (written: PersonWritten read who) (rest: List Char) (stops: Parse.CannotStart isQuestion rest):
     Parse.Runs person read rest who := match written with
       | Both nonEmpty (Both questions same) =>
         match read with
@@ -33,19 +33,19 @@ theorem runsPerson (read: List Char) (who: Person) (written: PersonWritten read 
               (Parse.runsMap (() => Parse.many1 (() => Parse.satisfy "a question, 'a' to 'z'" isQuestion)) _ [letter, ..more] rest
                 (NonEmptyList.cons letter more) lettersRead)
 
-theorem spaceNotQuestion (char: Char) (isSpace: Parse.isSpace char = True): isQuestion char = False :=
+theorem spaceNotQuestion ∀ (char: Char) (isSpace: Parse.isSpace char = True): isQuestion char = False :=
   match isSpace with
     | Inl space => rewrite space.read in rfl
     | Inr tab => rewrite tab.read in rfl
 
-theorem declinesPerson (rest: List Char) (stops: Parse.CannotStart isQuestion rest): Parse.Declines person rest :=
+theorem declinesPerson ∀ (rest: List Char) (stops: Parse.CannotStart isQuestion rest): Parse.Declines person rest :=
   Parse.declinesBind (() => Parse.many1 (() => Parse.satisfy "a question, 'a' to 'z'" isQuestion)) _ rest
     (Parse.declinesMany1 _ rest (declinesLetter rest stops))
 
-theorem declinesGroup (rest: List Char) (stops: Parse.CannotStart isQuestion rest): Parse.Declines group rest :=
+theorem declinesGroup ∀ (rest: List Char) (stops: Parse.CannotStart isQuestion rest): Parse.Declines group rest :=
   Parse.declinesBind (() => Parse.lines person) _ rest (Parse.declinesSepBy1 person Parse.newline rest (declinesPerson rest stops))
 
-theorem runsGroup (read: List Char) (who: Group) (written: GroupWritten read who) (rest: List Char) (end: Parse.LinesEnd rest): Parse.Runs group read rest who :=
+theorem runsGroup ∀ (read: List Char) (who: Group) (written: GroupWritten read who) (rest: List Char) (end: Parse.LinesEnd rest): Parse.Runs group read rest who :=
   match who, written with
     | { people }, written2 =>
       match people, written2 with
@@ -57,7 +57,7 @@ theorem runsGroup (read: List Char) (who: Group) (written: GroupWritten read who
             (Parse.cannotStartAtLinesEnd isQuestion rfl rfl spaceNotQuestion rest end)
             (Parse.declinesLinesAtLinesEnd person isQuestion declinesPerson rfl rfl spaceNotQuestion rest end) read first others written3)
 
-theorem runsSections (read: List Char) (first: Group) (others: List Group) (written: Parse.SepBy GroupWritten (read2 u => Parse.BlankLine read2) read (NonEmptyList.cons first others))
+theorem runsSections ∀ (read: List Char) (first: Group) (others: List Group) (written: Parse.SepBy GroupWritten (read2 u => Parse.BlankLine read2) read (NonEmptyList.cons first others))
     (ending: List Char) (breaks: Parse.OnlyBreaks ending): Parse.Runs (() => Parse.sections group) read ending (NonEmptyList.cons first others) :=
   Parse.runsSectionsOf group GroupWritten Parse.LinesEnd ending
     (read2 v after ok end => runsGroup read2 v ok after end) Parse.linesEndAfterBlank
@@ -72,7 +72,7 @@ def InputWritten (input: Text) (groups: List Group): Prop :=
       ∧ ending.all (char => char == '\n' ∨ char == '\r') = True
 
 --| Input that is groups written out is read as those groups.
-theorem parseComplete (input: Text) (groups: List Group) (written: InputWritten input groups): Fail.toResult (() => parseGroups input) = Ok groups :=
+theorem parseComplete ∀ (input: Text) (groups: List Group) (written: InputWritten input groups): Fail.toResult (() => parseGroups input) = Ok groups :=
   match written with
     | Witness read (Witness ending (Both split (Both (Witness listed (Both listedWritten same)) breaks))) =>
       match listed, listedWritten, same with
@@ -83,5 +83,5 @@ theorem parseComplete (input: Text) (groups: List Group) (written: InputWritten 
                 (runsSections read head tail listedWritten2 ending breaks)))
 
 --| Soundness (`parseWritten`) is the converse: the input is written as at most one list of groups.
-theorem writtenUnique (input: Text) (a: List Group) (b: List Group) (writtenA: InputWritten input a) (writtenB: InputWritten input b): a = b :=
+theorem writtenUnique ∀ (input: Text) (a: List Group) (b: List Group) (writtenA: InputWritten input a) (writtenB: InputWritten input b): a = b :=
   Result.okInjective (Eq.trans (Eq.sym (parseComplete input a writtenA)) (parseComplete input b writtenB))

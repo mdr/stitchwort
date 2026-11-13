@@ -4,14 +4,14 @@
 -- (docs/proposals/bool-as-proposition.md §5.4, §6.6).
 import Std (Bool, Eq)
 
-theorem rightOfRight (a b c: Bool) (h: (a && (b && c)) = True): c = True := (Bool.andRight h).right
+theorem rightOfRight ∀ (a b c: Bool) (h: (a && (b && c)) = True): c = True := (Bool.andRight h).right
 
-theorem leftOfRight (a b c: Bool) (h: (a && (b && c)) = True): b = True := (Bool.andRight h).left
+theorem leftOfRight ∀ (a b c: Bool) (h: (a && (b && c)) = True): b = True := (Bool.andRight h).left
 
-theorem readApplied (a b c: Bool) (h: (a && (b && c)) = True): (b = True) ∧ (c = True) := (Bool.andRight h).read
+theorem readApplied ∀ (a b c: Bool) (h: (a && (b && c)) = True): (b = True) ∧ (c = True) := (Bool.andRight h).read
 
-theorem letApplied (a b c: Bool) (h: (a && (b && c)) = True): c = True :=
+theorem letApplied ∀ (a b c: Bool) (h: (a && (b && c)) = True): c = True :=
   let rest := Bool.andRight h
   rest.right
 
-theorem nested (a b c: Bool) (h: (a && (b && c)) = True): c = True := h.right.right
+theorem nested ∀ (a b c: Bool) (h: (a && (b && c)) = True): c = True := h.right.right

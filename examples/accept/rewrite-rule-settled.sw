@@ -11,7 +11,7 @@ type Tag = { label: Nat }
 
 def keep (a: t): t := a
 
-theorem keepSame (a: t): keep a = a := rfl
+theorem keepSame ∀ (a: t): keep a = a := rfl
 
 theorem kept: keep { label = 3 } = ({ label = 3 }: Tag) :=
   rewrite keepSame { label = 3 } in rfl

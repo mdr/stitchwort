@@ -10,7 +10,7 @@ import Std (Bool, DecEq, Eq, List, Nat, Option, Void)
 import Aoc.Year2020.Day09.Spec (Weakness)
 
 --| The window can't be at the run's start and sum to more than it.
-theorem shrinksInside (numbers: List Nat) (target: Nat) (start: Nat) (length: Nat) (sums: ((numbers.drop start).take length).sum = target)
+theorem shrinksInside ∀ (numbers: List Nat) (target: Nat) (start: Nat) (length: Nat) (sums: ((numbers.drop start).take length).sum = target)
     (front: List Nat) (count: Nat) (sum: Nat) (from: Nat) (at: front = numbers.drop from) (total: sum = (front.take count).sum)
     (notBeyond: from + count ≤ start + length) (over: target < sum): from ≠ start :=
   same =>
@@ -21,7 +21,7 @@ theorem shrinksInside (numbers: List Nat) (target: Nat) (start: Nat) (length: Na
 
 --| The window can't end where the run does without summing to at least
 --| the target, being as long as the run or longer.
-theorem growsInside (numbers: List Nat) (target: Nat) (start: Nat) (length: Nat) (sums: ((numbers.drop start).take length).sum = target)
+theorem growsInside ∀ (numbers: List Nat) (target: Nat) (start: Nat) (length: Nat) (sums: ((numbers.drop start).take length).sum = target)
     (front: List Nat) (count: Nat) (sum: Nat) (from: Nat) (at: front = numbers.drop from) (fits: count ≤ front.length) (total: sum = (front.take count).sum)
     (notPast: from ≤ start) (notBeyond: from + count ≤ start + length) (under: sum ≤ target) (unfinished: sum = target → 2 ≤ count → Void)
     (long: 2 ≤ length): from + count < start + length :=
@@ -34,7 +34,7 @@ theorem growsInside (numbers: List Nat) (target: Nat) (start: Nat) (length: Nat)
     let whole: (front.take (start - from + length)).sum = sum := rewrite (omega: start - from + length = count), total in rfl
     Void.exfalso (unfinished (omega) (omega))
 
-theorem runFromComplete (numbers: List Nat) (target: Nat) (start: Nat) (length: Nat) (sums: ((numbers.drop start).take length).sum = target)
+theorem runFromComplete ∀ (numbers: List Nat) (target: Nat) (start: Nat) (length: Nat) (sums: ((numbers.drop start).take length).sum = target)
     (long: 2 ≤ length) (inside: start + length ≤ numbers.length) (front: List Nat) (count: Nat) (sum: Nat) (rest: List Nat) (from: Nat)
     (at: front = numbers.drop from) (fits: count ≤ front.length) (after: rest = front.drop count) (total: sum = (front.take count).sum)
     (notPast: from ≤ start) (notBeyond: from + count ≤ start + length):
@@ -73,12 +73,12 @@ theorem runFromComplete (numbers: List Nat) (target: Nat) (start: Nat) (length: 
                   (rewrite taken, List.sumAppend (front.take count) [next] in omega)
                   notPast (omega)
 
-theorem runSummingComplete (data: XmasData) (target: Nat) (start: Nat) (length: Nat) (sums: ((data.numbers.drop start).take length).sum = target)
+theorem runSummingComplete ∀ (data: XmasData) (target: Nat) (start: Nat) (length: Nat) (sums: ((data.numbers.drop start).take length).sum = target)
     (long: 2 ≤ length) (inside: start + length ≤ data.numbers.length): data.runSumming target ≠ None :=
   runFromComplete data.numbers target start length sums long inside data.numbers 0 0 data.numbers 0 rfl (omega) rfl rfl (omega) (omega)
 
 --| Whenever the data has a weakness for `invalid`, part 2 finds one.
-theorem weaknessComplete (data: XmasData) (invalid: Nat) (answer: Nat) (weak: Weakness data.numbers invalid answer): data.weakness invalid ≠ None :=
+theorem weaknessComplete ∀ (data: XmasData) (invalid: Nat) (answer: Nat) (weak: Weakness data.numbers invalid answer): data.weakness invalid ≠ None :=
   let (Witness run (Both (Witness start (Witness length isRun)) (Both long (Both total rest)))) := weak
   let same := List.takeOwnLength (data.numbers.drop start) length
   let short := List.lengthTakeLe (data.numbers.drop start) length

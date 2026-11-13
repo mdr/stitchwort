@@ -5,6 +5,6 @@ import Std (Nat)
 
 type P = { x: Nat, y: Nat }
 
-theorem fieldAtom (p: P): p.x ≤ p.x + 1 := omega
+theorem fieldAtom ∀ (p: P): p.x ≤ p.x + 1 := omega
 
-theorem fieldsApart (p: P) (h: p.x < p.y): p.x + 1 ≤ p.y := omega
+theorem fieldsApart ∀ (p: P) (h: p.x < p.y): p.x + 1 ≤ p.y := omega

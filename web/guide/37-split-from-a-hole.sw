@@ -31,7 +31,7 @@ def canGo (l: Light) (urgent: Bool): Bool := match l with
   | Amber => True
   | Green => True
 
-theorem goIfUrgent (l: Light) (urgent: Bool) (h: urgent = True):
+theorem goIfUrgent ∀ (l: Light) (urgent: Bool) (h: urgent = True):
     canGo l urgent = True := match l, urgent with
       | Red, False => Void.exfalso (Bool.falseNotTrue h)
       | Red, True => rfl

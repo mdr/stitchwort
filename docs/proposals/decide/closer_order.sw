@@ -15,7 +15,7 @@ def keys: List Key := [K0, K1, K2]
 -- contradict each other: `omega` proves it today. A decision closer that
 -- failed the case on `No` would turn this proof into an error, so `No` must
 -- fall through to the other steps, wherever the closer sits.
-theorem falseGoalImpossibleCase (n: Nat) (h: n + 1 < n): 2 ∈ [1, 3] := cases
+theorem falseGoalImpossibleCase ∀ (n: Nat) (h: n + 1 < n): 2 ∈ [1, 3] := cases
 
 -- 2. Where both apply, a closed proposition: both take about 0.1 ms.
 theorem overlapOmega: Or (5 < 4) (Not (2 = 3)) := omega
@@ -31,4 +31,4 @@ theorem enterByDecision: K1 ∈ keys := byDecision
 -- enough, with the right side stuck on `flag`. (A stuck left side is stuck
 -- even when the right side is true: `Or (key ∈ keys) (True = True)` is
 -- `E-AUTO-STUCK`.)
-theorem leftYes (flag: Bool): Or (K1 ∈ keys) (flag = True) := byDecision
+theorem leftYes ∀ (flag: Bool): Or (K1 ∈ keys) (flag = True) := byDecision

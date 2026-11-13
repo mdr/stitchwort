@@ -3,13 +3,13 @@ source: crates/cli/tests/running/examples.rs
 expression: output
 ---
 [GOAL] Goal: in `bounded`
-   ╭─[ goals/match-refined-hypothesis.sw:5:15 ]
+   ╭─[ goals/match-refined-hypothesis.sw:6:17 ]
    │
- 5 │   | Succ k => ?
-   │               ┬  
-   │               ╰── p: Nat → Prop
-   │                   small: ∀ (m: Nat) => p m → m < 3
-   │                   k: Nat
-   │                   holds: p (Succ k)
-   │                   ⊢ k ≤ 2
+ 6 │     | Succ k => ?
+   │                 ┬  
+   │                 ╰── p: Nat → Prop
+   │                     small: ∀ (m: Nat) => p m → m < 3
+   │                     k: Nat
+   │                     holds: p (Succ k)
+   │                     ⊢ k ≤ 2
 ───╯

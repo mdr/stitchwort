@@ -71,4 +71,4 @@ def b29 (x: Bool): Nat := match x with | True => b28 x | False => b28 x
 def a30 (x: Bool): Nat := match x with | True => a29 x | False => a29 x
 def b30 (x: Bool): Nat := match x with | True => b29 x | False => b29 x
 
-theorem sameChains (x: Bool): a30 x = b30 x := rfl
+theorem sameChains ∀ (x: Bool): a30 x = b30 x := rfl

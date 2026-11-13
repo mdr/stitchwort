@@ -16,7 +16,7 @@ def Makes (patterns: List Pattern) (towels: List Pattern) (design: Design): Prop
   (FromPatterns patterns towels) ∧ (laid towels = design.stripes)
 
 --| The spec's lists are of the patterns and no longer than `count`.
-theorem fromTowelLists (patterns: List Pattern) (count: Nat) (towels: List Pattern) (h: towels ∈ towelLists patterns count):
+theorem fromTowelLists ∀ (patterns: List Pattern) (count: Nat) (towels: List Pattern) (h: towels ∈ towelLists patterns count):
     (FromPatterns patterns towels) ∧ (towels.length ≤ count) := match count, h with
       | Zero, Inl empty => rewrite <- empty in Both Trivial (omega)
       | Zero, Inr none => Void.exfalso none
@@ -32,7 +32,7 @@ theorem fromTowelLists (patterns: List Pattern) (count: Nat) (towels: List Patte
                 rewrite <- made in Both (Both firstMember restFacts.left) (omega [restFacts.right])))
 
 --| Every list of the patterns, no longer than `count`, is one of the spec's.
-theorem inTowelLists (patterns: List Pattern) (count: Nat) (towels: List Pattern) (from: FromPatterns patterns towels) (short: towels.length ≤ count):
+theorem inTowelLists ∀ (patterns: List Pattern) (count: Nat) (towels: List Pattern) (from: FromPatterns patterns towels) (short: towels.length ≤ count):
     towels ∈ towelLists patterns count := match count, towels, from with
       | Zero, [], from => Inl rfl
       | Succ count, [], from => Inl rfl
@@ -41,7 +41,7 @@ theorem inTowelLists (patterns: List Pattern) (count: Nat) (towels: List Pattern
           (List.memMap (towelLists patterns count) rest (inTowelLists patterns count rest restFrom (omega [short])) (Cons first)))
 
 --| There are no more towels than stripes.
-theorem towelsAtMostStripes (patterns: List Pattern) (towels: List Pattern) (from: FromPatterns patterns towels):
+theorem towelsAtMostStripes ∀ (patterns: List Pattern) (towels: List Pattern) (from: FromPatterns patterns towels):
     towels.length ≤ (laid towels).length := match towels, from with
       | [], from => omega
       | [first, ..rest], Both firstMember restFrom =>
@@ -50,17 +50,17 @@ theorem towelsAtMostStripes (patterns: List Pattern) (towels: List Pattern) (fro
 --| Whether a list of lists has any (as `possible` asks).
 def hasSome (lists: List (List Pattern)): Bool := !lists.isEmpty
 
-theorem someMember (lists: List (List Pattern)) (some: hasSome lists = True): Exists (List Pattern) (list => list ∈ lists) :=
+theorem someMember ∀ (lists: List (List Pattern)) (some: hasSome lists = True): Exists (List Pattern) (list => list ∈ lists) :=
   match lists with
     | [first, ..rest] => Witness first (Inl rfl)
 
-theorem memberSome (lists: List (List Pattern)) (list: List Pattern) (member: list ∈ lists): hasSome lists = True :=
+theorem memberSome ∀ (lists: List (List Pattern)) (list: List Pattern) (member: list ∈ lists): hasSome lists = True :=
   match lists with
     | [first, ..rest] => rfl
 
 --| "Not all designs will be possible": a design is possible exactly when
 --| some towels of the patterns make it.
-theorem possibleIff (patterns: List Pattern) (design: Design):
+theorem possibleIff ∀ (patterns: List Pattern) (design: Design):
     (possible patterns design = True) ↔ (Exists (List Pattern) (towels => Makes patterns towels design)) := {
   forward = found =>
     Exists.map

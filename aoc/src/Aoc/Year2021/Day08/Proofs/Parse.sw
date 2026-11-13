@@ -10,31 +10,31 @@ import Std (Bool, DecEq, Eq, Exists, Fail, List, Nat, Option, Result, Void)
 
 --| Part 1 from the input text: if `parseEntries` reads `input` as
 --| `entries`, part 1's answer is the puzzle's.
-theorem part1FromInput (input: Text) (entries: List Entry) (parsed: Fail.toResult (() => parseEntries input) = Ok entries):
+theorem part1FromInput ∀ (input: Text) (entries: List Entry) (parsed: Fail.toResult (() => parseEntries input) = Ok entries):
     Part1Answer entries (solvePart1 entries) :=
   let decodes := parsedDecode input entries parsed
   Witness (entry => entry.wiring.at) (Both decodes (part1Correct entries (entry => entry.wiring.at) decodes))
 
 --| Part 2 from the input text.
-theorem part2FromInput (input: Text) (entries: List Entry) (parsed: Fail.toResult (() => parseEntries input) = Ok entries):
+theorem part2FromInput ∀ (input: Text) (entries: List Entry) (parsed: Fail.toResult (() => parseEntries input) = Ok entries):
     Part2Answer entries (solvePart2 entries) :=
   let decodes := parsedDecode input entries parsed
   Witness (entry => entry.wiring.at) (Both decodes (part2Correct entries (entry => entry.wiring.at) decodes))
 
 --| Every display `parseEntries` reads is decoded by its own wiring.
-theorem parsedDecode (input: Text) (entries: List Entry) (parsed: Fail.toResult (() => parseEntries input) = Ok entries)
+theorem parsedDecode ∀ (input: Text) (entries: List Entry) (parsed: Fail.toResult (() => parseEntries input) = Ok entries)
     (entry: Entry) (m: entry ∈ entries): Decodes entry.wiring.at entry :=
   wiredDecodes entry ((checkedWired _ entries parsed).read entry m)
 
 --| Whatever reads the entries, `checkWired` passes on only wired ones.
-theorem checkedWired (read: () → {Fail} List Entry) (entries: List Entry) (parsed: Fail.toResult (() => checkWired (read ())) = Ok entries):
+theorem checkedWired ∀ (read: () → {Fail} List Entry) (entries: List Entry) (parsed: Fail.toResult (() => checkWired (read ())) = Ok entries):
     entries.all Entry.wired = True :=
   let split := rewrite Fail.toResultThen read checkWired at parsed
   Result.flatMapEqOk (Fail.toResult read) (x => Fail.toResult (() => checkWired x)) entries split
     (u _ checked => checkWiredOk u entries checked)
 
 --| `checkWired` passes its entries on unchanged, and only if each is wired.
-theorem checkWiredOk (entries: List Entry) (checked: List Entry) (h: Fail.toResult (() => checkWired entries) = Ok checked):
+theorem checkWiredOk ∀ (entries: List Entry) (checked: List Entry) (h: Fail.toResult (() => checkWired entries) = Ok checked):
     checked.all Entry.wired = True := match e: firstUnwired entries with
       | Some (index, _) => Void.exfalso (Result.errNotOk h)
       | None =>
@@ -42,7 +42,7 @@ theorem checkWiredOk (entries: List Entry) (checked: List Entry) (h: Fail.toResu
           List.findNotNoneAll entries Entry.wired (List.findWithIndexFromNone (entry => not entry.wired) 0 entries e)
 
 --| An entry that passes the program's check is decoded by its wiring.
-theorem wiredDecodes (entry: Entry) (ok: entry.wired = True): Decodes entry.wiring.at entry :=
+theorem wiredDecodes ∀ (entry: Entry) (ok: entry.wired = True): Decodes entry.wiring.at entry :=
   let wiring := entry.wiring.at
   let patterns := entry.patterns
   let decode := decodeDigit patterns
@@ -71,7 +71,7 @@ theorem wiredDecodes (entry: Entry) (ok: entry.wired = True): Decodes entry.wiri
   Both wired (Both (rewrite patternsShown in List.permMap (patterns.map decode) digits digitsOnce Some) outputsShown)
 
 --| A pattern that passes the program's check shows the digit read from it.
-theorem readShown (entry: Entry) (pattern: Pattern) (wired: IsWiring entry.wiring.at)
+theorem readShown ∀ (entry: Entry) (pattern: Pattern) (wired: IsWiring entry.wiring.at)
     (ok: showsRead entry.wiring entry.patterns pattern = True): shown entry.wiring.at pattern = Some (decodeDigit entry.patterns pattern) :=
   let digit := decodeDigit entry.patterns pattern
   let matches := (wire: Segment) => pattern.has wire == (digitPattern digit).has (entry.wiring.at wire)

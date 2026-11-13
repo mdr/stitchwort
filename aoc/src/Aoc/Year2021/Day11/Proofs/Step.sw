@@ -10,7 +10,7 @@ import Aoc.Common.Proofs (cellsMapCells, mapCellsCong)
 import Std (Bool, DecEq, Eq, Exists, List, Nat, Option, Void)
 
 --| Two sets of flashers of the same cavern are the same.
-theorem flashersUnique (cavern: Cavern) (f: Position → Bool) (g: Position → Bool) (ff: Flashers cavern f) (fg: Flashers cavern g)
+theorem flashersUnique ∀ (cavern: Cavern) (f: Position → Bool) (g: Position → Bool) (ff: Flashers cavern f) (fg: Flashers cavern g)
     (q: Position): f q = g q := match e: f q with
       | True => Eq.sym (And.right ff g (And.left fg) q e)
       | False =>
@@ -19,12 +19,12 @@ theorem flashersUnique (cavern: Cavern) (f: Position → Bool) (g: Position → 
           | True => Void.exfalso (Bool.falseNotTrue (Eq.trans (Eq.sym e) (And.right fg f (And.left ff) q d)))
 
 --| The program's flashers are only on the grid.
-theorem flashersOnGrid (cavern: Cavern): OnGrid cavern cavern.flashers.has :=
+theorem flashersOnGrid ∀ (cavern: Cavern): OnGrid cavern cavern.flashers.has :=
   Exists.elim (flashersStable cavern) (j both => rewrite And.left both in onGridAfter cavern j)
 
 --| The program's step, through the flashers' table, is the step through
 --| `has` and `energy`.
-theorem stepIsSpec (cavern: Cavern):
+theorem stepIsSpec ∀ (cavern: Cavern):
     cavern.step = cavern.map (at level => if cavern.flashers.has at then 0 else cavern.flashers.energy at level) :=
   Cavern.ext _ _ (Grid.ext _ _ (mapCellsCong cavern.grid.rows (at level => if cavern.flashers.lookup at then 0 else energyWith cavern.flashers.lookup at level)
     (at level => if cavern.flashers.has at then 0 else cavern.flashers.energy at level)
@@ -32,7 +32,7 @@ theorem stepIsSpec (cavern: Cavern):
 
 --| The step's cavern is the spec's cavern after the step, for the spec's
 --| flashers (any: there is one set, `flashersUnique`).
-theorem stepCorrect (cavern: Cavern) (flashed: Position → Bool) (spec: Flashers cavern flashed): cavern.step = after cavern flashed :=
+theorem stepCorrect ∀ (cavern: Cavern) (flashed: Position → Bool) (spec: Flashers cavern flashed): cavern.step = after cavern flashed :=
   rewrite stepIsSpec cavern in
     let program := flashersCorrect cavern
     let same := flashersUnique cavern cavern.flashers.has flashed program spec
@@ -46,13 +46,13 @@ theorem stepCorrect (cavern: Cavern) (flashed: Position → Bool) (spec: Flasher
         rewrite same q, energies in rfl)))
 
 --| A cell is 0 after the step exactly when it flashed.
-theorem zeroAfter (flashed: Flashed) (at: Position) (level: Nat):
+theorem zeroAfter ∀ (flashed: Flashed) (at: Position) (level: Nat):
     ((if flashed.has at then 0 else flashed.energy at level) == 0) = flashed.has at := match flashed.has at with
       | True => rfl
       | False => rfl
 
 --| The 0s after the step are the flashers.
-theorem stepCells (cavern: Cavern):
+theorem stepCells ∀ (cavern: Cavern):
     cavern.step.cells.map (cell => cell.snd == 0) = cavern.grid.cells.map (cell => cavern.flashers.has cell.fst) :=
   rewrite stepIsSpec cavern, cellsMapCells cavern.grid.rows (at level => if cavern.flashers.has at then 0 else cavern.flashers.energy at level),
     List.mapMap cavern.grid.cells (cell => cell.snd == 0)
@@ -60,7 +60,7 @@ theorem stepCells (cavern: Cavern):
     List.mapCong cavern.grid.cells _ _ (cell => zeroAfter cavern.flashers cell.fst cell.snd)
 
 --| So the step has as many 0s as the spec has flashes...
-theorem zerosCorrect (cavern: Cavern) (flashed: Position → Bool) (spec: Flashers cavern flashed):
+theorem zerosCorrect ∀ (cavern: Cavern) (flashed: Position → Bool) (spec: Flashers cavern flashed):
     cavern.step.zeros = flashCount cavern flashed :=
   let same := flashersUnique cavern cavern.flashers.has flashed (flashersCorrect cavern) spec
   calc cavern.step.zeros
@@ -70,7 +70,7 @@ theorem zerosCorrect (cavern: Cavern) (flashed: Position → Bool) (spec: Flashe
     _ = flashCount cavern flashed := List.countCongMem _ _ _ (cell member => same cell.fst)
 
 --| ...and is all 0s exactly when every octopus flashes.
-theorem allZeroCorrect (cavern: Cavern) (flashed: Position → Bool) (spec: Flashers cavern flashed):
+theorem allZeroCorrect ∀ (cavern: Cavern) (flashed: Position → Bool) (spec: Flashers cavern flashed):
     cavern.step.allZero = cavern.grid.cells.all (cell => flashed cell.fst) :=
   let same := flashersUnique cavern cavern.flashers.has flashed (flashersCorrect cavern) spec
   calc cavern.step.allZero

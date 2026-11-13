@@ -10,10 +10,10 @@ def twice: Nat → Nat
   | Zero => 0
   | Succ n => Succ (Succ (twice n))
 
-theorem twiceSucc (k: Nat): twice (Succ k) = Succ (Succ (twice k)) := rfl
+theorem twiceSucc ∀ (k: Nat): twice (Succ k) = Succ (Succ (twice k)) := rfl
 
 -- The goal in the second branch is `Succ (Succ (twice k)) = Succ (k + Succ k)`,
 -- which the lemma's statement equals by computing.
-theorem twiceAdd (n: Nat): twice n = n + n := match n with
+theorem twiceAdd ∀ (n: Nat): twice n = n + n := match n with
   | Zero => rfl
   | Succ k => Eq.trans (twiceSucc k) (omega [twiceAdd k])

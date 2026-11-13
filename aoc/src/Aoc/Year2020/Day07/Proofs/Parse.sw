@@ -44,7 +44,7 @@ theorem readsRule: Parse.Reads rule RuleWritten :=
               (Both (rewrite contain, stop in rfl) (Both written listed))))))))
 
 --| If `parseRules` reads `input`, each of its lines is a rule written out.
-theorem parseWritten (input: Text) (rules: Rules) (parsed: Fail.toResult (() => parseRules input) = Ok rules):
+theorem parseWritten ∀ (input: Text) (rules: Rules) (parsed: Fail.toResult (() => parseRules input) = Ok rules):
     List.All2 RuleWritten (input.lines.map Text.toList) rules.all :=
   let ran := rewrite Fail.toResultThen (() => Parse.eachLine input rule) (all => ({ all }: Rules)) at parsed in parsed
   match e: Fail.toResult (() => Parse.eachLine input rule) with

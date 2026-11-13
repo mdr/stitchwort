@@ -44,10 +44,10 @@ theorem wrapNegative: Int.modNat (-18) 100 = 82 := rfl
 
 -- Every position is below 100, from the proof stored in the record, and
 -- also straight from the lemma.
-theorem onDial (x: Int): Int.modNat x 100 < 100 := Int.modNatLt x 100
+theorem onDial ∀ (x: Int): Int.modNat x 100 < 100 := Int.modNatLt x 100
 
 -- The `Nat` position and the integer remainder are the same number.
-theorem sameNumber (x: Int): Nat.toInt (Int.modNat x 100) = x % 100 := Int.modNatToInt x 100
+theorem sameNumber ∀ (x: Int): Nat.toInt (Int.modNat x 100) = x % 100 := Int.modNatToInt x 100
 
 -- Division and remainder rebuild the number, even for a negative divisor.
-theorem rebuild (x: Int): -7 * (x / -7) + x % -7 = x := Int.divAddMod x (-7)
+theorem rebuild ∀ (x: Int): -7 * (x / -7) + x % -7 = x := Int.divAddMod x (-7)

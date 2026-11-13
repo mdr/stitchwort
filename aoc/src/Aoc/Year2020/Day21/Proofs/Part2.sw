@@ -14,7 +14,7 @@ import Std (Bool, DecEq, Eq, List, Nat, Option, Ord, Ordering, Text, Void)
 --| to ingredients.
 def FoodList.holderOf (list: FoodList) (holders: List Ingredient): Allergen → Ingredient := valueAt { name = "" } list.allergens holders
 
-theorem holdersFound (list: FoodList) (holders: List Ingredient) (found: list.holders = Some holders):
+theorem holdersFound ∀ (list: FoodList) (holders: List Ingredient) (found: list.holders = Some holders):
     List.All2 (holder allergen => holder ∈ list.candidates allergen) holders list.allergens ∧ holders.Distinct ∧ list.allergens.length = holders.length :=
   match assignFinds (list.allergens.map list.candidates) holders found with
     | Both members distinct =>
@@ -24,7 +24,7 @@ theorem holdersFound (list: FoodList) (holders: List Ingredient) (found: list.ho
             (Eq.sym (List.all2Length _ holders (list.allergens.map list.candidates) members))))
 
 --| The holders the elimination finds are a way the allergens could be.
-theorem holdersHolding (list: FoodList) (holders: List Ingredient) (found: list.holders = Some holders):
+theorem holdersHolding ∀ (list: FoodList) (holders: List Ingredient) (found: list.holders = Some holders):
     Spec.Holding list (list.holderOf holders) := match holdersFound list holders found with
       | Both members (Both distinct lengths) =>
         Both
@@ -39,7 +39,7 @@ theorem holdersHolding (list: FoodList) (holders: List Ingredient) (found: list.
 
 --| Part 2: if the program gives an answer, it is the spec's canonical
 --| dangerous ingredient list.
-theorem dangerousValid (list: FoodList) (answer: Text) (found: list.dangerousList = Some answer): Spec.Part2 list answer :=
+theorem dangerousValid ∀ (list: FoodList) (answer: Text) (found: list.dangerousList = Some answer): Spec.Part2 list answer :=
   match settled: list.holders with
     | Some holders =>
       match holdersFound list holders settled with
@@ -54,7 +54,7 @@ theorem dangerousValid (list: FoodList) (answer: Text) (found: list.dangerousLis
 
 --| In any way the allergens could be, a listed allergen's holder is one of
 --| the program's candidates for it.
-theorem holderCandidate (list: FoodList) (holder: Allergen → Ingredient) (holding: Spec.Holding list holder) (allergen: Allergen) (listed: Spec.Listed list allergen):
+theorem holderCandidate ∀ (list: FoodList) (holder: Allergen → Ingredient) (holding: Spec.Holding list holder) (allergen: Allergen) (listed: Spec.Listed list allergen):
     holder allergen ∈ list.candidates allergen := match listed with
       | Witness food (Both inFoods inFood) =>
         List.memFilterIntro list.ingredients (ingredient => list.couldHold ingredient allergen)
@@ -63,7 +63,7 @@ theorem holderCandidate (list: FoodList) (holder: Allergen → Ingredient) (hold
 
 --| Two lists of allergens, each with no repeats and alphabetical, with
 --| the same members, are the same list.
-theorem sameAlphabetical (order: List Allergen) (other: List Allergen) (orderDistinct: order.Distinct) (otherDistinct: other.Distinct)
+theorem sameAlphabetical ∀ (order: List Allergen) (other: List Allergen) (orderDistinct: order.Distinct) (otherDistinct: other.Distinct)
     (orderAlphabetical: Spec.Alphabetical order) (otherAlphabetical: Spec.Alphabetical other)
     (members: ∀ (allergen: Allergen) => allergen ∈ order ↔ allergen ∈ other): order = other :=
   List.sortedEqOfMembers (first second => Ordering.isLessEq (Text.compare first.name second.name))
@@ -73,7 +73,7 @@ theorem sameAlphabetical (order: List Allergen) (other: List Allergen) (orderDis
 
 --| Part 2's answer, when there is one, is the only canonical list: every
 --| way the allergens could be gives the same one.
-theorem dangerousOnly (list: FoodList) (answer: Text) (found: list.dangerousList = Some answer) (other: Text) (fits: Spec.Part2 list other):
+theorem dangerousOnly ∀ (list: FoodList) (answer: Text) (found: list.dangerousList = Some answer) (other: Text) (fits: Spec.Part2 list other):
     other = answer := match fits with
       | Witness holder (Both holding (Witness order (Both distinct (Both members (Both alphabetical same))))) =>
         let sameOrder: order = list.allergens :=

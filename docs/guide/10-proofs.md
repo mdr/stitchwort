@@ -12,7 +12,7 @@ def double (n: Nat): Nat := n + n
 
 theorem doubleFour: double 4 = 8 := rfl
 
-theorem zeroPlus (n: Nat): 0 + n = n := rfl
+theorem zeroPlus ∀ (n: Nat): 0 + n = n := rfl
 ```
 
 `double 4 = 8` is a type whose values are proofs that `double 4` equals `8`. `rfl` ("reflexivity") is the proof that a thing equals itself, and the checker accepts it when both sides **compute** to the same value. `double 4` computes to `8`, so `rfl` proves the first theorem.
@@ -53,11 +53,11 @@ Two proofs of the same statement are interchangeable: the checker treats them as
 
 ## Induction is recursion
 
-`n * 1 = n` is true, but `rfl` can't prove it for an unknown `n`: `*` recurses on its first argument, and `n` isn't a known number. (`n + 0 = n` and `n + 1 = Succ n` do hold by computing: `+` is special, and computes on its second argument too when the first is unknown.) The proof goes by cases on `n`, like a function with arms. A theorem's variables go before the colon, like a function's parameters, and a proof by cases is a `match` on them (the house style for theorems, D3470; a `def` keeps its arms):
+`n * 1 = n` is true, but `rfl` can't prove it for an unknown `n`: `*` recurses on its first argument, and `n` isn't a known number. (`n + 0 = n` and `n + 1 = Succ n` do hold by computing: `+` is special, and computes on its second argument too when the first is unknown.) The proof goes by cases on `n`, like a function with arms. A theorem's variables go before the colon, like a function's parameters, and a proof by cases is a `match` on them (the house style for theorems, D3470; a `def` keeps its arms). The header of a theorem with explicit parameters reads `theorem timesOne ∀ (n: Nat): …`: the `∀` is only a reading aid ("for all `n`"), the same theorem without it, and `stitchwort fmt` writes it for you (D3472):
 
 <!-- snippet: proofs.sw#induction -->
 ```stitchwort
-theorem timesOne (n: Nat): n * 1 = n := match n with
+theorem timesOne ∀ (n: Nat): n * 1 = n := match n with
   | Zero => rfl
   | Succ k => Eq.cong Succ (timesOne k)
 ```
@@ -70,7 +70,7 @@ The skill is in reading what each case needs. Using the induction hypothesis dir
 ```stitchwort
 import Std (Eq)
 
-theorem timesOne (n: Nat): n * 1 = n := match n with
+theorem timesOne ∀ (n: Nat): n * 1 = n := match n with
   | Zero => rfl
   | Succ k => timesOne k
 ```
@@ -95,7 +95,7 @@ You don't have to know what a case needs before writing it. Put `?` where a proo
 ```stitchwort
 import Std (Eq)
 
-theorem timesOne (n: Nat): n * 1 = n := match n with
+theorem timesOne ∀ (n: Nat): n * 1 = n := match n with
   | Zero => rfl
   | Succ k => ?
 ```
@@ -138,7 +138,7 @@ def mapList (f: a → b): List a → List b
   | [] => []
   | [x, ..rest] => [f x, ..mapList f rest]
 
-theorem lengthMapList (f: a → b) (xs: List a): (mapList f xs).length = xs.length := match xs with
+theorem lengthMapList ∀ (f: a → b) (xs: List a): (mapList f xs).length = xs.length := match xs with
   | [] => rfl
   | [x, ..rest] => Eq.cong Succ (lengthMapList f rest)
 ```
@@ -151,7 +151,7 @@ theorem lengthMapList (f: a → b) (xs: List a): (mapList f xs).length = xs.leng
 
 <!-- snippet: proofs.sw#rewrite -->
 ```stitchwort
-theorem swapTimesOne (a: Nat) (b: Nat): (a + b) * 1 = b + a :=
+theorem swapTimesOne ∀ (a: Nat) (b: Nat): (a + b) * 1 = b + a :=
   rewrite Nat.mulOne (a + b), Nat.addComm a b
 ```
 
@@ -161,7 +161,7 @@ theorem swapTimesOne (a: Nat) (b: Nat): (a + b) * 1 = b + a :=
 
 <!-- snippet: proofs.sw#calc -->
 ```stitchwort
-theorem chain (a: Nat) (b: Nat) (c: Nat) (ab: a = b) (bc: b ≤ c) (small: c < 10): a < 10 :=
+theorem chain ∀ (a: Nat) (b: Nat) (c: Nat) (ab: a = b) (bc: b ≤ c) (small: c < 10): a < 10 :=
   calc a
     _ = b := ab
     _ ≤ c := bc
@@ -176,15 +176,15 @@ For statements in linear arithmetic over `Nat` and `Int` (`+`, `-`, comparisons,
 
 <!-- snippet: proofs.sw#omega -->
 ```stitchwort
-theorem roomForOne (x: Nat) (y: Nat) (before: x < y) (limit: y ≤ 10): x + 1 ≤ 10 := omega
+theorem roomForOne ∀ (x: Nat) (y: Nat) (before: x < y) (limit: y ≤ 10): x + 1 ≤ 10 := omega
 
-theorem twiceIsDouble (n: Nat): double n = 2 * n := omega
+theorem twiceIsDouble ∀ (n: Nat): double n = 2 * n := omega
 
-theorem stepBack (n: Nat) (x: Int) (h: x < n.toInt): x - 1 < n.toInt - 1 := omega
+theorem stepBack ∀ (n: Nat) (x: Int) (h: x < n.toInt): x - 1 < n.toInt - 1 := omega
 
-theorem thirdOfTriple (k: Int): (3 * k) / 3 = k := omega
+theorem thirdOfTriple ∀ (k: Int): (3 * k) / 3 = k := omega
 
-theorem sizeOfSum (x: Int) (y: Int): (x + y).natAbs ≤ x.natAbs + y.natAbs := omega
+theorem sizeOfSum ∀ (x: Int) (y: Int): (x + y).natAbs ≤ x.natAbs + y.natAbs := omega
 ```
 
 On `Int`, an unknown may be negative, while `n.toInt` of a `Nat` is known to be at least 0, so `Nat` and `Int` facts mix; `x / 3` and `x % 3` are unknowns with `3 * (x / 3) + x % 3 = x` and `0 ≤ x % 3 < 3`. `x.natAbs`, the size of `x`, is known to be `x` or `0 - x`, so `(x + y).natAbs ≤ x.natAbs + y.natAbs` is `omega` too. If the facts contradict each other, `omega` proves any goal, not only an arithmetic one. `omega [p, q]` adds the facts `p` and `q`, such as lemmas applied to arguments. Anything that isn't linear arithmetic (`x * y`, `xs.length`, a function call) is treated as an unknown number, though a field of a record written out, `{ row = 1, column = 0 }.row`, is computed first.
@@ -195,26 +195,26 @@ Comparisons may be joined with `&&`, `||` and `not`, as `Bool`s (`(a == b || a <
 ```stitchwort
 def isNeighbour (a: Nat) (b: Nat): Bool := a + 1 == b || b + 1 == a
 
-theorem neighboursDiffer (a: Nat) (b: Nat) (near: isNeighbour a b = True): a != b := omega
+theorem neighboursDiffer ∀ (a: Nat) (b: Nat) (near: isNeighbour a b = True): a != b := omega
 
-theorem nearZero (a: Nat) (h: a ≤ 1): a = 0 ∨ a = 1 := omega
+theorem nearZero ∀ (a: Nat) (h: a ≤ 1): a = 0 ∨ a = 1 := omega
 ```
 
 When `omega` fails, it says which facts it used and gives values that satisfy them but not the goal, which usually points at the missing fact:
 
 <!-- snippet: errors/omega.sw -->
 ```stitchwort
-theorem roomForOne (x: Nat) (y: Nat) (before: x ≤ y) (limit: y ≤ 10): x + 1 ≤ 10 := omega
+theorem roomForOne ∀ (x: Nat) (y: Nat) (before: x ≤ y) (limit: y ≤ 10): x + 1 ≤ 10 := omega
 ```
 
 <!-- output: check errors/omega.sw -->
 ```text
 [E-OMEGA] Error: `omega` can't prove `x ≤ 9`
-   ╭─[ errors/omega.sw:1:85 ]
+   ╭─[ errors/omega.sw:1:87 ]
    │
- 1 │ theorem roomForOne (x: Nat) (y: Nat) (before: x ≤ y) (limit: y ≤ 10): x + 1 ≤ 10 := omega
-   │                                                                                     ──┬──
-   │                                                                                       ╰──── an integer model of the arithmetic abstraction satisfies the facts and the goal's negation
+ 1 │ theorem roomForOne ∀ (x: Nat) (y: Nat) (before: x ≤ y) (limit: y ≤ 10): x + 1 ≤ 10 := omega
+   │                                                                                       ──┬──
+   │                                                                                         ╰──── an integer model of the arithmetic abstraction satisfies the facts and the goal's negation
    │
    │ Note 1: facts: `x ≤ y` (before), `y ≤ 10` (limit)
    │
@@ -240,28 +240,28 @@ With `x = 10`, `x + 1 <= 10` is false: the hypothesis needs to be `x < y`. Note 
 
 <!-- snippet: proofs.sw#ring -->
 ```stitchwort
-theorem squareOfSum (a: Nat) (b: Nat): (a + b) * (a + b) = a * a + 2 * a * b + b * b := ring
+theorem squareOfSum ∀ (a: Nat) (b: Nat): (a + b) * (a + b) = a * a + 2 * a * b + b * b := ring
 
-theorem areaGrows (w: Nat) (h: Nat): (w + 1) * (h + 1) = w * h + w + h + 1 := ring
+theorem areaGrows ∀ (w: Nat) (h: Nat): (w + 1) * (h + 1) = w * h + w + h + 1 := ring
 
-theorem pairCount (n: Nat) (p: Nat) (twice: p + p + n = n * n): (n + p) + (n + p) + Succ n = Succ n * Succ n := ring [twice]
+theorem pairCount ∀ (n: Nat) (p: Nat) (twice: p + p + n = n * n): (n + p) + (n + p) + Succ n = Succ n * Succ n := ring [twice]
 ```
 
 When the two sides differ, the error shows both multiplied out, and the difference:
 
 <!-- snippet: errors/ring.sw -->
 ```stitchwort
-theorem squareOfSum (a: Int) (b: Int): (a + b) * (a + b) = a * a + b * b := ring
+theorem squareOfSum ∀ (a: Int) (b: Int): (a + b) * (a + b) = a * a + b * b := ring
 ```
 
 <!-- output: check errors/ring.sw -->
 ```
 [E-RING] Error: `ring` can't prove `(a + b) * (a + b) = a * a + (b * b)`
-   ╭─[ errors/ring.sw:1:77 ]
+   ╭─[ errors/ring.sw:1:79 ]
    │
- 1 │ theorem squareOfSum (a: Int) (b: Int): (a + b) * (a + b) = a * a + b * b := ring
-   │                                                                             ──┬─
-   │                                                                               ╰─── the two sides are different polynomials
+ 1 │ theorem squareOfSum ∀ (a: Int) (b: Int): (a + b) * (a + b) = a * a + b * b := ring
+   │                                                                               ──┬─
+   │                                                                                 ╰─── the two sides are different polynomials
    │
    │ Note 1: left:  a * a + 2 * a * b + b * b
    │
@@ -283,28 +283,28 @@ A hypothesis can have a coefficient, any `Nat` or `Int` expression, written in f
 
 <!-- snippet: proofs.sw#ring-coefficients -->
 ```stitchwort
-theorem scaledUp (a: Int) (b: Int) (half: a = 2 * b): 4 * a = 8 * b := ring [4 * half]
+theorem scaledUp ∀ (a: Int) (b: Int) (half: a = 2 * b): 4 * a = 8 * b := ring [4 * half]
 
-theorem bothScaled (x: Int) (y: Int) (k: Int) (sum: x + y = 10) (gap: x - y = 2): 2 * k * x = 12 * k := ring [k * sum, k * gap]
+theorem bothScaled ∀ (x: Int) (y: Int) (k: Int) (sum: x + y = 10) (gap: x - y = 2): 2 * k * x = 12 * k := ring [k * sum, k * gap]
 
-theorem turnedRound (a: Int) (b: Int) (h: a = b + 1): b - a = -1 := ring [-h]
+theorem turnedRound ∀ (a: Int) (b: Int) (h: a = b + 1): b - a = -1 := ring [-h]
 ```
 
 When the coefficients are wrong, the error shows what is left over:
 
 <!-- snippet: errors/ring-coefficient.sw -->
 ```stitchwort
-theorem scaledUp (a: Int) (b: Int) (half: a = 2 * b): 4 * a = 8 * b := ring [2 * half]
+theorem scaledUp ∀ (a: Int) (b: Int) (half: a = 2 * b): 4 * a = 8 * b := ring [2 * half]
 ```
 
 <!-- output: check errors/ring-coefficient.sw -->
 ```
 [E-RING] Error: `ring` can't prove `4 * a = 8 * b`
-   ╭─[ errors/ring-coefficient.sw:1:72 ]
+   ╭─[ errors/ring-coefficient.sw:1:74 ]
    │
- 1 │ theorem scaledUp (a: Int) (b: Int) (half: a = 2 * b): 4 * a = 8 * b := ring [2 * half]
-   │                                                                        ───────┬───────
-   │                                                                               ╰───────── the two sides are different polynomials
+ 1 │ theorem scaledUp ∀ (a: Int) (b: Int) (half: a = 2 * b): 4 * a = 8 * b := ring [2 * half]
+   │                                                                          ───────┬───────
+   │                                                                                 ╰───────── the two sides are different polynomials
    │
    │ Note 1: with the hypotheses `l = r` added, each times its coefficient, the left side plus every `r` against the right side plus every `l`:
    │
@@ -327,30 +327,30 @@ Many facts about `Bool`s, `Option`s and `if`s hold because every case works out:
 
 <!-- snippet: proofs.sw#cases -->
 ```stitchwort
-theorem orComm (a: Bool) (b: Bool): (a ∨ b) = (b ∨ a) := cases
+theorem orComm ∀ (a: Bool) (b: Bool): (a ∨ b) = (b ∨ a) := cases
 
-theorem andLeft (a: Bool) (b: Bool) (h: (a ∧ b) = True): a = True := cases
+theorem andLeft ∀ (a: Bool) (b: Bool) (h: (a ∧ b) = True): a = True := cases
 
 def clamp (lo: Nat) (hi: Nat) (x: Nat): Nat := if x < lo then lo else if hi < x then hi else x
 
-theorem clampBelow (lo: Nat) (hi: Nat) (x: Nat) (ordered: lo ≤ hi): clamp lo hi x ≤ hi := cases
+theorem clampBelow ∀ (lo: Nat) (hi: Nat) (x: Nat) (ordered: lo ≤ hi): clamp lo hi x ≤ hi := cases
 ```
 
 `cases in t` tries the proof `t` in each case first, for the cases that `cases` can't close alone. When a case can't be closed, the error names it by its splits and shows what that case knows:
 
 <!-- snippet: errors/cases.sw -->
 ```stitchwort
-theorem atMostTwo (a: Bool) (n: Nat) (h: (a ∧ n ≤ 3) = True): n ≤ 2 := cases
+theorem atMostTwo ∀ (a: Bool) (n: Nat) (h: (a ∧ n ≤ 3) = True): n ≤ 2 := cases
 ```
 
 <!-- output: check errors/cases.sw -->
 ```
 [E-CASES] Error: `cases` couldn't close the case it reached by the splits a = True, (n <= 2) = False
-   ╭─[ errors/cases.sw:1:72 ]
+   ╭─[ errors/cases.sw:1:74 ]
    │
- 1 │ theorem atMostTwo (a: Bool) (n: Nat) (h: (a ∧ n ≤ 3) = True): n ≤ 2 := cases
-   │                                                                        ──┬──
-   │                                                                          ╰──── this `cases`
+ 1 │ theorem atMostTwo ∀ (a: Bool) (n: Nat) (h: (a ∧ n ≤ 3) = True): n ≤ 2 := cases
+   │                                                                          ──┬──
+   │                                                                            ╰──── this `cases`
    │
    │ Note 1: h: n ≤ 3
    │
@@ -381,12 +381,12 @@ def countAbove (k: Nat): List Nat → Nat
   | [] => 0
   | [x, ..xs] => if k ≤ x then Succ (countAbove k xs) else countAbove k xs
 
-theorem countAboveLe (k: Nat) (xs: List Nat): countAbove k xs ≤ xs.length := match induct (countAbove k xs) with
+theorem countAboveLe ∀ (k: Nat) (xs: List Nat): countAbove k xs ≤ xs.length := match induct (countAbove k xs) with
   | eq1 => omega
   | eq2IfTrue y ys h ih => ih
   | eq2IfFalse y ys h ih => omega
 
-theorem skipsSmall (k: Nat) (x: Nat) (xs: List Nat) (h: (k <= x) = False): countAbove k [x, ..xs] = countAbove k xs :=
+theorem skipsSmall ∀ (k: Nat) (x: Nat) (xs: List Nat) (h: (k <= x) = False): countAbove k [x, ..xs] = countAbove k xs :=
   countAbove.eq2.ifFalse k x xs h
 ```
 
@@ -398,7 +398,7 @@ def countAbove (k: Nat): List Nat → Nat
   | [] => 0
   | [x, ..xs] => if k ≤ x then Succ (countAbove k xs) else countAbove k xs
 
-theorem countAboveLe (k: Nat) (xs: List Nat): countAbove k xs ≤ xs.length := match induct (countAbove k xs) with
+theorem countAboveLe ∀ (k: Nat) (xs: List Nat): countAbove k xs ≤ xs.length := match induct (countAbove k xs) with
   | eq1 => omega
   | eq2IfTrue y ys h ih => ?
   | eq2IfFalse y ys h ih => omega
@@ -436,15 +436,15 @@ def cap (limit: Nat): Nat → Nat
   | n if n <= limit => n
   | _ => limit
 
-theorem capKeeps (limit: Nat) (n: Nat) (fits: n ≤ limit): cap limit n = n := cap.eq1 limit n fits
+theorem capKeeps ∀ (limit: Nat) (n: Nat) (fits: n ≤ limit): cap limit n = n := cap.eq1 limit n fits
 
-theorem capCuts (limit: Nat) (n: Nat) (over: (n <= limit) = False): cap limit n = limit := cap.eq2 limit n over
+theorem capCuts ∀ (limit: Nat) (n: Nat) (over: (n <= limit) = False): cap limit n = limit := cap.eq2 limit n over
 
 def skipThree: Nat → Nat
   | n if n != 3 => n
   | _ => 0
 
-theorem skipThreeKeeps (n: Nat) (other: n ≠ 3): skipThree n = n := skipThree.eq1 n other
+theorem skipThreeKeeps ∀ (n: Nat) (other: n ≠ 3): skipThree n = n := skipThree.eq1 n other
 
 theorem skipThreeDrops: skipThree 3 = 0 := skipThree.eq2 3 rfl
 ```
@@ -460,7 +460,7 @@ def countBig: List Nat → Nat
   | [x, ..rest] if x > 3 => 1 + countBig rest
   | [_, ..rest] => countBig rest
 
-theorem countBigAtMost (xs: List Nat): countBig xs ≤ xs.length := match induct (countBig xs) with
+theorem countBigAtMost ∀ (xs: List Nat): countBig xs ≤ xs.length := match induct (countBig xs) with
   | eq1 => omega
   | eq2 x rest big ih => omega
   | eq3 x rest small ih => omega
@@ -473,7 +473,7 @@ def countBig: List Nat → Nat
   | [x, ..rest] if x > 3 => 1 + countBig rest
   | [_, ..rest] => countBig rest
 
-theorem countBigAtMost (xs: List Nat): countBig xs ≤ xs.length := match induct (countBig xs) with
+theorem countBigAtMost ∀ (xs: List Nat): countBig xs ≤ xs.length := match induct (countBig xs) with
   | eq1 => omega
   | eq2 x rest big ih => ?
   | eq3 x rest small ih => omega
@@ -524,9 +524,9 @@ A `Bool` can be stated too. Where a statement is expected (after the colon, in a
 ```stitchwort
 def isSmall (n: Nat): Bool := n <= 3
 
-theorem smallBoth (m: Nat) (n: Nat) (h: isSmall m ∧ isSmall n): isSmall n := h.right
+theorem smallBoth ∀ (m: Nat) (n: Nat) (h: isSmall m ∧ isSmall n): isSmall n := h.right
 
-theorem smallSame (n: Nat) (h: isSmall n): isSmall n = True := h
+theorem smallSame ∀ (n: Nat) (h: isSmall n): isSmall n = True := h
 ```
 
 The two ways of writing it are the same statement, so `smallSame` is proved by `h` itself, and goals show `isSmall n = True` as `isSmall n`. The one place to write `= True` out is a fact about the `Bool` `a && b` itself, as a program's `if` hands it over: `(a && b) = True`, which goals show that way too, since `a && b` alone would mean `a ∧ b`. A side of `=` is never read as a statement, so `(a == b) = c` still compares `Bool`s.
@@ -539,7 +539,7 @@ To use a condition in a proof, `match` on it. `match fits: e with` splits on the
 ```stitchwort
 def clampTo (limit: Nat) (n: Nat): Nat := if n ≤ limit then n else limit
 
-theorem clampToAtMost (limit: Nat) (n: Nat): clampTo limit n ≤ limit := match fits: Nat.leq n limit with
+theorem clampToAtMost ∀ (limit: Nat) (n: Nat): clampTo limit n ≤ limit := match fits: Nat.leq n limit with
   | True => fits
   | False => Nat.leRefl limit
 ```
@@ -548,7 +548,7 @@ theorem clampToAtMost (limit: Nat) (n: Nat): clampTo limit n ≤ limit := match 
 
 <!-- snippet: errors/split-goals.sw@clampToAtMost -->
 ```stitchwort
-theorem clampToAtMost (limit: Nat) (n: Nat): clampTo limit n ≤ limit := match fits: Nat.leq n limit with
+theorem clampToAtMost ∀ (limit: Nat) (n: Nat): clampTo limit n ≤ limit := match fits: Nat.leq n limit with
   | True => ?
   | False => ?
 ```
@@ -588,7 +588,7 @@ The `match` replaces `e` in the goal and in the hypotheses, but not in a lemma y
 
 <!-- snippet: proofs.sw#match-lemma -->
 ```stitchwort
-theorem clampToFits (limit: Nat) (n: Nat): clampTo limit n ≤ limit ∧ clampTo limit n ≤ n :=
+theorem clampToFits ∀ (limit: Nat) (n: Nat): clampTo limit n ≤ limit ∧ clampTo limit n ≤ n :=
   match fits: Nat.leq n limit with
     | True => Both (clampToAtMost limit n) (Nat.leRefl n)
     | False => Both (clampToAtMost limit n) omega
@@ -624,11 +624,11 @@ Write a `Bool` when the program has to run the question: in an `if`, a `filter`,
 
 <!-- snippet: tests-and-propositions.sw#pieces -->
 ```stitchwort
-theorem fitsSeats (booking: Booking) (capacity: Nat) (h: booking.fits capacity):
+theorem fitsSeats ∀ (booking: Booking) (capacity: Nat) (h: booking.fits capacity):
     booking.seats <= capacity := match h with
       | Both _ small => small
 
-theorem fitsPositive (booking: Booking) (capacity: Nat) (h: booking.fits capacity):
+theorem fitsPositive ∀ (booking: Booking) (capacity: Nat) (h: booking.fits capacity):
     0 < booking.seats := h.left
 ```
 
@@ -636,7 +636,7 @@ Each pattern takes one layer. If the test were `a && b && c`, `Both _ rest` woul
 
 <!-- snippet: tests-and-propositions.sw#negative -->
 ```stitchwort
-theorem emptyOrTooBig (booking: Booking) (capacity: Nat) (h: booking.fits capacity = False):
+theorem emptyOrTooBig ∀ (booking: Booking) (capacity: Nat) (h: booking.fits capacity = False):
     booking.seats = 0 ∨ capacity < booking.seats := match h with
       | Inl zero => Inl omega
       | Inr big => Inr big.read
@@ -650,7 +650,7 @@ To use the whole fact as its proposition, write `.read`:
 
 <!-- snippet: tests-and-propositions.sw#read -->
 ```stitchwort
-theorem fitsBoth (booking: Booking) (capacity: Nat) (h: booking.fits capacity):
+theorem fitsBoth ∀ (booking: Booking) (capacity: Nat) (h: booking.fits capacity):
     0 < booking.seats ∧ booking.seats ≤ capacity := h.read
 ```
 
@@ -662,17 +662,17 @@ import Std (Bool, Nat)
 
 def isSmall (n: Nat): Bool := n <= 3
 
-theorem bigWhenNot (n: Nat) (h: isSmall n = False): 3 < n := h
+theorem bigWhenNot ∀ (n: Nat) (h: isSmall n = False): 3 < n := h
 ```
 
 <!-- output: check errors/fact-as-statement.sw -->
 ```text
 [E-TYPE-MISMATCH] Error: type mismatch
-   ╭─[ errors/fact-as-statement.sw:5:62 ]
+   ╭─[ errors/fact-as-statement.sw:5:64 ]
    │
- 5 │ theorem bigWhenNot (n: Nat) (h: isSmall n = False): 3 < n := h
-   │                                                              ┬
-   │                                                              ╰── expected `4 ≤ n`, but this has type `isSmall n = False`
+ 5 │ theorem bigWhenNot ∀ (n: Nat) (h: isSmall n = False): 3 < n := h
+   │                                                                ┬
+   │                                                                ╰── expected `4 ≤ n`, but this has type `isSmall n = False`
    │
    │ Note: this is the test fact `isSmall n = False`, which reads as `3 < n`: add `.read` to use it as that
 ───╯
@@ -683,7 +683,7 @@ Here `h.read` is the answer. Equality works the same way. For a record with `==`
 
 <!-- snippet: tests-and-propositions.sw#same -->
 ```stitchwort
-theorem sameName (a: Booking) (b: Booking) (h: a == b): a.name = b.name :=
+theorem sameName ∀ (a: Booking) (b: Booking) (h: a == b): a.name = b.name :=
   rewrite h.read in rfl
 ```
 
@@ -693,11 +693,11 @@ A fact can be built the way its statement is, from `Both`, `Inl`, `Inr`, `Witnes
 
 <!-- snippet: tests-and-propositions.sw#build -->
 ```stitchwort
-theorem fitsFrom (booking: Booking) (capacity: Nat) (positive: 0 < booking.seats)
+theorem fitsFrom ∀ (booking: Booking) (capacity: Nat) (positive: 0 < booking.seats)
     (small: booking.seats ≤ capacity): booking.fits capacity :=
   Both positive small
 
-theorem fitsOrBigger (booking: Booking) (capacity: Nat) (h: booking.fits capacity):
+theorem fitsOrBigger ∀ (booking: Booking) (capacity: Nat) (h: booking.fits capacity):
     booking.fits (capacity + 1) :=
   Both h.left omega
 ```
@@ -735,7 +735,7 @@ def Booking.spare (booking: Booking) (capacity: Nat) [auto ok: booking.seats ≤
 def spareFor (booking: Booking) (capacity: Nat) (h: booking.fits capacity): Nat :=
   booking.spare capacity
 
-theorem allSmall (bookings: List Booking) (capacity: Nat)
+theorem allSmall ∀ (bookings: List Booking) (capacity: Nat)
     (h: bookings.all (b => b.fits capacity)) (b: Booking) (m: b ∈ bookings):
     b.seats ≤ capacity := (h.read b m).right
 ```
@@ -766,19 +766,19 @@ type Within (lo: Nat) (x: Nat) (hi: Nat): Prop = {
 def within (lo: Nat) (x: Nat) (hi: Nat): Bool := lo <= x && x <= hi
 
 @[reading]
-theorem withinReads (lo: Nat) (x: Nat) (hi: Nat): within lo x hi ↔ Within lo x hi := {
+theorem withinReads ∀ (lo: Nat) (x: Nat) (hi: Nat): within lo x hi ↔ Within lo x hi := {
   forward = h => { low = h.left, high = h.right },
   backward = r => Both r.low r.high
 }
 
-theorem withinHigh (lo: Nat) (x: Nat) (hi: Nat) (h: within lo x hi): x ≤ hi := match h with
+theorem withinHigh ∀ (lo: Nat) (x: Nat) (hi: Nat) (h: within lo x hi): x ≤ hi := match h with
   | { low, high } => high
 
-theorem withinLow (lo: Nat) (x: Nat) (hi: Nat) (h: within lo x hi): lo ≤ x := h.read.low
+theorem withinLow ∀ (lo: Nat) (x: Nat) (hi: Nat) (h: within lo x hi): lo ≤ x := h.read.low
 
-theorem withinSelf (x: Nat): within x x x := { low = Nat.leRefl x, high = Nat.leRefl x }
+theorem withinSelf ∀ (x: Nat): within x x x := { low = Nat.leRefl x, high = Nat.leRefl x }
 
-theorem eitherSide (a: Bool) (b: Bool) (h: (a || b) = True): b ∨ a := match h with
+theorem eitherSide ∀ (a: Bool) (b: Bool) (h: (a || b) = True): b ∨ a := match h with
   | Inl ha => Inr ha
   | Inr hb => Inl hb
 ```
@@ -789,7 +789,7 @@ With it, a pattern, a record or `.read` on a fact about `within lo x hi` works a
 ```stitchwort
 import Std (Bool, Nat)
 
-theorem flagged (flag: Bool) (n: Nat) (h: flag = True): n = n := match h with
+theorem flagged ∀ (flag: Bool) (n: Nat) (h: flag = True): n = n := match h with
   | Both a b => rfl
 ```
 
@@ -811,10 +811,10 @@ For a test that is `==`, no reading is needed: the fact reads as what the decisi
 
 <!-- snippet: proofs.sw#readings-decisions -->
 ```stitchwort
-theorem sameKey [auto eq: DecEq k] (a b c: k) (h: (a == b && b == c) = True): a = c := match h with
+theorem sameKey ∀ [auto eq: DecEq k] (a b c: k) (h: (a == b && b == c) = True): a = c := match h with
   | Both ab bc => rewrite ab.read, bc.read in rfl
 
-theorem differ [auto eq: DecEq k] (a b: k) (h: (a == b) = False): a ≠ b := h.read
+theorem differ ∀ [auto eq: DecEq k] (a b: k) (h: (a == b) = False): a ≠ b := h.read
 ```
 
 When you write a decision of a statement that some test reads as, write it with that test, `{ holds = isSmall n, … }`, so that `if Small n` and `if isSmall n` are the same computation; a decision that tests with another function gets the warning `W-DECISION-TEST`.
@@ -833,11 +833,11 @@ Three more forms come up in statements, each with a Unicode spelling you may use
 
 <!-- snippet: proofs.sw#logic -->
 ```stitchwort
-theorem headIn (x: Nat) (rest: List Nat): x ∈ [x, ..rest] := Inl rfl
+theorem headIn ∀ (x: Nat) (rest: List Nat): x ∈ [x, ..rest] := Inl rfl
 
-theorem notInEmpty (x: Nat): x ∉ [] := none => none
+theorem notInEmpty ∀ (x: Nat): x ∉ [] := none => none
 
-theorem bothWays (p: Prop) (q: Prop): p ∧ q ↔ q ∧ p := {
+theorem bothWays ∀ (p: Prop) (q: Prop): p ∧ q ↔ q ∧ p := {
   forward = h => Both (And.right h) (And.left h),
   backward = h => Both (And.right h) (And.left h)
 }
@@ -859,9 +859,9 @@ The other Unicode spellings are `→ ∧ ∨ ¬ ≤ ≥ ≠` for `-> && || ! <= 
 ```stitchwort
 theorem zeroPlusAll: ∀ (n: Nat) => 0 + n = n := n => rfl
 
-theorem atOneAndTwo (p: Nat -> Prop) (all: ∀ (n: Nat) => p n): p 1 ∧ p 2 := Both (all 1) (all 2)
+theorem atOneAndTwo ∀ (p: Nat -> Prop) (all: ∀ (n: Nat) => p n): p 1 ∧ p 2 := Both (all 1) (all 2)
 
-theorem swapSum (comm: ∀ (a b: Nat) => a + b = b + a): 2 + 5 = 5 + 2 := comm 2 5
+theorem swapSum ∀ (comm: ∀ (a b: Nat) => a + b = b + a): 2 + 5 = 5 + 2 := comm 2 5
 ```
 
 `forall (n: Nat) => P` (`∀ (n: Nat) => P`) says `P` holds for every `n`. It's another way to write the function type `(n: Nat) -> P`, so a proof of it is a function from each `n` to a proof of `P`, and using one is a call: `all 1` is a proof of `p 1`. Several parameters go together, as in `∀ (a b: Nat) => …`, and like `exists` the statement runs to the end, so `∀ (n: Nat) => n > 0 -> P n` says `P n` for every positive `n`.
@@ -901,11 +901,11 @@ def sumFast (n: Nat): Nat :=
 
 -- What the loop computes, for any accumulator: the general statement is
 -- what makes the induction go through.
-theorem loopIsSum (n: Nat) (total: Nat): sumFast.loop n total = total + sumTo n := match n, total with
+theorem loopIsSum ∀ (n: Nat) (total: Nat): sumFast.loop n total = total + sumTo n := match n, total with
   | Zero, total => rfl
   | Succ k, total => omega [loopIsSum k (total + Succ k)]
 
-theorem sumFastIsSum (n: Nat): sumFast n = sumTo n := loopIsSum n 0
+theorem sumFastIsSum ∀ (n: Nat): sumFast n = sumTo n := loopIsSum n 0
 ```
 
 The proof shows a common move: the statement about `sumFast` alone isn't provable by induction, because `loop` is called with a changing accumulator. So the lemma `loopIsSum` states what `loop` computes for *every* accumulator, and the main theorem is the case `total = 0`. In the `Succ` case, `sumFast.loop (Succ k) total` computes to `sumFast.loop k (total + Succ k)`, the hypothesis says what that is, and `omega` does the arithmetic.
@@ -921,7 +921,7 @@ The same applies to exported functions ([chapter 11](11-running-and-shipping.md)
 ```stitchwort
 export def clampPercent (n: Nat): Nat := clampTo 100 n
 
-theorem clampPercentAtMost (n: Nat): clampPercent n ≤ 100 := clampToAtMost 100 n
+theorem clampPercentAtMost ∀ (n: Nat): clampPercent n ≤ 100 := clampToAtMost 100 n
 ```
 
 ## Hiding a definition: `opaque`
@@ -972,7 +972,7 @@ A handler applied to a computation of a known shape computes, so many facts abou
 
 <!-- snippet: proofs.sw#reify -->
 ```stitchwort
-theorem orElseIsGetOrElse (fallback: a) (t: () → {Fail} a): Fail.orElse fallback t = (Fail.toOption t).getOrElse fallback :=
+theorem orElseIsGetOrElse ∀ (fallback: a) (t: () → {Fail} a): Fail.orElse fallback t = (Fail.toOption t).getOrElse fallback :=
   match reify t with
     | return x => rfl
     | Fail.stop message, _ => rfl
@@ -1096,10 +1096,10 @@ The theorem, in `Aoc.Year2025.Day01.Proofs`, says they agree for a dial of any s
 
 <!-- snippet: ../../../aoc/src/Aoc/Year2025/Day01/Proofs/Part2.sw@zerosPassedCorrect,part2Puzzle -->
 ```stitchwort
-theorem zerosPassedCorrect [n: Nat] (startingDial: Dial n) (turns: List Turn): zerosPassed turns startingDial = zerosPassedSpec turns startingDial :=
+theorem zerosPassedCorrect ∀ [n: Nat] (startingDial: Dial n) (turns: List Turn): zerosPassed turns startingDial = zerosPassedSpec turns startingDial :=
   zerosPassedFrom startingDial turns
 
-theorem part2Puzzle (turns: List Turn): solvePart2 turns = zerosPassedSpec turns Dial.start :=
+theorem part2Puzzle ∀ (turns: List Turn): solvePart2 turns = zerosPassedSpec turns Dial.start :=
   zerosPassedCorrect Dial.start turns
 ```
 

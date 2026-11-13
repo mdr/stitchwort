@@ -13,14 +13,14 @@ import Std (Bool, Char, Eq, Exists, Fail, List, NonEmptyList, Parse, Result, Set
 def PersonWritten (read: List Char) (person: Person): Prop :=
   read ≠ [] ∧ read.all isQuestion = True ∧ (∀ (question: Char) => person.answers.contains question = read.contains question)
 
-theorem eachLetters (read letters: List Char) (each: Parse.Each (letter char => letter = [char] ∧ isQuestion char = True) read letters):
+theorem eachLetters ∀ (read letters: List Char) (each: Parse.Each (letter char => letter = [char] ∧ isQuestion char = True) read letters):
     read = letters ∧ letters.all isQuestion = True := match letters, each with
       | [], each => Both each rfl
       | [letter, ..rest], Witness first (Witness after (Both split (Both (Both one question) more))) =>
         match eachLetters after rest more with
           | Both same questions => Both (rewrite split, one, same in rfl) (rewrite question, questions in rfl)
 
-theorem containsFromList (letters: List Char) (question: Char): (Set.fromList letters).contains question = letters.contains question :=
+theorem containsFromList ∀ (letters: List Char) (question: Char): (Set.fromList letters).contains question = letters.contains question :=
   Bool.eqOf _ _
     (found => (List.memContains letters question).backward ((Set.containsFromListIff letters question).forward found))
     (found => (Set.containsFromListIff letters question).backward found.read)
@@ -42,7 +42,7 @@ theorem readsGroup: Parse.Reads group GroupWritten :=
 
 --| If `parseGroups` reads `input`, the input is the groups written out, a
 --| blank line between each two, then any line breaks.
-theorem parseWritten (input: Text) (groups: List Group) (parsed: Fail.toResult (() => parseGroups input) = Ok groups):
+theorem parseWritten ∀ (input: Text) (groups: List Group) (parsed: Fail.toResult (() => parseGroups input) = Ok groups):
     ∃ (read: List Char) => ∃ (ending: List Char) =>
       input.toList = read ++ ending
         ∧ (∃ (listed: NonEmptyList Group) => Parse.SepBy GroupWritten (read u => Parse.BlankLine read) read listed ∧ groups = listed.toList)

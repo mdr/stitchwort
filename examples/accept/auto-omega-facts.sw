@@ -13,6 +13,6 @@ def remainderOfGap (n: Nat) (low: Nat) (high: Nat) (below: low < high): Nat := r
 
 def quotientPastTwice (n: Nat) (d: Nat) (big: 2 * d > 4): Nat := per n d
 
-theorem gapPositive (low: Nat) (high: Nat) (below: low < high): 0 < high - low := omega
+theorem gapPositive ∀ (low: Nat) (high: Nat) (below: low < high): 0 < high - low := omega
 
 test "remainderOfGap" := remainderOfGap 17 2 7 rfl == 2

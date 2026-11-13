@@ -55,7 +55,7 @@ test "describe, small" := describe 3 == "small"
 -- When neither branch uses the proof, the condition is the comparison's
 -- `Bool`, the same term a `Bool` test gets, so a lemma stated with a `Bool`
 -- test (`List.sumByFilter`) matches the `if`.
-theorem filterSum (xs: List (List Nat)) (f: List Nat → Nat):
+theorem filterSum ∀ (xs: List (List Nat)) (f: List Nat → Nat):
     List.sumBy (List.filter xs (ys => ys.length >= 1)) f = List.sumBy xs (ys => if ys.length >= 1 then f ys else 0) :=
   List.sumByFilter xs f (ys => ys.length >= 1)
 

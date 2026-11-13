@@ -10,7 +10,7 @@ import Aoc.Year2020.Day03.Spec (..)
 import Std (Bool, Eq, List, Nat, Option)
 
 --| The repeating pattern is the pattern at the column's remainder.
-theorem repeatingAtMod (pattern: List Square) (nonEmpty: pattern.length ≠ 0) (column: Nat):
+theorem repeatingAtMod ∀ (pattern: List Square) (nonEmpty: pattern.length ≠ 0) (column: Nat):
     repeatingAt pattern column = pattern.get (column % pattern.length) decreasing column :=
   if within: column < pattern.length then
     rewrite repeatingAt.eq.ifTrue pattern column within, Nat.modSmall column pattern.length within in rfl
@@ -21,7 +21,7 @@ theorem repeatingAtMod (pattern: List Square) (nonEmpty: pattern.length ≠ 0) (
 
 --| The program's lookup at the wrapped column is the repeating map's
 --| square.
-theorem lookupSquareAt (map: Grid Square) (rectangle: map.Rectangle) (nonZero: map.width ≠ 0) (position: Position):
+theorem lookupSquareAt ∀ (map: Grid Square) (rectangle: map.Rectangle) (nonZero: map.width ≠ 0) (position: Position):
     (map.lookupOr Open { row = position.row, column = position.column % map.width } == Tree) = (squareAt map position == Some Tree) :=
   rewrite lookupOrAt map Open { row = position.row, column = position.column % map.width } in
     match found: map.rows.get position.row with
@@ -30,11 +30,11 @@ theorem lookupSquareAt (map: Grid Square) (rectangle: map.Rectangle) (nonZero: m
         rewrite repeatingAtMod pattern (rewrite long in nonZero) position.column, long in cases
       | None => rfl
 
-theorem positionEq [a: Nat] [b: Nat] [c: Nat] [d: Nat] (rows: a = c) (columns: b = d): ({ row = a, column = b }: Position) = { row = c, column = d } :=
+theorem positionEq ∀ [a: Nat] [b: Nat] [c: Nat] [d: Nat] (rows: a = c) (columns: b = d): ({ row = a, column = b }: Position) = { row = c, column = d } :=
   rewrite rows, columns in rfl
 
 --| `path` is the positions `from` plus 1, 2, … steps.
-theorem pathRange (slope: Slope) (from: Position) (steps: Nat):
+theorem pathRange ∀ (slope: Slope) (from: Position) (steps: Nat):
     path slope from steps = (List.rangeFrom steps 1).map (step => ({ row = from.row + step * slope.down, column = from.column + step * slope.right }: Position)) :=
   match steps with
     | Zero => rfl
@@ -44,7 +44,7 @@ theorem pathRange (slope: Slope) (from: Position) (steps: Nat):
 
 --| `map.isRectangle = True` is `map.Rectangle` (`isRectangleIff`), as a `Bool` the
 --| counterexample search can decide.
-theorem treesOnSpec (map: Grid Square) (rectangle: map.isRectangle = True) (slope: Slope): treesOn map slope = treesEncountered map slope :=
+theorem treesOnSpec ∀ (map: Grid Square) (rectangle: map.isRectangle = True) (slope: Slope): treesOn map slope = treesEncountered map slope :=
   rewrite pathRange slope { row = 0, column = 0 } map.height,
     List.takeWhileMap (step => ({ row = 0 + step * slope.down, column = 0 + step * slope.right }: Position)) (position => position.row < map.height) (List.rangeFrom map.height 1),
     List.lengthFilter, List.countMap in
@@ -52,7 +52,7 @@ theorem treesOnSpec (map: Grid Square) (rectangle: map.isRectangle = True) (slop
 
 --| The spec's bound loses nothing: on a slope that goes down, more steps
 --| than the map has rows visit the same positions.
-theorem visitedEnough (map: Grid Square) (slope: Slope) (goesDown: 0 < slope.down) (steps: Nat) (enough: map.height ≤ steps):
+theorem visitedEnough ∀ (map: Grid Square) (slope: Slope) (goesDown: 0 < slope.down) (steps: Nat) (enough: map.height ≤ steps):
     (path slope { row = 0, column = 0 } steps).takeWhile (position => position.row < map.height) = visited map slope :=
   let onPath := (step: Nat) => ({ row = 0 + step * slope.down, column = 0 + step * slope.right }: Position)
   let below: Position → Bool := position => position.row < map.height
@@ -61,8 +61,8 @@ theorem visitedEnough (map: Grid Square) (slope: Slope) (goesDown: 0 < slope.dow
     List.takeWhileRangeCutoff (step => step * slope.down < map.height) map.height
       (k past => Bool.falseOfNotTrue _ (isTrue => omega [Nat.leMulPos k slope.down goesDown])) steps map.height 1 omega omega in rfl
 
-theorem part1Correct (map: Grid Square) (rectangle: map.isRectangle = True): solvePart1 map = part1Answer map :=
+theorem part1Correct ∀ (map: Grid Square) (rectangle: map.isRectangle = True): solvePart1 map = part1Answer map :=
   treesOnSpec map rectangle { right = 3, down = 1 }
 
-theorem part2Correct (map: Grid Square) (rectangle: map.isRectangle = True): solvePart2 map = part2Answer map :=
+theorem part2Correct ∀ (map: Grid Square) (rectangle: map.isRectangle = True): solvePart2 map = part2Answer map :=
   Eq.cong (counts => List.product counts) (List.mapCong slopes (treesOn map) (treesEncountered map) (slope => treesOnSpec map rectangle slope))

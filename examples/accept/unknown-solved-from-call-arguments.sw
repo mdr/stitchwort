@@ -15,13 +15,13 @@ def pick (b: Bool) (n: Nat): Nat := choose b n
 
 def pickLast (n: Nat) (b: Bool): Nat := choose b n
 
-theorem lem (b: Bool): pick b (two 3) = 2 := match b with
+theorem lem ∀ (b: Bool): pick b (two 3) = 2 := match b with
   | True => rfl
   | False => rfl
 
 theorem use: pick True (two 4) = 2 := lem _
 
-theorem lemLast (b: Bool): pickLast (two 3) b = 2 := match b with
+theorem lemLast ∀ (b: Bool): pickLast (two 3) b = 2 := match b with
   | True => rfl
   | False => rfl
 

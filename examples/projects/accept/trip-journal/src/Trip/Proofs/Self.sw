@@ -47,14 +47,14 @@ theorem resolveSelf: ∀ (leg: Leg) => resolveLeg leg leg = leg
       | True => rewrite DecEq.refl start in rfl
       | False => rewrite DecEq.refl start in rfl
 
-theorem resolveAgainstSelf (legs: List Leg) (ids: List.Distinct (List.map legs (leg => leg.id))) (leg: Leg) (m: leg ∈ legs):
+theorem resolveAgainstSelf ∀ (legs: List Leg) (ids: List.Distinct (List.map legs (leg => leg.id))) (leg: Leg) (m: leg ∈ legs):
     resolveAgainst legs leg = leg :=
   rewrite List.findKeyDistinct (l => l.id) legs ids leg m in resolveSelf leg
 
-theorem resolvedSelf (legs: List Leg) (ids: List.Distinct (List.map legs (leg => leg.id))): resolvedLegs legs legs = legs :=
+theorem resolvedSelf ∀ (legs: List Leg) (ids: List.Distinct (List.map legs (leg => leg.id))): resolvedLegs legs legs = legs :=
   Eq.trans (List.mapCongMem legs (leg => resolveAgainst legs leg) (leg => leg) (leg m => resolveAgainstSelf legs ids leg m)) (List.mapId legs)
 
-theorem mergeLegsSelf (legs: List Leg) (ids: List.Distinct (List.map legs (leg => leg.id))) (c: ContiguousFrom 0.0 legs):
+theorem mergeLegsSelf ∀ (legs: List Leg) (ids: List.Distinct (List.map legs (leg => leg.id))) (c: ContiguousFrom 0.0 legs):
     mergeLegs legs legs = legs :=
   calc mergeLegs legs legs
     _ = layout 0.0 (List.appendNewBy (resolvedLegs legs legs) legs (leg => leg.id))
@@ -68,7 +68,7 @@ theorem planReplacedSelf: ∀ (plan: Option Itinerary) => planReplaced plan plan
   | Some plan => rewrite DecEq.refl plan.fileId in rfl
   | None => rfl
 
-theorem mergeStopsSelf (trip: Trip) (ids: List.Distinct (List.map trip.legs (leg => leg.id)))
+theorem mergeStopsSelf ∀ (trip: Trip) (ids: List.Distinct (List.map trip.legs (leg => leg.id)))
     (w: List.All (stop => within trip.legs stop.start = True) trip.stops): mergeStops trip trip trip.legs = trip.stops :=
   let entries := trip.stops.map (stop => (stop, locate trip.legs stop.start))
   calc mergeStops trip trip trip.legs
@@ -86,7 +86,7 @@ theorem mergeStopsSelf (trip: Trip) (ids: List.Distinct (List.map trip.legs (leg
 
 -- Pins
 
-theorem mergePinsSelf (trip: Trip) (ids: List.Distinct (List.map trip.legs (leg => leg.id)))
+theorem mergePinsSelf ∀ (trip: Trip) (ids: List.Distinct (List.map trip.legs (leg => leg.id)))
     (fit: List.All (pin => pinFits trip.legs pin = True) trip.pins) (sorted: List.Sorted (a b => Float.leq a.start b.start) trip.pins):
     mergePins trip trip trip.legs = trip.pins :=
   let entries := trip.pins.map (pin => (pin, locate trip.legs pin.start))
@@ -102,7 +102,7 @@ theorem mergePinsSelf (trip: Trip) (ids: List.Distinct (List.map trip.legs (leg 
 
 -- Albums
 
-theorem holdsOf (album: Album) (photo: Photo) (m: photo ∈ album.photos): holds album photo.id = True :=
+theorem holdsOf ∀ (album: Album) (photo: Photo) (m: photo ∈ album.photos): holds album photo.id = True :=
   (List.decMem photo.id (album.photos.map Photo.id)).complete (List.memMap album.photos photo m Photo.id)
 
 -- With photo ids distinct across the albums, the first album holding a
@@ -119,20 +119,20 @@ theorem holderOf: ∀ (albums: List Album) => List.Distinct (photoIds albums) �
         (h => List.distinctAppendApart (first.photos.map Photo.id) (photoIds rest) d photo.id h inRest)
     rewrite notHere in holderOf rest (List.distinctAppendRight (first.photos.map Photo.id) (photoIds rest) d) album m photo p
 
-theorem ownerSelf (albums: List Album) (ids: List.Distinct (List.map albums (album => album.id))) (pd: List.Distinct (photoIds albums))
+theorem ownerSelf ∀ (albums: List Album) (ids: List.Distinct (List.map albums (album => album.id))) (pd: List.Distinct (photoIds albums))
     (album: Album) (m: album ∈ albums) (photo: Photo) (p: photo ∈ album.photos): owner albums albums albums photo.id = Some album.id :=
   rewrite holderOf albums pd album m photo p, List.findKeyDistinct (a => a.id) albums ids album m, holdsOf album photo p in rfl
 
-theorem keepOwnedSelf (own: Nat → Option Nat) (album: Album) (h: ∀ (photo: Photo) => photo ∈ album.photos → own photo.id = Some album.id):
+theorem keepOwnedSelf ∀ (own: Nat → Option Nat) (album: Album) (h: ∀ (photo: Photo) => photo ∈ album.photos → own photo.id = Some album.id):
     keepOwned own album = album :=
   rewrite List.filterAll (p => own p.id == Some album.id) album.photos (photo m => rewrite h photo m in DecEq.refl (Some album.id)) in
   albumEta album
 
-theorem withPhotosOfSelf (albums: List Album) (ids: List.Distinct (List.map albums (album => album.id))) (album: Album) (m: album ∈ albums):
+theorem withPhotosOfSelf ∀ (albums: List Album) (ids: List.Distinct (List.map albums (album => album.id))) (album: Album) (m: album ∈ albums):
     withPhotosOf albums album = album :=
   rewrite List.findKeyDistinct (a => a.id) albums ids album m, List.appendNewBySelf album.photos Photo.id in albumEta album
 
-theorem albumEntriesSelf (trip: Trip) (ids: List.Distinct (List.map trip.albums (album => album.id))):
+theorem albumEntriesSelf ∀ (trip: Trip) (ids: List.Distinct (List.map trip.albums (album => album.id))):
     albumEntries trip trip = trip.albums.map (album => (album, locate trip.legs album.start)) :=
   let entries := trip.albums.map (album => (album, locate trip.legs album.start))
   calc albumEntries trip trip
@@ -143,13 +143,13 @@ theorem albumEntriesSelf (trip: Trip) (ids: List.Distinct (List.map trip.albums 
       rfl
     _ = entries := List.appendNewBySelf entries (entry => entry.fst.id)
 
-theorem combinedSelf (trip: Trip) (ids: List.Distinct (List.map trip.albums (album => album.id))):
+theorem combinedSelf ∀ (trip: Trip) (ids: List.Distinct (List.map trip.albums (album => album.id))):
     List.map (albumEntries trip trip) (entry => entry.fst) = trip.albums :=
   rewrite albumEntriesSelf trip ids,
     List.mapMap trip.albums (entry => entry.fst) (album => (album, locate trip.legs album.start)) in
   List.mapId trip.albums
 
-theorem mergeAlbumsSelf (trip: Trip) (lids: List.Distinct (List.map trip.legs (leg => leg.id)))
+theorem mergeAlbumsSelf ∀ (trip: Trip) (lids: List.Distinct (List.map trip.legs (leg => leg.id)))
     (ids: List.Distinct (List.map trip.albums (album => album.id))) (pd: List.Distinct (photoIds trip.albums))
     (w: List.All (album => within trip.legs album.start = True) trip.albums): mergeAlbums trip trip trip.legs = trip.albums :=
   calc mergeAlbums trip trip trip.legs
@@ -174,12 +174,12 @@ theorem mergeItinerarySelf: ∀ (plan: Option Itinerary) => mergeItinerary plan 
   | None => rfl
   | Some { fileId, places } => rewrite DecEq.refl fileId, List.appendNewBySelf places (place => place.id) in rfl
 
-theorem mergeSummarySelf (trip: Trip): mergeSummary trip trip trip.legs = trip.summary := rewrite DecEq.refl trip.legs in rfl
+theorem mergeSummarySelf ∀ (trip: Trip): mergeSummary trip trip trip.legs = trip.summary := rewrite DecEq.refl trip.legs in rfl
 
 -- The theorem
 
 -- A well-formed trip merged with itself is unchanged.
-theorem mergeSelf (trip: Trip) (wf: WellFormed trip): merge trip trip = trip :=
+theorem mergeSelf ∀ (trip: Trip) (wf: WellFormed trip): merge trip trip = trip :=
   calc merge trip trip
     _ = {
       name = if isBlank trip.name then trip.name else trip.name,

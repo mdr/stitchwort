@@ -16,12 +16,13 @@ def name: Text := applyChecked (p => p.name) rfl ann
 
 test "the lambda is checked after `ann`" := name == "Ann"
 
-theorem memMapElim (f: a → b) (y: b): ∀ (xs: List a) => y ∈ xs.map f → Exists a (x => (x ∈ xs) ∧ (f x = y))
-  | [], member => Void.exfalso member
-  | [x, ..rest], Inl here => Witness x (Both (Inl rfl) here)
-  | [x, ..rest], Inr later =>
-    Exists.elim (memMapElim f y rest later) (found both => Witness found (Both (Inr (And.left both)) (And.right both)))
+theorem memMapElim ∀ (f: a → b) (y: b) (xs: List a) (member: y ∈ xs.map f): Exists a (x => (x ∈ xs) ∧ (f x = y)) :=
+  match xs, member with
+    | [], member => Void.exfalso member
+    | [x, ..rest], Inl here => Witness x (Both (Inl rfl) here)
+    | [x, ..rest], Inr later =>
+      Exists.elim (memMapElim f y rest later) (found both => Witness found (Both (Inr (And.left both)) (And.right both)))
 
-theorem namedSomewhere (pairs: List (Person, Nat)) (target: Text) (listed: target ∈ pairs.map (e => e.fst.name)):
+theorem namedSomewhere ∀ (pairs: List (Person, Nat)) (target: Text) (listed: target ∈ pairs.map (e => e.fst.name)):
     Exists (Person, Nat) (e => (e ∈ pairs) ∧ (e.fst.name = target)) :=
   memMapElim (e => e.fst.name) target pairs listed

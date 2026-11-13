@@ -13,14 +13,14 @@ def ValidBefore (numbers: List Nat) (preamble: Nat) (position: Nat): Prop :=
 
 --| The walk is at `front`, the numbers from `start` on: the number it
 --| checks is at `start + preamble`, after the numbers it checks it against.
-theorem walkAt (numbers: List Nat) (preamble: Nat) (start: Nat) (front: List Nat) (at: front = numbers.drop start) (number: Nat) (later: List Nat)
+theorem walkAt ∀ (numbers: List Nat) (preamble: Nat) (start: Nat) (front: List Nat) (at: front = numbers.drop start) (number: Nat) (later: List Nat)
     (ahead: front.drop preamble = [number, ..later]):
     numbers.get (start + preamble) = Some number ∧ previous numbers preamble (start + preamble) = front.take preamble :=
   let here: front.get preamble = Some number := rewrite <- Nat.addZero preamble, <- List.getDrop front preamble 0, ahead in rfl
   Both (rewrite <- List.getDrop numbers start preamble, <- at in here)
     (rewrite (omega: start + preamble - preamble = start), <- at in rfl)
 
-theorem walkSound (numbers: List Nat) (preamble: Nat) (answer: Nat) (front: List Nat) (start: Nat) (at: front = numbers.drop start)
+theorem walkSound ∀ (numbers: List Nat) (preamble: Nat) (answer: Nat) (front: List Nat) (start: Nat) (at: front = numbers.drop start)
     (valid: ValidBefore numbers preamble (start + preamble)) (found: firstInvalidFrom preamble front = Some answer): Part1 numbers preamble answer :=
   match d: front.drop preamble with
     | [number, ..later] =>
@@ -45,11 +45,11 @@ theorem walkSound (numbers: List Nat) (preamble: Nat) (answer: Nat) (front: List
                     rewrite same, isNumber, window in sumsToSound { numbers = [first, ..rest].take preamble } number c)
                 found
 
-theorem part1Rules (data: XmasData) (preamble: Nat) (answer: Nat) (found: data.firstInvalid preamble = Some answer):
+theorem part1Rules ∀ (data: XmasData) (preamble: Nat) (answer: Nat) (found: data.firstInvalid preamble = Some answer):
     Part1 data.numbers preamble answer :=
   walkSound data.numbers preamble answer data.numbers 0 rfl (earlier bounds => Void.exfalso (omega)) found
 
-theorem walkComplete (numbers: List Nat) (preamble: Nat) (answer: Nat) (position: Nat) (listed: numbers.get position = Some answer)
+theorem walkComplete ∀ (numbers: List Nat) (preamble: Nat) (answer: Nat) (position: Nat) (listed: numbers.get position = Some answer)
     (notSum: ¬SumOfTwo (previous numbers preamble position) answer) (valid: ValidBefore numbers preamble position) (front: List Nat) (start: Nat)
     (at: front = numbers.drop start) (ahead: start + preamble ≤ position):
     firstInvalidFrom preamble front = Some answer
@@ -81,11 +81,11 @@ theorem walkComplete (numbers: List Nat) (preamble: Nat) (answer: Nat) (position
                 (rewrite List.dropAdd start 1 numbers, <- at in rfl) (omega)
 
 --| Whenever there is a first invalid number, part 1 finds it.
-theorem part1Complete (data: XmasData) (preamble: Nat) (answer: Nat) (first: Part1 data.numbers preamble answer):
+theorem part1Complete ∀ (data: XmasData) (preamble: Nat) (answer: Nat) (first: Part1 data.numbers preamble answer):
     data.firstInvalid preamble = Some answer :=
   let (Witness position (Both after (Both listed (Both notSum valid)))) := first
   walkComplete data.numbers preamble answer position listed notSum valid data.numbers 0 rfl (omega)
 
 --| "The first number" is one number.
-theorem part1Unique (numbers: List Nat) (preamble: Nat) (a: Nat) (b: Nat) (isA: Part1 numbers preamble a) (isB: Part1 numbers preamble b): a = b :=
+theorem part1Unique ∀ (numbers: List Nat) (preamble: Nat) (a: Nat) (b: Nat) (isA: Part1 numbers preamble a) (isB: Part1 numbers preamble b): a = b :=
   Option.someInjective (Eq.trans (Eq.sym (part1Complete { numbers } preamble a isA)) (part1Complete { numbers } preamble b isB))

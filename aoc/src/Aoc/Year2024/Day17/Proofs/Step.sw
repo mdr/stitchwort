@@ -7,7 +7,7 @@ import Aoc.Year2024.Day17.Spec (..)
 import Std (Bool, Eq, Exists, List, Nat, Option)
 
 --| The program's combo operands stand for what the puzzle's do.
-theorem comboAgrees (registers: Registers) (operand: Nat): Option.map (Combo.decode operand) registers.value = comboValue registers operand :=
+theorem comboAgrees ∀ (registers: Registers) (operand: Nat): Option.map (Combo.decode operand) registers.value = comboValue registers operand :=
   match operand with
     | 0 => rfl
     | 1 => rfl
@@ -19,14 +19,14 @@ theorem comboAgrees (registers: Registers) (operand: Nat): Option.map (Combo.dec
     | Succ (Succ (Succ (Succ (Succ (Succ (Succ operand)))))) => rfl
 
 --| `Nat.xor` is the puzzle's bitwise XOR.
-theorem xorBitwise (x: Nat) (y: Nat): BitwiseXor x y (x.xor y) :=
+theorem xorBitwise ∀ (x: Nat) (y: Nat): BitwiseXor x y (x.xor y) :=
   i =>
     Eq.trans (Eq.sym (Nat.testBitDiv (x.xor y) i))
       (Eq.trans (Nat.testBitXor i x y) (rewrite Nat.testBitDiv x i, Nat.testBitDiv y i in rfl))
 
 --| An instruction with a combo operand, made by `make`, does what `happens`
 --| says of the operand's value.
-theorem comboStep (machine: Machine) (operand: Nat) (make: Combo → Instruction) (after: Nat → Machine) (printed: Nat → Option Nat)
+theorem comboStep ∀ (machine: Machine) (operand: Nat) (make: Combo → Instruction) (after: Nat → Machine) (printed: Nat → Option Nat)
     (executes: ∀ (combo: Combo) => machine.execute (make combo) = Next (after (machine.registers.value combo)) (printed (machine.registers.value combo))):
     WithCombo machine.registers operand
       (match Option.map (Combo.decode operand) make with
@@ -42,7 +42,7 @@ theorem comboStep (machine: Machine) (operand: Nat) (make: Combo → Instruction
     | Some combo => rewrite Eq.sym agrees in executes combo
 
 --| Each opcode, with each operand, does what the puzzle says.
-theorem executesDecode (operand: Nat) (machine: Machine) (opcode: Nat): Executes opcode operand machine
+theorem executesDecode ∀ (operand: Nat) (machine: Machine) (opcode: Nat): Executes opcode operand machine
     (match Instruction.decode opcode operand with
       | Some instruction => machine.execute instruction
       | None => Fault) :=
@@ -67,7 +67,7 @@ theorem executesDecode (operand: Nat) (machine: Machine) (opcode: Nat): Executes
     | Succ (Succ (Succ (Succ (Succ (Succ (Succ (Succ opcode))))))) => rfl
 
 --| Every step the program takes is the puzzle's.
-theorem stepMatches (program: List Nat) (machine: Machine): StepMatches program machine (machine.step program) :=
+theorem stepMatches ∀ (program: List Nat) (machine: Machine): StepMatches program machine (machine.step program) :=
   match fetched: program.get machine.pointer with
     | None => rfl
     | Some opcode =>

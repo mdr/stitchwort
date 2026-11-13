@@ -5,17 +5,17 @@
 
 import Std (List, Nat, Void)
 
-theorem split (m: Nat) (n: Nat): (m < n) ∨ (n <= m) := if h: m < n then Inl h else Inr omega
+theorem split ∀ (m: Nat) (n: Nat): (m < n) ∨ (n <= m) := if h: m < n then Inl h else Inr omega
 
 -- Nested, each branch with its own proof.
-theorem trichotomy (m: Nat) (n: Nat): (m < n) ∨ ((m = n) ∨ (n < m)) :=
+theorem trichotomy ∀ (m: Nat) (n: Nat): (m < n) ∨ ((m = n) ∨ (n < m)) :=
   if lt: m < n then Inl lt else if eq: m = n then Inr (Inl eq) else Inr (Inr omega)
 
 -- With no binder, on a `Bool` or a decided proposition: the branches don't
 -- see the condition's proof.
-theorem onBool (b: Bool): 0 = 0 := if b then rfl else rfl
+theorem onBool ∀ (b: Bool): 0 = 0 := if b then rfl else rfl
 
-theorem onDecided (m: Nat) (rest: List Nat): 0 = 0 := if m < List.length rest then rfl else rfl
+theorem onDecided ∀ (m: Nat) (rest: List Nat): 0 = 0 := if m < List.length rest then rfl else rfl
 
 -- In a record's proof field, built at run time: only the number is computed.
 type Capped = { value: Nat, capped: value <= 10 }

@@ -30,12 +30,12 @@ theorem readsInstruction: Parse.Reads instruction InstructionWritten :=
                   (Witness addressRead (Witness valueRead
                     (Both (rewrite maybe, opened, closed, List.appendNil valueRead in rfl) (Both addressDecimal valueDecimal)))))))))
 
-theorem startsWritten (instructions: List Instruction) (starts: startsWithMask instructions = True): StartsWithMask instructions :=
+theorem startsWritten ∀ (instructions: List Instruction) (starts: startsWithMask instructions = True): StartsWithMask instructions :=
   match instructions with
     | [SetMask mask, ..rest] => Trivial
 
 --| If `parseProgram` reads `input`, its lines are the program written out.
-theorem parseWritten (input: Text) (program: Program) (parsed: Fail.toResult (() => parseProgram input) = Ok program):
+theorem parseWritten ∀ (input: Text) (program: Program) (parsed: Fail.toResult (() => parseProgram input) = Ok program):
     ProgramWritten (input.lines.map Text.toList) program :=
   let check := (instructions: List Instruction) =>
     if startsWithMask instructions then ({ instructions }: Program) else Fail.fail "the program has to start with a mask"

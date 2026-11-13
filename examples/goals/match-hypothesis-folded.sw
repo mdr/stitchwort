@@ -6,6 +6,6 @@ def map: List (List Char) := [['#', '#', '#'], ['#', '.', '#'], ['#', '#', '#']]
 
 def isWall (row: Nat) (column: Nat): Bool := (map.getOr row []).getOr column '#' == '#'
 
-theorem stepped (row: Nat) (column: Nat): row = row := match wall: isWall row column with
+theorem stepped ∀ (row: Nat) (column: Nat): row = row := match wall: isWall row column with
   | True => rfl
   | False => ?

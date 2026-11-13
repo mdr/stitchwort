@@ -6,4 +6,4 @@ import Shop (Spec, total)
 
 theorem emptyAgrees: total [] = Spec.total [] := rfl
 
-theorem oneAgrees (p: Nat): Spec.total [p] = p + 0 := rfl
+theorem oneAgrees ∀ (p: Nat): Spec.total [p] = p + 0 := rfl

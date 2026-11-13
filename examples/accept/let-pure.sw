@@ -6,12 +6,12 @@
 import Std (IO, Nat)
 
 -- A `let` holding a proof.
-theorem two (n: Nat): n ≤ Succ (Succ n) :=
+theorem two ∀ (n: Nat): n ≤ Succ (Succ n) :=
   let h := Nat.leSucc n
   Nat.leTrans n (Succ n) (Succ (Succ n)) h (Nat.leSucc (Succ n))
 
 -- Two in a row, the second using the first.
-theorem three (n: Nat): n ≤ Succ (Succ (Succ n)) :=
+theorem three ∀ (n: Nat): n ≤ Succ (Succ (Succ n)) :=
   let h1 := Nat.leSucc n
   let h2 := Nat.leTrans n (Succ n) (Succ (Succ n)) h1 (Nat.leSucc (Succ n))
   Nat.leTrans n (Succ (Succ n)) (Succ (Succ (Succ n))) h2 (Nat.leSucc (Succ (Succ n)))
@@ -24,7 +24,7 @@ def withLet (n: Nat): Nat :=
 
 def withoutLet (n: Nat): Nat := if n + 1 < 3 then 0 else n + 1
 
-theorem sameShape (n: Nat): withLet (n + 5) = withoutLet (n + 5) := rfl
+theorem sameShape ∀ (n: Nat): withLet (n + 5) = withoutLet (n + 5) := rfl
 
 -- The value is computed once at run time, and the function unfolds to the
 -- body with the value substituted.
@@ -32,7 +32,7 @@ def twice (n: Nat): Nat :=
   let m := n + 1
   m + m
 
-theorem twiceUnfolds (n: Nat): twice n = (n + 1) + (n + 1) := rfl
+theorem twiceUnfolds ∀ (n: Nat): twice n = (n + 1) + (n + 1) := rfl
 
 -- Binding a function that performs an ability is pure: only calling it
 -- performs.
@@ -43,7 +43,7 @@ def bindsEffectful (n: Nat): Nat :=
   let f: () → {Ask} Nat := u => ask() + n
   n + 1
 
-theorem bindsEffectfulPure (n: Nat): bindsEffectful n = n + 1 := rfl
+theorem bindsEffectfulPure ∀ (n: Nat): bindsEffectful n = n + 1 := rfl
 
 -- Calling a function bound by a `let` performs what its type says.
 def callsBound (n: Nat): {Ask} Nat :=

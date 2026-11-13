@@ -5,8 +5,8 @@
 -- below was built at `Nat` (a type mismatch) or `Bool` (not the goal).
 import Std (Bool, List, Nat, Pair)
 
-theorem sndEqual (x: Nat) (p: Bool) (y: Nat) (q: Bool) (h: (x, p) = (y, q)): p = q := cases
+theorem sndEqual ∀ (x: Nat) (p: Bool) (y: Nat) (q: Bool) (h: (x, p) = (y, q)): p = q := cases
 
-theorem sndEqualSwapped (x: Bool) (p: Nat) (y: Bool) (q: Nat) (h: (x, p) = (y, q)): p = q := cases
+theorem sndEqualSwapped ∀ (x: Bool) (p: Nat) (y: Bool) (q: Nat) (h: (x, p) = (y, q)): p = q := cases
 
-theorem tailEqual (x: Nat) (xs: List Nat) (y: Nat) (ys: List Nat) (h: [x, ..xs] = [y, ..ys]): xs = ys := cases
+theorem tailEqual ∀ (x: Nat) (xs: List Nat) (y: Nat) (ys: List Nat) (h: [x, ..xs] = [y, ..ys]): xs = ys := cases

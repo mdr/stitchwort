@@ -23,4 +23,4 @@ def smallFirsts (pairs: List (Pair Nat Nat)): Nat := pairs.map (.fst <= 2) |> .c
 test "a method section that compares" := smallFirsts [MkPair 1 9, MkPair 3 0, MkPair 2 2] == 2
 
 -- Where a proposition is expected, the section is the proposition.
-theorem allSmall (xs: List Nat) (h: List.All (< 5) xs): List.All (< 5) xs := h
+theorem allSmall ∀ (xs: List Nat) (h: List.All (< 5) xs): List.All (< 5) xs := h

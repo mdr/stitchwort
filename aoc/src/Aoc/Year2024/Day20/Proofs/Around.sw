@@ -11,12 +11,12 @@ def aroundRow (position: Position) (length: Nat) (row: Nat): List Position :=
   let spare := length - Nat.absDiff row position.row
   List.range (position.column - spare) (position.column + spare + 1) |> .map (column => ({ row, column }: Position))
 
-theorem aroundRows (position: Position) (length: Nat):
+theorem aroundRows ∀ (position: Position) (length: Nat):
     position.diamond length = List.range (position.row - length) (position.row + length + 1) |> .flatMap (aroundRow position length) :=
   rfl
 
 --| Every position listed is at most `length` away.
-theorem aroundSound (position: Position) (length: Nat) (other: Position) (member: other ∈ position.diamond length):
+theorem aroundSound ∀ (position: Position) (length: Nat) (other: Position) (member: other ∈ position.diamond length):
     position.distance other ≤ length :=
   let rows := List.range (position.row - length) (position.row + length + 1)
   List.anyElim _ _ rows (List.memFlatMapElim (aroundRow position length) other rows (rewrite <- aroundRows position length in member))
@@ -28,7 +28,7 @@ theorem aroundSound (position: Position) (length: Nat) (other: Position) (member
         rewrite <- same in omega [rowLow, rowHigh, columnLow, columnHigh]))
 
 --| Every position at most `length` away is listed.
-theorem aroundComplete (position: Position) (length: Nat) (other: Position) (near: position.distance other ≤ length): other ∈ position.diamond length :=
+theorem aroundComplete ∀ (position: Position) (length: Nat) (other: Position) (near: position.distance other ≤ length): other ∈ position.diamond length :=
   match other with
     | { row, column } =>
       let spare := length - Nat.absDiff row position.row
@@ -40,7 +40,7 @@ theorem aroundComplete (position: Position) (length: Nat) (other: Position) (nea
             (other => ({ row, column = other }: Position)))
 
 --| No position is listed twice.
-theorem distinctAround (position: Position) (length: Nat): List.Distinct (position.diamond length) :=
+theorem distinctAround ∀ (position: Position) (length: Nat): List.Distinct (position.diamond length) :=
   rewrite aroundRows position length in
     List.distinctFlatMap (aroundRow position length) (other => other.row) (List.range (position.row - length) (position.row + length + 1))
       (List.distinctRange (position.row - length) (position.row + length + 1))

@@ -25,22 +25,22 @@ theorem orComm: Or p q → Or q p
   | Inr h => Inl h
 
 -- Implicit parameters are in scope in the equations, by name.
-theorem appendNil: ∀ (xs: List a) => xs.append [] = xs
+theorem appendNil ∀ (xs: List a): xs.append [] = xs := match xs with
   | [] => rfl
   | [x, ..xs] => Eq.cong (ys => [x, ..ys]) (appendNil xs)
 
-theorem plusZeroNat: ∀ (n: Nat) => n + 0 = n
+theorem plusZeroNat ∀ (n: Nat): n + 0 = n := match n with
   | Zero => rfl
   | Succ m => Eq.cong Succ (plusZeroNat m)
 
 -- `Eq.sym` and `Eq.trans` from the prelude, with everything implicit.
-theorem twoWays (n: Nat): n + 0 = 0 + n := Eq.trans (plusZeroNat n) (Eq.sym rfl)
+theorem twoWays ∀ (n: Nat): n + 0 = 0 + n := Eq.trans (plusZeroNat n) (Eq.sym rfl)
 
 -- An implicit parameter between two explicit ones: `b` is in scope by name.
 def constant (x: a) [b: Type] (y: b): a := x
 
 -- A later implicit parameter, supplied by name (`Eq.cong` has `a` before `b`).
-theorem succCong (m: Nat) (n: Nat) (p: m = n): Succ m = Succ n := Eq.cong [b := Nat] Succ p
+theorem succCong ∀ (m: Nat) (n: Nat) (p: m = n): Succ m = Succ n := Eq.cong [b := Nat] Succ p
 
 -- A definition without patterns still has its implicit parameters in scope.
 def identity: [a: Type] → a → a := x => x

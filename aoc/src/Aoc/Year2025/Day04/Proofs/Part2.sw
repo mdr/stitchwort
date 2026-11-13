@@ -11,29 +11,29 @@ import Aoc.Year2025.Day04.Spec (..)
 import Std (Bool, Eq, List, Nat, Vec, Void)
 
 --| The rolls the program counts are the spec's.
-theorem rollsIsCount (grid: Grid) (rows: Vec (Vec Cell grid.width) grid.height): countRolls rows = grid.rollCount (rowsCells rows) :=
+theorem rollsIsCount ∀ (grid: Grid) (rows: Vec (Vec Cell grid.width) grid.height): countRolls rows = grid.rollCount (rowsCells rows) :=
   rewrite rollsCells rows, <- isRollCount _, countPositionsSum grid (r c => rowsCells rows r c == Roll)
 
 --| The program's round is the spec's.
-theorem roundCells (grid: Grid) (rows: Vec (Vec Cell grid.width) grid.height): Same (rowsCells (roundRows rows)) (grid.removeAccessible (rowsCells rows)) :=
+theorem roundCells ∀ (grid: Grid) (rows: Vec (Vec Cell grid.width) grid.height): Same (rowsCells (roundRows rows)) (grid.removeAccessible (rowsCells rows)) :=
   r c =>
     Eq.trans (cellRound rows r c)
       (rewrite windowIsNeighbours grid (rowsCells rows) (rowsCellsBelow rows) (rowsCellsRight rows) r c in
         keepRemove (rowsCells rows r c) (grid.neighbours (rowsCells rows) r c))
 
 --| One step of `settleRows`: another round when it removes a roll, else done.
-theorem settleMore (rows: Vec (Vec Cell w) h) (fewer: Nat.leq (Succ (countRolls (roundRows rows))) (countRolls rows) = True): settleRows rows = settleRows (roundRows rows) :=
+theorem settleMore ∀ (rows: Vec (Vec Cell w) h) (fewer: Nat.leq (Succ (countRolls (roundRows rows))) (countRolls rows) = True): settleRows rows = settleRows (roundRows rows) :=
   rewrite settleRows.unfold rows in
   rewrite fewer in
   rfl
 
-theorem settleDone (rows: Vec (Vec Cell w) h) (done: Nat.leq (Succ (countRolls (roundRows rows))) (countRolls rows) = False): settleRows rows = rows :=
+theorem settleDone ∀ (rows: Vec (Vec Cell w) h) (done: Nat.leq (Succ (countRolls (roundRows rows))) (countRolls rows) = False): settleRows rows = rows :=
   rewrite settleRows.unfold rows in
   rewrite done in
   rfl
 
 --| The loop ends where `fuel` rounds do, for any `fuel` of at least the rolls.
-theorem settleRounds (grid: Grid) (rows: Vec (Vec Cell grid.width) grid.height) (fuel: Nat) (enough: countRolls rows ≤ fuel):
+theorem settleRounds ∀ (grid: Grid) (rows: Vec (Vec Cell grid.width) grid.height) (fuel: Nat) (enough: countRolls rows ≤ fuel):
     Same (rowsCells (settleRows rows)) (grid.rounds fuel (rowsCells rows))
     decreasing countRolls rows
 :=
@@ -58,7 +58,7 @@ theorem settleRounds (grid: Grid) (rows: Vec (Vec Cell grid.width) grid.height) 
 
 --| Part 2 is right for every grid: the printed answer is the number of rolls
 --| the puzzle's rounds remove.
-theorem part2Correct (grid: Grid): solvePart2 grid = part2Spec grid :=
+theorem part2Correct ∀ (grid: Grid): solvePart2 grid = part2Spec grid :=
   let cells := grid.cells
   let start := grid.rollCount cells
   let settled := settleRows grid.rows

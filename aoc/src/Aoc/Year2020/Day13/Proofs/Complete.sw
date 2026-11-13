@@ -9,20 +9,21 @@ import Aoc.Year2020.Day13 (..)
 import Aoc.Year2020.Day13.Spec (NotesWritten, SlotWritten)
 import Std (Bool, Char, DecEq, Eq, Exists, Fail, List, NonEmptyList, Parse, Result, Text, Void)
 
-theorem runsAsValue (p: () → {Parse} a) (read: List Char) (rest: List Char) (v: a) (w: a) (same: v = w) (runs: Parse.Runs p read rest v): Parse.Runs p read rest w :=
+theorem runsAsValue ∀ (p: () → {Parse} a) (read: List Char) (rest: List Char) (v: a) (w: a) (same: v = w) (runs: Parse.Runs p read rest v): Parse.Runs p read rest w :=
   rewrite same at runs in runs
 
-theorem digitNotX (char: Char) (isDigit: Parse.isDigit char = True): (char == 'x') = False := match e: char == 'x' with
-  | False => rfl
-  | True => cases
+theorem digitNotX ∀ (char: Char) (isDigit: Parse.isDigit char = True): (char == 'x') = False :=
+  match e: char == 'x' with
+    | False => rfl
+    | True => cases
 
-theorem declinesX (read: List Char) (after: List Char) (some: read ≠ []) (all: read.all Parse.isDigit = True):
+theorem declinesX ∀ (read: List Char) (after: List Char) (some: read ≠ []) (all: read.all Parse.isDigit = True):
     Parse.Declines (() => Parse.char 'x') (read ++ after) := match read with
       | [] => Void.exfalso (some rfl)
       | [char, ..more] => Parse.declinesChar 'x' char (more ++ after) (digitNotX char all.left)
 
 --| `slot` on a bus ID or an `x`, before something that doesn't continue the digits.
-theorem runsSlot (read: List Char) (slot2: Slot) (written: SlotWritten read slot2) (after: List Char) (stops: Parse.CannotStart Parse.isDigit after):
+theorem runsSlot ∀ (read: List Char) (slot2: Slot) (written: SlotWritten read slot2) (after: List Char) (stops: Parse.CannotStart Parse.isDigit after):
     Parse.Runs slot read after slot2 := match slot2 with
       | OutOfService =>
         rewrite written in
@@ -40,12 +41,12 @@ theorem runsSlot (read: List Char) (slot2: Slot) (written: SlotWritten read slot
                   (zero => Void.exfalso (notZero (Eq.trans decimal zero.read)))
                   (nonZero => runsAsValue (() => Listed (Parse.digitsValue read)) [] after _ _ (rewrite decimal in rfl) (Parse.runsPure (Listed (Parse.digitsValue read)) after))))
 
-theorem notesEta (notes2: Notes): { earliest = notes2.earliest, schedule = notes2.schedule } = notes2 :=
+theorem notesEta ∀ (notes2: Notes): { earliest = notes2.earliest, schedule = notes2.schedule } = notes2 :=
   match notes2 with
     | { earliest, schedule } => rfl
 
 --| `notes` on notes written out, before nothing but line breaks.
-theorem runsNotes (read: List Char) (notes2: Notes) (written: NotesWritten read notes2) (ending: List Char) (breaks: Parse.OnlyBreaks ending):
+theorem runsNotes ∀ (read: List Char) (notes2: Notes) (written: NotesWritten read notes2) (ending: List Char) (breaks: Parse.OnlyBreaks ending):
     Parse.Runs notes read ending notes2 := match written with
       | Witness digits (Witness lineBreak (Witness entries (Witness slots (Both split (Both nonEmpty (Both allDigits (Both decimal (Both isBreak (Both listed same))))))))) =>
         match slots, listed, same with
@@ -77,11 +78,11 @@ def InputWritten (input: Text) (notes2: Notes): Prop :=
     input.toList = read ++ ending ∧ NotesWritten read notes2 ∧ ending.all (char => char == '\n' ∨ char == '\r') = True
 
 --| Input that is notes written out is read as those notes.
-theorem parseComplete (input: Text) (notes2: Notes) (written: InputWritten input notes2): Fail.toResult (() => parseNotes input) = Ok notes2 :=
+theorem parseComplete ∀ (input: Text) (notes2: Notes) (written: InputWritten input notes2): Fail.toResult (() => parseNotes input) = Ok notes2 :=
   match written with
     | Witness read (Witness ending (Both split (Both notesWritten breaks))) =>
       Parse.runsAll input notes read ending notes2 split breaks (runsNotes read notes2 notesWritten ending breaks)
 
 --| Soundness (`parseWritten`) is the converse: the input is written as at most one set of notes.
-theorem writtenUnique (input: Text) (a: Notes) (b: Notes) (writtenA: InputWritten input a) (writtenB: InputWritten input b): a = b :=
+theorem writtenUnique ∀ (input: Text) (a: Notes) (b: Notes) (writtenA: InputWritten input a) (writtenB: InputWritten input b): a = b :=
   Result.okInjective (Eq.trans (Eq.sym (parseComplete input a writtenA)) (parseComplete input b writtenB))

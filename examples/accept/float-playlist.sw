@@ -14,17 +14,17 @@ def NoNegativeDurations: List Track → Prop
   | [] => Unit
   | [track, ..rest] => (0.0 <= track.duration) ∧ (NoNegativeDurations rest)
 
-theorem nextStartNotEarlier (start: Float) (duration: Float) (nonNegative: 0.0 <= duration):
-    ∀ (rest: List Track) => List.LeHead Float.leq start (startTimes (start + duration) rest)
-  | [] => Trivial
-  | [next, ..more] => Float.addMonotoneRight start duration nonNegative
+theorem nextStartNotEarlier ∀ (start: Float) (duration: Float) (nonNegative: 0.0 <= duration)
+    (rest: List Track): List.LeHead Float.leq start (startTimes (start + duration) rest) := match rest with
+      | [] => Trivial
+      | [next, ..more] => Float.addMonotoneRight start duration nonNegative
 
-theorem startTimesAscend: ∀ (start: Float) (tracks: List Track) => NoNegativeDurations tracks
-    → List.Sorted Float.leq (startTimes start tracks)
-  | start, [], ok => Trivial
-  | start, [track, ..rest], Both nonNegative restOk =>
-    Both (nextStartNotEarlier start track.duration nonNegative rest)
-      (startTimesAscend (start + track.duration) rest restOk)
+theorem startTimesAscend ∀ (start: Float) (tracks: List Track) (ok: NoNegativeDurations tracks):
+    List.Sorted Float.leq (startTimes start tracks) := match tracks, ok with
+      | [], ok => Trivial
+      | [track, ..rest], Both nonNegative restOk =>
+        Both (nextStartNotEarlier start track.duration nonNegative rest)
+          (startTimesAscend (start + track.duration) rest restOk)
 
 def playlist: List Track := [
   { title = "Intro", duration = 0.0 },

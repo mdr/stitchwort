@@ -11,13 +11,13 @@ type P = { x: Nat, y: Nat }
 
 def shift (b: Bool) (p: P): P := if b then { p | x = p.x + 1 } else p
 
-theorem holesExt (b: Bool) (p: P) (q: P) (sameX: q.x = (shift b p).x) (sameY: q.y = p.y): q = shift b p :=
+theorem holesExt ∀ (b: Bool) (p: P) (q: P) (sameX: q.x = (shift b p).x) (sameY: q.y = p.y): q = shift b p :=
   P.ext _ _ cases cases
 
 -- Day 14 (SW-971): a lambda whose `.snd` and `==` wait for the list after
 -- it, then `omega` about both, in a `match` scrutinee, where nothing is
 -- expected of the call.
-theorem positiveSum (f: a → Nat) (xs: List a) (h: 0 < List.sumBy xs f): 0 < List.sumBy xs f := h
+theorem positiveSum ∀ (f: a → Nat) (xs: List a) (h: 0 < List.sumBy xs f): 0 < List.sumBy xs f := h
 
 def lambdaFirst (counts: List ((Char, Char), Nat)) (pair: (Char, Char)) (given: 0 < List.sumBy counts (entry => entry.snd * Bool.toNat (entry.fst == pair))): Nat :=
   match positiveSum (entry => entry.snd * Bool.toNat (entry.fst == pair)) counts (omega [given]) with
@@ -26,7 +26,7 @@ def lambdaFirst (counts: List ((Char, Char), Nat)) (pair: (Char, Char)) (given: 
 -- Day 14: the `[auto eq: DecEq a]` dictionary of
 -- `List.memOfCountPositive`, found once its type is known, before `omega`
 -- reads its goal.
-theorem autoFirst (c: Char) (first: Char) (tail: List Char) (positive: 0 < List.count [first, ..tail] (== c)):
+theorem autoFirst ∀ (c: Char) (first: Char) (tail: List Char) (positive: 0 < List.count [first, ..tail] (== c)):
     c ∈ [first, ..tail] :=
   List.memOfCountPositive c [first, ..tail] (omega [positive])
 
@@ -38,12 +38,11 @@ theorem autoFirst (c: Char) (first: Char) (tail: List Char) (positive: 0 < List.
 -- (`std/Float/Theory.sw`'s `unitsRoundNonpos` has this shape).
 def capped (m: Nat): Nat := if m < 100 then m + 0 else m
 
-theorem cappedExact (m: Nat) (pm: 0 < m) (hm: m < 100): capped m = m := match c: m < 100 with
+theorem cappedExact ∀ (m: Nat) (pm: 0 < m) (hm: m < 100): capped m = m := match c: m < 100 with
   | True => rfl
   | False => rfl
 
-theorem cappedSelf: ∀ (x: Nat) => 0 < x → capped x + 5 = capped x + 5
-  | _, p => rfl
+theorem cappedSelf ∀ (x: Nat) (p: 0 < x): capped x + 5 = capped x + 5 := rfl
 
-theorem outerLambda (k: Nat) (hm: Succ k < 100): capped (Succ k) + 5 = Succ k + 5 :=
+theorem outerLambda ∀ (k: Nat) (hm: Succ k < 100): capped (Succ k) + 5 = Succ k + 5 :=
   Eq.trans (cappedSelf (Succ k) (omega)) (Eq.cong (x => x + 5) (cappedExact (Succ k) (omega) hm))

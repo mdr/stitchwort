@@ -24,20 +24,20 @@ test "low when the test fails at once" := Nat.partitionPoint 3 10 (n => False) =
 test "low for an empty range" := Nat.partitionPoint 5 5 (n => n < 7) == 5
 
 --| One step of the search: a halving while the range is not empty.
-theorem Nat.partitionPointSplit (low: Nat) (high: Nat) (p: Nat → Bool) (apart: Nat.leq (Succ low) high = True):
+theorem Nat.partitionPointSplit ∀ (low: Nat) (high: Nat) (p: Nat → Bool) (apart: Nat.leq (Succ low) high = True):
     Nat.partitionPoint low high p
       = (if p ((low + high) / 2) then Nat.partitionPoint ((low + high) / 2 + 1) high p else Nat.partitionPoint low ((low + high) / 2) p) :=
   rewrite Nat.partitionPoint.unfold low high p in
     Decidable.elimEq _ _ _ _ (isApart => rfl) (notApart => Void.exfalso (notApart apart))
 
 --| The search ends at `low` once the range is empty.
-theorem Nat.partitionPointDone (low: Nat) (high: Nat) (p: Nat → Bool) (close: Nat.leq (Succ low) high = False): Nat.partitionPoint low high p = low :=
+theorem Nat.partitionPointDone ∀ (low: Nat) (high: Nat) (p: Nat → Bool) (close: Nat.leq (Succ low) high = False): Nat.partitionPoint low high p = low :=
   rewrite Nat.partitionPoint.unfold low high p in
     Decidable.elimEq _ _ _ _ (isApart => cases) (notApart => rfl)
 
 --| For any test: the answer is from `low` to `high`; `p` holds just before
 --| it, unless it is `low`; and `p` fails at it, unless it is `high`.
-theorem Nat.partitionPointBounds (low: Nat) (high: Nat) (p: Nat → Bool) (ordered: low ≤ high):
+theorem Nat.partitionPointBounds ∀ (low: Nat) (high: Nat) (p: Nat → Bool) (ordered: low ≤ high):
     (low ≤ Nat.partitionPoint low high p) ∧ ((Nat.partitionPoint low high p ≤ high) ∧ (((Nat.partitionPoint low high p = low) ∨ (p (Nat.partitionPoint low high p - 1) = True)) ∧ ((Nat.partitionPoint low high p = high) ∨ (p (Nat.partitionPoint low high p) = False))))
     decreasing high - low := match apart: Nat.leq (Succ low) high with
       | True =>
@@ -72,7 +72,7 @@ theorem Nat.partitionPointBounds (low: Nat) (high: Nat) (p: Nat → Bool) (order
 --| When `p` holds up to some point and fails after it, the answer is that
 --| point. That is, `p` holds at every number from `low` before it, and fails
 --| at every number from it up to `high`.
-theorem Nat.partitionPointSpec (low: Nat) (high: Nat) (p: Nat → Bool) (ordered: low ≤ high)
+theorem Nat.partitionPointSpec ∀ (low: Nat) (high: Nat) (p: Nat → Bool) (ordered: low ≤ high)
     (monotone: ∀ (smaller larger: Nat) => smaller ≤ larger → p larger = True → p smaller = True):
     (∀ (n: Nat) => low ≤ n → n < Nat.partitionPoint low high p → p n = True) ∧ (∀ (n: Nat) => Nat.partitionPoint low high p ≤ n → n < high → p n = False) :=
   let (Both above (Both below (Both before after))) := Nat.partitionPointBounds low high p ordered

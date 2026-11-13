@@ -9,7 +9,7 @@ import Aoc.Year2020.Day14 (Spec)
 import Std (Bool, DecEq, Eq, List, Nat, Void)
 
 --| What `decodeBits` lists fits the mask and the address, bit by bit.
-theorem decodedFit (mask: List MaskBit) (address bits: List Bool) (member: bits ∈ decodeBits mask address)
+theorem decodedFit ∀ (mask: List MaskBit) (address bits: List Bool) (member: bits ∈ decodeBits mask address)
     (same: address.length = mask.length): bits.length = mask.length ∧ Spec.allFit mask address bits = True :=
   match mask, address with
     | [], [] =>
@@ -43,7 +43,7 @@ theorem decodedFit (mask: List MaskBit) (address bits: List Bool) (member: bits 
     | [maskBit, ..mask], [] => Void.exfalso (omega)
 
 --| Every list of bits that fits the mask and the address is listed.
-theorem fitDecoded (mask: List MaskBit) (address bits: List Bool) (sameAddress: address.length = mask.length)
+theorem fitDecoded ∀ (mask: List MaskBit) (address bits: List Bool) (sameAddress: address.length = mask.length)
     (sameBits: bits.length = mask.length) (fit: Spec.allFit mask address bits = True): bits ∈ decodeBits mask address :=
   match mask, address, bits with
     | [], [], [] => Inl rfl
@@ -64,7 +64,7 @@ theorem fitDecoded (mask: List MaskBit) (address bits: List Bool) (sameAddress: 
     | [maskBit, ..mask], [], bits => Void.exfalso (omega)
     | [maskBit, ..mask], [bit, ..address], [] => Void.exfalso (omega)
 
-theorem decodeSound (mask: Mask) (address: Nat) (target: Nat) (member: target ∈ mask.decode address): Spec.Decodes mask address target = True :=
+theorem decodeSound ∀ (mask: Mask) (address: Nat) (target: Nat) (member: target ∈ mask.decode address): Spec.Decodes mask address target = True :=
   let width := mask.bits.length
   match List.memMapElim Nat.fromBits target (decodeBits mask.bits (Nat.toBits width address)) member with
     | Witness bits (Both listed built) =>
@@ -76,7 +76,7 @@ theorem decodeSound (mask: Mask) (address: Nat) (target: Nat) (member: target �
             match small: Nat.fromBits bits < Nat.pow 2 width with
               | True => rewrite back, fit in rfl
 
-theorem decodeComplete (mask: Mask) (address: Nat) (target: Nat) (decodes: Spec.Decodes mask address target = True): target ∈ mask.decode address :=
+theorem decodeComplete ∀ (mask: Mask) (address: Nat) (target: Nat) (decodes: Spec.Decodes mask address target = True): target ∈ mask.decode address :=
   let width := mask.bits.length
   let below: target < Nat.pow 2 width := omega [decodes.left]
   let listed :=
@@ -85,7 +85,7 @@ theorem decodeComplete (mask: Mask) (address: Nat) (target: Nat) (decodes: Spec.
   rewrite <- Nat.fromBitsToBits width target below in List.memMap _ (Nat.toBits width target) listed Nat.fromBits
 
 --| The decoder's list holds an address exactly when the spec's write reaches it.
-theorem decodeContains (mask: Mask) (address: Nat) (target: Nat): (mask.decode address).contains target = Spec.Decodes mask address target :=
+theorem decodeContains ∀ (mask: Mask) (address: Nat) (target: Nat): (mask.decode address).contains target = Spec.Decodes mask address target :=
   match decodes: Spec.Decodes mask address target with
     | True => (List.memContains (mask.decode address) target).backward (decodeComplete mask address target decodes)
     | False =>

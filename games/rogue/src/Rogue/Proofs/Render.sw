@@ -14,12 +14,12 @@ import Rogue (..)
 import Std (Bool, DecEq, Eq, List, Nat, Option, Pair, Text, Void)
 
 --| The player's mark is the first on the player's row, so it's drawn.
-theorem glyphAtPlayer (state: State) (terrain: Char): glyphAt (marksIn state state.player.row) state.player.column terrain = '@' :=
+theorem glyphAtPlayer ∀ (state: State) (terrain: Char): glyphAt (marksIn state state.player.row) state.player.column terrain = '@' :=
   rewrite natEqSelf state.player.row, natEqSelf state.player.column in rfl
 
 --| Among the monsters' marks on a cell's row, the first in the cell's column
 --| is the glyph of the monster `monsterAt` finds there.
-theorem lookupMonsterMark (position: Position) (found: Monster) (rest: List (Nat, Char))
+theorem lookupMonsterMark ∀ (position: Position) (found: Monster) (rest: List (Nat, Char))
     (monsters: List Monster) (located: monsterAt position monsters = Some found): (List.append (monsters.filterMap (monster => if monster.position.row == position.row then Some (monster.position.column, monster.kind.glyph) else None)) rest).lookup position.column
     = Some found.kind.glyph := match monsters with
       | [monster, ..others] =>
@@ -34,7 +34,7 @@ theorem lookupMonsterMark (position: Position) (found: Monster) (rest: List (Nat
               | False => lookupMonsterMark position found rest others located
 
 --| A monster's cell, unless the player stands there, shows that monster.
-theorem glyphAtMonster (state: State) (position: Position) (found: Monster) (located: monsterAt position state.monsters = Some found)
+theorem glyphAtMonster ∀ (state: State) (position: Position) (found: Monster) (located: monsterAt position state.monsters = Some found)
     (notPlayer: (state.player == position) = False) (terrain: Char):
     glyphAt (marksIn state position.row) position.column terrain = found.kind.glyph :=
   let items := state.items.filterMap (item => if item.position.row == position.row then Some (item.position.column, item.loot.glyph) else None)
@@ -45,7 +45,7 @@ theorem glyphAtMonster (state: State) (position: Position) (found: Monster) (loc
 --| The character `render` draws at a cell of the level is `glyphAt` of what
 --| stands on the cell's row, over the terrain there (for a cell the terrain
 --| covers, as every made level's terrain covers the level).
-theorem renderCell (state: State) (position: Position) (tall: position.row < state.level.terrain.length)
+theorem renderCell ∀ (state: State) (position: Position) (tall: position.row < state.level.terrain.length)
     (wide: position.column < (state.level.terrain.getOr position.row []).length):
     render state |> .getOr position.row "" |> .toList |> .getOr position.column ' ' =
       glyphAt (marksIn state position.row) position.column ((state.level.terrain.getOr position.row []).getOr position.column ' ') :=
@@ -66,7 +66,7 @@ theorem renderCell (state: State) (position: Position) (tall: position.row < sta
   rewrite first, second in rewrite third in rfl
 
 --| `render` draws `@` at the player's row and column.
-theorem renderPlayer (state: State) (tall: state.player.row < state.level.terrain.length)
+theorem renderPlayer ∀ (state: State) (tall: state.player.row < state.level.terrain.length)
     (wide: state.player.column < (state.level.terrain.getOr state.player.row []).length):
     render state |> .getOr state.player.row "" |> .toList |> .getOr state.player.column ' ' = '@' :=
   rewrite renderCell state state.player tall wide in glyphAtPlayer state _
@@ -74,7 +74,7 @@ theorem renderPlayer (state: State) (tall: state.player.row < state.level.terrai
 --| And a monster's glyph at each monster's cell: the first monster there, if
 --| more than one stood on it (which a valid state never has), and unless the
 --| player stands there (which a valid state never has either).
-theorem renderMonster (state: State) (position: Position) (found: Monster) (located: monsterAt position state.monsters = Some found)
+theorem renderMonster ∀ (state: State) (position: Position) (found: Monster) (located: monsterAt position state.monsters = Some found)
     (notPlayer: (state.player == position) = False) (tall: position.row < state.level.terrain.length)
     (wide: position.column < (state.level.terrain.getOr position.row []).length):
     render state |> .getOr position.row "" |> .toList |> .getOr position.column ' ' = found.kind.glyph :=
@@ -82,7 +82,7 @@ theorem renderMonster (state: State) (position: Position) (found: Monster) (loca
 
 --| In a valid state every monster is drawn at its cell: no other monster
 --| shares it (`Apart`), and the player is never on it (`Clear`).
-theorem renderEveryMonster (state: State) (valid: Valid state) (monster: Monster) (listed: List.Mem monster state.monsters)
+theorem renderEveryMonster ∀ (state: State) (valid: Valid state) (monster: Monster) (listed: List.Mem monster state.monsters)
     (tall: monster.position.row < state.level.terrain.length) (wide: monster.position.column < (state.level.terrain.getOr monster.position.row []).length):
     render state |> .getOr monster.position.row "" |> .toList |> .getOr monster.position.column ' ' = monster.kind.glyph :=
   let located := monsterAtOwnCell monster state.monsters valid.apart listed

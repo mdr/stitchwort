@@ -18,14 +18,15 @@ def arrow: Direction → Key
   | East => Right
 
 --| Each arrow moves its way.
-theorem arrowMoves (direction: Direction): commandOf (arrow direction) = Some (Move direction) := match direction with
-  | North => rfl
-  | South => rfl
-  | West => rfl
-  | East => rfl
+theorem arrowMoves ∀ (direction: Direction): commandOf (arrow direction) = Some (Move direction) :=
+  match direction with
+    | North => rfl
+    | South => rfl
+    | West => rfl
+    | East => rfl
 
 --| The bytes a terminal sends for an arrow decode to that arrow, whatever follows.
-theorem arrowDecodes (rest: List Nat) (direction: Direction): Key.next (Key.bytes (arrow direction) ++ rest) = Got (arrow direction) rest :=
+theorem arrowDecodes ∀ (rest: List Nat) (direction: Direction): Key.next (Key.bytes (arrow direction) ++ rest) = Got (arrow direction) rest :=
   match direction with
     | North => Key.nextBytes rest Up rfl
     | South => Key.nextBytes rest Down rfl
@@ -56,7 +57,7 @@ def commandKeys: List Char := ['h', 'j', 'k', 'l', 'a', 's', 'w', 'd', '.', '>',
 --| A key in `commandKeys`, decided: in each arm below the key is a literal,
 --| so the decision's test computes to `True`. (Not an `auto` argument: `auto`
 --| searches at most 8 deep, and `'w'` is the 7th key.)
-theorem listedKey (char: Char) (yes: (List.decMem char commandKeys).holds = True): char ∈ commandKeys :=
+theorem listedKey ∀ (char: Char) (yes: (List.decMem char commandKeys).holds = True): char ∈ commandKeys :=
   (List.decMem char commandKeys).sound yes
 
 --| No other printable key is a command: a printable key that is a command
@@ -64,14 +65,14 @@ theorem listedKey (char: Char) (yes: (List.decMem char commandKeys).holds = True
 --
 -- By the same match as `commandOfChar`'s: in the `_` arm the key
 -- is none of those, so `commandOfChar` takes its `_` arm too.
-theorem onlyListedKeys (char: Char) (command: Command) (found: commandOfChar char = Some command): char ∈ commandKeys :=
+theorem onlyListedKeys ∀ (char: Char) (command: Command) (found: commandOfChar char = Some command): char ∈ commandKeys :=
   match char with
     | 'k' | 'w' | 'j' | 's' | 'h' | 'a' | 'l' | 'd' | '.' | '>' | 'p' | 'q' => listedKey char rfl
     | _ => Void.exfalso (Option.noneNotSome command found)
 
 --| And no other key at all: a key that is a command is an arrow, or one of
 --| those printable keys.
-theorem onlyCommandKeys (key: Key) (command: Command) (found: commandOf key = Some command):
+theorem onlyCommandKeys ∀ (key: Key) (command: Command) (found: commandOf key = Some command):
     (exists (direction: Direction) => key = arrow direction) ∨ (exists (char: Char) => (key = Printable char) ∧ (char ∈ commandKeys)) :=
   match key with
     | Up => Inl (Witness North rfl)

@@ -163,7 +163,7 @@ def Grid.width (grid: Grid a): Nat := firstWidth grid.rows
 
 --| A grid has a column, so `column % grid.width` can be written with this
 --| in scope: `let nonZero := grid.widthNonZero`.
-theorem Grid.widthNonZero (grid: Grid a): grid.width ≠ 0 := same => grid.nonEmpty.read same
+theorem Grid.widthNonZero ∀ (grid: Grid a): grid.width ≠ 0 := same => grid.nonEmpty.read same
 
 --| Every row is as long as the first.
 def Grid.Rectangle (grid: Grid a): Prop := ∀ (row: List a) => row ∈ grid.rows → row.length = grid.width
@@ -200,7 +200,7 @@ def Grid.step (grid: Grid a) (position: Position) (direction: Direction): Option
     | None => None
 
 --| Mapping the cells keeps the first row's length.
-theorem mapFirstWidth (rows: List (List a)) (f: Position → a → b): firstWidth (mapCells rows f) = firstWidth rows :=
+theorem mapFirstWidth ∀ (rows: List (List a)) (f: Position → a → b): firstWidth (mapCells rows f) = firstWidth rows :=
   match rows with
     | [] => rfl
     | [first, ..rest] => List.lengthMapWithIndex first (c cell => f { row = 0, column = c } cell)

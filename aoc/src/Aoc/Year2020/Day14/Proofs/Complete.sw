@@ -8,13 +8,13 @@ import Aoc.Year2020.Day14 (..)
 import Aoc.Year2020.Day14.Spec (InstructionWritten, MaskBitWritten, ProgramWritten, StartsWithMask)
 import Std (Bool, Char, Eq, Exists, Fail, List, Parse, Result, Text, Void)
 
-theorem runsMaskBit (read: List Char) (bit: MaskBit) (rest: List Char) (written: MaskBitWritten read bit): Parse.Runs maskBit read rest bit :=
+theorem runsMaskBit ∀ (read: List Char) (bit: MaskBit) (rest: List Char) (written: MaskBitWritten read bit): Parse.Runs maskBit read rest bit :=
   match bit with
     | Off => rewrite written in Parse.runsPick [] "0" Off [("1", On), ("X", X)] rest rfl
     | On => rewrite written in Parse.runsPick [("0", Off)] "1" On [("X", X)] rest (Both rfl rfl)
     | X => rewrite written in Parse.runsPick [("0", Off), ("1", On)] "X" X [] rest (Both rfl (Both rfl rfl))
 
-theorem runsInstruction (read: List Char) (item: Instruction) (written: InstructionWritten read item): Parse.Runs instruction read [] item :=
+theorem runsInstruction ∀ (read: List Char) (item: Instruction) (written: InstructionWritten read item): Parse.Runs instruction read [] item :=
   match item with
     | SetMask mask =>
       match mask with
@@ -45,12 +45,12 @@ theorem runsInstruction (read: List Char) (item: Instruction) (written: Instruct
                       (Parse.runsNat valueRead [] vSome vAll rfl)
                       (Parse.runsPure (Write (Parse.digitsValue addressRead) (Parse.digitsValue valueRead)) [])))))
 
-theorem startsComplete (instructions: List Instruction) (starts: StartsWithMask instructions): startsWithMask instructions = True :=
+theorem startsComplete ∀ (instructions: List Instruction) (starts: StartsWithMask instructions): startsWithMask instructions = True :=
   match instructions with
     | [SetMask mask, ..rest] => rfl
 
 --| Input that is a program written out is read as that program.
-theorem parseComplete (input: Text) (program: Program) (written: ProgramWritten (input.lines.map Text.toList) program):
+theorem parseComplete ∀ (input: Text) (program: Program) (written: ProgramWritten (input.lines.map Text.toList) program):
     Fail.toResult (() => parseProgram input) = Ok program := match written with
       | Both lines starts =>
         let ran := Parse.runsEachLine input instruction program.instructions (List.all2Weaken runsInstruction _ _ lines)
@@ -61,6 +61,6 @@ theorem parseComplete (input: Text) (program: Program) (written: ProgramWritten 
               | { instructions } => rfl
 
 --| A program is written by an input in at most one way, since the parser reads it as one.
-theorem writtenUnique (input: Text) (a: Program) (b: Program) (writtenA: ProgramWritten (input.lines.map Text.toList) a)
+theorem writtenUnique ∀ (input: Text) (a: Program) (b: Program) (writtenA: ProgramWritten (input.lines.map Text.toList) a)
     (writtenB: ProgramWritten (input.lines.map Text.toList) b): a = b :=
   Result.okInjective (Eq.trans (Eq.sym (parseComplete input a writtenA)) (parseComplete input b writtenB))

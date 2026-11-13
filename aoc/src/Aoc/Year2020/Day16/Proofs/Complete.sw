@@ -9,29 +9,29 @@ import Aoc.Year2020.Day16 (..)
 import Aoc.Year2020.Day16.Spec (LineBreakWritten, NotesWritten, NumberWritten, RangeWritten, RuleWritten, TicketWritten)
 import Std (Bool, Char, DecEq, Eq, Exists, Fail, List, NonEmptyList, Parse, Result, Text, Void)
 
-theorem runsAsValue (p: () → {Parse} a) (read: List Char) (rest: List Char) (v: a) (w: a) (same: v = w) (runs: Parse.Runs p read rest v): Parse.Runs p read rest w :=
+theorem runsAsValue ∀ (p: () → {Parse} a) (read: List Char) (rest: List Char) (v: a) (w: a) (same: v = w) (runs: Parse.Runs p read rest v): Parse.Runs p read rest w :=
   rewrite same at runs in runs
 
 --| What can follow a number in the notes' lists: not another digit, and not a comma.
 def continues (char: Char): Bool := Parse.isDigit char ∨ char == ','
 
-theorem spaceStops (char: Char) (isSpace: Parse.isSpace char = True): continues char = False := match isSpace with
+theorem spaceStops ∀ (char: Char) (isSpace: Parse.isSpace char = True): continues char = False := match isSpace with
   | Inl space => rewrite space.read in rfl
   | Inr tab => rewrite tab.read in rfl
 
-theorem spaceNotDigit (char: Char) (isSpace: Parse.isSpace char = True): Parse.isDigit char = False :=
+theorem spaceNotDigit ∀ (char: Char) (isSpace: Parse.isSpace char = True): Parse.isDigit char = False :=
   match isSpace with
     | Inl space => rewrite space.read in rfl
     | Inr tab => rewrite tab.read in rfl
 
-theorem continuesNotDigit (rest: List Char) (stops: Parse.CannotStart continues rest): Parse.CannotStart Parse.isDigit rest :=
+theorem continuesNotDigit ∀ (rest: List Char) (stops: Parse.CannotStart continues rest): Parse.CannotStart Parse.isDigit rest :=
   char more found => Bool.orFalseLeft _ _ (stops char more found)
 
-theorem runsNumber (read: List Char) (number: Nat) (after: List Char) (written: NumberWritten read number) (stops: Parse.CannotStart Parse.isDigit after):
+theorem runsNumber ∀ (read: List Char) (number: Nat) (after: List Char) (written: NumberWritten read number) (stops: Parse.CannotStart Parse.isDigit after):
     Parse.Runs Parse.nat read after number := match written with
       | Both nonEmpty (Both allDigits decimal) => rewrite decimal in Parse.runsNatBefore read after nonEmpty allDigits stops
 
-theorem runsRange (read: List Char) (range2: Range) (written: RangeWritten read range2) (after: List Char) (stops: Parse.CannotStart Parse.isDigit after):
+theorem runsRange ∀ (read: List Char) (range2: Range) (written: RangeWritten read range2) (after: List Char) (stops: Parse.CannotStart Parse.isDigit after):
     Parse.Runs range read after range2 := match range2, written with
       | { low, high }, Witness lowRead (Witness highRead (Both split (Both (Both lowSome (Both lowAll lowValue)) (Both highSome (Both highAll highValue))))) =>
         rewrite split, lowValue, highValue in
@@ -43,7 +43,7 @@ theorem runsRange (read: List Char) (range2: Range) (written: RangeWritten read 
                 (Parse.runsNatBefore highRead _ highSome highAll stops)
                 (Parse.runsPure _ after)))
 
-theorem runsRule (read: List Char) (rule2: Rule) (written: RuleWritten read rule2) (after: List Char) (stops: Parse.CannotStart Parse.isDigit after):
+theorem runsRule ∀ (read: List Char) (rule2: Rule) (written: RuleWritten read rule2) (after: List Char) (stops: Parse.CannotStart Parse.isDigit after):
     Parse.Runs rule read after rule2 := match rule2, written with
       | { field, first, second }, Witness firstRead (Witness secondRead (Both split (Both nonEmpty (Both names (Both firstWritten secondWritten))))) =>
         runsAsValue rule read after { field = Text.fromList field.toList, first, second } { field, first, second } (rewrite Text.fromToList field in rfl)
@@ -61,7 +61,7 @@ theorem runsRule (read: List Char) (rule2: Rule) (written: RuleWritten read rule
                       (runsRange secondRead second secondWritten _ stops)
                       (Parse.runsPure _ after))))))
 
-theorem runsTicket (read: List Char) (ticket2: Ticket) (written: TicketWritten read ticket2) (after: List Char) (stops: Parse.CannotStart continues after):
+theorem runsTicket ∀ (read: List Char) (ticket2: Ticket) (written: TicketWritten read ticket2) (after: List Char) (stops: Parse.CannotStart continues after):
     Parse.Runs ticket read after ticket2 := match ticket2, written with
       | { values = vs }, Witness values (Both listed same) =>
         match values, listed with
@@ -77,7 +77,7 @@ theorem runsTicket (read: List Char) (ticket2: Ticket) (written: TicketWritten r
                   (Parse.declinesSepStep Parse.nat (() => Parse.char ',') after (Parse.declinesCharCannotStart ',' continues rfl after stops))
                   read head tail listed2))
 
-theorem declinesTicket (input: List Char) (stops: Parse.CannotStart continues input): Parse.Declines ticket input :=
+theorem declinesTicket ∀ (input: List Char) (stops: Parse.CannotStart continues input): Parse.Declines ticket input :=
   Parse.declinesBind (() => Parse.sepBy1 Parse.nat (() => Parse.char ',')) _ input
     (Parse.declinesSepBy1 Parse.nat (() => Parse.char ',') input (Parse.declinesNat input (Parse.takeWhileOfCannotStart Parse.isDigit input (continuesNotDigit input stops))))
 
@@ -86,12 +86,12 @@ theorem declinesTicket (input: List Char) (stops: Parse.CannotStart continues in
 -- there because the name isn't followed by a colon, not because of its first
 -- character.
 
-theorem spaceIsName (char: Char) (isSpace: Parse.isSpace char = True): isNameChar char = True := match isSpace with
+theorem spaceIsName ∀ (char: Char) (isSpace: Parse.isSpace char = True): isNameChar char = True := match isSpace with
   | Inl space => rewrite space.read in rfl
   | Inr tab => rewrite tab.read in rfl
 
 --| `rule` declines on a run of name characters and then a line feed.
-theorem declinesRuleBeforeBreak (run: List Char) (more: List Char) (names: run.all isNameChar = True): Parse.Declines rule (run ++ ['\n', ..more]) :=
+theorem declinesRuleBeforeBreak ∀ (run: List Char) (more: List Char) (names: run.all isNameChar = True): Parse.Declines rule (run ++ ['\n', ..more]) :=
   match run with
     | [] => Parse.declinesBind (() => Parse.takeWhile1 "a field name" isNameChar) _ ['\n', ..more] (Parse.declinesTakeWhile1 "a field name" isNameChar ['\n', ..more] rfl)
     | [char, ..others] =>
@@ -100,7 +100,7 @@ theorem declinesRuleBeforeBreak (run: List Char) (more: List Char) (names: run.a
         (Parse.declinesBind (() => Parse.text ": ") _ ['\n', ..more] (Parse.declinesText ": " _ rfl))
 
 --| A round of `lines rule` declines at a blank line.
-theorem declinesRulesAtBlank (blank: List Char) (more: List Char) (isBlank: Parse.BlankLine blank): Parse.Declines (() => Parse.sepStep rule Parse.newline) (blank ++ more) :=
+theorem declinesRulesAtBlank ∀ (blank: List Char) (more: List Char) (isBlank: Parse.BlankLine blank): Parse.Declines (() => Parse.sepStep rule Parse.newline) (blank ++ more) :=
   match isBlank with
     | Witness first (Witness middle (Witness last (Both split (Both firstBreak (Both spaced lastBreak))))) =>
       rewrite split, List.appendAssoc first (middle ++ last) more, List.appendAssoc middle last more in
@@ -108,7 +108,7 @@ theorem declinesRulesAtBlank (blank: List Char) (more: List Char) (isBlank: Pars
           (Parse.declinesAfterSpacesBreak rule isNameChar spaceIsName rfl declinesRuleBeforeBreak middle last more spaced lastBreak)
 
 --| The notes, as `NotesWritten` has them, before nothing but line breaks.
-theorem runsNotes (read: List Char) (notes2: Notes) (written: NotesWritten read notes2) (ending: List Char) (breaks: Parse.OnlyBreaks ending):
+theorem runsNotes ∀ (read: List Char) (notes2: Notes) (written: NotesWritten read notes2) (ending: List Char) (breaks: Parse.OnlyBreaks ending):
     Parse.Runs notes read ending notes2 := match notes2, written with
       | { rules, yours, nearby }, Witness rulesRead (Witness yoursRead (Witness nearbyRead (Witness blank1 (Witness break1 (Witness blank2 (Witness break2 parts)))))) =>
         match parts with
@@ -161,11 +161,11 @@ def InputWritten (input: Text) (notes2: Notes): Prop :=
     input.toList = read ++ ending ∧ NotesWritten read notes2 ∧ ending.all (char => char == '\n' ∨ char == '\r') = True
 
 --| Input that is notes written out is read as those notes.
-theorem parseComplete (input: Text) (notes2: Notes) (written: InputWritten input notes2): Fail.toResult (() => parseNotes input) = Ok notes2 :=
+theorem parseComplete ∀ (input: Text) (notes2: Notes) (written: InputWritten input notes2): Fail.toResult (() => parseNotes input) = Ok notes2 :=
   match written with
     | Witness read (Witness ending (Both split (Both notesWritten breaks))) =>
       Parse.runsAll input notes read ending notes2 split breaks (runsNotes read notes2 notesWritten ending breaks)
 
 --| Soundness (`parseWritten`) is the converse: the input is written as at most one set of notes.
-theorem writtenUnique (input: Text) (a: Notes) (b: Notes) (writtenA: InputWritten input a) (writtenB: InputWritten input b): a = b :=
+theorem writtenUnique ∀ (input: Text) (a: Notes) (b: Notes) (writtenA: InputWritten input a) (writtenB: InputWritten input b): a = b :=
   Result.okInjective (Eq.trans (Eq.sym (parseComplete input a writtenA)) (parseComplete input b writtenB))

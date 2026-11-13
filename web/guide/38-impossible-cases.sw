@@ -12,7 +12,7 @@ def beats: Move -> Move -> Bool
   | Scissors, Paper => True
   | _, _ => False
 
-theorem rockBeatsOnlyScissors (theirs: Move) (h: beats Rock theirs): theirs = Scissors := match theirs with
+theorem rockBeatsOnlyScissors ∀ (theirs: Move) (h: beats Rock theirs): theirs = Scissors := match theirs with
   | Scissors => rfl
 
 -- Try changing `beats Rock` to `beats Paper` above: then `theirs` can be
@@ -24,7 +24,7 @@ theorem rockBeatsOnlyScissors (theirs: Move) (h: beats Rock theirs): theirs = Sc
 --
 -- To say so in the code, match on `h` too and write `()`, the pattern for
 -- a value that can't exist, with no `=>`.
-theorem rockBeatsOnlyScissorsAgain (theirs: Move) (h: beats Rock theirs): theirs = Scissors := match theirs, h with
+theorem rockBeatsOnlyScissorsAgain ∀ (theirs: Move) (h: beats Rock theirs): theirs = Scissors := match theirs, h with
   | Rock, ()
   | Paper, ()
   | Scissors, _ => rfl

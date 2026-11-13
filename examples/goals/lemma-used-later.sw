@@ -3,9 +3,9 @@
 -- goal is reported. Tests of finished code still run.
 import Std (Eq)
 
-theorem addZero (n: Nat): n + 0 = n := ?
+theorem addZero ∀ (n: Nat): n + 0 = n := ?
 
-theorem addZeroTwice (n: Nat): n + 0 + 0 = n := Eq.trans (addZero (n + 0)) (addZero n)
+theorem addZeroTwice ∀ (n: Nat): n + 0 + 0 = n := Eq.trans (addZero (n + 0)) (addZero n)
 
 def double (n: Nat): Nat := n + n
 

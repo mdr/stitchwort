@@ -17,7 +17,7 @@ def moveTo (holder: Allergen → Ingredient) (allergen: Allergen) (ingredient: I
 
 --| Moving an allergen to an ingredient that holds no allergen, and is in
 --| every food listing it, is another way the allergens could be.
-theorem moveHolding (list: FoodList) (holder: Allergen → Ingredient) (holding: Spec.Holding list holder) (allergen: Allergen) (ingredient: Ingredient)
+theorem moveHolding ∀ (list: FoodList) (holder: Allergen → Ingredient) (holding: Spec.Holding list holder) (allergen: Allergen) (ingredient: Ingredient)
     (every: InEvery list ingredient allergen) (unheld: ∀ (other: Allergen) => Spec.Listed list other → holder other ≠ ingredient):
     Spec.Holding list (moveTo holder allergen ingredient) :=
   Both
@@ -36,7 +36,7 @@ theorem moveHolding (list: FoodList) (holder: Allergen → Ingredient) (holding:
         | True => every food inFoods (rewrite <- moved.read in listed)
         | False => And.right holding food inFoods other listed)
 
-theorem safeIff (list: FoodList) (promise: ∃ (holder: Allergen → Ingredient) => Spec.Holding list holder) (ingredient: Ingredient):
+theorem safeIff ∀ (list: FoodList) (promise: ∃ (holder: Allergen → Ingredient) => Spec.Holding list holder) (ingredient: Ingredient):
     list.isSafe ingredient = True ↔ ¬Spec.CanContain list ingredient :=
   {
     forward = safe can =>
@@ -70,6 +70,6 @@ theorem safeIff (list: FoodList) (promise: ∃ (holder: Allergen → Ingredient)
   }
 
 --| Part 1: given a way the allergens could be, the answer is the spec's.
-theorem safeAppearancesSpec (list: FoodList) (promise: ∃ (holder: Allergen → Ingredient) => Spec.Holding list holder): Spec.Part1 list list.safeAppearances :=
+theorem safeAppearancesSpec ∀ (list: FoodList) (promise: ∃ (holder: Allergen → Ingredient) => Spec.Holding list holder): Spec.Part1 list list.safeAppearances :=
   (List.countWithIff list.isSafe (safeIff list promise) (list.foods.flatMap .ingredients) list.safeAppearances).backward
     (Eq.sym (List.countFlatMap .ingredients list.isSafe list.foods))

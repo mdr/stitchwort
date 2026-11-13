@@ -6,5 +6,5 @@
 --| An involution (a function that undoes itself, `f (f x) = x`) is
 --| injective: equal results come from equal arguments. `List.reverse` and
 --| `not` are involutions.
-theorem Function.involutionInjective (f: a → a) (h: ∀ (x: a) => f (f x) = x) (x y: a) (e: f x = f y): x = y :=
+theorem Function.involutionInjective ∀ (f: a → a) (h: ∀ (x: a) => f (f x) = x) (x y: a) (e: f x = f y): x = y :=
   Eq.trans (Eq.sym (h x)) (Eq.trans (Eq.cong f e) (h y))

@@ -3,11 +3,11 @@ source: crates/cli/tests/running/examples.rs
 expression: warnings
 ---
 [W-MATCH-NOT-FOUND] Warning: this `match` didn't find its expression in the goal, so every arm has the goal unchanged
-    ╭─[ accept/match-not-in-goal.sw:11:57 ]
+    ╭─[ accept/match-not-in-goal.sw:11:59 ]
     │
- 11 │ theorem notFound (n: Nat): double n = n + n := match h: n * 2 with
-    │                                                         ──┬──  
-    │                                                           ╰──── looked for `n * 2`
+ 11 │ theorem notFound ∀ (n: Nat): double n = n + n := match h: n * 2 with
+    │                                                           ──┬──  
+    │                                                             ╰──── looked for `n * 2`
     │ 
     │ Note 1: in the goal `double n = n + n`
     │ 

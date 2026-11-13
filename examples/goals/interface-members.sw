@@ -4,6 +4,6 @@
 -- (DecEq.%decide eq x y)`.
 import Std (Ord, DecEq)
 
-theorem compareSame [auto ord: Ord a] (x: a) (y: a): Ord.compare x y = Ord.compare x y := ?
+theorem compareSame ∀ [auto ord: Ord a] (x: a) (y: a): Ord.compare x y = Ord.compare x y := ?
 
-theorem equalSound [auto eq: DecEq a] (x: a) (y: a) (h: (x == y) = True): x = y := ?
+theorem equalSound ∀ [auto eq: DecEq a] (x: a) (y: a) (h: (x == y) = True): x = y := ?

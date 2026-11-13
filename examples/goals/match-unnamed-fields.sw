@@ -10,6 +10,6 @@ def allTrue: List Bool → Bool
   | [first] => first
   | [first, second, ..more] => first && allTrue [second, ..more]
 
-theorem shown (rest: List Bool) (all: allTrue [True, ..rest] = True): allTrue rest = True := match rest with
+theorem shown ∀ (rest: List Bool) (all: allTrue [True, ..rest] = True): allTrue rest = True := match rest with
   | [next] => ?
   | other => ?

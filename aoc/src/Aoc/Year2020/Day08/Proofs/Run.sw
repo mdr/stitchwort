@@ -22,18 +22,18 @@ def Ended (program: Program) (executed: List Int) (last: State): (outcome: Outco
 def Unvisited (length: Nat) (done: List Int) (unvisited: Set Nat): Prop :=
   ∀ (position: Nat) => unvisited.contains position = True ↔ (position < length ∧ position.toInt ∉ done)
 
-theorem nextIs (next: Int) (position: Nat) (found: next.toNatChecked = Some position): next = position.toInt :=
+theorem nextIs ∀ (next: Int) (position: Nat) (found: next.toNatChecked = Some position): next = position.toInt :=
   match next with
     | OfNat n => Eq.cong OfNat (Option.someInjective found)
 
-theorem executeSteps (program: Program) (state: State) (instruction: Instruction) (at: instructionAt program state.next = Some instruction):
+theorem executeSteps ∀ (program: Program) (state: State) (instruction: Instruction) (at: instructionAt program state.next = Some instruction):
     Step program state (instruction.execute state) :=
   Witness instruction (Both at (match instruction with
     | { operation = Acc, argument } => Both rfl rfl
     | { operation = Jmp, argument } => Both rfl rfl
     | { operation = Nop, argument } => Both rfl rfl))
 
-theorem unvisitedRemove (length: Nat) (done: List Int) (unvisited: Set Nat) (left: Unvisited length done unvisited) (position: Nat):
+theorem unvisitedRemove ∀ (length: Nat) (done: List Int) (unvisited: Set Nat) (left: Unvisited length done unvisited) (position: Nat):
     Unvisited length (done ++ [position.toInt]) (unvisited.remove position) :=
   other =>
     match d: other == position with
@@ -55,7 +55,7 @@ theorem unvisitedRemove (length: Nat) (done: List Int) (unvisited: Set Nat) (lef
           backward = (Both below out) => (left other).backward (Both below (m => out (List.memAppendLeft other.toInt done [position.toInt] m)))
         }
 
-theorem runFromRuns (program: Program) (code: Code) (holds: Holds code program) (unvisited: Set Nat) (state: State) (done: List Int)
+theorem runFromRuns ∀ (program: Program) (code: Code) (holds: Holds code program) (unvisited: Set Nat) (state: State) (done: List Int)
     (left: Unvisited code.length done unvisited) (distinct: List.Distinct done):
     ∃ (positions: List Int) => ∃ (last: State) =>
       Runs program state positions last ∧ List.Distinct (done ++ positions) ∧ Ended program (done ++ positions) last (code.runFrom unvisited state)

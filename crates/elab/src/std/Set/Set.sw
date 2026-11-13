@@ -40,12 +40,12 @@ def Set.toList (set: Set k [ord := o]): List k := Map.keys set.items
 --| is this fact itself, so it can't be the reading; [`Set.memToList`] is the same statement
 --| turned round.)
 @[reading]
-theorem Set.containsReads [auto ord: Ord k] (set: Set k) (key: k): (Set.contains set key = True) ↔ (key ∈ Set.toList set) :=
+theorem Set.containsReads ∀ [auto ord: Ord k] (set: Set k) (key: k): (Set.contains set key = True) ↔ (key ∈ Set.toList set) :=
   { forward = (Map.memKeys set.items key).backward, backward = (Map.memKeys set.items key).forward }
 
 --| `set.contains key = False` reads as `key` not being one of the set's keys.
 @[reading]
-theorem Set.containsReadsFalse [auto ord: Ord k] (set: Set k) (key: k): (Set.contains set key = False) ↔ key ∉ Set.toList set := {
+theorem Set.containsReadsFalse ∀ [auto ord: Ord k] (set: Set k) (key: k): (Set.contains set key = False) ↔ key ∉ Set.toList set := {
   forward = h m => Bool.falseNotTrue (Eq.trans (Eq.sym h) ((Map.memKeys set.items key).forward m)),
   backward = no =>
     match c: Set.contains set key with
@@ -142,26 +142,26 @@ def Map.insertIn [auto ord: Ord k] [auto itemOrd: Ord v] (m: Map k (Set v)) (key
 def Map.removeIn [auto ord: Ord k] [auto itemOrd: Ord v] (m: Map k (Set v)) (key: k) (item: v): Map k (Set v) :=
   m.alter key (items => items.map (.remove item) |> .filter (rest => !rest.isEmpty))
 
-theorem Set.containsInsert [auto ord: Ord k] (key: k) (s: Set k): (s |> Set.insert key |> Set.contains key) = True :=
+theorem Set.containsInsert ∀ [auto ord: Ord k] (key: k) (s: Set k): (s |> Set.insert key |> Set.contains key) = True :=
   rewrite Map.getInsert key () s.items in rfl
 
-theorem List.toSetFromList [auto ord: Ord k] (items: List k): items.toSet = Set.fromList items := rfl
+theorem List.toSetFromList ∀ [auto ord: Ord k] (items: List k): items.toSet = Set.fromList items := rfl
 
 -- Equality: the same keys. A set's map is a quotient (std/Map/Map.sw), so
 -- sets with the same keys are equal, whatever order they were inserted in.
 
-theorem Set.unitEq (u w: ()): u = w := match u, w with
+theorem Set.unitEq ∀ (u w: ()): u = w := match u, w with
   | (), () => rfl
 
 --| Entries whose values are all `()` are fixed by their keys.
-theorem Set.unitEntries (xs ys: List (k, ())) (h: List.map xs Pair.fst = List.map ys Pair.fst): xs = ys :=
+theorem Set.unitEntries ∀ (xs ys: List (k, ())) (h: List.map xs Pair.fst = List.map ys Pair.fst): xs = ys :=
   match xs, ys with
     | [], [] => rfl
     | [(a, u), ..xs2], [(b, w), ..ys2] =>
       rewrite Eq.cong (.headOr a) h, Set.unitEq u w, Set.unitEntries xs2 ys2 (Eq.cong List.tailOf h) in rfl
 
 --| Sets with the same keys in order are equal.
-theorem Set.toListInjective (s t: Set k [ord := o]) (same: Set.toList s = Set.toList t): s = t := match s, t with
+theorem Set.toListInjective ∀ (s t: Set k [ord := o]) (same: Set.toList s = Set.toList t): s = t := match s, t with
   | { items = m }, { items = n } =>
     Eq.cong (i => ({ items = i }: Set k [ord := o])) (Map.toListInjective m n (Set.unitEntries (Map.toList m) (Map.toList n) same))
 

@@ -41,9 +41,9 @@ instance Int.instMul: Mul Int :=
   { one = OfNat 1, mul = Int.mul, oneMul = Int.oneMul, mulOne = Int.mulOne, assoc = Int.mulAssoc }
 
 --| Equal summands give equal sums.
-theorem Int.addCong [a a2 b b2: Int] (p: a = a2) (q: b = b2): a + b = a2 + b2 :=
+theorem Int.addCong ∀ [a a2 b b2: Int] (p: a = a2) (q: b = b2): a + b = a2 + b2 :=
   Eq.cong2 Int.add p q
 
 --| Equal factors give equal products.
-theorem Int.mulCong [a a2 b b2: Int] (p: a = a2) (q: b = b2): Int.mul a b = Int.mul a2 b2 :=
+theorem Int.mulCong ∀ [a a2 b b2: Int] (p: a = a2) (q: b = b2): Int.mul a b = Int.mul a2 b2 :=
   Eq.cong2 Int.mul p q

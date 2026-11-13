@@ -12,15 +12,15 @@ theorem plusZeroAscii: forall (n: Nat) => n + 0 = n := plusZero
 theorem plusZeroArrow: (n: Nat) -> n + 0 = n := plusZero
 
 -- A quantified hypothesis, used at the values it's needed at.
-theorem twice (p: Nat -> Prop) (all: ∀ (n: Nat) => p n): p 1 ∧ p 2 := Both (all 1) (all 2)
+theorem twice ∀ (p: Nat -> Prop) (all: ∀ (n: Nat) => p n): p 1 ∧ p 2 := Both (all 1) (all 2)
 
 -- A group of names shares a type; implicit parameters are written in
 -- brackets, as in a header; a bare name's type is inferred.
-theorem swapped (comm: ∀ (a b: Nat) => a + b = b + a): 2 + 3 = 3 + 2 := comm 2 3
+theorem swapped ∀ (comm: ∀ (a b: Nat) => a + b = b + a): 2 + 3 = 3 + 2 := comm 2 3
 
-theorem sameLength (h: ∀ [a: Type] (xs: List a) => xs.length = xs.length): [1, 2].length = 2 := h [1, 2]
+theorem sameLength ∀ (h: ∀ [a: Type] (xs: List a) => xs.length = xs.length): [1, 2].length = 2 := h [1, 2]
 
-theorem inferred (h: ∀ n => n * 1 = n): 7 * 1 = 7 := h 7
+theorem inferred ∀ (h: ∀ n => n * 1 = n): 7 * 1 = 7 := h 7
 
 -- The body takes the rest: an `->` in it is an implication under the `∀`.
 theorem positive: ∀ (n: Nat) => n > 0 -> n ≥ 1 := n => h => omega

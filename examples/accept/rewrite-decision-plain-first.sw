@@ -7,7 +7,7 @@
 -- together; carrying the proofs would have left them typed by `g f`.
 import Std (Bool, Decidable, Eq, Nat)
 
-theorem trueSound (b: Bool): b = True → b = True := h => h
+theorem trueSound ∀ (b: Bool): b = True → b = True := h => h
 
 -- A decision whose `sound` is a call, so its type can be worked out.
 def decTrue (b: Bool): Decidable (b = True) := { holds = b, sound = trueSound b, complete = trueSound b }
@@ -16,5 +16,5 @@ def pick (b: Bool): Nat := Decidable.elim (decTrue b) (_ => 1) (_ => 0)
 
 def pickWith (g: (Nat → Bool) → Bool) (f: Nat → Bool): Nat := pick (g f)
 
-theorem pickWithTrue (g: (Nat → Bool) → Bool) (f: Nat → Bool) (h: g (x => f x) = True): pickWith g f = 1 :=
+theorem pickWithTrue ∀ (g: (Nat → Bool) → Bool) (f: Nat → Bool) (h: g (x => f x) = True): pickWith g f = 1 :=
   rewrite h in rfl

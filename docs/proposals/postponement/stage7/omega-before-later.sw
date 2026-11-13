@@ -3,7 +3,7 @@
 import Std (Bool, Char, DecEq, Eq, List, Nat)
 
 -- A stand-in for day 14's `sumByPositive`: the function, then the list.
-theorem positiveSum (f: a → Nat) (xs: List a) (h: 0 < List.sumBy xs f): 0 < List.sumBy xs f := h
+theorem positiveSum ∀ (f: a → Nat) (xs: List a) (h: 0 < List.sumBy xs f): 0 < List.sumBy xs f := h
 
 -- The lambda's `.snd` and `==` wait for the list after it; `omega` runs on
 -- a goal holding their placeholders. Day 14's call was a `match`
@@ -19,6 +19,6 @@ def lambdaFirst (counts: List ((Char, Char), Nat)) (pair: (Char, Char)) (given: 
 -- `omega`'s goal has `DecEq.%decide ?1 first c` where the fact has
 -- `Char.decEq first c`, even when it is checked again after the expected
 -- type.
-theorem autoFirst (c: Char) (first: Char) (tail: List Char) (positive: 0 < List.count (Cons first tail) (== c)):
+theorem autoFirst ∀ (c: Char) (first: Char) (tail: List Char) (positive: 0 < List.count (Cons first tail) (== c)):
     c ∈ Cons first tail :=
   List.memOfCountPositive c (Cons first tail) (omega [positive])

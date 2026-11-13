@@ -52,7 +52,7 @@ def ProtoMap.foldLeft (m: ProtoMap k v [ord := o]) (z: b) (f: b → k → v → 
 def ProtoMap.fromList [auto ord: Ord k] (xs: List (k, v)): ProtoMap k v := ProtoMap.ofMap (Map.Raw.fromList xs)
 
 -- Two classes with the same entries are the same class.
-theorem ProtoMap.rawInjective (p: Quot (Map.Raw k v [ord := o]) Map.Raw.Equiv) (q: Quot (Map.Raw k v [ord := o]) Map.Raw.Equiv):
+theorem ProtoMap.rawInjective ∀ (p: Quot (Map.Raw k v [ord := o]) Map.Raw.Equiv) (q: Quot (Map.Raw k v [ord := o]) Map.Raw.Equiv):
     ProtoMap.toList { raw = p } = ProtoMap.toList { raw = q } → p = q :=
   let motive: Quot (Map.Raw k v [ord := o]) Map.Raw.Equiv → Prop :=
     p' => (q': Quot (Map.Raw k v [ord := o]) Map.Raw.Equiv) → ProtoMap.toList { raw = p' } = ProtoMap.toList { raw = q' } → p' = q'
@@ -65,12 +65,12 @@ theorem ProtoMap.rawInjective (p: Quot (Map.Raw k v [ord := o]) Map.Raw.Equiv) (
   Quot.ind [p := motive] fromMk p q
 
 -- Maps with the same entries are equal, whatever their values' type.
-theorem ProtoMap.toListInjective: ∀ (m n: ProtoMap k v [ord := o]) =>
-    ProtoMap.toList m = ProtoMap.toList n → m = n
-  | { raw = p }, { raw = q }, same => Eq.cong (r => ({ raw = r }: ProtoMap k v [ord := o])) (ProtoMap.rawInjective p q same)
+theorem ProtoMap.toListInjective ∀ (m n: ProtoMap k v [ord := o])
+    (same: ProtoMap.toList m = ProtoMap.toList n): m = n := match m, n with
+      | { raw = p }, { raw = q } => Eq.cong (r => ({ raw = r }: ProtoMap k v [ord := o])) (ProtoMap.rawInjective p q same)
 
 -- Equal maps have the same entries, and maps with the same entries are equal.
-theorem ProtoMap.eqIffToListEq (m: ProtoMap k v [ord := o]) (n: ProtoMap k v [ord := o]):
+theorem ProtoMap.eqIffToListEq ∀ (m: ProtoMap k v [ord := o]) (n: ProtoMap k v [ord := o]):
     (m = n) ↔ (ProtoMap.toList m = ProtoMap.toList n) := {
   forward = same => Eq.cong ProtoMap.toList same,
   backward = ProtoMap.toListInjective m n
@@ -78,20 +78,21 @@ theorem ProtoMap.eqIffToListEq (m: ProtoMap k v [ord := o]) (n: ProtoMap k v [or
 
 -- What stage 0 proved of every `Map`, for every `ProtoMap`: its entries are
 -- in increasing key order, and `get` looks a key up in them.
-theorem ProtoMap.toListSorted: ∀ (m: ProtoMap k v [ord := o]) => Map.Spec.Sorted o (ProtoMap.toList m)
+theorem ProtoMap.toListSorted ∀ (m: ProtoMap k v [ord := o]): Map.Spec.Sorted o (ProtoMap.toList m) := match m with
   | { raw = q } =>
     Quot.ind [p := q' => Map.Spec.Sorted o (ProtoMap.toList { raw = q' })] (a => Map.Raw.toListSorted a) q
 
-theorem ProtoMap.getToList:
-    ∀ (m: ProtoMap k v [ord := o]) (key: k) => ProtoMap.get m key = Map.Tree.lookupList key (ProtoMap.toList m)
-  | { raw = q }, key =>
-    Quot.ind
-      [p := q' => ProtoMap.get { raw = q' } key = Map.Tree.lookupList key (ProtoMap.toList { raw = q' })]
-      (a => Map.Raw.getToList key a)
-      q
+theorem ProtoMap.getToList ∀
+    (m: ProtoMap k v [ord := o]) (key: k): ProtoMap.get m key = Map.Tree.lookupList key (ProtoMap.toList m) :=
+  match m with
+    | { raw = q } =>
+      Quot.ind
+        [p := q' => ProtoMap.get { raw = q' } key = Map.Tree.lookupList key (ProtoMap.toList { raw = q' })]
+        (a => Map.Raw.getToList key a)
+        q
 
 -- Maps that agree on every key are equal, whatever their values' type.
-theorem ProtoMap.ext (m: ProtoMap k v [ord := o]) (n: ProtoMap k v [ord := o])
+theorem ProtoMap.ext ∀ (m: ProtoMap k v [ord := o]) (n: ProtoMap k v [ord := o])
     (h: ∀ (key: k) => ProtoMap.get m key = ProtoMap.get n key): m = n :=
   ProtoMap.toListInjective m n
     (Map.Spec.extLookup None (ProtoMap.toList m) (ProtoMap.toList n) (ProtoMap.toListSorted m) (ProtoMap.toListSorted n)
@@ -173,11 +174,11 @@ def fns2: ProtoMap Nat (Nat → Nat) := ProtoMap.empty.insert 2 double |> .inser
 
 theorem functionMapsEqual: fns1 = fns2 := ProtoMap.toListInjective fns1 fns2 rfl
 
-theorem functionMapsExt (m: ProtoMap Nat (Nat → Nat)) (n: ProtoMap Nat (Nat → Nat))
+theorem functionMapsExt ∀ (m: ProtoMap Nat (Nat → Nat)) (n: ProtoMap Nat (Nat → Nat))
     (h: ∀ (key: Nat) => ProtoMap.get m key = ProtoMap.get n key): m = n :=
   ProtoMap.ext m n h
 
-theorem functionMapsByEntries (m: ProtoMap Nat (Nat → Nat)) (n: ProtoMap Nat (Nat → Nat))
+theorem functionMapsByEntries ∀ (m: ProtoMap Nat (Nat → Nat)) (n: ProtoMap Nat (Nat → Nat))
     (h: ProtoMap.toList m = ProtoMap.toList n): m = n :=
   ProtoMap.toListInjective m n h
 
@@ -200,9 +201,10 @@ test "ordered by entries" := forwards > changed ∧ ¬(forwards < backwards) ∧
 -- 7. `size`, `isEmpty` and `foldLeft` lift with stage 0's respects lemmas
 -- (above), which rest on the `sized` field; so `size` counts the entries of
 -- every map, proved for each representative with `Quot.ind`.
-theorem ProtoMap.sizeToList: ∀ (m: ProtoMap k v [ord := o]) => ProtoMap.size m = List.length (ProtoMap.toList m)
-  | { raw = q } =>
-    Quot.ind [p := q' => ProtoMap.size { raw = q' } = List.length (ProtoMap.toList { raw = q' })] (a => Map.Raw.sizeToList a) q
+theorem ProtoMap.sizeToList ∀ (m: ProtoMap k v [ord := o]): ProtoMap.size m = List.length (ProtoMap.toList m) :=
+  match m with
+    | { raw = q } =>
+      Quot.ind [p := q' => ProtoMap.size { raw = q' } = List.length (ProtoMap.toList { raw = q' })] (a => Map.Raw.sizeToList a) q
 
 test "size, isEmpty and foldLeft" :=
   ProtoMap.size forwards == 4 ∧ ¬(ProtoMap.isEmpty forwards)

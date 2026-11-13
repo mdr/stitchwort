@@ -11,4 +11,4 @@ test "owed" := owed (Shop.Spec.Status.Due 3) == 3
 
 test "totals agree" := Shop.Spec.total [1, 2] == Shop.total [1, 2]
 
-theorem flipped (a: Nat) (h: Shop.Spec.total [a] = a): a = Shop.Spec.total [a] := Eq.sym h
+theorem flipped ∀ (a: Nat) (h: Shop.Spec.total [a] = a): a = Shop.Spec.total [a] := Eq.sym h

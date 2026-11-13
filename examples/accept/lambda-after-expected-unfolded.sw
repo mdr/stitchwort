@@ -5,8 +5,8 @@
 -- is compared and the callback's goal is `x * 1 = x`.
 import Std (Eq, List, Nat)
 
-theorem mulOneRight (n: Nat): n * 1 = n := omega
+theorem mulOneRight ∀ (n: Nat): n * 1 = n := omega
 
-theorem unfolded (xs: List Nat):
+theorem unfolded ∀ (xs: List Nat):
     List.foldLeft xs 0 (acc x => acc + (x * 1)) = List.foldLeft xs 0 (acc x => acc + x) :=
   List.sumByCong xs _ _ (x => rewrite mulOneRight x in rfl)

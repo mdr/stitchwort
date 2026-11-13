@@ -20,7 +20,8 @@ use super::{
 };
 
 /// The tests run on threads with a big stack: the AoC proofs need more than
-/// the 2 MiB a test thread has (in WebAssembly they fit its 256 KiB guard).
+/// the 2 MiB a test thread has (in WebAssembly most fit its guard, set in
+/// `build.rs`).
 #[cfg(test)]
 const TEST_STACK: usize = 256 * 1024 * 1024;
 

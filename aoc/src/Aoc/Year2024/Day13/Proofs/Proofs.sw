@@ -9,12 +9,12 @@ import Aoc.Year2024.Day13 (..)
 import Aoc.Year2024.Day13.Spec (Part2Answer, part1)
 import Std (And, Eq, Exists, List, Option)
 
-theorem part1Correct (machines: List Machine): solvePart1 machines = part1 machines :=
+theorem part1Correct ∀ (machines: List Machine): solvePart1 machines = part1 machines :=
   List.sumByCong machines _ _ (machine => Eq.cong (result => Option.getOrElse result 0) (withinCorrect machine))
 
 --| The puzzle doesn't rule out buttons along the same line; this assumes
 --| every machine's buttons aren't.
-theorem part2Correct (machines: List Machine) (nonzero: ∀ (machine: Machine) => machine ∈ machines → machine.determinant ≠ 0):
+theorem part2Correct ∀ (machines: List Machine) (nonzero: ∀ (machine: Machine) => machine ∈ machines → machine.determinant ≠ 0):
     Part2Answer machines (solvePart2 machines) :=
   Witness (machine => machine.corrected.fewestTokens)
     (Both (machine member => rewrite <- correctedIsSpec machine in fewestTokensCorrect machine.corrected (nonzero machine member)) rfl)

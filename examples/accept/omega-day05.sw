@@ -25,14 +25,14 @@ def LoAtMost (b: Nat): List Range → Prop
   | [] => Unit
   | [last, .._] => last.from ≤ b
 
-theorem absorbLo (r: Range) (b: Nat) (h: r.from ≤ b): ∀ (merged: List Range) => LoAtMost r.from merged → LoAtMost b (absorb merged r)
+theorem absorbLo ∀ (r: Range) (b: Nat) (h: r.from ≤ b): ∀ (merged: List Range) => LoAtMost r.from merged → LoAtMost b (absorb merged r)
   | [], ok => h
   | [last, ..earlier], ok =>
     match e: Nat.leq r.from (last.to + 1) with
       | True => omega
       | False => h
 
-theorem absorbStacked (r: Range): ∀ (merged: List Range) => LoAtMost r.from merged → Stacked merged → Stacked (absorb merged r)
+theorem absorbStacked ∀ (r: Range): ∀ (merged: List Range) => LoAtMost r.from merged → Stacked merged → Stacked (absorb merged r)
   | [], ok, s => Both (id h => cases) Trivial
   | [last, ..earlier], ok, Both b rest =>
     match e: Nat.leq r.from (last.to + 1) with
@@ -56,7 +56,7 @@ theorem coveredTop: ∀ (z: Nat) (rs: List Range) (id: Nat) => covered rs id = T
       | True => omega [Nat.leMaxRight z r.to, topGe (Nat.max z r.to) rs]
       | False => coveredTop (Nat.max z r.to) rs id h
 
-theorem mergedContains (a: Range) (r: Range) (id: Nat) (h1: a.from ≤ r.from) (h2: r.from ≤ a.to + 1):
+theorem mergedContains ∀ (a: Range) (r: Range) (id: Nat) (h1: a.from ≤ r.from) (h2: r.from ≤ a.to + 1):
     Range.contains { from = a.from, to = Nat.max a.to r.to } id = (a.contains id ∨ r.contains id) :=
   match t: Nat.leq a.from id, i: Nat.leq id a.to with
     | True, True =>

@@ -3,10 +3,10 @@ source: crates/cli/tests/running/examples.rs
 expression: output
 ---
 [GOAL] Goal: in `slow`
-    ╭─[ goals/counterexample-out-of-steps.sw:11:63 ]
+    ╭─[ goals/counterexample-out-of-steps.sw:11:65 ]
     │
- 11 │ theorem slow (n: Nat): countDown (Nat.max n 100000000) = 1 := ?
-    │                                                               ┬  
-    │                                                               ╰── n: Nat
-    │                                                                   ⊢ countDown (n.max 100000000) = 1
+ 11 │ theorem slow ∀ (n: Nat): countDown (Nat.max n 100000000) = 1 := ?
+    │                                                                 ┬  
+    │                                                                 ╰── n: Nat
+    │                                                                     ⊢ countDown (n.max 100000000) = 1
 ────╯

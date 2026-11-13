@@ -14,7 +14,7 @@ import Std (And, Eq, IO, Int, List, Nat, Text)
 
 -- A number in the run `2 .. n - 1` is below n (even when n < 2, where the
 -- run is empty).
-theorem belowOfRun (d: Nat) (n: Nat) (h: List.Mem d (List.rangeFrom (n - 2) 2)): d < n :=
+theorem belowOfRun ∀ (d: Nat) (n: Nat) (h: List.Mem d (List.rangeFrom (n - 2) 2)): d < n :=
   match List.memRangeFrom d (n - 2) 2 h with
     | Both lo hi => Nat.ltOfRunSub 2 d n lo hi
 
@@ -33,13 +33,13 @@ theorem weightTwelve: weight 12 = 0 := rfl
 
 -- The equation the compiler proves, on an open `n`: the congruence lemma
 -- `List.sumByCong` works on the attached list as on any other.
-theorem weightStep (n: Nat):
+theorem weightStep ∀ (n: Nat):
     weight n = 1 - List.sumBy (List.attach (List.rangeFrom (n - 2) 2)) (d => if Nat.divides d.value n then weight d.value else 0) :=
   weight.unfold n
 
 -- Once the call is made, the proofs can go: a sum over the attached list
 -- that only looks at the values is the sum over the list.
-theorem weightPlain (n: Nat):
+theorem weightPlain ∀ (n: Nat):
     weight n = 1 - List.sumBy (List.rangeFrom (n - 2) 2) (d => if Nat.divides d n then weight d else 0) :=
   Eq.trans (weight.unfold n)
     (Eq.cong (Int.sub 1) (List.sumByAttach (List.rangeFrom (n - 2) 2) (d => if Nat.divides d n then weight d else 0)))
@@ -58,7 +58,7 @@ test "chains" := List.map [1, 2, 3, 4, 5, 6] chains == [1, 2, 2, 4, 2, 6]
 -- The membership facts on their own.
 theorem fourInRange: List.Mem 4 (List.range 2 7) := Inr (Inr (Inl rfl))
 
-theorem rangeBounds (x: Nat) (h: List.Mem x (List.range 2 7)): (2 ≤ x) ∧ (x < 7) := (List.memRange x 2 7).forward h
+theorem rangeBounds ∀ (x: Nat) (h: List.Mem x (List.range 2 7)): (2 ≤ x) ∧ (x < 7) := (List.memRange x 2 7).forward h
 
 test "sum" := List.sumBy (List.attach [1, 2, 3]) (e => e.value) == 6
 

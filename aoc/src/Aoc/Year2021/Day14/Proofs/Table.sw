@@ -8,7 +8,7 @@ import Aoc.Year2021.Day14.Spec (..)
 import Std (Bool, DecEq, Eq, List, Map, Option, Ord, Void)
 
 --| No rule for `key` in `rules`, if `key` isn't one of their pairs.
-theorem findAbsent (key: ElementPair) (rules: List Rule) (absent: key ∉ rules.map (rule => rule.pair)):
+theorem findAbsent ∀ (key: ElementPair) (rules: List Rule) (absent: key ∉ rules.map (rule => rule.pair)):
     rules.find (rule => rule.pair == key) = None := match found: List.find rules (rule => rule.pair == key) with
       | None => rfl
       | Some rule =>
@@ -16,7 +16,7 @@ theorem findAbsent (key: ElementPair) (rules: List Rule) (absent: key ∉ rules.
         let same := passes.read
         Void.exfalso (absent (rewrite <- same in List.memMap rules rule member (rule => rule.pair)))
 
-theorem lookupRules (key: ElementPair) (rules: List Rule) (h: OneRulePerPair rules):
+theorem lookupRules ∀ (key: ElementPair) (rules: List Rule) (h: OneRulePerPair rules):
     Map.lookupLast key (rules.map (rule => (rule.pair, rule.insert))) = Option.map (rules.find (rule => rule.pair == key)) (rule => rule.insert) :=
   match rules, h with
     | [], _ => rfl
@@ -39,10 +39,10 @@ theorem lookupRules (key: ElementPair) (rules: List Rule) (h: OneRulePerPair rul
                   | Greater => rfl
 
 --| The program's table gives each pair the puzzle's insertion...
-theorem tableInsertion (rules: List Rule) (one: OneRulePerPair rules) (pair: ElementPair): Map.get (ruleTable rules) pair = insertionFor rules pair :=
+theorem tableInsertion ∀ (rules: List Rule) (one: OneRulePerPair rules) (pair: ElementPair): Map.get (ruleTable rules) pair = insertionFor rules pair :=
   rewrite Map.getFromList pair (rules.map (rule => (rule.pair, rule.insert))) in lookupRules pair rules one
 
 --| ...so a pair becomes in the program what it becomes by the rules.
-theorem becomesExpand (rules: List Rule) (one: OneRulePerPair rules) (pair: ElementPair): pair.becomes (ruleTable rules) = expand rules pair :=
+theorem becomesExpand ∀ (rules: List Rule) (one: OneRulePerPair rules) (pair: ElementPair): pair.becomes (ruleTable rules) = expand rules pair :=
   match pair with
     | { first = a, second = b } => rewrite tableInsertion rules one { first = a, second = b } in rfl

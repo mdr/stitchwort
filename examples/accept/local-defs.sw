@@ -41,7 +41,7 @@ def sumTo2 (n: Nat): Nat :=
   def go: Nat → Nat → Nat
     | Zero, acc => acc
     | Succ k, acc => go k (acc + Succ k)
-  theorem goZero (a: Nat): go 0 a = a := rfl
+  theorem goZero ∀ (a: Nat): go 0 a = a := rfl
   let r := go n 0
   r
 
@@ -98,7 +98,7 @@ test "nested" := nested 3 == 12
 
 -- From outside, a local definition is named `owner.name`, and a nested one
 -- `owner.name.inner`.
-theorem sumToGo (a: Nat): sumTo.go 0 a = a := rfl
+theorem sumToGo ∀ (a: Nat): sumTo.go 0 a = a := rfl
 
 def usesNested: Nat := nested.double.twice 4
 

@@ -8,41 +8,41 @@ import Std (List)
 
 def keptBy (page: Nat) (later: List Nat) (rule: Nat): Bool := !(page == rule) || !(later.any (== rule))
 
-theorem allKeptBy (page: Nat) (rules later: List Nat):
+theorem allKeptBy ∀ (page: Nat) (rules later: List Nat):
     rules.all (rule => !(page == rule) || !(later.any (== rule))) = rules.all (keptBy page later) :=
   rfl
 
 -- Both sides of `||` call effect-polymorphic functions.
 def eitherCalls (pages: List Nat) (page: Nat): Bool := pages.any (== page) || pages.all (== page)
 
-theorem anyEitherCalls (pages later: List Nat):
+theorem anyEitherCalls ∀ (pages later: List Nat):
     later.any (page => pages.any (== page) || pages.all (== page)) = later.any (eitherCalls pages) :=
   rfl
 
 -- `&&` with a call on the left and a pure comparison on the right.
 def bothCallFirst (limit: Nat) (pages: List Nat) (page: Nat): Bool := pages.any (== page) && page < limit
 
-theorem allBothCallFirst (limit: Nat) (pages later: List Nat):
+theorem allBothCallFirst ∀ (limit: Nat) (pages later: List Nat):
     later.all (page => pages.any (== page) && page < limit) = later.all (bothCallFirst limit pages) :=
   rfl
 
 -- A decided proposition on the left of `&&` and of `||`.
 def bothCompareFirst (limit: Nat) (pages: List Nat) (page: Nat): Bool := limit < page && pages.any (== page)
 
-theorem anyBothCompareFirst (limit: Nat) (pages later: List Nat):
+theorem anyBothCompareFirst ∀ (limit: Nat) (pages later: List Nat):
     later.any (page => limit < page && pages.any (== page)) = later.any (bothCompareFirst limit pages) :=
   rfl
 
 def eitherCompareFirst (pages: List Nat) (page: Nat): Bool := pages.length < page || pages.any (== page)
 
-theorem allEitherCompareFirst (pages later: List Nat):
+theorem allEitherCompareFirst ∀ (pages later: List Nat):
     later.all (page => pages.length < page || pages.any (== page)) = later.all (eitherCompareFirst pages) :=
   rfl
 
 -- Nested: `(a && !b) || c`, each part a call or a comparison.
 def mixed (pages: List Nat) (page: Nat): Bool := pages.any (== page) && !(pages.all (== page)) || pages.length == page
 
-theorem anyMixed (pages later: List Nat):
+theorem anyMixed ∀ (pages later: List Nat):
     later.any (page => pages.any (== page) && !(pages.all (== page)) || pages.length == page) = later.any (mixed pages) :=
   rfl
 

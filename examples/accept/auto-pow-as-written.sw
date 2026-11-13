@@ -15,7 +15,7 @@ def needsNonzero (n: Nat) (k: Nat) [auto whole: Nat.pow 2 (Succ k) ≠ 0]: Nat :
 
 def passesNonzero (n: Nat) (k: Nat): Nat := needsNonzero n k
 
-theorem halfDivided (n: Nat) (k: Nat): n / 2 / Nat.pow 2 k = n / Nat.pow 2 (Succ k) := Nat.halfDivPow n k
+theorem halfDivided ∀ (n: Nat) (k: Nat): n / 2 / Nat.pow 2 k = n / Nat.pow 2 (Succ k) := Nat.halfDivPow n k
 
 test "halveThenDivide" := halveThenDivide 100 2 == 12
 

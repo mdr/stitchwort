@@ -16,7 +16,7 @@ opaque def char (c: Char): {Parse} () := Parse.char c
 theorem readsNat: Parse.Reads nat (read n => Not (read = []) ∧ read.all Parse.isDigit = True ∧ n = Parse.digitsValue read)
     unfolding nat
 := Parse.readsNat
-theorem readsChar (c: Char): Parse.Reads (() => char c) (read u => read = [c])
+theorem readsChar ∀ (c: Char): Parse.Reads (() => char c) (read u => read = [c])
     unfolding char
 := Parse.readsChar c
 

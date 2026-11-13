@@ -29,9 +29,9 @@ def pairsSummingTo (n: Nat): List (Pair Nat Nat) := Each.collect (() =>
 test "pairs" := pairsSummingTo 6 == [(1, 5), (2, 4), (3, 3)]
 
 -- Membership is the two bounds.
-theorem inRange (x n: Nat) (h: x < n): x ∈ 0 ..< n := (List.memRange x 0 n).backward omega
+theorem inRange ∀ (x n: Nat) (h: x < n): x ∈ 0 ..< n := (List.memRange x 0 n).backward omega
 
-theorem bounds (x a b: Nat) (h: x ∈ a ..< b): a ≤ x < b := (List.memRange x a b).forward h
+theorem bounds ∀ (x a b: Nat) (h: x ∈ a ..< b): a ≤ x < b := (List.memRange x a b).forward h
 
 -- `a ..= b` is `a ..< b + 1`: the same term.
-theorem throughIsUpTo (a b: Nat): a ..= b = a ..< b + 1 := rfl
+theorem throughIsUpTo ∀ (a b: Nat): a ..= b = a ..< b + 1 := rfl

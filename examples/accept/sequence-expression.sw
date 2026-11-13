@@ -110,4 +110,4 @@ def twoLines (n: Nat): Nat :=
   n
   n + 1
 
-theorem sameAsBlock (n: Nat): oneLine n = twoLines n := rfl
+theorem sameAsBlock ∀ (n: Nat): oneLine n = twoLines n := rfl

@@ -6,4 +6,4 @@ import Std.Effect (Comp, NoOp)
 
 def pass (c: Comp NoOp r Nat): Comp NoOp r Nat := c
 def passTwice (c: Comp NoOp r Nat): Comp NoOp r Nat := pass (pass c)
-theorem passIsSame (c: Comp NoOp r Nat): passTwice c = c := rfl
+theorem passIsSame ∀ (c: Comp NoOp r Nat): passTwice c = c := rfl

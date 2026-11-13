@@ -30,25 +30,25 @@ test "sets in any order" := ([3, 1, 2].toSet: Set Nat) == [2, 3, 1, 1].toSet
 test "sets differ" := ([1, 2].toSet: Set Nat) ≠ [1, 3].toSet
 
 -- Proofs. `size` counts the entries, for every map.
-theorem sizeIsLength (m: Map Text Nat): m.size = m.toList.length := Map.sizeToList m
+theorem sizeIsLength ∀ (m: Map Text Nat): m.size = m.toList.length := Map.sizeToList m
 
 -- Inserting two different keys in either order gives the same map, for any
 -- map, so anything said of one is said of the other.
-theorem insertSwap (m: Map Text Nat):
+theorem insertSwap ∀ (m: Map Text Nat):
     ((m.insert "a" 1).insert "b" 2) = ((m.insert "b" 2).insert "a" 1) :=
   Map.insertComm "a" 1 "b" 2 (e => Bool.trueNotFalse (Eq.cong (t => t == "a") e)) m
 
-theorem insertSwapSize (m: Map Text Nat):
+theorem insertSwapSize ∀ (m: Map Text Nat):
     ((m.insert "a" 1).insert "b" 2).size = ((m.insert "b" 2).insert "a" 1).size :=
   Eq.cong Map.size (insertSwap m)
 
 -- Maps that agree on every key are equal, even maps of functions, which
 -- have no `==`.
-theorem functionsExt (m: Map Nat (Nat → Nat)) (n: Map Nat (Nat → Nat)) (h: ∀ (key: Nat) => m.get key = n.get key): m = n :=
+theorem functionsExt ∀ (m: Map Nat (Nat → Nat)) (n: Map Nat (Nat → Nat)) (h: ∀ (key: Nat) => m.get key = n.get key): m = n :=
   Map.ext m n h
 
 -- `filter` keeps the entries for which the test holds, in key order.
-theorem filterInOrder (m: Map Nat Nat):
+theorem filterInOrder ∀ (m: Map Nat Nat):
     (m.filter (key value => value > 2)).toList = m.toList.filter (e => e.snd > 2) :=
   Map.toListFilterList m (key value => value > 2)
 

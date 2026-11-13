@@ -12,7 +12,7 @@ def split: Number → Option Number
   | Regular value => if 10 ≤ value then Some (Pair (Regular (value / 2)) (Regular ((value + 340282366920938463463374607431768211456) / 2))) else None
   | Pair _ _ => None
 
-theorem splitBig (value: Nat) (halves: Number) (some: split (Regular value) = Some halves): 10 ≤ value :=
+theorem splitBig ∀ (value: Nat) (halves: Number) (some: split (Regular value) = Some halves): 10 ≤ value :=
   match big: Nat.leq 10 value with
     | True => big
     | False => Void.exfalso (Option.noneNotSome halves some)

@@ -11,7 +11,7 @@ import Std (Eq, List, Option, Void)
 def OnFloor (level: Level) (monsters: List Monster): Prop := List.All (monster => isWall level monster.position = False) monsters
 
 --| A monster never chooses a wall.
-theorem pickFreeOnFloor (level: Level) (player: Position) (others: List Monster)
+theorem pickFreeOnFloor ∀ (level: Level) (player: Position) (others: List Monster)
     (choices: List Position) (destination: Position) (picked: pickFree level choices player others = Some destination): isWall level destination = False :=
   match choices with
     | [choice, ..rest] =>
@@ -25,19 +25,19 @@ theorem pickFreeOnFloor (level: Level) (player: Position) (others: List Monster)
                 | True => pickFreeOnFloor level player others rest destination picked
                 | False => rewrite <- Option.someInjective picked in wall
 
-theorem onFloorSnoc (level: Level) (monster: Monster) (inside: isWall level monster.position = False) (monsters: List Monster) (onFloor: OnFloor level monsters):
+theorem onFloorSnoc ∀ (level: Level) (monster: Monster) (inside: isWall level monster.position = False) (monsters: List Monster) (onFloor: OnFloor level monsters):
     OnFloor level (monsters ++ [monster]) :=
   List.allAppend ((monster: Monster) => isWall level monster.position = False) monsters [monster] onFloor (Both inside Trivial)
 
 --| Changing monsters without moving them keeps them on the floor.
-theorem onFloorMap (level: Level) (change: Monster → Monster) (stays: ∀ (monster: Monster) => (change monster).position = monster.position)
+theorem onFloorMap ∀ (level: Level) (change: Monster → Monster) (stays: ∀ (monster: Monster) => (change monster).position = monster.position)
     (monsters: List Monster) (onFloor: OnFloor level monsters): OnFloor level (monsters.map change) :=
   match monsters, onFloor with
     | [], onFloor => Trivial
     | [first, ..rest], Both inside others => Both (rewrite stays first in inside) (onFloorMap level change stays rest others)
 
 --| Dropping monsters keeps the rest on the floor.
-theorem onFloorFilter (level: Level) (keep: Monster → Bool)
+theorem onFloorFilter ∀ (level: Level) (keep: Monster → Bool)
     (monsters: List Monster) (onFloor: OnFloor level monsters): OnFloor level (monsters.filter keep) :=
   match monsters, onFloor with
     | [], onFloor => Trivial
@@ -49,7 +49,7 @@ theorem onFloorFilter (level: Level) (keep: Monster → Bool)
 --| The monsters' turn keeps them on the floor: those that attack stay
 --| where they are, and those that move pick a cell that isn't a wall, or
 --| stay.
-theorem actAllOnFloor (dice: Dice) (level: Level) (player: Position)
+theorem actAllOnFloor ∀ (dice: Dice) (level: Level) (player: Position)
     (index: Nat) (outcome: Outcome) (waiting: List Monster)
     (moved: OnFloor level outcome.moved) (h: OnFloor level waiting): OnFloor level (actAll dice level player index outcome waiting).moved :=
   match waiting, h with
@@ -64,7 +64,7 @@ theorem actAllOnFloor (dice: Dice) (level: Level) (player: Position)
               actAllOnFloor dice level player (index + 1) _ waiting (onFloorSnoc level { monster | position = destination } fresh outcome.moved moved) rest
             | None => actAllOnFloor dice level player (index + 1) _ waiting (onFloorSnoc level { monster | position = monster.position } inside outcome.moved moved) rest
 
-theorem monstersTurnOnFloor (dice: Dice) (state: State) (onFloor: OnFloor state.level state.monsters):
+theorem monstersTurnOnFloor ∀ (dice: Dice) (state: State) (onFloor: OnFloor state.level state.monsters):
     let after := monstersTurn dice state
     OnFloor after.level after.monsters :=
   match phase: state.phase with
@@ -73,7 +73,7 @@ theorem monstersTurnOnFloor (dice: Dice) (state: State) (onFloor: OnFloor state.
     | Died => onFloor
     | GaveUp => onFloor
 
-theorem playerMovesOnFloor (dice: Dice) (state: State) (direction: Direction) (onFloor: OnFloor state.level state.monsters):
+theorem playerMovesOnFloor ∀ (dice: Dice) (state: State) (direction: Direction) (onFloor: OnFloor state.level state.monsters):
     let after := playerMoves dice state direction
     OnFloor after.level after.monsters :=
   match found: monsterAt (state.player.toward direction) state.monsters with
@@ -89,13 +89,13 @@ theorem playerMovesOnFloor (dice: Dice) (state: State) (direction: Direction) (o
           let target := state.player.toward direction
           rewrite enterLevel state target, enterMonsters state target in onFloor
 
-theorem descendOnFloor (dice: Dice) (state: State) (onFloor: OnFloor state.level state.monsters):
+theorem descendOnFloor ∀ (dice: Dice) (state: State) (onFloor: OnFloor state.level state.monsters):
     let after := descend dice state
     OnFloor after.level after.monsters :=
   let plan := Random.withSeed dice.seed (() => generateLevel (state.level.depth + 1))
   placeMonstersOnFloor plan.level plan.level.start [] plan.monsters Trivial
 
-theorem resolveOnFloor (dice: Dice) (state: State) (command: Command) (onFloor: OnFloor state.level state.monsters):
+theorem resolveOnFloor ∀ (dice: Dice) (state: State) (command: Command) (onFloor: OnFloor state.level state.monsters):
     let after := resolve dice state command
     OnFloor after.level after.monsters :=
   match phase: state.phase with
@@ -117,7 +117,7 @@ theorem resolveOnFloor (dice: Dice) (state: State) (command: Command) (onFloor: 
     | GaveUp => onFloor
 
 --| No monster stands in a wall after a turn, whatever the seed.
-theorem stepOnFloor (seed: Nat) (state: State) (command: Command) (onFloor: OnFloor state.level state.monsters):
+theorem stepOnFloor ∀ (seed: Nat) (state: State) (command: Command) (onFloor: OnFloor state.level state.monsters):
     let after := Random.withSeed seed (() => step state command)
     OnFloor after.level after.monsters :=
   resolveOnFloor { seed = lcg seed / 65536 } state command onFloor

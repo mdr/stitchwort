@@ -2,6 +2,6 @@
 -- it holds no name of its own. Dot notation needs no import.
 import Std (Eq)
 
-theorem flip (a: Nat) (b: Nat) (p: a = b): b = a := Eq.sym p
+theorem flip ∀ (a: Nat) (b: Nat) (p: a = b): b = a := Eq.sym p
 
-theorem flipDot (a: Nat) (b: Nat) (p: a = b): b = a := p.sym
+theorem flipDot ∀ (a: Nat) (b: Nat) (p: a = b): b = a := p.sym

@@ -11,7 +11,7 @@ import Aoc.Common.Proofs (..)
 import Std (Bool, Eq, Exists, Fail, List, Option, Result, Text, Void)
 
 --| Soundness: a packet read is well formed, and its bits start the input.
-theorem readPacketSound (reader: BitReader) (packet: Packet) (rest: BitReader) (read: readPacket reader = Some (packet, rest)):
+theorem readPacketSound ∀ (reader: BitReader) (packet: Packet) (rest: BitReader) (read: readPacket reader = Some (packet, rest)):
     reader.unread = encode packet ++ rest.unread ∧ wellFormed packet = True :=
   match e: readPackets (Packets 1) reader with
     | Some ([first], after) =>
@@ -22,14 +22,14 @@ theorem readPacketSound (reader: BitReader) (packet: Packet) (rest: BitReader) (
 
 --| Completeness: a well-formed packet is read back from its bits, whatever
 --| follows them.
-theorem readPacketComplete (packet: Packet) (formed: wellFormed packet = True) (rest: List Bool):
+theorem readPacketComplete ∀ (packet: Packet) (formed: wellFormed packet = True) (rest: List Bool):
     readPacket { unread = encode packet ++ rest } = Some (packet, { unread = rest }) :=
   let read := countComplete [packet] (Both formed rfl) rest
   rewrite List.appendNil (encode packet) at read in rewrite read in rfl
 
 --| So bits start with at most one well-formed packet: the transmission
 --| fixes the packet.
-theorem encodingUnique (first: Packet) (second: Packet) (rest1: List Bool) (rest2: List Bool) (formed1: wellFormed first = True)
+theorem encodingUnique ∀ (first: Packet) (second: Packet) (rest1: List Bool) (rest2: List Bool) (formed1: wellFormed first = True)
     (formed2: wellFormed second = True) (same: encode first ++ rest1 = encode second ++ rest2): first = second ∧ rest1 = rest2 :=
   let read1 := readPacketComplete first formed1 rest1
   let read2 := readPacketComplete second formed2 rest2
@@ -39,7 +39,7 @@ theorem encodingUnique (first: Packet) (second: Packet) (rest1: List Bool) (rest
 --| The parser's guarantee: the input is hexadecimal digits, and the packet
 --| it reads is well formed, and its encoding starts the transmission's bits
 --| with only zero bits (the padding) after it.
-theorem parsePacketReads (input: Text) (packet: Packet) (parsed: Fail.toResult (() => parsePacket input) = Ok packet):
+theorem parsePacketReads ∀ (input: Text) (packet: Packet) (parsed: Fail.toResult (() => parsePacket input) = Ok packet):
     ∃ (bits: List Bool) => ∃ (rest: List Bool) =>
       transmissionBits input.trim.toList = Some bits ∧ bits = encode packet ++ rest ∧ rest.all (bit => not bit) = True ∧ wellFormed packet = True :=
   let split := rewrite Fail.toResultThen (() => readBits input) decodeTransmission at parsed in parsed

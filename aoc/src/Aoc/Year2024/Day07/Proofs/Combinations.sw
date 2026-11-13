@@ -8,7 +8,7 @@ import Aoc.Year2024.Day07.Spec (..)
 import Std (And, Eq, List, Nat, Void)
 
 --| Every list of allowed operators is among the combinations of its length.
-theorem combinationsComplete (operators: List Operator) (chosen: List Operator) (allowed: ∀ (operator: Operator) => operator ∈ chosen → operator ∈ operators):
+theorem combinationsComplete ∀ (operators: List Operator) (chosen: List Operator) (allowed: ∀ (operator: Operator) => operator ∈ chosen → operator ∈ operators):
     chosen ∈ combinations operators chosen.length := match chosen with
       | [] => Inl rfl
       | [operator, ..rest] =>
@@ -17,7 +17,7 @@ theorem combinationsComplete (operators: List Operator) (chosen: List Operator) 
           (List.memMap (combinations operators rest.length) rest (combinationsComplete operators rest (other has => allowed other (Inr has))) (Cons operator))
 
 --| Every combination has the length asked for and only allowed operators.
-theorem combinationsSound (operators: List Operator) (count: Nat) (chosen: List Operator) (listed: chosen ∈ combinations operators count):
+theorem combinationsSound ∀ (operators: List Operator) (count: Nat) (chosen: List Operator) (listed: chosen ∈ combinations operators count):
     (chosen.length = count) ∧ (∀ (operator: Operator) => operator ∈ chosen → operator ∈ operators) :=
   match count with
     | Zero =>

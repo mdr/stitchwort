@@ -13,14 +13,14 @@ def masLetters (first: Option Char) (second: Option Char) (third: Option Char): 
   [first, second, third] == [Some 'M', Some 'A', Some 'S'] ∨ [first, second, third] == [Some 'S', Some 'A', Some 'M']
 
 --| The program's MAS test on three letters, present or not.
-theorem masOrNone (first second third: Option Char):
+theorem masOrNone ∀ (first second third: Option Char):
     Option.getOrElse (Option.map3 spellsMas first second third) False = masLetters first second third :=
   match first, second, third with
     | Some x, Some y, Some z => cases
     | _, _, _ => cases
 
 --| Both of two tests, present or not.
-theorem bothOrNone (one other: Option Bool):
+theorem bothOrNone ∀ (one other: Option Bool):
     (Option.map2 (x y => Bool.toNat (x ∧ y)) one other).getOrElse 0 = Bool.toNat (one.getOrElse False ∧ other.getOrElse False) :=
   match one, other with
     | Some x, Some y => rfl
@@ -30,7 +30,7 @@ theorem bothOrNone (one other: Option Bool):
 --| `countCrosses` centre by centre, up to any bound at least as long as the
 --| row above: centre j + 1 has MAS from column j to j + 2 down to the right,
 --| and from j + 2 to j down to the left.
-theorem crossesSum (above: List Char) (middle: List Char) (below: List Char) (n: Nat) (h: above.length ≤ n):
+theorem crossesSum ∀ (above: List Char) (middle: List Char) (below: List Char) (n: Nat) (h: above.length ≤ n):
     countCrosses above middle below
       = List.sumBy (List.range 0 n) (c =>
         Bool.toNat (masLetters (above.get c) (middle.get (1 + c)) (below.get (2 + c)) ∧ masLetters (above.get (2 + c)) (middle.get (1 + c)) (below.get c))) :=
@@ -47,12 +47,12 @@ theorem crossesSum (above: List Char) (middle: List Char) (below: List Char) (n:
         List.getDrop middle 1 _, List.getDrop below 2 _, List.getDrop above 2 _, bothOrNone _ _, masOrNone _ _ _, masOrNone _ _ _ in rfl
 
 --| With an empty row among the three, there are no crosses in them.
-theorem crossesEmpty1 (middle: List Char) (below: List Char): countCrosses [] middle below = 0 := rfl
+theorem crossesEmpty1 ∀ (middle: List Char) (below: List Char): countCrosses [] middle below = 0 := rfl
 
-theorem crossesEmpty2 (above: List Char) (below: List Char): countCrosses above [] below = 0 :=
+theorem crossesEmpty2 ∀ (above: List Char) (below: List Char): countCrosses above [] below = 0 :=
   rewrite List.zipWith3NilSecond (below.drop 2) spellsMas above in rfl
 
-theorem crossesEmpty3 (above: List Char) (middle: List Char): countCrosses above middle [] = 0 :=
+theorem crossesEmpty3 ∀ (above: List Char) (middle: List Char): countCrosses above middle [] = 0 :=
   rewrite List.zipWith3NilThird spellsMas above (middle.drop 1) in rfl
 
 --| An X-MAS read from the top-left corner of its 3 by 3 block at row r,
@@ -64,7 +64,7 @@ def crossRead (grid: Grid) (r: Nat) (c: Nat): Nat :=
   )
 
 --| The program's answer, block by block, past the last row and column by 3.
-theorem programCrosses (grid: Grid):
+theorem programCrosses ∀ (grid: Grid):
     solvePart2 grid = List.sumBy (List.range 0 (height grid + 3)) (r => List.sumBy (List.range 0 (width grid + 3)) (c => crossRead grid r c)) :=
   let rows := grid.rows
   let tall := height grid + 3
@@ -81,25 +81,25 @@ theorem programCrosses (grid: Grid):
       := List.sumByCong (List.range 0 tall) _ _ (r => crossesSum (rowOf grid r) (rowOf grid (1 + r)) (rowOf grid (2 + r)) wide (rowFits grid r))
 
 --| No letter at the centre, no cross.
-theorem crossAtMissing (grid: Grid) (r: Nat) (c: Nat) (missing: letterAt grid r c = None): Bool.toNat (crossAt grid r c) = 0 :=
+theorem crossAtMissing ∀ (grid: Grid) (r: Nat) (c: Nat) (missing: letterAt grid r c = None): Bool.toNat (crossAt grid r c) = 0 :=
   rewrite missing in cases
 
 --| No letter at the top-left corner, no cross read from it.
-theorem crossReadMissing (grid: Grid) (r: Nat) (c: Nat) (missing: letterAt grid r c = None): crossRead grid r c = 0 :=
+theorem crossReadMissing ∀ (grid: Grid) (r: Nat) (c: Nat) (missing: letterAt grid r c = None): crossRead grid r c = 0 :=
   rewrite missing in cases
 
 --| A centre one row and one column on is a block read from its top-left
 --| corner.
-theorem crossAtCorner (grid: Grid) (r: Nat) (c: Nat): Bool.toNat (crossAt grid (1 + r) (1 + c)) = crossRead grid r c :=
+theorem crossAtCorner ∀ (grid: Grid) (r: Nat) (c: Nat): Bool.toNat (crossAt grid (1 + r) (1 + c)) = crossRead grid r c :=
   rewrite Nat.addComm r 1, Nat.addComm c 1 in rfl
 
 --| There is no centre in the first row or column.
-theorem crossAtTop (grid: Grid) (c: Nat): Bool.toNat (crossAt grid 0 c) = 0 := cases
+theorem crossAtTop ∀ (grid: Grid) (c: Nat): Bool.toNat (crossAt grid 0 c) = 0 := cases
 
-theorem crossAtLeft (grid: Grid) (r: Nat): Bool.toNat (crossAt grid r 0) = 0 := cases
+theorem crossAtLeft ∀ (grid: Grid) (r: Nat): Bool.toNat (crossAt grid r 0) = 0 := cases
 
 --| The spec's count, past the last row and column by 3.
-theorem specCrosses (grid: Grid):
+theorem specCrosses ∀ (grid: Grid):
     part2Spec grid = List.sumBy (List.range 0 (height grid + 3)) (r => List.sumBy (List.range 0 (width grid + 3)) (c => crossRead grid r c)) :=
   let rows := grid.rows
   let tall := height grid + 3
@@ -134,5 +134,5 @@ theorem specCrosses (grid: Grid):
 
 --| Part 2 is right for every grid: the printed answer is the number of
 --| centres of an X-MAS.
-theorem part2Correct (grid: Grid): solvePart2 grid = part2Spec grid :=
+theorem part2Correct ∀ (grid: Grid): solvePart2 grid = part2Spec grid :=
   Eq.trans (programCrosses grid) (Eq.sym (specCrosses grid))

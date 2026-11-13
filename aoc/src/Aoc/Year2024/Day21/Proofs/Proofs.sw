@@ -14,7 +14,7 @@ import Aoc.Year2024.Day21.Spec (..)
 import Std (And, Exists, List, Nat)
 
 --| Some presses as many as the program's length type the code.
-theorem lengthAchieved (robots: Nat) (code: Code):
+theorem lengthAchieved ∀ (robots: Nat) (code: Code):
     Exists (List DirectionKey) (presses => (Types robots code presses) ∧ (presses.length = (robotCosts robots).shortestLength code)) :=
   Witness (pressesFor robots code) (Both (pressesForTypes robots code) (pressesForLength robots code))
 
@@ -24,12 +24,12 @@ theorem lengthAchieved (robots: Nat) (code: Code):
 def Optimal (robots: Nat): Prop :=
   ∀ (code: Code) (presses: List DirectionKey) => Types robots code presses → (robotCosts robots).shortestLength code ≤ presses.length
 
-theorem shortestIfOptimal (robots: Nat) (optimal: Optimal robots) (code: Code): Shortest robots code ((robotCosts robots).shortestLength code) :=
+theorem shortestIfOptimal ∀ (robots: Nat) (optimal: Optimal robots) (code: Code): Shortest robots code ((robotCosts robots).shortestLength code) :=
   Both (lengthAchieved robots code) (presses types => optimal code presses types)
 
-theorem complexitiesAnswer (robots: Nat) (optimal: Optimal robots) (codes: List Code): Answer robots codes (complexities robots codes) :=
+theorem complexitiesAnswer ∀ (robots: Nat) (optimal: Optimal robots) (codes: List Code): Answer robots codes (complexities robots codes) :=
   Witness (robotCosts robots).shortestLength (Both (code member => shortestIfOptimal robots optimal code) rfl)
 
-theorem part1Correct (optimal: Optimal 2) (codes: List Code): Answer 2 codes (solvePart1 codes) := complexitiesAnswer 2 optimal codes
+theorem part1Correct ∀ (optimal: Optimal 2) (codes: List Code): Answer 2 codes (solvePart1 codes) := complexitiesAnswer 2 optimal codes
 
-theorem part2Correct (optimal: Optimal 25) (codes: List Code): Answer 25 codes (solvePart2 codes) := complexitiesAnswer 25 optimal codes
+theorem part2Correct ∀ (optimal: Optimal 25) (codes: List Code): Answer 25 codes (solvePart2 codes) := complexitiesAnswer 25 optimal codes
