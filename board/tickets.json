@@ -1,5 +1,5 @@
 {
-  "next": 3116,
+  "next": 3117,
   "tickets": [
     {
       "id": 47,
@@ -33745,6 +33745,19 @@
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-13",
+      "updated": "2026-11-13",
+      "commits": []
+    },
+    {
+      "id": 3116,
+      "title": "[DeepSeek] Add a reject example for a test fact with no reading at all (an opaque Bool def taken apart with Inl/Inr: E-NO-READING 'has no reading, so it has no parts'): reading-pattern-no-reading now covers a reading that isn't an Or, since SW-3067 gave n < 10 a reading",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "diagnostics",
       "body": "",
       "created": "2026-11-13",
       "updated": "2026-11-13",
