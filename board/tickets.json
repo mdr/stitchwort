@@ -1,5 +1,5 @@
 {
-  "next": 3192,
+  "next": 3193,
   "tickets": [
     {
       "id": 47,
@@ -34726,15 +34726,17 @@
     {
       "id": 3189,
       "title": "[Sonnet] Formatter stage 4 (formatter-architecture §6): dry run for Matt: run the tree printer over the repo, report the diff's size by folder and 30 representative sample hunks (before/after) covering each rule and Matt's decisions D3564-D3569, as docs/reviews/formatter-dry-run.md; no .sw files changed",
-      "status": "doing",
+      "status": "done",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-3189",
       "labels": [],
       "epic": "syntax-language",
-      "body": "",
+      "body": "\nModel result: Sonnet, worked, 15 min (est. 120)",
       "created": "2026-11-13",
       "updated": "2026-11-13",
-      "commits": []
+      "commits": [
+        "81404aa76e1187f1a19911e057be6c809355ad11"
+      ]
     },
     {
       "id": 3190,
@@ -34757,6 +34759,21 @@
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-13",
+      "updated": "2026-11-13",
+      "commits": []
+    },
+    {
+      "id": 3192,
+      "title": "[Sonnet] New formatter fixes from the dry run (docs/reviews/formatter-dry-run.md 'Worth a look'): (1) the := match hug applies only when the whole 'match … with' line fits; otherwise the scrutinee was wrapping level with the arms (63 places); (2) def main() must stay def main(), not def main () (397 regions); (5) a long pattern's continuation line must not sit at the arm body's indent (~20), and a bracketed if's else must not sit level with its ( (2)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [
+        "bug"
+      ],
+      "epic": "syntax-language",
       "body": "",
       "created": "2026-11-13",
       "updated": "2026-11-13",
