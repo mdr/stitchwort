@@ -34,9 +34,9 @@ interface Ord (a: Type) = {
   flip: ∀ (x y: a) => compare y x = Ordering.flip (compare x y),
   trans: ∀ (x y z: a) => compare x y = Less → compare y z = Less → compare x z = Less,
   --| The relations agree with `compare`.
-  lessThanOf: (x: a) → (y: a) → compare x y = Less → lessThan x y,
+  lessThanOf: ∀ (x y: a) => compare x y = Less → lessThan x y,
   lessThanTo: ∀ (x y: a) => lessThan x y → compare x y = Less,
-  lessEqOf: (x: a) → (y: a) → compare x y ≠ Greater → lessEq x y,
+  lessEqOf: ∀ (x y: a) => compare x y ≠ Greater → lessEq x y,
   lessEqTo: ∀ (x y: a) => lessEq x y → compare x y ≠ Greater
 }
 

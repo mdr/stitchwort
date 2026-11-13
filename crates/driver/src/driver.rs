@@ -661,6 +661,7 @@ impl Session {
         };
         session.elab.set_core_link_names(Some(index.clone()));
         let mut diagnostics = session.elab.elaborate_module(module);
+        session.statement_style(&mut diagnostics, &[file]);
         session.elab.set_core_link_names(None);
         // A broken doc link in the core fails the load, as in a library
         // file (SW-1046). A test's own library files don't have the names
@@ -788,7 +789,7 @@ impl Session {
             parse_module_recovering(file, text, self.elab.options.limits.stack);
         let first_new_def = self.elab.kernel.env.defs().len();
         self.elab.set_file_mode(context);
-        let diagnostics =
+        let mut diagnostics =
             if module.namespace.is_none() && module.decls.is_empty() && !parse_errors.is_empty() {
                 Vec::new()
             } else {
@@ -796,6 +797,7 @@ impl Session {
             };
         self.elab.set_file_mode(None);
         if parse_errors.is_empty() {
+            self.statement_style(&mut diagnostics, &[file]);
             self.finish_load(first_new_def, diagnostics)?;
             Ok(file)
         } else {
@@ -850,10 +852,27 @@ impl Session {
             })
             .collect();
         let first_new_def = self.elab.kernel.env.defs().len();
-        let diagnostics = self
+        let mut diagnostics = self
             .elab
             .elaborate_namespace(Some(&namespace), &units, None);
+        self.statement_style(&mut diagnostics, &ids);
         self.finish_load(first_new_def, diagnostics)
+    }
+
+    /// The warnings about how statements are written, which need the
+    /// files' text: drops the elaborator's `W-ARROW-FORALL` candidates that
+    /// weren't written with `->`, and adds `W-THEOREM-FORALL` for each file
+    /// of `files`.
+    pub(crate) fn statement_style(&self, diagnostics: &mut Vec<Diagnostic>, files: &[FileId]) {
+        stitchwort_elab::keep_written_arrows(diagnostics, |id| {
+            Some(self.sources.get(id).text.as_str())
+        });
+        for &id in files {
+            diagnostics.extend(crate::binder_sweep::warnings(
+                id,
+                &self.sources.get(id).text,
+            ));
+        }
     }
 
     /// What `load` does once the elaborator is done: checks that the new

@@ -226,6 +226,63 @@ fn an_unknown_name_gets_a_quick_fix_that_adds_its_import() {
     });
 }
 
+#[test]
+fn a_theorem_that_starts_with_forall_gets_a_quick_fix_that_moves_its_variables() {
+    big_stack(|| {
+        let text = "namespace Demo\n\ntheorem addZero: ∀ (n: Nat) => n + 0 = n\n  | Zero => rfl\n  | Succ k => rfl\n";
+        let mut s = Session::open(text);
+        let d = s
+            .diagnostics
+            .iter()
+            .find(|d| d["code"] == "W-THEOREM-FORALL")
+            .unwrap_or_else(|| panic!("{:?}", s.diagnostics))
+            .clone();
+        let actions = s.request(
+            "textDocument/codeAction",
+            json!({"textDocument": {"uri": URI}, "range": d["range"],
+                   "context": {"diagnostics": [d]}}),
+        );
+        let action = &actions[0];
+        assert_eq!(action["title"], "Move ∀ variables before the colon");
+        let edit = &action["edit"]["documentChanges"][0]["edits"][0];
+        let new_text = edit["newText"].as_str().unwrap();
+        assert!(
+            new_text.starts_with("theorem addZero ∀ (n: Nat): n + 0 = n := match n with"),
+            "{new_text}"
+        );
+        assert_eq!(edit["range"]["start"], json!({"line": 2, "character": 0}));
+    });
+}
+
+#[test]
+fn a_statement_written_with_an_arrow_gets_a_quick_fix_that_writes_forall() {
+    big_stack(|| {
+        let text = "namespace Demo\n\ntheorem addZero: (n: Nat) -> n + 0 = n := n => rfl\n";
+        let mut s = Session::open(text);
+        let d = s
+            .diagnostics
+            .iter()
+            .find(|d| d["code"] == "W-ARROW-FORALL")
+            .unwrap_or_else(|| panic!("{:?}", s.diagnostics))
+            .clone();
+        let actions = s.request(
+            "textDocument/codeAction",
+            json!({"textDocument": {"uri": URI}, "range": d["range"],
+                   "context": {"diagnostics": [d]}}),
+        );
+        let action = &actions[0];
+        assert_eq!(action["title"], "Write ∀ instead of ->");
+        let edits = action["edit"]["documentChanges"][0]["edits"]
+            .as_array()
+            .unwrap();
+        let texts: Vec<&str> = edits
+            .iter()
+            .map(|e| e["newText"].as_str().unwrap())
+            .collect();
+        assert_eq!(texts, ["∀ ", "=>"]);
+    });
+}
+
 /// The signature help at `line` and `character`.
 fn help_after(s: &mut Session, line: usize, character: usize) -> Value {
     s.request(

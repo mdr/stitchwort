@@ -1952,7 +1952,7 @@ theorem List.foldMinByFirst ∀ [auto ord: Ord b] (f: a → b) (xs: List a) (sta
               -- Bound here, not written inline: the inline lambda is checked inside
               -- three constructor arguments, which a debug build's stack budget
               -- doesn't allow.
-              let below: (z: a) → z ∈ [start, ..before] → f (List.foldLeft ys y (List.minByStep f)) < f z :=
+              let below: ∀ (z: a) => z ∈ [start, ..before] → f (List.foldLeft ys y (List.minByStep f)) < f z :=
                 z member =>
                   match member with
                     | Inl same =>

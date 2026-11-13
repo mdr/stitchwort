@@ -307,8 +307,8 @@ def Map.range [auto ord: Ord k] (m: Map k v) (lo: k) (hi: k): Map k v :=
 theorem Map.rawInjective ∀ (p: Quot (Map.Raw k v [ord := o]) Map.Raw.Equiv) (q: Quot (Map.Raw k v [ord := o]) Map.Raw.Equiv):
     Map.toList { raw = p } = Map.toList { raw = q } → p = q :=
   let motive: Quot (Map.Raw k v [ord := o]) Map.Raw.Equiv → Prop :=
-    p' => (q': Quot (Map.Raw k v [ord := o]) Map.Raw.Equiv) → Map.toList { raw = p' } = Map.toList { raw = q' } → p' = q'
-  let fromMk: (a: Map.Raw k v [ord := o]) → motive (Quot.mk a) :=
+    p' => ∀ (q': Quot (Map.Raw k v [ord := o]) Map.Raw.Equiv) => Map.toList { raw = p' } = Map.toList { raw = q' } → p' = q'
+  let fromMk: ∀ (a: Map.Raw k v [ord := o]) => motive (Quot.mk a) :=
     a q' =>
       Quot.ind
         [p := q'' => Map.toList { raw = Quot.mk a } = Map.toList { raw = q'' } → Quot.mk a = q'']

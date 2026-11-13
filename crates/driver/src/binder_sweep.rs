@@ -27,7 +27,8 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use stitchwort_syntax::ast::{Decl, Expr, Pattern};
 use stitchwort_syntax::{
-    DEFAULT_STACK, SourceMap, Tok, Token, decl_ranges, lex_with_trivia, parse_module_within,
+    DEFAULT_STACK, Diagnostic, FileId, SourceMap, Span, Tok, Token, decl_ranges, lex_with_trivia,
+    parse_module_within,
 };
 
 /// Why a theorem with `∀` at the top of its statement was left as it is.
@@ -127,6 +128,10 @@ pub struct Converted {
     /// The text replaced, from the keyword to the end of the declaration.
     pub before: String,
     pub after: String,
+    /// Where `before` is in the original text, as byte offsets.
+    pub range: (u32, u32),
+    /// The `∀` that starts the statement, as byte offsets.
+    pub forall: (u32, u32),
     /// Whether the proof term changes for sure (a lemma applied to the
     /// moved variables, `:= f` becoming `:= f x`), so only the statement
     /// can be promised.
@@ -189,6 +194,47 @@ pub fn sweep(text: &str, keep: &BTreeSet<String>) -> Result<Outcome, String> {
             }
         }
     }
+}
+
+/// The code of the warning for a theorem whose statement starts with `∀`
+/// (docs/proposals/theorem-binders.md §6, D3470).
+pub const WARNING: &str = "W-THEOREM-FORALL";
+
+/// `W-THEOREM-FORALL` for each theorem of the file `file` (its `text`)
+/// whose statement starts with `∀` and that [`sweep`] would convert: the
+/// ones it skips are left as they are by design (a `∀` after a premise) or
+/// have no safe rewrite, and a warning with no fix would only be noise. The
+/// label is on the `∀`. A file that doesn't parse has none.
+pub fn warnings(file: FileId, text: &str) -> Vec<Diagnostic> {
+    // Most files have no `∀` at all: skip the second parse.
+    if !text.contains('∀') && !text.contains("forall") {
+        return Vec::new();
+    }
+    let Ok(outcome) = sweep(text, &BTreeSet::new()) else {
+        return Vec::new();
+    };
+    outcome
+        .converted
+        .iter()
+        .map(|c| {
+            let span = Span {
+                file,
+                start: c.forall.0,
+                end: c.forall.1,
+            };
+            Diagnostic::warning(
+                WARNING,
+                format!("the statement of `{}` starts with `∀`", c.name),
+            )
+            .with_label(span, "write these variables before the colon")
+            .with_note(
+                "`theorem f (n: Nat): P n` says the same as `theorem f: ∀ (n: Nat) => P n` \
+                 and has the same hash; a proof by arms becomes `:= match n with`. The quick \
+                 fix \"Move ∀ variables before the colon\" does it, and `stitchwort sweep \
+                 theorem-binders` does it for a folder",
+            )
+        })
+        .collect()
 }
 
 /// The line (from 1) of a byte offset.
@@ -254,7 +300,7 @@ fn sweep_once(text: &str, keep: &BTreeSet<String>) -> Result<Outcome, String> {
                 line,
                 reason,
             }),
-            Some(Ok((start, end, after, eta))) => {
+            Some(Ok((start, end, after, eta, forall))) => {
                 let before = text[start..end].to_string();
                 edits.push((
                     start,
@@ -266,6 +312,8 @@ fn sweep_once(text: &str, keep: &BTreeSet<String>) -> Result<Outcome, String> {
                         new_lines: (0, 0),
                         before,
                         after,
+                        range: (start as u32, end as u32),
+                        forall,
                         eta,
                     },
                 ));
@@ -396,7 +444,10 @@ impl<'a> Source<'a> {
     /// otherwise the replaced range and its new text, and whether the proof
     /// term surely changed; or why it was skipped.
     #[allow(clippy::type_complexity)]
-    fn theorem(&self, th: &Theorem) -> Option<Result<(usize, usize, String, bool), Reason>> {
+    fn theorem(
+        &self,
+        th: &Theorem,
+    ) -> Option<Result<(usize, usize, String, bool, (u32, u32)), Reason>> {
         let Decl::Signature {
             ty, span: sig_span, ..
         } = th.signature
@@ -436,15 +487,19 @@ impl<'a> Source<'a> {
             return Some(Err(Reason::NoBody));
         };
         let result_end = body_start; // token index: the statement is [first, result_end)
-        Some(self.convert(
-            th,
-            keyword,
-            colon,
-            first,
-            result,
-            result_end,
-            decl_end_token,
-        ))
+        let forall = (toks[first].span.start, toks[first].span.end);
+        Some(
+            self.convert(
+                th,
+                keyword,
+                colon,
+                first,
+                result,
+                result_end,
+                decl_end_token,
+            )
+            .map(|(start, end, after, eta)| (start, end, after, eta, forall)),
+        )
     }
 
     /// The last token of the declaration whose keyword is at `keyword`.

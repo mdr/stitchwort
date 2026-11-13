@@ -85,3 +85,13 @@ warnings. Do (d) in the meantime: SW-2588 showed a sweep is cheap (estimated
 that needs types, and silently rewriting on save is the wrong kind of
 surprise. Skip (c) unless (b) is deferred for long, as a cheap stopgap
 (estimated half a day).
+
+## Built (SW-2658)
+
+Option (b): `W-ARROW-FORALL`, with the quick fix "Write ∀ instead of ->". The
+elaborator proposes a candidate at each explicit named binder group whose
+function type is a proposition over a type that isn't one and whose variable
+occurs in the body (so an unused name stays an arrow); `->`, `∀` and a
+header's parameters are one tree, so the driver (and the library loader) keep
+only the candidates whose group is followed by an arrow in the file's text.
+The library has none (`the_library_writes_its_statements_with_forall`).

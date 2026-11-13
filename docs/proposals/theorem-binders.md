@@ -405,6 +405,13 @@ and doesn't rewrite arms into a `match`.
 - **The order.** Sweep first, so the trees start with no warnings, as D3462
   says for its own rule.
 
+Built (SW-2658): `W-THEOREM-FORALL` on a theorem whose statement starts
+with `∀` that the sweep would convert (a `∀` after a premise doesn't warn),
+and the quick fix "Move ∀ variables before the colon". The quick fix is the
+sweep's edit for that theorem, offered without the trial check, since the
+checked project is on the checker thread; the sweep's trial remains the
+guarantee for a whole folder.
+
 ## 7. The hash probe (measured)
 
 `stitchwort` has no command that prints a hash, so the probe uses the test

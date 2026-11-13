@@ -18,6 +18,7 @@ mod project;
 mod receiver_first;
 mod redundant_arms;
 mod scope;
+mod statement_style;
 mod std_dir;
 mod sweep;
 mod test_failures;

@@ -46,7 +46,7 @@ type Float = { bits: Nat, valid: Float.isValid bits = True }
 --| building a `Float` with known bits (a literal, a primitive's result, a
 --| definition, a native) gives the same record.
 -- (docs/proposals/float.md §3.4, D731)
-def Bool.canonicalTrue: (b: Bool) → (eq: b = True) → b = True
+def Bool.canonicalTrue: ∀ (b: Bool) => (eq: b = True) → b = True
   | True, _ => rfl
   | False, p => p
 

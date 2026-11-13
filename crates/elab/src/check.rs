@@ -2169,13 +2169,14 @@ pub(crate) fn infer_value(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
             auto,
             dom,
             cod,
-            ..
+            span,
         } => {
             let icit = match (implicit, auto) {
                 (_, true) => Icit::Auto,
                 (true, false) => Icit::Implicit,
                 (false, false) => Icit::Explicit,
             };
+            let dom_end = dom.span().end;
             let (dom, s1) = check_type(cx, dom)?;
             let mark = cx.mark();
             for (k, name) in names.iter().enumerate() {
@@ -2189,6 +2190,7 @@ pub(crate) fn infer_value(cx: &mut Ctx, expr: &Expr) -> Result<(Term, Value)> {
             let result = check_type(cx, cod);
             cx.reset(mark);
             let (mut term, s2) = result?;
+            crate::arrow_forall::note(cx, names, *implicit || *auto, dom_end, cod, s1, s2, *span);
             for (k, name) in names.iter().enumerate().rev() {
                 term = Term::Pi(
                     name.text.as_str().into(),
