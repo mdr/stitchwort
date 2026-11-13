@@ -34707,17 +34707,19 @@
     {
       "id": 3188,
       "title": "[Sonnet] Three stitchwort-lsp features tests fail since ~12 Nov: a Cmd+. code action on a program ? is now answered at once (SW-2959/D3529, instant Cmd+.) instead of queued for the search worker, and the tests still expect a queued search (a_code_action_offers_a_proof_search_only_on_a_proof_goal: 'answered without a search'; searches_in_a_row_give_what_fresh_ones_do: 7 jobs not 8; switching_features_off_with_a_configuration_change: 0 searches not 1). Not in the quick tier, so unnoticed",
-      "status": "doing",
+      "status": "review",
       "agent": "Sonnet",
       "where": ".claude/worktrees/SW-3188",
       "labels": [
         "bug"
       ],
       "epic": "editor-playground",
-      "body": "",
+      "body": "\n\nProgress (Sonnet lane): cause confirmed in crates/lsp/src/lib.rs code_action: a ? goal is answered at once (splits plus a Search command); only a pattern-variable split and a header-parameter split still queue a search. The three tests updated to that; all pass.\n",
       "created": "2026-11-13",
       "updated": "2026-11-13",
-      "commits": []
+      "commits": [
+        "cfc38de18"
+      ]
     }
   ]
 }
