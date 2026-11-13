@@ -3,13 +3,13 @@ source: crates/driver/tests/library/hash_stability.rs
 expression: "lines(session, d, f)"
 ---
 Main.ratio 8e8fe4ee66cf811b51f5f446a9829bd83c723359edcc91d53a6abf32474d1780
-Main.test "Nat by 0" 3dac12461d99efcc57ebd417c0b65d75cee44d3df1a61ad621cf8207c02bbf50
-Main.test "a variable divisor" 884bd74dfa25c504beaf327c9ee8f22d5f3a97435fa80d6459fc2c4326201acc
-Main.test "Nat.divMod and Nat.ceilDiv by 0" b210b8e7aaf6e69225ab0def52ef709e9fb8f0d04087a1dc7d8dd9fcf3a43f21
-Main.test "Int by 0" aaa8fdc37e91c05b05ea5f3f389fb3e23afbd4607946ce73413b023f562b2494
-Main.test "every Int convention by 0" 930dafeefdb69feb0eabd41d9feb45d511364d06593317b63baf066ce8d41bf8
-Main.test "Int.modNat by 0" 0baf3384059a9e0cc5cee05b267d81e3c320bc5e55b1737873f5d16611da0164
+Main.test "Nat by 0" 3610d784433b9c8ded8f322e389bfd1e5f567b1d5b1058d8176b8b817fcd6b13
+Main.test "a variable divisor" ef9b12afa3df977b7e3fb9ecd95aab6d9bf9d070eee2c97d87fbfe6d67527dc7
+Main.test "Nat.divMod and Nat.ceilDiv by 0" 9d3cbf595ae5f233df27227611a51dc116e051039ae3a249765772e7915673ac
+Main.test "Int by 0" 7c9a147834e1c6156ea3ead530a430ce0442c3c1372c765883c3203e772daa7e
+Main.test "every Int convention by 0" 33287d0c5330575bba85ad9d9d3bb6bd9d98b345020a1ec0ad9dd5c3b3f06404
+Main.test "Int.modNat by 0" 2b7afa3399247c9ed1b29e8c565818f865e21527ee842a2110446f9df2f5e918
 Main.divByZero 13bba530e547df021156b5b6a1adcff15302617478dc150c35b816067fce9133
 Main.modByZero aae3fcd717e67f7275c77a879749a76770d8074481667271b78acf12d4811b0e
-Main.divisionLaw e4ee17857a218853f03fbf35f07f122f653f440fb3c760f322b0dc456d8fcedf
-Main.intDivisionLaw 4faa30340e2e88f2ba91045b29687d423832daba9228c5edd76a9df01e712f16
+Main.divisionLaw 35d06b0b5f07f0b8466c44a493602ad0dab7828f9c06843f0e4e95d9190c8320
+Main.intDivisionLaw f9d44b823bb77812f8a7434ef119f9c7c903f38def0a7b766c547bb37d1b0c90

@@ -2,7 +2,7 @@
 source: crates/driver/tests/library/hash_stability.rs
 expression: "lines(session, d, f)"
 ---
-Main.total 12e6acad19cc3f318eab9bd1c6a2adbe3585355ddd2d1e5531a6712f3f823960
-Main.test "wildcard names" 25749a8e7d2ab0ed94f7eca06626f5210719625b7c85c9391045a851577afeae
-Main.test "the same name from two namespaces, in full" 35e3cf4fa5d0037e84a6c832565bdb01fe04d00602be960b9845e139a8a1f5df
-Main.test "split" a3100e7bab0ff525cc531e81c8ce75b8cb571d9f69ae2e10229cf88ce7c6ed07
+Main.total d4fa452cb75e9ac6718e62090cc885e7afb89fa07c2048dc043725559d739459
+Main.test "wildcard names" 976b39b7ed8bd723841d10e15d62c53e00cbf45eca194f748afc64d5286eb5c5
+Main.test "the same name from two namespaces, in full" d4b430976975ef91490aff0af5ed36e66102c38c59d73ceaa0447d5a23c30044
+Main.test "split" df2717db70bb52e16a7106561f862246ab11b1d3075515a4b04018b3b4c5cd53

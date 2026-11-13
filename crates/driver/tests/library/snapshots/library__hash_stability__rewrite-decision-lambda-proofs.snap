@@ -2,4 +2,4 @@
 source: crates/driver/tests/library/hash_stability.rs
 expression: "lines(session, d, f)"
 ---
-Main.ifEqualOne befcbd214edf00e1b943314d7cefa8c582297166a56e21512d068c376dfe441c
+Main.ifEqualOne ef1fa578b6ddad11c0b4abadaeea1614dd7b6c511f62217ed86cefb1b7a3f588

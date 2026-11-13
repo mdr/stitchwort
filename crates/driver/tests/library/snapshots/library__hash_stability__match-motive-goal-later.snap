@@ -5,4 +5,4 @@ expression: "lines(session, d, f)"
 Main.apply2 52b3b5cb128a714b66660c387ec98fac2c10ac90610c556972f9e71862a90c1e
 Main.fine 601b3b87ff4abe25aae215131883580cb2a0bdbeafd3811a3c77faef44cf5a2e
 Main.fine.%match1 614cd8835ad00bea1f72d0fbe1e65d3f3aefc66df4a329f13136e950fc3806de
-Main.test "the motive checked when lifted" 2e1c8f97bf3003f77e573881e4d67f645222fc84b7cde602edb957a2384e7fa4
+Main.test "the motive checked when lifted" fef8544d0dedc5ba0ae222a91e9411680cda15a6553f5e78abd6c338e98ef515

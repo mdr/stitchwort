@@ -3,9 +3,9 @@ source: crates/driver/tests/library/hash_stability.rs
 expression: "lines(session, d, f)"
 ---
 Main.increasesOver ac6e79568fa013ae6b1c08517e5a09ea6917e39566f574b74b19c103dc0db99f
-Main.test "a bare comparison, zipped" 4e0591c95928a879bddb90e68b15831a12ef7cf33825955ff89173efc006d676
+Main.test "a bare comparison, zipped" 1026c08250212953fc115e0e5e6f8499c070ff7de2b5a5aafabb5773a7e24e53
 Main.deepCount 6af8933367ce199d25dba5370e46d382b08250e76b9114a0abeb3bbedc2dce61
-Main.test "a section with an operand, mapped" d88cc9ee988cfc88fb0ce2f650b9074604e29c82840ef4b5788ee4378125ebb4
+Main.test "a section with an operand, mapped" a52e44faa653878e4e415d6ed92f87f23210d6d9223b8fff91e6c79cbde1de41
 Main.smallFirsts d4c1e6fa9f4e4827c18578e8edcea5f022be8bd7825381f1b39429afe0152fc4
-Main.test "a method section that compares" 8cb409431b899f7297b083e456f868fea11030418c10b124e7f20adac5ab6927
+Main.test "a method section that compares" 0d9295c4dcc8297cca4adcd88e7407258af424f2bcd4c34661368daed038f7c1
 Main.allSmall 739da06f84cad7ab46741846a66fec63c7af43ee1eb8b30bcd3896300165df93

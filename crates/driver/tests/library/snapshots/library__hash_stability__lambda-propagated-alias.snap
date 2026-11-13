@@ -11,6 +11,6 @@ Main.both 90709b9d2f9ecea8f382d2491ba48e7debdb2135e27819a16afe64318240a27a
 Main.sized 8779b9c527807e1b2415423e5ba942af8a47cbdd29f2d80dda2ed02f9f6130ba
 Main.annotated 8779b9c527807e1b2415423e5ba942af8a47cbdd29f2d80dda2ed02f9f6130ba
 Main.summed 18a09024b1ff9d84d00c87777f52cc706aaf3eceea7e88d5895df0647f635d36
-Main.test "the alias's function is found through a call's result" 20ddfa52d57b1461f780298bc35ea18f189ce9a524c2cb5ffb0233ff35b4d87f
-Main.test "and on an annotated parameter whose type is left to be found" 20ddfa52d57b1461f780298bc35ea18f189ce9a524c2cb5ffb0233ff35b4d87f
-Main.test "and through nested calls" d92f1243daf48ecfb9db7e226983ae55c2a6e8d7ef06cb6819fa3763f376d974
+Main.test "the alias's function is found through a call's result" 51cf46b44eecffdf96aae8b7056a213f61f8ccadab4658a44c717267f582db75
+Main.test "and on an annotated parameter whose type is left to be found" 51cf46b44eecffdf96aae8b7056a213f61f8ccadab4658a44c717267f582db75
+Main.test "and through nested calls" 647a6c9e8c04ba12de4a93f6e125b67ba3b7f6a999474cacf84bfcce03c65e55

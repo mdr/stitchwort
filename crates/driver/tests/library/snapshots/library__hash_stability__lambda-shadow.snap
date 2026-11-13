@@ -5,4 +5,4 @@ expression: "lines(session, d, f)"
 Main.shadowed ad17a4ee11cc7c668c0fb97d2f5671946f07cc5dd5486fab32b1e88af242c00f
 Main.renamed ad17a4ee11cc7c668c0fb97d2f5671946f07cc5dd5486fab32b1e88af242c00f
 Main.bracketed 96fb6102cf527e7e8045073b14202342251bc2a3a4a8b966e4c45343c6518056
-Main.test "the lambdas mean what they say" 422ea946ae890d83e5edcbf97ee5498d901b150168cd6bd0032da5de3a2ac279
+Main.test "the lambdas mean what they say" 2a18130a6f65c307a446e492c391e8b7f29c6ac501ab6b0409d7842a35d03a88

@@ -7,12 +7,12 @@ Main.describe.eq1 2e64b6ba63018712e06b6b736ee1ee2214632ab13ed08979cca1e3e4f7c9fd
 Main.describe.eq2 f7c71e32307bb36586bb916695f698c84224fb4ec4e52aa07fc682055b910bb0
 Main.describe.eq3 bf0c7ea76773c0129b303779055da1c7c0bd59226bf58e10de8dd70ff33a2913
 Main.describe.eq4 9ac99234ed799b6ece114f5a00f8cf0ecfb1dd5dbbcdab3725f57a910028040c
-Main.test "describe 0 == zero" bf2df69d2c03f9f0cb4b41c4b09caf66200b55cf6fb0672f308c0fdc70508045
-Main.test "describe (-1) == minus one" 10dd510989f8f27bc2c308495fb6d46e5eea27a4bd935ffc705796ac04d33736
-Main.test "describe 404 == not found" 3e289d045d5a31d925096add6e872ac20cb355bdd87ac6b9c09d40c27effc8ef
-Main.test "describe (-404) == something else" a98e760c88addc759f38dd3986d5ff25981bae373545b04c4d61b302313c369b
-Main.test "describe 1 == something else" 612e833fb570890fd0f71eb3485dd86bf684fa7c55c53ce9c0e1468d5c789708
-Main.test "describe (-2) == something else" 469784bba3771defdf34e6f4aeca3a43a735cbbff644893df9d0372fff190424
+Main.test "describe 0 == zero" 56f65ae0cc7abf8c8dd560d7e73465a5bc5ea63d537c420f7392b644cc4fb780
+Main.test "describe (-1) == minus one" ad22097b5caa403275cb927b608406240394091e1be02ffdec0748f8e19d6bdb
+Main.test "describe 404 == not found" 284cc02d4b2cc5493c55ca05f4a1605c26917e6d02dc0123e87e4fb0d5548321
+Main.test "describe (-404) == something else" 8e7202866c9ffe205c0db3ab226f3c32891b9d361289b958393b73e855e8b269
+Main.test "describe 1 == something else" aca72a9e756c05355ab064ea937c7c65d9dfed28eefb4accdcddfd6f81ef9ae7
+Main.test "describe (-2) == something else" fbaf5535f90e066818e1018510400dc7856d34e4d141ac7bfabd0a016bb406e1
 Main.pick 0442dab3ae5664d4c7bbc1086ebf16b1bc13812e56ac392604e13695c17bfde3
 Main.pick.eq1 bb84101663ad32c63def1c166308649f1c0a0f1359835ec013c2532f1703d77f
 Main.pick.eq2 8772ca3a343baaf56cc3b8df165e624d927c231e66c6373ecb52e0ae3802eecb
@@ -65,12 +65,12 @@ Main.quadrant.eq2 ec78f935c706fcecc8305820495c51b21f3d71910319aaefea3269f98da50f
 Main.quadrant.eq3 b0484748f51a71de0e957e120070a37b920d9e97c23ae37a6cb4f368774553e9
 Main.quadrant.eq4 84fde22a2a3fbcad9b440e83f5ff892e229ab32135b2d15cf43c945cc88abab4
 Main.quadrant.eq5 23293d4535cf27e2abbc95e03e65f32cb7545c6ec01677c61c33820091d1cfcc
-Main.test "quadrant 0 0 == origin" 3a3c690d98686ad3d25fbac17c40796f7fecf3d5ed9849a41dfcc55905099e7a
-Main.test "quadrant 0 (-3) == y axis" b3a3e69f4c2cbe28ed776d45d8d283094a2aaaff4be890b4d37efd945f8c98a9
-Main.test "quadrant (-3) 0 == x axis" 133f4cea36286628a26db864bf968ac90f36088ffb34fa2cbd884091cec59885
-Main.test "quadrant (-1) (-1) == diagonal" 243b8cd1a8ad756d1ea106697d5361f923bbd2d3d1391f2d8510f3038baa8aff
-Main.test "quadrant (-1) 1 == elsewhere" f36b2b64afc8261f7d5ea69e451f394d8032ffaa666883790846fd693b3a7cf2
-Main.test "quadrant 2 2 == elsewhere" 46f741d8c51db07ca4757c89e90d16cc9ffe337fd659b054029a533e0e1f9d88
+Main.test "quadrant 0 0 == origin" fea1526b96fcab09a56ff2590363aa42c16bce12bb4d5e35c323bb33a6000b4f
+Main.test "quadrant 0 (-3) == y axis" 34218419b334e5bf46675809e55db62f9a8df03d00b40b71773e49f7c3734088
+Main.test "quadrant (-3) 0 == x axis" c3007df1f60b430d113212cdd14ff130082943d38a1cac538e5964885d5af336
+Main.test "quadrant (-1) (-1) == diagonal" 4333b352f1db0f0da372962a537ff6b51a1adf90a7ea0936ca97430ac629f665
+Main.test "quadrant (-1) 1 == elsewhere" 7086deba5840963ffa1f3f54ba92805375e12bd0b0948b3847b64eb688c3e86c
+Main.test "quadrant 2 2 == elsewhere" cb20c81082bacfa782224d2051770051d4938f75cd968142662433737b7890ac
 Main.inSome f3f184b2f86e682a263734bdc41ce8892e0b919b313055986d41e22ced458d28
 Main.inSome.eq1 2b99f7a4aac401c63e0b1ef1f0b7e6fae55869260695505ab3e73c8e59ec3e08
 Main.inSome.eq2 f138fd604fe981e92ef42cf56167f70fc4e47629578920ee8ae2dc86295cc2ff
@@ -88,13 +88,13 @@ Main.priceLabel 82d4dd39d0faeda7c184f2a10e4c22157bc8034e8f41da143f00c67bbfc4670b
 Main.priceLabel.eq1 2332c3005e2e058a2307cdc49b0b3f80a31cb8648796f54db773105071b351e5
 Main.priceLabel.eq2 8d460ae0e69c0110b3fd5f42d1e375e4636cefd62f36ca91013cf0e819b3229f
 Main.priceLabel.eq3 5c88d71538d250a02bf4e779922f2021305a03993335ebf92d6423b7fc569fa1
-Main.test "priceLabel 0 == free" e768939754553b55821b738ee40852cba6b870acbaefb3f2524f4f532ebd0afe
-Main.test "priceLabel (-1) == refund" 70b9229fe939707d43a415233dcc835cb95405055175a457c7763c5779354ecc
-Main.test "priceLabel 3 == paid" f9e12ab2c179f8a73ec9fc990074c8a4d39b5e8d73108bfab6957a3736d5b876
+Main.test "priceLabel 0 == free" 5fc7e49d36b35ff0dbea3593c01379d1fb03cddd765c065b0c91165a4f3a86d8
+Main.test "priceLabel (-1) == refund" 360d848f19a318c04abed96494db8ba80d380fa450e62b842f37ed951e03cc4f
+Main.test "priceLabel 3 == paid" 386015040c62bfc78f6480ddf239016afc67ee1f6abf3ff549a1709b5c1c4183
 Main.sign 3d0c06a06ac69b557413d85c2409bb3524a2ff49b1eeffac92d5a3502e61d15b
 Main.sign.eq1 884b706aab1c01494414893ce818f1d19908a9f2aba7d17aba51bd36b6ecbdf8
 Main.sign.eq2 0a136a9eeb58c737b65e6beeed0b938d55a9dce3bee3b45789f4e7ce20ea66c9
 Main.sign.eq3 004dddba3124e90e0552b95190a5a403d81256568f247ee9f7f92d0d6263c11d
-Main.test "sign 0 == 0" d896f09d7f512a00a976ab382ef7cdaac5d0d05606ad919d825333438830b236
-Main.test "sign 12 == 1" 0569cac07636ae1b074bda86b6187d3b16416063028bb8fb6450b24ff3836026
-Main.test "sign (-12) == -1" 8a1eaaa83aa26b4f3fd19e7f6a67597dd92de283d114c88c699d958647a279ad
+Main.test "sign 0 == 0" 4cb7a2eb85fbdbf40e01ddba4f2157e02b8c7d55a4bfc1dc3b17d33edd94c4fb
+Main.test "sign 12 == 1" 86b1b92650ee7b536840ee6200819ef18cf286a68e7ec887051fcc1f94fc0e92
+Main.test "sign (-12) == -1" 8dd4eff443372122fb09ae87fe8e2c969c7bab92b89ce8ade6c8880e076176a9

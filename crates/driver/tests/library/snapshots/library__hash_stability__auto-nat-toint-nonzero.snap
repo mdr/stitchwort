@@ -5,6 +5,6 @@ expression: "lines(session, d, f)"
 Main.modByNat e146c87a699f4d01a09f3bdf1dfa56eebfd1e0275268e1a59dfa9bb7abdc8893
 Main.divByNat 5ce5efac1ed8178c8e5d293ff8d324e8e8b309de2082a4deef3268c095d23535
 Main.modByNatNonneg 703562700b2c373b2627a59da5e65591a1f518c6739007cd5af18dee4bab3714
-Main.test "remainder by a natural" 3dfd5e2e48e9516e58965276deb77de541b06f8715c88f1bead28b5013432512
-Main.test "division by a natural" 85842abbca995ebbc891a78767dc5cdb0242b0944d01a08caff6262f64157790
-Main.test "a negative remainder" bb513093946555b56a979f9e6dac2a8d7152c1333eaa103a5e93d9d66a96ec40
+Main.test "remainder by a natural" 554743a8f50a6ea6a76f257b2346c299904a7b496b5bf72e6790a7c32227aaab
+Main.test "division by a natural" ae5cc6c0d23336a44e72905a3c57b0b9cdb4490d124220be1b99448e579b3d1a
+Main.test "a negative remainder" aafe9466484399ec41681b358e63c260e081a2712e713dbdea656690b20b47c5
