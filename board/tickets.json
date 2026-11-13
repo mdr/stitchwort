@@ -34026,7 +34026,7 @@
     {
       "id": 3137,
       "title": "[Sonnet] if over proofs in an untyped let (let w := if c then p else q, p q proofs) fails with E-UNIVERSE; should infer the proposition (SW-3087 finding 4)",
-      "status": "backlog",
+      "status": "doing",
       "agent": "",
       "where": "",
       "labels": [],
