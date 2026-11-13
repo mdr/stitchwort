@@ -599,6 +599,7 @@ fn negative_nat() -> Diagnostic {
 
 /// Adds the "defaulted literal" explanation to `d` if one of `types` is a
 /// metavariable that a literal made `Nat`.
+#[inline(never)]
 pub(crate) fn explain_default(cx: &Ctx, d: Diagnostic, types: &[&Value]) -> Diagnostic {
     if d.code != "E-TYPE-MISMATCH" || d.notes.iter().any(|n| n.contains("because of the literal")) {
         return d;

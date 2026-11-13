@@ -1064,6 +1064,7 @@ impl Elaborator {
     /// `checked`), in `cx`: kept if it is the smallest so far to contain
     /// the probed position. Also called on entry to a check, so that an
     /// expression that fails has its goal.
+    #[inline]
     pub(crate) fn note_probe(&self, cx: &Ctx, span: Span, ty: &Value, checked: bool) {
         let Some((file, at)) = self.goals.borrow().probe.want else {
             return;
@@ -1071,6 +1072,14 @@ impl Elaborator {
         if span.file != file || span.start > at || at > span.end {
             return;
         }
+        self.note_probed(cx, span, ty, checked);
+    }
+
+    /// [`Elaborator::note_probe`] for an expression that contains the
+    /// probed position. Out of line: every check calls `note_probe`, and its
+    /// frame is under every nested check.
+    #[inline(never)]
+    fn note_probed(&self, cx: &Ctx, span: Span, ty: &Value, checked: bool) {
         // What a declaration generates is written nowhere.
         if (self.present.nav.as_ref()).is_some_and(|nav| nav.borrow().generated > 0) {
             return;
