@@ -328,10 +328,17 @@ at every status table, and picks the kind of work to fit it:
 
 - Use `nix develop -c …` for project tools. `git add` new files before
   anything that goes through the flake.
-- Push `main` a few times a day at most (when Matt wants to look, Overmind
-  needs a commit, or at the end of a working block), after one `task
-  test:merge`; board-only commits wait for the next push (Matt, 11 Nov
-  2026). Lanes never push.
+- Push `main` after each verified batch, with no `task test:merge` first:
+  Overmind runs a rolling broad check (the merge tier, whole-AoC and
+  roguelike checks) of each newly pushed commit and reports only failures,
+  which are then fixed or reverted. Main may be broken for a while; that's
+  accepted (D3546, Matt, 13 Nov 2026: "I don't care about main being
+  broken ... As long as we are going to detect it and fix it later").
+  Verifiers stay about 90 s of tests chosen by what the batch touched,
+  with lanes that finish close together verified together, and the
+  whole-AoC check left to Overmind (D3545). Every test, check and build the
+  orchestrator starts runs in the background, so it stays responsive.
+  Board-only commits wait for the next push. Lanes never push.
 - A lane that adds or changes a user-visible language feature (syntax,
   sugar, a new error, a std function people will reach for) also updates
   the language guide (`docs/guide/`, its examples checked) and
