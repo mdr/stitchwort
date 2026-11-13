@@ -1,5 +1,5 @@
 {
-  "next": 3131,
+  "next": 3132,
   "tickets": [
     {
       "id": 47,
@@ -27552,14 +27552,14 @@
     {
       "id": 2657,
       "title": "[Sonnet] Cosmetic ∀ before a theorem's colon (D3472): the parser accepts theorem name ∀ (…): … (same term, same hash); stitchwort fmt inserts it on every theorem with explicit parameters and leaves it off implicit-only headers; docs/syntax.md, the guide and the proving guide; the sweep tool, rename and doc know the token",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [
         "syntax"
       ],
       "epic": "syntax-language",
-      "body": "D3472 (Matt, 10 Nov 2026): yes, required and formatter-kept. After SW-2656 (the (a+) sweep). Est. 1 day.\nD3551 (Matt, 13 Nov 2026): yes, resume theorem binders alongside Bool as proposition: SW-2691 + SW-2689 (DeepSeek), SW-2688 (Sonnet), SW-2657 (Sonnet, ~1 day), SW-2658 last.\nLane started 14:33, Sonnet (per D3551), expected 6 h.",
+      "body": "D3472 (Matt, 10 Nov 2026): yes, required and formatter-kept. After SW-2656 (the (a+) sweep). Est. 1 day.\nD3551 (Matt, 13 Nov 2026): yes, resume theorem binders alongside Bool as proposition: SW-2691 + SW-2689 (DeepSeek), SW-2688 (Sonnet), SW-2657 (Sonnet, ~1 day), SW-2658 last.\nLane started 14:33, Sonnet (per D3551), expected 6 h.\nModel result: Sonnet, worked, 30 min (est. 6 h). Reviewed by the orchestrator: the parser skips the token (same tree). The reformat was regenerated on main by the orchestrator rather than merged (856 files, same scope: rejected/soundness examples left alone).",
       "created": "2026-11-10",
       "updated": "2026-11-13",
       "commits": []
@@ -33941,6 +33941,19 @@
       "labels": [],
       "epic": "test-infra",
       "body": "\nModel result: DeepSeek, worked, ~10 min (est. 15).",
+      "created": "2026-11-13",
+      "updated": "2026-11-13",
+      "commits": []
+    },
+    {
+      "id": 3131,
+      "title": "[DeepSeek] Markdown code blocks in docs/syntax.md, the guide prose and the proving guide still write theorem headers without ∀ (D3472); update the hand-written (not snippet-quoted) blocks; and fmt_repo should exclude docs/reviews/repros/ (tracked fuzz repros that don't parse), like docs/repros/ (SW-2657 findings)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "docs-tutorials",
+      "body": "",
       "created": "2026-11-13",
       "updated": "2026-11-13",
       "commits": []
