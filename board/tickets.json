@@ -1,5 +1,5 @@
 {
-  "next": 3120,
+  "next": 3121,
   "tickets": [
     {
       "id": 47,
@@ -32960,12 +32960,12 @@
     {
       "id": 3055,
       "title": "[Sonnet] fuzz:elab oracle 6 (memory): a mutant of accept/match-decision-refines-if.sw holds over 2048 MB of heap on an uncached check (case 3237, seed 0x25b1, 12 Nov). Input kept at docs/reviews/repros/fuzz-elab-25b1-3237.sw (46 lines). Repro: stitchwort check on that file and watch its peak memory. Find what grows (STITCHWORT_TIMINGS gives the largest read-back) and bound it with an error instead",
-      "status": "review",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "\nA second case at 7c8af10df (13 Nov, after SW-3054): case 20155, seed 0x25bb, from accept/succ-of-folded-call-solves.sw, also over 2048 MB on an uncached check; input at docs/reviews/repros/fuzz-elab-25bb-20155.sw. Check whether both share a cause.\nA third case (Overmind, 13 Nov, seed 0x25c3 case 22779, from accept/match-bool-if-division.sw, over 2048 MB uncached); input saved at docs/reviews/repros/fuzz-elab-25c3-22779.sw.\nLane (Sonnet, 13 Nov): fixed 25b1 and 25c3 (native partial rule for Nat.divFuel on open numbers, Outcome::Succs); 25bb is SW-2639's decreasing proof chain, not fixed. Fable review: docs/reviews/SW-3055-review.md: sound; merge after fixes B1 (division::a_stuck_step_of_division_is_shown_as_division now shows 'Nat.divStep … + 1' not 'Succ (Nat.divStep …)': orchestrator's call, accept the new display and update the test), B2 docs/core.md paragraph (drafted in the review), S1 proof hashes move (expected), S2 natives-on/off and machine/reference grids incl. DivFuel and a 2^128 case, S3 charge budget.number_words, S4 look at the fuel last. Fixes go to Opus (D2506), from lane/SW-3055, when a slot frees.\nFix lane (Opus, 13 Nov, cea2a31ce after merging main): B1 test updated to 'Nat.divStep (1 <= x) (x + 3) (x + 2) 3 + 1'; B2 core.md paragraph and \"apart from the shortcuts above\"; S2 DivFuel in shortcuts_with_unknowns_agree_with_the_definitions plus new the_division_shortcut_is_the_same_in_both_evaluators (machine vs reference grid, natives on/off; 2^128 case under 1,000 steps); S3 number_words charged; S4 head, divisor, numerator (k < d -> None), then view_keeping on the fuel. S1: hash_stability prelude+examples snapshots unchanged (0 moved), pinned_hashes 5/5 pass. Tests: elaboration division::|natives:: 18/18; test:example for the three examples 7/7; repros 25b1/25c3 x2 finish at ~110 MB, 25bb still E-RESOURCE at 3.3 GB (SW-2639).\n",
+      "body": "\nA second case at 7c8af10df (13 Nov, after SW-3054): case 20155, seed 0x25bb, from accept/succ-of-folded-call-solves.sw, also over 2048 MB on an uncached check; input at docs/reviews/repros/fuzz-elab-25bb-20155.sw. Check whether both share a cause.\nA third case (Overmind, 13 Nov, seed 0x25c3 case 22779, from accept/match-bool-if-division.sw, over 2048 MB uncached); input saved at docs/reviews/repros/fuzz-elab-25c3-22779.sw.\nLane (Sonnet, 13 Nov): fixed 25b1 and 25c3 (native partial rule for Nat.divFuel on open numbers, Outcome::Succs); 25bb is SW-2639's decreasing proof chain, not fixed. Fable review: docs/reviews/SW-3055-review.md: sound; merge after fixes B1 (division::a_stuck_step_of_division_is_shown_as_division now shows 'Nat.divStep … + 1' not 'Succ (Nat.divStep …)': orchestrator's call, accept the new display and update the test), B2 docs/core.md paragraph (drafted in the review), S1 proof hashes move (expected), S2 natives-on/off and machine/reference grids incl. DivFuel and a 2^128 case, S3 charge budget.number_words, S4 look at the fuel last. Fixes go to Opus (D2506), from lane/SW-3055, when a slot frees.\nFix lane (Opus, 13 Nov, cea2a31ce after merging main): B1 test updated to 'Nat.divStep (1 <= x) (x + 3) (x + 2) 3 + 1'; B2 core.md paragraph and \"apart from the shortcuts above\"; S2 DivFuel in shortcuts_with_unknowns_agree_with_the_definitions plus new the_division_shortcut_is_the_same_in_both_evaluators (machine vs reference grid, natives on/off; 2^128 case under 1,000 steps); S3 number_words charged; S4 head, divisor, numerator (k < d -> None), then view_keeping on the fuel. S1: hash_stability prelude+examples snapshots unchanged (0 moved), pinned_hashes 5/5 pass. Tests: elaboration division::|natives:: 18/18; test:example for the three examples 7/7; repros 25b1/25c3 x2 finish at ~110 MB, 25bb still E-RESOURCE at 3.3 GB (SW-2639).\nFixes (Opus, 15 min): B1 accepted (orchestrator's call: a stuck division step now shows as 'Nat.divStep … + 1', not 'Succ (Nat.divStep …)'), core.md, natives on/off and machine/reference grids, budget, argument order; no hash moved. Model result: Sonnet, needed fixes (kernel review: test, core.md, budget, order), 30 min (est. 75); fixes Opus 15 min. 25bb left to SW-2639.",
       "created": "2026-11-12",
       "updated": "2026-11-13",
       "commits": []
@@ -33797,6 +33797,19 @@
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-13",
+      "updated": "2026-11-13",
+      "commits": []
+    },
+    {
+      "id": 3120,
+      "title": "[DeepSeek] Brief template: the examples harness is in stitchwort-cli (binary running): EXAMPLES=… with -p stitchwort-driver runs nothing; use task test:example NAME=… in docs/workflow.md 'Writing a brief' and anywhere it's documented (SW-3055 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "test-infra",
       "body": "",
       "created": "2026-11-13",
       "updated": "2026-11-13",
