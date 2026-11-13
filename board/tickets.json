@@ -1,5 +1,5 @@
 {
-  "next": 3172,
+  "next": 3175,
   "tickets": [
     {
       "id": 47,
@@ -33979,7 +33979,7 @@
       "where": "",
       "labels": [],
       "epic": "editor-playground",
-      "body": "",
+      "body": "\nLane done: Day13.Proofs 762 -> 286 KiB natively, passes the 320 KiB guard. Kernel check.rs changed (commit 4f6898d2d): Fable review before merge. Printer split (268822645) to be checked in the browser stress page. Findings SW-3172 SW-3173 SW-3174.",
       "created": "2026-11-13",
       "updated": "2026-11-13",
       "commits": []
@@ -34473,6 +34473,45 @@
       "where": "",
       "labels": [],
       "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-13",
+      "updated": "2026-11-13",
+      "commits": []
+    },
+    {
+      "id": 3172,
+      "title": "[Opus] The elaborator's application checking takes ~17 KiB of stack per nesting level natively (check, check_inner, check_value, fallback_named, apply_args_once/postponing, framed, propagate); 2021 Day06.Proofs reaches 300 KiB at 18 levels, nearest to the playground's 320 KiB guard. Shrink frames / loop over spines, results unchanged (SW-3133 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "editor-playground",
+      "body": "",
+      "created": "2026-11-13",
+      "updated": "2026-11-13",
+      "commits": []
+    },
+    {
+      "id": 3173,
+      "title": "[Opus, design] Match motive generation reads back a fully computed term (2024 Day13: searchTokens 100 unrolled to a 101-element list, ~330 levels): keep the call instead, so motives are shallow and cheaper. Changes generated terms and hashes: design note first (SW-3133 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-13",
+      "updated": "2026-11-13",
+      "commits": []
+    },
+    {
+      "id": 3174,
+      "title": "[Opus] Kernel conversion check recurses ~2.7 KiB per level and is now 2024 Day13's deepest point (286 KiB of the 320 KiB guard): loop over spines as SW-3133 did for check/infer; Fable review (SW-3133 finding)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
       "body": "",
       "created": "2026-11-13",
       "updated": "2026-11-13",
