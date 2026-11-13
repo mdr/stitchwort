@@ -57,6 +57,9 @@ pub(crate) struct Rules<'a> {
     /// Each call's hug (S23), by its first token, for a body after `:=`
     /// that opens on the line with it (S12).
     hugs: BTreeMap<usize, Doc>,
+    /// A `match`'s doc with its head flat, by the match's first token, for a
+    /// body that hugs the `:=` line.
+    match_hugs: BTreeMap<usize, Doc>,
     next_id: u32,
 }
 
@@ -108,6 +111,7 @@ impl<'a> Rules<'a> {
             no_hug: false,
             arm_depth: 0,
             hugs: BTreeMap::new(),
+            match_hugs: BTreeMap::new(),
             next_id: 0,
         }
     }
@@ -362,6 +366,7 @@ impl<'a> Rules<'a> {
             List | Tuple | Record | Fields | PatternList | PatternTuple | PatternRecord => {
                 self.comma_bracket(node)
             }
+            Paren => self.paren(node),
             Calc => self.calc(node),
             CalcStep => self.calc_step(node),
             Rewrite => self.rewrite(node),
@@ -372,6 +377,25 @@ impl<'a> Rules<'a> {
             }
             _ => self.as_written(node),
         }
+    }
+
+    /// `( … )`. A bracketed `if` keeps its `else` lines under the `if`, not
+    /// under the bracket (S19: the clauses start at the `if`'s column).
+    fn paren(&mut self, node: Node<'_>) -> Doc {
+        let children: Vec<Element> = node.children().collect();
+        let mut parts = Vec::new();
+        for (k, &el) in children.iter().enumerate() {
+            if k > 0 {
+                parts.push(self.space_el(children[k - 1], el));
+            }
+            let doc = self.el(el);
+            parts.push(if Self::kind(el) == Some(NodeKind::If) {
+                Doc::align(doc)
+            } else {
+                doc
+            });
+        }
+        Doc::concat(parts)
     }
 
     /// `def`, `theorem`, `instance` and `test` (S6 to S13), at top level or
@@ -504,6 +528,7 @@ impl<'a> Rules<'a> {
         let mut runs: Vec<Doc> = Vec::new();
         let mut run: Vec<Doc> = vec![head_doc];
         let last = params.len() - 1;
+        let mut previous = head.last().copied();
         for (k, &param) in params.iter().enumerate() {
             let mut doc = self.el(param);
             if k == last
@@ -511,11 +536,32 @@ impl<'a> Rules<'a> {
             {
                 doc = Doc::concat([doc, colon.clone()]);
             }
+            // `def main()`: an empty `()` touching its name (or the one
+            // before it) stays attached, as a call's does.
+            let (first, end) = (Self::first(param), Self::last(param));
+            let attached = end == first + 1
+                && self.tokens[first].tok == Tok::LParen
+                && previous.is_some_and(|prev| matches!(self.space_el(prev, param), Doc::Nil));
+            previous = Some(param);
+            if attached && !premises[k] && !run.is_empty() {
+                let at = run.pop().expect("a run item");
+                run.push(Doc::concat([at, doc]));
+                continue;
+            }
             if premises[k] {
                 if !run.is_empty() {
                     runs.push(Doc::Fill(std::mem::take(&mut run)));
                 }
                 runs.push(doc);
+            } else if run.is_empty()
+                && k > 0
+                && premises[k - 1]
+                && premises.get(k + 1).is_none_or(|&next| next)
+                && let Some(premise) = runs.pop()
+            {
+                // A single variable between premises shares the line of
+                // the premise before it, not a line of its own (D3571).
+                runs.push(Doc::Fill(vec![premise, doc]));
             } else {
                 run.push(doc);
             }
@@ -656,20 +702,43 @@ impl<'a> Rules<'a> {
         let mut options = vec![Doc::flat(Doc::concat([Doc::text(" "), doc.clone()]))];
         if let [el] = value {
             let el = *el;
-            let opens = matches!(
-                Self::kind(el),
-                Some(
-                    NodeKind::Match
-                        | NodeKind::Induct
-                        | NodeKind::Reify
-                        | NodeKind::ClauseLambda
-                        | NodeKind::Calc
-                        | NodeKind::List
-                        | NodeKind::Record
-                        | NodeKind::Tuple
+            let match_hug = match el {
+                Element::Node(node) if node.kind() == NodeKind::Match => {
+                    self.match_hugs.get(&node.token_range().start).cloned()
+                }
+                _ => None,
+            };
+            let opens = match_hug.is_none()
+                && matches!(
+                    Self::kind(el),
+                    Some(
+                        NodeKind::Induct
+                            | NodeKind::Reify
+                            | NodeKind::ClauseLambda
+                            | NodeKind::Calc
+                            | NodeKind::List
+                            | NodeKind::Record
+                            | NodeKind::Tuple
+                    )
                 )
-            ) || self.holds_text_block(el);
-            if opens {
+                || self.holds_text_block(el);
+            // D3571: a record, list, tuple or hugging call goes below when
+            // it fits on one line there; it hugs only when it can't.
+            let hugs_after = matches!(
+                Self::kind(el),
+                Some(NodeKind::List | NodeKind::Record | NodeKind::Tuple)
+            ) || matches!(el, Element::Node(node)
+                if node.kind() == NodeKind::App
+                    && self.hugs.contains_key(&node.token_range().start));
+            if hugs_after {
+                options.push(Doc::OneLineBelow(Box::new(doc.clone())));
+            }
+            if let Some(hug) = match_hug {
+                // D3553, S12: a `match` joins the `:=` line only when its
+                // whole `match … with` fits there; the scrutinee must not
+                // wrap level with the arms.
+                options.push(Doc::concat([Doc::text(" "), hug]));
+            } else if opens {
                 options.push(Doc::concat([Doc::text(" "), doc.clone()]));
             } else if let Element::Node(node) = el
                 && node.kind() == NodeKind::Lambda
@@ -849,6 +918,39 @@ impl<'a> Rules<'a> {
             }
         } else {
             items.push((current, None));
+        }
+        // D3572: a list of only plain values fills its lines, the bracket
+        // staying on the first.
+        let plain = node.kind() == NodeKind::List
+            && inside.len() == items.len() * 2 - usize::from(dropped.is_none())
+            && !self.holds_trailing_comment(node)
+            && items.iter().all(|(item, _)| {
+                matches!(item.as_slice(), [el @ Element::Leaf(_)]
+                if !self.has_leading(*el)
+                    && matches!(
+                        self.tok(*el),
+                        Some(
+                            Tok::Num(_)
+                                | Tok::Float(_)
+                                | Tok::Char(_)
+                                | Tok::Str(_)
+                                | Tok::Lower(_)
+                                | Tok::Upper(_)
+                        )
+                    ))
+            });
+        if plain {
+            let mut cells = Vec::new();
+            for (item, comma) in &items {
+                self.mark_item(item[0]);
+                let mut cell = vec![self.join(item)];
+                if let Some(comma) = comma {
+                    cell.push(self.el(*comma));
+                }
+                cells.push(Doc::concat(cell));
+            }
+            let closer_doc = self.el(children[close]);
+            return Doc::concat([prefix, Doc::nest(2, Doc::Fill(cells)), closer_doc]);
         }
         let mut body = Vec::new();
         for (k, (item, comma)) in items.iter().enumerate() {
@@ -1367,7 +1469,14 @@ impl<'a> Rules<'a> {
             lines.push(self.el(arm));
         }
         self.arm_depth -= 1;
-        let doc = Doc::concat([head, Doc::nest(2, Doc::concat(lines))]);
+        let arms = Doc::nest(2, Doc::concat(lines));
+        if node.kind() == NodeKind::Match {
+            // The form that hugs a `:=` line: its head can't wrap there.
+            let hug = Doc::concat([Doc::flat(head.clone()), arms.clone()]);
+            let hug = if many { hug } else { Doc::group(hug) };
+            self.match_hugs.insert(node.token_range().start, hug);
+        }
+        let doc = Doc::concat([head, arms]);
         if many { doc } else { Doc::group(doc) }
     }
 
@@ -1382,7 +1491,9 @@ impl<'a> Rules<'a> {
         else {
             return self.join(&children);
         };
-        let head = self.join(&children[..=arrow]);
+        // S22: a pattern too long for its line continues at +4 from the `|`,
+        // as a header's parameters do, so it never lines up with the body.
+        let head = Doc::nest(2, self.join(&children[..=arrow]));
         let value = &children[arrow + 1..];
         // Alternatives and `calc` steps need a column of their own.
         let below = value.len() == 1

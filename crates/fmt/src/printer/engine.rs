@@ -66,6 +66,10 @@ pub enum Doc {
     /// The first option whose first line (and what follows it on that line)
     /// fits; the last if none does.
     Choice(Vec<Doc>),
+    /// A line below at `+2` holding the doc, printed as `nest(2, [HardLine,
+    /// doc])`; as an option of a [`Doc::Choice`] it is taken only if the doc
+    /// fits flat on that one line (D3571).
+    OneLineBelow(Box<Doc>),
     /// A trailing comment: printed, after one space, at the end of the line
     /// it is on, after any closing brackets and commas that end up on that
     /// line (S39). A group that would put anything else after it breaks.
@@ -155,6 +159,7 @@ impl Doc {
             | Doc::LineSuffix(_) => false,
             Doc::Group(_, hard) | Doc::IdGroup(_, _, hard) | Doc::Shared(_, hard) => *hard,
             Doc::IfBroken { broken, flat, .. } => broken.forces_break() && flat.forces_break(),
+            Doc::OneLineBelow(_) => true,
             Doc::Nest(_, doc) | Doc::Align(doc) | Doc::Flat(doc) => doc.forces_break(),
             Doc::Concat(docs) | Doc::Fill(docs) => docs.iter().any(Doc::forces_break),
             Doc::Choice(options) => options.iter().all(Doc::forces_break),
@@ -272,6 +277,10 @@ impl Printer {
                     }
                 }
                 Doc::Nest(more, inner) => stack.push(Cmd::Doc(indent + more, mode, inner)),
+                Doc::OneLineBelow(inner) => {
+                    stack.push(Cmd::Doc(indent + 2, mode, inner));
+                    stack.push(Cmd::Doc(indent + 2, mode, &Doc::HardLine));
+                }
                 Doc::Align(inner) => {
                     let column = if self.at_line_start {
                         indent
@@ -350,6 +359,12 @@ impl Printer {
                         others
                             .iter()
                             .find(|option| {
+                                if let Doc::OneLineBelow(inner) = option {
+                                    return fits_flat(
+                                        inner,
+                                        self.width as isize - indent as isize - 2,
+                                    );
+                                }
                                 fits_in(
                                     &[Cmd::Doc(indent, Mode::Break, option)],
                                     &stack,
@@ -537,6 +552,7 @@ fn fits_in(
                     }
                 }
             }
+            Doc::OneLineBelow(_) => return true,
             Doc::Choice(options) => {
                 let option = if mode == Mode::Flat {
                     options.first()

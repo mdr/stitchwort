@@ -285,7 +285,8 @@ def runFrom (target: Nat) (front: List Nat) (count: Nat) (sum: Nat) (rest: List 
 whole declaration fits there. Otherwise it goes on the next line at 2, and
 breaks inside as its own rules say. Exceptions that open on the `:=` line
 whatever follows, as long as their first line fits there: a `match … with`
-(D3553), a `calc e0` (settled: the same rule as `match`, for the same
+(D3553; only when its whole `match … with` fits on that line, else the
+`match` goes below at 2), a `calc e0` (settled: the same rule as `match`, for the same
 reason), a comma bracket (D1012's opener at the end of the line before), a
 text block's `"""`, and a last-argument "hug" (S23). A block of two or
 more statements always starts below.
@@ -514,7 +515,8 @@ After: `  | Zero => omega`.
 
 **S22. Patterns** are printed flat; a pattern too long for its line breaks
 like the expression of the same shape (a list, record or tuple pattern is a
-comma bracket). An or-pattern (`| 'k' | 'w' =>`) never breaks: a `|` that
+comma bracket). Its continuation lines sit at +4 from the `|`, as a header's
+parameters do, so they never line up with the arm's body at +2. An or-pattern (`| 'k' | 'w' =>`) never breaks: a `|` that
 starts a line starts the next arm, so its alternatives must share a line
 (docs/syntax.md, "Or-patterns"). Settled: forced by the grammar.
 
