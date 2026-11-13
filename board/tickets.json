@@ -1,5 +1,5 @@
 {
-  "next": 3178,
+  "next": 3181,
   "tickets": [
     {
       "id": 47,
@@ -34481,7 +34481,7 @@
     {
       "id": 3172,
       "title": "[Opus] The elaborator's application checking takes ~17 KiB of stack per nesting level natively (check, check_inner, check_value, fallback_named, apply_args_once/postponing, framed, propagate); 2021 Day06.Proofs reaches 300 KiB at 18 levels, nearest to the playground's 320 KiB guard. Shrink frames / loop over spines, results unchanged (SW-3133 finding)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
@@ -34489,7 +34489,9 @@
       "body": "",
       "created": "2026-11-13",
       "updated": "2026-11-13",
-      "commits": []
+      "commits": [
+        "93fb9675244f26c5de8fbbe5593a3216805a318f"
+      ]
     },
     {
       "id": 3173,
@@ -34551,6 +34553,45 @@
       "where": "",
       "labels": [],
       "epic": "syntax-language",
+      "body": "",
+      "created": "2026-11-13",
+      "updated": "2026-11-13",
+      "commits": []
+    },
+    {
+      "id": 3178,
+      "title": "[Sonnet] Compare the nesting::* stack thresholds on main and before SW-3172 (each adaptive test prints its threshold): did any shape (calls of one definition in unification, nested lambdas, implicit parameters) get deeper per level? (SW-3172 review M1)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "editor-playground",
+      "body": "",
+      "created": "2026-11-13",
+      "updated": "2026-11-13",
+      "commits": []
+    },
+    {
+      "id": 3179,
+      "title": "[Sonnet] A test of deep unification of nested calls of one definition under the playground's 320 KiB guard, to lock in SW-3172's unification saving (SW-3172 review)",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "editor-playground",
+      "body": "",
+      "created": "2026-11-13",
+      "updated": "2026-11-13",
+      "commits": []
+    },
+    {
+      "id": 3180,
+      "title": "[Opus] Stack frames left after SW-3172: stitchwort::run has a 21 KiB frame (outside the guard); unify::rename_in/rename_other 912/1,328 B a level at Day06's peak; run_tasks 864 B, shape rules 1,088 B (would need loops over spines); whole_test allocates a Vec per check",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "editor-playground",
       "body": "",
       "created": "2026-11-13",
       "updated": "2026-11-13",
