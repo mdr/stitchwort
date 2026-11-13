@@ -1,5 +1,5 @@
 {
-  "next": 3057,
+  "next": 3058,
   "tickets": [
     {
       "id": 47,
@@ -32934,27 +32934,27 @@
     {
       "id": 3053,
       "title": "[Sonnet] Regression from SW-2968 (derived DecEq test first): a microtype's derived equality no longer aliases its field's in JS. extract::microtype_comparisons_are_their_fields fails on main: CardId.%instDecEq is now (v0) => (v1) => Text.decEq(v0, v1), not Text.instDecEq; same calls CardId.instDecEq(v0)(v1) instead of Text.decEq; distinctIds passes CardId.instOrd (Ord.fromCompare) instead of Text.instOrd. Restore the alias in the JS backend for the new instance shape { decide = r s => { holds = T.%same r s, … } } (and native if it has the same rule), then update the test's names (%decEq → %same)",
-      "status": "backlog",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "effects-native",
-      "body": "",
+      "body": "\nFixed by SW-3054 (T.%decide).",
       "created": "2026-11-12",
-      "updated": "2026-11-12",
+      "updated": "2026-11-13",
       "commits": []
     },
     {
       "id": 3054,
       "title": "[Opus] Regression from SW-2968 (derived DecEq built test first): proofs that match on a derived == no longer check. aoc: 20 errors (2020 Day07/17/21, 2021 Day10/12/14, 2024 Day12/15/22/23, …; 100 dependants), roguelike: 2 (Rogue.Proofs.lookupMonsterMark, renderEveryMonster at Render.sw:29 and :93: DecEq.sound same can't solve its decEq/x/y implicits under match same: a == b; also rewrite finding no c.name.toList on microtypes). Clean at f73ddbdf7 (just before), broken at 39a884269 (the merge). Repro: cd games/rogue && stitchwort check --no-cache (5 s); cd aoc && stitchwort check --no-cache (64 s). Found by the overnight queue 12 Nov. Fix the elaborator so these proofs check unchanged if the old shape is what they rely on, otherwise update the proofs to the new shape (the readings from SW-3044 may give shorter forms); keep std clean. Blocks the morning's merges' aoc confidence; first in lanes mode.",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "elaborator-kernel",
-      "body": "\nStarted 12 Nov ~23:20 on Opus at Matt's request (\"Fix sw 3054 tonight\"). Estimate: 60 min.",
+      "body": "\nStarted 12 Nov ~23:20 on Opus at Matt's request (\"Fix sw 3054 tonight\"). Estimate: 60 min.\n\nLane (23:29-23:55, branch lane/SW-3054, commit 0ba103f9e): cause was the instance shape, not the proofs. SW-2968 wrote `decide = r s => { holds = T.%same r s, … }`, so `r == s` computed to `T.%same r s` (on a record, its fields' `&&`), and a `match h: r == s` gave `h` that type; `DecEq.sound h` with no expected type then couldn't find its instance/x/y, and `rewrite` looked for the unfolded field (`c.name.toList`). Fix in crates/elab/src/derive.rs: a named `T.%decide r s := { holds = T.%same r s, sound = …, complete = … }` (as `Nat.decEq` is), instance `{ decide = T.%decide }`; `r == s` is the folded call again and prints as `r == s`. No proof changed. Also fixes SW-3053 (microtype `%decide` aliases the field's `decEq` in JS; test renamed `%decEq` -> `%decide`). New example accept/deceq-sound-in-match.sw (3 errors on main, clean on the branch). Checks: rogue clean (only the old W-UNREACHABLE in Proofs/Input.sw:71), whole aoc \"checked 291 namespaces\", 0 errors. Hash snapshots updated for data-auto, deceq-instance-after-pruning, extract-data-auto, extract-microtype-comparisons, readings-derived-eq, deceq-sound-in-match (new); the rest of the examples' snapshots will change (each derived DecEq gains `%decide`) and are for the verifier. builtins:: and prelude snapshot unchanged.\nModel result: Opus, worked, 25 min (est. 60). Review: docs/reviews/SW-3054-review.md (no blockers; M1+M2 filed).",
       "created": "2026-11-12",
-      "updated": "2026-11-12",
+      "updated": "2026-11-13",
       "commits": []
     },
     {
@@ -32981,6 +32981,19 @@
       "body": "",
       "created": "2026-11-12",
       "updated": "2026-11-12",
+      "commits": []
+    },
+    {
+      "id": 3057,
+      "title": "[Sonnet] SW-3054 review M1+M2: add sum-type (Dir) and parameterised (Box a) cases to examples/accept/deceq-sound-in-match.sw (match h: x == y, DecEq.sound h); fix derive.rs:1401-1409's comment to state the real rule (T.%decide must not start with a case on %r/%s, or matches_at_once unfolds r == s and the bug returns) and the module doc sentence at derive.rs:73-77; see docs/reviews/SW-3054-review.md",
+      "status": "backlog",
+      "agent": "",
+      "where": "",
+      "labels": [],
+      "epic": "elaborator-kernel",
+      "body": "",
+      "created": "2026-11-13",
+      "updated": "2026-11-13",
       "commits": []
     }
   ]
