@@ -562,6 +562,12 @@ place that reports the mismatch today (`lib.rs`, `check_tree`, checked).
 This is every place patterns are written: `match`, equation arms, `let Both
 l r := h`, and a lambda's parameter.
 
+A `let` that binds projections instead of matching (its goal isn't evidently
+a proposition: a membership `x ∈ xs`, say) reads the same way: the reading
+is a hidden `let`, and the accessors project it. Before SW-3096 that path
+skipped the reading, so the same `let Both a b := h` worked or failed by
+the goal.
+
 **`Refl` never triggers a reading** **[review, §4]**: `match h with | Refl`
 on `h: b = True` substitutes `True` for `b`, as today, whatever `b` is. To
 match the reading of `(x == y) = True` as an equation, write `match
