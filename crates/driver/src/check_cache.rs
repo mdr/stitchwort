@@ -340,11 +340,13 @@ pub type StoreLog = std::sync::Arc<std::sync::Mutex<Vec<(String, StoreEvent)>>>;
 ///   its dependents (an `Early` miss) instead of replaying them stale.
 /// - **Bounded.** A write replaces the unit's older entries but the newest
 ///   two, so an undo still hits, and the total is capped, dropping the
-///   oldest first.
+///   oldest first. Stores sharing a [`LayerBudget`] are capped together, so
+///   the server can keep one per project without multiplying the cap.
 pub struct LayeredStore {
     bundle: std::sync::Arc<LibraryBundle>,
     local: std::cell::RefCell<Layer>,
     log: Option<StoreLog>,
+    budget: LayerBudget,
 }
 
 #[derive(Default)]
@@ -358,15 +360,44 @@ struct Layer {
 /// Entries kept per unit: the current text and the one before it.
 const ENTRIES_PER_UNIT: usize = 2;
 
-/// The layer's size limit. A whole AoC project is est. 45-60 MB; wasm memory
-/// never shrinks, so this bounds what a long session can pile up.
-const LAYER_CAP_BYTES: usize = 192 * 1024 * 1024;
+/// The size limit of a [`LayeredStore`], or of the stores sharing one
+/// [`LayerBudget`]. A whole AoC project is est. 45-60 MB; wasm memory never
+/// shrinks, so this bounds what a long session can pile up.
+pub const LAYER_CAP_BYTES: usize = 192 * 1024 * 1024;
+
+/// The bytes of the namespace entries that a group of [`LayeredStore`]s may
+/// hold together: the playground keeps one store per project (SW-3072), and
+/// shares this budget between them so that keeping several projects' entries
+/// doesn't multiply the cap.
+///
+/// A store that writes while the budget is full drops its own oldest entries
+/// (never another store's), down to the newest one, which it keeps; so the
+/// total can exceed the cap by at most that one entry per store.
+#[derive(Clone, Default)]
+pub struct LayerBudget(std::rc::Rc<std::cell::Cell<usize>>);
+
+impl LayerBudget {
+    /// The bytes the stores sharing it hold.
+    pub fn used(&self) -> usize {
+        self.0.get()
+    }
+
+    fn add(&self, bytes: usize) {
+        self.0.set(self.0.get() + bytes);
+    }
+
+    fn remove(&self, bytes: usize) {
+        self.0.set(self.0.get().saturating_sub(bytes));
+    }
+}
 
 impl Layer {
-    fn remove(&mut self, id: &(String, Key)) {
-        if let Some((_, entry)) = self.entries.remove(id) {
+    /// Removes `id`, returning the bytes it held.
+    fn remove(&mut self, id: &(String, Key)) -> usize {
+        self.entries.remove(id).map_or(0, |(_, entry)| {
             self.bytes -= entry.len();
-        }
+            entry.len()
+        })
     }
 
     fn oldest<'a>(
@@ -379,10 +410,17 @@ impl Layer {
 
 impl LayeredStore {
     pub fn new(bundle: std::sync::Arc<LibraryBundle>) -> Self {
+        Self::with_budget(bundle, LayerBudget::default())
+    }
+
+    /// A store whose entries count against `budget`, shared with the other
+    /// stores of the same budget.
+    pub fn with_budget(bundle: std::sync::Arc<LibraryBundle>, budget: LayerBudget) -> Self {
         LayeredStore {
             bundle,
             local: Default::default(),
             log: None,
+            budget,
         }
     }
 
@@ -398,6 +436,16 @@ impl LayeredStore {
         }
     }
 
+    /// Drops every entry, giving their bytes back to the budget: for a
+    /// server that keeps several projects' stores and makes room for a
+    /// newly loaded one.
+    pub fn clear(&self) {
+        let mut layer = self.local.borrow_mut();
+        let bytes = std::mem::take(&mut layer.bytes);
+        layer.entries.clear();
+        self.budget.remove(bytes);
+    }
+
     /// How many namespace entries it holds.
     pub fn namespace_entries(&self) -> usize {
         self.local.borrow().entries.len()
@@ -406,6 +454,12 @@ impl LayeredStore {
     /// The bytes of the namespace entries it holds.
     pub fn namespace_bytes(&self) -> usize {
         self.local.borrow().bytes
+    }
+}
+
+impl Drop for LayeredStore {
+    fn drop(&mut self) {
+        self.budget.remove(self.local.borrow().bytes);
     }
 }
 
@@ -442,19 +496,22 @@ impl Store for LayeredStore {
         self.note(unit, StoreEvent::Wrote);
         let mut layer = self.local.borrow_mut();
         let id = (unit.to_string(), *key);
-        layer.remove(&id);
+        self.budget.remove(layer.remove(&id));
         layer.written += 1;
         let order = layer.written;
         layer.bytes += entry.len();
+        self.budget.add(entry.len());
         layer.entries.insert(id, (order, entry.to_vec()));
         let range = (unit.to_string(), [0; 32])..=(unit.to_string(), [255; 32]);
         while layer.entries.range(range.clone()).count() > ENTRIES_PER_UNIT {
             let oldest = Layer::oldest(layer.entries.range(range.clone()));
-            layer.remove(&oldest.expect("more than none"));
+            self.budget
+                .remove(layer.remove(&oldest.expect("more than none")));
         }
-        while layer.bytes > LAYER_CAP_BYTES && layer.entries.len() > 1 {
+        while self.budget.used() > LAYER_CAP_BYTES && layer.entries.len() > 1 {
             let oldest = Layer::oldest(layer.entries.iter());
-            layer.remove(&oldest.expect("more than none"));
+            self.budget
+                .remove(layer.remove(&oldest.expect("more than none")));
         }
     }
 }
@@ -605,5 +662,35 @@ mod tests {
         assert_eq!(store.namespace_entries(), 2);
         assert_eq!(store.read("ns.U0+nav+ty", &[0; 32]), None);
         assert!(store.read("ns.U3+nav+ty", &[3; 32]).is_some());
+    }
+
+    #[test]
+    fn a_layered_store_sharing_a_budget_is_capped_with_the_others() {
+        // Two projects' stores share one cap (SW-3072): the second's writes
+        // drop its own oldest entries rather than the first's.
+        let budget = LayerBudget::default();
+        let a = LayeredStore::with_budget(Default::default(), budget.clone());
+        let b = LayeredStore::with_budget(Default::default(), budget.clone());
+        let first = vec![0u8; LAYER_CAP_BYTES - 1024];
+        a.write("ns.A+nav+ty", &[1; 32], &first);
+        let small = vec![0u8; 2048];
+        b.write("ns.B+nav+ty", &[1; 32], &small);
+        // `b` keeps its newest entry, so the total may be one entry over.
+        assert!(budget.used() <= LAYER_CAP_BYTES + small.len());
+        assert!(b.read("ns.B+nav+ty", &[1; 32]).is_some());
+        b.write("ns.B+nav+ty", &[2; 32], &small);
+        assert_eq!(b.namespace_entries(), 1);
+        assert!(b.read("ns.B+nav+ty", &[1; 32]).is_none());
+        assert!(b.read("ns.B+nav+ty", &[2; 32]).is_some());
+        assert!(a.read("ns.A+nav+ty", &[1; 32]).is_some());
+
+        // Clearing a store gives its bytes back; dropping it does too.
+        a.clear();
+        assert_eq!(a.namespace_entries(), 0);
+        assert!(budget.used() <= small.len());
+        drop(a);
+        assert_eq!(budget.used(), small.len());
+        drop(b);
+        assert_eq!(budget.used(), 0);
     }
 }
