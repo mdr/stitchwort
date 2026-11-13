@@ -23,7 +23,7 @@ theorem Float.Theory.pow2FromPow ∀ (fuel k: Nat): Float.Model.pow2From fuel k 
         rewrite Float.Theory.pow2FromPow fuel d in
         match odd: Nat.equal (k - d * 2) 0 with
           | True =>
-            let e: d + d = k := omega [odd.read]
+            let e: d + d = k := omega [odd]
             Eq.trans (Eq.sym (Nat.powAdd 2 d d)) (Eq.cong (Nat.pow 2) e)
           | False =>
             let ne: k - d * 2 ≠ 0 := Nat.equalFalse (k - d * 2) 0 odd
@@ -465,7 +465,7 @@ theorem Float.Theory.roundsToFinite ∀ (t: Nat) (b: Nat) (p: Nat) (r: Nat) (pos
           match c: Nat.leq m p with
             | True =>
               match z: Nat.equal m p with
-                | True => Void.exfalso (ne (omega [er, z.read]))
+                | True => Void.exfalso (ne (omega [er, z]))
                 | False =>
                   Void.exfalso
                     (omega [
@@ -491,7 +491,7 @@ theorem Float.Theory.roundsToFinite ∀ (t: Nat) (b: Nat) (p: Nat) (r: Nat) (pos
             | True => h2 (omega [low, high, h1, e2, d1, d2, lowSide m c])
             | False =>
               match z: Nat.equal m (Succ p) with
-                | True => Void.exfalso (ne (omega [er, z.read]))
+                | True => Void.exfalso (ne (omega [er, z]))
                 | False =>
                   Void.exfalso
                     (omega [
@@ -527,17 +527,17 @@ theorem Float.Theory.isEvenOfZero ∀ (n: Nat) (e: n - Nat.divFuel n n 2 * 2 = 0
 --| An even significand makes an even pattern.
 theorem Float.Theory.evenShift ∀ (e: Nat) (q: Nat) (h: Float.Theory.IsEven q): Float.Theory.IsEven (e * 4503599627370496 + q) :=
   Float.Theory.isEvenOf (e * 4503599627370496 + q) (e * 2251799813685248 + Nat.divFuel q q 2)
-    (omega [h.read])
+    (omega [h])
 
 --| What `roundsUp` decides: down when below halfway, or at it with `q`
 --| even; up when above, or at it with `q` odd.
 theorem Float.Theory.locateDown ∀ (q: Nat) (rem: Nat) (b: Nat) (pos: 0 < b) (h: Float.Model.roundsUp q (Float.Model.locate rem b) = False):
     (rem + rem < b) ∨ ((rem + rem = b) ∧ (Float.Theory.IsEven q)) := match c0: Nat.equal rem 0 with
-      | True => Inl (omega [c0.read, pos])
+      | True => Inl (omega [c0, pos])
       | False =>
         match c1: Nat.equal (2 * rem) b with
           | True =>
-            Inr (Both (omega [c1.read])
+            Inr (Both (omega [c1])
               (Float.Theory.isEvenOfZero q
                 (omega [Nat.equalFalse (q - Nat.divFuel q q 2 * 2) 1 h])))
           | False =>
@@ -549,9 +549,9 @@ theorem Float.Theory.locateUp ∀ (q: Nat) (rem: Nat) (b: Nat) (h: Float.Model.r
       | False =>
         match c1: Nat.equal (2 * rem) b with
           | True =>
-            Inr (Both (omega [c1.read])
+            Inr (Both (omega [c1])
               (Float.Theory.isEvenOf (Succ q) (Succ (Nat.divFuel q q 2))
-                (omega [h.read])))
+                (omega [h])))
           | False =>
             match c2: Nat.leq (2 * rem) b with
               | False => Inl (omega [c2])
@@ -946,9 +946,9 @@ theorem Float.Theory.roundMagnitudeSpec ∀ (n: Nat) (den: Nat) (s: Int) (pn: 0 
 
 theorem Float.Theory.notEvenBoth ∀ (n: Nat) (a: Float.Theory.IsEven n) (b: Float.Theory.IsEven (Succ n)): Void :=
   omega [
-    a.read,
+    a,
     Nat.divFuelLe n n 2,
-    b.read,
+    b,
     Nat.divFuelLe (Succ n) (Succ n) 2
   ]
 
@@ -1393,7 +1393,7 @@ theorem Float.Theory.keyLeNaN ∀ (a: Nat) (v: Float.isValid a = True):
     (c => Float.Theory.leqVia (Float.Theory.key a) (Float.Theory.key 9221120237041090560) (OfNat a)
       (OfNat 9221120237041090560) (Float.Theory.keyClear a c) rfl
       (Float.Theory.orCase (Float.Theory.boolCases (Nat.equal a 9221120237041090560))
-        (e => (omega [e.read]: Nat.leq a 9221120237041090560 = True))
+        (e => (omega [e]: Nat.leq a 9221120237041090560 = True))
         (e => (omega [Float.lowBound a v e c]: Nat.leq a 9221120237041090560 = True))))
 
 --| A finite pattern's key is below +infinity's.
@@ -1625,7 +1625,7 @@ theorem Float.Theory.finiteNotNaN ∀ (a: Nat) (fin: Float.Theory.FiniteBits a):
 
 theorem Float.Theory.finiteNotInfinite ∀ (a: Nat) (fin: Float.Theory.FiniteBits a): Float.Model.isInfinite a = False :=
   Bool.falseOfNotTrue (Float.Model.isInfinite a)
-    (h => omega [fin, h.read])
+    (h => omega [fin, h])
 
 --| The patterns of a zero.
 theorem Float.Theory.zeroBits ∀ (x: Float) (h: Float.isZero x = True): (x.bits = 0) ∨ (x.bits = 9223372036854775808) :=

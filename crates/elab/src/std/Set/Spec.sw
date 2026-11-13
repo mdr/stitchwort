@@ -603,7 +603,7 @@ theorem Set.sizeUnionDisjoint ∀ [auto ord: Ord k] (a: Set k) (b: Set k) (disjo
         Bool.falseOfNotTrue (Set.contains t other)
           (inT => Bool.falseNotTrue (Eq.trans (Eq.sym (apart other inA)) (Set.containsInsertMono t key other inT)))
       let notInA: Set.contains a key = False :=
-        Bool.falseOfNotTrue (Set.contains a key) (inA => Bool.falseNotTrue (Eq.trans (Eq.sym (apart key inA)) (Set.containsInsert key t)))
+        inA => Bool.falseNotTrue (Eq.trans (Eq.sym (apart key inA)) (Set.containsInsert key t))
       let newKey: Set.contains (Set.union a t) key = False := rewrite Set.containsUnion a key t, notInA, absent in rfl
       omega [Eq.cong Set.size (Set.unionInsert a t key), Set.sizeInsertNew (Set.union a t) key newKey, Set.sizeInsertNew t key absent, held apartT])
     b disjoint
@@ -619,11 +619,11 @@ theorem Set.sizeMapInjective ∀ [auto ordKeys: Ord k] [auto ord: Ord j] (s: Set
       let injectiveT := (x: k) (y: k) (inX: Set.contains t x = True) (inY: Set.contains t y = True) (same: f x = f y) =>
         injectiveInserted x y (Set.containsInsertMono t key x inX) (Set.containsInsertMono t key y inY) same
       let newImage: Set.contains (Set.map t f) (f key) = False :=
-        Bool.falseOfNotTrue (Set.contains (Set.map t f) (f key)) (inImage =>
+        inImage =>
           match (Set.containsMap t f (f key)).forward inImage with
             | Witness x (Both inT same) =>
               let isKey := injectiveInserted x key (Set.containsInsertMono t key x inT) (Set.containsInsert key t) same
-              Bool.falseNotTrue (Eq.trans (Eq.sym absent) (Eq.trans (Eq.sym (Eq.cong (Set.contains t) isKey)) inT)))
+              Bool.falseNotTrue (Eq.trans (Eq.sym absent) (Eq.trans (Eq.sym (Eq.cong (Set.contains t) isKey)) inT))
       rewrite Set.mapInsert t f key in
       omega [Set.sizeInsertNew (Set.map t f) (f key) newImage, Set.sizeInsertNew t key absent, held injectiveT])
     s injective
@@ -733,7 +733,7 @@ theorem Set.sizeOfMembers ∀ [auto ord: Ord k] (set: Set k) (universe: List k) 
         List.memFilterIntro universe yes known.read (rewrite <- agree key known in found))
       (key member =>
         match List.memFilter universe yes member with
-          | Both there held => (Set.memToList set key).backward (rewrite agree key ((List.memContains universe key).backward there) in held))
+          | Both there held => (Set.memToList set key).backward (rewrite agree key there in held))
   Eq.trans (Set.sizeToList set) (List.permLength (Set.toList set) (List.filter universe yes) same)
 
 --| An empty set holds no key.

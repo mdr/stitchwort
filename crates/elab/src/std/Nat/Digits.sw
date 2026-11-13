@@ -219,7 +219,7 @@ theorem Nat.digitCountExample: Nat.digitCount 1205 = 4 := rfl
 
 theorem Nat.digitsSnoc ∀ (a: Nat) (d: Nat) (ha: 1 ≤ a) (hd: d < 10): (Nat.digits (a * 10 + d)).toList = List.append (Nat.digits a).toList [d] :=
   Eq.trans (Nat.digitsToList (a * 10 + d)) (Eq.trans (Eq.trans (Nat.digitsAccBig (a * 10 + d) []
-      (Nat.leqFalseOfLess 9 (a * 10 + d) (Nat.leTrans 10 (a * 10) (a * 10 + d) (Nat.leMulRight 1 a 10 ha) (Nat.leAddRight (a * 10) d))))
+      (Nat.leTrans 10 (a * 10) (a * 10 + d) (Nat.leMulRight 1 a 10 ha) (Nat.leAddRight (a * 10) d)))
     (Eq.trans (Eq.cong (t => Nat.digitsAcc t [(a * 10 + d) % 10])
         (Eq.trans (Eq.cong (t => t / 10) (ring: a * 10 + d = d + a * 10)) (Eq.trans (Nat.divAddMul d a 10) (Eq.cong (t => t + a) (Nat.divSmall d 10 hd)))))
       (Eq.trans (Eq.cong (t => Nat.digitsAcc a [t])

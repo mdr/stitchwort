@@ -15,9 +15,8 @@ theorem tracksStart ∀ (passages: List Passage) (twice: Bool): Tracks passages 
     (c named small notStart notEnd => {
       forward = _ => rewrite differ Cave.start c (same => notStart (Eq.sym same)) in rfl,
       backward = _ =>
-        (List.memContains (smallCaves passages) c).backward
-          (List.memFilterIntro (caves passages) (cave => cave.isSmall && not cave.isStart && not cave.isEnd) named
-            (rewrite small, differ c Cave.start notStart, differ c Cave.end notEnd in rfl))
+        List.memFilterIntro (caves passages) (cave => cave.isSmall && not cave.isStart && not cave.isEnd) named
+          (rewrite small, differ c Cave.start notStart, differ c Cave.end notEnd in rfl)
     })
     (Both rfl
       (Both rfl

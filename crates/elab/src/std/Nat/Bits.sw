@@ -50,7 +50,7 @@ theorem Nat.testBitSucc ∀ (n: Nat) (i: Nat): Nat.testBit n (Succ i) = Nat.test
 
 --| Halving both numbers makes their sum smaller, unless both are 0.
 theorem Nat.halvesLess ∀ (m: Nat) (n: Nat) (some: Nat.leq (m + n) 0 = False): m / 2 + n / 2 < m + n :=
-  omega [Nat.divMulLe m 2, Nat.divMulLe n 2, some.read]
+  omega [Nat.divMulLe m 2, Nat.divMulLe n 2, some]
 
 --| The bitwise exclusive or: each bit of `Nat.xor m n` is set when exactly
 --| one of `m` and `n` has it set ([`Nat.testBitXor`]).

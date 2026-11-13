@@ -26,11 +26,11 @@ theorem concatenateAtLeast ∀ (left: Nat) (right: Nat): (left ≤ concatenate l
 theorem undoAdd ∀ (last: Nat) (target: Nat) (v: Nat): (v + last == target) = (last <= target && v == target - last) :=
   Bool.eqOf (v + last == target) (last <= target && v == target - last)
     (matches =>
-      let same := matches.read
+      let same := matches
       Both (omega) (rewrite (omega: v = target - last) in DecEq.refl (target - last)))
     (both =>
       let Both fits sameTarget := both
-      let same := sameTarget.read
+      let same := sameTarget
       rewrite (omega: v + last = target) in DecEq.refl target)
 
 --| The backwards search over the numbers after `first`, last one first, is
