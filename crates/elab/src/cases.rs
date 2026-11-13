@@ -919,7 +919,11 @@ fn contradiction(cx: &mut Ctx, eq: CtorEquation, goal: &Value) -> Result<Term> {
     }
     let g = cx.g();
     let bool_data = builtin_data(cx, Builtin::Bool)?;
-    let void_proof = if eq.d == bool_data {
+    // Until the prelude has admitted `Bool.falseNotTrue`, a `Bool` equation
+    // takes the helper below like any other type's; that is how the lemma
+    // itself is proved, by `()`.
+    let false_not_true = g.env.registry().def(Builtin::FalseNotTrue);
+    let void_proof = if let (true, Some(lemma)) = (eq.d == bool_data, false_not_true) {
         // `Bool.falseNotTrue h`, or for `h: True = False`, of `h` turned
         // round by `J (y q => y = True) rfl h`.
         let tru = builtin_ctor(cx, Builtin::True)?;
@@ -938,10 +942,7 @@ fn contradiction(cx: &mut Ctx, eq: CtorEquation, goal: &Value) -> Result<Term> {
         } else {
             h
         };
-        Term::app(
-            Term::Def(builtin_def(cx, Builtin::FalseNotTrue)?),
-            false_true,
-        )
+        Term::app(Term::Def(lemma), false_true)
     } else {
         let unit = builtin_data(cx, Builtin::Unit)?;
         let void = builtin_data(cx, Builtin::Void)?;

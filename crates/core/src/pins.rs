@@ -108,7 +108,7 @@ pub const PINS: &[Pin] = &[
     ),
     kernel(
         Builtin::EqNatSound,
-        "8fbd777ace9149842dbd6dab898cc17b0787260479d793f76af62676f5493352",
+        "3d0d96fda1ee07a0d13f9471deb5d5d99e2ddf62eaf2031ffca198a36663c4ac",
     ),
     // `Float`, whose `isValid` the float primitives' results rely on, and
     // the float natives (`float.rs`).
@@ -118,11 +118,11 @@ pub const PINS: &[Pin] = &[
     ),
     kernel(
         Builtin::FloatNeg,
-        "582831c34d6cf631c76190ffd6a3d99d116cdc2ff5a31de26829ebe19d0c6cac",
+        "6bf1718f30cd2f477495c810dd78c05076d604ee1b37f06b5bc81f84fa494e78",
     ),
     kernel(
         Builtin::FloatAbs,
-        "e088be3462e1d841f2218f711bb721e5f993941b797bd56a29ad31952745ff42",
+        "66f4347eccefbf2358b93b8bb99fbfaa9ea2038c70d9d726abba54acd91e74a4",
     ),
     kernel(
         Builtin::FloatIsNaN,
@@ -130,7 +130,7 @@ pub const PINS: &[Pin] = &[
     ),
     kernel(
         Builtin::FloatDecEq,
-        "f102079337b4aa2248aad9e83a41ad073ad51e8c0a1d5a906658b7ff434d62ab",
+        "df6cafcf08aa84ad776834c4d602fdd93b83adb89068a0efd29fec4e7907aa7b",
     ),
     kernel(
         Builtin::FloatIsFinite,
@@ -154,7 +154,7 @@ pub const PINS: &[Pin] = &[
     ),
     kernel(
         Builtin::FloatSub,
-        "224c355601f127c768a55b1acddfde47acd30a76f6018f3739441a4bd3692af0",
+        "95fdd28603e477399fb1f4e6f7ba8565c66c6c3bebc633dca118500796fdc8f3",
     ),
 ];
 

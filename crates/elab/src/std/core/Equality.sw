@@ -50,8 +50,10 @@ def Bool.IsFalse: (b: Bool) → Prop
   | False => Unit
   | True => Void
 
+--| `False` isn't `True`. Written as an absurd pattern: an equation between two
+--| different constructors has no proofs, so `()` matches it with nothing to return.
 theorem Bool.falseNotTrue: False ≠ True
-  | p => J (y q => Bool.IsFalse y) Trivial p
+  | ()
 
 --| Whether two numbers are equal, as a `Bool`.
 @[tailrec]
