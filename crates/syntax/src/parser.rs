@@ -16,11 +16,12 @@ use crate::ast::{
     Import, ImportItem, InductAlt, LocalDef, MatchKind, Mode, Module, Name, NamespaceDecl, NegForm,
     Pattern, RewriteRule, Row, SECTION, Scrutinee,
 };
-use crate::lexer::{Tok, Token, lex, lex_with_bars};
+use crate::lexer::{Tok, Token, lex, lex_with_bars, lex_with_trivia};
 use crate::negation::{
     argument_bang, argument_minus, argument_prefix, negative_numeral, opens_atom,
 };
 use crate::stack::StackLimit;
+use crate::tree::{DeclMarks, Mark, NodeKind, SyntaxFile};
 use crate::{Diagnostic, FileId, Span};
 
 mod declarations;
@@ -87,161 +88,243 @@ pub fn parse_module_recovering(
     text: &str,
     stack: usize,
 ) -> (Module, Vec<Diagnostic>) {
-    let limit = StackLimit::from_here(stack);
     let (tokens, bars) = match lex_with_bars(file, text) {
         Ok(lexed) => lexed,
         Err(d) => return (Module::default(), vec![d]),
     };
+    let (module, errors, _) = parse_tokens(file, text, stack, &tokens, &bars, false);
+    (module, errors)
+}
+
+/// The lossless tree of a file ([`crate::tree`]), from the same parse as
+/// [`parse_module_recovering`]'s, using at most `stack` bytes of stack. A
+/// declaration that doesn't parse is an `Error` node; only a lexical error
+/// leaves no tree.
+pub fn parse_tree(file: FileId, text: &str, stack: usize) -> Parsed<SyntaxFile> {
+    parse_both(file, text, stack).map(|(_, _, tree)| tree)
+}
+
+/// [`parse_module_recovering`]'s module and errors, and the lossless tree,
+/// from one parse.
+pub(crate) fn parse_both(
+    file: FileId,
+    text: &str,
+    stack: usize,
+) -> Parsed<(Module, Vec<Diagnostic>, SyntaxFile)> {
+    let lexed = lex_with_trivia(file, text)?;
+    let (module, errors, groups) =
+        parse_tokens(file, text, stack, &lexed.tokens, &lexed.bars, true);
+    let tree = SyntaxFile::build(lexed.tokens, lexed.trivia, lexed.eof, groups);
+    Ok((module, errors, tree))
+}
+
+/// Parses a file's tokens, declaration by declaration, recovering as
+/// [`parse_module_recovering`] says. With `record`, also the marks of each
+/// declaration, for the lossless tree.
+fn parse_tokens(
+    file: FileId,
+    text: &str,
+    stack: usize,
+    tokens: &[Token],
+    bars: &[Span],
+    record: bool,
+) -> (Module, Vec<Diagnostic>, Vec<DeclMarks>) {
+    let limit = StackLimit::from_here(stack);
     let mut namespace = None;
     let mut imports = Vec::new();
     let mut decls = Vec::new();
     let mut errors: Vec<Diagnostic> = Vec::new();
     let mut failed = Vec::new();
-    let groups = match split_decls(&tokens) {
+    let mut trees = Vec::new();
+    let all = 0..tokens.len() as u32;
+    let groups = match split_decls(tokens) {
         Ok(groups) => groups,
-        Err(d) => return (Module::default(), vec![*d]),
+        Err(d) => {
+            if record {
+                trees.push(DeclMarks {
+                    tokens: all,
+                    root: NodeKind::Error,
+                    marks: Vec::new(),
+                });
+            }
+            return (Module::default(), vec![*d], trees);
+        }
     };
+    // The groups run to the end of `tokens`; any tokens before the first
+    // start no declaration.
+    let mut offset = (tokens.len() - groups.iter().map(|group| group.len()).sum::<usize>()) as u32;
+    if record && offset > 0 {
+        trees.push(DeclMarks {
+            tokens: 0..offset,
+            root: NodeKind::Error,
+            marks: Vec::new(),
+        });
+    }
     for group in groups {
         let mut parser = Parser::new(group, file, text.len(), limit);
-        // The attributes before the declaration, which belong to it.
-        let attrs = match parser.attributes() {
-            Ok(attrs) => attrs,
-            Err(diagnostic) => {
-                let error_at = diagnostic.primary_span();
-                errors.push(*diagnostic);
-                failed.extend(failed_names_of(group, error_at));
-                continue;
-            }
-        };
-        if let Some(first) = attrs.first() {
-            let refused = match parser.peek() {
-                None => Some(
-                    Diagnostic::error(
-                        "E-PARSE",
-                        "attributes must be followed by the declaration they apply to",
-                    )
-                    .with_label(first.span, "nothing follows these attributes"),
-                ),
-                Some(Tok::KwNamespace) => Some(misplaced_attributes(first, "a namespace line")),
-                Some(Tok::KwImport) => Some(misplaced_attributes(first, "an import")),
-                Some(Tok::KwTest) => Some(misplaced_attributes(first, "a test")),
-                Some(Tok::KwAbility) => Some(misplaced_attributes(first, "an ability")),
-                _ => None,
-            };
-            if let Some(diagnostic) = refused {
-                let error_at = diagnostic.primary_span();
-                errors.push(diagnostic);
-                failed.extend(failed_names_of(group, error_at));
-                continue;
-            }
+        if record {
+            parser.marks = Some(Vec::new());
         }
-        if parser.peek() == Some(&Tok::KwNamespace) {
-            if namespace.is_some() {
-                errors.push(
+        // What the declaration turned out to be, once it has parsed.
+        let mut root = NodeKind::Error;
+        'group: {
+            // The attributes before the declaration, which belong to it.
+            let attrs = match parser.attributes() {
+                Ok(attrs) => attrs,
+                Err(diagnostic) => {
+                    let error_at = diagnostic.primary_span();
+                    errors.push(*diagnostic);
+                    failed.extend(failed_names_of(group, error_at));
+                    break 'group;
+                }
+            };
+            if let Some(first) = attrs.first() {
+                let refused = match parser.peek() {
+                    None => Some(
+                        Diagnostic::error(
+                            "E-PARSE",
+                            "attributes must be followed by the declaration they apply to",
+                        )
+                        .with_label(first.span, "nothing follows these attributes"),
+                    ),
+                    Some(Tok::KwNamespace) => Some(misplaced_attributes(first, "a namespace line")),
+                    Some(Tok::KwImport) => Some(misplaced_attributes(first, "an import")),
+                    Some(Tok::KwTest) => Some(misplaced_attributes(first, "a test")),
+                    Some(Tok::KwAbility) => Some(misplaced_attributes(first, "an ability")),
+                    _ => None,
+                };
+                if let Some(diagnostic) = refused {
+                    let error_at = diagnostic.primary_span();
+                    errors.push(diagnostic);
+                    failed.extend(failed_names_of(group, error_at));
+                    break 'group;
+                }
+            }
+            if parser.peek() == Some(&Tok::KwNamespace) {
+                if namespace.is_some() {
+                    errors.push(
                     error(group[0].span, "a file has only one namespace line").with_note(
                         "everything in a file goes in the namespace on its first line; to use another namespace, import from it or write its name in full",
                     ),
                 );
-                continue;
-            }
-            if !imports.is_empty() || !decls.is_empty() {
-                let name = parser.namespace().ok().map(|decl| decl.path.text);
-                let message = "the namespace line must come first, before imports and declarations";
-                let mut diagnostic = Diagnostic::error("E-NAMESPACE-NOT-FIRST", message)
-                    .with_label(group[0].span, message);
-                if let Some(name) = name {
-                    diagnostic = diagnostic
-                        .with_note(format!("move `namespace {name}` to the top of the file"));
+                    break 'group;
                 }
-                errors.push(diagnostic);
-                continue;
-            }
-            match parser
-                .namespace()
-                .and_then(|decl| parser.finish().map(|()| decl))
-            {
-                Ok(decl) => namespace = Some(decl),
-                Err(diagnostic) => errors.push(*diagnostic),
-            }
-            continue;
-        }
-        if parser.peek() == Some(&Tok::KwImport) {
-            if !decls.is_empty() {
-                errors.push(
-                    error(group[0].span, "imports go at the top of the file")
-                        .with_note("move it before the first declaration"),
-                );
-                continue;
-            }
-            match parser
-                .import()
-                .and_then(|import| parser.finish().map(|()| import))
-            {
-                Ok(import) => imports.push(import),
-                Err(diagnostic) => errors.push(*diagnostic),
-            }
-            continue;
-        }
-        // A `def` or `theorem` whose header parses is kept if its body
-        // doesn't, so it can stand in for its statement
-        // (docs/proposals/tests-with-errors.md §3.3).
-        let keep = matches!(
-            parser.peek(),
-            Some(Tok::KwDef | Tok::KwTheorem | Tok::KwExport | Tok::KwOpaque)
-        );
-        parser.keep_header = keep;
-        let parsed = match parser.decl() {
-            Ok(parsed) => match parser.finish() {
-                Ok(()) => Ok(parsed),
-                // Something after the body: its signature is kept.
-                Err(diagnostic) => {
-                    let header = parsed.into_iter().next().filter(|decl| {
-                        keep && matches!(
-                            decl,
-                            Decl::Signature {
-                                instance: false,
-                                ..
-                            }
-                        )
-                    });
-                    Err((diagnostic, header))
-                }
-            },
-            Err(diagnostic) => Err((diagnostic, parser.header.take())),
-        };
-        match parsed {
-            Ok(mut parsed) => {
-                // A declaration with attributes is a data type or a
-                // definition (the others are refused above): its first part.
-                match parsed.first_mut() {
-                    Some(Decl::Data { attrs: a, .. } | Decl::Signature { attrs: a, .. }) => {
-                        *a = attrs;
+                if !imports.is_empty() || !decls.is_empty() {
+                    let name = parser.namespace().ok().map(|decl| decl.path.text);
+                    let message =
+                        "the namespace line must come first, before imports and declarations";
+                    let mut diagnostic = Diagnostic::error("E-NAMESPACE-NOT-FIRST", message)
+                        .with_label(group[0].span, message);
+                    if let Some(name) = name {
+                        diagnostic = diagnostic
+                            .with_note(format!("move `namespace {name}` to the top of the file"));
                     }
-                    _ => debug_assert!(attrs.is_empty()),
+                    errors.push(diagnostic);
+                    break 'group;
                 }
-                decls.extend(parsed)
+                match parser
+                    .namespace()
+                    .and_then(|decl| parser.finish().map(|()| decl))
+                {
+                    Ok(decl) => {
+                        namespace = Some(decl);
+                        root = NodeKind::Namespace;
+                    }
+                    Err(diagnostic) => errors.push(*diagnostic),
+                }
+                break 'group;
             }
-            Err((diagnostic, header)) => {
-                let error_at = diagnostic.primary_span();
-                errors.push(*diagnostic);
-                match header {
-                    Some(mut signature) => {
-                        if let Decl::Signature {
-                            attrs: a,
-                            body_error,
-                            span,
-                            ..
-                        } = &mut signature
-                        {
+            if parser.peek() == Some(&Tok::KwImport) {
+                if !decls.is_empty() {
+                    errors.push(
+                        error(group[0].span, "imports go at the top of the file")
+                            .with_note("move it before the first declaration"),
+                    );
+                    break 'group;
+                }
+                match parser
+                    .import()
+                    .and_then(|import| parser.finish().map(|()| import))
+                {
+                    Ok(import) => {
+                        imports.push(import);
+                        root = NodeKind::Import;
+                    }
+                    Err(diagnostic) => errors.push(*diagnostic),
+                }
+                break 'group;
+            }
+            // A `def` or `theorem` whose header parses is kept if its body
+            // doesn't, so it can stand in for its statement
+            // (docs/proposals/tests-with-errors.md §3.3).
+            let keep = matches!(
+                parser.peek(),
+                Some(Tok::KwDef | Tok::KwTheorem | Tok::KwExport | Tok::KwOpaque)
+            );
+            parser.keep_header = keep;
+            let parsed = match parser.decl() {
+                Ok(parsed) => match parser.finish() {
+                    Ok(()) => Ok(parsed),
+                    // Something after the body: its signature is kept.
+                    Err(diagnostic) => {
+                        let header = parsed.into_iter().next().filter(|decl| {
+                            keep && matches!(
+                                decl,
+                                Decl::Signature {
+                                    instance: false,
+                                    ..
+                                }
+                            )
+                        });
+                        Err((diagnostic, header))
+                    }
+                },
+                Err(diagnostic) => Err((diagnostic, parser.header.take())),
+            };
+            match parsed {
+                Ok(mut parsed) => {
+                    // A declaration with attributes is a data type or a
+                    // definition (the others are refused above): its first part.
+                    match parsed.first_mut() {
+                        Some(Decl::Data { attrs: a, .. } | Decl::Signature { attrs: a, .. }) => {
                             *a = attrs;
-                            *body_error = Some(error_at.unwrap_or(*span));
                         }
-                        decls.push(signature);
+                        _ => debug_assert!(attrs.is_empty()),
                     }
-                    None => failed.extend(failed_names_of(group, error_at)),
+                    root = decl_kind(parsed.first());
+                    decls.extend(parsed)
+                }
+                Err((diagnostic, header)) => {
+                    let error_at = diagnostic.primary_span();
+                    errors.push(*diagnostic);
+                    match header {
+                        Some(mut signature) => {
+                            if let Decl::Signature {
+                                attrs: a,
+                                body_error,
+                                span,
+                                ..
+                            } = &mut signature
+                            {
+                                *a = attrs;
+                                *body_error = Some(error_at.unwrap_or(*span));
+                            }
+                            decls.push(signature);
+                        }
+                        None => failed.extend(failed_names_of(group, error_at)),
+                    }
                 }
             }
         }
+        if let Some(marks) = parser.marks.take() {
+            let end = offset + group.len() as u32;
+            trees.push(DeclMarks {
+                tokens: offset..end,
+                root,
+                marks,
+            });
+        }
+        offset += group.len() as u32;
     }
     (
         Module {
@@ -249,10 +332,29 @@ pub fn parse_module_recovering(
             imports,
             decls,
             failed,
-            doc_links: crate::docs::bar_links(text, &bars),
+            doc_links: crate::docs::bar_links(text, bars),
         },
         errors,
+        trees,
     )
+}
+
+/// What a declaration that parsed is, from its first part.
+fn decl_kind(decl: Option<&Decl>) -> NodeKind {
+    match decl {
+        Some(Decl::Data {
+            interface: true, ..
+        }) => NodeKind::Interface,
+        Some(Decl::Data { record: true, .. }) => NodeKind::RecordType,
+        Some(Decl::Data { .. }) => NodeKind::DataType,
+        Some(Decl::Signature { synonym: true, .. }) => NodeKind::TypeSynonym,
+        Some(Decl::Signature { theorem: true, .. }) => NodeKind::Theorem,
+        Some(Decl::Signature { instance: true, .. }) => NodeKind::Instance,
+        Some(Decl::Signature { .. }) => NodeKind::Def,
+        Some(Decl::Test { .. }) => NodeKind::Test,
+        Some(Decl::Ability { .. }) => NodeKind::Ability,
+        Some(Decl::Equation { .. }) | None => NodeKind::Error,
+    }
 }
 
 /// The names a declaration that didn't parse would have declared, read off
@@ -603,6 +705,9 @@ struct Parser<'t> {
     /// parsed, if `keep_header` asked for it: still here after an error,
     /// for recovery to keep (docs/proposals/tests-with-errors.md §3.3).
     header: Option<Decl>,
+    /// The constructs finished so far, for the lossless tree, if it was
+    /// asked for (`crate::tree`, "Marks").
+    marks: Option<Vec<Mark>>,
 }
 
 const NO_PARTNER: u32 = u32::MAX;
@@ -759,7 +864,70 @@ impl<'t> Parser<'t> {
             stack,
             keep_header: false,
             header: None,
+            marks: None,
         }
+    }
+
+    /// Where a construct starting at the next token starts, for
+    /// [`Self::node`].
+    #[inline(always)]
+    fn mark(&self) -> u32 {
+        self.pos as u32
+    }
+
+    /// Records the construct of kind `kind` from token `start` (a
+    /// [`Self::mark`]) to the last token read, if marks are being recorded.
+    #[inline(always)]
+    fn node(&mut self, start: u32, kind: NodeKind) {
+        if self.marks.is_some() {
+            self.record(start, kind);
+        }
+    }
+
+    /// [`Self::node`] for a construct whose first token, already read, has
+    /// the span `start`.
+    #[inline(always)]
+    fn node_at(&mut self, start: Span, kind: NodeKind) {
+        if self.marks.is_some() {
+            let first = (0..self.pos)
+                .rev()
+                .find(|&i| self.tokens[i].span.start == start.start)
+                .unwrap_or(0);
+            self.record(first as u32, kind);
+        }
+    }
+
+    #[inline(never)]
+    fn record(&mut self, start: u32, kind: NodeKind) {
+        let end = self.pos as u32;
+        if let Some(marks) = &mut self.marks {
+            marks.push(Mark { kind, start, end });
+        }
+    }
+
+    /// An expression whose own structure isn't marked yet, in an
+    /// `Unmarked` node.
+    fn unmarked_expr(&mut self) -> Result<Expr> {
+        let start = self.mark();
+        let expr = self.expr()?;
+        self.node(start, NodeKind::Unmarked);
+        Ok(expr)
+    }
+
+    /// [`Self::app`], in an `Unmarked` node.
+    fn unmarked_app(&mut self) -> Result<Expr> {
+        let start = self.mark();
+        let expr = self.app()?;
+        self.node(start, NodeKind::Unmarked);
+        Ok(expr)
+    }
+
+    /// [`Self::alt_pattern`], in an `Unmarked` node.
+    fn unmarked_alt_pattern(&mut self) -> Result<Pattern> {
+        let start = self.mark();
+        let pattern = self.alt_pattern()?;
+        self.node(start, NodeKind::Unmarked);
+        Ok(pattern)
     }
 
     /// `=>` after a lambda's parameters or an alternative's patterns, with a
@@ -871,6 +1039,7 @@ impl<'t> Parser<'t> {
         if self.peek() != Some(&Tok::KwIf) {
             return Ok(None);
         }
+        let mark = self.mark();
         let start = self.bump().span;
         let binder =
             if matches!(self.peek(), Some(Tok::Lower(_))) && self.peek_at(1) == Some(&Tok::Colon) {
@@ -881,9 +1050,10 @@ impl<'t> Parser<'t> {
                 None
             };
         let saved = self.guard_start.replace(self.pos);
-        let cond = self.expr();
+        let cond = self.unmarked_expr();
         self.guard_start = saved;
         let cond = cond?;
+        self.node(mark, NodeKind::Guard);
         Ok(Some(Guard {
             binder,
             span: start.to(cond.span()),
@@ -914,7 +1084,7 @@ impl<'t> Parser<'t> {
             return Ok(None);
         }
         self.expect_fat_arrow(what)?;
-        Ok(Some(self.expr()?))
+        Ok(Some(self.unmarked_expr()?))
     }
 
     /// Whether the token at `i`, a `,` or a closing bracket, is inside an
@@ -1439,8 +1609,10 @@ impl<'t> Parser<'t> {
                         text: text.clone(),
                         span: self.here(),
                     };
+                    let item = self.mark();
                     self.bump();
                     let alias = self.import_alias(&name)?;
+                    self.node(item, NodeKind::ImportItem);
                     items.push(ImportItem { name, alias });
                 }
                 Some(Tok::DotDot) if !items.is_empty() => {
@@ -1860,8 +2032,9 @@ impl<'t> Parser<'t> {
         // After the colon: index types, each followed by `->`, then the
         // universe (docs/proposals/indexed-families.md §7.1).
         let mut indices = Vec::new();
+        let colon = self.mark();
         let sort = if self.eat(&Tok::Colon) {
-            loop {
+            let sort = loop {
                 if self.is_pi_binder() {
                     let binder = self.binder()?;
                     if let Some(first) = binder.attrs.first() {
@@ -1873,13 +2046,15 @@ impl<'t> Parser<'t> {
                     }
                     continue;
                 }
-                let ty = self.app()?;
+                let ty = self.unmarked_app()?;
                 if self.eat(&Tok::Arrow) {
                     indices.push((None, ty));
                     continue;
                 }
                 break Some(ty);
-            }
+            };
+            self.node(colon, NodeKind::ResultType);
+            sort
         } else {
             None
         };
@@ -1924,7 +2099,9 @@ impl<'t> Parser<'t> {
                 record = true;
                 ctors.push(self.record_fields(&name)?);
             } else {
-                while self.eat(&Tok::Pipe) {
+                while self.peek() == Some(&Tok::Pipe) {
+                    let ctor = self.mark();
+                    self.bump();
                     let attrs = self.attributes()?;
                     let name =
                         self.upper("a constructor name (starting with an uppercase letter)")?;
@@ -1996,8 +2173,11 @@ impl<'t> Parser<'t> {
                         }
                     }
                     // The result type, `: Vec a (Succ n)`.
+                    let colon = self.mark();
                     let result = if self.eat(&Tok::Colon) {
-                        Some(self.app()?)
+                        let ty = self.unmarked_app()?;
+                        self.node(colon, NodeKind::ResultType);
+                        Some(ty)
                     } else {
                         None
                     };
@@ -2013,6 +2193,7 @@ impl<'t> Parser<'t> {
                         result,
                         braced,
                     });
+                    self.node(ctor, NodeKind::Constructor);
                 }
                 if ctors.is_empty() {
                     return Err(self
@@ -2061,6 +2242,7 @@ impl<'t> Parser<'t> {
     /// each, with its default. A record's, or a constructor's declared with
     /// `| C { … }`.
     fn braced_fields(&mut self) -> Result<Vec<(Binder, Option<Expr>)>> {
+        let mark = self.mark();
         self.expect(Tok::LBrace, "`{`")?;
         let mut out = Vec::new();
         if self.peek() != Some(&Tok::RBrace) {
@@ -2068,15 +2250,20 @@ impl<'t> Parser<'t> {
                 if self.peek() == Some(&Tok::RBrace) {
                     break;
                 }
+                let field_start = self.mark();
                 let attrs = self.attributes()?;
                 let field = self.lower("a field name")?;
                 self.expect(Tok::Colon, "`:`")?;
-                let ty = self.expr()?;
+                let ty = self.unmarked_expr()?;
+                let default_start = self.mark();
                 let default = if self.eat(&Tok::ColonEq) {
-                    Some(self.expr()?)
+                    let value = self.unmarked_expr()?;
+                    self.node(default_start, NodeKind::Default);
+                    Some(value)
                 } else {
                     None
                 };
+                self.node(field_start, NodeKind::Field);
                 out.push((
                     Binder {
                         names: vec![field],
@@ -2091,6 +2278,7 @@ impl<'t> Parser<'t> {
             }
         }
         self.expect(Tok::RBrace, "`,` or `}`")?;
+        self.node(mark, NodeKind::Fields);
         Ok(out)
     }
 
@@ -2117,9 +2305,14 @@ impl<'t> Parser<'t> {
         let result = loop {
             self.allow = Some(self.pos);
             let op = (|| -> Result<_> {
+                let start = self.mark();
                 let op = self.lower("an operation name")?;
                 self.expect(Tok::Colon, "`:`")?;
-                Ok((op, self.expr_inline()?))
+                let ty_start = self.mark();
+                let ty = self.expr_inline()?;
+                self.node(ty_start, NodeKind::Unmarked);
+                self.node(start, NodeKind::AbilityOp);
+                Ok((op, ty))
             })();
             match op {
                 Ok(op) => ops.push(op),
@@ -2166,6 +2359,7 @@ impl<'t> Parser<'t> {
     /// constructor's field may have (docs/proposals/named-arguments.md
     /// §5.1).
     fn binder_with_default(&mut self) -> Result<(Binder, Option<Expr>)> {
+        let mark = self.mark();
         self.expect(Tok::LParen, "`(`")?;
         let attrs = self.attributes()?;
         let mut names = vec![self.lower("a name")?];
@@ -2174,12 +2368,16 @@ impl<'t> Parser<'t> {
         }
         self.expect(Tok::Colon, "`:`")?;
         let ty = self.binder_type()?;
+        let default_start = self.mark();
         let default = if self.eat(&Tok::ColonEq) {
-            Some(self.expr()?)
+            let value = self.unmarked_expr()?;
+            self.node(default_start, NodeKind::Default);
+            Some(value)
         } else {
             None
         };
         self.expect(Tok::RParen, "`)`")?;
+        self.node(mark, NodeKind::Binder);
         Ok((Binder { names, ty, attrs }, default))
     }
 
@@ -2222,7 +2420,7 @@ impl<'t> Parser<'t> {
             .with_note(note)
             .into());
         }
-        self.expr()
+        self.unmarked_expr()
     }
 
     // Expressions, loosest-binding first
@@ -2258,6 +2456,7 @@ impl<'t> Parser<'t> {
             self.let_value = None;
         }
         self.limit = Some(column);
+        let start = self.mark();
         let mut stmts = Vec::new();
         let result = loop {
             self.allow = Some(self.pos);
@@ -2272,6 +2471,9 @@ impl<'t> Parser<'t> {
         (self.limit, self.allow) = saved;
         self.let_value = let_value;
         result?;
+        if stmts.len() > 1 {
+            self.node(start, NodeKind::Block);
+        }
         let mut rest = match stmts.pop() {
             Some(Stmt::Expr(e)) => e,
             Some(Stmt::Let(_, _, _, span) | Stmt::LetPattern(_, _, _, span)) => {
@@ -2331,17 +2533,20 @@ impl<'t> Parser<'t> {
     }
 
     fn statement(&mut self) -> Result<Stmt> {
+        let start = self.mark();
         match self.peek() {
             Some(Tok::KwLet) => {
                 let stmt = self.let_statement()?;
                 // `let x := e; body` on a line is the expression `let`.
                 if self.peek() == Some(&Tok::Semi) {
-                    Ok(Stmt::Expr(self.let_body(stmt)?))
+                    let expr = self.let_body(stmt)?;
+                    self.node(start, NodeKind::Unmarked);
+                    Ok(Stmt::Expr(expr))
                 } else {
                     Ok(stmt)
                 }
             }
-            Some(Tok::KwDef | Tok::KwTheorem) => self.local_def(),
+            Some(Tok::KwDef | Tok::KwTheorem) => self.local_def(start),
             // `@[tailrec] def go …`: the `def` may be on the next line, at
             // the block's column.
             Some(Tok::At) => {
@@ -2356,7 +2561,7 @@ impl<'t> Parser<'t> {
                     )
                     .into());
                 }
-                let Stmt::Def(mut def, span) = self.local_def()? else {
+                let Stmt::Def(mut def, span) = self.local_def(start)? else {
                     unreachable!("a local definition")
                 };
                 if let Decl::Signature { attrs: a, .. } = &mut def.signature {
@@ -2374,16 +2579,26 @@ impl<'t> Parser<'t> {
                 "local definitions can't be `opaque`: only top-level ones can",
             )
             .into()),
-            _ => Ok(Stmt::Expr(self.expr_inline()?)),
+            _ => {
+                let expr = self.expr_inline()?;
+                self.node(start, NodeKind::Unmarked);
+                Ok(Stmt::Expr(expr))
+            }
         }
     }
 
     /// A local `def` or `theorem`, written as at top level, but with a body.
+    /// `mark` is where it starts, at its attributes if it has any.
     #[inline(never)]
-    fn local_def(&mut self) -> Result<Stmt> {
+    fn local_def(&mut self, mark: u32) -> Result<Stmt> {
         let start = self.here();
         let mut decls = self.definition(start, false, false)?.into_iter();
         let signature = decls.next().expect("a definition has a signature");
+        let kind = match signature {
+            Decl::Signature { theorem: true, .. } => NodeKind::Theorem,
+            _ => NodeKind::Def,
+        };
+        self.node(mark, kind);
         if let Decl::Signature { unfolding, .. } = &signature
             && let Some(first) = unfolding.first()
         {
@@ -2448,9 +2663,14 @@ impl<'t> Parser<'t> {
     fn let_statement(&mut self) -> Result<Stmt> {
         let start_index = self.pos;
         let start = self.bump().span;
+        let pattern_start = self.mark();
         let pattern = self.let_pattern()?;
+        self.node(pattern_start, NodeKind::Unmarked);
         let ty = if self.eat(&Tok::Colon) {
-            Some(self.expr_inline()?)
+            let ty_start = self.mark();
+            let ty = self.expr_inline()?;
+            self.node(ty_start, NodeKind::Unmarked);
+            Some(ty)
         } else {
             None
         };
@@ -2475,9 +2695,10 @@ impl<'t> Parser<'t> {
         }
         self.expect(Tok::ColonEq, "`:=`")?;
         let outer = self.let_value.replace(start_index);
-        let value = self.expr();
+        let value = self.unmarked_expr();
         self.let_value = outer;
         let value = value?;
+        self.node(start_index as u32, NodeKind::Let);
         Ok(match pattern {
             Pattern::Var(name) => Stmt::Let(name, ty, value, start),
             pattern => Stmt::LetPattern(pattern, ty, value, start),
@@ -2504,10 +2725,13 @@ impl<'t> Parser<'t> {
     /// record literal or update: `{ p | x = 3 }.x = 3` ([`record_braces`]).
     fn result_type(&mut self) -> Result<Expr> {
         if self.peek() != Some(&Tok::LBrace) || record_braces(self.tokens, self.pos) {
-            return self.expr();
+            return self.unmarked_expr();
         }
+        let start = self.mark();
         let row = self.row()?;
-        let ty = self.expr()?;
+        self.node(start, NodeKind::Row);
+        let ty = self.unmarked_expr()?;
+        self.node(start, NodeKind::Effect);
         Ok(Expr::Effect(row, Box::new(ty)))
     }
 
@@ -2707,6 +2931,7 @@ impl<'t> Parser<'t> {
         }
         let mut scrutinees = Vec::new();
         loop {
+            let scrutinee = self.mark();
             let name = if matches!(self.peek(), Some(Tok::Lower(_)))
                 && self.peek_at(1) == Some(&Tok::Colon)
             {
@@ -2727,7 +2952,10 @@ impl<'t> Parser<'t> {
                         .into(),
                 );
             }
+            let expr_start = self.mark();
             let expr = self.expr_inline()?;
+            self.node(expr_start, NodeKind::Unmarked);
+            self.node(scrutinee, NodeKind::Scrutinee);
             scrutinees.push(Scrutinee { name, expr });
             if !self.eat(&Tok::Comma) {
                 break;
@@ -2746,10 +2974,11 @@ impl<'t> Parser<'t> {
                     Some(_) => {}
                 }
             }
+            let arm = self.mark();
             let bar = self.bump().span;
-            let mut patterns = vec![self.alt_pattern()?];
+            let mut patterns = vec![self.unmarked_alt_pattern()?];
             while self.eat(&Tok::Comma) {
-                patterns.push(self.alt_pattern()?);
+                patterns.push(self.unmarked_alt_pattern()?);
             }
             if patterns.len() != scrutinees.len() {
                 let (n, m) = (patterns.len(), scrutinees.len());
@@ -2774,6 +3003,7 @@ impl<'t> Parser<'t> {
             }
             let guard = self.guard()?;
             let body = self.arm_body(&patterns, guard.as_ref(), "`=>`")?;
+            self.node(arm, NodeKind::Arm);
             alts.push(Alt {
                 span: bar.to(self.prev_span()),
                 patterns,
@@ -2784,6 +3014,7 @@ impl<'t> Parser<'t> {
         if alts.is_empty() {
             return Err(self.unexpected("`|` and an alternative").into());
         }
+        self.node_at(start, NodeKind::Match);
         Ok(Expr::Match {
             span: start.to(self.prev_span()),
             scrutinees,
@@ -2831,10 +3062,11 @@ impl<'t> Parser<'t> {
                     Some(_) => {}
                 }
             }
+            let arm = self.mark();
             let bar = self.bump().span;
-            let mut patterns = vec![self.alt_pattern()?];
+            let mut patterns = vec![self.unmarked_alt_pattern()?];
             while self.eat(&Tok::Comma) {
-                patterns.push(self.alt_pattern()?);
+                patterns.push(self.unmarked_alt_pattern()?);
             }
             if let Some(first) = alts.first()
                 && first.patterns.len() != patterns.len()
@@ -2866,7 +3098,7 @@ impl<'t> Parser<'t> {
                 self.arm_body(&patterns, guard.as_ref(), "`=>`")?
             } else {
                 self.expect_fat_arrow("`=>`")?;
-                let body = self.expr()?;
+                let body = self.unmarked_expr()?;
                 if kind == MatchKind::ClauseSome {
                     let some =
                         library_var("Std.Option.Some", Span::point(bar.file, body.span().start));
@@ -2875,6 +3107,7 @@ impl<'t> Parser<'t> {
                     Some(body)
                 }
             };
+            self.node(arm, NodeKind::Arm);
             alts.push(Alt {
                 span: bar.to(self.prev_span()),
                 patterns,
@@ -2885,6 +3118,7 @@ impl<'t> Parser<'t> {
         if alts.is_empty() {
             return Err(self.unexpected("`|` and an alternative").into());
         }
+        self.node_at(start, NodeKind::ClauseLambda);
         let end = self.prev_span();
         let arity = alts[0].patterns.len();
         if kind != MatchKind::Clause {
@@ -3825,10 +4059,17 @@ impl<'t> Parser<'t> {
     /// `[x y : A]`, or `[auto x : P]`, or `[auto P]`. Returns whether it's
     /// `auto`.
     fn implicit_binder(&mut self) -> Result<(Binder, bool)> {
+        let mark = self.mark();
+        let binder = self.implicit_binder_unmarked()?;
+        self.node(mark, NodeKind::Binder);
+        Ok(binder)
+    }
+
+    fn implicit_binder_unmarked(&mut self) -> Result<(Binder, bool)> {
         if self.nameless_auto_at(self.pos) {
             self.bump();
             let auto = self.bump().span;
-            let ty = self.expr()?;
+            let ty = self.unmarked_expr()?;
             self.expect(Tok::RBracket, "`]`")?;
             let names = vec![Name {
                 text: crate::ast::NAMELESS.to_string(),

@@ -10,6 +10,7 @@
 use super::{Parser, Result, describe, error};
 use crate::ast::{Attribute, BinOp, Clause, Decl, Expr, MatchKind, NAMELESS, Name, Pattern};
 use crate::lexer::Tok;
+use crate::tree::NodeKind;
 use crate::{Diagnostic, Span};
 
 /// A parameter written in a header, before the colon.
@@ -57,6 +58,7 @@ impl Parser<'_> {
     pub(super) fn attributes(&mut self) -> Result<Vec<Attribute>> {
         let mut attrs = Vec::new();
         while self.peek() == Some(&Tok::At) {
+            let group = self.mark();
             self.bump();
             self.expect(Tok::LBracket, "`[`")?;
             let first = attrs.len();
@@ -65,6 +67,7 @@ impl Parser<'_> {
                     // A trailing comma.
                     break;
                 }
+                let attribute = self.mark();
                 let start = self.lower_q("an attribute's name, such as `js.name`")?;
                 let mut name = start.clone();
                 while self.peek() == Some(&Tok::Dot) {
@@ -90,11 +93,13 @@ impl Parser<'_> {
                 };
                 let span = arg.as_ref().map_or(name.span, |(_, s)| name.span.to(*s));
                 attrs.push(Attribute { name, arg, span });
+                self.node(attribute, NodeKind::Attribute);
                 if !self.eat(&Tok::Comma) {
                     break;
                 }
             }
             self.expect(Tok::RBracket, "`,` or `]` after the attribute")?;
+            self.node(group, NodeKind::Attributes);
         }
         Ok(attrs)
     }
@@ -181,8 +186,10 @@ impl Parser<'_> {
         if self.peek() == Some(&Tok::Equals) {
             return Err(self.def_equals().into());
         }
+        let body = self.mark();
         self.expect(Tok::ColonEq, "`:=`")?;
-        let expr = self.expr()?;
+        let expr = self.unmarked_expr()?;
+        self.node(body, NodeKind::Body);
         Ok(Decl::Test {
             span: start.to(expr.span()),
             name,
@@ -258,17 +265,21 @@ impl Parser<'_> {
         while self.peek() != Some(&Tok::Colon) {
             params.push(self.header_param()?);
         }
+        let colon = self.mark();
         self.bump();
         let result = self.result_type()?;
+        self.node(colon, NodeKind::ResultType);
         check_duplicates(&name, &params, &result)?;
         let result_is_equation = matches!(result, Expr::Binary(BinOp::Eq, ..));
         let span = start.to(result.span());
         // `decreasing e`, before `:=` or the arms (D474).
+        let decreasing_start = self.mark();
         let decreasing = if self.eat(&Tok::KwDecreasing) {
             if instance {
                 return Err(error(self.prev_span(), "an instance can't have `decreasing`").into());
             }
-            let measure = self.expr()?;
+            let measure = self.unmarked_expr()?;
+            self.node(decreasing_start, NodeKind::Decreasing);
             // After it, `:=` may start a line of its own, at the
             // declaration's column (§6.1's layout).
             if self
@@ -285,6 +296,7 @@ impl Parser<'_> {
         // `unfolding f, g`, after `decreasing e` if both are written
         // (docs/proposals/opaque-definitions.md §6.3).
         let mut unfolding = Vec::new();
+        let unfolding_start = self.mark();
         if self.eat(&Tok::KwUnfolding) {
             if instance {
                 return Err(
@@ -304,6 +316,7 @@ impl Parser<'_> {
                     break;
                 }
             }
+            self.node(unfolding_start, NodeKind::Unfolding);
             if self
                 .tokens
                 .get(self.pos)
@@ -343,8 +356,10 @@ impl Parser<'_> {
         let mut decls = Vec::new();
         match self.peek() {
             Some(Tok::ColonEq) => {
+                let body = self.mark();
                 self.bump();
-                let rhs = self.expr()?;
+                let rhs = self.unmarked_expr()?;
+                self.node(body, NodeKind::Body);
                 match &rhs {
                     // `:= match | …` is the arms form: the same equations,
                     // so the definition has the same case tree.
@@ -445,7 +460,9 @@ impl Parser<'_> {
         auto_params: Vec<bool>,
         sort: Option<Expr>,
     ) -> Result<Vec<Decl>> {
-        let body = self.expr()?;
+        let equals = self.mark() - 1;
+        let body = self.unmarked_expr()?;
+        self.node(equals, NodeKind::Body);
         let ambiguous = |what: &str| {
             error(
                 body.span(),
@@ -519,6 +536,13 @@ impl Parser<'_> {
     /// One parameter in a header: `(x y : A)`, `[x y : A]`, `[auto h : P]`
     /// or `()`.
     pub(super) fn header_param(&mut self) -> Result<Param> {
+        let mark = self.mark();
+        let param = self.header_param_unmarked()?;
+        self.node(mark, NodeKind::Param);
+        Ok(param)
+    }
+
+    fn header_param_unmarked(&mut self) -> Result<Param> {
         let start = self.here();
         let implicit = match self.peek() {
             Some(Tok::LParen) if self.peek_at(1) == Some(&Tok::RParen) => {
@@ -548,7 +572,7 @@ impl Parser<'_> {
             && names[0].text == "auto"
             && !matches!(self.peek(), Some(Tok::Colon | Tok::RBracket) | None)
         {
-            let ty = self.expr()?;
+            let ty = self.unmarked_expr()?;
             if self.peek() != Some(&Tok::RBracket) {
                 return Err(self
                     .unexpected("`]` to close the parameter `[auto …]`")
@@ -599,8 +623,11 @@ impl Parser<'_> {
                      one at a call with `[x := …]`",
                 ).into());
             }
+            let default = self.mark();
             self.bump();
-            Some(self.expr()?)
+            let value = self.unmarked_expr()?;
+            self.node(default, NodeKind::Default);
+            Some(value)
         } else {
             None
         };
@@ -649,6 +676,7 @@ impl Parser<'_> {
             .into());
         }
         let (column, first_span) = (first.column, first.span);
+        let arms = self.mark();
         let saved = (self.limit, self.allow);
         self.limit = Some(column);
         let result = (|| -> Result<()> {
@@ -695,17 +723,20 @@ impl Parser<'_> {
             }
         })();
         (self.limit, self.allow) = saved;
-        result
+        result?;
+        self.node(arms, NodeKind::Arms);
+        Ok(())
     }
 
     /// `| p, q => body`, or with an absurd pattern, `| p, ()`: an equation
     /// whose patterns are the header's, then the arm's.
     fn arm(&mut self, name: &Name, header: &[Pattern]) -> Result<Decl> {
+        let mark = self.mark();
         let bar = self.bump().span;
         let mut patterns = header.to_vec();
-        patterns.push(self.alt_pattern()?);
+        patterns.push(self.unmarked_alt_pattern()?);
         while self.eat(&Tok::Comma) {
-            patterns.push(self.alt_pattern()?);
+            patterns.push(self.unmarked_alt_pattern()?);
         }
         let guard = self.guard()?;
         let rhs = self.arm_body(
@@ -714,6 +745,7 @@ impl Parser<'_> {
             "`=>` and the arm's body",
         )?;
         let end = self.prev_span();
+        self.node(mark, NodeKind::Arm);
         Ok(Decl::Equation {
             name: name.clone(),
             patterns,
