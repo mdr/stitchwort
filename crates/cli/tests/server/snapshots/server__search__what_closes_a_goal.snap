@@ -85,7 +85,7 @@ expression: "serde_json::to_string_pretty(&report).unwrap()"
       "file": "std/List/SortLemmas.sw",
       "goal": "(a.compare c).isLessEq",
       "import": "import Std (Nat)",
-      "line": 570,
+      "line": 571,
       "name": "Std.Nat.compareLeq",
       "proof": "rewrite <- Nat.compareLeq a c in ?",
       "type": "∀ (m n: Nat) => (m.compare n).isLessEq = (m <= n)"
