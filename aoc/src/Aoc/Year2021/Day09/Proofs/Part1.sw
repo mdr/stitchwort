@@ -32,7 +32,6 @@ theorem lowAgrees (map: HeightMap) (position: Position) (height: Nat) (member: (
 --| Lower than the neighbours: lower than every adjacent cell.
 theorem lowerThanAdjacent (map: HeightMap) (position: Position) (height: Nat) (low: map.isLowPoint position height = True):
     map.cells.all (other => not (adjacent position other.fst) || height < other.snd) = True :=
-  let byNeighbour := List.allToAll _ position.neighbours low
   List.allOfAll _ map.cells
     (List.allOfMem _ map.cells (entry inCells =>
       match entry with
@@ -40,17 +39,16 @@ theorem lowerThanAdjacent (map: HeightMap) (position: Position) (height: Nat) (l
           match near: adjacent position other with
             | False => rfl
             | True =>
-              let below := List.allMem _ other position.neighbours byNeighbour (adjacentNeighbour position other near)
+              let below := low.read other (adjacentNeighbour position other near)
               rewrite heightOfMemCells map other otherHeight inCells at below in below))
 
 --| Lower than every adjacent cell: lower than the neighbours on the map.
 theorem lowerThanNeighbours (map: HeightMap) (position: Position) (height: Nat)
     (lower: map.cells.all (other => not (adjacent position other.fst) || height < other.snd) = True): map.isLowPoint position height = True :=
-  let byCell := List.allToAll _ map.cells lower
   List.allOfAll _ position.neighbours
     (List.allOfMem _ position.neighbours (next isNeighbour =>
       match h: map.heightAt next with
         | None => rfl
         | Some otherHeight =>
-          let atCell := List.allMem _ (next, otherHeight) map.cells byCell (memCellsOfHeight map next otherHeight h)
+          let atCell := lower.read (next, otherHeight) (memCellsOfHeight map next otherHeight h)
           rewrite neighbourAdjacent position next isNeighbour at atCell in atCell))

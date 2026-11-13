@@ -24,7 +24,7 @@ theorem readPacketSound (reader: BitReader) (packet: Packet) (rest: BitReader) (
 --| follows them.
 theorem readPacketComplete (packet: Packet) (formed: wellFormed packet = True) (rest: List Bool):
     readPacket { unread = encode packet ++ rest } = Some (packet, { unread = rest }) :=
-  let read := countComplete [packet] (Bool.andIntro formed rfl) rest
+  let read := countComplete [packet] (Both formed rfl) rest
   rewrite List.appendNil (encode packet) at read in rewrite read in rfl
 
 --| So bits start with at most one well-formed packet: the transmission

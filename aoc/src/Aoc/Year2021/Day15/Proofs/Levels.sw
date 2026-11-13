@@ -93,7 +93,7 @@ theorem tiledLevelsAgree (cave: Cave) (rectangle: Rectangle cave) (position: Pos
           | True =>
             let place: Position := { row = position.row % cave.height, column = position.column % cave.width }
             let onMap: (place.row < cave.risks.height && place.column < cave.risks.width) = True :=
-              Bool.andIntro (Nat.modLess position.row cave.height tall) (Nat.modLess position.column cave.width wide)
+              Both (Nat.modLess position.row cave.height tall) (Nat.modLess position.column cave.width wide)
             let base := cave.levels place
             let found: levelAt cave place = Some base := Eq.trans (levelsAgree cave rectangle place) (levelAtOn cave.risks place onMap)
             let tileRow := Nat.divLeOfLtMul position.row 4 cave.height (omega [rowIn])

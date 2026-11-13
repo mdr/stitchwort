@@ -74,21 +74,25 @@ theorem comparisonCompares (comparison: Comparison) (first: Nat) (second: Nat): 
 --| Part 2: a well-formed packet has the value the program computes.
 theorem evaluateCorrect (packet: Packet) (formed: wellFormed packet = True): HasValue packet (evaluate packet) :=
   match packet with
-    | Literal version groups => rewrite groupsValue 0 groups.toList (Bool.andRight formed) in LiteralValue version groups
+    | Literal version groups =>
+      let Both _ groupsOk := formed
+      rewrite groupsValue 0 groups.toList groupsOk in LiteralValue version groups
     | Operator version operation lengthType ({ head = first, tail = rest }) =>
-      let others := Bool.andRight (Bool.andRight formed)
+      let Both _ (Both _ (Both firstOk restOk)) := formed
       OperationValue [operands := { head = first, tail = rest }]
-        (NextValue (evaluateCorrect first (Bool.andLeft others)) (evaluateAllCorrect rest (Bool.andRight others)))
+        (NextValue (evaluateCorrect first firstOk) (evaluateAllCorrect rest restOk))
         (operationComputes operation { head = evaluate first, tail = evaluateAll rest })
     | Comparator version comparison lengthType first second =>
-      let others := Bool.andRight (Bool.andRight formed)
-      ComparisonValue (evaluateCorrect first (Bool.andLeft others)) (evaluateCorrect second (Bool.andRight others))
+      let Both _ (Both _ (Both firstOk secondOk)) := formed
+      ComparisonValue (evaluateCorrect first firstOk) (evaluateCorrect second secondOk)
         (comparisonCompares comparison (evaluate first) (evaluate second))
 
 theorem evaluateAllCorrect (packets: List Packet) (formed: allWellFormed packets = True): Values packets (evaluateAll packets) :=
   match packets with
     | [] => NoValues
-    | [packet, ..rest] => NextValue (evaluateCorrect packet (Bool.andLeft formed)) (evaluateAllCorrect rest (Bool.andRight formed))
+    | [packet, ..rest] =>
+      let Both first more := formed
+      NextValue (evaluateCorrect packet first) (evaluateAllCorrect rest more)
 
 theorem part2Correct (packet: Packet) (formed: wellFormed packet = True): HasValue packet (solvePart2 packet) :=
   evaluateCorrect packet formed

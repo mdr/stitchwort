@@ -22,7 +22,7 @@ theorem countAround (cavern: Cavern) (flashed: Position → Bool)
       (List.distinctFilter positions near (cellPositionsDistinct cavern.grid.rows))
       (q member =>
         let (Both inAround flashes) := List.memFilter at.around flashed member
-        List.memFilterIntro positions near (onGrid q flashes) (Bool.andIntro (aroundTouching at q inAround) flashes))
+        List.memFilterIntro positions near (onGrid q flashes) (Both (aroundTouching at q inAround) flashes))
       (q member =>
         let (Both inGrid both) := List.memFilter positions near member
         List.memFilterIntro at.around flashed (touchingAround at q (Bool.andLeft both)) (Bool.andRight both))

@@ -32,7 +32,7 @@ theorem doneNone (wanted: Wanted) (reader: BitReader) (none: nextWanted wanted r
 --| A literal with a version below 8 and groups, each below 16.
 theorem literalWellFormed (version: Nat) (groups: NonEmptyList Nat) (small: version < 8) (each: groups.all (group => group < 16) = True):
     wellFormed (Literal version groups) = True :=
-  Bool.andIntro (omega [small]) each
+  Both (omega [small]) each
 
 --| The bits of a packet, then of the packets after it.
 theorem soundStep (unread: List Bool) (after: List Bool) (left: List Bool) (packet: Packet) (more: List Packet)
@@ -47,7 +47,7 @@ theorem finishStep (wanted: Wanted) (later: Wanted) (reader: BitReader) (after: 
     reader.unread = encodeAll packets ++ rest.unread ∧ allWellFormed packets = True ∧ Done wanted packets rest :=
   rewrite <- parts.left, <- parts.right in
     Both (soundStep reader.unread after.unread left.unread packet more here laterRead.left)
-      (Both (Bool.andIntro formed laterRead.right.left) (doneNext wanted later reader packet more left next laterRead.right.right))
+      (Both (Both formed laterRead.right.left) (doneNext wanted later reader packet more left next laterRead.right.right))
 
 --| A type id below 8 that is no operator type's is 4.
 theorem operatorTypeOfNone (n: Nat) (small: n < 8) (none: operatorTypeOf n = None): n = 4 :=
@@ -95,11 +95,11 @@ theorem operatorOfWellFormed (version: Nat) (operatorType: OperatorType) (length
     (fits: fitsLength lengthType subPackets.length (encodeAll subPackets) = True) (each: allWellFormed subPackets = True): wellFormed packet = True :=
   match operatorType, subPackets with
     | Calculation operation, [first, ..rest] =>
-      rewrite <- Option.someInjective made in Bool.andIntro (omega [small]) (Bool.andIntro fits each)
+      rewrite <- Option.someInjective made in Both (omega [small]) (Both fits each)
     | Comparing comparison, [first, second] =>
       rewrite <- Option.someInjective made in
-        Bool.andIntro (omega [small])
-          (Bool.andIntro (rewrite List.appendNil (encode second) at fits in fits) (Bool.andIntro (Bool.andLeft each) (Bool.andLeft (Bool.andRight each))))
+        let Both firstOk (Both secondOk _) := each
+        Both (omega [small]) (Both (rewrite List.appendNil (encode second) at fits in fits) (Both firstOk secondOk))
 
 theorem readPacketsSound (wanted: Wanted) (reader: BitReader) (packets: List Packet) (rest: BitReader) (read: readPackets wanted reader = Some (packets, rest)):
     reader.unread = encodeAll packets ++ rest.unread ∧ allWellFormed packets = True ∧ Done wanted packets rest

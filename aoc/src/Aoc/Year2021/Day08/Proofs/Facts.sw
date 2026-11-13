@@ -26,7 +26,7 @@ theorem displayDrawn (digit: Nat) (below: digit < 10) (segment: Segment):
   let q := (d: Nat) => segments.all (s => (digitPattern d).has s == (digitSegments d).contains s)
   let all: digits.all q = True := rfl
   let atDigit := eachDigit q all digit below
-  DecEq.sound (List.allMember (s => (digitPattern digit).has s == (digitSegments digit).contains s) segments atDigit segment (segmentsComplete segment))
+  (atDigit.read segment (segmentsComplete segment)).read
 
 --| Each digit's drawn score reads as that digit.
 theorem decodeDrawn (digit: Nat) (below: digit < 10): digitScores.indexOf (drawnScore digit) = digit :=

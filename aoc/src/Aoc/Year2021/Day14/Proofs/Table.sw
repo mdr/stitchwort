@@ -35,7 +35,7 @@ theorem lookupRules (key: ElementPair) (rules: List Rule) (h: OneRulePerPair rul
               | Some c => rfl
               | None =>
                 match c: Ord.compare key rule.pair with
-                  | Equal => Void.exfalso (DecEq.soundFalse rule.pair key t (Eq.sym (Ord.equal key rule.pair c)))
+                  | Equal => Void.exfalso (t.read (Eq.sym (Ord.equal key rule.pair c)))
                   | Less => rfl
                   | Greater => rfl
 

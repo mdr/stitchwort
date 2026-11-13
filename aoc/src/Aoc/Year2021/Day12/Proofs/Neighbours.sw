@@ -41,16 +41,13 @@ theorem endsNamed (passages: List Passage) (passage: Passage) (member: passage �
 --| Both caves of a connection are named in a passage.
 theorem connectedNamed (passages: List Passage) (a: Cave) (b: Cave) (h: connected passages a b = True):
     a ∈ caves passages ∧ b ∈ caves passages :=
-  List.anyTrueElim passages (passage => passage.connects a b) _ h (edge member joins =>
-    match edge with
-      | { from, to } =>
-        let named := endsNamed passages { from, to } member
-        Bool.orElim joins
-          (forward =>
-            rewrite <- DecEq.sound (Bool.andLeft forward), <- DecEq.sound (Bool.andRight forward) in named)
-          (backward =>
-            rewrite <- DecEq.sound (Bool.andLeft backward), <- DecEq.sound (Bool.andRight backward) in
-              Both (And.right named) (And.left named)))
+  let Witness edge (Both member joins) := h
+  match edge with
+    | { from, to } =>
+      let named := endsNamed passages { from, to } member
+      match joins with
+        | Inl (Both fromA toB) => rewrite <- fromA.read, <- toB.read in named
+        | Inr (Both fromB toA) => rewrite <- fromB.read, <- toA.read in Both (And.right named) (And.left named)
 
 --| The caves a passage leads to from `cave`, as the program finds them, are
 --| those connected to it...
@@ -63,29 +60,27 @@ theorem neighboursOfMem (passages: List Passage) (cave: Cave) (y: Cave): y ∈ n
           match fc: from == cave with
             | True =>
               match inEdge with
-                | Inl same => List.anyOfMem passages _ { from, to } (rewrite fc, <- same, DecEq.refl to in rfl) member
+                | Inl same => Witness { from, to } (Both member (rewrite fc, <- same, DecEq.refl to in rfl))
                 | Inr nothing => Void.exfalso nothing
             | False =>
               match tc: to == cave with
                 | True =>
                   match inEdge with
-                    | Inl same => List.anyOfMem passages _ { from, to } (rewrite fc, tc, <- same, DecEq.refl from in rfl) member
+                    | Inl same => Witness { from, to } (Both member (rewrite fc, tc, <- same, DecEq.refl from in rfl))
                     | Inr nothing => Void.exfalso nothing),
   backward = joined =>
     let leadsTo := passage => passage.leadsTo cave
-    List.anyTrueElim passages (passage => passage.connects cave y) _ joined (edge member joins =>
-      match edge with
-        | { from, to } =>
-          let inEdge: y ∈ leadsTo { from, to } :=
-            Bool.orElim joins
-              (forward => rewrite Bool.andLeft forward in Inl (DecEq.sound (Bool.andRight forward)))
-              (backward =>
-                let fy := DecEq.sound (Bool.andLeft backward)
-                let tc := Bool.andRight backward
-                match fc: from == cave with
-                  | True => Inl (Eq.trans tc.read (Eq.trans (Eq.sym fc.read) fy))
-                  | False => rewrite tc in Inl fy)
-          (List.memUnique y _).backward (List.memFlatMapIntro leadsTo { from, to } y passages member inEdge))
+    let Witness edge (Both member joins) := joined
+    match edge with
+      | { from, to } =>
+        let inEdge: y ∈ leadsTo { from, to } :=
+          match joins with
+            | Inl (Both fromC toY) => rewrite fromC in Inl toY.read
+            | Inr (Both fromY tc) =>
+              match fc: from == cave with
+                | True => Inl (Eq.trans tc.read (Eq.trans (Eq.sym fc.read) fromY.read))
+                | False => rewrite tc in Inl fromY.read
+        (List.memUnique y _).backward (List.memFlatMapIntro leadsTo { from, to } y passages member inEdge)
 }
 
 --| ...and the table gives them.
@@ -93,7 +88,7 @@ theorem tableMem (passages: List Passage) (cave: Cave) (y: Cave):
     y ∈ lookupNeighbours (neighbourTable passages) cave ↔ connected passages cave y = True :=
   match named: (caves passages).contains cave with
     | True =>
-      rewrite lookupBuilt (neighboursOf passages) cave (caves passages) ((List.memContains (caves passages) cave).forward named) in
+      rewrite lookupBuilt (neighboursOf passages) cave (caves passages) named.read in
         neighboursOfMem passages cave y
     | False => {
       forward = found => Void.exfalso (rewrite lookupMissing (neighboursOf passages) cave (caves passages) (member => Bool.trueNotFalse (rewrite (List.memContains (caves passages) cave).backward member at named)) at found),
@@ -103,7 +98,7 @@ theorem tableMem (passages: List Passage) (cave: Cave) (y: Cave):
 theorem tableDistinct (passages: List Passage) (cave: Cave): List.Distinct (lookupNeighbours (neighbourTable passages) cave) :=
   match named: (caves passages).contains cave with
     | True =>
-      rewrite lookupBuilt (neighboursOf passages) cave (caves passages) ((List.memContains (caves passages) cave).forward named) in
+      rewrite lookupBuilt (neighboursOf passages) cave (caves passages) named.read in
         List.distinctUnique _
     | False =>
       rewrite lookupMissing (neighboursOf passages) cave (caves passages) (member => Bool.trueNotFalse (rewrite (List.memContains (caves passages) cave).backward member at named)) in

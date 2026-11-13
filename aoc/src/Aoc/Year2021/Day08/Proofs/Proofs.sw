@@ -50,7 +50,7 @@ theorem valueCorrect (wiring: Segment → Segment) (entry: Entry) (decodes: Deco
     | Both wired (Both perm outputs) =>
       List.foldLeftCongMem entry.outputs 0 _ _ (n output m =>
         match e: shown wiring output with
-          | None => Void.exfalso (notNone (shown wiring output) (List.allMember (o => (shown wiring o).isSome) entry.outputs outputs output m) e)
+          | None => Void.exfalso (notNone (shown wiring output) (outputs.read output m) e)
           | Some digit => Eq.cong (k => 10 * n + k) (decodeShown wiring entry decodes output digit e))
 
 --| The program's count of 1s, 4s, 7s and 8s is the one the wiring reads.
@@ -60,7 +60,7 @@ theorem easyCorrect (wiring: Segment → Segment) (entry: Entry) (decodes: Decod
     | Both wired (Both perm outputs) =>
       List.countCongMem _ _ _ (output m =>
         match e: shown wiring output with
-          | None => Void.exfalso (notNone (shown wiring output) (List.allMember (o => (shown wiring o).isSome) entry.outputs outputs output m) e)
+          | None => Void.exfalso (notNone (shown wiring output) (outputs.read output m) e)
           | Some digit =>
             match List.findRangeSome (d => Shows wiring output d) 10 digit e with
               | Both shows (Both below _) => Eq.trans (Eq.cong (k => [2, 3, 4, 7].contains k) (sizeDrawn wiring wired output digit shows)) (easyDrawn digit below))
@@ -118,7 +118,7 @@ theorem sizeDrawn (wiring: Segment → Segment) (wired: IsWiring wiring) (patter
 --| What `Shows` says of one wire.
 theorem hasDrawn (wiring: Segment → Segment) (pattern: Pattern) (digit: Nat) (shows: Shows wiring pattern digit = True) (wire: Segment):
     pattern.has wire = (digitSegments digit).contains (wiring wire) :=
-  DecEq.sound (List.allMember (w => pattern.has w == (digitSegments digit).contains (wiring w)) segments shows wire (segmentsComplete wire))
+  (shows.read wire (segmentsComplete wire)).read
 
 -- Renaming the wires.
 

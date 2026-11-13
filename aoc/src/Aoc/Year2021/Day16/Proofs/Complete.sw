@@ -109,27 +109,28 @@ theorem stepComplete (wanted: Wanted) (later: Wanted) (more: List Bool) (packet:
     readPackets wanted { unread = encode packet ++ more } = andThen packet (readPackets later { unread = more }) :=
   match packet with
     | Literal version groups =>
-      let small: version < Nat.pow 2 3 := omega [Bool.andLeft formed]
-      let others := Bool.andRight formed
+      let Both smallVersion others := formed
+      let small: version < Nat.pow 2 3 := omega [smallVersion]
       let length := List.lengthAppend (groupBits groups) more
       let afterVersion := Nat.toBits 3 4 ++ (groupBits groups ++ more)
       literalStep wanted later { unread = encode (Literal version groups) ++ more } { unread = afterVersion } { unread = groupBits groups ++ more } { unread = more }
         version groups next (BitReader.readNumberAppend 3 version afterVersion small) (BitReader.readNumberAppend 3 4 (groupBits groups ++ more) (omega))
         (readGroupsBits more groups others) (omega [length])
     | Operator version operation lengthType ({ head = first, tail = rest }) =>
+      let Both smallVersion (Both fits others) := formed
       operatorStepComplete wanted later more version (Calculation operation) lengthType [first, ..rest] (Operator version operation lengthType (NonEmptyList.cons first rest))
-        rfl (omega [Bool.andLeft formed]) (Bool.andLeft (Bool.andRight formed))
-        (fillCons first rest (Bool.andRight (Bool.andRight formed))) (countCons first rest (Bool.andRight (Bool.andRight formed)) more) next
+        rfl (omega [smallVersion]) fits
+        (fillCons first rest others) (countCons first rest others more) next
     | Comparator version comparison lengthType first second =>
-      let others := Bool.andRight (Bool.andRight formed)
+      let Both smallVersion (Both fits (Both firstOk secondOk)) := formed
       let sameBits: encode first ++ encode second = encodeAll [first, second] := Eq.sym (Eq.cong (bits => encode first ++ bits) (List.appendNil (encode second)))
       let sameReader: operatorBits version (typeId (Comparing comparison)) lengthType 2 (encode first ++ encode second) ++ more =
           operatorBits version (typeId (Comparing comparison)) lengthType 2 (encodeAll [first, second]) ++ more :=
         Eq.cong (bits => operatorBits version (typeId (Comparing comparison)) lengthType 2 bits ++ more) sameBits
       let read := operatorStepComplete wanted later more version (Comparing comparison) lengthType [first, second] (Comparator version comparison lengthType first second)
-        rfl (omega [Bool.andLeft formed]) (rewrite List.appendNil (encode second) in Bool.andLeft (Bool.andRight formed))
-        (fillPair first second (Bool.andLeft others) (Bool.andRight others))
-        (countPair first second (Bool.andLeft others) (Bool.andRight others) more)
+        rfl (omega [smallVersion]) (rewrite List.appendNil (encode second) in fits)
+        (fillPair first second firstOk secondOk)
+        (countPair first second firstOk secondOk more)
         (Eq.trans (Eq.cong (bits => nextWanted wanted { unread = bits }) (Eq.sym sameReader)) next)
       Eq.trans (Eq.cong (bits => readPackets wanted { unread = bits }) sameReader) read
 
@@ -142,8 +143,9 @@ theorem countComplete: ∀ (packets: List Packet) => allWellFormed packets = Tru
 --| The same for a first packet and the rest.
 theorem countCons (packet: Packet) (rest: List Packet) (formed: allWellFormed [packet, ..rest] = True) (more: List Bool):
     readPackets (Packets (Succ rest.length)) { unread = encodeAll [packet, ..rest] ++ more } = Some ([packet, ..rest], { unread = more }) :=
-  let step := stepComplete (Packets (Succ rest.length)) (Packets rest.length) (encodeAll rest ++ more) packet (Bool.andLeft formed) rfl
-  rewrite List.appendAssoc (encode packet) (encodeAll rest) more, step, countComplete rest (Bool.andRight formed) more in rfl
+  let Both packetOk restOk := formed
+  let step := stepComplete (Packets (Succ rest.length)) (Packets rest.length) (encodeAll rest ++ more) packet packetOk rfl
+  rewrite List.appendAssoc (encode packet) (encodeAll rest) more, step, countComplete rest restOk more in rfl
 
 --| Reading two packets by number. (Spelled out, not through `countCons`:
 --| the termination check needs each packet to come from the one being read.)
@@ -162,8 +164,9 @@ theorem fillComplete (packets: List Packet) (formed: allWellFormed packets = Tru
 --| The same for a first packet and the rest.
 theorem fillCons (packet: Packet) (rest: List Packet) (formed: allWellFormed [packet, ..rest] = True):
     readPackets Filling { unread = encodeAll [packet, ..rest] } = Some ([packet, ..rest], { unread = [] }) :=
-  let step := stepComplete Filling Filling (encodeAll rest) packet (Bool.andLeft formed) (fillingNext (encodeAll rest) packet)
-  rewrite step, fillComplete rest (Bool.andRight formed) in rfl
+  let Both packetOk restOk := formed
+  let step := stepComplete Filling Filling (encodeAll rest) packet packetOk (fillingNext (encodeAll rest) packet)
+  rewrite step, fillComplete rest restOk in rfl
 
 --| The same for two packets, spelled out for the same reason.
 theorem fillPair (first: Packet) (second: Packet) (formedFirst: wellFormed first = True) (formedSecond: wellFormed second = True):
