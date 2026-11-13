@@ -1263,6 +1263,20 @@ a long header, the break goes before the first premise, so variables stay
 together and each premise starts its own line (205 places had a variable
 alone on a line).
 
+### D3572: a list of plain values fills its lines (Matt, 13 Nov 2026: yes)
+
+A list that doesn't fit on one line and whose items are all plain (numbers,
+characters, short texts, names) fills as many items per line as fit,
+continuing at +2, instead of one item per line:
+
+```
+    == [11111111111, 111111111111, 1111111111111, 121212121212, 123412341234, 99999999999,
+      11111111111111111, 10101010101010101010]
+```
+
+A list with any record, call or nested list in it keeps one item per line.
+The same choice as D3569 for calls of plain arguments.
+
 ## Findings worth tickets
 
 - **Width in bytes.** The current formatter's `:= match` rule (D3553)

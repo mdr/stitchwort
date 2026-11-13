@@ -34774,7 +34774,7 @@
         "bug"
       ],
       "epic": "syntax-language",
-      "body": "\nAdded: D3571 (Matt): a record, list or trailing-lambda call after := hugs only when the one-line form below doesn't fit (lambda directly after := keeps D3568's hug). Orchestrator's call within D3564: a variable after a premise doesn't get a line of its own; break before the first premise.",
+      "body": "\nAdded: D3571 (Matt): a record, list or trailing-lambda call after := hugs only when the one-line form below doesn't fit (lambda directly after := keeps D3568's hug). Orchestrator's call within D3564: a variable after a premise doesn't get a line of its own; break before the first premise.\nAdded: D3572 (Matt): a list of only plain items that doesn't fit fills its lines at +2; lists with records/calls/nested lists stay one per line.",
       "created": "2026-11-13",
       "updated": "2026-11-13",
       "commits": []
