@@ -33974,12 +33974,12 @@
     {
       "id": 3133,
       "title": "[Opus] 2024 Day13.Proofs needs ~770 KiB natively in the elaborator's lift::go_replace and unify::rename_in (SW-3132 finding 1), plus the printer's go_node (~700 lines inline(always) into the recursive go, worst V8-to-guard ratio, SW-3128 finding 2); make those recursions loop or shrink their frames so Day13 fits the playground's 320 KiB guard; measure with the stack probe (STITCHWORT_STACK_PROBE)",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "editor-playground",
-      "body": "\nLane done: Day13.Proofs 762 -> 286 KiB natively, passes the 320 KiB guard. Kernel check.rs changed (commit 4f6898d2d): Fable review before merge. Printer split (268822645) to be checked in the browser stress page. Findings SW-3172 SW-3173 SW-3174.",
+      "body": "\nLane done: Day13.Proofs 762 -> 286 KiB natively, passes the 320 KiB guard. Kernel check.rs changed (commit 4f6898d2d): Fable review before merge. Printer split (268822645) to be checked in the browser stress page. Findings SW-3172 SW-3173 SW-3174.\nFable kernel review: SOUND (docs/reviews/SW-3133-kernel-review.md); findings SW-3175 (error-path tests), SW-3176 (browser stack, printer split). Model result: Opus, worked, 85 min (est. 180).",
       "created": "2026-11-13",
       "updated": "2026-11-13",
       "commits": []
