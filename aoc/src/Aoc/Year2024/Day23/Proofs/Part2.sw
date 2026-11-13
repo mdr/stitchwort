@@ -56,7 +56,9 @@ theorem sizeCliqueAndCandidates (network: Network) (clique: Set Computer) (candi
 --| In a union, a key is in one side or the other.
 theorem unionElim (one: Set Computer) (other: Set Computer) (key: Computer) (goal: Prop) (held: (one.union other).contains key = True)
     (left: one.contains key = True → goal) (right: other.contains key = True → goal): goal :=
-  Bool.orElim (rewrite <- Set.containsUnion one key other in held) left right
+  match Eq.trans (Eq.sym (Set.containsUnion one key other)) held with
+    | Inl inOne => left inOne
+    | Inr inOther => right inOther
 
 --| After an insert, a set holds the key inserted or what it held before.
 theorem insertElim (set: Set Computer) (inserted: Computer) (key: Computer) (goal: Prop) (held: (set.insert inserted).contains key = True)
@@ -67,13 +69,13 @@ theorem insertElim (set: Set Computer) (inserted: Computer) (key: Computer) (goa
 
 theorem intersectElim (one: Set Computer) (other: Set Computer) (key: Computer) (held: (one.intersect other).contains key = True):
     one.contains key = True ∧ other.contains key = True :=
-  let both := Eq.trans (Eq.sym (Set.containsIntersect one key other)) held
-  Both (Bool.andLeft both) (Bool.andRight both)
+  let (Both inOne inOther) := Eq.trans (Eq.sym (Set.containsIntersect one key other)) held
+  Both inOne inOther
 
 --| With nothing to pop, a set holds nothing.
 theorem noneHeld (set: Set Computer) (found: set.popMin = None) (key: Computer) (held: set.contains key = True): Void :=
   let least := Set.popMinNone set found
-  let listed := (Set.memToList set key).backward held
+  let listed: List.Mem key set.toList := held.read
   match keys: set.toList with
     | [first, ..rest] => Option.someNotNone first (Eq.trans (Eq.sym (rewrite Set.minToList set, keys in rfl)) least)
 
