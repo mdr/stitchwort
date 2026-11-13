@@ -28035,12 +28035,12 @@
     {
       "id": 2691,
       "title": "fmt: one layout for a theorem's ':= match x with': the sweep wrote match on the next line, the guide uses it inline; fmt accepts both. Make fmt canonical; also drop redundant parens in a premise type '(h: (∀ …))'",
-      "status": "doing",
+      "status": "done",
       "agent": "",
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "From SW-2656 (10 Nov 2026). Orchestrator's call: canonical form chosen in the lane, mention to Matt. Est. 60 min.\nD3551 (Matt, 13 Nov 2026): yes, resume theorem binders alongside Bool as proposition: SW-2691 + SW-2689 (DeepSeek), SW-2688 (Sonnet), SW-2657 (Sonnet, ~1 day), SW-2658 last.",
+      "body": "From SW-2656 (10 Nov 2026). Orchestrator's call: canonical form chosen in the lane, mention to Matt. Est. 60 min.\nD3551 (Matt, 13 Nov 2026): yes, resume theorem binders alongside Bool as proposition: SW-2691 + SW-2689 (DeepSeek), SW-2688 (Sonnet), SW-2657 (Sonnet, ~1 day), SW-2658 last.\nCanonical layout: := match x with on the header line when it fits in 120 columns, else match on the next line at +2; arms +2 from the match's line. D3553 (Matt, 13 Nov 2026): the same for defs and theorems ('It doesn't seem a big deal either way'). Formatter merged from the lane; the reformat regenerated on main (476 files: 599 theorems and 269 defs joined, 425 bodies to the next line). Model result: DeepSeek, worked, 25 min (est. 60).",
       "created": "2026-11-10",
       "updated": "2026-11-13",
       "commits": []
