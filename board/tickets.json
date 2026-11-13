@@ -34304,7 +34304,7 @@
       "where": "",
       "labels": [],
       "epic": "syntax-language",
-      "body": "\nOpus note: docs/proposals/formatter-style.md: engine rules E1-E5, construct rules S1-S40, change counts. Questions D3564 (long headers), D3565 (merge binders), D3566 (alternatives one per line), D3567 (calls that don't fit). Calls touching earlier decisions: D3553 ':= match' only on one-line headers; header continuation at 4 (D1040 had 2 for →); calc joins := like match; calc steps end with :=; if one clause per line. Findings SW-3163 SW-3164 SW-3165; dot chains must never break before .f (a section).",
+      "body": "\nOpus note: docs/proposals/formatter-style.md: engine rules E1-E5, construct rules S1-S40, change counts. Questions D3564 (long headers), D3565 (merge binders), D3566 (alternatives one per line), D3567 (calls that don't fit). Calls touching earlier decisions: D3553 ':= match' only on one-line headers; header continuation at 4 (D1040 had 2 for →); calc joins := like match; calc steps end with :=; if one clause per line. Findings SW-3163 SW-3164 SW-3165; dot chains must never break before .f (a section).\nD3564 (Matt, 13 Nov 2026): yes, long headers as variables then premises ('we can always change our minds later'). D3565 (Matt): yes, merge adjacent parameters of the same type, with the guards. D3566, D3567 open.",
       "created": "2026-11-13",
       "updated": "2026-11-13",
       "commits": []
