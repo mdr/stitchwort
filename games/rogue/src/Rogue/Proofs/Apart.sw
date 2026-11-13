@@ -25,14 +25,15 @@ theorem memAppendRight (x: a) (ys: List a) (xs: List a) (inside: List.Mem x ys):
   | [first, ..rest] => Inr (memAppendRight x ys rest inside)
 
 --| A cell with no monster on it isn't among their positions.
-theorem vacantNotMem (position: Position): ∀ (monsters: List Monster) => monsterAt position monsters = None → ¬(List.Mem position (positions monsters))
-  | [], vacant, inside => inside
-  | [monster, ..others], vacant, inside =>
-    match same: monster.position == position with
-      | False =>
-        match inside with
-          | Inl here => same.read here
-          | Inr later => vacantNotMem position others vacant later
+theorem vacantNotMem (position: Position) (monsters: List Monster) (vacant: monsterAt position monsters = None):
+    ¬(List.Mem position (positions monsters)) := match monsters with
+      | [] => inside => inside
+      | [monster, ..others] => inside =>
+        match same: monster.position == position with
+          | False =>
+            match inside with
+              | Inl here => same.read here
+              | Inr later => vacantNotMem position others vacant later
 
 --| A monster never chooses another monster's cell.
 theorem pickFreeVacant (level: Level) (player: Position) (others: List Monster)
