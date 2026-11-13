@@ -11,9 +11,9 @@ rules that are easy to forget.
 The main session in `~/repos/mdr/stitchwort` (on `main`) orchestrates. It
 does not do significant work itself:
 
-- It picks lanes from the board (up to three build lanes at once; paper
+- It picks lanes from the board (up to two build lanes at once, D3542; paper
   lanes, which put no load on the machine, run beside them and don't count
-  towards the three), writes each lane's
+  towards the two), writes each lane's
   brief, and starts a background agent for it in its own git worktree and
   branch, using the model that fits the work (below). Lanes use the agent
   types `sonnet-lane` and `opus-lane` (`.claude/agents/`), not
@@ -62,7 +62,7 @@ does not do significant work itself:
   clash heavily (two sweeps, two lanes rewriting the same files) run one
   after another. Slots that would sit idle get paper lanes (designs,
   reviews, research: no builds or tests; D3343). In lanes mode, every time
-  a lane, verifier or review finishes, it refills the slots (three build
+  a lane, verifier or review finishes, it refills the slots (two build
   lanes, DeepSeek runs counting as one each, plus paper lanes) from the
   board before replying, without waiting to be asked (Matt, 11 Nov 2026:
   "I had to prompt you to keep filling up work").
@@ -307,7 +307,11 @@ at every status table, and picks the kind of work to fit it:
   `games/rogue` check (cached or not; checking the one AoC day or
   roguelike namespace it edited is fine, D3517), the benchmark, or a
   workspace-wide build of test targets, and runs one test command at a
-  time under `nice -n 15`. A lane that thinks it needs one stops and asks. Briefs never ask for these
+  time, prefixed `STITCHWORT_TEST_THREADS=2 NEXTEST_TEST_THREADS=2 nice -n 19`,
+  and at most two build lanes run at once (D3542, Matt, 13 Nov 2026: "it's good
+  for the lanes to have lighter CPU load ... targeted, intelligent tests,
+  selecting individual test cases that might have been impacted by the change.
+  And then we catch bigger regressions through other mechanisms"). A lane that thinks it needs one stops and asks. Briefs never ask for these
   either: whole-project measurements go to the verifier or Overmind. (One
   lane ran 6-8 std audits and 8-10 aoc checks in 2.5 h and held Matt's
   machine at load 146.)
